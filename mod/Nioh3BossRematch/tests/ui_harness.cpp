@@ -29,6 +29,7 @@ volatile LONG g_fights = 0, g_active = 0;
 void LastFightPlacements(char* b, size_t n) { if (n) b[0] = 0; }
 bool PlacementSeenRecently(uint32_t, double) { return false; }
 double Now() { return 0; }
+void ForceEnd(const char*) {}  // f7fed86 LeaveArena (stub so the harness links again)
 }
 namespace bosslog { void FightBegin(uint64_t) {} }
 }

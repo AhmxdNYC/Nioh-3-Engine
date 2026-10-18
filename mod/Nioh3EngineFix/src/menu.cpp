@@ -39,6 +39,7 @@
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
+#include "menu_style.h"
 #include "../../rematch_menu_bridge.h"
 
 namespace menu {
@@ -1918,70 +1919,296 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
         y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
     }
     const float x = (float)W - margin - w;
-    osd::DrawRect(x, y, w, h, cPanel);
+    osd::DrawRect(x, y, w, h, menu_style::kPanelBgSide);
+    osd::DrawRect(x, y, std::max(2.0f, sc * 1.5f), h, menu_style::kAccent);  // #13257: gold accent edge
     osd::DrawText(x + pad, y + pad, text, color, sc);
     return sc;
 }
 
-// bridge 12773 (user #12772): the Rematch / Training page is a compact semi-transparent side panel docked right (about 44 columns,
-// at most ~62% of the screen height), so the boss and the arena stay visible while toggling moves / summoning. Long pages scroll:
-// the window follows the selected row, the footer stays; nothing is ever drawn over the left/center of the screen.
-float DrawRematchHost(unsigned W, unsigned H) {
-    constexpr size_t kCols = 44;
-    constexpr uint32_t kPanelA = 0x98000000u;  // ~60% black: the scene shows through
-    const float scale = std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.42f - 16.f) / ((float)kCols * osd::kGlyphW)));
-    const float line = (osd::kGlyphH + 3.f) * scale, pad = 8.f * scale;
-    const float width = std::min((float)W - 16.f, (float)kCols * osd::kGlyphW * scale + pad * 2.f);
-    const float x = (float)W - width - 12.f, y0 = 12.f;
-    const int maxLines = std::max(6, (int)((0.62f * (float)H - pad * 2.f) / line));
-    struct L { char t[kCols + 1]; uint32_t c; bool sel; };
-    static L lines[96];
-    int n = 0, selLine = -1;
-    auto wrap = [&](const char* value, uint32_t color, bool sel) {
-        if (!*value && n < 96) { lines[n++] = {"", color, sel}; return; }
-        while (*value && n < 96) {
-            size_t k = std::min(strlen(value), kCols);
-            if (value[k] && k > 1) { size_t space = k; while (space && value[space] != ' ') --space; if (space) k = space; }
-            L& l = lines[n++]; memset(l.t, 0, sizeof l.t); memcpy(l.t, value, k); l.c = color; l.sel = sel;
-            if (sel && selLine < 0) selLine = n - 1;
-            value += k; while (*value == ' ') ++value;
+// bridge 12773 (user #12772, #13257): the Rematch / Practice / Training page is a compact semi-transparent side panel docked right
+// (58 columns, was 44; at most ~66% of the screen height), so the boss and the arena stay visible while toggling moves / summoning.
+// The worker sends plain text rows; this only re-lays them out for display (no menu logic here): a title bar (page + status), rows
+// with a selection bar, values right-aligned in one column (ON / OFF / RPT pills, slider bars for the known timed values, '>' for
+// submenus), wrapped notes, then the selected row's explanation, the toast and a button-prompt line. Long pages scroll (scroll bar).
+namespace hostui {
+struct Item {
+    char label[112], value[112], note[224];
+    uint32_t c;
+    bool sel, sub, adj, section;
+    int indent;
+    float slider;  // 0..1, < 0 = none
+};
+void Trim(char* s) {
+    size_t n = strlen(s);
+    while (n && s[n - 1] == ' ') s[--n] = 0;
+    size_t k = 0;
+    while (s[k] == ' ') ++k;
+    if (k) memmove(s, s + k, n - k + 1);
+}
+void Squeeze(char* s) {  // runs of spaces -> two spaces (table columns stay apart, no wide gaps)
+    char* o = s;
+    int run = 0;
+    for (const char* p = s; *p; ++p) {
+        run = *p == ' ' ? run + 1 : 0;
+        if (run <= 2) *o++ = *p;
+    }
+    *o = 0;
+}
+bool Cut(char* s, const char* what) {  // removes one occurrence of `what` that ends the text or is followed by a space
+    for (char* p = strstr(s, what); p; p = strstr(p + 1, what)) {
+        const size_t n = strlen(what);
+        if (!p[n] || p[n] == ' ') { memmove(p, p + n, strlen(p + n) + 1); return true; }
+    }
+    return false;
+}
+void Parse(const char* text, uint32_t color, bool sel, Item& o) {
+    memset(&o, 0, sizeof o);
+    o.c = color; o.sel = sel; o.slider = -1;
+    if (!strncmp(text, "-- ", 3)) {  // user #13279: section header row (not selectable)
+        snprintf(o.label, sizeof o.label, "%s", text + 3);
+        const size_t n = strlen(o.label);
+        if (n >= 3 && !strcmp(o.label + n - 3, " --")) o.label[n - 3] = 0;
+        o.section = true;
+        return;
+    }
+    const char* s = text;
+    if (*s == '>' || *s == ' ') ++s;
+    if (*s == ' ') ++s;
+    int sp = 0;
+    while (s[sp] == ' ') ++sp;
+    o.indent = sp >= 2;
+    char b[112];
+    snprintf(b, sizeof b, "%s", s + sp);
+    // control hints move to the prompt line; they only set flags here
+    static const char* const kAdj[] = {"   A / Left CPU / Right Idle", "   A / Left / Right", "   Left / Right", "  Left / Right"};
+    static const char* const kSub[] = {"   A / Enter opens", "   A: open"};
+    for (const char* h : kAdj) if (Cut(b, h)) { o.adj = true; break; }
+    for (const char* h : kSub) if (Cut(b, h)) { o.sub = true; break; }
+    Cut(b, "   B / Esc / Backspace");
+    // move switch rows: "0x1234  ON   label"
+    if (b[0] == '0' && b[1] == 'x' && strlen(b) > 8 && b[6] == ' ') {
+        char st[8] = {};
+        int i = 6;
+        while (b[i] == ' ') ++i;
+        int k = 0;
+        while (b[i] && b[i] != ' ' && k < 7) st[k++] = b[i++];
+        snprintf(o.value, sizeof o.value, "%s", st);
+        snprintf(o.label, sizeof o.label, "%s", b + i);
+        Trim(o.label);
+        snprintf(o.note, sizeof o.note, "%.6s", b);
+        return;
+    }
+    const char* colon = o.sub ? nullptr : strstr(b, ": ");
+    const char* gap = strstr(b, "   ");
+    if (colon && (!gap || gap > colon) && !memchr(b, '(', (size_t)(colon - b)) && colon - b <= 40 && strncmp(b, "Arena: ", 7)) {
+        snprintf(o.label, sizeof o.label, "%.*s", (int)(colon - b), b);
+        char rest[112];
+        snprintf(rest, sizeof rest, "%s", colon + 1);
+        Trim(rest);
+        const char* g2 = strstr(rest, "   ");
+        snprintf(o.value, sizeof o.value, "%.*s", g2 ? (int)(g2 - rest) : (int)strlen(rest), rest);
+        Trim(o.value);
+        if (g2) { snprintf(o.note, sizeof o.note, "%s", g2); Trim(o.note); }
+    } else {
+        const char* body = strncmp(b, "Arena: ", 7) ? b : b + 7;
+        const char* g = strstr(body, "   ");
+        snprintf(o.label, sizeof o.label, "%.*s", g ? (int)(g - body) : (int)strlen(body), body);
+        Trim(o.label);
+        if (g) {
+            snprintf(o.note, sizeof o.note, "%s", g);
+            Trim(o.note);
+            if (o.note[0] == '-' && o.note[1] == ' ') memmove(o.note, o.note + 2, strlen(o.note + 2) + 1);
         }
-    };
+    }
+    Squeeze(o.note);
+    // display-only ranges of the worker's timed sliders (rematch.cpp TuneStep / RepGapStep / SumPassiveStep)
+    static const struct { const char* label; float lo, hi; } kRange[] = {
+        {"Wait before attacking", 0.f, 30.f}, {"Gap between repeats", 0.f, 10.f}, {"Passive time", 0.f, 30.f}, {"Repeat delay", 0.f, 10.f}, {"Finisher kill window", 0.5f, 30.f}, {"HP-0 combo window", 0.2f, 5.f}};
+    for (const auto& r : kRange)
+        if (!strcmp(o.label, r.label) && o.value[0] >= '0' && o.value[0] <= '9') o.slider = ((float)atof(o.value) - r.lo) / (r.hi - r.lo);
+}
+}  // namespace hostui
+
+float DrawRematchHost(unsigned W, unsigned H) {
+    namespace ms = menu_style;
+    constexpr int kCols = 58;
+    const float scale = std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.46f - 16.f) / ((float)(kCols + 3) * osd::kGlyphW)));
+    const float cw = osd::kGlyphW * scale, line = (osd::kGlyphH + 4.f) * scale, pad = 8.f * scale, a = ms::OpenFade(Now());
+    const float width = std::min((float)W - 16.f, (float)kCols * cw + pad * 2.f + cw);
+    const float x = std::floor((float)W - width - 12.f), y0 = 12.f, tx = x + pad + 3.f * scale;  // tx: text left (after the stripe)
+    const float maxH = 0.66f * (float)H;
     if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
-        osd::DrawRect(x, y0, width, line + pad * 2.f, kPanelA);
-        osd::DrawText(x + pad, y0 + pad, "Waiting for the menu worker. B: back.", cWhite, scale);
+        ms::Panel(x, y0, width, line * 2.f + pad * 2.f, scale, ms::kPanelBgSide, a);
+        osd::DrawText(tx, y0 + pad, "Mod menu", ms::Fade(ms::kTitleText, a), scale);
+        osd::DrawText(tx, y0 + pad + line, "Waiting for the menu worker. B: back.", ms::Fade(cGray, a), scale);
         return scale;
     }
-    for (uint32_t i = 0; i < g_rematchView.rowCount; ++i) {
-        const auto& row = g_rematchView.rows[i];
-        wrap(row.text, row.color | 0xFF000000u, row.selected != 0);
+    // ---- title row "<page> (<version>) - <status>"
+    char title[112] = "Mod menu", status[112] = "";
+    uint32_t first = 0;
+    if (g_rematchView.rowCount && !g_rematchView.rows[0].selected) {
+        const char* t = g_rematchView.rows[0].text;
+        const char* ver = strstr(t, " (");
+        const char* dash = strstr(t, ") - ");
+        if (ver && dash && dash > ver) {
+            snprintf(title, sizeof title, "%.*s", (int)(ver - t), t);
+            snprintf(status, sizeof status, "%s", dash + 4);
+        } else snprintf(title, sizeof title, "%s", t);
+        first = 1;
     }
-    const int bodyN = n;
-    wrap(g_rematchView.footer, cGray, false);
-    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, g_rematchView.toastColor | 0xFF000000u, false);
-    const int tailN = n - bodyN, room = std::max(3, maxLines - tailN - 1);
-    static int scroll = 0;
-    int first = 0, shown = bodyN;
-    if (bodyN > room) {  // scroll window over the body, selected row kept in view
-        shown = room;
-        const int row = selLine < 0 ? 0 : selLine;
-        if (row - 1 < scroll) scroll = std::max(0, row - 1);
-        if (row + 2 > scroll + shown) scroll = row + 2 - shown;
-        scroll = std::clamp(scroll, 0, bodyN - shown);
-        first = scroll;
-    } else scroll = 0;
-    const int total = shown + tailN + (shown < bodyN ? 1 : 0);
-    osd::DrawRect(x, y0, width, line * (float)total + pad * 2.f, kPanelA);
-    float y = y0 + pad;
-    auto draw = [&](const L& l) {
-        if (l.sel) osd::DrawRect(x + pad / 2, y - scale, width - pad, line, cHighlight);
-        osd::DrawText(x + pad, y, l.t, l.c, scale); y += line;
+    if (strlen(title) > (size_t)kCols) memcpy(title + kCols - 3, "...", 4);
+    if (strlen(status) > (size_t)kCols) memcpy(status + kCols - 3, "...", 4);
+    uint32_t statusC = cGray;
+    if (!strcmp(status, "ready")) statusC = cGreen;
+    else if (!strncmp(status, "active:", 7)) statusC = cYellow;
+    // ---- display lines. right = this line carries the item's value column; inl = note drawn on the previous line (no advance)
+    struct Ln { char t[kCols + 1]; int col; uint32_t c; int item; bool right, inl; };
+    static hostui::Item items[rmb::kMaxRows];
+    static Ln lines[160];
+    int nItems = 0, n = 0, selFirst = -1, selLast = -1;
+    auto push = [&](const char* t, size_t len, int col, uint32_t c, int item) {
+        if (n >= 160) return;
+        Ln& l = lines[n++];
+        snprintf(l.t, sizeof l.t, "%.*s", (int)std::min(len, (size_t)(kCols - col)), t);
+        l.col = col; l.c = c; l.item = item; l.right = l.inl = false;
     };
-    for (int i = 0; i < shown; ++i) draw(lines[first + i]);
-    if (shown < bodyN) {
-        L m{}; snprintf(m.t, sizeof m.t, "lines %d-%d of %d", first + 1, first + shown, bodyN); m.c = cDim; draw(m);
+    // word wrap into lines of `cols` columns at column `col`; the first line may be shorter (`firstCols`)
+    auto wrap = [&](const char* t, int col, int cols, int firstCols, uint32_t c, int item) {
+        int lim = firstCols;
+        do {
+            size_t k = std::min(strlen(t), (size_t)std::max(1, lim));
+            if (t[k] && k > 1) { size_t s = k; while (s && t[s] != ' ') --s; if (s) k = s; }
+            push(t, k, col, c, item);
+            t += k;
+            while (*t == ' ') ++t;
+            lim = cols;
+        } while (*t && n < 160);
+    };
+    auto rightCols = [](const hostui::Item& it) {
+        if (it.slider >= 0) return 12 + (int)strlen(it.value);
+        if (it.value[0]) return (int)strlen(it.value) + (it.sel && it.adj ? 4 : 1);
+        return it.sub ? 2 : 0;
+    };
+    for (uint32_t i = first; i < g_rematchView.rowCount && nItems < (int)rmb::kMaxRows; ++i) {
+        const auto& row = g_rematchView.rows[i];
+        hostui::Item& it = items[nItems];
+        hostui::Parse(row.text, row.color | 0xFF000000u, row.selected != 0, it);
+        if (strlen(it.value) > (size_t)kCols - 8 && it.slider < 0) {  // a value that long reads better as a wrapped note line
+            char nb[224];
+            snprintf(nb, sizeof nb, "%s%s%s", it.value, it.note[0] ? "  " : "", it.note);
+            memcpy(it.note, nb, sizeof nb);
+            it.value[0] = 0;
+        }
+        if (it.section) {  // a blank gap above every header but the first, then the gold header line
+            if (n > 0 && n < 160) { push("", 0, 0, cDim, nItems); }
+            push(it.label, strlen(it.label), 0, ms::kAccent, nItems);
+            ++nItems;
+            continue;
+        }
+        const int col = it.indent * 2, rc = rightCols(it), full = kCols - col;
+        int labelCols = full - (rc ? rc + 2 : 0);
+        const bool ownLine = rc && labelCols < 14;  // value too wide next to the label: it gets its own line below
+        if (ownLine) labelCols = full;
+        const int start = n;
+        wrap(it.label[0] ? it.label : " ", col, full, labelCols, it.c, nItems);
+        if (ownLine) { push("", 0, col, it.c, nItems); lines[n - 1].right = true; }
+        else if (rc && start < n) lines[start].right = true;
+        if (it.note[0] && n > start) {
+            const Ln& last = lines[n - 1];
+            const int used = last.col + (int)strlen(last.t), room = kCols - used - 2 - (last.right ? rc + 2 : 0);
+            if ((int)strlen(it.note) <= room) { push(it.note, strlen(it.note), used + 2, cDim, nItems); lines[n - 1].inl = true; }
+            else wrap(it.note, col + 2, full - 2, full - 2, cDim, nItems);
+        }
+        if (it.sel) { selFirst = start; selLast = n - 1; }
+        ++nItems;
     }
-    for (int i = 0; i < tailN; ++i) draw(lines[bodyN + i]);
+    auto visual = [&](int from, int to) { int v = 0; for (int i = from; i < to; ++i) v += !lines[i].inl; return v; };
+    const int bodyN = n, bodyV = visual(0, n);
+    if (g_rematchView.footer[0]) wrap(g_rematchView.footer, 0, kCols, kCols, cGray, -1);
+    const int toastStart = n;
+    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
+    const int tailV = n - bodyN;
+    const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
+    const float titleH = line * (statusOwnLine ? 2.f : 1.f) + pad * 1.5f, hintH = line + pad;
+    const float tailH = tailV ? line * (float)tailV + pad : 0.f;
+    const int room = std::max(4, (int)((maxH - titleH - pad - tailH - hintH) / line));
+    // scroll window over the body (visual lines), the selected item kept in view with one line of context
+    static int scroll = 0;
+    int firstV = 0, shownV = bodyV;
+    if (bodyV > room) {
+        shownV = room;
+        const int s0 = selFirst < 0 ? 0 : visual(0, selFirst), s1 = selLast < 0 ? 0 : visual(0, selLast + 1) - 1;
+        if (s0 - 1 < scroll) scroll = std::max(0, s0 - 1);
+        if (s1 + 2 > scroll + shownV) scroll = s1 + 2 - shownV;
+        scroll = std::clamp(scroll, 0, bodyV - shownV);
+        firstV = scroll;
+    } else scroll = 0;
+    const float bodyH = line * (float)shownV, h = titleH + pad + bodyH + tailH + hintH;
+    ms::Panel(x, y0, width, h, scale, ms::kPanelBgSide, a);
+    // title bar: page name left, worker status right (or below when both do not fit)
+    osd::DrawRect(x + scale, y0 + 2.f * scale, width - 2.f * scale, titleH - 2.f * scale, ms::Fade(ms::kTitleBg, a));
+    osd::DrawText(tx, y0 + pad, title, ms::Fade(ms::kTitleText, a), scale);
+    if (status[0]) {
+        if (statusOwnLine) osd::DrawText(tx, y0 + pad + line, status, ms::Fade(statusC, a), scale);
+        else osd::DrawText(x + width - pad - (float)strlen(status) * cw, y0 + pad, status, ms::Fade(statusC, a), scale);
+    }
+    ms::Divider(x + scale, y0 + titleH, width - 2.f * scale, scale, a);
+    // body
+    const float bodyTop = y0 + titleH + pad * 0.5f, rx = x + width - pad - (bodyV > shownV ? cw * 0.5f : 0.f);  // rx: value right edge
+    for (int i = 0, v = -1; i < bodyN; ++i) {
+        const Ln& l = lines[i];
+        if (!l.inl) ++v;
+        if (v < firstV || v >= firstV + shownV) continue;
+        const float ly = bodyTop + line * (float)(v - firstV) + 2.f * scale;
+        const hostui::Item& it = items[l.item];
+        if (it.sel && !l.inl) ms::SelectBar(x + scale, ly - 2.f * scale, width - 2.f * scale, line, scale, a);
+        osd::DrawText(tx + (float)l.col * cw, ly, l.t, ms::Fade(it.sel && l.c != cDim ? cWhite : l.c, a), scale);
+        if (it.section && l.t[0]) {  // header: a thin gold rule after the name
+            const float hx = tx + (float)strlen(l.t) * cw + cw;
+            if (hx < x + width - pad) ms::Divider(hx, ly + line * 0.5f - 2.f * scale, x + width - pad - hx, scale, a);
+            continue;
+        }
+        if (!l.right) continue;
+        const uint32_t vc = it.sel ? cWhite : it.c;
+        const float vw = (float)strlen(it.value) * cw;
+        if (it.slider >= 0) {
+            osd::DrawText(rx - vw, ly, it.value, ms::Fade(vc, a), scale);
+            ms::Slider(rx - vw - cw * 11.f, ly, cw * 10.f, line, it.slider, scale, a);
+        } else if (it.value[0]) {
+            uint32_t bg, fg;
+            const float vx = rx - vw - (it.sel && it.adj ? cw * 2.f : cw * 0.5f);
+            if (ms::PillColors(it.value, bg, fg)) ms::Pill(vx, ly, it.value, bg, it.c == cDim ? cDim : fg, cw, line, scale, a);
+            else osd::DrawText(vx, ly, it.value, ms::Fade(it.sel ? cYellow : vc, a), scale);
+            if (it.sel && it.adj) {
+                osd::DrawText(vx - cw * 1.5f, ly, "<", ms::Fade(ms::kAccent, a), scale);
+                osd::DrawText(vx + vw + cw * 0.5f, ly, ">", ms::Fade(ms::kAccent, a), scale);
+            }
+        } else if (it.sub) osd::DrawText(rx - cw, ly, ">", ms::Fade(it.sel ? ms::kAccent : cDim, a), scale);
+    }
+    if (bodyV > shownV) {  // scroll bar on the right edge of the body
+        const float sx = x + width - pad * 0.5f - scale, th = std::max(line, bodyH * (float)shownV / (float)bodyV);
+        osd::DrawRect(sx, bodyTop, 2.f * scale, bodyH, ms::Fade(ms::kTrack, a));
+        osd::DrawRect(sx, bodyTop + (bodyH - th) * (float)firstV / (float)(bodyV - shownV), 2.f * scale, th, ms::Fade(ms::kAccent, a));
+    }
+    // explanation of the selected row, then the toast (with a coloured marker)
+    float y = bodyTop + bodyH + pad * 0.5f;
+    if (tailV) {
+        ms::Divider(x + pad, y, width - 2.f * pad, scale, a);
+        y += pad * 0.5f;
+        for (int i = bodyN; i < n; ++i, y += line) {
+            if (i == toastStart) osd::DrawRect(tx, y, 2.f * scale, line - 2.f * scale, ms::Fade(lines[i].c, a));
+            osd::DrawText(tx + (float)lines[i].col * cw, y + 2.f * scale, lines[i].t, ms::Fade(lines[i].c, a), scale);
+        }
+    }
+    // button prompts in a darker footer band
+    y = y0 + h - hintH;
+    osd::DrawRect(x + scale, y, width - 2.f * scale, hintH - scale, ms::Fade(ms::kFooterBg, a));
+    const float hy = y + pad * 0.5f + scale;
+    float hx = tx;
+    hx = ms::Hint(hx, hy, "A", "Select", cw, line, scale, a);
+    hx = ms::Hint(hx, hy, "B", "Back", cw, line, scale, a);
+    hx = ms::Hint(hx, hy, "</>", "Change", cw, line, scale, a);
+    if (hx + (ms::HintCols("LB/RB", "Page") - 1.5f) * cw <= x + width - pad) ms::Hint(hx, hy, "LB/RB", "Page", cw, line, scale, a);
     return scale;
 }
 
@@ -2014,7 +2241,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const float scale=W<960?1.25f:2.0f;
         const float x=(float)W*0.06f,y=(float)H*0.43f;
         const float width=(float)W*0.72f<640.0f?(float)W*0.72f:640.0f;
-        osd::DrawText(x,y,"Loading boss rematch",0xFFFFFFFF,scale);
+        osd::DrawText(x,y,"Loading boss match",0xFFFFFFFF,scale);  // user #13293: Rematch -> Boss Matches
         // Indeterminate activity, never a fabricated asset/time percentage.
         // Stage labels derive only from the coherent provider phase.
         const float travel=width*0.78f;
@@ -2067,10 +2294,13 @@ float DrawImpl(unsigned W, unsigned H) {
     };
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
-    snprintf(title, sizeof(title), "Nioh3EngineFix v%s - %s", g_host.version, g_cfg.layout ? PageName(g_pages.page) : "Original controls");
+    // user #13279/#13296: plain title (the page name), the version goes to the right edge of the title bar
+    snprintf(title, sizeof(title), "%s", g_cfg.layout ? PageName(g_pages.page) : "Original controls");
     {
         int c = 0;
-        put(&head, c, 1, title, "", "", cGold, cYellow, false, true);
+        char ver[40];
+        snprintf(ver, sizeof(ver), "EngineFix v%s", g_host.version);
+        put(&head, c, 1, title, "", ver, cGold, cDim, false, true);
     }
     const char* pending = nullptr;
     int pageRows[kMenuRowCap];
@@ -2079,7 +2309,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const int id = pageRows[oi];
         if (id == kRematchRow || id == kPracticeRow) {
             if (id == g_sel) selRow = nb;
-            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Rematch" : "  Boss Rematch") : (id == g_sel ? "> Practice" : "  Practice");
+            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Practice" : "  Practice");
             put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
@@ -2090,7 +2320,7 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128], text[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
             snprintf(text, sizeof(text), "%.48s%s (%s)", v.text.c_str(), v.changed ? " *" : "",
-                d.kind == setting_ui::Kind::Manual ? "ini only" : d.apply == setting_ui::Apply::NextLaunch ? "next launch" : "requested");
+                d.kind == setting_ui::Kind::Manual ? "edit in the ini file" : d.apply == setting_ui::Apply::NextLaunch ? "after a restart" : "applies now");
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
                 d.kind == setting_ui::Kind::Manual ? cDim : v.changed ? cYellow : cGray, id == g_sel, false);
@@ -2134,10 +2364,10 @@ float DrawImpl(unsigned W, unsigned H) {
     snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
-        snprintf(what, sizeof(what), "Boss rematches: Fight now / shrine, death and finisher options, native Yamagata practice.");
+        snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");
         snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
     } else if (g_sel == kPracticeRow) {
-        snprintf(what, sizeof(what), "Training here, Arenas, Boss summoning and the practice tools (stance, moves, despawn).");
+        snprintf(what, sizeof(what), "Train here (where I am), train in a boss arena, Training Mods (stance, moves, repeat), summon a boss where I am.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if (g_sel >= kSettingRow) {
         const int index = g_sel - kSettingRow;
@@ -2255,26 +2485,47 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     const int n = 1 + shown + nt;
     const float lineH = (osd::kGlyphH + 2) * sc, pad = 6 * sc, cw = osd::kGlyphW * sc;
-    const float w = (float)std::max(cols, strlen(head.label) + 2 + strlen(head.value)) * cw + 2 * pad, h = n * lineH + 2 * pad;
+    // #13257: at least 60 columns wide (short pages no longer look cramped), never wider than the old 96% screen limit
+    const float w = std::max((float)std::max(cols, strlen(head.label) + 2 + strlen(head.value)) * cw + 2 * pad,
+                             std::min(60.0f * cw + 2 * pad, std::floor(0.96f * (float)W))), h = n * lineH + 2 * pad;
     const float x0 = std::floor(((float)W - w) / 2), y0 = std::floor(((float)H - h) / 2);
-    osd::DrawRect(x0, y0, w, h, cMenuPanel);
-    osd::DrawRect(x0, y0, w, std::max(1.0f, sc), cRule);
-    osd::DrawRect(x0, y0 + h - std::max(1.0f, sc), w, std::max(1.0f, sc), cRule);
+    // #13257 look: shared menu_style panel (gold top line, outline), title bar, selection bar with stripe, gold section headers
+    // with a rule, ON / OFF pills, dimmed footer band. Layout (columns, rows, scale) is unchanged.
+    namespace ms = menu_style;
+    const float fa = ms::OpenFade(t);
+    ms::Panel(x0, y0, w, h, sc, ms::kPanelBg, fa);
+    osd::DrawRect(x0 + sc, y0 + 2 * sc, w - 2 * sc, pad + lineH - 2 * sc, ms::Fade(ms::kTitleBg, fa));
     int line = 0;
     auto drawRow = [&](const Row& rw, bool isHead) {
         const float y = y0 + pad + line * lineH;
-        if (rw.sel) osd::DrawRect(x0 + pad / 2, y - sc, w - pad, lineH, cHighlight);
-        if (rw.rule && line > 0) osd::DrawRect(x0 + pad, y + lineH / 2, w - 2 * pad, std::max(1.0f, sc / 2), 0x80808080);
-        float lx = x0 + pad;
-        if (rw.label[0]) lx = osd::DrawText(lx, y, rw.label, rw.lc, sc);
-        if (rw.tech[0]) osd::DrawText(lx + cw, y, rw.tech, rw.sel ? cGray : cDim, sc);
+        if (rw.sel) ms::SelectBar(x0 + sc, y - sc, w - 2 * sc, lineH, sc, fa);
+        if (rw.rule && line > 0) ms::Divider(x0 + pad, y + lineH / 2, w - 2 * pad, sc, fa);
+        const bool section = !isHead && !rw.value[0] && !rw.tech[0] && rw.lc == cCyan && rw.label[0] && rw.label[0] != ' ' && rw.label[0] != '>';
+        const bool marked = !isHead && (rw.label[0] == '>' || rw.label[0] == ' ') && rw.label[1] == ' ';  // "> " / "  " row marker
+        const char* label = marked ? rw.label + 2 : rw.label;
+        float lx = x0 + pad + (marked ? 2 * cw : 0);
+        if (label[0]) osd::DrawText(lx, y, label, ms::Fade(isHead ? ms::kTitleText : section ? ms::kAccent : rw.lc, fa), sc);
+        lx += (float)strlen(label) * cw;
+        if (section) ms::Divider(lx + cw, y + lineH / 2 - sc, x0 + w - pad - lx - cw, sc, fa);
+        if (rw.tech[0]) osd::DrawText(lx + cw, y, rw.tech, ms::Fade(rw.sel ? cGray : cDim, fa), sc);
         if (rw.value[0]) {
             const size_t lc = strlen(rw.label) + (rw.tech[0] ? 1 + strlen(rw.tech) : 0);
-            const float vx = x0 + pad + (float)std::max(lc + 2, valueCol) * cw;
-            osd::DrawText(isHead ? x0 + w - pad - (float)strlen(rw.value) * cw : vx, y, rw.value, rw.vc, sc);
+            const float vx = isHead ? x0 + w - pad - (float)strlen(rw.value) * cw : x0 + pad + (float)std::max(lc + 2, valueCol) * cw;
+            uint32_t bg, fg;
+            char tok[8] = {};
+            const size_t tl = strcspn(rw.value, " ");
+            if (tl < sizeof tok) memcpy(tok, rw.value, tl);
+            if (!isHead && tok[0] && ms::PillColors(tok, bg, fg)) {  // "ON", "OFF  * restart", "ON  (ini)": pill + the rest as text
+                ms::Pill(vx, y, tok, bg, rw.lc == cDim ? cDim : fg, cw, lineH, sc, fa);
+                if (rw.value[tl]) osd::DrawText(vx + (float)(tl + 1) * cw, y, rw.value + tl + 1, ms::Fade(rw.vc, fa), sc);
+            } else osd::DrawText(vx, y, rw.value, ms::Fade(rw.vc, fa), sc);
         }
         ++line;
     };
+    if (nt >= 2) {  // the two control lines at the bottom sit in a darker footer band
+        const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
+        osd::DrawRect(x0 + sc, fy, w - 2 * sc, y0 + h - fy - sc, ms::Fade(ms::kFooterBg, fa));
+    }
     drawRow(head, true);
     for (int i = 0; i < shown; ++i) drawRow(body[first + i], false);
     for (int i = 0; i < nt; ++i) drawRow(tail[i], false);

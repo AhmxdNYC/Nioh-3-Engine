@@ -10,13 +10,13 @@ constexpr int kPageRow = kCount;
 constexpr int kBackRow = kPageRow + pCount;
 constexpr int kSettingRow = kBackRow + 1;
 constexpr int kRematchRow = kSettingRow + kConfigN;
-constexpr int kPracticeRow = kRematchRow + 1;  // user #13223: first page = Settings / Boss Rematch / Practice
+constexpr int kPracticeRow = kRematchRow + 1;  // user #13223: first page = Settings / Boss Matches (#13293 rename) / Practice
 constexpr int kMenuRowCap = kCount + pCount + kConfigN + 3;
 const char* const kPageNames[] = {"Mod menu", "Settings", "Display & overlay", "Frame generation", "Gameplay",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section"};
 inline const char* PageName(int page) {
-    return page >= pCfgFirst && page < pCount ? kConfigGroups[page - pCfgFirst] : kPageNames[page];
+    return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }
 inline int SettingsPage(int id) {
     if (id >= kEpPre && id <= kEp9) return pExtra;

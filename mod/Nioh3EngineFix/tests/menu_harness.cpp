@@ -22,7 +22,8 @@ std::vector<Rect> drawnRects;
 std::vector<std::string> drawnTexts;
 void DrawRect(float x, float y, float w, float h, uint32_t) { drawnRects.push_back({x,y,w,h}); }
 bool DrawCoverRect(float,float){return true;}
-float DrawText(float x, float, const char* text, uint32_t, float) { drawnTexts.emplace_back(text);return x; }
+std::vector<float> drawnTextX, drawnTextScale;
+float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
 }
 namespace gpuopt {
 State GetState() { return State::Off; }
@@ -238,7 +239,7 @@ int main() {
             CHECK(DrawImpl(width,height)>0 && g_coverDrawnToken==42);
             CHECK(osd::drawnRects.size()==2 && osd::drawnTexts.size()==3);
             for(const auto& r:osd::drawnRects)CHECK(r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=width&&r.y+r.h<=height);
-            CHECK(osd::drawnTexts[0]=="Loading boss rematch");
+            CHECK(osd::drawnTexts[0]=="Loading boss match");
             CHECK(osd::drawnTexts[1]==(phase==1?"Preparing...":phase==2?"Starting rematch...":"Entering boss arena..."));
             for(const auto& text:osd::drawnTexts)CHECK(text.find("INTERNAL")==std::string::npos&&text.find('%')==std::string::npos);
         }
@@ -294,6 +295,41 @@ int main() {
     hf::view.coverToken=44;hf::view.coverDeadline=Now()+180000;hf::view.workerTickMs=Now()-1501;
     OnPresentImpl();CHECK(!g_coverToken && !g_open && !menu::CoverTipAllowed()); // long budget never relaxes stale worker
     g_rematchSession=0;
+    // #13257 side panel: 58 columns (was 44), docked right, nothing drawn outside the panel, no text past its right edge,
+    // long labels / notes wrap instead of clipping, values parsed into the right column, control hints moved to the prompt line.
+    {
+        rmb::Snapshot& v=g_rematchView; v={}; v.flags=rmb::HostedReady|rmb::Open; v.workerTickMs=Now(); g_rematchFreshAt=Now();
+        const char* hostRows[]={"Practice - Boss summoning (1.9.0) - active: native practice with a long gate reason text that wraps",
+            "-- Options --", "> Wait before attacking: 5 s     Left / Right", "  Summon into: Boss A (now: Tachibana Muneshige the Thunder God of Kyushu)",
+            "  Cutscene on kill:        ON   A / Left / Right   (n/a: Final blow required is OFF)",
+            "  0x00A1  RPT  Overhead slash into a delayed sweeping kick follow-up with grab (?)",
+            "      Teleport to arena (fast load)   - not beaten on this journey and some more words to force a wrap",
+            "  Return to where I was   <- boss defeated: A takes you back", "  Arenas   A: open",
+            "  Kashin Koji                              Kyoto      beaten     Native         unverified"};
+        v.rowCount=(uint32_t)(sizeof hostRows/sizeof hostRows[0]);
+        for(uint32_t i=0;i<v.rowCount;++i){strcpy_s(v.rows[i].text,hostRows[i]);v.rows[i].color=0x00B4B4B4;v.rows[i].selected=i==2;}
+        strcpy_s(v.footer,"Seconds a summoned boss stays passive (AI off) before it attacks. 0 = at once. Applies to the next summon, saved.");
+        strcpy_s(v.toast,"Summoned: Boss A"); v.toastColor=0x0060FF60;
+        for(unsigned width:{800u,1280u,1920u,2560u,3840u}) {
+            const unsigned height=width==800u?600u:width*9/16;
+            osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextScale.clear();
+            const float sc=DrawRematchHost(width,height); CHECK(sc>0 && !osd::drawnRects.empty());
+            const auto panel=osd::drawnRects[0]; const float cw=osd::kGlyphW*sc;
+            CHECK(panel.w/cw>=58.f && panel.x>=(float)width*0.5f && panel.h<=0.70f*(float)height);
+            for(const auto& r:osd::drawnRects)CHECK(r.x>=panel.x-1&&r.y>=panel.y-1&&r.x+r.w<=panel.x+panel.w+1&&r.y+r.h<=panel.y+panel.h+1);
+            bool sawPill=false,sawWrap=false,sawHeader=false;
+            for(size_t i=0;i<osd::drawnTexts.size();++i){
+                if(!(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f))printf("W%u x=%.1f px=%.1f pw=%.1f cw=%.1f [%s]\n",width,osd::drawnTextX[i],panel.x,panel.w,cw,osd::drawnTexts[i].c_str());
+                CHECK(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f);
+                CHECK(osd::drawnTexts[i].find("Left / Right")==std::string::npos && osd::drawnTexts[i].find("A: open")==std::string::npos);
+                sawPill|=osd::drawnTexts[i]=="ON"||osd::drawnTexts[i]=="RPT"; sawWrap|=osd::drawnTexts[i].find("Kyushu)")!=std::string::npos;
+                sawHeader|=osd::drawnTexts[i]=="Options"; CHECK(osd::drawnTexts[i].find("--")==std::string::npos);
+            }
+            if(!sawPill||!sawWrap){printf("pill %d wrap %d\n",sawPill,sawWrap);for(auto&t:osd::drawnTexts)printf("  [%s]\n",t.c_str());}
+            CHECK(sawPill && sawWrap && sawHeader);
+        }
+        g_rematchFreshAt=0; v={};
+    }
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;
 }

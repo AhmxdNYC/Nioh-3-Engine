@@ -1851,7 +1851,7 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel, forced; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
 static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused; int watch, pauseLogged; } g_xr;
-static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
+static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on); static volatile LONG g_menu_frozen; static void MenuFreeze(int on, const char* why);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
 static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
@@ -2395,6 +2395,7 @@ static void RhTick(void) {
         g_fd.pend = 0; g_fd.phase = 0;  // a same-world switch still waiting for black is dropped
         // #9920: a Return picked while the F9 freeze holds game time never runs the world switch (it ran only after F9 was released, 2 min later): release it first
         if (g_dbg_frozen) { DbgFreeze(0); Log("RETURN: F9 debug freeze released first (game time was stopped: time scale now %.3f)", DbgTimeScale()); }
+        if (g_menu_frozen) MenuFreeze(0, "Return to where I was");  // user #13274: the menu pause never holds a return
         if (g_xr.active) { Log("RETURN: an older return put-back (watch %d) dropped for this return", g_xr.watch); g_xr.active = 0; }
         if (g_xw.active) {
             g_xw.oWorld = g_home.world; g_xw.oJourney = g_home.journey; g_xw.oMode = g_home.mode; g_xw.oStart = g_home.start; memcpy(g_xw.oPos, g_home.pos, sizeof g_xw.oPos);
@@ -4276,6 +4277,37 @@ static DWORD WINAPI DbgThread(LPVOID p) {
     return 0;
 }
 
+// user #13274: our mod menus pause the game during Boss Matches and Practice. Same stop counter as the F9 freeze above (the game's own pause:
+// time scale 0, logic and render keep running), held by its own flag so it never releases an F9 freeze or the native pause.
+// Held only while (1) the EngineFix mod menu is open (Nioh3EngineFix_MenuOpen, polled every 30 ms on this thread), (2) a Training / Boss Match
+// session or a summoned boss is live, and (3) nothing time-driven is running: no load, arena swap / prewarm, return trip, fade, arena settle,
+// summon or queued summon request. Released the moment any of these ends (closing the menu releases within 30 ms), and before a Return.
+// [Training] MenuPause = 0 turns it off. See TECH_DEBT.md (live acceptance pending).
+static int g_cfg_menupause = 1;
+static __attribute__((noinline)) void MenuFreeze(int on, const char* why) {
+    volatile LONG* c = DbgStopCounter(); if (!c) return;
+    __try {
+        if (on) { if (InterlockedCompareExchange(&g_menu_frozen, 1, 0) == 0) InterlockedIncrement(c); else return; }
+        else { if (InterlockedCompareExchange(&g_menu_frozen, 0, 1) != 1) return; LONG v; do { v = *c; if (v <= 0) break; } while (InterlockedCompareExchange(c, v - 1, v) != v); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU PAUSE: stop counter write faulted"); return; }
+    Log("MENU PAUSE %s (%s; time scale now %.3f)", on ? "ON" : "OFF", why, DbgTimeScale());
+}
+static int MenuPauseBusy(void) {
+    const uint8_t* gs = GameState();
+    return (gs && gs[2]) || g_rh.active || g_xw.active || g_xr.active || g_fd.pend || g_fd.phase == 2 || (g_ar.active && !g_ar.released) || g_sp.active || g_rq_op;
+}
+static DWORD WINAPI MenuPauseThread(LPVOID p) {
+    (void)p; Log("MENU PAUSE (#13274): on while the mod menu is open in a Boss Match / Practice session");
+    for (;;) {
+        Sleep(30);
+        const int open = GateMenuOpen(), live = g_tr.active || SlotAlive(0) || SlotAlive(1), busy = live && open ? MenuPauseBusy() : 0;
+        const int want = g_cfg_menupause && open && live && !busy;
+        if (want && !g_menu_frozen) MenuFreeze(1, "mod menu opened");
+        else if (!want && g_menu_frozen) MenuFreeze(0, !open ? "mod menu closed" : !live ? "session ended" : "a load / swap / summon started");
+    }
+    return 0;
+}
+
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
 static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
@@ -4462,6 +4494,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_dbg_on = GetPrivateProfileIntA("Debug", "Hotkeys", 1, ini); g_dbg_freeze_vk = GetPrivateProfileIntA("Debug", "FreezeKey", 0x78, ini); g_dbg_bug_vk = GetPrivateProfileIntA("Debug", "BugKey", 0x77, ini);
         {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
         if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
+        g_cfg_menupause = GetPrivateProfileIntA("Training", "MenuPause", 1, ini);  // user #13274
+        if (g_cfg_menupause) { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("MENU PAUSE off ([Training] MenuPause 0)");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
         g_cfg_gate_block = GetPrivateProfileIntA("Return", "ReturnGateBlockNativePrompt", 1, ini);
