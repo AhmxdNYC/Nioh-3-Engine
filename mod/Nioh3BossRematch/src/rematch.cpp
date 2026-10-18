@@ -173,7 +173,7 @@ const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? 
 void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (normal loading)"};
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -2284,7 +2284,7 @@ void NoFinToggle(int dir) {
     g_msg[0] = 0;
 }
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
-constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (normal loading)": native mission load + arena warp, no live swap
+constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 
 int Items(int* out, int cap) {
@@ -2303,7 +2303,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); add(kItDespawnAll); }
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
-        // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (normal loading)
+        // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (fast load)
         if (g_live.load())
             for (int pass = 0; pass < 2; ++pass)
                 for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
@@ -3023,9 +3023,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const uint8_t stt = g_status[(size_t)row].load();
             if (g_uiPages.page == uTraining)  // user #13164: Training arena list (details in the footer)
                 add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %.34s", mk, g_rows[(size_t)row].name);
-            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - not beaten on this journey", mk);
-            else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - %s", mk, why);
-            else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (normal loading)   game loading screen, then warp into the arena", mk);
+            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
+            else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - %s", mk, why);
+            else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (fast load)   boss summoned in idle stance", mk);
         } else if (it[i] >= kItShrine) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
             const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
@@ -3121,7 +3121,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanArena(item - kItTeleport);
             if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
             else if (why) snprintf(footer, nf, "%s. B back.", why);
-            else snprintf(footer, nf, "Loads this boss's mission with the game's normal loading screen, then warps into the arena. No live swap. A start, B back.");
+            else snprintf(footer, nf, "Teleport to arena (fast load): in-place arena swap (cross-world with a fade), boss summoned in idle stance as a Training session. A start, B back.");
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);
