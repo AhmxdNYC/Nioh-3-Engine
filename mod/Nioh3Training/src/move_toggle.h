@@ -50,7 +50,7 @@ static uint32_t MvBossChr(uint64_t st) {
 // plus the idle pick (0x2) are replaced, so reactions, Ki break and status actions still play natively.
 #define MV_REP_MAX 8
 static volatile LONG g_rep_chr[MV_REP_MAX], g_rep_id[MV_REP_MAX], g_rep_count[MV_REP_MAX]; static DWORD g_rep_last[MV_REP_MAX], g_rep_end[MV_REP_MAX];
-static volatile LONG g_rep_gaps;
+static volatile LONG g_rep_gaps; static uint64_t g_rep_st[MV_REP_MAX];
 // bridge 12958: delay between repeats (Training menu slider on the move page, [Training] RepeatGapMs, default 1000). Measured from the end of the
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
 static volatile int g_cfg_rep_gap = 1000;
@@ -66,6 +66,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         LONG g = InterlockedIncrement(&g_rep_gaps);
         if (g <= 500) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
+        g_rep_st[i] = st;  // MvRepTick ends the idle once the gap has passed (the native idle lasts ~6 s, live 19:35)
         return id == 2 ? 0 : (N3MoveFind(chr, 2) >= 0 ? 2 : 0);
     }
     LONG n = InterlockedIncrement(&g_rep_count[i]);
@@ -160,7 +161,7 @@ N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed,
 // bridge 12953: on = 1 repeats (chr, id), on = 0 stops that boss's repeat. 1 = done, 0 = unknown move / table full.
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
     int i = MvRepFind(chr);
-    if (!on) { if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); } return 1; }
+    if (!on) { if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); g_rep_st[i] = 0; } return 1; }
     if (N3MoveFind(chr, id) < 0 || N3MoveProtected(id)) return 0;
     if (i < 0) for (int k = 0; k < MV_REP_MAX; ++k) if (!g_rep_chr[k]) { i = k; break; }
     if (i < 0) return 0;
@@ -184,6 +185,24 @@ N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist) {
     Log("REPEAT gap %d ms%s", ms, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, MvRepGapSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
     return ms;
+}
+// bridge 12958: game thread (pump). The native idle the boss gets during the gap runs ~6 s before the AI picks again (live 19:35: 1000 ms set,
+// 6.0 s measured), so when the gap has passed and the boss is still in idle 0x2 the repeated move is started with SetActionID's forced
+// transition 66C4A8(ctrl, id, 0, 0.0) (the KiBreakActFix path).
+static void MvRepTick(void) {
+    DWORD now = GetTickCount();
+    for (int i = 0; i < MV_REP_MAX; ++i) {
+        uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
+        if (!chr || !rep || !st || !g_rep_end[i] || now - g_rep_end[i] < (DWORD)g_cfg_rep_gap) continue;
+        if (MvBossChr(st) != chr) { g_rep_st[i] = 0; continue; }
+        uint32_t cur = ActIdOf(st);
+        if (cur != 2) { if (cur != 0xFFFFFFFFu) g_rep_st[i] = 0; continue; }
+        int ok = 1;
+        __try { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(st, (uint64_t)rep, 0, 0.0f); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+        LONG n = InterlockedIncrement(&g_rep_count[i]);
+        if (n <= 500) Log("REPEAT chr %u forced 0x%X after %lu ms idle (#%ld, gap %d ms)%s, now 0x%X", chr, rep, now - g_rep_end[i], n, g_cfg_rep_gap, ok ? "" : " FAULTED", ActIdOf(st));
+        g_rep_last[i] = now; g_rep_end[i] = 0; g_rep_st[i] = 0;
+    }
 }
 static void MvLoadPrefs(const char* ini) {
     { int gap = (int)GetPrivateProfileIntA("Training", "RepeatGapMs", 1000, ini); g_cfg_rep_gap = gap < 0 ? 0 : gap > MV_REP_GAP_MAX ? MV_REP_GAP_MAX : gap; }

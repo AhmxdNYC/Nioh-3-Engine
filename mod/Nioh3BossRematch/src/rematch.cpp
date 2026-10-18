@@ -2152,7 +2152,9 @@ int MoveAllowed(const N3Move& move) {
 bool MoveRepeating(const N3Move& move) {
     using Fn = uint32_t (*)(uint32_t);
     const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveRepeat");
-    return f && f(move.chr) == move.id;
+    if (!f) return false;
+    const uint32_t rep = f(move.chr);
+    return rep && rep == move.id;  // 0 = no repeat (move 0x0000 must not show RPT)
 }
 bool IsMoveItem(int item) { return item >= kItMoveBase && item < kItMoveBase + N3_MOVE_COUNT; }
 void MoveToggle(int item, int dir) {
