@@ -60,7 +60,7 @@ int main() {
         g_status[(size_t)i].store(2);
     }
     UiOpen();
-    CHECK(g_uiPages.page == uRoot && !UiAct());  // user #13164: root item 0 = Boss Rematch submenu
+    CHECK(g_uiPages.page == uRoot); g_sel = 1; CHECK(!UiAct());  // user #13197: root = Settings / Boss Rematch / Practice / Summon Boss / Close
     CHECK(g_uiPages.page == uRematch);
     UiMove(10);
     CHECK(g_sel == 10);
@@ -72,13 +72,13 @@ int main() {
     CHECK(!UiBack() && g_uiPages.page == uRematch && g_sel == 10);
     UiMove(10);
     UiMove(10);
-    CHECK(g_sel == 27);  // 25 bosses, Practice, Settings, final Back row: paging clamps instead of wrapping
+    CHECK(g_sel == 26);  // 25 bosses, Practice, final Back row (Settings moved to the root, #13197): paging clamps instead of wrapping
     CHECK(!UiAct() && g_uiPages.page == uRoot);
     CHECK(UiBack());
     UiOpen();
     UiMove(-1);
     CHECK(UiAct());  // explicit Close at root
-    UiOpen(); UiAct(); UiAct();
+    UiOpen(); g_sel = 1; UiAct(); UiAct();
     g_cfg.fightNow = true; g_fnowOk = true;
     CHECK(Items(it, kMaxRows + 4) == 3 && it[0] == kItFight && it[1] == kItShrine && it[2] == kItBack);
     UiRow rows[24]; char footer[240];
@@ -99,7 +99,7 @@ int main() {
     G_CH=(uint64_t)&ach; G_PM=(uint64_t)&ppm; G_NET=(uint64_t)&pnet;
     addon::uiReads=true; g_lastTick=Ms(); g_qChangedAt=Ms()-10001;
     // Every boss has exactly two stable choices, including unavailable routes.
-    UiOpen(); UiAct(); UiAct();
+    UiOpen(); g_sel = 1; UiAct(); UiAct();
     auto shown = [&](const char* text) {
         const int count = UiFill(rows,24,footer,sizeof(footer));
         for (int i=0;i<count;++i) if (strstr(rows[i].text,text)) return true;
@@ -206,7 +206,7 @@ int main() {
     g_cfg.fightWarp=true; CHECK(!UiAct() && !g_req && strstr(g_msg,"no arena position"));
     g_cfg.fightWarp=false;
     practice.gateId=0; g_gateOk=false; g_confirm=-9;
-    UiOpen(); UiAct(); g_sel = 25; CHECK(!UiAct() && g_uiPages.page == uPractice);
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 25; CHECK(!UiAct() && g_uiPages.page == uPractice);
     CHECK(UiFill(rows,24,footer,sizeof(footer)) > 0 && strstr(footer,"Normal rewards, drops and progression apply"));
     CHECK(strstr(rows[0].text,"Practice Yamagata"));
     g_status[0]=1; CHECK(!UiAct() && !g_req);
@@ -215,7 +215,7 @@ int main() {
     CHECK(!UiAct() && UiAct() && (g_req.load() & 0xFF) == kReqPractice);
     g_req=0; g_practiceOwned=true; g_activeRow=0; g_attemptPhase=aActive;
     g_state=kInReplay; g_exitOk=true; mission=0x1CBC; memcpy(ms+0x28,&mission,4);
-    UiOpen(); UiAct(); g_sel = 25; CHECK(!UiAct()); UiMove(1);
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 25; CHECK(!UiAct()); UiMove(1);
     CHECK(!UiAct() && g_confirm == kItPracticeReturn && !g_req);
     CHECK(UiAct() && (g_req.load() & 0xFF) == kReqPracticeExit);
     g_req=0; g_attemptPhase=aQuarantined;
@@ -227,10 +227,12 @@ int main() {
     // With Rematch disabled, Settings remains available and changes no game state.
     g_live.store(false);
     UiOpen();
-    CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItRootRematch && it[1] == kItRootTraining && it[2] == kItRootSummon && it[3] == kItClose);
-    CHECK(!UiAct() && g_uiPages.page == uRematch);
-    CHECK(Items(it, kMaxRows + 4) == 2 && it[0] == kItSettings && it[1] == kItBack);
-    CHECK(!UiAct() && g_uiPages.page == uSettings);
+    CHECK(Items(it, kMaxRows + 4) == 5 && it[0] == kItSettings && it[1] == kItRootRematch && it[2] == kItRootTraining && it[3] == kItRootSummon && it[4] == kItClose);
+    g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uRematch);
+    CHECK(Items(it, kMaxRows + 4) == 1 && it[0] == kItBack);  // #13197: no Settings / Return to where I was on the Boss Rematch page
+    CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);
+    g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uSettings);
+    { const int ns = Items(it, kMaxRows + 4); CHECK(ns == kConfigGroupN + 1 && it[ns - 1] == kItBack); for (int i = 0; i < ns; ++i) CHECK(it[i] != kItSave && it[i] != kItRootTools); }
     for (int i = 0; i < kConfigN; ++i) g_configValues.values[(size_t)i] = {kConfigSettings[i].initial, false};
     UiMove(1);  // Training group
     CHECK(!UiAct() && g_uiPages.page == uSettingFirst + 1);
@@ -254,7 +256,7 @@ int main() {
     g_configValues.Save(kConfigSettings, [&](const wchar_t*, const wchar_t*, const std::wstring&) { ++writes; });
     CHECK(writes == 1);
     CHECK(!UiBack() && g_uiPages.page == uSettings);
-    CHECK(!UiBack() && g_uiPages.page == uRematch && !UiBack() && g_uiPages.page == uRoot && UiBack());
+    CHECK(!UiBack() && g_uiPages.page == uRoot && UiBack());
 
     using addon_ui_input::Pad;
     CHECK(addon_ui_input::OwnsInput(-1, 2) && addon_ui_input::OwnsInput(2, 2));

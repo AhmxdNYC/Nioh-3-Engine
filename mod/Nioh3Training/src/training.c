@@ -759,7 +759,7 @@ static void VerifyTick(void) {
     }
     Log("SPAWNPOS verify: boss 0x%X %.0f from the player after %lu ms (start %.0f), attempt %d: %s", g_vf.h, d, dt, g_vf.d0, g_vf.attempt, d > 700.0f ? "not closing but out of candidates" : "ok");
 }
-static int PlayerSetNoDeath(int on); static int g_cfg_tr_nodeath_summon = 1, g_tr_nodeath_now;
+static void SumNoDeathRelease(const char* why); static int PlayerSetNoDeath(int on); static int g_cfg_tr_nodeath_summon = 0, g_tr_nodeath_now, g_sum_nodeath;  // user #13197: SummonNoDeath default 0; g_sum_nodeath = NoDeath was switched on by a summon
 static void SpawnTick(void) {
     if (!g_sp.active) return;
     uint64_t e = ResEntry(g_sp.id);
@@ -796,7 +796,7 @@ static void SpawnTick(void) {
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
     if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr && g_sp.slot < 0; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
-    if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now) PlayerSetNoDeath(1);  // bridge 12666: summoned bosses must not kill the player in Training (default on)
+    if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now && PlayerSetNoDeath(1)) g_sum_nodeath = 1;  // bridge 12666 ([Summon] SummonNoDeath, default 0 since #13197); SumNoDeathTick turns it off again
     g_sp.active = 0;
 }
 
@@ -1365,7 +1365,8 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
     Log("TRAIN round %d lost (AutoRetryOnDeath 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
 }
 static void TrainStop(const char* why) {
-    TrainClear(why); if (g_tr.nodeath) PlayerSetNoDeath(0);
+    TrainClear(why); if (g_tr.nodeath || g_tr_nodeath_now) PlayerSetNoDeath(0);  // user #13197: also a summon's NoDeath (g_tr.nodeath is lost on the session memset)
+    g_sum_nodeath = 0;
     g_tr.active = 0; Log("TRAIN stop (%s)", why);
 }
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
@@ -2569,9 +2570,30 @@ static void RqTick(void) {
         char tok[32]; snprintf(tok, sizeof tok, "R%X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, s ? 700.0f : 400.0f); if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
-    } else if (op == 2) { DespawnAll("menu"); g_slot_act[0] = g_slot_act[1] = 0; g_slot_chr[0] = g_slot_chr[1] = 0; }
+    } else if (op == 2) { DespawnAll("menu"); g_slot_act[0] = g_slot_act[1] = 0; g_slot_chr[0] = g_slot_chr[1] = 0; SumNoDeathRelease("despawn all"); }
     else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
 }
+// user #13197: player NoDeath switched on by a summon (SummonNoDeath 1) must not outlive the summoned bosses: off on despawn-all, when the last
+// summoned boss is dead or gone, and on session stop (TrainStop). Kept while a Training session runs with PlayerNoDeath 1 (that session owns it).
+static void SumNoDeathRelease(const char* why) {
+    if (!g_sum_nodeath) return;
+    g_sum_nodeath = 0;
+    if (g_tr.active && g_cfg_tr_nodeath) { Log("SUMNODEATH (%s): Training session keeps player NoDeath (PlayerNoDeath 1)", why); return; }
+    if (g_tr_nodeath_now) PlayerSetNoDeath(0);
+    Log("SUMNODEATH (%s): player NoDeath off", why);
+}
+static void SumNoDeathTick(void) {  // game thread (pump)
+    if (!g_sum_nodeath || g_sp.active || g_watch) return;
+    if (GameState() && GameState()[2]) return;  // never call SetNoDeath during a load
+    if (!PlayerChar()) return;
+    for (int i = 0; i < g_nsp; ++i) {
+        uint64_t a = g_sp_actor[i]; if (!a) continue;
+        int dead = 0; uint64_t c = 1, m = 0;
+        if (!ActorDeadNow(a, &dead, &c, &m) && !dead) return;  // a summoned boss is still alive
+    }
+    SumNoDeathRelease(g_nsp ? "every summoned boss is dead" : "no summoned boss left");
+}
+N3T_API int Nioh3Training_SessionActive(void) { return (g_tr.active ? 1 : 0) | ((SlotAlive(0) || SlotAlive(1)) ? 2 : 0); }  // user #13197: menu 'Practice tools' root row
 // user #13164: game thread (pump). Holds a freshly summoned slot boss passive for g_sph[s].ms, then gives its AI back (only if we switched it off).
 static void SphTick(void) {
     DWORD now = GetTickCount();
@@ -3112,7 +3134,7 @@ static void Exec(char* line) {
                 Log("  actor %p%s%s handle %08X %08X pos %.0f %.0f %.0f", (void*)cur[i], cur[i] == me ? " PLAYER" : "", InSp(cur[i]) ? " SPAWNED" : "", *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2]); }
         } else if (!strcmp(op, "despawn")) {
             char w[16] = "all"; sscanf(line, "%*s %15s", w);
-            if (!strcmp(w, "all")) DespawnAll("command");
+            if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); }
             else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn(i); break; } }
             else Despawn(atoi(w));
         } else if (!strcmp(op, "kill")) {
@@ -4220,6 +4242,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
+    __try { SumNoDeathTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMNODEATH tick exception %08lX", GetExceptionCode()); }  // user #13197
     __try { SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); g_sph[0].phase = g_sph[1].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
@@ -4268,7 +4291,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
-        g_cfg_tr_nodeath_summon = GetPrivateProfileIntA("Summon", "SummonNoDeath", 1, ini);
+        g_cfg_tr_nodeath_summon = GetPrivateProfileIntA("Summon", "SummonNoDeath", 0, ini);  // user #13197: default 0
         Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);

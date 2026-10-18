@@ -2115,6 +2115,21 @@ constexpr int uRematch = 902, uTraining = 903, uSummon = 904;
 constexpr int kItRootRematch = -40, kItRootTraining = -41, kItRootSummon = -42;
 constexpr int kItSumPassive = -43, kItSumSlot = -44;
 int g_sumSlot = 0;  // Summon Boss page: slot (0 = A, 1 = B) the next boss row summons into
+// user #13197: root = Settings / Boss Rematch / Practice (Training arenas, arena rows only) / Summon Boss. The in-fight controls (stance, moves,
+// Boss A/B moves, repeat delay, despawn, leave session) live on their own 'Practice tools' page: a root row while a Training session or a
+// summoned boss is live, and always a row on the Settings page.
+constexpr int uTools = 905, kItRootTools = -45;
+uint32_t SlotChr(int slot);
+uint32_t MoveBoss();
+bool PracticeSessionLive() {
+    using Fn = int (*)();
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_SessionActive")) return f() != 0;
+    return MoveBoss() != 0 || SlotChr(0) != 0 || SlotChr(1) != 0;  // older Nioh3Training.asi without the export
+}
+bool PracticeToolsAvailable() {
+    return TrainingExport("Nioh3Training_SetIdleHold") || TrainingExport("Nioh3Training_SetMoveAllowed") || TrainingExport("Nioh3Training_SummonSlot") ||
+           TrainingExport("Nioh3Training_SetRepeatGap");
+}
 int SumPassiveGet() {
     using G = int (*)();
     const auto g = (G)TrainingExport("Nioh3Training_GetSummonPassive");
@@ -2290,19 +2305,26 @@ constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss
 int Items(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
-    if (g_uiPages.page == uRoot) {  // user #13164: three submenus only
+    if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
+        add(kItSettings);
         add(kItRootRematch);
         add(kItRootTraining);
         add(kItRootSummon);
+        if (PracticeToolsAvailable() && PracticeSessionLive()) add(kItRootTools);
         add(kItClose);
         return n;
     }
-    if (g_uiPages.page == uTraining) {
+    if (g_uiPages.page == uTools) {  // user #13197: in-fight Practice controls, kept out of the arena list
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
-        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); add(kItDespawnAll); }
+        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); }
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+        if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uTraining) {  // user #13197: arena rows only (details in the footer)
         // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (fast load)
         if (g_live.load())
             for (int pass = 0; pass < 2; ++pass)
@@ -2330,7 +2352,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetAutoRetry")) add(kItAutoRetry);
         if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
         if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
-        if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
+        // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
             for (int pass = 0; pass < 3; ++pass)
@@ -2345,7 +2367,6 @@ int Items(int* out, int cap) {
                     add((int)i);
                 }
         if (g_live.load()) add(kItPractice);
-        add(kItSettings);
         if (g_raOk) add(kItOpen);
         if (g_emakiOk) add(kItScroll);
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
@@ -2375,14 +2396,13 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uSettings) {
         for (int group = 0; group < kConfigGroupN; ++group) add(kItGroupBase - group);
-        add(kItSave);
-        add(kItBack);
+        if (PracticeToolsAvailable()) add(kItRootTools);  // user #13197: Practice tools always reachable from Settings
+        add(kItBack);  // user #13197: no Save row, every edit is written at once
         return n;
     }
     if (g_uiPages.page >= uSettingFirst && g_uiPages.page < uSettingFirst + kConfigGroupN) {
         for (int i = 0; i < kConfigN; ++i)
             if (kConfigSettings[i].group == g_uiPages.page - uSettingFirst) add(kItSettingBase - i);
-        add(kItSave);
         add(kItBack);
         return n;
     }
@@ -2598,11 +2618,15 @@ DWORD WINAPI SaveConfigThread(void* param) {
     return 0;
 }
 void UiSettingsPrepare() { g_configValues.Load(kConfigSettings, IniPath()); }
+bool g_configSavePending = false;  // user #13197 auto-save: an edit made while a write was running is written once that write ends (UiFill)
 void SaveUiSettings() {
-    if (g_configSaveState.load() == 1) return;
+    if (g_configSaveState.load() == 1) { g_configSavePending = true; return; }
+    g_configSavePending = false;
+    const wchar_t* ini = IniPath();
+    if (!ini || !ini[0]) return;  // no ini (offline harness): edits stay in this menu
     ConfigSaveJob* job = new (std::nothrow) ConfigSaveJob;
     if (!job) { snprintf(g_msg, sizeof(g_msg), "Save failed: no memory. Preferences remain in this menu."); return; }
-    job->ini = IniPath();
+    job->ini = ini;
     g_configValues.Save(kConfigSettings, [&](const wchar_t* section, const wchar_t* key, const std::wstring& value) {
         job->entries.push_back(section); job->entries.push_back(key); job->entries.push_back(value);
     });
@@ -2610,7 +2634,6 @@ void SaveUiSettings() {
     g_configSaveError.store(0); g_configSaveState.store(1);
     if (HANDLE thread = CreateThread(nullptr, 0, SaveConfigThread, job, 0, nullptr)) {
         CloseHandle(thread);
-        snprintf(g_msg, sizeof(g_msg), "Saving startup preferences. Restart before they apply.");
     } else {
         g_configSaveError.store(GetLastError()); g_configSaveState.store(3); delete job;
     }
@@ -2634,8 +2657,8 @@ void UiChange(int dir) {
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
         const auto& d = kConfigSettings[index];
-        snprintf(g_msg, sizeof(g_msg), "[%s] %s: startup preference edited. Save, then restart. Current session unchanged.", d.section, d.key);
-        g_configSaveState.store(0);
+        snprintf(g_msg, sizeof(g_msg), "[%s] %s: saved automatically. Applies after a restart; current session unchanged.", d.section, d.key);
+        SaveUiSettings();  // user #13197: no Save row, every edit is written at once
     }
 }
 
@@ -2675,8 +2698,8 @@ bool UiAct() {
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
-    if (item == kItRootRematch || item == kItRootTraining || item == kItRootSummon) {  // user #13164
-        g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uTraining : uSummon, g_sel);
+    if (item == kItRootRematch || item == kItRootTraining || item == kItRootSummon || item == kItRootTools) {  // user #13164 / #13197
+        g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uTraining : item == kItRootSummon ? uSummon : uTools, g_sel);
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
@@ -2705,7 +2728,7 @@ bool UiAct() {
     }
     if (item == kItMovesA || item == kItMovesB) {
         const int slot = item == kItMovesB;
-        if (!SlotChr(slot)) { snprintf(g_msg, sizeof g_msg, "Boss %c is empty: summon a boss into slot %c first (boss row -> Summon).", 'A' + slot, 'A' + slot); return false; }
+        if (!SlotChr(slot)) { snprintf(g_msg, sizeof g_msg, "Boss %c is empty: summon a boss into slot %c first (Summon Boss page).", 'A' + slot, 'A' + slot); return false; }
         SetMoveSlot(slot);
         g_uiPages.Enter(uMoves, g_sel);
         g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
@@ -2737,7 +2760,6 @@ bool UiAct() {
         return true;
     }
     if (item <= kItSettingBase) { UiChange(0); return false; }
-    if (item == kItSave) { SaveUiSettings(); return false; }
     if (item == kItSettings || (item <= kItGroupBase && item > kItSettingBase)) {
         g_uiPages.Enter(item == kItSettings ? uSettings : uSettingFirst + kItGroupBase - item, g_sel);
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
@@ -2883,6 +2905,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         ++k;
     };
     TrainingPreload();
+    if (g_configSavePending && g_configSaveState.load() != 1) SaveUiSettings();  // user #13197: edit made during a running write
     const Snap s = ReadSnap();
     const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
@@ -2892,7 +2915,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (chr) movesTitle = "Training moves (no recorded actions for this boss)";
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) { movesTitle = kN3Moves[i].boss; break; }
     }
-    add(cCyan, false, "%s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Mod menu" : g_uiPages.page == uRematch ? "Boss Rematch" : g_uiPages.page == uTraining ? "Training" : g_uiPages.page == uSummon ? "Summon Boss" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "%s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Mod menu" : g_uiPages.page == uRematch ? "Boss Rematch" : g_uiPages.page == uTraining ? "Practice (Training arenas)" : g_uiPages.page == uTools ? "Practice tools" : g_uiPages.page == uSummon ? "Summon Boss" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (auto-saved, next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2968,7 +2991,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 it[i] == kItFinT ? "Finisher kill window:" : "HP-0 combo window:", val, why);
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
-        else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Training: current boss moves   A: open", mk);
+        else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Current boss moves   A: open", mk);
         else if (it[i] == kItMovesA || it[i] == kItMovesB) {
             const int slot = it[i] == kItMovesB;
             const uint32_t c = SlotChr(slot);
@@ -2982,8 +3005,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else add(sel ? cWhite : cGreen, sel, "%s   Summon as Boss %c (now: %s)", mk, 'A' + slot, SlotBossName(SlotChr(slot)));
         }
         else if (it[i] == kItRootRematch) add(sel ? cWhite : cGray, sel, "%s Boss Rematch   A: open", mk);
-        else if (it[i] == kItRootTraining) add(sel ? cWhite : cGray, sel, "%s Training (arenas)   A: open", mk);
+        else if (it[i] == kItRootTraining) add(sel ? cWhite : cGray, sel, "%s Practice (Training arenas)   A: open", mk);
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon Boss   A: open", mk);
+        else if (it[i] == kItRootTools) add(sel ? cWhite : PracticeSessionLive() ? cGreen : cGray, sel, "%s Practice tools (stance, moves, despawn)   A: open", mk);
         else if (it[i] == kItSumPassive) {
             const int v = SumPassiveGet();
             char val[24];
@@ -3006,8 +3030,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else snprintf(val, sizeof(val), "%d.%02d s", v / 1000, (v % 1000) / 10);
             add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Repeat delay: %-7s   Left / Right", mk, val);
         }
-        else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings: all ini keys / next launch   A: open", mk);
-        else if (it[i] == kItSave) add(cYellow, sel, "%s Save edited preferences to ini (restart to apply)", mk);
+        else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Settings   A: open", mk);
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Rematch: browse bosses   A / Enter opens", mk);
         else if (it[i] == kItPractice) add(sel ? cWhite : cGray, sel, "%s Practice Yamagata   A / Enter opens", mk);
         else if (it[i] == kItPracticeStart) add(sel ? cWhite : cGray, sel, "%s Start at boss shrine (native mission replay)", mk);
@@ -3081,15 +3104,19 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItMovesA || item == kItMovesB) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the boss in this slot. Each boss keeps its own list. A opens, B returns.");
         } else if (item >= kItSummonA && item < kItSummonEnd) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you in the current world without a load (up to two: A and B). Summoning again replaces that slot. Player cannot die. A starts.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you in the current world without a load (up to two: A and B). Summoning again replaces that slot. A starts.");
         } else if (item == kItSumPassive) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Seconds a summoned boss stays passive (AI off) before it attacks. 0 = at once. Left / Right 1 s. Applies to the next summon, saved.");
         } else if (item == kItSumSlot) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Despawn all: Training page.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Despawn all: Practice tools.");
         } else if (item == kItRootRematch) {
-            snprintf(footer, nf, "Rematch beaten bosses: Fight now / shrine, death and finisher options, practice, settings.");
+            snprintf(footer, nf, "Rematch beaten bosses: Fight now / shrine, death and finisher options, Practice Yamagata.");
         } else if (item == kItRootTraining) {
-            snprintf(footer, nf, "Training: boss stance, move switches / repeat, despawn, and the arena list (A teleports to that arena).");
+            snprintf(footer, nf, "Practice: the arena list. A enters that arena with its boss in idle stance (Training session).");
+        } else if (item == kItRootTools) {
+            snprintf(footer, nf, "Practice tools: boss stance, move switches (current boss / Boss A / Boss B), repeat delay, despawn all, leave the session.");
+        } else if (item == kItSettings) {
+            snprintf(footer, nf, "All ini preferences. Every change is saved at once and applies after a restart.");
         } else if (item == kItRootSummon) {
             snprintf(footer, nf, "Summon bosses next to you (no load), with a passive time before they attack.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
@@ -3097,14 +3124,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item <= kItSettingBase) {
             const auto& d = kConfigSettings[kItSettingBase - item];
             snprintf(footer, nf, "[%s] %s: %s %s", d.section, d.key, d.help,
-                d.kind == setting_ui::Kind::Manual ? "INI only; no controller edit." : "A / Left / Right edits. Save, then restart; current session unchanged.");
-        } else if (item == kItSave && g_configSaveState.load() == 1) snprintf(footer, nf, "Saving preferences; current session unchanged.");
-        else if (item == kItSave && g_configSaveState.load() == 2) snprintf(footer, nf, "Saved. Restart the game before these preferences apply. * = edited this session.");
-        else if (item == kItSave && g_configSaveState.load() == 3) snprintf(footer, nf, "Save failed (error %lu). Preferences remain here; retry Save.", g_configSaveError.load());
-        else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+                d.kind == setting_ui::Kind::Manual ? "INI only; no controller edit." : g_configSaveState.load() == 3 ? "Auto-save FAILED; the next edit retries." :
+                "A / Left / Right edits, saved at once; applies after a restart.");
+        } else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
-        else if (item == kItSettings || item <= kItGroupBase) snprintf(footer, nf, "Startup preferences only. Settings do not install hooks or enable commands this session. Save then restart.");
-        else if (item == kItSave) snprintf(footer, nf, "Writes only edited preferences. Paths/lists and the unavailable Training Enable key are never written.");
+        else if (item <= kItGroupBase) snprintf(footer, nf, "Startup preferences. Every change is saved automatically and applies after a restart.");
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss, then Fight now or Shrine before the boss. Existing unlock and solo checks apply.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItDeathCut) snprintf(footer, nf, "On: one finisher kills the boss and its death animation plays (no second finisher). The mission's own defeat cutscene is not played. Applies now, saved.");
