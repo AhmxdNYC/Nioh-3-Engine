@@ -3,6 +3,8 @@
 // Colours are 0xAABBGGRR like osd::DrawRect / DrawText. Every helper takes a fade factor (0..1) for the short open fade-in.
 #pragma once
 #include <cstdint>
+#include <cmath>
+#include <cstdio>
 #include <cstring>
 #include "osd.h"
 
@@ -88,16 +90,114 @@ inline void Slider(float x, float y, float w, float lh, float frac, float s, flo
     osd::DrawRect(x + w * frac - kw * 0.5f, y + (lh - kh) * 0.5f - s, kw, kh, Fade(kText, a));
 }
 
-// one button prompt: key cap + label; returns the x after it (with a gap)
-inline float Hint(float x, float y, const char* key, const char* label, float cw, float lh, float s, float a) {
-    const float kw = (float)strlen(key) * cw;
-    osd::DrawRect(x, y - s, kw + cw, lh - s, Fade(kChipBg, a));
-    osd::DrawText(x + cw * 0.5f, y, key, Fade(kChipText, a), s);
-    x += kw + cw * 1.5f;
-    osd::DrawText(x, y, label, Fade(kTextMuted, a), s);
-    return x + (float)strlen(label) * cw + cw * 1.5f;
+// ---- button prompts (#13537). Every prompt is one or more badges of the same height, centred on the text line, then a muted
+// label. Badges: face buttons A / B / X / Y = round badge in the controller colour with a white (Y: dark) letter; the D-pad pairs
+// "LR" / "UD" = a light key cap with two drawn arrow heads (no '<' '>' characters); anything else (LB, RB, Start, Enter, Esc, PgUp ...)
+// = a light rounded key cap with dark text. Keys in one prompt are separated by spaces: Hint(x, y, "LB RB", "Page", ...).
+// All edges are snapped to whole pixels and the rounded shapes are built from non-overlapping rows, so they stay crisp and the open
+// fade does not show seams. y is the text top of the line (as for osd::DrawText); s = text scale, cw = glyph width (kGlyphW * s).
+constexpr uint32_t kBtnA = 0xFF3DA63D, kBtnB = 0xFF2C34D8, kBtnX = 0xFFD86F2E, kBtnY = 0xFF00B4F0;  // Xbox green / red / blue / yellow
+constexpr uint32_t kCapBg = 0xF0DCDCDC, kCapText = 0xFF141414, kHintLabel = 0xFFC8C8C8;
+
+inline float Snap(float v) { return (float)(int)(v + 0.5f); }
+
+// filled rounded rectangle; corner rows are separate 1 px slices (no overlap)
+inline void RoundRect(float x, float y, float w, float h, float r, uint32_t c) {
+    x = Snap(x); y = Snap(y); w = Snap(w); h = Snap(h);
+    if (w <= 0 || h <= 0) return;
+    r = (float)(int)std::fmin(r, std::fmin(w, h) * 0.5f);
+    if (r < 1.0f) { osd::DrawRect(x, y, w, h, c); return; }
+    for (int i = 0; i < (int)r; ++i) {
+        const float dy = r - ((float)i + 0.5f), in = Snap(r - std::sqrt(std::fmax(0.0f, r * r - dy * dy)));
+        osd::DrawRect(x + in, y + (float)i, w - 2.0f * in, 1.0f, c);
+        osd::DrawRect(x + in, y + h - 1.0f - (float)i, w - 2.0f * in, 1.0f, c);
+    }
+    if (h > 2.0f * r) osd::DrawRect(x, y + r, w, h - 2.0f * r, c);
 }
-// width in glyph columns of a Hint(key, label) incl. its trailing gap
-inline float HintCols(const char* key, const char* label) { return (float)strlen(key) + 3.0f + (float)strlen(label); }
+
+// solid arrow head in a box: dir 0 left, 1 right, 2 up, 3 down (1 px slices)
+inline void ArrowHead(float x, float y, float w, float h, int dir, uint32_t c) {
+    x = Snap(x); y = Snap(y); w = Snap(w); h = Snap(h);
+    const bool horiz = dir < 2;
+    const int n = (int)(horiz ? h : w);
+    const float len = horiz ? w : h;
+    for (int i = 0; i < n; ++i) {
+        const float t = 1.0f - std::fabs(((float)i + 0.5f) - (float)n * 0.5f) / ((float)n * 0.5f), l = Snap(len * t);
+        if (l < 1.0f) continue;
+        if (dir == 0) osd::DrawRect(x + w - l, y + (float)i, l, 1.0f, c);
+        else if (dir == 1) osd::DrawRect(x, y + (float)i, l, 1.0f, c);
+        else if (dir == 2) osd::DrawRect(x + (float)i, y + h - l, 1.0f, l, c);
+        else osd::DrawRect(x + (float)i, y, 1.0f, l, c);
+    }
+}
+
+inline float BadgeH(float s) { return Snap((float)osd::kGlyphH * s); }
+// width of one badge for key k (n chars)
+inline float BadgeW(const char* k, size_t n, float cw, float s) {
+    if (n == 1 && strchr("ABXY", k[0])) return BadgeH(s);                                        // round face button
+    if (n == 2 && (!strncmp(k, "LR", 2) || !strncmp(k, "UD", 2))) return Snap(cw * 2.5f);     // D-pad pair
+    return Snap((float)n * cw + cw);                                                            // key cap
+}
+inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, float a) {
+    const float h = BadgeH(s), top = Snap(y), w = BadgeW(k, n, cw, s);
+    if (n == 1 && strchr("ABXY", k[0])) {
+        const uint32_t bg = k[0] == 'A' ? kBtnA : k[0] == 'B' ? kBtnB : k[0] == 'X' ? kBtnX : kBtnY;
+        RoundRect(x, top, w, h, h * 0.5f, Fade(bg, a));
+        const char t[2] = {k[0], 0};
+        osd::DrawText(Snap(x + (w - cw) * 0.5f), Snap(top + (h - (float)osd::kGlyphH * s) * 0.5f + 0.5f * s), t,  // caps sit on font rows 3..11
+                      Fade(k[0] == 'Y' ? kCapText : 0xFFFFFFFFu, a), s);
+        return;
+    }
+    RoundRect(x, top, w, h, h * 0.3f, Fade(kCapBg, a));
+    if (n == 2 && (!strncmp(k, "LR", 2) || !strncmp(k, "UD", 2))) {  // two arrow heads, centred in the cap
+        const float ah = Snap(h * 0.5f), aw = Snap(ah * 0.6f), cy = top + Snap((h - ah) * 0.5f), gap = Snap(cw * 0.35f);
+        const float x0 = x + Snap((w - (2.0f * aw + gap)) * 0.5f);
+        if (k[0] == 'L') { ArrowHead(x0, cy, aw, ah, 0, Fade(kCapText, a)); ArrowHead(x0 + aw + gap, cy, aw, ah, 1, Fade(kCapText, a)); }
+        else {  // up / down: the heads stand side by side, each ah wide and aw tall
+            const float vx0 = x + Snap((w - (2.0f * ah + gap)) * 0.5f), vy = top + Snap((h - aw) * 0.5f);
+            ArrowHead(vx0, vy, ah, aw, 2, Fade(kCapText, a)); ArrowHead(vx0 + ah + gap, vy, ah, aw, 3, Fade(kCapText, a));
+        }
+        return;
+    }
+    char t[16];
+    snprintf(t, sizeof t, "%.*s", (int)(n < 15 ? n : 15), k);
+    osd::DrawText(Snap(x + cw * 0.5f), top, t, Fade(kCapText, a), s);
+}
+
+// width of a whole prompt incl. its trailing gap
+inline float HintW(const char* keys, const char* label, float cw, float s) {
+    float w = 0;
+    for (const char* p = keys; *p;) {
+        while (*p == ' ') ++p;
+        const char* e = p;
+        while (*e && *e != ' ') ++e;
+        if (e > p) w += BadgeW(p, (size_t)(e - p), cw, s) + Snap(cw * 0.25f);
+        p = e;
+    }
+    return w + Snap(cw * 0.35f) + (float)strlen(label) * cw + Snap(cw * 2.0f);
+}
+// one prompt: badges + label; returns the x after it (with the gap to the next prompt)
+inline float Hint(float x, float y, const char* keys, const char* label, float cw, float lh, float s, float a) {
+    (void)lh;
+    x = Snap(x);
+    for (const char* p = keys; *p;) {
+        while (*p == ' ') ++p;
+        const char* e = p;
+        while (*e && *e != ' ') ++e;
+        if (e > p) { Badge(x, y, p, (size_t)(e - p), cw, s, a); x += BadgeW(p, (size_t)(e - p), cw, s) + Snap(cw * 0.25f); }
+        p = e;
+    }
+    x += Snap(cw * 0.35f);
+    osd::DrawText(x, Snap(y), label, Fade(kHintLabel, a), s);
+    return x + (float)strlen(label) * cw + Snap(cw * 2.0f);
+}
+// draws prompts left to right from x while they fit before `right`; stops at the first that does not
+struct HintItem { const char* keys; const char* label; };
+inline void HintRow(float x, float y, float right, const HintItem* items, int n, float cw, float lh, float s, float a) {
+    for (int i = 0; i < n; ++i) {
+        if (x + HintW(items[i].keys, items[i].label, cw, s) - Snap(cw * 2.0f) > right) break;
+        x = Hint(x, y, items[i].keys, items[i].label, cw, lh, s, a);
+    }
+}
 
 }  // namespace menu_style

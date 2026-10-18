@@ -240,7 +240,7 @@ int main() {
             CHECK(osd::drawnRects.size()==2 && osd::drawnTexts.size()==3);
             for(const auto& r:osd::drawnRects)CHECK(r.x>=0&&r.y>=0&&r.w>0&&r.h>0&&r.x+r.w<=width&&r.y+r.h<=height);
             CHECK(osd::drawnTexts[0]=="Loading boss match");
-            CHECK(osd::drawnTexts[1]==(phase==1?"Preparing...":phase==2?"Starting rematch...":"Entering boss arena..."));
+            CHECK(osd::drawnTexts[1]==(phase==1?"Preparing...":phase==2?"Starting boss match...":"Entering boss arena..."));
             for(const auto& text:osd::drawnTexts)CHECK(text.find("INTERNAL")==std::string::npos&&text.find('%')==std::string::npos);
         }
     }

@@ -55,7 +55,7 @@ int main() {
     }
     CHECK(tuneCalls == 2 && !idleCalls && !moveCalls && items[n - 1] == kItBack);
     CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);
-    // user #13293 Practice: Train here (where I am) / Train in a boss arena / Training Mods / Summon a boss where I am / Boss Matches
+    // user #13293 Practice: Train here / Train in a boss arena / Training mods / Summon a boss here / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
     n = Items(items, kMaxRows + 4);
     CHECK(n == 6 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItBossSumm && items[4] == kItRootRematch && items[5] == kItBack);
@@ -64,7 +64,7 @@ int main() {
     n = Items(items, kMaxRows + 4);
     for (int i = 0; i < n; ++i) CHECK((items[i] >= kItTeleport && items[i] < kItSummonA) || items[i] == kItBack);
     CHECK(items[n - 1] == kItBack && !UiBack() && g_uiPages.page == uPracticeHub && g_sel == 1);
-    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);  // Training Mods
+    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);  // Training mods
     n = Items(items, kMaxRows + 4);
     int seen = 0;
     for (int i = 0; i < n; ++i) {
@@ -88,7 +88,7 @@ int main() {
     n = Items(items, kMaxRows + 4);
     CHECK(n == 2 && items[0] == kItTrainHere && items[1] == kItBack);
     UiRow rows[24]; char footer[240];
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Train here (where I am)") && strstr(rows[1].text, "Summon Test"));
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Train here") && strstr(rows[1].text, "Summon Test"));
     g_sel = 0; CHECK(UiAct() && trainHereCalls == 1 && trainHereMission == 0x1CBC);
     // host first page -> Practice / Boss Rematch as the base page: Back closes to the host
     UiOpenAt(2); CHECK(g_uiPages.page == uPracticeHub && UiBack());
@@ -106,7 +106,7 @@ int main() {
     for (int i = 0; i < 40; ++i) UiChange(-1);
     CHECK(passiveMs == 0);
     g_sel = 1; UiChange(1); n = Items(items, kMaxRows + 4); CHECK(items[2] == kItSummonB);
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Summon a boss where I am") && strstr(rows[1].text, "-- Options --"));
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Summon a boss here") && strstr(rows[1].text, "-- Options --"));
     g_sel = 2; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
     // user #13262: the Return gate page follows the session mode; #13265: boss-fight toggles reachable in Training
     auto has = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return true; return false; };
@@ -130,6 +130,6 @@ int main() {
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
     sessionMode = 0;
     (void)bossLive;
-    puts("PASS: root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training Mods / Summon a boss where I am / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
+    puts("PASS: root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
     return 0;
 }

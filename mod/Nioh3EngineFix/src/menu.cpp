@@ -2230,12 +2230,9 @@ float DrawRematchHost(unsigned W, unsigned H) {
     // button prompts in a darker footer band
     y = y0 + h - hintH;
     osd::DrawRect(x + scale, y, width - 2.f * scale, hintH - scale, ms::Fade(ms::kFooterBg, a));
-    const float hy = y + pad * 0.5f + scale;
-    float hx = tx;
-    hx = ms::Hint(hx, hy, "A", "Select", cw, line, scale, a);
-    hx = ms::Hint(hx, hy, "B", "Back", cw, line, scale, a);
-    hx = ms::Hint(hx, hy, "</>", "Change", cw, line, scale, a);
-    if (hx + (ms::HintCols("LB/RB", "Page") - 1.5f) * cw <= x + width - pad) ms::Hint(hx, hy, "LB/RB", "Page", cw, line, scale, a);
+    const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale)) * 0.5f);  // badges centred in the band (#13537)
+    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}};
+    ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
     return scale;
 }
 
@@ -2277,7 +2274,7 @@ float DrawImpl(unsigned W, unsigned H) {
         osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
         osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
         const char* stage=g_rematchView.coverPhase==1?"Preparing...":
-            (g_rematchView.coverPhase==2?"Starting rematch...":"Entering boss arena...");
+            (g_rematchView.coverPhase==2?"Starting boss match...":"Entering boss arena...");
         osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
         osd::DrawText(x,(float)H-50.0f,"B / Escape: show game",0xFFBBBBBB,1.0f);
         g_coverDrawnToken=g_coverToken.load();return scale;
@@ -2346,8 +2343,9 @@ float DrawImpl(unsigned W, unsigned H) {
             const auto& v = g_configValues.values[(size_t)index];
             char lab[128], text[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
-            snprintf(text, sizeof(text), "%.48s%s (%s)", v.text.c_str(), v.changed ? " *" : "",
-                d.kind == setting_ui::Kind::Manual ? "edit in the ini file" : d.apply == setting_ui::Apply::NextLaunch ? "after a restart" : "applies now");
+            // #13296: value only (ON / OFF pill for switches); how it applies is in the explanation below the list
+            snprintf(text, sizeof(text), "%.48s%s", setting_ui::Shown(d, v.text), d.kind == setting_ui::Kind::Manual ? "  (ini only)"
+                : v.changed ? (d.apply == setting_ui::Apply::NextLaunch ? "  * restart to apply" : "  * changed") : "");
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
                 d.kind == setting_ui::Kind::Manual ? cDim : v.changed ? cYellow : cGray, id == g_sel, false);
@@ -2394,7 +2392,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");
         snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
     } else if (g_sel == kPracticeRow) {
-        snprintf(what, sizeof(what), "Train here (where I am), train in a boss arena, Training Mods (stance, moves, repeat), summon a boss where I am.");
+        snprintf(what, sizeof(what), "Train here, train in a boss arena, Training mods (stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if (g_sel >= kSettingRow) {
         const int index = g_sel - kSettingRow;
@@ -2464,9 +2462,9 @@ float DrawImpl(unsigned W, unsigned H) {
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
     } else {
-        addT(g_cfg.layout && g_pages.depth ? "D-pad: move/change  A/Enter: select  B/Esc: back  LB/RB: page" : "D-pad: move/change  A/Enter: select  B/Esc: close  LB/RB: page", cDim);
+        addT(g_cfg.layout && g_pages.depth ? "\x01P" : "\x01p", cDim);  // #13537: drawn as button badges (drawRow)
     }
-    addT("Keyboard: arrows / Enter / Esc / PgUp / PgDn", cDim);
+    addT("\x01K", cDim);
 
     // value column: just right of the longest "name (id)", between 30 and 48 characters
     size_t valueCol = 30;
@@ -2525,6 +2523,19 @@ float DrawImpl(unsigned W, unsigned H) {
     int line = 0;
     auto drawRow = [&](const Row& rw, bool isHead) {
         const float y = y0 + pad + line * lineH;
+        if (rw.label[0] == '\x01') {  // #13537 control prompts: pad (P = back, p = close) or keyboard (K), badges + labels
+            const float right = x0 + w - pad;
+            if (rw.label[1] == 'K') {
+                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}};
+                const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
+                ms::HintRow(kx, y, right, kKeyPrompts, 4, cw, lineH, sc, fa);
+            } else {
+                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}};
+                ms::HintRow(x0 + pad, y, right, kPad, 5, cw, lineH, sc, fa);
+            }
+            ++line;
+            return;
+        }
         if (rw.sel) ms::SelectBar(x0 + sc, y - sc, w - 2 * sc, lineH, sc, fa);
         if (rw.rule && line > 0) ms::Divider(x0 + pad, y + lineH / 2, w - 2 * pad, sc, fa);
         const bool section = !isHead && !rw.value[0] && !rw.tech[0] && rw.lc == cCyan && rw.label[0] && rw.label[0] != ' ' && rw.label[0] != '>';

@@ -1739,7 +1739,7 @@ void CoverTick(const Snap& s, ULONGLONG) {
         if(g_req.load() || g_pend){g_cover.End(transition_cover::Failed,"Another request is pending; no transition request sent");return;}
         if(const char* why=Gates(s,false)){g_cover.End(transition_cover::Failed,why);return;}
         if(g_cover.PreplacedRoute() && (!s.msOk || s.ms28==g_cover.mission)) {
-            g_cover.End(transition_cover::Failed,"Leave this dojo before starting another rematch");return;
+            g_cover.End(transition_cover::Failed,"Leave this dojo before starting another boss match");return;
         }
         if(g_cover.Issue(g_attemptSequence+1)){
             Log("Rematch: cover token=%llu phase=%u attempt=%llu event=native_post",g_cover.token,(unsigned)g_cover.phase,g_cover.attempt);
@@ -1889,7 +1889,7 @@ void Tick() {
     {   // user #6779: once the swapped-in boss is dead, point at the way back
         static int lastRet = 0;
         const int f = ReturnInfo();
-        if (f > 0 && (f & 2) && !(lastRet & 2) && (f & 1)) ToastF(cGreen, 8000, "Boss defeated. The Return gate (or Training Mods > Return to where I was) takes you back.");
+        if (f > 0 && (f & 2) && !(lastRet & 2) && (f & 1)) ToastF(cGreen, 8000, "Boss defeated. The Return gate (or Training mods > Return to where I was) takes you back.");
         lastRet = f > 0 ? f : 0;
     }
     if (const uint32_t r = g_req.exchange(0)) {
@@ -2380,7 +2380,7 @@ int Items(int* out, int cap) {
         add(kItClose);
         return n;
     }
-    if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here (where I am) / arena / Training Mods / Summon a boss where I am / Boss Matches
+    if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here / arena / Training mods / Summon a boss here / Boss Matches
         if (TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
         add(kItArenas);
         if (PracticeToolsAvailable()) add(kItRootTools);
@@ -2558,7 +2558,7 @@ void CoverCancel(uint64_t token) { CoverLock lock;if(lock.held)g_cover.Cancel(to
 // local test dispatcher. UI-worker only; native work still requires Present ACK.
 bool BeginHostedFight(int row,uint64_t* token,char* reason,size_t n) {
     const char* why=nullptr;
-    if(!g_live.load())why="rematch unavailable";
+    if(!g_live.load())why="Boss Matches unavailable";
     else if(row<0||(size_t)row>=g_rows.size())why="unknown exact row";
     else if((why=Gates(ReadSnap(),true))!=nullptr){}
     else if(g_status[(size_t)row].load()!=2)why="not beaten on this journey";
@@ -2849,7 +2849,7 @@ bool UiAct() {
     }
     if (item == kItMovesA || item == kItMovesB) {
         const int slot = item == kItMovesB;
-        if (!SlotChr(slot)) { snprintf(g_msg, sizeof g_msg, "Boss %c is empty: summon a boss into slot %c first (Practice > Summon a boss where I am).", 'A' + slot, 'A' + slot); return false; }
+        if (!SlotChr(slot)) { snprintf(g_msg, sizeof g_msg, "Boss %c is empty: summon a boss into slot %c first (Practice > Summon a boss here).", 'A' + slot, 'A' + slot); return false; }
         SetMoveSlot(slot);
         g_uiPages.Enter(uMoves, g_sel);
         g_uiMoveChr = MoveBoss(); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
@@ -3026,7 +3026,7 @@ const char* PageTitle(const char* movesTitle) {
     if (p == uGate) return GateMode() == 2 ? "Return gate - Practice" : GateMode() == 1 ? "Return gate - Boss Match" : "Return gate";
     if (p >= uSettingFirst && p < uSettingFirst + kConfigGroupN) return kConfigGroupLabels[p - uSettingFirst];
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Practice - Train in a boss arena" : p == uPracticeHub ? "Practice"
-         : p == uTrainHere ? "Practice - Train here (where I am)" : p == uSummon ? "Practice - Summon a boss where I am" : p == uTools ? "Practice - Training Mods"
+         : p == uTrainHere ? "Practice - Train here" : p == uSummon ? "Practice - Summon a boss here" : p == uTools ? "Practice - Training mods"
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Practice Yamagata"
          : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uMoves ? movesTitle : "Mod menu";
 }
@@ -3036,7 +3036,7 @@ const char* ItemGroup(int item) {
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Kill and finisher rules (also Practice and summons)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
-    if (p == uGate) return item == kItFightAgain ? "This fight" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training Mods";
+    if (p == uGate) return item == kItFightAgain ? "This fight" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training mods";
     if (p == uTools) return item == kItDespawnAll || item == kItBossSumm ? "Summoned bosses" : item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Boss behaviour and move drill";
     if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss to summon" : "Options";
     if (p == uMoves) return IsMoveItem(item) ? "Moves (A: on / off, Right: repeat)" : "Stance and move drill";
@@ -3057,7 +3057,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     TrainingPreload();
     if (g_configSavePending && g_configSaveState.load() != 1) SaveUiSettings();  // user #13197: edit made during a running write
     const Snap s = ReadSnap();
-    const char* gate = !g_live.load() ? "rematch off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
+    const char* gate = !g_live.load() ? "Boss Matches off; settings available" : g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();
     static char movesTitle[96];
     snprintf(movesTitle, sizeof movesTitle, "Boss moves (start a Practice session first)");
@@ -3102,8 +3102,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int index = kItSettingBase - it[i];
             const auto& d = kConfigSettings[index];
             const auto& v = g_configValues.values[(size_t)index];
-            add(sel ? cWhite : d.kind == setting_ui::Kind::Manual ? cDim : cGray, sel, "%s %.48s: %.44s%s (%s)", mk,
-                d.label, v.text.c_str(), v.changed ? " *" : "", d.kind == setting_ui::Kind::Manual ? "edit in the ini file" : "after a restart");
+            // #13296: "Label: ON" (pill), the edit keys as a hint, a short note only when it matters
+            const bool manual = d.kind == setting_ui::Kind::Manual;
+            add(sel ? cWhite : manual ? cDim : cGray, sel, "%s %.48s: %.44s%s%s", mk, d.label, setting_ui::Shown(d, v.text),
+                manual ? "   edit in the ini file" : "   A / Left / Right", !manual && v.changed ? "   changed, restart to apply" : "");
         } else if (it[i] <= kItGroupBase) add(sel ? cWhite : cGray, sel, "%s %s   A: open", mk, kConfigGroupLabels[kItGroupBase - it[i]]);
         else if (it[i] == kItDeathCut || it[i] == kItDeathBlow || it[i] == kItDeathLoot) {
             int loot = 0, blow = 1, cut = 0;
@@ -3170,15 +3172,15 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItRootRematch) add(sel ? cWhite : cGray, sel, "%s Boss Matches   A: open", mk);
         else if (it[i] == kItRootTraining) add(sel ? cWhite : cGray, sel, "%s Practice   A: open", mk);
         else if (it[i] == kItLeaveArena) add(sel ? cWhite : cGreen, sel, "%s Leave arena (stuck: end boss mode, then travel from the map)", mk);
-        else if (it[i] == kItTrainHereOpen) add(sel ? cWhite : cGray, sel, "%s Train here (where I am)   A: open", mk);
+        else if (it[i] == kItTrainHereOpen) add(sel ? cWhite : cGray, sel, "%s Train here   A: open", mk);
         else if (it[i] == kItArenas) add(sel ? cWhite : cGray, sel, "%s Train in a boss arena   A: open", mk);
-        else if (it[i] == kItBossSumm) add(sel ? cWhite : cGray, sel, "%s Summon a boss where I am   A: open", mk);
+        else if (it[i] == kItBossSumm) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
             add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
         }
-        else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss where I am   A: open", mk);
-        else if (it[i] == kItRootTools) add(sel ? cWhite : PracticeSessionLive() ? cGreen : cGray, sel, "%s Training Mods (stance, moves, repeat)   A: open", mk);
+        else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
+        else if (it[i] == kItRootTools) add(sel ? cWhite : PracticeSessionLive() ? cGreen : cGray, sel, "%s Training mods (stance, moves, repeat)   A: open", mk);
         else if (it[i] == kItSumPassive) {
             const int v = SumPassiveGet();
             char val[24];
@@ -3289,13 +3291,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItSumPassive) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Seconds a summoned boss waits (AI off) before it attacks. 0 = at once. Left / Right 1 s. Applies to the next summon, saved.");
         } else if (item == kItSumSlot) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Remove them: Training Mods.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Remove them: Training mods.");
         } else if (item == kItRootRematch) {
             snprintf(footer, nf, "Fight bosses you have beaten again (in their arena or from the shrine before them), and the kill / finisher rules.");
         } else if (item == kItLeaveArena) {
             snprintf(footer, nf, "No mission and a boss fight with no boss (save made in an arena): ends the boss mode so the map / shrine travel works again.");
         } else if (item == kItRootTraining) {
-            snprintf(footer, nf, "Train here or in a boss arena, Training Mods (stance, moves, repeat), summon a boss where you are, Boss Matches.");
+            snprintf(footer, nf, "Train here or in a boss arena, Training mods (stance, moves, repeat), summon a boss where you are, Boss Matches.");
         } else if (item == kItTrainHereOpen) {
             snprintf(footer, nf, "Pick a boss: it appears right where you stand (no load, no teleport) and stands still. If you are beaten, the round restarts here.");
         } else if (item == kItArenas) {
@@ -3303,9 +3305,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItBossSumm) {
             snprintf(footer, nf, "Summon up to two bosses next to you (no load). Set how long they wait before attacking. They use the Boss Match rules.");
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a Practice session with this boss right here. Training Mods: stance / moves / repeat. Return to where I was ends it.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a Practice session with this boss right here. Training mods: stance / moves / repeat. Return to where I was ends it.");
         } else if (item == kItRootTools) {
-            snprintf(footer, nf, "Training Mods: boss stance (wait / normal AI), turn boss moves off or repeat one with a gap, remove summoned bosses, leave.");
+            snprintf(footer, nf, "Training mods: boss stance (wait / normal AI), turn boss moves off or repeat one with a gap, remove summoned bosses, leave.");
         } else if (item == kItFightOpts) {  // user #13265
             snprintf(footer, nf, "Kill and finisher rules: cutscene on kill, final blow, loot, no finisher, kill / HP-0 windows. Used in Boss Matches, Practice and summons. Saved.");
         } else if (item == kItSettings) {
@@ -3485,3 +3487,10 @@ void Command(const char* line, char* reply, size_t n) {
 
 }  // namespace rematch
 }  // namespace addon
+
+// user #13274: Nioh3Training pauses the game while our mod menu is open in a Boss Match. 1 while a Boss Match replay mission, a Fight now
+// start or a native practice attempt is running (read from Nioh3Training's menu-pause thread; atomics only).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_InMatch() {
+    namespace r = addon::rematch;
+    return r::g_replayIn.load() || r::g_fight.load() || r::g_practiceOwned.load() ? 1 : 0;
+}

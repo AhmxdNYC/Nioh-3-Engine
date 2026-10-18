@@ -4348,11 +4348,16 @@ static int MenuPauseBusy(void) {
     const uint8_t* gs = GameState();
     return (gs && gs[2]) || g_rh.active || g_xw.active || g_xr.active || g_fd.pend || g_fd.phase == 2 || (g_ar.active && !g_ar.released) || g_sp.active || g_rq_op;
 }
+// #13274: a Boss Match run by Nioh3BossRematch (native replay mission / Fight now / practice attempt) counts as live too; 0 when the export is missing
+static int MenuPauseRematchMatch(void) {
+    static int (*im)(void); static int tried; if (!im && !tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); im = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_InMatch") : 0; if (!im) Log("MENU PAUSE: Boss Rematch InMatch export missing (Boss Match replays are not paused; Practice still is)"); }
+    return im ? im() : 0;
+}
 static DWORD WINAPI MenuPauseThread(LPVOID p) {
     (void)p; Log("MENU PAUSE (#13274): on while the mod menu is open in a Boss Match / Practice session");
     for (;;) {
         Sleep(30);
-        const int open = GateMenuOpen(), live = g_tr.active || SlotAlive(0) || SlotAlive(1), busy = live && open ? MenuPauseBusy() : 0;
+        const int open = GateMenuOpen(), live = open && (g_tr.active || SlotAlive(0) || SlotAlive(1) || MenuPauseRematchMatch()), busy = live ? MenuPauseBusy() : 0;
         const int want = g_cfg_menupause && open && live && !busy;
         if (want && !g_menu_frozen) MenuFreeze(1, "mod menu opened");
         else if (!want && g_menu_frozen) MenuFreeze(0, !open ? "mod menu closed" : !live ? "session ended" : "a load / swap / summon started");

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,11 @@ struct Def {
     bool experimental;
     const char* help;
 };
+// menu display text of a stored value (#13296): 0|1 switches read ON / OFF (drawn as pills), an empty value reads "(empty)"
+inline const char* Shown(const Def& d, const std::string& v) {
+    if (d.kind == Kind::Choice && d.choices && !std::strcmp(d.choices, "0|1") && (v == "0" || v == "1")) return v == "1" ? "ON" : "OFF";
+    return v.empty() ? "(empty)" : v.c_str();
+}
 inline bool Number(const std::string& s, double& v) {
     char* end = nullptr;
     v = std::strtod(s.c_str(), &end);
