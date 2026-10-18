@@ -303,6 +303,7 @@ int main() {
             "-- Options --", "> Wait before attacking: 5 s     Left / Right", "  Summon into: Boss A (now: Tachibana Muneshige the Thunder God of Kyushu)",
             "  Cutscene on kill:        ON   A / Left / Right   (n/a: Final blow required is OFF)",
             "  0x00A1  RPT  Overhead slash into a delayed sweeping kick follow-up with grab (?)",
+            "  0x4E30  REPEAT  Unlabelled action",  // user #13618: the repeating move row shows a REPEAT pill
             "      Teleport to arena (fast load)   - not beaten on this journey and some more words to force a wrap",
             "  Return to where I was   <- boss defeated: A takes you back", "  Arenas   A: open",
             "  Kashin Koji                              Kyoto      beaten     Native         unverified"};
@@ -317,16 +318,17 @@ int main() {
             const auto panel=osd::drawnRects[0]; const float cw=osd::kGlyphW*sc;
             CHECK(panel.w/cw>=58.f && panel.x>=(float)width*0.5f && panel.h<=0.70f*(float)height);
             for(const auto& r:osd::drawnRects)CHECK(r.x>=panel.x-1&&r.y>=panel.y-1&&r.x+r.w<=panel.x+panel.w+1&&r.y+r.h<=panel.y+panel.h+1);
-            bool sawPill=false,sawWrap=false,sawHeader=false;
+            bool sawPill=false,sawWrap=false,sawHeader=false,sawRepeat=false;
             for(size_t i=0;i<osd::drawnTexts.size();++i){
                 if(!(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f))printf("W%u x=%.1f px=%.1f pw=%.1f cw=%.1f [%s]\n",width,osd::drawnTextX[i],panel.x,panel.w,cw,osd::drawnTexts[i].c_str());
                 CHECK(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f);
                 CHECK(osd::drawnTexts[i].find("Left / Right")==std::string::npos && osd::drawnTexts[i].find("A: open")==std::string::npos);
-                sawPill|=osd::drawnTexts[i]=="ON"||osd::drawnTexts[i]=="RPT"; sawWrap|=osd::drawnTexts[i].find("Kyushu)")!=std::string::npos;
+                sawPill|=osd::drawnTexts[i]=="ON"||osd::drawnTexts[i]=="RPT"; sawRepeat|=osd::drawnTexts[i]=="REPEAT"; sawWrap|=osd::drawnTexts[i].find("Kyushu)")!=std::string::npos;
                 sawHeader|=osd::drawnTexts[i]=="Options"; CHECK(osd::drawnTexts[i].find("--")==std::string::npos);
             }
             if(!sawPill||!sawWrap){printf("pill %d wrap %d\n",sawPill,sawWrap);for(auto&t:osd::drawnTexts)printf("  [%s]\n",t.c_str());}
-            CHECK(sawPill && sawWrap && sawHeader);
+            CHECK(sawPill && sawWrap && sawHeader && sawRepeat);
+            { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
         }
         g_rematchFreshAt=0; v={};
     }

@@ -8,8 +8,18 @@ static int IdleGet() { return 0; }
 static int IdleSet(int) { ++idleCalls; return 1; }
 static bool bossLive = true;
 static unsigned BossGet() { return bossLive ? 16102u : 0u; }
-static int MoveGet(unsigned, unsigned) { return 1; }
-static int MoveSet(unsigned, unsigned, int, int) { ++moveCalls; return 1; }
+static int moveOff[0x10000];  // 1 = that action id is OFF (Yoritomo only in this fixture)
+static int MoveGet(unsigned, unsigned id) { return !moveOff[id & 0xFFFF]; }
+static int MoveSet(unsigned, unsigned id, int on, int) { ++moveCalls; moveOff[id & 0xFFFF] = !on; return 1; }
+// user #13618: Repeat exports (one repeat per boss, protected idle / init refused like the real Nioh3Training_SetMoveRepeat)
+static unsigned repChr, repId; static int repArms, repStops;
+static int RepSet(unsigned chr, unsigned id, int on) {
+    if (!on) { ++repStops; if (repChr == chr) repChr = repId = 0; return 1; }
+    if (id == 0 || id == 2) return 0;
+    ++repArms; repChr = chr; repId = id; return 1;
+}
+static unsigned RepGet(unsigned chr) { return chr == repChr ? repId : 0; }
+static int RepGapGet() { return 1250; }
 static int summonCalls, summonSlot = -1, passiveMs = 3000; static unsigned summonMission;
 static int SummonSlot(int slot, unsigned mission) { ++summonCalls; summonSlot = slot; summonMission = mission; return 1; }
 static int PassiveGet() { return passiveMs; }
@@ -27,6 +37,7 @@ static FARPROC TestProc(HMODULE, const char* name) {
     EXPORT("SummonSlot", SummonSlot); EXPORT("GetSummonPassive", PassiveGet); EXPORT("SetSummonPassive", PassiveSet); EXPORT("TrainHere", TrainHere);
     EXPORT("SessionMode", SessionMode); EXPORT("GateFightAgain", GateFightAgain);
     EXPORT("GetMoveBoss", BossGet); EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
+    EXPORT("SetMoveRepeat", RepSet); EXPORT("GetMoveRepeat", RepGet); EXPORT("GetRepeatGap", RepGapGet);
 #undef EXPORT
     return nullptr;
 }
@@ -75,13 +86,52 @@ int main() {
     CHECK(moves >= 0 && seen == 15);
     g_sel = moves; CHECK(!UiAct() && g_uiPages.page == uMoves);
     n = Items(items, kMaxRows + 4);
-    CHECK(n == 16); // Yoritomo: 14 recorded entries + idle control + Back
+    // Yoritomo: Repeat selected move + Repeating move + idle control + 14 recorded entries + Back (user #13618)
+    CHECK(n == 18 && items[0] == kItRepSel && items[1] == kItRepNow && items[2] == kItIdleHold);
+    int rowOff = -1, rowOn = -1;
     for (int i = 0; i < n; ++i) {
         for (int j = i + 1; j < n; ++j) CHECK(items[i] != items[j]);
         if (items[i] == kItIdleHold) { g_sel = i; UiChange(1); CHECK(!UiAct()); }
-        if (IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(-1); }
+        if (IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) {
+            g_sel = i; CHECK(!UiAct()); CHECK(moveOff[kN3Moves[items[i]-kItMoveBase].id]);  // A: ON -> OFF
+            if (rowOff < 0) rowOff = i; else if (rowOn < 0) { rowOn = i; CHECK(!UiAct()); CHECK(!moveOff[kN3Moves[items[i]-kItMoveBase].id]); }  // A again: ON
+        }
     }
-    CHECK(tuneCalls == 2 && idleCalls == 2 && moveCalls == 12);
+    CHECK(tuneCalls == 2 && idleCalls == 2 && moveCalls == 13 && !repArms);
+    UiRow mrows[40]; char mfooter[240];
+    {   // user #13618: Right on an OFF move switches it ON and arms the repeat at once (was: only switched ON, the repeat never armed)
+        const N3Move& off = kN3Moves[items[rowOff] - kItMoveBase];
+        CHECK(moveOff[off.id] && !RepGet(16102));
+        g_sel = rowOff; UiChange(1);
+        CHECK(!moveOff[off.id] && repArms == 1 && RepGet(16102) == off.id && moveCalls == 14);
+        char tb[160]; uint32_t tc = 0;
+        CHECK(Toast(tb, sizeof tb, tc) && strstr(tb, "REPEAT") && tc == cGreen);
+        const int k = UiFill(mrows, 40, mfooter, sizeof mfooter);
+        bool pill = false, top = false, sel = false;
+        char want[16]; snprintf(want, sizeof want, "0x%04X  REPEAT", off.id);
+        char what[64]; snprintf(what, sizeof what, "Boss uses 0x%04X each time it attacks (gap 1.25 s)", off.id);
+        for (int i = 0; i < k; ++i) {
+            pill |= strstr(mrows[i].text, want) != nullptr;
+            top |= strstr(mrows[i].text, "Repeating move: ") && strstr(mrows[i].text, what);
+            sel |= strstr(mrows[i].text, "Repeat selected move: ") != nullptr;
+        }
+        CHECK(pill && top && sel && strstr(mfooter, "REPEAT"));
+        // Right on another (ON) move moves the repeat there; Left anywhere stops it; Left again: nothing repeating (toast says so)
+        const N3Move& on = kN3Moves[items[rowOn] - kItMoveBase];
+        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id && repArms == 2 && moveCalls == 14);
+        g_sel = rowOff; UiChange(-1); CHECK(!RepGet(16102) && repStops == 1 && moveCalls == 14);
+        g_sel = rowOff; UiChange(-1); CHECK(repStops == 1 && Toast(tb, sizeof tb, tc) && strstr(tb, "No move is repeating"));
+        // 'Repeat selected move' (row 0): A repeats the last move the user pressed a button on (rowOff)
+        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == off.id && repArms == 3);
+        // A turning a repeating move OFF also stops its repeat
+        g_sel = rowOff; CHECK(!UiAct() && moveOff[off.id] && !RepGet(16102));
+        // Right on idle / init: refused with a reason, nothing armed
+        for (int i = 0; i < n; ++i) if (IsMoveItem(items[i]) && N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(1); break; }
+        CHECK(!RepGet(16102) && repArms == 3 && Toast(tb, sizeof tb, tc) && tc == cRed && strstr(tb, "cannot be repeated"));
+        // 'Repeating move' row: A stops
+        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id); g_sel = 1; CHECK(!UiAct() && !RepGet(16102));
+        for (int i = 0; i < 0x10000; ++i) moveOff[i] = 0;
+    }
     CHECK(!UiBack() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uPracticeHub);
     // Training here: boss list, A queues the in-place session and closes
     g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uTrainHere);
@@ -130,6 +180,6 @@ int main() {
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
     sessionMode = 0;
     (void)bossLive;
-    puts("PASS: root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
+    puts("PASS: Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
     return 0;
 }

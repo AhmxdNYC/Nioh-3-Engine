@@ -9,7 +9,13 @@
 static uintptr_t B;
 static char g_dir[MAX_PATH];
 static struct { int active; uint32_t chr; } g_tr;
-static struct { int active; uint32_t id; } g_bm;
+static struct { int active; uint32_t id; uint64_t actor; } g_bm;
+// bridge 12666 summon slots (none in this fixture) and the pump-side natives move_toggle.h now uses
+static int g_nsp; static uint64_t g_sp_actor[2]; static uint32_t g_sp_chr[2];
+static uint32_t Nioh3Training_SlotChr(int slot) { (void)slot; return 0; }
+static uint32_t ActIdOf(uint64_t st) { (void)st; return 0xFFFFFFFFu; }
+static int standing;  // drill.h MvRepStanding stand-in
+
 static int read_ok = 1, hook_calls;
 static uint64_t player = 0x4000, actor = 0x1000;
 static uint64_t ActorByHandle(uint32_t id) { return id == 7 ? actor : 0; }
@@ -36,12 +42,14 @@ static void* Hook(uintptr_t rva, int ncopy, void* detour) {
 }
 static uint32_t IhSelect(uint64_t st, uint32_t id) { (void)st; return id; }
 #include "../src/move_toggle.h"
+static inline int MvRepStanding(uint32_t chr) { (void)chr; return standing; }
 
 static void Pick(uint32_t id) {
     selection_calls = 0;
     for (int i = 0; i < 10; ++i) selected[i] = id;
 }
 int main(void) {
+    (void)MvRepTick;  // pump-only (needs the game image)
     assert(N3_MOVE_COUNT == 202);
     // Startup: no Training session, no boss identity, and no game image needed.
     assert(!g_tr.active && !g_bm.active && !B);
@@ -134,6 +142,37 @@ int main(void) {
     assert(g_mv_hooked == -1 && hook_calls == 2);
     assert(Nioh3Training_GetMoveHookStatus() == -1);
     free((void*)B);
+    // user #13618: Repeat arms for every editable catalogue entry (unlabelled ones included), wins the AI pick, passes the commit veto even when
+    // the move is OFF, and refuses only idle / init and unknown ids. Stand still only changes the log text (the drill plays it).
+    {
+        int armed = 0, unlabelled = 0;
+        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_cfg_rep_gap = 0;
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) {
+            const N3Move* r = &kN3Moves[i];
+            g_tr.chr = r->chr; standing = i & 1;
+            if (N3MoveProtected(r->id)) { assert(Nioh3Training_SetMoveRepeat(r->chr, r->id, 1) == 0 && Nioh3Training_GetMoveRepeat(r->chr) == 0); continue; }
+            assert(Nioh3Training_SetMoveAllowed(r->chr, r->id, 0, 0) == 1);   // OFF, then Right: the menu switches it ON, but OFF must still work
+            assert(Nioh3Training_SetMoveRepeat(r->chr, r->id, 1) == 1 && Nioh3Training_GetMoveRepeat(r->chr) == r->id);
+            Pick(0x4E20 + 0x7FF); selected[0] = r->id == 0x4E21 ? 0x4E22 : 0x4E21;
+            for (int k = 0; k < N3_MOVE_COUNT; ++k) if (kN3Moves[k].chr == r->chr && kN3Moves[k].id >= 0x4E20 && kN3Moves[k].id != r->id) { selected[0] = kN3Moves[k].id; break; }
+            if (N3MoveFind(r->chr, selected[0]) >= 0) { selection_calls = 0; assert(h_mvsel(0x3000, 0) == r->id); }
+            assert(h_mvcom(0x3000, r->id, 0, 0, 0) == 1 && committed == r->id);   // OFF but repeating: not vetoed
+            assert(Nioh3Training_SetMoveRepeat(r->chr, 0, 0) == 1 && Nioh3Training_GetMoveRepeat(r->chr) == 0);
+            assert(h_mvcom(0x3000, r->id, 0, 0, 0) == 0 && committed == 0xFFFF);  // repeat stopped: OFF vetoes again
+            assert(Nioh3Training_SetMoveAllowed(r->chr, r->id, 1, 0) == 1);
+            ++armed; unlabelled += !*r->label;
+        }
+        assert(Nioh3Training_SetMoveRepeat(123, 0x4E21, 1) == 0);   // unknown boss / id
+        // table of 8 bosses: a 9th distinct boss is refused, re-arming an armed boss replaces its move in place
+        uint32_t chrs[16]; int nc = 0;
+        for (int i = 0; i < N3_MOVE_COUNT && nc < 16; ++i) { int dup = 0; for (int k = 0; k < nc; ++k) dup |= chrs[k] == kN3Moves[i].chr; if (!dup) chrs[nc++] = kN3Moves[i].chr; }
+        int ok = 0;
+        for (int k = 0; k < nc; ++k) { int idx = -1; for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chrs[k] && !N3MoveProtected(kN3Moves[i].id)) { idx = i; break; }
+            if (idx >= 0) ok += Nioh3Training_SetMoveRepeat(chrs[k], kN3Moves[idx].id, 1); }
+        assert(nc > MV_REP_MAX && ok == MV_REP_MAX);
+        for (int k = 0; k < nc; ++k) Nioh3Training_SetMoveRepeat(chrs[k], 0, 0);
+        printf("PASS: repeat armed on %d editable entries (%d unlabelled), OFF moves too, protected / unknown refused, table limit %d\n", armed, unlabelled, MV_REP_MAX);
+    }
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
 }

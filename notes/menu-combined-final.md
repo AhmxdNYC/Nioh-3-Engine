@@ -61,3 +61,15 @@ run_settings_preservation (build.bat not on PATH), settings/test_catalog (uncove
 - Not merged: pc/menu-fixes-3 (control-hint icons) had only uncommitted work at commit time.
 - Needs in-game check: gate on the floor in a cross-world arena; tap A opens 'Return gate - Practice'; holding A opens no native box;
   Start x3 in Practice / Boss Match; drill plays the move with the AI off (log 'DRILL ... forced', or the fallback line).
+
+## Repeat controls redo (user #13618, shot-13618)
+- Root cause: offline the arm path works (Nioh3Training_SetMoveRepeat arms all 181 editable entries incl. 144 unlabelled, OFF moves too, Stand still drill
+  reads the same MvRepeatId). The live log had no 'REPEAT' line because the user never armed one: Right on an OFF move only switched it ON
+  (repeat needed old > 0, i.e. a second Right), A on a move never repeats, and the only feedback was the footer (cleared on every Up/Down).
+- Now on a move row: A = ON / OFF (OFF also stops its repeat), Right = ALWAYS repeat (OFF -> ON first), Left = stop. Top rows: 'Repeat selected move'
+  (A repeats the last move a button was pressed on, else the first ON move) and 'Repeating move: 0x4E30 <name>   Boss does 0x4E30 every 1.25 s,
+  stands still between' (Fight normally: 'Boss uses 0x4E30 each time it attacks (gap 1.25 s)'). Move row value 'REPEAT' = amber pill (menu_style.h).
+  2 s toast on arm / stop / failure (with reason). Logs: 'Rematch: REPEAT arm (...)' / 'arm FAILED' / 'stop', Training 'REPEAT chr .. ON (.., Stand still|Fight
+  normally, move ON|OFF, hooks n)' and 'REPEAT .. refused: <reason>'.
+- Tests: move_toggle_test fixture fixed (g_nsp / g_sp_* / ActIdOf, -fms-extensions) and extended with repeat arming; move_integration_harness covers
+  Right-on-OFF arming, Left stop, Repeat selected move, REPEAT pill, top-row text, toasts. Needs in-game check: drill plays with the menu closed.

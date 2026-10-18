@@ -158,17 +158,26 @@ N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed,
     Log("MOVEMENU chr %u action 0x%X %s%s", chr, id, allowed ? "ON" : "OFF", persist ? " saved" : "");
     return 1;
 }
+static inline int MvRepStanding(uint32_t chr);  // drill.h / training.c: 1 = Stand still holds this boss (the drill plays the repeat)
 // bridge 12953: on = 1 repeats (chr, id), on = 0 stops that boss's repeat. 1 = done, 0 = unknown move / table full.
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
     int i = MvRepFind(chr);
-    if (!on) { if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); g_rep_st[i] = 0; } return 1; }
-    if (N3MoveFind(chr, id) < 0 || N3MoveProtected(id)) return 0;
+    if (!on) {
+        if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); g_rep_st[i] = 0; }
+        else Log("REPEAT chr %u stop: nothing was repeating", chr);
+        return 1;
+    }
+    // user #13618: every refusal is logged with its reason (the live log had no trace of a failed or missing arm)
+    if (N3MoveFind(chr, id) < 0) { Log("REPEAT chr %u 0x%X refused: not in this boss's recorded move list", chr, id); return 0; }
+    if (N3MoveProtected(id)) { Log("REPEAT chr %u 0x%X refused: idle / initialization cannot be repeated", chr, id); return 0; }
     if (i < 0) for (int k = 0; k < MV_REP_MAX; ++k) if (!g_rep_chr[k]) { i = k; break; }
-    if (i < 0) return 0;
+    if (i < 0) { Log("REPEAT chr %u 0x%X refused: %d bosses already repeat a move (stop one first)", chr, id, MV_REP_MAX); return 0; }
     InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; g_rep_end[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
     InterlockedExchange(&g_mv_install_pending, 1);
     for (int k = 0; k < g_nsp; ++k) { uint64_t a = g_sp_actor[k], ai = 0, ctrl = 0; if (a && g_sp_chr[k] == chr && Rd64(a + 0x3B0, &ai) && ai) Rd64(ai + 8, &ctrl); if (a && g_sp_chr[k] == chr) Log("REPEAT chr %u actor %p ai %p ctrl %p", chr, (void*)a, (void*)ai, (void*)ctrl); }
-    Log("REPEAT chr %u 0x%X ON (gap %d ms)", chr, id, g_cfg_rep_gap);
+    Log("REPEAT chr %u 0x%X ON (gap %d ms, %s, move %s, hooks %ld)", chr, id, g_cfg_rep_gap,
+        MvRepStanding(chr) ? "Stand still: drill forces it every gap" : "Fight normally: used at each AI pick",
+        MvBlocked(chr, id) ? "OFF (repeat still allowed)" : "ON", (long)g_mv_hooked);
     return 1;
 }
 N3T_API uint32_t Nioh3Training_GetMoveRepeat(uint32_t chr) { return MvRepeatId(chr); }

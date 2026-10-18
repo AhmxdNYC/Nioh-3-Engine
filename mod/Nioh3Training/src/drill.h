@@ -19,6 +19,8 @@ static void DrStop(const char* why) {
     InterlockedExchange(&g_ih_drill_ai, 0);
     InterlockedExchange(&g_dr_state, 0);
 }
+// user #13618 (move_toggle.h REPEAT log): 1 = the Stand still stance holds this boss, so the drill (not the AI) plays its repeat
+static inline int MvRepStanding(uint32_t chr) { return chr && g_ih.phase == 2 && g_ih.chr == chr; }
 // 0 no drill, 1 drill (boss stands still, does the move every gap), 2 drill with the boss AI on (fallback)
 N3T_API int Nioh3Training_GetDrill(void) { return (int)InterlockedCompareExchange(&g_dr_state, 0, 0); }
 static void DrillTick(void) {
