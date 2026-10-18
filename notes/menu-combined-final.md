@@ -42,3 +42,22 @@ run_settings_preservation (build.bat not on PATH), settings/test_catalog (uncove
   shows 'Boss moves - <name> (none recorded yet)' and needs an ACTLOG capture first.
 - (3) Arena / Train here / Summon rows printed the name with %.34s / %.40s: now the full name; the hosted panel word-wraps at 58 cols.
 - Test fix: idle_hold_test expected a 10 s acquisition timeout, code is 20 s (failed on base too). Added adoption cases.
+
+## pc/menu-fixes-2 (user #13529 / #13548, live log 11:47-11:59 on c3ab21b)
+- (A) Gate floating: root cause in GateGroundY. The cross-world arena hold froze the player at the warp pose (y 15111) for ~9 s; those trail
+  samples have the same x/z as the later standing ones (15016), so the 'nearest 3' pick tied and kept the frozen ones ('y 15111 -> 15111').
+  Now the lowest sample within 500 u of the gate (+ the player's feet when near). Gate opened no menu: with ReturnGateAlways the Practice boss is
+  alive all session and every own open path (pad A, stand-on, mask) was idle-only (!boss); only the native gadget interact was left, out of reach
+  of the floating gadget (no GATE interact line in the log). Now in a Practice session or while Stand still holds the boss: tap A at the gate
+  (ReturnGateRadius, |dy| < 250) opens our page (#13548 single click), and the face buttons are hidden from the game there (EngineFix lease;
+  a held button stays hidden until released = hold-cancel), so the native hold-interact / mission menus never open.
+- (B) Start x3 / Esc x3 / menu key open the current mode's page (EngineFix OpenModePage: Nioh3Training_SessionMode 2 or summoned bosses ->
+  Practice, 1 -> Boss Matches, else the first page). B returns to the first page.
+- (C) Return gate page has a Back row (gate is a base page now: Back -> host first page); long pages pin the Back row below the scrolled list.
+- (D) Stance words: 'Stand still (idle)' / 'Fight normally' (+ 'Stand still + drill'). Repeat in Stand still: Idle hold keeps the AI off, so
+  the AI never picked and the repeat never fired. New drill.h: while Stand still holds the boss and a repeat is set, the move is forced
+  (66C4A8) whenever the boss is back at idle and the gap has passed. Fallback: 3 forces that do not start -> AI on for the drill only.
+  Test: tests/drill_test.c (in run_move_toggle_tests.py; move_toggle_test still fails as on base).
+- Not merged: pc/menu-fixes-3 (control-hint icons) had only uncommitted work at commit time.
+- Needs in-game check: gate on the floor in a cross-world arena; tap A opens 'Return gate - Practice'; holding A opens no native box;
+  Start x3 in Practice / Boss Match; drill plays the move with the AI off (log 'DRILL ... forced', or the fallback line).

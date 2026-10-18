@@ -4,6 +4,8 @@ static volatile LONG g_ih_epoch, g_ih_request, g_ih_status;
 static LONG g_ih_serial;
 // Defaults apply only to an explicitly started Training session, never native CPU bosses.
 static volatile LONG g_ih_default_pending, g_ih_idle_stance;
+// user #13529 (drill.h): 1 = the move drill switched the AI on for its fallback; the 100 ms re-check leaves it on while set
+static volatile LONG g_ih_drill_ai;
 static DWORD g_ih_default_start;
 static int g_ih_default_round;
 static void IhDefault(int fresh) {
@@ -36,6 +38,7 @@ static void IhStop(const char* why, int failed) {
         IhNativeAi(g_ih.actor, 1);
     if (g_ih.phase) Log("IDLEHOLD stop %s: phase %d actor %p owned %d", why, g_ih.phase, (void*)g_ih.actor, g_ih.owns_ai);
     InterlockedExchange(&g_ih_default_pending, 0);
+    InterlockedExchange(&g_ih_drill_ai, 0);
     memset(&g_ih, 0, sizeof g_ih);
     InterlockedExchange(&g_ih_request, 0);
     InterlockedExchange(&g_ih_status, failed ? -1 : 0);
@@ -164,7 +167,7 @@ static void IhTick(void) {
         g_ih.recheck = now;
         int ai = BhAiOn(g_ih.actor);
         if (ai < 0) { IhStop("AI state unreadable", 1); return; }
-        if (ai == 1) IhNativeAi(g_ih.actor, 0);
+        if (ai == 1 && !InterlockedCompareExchange(&g_ih_drill_ai, 0, 0)) IhNativeAi(g_ih.actor, 0);  // drill fallback keeps it on
         // Hits may play native reactions: this is an AI pause, not an animation freeze.
     }
 }

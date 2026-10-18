@@ -111,12 +111,12 @@ int main() {
     // user #13262: the Return gate page follows the session mode; #13265: boss-fight toggles reachable in Training
     auto has = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return true; return false; };
     sessionMode = 0; UiGatePage(); n = Items(items, kMaxRows + 4);
-    CHECK(n == 3 && items[0] == kItFightAgain && items[1] == kItReturnHome && items[2] == kItClose);
+    CHECK(n == 4 && items[0] == kItFightAgain && items[1] == kItReturnHome && items[2] == kItBack && items[3] == kItClose);  // #13529 Back row
     sessionMode = 1; n = Items(items, kMaxRows + 4);
-    CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 2] == kItReturnHome && items[n - 1] == kItClose);
+    CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss Match") && !strstr(rows[0].text, "Rematch"));
     sessionMode = 2; n = Items(items, kMaxRows + 4);
-    CHECK(items[0] == kItFightAgain && has(kItIdleHold) && has(kItMoves) && has(kItBossSumm) && has(kItDespawnAll) && has(kItFightOpts) && !has(kItFinT) && items[n - 2] == kItReturnHome && items[n - 1] == kItClose);
+    CHECK(items[0] == kItFightAgain && has(kItIdleHold) && has(kItMoves) && has(kItBossSumm) && has(kItDespawnAll) && has(kItFightOpts) && !has(kItFinT) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Practice") && strstr(rows[1].text, "-- This fight --") && strstr(rows[2].text, "Reset round"));
     for (int i = 0; i < n; ++i) if (items[i] == kItFightOpts) g_sel = i;
     CHECK(!UiAct() && g_uiPages.page == uFightOpts);
@@ -126,6 +126,7 @@ int main() {
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss Match rules"));
     CHECK(!UiBack() && g_uiPages.page == uGate);
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
+    UiGatePage(); CHECK(UiBack());  // #13529: the gate is a base page: Back closes to the host's first page
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
     sessionMode = 0;
     (void)bossLive;

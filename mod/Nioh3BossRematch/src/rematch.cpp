@@ -2213,13 +2213,20 @@ int IdleHoldStatus() {
     const auto f = (Fn)TrainingExport("Nioh3Training_GetIdleHold");
     return f ? f() : -1;
 }
+int DrillState() {  // user #13529: 0 none, 1 drill (boss stands still), 2 drill with the AI on (fallback)
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_GetDrill");
+    return f ? f() : 0;
+}
+const N3Move* RepeatingMove();
 void IdleHoldToggle(int dir) {
     using Fn = int (*)(int);
     const auto f = (Fn)TrainingExport("Nioh3Training_SetIdleHold");
     const int on = dir ? dir > 0 : IdleHoldStatus() <= 0;
     const int ok = f ? f(on) : 0;
-    snprintf(g_msg, sizeof g_msg, "%s", !ok ? "Start a Fight now session with a live boss first." :
-        on ? "Requested: pause the boss at its next safe idle. Player remains usable." : "CPU stance: normal boss AI resumes.");
+    // user #13529: plain stance words (fighting-game training): 'Stand still (idle)' / 'Fight normally'
+    snprintf(g_msg, sizeof g_msg, "%s", !ok ? "Start a Practice session with a live boss first." :
+        on ? "Stand still: the boss stops at its next safe moment. A repeating move still plays every gap (drill)." : "Fight normally: the boss attacks with its own AI again.");
 }
 uint32_t g_uiMoveChr = 0;
 uint32_t MoveBoss() {
@@ -2257,7 +2264,9 @@ void MoveToggle(int item, int dir) {
         const int on = !repeating;
         if (on) for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == move.chr && MoveRepeating(kN3Moves[i])) rep(move.chr, kN3Moves[i].id, 0);
         const int rr = rep(move.chr, move.id, on);
-        snprintf(g_msg, sizeof g_msg, "%s", !rr ? "This action cannot be repeated." : on ? "Repeat ON: the boss uses this move whenever it picks its next attack. Right again stops." : "Repeat stopped; the boss picks its own moves again.");
+        snprintf(g_msg, sizeof g_msg, "%s", !rr ? "This action cannot be repeated." : !on ? "Repeat stopped; the boss picks its own moves again." :
+            IdleHoldStatus() == 2 ? "Drill ON: the boss stands still and does this move once every gap (set above). Right again stops." :
+            "Repeat ON: the boss uses this move every time it attacks (gap set above). Right again stops. Stance Stand still = drill.");
         if (dir > 0 || !on) return;  // A / Left on a repeating move only stop the repeat
     }
     const int rc = f(move.chr, move.id, dir ? dir > 0 : !old, 1);
@@ -2475,6 +2484,7 @@ int Items(int* out, int cap) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
         }
         add(kItReturnHome);
+        add(kItBack);  // user #13529: every page has a Back row (here: back to the mod menu's first page)
         add(kItClose);
         return n;
     }
@@ -2762,9 +2772,9 @@ void UiOpen() {
     g_pageGen0 = g_scanGen.load();
     if (g_live.load()) g_wantScan.store(true);
 }
-void UiGatePage() {
+void UiGatePage() {  // user #13529: the gate page is a base page (no add-on root behind it): Back returns to the host's first page
     UiOpen();
-    g_uiPages.Enter(uGate, 0);
+    g_uiPages.page = uGate;
     g_sel = 0;
 }
 void UiOpenAt(int which) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
@@ -2811,7 +2821,7 @@ bool UiAct() {
         const int rc = f ? f(g_rows[(size_t)row].missionId) : 0;
         Log("Rematch: menu 'Training here' %s -> %d", g_rows[(size_t)row].id, rc);
         if (!rc) { snprintf(g_msg, sizeof g_msg, "Busy (a summon or load is running): try again in a moment."); return false; }
-        ToastF(cGreen, 5000, "Practice: %s, right here (Idle stance, retry in place)...", g_rows[(size_t)row].name);
+        ToastF(cGreen, 5000, "Practice: %s, right here (boss stands still, retry in place)...", g_rows[(size_t)row].name);
         return true;
     }
     if (item == kItDespawnAll) {
@@ -3063,12 +3073,17 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (g_sel >= n) g_sel = n ? n - 1 : 0;
     const bool scanned = g_scanGen.load() != g_pageGen0;
     const bool grouped = ItemGroup(it[0]) != nullptr || (n > 1 && ItemGroup(it[1]) != nullptr);
-    const int vis = cap - 2 - (grouped ? 5 : 0);  // user #13279/#13296: room for the section header rows
-    int first = g_sel - vis / 2;
-    if (first > n - vis) first = n - vis;
+    // user #13529: every page shows its Back row. A long list (arenas, boss moves) scrolled the last row (Back) off the panel, so the Back row is
+    // pinned below the scrolled window; the list window covers the other rows. Up from the top row still wraps to it.
+    const bool pinBack = n > 1 && it[n - 1] == kItBack && n > cap - 2 - (grouped ? 5 : 0);
+    const int nList = pinBack ? n - 1 : n;
+    const int vis = cap - 2 - (grouped ? 5 : 0) - (pinBack ? 1 : 0);  // user #13279/#13296: room for the section header rows
+    const int selList = g_sel < nList ? g_sel : nList - 1;
+    int first = selList - vis / 2;
+    if (first > nList - vis) first = nList - vis;
     if (first < 0) first = 0;
     const char* lastGroup = nullptr;
-    for (int i = first; i < n && k < cap - 1; ++i) {
+    for (int i = first; i < nList && k < cap - 1 - (pinBack ? 1 : 0); ++i) {
         const bool sel = i == g_sel;
         const char* mk = sel ? ">" : " ";
         if (const char* grp = ItemGroup(it[i])) {  // section header (not selectable): "-- Name --"
@@ -3176,8 +3191,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItIdleHold) {
             const int hold = IdleHoldStatus();
             add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
-                "%s Boss stance: %s   A / Left CPU / Right Idle", mk,
-                hold == 2 ? "IDLE" : hold == 1 ? "IDLE (waiting)" : hold < 0 ? "CPU (idle failed)" : "CPU");
+                "%s Boss stance: %s   A / Left fight / Right stand still", mk,  // user #13529: no 'CPU' / 'IDLE' jargon
+                hold == 2 ? (RepeatingMove() ? "Stand still + drill" : "Stand still (idle)") : hold == 1 ? "Stand still (getting ready)" : hold < 0 ? "Fight normally (stand still failed)" : "Fight normally");
         }
         else if (it[i] == kItRepNow) {  // user #13293
             const N3Move* m = RepeatingMove();
@@ -3209,7 +3224,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %s", mk, g_rows[(size_t)row].name /* ally #89: full name, the host panel word-wraps (58 cols) */);
             else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - %s", mk, why);
-            else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (fast load)   boss summoned in idle stance", mk);
+            else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (fast load)   boss stands still", mk);
         } else if (it[i] >= kItShrine) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
             const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
@@ -3241,6 +3256,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                     r.route == rcore::kX ? "" : r.Verified() ? "" : "unverified");
         }
     }
+    if (pinBack && k < cap) add(g_sel == n - 1 ? cWhite : cGray, g_sel == n - 1, "%s Back   B / Esc / Backspace", g_sel == n - 1 ? ">" : " ");
     if (footer && nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
@@ -3254,14 +3270,16 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 g_msg[0] ? g_msg : "A: move on / off. Right on an ON move: the boss repeats it (RPT) with the gap set above; Right again stops. Saved per boss. (?) = name unverified.");
         } else if (item == kItIdleHold) {
             const int hold = IdleHoldStatus();
-            snprintf(footer, nf, "%s", hold < 0 ? "Idle was not safely acquired. No hold remains. Retry after the fight/loading/finisher settles." :
-                hold == 2 ? "Boss AI paused at idle; player stays usable. Hits can play reactions. Left/OFF or session exit releases. Debug freeze is separate." :
-                hold == 1 ? "Waiting for boss readiness, then a safe idle transition. Current action may finish. Left selects CPU." :
-                g_msg[0] ? g_msg : "Training starts in Idle stance. Right Idle / Left CPU. The stance survives retry; a new session starts Idle. Player stays usable.");
+            snprintf(footer, nf, "%s", hold < 0 ? "The boss could not be made to stand still (it was busy). Right tries again once it settles." :
+                g_msg[0] ? g_msg : hold == 2 && DrillState() == 2 ? "Stand still + drill: the boss AI is on for the drill (forced moves did not play), it only uses the repeating move. Left: fight normally." :
+                hold == 2 && RepeatingMove() ? "Stand still + drill: the boss waits and does only the repeating move, once every gap. Left: fight normally (own attacks)." :
+                hold == 2 ? "Stand still: the boss waits and does not attack (hits still make it flinch). Pick a move to repeat below for a drill. Left: fight normally." :
+                hold == 1 ? "Getting the boss to stand still at its next safe moment (its current move may finish). Left: fight normally." :
+                "Fight normally: the boss uses its own attacks. Right: stand still (Practice starts like that). A repeating move is used whenever it attacks.");
         } else if (item == kItRepGap) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long the boss waits after each repeat of the RPT move before doing it again. Left / Right 0.25 s. Applies now, saved.");
         } else if (item == kItRepNow) {  // user #13293
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. A / Left stops it. To pick one: Right on a move below (twice if it is OFF); the gap is set above.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. Stand still: it waits and does only this move every gap (drill). Fight normally: it uses this move whenever it attacks. A / Left stops; Right on a move below picks one.");
         } else if (item == kItDespawnAll) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (A and B) and their health bar.");
         } else if (item == kItMovesA || item == kItMovesB) {
@@ -3279,9 +3297,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItRootTraining) {
             snprintf(footer, nf, "Train here or in a boss arena, Training Mods (stance, moves, repeat), summon a boss where you are, Boss Matches.");
         } else if (item == kItTrainHereOpen) {
-            snprintf(footer, nf, "Pick a boss: it appears right where you stand (no load, no teleport) and waits (Idle stance). If you are beaten, the round restarts here.");
+            snprintf(footer, nf, "Pick a boss: it appears right where you stand (no load, no teleport) and stands still. If you are beaten, the round restarts here.");
         } else if (item == kItArenas) {
-            snprintf(footer, nf, "Pick an arena: you are taken into that boss's arena with the boss waiting (Idle stance). If you are beaten, you retry in the arena.");
+            snprintf(footer, nf, "Pick an arena: you are taken into that boss's arena with the boss standing still. If you are beaten, you retry in the arena.");
         } else if (item == kItBossSumm) {
             snprintf(footer, nf, "Summon up to two bosses next to you (no load). Set how long they wait before attacking. They use the Boss Match rules.");
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
@@ -3320,7 +3338,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanArena(item - kItTeleport);
             if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
             else if (why) snprintf(footer, nf, "%s. B back.", why);
-            else snprintf(footer, nf, "Teleport to arena (fast load): in-place arena swap (cross-world with a fade), boss summoned in idle stance as a Training session. A start, B back.");
+            else snprintf(footer, nf, "Teleport to arena (fast load): in-place arena swap (cross-world with a fade), boss standing still as a Training session. A start, B back.");
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);

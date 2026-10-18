@@ -2541,17 +2541,23 @@ static __attribute__((noinline)) uint64_t GateScan(uint32_t* outId) {
 // (TECH_DEBT), so the floor height comes from where the player actually stood: the trail (0.5 s feet samples, last 20 s). Samples within 500 u of the
 // gate x/z (|dy| < 300 from the old y): lowest of the 3 nearest (a jump/dodge sample is higher, never lower). Else the median of all recent samples
 // within |dy| < 300 (flat arena floor around the fight). Else the player's current y if within 300. Else the old y.
+// #13529 (user log 11:48:10, Yoritomo cross-world Fight now, ReturnGateAlways): the gate floated ~95 u again ('y 15111 -> 15111, trail near the gate',
+// player standing at 15016). The cross-world arena hold kept the player frozen at the warp pose (y 15111) for ~9 s before control, and those trail
+// samples have the SAME x/z as the later standing ones (the player had not moved yet), so the 'nearest 3' pick tied and kept the oldest (frozen) ones.
+// Now: the LOWEST sample within 500 u of the gate x/z, and the player's current feet when near (a held warp pose, a jump or a dodge is higher, never
+// lower). Else the median of the recent samples, else the player's y, else the old y. All within |dy| < 300 of the old y.
 static float GateGroundY(float x, float z, float y0, const char** src) {
-    DWORD now = GetTickCount(); float best[3] = {1e9f, 1e9f, 1e9f}, by[3] = {0, 0, 0}, all[TRAILN]; int na = 0;
+    DWORD now = GetTickCount(); float low = 1e9f, all[TRAILN]; int na = 0, nn = 0;
     for (int i = 0; i < g_trN; ++i) {
         if (now - g_trail[i].t > 30000 || fabsf(g_trail[i].p[1] - y0) > 300.0f) continue;
         all[na++] = g_trail[i].p[1];
-        float ddx = g_trail[i].p[0] - x, ddz = g_trail[i].p[2] - z, h = ddx * ddx + ddz * ddz; if (h > 500.0f * 500.0f) continue;
-        for (int k = 0; k < 3; ++k) if (h < best[k]) { for (int m = 2; m > k; --m) { best[m] = best[m - 1]; by[m] = by[m - 1]; } best[k] = h; by[k] = g_trail[i].p[1]; break; }
+        float ddx = g_trail[i].p[0] - x, ddz = g_trail[i].p[2] - z; if (ddx * ddx + ddz * ddz > 500.0f * 500.0f) continue;
+        ++nn; if (g_trail[i].p[1] < low) low = g_trail[i].p[1];
     }
-    if (best[0] < 1e9f) { float y = by[0]; for (int k = 1; k < 3; ++k) if (best[k] < 1e9f && by[k] < y) y = by[k]; *src = "trail near the gate"; return y; }
+    float pp[4]; if (PlayerPos(pp) && fabsf(pp[1] - y0) < 300.0f) { float ddx = pp[0] - x, ddz = pp[2] - z; if (ddx * ddx + ddz * ddz <= 500.0f * 500.0f && pp[1] < low) { low = pp[1]; ++nn; } }
+    if (nn) { *src = "lowest trail sample near the gate"; return low; }
     if (na > 0) { for (int i = 1; i < na; ++i) { float v = all[i]; int j = i - 1; while (j >= 0 && all[j] > v) { all[j + 1] = all[j]; --j; } all[j + 1] = v; } *src = "trail median"; return all[na / 2]; }
-    float pp[4]; if (PlayerPos(pp) && fabsf(pp[1] - y0) < 300.0f) { *src = "player now"; return pp[1]; }
+    if (PlayerPos(pp) && fabsf(pp[1] - y0) < 300.0f) { *src = "player now"; return pp[1]; }
     *src = "round-1 pose (no floor sample)"; return y0;
 }
 static int g_cfg_gate_ground = 1;  // [Return] ReturnGateGround (default 1): gate y = floor from the player trail (0 = old: round-1 pose y)
@@ -2579,6 +2585,7 @@ static __attribute__((noinline)) int GateSpawn(const char* why) {
     return 1;
 }
 static int GateBossAlive(void) { int f = Nioh3Training_ReturnInfo(); return !(f & 2) && !(f & 4); }
+N3T_API int Nioh3Training_GetIdleHold(void);  // idle_hold.h (included further down)
 // gate used: Boss Rematch opens its 2-option page (Return to where I was / Fight again); without it (old Rematch, no menu) return directly. 2 = choice shown.
 static volatile LONG g_gate_again; static volatile DWORD g_gate_tUse;  // #10022: last time our gate page was requested (dialog hook window)
 static int GateUse(void) {
@@ -2769,6 +2776,25 @@ static void GateTick(void) {
         static int aWas; static DWORD tOpen; int aNow = GatePadA();
         if (nearG && g_cfg_gate_opena && aNow && !aWas && (!tOpen || now - tOpen > 1500) && !GateMenuOpen()) { tOpen = now; g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: pad A near the return gate -> our gate page (%d)", r); }
         aWas = aNow;
+    }
+    // #13529 (user log 11:48, Training arena: the gate opened no menu): with ReturnGateAlways the Practice boss is alive (Idle stance) for the whole
+    // session, and every one of OUR open paths (raw pad A, stand-on, face-button mask) was idle-only (!boss), so only the native gadget interact was
+    // left - and that gadget floated ~95 u above the floor (GateGroundY fix above), out of its interact reach. Now in a Practice session, or while
+    // Stand still (Idle hold) holds the boss, a pad A press while standing at the gate (ReturnGateRadius, |dy| < 250) opens our gate page with the
+    // boss alive. A Boss Match fight with a fighting boss keeps the native interact only (fight inputs untouched). One log line per approach.
+    if (g_gate.up && g_cfg_gate_opena && GateBossAlive()) {
+        static int aWas2, inWas; static DWORD tOpen2;
+        const int calm = g_tr.practice || Nioh3Training_GetIdleHold() == 2;
+        float q[4]; int in = 0;
+        if (calm && PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; in = mx * mx + mz * mz < (float)g_cfg_gate_radius * g_cfg_gate_radius && fabsf(q[1] - g_gate.pos[1]) < 250.0f; }
+        // #13548: one tap of A opens our page; the face buttons are hidden from the GAME while standing at the gate (EngineFix lease, a button held
+        // when it ends stays hidden until released = hold-cancel), so the native hold-to-interact never completes and no in-game mission menu opens.
+        if (in && p_osdMask) p_osdMask(g_cfg_gate_mask_btn, 300);
+        if (in != inWas) { inWas = in; if (!in && p_osdMask) p_osdMask(0, 0);
+            if (in) Log("GATE: player at the gate with the boss alive (%s): tap A opens the gate page, native interact %s", g_tr.practice ? "Practice session" : "Stand still stance", p_osdMask ? "hidden (hold cancelled)" : "NOT hidden (EngineFix export missing)"); }
+        const int aNow = GatePadA();
+        if (in && aNow && !aWas2 && (!tOpen2 || now - tOpen2 > 1500) && !GateMenuOpen()) { tOpen2 = now; int r = GateUse(); Log("GATE: pad A at the gate (boss alive, %s) -> our gate page (%d)", g_tr.practice ? "Practice" : "Stand still", r); }
+        aWas2 = aNow;
     }
     if (g_gate.up && g_cfg_gate_touch > 0) {
         float p[4]; if (!PlayerPos(p)) return;
@@ -3515,6 +3541,8 @@ static __attribute__((noinline)) int IhEligible(uint64_t actor, uint64_t ctrl) {
     return 1;
 }
 #include "idle_hold.h"
+static void DrForceNative(uint64_t ctrl, uint32_t id) { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(ctrl, (uint64_t)id, 0, 0.0f); }  // SetActionID forced transition (MvRepTick)
+#include "drill.h"  // user #13529: move drill in the Stand still stance
 static int MvForce(uint32_t id) {
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }
@@ -4372,6 +4400,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
+    __try { DrillTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DRILL tick exception %08lX", GetExceptionCode()); g_dr_off = 1; DrStop("exception"); }
     return o_pump(c, d, r8, r9);
 }
 

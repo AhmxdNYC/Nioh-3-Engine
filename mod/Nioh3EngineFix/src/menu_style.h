@@ -71,10 +71,10 @@ inline void Pill(float tx, float y, const char* t, uint32_t bg, uint32_t fg, flo
 
 // pill colours for a value token; false = not a pill value
 inline bool PillColors(const char* v, uint32_t& bg, uint32_t& fg) {
-    if (!strcmp(v, "ON") || !strcmp(v, "IDLE")) { bg = kOnBg; fg = kOnText; return true; }
-    if (!strcmp(v, "OFF") || !strcmp(v, "off") || !strcmp(v, "CPU")) { bg = kOffBg; fg = kOffText; return true; }
-    if (!strcmp(v, "RPT") || !strcmp(v, "IDLE (waiting)")) { bg = kRptBg; fg = kRptText; return true; }
-    if (!strcmp(v, "?") || !strcmp(v, "CPU (idle failed)")) { bg = kUnkBg; fg = kUnkText; return true; }
+    if (!strcmp(v, "ON") || !strcmp(v, "IDLE") || !strcmp(v, "Stand still (idle)") || !strcmp(v, "Stand still + drill")) { bg = kOnBg; fg = kOnText; return true; }
+    if (!strcmp(v, "OFF") || !strcmp(v, "off") || !strcmp(v, "CPU") || !strcmp(v, "Fight normally")) { bg = kOffBg; fg = kOffText; return true; }
+    if (!strcmp(v, "RPT") || !strcmp(v, "IDLE (waiting)") || !strcmp(v, "Stand still (getting ready)")) { bg = kRptBg; fg = kRptText; return true; }
+    if (!strcmp(v, "?") || !strcmp(v, "CPU (idle failed)") || !strcmp(v, "Fight normally (stand still failed)")) { bg = kUnkBg; fg = kUnkText; return true; }
     return false;
 }
 

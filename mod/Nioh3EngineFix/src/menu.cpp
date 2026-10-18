@@ -1198,6 +1198,33 @@ void Close(const char* how) {
     if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
 }
 
+// user #13529: the open shortcut (Start x3, Esc x3, the menu key) opens the CURRENT mode's page: Practice / Training session (or summoned
+// bosses) -> the Practice page, a Boss Match (Fight now) -> the Boss Matches page, otherwise the first page. Mode from Nioh3Training:
+// Nioh3Training_SessionMode 1 Boss Match / 2 Practice, Nioh3Training_SessionActive bit 2 = summoned bosses alive. B on that page returns to the first page.
+int TrainingMode() {
+    static int (*mode)() = nullptr; static int (*active)() = nullptr; static ULONGLONG tried = 0;
+    if (!mode && (!tried || Now() - tried > 5000)) {
+        tried = Now();
+        if (HMODULE m = GetModuleHandleW(L"Nioh3Training.asi")) {
+            mode = reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3Training_SessionMode"));
+            active = reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3Training_SessionActive"));
+        }
+    }
+    int r = mode ? mode() : 0;
+    if (!r && active && (active() & 2)) r = 2;
+    return r;
+}
+void OpenModePage(bool ready) {
+    if (!g_cfg.layout || !ready || !g_rematchSession.load()) return;
+    const int m = TrainingMode();
+    if (m != 1 && m != 2) return;
+    if (PostRematchAction(m == 1 ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu)) {
+        g_rematchPage = true; g_rematchOpened = false;
+        for (auto& repeat : g_rep) repeat = 0;
+        MLOG("opened on the %s page (current mode, #13529)", m == 1 ? "Boss Matches" : "Practice");
+    }
+}
+
 void CloseCover(const char* why) {
     g_coverTombstone=g_coverToken.load();g_coverTombstoneSession=g_coverSession.load();
     CloseRematchHostPage();
@@ -1805,7 +1832,7 @@ void OnPresentImpl() {
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
         const LONG src = g_toggleSrc;
         if (g_open) Close(SrcName(src));
-        else Open(SrcName(src));
+        else { Open(SrcName(src)); OpenModePage(rematchReady); }
     }
     if (!g_open) {
         InterlockedExchange(&g_pressed, 0);
@@ -1980,7 +2007,7 @@ void Parse(const char* text, uint32_t color, bool sel, Item& o) {
     char b[112];
     snprintf(b, sizeof b, "%s", s + sp);
     // control hints move to the prompt line; they only set flags here
-    static const char* const kAdj[] = {"   A / Left CPU / Right Idle", "   A / Left / Right", "   Left / Right", "  Left / Right"};
+    static const char* const kAdj[] = {"   A / Left fight / Right stand still", "   A / Left CPU / Right Idle", "   A / Left / Right", "   Left / Right", "  Left / Right"};
     static const char* const kSub[] = {"   A / Enter opens", "   A: open"};
     for (const char* h : kAdj) if (Cut(b, h)) { o.adj = true; break; }
     for (const char* h : kSub) if (Cut(b, h)) { o.sub = true; break; }
