@@ -115,7 +115,7 @@ static __attribute__((noinline)) int Actors(uint64_t* out, int max) {
 static void PoolAdd(uint32_t chr);
 static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
 // bridge 12666: per-actor identity for multi-boss Training. g_sp_chr[i] = character id of g_sp_actor[i]; slots A/B = the menu's two summon slots
-static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1; static uint64_t g_slot_act[2]; static uint32_t g_slot_chr[2];
+static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1, g_watch_session; static int SlotAlive(int s); static uint64_t g_slot_act[2]; static uint32_t g_slot_chr[2];
 static uint64_t g_snap[1024]; static int g_nsnap; static DWORD g_watch_t0; static int g_watch; static uint32_t g_watch_id;
 static int InSnap(uint64_t a) { for (int i = 0; i < g_nsnap; ++i) if (g_snap[i] == a) return 1; return 0; }
 static int InSp(uint64_t a) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == a) return 1; return 0; }
@@ -268,7 +268,15 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
     uint64_t cur[1024]; int n = Actors(cur, 1024);
     for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
-        g_sp_chr[g_nsp] = g_watch_chr; if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr;
+        g_sp_chr[g_nsp] = g_watch_chr;
+        // ally #89: the Training session boss (arena boss / round respawn) is Boss A when slot A is free, so Boss A moves / Summon into A see it.
+        // No SummonPassiveMs hold for it: BOSSHOLD / Idle stance own its AI.
+        if (g_watch_slot < 0 && g_watch_session && g_watch_chr && !SlotAlive(0)) {
+            g_slot_act[0] = cur[i]; g_slot_chr[0] = g_watch_chr; memset(&g_sph[0], 0, sizeof g_sph[0]);
+            Log("SLOT A = Training session boss chr %u actor %p", g_watch_chr, (void*)cur[i]);
+        }
+        g_watch_session = 0;
+        if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr;
             memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount(); g_sph[g_watch_slot].ms = g_cfg_sum_passive; g_sph[g_watch_slot].phase = g_cfg_sum_passive > 0;
             if (g_cfg_sum_passive > 0) Log("SUMPASSIVE slot %c actor %p: AI held %d ms (SummonPassiveMs)", 'A' + g_watch_slot, (void*)cur[i], g_cfg_sum_passive);
             g_watch_slot = -1; }
@@ -327,7 +335,7 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 1000;
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
-static void IhStop(const char* why, int failed); static void IhDefault(int fresh);
+static void BhStart(uint32_t handle); static void IhStop(const char* why, int failed); static void IhDefault(int fresh); static int IhWantIdle(void); static int IhAdoptBossHold(uint32_t handle, uint64_t actor);
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
@@ -793,9 +801,12 @@ static void SpawnTick(void) {
     }
     g_nsnap = Actors(g_snap, 1024);
     uint32_t r = CreateBoss(g_sp.id, p, face, owner, "SPAWN");
-    g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount(); g_watch_chr = g_sp.id; g_watch_slot = r ? g_sp.slot : -1;
+    g_watch = r != 0; g_watch_id = r; g_watch_t0 = GetTickCount(); g_watch_chr = g_sp.id; g_watch_slot = r ? g_sp.slot : -1; g_watch_session = r && g_tr.active && g_sp.boss && g_sp.slot < 0;
     Log("SPAWN %u: resources ready after %lu ms; camyaw %.1f fwd %.2f %.2f; CreateDynamic(owner %u) player %.0f %.0f %.0f -> at %.0f %.0f %.0f yaw %.1f -> 0x%X%s", g_sp.id, dt, cy, dx, dz, owner, pos[0], pos[1], pos[2], p[0], p[1], p[2], face, r, r ? "" : " (refused)");
     if (r && g_autogauge) { FakeGaugeRequest(r, owner); Log("SPAWN %u: boss gauge requested for 0x%X", g_sp.id, r); }
+    // ally #89 / #13167: a Training round boss (retry / Training here) in Idle stance is held from its first frame and handed to Idle stance,
+    // as the arena boss is, instead of attacking until its first native idle
+    if (r && g_sp.boss && g_sp.slot < 0 && g_tr.active && IhWantIdle()) BhStart(r);
     if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr && g_sp.slot < 0; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
     if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now && PlayerSetNoDeath(1)) g_sum_nodeath = 1;  // bridge 12666 ([Summon] SummonNoDeath, default 0 since #13197); SumNoDeathTick turns it off again
     g_sp.active = 0;
@@ -1148,6 +1159,7 @@ static void ArenaTick(void) {
                 g_nsnap = Actors(g_snap, 1024);
                 uint32_t r = CreateBoss(g_ar.chr, b, g_ar.byaw, owner, "ARENA");
                 g_watch = r != 0; g_watch_id = r; g_watch_t0 = now; g_ar.spawned = 1; g_ar.tSpawn = now;
+                g_watch_chr = g_ar.chr; g_watch_slot = -1; g_watch_session = r && g_tr.active;  // ally #89: arena boss = Boss A (WatchTick); g_watch_chr was stale here
                 Log("ARENA +%lu ms CreateDynamic(%u owner %u) at %.0f %.0f %.0f yaw %.1f -> 0x%X", dt, g_ar.chr, owner, b[0], b[1], b[2], g_ar.byaw, r);
                 if (r && g_autogauge) FakeGaugeRequest(r, owner);
                 if (r && g_cfg_bossmode) BossModeBegin(r, g_cfg_notify);
@@ -1485,6 +1497,16 @@ static void PreloadTick(void) {
 //   void Nioh3Training_Preload(void)                 call when the Boss Rematch menu opens: requests the model resources of the nearest bosses of this world.
 //   int  Nioh3Training_Version(void)
 #define N3T_API __declspec(dllexport)
+// ally #89: boss name for a character id (arena table), for the menu's Boss A / B rows of bosses with no recorded move list. 1 = found.
+N3T_API int Nioh3Training_BossName(uint32_t chr, char* out, int cap) {
+    if (!out || cap <= 0) return 0;
+    out[0] = 0;
+    for (int i = 0; chr && i < g_nrows; ++i) if (g_rows[i].chr == chr) {
+        const char* n = g_rows[i].name; const char* p = strstr(n, " (");
+        snprintf(out, (size_t)cap, "%.*s", p ? (int)(p - n) : (int)strlen(n), n); return 1;
+    }
+    return 0;
+}
 N3T_API int Nioh3Training_GetIdleHold(void);
 N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed, int persist);
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on);
@@ -2250,7 +2272,9 @@ static void BhTick(void) {
     if (!vis) g_bh.tVis = 0; else if (!g_bh.tVis) { g_bh.tVis = now; Log("BOSSHOLD boss 0x%X: screen visible +%lu ms after spawn (GAMESTATE[2] 0, seq %d, fade clear): AI on in %d ms", g_bh.h, now - g_bh.t0, (int)SeqState(), g_cfg_bossgrace); }
     int timeout = now - g_bh.t0 >= (DWORD)g_cfg_bosshold_max;
     if ((g_bh.tVis && now - g_bh.tVis >= (DWORD)g_cfg_bossgrace) || timeout) {
-        ((void (*)(uint64_t))(B + 0x66982C))(a); g_bh.phase = 0;
+        g_bh.phase = 0;  // IhAdoptBossHold sees no foreign hold
+        if (IhAdoptBossHold(g_bh.h, a)) { Log("BOSSHOLD boss 0x%X: +%lu ms grace over, AI stays off: Training Idle stance took the hold (#13167)", g_bh.h, now - g_bh.t0); return; }
+        ((void (*)(uint64_t))(B + 0x66982C))(a);
         Log("BOSSHOLD boss 0x%X: AI on +%lu ms after spawn (%s; AI re-held %d times)", g_bh.h, now - g_bh.t0, timeout ? "BossHoldMaxMs TIMEOUT" : "grace over", g_bh.nOff - 1);
         return;
     }

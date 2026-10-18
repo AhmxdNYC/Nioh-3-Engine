@@ -28,3 +28,17 @@ run_settings_preservation (build.bat not on PATH), settings/test_catalog (uncove
   while paused, so rows that need a game tick (Idle stance request, Remove summoned bosses) take effect when the menu closes;
   real-time timers (HP-0 window, finisher kill timeout) keep running during the pause. Off switch: [Training] MenuPause = 0.
 - Section headers are extra rows: the legacy (non-hosted) Rematch overlay shows them as plain "-- Name --" text.
+
+## pc/menu-fixes-1 (ally #89 smoke on c3ab21b: 3 bugs)
+- (1) Boss attacked ~1.5 s after the cover although stance = IDLE: BhTick switched the AI back on at grace end (66982C) and Idle stance
+  only re-took it at the boss's next native idle (0x2) once IhEligible passed, so the boss attacked first. Fix: IhAdoptBossHold (idle_hold.h):
+  at grace end, when the Training session wants Idle (default pending or request), the AI stays off and Idle stance owns the hold
+  (phase 2, owns_ai). Round respawns / Train here bosses (SpawnTick, slot < 0, Idle wanted) get the same BOSSHOLD from frame one.
+  CPU stance (Left) / session end restore the AI as before. No release on hit (hits play reactions; Left = CPU).
+- (2) Boss A was 'empty': only menu slot summons registered g_slot_*; the arena boss (ArenaTick CreateBoss) also used a stale g_watch_chr.
+  Now the Training session boss (arena boss and round respawns) becomes Boss A in WatchTick when slot A is free (no SummonPassiveMs hold),
+  g_watch_chr = g_ar.chr. Summon page defaults to slot B when A holds it and B is free. New export Nioh3Training_BossName(chr, buf, cap)
+  names bosses with no move list. Move lists: kN3Moves (notes/boss-action-ids-all.csv, pc2 #70) has 11 bosses only; every other boss
+  shows 'Boss moves - <name> (none recorded yet)' and needs an ACTLOG capture first.
+- (3) Arena / Train here / Summon rows printed the name with %.34s / %.40s: now the full name; the hosted panel word-wraps at 58 cols.
+- Test fix: idle_hold_test expected a 10 s acquisition timeout, code is 20 s (failed on base too). Added adoption cases.

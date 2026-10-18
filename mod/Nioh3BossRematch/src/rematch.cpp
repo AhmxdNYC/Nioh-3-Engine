@@ -2194,10 +2194,14 @@ uint32_t SlotChr(int slot) {
     return f ? f(slot) : 0;
 }
 const char* SlotBossName(uint32_t chr) {
-    static char buf[40];
+    static char bufs[2][40];  // two names in one printf (Remove all summoned bosses (A: x, B: y))
+    static int nb;
+    char* buf = bufs[nb++ & 1];
     if (!chr) return "empty";
     for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) return kN3Moves[i].boss;
-    snprintf(buf, sizeof buf, "boss %u", chr);
+    using NameFn = int (*)(uint32_t, char*, int);  // ally #89: bosses with no recorded move list still show their name
+    if (const auto f = (NameFn)TrainingExport("Nioh3Training_BossName")) if (f(chr, buf, (int)sizeof bufs[0]) && buf[0]) return buf;
+    snprintf(buf, sizeof bufs[0], "boss %u", chr);
     return buf;
 }
 void SetMoveSlot(int slot) {
@@ -2795,6 +2799,8 @@ bool UiAct() {
         g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uPracticeHub : item == kItRootSummon || item == kItBossSumm ? uSummon :
                         item == kItArenas ? uTraining : item == kItTrainHereOpen ? uTrainHere : item == kItFightOpts ? uFightOpts : uTools, g_sel);
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
+        // ally #89: Boss A is the Training session boss (arena boss): a new summon goes to the free slot B instead of replacing it
+        if ((item == kItRootSummon || item == kItBossSumm) && SlotChr(0) && !SlotChr(1)) g_sumSlot = 1;
         return false;
     }
     if (item >= kItTrainHere && item < kItTrainHereEnd) {  // user #13223: Practice > Training here
@@ -3047,7 +3053,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     snprintf(movesTitle, sizeof movesTitle, "Boss moves (start a Practice session first)");
     if (g_uiPages.page == uMoves) {
         const uint32_t chr = MoveBoss();
-        if (chr) snprintf(movesTitle, sizeof movesTitle, "Boss moves (none recorded for this boss)");
+        if (chr) snprintf(movesTitle, sizeof movesTitle, "Boss moves - %.40s (none recorded yet)", SlotBossName(chr));
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) { snprintf(movesTitle, sizeof movesTitle, "Boss moves - %.60s", kN3Moves[i].boss); break; }
     }
     add(cCyan, false, "%s (" ADDON_VERSION ") - %s", PageTitle(movesTitle), st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
@@ -3143,7 +3149,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] >= kItSummonA && it[i] < kItSummonEnd) {
             const int slot = it[i] >= kItSummonB ? 1 : 0;
             const int row = it[i] - (slot ? kItSummonB : kItSummonA);
-            if (g_uiPages.page == uSummon && row >= 0 && (size_t)row < g_rows.size()) add(sel ? cWhite : cGreen, sel, "%s %.40s", mk, g_rows[(size_t)row].name);
+            if (g_uiPages.page == uSummon && row >= 0 && (size_t)row < g_rows.size()) add(sel ? cWhite : cGreen, sel, "%s %s", mk, g_rows[(size_t)row].name);
             else add(sel ? cWhite : cGreen, sel, "%s   Summon as Boss %c (now: %s)", mk, 'A' + slot, SlotBossName(SlotChr(slot)));
         }
         else if (it[i] == kItRootRematch) add(sel ? cWhite : cGray, sel, "%s Boss Matches   A: open", mk);
@@ -3154,7 +3160,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItBossSumm) add(sel ? cWhite : cGray, sel, "%s Summon a boss where I am   A: open", mk);
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
-            add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %.40s", mk, g_rows[(size_t)row].name);
+            add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
         }
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss where I am   A: open", mk);
         else if (it[i] == kItRootTools) add(sel ? cWhite : PracticeSessionLive() ? cGreen : cGray, sel, "%s Training Mods (stance, moves, repeat)   A: open", mk);
@@ -3200,7 +3206,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanArena(row);
             const uint8_t stt = g_status[(size_t)row].load();
             if (g_uiPages.page == uTraining)  // user #13164: Training arena list (details in the footer)
-                add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %.34s", mk, g_rows[(size_t)row].name);
+                add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %s", mk, g_rows[(size_t)row].name /* ally #89: full name, the host panel word-wraps (58 cols) */);
             else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (fast load)   boss summoned in idle stance", mk);

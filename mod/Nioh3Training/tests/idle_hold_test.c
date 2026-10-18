@@ -77,9 +77,9 @@ int main(void) {
     Reset(); Hold(); actor = 0x5000; IhTick(); assert(on_calls == 0 && !g_ih_request); // reused handle, no stale write
     Reset(); Hold(); g_bh.phase = 2; IhTick(); assert(on_calls == 0 && !g_ih_request && ai_on == 0);
     Reset(); ai_on = 0; Request(); action = 2; IhTick(); assert(!off_calls && !on_calls);
-    clock_ms += 10000; IhTick(); assert(Nioh3Training_GetIdleHold() == -1 && !on_calls);
+    clock_ms += 20000; IhTick(); assert(Nioh3Training_GetIdleHold() == -1 && !on_calls);  // 20 s acquisition window
     Reset(); Request(); can_idle = 0; action = 2; IhTick(); assert(!off_calls);
-    clock_ms += 10000; IhTick(); assert(Nioh3Training_GetIdleHold() == -1 && !on_calls);
+    clock_ms += 20000; IhTick(); assert(Nioh3Training_GetIdleHold() == -1 && !on_calls);  // 20 s acquisition window
     Reset(); Hold(); alive = 0; IhTick(); assert(!on_calls && !g_ih_request); // dead/HP-floor never revived
     Reset(); Hold(); readable = 0; IhTick(); assert(!on_calls && !g_ih_request);
     Reset(); Hold(); ai_on = 1; clock_ms += 100; IhTick(); assert(off_calls == 2 && ai_on == 0);
@@ -109,6 +109,21 @@ int main(void) {
     Reset(); IhDefault(1); ++g_tr.tCmd; IhTick(); assert(!g_ih_default_pending && !off_calls);
     Reset(); IhDefault(1); g_bm.active = 0; clock_ms = 60001; IhTick();
     assert(Nioh3Training_GetIdleHold() == -1 && !off_calls);
+    // ally #89 / #13167: the load hold (AI already off) hands over to Idle stance; the boss never gets its AI back at grace end
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; action = 0x4E64;
+    assert(IhWantIdle() && IhAdoptBossHold(7, 0x1000));
+    assert(Nioh3Training_GetIdleHold() == 2 && g_ih.phase == 2 && g_ih.owns_ai && !g_ih_default_pending && !on_calls && !off_calls);
+    IhTick(); assert(ai_on == 0 && Nioh3Training_GetIdleHold() == 2 && !on_calls);
+    ai_on = 1; clock_ms += 100; IhTick(); assert(ai_on == 0 && off_calls == 1);  // game re-enabled AI: re-held
+    Nioh3Training_SetIdleHold(0); IhTick(); assert(ai_on == 1 && on_calls == 1 && Nioh3Training_GetIdleHold() == 0);  // CPU releases
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; Nioh3Training_SetIdleHold(0); assert(!IhWantIdle() && !IhAdoptBossHold(7, 0x1000));  // CPU chosen
+    Reset(); IhTick(); ai_on = 0; assert(!IhAdoptBossHold(7, 0x1000));  // no Training default / request (Boss Match, summon)
+    Reset(); IhDefault(1); IhTick(); ai_on = 1; assert(!IhAdoptBossHold(7, 0x1000));  // AI is on: not ours to adopt
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; assert(!IhAdoptBossHold(8, 0x1000));  // other handle
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; alive = 0; assert(!IhAdoptBossHold(7, 0x1000));
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; player = 0x1000; assert(!IhAdoptBossHold(7, 0x1000));
+    Reset(); IhDefault(1); IhTick(); ai_on = 0; assert(IhAdoptBossHold(7, 0x1000)); ++g_tr.round; IhTick(); assert(on_calls == 1 && !g_ih.phase);  // round change restores
+    puts("PASS: load hold handed to Training Idle stance (no AI-on gap), CPU / non-Training / foreign / dead / player refused");
     puts("PASS: Training defaults idle after readiness, CPU survives retry, fresh session resets idle, no native/story adoption");
     puts("PASS: idle hold acquisition, OFF/exit restore, round/session change, actor replacement, loading ownership, no AI adoption, timeout, HP floor, unreadable state, re-hold, reactions, hook/disable failure, pre-despawn cleanup, unknown boss, player isolation");
     return 0;

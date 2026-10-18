@@ -64,6 +64,30 @@ static void IhPublishSession(void) {
         InterlockedExchange(&g_ih_epoch, g_tr.active ? g_ih_serial : 0);
     }
 }
+// ally #89 / user #13167: a Training session wants Idle stance, so the post-load boss hold (BOSSHOLD) hands its AI-off state over
+// instead of switching the AI on at grace end. Waiting for a native idle (0x2) after the release let the boss attack first (~1.5 s).
+// 1 = Idle stance now owns the (still disabled) AI; 0 = not wanted / not adoptable, the caller releases as before.
+static int IhWantIdle(void) {
+    return g_tr.active && InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) &&
+        (InterlockedCompareExchange(&g_ih_default_pending, 0, 0) || InterlockedCompareExchange(&g_ih_request, 0, 0));
+}
+static int IhAdoptBossHold(uint32_t handle, uint64_t actor) {
+    LONG epoch = InterlockedCompareExchange(&g_ih_epoch, 0, 0);
+    uint64_t ai = 0, ctrl = 0;
+    if (!IhWantIdle() || !epoch || !g_bm.active || g_bm.id != handle || !actor || actor == PlayerChar() ||
+        ActorByHandle(handle) != actor || !Rd64(actor + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl ||
+        !IhAlive(actor) || BhAiOn(actor) != 0) return 0;
+    LONG request = InterlockedCompareExchange(&g_ih_request, 0, 0);
+    if (request && request != epoch) return 0;
+    InterlockedExchange(&g_ih_default_pending, 0);
+    InterlockedExchange(&g_ih_request, epoch);
+    memset(&g_ih, 0, sizeof g_ih);
+    g_ih.phase = 2; g_ih.owns_ai = 1; g_ih.epoch = epoch; g_ih.handle = handle; g_ih.chr = g_tr.chr;
+    g_ih.actor = actor; g_ih.ctrl = ctrl; g_ih.started = g_ih.recheck = GetTickCount();
+    InterlockedExchange(&g_ih_status, 2);
+    Log("IDLEHOLD adopted the load hold: chr %u actor %p stays idle (Training Idle stance)", g_ih.chr, (void*)actor);
+    return 1;
+}
 static uint32_t IhSelect(uint64_t st, uint32_t id) {
     // Only substitute an ordinary, catalogued move at the existing native transition.
     // Unknown/status/reaction IDs pass through. Never force an action mid-animation.
