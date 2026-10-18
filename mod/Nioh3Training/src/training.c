@@ -258,12 +258,20 @@ static void AwareTick(void) {
 }
 // per-actor identity (bridge 12666): bosses summoned from the same owner share the +4 handle, so gauge / boss mode bind to the actor pointer WatchTick finds
 static uint64_t g_newActor; static uint32_t g_newH, g_newSeq;
+// user #13164: Summon Boss menu 'Passive time' slider ([Summon] SummonPassiveMs, 0 = aggressive at once). A boss summoned into slot A/B keeps its AI
+// off (668D74, the #9133 BOSSHOLD call) for that long after it appears, re-held when the game switches it back on, then gets it back (66982C). SphTick.
+#define SUM_PASSIVE_MAX 60000
+static int g_cfg_sum_passive = 3000;
+static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff; } g_sph[2];
 static void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
     for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
-        g_sp_chr[g_nsp] = g_watch_chr; if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr; g_watch_slot = -1; }
+        g_sp_chr[g_nsp] = g_watch_chr; if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr;
+            memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount(); g_sph[g_watch_slot].ms = g_cfg_sum_passive; g_sph[g_watch_slot].phase = g_cfg_sum_passive > 0;
+            if (g_cfg_sum_passive > 0) Log("SUMPASSIVE slot %c actor %p: AI held %d ms (SummonPassiveMs)", 'A' + g_watch_slot, (void*)cur[i], g_cfg_sum_passive);
+            g_watch_slot = -1; }
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
@@ -2564,6 +2572,40 @@ static void RqTick(void) {
     } else if (op == 2) { DespawnAll("menu"); g_slot_act[0] = g_slot_act[1] = 0; g_slot_chr[0] = g_slot_chr[1] = 0; }
     else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
 }
+// user #13164: game thread (pump). Holds a freshly summoned slot boss passive for g_sph[s].ms, then gives its AI back (only if we switched it off).
+static void SphTick(void) {
+    DWORD now = GetTickCount();
+    for (int s = 0; s < 2; ++s) {
+        if (!g_sph[s].phase) continue;
+        uint64_t a = g_sph[s].a;
+        if (!a || g_slot_act[s] != a || !SlotAlive(s)) { Log("SUMPASSIVE slot %c: boss gone / replaced, hold ends", 'A' + s); g_sph[s].phase = 0; continue; }
+        { int dead = 0; uint64_t hc = 0, hm = 0; if (ActorDeadNow(a, &dead, &hc, &hm) && dead) { g_sph[s].phase = 0; continue; } }
+        if (now - g_sph[s].t0 >= (DWORD)g_sph[s].ms) {
+            if (g_sph[s].nOff && BhAiOn(a) == 0) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 66982C faulted"); } }
+            Log("SUMPASSIVE slot %c actor %p: AI on +%lu ms (passive %d ms, held %d times)", 'A' + s, (void*)a, now - g_sph[s].t0, g_sph[s].ms, g_sph[s].nOff);
+            g_sph[s].phase = 0; continue;
+        }
+        if (now - g_sph[s].tRe >= 100 && BhAiOn(a) == 1) {
+            g_sph[s].tRe = now;
+            __try { ((void (*)(uint64_t))(B + 0x668D74))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 668D74 faulted, hold ends"); g_sph[s].phase = 0; continue; }
+            if (++g_sph[s].nOff <= 10) Log("SUMPASSIVE slot %c actor %p: AI off (#%d, +%lu ms)", 'A' + s, (void*)a, g_sph[s].nOff, now - g_sph[s].t0);
+        }
+    }
+}
+static DWORD WINAPI SphSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", g_cfg_sum_passive); WritePrivateProfileStringA("Summon", "SummonPassiveMs", v, ini);
+    WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+// user #13164: Summon Boss menu slider. Clamped 0..60000 ms, applies to the next summon, persist 1 = saved as [Summon] SummonPassiveMs.
+N3T_API int Nioh3Training_GetSummonPassive(void) { return g_cfg_sum_passive; }
+N3T_API int Nioh3Training_SetSummonPassive(int ms, int persist) {
+    if (ms < 0) ms = 0; if (ms > SUM_PASSIVE_MAX) ms = SUM_PASSIVE_MAX;
+    g_cfg_sum_passive = ms;
+    Log("API summon passive %d ms%s", ms, persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, SphSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    return ms;
+}
 N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active) return 0; InterlockedExchange(&g_gate_again, 1); return 1; }
 static void GateTick(void) {
     if (InterlockedExchange(&g_gate_again, 0) && g_tr.active && !g_rh.active) { Log("GATE: Fight again (Boss Rematch gate page)"); TrainRetry("gate: fight again"); }
@@ -4178,6 +4220,7 @@ static uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
+    __try { SphTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE tick exception %08lX", GetExceptionCode()); g_sph[0].phase = g_sph[1].phase = 0; }  // user #13164
     __try { SpawnTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SPAWN tick exception %08lX", GetExceptionCode()); g_sp.active = 0; }
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
@@ -4220,6 +4263,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
+        { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
         g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);

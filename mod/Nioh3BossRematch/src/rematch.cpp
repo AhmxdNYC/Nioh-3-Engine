@@ -2109,6 +2109,31 @@ constexpr int kItRepGap = -34;
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
 constexpr int kItSummonA = 0x50000, kItSummonB = 0x60000, kItSummonEnd = 0x70000;
+// user #13164: the root page holds exactly three submenus (+ Close): Boss Rematch (the rematch rows as before Training was merged in),
+// Training (Training controls, then the arena list: A = teleport to that arena) and Summon Boss (boss list + passive-time slider + slot).
+constexpr int uRematch = 902, uTraining = 903, uSummon = 904;
+constexpr int kItRootRematch = -40, kItRootTraining = -41, kItRootSummon = -42;
+constexpr int kItSumPassive = -43, kItSumSlot = -44;
+int g_sumSlot = 0;  // Summon Boss page: slot (0 = A, 1 = B) the next boss row summons into
+int SumPassiveGet() {
+    using G = int (*)();
+    const auto g = (G)TrainingExport("Nioh3Training_GetSummonPassive");
+    return g ? g() : -1;
+}
+void SumPassiveStep(int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = longer, wrapping to 0 after the maximum
+    using S = int (*)(int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetSummonPassive");
+    int v = SumPassiveGet();
+    if (!set || v < 0) { snprintf(g_msg, sizeof(g_msg), "Needs a Nioh3Training.asi with the Passive time slider."); return; }
+    const int step = 1000, hi = 30000;
+    v = (v / step) * step;
+    v = dir < 0 ? v - step : v + step;
+    if (dir == 0 && v > hi) v = 0;
+    v = v < 0 ? 0 : v > hi ? hi : v;
+    v = set(v, 1);
+    Log("Rematch: menu slider SummonPassiveMs -> %d ms", v);
+    g_msg[0] = 0;
+}
 uint32_t SlotChr(int slot) {
     using Fn = uint32_t (*)(int);
     const auto f = (Fn)TrainingExport("Nioh3Training_SlotChr");
@@ -2265,13 +2290,46 @@ constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss
 int Items(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
-    if (g_uiPages.page == uRoot) {
+    if (g_uiPages.page == uRoot) {  // user #13164: three submenus only
+        add(kItRootRematch);
+        add(kItRootTraining);
+        add(kItRootSummon);
+        add(kItClose);
+        return n;
+    }
+    if (g_uiPages.page == uTraining) {
+        if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
+        if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
+        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); add(kItDespawnAll); }
+        if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+        if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
+        // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (normal loading)
+        if (g_live.load())
+            for (int pass = 0; pass < 2; ++pass)
+                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+                    const Row& r = g_rows[i];
+                    if (r.route == rcore::kX || !r.fightStart) continue;
+                    if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
+                    add(kItTeleport + (int)i);
+                }
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uSummon) {
+        if (TrainingExport("Nioh3Training_SetSummonPassive")) add(kItSumPassive);
+        if (TrainingExport("Nioh3Training_SummonSlot")) {
+            add(kItSumSlot);
+            for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
+                if (g_rows[i].missionId) add((g_sumSlot ? kItSummonB : kItSummonA) + (int)i);
+        }
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
         if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
         if (TrainingExport("Nioh3Training_SetAutoRetry")) add(kItAutoRetry);
         if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
         if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
-        if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
-        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); add(kItDespawnAll); }
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2291,7 +2349,7 @@ int Items(int* out, int cap) {
         if (g_raOk) add(kItOpen);
         if (g_emakiOk) add(kItScroll);
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
-        add(kItClose);
+        add(kItBack);
         return n;
     }
     if (g_uiPages.page == uMoves) {
@@ -2331,9 +2389,7 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uActions) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
             add(kItFight + g_uiBoss);
-            add(kItShrine + g_uiBoss);
-            add(kItTeleport + g_uiBoss);
-            if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItSummonA + g_uiBoss); add(kItSummonB + g_uiBoss); }
+            add(kItShrine + g_uiBoss);  // user #13164: teleport moved to Training (arenas), summon to Summon Boss
         }
         add(kItBack);
         return n;
@@ -2572,6 +2628,8 @@ void UiChange(int dir) {
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item == kItRepGap) { RepGapStep(dir); return; }
+    if (item == kItSumPassive) { SumPassiveStep(dir); return; }
+    if (item == kItSumSlot) { g_sumSlot = dir ? (dir > 0) : !g_sumSlot; g_msg[0] = 0; return; }
     if (item > kItSettingBase) return;
     const int index = kItSettingBase - item;
     if (index >= 0 && index < kConfigN && g_configValues.Change(kConfigSettings, (size_t)index, dir)) {
@@ -2616,6 +2674,12 @@ bool UiAct() {
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
+    if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
+    if (item == kItRootRematch || item == kItRootTraining || item == kItRootSummon) {  // user #13164
+        g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uTraining : uSummon, g_sel);
+        g_sel = 0; g_confirm = -9; g_msg[0] = 0;
+        return false;
+    }
     if (item == kItDespawnAll) {
         using Fn = int (*)();
         const auto f = (Fn)TrainingExport("Nioh3Training_DespawnAll");
@@ -2685,7 +2749,7 @@ bool UiAct() {
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
-    if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRoot) && item >= 0)) {
+    if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
         g_sel = 0;
@@ -2828,7 +2892,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (chr) movesTitle = "Training moves (no recorded actions for this boss)";
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) { movesTitle = kN3Moves[i].boss; break; }
     }
-    add(cCyan, false, "Boss Rematch / %s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Menu" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "%s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Mod menu" : g_uiPages.page == uRematch ? "Boss Rematch" : g_uiPages.page == uTraining ? "Training" : g_uiPages.page == uSummon ? "Summon Boss" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -2913,8 +2977,22 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItDespawnAll) add(sel ? cWhite : cGray, sel, "%s Despawn all (A:%s B:%s)", mk, SlotBossName(SlotChr(0)), SlotBossName(SlotChr(1)));
         else if (it[i] >= kItSummonA && it[i] < kItSummonEnd) {
             const int slot = it[i] >= kItSummonB ? 1 : 0;
-            add(sel ? cWhite : cGreen, sel, "%s   Summon as Boss %c (now: %s)", mk, 'A' + slot, SlotBossName(SlotChr(slot)));
+            const int row = it[i] - (slot ? kItSummonB : kItSummonA);
+            if (g_uiPages.page == uSummon && row >= 0 && (size_t)row < g_rows.size()) add(sel ? cWhite : cGreen, sel, "%s %.40s", mk, g_rows[(size_t)row].name);
+            else add(sel ? cWhite : cGreen, sel, "%s   Summon as Boss %c (now: %s)", mk, 'A' + slot, SlotBossName(SlotChr(slot)));
         }
+        else if (it[i] == kItRootRematch) add(sel ? cWhite : cGray, sel, "%s Boss Rematch   A: open", mk);
+        else if (it[i] == kItRootTraining) add(sel ? cWhite : cGray, sel, "%s Training (arenas)   A: open", mk);
+        else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon Boss   A: open", mk);
+        else if (it[i] == kItSumPassive) {
+            const int v = SumPassiveGet();
+            char val[24];
+            if (v < 0) snprintf(val, sizeof(val), "?");
+            else snprintf(val, sizeof(val), "%d s", v / 1000);
+            add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Passive time: %-5s  Left / Right", mk, val);
+        }
+        else if (it[i] == kItSumSlot)
+            add(sel ? cWhite : cGray, sel, "%s Summon into: Boss %c (now: %.20s)", mk, 'A' + g_sumSlot, SlotBossName(SlotChr(g_sumSlot)));
         else if (it[i] == kItIdleHold) {
             const int hold = IdleHoldStatus();
             add(sel ? cWhite : hold == 2 ? cGreen : hold ? cYellow : cGray, sel,
@@ -2943,7 +3021,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int row = it[i] - kItTeleport;
             const char* why = CanArena(row);
             const uint8_t stt = g_status[(size_t)row].load();
-            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - not beaten on this journey", mk);
+            if (g_uiPages.page == uTraining)  // user #13164: Training arena list (details in the footer)
+                add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %.34s", mk, g_rows[(size_t)row].name);
+            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (normal loading)   - %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (normal loading)   game loading screen, then warp into the arena", mk);
         } else if (it[i] >= kItShrine) {
@@ -3002,6 +3082,16 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the boss in this slot. Each boss keeps its own list. A opens, B returns.");
         } else if (item >= kItSummonA && item < kItSummonEnd) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you in the current world without a load (up to two: A and B). Summoning again replaces that slot. Player cannot die. A starts.");
+        } else if (item == kItSumPassive) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Seconds a summoned boss stays passive (AI off) before it attacks. 0 = at once. Left / Right 1 s. Applies to the next summon, saved.");
+        } else if (item == kItSumSlot) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Despawn all: Training page.");
+        } else if (item == kItRootRematch) {
+            snprintf(footer, nf, "Rematch beaten bosses: Fight now / shrine, death and finisher options, practice, settings.");
+        } else if (item == kItRootTraining) {
+            snprintf(footer, nf, "Training: boss stance, move switches / repeat, despawn, and the arena list (A teleports to that arena).");
+        } else if (item == kItRootSummon) {
+            snprintf(footer, nf, "Summon bosses next to you (no load), with a passive time before they attack.");
         } else if (item == kItMoves || g_uiPages.page == uMoves) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the current Fight now boss. Start a session to see recorded actions. B returns.");
         } else if (item <= kItSettingBase) {
@@ -3026,10 +3116,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItFinT) snprintf(footer, nf, "Cutscene on kill / Boss loot: the boss is killed when the first finisher animation ends, or this long after it started. Left / Right 0.5 s. Applies now, saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "No finisher (Ki break): at 0 HP the boss dies if no hit lands for this long (gold Ki bar drains). Left / Right 0.1 s. Applies now, saved.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
-        else if (item == kItClose) snprintf(footer, nf, "Close Boss Rematch. Held controller buttons stay hidden until you release them.");
+        else if (item == kItClose) snprintf(footer, nf, "Close the mod menu. Held controller buttons stay hidden until you release them.");
         else if (item >= kItTeleport) {
             const char* why = CanArena(item - kItTeleport);
-            if (why) snprintf(footer, nf, "%s. B back.", why);
+            if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
+            else if (why) snprintf(footer, nf, "%s. B back.", why);
             else snprintf(footer, nf, "Loads this boss's mission with the game's normal loading screen, then warps into the arena. No live swap. A start, B back.");
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
@@ -3046,7 +3137,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                           r.mission[0] ? r.mission : r.name, r.fightStart, r.arena[0], r.arena[1], r.arena[2], r.arenaSrc);
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (g_uiPages.page == uBosses || g_uiPages.page == uRoot) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
+            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");
