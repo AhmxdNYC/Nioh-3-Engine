@@ -189,7 +189,7 @@ N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist) {
 // bridge 12958: game thread (pump). The native idle the boss gets during the gap runs ~6 s before the AI picks again (live 19:35: 1000 ms set,
 // 6.0 s measured), so when the gap has passed and the boss is still in idle 0x2 the repeated move is started with SetActionID's forced
 // transition 66C4A8(ctrl, id, 0, 0.0) (the KiBreakActFix path).
-static void MvRepTick(void) {
+static __attribute__((noinline)) void MvRepTick(void) {
     DWORD now = GetTickCount();
     for (int i = 0; i < MV_REP_MAX; ++i) {
         uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
