@@ -2094,6 +2094,7 @@ constexpr int kItReturnHome = -23;
 // user #6789: the physical Return gate in the arena opens page uGate: Return to where I was / Fight again (Nioh3Training_GateFightAgain = queued round reset)
 constexpr int kItFightAgain = -24;
 // user round-2 test + #7118 (jumpfix 'Instant respawn on death', merged into this one row): AutoRetryOnDeath toggle (Nioh3Training [Summon]; 0 = no instant player+boss reset on defeat, the Return gate offers Fight again)
+// user #13229/#13230: the row is no longer listed (always on, not toggleable); id kept so the old handlers stay inert
 constexpr int kItAutoRetry = -25;
 // user #7465: KiBreakNoFinisher (Nioh3Training [Summon]): no grapple finisher on a Ki-broken boss, gold Ki bar, HP-0 window
 constexpr int kItNoFin = -26;

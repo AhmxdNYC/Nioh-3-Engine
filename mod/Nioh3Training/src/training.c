@@ -697,7 +697,7 @@ static __attribute__((noinline)) void GaugeTick(void) {
     Log("GAUGE ShowBossGauge(fake id 0x%X) for actor %p (handle 0x%X, wrapper template owner %u -> %p)", g_fakeid, (void*)a, g_gg.handle, g_gg.owner, (void*)tmpl);
 }
 static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
-static int g_cfg_autoretry = 0;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118: one toggle; see TrainTick / TrainLost)
+static int g_cfg_autoretry = 1;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118). user #13229/#13230: ALWAYS 1 in Training/Rematch (ini and API cannot turn it off); see TrainTick / TrainLost
 static int g_practice_next;  // user #13223: set by Boss Rematch's Practice pages before the session starts; consumed into g_tr.practice
 static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
@@ -2339,7 +2339,8 @@ static DWORD WINAPI AutoRetrySaveThread(LPVOID p) {
 }
 N3T_API int Nioh3Training_GetAutoRetry(void) { return g_cfg_autoretry; }
 N3T_API void Nioh3Training_SetAutoRetry(int on, int persist) {
-    g_cfg_autoretry = on != 0; Log("API AutoRetryOnDeath %d%s", g_cfg_autoretry, persist ? " (saved to ini)" : "");
+    // user #13229/#13230: AutoRetryOnDeath is forced on (dying never removes the boss / sends the player to the Return gate); a request for 0 is ignored (1 is saved).
+    g_cfg_autoretry = 1; Log("API AutoRetryOnDeath request %d ignored: always 1 (#13229)%s", on, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, AutoRetrySaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
 // #7465 Boss Rematch menu row 'No finisher (Ki break)': KiBreakNoFinisher live + saved. The hooks are installed by NfTick on the game thread.
@@ -4454,7 +4455,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         MvLoadPrefs(ini);
         g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
-        g_cfg_autoretry = 1;  /* #13229: instant dejavu reset on defeat is always on, no toggle (ini key ignored) */ Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
+        { int ini_ar = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 1, ini), ini); g_cfg_autoretry = 1; Log("AutoRetryOnDeath 1 (forced, user #13229: player beaten = instant dejavu reset; ini value %d ignored)", ini_ar); }
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
         g_cfg_gate_opena = GetPrivateProfileIntA("Return", "ReturnGateOpenOnA", 1, ini); g_cfg_bar_vis = GetPrivateProfileIntA("Summon", "BossBarAfterVisibleMs", 600, ini);
         Log("ReturnGateOpenOnA %d (#9664/#9670: pad A near the gate opens our gate page), BossBarAfterVisibleMs %d (#9685), FinisherKillTimeoutMs %d / KiBreakHp0WindowMs %d (Boss Rematch sliders, #9585)", g_cfg_gate_opena, g_cfg_bar_vis, g_cfg_fin_timeout, g_cfg_nofin_ms);
