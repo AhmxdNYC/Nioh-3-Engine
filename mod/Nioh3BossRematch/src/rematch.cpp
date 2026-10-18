@@ -2136,6 +2136,23 @@ int LeaveArena(const char* src) {
     Log("Rematch: leave arena (%s) -> %d", src, rc);
     return rc;
 }  // kItTrainHere + row = start a Practice session with that boss right here
+// user #13265: the boss-fight toggles (death / finisher options of the Boss Rematch page) on their own page, reachable from Practice, Practice tools
+// and the Training Return gate. user #13262: the Return gate page adapts to the session mode (Nioh3Training_SessionMode).
+constexpr int uFightOpts = 908, kItFightOpts = -50  /* -49 = kItLeaveArena */;
+template <class Add> void AddBossFightItems(Add&& add) {  // shared by Boss Rematch, Boss fight settings and the Rematch Return gate
+    if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
+    /* #13229: auto retry always on, row removed */
+    if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
+    if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
+}
+bool BossFightItemsAvailable() {
+    return TrainingExport("Nioh3Training_SetDeathCfg") || TrainingExport("Nioh3Training_SetNoFinisher") || TrainingExport("Nioh3Training_SetTuning");
+}
+int GateMode() {  // 0 = unknown / no session (old 2-option page), 1 = Boss Rematch fight, 2 = Training
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_SessionMode");
+    return f ? f() : 0;
+}
 void SetPracticeNext(int on) {
     using Fn = void (*)(int);
     if (const auto f = (Fn)TrainingExport("Nioh3Training_SetPracticeNext")) f(on);
@@ -2339,6 +2356,12 @@ int Items(int* out, int cap) {
         add(kItArenas);
         if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
         if (PracticeToolsAvailable()) add(kItRootTools);
+        if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
+        AddBossFightItems(add);
         add(kItBack);
         return n;
     }
@@ -2355,6 +2378,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); }
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
+        if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
         add(kItBack);
         return n;
@@ -2383,10 +2407,7 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
-        if (TrainingExport("Nioh3Training_SetDeathCfg")) { add(kItDeathCut); add(kItDeathBlow); add(kItDeathLoot); }
-        /* #13229: auto retry always on, row removed */
-        if (TrainingExport("Nioh3Training_SetNoFinisher")) add(kItNoFin);
-        if (TrainingExport("Nioh3Training_SetTuning")) { add(kItFinT); add(kItHp0W); }
+        AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load())
@@ -2419,6 +2440,18 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uGate) {
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
+        const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
+        if (mode == 2) {  // Training: the Practice tools rows
+            if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
+            if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
+            if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+            if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
+            if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
+            if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
+            if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
+        } else if (mode == 1) {
+            AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
+        }
         add(kItReturnHome);
         add(kItClose);
         return n;
@@ -2738,9 +2771,9 @@ bool UiAct() {
     if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
     if (item == kItRootRematch || item == kItRootTraining || item == kItRootSummon || item == kItRootTools ||
-        item == kItTrainHereOpen || item == kItArenas || item == kItBossSumm) {  // user #13164 / #13197 / #13223
+        item == kItTrainHereOpen || item == kItArenas || item == kItBossSumm || item == kItFightOpts) {  // user #13164 / #13197 / #13223 / #13265
         g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uPracticeHub : item == kItRootSummon || item == kItBossSumm ? uSummon :
-                        item == kItArenas ? uTraining : item == kItTrainHereOpen ? uTrainHere : uTools, g_sel);
+                        item == kItArenas ? uTraining : item == kItTrainHereOpen ? uTrainHere : item == kItFightOpts ? uFightOpts : uTools, g_sel);
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
@@ -2974,7 +3007,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         if (chr) movesTitle = "Training moves (no recorded actions for this boss)";
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) { movesTitle = kN3Moves[i].boss; break; }
     }
-    add(cCyan, false, "%s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Mod menu" : g_uiPages.page == uRematch ? "Boss Rematch" : g_uiPages.page == uTraining ? "Practice - Arenas" : g_uiPages.page == uPracticeHub ? "Practice" : g_uiPages.page == uTrainHere ? "Practice - Training here" : g_uiPages.page == uSummon ? "Practice - Boss summoning" : g_uiPages.page == uTools ? "Practice tools" : g_uiPages.page == uSummon ? "Summon Boss" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (auto-saved, next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? "Return gate" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
+    add(cCyan, false, "%s (" ADDON_VERSION ") - %s", g_uiPages.page == uRoot ? "Mod menu" : g_uiPages.page == uRematch ? "Boss Rematch" : g_uiPages.page == uTraining ? "Practice - Arenas" : g_uiPages.page == uPracticeHub ? "Practice" : g_uiPages.page == uTrainHere ? "Practice - Training here" : g_uiPages.page == uSummon ? "Practice - Boss summoning" : g_uiPages.page == uTools ? "Practice tools" : g_uiPages.page == uSummon ? "Summon Boss" : g_uiPages.page == uBosses ? "Bosses" : g_uiPages.page == uActions ? "Boss actions" : g_uiPages.page == uSettings ? "Settings (auto-saved, next launch)" : g_uiPages.page == uPractice ? "Practice Yamagata" : g_uiPages.page == uGate ? (GateMode() == 2 ? "Return gate - Training" : GateMode() == 1 ? "Return gate - Boss Rematch" : "Return gate") : g_uiPages.page == uFightOpts ? "Boss fight settings" : g_uiPages.page == uMoves ? movesTitle : kConfigGroups[g_uiPages.page - uSettingFirst], st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
                                                                                   : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -3049,7 +3082,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : v < 0 || *why ? cDim : cGreen, sel, "%s %-24s %-7s   Left / Right%s", mk,
                 it[i] == kItFinT ? "Finisher kill window:" : "HP-0 combo window:", val, why);
         }
-        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s Fight again (same boss, this arena)", mk);
+        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk, GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
+        else if (it[i] == kItFightOpts) add(sel ? cWhite : cGray, sel, "%s Boss fight settings (death, finisher)   A: open", mk);  // user #13265
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Current boss moves   A: open", mk);
         else if (it[i] == kItMovesA || it[i] == kItMovesB) {
             const int slot = it[i] == kItMovesB;
@@ -3192,6 +3226,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a Practice session with this boss right here. Practice tools: stance / moves. Return to where I was ends it.");
         } else if (item == kItRootTools) {
             snprintf(footer, nf, "Practice tools: boss stance, move switches (current boss / Boss A / Boss B), repeat delay, despawn all, leave the session.");
+        } else if (item == kItFightOpts) {  // user #13265
+            snprintf(footer, nf, "The Boss Rematch boss-fight toggles: cutscene on kill, final blow required, boss loot, no finisher, kill / HP-0 windows. Apply now, saved.");
         } else if (item == kItSettings) {
             snprintf(footer, nf, "All ini preferences. Every change is saved at once and applies after a restart.");
         } else if (item == kItRootSummon) {

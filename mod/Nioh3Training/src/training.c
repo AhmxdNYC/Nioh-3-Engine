@@ -2482,6 +2482,11 @@ N3T_API int Nioh3Training_ReturnInfo(void) {
 // Interacting: the native clear gadget ends the mission through MissionRequestReturn 22396D8; while our gate is up that call is diverted into ReturnHome.
 // Fallback 'touch': standing ReturnGateTouchMs on the gate (after having left it once) also returns (ReturnGateTouchMs 0 = off).
 static int g_cfg_gate = 1, g_cfg_gate_fake = 1, g_cfg_gate_dist = 220, g_cfg_gate_touch = 1500, g_cfg_gate_radius = 110; static char g_gate_ids[64] = "10,11,13,12";
+// user #13255 [Return] ReturnGateAlways (default 1): the gate is spawned at session start (round-1 pose stored, the round-1 boss alive for 3 s, so the
+// gadget is never created before the boss exists: #7138) instead of only once the session goes idle; same spot/ground logic. While a boss is alive the
+// native interact (gadget prompt / end-mission box, both already swallowed) opens OUR gate page instead of nothing. The idle-only parts stay idle-only:
+// no face-button mask, no raw pad A and no stand-on open during a fight, so fight inputs are untouched. 0 = old (spawn when idle, inactive in a fight).
+static int g_cfg_gate_always = 1;
 static struct { int up, tried, left; uint32_t id, mission; float pos[4]; DWORD tTry, tIn; int session; } g_gate;
 static uint8_t g_gate_fakerec[0x100];
 typedef void (*ReqRetFn)(const uint32_t*, uint8_t);
@@ -2649,6 +2654,8 @@ static void SumNoDeathTick(void) {  // game thread (pump)
     SumNoDeathRelease(g_nsp ? "every summoned boss is dead" : "no summoned boss left");
 }
 N3T_API int Nioh3Training_SessionActive(void) { return (g_tr.active ? 1 : 0) | ((SlotAlive(0) || SlotAlive(1)) ? 2 : 0); }  // user #13197: menu 'Practice tools' root row
+// user #13262: mode of the running session for the Return gate page. 0 = no session, 1 = Boss Rematch Fight now, 2 = Training (Practice: Training here / arena)
+N3T_API int Nioh3Training_SessionMode(void) { return !g_tr.active ? 0 : g_tr.practice ? 2 : 1; }
 // user #13164: game thread (pump). Holds a freshly summoned slot boss passive for g_sph[s].ms, then gives its AI back (only if we switched it off).
 static __attribute__((noinline)) void SphTick(void) {
     DWORD now = GetTickCount();
@@ -2687,8 +2694,9 @@ N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active
 static void GateTick(void) {
     if (InterlockedExchange(&g_gate_again, 0) && g_tr.active && !g_rh.active) { Log("GATE: Fight again (Boss Rematch gate page)"); TrainRetry("gate: fight again"); }
     if (!g_cfg_gate) return;
-    if (!g_tr.active) { if (g_gate.session) { g_gate.session = 0; g_gate.up = 0; g_gate.tried = 0; } return; }
-    if (!g_gate.session) { g_gate.session = 1; g_gate.up = 0; g_gate.tried = 0; g_gate.tTry = 0; }
+    static DWORD tBossSeen;  // #13255: when the boss was first seen alive this session (0 = not alive)
+    if (!g_tr.active) { if (g_gate.session) { g_gate.session = 0; g_gate.up = 0; g_gate.tried = 0; } tBossSeen = 0; return; }
+    if (!g_gate.session) { g_gate.session = 1; g_gate.up = 0; g_gate.tried = 0; g_gate.tTry = 0; tBossSeen = 0; }
     if (g_rh.active || g_xw.active || g_fd.pend) return;
     const uint8_t* st = GameState(); if (!st || st[2] || !PlayerChar() || StageState() != 5) return;
     DWORD now = GetTickCount();
@@ -2697,8 +2705,11 @@ static void GateTick(void) {
     // (ai+1AA8 = -1, walks up and hops back to its spawn = the 'jumping' boss; the confirmed-good 20:39 retry without a gadget went 0 at once).
     // Also never before the round-1 arena boss exists (Fight now arena swap still loading its resources: no boss yet, but one is about to spawn).
     int idle = !GateBossAlive() && !g_tr.tRespawn && !g_sp.active && !g_vf.respawnAt && !g_tr.beaten && !(g_tr.tWin && g_cfg_tr_win > 0) && !(g_ar.active && !g_ar.spawned);
-    if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && idle) {
-        g_gate.tTry = now; g_gate.tried++; GateSpawn(g_gate.tried == 1 ? "arena session" : "retry");
+    // #13255 ReturnGateAlways: also spawn at session start, 3 s after the round-1 boss is alive (pose stored, nothing pending), trail has floor samples
+    const int alive = GateBossAlive(); if (!alive) tBossSeen = 0; else if (!tBossSeen) { tBossSeen = now; if (!tBossSeen) tBossSeen = 1; }
+    int early = g_cfg_gate_always && g_tr.hasStart && alive && tBossSeen && now - tBossSeen >= 3000 && !g_tr.tRespawn && !g_sp.active && !g_vf.respawnAt && !g_tr.beaten && !(g_ar.active && !g_ar.spawned);
+    if (!g_gate.up && g_home.valid && g_gate.tried < 3 && (!g_gate.tTry || now - g_gate.tTry > 3000) && (idle || early)) {
+        g_gate.tTry = now; g_gate.tried++; GateSpawn(g_gate.tried == 1 ? (early && !idle ? "session start (ReturnGateAlways)" : "arena session") : "retry");
     }
     // #9324 (user screen 22:4x): the gate is the game's own mission clear gadget; its interact (A near it) opens the native 'This will end the mission.
     // Proceed?' prompt on top of our gate page, and its Yes ended the game process (22:14: no MissionRequestReturn, the game just closed). While the player
@@ -2746,8 +2757,7 @@ static void GateTick(void) {
 static void h_reqret(const uint32_t* p, uint8_t f) {
     void* ra = __builtin_return_address(0);
     if (g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
-        if (GateBossAlive()) { Log("GATE: MissionRequestReturn from %p while the boss is alive: ignored (gate is inactive during a fight)", (void*)((uintptr_t)ra - B)); return; }
-        int r = GateUse(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to the gate choice -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
+        if (GateBossAlive() && !g_cfg_gate_always) { Log("GATE: MissionRequestReturn from %p while the boss is alive: ignored (gate is inactive during a fight)", (void*)((uintptr_t)ra - B)); return; }        int r = GateUse(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to the gate choice -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
     }
     o_reqret(p, f);
 }
@@ -2766,7 +2776,7 @@ static uint64_t h_endconf(void* ctx, int action) {
     if (action != 0x2613 && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) { float q[4]; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearGate = sqrtf(mx * mx + mz * mz) < 600.0f; } }
     if ((action == 0x2613 || nearGate) && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         void* ra = __builtin_return_address(0); LONG n = InterlockedIncrement(&g_endconf_n);
-        int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
+        int boss = GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), r = -1;  // #13255: with ReturnGateAlways a fight does not block our page
         if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
         if (n <= 50) { float q[4]; float d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
             Log("GATE: native end-mission prompt (action 0x%X, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", (unsigned)action, (unsigned long long)((uintptr_t)ra - B), d, n,
@@ -2796,7 +2806,7 @@ static __attribute__((noinline)) int PmDecideSwallow(void* m, int viaVfunc, void
         int* ids = *(int**)(p + 0x3D0); if (!ids || row < 0) return 0; id = ids[row];
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     if (id != 3) return 0;
-    LONG n = InterlockedIncrement(&g_pmdec_n); int boss = GateBossAlive(), page = GateMenuOpen(), r = -1;
+    LONG n = InterlockedIncrement(&g_pmdec_n); int boss = GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), r = -1;  // #13255
     if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
     if (n <= 50) Log("GATE: native end-mission prompt from the pause menu (%s, entry 3, caller +%llX, player %.0f u from the gate) blocked #%ld: %s", which,
         (unsigned long long)((uintptr_t)ra - B), d, n, boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?");
@@ -2838,7 +2848,7 @@ static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3,
         char tx[72] = "?"; if (s) { __try { int i = 0; for (; s[i] && i < 70; ++i) tx[i] = s[i] < 0x80 && s[i] >= 0x20 ? (char)s[i] : '.'; tx[i] = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { strcpy(tx, "?"); } }
         LONG n = InterlockedIncrement(&g_dlg_n);
         if (block) {
-            int boss = GateBossAlive(), r = -1; LONG nb = InterlockedIncrement(&g_dlg_blk);
+            int boss = GateBossAlive() && !g_cfg_gate_always, r = -1; LONG nb = InterlockedIncrement(&g_dlg_blk);  // #13255
             if (!boss && !page && !recent) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
             if (nb <= 60) Log("GATE: native end-mission box at DialogOpen 348274 BLOCKED #%ld ('%s', player %.0f u from the gate, page %d, page requested %lu ms ago, stack %s): %s", nb, tx, d, page,
                 g_gate_tUse ? now - g_gate_tUse : 0, st, boss ? "boss alive, nothing opened" : page || recent ? "our gate page already open/opening" : r >= 0 ? "our gate page opened instead" : "?");
@@ -4413,12 +4423,12 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_gate = GetPrivateProfileIntA("Return", "ReturnGate", 1, ini); g_cfg_gate_fake = GetPrivateProfileIntA("Return", "ReturnGateFakeRecord", 1, ini);
         g_cfg_gate_dist = GetPrivateProfileIntA("Return", "ReturnGateDistance", 220, ini); g_cfg_gate_touch = GetPrivateProfileIntA("Return", "ReturnGateTouchMs", 1500, ini);
-        g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); g_cfg_gate_ground = GetPrivateProfileIntA("Return", "ReturnGateGround", 1, ini); GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
+        g_cfg_gate_radius = GetPrivateProfileIntA("Return", "ReturnGateRadius", 110, ini); g_cfg_gate_ground = GetPrivateProfileIntA("Return", "ReturnGateGround", 1, ini); g_cfg_gate_always = GetPrivateProfileIntA("Return", "ReturnGateAlways", 1, ini);GetPrivateProfileStringA("Return", "ReturnGateIds", "10,11,13,12", g_gate_ids, sizeof g_gate_ids, ini);
         g_cfg_goldki = GetPrivateProfileIntA("Summon", "GoldKiBar", 1, ini);
         g_cfg_nofin = GetPrivateProfileIntA("Summon", "KiBreakNoFinisher", 0, ini); g_cfg_nofin_ms = GetPrivateProfileIntA("Summon", "KiBreakHp0WindowMs", 1000, ini); if (g_cfg_nofin_ms < 200) g_cfg_nofin_ms = 200;
         g_nf_kneelall = GetPrivateProfileIntA("Summon", "KiBreakKneelBlockAll", 1, ini); g_nf_hp0aihold = GetPrivateProfileIntA("Summon", "KiBreakHp0AiHold", 1, ini);
         g_cfg_nofin_fade = GetPrivateProfileIntA("Summon", "KiBreakHp0FadeDelayMs", 1000, ini); if (g_cfg_nofin_fade < 0) g_cfg_nofin_fade = 0;
-        Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542); KiBreakHp0FadeDelayMs %d, ReturnGateGround %d (#9543)", g_nf_kneelall, g_nf_hp0aihold, g_cfg_nofin_fade, g_cfg_gate_ground);
+        Log("KiBreakKneelBlockAll %d, KiBreakHp0AiHold %d (#9542); KiBreakHp0FadeDelayMs %d, ReturnGateGround %d (#9543), ReturnGateAlways %d (#13255)", g_nf_kneelall, g_nf_hp0aihold, g_cfg_nofin_fade, g_cfg_gate_ground, g_cfg_gate_always);
         g_nf_barefix = GetPrivateProfileIntA("Summon", "KiBreakBareFix", 1, ini); g_nf_bare_ms = GetPrivateProfileIntA("Summon", "KiBreakBareMs", 200, ini); if (g_nf_bare_ms < 0) g_nf_bare_ms = 0;
         Log("KiBreakBareFix %d, KiBreakBareMs %d (#9579: bare Ki break = crouch without stagger -> cancelled, Ki primed for a real break)", g_nf_barefix, g_nf_bare_ms);
         g_nf_actfix = GetPrivateProfileIntA("Summon", "KiBreakActFix", 1, ini); g_nf_actfix_mode = GetPrivateProfileIntA("Summon", "KiBreakActFixMode", 2, ini);
