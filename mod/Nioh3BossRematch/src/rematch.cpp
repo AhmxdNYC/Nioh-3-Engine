@@ -376,7 +376,7 @@ const char* Gates(const Snap& s, bool uiSide) {
     if (!s.queueOk) return "mission queue unreadable";
     if (!s.emakiOk) return "Picture Scroll state unreadable";
     if (s.st[2] && !XwPending()) return "loading";
-    if (s.st[3] | s.st[4]) return "game paused";
+    if (!uiSide && (s.st[3] | s.st[4])) return "game paused";  // uiSide: our own menu pauses the game (menu pause), so a click from it is not "paused"
     if (!s.player) return "no save loaded";
     if (s.queueBusy) return "mission queue busy";
     if (s.emaki) return "in a Picture Scroll";
