@@ -16,12 +16,16 @@ static int PassiveGet() { return passiveMs; }
 static int PassiveSet(int ms, int) { passiveMs = ms; return ms; }
 static int trainHereCalls; static unsigned trainHereMission;
 static int TrainHere(unsigned mission) { ++trainHereCalls; trainHereMission = mission; return 1; }
+static int sessionMode = 0, fightAgainCalls;  // user #13262: Nioh3Training_SessionMode (0 none, 1 Boss Rematch, 2 Training)
+static int SessionMode() { return sessionMode; }
+static int GateFightAgain() { ++fightAgainCalls; return 1; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
     EXPORT("GetTuning", TuneGet); EXPORT("SetTuning", TuneSet);
     EXPORT("GetIdleHold", IdleGet); EXPORT("SetIdleHold", IdleSet);
     EXPORT("SummonSlot", SummonSlot); EXPORT("GetSummonPassive", PassiveGet); EXPORT("SetSummonPassive", PassiveSet); EXPORT("TrainHere", TrainHere);
+    EXPORT("SessionMode", SessionMode); EXPORT("GateFightAgain", GateFightAgain);
     EXPORT("GetMoveBoss", BossGet); EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
 #undef EXPORT
     return nullptr;
@@ -54,7 +58,7 @@ int main() {
     // Practice: Training here / Arenas / Boss summoning / Practice tools
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
     n = Items(items, kMaxRows + 4);
-    CHECK(n == 5 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItBossSumm && items[3] == kItRootTools && items[4] == kItBack);
+    CHECK(n == 6 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItBossSumm && items[3] == kItRootTools && items[4] == kItFightOpts && items[5] == kItBack);
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTraining);  // Arenas: arena rows only
     n = Items(items, kMaxRows + 4);
     for (int i = 0; i < n; ++i) CHECK((items[i] >= kItTeleport && items[i] < kItSummonA) || items[i] == kItBack);
@@ -103,7 +107,27 @@ int main() {
     g_sel = 1; UiChange(1); n = Items(items, kMaxRows + 4); CHECK(items[2] == kItSummonB);
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss summoning"));
     g_sel = 2; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
+    // user #13262: the Return gate page follows the session mode; #13265: boss-fight toggles reachable in Training
+    auto has = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return true; return false; };
+    sessionMode = 0; UiGatePage(); n = Items(items, kMaxRows + 4);
+    CHECK(n == 3 && items[0] == kItFightAgain && items[1] == kItReturnHome && items[2] == kItClose);
+    sessionMode = 1; n = Items(items, kMaxRows + 4);
+    CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 2] == kItReturnHome && items[n - 1] == kItClose);
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss Rematch"));
+    sessionMode = 2; n = Items(items, kMaxRows + 4);
+    CHECK(items[0] == kItFightAgain && has(kItIdleHold) && has(kItMoves) && has(kItBossSumm) && has(kItDespawnAll) && has(kItFightOpts) && !has(kItFinT) && items[n - 2] == kItReturnHome && items[n - 1] == kItClose);
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Training") && strstr(rows[1].text, "Reset round"));
+    for (int i = 0; i < n; ++i) if (items[i] == kItFightOpts) g_sel = i;
+    CHECK(!UiAct() && g_uiPages.page == uFightOpts);
+    n = Items(items, kMaxRows + 4);
+    CHECK(n == 3 && items[0] == kItFinT && items[1] == kItHp0W && items[2] == kItBack);
+    g_sel = 0; UiChange(1); CHECK(tuneCalls == 3);
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss fight settings"));
+    CHECK(!UiBack() && g_uiPages.page == uGate);
+    g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
+    UiOpenAt(2); g_sel = 3; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
+    sessionMode = 0;
     (void)bossLive;
-    puts("PASS: root = Settings / Boss Rematch / Practice; Practice = Training here / Arenas / Boss summoning / tools; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch");
+    puts("PASS: root = Settings / Boss Rematch / Practice; Practice = Training here / Arenas / Boss summoning / tools; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
     return 0;
 }

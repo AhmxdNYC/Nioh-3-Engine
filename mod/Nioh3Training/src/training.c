@@ -2638,6 +2638,8 @@ static void SumNoDeathTick(void) {  // game thread (pump)
     SumNoDeathRelease(g_nsp ? "every summoned boss is dead" : "no summoned boss left");
 }
 N3T_API int Nioh3Training_SessionActive(void) { return (g_tr.active ? 1 : 0) | ((SlotAlive(0) || SlotAlive(1)) ? 2 : 0); }  // user #13197: menu 'Practice tools' root row
+// user #13262: mode of the running session for the Return gate page. 0 = no session, 1 = Boss Rematch Fight now, 2 = Training (Practice: Training here / arena)
+N3T_API int Nioh3Training_SessionMode(void) { return !g_tr.active ? 0 : g_tr.practice ? 2 : 1; }
 // user #13164: game thread (pump). Holds a freshly summoned slot boss passive for g_sph[s].ms, then gives its AI back (only if we switched it off).
 static __attribute__((noinline)) void SphTick(void) {
     DWORD now = GetTickCount();
