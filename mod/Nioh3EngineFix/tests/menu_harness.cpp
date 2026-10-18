@@ -203,9 +203,11 @@ int main() {
 
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
+    // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
+    CHECK(g_pages.page==pRoot && n==4 && rows[0]==kPageRow+pSettings && rows[1]==kRematchRow && rows[2]==kPracticeRow && rows[3]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
-    CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenMenu);
+    CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly
     hf::Complete(true); g_pressed=0; OnPresentImpl();
     CHECK(g_rematchOpened && !g_rematchAwait);
     g_pressed=N_BACK|N_OK; OnPresentImpl();

@@ -12,7 +12,9 @@ enum Result : int { Accepted = 0, Busy = 1, Unavailable = 2, BadVersion = 3, Sta
 enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u };
 enum Capability : uint32_t { SnapshotV1 = 1u, InputV1 = 2u, ExclusiveHost = 4u };
 constexpr uint32_t kRequiredCapabilities = SnapshotV1 | InputV1 | ExclusiveHost;
-enum Action : uint32_t { OpenMenu = 0, CloseMenu, Up, Down, Left, Right, PageUp, PageDown, Accept, Back };
+// user #13223: OpenRematch / OpenPractice open the add-on directly on its Boss Rematch / Practice page (the host's first page lists them);
+// an older provider answers InvalidArgument and the host falls back to OpenMenu.
+enum Action : uint32_t { OpenMenu = 0, CloseMenu, Up, Down, Left, Right, PageUp, PageDown, Accept, Back, OpenRematch, OpenPractice };
 struct Row { char text[112]; uint32_t color; uint32_t selected; }; // color is Windows COLORREF (0x00BBGGRR), host adds alpha
 struct Snapshot {
     uint32_t size;
@@ -51,7 +53,7 @@ using GetApi = int (*)(uint32_t version, uint32_t bytes, Api* out);
 // All function pointers use platform x64 C calling convention. Query exported with
 // extern "C" __declspec(dllexport). Modules remain loaded for the process lifetime.
 // Every callback is try-only/nonblocking; worker owns every Ui* call. No pipe I/O.
-inline bool ValidAction(uint32_t action) { return action <= Back; }
+inline bool ValidAction(uint32_t action) { return action <= OpenPractice; }
 inline bool ValidApi(const Api& a) {
     return a.size == sizeof(Api) && a.version == kVersion && a.reserved == 0 &&
         (a.capabilities & kRequiredCapabilities) == kRequiredCapabilities && a.Attach && a.Detach && a.Post && a.CopySnapshot && a.PresentCover;

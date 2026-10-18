@@ -139,6 +139,9 @@ void HostedTick() {
     mb::QueuedAction action{};
     if (g_bridgeQueue.Pop(action) && action.session == g_bridgeSession && action.generation == g_bridgeSnapshot.generation) {
         if (action.action == mb::OpenMenu) Toggle(true);
+        else if (action.action == mb::OpenRematch || action.action == mb::OpenPractice) {  // user #13223
+            Toggle(true); rematch::UiOpenAt(action.action == mb::OpenRematch ? 1 : 2);
+        }
         else if (g_open.load()) {
             switch (action.action) {
                 case mb::Up: rematch::UiMove(-1); break;

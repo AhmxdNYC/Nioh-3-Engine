@@ -800,13 +800,13 @@ int PageRows(int* out, bool selectable) {
     if (!g_cfg.layout) {
         for (const auto& row : kOrder)
             if (Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
-        if (g_rematchSession.load()) add(kRematchRow);
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
         return n;
     }
     const int page = g_pages.page;
     if (page == pRoot) {
-        add(kPageRow + pSettings);
-        if (g_rematchSession.load()) add(kRematchRow);
+        add(kPageRow + pSettings);  // user #13223: Settings / Boss Rematch / Practice (+ Close)
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
     }
     else if (page == pSettings) {
         for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
@@ -1192,7 +1192,9 @@ void Close(const char* how) {
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
     MessageBeep(MB_ICONASTERISK);
-    MLOG("closed (%s)%s", how, g_dirty ? " - unsaved choices: live rows last until exit; startup rows need Save/restart" : "");
+    const bool autoSave = g_dirty && !g_ini.empty();
+    MLOG("closed (%s)%s", how, autoSave ? " - auto-saving the changed settings to the ini" : "");
+    if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
 }
 
 void CloseCover(const char* why) {
@@ -1281,8 +1283,10 @@ void ChangeConfig(int index, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
-    if (id == kRematchRow) {
-        if (dir == 0 && RefreshRematchHost(Now()) && PostRematchAction(rmb::OpenMenu)) {
+    if (id == kRematchRow || id == kPracticeRow) {
+        // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
+        if (dir == 0 && RefreshRematchHost(Now()) &&
+            (PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
             g_rematchPage = true; g_rematchOpened = false;
             for (auto& repeat : g_rep) repeat = 0;
         }
@@ -2073,9 +2077,10 @@ float DrawImpl(unsigned W, unsigned H) {
     const int pageN = PageRows(pageRows, false);
     for (int oi = 0; oi < pageN; ++oi) {
         const int id = pageRows[oi];
-        if (id == kRematchRow) {
+        if (id == kRematchRow || id == kPracticeRow) {
             if (id == g_sel) selRow = nb;
-            put(body, nb, 128, id == g_sel ? "> Boss Rematch / Practice" : "  Boss Rematch / Practice", "", "A: open", cWhite, cCyan, id == g_sel, false);
+            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Rematch" : "  Boss Rematch") : (id == g_sel ? "> Practice" : "  Practice");
+            put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
         if (id >= kSettingRow) {
@@ -2129,8 +2134,11 @@ float DrawImpl(unsigned W, unsigned H) {
     snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
-        snprintf(what, sizeof(what), "Boss rematches and native Yamagata practice, inside this overlay.");
+        snprintf(what, sizeof(what), "Boss rematches: Fight now / shrine, death and finisher options, native Yamagata practice.");
         snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
+    } else if (g_sel == kPracticeRow) {
+        snprintf(what, sizeof(what), "Training here, Arenas, Boss summoning and the practice tools (stance, moves, despawn).");
+        snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if (g_sel >= kSettingRow) {
         const int index = g_sel - kSettingRow;
         const auto& d = kConfigSettings[index];

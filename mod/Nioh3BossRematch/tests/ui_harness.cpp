@@ -60,7 +60,7 @@ int main() {
         g_status[(size_t)i].store(2);
     }
     UiOpen();
-    CHECK(g_uiPages.page == uRoot); g_sel = 1; CHECK(!UiAct());  // user #13197: root = Settings / Boss Rematch / Practice / Summon Boss / Close
+    CHECK(g_uiPages.page == uRoot); g_sel = 1; CHECK(!UiAct());  // user #13223: root = Settings / Boss Rematch / Practice / Close
     CHECK(g_uiPages.page == uRematch);
     UiMove(10);
     CHECK(g_sel == 10);
@@ -227,7 +227,7 @@ int main() {
     // With Rematch disabled, Settings remains available and changes no game state.
     g_live.store(false);
     UiOpen();
-    CHECK(Items(it, kMaxRows + 4) == 5 && it[0] == kItSettings && it[1] == kItRootRematch && it[2] == kItRootTraining && it[3] == kItRootSummon && it[4] == kItClose);
+    CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItSettings && it[1] == kItRootRematch && it[2] == kItRootTraining && it[3] == kItClose);  // #13223
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uRematch);
     CHECK(Items(it, kMaxRows + 4) == 1 && it[0] == kItBack);  // #13197: no Settings / Return to where I was on the Boss Rematch page
     CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);

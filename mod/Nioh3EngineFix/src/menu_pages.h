@@ -10,6 +10,7 @@ constexpr int kPageRow = kCount;
 constexpr int kBackRow = kPageRow + pCount;
 constexpr int kSettingRow = kBackRow + 1;
 constexpr int kRematchRow = kSettingRow + kConfigN;
+constexpr int kPracticeRow = kRematchRow + 1;  // user #13223: first page = Settings / Boss Rematch / Practice
 constexpr int kMenuRowCap = kCount + pCount + kConfigN + 3;
 const char* const kPageNames[] = {"Mod menu", "Settings", "Display & overlay", "Frame generation", "Gameplay",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
@@ -32,6 +33,7 @@ inline int SettingsPage(int id) {
 }
 inline bool PageContains(int page, int id) {
     if (page == pAll) return true;
-    if (id == kSave || id == kClose) return page == pRoot;
+    if (id == kClose) return page == pRoot;
+    if (id == kSave) return page == pBoot;  // user #13223: no Save row on the first page (closing the menu auto-saves); manual Save stays under Next launch
     return SettingsPage(id) == page;
 }

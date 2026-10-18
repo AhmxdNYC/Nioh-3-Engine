@@ -14,12 +14,14 @@ static int summonCalls, summonSlot = -1, passiveMs = 3000; static unsigned summo
 static int SummonSlot(int slot, unsigned mission) { ++summonCalls; summonSlot = slot; summonMission = mission; return 1; }
 static int PassiveGet() { return passiveMs; }
 static int PassiveSet(int ms, int) { passiveMs = ms; return ms; }
+static int trainHereCalls; static unsigned trainHereMission;
+static int TrainHere(unsigned mission) { ++trainHereCalls; trainHereMission = mission; return 1; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
     EXPORT("GetTuning", TuneGet); EXPORT("SetTuning", TuneSet);
     EXPORT("GetIdleHold", IdleGet); EXPORT("SetIdleHold", IdleSet);
-    EXPORT("SummonSlot", SummonSlot); EXPORT("GetSummonPassive", PassiveGet); EXPORT("SetSummonPassive", PassiveSet);
+    EXPORT("SummonSlot", SummonSlot); EXPORT("GetSummonPassive", PassiveGet); EXPORT("SetSummonPassive", PassiveSet); EXPORT("TrainHere", TrainHere);
     EXPORT("GetMoveBoss", BossGet); EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
 #undef EXPORT
     return nullptr;
@@ -36,9 +38,9 @@ int main() {
     int items[kMaxRows + 4];
     Row boss = {}; strcpy_s(boss.name, "Summon Test"); boss.missionId = 0x1CBC; boss.route = rcore::kR; g_rows.push_back(boss);
     UiOpen();
-    // user #13197: root = Settings / Boss Rematch / Practice / Summon Boss, + Practice tools while a boss session is live (GetMoveBoss != 0), Close
+    // user #13223: root = Settings / Boss Rematch / Practice / Close (the host's first page opens Boss Rematch / Practice directly)
     int n = Items(items, kMaxRows + 4), moves = -1;
-    CHECK(n == 6 && items[0] == kItSettings && items[1] == kItRootRematch && items[2] == kItRootTraining && items[3] == kItRootSummon && items[4] == kItRootTools && items[5] == kItClose);
+    CHECK(n == 4 && items[0] == kItSettings && items[1] == kItRootRematch && items[2] == kItRootTraining && items[3] == kItClose);
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uRematch);
     n = Items(items, kMaxRows + 4);
     for (int i = 0; i < n; ++i) {
@@ -49,13 +51,15 @@ int main() {
     }
     CHECK(tuneCalls == 2 && !idleCalls && !moveCalls && items[n - 1] == kItBack);
     CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);
-    // Practice (Training arenas): arena rows only
-    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTraining);
+    // Practice: Training here / Arenas / Boss summoning / Practice tools
+    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
+    n = Items(items, kMaxRows + 4);
+    CHECK(n == 5 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItBossSumm && items[3] == kItRootTools && items[4] == kItBack);
+    g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTraining);  // Arenas: arena rows only
     n = Items(items, kMaxRows + 4);
     for (int i = 0; i < n; ++i) CHECK((items[i] >= kItTeleport && items[i] < kItSummonA) || items[i] == kItBack);
-    CHECK(items[n - 1] == kItBack && !UiBack() && g_uiPages.page == uRoot);
-    // Practice tools: stance, moves, Boss A/B moves, repeat delay, despawn
-    g_sel = 4; CHECK(!UiAct() && g_uiPages.page == uTools);
+    CHECK(items[n - 1] == kItBack && !UiBack() && g_uiPages.page == uPracticeHub && g_sel == 1);
+    g_sel = 3; CHECK(!UiAct() && g_uiPages.page == uTools);  // Practice tools
     n = Items(items, kMaxRows + 4);
     int seen = 0;
     for (int i = 0; i < n; ++i) {
@@ -73,29 +77,33 @@ int main() {
         if (IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(-1); }
     }
     CHECK(tuneCalls == 2 && idleCalls == 2 && moveCalls == 12);
-    CHECK(!UiBack() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uRoot);
-    // Settings: no Save row (auto-save), Practice tools always reachable from it
-    g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uSettings);
+    CHECK(!UiBack() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uPracticeHub);
+    // Training here: boss list, A queues the in-place session and closes
+    g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uTrainHere);
+    n = Items(items, kMaxRows + 4);
+    CHECK(n == 2 && items[0] == kItTrainHere && items[1] == kItBack);
+    UiRow rows[24]; char footer[240];
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Training here") && strstr(rows[1].text, "Summon Test"));
+    g_sel = 0; CHECK(UiAct() && trainHereCalls == 1 && trainHereMission == 0x1CBC);
+    // host first page -> Practice / Boss Rematch as the base page: Back closes to the host
+    UiOpenAt(2); CHECK(g_uiPages.page == uPracticeHub && UiBack());
+    UiOpenAt(1); CHECK(g_uiPages.page == uRematch && UiBack());
+    // Settings: no Save row (auto-save), Practice tools reachable from it
+    UiOpen(); g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uSettings);
     n = Items(items, kMaxRows + 4);
     CHECK(n == kConfigGroupN + 2 && items[n - 2] == kItRootTools && items[n - 1] == kItBack);
     for (int i = 0; i < n; ++i) CHECK(items[i] != kItSave);
-    g_sel = n - 2; CHECK(!UiAct() && g_uiPages.page == uTools);
-    CHECK(!UiBack() && g_uiPages.page == uSettings && !UiBack() && g_uiPages.page == uRoot);
-    // Summon Boss: passive-time slider, slot switch, boss rows summon into the chosen slot
-    g_sel = 3; CHECK(!UiAct() && g_uiPages.page == uSummon);
+    // Boss summoning: passive-time slider, slot switch, boss rows summon into the chosen slot
+    UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uSummon);
     n = Items(items, kMaxRows + 4);
     CHECK(n == 4 && items[0] == kItSumPassive && items[1] == kItSumSlot && items[2] == kItSummonA && items[3] == kItBack);
     g_sel = 0; UiChange(1); CHECK(passiveMs == 4000); UiChange(-1); UiChange(-1); CHECK(passiveMs == 2000);
     for (int i = 0; i < 40; ++i) UiChange(-1);
     CHECK(passiveMs == 0);
     g_sel = 1; UiChange(1); n = Items(items, kMaxRows + 4); CHECK(items[2] == kItSummonB);
-    UiRow rows[24]; char footer[240];
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Summon Boss"));
+    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss summoning"));
     g_sel = 2; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
-    // no live session (GetMoveBoss 0, empty slots): Practice tools leaves the root, stays on Settings
-    bossLive = false; UiOpen();
-    n = Items(items, kMaxRows + 4);
-    CHECK(n == 5 && items[4] == kItClose);
-    puts("PASS: root = Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools when live); arena-only Practice page; tools, sliders, idle, passive time and slot summon dispatch independently");
+    (void)bossLive;
+    puts("PASS: root = Settings / Boss Rematch / Practice; Practice = Training here / Arenas / Boss summoning / tools; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch");
     return 0;
 }

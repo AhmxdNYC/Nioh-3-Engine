@@ -698,7 +698,8 @@ static __attribute__((noinline)) void GaugeTick(void) {
 }
 static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
 static int g_cfg_autoretry = 0;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118: one toggle; see TrainTick / TrainLost)
-static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+static int g_practice_next;  // user #13223: set by Boss Rematch's Practice pages before the session starts; consumed into g_tr.practice
+static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
 // (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
@@ -1337,6 +1338,7 @@ static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
     TrainClear("train start");
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
+    g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
     g_tr.active = 1; IhDefault(1); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
@@ -1376,6 +1378,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     if (g_tr.active && g_tr.nodeath) PlayerSetNoDeath(0);
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
+    g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (g_cfg_tr_nodeath) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefault(1); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
@@ -1386,12 +1389,15 @@ static void TrainTick(void) {
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
     uint64_t c = 0, m = 0;
     if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
-        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)");
+        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_tr.practice ? "resetting the round in place (Practice session)" : g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)");
     }
     // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
     // NO respawn, the arena Return gate (spawned only while idle, #7138) offers Return to where I was / Fight again (Fight again = the same TrainRetry)
     // #8827 toggle matrix: AutoRetryOnDeath 0 relies on the Return gate for 'Fight again'; with ReturnGate 0 there is no gate, so a defeat resets the round (as 1)
-    if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
+    // user #13223: a Practice (Training) session always retries in place: player revived at the round-1 pose, boss respawned in Idle stance; it never
+    // ends on a defeat (only the player's own Return). AutoRetryOnDeath keeps applying to Boss Rematch Fight now sessions.
+    if (g_tr.beaten && g_tr.practice && now - g_tr.tBeat >= 2000) { TrainRetry("player beaten (Practice: retry in place)"); IhDefault(1); }
+    else if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
@@ -2557,6 +2563,8 @@ N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission) {
     if (slot < 0 || slot > 1 || !mission || g_rq_op || g_sp.active) return 0;
     g_rq_slot = slot; g_rq_mission = mission; InterlockedExchange(&g_rq_op, 1); return 1;
 }
+N3T_API int Nioh3Training_TrainHere(uint32_t mission) { if (!mission || g_rq_op || g_sp.active) return 0; g_rq_mission = mission; InterlockedExchange(&g_rq_op, 4); return 1; }  // user #13223
+N3T_API void Nioh3Training_SetPracticeNext(int on) { g_practice_next = on != 0; }  // user #13223: 1 = the next session (arena Fight now) is a Practice session
 N3T_API int Nioh3Training_DespawnAll(void) { if (g_rq_op) return 0; InterlockedExchange(&g_rq_op, 2); return 1; }
 N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot > 1 || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
 N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
@@ -2572,6 +2580,11 @@ static void RqTick(void) {
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
     } else if (op == 2) { DespawnAll("menu"); g_slot_act[0] = g_slot_act[1] = 0; g_slot_chr[0] = g_slot_chr[1] = 0; SumNoDeathRelease("despawn all"); }
     else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
+    else if (op == 4) {  // user #13223: Practice > Training here (no load, no teleport: boss summoned where the player stands, Idle stance, retry in place)
+        if (GameState() && GameState()[2]) { Log("MENU training here: a load is running, refused"); return; }
+        g_practice_next = 1; int ok = Nioh3Training_Summon(g_rq_mission); if (!ok) g_practice_next = 0;
+        Log("MENU training here mission 0x%X -> %d", g_rq_mission, ok);
+    }
 }
 // user #13197: player NoDeath switched on by a summon (SummonNoDeath 1) must not outlive the summoned bosses: off on despawn-all, when the last
 // summoned boss is dead or gone, and on session stop (TrainStop). Kept while a Training session runs with PlayerNoDeath 1 (that session owns it).
@@ -4413,7 +4426,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         MvLoadPrefs(ini);
         g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
-        g_cfg_autoretry = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 0, ini), ini); Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
+        g_cfg_autoretry = 1;  /* #13229: instant dejavu reset on defeat is always on, no toggle (ini key ignored) */ Log("AutoRetryOnDeath %d (0 = boss removed on player defeat, Return gate offers Fight again)", g_cfg_autoretry);
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
         g_cfg_gate_opena = GetPrivateProfileIntA("Return", "ReturnGateOpenOnA", 1, ini); g_cfg_bar_vis = GetPrivateProfileIntA("Summon", "BossBarAfterVisibleMs", 600, ini);
         Log("ReturnGateOpenOnA %d (#9664/#9670: pad A near the gate opens our gate page), BossBarAfterVisibleMs %d (#9685), FinisherKillTimeoutMs %d / KiBreakHp0WindowMs %d (Boss Rematch sliders, #9585)", g_cfg_gate_opena, g_cfg_bar_vis, g_cfg_fin_timeout, g_cfg_nofin_ms);
