@@ -1826,7 +1826,7 @@ void OnPresentImpl() {
     if (rematchReady && !g_disabled && !g_open && !g_rematchPage && !g_rematchClosePending && !g_rematchAwait && !g_coverToken.load() &&
         (g_rematchView.flags & rmb::Open) && t >= g_rematchNoAutoOpenUntil) {
         Open("Boss Rematch request");
-        g_rematchPage = true; g_rematchOpened = true;
+        g_rematchPage = true; g_rematchOpened = true; g_rematchFromAddon = true;
         for (auto& repeat : g_rep) repeat = 0;
     }
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
@@ -1846,13 +1846,16 @@ void OnPresentImpl() {
             return; // fail closed; ordinary neutral-release latches still apply
         }
         if (g_rematchOpened && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
-            const bool back = g_rematchLastAction == rmb::Back;
+            // user #13796: a page the add-on opened by itself (the physical Return object) is the whole menu: B closes it, it never
+            // falls back to the mod menu's first page (that second screen is where the player got stuck).
+            const bool back = g_rematchLastAction == rmb::Back, fromAddon = g_rematchFromAddon;
             CloseRematchHostPage();
             if (!back) Close("rematch action");
+            else if (fromAddon) Close("B on the Return object page");
             return;
         }
         if (g_rematchAwait || !(g_rematchView.flags & rmb::Open)) {
-            if (pressed & N_BACK) CloseRematchHostPage();
+            if (pressed & N_BACK) { const bool fromAddon = g_rematchFromAddon; CloseRematchHostPage(); if (fromAddon) Close("B on the Return object page"); }
             return;
         }
         // One normalized edge per frame; Back wins, then paging/navigation.

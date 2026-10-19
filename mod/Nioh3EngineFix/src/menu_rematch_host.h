@@ -7,6 +7,7 @@ std::atomic<uint64_t> g_rematchRendererTick{0};
 rmb::Snapshot g_rematchView{};
 bool g_rematchPage = false, g_rematchAwait = false, g_rematchOpened = false;
 bool g_rematchClosePending = false;
+bool g_rematchFromAddon = false;  // #13796: the current hosted page was opened by the add-on (Return object), not by the player
 uint64_t g_rematchSentGeneration = 0;
 uint32_t g_rematchLastAction = rmb::OpenMenu;
 ULONGLONG g_rematchFreshAt = 0;
@@ -72,7 +73,7 @@ bool PostRematchAction(uint32_t action) {
 void CloseRematchHostPage() {
     g_rematchNoAutoOpenUntil = GetTickCount64() + 1500;
     if (g_rematchPage) g_rematchClosePending = !PostRematchAction(rmb::CloseMenu);
-    g_rematchPage = g_rematchAwait = g_rematchOpened = false;
+    g_rematchPage = g_rematchAwait = g_rematchOpened = g_rematchFromAddon = false;
 }
 
 std::atomic<uint64_t> g_coverToken{0},g_coverSession{0},g_coverWorker{0},g_coverPresented{0},g_coverDeadline{0},g_coverArmedAt{0},g_coverTombstone{0},g_coverTombstoneSession{0},g_coverCancelUntil{0};
