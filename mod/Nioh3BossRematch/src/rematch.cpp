@@ -369,6 +369,16 @@ static bool XwPending() {
     static const Fn f = [] { HMODULE m = GetModuleHandleW(L"Nioh3Training.asi"); return m ? (Fn)GetProcAddress(m, "Nioh3Training_XwPending") : nullptr; }();
     return f && f();
 }
+// user 20261018: Nioh3Training owns the fight state while a session / summon is live or a swap / return runs (the stale-flag heal leaves it alone)
+static bool TrainingOwnsFight() {
+    using Fn = int (*)();
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_SessionActive")) if (f()) return true;
+    const int ri = ReturnInfo();
+    return XwPending() || (ri > 0 && (ri & (8 | 16)));
+}
+// user 20261018: our fight flag was found stale (BossBattleMode at a save load with no mission, no boss): the native boss mode itself may still
+// be on (no fast travel), so 'Leave arena' stays offered until a load, a mission, a real fight or Leave arena itself ends it.
+std::atomic<bool> g_staleBbm{false};
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
     if (const char* why = AttemptStartGate()) return why;
@@ -1863,9 +1873,35 @@ void Tick() {
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));
         g_posAtLoadOk = g_posLiveOk;
         g_loadRiseAt = t;
+        // user 20261018: a load ends any native boss mode; BossBattleModeEnd never runs for it, so the flag would block Boss Matches /
+        // Practice for the rest of the session (seen after a reload out of a no-boss arena fight: 'in fight' flag lines after the load)
+        const bool idle = g_state.load() == kIdle;
+        if (rcore::ClearFightOnLoad(fight::g_active != 0, idle, TrainingOwnsFight())) {
+            fight::ForceEnd("world load began");
+            Log("Rematch: a world load began during a boss fight without BossBattleModeEnd - fight flag cleared");
+        }
+        if (idle && g_staleBbm.exchange(false)) Log("Rematch: world load - stale native boss mode no longer offered for Leave arena");
     }
     const bool loadEnded = s.gm && g_wasLoading && !s.st[2];
     if (s.gm) g_wasLoading = s.st[2] != 0;
+    {   // user 20261018: BossBattleMode at a save load with no mission and no session = the no-boss arena mode: our flag is stale
+        static ULONGLONG loadEndAt = 0;
+        static bool wasActive = false, riseNearLoad = false;
+        if (loadEnded) loadEndAt = t;
+        const bool active = fight::g_active != 0;
+        if (active && !wasActive) {
+            riseNearLoad = rcore::FightRiseNearLoad(s.gm && s.st[2], t, loadEndAt);
+            if (!riseNearLoad) g_staleBbm.store(false);  // a real fight began: not the stale case any more
+        }
+        wasActive = active;
+        if (active && riseNearLoad && rcore::StaleFight(active, riseNearLoad, s.msOk, s.ms28, g_state.load() == kIdle, TrainingOwnsFight())) {
+            fight::ForceEnd("no-boss boss mode at a save load");
+            g_staleBbm.store(true);
+            wasActive = false;
+            Log("Rematch: BossBattleMode began at a save load with no mission (0x%X) and no Nioh3Training session: no-boss arena mode - fight flag "
+                "cleared (Boss Matches / Practice / summon allowed); 'Leave arena' ends the native boss mode", s.ms28);
+        }
+    }
     if (s.gm && !s.st[2]) g_posLiveOk = s.player && PlayerPos(g_posLive);
     else if (!s.gm) g_posLiveOk = false;
     SpawnTick(s, t, loadEnded);
@@ -1878,6 +1914,7 @@ void Tick() {
                 InterlockedExchange(&fight::g_active, 0);
                 Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared", lastMission, s.ms28);
             }
+            if (s.ms28) g_staleBbm.store(false);  // user 20261018: a mission runs: not the no-boss arena mode
             lastMission = s.ms28;
         }
     }
@@ -2130,12 +2167,12 @@ constexpr int kItTrainHere = 0x80000, kItTrainHereEnd = 0x90000;
 // user 20261018: a save made inside a Fight-now arena loads IN the arena with no mission and a native BossBattleMode with no boss (no exit, no travel).
 // 'Leave arena' = Nioh3Training_LeaveArena (ends the session + native boss mode, returns to the stored spot if any) + our fight flag cleared.
 constexpr int kItLeaveArena = -49;
-bool LeaveArenaOffered() { return fight::g_active && !ReadSnap().ms28 && TrainingExport("Nioh3Training_LeaveArena"); }
+bool LeaveArenaOffered() { return (fight::g_active || g_staleBbm.load()) && !ReadSnap().ms28 && TrainingExport("Nioh3Training_LeaveArena"); }
 int LeaveArena(const char* src) {
     using Fn = int (*)();
     const auto f = (Fn)TrainingExport("Nioh3Training_LeaveArena");
     const int rc = f ? f() : 0;
-    if (rc > 0) fight::ForceEnd(src);
+    if (rc > 0) { fight::ForceEnd(src); g_staleBbm.store(false); }
     Log("Rematch: leave arena (%s) -> %d", src, rc);
     return rc;
 }  // kItTrainHere + row = start a Practice session with that boss right here
@@ -2451,6 +2488,7 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here / arena / Training mods / Summon a boss here / Boss Matches
+        if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: the hosted menu opens here, never on uRoot (the row was unreachable)
         if (TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
         add(kItArenas);
         if (PracticeToolsAvailable()) add(kItRootTools);
@@ -2507,6 +2545,7 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
+        if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: reachable from the hosted Boss Matches page too
         AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)

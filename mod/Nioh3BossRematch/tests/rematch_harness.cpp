@@ -152,6 +152,21 @@ int main(int argc, char** argv) {
         CHECK(!rcore::FightSlotOk(slot, 0x34, 72636), "a different start point (the default) is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x1CBC, 77032), "a different mission is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x34, 0), "start point 0 is never a fight start");
+        // user 20261018: stale fight flag (BossBattleMode at a save load inside an arena, mission 0, no boss)
+        CHECK(rcore::FightRiseNearLoad(true, 1000, 0), "stale: a fight rising while loading is near a load");
+        CHECK(rcore::FightRiseNearLoad(false, 10000, 9985), "stale: 15 ms after the load ended (log 22:09:06.069 vs .084) is near a load");
+        CHECK(!rcore::FightRiseNearLoad(false, 200000, 9985), "stale: a fight minutes after the load is a real fight");
+        CHECK(!rcore::FightRiseNearLoad(false, 1000, 0), "stale: no load seen yet = not near a load");
+        CHECK(rcore::StaleFight(true, true, true, 0, true, false), "stale: user 22:09:06 case (mission 0, idle, no Training session) is stale");
+        CHECK(!rcore::StaleFight(true, true, true, 0x7B35, true, false), "stale: a running mission keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, true, 0, false, false), "stale: a rematch flow keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, true, 0, true, true), "stale: a Nioh3Training session / summon / swap keeps the fight");
+        CHECK(!rcore::StaleFight(true, false, true, 0, true, false), "stale: an open-world fight begun away from a load keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, false, 0, true, false), "stale: unreadable mission state keeps the fight");
+        CHECK(!rcore::StaleFight(false, true, true, 0, true, false), "stale: no fight, nothing to clear");
+        CHECK(rcore::ClearFightOnLoad(true, true, false), "load: a load ends a fight BossBattleModeEnd never closed (22:11:11 load)");
+        CHECK(!rcore::ClearFightOnLoad(true, false, false), "load: a rematch flow owns its loads");
+        CHECK(!rcore::ClearFightOnLoad(true, true, true), "load: a Nioh3Training session owns its loads");
         // v2: arena points
         int nar = 0, nat = 0;
         for (auto& r : rows) {

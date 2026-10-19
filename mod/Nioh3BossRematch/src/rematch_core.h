@@ -371,4 +371,20 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
     return 0;
 }
 
+// ---- stale fight flag (user 20261018) ----
+// A save made inside an arena reloads with no mission (0) and the area script runs BossBattleMode with no boss; BossBattleModeEnd never
+// comes, so fight::g_active blocked every Boss Match / Practice start ("in a boss fight") for the rest of the session.
+// Our flag is the stale one when: it went up while loading or within kStaleNearLoadMs after a load ended, no mission is running, no rematch
+// flow is active and Nioh3Training owns no session / summon / swap / return.
+constexpr uint64_t kStaleNearLoadMs = 5000;
+inline bool FightRiseNearLoad(bool loading, uint64_t now, uint64_t loadEndAt) {
+    return loading || (loadEndAt && now >= loadEndAt && now - loadEndAt < kStaleNearLoadMs);
+}
+inline bool StaleFight(bool active, bool riseNearLoad, bool msOk, uint32_t mission, bool idle, bool trainingOwns) {
+    return active && riseNearLoad && msOk && mission == 0 && idle && !trainingOwns;
+}
+// A world load ends any native boss mode (the area script runs BossBattleMode again after the load if it wants one): the flag is
+// dropped when a load begins, unless a rematch flow or a Nioh3Training session owns that load (they handle their own fight state).
+inline bool ClearFightOnLoad(bool active, bool idle, bool trainingOwns) { return active && idle && !trainingOwns; }
+
 }  // namespace rcore
