@@ -3510,7 +3510,11 @@ static void AlDump(void) {
 static volatile LONG g_mvlog_lines;
 static void MoveDoneLog(uint32_t chr, uint32_t id, uint32_t next, DWORD ran) {
     int i = N3MoveFind(chr, id);
-    if (i < 0 || id == 0xFFFFFFFF || InterlockedIncrement(&g_mvlog_lines) > 200000) return;
+    if (id == 0xFFFFFFFF || InterlockedIncrement(&g_mvlog_lines) > 200000) return;
+    if (i < 0) {  // a catalogued boss did an id the list does not have yet (other Ki / HP phase): logged so tools/gen_boss_moves.py can add it
+        if (N3MoveFind(chr, 2) >= 0) Log("MOVE chr %u 0x%X NEW (not in the move list) ran %lu ms -> 0x%X", chr, id, (unsigned long)ran, next);
+        return;
+    }
     const N3Move* m = &kN3Moves[i];
     Log("MOVE chr %u 0x%X %c ran %lu ms (typ %u) -> 0x%X%s%s%s", chr, id, m->kind ? m->kind : '?', (unsigned long)ran, m->ms, next,
         *m->label ? " \"" : "", m->label, *m->label ? "\"" : "");
