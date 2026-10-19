@@ -2609,6 +2609,29 @@ static int GateMenuOpen(void) {
     static int (*mo)(void); static int tried; if (!mo && !tried) { tried = 1; HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); mo = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_MenuOpen") : 0; }
     return mo ? mo() : 0;
 }
+#include "gate_zone.h"
+// user #13796 [Return] ReturnGateZone (1), ReturnGateOpenButtons (0x1000 = A), ReturnGateTapMs (350): see gate_zone.h
+static int g_cfg_gate_zone = 1, g_cfg_gate_open_btn = 0x1000, g_cfg_gate_tap_ms = 350;
+static int GatePadButtons(void) {  // raw XInput (xinput1_4 directly, not the game's IAT slot: the EngineFix mask does not hide it from us)
+    typedef DWORD (WINAPI *XgsFn)(DWORD, void*); static XgsFn xgs; static int tried;
+    if (!xgs && !tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); xgs = x ? (XgsFn)GetProcAddress(x, "XInputGetState") : 0; }
+    if (!xgs) return 0;
+    int b = 0; for (DWORD i = 0; i < 4; ++i) { uint8_t st[16] = {0}; if (xgs(i, st) == 0) b |= *(uint16_t*)(st + 4); }
+    return b;
+}
+static void* GateEf(const char* name) { HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); return ef ? (void*)GetProcAddress(ef, name) : 0; }
+static void GateMenuClose(void) { static int (*mc)(const char*); static int tried; if (!mc && !tried) { tried = 1; mc = (int (*)(const char*))GateEf("Nioh3EngineFix_MenuClose"); } if (mc) mc("native box at the Return object"); }
+// safety net: a native modal (the game's own Yes/No box) is open. EngineFix answers from the game's own UI state (Nioh3EngineFix_NativeModal);
+// our dialog hooks below also stamp g_gate_nat_t when they see a box they let through.
+static volatile DWORD g_gate_nat_t; static const char* g_gate_nat_why = "?";
+static int GateNativeModal(void) {
+    static int (*nm)(void); static DWORD tTry; DWORD now = GetTickCount();
+    if (!nm && (!tTry || now - tTry > 5000)) { tTry = now; nm = (int (*)(void))GateEf("Nioh3EngineFix_NativeModal"); }
+    if (nm && nm()) { g_gate_nat_why = "game UI modal flag"; return 1; }
+    if (g_gate_nat_t && now - g_gate_nat_t < 500) { g_gate_nat_why = "native dialog hook"; return 1; }
+    return 0;
+}
+static const char* GateNativeWhy(void) { return g_gate_nat_why; }
 // 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
 // bridge 12666: Training menu (Boss Rematch UI) -> game thread. op 1 summon into slot A/B (replaces that slot's boss), 2 despawn all, 3 despawn one slot.
 static volatile LONG g_rq_op, g_rq_slot; static volatile uint32_t g_rq_mission;
@@ -2761,7 +2784,30 @@ static void GateTick(void) {
     // 'near' sample, (b) stays on while our gate page is open or the player position is unreadable, (c) is forced on for 2.5 s after a lost round put the
     // player back next to the gate (g_gate_maskUntil), and (d) EngineFix keeps a masked button hidden until it is released, so a held A never re-presses.
     // The 'away' line logs why (distance, height, boss, page).
-    if (g_gate.up && g_cfg_gate_mask_r > 0) {
+    // user #13796: ONE gate zone for every mode (gate_zone.h; replaces the idle-only 400 u block and the boss-alive 110 u block below, which
+    // left the native interact reachable between 110 u and its real reach and re-opened our page over the native box). [Return]
+    // ReturnGateZone 1 (default); 0 = the old two blocks.
+    if (g_gate.up && g_cfg_gate_zone) {
+        static GzState gz; static int masked, nativeLogged;
+        float q[4]; const int posOk = PlayerPos(q); float d = -1.0f, dy = 0.0f;
+        if (posOk) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); dy = fabsf(q[1] - g_gate.pos[1]); }
+        const int boss = GateBossAlive(), page = GateMenuOpen(), nat = GateNativeModal();
+        const int inZ = posOk ? (d < (float)g_cfg_gate_mask_r && dy < 400.0f) : masked;  // position unreadable: keep the last state
+        const int hold = boss ? 300 : g_cfg_gate_mask_hold;  // in a fight the face buttons come back fast after leaving the zone
+        const int force = g_gate_maskUntil && (LONG)(g_gate_maskUntil - now) > 0;
+        const int r = GzStep(&gz, now, inZ || (force && !nat), page, nat, g_cfg_gate_opena ? (GatePadButtons() & g_cfg_gate_open_btn) != 0 : 0, g_cfg_gate_tap_ms, hold);
+        const int m = (r & GZ_MASK) != 0;
+        if (m && p_osdMask) p_osdMask(g_cfg_gate_mask_btn, 300);
+        if (m != masked) { masked = m; if (!m && p_osdMask) p_osdMask(0, 0);
+            Log(m ? "GATE zone: player at the Return object (%.0f u, dy %.0f, boss %d, page %d): face buttons hidden from the game, tap A opens our page"
+                  : "GATE zone: player left the Return object (%.0f u, dy %.0f, boss %d, page %d): game buttons back", d, dy, boss, page); }
+        if (r & GZ_NATIVE) { if (p_osdMask) p_osdMask(0, 0); masked = 0;
+            if (nativeLogged++ < 50) Log("GATE zone: a native modal is open (%s): mask off, our page %s - the player answers the game's box", GateNativeWhy(), page ? "closed" : "not opened");
+            if (page) GateMenuClose(); }
+        if (r & GZ_HOLD_CANCEL) Log("GATE zone: button held > %d ms at the Return object: cancelled (nothing opens, the game never saw it)", g_cfg_gate_tap_ms);
+        if (r & GZ_OPEN) { g_gate.tIn = 0; g_gate.left = 0; int u = GateUse(); Log("GATE zone: tap at the Return object (%.0f u, boss %d) -> our gate page (%d)", d, boss, u); }
+    }
+    if (g_gate.up && g_cfg_gate_mask_r > 0 && !g_cfg_gate_zone) {
         float q[4]; static int masked; static DWORD tNear;
         int boss = GateBossAlive(), posOk = PlayerPos(q), page = GateMenuOpen(); float d = -1.0f, dy = 0.0f;
         if (posOk) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); dy = fabsf(q[1] - g_gate.pos[1]); }
@@ -2782,7 +2828,7 @@ static void GateTick(void) {
     // left - and that gadget floated ~95 u above the floor (GateGroundY fix above), out of its interact reach. Now in a Practice session, or while
     // Stand still (Idle hold) holds the boss, a pad A press while standing at the gate (ReturnGateRadius, |dy| < 250) opens our gate page with the
     // boss alive. A Boss Match fight with a fighting boss keeps the native interact only (fight inputs untouched). One log line per approach.
-    if (g_gate.up && g_cfg_gate_opena && GateBossAlive()) {
+    if (g_gate.up && g_cfg_gate_opena && GateBossAlive() && !g_cfg_gate_zone) {
         static int aWas2, inWas; static DWORD tOpen2;
         const int calm = g_tr.practice || Nioh3Training_GetIdleHold() == 2;
         float q[4]; int in = 0;
@@ -2801,7 +2847,7 @@ static void GateTick(void) {
         float dx = p[0] - g_gate.pos[0], dz = p[2] - g_gate.pos[2], dy = p[1] - g_gate.pos[1]; int in = dx * dx + dz * dz < (float)g_cfg_gate_radius * g_cfg_gate_radius && fabsf(dy) < 250.0f;
         if (!in) { g_gate.left = 1; g_gate.tIn = 0; return; }
         if (GateMenuOpen()) { g_gate.tIn = 0; return; }  // our menu already up: no second open; the stand timer restarts after it closes
-        if (!g_gate.left || GateBossAlive()) return;
+        if (!g_gate.left || GateBossAlive() || GateNativeModal()) return;
         if (!g_gate.tIn) g_gate.tIn = now;
         if (now - g_gate.tIn >= (DWORD)g_cfg_gate_touch) { g_gate.tIn = 0; g_gate.left = 0; int r = GateUse(); Log("GATE: player stood on the return gate %d ms -> %d", g_cfg_gate_touch, r); }
     }
@@ -2835,6 +2881,7 @@ static uint64_t h_endconf(void* ctx, int action) {
                 boss ? "boss alive, nothing opened" : page ? "our gate page already open" : r >= 0 ? "our gate page opened instead" : "?"); }
         return 0;
     }
+    if (g_cfg_gate && g_gate.up) { DWORD tn = GetTickCount(); g_gate_nat_t = tn ? tn : 1; }  // #13796 safety net
     if (g_cfg_gate && g_gate.up) { static LONG nO; if (InterlockedIncrement(&nO) <= 40) Log("GATE diag (#9978): EndMissionConfirmOpen action 0x%X NOT blocked (caller +%llX, tr.active %d, rh.active %d, block %d) - this opens a native box while our gate is up", action, (unsigned long long)((uintptr_t)__builtin_return_address(0) - B), g_tr.active, g_rh.active, g_cfg_gate_block); }
     return o_endconf(ctx, action);
 }
@@ -2908,6 +2955,7 @@ static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3,
             __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE: DialogOpen drop: arg destructor faulted %08lX", GetExceptionCode()); }
             return;
         }
+        g_gate_nat_t = now ? now : 1;  // #13796 safety net: a native box is opening while our gate is up
         if (n <= 60) Log("GATE diag (#10022): DialogOpen 348274 NOT blocked ('%s', end-mission text %d, player %.0f u from the gate, page %d, stack %s)", tx, endm, d, page, st);
     }
     o_dlgopen(mgr, text, a3, a4, a5, a6, a7);
@@ -4547,7 +4595,10 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         { int ini_ar = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 1, ini), ini); g_cfg_autoretry = 1; Log("AutoRetryOnDeath 1 (forced, user #13229: player beaten = instant dejavu reset; ini value %d ignored)", ini_ar); }
         Log("return gate (#6789): ReturnGate %d, FakeRecord %d, Distance %d, TouchMs %d, Radius %d, Ids %s; GoldKiBar %d", g_cfg_gate, g_cfg_gate_fake, g_cfg_gate_dist, g_cfg_gate_touch, g_cfg_gate_radius, g_gate_ids, g_cfg_goldki);
-        g_cfg_gate_opena = GetPrivateProfileIntA("Return", "ReturnGateOpenOnA", 1, ini); g_cfg_bar_vis = GetPrivateProfileIntA("Summon", "BossBarAfterVisibleMs", 600, ini);
+        g_cfg_gate_opena = GetPrivateProfileIntA("Return", "ReturnGateOpenOnA", 1, ini); g_cfg_gate_zone = GetPrivateProfileIntA("Return", "ReturnGateZone", 1, ini);
+        g_cfg_gate_open_btn = GetPrivateProfileIntA("Return", "ReturnGateOpenButtons", 0x1000, ini); g_cfg_gate_tap_ms = GetPrivateProfileIntA("Return", "ReturnGateTapMs", 350, ini);
+        Log("RETURN gate zone (#13796): ReturnGateZone %d (one zone for every mode, radius ReturnGateMaskRadius %d u), open buttons 0x%X on a tap <= %d ms, hold = cancel; native modal safety net %s",
+            g_cfg_gate_zone, g_cfg_gate_mask_r, g_cfg_gate_open_btn, g_cfg_gate_tap_ms, GateEf("Nioh3EngineFix_NativeModal") ? "on (EngineFix)" : "dialog hooks only (EngineFix export missing)"); g_cfg_bar_vis = GetPrivateProfileIntA("Summon", "BossBarAfterVisibleMs", 600, ini);
         Log("ReturnGateOpenOnA %d (#9664/#9670: pad A near the gate opens our gate page), BossBarAfterVisibleMs %d (#9685), FinisherKillTimeoutMs %d / KiBreakHp0WindowMs %d (Boss Rematch sliders, #9585)", g_cfg_gate_opena, g_cfg_bar_vis, g_cfg_fin_timeout, g_cfg_nofin_ms);
         g_dbg_on = GetPrivateProfileIntA("Debug", "Hotkeys", 1, ini); g_dbg_freeze_vk = GetPrivateProfileIntA("Debug", "FreezeKey", 0x78, ini); g_dbg_bug_vk = GetPrivateProfileIntA("Debug", "BugKey", 0x77, ini);
         {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
