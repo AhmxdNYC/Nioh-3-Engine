@@ -97,7 +97,7 @@ int main(void) {
             g_ih_chase_t = (LONG)(clock_ms | 1);
             assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
             if (km >= 0) assert(IhSelect(0x3000, kN3Moves[km].id) == kN3Moves[km].id);
-            clock_ms += 6000; assert(IhSelect(0x3000, kN3Moves[ka].id) == kN3Moves[ka].id);
+            clock_ms += 6001; assert(IhSelect(0x3000, kN3Moves[ka].id) == kN3Moves[ka].id);
             g_ih_chase_t = 0; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
         }
     }

@@ -110,7 +110,7 @@ static uint32_t IhSelect(uint64_t st, uint32_t id) {
     if (chase) {  // user #14147: aggro walk-up in Stand still
         const int k = N3MoveFind(g_ih.chr, id);
         const char kind = k >= 0 ? kN3Moves[k].kind : 0;
-        if (kind == 'M' || kind == 'T' || kind == 'L' || kind == 'I' || GetTickCount() - (DWORD)chase >= 6000) return id;  // attacks / wind-ups / unclassified -> idle
+        if (kind == 'M' || kind == 'T' || kind == 'L' || kind == 'I' || (int)(GetTickCount() - (DWORD)chase) >= 6000) return id;  // attacks / wind-ups / unclassified -> idle
     }
     Log("IDLEHOLD transition chr %u 0x%X -> idle 0x2", g_ih.chr, id);
     return 2;

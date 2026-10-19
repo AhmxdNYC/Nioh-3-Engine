@@ -2150,6 +2150,7 @@ constexpr int kItAggro = -53, kItResetPos = -54;
 // user #13786: 'Show twitches' on the move page. Catalogue rows of kind T (twitch: short state change, ends at once when forced), L (combo link /
 // fragment) and M (movement) are hidden unless this is ON; a hidden-kind row still shows while it is OFF or repeating so its state is never invisible.
 constexpr int kItShowTw = -55;
+constexpr int kItCantDie = -56;  // user #14150: Player can't die (Nioh3Training_Get/SetPlayerCantDie, [Summon] PlayerCantDie)
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2453,6 +2454,21 @@ void AggroToggle(int dir) {  // user #13787: dir 0 flips, > 0 on, < 0 off
     snprintf(g_msg, sizeof g_msg, "%s", on ? "Boss aggro ON: the boss keeps you as its target and walks up to you before its repeating move (Fight normally or Stand still). Saved."
                                          : "Boss aggro OFF: the boss behaves as before. Saved.");
 }
+int CantDieGet() {
+    using G = int (*)();
+    const auto g = (G)TrainingExport("Nioh3Training_GetPlayerCantDie");
+    return g ? g() : -1;
+}
+void CantDieToggle(int dir) {  // user #14150: dir 0 flips, > 0 on, < 0 off
+    using S = int (*)(int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetPlayerCantDie");
+    const int v = CantDieGet();
+    if (!set || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Player can't die'."); return; }
+    const int on = set(dir ? dir > 0 : !v, 1);
+    Log("Rematch: menu Player can't die -> %d", on);
+    snprintf(g_msg, sizeof g_msg, "%s", on ? "Player can't die ON: at 0 HP you are healed where you stand and the fight goes on. Saved."
+                                         : "Player can't die OFF: at 0 HP you respawn at once in the arena (full HP, boss reset, same settings). Saved.");
+}
 void ResetBossPos() {  // user #13787
     using F = int (*)();
     const auto f = (F)TrainingExport("Nioh3Training_ResetBossPos");
@@ -2613,6 +2629,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
         if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
         int tw = 0;
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && N3MoveTwitch(&kN3Moves[i])) ++tw;
@@ -2629,6 +2646,7 @@ int Items(int* out, int cap) {
             if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
             if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
             if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
             if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
             if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
             if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
@@ -2636,6 +2654,7 @@ int Items(int* out, int cap) {
             if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
         } else if (mode == 1) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
+            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
         }
         add(kItReturnHome);
         add(kItBack);  // user #13529: every page has a Back row (here: back to the mod menu's first page)
@@ -2906,6 +2925,7 @@ void UiChange(int dir) {
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item == kItRepGap) { RepGapStep(dir); return; }
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
+    if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (item == kItShowTw) { g_showTwitch = dir == 0 ? !g_showTwitch : dir > 0; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return; }
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
@@ -2960,6 +2980,7 @@ bool UiAct() {
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
+    if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (item == kItShowTw) { g_showTwitch = !g_showTwitch; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return false; }
     if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
@@ -3376,6 +3397,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const int v = AggroGet();
             add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Boss aggro on me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
         }
+        else if (it[i] == kItCantDie) {  // user #14150
+            const int v = CantDieGet();
+            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Player can't die: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        }
         else if (it[i] == kItResetPos) add(sel ? cWhite : cGray, sel, "%s Reset boss position   press A", mk);  // user #13787
         else if (it[i] == kItShowTw) {  // user #13786
             int tw = 0;
@@ -3465,6 +3490,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "OFF: only real attacks / wind-ups are listed. ON: also twitches (short state changes, ~0.05-0.15 s when forced), combo links and steps. Kinds come from Training logs.");
         } else if (item == kItAggro) {  // user #13787
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move at you. Works in both stances (Stand still: it walks up when you are out of range (5 m), then drills). Saved.");
+        } else if (item == kItCantDie) {  // user #14150
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: at 0 HP you are healed where you stand. OFF: at 0 HP you respawn at once in the arena (boss reset, same stance / move / aggro). Never leaves the arena. Saved.");
         } else if (item == kItResetPos) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293

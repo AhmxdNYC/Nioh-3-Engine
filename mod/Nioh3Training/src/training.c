@@ -1243,6 +1243,11 @@ static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm
 // keeps player NoDeath on whatever PlayerNoDeath says, and TrainTick re-applies it when it is off or the player character changed (load);
 // a defeat is then always the in-place round reset. 0 = PlayerNoDeath alone decides (old behaviour). Menu summons stay on SummonNoDeath.
 static int g_cfg_session_nodeath = 1; static uint64_t g_nd_char; static DWORD g_nd_try;
+// user #14150 'Player can't die' ([Summon] PlayerCantDie, default 1, menu toggle Nioh3Training_SetPlayerCantDie): 1 = in a session the player's HP at
+// the floor is healed in place (fight goes on); 0 = HP at the floor counts as a death: instant in-arena respawn (the existing round reset: full HP,
+// round-1 spot, boss respawned, stance / repeat / aggro kept). Either way native NoDeath stays on (SessionNoDeath), so the game's own death
+// flow (game over -> shrine load) never runs inside Training / Boss Match.
+static int g_cfg_cantdie = 1; static DWORD g_cd_t;
 static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1, g_cfg_body_fade = 1, g_cfg_body_delay = 25000;
 // #6774: native kill = the boss death animation plays out in full. The kill-time fade (DeathBlowRequired=0) was f30 (0.5 s) and hid the death animation:
 // KillFadeFrames (default 120 = 2 s at 60 fps) still starts at the kill but lets the collapse be seen while the body fades. Delete waits for the fade end.
@@ -1412,7 +1417,10 @@ static void TrainTick(void) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
     }
     uint64_t c = 0, m = 0;
-    if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
+    if (g_cfg_cantdie && TrNoDeath() && !g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
+        // user #14150 'Player can't die' ON: HP at the floor = healed where you stand; boss, round, stance, repeat and aggro go on unchanged
+        if (now - g_cd_t >= 500) { g_cd_t = now; Log("TRAIN round %d: player HP at the floor (%llu / %llu), Player can't die ON: healed in place", g_tr.round, c, m); PlayerRecoverFull(); }
+    } else if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
         g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_tr.practice ? "resetting the round in place (Practice session)" : g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)");
     }
     // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
@@ -1420,7 +1428,9 @@ static void TrainTick(void) {
     // #8827 toggle matrix: AutoRetryOnDeath 0 relies on the Return gate for 'Fight again'; with ReturnGate 0 there is no gate, so a defeat resets the round (as 1)
     // user #13223: a Practice (Training) session always retries in place: player revived at the round-1 pose, boss respawned in Idle stance; it never
     // ends on a defeat (only the player's own Return). AutoRetryOnDeath keeps applying to Boss Rematch Fight now sessions.
-    if (g_tr.beaten && g_tr.practice && now - g_tr.tBeat >= 2000) { TrainRetry("player beaten (Practice: retry in place)"); IhDefault(1); }
+    // user #14150: the retry keeps the chosen stance (TrainRetry -> IhDefault(0): Stand still stays Stand still, Fight normally stays CPU); repeat
+    // moves and aggro are global and untouched. Was IhDefault(1) here = always back to Stand still.
+    if (g_tr.beaten && g_tr.practice && now - g_tr.tBeat >= 2000) TrainRetry("player beaten (Practice: retry in place)");
     else if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
@@ -2372,6 +2382,18 @@ static DWORD WINAPI DeathCfgSaveThread(LPVOID p) {
 static DWORD WINAPI AutoRetrySaveThread(LPVOID p) {
     (void)p; char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
     snprintf(v, sizeof v, "%d", g_cfg_autoretry); WritePrivateProfileStringA("Summon", "AutoRetryOnDeath", v, ini); WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+static DWORD WINAPI CantDieSaveThread(LPVOID p) {
+    (void)p; char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    WritePrivateProfileStringA("Summon", "PlayerCantDie", g_cfg_cantdie ? "1" : "0", ini); WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+}
+// user #14150: 'Player can't die' menu toggle (see g_cfg_cantdie). Returns the new value; persist = save [Summon] PlayerCantDie.
+N3T_API int Nioh3Training_GetPlayerCantDie(void) { return g_cfg_cantdie; }
+N3T_API int Nioh3Training_SetPlayerCantDie(int on, int persist) {
+    g_cfg_cantdie = on != 0;
+    Log("API Player can't die %s%s", g_cfg_cantdie ? "ON (HP at the floor = healed in place)" : "OFF (HP at the floor = instant respawn in the arena, round reset)", persist ? " (saved to ini)" : "");
+    if (persist) { HANDLE t = CreateThread(0, 0, CantDieSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    return g_cfg_cantdie;
 }
 N3T_API int Nioh3Training_GetAutoRetry(void) { return g_cfg_autoretry; }
 N3T_API void Nioh3Training_SetAutoRetry(int on, int persist) {
@@ -4571,11 +4593,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_session_nodeath = GetPrivateProfileIntA("Summon", "SessionNoDeath", 1, ini) != 0; g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_session_nodeath = GetPrivateProfileIntA("Summon", "SessionNoDeath", 1, ini) != 0; g_cfg_cantdie = GetPrivateProfileIntA("Summon", "PlayerCantDie", 1, ini) != 0; g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
         g_cfg_tr_nodeath_summon = GetPrivateProfileIntA("Summon", "SummonNoDeath", 0, ini);  // user #13197: default 0
-        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, SessionNoDeath %d (#14147), RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_session_nodeath, g_cfg_tr_win);
+        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, SessionNoDeath %d (#14147), PlayerCantDie %d (#14150), RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_session_nodeath, g_cfg_cantdie, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);
