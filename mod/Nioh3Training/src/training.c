@@ -263,6 +263,7 @@ static uint64_t g_newActor; static uint32_t g_newH, g_newSeq;
 #define SUM_PASSIVE_MAX 60000
 static int g_cfg_sum_passive = 3000;
 static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff; } g_sph[2];
+static float g_slot_sp[2][4]; static int g_slot_sp_ok[2];  // user #13787: where the boss in slot A / B appeared ('Reset boss position', aggro.h)
 static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
     uint64_t cur[1024]; int n = Actors(cur, 1024);
@@ -273,10 +274,12 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
         // No SummonPassiveMs hold for it: BOSSHOLD / Idle stance own its AI.
         if (g_watch_slot < 0 && g_watch_session && g_watch_chr && !SlotAlive(0)) {
             g_slot_act[0] = cur[i]; g_slot_chr[0] = g_watch_chr; memset(&g_sph[0], 0, sizeof g_sph[0]);
+            memcpy(g_slot_sp[0], xyz, sizeof xyz); g_slot_sp_ok[0] = 1;
             Log("SLOT A = Training session boss chr %u actor %p", g_watch_chr, (void*)cur[i]);
         }
         g_watch_session = 0;
         if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr;
+            memcpy(g_slot_sp[g_watch_slot], xyz, sizeof xyz); g_slot_sp_ok[g_watch_slot] = 1;
             memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount(); g_sph[g_watch_slot].ms = g_cfg_sum_passive; g_sph[g_watch_slot].phase = g_cfg_sum_passive > 0;
             if (g_cfg_sum_passive > 0) Log("SUMPASSIVE slot %c actor %p: AI held %d ms (SummonPassiveMs)", 'A' + g_watch_slot, (void*)cur[i], g_cfg_sum_passive);
             g_watch_slot = -1; }
@@ -3593,6 +3596,21 @@ static void AlDump(void) {
     for (int i = 0; i < g_al_n; ++i) fprintf(f, "%u\t0x%X\t%u\t%u\t%lu\r\n", g_al[i].chr, g_al[i].id, g_al[i].entries, g_al[i].samples, (unsigned long)g_al[i].ms);
     fclose(f);
 }
+#include "../../boss_moves.h"
+// user #13786: one MOVE line per finished boss action of a catalogued boss (not capped like ACTLOG): what the boss actually did, its kind
+// (attack / wind-up / link / twitch / movement from boss_moves.h), how long it really ran and whether a Training REPEAT forced it.
+static volatile LONG g_mvlog_lines;
+static void MoveDoneLog(uint32_t chr, uint32_t id, uint32_t next, DWORD ran) {
+    int i = N3MoveFind(chr, id);
+    if (id == 0xFFFFFFFF || InterlockedIncrement(&g_mvlog_lines) > 200000) return;
+    if (i < 0) {  // a catalogued boss did an id the list does not have yet (other Ki / HP phase): logged so tools/gen_boss_moves.py can add it
+        if (N3MoveFind(chr, 2) >= 0) Log("MOVE chr %u 0x%X NEW (not in the move list) ran %lu ms -> 0x%X", chr, id, (unsigned long)ran, next);
+        return;
+    }
+    const N3Move* m = &kN3Moves[i];
+    Log("MOVE chr %u 0x%X %c ran %lu ms (typ %u) -> 0x%X%s%s%s", chr, id, m->kind ? m->kind : '?', (unsigned long)ran, m->ms, next,
+        *m->label ? " \"" : "", m->label, *m->label ? "\"" : "");
+}
 static __attribute__((noinline)) void ActLogTick(void) {
     if (!g_cfg_actlog) return;
     DWORD now = GetTickCount(); if (now - g_al_lastTick < 40) return; g_al_lastTick = now;
@@ -3609,6 +3627,7 @@ static __attribute__((noinline)) void ActLogTick(void) {
         }
         if (!g_alw[s].valid || g_alw[s].id != id) {
             int b = AlSlot(chr, id); if (b >= 0) g_al[b].entries++;
+            if (g_alw[s].valid) MoveDoneLog(chr, g_alw[s].id, id, now - g_alw[s].t);
             if (InterlockedIncrement(&g_al_lines) < 3000) Log("ACTLOG boss %p chr %u: action 0x%X (prev 0x%X, ran %lu ms)", (void*)a, chr, id, g_alw[s].valid ? g_alw[s].id : 0xFFFFFFFF, g_alw[s].valid ? now - g_alw[s].t : 0UL);
             g_alw[s].id = id; g_alw[s].t = now; g_al_dirty = 1;
         }
@@ -3635,6 +3654,7 @@ static __attribute__((noinline)) int IhEligible(uint64_t actor, uint64_t ctrl) {
 #include "idle_hold.h"
 static void DrForceNative(uint64_t ctrl, uint32_t id) { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(ctrl, (uint64_t)id, 0, 0.0f); }  // SetActionID forced transition (MvRepTick)
 #include "drill.h"  // user #13529: move drill in the Stand still stance
+#include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
 static int MvForce(uint32_t id) {
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }
@@ -4498,6 +4518,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { MvRepTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("REPEAT tick exception %08lX", GetExceptionCode()); }
     __try { IhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("IDLEHOLD tick exception %08lX", GetExceptionCode()); IhStop("exception", 1); }
     __try { DrillTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DRILL tick exception %08lX", GetExceptionCode()); g_dr_off = 1; DrStop("exception"); }
+    __try { AggroTick(); ResetPosTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO tick exception %08lX", GetExceptionCode()); g_ag_off = 1; for (int i = 0; i < MV_CHASE_MAX; ++i) g_mv_chase[i] = 0; }  // user #13787
     return o_pump(c, d, r8, r9);
 }
 
@@ -4635,6 +4656,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
         MvLoadPrefs(ini);
+        g_cfg_aggro = GetPrivateProfileIntA("Training", "BossAggro", 0, ini) != 0; g_cfg_aggro_range = GetPrivateProfileIntA("Training", "AggroRangeCm", 500, ini); if (g_cfg_aggro_range < 100) g_cfg_aggro_range = 100;
+        Log("BossAggro %d, AggroRangeCm %d (user #13787: Training bosses keep the player as target and close in before the repeat)", g_cfg_aggro, g_cfg_aggro_range);
         g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);
         { int ini_ar = GetPrivateProfileIntA("Summon", "AutoRetryOnDeath", GetPrivateProfileIntA("Summon", "InstantRespawn", 1, ini), ini); g_cfg_autoretry = 1; Log("AutoRetryOnDeath 1 (forced, user #13229: player beaten = instant dejavu reset; ini value %d ignored)", ini_ar); }

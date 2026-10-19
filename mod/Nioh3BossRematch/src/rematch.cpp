@@ -2145,6 +2145,11 @@ constexpr int kItIdleHold = -30;
 constexpr int kItRepGap = -34;
 // user #13293: 'Repeating move' row (A / Left stops). user #13618: 'Repeat selected move' row (A / Right repeats the picked move)
 constexpr int kItRepNow = -51, kItRepSel = -52;
+// user #13787: 'Boss aggro on me' (Nioh3Training_Get/SetBossAggro, saved as [Training] BossAggro) and 'Reset boss position' (Nioh3Training_ResetBossPos)
+constexpr int kItAggro = -53, kItResetPos = -54;
+// user #13786: 'Show twitches' on the move page. Catalogue rows of kind T (twitch: short state change, ends at once when forced), L (combo link /
+// fragment) and M (movement) are hidden unless this is ON; a hidden-kind row still shows while it is OFF or repeating so its state is never invisible.
+constexpr int kItShowTw = -55;
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2303,13 +2308,23 @@ void RepeatWhat(const N3Move& m, char* b, size_t n) {
     else if (hold == 1) snprintf(b, n, "Boss does 0x%04X every %s once it stands still", m.id, gap);
     else snprintf(b, n, "Boss uses 0x%04X each time it attacks (gap %s)", m.id, gap);
 }
-const char* MoveName(const N3Move& m) { return N3MoveProtected(m.id) ? "Idle / initialization" : *m.label ? m.label : "Unlabelled action"; }
+const char* MoveKindName(char k) {  // user #13786: N3Move.kind from tools/rematch/actlog_moves.py
+    return k == 'A' ? "attack" : k == 'S' ? "wind-up" : k == 'L' ? "link" : k == 'T' ? "twitch" : k == 'M' ? "movement" : k == 'I' ? "idle" : "unsorted";
+}
+const char* MoveName(const N3Move& m) {
+    if (N3MoveProtected(m.id)) return "Idle / initialization";
+    if (*m.label) return m.label;
+    return m.kind == 'A' ? "Unlabelled attack" : m.kind == 'S' ? "Unlabelled wind-up" : m.kind == 'L' ? "Combo link (fragment)" : m.kind == 'T' ? "Twitch (state change)" :
+           m.kind == 'M' ? "Step / turn" : "Unlabelled action";
+}
+bool g_showTwitch = false;  // user #13786: session only, default hidden
+bool MoveListed(const N3Move& m) { return g_showTwitch || N3MoveProtected(m.id) || !N3MoveTwitch(&m) || MoveAllowed(m) == 0 || MoveRepeating(m); }
 const N3Move* RepeatCandidate() {
     const uint32_t chr = MoveBoss();
     if (!chr) return nullptr;
     if (g_repPick >= 0 && g_repPick < N3_MOVE_COUNT && kN3Moves[g_repPick].chr == chr && !N3MoveProtected(kN3Moves[g_repPick].id)) return &kN3Moves[g_repPick];
     for (int i = 0; i < N3_MOVE_COUNT; ++i)
-        if (kN3Moves[i].chr == chr && !N3MoveProtected(kN3Moves[i].id) && MoveAllowed(kN3Moves[i]) > 0) return &kN3Moves[i];
+        if (kN3Moves[i].chr == chr && !N3MoveProtected(kN3Moves[i].id) && (g_showTwitch || !N3MoveTwitch(&kN3Moves[i])) && MoveAllowed(kN3Moves[i]) > 0) return &kN3Moves[i];
     return nullptr;
 }
 void RepeatFail(const char* src, const N3Move* m, const char* why) {
@@ -2422,6 +2437,29 @@ void TuneStep(int item, int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = long
     v = set(which, v, 1);
     Log("Rematch: menu slider %s -> %d ms", which == 0 ? "FinisherKillTimeoutMs" : "KiBreakHp0WindowMs", v);
     g_msg[0] = 0;
+}
+int AggroGet() {
+    using G = int (*)();
+    const auto g = (G)TrainingExport("Nioh3Training_GetBossAggro");
+    return g ? g() : -1;
+}
+void AggroToggle(int dir) {  // user #13787: dir 0 flips, > 0 on, < 0 off
+    using S = int (*)(int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetBossAggro");
+    const int v = AggroGet();
+    if (!set || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Boss aggro on me'."); return; }
+    const int on = set(dir ? dir > 0 : !v, 1);
+    Log("Rematch: menu Boss aggro on me -> %d", on);
+    snprintf(g_msg, sizeof g_msg, "%s", on ? "Boss aggro ON: the boss keeps you as its target and walks up to you before its repeating move (stance: Fight normally). Saved."
+                                         : "Boss aggro OFF: the boss behaves as before. Saved.");
+}
+void ResetBossPos() {  // user #13787
+    using F = int (*)();
+    const auto f = (F)TrainingExport("Nioh3Training_ResetBossPos");
+    const int rc = f ? f() : 0;
+    Log("Rematch: menu Reset boss position -> %d", rc);
+    snprintf(g_msg, sizeof g_msg, "%s", !f ? "Needs a Nioh3Training.asi with 'Reset boss position'." : rc ? "The boss goes back to where it first appeared, facing you." : "No Practice boss to put back (start a Practice session or summon a boss first).");
+    if (rc) ToastF(cGreen, 2000, "Boss put back at its start position.");
 }
 int RepGapGet() {
     using G = int (*)();
@@ -2574,7 +2612,12 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetMoveRepeat")) { add(kItRepSel); add(kItRepNow); }  // user #13618: repeat the picked move / #13293: which move repeats (A stops)
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
-        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) add(kItMoveBase + i);
+        if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+        if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
+        int tw = 0;
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && N3MoveTwitch(&kN3Moves[i])) ++tw;
+        if (tw) add(kItShowTw);  // user #13786
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && MoveListed(kN3Moves[i])) add(kItMoveBase + i);
         add(kItBack);
         return n;
     }
@@ -2585,6 +2628,8 @@ int Items(int* out, int cap) {
             if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
             if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
             if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+            if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+            if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
             if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
             if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
             if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
@@ -2860,6 +2905,8 @@ void UiChange(int dir) {
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item == kItRepGap) { RepGapStep(dir); return; }
+    if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
+    if (item == kItShowTw) { g_showTwitch = dir == 0 ? !g_showTwitch : dir > 0; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return; }
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
     if (item == kItSumPassive) { SumPassiveStep(dir); return; }
@@ -2912,6 +2959,9 @@ bool UiAct() {
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
+    if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
+    if (item == kItShowTw) { g_showTwitch = !g_showTwitch; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return false; }
+    if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
     if (item == kItRepSel) { RepeatArm(RepeatCandidate(), "A on Repeat selected move"); return false; }  // user #13618
     if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
@@ -3205,9 +3255,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const auto& move = kN3Moves[it[i] - kItMoveBase];
             const int allowed = MoveAllowed(move);
             const bool rpt = MoveRepeating(move);
+            char msTxt[12] = "";  // user #13786: typical natural run time from the Training logs
+            if (move.ms && !N3MoveProtected(move.id)) snprintf(msTxt, sizeof msTxt, "%u.%us", move.ms / 1000u, (move.ms % 1000u) / 100u);
             add(sel ? cWhite : rpt ? cYellow : N3MoveProtected(move.id) ? cDim : allowed > 0 ? cGreen : cGray, sel,
-                "%s 0x%04X  %-3s  %.60s%s", mk, move.id, rpt ? "REPEAT" : allowed < 0 ? "?" : allowed ? "ON" : "OFF",
-                N3MoveProtected(move.id) ? "Idle / initialization (required)" : *move.label ? move.label : "Unlabelled action",
+                "%s 0x%04X  %-3s  %-8s %4s  %.52s%s", mk, move.id, rpt ? "REPEAT" : allowed < 0 ? "?" : allowed ? "ON" : "OFF",
+                N3MoveProtected(move.id) ? "" : MoveKindName(move.kind), msTxt,
+                N3MoveProtected(move.id) ? "Idle / initialization (required)" : MoveName(move),
                 !N3MoveProtected(move.id) && *move.label ? " (?)" : "");
         } else if (it[i] <= kItSettingBase) {
             const int index = kItSettingBase - it[i];
@@ -3319,6 +3372,16 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (m) add(sel ? cWhite : cGreen, sel, "%s Repeat selected move: 0x%04X %.36s   press A", mk, m->id, MoveName(*m));
             else add(sel ? cWhite : cDim, sel, "%s Repeat selected move: none   turn a move ON below first", mk);
         }
+        else if (it[i] == kItAggro) {  // user #13787
+            const int v = AggroGet();
+            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Boss aggro on me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        }
+        else if (it[i] == kItResetPos) add(sel ? cWhite : cGray, sel, "%s Reset boss position   press A", mk);  // user #13787
+        else if (it[i] == kItShowTw) {  // user #13786
+            int tw = 0;
+            for (int j = 0; j < N3_MOVE_COUNT; ++j) if (kN3Moves[j].chr == g_uiMoveChr && N3MoveTwitch(&kN3Moves[j])) ++tw;
+            add(sel ? cWhite : g_showTwitch ? cGreen : cGray, sel, "%s Show twitches / links / steps: %s (%d)   A / Left / Right", mk, g_showTwitch ? "ON" : "OFF", tw);
+        }
         else if (it[i] == kItRepGap) {
             const int v = RepGapGet();
             char val[24];
@@ -3398,6 +3461,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 "Fight normally: the boss uses its own attacks. Right: stand still (Practice starts like that). A repeating move is used whenever it attacks.");
         } else if (item == kItRepGap) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long the boss waits after each repeat of the RPT move before doing it again. Left / Right 0.25 s. Applies now, saved.");
+        } else if (item == kItShowTw) {  // user #13786
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "OFF: only real attacks / wind-ups are listed. ON: also twitches (short state changes, ~0.05-0.15 s when forced), combo links and steps. Kinds come from Training logs.");
+        } else if (item == kItAggro) {  // user #13787
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move. Use with the stance Fight normally (Stand still keeps it in place). Saved.");
+        } else if (item == kItResetPos) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. Stand still: it waits and does only this move every gap (drill). Fight normally: it uses this move whenever it attacks. A / Left stops.");
         } else if (item == kItRepSel) {  // user #13618

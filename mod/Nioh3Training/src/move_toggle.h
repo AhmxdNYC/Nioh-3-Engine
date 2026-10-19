@@ -55,10 +55,16 @@ static volatile LONG g_rep_gaps; static uint64_t g_rep_st[MV_REP_MAX];
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
 static volatile int g_cfg_rep_gap = 1000;
 #define MV_REP_GAP_MAX 10000
+// user #13787 'Boss aggro on me' (aggro.h): AI states of bosses that are farther from the player than AggroRangeCm while aggro is ON.
+// Their own AI picks pass (the boss walks / closes in natively) and no repeat is forced from range; the drill resumes once close.
+#define MV_CHASE_MAX 3
+static volatile uint64_t g_mv_chase[MV_CHASE_MAX];
+static int MvChasing(uint64_t st) { for (int i = 0; st && i < MV_CHASE_MAX; ++i) if (g_mv_chase[i] == st) return 1; return 0; }
 static int MvRepFind(uint32_t chr) { for (int i = 0; i < MV_REP_MAX; ++i) if (chr && (uint32_t)g_rep_chr[i] == chr) return i; return -1; }
 static uint32_t MvRepeatId(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 ? (uint32_t)g_rep_id[i] : 0; }
 static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (id < 0x4E20 && id != 2) return 0;  // idle picks too: a calm / out-of-range boss only re-picks idle (live 19:10, every 6 s)
+    if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes, the repeat waits until it is close
     uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0) return 0;
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
     DWORD now = GetTickCount(); int gap = g_cfg_rep_gap;
@@ -204,6 +210,7 @@ static __attribute__((noinline)) void MvRepTick(void) {
         uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
         if (!chr || !rep || !st || !g_rep_end[i] || now - g_rep_end[i] < (DWORD)g_cfg_rep_gap) continue;
         if (MvBossChr(st) != chr) { g_rep_st[i] = 0; continue; }
+        if (MvChasing(st)) continue;  // user #13787: no repeat forced from range while aggro ON brings the boss closer
         uint32_t cur = ActIdOf(st);
         if (cur != 2) { if (cur != 0xFFFFFFFFu) g_rep_st[i] = 0; continue; }
         int ok = 1;
