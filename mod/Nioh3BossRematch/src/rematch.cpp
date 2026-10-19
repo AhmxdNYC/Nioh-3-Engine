@@ -2145,6 +2145,8 @@ constexpr int kItIdleHold = -30;
 constexpr int kItRepGap = -34;
 // user #13293: 'Repeating move' row (A / Left stops). user #13618: 'Repeat selected move' row (A / Right repeats the picked move)
 constexpr int kItRepNow = -51, kItRepSel = -52;
+// user #13787: 'Boss aggro on me' (Nioh3Training_Get/SetBossAggro, saved as [Training] BossAggro) and 'Reset boss position' (Nioh3Training_ResetBossPos)
+constexpr int kItAggro = -53, kItResetPos = -54;
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2423,6 +2425,29 @@ void TuneStep(int item, int dir) {  // dir > 0 longer, < 0 shorter, 0 (A) = long
     Log("Rematch: menu slider %s -> %d ms", which == 0 ? "FinisherKillTimeoutMs" : "KiBreakHp0WindowMs", v);
     g_msg[0] = 0;
 }
+int AggroGet() {
+    using G = int (*)();
+    const auto g = (G)TrainingExport("Nioh3Training_GetBossAggro");
+    return g ? g() : -1;
+}
+void AggroToggle(int dir) {  // user #13787: dir 0 flips, > 0 on, < 0 off
+    using S = int (*)(int, int);
+    const auto set = (S)TrainingExport("Nioh3Training_SetBossAggro");
+    const int v = AggroGet();
+    if (!set || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Boss aggro on me'."); return; }
+    const int on = set(dir ? dir > 0 : !v, 1);
+    Log("Rematch: menu Boss aggro on me -> %d", on);
+    snprintf(g_msg, sizeof g_msg, "%s", on ? "Boss aggro ON: the boss keeps you as its target and walks up to you before its repeating move (stance: Fight normally). Saved."
+                                         : "Boss aggro OFF: the boss behaves as before. Saved.");
+}
+void ResetBossPos() {  // user #13787
+    using F = int (*)();
+    const auto f = (F)TrainingExport("Nioh3Training_ResetBossPos");
+    const int rc = f ? f() : 0;
+    Log("Rematch: menu Reset boss position -> %d", rc);
+    snprintf(g_msg, sizeof g_msg, "%s", !f ? "Needs a Nioh3Training.asi with 'Reset boss position'." : rc ? "The boss goes back to where it first appeared, facing you." : "No Practice boss to put back (start a Practice session or summon a boss first).");
+    if (rc) ToastF(cGreen, 2000, "Boss put back at its start position.");
+}
 int RepGapGet() {
     using G = int (*)();
     const auto g = (G)TrainingExport("Nioh3Training_GetRepeatGap");
@@ -2574,6 +2599,8 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetMoveRepeat")) { add(kItRepSel); add(kItRepNow); }  // user #13618: repeat the picked move / #13293: which move repeats (A stops)
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+        if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+        if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr) add(kItMoveBase + i);
         add(kItBack);
         return n;
@@ -2585,6 +2612,8 @@ int Items(int* out, int cap) {
             if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
             if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
             if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
+            if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
+            if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
             if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
             if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
             if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
@@ -2860,6 +2889,7 @@ void UiChange(int dir) {
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item == kItRepGap) { RepGapStep(dir); return; }
+    if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
     if (item == kItSumPassive) { SumPassiveStep(dir); return; }
@@ -2912,6 +2942,8 @@ bool UiAct() {
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
+    if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
+    if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
     if (item == kItRepSel) { RepeatArm(RepeatCandidate(), "A on Repeat selected move"); return false; }  // user #13618
     if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
@@ -3319,6 +3351,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (m) add(sel ? cWhite : cGreen, sel, "%s Repeat selected move: 0x%04X %.36s   press A", mk, m->id, MoveName(*m));
             else add(sel ? cWhite : cDim, sel, "%s Repeat selected move: none   turn a move ON below first", mk);
         }
+        else if (it[i] == kItAggro) {  // user #13787
+            const int v = AggroGet();
+            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Boss aggro on me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        }
+        else if (it[i] == kItResetPos) add(sel ? cWhite : cGray, sel, "%s Reset boss position   press A", mk);  // user #13787
         else if (it[i] == kItRepGap) {
             const int v = RepGapGet();
             char val[24];
@@ -3398,6 +3435,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 "Fight normally: the boss uses its own attacks. Right: stand still (Practice starts like that). A repeating move is used whenever it attacks.");
         } else if (item == kItRepGap) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long the boss waits after each repeat of the RPT move before doing it again. Left / Right 0.25 s. Applies now, saved.");
+        } else if (item == kItAggro) {  // user #13787
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move. Use with the stance Fight normally (Stand still keeps it in place). Saved.");
+        } else if (item == kItResetPos) {
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. Stand still: it waits and does only this move every gap (drill). Fight normally: it uses this move whenever it attacks. A / Left stops.");
         } else if (item == kItRepSel) {  // user #13618
