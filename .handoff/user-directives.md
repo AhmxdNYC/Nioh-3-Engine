@@ -1,0 +1,195 @@
+# What the human told us (always loaded; newest at the bottom wins on conflicts)
+
+- Never ask whether to test, install a test build or launch the game - always approved. Back up saves, game lock, install, launch, test, restore (#3397).
+- Test in the real game first; don't replace a test with more analysis (#3401).
+- Keep going through the whole open task list until the human says pause (#3233, #3377).
+- pc, pc2 and ally can all run the game at the same time; every performance test runs on all 3 devices, verdict needs 3/3 (#3282, #3985, #3994).
+- Steam signed out / NO CONNECTION / offline / cloud out of sync is NOT a blocker - launch and click Play anyway (#4097, #5432).
+- Play anyway: pc and pc2 only (auto-clicked by the steam_autoplay watcher, must act within 3 s). Ally never needs it; Ally's Steam is signed in. Forget cloud save (#3423, #3527, #3562, #3624, #3670, #3672, #3756).
+- Linux tests run on the Ally only (#3492).
+- Short pings like "Soo", "Sooo", "Soo what's going on" mean: give me a status. Answer with the status; never ask what was meant (#4861, #5078, #5396).
+- Plain words with numbers; explain more only when asked. Discord status cards and tables when asked (#4255, #4273, #4275, #4530, #6043).
+- No tests on the Home Screen. A run counts only after proving 60 s of in-mission combat with the game fullscreen and focused; otherwise redo it, on all 3 machines (#3637, #3714, #3715).
+- Reuse existing tools and keep the rules; read the existing docs for a task before starting it (hard rule) (#3682, #4331).
+- Boss rematch goal: the FIRST load straight into the full real arena and full boss fight with no loading screen, including Fight-now - not only retry after death (#4114, #4115, #4398, #4482, #4946, #5334).
+- Stop re-measuring and analysing - build it. Safety doesn't matter, try risky approaches (#3778, #4282, #4463, #4490, #4941). Exception: no changes to game-logic timing (#4989).
+- "Summon a boss anytime" is its own feature, separate from Boss Rematch; also chase cross-world load (#5335, #6120).
+- A summoned boss must behave like a normal boss: it can kill you, its HP bar vanishes when it dies, the exit appears, and the final animation plays without two finishers (#6107, #6108, #6109).
+- Tick governor stays off; make it an optional setting later. Make 60 Hz game logic cheaper instead (#4989, #4995, #5024).
+- Boss aggro is per boss: assume it, stop testing it; the human confirms later (#5304).
+- Keep idle machines busy: when the board shows a machine idle, post work for it (#4292, #5398, #6006, #6044).
+- Main PC: if the human says they are on it or want to play, stay off it - game closed, VirtualPad=0, their Xbox 360 pad working. If the human says "I'm not there / not me", a running game is one of OUR tests (another lead slot) - carry on (#5222, #5320, #6026, #6043, #6051, #6071, #6131, #6146).
+- Never claim something is installed, closed or done without checking it first (#6143, #6144).
+- Right now pc2 and ally do optimization work only, no boss work; boss work is pc plus the human on the main PC (#6066, #6080, #6083).
+- Hardware: PC2 has 7.9 GB RAM (close Discord and browsers before tests); Ally has 15 GB RAM (cross-world swap fails there); the human's pad is an Xbox 360 pad on the main PC (#4220, #5456, #6024).
+- "Gigs" means memory and storage, at the same performance (#3935).
+- #6264: user sees pc2 still shown as 'held' - clear that (no PAUSED file exists).
+- #6277: ALL machines' focus right now = cut the INITIAL load (arena separated from world / block world load). Soul core is backlog.
+- #6459: nioh3fps (Smooth Frames, Nexus 183) mod: don't worry now; user will download and compare later.
+- nioh3fps Nexus mod (Smooth Frames, mod 183): parked; the human will download it later to check for conflicts or things we lack (#6459).
+- Training mode feature wanted after load-skip is confirmed: switch arenas live in real time (use threading/background preload if possible) with an arena transition effect (#6466).
+- #6466: after load skip is confirmed, wanted for Training mode: live arena switching in real time (threading/prewarm) with an arena transition effect between.
+- #6518: Training arena switch = arena fades directly into the next arena (a menu/command-driven switch), regardless of whether the player died.
+- #6521: Main PC is the human's for now: they test the install load-skip + boss toggles (Boss Rematch) themselves; pc/leads stay off the main PC game (no launches) until they say done.
+- #6568/#6575: user wants the UPDATED mod menu = DX12 hosted menu (branch combo-3301b, not in current line). Use it in the next main-PC build.
+- #6618: after the user's current toggle play-test, the Boss Rematch menu (hosted menu, top) must show the death toggles (cutscene on kill, final blow required, boss loot) so players adjust them before a fight.
+- #6711: death-blow kill fix WORKED (no finisher). New: boss HP bar must disappear the instant the boss is killed / starts fading.
+- #6746: after-death boss-passive fix CONFIRMED by user. New: with toggles (DeathBlowRequired=0) boss should start fading instantly at kill (currently slow).
+- #6750: user asks whether boss stamina (ki) bar + functionality is reversed; if not have an agent look into it.
+- #6767: Ki bar is fine; user wanted it reverse engineered incl. its COLOR for a possible feature later. #6763/#6765: user is testing an OLDER rematch build (noon, Training #530 + old Rematch) once to compare kill feel; afterwards RESTORE current build (Training asi b738c1d3 + live Rematch asi/ini).
+- #6779: in the old (mission-teleport) build something spawned after the boss kill that took the user back to where they were; wants that available in Rematch whenever the boss isn't there, as a way to go back. (#6777 same-as-old kill + loot toggle handled by other slot.)
+- #6782: when a new build is installed and it's time for the human to play-test, send the ready notification 5 times in a row (5 TO-USER messages).
+- #6781 gold Ki bar (temp) next build; #6782 webhook/ping user 5x in a row when build is ready to play; #6789/#6798 'return to where I was' must be a PHYSICAL object in the arena (like mission-spawned exit); game closed by pc 21:10 per user.
+- #6806/6810: PC2 has 16 GB RAM (2x8, 15.93 GB shown), not 7.9 GB - corrects older directive.
+- #6821: last play session felt good; just finish the requested changes (physical Return object, gold Ki bar, death toggles in menu) for next build, and make cross-dimension (cross-world) load faster too. Cell polish parked.
+- #6830: help ally (failing AABB bench #58/#61) then continue the task list.
+- #6990 user: coming to play new build (Training 95059B19). Stay off the main PC; test-active marker set; afterwards read log (return gate, GOLDKI), delete marker.
+- #6990: user is coming to play the new build (Return gate, gold Ki, death toggles) on main PC; stay off it, no launches/changes until they report.
+- #7014 user: kill on rematch perfect; wants (a) Rematch hosted menu with death toggles at top (not latest), (b) Ki bar REALLY gold (style swap failed), (c) Return gate options = 'Return' or 'Fight again'. Builder resumed on pc/return-object-gold-ki.
+- #7014/#7021: played build: kill on rematch perfect. Hosted mod menu + Rematch menu were NOT the latest (missing all toggles); Ki bar not gold; Return object must offer 'Return' or 'Fight again'. Next build must have latest hosted menu (combo-3301b/hosted-merge) with all toggles.
+- #7118 user: Return gate appeared after death (good) but boss also auto-respawned & did jumping bug; wants dejavu instant respawn as a TOGGLE, default OFF (death -> gate with Return/Fight again). Ki bar still not gold. Builder resumed round 3.
+- #7138: boss 'jumping' glitch after death-respawn was fixed before; find the earlier fix and make sure it applies again.
+- #7138: boss 'jumping' glitch after death-respawn was fixed before; find that fix and make sure it is in the build. #7139: ally confirms whether nioh3fps touches visuals at all.
+- #7150/#7171: pc may close the game itself if the user isn't touching controller/keyboard; install new builds then.
+- #7171 user: close the game myself whenever they are not touching controller/keyboard (idle check) to install builds; no need to ask.
+- #7234: the gold-Ki probe drained boss stamina and bar wasn't yellow/gold -> remove stamina drain (no gameplay change). Also after kill cutscene boss should fade/die like the real mission (as user asked earlier, kill 'seems perfect' in older build).
+- #7234 user: Ki probe reduced boss stamina (unacceptable) + bar not yellow; after the kill cutscene the boss must fade/die like the real mission (earlier fade build). Builder round 4 on pc/jumpfix2.
+- #7256: before telling the human to play again, VISUALLY CONFIRM the gold Ki (stamina) bar in game (screenshot) - hard gate for the next ready ping.
+- #7256 user: I must VISUALLY confirm the gold Ki bar (screenshot in a real boss fight) before telling them to play again. #7262: user not at PC, I may close game / use it, get work done.
+- #7290: user wants an agent to investigate/detect the finishing-blow (stamina-break / ki-depleted) hits bosses have when stamina runs out, not only the final death blows already detected.
+- #7256: must VISUALLY confirm the gold Ki bar (screenshot) myself before telling the user to play again. #7293 'Go' = install the kifade build.
+- #7349: boss Ki bar STILL purple in the played build (gold tint not working).
+- #7394: user saw gold on screen during test but can't tell if only Ki bar or Ki+HP both gold. Requirement: ONLY the boss Ki bar gold, HP bar untouched.
+- #7251/ops 7445: 60 Hz logic-cost is NOT a pc2 task; pc2 works on arena cells only.
+- #7449 user: pc2's focus now = Boss Rematch INITIAL load shorter via arena-cells-only / skipping object queue.
+- #7465: wanted TOGGLE: bosses have NO finisher (grapple) while Ki-broken, Ki bar turns gold; at HP 0 the gold Ki bar drains and boss only dies if not hit within ~2 s (lets players finish long combos). This is what the Ki-break research (#7290) was for.
+- #7465/#7467: toggle 'no finisher while boss Ki-broken' (gold Ki bar, longer combos). At boss HP 0 the boss must ALSO enter the Ki-broken (stagger) state with the gold Ki bar draining ~2 s; dies only if no hit lands within ~2 s (to allow finishing combos).
+- #7683: user mentions a new rule 'make commits at meaningful times' - commit when a unit of work is done/tested (not mid-edit, not noise).
+- #7683: user mentions a 'new rule to make commits at meaningful times' - exact wording unknown; commit at meaningful points (a working step), not noisy/time-based. Ask user if unclear.
+- #8210: user asks whether cross-world loading was reduced (answered 2026-10-16).
+- #8236: user does NOT want menu prewarm as the solution; wants to literally SKIP loading time (no hidden preload-in-menu; the fight itself must start without the load).
+- #8248: user asks: if arena cells are already available, what is the issue - is something blocking the rest from loading? Answer + investigate (what gates the wait).
+- #8364: user suggests simply disabling the loading of all the other (non-arena) objects/placeables during cross-world Fight now; no prewarm, skip the load itself.
+- #8405: ALL machines (pc, pc2, ally) work on the cross-world load-skip (skip far scene-object loading during Fight now) - no one idle on other things.
+- #8432: user: skipping the (far scene) objects is THE thing needed for cross-world load; top priority, all machines.
+- #8552: user: skip ALL objects except what the arena itself needs (near-arena-only placeable load).
+- #8768: user wants the next playtest on the Yorimoto/Yoritomo boss (not Shingen); close the game now and fix the gold Ki tint ('gold elements 0' in the 3:41 pm kill log: tint didn't find the Ki bar).
+- #8768/#8771: user wants to test Yoritomo (Yorimoto) boss next; close the game and FIX: (a) Return gate page opened on stand but picking Return did nothing, (b) gold Ki tint found 0 elements (bar not gold).
+- #8827: gold Ki bar must show EVERY time boss is Ki-broken (stagger) AND at HP 0 (not only at the end); boss vanished mid kill-cutscene (bug); all death/Ki toggles (DeathBlowRequired, CutsceneOnKill, KiBreakNoFinisher, BodyFade, BossLoot) must account for each other (consistent combos).
+- #8861/#8863: user wants to play-test the boss live on the main PC while we read logs and adjust; keep chat short, don't go back and forth.
+- #8957: user asks if the agent figured out the loading thing by reversing (answered 2026-10-16)
+- #8967: user asks again if load thing is figured out (answered 2026-10-16 evening)
+- #8972: user says pc2 'got error, help it' (pc2 was idle only because of its pause #8852/#8908) -> treat as resume pc2; run the near-arena A/B. (2026-10-16 7:25 pm EST)
+- #8988: user asks status of cross-world load feature (long-running): answer with solution/test status across devices (2026-10-16).
+- #9003: user lifted pc2 pause (resume). pc2 order: #8951, #8886, #8889.
+- #9036: get the 7 s early-cover-release code into the current build, verify it's real on pc; if real have ally+pc2 test it; then document the loading task and everyone (pc, pc2, ally) PAUSE.
+2026-10-16 pc: user #9111: after pc2+ally finish the cover-release test (#9079/#9080), PAUSE everyone (create .handoff/PAUSED, send HOLD to pc2,ally) and show results; do not start new work.
+- #9133 (played cover-release build ec72c2c4): Return physical object works. BUGS: (1) gold Ki bar does not go back to normal smoothly when Ki regained; (2) at boss HP 0 boss looks in death-state animation while player can keep comboing - should react to hits like Ki-broken stagger; (3) black screen lifted too late - boss was already attacking when screen came back (boss must not act/hurt until the player can see).
+- #9135: user could still do the final grapple finisher on the boss while the gold Ki bar showed (must never happen with KiBreakNoFinisher). Add to the fix list with #9133 (gold bar not returning to normal on Ki refill, HP-0 death-pose vs stagger, screen returning late).
+- #9140/#9141: user confirms loading NOT figured out; they want it still worked (keep load task open, black screen ~22-40 s is the problem).
+- #9182: put an agent on identifying the black-screen source via logs; pc2 and ally pause when they finish their current work.
+- #9236: the 5x 'ready to play' pings must be DISCORD pings (not 5 TO-USER bridge messages in chat).
+- 2026-10-16 ops #9245: ready-to-play = 'py -m uo_bridge send nioh3 --tag PLAY-PING --repeat 5 "<line>"' (Discord only). Use instead of 5x TO-USER.
+- #9261 user: not playing now, test the loadscreen build when done and tell them.
+- #9283 user: turn the game on for them (launch Nioh on main PC for play).
+- #9291 user: recording the game screen from when they click the mod menu for rematch; (1) arena+loading seen awkwardly a few secs before fight, (2) boss at HP 0 still in death pose, not Ki-broken reactive stagger. Read log.
+- #9293 user: still thinks the new build is overall faster (positive feedback on short black screen).
+- #9296 user: close the game now; make screen recording tied to the boss mod (auto start when Fight now/mod menu used) in next build.
+- #9319: after kill in b950cb2 build, boss at HP0 + yellow Ki still LOOKS DEAD (death pose) instead of Ki-broken stagger anim; loading screen looked normal.
+- #9329/#9331: user wants pc2 to research move sets (Training mode) for the REST of the bosses, based on the docs of what was found for the 1 boss already done.
+- #9330: the physical Return/Rematch object spawns floating in the air; must spawn on the ground at the same spot.
+- #9328: user wants "full build" (HP-0 stagger fix + Return gate no native box + ground object) - ping when installed.
+- #9342: when the build is ready, close the game and tell the user they can play (they are not on the game now).
+- #9348: forget the 'awkward arena/loading before fight' issue for now; KEEP the mod-tied recorder in the build.
+- #9358: pc2/ally were on HOLD since 21:05 (cover/black-source study); GO sent 23:13, pc2 movesets, ally Linux test of lsfade #760.
+- #9375: user: ally lsfade test = 1 run per arm, not 3.
+- #9379: pc2 also 1 run per arm. #9381: user asks if pc2/ally have the latest black-screen build (answer: file #760 sent to ally; pc2 had only older cover-release).
+- #9413: user saw on pc2 screen: whole arena visible loading for some seconds with NO black screen, then boss fight (the 'awkward arena before fight' issue is real on pc2; revisit after current build).
+- #9490 (12:1x am 10-17): user watching the pc/hp0-stagger live test saw the test boss STILL go into the death pose at HP 0 (build 347ef66-ish). HP-0 stagger not fixed yet.
+- #9494: the HP-0 / boss live tests (builder, pc) must be run with INFINITE PLAYER HEALTH ON (training god mode) so the player doesn't die mid-test.
+- #9499: for the HP-0 live test, just freeze/pause the boss's moves (boss AI hold) instead of dealing with player damage; simplest test setup.
+- #9521: user watching live test saw the boss STAGGER at HP 0 (looks like HP-0 fix worked, user-eyeballed only, not log-confirmed).
+- #9542 user: hp0stagger build nearly right. Want: (1) sometimes during NORMAL Ki breaks (HP>0) boss goes into death pose instead of Ki-break stagger - read logs, fix; (2) during the final HP-0 Ki break the boss must stay in Ki break and have its Ki-break moves (a couple of moves + dashing) DISABLED - only for the final HP-0 part, not the whole fight; (3) halve the HP-0 no-hit window (2000 ms -> ~1000 ms).
+- #9542 (played hp0 build f394ff8): HP-0 stagger mostly works. Remaining: (1) sometimes during NORMAL Ki breaks the boss goes into the death pose instead of Ki-break stagger (read logs); (2) at the FINAL Ki break (HP 0) the boss must stay in Ki-break and NOT use the few moves it can do in Ki-break (disable a couple of moves + dashing) - only for the final HP-0 part, not the whole fight; (3) halve the HP-0 combo window (currently ~2 s -> ~1 s).
+- #9543: the physical Return/Rematch interact object still spawns in the air (ground fix not in the played build).
+- #9545: after kill, the time the boss disappears/fades feels delayed; should match the other timings (shorten). Not yet done (as of 00:50 10-17).
+- #9579: Ki-break death-pose bug still seen in some normal Ki breaks (build 3d3fd1ec). Also asks if the old 'satisfying kill' (cutscene finisher + loot, old rematch build) is covered by toggles: it is = CutsceneOnKill + BossLoot, but both are 0 in the installed ini.
+- #9585: don't change the existing kill toggles (DeathBlowRequired/CutsceneOnKill/BossLoot) behavior; ADD a slider in the Rematch menu for the CutsceneOnKill finisher window length (FinisherKillTimeoutMs). #9555: toggles are global for all bosses.
+- #9648: user wants a pause/freeze key to catch the first-Ki-break death-stance bug live
+- #9657: user asks to confirm whether the death-stance at 1st/normal Ki break (frozen 1:36:55 am) is a real bug
+- #9658: the F9 freeze/pause helper must become part of the mod itself (in-mod hotkey, toggle, logs boss state), not an external helper.
+- #9661/#9664: user done playing, close game. Return object: sometimes the regular (native) menu still shows instead of our Return menu (gate consistency, open.md item 2).
+- #9664/#9670: Return object sometimes shows the regular game menu instead of ours, or both at once (must always be ours only).
+- #9685: boss health bar appears before the boss is visible/spawned (after Fight now); hide HUD bar until boss shown.
+- #9670: Return object bug = either native menu instead of ours, or both menus at once.
+- #9899: user offers to F9-log good Ki breaks too; answered yes.
+- #9924: pc2 must NOT focus on naming boss moves until Training mode has toggleable boss attacks; prioritize toggleable boss attacks first.
+- #9946/#9956/#9958: Ki-break 'death-like' pose at normal Ki breaks is probably natural game behavior, not a bug; do NOT force/hardcode a fix for it (keep KiBreakActFix/BareFix OFF by default unless proven wrong).
+- #9968: user: the DEATH animation during normal Ki breaks is the bug (not natural); the normal Ki-break animations are natural. Want the death pose replaced by the natural Ki-break anim (ffc68ea forcing fix was right; re-enable). Not hardcoded ids if possible.
+- #9994: object menu order: 'Fight again' FIRST, 'Return' second. #9995: close game, tell when fixes ready.
+- #10035: close the game now; relaunch only once the FULL build (incl. native-box gate fix) is installed.
+- #10109: gate test: open menu, interact, close, open again repeatedly (test myself).
+- ops #10126 (HUMAN ORDER): after current task, further work only via Codex agents (cx-pc, 3 slots); no new work on Claude slots until lifted. Lead pc coordinates and hands tasks to cx-*.
+- #10092 (via pc2 #10626): Training mode like SF6: (1) idle stance: boss summons bosses by default, CPU stance normal; (2) spawn several bosses at once; (3) despawn all bosses. Order: fix menu crash #10426 first.
+- #12251 (2026-10-17): user: all continue working with Claude agents (lifts the 'only Codex' order #10126; use Claude agents/subagents for pc work).
+- #12327 user: asks if live real-time arena switching (with transition) for Training mode was ever figured out.
+- #12340 user: initial load is fine; once INSIDE an arena in Training mode the player must be able to live-swap to another arena in real time with a transition effect (fade/whiteout). Priority feature (open.md #6466).
+- #12327/#12340 (2026-10-17): user wants LIVE real-time arena switching inside Training arenas with a transition effect (top feature). #12343: asks if a build is playable right now.
+- #12381 (2026-10-17): user saw the native menu still appear UNDER our Return menu (but our menu had control); 'will let it slide for now' - low priority, open.md Return gate item.
+- #12399 user: FOCUS = Training mode with toggleable boss moves in the menu. When that is done, EVERYONE PAUSES (create .handoff/PAUSED, HOLD to pc2,ally). Other work (arena swap etc.) is secondary until then.
+- #12399 (2026-10-17): FOCUS = Training mode with toggleable boss moves in the menu; when that is done, EVERYONE PAUSES (create .handoff/PAUSED, HOLD pc2,ally, tell user).
+- #12439 (2026-10-17): arenas first: a menu 'teleport to arena' using NORMAL loading; do NOT work on live arena switch for now.
+- #12439/#12444 user: arenas first = a menu 'teleport to arena' (drop live switch for now). Its loading must NOT be plain game loading: reuse everything learned to speed up/clean initial loading (short black screen / lsfade, early cover release, EarlySwap/prewarm, in-place swap).
+- #12444 (2026-10-17): arena teleport 'normal loading' must NOT be plain: use the learned initial-load improvements (short black, early cover release, in-place swap).
+- #12517 user: unpause ally and pc2 to work multi-boss spawn/despawn, arena teleport test, all-boss move lists in Training menu.
+- #12523 user: Training mode should feel like Street Fighter 6 training mode, but for Nioh 3 (design target for all Training work).
+- #12613 (2026-10-17): do the arena-teleport fast-load work + make sure Training mode has ALL features discussed (SF6-style: idle boss, move toggles all bosses, multi-spawn, despawn all, arena teleport w/ fast load); live arena switch stays parked.
+- #12673 user: asks whether building our own region/map containing all boss arenas is feasible and whether we already have the data.
+- #12682 user: custom all-arenas region dropped. Finish Training mode stuff first; LATER maybe reduce arena switch time further, idea: while in rematch/Training have the ARENAS (cells) of other maps preloaded, not whole other maps.
+- #12733 (2026-10-17): when the combined Training build is ready, record a screen video of the agent using Training mode (summon, despawn, toggle multiple boss moves), compress it for Discord and send it.
+- #12735 (2026-10-17): in the Training demo video, operate the Training mod menu via real menu navigation (controller/keyboard) like a player would, not pipe/ini commands.
+- #12772 (2026-10-17): Training mode menu must NOT cover the whole screen; player must still see the boss/arena while using it (compact side panel / transparent).
+- #12900 (2026-10-17): Training demo video must be ~1 minute max, showcasing Training mode features; don't make user wait long.
+- #12951 (2026-10-17): Training move menu must let you PICK a boss move and make the boss DO it, repeating (loop/drill, SF6-style), not only disable moves. Demo video must be shot INSIDE a boss arena (rematch/teleport), not open world.
+- #12958: Repeat move needs an adjustable delay (slider/ms) between repeats of a toggled move.
+- #13164 (2026-10-18): mod menu must have 3 submenus: Boss Rematch (as before), Training (its submenus = the arenas), Summon Boss (just summon bosses, slider for how long before each gets aggressive). Training and Rematch must NOT be one menu. User wants game restarted with this applied, then told when done.
+- #13167 (2026-10-18): entering Training mode (an arena) must also summon that arena's boss like Boss Rematch, but in IDLE stance by default.
+- #13183 (2026-10-18): user ordered: close game and relaunch the new build for them.
+- #13197 (2026-10-18): mod menu root = Settings / Boss Rematch / Practice(Training) / Summon (STT 'Boss snatches'=Boss Rematch). Remove 'Save to ini/Uni' option -> auto-save. Training(arenas) menu shows ONLY arena details (no boss A/B moves, current boss, stance). Boss Rematch menu: no 'Return to where I was'. Finisher/HP-0 window/cutscene rows fine. Infinite HP must not stay on for summoned bosses (user didn't die at 0 HP) -> default off. Game crashed after going to shrine after killing a summoned boss (infinite HP on) - investigate.
+- #13200 (2026-10-18): main mod menu should also have a Practice submenu holding boss summoning + practice stuff (with #13197: root = Settings / Boss Rematch / Practice / Summon; auto-save; Training arena list shows only arenas).
+- #13203 (2026-10-18): Training mode menu should have 2 options: 'Training here' (current spot) and arenas; Boss Summoning also an option in it. (my reading; unconfirmed)
+- #13200/#13203/#13223 (2026-10-18): TOP-LEVEL mod menu (first page; engine-fix entries) = Settings / Boss Rematch / Practice; Practice = Training here (no teleport) / Arenas / Boss summoning + tools. Training death must retry in arena, not send to shrine.
+- #13229 (2026-10-18): AutoRetryOnDeath (instant Deja-vu reset on death in Training) must ALWAYS be on and not toggleable (remove the toggle).
+- #13229/#13230: auto retry (Deja vu instant reset on death) must ALWAYS be on and NOT toggleable in Training/Rematch mode (we are in that game mode); no Return gate/shrine on death.
+- #13234 (2026-10-18): when the new build (always-on auto retry etc.) is ready, restart the game with it.
+- #13253 (2026-10-18): user OK: build a 'go to last shrine' escape for being stuck in an arena with no mission, AND restore the save backup.
+- #13253: 'go to last shrine' escape + restoring save backup approved. #13255: the physical Return/Fight-again object should ALWAYS be in the arena during Training and Boss Rematch, not only after death.
+- #13253/#13255/#13257 (2026-10-18): approved: 'leave arena -> last shrine' escape and restoring save backup. Return/Fight-again physical object must ALWAYS stand in the arena (Training + Boss Rematch), not only after death. Side menus must be a bit wider; overall design of mod menus and custom menus is boring/hacky -> make it look professional.
+- #13257/#13262/#13265: next build must include: side panels wider + professional-looking redesign (not plain text lists); the physical Return object's menu adapts to mode (Training mode -> Training items, boss fights -> Rematch items, inherited); boss-fight toggles also in Training mode. #13261: "next build do the stuff I told you" = all of: always-present gate (#13255), menu redesign, mode-adaptive object menu, boss toggles in Training, leave-arena->last shrine escape.
+- #13262 (2026-10-18): the physical object menu (Return / Fight again object) must adapt to the mode: in Training mode it inherits the Training menu stuff; in Boss Rematch fights it inherits the boss-fight stuff.
+- #13265 (2026-10-18): the boss-fight (Boss Rematch) toggles should also exist in Training mode.
+- #13255/#13257/#13261 (2026-10-18): object always in arena (Training+Rematch); side menus wider + more professional look; next build must include these.
+- #13274 (2026-10-18): all our custom menus should PAUSE the game during boss matches and practice.
+- #13279 (2026-10-18): menus must also be easier to understand (clear labels/layout). When the combined next build is done: tell user AND install+launch it for them.
+- #13282 (2026-10-18): notify user on Discord when the combined menu build is ready (bridge TO-USER does that).
+- #13293 (2026-10-18): menu clarity: Practice menu must make obvious: "Train here (where I am)", "Training Mods", "Summon a boss where I am", "Boss Matches" (rename Rematch -> Boss Matches everywhere user-visible). Training: easy to set boss to do move X with adjustable gap between repeats. Boss Rematch toggles should also exist for boss summoning anywhere (and pretty much everywhere).
+- #13296 (2026-10-18): the Settings menu (and ALL custom menus) must also be easy to understand: plain labels, clear grouping.
+- #13522 (2026-10-18): user in a Training arena asks how to make the boss repeat a move and which toggles to use (wants plain how-to).
+- #13529 (2026-10-18): 'CPU' stance wording is confusing: Idle should let boss do moves on command (fighting-game training: easy to remember, SF6-like) - repeat of a picked move must work in the idle/training stance. BIG BUG: physical Return object in arena shows NO custom menu in the game and it is floating in the air - find root cause (use an agent). Triple-Start shortcut must open the CURRENT MODE's menu (Practice -> Practice menu; Boss Matches -> that menu). ALL menus need a Back button.
+- #13531 (2026-10-18): user in Training arena sees Boss A/B moves "empty" in Practice menu while boss is in front of them - bug, wants explanation + fix.
+- #13274/#13279/#13293/#13296: all custom menus pause the game mid boss match/practice; menus must be easy to understand: "Train here", "Training mods", "Summon a boss here", "Boss Matches" (not "Rematch"); Training: set boss to do move X alone with time between repeats; settings menu clearer too. #13282: notify via Discord (PLAY-PING) when build ready + launch.
+- #13529/#13537/#13538: Return object must show OUR menu (not native), not float in air; CPU stance = boss resumes real idle-like fighting; fighting-game-style easy controls; control-hint icons in custom menus are rough -> fix; ping when build with ALL of this is ready.
+- #13537 (2026-10-18): custom menus footer control-button icons (A Select / Back / </> Change / LB/RB Page) look rough: fix to clean polished glyphs. Screenshot captures/shot-13537.png
+- #13548 (2026-10-18): Return object: make it a single CLICK interact (not hold); holding just cancels, so the game's own mission menus never open. Do it with the current gate work. #13537/#13538: control-hint icons rough (fix, Codex worker); ping user on Discord when ONE build with everything is ready.
+- #13586 (2026-10-18): user: menu build work is between user and pc; don't hand it to ally/others. Let it finish, tell user when done (no more status chatter).
+- #13623 (2026-10-18): user dislikes the 'RPT'/Right-key repeat: simple rule wanted - mark a move as repeat (one clear 'Repeat this move' row/toggle) and it just repeats; no hidden Right trick, no extra conditions. (#13618 'confused, fix this stuff' - slot-1 session is on it).
+- #13624/#13626 (2026-10-18): user wants training-mode menus/keys rethought from the player's side (simple, fighting-game style); slot-2 session on it.
+- #13623/#13624/#13626: Training must be simple, fighting-game style: one row per move 'Repeat this move' ON/OFF with A; if ON the boss repeats it (no hidden Right-key trick, no 'RPT' wording). Design Training/menus from the player's way of thinking and keys.
+- #13756/#13758 (2026-10-18): user got stuck in a boss fight with no boss after starting game. Wants: (a) B in mod menu = go back one page (close page); menu must open at ROOT each time, not last page; back only via B/back row; (b) a menu option "Exit boss fight / get unstuck" to escape stuck boss-fight glitches. pc to work on it itself.
+- #13786 (2026-10-18): many moves in the boss move list (Yoritomo) are only 0.15 s twitches, not full attacks; also moves the boss does in other Ki/phase states seem missing from the list. User wants an agent to investigate (what are twitch ids vs real attacks; list real moves, incl. phase/Ki variants).
+- #13787: Training drilling: add option for boss to AGGRO on player while in CPU drilling, and a 'Reset boss position' option (boss back to spawn position).
+- #13789 (2026-10-18): focus only on the current boss (Yoritomo) for now; twitch/aggro/reset work scoped to that boss.
+- #13794 (2026-10-18): physical Return object still shows the game's native menu first; our custom menu only appears after clicking a button -> must show ONLY our menu directly (repeat of #13529/#13548).
+- #13798/#13800 (2026-10-18): opening the mod menu (shortcut) while in a mode (Training/Boss Match/Train here) must open directly at THAT mode menu, not the first page. #13799: physical Return object (game mission menu "This will end the mission. Proceed?" shows up alongside ours, user stuck) root cause must be found NOW.
+- #13798/#13800: when a mode (Training/train here/boss match) is active, the mod-menu shortcut must open directly on THAT mode's menu, not the first page. #13799: Return object (native menu showing first, ours only after click; can't escape) is top priority, find root cause now. #13789: focus on Yoritomo only for now.
+- #13830 (2026-10-18): user allows pc to CLOSE the game and install when the build is ready (no need to wait for them).
