@@ -45,3 +45,21 @@ Change (aggro.h `AgDrillBoss`, only with BossAggro 1; aggro OFF = no change):
   the AI-off at idle after arrival.
 - NoDeath re-apply after a load, heal-in-place at the HP floor during boss combos, stance kept across the Practice retry.
 - Installed ini still has PlayerNoDeath = 0; with SessionNoDeath default 1 (key absent = 1) that no longer matters.
+
+## #14267 follow-up (user test of FABDEA54 / 47D4DF4C, 19:44-19:50)
+- Aggro walk-up worked live: 19:46:42 "5.8 m ... AI on, it walks up", 19:46:44 "arrived (4.0 m)", "walk-up end, AI off again, drill resumes",
+  forced move faced the player ("turned to the player (yaw 10.9)"). Same again 19:47:02. Cosmetic: ~545 "IDLEHOLD transition 0x4E64 -> idle"
+  lines while walking (the AI re-picks the attack every frame, each turned into idle).
+- Why 'Player can't die' OFF "did nothing": the toggle took effect at once (read every tick), but player HP stayed 2658/2658 for the whole test
+  (HB lines), so the floor was never reached. And the old ON only healed at the floor, so ON and OFF looked the same until 1 HP.
+  (Native NoDeath clamps at HP 1; the floor test `c <= 1 || c*100 <= m` already covers it: 19:44:51 "beaten (HP 1 / 2658)".)
+- New meaning (user #14166/#14150): ON = infinite health: any HP below max is refilled at once (direct write to [[actor+0x3A0]+0x58],
+  the field PlayerHp reads; after 3 writes that do not stick it falls back to Player::RecoverFull every 250 ms). OFF = normal damage; at the floor
+  -> respawn in the arena after [Summon] BeatenRespawnMs (default 0 = at once; was a fixed 2 s), stance / repeat / aggro kept, Return object usable.
+  Decision in src/player_hp.h (PhDecide), offline test tests/player_hp_test.c (in run_move_toggle_tests.py).
+- Menu: the toggle left the Boss moves / gate lists; new page 'Practice - Player' (row "Player (infinite health: ON/OFF)") on the Practice hub
+  under the arenas row, and the same row on the Return-object page (Training and Boss Match modes). Row text "Infinite health (can't die)".
+- Build: Nioh3Training.asi sha256 5716971332b038888c49414bb8cd4641c0a2c158b74f04a0382e2f41c32bb1e3,
+  Nioh3BossRematch.asi sha256 242ea4a12981befe1aaf793f4f44a64a5e2beead25a2910a952a7139e0915002. Offline tests + Rematch harness pass.
+- Untested live: whether the HP write sticks (else RecoverFull fallback, which may also refill other things), instant respawn at the floor
+  with OFF, Player page navigation / Back from the Return-object page.

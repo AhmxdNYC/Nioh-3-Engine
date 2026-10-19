@@ -1247,7 +1247,7 @@ static int g_cfg_session_nodeath = 1; static uint64_t g_nd_char; static DWORD g_
 // the floor is healed in place (fight goes on); 0 = HP at the floor counts as a death: instant in-arena respawn (the existing round reset: full HP,
 // round-1 spot, boss respawned, stance / repeat / aggro kept). Either way native NoDeath stays on (SessionNoDeath), so the game's own death
 // flow (game over -> shrine load) never runs inside Training / Boss Match.
-static int g_cfg_cantdie = 1; static DWORD g_cd_t;
+static int g_cfg_cantdie = 1; static DWORD g_cd_t; static int g_cfg_beat_ms = 0, g_ph_wfail; static volatile LONG g_ph_logs;  // #14267: [Summon] BeatenRespawnMs (0..5000, was a fixed 2000)
 static int g_cfg_tr_dist = 300, g_cfg_tr_win = 0, g_cfg_tr_nodeath = 1, g_cfg_fn_summon = 1, g_cfg_fn_arena = 1, g_cfg_body_fade = 1, g_cfg_body_delay = 25000;
 // #6774: native kill = the boss death animation plays out in full. The kill-time fade (DeathBlowRequired=0) was f30 (0.5 s) and hid the death animation:
 // KillFadeFrames (default 120 = 2 s at 60 fps) still starts at the kill but lets the collapse be seen while the body fades. Delete waits for the fade end.
@@ -1301,6 +1301,7 @@ static int PlayerSetNoDeath(int on) {  // Character::SetNoDeath (VM 239711C): ms
     g_tr.nodeath = g_tr_nodeath_now = on; g_nd_char = on ? PlayerChar() : 0; Log("TRAIN player NoDeath %d (wrapper %p)", on, (void*)w); return 1;
 }
 static int TrNoDeath(void) { return g_cfg_tr_nodeath || g_cfg_session_nodeath; }  // user #14147
+#include "player_hp.h"  // user #14267: Infinite health decision (PhDecide)
 static int PlayerHp(uint64_t* cur, uint64_t* max) {  // Character::GetHpRate (323BB4): [[actor+0x3A0]+0x58] / [+0x50]
     uint64_t me = PlayerChar(), h = 0; if (!me || !Rd64(me + 0x3A0, &h) || !h) return 0;
     return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max);
@@ -1311,6 +1312,18 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
     p = ((uint64_t (*)(uint32_t))(B + 0x20A914))(0);
     if (p) ((void (*)(uint64_t))(B + 0x204E038))(p);
     uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
+}
+// user #14267 Infinite health ON: HP below max -> set back to max at once. Direct write of the HP field PlayerHp reads ([[actor+0x3A0]+0x58]);
+// if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
+static void PlayerRefill(uint64_t c, uint64_t m) {
+    uint64_t me = PlayerChar(), h = 0; const DWORD now = GetTickCount();
+    if (g_ph_wfail < 3 && me && Rd64(me + 0x3A0, &h) && h) {
+        uint64_t back = 0;
+        __try { *(volatile uint64_t*)(h + 0x58) = m; back = *(volatile uint64_t*)(h + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = 0; }
+        if (back == m) { if (InterlockedIncrement(&g_ph_logs) <= 50) Log("TRAIN infinite health: player HP %llu -> %llu / %llu (refilled)", c, m, m); return; }
+        ++g_ph_wfail; Log("TRAIN infinite health: HP write did not stick (%llu, try %d of 3)%s", back, g_ph_wfail, g_ph_wfail >= 3 ? ": Player::RecoverFull from now on" : "");
+    }
+    if (now - g_cd_t >= 250) { g_cd_t = now; if (InterlockedIncrement(&g_ph_logs) <= 50) Log("TRAIN infinite health: player HP %llu / %llu -> RecoverFull", c, m); PlayerRecoverFull(); }
 }
 // bridge 5158: release of the resource refs the ASI took with 3F9E58(chr,2,0). 1C1DF80(chr,0) = 3F9900(chr,2,0), exact inverse, one call per ref we took.
 // Pool of PoolMax characters: when a new boss needs a ref and the pool is full, the oldest chr that is not the current boss is released one tick later (actor already deleted by Despawn).
@@ -1417,11 +1430,10 @@ static void TrainTick(void) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
     }
     uint64_t c = 0, m = 0;
-    if (g_cfg_cantdie && TrNoDeath() && !g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
-        // user #14150 'Player can't die' ON: HP at the floor = healed where you stand; boss, round, stance, repeat and aggro go on unchanged
-        if (now - g_cd_t >= 500) { g_cd_t = now; Log("TRAIN round %d: player HP at the floor (%llu / %llu), Player can't die ON: healed in place", g_tr.round, c, m); PlayerRecoverFull(); }
-    } else if (!g_tr.beaten && !g_tr.lost && PlayerHp(&c, &m) && m && (c <= 1 || c * 100 <= m)) {
-        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in 2 s", g_tr.round, c, m, g_tr.practice ? "resetting the round in place (Practice session)" : g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)");
+    const int ph = PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
+    if (ph == PH_REFILL) PlayerRefill(c, m);  // user #14267 Infinite health ON: never lose HP
+    else if (ph == PH_BEATEN) {
+        g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in %d ms", g_tr.round, c, m, g_tr.practice ? "resetting the round in place (Practice session)" : g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)", g_cfg_beat_ms);
     }
     // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
     // NO respawn, the arena Return gate (spawned only while idle, #7138) offers Return to where I was / Fight again (Fight again = the same TrainRetry)
@@ -1430,8 +1442,9 @@ static void TrainTick(void) {
     // ends on a defeat (only the player's own Return). AutoRetryOnDeath keeps applying to Boss Rematch Fight now sessions.
     // user #14150: the retry keeps the chosen stance (TrainRetry -> IhDefault(0): Stand still stays Stand still, Fight normally stays CPU); repeat
     // moves and aggro are global and untouched. Was IhDefault(1) here = always back to Stand still.
-    if (g_tr.beaten && g_tr.practice && now - g_tr.tBeat >= 2000) TrainRetry("player beaten (Practice: retry in place)");
-    else if (g_tr.beaten && now - g_tr.tBeat >= 2000) { if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
+    if (g_tr.beaten && g_tr.practice && now - g_tr.tBeat >= (DWORD)g_cfg_beat_ms) TrainRetry("player beaten (Practice: retry in place)");
+    else if (g_tr.beaten && now - g_tr.tBeat >= (DWORD)g_cfg_beat_ms) {  // #14267: BeatenRespawnMs (default 0 = instant)
+        if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
@@ -2391,7 +2404,7 @@ static DWORD WINAPI CantDieSaveThread(LPVOID p) {
 N3T_API int Nioh3Training_GetPlayerCantDie(void) { return g_cfg_cantdie; }
 N3T_API int Nioh3Training_SetPlayerCantDie(int on, int persist) {
     g_cfg_cantdie = on != 0;
-    Log("API Player can't die %s%s", g_cfg_cantdie ? "ON (HP at the floor = healed in place)" : "OFF (HP at the floor = instant respawn in the arena, round reset)", persist ? " (saved to ini)" : "");
+    Log("API Player can't die %s%s", g_cfg_cantdie ? "ON (infinite health: HP refilled whenever it drops)" : "OFF (normal damage; HP at the floor = instant respawn in the arena, round reset)", persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, CantDieSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
     return g_cfg_cantdie;
 }
@@ -4593,11 +4606,11 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
-        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_session_nodeath = GetPrivateProfileIntA("Summon", "SessionNoDeath", 1, ini) != 0; g_cfg_cantdie = GetPrivateProfileIntA("Summon", "PlayerCantDie", 1, ini) != 0; g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
+        g_cfg_tr_nodeath = GetPrivateProfileIntA("Summon", "PlayerNoDeath", 1, ini); g_cfg_session_nodeath = GetPrivateProfileIntA("Summon", "SessionNoDeath", 1, ini) != 0; g_cfg_cantdie = GetPrivateProfileIntA("Summon", "PlayerCantDie", 1, ini) != 0; g_cfg_beat_ms = GetPrivateProfileIntA("Summon", "BeatenRespawnMs", 0, ini); if (g_cfg_beat_ms < 0) g_cfg_beat_ms = 0; if (g_cfg_beat_ms > 5000) g_cfg_beat_ms = 5000; g_cfg_tr_win = GetPrivateProfileIntA("Summon", "RespawnOnWinMs", 0, ini); g_cfg_tr_respawn = GetPrivateProfileIntA("Summon", "RetryRespawnMs", 2000, ini); g_cfg_body_fade = GetPrivateProfileIntA("Summon", "BodyFade", 1, ini); g_cfg_body_delay = GetPrivateProfileIntA("Summon", "BodyFadeDelayMs", 25000, ini); g_cfg_kill_fade_frames = GetPrivateProfileIntA("Summon", "KillFadeFrames", 120, ini); g_cfg_kill_fade_delay = GetPrivateProfileIntA("Summon", "KillFadeDelayMs", 5000, ini);
         g_cfg_loot = GetPrivateProfileIntA("Summon", "BossLoot", 0, ini); g_cfg_deathblow = GetPrivateProfileIntA("Summon", "DeathBlowRequired", 1, ini); g_cfg_cutscene = GetPrivateProfileIntA("Summon", "CutsceneOnKill", 0, ini); g_cfg_fin_timeout = GetPrivateProfileIntA("Summon", "FinisherKillTimeoutMs", 6000, ini);
         Log("summon death (#6185): BossLoot %d, DeathBlowRequired %d, CutsceneOnKill %d, FinisherKillTimeoutMs %d, BodyFade %d, BodyFadeDelayMs %d, KillFadeFrames %d", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, g_cfg_fin_timeout, g_cfg_body_fade, g_cfg_body_delay, g_cfg_kill_fade_frames);
         g_cfg_tr_nodeath_summon = GetPrivateProfileIntA("Summon", "SummonNoDeath", 0, ini);  // user #13197: default 0
-        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, SessionNoDeath %d (#14147), PlayerCantDie %d (#14150), RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_session_nodeath, g_cfg_cantdie, g_cfg_tr_win);
+        Log("summon (bridge 4942): FightNowSummon %d, Distance %d, PlayerNoDeath %d, SessionNoDeath %d (#14147), PlayerCantDie %d (#14150 infinite health), BeatenRespawnMs %d, RespawnOnWinMs %d", g_cfg_fn_summon, g_cfg_tr_dist, g_cfg_tr_nodeath, g_cfg_session_nodeath, g_cfg_cantdie, g_cfg_beat_ms, g_cfg_tr_win);
         g_cfg_preload = GetPrivateProfileIntA("ArenaSwap", "Preload", 0, ini);
         g_cfg_preload_max = GetPrivateProfileIntA("ArenaSwap", "PreloadMax", 3, ini);
         g_cfg_hook = GetPrivateProfileIntA("ArenaSwap", "HookFightNow", 0, ini);

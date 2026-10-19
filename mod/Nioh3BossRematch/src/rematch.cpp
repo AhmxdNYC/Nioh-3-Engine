@@ -2151,6 +2151,8 @@ constexpr int kItAggro = -53, kItResetPos = -54;
 // fragment) and M (movement) are hidden unless this is ON; a hidden-kind row still shows while it is OFF or repeating so its state is never invisible.
 constexpr int kItShowTw = -55;
 constexpr int kItCantDie = -56;  // user #14150: Player can't die (Nioh3Training_Get/SetPlayerCantDie, [Summon] PlayerCantDie)
+// user #14267: player options on their own 'Player' page (Practice hub row + Return-object Training / Boss Match page row); more player rows later
+constexpr int uPlayer = 909, kItPlayerOpen = -57;
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2466,8 +2468,8 @@ void CantDieToggle(int dir) {  // user #14150: dir 0 flips, > 0 on, < 0 off
     if (!set || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Player can't die'."); return; }
     const int on = set(dir ? dir > 0 : !v, 1);
     Log("Rematch: menu Player can't die -> %d", on);
-    snprintf(g_msg, sizeof g_msg, "%s", on ? "Player can't die ON: at 0 HP you are healed where you stand and the fight goes on. Saved."
-                                         : "Player can't die OFF: at 0 HP you respawn at once in the arena (full HP, boss reset, same settings). Saved.");
+    snprintf(g_msg, sizeof g_msg, "%s", on ? "Infinite health ON: you never lose HP. Saved."
+                                         : "Infinite health OFF: you take damage; at 0 HP you respawn at once in the arena (full HP, boss reset, same settings). Saved.");
 }
 void ResetBossPos() {  // user #13787
     using F = int (*)();
@@ -2545,9 +2547,15 @@ int Items(int* out, int cap) {
         if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: the hosted menu opens here, never on uRoot (the row was unreachable)
         if (TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
         add(kItArenas);
+        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);
         if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uPlayer) {  // user #14267: player options (infinite health for now)
+        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
         add(kItBack);
         return n;
     }
@@ -2629,7 +2637,6 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
-        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
         if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
         int tw = 0;
         for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && N3MoveTwitch(&kN3Moves[i])) ++tw;
@@ -2642,11 +2649,11 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
         if (mode == 2) {  // Training: the Practice tools rows
+            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
             if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
             if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
             if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
             if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
-            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
             if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
             if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
             if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
@@ -2654,7 +2661,7 @@ int Items(int* out, int cap) {
             if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
         } else if (mode == 1) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
-            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);  // user #14150
+            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
         }
         add(kItReturnHome);
         add(kItBack);  // user #13529: every page has a Back row (here: back to the mod menu's first page)
@@ -2987,9 +2994,9 @@ bool UiAct() {
     if (item == kItRepSel) { RepeatArm(RepeatCandidate(), "A on Repeat selected move"); return false; }  // user #13618
     if (item == kItSumPassive || item == kItSumSlot) { UiChange(0); return false; }
     if (item == kItRootRematch || item == kItRootTraining || item == kItRootSummon || item == kItRootTools ||
-        item == kItTrainHereOpen || item == kItArenas || item == kItBossSumm || item == kItFightOpts) {  // user #13164 / #13197 / #13223 / #13265
+        item == kItTrainHereOpen || item == kItArenas || item == kItBossSumm || item == kItFightOpts || item == kItPlayerOpen) {  // user #13164 / #13197 / #13223 / #13265 / #14267
         g_uiPages.Enter(item == kItRootRematch ? uRematch : item == kItRootTraining ? uPracticeHub : item == kItRootSummon || item == kItBossSumm ? uSummon :
-                        item == kItArenas ? uTraining : item == kItTrainHereOpen ? uTrainHere : item == kItFightOpts ? uFightOpts : uTools, g_sel);
+                        item == kItArenas ? uTraining : item == kItTrainHereOpen ? uTrainHere : item == kItFightOpts ? uFightOpts : item == kItPlayerOpen ? uPlayer : uTools, g_sel);
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         // ally #89: Boss A is the Training session boss (arena boss): a new summon goes to the free slot B instead of replacing it
         if ((item == kItRootSummon || item == kItBossSumm) && SlotChr(0) && !SlotChr(1)) g_sumSlot = 1;
@@ -3210,7 +3217,7 @@ const char* PageTitle(const char* movesTitle) {
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Practice - Train in a boss arena" : p == uPracticeHub ? "Practice"
          : p == uTrainHere ? "Practice - Train here" : p == uSummon ? "Practice - Summon a boss here" : p == uTools ? "Practice - Training mods"
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Practice Yamagata"
-         : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uMoves ? movesTitle : "Mod menu";
+         : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uPlayer ? "Practice - Player" : p == uMoves ? movesTitle : "Mod menu";
 }
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
@@ -3218,7 +3225,7 @@ const char* ItemGroup(int item) {
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Kill and finisher rules (also Practice and summons)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
-    if (p == uGate) return item == kItFightAgain ? "This fight" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training mods";
+    if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training mods";
     if (p == uTools) return item == kItDespawnAll || item == kItBossSumm ? "Summoned bosses" : item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Boss behaviour and move drill";
     if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss to summon" : "Options";
     if (p == uMoves) return IsMoveItem(item) ? "Moves (A: on / off, Right: REPEAT, Left: stop)" : "Repeat a move (drill) and stance";
@@ -3360,6 +3367,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItTrainHereOpen) add(sel ? cWhite : cGray, sel, "%s Train here   A: open", mk);
         else if (it[i] == kItArenas) add(sel ? cWhite : cGray, sel, "%s Train in a boss arena   A: open", mk);
         else if (it[i] == kItBossSumm) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
+        else if (it[i] == kItPlayerOpen) {  // user #14267
+            const int v = CantDieGet();
+            add(sel ? cWhite : cGray, sel, "%s Player (infinite health: %s)   A: open", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        }
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
             add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
@@ -3399,7 +3410,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItCantDie) {  // user #14150
             const int v = CantDieGet();
-            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Player can't die: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Infinite health (can't die): %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
         }
         else if (it[i] == kItResetPos) add(sel ? cWhite : cGray, sel, "%s Reset boss position   press A", mk);  // user #13787
         else if (it[i] == kItShowTw) {  // user #13786
@@ -3491,7 +3502,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItAggro) {  // user #13787
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move at you. Works in both stances (Stand still: it walks up when you are out of range (5 m), then drills). Saved.");
         } else if (item == kItCantDie) {  // user #14150
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: at 0 HP you are healed where you stand. OFF: at 0 HP you respawn at once in the arena (boss reset, same stance / move / aggro). Never leaves the arena. Saved.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: you never lose HP. OFF: you take damage normally; at 0 HP you respawn at once in the arena (full HP, boss reset, same stance / move / aggro). Never sends you to a shrine. Saved.");
         } else if (item == kItResetPos) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
@@ -3518,6 +3529,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "Pick a boss: it appears right where you stand (no load, no teleport) and stands still. If you are beaten, the round restarts here.");
         } else if (item == kItArenas) {
             snprintf(footer, nf, "Pick an arena: you are taken into that boss's arena with the boss standing still. If you are beaten, you retry in the arena.");
+        } else if (item == kItPlayerOpen) {  // user #14267
+            snprintf(footer, nf, "%s", "Player options: infinite health (ON = you never lose HP; OFF = normal damage, at 0 HP instant respawn in the arena).");
         } else if (item == kItBossSumm) {
             snprintf(footer, nf, "Summon up to two bosses next to you (no load). Set how long they wait before attacking. They use the Boss Match rules.");
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
