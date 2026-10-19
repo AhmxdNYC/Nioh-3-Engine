@@ -12,7 +12,7 @@ Checked against: the Training log ACTLOG lines for 16102 (162 transitions with `
   the RDB index (`root/0xad80d5d0.fdata`) but that fdata is **not in the installed package** (153 fdata files, no 0xad80d5d0).
   No static path to names. `+0x11C` is a second 32-bit hash (62 distinct values, same count as `+0xF0`); it is not in the setting DB.
 - Next action: **yes, proven** (`+0xE0`).
-- Hits / damage / Ki damage: **no**. No field matches; damage is probably in sub-table 2 (182 x 192 B) or set by AI/script,
+- Hits / damage / Ki damage: **no** (follow-up: `yoritomo-attack-values.md`; nothing in this file indexes sub-table 2). No field matches; damage is probably in sub-table 2 (182 x 192 B) or set by AI/script,
   and how actions link to it is not decoded.
 - Durations: **not in the record**. No u16 field correlates with logged ran-ms (best r = 0.44 over 25 actions). Length
   comes from the motion file.
@@ -33,9 +33,9 @@ Sub-table 0 is a header. From word 2 on it holds a (count, record size) pair per
 | +0x0E u16 | FFFF except 0x4E22 (0xFFA6) | unknown | |
 | +0x20 u16 | motion number | PROVEN-ish | families match move kinds; variants share motions |
 | +0x40 16 x (u16 id, u16 frame, u16 len) | **event slots** (empty = FFFF,0,FFFF) | layout PROVEN, meaning GUESSED | frames rise inside a move (0x4E68: ids 21/22/23/21 at frames 50/89/98/116) |
-|  | id < 1000 | local event (hitbox / effect / armour?) | GUESS | up to ~92; sub-table 5 has 93 rows (unverified index) |
+|  | id < 1000 | local event = **sub-table 5 row** (event definition) | index PROVEN (354/354 files); meaning per class in `yoritomo-attack-values.md` | up to 92; sub-table 5 has 93 rows |
 |  | id 10000-10600 | shared event (SE / VFX?) | GUESS | the same ids repeat across many moves (10001/10005 pair, 10250-10255 set) |
-|  | id 20000+ | **an action id** (same number space as +0x0C / sub3 keys) | number space PROVEN, role GUESSED | 0x4EB4 -> 0x4E46..0x4E49 at frame 54; 0x4E78/79/8C/67/70 -> 0x4E38..0x4E3C. Probably a spawned helper's action or a branch target at that frame. Column `event_action_links` |
+|  | id 20000+N | **CORRECTED 2026-10-19: sub-table 7 row N** (spawned object / bullet), NOT an action id (see `yoritomo-attack-values.md`) | PROVEN family-wide (212/212 files) | 0x4EB4 -> 0x4E46..0x4E49 at frame 54; 0x4E78/79/8C/67/70 -> 0x4E38..0x4E3C. Probably a spawned helper's action or a branch target at that frame. Column `event_action_links` |
 | +0xA0 5 x (u16 value, start, end) | schedule A | GUESSED (play-rate % or move speed) | 0x4E74: 130@0, 150@43, 250@109, 400@155, 125@210 (frames rise) |
 | +0xBE 5 x (u16 value, start, end) | schedule B | GUESSED (tracking / turn rate?) | steps 0x4E71: 400@4, 330@8, 260@12, 180@16 (falls off) |
 | +0xE0 u16 | **next action on finish** | PROVEN | matches every logged non-AI successor: 0x4E21->0x4E22, 0x4E5C->0x4E60 (3/3), 0x4E7B->0x4EA7 (3/3), 0x4E30->0x4E31. 2 = idle, self = looping middle part (0x4E22, 0x4E25, 0x4E31, 0x4E3C ...). 0x3F1 = alt idle for 0x4E81-0x4E88 / 0x3F0 group |

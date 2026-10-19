@@ -7,7 +7,8 @@ Sub-table 1 = action records, 336 (0x150) bytes each:
   +0x0C u16 action id                           PROVEN (all 44 logged Yoritomo ids)
   +0x20 u16 motion number                       PROVEN-ish (families line up with move kinds)
   +0x40 16 x (u16 id, u16 frame, u16 len) event slots, empty = (FFFF,0,FFFF). id ranges: <1000 local
-        (hitbox / effect?), 10000+ common (SE/effect?), 20000+ = an ACTION id (same space as +0x0C)  GUESSED meaning
+        (= sub-table 5 row, PROVEN family-wide), 10000+ common (SE/effect?), 20000+N = sub-table 7 row N (spawned
+        object / bullet; PROVEN family-wide, NOT an action id - corrected 2026-10-19, see yoritomo-attack-values.md)
   +0xA0 5 x (u16 value, u16 startFrame, u16 endFrame) schedule A (values 20-400, rising frames; speed %?)  GUESSED
   +0xBE 5 x (u16 value, u16 startFrame, u16 endFrame) schedule B                                       GUESSED
   +0xE0 u16 next action when this one finishes  PROVEN (0x4E21->0x4E22, 0x4E5C->0x4E60, 0x4E30->0x4E31,
@@ -63,6 +64,32 @@ def full(path):
     off, size = st[1]
     o3, s3 = st[3]
     sub3 = collections.Counter(struct.unpack_from('<H', d, o3 + r * 128)[0] for r in range(s3 // 128))
+    o5, s5 = st[5]
+    o7, s7 = st[7]
+    U = lambda o: struct.unpack_from('<H', d, o)[0]
+    S = lambda v: v - 65536 if v >= 32768 else v
+
+    def ev5(i):  # local event id -> sub-table 5 row (index PROVEN family-wide); class by which columns are set (GUESSED)
+        if i * 208 + 208 > s5:
+            return '%d:?' % i
+        b5 = o5 + i * 208
+        if U(b5 + 0x32) != 0xFFFF:
+            return '%d:r%d' % (i, U(b5 + 0x32))
+        if U(b5 + 0x34) not in (0, 0xFFFF):
+            return '%d:m%d/%d' % (i, S(U(b5 + 0x3C)), S(U(b5 + 0x64)))
+        if U(b5 + 0x50) != 0xFFFF and U(b5 + 0x54) != 0xFFFF:
+            return '%d:s%d' % (i, S(U(b5 + 0x50)))
+        if U(b5 + 0x8C) != 0xFFFF:
+            return '%d:p%d' % (i, U(b5 + 0x8C))
+        return '%d:o' % i
+
+    def spawn(i):  # event id 20000+N -> sub-table 7 row N (index PROVEN family-wide); +0x110..+0x11A -> sub-table 8 rows
+        n = i - 20000
+        if n * 336 + 336 > s7:
+            return '%d:?' % n
+        b7 = o7 + n * 336
+        links = [U(b7 + x) for x in range(0x110, 0x11C, 2) if U(b7 + x) != 0xFFFF]
+        return '%d(s8:%s)' % (n, ','.join(map(str, links)))
     for r in range(size // REC):
         b = d[off + r * REC: off + (r + 1) * REC]
         u16 = lambda o: struct.unpack_from('<H', b, o)[0]
@@ -94,6 +121,13 @@ def full(path):
             'sched_b': ' '.join('%s@%d-%s' % (_h(t[0]), t[1], _h(t[2])) for k, t in sb),
             'tail130': ' '.join(_h(u16(o)) for o in range(0x130, 0x150, 2)),
             'sub3_rules': sub3.get(aid, 0),
+            'local_event_decode': ' '.join('%s@%d+%s' % (ev5(t[0]), t[1], _h(t[2])) for t in local),
+            'n_ev_r': sum(ev5(t[0]).split(':')[1].startswith('r') for t in local),
+            'n_ev_m': sum(ev5(t[0]).split(':')[1].startswith('m') for t in local),
+            'spawns_sub7': ' '.join('%s@%d' % (spawn(t[0]), t[1]) for t in acts),
+            'phase_tail': ' '.join('%d@%d' % (u16(o + 2), u16(o + 4)) for o in (0x134, 0x13A, 0x140, 0x146)
+                                   if u16(o + 2) != 0xFFFF and (u16(o + 2) or u16(o + 4))),
+            'has_attack_block': int(any(u16(o) != 0xFFFF for o in (0x13C, 0x142))),
         }
 
 
