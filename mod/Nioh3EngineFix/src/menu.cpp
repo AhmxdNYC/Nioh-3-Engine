@@ -135,6 +135,7 @@ volatile LONG64 g_lastPresent = 0;    // last OnPresent (GetTickCount64): the ov
 // Nioh3Training renews it every frame while the player stands near its Return gate (the native clear gadget's interact would open
 // the game's own "This will end the mission" prompt, whose Yes exits the game outside a real mission).
 volatile LONG g_gameMask = 0; volatile LONG64 g_gameMaskUntil = 0;
+volatile LONG g_extCloseReq = 0;      // #13796 Nioh3EngineFix_MenuClose: an add-on asks to close the menu (native box at the Return object)
 volatile LONG64 g_lastPadFeed = 0;    // the game called XInputGetState (any slot)
 volatile LONG64 g_lastKeyFeed = 0;    // the game read the keyboard successfully
 volatile LONG g_padHeld[4] = {};
@@ -1829,6 +1830,7 @@ void OnPresentImpl() {
         g_rematchPage = true; g_rematchOpened = true; g_rematchFromAddon = true;
         for (auto& repeat : g_rep) repeat = 0;
     }
+    if (InterlockedExchange(&g_extCloseReq, 0) && g_open) Close("add-on request: a native box is open, the player answers it");  // #13796 safety net
     if (InterlockedExchange(&g_toggleReq, 0) && t - (ULONGLONG)g_toggleAt < 1000) {
         const LONG src = g_toggleSrc;
         if (g_open) Close(SrcName(src));
@@ -1845,7 +1847,9 @@ void OnPresentImpl() {
             Close("rematch worker stale/unavailable");
             return; // fail closed; ordinary neutral-release latches still apply
         }
-        if (g_rematchOpened && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
+        // #13796: a mode page opened by the shortcut (OpenModePage, g_rematchOpened false) that B closed at its base also leaves at once
+        // (B = back one page = the host's first page), instead of waiting for a second B on a page that no longer draws anything.
+        if ((g_rematchOpened || g_rematchLastAction == rmb::Back) && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
             // user #13796: a page the add-on opened by itself (the physical Return object) is the whole menu: B closes it, it never
             // falls back to the mod menu's first page (that second screen is where the player got stuck).
             const bool back = g_rematchLastAction == rmb::Back, fromAddon = g_rematchFromAddon;
@@ -2857,6 +2861,12 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MaskGameButtons(int mask, in
 // #9664/#9670 Nioh3EngineFix_MenuOpen(): 1 while the mod menu (host of the Boss Rematch pages) is open. Nioh3Training reads it so a pad A press
 // near the Return gate opens the gate page only when no menu is up (the A that picks a menu row must not reopen the page).
 extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuOpen() { return menu::g_open ? 1 : 0; }
+// #13796 safety net: Nioh3Training asks to close the mod menu when a native modal (the game's own Yes/No box) opened at the Return object,
+// so our menu never masks the pad over a box the player must answer. Any thread; the close itself runs on the overlay's Present.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuClose(const char* why) {
+    if (why) { char b[96]; snprintf(b, sizeof b, "%s", why); if (menu::g_log) menu::g_log("MENU: close requested by an add-on: %s", b); }
+    InterlockedExchange(&menu::g_extCloseReq, 1); return menu::g_open ? 1 : 0;
+}
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
     AcquireSRWLockExclusive(&menu::g_lsLock);
     if (title) snprintf(menu::g_lsTitle, sizeof(menu::g_lsTitle), "%s", title);
