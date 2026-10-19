@@ -193,3 +193,8 @@
 - #13798/#13800 (2026-10-18): opening the mod menu (shortcut) while in a mode (Training/Boss Match/Train here) must open directly at THAT mode menu, not the first page. #13799: physical Return object (game mission menu "This will end the mission. Proceed?" shows up alongside ours, user stuck) root cause must be found NOW.
 - #13798/#13800: when a mode (Training/train here/boss match) is active, the mod-menu shortcut must open directly on THAT mode's menu, not the first page. #13799: Return object (native menu showing first, ours only after click; can't escape) is top priority, find root cause now. #13789: focus on Yoritomo only for now.
 - #13830 (2026-10-18): user allows pc to CLOSE the game and install when the build is ready (no need to wait for them).
+- #13877 (2026-10-19): user wants the ACTUAL data for boss moves found (static game data), not fight-captured lists.
+- #13910 (2026-10-19): user wants an agent to find the real source (Ghidra) of the native End-mission box; agent started on pc/native-box-source.
+- #13915 (2026-10-18): postpone health/damage/hit-count data hunt for a couple of days (token budget); moves list from static table is the priority.
+- #13922/#13924: update GitHub README/graphs/docs (stale ~1 week) via an agent; do NOT update the Downloads/releases yet (new build not polished enough).
+- #13945 (2026-10-19): tokens low until weekly reset: ONLY work on the native End-mission box source (Return object menu). Drop charts/docs/move-data hunts for now.

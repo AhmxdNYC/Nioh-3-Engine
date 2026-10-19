@@ -98,3 +98,5 @@
 - 2026-10-18 | Ally smoke test of menu build | does c3ab21b work on Linux | PASS: menus/pause/auto-retry fine, no crash; 3 bugs found (idle boss, empty moves, truncated names), fix in progress
 - 2026-10-18 | Combined menu build c3ab21b on pc2 | Verify new menus on Windows pc2 | PASS: all pages render, pause/unpause clean, in-place arena swap ~13 s, 0 errors; fight/death/gate object untested
 - 2026-10-18 | Menu fixes verified | idle boss, Boss A slot, wrapped names | a3a7768 PASS on ally; install pending game close on pc
+- 2026-10-19 | Yoritomo full move table check | user asked if all-moves table was already found | Not a static file: full list = bank arrays B+1E8/B+1F0 in memory (notes on cx-pc/boss-records-10252); plan one in-game dump
+- 2026-10-19 | GitHub docs refresh | README/STATUS a week stale | README+STATUS+mod READMEs updated on pc/docs-refresh (unmerged)

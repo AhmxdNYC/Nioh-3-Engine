@@ -5,3 +5,6 @@
 - [ ] Return gate native 'End mission?' dialog (shot9324) | builder a32d0a7 fixing; user may see it again until installed | pc
 - [ ] Report which part of loading looked awkward | after rematch: arena visible then what? | main PC
 - [ ] Ki-break death pose check on build 5675ecc8 | play normal Ki breaks on any boss; F9 if death pose shows | pc
+- [ ] Codex usage limit: allow Claude slots to do offline work until Oct 23? | reply yes/no in chat (default yes after 1 h) | any
+- [ ] Play-check combined menu build | open menus: look, labels, pause, repeat-move row, gate object always in arena | pc
+- [ ] Test Return object + new move list | In Training/Boss Match arena tap A on the Return object (only OUR menu should open, no game 'End mission?' box); check Yoritomo move list, Aggro on me, Reset position | pc (controller ready: no virtual pad active)
