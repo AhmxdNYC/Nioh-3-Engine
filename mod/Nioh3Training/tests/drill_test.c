@@ -79,6 +79,28 @@ int main(void) {
     rep_id = 0; Step(100); assert(Nioh3Training_GetDrill() == 0); Step(150); assert(ai_on == 0);  // repeat stopped: stand still again
     // boss gone / dead: drill stops, no force
     Reset(); rep_id = 0x4E64; Step(100); alive = 0; Step(1000); assert(!forces && Nioh3Training_GetDrill() == 0);
-    puts("PASS: drill forces the picked move every gap while standing still (AI off), waits for idle / eligibility, stops with the repeat / stance / boss, AI-on fallback after 3 failed forces");
+    // user #14147: aggro walk-up hold (aggro.h sets g_dr_hold, AI on via g_ih_drill_ai): nothing forced, Idle hold leaves the AI on;
+    // released at idle: first repeat ~0.5 s later, AI off again
+    Reset(); rep_id = 0x4E64; action = 2; Step(100); g_dr_hold = 1; g_ih_drill_ai = 1; ai_on = 1;
+    Step(200); Step(5000); assert(!forces && ai_on == 1);
+    g_dr_hold = 0; g_ih_drill_ai = 0; Step(150); assert(ai_on == 0 && !forces); Step(400); assert(forces == 1);
+    // walk-up IhSelect: movement picks pass, attacks -> idle for 6 s, then everything passes
+    {
+        int ka = -1, km = -1;
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == 42450 && kN3Moves[i].id >= 0x4E20) {
+            if ((kN3Moves[i].kind == 'A' || kN3Moves[i].kind == 0) && ka < 0) ka = i;
+            if (kN3Moves[i].kind == 'M' && km < 0) km = i;
+        }
+        assert(ka >= 0);
+        {
+            action = 2; Step(2000);
+            g_ih_chase_t = (LONG)(clock_ms | 1);
+            assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
+            if (km >= 0) assert(IhSelect(0x3000, kN3Moves[km].id) == kN3Moves[km].id);
+            clock_ms += 6000; assert(IhSelect(0x3000, kN3Moves[ka].id) == kN3Moves[ka].id);
+            g_ih_chase_t = 0; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
+        }
+    }
+    puts("PASS: drill forces the picked move every gap while standing still (AI off), waits for idle / eligibility, stops with the repeat / stance / boss, AI-on fallback after 3 failed forces, aggro walk-up hold (#14147)");
     return 0;
 }

@@ -6,6 +6,10 @@ static LONG g_ih_serial;
 static volatile LONG g_ih_default_pending, g_ih_idle_stance;
 // user #13529 (drill.h): 1 = the move drill switched the AI on for its fallback; the 100 ms re-check leaves it on while set
 static volatile LONG g_ih_drill_ai;
+// user #14147 (aggro.h): GetTickCount()|1 while 'Boss aggro on me' walks a Stand-still boss up to the player (AI on); 0 = no walk-up.
+// While set, IhSelect lets the AI's movement picks pass (walk / run / step; M / T / L / I rows) and turns attacks / unclassified moves into idle for the first 6 s of the
+// walk-up; after that every pick passes, so a boss whose AI only closes in with a lunge still arrives.
+static volatile LONG g_ih_chase_t;
 static DWORD g_ih_default_start;
 static int g_ih_default_round;
 static void IhDefault(int fresh) {
@@ -39,6 +43,7 @@ static void IhStop(const char* why, int failed) {
     if (g_ih.phase) Log("IDLEHOLD stop %s: phase %d actor %p owned %d", why, g_ih.phase, (void*)g_ih.actor, g_ih.owns_ai);
     InterlockedExchange(&g_ih_default_pending, 0);
     InterlockedExchange(&g_ih_drill_ai, 0);
+    InterlockedExchange(&g_ih_chase_t, 0);
     memset(&g_ih, 0, sizeof g_ih);
     InterlockedExchange(&g_ih_request, 0);
     InterlockedExchange(&g_ih_status, failed ? -1 : 0);
@@ -101,6 +106,12 @@ static uint32_t IhSelect(uint64_t st, uint32_t id) {
         InterlockedCompareExchange(&g_ih_request, 0, 0) != g_ih.epoch ||
         InterlockedCompareExchange(&g_ih_epoch, 0, 0) != g_ih.epoch ||
         !IhSameActor() || IhForeignHold() || !IhEligible(g_ih.actor, g_ih.ctrl)) return id;
+    const LONG chase = InterlockedCompareExchange(&g_ih_chase_t, 0, 0);
+    if (chase) {  // user #14147: aggro walk-up in Stand still
+        const int k = N3MoveFind(g_ih.chr, id);
+        const char kind = k >= 0 ? kN3Moves[k].kind : 0;
+        if (kind == 'M' || kind == 'T' || kind == 'L' || kind == 'I' || GetTickCount() - (DWORD)chase >= 6000) return id;  // attacks / wind-ups / unclassified -> idle
+    }
     Log("IDLEHOLD transition chr %u 0x%X -> idle 0x2", g_ih.chr, id);
     return 2;
 }

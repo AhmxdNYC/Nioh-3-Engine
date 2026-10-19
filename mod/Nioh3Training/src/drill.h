@@ -13,6 +13,12 @@
 static struct { uint32_t chr, id, last, before; uint64_t ctrl; int phase, fails, seen; DWORD tEnd, tForce, tLast; LONG n; } g_dr;
 static int g_dr_off;  // set after a tick exception: no more drill this game session
 static volatile LONG g_dr_state;  // 0 no drill, 1 drill with the AI off (forced moves), 2 drill with the AI on (fallback)
+// user #14147: 1 while 'Boss aggro on me' (aggro.h AgDrillTick) walks the boss up to the player: the drill forces nothing and restarts
+// its gap when the walk-up ends. DR_PREFORCE(actor) runs right before each forced move (aggro.h: turn the boss to face the player).
+static volatile LONG g_dr_hold;
+#ifndef DR_PREFORCE
+#define DR_PREFORCE(a) ((void)0)
+#endif
 static void DrStop(const char* why) {
     if (g_dr.chr) Log("DRILL stop (%s): chr %u move 0x%X, %ld forced, mode %ld", why, g_dr.chr, g_dr.id, g_dr.n, g_dr_state);
     memset(&g_dr, 0, sizeof g_dr);
@@ -36,6 +42,10 @@ static void DrillTick(void) {
         InterlockedExchange(&g_dr_state, 1);
         Log("DRILL chr %u move 0x%X: the boss stands still and does this move every %d ms (AI stays off)", chr, id, gap);
     }
+    if (InterlockedCompareExchange(&g_dr_hold, 0, 0)) {  // aggro walk-up: no forced move; first repeat ~0.5 s after the boss arrives
+        if (g_dr.phase == 0) g_dr.tEnd = now - (DWORD)(gap > 500 ? gap - 500 : 0);
+        return;
+    }
     if (g_dr_state == 2) return;  // fallback: the AI and the repeat picks own the drill
     const uint32_t cur = IhReadAction(g_dr.ctrl);
     if (cur != g_dr.last) { g_dr.last = cur; g_dr.tLast = now; }
@@ -43,6 +53,7 @@ static void DrillTick(void) {
         // idle 0x2, or a stable non-attack state for 3 s (some bosses rest in another wait action): start the move once the gap has passed
         const int ready = cur == 2 || (cur < 0x4E20 && cur != 0xFFFFFFFFu && now - g_dr.tLast >= 3000);
         if (!ready || now - g_dr.tEnd < (DWORD)gap || !IhEligible(g_ih.actor, g_dr.ctrl)) return;
+        DR_PREFORCE(g_ih.actor);
         DrForceNative(g_dr.ctrl, id);
         g_dr.phase = 1; g_dr.tForce = now; g_dr.before = cur; g_dr.seen = IhReadAction(g_dr.ctrl) != cur;
         LONG n = ++g_dr.n;

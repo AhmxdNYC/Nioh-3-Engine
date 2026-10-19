@@ -46,12 +46,79 @@ static __attribute__((noinline)) int AgTarget(uint64_t a, uint64_t comp, uint64_
         return idx;
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO boss %p: native call faulted %08lX, aggro off for this game session", (void*)a, GetExceptionCode()); g_ag_off = 1; return -2; }
 }
+// user #14147: aggro in the 'Stand still' stance (Idle hold phase 2, AI off, drill.h forces the repeat every gap). Out of AggroRangeCm and
+// between two forced moves: walk-up = drill paused (g_dr_hold), AI on for the drill (g_ih_drill_ai, as the drill fallback), the AI state in
+// g_mv_chase (the repeat does not replace its picks) and IhSelect passes its movement picks (attacks -> idle for the first 6 s, idle_hold.h).
+// In range: AI stays on until the boss is back in idle 0x2 (max 4 s; never cut a move), then AI off again and the drill resumes ~0.5 s later.
+// Each forced move with aggro ON first turns the boss to the player ([Training] AggroFace, default 1): rotation rows ch+0x120 from the
+// 5ECE50 yaw matrix, the same write as BossPlace below (position untouched). Aggro OFF: nothing here runs, the stance is unchanged.
+static int g_cfg_aggro_face = 1;
+static struct { int st; uint64_t a; DWORD t; } g_agd;  // st 0 none, 1 walking up, 2 arrived (AI on until idle)
+static float AgFacePlayer(const float* bp, float fallback);
+static void AgDrillEnd(const char* why) {
+    if (!g_agd.st) return;
+    const uint64_t a = g_agd.a;
+    const int ours = g_ih.phase == 2 && g_ih.actor == a && g_dr.chr && g_dr_state == 1;  // stance / drill still ours: put the AI back off
+    InterlockedExchange(&g_ih_chase_t, 0);
+    if (ours) { InterlockedExchange(&g_ih_drill_ai, 0); if (IhAlive(a) && BhAiOn(a) == 1) IhNativeAi(a, 0); }
+    InterlockedExchange(&g_dr_hold, 0);
+    Log("AGGRO drill walk-up end (%s): boss %p%s, %lu ms", why, (void*)a, ours ? ", AI off again, drill resumes" : "", GetTickCount() - g_agd.t);
+    memset(&g_agd, 0, sizeof g_agd);
+}
+static void AgDrillFace(uint64_t a) {
+    if (!g_cfg_aggro || g_ag_off || !g_cfg_aggro_face || !a) return;
+    uint64_t b01 = 0, b23 = 0;
+    if (!Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) return;
+    float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
+    const float yaw = AgFacePlayer(b, 1e9f);
+    if (yaw > 1e8f) return;
+    __attribute__((aligned(16))) float m[16];
+    __try {
+        ((void* (*)(float*, float))(B + 0x5ECE50))(m, yaw * 0.0174532925f);
+        memcpy((void*)(a + 0x120), m, sizeof m);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO face: native yaw matrix faulted %08lX, AggroFace off", GetExceptionCode()); g_cfg_aggro_face = 0; return; }
+    if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p turned to the player (yaw %.1f) before the forced move", (void*)a, yaw);
+}
+// One Stand-still drill boss (g_ih.actor). Returns its AI state when it must be in g_mv_chase this tick, else 0.
+static uint64_t AgDrillBoss(uint64_t a, uint64_t me, const float* pp, int slow, DWORD now) {
+    uint64_t comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
+    if (!IhAlive(a) || (g_bh.phase && g_bh.a == a)) { AgDrillEnd("boss dead / load hold"); return 0; }
+    if (!Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) return 0;
+    float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
+    const float dx = b[0] - pp[0], dz = b[2] - pp[2], d = sqrtf(dx * dx + dz * dz), r = (float)g_cfg_aggro_range;
+    if (g_agd.st == 0) {
+        if (d <= r || g_dr.phase != 0 || g_dr.chr == 0) return 0;  // in range, or a forced move still plays: the drill goes on
+        g_agd.st = 1; g_agd.a = a; g_agd.t = now;
+        InterlockedExchange(&g_dr_hold, 1);
+        InterlockedExchange(&g_ih_chase_t, (LONG)(now | 1));
+        Log("AGGRO drill: boss %p is %.1f m from the player (range %.1f m): AI on, it walks up (drill paused)", (void*)a, d / 100.0f, r / 100.0f);
+    }
+    if (g_agd.st == 1) {
+        if (d <= r) {
+            g_agd.st = 2; g_agd.t = now; InterlockedExchange(&g_ih_chase_t, 0);
+            Log("AGGRO drill: boss %p arrived (%.1f m): AI off at its next idle, then the drill move", (void*)a, d / 100.0f);
+            return 0;
+        }
+        if (g_dr_state == 1) { InterlockedExchange(&g_ih_drill_ai, 1); if (BhAiOn(a) == 0) IhNativeAi(a, 1); }  // IhTick leaves it on while set
+        if ((perc = PercOf(a, &comp, &ai)) && Rd64(comp + 8, &st) && st) {
+            const int idx = AgTarget(a, comp, perc, me, slow);
+            if (slow && InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill boss %p: %.1f m from the player, player entry %d, walking up", (void*)a, d / 100.0f, idx);
+            return st;
+        }
+        return 0;
+    }
+    // st 2: arrived; the AI may be mid-step: wait for idle 0x2 (or 4 s) before taking the AI off
+    if (IhReadAction(g_ih.ctrl) == 2 || now - g_agd.t >= 4000) AgDrillEnd("in range");
+    return 0;
+}
 static void AggroTick(void) {
     DWORD now = GetTickCount();
     if (now - g_ag_t < 250) return;
     g_ag_t = now;
     uint64_t chase[MV_CHASE_MAX] = {0};
     int nc = 0;
+    if (g_agd.st && (!g_cfg_aggro || g_ag_off || g_ih.phase != 2 || g_ih.actor != g_agd.a || !g_dr.chr))
+        AgDrillEnd(!g_cfg_aggro ? "aggro off" : g_ag_off ? "aggro faulted" : "stance / drill ended");
     if (g_cfg_aggro && !g_ag_off) {
         uint64_t me = PlayerChar(), bs[3], session = 0; float pp[4];
         if (me && PlayerPos(pp)) {
@@ -59,6 +126,11 @@ static void AggroTick(void) {
             const int n = AgBosses(bs, &session);
             for (int i = 0; i < n && !g_ag_off; ++i) {
                 uint64_t a = bs[i], comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
+                if (g_ih.phase == 2 && g_ih.actor == a && g_dr.chr) {  // user #14147: Stand-still drill boss
+                    const uint64_t cs = AgDrillBoss(a, me, pp, slow, now);
+                    if (cs && nc < MV_CHASE_MAX) chase[nc++] = cs;
+                    continue;
+                }
                 if (!IhAlive(a) || BhAiOn(a) != 1 || (g_ih.phase && g_ih.actor == a) || (g_bh.phase && g_bh.a == a)) continue;  // AI held: Stand still / load hold
                 if (!(perc = PercOf(a, &comp, &ai)) || !Rd64(comp + 8, &st) || !st || !Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) continue;
                 const int idx = AgTarget(a, comp, perc, me, slow);

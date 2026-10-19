@@ -2450,7 +2450,7 @@ void AggroToggle(int dir) {  // user #13787: dir 0 flips, > 0 on, < 0 off
     if (!set || v < 0) { snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Boss aggro on me'."); return; }
     const int on = set(dir ? dir > 0 : !v, 1);
     Log("Rematch: menu Boss aggro on me -> %d", on);
-    snprintf(g_msg, sizeof g_msg, "%s", on ? "Boss aggro ON: the boss keeps you as its target and walks up to you before its repeating move (stance: Fight normally). Saved."
+    snprintf(g_msg, sizeof g_msg, "%s", on ? "Boss aggro ON: the boss keeps you as its target and walks up to you before its repeating move (Fight normally or Stand still). Saved."
                                          : "Boss aggro OFF: the boss behaves as before. Saved.");
 }
 void ResetBossPos() {  // user #13787
@@ -3464,7 +3464,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItShowTw) {  // user #13786
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "OFF: only real attacks / wind-ups are listed. ON: also twitches (short state changes, ~0.05-0.15 s when forced), combo links and steps. Kinds come from Training logs.");
         } else if (item == kItAggro) {  // user #13787
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move. Use with the stance Fight normally (Stand still keeps it in place). Saved.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move at you. Works in both stances (Stand still: it walks up when you are out of range (5 m), then drills). Saved.");
         } else if (item == kItResetPos) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
