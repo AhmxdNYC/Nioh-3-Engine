@@ -920,3 +920,9 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-19 pc: two docs branches (pc/docs-refresh, docs/refresh-1018) - reconcile before merging to main.
 - 2026-10-19 01:40 pc: INSTALLED combined pc/combined-1019 7e50eb15 (Training 58D58F2D, Rematch 034AF689, EngineFix AC69D486), game relaunched PID 19140 (appid 3681010); backup captures/pc/play-20261019-pre-combined1019. hook 23F8CC0 loaded ok. Needs user test of Return object.
 2026-10-19 01:42 pc: see checkpoints.md latest entry; combined build installed, waiting user test of Return object.
+2026-10-19 pc: [continue] run: nothing new; combined build installed, waiting user test of Return object (needs-player.md). No pc2/ally errors pending.
+- 2026-10-19 pc: #14133 user says aggro not working in drill; answered how-to; if stance+toggle right -> debug aggro.h (untested feature).
+- 2026-10-19 pc: #14137 aggro works when stance != Stand still (log 13:08). TODO: menu hint on aggro row (low priority, tokens low).
+- 2026-10-19 13:35 pc: Opus agent pc/aggro-standstill (aggro in Stand still + death-in-training respawn, #14147). Install when built (user allows closing game, #13830).
+- 2026-10-19 13:33 pc: #14150 respawned Opus agent (pc/aggro-standstill: aggro on Stand still + can't-die default ON + death = instant arena respawn). Install when built.
+2026-10-19 01:25 pc: see checkpoints.md last entry; next = merge gate-native-suppress into pc/twitch-moves, build, install (user OK'd), relaunch, PLAY-PING.

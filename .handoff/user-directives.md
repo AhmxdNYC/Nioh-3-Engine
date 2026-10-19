@@ -198,3 +198,5 @@
 - #13915 (2026-10-18): postpone health/damage/hit-count data hunt for a couple of days (token budget); moves list from static table is the priority.
 - #13922/#13924: update GitHub README/graphs/docs (stale ~1 week) via an agent; do NOT update the Downloads/releases yet (new build not polished enough).
 - #13945 (2026-10-19): tokens low until weekly reset: ONLY work on the native End-mission box source (Return object menu). Drop charts/docs/move-data hunts for now.
+- #14147 (2026-10-19): Boss aggro must work in 'Stand still' stance too (walk up + attack so user can parry/experiment). Also: user died in Training and got kicked out of Training map - investigate (should respawn/stay).
+- #14150 (2026-10-19): Training: 'player can't die' ON by default + toggleable; dying must NOT take player out of arena: instant respawn in arena, resume via physical object menu, same settings. Boss aggro must also work on Stand still (#14147). Tokens low until weekly reset: only essentials (#13945).
