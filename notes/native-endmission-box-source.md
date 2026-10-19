@@ -95,3 +95,18 @@ static uint16_t h_cw2(void* ctx) {
 ## Needs a live check (not done, offline)
 One Practice session: walk to the Return object, press A. Expect the log line from h_cw2 (text 0x3E0C230, sub 10), our page only,
 and no native box. The gadget prompt should still work after closing our page (the script re-armed).
+
+## Implemented (checkpoint 3, built, NOT installed)
+- Re-verified offline with Capstone on re/Nioh3.dump.exe: 23F8CC0 prologue, `mov [rip] -> 0x44BAE44 = -1`, args 0..3 via 139904
+  (index-based peek, reader 1399B0 only fills rd from ctx), return `movzx eax, word [rd+0x10C]`; GetSubID 9A8C88 reads [0x45BA228],
+  3624D4, +0x110.
+- Variant script (archive_16/3E): SubID 10 also goes through TwoButton (text get_select_choice_window_text = 65591390 0x3E8D85E or
+  65061424). ThreeButton/4Button with 65591390 are only for SubIDs 14..19 (in-game/training play end), not our gate; not hooked.
+- mod/Nioh3Training/src/training.c: `h_cw2` / `Cw2Peek` hook on 0x23F8CC0 (15 B, same `ecp` prologue as 12A1F80), installed in the
+  ReturnGateBlockNativePrompt block. Matches text 0x3E0C230 or 0x3E8D85E while g_gate.up && g_tr.active && !g_rh.active, and
+  (SubID == g_gate.id or player < 600 u from the gate). Then: result global = -1, GateUse() (Rematch GateChoice export) unless the
+  boss is alive (with ReturnGateAlways 0), our page is open, or it was requested < 1.5 s ago; returns the native's own return count.
+  Otherwise passes through (and logs a diag + stamps the native-modal safety net). ini: [Return] ReturnGateHookScriptBox = 1.
+- ReturnGateZone (A mask near the gate) is unchanged and still default 1, so with it on the game's interact may never reach the
+  script; the hook is the game-side guarantee. After a live check confirms the 'script end-mission box ... BLOCKED' log line, the
+  mask can be turned off.

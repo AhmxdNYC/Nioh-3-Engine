@@ -2960,6 +2960,50 @@ static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3,
     }
     o_dlgopen(mgr, text, a3, a4, a5, a6, a7);
 }
+// notes/native-endmission-box-source.md (static RE, pc/native-box-source): the hooks above never fired because the box at the Return object is opened by
+// the clear gadget's own SCRIPT (archive_16 G_CLEAR_GADGET: SubID 10/11/12 -> UI::OpenCommonWindowTwoButton(text 0x3E0C230 / variant 0x3E8D85E)),
+// gadget-script native 0x23F8CC0(ctx) -> CommonWindowOpen 2806F80 -> DialogShow 348B90 (not 348274). Native body: reader 1399B0(rd, ctx);
+// result global 0x44BAE44 = -1; arg i via 139904(rd, &i) (arg0 = text id); returns *(u16*)(rd+0x10C). The script then waits on UI::IsOpenCommonWindow and
+// reads UI::GetButtonNumLastCommonWindow (= 0x44BAE44): 0 = Yes -> mission end, anything else -> back to its interaction wait. So while our gate is up,
+// for the end-mission text from the gate gadget (current gadget [0x45BA228], type check 3624D4, SubID +0x110 == g_gate.id, or player < 600 u from the
+// gate) the box is not opened, the result is set to -1 ('no button'), our gate page opens instead, and the native returns 0 values like the original.
+// [Return] ReturnGateHookScriptBox (default 1).
+typedef uint64_t (*Cw2Fn)(void*);
+static Cw2Fn o_cw2; static int g_cfg_gate_cw2 = 1; static volatile LONG g_cw2_n;
+static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t* sub, uint64_t* cur, uint16_t* nret) {
+    __try {
+        __attribute__((aligned(16))) uint8_t rd[0x140]; memset(rd, 0, sizeof rd);
+        ((void* (*)(void*, void*))(B + 0x1399B0))(rd, ctx);
+        uint32_t i0 = 0; *text = ((uint32_t (*)(void*, uint32_t*))(B + 0x139904))(rd, &i0);
+        *nret = *(uint16_t*)(rd + 0x10C);
+        *cur = *(uint64_t*)(B + 0x45BA228);
+        uint64_t g = ((uint64_t (*)(uint64_t))(B + 0x3624D4))(*cur);
+        *sub = g ? *(uint32_t*)(g + 0x110) : 0xFFFFFFFFu;
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
+    if (g_cfg_gate_cw2 && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+        uint32_t text = 0, sub = 0xFFFFFFFFu; uint64_t cur = 0; uint16_t nret = 0;
+        if (Cw2Peek(ctx, &text, &sub, &cur, &nret) && (text == 0x3E0C230 || text == 0x3E8D85E)) {
+            float q[4], d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
+            int ours = sub == g_gate.id || (d >= 0.0f && d < 600.0f);
+            LONG n = InterlockedIncrement(&g_cw2_n);
+            if (ours) {
+                DWORD now = GetTickCount();
+                int boss = GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), recent = g_gate_tUse && now - g_gate_tUse < 1500, r = -1;
+                if (!boss && !page && !recent) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
+                *(volatile int32_t*)(B + 0x44BAE44) = -1;  // GetButtonNumLastCommonWindow: no button -> the script re-arms its interaction
+                if (n <= 60) Log("GATE: script end-mission box (OpenCommonWindowTwoButton 23F8CC0, text 0x%X, gadget %p sub %u, gate id %u, player %.0f u) BLOCKED #%ld: %s", text,
+                    (void*)cur, sub, g_gate.id, d, n, boss ? "boss alive, nothing opened" : page || recent ? "our gate page already open/opening" : r >= 0 ? "our gate page opened instead" : "?");
+                return nret;
+            }
+            g_gate_nat_t = GetTickCount() | 1;  // safety net: a native box is opening while our gate is up
+            if (n <= 60) Log("GATE diag: script end-mission box NOT blocked (text 0x%X, gadget %p sub %u, gate id %u, player %.0f u from the gate)", text, (void*)cur, sub, g_gate.id, d);
+        }
+    }
+    return o_cw2(ctx);
+}
 // user #6781: temporary gold boss Ki bar. Boss gauge Ki row: BossGaugeRowsUpdate 1D21EF8 calls KiBarStyle 5D4434(charParam) at 1D220C1 -> KiRowWidget 235F9A4 ->
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
@@ -4622,7 +4666,12 @@ static DWORD WINAPI Worker(LPVOID x) {
                 static const uint8_t dop[16] = {0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0x90};
                 if (!g_cfg_gate_dlg) Log("ReturnGateBlockDialog 0: DialogOpen 348274 not hooked");
                 else if (!memcmp((void*)(B + 0x348274), dop, 16)) { o_dlgopen = (DlgOpenFn)Hook(0x348274, 16, h_dlgopen); Log("hook DialogOpen 348274 ok (#10022: any Yes/No box with the end-mission text is dropped near our gate; every box while the gate is up is logged with its stack)"); }
-                else Log("hook DialogOpen 348274: prologue mismatch, not hooked"); }
+                else Log("hook DialogOpen 348274: prologue mismatch, not hooked");
+                // gadget-script native UI::OpenCommonWindowTwoButton 23F8CC0: same 15-byte prologue as 12A1F80 (mov rax,rsp; 3 saves), no rip-relative bytes
+                g_cfg_gate_cw2 = GetPrivateProfileIntA("Return", "ReturnGateHookScriptBox", 1, ini);
+                if (!g_cfg_gate_cw2) Log("ReturnGateHookScriptBox 0: OpenCommonWindowTwoButton 23F8CC0 not hooked");
+                else if (!memcmp((void*)(B + 0x23F8CC0), ecp, 15)) { o_cw2 = (Cw2Fn)Hook(0x23F8CC0, 15, h_cw2); Log("hook OpenCommonWindowTwoButton 23F8CC0 ok (clear gadget script's 'This will end the mission' box -> our gate page)"); }
+                else Log("hook OpenCommonWindowTwoButton 23F8CC0: prologue mismatch, not hooked"); }
             else Log("ReturnGateBlockNativePrompt %d: native end-mission prompt not blocked", g_cfg_gate_block); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);
         { char b[160]; GetPrivateProfileStringA("Summon", "GoldKiColors", "", b, sizeof b, ini); for (char* s = strtok(b, ", "); s && g_goldki_ncols < 8; s = strtok(0, ", ")) g_goldki_cols[g_goldki_ncols++] = (uint32_t)strtoul(s, 0, 16);
