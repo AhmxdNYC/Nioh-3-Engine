@@ -3504,6 +3504,17 @@ static void AlDump(void) {
     for (int i = 0; i < g_al_n; ++i) fprintf(f, "%u\t0x%X\t%u\t%u\t%lu\r\n", g_al[i].chr, g_al[i].id, g_al[i].entries, g_al[i].samples, (unsigned long)g_al[i].ms);
     fclose(f);
 }
+#include "../../boss_moves.h"
+// user #13786: one MOVE line per finished boss action of a catalogued boss (not capped like ACTLOG): what the boss actually did, its kind
+// (attack / wind-up / link / twitch / movement from boss_moves.h), how long it really ran and whether a Training REPEAT forced it.
+static volatile LONG g_mvlog_lines;
+static void MoveDoneLog(uint32_t chr, uint32_t id, uint32_t next, DWORD ran) {
+    int i = N3MoveFind(chr, id);
+    if (i < 0 || id == 0xFFFFFFFF || InterlockedIncrement(&g_mvlog_lines) > 200000) return;
+    const N3Move* m = &kN3Moves[i];
+    Log("MOVE chr %u 0x%X %c ran %lu ms (typ %u) -> 0x%X%s%s%s", chr, id, m->kind ? m->kind : '?', (unsigned long)ran, m->ms, next,
+        *m->label ? " \"" : "", m->label, *m->label ? "\"" : "");
+}
 static __attribute__((noinline)) void ActLogTick(void) {
     if (!g_cfg_actlog) return;
     DWORD now = GetTickCount(); if (now - g_al_lastTick < 40) return; g_al_lastTick = now;
@@ -3520,6 +3531,7 @@ static __attribute__((noinline)) void ActLogTick(void) {
         }
         if (!g_alw[s].valid || g_alw[s].id != id) {
             int b = AlSlot(chr, id); if (b >= 0) g_al[b].entries++;
+            if (g_alw[s].valid) MoveDoneLog(chr, g_alw[s].id, id, now - g_alw[s].t);
             if (InterlockedIncrement(&g_al_lines) < 3000) Log("ACTLOG boss %p chr %u: action 0x%X (prev 0x%X, ran %lu ms)", (void*)a, chr, id, g_alw[s].valid ? g_alw[s].id : 0xFFFFFFFF, g_alw[s].valid ? now - g_alw[s].t : 0UL);
             g_alw[s].id = id; g_alw[s].t = now; g_al_dirty = 1;
         }

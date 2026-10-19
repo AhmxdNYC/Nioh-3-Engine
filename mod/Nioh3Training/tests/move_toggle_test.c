@@ -50,7 +50,7 @@ static void Pick(uint32_t id) {
 }
 int main(void) {
     (void)MvRepTick;  // pump-only (needs the game image)
-    assert(N3_MOVE_COUNT == 202);
+    assert(N3_MOVE_COUNT == 232);
     // Startup: no Training session, no boss identity, and no game image needed.
     assert(!g_tr.active && !g_bm.active && !B);
     MvTick();
@@ -62,7 +62,7 @@ int main(void) {
         assert(Nioh3Training_SetMoveAllowed(0, kN3Moves[i].id, 0, 0) == 0);
     }
     assert(!g_mv_install_pending && hook_calls == 0);
-    puts("PASS: zero-session startup; 202 chr=0 queries/setters rejected without hooks");
+    puts("PASS: zero-session startup; 232 chr=0 queries/setters rejected without hooks");
     g_tr.active = g_bm.active = 1; g_bm.id = 7;
     o_mvsel = Select; o_mvcom = Commit;
     int tested = 0, protected_count = 0, yoritomo = 0;
@@ -98,7 +98,7 @@ int main(void) {
         assert(Nioh3Training_SetMoveAllowed(m->chr, m->id, 1, 0) == 1);
         Pick(m->id); assert(h_mvsel(0x3000, 0) == m->id && selection_calls == 1);
     }
-    assert(yoritomo == 14 && tested + protected_count == 202);
+    assert(yoritomo == 44 && tested + protected_count == 232);
     assert(Nioh3Training_GetMoveAllowed(123, 0x4E21) == -1);
     assert(Nioh3Training_SetMoveAllowed(123, 0x4E21, 0, 0) == 0);
     // Legacy list cannot veto idle; an explicit menu ON overrides a legacy block.
