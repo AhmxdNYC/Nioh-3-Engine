@@ -271,3 +271,4 @@
 - #21053 (2026-10-20): User wants the real sequence: full native attack chains from the move file, kept apart from hit-count guesses and from unproven branch reconstructions. Do not relabel the menu or restart until a chain is proven. The six d8004a77 tracks on motion 1040 are TypeInfo::Object::DopeSheet::Sound (kidstypeinfodb), sound timing, not a hit count.
 - #21303 (2026-10-20): Reverse engineer to find Yoritomo hit counts. Do not invent them from motion windows, spawn counts, or motion-number bands. Unknown stays unlabeled.
 - #21323 (2026-10-20): Use Grok agents for this work. Do not assign it to Codex or Claude. Codex on this PC is out of credits until 2:32 am on Oct 27.
+- #21331 (2026-10-20): Read the Nioh 3 repo and reverse engineer hit counts and real sequences from the code and data already in the project. Do not stop at the move-list file. Do not invent counts.
