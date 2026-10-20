@@ -157,6 +157,11 @@ static int MvContinues(uint32_t chr, uint32_t cur, uint32_t pick) {
     const int hands = l || MvLoops(chr, cur);      // cur does not end in idle by itself: it hands over to a next action
     if (pick == cur) return (l && l->next == cur) || MvLoops(chr, cur);  // only a looping part goes on with itself (no restart)
     if (l && l->next == pick) return 1;            // its own next-action link
+    // Packed transition rows 288/290: Yoritomo's native continuation can
+    // decrease motion 1103 -> 1102. Admit only a pick already made by the
+    // game; never synthesize a chain or override its conditions/frame gates.
+    if (chr == 16102u && ((cur == 0x4E79 && pick == 0x4E8C) ||
+                         (cur == 0x4E67 && pick == 0x4E70))) return 1;
     const unsigned mc = MvMotion(chr, cur), mp = MvMotion(chr, pick);
     if (mc && mp) return mc / 10 == mp / 10 && mp >= mc;  // decoded records: same attack family, forward (no restart of an earlier piece)
     return hands;                                  // no motion data (other bosses): a part that hands over by itself takes the game's pick

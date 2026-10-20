@@ -53,6 +53,10 @@ static void Pick(uint32_t id) {
     for (int i = 0; i < 10; ++i) selected[i] = id;
 }
 int main(void) {
+    assert(MvContinues(16102u, 0x4E79, 0x4E8C));
+    assert(MvContinues(16102u, 0x4E67, 0x4E70));
+    assert(!MvContinues(16102u, 0x4E79, 0x4E78)); // unrelated backwards pick stays refused
+    assert(!MvContinues(16102u, 0x4E67, 0x4E8C));
     assert(N3_MOVE_COUNT == 361);
     // Startup: no Training session, no boss identity, and no game image needed.
     assert(!g_tr.active && !g_bm.active && !B);
