@@ -277,3 +277,4 @@
 - 2026-10-20 | Sphere test is his position | The distance check might have been a hit count | The point it tests is where he stands. It is not a 2-hit or 3-hit count.
 - 2026-10-20 | 4E68's 3 rows are an index | Needed the code that chooses his 3 hitbox rows | The file stores a start row of 92 and a count of 3. The live swing still hit once, for 221 HP.
 - 2026-10-20 | Frame marks are not a frame bar | User wants marks we can use later as startup, active, and recovery | None of the 10 mark types on 88 attacks is proven. The most common is on 64 attacks, usually near frame 14, and it is still unknown.
+- 2026-10-20 | One slot per hitbox lookup | Needed whether his 3 rows are used together | Each lookup uses 1 slot. For move 4E68 the row is 92 plus that slot. Which slot, and how many lookups in one swing, are still unknown.
