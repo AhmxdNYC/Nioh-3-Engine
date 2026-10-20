@@ -274,6 +274,7 @@
 - 2026-10-20 | Multiple animations as sequences | User asked how many sequences if an attack with several animations is a sequence | 88 Yoritomo attack rows use 20 animations. 0 rows have two animation clips, so that rule makes 0 sequences. Menu unchanged.
 - 2026-10-20 | Frame numbers for a future frame bar | User wants Street Fighter style startup, active, and recovery | The move file has frame marks (51, 83, and 77 on three attacks). Those marks are not proven as startup, active, or recovery. Menu unchanged.
 - 2026-10-20 | Second motion number is not a sequence | User asked if an extra animation makes a sequence | 40 of 88 attack rows store that number. The game does not play it as a clip. Sequence count stays 0. Menu unchanged.
+- 2026-10-20 | Action byte is not the hit slot | Needed the stored slot that picks 1 of 3 hitbox rows | Byte +0x15 is 0 on all 88 attacks. That is empty padding, not the slot and not a hit count. Menu unchanged.
 - 2026-10-20 | One Yoritomo swing, one HP drop | Needed a live check of whether 4E68's 3 hitbox rows are 3 hits | On this PC, one close 4E68 dropped the player 221 HP once. No second drop. The 3 rows are not 3 hits.
 - 2026-10-20 | Sphere test is his position | The distance check might have been a hit count | The point it tests is where he stands. It is not a 2-hit or 3-hit count.
 - 2026-10-20 | 4E68's 3 rows are an index | Needed the code that chooses his 3 hitbox rows | The file stores a start row of 92 and a count of 3. The live swing still hit once, for 221 HP.
