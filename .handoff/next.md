@@ -1596,3 +1596,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 7:03 PM EDT gxl-pc #21552: phone #21561. One call of 0x2000F30 applies one amount. It calls the HP cut once at 0x2001314 into 0x1FF4454. Callers 0x10C5D73 and 0x21FBA46 pass no count. 6:32 pm EST log: 1 HP refill 2437 to 2658, 0 hit lines. 6:27 pm EST log: 0 and 0. Not a hit count. Commit 030a0040. Slots still on #21543, #21555, #21559 at send time. Do not launch. Do not edit the menu.
 
 - 2026-10-20 7:04 PM EDT gxl-pc: after #21552, the open 221 hole is the multiply word at 0x20012AE. TASK #21564 waits for the next free slot. Do not redo the one-call result. Do not launch.
+
+- 2026-10-20 7:06 PM EDT gx-pc #21559: eight direct callers of the HP cut at 0x787268. None loads 221. 0x1FF44FF is the builder path (30, 25, or 40). 0xAFF1D, 0xAFFCE, and 0x21FAECB subtract current HP. 0xE43B9A subtracts current HP minus a scaled stat. 0x21F6540 subtracts a negative field. 0x329890 truncates a computed float. 0x786ED8 subtracts 0, current HP, or its caller's edx. Not a hit count. Commit 2d1e55ab. Game not launched. Menu not edited.
+
+
+- 2026-10-20 7:08 PM EDT gxl-pc #21570: phone #21572. Eight callers of HP cut 0x787268. Amount is edx. None loads 221. 0x1FF44FF is the builder (30/25/40). 0xAFF1D, 0xAFFCE, 0x21FAECB clear current HP. 0xE43B9A is current HP minus a scaled stat. 0x21F6540 adds HP. 0x329890 is a computed float. 0x786ED8 is 0, current HP, or a caller's value. Commit 2d1e55ab. Not a hit count. #21564 still waits for the multiply word. Slots were still on #21543, #21555, #21559. Do not launch. Do not edit the menu.
