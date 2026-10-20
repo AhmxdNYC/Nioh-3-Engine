@@ -299,3 +299,4 @@
 - 2026-10-20 | Nioh 3 trainer contents | User asked what is in the downloaded trainer and how it works | One file, Nioh 3 Trainer.exe, .NET 4.8, stamp 20260919-1, FlareJune 2017 shell. It freezes or writes a found address. No readable cheat list. Not run. Search stays paused.
 - 2026-10-20 | Stopped the stuck 221 session | User said break the agent stuck on 221 | Killed gxl-pc slot 0 pid 32936 at 7:23 pm EST. The search stays paused. gx-pc workers were already finished after the hold.
 - 2026-10-20 | Trainer vs training mode | User asked which trainer features fit our training mode | Nothing new to copy. Only mechanism is freeze or write one number. Training already has infinite health. Other toggles are in a 3328-byte encrypted block with no readable names. Trainer not run.
+- 2026-10-20 | Trainer method rejected | User said our mod does not write into game memory | The trainer only works that way, so nothing from it is copied. Search stays paused.

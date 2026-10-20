@@ -1634,3 +1634,6 @@ gx-pc: 0/3 after the 7:18 pm EST hold. Last worker results were already in befor
 
 ## 2026-10-20 7:31 pm EST (#21609, #21610)
 Trainer cannot be mined for new training features without running it. Phone #21612 and the follow-up. Encrypted blob AIu is 3328 bytes, entropy about 7.9. No Nioh3.exe string. No cheat names. Do not run Nioh3 Trainer.exe. Do not resume the Yoritomo search until the user says resume. gx-pc stays idle on that search.
+
+## 2026-10-20 7:36 pm EST (#21617)
+User: writing into game memory is not something our mod does. Do not port the trainer. Phone #21618. Yoritomo search stays paused until they say resume. Do not run the trainer. Do not launch the game for this. gx-pc stays off that search.
