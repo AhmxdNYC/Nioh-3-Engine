@@ -291,3 +291,4 @@
 - 2026-10-20 | This move has no slot row in the file | Needed which of the 3 hitbox rows the swing picks | The slot lives on a side record. The matching file table has 0 rows for move 4E68, so the slot is still unknown.
 - 2026-10-20 | One damage call is one amount | Needed whether the damage function takes a hit count | It takes no hit-count argument and applies one amount. The 6:32 pm EST log has 0 hit lines and 1 HP refill.
 - 2026-10-20 | Eight HP cuts, none is 221 | Needed which function subtracts the measured 221 | Eight places cut HP. None loads the number 221. The builder still passes 30, 25, or 40.
+- 2026-10-20 | This move has no side record | Needed the file row that picks his hitbox slot | The table has 51 rows. Move 4E68 asks for row 72, so the slot is not stored there.
