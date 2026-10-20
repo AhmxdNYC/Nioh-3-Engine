@@ -161,7 +161,10 @@ int main(void) {
             if (N3MoveFind(r->chr, selected[0]) >= 0) { selection_calls = 0; assert(h_mvsel(0x3000, 0) == r->id); }
             // user #13787: aggro ON and the boss far (its state in g_mv_chase): its own pick passes, the repeat is back once it is close
             if (N3MoveFind(r->chr, selected[0]) >= 0 && selected[0] != r->id) {
-                g_mv_chase[1] = 0x3000; selection_calls = 0; assert(h_mvsel(0x3000, 0) == selected[0]);
+                // user #14462: while far only locomotion passes; an attack pick becomes idle (when the boss has a recorded idle)
+                const int sk = N3MoveFind(r->chr, selected[0]);
+                const uint32_t want = (sk >= 0 && kN3Moves[sk].kind == 'M') || N3MoveFind(r->chr, 2) < 0 ? selected[0] : 2;
+                g_mv_chase[1] = 0x3000; selection_calls = 0; assert(h_mvsel(0x3000, 0) == want);
                 g_mv_chase[1] = 0; selection_calls = 0; assert(h_mvsel(0x3000, 0) == r->id);
             }
             assert(h_mvcom(0x3000, r->id, 0, 0, 0) == 1 && committed == r->id);   // OFF but repeating: not vetoed
@@ -186,9 +189,9 @@ int main(void) {
         g_cfg_rep_gap = 0;
         printf("PASS: repeat armed on %d editable entries (%d unlabelled), OFF moves too, protected / unknown refused, table limit %d\n", armed, unlabelled, MV_REP_MAX);
     }
-    // user #14423: 'Sequences' repeat of Yoritomo 0x4E7B > 0x4EA7 (live 22:17-22:18: the game picks 0x4E30 after the head and the old code
-    // forced 0x4E7B again every ~0.5 s). Only the head is forced; while the chain advances (a member, or the boss's own follow-up) every AI
-    // pick passes untouched and nothing is forced; the sequence ends back in idle, then the gap, then the head again.
+    // user #14423 / #14462: 'Sequences' repeat of Yoritomo 0x4E7B > 0x4EA7. Only the head is forced (from the gap, never again while a request
+    // is pending); the head counts as started only once it held SEQ_CONFIRM_MS or the boss moved on to another move; while the chain plays an
+    // AI pick that is not a part becomes the next part, after the last part idle; ended back in idle, then the gap, then the head again.
     {
         g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
         assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500);
@@ -197,39 +200,96 @@ int main(void) {
         uint32_t c5[MV_SEQ_MAX]; assert(MvSeqBuild(16102u, 0x4E5C, c5, MV_SEQ_MAX) == 3 && c5[1] == 0x4E60 && c5[2] == 0x4E61);  // same chain as the menu
         assert(MvSeqBuild(16102u, 0x4E30, c5, MV_SEQ_MAX) == 2 && c5[1] == 0x4E31);  // looping part kept once
         forced_n = 0;
-        // idle, first AI pick (0x4E30): the head. Still idle: keep asking; the pump forces it after 500 ms in idle.
-        cur_act = 2; fake_now = 1000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);
+        // idle, first AI pick (0x4E30): the head. Still idle: keep asking; NOT re-forced every 500 ms while the request is pending
+        cur_act = 2; fake_now = 1000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
         fake_now = 1100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);
-        fake_now = 1400; MvRepTick(); assert(forced_n == 0);
-        fake_now = 1600; MvRepTick(); assert(forced_n == 1 && forced_id == 0x4E7B && cur_act == 0x4E7B);
-        // head plays: every AI pick (the bug: 0x4E30 -> 0x4E7B every 500 ms) passes as the game's own; no force, no gap
-        for (DWORD t = 1620; t < 3300; t += 17) { fake_now = t; uint32_t p = t & 1 ? 0x4E30 : 0x4E55; Pick(p); assert(h_mvsel(0x3000, 0) == p); MvRepTick(); assert(forced_n == 1); }
-        assert(g_rep_phase[ri] == 2 && g_rep_end[ri] == 0);
-        cur_act = 0xFFFF; fake_now = 3310; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30); MvRepTick(); assert(forced_n == 1);  // transition frame
+        fake_now = 1600; MvRepTick(); fake_now = 2100; MvRepTick(); assert(forced_n == 0 && g_rep_phase[ri] == 1);
+        // never taken within SEQ_START_MS: counted as not started, gap, then the pump forces it once
+        fake_now = 2500; MvRepTick(); assert(g_rep_phase[ri] == 0 && g_rep_end[ri] == 2500 && forced_n == 0);
+        fake_now = 2700; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);  // gap: idle
+        fake_now = 2999; MvRepTick(); assert(forced_n == 0);
+        fake_now = 3000; MvRepTick(); assert(forced_n == 1 && forced_id == 0x4E7B && cur_act == 0x4E7B && g_rep_phase[ri] == 1);
+        // live 22:39 repro: the action reads the head right after the force, then the AI's 0x4E30 pick and idle 0x2 within a frame. Old: 'part 1
+        // plays' + 'ended (back in idle, 0 ms after the start)' + gap + re-force every 500 ms. Now: the pick gets the head, the idle read is not
+        // an end, nothing is re-forced.
+        fake_now = 3005; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
+        cur_act = 2; fake_now = 3016; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1 && g_rep_end[ri] == 2500);
+        for (DWORD t = 3020; t < 3500; t += 17) { fake_now = t; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 1); }
+        // the head really plays: read for SEQ_CONFIRM_MS -> started
+        cur_act = 0x4E7B; fake_now = 3500; MvRepTick(); assert(g_rep_phase[ri] == 1);
+        fake_now = 3599; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
+        fake_now = 3600; MvRepTick(); assert(g_rep_phase[ri] == 2 && g_rep_kmax[ri] == 0);
+        // head plays: the AI's own picks (0x4E30 / 0x4E55) become the next part 0x4EA7, never its own move; nothing forced
+        for (DWORD t = 3610; t < 5000; t += 17) { fake_now = t; uint32_t p = t & 1 ? 0x4E30 : 0x4E55; Pick(p); assert(h_mvsel(0x3000, 0) == 0x4EA7); MvRepTick(); assert(forced_n == 1); }
+        assert(g_rep_phase[ri] == 2 && g_rep_end[ri] == 2500);
+        cur_act = 0xFFFF; fake_now = 5010; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 2);  // transition frame keeps the state
         // the head's end picks its link 0x4EA7 while that part is switched OFF: returned as is (no reroll / veto cuts the chain)
         assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 0, 0) == 1);
         cur_act = 0x4E7B; Pick(0x4EA7); assert(h_mvsel(0x3000, 0) == 0x4EA7);
-        Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30);  // a non-member pick takes the normal path
-        assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 1, 0) == 1);
-        // its link 0x4EA7 plays: picks still pass (also the link itself), nothing forced
-        cur_act = 0x4EA7; for (DWORD t = 3320; t < 3800; t += 17) { fake_now = t; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30); Pick(0x4EA7); assert(h_mvsel(0x3000, 0) == 0x4EA7); MvRepTick(); assert(forced_n == 1); }
-        // the boss's own follow-up outside the decoded links (live 22:18:09: 0x4EA7 > 0x4E7C > 0x18D1): still the sequence, not overridden
-        cur_act = 0x4E7C; fake_now = 3820; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30); MvRepTick();
-        cur_act = 0x18D1; for (DWORD t = 3840; t < 8500; t += 50) { fake_now = t; Pick(0x4E55); assert(h_mvsel(0x3000, 0) == 0x4E55); MvRepTick(); assert(forced_n == 1); }
-        assert(g_rep_phase[ri] == 3 && g_rep_end[ri] == 0);
-        // back in idle: the sequence has ended, the gap starts now (8500), not at the head's first frame
-        cur_act = 2; fake_now = 8500; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 0 && g_rep_end[ri] == 8500);
-        fake_now = 8700; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); assert(forced_n == 1);
-        fake_now = 8999; MvRepTick(); assert(forced_n == 1);
-        fake_now = 9000; MvRepTick(); assert(forced_n == 2 && forced_id == 0x4E7B && g_rep_phase[ri] == 1);  // gap passed: head forced once
-        fake_now = 9020; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30 && g_rep_phase[ri] == 2);
-        // a reaction (hit) during the chain: the boss's own business, never overridden; the sequence ends when it is back in idle
-        cur_act = 0x100; fake_now = 9500; MvRepTick(); assert(g_rep_phase[ri] == 3 && forced_n == 2);
-        Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E30);
-        cur_act = 2; fake_now = 10000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2 && g_rep_phase[ri] == 0 && g_rep_end[ri] == 10000);
-        fake_now = 10501; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
-        // the head never starts (busy in something else for > 3 s): counted as ended, gap again
-        cur_act = 0x100; fake_now = 13600; MvRepTick(); assert(g_rep_phase[ri] == 0 && g_rep_end[ri] == 13600 && forced_n == 2);
+        // an OFF AI pick during the chain: the next part, not the veto idle that cut the chain live (22:37:56 0x4E64 -> 0x2)
+        assert(Nioh3Training_SetMoveAllowed(16102u, 0x4E64, 0, 0) == 1);
+        Pick(0x4E64); assert(h_mvsel(0x3000, 0) == 0x4EA7);
+        assert(Nioh3Training_SetMoveAllowed(16102u, 0x4E64, 1, 0) == 1 && Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 1, 0) == 1);
+        // the last part plays: an AI pick is now idle (all parts played), the link pick too; nothing forced
+        cur_act = 0x4EA7; fake_now = 5100; MvRepTick(); assert(g_rep_kmax[ri] == 1 && g_rep_phase[ri] == 2);
+        Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2 && g_rep_phase[ri] == 4);
+        Pick(0x4EA7); assert(h_mvsel(0x3000, 0) == 2);
+        // a native follow-up (live 0x4EA7 > 0x4E7C > 0x18D1) still belongs to the round: AI picks stay idle, nothing forced, no gap yet
+        cur_act = 0x4E7C; fake_now = 5200; MvRepTick(); Pick(0x4E55); assert(h_mvsel(0x3000, 0) == 2);
+        cur_act = 0x18D1; for (DWORD t = 5210; t < 6000; t += 50) { fake_now = t; Pick(0x4E55); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); assert(forced_n == 1); }
+        assert(g_rep_phase[ri] == 4 && g_rep_end[ri] == 2500);
+        // back in idle: the sequence has ended, the gap starts now (6000), not at the head's first frame
+        cur_act = 2; fake_now = 6000; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 0 && g_rep_end[ri] == 6000);
+        fake_now = 6200; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); assert(forced_n == 1);
+        fake_now = 6499; MvRepTick(); assert(forced_n == 1);
+        fake_now = 6500; MvRepTick(); assert(forced_n == 2 && forced_id == 0x4E7B && g_rep_phase[ri] == 1);  // gap passed: head forced once
+        // the head branches at once into another move (live 0x4E21 -> 0x4E23 after 16 ms): started; the next AI pick -> the next part
+        cur_act = 0x4E7C; fake_now = 6516; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4EA7 && g_rep_phase[ri] == 3 && g_rep_kmax[ri] == 0);
+        // a reaction (hit) during the chain: the boss's own business; picks still only the next part; back in idle = ended
+        cur_act = 0x100; fake_now = 6600; MvRepTick(); assert(g_rep_phase[ri] == 3 && forced_n == 2);
+        Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4EA7);
+        cur_act = 2; fake_now = 7000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2 && g_rep_phase[ri] == 0 && g_rep_end[ri] == 7000);
+        fake_now = 7501; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
+        // a reaction instead of the head (< 0x4E20): not a start; after SEQ_START_MS ended, gap again
+        cur_act = 0x100; fake_now = 8000; MvRepTick(); assert(g_rep_phase[ri] == 1);
+        fake_now = 9001; MvRepTick(); assert(g_rep_phase[ri] == 0 && g_rep_end[ri] == 9001 && forced_n == 2);
+        // user #14462: aggro ON and far: only locomotion passes; an attack pick -> idle (was: the AI fought its way in, live 22:23)
+        cur_act = 2; fake_now = 9600; g_mv_chase[1] = 0x3000;
+        Pick(0x4E64); assert(h_mvsel(0x3000, 0) == 2);
+        Pick(0x4E27); assert(h_mvsel(0x3000, 0) == 0x4E27);  // kind 'M' walk
+        MvRepTick(); assert(forced_n == 2);                     // nothing forced from range
+        g_mv_chase[1] = 0;
+        // user #14462 (live 22:23:12): a new boss of the same character while the repeat is armed: stale state (phase, AI state) is dropped,
+        // the boss stands idle for one gap, then the head
+        g_rep_phase[ri] = 3; g_rep_st[ri] = 0x7777; g_rep_last[ri] = 1;
+        fake_now = 20000; assert(MvRepFresh(16102u) == 1 && g_rep_phase[ri] == 0 && g_rep_st[ri] == 0 && g_rep_end[ri] == 20000);
+        assert(MvRepFresh(42450u) == 0);
+        fake_now = 20100; Pick(0x4E64); assert(h_mvsel(0x3000, 0) == 2);
+        fake_now = 20500; Pick(0x4E64); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0, 0) == 1);
+        // the live chain 0x4E21 > 0x4E22 (log 22:36-22:39): head picked, branches to 0x4E23 (16 ms), the AI's 0x4E64 / 0x4E5C picks -> the next
+        // part 0x4E22, then idle, back in idle -> gap. One head per round (old log: a head every ~500 ms, or the boss's own 0x4E5C > 0x4E60 > ...).
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E21, 1) == 1);
+        ri = MvRepFind(16102u); assert(g_rep_nchain[ri] == 2 && g_rep_chain[ri][1] == 0x4E22);
+        forced_n = 0; int heads = 0;
+        for (int round = 0; round < 3; ++round) {
+            const DWORD t0 = 30000 + (DWORD)round * 3000;
+            cur_act = 2; fake_now = t0; Pick(0x4E30); heads += h_mvsel(0x3000, 0) == 0x4E21;
+            cur_act = 0x4E21; fake_now = t0 + 1; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E21);
+            cur_act = 0x4E23; fake_now = t0 + 16; MvRepTick(); assert(g_rep_phase[ri] == 3);
+            fake_now = t0 + 30; Pick(0x4E64); assert(h_mvsel(0x3000, 0) == 0x4E22);
+            fake_now = t0 + 40; Pick(0x4E5C); assert(h_mvsel(0x3000, 0) == 0x4E22);
+            cur_act = 0x4E22; fake_now = t0 + 50; MvRepTick(); Pick(0x4E5C); assert(h_mvsel(0x3000, 0) == 2 && g_rep_phase[ri] == 4);
+            for (DWORD t = t0 + 60; t < t0 + 425; t += 16) { fake_now = t; Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); }
+            cur_act = 2; fake_now = t0 + 425; MvRepTick(); assert(g_rep_phase[ri] == 0 && g_rep_end[ri] == t0 + 425);
+            for (DWORD t = t0 + 440; t < t0 + 925; t += 16) { fake_now = t; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2); }
+            assert(forced_n == 0);
+            fake_now = t0 + 925; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 1);  // the gap passed in idle: next round's head
+            forced_n = 0; g_rep_phase[ri] = 0;  // next round starts from the AI pick again
+        }
+        assert(heads == 3);
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0, 0) == 1);
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E7B, 1) == 1); ri = MvRepFind(16102u);
         // a part switched OFF is not vetoed at commit while its sequence repeats; a single-move repeat of the head vetoes it again
         assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 0, 0) == 1);
         assert(h_mvcom(0x3000, 0x4EA7, 0, 0, 0) == 1 && committed == 0x4EA7);
@@ -241,7 +301,7 @@ int main(void) {
         fake_now = 6010; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
         assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0, 0) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0 && Nioh3Training_GetMoveRepeatSeq(16102u) == 0);
         cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
-        puts("PASS: sequence repeat 0x4E7B > 0x4EA7: head forced once, game picks / links / own follow-ups pass, gap from idle after the chain, re-forced, OFF part allowed");
+        puts("PASS: sequence repeat (#14423 / #14462): head confirmed before it counts, no re-force while pending, AI picks -> next part / idle, gap from idle, aggro walk-up locomotion only, new boss resets, 0x4E21 > 0x4E22 one head per round");
     }
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
