@@ -29,6 +29,20 @@ static int TrainHere(unsigned mission) { ++trainHereCalls; trainHereMission = mi
 static int sessionMode = 0, fightAgainCalls;  // user #13262: Nioh3Training_SessionMode (0 none, 1 Boss Rematch, 2 Training)
 static int SessionMode() { return sessionMode; }
 static int GateFightAgain() { ++fightAgainCalls; return 1; }
+// user #14320: Boss A / B health and Ki (Nioh3Training_BossVitalsGet / _BossVitalsSet); slot A live, B empty
+static int bvCfg[4][4] = {{0, 0, 100, 100}, {0, 0, 100, 100}, {0, 0, 100, 100}, {0, 0, 100, 100}}, bvSets, bvRefills;
+static int BvGetX(int slot, unsigned long long* hc, unsigned long long* hm, float* kc, float* km, int* cfg) {
+    if (slot < 0 || slot > 3) return -1;
+    for (int i = 0; i < 4; ++i) cfg[i] = bvCfg[slot][i];
+    *hc = slot == 0 ? 25856 : 0; *hm = slot == 0 ? 51712 : 0; *kc = slot == 0 ? 520.0f : 0; *km = slot == 0 ? 1040.0f : 0;
+    return slot == 0;
+}
+static int BvSetX(int slot, int what, int value) {
+    ++bvSets;
+    if (slot < 0 || slot > 3) return -1;
+    if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
+    return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
+}
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -38,6 +52,7 @@ static FARPROC TestProc(HMODULE, const char* name) {
     EXPORT("SessionMode", SessionMode); EXPORT("GateFightAgain", GateFightAgain);
     EXPORT("GetMoveBoss", BossGet); EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
     EXPORT("SetMoveRepeat", RepSet); EXPORT("GetMoveRepeat", RepGet); EXPORT("GetRepeatGap", RepGapGet);
+    EXPORT("BossVitalsGet", BvGetX); EXPORT("BossVitalsSet", BvSetX);
 #undef EXPORT
     return nullptr;
 }
@@ -230,8 +245,42 @@ int main() {
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
     UiGatePage(); CHECK(UiBack());  // #13529: the gate is a base page: Back closes to the host's first page
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
+    {   // user #14320: Training mods -> 'Boss A health and Ki' -> per-boss page (status, infinite health / Ki, set HP / Ki %, refill), Back
+        n = Items(items, kMaxRows + 4);
+        int rowA = -1, rowB = -1;
+        for (int i = 0; i < n; ++i) { if (items[i] == kItBvOpenBase) rowA = i; if (items[i] == kItBvOpenBase - 1) rowB = i; }
+        CHECK(rowA >= 0 && rowB == rowA + 1);
+        g_sel = rowA; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 0 && g_sel == 1);
+        n = Items(items, kMaxRows + 4);
+        CHECK(n == 7 && items[0] == kItBvStatus && items[1] == kItBvInfHp && items[2] == kItBvInfKi && items[3] == kItBvHpPct && items[4] == kItBvKiPct && items[5] == kItBvRefill && items[6] == kItBack);
+        int k = UiFill(rows, 24, footer, sizeof footer);
+        bool title = false, st = false, hpOff = false, kiOff = false, hpPct = false;
+        for (int i = 0; i < k; ++i) {
+            title |= strstr(rows[i].text, "Boss A health and Ki") != nullptr;
+            st |= strstr(rows[i].text, "HP 25856 / 51712 (50 %)") && strstr(rows[i].text, "Ki 520 / 1040 (50 %)");
+            hpOff |= strstr(rows[i].text, "Boss infinite health:") && strstr(rows[i].text, "OFF");
+            kiOff |= strstr(rows[i].text, "Boss infinite Ki:") && strstr(rows[i].text, "OFF");
+            hpPct |= strstr(rows[i].text, "Set boss HP:") && strstr(rows[i].text, "100 %");
+        }
+        CHECK(title && st && hpOff && kiOff && hpPct && strstr(footer, "never stays below"));
+        g_sel = 1; CHECK(!UiAct() && bvCfg[0][0] == 1 && bvCfg[0][1] == 0);           // A: infinite health ON (Ki untouched = Ki breaks stay)
+        UiChange(-1); CHECK(bvCfg[0][0] == 0); UiChange(1); CHECK(bvCfg[0][0] == 1);
+        g_sel = 2; UiChange(1); CHECK(bvCfg[0][1] == 1); UiChange(-1); CHECK(bvCfg[0][1] == 0);
+        g_sel = 3; UiChange(-1); CHECK(bvCfg[0][2] == 90); UiChange(-1); CHECK(bvCfg[0][2] == 80); CHECK(strstr(g_msg, "HP set to 80 %"));
+        g_sel = 4; for (int i = 0; i < 20; ++i) UiChange(-1); CHECK(bvCfg[0][3] == 0 && strstr(g_msg, "one hit from a Ki break"));
+        g_sel = 5; UiChange(1); CHECK(bvRefills == 0); CHECK(!UiAct() && bvRefills == 1 && bvCfg[0][2] == 100 && bvCfg[0][3] == 100);
+        char tb[160]; uint32_t tc = 0; CHECK(Toast(tb, sizeof tb, tc) && strstr(tb, "Boss A refilled"));
+        g_sel = 0; const int before = bvSets; CHECK(!UiAct() && bvSets == before);   // status row: read only
+        CHECK(!UiBack() && g_uiPages.page == uTools && g_sel == rowA);
+        g_sel = rowB; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 1);
+        k = UiFill(rows, 24, footer, sizeof footer);
+        bool empty = false; for (int i = 0; i < k; ++i) empty |= strstr(rows[i].text, "Boss B: empty") != nullptr;
+        g_sel = 3; UiChange(-1); CHECK(empty && strstr(g_msg, "Boss B is empty") && bvCfg[1][2] == 90 && bvCfg[0][2] == 100);  // per boss
+        CHECK(!UiBack() && g_uiPages.page == uTools);
+        sessionMode = 2; UiGatePage(); n = Items(items, kMaxRows + 4); CHECK(!has(kItBvOpenBase) && !has(kItBvOpenBase - 1));  // gate: live slots only (none here)
+    }
     sessionMode = 0;
     (void)bossLive;
-    puts("PASS: Boss moves groups (#14291: 6 groups, 173 Yoritomo moves, Ki break ids first, B back to the group list); Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
+    puts("PASS: Boss moves groups (#14291: 6 groups, 173 Yoritomo moves, Ki break ids first, B back to the group list); Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page; Boss A / B health and Ki page (#14320)");
     return 0;
 }

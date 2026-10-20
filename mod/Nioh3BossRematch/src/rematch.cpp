@@ -2549,6 +2549,7 @@ void NoFinToggle(int dir) {
     Log("Rematch: menu KiBreakNoFinisher -> %d", v);
     g_msg[0] = 0;
 }
+#include "boss_vitals_menu.h"  // user #14320: per-boss HP / Ki page (uBossVitals)
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
@@ -2580,6 +2581,7 @@ int Items(int* out, int cap) {
         add(kItBack);
         return n;
     }
+    if (g_uiPages.page == uBossVitals) { BvAddPage(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
         AddBossFightItems(add);
         add(kItBack);
@@ -2596,6 +2598,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
         if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
         if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); }
+        BvAddOpenRows(add, false);  // user #14320: Boss A / B health and Ki
         if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
         if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
@@ -2690,6 +2693,7 @@ int Items(int* out, int cap) {
             if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
             if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
             if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
+            BvAddOpenRows(add, true);  // user #14320
             if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
             if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
             if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
@@ -2967,6 +2971,7 @@ void UiChange(int dir) {
     if (item == kItRepGap) { RepGapStep(dir); return; }
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
+    if (BvChange(item, dir)) return;  // user #14320
     if (item == kItShowTw) { g_showTwitch = dir == 0 ? !g_showTwitch : dir > 0; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return; }
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
@@ -3022,6 +3027,7 @@ bool UiAct() {
     if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
+    if (BvAct(item)) return false;  // user #14320
     if (item == kItShowTw) { g_showTwitch = !g_showTwitch; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return false; }
     if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
@@ -3259,7 +3265,7 @@ const char* PageTitle(const char* movesTitle) {
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Practice - Train in a boss arena" : p == uPracticeHub ? "Practice"
          : p == uTrainHere ? "Practice - Train here" : p == uSummon ? "Practice - Summon a boss here" : p == uTools ? "Practice - Training mods"
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Practice Yamagata"
-         : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uPlayer ? "Practice - Player" : p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
+         : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uPlayer ? "Practice - Player" : p == uBossVitals ? BvTitle() : p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
@@ -3268,6 +3274,8 @@ const char* ItemGroup(int item) {
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Kill and finisher rules (also Practice and summons)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training mods";
+    if (p == uBossVitals) return BvGroup(item);  // user #14320
+    if (IsBvOpenItem(item)) return p == uGate ? "Training mods" : "Boss health and Ki";
     if (p == uTools) return item == kItDespawnAll || item == kItBossSumm ? "Summoned bosses" : item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Boss behaviour and move drill";
     if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss to summon" : "Options";
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : "Repeat a move (drill) and stance";  // user #14291
@@ -3328,7 +3336,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (grp != lastGroup && k < cap - 2) add(cCyan, false, "-- %s --", grp);
             lastGroup = grp;
         }
-        if (IsMoveItem(it[i])) {
+        char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)) add(bvColor, sel, "%s", bvText);
+        else if (IsMoveItem(it[i])) {
             const auto& move = kN3Moves[it[i] - kItMoveBase];
             const int allowed = MoveAllowed(move);
             const bool rpt = MoveRepeating(move);
@@ -3538,7 +3548,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (footer && nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
-        if (IsMoveItem(item)) {
+        if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        else if (IsMoveItem(item)) {
             using StatusFn = int (*)();
             const auto status = (StatusFn)TrainingExport("Nioh3Training_GetMoveHookStatus");
             const int hook = status ? status() : 0;
