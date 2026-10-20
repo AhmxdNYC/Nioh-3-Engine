@@ -1484,4 +1484,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 5:50 PM EDT gxl-pc #21199: answered on the phone (#21348). Yes, two Grok agents are assigned and no RESULT is back. gxl-pc2 #21337 hit count. gxl-ally #21336 sequence bind. Menu unchanged. Game stayed closed. Next: read those RESULTs before any menu change or restart.
 
+- 2026-10-20 6:07 PM EDT gxl-pc #21364/#21388: answered on the phone (#21391, #21403). Human was waiting. gx-pc was 0/3. Three local jobs started at 6:07 pm: #21396 hitbox join, #21395 7-step R+50 bind, #21397 repo hit-count search. Slots 0, 1, and 2 logged a TASK. Do not touch the open game. Do not TASK gxl-pc2, gxl-ally, or cx-pc. cx-pc #21316 told #21392 to stay stopped until 2:32 am Oct 27. Next: read gx-pc RESULTs before any menu change.
+
 - 2026-10-20 5:58 PM EDT gxl-pc #21350/#21351: user said forget the other PC. Do not wait on #21337. Hit-count search is local. Ally #21336 can still answer the chain bind. Ghidra: the only imul-by-192 in .text is RVA 0x3466706 inside 0x34664d0, a graphics sizer (callers 578578, 6d89d4, 3466e90), not the 182-row hitbox table. Those 182 rows still have no action id and no motion number. Nioh3 PID 24196 started 5:43 pm EST; do not touch it. Next: find the loader that reads record size from the 16-pair header, not another immediate-192 scan.
+
+- 2026-10-20 6:07 PM EDT gxl-pc #21364: gx-pc presence was 0/3 idle. Posted three offline tasks: #21398 hitbox-row reader, #21399 7-step chain bind, #21400 attack-choice dispatcher. Do not touch the live game. Do not task gxl-pc2, gxl-ally, or cx-pc. Next: read their RESULTs and tell the user only what is proven.
