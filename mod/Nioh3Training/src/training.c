@@ -263,6 +263,11 @@ static uint64_t g_newActor; static uint32_t g_newH, g_newSeq;
 #define SUM_PASSIVE_MAX 60000
 static int g_cfg_sum_passive = 3000;
 static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff; } g_sph[2];
+// user #14304: in a Training session every boss starts in the Training idle stance. g_sph[s].ms = SPH_TRAINING = slot boss held (AI off) until
+// the user picks: stance 'Fight normally' (IhIdleStance 0), a repeat move for that boss (MvRepeatId), or the session ends. Used for bosses
+// summoned into slot A / B during a session and for the session boss whose Idle hold a new summon ends (IhKeepForSummon: no AI-on hand-back).
+#define SPH_TRAINING (-1)
+static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void);
 static float g_slot_sp[2][4]; static int g_slot_sp_ok[2];  // user #13787: where the boss in slot A / B appeared ('Reset boss position', aggro.h)
 static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
@@ -280,8 +285,10 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
         g_watch_session = 0;
         if (g_watch_slot >= 0 && g_watch_slot < 2) { g_slot_act[g_watch_slot] = cur[i]; g_slot_chr[g_watch_slot] = g_watch_chr;
             memcpy(g_slot_sp[g_watch_slot], xyz, sizeof xyz); g_slot_sp_ok[g_watch_slot] = 1;
-            memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount(); g_sph[g_watch_slot].ms = g_cfg_sum_passive; g_sph[g_watch_slot].phase = g_cfg_sum_passive > 0;
-            if (g_cfg_sum_passive > 0) Log("SUMPASSIVE slot %c actor %p: AI held %d ms (SummonPassiveMs)", 'A' + g_watch_slot, (void*)cur[i], g_cfg_sum_passive);
+            memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount();
+            g_sph[g_watch_slot].ms = TrActive() && IhIdleStance() ? SPH_TRAINING : g_cfg_sum_passive; g_sph[g_watch_slot].phase = g_sph[g_watch_slot].ms != 0;  // #14304
+            if (g_sph[g_watch_slot].ms == SPH_TRAINING) Log("SUMPASSIVE slot %c actor %p: Training idle stance, AI held until you pick a move / Fight normally (#14304)", 'A' + g_watch_slot, (void*)cur[i]);
+            else if (g_cfg_sum_passive > 0) Log("SUMPASSIVE slot %c actor %p: AI held %d ms (SummonPassiveMs)", 'A' + g_watch_slot, (void*)cur[i], g_cfg_sum_passive);
             g_watch_slot = -1; }
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
@@ -1347,7 +1354,7 @@ static int SummonStart(const char* tok, float d) {
     for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; bgm = g_rows[i].bgm; break; }
     if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
     if (!chr) { Log("SUMMON: unknown boss '%s'", tok); return 0; }
-    if (g_bm.active) BossModeEnd("new summon");
+    if (g_bm.active) { IhKeepForSummon(); BossModeEnd("new summon"); }  // #14304: the held session boss stays idle (slot hold), not AI on
     BgmStop("new summon"); g_vf.attempt = 0; g_vf.active = 0; g_vf.respawnAt = 0;
     g_sp.slot = g_sp_slot_next; g_sp_slot_next = -1; g_sp.id = chr; g_sp.dist = d; g_sp.owner = 0; g_sp.boss = 1; g_sp.bgm = bgm; g_sp.tOwn = 0; g_sp.t0 = GetTickCount();
     uint64_t e = ResEntry(chr);
@@ -2767,9 +2774,11 @@ static __attribute__((noinline)) void SphTick(void) {
         uint64_t a = g_sph[s].a;
         if (!a || g_slot_act[s] != a || !SlotAlive(s)) { Log("SUMPASSIVE slot %c: boss gone / replaced, hold ends", 'A' + s); g_sph[s].phase = 0; continue; }
         { int dead = 0; uint64_t hc = 0, hm = 0; if (ActorDeadNow(a, &dead, &hc, &hm) && dead) { g_sph[s].phase = 0; continue; } }
-        if (now - g_sph[s].t0 >= (DWORD)g_sph[s].ms) {
+        const char* rel = g_sph[s].ms != SPH_TRAINING ? (now - g_sph[s].t0 >= (DWORD)g_sph[s].ms ? "passive time over" : 0)
+                        : !g_tr.active ? "Training session ended" : !IhIdleStance() ? "stance Fight normally" : MvRepeatId(g_slot_chr[s]) ? "repeat move picked" : 0;  // #14304
+        if (rel) {
             if (g_sph[s].nOff && BhAiOn(a) == 0) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 66982C faulted"); } }
-            Log("SUMPASSIVE slot %c actor %p: AI on +%lu ms (passive %d ms, held %d times)", 'A' + s, (void*)a, now - g_sph[s].t0, g_sph[s].ms, g_sph[s].nOff);
+            Log("SUMPASSIVE slot %c actor %p: AI on +%lu ms (%s, passive %d ms, held %d times)", 'A' + s, (void*)a, now - g_sph[s].t0, rel, g_sph[s].ms, g_sph[s].nOff);
             g_sph[s].phase = 0; continue;
         }
         if (now - g_sph[s].tRe >= 100 && BhAiOn(a) == 1) {
@@ -3701,6 +3710,25 @@ static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + agg
 #define DR_PREFORCE(a) AgDrillFace(a)
 #include "drill.h"  // user #13529: move drill in the Stand still stance
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
+static int IhIdleStance(void) { return InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) != 0; }
+static int TrActive(void) { return g_tr.active; }
+// user #14304 (log 20:07:16 'IDLEHOLD stop new summon ... owned 1' -> the session boss got its AI back and attacked with the new one): a summon
+// during a Training session hands the Stand-still session boss to the slot hold (SPH_TRAINING) instead of IhStop giving its AI back.
+static void IhKeepForSummon(void) {
+    if (!g_tr.active || g_ih.phase != 2 || !g_ih.actor || !IhAlive(g_ih.actor)) return;
+    const uint64_t a = g_ih.actor;
+    for (int s = 0; s < 2; ++s) {
+        if (g_slot_act[s] != a) continue;
+        if (g_agd.st) AgDrillEnd("new summon");
+        g_ih.owns_ai = 0;  // IhStop (BossModeEnd) must not switch the AI back on
+        InterlockedExchange(&g_ih_drill_ai, 0);
+        memset(&g_sph[s], 0, sizeof g_sph[0]); g_sph[s].a = a; g_sph[s].t0 = GetTickCount(); g_sph[s].ms = SPH_TRAINING; g_sph[s].phase = 1; g_sph[s].nOff = 1;
+        if (BhAiOn(a) == 1) IhNativeAi(a, 0);
+        Log("IDLEHOLD new summon: session boss %p (slot %c) stays in the Training idle stance (slot hold until you pick a move / Fight normally)", (void*)a, 'A' + s);
+        return;
+    }
+    Log("IDLEHOLD new summon: session boss %p is in no slot, its Idle hold ends as before", (void*)a);
+}
 static int MvForce(uint32_t id) {
     uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }

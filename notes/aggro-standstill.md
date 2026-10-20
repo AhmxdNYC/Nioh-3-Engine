@@ -74,3 +74,14 @@ Change (aggro.h `AgDrillBoss`, only with BossAggro 1; aggro OFF = no change):
   (with a suppressed count); AGGRO walk-up lines share the 200-line cap.
 - Build: Nioh3Training.asi sha256 dee2e54f478f0bf1d45f95fa70477667350fcef0267bd9f7daba9c90e2879fe7 (Rematch unchanged 242ea4a1...).
 - Untested live: whether the AI walks with only locomotion allowed (else the 6 s placement kicks in), BossPlace (never run live), 66C330 in BossPlace.
+
+## #14304 (log 20:07:16): summoning Boss B in a Practice session released the session boss
+- SummonStart -> BossModeEnd("new summon") -> IhStop: the Stand-still session boss got its AI back ('IDLEHOLD stop new summon ... owned 1'), and
+  the slot B boss only had the 3 s SummonPassiveMs hold -> two bosses attacking.
+- Fix (training.c): in a Training session with the idle stance on, slot A / B summons get SPH_TRAINING = AI held until the user picks
+  (stance Fight normally, a repeat move for that boss, or session end); SummonPassiveMs still applies outside Training / with Fight normally.
+  IhKeepForSummon (before BossModeEnd on a new summon) hands the held session boss to the same slot hold (owns_ai cleared so IhStop does not
+  switch its AI on; aggro walk-up ended first).
+- Limits: a slot-held boss released by a repeat pick fights CPU-style with that move (the drill + aggro walk-up only drive the gauge/session boss);
+  switching back to Stand still does not re-hold released slot bosses.
+- Build (with the #14267 walk-up fix): Nioh3Training.asi sha256 0def662450ad0396f85d8fc5af807f4f7095471925edaf4bd1f639e6b209d7bd; Rematch unchanged.
