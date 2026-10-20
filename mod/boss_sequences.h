@@ -26,7 +26,7 @@ static const N3Next kN3Next[] = {
     {16102u, 0x4E70u, 0x4E7Au, 0},
     {16102u, 0x4E76u, 0x4E77u, 0},
     {16102u, 0x4E77u, 0x4E7Au, 0},
-    {16102u, 0x4E78u, 0x4E7Au, 0},
+    {16102u, 0x4E78u, 0x4E79u, 0},
     {16102u, 0x4E79u, 0x4E7Au, 0},
     {16102u, 0x4E7Bu, 0x4EA7u, 0},
     {16102u, 0x4E7Du, 0x4E77u, 0},

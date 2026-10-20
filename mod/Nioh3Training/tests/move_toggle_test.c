@@ -291,7 +291,9 @@ int main(void) {
         g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 1;
         assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500);
         assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E78, 1) == 1);
-        const int ri = MvRepFind(16102u); assert(g_rep_nchain[ri] == 2 && g_rep_chain[ri][0] == 0x4E78 && g_rep_chain[ri][1] == 0x4E7A);
+        // the listed chain is 0x4E78 > 0x4E7A (+0xE0 links) or, with the #14702 table override (308067b8), 0x4E78 > 0x4E79 > 0x4E7A: same result
+        const int ri = MvRepFind(16102u), k79 = MvSeqIndex(ri, 0x4E79), k7a = MvSeqIndex(ri, 0x4E7A);
+        assert(g_rep_chain[ri][0] == 0x4E78 && k7a == g_rep_nchain[ri] - 1 && (k79 < 0 ? g_rep_nchain[ri] == 2 : k79 == 1));
         // the boss arrives in idle; MvRepTick needs its AI state: one idle pick in the gap (as live: the gap idle before #39)
         g_rep_end[ri] = 100000; cur_act = 2; fake_now = 100010; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
         forced_n = 0;
@@ -305,11 +307,11 @@ int main(void) {
             // +1078: three game picks 0x4E79 in one frame (old: -> 0x4E7A). Pass as is
             fake_now = t0 + 1078; for (int k = 0; k < 3; ++k) { Pick(0x4E79); assert(h_mvsel(0x3000, 0) == 0x4E79); }
             cur_act = 0x4E79; for (DWORD t = t0 + 1094; t < t0 + 1500; t += 16) { fake_now = t; MvRepTick(); }
-            assert(g_rep_phase[ri] == 3 && g_rep_cur[ri] == 0x4E79);
+            assert(g_rep_phase[ri] == (k79 >= 0 ? 2 : 3) && g_rep_cur[ri] == 0x4E79);
             // 0x4E79 hands over to its link 0x4E7A (listed part 2) by itself; a game pick of it passes too
             fake_now = t0 + 1500; Pick(0x4E7A); assert(h_mvsel(0x3000, 0) == 0x4E7A);
             cur_act = 0x4E7A; for (DWORD t = t0 + 1516; t < t0 + 1900; t += 16) { fake_now = t; MvRepTick(); }
-            assert(g_rep_phase[ri] == 2 && g_rep_kmax[ri] == 1);
+            assert(g_rep_phase[ri] == 2 && g_rep_kmax[ri] == k7a);
             // ~400 ms into 0x4E7A: game picks 0x4E8D (same motion 1104). Old: 'all 2 part(s) played -> idle'. Now it passes, never idle
             fake_now = t0 + 1900; for (int k = 0; k < 3; ++k) { Pick(0x4E8D); assert(h_mvsel(0x3000, 0) == 0x4E8D); }
             assert(g_rep_phase[ri] == 2 && g_rep_end[ri] != t0 + 1900);
