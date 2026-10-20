@@ -282,3 +282,6 @@
 - #21450 (2026-10-20): User suggested an attack with more than one animation might be a sequence. Checked, not adopted: 88 Yoritomo attack rows use 20 animations, and 0 of those rows have two animation clips. Do not build sequences from that rule.
 - #21473 (2026-10-20): Also find literal frame data that can later drive an SF6-style frame bar (startup, active, recovery). Do not invent those three from sound marks, effect marks, or chain-wait frames. Unknown stays unlabeled.
 - #21521 (2026-10-20): Keep reversing the game code until the hit source is named. A zero field is not the source. Do not guess a hit count.
+- #21531 (2026-10-20): Put all local gx-pc workers on finding the hit source. Do not leave them on side questions while that source is unnamed.
+- #21533 (2026-10-20): Workers may use more than one Ghidra. This PC already has the Ghidra setup Claude made. Use that setup for the hit source.
+- #21535 (2026-10-20): Use the game logs together with the reverse. Do not ignore logs that are already on disk. Do not invent a hit count.
