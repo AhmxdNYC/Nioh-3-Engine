@@ -269,3 +269,4 @@
 - 2026-10-20 | Yoritomo stored hit count | The move list had no 1-hit, 2-hit, or 3-hit label | Checked 173 moves: 0 stored hit numbers. The 182 hitbox rows do not name his moves. Hit shapes are created while a move plays.
 - 2026-10-20 | Yoritomo hitbox rows belong to moves | The 182 hitbox rows did not name a move | Each row belongs to one move. 4E68 has 3, 4E6C has 5, 4E74 has 5, 4EA5 has 0. That count is not yet a proven hit count.
 - 2026-10-20 | Yoritomo attack check 766 | Asked for the real source of his attack choice | Condition 766 is a sphere distance test, used 67 times. It is not a 2-hit or 3-hit count.
+- 2026-10-20 | Yoritomo 7-step chain is loaded | The long chain was only a guess in the file | The game loader binds those 6 links. Each is 1 choice out of 11 or 12, not a forced combo. They still finish at 4E7A if that choice is not taken.
