@@ -1631,3 +1631,6 @@ Yoritomo hit and string search stays paused until the user says resume. Marker: 
 Stuck session: gxl-pc slot 0 pid 32936 was the 221-log RESULT job started 7:16 pm EST. Killed at 7:23 pm EST. Do not restart it.
 Trainer: Downloads\Nioh3 Trainer260919.rar is one exe, Nioh 3 Trainer.exe, 393216 bytes, .NET 4.8, product 20260919-1, FlareJune 2017 template. External process writer (signature or RVA, freeze, hotkeys, Xbox pad). Cheat labels are not plain text; resource name ResAjA. Embedded stubs 640 bytes x86 and 696 bytes x64. Phone #21607. Do not run the exe.
 gx-pc: 0/3 after the 7:18 pm EST hold. Last worker results were already in before the kill.
+
+## 2026-10-20 7:31 pm EST (#21609, #21610)
+Trainer cannot be mined for new training features without running it. Phone #21612 and the follow-up. Encrypted blob AIu is 3328 bytes, entropy about 7.9. No Nioh3.exe string. No cheat names. Do not run Nioh3 Trainer.exe. Do not resume the Yoritomo search until the user says resume. gx-pc stays idle on that search.

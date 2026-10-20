@@ -294,3 +294,5 @@
 - #21595 (2026-10-20): The hold also stopped the workers. That was broader than the search pause. Do not resume the search. Writing up finished findings is allowed.
 - #21598 | 2026-10-20 | Look inside the downloaded Nioh 3 trainer (Downloads\Nioh3 Trainer260919.rar). Report what is in it and how it works. Do not run the trainer exe. Do not start or stop the game. The Yoritomo search stays paused.
 - #21602 (2026-10-20 7:23 pm EST): Stop the session stuck on the 221 health line. That session (gxl-pc slot 0, pid 32936) was killed. Do not resume the Yoritomo search. Do not run the trainer.
+- #21609 (2026-10-20 7:29 pm EST): From the downloaded Nioh 3 trainer, see if its features can be added to our mod. Do not run the trainer exe. Do not open the game. The Yoritomo search stays paused.
+- #21610 (2026-10-20 7:30 pm EST): Only trainer features that fit the training mode we already have. Do not add fight cheats. Infinite health is already on the training Player page.
