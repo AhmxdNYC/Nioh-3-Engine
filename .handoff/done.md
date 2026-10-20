@@ -281,3 +281,4 @@
 - 2026-10-20 | Frame marks are not a frame bar | User wants marks we can use later as startup, active, and recovery | None of the 10 mark types on 88 attacks is proven. The most common is on 64 attacks, usually near frame 14, and it is still unknown.
 - 2026-10-20 | One slot per hitbox lookup | Needed whether his 3 rows are used together | Each lookup uses 1 slot. For move 4E68 the row is 92 plus that slot. Which slot, and how many lookups in one swing, are still unknown.
 - 2026-10-20 | Second motion number is not a clip | User asked how many sequences if an extra animation counts | 40 of 88 attacks store that number. None of the 15 values is a motion clip, so the sequence count stays 0.
+- 2026-10-20 | Slot byte is zero on every attack | Needed the stored slot for his 3 rows | That byte is 0 on all 88 attacks, including 4E68. It is not the hit source.

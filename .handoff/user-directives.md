@@ -281,3 +281,4 @@
 - #21435 (2026-10-20): Find the actual data source in the game code for hit counts and sequences. Do not stop at a recorded moveset or a distance check that is not a hit count.
 - #21450 (2026-10-20): User suggested an attack with more than one animation might be a sequence. Checked, not adopted: 88 Yoritomo attack rows use 20 animations, and 0 of those rows have two animation clips. Do not build sequences from that rule.
 - #21473 (2026-10-20): Also find literal frame data that can later drive an SF6-style frame bar (startup, active, recovery). Do not invent those three from sound marks, effect marks, or chain-wait frames. Unknown stays unlabeled.
+- #21521 (2026-10-20): Keep reversing the game code until the hit source is named. A zero field is not the source. Do not guess a hit count.
