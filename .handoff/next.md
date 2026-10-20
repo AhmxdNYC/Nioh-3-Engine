@@ -1590,3 +1590,5 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 7:03 PM EDT gxl-pc: slot 2 was free after #21551. Slot 1 took #21555. TASK #21559 lists callers of HP cut 0x787268, because the builder path is 30, 25, or 40 and the live drop was 221. Do not launch. Do not edit the menu.
 
 - 2026-10-20 7:03 PM EDT gxl-pc #21552: phone #21561. One call of 0x2000F30 applies one amount. It calls the HP cut once at 0x2001314 into 0x1FF4454. Callers 0x10C5D73 and 0x21FBA46 pass no count. 6:32 pm EST log: 1 HP refill 2437 to 2658, 0 hit lines. 6:27 pm EST log: 0 and 0. Not a hit count. Commit 030a0040. Slots still on #21543, #21555, #21559 at send time. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:04 PM EDT gxl-pc: after #21552, the open 221 hole is the multiply word at 0x20012AE. TASK #21564 waits for the next free slot. Do not redo the one-call result. Do not launch.
