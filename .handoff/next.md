@@ -1502,6 +1502,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:36 PM EDT gxl-pc #21482: phone reply. Actor +0x110 is his position. The sphere test at 0x37A137 uses xyz only. Writer 0x3578E0, copy 0xB16DF. Empty tree walks a second list at global 0x45B9E40, object +0x310. Not a hit count. Commit 7515965c. Game not touched. Slots 0, 1, and 2 were busy, so no new job. Menu unchanged. Next: #21481 explains the 221 drop when a slot frees. Do not relaunch.
 
+- 2026-10-20 6:39 PM EDT gxl-pc #21491: phone reply. Action +0x48 is base 92 and +0x4A is count 3 for 4E68, so slots 0-2 are rows 92-94. Loader 0x49BD28 at 0x49CA50. Lookup 0x5C9348. That 3 is a row index, not a hit count. Agrees with the one 221 HP drop. Commit 1ea9b490. Game not touched. Slots 0, 1, and 2 were busy. Slot 1 has #21481. Menu unchanged. Next: read the 221 formula. Do not list row counts as hits.
+
 - 2026-10-20 5:58 PM EDT gxl-pc #21350/#21351: user said forget the other PC. Do not wait on #21337. Hit-count search is local. Ally #21336 can still answer the chain bind. Ghidra: the only imul-by-192 in .text is RVA 0x3466706 inside 0x34664d0, a graphics sizer (callers 578578, 6d89d4, 3466e90), not the 182-row hitbox table. Those 182 rows still have no action id and no motion number. Nioh3 PID 24196 started 5:43 pm EST; do not touch it. Next: find the loader that reads record size from the 16-pair header, not another immediate-192 scan.
 
 - 2026-10-20 6:07 PM EDT gxl-pc #21364: gx-pc presence was 0/3 idle. Posted three offline tasks: #21398 hitbox-row reader, #21399 7-step chain bind, #21400 attack-choice dispatcher. Do not touch the live game. Do not task gxl-pc2, gxl-ally, or cx-pc. Next: read their RESULTs and tell the user only what is proven.
@@ -1534,3 +1536,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
+- 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
+
+- 2026-10-20 6:39 PM EDT gx-pc #21478: phase_tail on all 88 attack rows is not startup, active, or recovery. Row counts: type 0=65, 1=38, 2=34, 3=29, 4=10, 5=64, 6=28, 7=28, 8=3, 9=1. Best candidate is type 5 (early, median frame 14, earliest mark on 39 rows) and it is still unknown. Type 1 is on 38 of 88, not every attack. Chain waits stay a different field. Commit 658a9424. Game not launched. Menu not edited. Next: do not label a frame bar from these types.
+
+- 2026-10-20 6:43 PM EDT gxl-pc #21495: phone #21497. None of 10 phase types on 88 attacks is startup, active, or recovery. Type 5 is on 64, median frame 14, still unknown. Type 1 is on 38 (frames 51, 83, 77 on the three checked attacks). Commit 658a9424. Menu unchanged. Beacon 2/3. Slot 1 still has #21481 (221 HP). Slot 2 still has #21461 (alt_motion34). TASK #21498 asks the free slot which instruction picks hitbox slot 0, 1, or 2 for 4E68. Do not list row counts as hits. Do not edit the menu. Do not launch.
