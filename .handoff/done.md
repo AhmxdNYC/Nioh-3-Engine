@@ -294,3 +294,4 @@
 - 2026-10-20 | This move has no side record | Needed the file row that picks his hitbox slot | The table has 51 rows. Move 4E68 asks for row 72, so the slot is not stored there.
 - 2026-10-20 | Damage scale is not a fixed number | Needed whether a multiplier turns 30, 25, or 40 into 221 | The normal path stays 30, 25, or 40. The scale is a live value, and it was not read.
 - 2026-10-20 | Scale products are 30, 25, and 40 | Needed whether the multiplier makes the measured 221 | In this dump the scale is 1. Those three products are not 221.
+- 2026-10-20 | The 221 log line is a refill | Needed whether the logged 221 was a hit | The 6:32 pm EST line is training infinite health, 2437 back to 2658. It is not a hit tag.

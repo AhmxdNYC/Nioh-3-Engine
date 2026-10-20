@@ -1612,3 +1612,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 7:10 PM EDT gx-pc #21564: the damage scale word is not in the file. This dump's gate dword is 0, so RVA 0x20012AE multiplies by 1.0 and the products stay 30, 25, and 40. None is 221. The unread u16 would come from the heap table at [[0x45B9E30]+0x158], keyed by the word at [actor+0xE8]+0x374. Commit adc3e2f7. Game not touched. Menu not edited.
 
 - 2026-10-20 7:12 PM EDT gxl-pc #21581: phone #21582. Scale is 1.0 in this dump because the gate dword at singleton +0x2C4 (global 0x45C84F8) is 0. Products of 30, 25, and 40 are not 221. The u16 is not read. When the gate is open it comes from the 0x52-byte record via 0x85600, keyed by [actor+0xE8]+0x374. Table pointer is a heap address. Not a hit count. Commit adc3e2f7. Slot 1 pid 10284 runs #21580. Slot 2 pid 29068 runs #21560. Slot 0 pid 18576 still shows #21543. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:13 PM EDT gx-pc #21560: the 6:32 pm HP line is a full refill, not a hit. Tag is TRAIN infinite health. Log line 237745 puts player HP from 2437 back to 2658. The 221 is that difference. Five lines around it are two NOFIN motion requests, the refill, exec nearboss 120, and CMD nearboss warp 120. No hit count. Game not launched. Log not edited. Menu not edited. RESULT #21583.
+
+
+- 2026-10-20 7:14 PM EDT gxl-pc #21583: phone #21584. The 6:32:50 pm EST line is TRAIN infinite health, 2437 to 2658. The 221 is the refill, not a hit. No hit line in the five lines around log line 237745. TASK #21585 looks for the earlier drop, especially 2658 to 2437. Slot 1 runs #21580. Slot 0 pid 18576 still shows finished #21543. Do not call the refill a hit. Do not launch. Do not edit the menu.
