@@ -273,3 +273,4 @@
 - 2026-10-20 | Hitbox row loader | Needed the code that reads one hitbox row | The game loads a row as its number times 192. On 4E68's 3 rows the child-hit byte is 0, so the hit count is still unknown.
 - 2026-10-20 | Multiple animations as sequences | User asked how many sequences if an attack with several animations is a sequence | 88 Yoritomo attack rows use 20 animations. 0 rows have two animation clips, so that rule makes 0 sequences. Menu unchanged.
 - 2026-10-20 | Frame numbers for a future frame bar | User wants Street Fighter style startup, active, and recovery | The move file has frame marks (51, 83, and 77 on three attacks). Those marks are not proven as startup, active, or recovery. Menu unchanged.
+- 2026-10-20 | One Yoritomo swing, one HP drop | Needed a live check of whether 4E68's 3 hitbox rows are 3 hits | On this PC, one close 4E68 dropped the player 221 HP once. No second drop. The 3 rows are not 3 hits.
