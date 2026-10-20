@@ -272,11 +272,11 @@ static uint64_t g_newActor; static uint32_t g_newH, g_newSeq;
 // off (668D74, the #9133 BOSSHOLD call) for that long after it appears, re-held when the game switches it back on, then gets it back (66982C). SphTick.
 #define SUM_PASSIVE_MAX 60000
 static int g_cfg_sum_passive = 3000;
-static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff, sess; } g_sph[N3T_SLOTS];
+static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff, sess, chase; } g_sph[N3T_SLOTS];  // chase: #14462 aggro walk-up, AI on while set
 // user #14304: in a Training session every boss starts in the Training idle stance. g_sph[s].ms = SPH_TRAINING = slot boss held (AI off) until
 // the user picks: stance 'Fight normally' (IhIdleStance 0), a repeat move for that boss (MvRepeatId), or the session ends. Used for bosses
 // summoned into slot A / B during a session and for the session boss whose Idle hold a new summon ends (IhKeepForSummon: no AI-on hand-back).
-#define SPH_TRAINING (-1)
+#include "slot_hold.h"  // SPH_TRAINING, SphReleaseWhy / SphAiAction / SphChaseWanted (user #14462)
 static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void); static int MvRepFresh(uint32_t chr);
 static float g_slot_sp[N3T_SLOTS][4]; static int g_slot_sp_ok[N3T_SLOTS];  // user #13787: where the boss in each slot appeared ('Reset boss position', aggro.h)
 static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
@@ -2811,14 +2811,21 @@ static __attribute__((noinline)) void SphTick(void) {
         uint64_t a = g_sph[s].a;
         if (!a || g_slot_act[s] != a || !SlotAlive(s)) { Log("SUMPASSIVE slot %c: boss gone / replaced, hold ends", 'A' + s); g_sph[s].phase = 0; continue; }
         { int dead = 0; uint64_t hc = 0, hm = 0; if (ActorDeadNow(a, &dead, &hc, &hm) && dead) { g_sph[s].phase = 0; continue; } }
-        const char* rel = g_sph[s].ms != SPH_TRAINING ? (now - g_sph[s].t0 >= (DWORD)g_sph[s].ms ? "passive time over" : 0)
-                        : g_sph[s].sess && !g_tr.active ? "Training session ended" : g_slot_fight[s] ? "this boss set to Fight normally" : MvRepeatId(g_slot_chr[s]) ? "repeat move picked" : 0;  // #14304 / #14309 per boss
+        // #14304 / #14309 per boss; #14462: a repeat no longer releases the hold (slot_hold.h), the repeat plays with the AI held
+        const char* rel = SphReleaseWhy(g_sph[s].ms, now - g_sph[s].t0, g_sph[s].sess, g_tr.active, g_slot_fight[s] != 0);
         if (rel) {
+            g_sph[s].chase = 0;
             if (g_sph[s].nOff && BhAiOn(a) == 0) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 66982C faulted"); } }
             Log("SUMPASSIVE slot %c actor %p: AI on +%lu ms (%s, passive %d ms, held %d times)", 'A' + s, (void*)a, now - g_sph[s].t0, rel, g_sph[s].ms, g_sph[s].nOff);
             g_sph[s].phase = 0; continue;
         }
-        if (now - g_sph[s].tRe >= 100 && BhAiOn(a) == 1) {
+        if (now - g_sph[s].tRe < 100) continue;
+        const int act = SphAiAction(g_sph[s].ms == SPH_TRAINING && g_sph[s].chase, BhAiOn(a));  // #14462: AI on only for the aggro walk-up
+        if (act == 1) {
+            g_sph[s].tRe = now;
+            __try { ((void (*)(uint64_t))(B + 0x66982C))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 66982C faulted, hold ends"); g_sph[s].phase = 0; continue; }
+            Log("SUMPASSIVE slot %c actor %p: AI on for the aggro walk-up (locomotion only, held again in range)", 'A' + s, (void*)a);
+        } else if (act == 0) {
             g_sph[s].tRe = now;
             __try { ((void (*)(uint64_t))(B + 0x668D74))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMPASSIVE: 668D74 faulted, hold ends"); g_sph[s].phase = 0; continue; }
             if (++g_sph[s].nOff <= 10) Log("SUMPASSIVE slot %c actor %p: AI off (#%d, +%lu ms)", 'A' + s, (void*)a, g_sph[s].nOff, now - g_sph[s].t0);

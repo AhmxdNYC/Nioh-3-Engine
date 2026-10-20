@@ -163,12 +163,37 @@ static int AgRepWalk(uint64_t a, uint32_t chr, float d, const float* b, const fl
     BossPlace(a, np, AgFacePlayer(np, 0.0f), "aggro repeat walk-up");
     return 1;
 }
+// user #14462: a summoned boss held idle by its slot (training.c SphTick, SPH_TRAINING) keeps the AI off while it repeats a move / sequence.
+// With aggro ON and a repeat armed it walks up like the Stand-still drill boss: beyond AggroRangeCm + 1 m and not mid-move -> g_sph.chase
+// (SphTick switches the AI on), its AI state in g_mv_chase (MvChaseFilter: locomotion only, MvRepTick forces nothing); inside the range the
+// chase ends and SphTick holds the AI again, the repeat goes on. Returns the AI state to put in g_mv_chase, else 0.
+static uint64_t AgHeldSlot(int sl, uint64_t a, uint64_t me, const float* pp, int slow, DWORD now) {
+    const uint32_t chr = g_slot_chr[sl];
+    uint64_t comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
+    if (!chr || !MvRepeatId(chr) || !(perc = PercOf(a, &comp, &ai)) || !Rd64(comp + 8, &st) || !st ||
+        !Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) { g_sph[sl].chase = 0; return 0; }
+    float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
+    const float dx = b[0] - pp[0], dz = b[2] - pp[2], d = sqrtf(dx * dx + dz * dz), r = (float)g_cfg_aggro_range;
+    const int ri = MvRepFind(chr);
+    const uint32_t cur = ActIdOf(st);
+    const int k = cur >= 0x4E20 && cur != 0xFFFF && cur != 0xFFFFFFFFu ? N3MoveFind(chr, cur) : -1;
+    const int busy = (ri >= 0 && g_rep_seq[ri] && g_rep_phase[ri] != 0) || (cur >= 0x4E20 && cur != 0xFFFF && cur != 0xFFFFFFFFu && !(k >= 0 && kN3Moves[k].kind == 'M'));
+    const int was = g_sph[sl].chase, want = SphChaseWanted(was, d, r, busy);
+    if (want != was && InterlockedIncrement(&g_ag_logs) <= 200)
+        Log(want ? "AGGRO Boss %c %p: %.1f m from the player (range %.1f m + 1 m): AI on, it walks up (locomotion only, repeat waits)"
+                 : "AGGRO Boss %c %p: in range (%.1f m, range %.1f m): AI held again, the repeat goes on", 'A' + sl, (void*)a, d / 100.0f, r / 100.0f);
+    g_sph[sl].chase = want;
+    if (!want) return 0;
+    AgTarget(a, comp, perc, me, slow);
+    if (AgRepWalk(a, chr, d, b, pp, now)) { g_sph[sl].chase = 0; return 0; }  // no closing in for AggroWalkTimeoutMs: placed in range
+    return st;
+}
 static void AggroTick(void) {
     DWORD now = GetTickCount();
     if (now - g_ag_t < 250) return;
     g_ag_t = now;
     uint64_t chase[MV_CHASE_MAX] = {0};
-    int nc = 0;
+    int nc = 0, vis[N3T_SLOTS] = {0};  // #14462: held slot bosses walked up this tick (any other slot's walk-up ends: aggro off / boss gone)
     if (g_agd.st && (!AgOn(g_agd.a) || g_ag_off || !AgStandRep(g_agd.a)))
         AgDrillEnd(!AgOn(g_agd.a) ? "aggro off" : g_ag_off ? "aggro faulted" : "stance / drill ended");
     if (AgAny() && !g_ag_off) {
@@ -184,6 +209,14 @@ static void AggroTick(void) {
                     if (cs && nc < MV_CHASE_MAX) chase[nc++] = cs;
                     continue;
                 }
+                { const int sl = SlotOf(a);  // user #14462: summoned boss held idle by its slot, repeating with the AI off
+                  if (sl >= 0 && g_sph[sl].phase && g_sph[sl].ms == SPH_TRAINING && g_sph[sl].a == a && !(g_ih.phase && g_ih.actor == a)) {
+                      if (IhAlive(a) && !(g_bh.phase && g_bh.a == a)) {
+                          const uint64_t cs = AgHeldSlot(sl, a, me, pp, slow, now);
+                          if (cs && nc < MV_CHASE_MAX) { chase[nc++] = cs; vis[sl] = 1; }
+                      }
+                      continue;
+                  } }
                 if (!IhAlive(a) || BhAiOn(a) != 1 || (g_ih.phase && g_ih.actor == a) || (g_bh.phase && g_bh.a == a)) continue;  // AI held: Stand still / load hold
                 if (!(perc = PercOf(a, &comp, &ai)) || !Rd64(comp + 8, &st) || !st || !Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) continue;
                 const int idx = AgTarget(a, comp, perc, me, slow);
@@ -198,6 +231,7 @@ static void AggroTick(void) {
             }
         }
     }
+    for (int s = 0; s < N3T_SLOTS; ++s) if (!vis[s] && g_sph[s].chase) { g_sph[s].chase = 0; if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO Boss %c: walk-up ended (aggro off / in range / boss gone), AI held again", 'A' + s); }
     for (int i = 0; i < MV_CHASE_MAX; ++i) g_mv_chase[i] = chase[i];
 }
 static DWORD WINAPI AgSaveThread(LPVOID p) {

@@ -85,3 +85,14 @@ Change (aggro.h `AgDrillBoss`, only with BossAggro 1; aggro OFF = no change):
 - Limits: a slot-held boss released by a repeat pick fights CPU-style with that move (the drill + aggro walk-up only drive the gauge/session boss);
   switching back to Stand still does not re-hold released slot bosses.
 - Build (with the #14267 walk-up fix): Nioh3Training.asi sha256 0def662450ad0396f85d8fc5af807f4f7095471925edaf4bd1f639e6b209d7bd; Rematch unchanged.
+
+## #14462 (log 22:35:55-22:42, Boss A summoned from the menu, sequence 0x4E21 > 0x4E22): summoned boss fought with random moves
+- Cause: SphTick released the slot idle hold (SPH_TRAINING) as soon as a repeat was picked ('SUMPASSIVE slot A: AI on (repeat move picked)'); the
+  boss's own AI then fought with its whole move set (0x4E23, 0x4E5C, 0x4E60, 0x4E62, 0x4E7C 'follows up on its own').
+- Fix (src/slot_hold.h, training.c SphTick): a repeat no longer releases the hold; the repeat plays with the AI off (select hook at the idle /
+  action-end transitions + MvRepTick forcing the head after the gap, as live 23:39-23:48 with the AI-held 'Training here' boss: only the sequence parts).
+  Only 'Fight normally' for that boss or the session end release it.
+- Aggro for such a held slot boss (aggro.h AgHeldSlot): beyond AggroRangeCm + 1 m and not mid-move / mid-sequence -> g_sph.chase, SphTick switches
+  the AI on, its state in g_mv_chase (locomotion only, no head forced); inside the range -> AI held again, the repeat goes on; aggro off / repeat
+  stopped / boss gone ends it. AggroWalkTimeoutMs placement applies.
+- Tests: tests/slot_hold_test.c, held-slot case in tests/aggro_test.c. Untested live.

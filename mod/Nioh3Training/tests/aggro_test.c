@@ -60,9 +60,11 @@ static int Actors(uint64_t* out, int cap) { (void)cap; out[0] = actor; out[1] = 
 static uint64_t PercOf(uint64_t a, uint64_t* comp, uint64_t* ai) { assert(a == actor); if (comp) *comp = 0x2000; if (ai) *ai = 0x2000; return 0x5000; }
 static int PercFind(uint64_t perc, uint64_t who) { (void)perc; (void)who; return -1; }  // no 2BE2E8 call
 static int PlayerPos(float* p) { memcpy(p, ppos, sizeof ppos); return 1; }
+#include "../src/slot_hold.h"  // user #14462: held slot bosses (training.c SphTick)
+static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff, sess, chase; } g_sph[N3T_SLOTS];
 #include "../src/aggro.h"
 static void AwareStub(uint64_t comp, uint8_t on, uint32_t x) { (void)comp; (void)on; (void)x; ++aware_calls; }
-static void Unused(void) { (void)MvSet; (void)MvRepFresh; (void)MvLoadPrefs; (void)MvTick; (void)IhDefault; (void)IhAdoptBossHold; (void)ResetPosTick; }  // SetAwareFlg 1FF1FA0 stand-in
+static void Unused(void) { (void)MvSet; (void)MvRepFresh; (void)MvLoadPrefs; (void)MvTick; (void)IhDefault; (void)IhAdoptBossHold; (void)ResetPosTick; (void)SphReleaseWhy; (void)SphAiAction; }  // SetAwareFlg 1FF1FA0 stand-in
 
 static uint32_t ai_pick = 0x4E23;
 static uint32_t Select(uint64_t st, uint64_t tr) { (void)st; (void)tr; return ai_pick; }
@@ -77,6 +79,7 @@ static void Setup(void) {
     IhPublishSession(); g_ih_request = g_ih_epoch; g_ih_idle_stance = 1;
     memset(&g_ih, 0, sizeof g_ih); g_ih.phase = 2; g_ih.owns_ai = 1; g_ih.epoch = g_ih_epoch; g_ih.handle = 7; g_ih.chr = 16102;
     g_ih.actor = actor; g_ih.ctrl = CTRL; g_ih_status = 2; ai_on = 0; act = 2;
+    memset(g_sph, 0, sizeof g_sph);
 }
 static void Step(DWORD ms) { clock_ms += ms; IhTick(); DrillTick(); AggroTick(); MvRepTick(); }
 static int Chasing(void) { return MvChasing(CTRL); }
@@ -128,6 +131,21 @@ int main(void) {
     assert(Nioh3Training_SetMoveRepeat(16102, 0x4E26, 1) == 1 && !Nioh3Training_GetMoveRepeatSeq(16102));
     Step(100); assert(Nioh3Training_GetDrill() == 1);
     puts("PASS: aggro OFF untouched; a single-move repeat still runs the drill");
+    // user #14462: a summoned boss held idle by its slot (SPH_TRAINING, no Idle hold) repeating a sequence with the AI off: aggro ON walks it up
+    Setup(); memset(&g_ih, 0, sizeof g_ih); g_ih_request = 0; g_ih_idle_stance = 0; forced_n = 0; g_sph[0].a = actor; g_sph[0].phase = 1; g_sph[0].ms = SPH_TRAINING; bpos[2] = 550; act = 2;
+    assert(Nioh3Training_SetMoveRepeatSeq(16102, 0x4E21, 1) == 1);
+    Step(300); assert(!g_sph[0].chase && !Chasing());              // 5.5 m: inside range + 1 m, no walk-up
+    bpos[2] = 1200; Step(300); assert(g_sph[0].chase == 1 && Chasing() && g_agd.st == 0);  // 12 m: walk-up (SphTick switches the AI on)
+    ai_pick = 0x4E26; assert(h_mvsel(CTRL, 0) == 2);               // attack pick while far -> idle
+    ai_pick = 0x4E27; assert(h_mvsel(CTRL, 0) == 0x4E27);          // locomotion passes
+    Step(2000); assert(forced_n == 0);                               // no head forced while chasing
+    bpos[2] = 450; Step(300); assert(!g_sph[0].chase && !Chasing()); // in range: held again, the repeat goes on
+    ai_pick = 0x4E23; assert(h_mvsel(CTRL, 0) == 0x4E21);          // the head
+    act = 0x4E21; bpos[2] = 1200; Step(300); Step(150); assert(!g_sph[0].chase); // mid-sequence (head confirmed, chain plays): never cut
+    act = 2; MvSeqTrack(MvRepFind(16102), 16102, 2, clock_ms); Step(300); assert(g_sph[0].chase == 1);
+    g_slot_aggro[0] = 0; Step(300); assert(!g_sph[0].chase && !Chasing());  // aggro OFF: walk-up ends at once
+    g_slot_aggro[0] = 1; assert(Nioh3Training_SetMoveRepeatSeq(16102, 0x4E21, 0) == 1); Step(300); assert(!g_sph[0].chase);  // no repeat: stays idle
+    puts("PASS: #14462 held slot boss: walk-up beyond range + 1 m with locomotion only, held again in range, never mid-sequence, ends with aggro OFF / no repeat");
     printf("aggro_test: all passed (SetAwareFlg stand-in called %d times)\n", aware_calls);
     return 0;
 }
