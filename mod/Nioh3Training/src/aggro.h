@@ -60,12 +60,19 @@ static __attribute__((noinline)) int AgTarget(uint64_t a, uint64_t comp, uint64_
 static int g_cfg_aggro_face = 1;
 static struct { int st; uint64_t a; DWORD t; } g_agd;  // st 0 none, 1 walking up, 2 arrived (AI on until idle)
 static float AgFacePlayer(const float* bp, float fallback);
+// user #14546 (live 23:39-23:41, 'Training here' session, Yoritomo 0x4E21 > 0x4E22 / 0x4E5C > 0x4E60 > 0x4E61): a Stand-still boss repeating a
+// whole SEQUENCE has no drill (drill.h DR_SEQ: move_toggle.h MvRepTick forces the head with the AI off), so the walk-up below, keyed on g_dr,
+// never ran and the generic AI-on path skips a held boss: aggro ON did nothing at all (no AGGRO line after 'Boss A ON'). Same walk-up rules
+// for it: start only between two sequences (MvSeqBusy 0), AI on + locomotion only until in range, then AI off; the head is forced after the gap.
+static int AgStandSeq(uint64_t a) { return g_ih.phase == 2 && g_ih.actor == a && g_ih.chr && Nioh3Training_GetMoveRepeatSeq(g_ih.chr); }
+static int AgStandRep(uint64_t a) { return g_ih.phase == 2 && g_ih.actor == a && (g_dr.chr || AgStandSeq(a)); }  // drill or sequence repeat
 static void AgDrillEnd(const char* why) {
     if (!g_agd.st) return;
     const uint64_t a = g_agd.a;
-    const int ours = g_ih.phase == 2 && g_ih.actor == a && g_dr.chr && g_dr_state == 1;  // stance / drill still ours: put the AI back off
+    const int ours = g_ih.phase == 2 && g_ih.actor == a && ((g_dr.chr && g_dr_state == 1) || AgStandSeq(a));  // stance / repeat still ours: AI back off
     InterlockedExchange(&g_ih_chase_t, 0);
     if (ours) { InterlockedExchange(&g_ih_drill_ai, 0); if (IhAlive(a) && BhAiOn(a) == 1) IhNativeAi(a, 0); }
+    else if (g_dr_state != 2) InterlockedExchange(&g_ih_drill_ai, 0);  // repeat stopped mid walk-up: Idle hold takes the AI off again (not the drill fallback)
     InterlockedExchange(&g_dr_hold, 0);
     if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill walk-up end (%s): boss %p%s, %lu ms", why, (void*)a, ours ? ", AI off again, drill resumes" : "", GetTickCount() - g_agd.t);
     memset(&g_agd, 0, sizeof g_agd);
@@ -84,6 +91,8 @@ static void AgDrillFace(uint64_t a) {
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO face: native yaw matrix faulted %08lX, AggroFace off", GetExceptionCode()); g_cfg_aggro_face = 0; return; }
     if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p turned to the player (yaw %.1f) before the forced move", (void*)a, yaw);
 }
+// user #14546: move_toggle.h MV_PREFORCE, right before a sequence head is forced: a Stand-still boss (its AI state = g_ih.ctrl) faces the player
+static void AgSeqFace(uint64_t st) { if (st && g_ih.phase == 2 && g_ih.ctrl == st && g_ih.actor) AgDrillFace(g_ih.actor); }
 // One Stand-still drill boss (g_ih.actor). Returns its AI state when it must be in g_mv_chase this tick, else 0.
 // #14267 (live 20:02): hysteresis = walk-up starts only beyond AggroRangeCm + 100 (never while the player is inside the range) and ends at
 // AggroRangeCm; the 'arrived, AI on until idle' part keeps the locomotion-only filter, so the AI cannot start an attack before the drill does.
@@ -99,8 +108,9 @@ static uint64_t AgDrillBoss(uint64_t a, uint64_t me, const float* pp, int slow, 
     float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
     const float dx = b[0] - pp[0], dz = b[2] - pp[2], d = sqrtf(dx * dx + dz * dz), r = (float)g_cfg_aggro_range;
     const int haveSt = (perc = PercOf(a, &comp, &ai)) && Rd64(comp + 8, &st) && st;
+    const int seq = AgStandSeq(a);  // user #14546: sequence repeat (no drill)
     if (g_agd.st == 0) {
-        if (d <= r + 100.0f || g_dr.phase != 0 || g_dr.chr == 0) return 0;  // inside range (+1 m hysteresis), or a forced move still plays
+        if (d <= r + 100.0f || (seq ? MvSeqBusy(g_ih.chr) : g_dr.phase != 0 || g_dr.chr == 0)) return 0;  // inside range (+1 m hysteresis), or a forced move / sequence still plays
         g_agd.st = 1; g_agd.a = a; g_agd.t = now; g_agd_best = d;
         InterlockedExchange(&g_dr_hold, 1);
         InterlockedExchange(&g_ih_chase_t, (LONG)(now | 1));
@@ -121,7 +131,7 @@ static uint64_t AgDrillBoss(uint64_t a, uint64_t me, const float* pp, int slow, 
             BossPlace(a, np, AgFacePlayer(np, 0.0f), "aggro walk-up");
             return haveSt ? st : 0;
         }
-        if (g_dr_state == 1) { InterlockedExchange(&g_ih_drill_ai, 1); if (BhAiOn(a) == 0) IhNativeAi(a, 1); }  // IhTick leaves it on while set
+        if (g_dr_state == 1 || seq) { InterlockedExchange(&g_ih_drill_ai, 1); if (BhAiOn(a) == 0) IhNativeAi(a, 1); }  // IhTick leaves it on while set
         if (haveSt) {
             const int idx = AgTarget(a, comp, perc, me, slow);
             if (slow && InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill boss %p: %.1f m from the player, player entry %d, walking up", (void*)a, d / 100.0f, idx);
@@ -159,7 +169,7 @@ static void AggroTick(void) {
     g_ag_t = now;
     uint64_t chase[MV_CHASE_MAX] = {0};
     int nc = 0;
-    if (g_agd.st && (!AgOn(g_agd.a) || g_ag_off || g_ih.phase != 2 || g_ih.actor != g_agd.a || !g_dr.chr))
+    if (g_agd.st && (!AgOn(g_agd.a) || g_ag_off || !AgStandRep(g_agd.a)))
         AgDrillEnd(!AgOn(g_agd.a) ? "aggro off" : g_ag_off ? "aggro faulted" : "stance / drill ended");
     if (AgAny() && !g_ag_off) {
         uint64_t me = PlayerChar(), bs[AG_MAX], session = 0; float pp[4];
@@ -169,7 +179,7 @@ static void AggroTick(void) {
             for (int i = 0; i < n && !g_ag_off; ++i) {
                 uint64_t a = bs[i], comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
                 if (!AgOn(a)) continue;  // user #14309: this boss has aggro OFF
-                if (g_ih.phase == 2 && g_ih.actor == a && g_dr.chr) {  // user #14147: Stand-still drill boss
+                if (AgStandRep(a)) {  // user #14147: Stand-still drill boss; #14546: or a Stand-still sequence repeat
                     const uint64_t cs = AgDrillBoss(a, me, pp, slow, now);
                     if (cs && nc < MV_CHASE_MAX) chase[nc++] = cs;
                     continue;

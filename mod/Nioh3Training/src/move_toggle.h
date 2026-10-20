@@ -96,6 +96,10 @@ static uint32_t g_rep_cur[MV_REP_MAX];               // last action seen while t
 #ifndef MV_FORCE
 #define MV_FORCE(st, id) ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))((st), (uint64_t)(id), 0, 0.0f)
 #endif
+// user #14546: runs right before the sequence head is forced (training.c: aggro.h AgSeqFace, a Stand-still boss with aggro ON turns to the player)
+#ifndef MV_PREFORCE
+#define MV_PREFORCE(st) ((void)0)
+#endif
 static const N3Next* MvSeqLink(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].id == id) return &kN3Next[i]; return 0; }
 // head, next, ... like the menu's SeqChain (training_bosses_menu.h): stops at a repeat, after a looping part, or at idle / init
 static int MvSeqBuild(uint32_t chr, uint32_t head, uint32_t* ids, int cap) {
@@ -124,6 +128,8 @@ static int MvSeqIndex(int i, uint32_t act) { for (int k = 0; k < g_rep_nchain[i]
 static int g_rep_kmax[MV_REP_MAX];                  // highest chain part seen playing this round (-1 none)
 static DWORD g_rep_seen[MV_REP_MAX];                // phase 1: first read of the head (0 = not read yet)
 static volatile LONG g_rep_subs;                    // log cap for pick substitutions
+// user #14546: 1 = this character's sequence repeat is between its head request and its end (aggro.h: no walk-up starts mid-sequence)
+static int MvSeqBusy(uint32_t chr) { const int i = MvRepFind(chr); return i >= 0 && g_rep_id[i] && g_rep_seq[i] && g_rep_phase[i] != 0; }
 static void MvSeqEnd(int i, uint32_t chr, uint32_t act, DWORD now, const char* why) {
     Log("REPEAT chr %u sequence ended (%s, now 0x%X, last 0x%X, %lu ms after the start), gap %d ms", chr, why, act, g_rep_cur[i], now - g_rep_last[i], MvGapFor(chr));
     g_rep_phase[i] = 0; g_rep_end[i] = now ? now : 1; g_rep_cur[i] = 0; g_rep_seen[i] = 0;
@@ -340,7 +346,7 @@ static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
         Log("REPEAT chr %u sequence %s ON (%d parts; the game's links play the rest, the gap starts when the last part ends)", chr, t, g_rep_nchain[i]);
     }
     Log("REPEAT chr %u 0x%X ON (gap %d ms, %s, move %s, hooks %ld)", chr, id, MvGapFor(chr),
-        MvRepStanding(chr) ? "Stand still: drill forces it every gap" : "Fight normally: used at each AI pick",
+        MvRepStanding(chr) ? (seq ? "Stand still: the head is forced after every gap" : "Stand still: drill forces it every gap") : "Fight normally: used at each AI pick",
         MvBlocked(chr, id) ? "OFF (repeat still allowed)" : "ON", (long)g_mv_hooked);
     return 1;
 }
@@ -403,6 +409,7 @@ static __attribute__((noinline)) void MvRepTick(void) {
             const DWORD since = g_rep_end[i] ? now - g_rep_end[i] : 0;
             if (g_rep_phase[i] != 0 || !g_rep_end[i] || since < (DWORD)MvGapFor(chr)) continue;
             if (MvChasing(st)) continue;
+            MV_PREFORCE(st);
             int ok = 1;
             __try { MV_FORCE(st, rep); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
             LONG n = InterlockedIncrement(&g_rep_count[i]);

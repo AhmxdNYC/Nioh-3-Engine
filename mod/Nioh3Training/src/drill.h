@@ -25,6 +25,11 @@ static void DrStop(const char* why) {
     InterlockedExchange(&g_ih_drill_ai, 0);
     InterlockedExchange(&g_dr_state, 0);
 }
+// user #14546: 1 = this character repeats a whole sequence: move_toggle.h MvRepTick forces its head and follows the chain (AI off), the drill
+// stays out of it (it would force the head again mid-chain). aggro.h walks such a boss up with the same rules as the drill.
+#ifndef DR_SEQ
+#define DR_SEQ(chr) 0
+#endif
 #ifndef DR_GAP
 #define DR_GAP(chr) g_cfg_rep_gap
 #endif
@@ -34,8 +39,8 @@ static inline int MvRepStanding(uint32_t chr) { return chr && g_ih.phase == 2 &&
 N3T_API int Nioh3Training_GetDrill(void) { return (int)InterlockedCompareExchange(&g_dr_state, 0, 0); }
 static void DrillTick(void) {
     if (g_dr_off) return;
-    const uint32_t chr = g_ih.phase == 2 ? g_ih.chr : 0, id = chr ? MvRepeatId(chr) : 0;
-    if (!chr || !id || !IhSameActor() || !IhAlive(g_ih.actor)) { if (g_dr.chr) DrStop(!chr ? "stance is not Stand still" : !id ? "repeat stopped" : "boss gone"); return; }
+    const uint32_t chr = g_ih.phase == 2 ? g_ih.chr : 0, seq = chr && DR_SEQ(chr), id = chr && !seq ? MvRepeatId(chr) : 0;
+    if (!chr || !id || !IhSameActor() || !IhAlive(g_ih.actor)) { if (g_dr.chr) DrStop(!chr ? "stance is not Stand still" : seq ? "sequence repeat (forced by the repeat tick)" : !id ? "repeat stopped" : "boss gone"); return; }
     const DWORD now = GetTickCount();
     const int gap = DR_GAP(chr);  // user #14309: per-boss gap (training.c: MvGapFor)
     if (g_dr.chr != chr || g_dr.id != id || g_dr.ctrl != g_ih.ctrl) {

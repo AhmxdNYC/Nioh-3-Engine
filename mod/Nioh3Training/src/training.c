@@ -731,7 +731,7 @@ static __attribute__((noinline)) void GaugeTick(void) {
 static int g_cfg_gate;  // [Return] ReturnGate (defined with the gate code)
 static int g_cfg_autoretry = 1;  // [Summon] AutoRetryOnDeath (merged with jumpfix InstantRespawn #7118). user #13229/#13230: ALWAYS 1 in Training/Rematch (ini and API cannot turn it off); see TrainTick / TrainLost
 static int g_practice_next;  // user #13223: set by Boss Rematch's Practice pages before the session starts; consumed into g_tr.practice
-static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
+static struct { int active, round, nodeath, beaten, hasStart, bodyGone, lost, practice, arena; uint32_t chr, bgm; char tok[32]; DWORD tCmd, tWin, tBeat, tRespawn, tReport, tFade, tFadeAt; uint64_t fadeAct; float pp[4], bp[3], face; } g_tr;  // pp/bp/face: round-1 player and boss spawn pose (bridge 5310)
 // bridge 5467: spawn placement. No native raycast/collision query is known (see TECH_DEBT), so walkability is proven two other ways:
 // (1) the player's own recent trail (0.5 s samples, 20 s): a point the player stood on is on the floor and connected to the player; (2) a post-spawn progress check
 // (VerifyTick): a boss that has not closed in after 5 s is deleted and respawned at the next candidate. Candidate order: trail points 4-9 m away, then a fan around the camera
@@ -831,7 +831,7 @@ static void SpawnTick(void) {
     // ally #89 / #13167: a Training round boss (retry / Training here) in Idle stance is held from its first frame and handed to Idle stance,
     // as the arena boss is, instead of attacking until its first native idle
     if (r && g_sp.boss && g_sp.slot < 0 && g_tr.active && IhWantIdle()) BhStart(r);
-    if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.chr && g_sp.slot < 0; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.chr) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
+    if (r && g_sp.boss) { SummonFinish(r, g_sp.bgm); float ex = p[0] - pos[0], ez = p[2] - pos[2]; g_vf.active = !g_tr.arena && g_sp.slot < 0; g_vf.h = r; g_vf.t0 = GetTickCount();  /* bridge 6566: an arena session (g_tr.arena; was g_tr.chr, #14546) keeps the boss at its round-1 pose; the 5 s 'stuck' verify despawned it and respawned it at a candidate spot */ g_vf.d0 = sqrtf(ex * ex + ez * ez); }
     if (r && g_sp.boss && g_cfg_tr_nodeath_summon && !g_tr_nodeath_now && PlayerSetNoDeath(1)) g_sum_nodeath = 1;  // bridge 12666 ([Summon] SummonNoDeath, default 0 since #13197); SumNoDeathTick turns it off again
     g_sp.active = 0;
 }
@@ -1362,11 +1362,17 @@ static void PoolTick(uint32_t cur) {  // game thread; keep at most g_cfg_pool lo
     for (int k = 0; k < r; ++k) ((void (*)(uint32_t, uint32_t))(B + 0x1C1DF80))(c, 0);
     Log("POOL: released char %u (%d ref(s)) via 1C1DF80, pool was %d (max %d)", c, r, n, g_cfg_pool);
 }
+// boss token (arena row id like R7B35, or a character number) -> character id, 0 = unknown
+static uint32_t TokChr(const char* tok, uint32_t* bgm) {
+    uint32_t chr = 0, b = 0;
+    for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; b = g_rows[i].bgm; break; }
+    if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
+    if (bgm) *bgm = b;
+    return chr;
+}
 static int SummonStart(const char* tok, float d) {
     if (g_sp.active) { Log("SUMMON %s: previous spawn %u still loading", tok, g_sp.id); return 0; }
-    uint32_t chr = 0, bgm = 0;
-    for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; bgm = g_rows[i].bgm; break; }
-    if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
+    uint32_t bgm = 0, chr = TokChr(tok, &bgm);
     if (!chr) { Log("SUMMON: unknown boss '%s'", tok); return 0; }
     if (g_bm.active) { IhKeepForSummon(); BossModeEnd("new summon"); }  // #14304: the held session boss stays idle (slot hold), not AI on
     BgmStop("new summon"); g_vf.attempt = 0; g_vf.active = 0; g_vf.respawnAt = 0;
@@ -1398,6 +1404,9 @@ static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
     TrainClear("train start");
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
+    // user #14546 (live 23:39 'IDLEHOLD adopted the load hold: chr 0'): only the arena path set g_tr.chr, so in a 'Training here' session the
+    // Idle hold, the drill, MvBossChr and aggro saw boss character 0: no drill, Stand-still picks unfiltered, aggro skipped the held boss.
+    g_tr.chr = TokChr(tok, 0);
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
@@ -1436,7 +1445,7 @@ static void TrainStop(const char* why) {
 static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp, float face) {
     IhStop("new arena session", 0);
     if (g_tr.active && g_tr.nodeath) PlayerSetNoDeath(0);
-    memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr;
+    memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", r->id); g_tr.tCmd = GetTickCount(); g_tr.round = 1; g_tr.chr = r->chr; g_tr.arena = 1;
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
@@ -3718,6 +3727,8 @@ static __attribute__((noinline)) void ActLogTick(void) {
 }
 // Boss-specific Training menu preferences, selection veto and commit backstop.
 #define MV_CHASE_MAX (N3T_SLOTS + 1)  // user #14309: one chase entry per Training boss
+static void AgSeqFace(uint64_t st);  // aggro.h, user #14546: a Stand-still sequence boss faces the player before its head is forced
+#define MV_PREFORCE(st) AgSeqFace(st)
 #include "move_toggle.h"
 static void IhNativeAi(uint64_t actor, int on) { ((void (*)(uint64_t))(B + (on ? 0x66982C : 0x668D74)))(actor); }
 static uint32_t IhReadAction(uint64_t ctrl) { return ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); }
@@ -3738,6 +3749,7 @@ static void DrForceNative(uint64_t ctrl, uint32_t id) { ((void (*)(uint64_t, uin
 static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + aggro: the boss turns to the player before each forced move
 #define DR_PREFORCE(a) AgDrillFace(a)
 #define DR_GAP(chr) MvGapFor(chr)  // user #14309: per-boss gap
+#define DR_SEQ(chr) Nioh3Training_GetMoveRepeatSeq(chr)  // user #14546: a sequence repeat is forced by MvRepTick, not the drill
 #include "drill.h"  // user #13529: move drill in the Stand still stance
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
 static int IhIdleStance(void) { return InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) != 0; }
