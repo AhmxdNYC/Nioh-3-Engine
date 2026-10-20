@@ -63,3 +63,14 @@ Change (aggro.h `AgDrillBoss`, only with BossAggro 1; aggro OFF = no change):
   Nioh3BossRematch.asi sha256 242ea4a12981befe1aaf793f4f44a64a5e2beead25a2910a952a7139e0915002. Offline tests + Rematch harness pass.
 - Untested live: whether the HP write sticks (else RecoverFull fallback, which may also refill other things), instant respawn at the floor
   with OFF, Player page navigation / Back from the Return-object page.
+
+## #14267b (live 20:02:00-20:02:31 on Training 57169713): walk-up let the boss use its own moves
+- 0x4E43 (catalogued, kind 0 "motion 6920") started 6.5 s into a walk-up: the old filter released every pick after 6 s. REPEAT 'pick 0x4EA8 -> 0x4E52'
+  came in the 'arrived, AI on until idle' part (no filter there). Distance grew 6.5 -> 8.7 m while 'walking up' (with attacks filtered the AI did
+  not walk), and walk-up restarted at 5.3 / 5.9 m right after arriving at 5.0 m (no hysteresis). 2075 IDLEHOLD transition lines in 31 s.
+- Fix: IhSelect during the whole walk-up and the arrived-until-idle part passes only kind 'M' rows, idle and ids < 0x4E20; every other
+  id >= 0x4E20 (incl. kind 0 and uncatalogued) -> idle. Walk-up starts only beyond AggroRangeCm + 1 m, ends at AggroRangeCm. No closing by 0.5 m within
+  [Training] AggroWalkTimeoutMs (6000) -> BossPlace at AggroRangeCm - 1 m from the player, facing the player. IDLEHOLD transition log <= 1 line / 2 s
+  (with a suppressed count); AGGRO walk-up lines share the 200-line cap.
+- Build: Nioh3Training.asi sha256 dee2e54f478f0bf1d45f95fa70477667350fcef0267bd9f7daba9c90e2879fe7 (Rematch unchanged 242ea4a1...).
+- Untested live: whether the AI walks with only locomotion allowed (else the 6 s placement kicks in), BossPlace (never run live), 66C330 in BossPlace.

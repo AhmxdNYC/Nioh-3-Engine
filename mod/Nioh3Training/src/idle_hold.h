@@ -7,8 +7,7 @@ static volatile LONG g_ih_default_pending, g_ih_idle_stance;
 // user #13529 (drill.h): 1 = the move drill switched the AI on for its fallback; the 100 ms re-check leaves it on while set
 static volatile LONG g_ih_drill_ai;
 // user #14147 (aggro.h): GetTickCount()|1 while 'Boss aggro on me' walks a Stand-still boss up to the player (AI on); 0 = no walk-up.
-// While set, IhSelect lets the AI's movement picks pass (walk / run / step; M / T / L / I rows) and turns attacks / unclassified moves into idle for the first 6 s of the
-// walk-up; after that every pick passes, so a boss whose AI only closes in with a lunge still arrives.
+// While set, IhSelect lets only locomotion picks pass (kind 'M', ids < 0x4E20) for the whole walk-up; everything else -> idle (#14267).
 static volatile LONG g_ih_chase_t;
 static DWORD g_ih_default_start;
 static int g_ih_default_round;
@@ -96,23 +95,27 @@ static int IhAdoptBossHold(uint32_t handle, uint64_t actor) {
     Log("IDLEHOLD adopted the load hold: chr %u actor %p stays idle (Training Idle stance)", g_ih.chr, (void*)actor);
     return 1;
 }
+static DWORD g_ih_sel_tlog; static LONG g_ih_sel_quiet;  // #14267: IDLEHOLD transition log, at most one line per 2 s (+ suppressed count)
 static uint32_t IhSelect(uint64_t st, uint32_t id) {
     // Only substitute an ordinary, catalogued move at the existing native transition.
     // Unknown/status/reaction IDs pass through. Never force an action mid-animation.
+    // user #14147 / #14267: during the aggro walk-up (g_ih_chase_t) ONLY locomotion passes for the whole walk-up: kind 'M' rows, idle 0x2 and
+    // ids < 0x4E20; every other id >= 0x4E20 (attacks, wind-ups, links, twitches, unclassified '0' rows like 0x4E43, and uncatalogued ids) -> idle.
+    const LONG chase = InterlockedCompareExchange(&g_ih_chase_t, 0, 0);
+    const int k = id >= 0x4E20 ? N3MoveFind(g_ih.chr, id) : -1;
     if (!g_ih.phase || !g_tr.active || !g_bm.active || g_bm.id != g_ih.handle ||
         g_tr.chr != g_ih.chr || g_tr.round != g_ih_seen_round || g_tr.tCmd != g_ih_seen_start ||
         st != g_ih.ctrl || id < 0x4E20 ||
-        N3MoveFind(g_ih.chr, id) < 0 ||
+        (k < 0 && !chase) ||
         InterlockedCompareExchange(&g_ih_request, 0, 0) != g_ih.epoch ||
         InterlockedCompareExchange(&g_ih_epoch, 0, 0) != g_ih.epoch ||
         !IhSameActor() || IhForeignHold() || !IhEligible(g_ih.actor, g_ih.ctrl)) return id;
-    const LONG chase = InterlockedCompareExchange(&g_ih_chase_t, 0, 0);
-    if (chase) {  // user #14147: aggro walk-up in Stand still
-        const int k = N3MoveFind(g_ih.chr, id);
-        const char kind = k >= 0 ? kN3Moves[k].kind : 0;
-        if (kind == 'M' || kind == 'T' || kind == 'L' || kind == 'I' || (int)(GetTickCount() - (DWORD)chase) >= 6000) return id;  // attacks / wind-ups / unclassified -> idle
-    }
-    Log("IDLEHOLD transition chr %u 0x%X -> idle 0x2", g_ih.chr, id);
+    if (chase && k >= 0 && kN3Moves[k].kind == 'M') return id;  // walk-up: movement passes
+    const DWORD now = GetTickCount();
+    if (now - g_ih_sel_tlog >= 2000) {
+        Log("IDLEHOLD transition chr %u 0x%X -> idle 0x2%s (%ld more since the last line)", g_ih.chr, id, chase ? " (aggro walk-up: locomotion only)" : "", g_ih_sel_quiet);
+        g_ih_sel_tlog = now; g_ih_sel_quiet = 0;
+    } else ++g_ih_sel_quiet;
     return 2;
 }
 static void IhTick(void) {

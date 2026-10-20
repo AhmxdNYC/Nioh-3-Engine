@@ -4703,7 +4703,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
         MvLoadPrefs(ini);
         g_cfg_aggro = GetPrivateProfileIntA("Training", "BossAggro", 0, ini) != 0; g_cfg_aggro_range = GetPrivateProfileIntA("Training", "AggroRangeCm", 500, ini); if (g_cfg_aggro_range < 100) g_cfg_aggro_range = 100;
-        g_cfg_aggro_face = GetPrivateProfileIntA("Training", "AggroFace", 1, ini) != 0;  // user #14147
+        g_cfg_aggro_face = GetPrivateProfileIntA("Training", "AggroFace", 1, ini) != 0; g_cfg_aggro_walk_ms = GetPrivateProfileIntA("Training", "AggroWalkTimeoutMs", 6000, ini);  // user #14147 / #14267
         Log("BossAggro %d, AggroRangeCm %d, AggroFace %d (user #13787 / #14147: Training bosses keep the player as target and close in before the repeat, Stand still too)", g_cfg_aggro, g_cfg_aggro_range, g_cfg_aggro_face);
         g_cfg_actlog = GetPrivateProfileIntA("Summon", "ActionLog", 1, ini); Log("ActionLog %d (#9508 boss current-action id log + Nioh3Training_actions.tsv)", g_cfg_actlog);
         g_cfg_kibreak_log = GetPrivateProfileIntA("Summon", "KiBreakLog", 1, ini); Log("KiBreakLog %d (#7290 passive Ki-break / grapple finisher log, read only)", g_cfg_kibreak_log);

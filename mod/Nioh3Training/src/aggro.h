@@ -62,7 +62,7 @@ static void AgDrillEnd(const char* why) {
     InterlockedExchange(&g_ih_chase_t, 0);
     if (ours) { InterlockedExchange(&g_ih_drill_ai, 0); if (IhAlive(a) && BhAiOn(a) == 1) IhNativeAi(a, 0); }
     InterlockedExchange(&g_dr_hold, 0);
-    Log("AGGRO drill walk-up end (%s): boss %p%s, %lu ms", why, (void*)a, ours ? ", AI off again, drill resumes" : "", GetTickCount() - g_agd.t);
+    if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill walk-up end (%s): boss %p%s, %lu ms", why, (void*)a, ours ? ", AI off again, drill resumes" : "", GetTickCount() - g_agd.t);
     memset(&g_agd, 0, sizeof g_agd);
 }
 static void AgDrillFace(uint64_t a) {
@@ -80,36 +80,53 @@ static void AgDrillFace(uint64_t a) {
     if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p turned to the player (yaw %.1f) before the forced move", (void*)a, yaw);
 }
 // One Stand-still drill boss (g_ih.actor). Returns its AI state when it must be in g_mv_chase this tick, else 0.
+// #14267 (live 20:02): hysteresis = walk-up starts only beyond AggroRangeCm + 100 (never while the player is inside the range) and ends at
+// AggroRangeCm; the 'arrived, AI on until idle' part keeps the locomotion-only filter, so the AI cannot start an attack before the drill does.
+// The AI walked away / stood (6.5 -> 8.7 m) with its attacks filtered: no closing by >= 0.5 m within AggroWalkTimeoutMs (default 6000, 0 = never)
+// -> the boss is placed AggroRangeCm - 100 from the player on its own side, facing the player (BossPlace, the Reset boss position mover).
+static int g_cfg_aggro_walk_ms = 6000;
+static __attribute__((noinline)) int BossPlace(uint64_t a, const float* p3, float yawDeg, const char* who);
+static float g_agd_best;
 static uint64_t AgDrillBoss(uint64_t a, uint64_t me, const float* pp, int slow, DWORD now) {
     uint64_t comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
     if (!IhAlive(a) || (g_bh.phase && g_bh.a == a)) { AgDrillEnd("boss dead / load hold"); return 0; }
     if (!Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) return 0;
     float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
     const float dx = b[0] - pp[0], dz = b[2] - pp[2], d = sqrtf(dx * dx + dz * dz), r = (float)g_cfg_aggro_range;
+    const int haveSt = (perc = PercOf(a, &comp, &ai)) && Rd64(comp + 8, &st) && st;
     if (g_agd.st == 0) {
-        if (d <= r || g_dr.phase != 0 || g_dr.chr == 0) return 0;  // in range, or a forced move still plays: the drill goes on
-        g_agd.st = 1; g_agd.a = a; g_agd.t = now;
+        if (d <= r + 100.0f || g_dr.phase != 0 || g_dr.chr == 0) return 0;  // inside range (+1 m hysteresis), or a forced move still plays
+        g_agd.st = 1; g_agd.a = a; g_agd.t = now; g_agd_best = d;
         InterlockedExchange(&g_dr_hold, 1);
         InterlockedExchange(&g_ih_chase_t, (LONG)(now | 1));
-        Log("AGGRO drill: boss %p is %.1f m from the player (range %.1f m): AI on, it walks up (drill paused)", (void*)a, d / 100.0f, r / 100.0f);
+        if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p is %.1f m from the player (range %.1f m + 1 m): AI on, it walks up (drill paused, locomotion only)", (void*)a, d / 100.0f, r / 100.0f);
     }
     if (g_agd.st == 1) {
         if (d <= r) {
-            g_agd.st = 2; g_agd.t = now; InterlockedExchange(&g_ih_chase_t, 0);
-            Log("AGGRO drill: boss %p arrived (%.1f m): AI off at its next idle, then the drill move", (void*)a, d / 100.0f);
-            return 0;
+            g_agd.st = 2; g_agd.t = now;
+            if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p arrived (%.1f m): AI off at its next idle, then the drill move", (void*)a, d / 100.0f);
+            return haveSt ? st : 0;
+        }
+        if (d < g_agd_best - 50.0f) { g_agd_best = d; g_agd.t = now; }  // progress: restart the no-progress clock
+        if (g_cfg_aggro_walk_ms > 0 && now - g_agd.t >= (DWORD)g_cfg_aggro_walk_ms) {
+            const float k = (r - 100.0f > 100.0f ? r - 100.0f : 100.0f) / (d > 1.0f ? d : 1.0f);
+            const float np[3] = {pp[0] + dx * k, b[1], pp[2] + dz * k};
+            Log("AGGRO drill: boss %p did not close in for %d ms (%.1f m): placed %.1f m from the player", (void*)a, g_cfg_aggro_walk_ms, d / 100.0f, (r - 100.0f) / 100.0f);
+            g_agd.st = 2; g_agd.t = now;
+            BossPlace(a, np, AgFacePlayer(np, 0.0f), "aggro walk-up");
+            return haveSt ? st : 0;
         }
         if (g_dr_state == 1) { InterlockedExchange(&g_ih_drill_ai, 1); if (BhAiOn(a) == 0) IhNativeAi(a, 1); }  // IhTick leaves it on while set
-        if ((perc = PercOf(a, &comp, &ai)) && Rd64(comp + 8, &st) && st) {
+        if (haveSt) {
             const int idx = AgTarget(a, comp, perc, me, slow);
             if (slow && InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill boss %p: %.1f m from the player, player entry %d, walking up", (void*)a, d / 100.0f, idx);
             return st;
         }
         return 0;
     }
-    // st 2: arrived; the AI may be mid-step: wait for idle 0x2 (or 4 s) before taking the AI off
-    if (IhReadAction(g_ih.ctrl) == 2 || now - g_agd.t >= 4000) AgDrillEnd("in range");
-    return 0;
+    // st 2: arrived; the AI may be mid-step: wait for idle 0x2 (or 4 s) before taking the AI off; still locomotion only meanwhile
+    if (IhReadAction(g_ih.ctrl) == 2 || now - g_agd.t >= 4000) { AgDrillEnd("in range"); return 0; }
+    return haveSt ? st : 0;
 }
 static void AggroTick(void) {
     DWORD now = GetTickCount();

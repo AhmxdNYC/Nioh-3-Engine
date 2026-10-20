@@ -97,8 +97,10 @@ int main(void) {
             g_ih_chase_t = (LONG)(clock_ms | 1);
             assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
             if (km >= 0) assert(IhSelect(0x3000, kN3Moves[km].id) == kN3Moves[km].id);
-            clock_ms += 6001; assert(IhSelect(0x3000, kN3Moves[ka].id) == kN3Moves[ka].id);
-            g_ih_chase_t = 0; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);
+            clock_ms += 60000; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2);  // #14267: whole walk-up, no 6 s release
+            assert(IhSelect(0x3000, 0x4FFF) == 2);  // uncatalogued id >= 0x4E20 during the walk-up -> idle
+            assert(IhSelect(0x3000, 0x6B) == 0x6B);  // locomotion < 0x4E20 passes
+            g_ih_chase_t = 0; assert(IhSelect(0x3000, kN3Moves[ka].id) == 2 && IhSelect(0x3000, 0x4FFF) == 0x4FFF);  // no walk-up: uncatalogued passes
         }
     }
     puts("PASS: drill forces the picked move every gap while standing still (AI off), waits for idle / eligibility, stops with the repeat / stance / boss, AI-on fallback after 3 failed forces, aggro walk-up hold (#14147)");
