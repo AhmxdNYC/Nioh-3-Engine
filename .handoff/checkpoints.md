@@ -291,5 +291,28 @@ The one open item is still your test of the installed fix. Every task is done or
 Nioh 3 is still running (process 25928) on the fixed build. The Training log hasn't been written since 10:42 pm EST, before the install, so the new build hasn't played a sequence yet. The newest sequence lines are still from the old build, where one repeat ran 30 s without ending.
 
 Please summon a boss, pick a sequence, and tell me what it does. I'll read the new log lines and fix whatever shows up.
+- 2026-10-19 11:56 pm EDT | #14546 triage: live AGGRO Boss A ON with no later aggro trace, chr 0 idle-hold and chr 16102 sequence loop | likely routing conflict, fix unproven | PC2 TASK #14550 implement/build/game-test; pc install after RESULT | source mod/Nioh3Training/src/aggro.h, drill.h, move_toggle.h at 2eb32369; no code changed.
 
-2026-10-19 9:09 pm EST pc2 | #14550 Aggro me for Train here FIXED on pc2/aggro-drill-14550 58ccb39 (base boss-hpki 2eb32369), Training sha 102d9604be7e | proven live on pc2: ON walk-up/place 10.1->4 m + facing, hits land; OFF no aggro | next: pc merges into boss-hpki + main-PC install; natural walk-up still stalls (place fallback) | captures/pc2-aggro14550/run1, tools/testmatrix/aggro14550_pc2.ps1
+- 2026-10-19 11:57 PM EDT | #14549 ownership overlap reconciled; findings delivered #14554, PC2 stop/re-scope sent #14555 | no fix or runtime validation claimed; acknowledgement pending | next pc build -> PC2 validation | handoff-only, no code changes
+
+- 2026-10-19 11:57 PM EDT | PC2 stand-down confirmed by #14559 | duplicate ownership resolved, game fix unverified | next pc completes build and schedules validation | next.md, owners.md
+
+- 2026-10-19 11:59 PM EDT | #14563/#14564 local-only directive recorded, PC2 cancellation sent #14568, current pc owner notified #14569 | no fix/runtime result claimed; cancellation acknowledgement pending | next pc completes local build/test/relaunch and pings user | .handoff/user-directives.md, next.md, owners.md
+
+- 2026-10-20 12:00 AM EDT | #14570 PC2 cancellation confirmed including validation | zero PC2 launches/installs; main-PC fix unverified | next pc completes local fix/test/relaunch #14569; progress request #14573 outstanding | handoff next.md/owners.md
+
+- 2026-10-20 12:02 AM EDT | #14577 Codex-only worker directive persisted and relayed to active fix owner | model preference confirmed by user; fix/relaunch not yet verified | next pc reports local fix/test/relaunch | .handoff/user-directives.md, next.md, owners.md
+
+- 2026-10-20 12:03 AM EDT | #14580 pc reports missing Train-here boss id as aggro cause | fix in progress, no build/runtime result yet | next pc builds and tests/relaunches locally with Codex workers; no PC2 validation | pc/boss-hpki; .handoff/next.md, owners.md
+2026-10-20 00:06 pc: INSTALLED db12513d (Training 569F81FB, Rematch unchanged 28b7f5f2) drill-aggro fix #14546 (Train-here boss id + Stand-still sequence walk-up); game PID 9076 relaunched; backup captures/pc/play-20261019-pre-aggro14546. Offline tests pass; UNPROVEN in game: boss walks up during a drill with Aggro me ON.
+
+- 2026-10-20 12:06 AM EDT | #14588 installation/relaunch reported by pc: db12513d / Training 569F81FB / PID 9076 | Offline tests pass per pc; runtime aggro unproven | Next: pc validates main-PC Train here Stand still drill Aggro OFF/ON in existing thread; no PC2 test.
+
+- 2026-10-20 12:06 AM EDT | #14591 reconciled as install acknowledgement, not new runtime evidence | 1 install/relaunch reported; drill approach still unproven | Next pc: complete existing #14592 validation or controller-ready player check; no duplicate install.
+
+- 2026-10-20 12:07 AM EDT | #14595 integration constraint recorded | install hashes reported by pc; aggro runtime still unproven | next pc finishes existing validation; compare alternative only on failure | next.md, owners.md; no code changed
+
+- 2026-10-20 12:07 AM EDT | #14605 player follow-up verified in needs-player.md | test pending; controller readiness reported by pc | next pc reviews AGGRO/REPEAT after player check | next.md, owners.md; no code change
+2026-10-20 00:10 | Task: multi-boss/menu-cleanup build + sequence/aggro fixes (#14291..#14546) | DONE+installed: db12513d on pc/boss-hpki (worktree ../nioh3-boss-hpki): Training 569f81fb, Rematch 58c016b7; game PID 9076 running; backup captures/pc/play-20261020-pre-aggro14546 | UNPROVEN in game: sequence full chain, Aggro me walk-up during drill/sequence (needs-player.md item), Train-here idle | NEXT: after user test read Nioh3Training.log AGGRO/REPEAT lines, fix issues; alt fix pc2/aggro-drill-14550 (4784ea32) only if db12513d fails; EngineFix label rename not rebuilt (readfix.cpp uncommitted in main); boss-hpki not merged to main yet
+
+2026-10-19 9:12 pm EST pc2 | task #14550 (Aggro me for Train here): DONE + live-tested on pc2, RESULT sent to cxl-pc and pc | nothing half-done | next: pc merges pc2/aggro-drill-14550 (58ccb39) into boss-hpki and installs on main PC; optional: ledge fall guard, natural walk-up stalls (TECH_DEBT) | worktree ../nioh3-aggro-14550, captures/pc2-aggro14550/run1
