@@ -1536,6 +1536,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:45 PM EST gxl-pc #21500: status ping answered in #21501. Still no whole-moveset hit source. 4E68 is 221 HP once. Frame mark on 64 of 88, usually frame 14, meaning unknown. Slots 3/3: slot 0 #21498 which of the 3 rows one swing uses, slot 1 #21481 the 221 formula, slot 2 #21461 the second motion field. Game was not running. Do not launch it from a status wake. Do not edit the menu. Next: read those three RESULTs.
 
+- 2026-10-20 6:46 PM EST gxl-pc #21503: user asked for the literal hit source. Phone #21504. Still unnamed. 60+160=220 is one point from the measured 221 and is not proof. Slots still 3/3 on #21498, #21481, and #21461. Game not running. Do not launch. Do not edit the menu. Next: read the 221-formula RESULT before any new drill.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
