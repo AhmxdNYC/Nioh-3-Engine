@@ -2302,6 +2302,8 @@ bool MoveRepeating(const N3Move& move) {
     const uint32_t rep = f(move.chr);
     return rep && rep == move.id;  // 0 = no repeat (move 0x0000 must not show RPT)
 }
+// user #14423: 1 = this boss repeats the whole sequence (not just the move); older Training builds have no flag (= single move)
+bool RepeatIsSeq(uint32_t chr) { using Fn = int (*)(uint32_t); const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveRepeatSeq"); return f && f(chr) == 1; }
 bool IsMoveItem(int item) { return item >= kItMoveBase && item < kItMoveBase + N3_MOVE_COUNT; }
 // user #13618: fighting-game repeat controls. On a move row A = ON / OFF, Right = ALWAYS 'repeat this move' (an OFF move is switched ON
 // first), Left = stop the repeat. 'Repeat selected move' (top row) repeats the last move the user pressed a button on, else the first ON
@@ -2360,14 +2362,15 @@ void RepeatFail(const char* src, const N3Move* m, const char* why) {
     snprintf(g_msg, sizeof g_msg, "Repeat failed: %s", why);
     ToastF(cRed, 2000, "Repeat failed: %s", why);
 }
-bool RepeatArm(const N3Move* m, const char* src) {
+// user #14423: seq = repeat the whole sequence that starts with m (Training follows the chain: the game's links play, then the gap)
+bool RepeatArm(const N3Move* m, const char* src, bool seq = false) {
     using RepFn = int (*)(uint32_t, uint32_t, int);
     using SetFn = int (*)(uint32_t, uint32_t, int, int);
-    const auto rep = (RepFn)TrainingExport("Nioh3Training_SetMoveRepeat");
+    const auto rep = (RepFn)TrainingExport(seq ? "Nioh3Training_SetMoveRepeatSeq" : "Nioh3Training_SetMoveRepeat");
     if (!m) { RepeatFail(src, m, "no move to repeat. Open a move group and press A on a move."); return false; }
     if (m->chr != MoveBoss()) { RepeatFail(src, m, "the boss changed; reopen its page."); return false; }
     if (N3MoveProtected(m->id)) { RepeatFail(src, m, "idle / initialization cannot be repeated. Pick an attack."); return false; }
-    if (!rep || !TrainingExport("Nioh3Training_GetMoveRepeat")) { RepeatFail(src, m, "this Nioh3Training.asi has no repeat (update it)."); return false; }
+    if (!rep || !TrainingExport("Nioh3Training_GetMoveRepeat")) { RepeatFail(src, m, seq ? "this Nioh3Training.asi has no sequence repeat (update it)." : "this Nioh3Training.asi has no repeat (update it)."); return false; }
     const int old = MoveAllowed(*m);
     bool switchedOn = false;
     if (old == 0) {  // repeat on an OFF move: switch it ON first, then repeat it
@@ -2387,7 +2390,7 @@ bool RepeatArm(const N3Move* m, const char* src) {
     const auto hs = (StatusFn)TrainingExport("Nioh3Training_GetMoveHookStatus");
     const int hook = hs ? hs() : 0, hold = IdleHoldStatus();
     const bool noHook = hook < 0 && hold != 2;  // Fight normally needs the select hook; Stand still forces the move itself (drill)
-    Log("Rematch: REPEAT arm (%s) chr %u 0x%X %s%s -> ON, stance %d, gap %d ms, hooks %d: %s", src, m->chr, m->id, MoveName(*m),
+    Log("Rematch: REPEAT arm (%s) chr %u 0x%X%s %s%s -> ON, stance %d, gap %d ms, hooks %d: %s", src, m->chr, m->id, seq ? " sequence" : "", MoveName(*m),
         switchedOn ? " (was OFF, switched ON)" : "", hold, RepGapGet(), hook, what);
     snprintf(g_msg, sizeof g_msg, "Repeat ON 0x%04X: %s.%s A again stops.", m->id, what, switchedOn ? " (Move switched ON.)" : "");
     if (noHook) ToastF(cOrange, 2000, "Repeat 0x%04X set, but move hooks failed: only works in Stand still. %s", m->id, what);
@@ -2401,7 +2404,7 @@ void MoveToggle(int item, int dir) {
     if (move.chr != MoveBoss()) { snprintf(g_msg, sizeof g_msg, "The boss changed; reopen its page."); return; }
     // user #13623 / #14336 item 4: A = 'Repeat this move' ON / OFF (one repeat per boss: ON here moves it off any other move).
     // Left / Right = may the boss use this move on its own (OFF = never). No hidden key tricks.
-    if (dir == 0) { if (MoveRepeating(move)) RepeatStop("A on move"); else RepeatArm(&move, "A on move"); return; }
+    if (dir == 0) { if (MoveRepeating(move) && !RepeatIsSeq(move.chr)) RepeatStop("A on move"); else RepeatArm(&move, "A on move"); return; }  // #14423: A on the head of a repeating sequence = repeat just this move
     if (N3MoveProtected(move.id)) { snprintf(g_msg, sizeof g_msg, "Idle and initialization stay ON so the boss can resume after a skipped move."); return; }
     using Fn = int (*)(uint32_t, uint32_t, int, int);
     const auto f = (Fn)TrainingExport("Nioh3Training_SetMoveAllowed");
@@ -3403,14 +3406,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItBossRemove) add(sel ? cWhite : cGray, sel, "%s Remove this boss   press A", mk);
         else if (IsSeqItem(it[i])) {  // user #14317: '0x4E5C > 0x4E60 > 0x4E61 (loops)   Repeat ON'
             const auto& m = kN3Moves[it[i] - kItSeqBase];
-            const bool rpt = MoveRepeating(m);
+            const bool rpt = MoveRepeating(m) && RepeatIsSeq(m.chr);
             char seq[72]; SeqText(m, seq, sizeof seq);
             add(sel ? cWhite : rpt ? cYellow : cGray, sel, "%s %-44s %.24s   Repeat %s", mk, seq, MoveName(m), rpt ? "ON" : "OFF");
         }
         else if (IsMoveItem(it[i])) {  // #14336 item 4: one 'Repeat ON / OFF' per row, 'Used ON / OFF' = the boss may pick it
             const auto& move = kN3Moves[it[i] - kItMoveBase];
             const int allowed = MoveAllowed(move);
-            const bool rpt = MoveRepeating(move);
+            const bool rpt = MoveRepeating(move) && !RepeatIsSeq(move.chr);  // #14423: a sequence repeat shows on its Sequences row
             char msTxt[12] = "";  // user #13786: typical natural run time from the Training logs
             if (move.ms && !N3MoveProtected(move.id)) snprintf(msTxt, sizeof msTxt, "%u.%us", move.ms / 1000u, (move.ms % 1000u) / 100u);
             if (N3MoveProtected(move.id)) add(sel ? cWhite : cDim, sel, "%s 0x%04X  Idle / initialization (required, always used)", mk, move.id);

@@ -16,6 +16,10 @@ static int RepSet(unsigned chr, unsigned id, int on) {
     ++repArms; repChr = chr; repId = id; return 1;
 }
 static unsigned RepGet(unsigned chr) { return chr == repChr ? repId : 0; }
+static int repSeq, repSeqArms;  // user #14423: sequence repeat (whole chain)
+static int RepSetSeq(unsigned chr, unsigned id, int on) { const int r = RepSet(chr, id, on); repSeq = on && r; repSeqArms += on && r; return r; }
+static int RepSetOne(unsigned chr, unsigned id, int on) { repSeq = 0; return RepSet(chr, id, on); }
+static int RepGetSeq(unsigned chr) { return chr == repChr && repId && repSeq; }
 // slots: A = Yoritomo (live), the rest empty; 26 letters
 static unsigned slotChr[26] = {16102u};
 static int SlotCount() { return 26; }
@@ -63,7 +67,7 @@ static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
     EXPORT("GetTuning", TuneGet); EXPORT("SetTuning", TuneSet);
     EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
-    EXPORT("SetMoveRepeat", RepSet); EXPORT("GetMoveRepeat", RepGet);
+    EXPORT("SetMoveRepeat", RepSetOne); EXPORT("GetMoveRepeat", RepGet); EXPORT("SetMoveRepeatSeq", RepSetSeq); EXPORT("GetMoveRepeatSeq", RepGetSeq);
     EXPORT("SlotCount", SlotCount); EXPORT("SlotChr", SlotChrX); EXPORT("GetSlotStance", GetSlotStance); EXPORT("SetSlotStance", SetSlotStance);
     EXPORT("GetSlotAggro", GetSlotAggro); EXPORT("SetSlotAggro", SetSlotAggro); EXPORT("GetRepeatGapChr", GetGapChr); EXPORT("SetRepeatGapChr", SetGapChr);
     EXPORT("ResetSlotPos", ResetSlotPos); EXPORT("DespawnSlot", DespawnSlot); EXPORT("DespawnAll", DespawnAll);
@@ -174,8 +178,12 @@ int main() {
         CHECK(SeqChain(16102u, h.id, ids, 8, &loop) >= 2);
         uint32_t c5[8]; bool l5 = false; CHECK(SeqChain(16102u, 0x4E5C, c5, 8, &l5) == 3 && c5[1] == 0x4E60 && c5[2] == 0x4E61 && l5);
         CHECK(SeqHead(16102u, 0x4E5C) && !SeqHead(16102u, 0x4E60) && !SeqHead(16102u, 0x2));
-        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == h.id);
+        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == h.id && RepGetSeq(16102) && repSeqArms == 1);  // #14423: armed as a whole sequence
         CHECK(shown(" > ", "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Sequences"));
+        CHECK(!UiAct() && !RepGet(16102));
+        // a single-move repeat of the head is not shown as the sequence repeating; A on the row arms the sequence instead of stopping
+        RepSetOne(16102u, h.id, 1); list(); CHECK(shown(" > ", "Repeat OFF"));
+        CHECK(!UiAct() && RepGetSeq(16102) && repSeqArms == 2);
         CHECK(!UiAct() && !RepGet(16102));
     }
     CHECK(!UiBack() && g_uiPages.page == uBoss);

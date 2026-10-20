@@ -179,9 +179,9 @@ void SeqText(const N3Move& m, char* b, size_t n) {
 void SeqToggle(int item, int dir) {  // A flips the repeat of this sequence, Right = repeat, Left = stop
     const N3Move& m = kN3Moves[item - kItSeqBase];
     if (m.chr != MoveBoss()) { snprintf(g_msg, sizeof g_msg, "The boss changed; reopen its page."); return; }
-    const bool on = MoveRepeating(m);
+    const bool on = MoveRepeating(m) && RepeatIsSeq(m.chr);  // user #14423: the whole sequence repeats (not only its first move)
     if (dir < 0 || (dir == 0 && on)) { if (on) RepeatStop("sequence row"); return; }
-    if (RepeatArm(&m, "sequence row")) {
+    if (RepeatArm(&m, "sequence row", true)) {
         char seq[80]; SeqText(m, seq, sizeof seq);
         snprintf(g_msg, sizeof g_msg, "Repeating the sequence %s: the boss starts it, the game plays the rest, then the gap. A again stops.", seq);
     }

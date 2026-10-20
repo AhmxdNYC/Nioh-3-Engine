@@ -13,7 +13,11 @@ static struct { int active; uint32_t id; uint64_t actor; } g_bm;
 // bridge 12666 summon slots (none in this fixture) and the pump-side natives move_toggle.h now uses
 static int g_nsp; static uint64_t g_sp_actor[2]; static uint32_t g_sp_chr[2];
 static uint32_t Nioh3Training_SlotChr(int slot) { (void)slot; return 0; }
-static uint32_t ActIdOf(uint64_t st) { (void)st; return 0xFFFFFFFFu; }
+static uint32_t cur_act = 0xFFFFFFFFu, forced_id, forced_n;  // user #14423: the boss's live action and the forced-transition stand-in
+static uint32_t ActIdOf(uint64_t st) { (void)st; return cur_act; }
+static DWORD fake_now = 1;
+#define GetTickCount() (fake_now)
+#define MV_FORCE(st, id) (forced_id = (uint32_t)(id), ++forced_n, cur_act = (uint32_t)(id))
 static int standing;  // drill.h MvRepStanding stand-in
 
 static int read_ok = 1, hook_calls;
@@ -49,7 +53,6 @@ static void Pick(uint32_t id) {
     for (int i = 0; i < 10; ++i) selected[i] = id;
 }
 int main(void) {
-    (void)MvRepTick;  // pump-only (needs the game image)
     assert(N3_MOVE_COUNT == 361);
     // Startup: no Training session, no boss identity, and no game image needed.
     assert(!g_tr.active && !g_bm.active && !B);
@@ -182,6 +185,50 @@ int main(void) {
         assert(Nioh3Training_SetRepeatGapChr(16102u, 99999, 0) == MV_REP_GAP_MAX && Nioh3Training_SetRepeatGapChr(0u, 100, 0) == -1);
         g_cfg_rep_gap = 0;
         printf("PASS: repeat armed on %d editable entries (%d unlabelled), OFF moves too, protected / unknown refused, table limit %d\n", armed, unlabelled, MV_REP_MAX);
+    }
+    // user #14423: 'Sequences' repeat of Yoritomo 0x4E7B > 0x4EA7. The AI pick during a part becomes the game's own next link (never the head
+    // again), the last part gets idle, the gap starts only when the action leaves the chain, then the head is picked / forced again.
+    {
+        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
+        assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500);
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E7B, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E7B && Nioh3Training_GetMoveRepeatSeq(16102u) == 1);
+        int ri = MvRepFind(16102u); assert(ri >= 0 && g_rep_nchain[ri] == 2 && g_rep_chain[ri][0] == 0x4E7B && g_rep_chain[ri][1] == 0x4EA7);
+        uint32_t c5[MV_SEQ_MAX]; assert(MvSeqBuild(16102u, 0x4E5C, c5, MV_SEQ_MAX) == 3 && c5[1] == 0x4E60 && c5[2] == 0x4E61);  // same chain as the menu
+        assert(MvSeqBuild(16102u, 0x4E30, c5, MV_SEQ_MAX) == 2 && c5[1] == 0x4E31);  // looping part kept once
+        forced_n = 0;
+        // idle, first AI pick (0x4E30): the head. Still idle: keep asking; the pump forces it after 500 ms in idle.
+        cur_act = 2; fake_now = 1000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);
+        fake_now = 1100; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);
+        fake_now = 1400; MvRepTick(); assert(forced_n == 0);
+        fake_now = 1600; MvRepTick(); assert(forced_n == 1 && forced_id == 0x4E7B && cur_act == 0x4E7B);
+        // head plays: every AI pick (the bug: 0x4E30 -> 0x4E7B every 500 ms) is the next link 0x4EA7; no force, no gap
+        for (DWORD t = 1620; t < 3300; t += 17) { fake_now = t; Pick(t & 1 ? 0x4E30 : 0x4E55); assert(h_mvsel(0x3000, 0) == 0x4EA7); MvRepTick(); assert(forced_n == 1); }
+        cur_act = 0xFFFF; fake_now = 3310; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4EA7); MvRepTick(); assert(forced_n == 1);  // transition frame
+        // last part: idle pick (nothing cuts in), still no gap / force
+        cur_act = 0x4EA7; for (DWORD t = 3320; t < 3800; t += 17) { fake_now = t; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2); Pick(2); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); assert(forced_n == 1); }
+        assert(g_rep_phase[ri] == 2 && g_rep_end[ri] == 0);
+        // the chain ends (back to idle): the gap starts now (3800), not at the head's first frame
+        cur_act = 2; fake_now = 3800; MvRepTick(); assert(forced_n == 1 && g_rep_phase[ri] == 0 && g_rep_end[ri] == 3800);
+        fake_now = 4000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2); MvRepTick(); assert(forced_n == 1);
+        fake_now = 4299; MvRepTick(); assert(forced_n == 1);
+        fake_now = 4300; MvRepTick(); assert(forced_n == 2 && forced_id == 0x4E7B && g_rep_phase[ri] == 1);  // gap passed: head forced
+        fake_now = 4320; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4EA7 && g_rep_phase[ri] == 2);
+        // a reaction (hit) leaves the chain: counted as ended, gap, then the head is picked again
+        cur_act = 0x100; fake_now = 5000; MvRepTick(); assert(g_rep_phase[ri] == 0 && g_rep_end[ri] == 5000);
+        cur_act = 2; fake_now = 5200; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
+        fake_now = 5501; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B && g_rep_phase[ri] == 1);
+        // a part switched OFF is not vetoed at commit while its sequence repeats; a single-move repeat of the head vetoes it again
+        assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 0, 0) == 1);
+        assert(h_mvcom(0x3000, 0x4EA7, 0, 0, 0) == 1 && committed == 0x4EA7);
+        assert(Nioh3Training_SetMoveRepeat(16102u, 0x4E7B, 1) == 1 && Nioh3Training_GetMoveRepeatSeq(16102u) == 0);
+        assert(h_mvcom(0x3000, 0x4EA7, 0, 0, 0) == 0 && committed == 0xFFFF);
+        assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 1, 0) == 1);
+        // single-move repeat keeps its old behaviour (pick -> the move, then idle in the gap)
+        cur_act = 0x4E7B; fake_now = 6000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);
+        fake_now = 6010; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
+        assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0, 0) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0 && Nioh3Training_GetMoveRepeatSeq(16102u) == 0);
+        cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
+        puts("PASS: sequence repeat 0x4E7B > 0x4EA7: links run (no head override), idle on the last part, gap from the chain end, re-forced, reaction ends it, OFF part allowed");
     }
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;

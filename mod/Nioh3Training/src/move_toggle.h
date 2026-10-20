@@ -79,11 +79,88 @@ static volatile uint64_t g_mv_chase[MV_CHASE_MAX];
 static int MvChasing(uint64_t st) { for (int i = 0; st && i < MV_CHASE_MAX; ++i) if (g_mv_chase[i] == st) return 1; return 0; }
 static int MvRepFind(uint32_t chr) { for (int i = 0; i < MV_REP_MAX; ++i) if (chr && (uint32_t)g_rep_chr[i] == chr) return i; return -1; }
 static uint32_t MvRepeatId(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 ? (uint32_t)g_rep_id[i] : 0; }
+// user #14423: 'Sequences' repeat (Boss moves > Sequences). The old path repeated only the chain's first move: the select hook runs at the
+// boss's decision points (end of each action, many calls per frame in idle), so 'first pick after a repeat = the move finished' turned the
+// pick at the end of the head into the gap's idle 0x2 (live 22:17:46-22:18:33: 0x4E7B -> 0x2 instead of its link 0x4EA7) and once the gap
+// passed every AI pick (0x4E30, 0x4E55, 0x4E6E ...) became the head again, about every 0.5 s. Sequence mode forces ONLY the head, then
+// follows the real action (ActIdOf) and never overrides a pick while the chain advances: while the action is a chain member (head + its
+// +0xE0 next-action links, mod/boss_sequences.h) or the boss carries on with its own follow-up (0x4EA7 > 0x4E7C > 0x18D1), the game's
+// own pick passes. The sequence counts as ended when the boss is back in idle 0x2; the gap starts then, and only after it is the head
+// picked / forced again (MvRepTick).
+#include "../../boss_sequences.h"
+#define MV_SEQ_MAX 8
+static volatile LONG g_rep_seq[MV_REP_MAX];          // 1 = repeat the whole chain from g_rep_id
+static uint32_t g_rep_chain[MV_REP_MAX][MV_SEQ_MAX]; static int g_rep_nchain[MV_REP_MAX];
+static int g_rep_phase[MV_REP_MAX];                  // sequence mode: 0 ended / gap, 1 head requested, 2 chain playing, 3 own follow-up
+static uint32_t g_rep_cur[MV_REP_MAX];               // last action seen while the sequence runs (log once per action)
+#ifndef MV_FORCE
+#define MV_FORCE(st, id) ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))((st), (uint64_t)(id), 0, 0.0f)
+#endif
+static const N3Next* MvSeqLink(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].id == id) return &kN3Next[i]; return 0; }
+// head, next, ... like the menu's SeqChain (training_bosses_menu.h): stops at a repeat, after a looping part, or at idle / init
+static int MvSeqBuild(uint32_t chr, uint32_t head, uint32_t* ids, int cap) {
+    int n = 0;
+    for (uint32_t c = head; n < cap && c && !N3MoveProtected(c);) {
+        ids[n++] = c;
+        const N3Next* l = MvSeqLink(chr, c); if (!l) break;
+        int seen = 0; for (int k = 0; k < n; ++k) seen |= ids[k] == l->next;
+        if (seen) break;
+        c = l->next;
+        if (l->loop) { if (n < cap && !N3MoveProtected(c)) ids[n++] = c; break; }
+    }
+    return n;
+}
+static int MvSeqIndex(int i, uint32_t act) { for (int k = 0; k < g_rep_nchain[i]; ++k) if (g_rep_chain[i][k] == act) return k; return -1; }
+static void MvSeqEnd(int i, uint32_t chr, uint32_t act, DWORD now, const char* why) {
+    Log("REPEAT chr %u sequence ended (%s, now 0x%X, last 0x%X, %lu ms after the start), gap %d ms", chr, why, act, g_rep_cur[i], now - g_rep_last[i], MvGapFor(chr));
+    g_rep_phase[i] = 0; g_rep_end[i] = now ? now : 1; g_rep_cur[i] = 0;
+}
+// sequence mode, game thread (select hook + pump): follow the boss's real action. 1 = the sequence is running (no pick override, no force).
+static int MvSeqTrack(int i, uint32_t chr, uint32_t act, DWORD now) {
+    const int ph = g_rep_phase[i];
+    if (act == 0xFFFFFFFFu || act == 0xFFFF) return ph >= 2;  // unreadable / in transition: keep the state
+    const int k = MvSeqIndex(i, act);
+    if (ph == 1) {
+        if (k == 0) { g_rep_phase[i] = 2; g_rep_cur[i] = 0; }  // the head started
+        else if (act != 2 && now - g_rep_last[i] > 3000) { MvSeqEnd(i, chr, act, now, "the head never started"); return 0; }
+        else return 0;
+    }
+    if (g_rep_phase[i] < 2) return 0;
+    if (act == 2) { MvSeqEnd(i, chr, act, now, "back in idle"); return 0; }
+    if (now - g_rep_last[i] > 30000) { MvSeqEnd(i, chr, act, now, "still busy after 30 s"); return 0; }
+    if (g_rep_cur[i] != act) {
+        g_rep_cur[i] = act;
+        if (g_rep_count[i] <= 500) {
+            if (k >= 0) Log("REPEAT chr %u sequence: part %d of %d 0x%X plays (%lu ms after the start)", chr, k + 1, g_rep_nchain[i], act, now - g_rep_last[i]);
+            else Log("REPEAT chr %u sequence: the boss follows up with 0x%X on its own (%lu ms after the start), not overridden", chr, act, now - g_rep_last[i]);
+        }
+    }
+    g_rep_phase[i] = k >= 0 ? 2 : 3;
+    return 1;
+}
+static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
+    DWORD now = GetTickCount(); int gap = MvGapFor(chr);
+    g_rep_st[i] = st;
+    if (MvSeqTrack(i, chr, ActIdOf(st), now)) return 0;  // the chain advances: the game's own pick / link passes untouched
+    if (g_rep_phase[i] == 1) return (uint32_t)g_rep_id[i];  // head requested, not started yet: keep asking for it
+    if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes
+    if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
+        LONG g = InterlockedIncrement(&g_rep_gaps);
+        if (g <= 500) Log("REPEAT chr %u sequence gap hold pick 0x%X -> idle (%lu/%d ms since the sequence ended)", chr, id, now - g_rep_end[i], gap);
+        return id == 2 ? 0 : (N3MoveFind(chr, 2) >= 0 ? 2 : 0);
+    }
+    LONG n = InterlockedIncrement(&g_rep_count[i]);
+    if (n <= 500) Log("REPEAT chr %u sequence pick 0x%X -> head 0x%X (#%ld, %d parts, gap %d ms, %lu ms since prev end)", chr, id, (uint32_t)g_rep_id[i], n,
+                      g_rep_nchain[i], gap, g_rep_end[i] ? now - g_rep_end[i] : 0UL);
+    g_rep_phase[i] = 1; g_rep_last[i] = now; g_rep_cur[i] = 0;
+    return (uint32_t)g_rep_id[i];
+}
 static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (id < 0x4E20 && id != 2) return 0;  // idle picks too: a calm / out-of-range boss only re-picks idle (live 19:10, every 6 s)
-    if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes, the repeat waits until it is close
     uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0) return 0;
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
+    if (g_rep_seq[i]) return MvSeqPick(i, st, chr, id);  // user #14423: chain repeat (also lets a started chain finish while chasing)
+    if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes, the repeat waits until it is close
     DWORD now = GetTickCount(); int gap = MvGapFor(chr);
     if (g_rep_last[i] && !g_rep_end[i]) g_rep_end[i] = now ? now : 1;  // first pick after a repeat = that move has finished
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
@@ -97,6 +174,11 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
                       g_rep_end[i] ? now - g_rep_end[i] : 0UL, (void*)st);
     g_rep_last[i] = now; g_rep_end[i] = 0;
     return rep;
+}
+// the repeated move, or (sequence repeat, user #14423) any part of the repeated chain: never vetoed at commit even when switched OFF
+static int MvRepAllows(uint32_t chr, uint32_t id) {
+    int i = MvRepFind(chr); if (i < 0 || !g_rep_id[i]) return 0;
+    return (uint32_t)g_rep_id[i] == id || (g_rep_seq[i] && MvSeqIndex(i, id) >= 0);
 }
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
     uint32_t raw = o_mvsel(st, tr), rep = MvRepeatPick(st, raw);
@@ -119,7 +201,7 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
 }
 static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
     uint32_t vchr = MvBossChr(st);
-    if (vchr && MvBlocked(vchr, id) && MvRepeatId(vchr) != id) {
+    if (vchr && MvBlocked(vchr, id) && !MvRepAllows(vchr, id)) {
         InterlockedIncrement(&g_mv_vetoes);
         if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", vchr, id, (void*)st);
         id = 0xFFFF; // native refuses before any write
@@ -183,10 +265,16 @@ N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed,
 }
 static inline int MvRepStanding(uint32_t chr);  // drill.h / training.c: 1 = Stand still holds this boss (the drill plays the repeat)
 // bridge 12953: on = 1 repeats (chr, id), on = 0 stops that boss's repeat. 1 = done, 0 = unknown move / table full.
-N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
+static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq);
+N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) { return MvRepArm(chr, id, on, 0); }
+// user #14423: repeat the whole sequence that starts with id (Boss moves > Sequences). on = 0 stops that boss's repeat (move or sequence).
+N3T_API int Nioh3Training_SetMoveRepeatSeq(uint32_t chr, uint32_t id, int on) { return MvRepArm(chr, id, on, 1); }
+// 1 = this boss repeats a whole sequence, 0 = a single move / nothing
+N3T_API int Nioh3Training_GetMoveRepeatSeq(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 && g_rep_id[i] && g_rep_seq[i]; }
+static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
     int i = MvRepFind(chr);
     if (!on) {
-        if (i >= 0) { Log("REPEAT chr %u 0x%X stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_chr[i], 0); g_rep_st[i] = 0; }
+        if (i >= 0) { Log("REPEAT chr %u 0x%X%s stopped after %ld repeat(s)", chr, (uint32_t)g_rep_id[i], g_rep_seq[i] ? " sequence" : "", g_rep_count[i]); InterlockedExchange(&g_rep_id[i], 0); InterlockedExchange(&g_rep_seq[i], 0); InterlockedExchange(&g_rep_chr[i], 0); g_rep_st[i] = 0; g_rep_phase[i] = 0; }
         else Log("REPEAT chr %u stop: nothing was repeating", chr);
         return 1;
     }
@@ -195,9 +283,17 @@ N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
     if (N3MoveProtected(id)) { Log("REPEAT chr %u 0x%X refused: idle / initialization cannot be repeated", chr, id); return 0; }
     if (i < 0) for (int k = 0; k < MV_REP_MAX; ++k) if (!g_rep_chr[k]) { i = k; break; }
     if (i < 0) { Log("REPEAT chr %u 0x%X refused: %d bosses already repeat a move (stop one first)", chr, id, MV_REP_MAX); return 0; }
+    g_rep_nchain[i] = seq ? MvSeqBuild(chr, id, g_rep_chain[i], MV_SEQ_MAX) : 0;
+    g_rep_phase[i] = 0; g_rep_cur[i] = 0; g_rep_st[i] = 0;
+    InterlockedExchange(&g_rep_seq[i], seq ? 1 : 0);
     InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; g_rep_end[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
     InterlockedExchange(&g_mv_install_pending, 1);
     for (int k = 0; k < g_nsp; ++k) { uint64_t a = g_sp_actor[k], ai = 0, ctrl = 0; if (a && g_sp_chr[k] == chr && Rd64(a + 0x3B0, &ai) && ai) Rd64(ai + 8, &ctrl); if (a && g_sp_chr[k] == chr) Log("REPEAT chr %u actor %p ai %p ctrl %p", chr, (void*)a, (void*)ai, (void*)ctrl); }
+    if (seq) {
+        char t[96]; size_t o = 0; t[0] = 0;
+        for (int k = 0; k < g_rep_nchain[i] && o < sizeof t; ++k) o += (size_t)snprintf(t + o, sizeof t - o, "%s0x%X", k ? " > " : "", g_rep_chain[i][k]);
+        Log("REPEAT chr %u sequence %s ON (%d parts; the game's links play the rest, the gap starts when the last part ends)", chr, t, g_rep_nchain[i]);
+    }
     Log("REPEAT chr %u 0x%X ON (gap %d ms, %s, move %s, hooks %ld)", chr, id, MvGapFor(chr),
         MvRepStanding(chr) ? "Stand still: drill forces it every gap" : "Fight normally: used at each AI pick",
         MvBlocked(chr, id) ? "OFF (repeat still allowed)" : "ON", (long)g_mv_hooked);
@@ -243,13 +339,27 @@ static __attribute__((noinline)) void MvRepTick(void) {
     DWORD now = GetTickCount();
     for (int i = 0; i < MV_REP_MAX; ++i) {
         uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
+        if (chr && rep && st && g_rep_seq[i]) {  // user #14423: sequence mode follows the real action every frame
+            if (MvBossChr(st) != chr) { g_rep_st[i] = 0; g_rep_phase[i] = 0; continue; }
+            const uint32_t cur = ActIdOf(st);
+            if (MvSeqTrack(i, chr, cur, now) >= 0 || cur != 2) continue;  // a part plays, or not back in idle yet
+            const DWORD since = g_rep_phase[i] == 1 ? now - g_rep_last[i] : g_rep_end[i] ? now - g_rep_end[i] : 0;
+            if (g_rep_phase[i] == 2 || (g_rep_phase[i] == 0 && (!g_rep_end[i] || since < (DWORD)MvGapFor(chr))) || (g_rep_phase[i] == 1 && since < 500)) continue;
+            if (MvChasing(st)) continue;
+            int ok = 1;
+            __try { MV_FORCE(st, rep); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+            LONG n = InterlockedIncrement(&g_rep_count[i]);
+            if (n <= 500) Log("REPEAT chr %u sequence forced head 0x%X after %lu ms idle (#%ld, gap %d ms)%s, now 0x%X", chr, rep, since, n, MvGapFor(chr), ok ? "" : " FAULTED", ActIdOf(st));
+            g_rep_phase[i] = 1; g_rep_last[i] = now; g_rep_cur[i] = 0;
+            continue;
+        }
         if (!chr || !rep || !st || !g_rep_end[i] || now - g_rep_end[i] < (DWORD)MvGapFor(chr)) continue;
         if (MvBossChr(st) != chr) { g_rep_st[i] = 0; continue; }
         if (MvChasing(st)) continue;  // user #13787: no repeat forced from range while aggro ON brings the boss closer
         uint32_t cur = ActIdOf(st);
         if (cur != 2) { if (cur != 0xFFFFFFFFu) g_rep_st[i] = 0; continue; }
         int ok = 1;
-        __try { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(st, (uint64_t)rep, 0, 0.0f); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+        __try { MV_FORCE(st, rep); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
         LONG n = InterlockedIncrement(&g_rep_count[i]);
         if (n <= 500) Log("REPEAT chr %u forced 0x%X after %lu ms idle (#%ld, gap %d ms)%s, now 0x%X", chr, rep, now - g_rep_end[i], n, MvGapFor(chr), ok ? "" : " FAULTED", ActIdOf(st));
         g_rep_last[i] = now; g_rep_end[i] = 0; g_rep_st[i] = 0;
