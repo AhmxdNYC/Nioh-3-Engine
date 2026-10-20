@@ -941,3 +941,11 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 2026-10-19 pc: build 8315d884 (Training 0def6624, Rematch 242EA4A1): walk-up fix + summon-idle default. Not installed, waiting user 'install'.
 - 2026-10-19 pc: #14324 Opus agent pc/boss-hpki (../nioh3-boss-hpki). Merge with move-submenus + aggro-standstill (8315d884) before install; user awaiting 'install'.
 2026-10-19 20:20 pc: see checkpoints.md latest; waiting for slot-1 combined menu build, then single install + notify user.
+2026-10-19 21:15 pc: boss-hpki stalled; opus agent started to finish dedupe/multi-boss/slider/sequences/rename in one build; then install + tell user (#14361).
+- 2026-10-19 21:46 pc: OPS rule: no run_in_background sub-agents; use foreground or TASK cx-pc. Menu build in ../nioh3-boss-hpki is being actively edited (ba2a82d2 + uncommitted training_bosses_menu.h, boss_sequences.h); install when it commits+builds.
+2026-10-19 22:2x pc: build 8c94a7d6 (Training 7884B5FA, Rematch 64BB1449) ready; install script waiting for game exit (captures/install_multiboss_when_closed.ps1); user told to quit game.
+2026-10-19 22:12 pc: INSTALLED 8c94a7d6 (Training 7884B5FA, Rematch 64BB1449), game PID 14104 relaunched at user request #14419. Backup captures/pc/play-20261019-pre-multiboss. Needs user test.
+2026-10-19 22:20 pc: #14423 sequences cut short (repeat overrides game's follow-up pick); opus agent fixing in boss-hpki; then install+relaunch.
+2026-10-19 22:3x pc: INSTALLED 05582500 (Training 37C0AA5C, Rematch 44E4E8C1) seq-repeat fix #14423; game relaunched; backup captures/pc/play-20261019-pre-seqfix. Needs user test of Sequences (log: 'sequence ended (back in idle').
+2026-10-19 22:41 pc: #14462 seq head re-forced (end detected 16ms after force) + train-here boss not idle; opus agent fixing in boss-hpki; then install+relaunch.
+2026-10-19 22:5x pc: INSTALLED seq/idle fix (Training 4a838fc8, Rematch 28b7f5f2), game PID 25928; backup captures/pc/play-20261019-pre-seqfix2. Needs user test.

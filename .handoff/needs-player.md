@@ -8,3 +8,4 @@
 - [ ] Codex usage limit: allow Claude slots to do offline work until Oct 23? | reply yes/no in chat (default yes after 1 h) | any
 - [ ] Play-check combined menu build | open menus: look, labels, pause, repeat-move row, gate object always in arena | pc
 - [ ] Test Return object + new move list | In Training/Boss Match arena tap A on the Return object (only OUR menu should open, no game 'End mission?' box); check Yoritomo move list, Aggro on me, Reset position | pc (controller ready: no virtual pad active)
+- [ ] Test multi-boss build | Summon 2-3 bosses, check per-boss pages, HP/Ki, CPU/idle slider, Sequences, no duplicate rows | pc (controller ready)

@@ -100,3 +100,5 @@
 - 2026-10-18 | Menu fixes verified | idle boss, Boss A slot, wrapped names | a3a7768 PASS on ally; install pending game close on pc
 - 2026-10-19 | Yoritomo full move table check | user asked if all-moves table was already found | Not a static file: full list = bank arrays B+1E8/B+1F0 in memory (notes on cx-pc/boss-records-10252); plan one in-game dump
 - 2026-10-19 | GitHub docs refresh | README/STATUS a week stale | README+STATUS+mod READMEs updated on pc/docs-refresh (unmerged)
+- 2026-10-19 | Player menu + infinite health | can't-die OFF seemed to do nothing; toggle in boss menu | toggle moved to Practice>Player; ON=HP refilled, OFF=normal damage + instant arena respawn; installed, untested in game
+- 2026-10-19 | Multi-boss/menu cleanup build | Menu duplicates, unlimited bosses, CPU/idle slider, Sequences, boss HP/Ki, rename | Built offline (8c94a7d6), install pending game exit
