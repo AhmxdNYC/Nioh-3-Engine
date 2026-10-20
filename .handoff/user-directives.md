@@ -277,3 +277,5 @@
 - #21351 (2026-10-20): Reverse engineer Yoritomo with Ghidra, the call stack, existing logs, and the move list. Find his AI, moveset, and hit logic, including hit counts. Do not stop after saying the move list has no hit-count field. Do not invent counts.
 - #21364 (2026-10-20): Use the local gx-pc Grok workers for this reverse engineering. Say they are working only when a presence slot is busy. Do not claim another PC or the Ally is on the job. Do not invent hit counts.
 - #21423 (2026-10-20): Use the live game and its logs. Have the boss perform moves and read what the log records. The saved move list is not the end of the hit-count search. Do not invent hit counts.
+- #21433 (2026-10-20): The boss menu and sequences must be built by one algorithm from the real move data, for this boss and for bosses added later. Do not hand-build the menu from one recorded moveset. Do not invent sequences or hit counts.
+- #21435 (2026-10-20): Find the actual data source in the game code for hit counts and sequences. Do not stop at a recorded moveset or a distance check that is not a hit count.

@@ -268,3 +268,4 @@
 - 2026-10-20 | Yoritomo stored hit count | Tell 2-hit attacks from 3-hit attacks | 173 moves checked and 0 have a hit number. 182 hitbox rows do not contain move ids 4E68, 4E6C, 4E74, or 4EA5. Those map to motions 1040, 1050, 1090, and 1030. Hit shapes are built while the move plays. Menu unchanged.
 - 2026-10-20 | Yoritomo stored hit count | The move list had no 1-hit, 2-hit, or 3-hit label | Checked 173 moves: 0 stored hit numbers. The 182 hitbox rows do not name his moves. Hit shapes are created while a move plays.
 - 2026-10-20 | Yoritomo hitbox rows belong to moves | The 182 hitbox rows did not name a move | Each row belongs to one move. 4E68 has 3, 4E6C has 5, 4E74 has 5, 4EA5 has 0. That count is not yet a proven hit count.
+- 2026-10-20 | Yoritomo attack check 766 | Asked for the real source of his attack choice | Condition 766 is a sphere distance test, used 67 times. It is not a 2-hit or 3-hit count.
