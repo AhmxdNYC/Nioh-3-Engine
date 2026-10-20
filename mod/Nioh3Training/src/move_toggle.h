@@ -141,7 +141,9 @@ static int MvSeqTrack(int i, uint32_t chr, uint32_t act, DWORD now) {
 static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
     DWORD now = GetTickCount(); int gap = MvGapFor(chr);
     g_rep_st[i] = st;
-    if (MvSeqTrack(i, chr, ActIdOf(st), now)) return 0;  // the chain advances: the game's own pick / link passes untouched
+    // the chain advances: the game's own pick passes untouched (a pick that is a part of the chain, e.g. the link 0x4EA7, returns as is so
+    // neither the Stand still idle hold nor a part switched OFF cuts it; any other pick takes the normal path)
+    if (MvSeqTrack(i, chr, ActIdOf(st), now)) return MvSeqIndex(i, id) >= 0 ? id : 0;
     if (g_rep_phase[i] == 1) return (uint32_t)g_rep_id[i];  // head requested, not started yet: keep asking for it
     if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
@@ -342,9 +344,9 @@ static __attribute__((noinline)) void MvRepTick(void) {
         if (chr && rep && st && g_rep_seq[i]) {  // user #14423: sequence mode follows the real action every frame
             if (MvBossChr(st) != chr) { g_rep_st[i] = 0; g_rep_phase[i] = 0; continue; }
             const uint32_t cur = ActIdOf(st);
-            if (MvSeqTrack(i, chr, cur, now) >= 0 || cur != 2) continue;  // a part plays, or not back in idle yet
+            if (MvSeqTrack(i, chr, cur, now) || cur != 2) continue;  // the chain advances, or not back in idle yet: never forced
             const DWORD since = g_rep_phase[i] == 1 ? now - g_rep_last[i] : g_rep_end[i] ? now - g_rep_end[i] : 0;
-            if (g_rep_phase[i] == 2 || (g_rep_phase[i] == 0 && (!g_rep_end[i] || since < (DWORD)MvGapFor(chr))) || (g_rep_phase[i] == 1 && since < 500)) continue;
+            if (g_rep_phase[i] >= 2 || (g_rep_phase[i] == 0 && (!g_rep_end[i] || since < (DWORD)MvGapFor(chr))) || (g_rep_phase[i] == 1 && since < 500)) continue;
             if (MvChasing(st)) continue;
             int ok = 1;
             __try { MV_FORCE(st, rep); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
