@@ -1530,5 +1530,7 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:33 PM EST gxl-pc #21473: user wants literal frame data for a future SF6-style frame bar. Phone #21476: marks exist (4E68 frame 51, 4E6C frame 83, 4E74 frame 77; early mark frames 12-15; chain waits 110, 63, 96, 63, 105, 52) but startup/active/recovery is unproven. Task #21478 maps phase_tail types across 88 attack rows. Do not launch the game. Do not edit the menu. Next: read #21478 and the still-open #21458, #21460, #21461.
 
+- 2026-10-20 6:38 PM EST gxl-pc #21487: user asked if the hit source is found so moves can be grouped. Phone #21488. Proven so far: one close 4E68 dropped 221 HP once (2658 to 2437 at 6:32 pm EST). The 3 hitbox rows are not 3 hits. No per-move 2-hit or 3-hit field. Sphere test is his position. Slots at 6:37 pm EST: 0 owns #21478 frame marks, 1 owns #21458 row caller, 2 owns #21461 second motion. Game was not running. Do not edit the menu. Next free slot: find the formula or field that produced 221, then the same measurement for 4E6C and 4E74.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
