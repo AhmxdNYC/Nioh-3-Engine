@@ -102,3 +102,12 @@
 - 2026-10-19 | GitHub docs refresh | README/STATUS a week stale | README+STATUS+mod READMEs updated on pc/docs-refresh (unmerged)
 - 2026-10-19 | Player menu + infinite health | can't-die OFF seemed to do nothing; toggle in boss menu | toggle moved to Practice>Player; ON=HP refilled, OFF=normal damage + instant arena respawn; installed, untested in game
 - 2026-10-19 | Multi-boss/menu cleanup build | Menu duplicates, unlimited bosses, CPU/idle slider, Sequences, boss HP/Ki, rename | Built offline (8c94a7d6), install pending game exit
+- 2026-10-19 | Drill aggro failure triage | Aggro me ON does not target player during drill | Confirmed toggle log and 2-part repeat; isolated fix and game validation assigned to PC2, not yet fixed.
+- 2026-10-19 | Drill aggro ownership coordination | Two agents had overlapping fix assignments | Kept 1 implementation owner (pc), sent log evidence and redirected PC2 to validation; acknowledgement pending.
+- 2026-10-19 | Cancel separate-PC drill test | User wants fix and relaunch on their own PC | Sent cancellation to PC2 and routed local completion to existing pc owner; 0 game changes by cxl-pc.
+- 2026-10-20 | Cancel separate-PC drill test | User wanted the fix on their own PC | PC2 confirmed cancellation of implementation and validation; 0 games launched or builds installed.
+- 2026-10-20 | Drill-aggro build installed and game relaunched | User requested local fix and relaunch | pc reports 1 main-PC install (db12513d) and relaunch; offline tests pass, in-game approach/resume still unproven.
+- 2026-10-20 | Drill-aggro overlap coordination | Two implementations risk duplicate integration | Recorded 1 installed build; alternative reserved only for failed player test (#14595).
+- 2026-10-20 | PC2 alternative drill-aggro test received | Aggro did not engage during Train here repeats | PC2 reports ON closes 10.1m to 4m using 6s placement fallback, resumes 2/2 sequence parts; natural walking stalls. Alternative only; main-PC fix remains unvalidated.
+- 2026-10-20 | Local drill-test coordination | Worker proposed cancelled PC2 validation | Kept 1 main-PC installer and reiterated 0 further PC2 drill tests; runtime result pending.
+- 2026-10-20 | Hide boss-killing + twitch picks (#14655) | A sequence (Yoritomo 4E3B>4E3C, Ki-break reaction) set boss HP 0 at once; user also wants tiny twitches gone | Removed 10 of 173 Yoritomo moves (8 twitches + 2 killers) and 3 of 27 sequences; repeat arm refuses killers; offline tests pass; commit 953c3c2b; auto-installs when game closes (not yet in game)
