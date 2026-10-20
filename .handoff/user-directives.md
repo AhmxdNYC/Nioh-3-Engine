@@ -288,3 +288,4 @@
 - #21531 (2026-10-20): Put all local gx-pc workers on finding the hit source. Do not leave them on side questions while that source is unnamed.
 - #21533 (2026-10-20): Workers may use more than one Ghidra. This PC already has the Ghidra setup Claude made. Use that setup for the hit source.
 - #21535 (2026-10-20): Use the game logs together with the reverse. Do not ignore logs that are already on disk. Do not invent a hit count.
+- #21566 (2026-10-20): The user expects attack strings and sequences to be readable from Yoritomo's move list. Checked: 173 moves, 88 attacks, 20 clips, 0 attacks with two clips, links are choices not forced strings. Do not invent strings from that list. Do not put them in the menu until a real chain is proven.
