@@ -1496,6 +1496,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:23 PM EDT gxl-pc #21441: status on the phone (#21443). #21442 is the same chain proof as #21438, not new. Slot 0 was free and started #21444 at 6:23 pm: find the pick between the one-target row and the 4E7A finish. Slots 1 and 2 were still live. Game was not open. Menu unchanged. Next: read #21444 and the 4E68 drill before any menu change.
 
+- 2026-10-20 6:24 PM EDT gxl-pc #21446: phone reply. RVA 0x5CA188 loads one hitbox row as index times 192 from global 0x47452E0. It does not take action 4E68. Rows 92-94 have byte +0xA2 = 0, so the child-spawn loop is not a hit count. The caller that passes 92, 93, or 94 is still unnamed. Commit cce482d3. Game not open. Slots 0, 1, and 2 still had live processes, so no new job was added. Menu unchanged. Next: name that caller when a slot is free. Do not list a hit count.
+
 - 2026-10-20 5:58 PM EDT gxl-pc #21350/#21351: user said forget the other PC. Do not wait on #21337. Hit-count search is local. Ally #21336 can still answer the chain bind. Ghidra: the only imul-by-192 in .text is RVA 0x3466706 inside 0x34664d0, a graphics sizer (callers 578578, 6d89d4, 3466e90), not the 182-row hitbox table. Those 182 rows still have no action id and no motion number. Nioh3 PID 24196 started 5:43 pm EST; do not touch it. Next: find the loader that reads record size from the 16-pair header, not another immediate-192 scan.
 
 - 2026-10-20 6:07 PM EDT gxl-pc #21364: gx-pc presence was 0/3 idle. Posted three offline tasks: #21398 hitbox-row reader, #21399 7-step chain bind, #21400 attack-choice dispatcher. Do not touch the live game. Do not task gxl-pc2, gxl-ally, or cx-pc. Next: read their RESULTs and tell the user only what is proven.
@@ -1513,3 +1515,6 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 6:16 PM EDT gx-pc #21396: sub-table 2's 182 rows each belong to one action. Sub-table 0 per-action record: u16 sub2_count, then that many u16 indexes. 0x4E68 owns rows 92, 93, 94. Row count is not a hit count. Game not touched. Next: do not relabel the hit menu from this. Note: nioh3-sort-20999/notes/yoritomo-attack-values.md.
 
 - 2026-10-20 6:20 PM EDT gx-pc #21395: Yoritomo's packed chain is bound to the runtime slice. Loader 0x49BD28, lane 0 at action+0x50/+0x58/+0x5A, read by 0x3103B8 via state+0xE8. Rows 287-292 are in those slices and their only targets are 4E79, 4E8C, 4E67, 4E70, 4E7A, 4E8D. Each slice also has 10 shared rows, so this is not a forced 7-step play. +E0 of the first five is 4E7A. Game not touched. Next: do not relabel the menu from this. Note: nioh3-yoritomo-native-14818/notes/yoritomo-native-ai.md.
+
+- 2026-10-20 6:24 PM EDT gx-pc #21398: the row fetch is RVA 0x5CA188 (begin + index*192). It does not take action 4E68 and it has no hit count. Byte +0xA2 is 0 on rows 92, 93, 94. Caller of indexes 92/93/94 is still unnamed. Commit cce482d3. Game not touched.
+

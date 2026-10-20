@@ -270,3 +270,4 @@
 - 2026-10-20 | Yoritomo hitbox rows belong to moves | The 182 hitbox rows did not name a move | Each row belongs to one move. 4E68 has 3, 4E6C has 5, 4E74 has 5, 4EA5 has 0. That count is not yet a proven hit count.
 - 2026-10-20 | Yoritomo attack check 766 | Asked for the real source of his attack choice | Condition 766 is a sphere distance test, used 67 times. It is not a 2-hit or 3-hit count.
 - 2026-10-20 | Yoritomo 7-step chain is loaded | The long chain was only a guess in the file | The game loader binds those 6 links. Each is 1 choice out of 11 or 12, not a forced combo. They still finish at 4E7A if that choice is not taken.
+- 2026-10-20 | Hitbox row loader | Needed the code that reads one hitbox row | The game loads a row as its number times 192. On 4E68's 3 rows the child-hit byte is 0, so the hit count is still unknown.
