@@ -218,3 +218,4 @@
 - #14323/#14324 (2026-10-19): do boss HP/Ki write controls now (infinite/set %), per boss page.
 - #14330 (2026-10-19): user wants ONE install when everything (menu cleanup, multi-boss, boss HP/Ki, sequences, idle/walk-up fix) is done; tell them when installed.
 - #14333 (2026-10-19): Practice menu: hide 'Train here' when already in a boss arena / Training session (makes no sense). Part of menu-cleanup build.
+- #14336 (2026-10-19): audit ALL mod menus for rows that make no sense or show twice (beyond the ones already named); fix in the one cleanup build. Audit list: notes/menu-dedupe-14336.md
