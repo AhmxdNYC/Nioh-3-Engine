@@ -1546,6 +1546,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:57 PM EST gxl-pc #21531/#21533/#21535: user said force all workers onto the source, use the Ghidra setup already on this PC, and use the logs. Phone #21541. 221 is not in rows 92-94; those feed 30, 25, or 40. Live prompts: slot 0 where 221 is cut, slot 1 the slot record, slot 2 lookup count. Do not add a fourth copy. Do not launch the game from a status wake. Do not edit the menu. Next: read the 221-cut RESULT. HP subtract is RVA 0x787268. Builder 0x2000F30. Note: nioh3-sort-20999/notes/yoritomo-attack-values.md.
 
+- 2026-10-20 7:03 PM EST gxl-pc #21556: user asked if the approach is wrong. Phone #21558. The gap is 221 live versus 30/25/40 in the row math. Slot 0 owns #21543 (what makes one hit). Slot 1 owns #21555 (side-record pointer +0x70). Slot 2 was free and got #21560 (read the saved log for the 221 line). Do not launch. Do not edit the menu. Next: the log tag, then whether that path can emit 221.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
