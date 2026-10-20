@@ -154,6 +154,7 @@ int main(void) {
             const N3Move* r = &kN3Moves[i];
             g_tr.chr = r->chr; standing = i & 1;
             if (N3MoveProtected(r->id)) { assert(Nioh3Training_SetMoveRepeat(r->chr, r->id, 1) == 0 && Nioh3Training_GetMoveRepeat(r->chr) == 0); continue; }
+            if (N3MoveUnsafe(r->chr, r->id)) { assert(Nioh3Training_SetMoveRepeat(r->chr, r->id, 1) == 0 && Nioh3Training_GetMoveRepeat(r->chr) == 0); continue; }  // user #14655: boss-killing move refused
             assert(Nioh3Training_SetMoveAllowed(r->chr, r->id, 0, 0) == 1);   // OFF, then Right: the menu switches it ON, but OFF must still work
             assert(Nioh3Training_SetMoveRepeat(r->chr, r->id, 1) == 1 && Nioh3Training_GetMoveRepeat(r->chr) == r->id);
             Pick(0x4E20 + 0x7FF); selected[0] = r->id == 0x4E21 ? 0x4E22 : 0x4E21;

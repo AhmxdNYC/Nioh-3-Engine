@@ -332,6 +332,8 @@ static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
     // user #13618: every refusal is logged with its reason (the live log had no trace of a failed or missing arm)
     if (N3MoveFind(chr, id) < 0) { Log("REPEAT chr %u 0x%X refused: not in this boss's recorded move list", chr, id); return 0; }
     if (N3MoveProtected(id)) { Log("REPEAT chr %u 0x%X refused: idle / initialization cannot be repeated", chr, id); return 0; }
+    if (N3MoveUnsafe(chr, id)) { Log("REPEAT chr %u 0x%X refused: this move kills the boss (#14655)", chr, id); return 0; }
+    if (seq) { uint32_t ch[MV_SEQ_MAX]; const int n = MvSeqBuild(chr, id, ch, MV_SEQ_MAX); for (int k = 0; k < n; ++k) if (N3MoveUnsafe(chr, ch[k])) { Log("REPEAT chr %u 0x%X refused: sequence part 0x%X kills the boss (#14655)", chr, id, ch[k]); return 0; } }
     if (i < 0) for (int k = 0; k < MV_REP_MAX; ++k) if (!g_rep_chr[k]) { i = k; break; }
     if (i < 0) { Log("REPEAT chr %u 0x%X refused: %d bosses already repeat a move (stop one first)", chr, id, MV_REP_MAX); return 0; }
     g_rep_nchain[i] = seq ? MvSeqBuild(chr, id, g_rep_chain[i], MV_SEQ_MAX) : 0;

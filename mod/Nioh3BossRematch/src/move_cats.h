@@ -50,6 +50,7 @@ static inline int N3KiMotion(const char* label) {
 }
 static inline int N3MoveCat(const N3Move* m) {
     if (N3MoveProtected(m->id)) return kMcMovement;
+    if (!N3MoveSelectable(m)) return -1;  // user #14655: unsafe (kills the boss) and twitch moves are in no group, so no menu lists them
     const int km = N3KiMotion(m->label);
     if (N3KiNote(m->chr, m->id) || km / 100 == 300 || km / 100 == 301) return kMcKiBreak;
     if (m->kind == 'A' || m->kind == 'S' || m->kind == 'L') return kMcAttack;

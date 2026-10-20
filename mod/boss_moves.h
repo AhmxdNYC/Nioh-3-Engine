@@ -376,5 +376,11 @@ static inline int N3MoveFind(uint32_t chr, uint32_t id) {
 }
 // Initialization and idle are required by the veto fallback.
 static inline int N3MoveProtected(uint32_t id) { return id == 0 || id == 2; }
+// user #14655: a move that kills the boss when forced (Yoritomo 0x4E3B > 0x4E3C, "hit reaction / Ki-break motion 304xx": boss HP went 42525 -> 0 at
+// once in the 2026-10-20 00:17 log) must never be selectable, alone or inside a sequence.
+static inline int N3MoveUnsafe(uint32_t chr, uint32_t id) { return chr == 16102u && (id == 0x4E3Bu || id == 0x4E3Cu); }
+// user #14655: tiny twitches (kind T) are useless for drills and are removed from every pick list (moves and sequences).
+static inline int N3MoveUseless(const N3Move* m) { return m->kind == 'T'; }
+static inline int N3MoveSelectable(const N3Move* m) { return N3MoveProtected(m->id) || (!N3MoveUnsafe(m->chr, m->id) && !N3MoveUseless(m)); }
 // #13786: twitches, combo fragments and movement states are hidden from the move list by default.
 static inline int N3MoveTwitch(const N3Move* m) { return m->kind == 'T' || m->kind == 'L' || m->kind == 'M'; }

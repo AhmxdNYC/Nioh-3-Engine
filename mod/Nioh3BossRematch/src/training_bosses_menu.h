@@ -150,10 +150,19 @@ bool SummonAnother(int row) {  // true = queued (menu closes)
 }
 // ---- sequences (#14317) ----
 const N3Next* SeqLink(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].id == id) return &kN3Next[i]; return nullptr; }
+int SeqChain(uint32_t chr, uint32_t head, uint32_t* ids, int cap, bool* loop);
 bool SeqHead(uint32_t chr, uint32_t id) {
     if (!SeqLink(chr, id) || N3MoveFind(chr, id) < 0 || N3MoveProtected(id)) return false;
     for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].next == id) return false;  // part of a longer chain
-    return true;
+    // user #14655: no sequence that contains an unsafe (boss-killing) part, and no twitch-only sequence
+    uint32_t ids[8]; bool loop = false, anyUseful = false;
+    const int k = SeqChain(chr, id, ids, 8, &loop);
+    for (int i = 0; i < k; ++i) {
+        const int mi = N3MoveFind(chr, ids[i]);
+        if (N3MoveUnsafe(chr, ids[i])) return false;
+        if (mi >= 0 && !N3MoveUseless(&kN3Moves[mi])) anyUseful = true;
+    }
+    return anyUseful;
 }
 int SeqChain(uint32_t chr, uint32_t head, uint32_t* ids, int cap, bool* loop) {  // head, next, ... (max cap); loop = ends in a looping part
     int n = 0; *loop = false;
