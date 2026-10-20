@@ -291,3 +291,5 @@ The one open item is still your test of the installed fix. Every task is done or
 Nioh 3 is still running (process 25928) on the fixed build. The Training log hasn't been written since 10:42 pm EST, before the install, so the new build hasn't played a sequence yet. The newest sequence lines are still from the old build, where one repeat ran 30 s without ending.
 
 Please summon a boss, pick a sequence, and tell me what it does. I'll read the new log lines and fix whatever shows up.
+
+2026-10-19 9:09 pm EST pc2 | #14550 Aggro me for Train here FIXED on pc2/aggro-drill-14550 58ccb39 (base boss-hpki 2eb32369), Training sha 102d9604be7e | proven live on pc2: ON walk-up/place 10.1->4 m + facing, hits land; OFF no aggro | next: pc merges into boss-hpki + main-PC install; natural walk-up still stalls (place fallback) | captures/pc2-aggro14550/run1, tools/testmatrix/aggro14550_pc2.ps1
