@@ -17,14 +17,14 @@
 enum { kMcAttack, kMcUnnamedAtk, kMcTwitch, kMcKiBreak, kMcMovement, kMcUnsorted, kMcCount };
 
 static inline const char* N3MoveCatName(int c) {
-    return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Twitches" : c == kMcKiBreak ? "Ki break"
+    return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Animations and twitches" : c == kMcKiBreak ? "Ki break"
          : c == kMcMovement ? "Movement and reactions" : c == kMcUnsorted ? "Unsorted" : "?";
 }
 // one short line per group (footer of the group row)
 static inline const char* N3MoveCatHelp(int c) {
     return c == kMcAttack ? "Attacks seen in fights: hits, wind-ups and combo links. Best for drills."
          : c == kMcUnnamedAtk ? "Attacks from the game's move table that were not seen in a fight yet (no name yet). May not play from Stand still."
-         : c == kMcTwitch ? "Twitches: short state changes that end at once when forced (about 0.05-0.15 s)."
+         : c == kMcTwitch ? "Everything that is not an attack: twitches, Ki-break poses, steps, turns, reactions, idle / initialization. Mostly for experiments."
          : c == kMcKiBreak ? "Moves during a Ki break (break start, poses, recovery). Moves that CAUSE a Ki break are not known yet: they stay in Attacks."
          : c == kMcMovement ? "Steps, turns, recoveries, hit reactions and system states (plus idle / initialization, always ON)."
          : c == kMcUnsorted ? "Moves not sorted yet (no kind recorded and no attack / movement motion in the game data)."
@@ -49,13 +49,10 @@ static inline int N3KiMotion(const char* label) {
     return p ? atoi(p + 16) : 0;
 }
 static inline int N3MoveCat(const N3Move* m) {
-    if (N3MoveProtected(m->id)) return kMcMovement;
-    if (!N3MoveSelectable(m)) return -1;  // user #14655: unsafe (kills the boss) and twitch moves are in no group, so no menu lists them
-    const int km = N3KiMotion(m->label);
-    if (N3KiNote(m->chr, m->id) || km / 100 == 300 || km / 100 == 301) return kMcKiBreak;
+    if (!N3MoveSelectable(m)) return -1;  // user #14655: unsafe (kills the boss) moves are in no group, so no menu lists them
+    if (N3MoveProtected(m->id)) return kMcTwitch;
+    // user #14664: attacks first (recorded fights, then the game table's attack-family motions); everything else safe = one group
     if (m->kind == 'A' || m->kind == 'S' || m->kind == 'L') return kMcAttack;
-    if (m->kind == 'T') return kMcTwitch;
-    if (m->kind == 'M' || m->kind == 'I') return kMcMovement;
-    if (m->label && strstr(m->label, "attack-family")) return kMcUnnamedAtk;
-    return kMcUnsorted;
+    if (N3MoveAttack(m)) return kMcUnnamedAtk;
+    return kMcTwitch;
 }
