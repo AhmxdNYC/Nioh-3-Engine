@@ -219,3 +219,50 @@
 - #14330 (2026-10-19): user wants ONE install when everything (menu cleanup, multi-boss, boss HP/Ki, sequences, idle/walk-up fix) is done; tell them when installed.
 - #14333 (2026-10-19): Practice menu: hide 'Train here' when already in a boss arena / Training session (makes no sense). Part of menu-cleanup build.
 - #14336 (2026-10-19): audit ALL mod menus for rows that make no sense or show twice (beyond the ones already named); fix in the one cleanup build. Audit list: notes/menu-dedupe-14336.md
+- #14343 (2026-10-19): user asks about co-op: wants possible future feature, 2 modded players train/fight bosses together. Answered: only surface notes exist; study later (no tokens now).
+- #14346 (2026-10-19): user asked if we have whole boss decision logic. Answered: no, only move tables + phase thresholds; AIGraph undecoded.
+- #14366/#14367 (2026-10-19): user asked if app has 'Codex workers only' and 'Codex leaders only' switches; do NOT test Codex workers yet.
+- #14372 (2026-10-19): BUILD 'Codex leader' switch (leader on Codex) in app/agentd, DO NOT test or activate it; it must auto-activate when Claude weekly usage hits 100%; user will enable manually when needed.
+- #14372 (2026-10-19): build a 'Codex leaders only' switch (like Codex-only workers) in the app; DO NOT test or activate it; user flips it when needed and wants it to auto-activate when Claude weekly usage hits 100%. #14445: ignore #14444 (for operator).
+- #14546 (2026-10-19): user reports Aggro me ON does not make the boss aggro during a drill; investigate and fix drill interaction.
+- #14563/#14564 (2026-10-19): Cancel separate-PC drill-aggro testing; fix on this PC, relaunch game, and notify user when ready.
+- #14577 (2026-10-20): User set the app to Codex-only workers; use Codex workers for delegated work. Supersedes earlier worker-model defaults.
+
+- #14655 (2026-10-20): User reports current drill fix seems to work. A selectable boss sequence killed the boss: death/self-kill sequences must not be pickable. Remove tiny twitch sequences AND tiny twitch individual moves from selectable boss menus entirely (supersedes keeping a Twitches submenu); retain useful attacks.
+- #14664 (2026-10-20): Boss move picking should focus on attacks; allow one separate submenu for other animations/twitches. Supersedes #14655 removal of all twitch picks; death/self-kill moves and sequences remain excluded.
+- #14665 (2026-10-20): Sequences must be full real attack sequences, not partial chains or animation/twitch chains. The separate animations/twitches submenu from #14664 does not justify listing those as attack sequences; death/self-kill paths remain excluded.
+
+- #14682 (2026-10-20): When the current menu/sequence fix is done, relaunch the game and ping the user.
+- #14702 (2026-10-20): User reports the currently playing attack/sequence looks incomplete or bugged; inspect live logs and fix full-chain execution.
+- #14710/#14713 (2026-10-20): Fix incomplete execution across all selectable moves/sequences, not just the observed example. Idle/repeat gap must follow actual full move or sequence completion, including recovery; do not truncate at a fixed duration or listed-part count.
+- #14714 (2026-10-20): After fixing full move/sequence completion, relaunch the game and ping the user.
+- #14742 (2026-10-20): User asks to reverse engineer Yoritomo real in-game attack sequences; distinguish actual decoded game logic from estimated chains and heuristic continuations.
+- #14747 (2026-10-20): Ping the user when the actual native Yoritomo sequence logic is found; distinguish proven game logic from estimates.
+- #14751 (2026-10-20): Extend Yoritomo native sequence investigation to his actual AI decision logic too (attack choice, conditions and branches); report proven findings separately from unknowns.
+- #14760 (2026-10-20): Native boss sequence/AI investigators must start from existing boss data and known code/data locations; provide concrete direction and avoid restarting from scratch.
+- #14776 (2026-10-20): Have an agent identify the previously built 30 Hz game-logic optimization reportedly reducing CPU about 26-27%, verify whether latest builds include it, and establish gameplay-test status.
+- #14780 (2026-10-20): User will gameplay-test the old 30 Hz logic optimization personally; current task is locate/identify it only, no automated install or gameplay test.
+- #14795 (2026-10-20): User corrects placement: do the current sequence/AI investigation and 30 Hz feature lookup on this PC; move outstanding remote research here, retaining completed findings. Supersedes remote delegation for these jobs.
+- #14852 (2026-10-20): user wants the game restarted with 30 Hz (TG) applied so they can try it, while sequence/AI work continues.
+- #14852 (2026-10-20): User authorizes restarting the main-PC game with 30 Hz TG enabled now for personal gameplay testing while local boss sequence/AI research continues. Supersedes locate-only/no-enable restriction for this main-PC session.
+- #14877 (2026-10-20): Boss Matches must spawn bosses fighting normally; idle-by-default applies to Training only. User reports regression after current seqfix install.
+- #14922 (2026-10-20): Run Codex benchmarks on both Ally and PC2 with 30 Hz TG OFF versus ON during active boss fights; report measured per-device data. Supersedes locate-only restriction for these remote TG tests.
+- #15180/#15198 (2026-10-20): Claude has no credits; stop Claude agent use and run the requested work with Codex only.
+- #15142 (2026-10-20): User told cxl-ally to pause game tests because the Ally is on battery; do not resume Ally benchmarks until authorized.
+- #15375 (2026-10-20): Ally remains on hold due to battery; do not resume game tests until user authorizes.
+- #15094 (2026-10-20): User wants available parallel agents utilized for assigned work; retain Codex-only routing and avoid duplicating owned jobs.
+- #15602 (2026-10-20): User directs main-PC sequence fix and game relaunch now; prioritize testable fix/install over further extended sequence research, notify after actual launch. Codex only.
+- #15384 (2026-10-20): User reports PC2 bosses spawn idle, preventing a real boss-match benchmark; require actual autonomous combat before accepting timing.
+- #15933 (2026-10-20): Relaunch main PC with already available fixes now; do not delay for further research.
+- #15615 (2026-10-20): Launch with available fixes and keep sequence/AI research going; launch fulfilled by #15602 at 3:08 am EDT, existing local research owner retained.
+- #16278/#16282/#16296/#16332/#16376 (2026-10-20): User says attacks now appear complete; current work is correctly classifying multi-hit moves versus sequences, diagnosing Aggro me during repeat from live logs, and fixing dead bosses left hanging during repeat/training. Prioritize these concrete bugs over further sequence discovery.
+- #16296 (2026-10-20): Include the user-observed complete multi-hit attack in Sequences even when represented by one native action; identified as Yoritomo 4EA5. Preserve the complete native move rather than inventing linked actions.
+- #16640 (2026-10-20): User asks cxl-pc to tell Ally its task; no explicit authorization to lift the battery/game-test hold.
+- #16668 (2026-10-20): User cancels the PC2 boss-stall/distance/facing diagnostic discussed in #16664; user can investigate that personally. Do not continue or requeue this diagnostic without a new request.
+- Human correction relayed by cx-ops #16577 (2026-10-20): classify existing attacks/sequences from code and move lists, not screenshots or screen recordings. Use boss-specific mappings; shared numeric IDs are not proof. Later #16668 cancels PC2 boss-behavior diagnostic.
+- #16571/#16573 via cx-ops #16581 (2026-10-20): Sequence identification must work for every boss using game code or move-list data, not screenshots or recordings. All attacks already exist; classify their sequence relationships. This does not revoke later PC2 diagnostic cancellation #16668.
+- Human scope relayed by cx-ops #16589 (2026-10-20), extending #16571/#16573: automate sequence identification across all boss datasets where possible with a reusable code/move-list extractor/classifier; emit link evidence and flag unknown/ambiguous cases. Adjacent attack IDs alone do not establish chains.
+- Human authorization relayed by cx-ops #16601 (2026-10-20): Ally is available again for the pending CPU-reduction test. Resume its existing assignment after local readiness/ownership checks; supersedes battery deferral for this test only. The roughly30% saving must be measured on Ally, not assumed.
+- #16594 via cx-ops #16612 (2026-10-20): Assign one spare worker to offline move-list coverage for remaining bosses; preserve focused-boss work, avoid duplicate ownership, reuse extraction where feasible, inventory evidence and unknowns. No screenshots, recordings, game launch or benchmark.
+- Human clarification via cx-ops #16624 for #16594 (2026-10-20): find each boss actual move list using the existing tested boss list as template; user calls that boss minimoto, identity must be checked in artifacts rather than assumed. Preserve boss-specific IDs/source evidence; action frequencies alone are insufficient.
+- #20999 (2026-10-20): Boss-move sorting must be one reusable algorithm that classifies any current boss and any boss added later. Do not hand-sort one boss at a time. Unknown stays unknown; do not invent chains. Game stays untouched while the human is in it.

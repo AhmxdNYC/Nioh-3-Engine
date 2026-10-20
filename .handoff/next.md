@@ -1021,3 +1021,435 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 12:54 am EDT cxl-pc #14760: verified original pc2 brief and sent concrete existing artifact/commit/log pointers #14762; asked confirmation of reuse, not restart. NEXT pc2 #14744 confirm assets and deliver first source-backed combo; pc #14707 supply newer native leads/live evidence. User answered #14763.
 - 2026-10-20 1:02 am EDT cxl-pc #14776: delegated 30 Hz logic optimization audit to ally #14777 using existing TG notes/source/captures; user acknowledged #14778. NEXT consume audit, establish actual installed/default state and historical CPU metric; coordinate any gameplay check with pc current game owner. Native Yoritomo investigation remains pc2 #14744.
 2026-10-20 00:58 | #14707/#14713 Yoritomo full-combo fix | DONE+installed: Training 3891588D (111fcc61: after last part the boss own same-attack-family follow-up picks pass, max 4, log "native continuation"), Rematch ABF184AA (308067b8: 4E78>4E79>4E7A link via tools/gen_boss_sequences.py override, hid unproven heads 4E67/4E70/4E8C/4E76/4E7D, attack-first menu groups, killers 4E3B/4E3C hidden); game PID 18140. All pushed on branch pc/boss-hpki-b14462 (worktree C:/Users/Ahmad Hamza/nioh3-hpki-b). UNPROVEN in game: full combos/natural idle (follow-up rule is a heuristic, cap 4). | NEXT: after user plays 4E78 sequence grep REPEAT lines in game-dir Nioh3Training.log (continuation lines, end/gap timing), report action ids; pc2 + cxl-pc doing offline RE of real combo logic (files #1216/#1217); also needs-player items pending | files: mod/Nioh3Training/src/move_toggle.h, mod/boss_sequences.h, mod/Nioh3BossRematch/src/{move_cats.h,training_bosses_menu.h}
+- 2026-10-20 1:03 am EDT cxl-pc #14780: User will personally test the 30 Hz optimization; locate only. Ally audit #14777 remains in flight, scoped by #14782 to no install/enable/launch/benchmark. NEXT consume audit and tell user exact feature/key/build plus proven historical result; no game changes.
+2026-10-20 pc: seqfix pc/seqfix 325f968a (Training 4E2A62A2, Rematch A13EF0ED): sequences play until game's own idle (no list substitution/forced idle). Waiter captures/install_idle_seqfix.ps1 installs when game exits/idle>=2min + relaunch. Needs live proof: 4E78>4E79>4E7A>4E8D, 0xFFFF refusal lets action finish.
+- 2026-10-20 1:08 am EDT cxl-pc #14788: user requested fleet status; answered assignments #14791 without claiming live execution. PC2 live-status query #14789 on #14744, Ally #14790 on #14777; pc also queried. NEXT relay confirmed progress/blockers when replies arrive; keep existing tasks running.
+- 2026-10-20 1:09 am EDT cxl-pc #14795: user wants current research on main PC. Remote stop/transfer requested pc2 #14803 and ally #14804; local takeover TASK pc #14805 covers native Yoritomo sequence/AI and locate-only 30 Hz audit. NEXT obtain transfer and pc acceptance, forward findings locally; do not restart remote work. User answered #14806. Existing local sequence install/relaunch remains pc-owned.
+- 2026-10-20 cxl-pc #14809: PC2 stop confirmed, 0 new decoded findings. Existing pointers forwarded to pc on #14805: action+0xE0 native consumer trace for 4E78/4E79/4E7A/4E8D, notes/yoritomo-action-fields.md+.csv and tools on pc2/aggro-drill-14550, logs #1216/#1217. NEXT pc local acceptance and evidence; Ally stop/transfer still pending. Any late cx-pc2 commit to be forwarded only.
+- 2026-10-20 01:10 pc | TASK #14716/#14710 sequence+single-move termination: fix BUILT offline, pc/seqfix 325f968a (worktree ../nioh3-seqfix; Training 4E2A62A2, Rematch A13EF0ED), NOT yet installed/proven live | waiter captures/install_idle_seqfix.ps1 (hidden PS) installs+relaunches on game exit or input idle>=2min, backup captures/pc/play-20261020-preseqfix | NEXT: confirm installed.txt + hashes, read Nioh3Training.log for 4E78>4E79>4E7A>4E8D and 'back in idle by itself', audit all 12 chains, report measured + unverified to user (TO-USER) and cxl-pc; ensure no double install. pc2 #14744 traces native sequences/AI offline; Ally 30Hz audit. Code already pushed on branches.
+- 2026-10-20 1:11 am EDT cxl-pc #14795/#14814: placement directive already saved; main-PC takeover #14805 reaffirmed via #14815, awaiting pc acceptance/progress. PC2 stop confirmed; Ally transfer confirmation pending. User answered #14816/#14817 without claiming active execution or verified 26% result. NEXT pc provide local ownership plus native evidence and exact 30 Hz key/build/CPU source; no remote restart or 30 Hz installation.
+- 2026-10-20 1:12 am EDT cxl-pc #14801: stale pc status reconciled via #14820; it predates local-only correction #14795. NEXT existing local takeover #14805/#14815 needs acceptance/progress; pc keeps sequence install/live-proof ownership. No new research assignment or game changes.
+- 2026-10-20 1:13 AM Eastern cxl-pc #14798: offline seqfix reviewed; reply requests existing pc-owned live refusal + full-chain/recovery checks. Motion-family rule heuristic; 5 s fallback/30 s timeout retained. NEXT pc finish queued install/test, provide hashes/logs; no cxl-pc installation.
+- 2026-10-20 pc: #14814 answered: 30 Hz feature = TG tick governor (ASI 1.6.0+, in 1.7.73, default off, +2.6-3.3% measured; 26-27% unverified). #14812 accepted: NEXT trace native consumers of action+0xE0 for 4E78>4E79>4E7A/4E8D then AI/AIGraph (see pointers in #14812); not started.
+- 2026-10-20 pc: #14825 acked; waiting on install_idle_seqfix waiter (game 18140 running), then verify live per cxl-pc checklist.
+- 2026-10-20 1:14 am EDT cxl-pc #14814: user answered #14838 using pc confirmation #14826: TG present/default OFF, 26-27% CPU unverified. Existing local owner pc nudged #14840 on #14805 for first native consumer/branch evidence and reconcile running vs not-started status. NEXT pc continue native trace and owned sequence live validation; no TG install/test.
+- 2026-10-20 01:15 pc: 30Hz=TG located (notes/tg-30hz-locate.md), user tests himself. Yoritomo native AI trace delegated cx-pc #14818 (offline). Sequence fix #14702 still needs relaunch+ping (slot 1).
+- 2026-10-20 1:15 am EDT cxl-pc #14843: historical TG CPU claim verified in next.md:332 (PC2 #57: OFF vs ON CPU -27%, FPS +0.8%, lows 19.6 -> 14.6; partial 1/3, raw/metric/settings missing). Corrected user #14856 and local owner pc #14857. Locate-only audit complete; no TG install/test. NEXT pc existing native sequence/AI trace and sequence live validation.
+- 2026-10-20 1:16 am EDT cxl-pc #14852: NEW user authorization overrides TG locate-only: restart main-PC game with TG ON for personal play now. TASK pc #14861 coordinates existing seqfix waiter, backups/lock, TG prerequisites/log activation, controller readiness, launch and user ping. NEXT pc execute restart and return evidence; local native sequence/AI continues. User acknowledged #14862; not yet claimed ready.
+- 2026-10-20 1:17 AM EDT cxl-pc #14849: Ally remote audit stop confirmed, 0 installs/launches/benchmarks and no new findings. Both remote transfers closed. NEXT pc continue existing local native sequence/AI trace and authorized TG restart #14861; report activation/controller readiness before user-ready ping. No duplicate work assigned.
+- 2026-10-20 1:17 AM EDT cxl-pc #14851: pc confirms both jobs local; read #14818 confirms cx-pc owns offline native Yoritomo sequence/AI trace using existing artifacts; slot 1 owns seqfix relaunch. NEXT pc execute newer TG restart #14861 and return activation/controller evidence; cx-pc deliver first source-backed combo and separate proven logic from heuristics. No duplicate assignment.
+- 2026-10-20 pc: installed seqfix (Training 4E2A62A2, Rematch A13EF0ED) + Nioh3EngineFix.ini TG=1 for user (#14852), game relaunched; to restore TG: set TG=0 (backup in captures/pc/play-20261020-preseqfix). Live-check seqfix logs still TODO; native trace TODO.
+
+- 2026-10-20 1:18 AM EDT cxl-pc #14827: older pc local-ownership acceptance reconciled via #14872 with newer TG authorization/relaunch. NEXT existing pc owner finish live TG activation/controller check and answer #14868; existing cx-pc native sequence/AI trace continues. No duplicate launch/research.
+
+- 2026-10-20 1:19 AM EDT cxl-pc #14853: older acceptance/config details reconciled via #14879; newer reported restart supersedes waiter status. NEXT unchanged: pc live TG/controller proof, cx-pc existing native sequence/AI trace #14818 (0 new proven findings in #14853).
+- 2026-10-20 1:20 AM EDT cxl-pc #14841: delayed waiter status superseded by #14880 restart/live report; reconciled #14885. NEXT existing pc owner prioritize Boss Matches idle regression #14877, verify fighting vs Training idle; clarify TG enabled vs actual throttling (85 ticks/s is not proof of 30 Hz). cx-pc #14818 native AI research continues; no duplicate launch.
+- 2026-10-20 1:22 AM EDT cxl-pc #14852: duplicate delayed user restart request answered from completed pc launch #14880. No second restart. NEXT pc existing Boss Matches idle fix/live verification and TG counter clarification #14888; cx-pc native AI trace #14818 remains assigned.
+- 2026-10-20 pc: #14877 FIX built pc/seqfix b52c451d: Boss Matches Fight now spawned idle because TrainAttachArena always IhDefault(1); now only practice sessions. Waiter captures/install_idle_14877.ps1 (Training only) installs on game exit/idle>=2min + relaunch. Verify log: no IDLEHOLD adopted on a Boss Match fight.
+- 2026-10-20 1:30 am EDT cxl-pc #14913: discovered cx-pc stale Oct 17 hold; GO #14923 cleared it and agentd launched 3 queued slots. User corrected #14925. Mixed codex/claude routing sent to cx-ops for recovery; next confirm #14818 research progress and authorized routing. pc still owns game.
+2026-10-20 1:32 AM Eastern cx-pc #11599: collector branch cx-pc/native-poll-11599, commit 745422d5; 41/41 offline tests PASS including dump899. Next pc: 4 live probes; no game touched.
+
+- 2026-10-20 1:32 AM EDT cxl-pc #14922: TG active-boss OFF/ON benchmarks queued board #95 PC2, #96 Ally, #97 PC (after human session). Codex workers requested; GO #14941 sent remote devices; pc coordination #14947. NEXT collect per-device ABBA CPU/FPS/lows/tick-rate captures, help recorder failures first; no KEEP/DROP before 3/3. No measured results yet.
+- 2026-10-20 1:35 AM EDT cxl-pc #14927: explained stale Oct 17 usage-limit hold to user (#14963). Verified cx-pc log has GO and 3 worker launches; requested concrete native research progress on #14818. NEXT consume research reply and existing cx-ops routing recovery; pc retains game, board #95-97 TG benchmarks remain queued.
+2026-10-20 1:53 AM Eastern cx-pc #13519 | Recovered existing pushed report at 6391e2c5; reran 9/9 asset checks PASS and diff check clean | board71 remains incomplete: runtime-to-asset identity, hit count, coefficients, proven duration | next pc provide retained per-boss record snapshots; offline follow-up trace context damage writers
+- 2026-10-20 1:53 am EDT cxl-pc #15052: Ally missing recorder delivered as bridge file #1237 (existing source 646f3944), 6/6 offline fixtures PASS; recovery instructions #15158. Latest approved engine/Training/Rematch package still requested from pc #15148. NEXT: confirm Ally receipt, obtain package + hashes/Proton notes, resume existing board #96; 0 measured TG OFF/ON arms, no performance verdict.
+
+2026-10-20 1:54 am EDT | cx-pc #13391: all 3 offline harnesses PASS on cx-pc/menu-fixes-13391; runner quoting repaired in 969b7ab7. Existing code commits 30c862fe/72c27009; artifact hashes unchanged. Next pc integrate only as appropriate for newer Training changes; no game touched.
+
+- 2026-10-20 1:55 AM EDT cx-pc #13160: revised notes/boss-chain.md at d61e8417 (cx-pc/boss-chain-audit-13160). pc next: inspect resolved-ID guard requirements and Shingen transition provenance; current full-recovery requirement preserved. No game touched.
+
+- 2026-10-20 1:55 AM Eastern cxl-pc #15055: updated human #15185 with 41 collector / 9 asset offline checks; no proven native AI/combo result or TG measured arms. Recovery confirmation requested Ally #15188 (thread #15052); concrete native trace progress requested cx-pc #15193 (thread #14818). NEXT consume these replies, prioritize Ally errors and current package request #15148; existing jobs remain queued/owned, no duplicate assignment.
+- 2026-10-20 2:03 am EDT cxl-pc #15275: PC2 has 0 valid TG arms; failure is fight entry before recording (addon 1.4.21, REA75 queued/fnow idle/fights=0). Existing #95 worker retains ownership; diagnosis sent on #14922. Ally #96 PAUSED by human #15142 battery instruction. NEXT consume cx-pc current-package #15298 and exact native-job #14818 slot/progress reply; no duplicate runner/research.
+
+- 2026-10-20 2:03 am EDT | cx-pc #14373: leader/manual and auto-weekly switches delivered on universal-optimizer cx-pc/codex-leader-14373 (e09b6ca; code 387bb51/5882a45), default OFF, no activation. Next pc review/integrate; offline validation in docs/codex-leader.md; cx-pc requests next scoped offline assignment.
+
+- 2026-10-20 2:03 AM EDT cxl-pc #15107: ops diagnosed restart drain blocking 2 free worker slots behind 1 live job. Recovery verification TASK #15329 on #15069 asks current reload/Codex-only state and proof native research #14818 launched. NEXT consume ops evidence; preserve running job, no duplicate research or forced restart.
+
+2026-10-20 2:04 am EDT cx-pc #13539: footer glyph task complete on cx-pc/footer-13539 (b0e21452, 5b170e74); notes/footer-glyphs-13539.md. pc next: cherry-pick into current combined build, not historical-base ASI install. Offline build/menu/WARP PASS; no game touched. Available for next assigned offline task.
+
+- 2026-10-20 2:05 AM EDT cxl-pc #15333: PC2 still 0 fights/0 valid arms; foreground steamwebhelper, input unverified. Recovery instruction #15347 on #14922: existing owner pause failing loop, foreground game, prove input and active combat before capture; send screen/command trace if failure persists. Package #15298 remains cx-pc. NEXT consume PC2 recovery and cx-ops #15329 launch evidence; no duplicate jobs. Human #15327 answered candidly #15342.
+
+- 2026-10-20 2:06 AM EDT cxl-pc #15151/#15219: recorder runbook file1236 forwarded to PC2 #15370 on #14922; require 10-second target-PID frame/CPU smoke check after fight-entry recovery. Offline documentation complete, live repair still unverified (0 recordings in these reports). NEXT consume existing PC2 recovery; Ally stays paused per battery directive #15142. No duplicate runner.
+- 2026-10-20 2:08 am EDT cxl-pc #15367/#15368/#15375: native research now confirmed running by concrete trace evidence; cx-pc asked to map captured 2-part cutoff to current combined code and smallest testable fix. Human received per-machine status; Ally hold reaffirmed #15400. NEXT consume cx-pc native trace/current-build guard, PC2 recovery #15347/#15370 and cx-ops #15329; no duplicate jobs.
+
+- 2026-10-20 2:10 am EDT: pc review/integrate universal-optimizer branch cx-pc/codex-leaders-14453 (2d4ea4c), default-off only; cx-pc continues assigned native Yoritomo #14818 offline.
+- 2026-10-20 2:09 am EDT cxl-pc #15094: answered agent-utilization question #15417 using confirmed trace #15367 (2-part cutoff; no decoded AI verdict). Added PC2 idle-spawn diagnostic #15418 to existing #14922 recovery: verify latest package, Matches CPU vs Training idle, then combat + 10-second recording. NEXT consume existing recovery/build replies; Ally remains battery-paused. No duplicate jobs.
+
+- 2026-10-20 2:11 AM EDT cxl-pc #15427/#15169: candid status #15430 sent; no new gameplay success claimed. Existing cx-ops directed to close completed-ID replay defect with owner coordination/Codex-only fallback; #15367 confirms native trace already active, no restart. NEXT existing PC2 fight/recorder recovery, cx-pc research/package, cx-ops persistence regression proof; Ally battery hold.
+2026-10-20 2:11 AM EDT | cx-pc #15298: package file1246 delivered to pc2/ally/cxl-pc; docs dca57d69 cx-pc/package-15298. Next existing owners verify/stage under their test plan; Ally stays paused. Fixed Training 84F5D68C differs from installed 4E2A62A2; no live validation claimed.
+
+- 2026-10-20 2:12 AM EDT cxl-pc #15178: delayed ops replay fix located and inspected at 07788b7. Existing cx-ops recovery now validation/safe deployment only; preserve active workers and check first-upgrade replay. Native research confirmed separately #15367. PC2 recovery remains pending; Ally held.
+
+- 2026-10-20 2:14 am EDT cxl-pc #15180: Codex-only enforcement follow-up #15459 added to existing cx-ops routing recovery. NEXT consume effective worker/leader routing evidence; local scan found 0 Claude-named processes only (not fleet proof). Existing native research/PC2 recovery continue; Ally held.
+
+- 2026-10-20 2:15 AM EDT cxl-pc #15462: cx-pc reports 173 per-action blocks and three structural joins (4E78->4E79 row287 threshold110; 4E79->4E8C row288 threshold63; 4E7A->4E8D row292 threshold52). Loader semantics/full chains unproven. Follow-up #15485 on existing #14818 requests loader use, branches/recovery, reproducible evidence and smallest supported testable correction. Human update #15489; no gameplay fix claimed. NEXT consume same worker result; PC2 recovery stays owned, Ally battery hold.
+
+- 2026-10-20 2:16 AM EDT cxl-pc #15198: saved Codex-only directive already includes this message; answered #15495. Verified cx-ops daemon heartbeat fresh and latest TASK launch explicitly worker(codex) at 2:15 am EDT; model=sonnet log label alone is not backend proof of Claude. Existing #15459 routing enforcement remains pending; NEXT consume effective fleet settings/live backend evidence, no duplicate job.
+
+- 2026-10-20 2:18 AM EDT cx-pc #15443: package comparison complete (8d47bc45). PC2 Training 102D9604 / Rematch 3332FF78 both differ from file1246 Training 84F5D68C / Rematch A13EF0ED. Existing recovery owner to verify/stage and prove active combat; packaged b52c451d includes practice-only idle fix, runtime unproven.
+
+- 2026-10-20 2:18 AM EDT cxl-pc #15498: reviewed worker checkpoint bd105052 (173 blocks, 503 transition rows, seven-action candidate); shared interrupts and loader join prevent a proven full-chain claim. Follow-up #15514 on #14818 requests loader/flags proof and smallest runtime probe/correction; human updated #15516. NEXT consume existing cx-pc result; PC2 recovery owners unchanged, Ally battery-held.
+
+- 2026-10-20 2:20 AM EDT cxl-pc #15455: PC2 residual Claude audit reconciled with existing cx-ops routing job via #15552 (reply #15311). NEXT cx-ops verify PID30920 session completion and board95 marker ownership with existing PC2 owner, then safely enforce and confirm recovery. New PC2 workers reported Codex; no game action or duplicate job; Ally hold retained.
+
+- 2026-10-20 2:22 AM EDT cxl-pc #15299: reconciled delayed 3-worker report with completed switch jobs #14373/#14453 and active native research checkpoint bd105052; sent #15568 on #15216 to existing cx-ops owner. NEXT consume existing routing recovery #15552, native loader trace #15514, and PC2 test recovery; no duplicate switch/research assignment. Ally held.
+
+- 2026-10-20 2:23 AM EDT cxl-pc #15343: spend-limit report already relayed as #15339 into Codex recovery #15311; no duplicate task. NEXT existing cx-ops returns enforcement/PC2 recovery evidence per #15552; Ally battery hold remains.
+
+- 2026-10-20 2:24 am EDT cx-pc companion: #14453 shipped default-off leader controls, code 2d4ea4c and debt checkpoint 6b71f44 (universal-optimizer). #14818 concurrent native owner retains loader/predicate trace; independent log appendix pushed e0c4a4ab. No game/helper touched. Next pc integrate leader controls as authorized and assign a distinct offline item.
+
+- 2026-10-20 2:24 AM EDT cxl-pc #15479: PC2 source #15457 confirms 0/4 valid captures; delayed last-arm state not treated as current. Follow-up #15578 asks existing owner for cleanup/ownership checkpoint then package reconciliation and short combat/recorder smoke test before TG comparison. NEXT consume PC2 recovery and cx-ops handover; Ally held.
+
+- 2026-10-20 2:25 AM EDT cxl-pc #15584: companion log audit supports 5 native continuation steps after repeat stopped (file1216 lines16397-16408); relayed #15588 to existing native owner on #14818, human #15590 on #14747. NEXT active owner resolves initial 4E78/4E79 loader join and AI branches; no new installation/test claimed. PC2 recovery remains owned; Ally held.
+
+- 2026-10-20 2:26 AM EDT cxl-pc #15313/#15319: delayed handoff accepted; local Claude pc/ops HOLD evidence is historical 2:02 am EDT (0 subsequent launches at that check), not current global enforcement proof. Package comparison already complete #15443; preserve existing research/PC2 recovery. NEXT cx-ops completes routing evidence in original #15215 (assignment #15311), existing PC2 owner smoke-tests reconciled package.
+
+- 2026-10-20 2:27 AM EDT cxl-pc #15285/#15594: delayed PC2 report confirms 7 Codex starts historically; recovery owner unchanged. Human told no proven/installed full native sequence fix; existing cx-pc #14818 asked for smallest testable correction/probe and exact game-test next step. NEXT consume existing native/recovery results; Ally held.
+
+- 2026-10-20 2:28 AM EDT cxl-pc #15612: PC2 0/5 valid combat captures; 7 starts were coordinator ONLY. Escalated actual game-worker Codex/HOLD clearance to existing cx-ops #15619; cxl-pc2 retains smoke recovery. User #15602 fix/relaunch saved; existing cx-pc #14818 assigned smallest fix/build/main-PC test/install/relaunch via #15620 before extended research. NEXT consume actual worker launch and game-test evidence; Ally held.
+
+- 2026-10-20 2:29 AM EDT cxl-pc #15614: routing code eb73ed5 passes 258 tests; reported PC2 0 helper-owned Claude / 1 Codex worker is historical process evidence, live deployment still unverified. Follow-up #15629 on original #15215 asks existing cx-ops owner to reconcile actual game-worker backend and safe policy loading with no-restart restriction, coordinating cxl-pc2. NEXT consume routing clearance and existing cx-pc sequence fix/install #15620; Ally remains held.
+
+- 2026-10-20 2:30 AM EDT cxl-pc #15321: delayed PC2 Q answered #15632 with existing concrete smoke-test assignment #15578, actual game-worker routing recovery #15619/#15629. No duplicate runner. NEXT existing owners provide combat/recorder and Codex clearance evidence; main-PC fix/relaunch remains cx-pc #15620; Ally held.
+
+- 2026-10-20 2:30 AM EDT cx-pc #14818: delivered native Yoritomo note/parser at cx-pc/yoritomo-native-14818 9b438f86, bridge file1247. Next pc: read probe contract; capture source R+50/+58/+5A, actual T bytes, raw/filtered/final action for 4E79>4E8C and 4E67>4E70. Do not force a 7-step chain; native completion idle2 after recovery. Loader join remains unproven; no game test run by companion.
+
+- 2026-10-20 2:31 AM EDT cxl-pc #15281: delayed human research status answered #15638 using five logged native continuation steps; full AI choice/completion remains unproven. Checked cx-pc daemon log: recent launches explicitly worker(codex). Existing #15620 fix/test/install/relaunch remains the next action; do not duplicate it or restart research. PC2 recovery owned; Ally held.
+
+- 2026-10-20 2:32 am EDT cxl-pc #15445: package delivery accepted via #15651 on original #15298; 11 hashes reported PASS, gameplay pending, file1246/docs dca57d69. NEXT existing cx-pc #15620 completes sequence fix/main-PC test/install/relaunch; preserve newer sequence changes over packaged Training. PC2 already owns reconciliation/combat-recorder smoke; Ally battery-held. No duplicate assignment.
+
+- 2026-10-20 2:33 am EDT cxl-pc #15626: assigned PC2 leader cxl-pc2 safe managed guard deployment coordination via #15663 on existing #15549; answered cx-ops #15664 on #15215. NEXT confirm loaded eb73ed5/effective slot-0 Codex plus actual game-worker backend before clearing holds/resuming smoke. Preserve marker rejection, no companion restart/bypass. 0 valid captures; main-PC #15620 unchanged, Ally held.
+
+- 2026-10-20 2:33 AM EDT cxl-pc #15606: delayed cleanup accepted #15679; already superseded operationally by #15663/#15664 deployment coordination. NEXT existing cxl-pc2/cx-ops confirm loaded policy and actual game-worker backend before smoke; main-PC sequence fix/install #15620 remains assigned. No duplicate worker; Ally held.
+
+- 2026-10-20 2:34 AM EDT cxl-pc #15327: human answered honestly; #15689 asks existing cx-pc for implementation checkpoint. Read-only game check PID2788 start1:16am EDT confirms no new relaunch; daemon fresh Codex slot0 processing Q at2:34am EDT. NEXT cx-pc completes #15620, preserve TG/controller and check owner before restart. PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 2:35 AM EDT cxl-pc #15362: delayed 3-slot/research-stall report reconciled via #15711 with completed native delivery 9b438f86/file1247 and log audit e0c4a4ab. NEXT existing cx-pc completes fix/install/relaunch #15620 (checkpoint requested #15689); cx-ops/cxl-pc2 complete existing policy verification #15663/#15664. No duplicate job; Ally held.
+
+- 2026-10-20 2:36 AM EDT cxl-pc #15648: pre-assignment PC2 executor question answered #15725 in #15215; existing deployment assignment #15663/cx-ops support #15664 apply. NEXT cxl-pc2 returns supported managed UPDATE availability/exact rejection, loaded guard and actual Codex worker proof on #15549. 0 verified game-worker launches; no hold cleared. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:37 AM EDT cxl-pc #15654: research-only result accepted via #15740 on #14818: 2 native transitions still require targeted validation; no installed fix claimed. NEXT existing cx-pc completes #15620 smallest fix/probe, actual game validation/install/relaunch; #15689 checkpoint pending. PC2 recovery remains owned; Ally held. No duplicate research or game lease.
+
+- 2026-10-20 2:38 AM EDT cxl-pc #15628: delayed cx-ops recovery follow-up accepted (258 offline tests; 0/5 valid captures); live deployment remains unverified. NEXT existing cxl-pc2 #15663/cx-ops #15664 verify loaded guard and actual Codex game-worker before smoke. No GO/new task; main-PC #15620 unchanged; Ally battery-held.
+
+- 2026-10-20 2:39 AM EDT cxl-pc #15396/#15404/#15406: PC2 input recovery and IDLEHOLD diagnosis reconciled via #15770/#15772. Corrected native-counter-only gate: Training-spawn combat needs actual attack/action evidence and nonempty capture. NEXT existing cxl-pc2 #15549/#15663 verifies package1246 installed hashes/idle fix plus managed Codex deployment, then combat/recorder smoke. 0 valid OFF/ON arms; no new runner or hold release. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:40 AM EDT cxl-pc #15389: local eb73ed5 agentd.py:130 still uses cumulative turn input for ctx. Assigned single accounting-fix owner cx-ops #15788 (coordinate routing owner; regression tests; push; managed deployment only). Research priority concern superseded by native artifact 9b438f86/file1247 and existing main-PC #15620; result #15790. NEXT cx-ops delivers tested patch and deployment status; cx-pc continues fix/test/install/relaunch. PC2 recovery and Ally hold unchanged.
+- 2026-10-20 2:42 am EDT cxl-pc #15368: answered machine-status question with 3-device assignments and explicit uncertainty (#15806). Verified main game PID2788 still old launch and cx-pc last recorded run ended; continued existing #14818/#15620 implementation assignment. NEXT cx-pc concrete build/test/install evidence; PC2 recovery already owned; Ally battery hold.
+
+- 2026-10-20 2:42 AM EDT cxl-pc #15434: delayed PC2 idle-spawn report reconciled via #15821 on #15370 with existing recovery #15549/#15663 and corrected combat gate #15772. NEXT existing PC2 owner verifies package1246/idle fix, autonomous attacks and nonempty 10-second capture. 0 valid TG OFF/ON arms; no new runner. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:43 AM EDT cxl-pc #15378: Ally confirms battery pause, 0 new recordings/arms; hold preserved until user authorization. NEXT main-PC cx-pc #15620 fix/relaunch and PC2 #15549 recovery continue with existing owners; no duplicate assignment.
+- 2026-10-20 2:45 am EDT cxl-pc #15384: user advised 0 usable PC2 fight captures; requested concrete recovery evidence from existing cxl-pc2 owner via #15857 on #15549 (installed package1246, autonomous attacks, 10-second capture). Next: diagnose exact returned failure or accept proven smoke, then existing benchmark job continues. Ally held.
+
+2026-10-20 2:46 am EDT cx-pc #15812: correction d6fed6b1 built and pushed (cx-pc/native-edge-15812); 340 offline veto cases + native-tail test PASS. Next authorized Codex game worker integrate source into current build, validate 4E67->4E70/recovery and relaunch. cx-pc session explicitly prohibits game access. Full chain and installed parity remain unproven; notes/native-edge-15812.md.
+
+- 2026-10-20 2:46 AM EDT cxl-pc #15627/#15642: accepted offline native research (9b438f86, file1247): 173 action blocks/503 transitions, 2 continuation conflicts, playback unproven. Reply #15863 keeps existing cx-pc #15620 fix/install/game validation active; next deliver native-edge probe and measured completion/recovery, not more broad research. PC2 recovery and Ally battery hold unchanged.
+
+- 2026-10-20 2:46 AM EDT cxl-pc #15442/#15533: delayed PC2 reports reconciled; #15524 verifies file1246 Practice-only idle fix and 3 manifest hashes, older installed pair differs. Existing #15549 recovery and #15857 evidence request remain active; next accept actual installed hashes/autonomous attacks/10-second capture, then TG OFF/ON. 0 proven arms; no duplicate job.
+
+- 2026-10-20 2:48 AM EDT cxl-pc #15427: user progress answered #15883: 340 offline cases pass, installed sequence/relaunch unproven, PC2 0 valid fight recordings. Detected conflicting ownership: cx-pc #15812 checkpoint explicitly prohibits game access despite #15620 assignment. Q #15892 on #14818 requests exact restriction/artifact/current integration owner; next route built d6fed6b1 to authorized game executor after reply, not another research cycle. PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 2:49 AM EDT cxl-pc #15548: accepted replay/ack persistence patch aded464 (remote fleet-v2 confirmed), 257 tests reported by cx-ops. #15905 on original #15438 routes deployment evidence to existing ops/routing owner; no restart here. Next: existing owner supplies managed deployed revision and restart/ack evidence; main-PC integration and PC2 recovery remain with existing jobs, Ally held.
+
+2026-10-20 2:49 AM EDT cx-pc #15620: candidate 11cd27a1 pushed/built; next authorized game owner integrates 2-edge correction, tests full recovery, reports installed hash/launch state. Companion has no game authority; gameplay remains unproven.
+
+- 2026-10-20 2:50 AM EDT cxl-pc #15571: 4 offline restart tests reported passing for replay fix aded464/ad72107; same live deployment follow-up #15905 remains pending. Next existing routing owner supplies deployed revision and first-upgrade/ack evidence; no new restart or implementation.
+
+- 2026-10-20 2:51 AM EDT cxl-pc #15499/#15589/#15603: routing patch eb73ed5 accepted (258 reported offline tests); stale ownership Q answered. NEXT existing cxl-pc2/cx-ops deployment coordination #15663/#15664 returns loaded policy/revision before GO; replay follow-up #15905 remains same deployment. Main-PC game integration still unproven; Ally battery hold retained.
+
+- 2026-10-20 2:52 AM EDT cxl-pc #15473/#15933: phone status sent; verified main PID2788 still started 1:16 am EDT, guard leftovers killed 0. Dedicated game-execution TASK sent to cxl-pc on #15933; do NOT return install work to game-prohibited cx-pc companion. NEXT game executor checks built 11cd27a1/current installed parity, backs up/takes lock, installs and actually relaunches with TG/controller preserved, reports new PID/hash. No live validation claimed.
+
+- 2026-10-20 2:53 AM EDT cxl-pc #15487/#15661: reconciled delayed PC2 reports in #15956 on original #15479. Five attempts ended with 0 valid captures; cleanup only reported. NEXT existing deployment #15619/#15640 proves loaded Codex policy, then existing recovery #15549 proves installed idle fix, autonomous attacks and nonempty 10-second capture. No duplicate runner; main-PC executor unchanged; Ally battery hold.
+
+- 2026-10-20 2:55 AM EDT cxl-pc #15503: clarified irrelevant fleet wording to user. Continued restart support by verifying candidate ../nioh3-native-edges-15620/mod/Nioh3Training/Nioh3Training.asi exists (514048 bytes, SHA256 7144514e650c3b1ff0fc400feb784b703f634ad11ccaf5150e494631a24b51de). PID2788 still old launch. Existing dedicated #15933 executor owns install; no competing launch.
+
+- 2026-10-20 2:55 AM EDT cxl-pc #15672: older routing audit reconciled in #15980 on #15619; zero live helper-Claude processes was snapshot evidence only. NEXT existing cxl-pc2 deployment owner proves loaded eb73ed5 guard and actual Codex worker PID/parent, then #15549 resumes autonomous-fight/10-second capture validation. Main-PC executor unchanged; Ally battery hold.
+
+- 2026-10-20 2:56 AM EDT cxl-pc #15510: delayed Claude quota failure dated 2:17 am EDT predates explicit Codex override #15640 at 2:30 am EDT. Answered existing cxl-pc2 owner; next remains deployment proof in #15619 then recovery #15549, not Claude retry/reset wait.
+
+- 2026-10-20 2:57 AM EDT cxl-pc #15551: assigned cx-pc offline package manifest #15997 for existing native-edges-15620 artifacts (paths/hashes/dependencies/TG preservation); next consume manifest in existing #15933 restart thread. No new build or competing launch; PC2 recovery unchanged, Ally held.
+
+- 2026-10-20 2:58 AM EDT cxl-pc #15562: delayed 2:21 am EDT Claude failure predates #15640 Codex override. Existing cxl-pc2 owner directed to finish #15619 deployment evidence then #15549 autonomous combat/10-second capture; 0 valid OFF/ON captures, recovery unconfirmed.
+
+2026-10-20 2:59 AM EDT cx-pc #15997: manifest ready at ../nioh3-native-edges-15620/notes/install-manifest-15997.json (pushed 1f25612b). Training 7144514e + Rematch a13ef0ed; preserve EngineFix/TG/all INIs. Existing #15933 executor owns installed-dependency verification and relaunch; no game touched.
+
+- 2026-10-20 2:59 AM EDT cxl-pc #15712: PC2 containment evidence accepted as reported (2 Codex workers, 9 guard tests); #16015 on existing #15311 retains live notification deduplication/Discord quietness acceptance with cx-ops. Next existing owner reports repeated-error alert counts; no new routing job. Main-PC #15933 executor and PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 3:00 AM EDT cxl-pc #15550: delayed PC2 result reconciled via #16026 on #15541: 0 captures/5 attempts, fights=0/infight=0/placements empty. Next existing #15549 recovery proves mission entry/placements, autonomous attacks, then nonempty 10-second capture; idle stance alone not established as cause. Await evidence; no duplicate runner; main restart executor unchanged, Ally held.
+
+- 2026-10-20 3:01 am EDT cxl-pc #15741/#15746: PC2 deployment accepted as reported (Codex child2372 parent12148, HEAD eb73ed5; package 3/3). Existing #15549 recovery owns game37204; next autonomous attacks + saved 10-second target-PID recording, then TG OFF/ON. Prior 0/5 valid; no performance verdict. Follow-up #16033; main restart owner unchanged, Ally held.
+
+- 2026-10-20 3:01 AM Eastern cxl-pc #15791 (root #15347): delayed diagnosis reconciled with later 3/3 package acceptance. Existing #15549 owner must prove actual attacks and nonempty 10-second capture; 0 valid TG arms. No duplicate recovery; Ally held.
+
+- 2026-10-20 3:02 AM Eastern cxl-pc #15579: older containment audit reconciled with #15741 live Codex deployment via #16046 (root #15554). Next existing #15311 owner verifies alert deduplication; #15549 proves autonomous combat plus saved 10-second capture. Main restart executor unchanged; Ally held.
+
+- 2026-10-20 3:03 AM EDT cxl-pc #15592: switch jobs 14373/14453 confirmed complete; delayed PC2 uncertainty reconciled via #16056 on #15568 with later deployment/package 3/3 evidence. Next existing #15311 verifies alert deduplication; #15549 proves autonomous combat and saved capture. Main restart executor unchanged; Ally held.
+
+- 2026-10-20 3:04 AM EDT cxl-pc #15587: older no-worker/HOLD result reconciled with verified later messages #15741/#15746 (deployment and package 3/3). Next existing #15549 owner proves autonomous combat plus saved 10-second capture; prior TG 0/5 valid. Marker denial/Ally hold preserved; main restart executor unchanged.
+
+- 2026-10-20 3:05 am EDT cxl-pc #15594: answered sequence status #16065: 340 offline checks reported, gameplay unverified. Read manifest15997 and confirmed PID2788 old launch; supplied concrete two-ASI package to existing #15933 executor via #16066. Next executor installs/relaunches and proves full playback; no competing game operation.
+
+- 2026-10-20 3:05 AM Eastern cxl-pc #15856 (root #14922): PC2 reports autonomous combat + 441 frames/10 seconds, OFF smoke passed; supersedes pending smoke gate. Existing PC2 owner continues OFF/ON/ON/OFF; request per-arm timing/combat evidence. No completed comparative device result yet (0/3); Ally hold and main restart owner unchanged.
+
+- 2026-10-20 3:08 AM Eastern cxl-pc #15602: ACTUAL restart completed. Old PID2788 stopped; new PID2792 started 3:07:59 am EDT, responsive window Nioh 3; all three ASIs loaded. Training7144514e + Rematch a13ef0ed installed per manifest15997. EngineFix and all five backed-up INI/engine files hash-unchanged, TG=1, VirtualPad=0. Backup captures/relaunch-15602 includes saves and previous ASIs/INIs. Next: verify full sequence playback/recovery; do not restart again for delayed #15933/#16012 requests. User notified; leave game available.
+
+- 2026-10-20 3:09 AM Eastern cxl-pc #15622 (root #15608): ownership result reconciled. Continue native loader join only through existing cx-pc owner; await its evidence/result. Main game restart already completed under #15602; PC2 benchmark owner and Ally battery hold unchanged.
+
+- 2026-10-20 3:09 AM Eastern cxl-pc #15880 (root #15549): PC2 recovery confirmation reconciled with #15856: autonomous hit + 441 frames/10s, TG OFF smoke only. Existing #14922 owner continues OFF/ON/ON/OFF; comparative 0/3 reported, Ally held. Answered user #16048: PC2 CPU Ryzen 5 5600X per device report.
+
+- 2026-10-20 3:10 AM Eastern cxl-pc #15615: delayed launch request fulfilled by #15602; PID2792 rechecked responsive. Existing cx-pc #14818 asked for next proven native loader/AI finding; no duplicate restart or research assignment.
+
+- 2026-10-20 3:11 AM Eastern cxl-pc #15623 (root #15618): delayed HOLD/zero-capture message superseded by PC2 #15880/#15856 autonomous combat + 441 frames/10s. Existing #14922/#15549 owner continues OFF/ON/ON/OFF; no new HOLD release requested; Ally held.
+
+- 2026-10-20 3:11 AM Eastern cxl-pc #15674/#15680/#15891 (root #15619): deployment PASS reconciled: 2 native Codex workers, 9 guard tests; later recovery smoke 441 frames/10s already recorded. Existing #15549 continues TG OFF/ON/ON/OFF; comparative 0/3, Ally battery hold unchanged. No redeployment or duplicate runner needed.
+
+- 2026-10-20 3:12 AM Eastern cxl-pc #15950 (root #15459): routing deployment already accepted (2 workers/9 checks). Replay patch aded464 remains offline verified only (257 reported tests); existing PC2 deployment owner #15663 must provide revision + restart/ack evidence at next safe managed load, after active test. Main-PC replay revision not established.
+
+2026-10-20 3:12 AM EDT cx-pc #16095: bd09db4b pushed; six continuation rows bypass B100 target override IF bound unchanged (T+2B=0). Next existing native research: primary R+50/table3 join; no competing investigation/restart.
+
+- 2026-10-20 3:12 AM EDT cxl-pc #15945 (root #15499): routing implementation eb73ed5 accepted with 258 reported offline tests. Existing deployment #15663/#15664 stays authoritative; historical PC2 process counts are not fresh fleet verification. No restart or duplicate task; await existing deployment evidence.
+
+- 2026-10-20 3:13 AM EDT cxl-pc #15657/#15731/#15762/#15915 (root #15620): companion game-access blockers resolved by authorized main-PC install/relaunch #15602. Candidate 11cd27a1/file1250 SHA7144514e is the installed Training build per launch checkpoint; PID2792 freshly responsive. Two native edges and full recovery remain gameplay-unproven; next capture selection/filter/commit and recovery, retain TG=1. Existing offline research stays with cx-pc; no repeat restart.
+
+- 2026-10-20 3:14 AM EDT cxl-pc #15643 (root #15629): older recovery blocker resolved by verified #15741 Codex game worker and #15880/#15856 autonomous combat + 441 frames/10s. Reconciled to cx-ops via #16136. Next existing #14922/#15549 owner completes OFF/ON/ON/OFF; no duplicate restart. Ally held.
+
+- 2026-10-20 3:14 AM EDT cxl-pc #15703 (root #15632): delayed 2-worker recovery reconciled with #15880/#15856 combat + 441 frames/10s; answered #16140. Next existing #14922/#15549 owner completes TG OFF/ON/ON/OFF; no duplicate restart, Ally held.
+
+- 2026-10-20 3:15 AM EDT cxl-pc #16142: explained TG adaptive cap (30 floor, ceil(real FPS*1.25)+2), ~30% logic-work estimate versus unverified total CPU reduction via #16145. Existing PC2 owner asked #16147 for completed OFF/ON/ON/OFF CPU/FPS arms; cx-ops stale recovery #15959/#15969 reconciled via #16146. No new runner; Ally held.
+
+- 2026-10-20 3:16 AM EDT cxl-pc #15683 (root #15661): delayed zero-capture report superseded by #15856/#15880 (441 frames/10s and autonomous hit). Replied #16157; existing #14922/#15549 owner completes TG OFF/ON/ON/OFF, no duplicate runner; Ally held.
+
+- 2026-10-20 3:17 am EDT cxl-pc #16156/#15974: user asked actual CPU drop; #16165 states unverified. PC2 existing #15549 owner queried #16162 for measured OFF/ON CPU (metric definition, percentage points/relative change), FPS and original 30% provenance. Recovery reconciled #16166; await existing run, no duplicate runner, Ally held.
+
+- 2026-10-20 3:18 am EDT cxl-pc #15989/#16001: reconciled delayed recovery messages via #16172 (root #15619). Recovery confirmed; 441 frames/10s is smoke only. Existing #15549 owner continues paired TG test; #16162 CPU/provenance request pending. No duplicate task; Ally battery hold remains.
+
+- 2026-10-20 3:18 am EDT cxl-pc #15709: delayed PC2 zero-capture snapshot reconciled via #16177 against #15994/#16001 recovery proof. Next remains existing #15549 paired CPU/FPS result and #16162 provenance reply; no new runner, Ally held.
+
+- 2026-10-20 3:19 am EDT cxl-pc #15684/#15767/#15777: delayed deployment reports reconciled against #16001 via #16183; PC2 #15549/board95 retains paired TG CPU/FPS test, #16162 provenance pending. No restart/new runner; Ally held.
+
+- 2026-10-20 3:19 am EDT cxl-pc #16185: user status answered #16189; no paired CPU result received. Follow-up #16192 in existing #15549 requests completed arms now or current arm/exact remaining step. Older #15691/#15990 need no repeat deployment or ACK.
+
+- 2026-10-20 3:20 am EDT cxl-pc #15720: routing report reconciled to cx-ops via #16196; 2 Codex workers verified, zero-capture snapshot superseded by recovery smoke. Existing #15549 paired CPU/FPS result and #16162 provenance remain pending; #16192 follow-up already sent, no duplicate runner, Ally held.
+
+- 2026-10-20 3:21 am EDT cxl-pc #15710/#15714/#15734/#15761: delayed offline-only reports reconciled via #16200 (root #15620) against completed #15602 install/relaunch. Existing cx-pc #14818/#16095 continues native loader join; main-PC runtime evidence for 2 edges/full recovery still required. No duplicate implementation/restart.
+
+- 2026-10-20 3:21 AM EDT cxl-pc #15690: answered delayed build question via #16205 using #15880/#16001: package1246 verified, autonomous hit and 441 frames/10s. Existing #15549 owner completes paired TG CPU/FPS test; #16162 provenance and #16192 status requests already pending. No duplicate runner; Ally held.
+
+- 2026-10-20 3:22 AM EDT cxl-pc #15726 (root #15711): delayed research/routing report reconciled; #15689 is a request, not build evidence. Relaunch already fulfilled #15602; cx-pc #14818/#16095 continues loader research, runtime full-chain proof pending. PC2 #15549 comparison remains assigned; Ally held.
+
+2026-10-20 3:22 AM EDT cx-pc #16200 (root #14818): 5ae15e07 pushed on cx-pc/yoritomo-native-14818; disassembly proves lane-specific descriptors and 4-pass lane-zero candidate order (marked global entries can repeat). Packed/runtime binding and both edges' full playback remain unproven. Next: trace generic descriptor +8/+A initializer; owner capture must preserve lane and ordered occurrences. No game access.
+
+- 2026-10-20 3:22 AM EDT cxl-pc #16038: semantic alert dedup FAIL (5 fresh IDs -> 5 mock sends), same-ID replay PASS (5 -> 1). Existing cx-ops incident #15311 continued via TASK #16212: implement bounded semantic dedup and mock regression tests, commit/push, report safe deployment. Real Discord quietness remains unproven; no game/helper restart.
+
+- 2026-10-20 3:23 AM EDT cxl-pc #16031/#16024/#16016: user informed #16217 of raw PC2 CPU -30.4%, inconclusive (2/4 captures lose combat). RX6650XT/5600X OFF/ON CPU 7.84/5.46 cores, FPS48.0/45.7; adaptive ON caps58-63, floor30, not fixed30Hz. Existing board95/15549 owner retains matched continuous-combat replacement via #16023/#16218; original claim provenance still pending. Partial1/3; Ally held.
+
+- 2026-10-20 3:25 AM EDT cxl-pc #16045 (root #15741): recovery accepted (441 frames/10s), four-arm result already reviewed. Existing board95/15549 owner must deliver 2 sustained-combat replacement captures and claim provenance; no new runner, Ally held.
+
+- 2026-10-20 3:27 AM EDT cxl-pc #16098/#16104: final PC2 report supersedes four-window summary: active OFF/ON CPU7.990/5.570 cores (-30.29%), FPS41.86/43.21; guard CPU7.720/5.642 (-26.91%), FPS50.01/44.10. Four of six combat windows accepted; unmatched paths; no KEEP/DROP, partial1/3. User informed #16232. Next cxl-pc2 reconcile existing replacements/provenance via #16233; no duplicate runner. Ally held.
+
+- 2026-10-20 3:28 AM EDT cxl-pc #15782: delayed criteria relay reconciled against final #16098/#16104; its zero-arm status is historical. Existing reconciliation #16233 remains next; no new tests assigned; Ally held.
+
+- 2026-10-20 3:29 AM EDT cxl-pc #15789 (root #15772): delayed 509-frame smoke recovery reconciled via #16252; newer #16098/#16104 remain current. Existing #16233 reconciliation stays queued with cxl-pc2; no duplicate test; Ally held.
+
+- 2026-10-20 3:30 AM EDT cxl-pc #16122 (root #15459): replay/deployment unverified, 0 helpers restarted. Existing cxl-pc2 request #16120 under #15663 must provide loaded revision plus restart/ack evidence for aded464. No duplicate request or restart; separate semantic-dedup follow-up #16212 remains with cx-ops.
+
+- 2026-10-20 3:31 AM EDT cxl-pc #15888: context fix 1267d04 verified on origin/fleet-v2; 271 tests reported, runtime load unverified. Existing ops managed deployment #16267 owns main-PC load/resume evidence; PC2 existing #15663 extended by #16265. Preserve live jobs and Ally hold; no duplicate restart.
+
+- 2026-10-20 3:32 AM EDT cxl-pc #15799: delayed user status answered #16276; directly rechecked #16098/#16104 and pending reconciliation #16233. CPU reduction remains provisional, partial 1/3; next existing cxl-pc2 owner returns matched-test ownership/provenance. No duplicate runner; Ally held.
+
+- 2026-10-20 3:34 AM EDT cxl-pc #15873 (root #15812): reconciled via #16287; d6fed6b1 single-edge fix covered semantically by installed 11cd27a1 (not ancestry). Installed two-edge build/relaunch already done #15602. Next existing cx-pc #14818 continues native-loader evidence; runtime full-chain proof remains limited. No duplicate install/test; Ally held.
+
+- 2026-10-20 3:35 AM EDT cxl-pc #16135 (root #15618): reconciled via #16294 against #16104/#16126; 4/6 accepted combat windows, replacement continuity passed; CPU -26.91/-30.29%, FPS mixed, partial1/3, no KEEP/DROP. Board99 supersedes95. Next existing pc2 #16116 diagnoses stalled windows; no duplicate runner; Ally held.
+
+- 2026-10-20 3:35 AM EDT cxl-pc #15828/#15846 (root #15821): older zero-arm/recovery reports reconciled with #16104/#16126; 4/6 accepted, provisional partial1/3. Existing pc2 #16116 owns stall diagnosis; no new runner; Ally held.
+
+- 2026-10-20 3:36 AM EDT cxl-pc #15864 (root #15857): older 441-frame recovery reconciled with #16104/#16126 via #16303; 4/6 windows accepted, CPU -27-30%, mixed FPS, partial1/3. Existing pc2 #16116 stall diagnosis retained; board99 supersedes95. Ally held; no new runner.
+
+- 2026-10-20 3:37 AM EDT cxl-pc #15899 (root #15891): ops smoke-only status reconciled via #16312 with #16104/#16126; 4/6 accepted, provisional partial1/3. No further ops recovery action; existing pc2 #16116 stall diagnosis next, Ally held.
+
+- 2026-10-20 3:38 AM EDT cxl-pc #16184 (root #15709): PC2 final result reconciled, 4/6 accepted windows, CPU -30.29% active pair; partial1/3, no KEEP. Worker says #16116 diagnosis complete; reference/recipe requested via #16317 to resolve stale local pending entries before scheduling next test. No duplicate runner; Ally held.
+
+- 2026-10-20 3:39 AM EDT cxl-pc #15902 (root #15812): delayed game-authorization report reconciled with #16287; installed 11cd27a1 already covers correction, relaunch fulfilled #15602. Next existing cx-pc #14818 native-loader research; no duplicate install or new runner.
+
+- 2026-10-20 3:40 AM EDT cxl-pc #15932 (root #15916): delayed 441-frame smoke reconciled with #16104/#16126; 4/6 accepted, partial1/3, CPU -27-30%, mixed FPS. Next existing #16317 diagnosis-reference request; no new runner, Ally held.
+
+- 2026-10-20 3:41 AM EDT cxl-pc #15925: delayed status answered #16329 using current installed/relaunched state and provisional PC2 result. Advanced existing native research #14818 via #16331: request checkpoint/worktree or commit (notes/yoritomo-native-ai.md absent in main workspace). Existing #16317 awaits PC2 diagnosis reference; no duplicate tests, Ally held.
+
+- 2026-10-20 3:43 am EDT cxl-pc #16024: delayed early PC2 report reconciled via #16347 with #16104/#16126 (4/6 accepted; partial1/3). Next remains existing #16317 diagnosis reference; no duplicate test; Ally held.
+
+- 2026-10-20 3:44 AM EDT cx-pc #16331: reuse pushed a28060be, branch cx-pc/yoritomo-native-14818, worktree C:/Users/Ahmad Hamza/nioh3-yoritomo-native-14818; notes/yoritomo-native-ai.md and evidence index. 173/503 reproduction PASS; runtime binding unknown. Next offline: recover saved descriptor-leaf function boundaries then trace +8/+A initializer. No duplicate packed-data investigation or game interruption.
+
+- 2026-10-20 3:44 AM EDT cx-pc #16320 (root #14818): 5d1b53bd pushed; four leaf initializer candidates match descriptor layout but have no scanned direct references. Next offline: trace inlined pointer/start/count assignments in known action-bank parser callers alongside packed list cursor; runtime join remains unproven. No repeat installation.
+
+- 2026-10-20 3:44 am EDT cxl-pc #15964 (root #15956): delayed recovery reconciled via #16352 with #16104/#16126; 4/6 accepted, partial1/3. Next existing #16317 diagnosis reference; no duplicate runner, Ally held.
+
+- 2026-10-20 3:45 am EDT cxl-pc #15965 (root #15958): delayed recovery answer reconciled with #16352 and later #16104/#16126. Next existing #16317 diagnosis-reference follow-up; no new runner, Ally held.
+
+- 2026-10-20 3:45 am EDT cxl-pc #15994: delayed deployment report reconciled via #16366 with later #16126; partial 1/3 verdict unchanged. Next: existing #16317 completed stall diagnosis reference; no duplicate tests; Ally held.
+
+- 2026-10-20 3:46 am EDT cxl-pc #15996 (root #15992): delayed recovery reply reconciled with #16366/#16126; old worker failure closed. Next remains #16317 diagnosis reference; deployment #15663 retained; Ally held.
+
+- 2026-10-20 3:47 AM EDT cxl-pc #16021/#16029 (root #15997): manifest reports reconciled with completed #15602 installation, matching both ASI hashes. Packaging closed; no repeat restart. Existing local work and PC2 #16317 follow-up retained; Ally held.
+
+- 2026-10-20 3:48 AM EDT cxl-pc #16293 (root #15812): source reconciliation closed; installed 11cd27a1 covers both 4E67->4E70 and 4E79->4E8C; 340 offline passes do not establish full gameplay completion. Existing #14818 owner retained; no repeat installation. PC2 #16317 follow-up and Ally hold unchanged.
+
+- 2026-10-20 3:49 AM EDT cxl-pc: #16013 delayed recovery closed against #16104/#16126; PC2 #16317 unchanged. User #16383 answered #16388. NEW priority #16389 to local cx-pc: capture live logs and fix repeat aggro, move/sequence classification and hanging death; preserve native research checkpoint and active player session. Next obtain initial log findings, then runtime proof; Ally held.
+
+- 2026-10-20 3:50 am EDT cxl-pc #16012: delayed restart request answered #16395; verified Nioh3 PID 2792 started 3:07:59 am EDT. No repeat restart. Next remains cx-pc #16389 training bug fixes; PC2 #16317 retained and Ally held.
+
+- 2026-10-20 3:51 am EDT cxl-pc #16043 (root #16041): delayed recovery result reconciled #16401 against replacement #16126; partial 1/3 unchanged. Next #16317 existing stall-diagnosis reference; local #16389 training fixes retained, Ally held.
+
+- 2026-10-20 3:52 AM EDT cxl-pc #16308 (root #15857): PC2 acknowledgement reconciled via #16405; partial 1/3 verdict unchanged. Next remains existing PC2 #16317 follow-up and local cx-pc #16389 training bug fixes; Ally battery hold preserved.
+
+- 2026-10-20 3:52 AM EDT cxl-pc #16053 (root #16046): delayed smoke report reconciled via #16408 with later paired #16126. Partial 1/3 unchanged; next existing PC2 #16317 and local cx-pc #16389 fixes; Ally held.
+- 2026-10-20 3:52 am EDT | cx-pc #16389: captured current Training/Rematch logs read-only; death restarts at +1.224/+4.760 s proven; 4EA5 selected during multi-hit report. Evidence commit 7652a504, branch cx-pc/training-16389; next add dead-actor bypass and repeat-start aggro handling, then offline tests. Native research remains preserved at 5d1b53bd.
+- 2026-10-20 3:53 AM EDT cxl-pc #16048: hardware answer delivered #16416 (PC2 Ryzen 5 5600X, 6C/12T). Next remains existing cx-pc #16389 training fixes and PC2 #16317 follow-up; Ally battery hold retained.
+- 2026-10-20 3:54 AM EDT cxl-pc #16058: cx-ops closure reconciled: switch jobs #14373/#14453 closed, reported package acceptance 3/3; remaining verification stays with #15311/#15549. No reply requested or sent. Current #16389 fixes/#16317 follow-up retained; Ally held.
+
+- 2026-10-20 3:54 am EDT cxl-pc #16064: delayed recovery reconciled via #16426 against later #16126; partial 1/3 unchanged. Next existing PC2 #16317 diagnosis reference and local cx-pc #16389 training fixes; no duplicate test, Ally held.
+
+- 2026-10-20 3:55 am EDT cxl-pc #16072 (root #16070): delayed active-capture report reconciled via #16435 with completed #16126; partial 1/3 unchanged. Next existing #16317 diagnosis reference and cx-pc #16389 fixes; Ally held.
+
+- 2026-10-20 3:56 AM EDT cxl-pc #16354 (root #14818): preserved descriptor checkpoint 5d1b53bd: 4 candidates, 0 direct references, native-loader connection unproven. Next remains cx-pc #16389 training death/aggro/classification fixes; no renewed loader hunt or install. PC2 #16317 retained; Ally battery hold.
+
+- 2026-10-20 3:57 AM EDT cxl-pc #16098/#16104: reconciled PC2 TG OFF/ON CPU66.59/46.42%, 30.29% relative reduction; user #16156 answered with absolute versus relative distinction and mixed FPS. Partial 1/3; next existing #16317 diagnosis reference and cx-pc #16389 training fixes; Ally held.
+
+- 2026-10-20 4:00 AM EDT cxl-pc #16191: #16317 missing-reference request resolved by reports1254/1255, a1fabb3/ed8f103. Proven harness gaps: absent sustained-action acceptance gate and 20s monitor expiry; native AI cause unknown. NEXT PC2: existing sole-owner #16188/#16116 isolated guard-release/spacing/facing/strike diagnostic, monitoring renewed 15s, conditional 3x60s per TG state. No duplicate task. Local #16389 fixes retained; Ally held; performance partial 1/3 unchanged.
+- 2026-10-20 4:01 AM EDT | cx-pc #16389: pushed a238066c (cx-pc/training-16389); both ASIs built; 338 catalogue cases + dead-actor regressions, 8 aggro scenario groups and 5 focused menu checks pass. Post-fix runtime unproven; next game owner install/test when player inactive. Details ../nioh3-training-16389/notes/training-16389-result.txt.
+
+- 2026-10-20 4:02 AM EDT cxl-pc #16142: governor explanation delivered; 30.29% refers to normalized game-process CPU, not FPS/system usage. Existing next: runtime validation of cx-pc #16389 a238066c, player activity/ownership check before install; PC2 #16188 diagnostic retained; Ally held.
+
+- 2026-10-20 4:04 AM EDT cxl-pc #16185: answered #16521; read #16389 result file. Runtime recipe ready: Aggro OFF/ON held 4EA5 repeat, kill repeating 4E5B requiring zero post-death repeat starts, check multi-hit Sequences row. Install only Training fe515233... and Rematch 48eb9ad1... after player/lease check, preserve EngineFix/TG. No install/test performed this reconciliation.
+
+- 2026-10-20 4:05 AM EDT cxl-pc #16255/root #16212: notifier implementation/deployment recorded (20 notifier tests; duplicate5 -> mock1). PRESERVE ../uo-dedup-16212: UO-Bridge-Status-Sync runs there. Existing ops incident #15311 must verify natural delivered/suppressed/skipped receipts; live suppression still unproven (1 skipped event). No helper restart. Local #16389 runtime validation and PC2 #16188 retained; Ally held.
+
+- 2026-10-20 4:06 AM EDT cxl-pc #16240/#16259: accepted 4/6 combat windows remain unmatched; partial1/3, no KEEP. #16188 diagnostic runner/game reported exited; requested existing final report + restoration reference from cxl-pc2 in #16188, no new run. Next consume outcome before defining matched benchmark. Historical pre-test CPU claim still unverified; local #16389 runtime validation pending, Ally held.
+
+- 2026-10-20 4:07 AM EDT cxl-pc #16278: user updated that fixes built, runtime unproven. Explicitly continued existing cx-pc #16389 into MAIN-PC protected install/test (already in original scope), sole delegated runtime owner. Next measured aggro OFF/ON4EA5, post-kill4E5B zero-repeat/cleanup, menu classification; preserve active player and EngineFix/TG. Await outcome, do not start competing local test. PC2 #16188 retained; Ally held.
+- 2026-10-20 4:08 AM EDT cx-pc #16548: runtime delegation conflicts with current direct companion prohibition on game/locks; BLOCKED #16552 requests authorized owner or explicit user override. Patch a238066c and both built ASIs remain ready; no game/lease/install changes. Next resolve runtime ownership; do not duplicate implementation.
+- 2026-10-20 4:08 AM EDT cx-pc #16557: cxl-pc withdrew game delegation #16548 and explicitly retained main-PC runtime ownership. Offline patch a238066c/artifacts and recipe accepted; no further offline investigation requested. Next cxl-pc validate runtime; cx-pc companion restriction retained.
+
+- 2026-10-20 4:09 AM EDT cxl-pc #16282: aggro findings explained #16556. Runtime delegation WITHDRAWN #16557: cx-pc has direct companion no-game rule (#16552). Main-PC validation queued explicitly to cxl-pc under #16389; build a238066c and recipe unchanged. Guard leftovers killed0; player-idle/lease check still required before test.
+
+- 2026-10-20 4:09 AM EDT cxl-pc #16296: confirmed observed 4EA5 multi-hit belongs in Sequences per user; pending a238066c includes this, still one native action. Runtime remains queued to cxl-pc #16563/#16389; cx-pc offline-only.
+
+- 2026-10-20 4:10 AM EDT cxl-pc #16310: answered portability as shared governor + per-game validated adapters; no new port implementation requested or assigned. Next remains authorized main-PC runtime #16563/#16389, PC2 #16188 outcome, Ally held.
+
+- 2026-10-20 4:11 AM EDT cxl-pc #16458/#16455: #16188 COMPLETE;8 scenes (4TG OFF/4ON),1 ON stall persisted5.108s after guard release;OFF no10s idle. No recipe, no3x60s validation; spacing/strike triggers unexercised; rapid action changes not attack proof. Report1256/raw1257,5416596;6 saves/10 files restored,3 absent paths absent,lease released per worker. NEXT existing cxl-pc2-queued bounded short-action/geometry follow-up (reference to accompany next result), no duplicate benchmark. Main-PC #16563 pending; Ally held.
+
+- 2026-10-20 4:14 AM EDT cxl-pc #16339: helper fixes already at tooling HEAD1dc4967 (1267d04,b93ed0d); runtime unverified. Existing ops #16267 notified #16627: UPDATE resets conflicted .handoff/next.md,owners.md,TECH_DEBT.md; preserve/reconcile before managed load after live jobs drain. No restart or game action here. Ignore superseded result relays; no ACK loops.
+
+- 2026-10-20 4:15 AM EDT cxl-pc #16332: classification scope reaffirmed to user; existing moves need correct sequence/multi-hit labels, not additional move discovery. Apply to pending main-PC #16563/#16389 validation alongside aggro/death checks; no duplicate research assignment.
+
+- 2026-10-20 4:16 AM EDT cxl-pc #16376: corpse report answered from saved evidence; main-PC #16563/#16389 death check requires zero repeat starts after kill of repeating4E5B and normal native corpse cleanup. Build-only status retained.
+
+- 2026-10-20 4:18 AM EDT cxl-pc: #16640 Ally existing offline provenance audit #14777 restated; return canonical result if complete, no duplicate research or game testing. #16641 current PC2 run confirmation requested #16653; user given assigned diagnostic purpose with live status qualified.
+
+- 2026-10-20 4:18 AM EDT Ally #16654: offline recorder recovery complete (6 checks, archive1258), TG OFF/ON each0 valid live arms. Existing board96 waits approved Engine/Training/Rematch package with hashes/Proton notes15148 AND user release of battery hold. Synthetic samples do not count as gameplay proof.
+
+- 2026-10-20 4:19 AM EDT USER #16668 CANCELS PC2 boss-stall/geometry diagnostic described16664. Cancellation/restoration sent to cxl-pc2 and pc2; no further scenes or follow-up benchmarks for that diagnostic. Next consume final restoration confirmation; do not requeue. Unrelated training fixes remain pending.
+
+- 2026-10-20 4:20 AM EDT #16528: do not infer missing reload from context logs alone: helper did restart4:03:18am, loaded revision unproven. Ledger16503 fallback=true despite intentional silence. Existing cx-ops16422/ops16267 deployment owner to verify loaded b93ed0d and natural threaded detection; preserve conflicted edits.
+
+- 2026-10-20 4:21 AM EDT Ops16538 is covered by existing16389 patch and16563 runtime assignment: classify existing attacks, corpse cleanup after2 logged post-kill repeats. User answered directly in16538; no new research or duplicate test assigned.
+
+- 2026-10-20 4:22 AM EDT #16577/#16606: sequence classification must use boss-specific code/move lists, no screenshots/recordings. PC2 shared IDs4E31/2/3FD remain unidentified, frequency is not sequence proof. Do not revive16459 from delayed ops relay: later16668 cancellation/16674 restore request controls.
+
+- 2026-10-20 4:22 AM EDT #16581: sequence-identification method must cover EVERY boss, source/code or move-list based. The observed4EA5 label is a narrow correction, not completion of all-boss classification. Preserve this requirement for existing classification work; do not restart cancelled PC2 behavior test16668.
+
+- 2026-10-20 4:23 AM EDT #16589 adds automation to all-boss classification: reusable extractor/classifier from code/move lists, evidence for links, explicit unknown/ambiguous cases, never numeric-ID adjacency alone. Extend existing classification scope, no duplicate assignment or revival of cancelled PC2 runtime diagnostic.
+
+- 2026-10-20 4:23 AM EDT #16601 human authorization RELEASES Ally battery deferral for existing CPU test only; supersedes our16662/16669 reminders. Existing board96 sole owner to check readiness/package15148, live recorder smoke then OFF/ON comparison. No duplicate runner; actual Ally30% remains unproven.
+
+- 2026-10-20 4:24 AM EDT #16612: consume cx-pc remaining-boss coverage inventory/extractor result; source-backed evidence and explicit unknowns required. Single assignment sent, no parallel duplicate; focused-boss work preserved.
+
+- 2026-10-20 4:25 AM EDT Ally16712: unexpected game9269 exit before sample; cause unknown. Owner7795 directed to inspect exit/supervisor logs and retry authorized test; await recovery/sampling evidence. No duplicate runner or remote game command here.
+
+- 2026-10-20 4:25 AM EDT #16624 clarification sent to cx-pc under16612: actual per-boss move lists matching established tested-boss template, not frequency tables. Verify user minimoto identity in artifacts; preserve boss-specific IDs/evidence.
+
+- 2026-10-20 4:26 AM EDT #16638 supersedes conflict blocker16628:0 unmerged paths independently confirmed, edits preserved per cx-ops. Context fix confirmed live via latest-call telemetry92092. Remaining helper item is existing ops reply-fix load/acceptance, not context reimplementation; shared local edits preserved.
+
+- 2026-10-20 4:27 AM EDT PC216660 identifies cancelled16459 run: historical game20292/runner35088/owner37308, geometry_diagnostic.ps1 ArmOffset2 ON/ON. Added identifiers to existing16668 cancellation; owner must recheck before cleanup. No restoration confirmation yet; prior16188 closure is not this run.
+
+- 2026-10-20 4:28 AM EDT #16726: PC2 cancelled diagnostic16459 CLOSED; worker reports6 saves/10 original files restored, no game/lease. Supersedes pending cleanup16660. No further geometry diagnostic authorized; existing move-list owners continue.
+
+- 2026-10-20 4:28 AM EDT #16736 corroborates closed PC2 task16459: fresh CIM finds historical game20292/runner35088/owner37308 absent, no Nioh3 or geometry runner; guard killed0. Owner16730 acknowledged cancellation16674 and exited. No follow-up test.
+
+- 2026-10-20 4:29 AM EDT #16692: existing reply-path deployment accepted:1 natural threaded reply16686 matched ledger16512/16528 with no fallback/error/timeout; bridge16682 proves updated wording/thread linkage active. No duplicate reload. Live >200-message scan unproven (offline pagination covered); intentional-silence fallback policy separate.
+
+- 2026-10-20 4:30 AM EDT #16708 resolves Ally16712 exit cause: concurrent ally session reports guard leftovers killed game9269 despite live owner7795/fresh marker. Invalid interrupted OFF1 must repeat; recovery instruction16749 sent under16601, await owner recovery/result. cx-ops tasked with guarded offline cleanup fix under16708; no live cleanup authorized.
+
+- 2026-10-20 4:30 AM EDT #16740 strengthens closed16459 restoration evidence: pc2 reports fresh SHA256 matches for6 saves/10 original files,3 originally absent paths absent;3 historical PIDs absent. Trace records lease release4:21 am EDT. No further diagnostic work; cancellation final.
+
+- 2026-10-20 4:31 AM EDT #16754: ownership query answered; cx-ops proceeds guard live-owner protection fix16752 offline. Await regression evidence/commit; no duplicate implementation or runtime actions.
+
+- 2026-10-20 4:32 AM EDT #16759: await existing guard fix from uo-guard-16752 (cx-ops/guard-16752); confirmation16756 already delivered to implementation session. No additional assignment or live validation.
+- 2026-10-20 4:32 AM EDT | cx-pc #16710: coverage inventory/extractor complete on cx-pc/coverage-16710 (4844f16e + e229bcd1). 65 IDs: 10 non-idle lists, 1 init-only, 54 absent; 7 TSVs add 0 IDs. Unique Shingen/Otoroshi table matches add 242 static candidate IDs; 8 tests pass, existing parser agrees on 277 records. Next source-backed bank/identity resolution for remaining IDs; no menu promotion/runtime proof. Report ../nioh3-coverage-16710/notes/coverage-16710/report.txt.
+
+- 2026-10-20 4:33 AM EDT #16762 inventory accepted after reading report:65 IDs,10 non-idle lists/1 init-only/54 missing;242 extra Shingen/Otoroshi candidates,8 checks reported pass. Continue cx-pc offline under16710: saved character-bank provenance, first additional missing boss list end-to-end, then reuse method; unmatched Shingen39/Otoroshi57 hashes. No menu promotion. Commits4844f16e/e229bcd1, report1261.
+- 2026-10-20 4:36 AM EDT | cx-pc #16724 (root16710): b552bad6 + 9b02f9aa pushed on cx-pc/coverage-16710; Shingen136/Otoroshi141 full action-field CSVs (42-column Yoritomo schema) + static TSVs exported with source hashes. 9 tests pass; nickname remains ambiguous but actual tested chr16102 is Yoritomo in artifacts. Other boss full lists remain gaps; next saved setting-hash identity extraction. No game/menu edits.
+
+- 2026-10-20 4:36 AM EDT #16771: guard fix published6003013/a15f1b1,289 offline checks reported pass including13 new regressions. Docs reviewed. Main UO checkout still1dc4967; cx-ops assigned safe local integration under16752, peers notified to obtain source before next cleanup. No restart/live cleanup; await deployment confirmation.
+
+- 2026-10-20 4:37 AM EDT #16773: Shingen136/Otoroshi141 source-derived records exported in established42-column format;9 checks reported pass. b552bad6/9b02f9aa on cx-pc/coverage-16710; full-list-manifest.json records hashes. Current tested example identified by artifacts as Yoritomo16102, not nickname alone. Continue existing16765 additional-boss provenance assignment; raw next/event spawn links are not proven attack sequences.
+
+- 2026-10-20 4:38 AM EDT #16780: cx-pc reports saved evidence bundle has settings only for Yoritomo/Shingen/Otoroshi; other IDs found but bytes not in checked main extraction/D:/nioh3-re. Lead has no verified extra directory. Continue unmatched-hash provenance plus exact missing character IDs/hashes and checked locations; no game/package access.
+
+- 2026-10-20 4:38 AM EDT #16781: provenance continuation isolated from coverage export branch to avoid concurrent writes; retain b552bad6/9b02f9aa exports and16783 missing-asset guidance. No duplicate provenance assignment.
+
+- 2026-10-20 4:39 AM EDT #16782: main UO guard deployment complete per cx-ops; HEADa15f1b1 includes6003013,13 local mocked regressions passed. Eight dirty files preserved; recovery stasha053d275 retained. No helper restart/live cleanup. Remote source adoption remains separate.
+
+- 2026-10-20 4:41 AM EDT #16799: Ally board96 COMPLETE/restored. Z1 Extreme AC/Bazzite Proton Experimental,1080p FSR50/60cap/FG OFF/custom low; active Yamagata ABBA4x60s: CPU OFF6.347 vs ON6.485 CPU-s/s(+2.2%); FPS36.20 vs35.22(-2.7%); differences inconclusive. ON cap47-50, tick34-37/s, not fixed30Hz; no30% saving reproduced. Interrupted attempt excluded. report1263/raw1264. No fleet KEEP/DROP; this is1-device evidence.
+
+- 2026-10-20 4:42 AM EDT cx-pc #16765: PARTIAL provenance checkpoint d739df42, branch cx-pc/provenance-16765, worktree ../nioh3-provenance-16765. 94/96 unmatched hashes have authored objects; Otoroshi 90390369/e7f4cd95 absent. Need saved additional loader/settings plus gameplay-ID binding to establish first additional boss list; Q #16780 pending. Focused Yoritomo unchanged; no runtime/menu changes.
+
+- 2026-10-20 4:42 AM EDT #16804: Ally confirms local guard6003013 by read-only source inspection: live-owner/shared-process protection and fresh-marker deferral present. No cleanup/runtime test. Main and Ally source adoption confirmed; PC2 confirmation still outstanding.
+
+- 2026-10-20 4:42 AM EDT #16807: provenance d739df42 resolves94/96 unmatched objects in authored banks; all96 absent from respective packed action tables; no fabricated joins. Only3 saved settings files found;15 tests reported pass. Existing cx-pc now authorized targeted READ-ONLY installed-archive extraction for Ryomen loaderc565cbb4/settingcb829b0d, independent gameplay binding and first additional full list. Supersedes lead no-package-access restriction only for this offline extraction. Report1265.
+- 2026-10-20 4:43 AM EDT | cx-pc #16783 (root16710): pushed f3f5c8b4 on cx-pc/coverage-16710. 96 unmatched unique hashes: 94 saved object headers located, 2 Otoroshi absent from six checked KODs. Missing-setting export covers62 IDs (22 candidate setting hashes,44 no identity lead); checked roots/file counts exact in saved-location-audit.json; 5 new tests pass. Next investigate94 existing headers' bank provenance, obtain targeted saved assets for2 objects/setting leads; no game/package access.
+
+- 2026-10-20 4:43 AM EDT #16811: f3f5c8b4 coverage export adds missing-character-settings.csv for62 characters (22 distinct setting-hash leads;44 no identity lead), saved-location-audit.json;5 checks reported pass. Saved filenames search not proof of byte absence in opaque files. Existing isolated provenance owner16809 consumes this input; no duplicate provenance investigation.
+
+- 2026-10-20 4:43 AM EDT cx-pc #16777/root16765: 062d2d58 pushed; missing-settings.csv (349 metadata characters) and checked-locations.json (4 bounded searches). Q16780 resolved by16783: lead has no verified extra directory, not global absence proof. Next targeted saved-source recovery; source records/spawn links/full attack sequences remain distinct.
+
+- 2026-10-20 4:44 AM EDT #16813: provenance062d2d58 exports349-character missing-source inventory and4 checked locations;7 provenance checks reported pass. Different scope from65-ID boss master/62 missing boss settings, not additional boss coverage. Existing recovery16809 reiterated; no new worker. Bounded saved-file absence only.
+- 2026-10-20 4:44 AM EDT cx-pc #16812: coverage notification closed; f3f5c8b4 retained as supporting input. Existing isolated provenance owner #16809 under #16765 owns targeted Ryomen archive recovery; cx-pc notification session must not duplicate investigation. Next existing owner consumes missing-character-settings.csv/saved-location-audit.json.
+
+- 2026-10-20 4:49 AM EDT cx-pc #16809: Ryomen recovery/export DONE and pushed8b4fd1e8 on cx-pc/ryomen-16809. 149 records,76/113 object hashes,20 tests. chr451004 binding proven independently;37 unmatched hashes/native playback remain unknown. Next lead: choose next scoped recovery or saved-bank unmatched-hash analysis; exports stay static, no menu promotion.
+
+- 2026-10-20 4:50 AM EDT #16822: Ryomen451004 source-bound149 records,20 checks reported pass;113 setting hashes uniquely identify1/297 tables (76 match/37 unresolved). Report1266,8b4fd1e8 +2473c58d/e26e104d, notes/ryomen-16809. Existing owner assigned next up-to3 boss batch from known setting leads with independent identity; targeted read-only archives/dependencies authorized, no blanket dump/menu/runtime changes.
+
+- 2026-10-20 4:54 AM EDT cx-pc #16823: batch delivered8fb3cfda, branch cx-pc/boss-batch-16823, existing worktree ../nioh3-ryomen-16809. Coverage +1 boss/+93 records (Onryoki), 2 unresolved leads explicitly retained (Tesso zero actions; GreatTengu132/9 candidate-bank roles). Next scoped work: resolve bank roles/source; no menu promotion or runtime claims.
+
+- 2026-10-20 4:54 AM EDT #16831: batch8fb3cfda adds Onryoki264763 source-bound93 rows (43/85 hashes,42 unresolved). Tesso97403 setting0 actions; GreatTengu269750 CE_OTENGU_00 has132+9 candidate rows,4 overlapping hashes,59/87 unique matches/28 missing.18 tests reported pass,234 rows independently parsed. report1267. Existing owner assigned GreatTengu bank roles via explicit references, no merge-by-ID; Tesso remains unresolved.
+
+- 2026-10-20 5:01 AM EDT cx-pc #16832: bounded Great Tengu bank-role audit completed/pushed8af4d63e;32 hashes traced,8 checks pass, selector unresolved (132/9 tables NOT merged). Next scoped owner: recover scene822a364a via specific index mapping and bind CE loader to runtime bank population; no blanket extraction or menu promotion. Tesso/Yoritomo checkpoints unchanged.
+
+- 2026-10-20 5:02 AM EDT #16837:8af4d63e traces GreatTengu4 shared+28 missing hashes in3 authored banks (96 variants);8 checks reported pass. ActionIDs/group values0 do not resolve bank roles;132/9 tables remain separate. Scene822a364a absent only in checked indexes;216 subreferences unresolved. Checkpoint this branch of investigation; next existing owner assigned Tesso97403 explicit action-source/inheritance references under16823, targeted read-only extraction only.
+
+- 2026-10-20 5:05 AM EDT cx-pc #16838: Tesso bounded audit complete at b9d6028e,8 checks. Unresolved action-bank fallback when7245dd82 and6d8eb6ab empty; no42-column list proven. Two model object candidates278fe80c/a8175c78 absent from9 checked saved root KOD indexes only. Next scoped consumer trace; Great Tengu untouched.
+
+- 2026-10-20 5:06 AM EDT #16842: Tesso source taskb9d6028e complete as bounded unresolved finding;8 checks reported pass.97403->CE_TESSO_00->loaderf27c2aea->setting1e866343/object2be4888d; arrays empty,no RDOK inheritance. Runtime zero-count fallback7245dd82/6d8eb6ab or9aaea305 semantics unresolved. No list justified. Existing owner assigned next up-to3 identifiable boss leads; do not expand Tesso/GreatTengu reverse engineering now.
+
+- 2026-10-20 5:09 AM EDT cx-pc #16843: bounded3-boss coverage complete c180cf2c;8 static-list bosses/981 records cumulative, separate from Great Tengu candidates. Next lead-approved batch may verify Onmoraki/Kamaitachi/Yoshitsune ownership and identity; no menu promotion or runtime claim.
+
+- 2026-10-20 5:09 AM EDT #16845: c180cf2c adds Nuribotoke392871105/Mezuki49227892/Gozuki66514892 rows,10 checks reported pass;106 unmatched hashes. Cumulative pinned inventory8 bosses/981 static records excludes GreatTengu candidates; no runtime/sequence completeness claim. Existing owner assigned next up-to3 Onmoraki/Kamaitachi/Yoshitsune after ownership checks, plus explicit existing sequence-evidence status.
+
+- 2026-10-20 5:11 AM EDT cx-pc #16846 complete8dc04bc8:10 source-list bosses/1324 static rows; Great Tengu132/9 and Onmoraki194/9 excluded as candidate-only. Tesso unresolved. Next lead-scoped coverage batch or Onmoraki selector; no sequence labels proven for this batch.
+
+- 2026-10-20 5:12 AM EDT #16851:8dc04bc8 adds Kamaitachi816820169/Yoshitsune478320174 rows;11 checks reported pass; cumulative10 bosses1324 static records. Onmoraki799359194/9 candidate banks excluded;120 unmatched hashes across3 targets. Sequence/hit semantics UNKNOWN. Existing owner assigned next up-to3 known unowned leads and remaining eligible count/names; consolidate gaps when known leads exhausted, no arbitrary graph expansion.
+
+- 2026-10-20 5:14 AM EDT cx-pc #16852 complete a2fdc684:12 static source lists/1526 rows excluding GreatTengu/Onmoraki/Jubei candidates and unresolved Tesso. Final3 eligible known leads exported: Shinsaku/Soji/Tadakatsu; next lead-approved batch after ownership check, then consolidate gaps.
+
+- 2026-10-20 5:15 AM EDT #16856:a2fdc684 adds Masakage307259132/Hiruko74556370 records;12 checks reported pass;cumulative12 bosses1526 static rows. Jubei412493490/60 candidates excluded;434 unmatched hashes in batch,semantics unknown. Existing owner assigned final known leads Takasugi778951/Okita889237/Honda983905 after ownership check, then65-ID consolidated coverage/gaps. Failed-identity leads retained,not extraction targets.
+
+- 2026-10-20 5:18 AM EDT cx-pc #16858 extraction phase complete af998cb6:65-ID coverage manifest and pinned sources in nioh3-ryomen-16809/notes/boss-batch-16858.14 lists/1784 static rows;4 ambiguous,1 unresolved,46 missing identity. No eligible known leads remain. Next lead routes bounded classification/identity-gap work; raw links do not justify sequences.
+
+- 2026-10-20 5:19 AM EDT #16862:af998cb6 extraction phase CLOSED, report read.65-ID partition14 source-list/4 ambiguous/1 unresolved/46 missing identity/0 skipped;1784 rows,13 checks reported pass,0 eligible known leads. Existing owner assigned evidence-gated reusable classification export from existing decoded studies only; unknown remains unknown,no new archive/runtime expansion or menus.
+
+- 2026-10-20 4:52 PM EDT gxl-pc: classification export already committed cb4d545f (notes/classification-16863). 14 bosses, 1784 actions: 0 decoded, 7 reported (Yoritomo 4EA5/4E68/4E6C/4E74 attack+multi-hit, 4E30/4E31/4E32 nonattack), 1777 wholly unknown, 0 sequences. Game PID 28240 has been up since 4:28 pm; do not install or close it. Next: cx-pc bounded Yoritomo packed-row to runtime-bank join from existing notes only (G2), then evidence rules only if that join is proven.
+
+- 2026-10-20 4:56 PM EDT gxl-pc: G2 closed negative from yoritomo-native-ai.md and boss-action-record.md only. Packed 503x128 rows match the selector field layout, and RVA 1FFCB94 stride-128 path fills extra R+D8, not primary R+50. No evidence-rule change. Counts stay 14 bosses / 1784 actions / 0 decoded / 7 reported / 0 sequences. Codex cx-pc unusable until 2:32 am Oct 27 (ChatGPT clock). Game left running. Next offline step is not a new disassembly pass unless a later task names one existing writer to read.
+
+- 2026-10-20 5:05 PM EDT gxl-pc #20999: shared sorter is tools/sort_boss_moves.py on branch gxl-pc/move-sort-20999 (worktree C:\Users\Ahmad Hamza\nioh3-sort-20999). 14 bosses / 1784 moves -> 280 Attacks, 1504 Other, 0 chain sequences, 4 single-action sequence listings (Yoritomo 4E68/4E6C/4E74/4EA5). Shingen 136, Masakage 132, Mezuki 92, Okita 119 have has_attack_block 0 on every row. Do not use motion-number ranges to fill them. Game PID was left running; do not install the sorter into the menu until the game is closed. A new boss is `py tools/sort_boss_moves.py --csv FILE --chr ID --name NAME --out DIR`.
