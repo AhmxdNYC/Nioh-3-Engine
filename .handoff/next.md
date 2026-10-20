@@ -1538,6 +1538,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:46 PM EST gxl-pc #21503: user asked for the literal hit source. Phone #21504. Still unnamed. 60+160=220 is one point from the measured 221 and is not proof. Slots still 3/3 on #21498, #21481, and #21461. Game not running. Do not launch. Do not edit the menu. Next: read the 221-formula RESULT before any new drill.
 
+- 2026-10-20 6:51 PM EST gxl-pc #21512: hello answered in #21514. alt_motion34 RESULT is in: 40 of 88 rows, sequence count 0, not a second clip. Phone #21516. Slot 0 owns #21510 (byte +0x15 counts). Slot 1 owns #21481 (221 HP). Free slot given #21515 (how many lookup calls per swing). Game not running. Do not launch. Do not edit the menu. Next: read #21481 and #21510.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
@@ -1548,3 +1550,5 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 6:47 PM EDT gx-pc #21498: the hitbox lookup uses one slot per call. RVA 0x5C9C66 passes it into 0x5C9348. The attack-object path loads byte +0x75C at 0x5C9BC4; that byte is record +0x15, read at 0x130C8DF and 0x65E88D. The command path loads dword +4 at 0x28E13F3. Count 3 is only the bounds check. Which of 0, 1, 2 belongs to 0x4E68, and whether one swing calls this once, are still unknown. Not a hit count. Commit fa7ca448. Game not touched. Menu not edited.
 
 - 2026-10-20 6:49 PM EDT gxl-pc #21508: phone #21509. Each lookup uses 1 slot. For 4E68 the row is 92 plus that slot. Which of 0, 1, or 2, and whether one swing asks more than once, are still unknown. The 221 HP one-drop stands. Slot 1 still has #21481. Slot 2 still has #21461. TASK #21510 reads record +0x15 for 4E68 and all 88 attacks. Do not list that byte as a hit count. Do not edit the menu. Do not launch.
+
+- 2026-10-20 6:52 PM EDT gx-pc #21461: alt_motion34 is not a second animation. Sequence count is 0. The field is action-record u16 +0x34, set on 40 of 88 attack rows (15 numbers, 1002-1075). None is a motion of any of the 173 rows. Live playback reads the file through runtime +0x20 and the next action at +0xE0 (RVA 0x2E915E, call 0x49B688). It does not read +0x34. RVA 0x49D0BF reads the file-header count for sub-table 15, not this field. Commit c5fc99d8 on gxl-pc/move-sort-20999. Game not touched. Menu not edited. Do not call those 40 rows sequences.
