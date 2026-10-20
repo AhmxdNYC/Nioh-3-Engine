@@ -10,3 +10,4 @@
 - [ ] Test Return object + new move list | In Training/Boss Match arena tap A on the Return object (only OUR menu should open, no game 'End mission?' box); check Yoritomo move list, Aggro on me, Reset position | pc (controller ready: no virtual pad active)
 - [ ] Test multi-boss build | Summon 2-3 bosses, check per-boss pages, HP/Ki, CPU/idle slider, Sequences, no duplicate rows | pc (controller ready)
 - [ ] Aggro me during drill | In Training with a drill/sequence running turn 'Aggro me' ON, step back 6+ m: boss should stop, walk up, then resume the sequence | pc (game running PID 9076, build db12513d; controller: real pad, no virtual pad active)
+- [ ] Check filtered boss moves | Train here (Yoritomo) > Boss moves: Attacks (24), Unnamed attacks (71), Animations and twitches (76); no 4E3B/4E3C; Sequences = 12 real attack chains; run 2-3 and tell me if any stops early/starts mid-way | pc (build Rematch ACAACF46, Training 0A0EEC7A; real pad, no virtual pad)
