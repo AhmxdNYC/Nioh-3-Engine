@@ -12,6 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = [(16102, ROOT / 'notes/yoritomo-action-fields.csv')]  # (chr, action-field CSV from tools/chr_action_table.py --csv)
 IDLE = {0x0, 0x2, 0x3F1}
+# user #14702 (live log 2026-10-20 00:38): the game's AI picked 0x4E79 (attack-family motion 1103) after 0x4E78 (1102) every time while the table
+# link 0x4E78 -> 0x4E7A skipped it, so the drill played only 2 of the 3 hits. The AI's own continuation wins over the +0xE0 fallback.
+OVERRIDES = {(16102, 0x4E78): 0x4E79}
 
 
 def generate():
@@ -25,6 +28,7 @@ def generate():
         with path.open(encoding='utf-8-sig', newline='') as f:
             rows = list(csv.DictReader(f))
         nxt = {int(r['action_id'], 16): int(r['next_action'], 16) for r in rows if r.get('next_action')}
+        nxt.update({a: b for (c, a), b in OVERRIDES.items() if c == chr_id})
         for a in sorted(nxt):
             b = nxt[a]
             if b in IDLE or b == a:
