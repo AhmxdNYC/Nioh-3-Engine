@@ -4,4 +4,4 @@
 - Needs VRR + L1 (Proton: L1OnWine=1) + overlay Present hook (mod menu on by default); else logs "TG: refused".
 - Numbers: design estimate ticks 44.6 -> ~30 = ~-33% logic work (~1-1.4 cores on Ally), UNTESTED. Measured ABBA fps gain only +2.6% / +3.1% (CPU1/CPU2), notes/cpu-bound-midrange.md. The 26-27% figure was not found as a measurement; likely the estimate.
 - Tradeoff: sim step 1/30 s, taps must be held ~33 ms. Offline only.
-- To test: set TG=1 (or flip in menu), L1=1, VRR=1. Not enabled by me.
+- CORRECTION: this PC's installed INI (Steam/steamapps/common/Nioh3/Nioh3EngineFix.ini) already has TG=1, L1=1, VRR=1, TG_Floor=30, so it is ON here (default for fresh installs is 0).
