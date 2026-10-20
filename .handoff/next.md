@@ -1518,3 +1518,5 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:24 PM EDT gx-pc #21398: the row fetch is RVA 0x5CA188 (begin + index*192). It does not take action 4E68 and it has no hit count. Byte +0xA2 is 0 on rows 92, 93, 94. Caller of indexes 92/93/94 is still unnamed. Commit cce482d3. Game not touched.
 
+- 2026-10-20 6:30 PM EST gxl-pc #21450: user asked how many sequences if an attack with several animations is a sequence. Count from the move file: 88 attack rows, 20 animations, 0 rows with two animation clips. Phone #21456. Not a menu rule. 40 of 88 also store a second motion number (alt_motion34); unproven, tasked as #21461. Also tasked #21458 (who passes rows 92/93/94) and #21460 (what the sphere point is). Nioh3 PID 29140 started 6:27 pm EST and is not this session. Do not touch it. Do not edit the menu. Next: read those three RESULTs.
+

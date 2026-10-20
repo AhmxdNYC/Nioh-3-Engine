@@ -271,3 +271,4 @@
 - 2026-10-20 | Yoritomo attack check 766 | Asked for the real source of his attack choice | Condition 766 is a sphere distance test, used 67 times. It is not a 2-hit or 3-hit count.
 - 2026-10-20 | Yoritomo 7-step chain is loaded | The long chain was only a guess in the file | The game loader binds those 6 links. Each is 1 choice out of 11 or 12, not a forced combo. They still finish at 4E7A if that choice is not taken.
 - 2026-10-20 | Hitbox row loader | Needed the code that reads one hitbox row | The game loads a row as its number times 192. On 4E68's 3 rows the child-hit byte is 0, so the hit count is still unknown.
+- 2026-10-20 | Multiple animations as sequences | User asked how many sequences if an attack with several animations is a sequence | 88 Yoritomo attack rows use 20 animations. 0 rows have two animation clips, so that rule makes 0 sequences. Menu unchanged.
