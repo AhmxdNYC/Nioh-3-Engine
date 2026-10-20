@@ -949,3 +949,28 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 2026-10-19 22:3x pc: INSTALLED 05582500 (Training 37C0AA5C, Rematch 44E4E8C1) seq-repeat fix #14423; game relaunched; backup captures/pc/play-20261019-pre-seqfix. Needs user test of Sequences (log: 'sequence ended (back in idle').
 2026-10-19 22:41 pc: #14462 seq head re-forced (end detected 16ms after force) + train-here boss not idle; opus agent fixing in boss-hpki; then install+relaunch.
 2026-10-19 22:5x pc: INSTALLED seq/idle fix (Training 4a838fc8, Rematch 28b7f5f2), game PID 25928; backup captures/pc/play-20261019-pre-seqfix2. Needs user test.
+- 2026-10-19 11:56 pm EDT cxl-pc #14546: drill Aggro me ON failure triaged; PC2 TASK #14550 owns isolated fix + game test from pc/boss-hpki 2eb32369. Main PC remains human session PID 25928 untouched. Await result, then pc integrates/installs; inspect chr=0 idle-hold versus chr=16102 sequence routing.
+
+- 2026-10-19 11:57 PM EDT cxl-pc #14549: pc already owns drill-aggro fix in pc/boss-hpki; supersedes PC2 implementation assignment #14550. Sent log findings to pc (#14554) and cancellation/re-scope to PC2 (#14555). Next: pc supplies completed build; PC2 independently tests it. Cancellation acknowledgement pending; no main-PC game access.
+
+- 2026-10-19 11:57 PM EDT cxl-pc #14559: PC2 confirmed it stood down on overlapping drill-aggro implementation; cancellation acknowledged. Next pc completes pc/boss-hpki fix and coordinates PC2 validation; no runtime result yet.
+
+- 2026-10-19 11:59 PM EDT cxl-pc #14563/#14564: user CANCELLED separate-PC drill-aggro testing. Cancellation sent to PC2 #14568; pc instructed #14569 to finish existing local fix, test/install/relaunch on main PC and notify user. Supersedes earlier PC2 validation plan; pc remains sole implementation/game owner.
+- 2026-10-19 11:59 pm EDT cxl-pc #14564: local relaunch request acknowledged #14572; asked current pc owner for completion/progress #14573. Read-only worktree check still at 2eb32369, no tracked diff; no new fix or installation verified by cxl-pc.
+
+- 2026-10-20 12:00 AM EDT cxl-pc #14570: PC2 confirmed ALL drill-aggro work including validation cancelled; zero launches/installs. pc remains responsible for local fix/test/relaunch under #14569; awaiting already-requested progress #14573.
+
+- 2026-10-20 12:02 AM EDT cxl-pc #14577: user enabled Codex-only workers; directive saved and forwarded to pc for ongoing local drill-aggro fix/test/relaunch. Await pc status; PC2 testing remains cancelled.
+
+- 2026-10-20 12:03 AM EDT cxl-pc #14580: pc reports Train-here never sets boss id, preventing Aggro Stand-still walk-up; fix being written in pc/boss-hpki. Reminded pc that proposed PC2 validation is CANCELLED by #14563/#14564; local build/test/install/relaunch only. Root cause reported by pc, not independently runtime-verified.
+2026-10-20 00:06 pc: INSTALLED db12513d (Training 569F81FB, Rematch unchanged 28b7f5f2) drill-aggro fix #14546 (Train-here boss id + Stand-still sequence walk-up); game PID 9076 relaunched; backup captures/pc/play-20261019-pre-aggro14546. Offline tests pass; UNPROVEN in game: boss walks up during a drill with Aggro me ON.
+
+- 2026-10-20 12:06 AM EDT cxl-pc #14588: pc reports db12513d installed (Training 569F81FB), game PID 9076 relaunched, offline tests pass. In-game drill approach/resume UNPROVEN. Follow-up assigned to pc in #14588 thread: main-PC OFF/ON behavior validation; preserve active player, verify controller before hands-on request. PC2 remains cancelled.
+2026-10-20 00:10 pc: INSTALLED db12513d aggro-in-Train-here fix (Training 569f81fb), game PID 9076; backup captures/pc/play-20261020-pre-aggro14546. pc2/aggro-drill-14550 overlaps (alt). Needs user test.
+
+- 2026-10-20 12:06 AM EDT cxl-pc #14591 (reply to #14573): pc confirms installation/relaunch and awaits player result; this is NOT runtime validation. Existing follow-up #14592 remains with pc. Avoid duplicate install/ping; pc to verify controller and track hands-on check if required.
+
+- 2026-10-20 12:07 AM EDT cxl-pc #14595: pc reports installed db12513d, Training 569f81fb and Rematch 58c016b7 (supersedes earlier reported Rematch hash). Do NOT merge overlapping pc2/aggro-drill-14550 4784ea32; compare only if player test fails. Existing pc validation follow-up remains; no new install/test assignment.
+
+- 2026-10-20 12:07 AM EDT cxl-pc #14605: Verified needs-player.md contains drill ON / step back 6+ m / approach then resume check. pc reports real controller/no virtual pad, game left for player. Next pc: inspect AGGRO/REPEAT lines after player test; no runtime pass claimed and no duplicate player request.
+2026-10-20 00:10 | Task: multi-boss/menu-cleanup build + sequence/aggro fixes (#14291..#14546) | DONE+installed: db12513d on pc/boss-hpki (worktree ../nioh3-boss-hpki): Training 569f81fb, Rematch 58c016b7; game PID 9076 running; backup captures/pc/play-20261020-pre-aggro14546 | UNPROVEN in game: sequence full chain, Aggro me walk-up during drill/sequence (needs-player.md item), Train-here idle | NEXT: after user test read Nioh3Training.log AGGRO/REPEAT lines, fix issues; alt fix pc2/aggro-drill-14550 (4784ea32) only if db12513d fails; EngineFix label rename not rebuilt (readfix.cpp uncommitted in main); boss-hpki not merged to main yet
