@@ -587,3 +587,4 @@
 - 2026-10-20 7:27 PM EDT gxl-pc: search paused. Slot 0 pid 32936 killed (#21602). Trainer reported in #21607. gx-pc 0/3. Game not launched. Do not run Nioh3 Trainer.exe. Do not resume the search.
 - 2026-10-20 7:31 PM EDT gxl-pc: trainer vs training answered. Nothing new to copy. Search paused. gx-pc not tasked. Game not launched. Trainer not run.
 - 2026-10-20 7:36 PM EDT gxl-pc: #21617 recorded. Trainer not ported. Search paused. gx-pc idle on that search. Game not launched.
+- 2026-10-20 7:39 PM EDT gxl-pc: search resumed by #21622. gx-pc slot 0 #21629, slot 1 #21630, slot 2 #21631 opus. Game closed. Do not chase 221. Do not run the trainer.

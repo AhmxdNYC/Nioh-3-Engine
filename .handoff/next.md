@@ -1637,3 +1637,7 @@ Trainer cannot be mined for new training features without running it. Phone #216
 
 ## 2026-10-20 7:36 pm EST (#21617)
 User: writing into game memory is not something our mod does. Do not port the trainer. Phone #21618. Yoritomo search stays paused until they say resume. Do not run the trainer. Do not launch the game for this. gx-pc stays off that search.
+
+## 2026-10-20 7:39 pm EST (#21622)
+User resumed boss-move work. PAUSED file removed. GO #21625 to gx-pc. 221 chase stays closed. Game stays closed. Trainer is not copied.
+gx-pc 3/3: TASK #21629 choice-link count for Yoritomo, TASK #21630 sorter table for every boss, TASK #21631 opus writer of object+0x70 (reader 0x65E884). Phone #21624 and the follow-up.
