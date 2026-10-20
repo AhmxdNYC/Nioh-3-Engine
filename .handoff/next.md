@@ -1609,3 +1609,6 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 
 - 2026-10-20 7:11 PM EDT gxl-pc #21577: phone #21579. Scale at 0x20012AE is the return of 0x85790. Default is 1.0, so the cut stays 30, 25, or 40. A runtime u16 in the 0x52-byte record at 0x857D8 can change it, keyed by object +0xE8 +0x374. Products not computed. Not 221. Commit 585a71f0. TASK #21580 finds who writes that u16. Slot 2 runs #21560 (log read). Do not launch. Do not edit the menu.
+- 2026-10-20 7:10 PM EDT gx-pc #21564: the damage scale word is not in the file. This dump's gate dword is 0, so RVA 0x20012AE multiplies by 1.0 and the products stay 30, 25, and 40. None is 221. The unread u16 would come from the heap table at [[0x45B9E30]+0x158], keyed by the word at [actor+0xE8]+0x374. Commit adc3e2f7. Game not touched. Menu not edited.
+
+- 2026-10-20 7:12 PM EDT gxl-pc #21581: phone #21582. Scale is 1.0 in this dump because the gate dword at singleton +0x2C4 (global 0x45C84F8) is 0. Products of 30, 25, and 40 are not 221. The u16 is not read. When the gate is open it comes from the 0x52-byte record via 0x85600, keyed by [actor+0xE8]+0x374. Table pointer is a heap address. Not a hit count. Commit adc3e2f7. Slot 1 pid 10284 runs #21580. Slot 2 pid 29068 runs #21560. Slot 0 pid 18576 still shows #21543. Do not launch. Do not edit the menu.

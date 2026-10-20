@@ -293,3 +293,4 @@
 - 2026-10-20 | Eight HP cuts, none is 221 | Needed which function subtracts the measured 221 | Eight places cut HP. None loads the number 221. The builder still passes 30, 25, or 40.
 - 2026-10-20 | This move has no side record | Needed the file row that picks his hitbox slot | The table has 51 rows. Move 4E68 asks for row 72, so the slot is not stored there.
 - 2026-10-20 | Damage scale is not a fixed number | Needed whether a multiplier turns 30, 25, or 40 into 221 | The normal path stays 30, 25, or 40. The scale is a live value, and it was not read.
+- 2026-10-20 | Scale products are 30, 25, and 40 | Needed whether the multiplier makes the measured 221 | In this dump the scale is 1. Those three products are not 221.
