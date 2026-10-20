@@ -55,9 +55,26 @@ static volatile LONG g_rep_gaps; static uint64_t g_rep_st[MV_REP_MAX];
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
 static volatile int g_cfg_rep_gap = 1000;
 #define MV_REP_GAP_MAX 10000
+// user #14309 / #14336: 'Gap between repeats' is per boss (Boss X page). Per character id (the repeat table is per character too); a boss with
+// no entry uses RepeatGapMs. Saved as [Moves.<chr>] RepeatGapMs, loaded with the move switches (MvLoadPrefs).
+#define MV_GAP_MAX 32
+static volatile LONG g_gap_chr[MV_GAP_MAX], g_gap_ms[MV_GAP_MAX];
+static int MvGapFor(uint32_t chr) {
+    for (int i = 0; chr && i < MV_GAP_MAX; ++i) if ((uint32_t)g_gap_chr[i] == chr) return (int)g_gap_ms[i];
+    return g_cfg_rep_gap;
+}
+static int MvGapPut(uint32_t chr, int ms) {
+    int f = -1;
+    for (int i = 0; i < MV_GAP_MAX; ++i) { if ((uint32_t)g_gap_chr[i] == chr) { f = i; break; } if (f < 0 && !g_gap_chr[i]) f = i; }
+    if (f < 0 || !chr) return 0;
+    InterlockedExchange(&g_gap_ms[f], ms); InterlockedExchange(&g_gap_chr[f], (LONG)chr);
+    return 1;
+}
 // user #13787 'Boss aggro on me' (aggro.h): AI states of bosses that are farther from the player than AggroRangeCm while aggro is ON.
 // Their own AI picks pass (the boss walks / closes in natively) and no repeat is forced from range; the drill resumes once close.
-#define MV_CHASE_MAX 3
+#ifndef MV_CHASE_MAX
+#define MV_CHASE_MAX 3  // training.c: one per Training boss (N3T_SLOTS + 1)
+#endif
 static volatile uint64_t g_mv_chase[MV_CHASE_MAX];
 static int MvChasing(uint64_t st) { for (int i = 0; st && i < MV_CHASE_MAX; ++i) if (g_mv_chase[i] == st) return 1; return 0; }
 static int MvRepFind(uint32_t chr) { for (int i = 0; i < MV_REP_MAX; ++i) if (chr && (uint32_t)g_rep_chr[i] == chr) return i; return -1; }
@@ -67,7 +84,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (MvChasing(st)) return 0;  // user #13787: aggro ON and the boss is far: its own pick (approach) passes, the repeat waits until it is close
     uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0) return 0;
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
-    DWORD now = GetTickCount(); int gap = g_cfg_rep_gap;
+    DWORD now = GetTickCount(); int gap = MvGapFor(chr);
     if (g_rep_last[i] && !g_rep_end[i]) g_rep_end[i] = now ? now : 1;  // first pick after a repeat = that move has finished
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         LONG g = InterlockedIncrement(&g_rep_gaps);
@@ -137,7 +154,7 @@ static void MvIniKey(uint32_t chr, uint32_t id, char* section, size_t cap, char*
 static volatile LONG g_mv_view_slot = -1;  // bridge 12666: the move page shows this slot's boss (-1 = current boss)
 N3T_API void Nioh3Training_SetMoveSlot(int slot) { InterlockedExchange(&g_mv_view_slot, slot); }
 N3T_API uint32_t Nioh3Training_GetMoveBoss(void) {
-    LONG vs = g_mv_view_slot; if (vs == 0 || vs == 1) { uint32_t c = Nioh3Training_SlotChr((int)vs); if (c) return c; }
+    LONG vs = g_mv_view_slot; if (vs >= 0) { uint32_t c = Nioh3Training_SlotChr((int)vs); if (c) return c; }
     return (uint32_t)InterlockedCompareExchange(&g_mv_current_chr, 0, 0);
 }
 N3T_API int Nioh3Training_GetMoveHookStatus(void) {
@@ -181,7 +198,7 @@ N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) {
     InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; g_rep_end[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
     InterlockedExchange(&g_mv_install_pending, 1);
     for (int k = 0; k < g_nsp; ++k) { uint64_t a = g_sp_actor[k], ai = 0, ctrl = 0; if (a && g_sp_chr[k] == chr && Rd64(a + 0x3B0, &ai) && ai) Rd64(ai + 8, &ctrl); if (a && g_sp_chr[k] == chr) Log("REPEAT chr %u actor %p ai %p ctrl %p", chr, (void*)a, (void*)ai, (void*)ctrl); }
-    Log("REPEAT chr %u 0x%X ON (gap %d ms, %s, move %s, hooks %ld)", chr, id, g_cfg_rep_gap,
+    Log("REPEAT chr %u 0x%X ON (gap %d ms, %s, move %s, hooks %ld)", chr, id, MvGapFor(chr),
         MvRepStanding(chr) ? "Stand still: drill forces it every gap" : "Fight normally: used at each AI pick",
         MvBlocked(chr, id) ? "OFF (repeat still allowed)" : "ON", (long)g_mv_hooked);
     return 1;
@@ -201,6 +218,24 @@ N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist) {
     if (persist) { HANDLE t = CreateThread(0, 0, MvRepGapSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
     return ms;
 }
+struct MvGapSave { uint32_t chr; int ms; };
+static DWORD WINAPI MvGapChrSaveThread(LPVOID p) {
+    struct MvGapSave* g = (struct MvGapSave*)p; char ini[MAX_PATH], sec[40], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(sec, sizeof sec, "Moves.%u", g->chr); snprintf(v, sizeof v, "%d", g->ms); WritePrivateProfileStringA(sec, "RepeatGapMs", v, ini);
+    WritePrivateProfileStringA(0, 0, 0, ini); HeapFree(GetProcessHeap(), 0, g); return 0;
+}
+// user #14309: per-boss gap (Boss X page). Clamped 0..10000 ms; persist = save [Moves.<chr>] RepeatGapMs. Returns the new value, -1 = table full / no boss.
+N3T_API int Nioh3Training_GetRepeatGapChr(uint32_t chr) { return MvGapFor(chr); }
+N3T_API int Nioh3Training_SetRepeatGapChr(uint32_t chr, int ms, int persist) {
+    if (ms < 0) ms = 0; if (ms > MV_REP_GAP_MAX) ms = MV_REP_GAP_MAX;
+    if (!MvGapPut(chr, ms)) return -1;
+    Log("REPEAT chr %u gap %d ms%s", chr, ms, persist ? " (saved to ini)" : "");
+    if (persist) {
+        struct MvGapSave* g = (struct MvGapSave*)HeapAlloc(GetProcessHeap(), 0, sizeof *g);
+        if (g) { g->chr = chr; g->ms = ms; HANDLE t = CreateThread(0, 0, MvGapChrSaveThread, g, 0, 0); if (t) CloseHandle(t); else HeapFree(GetProcessHeap(), 0, g); }
+    }
+    return ms;
+}
 // bridge 12958: game thread (pump). The native idle the boss gets during the gap runs ~6 s before the AI picks again (live 19:35: 1000 ms set,
 // 6.0 s measured), so when the gap has passed and the boss is still in idle 0x2 the repeated move is started with SetActionID's forced
 // transition 66C4A8(ctrl, id, 0, 0.0) (the KiBreakActFix path).
@@ -208,7 +243,7 @@ static __attribute__((noinline)) void MvRepTick(void) {
     DWORD now = GetTickCount();
     for (int i = 0; i < MV_REP_MAX; ++i) {
         uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
-        if (!chr || !rep || !st || !g_rep_end[i] || now - g_rep_end[i] < (DWORD)g_cfg_rep_gap) continue;
+        if (!chr || !rep || !st || !g_rep_end[i] || now - g_rep_end[i] < (DWORD)MvGapFor(chr)) continue;
         if (MvBossChr(st) != chr) { g_rep_st[i] = 0; continue; }
         if (MvChasing(st)) continue;  // user #13787: no repeat forced from range while aggro ON brings the boss closer
         uint32_t cur = ActIdOf(st);
@@ -216,7 +251,7 @@ static __attribute__((noinline)) void MvRepTick(void) {
         int ok = 1;
         __try { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(st, (uint64_t)rep, 0, 0.0f); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
         LONG n = InterlockedIncrement(&g_rep_count[i]);
-        if (n <= 500) Log("REPEAT chr %u forced 0x%X after %lu ms idle (#%ld, gap %d ms)%s, now 0x%X", chr, rep, now - g_rep_end[i], n, g_cfg_rep_gap, ok ? "" : " FAULTED", ActIdOf(st));
+        if (n <= 500) Log("REPEAT chr %u forced 0x%X after %lu ms idle (#%ld, gap %d ms)%s, now 0x%X", chr, rep, now - g_rep_end[i], n, MvGapFor(chr), ok ? "" : " FAULTED", ActIdOf(st));
         g_rep_last[i] = now; g_rep_end[i] = 0; g_rep_st[i] = 0;
     }
 }
@@ -224,6 +259,11 @@ static void MvLoadPrefs(const char* ini) {
     { int gap = (int)GetPrivateProfileIntA("Training", "RepeatGapMs", 1000, ini); g_cfg_rep_gap = gap < 0 ? 0 : gap > MV_REP_GAP_MAX ? MV_REP_GAP_MAX : gap; }
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
         char section[40], key[24];
+        if (i == 0 || kN3Moves[i].chr != kN3Moves[i - 1].chr) {  // user #14309: per-boss gap, once per character
+            snprintf(section, sizeof section, "Moves.%u", kN3Moves[i].chr);
+            const int gap = (int)GetPrivateProfileIntA(section, "RepeatGapMs", -1, ini);
+            if (gap >= 0) MvGapPut(kN3Moves[i].chr, gap > MV_REP_GAP_MAX ? MV_REP_GAP_MAX : gap);
+        }
         MvIniKey(kN3Moves[i].chr, kN3Moves[i].id, section, sizeof section, key, sizeof key);
         int value = (int)GetPrivateProfileIntA(section, key, -1, ini);
         if (value == 0 || value == 1) {

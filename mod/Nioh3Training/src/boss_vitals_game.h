@@ -15,7 +15,7 @@ static volatile LONG g_bv_logs; static DWORD g_bv_t;
 static void BvInit(void) { if (InterlockedCompareExchange(&g_bv_inited, 1, 0) == 0) for (int s = 0; s < BV_SLOTS; ++s) BvDefaults(&g_bv[s]); }
 static void BvLog(const char* fmt, ...) { if (InterlockedIncrement(&g_bv_logs) > 300) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint64_t BvActor(int s) {
-    if (s < 0 || s > 1) return 0;  // Training has two slots today (g_slot_act[2]); BV_SLOTS leaves room for more
+    if (s < 0 || s >= N3T_SLOTS) return 0;  // user #14309: every boss letter (N3T_SLOTS = BV_SLOTS)
     const uint64_t a = g_slot_act[s];
     return a && SlotAlive(s) && ActorInTable(a) ? a : 0;
 }
@@ -74,7 +74,7 @@ static void BvTick(void) {
     if (now - g_bv_t < 50) return;  // 20 Hz: a hit shows on the bar for at most ~50 ms with infinite health / Ki
     g_bv_t = now;
     if (GameState() && GameState()[2]) return;  // loading
-    for (int s = 0; s < 2; ++s) BvSlotTick(s, now);  // also keeps g_bv_live fresh for the menu rows
+    for (int s = 0; s < N3T_SLOTS; ++s) BvSlotTick(s, now);  // also keeps g_bv_live fresh for the menu rows
 }
 // C API for Boss Rematch's per-boss page. slot 0 = Boss A, 1 = Boss B.
 // Get: 1 = a live boss in the slot (hc/hm = HP the bar shows, kc/km = Ki), 0 = empty (cfg still filled), -1 = bad slot. cfg = {infHp, infKi, hpPct, kiPct}.
@@ -82,7 +82,7 @@ N3T_API int Nioh3Training_BossVitalsGet(int slot, uint64_t* hc, uint64_t* hm, fl
     BvInit();
     if (slot < 0 || slot >= BV_SLOTS) return -1;
     if (cfg) { cfg[0] = g_bv[slot].infHp; cfg[1] = g_bv[slot].infKi; cfg[2] = g_bv[slot].hpPct; cfg[3] = g_bv[slot].kiPct; }
-    const int live = slot < 2 && g_bv_live[slot].live && SlotAlive(slot);
+    const int live = slot < N3T_SLOTS && g_bv_live[slot].live && SlotAlive(slot);
     if (hc) *hc = live ? g_bv_live[slot].hc : 0;
     if (hm) *hm = live ? g_bv_live[slot].hm : 0;
     if (kc) *kc = live ? g_bv_live[slot].kc : 0;

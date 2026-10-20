@@ -8,7 +8,8 @@
 //   kiPct  'Set boss Ki %'       : one-shot set to that % of max (also the infinite-Ki level). 0..100; 0 % = Ki 0.5, one hit
 //                                  from a break (a plain Ki 0 write is the 'bare' break KiBreakBareFix cancels back to 0.5).
 //   'Refill boss'                : both levels back to 100 % and both set at once.
-#define BV_SLOTS 4  // slots the API accepts (Training has Boss A / B today; the menu shows the live ones)
+#pragma once
+#define BV_SLOTS 26  // user #14309: boss letters A..Z the API accepts (Training N3T_SLOTS; the menu shows the live ones)
 enum { BV_INF_HP = 0, BV_INF_KI = 1, BV_HP_PCT = 2, BV_KI_PCT = 3, BV_REFILL = 4 };
 enum { BV_REQ_HP = 1, BV_REQ_KI = 2 };
 typedef struct { int infHp, infKi, hpPct, kiPct; } BvCfg;

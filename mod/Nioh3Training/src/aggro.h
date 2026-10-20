@@ -17,7 +17,11 @@ static DWORD g_ag_t, g_ag_slow;
 static LONG g_ag_logs;
 static volatile LONG g_ag_reset_req;
 static int AgInTable(uint64_t a, const uint64_t* cur, int n) { for (int i = 0; i < n; ++i) if (cur[i] == a) return 1; return 0; }
-// Live Training bosses: the session boss first, then slots A / B (deduplicated). Every actor is checked against the live actor table.
+// user #14309: aggro is per boss (Boss X page, g_slot_aggro, a new boss starts with the saved [Training] BossAggro). A boss in no slot uses BossAggro.
+static int AgOn(uint64_t a) { const int s = SlotOf(a); return s >= 0 && SlotAlive(s) ? g_slot_aggro[s] != 0 : g_cfg_aggro; }
+static int AgAny(void) { if (g_cfg_aggro) return 1; for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_aggro[s] && SlotAlive(s)) return 1; return 0; }
+#define AG_MAX (N3T_SLOTS + 1)
+// Live Training bosses: the session boss first, then every slot A, B, C ... (deduplicated). Every actor is checked against the live actor table.
 static int AgBosses(uint64_t* out, uint64_t* session) {
     uint64_t cur[1024], me = PlayerChar(); int n = Actors(cur, 1024), k = 0;
     *session = 0;
@@ -25,10 +29,11 @@ static int AgBosses(uint64_t* out, uint64_t* session) {
         uint64_t a = g_bm.actor ? g_bm.actor : ActorByHandle(g_bm.id);
         if (a && a != me && AgInTable(a, cur, n)) { out[k++] = a; *session = a; }
     }
-    for (int s = 0; s < 2; ++s) {
+    for (int s = 0; s < N3T_SLOTS && k < AG_MAX; ++s) {
         uint64_t a = g_slot_act[s];
-        if (!a || a == me || !SlotAlive(s) || !AgInTable(a, cur, n) || (k && out[0] == a) || (k > 1 && out[1] == a)) continue;
-        out[k++] = a;
+        if (!a || a == me || !SlotAlive(s) || !AgInTable(a, cur, n)) continue;
+        int dup = 0; for (int j = 0; j < k; ++j) dup |= out[j] == a;
+        if (!dup) out[k++] = a;
     }
     return k;
 }
@@ -66,7 +71,7 @@ static void AgDrillEnd(const char* why) {
     memset(&g_agd, 0, sizeof g_agd);
 }
 static void AgDrillFace(uint64_t a) {
-    if (!g_cfg_aggro || g_ag_off || !g_cfg_aggro_face || !a) return;
+    if (!a || !AgOn(a) || g_ag_off || !g_cfg_aggro_face) return;
     uint64_t b01 = 0, b23 = 0;
     if (!Rd64(a + 0x110, &b01) || !Rd64(a + 0x118, &b23)) return;
     float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
@@ -134,15 +139,16 @@ static void AggroTick(void) {
     g_ag_t = now;
     uint64_t chase[MV_CHASE_MAX] = {0};
     int nc = 0;
-    if (g_agd.st && (!g_cfg_aggro || g_ag_off || g_ih.phase != 2 || g_ih.actor != g_agd.a || !g_dr.chr))
-        AgDrillEnd(!g_cfg_aggro ? "aggro off" : g_ag_off ? "aggro faulted" : "stance / drill ended");
-    if (g_cfg_aggro && !g_ag_off) {
-        uint64_t me = PlayerChar(), bs[3], session = 0; float pp[4];
+    if (g_agd.st && (!AgOn(g_agd.a) || g_ag_off || g_ih.phase != 2 || g_ih.actor != g_agd.a || !g_dr.chr))
+        AgDrillEnd(!AgOn(g_agd.a) ? "aggro off" : g_ag_off ? "aggro faulted" : "stance / drill ended");
+    if (AgAny() && !g_ag_off) {
+        uint64_t me = PlayerChar(), bs[AG_MAX], session = 0; float pp[4];
         if (me && PlayerPos(pp)) {
             const int slow = now - g_ag_slow >= 2000; if (slow) g_ag_slow = now;
             const int n = AgBosses(bs, &session);
             for (int i = 0; i < n && !g_ag_off; ++i) {
                 uint64_t a = bs[i], comp = 0, ai = 0, perc = 0, st = 0, b01 = 0, b23 = 0;
+                if (!AgOn(a)) continue;  // user #14309: this boss has aggro OFF
                 if (g_ih.phase == 2 && g_ih.actor == a && g_dr.chr) {  // user #14147: Stand-still drill boss
                     const uint64_t cs = AgDrillBoss(a, me, pp, slow, now);
                     if (cs && nc < MV_CHASE_MAX) chase[nc++] = cs;
@@ -169,12 +175,22 @@ static DWORD WINAPI AgSaveThread(LPVOID p) {
 }
 N3T_API int Nioh3Training_GetBossAggro(void) { return g_cfg_aggro; }
 // on = 1 / 0, persist = save [Training] BossAggro. Returns the new value.
-N3T_API int Nioh3Training_SetBossAggro(int on, int persist) {
+N3T_API int Nioh3Training_SetBossAggro(int on, int persist) {  // every boss + the default for new ones (old menu / command)
     g_cfg_aggro = on != 0;
+    for (int s = 0; s < N3T_SLOTS; ++s) InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     InterlockedExchange(&g_ag_logs, 0);
     Log("AGGRO %s (range %d cm)%s", g_cfg_aggro ? "ON: Training bosses with their AI on keep the player as target and close in" : "OFF", g_cfg_aggro_range, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, AgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
     return g_cfg_aggro;
+}
+// user #14309: per boss. -1 = empty slot. Set: on 1 / 0; the value is also saved as the default for the next boss ([Training] BossAggro).
+N3T_API int Nioh3Training_GetSlotAggro(int s) { return SlotAlive(s) ? (int)(g_slot_aggro[s] != 0) : -1; }
+N3T_API int Nioh3Training_SetSlotAggro(int s, int on) {
+    if (!SlotAlive(s)) return -1;
+    InterlockedExchange(&g_slot_aggro[s], on != 0); InterlockedExchange(&g_ag_logs, 0);
+    g_cfg_aggro = on != 0; { HANDLE t = CreateThread(0, 0, AgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    Log("AGGRO Boss %c %s (range %d cm; saved as the default for new bosses)", 'A' + s, on ? "ON" : "OFF", g_cfg_aggro_range);
+    return on != 0;
 }
 static __attribute__((noinline)) int BossPlace(uint64_t a, const float* p3, float yawDeg, const char* who) {
     uint64_t comp = 0, st = 0;
@@ -197,26 +213,34 @@ static float AgFacePlayer(const float* bp, float fallback) {
     const float dx = pp[0] - bp[0], dz = pp[2] - bp[2];
     return dx * dx + dz * dz < 1.0f ? fallback : atan2f(dx, dz) * 57.2957795f;  // same yaw convention as SpawnTick's 'face the player'
 }
-// 1 = queued (a session boss with a spawn point or a summoned boss exists), 0 = nothing to put back
+// 1 = queued (a session boss with a spawn point or a summoned boss exists), 0 = nothing to put back. g_ag_reset_req: bit 31 = every boss,
+// bit s = only Boss <s> (user #14309, Nioh3Training_ResetSlotPos).
 N3T_API int Nioh3Training_ResetBossPos(void) {
-    const int ok = (g_tr.active && g_tr.hasStart && g_bm.active) || (SlotAlive(0) && g_slot_sp_ok[0]) || (SlotAlive(1) && g_slot_sp_ok[1]);
-    if (ok) InterlockedExchange(&g_ag_reset_req, 1);
+    int ok = g_tr.active && g_tr.hasStart && g_bm.active;
+    for (int s = 0; s < N3T_SLOTS; ++s) ok |= SlotAlive(s) && g_slot_sp_ok[s];
+    if (ok) InterlockedOr(&g_ag_reset_req, (LONG)0x80000000);
     Log("RESETPOS request from the menu: %s", ok ? "queued" : "no Training boss with a start point");
     return ok;
 }
+N3T_API int Nioh3Training_ResetSlotPos(int s) {
+    const int ok = SlotAlive(s) && (g_slot_sp_ok[s] || (g_slot_ih[s] && g_tr.active && g_tr.hasStart));
+    if (ok) InterlockedOr(&g_ag_reset_req, (LONG)(1u << s));
+    Log("RESETPOS Boss %c from the menu: %s", 'A' + s, ok ? "queued" : "no start point");
+    return ok;
+}
 static void ResetPosTick(void) {
-    if (!InterlockedExchange(&g_ag_reset_req, 0)) return;
-    uint64_t bs[3], session = 0; int n = AgBosses(bs, &session), done = 0;
+    const LONG req = InterlockedExchange(&g_ag_reset_req, 0);
+    if (!req) return;
+    uint64_t bs[AG_MAX], session = 0; int n = AgBosses(bs, &session), done = 0;
     for (int i = 0; i < n; ++i) {
         uint64_t a = bs[i];
-        if (!IhAlive(a)) continue;
-        if (a == session) {
-            if (!g_tr.hasStart) continue;
+        const int sl = SlotOf(a);
+        if (!IhAlive(a) || (!(req & (LONG)0x80000000) && (sl < 0 || !(req & (LONG)(1u << sl))))) continue;
+        if (a == session && g_tr.hasStart) {
             done += BossPlace(a, g_tr.bp, AgFacePlayer(g_tr.bp, g_tr.face), "session boss");
             continue;
         }
-        for (int s = 0; s < 2; ++s)
-            if (g_slot_act[s] == a && g_slot_sp_ok[s]) done += BossPlace(a, g_slot_sp[s], AgFacePlayer(g_slot_sp[s], 0.0f), s ? "Boss B" : "Boss A");
+        if (sl >= 0 && g_slot_sp_ok[sl]) { char who[8] = {'B', 'o', 's', 's', ' ', (char)('A' + sl), 0}; done += BossPlace(a, g_slot_sp[sl], AgFacePlayer(g_slot_sp[sl], 0.0f), who); }
     }
     if (!done) Log("RESETPOS: no live Training boss with a start point (session %p, %d boss(es))", (void*)session, n);
 }

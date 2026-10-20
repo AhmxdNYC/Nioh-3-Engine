@@ -25,6 +25,9 @@ static void DrStop(const char* why) {
     InterlockedExchange(&g_ih_drill_ai, 0);
     InterlockedExchange(&g_dr_state, 0);
 }
+#ifndef DR_GAP
+#define DR_GAP(chr) g_cfg_rep_gap
+#endif
 // user #13618 (move_toggle.h REPEAT log): 1 = the Stand still stance holds this boss, so the drill (not the AI) plays its repeat
 static inline int MvRepStanding(uint32_t chr) { return chr && g_ih.phase == 2 && g_ih.chr == chr; }
 // 0 no drill, 1 drill (boss stands still, does the move every gap), 2 drill with the boss AI on (fallback)
@@ -34,7 +37,7 @@ static void DrillTick(void) {
     const uint32_t chr = g_ih.phase == 2 ? g_ih.chr : 0, id = chr ? MvRepeatId(chr) : 0;
     if (!chr || !id || !IhSameActor() || !IhAlive(g_ih.actor)) { if (g_dr.chr) DrStop(!chr ? "stance is not Stand still" : !id ? "repeat stopped" : "boss gone"); return; }
     const DWORD now = GetTickCount();
-    const int gap = g_cfg_rep_gap;
+    const int gap = DR_GAP(chr);  // user #14309: per-boss gap (training.c: MvGapFor)
     if (g_dr.chr != chr || g_dr.id != id || g_dr.ctrl != g_ih.ctrl) {
         if (g_dr.chr) DrStop("move / boss changed");
         g_dr.chr = chr; g_dr.id = id; g_dr.ctrl = g_ih.ctrl;
