@@ -1534,6 +1534,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:38 PM EST gxl-pc #21487: user asked if the hit source is found so moves can be grouped. Phone #21488. Proven so far: one close 4E68 dropped 221 HP once (2658 to 2437 at 6:32 pm EST). The 3 hitbox rows are not 3 hits. No per-move 2-hit or 3-hit field. Sphere test is his position. Slots at 6:37 pm EST: 0 owns #21478 frame marks, 1 owns #21458 row caller, 2 owns #21461 second motion. Game was not running. Do not edit the menu. Next free slot: find the formula or field that produced 221, then the same measurement for 4E6C and 4E74.
 
+- 2026-10-20 6:45 PM EST gxl-pc #21500: status ping answered in #21501. Still no whole-moveset hit source. 4E68 is 221 HP once. Frame mark on 64 of 88, usually frame 14, meaning unknown. Slots 3/3: slot 0 #21498 which of the 3 rows one swing uses, slot 1 #21481 the 221 formula, slot 2 #21461 the second motion field. Game was not running. Do not launch it from a status wake. Do not edit the menu. Next: read those three RESULTs.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
