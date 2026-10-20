@@ -86,50 +86,102 @@ int main() {
     CHECK(moves >= 0 && seen == 15);
     g_sel = moves; CHECK(!UiAct() && g_uiPages.page == uMoves);
     n = Items(items, kMaxRows + 4);
-    // Yoritomo: Repeat selected move + Repeating move + idle control + 14 recorded entries + Back (user #13618)
-    CHECK(n == 18 && items[0] == kItRepSel && items[1] == kItRepNow && items[2] == kItIdleHold);
-    int rowOff = -1, rowOn = -1;
+    // user #14291: Yoritomo hub = Repeat selected move + Repeating move + stance + one row per move group (6 groups, 173 moves) + Back
+    CHECK(n == 10 && items[0] == kItRepSel && items[1] == kItRepNow && items[2] == kItIdleHold && items[n - 1] == kItBack);
+    {
+        const int want[kMcCount] = {24, 70, 8, 13, 44, 14};  // Attacks, Unnamed attacks, Twitches, Ki break, Movement and reactions, Unsorted
+        int total = 0;
+        for (int c = 0; c < kMcCount; ++c) { CHECK(items[3 + c] == kItMoveCatBase - c); CHECK(MoveCatCount(16102u, c) == want[c]); total += MoveCatCount(16102u, c); }
+        CHECK(total == 173);
+        auto cat = [](uint32_t id) { return N3MoveCat(&kN3Moves[N3MoveFind(16102u, id)]); };
+        CHECK(cat(0x4E38) == kMcKiBreak && cat(0x4E3E) == kMcKiBreak && cat(0xFA6) == kMcKiBreak && cat(0x4E4C) == kMcKiBreak && cat(0x4E40) == kMcKiBreak);
+        CHECK(cat(0x4E64) == kMcAttack && cat(0x4E24) == kMcTwitch && cat(0x3FB) == kMcMovement && cat(0x2) == kMcMovement &&
+              cat(0x4E4F) == kMcUnnamedAtk && cat(0x4E21) == kMcUnsorted);
+        UiRow hrows[24]; char hfooter[240];
+        const int k = UiFill(hrows, 24, hfooter, sizeof hfooter);
+        bool atk = false, ki = false, hdr = false;
+        for (int i = 0; i < k; ++i) {
+            atk |= strstr(hrows[i].text, "Attacks") && strstr(hrows[i].text, "24 moves") && strstr(hrows[i].text, "A: open");
+            ki |= strstr(hrows[i].text, "Ki break") && strstr(hrows[i].text, "13 moves");
+            hdr |= strstr(hrows[i].text, "-- Pick a move group") != nullptr;
+        }
+        CHECK(atk && ki && hdr);
+    }
+    for (int i = 0; i < n; ++i) if (items[i] == kItIdleHold) { g_sel = i; UiChange(1); CHECK(!UiAct()); }
+    auto openGroup = [&](int c) -> int {  // from the hub: A on the group row -> its page, cursor on the first move
+        g_sel = 3 + c; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == c && g_sel == 1);
+        n = Items(items, kMaxRows + 4);
+        CHECK(items[0] == kItRepNow && items[n - 1] == kItBack && n == MoveCatCount(16102u, c) + 2);
+        for (int i = 1; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == c);
+        return 0;
+    };
+    CHECK(!openGroup(kMcAttack));
+    int rowOff = -1, rowOn = -1, nAtk = 0;
     for (int i = 0; i < n; ++i) {
         for (int j = i + 1; j < n; ++j) CHECK(items[i] != items[j]);
-        if (items[i] == kItIdleHold) { g_sel = i; UiChange(1); CHECK(!UiAct()); }
         if (IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) {
+            ++nAtk;
             g_sel = i; CHECK(!UiAct()); CHECK(moveOff[kN3Moves[items[i]-kItMoveBase].id]);  // A: ON -> OFF
             if (rowOff < 0) rowOff = i; else if (rowOn < 0) { rowOn = i; CHECK(!UiAct()); CHECK(!moveOff[kN3Moves[items[i]-kItMoveBase].id]); }  // A again: ON
         }
     }
-    CHECK(tuneCalls == 2 && idleCalls == 2 && moveCalls == 13 && !repArms);
+    CHECK(nAtk == 24 && tuneCalls == 2 && idleCalls == 2 && moveCalls == nAtk + 1 && !repArms);
     UiRow mrows[40]; char mfooter[240];
     {   // user #13618: Right on an OFF move switches it ON and arms the repeat at once (was: only switched ON, the repeat never armed)
         const N3Move& off = kN3Moves[items[rowOff] - kItMoveBase];
         CHECK(moveOff[off.id] && !RepGet(16102));
         g_sel = rowOff; UiChange(1);
-        CHECK(!moveOff[off.id] && repArms == 1 && RepGet(16102) == off.id && moveCalls == 14);
+        CHECK(!moveOff[off.id] && repArms == 1 && RepGet(16102) == off.id && moveCalls == nAtk + 2);
         char tb[160]; uint32_t tc = 0;
         CHECK(Toast(tb, sizeof tb, tc) && strstr(tb, "REPEAT") && tc == cGreen);
         const int k = UiFill(mrows, 40, mfooter, sizeof mfooter);
-        bool pill = false, top = false, sel = false;
+        bool pill = false, top = false, title = false;
         char want[16]; snprintf(want, sizeof want, "0x%04X  REPEAT", off.id);
         char what[64]; snprintf(what, sizeof what, "Boss uses 0x%04X each time it attacks (gap 1.25 s)", off.id);
         for (int i = 0; i < k; ++i) {
             pill |= strstr(mrows[i].text, want) != nullptr;
             top |= strstr(mrows[i].text, "Repeating move: ") && strstr(mrows[i].text, what);
-            sel |= strstr(mrows[i].text, "Repeat selected move: ") != nullptr;
+            title |= strstr(mrows[i].text, "Boss moves - Minamoto no Yoritomo - Attacks (24)") != nullptr;
         }
-        CHECK(pill && top && sel && strstr(mfooter, "REPEAT"));
+        CHECK(pill && top && title && strstr(mfooter, "REPEAT"));
         // Right on another (ON) move moves the repeat there; Left anywhere stops it; Left again: nothing repeating (toast says so)
         const N3Move& on = kN3Moves[items[rowOn] - kItMoveBase];
-        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id && repArms == 2 && moveCalls == 14);
-        g_sel = rowOff; UiChange(-1); CHECK(!RepGet(16102) && repStops == 1 && moveCalls == 14);
+        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id && repArms == 2 && moveCalls == nAtk + 2);
+        g_sel = rowOff; UiChange(-1); CHECK(!RepGet(16102) && repStops == 1 && moveCalls == nAtk + 2);
         g_sel = rowOff; UiChange(-1); CHECK(repStops == 1 && Toast(tb, sizeof tb, tc) && strstr(tb, "No move is repeating"));
-        // 'Repeat selected move' (row 0): A repeats the last move the user pressed a button on (rowOff)
+        // B: back to the group list, cursor on the Attacks row; 'Repeat selected move' (hub row 0) repeats the last move pressed (rowOff)
+        CHECK(!UiBack() && g_uiPages.page == uMoves && g_sel == 3 + kMcAttack);
         g_sel = 0; CHECK(!UiAct() && RepGet(16102) == off.id && repArms == 3);
+        {   // the group row shows where the repeat is
+            const int hk = UiFill(mrows, 40, mfooter, sizeof mfooter);
+            char rp[24]; snprintf(rp, sizeof rp, "REPEAT 0x%04X", off.id);
+            bool shown = false;
+            for (int i = 0; i < hk; ++i) shown |= strstr(mrows[i].text, "Attacks") && strstr(mrows[i].text, rp);
+            CHECK(shown);
+        }
         // A turning a repeating move OFF also stops its repeat
+        CHECK(!openGroup(kMcAttack));
         g_sel = rowOff; CHECK(!UiAct() && moveOff[off.id] && !RepGet(16102));
-        // Right on idle / init: refused with a reason, nothing armed
-        for (int i = 0; i < n; ++i) if (IsMoveItem(items[i]) && N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(1); break; }
-        CHECK(!RepGet(16102) && repArms == 3 && Toast(tb, sizeof tb, tc) && tc == cRed && strstr(tb, "cannot be repeated"));
-        // 'Repeating move' row: A stops
-        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id); g_sel = 1; CHECK(!UiAct() && !RepGet(16102));
+        // Right on idle / init (group 'Movement and reactions'): refused with a reason, nothing armed
+        CHECK(!UiBack() && g_uiPages.page == uMoves);
+        CHECK(!openGroup(kMcMovement));
+        bool prot = false;
+        for (int i = 0; i < n; ++i) if (IsMoveItem(items[i]) && N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(1); prot = true; break; }
+        CHECK(prot && !RepGet(16102) && repArms == 3 && Toast(tb, sizeof tb, tc) && tc == cRed && strstr(tb, "cannot be repeated"));
+        // 'Repeating move' row (page row 0): A stops
+        CHECK(!UiBack() && g_uiPages.page == uMoves);
+        CHECK(!openGroup(kMcAttack));
+        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id); g_sel = 0; CHECK(!UiAct() && !RepGet(16102));
+        CHECK(!UiBack() && g_uiPages.page == uMoves);
+        // Ki break group: the live-logged ids first with plain names, then the rest of the motion family
+        CHECK(!openGroup(kMcKiBreak));
+        for (int i = 1; i <= 6; ++i) CHECK(N3KiNote(16102u, kN3Moves[items[i] - kItMoveBase].id) != nullptr);
+        CHECK(!N3KiNote(16102u, kN3Moves[items[7] - kItMoveBase].id));
+        const int kk = UiFill(mrows, 40, mfooter, sizeof mfooter);
+        bool kiName = false;
+        for (int i = 0; i < kk; ++i) kiName |= strstr(mrows[i].text, "0x4E38") && strstr(mrows[i].text, "good, seen live") && !strstr(mrows[i].text, "(?)");
+        CHECK(kiName && strstr(mfooter, "seen live"));
+        CHECK(!UiBack() && g_uiPages.page == uMoves && g_sel == 3 + kMcKiBreak);
         for (int i = 0; i < 0x10000; ++i) moveOff[i] = 0;
     }
     CHECK(!UiBack() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uPracticeHub);
@@ -180,6 +232,6 @@ int main() {
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
     sessionMode = 0;
     (void)bossLive;
-    puts("PASS: Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
+    puts("PASS: Boss moves groups (#14291: 6 groups, 173 Yoritomo moves, Ki break ids first, B back to the group list); Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page");
     return 0;
 }
