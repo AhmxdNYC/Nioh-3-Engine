@@ -1575,3 +1575,6 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 
 - 2026-10-20 7:00 PM EDT gxl-pc #21544: phone #21546. One swing's lookup count is unknown. Call sites are single calls: 0x322B25, 0x322BA5, 0x322535, 0x322986, plus 0x28E13F9, 0x23F361B, 0x28E9F19. Tick loop 0x3209EB runs 0, 1, or 2 times per visit. Visits per swing are not in the code. Not a hit count. Commit dfe0d53f. Slots still 0 #21539, 1 #21526, 2 #21515. #21543 waits. Do not launch. Do not edit the menu.
+- 2026-10-20 7:00 PM EDT gx-pc #21539: 221 is still unknown. The hit path passes trunc(packet+0) into the HP cut at 0x1FF44EC. That float is the row sum (30, 25, or 40 on rows 92-94), optionally times a table u16 * 0.01 at 0x20012AE. The table word for this swing was not read. Not a hit count. Commit dadea642. Game not touched. Menu not edited.
+
+- 2026-10-20 7:01 PM EDT gxl-pc #21547: phone #21550. 221 is still unknown. The value that reaches HP cut 0x787268 is the row sum, 30, 25, or 40. Float is written at 0x2001111 from packed +4 plus word +0x10, truncated at 0x1FF44EC. Branch 0x20012AE can multiply by a table word times 0.01. That word was not read, so it is not 221. Not a hit count. Commit dadea642. Slot 0 pid 18576 runs #21543. Slot 1 pid 20764 runs #21526. Slot 2 pid 5204 still shows #21515. Do not launch. Do not edit the menu.

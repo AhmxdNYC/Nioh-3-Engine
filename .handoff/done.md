@@ -286,3 +286,4 @@
 - 2026-10-20 | A swing does not walk all 3 rows | Needed whether one swing checks every hitbox row | The update calls the lookup once, and a second time only if another byte is set. The loop stops at 1 or 2, not 3.
 - 2026-10-20 | 221 is not in the 3 hitbox rows | Needed the formula for the one measured HP drop | Those rows add up to 30, 25, and 40. Nothing adds 60 and 160. The 221 still has no field.
 - 2026-10-20 | Lookup count per swing is unknown | Needed how many times one swing checks a hitbox | The loop runs 0, 1, or 2 times per visit, not 3. How many visits one swing gets is not in the code.
+- 2026-10-20 | HP cut in code is 30, 25, or 40 | Needed where the measured 221 enters the damage | The number that reaches the cut is the row sum. A multiply branch was not read, so 221 is still unknown.
