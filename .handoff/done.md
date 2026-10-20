@@ -282,3 +282,5 @@
 - 2026-10-20 | One slot per hitbox lookup | Needed whether his 3 rows are used together | Each lookup uses 1 slot. For move 4E68 the row is 92 plus that slot. Which slot, and how many lookups in one swing, are still unknown.
 - 2026-10-20 | Second motion number is not a clip | User asked how many sequences if an extra animation counts | 40 of 88 attacks store that number. None of the 15 values is a motion clip, so the sequence count stays 0.
 - 2026-10-20 | Slot byte is zero on every attack | Needed the stored slot for his 3 rows | That byte is 0 on all 88 attacks, including 4E68. It is not the hit source.
+- 2026-10-20 | A swing does not walk all 3 rows | Needed whether one swing checks every hitbox row | The update calls the lookup once, and a second time only if another byte is set. The loop stops at 1 or 2, not 3.
+- 2026-10-20 | 221 is not in the 3 hitbox rows | Needed the formula for the one measured HP drop | Those rows add up to 30, 25, and 40. Nothing adds 60 and 160. The 221 still has no field.
