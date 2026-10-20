@@ -1520,3 +1520,7 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:30 PM EST gxl-pc #21450: user asked how many sequences if an attack with several animations is a sequence. Count from the move file: 88 attack rows, 20 animations, 0 rows with two animation clips. Phone #21456. Not a menu rule. 40 of 88 also store a second motion number (alt_motion34); unproven, tasked as #21461. Also tasked #21458 (who passes rows 92/93/94) and #21460 (what the sphere point is). Nioh3 PID 29140 started 6:27 pm EST and is not this session. Do not touch it. Do not edit the menu. Next: read those three RESULTs.
 
+- 2026-10-20 6:31 PM EDT gx-pc #21444: the chain row is chosen by 0x892668 when walker 0x480A74 returns it. If the walker returns null, packed +E0 (4E7A for the first five) is copied into a stand-in and committed. Rows 287-292 pass their file gates after frames 110, 63, 96, 63, 105, and 52. Virtual +D8 (0x49B120) and earlier rows 396, 398, and 405 are still not reduced. Game not touched. Menu not edited. Commit d62d5f50. Next: do not relabel the menu from this.
+
+- 2026-10-20 6:33 PM EST gxl-pc #21473: user wants literal frame data for a future SF6-style frame bar. Phone #21476: marks exist (4E68 frame 51, 4E6C frame 83, 4E74 frame 77; early mark frames 12-15; chain waits 110, 63, 96, 63, 105, 52) but startup/active/recovery is unproven. Task #21478 maps phase_tail types across 88 attack rows. Do not launch the game. Do not edit the menu. Next: read #21478 and the still-open #21458, #21460, #21461.
+

@@ -280,3 +280,4 @@
 - #21433 (2026-10-20): The boss menu and sequences must be built by one algorithm from the real move data, for this boss and for bosses added later. Do not hand-build the menu from one recorded moveset. Do not invent sequences or hit counts.
 - #21435 (2026-10-20): Find the actual data source in the game code for hit counts and sequences. Do not stop at a recorded moveset or a distance check that is not a hit count.
 - #21450 (2026-10-20): User suggested an attack with more than one animation might be a sequence. Checked, not adopted: 88 Yoritomo attack rows use 20 animations, and 0 of those rows have two animation clips. Do not build sequences from that rule.
+- #21473 (2026-10-20): Also find literal frame data that can later drive an SF6-style frame bar (startup, active, recovery). Do not invent those three from sound marks, effect marks, or chain-wait frames. Unknown stays unlabeled.
