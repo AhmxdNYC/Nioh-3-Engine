@@ -4551,6 +4551,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
     return 0;
 }
 
+#include "boss_vitals_game.h"  // user #14320/#14323/#14324: per-boss HP / Ki controls (Boss A / B pages)
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
 static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
@@ -4584,6 +4585,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
+    __try { BvTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSVITALS tick exception %08lX", GetExceptionCode()); }  // user #14320
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
     __try { SpPruneTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRUNE tick exception %08lX", GetExceptionCode()); }  // crash 2026-10-18
     __try { SumNoDeathTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMNODEATH tick exception %08lX", GetExceptionCode()); }  // user #13197
