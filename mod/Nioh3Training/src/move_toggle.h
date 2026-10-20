@@ -125,6 +125,7 @@ static int MvSeqIndex(int i, uint32_t act) { for (int k = 0; k < g_rep_nchain[i]
 // boss is back in idle, then the gap starts (phase 4).
 #define SEQ_CONFIRM_MS 100
 #define SEQ_START_MS 1500
+static int g_rep_ext[MV_REP_MAX];                   // native follow-up picks let through after the last part this round (MV_EXT_MAX)
 static int g_rep_kmax[MV_REP_MAX];                  // highest chain part seen playing this round (-1 none)
 static DWORD g_rep_seen[MV_REP_MAX];                // phase 1: first read of the head (0 = not read yet)
 static volatile LONG g_rep_subs;                    // log cap for pick substitutions
@@ -134,7 +135,7 @@ static void MvSeqEnd(int i, uint32_t chr, uint32_t act, DWORD now, const char* w
     Log("REPEAT chr %u sequence ended (%s, now 0x%X, last 0x%X, %lu ms after the start), gap %d ms", chr, why, act, g_rep_cur[i], now - g_rep_last[i], MvGapFor(chr));
     g_rep_phase[i] = 0; g_rep_end[i] = now ? now : 1; g_rep_cur[i] = 0; g_rep_seen[i] = 0;
 }
-static void MvSeqRequest(int i, DWORD now) { g_rep_phase[i] = 1; g_rep_last[i] = now ? now : 1; g_rep_cur[i] = 0; g_rep_seen[i] = 0; g_rep_kmax[i] = -1; }
+static void MvSeqRequest(int i, DWORD now) { g_rep_ext[i] = 0; g_rep_phase[i] = 1; g_rep_last[i] = now ? now : 1; g_rep_cur[i] = 0; g_rep_seen[i] = 0; g_rep_kmax[i] = -1; }
 // sequence mode, game thread (select hook + pump): follow the boss's real action. 1 = the sequence is running (phase 2..4).
 static int MvSeqTrack(int i, uint32_t chr, uint32_t act, DWORD now) {
     const int ph = g_rep_phase[i];
@@ -177,6 +178,18 @@ static uint32_t MvChaseFilter(uint32_t chr, uint32_t id) {
     if (n <= 500) Log("REPEAT chr %u aggro walk-up: AI pick 0x%X -> idle (locomotion only while it closes in)", chr, id);
     return MvIdleOr0(chr, id);
 }
+// user #14702/#14713: after the last listed part the old code forced idle on the AI's very next pick, cutting the combo (live: 4E78 > 4E7A, the
+// AI asked 4E79 first and 4E8D at the end, total 1.5 s). The boss's own continuation inside the same attack-family (the game table's
+// 'attack-family motion NNNN', same hundred, motion not going back) is now let through (max MV_EXT_MAX per round); idle only when it stops.
+#define MV_EXT_MAX 4
+static int MvFamMotion(uint32_t chr, uint32_t id) {
+    const int k = N3MoveFind(chr, id); const char* p = k >= 0 && kN3Moves[k].label ? strstr(kN3Moves[k].label, "attack-family motion ") : 0;
+    return p ? atoi(p + 21) : 0;
+}
+static int MvFamCont(uint32_t chr, uint32_t cur, uint32_t pick) {
+    const int a = MvFamMotion(chr, cur), b = MvFamMotion(chr, pick);
+    return a && b && pick != cur && a / 100 == b / 100 && b >= a && !N3MoveUnsafe(chr, pick);
+}
 static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
     DWORD now = GetTickCount(); int gap = MvGapFor(chr);
     g_rep_st[i] = st;
@@ -186,6 +199,11 @@ static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
         if (g_rep_phase[i] != 4 && nx < g_rep_nchain[i]) {  // the AI's own pick: the next part instead
             if (InterlockedIncrement(&g_rep_subs) <= 300) Log("REPEAT chr %u sequence: AI pick 0x%X -> part %d of %d 0x%X", chr, id, nx + 1, g_rep_nchain[i], g_rep_chain[i][nx]);
             return g_rep_chain[i][nx];
+        }
+        if (g_rep_ext[i] < MV_EXT_MAX && MvFamCont(chr, ActIdOf(st), id)) {  // the boss's own follow-up in the same combo family: let it play
+            ++g_rep_ext[i];
+            if (InterlockedIncrement(&g_rep_subs) <= 300) Log("REPEAT chr %u sequence: native continuation 0x%X after 0x%X passes (+%d)", chr, id, ActIdOf(st), g_rep_ext[i]);
+            return id;
         }
         if (g_rep_phase[i] != 4) {
             g_rep_phase[i] = 4;
