@@ -1542,6 +1542,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 6:53 PM EST gxl-pc #21521: user said reverse to the hit source. Phone #21524. +0x15 is 0 on all 88 attacks, empty padding, not the slot. Slot 1 still on #21481 (221 HP formula) since 6:39 pm EST. Slots 0 and 2 are both counting lookup calls (#21518 and #21515). Do not add a third copy. Game not running. Do not launch from a status wake. Do not edit the menu. Next: read the 221 RESULT, then one live swing of 4E6C only if the formula is still unnamed.
 
+- 2026-10-20 6:55 PM EST gxl-pc #21527: user asked how many agents are on the hit source. Phone #21528. Counted live: 3/3. Slot 1 PID 33108 since 6:39 pm EST on #21481. Slot 0 PID 25436 since 6:52 pm EST on #21518. Slot 2 PID 5204 since 6:51 pm EST on #21515. Slots 0 and 2 are the same lookup-count question. Do not post another copy. Game not running. Do not launch. Do not edit the menu. Next: read #21481 when it lands.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
@@ -1559,3 +1561,5 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-20 6:51 PM EDT gx-pc #21510: action-row byte +0x15 is not the hitbox slot. 0x4E68 is 0. All 88 attacks store 0, none store 1, 2, or anything else. The action id is at +0x0C. The word at +0x12 is 0 on all 173 rows. Sub-table 7 matches the code layout (id at +0x12, byte at +0x15) but only 5 attacks appear and 0x4E68 does not. Not a hit count. Commit e5f8174b. Game not touched. Menu not edited.
 
 - 2026-10-20 6:53 PM EDT gxl-pc #21521: phone #21525. User said keep reversing until the source is named. Action +0x15 is 0 on all 88, so it is not the slot. Slot 1 pid 33108 runs #21481. Slot 2 pid 5204 runs #21515. Slot 0 pid 25436 is on duplicate #21518. TASK #21526 names the record read at 0x130C8DF and 0x65E88D. Do not call the zero byte a hit count. Do not edit the menu. Do not launch.
+
+- 2026-10-20 6:55 PM EDT gx-pc #21481: the 221 HP drop is not rows 92-94 fields +0x16/+0x1A/+0x1C/+0x1E. No instruction adds 60 and 160. HP is subtracted at 0x787268. The normal builder 0x2000F30 uses word +0x10 plus a packed dword at +4, which on these rows is 30, 25, or 40. Commit d4804950. Game not touched. Menu not edited.
