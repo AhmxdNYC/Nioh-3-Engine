@@ -16,6 +16,11 @@ static void IhDefault(int fresh) {
     g_ih_default_start = g_tr.tCmd; g_ih_default_round = g_tr.round;
     InterlockedExchange(&g_ih_default_pending, g_ih_idle_stance != 0);
 }
+// user #14877: only a Practice session starts in the Idle stance; a Boss Matches Fight now (practice 0) fights from the start.
+static void IhDefaultSession(void) {
+    if (g_tr.practice) { IhDefault(1); return; }
+    InterlockedExchange(&g_ih_idle_stance, 0); InterlockedExchange(&g_ih_default_pending, 0);
+}
 static uint32_t g_ih_seen_chr;
 static int g_ih_seen_round, g_ih_seen_active;
 static DWORD g_ih_seen_start;

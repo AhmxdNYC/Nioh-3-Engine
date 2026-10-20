@@ -359,7 +359,7 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 1000;
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
-static void BhStart(uint32_t handle); static void IhStop(const char* why, int failed); static void IhDefault(int fresh); static int IhWantIdle(void); static int IhAdoptBossHold(uint32_t handle, uint64_t actor);
+static void BhStart(uint32_t handle); static void IhStop(const char* why, int failed); static void IhDefault(int fresh); static void IhDefaultSession(void); static int IhWantIdle(void); static int IhAdoptBossHold(uint32_t handle, uint64_t actor);
 static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
@@ -1410,7 +1410,7 @@ static int TrainStart(const char* tok, float d) {
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
-    g_tr.active = 1; IhDefault(1); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
+    g_tr.active = 1; IhDefaultSession(); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
@@ -1449,7 +1449,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
-    g_tr.active = 1; IhDefault(1); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
+    g_tr.active = 1; IhDefaultSession(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
 static void TrainTick(void) {
     if (!g_tr.active) return;
