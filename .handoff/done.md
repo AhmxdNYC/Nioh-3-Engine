@@ -288,3 +288,4 @@
 - 2026-10-20 | Lookup count per swing is unknown | Needed how many times one swing checks a hitbox | The loop runs 0, 1, or 2 times per visit, not 3. How many visits one swing gets is not in the code.
 - 2026-10-20 | HP cut in code is 30, 25, or 40 | Needed where the measured 221 enters the damage | The number that reaches the cut is the row sum. A multiply branch was not read, so 221 is still unknown.
 - 2026-10-20 | This move has no slot row in the file | Needed which of the 3 hitbox rows the swing picks | The slot lives on a side record. The matching file table has 0 rows for move 4E68, so the slot is still unknown.
+- 2026-10-20 | One damage call is one amount | Needed whether the damage function takes a hit count | It takes no hit-count argument and applies one amount. The 6:32 pm EST log has 0 hit lines and 1 HP refill.
