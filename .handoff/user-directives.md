@@ -274,3 +274,4 @@
 - #21331 (2026-10-20): Read the Nioh 3 repo and reverse engineer hit counts and real sequences from the code and data already in the project. Do not stop at the move-list file. Do not invent counts.
 - #21350 (2026-10-20): The other PC is idle because Codex ran out. Do not assign it this hit-count or sequence job, and do not wait on it.
 - #21351 (2026-10-20): Reverse engineer Yoritomo with Ghidra, the call stack, existing logs, and the move list. Find his AI, moveset, and hit logic, including hit counts. Do not stop after saying the move list has no hit-count field. Do not invent counts.
+- #21364 (2026-10-20): Use the local gx-pc Grok workers for this reverse engineering. Say they are working only when a presence slot is busy. Do not claim another PC or the Ally is on the job. Do not invent hit counts.
