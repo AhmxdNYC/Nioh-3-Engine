@@ -265,3 +265,4 @@
 
 - 2026-10-20 | Yoritomo packed-row join checked | Need proof the packed move rows are what the live boss bank plays | Notes-only review: 128-byte size and field match are not a load path. Join stays unproven. Sequences stay 0. Codex on this PC is out of credits until 2:32 am Oct 27 (ChatGPT clock).
 - 2026-10-20 | Shared boss move sorter | Sort any boss's moves, including bosses added later, with one algorithm | One function sorted 1,784 moves on 14 bosses into 280 Attacks and 1,504 Other. 0 multi-move sequences. 4 Yoritomo moves are single-action sequences. Four bosses have no attack-byte hits, so their whole lists stay in Other. In-game menu not changed.
+- 2026-10-20 | Yoritomo stored hit count | The move list had no 1-hit, 2-hit, or 3-hit label | Checked 173 moves: 0 stored hit numbers. The 182 hitbox rows do not name his moves. Hit shapes are created while a move plays.
