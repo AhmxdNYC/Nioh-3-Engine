@@ -2399,7 +2399,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");
         snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
     } else if (g_sel == kPracticeRow) {
-        snprintf(what, sizeof(what), "Train here, train in a boss arena, Training mods (stance, moves, repeat), summon a boss here.");
+        snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if (g_sel >= kSettingRow) {
         const int index = g_sel - kSettingRow;

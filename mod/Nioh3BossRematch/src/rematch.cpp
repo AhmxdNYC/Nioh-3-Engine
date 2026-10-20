@@ -1927,7 +1927,7 @@ void Tick() {
     {   // user #6779: once the swapped-in boss is dead, point at the way back
         static int lastRet = 0;
         const int f = ReturnInfo();
-        if (f > 0 && (f & 2) && !(lastRet & 2) && (f & 1)) ToastF(cGreen, 8000, "Boss defeated. The Return gate (or Training mods > Return to where I was) takes you back.");
+        if (f > 0 && (f & 2) && !(lastRet & 2) && (f & 1)) ToastF(cGreen, 8000, "Boss defeated. The Return gate (or Training Bosses > Return to where I was) takes you back.");
         lastRet = f > 0 ? f : 0;
     }
     if (const uint32_t r = g_req.exchange(0)) {
@@ -2158,7 +2158,7 @@ constexpr int uPlayer = 909, kItPlayerOpen = -57;
 // per-row controls: A on / off, Right REPEAT, Left stop). B / Back returns to the group list.
 constexpr int uMoveCat = 915, kItMoveCatBase = -70;  // kItMoveCatBase - group (-70 .. -75)
 int g_moveCat = 0;
-bool IsMoveCatItem(int item) { return item <= kItMoveCatBase && item > kItMoveCatBase - kMcCount; }
+bool IsMoveCatItem(int item) { return item <= kItMoveCatBase && item > kItMoveCatBase - kMcCount - 1; }  // + the Sequences row (#14317)
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2283,7 +2283,9 @@ void IdleHoldToggle(int dir) {
         on ? "Stand still: the boss stops at its next safe moment. A repeating move still plays every gap (drill)." : "Fight normally: the boss attacks with its own AI again.");
 }
 uint32_t g_uiMoveChr = 0;
+int g_bossSlot = -1;  // user #14309: the Boss X page being shown (A = 0); its moves, repeat and settings are that boss's
 uint32_t MoveBoss() {
+    if (g_bossSlot >= 0) return SlotChr(g_bossSlot);
     using Fn = uint32_t (*)();
     const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveBoss");
     return f ? f() : 0;
@@ -2308,8 +2310,10 @@ bool IsMoveItem(int item) { return item >= kItMoveBase && item < kItMoveBase + N
 int g_repPick = -1;  // kN3Moves index of the last move row the user pressed A / Left / Right on
 int RepGapGet();
 // 'Boss does 0x4E30 every 1.25 s, stands still between' (Stand still) / 'Boss uses 0x4E30 each time it attacks (gap 1.25 s)' (Fight normally)
+int BossGapGet(); int SlotStance(int s);
 void RepeatWhat(const N3Move& m, char* b, size_t n) {
-    const int v = RepGapGet(), hold = IdleHoldStatus();
+    const int v = g_bossSlot >= 0 ? BossGapGet() : RepGapGet(), st = g_bossSlot >= 0 ? SlotStance(g_bossSlot) : -9;
+    const int hold = st == -9 ? IdleHoldStatus() : st >= 2 ? 2 : st == 1 ? 1 : 0;
     char gap[24];
     if (v < 0) snprintf(gap, sizeof gap, "?");
     else snprintf(gap, sizeof gap, "%d.%02d s", v / 1000, (v % 1000) / 10);
@@ -2360,13 +2364,13 @@ bool RepeatArm(const N3Move* m, const char* src) {
     using RepFn = int (*)(uint32_t, uint32_t, int);
     using SetFn = int (*)(uint32_t, uint32_t, int, int);
     const auto rep = (RepFn)TrainingExport("Nioh3Training_SetMoveRepeat");
-    if (!m) { RepeatFail(src, m, "no move to repeat. Turn a move ON (A) or press Right on a move."); return false; }
-    if (m->chr != MoveBoss()) { RepeatFail(src, m, "the current boss changed; reopen Boss moves."); return false; }
+    if (!m) { RepeatFail(src, m, "no move to repeat. Open a move group and press A on a move."); return false; }
+    if (m->chr != MoveBoss()) { RepeatFail(src, m, "the boss changed; reopen its page."); return false; }
     if (N3MoveProtected(m->id)) { RepeatFail(src, m, "idle / initialization cannot be repeated. Pick an attack."); return false; }
     if (!rep || !TrainingExport("Nioh3Training_GetMoveRepeat")) { RepeatFail(src, m, "this Nioh3Training.asi has no repeat (update it)."); return false; }
     const int old = MoveAllowed(*m);
     bool switchedOn = false;
-    if (old == 0) {  // Right on an OFF move: switch it ON first, then repeat it
+    if (old == 0) {  // repeat on an OFF move: switch it ON first, then repeat it
         const auto set = (SetFn)TrainingExport("Nioh3Training_SetMoveAllowed");
         const int rc = set ? set(m->chr, m->id, 1, 1) : 0;
         if (rc == 0) { RepeatFail(src, m, "could not switch the move ON."); return false; }
@@ -2385,24 +2389,26 @@ bool RepeatArm(const N3Move* m, const char* src) {
     const bool noHook = hook < 0 && hold != 2;  // Fight normally needs the select hook; Stand still forces the move itself (drill)
     Log("Rematch: REPEAT arm (%s) chr %u 0x%X %s%s -> ON, stance %d, gap %d ms, hooks %d: %s", src, m->chr, m->id, MoveName(*m),
         switchedOn ? " (was OFF, switched ON)" : "", hold, RepGapGet(), hook, what);
-    snprintf(g_msg, sizeof g_msg, "REPEAT 0x%04X: %s.%s Left stops.", m->id, what, switchedOn ? " (Move switched ON.)" : "");
-    if (noHook) ToastF(cOrange, 2000, "REPEAT 0x%04X set, but move hooks failed: only works in Stand still. %s", m->id, what);
-    else ToastF(cGreen, 2000, "REPEAT 0x%04X: %s%s", m->id, what, switchedOn ? " (switched ON)" : "");
+    snprintf(g_msg, sizeof g_msg, "Repeat ON 0x%04X: %s.%s A again stops.", m->id, what, switchedOn ? " (Move switched ON.)" : "");
+    if (noHook) ToastF(cOrange, 2000, "Repeat 0x%04X set, but move hooks failed: only works in Stand still. %s", m->id, what);
+    else ToastF(cGreen, 2000, "Repeating 0x%04X: %s%s", m->id, what, switchedOn ? " (switched ON)" : "");
     return true;
 }
 void MoveToggle(int item, int dir) {
     if (!IsMoveItem(item)) return;
     const auto& move = kN3Moves[item - kItMoveBase];
     if (!N3MoveProtected(move.id)) g_repPick = item - kItMoveBase;
-    if (move.chr != MoveBoss()) { snprintf(g_msg, sizeof g_msg, "The current boss changed; reopen Boss moves."); return; }
-    if (dir > 0) { RepeatArm(&move, "Right on move"); return; }   // user #13618: Right = ALWAYS repeat this move
-    if (dir < 0) { RepeatStop("Left on move"); return; }           // Left = stop the repeat
+    if (move.chr != MoveBoss()) { snprintf(g_msg, sizeof g_msg, "The boss changed; reopen its page."); return; }
+    // user #13623 / #14336 item 4: A = 'Repeat this move' ON / OFF (one repeat per boss: ON here moves it off any other move).
+    // Left / Right = may the boss use this move on its own (OFF = never). No hidden key tricks.
+    if (dir == 0) { if (MoveRepeating(move)) RepeatStop("A on move"); else RepeatArm(&move, "A on move"); return; }
     if (N3MoveProtected(move.id)) { snprintf(g_msg, sizeof g_msg, "Idle and initialization stay ON so the boss can resume after a skipped move."); return; }
     using Fn = int (*)(uint32_t, uint32_t, int, int);
     const auto f = (Fn)TrainingExport("Nioh3Training_SetMoveAllowed");
     const int old = MoveAllowed(move);
     if (!f || old < 0) { snprintf(g_msg, sizeof g_msg, "Move controls unavailable in this Training build."); return; }
-    const int on = !old;
+    const int on = dir > 0;
+    if (on == old) { snprintf(g_msg, sizeof g_msg, "%s", on ? "Already used: the boss may pick it. Left: never use it." : "Already OFF: the boss never picks it. Right: use it again."); return; }
     const bool repeating = MoveRepeating(move);
     const int rc = f(move.chr, move.id, on, 1);
     if (!on && repeating) {  // an OFF move must not keep repeating
@@ -2411,7 +2417,7 @@ void MoveToggle(int item, int dir) {
         Log("Rematch: REPEAT stop (A turned 0x%X OFF) chr %u", move.id, move.chr);
         ToastF(cYellow, 2000, "0x%04X OFF: repeat stopped, the boss picks its own moves again.", move.id);
     }
-    snprintf(g_msg, sizeof g_msg, "%s", rc == 1 ? (on ? "Move ON (saved). Right: make the boss repeat it." : "Move OFF (saved): the boss will not use it.") :
+    snprintf(g_msg, sizeof g_msg, "%s", rc == 1 ? (on ? "Used ON (saved): the boss may pick it again. A: repeat this move." : "Used OFF (saved): the boss never picks it on its own.") :
         rc == -1 ? "Changed this session, but saving failed. Retry to save." : "This action is required by the idle fallback and stays ON.");
 }
 bool DeathCfgGet(int& loot, int& blow, int& cut) {
@@ -2529,8 +2535,8 @@ void RepeatStop(const char* src) {
     const N3Move* m = RepeatingMove();
     if (!rep || !m) {
         Log("Rematch: REPEAT stop (%s): nothing was repeating (boss chr %u)", src, MoveBoss());
-        snprintf(g_msg, sizeof g_msg, "No move is repeating. Right on a move (or A on 'Repeat selected move') starts one.");
-        ToastF(cGray, 2000, "No move is repeating. Right on a move starts one.");
+        snprintf(g_msg, sizeof g_msg, "No move is repeating. A on a move starts one.");
+        ToastF(cGray, 2000, "No move is repeating. A on a move starts one.");
         return;
     }
     rep(m->chr, m->id, 0);
@@ -2550,6 +2556,7 @@ void NoFinToggle(int dir) {
     g_msg[0] = 0;
 }
 #include "boss_vitals_menu.h"  // user #14320: per-boss HP / Ki page (uBossVitals)
+#include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
@@ -2561,17 +2568,17 @@ int Items(int* out, int cap) {
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
         add(kItRootRematch);
         add(kItRootTraining);
-        if (LeaveArenaOffered()) add(kItLeaveArena);
         add(kItClose);
         return n;
     }
-    if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here / arena / Training mods / Summon a boss here / Boss Matches
+    if (g_uiPages.page == uPracticeHub) {  // user #13223 / #13293: Train here / arena / Training Bosses / Summon a boss here / Boss Matches
         if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: the hosted menu opens here, never on uRoot (the row was unreachable)
-        if (TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
-        add(kItArenas);
+        const bool inArena = InTrainingArena();  // user #14333 / #14336 item 8: no 'Train here' / 'Train in a boss arena' while already in one
+        if (!inArena && TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
+        if (!inArena) add(kItArenas);
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
-        if (PracticeToolsAvailable()) add(kItRootTools);
-        if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
+        if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
+        if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
         add(kItBack);
         return n;
@@ -2594,15 +2601,28 @@ int Items(int* out, int cap) {
         add(kItBack);
         return n;
     }
-    if (g_uiPages.page == uTools) {  // user #13197: in-fight Practice controls, kept out of the arena list
-        if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
-        if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
-        if (TrainingExport("Nioh3Training_SummonSlot")) { add(kItMovesA); add(kItMovesB); }
-        BvAddOpenRows(add, false);  // user #14320: Boss A / B health and Ki
-        if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
-        if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
-        if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
+    if (g_uiPages.page == uTools) {  // Training Bosses (#14301): one row per spawned boss (#14309), summon another, timed CPU / idle switch (#14313)
+        for (int s = 0; s < SlotCountUi(); ++s) if (SlotChr(s)) add(kItBossOpenBase + s);
+        if (TrainingExport("Nioh3Training_SummonSlot") && FreeSlot() >= 0) add(kItSumAnother);
+        if (TrainingExport("Nioh3Training_StanceTimer") && SpawnedCount()) add(kItStanceTimer);
+        if (TrainingExport("Nioh3Training_DespawnAll") && SpawnedCount()) add(kItDespawnAll);  // #14336 item 6: only with a boss to remove
         if (TrainingExport("Nioh3Training_ReturnHome")) add(kItReturnHome);
+        add(kItBack);
+        return n;
+    }
+    if (g_uiPages.page == uBoss) {  // user #14336 item 2: every per-boss setting lives here, once
+        const uint32_t chr = SlotChr(g_bossSlot);
+        if (g_uiMoveChr != chr) { g_uiMoveChr = chr; }
+        add(kItBossStance);
+        if (TrainingExport("Nioh3Training_SetSlotAggro")) add(kItBossAggro);
+        if (TrainingExport("Nioh3Training_SetRepeatGapChr")) add(kItBossGap);
+        if (TrainingExport("Nioh3Training_ResetSlotPos")) add(kItBossReset);
+        if (BvAvailable()) add(kItBvOpenBase + g_bossSlot);
+        if (TrainingExport("Nioh3Training_SetMoveAllowed")) {
+            for (int c = 0; c < kMcCount; ++c) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);
+            if (SeqCount(chr)) add(kItMoveCatBase - kMcSeq);  // user #14317
+        }
+        if (TrainingExport("Nioh3Training_DespawnSlot")) add(kItBossRemove);
         add(kItBack);
         return n;
     }
@@ -2619,19 +2639,14 @@ int Items(int* out, int cap) {
         add(kItBack);
         return n;
     }
-    if (g_uiPages.page == uSummon) {
-        if (TrainingExport("Nioh3Training_SetSummonPassive")) add(kItSumPassive);
-        if (TrainingExport("Nioh3Training_SummonSlot")) {
-            add(kItSumSlot);
+    if (g_uiPages.page == uSummon) {  // user #14336 item 7: 'Summon another boss' = boss list, the boss takes the next free letter (no slot picker)
+        if (TrainingExport("Nioh3Training_SummonSlot"))
             for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId) add((g_sumSlot ? kItSummonB : kItSummonA) + (int)i);
-        }
-        if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13293: the Boss Match rules also for summoned bosses
+                if (g_rows[i].missionId) add(kItSummonA + (int)i);
         add(kItBack);
         return n;
     }
     if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
-        if (LeaveArenaOffered()) add(kItLeaveArena);  // user 20261018: reachable from the hosted Boss Matches page too
         AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
@@ -2647,9 +2662,12 @@ int Items(int* out, int cap) {
                     if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
                     add((int)i);
                 }
-        if (g_live.load()) add(kItPractice);
-        if (g_raOk) add(kItOpen);
-        if (g_emakiOk) add(kItScroll);
+        // #14336 item 10: legacy / developer rows only with [Rematch] ShowUnverified = 1
+        if (g_cfg.showUnverified) {
+            if (g_live.load()) add(kItPractice);
+            if (g_raOk) add(kItOpen);
+            if (g_emakiOk) add(kItScroll);
+        }
         if (g_state.load() != kIdle && !g_replayIn.load() && g_et.st != rcore::kEIn) add(kItAbort);
         add(kItBack);
         return n;
@@ -2657,12 +2675,7 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uMoves) {
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
-        if (TrainingExport("Nioh3Training_SetMoveRepeat")) { add(kItRepSel); add(kItRepNow); }  // user #13618: repeat the picked move / #13293: which move repeats (A stops)
-        if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
-        if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
-        if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
-        if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
-        // user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
+        // #14336 item 2: stance / gap / aggro / reset / repeat rows live on the Boss X page only. user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
         for (int c = 0; c < kMcCount; ++c) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);
         add(kItBack);
         return n;
@@ -2670,7 +2683,11 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uMoveCat) {  // user #14291: one move group of the current boss, every move of it (no filter)
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
-        if (TrainingExport("Nioh3Training_SetMoveRepeat")) add(kItRepNow);  // which move repeats (A stops), also visible here
+        if (g_moveCat == kMcSeq) {  // user #14317
+            for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == chr && SeqHead(chr, kN3Moves[i].id)) add(kItSeqBase + i);
+            add(kItBack);
+            return n;
+        }
         // live-logged Ki-break ids first on the Ki break page, then catalogue order
         for (int pass = 0; pass < 2; ++pass)
             for (int i = 0; i < N3_MOVE_COUNT; ++i) {
@@ -2685,22 +2702,14 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uGate) {
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
-        if (mode == 2) {  // Training: the Practice tools rows
+        if (mode == 2) {  // Training (#14336 item 11): short list, everything else is one level down in Training Bosses
             if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
-            if (TrainingExport("Nioh3Training_SetIdleHold")) add(kItIdleHold);
-            if (TrainingExport("Nioh3Training_SetMoveAllowed")) add(kItMoves);
-            if (TrainingExport("Nioh3Training_SetRepeatGap")) add(kItRepGap);
-            if (TrainingExport("Nioh3Training_SetBossAggro")) add(kItAggro);  // user #13787
-            if (TrainingExport("Nioh3Training_ResetBossPos")) add(kItResetPos);
-            if (TrainingExport("Nioh3Training_SummonSlot")) { if (SlotChr(0)) add(kItMovesA); if (SlotChr(1)) add(kItMovesB); }
-            BvAddOpenRows(add, true);  // user #14320
-            if (TrainingExport("Nioh3Training_SummonSlot") || TrainingExport("Nioh3Training_SetSummonPassive")) add(kItBossSumm);
-            if (TrainingExport("Nioh3Training_SummonSlot")) add(kItDespawnAll);
-            if (BossFightItemsAvailable()) add(kItFightOpts);  // user #13265
+            if (PracticeToolsAvailable()) add(kItRootTools);
         } else if (mode == 1) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
             if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
         }
+        if (LeaveArenaOffered()) add(kItLeaveArena);
         add(kItReturnHome);
         add(kItBack);  // user #13529: every page has a Back row (here: back to the mod menu's first page)
         add(kItClose);
@@ -2714,8 +2723,7 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uSettings) {
         for (int group = 0; group < kConfigGroupN; ++group) add(kItGroupBase - group);
-        if (PracticeToolsAvailable()) add(kItRootTools);  // user #13197: Practice tools always reachable from Settings
-        add(kItBack);  // user #13197: no Save row, every edit is written at once
+        add(kItBack);  // user #13197: no Save row, every edit is written at once (#14336: the Practice hub is the only Training door)
         return n;
     }
     if (g_uiPages.page >= uSettingFirst && g_uiPages.page < uSettingFirst + kConfigGroupN) {
@@ -2967,6 +2975,15 @@ void UiChange(int dir) {
     if (item == kItNoFin) { NoFinToggle(dir); return; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, dir); return; }
     if (IsMoveItem(item)) { MoveToggle(item, dir); return; }
+    if (IsSeqItem(item)) { SeqToggle(item, dir); return; }  // user #14317
+    if (item == kItBossStance) { BossStanceSet(dir); return; }  // user #14309: per boss
+    if (item == kItBossAggro) { BossAggroSet(dir); return; }
+    if (item == kItBossGap) { BossGapStep(dir); return; }
+    if (item == kItStanceTimer) {  // user #14313: 1..10 s
+        if (dir) { g_stSec = g_stSec + (dir > 0 ? 1 : -1); g_stSec = g_stSec < 1 ? 1 : g_stSec > 10 ? 10 : g_stSec; g_msg[0] = 0; }
+        return;
+    }
+    if (IsBossOpenItem(item) || item == kItBossReset || item == kItBossRemove || item == kItSumAnother) return;
     if (item == kItIdleHold) { IdleHoldToggle(dir); return; }
     if (item == kItRepGap) { RepGapStep(dir); return; }
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
@@ -2989,6 +3006,7 @@ void UiChange(int dir) {
 void UiOpen() {
     g_uiPages.Reset();
     g_uiBoss = -1;
+    g_bossSlot = -1;
     g_sel = 0;
     g_confirm = -9;
     g_msg[0] = 0;
@@ -3023,6 +3041,22 @@ bool UiAct() {
     if (item == kItNoFin) { NoFinToggle(0); return false; }
     if (item == kItFinT || item == kItHp0W) { TuneStep(item, 0); return false; }
     if (IsMoveItem(item)) { MoveToggle(item, 0); return false; }
+    if (IsSeqItem(item)) { SeqToggle(item, 0); return false; }  // user #14317
+    if (IsBossOpenItem(item)) {  // user #14309: Boss X page
+        g_bossSlot = item - kItBossOpenBase;
+        SetMoveSlot(g_bossSlot);
+        g_uiPages.Enter(uBoss, g_sel);
+        g_uiMoveChr = SlotChr(g_bossSlot); g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        Log("Rematch: Boss %c page opened (%s)", 'A' + g_bossSlot, SlotBossName(g_uiMoveChr));
+        return false;
+    }
+    if (item == kItBossStance) { BossStanceSet(0); return false; }
+    if (item == kItBossAggro) { BossAggroSet(0); return false; }
+    if (item == kItBossGap) { BossGapStep(0); return false; }
+    if (item == kItBossReset) { BossResetPos(); return false; }
+    if (item == kItBossRemove) { if (BossRemove()) { g_msg[0] = 0; g_uiPages.Back(g_sel); } return false; }
+    if (item == kItStanceTimer) return StanceTimerAct();  // user #14313: arming closes the menu (get ready)
+    if (item == kItSumAnother) { g_uiPages.Enter(uSummon, g_sel); g_sel = 0; g_confirm = -9; g_msg[0] = 0; return false; }
     if (item == kItIdleHold) { IdleHoldToggle(0); return false; }
     if (item == kItRepGap) { RepGapStep(0); return false; }
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
@@ -3061,6 +3095,7 @@ bool UiAct() {
         snprintf(g_msg, sizeof g_msg, "%s", rc ? "Removing every summoned boss." : "Busy: try again in a moment.");
         return false;
     }
+    if (item >= kItSummonA && item < kItSummonB) return SummonAnother(item - kItSummonA);  // user #14336 item 7: next free letter
     if (item >= kItSummonA && item < kItSummonEnd) {
         const int slot = item >= kItSummonB ? 1 : 0;
         const int row = item - (slot ? kItSummonB : kItSummonA);
@@ -3088,8 +3123,8 @@ bool UiAct() {
         g_moveCat = kItMoveCatBase - item;
         g_uiPages.Enter(uMoveCat, g_sel);
         g_uiMoveChr = MoveBoss(); g_msg[0] = 0; g_confirm = -9;
-        g_sel = TrainingExport("Nioh3Training_SetMoveRepeat") ? 1 : 0;  // cursor on the first move, not on 'Repeating move' (A there stops it)
-        Log("Rematch: move group '%s' opened (#14291)", N3MoveCatName(g_moveCat));
+        g_sel = 0;  // #14336 item 4: the page holds move rows only
+        Log("Rematch: move group '%s' opened (#14291)", CatName(g_moveCat));
         return false;
     }
     if (item == kItMoves) {
@@ -3263,7 +3298,8 @@ const char* PageTitle(const char* movesTitle) {
     if (p == uGate) return GateMode() == 2 ? "Return gate - Practice" : GateMode() == 1 ? "Return gate - Boss Match" : "Return gate";
     if (p >= uSettingFirst && p < uSettingFirst + kConfigGroupN) return kConfigGroupLabels[p - uSettingFirst];
     return p == uRoot ? "Mod menu" : p == uRematch ? "Boss Matches" : p == uTraining ? "Practice - Train in a boss arena" : p == uPracticeHub ? "Practice"
-         : p == uTrainHere ? "Practice - Train here" : p == uSummon ? "Practice - Summon a boss here" : p == uTools ? "Practice - Training mods"
+         : p == uTrainHere ? "Practice - Train here" : p == uSummon ? "Practice - Summon another boss" : p == uTools ? "Practice - Training Bosses"
+         : p == uBoss ? movesTitle
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Practice Yamagata"
          : p == uFightOpts ? "Boss Match rules (kill and finisher)" : p == uPlayer ? "Practice - Player" : p == uBossVitals ? BvTitle() : p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
@@ -3273,13 +3309,14 @@ const char* ItemGroup(int item) {
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Kill and finisher rules (also Practice and summons)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
-    if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Training mods";
+    if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Training Bosses";
     if (p == uBossVitals) return BvGroup(item);  // user #14320
-    if (IsBvOpenItem(item)) return p == uGate ? "Training mods" : "Boss health and Ki";
-    if (p == uTools) return item == kItDespawnAll || item == kItBossSumm ? "Summoned bosses" : item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome ? "Leave" : "Boss behaviour and move drill";
-    if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss to summon" : "Options";
-    if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : "Repeat a move (drill) and stance";  // user #14291
-    if (p == uMoveCat) return IsMoveItem(item) ? "Moves (A: on / off, Right: REPEAT, Left: stop)" : "Repeat a move (drill)";
+    if (p == uTools) return IsBossOpenItem(item) ? "Your bosses (A: open)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
+    if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
+                         : IsMoveCatItem(item) ? "Moves (A: open a group)" : item == kItBossRemove ? "Remove" : nullptr;
+    if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss (it takes the next free letter, stands still)" : nullptr;
+    if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
+    if (p == uMoveCat) return IsSeqItem(item) ? "Sequences (A: repeat this sequence ON / OFF)" : IsMoveItem(item) ? "Moves (A: repeat this move ON / OFF, Left / Right: used)" : nullptr;
     return nullptr;
 }
 int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
@@ -3301,14 +3338,17 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     const int st = g_state.load();
     static char movesTitle[128];
     snprintf(movesTitle, sizeof movesTitle, "Boss moves (start a Practice session first)");
-    if (g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
+    if (g_uiPages.page == uMoves || g_uiPages.page == uMoveCat || g_uiPages.page == uBoss) {
         const uint32_t chr = MoveBoss();
-        if (chr) snprintf(movesTitle, sizeof movesTitle, "Boss moves - %.40s (none recorded yet)", SlotBossName(chr));
-        for (int i = 0; i < N3_MOVE_COUNT; ++i)
+        char who[16] = "Boss moves";
+        if (g_bossSlot >= 0) snprintf(who, sizeof who, "Boss %c", 'A' + g_bossSlot);
+        if (chr) snprintf(movesTitle, sizeof movesTitle, "%s - %.40s%s", who, SlotBossName(chr), g_uiPages.page == uBoss ? "" : " (no moves recorded yet)");
+        else if (g_bossSlot >= 0) snprintf(movesTitle, sizeof movesTitle, "%s - gone", who);
+        for (int i = 0; g_uiPages.page != uBoss && i < N3_MOVE_COUNT; ++i)
             if (kN3Moves[i].chr == chr) {
-                if (g_uiPages.page == uMoveCat)  // user #14291: 'Boss moves - Minamoto no Yoritomo - Attacks (24)'
-                    snprintf(movesTitle, sizeof movesTitle, "Boss moves - %.40s - %s (%d)", kN3Moves[i].boss, N3MoveCatName(g_moveCat), MoveCatCount(chr, g_moveCat));
-                else snprintf(movesTitle, sizeof movesTitle, "Boss moves - %.60s", kN3Moves[i].boss);
+                if (g_uiPages.page == uMoveCat)  // user #14291: 'Boss A - Minamoto no Yoritomo - Attacks (24)'
+                    snprintf(movesTitle, sizeof movesTitle, "%s - %.40s - %s (%d)", who, kN3Moves[i].boss, CatName(g_moveCat), g_moveCat == kMcSeq ? SeqCount(chr) : MoveCatCount(chr, g_moveCat));
+                else snprintf(movesTitle, sizeof movesTitle, "%s - %.60s", who, kN3Moves[i].boss);
                 break;
             }
     }
@@ -3338,27 +3378,56 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
         if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)) add(bvColor, sel, "%s", bvText);
-        else if (IsMoveItem(it[i])) {
+        else if (IsBossOpenItem(it[i])) {  // user #14309: 'Boss C: Minamoto no Yoritomo   Stand still (idle)   A: open'
+            const int sl = it[i] - kItBossOpenBase, stn = SlotStance(sl);
+            add(sel ? cWhite : stn == 0 ? cGreen : stn >= 1 ? cYellow : cGray, sel, "%s Boss %c: %.40s   %s   A: open", mk, 'A' + sl, SlotBossName(SlotChr(sl)), StanceName(stn));
+        } else if (it[i] == kItSumAnother) {
+            const int fs = FreeSlot();
+            add(sel ? cWhite : cGray, sel, "%s Summon another boss (it will be Boss %c)   A: open", mk, fs >= 0 ? 'A' + fs : '?');
+        } else if (it[i] == kItStanceTimer) {  // user #14313
+            int toIdle = 0; const int left = StanceTimerLeft(&toIdle);
+            if (left > 0) add(sel ? cWhite : cYellow, sel, "%s Switching every boss to %s in %d.%d s   A: cancel", mk, toIdle ? "Stand still" : "Fight (CPU)", left / 1000, (left % 1000) / 100);
+            else add(sel ? cWhite : cGray, sel, "%s Switch every boss to %s after: %2d s   Left / Right 1-10 s, A: start", mk, StanceTimerTarget() ? "Stand still" : "Fight (CPU)", g_stSec);
+        } else if (it[i] == kItBossStance) {
+            const int stn = SlotStance(g_bossSlot);
+            add(sel ? cWhite : stn == 0 ? cGreen : stn >= 1 ? cYellow : cDim, sel, "%s Stance: %s   A / Left fight / Right stand still", mk, StanceName(stn));
+        } else if (it[i] == kItBossAggro) {
+            const int v = BossAggroGet();
+            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Aggro on me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+        } else if (it[i] == kItBossGap) {
+            const int v = BossGapGet();
+            char val[24];
+            if (v < 0) snprintf(val, sizeof val, "?"); else snprintf(val, sizeof val, "%d.%02d s", v / 1000, (v % 1000) / 10);
+            add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Gap between repeats: %-7s   Left / Right", mk, val);
+        } else if (it[i] == kItBossReset) add(sel ? cWhite : cGray, sel, "%s Reset position   press A", mk);
+        else if (it[i] == kItBossRemove) add(sel ? cWhite : cGray, sel, "%s Remove this boss   press A", mk);
+        else if (IsSeqItem(it[i])) {  // user #14317: '0x4E5C > 0x4E60 > 0x4E61 (loops)   Repeat ON'
+            const auto& m = kN3Moves[it[i] - kItSeqBase];
+            const bool rpt = MoveRepeating(m);
+            char seq[72]; SeqText(m, seq, sizeof seq);
+            add(sel ? cWhite : rpt ? cYellow : cGray, sel, "%s %-44s %.24s   Repeat %s", mk, seq, MoveName(m), rpt ? "ON" : "OFF");
+        }
+        else if (IsMoveItem(it[i])) {  // #14336 item 4: one 'Repeat ON / OFF' per row, 'Used ON / OFF' = the boss may pick it
             const auto& move = kN3Moves[it[i] - kItMoveBase];
             const int allowed = MoveAllowed(move);
             const bool rpt = MoveRepeating(move);
             char msTxt[12] = "";  // user #13786: typical natural run time from the Training logs
             if (move.ms && !N3MoveProtected(move.id)) snprintf(msTxt, sizeof msTxt, "%u.%us", move.ms / 1000u, (move.ms % 1000u) / 100u);
-            add(sel ? cWhite : rpt ? cYellow : N3MoveProtected(move.id) ? cDim : allowed > 0 ? cGreen : cGray, sel,
-                "%s 0x%04X  %-3s  %-8s %4s  %.52s%s", mk, move.id, rpt ? "REPEAT" : allowed < 0 ? "?" : allowed ? "ON" : "OFF",
-                N3MoveProtected(move.id) ? "" : MoveKindName(move.kind), msTxt,
-                N3MoveProtected(move.id) ? "Idle / initialization (required)" : MoveName(move),
-                !N3MoveProtected(move.id) && *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "");
-        } else if (IsMoveCatItem(it[i])) {  // user #14291: 'Attacks   24 moves, 2 OFF, REPEAT 0x4E64   A: open'
+            if (N3MoveProtected(move.id)) add(sel ? cWhite : cDim, sel, "%s 0x%04X  Idle / initialization (required, always used)", mk, move.id);
+            else add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel,
+                "%s 0x%04X %-8s %4s %.36s%s  Repeat %s  Used %s", mk, move.id, MoveKindName(move.kind), msTxt, MoveName(move),
+                *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "", rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
+        } else if (IsMoveCatItem(it[i])) {  // user #14291: 'Attacks   24 moves, 2 OFF, repeating 0x4E64   A: open'
             const int c = kItMoveCatBase - it[i];
-            int off = 0;
+            int off = 0, cnt = 0;
             const N3Move* rpt = nullptr;
-            const int cnt = MoveCatCount(g_uiMoveChr, c, &off, &rpt);
+            if (c == kMcSeq) { cnt = SeqCount(g_uiMoveChr); for (int j = 0; j < N3_MOVE_COUNT; ++j) if (kN3Moves[j].chr == g_uiMoveChr && SeqHead(g_uiMoveChr, kN3Moves[j].id) && MoveRepeating(kN3Moves[j])) rpt = &kN3Moves[j]; }
+            else cnt = MoveCatCount(g_uiMoveChr, c, &off, &rpt);
             char extra[48] = "";
-            if (off > 0 && rpt) snprintf(extra, sizeof extra, ", %d OFF, REPEAT 0x%04X", off, rpt->id);
+            if (off > 0 && rpt) snprintf(extra, sizeof extra, ", %d OFF, repeating 0x%04X", off, rpt->id);
             else if (off > 0) snprintf(extra, sizeof extra, ", %d OFF", off);
-            else if (rpt) snprintf(extra, sizeof extra, ", REPEAT 0x%04X", rpt->id);
-            add(sel ? cWhite : rpt ? cYellow : cGray, sel, "%s %-24s %3d move%s%s   A: open", mk, N3MoveCatName(c), cnt, cnt == 1 ? "" : "s", extra);
+            else if (rpt) snprintf(extra, sizeof extra, ", repeating 0x%04X", rpt->id);
+            add(sel ? cWhite : rpt ? cYellow : cGray, sel, "%s %-24s %3d %s%s%s   A: open", mk, CatName(c), cnt, c == kMcSeq ? "sequence" : "move", cnt == 1 ? "" : "s", extra);
         } else if (it[i] <= kItSettingBase) {
             const int index = kItSettingBase - it[i];
             const auto& d = kConfigSettings[index];
@@ -3423,7 +3492,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const uint32_t c = SlotChr(slot);
             add(sel ? cWhite : c ? cGray : cDim, sel, "%s Boss %c moves: %s", mk, 'A' + slot, SlotBossName(c));
         }
-        else if (it[i] == kItDespawnAll) add(sel ? cWhite : cGray, sel, "%s Remove all summoned bosses (A: %s, B: %s)", mk, SlotBossName(SlotChr(0)), SlotBossName(SlotChr(1)));
+        else if (it[i] == kItDespawnAll) {  // #14336 item 6: the bosses actually spawned
+            char list[80] = ""; size_t o = 0;
+            for (int sl = 0; sl < SlotCountUi() && o < sizeof list; ++sl) if (SlotChr(sl)) o += (size_t)snprintf(list + o, sizeof list - o, "%s%c: %.24s", o ? ", " : "", 'A' + sl, SlotBossName(SlotChr(sl)));
+            add(sel ? cWhite : cGray, sel, "%s Remove all summoned bosses (%s)", mk, list);
+        }
         else if (it[i] >= kItSummonA && it[i] < kItSummonEnd) {
             const int slot = it[i] >= kItSummonB ? 1 : 0;
             const int row = it[i] - (slot ? kItSummonB : kItSummonA);
@@ -3445,7 +3518,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
         }
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
-        else if (it[i] == kItRootTools) add(sel ? cWhite : PracticeSessionLive() ? cGreen : cGray, sel, "%s Training mods (stance, moves, repeat)   A: open", mk);
+        else if (it[i] == kItRootTools) { const int nb = SpawnedCount(); add(sel ? cWhite : nb ? cGreen : cGray, sel, "%s Training Bosses (%d boss%s)   A: open", mk, nb, nb == 1 ? "" : "es"); }
         else if (it[i] == kItSumPassive) {
             const int v = SumPassiveGet();
             char val[24];
@@ -3549,18 +3622,27 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
         if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        else if (IsBossOpenItem(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss's own page: stance, aggro, gap between repeats, reset position, health and Ki, its moves and sequences. Every boss is independent.");
+        else if (item == kItSumAnother) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Pick a boss: it appears next to you (no load) as the next letter and stands still until you set it to fight. As many as you like.");
+        else if (item == kItStanceTimer) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a countdown and closes the menu: after it every boss switches at once (all standing still -> all fight as CPU, else all stand still). Left / Right: 1-10 s.");
+        else if (item == kItBossStance) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Stand still: this boss waits (a repeating move still plays every gap). Fight normally: it attacks with its own AI (CPU). Only this boss changes.");
+        else if (item == kItBossAggro) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: this boss keeps you as its target and walks up to you (5 m), then does its repeating move. Saved as the default for new bosses.");
+        else if (item == kItBossGap) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long this boss waits after each repeat (move or sequence) before doing it again. Left / Right 0.25 s. Saved for this boss.");
+        else if (item == kItBossReset) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts this boss back where it first appeared, facing you.");
+        else if (item == kItBossRemove) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: removes this boss (and its health bar). The other bosses stay.");
+        else if (IsSeqItem(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: repeat this whole sequence ON / OFF. The boss starts its first move, the game plays the rest of the chain, then the gap. From the game's next-action links.");
         else if (IsMoveItem(item)) {
             using StatusFn = int (*)();
             const auto status = (StatusFn)TrainingExport("Nioh3Training_GetMoveHookStatus");
             const int hook = status ? status() : 0;
             const int allowed = MoveAllowed(kN3Moves[item - kItMoveBase]);
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : hook < 0 ? "Move hooks unavailable: OFF switches cannot veto actions and repeat works only in Stand still." :
-                !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes. Right: REPEAT this move." :
+                !hook && allowed == 0 ? "Saved OFF; activation is pending until the game resumes. A: repeat this move." :
                 g_uiPages.page == uMoveCat && g_moveCat == kMcKiBreak ?  // user #14291
-                "A: ON / OFF.  Right: REPEAT.  Left: stop. Ki break moves: '(seen live)' = logged in a real Ki break; the rest share their motion family." :
-                "A: move ON / OFF.  Right: REPEAT this move (switches it ON).  Left: stop repeating. Saved per boss. (?) = name unverified.");
+                "A: repeat this move ON / OFF.  Left / Right: used OFF / ON. '(seen live)' = logged in a real Ki break; the rest share their motion family." :
+                "A: repeat this move ON / OFF (one at a time).  Left / Right: the boss never / may use it on its own. Saved per boss. (?) = name unverified.");
         } else if (IsMoveCatItem(item)) {  // user #14291
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : N3MoveCatHelp(kItMoveCatBase - item));
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : kItMoveCatBase - item == kMcSeq ? "Move chains the game plays by itself (next-action links): repeat a whole sequence with A on it." : N3MoveCatHelp(kItMoveCatBase - item));
         } else if (item == kItIdleHold) {
             const int hold = IdleHoldStatus();
             snprintf(footer, nf, "%s", hold < 0 ? "The boss could not be made to stand still (it was busy). Right tries again once it settles." :
@@ -3570,7 +3652,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 hold == 1 ? "Getting the boss to stand still at its next safe moment (its current move may finish). Left: fight normally." :
                 "Fight normally: the boss uses its own attacks. Right: stand still (Practice starts like that). A repeating move is used whenever it attacks.");
         } else if (item == kItRepGap) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long the boss waits after each repeat of the RPT move before doing it again. Left / Right 0.25 s. Applies now, saved.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "How long the boss waits after each repeat of its repeating move before doing it again. Left / Right 0.25 s. Applies now, saved.");
         } else if (item == kItShowTw) {  // user #13786
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "OFF: only real attacks / wind-ups are listed. ON: also twitches (short state changes, ~0.05-0.15 s when forced), combo links and steps. Kinds come from Training logs.");
         } else if (item == kItAggro) {  // user #13787
@@ -3580,25 +3662,25 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItResetPos) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Practice session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. Stand still: it waits and does only this move every gap (drill). Fight normally: it uses this move whenever it attacks. A / Left stops.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "The move the boss repeats. Stand still: it waits and does only this move every gap (drill). Fight normally: it uses this move whenever it attacks. A stops.");
         } else if (item == kItRepSel) {  // user #13618
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: the boss repeats the move shown (the last move you pressed a button on, else the first ON move). Left: stop. Or press Right on any move inside a group below.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: the boss repeats the move shown. Or press A on any move inside a group.");
         } else if (item == kItDespawnAll) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (A and B) and their health bar.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (all letters) and their health bars.");
         } else if (item == kItMovesA || item == kItMovesB) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the boss in this slot. Each boss keeps its own list. A opens, B returns.");
         } else if (item >= kItSummonA && item < kItSummonEnd) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you in the current world without a load (up to two: A and B). Summoning again replaces that slot. A starts.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you without a load, as the next free letter (A, B, C ...). It stands still until you set it to fight. A starts.");
         } else if (item == kItSumPassive) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Seconds a summoned boss waits (AI off) before it attacks. 0 = at once. Left / Right 1 s. Applies to the next summon, saved.");
         } else if (item == kItSumSlot) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Slot the next boss goes into (two bosses at once: A and B). A / Left / Right switches. Remove them: Training mods.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Old slot picker (not shown any more): summoned bosses take the next free letter.");
         } else if (item == kItRootRematch) {
             snprintf(footer, nf, "Fight bosses you have beaten again (in their arena or from the shrine before them), and the kill / finisher rules.");
         } else if (item == kItLeaveArena) {
             snprintf(footer, nf, "No mission and a boss fight with no boss (save made in an arena): ends the boss mode so the map / shrine travel works again.");
         } else if (item == kItRootTraining) {
-            snprintf(footer, nf, "Train here or in a boss arena, Training mods (stance, moves, repeat), summon a boss where you are, Boss Matches.");
+            snprintf(footer, nf, "Train here or in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss where you are, Boss Matches.");
         } else if (item == kItTrainHereOpen) {
             snprintf(footer, nf, "Pick a boss: it appears right where you stand (no load, no teleport) and stands still. If you are beaten, the round restarts here.");
         } else if (item == kItArenas) {
@@ -3606,19 +3688,19 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItPlayerOpen) {  // user #14267
             snprintf(footer, nf, "%s", "Player options: infinite health (ON = you never lose HP; OFF = normal damage, at 0 HP instant respawn in the arena).");
         } else if (item == kItBossSumm) {
-            snprintf(footer, nf, "Summon up to two bosses next to you (no load). Set how long they wait before attacking. They use the Boss Match rules.");
+            snprintf(footer, nf, "Summon bosses next to you (no load), as many as you like: Boss A, B, C ... Each stands still until you set it to fight.");
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a Practice session with this boss right here. Training mods: stance / moves / repeat. Return to where I was ends it.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a Practice session with this boss right here. Training Bosses: stance / moves / repeat. Return to where I was ends it.");
         } else if (item == kItRootTools) {
-            snprintf(footer, nf, "Training mods: boss stance (wait / normal AI), turn boss moves off or repeat one with a gap, remove summoned bosses, leave.");
+            snprintf(footer, nf, "Training Bosses: every boss you have (A, B, C ...) with its own page, summon another boss, switch all bosses CPU / idle after a delay, leave.");
         } else if (item == kItFightOpts) {  // user #13265
             snprintf(footer, nf, "Kill and finisher rules: cutscene on kill, final blow, loot, no finisher, kill / HP-0 windows. Used in Boss Matches, Practice and summons. Saved.");
         } else if (item == kItSettings) {
             snprintf(footer, nf, "All ini preferences. Every change is saved at once and applies after a restart.");
         } else if (item == kItRootSummon) {
-            snprintf(footer, nf, "Summon up to two bosses next to you (no load). Set how long they wait before attacking.");
+            snprintf(footer, nf, "Summon bosses next to you (no load), as many as you like. Each stands still until you set it to fight.");
         } else if (item == kItMoves || g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves in groups (Attacks, Twitches, Ki break, ...): open a group, turn moves off or make the boss repeat one (drill). Start a Practice session first.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves in groups (Attacks, Twitches, Ki break, Sequences ...): open a group, A repeats a move, Left / Right turns it off / on.");
         } else if (item <= kItSettingBase) {
             const auto& d = kConfigSettings[kItSettingBase - item];
             snprintf(footer, nf, "[%s] %s: %s %s", d.section, d.key, d.help,

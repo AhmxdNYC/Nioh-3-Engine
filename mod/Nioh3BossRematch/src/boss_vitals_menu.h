@@ -4,11 +4,11 @@
 // Rows on the page: live HP / Ki, Boss infinite health, Boss infinite Ki (optional, so Ki breaks still happen), Set boss HP %, Set boss Ki %, Refill boss.
 #include "../../Nioh3Training/src/boss_vitals.h"
 constexpr int uBossVitals = 930;
-constexpr int kItBvOpenBase = -90;  // kItBvOpenBase - slot (-90 .. -93): 'Boss A health and Ki' row -> uBossVitals for that slot
+constexpr int kItBvOpenBase = 0xC0000;  // kItBvOpenBase + slot: 'Health and Ki' row -> uBossVitals for that slot (#14309: 26 letters, so positive ids)
 constexpr int kItBvRefill = -94, kItBvStatus = -95, kItBvInfHp = -96, kItBvInfKi = -97, kItBvHpPct = -98, kItBvKiPct = -99;
 int g_bvSlot = 0;
 bool BvAvailable() { return TrainingExport("Nioh3Training_BossVitalsSet") != nullptr && TrainingExport("Nioh3Training_BossVitalsGet") != nullptr; }
-bool IsBvOpenItem(int item) { return item <= kItBvOpenBase && item > kItBvOpenBase - BV_SLOTS; }
+bool IsBvOpenItem(int item) { return item >= kItBvOpenBase && item < kItBvOpenBase + BV_SLOTS; }
 bool IsBvPageItem(int item) { return item <= kItBvRefill && item >= kItBvKiPct; }
 struct BvView { int live = -1; uint64_t hc = 0, hm = 0; float kc = 0, km = 0; int cfg[4] = {0, 0, 100, 100}; };
 BvView BvRead(int slot) {
@@ -25,12 +25,12 @@ int BvSet(int slot, int what, int value) {
 // open rows: one per Training slot (A / B today); on the gate page only the live ones
 template <class Add> void BvAddOpenRows(Add&& add, bool liveOnly) {
     if (!BvAvailable()) return;
-    for (int s = 0; s < 2; ++s) if (!liveOnly || SlotChr(s)) add(kItBvOpenBase - s);
+    for (int s = 0; s < BV_SLOTS; ++s) if (!liveOnly || SlotChr(s)) add(kItBvOpenBase + s);
 }
 template <class Add> void BvAddPage(Add&& add) {
     add(kItBvStatus); add(kItBvInfHp); add(kItBvInfKi); add(kItBvHpPct); add(kItBvKiPct); add(kItBvRefill);
 }
-#define BV_NEED_BOSS "Boss %c is empty: summon a boss into slot %c first (Practice > Summon a boss here), or start a Practice session (its boss is Boss A)."
+#define BV_NEED_BOSS "Boss %c is gone (%c: no live boss with this letter). Practice > Training Bosses lists the bosses you have."
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool BvChange(int item, int dir) {
     if (!IsBvPageItem(item) || item == kItBvStatus) return IsBvPageItem(item);
@@ -70,7 +70,7 @@ bool BvChange(int item, int dir) {
 // A on an open row / page row. Returns true when the item was ours.
 bool BvAct(int item) {
     if (IsBvOpenItem(item)) {
-        g_bvSlot = kItBvOpenBase - item;
+        g_bvSlot = item - kItBvOpenBase;
         g_uiPages.Enter(uBossVitals, g_sel);
         g_sel = 1; g_msg[0] = 0; g_confirm = -9;  // cursor on 'Boss infinite health', not on the read-only status row
         Log("Rematch: Boss %c health and Ki page opened (#14320)", 'A' + g_bvSlot);
@@ -93,12 +93,12 @@ const char* BvGroup(int item) {
 // Row text for our items. Returns false when the item is not ours.
 bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (IsBvOpenItem(item)) {
-        const int s = kItBvOpenBase - item;
+        const int s = item - kItBvOpenBase;
         const BvView v = BvRead(s);
         const uint32_t chr = SlotChr(s);
         char st[48] = "";
         if (v.live > 0 && (v.cfg[0] || v.cfg[1])) snprintf(st, sizeof st, "   (%s%s%s)", v.cfg[0] ? "infinite health" : "", v.cfg[0] && v.cfg[1] ? ", " : "", v.cfg[1] ? "infinite Ki" : "");
-        snprintf(buf, n, "%s Boss %c health and Ki: %s%s   A: open", mk, 'A' + s, SlotBossName(chr), st);
+        snprintf(buf, n, "%s Health and Ki%s   A: open", mk, st);
         *color = sel ? cWhite : chr ? cGray : cDim;
         return true;
     }
@@ -130,7 +130,7 @@ bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t
     return true;
 }
 const char* BvFooter(int item) {
-    if (IsBvOpenItem(item)) return "Health and Ki of the boss in this slot: infinite health, infinite Ki, set HP / Ki %, refill. Each boss has its own settings (this session, default OFF).";
+    if (IsBvOpenItem(item)) return "Health and Ki of this boss: infinite health, infinite Ki, set HP / Ki %, refill. Each boss has its own settings (this session, default OFF).";
     if (item == kItBvStatus) return "The boss's HP and Ki right now (what its bars show).";
     if (item == kItBvInfHp) return "ON: the boss's HP never stays below the Set boss HP level (100 % = it never loses HP, so it cannot be killed by damage). OFF: normal damage. Not saved.";
     if (item == kItBvInfKi) return "ON: the boss's Ki never stays below the Set boss Ki level, so it is not Ki broken (a break already running plays out). OFF (default): normal Ki and Ki breaks.";

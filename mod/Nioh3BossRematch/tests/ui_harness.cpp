@@ -52,6 +52,7 @@ int main() {
     CHECK(DeleteFileW(addon::testIni)); addon::testIni[0]=0;
     g_live.store(true);  // UI fixture only; no game/pump is started
     g_cfg.showAll = true;
+    g_cfg.showUnverified = true;  // #14336 item 10: the legacy Practice Yamagata row is shown only with ShowUnverified = 1
     for (int i = 0; i < 25; ++i) {
         Row row = {};
         snprintf(row.name, sizeof(row.name), "Boss %d", i);

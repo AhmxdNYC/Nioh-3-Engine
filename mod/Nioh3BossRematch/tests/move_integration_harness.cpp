@@ -1,17 +1,14 @@
 // Real merged menu dispatch with synthetic Training exports; no game or ASI load.
+// user #14336 menu cleanup build: Training Bosses (one page per boss, unlimited letters), Summon another boss, timed CPU / idle switch,
+// Boss X page (stance / aggro / gap / reset / health and Ki / move groups / Sequences / remove), 'Repeat this move' per move row.
 #include <windows.h>
 #include <cstring>
-static int tuneCalls, idleCalls, moveCalls;
+static int tuneCalls, moveCalls;
 static int TuneGet(int which) { return which ? 1000 : 6000; }
 static int TuneSet(int, int, int) { ++tuneCalls; return 1; }
-static int IdleGet() { return 0; }
-static int IdleSet(int) { ++idleCalls; return 1; }
-static bool bossLive = true;
-static unsigned BossGet() { return bossLive ? 16102u : 0u; }
 static int moveOff[0x10000];  // 1 = that action id is OFF (Yoritomo only in this fixture)
 static int MoveGet(unsigned, unsigned id) { return !moveOff[id & 0xFFFF]; }
 static int MoveSet(unsigned, unsigned id, int on, int) { ++moveCalls; moveOff[id & 0xFFFF] = !on; return 1; }
-// user #13618: Repeat exports (one repeat per boss, protected idle / init refused like the real Nioh3Training_SetMoveRepeat)
 static unsigned repChr, repId; static int repArms, repStops;
 static int RepSet(unsigned chr, unsigned id, int on) {
     if (!on) { ++repStops; if (repChr == chr) repChr = repId = 0; return 1; }
@@ -19,27 +16,45 @@ static int RepSet(unsigned chr, unsigned id, int on) {
     ++repArms; repChr = chr; repId = id; return 1;
 }
 static unsigned RepGet(unsigned chr) { return chr == repChr ? repId : 0; }
-static int RepGapGet() { return 1250; }
-static int summonCalls, summonSlot = -1, passiveMs = 3000; static unsigned summonMission;
+// slots: A = Yoritomo (live), the rest empty; 26 letters
+static unsigned slotChr[26] = {16102u};
+static int SlotCount() { return 26; }
+static unsigned SlotChrX(int s) { return s >= 0 && s < 26 ? slotChr[s] : 0; }
+static int stance[26] = {2}, stanceSets, lastStanceSlot = -1, lastStanceIdle = -1;
+static int GetSlotStance(int s) { return slotChr[s] ? stance[s] : -2; }
+static int SetSlotStance(int s, int idle) { if (!slotChr[s]) return 0; ++stanceSets; lastStanceSlot = s; lastStanceIdle = idle; stance[s] = idle ? 2 : 0; return 1; }
+static int aggro[26];
+static int GetSlotAggro(int s) { return slotChr[s] ? aggro[s] : -1; }
+static int SetSlotAggro(int s, int on) { if (!slotChr[s]) return -1; return aggro[s] = on; }
+static int gapMs = 1000;
+static int GetGapChr(unsigned) { return gapMs; }
+static int SetGapChr(unsigned, int ms, int) { return gapMs = ms; }
+static int resetSlot = -1;
+static int ResetSlotPos(int s) { resetSlot = s; return slotChr[s] != 0; }
+static int despawnSlot = -1, despawnAll;
+static int DespawnSlot(int s) { despawnSlot = s; return 1; }
+static int DespawnAll() { ++despawnAll; return 1; }
+static int timerMs = -1, timerIdle = -1;
+static int StanceTimer(int ms, int idle) { timerMs = ms; timerIdle = idle; return ms > 0; }
+static int GetStanceTimer(int* idle) { if (idle) *idle = timerIdle; return 0; }
+static int summonCalls, summonSlot = -1; static unsigned summonMission;
 static int SummonSlot(int slot, unsigned mission) { ++summonCalls; summonSlot = slot; summonMission = mission; return 1; }
-static int PassiveGet() { return passiveMs; }
-static int PassiveSet(int ms, int) { passiveMs = ms; return ms; }
 static int trainHereCalls; static unsigned trainHereMission;
 static int TrainHere(unsigned mission) { ++trainHereCalls; trainHereMission = mission; return 1; }
-static int sessionMode = 0, fightAgainCalls;  // user #13262: Nioh3Training_SessionMode (0 none, 1 Boss Rematch, 2 Training)
+static int sessionMode = 0, sessionActive = 0, fightAgainCalls;
 static int SessionMode() { return sessionMode; }
+static int SessionActive() { return sessionActive; }
 static int GateFightAgain() { ++fightAgainCalls; return 1; }
-// user #14320: Boss A / B health and Ki (Nioh3Training_BossVitalsGet / _BossVitalsSet); slot A live, B empty
-static int bvCfg[4][4] = {{0, 0, 100, 100}, {0, 0, 100, 100}, {0, 0, 100, 100}, {0, 0, 100, 100}}, bvSets, bvRefills;
+static int bvCfg[26][4], bvSets, bvRefills;
 static int BvGetX(int slot, unsigned long long* hc, unsigned long long* hm, float* kc, float* km, int* cfg) {
-    if (slot < 0 || slot > 3) return -1;
+    if (slot < 0 || slot > 25) return -1;
     for (int i = 0; i < 4; ++i) cfg[i] = bvCfg[slot][i];
     *hc = slot == 0 ? 25856 : 0; *hm = slot == 0 ? 51712 : 0; *kc = slot == 0 ? 520.0f : 0; *km = slot == 0 ? 1040.0f : 0;
-    return slot == 0;
+    return slotChr[slot] != 0;
 }
 static int BvSetX(int slot, int what, int value) {
     ++bvSets;
-    if (slot < 0 || slot > 3) return -1;
+    if (slot < 0 || slot > 25) return -1;
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
@@ -47,11 +62,14 @@ static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
     EXPORT("GetTuning", TuneGet); EXPORT("SetTuning", TuneSet);
-    EXPORT("GetIdleHold", IdleGet); EXPORT("SetIdleHold", IdleSet);
-    EXPORT("SummonSlot", SummonSlot); EXPORT("GetSummonPassive", PassiveGet); EXPORT("SetSummonPassive", PassiveSet); EXPORT("TrainHere", TrainHere);
-    EXPORT("SessionMode", SessionMode); EXPORT("GateFightAgain", GateFightAgain);
-    EXPORT("GetMoveBoss", BossGet); EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
-    EXPORT("SetMoveRepeat", RepSet); EXPORT("GetMoveRepeat", RepGet); EXPORT("GetRepeatGap", RepGapGet);
+    EXPORT("GetMoveAllowed", MoveGet); EXPORT("SetMoveAllowed", MoveSet);
+    EXPORT("SetMoveRepeat", RepSet); EXPORT("GetMoveRepeat", RepGet);
+    EXPORT("SlotCount", SlotCount); EXPORT("SlotChr", SlotChrX); EXPORT("GetSlotStance", GetSlotStance); EXPORT("SetSlotStance", SetSlotStance);
+    EXPORT("GetSlotAggro", GetSlotAggro); EXPORT("SetSlotAggro", SetSlotAggro); EXPORT("GetRepeatGapChr", GetGapChr); EXPORT("SetRepeatGapChr", SetGapChr);
+    EXPORT("ResetSlotPos", ResetSlotPos); EXPORT("DespawnSlot", DespawnSlot); EXPORT("DespawnAll", DespawnAll);
+    EXPORT("StanceTimer", StanceTimer); EXPORT("GetStanceTimer", GetStanceTimer);
+    EXPORT("SummonSlot", SummonSlot); EXPORT("TrainHere", TrainHere);
+    EXPORT("SessionMode", SessionMode); EXPORT("SessionActive", SessionActive); EXPORT("GateFightAgain", GateFightAgain);
     EXPORT("BossVitalsGet", BvGetX); EXPORT("BossVitalsSet", BvSetX);
 #undef EXPORT
     return nullptr;
@@ -66,221 +84,147 @@ static FARPROC TestProc(HMODULE, const char* name) {
 int main() {
     using namespace addon::rematch;
     int items[kMaxRows + 4];
+    int n = 0;
+    auto list = [&]() { n = Items(items, kMaxRows + 4); for (int i = 0; i < n; ++i) for (int j = i + 1; j < n; ++j) CHECK(items[i] != items[j]); return n; };
+    auto has = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return true; return false; };
+    auto at = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return i; return -1; };
+    UiRow rows[40]; char footer[240];
+    auto shown = [&](const char* a, const char* b = nullptr) {
+        const int k = UiFill(rows, 40, footer, sizeof footer);
+        for (int i = 0; i < k; ++i) if (strstr(rows[i].text, a) && (!b || strstr(rows[i].text, b))) return true;
+        return false;
+    };
     Row boss = {}; strcpy_s(boss.name, "Summon Test"); boss.missionId = 0x1CBC; boss.route = rcore::kR; g_rows.push_back(boss);
     UiOpen();
-    // user #13223: root = Settings / Boss Rematch / Practice / Close (the host's first page opens Boss Rematch / Practice directly)
-    int n = Items(items, kMaxRows + 4), moves = -1;
-    CHECK(n == 4 && items[0] == kItSettings && items[1] == kItRootRematch && items[2] == kItRootTraining && items[3] == kItClose);
+    // root = Settings / Boss Matches / Practice / Close (no Leave arena here, #14336 item 9)
+    list(); CHECK(n == 4 && items[0] == kItSettings && items[1] == kItRootRematch && items[2] == kItRootTraining && items[3] == kItClose);
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uRematch);
-    n = Items(items, kMaxRows + 4);
+    list();
     for (int i = 0; i < n; ++i) {
-        for (int j = i + 1; j < n; ++j) CHECK(items[i] != items[j]);
-        CHECK(items[i] != kItMoves && items[i] != kItMovesA && items[i] != kItDespawnAll && items[i] != kItIdleHold && !(items[i] >= kItTeleport));
-        CHECK(items[i] != kItReturnHome && items[i] != kItSettings && items[i] != kItSave);
+        CHECK(items[i] != kItLeaveArena && items[i] != kItPractice && items[i] != kItOpen && items[i] != kItScroll);  // #14336 items 9 / 10
         if (items[i] == kItFinT || items[i] == kItHp0W) { g_sel = i; UiChange(1); }
     }
-    CHECK(tuneCalls == 2 && !idleCalls && !moveCalls && items[n - 1] == kItBack);
-    CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);
-    // user #13293 Practice: Train here / Train in a boss arena / Training mods / Summon a boss here / Boss Matches
+    CHECK(tuneCalls == 2 && items[n - 1] == kItBack);
+    CHECK(!UiBack() && g_uiPages.page == uRoot);
+    // Practice hub: Train here / arena / Training Bosses / Summon / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
-    n = Items(items, kMaxRows + 4);
-    CHECK(n == 6 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItBossSumm && items[4] == kItRootRematch && items[5] == kItBack);
-    g_sel = 4; CHECK(!UiAct() && g_uiPages.page == uRematch && !UiBack() && g_uiPages.page == uPracticeHub);
-    g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTraining);  // Arenas: arena rows only
-    n = Items(items, kMaxRows + 4);
-    for (int i = 0; i < n; ++i) CHECK((items[i] >= kItTeleport && items[i] < kItSummonA) || items[i] == kItBack);
-    CHECK(items[n - 1] == kItBack && !UiBack() && g_uiPages.page == uPracticeHub && g_sel == 1);
-    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);  // Training mods
-    n = Items(items, kMaxRows + 4);
-    int seen = 0;
-    for (int i = 0; i < n; ++i) {
-        CHECK(items[i] != kItFinT && items[i] != kItDeathCut && !(items[i] >= kItTeleport && items[i] < kItSummonA));
-        if (items[i] == kItMoves) moves = i;
-        seen |= items[i] == kItIdleHold ? 1 : items[i] == kItMovesA ? 2 : items[i] == kItMovesB ? 4 : items[i] == kItDespawnAll ? 8 : 0;
+    list(); CHECK(n == 6 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItBossSumm && items[4] == kItRootRematch && items[5] == kItBack);
+    CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
+    sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
+    CHECK(n == 4 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools);
+    sessionActive = 0; list();
+    // Training Bosses: Boss A row, Summon another boss, timer, Remove all (A listed), no old duplicate rows
+    g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
+    list();
+    CHECK(n == 5 && items[0] == kItBossOpenBase && items[1] == kItSumAnother && items[2] == kItStanceTimer && items[3] == kItDespawnAll && items[4] == kItBack);
+    for (int i = 0; i < n; ++i) CHECK(items[i] != kItMoves && items[i] != kItMovesA && items[i] != kItMovesB && items[i] != kItRepGap && items[i] != kItIdleHold &&
+                                      items[i] != kItFightOpts && !IsBvOpenItem(items[i]) && items[i] != kItAggro && items[i] != kItRepNow);
+    CHECK(shown("Practice - Training Bosses") && shown("Boss A: Minamoto no Yoritomo", "Stand still (idle)") && shown("it will be Boss B"));
+    CHECK(shown("Remove all summoned bosses (A: Minamoto no Yoritomo)") && !shown("B: empty"));
+    // timer slider 1..10 s; A arms it for every boss (A stands still -> all fight), closes the menu
+    g_sel = 2; for (int i = 0; i < 20; ++i) UiChange(1);
+    CHECK(g_stSec == 10); for (int i = 0; i < 20; ++i) UiChange(-1);
+    CHECK(g_stSec == 1); UiChange(1); UiChange(1); CHECK(g_stSec == 3 && shown("Switch every boss to Fight (CPU) after:", " 3 s"));
+    CHECK(UiAct() && timerMs == 3000 && timerIdle == 0);
+    // Boss A page: every per-boss setting once
+    UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
+    g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss && g_bossSlot == 0 && MoveBoss() == 16102u);
+    list();
+    CHECK(items[0] == kItBossStance && items[1] == kItBossAggro && items[2] == kItBossGap && items[3] == kItBossReset && items[4] == kItBvOpenBase + 0);
+    for (int c = 0; c < kMcCount; ++c) CHECK(items[5 + c] == kItMoveCatBase - c);
+    CHECK(items[5 + kMcCount] == kItMoveCatBase - kMcSeq && items[6 + kMcCount] == kItBossRemove && items[7 + kMcCount] == kItBack && n == 8 + kMcCount);
+    CHECK(shown("Boss A - Minamoto no Yoritomo") && shown("Stance: Stand still (idle)") && shown("Gap between repeats: 1.00 s") && shown("Sequences", "sequences"));
+    g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 0 && lastStanceIdle == 0 && stance[0] == 0 && shown("Stance: Fight normally (CPU)"));
+    UiChange(1); CHECK(lastStanceIdle == 1 && stance[0] == 2);
+    g_sel = 1; CHECK(!UiAct() && aggro[0] == 1); UiChange(-1); CHECK(aggro[0] == 0);
+    g_sel = 2; UiChange(1); CHECK(gapMs == 1250); UiChange(-1); UiChange(-1); CHECK(gapMs == 750);
+    g_sel = 3; CHECK(!UiAct() && resetSlot == 0);
+    {   // the Training Bosses row shows the stance of each boss
+        CHECK(!UiBack() && g_uiPages.page == uTools && shown("Boss A: Minamoto no Yoritomo", "Stand still"));
+        g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss);
     }
-    CHECK(moves >= 0 && seen == 15);
-    g_sel = moves; CHECK(!UiAct() && g_uiPages.page == uMoves);
-    n = Items(items, kMaxRows + 4);
-    // user #14291: Yoritomo hub = Repeat selected move + Repeating move + stance + one row per move group (6 groups, 173 moves) + Back
-    CHECK(n == 10 && items[0] == kItRepSel && items[1] == kItRepNow && items[2] == kItIdleHold && items[n - 1] == kItBack);
+    // Attacks group: A = Repeat this move ON / OFF, Left / Right = used
+    g_sel = 5 + kMcAttack; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcAttack && g_sel == 0);
+    list(); CHECK(n == MoveCatCount(16102u, kMcAttack) + 1 && items[n - 1] == kItBack);
+    for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == kMcAttack);
     {
-        const int want[kMcCount] = {24, 70, 8, 13, 44, 14};  // Attacks, Unnamed attacks, Twitches, Ki break, Movement and reactions, Unsorted
-        int total = 0;
-        for (int c = 0; c < kMcCount; ++c) { CHECK(items[3 + c] == kItMoveCatBase - c); CHECK(MoveCatCount(16102u, c) == want[c]); total += MoveCatCount(16102u, c); }
-        CHECK(total == 173);
-        auto cat = [](uint32_t id) { return N3MoveCat(&kN3Moves[N3MoveFind(16102u, id)]); };
-        CHECK(cat(0x4E38) == kMcKiBreak && cat(0x4E3E) == kMcKiBreak && cat(0xFA6) == kMcKiBreak && cat(0x4E4C) == kMcKiBreak && cat(0x4E40) == kMcKiBreak);
-        CHECK(cat(0x4E64) == kMcAttack && cat(0x4E24) == kMcTwitch && cat(0x3FB) == kMcMovement && cat(0x2) == kMcMovement &&
-              cat(0x4E4F) == kMcUnnamedAtk && cat(0x4E21) == kMcUnsorted);
-        UiRow hrows[24]; char hfooter[240];
-        const int k = UiFill(hrows, 24, hfooter, sizeof hfooter);
-        bool atk = false, ki = false, hdr = false;
-        for (int i = 0; i < k; ++i) {
-            atk |= strstr(hrows[i].text, "Attacks") && strstr(hrows[i].text, "24 moves") && strstr(hrows[i].text, "A: open");
-            ki |= strstr(hrows[i].text, "Ki break") && strstr(hrows[i].text, "13 moves");
-            hdr |= strstr(hrows[i].text, "-- Pick a move group") != nullptr;
-        }
-        CHECK(atk && ki && hdr);
+        const N3Move& m0 = kN3Moves[items[0] - kItMoveBase];
+        const N3Move& m1 = kN3Moves[items[1] - kItMoveBase];
+        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == m0.id && repArms == 1);
+        char want[48]; snprintf(want, sizeof want, "0x%04X", m0.id);
+        CHECK(shown(want, "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Attacks (24)") && !shown("RPT") && !shown("REPEAT"));
+        g_sel = 1; CHECK(!UiAct() && RepGet(16102) == m1.id && repArms == 2);   // one repeat per boss: moves to the other move
+        CHECK(!UiAct() && !RepGet(16102) && repStops == 1);                    // A again: stops
+        g_sel = 0; UiChange(-1); CHECK(moveOff[m0.id] && moveCalls == 1);      // Left: used OFF
+        UiChange(-1); CHECK(moveCalls == 1);                                    // already OFF: no call
+        CHECK(!UiAct() && !moveOff[m0.id] && RepGet(16102) == m0.id);           // A on an OFF move: switched ON + repeats
+        UiChange(-1); CHECK(moveOff[m0.id] && !RepGet(16102));                  // used OFF stops its repeat
+        UiChange(1); CHECK(!moveOff[m0.id]);
+        char tb[160]; uint32_t tc = 0; CHECK(Toast(tb, sizeof tb, tc));
+        CHECK(strstr(footer, "Repeat") || strstr(footer, "repeat"));
     }
-    for (int i = 0; i < n; ++i) if (items[i] == kItIdleHold) { g_sel = i; UiChange(1); CHECK(!UiAct()); }
-    auto openGroup = [&](int c) -> int {  // from the hub: A on the group row -> its page, cursor on the first move
-        g_sel = 3 + c; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == c && g_sel == 1);
-        n = Items(items, kMaxRows + 4);
-        CHECK(items[0] == kItRepNow && items[n - 1] == kItBack && n == MoveCatCount(16102u, c) + 2);
-        for (int i = 1; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == c);
-        return 0;
-    };
-    CHECK(!openGroup(kMcAttack));
-    int rowOff = -1, rowOn = -1, nAtk = 0;
-    for (int i = 0; i < n; ++i) {
-        for (int j = i + 1; j < n; ++j) CHECK(items[i] != items[j]);
-        if (IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) {
-            ++nAtk;
-            g_sel = i; CHECK(!UiAct()); CHECK(moveOff[kN3Moves[items[i]-kItMoveBase].id]);  // A: ON -> OFF
-            if (rowOff < 0) rowOff = i; else if (rowOn < 0) { rowOn = i; CHECK(!UiAct()); CHECK(!moveOff[kN3Moves[items[i]-kItMoveBase].id]); }  // A again: ON
-        }
+    CHECK(!UiBack() && g_uiPages.page == uBoss && g_sel == 5 + kMcAttack && shown("Attacks", "24 moves"));
+    // Sequences (#14317): chains from the next-action links, A repeats the whole sequence (its first move)
+    g_sel = 5 + kMcSeq; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcSeq);
+    list(); CHECK(n == SeqCount(16102u) + 1 && n > 10);
+    for (int i = 0; i < n - 1; ++i) CHECK(IsSeqItem(items[i]));
+    {
+        const N3Move& h = kN3Moves[items[0] - kItSeqBase];
+        uint32_t ids[8]; bool loop = false;
+        CHECK(SeqChain(16102u, h.id, ids, 8, &loop) >= 2);
+        uint32_t c5[8]; bool l5 = false; CHECK(SeqChain(16102u, 0x4E5C, c5, 8, &l5) == 3 && c5[1] == 0x4E60 && c5[2] == 0x4E61 && l5);
+        CHECK(SeqHead(16102u, 0x4E5C) && !SeqHead(16102u, 0x4E60) && !SeqHead(16102u, 0x2));
+        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == h.id);
+        CHECK(shown(" > ", "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Sequences"));
+        CHECK(!UiAct() && !RepGet(16102));
     }
-    CHECK(nAtk == 24 && tuneCalls == 2 && idleCalls == 2 && moveCalls == nAtk + 1 && !repArms);
-    UiRow mrows[40]; char mfooter[240];
-    {   // user #13618: Right on an OFF move switches it ON and arms the repeat at once (was: only switched ON, the repeat never armed)
-        const N3Move& off = kN3Moves[items[rowOff] - kItMoveBase];
-        CHECK(moveOff[off.id] && !RepGet(16102));
-        g_sel = rowOff; UiChange(1);
-        CHECK(!moveOff[off.id] && repArms == 1 && RepGet(16102) == off.id && moveCalls == nAtk + 2);
-        char tb[160]; uint32_t tc = 0;
-        CHECK(Toast(tb, sizeof tb, tc) && strstr(tb, "REPEAT") && tc == cGreen);
-        const int k = UiFill(mrows, 40, mfooter, sizeof mfooter);
-        bool pill = false, top = false, title = false;
-        char want[16]; snprintf(want, sizeof want, "0x%04X  REPEAT", off.id);
-        char what[64]; snprintf(what, sizeof what, "Boss uses 0x%04X each time it attacks (gap 1.25 s)", off.id);
-        for (int i = 0; i < k; ++i) {
-            pill |= strstr(mrows[i].text, want) != nullptr;
-            top |= strstr(mrows[i].text, "Repeating move: ") && strstr(mrows[i].text, what);
-            title |= strstr(mrows[i].text, "Boss moves - Minamoto no Yoritomo - Attacks (24)") != nullptr;
-        }
-        CHECK(pill && top && title && strstr(mfooter, "REPEAT"));
-        // Right on another (ON) move moves the repeat there; Left anywhere stops it; Left again: nothing repeating (toast says so)
-        const N3Move& on = kN3Moves[items[rowOn] - kItMoveBase];
-        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id && repArms == 2 && moveCalls == nAtk + 2);
-        g_sel = rowOff; UiChange(-1); CHECK(!RepGet(16102) && repStops == 1 && moveCalls == nAtk + 2);
-        g_sel = rowOff; UiChange(-1); CHECK(repStops == 1 && Toast(tb, sizeof tb, tc) && strstr(tb, "No move is repeating"));
-        // B: back to the group list, cursor on the Attacks row; 'Repeat selected move' (hub row 0) repeats the last move pressed (rowOff)
-        CHECK(!UiBack() && g_uiPages.page == uMoves && g_sel == 3 + kMcAttack);
-        g_sel = 0; CHECK(!UiAct() && RepGet(16102) == off.id && repArms == 3);
-        {   // the group row shows where the repeat is
-            const int hk = UiFill(mrows, 40, mfooter, sizeof mfooter);
-            char rp[24]; snprintf(rp, sizeof rp, "REPEAT 0x%04X", off.id);
-            bool shown = false;
-            for (int i = 0; i < hk; ++i) shown |= strstr(mrows[i].text, "Attacks") && strstr(mrows[i].text, rp);
-            CHECK(shown);
-        }
-        // A turning a repeating move OFF also stops its repeat
-        CHECK(!openGroup(kMcAttack));
-        g_sel = rowOff; CHECK(!UiAct() && moveOff[off.id] && !RepGet(16102));
-        // Right on idle / init (group 'Movement and reactions'): refused with a reason, nothing armed
-        CHECK(!UiBack() && g_uiPages.page == uMoves);
-        CHECK(!openGroup(kMcMovement));
-        bool prot = false;
-        for (int i = 0; i < n; ++i) if (IsMoveItem(items[i]) && N3MoveProtected(kN3Moves[items[i]-kItMoveBase].id)) { g_sel = i; UiChange(1); prot = true; break; }
-        CHECK(prot && !RepGet(16102) && repArms == 3 && Toast(tb, sizeof tb, tc) && tc == cRed && strstr(tb, "cannot be repeated"));
-        // 'Repeating move' row (page row 0): A stops
-        CHECK(!UiBack() && g_uiPages.page == uMoves);
-        CHECK(!openGroup(kMcAttack));
-        g_sel = rowOn; UiChange(1); CHECK(RepGet(16102) == on.id); g_sel = 0; CHECK(!UiAct() && !RepGet(16102));
-        CHECK(!UiBack() && g_uiPages.page == uMoves);
-        // Ki break group: the live-logged ids first with plain names, then the rest of the motion family
-        CHECK(!openGroup(kMcKiBreak));
-        for (int i = 1; i <= 6; ++i) CHECK(N3KiNote(16102u, kN3Moves[items[i] - kItMoveBase].id) != nullptr);
-        CHECK(!N3KiNote(16102u, kN3Moves[items[7] - kItMoveBase].id));
-        const int kk = UiFill(mrows, 40, mfooter, sizeof mfooter);
-        bool kiName = false;
-        for (int i = 0; i < kk; ++i) kiName |= strstr(mrows[i].text, "0x4E38") && strstr(mrows[i].text, "good, seen live") && !strstr(mrows[i].text, "(?)");
-        CHECK(kiName && strstr(mfooter, "seen live"));
-        CHECK(!UiBack() && g_uiPages.page == uMoves && g_sel == 3 + kMcKiBreak);
-        for (int i = 0; i < 0x10000; ++i) moveOff[i] = 0;
-    }
-    CHECK(!UiBack() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uPracticeHub);
-    // Training here: boss list, A queues the in-place session and closes
-    g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uTrainHere);
-    n = Items(items, kMaxRows + 4);
-    CHECK(n == 2 && items[0] == kItTrainHere && items[1] == kItBack);
-    UiRow rows[24]; char footer[240];
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Train here") && strstr(rows[1].text, "Summon Test"));
+    CHECK(!UiBack() && g_uiPages.page == uBoss);
+    // Health and Ki from the Boss A page
+    g_sel = 4; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 0 && g_sel == 1);
+    CHECK(shown("Boss A health and Ki") && shown("HP 25856 / 51712 (50 %)"));
+    CHECK(!UiAct() && bvCfg[0][0] == 1);
+    CHECK(!UiBack() && g_uiPages.page == uBoss);
+    // Remove this boss -> back to Training Bosses
+    list(); g_sel = at(kItBossRemove); CHECK(!UiAct() && despawnSlot == 0 && g_uiPages.page == uTools);
+    // Summon another boss: boss list only (no slot picker / wait slider), next free letter = B
+    list(); g_sel = at(kItSumAnother); CHECK(!UiAct() && g_uiPages.page == uSummon);
+    list(); CHECK(n == 2 && items[0] == kItSummonA && items[1] == kItBack);
+    CHECK(shown("Practice - Summon another boss") && !shown("Wait before attacking") && !shown("Summon into"));
+    g_sel = 0; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
+    // more bosses: every spawned letter gets a row (C here), the free one is offered next
+    slotChr[1] = 16102u; slotChr[2] = 16102u; stance[1] = 0; stance[2] = 2;
+    UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
+    list(); CHECK(items[0] == kItBossOpenBase && items[1] == kItBossOpenBase + 1 && items[2] == kItBossOpenBase + 2 && items[3] == kItSumAnother);
+    CHECK(shown("Boss C: Minamoto no Yoritomo") && shown("Boss B:", "Fight normally") && shown("it will be Boss D") && shown("Remove all summoned bosses (A:", "C:"));
+    g_sel = 2; CHECK(!UiAct() && g_bossSlot == 2); g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 2 && stance[2] == 0 && stance[0] == 2 && stance[1] == 0);  // independent
+    CHECK(!UiBack() && g_uiPages.page == uTools);
+    list(); g_sel = at(kItDespawnAll); CHECK(!UiAct() && despawnAll == 1);
+    for (int s = 0; s < 26; ++s) slotChr[s] = 0;
+    list(); CHECK(n == 2 && items[0] == kItSumAnother && items[1] == kItBack);  // nothing spawned: no boss rows, no timer, no Remove all
+    // Training here
+    UiOpenAt(2); g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uTrainHere);
+    list(); CHECK(n == 2 && items[0] == kItTrainHere && items[1] == kItBack);
     g_sel = 0; CHECK(UiAct() && trainHereCalls == 1 && trainHereMission == 0x1CBC);
-    // host first page -> Practice / Boss Rematch as the base page: Back closes to the host
     UiOpenAt(2); CHECK(g_uiPages.page == uPracticeHub && UiBack());
     UiOpenAt(1); CHECK(g_uiPages.page == uRematch && UiBack());
-    // Settings: no Save row (auto-save), Practice tools reachable from it
+    // Settings: no second Training door (#14336 item 8)
     UiOpen(); g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uSettings);
-    n = Items(items, kMaxRows + 4);
-    CHECK(n == kConfigGroupN + 2 && items[n - 2] == kItRootTools && items[n - 1] == kItBack);
-    for (int i = 0; i < n; ++i) CHECK(items[i] != kItSave);
-    // Boss summoning: passive-time slider, slot switch, boss rows summon into the chosen slot
-    UiOpenAt(2); g_sel = 3; CHECK(!UiAct() && g_uiPages.page == uSummon);
-    n = Items(items, kMaxRows + 4);  // user #13293: the Boss Match rules also on the summon page
-    CHECK(n == 5 && items[0] == kItSumPassive && items[1] == kItSumSlot && items[2] == kItSummonA && items[3] == kItFightOpts && items[4] == kItBack);
-    g_sel = 0; UiChange(1); CHECK(passiveMs == 4000); UiChange(-1); UiChange(-1); CHECK(passiveMs == 2000);
-    for (int i = 0; i < 40; ++i) UiChange(-1);
-    CHECK(passiveMs == 0);
-    g_sel = 1; UiChange(1); n = Items(items, kMaxRows + 4); CHECK(items[2] == kItSummonB);
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Summon a boss here") && strstr(rows[1].text, "-- Options --"));
-    g_sel = 2; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
-    // user #13262: the Return gate page follows the session mode; #13265: boss-fight toggles reachable in Training
-    auto has = [&](int it) { for (int i = 0; i < n; ++i) if (items[i] == it) return true; return false; };
-    sessionMode = 0; UiGatePage(); n = Items(items, kMaxRows + 4);
-    CHECK(n == 4 && items[0] == kItFightAgain && items[1] == kItReturnHome && items[2] == kItBack && items[3] == kItClose);  // #13529 Back row
-    sessionMode = 1; n = Items(items, kMaxRows + 4);
+    list(); CHECK(n == kConfigGroupN + 1 && items[n - 1] == kItBack && !has(kItRootTools));
+    // Return gate (#14336 item 11): short lists, one Back + Close
+    sessionMode = 0; UiGatePage(); list();
+    CHECK(n == 4 && items[0] == kItFightAgain && items[1] == kItReturnHome && items[2] == kItBack && items[3] == kItClose);
+    sessionMode = 1; list();
     CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss Match") && !strstr(rows[0].text, "Rematch"));
-    sessionMode = 2; n = Items(items, kMaxRows + 4);
-    CHECK(items[0] == kItFightAgain && has(kItIdleHold) && has(kItMoves) && has(kItBossSumm) && has(kItDespawnAll) && has(kItFightOpts) && !has(kItFinT) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Practice") && strstr(rows[1].text, "-- This fight --") && strstr(rows[2].text, "Reset round"));
-    for (int i = 0; i < n; ++i) if (items[i] == kItFightOpts) g_sel = i;
-    CHECK(!UiAct() && g_uiPages.page == uFightOpts);
-    n = Items(items, kMaxRows + 4);
-    CHECK(n == 3 && items[0] == kItFinT && items[1] == kItHp0W && items[2] == kItBack);
-    g_sel = 0; UiChange(1); CHECK(tuneCalls == 3);
-    CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0 && strstr(rows[0].text, "Boss Match rules"));
-    CHECK(!UiBack() && g_uiPages.page == uGate);
+    sessionMode = 2; list();
+    CHECK(n == 5 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItReturnHome && items[3] == kItBack && items[4] == kItClose);
+    CHECK(shown("Practice") && shown("-- Training Bosses --") && shown("Reset round"));
+    g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uGate);
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
-    UiGatePage(); CHECK(UiBack());  // #13529: the gate is a base page: Back closes to the host's first page
-    UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools); n = Items(items, kMaxRows + 4); CHECK(has(kItFightOpts));
-    {   // user #14320: Training mods -> 'Boss A health and Ki' -> per-boss page (status, infinite health / Ki, set HP / Ki %, refill), Back
-        n = Items(items, kMaxRows + 4);
-        int rowA = -1, rowB = -1;
-        for (int i = 0; i < n; ++i) { if (items[i] == kItBvOpenBase) rowA = i; if (items[i] == kItBvOpenBase - 1) rowB = i; }
-        CHECK(rowA >= 0 && rowB == rowA + 1);
-        g_sel = rowA; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 0 && g_sel == 1);
-        n = Items(items, kMaxRows + 4);
-        CHECK(n == 7 && items[0] == kItBvStatus && items[1] == kItBvInfHp && items[2] == kItBvInfKi && items[3] == kItBvHpPct && items[4] == kItBvKiPct && items[5] == kItBvRefill && items[6] == kItBack);
-        int k = UiFill(rows, 24, footer, sizeof footer);
-        bool title = false, st = false, hpOff = false, kiOff = false, hpPct = false;
-        for (int i = 0; i < k; ++i) {
-            title |= strstr(rows[i].text, "Boss A health and Ki") != nullptr;
-            st |= strstr(rows[i].text, "HP 25856 / 51712 (50 %)") && strstr(rows[i].text, "Ki 520 / 1040 (50 %)");
-            hpOff |= strstr(rows[i].text, "Boss infinite health:") && strstr(rows[i].text, "OFF");
-            kiOff |= strstr(rows[i].text, "Boss infinite Ki:") && strstr(rows[i].text, "OFF");
-            hpPct |= strstr(rows[i].text, "Set boss HP:") && strstr(rows[i].text, "100 %");
-        }
-        CHECK(title && st && hpOff && kiOff && hpPct && strstr(footer, "never stays below"));
-        g_sel = 1; CHECK(!UiAct() && bvCfg[0][0] == 1 && bvCfg[0][1] == 0);           // A: infinite health ON (Ki untouched = Ki breaks stay)
-        UiChange(-1); CHECK(bvCfg[0][0] == 0); UiChange(1); CHECK(bvCfg[0][0] == 1);
-        g_sel = 2; UiChange(1); CHECK(bvCfg[0][1] == 1); UiChange(-1); CHECK(bvCfg[0][1] == 0);
-        g_sel = 3; UiChange(-1); CHECK(bvCfg[0][2] == 90); UiChange(-1); CHECK(bvCfg[0][2] == 80); CHECK(strstr(g_msg, "HP set to 80 %"));
-        g_sel = 4; for (int i = 0; i < 20; ++i) UiChange(-1); CHECK(bvCfg[0][3] == 0 && strstr(g_msg, "one hit from a Ki break"));
-        g_sel = 5; UiChange(1); CHECK(bvRefills == 0); CHECK(!UiAct() && bvRefills == 1 && bvCfg[0][2] == 100 && bvCfg[0][3] == 100);
-        char tb[160]; uint32_t tc = 0; CHECK(Toast(tb, sizeof tb, tc) && strstr(tb, "Boss A refilled"));
-        g_sel = 0; const int before = bvSets; CHECK(!UiAct() && bvSets == before);   // status row: read only
-        CHECK(!UiBack() && g_uiPages.page == uTools && g_sel == rowA);
-        g_sel = rowB; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 1);
-        k = UiFill(rows, 24, footer, sizeof footer);
-        bool empty = false; for (int i = 0; i < k; ++i) empty |= strstr(rows[i].text, "Boss B: empty") != nullptr;
-        g_sel = 3; UiChange(-1); CHECK(empty && strstr(g_msg, "Boss B is empty") && bvCfg[1][2] == 90 && bvCfg[0][2] == 100);  // per boss
-        CHECK(!UiBack() && g_uiPages.page == uTools);
-        sessionMode = 2; UiGatePage(); n = Items(items, kMaxRows + 4); CHECK(!has(kItBvOpenBase) && !has(kItBvOpenBase - 1));  // gate: live slots only (none here)
-    }
+    UiGatePage(); CHECK(UiBack());
     sessionMode = 0;
-    (void)bossLive;
-    puts("PASS: Boss moves groups (#14291: 6 groups, 173 Yoritomo moves, Ki break ids first, B back to the group list); Right on an OFF move = ON + REPEAT, Left stops, Repeat selected move, REPEAT pill / top row text / toasts; root = Settings / Boss Matches / Practice; Practice = Train here / arena / Training mods / Summon a boss here / Boss Matches; section headers; direct opens; sliders, idle, moves, passive time, train-here and slot summon dispatch; mode-aware gate page; boss fight settings page; Boss A / B health and Ki page (#14320)");
+    puts("PASS: #14336 menu cleanup: root / Boss Matches without Leave arena or dev rows; Practice hub hides Train here / arena in a session (#14333); "
+         "Training Bosses = one row per spawned boss (A, B, C ...), Summon another boss (next free letter), CPU / idle timer 1-10 s (#14313), Remove all lists the bosses; "
+         "Boss X page = stance / aggro / gap / reset / health and Ki / move groups / Sequences (#14317) / remove, independent per boss; one 'Repeat ON / OFF' per move row; "
+         "Settings has no Training door; short Return gate pages");
     return 0;
 }

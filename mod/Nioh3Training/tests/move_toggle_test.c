@@ -176,6 +176,11 @@ int main(void) {
             if (idx >= 0) ok += Nioh3Training_SetMoveRepeat(chrs[k], kN3Moves[idx].id, 1); }
         assert(nc > MV_REP_MAX && ok == MV_REP_MAX);
         for (int k = 0; k < nc; ++k) Nioh3Training_SetMoveRepeat(chrs[k], 0, 0);
+        // user #14309: per-boss gap (per character), others keep RepeatGapMs
+        g_cfg_rep_gap = 1000;
+        assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500 && Nioh3Training_GetRepeatGapChr(16102u) == 500 && Nioh3Training_GetRepeatGapChr(42450u) == 1000);
+        assert(Nioh3Training_SetRepeatGapChr(16102u, 99999, 0) == MV_REP_GAP_MAX && Nioh3Training_SetRepeatGapChr(0u, 100, 0) == -1);
+        g_cfg_rep_gap = 0;
         printf("PASS: repeat armed on %d editable entries (%d unlabelled), OFF moves too, protected / unknown refused, table limit %d\n", armed, unlabelled, MV_REP_MAX);
     }
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
