@@ -926,3 +926,18 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 - 2026-10-19 13:35 pc: Opus agent pc/aggro-standstill (aggro in Stand still + death-in-training respawn, #14147). Install when built (user allows closing game, #13830).
 - 2026-10-19 13:33 pc: #14150 respawned Opus agent (pc/aggro-standstill: aggro on Stand still + can't-die default ON + death = instant arena respawn). Install when built.
 2026-10-19 01:25 pc: see checkpoints.md last entry; next = merge gate-native-suppress into pc/twitch-moves, build, install (user OK'd), relaunch, PLAY-PING.
+- 2026-10-19 pc: aggro-standstill agent resumed (partial in ../nioh3-aggro-standstill) with #14150 death rule.
+2026-10-19 pc: aggro-standstill built (Training fabdea54, Rematch 47d4df4c, branch pc/aggro-standstill 698a9454). Not installed: user at keyboard (idle 0). Install when idle/user says go: backup, close game, copy 2 asi from ../nioh3-aggro-standstill, relaunch.
+2026-10-19 14:0x pc: INSTALLED pc/aggro-standstill (Training FABDEA54, Rematch 47D4DF4C), game PID 9992 relaunched; backup captures/pc/play-20261019-pre-aggro-standstill. Needs user test: aggro on Stand still, death respawn.
+- 2026-10-19 pc: #14267 agent resumed: fix can't-die OFF + Player submenu under Practice. Install when built (game open now; check idle/ask).
+- 2026-10-19 19:55 pc: previous #14267 agent stalled (no commits 6h); fresh Opus agent started in ../nioh3-aggro-standstill. On RESULT: close game, install (backup), relaunch, ping.
+2026-10-19 pc: player-menu/infinite-HP build ready (df79b15a; Training 57169713, Rematch 242EA4A1), not installed: game PID 9992 running, waiting user 'install'.
+2026-10-19 19:56 pc: new build (Training 57169713, Rematch 242EA4A1) installed and game relaunched PID 1716 (by parallel job). Needs user test: Player page, infinite HP ON/OFF, instant respawn.
+2026-10-19 20:0x pc: INSTALLED df79b15a (Training 57169713, Rematch 242EA4A1), game PID 1716 relaunched; backup captures/pc/play-20261019-pre-p14267. Needs user test: Player page, infinite HP ON/OFF.
+- 2026-10-19 20:05 pc: #14288 boss did unwanted moves during aggro walk-up (AI picks 0x4E43/0x4EA8 leak); agent resumed to block all attacks in walk-up + hysteresis.
+- 2026-10-19 20:08 pc: #14291 Opus agent pc/move-submenus (../nioh3-move-submenus); merge with aggro-fix (#14288) before install.
+2026-10-19 pc: aggro walk-up fix built 543e1bf1 (Training dee2e54f; Rematch unchanged 242EA4A1), not installed; waiting user go (game open).
+- 2026-10-19 20:12 pc: agent resumed for #14304 summon-default-idle fix (same branch).
+2026-10-19 pc: build 8315d884 (Training 0def6624, Rematch 242EA4A1): walk-up fix + summon-idle default. Not installed, waiting user 'install'.
+- 2026-10-19 pc: #14324 Opus agent pc/boss-hpki (../nioh3-boss-hpki). Merge with move-submenus + aggro-standstill (8315d884) before install; user awaiting 'install'.
+2026-10-19 20:20 pc: see checkpoints.md latest; waiting for slot-1 combined menu build, then single install + notify user.

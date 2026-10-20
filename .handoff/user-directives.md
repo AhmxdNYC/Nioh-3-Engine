@@ -200,3 +200,21 @@
 - #13945 (2026-10-19): tokens low until weekly reset: ONLY work on the native End-mission box source (Return object menu). Drop charts/docs/move-data hunts for now.
 - #14147 (2026-10-19): Boss aggro must work in 'Stand still' stance too (walk up + attack so user can parry/experiment). Also: user died in Training and got kicked out of Training map - investigate (should respawn/stay).
 - #14150 (2026-10-19): Training: 'player can't die' ON by default + toggleable; dying must NOT take player out of arena: instant respawn in arena, resume via physical object menu, same settings. Boss aggro must also work on Stand still (#14147). Tokens low until weekly reset: only essentials (#13945).
+- #14153 (2026-10-19): user wants an SF6-style frame meter (boss/player startup-active-recovery bar) once tokens reset; feasibility answered, not started.
+- #14150 (2026-10-19): Player can't die ON by default + toggleable; on death user must NOT leave arena: instant respawn in arena, physical object/Train menu usable to resume with same settings.
+- #14166 (2026-10-19): CLARIFY #14150: 'toggleable' = infinite player health toggle (ON by default). Dying (when toggle OFF) must ALWAYS respawn instantly in the arena with same settings + Return object menu; not a toggle.
+- #14267 (2026-10-19): 'Player can't die' toggle OFF did nothing (bug); and it must live in a new 'Player' submenu under the main Practice menu (not in the boss menu) - more player options later.
+- #14270 (2026-10-19): user OK to close their game to install the can't-die/Player-menu build.
+- #14291 (2026-10-19): Boss moves page needs sub menus per category: Attacks / Twitches / Unnamed-Unsorted (+states), and Ki-break-related moves (during or triggering Ki break) own sub menu(s).
+- #14293 (2026-10-19): Boss moves sub menus must adapt to number of spawned bosses (no Boss B entries when only A exists). Remove the 'Boss moves' page rows 'turn off / repeat one' - duplicates the per-Boss-letter menu. Fold into the move sub-menu build (#14291).
+- #14291/#14293/#14298 (2026-10-19): Boss moves page: sub menus Attacks / Twitches / Unnamed-unsorted (+ Ki-break ones); only show bosses actually spawned (no Boss B if only A); remove duplicate 'Boss moves' off/repeat rows (same as Boss X letter menu); 'Gap between repeats' only inside the Boss X letter menu, not also outside it. Slot-1 job owns this.
+- #14301 (2026-10-19): Practice menu: rename 'Training mods' -> 'Training Bosses' (all user-visible places; rematch.cpp ~3379/3218/3228/3521-3539/1929). Part of the menu-cleanup build (slot 1).
+- #14304 (2026-10-19): summoned bosses in Training must default to idle stance (not attack after 3 s); summoning a second boss must not release the first boss's idle hold.
+- #14306 (2026-10-19): goal: train on MULTIPLE bosses at the same time; each summoned boss defaults to idle and is controlled independently (Boss A/B menus). Gap between repeats only inside Boss X menu (#14298); 'Training mods' -> 'Training Bosses' (#14301).
+- #14309 (2026-10-19): Practice must allow summoning ANY number of bosses (not just 2), including several of the same boss; each independent, idle by default, menus adapt to count (Boss A, B, C...).
+- #14313 (2026-10-19): Practice menu option: slider 1-10 s that switches ALL bosses between CPU (fight) and idle after that delay (timed toggle). Also #14306/#14309: multi-boss training, unlimited bosses (A,B,C..), each idle until given a move.
+- #14317 (2026-10-19): Boss moves: add a 'Sequences' sub menu (full move chains/combos, from next-action links already decoded) so a whole sequence can be repeated.
+- #14320 (2026-10-19): user asks about boss health/Ki control (infinite/adjustable) - answered: read yes, write boss HP/Ki not wired yet; next-tokens task (user said postpone data hunt).
+- #14323/#14324 (2026-10-19): do boss HP/Ki write controls now (infinite/set %), per boss page.
+- #14330 (2026-10-19): user wants ONE install when everything (menu cleanup, multi-boss, boss HP/Ki, sequences, idle/walk-up fix) is done; tell them when installed.
+- #14333 (2026-10-19): Practice menu: hide 'Train here' when already in a boss arena / Training session (makes no sense). Part of menu-cleanup build.
