@@ -277,7 +277,7 @@ static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff, sess; } g_sph[N3
 // the user picks: stance 'Fight normally' (IhIdleStance 0), a repeat move for that boss (MvRepeatId), or the session ends. Used for bosses
 // summoned into slot A / B during a session and for the session boss whose Idle hold a new summon ends (IhKeepForSummon: no AI-on hand-back).
 #define SPH_TRAINING (-1)
-static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void);
+static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void); static int MvRepFresh(uint32_t chr);
 static float g_slot_sp[N3T_SLOTS][4]; static int g_slot_sp_ok[N3T_SLOTS];  // user #13787: where the boss in each slot appeared ('Reset boss position', aggro.h)
 static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
@@ -303,6 +303,7 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
             g_sph[g_watch_slot].ms = SPH_TRAINING; g_sph[g_watch_slot].phase = 1; g_sph[g_watch_slot].sess = TrActive();
             Log("SUMPASSIVE slot %c actor %p: idle by default, AI held until this boss is set to Fight normally or repeats a move (#14304 / #14309)", 'A' + g_watch_slot, (void*)cur[i]);
             g_watch_slot = -1; }
+        MvRepFresh(g_watch_chr);  // user #14462: a repeat armed for this character starts over for the new boss (idle first, one gap)
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);

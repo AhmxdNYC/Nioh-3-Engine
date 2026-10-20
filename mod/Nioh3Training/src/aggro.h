@@ -133,6 +133,26 @@ static uint64_t AgDrillBoss(uint64_t a, uint64_t me, const float* pp, int slow, 
     if (IhReadAction(g_ih.ctrl) == 2 || now - g_agd.t >= 4000) { AgDrillEnd("in range"); return 0; }
     return haveSt ? st : 0;
 }
+// user #14462: an AI-on Training boss with a repeat armed walks up with locomotion only while it is far (move_toggle.h MvChaseFilter: its
+// attack picks become idle). If it does not close in by >= 0.5 m within AggroWalkTimeoutMs it is placed AggroRangeCm - 100 from the player,
+// facing the player (the Stand-still walk-up rule, BossPlace). Returns 1 when it was placed.
+static struct { uint64_t a; float best; DWORD t; } g_agw[AG_MAX];
+static int AgRepWalk(uint64_t a, uint32_t chr, float d, const float* b, const float* pp, DWORD now) {
+    int e = -1, f = -1;
+    for (int k = 0; k < AG_MAX; ++k) { if (g_agw[k].a == a) { e = k; break; } if (f < 0 && !g_agw[k].a) f = k; }
+    const float r = (float)g_cfg_aggro_range;
+    if (!chr || !MvRepeatId(chr) || d <= r || g_cfg_aggro_walk_ms <= 0) { if (e >= 0) g_agw[e].a = 0; return 0; }
+    if (e < 0) { if (f < 0) return 0; e = f; g_agw[e].a = a; g_agw[e].best = d; g_agw[e].t = now; return 0; }
+    if (d < g_agw[e].best - 50.0f) { g_agw[e].best = d; g_agw[e].t = now; return 0; }
+    if (now - g_agw[e].t < (DWORD)g_cfg_aggro_walk_ms) return 0;
+    const float dx = b[0] - pp[0], dz = b[2] - pp[2];
+    const float k = (r - 100.0f > 100.0f ? r - 100.0f : 100.0f) / (d > 1.0f ? d : 1.0f);
+    const float np[3] = {pp[0] + dx * k, b[1], pp[2] + dz * k};
+    Log("AGGRO repeat boss %p (chr %u) did not close in for %d ms (%.1f m, attacks held while far): placed %.1f m from the player", (void*)a, chr, g_cfg_aggro_walk_ms, d / 100.0f, (r - 100.0f) / 100.0f);
+    g_agw[e].a = 0;
+    BossPlace(a, np, AgFacePlayer(np, 0.0f), "aggro repeat walk-up");
+    return 1;
+}
 static void AggroTick(void) {
     DWORD now = GetTickCount();
     if (now - g_ag_t < 250) return;
@@ -159,6 +179,8 @@ static void AggroTick(void) {
                 const int idx = AgTarget(a, comp, perc, me, slow);
                 float b[4]; memcpy(b, &b01, 8); memcpy(b + 2, &b23, 8);
                 const float dx = b[0] - pp[0], dz = b[2] - pp[2], d = sqrtf(dx * dx + dz * dz);
+                { const int sl = SlotOf(a); const uint32_t chr = sl >= 0 ? g_slot_chr[sl] : a == session ? g_tr.chr : 0;
+                  if (AgRepWalk(a, chr, d, b, pp, now)) continue; }  // user #14462: placed in range, no chase this tick
                 if (d > (float)g_cfg_aggro_range && nc < MV_CHASE_MAX) chase[nc++] = st;
                 if (slow && InterlockedIncrement(&g_ag_logs) <= 200)
                     Log("AGGRO boss %p%s: %.1f m from the player, player entry %d, %s", (void*)a, a == session ? " (session)" : "", d / 100.0f, idx,
