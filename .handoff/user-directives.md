@@ -289,3 +289,8 @@
 - #21533 (2026-10-20): Workers may use more than one Ghidra. This PC already has the Ghidra setup Claude made. Use that setup for the hit source.
 - #21535 (2026-10-20): Use the game logs together with the reverse. Do not ignore logs that are already on disk. Do not invent a hit count.
 - #21566 (2026-10-20): The user expects attack strings and sequences to be readable from Yoritomo's move list. Checked: 173 moves, 88 attacks, 20 clips, 0 attacks with two clips, links are choices not forced strings. Do not invent strings from that list. Do not put them in the menu until a real chain is proven.
+- #21589 (2026-10-20 7:18 pm EST): Pause the whole Yoritomo hit-source and string search. Do not keep reversing it, do not launch the game for it, and do not task gx-pc more of it until the user says resume.
+- #21591 (2026-10-20): Document everything looked at, done, and found for that search. The write-up is .handoff/yoritomo-search-paused-21591.md.
+- #21595 (2026-10-20): The hold also stopped the workers. That was broader than the search pause. Do not resume the search. Writing up finished findings is allowed.
+- #21598 | 2026-10-20 | Look inside the downloaded Nioh 3 trainer (Downloads\Nioh3 Trainer260919.rar). Report what is in it and how it works. Do not run the trainer exe. Do not start or stop the game. The Yoritomo search stays paused.
+- #21602 (2026-10-20 7:23 pm EST): Stop the session stuck on the 221 health line. That session (gxl-pc slot 0, pid 32936) was killed. Do not resume the Yoritomo search. Do not run the trainer.

@@ -1552,6 +1552,8 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 7:05 PM EST gxl-pc #21566: user asked why strings are not read from the move list. Phone #21567. 173 moves, 88 attacks, 20 clips, 0 attacks with two clips. The 7-step list is 6 choices, each 1 of 11 or 12, not a forced string. Menu unchanged. Slots still 3/3 on #21543, #21555, #21559. Do not invent strings. Do not launch. Next: the path that emits 221.
 
+- 2026-10-20 7:18 PM EST gxl-pc #21589: USER PAUSED the hit and string search. Phone #21593. HOLD #21592 to gx-pc. Do not task more of this search. Do not launch the game. Do not edit the menu. Last fact: the 221 line is a training refill, 2437 to 2658, not a hit. At 6:32:49 pm EST the bar was still 2658. At 6:32:50 pm EST the refill starts from 2437. 0 hit lines in between. Row math still 30, 25, or 40. One damage call applies one amount. Resume only when the user says resume. Marker: .handoff/PAUSED.
+
 - 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
 
 - 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
@@ -1617,3 +1619,15 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 
 - 2026-10-20 7:14 PM EDT gxl-pc #21583: phone #21584. The 6:32:50 pm EST line is TRAIN infinite health, 2437 to 2658. The 221 is the refill, not a hit. No hit line in the five lines around log line 237745. TASK #21585 looks for the earlier drop, especially 2658 to 2437. Slot 1 runs #21580. Slot 0 pid 18576 still shows finished #21543. Do not call the refill a hit. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:16 PM EDT gx-pc #21585: the 221 drop is not in the log. No line shows player HP falling from 2658 to 2437. Last readings are CMD hp at 6:32:48 pm EST and HB at 6:32:49 pm EST, both 2658/2658. Hit-tagged lines in the 2 seconds before the 6:32:50 pm refill: 0. RESULT #21586. Game not launched. Log not edited. Menu not edited.
+
+
+- 2026-10-20 7:20 PM EDT gx-pc #21588: from 6:32:40 pm EST through 6:32:50 pm EST, 8 lines contain 0x4E68 and 0 contain 20072. The 8 are the drill on and off at 6:32:49 pm EST. Two exec lines write 4E68 without 0x. Player HP lines are HB 2658 at 6:32:45, 6:32:47, and 6:32:49, CMD hp 2658 at 6:32:48, and the refill at 6:32:50. The refill is not a hit. RESULT #21600. Game not launched. Log not edited. Menu not edited.
+
+
+## 2026-10-20 7:27 pm EST (#21598, #21602)
+Yoritomo hit and string search stays paused until the user says resume. Marker: .handoff/PAUSED. Do not task gx-pc more of that search. Do not launch the game for it.
+Stuck session: gxl-pc slot 0 pid 32936 was the 221-log RESULT job started 7:16 pm EST. Killed at 7:23 pm EST. Do not restart it.
+Trainer: Downloads\Nioh3 Trainer260919.rar is one exe, Nioh 3 Trainer.exe, 393216 bytes, .NET 4.8, product 20260919-1, FlareJune 2017 template. External process writer (signature or RVA, freeze, hotkeys, Xbox pad). Cheat labels are not plain text; resource name ResAjA. Embedded stubs 640 bytes x86 and 696 bytes x64. Phone #21607. Do not run the exe.
+gx-pc: 0/3 after the 7:18 pm EST hold. Last worker results were already in before the kill.

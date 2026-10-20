@@ -295,3 +295,6 @@
 - 2026-10-20 | Damage scale is not a fixed number | Needed whether a multiplier turns 30, 25, or 40 into 221 | The normal path stays 30, 25, or 40. The scale is a live value, and it was not read.
 - 2026-10-20 | Scale products are 30, 25, and 40 | Needed whether the multiplier makes the measured 221 | In this dump the scale is 1. Those three products are not 221.
 - 2026-10-20 | The 221 log line is a refill | Needed whether the logged 221 was a hit | The 6:32 pm EST line is training infinite health, 2437 back to 2658. It is not a hit tag.
+- 2026-10-20 | The 221 drop is not in the log | Needed the line that lowered the bar by 221 | From 6:32:48 to 6:32:50 pm EST there are 0 hit lines. The bar was still 2658 one second before the refill.
+- 2026-10-20 | Nioh 3 trainer contents | User asked what is in the downloaded trainer and how it works | One file, Nioh 3 Trainer.exe, .NET 4.8, stamp 20260919-1, FlareJune 2017 shell. It freezes or writes a found address. No readable cheat list. Not run. Search stays paused.
+- 2026-10-20 | Stopped the stuck 221 session | User said break the agent stuck on 221 | Killed gxl-pc slot 0 pid 32936 at 7:23 pm EST. The search stays paused. gx-pc workers were already finished after the hold.
