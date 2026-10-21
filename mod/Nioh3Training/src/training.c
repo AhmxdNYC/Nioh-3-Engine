@@ -4700,6 +4700,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 
 #include "boss_vitals_game.h"  // user #14320/#14323/#14324: per-boss HP / Ki controls (Boss A / B pages)
 #include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
+#include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
@@ -4733,6 +4734,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { MvTick(); ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
+    __try { FpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FpUnlock(); }  // user #22356 frame probe (log only, off unless [Debug] FrameProbe 1)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
@@ -4789,6 +4791,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         PstLoadIni(ini);  // user #22389 [Practice]
+        g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0)");  // user #22356
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
