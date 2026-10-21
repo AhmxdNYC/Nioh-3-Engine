@@ -1,6 +1,6 @@
 """Turn FRAMEPROBE lines of Nioh3Training.log (mod/Nioh3Training/src/frame_probe_game.h, #22356) into per-move frame data.
 
-  py -I tools/frame_probe_summary.py <Nioh3Training.log or extract> [--csv notes/yoritomo-move-summary.csv] [--chr 16102] [--runs]
+  py -I tools/frame_probe_summary.py <Nioh3Training.log or extract> [--csv notes/yoritomo-move-summary.csv] [--chr 16102] [--runs] [--wall]
 
 One boss action run = the lines between 'FRAMEPROBE start' and its 'FRAMEPROBE run' summary. Each 'hit' line is one attack-collision
 creation (one hitbox row / collider). A move hit = a group of overlapping collider windows (open .. end). Numbers are in ms and in 60 fps
@@ -20,10 +20,21 @@ F60 = 0.06
 TOL_MS = 17.0  # windows that open within one 60 fps frame of the current group's end belong to the same hit
 
 
-def parse(lines):
-    """Windows come from the 'hit' (open, power) and 'hitend' (end) lines; the run line's hit/end list (first 8 or 12) is the fallback."""
+def to_wall(ln):
+    """--wall: use the real-time (QPC) values the game-clock build (#22575) prints next to each game-time edge."""
+    ln = re.sub(r'at ([\d.]+) ms \(([\d.]+) f60, wall ([\d.]+) ms', r'at \3 ms (wall', ln)
+    ln = re.sub(r'ends at ([\d.]+) ms \(wall ([\d.]+) ms\)', r'ends at \2 ms', ln)
+    ln = re.sub(r'ran ([\d.]+) ms \(([\d.]+) f60, wall ([\d.]+) ms', r'ran \3 ms (wall', ln)
+    return re.sub(r'hit/end ms \[[^\]]*\] wall hit/end \[', 'hit/end ms [', ln)
+
+
+def parse(lines, wall=False):
+    """Windows come from the 'hit' (open, power) and 'hitend' (end) lines; the run line's hit/end list (first 8 or 12) is the fallback.
+    Since #22575 every ms is game time (the game's own step per tick); wall=True reads the real-time values instead."""
     runs, pend, last_run = [], {}, None
     for ln in lines:
+        if wall:
+            ln = to_wall(ln)
         m = RE_START.search(ln)
         if m:
             pend[(m.group(5), m.group(6))] = {}
@@ -109,7 +120,7 @@ def main(argv):
     path = argv[1]
     csv = argv[argv.index('--csv') + 1] if '--csv' in argv else None
     only = int(argv[argv.index('--chr') + 1]) if '--chr' in argv else None
-    runs = [r for r in parse(open(path, encoding='utf-8', errors='replace')) if only is None or r['chr'] == only]
+    runs = [r for r in parse(open(path, encoding='utf-8', errors='replace'), '--wall' in argv) if only is None or r['chr'] == only]
     static = load_csv(csv) if csv else {}
     by = {}
     for r in runs:

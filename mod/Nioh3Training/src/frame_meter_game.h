@@ -2,7 +2,8 @@
 // Input: the FRAMEPROBE signals only (frame_probe_game.h): the boss action id seen by the pump, open hit windows (attack collision still in its pool
 // slot) and hits created since the last tick, with the GreatAttack bit (hit +0x13C bit 10 = unblockable, notes/yoritomo-hit-source-22305.md).
 // No game memory is read or written beyond what the probe already does. Generic: the first live Training boss slot, no per-boss table.
-// Clock: real time between pump ticks (capped at 100 ms), stopped while the mod menu pauses the game (MENU PAUSE), the F9 freeze or a load.
+// Clock: GAME time (user #22575): the game's own step per update tick from FpGameStep (frame_probe_game.h), so one cell is 1/60 s of game time at
+// any frame rate; it also stops while the mod menu pauses the game (MENU PAUSE), the F9 freeze or a load.
 // Drawing: a click-through topmost layered GDI window over the game (the same fallback renderer as the Rematch standalone menu and the fade window),
 // so no Present hook and no other ASI is involved. Hidden while the mod menu is open, the game is not the foreground window or no data yet.
 // Ini (Nioh3Training.ini [Practice]): FrameMeter = 0/1 (default 0, the Practice hub row 'Frame meter'), FrameMeterY = top of the meter in % of the
@@ -17,11 +18,11 @@ static void FmLoadIni(const char* ini) {
     Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d %% (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
 }
 // FpTick (game thread, FpLock held), once per pump tick.
-static void FmFeed(double now) {
+static void FmFeed(double gdt) {
     if (!g_pst.v[PS_FRAME_METER] || !g_pst_live) { g_fm_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
     if (!g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
-    double dt = g_fm_last > 0 ? now - g_fm_last : 0; g_fm_last = now;
-    if (dt < 0) dt = 0; if (dt > 100) dt = 100;
+    double dt = gdt;
+    if (dt < 0) dt = 0; if (dt > 150) dt = 150;
     const uint8_t* gs = GameState();
     if (g_menu_frozen || g_dbg_frozen || (gs && gs[2])) dt = 0;
     g_fm_clock += dt;
@@ -29,7 +30,7 @@ static void FmFeed(double now) {
     if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; return; }  // no boss: the last picture stays
     int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
     for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
-    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].t0 == g_fp[s].run.t0) { active = 1; if (g_fpw[w].great) ub = 1; }
+    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].t0 == g_fp[s].runW.t0) { active = 1; if (g_fpw[w].great) ub = 1; }
     AcquireSRWLockExclusive(&g_fm_lock);
     if (s != g_fm_slot) { FmReset(&g_fm); g_fm_slot = s; Log("FRAME METER: following Boss %c (chr %u)", 'A' + s, g_fp[s].chr); }
     FmSample(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub);
@@ -86,7 +87,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         FmFill(dc, lx, ly + lineH / 4, lineH / 2, lineH / 2, FmColor(lg[i].st)); lx += lineH / 2 + 4;
         TextOutA(dc, lx, ly, lg[i].t, (int)strlen(lg[i].t)); SIZE sz; GetTextExtentPoint32A(dc, lg[i].t, (int)strlen(lg[i].t), &sz); lx += sz.cx + lineH;
     }
-    const char* tail = "1 cell = 1 frame at 60 fps";
+    const char* tail = "1 cell = 1/60 s of game time";
     SIZE ts; GetTextExtentPoint32A(dc, tail, (int)strlen(tail), &ts); if (lx + ts.cx < x0 + barW) TextOutA(dc, x0 + barW - ts.cx, ly, tail, (int)strlen(tail));
     SelectObject(dc, of);
 }
