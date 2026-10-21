@@ -62,6 +62,9 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
+static int pst[4] = {0, 100, 100, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PlayerInfiniteKi, DamageDealtPct, DamageTakenPct, BossKiDrainPct)
+static int PstGetX(int what) { return what >= 0 && what < 4 ? pst[what] : -1; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 3) return -1; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -75,6 +78,7 @@ static FARPROC TestProc(HMODULE, const char* name) {
     EXPORT("SummonSlot", SummonSlot); EXPORT("TrainHere", TrainHere);
     EXPORT("SessionMode", SessionMode); EXPORT("SessionActive", SessionActive); EXPORT("GateFightAgain", GateFightAgain);
     EXPORT("BossVitalsGet", BvGetX); EXPORT("BossVitalsSet", BvSetX);
+    EXPORT("PracticeStatGet", PstGetX); EXPORT("PracticeStatSet", PstSetX);
 #undef EXPORT
     return nullptr;
 }
@@ -218,6 +222,12 @@ int main() {
     g_sel = 4; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 0 && g_sel == 1);
     CHECK(shown("Boss A health and Ki") && shown("HP 25856 / 51712 (50 %)"));
     CHECK(!UiAct() && bvCfg[0][0] == 1);
+    {   // user #22389: Boss Ki drain row on the boss page (all Training bosses, saved), steps 0 -> 1 -> 2 %/s, Left back to OFF
+        list(); const int d = at(kItPstBase + PS_BOSS_KI_DRAIN); CHECK(d >= 0 && items[n - 1] == kItBack && d == n - 2);
+        CHECK(shown("Boss Ki drain:", "OFF") && shown("-- All Training bosses (saved) --"));
+        g_sel = d; UiChange(1); UiChange(1); CHECK(pst[3] == 2 && shown("Boss Ki drain:", "2 % / s") && pstPersist == 2);
+        UiChange(-1); UiChange(-1); UiChange(-1); CHECK(pst[3] == 0);
+    }
     CHECK(!UiBack() && g_uiPages.page == uBoss);
     // Remove this boss -> back to Training Bosses
     list(); g_sel = at(kItBossRemove); CHECK(!UiAct() && despawnSlot == 0 && g_uiPages.page == uTools);
@@ -257,9 +267,20 @@ int main() {
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
     UiGatePage(); CHECK(UiBack());
     sessionMode = 0;
+    {   // user #22389 Practice > Player page: Infinite health, then Infinite Ki / Damage you deal / Damage you take (defaults OFF / x1.00)
+        UiOpenAt(2); g_uiPages.Enter(uPlayer, g_sel); g_sel = 0; list();
+        CHECK(!has(kItPstBase + PS_BOSS_KI_DRAIN) && has(kItPstBase + PS_PLAYER_INF_KI) && has(kItPstBase + PS_DMG_DEALT) && has(kItPstBase + PS_DMG_TAKEN) && items[n - 1] == kItBack);
+        CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage you deal:", "x1.00") && shown("Damage you take:", "x1.00"));
+        g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);
+        g_sel = at(kItPstBase + PS_DMG_DEALT); for (int i = 0; i < 20; ++i) UiChange(1);
+        CHECK(pst[1] == 1000 && shown("Damage you deal:", "x10.00")); for (int i = 0; i < 20; ++i) UiChange(-1);
+        CHECK(pst[1] == 0 && shown("Damage you deal:", "x0.00"));
+        g_sel = at(kItPstBase + PS_DMG_TAKEN); UiChange(-1); CHECK(pst[2] == 75 && shown("Damage you take:", "x0.75")); UiChange(1); CHECK(pst[2] == 100);
+        pst[1] = 100; CHECK(!UiBack());
+    }
     puts("PASS: #14336 menu cleanup: root / Boss Matches without Leave arena or dev rows; Practice hub hides Train here / arena in a session (#14333); "
          "Training Bosses = one row per spawned boss (A, B, C ...), Summon another boss (next free letter), CPU / idle timer 1-10 s (#14313), Remove all lists the bosses; "
          "Boss X page = stance / aggro / gap / reset / health and Ki / move groups / Sequences (#14317) / remove, independent per boss; one 'Repeat ON / OFF' per move row; "
-         "Settings has no Training door; short Return gate pages");
+         "Settings has no Training door; short Return gate pages; #22389 Practice stats rows (Player page, boss Ki drain)");
     return 0;
 }

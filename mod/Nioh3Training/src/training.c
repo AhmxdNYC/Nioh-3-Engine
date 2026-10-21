@@ -4083,7 +4083,22 @@ static volatile LONG g_nf_n_nl;
 // the shown HP reaches 0, and in the window every hit is topped up so the real HP never drops below the reserve (normal, non-lethal hits: native hit
 // reaction / Ki break). The kill at the end of the window is the native force kill as before.
 static int g_nf_reserve = 1; static volatile int64_t g_nf_off[NF_N];
+#include "practice_stats.h"  // user #22389: damage multipliers scale the hit HP damage here (PstDmgScale); game glue practice_stats_game.h
+static PstCfg g_pst = {{0, 100, 100, 0}};  // PsDefaults; loaded from [Practice] at start
+static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Practice session or a Training boss is alive)
+// user #22389 damage multipliers: the hit apply 327DEC calls HP damage 787268(hp = victim status + 0x38, dmg) at 329890 for weapon / attack hits
+// (proven on bosses: the NOFIN 'HP damage boss slot' logs). Victim = the player's status ([player+0x3A0]) -> DamageTakenPct, any other victim ->
+// DamageDealtPct (in a Practice arena the other victims are the bosses; the attacker itself is not checked). HP only: Ki damage is not scaled.
+static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg) {
+    const int dealt = g_pst.v[PS_DMG_DEALT], taken = g_pst.v[PS_DMG_TAKEN];
+    if (!g_pst_live || (dealt == 100 && taken == 100) || dmg <= 0 || !hp) return dmg;
+    uint64_t me = PlayerChar(), st = 0; if (me) Rd64(me + 0x3A0, &st);
+    const int toPlayer = st && st + 0x38 == hp, pct = toPlayer ? taken : dealt, r = PstScaleDmg(dmg, pct);
+    if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d", pct / 100, pct % 100, toPlayer ? "player takes" : "player deals", dmg, r);
+    return r;
+}
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint8_t p4) {
+    __try { dmg = PstDmgScale(hp, dmg); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22389 (first: the NOFIN floor below sees the scaled hit)
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
         __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
@@ -4134,6 +4149,19 @@ static __attribute__((noinline)) void NfAiOffDetour(uint64_t a) {
     o_aioff(a);
 }
 typedef uint8_t (*NfStFn)(uint64_t, uint32_t, uint64_t); static NfStFn g_tr_orig; static uint8_t NfStDetour(uint64_t c, uint32_t id, uint64_t r8);
+// HP damage 787268 in the hit apply 329890 (r8b = hit+0x28D keepAlive) -> NfHpDamage. Installed once, by KiBreakNoFinisher or by the #22389 damage
+// multipliers (whichever needs it first); NfHpDamage does both jobs. Game thread only. Returns 1 = hooked.
+static volatile LONG g_hpdmg_hooked;  // 0 = not tried, 1 = on, 2 = failed (bytes differ)
+static int HpDmgHookInstall(const char* who) {
+    if (g_hpdmg_hooked) return g_hpdmg_hooked == 1;
+    g_hpdmg_hooked = 2;
+    uint8_t* site = (uint8_t*)(B + 0x329890); uint8_t* s = NearPage(site);
+    if (s && !memcmp(site - 22, "\x45\x8A\x85\x8D\x02\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHpDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+        if (NfPatchCall(site, B + 0x787268, s, "HP damage 329890")) { g_hpdmg_hooked = 1;
+            Log("hook HP damage 329890: on for %s (KiBreakHp0NonLethal %d: hits at the HP floor stay normal hits; damage dealt %d %%, taken %d %%)", who, g_nf_nonlethal, g_pst.v[PS_DMG_DEALT], g_pst.v[PS_DMG_TAKEN]); } }
+    else Log("hook HP damage 329890: bytes differ, off (%s; HP-floor hits stay lethal, damage multipliers off)", who);
+    return g_hpdmg_hooked == 1;
+}
 static void NfInstallHooks(void) {
     if (g_nf_hooked) return; g_nf_hooked = 1;
     int ok = 0;
@@ -4193,11 +4221,7 @@ static void NfInstallHooks(void) {
         if (s && !memcmp(site - 7, "\x48\x8B\x88\xB0\x03\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHitProbe); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
             if (NfPatchCall(site, B + 0x4893B8, s, "hit probe 326E81")) ok |= 128; }
     }
-    {   uint8_t* site = (uint8_t*)(B + 0x329890); uint8_t* s = NearPage(site);  // HP damage 787268 in the hit apply (r8b = hit+0x28D keepAlive)
-        if (s && !memcmp(site - 22, "\x45\x8A\x85\x8D\x02\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHpDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
-            if (NfPatchCall(site, B + 0x787268, s, "HP damage 329890")) Log("NOFIN hook HP damage 329890: on (KiBreakHp0NonLethal %d: hits at the HP floor stay normal hits)", g_nf_nonlethal); }
-        else Log("NOFIN hook HP damage 329890: bytes differ, off (HP-floor hits stay lethal)");
-    }
+    HpDmgHookInstall("KiBreakNoFinisher");  // HP damage 329890, shared with the #22389 damage multipliers
     {   uint8_t* site = (uint8_t*)(B + 0x1D220B5); uint8_t* s2 = NearPage(site);  // HP row (rdx = row, r8 = HP snapshot copy)
         if (s2 && !memcmp(site - 9, "\x4C\x8D\x44\x24\x30\x48\x8D\x4D\x90", 9)) { uint8_t* p = E_mov_rax(s2, (uint64_t)NfHpRow); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s2, 16);
             if (NfPatchCall(site, B + 0x235F92C, s2, "HP row 1D220B5") && (g_nf_hprow_ok = 1)) Log("NOFIN hook HP row 1D220B5: on (shown HP = real - reserve, KiBreakHp0Reserve %d)", g_nf_reserve); }
@@ -4659,6 +4683,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 }
 
 #include "boss_vitals_game.h"  // user #14320/#14323/#14324: per-boss HP / Ki controls (Boss A / B pages)
+#include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
@@ -4699,6 +4724,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { BvTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSVITALS tick exception %08lX", GetExceptionCode()); }  // user #14320
+    __try { PstTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRACTICE stats tick exception %08lX", GetExceptionCode()); }  // user #22389
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
     __try { SpPruneTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRUNE tick exception %08lX", GetExceptionCode()); }  // crash 2026-10-18
     __try { SumNoDeathTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMNODEATH tick exception %08lX", GetExceptionCode()); }  // user #13197
@@ -4746,6 +4772,7 @@ static DWORD WINAPI Worker(LPVOID x) {
     {   // arena swap: config, table, MissionRequestById hook
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
+        PstLoadIni(ini);  // user #22389 [Practice]
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);

@@ -2560,6 +2560,7 @@ void NoFinToggle(int dir) {
     g_msg[0] = 0;
 }
 #include "boss_vitals_menu.h"  // user #14320: per-boss HP / Ki page (uBossVitals)
+#include "practice_stats_menu.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
@@ -2589,10 +2590,11 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uPlayer) {  // user #14267: player options (infinite health for now)
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
+        PstAddPlayerRows(add);  // user #22389
         add(kItBack);
         return n;
     }
-    if (g_uiPages.page == uBossVitals) { BvAddPage(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
+    if (g_uiPages.page == uBossVitals) { BvAddPage(add); PstAddBossRows(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
         AddBossFightItems(add);
         add(kItBack);
@@ -2993,6 +2995,7 @@ void UiChange(int dir) {
     if (item == kItAggro) { AggroToggle(dir); return; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (BvChange(item, dir)) return;  // user #14320
+    if (PstChange(item, dir)) return;  // user #22389
     if (item == kItShowTw) { g_showTwitch = dir == 0 ? !g_showTwitch : dir > 0; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return; }
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
@@ -3066,6 +3069,7 @@ bool UiAct() {
     if (item == kItAggro) { AggroToggle(0); return false; }  // user #13787
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
+    if (PstChange(item, 0)) return false;  // user #22389
     if (item == kItShowTw) { g_showTwitch = !g_showTwitch; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return false; }
     if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
@@ -3314,7 +3318,8 @@ const char* ItemGroup(int item) {
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Kill and finisher rules (also Practice and summons)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Training Bosses";
-    if (p == uBossVitals) return BvGroup(item);  // user #14320
+    if (p == uBossVitals) return IsPstItem(item) ? "All Training bosses (saved)" : BvGroup(item);  // user #14320 / #22389
+    if (p == uPlayer) return IsPstItem(item) ? "Ki and damage (Practice only, saved)" : item == kItCantDie ? "Health" : nullptr;  // user #22389
     if (p == uTools) return IsBossOpenItem(item) ? "Your bosses (A: open)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves (A: open a group)" : item == kItBossRemove ? "Remove" : nullptr;
@@ -3381,7 +3386,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             lastGroup = grp;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
-        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)) add(bvColor, sel, "%s", bvText);
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)) add(bvColor, sel, "%s", bvText);  // + #22389
         else if (IsBossOpenItem(it[i])) {  // user #14309: 'Boss C: Minamoto no Yoritomo   Stand still (idle)   A: open'
             const int sl = it[i] - kItBossOpenBase, stn = SlotStance(sl);
             add(sel ? cWhite : stn == 0 ? cGreen : stn >= 1 ? cYellow : cGray, sel, "%s Boss %c: %.40s   %s   A: open", mk, 'A' + sl, SlotBossName(SlotChr(sl)), StanceName(stn));
@@ -3628,6 +3633,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         footer[0] = 0;
         const int item = n ? it[g_sel] : kItOpen;
         if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
         else if (IsBossOpenItem(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss's own page: stance, aggro, gap between repeats, reset position, health and Ki, its moves and sequences. Every boss is independent.");
         else if (item == kItSumAnother) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Pick a boss: it appears next to you (no load) as the next letter and stands still until you set it to fight. As many as you like.");
         else if (item == kItStanceTimer) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A starts a countdown and closes the menu: after it every boss switches at once (all standing still -> all fight as CPU, else all stand still). Left / Right: 1-10 s.");
