@@ -672,3 +672,18 @@
 2026-10-20 11:39 PM EST gx-pc #21923: done. RESULT #21929. No game lease. Slot 2 is free.
 
 2026-10-20 11:40 PM EST gx-pc #21922: done. 73 picture-safe in the build, 20 on. RESULT #21931. No game lease.
+- 2026-10-20 11:41 PM EST gx-pc #21934: done. 10 API entries, 0 Nioh-function patches. RESULT #21939. No game lease.
+2026-10-20 11:42 PM EST gx-pc #21938: done. RESULT #21941. No game lease. Slot 2 is free.
+
+2026-10-20 11:49 PM EST gx-pc #21935: done. 13 of 64 have a measured fps or CPU number. One gain over 2%: CBN on pc2. RESULT #21945. No game lease.
+- 2026-10-21 12:48 AM EST gx-pc #21975: answered. Hitch result already filed. No game lease.
+- 2026-10-21 2:17 AM EST gx-pc #22014: answered. Journal result already filed. No game lease. PJ not changed.
+- 2026-10-21 3:02 AM EST gx-pc #22037: answered. Three-opt result already filed. No game lease.
+- 2026-10-21 3:48 AM EST gx-pc #22055: answered. TG result already filed. No game lease. Switch not changed.
+- 2026-10-21 4:33 AM EST gx-pc #22076: answered. Hook split already filed. No game lease.
+- 2026-10-21 5:18 AM EST gx-pc #22096: answered. Live-ini count already filed. No game lease. No switch changed.
+- 2026-10-21 6:03 AM EST gx-pc #22117: answered. Eight-line result already filed. No game lease.
+- 2026-10-21 7:33 AM EST gx-pc #22154: answered. Measured-speed count already filed. No game lease.
+- 2026-10-21 9:04 AM EST gx-pc #22192: answered. Hitch result already filed. No game lease.
+- 2026-10-21 9:49 AM EST gx-pc #22212: answered. Journal result already filed. No game lease. PJ not changed.
+- 2026-10-21 10:49 AM EST gxl-pc: paused by #22241. Write-up .handoff/gxl-pc-pause-22241.md. HOLD #22247 to gx-pc. No game lease. No switch changed. Shared PAUSED file not created.

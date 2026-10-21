@@ -1808,3 +1808,43 @@ Look-preserving hooks: 10 graphics API (PJ, VrrPresent, Barriers among them), 54
 
 ## 2026-10-20 11:40 PM EST (#21922)
 73 picture-safe speedups are in the engine fix. 20 are on in the live ini: MW, W1, W2, VRR, W3, R1, L1, WK, FG, W6, B, J1, GF, WG, LK, CP, MQ, PT1, DL, PJ. RESULT #21931. Game not opened. No switch changed.
+
+## 2026-10-20 11:41 pm EST (#21934)
+The 10 graphics hooks are all on a graphics API entry. None is a patch inside a Nioh function. RESULT #21939. No switch changed. Game not opened.
+2026-10-20 11:42 PM EST gx-pc #21938: of the 20 on switches, 1 is a graphics call (PJ), 17 are Nioh-address hooks, and 2 are on neither list (VRR, J1). RESULT #21941. No switch changed. Game not opened.
+
+## 2026-10-20 11:49 PM EST (#21935)
+13 of the 64 picture-safe hooks have a measured fps or CPU number. The only gain over 2% is CBN on pc2: CPU busy 25.84 ms off, 22.29 ms on, frames +15.6%. RESULT #21945. No test. Game not opened.
+
+## 2026-10-21 12:48 am EST (#21975)
+The no-JSON block on the hitch thread had no new question. Worst frame stays 167 ms, 6 of 6 shader compiles. JSON restatement is file #1272. No new test. Game not opened.
+
+## 2026-10-21 2:17 am EST (#22014)
+The no-JSON block on the journal thread had no new question. The journal is still pj_win_dgpu_sm68.bin, 64 MB, 6:56 pm EST on October 11. JSON restatement is file #1273. PJ not changed. Game not opened.
+
+## 2026-10-21 3:02 am EST (#22037)
+The no-JSON block on the three-opt thread had no new question. Ally tests stay 0. JSON restatement is file #1274. Game not opened.
+
+## 2026-10-21 3:48 am EST (#22055)
+The no-JSON block on the 30 Hz thread had no new question. TG stays in the build and changes how the game runs. Measured gain about 3 percent. JSON restatement is file #1275. Switch not changed. Game not opened.
+
+## 2026-10-21 4:33 am EST (#22076)
+The no-JSON block on the hook-split thread had no new question. Counts stay 10 graphics API and 54 Nioh addresses. JSON restatement is file #1276. Game not opened.
+
+## 2026-10-21 5:18 am EST (#22096)
+The no-JSON block on the live-ini thread had no new question. 20 of 73 same-picture speedups stay on. JSON restatement is file #1277. No switch changed. Game not opened.
+
+## 2026-10-21 6:03 am EST (#22117)
+The no-JSON block on the eight-line thread had no new question. Only the page-pool skip has a measured gain, about 3 percent on the PC. JSON restatement is file #1278. No new test. Game not opened.
+
+## 2026-10-21 7:33 am EST (#22154)
+The no-JSON block on the measured-speed thread had no new question. 13 of 64 picture-safe hooks have a number. Only CBN gains more than 2 percent. JSON restatement is file #1279. No test was run. Game not opened.
+
+## 2026-10-21 9:04 am EST (#22192)
+The no-JSON block on the hitch restatement had no new question. Worst frame stays 167 ms. JSON is file #1280 (same facts as #1272). No new test. Game not opened.
+
+## 2026-10-21 9:49 am EST (#22212)
+The no-JSON block on the journal restatement had no new question. The journal stays 64 MB, last written 6:56 pm EST on October 11. JSON is file #1281 (same facts as #1273). PJ not changed. Game not opened.
+
+## 2026-10-21 10:49 am EST (#22241)
+Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up new optimization work until the human says resume. Do not build an injector. Do not launch or close the game. The shared PAUSED file was not created, so the other fleets were not stopped. HOLD #22247 went to gx-pc. Training search stays stopped. Counts stay: 10 graphics API entries, 54 Nioh addresses, 20 of 73 switches on, 13 of 64 measured, only CBN over 2 percent and that gain is on pc2.
