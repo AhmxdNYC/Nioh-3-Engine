@@ -308,3 +308,5 @@
 - 2026-10-20 | Sequence list is too big to write by hand | User said it should be an automatic algorithm | One walk found 39230 paths, 11541 reach an end, 27593 cut at 8 moves. The sorter task is #21701.
 - 2026-10-20 | Yoritomo path count is not a move count | User thought one boss had 39230 moves | He has 173 moves and 88 attacks. 11541 paths end and 27593 are cut at 8. The sorter script matches that. Focus stays on Yoritomo.
 - 2026-10-20 | Yoritomo has 6 sequences | User said he does not have 11541 sequences | 11541 is every branch path. The 6 are one attack, one next move, then a stop.
+- 2026-10-20 | Yoritomo attacks that stand alone | How many of his 88 attacks have no next move | 46 stand alone. 6 sequences plus 46 plus 29 choices is 81. The other 7 have one next move that does not stop.
+- 2026-10-20 | Which sequence endings are attacks | Are the 6 sequence targets themselves attacks | 5 are attacks. 18D1 is not.

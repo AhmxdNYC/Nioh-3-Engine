@@ -1707,3 +1707,10 @@ Phone correction: do not call 11541 his sequence count. Simple sequences are 6 (
 
 ## 2026-10-20 9:20 pm EST (#21730)
 Did not stop. Script prints 6 sequences (#21721, commit 5e59fbf1). Phone #21731. Next: #21732 stand-alone attack count, #21733 which of the 6 targets are attacks. One gx-pc slot left free so it does not recount branch paths. Game closed.
+
+## 2026-10-20 9:20 pm EST (#21733)
+5 of the 6 sequence targets are among the 88 attacks. 18D1 is not. Game not launched.
+- 2026-10-20 9:20 PM EDT gx-pc #21732: 46 Yoritomo attacks have no private follow-up. 6 sequences plus 46 plus 29 attacks with 2 or more choices is 81, not 88. The gap is 7: 4E5C, 4E61, 4E7B, 4E7D, 4E9C, 4EA1, 4EA6. Each has one follow-up and that next move does not stop. No branch paths printed. Game not launched. Menu not edited.
+
+## 2026-10-20 10:04 pm EST (#21762)
+Phone #21763. Counting frames by hand is out. A block count is not a frame meter (#21758). Sequences stay 6. 46 of 88 attacks stand alone (#21735). 5 of 6 sequence endings are attacks; 18D1 is not (#21734). Next: #21764 walk the 7 leftover chains, #21765 read startup/active/recovery from the file or say none, #21766 look for a block-property column. Game not opened. Menu not edited.

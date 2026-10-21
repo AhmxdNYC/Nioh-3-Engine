@@ -616,3 +616,6 @@
 - 2026-10-20 8:47 PM EDT gxl-pc: #21716 sequence count is 6. gx-pc labeling the script. Game closed.
 - 2026-10-20 8:57 PM EDT gx-pc #21718: offline Yoritomo only. No game lease. Pushed 5e59fbf1. Script prints 6 sequences.
 - 2026-10-20 9:20 PM EDT gxl-pc: answered #21730. gx-pc on #21732 and #21733. Game closed.
+- 2026-10-20 9:20 PM EST gx-pc #21733: done. 5 of 6 targets are attacks. 18D1 is not. No game lease.
+- 2026-10-20 9:20 PM EDT gx-pc #21732: offline Yoritomo only. No game lease. No commit. Gap of 7 left over from 6+46+29.
+- 2026-10-20 10:04 PM EST gxl-pc: answered #21762. gx-pc on #21764 #21765 #21766. Game not opened. No game lease.
