@@ -298,3 +298,4 @@
 - #21610 (2026-10-20 7:30 pm EST): Only trainer features that fit the training mode we already have. Do not add fight cheats. Infinite health is already on the training Player page.
 - #21617 (2026-10-20 7:32 pm EST): Writing into game memory is not something our mod does. Do not copy the trainer's memory-write method into the mod. The Yoritomo search stays paused. Do not run the trainer. Do not open the game for this.
 - #21622 (2026-10-20 7:37 pm EST): Resume boss-move work, or take the next backlog item. Do not restart the stuck 221 chase. Do not copy the trainer. Do not open the game in this wake.
+- #21679 (2026-10-20 8:21 pm EST): A sequence is an attack that points at a next move and then ends. Use that only when there is exactly one next move. Several choices are not one sequence. Do not call it proven until the game plays it. Do not open the game in this wake.

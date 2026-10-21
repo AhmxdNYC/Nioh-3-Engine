@@ -1672,3 +1672,13 @@ No Shingen column splits the 57 attack-range motions from the other 79. Script n
 
 ## 2026-10-20 8:20 pm EST (#21671)
 Phone #21672 lists the 13 pairs from #21666. Shingen has no separating column (#21667). The 5 side rows are not the slot record (#21668). Next: #21673 join the 13, #21674 which targets are attacks, #21675 how many of 51 rows say 4E74. Game closed. No 221.
+
+- 2026-10-20 8:20 PM EDT gx-pc #21675: of the 51 side-table rows, 5 store 0x4E74 at +0x12 and 46 store a different id. The six values are 0x4E89 (19), 0x4E8B (9), 0x4E7A (7), 0x4E8A (6), 0 (5), and 0x4E74 (5). RESULT #21676. Game not launched. Menu not edited.
+
+- 2026-10-20 8:20 PM EDT gx-pc #21673: 12 of the 13 single pairs do not extend. The only longer chain is 4E7B -> 4EA6 -> 4EA7. Not a proven string. Game not launched. Menu not edited.
+
+## 2026-10-20 8:20 pm EST (#21674)
+10 of the 13 targets are in Yoritomo's 88 attacks. The other 3 are 18D1, 4E77, and 4EA7. 18D1 is action row 141 with an empty attack mark. Game not launched.
+
+## 2026-10-20 8:22 pm EST (#21679)
+User rule: one next move that ends is a sequence. Phone #21680. 12 pairs stop. One chain is 4E7B -> 4EA6 -> 4EA7. 29 are branches. Next: #21681 do the 13 targets really have 0 further links, #21682 choice spread on the 29, #21683 do 18D1, 4E77, 4EA7 end. Game closed.

@@ -600,3 +600,7 @@
 - 2026-10-20 8:12 PM EST gx-pc #21664: done. No column splits Shingen's 57 attack-range motions. No game lease.
 - 2026-10-20 8:13 PM EDT gx-pc #21665: done. The 5 inside rows are not the slot record. RESULT #21668. No game lease. Slot 2 is free.
 - 2026-10-20 8:20 PM EDT gxl-pc: phone #21672. gx-pc tasked #21673 #21674 #21675. Game closed.
+- 2026-10-20 8:20 PM EDT gx-pc #21675: done. 5 rows store 0x4E74, 46 store another id. RESULT #21676. No game lease. Slot 2 is free.
+- 2026-10-20 8:20 PM EDT gx-pc #21673: offline join only. No game lease. 12 pairs stop. One chain of 3.
+- 2026-10-20 8:20 PM EST gx-pc #21674: done. 10 of 13 targets are in the 88. 18D1, 4E77, 4EA7 are not. No game lease.
+- 2026-10-20 8:22 PM EDT gxl-pc: #21679 recorded. gx-pc on #21681 #21682 #21683. Game closed.

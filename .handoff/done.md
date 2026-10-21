@@ -303,3 +303,4 @@
 - 2026-10-20 | Boss move files have 0 stored strings | User asked what the workers are doing | 14 bosses, 1784 moves, 280 attacks, 0 full chains. Yoritomo 42 of 88 have a follow-up choice. Longest path is 13 and is not a proven string.
 - 2026-10-20 | Move file has no stored strings | User asked if we still found nothing | 0 full chains. 13 of 88 Yoritomo attacks have one next move, 29 have several. Shingen marks 0 of 136 as attacks. 83 of 88 miss the side table.
 - 2026-10-20 | What the move file contains | User asked what was found | No labeled attack string. 13 attacks each point at one next move. 29 point at several choices. Shingen has no attack mark on 136 moves.
+- 2026-10-20 | Sequence means one next move that ends | User asked if an attack that points at the next move and then ends is a sequence | Yes for the 13. 12 stop after one step. One chain is 3 long: 4E7B, 4EA6, 4EA7. The other 29 have several choices.
