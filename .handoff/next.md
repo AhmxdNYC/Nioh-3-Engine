@@ -1730,4 +1730,7 @@ The 34 attacks with byte +0x115 set split 2 / 12 / 16 / 4 across starts, no foll
 - 2026-10-20 10:11 PM EDT gx-pc #21773: no startup, active, and recovery counts in the other parts of the Yoritomo archive. One file, FA/5FBD421B. Subtables other than the action rows are not 88 records and do not hold one three-count record per attack. Action columns were not re-checked. Game not opened. Menu not edited.
 
 ## 2026-10-20 10:14 pm EST (#21784)
-Phone #21789. The look was for three counts per attack. The file does not store them. Do not assume a fighting-game meter. Next: #21786 saved fight logs, #21787 game code for three counts, #21788 who reads byte +0x115. If those are empty, stop the meter search. Sequences stay 6. Game not opened.
+Phone #21789. The look was for three counts per attack. The file does not store them. Do not assume a fighting-game meter. #21786 saved fight logs, #21787 game code, #21788 who reads byte +0x115 were still running. Sequences stay 6. Game not opened.
+
+## 2026-10-20 10:15 pm EST (#21790)
+Phone #21791. Hit start and hit end are more likely in the animation clips than in the move list. Move list stays 0 of 88. Next is #21792, the animation clips. Do not call clip length a frame meter. Game not opened.
