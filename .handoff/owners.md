@@ -588,3 +588,7 @@
 - 2026-10-20 7:31 PM EDT gxl-pc: trainer vs training answered. Nothing new to copy. Search paused. gx-pc not tasked. Game not launched. Trainer not run.
 - 2026-10-20 7:36 PM EDT gxl-pc: #21617 recorded. Trainer not ported. Search paused. gx-pc idle on that search. Game not launched.
 - 2026-10-20 7:39 PM EDT gxl-pc: search resumed by #21622. gx-pc slot 0 #21629, slot 1 #21630, slot 2 #21631 opus. Game closed. Do not chase 221. Do not run the trainer.
+- 2026-10-20 7:40 PM EST gx-pc #21630: done. 14 bosses, 1784 moves, 280 attacks, 0 full chains. RESULT #21633. Script unchanged. No game lease.
+- 2026-10-20 7:40 PM EDT gx-pc #21631: done. Writer of object +0x70 is 0x93D6E0. RESULT #21635. No game lease. Slot 2 is free.
+- 2026-10-20 7:41 PM EDT gx-pc #21629: offline count only. No game lease. Note pushed 44301104 on gxl-pc/move-sort-20999. 42 of 88 have a private choice link. The 13-action path is not a proven string.
+- 2026-10-20 8:07 PM EDT gxl-pc: #21633 #21635 #21636 digested. gx-pc tasked #21650 #21651 #21652. Game closed. Do not chase 221.

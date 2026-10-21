@@ -1641,3 +1641,14 @@ User: writing into game memory is not something our mod does. Do not port the tr
 ## 2026-10-20 7:39 pm EST (#21622)
 User resumed boss-move work. PAUSED file removed. GO #21625 to gx-pc. 221 chase stays closed. Game stays closed. Trainer is not copied.
 gx-pc 3/3: TASK #21629 choice-link count for Yoritomo, TASK #21630 sorter table for every boss, TASK #21631 opus writer of object+0x70 (reader 0x65E884). Phone #21624 and the follow-up.
+
+## 2026-10-20 7:40 pm EST (#21630)
+Sorter ran on the pinned coverage. 14 bosses, 1784 moves, 280 attacks, 0 full chains. RESULT #21633. Script not edited. Game not launched.
+
+- 2026-10-20 7:40 PM EDT gx-pc #21631: the qword read at 0x65E884 is written at 0x93D6E0. It stores the row pointer from 0x49D610, index action id minus 0x4E20, array at [object+0x28]+0x1A0. A miss leaves the 0 from constructor 0x66D648. Callers 0x66D404, 0x4818E1, 0x93D57D. RESULT #21635. Game not launched. Menu not edited.
+
+- 2026-10-20 7:41 PM EDT gx-pc #21629: 42 of 88 attack-flag rows have their own follow-up choice. Shared rows sit on all 88 and were not counted. Longest path is 13 actions (4E5C through 4EB9). It is not a proven attack string. Examples 4E4E, 4E5C, 4E68, 4E78, 4E8E. File FA/5FBD421B, commit 44301104. Game not launched. Menu not edited.
+
+## 2026-10-20 8:07 pm EST (#21645, #21646)
+Status sent in #21649. Results: #21633 14 bosses / 1784 moves / 280 attacks / 0 chains. #21636 42 of 88 Yoritomo attacks have a private follow-up, longest path 13, not a proven string. #21635 writer is 0x93D6E0 and skips when the row is missing (this move wants row 72 of 51).
+Next tasks, game stays closed, no 221 chase: #21650 how many of the 42 have exactly one target. #21651 why Shingen shows 0 attacks. #21652 how many of the 88 attack ids fall past the 51-row table.

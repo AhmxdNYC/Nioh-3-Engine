@@ -300,3 +300,4 @@
 - 2026-10-20 | Stopped the stuck 221 session | User said break the agent stuck on 221 | Killed gxl-pc slot 0 pid 32936 at 7:23 pm EST. The search stays paused. gx-pc workers were already finished after the hold.
 - 2026-10-20 | Trainer vs training mode | User asked which trainer features fit our training mode | Nothing new to copy. Only mechanism is freeze or write one number. Training already has infinite health. Other toggles are in a 3328-byte encrypted block with no readable names. Trainer not run.
 - 2026-10-20 | Trainer method rejected | User said our mod does not write into game memory | The trainer only works that way, so nothing from it is copied. Search stays paused.
+- 2026-10-20 | Boss move files have 0 stored strings | User asked what the workers are doing | 14 bosses, 1784 moves, 280 attacks, 0 full chains. Yoritomo 42 of 88 have a follow-up choice. Longest path is 13 and is not a proven string.
