@@ -643,6 +643,7 @@
 - 2026-10-20 10:36 PM EST gxl-pc: answered #21829. Launch still not started. gx-pc #21832 is the graph only. No game lease.
 - 2026-10-20 10:40 PM EST gx-pc #21809: done. 12 movement functions added. Notes through October 11. Commit b93dabba. RESULT #21838. No game lease.
 - 2026-10-20 11:04 PM EST gxl-pc: answered #21871 and #21839. Training search stopped. Write-up #1270. No launch. gx-pc 0/3. No game lease.
+- 2026-10-20 11:09 PM EST gxl-pc: answered #21885 from notes/whats-left.md. No new test. No game lease. gx-pc 0/3.
 - 2026-10-20 10:16 PM EST gx-pc #21787: done. No three-count frame loader. Functions opened 0x2B7F30 and 0x2B8F64. No game lease.
 - 2026-10-20 10:26 PM EST gx-pc #21788: done. No action-row reader of byte +0x115. RESULT #21812. No game lease. Slot 2 is free.
 - 2026-10-20 10:30 PM EST gx-pc #21798: done. Motion::GetFrame reads float +0x290. RESULT #21821. No game lease. Slot 2 is free.
