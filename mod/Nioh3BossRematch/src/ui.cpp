@@ -160,7 +160,7 @@ void Paint(HDC dc, int w, int h) {
             GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs);
             if (rs.cx > maxW) {
                 const int len = (int)strlen(fit), tail = len > 30 ? 30 : len / 2;
-                char cut[256];
+                char cut[256]; snprintf(cut, sizeof cut, "%s", fit);
                 for (int head = len - tail - 1; head > 4; head -= 2) {
                     snprintf(cut, sizeof cut, "%.*s...%s", head, fit, fit + len - tail);
                     GetTextExtentPoint32A(dc, cut, (int)strlen(cut), &rs);
