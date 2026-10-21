@@ -1750,6 +1750,9 @@ Phone #21820. Find one attack that is the unblockable or the grab before any log
 ## 2026-10-20 10:32 pm EST (#21823)
 Phone #21824 and #21825. Next test: launch practice against Yoritomo, hold block, a hit that lands is the likely special attack. This check did not open the game. Animation: 0 of 17 clip events are hits (#21822). GetFrame is not a hit time (#21821). Do not read logs for all 88.
 
+## 2026-10-20 10:36 pm EST (#21829)
+Phone #21830 and #21831. The practice fight was not launched. 0 of 88 attacks have a grab or unblockable label (#21827). Saved logs have 0 hit-through-block lines (#21826). Next session that may touch the game launches the block test. #21832 updates the decompile graph and must not launch. Game not opened.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
 
@@ -1759,3 +1762,7 @@ No function in the dump loads startup, active, and recovery from a non-action ta
 
 ## 2026-10-20 10:31 pm EST (#21792)
 No hit-start or hit-end event on motion 1040. Clip G2A 742b1f41 is bone tracks. 17 dope events are Model, Effect, and Sound. RESULT #21822. Game not opened.
+- 2026-10-20 10:34 PM EST gx-pc #21786: 44 logs name actions 4E53-4EB9. No startup, active, and recovery counts. No hit through a block. One gauge line actorBlocked=1, copied 20 times, is a spawn flag for character 307259. Not a frame meter. Game not opened. Logs not edited.
+
+## 2026-10-20 10:34 pm EST (#21816)
+No grab, throw, or unblockable label on Yoritomo's 88 attacks. Action file has no such text. Dump has Grab 0 and Unblockable 0. Game not opened.

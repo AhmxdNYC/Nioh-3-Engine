@@ -319,3 +319,5 @@
 - 2026-10-20 | Unnamed column is not a block flag | Does the attack code read the 34-versus-54 column | No. Nothing that reads the attack id also reads that byte. It is not an unblockable flag.
 - 2026-10-20 | Hit marks on the animation clip | Are hit start and hit end on Yoritomo's motion clip | No. 0 of 17 events are hits. The clip is 221 frames, and the events are sound and effects.
 - 2026-10-20 | Animation frame read | Does the play code store a hit time | No. GetFrame is a float cut to a whole number. GetMaxFrame is the motion length, not a hit window.
+- 2026-10-20 | Grab or unblockable label | Does his file name a grab or an unblockable attack | No. 0 of 88 attacks have that label. The name table has no Grab or Unblockable entry on those attacks.
+- 2026-10-20 | Frame counts in saved fight logs | Do the saved logs show startup frames or a hit through block | No. 0 frame-count lines and 0 hit-through-block lines. One blocked flag is a boss-gauge line, not an attack.
