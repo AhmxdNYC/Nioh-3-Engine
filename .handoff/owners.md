@@ -621,5 +621,7 @@
 - 2026-10-20 10:04 PM EST gxl-pc: answered #21762. gx-pc on #21764 #21765 #21766. Game not opened. No game lease.
 - 2026-10-20 10:05 PM EDT gx-pc #21764: offline Yoritomo only. No game lease. No commit. All 7 chains are choice, not end.
 - 2026-10-20 10:07 PM EST gx-pc #21765: done. No frame meter on the 88 attacks. Commit cb65b0cf. No game lease.
-- 2026-10-20 10:08 PM EST gxl-pc: answered #21768. gx-pc #21773 on the other archive parts. #21766 still the block column. Game not opened. No game lease.
+- 2026-10-20 10:08 PM EST gxl-pc: answered #21768. gx-pc #21773 on the other archive parts. Game not opened. No game lease.
+- 2026-10-20 10:08 PM EST gx-pc #21766: done. 34 versus 54 at byte +0x115, unlabeled. No game lease.
+- 2026-10-20 10:09 PM EST gxl-pc: gx-pc #21778 counts how the 34 split across the 6, 46, 29, and 7. #21773 still on the other files. Game not opened.
 - 2026-10-20 10:08 PM EST gx-pc #21766: done. 110 varying columns. Candidate byte +0x115 is unlabeled. RESULT #21774. No game lease. Slot 2 is free.

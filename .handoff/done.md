@@ -312,3 +312,4 @@
 - 2026-10-20 | Which sequence endings are attacks | Are the 6 sequence targets themselves attacks | 5 are attacks. 18D1 is not.
 - 2026-10-20 | Seven leftover Yoritomo chains | Do the 7 one-next attacks become sequences | All 7 stop at a choice. None of them end.
 - 2026-10-20 | Frame meter in the move file | Are startup, active, and recovery stored on his attacks | No. 0 of 88 attacks have those three counts. Animation length is not the meter.
+- 2026-10-20 | Block-looking column on Yoritomo | Is there a column that could be a block property | 110 columns differ. The closest split is 34 versus 54 at byte +0x115. The file does not name it, so it is not called unblockable.

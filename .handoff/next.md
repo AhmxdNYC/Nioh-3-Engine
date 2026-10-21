@@ -1720,6 +1720,7 @@ Phone #21763. Counting frames by hand is out. A block count is not a frame meter
 No startup, active, and recovery counts in Yoritomo's action file. Note notes/yoritomo-frame-fields.md, commit cb65b0cf. Game not opened.
 
 ## 2026-10-20 10:08 pm EST (#21768)
-Phone #21770 and #21772. Frame numbers may be in the move file or in another file. The move file has 0 of 88. The 7 leftover chains all stop at a choice (#21767). Next: #21773 looks in the other archive parts. #21766 block column still running. Game not opened. Menu not edited.
+Phone #21770 and #21772. Frame numbers may be in the move file or in another file. The move file has 0 of 88. The 7 leftover chains all stop at a choice (#21767). Next: #21773 looks in the other archive parts. Game not opened. Menu not edited.
+- 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 columns differ across the 88 attacks. Best unlabeled split is byte +0x115, 1 on 34 and 0 on 54. Not called unblockable. Game not opened.
 
 - 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 two-byte columns differ across Yoritomo's 88 attacks. Best on-off split outside the attack mark and the next-action link is byte +0x115 (34 set, 54 clear). The file does not label it. RESULT #21774. Game not launched. Menu and yoritomo-frame-fields.md not edited.
