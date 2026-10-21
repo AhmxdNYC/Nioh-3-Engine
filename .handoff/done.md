@@ -313,3 +313,5 @@
 - 2026-10-20 | Seven leftover Yoritomo chains | Do the 7 one-next attacks become sequences | All 7 stop at a choice. None of them end.
 - 2026-10-20 | Frame meter in the move file | Are startup, active, and recovery stored on his attacks | No. 0 of 88 attacks have those three counts. Animation length is not the meter.
 - 2026-10-20 | Block-looking column on Yoritomo | Is there a column that could be a block property | 110 columns differ. The closest split is 34 versus 54 at byte +0x115. The file does not name it, so it is not called unblockable.
+- 2026-10-20 | What the 34 attacks are | Do the attacks on that unnamed column group in one way | 2 are sequence starts, 12 stand alone, 16 are choices, and 4 are short chains. Still not a block flag.
+- 2026-10-20 | Frame counts in the rest of his archive | Are the three frame counts in another table of his file | No. The other tables are not one record per attack. 0 of 88 have startup, active, and recovery.

@@ -625,3 +625,6 @@
 - 2026-10-20 10:08 PM EST gx-pc #21766: done. 34 versus 54 at byte +0x115, unlabeled. No game lease.
 - 2026-10-20 10:09 PM EST gxl-pc: gx-pc #21778 counts how the 34 split across the 6, 46, 29, and 7. #21773 still on the other files. Game not opened.
 - 2026-10-20 10:08 PM EST gx-pc #21766: done. 110 varying columns. Candidate byte +0x115 is unlabeled. RESULT #21774. No game lease. Slot 2 is free.
+- 2026-10-20 10:10 PM EST gx-pc #21778: done. 34 attacks split 2, 12, 16, 4. No game lease.
+- 2026-10-20 10:11 PM EDT gx-pc #21773: offline Yoritomo only. No game lease. No commit. No frame meter in the other subtables.
+- 2026-10-20 10:14 PM EST gxl-pc: answered #21784. gx-pc on #21786 logs, #21787 code, #21788 byte +0x115 reader. Game not opened. No game lease.

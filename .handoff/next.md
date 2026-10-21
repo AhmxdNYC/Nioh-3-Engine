@@ -1724,3 +1724,10 @@ Phone #21770 and #21772. Frame numbers may be in the move file or in another fil
 - 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 columns differ across the 88 attacks. Best unlabeled split is byte +0x115, 1 on 34 and 0 on 54. Not called unblockable. Game not opened.
 
 - 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 two-byte columns differ across Yoritomo's 88 attacks. Best on-off split outside the attack mark and the next-action link is byte +0x115 (34 set, 54 clear). The file does not label it. RESULT #21774. Game not launched. Menu and yoritomo-frame-fields.md not edited.
+
+## 2026-10-20 10:10 pm EST (#21778)
+The 34 attacks with byte +0x115 set split 2 / 12 / 16 / 4 across starts, no follow-up, 2 or more choices, and one-next chains. Game not opened.
+- 2026-10-20 10:11 PM EDT gx-pc #21773: no startup, active, and recovery counts in the other parts of the Yoritomo archive. One file, FA/5FBD421B. Subtables other than the action rows are not 88 records and do not hold one three-count record per attack. Action columns were not re-checked. Game not opened. Menu not edited.
+
+## 2026-10-20 10:14 pm EST (#21784)
+Phone #21789. The look was for three counts per attack. The file does not store them. Do not assume a fighting-game meter. Next: #21786 saved fight logs, #21787 game code for three counts, #21788 who reads byte +0x115. If those are empty, stop the meter search. Sequences stay 6. Game not opened.
