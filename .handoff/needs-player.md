@@ -11,3 +11,6 @@
 - [ ] Test multi-boss build | Summon 2-3 bosses, check per-boss pages, HP/Ki, CPU/idle slider, Sequences, no duplicate rows | pc (controller ready)
 - [ ] Aggro me during drill | In Training with a drill/sequence running turn 'Aggro me' ON, step back 6+ m: boss should stop, walk up, then resume the sequence | pc (game running PID 9076, build db12513d; controller: real pad, no virtual pad active)
 - [ ] Check filtered boss moves | Train here (Yoritomo) > Boss moves: Attacks (24), Unnamed attacks (71), Animations and twitches (76); no 4E3B/4E3C; Sequences = 12 real attack chains; run 2-3 and tell me if any stops early/starts mid-way | pc (build Rematch ACAACF46, Training 0A0EEC7A; real pad, no virtual pad)
+- [ ] Boss Matches Fight now fights at once (no idle) | after the auto relaunch, start a Boss Match fight; boss must attack. Also Practice should still start idle | pc
+- [ ] Boss moves menu grouped by hits + Unblockable (Yoritomo) | INSTALLED 12:38 pm EST (Rematch 444827b0, game relaunched PID 2276); open Boss moves: 1 hit/2 hits/3 hits/Unblockable groups, 0x4E6E under Unblockable [2 hits, unblockable] | pc
+- [ ] New Practice stats + hit-count menu | open Practice > Player: Infinite Ki, damage dealt/taken x, boss Ki drain; Boss moves groups 1/2/3 hits + Unblockable; report anything that does nothing | pc
