@@ -317,3 +317,5 @@
 - 2026-10-20 | Frame counts in the rest of his archive | Are the three frame counts in another table of his file | No. The other tables are not one record per attack. 0 of 88 have startup, active, and recovery.
 - 2026-10-20 | Frame counts in the game code | Does a function load startup, active, and recovery | No. The code has names for play, fade, and motion length, and no set of those three counts.
 - 2026-10-20 | Unnamed column is not a block flag | Does the attack code read the 34-versus-54 column | No. Nothing that reads the attack id also reads that byte. It is not an unblockable flag.
+- 2026-10-20 | Hit marks on the animation clip | Are hit start and hit end on Yoritomo's motion clip | No. 0 of 17 events are hits. The clip is 221 frames, and the events are sound and effects.
+- 2026-10-20 | Animation frame read | Does the play code store a hit time | No. GetFrame is a float cut to a whole number. GetMaxFrame is the motion length, not a hit window.

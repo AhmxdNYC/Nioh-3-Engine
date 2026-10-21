@@ -1747,7 +1747,15 @@ Phone #21814 and #21815. The boss file does not label unblockable or grab. #2181
 ## 2026-10-20 10:28 pm EST (#21819)
 Phone #21820. Find one attack that is the unblockable or the grab before any log read. Logs only for that one attack. Do not read logs for all 88. #21816 is the name search only, not a log read. Game not opened.
 
+## 2026-10-20 10:32 pm EST (#21823)
+Phone #21824 and #21825. Next test: launch practice against Yoritomo, hold block, a hit that lands is the likely special attack. This check did not open the game. Animation: 0 of 17 clip events are hits (#21822). GetFrame is not a hit time (#21821). Do not read logs for all 88.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
 
 - 2026-10-20 10:26 PM EST gx-pc #21788: no code reads Yoritomo action-row byte +0x115 or the word at +0x114. Functions that read those displacements do not also read action id +0x0C, motion +0x20, or next action +0xE0. RESULT #21812. Game not launched.
+
+- 2026-10-20 10:30 PM EST gx-pc #21798: Motion::GetFrame (RVA 0x23E3AE4) cuts the float at +0x290 down to a whole frame. It is not a hit time. Motion length is the other float at +0x320. RESULT #21821. Game not launched.
+
+## 2026-10-20 10:31 pm EST (#21792)
+No hit-start or hit-end event on motion 1040. Clip G2A 742b1f41 is bone tracks. 17 dope events are Model, Effect, and Sound. RESULT #21822. Game not opened.

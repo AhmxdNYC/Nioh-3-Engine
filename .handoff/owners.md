@@ -635,5 +635,10 @@
 - 2026-10-20 10:26 PM EST gx-pc #21788: done. No reader of byte +0x115. RESULT #21812. No game lease.
 - 2026-10-20 10:27 PM EST gxl-pc: answered #21813. #21816 grab and unblockable label search is queued. Game not opened. No game lease.
 - 2026-10-20 10:29 PM EST gxl-pc: answered #21819. No log read until one attack is identified. #21816 stays a name search only. Game not opened. No game lease.
+- 2026-10-20 10:30 PM EST gx-pc #21798: done. GetFrame is not a hit time. RESULT #21821. No game lease.
+- 2026-10-20 10:31 PM EST gx-pc #21792: done. 0 of 17 clip events are hits. RESULT #21822. No game lease.
+- 2026-10-20 10:33 PM EST gxl-pc: answered #21823. Next session launches the block test. This check did not open the game. No game lease.
 - 2026-10-20 10:16 PM EST gx-pc #21787: done. No three-count frame loader. Functions opened 0x2B7F30 and 0x2B8F64. No game lease.
 - 2026-10-20 10:26 PM EST gx-pc #21788: done. No action-row reader of byte +0x115. RESULT #21812. No game lease. Slot 2 is free.
+- 2026-10-20 10:30 PM EST gx-pc #21798: done. Motion::GetFrame reads float +0x290. RESULT #21821. No game lease. Slot 2 is free.
+- 2026-10-20 10:31 PM EST gx-pc #21792: done. No hit event on the motion clip. Files opened G2A 742b1f41 and KOD 285cb0c3. RESULT #21822. No game lease.
