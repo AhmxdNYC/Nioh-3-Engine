@@ -152,7 +152,23 @@ void Paint(HDC dc, int w, int h) {
                 DeleteObject(sb);
             }
             SetTextColor(dc, rows[i].color & 0xFFFFFF);
-            TextOutA(dc, 30, 28 + i * lh, rows[i].text, (int)strlen(rows[i].text));
+            // user #22412: a row wider than the panel lost its tail (Repeat / Used state). Cut the middle ("...") and keep the end.
+            char fit[256];
+            snprintf(fit, sizeof fit, "%s", rows[i].text);
+            const int maxW = pw - 24;
+            SIZE rs;
+            GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs);
+            if (rs.cx > maxW) {
+                const int len = (int)strlen(fit), tail = len > 30 ? 30 : len / 2;
+                char cut[256];
+                for (int head = len - tail - 1; head > 4; head -= 2) {
+                    snprintf(cut, sizeof cut, "%.*s...%s", head, fit, fit + len - tail);
+                    GetTextExtentPoint32A(dc, cut, (int)strlen(cut), &rs);
+                    if (rs.cx <= maxW) break;
+                }
+                snprintf(fit, sizeof fit, "%s", cut);
+            }
+            TextOutA(dc, 30, 28 + i * lh, fit, (int)strlen(fit));
         }
         SetTextColor(dc, RGB(220, 220, 140));
         RECT fr = {30, 28 + (n + 1) * lh, 10 + pw, 28 + (n + 3) * lh};
