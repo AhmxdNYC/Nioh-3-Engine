@@ -323,3 +323,4 @@
 - 2026-10-20 | Frame counts in saved fight logs | Do the saved logs show startup frames or a hit through block | No. 0 frame-count lines and 0 hit-through-block lines. One blocked flag is a boss-gauge line, not an attack.
 - 2026-10-20 | Update the decompile graph | The graph notes were about 2 weeks behind the mod | Added 12 movement functions. The notes now reach October 11. The call graph file was not rebuilt.
 - 2026-10-20 | Stop the Yoritomo training search | The human said it was not getting anywhere and asked for a write-up | Wrote it down and stopped. 173 moves, 88 attacks, 6 sequences, 0 grab labels. The practice fight was not launched.
+- 2026-10-20 | Shader warmup status | Is the built warmup in the game and was it tested | It is in the October 19 build. The default is off, and the live settings file has it on. The old session's 6 slow frames were shader compiles, worst 167 ms. The on-versus-off pair was never run. Measured on the PC only.

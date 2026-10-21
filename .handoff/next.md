@@ -1758,6 +1758,10 @@ Phone #21886. Look at Claude and Codex optimization notes. Do not restart traini
 
 ## 2026-10-20 11:15 pm EST (#21891)
 Phone #21892. Workers look at PJ only. Do not launch. Do not restart training. Tasks #21893 ini and code, #21894 hitch numbers, #21895 PC or Ally. Game not opened.
+PJ results: default 0, live ini is PJ=1, code psojournal.cpp, in the Oct 19 build (#21896). Hitch to beat 167 ms, 6 of 6 slow frames were shader compiles (#21898). Measured on the PC only (#21897).
+
+## 2026-10-20 11:27 pm EST (#21902)
+Phone #21904 and #21905. Focus on optimizations that keep the picture the same. Do not restart training. Do not launch. Next: #21906 does a journal file exist, #21907 next 3 built look-preserving ideas, #21908 does the 30 Hz idea change the picture. Game not opened.
 
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
@@ -1775,3 +1779,9 @@ No grab, throw, or unblockable label on Yoritomo's 88 attacks. Action file has n
 
 2026-10-20 10:40 PM EST gx-pc #21809: 12 movement functions are now in the logic graph notes (notes/mainthread-logic.md). Newest date covered is 2026-10-11. Commit b93dabba. Game not launched. The call graph binary was not rebuilt.
 - 2026-10-20 10:42 PM EST gx-pc #21832: #21809 was already done. 12 movement functions are in notes/mainthread-logic.md section 8, through 2026-10-11. Commit b93dabba. Game not opened.
+- 2026-10-20 11:16 PM EST gx-pc #21893: PJ is [Patches] PJ, default 0, implemented in psojournal.cpp. Current installed build includes it. Live ini is PJ = 1 and was left alone. Game not opened.
+
+2026-10-20 11:16 PM EST gx-pc #21895: shader warmup PJ was measured on the PC only. Note notes/stutter-pso.md. Ally not measured. RESULT #21897. Game not launched.
+
+## 2026-10-20 11:16 pm EST (#21894)
+PJ hitch to beat is 167 ms. 6 of 6 gameplay frames over 33 ms were shader compiles. The unrun pair is a journal run then a prewarm run on this PC. RESULT #21898. Game not opened.
