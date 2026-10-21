@@ -1,7 +1,7 @@
 // user #22389: Practice stats rows. Included by rematch.cpp inside its UI namespace right after boss_vitals_menu.h (same helpers: TrainingExport,
 // g_msg, Log, colours). Training side: Nioh3Training practice_stats_game.h (exports Nioh3Training_PracticeStatGet / _PracticeStatSet, constants in
 // practice_stats.h). Values are saved in Nioh3Training.ini [Practice]; every one defaults OFF / 1.0x.
-//   Practice > Player page : Infinite Ki (stamina), Damage you deal (x0 .. x10), Damage you take (x0 .. x10).
+//   Practice > Player page : Infinite Ki (stamina), Damage you deal (x0 .. x10), Damage you take (x0 .. x10), Infinite ninjutsu, Player speed.
 //   Boss health and Ki page: Boss Ki drain (% of max Ki per second, all Training bosses).
 // Also: Player page Infinite ninjutsu, Boss page Boss speed (notes/boss-speed-lever-22389.md).
 #include "../../Nioh3Training/src/practice_stats.h"
@@ -20,9 +20,9 @@ int PstSet(int what, int value) {
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_PLAYER_INF_NIN);
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);
 }
-template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_BOSS_SPEED); add(kItPstBase + PS_PLAYER_SPEED); } }
+template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_BOSS_SPEED); } }
 const char* PstLabel(int what) {
     return what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage you deal:" : what == PS_DMG_TAKEN ? "Damage you take:" : "Boss Ki drain:";
 }
