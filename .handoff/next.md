@@ -1699,3 +1699,7 @@ Phone #21700. Algorithm task #21701: tools/boss_sequences.py in nioh3-sort-20999
 
 ## 2026-10-20 8:44 pm EST (#21708)
 Phone #21709 and the follow-up. 39230 is paths, not moves. Sorter #21705 matches Yoritomo 11541 end / 27593 cut. Next task is the simple one-next-move list, Yoritomo only. Game closed.
+- 2026-10-20 8:46 PM EDT gx-pc #21711: Yoritomo simple sequences are 6. 4E53 to 4E54, 4E74 to 4EB7, 4E7A to 4E8D, 4E7C to 18D1, 4E93 to 4E5B, 4EB8 to 4EB9. Commit 7882af7e. Other bosses were not run. Game not launched. Menu not edited.
+
+## 2026-10-20 8:47 pm EST (#21716)
+Phone correction: do not call 11541 his sequence count. Simple sequences are 6 (#21713). Script label fix is the follow-up task. Game closed. Stay on Yoritomo.
