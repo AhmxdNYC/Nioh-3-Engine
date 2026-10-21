@@ -31,6 +31,17 @@ int main(void) {
     // in progress (recovery not over yet): numbers already there, marked '+'
     assert(m.cur.hits == 2 && !m.cur.done);
     FmSample(&m, t, 0x2, 0, 0);  // back to idle: the run is complete
+    // fixed view: the bar starts at the move's first cell (the idle before it has scrolled out of the view, not of the ring)
+    { int st = 0, ubc = 0; for (int i = 0; i < FM_CELLS; ++i) { const uint8_t c = FmViewCell(&m, i) & 0x7F; st += c == FM_STARTUP; ubc += c == FM_ACTIVE_UB; }
+      assert((FmViewCell(&m, 0) & FM_EDGE) && (FmViewCell(&m, 0) & 0x7F) == FM_STARTUP && within(st, 94, 2) && within(ubc, 28, 3)); }
+    { FmMeter v = m; double tv = t; for (int i = 0; i < 600; ++i, tv += step) FmSample(&v, tv, 0x2, 0, 0);  // long idle after it: still frozen
+      int st = 0; for (int i = 0; i < FM_CELLS; ++i) st += (FmViewCell(&v, i) & 0x7F) == FM_STARTUP;
+      assert((FmViewCell(&v, 0) & 0x7F) == FM_STARTUP && within(st, 94, 2) && FmViewCell(&v, FM_CELLS - 1) == FM_EMPTY && within(v.frozenN, 333, 2));
+      // the next attack takes over at its first hit, from its own first cell
+      const double n0 = tv; for (; tv < n0 + 1000.0; tv += step) FmSample(&v, tv, 0x4E4E, (tv - n0) * 0.06 >= 48.3, 0);
+      assert((FmViewCell(&v, 0) & FM_EDGE) && (FmViewCell(&v, 0) & 0x7F) == FM_STARTUP && (FmViewCell(&v, 48) & 0x7F) == FM_STARTUP && (FmViewCell(&v, 50) & 0x7F) == FM_ACTIVE); }
+    { FmMeter v; FmReset(&v); double tv = 0; for (int i = 0; i < 900; ++i, tv += step) FmSample(&v, tv, 0x2, 0, 0);  // before any attack: scrolls
+      assert(FmViewCell(&v, FM_CELLS - 1) == FmCellAt(&v, FM_CELLS - 1) && (FmViewCell(&v, 0) & 0x7F) == FM_PENDING); }
     const FmSum* s = &m.last;
     assert(m.haveLast && s->done && s->act == 0x4E6E && s->hits == 2 && s->ub == 2);
     assert(within(s->startup, 95, 1) && within(s->ws[0], 94, 1) && within(s->we[0], 106, 1) && within(s->ws[1], 141, 1) && within(s->we[1], 157, 1));

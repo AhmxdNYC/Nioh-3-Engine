@@ -6,14 +6,14 @@
 // Drawing: a click-through topmost layered GDI window over the game (the same fallback renderer as the Rematch standalone menu and the fade window),
 // so no Present hook and no other ASI is involved. Hidden while the mod menu is open, the game is not the foreground window or no data yet.
 // Ini (Nioh3Training.ini [Practice]): FrameMeter = 0/1 (default 0, the Practice hub row 'Frame meter'), FrameMeterY = top of the meter in % of the
-// screen height (default 6).
+// screen height (default 10: below the boss name and health bar).
 #include "frame_meter.h"
 static FmMeter g_fm; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
-static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 6;
+static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 10;
 static HWND g_fm_wnd, g_fm_game;
 static DWORD WINAPI FmThread(LPVOID p);
 static void FmLoadIni(const char* ini) {
-    g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", 6, ini); if (g_cfg_fm_y < 0 || g_cfg_fm_y > 90) g_cfg_fm_y = 6;
+    g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", 10, ini); if (g_cfg_fm_y < 0 || g_cfg_fm_y > 90) g_cfg_fm_y = 10;
     Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d %% (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
 }
 // FpTick (game thread, FpLock held), once per pump tick.
@@ -74,7 +74,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     const int by = pad + lineH * 2 + 3;
     FmFill(dc, x0 - 1, by - 1, barW + 2, barH + 2, RGB(8, 8, 10));
     for (int i = 0; i < FM_CELLS; ++i) {
-        const uint8_t c = FmCellAt(&m, i);
+        const uint8_t c = FmViewCell(&m, i);
         FmFill(dc, x0 + i * cw, by, cw > 2 ? cw - 1 : cw, barH, FmColor(c & 0x7F));
         if (c & FM_EDGE) FmFill(dc, x0 + i * cw, by - 3, 1, barH + 6, RGB(250, 250, 250));  // action start
     }
@@ -86,7 +86,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         FmFill(dc, lx, ly + lineH / 4, lineH / 2, lineH / 2, FmColor(lg[i].st)); lx += lineH / 2 + 4;
         TextOutA(dc, lx, ly, lg[i].t, (int)strlen(lg[i].t)); SIZE sz; GetTextExtentPoint32A(dc, lg[i].t, (int)strlen(lg[i].t), &sz); lx += sz.cx + lineH;
     }
-    const char* tail = "6 s, 1 cell = 1 frame at 60 fps";
+    const char* tail = "1 cell = 1 frame at 60 fps";
     SIZE ts; GetTextExtentPoint32A(dc, tail, (int)strlen(tail), &ts); if (lx + ts.cx < x0 + barW) TextOutA(dc, x0 + barW - ts.cx, ly, tail, (int)strlen(tail));
     SelectObject(dc, of);
 }

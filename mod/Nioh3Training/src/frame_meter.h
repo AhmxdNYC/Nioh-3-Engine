@@ -24,6 +24,7 @@ typedef struct {
     uint32_t act; double t0; int64_t c0;
     double ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW];
     FmSum cur, last; int haveLast;
+    uint8_t frozen[FM_CELLS]; int frozenN;  // the last completed attack as drawn when it ended (its first cell first)
 } FmMeter;
 static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; }
 static inline int64_t FmCellOf(double t) { return t <= 0 ? 0 : (int64_t)(t * 0.06); }
@@ -59,7 +60,11 @@ static inline void FmSummary(const FmMeter* m, double t, int done, FmSum* s) {
 static inline void FmEnd(FmMeter* m, double t) {
     if (!m->on) return;
     if (!m->nw) FmRecolor(m, m->c0, m->lastCell, FM_PENDING, FM_NEUTRAL);
-    else { FmSummary(m, t, 1, &m->last); m->haveLast = 1; }
+    else {
+        FmSummary(m, t, 1, &m->last); m->haveLast = 1;
+        int64_t from = m->c0; if (from < m->lastCell - (FM_CELLS - 1)) from = m->lastCell - (FM_CELLS - 1); if (from < 0) from = 0;
+        m->frozenN = 0; for (int64_t g = from; g <= m->lastCell && m->frozenN < FM_CELLS; ++g) m->frozen[m->frozenN++] = m->cell[g % FM_CELLS];
+    }
     m->cur = m->last; m->on = 0;
 }
 // One sample per game tick. t = meter clock (ms, pausable), act = the boss action id, active = a hit window is open now or a hit was created
@@ -87,6 +92,18 @@ static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int 
 static inline uint8_t FmCellAt(const FmMeter* m, int i) {
     const int64_t g = m->lastCell - (FM_CELLS - 1) + i;
     return m->lastCell < 0 || g < 0 ? FM_EMPTY : m->cell[g % FM_CELLS];
+}
+// View (SF6 style): while the current action has a hit, the bar starts at its first cell (it scrolls only if the action outgrows FM_CELLS);
+// otherwise the last completed attack stays frozen (snapshot taken when it ended) until the next attack's first hit. Before any attack it scrolls.
+static inline int64_t FmViewStart(const FmMeter* m) {
+    if (m->on && m->nw && m->lastCell - m->c0 < FM_CELLS && m->c0 >= m->lastCell - (FM_CELLS - 1)) return m->c0;
+    return m->lastCell - (FM_CELLS - 1);
+}
+// Cell i of the view, 0 = left .. FM_CELLS-1 = right (state | FM_EDGE, FM_EMPTY where nothing is drawn).
+static inline uint8_t FmViewCell(const FmMeter* m, int i) {
+    if (!(m->on && m->nw) && m->haveLast) return i < m->frozenN ? m->frozen[i] : FM_EMPTY;
+    const int64_t g = FmViewStart(m) + i;
+    return m->lastCell < 0 || g < 0 || g > m->lastCell ? FM_EMPTY : m->cell[g % FM_CELLS];
 }
 // Two text lines of a summary: "act 0x4E6E  hits 2 (2 unblockable)" / "startup 95 / active 94-106, 141-157 / recovery 176 / total 333".
 static inline void FmText(const FmSum* s, char* l1, size_t n1, char* l2, size_t n2) {
