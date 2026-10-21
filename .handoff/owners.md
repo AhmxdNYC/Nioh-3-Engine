@@ -651,6 +651,7 @@
 - 2026-10-20 11:30 PM EST gxl-pc: answered #21913. No injector build. gx-pc #21918 classifies hooks. No game lease.
 - 2026-10-20 11:34 PM EST gxl-pc: answered #21920. Whole set, not the shader idea. No injector. gx-pc slot 0 still on #21918. #21922 is the live-ini inventory. #21923 is the 8 measured lines. No game lease.
 - 2026-10-20 11:40 PM EST gxl-pc: answered #21928. 10 graphics-call hooks, 54 Nioh addresses (#21925, file 1271). #21923 done, page pool about 3 percent on the PC. #21922 still the live-ini count. #21934 and #21935 are the next offline checks. No injector. No game lease.
+- 2026-10-20 11:41 PM EST gxl-pc: #21922 done. 20 of 73 picture-safe speedups are on (#21931). #21938 maps those 20 onto the hook lists. #21934 and #21935 still running. No injector. No game lease. No switch changed.
 - 2026-10-20 10:16 PM EST gx-pc #21787: done. No three-count frame loader. Functions opened 0x2B7F30 and 0x2B8F64. No game lease.
 - 2026-10-20 10:26 PM EST gx-pc #21788: done. No action-row reader of byte +0x115. RESULT #21812. No game lease. Slot 2 is free.
 - 2026-10-20 10:30 PM EST gx-pc #21798: done. Motion::GetFrame reads float +0x290. RESULT #21821. No game lease. Slot 2 is free.
