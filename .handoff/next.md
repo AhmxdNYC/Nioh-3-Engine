@@ -1798,3 +1798,13 @@ Next 3 built look-same opts besides PJ: R2a/R1 on Ally, not tested. Ally CPU bun
 
 ## 2026-10-20 11:34 pm EST (#21920)
 Phone #21921. The human meant every picture-safe optimization, not the shader warmup. The whole set is still not one drop-in file for the next Katana game. Most cuts hook this Nioh 3. Do not build an injector. Do not launch. #21918 still classifies graphics-API hooks versus this game's function addresses. gx-pc #21922 counts which picture-safe switches are in the build and on in the live ini. gx-pc #21923 writes the measured lines for R2a, R1, PP, MA, AS0, JT, BP, and the UI skip. Training search stays stopped.
+
+## 2026-10-20 11:40 pm EST (#21928)
+Phone #21930 and #21932. Unlikely to copy the cuts onto the next Katana game without looking at that game. The lessons shorten the search. Hook split #21925: 10 graphics-call hooks, 54 Nioh 3 address hooks. File #1271. Those 10 might copy only if the next game makes the same graphics call. #21923: only the page-pool skip has a measured gain, about 3 percent on the PC. Do not build an injector. Do not launch. #21934 splits the 10 into pure API entries versus Nioh patches. #21935 counts which of the 64 have a measured number and which gained over 2 percent. #21922 may still be running. Training search stays stopped.
+
+## 2026-10-20 11:37 pm EST (#21918)
+Look-preserving hooks: 10 graphics API (PJ, VrrPresent, Barriers among them), 54 Nioh 3 addresses (AABB, MQ, PCM among them). Names in bridge file #1271. RESULT #21925. Resolution and effect cuts skipped. Game not opened.
+2026-10-20 11:39 PM EST gx-pc #21923: eight lines sent as RESULT #21929. PP +2.9% on the PC is the only measured gain, picture still unchecked. Best next test is one Ally R2a/R1 session with screenshots. Not run. Game not launched.
+
+## 2026-10-20 11:40 PM EST (#21922)
+73 picture-safe speedups are in the engine fix. 20 are on in the live ini: MW, W1, W2, VRR, W3, R1, L1, WK, FG, W6, B, J1, GF, WG, LK, CP, MQ, PT1, DL, PJ. RESULT #21931. Game not opened. No switch changed.
