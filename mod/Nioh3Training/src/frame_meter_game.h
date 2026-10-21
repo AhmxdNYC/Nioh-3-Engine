@@ -9,6 +9,8 @@
 // Ini (Nioh3Training.ini [Practice]): FrameMeter = 0/1 (default 0, the Practice hub row 'Frame meter'), FrameMeterY = top of the meter in % of the
 // screen height (default 10: below the boss name and health bar).
 #include "frame_meter.h"
+static volatile LONG g_fz_hold, g_fz_over, g_fz_frames, g_fz_steps; static int g_fz_vk_freeze, g_fz_vk_step;  // practice_freeze_game.h (Practice freeze + frame advance)
+static const char* FzKeyName(int vk, char* b, int n);
 static FmMeter g_fm; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
 static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 10;
 static HWND g_fm_wnd, g_fm_game;
@@ -24,7 +26,7 @@ static void FmFeed(double gdt) {
     double dt = gdt;
     if (dt < 0) dt = 0; if (dt > 150) dt = 150;
     const uint8_t* gs = GameState();
-    if (g_menu_frozen || g_dbg_frozen || (gs && gs[2])) dt = 0;
+    if (((g_menu_frozen || g_dbg_frozen) && !g_fz_over) || (gs && gs[2])) dt = 0;  // a Practice frame step runs one frame through every stop request
     g_fm_clock += dt;
     int s = -1; for (int i = 0; i < N3T_SLOTS; ++i) if (g_fp[i].valid) { s = i; break; }
     if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; return; }  // no boss: the last picture stays
@@ -69,7 +71,8 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     FmFill(dc, x0 - pad, 0, barW + 2 * pad, h, RGB(16, 18, 24));
     HGDIOBJ of = SelectObject(dc, g_fm_font); SetBkMode(dc, TRANSPARENT);
     char l1[200], l2[220]; FmText(&m.cur, l1, sizeof l1, l2, sizeof l2);
-    char head[240]; snprintf(head, sizeof head, "FRAME METER  Boss %c  %s", 'A' + (g_fm_slot < 0 ? 0 : g_fm_slot), l1);
+    char head[240], fz[96] = ""; if (g_fz_hold) { char a[16], b[16]; snprintf(fz, sizeof fz, "  FROZEN +%ld f (%s step, %s resume)", g_fz_frames, FzKeyName(g_fz_vk_step, a, sizeof a), FzKeyName(g_fz_vk_freeze, b, sizeof b)); }
+    snprintf(head, sizeof head, "FRAME METER  Boss %c  %s%s", 'A' + (g_fm_slot < 0 ? 0 : g_fm_slot), l1, fz);
     SetTextColor(dc, m.cur.ub ? RGB(215, 150, 255) : RGB(235, 235, 235)); TextOutA(dc, x0, pad, head, (int)strlen(head));
     SetTextColor(dc, RGB(230, 225, 150)); TextOutA(dc, x0, pad + lineH, l2, (int)strlen(l2));
     const int by = pad + lineH * 2 + 3;

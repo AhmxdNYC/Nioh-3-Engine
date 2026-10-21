@@ -1938,6 +1938,7 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel, forced; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
 static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused; int watch, pauseLogged; } g_xr;
+static volatile LONG g_fz_hold; static int g_fz_vk_freeze; static int FzHoldSet(int on, const char* why);  // user #22589 Practice freeze (practice_freeze_game.h)
 static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on); static volatile LONG g_menu_frozen; static void MenuFreeze(int on, const char* why);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
@@ -2497,6 +2498,7 @@ static void RhTick(void) {
         // #9920: a Return picked while the F9 freeze holds game time never runs the world switch (it ran only after F9 was released, 2 min later): release it first
         if (g_dbg_frozen) { DbgFreeze(0); Log("RETURN: F9 debug freeze released first (game time was stopped: time scale now %.3f)", DbgTimeScale()); }
         if (g_menu_frozen) MenuFreeze(0, "Return to where I was");  // user #13274: the menu pause never holds a return
+        if (g_fz_hold) FzHoldSet(0, "Return to where I was");  // user #22589: the Practice freeze never holds a return
         if (g_xr.active) { Log("RETURN: an older return put-back (watch %d) dropped for this return", g_xr.watch); g_xr.active = 0; }
         if (g_xw.active) {
             g_xw.oWorld = g_home.world; g_xw.oJourney = g_home.journey; g_xw.oMode = g_home.mode; g_xw.oStart = g_home.start; memcpy(g_xw.oPos, g_home.pos, sizeof g_xw.oPos);
@@ -4646,6 +4648,7 @@ static DWORD WINAPI DbgThread(LPVOID p) {
         HWND w = GetForegroundWindow(); DWORD pid = 0; if (w) GetWindowThreadProcessId(w, &pid);
         int fg = pid == GetCurrentProcessId();
         int f = fg && g_dbg_freeze_vk && (GetAsyncKeyState(g_dbg_freeze_vk) & 0x8000), b = fg && g_dbg_bug_vk && (GetAsyncKeyState(g_dbg_bug_vk) & 0x8000);
+        if (f && g_pst_live && !g_dbg_frozen && g_dbg_freeze_vk == g_fz_vk_freeze) f = 0;  // user #22589: in Practice this key drives the Practice freeze (FzKeyThread)
         if (f && !fWas) {
             int on = !g_dbg_frozen; LONG n = InterlockedIncrement(&g_dbg_n); char line[1400], shot[MAX_PATH + 96];
             if (on) { DbgFreeze(1); DbgBossLine(line, sizeof line); Sleep(120); DbgShot("freeze", shot, sizeof shot);
@@ -4702,6 +4705,8 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
+#include "practice_freeze.h"
+#include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
@@ -4736,6 +4741,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { MvTick(); ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { FpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FpUnlock(); }  // user #22356 frame probe (log only, off unless [Debug] FrameProbe 1)
+    __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
@@ -4794,6 +4800,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         PstLoadIni(ini);  // user #22389 [Practice]
         g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0)");  // user #22356
         FmLoadIni(ini);  // Practice frame meter
+        FzLoadIni(ini);  // user #22589 Practice freeze keys
+        { HANDLE t = CreateThread(0, 0, FzKeyThread, 0, 0, 0); if (t) CloseHandle(t); }
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);
         { int sp = (int)GetPrivateProfileIntA("Summon", "SummonPassiveMs", 3000, ini); g_cfg_sum_passive = sp < 0 ? 0 : sp > SUM_PASSIVE_MAX ? SUM_PASSIVE_MAX : sp; }  // user #13164
         g_cfg_spawnverify = GetPrivateProfileIntA("Summon", "SpawnVerify", 1, ini); g_cfg_fn_summon = GetPrivateProfileIntA("Summon", "FightNowSummon", 1, ini); g_cfg_fn_arena = GetPrivateProfileIntA("Summon", "FightNowArena", 1, ini); g_cfg_tr_dist = GetPrivateProfileIntA("Summon", "Distance", 300, ini);
