@@ -1792,3 +1792,9 @@ PJ hitch to beat is 167 ms. 6 of 6 gameplay frames over 33 ms were shader compil
 
 2026-10-20 11:28 PM EST gx-pc #21908: item 14776 is TG, the 30 Hz logic governor. It changes the simulation step and input timing, not CPU only. The code is in the current build (since 1.6.0), default off. This PC's ini already has it on. Not changed. Game not launched.
 - 2026-10-20 11:29 PM EST gx-pc #21906: a PJ journal already exists beside the game ini. pj_win_dgpu_sm68.bin is 67,108,773 bytes, last written 6:56 pm EST on October 11. PJ was not changed. Game not opened.
+
+## 2026-10-20 11:31 pm EST (#21907)
+Next 3 built look-same opts besides PJ: R2a/R1 on Ally, not tested. Ally CPU bundle (PP and MA) on Ally, not tested. AS0 on Ally, tested on PC as neutral only. RESULT #21919. Game not opened. No test.
+
+## 2026-10-20 11:34 pm EST (#21920)
+Phone #21921. The human meant every picture-safe optimization, not the shader warmup. The whole set is still not one drop-in file for the next Katana game. Most cuts hook this Nioh 3. Do not build an injector. Do not launch. #21918 still classifies graphics-API hooks versus this game's function addresses. gx-pc #21922 counts which picture-safe switches are in the build and on in the live ini. gx-pc #21923 writes the measured lines for R2a, R1, PP, MA, AS0, JT, BP, and the UI skip. Training search stays stopped.

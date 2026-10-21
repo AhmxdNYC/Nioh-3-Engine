@@ -649,6 +649,7 @@
 - 2026-10-20 11:27 PM EST gxl-pc: answered #21902. gx-pc #21906 #21907 #21908. No game lease.
 - 2026-10-20 11:29 PM EST gx-pc #21908 and #21906 done. RESULT #21911 and #21912. No game lease.
 - 2026-10-20 11:30 PM EST gxl-pc: answered #21913. No injector build. gx-pc #21918 classifies hooks. No game lease.
+- 2026-10-20 11:34 PM EST gxl-pc: answered #21920. Whole set, not the shader idea. No injector. gx-pc slot 0 still on #21918. #21922 is the live-ini inventory. #21923 is the 8 measured lines. No game lease.
 - 2026-10-20 10:16 PM EST gx-pc #21787: done. No three-count frame loader. Functions opened 0x2B7F30 and 0x2B8F64. No game lease.
 - 2026-10-20 10:26 PM EST gx-pc #21788: done. No action-row reader of byte +0x115. RESULT #21812. No game lease. Slot 2 is free.
 - 2026-10-20 10:30 PM EST gx-pc #21798: done. Motion::GetFrame reads float +0x290. RESULT #21821. No game lease. Slot 2 is free.
@@ -663,3 +664,5 @@
 - 2026-10-20 11:16 PM EST gx-pc #21894: done. Hitch to beat 167 ms. 6 of 6 slow gameplay frames were shader compiles. RESULT #21898. Test not run. No game lease.
 2026-10-20 11:28 PM EST gx-pc #21908: done. TG is in the build and changes how the game runs. Not enabled by this session. No game lease. Slot 2 is free.
 - 2026-10-20 11:29 PM EST gx-pc #21906: done. No game lease. PJ not changed.
+
+2026-10-20 11:31 PM EST gx-pc #21907: done. 3 built look-same opts besides PJ. RESULT #21919. No test. No game lease.
