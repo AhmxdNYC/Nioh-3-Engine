@@ -310,3 +310,5 @@
 - 2026-10-20 | Yoritomo has 6 sequences | User said he does not have 11541 sequences | 11541 is every branch path. The 6 are one attack, one next move, then a stop.
 - 2026-10-20 | Yoritomo attacks that stand alone | How many of his 88 attacks have no next move | 46 stand alone. 6 sequences plus 46 plus 29 choices is 81. The other 7 have one next move that does not stop.
 - 2026-10-20 | Which sequence endings are attacks | Are the 6 sequence targets themselves attacks | 5 are attacks. 18D1 is not.
+- 2026-10-20 | Seven leftover Yoritomo chains | Do the 7 one-next attacks become sequences | All 7 stop at a choice. None of them end.
+- 2026-10-20 | Frame meter in the move file | Are startup, active, and recovery stored on his attacks | No. 0 of 88 attacks have those three counts. Animation length is not the meter.

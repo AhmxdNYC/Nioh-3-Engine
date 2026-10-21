@@ -1714,3 +1714,12 @@ Did not stop. Script prints 6 sequences (#21721, commit 5e59fbf1). Phone #21731.
 
 ## 2026-10-20 10:04 pm EST (#21762)
 Phone #21763. Counting frames by hand is out. A block count is not a frame meter (#21758). Sequences stay 6. 46 of 88 attacks stand alone (#21735). 5 of 6 sequence endings are attacks; 18D1 is not (#21734). Next: #21764 walk the 7 leftover chains, #21765 read startup/active/recovery from the file or say none, #21766 look for a block-property column. Game not opened. Menu not edited.
+- 2026-10-20 10:05 PM EDT gx-pc #21764: the 7 single-next attacks all stop at a choice. 4E5C 4E60 choice. 4E61 4E62 choice. 4E7B 4EA6 4EA7 choice. 4E7D 4E77 choice. 4E9C 4EA0 choice. 4EA1 4EA2 choice. 4EA6 4EA7 choice. None ends. No branch-path counts. Game not launched. Menu not edited.
+
+## 2026-10-20 10:07 pm EST (#21765)
+No startup, active, and recovery counts in Yoritomo's action file. Note notes/yoritomo-frame-fields.md, commit cb65b0cf. Game not opened.
+
+## 2026-10-20 10:08 pm EST (#21768)
+Phone #21770 and #21772. Frame numbers may be in the move file or in another file. The move file has 0 of 88. The 7 leftover chains all stop at a choice (#21767). Next: #21773 looks in the other archive parts. #21766 block column still running. Game not opened. Menu not edited.
+
+- 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 two-byte columns differ across Yoritomo's 88 attacks. Best on-off split outside the attack mark and the next-action link is byte +0x115 (34 set, 54 clear). The file does not label it. RESULT #21774. Game not launched. Menu and yoritomo-frame-fields.md not edited.

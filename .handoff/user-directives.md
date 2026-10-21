@@ -305,4 +305,5 @@
 - #21716 (2026-10-20 8:47 pm EST): Yoritomo does not have 11541 sequences. That number is branch paths. A sequence is one next move that ends. His sequence count is 6. Do not report the branch-path count as his sequence count. Stay on Yoritomo. Do not open the game for this.
 - #21757 (2026-10-20 9:57 pm EST): Holding block and counting which Yoritomo moves still hit is a candidate unblockable check. Health reverse is only a maybe. Do not treat that count as frame data. Do not write game memory.
 - #21758 (2026-10-20 9:58 pm EST): A block count is not a Street Fighter frame meter. Do not report startup, active, or recovery from blocks.
-- #21762 (2026-10-20 10:03 pm EST): Do not count frames by hand. Frame numbers have to be read from the move file by the same kind of automatic pass as the sequences. Do not open the game to count frames.
+- #21762 (2026-10-20 10:03 pm EST): Do not count frames by hand. Frame numbers have to be read by an automatic pass, the same kind as the sequences. Do not open the game to count frames.
+- #21768 (2026-10-20 10:06 pm EST): Frame numbers may be in Yoritomo's move file or in another file not found yet. Do not lock the search to the move file. Do not count frames by hand. Do not open the game to count them.
