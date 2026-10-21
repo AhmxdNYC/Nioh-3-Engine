@@ -1734,3 +1734,9 @@ Phone #21789. The look was for three counts per attack. The file does not store 
 
 ## 2026-10-20 10:15 pm EST (#21790)
 Phone #21791. Hit start and hit end are more likely in the animation clips than in the move list. Move list stays 0 of 88. Next is #21792, the animation clips. Do not call clip length a frame meter. Game not opened.
+
+## 2026-10-20 10:17 pm EST (#21794)
+Phone #21795 and #21797. Reverse the animation code. #21793: no function loads the three frame counts. Names exist for play, fade, and motion length. Next is #21798, those functions. #21792 is the clips. Game not opened.
+
+## 2026-10-20 10:16 pm EST (#21787)
+No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.

@@ -629,3 +629,6 @@
 - 2026-10-20 10:11 PM EDT gx-pc #21773: offline Yoritomo only. No game lease. No commit. No frame meter in the other subtables.
 - 2026-10-20 10:14 PM EST gxl-pc: answered #21784. gx-pc on #21786 logs, #21787 code, #21788 byte +0x115 reader. Game not opened. No game lease.
 - 2026-10-20 10:15 PM EST gxl-pc: answered #21790. gx-pc #21792 is the animation-clip look. The log, code, and +0x115 jobs were still in the other slots. Game not opened. No game lease.
+- 2026-10-20 10:17 PM EST gx-pc #21787: done. No three-count loader. RESULT #21793. No game lease.
+- 2026-10-20 10:18 PM EST gxl-pc: answered #21794. gx-pc #21798 reverses play, fade, and motion-length. #21792 still the clips. Game not opened. No game lease.
+- 2026-10-20 10:16 PM EST gx-pc #21787: done. No three-count frame loader. Functions opened 0x2B7F30 and 0x2B8F64. No game lease.
