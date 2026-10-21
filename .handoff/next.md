@@ -1652,3 +1652,13 @@ Sorter ran on the pinned coverage. 14 bosses, 1784 moves, 280 attacks, 0 full ch
 ## 2026-10-20 8:07 pm EST (#21645, #21646)
 Status sent in #21649. Results: #21633 14 bosses / 1784 moves / 280 attacks / 0 chains. #21636 42 of 88 Yoritomo attacks have a private follow-up, longest path 13, not a proven string. #21635 writer is 0x93D6E0 and skips when the row is missing (this move wants row 72 of 51).
 Next tasks, game stays closed, no 221 chase: #21650 how many of the 42 have exactly one target. #21651 why Shingen shows 0 attacks. #21652 how many of the 88 attack ids fall past the 51-row table.
+
+- 2026-10-20 8:08 PM EDT gx-pc #21652: 5 of Yoritomo's 88 attack ids land in the 51-row side table (index = id minus 0x4E20, rows 0-50). 83 are past it, same miss as 0x4E68 at row 72. Inside examples: 0x4E4E, 0x4E4F, 0x4E52. Past examples: 0x4E53, 0x4E68, 0x4EB9. RESULT #21654. Game not launched. Menu not edited.
+
+- 2026-10-20 8:09 PM EDT gx-pc #21650: 13 of the 42 attacks have exactly one private target. 29 have two or more. 628 full choice paths are longer than 2 actions, and 11 are only a pair. Not a proven string. Commit 33f9e88a. Game not launched. Menu not edited.
+
+## 2026-10-20 8:09 pm EST (#21651)
+Shingen attack flag is the empty word 65535 at 0x13C and 0x142 on all 136 rows. 0 rows are non-zero. Script not edited. Game not launched.
+
+## 2026-10-20 8:11 pm EST (#21661)
+Phone #21662. New counts from #21658 #21659 #21654: 13 of 42 have one follow-up, 29 have more, Shingen attack mark empty on 136/136, 83 of 88 miss the 51-row table. Next: #21663 list the 13, #21664 any other Shingen column, #21665 slot byte on the 5 inside rows. Game closed. No 221 chase.

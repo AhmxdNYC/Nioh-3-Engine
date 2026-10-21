@@ -592,3 +592,7 @@
 - 2026-10-20 7:40 PM EDT gx-pc #21631: done. Writer of object +0x70 is 0x93D6E0. RESULT #21635. No game lease. Slot 2 is free.
 - 2026-10-20 7:41 PM EDT gx-pc #21629: offline count only. No game lease. Note pushed 44301104 on gxl-pc/move-sort-20999. 42 of 88 have a private choice link. The 13-action path is not a proven string.
 - 2026-10-20 8:07 PM EDT gxl-pc: #21633 #21635 #21636 digested. gx-pc tasked #21650 #21651 #21652. Game closed. Do not chase 221.
+- 2026-10-20 8:08 PM EDT gx-pc #21652: done. 5 inside the 51-row table, 83 past it. RESULT #21654. No game lease. Slot 2 is free.
+- 2026-10-20 8:09 PM EDT gx-pc #21650: offline count only. No game lease. Note pushed 33f9e88a. 13 single-target, 29 multi-target, 628 paths longer than 2 actions.
+- 2026-10-20 8:09 PM EST gx-pc #21651: done. Shingen 0x13C and 0x142 are empty on 136/136 rows. No game lease.
+- 2026-10-20 8:11 PM EDT gxl-pc: digested #21658 #21659 #21654. gx-pc tasked #21663 #21664 #21665. Game closed.
