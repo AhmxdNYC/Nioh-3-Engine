@@ -319,3 +319,4 @@
 - #21834 (2026-10-20 10:38 pm EST): Do not run the Yoritomo practice block test. The human will check that themselves.
 - #21839 (2026-10-20 11:04 pm EST): Stop the Yoritomo training search. Document what was found, then stop. Do not launch the practice fight. Do not keep hunting frames, grabs, or unblockable labels. He has 173 moves, 88 attacks, and 6 sequences. #21871 is GO after a HOLD, so the fleet is not paused. The training stop still stands.
 - #21885 (2026-10-20 11:09 pm EST): Look at the current work and the notes Claude or Codex already wrote for ways to make the game run better. Do not restart the Yoritomo training search. Do not launch the game for this look.
+- #21891 (2026-10-20 11:15 pm EST): Have workers look into the shader warmup (PJ) that was built and never tested. Do not restart the Yoritomo training search. Do not launch the game until a later check that is allowed to test.

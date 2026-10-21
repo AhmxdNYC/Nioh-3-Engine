@@ -1756,6 +1756,9 @@ Training search stopped. Phone #21877. Write-up is .handoff/yoritomo-training-st
 ## 2026-10-20 11:09 pm EST (#21885)
 Phone #21886. Look at Claude and Codex optimization notes. Do not restart training. Do not launch for this look. Best unused item in notes/whats-left.md row 0: PJ shader warmup was built and never A/B tested. PC at the user's settings is GPU-bound, about 90 percent, 100 to 118 fps. Ally main-thread ceiling is about 57 fps and the Ally is not running the PC CPU fixes.
 
+## 2026-10-20 11:15 pm EST (#21891)
+Phone #21892. Workers look at PJ only. Do not launch. Do not restart training. Tasks #21893 ini and code, #21894 hitch numbers, #21895 PC or Ally. Game not opened.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
 
