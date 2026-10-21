@@ -33,6 +33,8 @@ Everything acts only while a Practice session runs (`g_tr.active`) or a Training
 
 ## Leads: boss speed (feature 1)
 
+- **Follow-up: `notes/boss-speed-lever-22389.md`.** The per-character play rate comes from `ComputeMotionSpeed 0x134E68(ctrl)`. An entry hook that does `*= mult` when `[ctrl+0xE0]` is the boss gives a boss-only speed lever. The same note has the ninjutsu gauge: `st+0x36AC+k*0x30` cur / `+0x36B0` max, k = 0..2.
+
 - `G+0x624` is the global game time scale (`DbgTimeScale`, `[0x4759910]+0x624`). Getters: `0x42DDE4` (raw), `0x434DF4` (scaled), and `0x46484` (dt = scale * k / fps, 65 callers). Changing it is global: the player slows too. Not used.
 - `Position::AnimeSpeed` / `Position::GetLocalAnimeSpeed` / `Rotation::AnimeSpeed` binding names (`0x3BEFA50` ..., table `0x39794F0`, used by `0x94F4C` / `0x34DB38`). These are root-motion read-outs, not a play-rate setter. GUESSED, not followed.
 - `MissionScriptFunction` has no Character time-scale or speed setter (full list: `Character_*` in strings.tsv).
