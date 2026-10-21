@@ -1744,6 +1744,9 @@ Phone #21803 and #21808. All 3 workers were on the animation work. The decompile
 ## 2026-10-20 10:26 pm EST (#21813)
 Phone #21814 and #21815. The boss file does not label unblockable or grab. #21812: attack code does not read byte +0x115, so the 34-versus-54 split is unused. #21816 searches for a grab or unblockable label and must say none if unnamed. Game not opened.
 
+## 2026-10-20 10:28 pm EST (#21819)
+Phone #21820. Find one attack that is the unblockable or the grab before any log read. Logs only for that one attack. Do not read logs for all 88. #21816 is the name search only, not a log read. Game not opened.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
 
