@@ -1,0 +1,98 @@
+// user #22356 follow-up: SF6-style boss frame meter for Practice. Pure state machine, no game access (tests/frame_meter_test.c).
+// Game glue + drawing: frame_meter_game.h (fed once per game tick from the FRAMEPROBE pump, frame_probe_game.h). Generic for every boss:
+// it only uses the live probe signals (boss action id, "a hit window is open", "that window is unblockable" = hit +0x13C bit 10), no per-boss table.
+//   One run = one boss action (from its start to the next action id). Cells are 60 fps frames of a pausable meter clock (ms * 0.06).
+//   While a run has no hit yet its cells are PENDING; at the first hit window they turn STARTUP; a run that ends without a hit turns NEUTRAL.
+//   Active cells are ACTIVE or ACTIVE_UB (unblockable); after the last window the cells are RECOVERY until the next action.
+//   Windows that reopen within FM_TOL_MS of the previous window's end merge into one hit (0x4E6E makes 8 colliders = 2 hits), as in
+//   tools/frame_probe_summary.py. Numbers (frames since the action start, as notes/frame-probe-22356.md):
+//   startup = first active frame (1-based), active a-b = window open .. end, recovery = total - end of the last window, total = action length.
+#pragma once
+#include <stdint.h>
+#include <stdio.h>
+#define FM_CELLS 360    // 6 s at 60 fps (0x4E6E is 333 frames)
+#define FM_MAXW 8       // merged windows (hits) kept per run; more are merged into the last one
+#define FM_TOL_MS 17.0  // one 60 fps frame
+enum { FM_EMPTY = 0, FM_NEUTRAL, FM_PENDING, FM_STARTUP, FM_ACTIVE, FM_ACTIVE_UB, FM_RECOVERY };
+#define FM_EDGE 0x80    // cell flag: first cell of an action
+typedef struct { uint32_t act; int hits, ub, startup, total, recovery, done; int ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW]; } FmSum;
+typedef struct {
+    uint8_t cell[FM_CELLS];  // ring, global cell g at [g % FM_CELLS]
+    int64_t lastCell;        // newest written global cell (-1 = none)
+    uint8_t prevSt;          // state of the previous sample (fills skipped cells)
+    int on, nw, open;
+    uint32_t act; double t0; int64_t c0;
+    double ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW];
+    FmSum cur, last; int haveLast;
+} FmMeter;
+static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; }
+static inline int64_t FmCellOf(double t) { return t <= 0 ? 0 : (int64_t)(t * 0.06); }
+static inline int FmRound(double f) { return f <= 0 ? 0 : (int)(f + 0.5); }
+static inline void FmRecolor(FmMeter* m, int64_t from, int64_t to, uint8_t a, uint8_t b) {
+    if (from < m->lastCell - (FM_CELLS - 1)) from = m->lastCell - (FM_CELLS - 1);
+    if (from < 0) from = 0;
+    if (to > m->lastCell) to = m->lastCell;
+    for (int64_t g = from; g <= to; ++g) { uint8_t* c = &m->cell[g % FM_CELLS]; if ((*c & 0x7F) == a) *c = (uint8_t)((*c & FM_EDGE) | b); }
+}
+static inline int FmIsActive(uint8_t st) { return st == FM_ACTIVE || st == FM_ACTIVE_UB; }
+static inline void FmPut(FmMeter* m, int64_t g, uint8_t st, int edge) {
+    if (g < m->lastCell) return;  // clock went back: ignore
+    if (g == m->lastCell) {        // several ticks per 60 fps frame: active wins, the edge flag sticks
+        uint8_t* c = &m->cell[g % FM_CELLS]; const uint8_t old = *c & 0x7F;
+        const uint8_t ns = FmIsActive(st) ? st : FmIsActive(old) ? old : st;
+        *c = (uint8_t)((*c & FM_EDGE) | (edge ? FM_EDGE : 0) | ns);
+        m->prevSt = st; return;
+    }
+    int64_t from = m->lastCell + 1;
+    if (from < g - FM_CELLS) from = g - FM_CELLS;  // long gap: only the last ring's worth
+    for (int64_t k = from; k < g; ++k) m->cell[k % FM_CELLS] = m->lastCell < 0 ? FM_EMPTY : m->prevSt;
+    m->cell[g % FM_CELLS] = (uint8_t)(st | (edge ? FM_EDGE : 0));
+    m->lastCell = g; m->prevSt = st;
+}
+static inline void FmSummary(const FmMeter* m, double t, int done, FmSum* s) {
+    s->act = m->act; s->hits = m->nw; s->done = done; s->ub = 0;
+    s->total = FmRound((t - m->t0) * 0.06);
+    for (int i = 0; i < m->nw; ++i) { s->ws[i] = (int)(m->ws[i] * 0.06); s->we[i] = FmRound(m->we[i] * 0.06); s->wub[i] = m->wub[i]; if (m->wub[i]) s->ub++; }
+    s->startup = m->nw ? s->ws[0] + 1 : -1;  // window starts are the frame they opened in (floor), ends are rounded
+    s->recovery = m->nw ? s->total - s->we[m->nw - 1] : -1;
+}
+static inline void FmEnd(FmMeter* m, double t) {
+    if (!m->on) return;
+    if (!m->nw) FmRecolor(m, m->c0, m->lastCell, FM_PENDING, FM_NEUTRAL);
+    else { FmSummary(m, t, 1, &m->last); m->haveLast = 1; }
+    m->cur = m->last; m->on = 0;
+}
+// One sample per game tick. t = meter clock (ms, pausable), act = the boss action id, active = a hit window is open now or a hit was created
+// since the previous sample, ub = one of those windows is unblockable.
+static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int ub) {
+    int edge = 0;
+    if (!m->on || act != m->act) {
+        FmEnd(m, t);
+        m->on = 1; m->act = act; m->t0 = t; m->c0 = FmCellOf(t); m->nw = 0; m->open = 0; edge = 1;
+    }
+    const double rel = t - m->t0; const int64_t g = FmCellOf(t);
+    if (active) {
+        if (m->open) { m->we[m->nw - 1] = rel; m->wub[m->nw - 1] |= (uint8_t)!!ub; }
+        else if (m->nw && (rel - m->we[m->nw - 1] <= FM_TOL_MS || m->nw == FM_MAXW)) { m->open = 1; m->we[m->nw - 1] = rel; m->wub[m->nw - 1] |= (uint8_t)!!ub; }
+        else {
+            m->ws[m->nw] = m->we[m->nw] = rel; m->wub[m->nw] = (uint8_t)!!ub; m->nw++; m->open = 1;
+            if (m->nw == 1) FmRecolor(m, m->c0, g - 1, FM_PENDING, FM_STARTUP);
+        }
+    } else if (m->open) { m->we[m->nw - 1] = rel; m->open = 0; }
+    const uint8_t st = active ? (ub ? FM_ACTIVE_UB : FM_ACTIVE) : m->nw ? FM_RECOVERY : FM_PENDING;
+    FmPut(m, g, st, edge);
+    if (m->nw) FmSummary(m, t, 0, &m->cur); else if (m->haveLast) m->cur = m->last; else m->cur.act = 0, m->cur.hits = 0, m->cur.total = -1;
+}
+// Cell i of the bar, 0 = oldest .. FM_CELLS-1 = newest (state | FM_EDGE).
+static inline uint8_t FmCellAt(const FmMeter* m, int i) {
+    const int64_t g = m->lastCell - (FM_CELLS - 1) + i;
+    return m->lastCell < 0 || g < 0 ? FM_EMPTY : m->cell[g % FM_CELLS];
+}
+// Two text lines of a summary: "act 0x4E6E  hits 2 (2 unblockable)" / "startup 95 / active 94-106, 141-157 / recovery 176 / total 333".
+static inline void FmText(const FmSum* s, char* l1, size_t n1, char* l2, size_t n2) {
+    if (!s->hits) { snprintf(l1, n1, "Frame meter: waiting for a boss attack"); snprintf(l2, n2, "%s", ""); return; }
+    snprintf(l1, n1, "act 0x%X  hits %d%s%s", s->act, s->hits, s->ub ? (s->ub == s->hits ? "  UNBLOCKABLE" : "  some unblockable") : "", s->done ? "" : "  (in progress)");
+    char a[160]; int o = 0; a[0] = 0;
+    for (int i = 0; i < s->hits && i < FM_MAXW && o < (int)sizeof a - 24; ++i) o += snprintf(a + o, sizeof a - o, "%s%d-%d%s", i ? ", " : "", s->ws[i], s->we[i], s->wub[i] ? "!" : "");
+    snprintf(l2, n2, "startup %d / active %s / recovery %d%s / total %d%s", s->startup, a, s->recovery, s->done ? "" : "+", s->total, s->done ? "" : "+");
+}

@@ -62,9 +62,9 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
-static int pst[7] = {0, 100, 100, 0, 100, 0, 100}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
-static int PstGetX(int what) { return what >= 0 && what < 7 ? pst[what] : -1; }
-static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 6) return -1; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
+static int pst[8] = {0, 100, 100, 0, 100, 0, 100, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
+static int PstGetX(int what) { return what >= 0 && what < 8 ? pst[what] : -1; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 7) return -1; if (what == 7 && v < 0) v = !pst[7]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -116,10 +116,11 @@ int main() {
     CHECK(!UiBack() && g_uiPages.page == uRoot);
     // Practice hub: Train here / arena / Training Bosses / Summon / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
-    list(); CHECK(n == 6 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItBossSumm && items[4] == kItRootRematch && items[5] == kItBack);
+    list(); CHECK(n == 7 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_FRAME_METER && items[4] == kItBossSumm && items[5] == kItRootRematch && items[6] == kItBack);
+    CHECK(shown("Frame meter:", "OFF")); g_sel = 3; CHECK(!UiAct() && pst[7] == 1 && shown("Frame meter:", "ON")); UiChange(-1); CHECK(pst[7] == 0); g_sel = 0;  // Practice frame meter row
     CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
     sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
-    CHECK(n == 4 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools);
+    CHECK(n == 5 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_FRAME_METER);
     sessionActive = 0; list();
     // Training Bosses: Boss A row, Summon another boss, timer, Remove all (A listed), no old duplicate rows
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);

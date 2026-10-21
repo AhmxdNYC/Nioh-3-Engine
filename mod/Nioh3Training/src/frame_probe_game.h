@@ -18,16 +18,17 @@ typedef uint64_t (*FpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static FpFn o_fp;
 volatile uint64_t g_fp_rbx __attribute__((used));  // caller's rbx at 2B4A45 (the collision object when the caller is 2B30A0); checked against [obj+0xB0] == H
 static double g_fp_qpf; static volatile uint32_t g_fp_frame;
-static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid; FpRun run; } g_fp[N3T_SLOTS];
+static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid, pulse, pulseUb; FpRun run; } g_fp[N3T_SLOTS];  // pulse: a hit since the last frame meter sample
 static volatile LONG g_fp_calls, g_fp_match, g_fp_diag; static DWORD g_fp_diagT;
 #define FP_WIN 24
-static struct { uint64_t obj, H; int pid, slot, idx, used; double t, t0; uint32_t f, act; } g_fpw[FP_WIN];
+static struct { uint64_t obj, H; int pid, slot, idx, used, great; double t, t0; uint32_t f, act; } g_fpw[FP_WIN];
 static volatile LONG g_fp_lock, g_fp_lines; static LONG g_fp_lastCalls = -1; static FpRate g_fp_rate; static LONG g_fp_drop;
 static double FpNow(void) { LARGE_INTEGER c; QueryPerformanceCounter(&c); return (double)c.QuadPart * g_fp_qpf; }
 static int FpLock(void) { for (int i = 0; i < 200000; ++i) { if (InterlockedCompareExchange(&g_fp_lock, 1, 0) == 0) return 1; YieldProcessor(); } return 0; }
 static void FpUnlock(void) { InterlockedExchange(&g_fp_lock, 0); }
+static void FmFeed(double now);  // frame_meter_game.h (Practice frame meter), called at the end of FpTick under the lock
 static void FpLog(const char* fmt, ...) {
-    if (g_fp_lines > 30000) return;
+    if (!g_cfg_fp || g_fp_lines > 30000) return;  // log only with [Debug] FrameProbe 1 (the frame meter alone installs the hook silently)
     if (!FpRateOk(&g_fp_rate, FpNow(), 40.0)) { g_fp_drop++; return; }
     InterlockedIncrement(&g_fp_lines);
     char m[900]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap);
@@ -61,7 +62,7 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     int s = -1, how = 0;
     for (int i = 0; i < N3T_SLOTS; ++i) if (atk && g_fp[i].a) { const int h = g_fp[i].a == atk ? 1 : g_fp[i].ai == atk ? 2 : g_fp[i].ctrl && a8 == g_fp[i].ctrl ? 3 : 0; if (h) { s = i; how = h; } }
     if (s < 0) {  // not a Training boss (player, allies, NPCs, projectiles without an owner link); the first 40 are logged for the attacker mapping
-        if (InterlockedIncrement(&g_fp_diag) <= 40) Log("FRAMEPROBE diag call from %X atk %p [atk+8] %p H %p R %p obj %p | boss A a %p ai %p ctrl %p | player %p ai %p", (uint32_t)(ra - B), (void*)atk, (void*)a8, (void*)H, (void*)R, (void*)obj,
+        if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 40) Log("FRAMEPROBE diag call from %X atk %p [atk+8] %p H %p R %p obj %p | boss A a %p ai %p ctrl %p | player %p ai %p", (uint32_t)(ra - B), (void*)atk, (void*)a8, (void*)H, (void*)R, (void*)obj,
             (void*)g_fp[0].a, (void*)g_fp[0].ai, (void*)g_fp[0].ctrl, (void*)PlayerChar(), (void*)(PlayerChar() ? *(volatile uint64_t*)(PlayerChar() + 0x3B0) : 0));
         return;
     }
@@ -72,7 +73,7 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
         if (act) { id = *(volatile uint32_t*)act; rowf = *(volatile uint64_t*)(act + 0x20); if (rowf) q0 = *(volatile uint64_t*)rowf; }
         h13c = *(volatile uint32_t*)(H + 0x13C);
         if (R) { pw = *(volatile uint16_t*)(R + 0x10); el = *(volatile uint16_t*)(R + 0x12); ty = *(volatile uint16_t*)(R + 0x14); r28 = *(volatile uint16_t*)(R + 0x28); }
-    } __except (EXCEPTION_EXECUTE_HANDLER) { if (InterlockedIncrement(&g_fp_diag) <= 60) Log("FRAMEPROBE diag: boss call (match %d) read faulted, ctrl %p act %p H %p R %p", how, (void*)ctrl, (void*)act, (void*)H, (void*)R); return; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 60) Log("FRAMEPROBE diag: boss call (match %d) read faulted, ctrl %p act %p H %p R %p", how, (void*)ctrl, (void*)act, (void*)H, (void*)R); return; }
     int own = 0; uint64_t hb = 0;
     if (ra - B == 0x2B30E2 && obj && Rd64(obj + 0xB0, &hb) && hb == H) own = 1;
     const int pid = own ? FpPoolId(obj) : -1;
@@ -80,8 +81,9 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     const double now = FpNow();
     FpObserve(s, id, now, "hook");
     FpRun* r = &g_fp[s].run; const int k = FpRunHit(r, now, (h13c >> 10) & 1);
+    g_fp[s].pulse = 1; if ((h13c >> 10) & 1) g_fp[s].pulseUb = 1;  // frame meter: hit window opened (unblockable = GreatAttack bit)
     if (pid >= 0 && k >= 0) for (int w = 0; w < FP_WIN; ++w) if (!g_fpw[w].used) {
-        g_fpw[w].obj = obj; g_fpw[w].H = H; g_fpw[w].pid = pid; g_fpw[w].slot = s; g_fpw[w].idx = k; g_fpw[w].t = now; g_fpw[w].t0 = r->t0; g_fpw[w].f = g_fp_frame; g_fpw[w].act = id; g_fpw[w].used = 1; break; }
+        g_fpw[w].obj = obj; g_fpw[w].H = H; g_fpw[w].pid = pid; g_fpw[w].slot = s; g_fpw[w].idx = k; g_fpw[w].t = now; g_fpw[w].t0 = r->t0; g_fpw[w].f = g_fp_frame; g_fpw[w].act = id; g_fpw[w].great = (h13c >> 10) & 1; g_fpw[w].used = 1; break; }
     FpLog("FRAMEPROBE hit chr %u boss %c act 0x%X #%d at %.1f ms (%.1f f60, pump +%u) great %d (row bit45 %d) power %u %u %u (type %u) r28 %u h13C %08X r8 %u row %p obj %p pool %d from %X match %d",
         g_fp[s].chr, 'A' + s, id, k, now - r->t0, FpFrames60(now - r->t0), g_fp_frame - r->f0, (h13c >> 10) & 1, (int)((q0 >> 45) & 1), pw, el, ty, ty, r28, h13c, r8, (void*)R, (void*)obj, pid, (uint32_t)(ra - B), how);
     FpUnlock();
@@ -100,15 +102,16 @@ static void FpInstall(void) {
     static const uint8_t pro[21] = {0x48, 0x85, 0xC9, 0x0F, 0x84, 0x80, 0x0F, 0x00, 0x00, 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x4C, 0x89, 0x48, 0x20, 0x55};
     if (memcmp((void*)(B + 0x2B4A3C), pro, sizeof pro)) { g_fp_hooked = 2; Log("FRAMEPROBE hook 2B4A3C: bytes differ, probe off"); return; }
     o_fp = (FpFn)Hook(0x2B4A45, 12, (void*)FpEntry); g_fp_hooked = 1;
-    Log("FRAMEPROBE hook 2B4A3C (+9 = 2B4A45): on, log only (#22356)");
+    Log("FRAMEPROBE hook 2B4A3C (+9 = 2B4A45): on, read only (%s)", g_cfg_fp ? "log on, [Debug] FrameProbe 1" : "frame meter only, no log lines");
 }
 // Pump (game thread, every frame): action changes of every Training boss, and the end of open hit windows.
 static void FpTick(void) {
+    if (!g_fp_hooked && g_pst.v[PS_FRAME_METER] && g_pst_live) FpInstall();  // frame meter switched ON in the menu (game thread, like the other Practice hooks)
     if (g_fp_hooked != 1) return;
     g_fp_frame++;
     if (!FpLock()) return;
     const double now = FpNow();
-    if (GetTickCount() - g_fp_diagT > 10000 && g_fp_calls != g_fp_lastCalls) { g_fp_diagT = GetTickCount(); g_fp_lastCalls = g_fp_calls; Log("FRAMEPROBE stats: hook calls %ld, boss calls %ld, pump frames %u", g_fp_calls, g_fp_match, g_fp_frame); }
+    if (g_cfg_fp && GetTickCount() - g_fp_diagT > 10000 && g_fp_calls != g_fp_lastCalls) { g_fp_diagT = GetTickCount(); g_fp_lastCalls = g_fp_calls; Log("FRAMEPROBE stats: hook calls %ld, boss calls %ld, pump frames %u", g_fp_calls, g_fp_match, g_fp_frame); }
     for (int s = 0; s < N3T_SLOTS; ++s) {
         const uint64_t a = BvActor(s); uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
         if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = 0; continue; }
@@ -130,5 +133,6 @@ static void FpTick(void) {
             g_fpw[w].used = 0;
         } else if (now - g_fpw[w].t > 5000) { FpLog("FRAMEPROBE hitend chr %u act 0x%X #%d: pool slot %d still held after 5 s (no end seen)", g_fp[s].chr, g_fpw[w].act, g_fpw[w].idx, g_fpw[w].pid); g_fpw[w].used = 0; }
     }
+    FmFeed(now);
     FpUnlock();
 }
