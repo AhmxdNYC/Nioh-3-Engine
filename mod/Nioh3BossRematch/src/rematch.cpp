@@ -2317,7 +2317,7 @@ int BossGapGet(); int SlotStance(int s);
 void RepeatWhat(const N3Move& m, char* b, size_t n) {
     const int v = g_bossSlot >= 0 ? BossGapGet() : RepGapGet(), st = g_bossSlot >= 0 ? SlotStance(g_bossSlot) : -9;
     const int hold = st == -9 ? IdleHoldStatus() : st >= 2 ? 2 : st == 1 ? 1 : 0;
-    char gap[24];
+    char gap[32];
     if (v < 0) snprintf(gap, sizeof gap, "?");
     else snprintf(gap, sizeof gap, "%d.%02d s", v / 1000, (v % 1000) / 10);
     if (hold == 2) snprintf(b, n, "Boss does 0x%04X every %s, stands still between", m.id, gap);
