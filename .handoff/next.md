@@ -1682,3 +1682,7 @@ Phone #21672 lists the 13 pairs from #21666. Shingen has no separating column (#
 
 ## 2026-10-20 8:22 pm EST (#21679)
 User rule: one next move that ends is a sequence. Phone #21680. 12 pairs stop. One chain is 4E7B -> 4EA6 -> 4EA7. 29 are branches. Next: #21681 do the 13 targets really have 0 further links, #21682 choice spread on the 29, #21683 do 18D1, 4E77, 4EA7 end. Game closed.
+- 2026-10-20 8:22 PM EDT gx-pc #21681: 6 of the 13 targets have no private follow-up (4E54, 4E5B, 4E8D, 4EB7, 4EB9, 18D1). 4EA6 has one. Six have two or more. Candidates only. Commit 54fe95d5. Game not launched. Menu not edited.
+
+## 2026-10-20 8:24 pm EST (#21685)
+Phone #21686. Six ending sequences: 4E53-4E54, 4E93-4E5B, 4E7A-4E8D, 4E74-4EB7, 4EB8-4EB9, 4E7C-18D1. End test #21684: 6 of 13 targets have 0 follow-ups. Full path file is task #21687. Game closed.

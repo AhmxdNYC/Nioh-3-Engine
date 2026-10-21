@@ -604,3 +604,5 @@
 - 2026-10-20 8:20 PM EDT gx-pc #21673: offline join only. No game lease. 12 pairs stop. One chain of 3.
 - 2026-10-20 8:20 PM EST gx-pc #21674: done. 10 of 13 targets are in the 88. 18D1, 4E77, 4EA7 are not. No game lease.
 - 2026-10-20 8:22 PM EDT gxl-pc: #21679 recorded. gx-pc on #21681 #21682 #21683. Game closed.
+- 2026-10-20 8:22 PM EDT gx-pc #21681: offline end test only. No game lease. Note pushed 54fe95d5. 6 of 13 targets have 0 private follow-ups.
+- 2026-10-20 8:24 PM EDT gxl-pc: #21685 full sequence list. Phone #21686. gx-pc #21687 writing yoritomo-sequences.txt. Game closed.
