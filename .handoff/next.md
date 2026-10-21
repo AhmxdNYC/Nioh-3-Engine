@@ -1741,5 +1741,10 @@ Phone #21795 and #21797. Reverse the animation code. #21793: no function loads t
 ## 2026-10-20 10:22 pm EST (#21802)
 Phone #21803 and #21808. All 3 workers were on the animation work. The decompile graph is about 2 weeks behind the mod. #21809 adds the movement reversing the mod already did, when a slot frees. Do not re-decompile the whole game. Game not opened.
 
+## 2026-10-20 10:26 pm EST (#21813)
+Phone #21814 and #21815. The boss file does not label unblockable or grab. #21812: attack code does not read byte +0x115, so the 34-versus-54 split is unused. #21816 searches for a grab or unblockable label and must say none if unnamed. Game not opened.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
+
+- 2026-10-20 10:26 PM EST gx-pc #21788: no code reads Yoritomo action-row byte +0x115 or the word at +0x114. Functions that read those displacements do not also read action id +0x0C, motion +0x20, or next action +0xE0. RESULT #21812. Game not launched.

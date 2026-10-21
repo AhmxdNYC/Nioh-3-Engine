@@ -316,3 +316,4 @@
 - 2026-10-20 | What the 34 attacks are | Do the attacks on that unnamed column group in one way | 2 are sequence starts, 12 stand alone, 16 are choices, and 4 are short chains. Still not a block flag.
 - 2026-10-20 | Frame counts in the rest of his archive | Are the three frame counts in another table of his file | No. The other tables are not one record per attack. 0 of 88 have startup, active, and recovery.
 - 2026-10-20 | Frame counts in the game code | Does a function load startup, active, and recovery | No. The code has names for play, fade, and motion length, and no set of those three counts.
+- 2026-10-20 | Unnamed column is not a block flag | Does the attack code read the 34-versus-54 column | No. Nothing that reads the attack id also reads that byte. It is not an unblockable flag.
