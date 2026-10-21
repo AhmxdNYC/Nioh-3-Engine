@@ -610,3 +610,5 @@
 - 2026-10-20 8:27 PM EST gx-pc #21682: done. 29 attacks, choices 2 / 6 / 8. No game lease.
 - 2026-10-20 8:34 PM EST gx-pc #21683: done. 18D1 ends. 4E77 follows 4E78 (not an attack). 4EA7 follows 4E7C (an attack) and 18D1. RESULT #21696. No game lease. Slot 2 is free.
 - 2026-10-20 8:35 PM EDT gxl-pc: #21698 algorithm. gx-pc #21701 writing boss_sequences.py. Two slots left free so they do not edit that same file. Game closed.
+- 2026-10-20 8:39 PM EDT gx-pc #21701: offline script only. No game lease. Pushed 49cc2301. Yoritomo 11541/27593.
+- 2026-10-20 8:44 PM EDT gxl-pc: #21708 focus Yoritomo. Sorter landed in #21705. Next is the simple-sequence count. Game closed.

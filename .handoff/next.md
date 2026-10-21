@@ -1695,3 +1695,7 @@ The 29 Yoritomo attacks with 2 or more private follow-ups range from 2 to 8 choi
 
 ## 2026-10-20 8:35 pm EST (#21698)
 Phone #21700. Algorithm task #21701: tools/boss_sequences.py in nioh3-sort-20999, same walk for every boss, depth cap 8. Yoritomo reference is 11541 ending and 27593 cut (#21689). Do not edit the menu. Game closed.
+- 2026-10-20 8:39 PM EDT gx-pc #21701: tools/boss_sequences.py counts private follow-up paths for every source-list boss. Yoritomo 11541 ending, 27593 cut. The 6 ending pairs are present. Shingen, Masakage, Mezuki, and Soji are 0 because their sorter file has no attack-flag row. Commit 49cc2301. Game not launched. Menu not edited.
+
+## 2026-10-20 8:44 pm EST (#21708)
+Phone #21709 and the follow-up. 39230 is paths, not moves. Sorter #21705 matches Yoritomo 11541 end / 27593 cut. Next task is the simple one-next-move list, Yoritomo only. Game closed.
