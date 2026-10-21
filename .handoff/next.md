@@ -1703,3 +1703,7 @@ Phone #21709 and the follow-up. 39230 is paths, not moves. Sorter #21705 matches
 
 ## 2026-10-20 8:47 pm EST (#21716)
 Phone correction: do not call 11541 his sequence count. Simple sequences are 6 (#21713). Script label fix is the follow-up task. Game closed. Stay on Yoritomo.
+- 2026-10-20 8:57 PM EDT gx-pc #21718: boss_sequences.py now calls only the simple chains sequences. Yoritomo prints 6 sequences and 11541 branch paths. Commit 5e59fbf1. Other bosses were not run. Game not launched. Menu not edited.
+
+## 2026-10-20 9:20 pm EST (#21730)
+Did not stop. Script prints 6 sequences (#21721, commit 5e59fbf1). Phone #21731. Next: #21732 stand-alone attack count, #21733 which of the 6 targets are attacks. One gx-pc slot left free so it does not recount branch paths. Game closed.
