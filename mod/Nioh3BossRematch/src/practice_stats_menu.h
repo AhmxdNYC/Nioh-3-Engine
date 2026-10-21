@@ -6,7 +6,8 @@
 //   (Ki lost per second, 0 = OFF), Boss speed (notes/boss-speed-lever-22389.md). These three apply to all Training bosses.
 #include "../../Nioh3Training/src/practice_stats.h"
 constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kItBvOpenBase; no other range uses 0xD0000)
-bool IsPstItem(int item) { return item >= kItPstBase && item < kItPstBase + PS_N; }
+constexpr int kItPstResetFight = kItPstBase + 0x80;  // user #22592: 'Reset fight' action row on the Practice hub (not a PS_* setting)
+bool IsPstItem(int item) { return (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight; }
 bool PstAvailable() { return TrainingExport("Nioh3Training_PracticeStatSet") != nullptr && TrainingExport("Nioh3Training_PracticeStatGet") != nullptr; }
 int PstGet(int what) {
     using Fn = int (*)(int);
@@ -23,7 +24,20 @@ template <class Add> void PstAddPlayerRows(Add&& add) {
     add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);
 }
 // Practice hub row 'Frame meter' (PS_FRAME_METER, Nioh3Training frame_meter_game.h): an older Training answers -1 and the row says so.
-template <class Add> void PstAddHubRows(Add&& add) { if (PstAvailable()) add(kItPstBase + PS_FRAME_METER); }
+template <class Add> void PstAddHubRows(Add&& add) { if (PstAvailable()) add(kItPstBase + PS_FRAME_METER); if (TrainingExport("Nioh3Training_ResetFight")) add(kItPstResetFight); }
+// 'Reset fight': bosses full HP/Ki + back at their start, player full HP/Ki + back at the Practice start (Nioh3Training_ResetFight, bit mask 1/2/4/8).
+void PstResetFight() {
+    using F = int (*)();
+    const auto f = (F)TrainingExport("Nioh3Training_ResetFight");
+    const int rc = f ? f() : -1;
+    Log("Rematch: menu Reset fight -> %d (#22592)", rc);
+    if (rc < 0) snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Reset fight'.");
+    else if (!rc) snprintf(g_msg, sizeof g_msg, "Nothing to reset: start a Practice session or summon a Training boss first.");
+    else {
+        snprintf(g_msg, sizeof g_msg, "Fight reset: bosses %s, you %s%s.", (rc & 1) ? "at full HP and Ki" : "(none alive)", (rc & 4) ? "at full HP and Ki" : "unchanged", (rc & 8) ? ", back at your Practice start" : " (no Practice start recorded, your position is unchanged)");
+        ToastF(cGreen, 2000, "Fight reset.");
+    }
+}
 template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_BOSS_SPEED); } }
 const char* PstLabel(int what) {
     return what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
@@ -37,6 +51,7 @@ void PstValueText(int what, int v, char* buf, size_t n) {
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool PstChange(int item, int dir) {
     if (!IsPstItem(item)) return false;
+    if (item == kItPstResetFight) { if (!dir) PstResetFight(); return true; }  // action row: Left / Right do nothing
     const int what = item - kItPstBase, cur = PstGet(what);
     if (cur < 0) { snprintf(g_msg, sizeof g_msg, what == PS_FRAME_METER ? "Needs a Nioh3Training.asi with the frame meter." : "Needs a Nioh3Training.asi with the Practice stats (#22389)."); return true; }
     const int want = PstStep(what, cur, dir);
@@ -55,6 +70,7 @@ bool PstChange(int item, int dir) {
 }
 bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsPstItem(item)) return false;
+    if (item == kItPstResetFight) { snprintf(buf, n, "%s Reset fight (bosses + you: full HP and Ki, back to start)   press A", mk); *color = sel ? cWhite : cGreen; return true; }
     const int what = item - kItPstBase, v = PstGet(what);
     char t[24]; PstValueText(what, v, t, sizeof t);
     const bool changed = v >= 0 && v != PstDefault(what);
@@ -64,6 +80,7 @@ bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
 }
 const char* PstFooter(int item) {
     if (!IsPstItem(item)) return nullptr;
+    if (item == kItPstResetFight) return "One press: every Training boss gets full HP and Ki and goes back to its start point; you get full HP and Ki and go back to where the Practice session started.";
     switch (item - kItPstBase) {
     case PS_PLAYER_INF_KI: return "ON: your Ki (stamina) is refilled to full whenever it drops. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_DMG_DEALT: return "Multiplies the HP damage of the hits you land (x0.10 .. x10). x1.00 = normal. Ki damage is not changed. Practice only (session / Training boss alive). Saved.";

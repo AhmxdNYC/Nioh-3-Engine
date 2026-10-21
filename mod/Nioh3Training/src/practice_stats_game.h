@@ -88,11 +88,32 @@ static __attribute__((noinline)) void PstPlayerNin(void) {
         } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     }
 }
+// 'Reset fight' (user #22592): one press = every Training boss full HP + Ki (BV_REFILL) and back at its start point (Nioh3Training_ResetBossPos),
+// player full HP + Ki, player back at the Practice start (g_tr.pp, the round-1 player pose that TrainRetry / TrainLost also Warp to).
+// Boss parts reuse the existing exports (they queue to the game thread); the player parts run in PstResetFightTick on the game thread.
+static volatile LONG g_pst_reset_req; static volatile LONG g_pst_reset_warp;
+static __attribute__((noinline)) void PstResetFightTick(void) {
+    if (!InterlockedExchange(&g_pst_reset_req, 0)) return;
+    const int warp = InterlockedExchange(&g_pst_reset_warp, 0);
+    int hpOk = 0, kiOk = 0, w = -9;
+    __try { PlayerRecoverFull(); hpOk = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RESETFIGHT player RecoverFull faulted %08lX", GetExceptionCode()); }
+    {   // Ki: same raw write as infinite Ki (st+0xAC = st+0xB0), with its sanity bounds
+        uint64_t me = PlayerChar(), st = 0;
+        if (me && Rd64(me + 0x3A0, &st) && st) {
+            __try { volatile float* cur = (volatile float*)(st + 0xAC); const float km = *(volatile float*)(st + 0xB0); if (km > 0.0f && km <= 100000.0f) { *cur = km; kiOk = 1; } } __except (EXCEPTION_EXECUTE_HANDLER) {}
+        }
+    }
+    if (warp && g_tr.active && g_tr.hasStart) {
+        __try { w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RESETFIGHT player Warp faulted %08lX", GetExceptionCode()); }
+    }
+    Log("RESETFIGHT player: HP refill %d, Ki refill %d, back to start %s (Warp %d, start %.0f %.0f %.0f)", hpOk, kiOk, warp ? "requested" : "no start recorded", w, g_tr.pp[0], g_tr.pp[1], g_tr.pp[2]);
+}
 static void PstTick(void) {
     const DWORD now = GetTickCount();
     if (now - g_pst_t < 50) return;
     const int dt = g_pst_t ? (int)(now - g_pst_t) : 50; g_pst_t = now;
     if (GameState() && GameState()[2]) return;  // loading
+    PstResetFightTick();
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
     if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; }
@@ -102,6 +123,20 @@ static void PstTick(void) {
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
+}
+// Reset fight: returns a bit mask (0 = nothing to do: no Practice session and no Training boss). 1 = boss(es) refilled, 2 = boss position put back queued,
+// 4 = player HP + Ki refill queued, 8 = player put back at the Practice start queued.
+N3T_API int Nioh3Training_ResetFight(void) {
+    int r = 0;
+    for (int s = 0; s < N3T_SLOTS && s < BV_SLOTS; ++s) if (SlotAlive(s)) { Nioh3Training_BossVitalsSet(s, BV_REFILL, 0); r |= 1; }
+    if (Nioh3Training_ResetBossPos()) r |= 2;
+    if (g_tr.active || r) {
+        r |= 4;
+        if (g_tr.active && g_tr.hasStart) { InterlockedExchange(&g_pst_reset_warp, 1); r |= 8; }
+        InterlockedExchange(&g_pst_reset_req, 1);
+    }
+    Log("RESETFIGHT request from the menu: mask %d (1 boss refill, 2 boss pos, 4 player refill, 8 player pos)", r);
+    return r;
 }
 // C API for Boss Rematch's Practice pages. what = PS_* (practice_stats.h).
 // Get: the value (-1 = bad what). Set: value clamped (PS_PLAYER_INF_KI: -1 flips), persist = save [Practice] in Nioh3Training.ini; returns the new value.
