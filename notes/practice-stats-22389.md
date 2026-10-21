@@ -64,3 +64,18 @@ Everything acts only while a Practice session runs (`g_tr.active`) or a Training
   Attacker == player -> DamageDealtPct; attacker == a Training boss (`BvActor`) -> DamageTakenPct; anything else (allies, NPCs, the player's own self-damage) x1.
 - GUESSED / unproven in game: the player's projectiles / ninjutsu resolve to the player through `325F40`; a summoned spirit's hits are not the player's
   (its owner link `ctrl+0xFF0` / `684A34` is not followed); the 7 other `787268` callers (DoT, status, scripts) stay x1.
+
+## Freeze + frame advance (#22589, live on pc 2026-10-21)
+Code: `mod/Nioh3Training/src/practice_freeze.h` (pure, `tests/practice_freeze_test.c` simulates the counter + edge latch), `practice_freeze_game.h`; menu rows
+'Freeze fight' / 'Step 1 frame' on the Practice hub (`practice_stats_menu.h`). Keys `[Practice] FreezeKey` (default 120 = F9; in Practice it drives this freeze
+instead of the debug freeze) and `StepKey` (default 117 = F6, hold = repeat after 350 ms, every 80 ms). Default OFF, never saved.
+- Hold = the F9 mechanism (stop counter #3 G+0x59C, own CAS flag). The latch 89B6EC is edge-triggered (flag set on counter 0 -> non-0, cleared on non-0 -> 0;
+  disasm), so a step clears G+0x58B right after the latch at its FrameDtSetup call 5AD64A (chained E8) and restores it to `counter != 0` after the step.
+  That frame runs at the normal time scale; it also steps through the menu pause (same counter). Never steps through the native pause G+0x58C.
+- One step = until the frame meter clock reaches the next cell (1/60 s of game time). Live (VRR, fps-for-dt 86-102): every press +1 cell, 1 or 2 engine ticks,
+  10.3-24 ms of game time each (the engine tick is variable). Below 60 fps one tick covers 2 cells and the step reports +2.
+- Live results: 23 / 60 / 3 steps logged `+1` each (`PRACTICE STEP #n` lines), world static between presses; after resume Yoritomo 0x4E6E finished with
+  startup 94, active 93-105 / 140-156, recovery 176, total 332 (= unfrozen VRR numbers). Freeze + menu open + menu steps + menu close: still frozen.
+  `kill last` while frozen -> released at once ("boss died"); `trainstop` while frozen -> released ("session ended"). Also released on load / transition
+  (MenuPauseBusy), boss actor change, player change, 20 min, pump stalled 2 s (watchdog thread), Return.
+- Not tested live: release on a real mission change (covered by the load / busy check), [Debug] Hotkeys = 0.
