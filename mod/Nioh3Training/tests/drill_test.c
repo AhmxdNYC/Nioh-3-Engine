@@ -9,7 +9,7 @@
 #define N3T_API
 static DWORD clock_ms;
 #define GetTickCount() clock_ms
-static struct { int active, round; uint32_t chr; DWORD tCmd; } g_tr;
+static struct { int active, round, practice; uint32_t chr; DWORD tCmd; } g_tr;
 static struct { int active; uint32_t id; } g_bm;
 static struct { int phase; uint32_t h; } g_bh;
 static uint64_t actor, player;

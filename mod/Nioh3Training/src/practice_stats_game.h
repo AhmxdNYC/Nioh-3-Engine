@@ -1,20 +1,21 @@
 // user #22389: Practice stats, game side. Included by training.c after boss_vitals_game.h; PstTick runs on the game thread (h_pump, after BvTick).
 // Decisions: practice_stats.h. Menu: Boss Rematch practice_stats_menu.h (Practice > Player page and the Boss pages).
 // Levers (notes/practice-stats-22389.md has the evidence table):
-//   Player infinite Ki : player status st = [player+0x3A0] (the HP fields PlayerRefill writes, PROVEN). Ki = st+0xAC cur / +0xB0 max (floats), set with
-//                        KiSetCur 2F88D0(st+0x98, v): the boss Ki fields / setter of BossVitals, assumed the same for the player (same status class;
-//                        the player read is guarded by sanity bounds and logged once so the first live run shows the numbers).
-//   Damage multipliers : PstDmgScale in NfHpDamage (HP damage 787268 at the hit apply 329890, HpDmgHookInstall), training.c.
-//   Boss Ki drain      : Training bosses (BvActor) Ki lowered with KiSetCur at 20 Hz, floor 0.5, never during a Ki break / HP-0 window / infinite Ki.
+//   Player infinite Ki : player status st = [player+0x3A0]. The game's own Player::RecoverStamina binding (23AACA4, slot 397EA60) does
+//                        GetPlayer 20A914(0) -> 5FB5C8([p+0x3A0]+0x98): cur +0x14 = max +0x18, i.e. st+0xAC = st+0xB0 (PROVEN, disasm). Same raw write
+//                        here (like the ninjutsu gauges, FullNinjutsuGauge), guarded by sanity bounds; the first read is logged once.
+//   Damage multipliers : PstDmgScale in NfHpDamage (HP damage 787268 at the hit apply 329890, HpDmgHookInstall), training.c; by attacker side.
+//   Boss Ki drain      : Training bosses (BvActor) lose BossKiDrainPerSec Ki per second via KiSetCur at 20 Hz, floor 0.5, never during a Ki break /
+//                        HP-0 window / infinite Ki.
 // Active only while a Practice session runs or a Training boss is alive (g_pst_live), so the normal game is untouched even with a value saved.
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
-    return what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPct";
+    return what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
     for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstClamp(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstDefault(i), ini));
-    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPct %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d",
+    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d",
         g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6]);
 }
 static DWORD WINAPI PstSaveThread(LPVOID p) {
@@ -25,16 +26,15 @@ static DWORD WINAPI PstSaveThread(LPVOID p) {
 static __attribute__((noinline)) void PstPlayerKi(void) {
     uint64_t me = PlayerChar(), st = 0;
     if (!me || !Rd64(me + 0x3A0, &st) || !st) return;
-    float kc = 0, km = 0, back = -1;
-    __try { kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (!g_pst_kiSeen) { g_pst_kiSeen = 1; PstLog("PRACTICE infinite Ki: player Ki read %.1f / %.1f (st %p +0xAC / +0xB0)", kc, km, (void*)st); }
-    if (!PstPlayerKiRefill(1, kc, km)) {
-        if (!(km > 0.0f) || km > 100000.0f) { if (g_pst_kiFail < 3) { g_pst_kiFail = 3; PstLog("PRACTICE infinite Ki: player Ki max %.1f looks wrong, not written", km); } }
-        return;
-    }
-    __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, km); back = *(volatile float*)(st + 0xAC); } __except (EXCEPTION_EXECUTE_HANDLER) { back = -1; }
-    if (back > km - 0.5f) { if (g_pst_kiSeen == 1) { g_pst_kiSeen = 2; PstLog("PRACTICE infinite Ki applied: player Ki %.1f -> %.1f / %.1f (logged once)", kc, back, km); } return; }
-    if (++g_pst_kiFail <= 3) PstLog("PRACTICE infinite Ki: player Ki write did not stick (%.1f, try %d of 3)%s", back, g_pst_kiFail, g_pst_kiFail >= 3 ? ": off until restart" : "");
+    float kc = 0, km = 0;
+    __try {
+        volatile float* cur = (volatile float*)(st + 0xAC); kc = *cur; km = *(volatile float*)(st + 0xB0);
+        if (!g_pst_kiSeen) { g_pst_kiSeen = 1; PstLog("PRACTICE infinite Ki: player Ki read %.1f / %.1f (st %p +0xAC / +0xB0)", kc, km, (void*)st); }
+        if (PstPlayerKiRefill(1, kc, km)) {
+            *cur = km;  // = Player::RecoverStamina 5FB5C8(st+0x98): +0x14 = +0x18
+            if (g_pst_kiSeen == 1) { g_pst_kiSeen = 2; PstLog("PRACTICE infinite Ki applied: player Ki %.1f -> %.1f (logged once)", kc, km); }
+        } else if ((!(km > 0.0f) || km > 100000.0f) && !g_pst_kiFail) { g_pst_kiFail = 1; PstLog("PRACTICE infinite Ki: player Ki max %.1f looks wrong, not written (logged once)", km); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
 }
 static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
     const uint64_t a = BvActor(s);
@@ -48,7 +48,7 @@ static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
     if (!PstKiDrain(g_pst.v[PS_BOSS_KI_DRAIN], dt, dead, window, broken, g_bv[s].infKi, kc, km, &t)) return;
     __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, t); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (!g_pst_drainOn[s]) { g_pst_drainOn[s] = 1; PstLog("PRACTICE Ki drain Boss %c %p: %d %% of max Ki per second (Ki %.1f / %.1f -> %.1f)", 'A' + s, (void*)a, g_pst.v[PS_BOSS_KI_DRAIN], kc, km, t); }
+    if (!g_pst_drainOn[s]) { g_pst_drainOn[s] = 1; PstLog("PRACTICE Ki drain Boss %c %p: %d Ki per second (Ki %.1f / %.1f -> %.1f)", 'A' + s, (void*)a, g_pst.v[PS_BOSS_KI_DRAIN], kc, km, t); }
 }
 // Boss speed (notes/boss-speed-lever-22389.md): entry hook on ComputeMotionSpeed 134E68(ctrl, dl layer, r8b flag) -> xmm0; [ctrl+0xE0] is the actor.
 // Only a Training/Rematch boss (BvActor) gets native * pct / 100; everyone else and 100 % pass through. Takes effect at the boss's next motion start / layer refresh.
@@ -100,7 +100,7 @@ static void PstTick(void) {
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
-    if (g_pst.v[PS_PLAYER_INF_KI] && g_pst_kiFail < 3) PstPlayerKi();
+    if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
 }
 // C API for Boss Rematch's Practice pages. what = PS_* (practice_stats.h).

@@ -13,7 +13,7 @@ static DWORD clock_ms = 100;
 #define GetTickCount() clock_ms
 static uintptr_t B;
 static char g_dir[MAX_PATH];
-static struct { int active, round, hasStart; uint32_t chr; DWORD tCmd; float bp[3], face; } g_tr;
+static struct { int active, round, practice, hasStart; uint32_t chr; DWORD tCmd; float bp[3], face; } g_tr;
 static struct { int active; uint32_t id; uint64_t actor; } g_bm;
 static struct { int phase; uint32_t h; uint64_t a; } g_bh;
 #define N3T_SLOTS 2

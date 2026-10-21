@@ -5,7 +5,7 @@ Nothing here has been tested in game yet.
 
 Code: `mod/Nioh3Training/src/practice_stats.h` (pure decisions, `tests/practice_stats_test.c`), `practice_stats_game.h` (game glue, exports),
 `PstDmgScale` / `HpDmgHookInstall` in `training.c`; menu `mod/Nioh3BossRematch/src/practice_stats_menu.h`.
-Ini: `Nioh3Training.ini [Practice]` `PlayerInfiniteKi`, `DamageDealtPct`, `DamageTakenPct`, `BossKiDrainPct`. All default OFF / 100 %.
+Ini: `Nioh3Training.ini [Practice]` `PlayerInfiniteKi`, `DamageDealtPct`, `DamageTakenPct`, `BossKiDrainPerSec`, `PlayerInfiniteNinjutsu`, `BossSpeedPct`, `PlayerSpeedPct`. All default OFF / 100 %.
 Exports: `Nioh3Training_PracticeStatGet(what)` and `Nioh3Training_PracticeStatSet(what, value, persist)`, with what = 0 inf Ki, 1 dealt, 2 taken, 3 drain.
 Everything acts only while a Practice session runs (`g_tr.active`) or a Training boss is alive (`BvActor`).
 
@@ -13,12 +13,12 @@ Everything acts only while a Practice session runs (`g_tr.active`) or a Training
 
 | # | Feature | Status | Lever |
 |---|---------|--------|-------|
-| 1 | Boss speed multiplier | **Not available yet** (no menu row) | No per-character time or animation rate found offline. See leads below. |
-| 2a | Infinite boss Ki | **Already existed** (#14320, per boss) | Boss X > Health and Ki > Boss infinite Ki and Set boss Ki % |
-| 2b | Boss Ki drain | **Implemented** (all Training bosses, one value) | `KiSetCur 2F88D0(st+0x98, v)` at 20 Hz, floor 0.5 |
-| 3a | Infinite player Ki | **Implemented, field GUESSED** | `[[player+0x3A0]+0xAC/+0xB0]`, `KiSetCur 2F88D0` |
-| 3b | Infinite ninjutsu / onmyo | **Not available yet** (no menu row) | Leads below |
-| 4 | Damage dealt / taken multipliers | **Implemented** | Scale `edx` of HP damage `787268` at hit-apply call site `329890` |
+| 1 | Boss / player speed multiplier | **Implemented** (#22389 / #22390) | Entry hook `ComputeMotionSpeed 0x134E68`, `notes/boss-speed-lever-22389.md` |
+| 2a | Infinite boss Ki | **Already existed** (#14320, per boss) | Boss X > Health and Ki > Boss infinite Ki and Set boss Ki % (same page as 2b; harness checks the row order) |
+| 2b | Boss Ki drain | **Implemented** (Boss X health and Ki page, all Training bosses, one value) | Ki lost per second (`BossKiDrainPerSec`, 0 = off, steps 5 .. 1000), `KiSetCur 2F88D0(st+0x98, v)` at 20 Hz, floor 0.5 |
+| 3a | Infinite player Ki | **Implemented, field PROVEN** | `st+0xAC = st+0xB0`, the body of `Player::RecoverStamina` (binding `23AACA4` -> `5FB5C8(st+0x98)`) |
+| 3b | Infinite ninjutsu | **Implemented** | `st+0x36AC+k*0x30 = +0x36B0`, `Player::FullNinjutsuGauge 23A8354` |
+| 4 | Damage I deal (x0.1 .. x10, Player page) / Damage boss deals (x0 .. x10, Boss page) | **Implemented, by attacker** | Scale `edx` of HP damage `787268` at `329890` in hit apply `327DEC`; attacker = `325F40(hit)` (hit = r13, passed in r9 by the stub) |
 
 ## Evidence
 
@@ -51,3 +51,16 @@ Everything acts only while a Practice session runs (`g_tr.active`) or a Training
 1. Practice session, Player page: turn Infinite Ki ON. The log should show `player Ki read` with a plausible max (a few hundred) and `infinite Ki applied`. Sprint or dodge: the Ki bar stays full.
 2. Set Damage you deal to x2. Hit the boss: `PRACTICE damage x2.00: player deals a -> 2a`, and the boss HP bar drops twice as fast. Set Damage you take to x0: `player takes a -> 0`.
 3. Boss page: set Boss Ki drain to 10 %/s. Log `PRACTICE Ki drain Boss A`. The Ki bar sinks to about 0 and stays one hit from a break. Turn infinite Ki ON on the same boss: the drain stops.
+
+## Update: attacker side, player Ki proof, Ki drain units (offline static RE, not run in game)
+
+- Player Ki: `Player::RecoverStamina` (string `0x3BF9BD8`, slot `0x397EA60` -> `0x23AACA4`): `GetPlayer 20A914(0)`, `st = [p+0x3A0]`, `5FB5C8(st+0x98)`:
+  `if (+0x14 < +0x18) +0x14 = +0x18`. So the player Ki is the same `st+0xAC` cur / `st+0xB0` max as the bosses. Infinite Ki now does this raw write (no KiSetCur).
+- Hit apply `327DEC(hit)`: `r13 = hit` from `327E87` to the end. Victim = `[hit+0x1C8]` (`327DD4`); the HP object is `[[hit+0x1C8]+0x3A0]+0x38`
+  (`328399..328422` -> `rbp-0x10` -> `r12` -> `rcx` at `329889`). `3283D8..3283FB` compares the victim with GetPlayer `[[0x4745348]+0x1338]`.
+  Attacker = `325F40(hit)`: `[hit+0x198]` resolved to a character (type 0 itself; type 4 -> `+0x260` owner, type 3 -> `+0x1E0`; else `588700` = `[[x+0x240]+0x690]`), pure reads.
+  327DEC calls it 36 times, the first right after the HP damage (`3298EF`). `edx` at `329884` (`cvttss2si edx, xmm15`) is the final HP damage.
+- Hook: the existing `329890` call stub now starts with `mov r9, r13` (the site sets `r9d = 0` and `787268` gets `0` from the detour). Byte checks: 18 bytes at `329890-22`, 12 bytes at `325F40`.
+  Attacker == player -> DamageDealtPct; attacker == a Training boss (`BvActor`) -> DamageTakenPct; anything else (allies, NPCs, the player's own self-damage) x1.
+- GUESSED / unproven in game: the player's projectiles / ninjutsu resolve to the player through `325F40`; a summoned spirit's hits are not the player's
+  (its owner link `ctrl+0xFF0` / `684A34` is not followed); the 7 other `787268` callers (DoT, status, scripts) stay x1.

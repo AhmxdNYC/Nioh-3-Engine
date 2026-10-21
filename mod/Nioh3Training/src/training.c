@@ -4086,19 +4086,29 @@ static int g_nf_reserve = 1; static volatile int64_t g_nf_off[NF_N];
 #include "practice_stats.h"  // user #22389: damage multipliers scale the hit HP damage here (PstDmgScale); game glue practice_stats_game.h
 static PstCfg g_pst = {{0, 100, 100, 0, 100, 0, 100}};  // PsDefaults; loaded from [Practice] at start
 static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Practice session or a Training boss is alive)
-// user #22389 damage multipliers: the hit apply 327DEC calls HP damage 787268(hp = victim status + 0x38, dmg) at 329890 for weapon / attack hits
-// (proven on bosses: the NOFIN 'HP damage boss slot' logs). Victim = the player's status ([player+0x3A0]) -> DamageTakenPct, any other victim ->
-// DamageDealtPct (in a Practice arena the other victims are the bosses; the attacker itself is not checked). HP only: Ki damage is not scaled.
-static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg) {
-    const int dealt = g_pst.v[PS_DMG_DEALT], taken = g_pst.v[PS_DMG_TAKEN];
-    if (!g_pst_live || (dealt == 100 && taken == 100) || dmg <= 0 || !hp) return dmg;
+// user #22389 damage multipliers, by ATTACKER side. The hit apply 327DEC(hit = r13 for the whole function, set at 327E87) calls HP damage
+// 787268(hp, edx = cvttss2si xmm15 = the final HP damage, r8b = hit+0x28D keepAlive, r9 = 0) at 329890 (proven on bosses: NOFIN 'HP damage boss slot').
+// Static RE (re/Nioh3.dump.exe): hp = [[hit+0x1C8]+0x3A0]+0x38 (328399..328422, kept at rbp-0x10 -> r12 -> rcx) = the VICTIM; 327DEC also compares
+// [hit+0x1C8] with GetPlayer [[4745348]+0x1338] (3283D8..3283FB). The ATTACKER is 325F40(hit): [hit+0x198] resolved to its owner character
+// (type 0 = the character itself; a projectile / gadget (type 4) -> its owner +0x260 / +0x1E0; 588700 for the rest; pure reads). 327DEC calls it
+// right after the HP damage (3298EF) and 35 more times. The stub at 329890 passes r13 (the hit) in r9 (the site's own r9 is a constant 0).
+// Attacker == the player -> DamageDealtPct ('Damage I deal'), attacker == a Training boss -> DamageTakenPct ('Damage boss deals'), else x1.
+// HP only: Ki damage (KiDamage 844604) and the 7 other HP-damage callers (DoT / status / scripts) are not scaled.
+static int PstIsBossActor(uint64_t a);  // practice_stats_game.h
+static volatile LONG g_pst_atk_ok;  // 1 = the 325F40 bytes match (HpDmgHookInstall); otherwise no attacker = no scaling
+static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t hit) {
+    const int dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
+    if (!g_pst_live || (dealt == 100 && boss == 100) || dmg <= 0 || !hp || !hit || !g_pst_atk_ok) return dmg;
     uint64_t me = PlayerChar(), st = 0; if (me) Rd64(me + 0x3A0, &st);
-    const int toPlayer = st && st + 0x38 == hp, pct = toPlayer ? taken : dealt, r = PstScaleDmg(dmg, pct);
-    if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d", pct / 100, pct % 100, toPlayer ? "player takes" : "player deals", dmg, r);
+    const uint64_t atk = ((uint64_t (*)(uint64_t))(B + 0x325F40))(hit);
+    const int atkPlayer = me && atk == me, atkBoss = !atkPlayer && PstIsBossActor(atk), vicPlayer = st && st + 0x38 == hp;
+    const int pct = PstDmgPct(atkPlayer, atkBoss, vicPlayer, dealt, boss), r = PstScaleDmg(dmg, pct);
+    if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d (attacker %p)", pct / 100, pct % 100, atkPlayer ? "player deals" : "boss deals", dmg, r, (void*)atk);
     return r;
 }
-static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint8_t p4) {
-    __try { dmg = PstDmgScale(hp, dmg); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22389 (first: the NOFIN floor below sees the scaled hit)
+static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
+    const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
+    __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22389 (first: the NOFIN floor below sees the scaled hit)
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
         __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
@@ -4156,9 +4166,15 @@ static int HpDmgHookInstall(const char* who) {
     if (g_hpdmg_hooked) return g_hpdmg_hooked == 1;
     g_hpdmg_hooked = 2;
     uint8_t* site = (uint8_t*)(B + 0x329890); uint8_t* s = NearPage(site);
-    if (s && !memcmp(site - 22, "\x45\x8A\x85\x8D\x02\x00\x00", 7)) { uint8_t* p = E_mov_rax(s, (uint64_t)NfHpDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+    // 325F40 (attacker of a hit, #22389): mov rcx,[rcx+198h] | jmp 325F4C (E9 00000000)
+    g_pst_atk_ok = !memcmp((void*)(B + 0x325F40), "\x48\x8B\x89\x98\x01\x00\x00\xE9\x00\x00\x00\x00", 12);
+    if (!g_pst_atk_ok) Log("hook HP damage 329890: attacker getter 325F40 bytes differ, damage multipliers off");
+    // site - 22: mov r8b,[r13+28Dh] | xor r9d,r9d | cvttss2si edx,xmm15 | mov rcx,r12 (then movaps xmm11,xmm0 | call 787268)
+    if (s && !memcmp(site - 22, "\x45\x8A\x85\x8D\x02\x00\x00\x45\x33\xC9\xF3\x41\x0F\x2C\xD7\x49\x8B\xCC", 18)) {
+        uint8_t* p = s; *p++ = 0x4D; *p++ = 0x8B; *p++ = 0xCD;  // mov r9, r13 (the hit) = NfHpDamage's 4th argument
+        p = E_mov_rax(p, (uint64_t)NfHpDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
         if (NfPatchCall(site, B + 0x787268, s, "HP damage 329890")) { g_hpdmg_hooked = 1;
-            Log("hook HP damage 329890: on for %s (KiBreakHp0NonLethal %d: hits at the HP floor stay normal hits; damage dealt %d %%, taken %d %%)", who, g_nf_nonlethal, g_pst.v[PS_DMG_DEALT], g_pst.v[PS_DMG_TAKEN]); } }
+            Log("hook HP damage 329890: on for %s (KiBreakHp0NonLethal %d: hits at the HP floor stay normal hits; damage I deal %d %%, boss deals %d %%)", who, g_nf_nonlethal, g_pst.v[PS_DMG_DEALT], g_pst.v[PS_DMG_TAKEN]); } }
     else Log("hook HP damage 329890: bytes differ, off (%s; HP-floor hits stay lethal, damage multipliers off)", who);
     return g_hpdmg_hooked == 1;
 }
