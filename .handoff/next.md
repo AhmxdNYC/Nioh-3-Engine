@@ -1686,3 +1686,12 @@ User rule: one next move that ends is a sequence. Phone #21680. 12 pairs stop. O
 
 ## 2026-10-20 8:24 pm EST (#21685)
 Phone #21686. Six ending sequences: 4E53-4E54, 4E93-4E5B, 4E7A-4E8D, 4E74-4EB7, 4EB8-4EB9, 4E7C-18D1. End test #21684: 6 of 13 targets have 0 follow-ups. Full path file is task #21687. Game closed.
+- 2026-10-20 8:25 PM EDT gx-pc #21687: 39230 candidate paths. 11541 reach a move with no private follow-up. 27593 are cut at 8 moves. 96 stop on a repeat. File notes/yoritomo-sequences.txt, commit 99865166. Not a proven string. Game not launched. Menu not edited.
+
+## 2026-10-20 8:27 pm EST (#21682)
+The 29 Yoritomo attacks with 2 or more private follow-ups range from 2 to 8 choices. The middle is 6. Game not launched.
+
+- 2026-10-20 8:34 PM EST gx-pc #21683: 18D1 has no private follow-up. 4E77 follows only 4E78, and 4E78 has an empty attack mark. 4EA7 follows 4E7C (attack mark set) and 18D1. RESULT #21696. The older note line that said 4E77 has two or more is the looser count; the path file shows one. Game not launched. Menu not edited.
+
+## 2026-10-20 8:35 pm EST (#21698)
+Phone #21700. Algorithm task #21701: tools/boss_sequences.py in nioh3-sort-20999, same walk for every boss, depth cap 8. Yoritomo reference is 11541 ending and 27593 cut (#21689). Do not edit the menu. Game closed.

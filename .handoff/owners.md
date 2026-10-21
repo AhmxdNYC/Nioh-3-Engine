@@ -606,3 +606,7 @@
 - 2026-10-20 8:22 PM EDT gxl-pc: #21679 recorded. gx-pc on #21681 #21682 #21683. Game closed.
 - 2026-10-20 8:22 PM EDT gx-pc #21681: offline end test only. No game lease. Note pushed 54fe95d5. 6 of 13 targets have 0 private follow-ups.
 - 2026-10-20 8:24 PM EDT gxl-pc: #21685 full sequence list. Phone #21686. gx-pc #21687 writing yoritomo-sequences.txt. Game closed.
+- 2026-10-20 8:25 PM EDT gx-pc #21687: offline path list only. No game lease. Note pushed 99865166. 39230 paths, 11541 ended.
+- 2026-10-20 8:27 PM EST gx-pc #21682: done. 29 attacks, choices 2 / 6 / 8. No game lease.
+- 2026-10-20 8:34 PM EST gx-pc #21683: done. 18D1 ends. 4E77 follows 4E78 (not an attack). 4EA7 follows 4E7C (an attack) and 18D1. RESULT #21696. No game lease. Slot 2 is free.
+- 2026-10-20 8:35 PM EDT gxl-pc: #21698 algorithm. gx-pc #21701 writing boss_sequences.py. Two slots left free so they do not edit that same file. Game closed.

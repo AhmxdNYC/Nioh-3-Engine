@@ -305,3 +305,4 @@
 - 2026-10-20 | What the move file contains | User asked what was found | No labeled attack string. 13 attacks each point at one next move. 29 point at several choices. Shingen has no attack mark on 136 moves.
 - 2026-10-20 | Sequence means one next move that ends | User asked if an attack that points at the next move and then ends is a sequence | Yes for the 13. 12 stop after one step. One chain is 3 long: 4E7B, 4EA6, 4EA7. The other 29 have several choices.
 - 2026-10-20 | Six Yoritomo sequences that end | User asked for every possible sequence | 6 match the one-next-move-then-end rule. The other 7 branch. Full path list is task #21687.
+- 2026-10-20 | Sequence list is too big to write by hand | User said it should be an automatic algorithm | One walk found 39230 paths, 11541 reach an end, 27593 cut at 8 moves. The sorter task is #21701.
