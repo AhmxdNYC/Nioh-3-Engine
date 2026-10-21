@@ -5,7 +5,7 @@
 //   recovery = action end - end of the last window
 #pragma once
 #include <stdint.h>
-#define FP_MAX_HITS 8
+#define FP_MAX_HITS 32  // collider creations tracked per run (0x4E6E has 8: 5 rows, some with 2 colliders)
 typedef struct {
     uint32_t act;          // action id (FFFFFFFF = none)
     double t0;             // action start, ms (QPC)
