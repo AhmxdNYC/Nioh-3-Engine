@@ -321,3 +321,4 @@
 - #21885 (2026-10-20 11:09 pm EST): Look at the current work and the notes Claude or Codex already wrote for ways to make the game run better. Do not restart the Yoritomo training search. Do not launch the game for this look.
 - #21891 (2026-10-20 11:15 pm EST): Have workers look into the shader warmup (PJ) that was built and never tested. Do not restart the Yoritomo training search. Do not launch the game until a later check that is allowed to test.
 - #21902 (2026-10-20 11:26 pm EST): Focus on optimizing the game, including other strategies, while keeping the picture looking similar. Do not drop resolution, scalers, or effects to gain fps. Do not restart the Yoritomo training search.
+- #21913 (2026-10-20 11:30 pm EST): Asked if the look-preserving optimizations can become a universal Katana injector without reversing the new game. Do not build that injector unless they say to. The current hooks are this game's function addresses.

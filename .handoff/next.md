@@ -1762,6 +1762,10 @@ PJ results: default 0, live ini is PJ=1, code psojournal.cpp, in the Oct 19 buil
 
 ## 2026-10-20 11:27 pm EST (#21902)
 Phone #21904 and #21905. Focus on optimizations that keep the picture the same. Do not restart training. Do not launch. Next: #21906 does a journal file exist, #21907 next 3 built look-preserving ideas, #21908 does the 30 Hz idea change the picture. Game not opened.
+Journal exists: Nioh3EngineFix_pj\pj_win_dgpu_sm68.bin, 64 MB, October 11, 6:56 pm EST (#21912). TG 30 Hz is in the build and this PC's ini has it on. It changes input timing, about 33 ms. Measured gain about 3 percent, not 26 (#21911).
+
+## 2026-10-20 11:30 pm EST (#21913)
+Phone #21914 and #21917. Do not build a universal Katana injector. Picture-safe CPU hooks are this game's addresses. #21918 splits graphics-API hooks from Nioh 3 address hooks. Do not launch. Do not restart training.
 
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
@@ -1785,3 +1789,6 @@ No grab, throw, or unblockable label on Yoritomo's 88 attacks. Action file has n
 
 ## 2026-10-20 11:16 pm EST (#21894)
 PJ hitch to beat is 167 ms. 6 of 6 gameplay frames over 33 ms were shader compiles. The unrun pair is a journal run then a prewarm run on this PC. RESULT #21898. Game not opened.
+
+2026-10-20 11:28 PM EST gx-pc #21908: item 14776 is TG, the 30 Hz logic governor. It changes the simulation step and input timing, not CPU only. The code is in the current build (since 1.6.0), default off. This PC's ini already has it on. Not changed. Game not launched.
+- 2026-10-20 11:29 PM EST gx-pc #21906: a PJ journal already exists beside the game ini. pj_win_dgpu_sm68.bin is 67,108,773 bytes, last written 6:56 pm EST on October 11. PJ was not changed. Game not opened.
