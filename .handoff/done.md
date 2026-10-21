@@ -321,3 +321,5 @@
 - 2026-10-20 | Animation frame read | Does the play code store a hit time | No. GetFrame is a float cut to a whole number. GetMaxFrame is the motion length, not a hit window.
 - 2026-10-20 | Grab or unblockable label | Does his file name a grab or an unblockable attack | No. 0 of 88 attacks have that label. The name table has no Grab or Unblockable entry on those attacks.
 - 2026-10-20 | Frame counts in saved fight logs | Do the saved logs show startup frames or a hit through block | No. 0 frame-count lines and 0 hit-through-block lines. One blocked flag is a boss-gauge line, not an attack.
+- 2026-10-20 | Update the decompile graph | The graph notes were about 2 weeks behind the mod | Added 12 movement functions. The notes now reach October 11. The call graph file was not rebuilt.
+- 2026-10-20 | Stop the Yoritomo training search | The human said it was not getting anywhere and asked for a write-up | Wrote it down and stopped. 173 moves, 88 attacks, 6 sequences, 0 grab labels. The practice fight was not launched.

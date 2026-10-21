@@ -1750,8 +1750,8 @@ Phone #21820. Find one attack that is the unblockable or the grab before any log
 ## 2026-10-20 10:32 pm EST (#21823)
 Phone #21824 and #21825. Next test: launch practice against Yoritomo, hold block, a hit that lands is the likely special attack. This check did not open the game. Animation: 0 of 17 clip events are hits (#21822). GetFrame is not a hit time (#21821). Do not read logs for all 88.
 
-## 2026-10-20 10:36 pm EST (#21829)
-Phone #21830 and #21831. The practice fight was not launched. 0 of 88 attacks have a grab or unblockable label (#21827). Saved logs have 0 hit-through-block lines (#21826). Next session that may touch the game launches the block test. #21832 updates the decompile graph and must not launch. Game not opened.
+## 2026-10-20 11:04 pm EST (#21839)
+Training search stopped. Phone #21877. Write-up is .handoff/yoritomo-training-stop-21839.md and bridge file #1270. Do not launch the practice fight (#21834, the human will check it). Do not hunt frames, grabs, or unblockable labels. Numbers: 173 moves, 88 attacks, 6 sequences, 0 of 88 labeled grab or unblockable. Graph update already done: 12 movement functions, notes through October 11, commit b93dabba (#21838). gx-pc was 0/3. Game not opened.
 
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
@@ -1766,3 +1766,6 @@ No hit-start or hit-end event on motion 1040. Clip G2A 742b1f41 is bone tracks. 
 
 ## 2026-10-20 10:34 pm EST (#21816)
 No grab, throw, or unblockable label on Yoritomo's 88 attacks. Action file has no such text. Dump has Grab 0 and Unblockable 0. Game not opened.
+
+2026-10-20 10:40 PM EST gx-pc #21809: 12 movement functions are now in the logic graph notes (notes/mainthread-logic.md). Newest date covered is 2026-10-11. Commit b93dabba. Game not launched. The call graph binary was not rebuilt.
+- 2026-10-20 10:42 PM EST gx-pc #21832: #21809 was already done. 12 movement functions are in notes/mainthread-logic.md section 8, through 2026-10-11. Commit b93dabba. Game not opened.
