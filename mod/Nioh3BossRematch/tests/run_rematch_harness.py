@@ -50,6 +50,8 @@ r = subprocess.run([sys.executable, "-I", str(REPO / "tools" / "rematch_catalog.
 check(r.returncode == 0, "catalogue out of date: " + r.stdout.strip())
 r = subprocess.run([sys.executable, "-I", str(REPO / "tools" / "gen_boss_sequences.py"), "--check"], capture_output=True, text=True)
 check(r.returncode == 0, "boss_sequences.h out of date (#14317): " + r.stdout.strip())
+r = subprocess.run([sys.executable, "-I", str(REPO / "tools" / "gen_boss_move_facts.py"), "--check"], capture_output=True, text=True)
+check(r.returncode == 0, "boss_move_facts.h out of date (#22349): " + r.stdout.strip())
 r = subprocess.run([sys.executable, "-I", str(ROOT / "tools" / "derive_sites.py"), "--check"], capture_output=True, text=True)
 check(r.returncode == 0, "sites out of date: " + r.stdout.strip())
 if fails:

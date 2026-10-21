@@ -135,8 +135,24 @@ int main() {
     g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss && g_bossSlot == 0 && MoveBoss() == 16102u);
     list();
     CHECK(items[0] == kItBossStance && items[1] == kItBossAggro && items[2] == kItBossGap && items[3] == kItBossReset && items[4] == kItBvOpenBase + 0);
-    for (int c = 0; c < kMcCount; ++c) CHECK(items[5 + c] == kItMoveCatBase - c);
-    CHECK(items[5 + kMcCount] == kItMoveCatBase - kMcSeq && items[6 + kMcCount] == kItBossRemove && items[7 + kMcCount] == kItBack && n == 8 + kMcCount);
+    {   // user #22349: Yoritomo's groups from the game data: 1 / 2 / 3 hits, Unblockable, Other attacks (hits unknown), then twitches, Sequences
+        const int want[] = {kMcHit1, kMcHit1 + 1, kMcHit1 + 2, kMcGreat, kMcHitUnknown, kMcTwitch, kMcSeq};
+        const int nw = (int)(sizeof want / sizeof want[0]);
+        for (int c = 0; c < nw; ++c) CHECK(items[5 + c] == kItMoveCatBase - want[c] && IsMoveCatItem(items[5 + c]));
+        CHECK(items[5 + nw] == kItBossRemove && items[6 + nw] == kItBack && n == 7 + nw);
+        CHECK(!MoveCatCount(16102u, kMcAttack) && !MoveCatCount(16102u, kMcUnnamedAtk));  // every attack is sorted by the data now
+        auto cat = [](uint32_t chr, uint32_t id) { const int i = N3MoveFind(chr, id); return i < 0 ? -9 : N3MoveCat(&kN3Moves[i]); };
+        CHECK(cat(16102u, 0x4E6E) == kMcGreat && cat(16102u, 0x4E6C) == kMcHit1 + 1 && cat(16102u, 0x4E68) == kMcHit1 + 2 && cat(16102u, 0x4E55) == kMcHit1);
+        CHECK(cat(16102u, 0x4E74) == kMcHitUnknown && cat(16102u, 0x4EA5) == kMcHitUnknown && cat(16102u, 0x4E6F) == kMcGreat);  // unknown hits: not guessed
+        CHECK(cat(16102u, 0x4E3B) == -1 && cat(16102u, 0x4E3C) == -1 && cat(16102u, 0x4E24) == kMcTwitch && cat(16102u, 0x2) == kMcTwitch);  // #14655 / twitches
+        char tb[40];
+        CHECK(!strcmp(N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6E)], tb, sizeof tb), "2 hits, unblockable"));
+        CHECK(!strcmp(N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6F)], tb, sizeof tb), "unblockable, hits unknown"));
+        CHECK(!*N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6C)], tb, sizeof tb));
+        CHECK(!strcmp(CatName(kMcHit1), "1 hit") && !strcmp(CatName(kMcHit1 + 2), "3 hits") && !strcmp(CatName(kMcGreat), "Unblockable"));
+        // a boss without game-data facts keeps the old groups (no regression)
+        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == 42450u) CHECK(N3MoveCat(&kN3Moves[i]) >= kMcAttack && N3MoveCat(&kN3Moves[i]) < kMcCount);
+    }
     CHECK(shown("Boss A - Minamoto no Yoritomo") && shown("Stance: Stand still (idle)") && shown("Gap between repeats: 1.00 s") && shown("Sequences", "sequences"));
     g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 0 && lastStanceIdle == 0 && stance[0] == 0 && shown("Stance: Fight normally (CPU)"));
     UiChange(1); CHECK(lastStanceIdle == 1 && stance[0] == 2);
@@ -147,16 +163,18 @@ int main() {
         CHECK(!UiBack() && g_uiPages.page == uTools && shown("Boss A: Minamoto no Yoritomo", "Stand still"));
         g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss);
     }
-    // Attacks group: A = Repeat this move ON / OFF, Left / Right = used
-    g_sel = 5 + kMcAttack; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcAttack && g_sel == 0);
-    list(); CHECK(n == MoveCatCount(16102u, kMcAttack) + 1 && items[n - 1] == kItBack);
-    for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == kMcAttack);
+    // '2 hits' group (#22349): A = Repeat this move ON / OFF, Left / Right = used
+    const int kTwo = kMcHit1 + 1, twoN = MoveCatCount(16102u, kMcHit1 + 1);
+    g_sel = 6; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kTwo && g_sel == 0);
+    list(); CHECK(n == twoN + 1 && n > 3 && items[n - 1] == kItBack);
+    for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == kTwo);
     {
         const N3Move& m0 = kN3Moves[items[0] - kItMoveBase];
         const N3Move& m1 = kN3Moves[items[1] - kItMoveBase];
         g_sel = 0; CHECK(!UiAct() && RepGet(16102) == m0.id && repArms == 1);
         char want[48]; snprintf(want, sizeof want, "0x%04X", m0.id);
-        CHECK(shown(want, "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Attacks (24)") && !shown("RPT") && !shown("REPEAT"));
+        char title[64]; snprintf(title, sizeof title, "Boss A - Minamoto no Yoritomo - 2 hits (%d)", twoN);
+        CHECK(shown(want, "Repeat ON") && shown(title) && !shown("RPT") && !shown("REPEAT"));
         g_sel = 1; CHECK(!UiAct() && RepGet(16102) == m1.id && repArms == 2);   // one repeat per boss: moves to the other move
         CHECK(!UiAct() && !RepGet(16102) && repStops == 1);                    // A again: stops
         g_sel = 0; UiChange(-1); CHECK(moveOff[m0.id] && moveCalls == 1);      // Left: used OFF
@@ -167,10 +185,19 @@ int main() {
         char tb[160]; uint32_t tc = 0; CHECK(Toast(tb, sizeof tb, tc));
         CHECK(strstr(footer, "Repeat") || strstr(footer, "repeat"));
     }
-    CHECK(!UiBack() && g_uiPages.page == uBoss && g_sel == 5 + kMcAttack && shown("Attacks", "24 moves"));
+    {
+        char cnt[24]; snprintf(cnt, sizeof cnt, "%d moves", twoN);
+        CHECK(!UiBack() && g_uiPages.page == uBoss && g_sel == 6 && shown("2 hits", cnt));
+    }
+    // Unblockable group (#22349): only great moves, each row says its hit count
+    list(); g_sel = at(kItMoveCatBase - kMcGreat); CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcGreat);
+    list(); CHECK(n == MoveCatCount(16102u, kMcGreat) + 1 && n == 20);  // 19 GreatAttack moves (notes/yoritomo-hit-source-22305.md)
+    CHECK(shown("0x4E6E", "[2 hits, unblockable]") && shown("0x4E72", "[unblockable, hits unknown]") && shown("[2 hits, unblockable]", "Used ON") &&
+          shown("[unblockable, hits unknown]", "Used ON"));  // the tag never pushes the controls off the row
+    CHECK(!UiBack() && g_uiPages.page == uBoss);
     // Sequences (#14317): chains from the next-action links, A repeats the whole sequence (its first move)
-    g_sel = 5 + kMcSeq; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcSeq);
-    list(); CHECK(n == SeqCount(16102u) + 1 && n > 10);
+    list(); g_sel = at(kItMoveCatBase - kMcSeq); CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcSeq);
+    list(); CHECK(n == SeqCount(16102u) + 1 && n > 3);  // 6 Yoritomo sequences since the #14665 / #14702 filters (was > 10 before them)
     for (int i = 0; i < n - 1; ++i) CHECK(IsSeqItem(items[i]));
     {
         const N3Move& h = kN3Moves[items[0] - kItSeqBase];

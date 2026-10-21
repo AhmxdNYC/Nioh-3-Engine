@@ -8,20 +8,42 @@
 //                    Ki break is not known (no data), so those stay in Attacks.
 //   Movement and reactions  kind M / I (steps, turns, system states, other hit reactions) and idle / initialization
 //   Unsorted         everything else (not classified yet)
+// user #22349: a boss with game-data facts (mod/boss_move_facts.h, tools/gen_boss_move_facts.py; Yoritomo now) has its attacks (the two
+// attack groups above) split by the game's data instead: '1 hit', '2 hits' ... (hit windows of the move's own hitbox rows), 'Unblockable'
+// (GreatAttack flag; shown only there, the row says its hit count) and 'Other attacks (hits unknown)' (no own hitbox rows / projectiles:
+// not guessed). Unsafe moves stay in no group; twitches / animations keep their own group; Sequences stay. Other bosses: unchanged.
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "../../boss_moves.h"
+#include "../../boss_move_facts.h"
 
 enum { kMcAttack, kMcUnnamedAtk, kMcTwitch, kMcKiBreak, kMcMovement, kMcUnsorted, kMcCount };
+// user #22349: game-data attack groups. kMcCount itself is the Sequences row (training_bosses_menu.h kMcSeq), so these start after it.
+enum { kMcHitMax = 12, kMcHit1 = kMcCount + 1, kMcGreat = kMcHit1 + kMcHitMax, kMcHitUnknown, kMcAll };  // kMcHit1 + n - 1 = 'n hits'
+// menu order: attacks first (by hits, then Unblockable, then unknown), then the old groups (a boss without facts uses Attacks / Unnamed)
+static const int kMcOrder[] = {kMcHit1, kMcHit1 + 1, kMcHit1 + 2, kMcHit1 + 3, kMcHit1 + 4, kMcHit1 + 5, kMcHit1 + 6, kMcHit1 + 7, kMcHit1 + 8,
+                               kMcHit1 + 9, kMcHit1 + 10, kMcHit1 + 11, kMcGreat, kMcHitUnknown, kMcAttack, kMcUnnamedAtk, kMcTwitch, kMcKiBreak,
+                               kMcMovement, kMcUnsorted};
+static_assert(sizeof kMcOrder / sizeof kMcOrder[0] == kMcAll - 1, "every group (not Sequences) once");
+static inline int N3MoveHitCat(int c) { return c >= kMcHit1 && c < kMcHit1 + kMcHitMax; }
 
 static inline const char* N3MoveCatName(int c) {
+    static const char* const hit[kMcHitMax] = {"1 hit", "2 hits", "3 hits", "4 hits", "5 hits", "6 hits", "7 hits", "8 hits", "9 hits", "10 hits",
+                                               "11 hits", "12 or more hits"};
+    if (N3MoveHitCat(c)) return hit[c - kMcHit1];
+    if (c == kMcGreat) return "Unblockable";
+    if (c == kMcHitUnknown) return "Other attacks (hits unknown)";
     return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Animations and twitches" : c == kMcKiBreak ? "Ki break"
          : c == kMcMovement ? "Movement and reactions" : c == kMcUnsorted ? "Unsorted" : "?";
 }
 // one short line per group (footer of the group row)
 static inline const char* N3MoveCatHelp(int c) {
+    if (N3MoveHitCat(c)) return "Blockable attacks with this many hits (hit windows in the game's hitbox data for the move).";
+    if (c == kMcGreat) return "Unblockable attacks (the game's GreatAttack flag). Each row shows its hit count from the game data.";
+    if (c == kMcHitUnknown) return "Attacks whose hit count is not in their own game data (shared hitboxes, projectiles). Not guessed.";
     return c == kMcAttack ? "Attacks seen in fights: hits, wind-ups and combo links. Best for drills."
          : c == kMcUnnamedAtk ? "Attacks from the game's move table that were not seen in a fight yet (no name yet). May not play from Stand still."
          : c == kMcTwitch ? "Everything that is not an attack: twitches, Ki-break poses, steps, turns, reactions, idle / initialization. Mostly for experiments."
@@ -52,7 +74,23 @@ static inline int N3MoveCat(const N3Move* m) {
     if (!N3MoveSelectable(m)) return -1;  // user #14655: unsafe (kills the boss) moves are in no group, so no menu lists them
     if (N3MoveProtected(m->id)) return kMcTwitch;
     // user #14664: attacks first (recorded fights, then the game table's attack-family motions); everything else safe = one group
-    if (m->kind == 'A' || m->kind == 'S' || m->kind == 'L') return kMcAttack;
-    if (N3MoveAttack(m)) return kMcUnnamedAtk;
-    return kMcTwitch;
+    int c = kMcTwitch;
+    if (m->kind == 'A' || m->kind == 'S' || m->kind == 'L') c = kMcAttack;
+    else if (N3MoveAttack(m)) c = kMcUnnamedAtk;
+    if (!N3MoveFactsBoss(m->chr)) return c;
+    // user #22349: this boss's attacks by game data (Unblockable wins: a great move is listed there only). An unclassified move (kind 0)
+    // whose action row has an attack block is an attack too (Yoritomo 0x4E55 / 0x4E59 / 0x4E5E); seen twitches / movement stay twitches.
+    const N3MoveFact* f = N3MoveFactFind(m->chr, m->id);
+    if (c == kMcTwitch && !(m->kind == 0 && f && f->attack)) return c;
+    if (f && f->great) return kMcGreat;
+    if (f && f->hits) return kMcHit1 + (f->hits < kMcHitMax ? f->hits : kMcHitMax) - 1;
+    return kMcHitUnknown;
+}
+// user #22349: '2 hits, unblockable' / 'unblockable, hits unknown' for an Unblockable row ("" otherwise: the group name says the hits)
+static inline const char* N3MoveHitTag(const N3Move* m, char* b, size_t n) {
+    const N3MoveFact* f = N3MoveCat(m) == kMcGreat ? N3MoveFactFind(m->chr, m->id) : nullptr;
+    if (!f) { if (n) b[0] = 0; return b; }
+    if (f->hits) snprintf(b, n, "%u hit%s, unblockable", (unsigned)f->hits, f->hits == 1 ? "" : "s");
+    else snprintf(b, n, "unblockable, hits unknown");
+    return b;
 }

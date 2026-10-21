@@ -2156,9 +2156,10 @@ constexpr int kItCantDie = -56;  // user #14150: Player can't die (Nioh3Training
 constexpr int uPlayer = 909, kItPlayerOpen = -57;
 // user #14291: Boss moves = drill rows + one row per move group (move_cats.h); A opens that group's page uMoveCat (its move rows, same
 // per-row controls: A on / off, Right REPEAT, Left stop). B / Back returns to the group list.
-constexpr int uMoveCat = 915, kItMoveCatBase = -70;  // kItMoveCatBase - group (-70 .. -75)
+constexpr int uMoveCat = 915, kItMoveCatBase = -70;  // kItMoveCatBase - group (-70 .. -90, #22349 hit groups; -94.. = boss vitals)
 int g_moveCat = 0;
-bool IsMoveCatItem(int item) { return item <= kItMoveCatBase && item > kItMoveCatBase - kMcCount - 1; }  // + the Sequences row (#14317)
+bool IsMoveCatItem(int item) { return item <= kItMoveCatBase && item > kItMoveCatBase - kMcAll; }  // + the Sequences row (#14317) and hit groups (#22349)
+static_assert(kItMoveCatBase - kMcAll + 1 > -94, "move group rows must not reach the boss vitals rows");
 // bridge 12666: SF6-style Training rows. kItSummonA/B + boss row = summon that boss as A / B next to you (no load, replaces that slot's boss);
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
@@ -2622,7 +2623,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_ResetSlotPos")) add(kItBossReset);
         if (BvAvailable()) add(kItBvOpenBase + g_bossSlot);
         if (TrainingExport("Nioh3Training_SetMoveAllowed")) {
-            for (int c = 0; c < kMcCount; ++c) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);
+            for (int c : kMcOrder) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);  // user #22349: non-empty groups, attacks by hits first
             if (SeqCount(chr)) add(kItMoveCatBase - kMcSeq);  // user #14317
         }
         if (TrainingExport("Nioh3Training_DespawnSlot")) add(kItBossRemove);
@@ -2679,7 +2680,7 @@ int Items(int* out, int cap) {
         const uint32_t chr = MoveBoss();
         if (g_uiMoveChr != chr) { g_uiMoveChr = chr; g_sel = 0; g_msg[0] = 0; }
         // #14336 item 2: stance / gap / aggro / reset / repeat rows live on the Boss X page only. user #14291: one row per move group (non-empty groups only) instead of the flat list + 'Show twitches' filter (#13786)
-        for (int c = 0; c < kMcCount; ++c) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);
+        for (int c : kMcOrder) if (MoveCatCount(chr, c)) add(kItMoveCatBase - c);  // user #22349
         add(kItBack);
         return n;
     }
@@ -3416,10 +3417,12 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const bool rpt = MoveRepeating(move) && !RepeatIsSeq(move.chr);  // #14423: a sequence repeat shows on its Sequences row
             char msTxt[12] = "";  // user #13786: typical natural run time from the Training logs
             if (move.ms && !N3MoveProtected(move.id)) snprintf(msTxt, sizeof msTxt, "%u.%us", move.ms / 1000u, (move.ms % 1000u) / 100u);
+            char tag[32], tagTxt[36] = "";  // user #22349: Unblockable rows say their hit count ('2 hits, unblockable')
+            if (*N3MoveHitTag(&move, tag, sizeof tag)) snprintf(tagTxt, sizeof tagTxt, " [%s]", tag);
             if (N3MoveProtected(move.id)) add(sel ? cWhite : cDim, sel, "%s 0x%04X  Idle / initialization (required, always used)", mk, move.id);
             else add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel,
-                "%s 0x%04X %-8s %4s %.36s%s  Repeat %s  Used %s", mk, move.id, MoveKindName(move.kind), msTxt, MoveName(move),
-                *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "", rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
+                "%s 0x%04X %-8s %4s %.*s%s%s  Repeat %s  Used %s", mk, move.id, MoveKindName(move.kind), msTxt, tagTxt[0] ? 24 : 36, MoveName(move),
+                *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "", tagTxt, rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
         } else if (IsMoveCatItem(it[i])) {  // user #14291: 'Attacks   24 moves, 2 OFF, repeating 0x4E64   A: open'
             const int c = kItMoveCatBase - it[i];
             int off = 0, cnt = 0;
@@ -3489,7 +3492,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk, GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
         else if (it[i] == kItFightOpts) add(sel ? cWhite : cGray, sel, "%s Boss Match rules (kill, finisher)   A: open", mk);  // user #13265
-        else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Boss moves (groups: attacks, twitches, Ki break...)   A: open", mk);
+        else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Boss moves (groups: attacks by hits, unblockable, twitches...)   A: open", mk);
         else if (it[i] == kItMovesA || it[i] == kItMovesB) {
             const int slot = it[i] == kItMovesB;
             const uint32_t c = SlotChr(slot);
@@ -3703,7 +3706,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItRootSummon) {
             snprintf(footer, nf, "Summon bosses next to you (no load), as many as you like. Each stands still until you set it to fight.");
         } else if (item == kItMoves || g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves in groups (Attacks, Twitches, Ki break, Sequences ...): open a group, A repeats a move, Left / Right turns it off / on.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves in groups (1 hit, 2 hits ..., Unblockable, Twitches, Sequences ...): open a group, A repeats a move, Left / Right turns it off / on.");
         } else if (item <= kItSettingBase) {
             const auto& d = kConfigSettings[kItSettingBase - item];
             snprintf(footer, nf, "[%s] %s: %s %s", d.section, d.key, d.help,
