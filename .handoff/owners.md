@@ -596,3 +596,7 @@
 - 2026-10-20 8:09 PM EDT gx-pc #21650: offline count only. No game lease. Note pushed 33f9e88a. 13 single-target, 29 multi-target, 628 paths longer than 2 actions.
 - 2026-10-20 8:09 PM EST gx-pc #21651: done. Shingen 0x13C and 0x142 are empty on 136/136 rows. No game lease.
 - 2026-10-20 8:11 PM EDT gxl-pc: digested #21658 #21659 #21654. gx-pc tasked #21663 #21664 #21665. Game closed.
+- 2026-10-20 8:12 PM EDT gx-pc #21663: offline list only. No game lease. Note pushed 2e97730a. 13 pairs, not a proven string.
+- 2026-10-20 8:12 PM EST gx-pc #21664: done. No column splits Shingen's 57 attack-range motions. No game lease.
+- 2026-10-20 8:13 PM EDT gx-pc #21665: done. The 5 inside rows are not the slot record. RESULT #21668. No game lease. Slot 2 is free.
+- 2026-10-20 8:20 PM EDT gxl-pc: phone #21672. gx-pc tasked #21673 #21674 #21675. Game closed.

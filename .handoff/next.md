@@ -1662,3 +1662,13 @@ Shingen attack flag is the empty word 65535 at 0x13C and 0x142 on all 136 rows. 
 
 ## 2026-10-20 8:11 pm EST (#21661)
 Phone #21662. New counts from #21658 #21659 #21654: 13 of 42 have one follow-up, 29 have more, Shingen attack mark empty on 136/136, 83 of 88 miss the 51-row table. Next: #21663 list the 13, #21664 any other Shingen column, #21665 slot byte on the 5 inside rows. Game closed. No 221 chase.
+- 2026-10-20 8:12 PM EDT gx-pc #21663: the 13 single follow-ups are 4E53 to 4E54, 4E5C to 4E60, 4E61 to 4E62, 4E74 to 4EB7, 4E7A to 4E8D, 4E7B to 4EA6, 4E7C to 18D1, 4E7D to 4E77, 4E93 to 4E5B, 4E9C to 4EA0, 4EA1 to 4EA2, 4EA6 to 4EA7, 4EB8 to 4EB9. Candidates only. Commit 2e97730a. Game not launched. Menu not edited.
+
+## 2026-10-20 8:12 pm EST (#21664)
+No Shingen column splits the 57 attack-range motions from the other 79. Script not edited. Game not launched.
+
+- 2026-10-20 8:13 PM EDT gx-pc #21665: the 5 attacks that land in the 51-row table are 0x4E4E through 0x4E52. Those file rows are not the slot record. The word at +0x12 is 0x4E74 on all five, not the attack id. RESULT #21668. Game not launched. Menu not edited.
+
+
+## 2026-10-20 8:20 pm EST (#21671)
+Phone #21672 lists the 13 pairs from #21666. Shingen has no separating column (#21667). The 5 side rows are not the slot record (#21668). Next: #21673 join the 13, #21674 which targets are attacks, #21675 how many of 51 rows say 4E74. Game closed. No 221.
