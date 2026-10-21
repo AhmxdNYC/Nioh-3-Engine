@@ -2319,6 +2319,7 @@ void RepeatWhat(const N3Move& m, char* b, size_t n) {
     const int hold = st == -9 ? IdleHoldStatus() : st >= 2 ? 2 : st == 1 ? 1 : 0;
     char gap[32];
     if (v < 0) snprintf(gap, sizeof gap, "?");
+    else if (v == 0) snprintf(gap, sizeof gap, "0 s (back to back)");  // 22349: "every 0.00 s" read as a bug
     else snprintf(gap, sizeof gap, "%d.%02d s", v / 1000, (v % 1000) / 10);
     if (hold == 2) snprintf(b, n, "Boss does 0x%04X every %s, stands still between", m.id, gap);
     else if (hold == 1) snprintf(b, n, "Boss does 0x%04X every %s once it stands still", m.id, gap);
