@@ -4084,7 +4084,7 @@ static volatile LONG g_nf_n_nl;
 // reaction / Ki break). The kill at the end of the window is the native force kill as before.
 static int g_nf_reserve = 1; static volatile int64_t g_nf_off[NF_N];
 #include "practice_stats.h"  // user #22389: damage multipliers scale the hit HP damage here (PstDmgScale); game glue practice_stats_game.h
-static PstCfg g_pst = {{0, 100, 100, 0, 100, 0}};  // PsDefaults; loaded from [Practice] at start
+static PstCfg g_pst = {{0, 100, 100, 0, 100, 0, 100}};  // PsDefaults; loaded from [Practice] at start
 static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Practice session or a Training boss is alive)
 // user #22389 damage multipliers: the hit apply 327DEC calls HP damage 787268(hp = victim status + 0x38, dmg) at 329890 for weapon / attack hits
 // (proven on bosses: the NOFIN 'HP damage boss slot' logs). Victim = the player's status ([player+0x3A0]) -> DamageTakenPct, any other victim ->

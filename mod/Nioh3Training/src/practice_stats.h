@@ -6,16 +6,18 @@
 //   PS_DMG_TAKEN       DamageTakenPct      0..1000 HP damage the player takes from hits x pct / 100
 //   PS_BOSS_KI_DRAIN   BossKiDrainPct      0..50  Training bosses lose this % of max Ki per second (floor Ki 0.5 = one hit from a break)
 //   PS_BOSS_SPEED     BossSpeedPct        10..300 Training/Rematch boss animation speed (ComputeMotionSpeed 134E68 hook, notes/boss-speed-lever-22389.md)
+//   PS_PLAYER_SPEED   PlayerSpeedPct      10..300 player animation speed (same 134E68 hook, [ctrl+0xE0] == the player)
 //   PS_PLAYER_INF_NIN PlayerInfiniteNinjutsu 0/1  player ninjutsu gauges (st+0x36AC+k*0x30 cur / +0x36B0 max, k=0..2) kept full
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_N = 6 };
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_N = 7 };
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_BOSS_SPEED ? 100 : 0; }
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 static inline int PstClamp(int what, int v) {
-    const int lo = what == PS_BOSS_SPEED ? 10 : 0;
-    const int hi = what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN ? 1 : what == PS_BOSS_KI_DRAIN ? 50 : what == PS_BOSS_SPEED ? 300 : 1000;
+    const int sp = what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED;
+    const int lo = sp ? 10 : 0;
+    const int hi = what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN ? 1 : what == PS_BOSS_KI_DRAIN ? 50 : sp ? 300 : 1000;
     return v < lo ? lo : v > hi ? hi : v;
 }
 // Left / Right steps of the menu sliders (A on an ON/OFF row flips it).
@@ -23,8 +25,8 @@ static inline int PstStep(int what, int v, int dir) {
     static const int dmg[] = {0, 10, 25, 50, 75, 100, 125, 150, 200, 300, 500, 1000};
     static const int drain[] = {0, 1, 2, 3, 5, 10, 20, 50};
     static const int spd[] = {10, 25, 50, 75, 100, 125, 150, 200, 300};
-    const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED ? spd : dmg;
-    const int n = what == PS_BOSS_KI_DRAIN ? (int)(sizeof drain / sizeof drain[0]) : what == PS_BOSS_SPEED ? (int)(sizeof spd / sizeof spd[0]) : (int)(sizeof dmg / sizeof dmg[0]);
+    const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? spd : dmg;
+    const int n = what == PS_BOSS_KI_DRAIN ? (int)(sizeof drain / sizeof drain[0]) : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? (int)(sizeof spd / sizeof spd[0]) : (int)(sizeof dmg / sizeof dmg[0]);
     if (what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
     v = PstClamp(what, v);
     if (dir > 0) { for (int i = 0; i < n; ++i) if (st[i] > v) return st[i]; return st[n - 1]; }
@@ -58,7 +60,7 @@ static inline int PstPlayerKiRefill(int on, float cur, float max) {
 // and a hit-stop 0 stays 0.
 static inline float PstSpeedScale(int pct, float native) {
     if (pct == 100 || !(native > 0.0f) || native > 100.0f) return native;
-    return native * (float)PstClamp(PS_BOSS_SPEED, pct) / 100.0f;
+    return native * (float)PstClamp(PS_PLAYER_SPEED, pct) / 100.0f;
 }
 // Player infinite ninjutsu: 1 = write cur = max for this gauge (same sanity bounds as the Ki refill; max <= 0 means the slot is unused).
 static inline int PstNinjutsuFill(int on, float cur, float max) {

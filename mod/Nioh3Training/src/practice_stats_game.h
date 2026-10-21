@@ -10,12 +10,12 @@
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
-    return what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPct";
+    return what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPct";
 }
 static void PstLoadIni(const char* ini) {
     for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstClamp(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstDefault(i), ini));
-    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPct %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d",
-        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5]);
+    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPct %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d",
+        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6]);
 }
 static DWORD WINAPI PstSaveThread(LPVOID p) {
     (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
@@ -60,12 +60,14 @@ static __attribute__((noinline)) int PstIsBossActor(uint64_t a) {
 }
 static float PstSpdDetour(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     const float r = o_pstspd(ctrl, layer, flag);
-    const int pct = g_pst.v[PS_BOSS_SPEED];
-    if (pct == 100 || !g_pst_live) return r;
+    const int bp = g_pst.v[PS_BOSS_SPEED], pp = g_pst.v[PS_PLAYER_SPEED];
+    if ((bp == 100 && pp == 100) || !g_pst_live) return r;
     uint64_t a = 0;
-    if (!Rd64(ctrl + 0xE0, &a) || !PstIsBossActor(a)) return r;
+    if (!Rd64(ctrl + 0xE0, &a) || !a) return r;
+    const int pct = a == PlayerChar() ? pp : PstIsBossActor(a) ? bp : 100;
+    if (pct == 100) return r;
     const float o = PstSpeedScale(pct, r);
-    if (o != r && InterlockedIncrement(&g_pst_spd_logs) <= 20) Log("PRACTICE boss speed %d %%: actor %p layer %d play rate %.3f -> %.3f", pct, (void*)a, layer, r, o);
+    if (o != r && InterlockedIncrement(&g_pst_spd_logs) <= 20) Log("PRACTICE %s speed %d %%: actor %p layer %d play rate %.3f -> %.3f", a == PlayerChar() ? "player" : "boss", pct, (void*)a, layer, r, o);
     return o;
 }
 static void PstSpdHookInstall(void) {
@@ -96,7 +98,7 @@ static void PstTick(void) {
     if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; }
     if (!live) return;
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
-    if (g_pst.v[PS_BOSS_SPEED] != 100) PstSpdHookInstall();
+    if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI] && g_pst_kiFail < 3) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
@@ -111,7 +113,7 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
     if (what == PS_PLAYER_INF_KI) g_pst_kiFail = 0, g_pst_kiSeen = 0;
     if (what == PS_DMG_DEALT || what == PS_DMG_TAKEN) InterlockedExchange(&g_pst_dmg_logs, 0);
     if (what == PS_BOSS_KI_DRAIN) for (int s = 0; s < N3T_SLOTS; ++s) g_pst_drainOn[s] = 0;
-    if (what == PS_BOSS_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);
+    if (what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);
     InterlockedExchange(&g_pst_logs, 0);
     Log("PRACTICE stats: %s -> %d%s", PstKey(what), v, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, PstSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
