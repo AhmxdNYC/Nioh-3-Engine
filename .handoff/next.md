@@ -1738,5 +1738,8 @@ Phone #21791. Hit start and hit end are more likely in the animation clips than 
 ## 2026-10-20 10:17 pm EST (#21794)
 Phone #21795 and #21797. Reverse the animation code. #21793: no function loads the three frame counts. Names exist for play, fade, and motion length. Next is #21798, those functions. #21792 is the clips. Game not opened.
 
+## 2026-10-20 10:22 pm EST (#21802)
+Phone #21803 and #21808. All 3 workers were on the animation work. The decompile graph is about 2 weeks behind the mod. #21809 adds the movement reversing the mod already did, when a slot frees. Do not re-decompile the whole game. Game not opened.
+
 ## 2026-10-20 10:16 pm EST (#21787)
 No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
