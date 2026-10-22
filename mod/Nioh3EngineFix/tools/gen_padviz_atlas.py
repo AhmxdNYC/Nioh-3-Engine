@@ -179,7 +179,12 @@ def main():
         else:
             out_l = Image.new("L", atlas.size)
             bright = lum.point(lambda v: int(255 * (0.55 + 0.45 * (1 - v / 255.0))))
-            dark = lum.point(lambda v: int(255 * (0.08 + 0.32 * v / 255.0)))
+            dark = lum.point(lambda v: int(255 * (0.06 + 0.22 * v / 255.0)))
+            # user #23343: outlines as crisp as the Xbox skin - light edge lines on the dark body
+            from PIL import ImageFilter, ImageChops
+            edge = ImageChops.difference(lum.filter(ImageFilter.GaussianBlur(1.2)), lum).point(lambda v: min(255, int(v * 7)))
+            edge = edge.filter(ImageFilter.GaussianBlur(0.4)).point(lambda v: int(v * 0.75))
+            dark = ImageChops.add(dark, edge)
             bx, by, bw, bh = place["BODY"] + S["BODY"][0].size
             out_l.paste(bright, (0, 0))
             out_l.paste(dark.crop((bx, by, bx + bw, by + bh)), (bx, by))
