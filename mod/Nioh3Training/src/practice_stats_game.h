@@ -9,20 +9,22 @@
 //   Boss Ki drain      : Training bosses (BvActor) lose BossKiDrainPerSec Ki per second via KiSetCur at 20 Hz, floor 0.5, never during a Ki break /
 //                        HP-0 window / infinite Ki.
 //   Hold Ki break      : user #22918, PstHoldBreak (break timers K+0x74 / K+0x7C / ctrl+0x1014 kept running, AI held off while a Training boss is broken).
+//   Time of day / Weather: user #22942, PstEnvApplyAll from the 39BEA4 call at 39B67D in RenderFrameSettingsApply (PstEnvHookInstall).
 // Active only while a Practice session runs or a Training boss is alive (g_pst_live), so the normal game is untouched even with a value saved.
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
-    return what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
+    return what == PS_TIME_OF_DAY ? "TimeOfDayMin" : what == PS_WEATHER ? "Weather" : what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
-    for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstClamp(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstDefault(i), ini));
-    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d, HoldKiBreak %d",
-        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9], g_pst.v[PS_HOLD_KI_BREAK]);
+    for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstFromIni(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstToIni(i, PstDefault(i)), ini));
+    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d, HoldKiBreak %d, TimeOfDayMin %d, Weather %d (%s)",
+        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9], g_pst.v[PS_HOLD_KI_BREAK],
+        PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), g_pst.v[PS_WEATHER], PstWeatherName(g_pst.v[PS_WEATHER]));
 }
 static DWORD WINAPI PstSaveThread(LPVOID p) {
     (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
-    for (int i = 0; i < PS_N; ++i) { snprintf(v, sizeof v, "%d", g_pst.v[i]); WritePrivateProfileStringA("Practice", PstKey(i), v, ini); }
+    for (int i = 0; i < PS_N; ++i) { snprintf(v, sizeof v, "%d", PstToIni(i, g_pst.v[i])); WritePrivateProfileStringA("Practice", PstKey(i), v, ini); }
     WritePrivateProfileStringA(0, 0, 0, ini); return 0;
 }
 static __attribute__((noinline)) void PstPlayerKi(void) {
@@ -213,6 +215,84 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
         }
     }
 }
+// user #22942 'Time of day' (PS_TIME_OF_DAY) / 'Weather' (PS_WEATHER). Static RE only (re/Nioh3.dump.exe, notes/training-time-of-day-22942.md):
+//   GameUpdateTick 2339C6: S = 164188() = [[[B+0x4751490]] + 0x28] (GetActiveSessionObj) -> RenderFrameSettingsApply 39B570(rcx, rdx, r8 = S); rsi = S there.
+//   39B67A  mov rcx,rsi | 39B67D  call 39BEA4 (-> 39BED0 storm lerp on S: +88 / +7C / +13C8 / +F70 / +F84 / +1968) | 39B684 S+CC = 1e20 s (no clock)
+// Hook: the E8 at 39B67D -> stub 'jmp PstEnvDetour' (S in rcx). The detour calls 39BEA4(S) first (native storm lerp), then, while Practice is live
+// (session / Training boss), no event scene (IsEventScene DA7C0) and S is the active session object, writes S+0xB0 (SkylightDateTime = min / 1440)
+// and the weather preset fields after it, before the renderer consumes S. Stock = no write; a field switched back to Stock is restored once if
+// the game did not re-fill it itself (PstEnvRelease). Game thread, aligned 4-byte float stores.
+typedef void (*PstEnvFn)(uint64_t); static volatile LONG g_pst_env_hooked, g_pst_env_logs;  // 0 not tried, 1 on, 2 failed
+static int g_pst_env_evOk = -1; static uint64_t g_pst_env_S; static PstEnvField g_pst_env_tod, g_pst_env_wx[PS_EF_N];
+static __attribute__((noinline)) uint64_t PstEnvObj(void) { uint64_t g = 0, o = 0, S = 0; if (Rd64(B + 0x4751490, &g) && g && Rd64(g, &o) && o) Rd64(o + 0x28, &S); return S; }
+static __attribute__((noinline)) int PstEnvEvent(void) {
+    if (g_pst_env_evOk < 0) g_pst_env_evOk = !memcmp((void*)(B + 0xDA7C0), "\x48\x8B\x0D\x39\x40\x4F\x04\x48\x85\xC9\x0F\x85", 12);  // mov rcx,[rip+..] | test rcx,rcx | jne
+    if (!g_pst_env_evOk) return 0;
+    return ((uint8_t (*)(void))(B + 0xDA7C0))() != 0;
+}
+static __attribute__((noinline)) int PstEnvRdF(uint64_t a, float* v) { __try { *v = *(volatile float*)a; return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
+// read-only state line (each session start): the values the plan's probe step 1 asks for
+static __attribute__((noinline)) void PstEnvLogState(const char* why) {
+    const uint64_t S = PstEnvObj(); uint64_t w = 0; float f[16] = {0}, storm = -1.0f;
+    static const uint32_t off[16] = {0xB0, 0xAC, 0x7C, 0x80, 0x84, 0x88, 0x8C, 0x90, 0x98, 0xB4, 0xB8, 0xC0, 0xC4, 0xCC, 0x15C8, 0x174};
+    int ok = S != 0;
+    for (int i = 0; i < 16 && ok; ++i) ok = PstEnvRdF(S + off[i], &f[i]);
+    if (Rd64(B + 0x4757710, &w) && w) PstEnvRdF(w + 0x2C, &storm);
+    if (!ok) { Log("PRACTICE env (#22942, %s): active RenderConfig S %p not readable (read-only, nothing written)", why, (void*)S); return; }
+    const int m = f[0] >= 0.0f && f[0] < 1.0f ? (int)(f[0] * 1440.0f + 0.5f) : -1;
+    int32_t step = 0; memcpy(&step, &f[15], 4);
+    Log("PRACTICE env (#22942, %s, read-only): S %p SkylightDateTime +B0 %.4f (%02d:%02d) MonthDay +AC %.2f | Cloudy %.3f Temp %.1f Humid %.3f Precip %.3f Fog %.3f Haze %.3f SkyClearly %.3f RainDrop %.3f | Lon %.3f Lat %.3f North %.1f MoonAge %.2f TimeSpanPerDay %g AutoStep %d | storm weight %.3f | event scene %d | ini TimeOfDayMin %d Weather %s",
+        why, (void*)S, f[0], m < 0 ? -1 : m / 60, m < 0 ? -1 : m % 60, f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[14], f[9], f[10], f[11], f[12], f[13], step, storm, PstEnvEvent(),
+        PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), PstWeatherName(g_pst.v[PS_WEATHER]));
+}
+static __attribute__((noinline)) void PstEnvField1(uint64_t S, uint32_t off, PstEnvField* e, int on, float want, const char* name) {
+    volatile float* p = (volatile float*)(S + off);
+    __try {
+        const float cur = *p;
+        if (on) {
+            if (!e->wrote && !PstEnvSane(cur)) return;  // garbage S: never write
+            const uint32_t r0 = e->refills, f0 = e->frames, first = !e->wrote;
+            *p = PstEnvApply(e, cur, want);
+            if (first && InterlockedIncrement(&g_pst_env_logs) <= 60) Log("PRACTICE env: %s S+%X %.4f -> %.4f (override on)", name, off, cur, want);
+            if (f0 == 0 && e->frames == 1 && InterlockedIncrement(&g_pst_env_logs) <= 60)  // the plan's open question: does the game re-fill S each frame?
+                Log("PRACTICE env: %s S+%X reads %.4f one frame after our write: %s", name, off, cur, e->refills > r0 ? "re-filled by the game each frame" : "kept (no per-frame re-fill; the saved stock value is restored on Stock)");
+        } else if (e->wrote) {
+            float o = 0; const float last = e->last;
+            if (PstEnvRelease(e, cur, &o)) *p = o;
+            if (InterlockedIncrement(&g_pst_env_logs) <= 60) Log("PRACTICE env: %s S+%X back to Stock (now %.4f, our last %.4f%s)", name, off, cur, last, cur == last ? ", restored the saved stock value" : ", the game already re-filled it");
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { e->wrote = 0; }
+}
+static __attribute__((noinline)) void PstEnvApplyAll(uint64_t S) {
+    static const char* const nm[PS_EF_N] = {"Cloudy", "Temperature", "Humidity", "Precipitation", "Foggy", "Hazy", "SkyClearly", "RainDropPrecipitation", "FogKeyLightScatter", "GustPower", "GustIntervalPower", "Tree2WindScaler"};
+    const int tod = g_pst.v[PS_TIME_OF_DAY], wx = g_pst.v[PS_WEATHER];
+    if (S != g_pst_env_S) {  // another stage / RenderConfig: forget the old one (its fields are not ours to restore)
+        if (g_pst_env_S && InterlockedIncrement(&g_pst_env_logs) <= 60) Log("PRACTICE env: RenderConfig S %p -> %p", (void*)g_pst_env_S, (void*)S);
+        g_pst_env_S = S; memset(&g_pst_env_tod, 0, sizeof g_pst_env_tod); memset(g_pst_env_wx, 0, sizeof g_pst_env_wx);
+    }
+    if (!S) return;
+    int any = g_pst_env_tod.wrote; for (int f = 0; f < PS_EF_N && !any; ++f) any = g_pst_env_wx[f].wrote;
+    if (!any && !tod && !wx) return;  // all Stock and nothing to give back: no reads at all
+    const int live = g_pst_live && S == PstEnvObj() && !PstEnvEvent();
+    PstEnvField1(S, 0xB0, &g_pst_env_tod, live && tod > 0, PstTodFraction(tod), "SkylightDateTime");
+    for (int f = 0; f < PS_EF_N; ++f) { float v = 0; const int on = live && PstWeatherValue(wx, f, &v); if (on || g_pst_env_wx[f].wrote) PstEnvField1(S, PstEnvFieldOff(f), &g_pst_env_wx[f], on, v, nm[f]); }
+}
+static void PstEnvDetour(uint64_t S) {
+    ((PstEnvFn)(B + 0x39BEA4))(S);
+    __try { PstEnvApplyAll(S); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+}
+static void PstEnvHookInstall(void) {
+    if (g_pst_env_hooked) return;
+    g_pst_env_hooked = 2;
+    uint8_t* site = (uint8_t*)(B + 0x39B67D);
+    // site - 3: mov rcx,rsi (then call 39BEA4); 39BEA4: sub rsp,28h | mov rdx,rcx | mov rcx,[rip+..] (the storm lerp wrapper)
+    if (memcmp(site - 3, "\x48\x8B\xCE", 3) || memcmp((void*)(B + 0x39BEA4), "\x48\x83\xEC\x28\x48\x8B\xD1\x48\x8B\x0D", 10)) { Log("hook env 39B67D: bytes differ, time of day / weather off"); return; }
+    uint8_t* s = NearPage(site); if (!s) { Log("hook env 39B67D: no stub page, off"); return; }
+    uint8_t* p = E_mov_rax(s, (uint64_t)PstEnvDetour); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
+    if (NfPatchCall(site, B + 0x39BEA4, s, "env 39B67D")) { g_pst_env_hooked = 1;
+        Log("hook env 39B67D: on (user #22942: TimeOfDayMin %d, Weather %s)", PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), PstWeatherName(g_pst.v[PS_WEATHER])); }
+}
+static int g_pst_env_sess;
 static void PstTick(void) {
     const DWORD now = GetTickCount();
     if (now - g_pst_t < 50) return;
@@ -222,10 +302,16 @@ static void PstTick(void) {
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
     if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; }
+    {   // user #22942: one read-only line of the sky time / weather at each session start (Training boss alive, then a Practice session)
+        const int sess = live ? 1 + (g_tr.active != 0) : 0;
+        if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
+        g_pst_env_sess = sess;
+    }
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
     if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_ONE_HIT_KI]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588
+    if ((g_pst.v[PS_TIME_OF_DAY] || g_pst.v[PS_WEATHER]) && !g_pst_env_hooked) PstEnvHookInstall();  // user #22942 (first non-Stock value)
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
@@ -257,6 +343,7 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
     if (what == PS_KI_DEALT || what == PS_ONE_HIT_KI) InterlockedExchange(&g_pst_ki_logs, 0);
     if (what == PS_BOSS_KI_DRAIN) for (int s = 0; s < N3T_SLOTS; ++s) g_pst_drainOn[s] = 0;
     if (what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);
+    if (what == PS_TIME_OF_DAY || what == PS_WEATHER) InterlockedExchange(&g_pst_env_logs, 0);
     InterlockedExchange(&g_pst_logs, 0);
     Log("PRACTICE stats: %s -> %d%s", PstKey(what), v, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, PstSaveThread, 0, 0, 0); if (t) CloseHandle(t); }

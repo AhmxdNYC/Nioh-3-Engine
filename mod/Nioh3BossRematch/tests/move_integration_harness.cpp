@@ -62,10 +62,10 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
-static int pst[12] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0, 0, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
-static int PstGetX(int what) { return what >= 0 && what < 12 ? pst[what] : -1; }
+static int pst[14] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0, 0, 0, 0, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
+static int PstGetX(int what) { return what >= 0 && what < 14 ? pst[what] : -1; }
 static int resetFightCalls; static int ResetFightX() { ++resetFightCalls; return 15; }  // user #22592 Reset fight
-static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 11) return -1; if ((what == 7 || what == 9 || what == 10 || what == 11) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 13) return -1; if ((what == 7 || what == 9 || what == 10 || what == 11) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -117,12 +117,20 @@ int main() {
     CHECK(!UiBack() && g_uiPages.page == uRoot);
     // Practice hub: Train here / arena / Training Bosses / Summon / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
-    list(); CHECK(n == 8 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_FRAME_METER && items[4] == kItPstResetFight && items[5] == kItBossSumm && items[6] == kItRootRematch && items[7] == kItBack);
+    list(); CHECK(n == 10 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_FRAME_METER && items[4] == kItPstBase + PS_TIME_OF_DAY && items[5] == kItPstBase + PS_WEATHER && items[6] == kItPstResetFight && items[7] == kItBossSumm && items[8] == kItRootRematch && items[9] == kItBack);
     CHECK(shown("Frame meter:", "OFF")); g_sel = 3; CHECK(!UiAct() && pst[7] == 1 && shown("Frame meter:", "ON")); UiChange(-1); CHECK(pst[7] == 0);  // Practice frame meter row
-    CHECK(shown("Reset fight")); g_sel = 4; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
+    {   // user #22942 Time of day / Weather: Stock by default, 30-min steps, Stock at the left end, saved
+        CHECK(shown("Time of day:", "Stock") && shown("Weather:", "Stock")); const int p1 = pstPersist;
+        g_sel = 4; UiChange(1); CHECK(pst[12] == 1 && shown("Time of day:", "00:00") && pstPersist == p1 + 1);
+        UiChange(1); CHECK(pst[12] == 2 && shown("Time of day:", "00:30")); UiChange(-1); UiChange(-1); CHECK(pst[12] == 0 && shown("Time of day:", "Stock")); UiChange(-1); CHECK(pst[12] == 0);
+        pst[12] = 25; CHECK(shown("Time of day:", "12:00")); UiChange(1); CHECK(pst[12] == 26 && shown("Time of day:", "12:30")); pst[12] = 48; CHECK(shown("Time of day:", "23:30")); UiChange(1); CHECK(pst[12] == 48); pst[12] = 0;
+        g_sel = 5; UiChange(1); CHECK(pst[13] == 1 && shown("Weather:", "Clear")); UiChange(1); UiChange(1); UiChange(1); UiChange(1); CHECK(pst[13] == 5 && shown("Weather:", "Snow")); UiChange(1); CHECK(pst[13] == 5);
+        UiChange(-1); CHECK(shown("Weather:", "Storm")); pst[13] = 0; CHECK(shown("Weather:", "Stock"));
+    }
+    CHECK(shown("Reset fight")); g_sel = 6; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
     CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
     sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
-    CHECK(n == 6 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_FRAME_METER);
+    CHECK(n == 8 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_FRAME_METER && items[2] == kItPstBase + PS_TIME_OF_DAY);
     sessionActive = 0; list();
     // Training Bosses: Boss A row, Summon another boss, timer, Remove all (A listed), no old duplicate rows
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
