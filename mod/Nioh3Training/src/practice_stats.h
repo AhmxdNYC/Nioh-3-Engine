@@ -12,10 +12,11 @@
 //   PS_PLAYER_METER   PlayerFrameMeter    0/1    second bar under the boss meter for the PLAYER's own attacks (user #22796, notes/player-frame-meter-22796.md)
 //   PS_KI_DEALT       KiDamageDealtPct    0..1000 Ki damage of hits whose attacker is the player (x0 .. x10) x pct / 100 (user #22588; KiDamage 844604 at 329E9D)
 //   PS_ONE_HIT_KI     OneHitKiBreak       0/1    a player hit on a Training boss empties its Ki in that same hit = the native Ki break (user #22588)
+//   PS_HOLD_KI_BREAK  HoldKiBreak         0/1    a Ki-broken Training boss stays broken (break timers kept from running out, AI held off) until OFF / it dies (user #22918)
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_N = 11 };
-static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER; }
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_N = 12 };
+static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK; }
 typedef struct { int v[PS_N]; } PstCfg;
 static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
@@ -96,3 +97,19 @@ static inline float PstKiDmg(int atkPlayer, int vicPlayer, int vicBoss, int pct,
     if (!oneHit || !vicBoss || blocked || !(cur > 0.0f) || cur > 100000.0f || a < 0.0f || a >= cur) return a;
     return cur + (a > 1.0f ? a : 1.0f);
 }
+// user #22918 Hold Ki break, one Training boss per tick. broken = the boss is natively Ki-broken (state 0x23 or KiIsExhausted 844FE4);
+// held = this boss is already being held. Start only on a natural break (never forces one); keep while broken; release when the toggle goes OFF,
+// the session ends (live 0), the boss dies, or the game itself clears the break (e.g. a grapple / finisher ended it): the next break is held again.
+enum { PS_HB_NONE = 0, PS_HB_START = 1, PS_HB_KEEP = 2, PS_HB_RELEASE = 3 };
+static inline int PstHoldBreakStep(int on, int live, int dead, int broken, int held) {
+    if (held) return on && live && !dead && broken ? PS_HB_KEEP : PS_HB_RELEASE;
+    return on && live && !dead && broken ? PS_HB_START : PS_HB_NONE;
+}
+// A running break countdown (seconds, counting down to 0 = recover) kept at least 'hold' s. Only a RUNNING timer (0 < t) is topped up: an idle timer
+// (0 or -1) is never started, so the hold never invents a break phase the game did not begin. Garbage (NaN / huge) is left alone.
+static inline int PstHoldTimer(float t, float hold, float* out) {
+    if (!(t > 0.0f) || t > 1000.0f || !(hold > 0.0f) || t >= hold) return 0;
+    *out = hold; return 1;
+}
+// Release: give the AI back only if the hold switched it off (aiWas = 1 when held), it is still off now, and the boss is alive.
+static inline int PstHoldAiRestore(int weTurnedOff, int aiNow, int dead) { return weTurnedOff && aiNow == 0 && !dead; }
