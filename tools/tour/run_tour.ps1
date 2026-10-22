@@ -63,7 +63,7 @@ $StateDir = Join-Path $here "state"
 . (Join-Path $ws "tools\playsession\session_lib.ps1")   # Set-IniValue, Get-AsiVersion, Invoke-GameLock, Get-LockHolder ($GameDir/$SaveRoot/$BackupRoot defaults)
 . (Join-Path $ws "tools\testmatrix\harness_guard.ps1")
 . (Join-Path $here "..\testmatrix\vpad.ps1")
-function Say([string]$s, [string]$c = "Gray") { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Write-Host $l -ForegroundColor $c; if ($script:runLog) { Add-Content $script:runLog $l } }
+function Say([string]$s, [string]$c = "Gray") { $l = "[{0}] {1}" -f (Get-Date -f HH:mm:ss), $s; Write-Host $l -ForegroundColor $c; if ($script:runLog) { try { Add-Content $script:runLog $l -ErrorAction Stop } catch { Write-Host "(run log busy: line not written)" } } }   # a reader holding the log must not abort the tour (#105)
 
 $cap = Join-Path $CaptureRoot "$stamp-tour"
 $logsDir = Join-Path $cap "logs"; $orig = Join-Path $cap "orig"
