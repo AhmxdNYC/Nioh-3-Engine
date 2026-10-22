@@ -185,7 +185,7 @@ static __attribute__((noinline)) void PstResetFightTick(void) {
 // timers run out within PST_HB_HOLD_S = the normal recovery, and the AI comes back (66982C) if the hold switched it off.
 // The HP-0 window of KiBreakNoFinisher owns its boss (its own AI hold): never held there.
 #define PST_HB_HOLD_S 1.0f
-static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop; } g_pst_hb[N3T_SLOTS];
+static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop, nKi; float kiLow; } g_pst_hb[N3T_SLOTS];
 static __attribute__((noinline)) int PstHbTop(volatile float* p) { float o = 0; __try { if (PstHoldTimer(*p, PST_HB_HOLD_S, &o)) { *p = o; return 1; } } __except (EXCEPTION_EXECUTE_HANDLER) { } return 0; }
 static __attribute__((noinline)) void PstHbRelease(int s, int dead, const char* why) {
     const uint64_t a = g_pst_hb[s].a; int ai = -1, back = 0;
@@ -198,27 +198,33 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
     const uint64_t a = BvActor(s);
     if (g_pst_hb[s].a && g_pst_hb[s].a != a) memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]);  // slot reused / despawned: never touch the old actor
     if (!a) return;
-    uint64_t st = 0, ai = 0, ctrl = 0; int dead = 0, s23 = 0, exh = 0;
+    uint64_t st = 0, ai = 0, ctrl = 0; int dead = 0, s23 = 0, exh = 0; float kc = 1.0f, km = 0.0f;
     if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) return;
     __try {
         dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50);
-        if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) != 0; }
+        if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) != 0; kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
-    const int held = g_pst_hb[s].a == a, act = PstHoldBreakStep(on, g_pst_live != 0, dead, (s23 || exh) && !window, held);
+    const int held = g_pst_hb[s].a == a, act = PstHoldBreakStep(on, g_pst_live != 0, dead, PstHoldIsBroken(s23, exh, kc, km, g_pst_hb[s].a == a) && !window, held);
     if (act == PS_HB_NONE) return;
     if (act == PS_HB_RELEASE) { PstHbRelease(s, dead, !on ? "toggle OFF" : dead ? "boss died" : window ? "HP-0 window" : "break ended by the game"); return; }
     const DWORD now = GetTickCount();
     if (act == PS_HB_START) {
         memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]); g_pst_hb[s].a = a; g_pst_hb[s].t0 = now;
         float t74 = 0, t7c = 0, t1014 = 0; __try { t74 = *(volatile float*)(st + 0x98 + 0x74); t7c = *(volatile float*)(st + 0x98 + 0x7C); t1014 = *(volatile float*)(ctrl + 0x1014); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-        PstLog("PRACTICE hold Ki break Boss %c %p: Ki-broken (state23 %d, exhausted %d, K+74 %.2f K+7C %.2f ctrl+1014 %.2f): holding until OFF / death", 'A' + s, (void*)a, s23, exh, t74, t7c, t1014);
+        g_pst_hb[s].kiLow = kc < 0.0f ? kc : 0.0f;
+        PstLog("PRACTICE hold Ki break Boss %c %p: Ki-broken (state23 %d, exhausted %d, Ki %.1f / %.1f, K+74 %.2f K+7C %.2f ctrl+1014 %.2f): holding until OFF / death", 'A' + s, (void*)a, s23, exh, kc, km, t74, t7c, t1014);
     }
     // keep the native break from running out: Ki-exhausted countdown (phase 1, else phase 2) and the state-0x23 stun window
     int top = PstHbTop((volatile float*)(st + 0x98 + 0x74));
     if (!top) top = PstHbTop((volatile float*)(st + 0x98 + 0x7C));
     uint64_t bits = 0; if (Rd64(ctrl + 0x1060, &bits) && (bits & (1ull << 0x3A))) top |= PstHbTop((volatile float*)(ctrl + 0x1014));
     if (top) g_pst_hb[s].nTop++;
+    // Ki-zero break (the one-hit break on an idle boss is only this): the native regen lifts Ki above 0 within ~0.3 s = 'recovered'; write it back (user #22918)
+    if (kc < g_pst_hb[s].kiLow) g_pst_hb[s].kiLow = kc;
+    { float want = 0; if (PstHoldKi(kc, g_pst_hb[s].kiLow, &want)) {
+        __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, want); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+        if (++g_pst_hb[s].nKi <= 3) PstLog("PRACTICE hold Ki break Boss %c %p: Ki regen %.1f put back to %.1f (#%ld)", 'A' + s, (void*)a, kc, want, g_pst_hb[s].nKi); } }
     // boss does not act: AI off while held
     if (!g_pst_hb[s].aiOff || now - g_pst_hb[s].tAi >= 100) {
         g_pst_hb[s].tAi = now;

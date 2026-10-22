@@ -89,6 +89,16 @@ static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int 
     FmPut(m, g, st, edge);
     if (m->nw) FmSummary(m, t, 0, &m->cur); else if (m->haveLast) m->cur = m->last; else m->cur.act = 0, m->cur.hits = 0, m->cur.total = -1;
 }
+// Which boss slot the meter follows (user #22918: it always followed the first valid slot = stuck on a stale / idle Boss A, labelled 'Boss A', while another boss
+// attacked). A slot that is busy now (hit this tick or an open window of its current action) wins; the current slot wins a tie; else keep the current one while it is
+// valid; else the first valid slot; -1 = none.
+static inline int FmPickSlot(int cur, int n, const int* valid, const int* busy) {
+    int first = -1, firstBusy = -1;
+    for (int i = 0; i < n; ++i) { if (!valid[i]) continue; if (first < 0) first = i; if (busy[i]) { if (i == cur) return i; if (firstBusy < 0) firstBusy = i; } }
+    if (firstBusy >= 0) return firstBusy;
+    if (cur >= 0 && cur < n && valid[cur]) return cur;
+    return first;
+}
 // Cell i of the bar, 0 = oldest .. FM_CELLS-1 = newest (state | FM_EDGE).
 static inline uint8_t FmCellAt(const FmMeter* m, int i) {
     const int64_t g = m->lastCell - (FM_CELLS - 1) + i;

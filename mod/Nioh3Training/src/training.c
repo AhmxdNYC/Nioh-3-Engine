@@ -360,7 +360,7 @@ static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_ti
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 1000;
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
 static void BhStart(uint32_t handle); static void IhStop(const char* why, int failed); static void IhDefault(int fresh); static void IhDefaultSession(void); static int IhWantIdle(void); static int IhAdoptBossHold(uint32_t handle, uint64_t actor);
-static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
+static int HpDmgHookInstall(const char* who); static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
 static void NfTraceStart(DWORD ms); static void NfSnap(int diff);
 static int g_nf_clear101 = 1; static LONG g_nf_n101;  // #8827 [Summon] KiBreakHp0ClearDeathBlow (run time 'nofin101 0|1')
 static int g_nf_kirow_unbreak = 1;  // #8827 [Summon] KiBreakGoldUnbreak (run time 'nofinunbreak 0|1')
@@ -1450,6 +1450,16 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
+}
+// user #22918 Infinite health in every session: Practice (g_tr), Boss Match (g_bm) and the arena swap (g_ar). Damage cut in NfHpDamage; Boss Match / arena refill here
+// (Practice keeps its own refill in TrainTick). Game thread, every pump frame.
+static int InfHpSession(void) { return g_tr.active || g_bm.active || g_ar.active; }
+static void InfHpTick(void) {
+    if (!g_cfg_cantdie || !InfHpSession()) return;
+    HpDmgHookInstall("Infinite health (#22918)");
+    if (g_tr.active) return;
+    uint64_t c = 0, m = 0;
+    if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
 }
 static void TrainTick(void) {
     if (!g_tr.active) return;
@@ -4112,6 +4122,13 @@ static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t 
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
     __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22389 (first: the NOFIN floor below sees the scaled hit)
+    if (g_cfg_cantdie && dmg > 0 && hp && InfHpSession()) {  // user #22918 Infinite health: the player takes no HP damage at all (a one-hit lethal hit never lands)
+        uint64_t me = PlayerChar(), pst = 0;
+        if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
+            static volatile LONG ncut; const int d0 = dmg; dmg = PhDamageCut(g_cfg_cantdie, 1, 1, dmg);
+            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (session %s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : "arena");
+        }
+    }
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
         __try { int64_t cur = *(int64_t*)(hp + 0x20), off = g_nf_off[i]; uint64_t st = g_nf_chr[i];
             { static LONG nd; if (InterlockedIncrement(&nd) <= 40) Log("NOFIN HP damage boss slot %d: HP %lld (reserve %lld) dmg %d", i, (long long)cur, (long long)off, dmg); }
@@ -4748,6 +4765,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
+    __try { InfHpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22918
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { BvTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSVITALS tick exception %08lX", GetExceptionCode()); }  // user #14320
     __try { PstTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRACTICE stats tick exception %08lX", GetExceptionCode()); }  // user #22389

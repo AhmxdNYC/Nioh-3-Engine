@@ -104,6 +104,28 @@ int main(void) {
         }
         assert(recovered > 60 * 20 && recovered <= 60 * 20 + 61 && !held);
     }
+    // user #22918 live: one-hit break on an idle boss = Ki <= 0 only (23=0 exhausted 0): that must count as broken, and the Ki regen must be put back
+    assert(PstHoldIsBroken(0, 0, -11.2f, 1872.0f, 0) && PstHoldIsBroken(0, 0, 0.0f, 1872.0f, 0) && PstHoldIsBroken(1, 0, 500.0f, 1872.0f, 0) && PstHoldIsBroken(0, 1, 500.0f, 1872.0f, 0));
+    assert(!PstHoldIsBroken(0, 0, 2.2f, 1872.0f, 0) && !PstHoldIsBroken(0, 0, 0.0f, 0.0f, 0) /* unread max: not a break */ && !PstHoldIsBroken(0, 0, 0.0f, 1e9f, 0));
+    assert(PstHoldIsBroken(0, 0, 2.2f, 1872.0f, 1) /* held: regen above 0 is still the hold */ && PstHoldIsBroken(0, 0, 400.0f, 1872.0f, 1) && !PstHoldIsBroken(0, 0, 500.0f, 1872.0f, 1) /* refill: released */);
+    { float o = 7; assert(PstHoldKi(2.2f, -11.2f, &o) && o == -11.2f && PstHoldKi(2.2f, 0.0f, &o) && o == 0.0f && PstHoldKi(2.2f, 5.0f, &o) && o == 0.0f);
+      o = 7; assert(!PstHoldKi(-3.0f, -11.2f, &o) && !PstHoldKi(0.0f, 0.0f, &o) && !PstHoldKi(1e9f, 0.0f, &o) && o == 7); }
+    // simulated one-hit break: Ki -11.2, regen +45/s read at 20 Hz ticks. With the hold the boss is still held and at Ki <= 0 after 20 s (mirrors PstHoldBreak's order:
+    // read Ki, step, clamp); without it Ki > 0 (recovered) within 0.4 s.
+    {   float ki = -11.2f, low = 0.0f, o = 0; int held = 0, tick;
+        for (tick = 0; tick < 20 * 20; ++tick) {
+            ki += 45.0f / 20.0f;
+            const int act = PstHoldBreakStep(1, 1, 0, PstHoldIsBroken(0, 0, ki, 1872.0f, held), held);
+            if (act == PS_HB_START) { held = 1; low = ki < 0 ? ki : 0; } else if (act == PS_HB_RELEASE) held = 0;
+            if (held) { if (ki < low) low = ki; if (PstHoldKi(ki, low, &o)) ki = o; }
+            assert(held && ki <= 0.0f);
+        }
+        ki = -11.2f; int recovered = -1;  /* toggle OFF: the same break recovers */
+        for (tick = 0; tick < 20 * 20 && recovered < 0; ++tick) { ki += 45.0f / 20.0f; if (ki > 0.0f) recovered = tick; }
+        assert(recovered >= 0 && recovered <= 8);
+        /* Reset fight refills Ki to max while held: the hold ends instead of pinning Ki back to 0 */
+        held = 1; ki = 1872.0f; assert(PstHoldBreakStep(1, 1, 0, PstHoldIsBroken(0, 0, ki, 1872.0f, held), held) == PS_HB_RELEASE);
+    }
     // timer top-up: only a running timer below the hold value; idle (0 / -1), garbage and already-long timers untouched
     { float o = 0; assert(PstHoldTimer(0.2f, 1.0f, &o) && o == 1.0f); }
     { float o = 7; assert(!PstHoldTimer(0.0f, 1.0f, &o) && !PstHoldTimer(-1.0f, 1.0f, &o) && !PstHoldTimer(3.5f, 1.0f, &o) && !PstHoldTimer(1.0f, 1.0f, &o) && o == 7); }

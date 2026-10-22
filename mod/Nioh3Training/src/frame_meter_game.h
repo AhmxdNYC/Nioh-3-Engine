@@ -13,7 +13,13 @@ static volatile LONG g_fz_hold, g_fz_over, g_fz_frames, g_fz_steps; static int g
 static const char* FzKeyName(int vk, char* b, int n);
 static FmMeter g_fm, g_fmp; static volatile LONG g_fmp_show; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
 static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 10;
-static HWND g_fm_wnd, g_fm_game;
+static HWND g_fm_wnd, g_fm_game; static uint64_t g_fm_actor; static char g_fm_who[48] = "Boss A";
+// Label of the followed boss: "Boss B - <name>" (name from the arena table row of its character id, when there is one).
+static void FmWho(int slot, uint32_t chr, char* out, int n) {
+    const char* nm = 0;
+    for (int i = 0; i < g_nrows && chr; ++i) if (g_rows[i].chr == chr && g_rows[i].name[0]) { nm = g_rows[i].name; break; }
+    if (nm) snprintf(out, n, "Boss %c - %s", 'A' + slot, nm); else snprintf(out, n, "Boss %c", 'A' + slot);
+}
 static DWORD WINAPI FmThread(LPVOID p);
 static void FmLoadIni(const char* ini) {
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", 10, ini); if (g_cfg_fm_y < 0 || g_cfg_fm_y > 90) g_cfg_fm_y = 10;
@@ -41,7 +47,12 @@ static void FmFeed(double gdt) {
     }
     g_fp[FP_PL].pulse = g_fp[FP_PL].pulseUb = 0;
     if (!wantB) { g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }
-    int s = -1; for (int i = 0; i < N3T_SLOTS; ++i) if (g_fp[i].valid) { s = i; break; }
+    int valid[N3T_SLOTS], busy[N3T_SLOTS];
+    for (int i = 0; i < N3T_SLOTS; ++i) {
+        valid[i] = g_fp[i].valid; busy[i] = g_fp[i].valid && (g_fp[i].pulse || g_fp[i].pulseUb);
+        for (int w = 0; w < FP_WIN && valid[i] && !busy[i]; ++w) if (g_fpw[w].used && g_fpw[w].slot == i && g_fpw[w].act == g_fp[i].run.act) busy[i] = 1;
+    }
+    const int s = FmPickSlot(g_fm_slot, N3T_SLOTS, valid, busy);  // user #22918: the boss that is attacking, not always the first slot
     if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }  // no boss: the last picture stays
     int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
     for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
@@ -49,7 +60,11 @@ static void FmFeed(double gdt) {
     // open when the action id changes) is closed for the meter, so an idle/move action after an attack gets no fake active/recovery run
     for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) { active = 1; if (g_fpw[w].great) ub = 1; }
     AcquireSRWLockExclusive(&g_fm_lock);
-    if (s != g_fm_slot) { FmReset(&g_fm); g_fm_slot = s; Log("FRAME METER: following Boss %c (chr %u)", 'A' + s, g_fp[s].chr); }
+    if (s != g_fm_slot || g_fp[s].a != g_fm_actor) {  // another slot, or a new boss (retry / respawn / swap) in the same slot: fresh meter
+        FmReset(&g_fm); g_fm_slot = s; g_fm_actor = g_fp[s].a;
+        FmWho(s, g_fp[s].chr, g_fm_who, sizeof g_fm_who);
+        Log("FRAME METER: following %s (chr %u)", g_fm_who, g_fp[s].chr);
+    }
     FmSample(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub);
     ReleaseSRWLockExclusive(&g_fm_lock);
     InterlockedIncrement(&g_fm_ver); g_fm_show = 1;
@@ -112,8 +127,8 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
 static void FmPaint(HDC dc, int w, int h, int H) {
     static FmMeter m, mp; AcquireSRWLockShared(&g_fm_lock); m = g_fm; mp = g_fmp; ReleaseSRWLockShared(&g_fm_lock);
     FmFill(dc, 0, 0, w, h, FM_KEY);
-    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); int oy = 0; char who[16];
-    if (g_pst.v[PS_FRAME_METER] && g_fm_show) { snprintf(who, sizeof who, "Boss %c", 'A' + (g_fm_slot < 0 ? 0 : g_fm_slot)); FmPanel(dc, w, h, H, oy, &m, who); oy += ph; }
+    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); int oy = 0; char who[48];
+    if (g_pst.v[PS_FRAME_METER] && g_fm_show) { AcquireSRWLockShared(&g_fm_lock); snprintf(who, sizeof who, "%s", g_fm_who); ReleaseSRWLockShared(&g_fm_lock); FmPanel(dc, w, h, H, oy, &m, who); oy += ph; }
     if (g_pst.v[PS_PLAYER_METER] && g_fmp_show) FmPanel(dc, w, h, H, oy, &mp, "Player");
 }
 static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;

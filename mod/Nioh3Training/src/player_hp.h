@@ -12,3 +12,8 @@ static int PhDecide(int cantdie, int nodeath, int beaten, int lost, uint64_t c, 
     if (cantdie && nodeath) return c < m ? PH_REFILL : PH_NONE;
     return PhFloor(c, m) ? PH_BEATEN : PH_NONE;
 }
+// user #22918: the per-tick refill above only ran for a Practice (g_tr) session; in a Boss Match / arena fight (g_bm / g_ar) nothing healed the player (live 03:12 HB lines:
+// HP 1969 -> 1280 -> 591 -> 0 vs Yamagata, never refilled), and even in Practice one hit larger than the HP left kills before the next tick. So with Infinite health ON
+// the HP damage itself is cut to 0 when the victim is the player and any session is live (hook 787268 at 329890), and the Boss Match tick refills a hurt, living player.
+static int PhDamageCut(int cantdie, int session, int victimIsPlayer, int dmg) { return cantdie && session && victimIsPlayer && dmg > 0 ? 0 : dmg; }
+static int PhMatchRefill(int cantdie, int session, uint64_t c, uint64_t m) { return cantdie && session && m && c > 0 && c < m; }

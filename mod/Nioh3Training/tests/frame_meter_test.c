@@ -80,6 +80,14 @@ int main(void) {
     FmReset(&m); t = 0; FmSample(&m, t, 5, 0, 0);
     for (int k = 0; k < 20; ++k) { t += 100; FmSample(&m, t, 5, 1, 0); t += 100; FmSample(&m, t, 5, 0, 0); }
     FmSample(&m, t + 100, 6, 0, 0); assert(m.last.hits == FM_MAXW);
+    // user #22918 slot pick: follow the boss that is busy, not always the first valid slot
+    {   int v[4] = {1, 1, 0, 0}, b[4] = {0, 0, 0, 0};
+        assert(FmPickSlot(-1, 4, v, b) == 0 && FmPickSlot(1, 4, v, b) == 1 /* idle: keep the current */ && FmPickSlot(3, 4, v, b) == 0 /* current gone: first valid */);
+        b[1] = 1; assert(FmPickSlot(0, 4, v, b) == 1 /* Boss B attacks while stale/idle Boss A is followed */ && FmPickSlot(-1, 4, v, b) == 1);
+        b[0] = 1; assert(FmPickSlot(1, 4, v, b) == 1 && FmPickSlot(0, 4, v, b) == 0 /* both busy: keep current */);
+        b[2] = 1; assert(FmPickSlot(0, 4, v, b) == 0 /* busy but not valid: ignored */);
+        v[0] = v[1] = 0; assert(FmPickSlot(0, 4, v, b) == -1);
+    }
     puts("frame_meter_test: all passed");
     return 0;
 }
