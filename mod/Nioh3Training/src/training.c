@@ -390,18 +390,26 @@ static int g_nf_actfix = 1, g_nf_actfix_mode = 2, g_nf_actfix_ms = 100, g_nf_act
 static uint32_t g_nf_actbad[16], g_nf_actgood; static int g_nf_nactbad;  // ini = optional seed only (default empty); #9946: ids are LEARNED per boss
 // #9946/#10069 learned ids per boss (key = training chr id, else gauge row id): good = the action held >= 300 ms in a REAL Ki-break stagger (0x23 + stagger
 // bits 62/45/33); bad = the action seen in a bare break (bit 0x3A without stagger bits), log only. The swap fires on bare breaks only (see NfTick).
-static struct { uint32_t id, good, bad[8]; int nbad; } g_nf_lrn[8];
+#include "auto_stagger.h"  // user #23432/#23436: auto fallback stagger (hit-reaction action) when no real stagger was ever learned
+// [Summon] KiBreakAutoStagger (default 1, run time 'nofinauto 0|1'): a bare / no-action Ki break with no learned GOOD id gets the boss's learned
+// hit-reaction action (auto_stagger.h; saved as 'auto' in Nioh3Training_learned.ini). KiBreakAutoHoldMs (default 2500): while that forced action
+// plays the BareFix cancel waits (the break is cancelled after it, as before), so the reaction is seen instead of being cut after 200 ms.
+static int g_nf_autostag = 1, g_nf_autohold = 2500;
+static struct { uint32_t id, good, bad[8]; int nbad; uint32_t autoId; AstStat st[AST_N]; } g_nf_lrn[8];
 static void NfLrnSave(int l);
 static int NfLrn(uint32_t id) { int f = -1; for (int i = 0; i < 8; ++i) { if (g_nf_lrn[i].id == id && id) return i; if (f < 0 && !g_nf_lrn[i].id) f = i; } if (f < 0) f = 0; memset(&g_nf_lrn[f], 0, sizeof g_nf_lrn[f]); g_nf_lrn[f].id = id;
     {   // #10069: learned ids persist per boss (g_dir/Nioh3Training_learned.ini [boss <chr id>]) so a new session starts with them
         char fp[MAX_PATH], sec[32], v[96]; snprintf(fp, sizeof fp, "%s/Nioh3Training_learned.ini", g_dir); snprintf(sec, sizeof sec, "boss %X", id);
         GetPrivateProfileStringA(sec, "good", "0", v, sizeof v, fp); g_nf_lrn[f].good = (uint32_t)strtoul(v, 0, 0);
+        GetPrivateProfileStringA(sec, "auto", "0", v, sizeof v, fp); g_nf_lrn[f].autoId = (uint32_t)strtoul(v, 0, 0); if (AstSkipId(g_nf_lrn[f].autoId)) g_nf_lrn[f].autoId = 0;
         GetPrivateProfileStringA(sec, "bad", "", v, sizeof v, fp); for (const char* q = v; *q && g_nf_lrn[f].nbad < 8; ) { char* e; unsigned long x = strtoul(q, &e, 0); if (e == q) { ++q; continue; } if (x) g_nf_lrn[f].bad[g_nf_lrn[f].nbad++] = (uint32_t)x; q = e; } }
     return f; }
 static void NfLrnSave(int l) { char fp[MAX_PATH], sec[32], v[96] = ""; snprintf(fp, sizeof fp, "%s/Nioh3Training_learned.ini", g_dir); snprintf(sec, sizeof sec, "boss %X", g_nf_lrn[l].id);
     snprintf(v, sizeof v, "0x%X", g_nf_lrn[l].good); WritePrivateProfileStringA(sec, "good", v, fp);
+    snprintf(v, sizeof v, "0x%X", g_nf_lrn[l].autoId); WritePrivateProfileStringA(sec, "auto", v, fp);
     v[0] = 0; for (int i = 0; i < g_nf_lrn[l].nbad; ++i) { size_t n = strlen(v); snprintf(v + n, sizeof v - n, "%s0x%X", i ? "," : "", g_nf_lrn[l].bad[i]); } WritePrivateProfileStringA(sec, "bad", v, fp); }
 static int NfActBadFor(int l, uint32_t id) { for (int i = 0; i < g_nf_nactbad; ++i) if (g_nf_actbad[i] == id) return 1; for (int i = 0; i < g_nf_lrn[l].nbad; ++i) if (g_nf_lrn[l].bad[i] == id) return 1; return 0; }
+static int NfAstBad(void* ctx, uint32_t id) { return NfActBadFor((int)(intptr_t)ctx, id); }  // AstPick filter: the boss's learned bare-crouch ids
 static void NfLrnBad(int l, uint32_t id) { if (!id || NfActBadFor(l, id) || g_nf_lrn[l].nbad >= 8) return; g_nf_lrn[l].bad[g_nf_lrn[l].nbad++] = id; NfLrnSave(l); }
 static int g_nf_kneel = 0;  // HP-0 window: also the native kneel-down action once ([Summon] KiBreakHp0Kneel, run time 'nofinkneel 0|1'). Default 0 since user play
                             // 2026-10-16 15:41 (boss AI on): ForceKneelDown is the scripted death-blow kneel; 1 s after it the boss was in the finisher/down action
@@ -3526,6 +3534,7 @@ static __attribute__((noinline)) void Exec(char* line) {
         } else if (!strcmp(op, "nofinnl")) { g_nf_nonlethal = (int)a[0]; Log("CMD nofinnl %d", g_nf_nonlethal);
         } else if (!strcmp(op, "nofinkneelall")) { g_nf_kneelall = (int)a[0]; Log("CMD nofinkneelall %d", g_nf_kneelall);
         } else if (!strcmp(op, "nofinbare")) { g_nf_barefix = (int)a[0]; Log("CMD nofinbare %d (bare Ki break -> cancelled + Ki primed, #9579)", g_nf_barefix);
+        } else if (!strcmp(op, "nofinauto")) { g_nf_autostag = (int)a[0]; Log("CMD nofinauto %d (AUTO fallback stagger = learned hit reaction when no real stagger is learned, #23432)", g_nf_autostag);
         } else if (!strcmp(op, "nofinact")) { g_nf_actfix = (int)a[0]; Log("CMD nofinact %d (bad Ki-break action -> good action requested, #9895/#9937)", g_nf_actfix);
         } else if (!strcmp(op, "nofinaihold")) { g_nf_hp0aihold = (int)a[0]; Log("CMD nofinaihold %d", g_nf_hp0aihold);
         } else if (!strcmp(op, "nofinkneel")) { g_nf_kneel = (int)a[0]; Log("CMD nofinkneel %d", g_nf_kneel);
@@ -3973,6 +3982,7 @@ static volatile DWORD g_nf_hitT[NF_N]; static volatile LONG g_nf_hits[NF_N];
 static volatile LONG g_nf_cnt_sel, g_nf_cnt_grab, g_nf_cnt_b31, g_nf_cnt_b28, g_nf_cnt_cg; static volatile uint64_t g_nf_cg_tgt;  // + every CanGrapple call / its last target (diag)  // asm stub counters: grapple selection / grab box / bit-31 box / bit-28 box
 static struct { volatile uint32_t id; volatile int on; volatile float ratio, w; } g_nf_drain[NF_N];  // w: 1 = gold override, 0..1 = blend back (#9133)
 static struct { uint64_t a; uint32_t id; int win, broken, tries; DWORD tWin, tLast, tRebreak, tKill, seen; LONG hits0; int nRebreak, nHits, nSet, kneeled; DWORD tSet; DWORD tFade, tGoldEnd; int goldWas; float fadeFrom; int aiHeld, nAiRe; DWORD tAi, tDiag; DWORD tBare; int nBare; uint32_t brkAct; DWORD tBrk, tSwap, tFixLast; int nFix; } g_nf[NF_N];
+static uint32_t g_nf_fbId[NF_N];  // user #23432: the AUTO fallback stagger id last forced on this slot (BareFix waits while it plays, KiBreakAutoHoldMs)
 static int g_nf_hooked; static volatile LONG g_nf_lines;
 static void NfLog(const char* fmt, ...) { if (InterlockedIncrement(&g_nf_lines) > 800) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static uint8_t* NearPage(void* site) {
@@ -4407,7 +4417,7 @@ static void NfTraceTick(void) {
         Log("NOFIN trace: %s %06llX id %02llX n %ld true %ld t %lu..%lu ms", (k >> 15) & 1 ? "via4893B8 from" : "vcall at", (unsigned long long)(k >> 16), (unsigned long long)(k & 0x7FFF), g_ntr[i].n, g_ntr[i].nt, g_ntr[i].t1, g_ntr[i].t2); }
     Log("NOFIN trace end: %d keys", m);
 }
-static void NfClear(int s) { g_nf_off[s] = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf_chr[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
+static void NfClear(int s) { g_nf_off[s] = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf_chr[s] = 0; g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_drain[s].id = 0; g_nf_fbId[s] = 0; memset(&g_nf[s], 0, sizeof g_nf[s]); }
 // Live 00:32:11: KiSetCur(K, -max) leaves the boss at Ki -1000 but NOT broken (no exhaustion, it kept attacking): the break is the hit-reaction when a hit's
 // Ki damage takes the Ki across 0 (327DEC). So 'break' = prime the Ki to 0.5: the next hit breaks the boss natively (NfLethalCond primes inside the lethal hit).
 static __attribute__((noinline)) void NfBreakNow(uint64_t st, const char* why, uint64_t a) {
@@ -4492,20 +4502,37 @@ static __attribute__((noinline)) void NfTick(void) {
             else if (now - tA[s] >= 300u) { int l = NfLrn(g_tr.active && g_tr.chr ? g_tr.chr : g_nf[s].id ? g_nf[s].id : 0xFFFF);
                 if (!g_nf_lrn[l].good && cur < 0xFFFF && !NfActBadFor(l, cur)) { g_nf_lrn[l].good = cur; NfLrnSave(l); NfLog("NOFIN boss %p: learned GOOD Ki-break action 0x%X (real stagger, bits %016llX, stable %lu ms, key %X)", (void*)a, cur, wg, now - tA[s], g_nf_lrn[l].id); } }
         }
+        // user #23432/#23436 auto fallback stagger (auto_stagger.h): learn the boss's hit-reaction action from its own action runs outside any Ki break
+        // (alive, not broken, Ki > 0, not in the HP-0 window). Runs that start <= 200 ms after a landed hit (hit probe 326E81) count as hit runs.
+        if (g_nf_autostag && g_nf_actfix) {
+            static AstTrack trk[NF_N]; static uint64_t trkA[NF_N];
+            if (trkA[s] != a) { memset(&trk[s], 0, sizeof trk[s]); trkA[s] = a; }
+            uint32_t cur = ActIdOf(ctrl), rid = 0, rms = 0; int rhit = 0;
+            int learnable = g_nf[s].win == 0 && hc > NF_FLOOR && !broken && !s23 && kc > 0.0f;
+            if (cur != 0xFFFFFFFFu && AstStep(&trk[s], cur, now, g_nf_hitT[s], learnable, &rid, &rhit, &rms)) {
+                int l = NfLrn(g_tr.active && g_tr.chr ? g_tr.chr : g_nf[s].id ? g_nf[s].id : 0xFFFF); AstAdd(g_nf_lrn[l].st, AST_N, rid, rhit, rms);
+                if (rhit) { uint32_t pick = AstPick(g_nf_lrn[l].st, AST_N, NfAstBad, (void*)(intptr_t)l);
+                    if (pick && pick != g_nf_lrn[l].autoId) { uint32_t was = g_nf_lrn[l].autoId; g_nf_lrn[l].autoId = pick; NfLrnSave(l);
+                        int e = -1; for (int i = 0; i < AST_N; ++i) if (g_nf_lrn[l].st[i].id == pick) e = i;
+                        static int nau; if (++nau <= 40 && e >= 0) NfLog("NOFIN boss %p: learned AUTO stagger (hit reaction) 0x%X: %u of %u runs start <= %d ms after a hit, avg %u ms (was 0x%X, real-stagger good 0x%X, key %X)",
+                            (void*)a, pick, g_nf_lrn[l].st[e].nHit, g_nf_lrn[l].st[e].n, AST_HIT_MS, g_nf_lrn[l].st[e].ms / (g_nf_lrn[l].st[e].nHit ? g_nf_lrn[l].st[e].nHit : 1), was, g_nf_lrn[l].good, g_nf_lrn[l].id); } } }
+        }
         // #9895 Ki-break action swap fix (see g_nf_actfix)
         if (g_nf_actfix && g_nf[s].win == 0 && hc > NF_FLOOR && s23 && g_nf[s].tBrk) {  // #10014: NOT in the HP-0 window - the forced swap to a non-stagger move ended the break after 125 ms and the boss moved away mid-combo
             // #9937: bad action id (KiBreakActBadIds) -> the good one (KiBreakActGoodId); brkAct = the start action, log only
             int l = NfLrn(g_tr.active && g_tr.chr ? g_tr.chr : g_nf[s].id ? g_nf[s].id : 0xFFFF);
             uint32_t cur = ActIdOf(ctrl), b0 = g_nf[s].brkAct, good = g_nf_lrn[l].good ? g_nf_lrn[l].good : g_nf_actgood; DWORD el = now - g_nf[s].tBrk;
+            int isAuto = 0; if (!good && g_nf_autostag && g_nf_lrn[l].autoId && !NfActBadFor(l, g_nf_lrn[l].autoId)) { good = g_nf_lrn[l].autoId; isAuto = 1; }  // user #23432: no real stagger learned -> hit reaction
             // #10069 kibreak_fix3: the swap fires ONLY on a BARE break (break bit 0x3A without the stagger bits 62/45/33 = Ki broken but no stagger action: the
             // crouch / 'death stance', starts on 0xFA6 or 0x4E3E). A real stagger is never touched - its own 0x4E4C -> 0x4E3E change is natural (03:06:24: 7 hits,
             // full 3.8 s break) and the old id-based swap cut it short (03:28:43: 0x4E3E -> 0x4E42 forced, break over 11 ms later). Target = the boss's own learned
             // stagger start action, so the bare break gets the genuine stagger. Bad ids are still learned (log / ini) but no longer gate anything.
             uint64_t wb = 0; __try { wb = *(volatile uint64_t*)(ctrl + 0x1060); } __except (EXCEPTION_EXECUTE_HANDLER) { }
             int bare = (wb & (1ull << 0x3A)) && !(wb & ((1ull << 62) | (1ull << 45) | (1ull << 33)));
+            int noanim = bare || cur == 0xFFFF;  // user #23432: Ki-broken (0x23) with NO action at all = no animation either
             if (bare && cur != good && !NfActBadFor(l, cur)) { NfLrnBad(l, cur); NfLog("NOFIN boss %p: learned BAD Ki-break action 0x%X (bare crouch bits %016llX, key %X)", (void*)a, cur, wb, g_nf_lrn[l].id); }
-            if (bare && !good) { static int nng; if (++nng <= 10) NfLog("NOFIN boss %p: BARE Ki break (action 0x%X, bits %016llX) but no real-stagger action learned for key %X yet -> left as is", (void*)a, cur, wb, g_nf_lrn[l].id); }
-            if (!bare || !good || cur == good || el > (DWORD)g_nf_actfix_win) g_nf[s].tSwap = 0;
+            if (noanim && !good) { static int nng; if (++nng <= 10) NfLog("NOFIN boss %p: %s Ki break (action 0x%X, bits %016llX) but no real-stagger action and no AUTO hit reaction learned for key %X yet -> left as is", (void*)a, bare ? "BARE" : "NO-ACTION", cur, wb, g_nf_lrn[l].id); }
+            if (!noanim || !good || cur == good || el > (DWORD)g_nf_actfix_win) g_nf[s].tSwap = 0;
             else if (!g_nf[s].tSwap) g_nf[s].tSwap = now ? now : 1;
             else if (now - g_nf[s].tSwap >= (DWORD)g_nf_actfix_ms && g_nf[s].nFix < g_nf_actfix_max && (!g_nf[s].tFixLast || now - g_nf[s].tFixLast >= (DWORD)g_nf_actfix_gap)) {
                 uint64_t w0 = 0; int ok = 1;
@@ -4513,9 +4540,9 @@ static __attribute__((noinline)) void NfTick(void) {
                     if (g_nf_actfix_mode == 1) *(volatile uint32_t*)(ctrl + 0x2E4) = good;
                     else ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))(ctrl, (uint64_t)good, 0, 0.0f);
                 } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
-                g_nf[s].nFix++; g_nf[s].tSwap = 0; g_nf[s].tFixLast = now ? now : 1;
-                static int nfx; if (++nfx <= 60) NfLog("NOFIN boss %p HP %llu: bad Ki-break action 0x%X at +%lu ms while broken (start 0x%X, 23=1, bits1060 %016llX%s) -> good action 0x%X requested (%s)%s, now 0x%X (#%d, KiBreakActFix)",
-                    (void*)a, hc, cur, el, b0, w0, (w0 & (1ull << 0x3A)) && !(w0 & ((1ull << 62) | (1ull << 45) | (1ull << 33))) ? " BARE" : "", good,
+                g_nf[s].nFix++; g_nf[s].tSwap = 0; g_nf[s].tFixLast = now ? now : 1; g_nf_fbId[s] = isAuto ? good : 0;
+                static int nfx; if (++nfx <= 60) NfLog("NOFIN boss %p HP %llu: bad Ki-break action 0x%X at +%lu ms while broken (start 0x%X, 23=1, bits1060 %016llX%s) -> %s action 0x%X requested (%s)%s, now 0x%X (#%d, KiBreakActFix)",
+                    (void*)a, hc, cur, el, b0, w0, (w0 & (1ull << 0x3A)) && !(w0 & ((1ull << 62) | (1ull << 45) | (1ull << 33))) ? " BARE" : "", isAuto ? "AUTO stagger (hit reaction)" : "good", good,
                     g_nf_actfix_mode == 1 ? "pending +2E4" : "forced 66C4A8", ok ? "" : " FAULTED", ActIdOf(ctrl), g_nf[s].nFix);
             }
         }
@@ -4545,7 +4572,9 @@ static __attribute__((noinline)) void NfTick(void) {
         if (g_nf_barefix && g_nf[s].win == 0 && s23 && hc > NF_FLOOR) {
             uint64_t w0 = 0, wA8 = 0; __try { w0 = *(volatile uint64_t*)(ctrl + 0x1060); wA8 = *(volatile uint64_t*)(ctrl + 0xA8); } __except (EXCEPTION_EXECUTE_HANDLER) { }
             const uint64_t stag = (1ull << 62) | (1ull << 45) | (1ull << 33);
-            if ((w0 & (1ull << 0x3A)) && !(w0 & stag)) {
+            // user #23432: while the AUTO fallback stagger we forced is still playing (<= KiBreakAutoHoldMs after the swap) the cancel waits
+            int fbHold = g_nf_fbId[s] && g_nf[s].tFixLast && now - g_nf[s].tFixLast < (DWORD)g_nf_autohold && ActIdOf(ctrl) == g_nf_fbId[s];
+            if (!fbHold && (w0 & (1ull << 0x3A)) && !(w0 & stag)) {
                 if (!g_nf[s].tBare) g_nf[s].tBare = now ? now : 1;
                 else if (now - g_nf[s].tBare >= (DWORD)g_nf_bare_ms) {
                     float k0 = kc; __try {
@@ -4948,6 +4977,8 @@ static DWORD WINAPI Worker(LPVOID x) {
             char lb[200] = ""; for (int i = 0; i < g_nf_nactbad; ++i) { size_t l = strlen(lb); snprintf(lb + l, sizeof lb - l, "%s0x%X", i ? "," : "", g_nf_actbad[i]); }
             Log("KiBreakActFix %d mode %d (2 forced 66C4A8, 1 pending +2E4): bad ids {%s} -> good 0x%X after %d ms, max %d per break, gap %d ms, window %d ms (#9937, defaults seen on Yoritomo R7B35)",
                 g_nf_actfix, g_nf_actfix_mode, lb, g_nf_actgood, g_nf_actfix_ms, g_nf_actfix_max, g_nf_actfix_gap, g_nf_actfix_win); }
+        g_nf_autostag = GetPrivateProfileIntA("Summon", "KiBreakAutoStagger", 1, ini); g_nf_autohold = GetPrivateProfileIntA("Summon", "KiBreakAutoHoldMs", 2500, ini); if (g_nf_autohold < 0) g_nf_autohold = 0;
+        Log("KiBreakAutoStagger %d, KiBreakAutoHoldMs %d (#23432: bare / no-action Ki break with no learned real stagger -> the boss's learned hit-reaction action)", g_nf_autostag, g_nf_autohold);
         g_nf_kneel = GetPrivateProfileIntA("Summon", "KiBreakHp0Kneel", 0, ini); g_nf_clear101 = GetPrivateProfileIntA("Summon", "KiBreakHp0ClearDeathBlow", 1, ini); g_nf_kirow_unbreak = GetPrivateProfileIntA("Summon", "KiBreakGoldUnbreak", 1, ini);
         Log("KiBreakHp0ClearDeathBlow %d, KiBreakGoldUnbreak %d, KillFadeDelayMs %d (#8827)", g_nf_clear101, g_nf_kirow_unbreak, g_cfg_kill_fade_delay);
         g_cfg_stag_id = GetPrivateProfileIntA("Summon", "KiBreakHp0StaggerId", 0, ini); Log("KiBreakHp0StaggerId %d (0 = learned from the boss's own Ki break, #9297)", g_cfg_stag_id);

@@ -22,7 +22,7 @@ assert arenas == summon.generate(), 'Regenerate the summon rows (py tools/gen_su
 summon.validate(arenas)
 assert '	summon	S724394	Kajiwara Kagetoki' in arenas, 'Kajiwara Kagetoki must be summonable (user #22984)'
 with tempfile.TemporaryDirectory(prefix='n3-move-tests-') as temp:
-    for name in ('idle_hold_test', 'ih_alive_test', 'drill_test', 'gate_zone_test', 'move_toggle_test', 'player_hp_test', 'slot_hold_test', 'boss_vitals_test', 'aggro_test', 'practice_stats_test', 'negki_meter_test'):
+    for name in ('idle_hold_test', 'ih_alive_test', 'drill_test', 'gate_zone_test', 'move_toggle_test', 'player_hp_test', 'slot_hold_test', 'boss_vitals_test', 'aggro_test', 'practice_stats_test', 'negki_meter_test', 'auto_stagger_test'):
         exe = Path(temp) / (name + '.exe')
         subprocess.run([sys.executable, '-m', 'ziglang', 'cc', '-O2', '-Wall', '-fms-extensions',
                         str(Path(__file__).with_name(name + '.c')), '-o', str(exe)], check=True)
