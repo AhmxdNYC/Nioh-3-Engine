@@ -148,6 +148,26 @@ bool SummonAnother(int row) {  // true = queued (menu closes)
     ToastF(cGreen, 4000, "Summoning %s as Boss %c (stands still until you set it to fight)...", g_rows[(size_t)row].name, 'A' + s);
     return true;
 }
+// ---- user #22984: the Nioh3Training roster (summon-only bosses: every boss, e.g. Kajiwara Kagetoki, not only single-boss catalogue rows) ----
+int RosterCount() { using Fn = int (*)(); const auto f = (Fn)TrainingExport("Nioh3Training_RosterCount"); return f && TrainingExport("Nioh3Training_SummonSlotChr") ? f() : 0; }
+uint32_t RosterEntry(int i, char* name, int cap) {
+    using Fn = uint32_t (*)(int, char*, int); const auto f = (Fn)TrainingExport("Nioh3Training_RosterEntry");
+    if (name && cap > 0) name[0] = 0;
+    return f ? f(i, name, cap) : 0;
+}
+bool SummonRoster(int i) {  // true = queued (menu closes)
+    char nm[64]; const uint32_t chr = RosterEntry(i, nm, sizeof nm);
+    if (!chr) { snprintf(g_msg, sizeof g_msg, "No character id for this boss: cannot summon it."); return false; }
+    const int s = FreeSlot();
+    if (s < 0) { snprintf(g_msg, sizeof g_msg, "Every boss letter is taken (%d bosses): remove one first.", SlotCountUi()); return false; }
+    using Fn = int (*)(int, uint32_t);
+    const auto f = (Fn)TrainingExport("Nioh3Training_SummonSlotChr");
+    const int rc = f ? f(s, chr) : 0;
+    Log("Rematch: menu summon roster boss %s (char %u) as Boss %c -> %d", nm, chr, 'A' + s, rc);
+    if (!rc) { snprintf(g_msg, sizeof g_msg, "Busy (a summon or load is running) or too many bosses: try again in a moment."); return false; }
+    ToastF(cGreen, 4000, "Summoning %s as Boss %c (stands still until you set it to fight)...", nm, 'A' + s);
+    return true;
+}
 // ---- sequences (#14317) ----
 const N3Next* SeqLink(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].id == id) return &kN3Next[i]; return nullptr; }
 int SeqChain(uint32_t chr, uint32_t head, uint32_t* ids, int cap, bool* loop);

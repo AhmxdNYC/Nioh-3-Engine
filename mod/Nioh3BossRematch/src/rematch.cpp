@@ -2164,6 +2164,8 @@ static_assert(kItMoveCatBase - kMcAll + 1 > -94, "move group rows must not reach
 // kItDespawnAll removes every summoned boss; kItMovesA/B open the move switches for the boss in slot A / B.
 constexpr int kItDespawnAll = -31, kItMovesA = -32, kItMovesB = -33;
 constexpr int kItSummonA = 0x50000, kItSummonB = 0x60000, kItSummonEnd = 0x70000;
+// user #22984: kItSummonRoster + i = Nioh3Training roster boss i (summon-only rows: bosses with no single-boss catalogue row, e.g. Kajiwara Kagetoki)
+constexpr int kItSummonRoster = 0x70000, kItSummonRosterEnd = 0x78000;
 // user #13164: the root page holds exactly three submenus (+ Close): Boss Rematch (the rematch rows as before Training was merged in),
 // Training (Training controls, then the arena list: A = teleport to that arena) and Summon Boss (boss list + passive-time slider + slot).
 constexpr int uRematch = 902, uTraining = 903, uSummon = 904;
@@ -2648,9 +2650,15 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uSummon) {  // user #14336 item 7: 'Summon another boss' = boss list, the boss takes the next free letter (no slot picker)
-        if (TrainingExport("Nioh3Training_SummonSlot"))
+        if (TrainingExport("Nioh3Training_SummonSlot")) {
+            // user #22984: only catalogue rows Training resolves to one boss (multi-boss rows: their bosses are roster rows), then the roster
+            using CanFn = int (*)(uint32_t);
+            const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
             for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId) add(kItSummonA + (int)i);
+                if (g_rows[i].missionId && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
+            const int nr = RosterCount();
+            for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster && n < cap; ++i) add(kItSummonRoster + i);
+        }
         add(kItBack);
         return n;
     }
@@ -3106,6 +3114,7 @@ bool UiAct() {
         return false;
     }
     if (item >= kItSummonA && item < kItSummonB) return SummonAnother(item - kItSummonA);  // user #14336 item 7: next free letter
+    if (item >= kItSummonRoster && item < kItSummonRosterEnd) return SummonRoster(item - kItSummonRoster);  // user #22984
     if (item >= kItSummonA && item < kItSummonEnd) {
         const int slot = item >= kItSummonB ? 1 : 0;
         const int row = item - (slot ? kItSummonB : kItSummonA);
@@ -3325,7 +3334,7 @@ const char* ItemGroup(int item) {
     if (p == uTools) return IsBossOpenItem(item) ? "Your bosses (A: open)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves (A: open a group)" : item == kItBossRemove ? "Remove" : nullptr;
-    if (p == uSummon) return item >= kItSummonA && item < kItSummonEnd ? "Pick a boss (it takes the next free letter, stands still)" : nullptr;
+    if (p == uSummon) return item >= kItSummonA && item < kItSummonRosterEnd ? "Pick a boss (it takes the next free letter, stands still)" : nullptr;
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
     if (p == uMoveCat) return IsSeqItem(item) ? "Sequences (A: repeat this sequence ON / OFF)" : IsMoveItem(item) ? "Moves (A: repeat this move ON / OFF, Left / Right: used)" : nullptr;
     return nullptr;
@@ -3510,6 +3519,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             for (int sl = 0; sl < SlotCountUi() && o < sizeof list; ++sl) if (SlotChr(sl)) o += (size_t)snprintf(list + o, sizeof list - o, "%s%c: %.24s", o ? ", " : "", 'A' + sl, SlotBossName(SlotChr(sl)));
             add(sel ? cWhite : cGray, sel, "%s Remove all summoned bosses (%s)", mk, list);
         }
+        else if (it[i] >= kItSummonRoster && it[i] < kItSummonRosterEnd) { char nm[64]; RosterEntry(it[i] - kItSummonRoster, nm, sizeof nm); add(sel ? cWhite : cGreen, sel, "%s %s", mk, nm); }
         else if (it[i] >= kItSummonA && it[i] < kItSummonEnd) {
             const int slot = it[i] >= kItSummonB ? 1 : 0;
             const int row = it[i] - (slot ? kItSummonB : kItSummonA);
@@ -3683,7 +3693,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Removes every boss you summoned (all letters) and their health bars.");
         } else if (item == kItMovesA || item == kItMovesB) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Move switches for the boss in this slot. Each boss keeps its own list. A opens, B returns.");
-        } else if (item >= kItSummonA && item < kItSummonEnd) {
+        } else if (item >= kItSummonA && item < kItSummonRosterEnd) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Spawns this boss next to you without a load, as the next free letter (A, B, C ...). It stands still until you set it to fight. A starts.");
         } else if (item == kItSumPassive) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Seconds a summoned boss waits (AI off) before it attacks. 0 = at once. Left / Right 1 s. Applies to the next summon, saved.");

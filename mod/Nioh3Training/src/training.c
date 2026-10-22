@@ -1218,6 +1218,9 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
 typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
 static ArenaRow g_rows[160]; static int g_nrows;
+// user #22984: kind 'summon' rows (tools/gen_summon_rows.py) = summon-only bosses with no arena data, kept apart from g_rows so the Fight now /
+// world / preload scans never see them. mission != 0: a catalogue row (menu token R<mission>); mission 0: the per-boss roster (id S<chr>).
+static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[160]; static int g_nsum, g_nroster;
 static void LoadTable(void) {
     char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
     FILE* f = fopen(path, "r"); if (!f) { Log("arena table %s not found: Fight now keeps the native load", path); return; }
@@ -1236,6 +1239,10 @@ static void LoadTable(void) {
         snprintf(r->kind, sizeof r->kind, "%s", col[12]); snprintf(r->id, sizeof r->id, "%s", col[13]); snprintf(r->name, sizeof r->name, "%s", col[14]);
         r->ncells = 0;  // optional col 16: comma list of arena cell ids (CrossWorldCellSkip whitelist)
         if (n > 15) for (const char* q = col[15]; *q && r->ncells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->cells[r->ncells++] = (uint32_t)v; q = e; }
+        if (!strcmp(r->kind, "summon")) {
+            if (r->chr && g_nsum < 160) { g_sum[g_nsum].mission = r->mission; g_sum[g_nsum].chr = r->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); g_nroster += !r->mission; ++g_nsum; }
+            continue;
+        }
         if (r->mission && r->chr) ++g_nrows;
     }
     fclose(f);
@@ -1249,9 +1256,16 @@ static void LoadTable(void) {
         }
         fclose(f);
     }
-    Log("arena table: %d bosses, %d with a boss BGM id", g_nrows, nb);
+    Log("arena table: %d bosses, %d with a boss BGM id; %d summon-only rows (%d roster)", g_nrows, nb, g_nsum, g_nroster);
 }
 static ArenaRow* FindRow(uint32_t mission) { for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission) return &g_rows[i]; return 0; }
+// user #22984: summon token of a catalogue mission: the arena row's id, else a summon-only row's id (the menu built 'R%X', which missed
+// zero-padded ids like R04DF and every D-route row). 0 = this mission cannot be summoned.
+static const char* SummonTok(uint32_t mission) {
+    ArenaRow* r = mission ? FindRow(mission) : 0; if (r) return r->id;
+    for (int i = 0; mission && i < g_nsum; ++i) if (g_sum[i].mission == mission) return g_sum[i].id;
+    return 0;
+}
 static int CurWorld(void) { uint64_t s = StageMgr(); return s ? *(uint8_t*)(s + 0x500) : -1; }
 static const uint8_t* GameState(void) { uint64_t gm = 0; Rd64(B + 0x4759910, &gm); return gm ? (const uint8_t*)(gm + 0x588) : 0; }  // [2] loading, [3]/[4] paused
 
@@ -1354,9 +1368,12 @@ static void PoolAdd(uint32_t chr) {
     for (int i = 0; i < POOLMAX; ++i) if (g_pool[i].chr == chr) { g_pool[i].refs++; g_pool[i].t = GetTickCount(); return; }
     for (int i = 0; i < POOLMAX; ++i) if (!g_pool[i].chr) { g_pool[i].chr = chr; g_pool[i].refs = 1; g_pool[i].t = GetTickCount(); return; }
 }
+static int PoolInUse(uint32_t chr) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_chr[i] == chr) return 1; return 0; }
 static void PoolTick(uint32_t cur) {  // game thread; keep at most g_cfg_pool loaded chars, never release the current boss
     if (g_cfg_pool <= 0) return;
-    int n = 0, old = -1; for (int i = 0; i < POOLMAX; ++i) if (g_pool[i].chr) { n++; if (g_pool[i].chr != cur && (old < 0 || g_pool[i].t < g_pool[old].t)) old = i; }
+    // user #22984 (live 12:10, 4th summon released Kagetoki's resources while he stood as Boss A and he vanished): a character a tracked
+    // spawned actor still uses is never released either; the pool may then hold more than PoolMax until those bosses are removed.
+    int n = 0, old = -1; for (int i = 0; i < POOLMAX; ++i) if (g_pool[i].chr) { n++; if (g_pool[i].chr != cur && !PoolInUse(g_pool[i].chr) && (old < 0 || g_pool[i].t < g_pool[old].t)) old = i; }
     if (n <= g_cfg_pool || old < 0 || GetTickCount() - g_pool[old].t < 1500) return;
     uint32_t c = g_pool[old].chr; int r = g_pool[old].refs; g_pool[old].chr = 0; g_pool[old].refs = 0;
     for (int k = 0; k < r; ++k) ((void (*)(uint32_t, uint32_t))(B + 0x1C1DF80))(c, 0);
@@ -1366,6 +1383,7 @@ static void PoolTick(uint32_t cur) {  // game thread; keep at most g_cfg_pool lo
 static uint32_t TokChr(const char* tok, uint32_t* bgm) {
     uint32_t chr = 0, b = 0;
     for (int i = 0; i < g_nrows; ++i) if (!_stricmp(g_rows[i].id, tok)) { chr = g_rows[i].chr; b = g_rows[i].bgm; break; }
+    for (int i = 0; !chr && i < g_nsum; ++i) if (!_stricmp(g_sum[i].id, tok)) chr = g_sum[i].chr;
     if (!chr) chr = (uint32_t)strtoul(tok, 0, 0);
     if (bgm) *bgm = b;
     return chr;
@@ -1500,8 +1518,8 @@ static void TrainTick(void) {
 }
 // C API (bridge 4942) for Boss Rematch: Nioh3Training_Summon(missionId or charId) starts a no-load session (1 = started), _Retry() resets the round, _StopTraining() ends it.
 __declspec(dllexport) int Nioh3Training_Summon(uint32_t id) {
-    ArenaRow* r = FindRow(id); char tok[32];
-    if (r) snprintf(tok, sizeof tok, "%s", r->id); else snprintf(tok, sizeof tok, "%u", id);
+    const char* t = SummonTok(id); char tok[32];
+    if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "%u", id);
     return TrainStart(tok, (float)g_cfg_tr_dist);
 }
 __declspec(dllexport) void Nioh3Training_Retry(void) { TrainRetry("API"); }
@@ -1580,6 +1598,16 @@ N3T_API int Nioh3Training_BossName(uint32_t chr, char* out, int cap) {
         const char* n = g_rows[i].name; const char* p = strstr(n, " (");
         snprintf(out, (size_t)cap, "%.*s", p ? (int)(p - n) : (int)strlen(n), n); return 1;
     }
+    for (int i = 0; chr && i < g_nsum; ++i) if (g_sum[i].chr == chr) { snprintf(out, (size_t)cap, "%s", g_sum[i].name); return 1; }
+    return 0;
+}
+// user #22984: Practice > Summon a boss here. CanSummon(mission) = 1 when the catalogue row resolves to one boss (multi-boss rows do not:
+// their bosses are in the roster). Roster = the summon-only per-boss rows: RosterEntry fills the name and returns the character id (0 = none).
+N3T_API int Nioh3Training_CanSummon(uint32_t mission) { return SummonTok(mission) != 0; }
+N3T_API int Nioh3Training_RosterCount(void) { return g_nroster; }
+N3T_API uint32_t Nioh3Training_RosterEntry(int i, char* name, int cap) {
+    for (int k = 0; k < g_nsum; ++k) if (!g_sum[k].mission && i-- == 0) { if (name && cap > 0) snprintf(name, (size_t)cap, "%s", g_sum[k].name); return g_sum[k].chr; }
+    if (name && cap > 0) name[0] = 0;
     return 0;
 }
 N3T_API int Nioh3Training_GetIdleHold(void);
@@ -2723,14 +2751,21 @@ static int GateNativeModal(void) {
 static const char* GateNativeWhy(void) { return g_gate_nat_why; }
 // 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
 // bridge 12666: Training menu (Boss Rematch UI) -> game thread. op 1 summon into slot A/B (replaces that slot's boss), 2 despawn all, 3 despawn one slot.
-static volatile LONG g_rq_op, g_rq_slot; static volatile uint32_t g_rq_mission;
+static volatile LONG g_rq_op, g_rq_slot; static volatile uint32_t g_rq_mission, g_rq_chr;
 static int SlotAlive(int s) { if (s < 0 || s >= N3T_SLOTS || !g_slot_act[s]) return 0; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == g_slot_act[s]) return 1; return 0; }
 // user #14309: slot 0..N3T_SLOTS-1 (Boss A, B, C ...); -1 = the first free letter ('Summon another boss'). A taken slot is replaced.
 N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission) {
     if (slot == -1) slot = SlotFree();
     if (slot < 0 || slot >= N3T_SLOTS || !mission || g_rq_op || g_sp.active) return 0;
     if (!SlotAlive(slot) && g_nsp >= MAXSP) { Log("MENU summon slot %c refused: %d spawned actors tracked (remove all summoned bosses first)", 'A' + slot, g_nsp); return 0; }
-    g_rq_slot = slot; g_rq_mission = mission; InterlockedExchange(&g_rq_op, 1); return 1;
+    g_rq_slot = slot; g_rq_mission = mission; g_rq_chr = 0; InterlockedExchange(&g_rq_op, 1); return 1;
+}
+// user #22984: summon a roster boss (character id from Nioh3Training_RosterEntry) as the given letter, -1 = the first free one
+N3T_API int Nioh3Training_SummonSlotChr(int slot, uint32_t chr) {
+    if (slot == -1) slot = SlotFree();
+    if (slot < 0 || slot >= N3T_SLOTS || !chr || g_rq_op || g_sp.active) return 0;
+    if (!SlotAlive(slot) && g_nsp >= MAXSP) { Log("MENU summon slot %c refused: %d spawned actors tracked (remove all summoned bosses first)", 'A' + slot, g_nsp); return 0; }
+    g_rq_slot = slot; g_rq_mission = 0; g_rq_chr = chr; InterlockedExchange(&g_rq_op, 1); return 1;
 }
 N3T_API int Nioh3Training_TrainHere(uint32_t mission) { if (!mission || g_rq_op || g_sp.active) return 0; g_rq_mission = mission; InterlockedExchange(&g_rq_op, 4); return 1; }  // user #13223
 N3T_API void Nioh3Training_SetPracticeNext(int on) { g_practice_next = on != 0; }  // user #13223: 1 = the next session (arena Fight now) is a Practice session
@@ -2745,7 +2780,8 @@ static void RqTick(void) {
     if (op == 1) {
         if (GameState() && GameState()[2]) { Log("MENU summon slot %c: a load is running, refused", 'A' + s); return; }
         SlotDespawn(s);
-        char tok[32]; snprintf(tok, sizeof tok, "R%X", g_rq_mission);
+        char tok[32]; const char* t = SummonTok(g_rq_mission);  // user #22984: the row's own id (R04DF, D084F ...) / a roster character
+        if (g_rq_chr) snprintf(tok, sizeof tok, "%u", g_rq_chr); else if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "R%04X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, 400.0f + 150.0f * (float)(s % 5));  // #14309: letters spread 4 / 5.5 / 7 / 8.5 / 10 m if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
     } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }

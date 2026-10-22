@@ -42,3 +42,72 @@
 0xA30C	2058080	0xE0	950461	2054018	139469	24385	203005	-179.1	139484	24384	202280	start	DA30C	Takahashi Deishu
 0x7BA1	2180460	0x35	766640	2185058	181035	8580	204920	66.0	181655	8636	205335	start	D7BA1	Nakane Masamori
 0xA709	2178691	0x35	64826	2171204	190492	6754	118763	-114.9	189511	6767	118323	start	DA709	Maeda Mitsutaka
+# summon-only rows (tools/gen_summon_rows.py, user #22984): kind summon = no arena data, used by Practice > Summon a boss here only. mission 0 = per-boss roster row (id S<chr>)
+0xF5E5	0	0x00	696121	0	0	0	0	0.0	0	0	0	summon	RF5E5	Yagyu Munenori (Novice)
+0xD759	0	0x00	139791	0	0	0	0	0.0	0	0	0	summon	RD759	Hattori Hanzo (Novice)
+0x26F3	0	0x00	631242	0	0	0	0	0.0	0	0	0	summon	R26F3	Saito Fuku (Novice)
+0xA0A1	0	0x00	631242	0	0	0	0	0.0	0	0	0	summon	RA0A1	Saito Fuku (Adept)
+0	0	0x00	189627	0	0	0	0	0.0	0	0	0	summon	S189627	Aggrieved Warrior
+0	0	0x00	100898	0	0	0	0	0.0	0	0	0	summon	S100898	All-Seeing Mage
+0	0	0x00	982853	0	0	0	0	0.0	0	0	0	summon	S982853	Anayama Nobutada
+0	0	0x00	38227	0	0	0	0	0.0	0	0	0	summon	S38227	Anazawa Morihide
+0	0	0x00	60383	0	0	0	0	0.0	0	0	0	summon	S60383	Araki Mataemon
+0	0	0x00	482895	0	0	0	0	0.0	0	0	0	summon	S482895	Baba Nobuharu
+0	0	0x00	245775	0	0	0	0	0.0	0	0	0	summon	S245775	Berenguela the Whimsical
+0	0	0x00	314396	0	0	0	0	0.0	0	0	0	summon	S314396	Blood-Spurting Ogin
+0	0	0x00	14625	0	0	0	0	0.0	0	0	0	summon	S14625	Bloodedge Demon
+0	0	0x00	966334	0	0	0	0	0.0	0	0	0	summon	S966334	Daidara Bocchi
+0	0	0x00	765992	0	0	0	0	0.0	0	0	0	summon	S765992	Demon of Envy
+0	0	0x00	510357	0	0	0	0	0.0	0	0	0	summon	S510357	Demon of Obsession
+0	0	0x00	810814	0	0	0	0	0.0	0	0	0	summon	S810814	Demon of Pride
+0	0	0x00	566824	0	0	0	0	0.0	0	0	0	summon	S566824	Demon Slayer
+0	0	0x00	972886	0	0	0	0	0.0	0	0	0	summon	S972886	Denrinbo Raikei
+0	0	0x00	488671	0	0	0	0	0.0	0	0	0	summon	S488671	Enenra
+0	0	0x00	109203	0	0	0	0	0.0	0	0	0	summon	S109203	Enki
+0	0	0x00	200413	0	0	0	0	0.0	0	0	0	summon	S200413	Fabricated Warrior
+0	0	0x00	986563	0	0	0	0	0.0	0	0	0	summon	S986563	Gaki
+0	0	0x00	141706	0	0	0	0	0.0	0	0	0	summon	S141706	Gaki Chief
+0	0	0x00	665148	0	0	0	0	0.0	0	0	0	summon	S665148	Gozuki
+0	0	0x00	269750	0	0	0	0	0.0	0	0	0	summon	S269750	Great Tengu
+0	0	0x00	804607	0	0	0	0	0.0	0	0	0	summon	S804607	Green Shadow's Blade
+0	0	0x00	240225	0	0	0	0	0.0	0	0	0	summon	S240225	Hattori Takeo
+0	0	0x00	223221	0	0	0	0	0.0	0	0	0	summon	S223221	Hijikata Toshizo
+0	0	0x00	745563	0	0	0	0	0.0	0	0	0	summon	S745563	Hiruko (Human)
+0	0	0x00	306399	0	0	0	0	0.0	0	0	0	summon	S306399	Hiruko (Yokai)
+0	0	0x00	334318	0	0	0	0	0.0	0	0	0	summon	S334318	Ishikawa Goemon
+0	0	0x00	947280	0	0	0	0	0.0	0	0	0	summon	S947280	Jakotsu-baba
+0	0	0x00	96976	0	0	0	0	0.0	0	0	0	summon	S96976	Joro-gumo
+0	0	0x00	724394	0	0	0	0	0.0	0	0	0	summon	S724394	Kajiwara Kagetoki
+0	0	0x00	96759	0	0	0	0	0.0	0	0	0	summon	S96759	Kanai Hanbei (Yokai)
+0	0	0x00	970966	0	0	0	0	0.0	0	0	0	summon	S970966	Karasu Tengu
+0	0	0x00	602366	0	0	0	0	0.0	0	0	0	summon	S602366	Kawara Jurobei
+0	0	0x00	128741	0	0	0	0	0.0	0	0	0	summon	S128741	Kondo Isami
+0	0	0x00	274906	0	0	0	0	0.0	0	0	0	summon	S274906	Kosaka Masanobu
+0	0	0x00	536709	0	0	0	0	0.0	0	0	0	summon	S536709	Kyokotsu
+0	0	0x00	381593	0	0	0	0	0.0	0	0	0	summon	S381593	Marubashi Chuya
+0	0	0x00	492278	0	0	0	0	0.0	0	0	0	summon	S492278	Mezuki
+0	0	0x00	626327	0	0	0	0	0.0	0	0	0	summon	S626327	Mori Gentatsu
+0	0	0x00	614441	0	0	0	0	0.0	0	0	0	summon	S614441	Nagakura Shinpachi
+0	0	0x00	502003	0	0	0	0	0.0	0	0	0	summon	S502003	Naito Masatoyo
+0	0	0x00	597530	0	0	0	0	0.0	0	0	0	summon	S597530	Ninja Yoki
+0	0	0x00	904088	0	0	0	0	0.0	0	0	0	summon	S904088	Nuppeppo
+0	0	0x00	482715	0	0	0	0	0.0	0	0	0	summon	S482715	One-eyed Oni
+0	0	0x00	799359	0	0	0	0	0.0	0	0	0	summon	S799359	Onmoraki
+0	0	0x00	264763	0	0	0	0	0.0	0	0	0	summon	S264763	Onryoki
+0	0	0x00	368726	0	0	0	0	0.0	0	0	0	summon	S368726	Raiju
+0	0	0x00	745986	0	0	0	0	0.0	0	0	0	summon	S745986	Saito Hajime
+0	0	0x00	966721	0	0	0	0	0.0	0	0	0	summon	S966721	Shishido Kagetoshi
+0	0	0x00	198738	0	0	0	0	0.0	0	0	0	summon	S198738	Taigen Sessai
+0	0	0x00	524713	0	0	0	0	0.0	0	0	0	summon	S524713	Takashima Shuhan
+0	0	0x00	466641	0	0	0	0	0.0	0	0	0	summon	S466641	Takeda Shingen (Human)
+0	0	0x00	97403	0	0	0	0	0.0	0	0	0	summon	S97403	Tesso
+0	0	0x00	268880	0	0	0	0	0.0	0	0	0	summon	S268880	Tokugawa Yoshinobu
+0	0	0x00	246537	0	0	0	0	0.0	0	0	0	summon	S246537	Tsurara-onna
+0	0	0x00	287588	0	0	0	0	0.0	0	0	0	summon	S287588	Usui Sadamitsu
+0	0	0x00	115893	0	0	0	0	0.0	0	0	0	summon	S115893	Waira
+0	0	0x00	613533	0	0	0	0	0.0	0	0	0	summon	S613533	Yamada Shinryuken
+0	0	0x00	598115	0	0	0	0	0.0	0	0	0	summon	S598115	Yamagata Masakage (Yokai)
+0	0	0x00	410613	0	0	0	0	0.0	0	0	0	summon	S410613	Yamainu
+0	0	0x00	560912	0	0	0	0	0.0	0	0	0	summon	S560912	Yasha
+0	0	0x00	999088	0	0	0	0	0.0	0	0	0	summon	S999088	Yoki
+0	0	0x00	428785	0	0	0	0	0.0	0	0	0	summon	S428785	Yui Shosetsu
