@@ -134,8 +134,6 @@ inline void ArrowHead(float x, float y, float w, float h, int dir, uint32_t c) {
 
 inline float BadgeH(float s) { return Snap((float)osd::kGlyphH * s); }
 // shoulder button (LB / RB / LT / RT): dark bumper, strongly rounded top, flat-ish bottom, light text (#13537)
-// [Menu] ButtonStyle: 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle); set by the menu
-inline volatile int g_btnStyle = 0;
 // PlayStation symbol in the round badge box (x, top, d = diameter), built from 1 px rects like the rest of this file
 inline void PsSymbol(float x, float top, float d, char k, uint32_t c) {
     x = Snap(x); top = Snap(top); d = Snap(d);
@@ -169,6 +167,10 @@ inline void PsSymbol(float x, float top, float d, char k, uint32_t c) {
         osd::DrawRect(bx, by + h - t, sz, t, c);
     }
 }
+// [Menu] ButtonStyle: 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle); set by the menu
+inline volatile int g_btnStyle = 0;
+// inline row text that names a button (A: open, B): PlayStation names under the PlayStation style
+inline const char* PadWord(const char* xbox, const char* ps) { return g_btnStyle ? ps : xbox; }
 inline bool IsBumper(const char* k, size_t n) { return n == 2 && (k[0] == 'L' || k[0] == 'R') && (k[1] == 'B' || k[1] == 'T'); }
 inline void Bumper(float x, float y, const char* k, float cw, float s, float a) {
     const float h = BadgeH(s), top = Snap(y), w = Snap(3.0f * cw);
@@ -184,7 +186,8 @@ inline void Bumper(float x, float y, const char* k, float cw, float s, float a) 
         const float l = in + (k[0] == 'L' ? lean : 0.0f), r = in + (k[0] == 'R' ? lean : 0.0f);
         if (w - l - r >= 1.0f) osd::DrawRect(Snap(x) + l, top + (float)i, w - l - r, 1.0f, c);
     }
-    const char t[3] = {k[0], k[1], 0};
+    char t[3] = {k[0], k[1], 0};
+    if (g_btnStyle) t[1] = k[1] == 'B' ? '1' : '2';  // PlayStation: LB/RB = L1/R1, LT/RT = L2/R2
     osd::DrawText(Snap(x + (w - 2.0f * cw) * 0.5f), top, t, Fade(kBumperText, a), s);
 }
 // width of one badge for key k (n chars)

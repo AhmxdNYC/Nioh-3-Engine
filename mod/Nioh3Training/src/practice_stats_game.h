@@ -19,10 +19,24 @@ static void PstLoadIni(const char* ini) {
     Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d",
         g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9]);
 }
+static volatile LONG g_pst_saving; static ULONGLONG g_pst_iniStamp;  // ini mtime we last wrote / loaded (live reload, user #22826: a hand-edited 0 must switch a setting off at once)
+static ULONGLONG PstIniStamp(const char* ini) { WIN32_FILE_ATTRIBUTE_DATA d; if (!GetFileAttributesExA(ini, GetFileExInfoStandard, &d)) return 0; return ((ULONGLONG)d.ftLastWriteTime.dwHighDateTime << 32) | d.ftLastWriteTime.dwLowDateTime; }
 static DWORD WINAPI PstSaveThread(LPVOID p) {
     (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
     for (int i = 0; i < PS_N; ++i) { snprintf(v, sizeof v, "%d", g_pst.v[i]); WritePrivateProfileStringA("Practice", PstKey(i), v, ini); }
-    WritePrivateProfileStringA(0, 0, 0, ini); return 0;
+    WritePrivateProfileStringA(0, 0, 0, ini); g_pst_iniStamp = PstIniStamp(ini); InterlockedDecrement(&g_pst_saving); return 0;
+}
+// Once a second: if Nioh3Training.ini changed on disk (not by our own save), re-read [Practice] into memory. Switching OneHitKiBreak (or any toggle) to 0 by hand
+// therefore takes effect in the running game; the hooks read g_pst.v on every hit / tick.
+static void PstIniPoll(void) {
+    static DWORD last; const DWORD now = GetTickCount(); if (now - last < 1000) return; last = now;
+    if (g_pst_saving > 0) return;
+    char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    const ULONGLONG st = PstIniStamp(ini); if (!st) return;
+    if (!g_pst_iniStamp) { g_pst_iniStamp = st; return; }
+    if (st == g_pst_iniStamp) return;
+    g_pst_iniStamp = st;
+    for (int i = 0; i < PS_N; ++i) { const int nv = PstClamp(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstDefault(i), ini)); if (nv != g_pst.v[i]) { Log("PRACTICE stats: ini changed on disk, %s %d -> %d", PstKey(i), g_pst.v[i], nv); g_pst.v[i] = nv; } }
 }
 static __attribute__((noinline)) void PstPlayerKi(void) {
     uint64_t me = PlayerChar(), st = 0;
@@ -162,6 +176,7 @@ static void PstTick(void) {
     if (now - g_pst_t < 50) return;
     const int dt = g_pst_t ? (int)(now - g_pst_t) : 50; g_pst_t = now;
     if (GameState() && GameState()[2]) return;  // loading
+    PstIniPoll();
     PstResetFightTick();
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
@@ -202,6 +217,6 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
     if (what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);
     InterlockedExchange(&g_pst_logs, 0);
     Log("PRACTICE stats: %s -> %d%s", PstKey(what), v, persist ? " (saved to ini)" : "");
-    if (persist) { HANDLE t = CreateThread(0, 0, PstSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    if (persist) { InterlockedIncrement(&g_pst_saving); HANDLE t = CreateThread(0, 0, PstSaveThread, 0, 0, 0); if (t) CloseHandle(t); else InterlockedDecrement(&g_pst_saving); }
     return v;
 }

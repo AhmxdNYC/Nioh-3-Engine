@@ -33,7 +33,7 @@ static void FmFeed(double gdt) {
     if (!wantP) g_fmp_show = 0;
     else if (g_fp[FP_PL].valid) {
         int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb;
-        for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL) { active = 1; if (g_fpw[w].great) ub = 1; }
+        for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSample(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub);
         ReleaseSRWLockExclusive(&g_fm_lock);
@@ -45,8 +45,9 @@ static void FmFeed(double gdt) {
     if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }  // no boss: the last picture stays
     int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
     for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
-    // any open window of this boss is active, also one opened by the previous action (a combo chain: the swing outlives its action id)
-    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s) { active = 1; if (g_fpw[w].great) ub = 1; }
+    // an open window of this boss is active only while it belongs to the CURRENT action: a window opened by the previous action (its hitbox still
+    // open when the action id changes) is closed for the meter, so an idle/move action after an attack gets no fake active/recovery run
+    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) { active = 1; if (g_fpw[w].great) ub = 1; }
     AcquireSRWLockExclusive(&g_fm_lock);
     if (s != g_fm_slot) { FmReset(&g_fm); g_fm_slot = s; Log("FRAME METER: following Boss %c (chr %u)", 'A' + s, g_fp[s].chr); }
     FmSample(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub);

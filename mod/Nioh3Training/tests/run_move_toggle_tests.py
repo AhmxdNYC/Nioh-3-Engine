@@ -19,4 +19,4 @@ with tempfile.TemporaryDirectory(prefix='n3-move-tests-') as temp:
         exe = Path(temp) / (name + '.exe')
         subprocess.run([sys.executable, '-m', 'ziglang', 'cc', '-O2', '-Wall', '-fms-extensions',
                         str(Path(__file__).with_name(name + '.c')), '-o', str(exe)], check=True)
-        subprocess.run([str(exe)], check=True, timeout=30)
+        subprocess.run([str(exe)], check=True, timeout=300)

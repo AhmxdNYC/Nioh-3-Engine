@@ -6,7 +6,8 @@
 //   Active cells are ACTIVE or ACTIVE_UB (unblockable); after the last window the cells are RECOVERY until the next action.
 //   Windows that reopen within FM_TOL_MS of the previous window's end merge into one hit (0x4E6E makes 8 colliders = 2 hits), as in
 //   tools/frame_probe_summary.py. Numbers (frames since the action start, as notes/frame-probe-22356.md):
-//   startup = first active frame (1-based), active a-b = window open .. end, recovery = total - end of the last window, total = action length.
+//   ALL displayed frame numbers are 1-based (frame 1 = the action's first frame): startup = first active frame, active a-b = first .. last active frame
+//   (the struct keeps ws 0-based; FmText prints ws+1, so "startup 95" and "active 95-106" agree), recovery = total - end of the last window, total = action length.
 #pragma once
 #include <stdint.h>
 #include <stdio.h>
@@ -110,6 +111,6 @@ static inline void FmText(const FmSum* s, char* l1, size_t n1, char* l2, size_t 
     if (!s->hits) { snprintf(l1, n1, "Frame meter: waiting for a boss attack"); snprintf(l2, n2, "%s", ""); return; }
     snprintf(l1, n1, "act 0x%X  hits %d%s%s", s->act, s->hits, s->ub ? (s->ub == s->hits ? "  UNBLOCKABLE" : "  some unblockable") : "", s->done ? "" : "  (in progress)");
     char a[160]; int o = 0; a[0] = 0;
-    for (int i = 0; i < s->hits && i < FM_MAXW && o < (int)sizeof a - 24; ++i) o += snprintf(a + o, sizeof a - o, "%s%d-%d%s", i ? ", " : "", s->ws[i], s->we[i], s->wub[i] ? "!" : "");
+    for (int i = 0; i < s->hits && i < FM_MAXW && o < (int)sizeof a - 24; ++i) o += snprintf(a + o, sizeof a - o, "%s%d-%d%s", i ? ", " : "", s->ws[i] + 1, s->we[i] > s->ws[i] ? s->we[i] : s->ws[i] + 1, s->wub[i] ? "!" : "");
     snprintf(l2, n2, "startup %d / active %s / recovery %d%s / total %d%s", s->startup, a, s->recovery, s->done ? "" : "+", s->total, s->done ? "" : "+");
 }

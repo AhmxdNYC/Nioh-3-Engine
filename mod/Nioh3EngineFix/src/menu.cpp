@@ -2346,7 +2346,7 @@ float DrawImpl(unsigned W, unsigned H) {
         if (id == kRematchRow || id == kPracticeRow) {
             if (id == g_sel) selRow = nb;
             const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Practice" : "  Practice");
-            put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
+            put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
         if (id >= kSettingRow) {
@@ -2367,7 +2367,7 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kBackRow ? "Back" : PageName(id - kPageRow));
             if (id == g_sel) selRow = nb;
-            put(body, nb, 128, lab, "", id == kBackRow ? "B" : "A: open", id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            put(body, nb, 128, lab, "", id == kBackRow ? menu_style::PadWord("B", "Circle") : menu_style::PadWord("A: open", "Cross: open"), id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
             continue;
         }
         if (!g_cfg.layout || g_pages.page == pAll) {
