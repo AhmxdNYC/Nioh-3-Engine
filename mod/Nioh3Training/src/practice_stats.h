@@ -117,6 +117,18 @@ static inline int PstHoldTimer(float t, float hold, float* out) {
     if (!(t > 0.0f) || t > 1000.0f || !(hold > 0.0f) || t >= hold) return 0;
     *out = hold; return 1;
 }
+// user #22918 live (padviz test 04:24, one-hit break on an idle boss): the break the player sees is only Ki <= 0 ('23=0 exhausted 0 ki0 1': no state 0x23, no 844FE4 timer),
+// the native Ki regen lifts Ki above 0 again ~0.3 s later ('Ki recovered ... Ki 2.2'). The first version only looked at state 0x23 / the timers, so it never started
+// (no 'hold Ki break' line at all). Broken = state 0x23 || exhausted || (sane Ki max and Ki <= 0), the same definition as the NOFIN gold bar.
+// held = already held: the regen between two ticks may lift Ki a little above 0 (we put it back), that is still the hold; a jump over 25 % of max is a refill by the
+// game / Reset fight / the boss Ki slider and ends the hold.
+static inline int PstHoldIsBroken(int s23, int exhausted, float kc, float km, int held) {
+    if (s23 || exhausted) return 1;
+    if (!(km > 0.0f && km <= 100000.0f)) return 0;
+    return kc <= 0.0f || (held && kc <= km * 0.25f);
+}
+// Ki-zero hold: while held and Ki is above 0 (regen), put it back to the lowest value seen since the break started (<= 0, so a negative stun-extend pool is kept).
+static inline int PstHoldKi(float kc, float low, float* out) { if (!(kc > 0.0f) || kc > 100000.0f) return 0; *out = low < 0.0f ? low : 0.0f; return 1; }
 // Release: give the AI back only if the hold switched it off (aiWas = 1 when held), it is still off now, and the boss is alive.
 static inline int PstHoldAiRestore(int weTurnedOff, int aiNow, int dead) { return weTurnedOff && aiNow == 0 && !dead; }
 // user #22942 Time of day / Weather (notes/training-time-of-day-22942.md). S = the active RenderConfig ([[B+0x4751490]]->+0x28 = GetActiveSessionObj
