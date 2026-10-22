@@ -52,6 +52,10 @@ Table made by `py -I tools/yoritomo_move_facts.py <file> --check` -> `notes/yori
   an assumption. The live 0x4E6E HP drops in the other note (447 and 491, ratio 1.098, power ratio 1.100) fit one hit per window.
 - Merge rule: rows with the same group byte `+0xA5` that overlap or touch merge into one window. So do group-0 rows with the same power.
   The game does not name `+0xA5`. It fits all checked moves: 0x4E99 = 2 = its motion sibling 0x4E59, and 0x4E92 = 2 = 0x4E52.
+- 2026-10-22 update (proven part): `+0xA5` is the hit group, read by getter `0x2B5B98` (`0xFF` -> row bit 17 + 2 x bit 18). `0x78EADF..0x78EB74`
+  keys every slot by (start frame, hit group), keeps the max power per key and sums the keys, so rows with the same start + group are one hit.
+  The tool now applies that first (Gaki Chief 0x4E27 14 -> 7, Tsurara-Onna 0x4E67 9 -> 5; Yoritomo unchanged). Details:
+  `notes/all-bosses-move-facts-coverage.md` section 3.
 - Guard side: no code was found that says "cannot guard" when bit 10 is set. Unproven: it could instead mean "breaks guard" or "big Ki damage".
   It is the only static flag that separates 0x4E6E from 0x4E6C.
 
