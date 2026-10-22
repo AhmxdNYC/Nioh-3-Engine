@@ -1313,6 +1313,9 @@ void ChangeConfig(int index, int dir) {
             const int pv = std::clamp((int)std::lround(atof(v.c_str())), 0, 100);
             (d.key[17] == 'X' ? padviz::g_posX : padviz::g_posY) = pv;
             snprintf(g_configReply, sizeof(g_configReply), "Controller display position applies now. Save to keep it.");
+        } else if (!strcmp(d.key, "ControllerDisplayPressColor")) {
+            padviz::g_pressRGB = padviz::PressColor(v.c_str());
+            snprintf(g_configReply, sizeof(g_configReply), "Pressed-button colour applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -2709,6 +2712,8 @@ void Configure(const Host& h) {
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
     padviz::g_posX = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayX", 0, f), 0, 100);
     padviz::g_posY = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayY", 0, f), 0, 100);
+    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
+    { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);
     padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);

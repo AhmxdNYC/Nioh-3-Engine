@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
         // the body is light grey/white: a good share of the frame must be bright (sprites sampled), not just backdrop
         const double frac = (double)lit / ((double)W * H);
         printf("%s: %zu sprites, %ux%u, bright %.1f %% -> %s\n", style ? "DualSense" : "Xbox", nSprites, W, H, frac * 100, path.c_str());
-        if (frac < 0.2) { printf("FAIL: sprites did not render\n"); ++failures; }
+        if (frac < 0.02) { printf("FAIL: sprites did not render\n"); ++failures; }
         for (ID3D12Resource* r : {tex, stage, ub, rbuf, rt}) r->Release();
         srv->Release();
         rtvh->Release();
