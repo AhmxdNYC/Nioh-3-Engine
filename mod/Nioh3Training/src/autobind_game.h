@@ -9,7 +9,7 @@
 static AbTable g_ab; static int g_ab_state;  // 0 = not loaded, 1 = loaded, -1 = failed / off
 static uint32_t* g_ab_hash; static int g_ab_nhash;  // sorted union of every file's hashes
 static int g_cfg_ab = 1;
-enum { AB_BLK = 12, AB_MIN_PCT = 50, AB_STABLE_MS = 6000, AB_MIN_MS = 8000, AB_MAX_MS = 30000 };
+enum { AB_BLK = 12, AB_STABLE_MS = 6000, AB_MIN_MS = 8000, AB_MAX_MS = 30000 };
 static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nblk; struct { uint64_t lo, hi; int rows, file, pct; } blk[AB_BLK]; } g_abs[MAXSP];
 static __attribute__((noinline)) int AbRd(uint64_t a, void* out, int n) { __try { memcpy(out, (const void*)a, (size_t)n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 static int AbKnown(uint32_t h) { int lo = 0, hi = g_ab_nhash - 1; while (lo <= hi) { const int m = (lo + hi) >> 1; if (g_ab_hash[m] == h) return 1; if (g_ab_hash[m] < h) lo = m + 1; else hi = m - 1; } return 0; }
@@ -69,7 +69,7 @@ static void AbTick(void) {
             int inb = 0; for (int k = 0; k < g_abs[s].nblk; ++k) if (row >= g_abs[s].blk[k].lo && row <= g_abs[s].blk[k].hi + 0x150) inb = 1;
             if (!inb && g_abs[s].nblk < AB_BLK) {
                 static uint32_t hs[6000]; uint64_t lo, hi; const int n = AbScan(row, hs, 6000, &lo, &hi);
-                int p1 = 0, p2 = 0; int m = AbMatch(&g_ab, hs, n, &p1, &p2); if (p1 < AB_MIN_PCT) m = -1;
+                int p1 = 0, p2 = 0; int m = AbMatch(&g_ab, hs, n, &p1, &p2); if (m >= 0 && AbIsShared(&g_ab.f[m])) m = -1;  // shared file -> unbound, per-actor action set stays in use
                 const int k = g_abs[s].nblk++; g_abs[s].tLast = now;
                 g_abs[s].blk[k].lo = lo; g_abs[s].blk[k].hi = hi; g_abs[s].blk[k].rows = n; g_abs[s].blk[k].file = m; g_abs[s].blk[k].pct = p1;
                 uint16_t id = 0; AbRd(row + 0xC, &id, 2);

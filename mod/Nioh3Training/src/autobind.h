@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-enum { AB_MAX_FILES = 1024, AB_NAME = 40, AB_MIN_SCORE_PCT = 60 };
+enum { AB_MAX_FILES = 1024, AB_NAME = 40, AB_MIN_SCORE_PCT = 70, AB_MIN_GAP_PCT = 15 };  // bind only if best > 70 % and the runner-up is >= 15 points lower (#23770)
 typedef struct { char file[72]; char chr[AB_NAME]; int rows; int n; uint32_t* ids; } AbFile;  // ids sorted ascending, unique
 typedef struct { AbFile f[AB_MAX_FILES]; int n; } AbTable;
 static inline int AbOk(uint32_t h) { return h && h != 0xFFFFFFFFu; }
@@ -57,5 +57,7 @@ static int AbMatch(const AbTable* t, const uint32_t* obs, int nobs, int* pct, in
         else if (p > second) second = p;
     }
     if (pct) *pct = bestPct; if (pct2) *pct2 = second;
-    return bestPct >= AB_MIN_SCORE_PCT ? best : -1;
+    return bestPct > AB_MIN_SCORE_PCT && bestPct - second >= AB_MIN_GAP_PCT ? best : -1;
 }
+// Shared / generic action files (the CP_HUMAN_* family: Common, Katana, Nitou ... used by many different humans) are never a boss's own file: stay unbound.
+static inline int AbIsShared(const AbFile* f) { return !strncmp(f->chr, "CP_HUMAN_", 9); }
