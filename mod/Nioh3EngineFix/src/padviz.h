@@ -73,15 +73,19 @@ inline float Scale(unsigned H, int style) {
     return s < 0.05f ? 0.05f : s > 4.0f ? 4.0f : s;
 }
 inline float Opacity() { return (float)g_opacity100 / 100.0f; }
-inline uint32_t White(float a) {
+// alpha a, grey level t (1 = the art as drawn; < 1 darkens it: user #23313 wants a dark see-through body like the mod menu)
+inline uint32_t White(float a, float t = 1.0f) {
     const float c = a < 0 ? 0 : a > 1 ? 1 : a;
-    return ((uint32_t)(c * 255.0f + 0.5f) << 24) | 0x00FFFFFFu;
+    const uint32_t g = (uint32_t)((t < 0 ? 0 : t > 1 ? 1 : t) * 255.0f + 0.5f);
+    return ((uint32_t)(c * 255.0f + 0.5f) << 24) | (g << 16) | (g << 8) | g;
 }
+constexpr float kRestGrey = 0.28f;  // unpressed art: dark and see-through (Opacity())
+constexpr float kLitAlpha = 1.0f;   // pressed art: fully solid (user #23309)
 
 // one layer at its CSS place (+dx, dy canvas px), optionally narrowed around its centre (sx, sy: cos of the CSS rotateY / rotateX)
 // and clipped from the top to the bottom `fill` fraction (trigger meter)
 inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, float dx = 0, float dy = 0, float sx = 1, float sy = 1,
-                  float fill = 1) {
+                  float fill = 1, float grey = 1.0f) {
     const SpriteRect& r = k.s[id];
     if (!r.w || a <= 0.0f || fill <= 0.0f) return;
     const float iw = 1.0f / (float)k.atlasW, ih = 1.0f / (float)k.atlasH;
@@ -95,8 +99,14 @@ inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, f
         h *= fill;
         v0 += (v1 - v0) * cut;
     }
-    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, White(a));
+    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, White(a, grey));
 }
+
+// resting art: dim and see-through; lit art (pressed): solid white-ish
+inline void Rest(const Skin& k, int id, float ox, float oy, float s, float a, float dx = 0, float dy = 0, float sx = 1, float sy = 1) {
+    Layer(k, id, ox, oy, s, a, dx, dy, sx, sy, 1, kRestGrey);
+}
+inline void Lit(const Skin& k, int id, float ox, float oy, float s) { Layer(k, id, ox, oy, s, kLitAlpha); }
 
 inline float Axis(int v) {
     float f = (float)v / 32767.0f;
@@ -109,15 +119,16 @@ inline void Stick(const Skin& k, const SkinRules& r, int id, int idPressed, int 
     float h = Axis(ax), v = -Axis(ay);
     if (std::sqrt(h * h + v * v) < 0.25f) h = v = 0;
     const float rad = 3.14159265f / 180.0f;
-    Layer(k, click ? idPressed : id, ox, oy, s, a, h * r.stickOffset, v * r.stickOffset, std::cos(h * r.stickTilt * rad),
-          std::cos(v * r.stickTilt * rad));
+    const float ox2 = h * r.stickOffset, oy2 = v * r.stickOffset, cx = std::cos(h * r.stickTilt * rad), cy = std::cos(v * r.stickTilt * rad);
+    if (click) Layer(k, idPressed, ox, oy, s, kLitAlpha, ox2, oy2, cx, cy);
+    else Layer(k, id, ox, oy, s, a, ox2, oy2, cx, cy, 1, kRestGrey);
 }
 
-inline void Trigger(const Skin& k, const SkinRules& r, int id, int value, float ox, float oy, float s, float a) {
+inline void Trigger(const Skin& k, const SkinRules& r, int id, int value, float ox, float oy, float s, float /*a*/) {
     const float t = (float)(value < 0 ? 0 : value > 255 ? 255 : value) / 255.0f;
     if (t <= 0.0f) return;
-    if (r.triggerMeter) Layer(k, id, ox, oy, s, a, 0, 0, 1, 1, t);
-    else Layer(k, id, ox, oy, s, a * t);
+    if (r.triggerMeter) Layer(k, id, ox, oy, s, kLitAlpha, 0, 0, 1, 1, t);
+    else Layer(k, id, ox, oy, s, kLitAlpha * t);
 }
 
 // draws the whole picture with its top-left at (x, y) pixels; s = Scale(H, style); a = opacity; style 0 Xbox / 1 PlayStation
@@ -125,26 +136,30 @@ inline void DrawState(const State& p, float x, float y, float s, float a, int st
     const Skin& k = SkinFor(style);
     const SkinRules r = RulesFor(style);
     const uint32_t b = p.buttons;
-    Layer(k, S_BODY, x, y, s, a);
+    Rest(k, S_BODY, x, y, s, a);
     Trigger(k, r, S_LT, p.lt, x, y, s, a);
     Trigger(k, r, S_RT, p.rt, x, y, s, a);
-    if (b & kLB) Layer(k, S_LB, x, y, s, a);
-    if (b & kRB) Layer(k, S_RB, x, y, s, a);
-    if (b & kTouch) Layer(k, S_TOUCH, x, y, s, a);
-    if (b & kGuide) Layer(k, S_META, x, y, s, a);
-    if (b & kBack) Layer(k, S_BACK, x, y, s, a);
-    if (b & kStart) Layer(k, S_START, x, y, s, a);
+    if (b & kLB) Lit(k, S_LB, x, y, s);
+    if (b & kRB) Lit(k, S_RB, x, y, s);
+    if (b & kTouch) Lit(k, S_TOUCH, x, y, s);
+    if (b & kGuide) Lit(k, S_META, x, y, s);
+    if (b & kBack) Lit(k, S_BACK, x, y, s);
+    if (b & kStart) Lit(k, S_START, x, y, s);
     // face buttons: the unlit sprite always (a skin without one shows its body art), the lit one instead while pressed
-    Layer(k, (b & kA) ? S_A_LIT : S_A, x, y, s, a);
-    Layer(k, (b & kB) ? S_B_LIT : S_B, x, y, s, a);
-    Layer(k, (b & kX) ? S_X_LIT : S_X, x, y, s, a);
-    Layer(k, (b & kY) ? S_Y_LIT : S_Y, x, y, s, a);
+    if (b & kA) Lit(k, S_A_LIT, x, y, s);
+    else Rest(k, S_A, x, y, s, a);
+    if (b & kB) Lit(k, S_B_LIT, x, y, s);
+    else Rest(k, S_B, x, y, s, a);
+    if (b & kX) Lit(k, S_X_LIT, x, y, s);
+    else Rest(k, S_X, x, y, s, a);
+    if (b & kY) Lit(k, S_Y_LIT, x, y, s);
+    else Rest(k, S_Y, x, y, s, a);
     Stick(k, r, S_STICK, S_STICK_P, p.lx, p.ly, (b & kL3) != 0, x, y, s, a);
     Stick(k, r, S_STICK_R, S_STICK_R_P, p.rx, p.ry, (b & kR3) != 0, x, y, s, a);
-    if (b & kUp) Layer(k, S_UP, x, y, s, a);
-    if (b & kDown) Layer(k, S_DOWN, x, y, s, a);
-    if (b & kLeft) Layer(k, S_LEFT, x, y, s, a);
-    if (b & kRight) Layer(k, S_RIGHT, x, y, s, a);
+    if (b & kUp) Lit(k, S_UP, x, y, s);
+    if (b & kDown) Lit(k, S_DOWN, x, y, s);
+    if (b & kLeft) Lit(k, S_LEFT, x, y, s);
+    if (b & kRight) Lit(k, S_RIGHT, x, y, s);
 }
 
 inline int Style() { return menu_style::g_btnStyle ? 1 : 0; }

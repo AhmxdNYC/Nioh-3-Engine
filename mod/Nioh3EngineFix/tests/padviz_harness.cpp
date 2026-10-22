@@ -176,9 +176,9 @@ int main(int argc, char** argv) {
     const float xw = 72.0f * std::cos(30.0f * 3.14159265f / 180.0f);
     CHECK(xs && Near(xs->x, 141.5f + 25 + (72 - xw) / 2, 0.05f));
 
-    // opacity scales every alpha; zero trigger draws nothing
+    // opacity scales the resting art (dark, see-through); pressed art stays solid (#23309)
     Clear(); DrawState(p, 0, 0, 1.0f, 0.5f, 1);
-    for (auto& s : osd::sprites) CHECK((s.c >> 24) <= 0x80u);
+    { bool anyDim = false; for (auto& s : osd::sprites) anyDim |= (s.c >> 24) <= 0x80u; CHECK(anyDim); }
     // everything at once stays inside the canvas box for both skins
     State all; all.buttons = 0xFFFF; all.lx = all.ly = all.rx = all.ry = -32768; all.lt = all.rt = 255;
     for (int style = 0; style < 2; ++style) {
