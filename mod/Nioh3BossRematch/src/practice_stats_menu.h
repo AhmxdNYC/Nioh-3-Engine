@@ -1,9 +1,9 @@
 // user #22389: Practice stats rows. Included by rematch.cpp inside its UI namespace right after boss_vitals_menu.h (same helpers: TrainingExport,
 // g_msg, Log, colours). Training side: Nioh3Training practice_stats_game.h (exports Nioh3Training_PracticeStatGet / _PracticeStatSet, constants in
 // practice_stats.h). Values are saved in Nioh3Training.ini [Practice]; every one defaults OFF / 1.0x.
-//   Practice > Player page : Infinite Ki (stamina), Damage I deal (x0.1 .. x10), Infinite ninjutsu, Player speed.
+//   Practice > Player page : Infinite Ki (stamina), Damage I deal (x0.1 .. x10), Ki damage I deal (x0 .. x10, user #22588), Infinite ninjutsu, Player speed.
 //   Boss X health and Ki page (below that boss's own infinite health / infinite Ki rows): Damage boss deals (x0 .. x10), Boss Ki drain
-//   (Ki lost per second, 0 = OFF), Boss speed (notes/boss-speed-lever-22389.md). These three apply to all Training bosses.
+//   (Ki lost per second, 0 = OFF), One-hit Ki break (user #22588), Boss speed (notes/boss-speed-lever-22389.md). These apply to all Training bosses.
 #include "../../Nioh3Training/src/practice_stats.h"
 constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kItBvOpenBase; no other range uses 0xD0000)
 constexpr int kItPstResetFight = kItPstBase + 0x80;  // user #22592: 'Reset fight' action row on the Practice hub (not a PS_* setting)
@@ -31,7 +31,7 @@ int PstSet(int what, int value) {
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);
 }
 // Practice hub row 'Frame meter' (PS_FRAME_METER, Nioh3Training frame_meter_game.h): an older Training answers -1 and the row says so.
 template <class Add> void PstAddHubRows(Add&& add) {
@@ -52,9 +52,9 @@ void PstResetFight() {
         ToastF(cGreen, 2000, "Fight reset.");
     }
 }
-template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_BOSS_SPEED); } }
+template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_ONE_HIT_KI); add(kItPstBase + PS_BOSS_SPEED); } }
 const char* PstLabel(int what) {
-    return what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
+    return what == PS_KI_DEALT ? "Ki damage I deal:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
@@ -88,6 +88,8 @@ bool PstChange(int item, int dir) {
     Log("Rematch: menu Practice %s -> %d (#22389)", PstLabel(what), v);
     if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: the first Training boss's moves show as frames at the top of the screen (close the menu). Saved." : "Frame meter OFF. Saved.");
     else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: your Ki (stamina) is refilled whenever it drops. Practice only. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
+    else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Ki damage I deal %s: the Ki damage of the hits you land. Practice only. Saved.", t);
+    else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: your next hit on a Training boss empties its Ki = Ki break. Practice only. Saved." : "One-hit Ki break OFF. Saved.");
     else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: your ninjutsu gauges stay full. Practice only. Saved." : "Infinite ninjutsu OFF. Saved.");
     else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player speed %s: your animations run at that rate (from your next move). Practice only. Saved.", t);
     else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss speed %s: Training bosses animate at that rate (from their next move). Practice only. Saved.", t);
@@ -126,6 +128,8 @@ const char* PstFooter(int item) {
     case PS_PLAYER_INF_KI: return "ON: your Ki (stamina) is refilled to full whenever it drops. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_DMG_DEALT: return "Multiplies the HP damage of the hits you land (x0.10 .. x10). x1.00 = normal. Ki damage is not changed. Practice only (session / Training boss alive). Saved.";
     case PS_DMG_TAKEN: return "Multiplies the HP damage of every Training boss's hits (x0 = none .. x10). x1.00 = normal. Ki damage is not changed. Practice only. Saved.";
+    case PS_KI_DEALT: return "Multiplies the Ki (stamina) damage of the hits you land (x0 = none .. x10). x1.00 = normal. HP damage is not changed (Damage I deal). Practice only (session / Training boss alive). Saved.";
+    case PS_ONE_HIT_KI: return "ON: any hit you land on a Training boss empties its Ki in that hit, so the boss is Ki-broken (the normal stagger / grapple chance). Not while it is already broken or its infinite Ki is ON. Saved.";
     case PS_PLAYER_INF_NIN: return "ON: your ninjutsu gauges are kept full. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_PLAYER_SPEED: return "Animation speed of your character (x0.10 .. x3.00, x1.00 = normal). Applies from your next move; attacks and dodges follow. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_FRAME_METER: return "ON: SF6-style frame meter for the first Training boss (1 cell = 1 frame at 60 fps, last 6 s): green startup, red active, purple unblockable, blue recovery, plus the numbers. Saved.";

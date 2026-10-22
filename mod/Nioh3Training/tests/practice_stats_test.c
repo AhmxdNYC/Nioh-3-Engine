@@ -39,14 +39,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 8);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 10);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 8 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 10 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
@@ -57,6 +57,29 @@ int main(void) {
     assert(c.v[PS_FRAME_METER] == 0 && PstDefault(PS_FRAME_METER) == 0 && PstIsToggle(PS_FRAME_METER) && !PstIsToggle(PS_BOSS_SPEED));
     assert(PstClamp(PS_FRAME_METER, 5) == 1 && PstClamp(PS_FRAME_METER, -1) == 0);
     assert(PstStep(PS_FRAME_METER, 0, 0) == 1 && PstStep(PS_FRAME_METER, 1, 0) == 0 && PstStep(PS_FRAME_METER, 0, 1) == 1 && PstStep(PS_FRAME_METER, 1, -1) == 0);
+    // user #22588 Ki damage I deal (x0 .. x10, default x1) and One-hit Ki break (toggle, default OFF)
+    assert(c.v[PS_KI_DEALT] == 100 && c.v[PS_ONE_HIT_KI] == 0 && PstDefault(PS_KI_DEALT) == 100 && PstDefault(PS_ONE_HIT_KI) == 0);
+    assert(PstIsToggle(PS_ONE_HIT_KI) && !PstIsToggle(PS_KI_DEALT));
+    assert(PstClamp(PS_KI_DEALT, -5) == 0 && PstClamp(PS_KI_DEALT, 5000) == 1000 && PstClamp(PS_ONE_HIT_KI, 9) == 1 && PstClamp(PS_ONE_HIT_KI, -1) == 0);
+    assert(PstStep(PS_KI_DEALT, 100, 1) == 125 && PstStep(PS_KI_DEALT, 10, -1) == 0 && PstStep(PS_KI_DEALT, 0, -1) == 0 && PstStep(PS_KI_DEALT, 1000, 1) == 1000);
+    assert(PstStep(PS_ONE_HIT_KI, 0, 0) == 1 && PstStep(PS_ONE_HIT_KI, 1, 0) == 0 && PstStep(PS_ONE_HIT_KI, 0, 1) == 1 && PstStep(PS_ONE_HIT_KI, 1, -1) == 0);
+    assert(PstScaleKi(40.0f, 100) == 40.0f && PstScaleKi(40.0f, 200) == 80.0f && PstScaleKi(40.0f, 50) == 20.0f && PstScaleKi(40.0f, 0) == 0.0f);
+    assert(PstScaleKi(40.0f, 1000) == 400.0f && PstScaleKi(40.0f, 5000) == 400.0f /* clamped x10 */);
+    assert(PstScaleKi(0.0f, 500) == 0.0f && PstScaleKi(-10.0f, 500) == -10.0f /* a Ki gain is untouched */);
+    // sides: only the player's hits on someone else; the boss hitting the player / allies untouched
+    assert(PstKiDmg(1, 0, 1, 200, 0, 0, 500, 40) == 80.0f && PstKiDmg(1, 0, 0, 200, 0, 0, 500, 40) == 80.0f /* any non-player victim, like Damage I deal */);
+    assert(PstKiDmg(0, 1, 0, 200, 1, 0, 500, 40) == 40.0f /* boss hits the player */ && PstKiDmg(1, 1, 0, 0, 1, 0, 500, 40) == 40.0f /* player hurts itself */);
+    assert(PstKiDmg(0, 0, 1, 0, 1, 0, 500, 40) == 40.0f /* an ally hits the boss */ && PstKiDmg(1, 0, 1, 100, 0, 0, 500, 40) == 40.0f /* defaults */);
+    // one-hit Ki break: the same hit takes the Ki from > 0 to <= 0 (cur - amount = -max(amount, 1))
+    { const float cur = 1040.0f, r = PstKiDmg(1, 0, 1, 100, 1, 0, cur, 40); assert(r == 1080.0f && cur - r <= 0.0f); }
+    { const float r = PstKiDmg(1, 0, 1, 0, 1, 0, 300, 40); assert(r == 301.0f && 300 - r < 0.0f); }  // x0 Ki damage still breaks (empties to -1)
+    { const float r = PstKiDmg(1, 0, 1, 100, 1, 0, 0.5f, 0.0f); assert(r == 1.5f && 0.5f - r <= 0.0f); }  // a zero-Ki hit still breaks
+    assert(PstKiDmg(1, 0, 1, 100, 1, 0, 30, 40) == 40.0f /* already breaks natively: untouched */ && PstKiDmg(1, 0, 1, 100, 1, 0, 40, 40) == 40.0f);
+    assert(PstKiDmg(1, 0, 1, 200, 1, 0, 60, 40) == 80.0f /* the scaled hit already breaks */);
+    assert(PstKiDmg(1, 0, 0, 100, 1, 0, 500, 40) == 40.0f /* not a Training boss */ && PstKiDmg(1, 0, 1, 100, 1, 1, 500, 40) == 40.0f /* blocked: broken / inf Ki / dead / window */);
+    assert(PstKiDmg(1, 0, 1, 100, 1, 0, 0.0f, 40) == 40.0f && PstKiDmg(1, 0, 1, 100, 1, 0, -50.0f, 40) == 40.0f /* already out of Ki */);
+    assert(PstKiDmg(1, 0, 1, 100, 1, 0, 1e9f, 40) == 40.0f /* garbage Ki read */ && PstKiDmg(1, 0, 1, 100, 1, 0, 500, -5) == -5.0f /* Ki gain */);
+    { const float n = 0.0f / 0.0f; const float r = PstKiDmg(1, 0, 1, 200, 1, 0, 500, n); assert(r != r); }  // NaN passes through
     puts("practice_stats_test: all passed");
     return 0;
 }

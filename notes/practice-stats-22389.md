@@ -83,3 +83,12 @@ instead of the debug freeze) and `StepKey` (default 117 = F6, hold = repeat afte
 ## Reset fight boss Ki 'WRITE DID NOT STICK' (fixed, live 2026-10-21)
 KiSetCur 2F88D0 and the native regen stop at `max - [st+0x120]` (a Ki ceiling loss that the player's hits add to; 0 at spawn). BvWriteKi now clears it
 when the target is above that ceiling; live read back 1664 / 1664 after Reset fight. Details: notes/frame-meter-second-boss-22356.md.
+
+## Ki damage I deal + One-hit Ki break (#22588, offline static RE, not run in game)
+- `[Practice] KiDamageDealtPct` (0..1000, default 100; Player page row 'Ki damage I deal', after 'Damage I deal') and `OneHitKiBreak` (0/1, default 0; Boss X page row after 'Boss Ki drain').
+- Lever: KiDamage `844604(rcx = K = st+0x98, xmm1 = amount)` = `KiSetCur 2F88D0(K, [K+0x14] - amount)` unless KiDamageImmune `2F8884`. Its only call in the hit apply `327DEC` is **`329E9D`** (capstone scan of `re/Nioh3.dump.exe`; the other callers `9C585C` / `1FF4454` are not hooked).
+  Around it: `329E31` bl = `2A3758(K)` (Ki <= 0) before the hit; `329F25..329F46` if !bl and Ki <= 0 after -> the native Ki-break transition.
+- Hook: E8 at `329E9D` -> stub `mov r8, r13 (hit); jmp PstKiDamage(K, amount, hit)`; byte check 20 bytes before the call + the `325F40` attacker getter. Installed on first use (value != default).
+- Scaling: attacker = `325F40(hit)` == player and victim != player -> amount x pct / 100 (positive amounts only).
+- One-hit: victim is a Training boss (BvActor), not dead / exhausted (`844FE4`) / state 0x23 / HP-0 window / its infinite Ki ON, Ki > 0: amount = cur + max(scaled, 1), so the same hit crosses 0 = native break. A hit that already empties the bar is untouched.
+- Unproven in game: that a forced crossing gives the full native stagger every time (the NOFIN prime-0.5 path relies on the same crossing, live #9319), guard / parry hits (they may use another Ki path), ninjutsu / projectiles' attacker resolution, the Ki-immune windows (super armor) where KiDamage no-ops. Log: `hook Ki damage 329E9D: on`, `PRACTICE Ki damage: ... ONE-HIT Ki BREAK` (first 30).

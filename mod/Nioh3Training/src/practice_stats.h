@@ -9,12 +9,14 @@
 //   PS_PLAYER_SPEED   PlayerSpeedPct      10..300 player animation speed (same 134E68 hook, [ctrl+0xE0] == the player)
 //   PS_PLAYER_INF_NIN PlayerInfiniteNinjutsu 0/1  player ninjutsu gauges (st+0x36AC+k*0x30 cur / +0x36B0 max, k=0..2) kept full
 //   PS_FRAME_METER    FrameMeter          0/1    on-screen boss frame meter (frame_meter.h / frame_meter_game.h; read-only, uses the FRAMEPROBE hook)
+//   PS_KI_DEALT       KiDamageDealtPct    0..1000 Ki damage of hits whose attacker is the player (x0 .. x10) x pct / 100 (user #22588; KiDamage 844604 at 329E9D)
+//   PS_ONE_HIT_KI     OneHitKiBreak       0/1    a player hit on a Training boss empties its Ki in that same hit = the native Ki break (user #22588)
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_N = 8 };
-static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER; }
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_N = 10 };
+static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 static inline int PstClamp(int what, int v) {
     const int sp = what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED;
@@ -24,7 +26,7 @@ static inline int PstClamp(int what, int v) {
 }
 // Left / Right steps of the menu sliders (A on an ON/OFF row flips it).
 static inline int PstStep(int what, int v, int dir) {
-    static const int dmg[] = {0, 10, 25, 50, 75, 100, 125, 150, 200, 300, 500, 1000};  // PS_DMG_DEALT starts at 10 (PstClamp)
+    static const int dmg[] = {0, 10, 25, 50, 75, 100, 125, 150, 200, 300, 500, 1000};  // PS_DMG_DEALT starts at 10 (PstClamp); PS_KI_DEALT / PS_DMG_TAKEN at 0
     static const int drain[] = {0, 5, 10, 20, 30, 50, 100, 200, 500, 1000};  // Ki per second (a boss's max Ki is ~1000)
     static const int spd[] = {10, 25, 50, 75, 100, 125, 150, 200, 300};
     const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? spd : dmg;
@@ -74,4 +76,22 @@ static inline int PstNinjutsuFill(int on, float cur, float max) {
 static inline int PstDmgPct(int atkPlayer, int atkBoss, int vicPlayer, int dealt, int boss) {
     if (atkPlayer) return vicPlayer ? 100 : dealt;
     return atkBoss ? boss : 100;
+}
+// user #22588 Ki damage of one hit (KiDamage 844604(K = victim st+0x98, xmm1 = amount) at 329E9D in the hit apply 327DEC; KiDamage = KiSetCur(cur - amount)).
+// Scaled only when the PLAYER is the attacker and the victim is not the player (same sides as PstDmgPct 'Damage I deal'). Only a positive amount is
+// scaled (0 / negative / NaN untouched); 100 % = unchanged; 0 % = no Ki damage.
+// One-hit Ki break (oneHit, victim a Training boss, not blocked = not already exhausted / broken / dead / in the HP-0 window / its infinite Ki ON):
+// the amount becomes cur + max(scaled, 1), so this same hit takes the Ki from > 0 to <= 0 (to minus the hit's own Ki damage, at least -1) = the
+// native Ki-break transition of 327DEC (Ki <= 0 test 2A3758 before / after this call). A hit whose Ki damage already empties the bar is untouched.
+static inline float PstScaleKi(float amt, int pct) {
+    if (!(amt > 0.0f) || pct == 100) return amt;
+    if (pct <= 0) return 0.0f;
+    if (pct > 1000) pct = 1000;
+    return amt * (float)pct / 100.0f;
+}
+static inline float PstKiDmg(int atkPlayer, int vicPlayer, int vicBoss, int pct, int oneHit, int blocked, float cur, float amt) {
+    if (!atkPlayer || vicPlayer || !(amt == amt)) return amt;
+    const float a = PstScaleKi(amt, pct);
+    if (!oneHit || !vicBoss || blocked || !(cur > 0.0f) || cur > 100000.0f || a < 0.0f || a >= cur) return a;
+    return cur + (a > 1.0f ? a : 1.0f);
 }

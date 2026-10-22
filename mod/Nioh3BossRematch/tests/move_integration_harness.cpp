@@ -62,10 +62,10 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
-static int pst[8] = {0, 100, 100, 0, 100, 0, 100, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
-static int PstGetX(int what) { return what >= 0 && what < 8 ? pst[what] : -1; }
+static int pst[10] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
+static int PstGetX(int what) { return what >= 0 && what < 10 ? pst[what] : -1; }
 static int resetFightCalls; static int ResetFightX() { ++resetFightCalls; return 15; }  // user #22592 Reset fight
-static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 7) return -1; if (what == 7 && v < 0) v = !pst[7]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 9) return -1; if ((what == 7 || what == 9) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -240,8 +240,13 @@ int main() {
     CHECK(!UiAct() && bvCfg[0][0] == 1);
     {   // user #22389: Boss X page = that boss's infinite Ki row, then Damage boss deals / Boss Ki drain / Boss speed (all Training bosses, saved)
         list(); const int d = at(kItPstBase + PS_BOSS_KI_DRAIN), t = at(kItPstBase + PS_DMG_TAKEN);
-        CHECK(at(kItBvInfKi) >= 0 && t > at(kItBvInfKi) && d == t + 1 && at(kItPstBase + PS_BOSS_SPEED) == d + 1 && items[n - 1] == kItBack);
-        CHECK(!has(kItPstBase + PS_DMG_DEALT) && !has(kItPstBase + PS_PLAYER_INF_KI));
+        CHECK(at(kItBvInfKi) >= 0 && t > at(kItBvInfKi) && d == t + 1 && at(kItPstBase + PS_ONE_HIT_KI) == d + 1 && at(kItPstBase + PS_BOSS_SPEED) == d + 2 && items[n - 1] == kItBack);
+        CHECK(!has(kItPstBase + PS_DMG_DEALT) && !has(kItPstBase + PS_PLAYER_INF_KI) && !has(kItPstBase + PS_KI_DEALT));
+        {   // user #22588 One-hit Ki break: toggle, default OFF, saved
+            CHECK(shown("One-hit Ki break:", "OFF")); const int o = at(kItPstBase + PS_ONE_HIT_KI), p1 = pstPersist;
+            g_sel = o; CHECK(!UiAct() && pst[9] == 1 && shown("One-hit Ki break:", "ON") && pstPersist == p1 + 1); CHECK(!UiAct() && pst[9] == 0 && shown("One-hit Ki break:", "OFF"));
+            UiChange(1); CHECK(pst[9] == 1); UiChange(-1); CHECK(pst[9] == 0);
+        }
         CHECK(shown("Boss Ki drain:", "OFF") && shown("Damage boss deals:", "x1.00") && shown("-- All Training bosses (saved) --"));
         const int p0 = pstPersist;
         g_sel = d; UiChange(1); UiChange(1); CHECK(pst[3] == 10 && shown("Boss Ki drain:", "10 Ki / s") && pstPersist == p0 + 2);
@@ -292,13 +297,20 @@ int main() {
     {   // user #22389 Practice > Player page: Infinite health, then Infinite Ki / Damage I deal / Infinite ninjutsu / Player speed (defaults OFF / x1.00)
         UiOpenAt(2); g_uiPages.Enter(uPlayer, g_sel); g_sel = 0; list();
         CHECK(!has(kItPstBase + PS_BOSS_KI_DRAIN) && !has(kItPstBase + PS_DMG_TAKEN) && !has(kItPstBase + PS_BOSS_SPEED) && has(kItPstBase + PS_PLAYER_INF_KI) && has(kItPstBase + PS_DMG_DEALT));
+        CHECK(!has(kItPstBase + PS_ONE_HIT_KI) && at(kItPstBase + PS_KI_DEALT) == at(kItPstBase + PS_DMG_DEALT) + 1);  // user #22588
         CHECK(has(kItPstBase + PS_PLAYER_INF_NIN) && has(kItPstBase + PS_PLAYER_SPEED) && items[n - 1] == kItBack);
         CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage I deal:", "x1.00"));
         g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);
         g_sel = at(kItPstBase + PS_DMG_DEALT); for (int i = 0; i < 20; ++i) UiChange(1);
         CHECK(pst[1] == 1000 && shown("Damage I deal:", "x10.00")); for (int i = 0; i < 20; ++i) UiChange(-1);
         CHECK(pst[1] == 10 && shown("Damage I deal:", "x0.10"));
-        pst[1] = 100; CHECK(!UiBack());
+        pst[1] = 100;
+        {   // user #22588 Ki damage I deal: x0 .. x10, default x1.00
+            CHECK(shown("Ki damage I deal:", "x1.00")); g_sel = at(kItPstBase + PS_KI_DEALT);
+            for (int i = 0; i < 20; ++i) UiChange(1); CHECK(pst[8] == 1000 && shown("Ki damage I deal:", "x10.00"));
+            for (int i = 0; i < 20; ++i) UiChange(-1); CHECK(pst[8] == 0 && shown("Ki damage I deal:", "x0.00")); pst[8] = 100;
+        }
+        CHECK(!UiBack());
     }
     puts("PASS: #14336 menu cleanup: root / Boss Matches without Leave arena or dev rows; Practice hub hides Train here / arena in a session (#14333); "
          "Training Bosses = one row per spawned boss (A, B, C ...), Summon another boss (next free letter), CPU / idle timer 1-10 s (#14313), Remove all lists the bosses; "

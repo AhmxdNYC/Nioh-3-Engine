@@ -4086,7 +4086,7 @@ static volatile LONG g_nf_n_nl;
 // reaction / Ki break). The kill at the end of the window is the native force kill as before.
 static int g_nf_reserve = 1; static volatile int64_t g_nf_off[NF_N];
 #include "practice_stats.h"  // user #22389: damage multipliers scale the hit HP damage here (PstDmgScale); game glue practice_stats_game.h
-static PstCfg g_pst = {{0, 100, 100, 0, 100, 0, 100, 0}};  // PsDefaults; loaded from [Practice] at start
+static PstCfg g_pst = {{0, 100, 100, 0, 100, 0, 100, 0, 100, 0}};  // PsDefaults; loaded from [Practice] at start
 static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Practice session or a Training boss is alive)
 // user #22389 damage multipliers, by ATTACKER side. The hit apply 327DEC(hit = r13 for the whole function, set at 327E87) calls HP damage
 // 787268(hp, edx = cvttss2si xmm15 = the final HP damage, r8b = hit+0x28D keepAlive, r9 = 0) at 329890 (proven on bosses: NOFIN 'HP damage boss slot').
@@ -4095,7 +4095,8 @@ static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Pract
 // (type 0 = the character itself; a projectile / gadget (type 4) -> its owner +0x260 / +0x1E0; 588700 for the rest; pure reads). 327DEC calls it
 // right after the HP damage (3298EF) and 35 more times. The stub at 329890 passes r13 (the hit) in r9 (the site's own r9 is a constant 0).
 // Attacker == the player -> DamageDealtPct ('Damage I deal'), attacker == a Training boss -> DamageTakenPct ('Damage boss deals'), else x1.
-// HP only: Ki damage (KiDamage 844604) and the 7 other HP-damage callers (DoT / status / scripts) are not scaled.
+// HP only: Ki damage has its own hook (KiDamage 844604 at 329E9D, PstKiDamage in practice_stats_game.h, user #22588); the 7 other HP-damage callers
+// (DoT / status / scripts) are not scaled.
 static int PstIsBossActor(uint64_t a);  // practice_stats_game.h
 static volatile LONG g_pst_atk_ok;  // 1 = the 325F40 bytes match (HpDmgHookInstall); otherwise no attacker = no scaling
 static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t hit) {
