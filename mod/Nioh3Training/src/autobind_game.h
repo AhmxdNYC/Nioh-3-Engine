@@ -38,6 +38,8 @@ static int AbScan(uint64_t r0, uint32_t* out, int cap, uint64_t* lo, uint64_t* h
             if (AbOk(h) && AbKnown(h)) { bad = 0; if (n < cap) out[n++] = h; if (dir < 0 && r < *lo) *lo = r; if (dir > 0 && r > *hi) *hi = r; } else ++bad;
         }
     }
+    qsort(out, (size_t)n, sizeof(uint32_t), AbCmp32);   // distinct hashes only (duplicates would push the Jaccard over 100 %)
+    { int u = 0; for (int i = 0; i < n; ++i) if (!u || out[u - 1] != out[i]) out[u++] = out[i]; n = u; }
     return n;
 }
 // Bind = the largest block that matches a file at >= AB_MIN_PCT (the boss's own file is bigger than the shared common files). Re-scanned every 250 ms until no new
