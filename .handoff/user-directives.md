@@ -355,3 +355,5 @@
 - #22942 (2026-10-22): user likes 'time of day' option in Training (weather unverified); investigate whether game exposes time of day, build adjustable slider if so.
 - #22942/#22943 (2026-10-22): user wants Time of day and Sky (sky/weather look) controls in Training if the game exposes them; research feasibility first, don't promise.
 - #22956 (2026-10-22): input display overlay should come in Xbox and PlayStation styles (follows ButtonStyle pick); top-left pad graphic, sticks/triggers.
+- #22972/#22973 (2026-10-22): user not home; go ahead, install the fixes build and restart the game as needed.
+- #22978 (2026-10-22): user wants a video showcasing more features AND the controller display; tell him when sent (needs input display built first). #22984: asks whether a 100% save gives access to all bosses or missions must still be played; wants all bosses confirmed summonable (reverse/verify all).
