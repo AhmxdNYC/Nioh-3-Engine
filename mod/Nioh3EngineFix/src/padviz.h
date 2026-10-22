@@ -126,25 +126,26 @@ inline void DrawState(const State& p, float x, float y, float s, float a, int st
     const SkinRules r = RulesFor(style);
     const uint32_t b = p.buttons;
     Layer(k, S_BODY, x, y, s, a);
-    Trigger(k, r, S_LT, p.lt, x, y, s, a);
-    Trigger(k, r, S_RT, p.rt, x, y, s, a);
-    if (b & kLB) Layer(k, S_LB, x, y, s, a);
-    if (b & kRB) Layer(k, S_RB, x, y, s, a);
-    if (b & kTouch) Layer(k, S_TOUCH, x, y, s, a);
-    if (b & kGuide) Layer(k, S_META, x, y, s, a);
-    if (b & kBack) Layer(k, S_BACK, x, y, s, a);
-    if (b & kStart) Layer(k, S_START, x, y, s, a);
+    Trigger(k, r, S_LT, p.lt, x, y, s, 1.0f);
+    Trigger(k, r, S_RT, p.rt, x, y, s, 1.0f);
+    if (b & kLB) Layer(k, S_LB, x, y, s, 1.0f);
+    if (b & kRB) Layer(k, S_RB, x, y, s, 1.0f);
+    if (b & kTouch) Layer(k, S_TOUCH, x, y, s, 1.0f);
+    if (b & kGuide) Layer(k, S_META, x, y, s, 1.0f);
+    if (b & kBack) Layer(k, S_BACK, x, y, s, 1.0f);
+    if (b & kStart) Layer(k, S_START, x, y, s, 1.0f);
+    // pressed layers are drawn fully opaque (user #23309) while the body keeps the menu opacity
     // face buttons: the unlit sprite always (a skin without one shows its body art), the lit one instead while pressed
-    Layer(k, (b & kA) ? S_A_LIT : S_A, x, y, s, a);
-    Layer(k, (b & kB) ? S_B_LIT : S_B, x, y, s, a);
-    Layer(k, (b & kX) ? S_X_LIT : S_X, x, y, s, a);
-    Layer(k, (b & kY) ? S_Y_LIT : S_Y, x, y, s, a);
+    Layer(k, (b & kA) ? S_A_LIT : S_A, x, y, s, (b & kA) ? 1.0f : a);
+    Layer(k, (b & kB) ? S_B_LIT : S_B, x, y, s, (b & kB) ? 1.0f : a);
+    Layer(k, (b & kX) ? S_X_LIT : S_X, x, y, s, (b & kX) ? 1.0f : a);
+    Layer(k, (b & kY) ? S_Y_LIT : S_Y, x, y, s, (b & kY) ? 1.0f : a);
     Stick(k, r, S_STICK, S_STICK_P, p.lx, p.ly, (b & kL3) != 0, x, y, s, a);
     Stick(k, r, S_STICK_R, S_STICK_R_P, p.rx, p.ry, (b & kR3) != 0, x, y, s, a);
-    if (b & kUp) Layer(k, S_UP, x, y, s, a);
-    if (b & kDown) Layer(k, S_DOWN, x, y, s, a);
-    if (b & kLeft) Layer(k, S_LEFT, x, y, s, a);
-    if (b & kRight) Layer(k, S_RIGHT, x, y, s, a);
+    if (b & kUp) Layer(k, S_UP, x, y, s, 1.0f);
+    if (b & kDown) Layer(k, S_DOWN, x, y, s, 1.0f);
+    if (b & kLeft) Layer(k, S_LEFT, x, y, s, 1.0f);
+    if (b & kRight) Layer(k, S_RIGHT, x, y, s, 1.0f);
 }
 
 inline int Style() { return menu_style::g_btnStyle ? 1 : 0; }
