@@ -1232,11 +1232,40 @@ static ArenaRow g_rows[MAXROWS]; static int g_nrows;
 // user #22984: kind 'summon' rows (tools/gen_summon_rows.py) = summon-only bosses with no arena data, kept apart from g_rows so the Fight now /
 // world / preload scans never see them. mission != 0: a catalogue row (menu token R<mission>); mission 0: the per-boss roster (id S<chr>).
 static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[MAXROWS]; static int g_nsum, g_nroster;
+// #23436/#23447/#23451/#23479: rows derived in-process from the game's own data files (arena_scan.h, the C port of tools/auto_arena.py, no game
+// addresses). [ArenaSwap] AutoArena = 1 (default): after the TSV (= cache + override) every scanned row whose mission (R/D rows) or boss character
+// (S rows) the TSV does not have is added, so a game patch / DLC boss gets its arena with no table update; new characters also join the summon
+// roster (named 'Boss <chr>' until the TSV names them). 0 = TSV only.
+static int g_cfg_autoarena = 1;
+#define AS_LOG(...) Log(__VA_ARGS__)
+#include "arena_scan.h"
+static void AsAddRow(const AsRow* s, void* ctx) {
+    int* added = (int*)ctx;
+    for (int i = 0; i < g_nrows; ++i) {
+        if (s->id[0] != 'S' && g_rows[i].id[0] != 'S' && g_rows[i].mission == s->mission) return;  // the TSV has this mission
+        if (g_rows[i].chr == s->chr && (s->id[0] == 'S' || !_stricmp(g_rows[i].id, s->id))) return;  // or this boss character
+    }
+    if (g_nrows >= MAXROWS) return;
+    ArenaRow* r = &g_rows[g_nrows++]; memset(r, 0, sizeof *r);
+    r->mission = s->mission; r->start = s->start; r->world = s->world; r->chr = s->chr; r->placement = s->placement;
+    for (int i = 0; i < 4; ++i) r->p[i] = (float)s->p[i];
+    for (int i = 0; i < 3; ++i) r->b[i] = (float)s->b[i];
+    snprintf(r->kind, sizeof r->kind, "%s", s->kind); snprintf(r->id, sizeof r->id, "%s", s->id);
+    const char* nm = 0; for (int i = 0; i < g_nsum && !nm; ++i) if (g_sum[i].chr == s->chr) nm = g_sum[i].name;
+    for (int i = 0; i < g_nrows - 1 && !nm; ++i) if (g_rows[i].chr == s->chr) nm = g_rows[i].name;
+    if (nm) snprintf(r->name, sizeof r->name, "%s", nm); else snprintf(r->name, sizeof r->name, "Boss %u", s->chr);
+    int inRoster = 0; for (int i = 0; i < g_nsum; ++i) if (g_sum[i].chr == s->chr) inRoster = 1;
+    if (r->id[0] == 'S' && !inRoster && g_nsum < MAXROWS) {
+        g_sum[g_nsum].mission = 0; g_sum[g_nsum].chr = s->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); ++g_nsum; ++g_nroster;
+    }
+    Log("ARENASCAN: added %s %s mission 0x%X world 0x%02X chr %u (%s), not in the TSV", r->kind, r->id, r->mission, r->world, r->chr, r->name);
+    ++*added;
+}
 static void LoadTable(void) {
     char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
-    FILE* f = fopen(path, "r"); if (!f) { Log("arena table %s not found: Fight now keeps the native load", path); return; }
-    char line[512];
-    while (fgets(line, sizeof line, f) && g_nrows < MAXROWS) {
+    FILE* f = fopen(path, "r"); char line[512];
+    if (!f) Log("arena table %s not found", path);
+    while (f && fgets(line, sizeof line, f) && g_nrows < MAXROWS) {
         if (line[0] == '#' || line[0] == '\n') continue;
         char* col[16]; int n = 0; char* c = line;
         while (n < 16) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
@@ -1256,7 +1285,14 @@ static void LoadTable(void) {
         }
         if (r->mission && r->chr) ++g_nrows;
     }
-    fclose(f);
+    if (f) fclose(f);
+    { char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir); g_cfg_autoarena = GetPrivateProfileIntA("ArenaSwap", "AutoArena", 1, ini); }
+    if (g_cfg_autoarena) {
+        DWORD t0 = GetTickCount(); int added = 0, n = AsScan(g_dir, AsAddRow, &added);
+        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena 1): %d rows from the game data, %d not in the TSV added (%lu ms)", n, added, GetTickCount() - t0);
+    }
+    if (!g_nrows) { Log("arena table empty: Fight now keeps the native load"); return; }
+
     snprintf(path, sizeof path, "%s\\Nioh3Training_bgm.tsv", g_dir);  // mission<TAB>0xHASH
     int nb = 0; if ((f = fopen(path, "r"))) {
         while (fgets(line, sizeof line, f)) {

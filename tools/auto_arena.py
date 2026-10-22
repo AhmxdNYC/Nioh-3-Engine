@@ -2,7 +2,7 @@
 """auto_arena.py - builds mod/Nioh3Training/Nioh3Training_arenas.tsv for EVERY boss straight from the game's own data
 (user #23436/#23447/#23451/#23479, notes/auto-arena.md). No per-boss list, no exe address: only the game folder's LFM data.
 
-    py -I tools/auto_arena.py [--game DIR] [--out TSV] [--report CSV] [--check]
+    py -I tools/auto_arena.py [--game DIR] [--out TSV] [--report CSV] [--check] [--fresh]
 
 --game defaults to $NIOH3_DIR, then the usual Steam folders. --check: exit 1 when the TSV differs from a rebuild (or, without a game
 folder, only validates the committed TSV). --report writes the per-boss coverage table (notes/auto-arena-bosses.csv by default).
@@ -432,6 +432,7 @@ def main(argv=None):
     ap.add_argument("--report", default=REPORT)
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--fresh", action="store_true", help="ignore the committed table (= exactly what Training's in-process scan derives)")
     a = ap.parse_args(argv)
     log = (lambda s: None) if a.quiet else (lambda s: print(s, file=sys.stderr))
     g = game_dir(a.game)
@@ -444,7 +445,7 @@ def main(argv=None):
     L = Lfm(g)
     t = find_tables(L, log)
     ms = mission_data(L, t, log)
-    old = old_table(a.out)
+    old = {} if a.fresh else old_table(a.out)
     rows = build_rows(ms, old, log)
     chrs = {r["chr"] for r in rows} | {int(c[3]) for (rid, s), c in old.items() if s and c[3].isdigit()}
     tid = chara_names(L, chrs, log)
