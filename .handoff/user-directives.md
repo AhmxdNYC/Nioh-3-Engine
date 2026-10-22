@@ -367,3 +367,4 @@
 - #23097 (2026-10-22 5:13am): user approved (answer to #22878 install ask; already installed). #23083: controller display should be gamepad-viewer layout with DualSense-shaped and Xbox Series-shaped bodies; #23096 wants ping when the new clip is sent.
 - #23013/#23017 (2026-10-22): human bosses (Kagetoki, Yagyu Jubei) have a negative Ki part that grows with high-stun hits while at zero Ki -> keep them at zero Ki indefinitely; investigate for Hold Ki break. #23106: 'was the human hidden thing detected' (same topic).
 - #23125 (2026-10-22): user dislikes the redrawn pad shapes ('not exactly what I want'); must match the real Gamepad Viewer (gamepadviewer.com) layout/look. Study that layout before redrawing; ask for a screenshot/which style if unclear.
+- #23135 (2026-10-22): user: send a PICTURE (screenshot) of the new Gamepad-Viewer-style DualSense/Xbox display when done.
