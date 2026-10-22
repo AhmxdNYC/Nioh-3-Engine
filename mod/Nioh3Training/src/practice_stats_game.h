@@ -9,11 +9,15 @@
 //   Boss Ki drain      : Training bosses (BvActor) lose BossKiDrainPerSec Ki per second via KiSetCur at 20 Hz, floor 0.5, never during a Ki break /
 //                        HP-0 window / infinite Ki.
 //   Hold Ki break      : user #22918, PstHoldBreak (break timers K+0x74 / K+0x7C / ctrl+0x1014 kept running, AI held off while a Training boss is broken).
+//   Ki break log / Hold Ki break v2 / Ki floor depth: user #23013 (notes/human-boss-negative-ki-23013.md designs 1-3), see 'user #23013' below.
 //   Time of day / Weather: user #22942, PstEnvApplyAll from the 39BEA4 call at 39B67D in RenderFrameSettingsApply (PstEnvHookInstall).
 // Active only while a Practice session runs or a Training boss is alive (g_pst_live), so the normal game is untouched even with a value saved.
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
+    if (what == PS_KI_LOG) return "KiLog";
+    if (what == PS_HOLD_KI_V2) return "HoldKiBreakV2";
+    if (what == PS_KI_FLOOR) return "KiFloorDepth";
     return what == PS_TIME_OF_DAY ? "TimeOfDayMin" : what == PS_WEATHER ? "Weather" : what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
@@ -21,6 +25,7 @@ static void PstLoadIni(const char* ini) {
     Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d, HoldKiBreak %d, TimeOfDayMin %d, Weather %d (%s)",
         g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9], g_pst.v[PS_HOLD_KI_BREAK],
         PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), g_pst.v[PS_WEATHER], PstWeatherName(g_pst.v[PS_WEATHER]));
+    Log("PRACTICE Ki break (#23013): KiLog %d, HoldKiBreakV2 %d, KiFloorDepth %d %%", g_pst.v[PS_KI_LOG], g_pst.v[PS_HOLD_KI_V2], g_pst.v[PS_KI_FLOOR]);
 }
 static volatile LONG g_pst_saving; static ULONGLONG g_pst_iniStamp;  // ini mtime we last wrote / loaded (live reload, user #22826: a hand-edited 0 must switch a setting off at once)
 static ULONGLONG PstIniStamp(const char* ini) { WIN32_FILE_ATTRIBUTE_DATA d; if (!GetFileAttributesExA(ini, GetFileExInfoStandard, &d)) return 0; return ((ULONGLONG)d.ftLastWriteTime.dwHighDateTime << 32) | d.ftLastWriteTime.dwLowDateTime; }
@@ -96,6 +101,124 @@ static void PstSpdHookInstall(void) {
     o_pstspd = (PstSpdFn)Hook(0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
     Log("hook ComputeMotionSpeed 134E68: on (boss speed #22389)");
 }
+// user #23013 (Kagetoki / Jubei 'negative Ki'), notes/human-boss-negative-ki-23013.md. Static RE re-checked on re/Nioh3.dump.exe (decomp.cmd, 2026-10-22):
+//   KiFloor 2F89C8() : sub rsp,28h | mov rcx,[45B9E30] | mov edx,7E3Dh | mov rcx,[rcx+230h] | call 608530 -> rec ? (float)int[rec+10h] * float[rec+18h] : 0.0.
+//                      No argument: one floor for every actor. Callers: KiSetCur 2F88D0 (call at 2F8914) and KiDamage 844604 (call at 84464E), nothing else.
+//   KiSetCur 2F88D0(K, v): cur K+0x14 = min(max(v, KiFloor()), max(0, K+0x18 - K+0x88)); while KiIsExhausted 844FE4 a RISE of cur adds to K+0x60
+//                      (capped at max) and subtracts from K+0x58 / K+0x5C (floor 0).
+//   KiDamage 844604(K, amt): unless KiDamageImmune 2F8884: KiSetCur(K, cur - amt); then if exhausted and amt > 0: K+0x60 = max(K+0x60 - amt, KiFloor()).
+//   KiTick 2F8068: Ki regen only while K+0x54 != 0; while K+0x74 > 0 it counts down and K+0x58 = clamp(K+0x58 + dt * K+0x6C, 0, K+0x5C) (2F8800);
+//                      when K+0x74 runs out: K+0x58 = K+0x5C, and if K+0x7C <= 0 KiBreakClear 8455B4 (= recovered); else K+0x7C counts down unless
+//                      K+0x85 != 0, KiBreakClear at <= 0. KiBreakClear zeroes K+0x58..+0x67 (so K+0x60 too), +0x68/+0x6C, +0x80..+0x85, timers +0x70..+0x7C = -1.
+//   Both KiFloor call sites keep K in rbx and, MSVC LTCG style, expect xmm1..xmm5 to survive the call (2F8919 subss xmm1,xmm0 / 84464E..663 uses xmm3),
+//   so the floor hook is a call-site stub that saves rcx rdx r8..r11 + xmm1..xmm5 (the PsHook D90C0 stub pattern), passes rbx as K and calls KfFloor.
+static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop, nKi; float kiLow; int v2; uint8_t sav54, sav85; LONG nV2; } g_pst_hb[N3T_SLOTS];  // Hold Ki break (v2 = Ki-pool method, #23013)
+static volatile uint64_t g_kf_K[N3T_SLOTS];  // Ki struct K (= st + 0x98) of each Training boss, refreshed by PstTick at 20 Hz (compared, never dereferenced)
+static volatile LONG g_kf_hooked, g_kf_logs, g_kl_lines; static int g_kf_fnOk = -1;
+static __attribute__((noinline)) int KfFnOk(void) {  // KiFloor 2F89C8 is the function above (also guards the direct calls below)
+    if (g_kf_fnOk < 0) { __try { g_kf_fnOk = !memcmp((void*)(B + 0x2F89C8), "\x48\x83\xEC\x28\x48\x8B\x0D", 7) && !memcmp((void*)(B + 0x2F89D3), "\xBA\x3D\x7E\x00\x00\x48\x8B\x89\x30\x02\x00\x00\xE8", 13); } __except (EXCEPTION_EXECUTE_HANDLER) { g_kf_fnOk = 0; } }
+    return g_kf_fnOk;
+}
+static __attribute__((noinline)) float KfStock(void) { float f = 0.0f; if (!KfFnOk()) return 0.0f; __try { f = ((float (*)(void))(B + 0x2F89C8))(); } __except (EXCEPTION_EXECUTE_HANDLER) { f = 0.0f; } return f; }
+static int KfBossSlot(uint64_t K) { if (!K) return -1; for (int s = 0; s < N3T_SLOTS; ++s) if (g_kf_K[s] == K) return s; return -1; }
+static void KfRefresh(int live) {
+    for (int s = 0; s < N3T_SLOTS; ++s) { uint64_t a = live ? BvActor(s) : 0, st = 0; g_kf_K[s] = a && Rd64(a + 0x3A0, &st) && st ? st + 0x98 : 0; }
+}
+// effective floor of K for a given stock value: KiFloorDepth for a Training boss while the hook is on, else stock
+static __attribute__((noinline)) float KfEffective(uint64_t K, float stock) {
+    const int pct = g_pst.v[PS_KI_FLOOR];
+    if (g_kf_hooked != 1 || pct == 100 || !g_pst_live || KfBossSlot(K) < 0) return stock;
+    float mx = 0.0f; __try { mx = *(volatile float*)(K + 0x18); } __except (EXCEPTION_EXECUTE_HANDLER) { return stock; }
+    return PstKiFloor(stock, mx, pct, 1);
+}
+static float KfFloor(uint64_t K) {  // called by the stub instead of KiFloor 2F89C8, K = the caller's rbx
+    const float stock = ((float (*)(void))(B + 0x2F89C8))();
+    if (g_pst.v[PS_KI_FLOOR] == 100 || !g_pst_live) return stock;
+    const float r = KfEffective(K, stock);
+    if (r != stock && InterlockedIncrement(&g_kf_logs) <= 10) Log("PRACTICE Ki floor depth %d %%: Training boss K %p floor %.1f -> %.1f", g_pst.v[PS_KI_FLOOR], (void*)K, stock, r);
+    return r;
+}
+static uint8_t* KfStub(uint8_t* site) {
+    static const uint8_t c0[] = {
+        0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53,           // push rcx rdx r8 r9 r10 r11 (entry rsp = 8 mod 16 -> still 8)
+        0x48, 0x83, 0xEC, 0x78,                                               // sub rsp,78h (20h shadow + 5 xmm) -> rsp 16-aligned for the call
+        0x0F, 0x11, 0x4C, 0x24, 0x20, 0x0F, 0x11, 0x54, 0x24, 0x30, 0x0F, 0x11, 0x5C, 0x24, 0x40,
+        0x0F, 0x11, 0x64, 0x24, 0x50, 0x0F, 0x11, 0x6C, 0x24, 0x60,           // movups [rsp+20h..60h], xmm1..xmm5
+        0x48, 0x8B, 0xCB,                                                     // mov rcx,rbx (K)
+        0x48, 0xB8 };                                                         // mov rax, imm64 (KfFloor)
+    static const uint8_t c1[] = {
+        0xFF, 0xD0,                                                           // call rax (result in xmm0)
+        0x0F, 0x10, 0x4C, 0x24, 0x20, 0x0F, 0x10, 0x54, 0x24, 0x30, 0x0F, 0x10, 0x5C, 0x24, 0x40,
+        0x0F, 0x10, 0x64, 0x24, 0x50, 0x0F, 0x10, 0x6C, 0x24, 0x60,           // movups xmm1..xmm5
+        0x48, 0x83, 0xC4, 0x78,                                               // add rsp,78h
+        0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59,           // pop r11 r10 r9 r8 rdx rcx
+        0xC3 };                                                               // ret
+    uint8_t* s = NearPage(site); if (!s) return 0;
+    int k = 0; memcpy(s, c0, sizeof c0); k += sizeof c0; *(uint64_t*)(s + k) = (uint64_t)KfFloor; k += 8; memcpy(s + k, c1, sizeof c1); k += sizeof c1;
+    FlushInstructionCache(GetCurrentProcess(), s, k);
+    return s;
+}
+static void KfHookInstall(void) {
+    if (g_kf_hooked) return;
+    g_kf_hooked = 2;
+    uint8_t* s1 = (uint8_t*)(B + 0x2F8914); uint8_t* s2 = (uint8_t*)(B + 0x84464E);
+    int ok = 0;
+    __try {
+        ok = KfFnOk()
+            && !memcmp((void*)(B + 0x2F88F6), "\x48\x8B\xD9", 3) && !memcmp(s1 - 3, "\x0F\x28\xD4", 3) && !memcmp(s1 + 5, "\xF3\x0F\x5C\xC8", 4)       // KiSetCur: mov rbx,rcx .. call KiFloor; subss xmm1,xmm0
+            && !memcmp((void*)(B + 0x84460F), "\x48\x8B\xD9", 3) && !memcmp(s2 - 2, "\x76\xED", 2) && !memcmp(s2 + 5, "\xF3\x0F\x10\x53\x60", 5)   // KiDamage: mov rbx,rcx .. call KiFloor; movss xmm2,[rbx+60h]
+            && s1[0] == 0xE8 && (uintptr_t)(s1 + 5) + *(int32_t*)(s1 + 1) == B + 0x2F89C8 && s2[0] == 0xE8 && (uintptr_t)(s2 + 5) + *(int32_t*)(s2 + 1) == B + 0x2F89C8;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    if (!ok) { Log("hook Ki floor 2F8914 / 84464E: bytes differ, Ki floor depth off"); return; }
+    uint8_t* t1 = KfStub(s1); uint8_t* t2 = KfStub(s2);
+    if (!t1 || !t2) { Log("hook Ki floor: no stub page, Ki floor depth off"); return; }
+    if (!NfPatchCall(s1, B + 0x2F89C8, t1, "Ki floor 2F8914")) return;
+    if (!NfPatchCall(s2, B + 0x2F89C8, t2, "Ki floor 84464E")) { NfPatchCall(s1, (uintptr_t)t1, (uint8_t*)(B + 0x2F89C8), "Ki floor 2F8914 undo"); return; }
+    g_kf_hooked = 1;
+    Log("hook Ki floor 2F8914 (KiSetCur) + 84464E (KiDamage): on (user #23013: KiFloorDepth %d %%, stock floor %.1f)", g_pst.v[PS_KI_FLOOR], KfStock());
+}
+// user #23013 design 1 'KiLog': log only. Every 100 ms while a Training boss is Ki-broken (state 0x23 || KiIsExhausted || Ki <= 0): the Ki pool fields
+// and the floor; one start / end line per break. Per hit: PstKiDamage (KiDamage call 329E9D) logs amount and cur / K+0x60 before and after.
+static struct { uint64_t a; int on; DWORD t0, tLast; LONG n; } g_kl[N3T_SLOTS];
+static __attribute__((noinline)) int KlRead(uint64_t K, float* f, uint8_t* b) {  // f: cur max 58 5C 60 74 7C ; b: 83 54 85
+    __try {
+        f[0] = *(volatile float*)(K + 0x14); f[1] = *(volatile float*)(K + 0x18); f[2] = *(volatile float*)(K + 0x58); f[3] = *(volatile float*)(K + 0x5C);
+        f[4] = *(volatile float*)(K + 0x60); f[5] = *(volatile float*)(K + 0x74); f[6] = *(volatile float*)(K + 0x7C);
+        b[0] = *(volatile uint8_t*)(K + 0x83); b[1] = *(volatile uint8_t*)(K + 0x54); b[2] = *(volatile uint8_t*)(K + 0x85);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static void KlLog(const char* fmt, ...) { if (InterlockedIncrement(&g_kl_lines) > 6000) return; char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
+static __attribute__((noinline)) void KlTick(int s) {
+    const uint64_t a = BvActor(s);
+    if (g_kl[s].a != a) memset(&g_kl[s], 0, sizeof g_kl[s]);
+    if (!a) return;
+    uint64_t st = 0, ai = 0; float f[7]; uint8_t b[3]; int s23 = 0, exh = 0, dead = 0;
+    if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai) return;
+    const uint64_t K = st + 0x98;
+    __try { dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50); if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(K) != 0; } } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (!KlRead(K, f, b)) return;
+    g_kl[s].a = a;
+    const int broken = !dead && (s23 || exh || (f[1] > 0.0f && f[1] <= 100000.0f && f[0] <= 0.0f));
+    const DWORD now = GetTickCount();
+    if (!broken) {
+        if (g_kl[s].on) KlLog("KILOG end #%ld Boss %c %p after %lu ms: Ki %.1f / %.1f K+58 %.2f +5C %.2f +60 %.2f +74 %.3f +7C %.3f +83 %u%s", g_kl[s].n, 'A' + s, (void*)a, now - g_kl[s].t0, f[0], f[1], f[2], f[3], f[4], f[5], f[6], b[0], dead ? " (dead)" : "");
+        g_kl[s].on = 0; return;
+    }
+    const float stock = KfStock(), eff = KfEffective(K, stock);
+    if (!g_kl[s].on) { g_kl[s].on = 1; g_kl[s].t0 = now; g_kl[s].tLast = 0; g_kl[s].n++;
+        KlLog("KILOG start #%ld Boss %c %p chr %u: Ki %.1f / %.1f floor %.1f (stock %.1f, depth %d %%) state23 %d exhausted %d", g_kl[s].n, 'A' + s, (void*)a, Nioh3Training_SlotChr(s), f[0], f[1], eff, stock, g_pst.v[PS_KI_FLOOR], s23, exh); }
+    if (g_kl[s].tLast && now - g_kl[s].tLast < 100) return;
+    g_kl[s].tLast = now;
+    KlLog("KILOG Boss %c +%lu ms: cur %.1f max %.1f K+58 %.2f +5C %.2f +60 %.2f +74 %.3f +7C %.3f +83 %u | floor %.1f (stock %.1f) | 23 %d exh %d regen54 %u pause85 %u%s",
+        'A' + s, now - g_kl[s].t0, f[0], f[1], f[2], f[3], f[4], f[5], f[6], b[0], eff, stock, s23, exh, b[1], b[2], g_pst_hb[s].a == a ? (g_pst_hb[s].v2 ? " held v2" : " held v1") : "");
+}
+static __attribute__((noinline)) void KlHit(uint64_t K, float amt0, float amt, float c0, float s0, uint8_t r) {
+    float f[7]; uint8_t b[3]; const int s = KfBossSlot(K);
+    if (s < 0 || !KlRead(K, f, b)) return;
+    if (amt != amt0) KlLog("KILOG hit Boss %c: Ki damage %.1f (scaled to %.1f), cur %.1f -> %.1f, K+60 %.2f -> %.2f, K+74 %.3f +7C %.3f +83 %u, ret %u", 'A' + s, amt0, amt, c0, f[0], s0, f[4], f[5], f[6], b[0], r);
+    else KlLog("KILOG hit Boss %c: Ki damage %.1f, cur %.1f -> %.1f, K+60 %.2f -> %.2f, K+74 %.3f +7C %.3f +83 %u, ret %u", 'A' + s, amt0, c0, f[0], s0, f[4], f[5], f[6], b[0], r);
+}
 // user #22588 'Ki damage I deal' (PS_KI_DEALT) and 'One-hit Ki break' (PS_ONE_HIT_KI). Static RE (re/Nioh3.dump.exe, capstone): KiDamage 844604(rcx = K,
 // xmm1 = amount) = if !KiDamageImmune 2F8884(K): KiSetCur 2F88D0(K, [K+0x14] - amount). Its only call in the hit apply 327DEC is 329E9D:
 //   329E1B..329E31  bl = 2A3758([victim+0x3A0]+0x98) = 'Ki <= 0' BEFORE the hit   (victim = 327DD4(hit), hit = r13)
@@ -126,8 +249,13 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
     return r;
 }
 static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
+    const float amt0 = amt; float c0 = 0.0f, s0 = 0.0f;
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-    return ((PstKiFn)(B + 0x844604))(K, amt);
+    const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss
+    if (lg) { __try { c0 = *(volatile float*)(K + 0x14); s0 = *(volatile float*)(K + 0x60); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+    const uint8_t r = ((PstKiFn)(B + 0x844604))(K, amt);
+    if (lg) { __try { KlHit(K, amt0, amt, c0, s0, r); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+    return r;
 }
 static void PstKiHookInstall(void) {
     if (g_pst_ki_hooked) return;
@@ -184,11 +312,29 @@ static __attribute__((noinline)) void PstResetFightTick(void) {
 // Release (toggle OFF, boss dead / gone, session over, or the game itself ended the break, e.g. a grapple): nothing more is written, so the native
 // timers run out within PST_HB_HOLD_S = the normal recovery, and the AI comes back (66982C) if the hold switched it off.
 // The HP-0 window of KiBreakNoFinisher owns its boss (its own AI hold): never held there.
+// user #23013 HoldKiBreakV2 = 1 (method 2, notes/human-boss-negative-ki-23013.md design 2; HoldKiBreak still switches the hold on / off): instead of the
+// timer top-ups above, each tick of a held boss: Ki cur = floor (KiSetCur 2F88D0, so the native clamp applies), K+0x60 = floor (the negative pool KiDamage
+// pushes down while exhausted), K+0x58 = K+0x5C = 0, Ki regen off (K+0x54 = 0, KiTick 2F8068 only regenerates while it is set). The note's 'the climb
+// never completes' does not hold the break by itself: KiTick ends it when the timers run out (phase 1 K+0x74, then K+0x7C), so v2 also sets the
+// native phase-2 pause K+0x85 = 1 and keeps a RUNNING phase-1 timer >= PST_HB_HOLD_S (PstHbTop, as v1). AI held off as in v1.
+// Release: K+0x54 / K+0x85 back to the values saved at the start, then KiBreakClear 8455B4(K) (skipped when the boss died), AI back.
 #define PST_HB_HOLD_S 1.0f
-static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop, nKi; float kiLow; } g_pst_hb[N3T_SLOTS];
 static __attribute__((noinline)) int PstHbTop(volatile float* p) { float o = 0; __try { if (PstHoldTimer(*p, PST_HB_HOLD_S, &o)) { *p = o; return 1; } } __except (EXCEPTION_EXECUTE_HANDLER) { } return 0; }
+static int g_pst_kbc_ok = -1;  // KiBreakClear 8455B4: xor eax,eax | mov [rcx+5Ch],rax | mov [rcx+64h],eax
+static __attribute__((noinline)) void PstHbV2Restore(int s, int dead) {
+    const uint64_t a = g_pst_hb[s].a; uint64_t st = 0;
+    if (!a || !Rd64(a + 0x3A0, &st) || !st) return;
+    const uint64_t K = st + 0x98; int clr = 0;
+    if (g_pst_kbc_ok < 0) g_pst_kbc_ok = !memcmp((void*)(B + 0x8455B4), "\x33\xC0\x48\x89\x41\x5C\x89\x41\x64", 9);
+    __try {
+        *(volatile uint8_t*)(K + 0x54) = g_pst_hb[s].sav54; *(volatile uint8_t*)(K + 0x85) = g_pst_hb[s].sav85;
+        if (!dead && g_pst_kbc_ok) { ((void (*)(uint64_t))(B + 0x8455B4))(K); clr = 1; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    PstLog("PRACTICE hold Ki break v2 Boss %c %p: Ki regen K+54 = %u, K+85 = %u restored, KiBreakClear %s (%ld pool writes)", 'A' + s, (void*)a, g_pst_hb[s].sav54, g_pst_hb[s].sav85, clr ? "called" : dead ? "skipped (dead)" : "skipped (bytes differ)", g_pst_hb[s].nV2);
+}
 static __attribute__((noinline)) void PstHbRelease(int s, int dead, const char* why) {
     const uint64_t a = g_pst_hb[s].a; int ai = -1, back = 0;
+    if (a && g_pst_hb[s].v2) PstHbV2Restore(s, dead);
     if (a && !dead) ai = BhAiOn(a);
     if (a && PstHoldAiRestore(g_pst_hb[s].aiOff, ai, dead)) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); back = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     if (a) PstLog("PRACTICE hold Ki break Boss %c %p: released (%s) after %lu ms, %ld timer top-ups, AI %s", 'A' + s, (void*)a, why, GetTickCount() - g_pst_hb[s].t0, g_pst_hb[s].nTop, back ? "back on" : g_pst_hb[s].aiOff ? "left (already on / dead)" : "untouched");
@@ -205,6 +351,8 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
         if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) != 0; kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
+    const int v2 = g_pst.v[PS_HOLD_KI_V2] != 0;
+    if (g_pst_hb[s].a == a && g_pst_hb[s].v2 != v2) { PstHbRelease(s, dead, "hold method changed (HoldKiBreakV2)"); return; }  // re-held next tick with the new method
     const int held = g_pst_hb[s].a == a, act = PstHoldBreakStep(on, g_pst_live != 0, dead, PstHoldIsBroken(s23, exh, kc, km, g_pst_hb[s].a == a) && !window, held);
     if (act == PS_HB_NONE) return;
     if (act == PS_HB_RELEASE) { PstHbRelease(s, dead, !on ? "toggle OFF" : dead ? "boss died" : window ? "HP-0 window" : "break ended by the game"); return; }
@@ -213,8 +361,24 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
         memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]); g_pst_hb[s].a = a; g_pst_hb[s].t0 = now;
         float t74 = 0, t7c = 0, t1014 = 0; __try { t74 = *(volatile float*)(st + 0x98 + 0x74); t7c = *(volatile float*)(st + 0x98 + 0x7C); t1014 = *(volatile float*)(ctrl + 0x1014); } __except (EXCEPTION_EXECUTE_HANDLER) { }
         g_pst_hb[s].kiLow = kc < 0.0f ? kc : 0.0f;
-        PstLog("PRACTICE hold Ki break Boss %c %p: Ki-broken (state23 %d, exhausted %d, Ki %.1f / %.1f, K+74 %.2f K+7C %.2f ctrl+1014 %.2f): holding until OFF / death", 'A' + s, (void*)a, s23, exh, kc, km, t74, t7c, t1014);
+        if (v2) { __try { g_pst_hb[s].sav54 = *(volatile uint8_t*)(st + 0x98 + 0x54); g_pst_hb[s].sav85 = *(volatile uint8_t*)(st + 0x98 + 0x85); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]); return; } g_pst_hb[s].v2 = 1; }
+        PstLog("PRACTICE hold Ki break%s Boss %c %p: Ki-broken (state23 %d, exhausted %d, Ki %.1f / %.1f, K+74 %.2f K+7C %.2f ctrl+1014 %.2f%s): holding until OFF / death", v2 ? " v2 (Ki pool)" : "", 'A' + s, (void*)a, s23, exh, kc, km, t74, t7c, t1014, v2 ? (g_pst_hb[s].sav54 ? ", regen K+54 on" : ", regen K+54 already off") : "");
     }
+    if (g_pst_hb[s].v2) {  // user #23013 method 2: Ki pool held at the floor (see above); the v1 timer / Ki-zero writes below are skipped
+        const uint64_t K = st + 0x98; const float floorv = KfEffective(K, KfStock());
+        float c = 0, k60 = 0, k58 = 0, k5c = 0; int m = 0;
+        __try {
+            c = *(volatile float*)(K + 0x14); k60 = *(volatile float*)(K + 0x60); k58 = *(volatile float*)(K + 0x58); k5c = *(volatile float*)(K + 0x5C);
+            m = KfFnOk() ? PstHoldV2Writes(c, k60, k58, k5c, floorv) : 0;
+            if (m & 1) ((void (*)(uint64_t, float))(B + 0x2F88D0))(K, floorv);
+            if (m & 2) *(volatile float*)(K + 0x60) = floorv;
+            if (m & 4) *(volatile float*)(K + 0x58) = 0.0f;
+            if (m & 8) *(volatile float*)(K + 0x5C) = 0.0f;
+            *(volatile uint8_t*)(K + 0x54) = 0; *(volatile uint8_t*)(K + 0x85) = 1;
+        } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+        if (PstHbTop((volatile float*)(K + 0x74))) g_pst_hb[s].nTop++;
+        if (m && ++g_pst_hb[s].nV2 <= 3) PstLog("PRACTICE hold Ki break v2 Boss %c %p: floor %.1f, cur %.1f K+60 %.2f K+58 %.2f K+5C %.2f -> writes 0x%X (#%ld)", 'A' + s, (void*)a, floorv, c, k60, k58, k5c, m, g_pst_hb[s].nV2);
+    } else {
     // keep the native break from running out: Ki-exhausted countdown (phase 1, else phase 2) and the state-0x23 stun window
     int top = PstHbTop((volatile float*)(st + 0x98 + 0x74));
     if (!top) top = PstHbTop((volatile float*)(st + 0x98 + 0x7C));
@@ -225,6 +389,7 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
     { float want = 0; if (PstHoldKi(kc, g_pst_hb[s].kiLow, &want)) {
         __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, want); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
         if (++g_pst_hb[s].nKi <= 3) PstLog("PRACTICE hold Ki break Boss %c %p: Ki regen %.1f put back to %.1f (#%ld)", 'A' + s, (void*)a, kc, want, g_pst_hb[s].nKi); } }
+    }
     // boss does not act: AI off while held
     if (!g_pst_hb[s].aiOff || now - g_pst_hb[s].tAi >= 100) {
         g_pst_hb[s].tAi = now;
@@ -322,21 +487,24 @@ static void PstTick(void) {
     PstResetFightTick();
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
-    if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; }
+    if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; InterlockedExchange(&g_kl_lines, 0); InterlockedExchange(&g_kf_logs, 0); }
+    KfRefresh(live);  // user #23013: Training boss Ki structs for the floor hook / KiLog
     {   // user #22942: one read-only line of the sky time / weather at each session start (Training boss alive, then a Practice session)
         const int sess = live ? 1 + (g_tr.active != 0) : 0;
         if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
         g_pst_env_sess = sess;
     }
-    if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
+    if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
-    if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_ONE_HIT_KI]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588
+    if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_ONE_HIT_KI] || g_pst.v[PS_KI_LOG]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588 (+ #23013 KiLog per-hit lines)
+    if (g_pst.v[PS_KI_FLOOR] != 100 && !g_kf_hooked) KfHookInstall();  // user #23013 Ki floor depth (first non-stock value; stays installed, 100 = stock pass-through)
     if ((g_pst.v[PS_TIME_OF_DAY] || g_pst.v[PS_WEATHER]) && !g_pst_env_hooked) PstEnvHookInstall();  // user #22942 (first non-Stock value)
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
     for (int s = 0; s < N3T_SLOTS; ++s) if (g_pst.v[PS_HOLD_KI_BREAK] || g_pst_hb[s].a) PstHoldBreak(s, g_pst.v[PS_HOLD_KI_BREAK]);  // user #22918
+    if (g_pst.v[PS_KI_LOG]) for (int s = 0; s < N3T_SLOTS; ++s) KlTick(s);  // user #23013 (after the hold, so a held tick logs the written values)
 }
 // Reset fight: returns a bit mask (0 = nothing to do: no Practice session and no Training boss). 1 = boss(es) refilled, 2 = boss position put back queued,
 // 4 = player HP + Ki refill queued, 8 = player put back at the Practice start queued.
@@ -365,6 +533,7 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
     if (what == PS_BOSS_KI_DRAIN) for (int s = 0; s < N3T_SLOTS; ++s) g_pst_drainOn[s] = 0;
     if (what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED) InterlockedExchange(&g_pst_spd_logs, 0);
     if (what == PS_TIME_OF_DAY || what == PS_WEATHER) InterlockedExchange(&g_pst_env_logs, 0);
+    if (what == PS_KI_LOG || what == PS_KI_FLOOR) { InterlockedExchange(&g_kl_lines, 0); InterlockedExchange(&g_kf_logs, 0); }
     InterlockedExchange(&g_pst_logs, 0);
     Log("PRACTICE stats: %s -> %d%s", PstKey(what), v, persist ? " (saved to ini)" : "");
     if (persist) { InterlockedIncrement(&g_pst_saving); HANDLE t = CreateThread(0, 0, PstSaveThread, 0, 0, 0); if (t) CloseHandle(t); else InterlockedDecrement(&g_pst_saving); }

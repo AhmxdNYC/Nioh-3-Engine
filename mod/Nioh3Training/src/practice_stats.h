@@ -16,12 +16,16 @@
 //   PS_TIME_OF_DAY    TimeOfDayMin        -1 / 0..1410 (ini, minutes; 30-min steps) sky time of day; -1 = Stock (no write). Internal value 0 = Stock,
 //                                         1..48 = (v - 1) * 30 min (PstTodFromIni / PstTodToIni). user #22942, notes/training-time-of-day-22942.md
 //   PS_WEATHER        Weather             0..5   0 Stock, 1 Clear, 2 Overcast, 3 Rain, 4 Storm, 5 Snow (sky/env fields of the active RenderConfig, user #22942)
+//   PS_KI_LOG         KiLog               0/1    Ki-break logger: every 100 ms while a Training boss is Ki-broken, its Ki pool fields + the Ki floor, and every
+//                                         Ki-damage hit on it (user #23013, notes/human-boss-negative-ki-23013.md design 1). Log only, writes nothing.
+//   PS_HOLD_KI_V2     HoldKiBreakV2       0/1    Hold Ki break method (needs HoldKiBreak ON): 0 = timer hold (#22918), 1 = Ki-pool hold (design 2 of #23013)
+//   PS_KI_FLOOR       KiFloorDepth        0..1000 % of the stock negative Ki floor for Training bosses (100 = stock; design 3 of #23013)
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_N = 14 };
-static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK; }
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_N = 17 };
+static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
 enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };
@@ -36,8 +40,9 @@ static inline int PstStep(int what, int v, int dir) {
     static const int dmg[] = {0, 10, 25, 50, 75, 100, 125, 150, 200, 300, 500, 1000};  // PS_DMG_DEALT starts at 10 (PstClamp); PS_KI_DEALT / PS_DMG_TAKEN at 0
     static const int drain[] = {0, 5, 10, 20, 30, 50, 100, 200, 500, 1000};  // Ki per second (a boss's max Ki is ~1000)
     static const int spd[] = {10, 25, 50, 75, 100, 125, 150, 200, 300};
-    const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? spd : dmg;
-    const int n = what == PS_BOSS_KI_DRAIN ? (int)(sizeof drain / sizeof drain[0]) : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? (int)(sizeof spd / sizeof spd[0]) : (int)(sizeof dmg / sizeof dmg[0]);
+    static const int depth[] = {0, 50, 100, 150, 200, 300, 500, 1000};  // Ki floor depth, % of the stock floor
+    const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? spd : what == PS_KI_FLOOR ? depth : dmg;
+    const int n = what == PS_BOSS_KI_DRAIN ? (int)(sizeof drain / sizeof drain[0]) : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? (int)(sizeof spd / sizeof spd[0]) : what == PS_KI_FLOOR ? (int)(sizeof depth / sizeof depth[0]) : (int)(sizeof dmg / sizeof dmg[0]);
     if (PstIsToggle(what)) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
     if (what == PS_TIME_OF_DAY || what == PS_WEATHER) return PstClamp(what, PstClamp(what, v) + (dir > 0) - (dir < 0));  // one step (30 min / one preset); Stock at the left end
     v = PstClamp(what, v);
@@ -129,6 +134,28 @@ static inline int PstHoldIsBroken(int s23, int exhausted, float kc, float km, in
 }
 // Ki-zero hold: while held and Ki is above 0 (regen), put it back to the lowest value seen since the break started (<= 0, so a negative stun-extend pool is kept).
 static inline int PstHoldKi(float kc, float low, float* out) { if (!(kc > 0.0f) || kc > 100000.0f) return 0; *out = low < 0.0f ? low : 0.0f; return 1; }
+// user #23013 Ki floor depth (design 3). KiFloor 2F89C8() = tuning 0x7E3D of the global table ([45B9E30]+0x230, lookup 608530): int [rec+0x10] *
+// float [rec+0x18], 0.0 when the record is missing; no actor argument. KiSetCur 2F88D0 clamps the new Ki to >= it, KiDamage 844604 clamps K+0x60 to >= it
+// while exhausted. For a Training boss's K the floor becomes stock * pct / 100 (a missing / non-negative stock floor uses -max as the base);
+// 100 % = stock bit for bit, anyone else = stock. Garbage max / stock (NaN, huge) = stock.
+static inline float PstKiFloor(float stock, float max, int pct, int boss) {
+    if (!boss || pct == 100 || !(stock == stock) || stock < -1000000.0f || stock > 1000000.0f) return stock;
+    pct = pct < 0 ? 0 : pct > 1000 ? 1000 : pct;
+    float base = stock;
+    if (!(base < 0.0f)) { if (!(max > 0.0f && max <= 100000.0f)) return stock; base = -max; }
+    return base * (float)pct / 100.0f;
+}
+// user #23013 Hold Ki break v2 (design 2): Ki pool writes for one tick of a held boss. want = the floor; returns a bit mask of what to write:
+// 1 = cur (KiSetCur to the floor; only when cur is above it), 2 = K+0x60 = floor (only when above it), 4 = K+0x58 = 0, 8 = K+0x5C = 0.
+static inline int PstHoldV2Writes(float cur, float k60, float k58, float k5c, float floorv) {
+    if (!(floorv == floorv) || floorv > 0.0f || floorv < -1000000.0f) return 0;
+    int m = 0;
+    if (cur == cur && cur > floorv) m |= 1;
+    if (k60 == k60 && k60 > floorv) m |= 2;
+    if (k58 != 0.0f) m |= 4;
+    if (k5c != 0.0f) m |= 8;
+    return m;
+}
 // Release: give the AI back only if the hold switched it off (aiWas = 1 when held), it is still off now, and the boss is alive.
 static inline int PstHoldAiRestore(int weTurnedOff, int aiNow, int dead) { return weTurnedOff && aiNow == 0 && !dead; }
 // user #22942 Time of day / Weather (notes/training-time-of-day-22942.md). S = the active RenderConfig ([[B+0x4751490]]->+0x28 = GetActiveSessionObj
