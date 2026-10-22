@@ -89,6 +89,8 @@ inline uint32_t PressColor(const char* n) {
     const unsigned long v = strtoul(n, &end, 16);
     return (end && end != n && !*end && strlen(n) == 6) ? (uint32_t)v : 0xFFFFFFu;
 }
+// DrawSprite takes the sprite colour as 0xAABBGGRR (vertex colour); the pickers hold 0x00RRGGBB
+inline uint32_t PackBgr(uint32_t rgb) { return ((rgb & 0xFFu) << 16) | (rgb & 0xFF00u) | ((rgb >> 16) & 0xFFu); }
 inline float Opacity() { return (float)g_opacity100 / 100.0f; }
 inline uint32_t White(float a) {
     const float c = a < 0 ? 0 : a > 1 ? 1 : a;
@@ -112,7 +114,7 @@ inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, f
         h *= fill;
         v0 += (v1 - v0) * cut;
     }
-    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, a >= 1.0f ? (White(a) & 0xFF000000u) | (g_pressRGB & 0x00FFFFFFu) : White(a));
+    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, a >= 1.0f ? (White(a) & 0xFF000000u) | PackBgr(g_pressRGB) : White(a));
 }
 
 inline float Axis(int v) {
