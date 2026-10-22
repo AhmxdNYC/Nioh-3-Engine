@@ -361,3 +361,4 @@
 - #22918/#22920/#22921 (2026-10-22): training should not lack options: keep boss in Ki break, stage toggling, make things adjustable (sliders) instead of toggles where sensible; time of day + sky wanted.
 - #23003 (2026-10-22): order doesn't matter, do ALL of it: controller display, demo video, all-bosses summonable check, hold Ki break test, stages, time of day/sky, sliders.
 - #23004 (2026-10-22): controller display video ASAP (priority over rest).
+- #23013 (2026-10-22): community tip: some human bosses' Ki bar has a NEGATIVE part that high-stun moves extend; hitting them with high-stun moves while at zero Ki keeps them in zero-Ki (broken) state as long as you like. Use as data lead for Hold Ki break / Ki model (find negative Ki field).
