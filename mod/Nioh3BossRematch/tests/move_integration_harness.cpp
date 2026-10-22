@@ -62,10 +62,10 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
-static int pst[10] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
-static int PstGetX(int what) { return what >= 0 && what < 10 ? pst[what] : -1; }
+static int pst[11] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0, 0}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
+static int PstGetX(int what) { return what >= 0 && what < 11 ? pst[what] : -1; }
 static int resetFightCalls; static int ResetFightX() { ++resetFightCalls; return 15; }  // user #22592 Reset fight
-static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 9) return -1; if ((what == 7 || what == 9) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 10) return -1; if ((what == 7 || what == 9 || what == 10) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -299,6 +299,7 @@ int main() {
         CHECK(!has(kItPstBase + PS_BOSS_KI_DRAIN) && !has(kItPstBase + PS_DMG_TAKEN) && !has(kItPstBase + PS_BOSS_SPEED) && has(kItPstBase + PS_PLAYER_INF_KI) && has(kItPstBase + PS_DMG_DEALT));
         CHECK(!has(kItPstBase + PS_ONE_HIT_KI) && at(kItPstBase + PS_KI_DEALT) == at(kItPstBase + PS_DMG_DEALT) + 1);  // user #22588
         CHECK(has(kItPstBase + PS_PLAYER_INF_NIN) && has(kItPstBase + PS_PLAYER_SPEED) && items[n - 1] == kItBack);
+        CHECK(has(kItPstBase + PS_PLAYER_METER) && shown("Player frame meter:", "OFF")); g_sel = at(kItPstBase + PS_PLAYER_METER); CHECK(!UiAct() && pst[10] == 1 && shown("Player frame meter:", "ON")); UiChange(-1); CHECK(pst[10] == 0);  // user #22796
         CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage I deal:", "x1.00"));
         g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);
         g_sel = at(kItPstBase + PS_DMG_DEALT); for (int i = 0; i < 20; ++i) UiChange(1);

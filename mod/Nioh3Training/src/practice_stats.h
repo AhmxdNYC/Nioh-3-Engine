@@ -9,12 +9,13 @@
 //   PS_PLAYER_SPEED   PlayerSpeedPct      10..300 player animation speed (same 134E68 hook, [ctrl+0xE0] == the player)
 //   PS_PLAYER_INF_NIN PlayerInfiniteNinjutsu 0/1  player ninjutsu gauges (st+0x36AC+k*0x30 cur / +0x36B0 max, k=0..2) kept full
 //   PS_FRAME_METER    FrameMeter          0/1    on-screen boss frame meter (frame_meter.h / frame_meter_game.h; read-only, uses the FRAMEPROBE hook)
+//   PS_PLAYER_METER   PlayerFrameMeter    0/1    second bar under the boss meter for the PLAYER's own attacks (user #22796, notes/player-frame-meter-22796.md)
 //   PS_KI_DEALT       KiDamageDealtPct    0..1000 Ki damage of hits whose attacker is the player (x0 .. x10) x pct / 100 (user #22588; KiDamage 844604 at 329E9D)
 //   PS_ONE_HIT_KI     OneHitKiBreak       0/1    a player hit on a Training boss empties its Ki in that same hit = the native Ki break (user #22588)
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_N = 10 };
-static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI; }
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_N = 11 };
+static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER; }
 typedef struct { int v[PS_N]; } PstCfg;
 static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
