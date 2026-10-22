@@ -35,7 +35,7 @@ struct State {
 // ---- settings (menu.cpp: ini + menu rows) ----
 inline volatile int g_on = 0;
 inline volatile int g_size100 = 100;      // size x100: 50..400
-inline volatile int g_opacity100 = 80;    // opacity x100: 20..100
+inline volatile int g_opacity100 = 45;    // opacity x100: 20..100
 
 // ---- feed ----
 inline volatile uint32_t g_buttons = 0;

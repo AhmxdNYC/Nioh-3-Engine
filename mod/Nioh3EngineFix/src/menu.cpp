@@ -2703,7 +2703,7 @@ void Configure(const Host& h) {
     padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
-    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.8", b, 96, f);
+    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);
     padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
