@@ -39,10 +39,10 @@ All of it is in the LFM data under `<game>/archive` (`archive_NN.bin` + `lfm_ord
   catalogue's `FightNow(mission)` is unchanged. Table capacity 160 -> 512 rows.
 
 ## 3. What is still manual / carried
-- The committed TSV keeps: names of the 43 old rows, the CrossWorldCellSkip cell lists (column 16, measured in game), the primary boss
-  of 43 missions where the catalogue picked another boss record than "first boss record" (e.g. 0xB3FE Kumagai vs Yui Shosetsu), and two
-  roster bosses with no boss record (Raiju, Tsurara-onna 246537: their `field` rows use a regular placement). A fresh build without the
-  TSV differs only in those (131 vs 133 rows).
+- The committed TSV keeps (carried by row id): the names of the old rows, the CrossWorldCellSkip cell lists (column 16, measured in
+  game) and its roster order; two roster bosses with no boss record anywhere (Raiju 368726, Tsurara-onna 246537) get `field` rows from a
+  regular placement only because the TSV lists them. Every R/D row's boss equals what the automatic rule picks. A fresh build without the
+  TSV (`--fresh`, = the runtime scan) gives 131 rows instead of 133 (those two).
 - Runtime names of brand-new bosses are `Boss <chr>` (the English-text pick is a corpus heuristic; not ported). Running
   `tools/auto_arena.py` after a patch gives proper names.
 - Boss Rematch menu: roster entries still call `SummonSlotChr`; a "Fight in its arena" item that calls `Nioh3Training_FightNowChr` is
@@ -134,10 +134,11 @@ system outside the mission tables (Crucible/Eternal Rift wave data, scripted eve
 needs RE of that spawner (which data feeds `Character::Create` for these ids at runtime): a BossLog Create trace in their fight, then the
 generator can read that source. Until then they stay summon-only (summon works for them, verified live #22984).
 
-Also new beyond the old roster: 15 more boss characters found in the data now have rows + roster entries (DLC field bosses Ichimokuren,
-Itsumade, Mujina, Jinnosuke the Shadow Slicer, Iron-Fisted Rogue, Rattan-Clad Ninja Oni, Robust Spear Samurai, Nozuchi; variants of Kondo
-Isami, Hijikata Toshizo, Okita Soji, Hiruko, Nuribotoke, Ooka Genzaburo, Saito Hajime, ...) and 14 new mission rows (R61A2 Demonic Duels,
-R0B0B, R1D60, R523B, RAC1F, R945F, RD617, RD84E, RBAB8, RA19A, D1C95, ...).
+Also new beyond the old table: **19 more boss characters** found in the data now have rows + roster entries (DLC field bosses
+Ichimokuren, Itsumade, Mujina, Nozuchi, Jinnosuke the Shadow Slicer, Iron-Fisted Rogue, Rattan-Clad Ninja Oni, Robust Spear Samurai, Ooka
+Genzaburo; second character ids of Kondo Isami, Hijikata Toshizo, Okita Soji, Hiruko, Nuribotoke, Tsurara-onna, Kajiwara Kagetoki, Ninja
+Yoki, Saito Hajime, Marubashi Chuya) and **28 new mission rows** (e.g. R0034, R0B0B, R0F7F, R7C85, R61A2, RBAB8, RD84E; two are not
+real fights: D7F16 = the new-game prologue variant, RA19A = the Picture Scroll test record; harmless, only reachable by id).
 
 ## 5. Needs a Windows build + in-game test
 - Build: `mod/Nioh3Training/build.sh` (zig cc builds clean here; only the existing `g_noForceHide` warning).
