@@ -170,8 +170,26 @@ def main():
         (cw, ch), S = fn()
         atlas, place = pack(S)
         # user #23181: black / white / grey only - drop all colour, keep alpha
+        # user #23313: dark see-through like the mod menu. Xbox: invert everything (dark body, white lit buttons).
+        # DualSense: body darkened to 0.08..0.40, every other sprite bright (0.55..1.0) so lit parts show on it.
         lum = atlas.convert("L")
-        atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
+        if name == "xbox":
+            lum = lum.point(lambda v: int(255 * (0.10 + 0.90 * (1 - v / 255.0))))
+            atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
+        else:
+            out_l = Image.new("L", atlas.size)
+            bright = lum.point(lambda v: int(255 * (0.55 + 0.45 * (1 - v / 255.0))))
+            dark = lum.point(lambda v: int(255 * (0.08 + 0.32 * v / 255.0)))
+            bx, by, bw, bh = place["BODY"] + S["BODY"][0].size
+            out_l.paste(bright, (0, 0))
+            out_l.paste(dark.crop((bx, by, bx + bw, by + bh)), (bx, by))
+            lit = lum.point(lambda v: int(255 * (0.70 + 0.30 * v / 255.0)))
+            for key, tone in (("STICK", dark), ("STICK_R", dark), ("STICK_P", lit), ("STICK_R_P", lit)):  # resting caps dark, pressed bright
+                if key in S:
+                    kx, ky = place[key]
+                    kw, kh = S[key][0].size
+                    out_l.paste(tone.crop((kx, ky, kx + kw, ky + kh)), (kx, ky))
+            atlas = Image.merge("RGBA", (out_l, out_l, out_l, atlas.getchannel("A")))
         out = ASSETS / f"atlas_{name}.png"
         atlas.save(out, optimize=True)
         raw = out.read_bytes()
