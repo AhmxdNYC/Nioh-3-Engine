@@ -22,6 +22,17 @@ import yoritomo_move_facts as ymf  # noqa: E402
 # chr id -> archive_01 action file (relative to data/extract/lfm/archive_01)
 BOSSES = {
     16102: 'FA/5FBD421BF96B8514DA056584B9507A22DC7956B1793995A113FBA714CFFA54',  # Minamoto no Yoritomo
+    # user #22709: the other catalogue bosses, bound by setting-DB action-object hashes (notes/boss-action-files-22709.md; every recorded
+    # action id of the boss is inside its file, Red Kappa 20 of 21 = only the shared idle 0x2 missing). Ibaraki Doji: not bound (no hashes).
+    42450: 'E5/D7F8918446ABDAF10213EA35BE55B598075FD371A0733C32B6C96C7094F6DE',   # Takeda Shingen (CE_SHINGEN_00)
+    83953: '50/1C63D0293D7573AF46BDE49601C2705AD8B34FFC1E99B7DD3E0B395DA271E0',   # Hino-enma (CE_HINOENMA_00)
+    307259: '68/C41C904AB5F805ABD435FA2D65C850CD7A6708AB10826F4095E351428BCE50',  # Yamagata Masakage (CN_MASAKAGE)
+    352684: 'FD/D80A7992FD2F3EB4AE582BAE0A06A071449E2F89C91978B13471449D28C062',  # Ippon-Datara (CE_IPPONDATARA_00)
+    371449: '17/7C2A9D279C4CCBD76370936DD9E37B04CE138A413F8103F5333DC1E24EED78',  # Otoroshi (CE_OTOROSHI_00)
+    392871: '36/56DBE82BB2A681263A9AC57990DB62F28B7EBB564B682F6B7E918F2CAF7143',  # Nuribotoke (CE_NURIBOTOKE_00)
+    405836: '69/442B3EA2D3BBB18308D0CDBECEE20345CECF8BE8B33202AB12160B00D40697',  # Red Kappa (CE_KAPPA_00)
+    778951: '08/E907A4928137E37DEBE7505D8718276207BECEAFDCE1C14F1E98B8F04F6609',  # Takasugi Shinsaku (CN_SHINSAKU)
+    816820: 'BC/178B95A4E728AE6C2DAB3FE730750EFCDE3043E83B59BC8CD27D27D15D2852',  # Kamaitachi (CE_KAMAITACHI_00)
 }
 OUT = os.path.join(ROOT, 'mod', 'boss_move_facts.h')
 
@@ -48,13 +59,24 @@ def generate():
         path = data_file(rel)
         if not path:
             return None
-        for x in ymf.facts(path):
+        allx = list(ymf.facts(path))
+        # user #22709: a spawn at frame 0 in (nearly) every action of the boss (Nuribotoke 44@0) is a standing body / weapon object, not a
+        # projectile of that move: it does not make the move's hit count unknown. Anything else spawned still does.
+        cnt = {}
+        for x in allx:
+            for sp in set(x['spawns'].split()):
+                if sp.endswith('@0'):
+                    cnt[sp] = cnt.get(sp, 0) + 1
+        ambient = {sp for sp, n in cnt.items() if n * 10 >= len(allx) * 8}
+        for x in allx:
             if not (x['attack'] or x['n_rows'] or x['unblockable']):
                 continue
             hits = x['hits'] if isinstance(x['hits'], int) else 0
-            if x['spawns'] or x['untimed_rows']:
+            if [sp for sp in x['spawns'].split() if sp not in ambient] or x['untimed_rows']:
                 hits = 0  # spawned objects / projectiles add hits that are not in the file: total unknown, not guessed
-            lines.append('    {%du, %su, %d, %d, %d},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], x['attack']))
+            # other bosses rarely set the +0x13C / +0x142 attack block (Hino-enma: most real attacks do not): a timed hit window counts too
+            atk = int(bool(x['attack'] or (chr_id != 16102 and (x['hits'] or x['unblockable']))))
+            lines.append('    {%du, %su, %d, %d, %d},' % (chr_id, x['action'], min(hits, 255), x['unblockable'], atk))
     lines += ['};',
               '#define N3_MOVE_FACT_COUNT ((int)(sizeof kN3MoveFacts / sizeof kN3MoveFacts[0]))',
               'static inline const N3MoveFact* N3MoveFactFind(uint32_t chr, uint32_t id) {',

@@ -157,8 +157,21 @@ int main() {
         CHECK(!strcmp(N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6F)], tb, sizeof tb), "unblockable, hits unknown"));
         CHECK(!*N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6C)], tb, sizeof tb));
         CHECK(!strcmp(CatName(kMcHit1), "1 hit") && !strcmp(CatName(kMcHit1 + 2), "3 hits") && !strcmp(CatName(kMcGreat), "Unblockable"));
-        // a boss without game-data facts keeps the old groups (no regression)
-        for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == 42450u) CHECK(N3MoveCat(&kN3Moves[i]) >= kMcAttack && N3MoveCat(&kN3Moves[i]) < kMcCount);
+        // user #22709: every bound boss has game-data facts (same algorithm as Yoritomo); a boss without facts keeps the old groups
+        const uint32_t kBound[] = {42450u, 83953u, 307259u, 352684u, 371449u, 392871u, 405836u, 778951u, 816820u};
+        for (uint32_t b : kBound) {
+            int hitMoves = 0, great = 0;
+            CHECK(N3MoveFactsBoss(b));
+            for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == b) {
+                const int c = N3MoveCat(&kN3Moves[i]);
+                hitMoves += N3MoveHitCat(c); great += c == kMcGreat;
+                CHECK(c != kMcAttack && c != kMcUnnamedAtk);  // an attack is sorted by the data, never left in the old groups
+            }
+            CHECK(hitMoves > 0);
+            (void)great;
+        }
+        CHECK(!N3MoveFactsBoss(894462u));  // Ibaraki Doji: no bound action file, old groups
+        CHECK(cat(83953u, 0x4E67) == kMcHit1 + 2 && cat(83953u, 0x4E66) == kMcHit1 + 1);  // Hino-enma: 3 hits / 2 hits from the game data
     }
     CHECK(shown("Boss A - Minamoto no Yoritomo") && shown("Stance: Stand still (idle)") && shown("Gap between repeats: 1.00 s") && shown("Sequences", "sequences"));
     g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 0 && lastStanceIdle == 0 && stance[0] == 0 && shown("Stance: Fight normally (CPU)"));
