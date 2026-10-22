@@ -4,6 +4,7 @@
 //   Practice > Player page : Infinite Ki (stamina), Damage I deal (x0.1 .. x10), Ki damage I deal (x0 .. x10, user #22588), Infinite ninjutsu, Player speed.
 //   Boss X health and Ki page (below that boss's own infinite health / infinite Ki rows): Damage boss deals (x0 .. x10), Boss Ki drain
 //   (Ki lost per second, 0 = OFF), One-hit Ki break (user #22588), Hold Ki break (user #22918), Boss speed (notes/boss-speed-lever-22389.md). These apply to all Training bosses.
+//   Practice hub: Time of day (Stock / 00:00 .. 23:30 in 30-min steps) and Weather (Stock / Clear / Overcast / Rain / Storm / Snow), user #22942.
 #include "../../Nioh3Training/src/practice_stats.h"
 constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kItBvOpenBase; no other range uses 0xD0000)
 constexpr int kItPstResetFight = kItPstBase + 0x80;  // user #22592: 'Reset fight' action row on the Practice hub (not a PS_* setting)
@@ -35,7 +36,7 @@ template <class Add> void PstAddPlayerRows(Add&& add) {
 }
 // Practice hub row 'Frame meter' (PS_FRAME_METER, Nioh3Training frame_meter_game.h): an older Training answers -1 and the row says so.
 template <class Add> void PstAddHubRows(Add&& add) {
-    if (PstAvailable()) add(kItPstBase + PS_FRAME_METER);
+    if (PstAvailable()) { add(kItPstBase + PS_FRAME_METER); add(kItPstBase + PS_TIME_OF_DAY); add(kItPstBase + PS_WEATHER); }  // user #22942
     if (TrainingExport("Nioh3Training_PracticeFreeze")) { add(kItPstFreeze); add(kItPstStep); }  // user #22589
     if (TrainingExport("Nioh3Training_ResetFight")) add(kItPstResetFight);
 }
@@ -54,11 +55,13 @@ void PstResetFight() {
 }
 template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_ONE_HIT_KI); add(kItPstBase + PS_HOLD_KI_BREAK); add(kItPstBase + PS_BOSS_SPEED); } }
 const char* PstLabel(int what) {
-    return what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Ki damage I deal:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
+    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Ki damage I deal:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
     else if (PstIsToggle(what)) snprintf(buf, n, "%s", v ? "ON" : "OFF");
+    else if (what == PS_TIME_OF_DAY) { const int m = PstTodMinutes(v); if (m < 0) snprintf(buf, n, "Stock"); else snprintf(buf, n, "%02d:%02d", m / 60, m % 60); }
+    else if (what == PS_WEATHER) snprintf(buf, n, "%s", PstWeatherName(v));
     else if (what == PS_BOSS_KI_DRAIN) { if (v) snprintf(buf, n, "%d Ki / s", v); else snprintf(buf, n, "OFF"); }
     else snprintf(buf, n, "x%d.%02d", v / 100, v % 100);
 }
@@ -90,6 +93,8 @@ bool PstChange(int item, int dir) {
     else if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: the first Training boss's moves show as frames at the top of the screen (close the menu). Saved." : "Frame meter OFF. Saved.");
     else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: your Ki (stamina) is refilled whenever it drops. Practice only. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
     else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Ki damage I deal %s: the Ki damage of the hits you land. Practice only. Saved.", t);
+    else if (what == PS_TIME_OF_DAY) snprintf(g_msg, sizeof g_msg, v ? "Time of day %s: the sky (sun, moon, light) is set to that hour in Practice. Stock = the area's own time. Saved." : "Time of day Stock: the area's own time again. Saved.", t);
+    else if (what == PS_WEATHER) snprintf(g_msg, sizeof g_msg, v ? "Weather %s in Practice (clouds / rain / wind of the sky). Stock = the area's own weather. Saved." : "Weather Stock: the area's own weather again. Saved.", t);
     else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: a Ki-broken Training boss stays broken (no recovery, no moves) until you turn this OFF or it dies. Saved." : "Hold Ki break OFF: a held boss recovers normally now. Saved.");
     else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: your next hit on a Training boss empties its Ki = Ki break. Practice only. Saved." : "One-hit Ki break OFF. Saved.");
     else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: your ninjutsu gauges stay full. Practice only. Saved." : "Infinite ninjutsu OFF. Saved.");
@@ -132,6 +137,8 @@ const char* PstFooter(int item) {
     case PS_DMG_TAKEN: return "Multiplies the HP damage of every Training boss's hits (x0 = none .. x10). x1.00 = normal. Ki damage is not changed. Practice only. Saved.";
     case PS_KI_DEALT: return "Multiplies the Ki (stamina) damage of the hits you land (x0 = none .. x10). x1.00 = normal. HP damage is not changed (Damage I deal). Practice only (session / Training boss alive). Saved.";
     case PS_ONE_HIT_KI: return "ON: any hit you land on a Training boss empties its Ki in that hit, so the boss is Ki-broken (the normal stagger / grapple chance). Not while it is already broken or its infinite Ki is ON. Saved.";
+    case PS_TIME_OF_DAY: return "Sky time of day in Practice (a session or a Training boss alive): Stock = the area's own time, else 00:00 .. 23:30 in 30-min steps (Left / Right). Sun, moon, stars and light follow; indoors little changes. Cutscenes keep their own light. Saved.";
+    case PS_WEATHER: return "Sky weather in Practice: Stock = the area's own, Clear, Overcast, Rain, Storm (rain + wind + fog), Snow. Changes the sky / cloud / rain settings only; indoors little changes. Cutscenes keep their own. Saved.";
     case PS_HOLD_KI_BREAK: return "ON: once a Training boss is Ki-broken it stays broken (it does not recover and does not act) until you turn this OFF or it dies; OFF = it recovers normally. Does not cause a break itself (One-hit Ki break does). A grapple still ends the break. Saved.";
     case PS_PLAYER_INF_NIN: return "ON: your ninjutsu gauges are kept full. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_PLAYER_SPEED: return "Animation speed of your character (x0.10 .. x3.00, x1.00 = normal). Applies from your next move; attacks and dodges follow. Only while a Practice session runs or a Training boss is alive. Saved.";

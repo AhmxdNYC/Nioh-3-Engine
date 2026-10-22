@@ -2,6 +2,7 @@
 //   py -m ziglang cc -target x86_64-windows-gnu tests/practice_stats_test.c -o build/practice_stats_test.exe && build/practice_stats_test.exe
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #undef NDEBUG
 #include <assert.h>
 #include "../src/practice_stats.h"
@@ -39,14 +40,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 12);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 14);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 12 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 14 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
@@ -81,7 +82,7 @@ int main(void) {
     assert(PstKiDmg(1, 0, 1, 100, 1, 0, 1e9f, 40) == 40.0f /* garbage Ki read */ && PstKiDmg(1, 0, 1, 100, 1, 0, 500, -5) == -5.0f /* Ki gain */);
     { const float n = 0.0f / 0.0f; const float r = PstKiDmg(1, 0, 1, 200, 1, 0, 500, n); assert(r != r); }  // NaN passes through
     // user #22918 Hold Ki break: toggle, default OFF, saved key slot after PlayerFrameMeter
-    assert(c.v[PS_HOLD_KI_BREAK] == 0 && PstDefault(PS_HOLD_KI_BREAK) == 0 && PstIsToggle(PS_HOLD_KI_BREAK) && PS_HOLD_KI_BREAK == PS_N - 1);
+    assert(c.v[PS_HOLD_KI_BREAK] == 0 && PstDefault(PS_HOLD_KI_BREAK) == 0 && PstIsToggle(PS_HOLD_KI_BREAK) && PS_HOLD_KI_BREAK == 11);
     assert(PstClamp(PS_HOLD_KI_BREAK, 7) == 1 && PstClamp(PS_HOLD_KI_BREAK, -3) == 0);
     assert(PstStep(PS_HOLD_KI_BREAK, 0, 0) == 1 && PstStep(PS_HOLD_KI_BREAK, 1, 0) == 0 && PstStep(PS_HOLD_KI_BREAK, 0, 1) == 1 && PstStep(PS_HOLD_KI_BREAK, 1, -1) == 0);
     // step: start only on a natural break of a live, alive boss with the toggle ON
@@ -109,6 +110,49 @@ int main(void) {
     { float o = 7; const float n = 0.0f / 0.0f; assert(!PstHoldTimer(n, 1.0f, &o) && !PstHoldTimer(1e9f, 1.0f, &o) && !PstHoldTimer(0.5f, 0.0f, &o) && o == 7); }
     // AI restore: only what the hold switched off, only if still off, never on a dead boss
     assert(PstHoldAiRestore(1, 0, 0) && !PstHoldAiRestore(0, 0, 0) && !PstHoldAiRestore(1, 1, 0) && !PstHoldAiRestore(1, 0, 1) && !PstHoldAiRestore(1, -1, 0));
+    // user #22942 Time of day: default Stock (0 = no write), ini -1 = Stock, 30-min steps 00:00 .. 23:30, Stock at the left end
+    assert(c.v[PS_TIME_OF_DAY] == 0 && c.v[PS_WEATHER] == 0 && PS_TIME_OF_DAY == 12 && PS_WEATHER == 13 && !PstIsToggle(PS_TIME_OF_DAY) && !PstIsToggle(PS_WEATHER));
+    assert(PstToIni(PS_TIME_OF_DAY, PstDefault(PS_TIME_OF_DAY)) == -1 && PstFromIni(PS_TIME_OF_DAY, -1) == 0 && PstFromIni(PS_TIME_OF_DAY, -50) == 0);
+    assert(PstFromIni(PS_TIME_OF_DAY, 0) == 1 && PstFromIni(PS_TIME_OF_DAY, 720) == 25 && PstFromIni(PS_TIME_OF_DAY, 1410) == 48 && PstFromIni(PS_TIME_OF_DAY, 9999) == 48);
+    assert(PstFromIni(PS_TIME_OF_DAY, 745) == 25 /* rounds down to 12:00 */ && PstFromIni(PS_TIME_OF_DAY, 29) == 1);
+    for (int v = 0; v <= PS_TOD_STEPS; ++v) assert(PstFromIni(PS_TIME_OF_DAY, PstToIni(PS_TIME_OF_DAY, v)) == v);  // ini round trip
+    assert(PstToIni(PS_TIME_OF_DAY, 1) == 0 && PstToIni(PS_TIME_OF_DAY, 25) == 720 && PstToIni(PS_TIME_OF_DAY, 48) == 1410 && PstToIni(PS_TIME_OF_DAY, 99) == 1410);
+    assert(PstToIni(PS_DMG_DEALT, 250) == 250 && PstFromIni(PS_DMG_DEALT, 5) == 10 && PstFromIni(PS_HOLD_KI_BREAK, 3) == 1);  // others: identity / clamp
+    assert(PstClamp(PS_TIME_OF_DAY, -1) == 0 && PstClamp(PS_TIME_OF_DAY, 49) == 48 && PstClamp(PS_WEATHER, 6) == 5 && PstClamp(PS_WEATHER, -2) == 0);
+    assert(PstStep(PS_TIME_OF_DAY, 0, 1) == 1 && PstStep(PS_TIME_OF_DAY, 1, -1) == 0 && PstStep(PS_TIME_OF_DAY, 0, -1) == 0 && PstStep(PS_TIME_OF_DAY, 48, 1) == 48);
+    assert(PstStep(PS_TIME_OF_DAY, 25, 1) == 26 && PstStep(PS_TIME_OF_DAY, 25, 0) == 25);
+    assert(PstTodMinutes(0) == -1 && PstTodFraction(0) < 0.0f && PstTodFraction(1) == 0.0f && PstTodFraction(25) == 0.5f);
+    for (int v = 1; v <= PS_TOD_STEPS; ++v) { const float f = PstTodFraction(v); assert(f >= 0.0f && f < 1.0f); }  // SkylightDateTime stays in [0, 1)
+    {   const float f = PstTodFraction(PS_TOD_STEPS); assert(f > 0.979f && f < 0.98f); }  // 23:30
+    // Weather presets: Stock writes nothing; Clear / Overcast / Rain / Storm / Snow as in the plan
+    assert(!strcmp(PstWeatherName(0), "Stock") && !strcmp(PstWeatherName(5), "Snow") && !strcmp(PstWeatherName(9), "?"));
+    assert(PstEnvFieldOff(PS_EF_CLOUDY) == 0x7C && PstEnvFieldOff(PS_EF_PRECIP) == 0x88 && PstEnvFieldOff(PS_EF_RAINDROP) == 0x15C8 && PstEnvFieldOff(PS_EF_TREEWIND) == 0x1968 && PstEnvFieldOff(PS_EF_N) == 0);
+    for (int f = 0; f < PS_EF_N; ++f) { float v = 7; assert(!PstWeatherValue(PS_WX_STOCK, f, &v) && v == 7 && !PstWeatherValue(PS_WX_N, f, &v)); }
+    for (int f = 0; f < PS_EF_N; ++f) assert(PstEnvFieldOff(f) % 4 == 0 && PstEnvFieldOff(f) != 0xB0);  // aligned floats, never the time field
+    { float v = 0;
+      assert(PstWeatherValue(PS_WX_CLEAR, PS_EF_CLOUDY, &v) && v == 0.3f && PstWeatherValue(PS_WX_CLEAR, PS_EF_CLEAR, &v) && v == 1.0f && PstWeatherValue(PS_WX_CLEAR, PS_EF_PRECIP, &v) && v == 0.0f);
+      assert(!PstWeatherValue(PS_WX_CLEAR, PS_EF_TEMP, &v) && !PstWeatherValue(PS_WX_CLEAR, PS_EF_GUST, &v) && !PstWeatherValue(PS_WX_CLEAR, PS_EF_HUMID, &v));
+      assert(PstWeatherValue(PS_WX_OVERCAST, PS_EF_CLOUDY, &v) && v == 1.0f && PstWeatherValue(PS_WX_OVERCAST, PS_EF_HUMID, &v) && v == 0.7f && PstWeatherValue(PS_WX_OVERCAST, PS_EF_PRECIP, &v) && v == 0.0f);
+      assert(PstWeatherValue(PS_WX_OVERCAST, PS_EF_CLEAR, &v) && v == 0.0f && !PstWeatherValue(PS_WX_OVERCAST, PS_EF_TEMP, &v));
+      assert(PstWeatherValue(PS_WX_RAIN, PS_EF_PRECIP, &v) && v == 0.2f && PstWeatherValue(PS_WX_RAIN, PS_EF_RAINDROP, &v) && v == 1.0f && !PstWeatherValue(PS_WX_RAIN, PS_EF_GUST, &v));
+      assert(PstWeatherValue(PS_WX_STORM, PS_EF_PRECIP, &v) && v == 0.25f && PstWeatherValue(PS_WX_STORM, PS_EF_FOGSCATTER, &v) && v == 12.0f && PstWeatherValue(PS_WX_STORM, PS_EF_GUST, &v) && v == 750.0f);
+      assert(PstWeatherValue(PS_WX_STORM, PS_EF_GUSTINT, &v) && v == 550.0f && PstWeatherValue(PS_WX_STORM, PS_EF_TREEWIND, &v) && v == 2.0f && !PstWeatherValue(PS_WX_STORM, PS_EF_TEMP, &v));
+      assert(PstWeatherValue(PS_WX_SNOW, PS_EF_TEMP, &v) && v == -20.0f && PstWeatherValue(PS_WX_SNOW, PS_EF_PRECIP, &v) && v == 0.2f && !PstWeatherValue(PS_WX_SNOW, PS_EF_GUST, &v)); }
+    // per-frame override + Stock restore. (a) the game re-fills S every frame: nothing to restore, stock tracks the preset
+    {   PstEnvField e; memset(&e, 0, sizeof e); float s = 0.43f, o = 9;
+        for (int fr = 0; fr < 5; ++fr) { s = PstEnvApply(&e, fr == 3 ? 0.51f : 0.43f, 0.0f); }
+        assert(s == 0.0f && e.wrote && e.stock == 0.43f && e.refills == 4 && e.frames == 4);
+        assert(!PstEnvRelease(&e, 0.43f /* re-filled */, &o) && o == 9 && !e.wrote); }
+    // (b) the game does NOT re-fill: Stock writes the saved value back once; an area change in between updates the saved stock
+    {   PstEnvField e; memset(&e, 0, sizeof e); float cur = 0.43f, o = 9;
+        for (int fr = 0; fr < 5; ++fr) cur = PstEnvApply(&e, cur, 0.75f);
+        assert(cur == 0.75f && e.stock == 0.43f && e.refills == 0 && e.frames == 4);
+        cur = PstEnvApply(&e, 0.62f /* the game set a new area preset */, 0.75f); assert(e.stock == 0.62f && e.refills == 1);
+        assert(PstEnvRelease(&e, cur, &o) && o == 0.62f && !e.wrote);
+        assert(!PstEnvRelease(&e, 0.62f, &o));  // released once only
+        memset(&e, 0, sizeof e); cur = 0.5f; cur = PstEnvApply(&e, cur, 0.5f); assert(!PstEnvRelease(&e, cur, &o));  // wrote the stock value itself: nothing to do
+    }
+    assert(PstEnvSane(0.5f) && PstEnvSane(-20.0f) && !PstEnvSane(1e9f) && !PstEnvSane(0.0f / 0.0f));
     puts("practice_stats_test: all passed");
     return 0;
 }

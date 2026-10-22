@@ -13,17 +13,22 @@
 //   PS_KI_DEALT       KiDamageDealtPct    0..1000 Ki damage of hits whose attacker is the player (x0 .. x10) x pct / 100 (user #22588; KiDamage 844604 at 329E9D)
 //   PS_ONE_HIT_KI     OneHitKiBreak       0/1    a player hit on a Training boss empties its Ki in that same hit = the native Ki break (user #22588)
 //   PS_HOLD_KI_BREAK  HoldKiBreak         0/1    a Ki-broken Training boss stays broken (break timers kept from running out, AI held off) until OFF / it dies (user #22918)
+//   PS_TIME_OF_DAY    TimeOfDayMin        -1 / 0..1410 (ini, minutes; 30-min steps) sky time of day; -1 = Stock (no write). Internal value 0 = Stock,
+//                                         1..48 = (v - 1) * 30 min (PstTodFromIni / PstTodToIni). user #22942, notes/training-time-of-day-22942.md
+//   PS_WEATHER        Weather             0..5   0 Stock, 1 Clear, 2 Overcast, 3 Rain, 4 Storm, 5 Snow (sky/env fields of the active RenderConfig, user #22942)
 #pragma once
 #include <stdint.h>
-enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_N = 12 };
+enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_N = 14 };
 static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK; }
 typedef struct { int v[PS_N]; } PstCfg;
 static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? 100 : 0; }
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
+enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
+enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };
 static inline int PstClamp(int what, int v) {
     const int sp = what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED;
     const int lo = sp || what == PS_DMG_DEALT ? 10 : 0;
-    const int hi = PstIsToggle(what) ? 1 : sp ? 300 : 1000;
+    const int hi = PstIsToggle(what) ? 1 : what == PS_TIME_OF_DAY ? PS_TOD_STEPS : what == PS_WEATHER ? PS_WX_N - 1 : sp ? 300 : 1000;
     return v < lo ? lo : v > hi ? hi : v;
 }
 // Left / Right steps of the menu sliders (A on an ON/OFF row flips it).
@@ -34,6 +39,7 @@ static inline int PstStep(int what, int v, int dir) {
     const int* st = what == PS_BOSS_KI_DRAIN ? drain : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? spd : dmg;
     const int n = what == PS_BOSS_KI_DRAIN ? (int)(sizeof drain / sizeof drain[0]) : what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED ? (int)(sizeof spd / sizeof spd[0]) : (int)(sizeof dmg / sizeof dmg[0]);
     if (PstIsToggle(what)) return dir > 0 ? 1 : dir < 0 ? 0 : !v;
+    if (what == PS_TIME_OF_DAY || what == PS_WEATHER) return PstClamp(what, PstClamp(what, v) + (dir > 0) - (dir < 0));  // one step (30 min / one preset); Stock at the left end
     v = PstClamp(what, v);
     if (dir > 0) { for (int i = 0; i < n; ++i) if (st[i] > v) return st[i]; return st[n - 1]; }
     if (dir < 0) { for (int i = n - 1; i >= 0; --i) if (st[i] < v) return PstClamp(what, st[i]); return PstClamp(what, st[0]); }
@@ -113,3 +119,64 @@ static inline int PstHoldTimer(float t, float hold, float* out) {
 }
 // Release: give the AI back only if the hold switched it off (aiWas = 1 when held), it is still off now, and the boss is alive.
 static inline int PstHoldAiRestore(int weTurnedOff, int aiNow, int dead) { return weTurnedOff && aiNow == 0 && !dead; }
+// user #22942 Time of day / Weather (notes/training-time-of-day-22942.md). S = the active RenderConfig ([[B+0x4751490]]->+0x28 = GetActiveSessionObj
+// 164188), the r8 of RenderFrameSettingsApply 39B570; the game does not advance the clock (TimeSpanPerDay ~1e20 s, AutoDateTimeStepType 0 every frame).
+// SkylightDateTime S+0xB0 = fraction of a day (0.5 = noon), read by SkySunMoonDirections 5EBD08 as max(+B0, 0); it is not clamped above 1, so keep < 1.
+// ini TimeOfDayMin (-1 = Stock, else minutes 0..1439, rounded down to 30 min) <-> internal 0 (Stock) / 1..48.
+static inline int PstTodFromIni(int min) { if (min < 0) return 0; if (min > 1439) min = 1439; return min / 30 + 1; }
+static inline int PstTodToIni(int v) { v = PstClamp(PS_TIME_OF_DAY, v); return v ? (v - 1) * 30 : -1; }
+static inline int PstTodMinutes(int v) { return PstTodToIni(v); }  // -1 = Stock
+static inline float PstTodFraction(int v) { const int m = PstTodMinutes(v); return m < 0 ? -1.0f : (float)m / 1440.0f; }
+// ini <-> internal for every PS_* (identity except time of day); the ini default of a key = PstToIni(what, PstDefault(what)).
+static inline int PstFromIni(int what, int ini) { return what == PS_TIME_OF_DAY ? PstTodFromIni(ini) : PstClamp(what, ini); }
+static inline int PstToIni(int what, int v) { return what == PS_TIME_OF_DAY ? PstTodToIni(v) : v; }
+static inline const char* PstWeatherName(int w) {
+    static const char* const n[PS_WX_N] = {"Stock", "Clear", "Overcast", "Rain", "Storm", "Snow"};
+    return w >= 0 && w < PS_WX_N ? n[w] : "?";
+}
+// Weather fields of S (re/out/renderconfig_fields.tsv; the storm targets are the ones the native storm lerp 39BED0 writes on the same S).
+enum { PS_EF_CLOUDY, PS_EF_TEMP, PS_EF_HUMID, PS_EF_PRECIP, PS_EF_FOG, PS_EF_HAZE, PS_EF_CLEAR, PS_EF_RAINDROP, PS_EF_FOGSCATTER, PS_EF_GUST, PS_EF_GUSTINT, PS_EF_TREEWIND, PS_EF_N };
+static inline uint32_t PstEnvFieldOff(int f) {
+    static const uint32_t o[PS_EF_N] = {0x7C, 0x80, 0x84, 0x88, 0x8C, 0x90, 0x98, 0x15C8, 0x13C8, 0xF70, 0xF84, 0x1968};
+    return f >= 0 && f < PS_EF_N ? o[f] : 0;
+}
+// Value of field f for weather preset w: 1 = write *out, 0 = leave the stock value (Stock writes nothing). Values from the shipped preset ranges
+// (Cloudy 0.3..1, Precipitation 0..0.25, Temperature -50..20) and the 39BED0 storm targets (fog key-light scatter 12, gust 750 / 550, tree wind x2).
+static inline int PstWeatherValue(int w, int f, float* out) {
+    float v = 0.0f; int set = 0;
+    switch (w) {
+    case PS_WX_CLEAR:
+        set = f == PS_EF_CLOUDY || f == PS_EF_CLEAR || f == PS_EF_FOG || f == PS_EF_HAZE || f == PS_EF_PRECIP || f == PS_EF_RAINDROP;
+        v = f == PS_EF_CLOUDY ? 0.3f : f == PS_EF_CLEAR ? 1.0f : 0.0f; break;
+    case PS_WX_OVERCAST: case PS_WX_RAIN: case PS_WX_STORM: case PS_WX_SNOW:
+        set = f == PS_EF_CLOUDY || f == PS_EF_CLEAR || f == PS_EF_HUMID || f == PS_EF_PRECIP || f == PS_EF_RAINDROP;
+        v = f == PS_EF_CLOUDY ? 1.0f : f == PS_EF_HUMID ? 0.7f : 0.0f;
+        if (w != PS_WX_OVERCAST && f == PS_EF_PRECIP) v = w == PS_WX_STORM ? 0.25f : 0.2f;
+        if (w != PS_WX_OVERCAST && f == PS_EF_RAINDROP) v = 1.0f;
+        if (w == PS_WX_STORM && (f == PS_EF_FOGSCATTER || f == PS_EF_GUST || f == PS_EF_GUSTINT || f == PS_EF_TREEWIND)) {
+            set = 1; v = f == PS_EF_FOGSCATTER ? 12.0f : f == PS_EF_GUST ? 750.0f : f == PS_EF_GUSTINT ? 550.0f : 2.0f; }
+        if (w == PS_WX_SNOW && f == PS_EF_TEMP) { set = 1; v = -20.0f; }
+        break;
+    default: break;
+    }
+    if (set) *out = v;
+    return set;
+}
+// One overridden float of S, written every frame after the native fill. Stock is remembered so switching back restores it even if the game does NOT
+// re-fill S each frame (open question of the plan): stock = the value seen whenever it differs from what we wrote last frame (= the game wrote it).
+// Release: the first frame without an override; restores stock only if S still holds our last write (else the game already re-filled it).
+typedef struct { float stock, last; uint8_t wrote, haveStock; uint32_t refills, frames; } PstEnvField;
+static inline float PstEnvApply(PstEnvField* e, float cur, float want) {
+    if (!e->wrote || cur != e->last) { e->stock = cur; e->haveStock = 1; if (e->wrote) e->refills++; }
+    if (e->wrote) e->frames++;
+    e->last = want; e->wrote = 1;
+    return want;
+}
+static inline int PstEnvRelease(PstEnvField* e, float cur, float* out) {
+    const int r = e->wrote && e->haveStock && cur == e->last && cur != e->stock;
+    if (r) *out = e->stock;
+    e->wrote = 0; e->refills = e->frames = 0;
+    return r;
+}
+// Sanity of a read: a float S field is finite and within a loose bound (garbage pointer guard; the shipped values are within -50..1000).
+static inline int PstEnvSane(float v) { return v == v && v > -100000.0f && v < 100000.0f; }
