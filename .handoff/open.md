@@ -1,6 +1,6 @@
 - [x] Fair speed test on this PC - Play the same fight twice, once with the CPU fixes off and once on, to check whether the ~3 % CPU saving is real. Earlier runs compared different fights, so they don't prove it.
 - [x] Boss rematch after dying - Check that dying in a boss rematch no longer leaves an empty arena. The fix is installed, but nobody has died in a test since.
-- [ ] Fix PC2's test recorder - PC2's frame-rate recording didn't save a file, and the test ran out of time. Fix both before asking PC2 to compare again.
+- [x] Fix PC2's test recorder - recovered: 441-frame smoke and six comparison captures delivered (#16098/#16104, report1253, f322f34). Matched-combat validity remains separate.
 - [x] Re-test on the Ally - Steam updated the Ally's Linux runtime mid-test. Set up the test for the new runtime (don't undo the update), then compare fixes off vs on.
 - [x] (Training-mode boss summon DONE: none exists, ally #4313) Later work - skipping the whole mission load screen (not built yet), and graphics/shader speedups.
 - [ ] (user #4114/#4115) Cut FIRST load of the boss rematch (37 s on PC; retry loads already 3-6 s). Next: re-run tools/rematch/fightnow_test.ps1 retry mode, split the 37 s by phase (menu->request, native mission load, request->control); compare a warm first load vs cold; then test the cheapest cut. Note: user says the game has no rematch and our mod added it - first load is the point.
@@ -48,3 +48,16 @@
 - [ ] (user) final build pc/menu-final-2 b849cb3 (Engine 7e2527f5 / Rematch 047ceb0d / Training 861cdc52) auto-installs when game closes (captures/install_menu_final2.ps1 running); then relaunch + ping user. Ally errored on #89-like tasks; pc took over.
 - [ ] repeat-move UX fix 026aef4 (pc/menu-final-2; Training 3aa4db0e Rematch 9fd2f209 Engine 9fe82515) auto-installs on game close (install_menu_final3.ps1); then relaunch+ping user; verify drill plays after menu closes.
 - [ ] (user #13799) Return object native-menu root cause + fix: Opus agent a9bf6722 on branch pc/gate-native-suppress (2026-10-18 23:40). Also mode-page-on-shortcut. Then integrate with pc/stale-boss-mode, pc/menu-final-2 (+ back-nav work), pc/move-filter; install on game close, relaunch, tag user.
+- [ ] (user #14153, after token reset) SF6-style frame meter overlay: phase 1 boss-only bar from action records, phase 2 player side + active windows
+
+- [ ] #14655 Remove death/self-kill sequences and tiny twitch moves/sequences from boss selection; identify latest killing sequence from logs, validate useful chains remain. Assigned pc via #14657; main-PC install/test.
+- [ ] #14742 Actual native Yoritomo combo logic: pc2 #14744 decode source-backed links, conditions and recovery/end; pc #14707 validate locally. Do not label inferred family chains verified.
+- [ ] #14776 Identify previously built 30 Hz CPU-saving feature (~26-27% remembered); ally audit #14777 checks historical OFF/ON evidence, current build inclusion/enabled state and gameplay coverage. Await audit before scheduling any new benchmark.
+- [ ] #16376/#16282/#16296/#16332 Current training bugs: repeat Aggro me, multi-hit move/sequence classification, dead boss hanging. Local cx-pc assigned #16389; capture live logs first, preserve active player session, then smallest fix and runtime validation.
+- [ ] #22389 Practice features: boss speed multiplier, infinite boss Ki, boss Ki drain, infinite player Ki, infinite player ninjutsu, damage multipliers boss/player | build + test when game free | pc
+- [ ] Frame-data fps-independence check (#22575) | rerun the frame probe on 0x4E6E / 0x4E4E with the game at 30 and 120 fps target; numbers must match the 60 fps run (95/157/177/333 and 49/146) | pc
+- [ ] (user #22796) SF6-style frame meter for the PLAYER side (startup/active/recovery from player action records), alongside boss meter | pc
+- [ ] (user #22826) Controller overlay setting in mod menu: pick PS-style or Xbox-style button glyphs (also for menu footer icons / input display) | pc
+- [ ] Integrate + install + in-game test: pc/btn-style-22826 ebd8453f (PS/Xbox button style, EngineFix asi 73B7FAFB) and pc/player-meter-22796 b96fa07a (player frame meter; Training+Rematch asi) onto pc/practice-stats-22389 (e3fff864 already has Ki damage x + one-hit Ki break, untested?). Install when game closed. | pc
+- [ ] Hold Ki break toggle (#22918) | Practice Boss page: once a boss is Ki-broken, keep it broken (stunned) while ON; build on NfBreakNow/NfPrimeHold in training.c | pc
+- [ ] (user #22920) Training completeness: Stage picker (18 arenas), boss phase/HP preset, position save/load, damage+combo counter, consumable restore; see notes/training-completeness-20261022.md | pc

@@ -334,3 +334,20 @@
 - #22349/#22359 (2026-10-21): wire Unblockable + hit counts (1-hit/2-hit/3-hit... groups, Unblockables) into Training move list for all moves, via a generic algorithm that works on EVERY boss (not Yoritomo-only); data also feeds the later SF6 frame meter (#22310/#22356).
 - #22380 (2026-10-21): user is away from the game for a while: continue working (installing/testing allowed meanwhile). #22389: wanted features (Practice/Training): adjustable boss speed (attacks/everything/overall animation speed), infinite boss Ki, boss Ki drain, infinite player Ki, infinite player ninjutsu, overall damage multipliers for boss and player.
 - #22389 (2026-10-21): wanted Training features: adjustable boss speed (attacks/everything/overall animation), infinite boss Ki, boss Ki drain, infinite player Ki, infinite player ninjutsu, overall damage multipliers (boss and player). #22393: record ~1 min video of Train here (Yoritomo) showing the menu + unblockable moves and send via Discord (done before).
+- #22426/#22427: video demo.mp4 sent via Discord webhook with tools/notify/notify.py file PATH TEXT (the earlier bridge 'put' file #1299 did not reach Discord).
+- #22477 (2026-10-21): user will say when they are home to test; until then keep working offline (clipped-row menu fix), no game restarts while they play.
+- #22488 (2026-10-21): also add an adjustable PLAYER speed (not only boss) to Practice.
+- #22494 (2026-10-21): Codex is NOT available; use Claude and Grok agents only (no TASK to cx-pc).
+- #22541 (2026-10-21): to test infinite ninjutsu, switch to ninja mode (samurai/ninja stance switch, player shortcut; user guesses R2+B or A on pad) then check the ninjutsu gauge.
+- #22588 (2026-10-21): user asked which missing Training features matter most from his big list; my ranking: 1 instant reset (boss HP/Ki/phase + player pos), 2 freeze/frame-advance + frame data display, 3 Ki damage multiplier / one-hit Ki break, 4 auto/perfect guard-parry, 5 damage+combo counter.
+- #22733 (2026-10-21): user said 'Hello' (ping).
+- #22709 (2026-10-21): make sure the move/hit/unblockable/frame algorithm works for EVERY boss; find all boss data available.
+- #22746 (2026-10-21): 'Yes all bosses' = extend move/frame data to ALL bosses.
+- #22786/#22787 (2026-10-21): resume optimization hunt: keep looking for more performance opportunities, mine past documentation (lifts the #22241 optimization pause).
+- #22786 (2026-10-21): optimization pause (#22241) is lifted: keep looking for more optimization opportunities, and add any of his earlier feature requests not yet built.
+- #22796 (2026-10-21): also an SF6-style frame meter for the PLAYER (not only boss).
+- #22826 (2026-10-21): add a controller overlay setting in the mod menu with PlayStation-style and Xbox-style button glyphs as pickable options.
+- #22852 (2026-10-22): user: never idle, always be working on something.
+- #22873 (2026-10-22): when done send a ~1 min video (fits Discord) showing the controller overlay/button style and updated menus. #22870: use all Claude agents, keep work going.
+- #22918 (2026-10-22): user asks for a way in Training to keep the boss in Ki break (hold break). Feature to build: 'Hold Ki break' toggle.
+- #22920 (2026-10-22): Training mode should not feel like it is missing options: think about toggling stages/areas etc. and other training options; goal = complete training feature set.
