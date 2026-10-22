@@ -62,7 +62,8 @@ inline float Scale(unsigned H) {
 inline float Opacity() { return (float)g_opacity100 / 100.0f; }
 
 // ---- drawing ----
-constexpr uint32_t kBody = 0xB0140F0C, kUnlit = 0xC0302A26, kWell = 0xD0100C0A, kUnlitText = 0xFF787878, kLitCap = 0xF0F0F0F0;
+constexpr uint32_t kBody = 0xB0140F0C, kUnlit = 0xC0302A26, kWell = 0xD0100C0A, kUnlitText = 0xFF787878,
+                   kLitCap = 0xF05AC8F0;  // lit bumper: gold cap + white label (dark label on a light cap outlines into a blob, "LB" unreadable)
 constexpr uint32_t kPsFill = 0xC0201C18, kPsFillLit = 0xF0685A4E;
 
 inline void Disc(float ox, float oy, float s, float cx, float cy, float d, uint32_t c) {
@@ -102,7 +103,7 @@ inline void Bump(float ox, float oy, float s, float x, float y, bool right, bool
     using namespace menu_style;
     RoundRect(ox + x * s, oy + y * s, 44.0f * s, 16.0f * s, 4.0f * s, Fade(on ? kLitCap : kBumperBg, a));
     const char* t = style ? (right ? "R1" : "L1") : (right ? "RB" : "LB");
-    osd::DrawText(Snap(ox + (x + 14.0f) * s), Snap(oy + y * s), t, Fade(on ? kCapText : 0xFFB4B4B4u, a), s);
+    osd::DrawText(Snap(ox + (x + 14.0f) * s), Snap(oy + y * s), t, Fade(on ? 0xFFFFFFFFu : 0xFFB4B4B4u, a), s);
 }
 
 inline void Trig(float ox, float oy, float s, float x, int v, int style, float a) {
