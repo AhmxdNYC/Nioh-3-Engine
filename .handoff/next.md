@@ -1868,3 +1868,9 @@ Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up
 - 2026-10-21 pc: Reset fight build ready (Training 4ee4786f, Rematch 7A3DCEB8, commit 81c8e1e0). Install held: game pid 27316 running with fresh test-active marker and input idle 0 s. NEXT: install via captures/install_idle_seqfix.ps1 pattern once idle>=2min / marker stale, test Reset fight + FrameMeter.
 - 2026-10-21 pc: answered #22687 status+feature list (#22593). Next: Ki damage multiplier / one-hit Ki break, then auto guard, combo counter.
 - 2026-10-21 9:05 pm pc: see last checkpoint; game running new build; next = open bugs listed there.
+- 2026-10-21 9:40 pm pc: #22709 facts for 9 more bosses committed (pc/practice-stats-22389 c64550cd), Rematch ASI 52D9B2AC built; install_22709.ps1 running (waits for 2 min idle, then relaunch). NEXT: verify load + open Hino-enma Boss moves menu in game; Ibaraki Doji unbound; other 85 bound chars need chr id for catalogue.
+- 2026-10-21 pc: all-boss move audit done (0091ef8c): menu data for 10 bosses, action files on disk 95 chars/11127 rows/333 unblockable; outputs notes/boss-moves-all/. Not yet in-game tested on other bosses beyond Yoritomo+Hino-enma.
+- 2026-10-21 10:15 pm pc: Rematch 49919D75 (18 bosses facts, d1f5a593) waits in install_22709.ps1 (PID 23916, needs 2 min input idle; user active now). NEXT after install: open Boss moves for Sukuna/Yoshitsune/Hino, check groups; then frame meter on a 3rd boss.
+- 2026-10-21 10:25 pm pc: install_22709.ps1 had died; restarted via WMI (survives run end). Input idle read 0 s repeatedly (user active).
+- 2026-10-21 11:20 pm pc: 49919D75 installed+live-tested (4 bosses OK). Game PID 7640 left running with bosses A-D summoned near shrine. NEXT: clipped rows in move groups, meter on 3rd boss.
+- 2026-10-21 11:25 pm pc: see checkpoints; next = clipped rows fix + meter on 3rd boss.
