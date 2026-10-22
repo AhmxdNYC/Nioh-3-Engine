@@ -169,6 +169,9 @@ def main():
     for name, fn in (("dualsense", dualsense), ("xbox", xbox)):
         (cw, ch), S = fn()
         atlas, place = pack(S)
+        # user #23181: black / white / grey only - drop all colour, keep alpha
+        lum = atlas.convert("L")
+        atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
         out = ASSETS / f"atlas_{name}.png"
         atlas.save(out, optimize=True)
         raw = out.read_bytes()
