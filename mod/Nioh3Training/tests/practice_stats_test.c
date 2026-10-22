@@ -39,14 +39,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 11);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 12);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 11 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 12 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
@@ -80,6 +80,35 @@ int main(void) {
     assert(PstKiDmg(1, 0, 1, 100, 1, 0, 0.0f, 40) == 40.0f && PstKiDmg(1, 0, 1, 100, 1, 0, -50.0f, 40) == 40.0f /* already out of Ki */);
     assert(PstKiDmg(1, 0, 1, 100, 1, 0, 1e9f, 40) == 40.0f /* garbage Ki read */ && PstKiDmg(1, 0, 1, 100, 1, 0, 500, -5) == -5.0f /* Ki gain */);
     { const float n = 0.0f / 0.0f; const float r = PstKiDmg(1, 0, 1, 200, 1, 0, 500, n); assert(r != r); }  // NaN passes through
+    // user #22918 Hold Ki break: toggle, default OFF, saved key slot after PlayerFrameMeter
+    assert(c.v[PS_HOLD_KI_BREAK] == 0 && PstDefault(PS_HOLD_KI_BREAK) == 0 && PstIsToggle(PS_HOLD_KI_BREAK) && PS_HOLD_KI_BREAK == PS_N - 1);
+    assert(PstClamp(PS_HOLD_KI_BREAK, 7) == 1 && PstClamp(PS_HOLD_KI_BREAK, -3) == 0);
+    assert(PstStep(PS_HOLD_KI_BREAK, 0, 0) == 1 && PstStep(PS_HOLD_KI_BREAK, 1, 0) == 0 && PstStep(PS_HOLD_KI_BREAK, 0, 1) == 1 && PstStep(PS_HOLD_KI_BREAK, 1, -1) == 0);
+    // step: start only on a natural break of a live, alive boss with the toggle ON
+    assert(PstHoldBreakStep(1, 1, 0, 1, 0) == PS_HB_START);
+    assert(PstHoldBreakStep(0, 1, 0, 1, 0) == PS_HB_NONE /* toggle OFF: native break untouched */ && PstHoldBreakStep(1, 1, 0, 0, 0) == PS_HB_NONE /* never forces a break */);
+    assert(PstHoldBreakStep(1, 0, 0, 1, 0) == PS_HB_NONE /* no session / Training boss */ && PstHoldBreakStep(1, 1, 1, 1, 0) == PS_HB_NONE /* dead */);
+    // held: keep while broken; release on OFF, death, session end, or the game ending the break (grapple)
+    assert(PstHoldBreakStep(1, 1, 0, 1, 1) == PS_HB_KEEP);
+    assert(PstHoldBreakStep(0, 1, 0, 1, 1) == PS_HB_RELEASE && PstHoldBreakStep(1, 1, 1, 1, 1) == PS_HB_RELEASE && PstHoldBreakStep(1, 0, 0, 1, 1) == PS_HB_RELEASE);
+    assert(PstHoldBreakStep(1, 1, 0, 0, 1) == PS_HB_RELEASE && PstHoldBreakStep(1, 1, 0, 1, 0) == PS_HB_START /* the next break is held again */);
+    // simulated hold: a 3.9 s native countdown (dt 1/60 s per frame, top-up at 20 Hz) never reaches 0 while ON; after OFF it runs out within the hold value
+    {   float t = 3.9f, o = 0; int frame = 0, held = 1, recovered = -1;
+        for (frame = 0; frame < 60 * 30; ++frame) {
+            const int on = frame < 60 * 20;  // ON for 20 s, then OFF
+            if (t > 0.0f) { t -= 1.0f / 60.0f; if (t <= 0.0f) { t = 0.0f; if (recovered < 0) recovered = frame; } }
+            const int act = PstHoldBreakStep(on, 1, 0, t > 0.0f, held);
+            held = act == PS_HB_START || act == PS_HB_KEEP;
+            if (held && frame % 3 == 0 && PstHoldTimer(t, 1.0f, &o)) t = o;
+        }
+        assert(recovered > 60 * 20 && recovered <= 60 * 20 + 61 && !held);
+    }
+    // timer top-up: only a running timer below the hold value; idle (0 / -1), garbage and already-long timers untouched
+    { float o = 0; assert(PstHoldTimer(0.2f, 1.0f, &o) && o == 1.0f); }
+    { float o = 7; assert(!PstHoldTimer(0.0f, 1.0f, &o) && !PstHoldTimer(-1.0f, 1.0f, &o) && !PstHoldTimer(3.5f, 1.0f, &o) && !PstHoldTimer(1.0f, 1.0f, &o) && o == 7); }
+    { float o = 7; const float n = 0.0f / 0.0f; assert(!PstHoldTimer(n, 1.0f, &o) && !PstHoldTimer(1e9f, 1.0f, &o) && !PstHoldTimer(0.5f, 0.0f, &o) && o == 7); }
+    // AI restore: only what the hold switched off, only if still off, never on a dead boss
+    assert(PstHoldAiRestore(1, 0, 0) && !PstHoldAiRestore(0, 0, 0) && !PstHoldAiRestore(1, 1, 0) && !PstHoldAiRestore(1, 0, 1) && !PstHoldAiRestore(1, -1, 0));
     puts("practice_stats_test: all passed");
     return 0;
 }

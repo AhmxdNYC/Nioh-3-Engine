@@ -8,16 +8,17 @@
 //   Ki damage I deal / One-hit Ki break (user #22588): PstKiDamage on the KiDamage 844604 call at 329E9D in the hit apply 327DEC (PstKiHookInstall).
 //   Boss Ki drain      : Training bosses (BvActor) lose BossKiDrainPerSec Ki per second via KiSetCur at 20 Hz, floor 0.5, never during a Ki break /
 //                        HP-0 window / infinite Ki.
+//   Hold Ki break      : user #22918, PstHoldBreak (break timers K+0x74 / K+0x7C / ctrl+0x1014 kept running, AI held off while a Training boss is broken).
 // Active only while a Practice session runs or a Training boss is alive (g_pst_live), so the normal game is untouched even with a value saved.
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
-    return what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
+    return what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
     for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstClamp(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstDefault(i), ini));
-    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d",
-        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9]);
+    Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d, HoldKiBreak %d",
+        g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9], g_pst.v[PS_HOLD_KI_BREAK]);
 }
 static DWORD WINAPI PstSaveThread(LPVOID p) {
     (void)p; char ini[MAX_PATH], v[16]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
@@ -157,6 +158,61 @@ static __attribute__((noinline)) void PstResetFightTick(void) {
     }
     Log("RESETFIGHT player: HP refill %d, Ki refill %d, back to start %s (Warp %d, start %.0f %.0f %.0f)", hpOk, kiOk, warp ? "requested" : "no start recorded", w, g_tr.pp[0], g_tr.pp[1], g_tr.pp[2]);
 }
+// user #22918 'Hold Ki break' (PS_HOLD_KI_BREAK). Native break timers (static RE of re/Nioh3.dump.exe, capstone; not run in game):
+//   KiTick 2F8068(K = st+0x98, dt): K+0x74 counts down by dt while > 0; at <= 0 the phase-2 timer K+0x7C counts down (unless K+0x85), then
+//     KiBreakClear 8455B4 + K+0x81 = 1 (= recovered). KiIsExhausted 844FE4 = K+0x5C > 0 || K+0x74 > 0 || K+0x7C > 0 || K+0x83.
+//   8D8CC0(ctrl): runtime bit 0x3A (ctrl+0x1060, = StateTest 0x23) with ctrl+0x1014 > 0: -= dt (ctrl+0x40); cleared at <= 0, or at once when
+//     8D8D58 is false (481290, or none of ctrl+0xA8 bit 41 / StateTest 0xA / StateTest 9). A4F098 sets the bit and ctrl+0x1014 = the break length.
+// Hold (20 Hz, PstTick on the game thread): while a Training boss is naturally Ki-broken, every RUNNING timer above is kept >= PST_HB_HOLD_S (never
+// started from idle), and its AI is held off (668D74, re-applied every 100 ms when the game turns it back on, like the NOFIN HP-0 window AI hold).
+// Release (toggle OFF, boss dead / gone, session over, or the game itself ended the break, e.g. a grapple): nothing more is written, so the native
+// timers run out within PST_HB_HOLD_S = the normal recovery, and the AI comes back (66982C) if the hold switched it off.
+// The HP-0 window of KiBreakNoFinisher owns its boss (its own AI hold): never held there.
+#define PST_HB_HOLD_S 1.0f
+static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop; } g_pst_hb[N3T_SLOTS];
+static __attribute__((noinline)) int PstHbTop(volatile float* p) { float o = 0; __try { if (PstHoldTimer(*p, PST_HB_HOLD_S, &o)) { *p = o; return 1; } } __except (EXCEPTION_EXECUTE_HANDLER) { } return 0; }
+static __attribute__((noinline)) void PstHbRelease(int s, int dead, const char* why) {
+    const uint64_t a = g_pst_hb[s].a; int ai = -1, back = 0;
+    if (a && !dead) ai = BhAiOn(a);
+    if (a && PstHoldAiRestore(g_pst_hb[s].aiOff, ai, dead)) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); back = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+    if (a) PstLog("PRACTICE hold Ki break Boss %c %p: released (%s) after %lu ms, %ld timer top-ups, AI %s", 'A' + s, (void*)a, why, GetTickCount() - g_pst_hb[s].t0, g_pst_hb[s].nTop, back ? "back on" : g_pst_hb[s].aiOff ? "left (already on / dead)" : "untouched");
+    memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]);
+}
+static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
+    const uint64_t a = BvActor(s);
+    if (g_pst_hb[s].a && g_pst_hb[s].a != a) memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]);  // slot reused / despawned: never touch the old actor
+    if (!a) return;
+    uint64_t st = 0, ai = 0, ctrl = 0; int dead = 0, s23 = 0, exh = 0;
+    if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) return;
+    __try {
+        dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50);
+        if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) != 0; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
+    const int held = g_pst_hb[s].a == a, act = PstHoldBreakStep(on, g_pst_live != 0, dead, (s23 || exh) && !window, held);
+    if (act == PS_HB_NONE) return;
+    if (act == PS_HB_RELEASE) { PstHbRelease(s, dead, !on ? "toggle OFF" : dead ? "boss died" : window ? "HP-0 window" : "break ended by the game"); return; }
+    const DWORD now = GetTickCount();
+    if (act == PS_HB_START) {
+        memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]); g_pst_hb[s].a = a; g_pst_hb[s].t0 = now;
+        float t74 = 0, t7c = 0, t1014 = 0; __try { t74 = *(volatile float*)(st + 0x98 + 0x74); t7c = *(volatile float*)(st + 0x98 + 0x7C); t1014 = *(volatile float*)(ctrl + 0x1014); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        PstLog("PRACTICE hold Ki break Boss %c %p: Ki-broken (state23 %d, exhausted %d, K+74 %.2f K+7C %.2f ctrl+1014 %.2f): holding until OFF / death", 'A' + s, (void*)a, s23, exh, t74, t7c, t1014);
+    }
+    // keep the native break from running out: Ki-exhausted countdown (phase 1, else phase 2) and the state-0x23 stun window
+    int top = PstHbTop((volatile float*)(st + 0x98 + 0x74));
+    if (!top) top = PstHbTop((volatile float*)(st + 0x98 + 0x7C));
+    uint64_t bits = 0; if (Rd64(ctrl + 0x1060, &bits) && (bits & (1ull << 0x3A))) top |= PstHbTop((volatile float*)(ctrl + 0x1014));
+    if (top) g_pst_hb[s].nTop++;
+    // boss does not act: AI off while held
+    if (!g_pst_hb[s].aiOff || now - g_pst_hb[s].tAi >= 100) {
+        g_pst_hb[s].tAi = now;
+        if (BhAiOn(a) == 1) {
+            __try { ((void (*)(uint64_t))(B + 0x668D74))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+            if (!g_pst_hb[s].aiOff) { g_pst_hb[s].aiOff = 1; PstLog("PRACTICE hold Ki break Boss %c %p: AI off while held", 'A' + s, (void*)a); }
+            else if (++g_pst_hb[s].nAi <= 10) PstLog("PRACTICE hold Ki break Boss %c %p: AI switched back on by the game, off again (#%d)", 'A' + s, (void*)a, g_pst_hb[s].nAi);
+        }
+    }
+}
 static void PstTick(void) {
     const DWORD now = GetTickCount();
     if (now - g_pst_t < 50) return;
@@ -166,13 +222,14 @@ static void PstTick(void) {
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
     if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; }
-    if (!live) return;
+    if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
     if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_ONE_HIT_KI]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
+    for (int s = 0; s < N3T_SLOTS; ++s) if (g_pst.v[PS_HOLD_KI_BREAK] || g_pst_hb[s].a) PstHoldBreak(s, g_pst.v[PS_HOLD_KI_BREAK]);  // user #22918
 }
 // Reset fight: returns a bit mask (0 = nothing to do: no Practice session and no Training boss). 1 = boss(es) refilled, 2 = boss position put back queued,
 // 4 = player HP + Ki refill queued, 8 = player put back at the Practice start queued.
