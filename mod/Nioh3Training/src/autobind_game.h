@@ -42,12 +42,13 @@ static int AbScan(uint64_t r0, uint32_t* out, int cap, uint64_t* lo, uint64_t* h
     { int u = 0; for (int i = 0; i < n; ++i) if (!u || out[u - 1] != out[i]) out[u++] = out[i]; n = u; }
     return n;
 }
-// Bind = the largest block that matches a file at >= AB_MIN_PCT (the boss's own file is bigger than the shared common files). Re-scanned every 250 ms until no new
+// Bind = the largest block, if it matches a file (> 70 %, runner-up 15+ lower, not a shared CP_HUMAN_* file; the boss's own file is bigger than the shared side files). Re-scanned every 250 ms until no new
 // block appeared for AB_STABLE_MS (after >= AB_MIN_MS), at most AB_MAX_MS; a boss that despawns / is replaced earlier is finalised with what was seen so far.
 static void AbFinal(int s, const char* why) {
     if (g_abs[s].done) return;
     g_abs[s].done = 1;
-    int best = -1; for (int k = 0; k < g_abs[s].nblk; ++k) if (g_abs[s].blk[k].file >= 0 && (best < 0 || g_abs[s].blk[k].rows > g_abs[s].blk[best].rows)) best = k;
+    int best = -1; for (int k = 0; k < g_abs[s].nblk; ++k) if (best < 0 || g_abs[s].blk[k].rows > g_abs[s].blk[best].rows) best = k;
+    if (best >= 0 && g_abs[s].blk[best].file < 0) best = -1;   // the biggest block is the boss's own file: if it is unmatched / ambiguous / shared, stay unbound (a small bound side block is never the boss file)
     if (best >= 0) Log("AUTOBIND spawn #%d chr %u: FINAL %s (%d%%, %d rows) file %s; %d block(s) seen [%s]", s, g_abs[s].chr, g_ab.f[g_abs[s].blk[best].file].chr, g_abs[s].blk[best].pct, g_abs[s].blk[best].rows, g_ab.f[g_abs[s].blk[best].file].file, g_abs[s].nblk, why);
     else Log("AUTOBIND spawn #%d chr %u: FINAL UNBOUND (%d block(s) seen) [%s]", s, g_abs[s].chr, g_abs[s].nblk, why);
 }
