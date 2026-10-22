@@ -354,3 +354,4 @@
 - #22921 (2026-10-22): in Training, anything that makes sense as an adjustable slider should be adjustable, not just a toggle (e.g. Hold Ki break -> adjustable hold duration, boss HP preset, etc.).
 - #22942 (2026-10-22): user likes 'time of day' option in Training (weather unverified); investigate whether game exposes time of day, build adjustable slider if so.
 - #22942/#22943 (2026-10-22): user wants Time of day and Sky (sky/weather look) controls in Training if the game exposes them; research feasibility first, don't promise.
+- #22956 (2026-10-22): input display overlay should come in Xbox and PlayStation styles (follows ButtonStyle pick); top-left pad graphic, sticks/triggers.
