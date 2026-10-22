@@ -352,3 +352,5 @@
 - #22918 (2026-10-22): user asks for a way in Training to keep the boss in Ki break (hold break). Feature to build: 'Hold Ki break' toggle.
 - #22920 (2026-10-22): Training mode should not feel like it is missing options: think about toggling stages/areas etc. and other training options; goal = complete training feature set.
 - #22921 (2026-10-22): in Training, anything that makes sense as an adjustable slider should be adjustable, not just a toggle (e.g. Hold Ki break -> adjustable hold duration, boss HP preset, etc.).
+- #22942 (2026-10-22): user likes 'time of day' option in Training (weather unverified); investigate whether game exposes time of day, build adjustable slider if so.
+- #22942/#22943 (2026-10-22): user wants Time of day and Sky (sky/weather look) controls in Training if the game exposes them; research feasibility first, don't promise.

@@ -20,3 +20,7 @@ Priority next: Stage picker, boss phase/HP preset, position save/load, damage/co
 - Boss Ki drain per s (exists), boss Ki regen rate, boss aggression/reaction delay, repeat-move gap (exists)
 - Speeds (exist), freeze: frame-step count N, slow-motion % slider
 - Damage multipliers (exist); boss guard chance %; boss attack-frequency slider; stage time-of-day slider if exposed
+## Time of day / Sky (user #22942/#22943) - feasibility lead
+- notes/renderer/09-volumetrics.md: time of day enters render via scene+2CC (seconds) and scene+B2EC; sun/moon directions (SkySunMoonDirections 5EBD08), fog, clouds, sky ambient all read it. => a Time-of-day slider = write scene+2CC each frame. UNPROVEN in game.
+- Sky: cloud/pattern params in NatureSkyUpdatePatternParams 5F1628, sky ambient change fires on RS+96C. Sky picker (clear/cloudy/night) = needs cloud param discovery.
+- Step 1: read scene+2CC live (log), step 2: freeze/write it, step 3: slider 0-24h, step 4: sky/cloud presets.

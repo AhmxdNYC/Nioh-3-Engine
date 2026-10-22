@@ -61,3 +61,6 @@
 - [ ] Integrate + install + in-game test: pc/btn-style-22826 ebd8453f (PS/Xbox button style, EngineFix asi 73B7FAFB) and pc/player-meter-22796 b96fa07a (player frame meter; Training+Rematch asi) onto pc/practice-stats-22389 (e3fff864 already has Ki damage x + one-hit Ki break, untested?). Install when game closed. | pc
 - [ ] Hold Ki break toggle (#22918) | Practice Boss page: once a boss is Ki-broken, keep it broken (stunned) while ON; build on NfBreakNow/NfPrimeHold in training.c | pc
 - [ ] (user #22920) Training completeness: Stage picker (18 arenas), boss phase/HP preset, position save/load, damage+combo counter, consumable restore; see notes/training-completeness-20261022.md | pc
+- [ ] Training time-of-day slider (#22942) | find the game's time-of-day/sky state, add Practice slider | pc
+- [ ] (user #22942/#22943) Training: Time of day slider + Sky picker. First research: find game time-of-day/sky/weather params (grep notes/ and decomp for sky, TimeOfDay, weather, atmosphere); report feasible or not | pc
+- [ ] Follow-ups from integ-22826 test: boss frame meter fake run on next idle action 0x2 (hitbox still open at action change); PS style still shows LB/RB + 'press A' text; startup counts from 1 vs active from 0 display; one-hit Ki break stays on in memory after ini=0 until restart. Then re-arm captures/pj_bench_105.ps1 (PJ bench) | pc
