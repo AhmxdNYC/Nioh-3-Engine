@@ -12,7 +12,7 @@ Sources (all located by structure, the known LFM path is only the fast path; too
   mission table   0x198-byte records: +0x40 flags, +0x50 script id, +0x54 enemy table id, +0x5C box table id, +0x6C start
                   point table id, +0x70 name text id, +0x158 u16 mission id, +0x15A kind (2 = open-field region), +0x15C world byte
   enemy table     0x138-byte records: +0 placement id, +4 character id (the Load::Character id the mod spawns), +0x40 x y z yaw,
-                  +0x9C flags (bit 4 = boss record; the first one = the mission's boss, as BossPlacementIdForMission), +0x134 name
+                  +0x9C flags (0x04 = boss record, rematch_catalog --index; record name *BOSS* also counts), +0x134 name
   box table       0xA0-byte PlacementBox records: +0 id, +0x10 centre, +0x20 yaw, +0x28 size, +0x9C name (BOSS_AREA..., trigger boxes)
   start points    0xA4-byte records: +0 id, +8 flags, +0xC kind, +0x40 x y z yaw
   mission script  the boxes it tests with Player::IsEnter* / Wait_Invade* / Loop_* (= the arena trigger), see rematch_catalog.py
@@ -245,6 +245,22 @@ def f1(v):
     return float("%.1f" % v)
 
 
+def enemy_records(et):
+    n = _tab(et, EREC)
+    out = []
+    if not n:
+        return out
+    pool = 8 + n * EREC
+    for j in range(n):
+        e = et[8 + j * EREC:8 + (j + 1) * EREC]
+        no = struct.unpack_from("<I", e, 0x134)[0]
+        nm = et[pool + no:et.index(b"\0", pool + no)].decode("latin1") if pool + no < len(et) else ""
+        x, y, z, yaw = struct.unpack_from("<4f", e, 0x40)
+        out.append({"pid": struct.unpack_from("<I", e, 0)[0], "chr": struct.unpack_from("<I", e, 4)[0], "fl": e[0x9C],
+                    "pos": (f0(x), f0(y), f0(z)), "yawf": f1(yaw), "name": nm})
+    return out
+
+
 def mission_data(L, t, log):
     E, md = t["E"], t["missions"]
 
@@ -259,17 +275,8 @@ def mission_data(L, t, log):
              "script": E.get(struct.unpack_from("<I", r, 0x50)[0]), "enemies": [], "start": [], "box": [], "trig": [], "gate": []}
         ids = struct.unpack_from("<8I", r, 0x50)
         m["shipped"] = bool(m["script"]) and all((not x) or x in E for x in ids[1:7])
-        et = tab(ids[1])
-        n = _tab(et, EREC)
-        if n:
-            pool = 8 + n * EREC
-            for j in range(n):
-                e = et[8 + j * EREC:8 + (j + 1) * EREC]
-                no = struct.unpack_from("<I", e, 0x134)[0]
-                nm = et[pool + no:et.index(b"\0", pool + no)].decode("latin1") if pool + no < len(et) else ""
-                x, y, z, yaw = struct.unpack_from("<4f", e, 0x40)
-                m["enemies"].append({"pid": struct.unpack_from("<I", e, 0)[0], "chr": struct.unpack_from("<I", e, 4)[0], "fl": e[0x9C],
-                                     "pos": (f0(x), f0(y), f0(z)), "yawf": f1(yaw), "name": nm})
+        for et in (tab(ids[1]), tab(ids[2])):   # +0x54 enemy table, +0x58 second enemy set (36 boss-like records in 1.0)
+            m["enemies"] += enemy_records(et)
         st = tab(ids[7])
         for j in range(_tab(st, SREC)):
             s = st[8 + j * SREC:8 + (j + 1) * SREC]
@@ -301,3 +308,183 @@ def mission_data(L, t, log):
                     m["box"].append(v)
         out.append(m)
     return out
+
+
+# ---------------------------------------------------------------- rows
+def is_boss(e):
+    return bool(e["fl"] & 0x04) or "BOSS" in e["name"].upper()
+
+
+def old_table(path):
+    """the committed TSV: {id: cols} (names, CrossWorldCellSkip cells and the primary boss of a mission are carried over by id)."""
+    out = collections.OrderedDict()
+    if not os.path.exists(path):
+        return out
+    for ln in open(path, encoding="utf-8"):
+        if ln.startswith("#") or not ln.strip():
+            continue
+        c = ln.rstrip("\r\n").split("\t")
+        if len(c) >= 15:
+            out[(c[13], c[12] == "summon")] = c
+    return out
+
+
+def field_point(b):
+    """player point for a boss with no arena trigger (open-field placement): 8 m in front of the boss along its own facing (yaw 0 = +z),
+    1 m up (the player drops onto the floor), facing the boss."""
+    a = math.radians(b["yawf"])
+    x, z = b["pos"][0] + 800 * math.sin(a), b["pos"][2] + 800 * math.cos(a)
+    return x, b["pos"][1] + 100, z, math.degrees(math.atan2(b["pos"][0] - x, b["pos"][2] - z))
+
+
+def nearest_start(m, pos):
+    ok = [s for s in m["start"] if not int(s["flags"], 16) & 0x200] or m["start"]
+    return min(ok, key=lambda s: (rc._dist_m(s["pos"], pos), s["id"]))["id"] if ok else 0
+
+
+def build_rows(ms, old, log):
+    fi = {}
+    for m in ms:
+        fi[m["mid"]] = {"start": m["start"], "box": m["box"], "trig": m["trig"], "gate": m["gate"],
+                        "boss": {e["pid"]: e for e in m["enemies"]}}
+    oldp = {}   # mission -> (id, placement, chr) of the committed primary row
+    for (rid, summ), c in old.items():
+        if c[0] not in ("0", "") and not rid.startswith("S"):
+            oldp[int(c[0], 16)] = (rid, int(c[4] or 0), int(c[3] or 0))
+    rows, have, src = [], set(), {}
+
+    def emit(m, e, rid, how):
+        mid = m["mid"]
+        f = rc.pick_fight_start(fi, mid, e["pid"])
+        ar = rc.pick_arena(fi, mid, e["pid"], f) if f and f["kind"] != "mission start" else None
+        if m["kind"] == 2 or not f:          # open-field region (or no usable start point): stand in front of the boss
+            x, y, z, yaw = field_point(e)
+            kind, start, conf = "field", nearest_start(m, e["pos"]), "field placement"
+        elif ar:
+            x, y, z, yaw, kind, start, conf = ar["x"], ar["y"], ar["z"], ar["yaw"], "arena", f["start"], "%s (%s)" % (ar["conf"], ar["src"])
+        else:
+            (x, y, z), yaw, kind, start, conf = f["pos"], f["yaw"], "start", f["start"], "%s %s %.0fm" % (f["conf"], f["kind"], f["dist"])
+        rows.append({"mission": mid, "start": start, "world": m["world"], "chr": e["chr"], "pid": e["pid"], "p": (x, y, z, yaw),
+                     "b": e["pos"], "kind": kind, "id": rid, "how": how, "conf": conf, "mname": m["name_id"]})
+        have.add(e["chr"])
+
+    usable = [m for m in ms if m["shipped"] and m["world"] and m["enemies"]]
+    # 1. one primary row per startable (non-region) mission that has a boss record
+    for m in usable:
+        if m["kind"] == 2:
+            continue
+        bs = [e for e in m["enemies"] if is_boss(e)]
+        op = oldp.get(m["mid"])
+        if op:   # carried: the committed row's boss (it may be a non-boss record, e.g. the dojo duels)
+            e = next((e for e in m["enemies"] if e["pid"] == op[1]), None) or next((e for e in m["enemies"] if e["chr"] == op[2]), None)
+            if e:
+                emit(m, e, op[0], "mission (boss kept from the committed row)")
+                continue
+        if not bs:
+            continue
+        e = next((e for e in bs if e["fl"] & 0x04 and "BOSS" in e["name"].upper()), None) or next((e for e in bs if e["fl"] & 0x04), bs[0])
+        listed = not m["flags"] & 0x41    # +0x40 bit0 / 0x40 = not in the replay list (0x4000 = hidden duel, listed by Boss Rematch H)
+        emit(m, e, "%s%04X" % ("R" if listed else "D", m["mid"]), "mission (first boss record)")
+    # 2. every further boss character of a startable mission, then of an open-field region (one row per character, id S<chr>)
+    for want_kind in ("mission", "region"):
+        for m in usable:
+            if (m["kind"] == 2) != (want_kind == "region"):
+                continue
+            for e in m["enemies"]:
+                if is_boss(e) and e["fl"] & 0x04 and e["chr"] not in have:
+                    emit(m, e, "S%d" % e["chr"], "%s boss record" % want_kind)
+    # 3. roster characters of the committed table with no boss record: any placement of that character (region first)
+    for (rid, summ), c in old.items():
+        if not summ or c[0] not in ("0", ""):
+            continue
+        chr_ = int(c[3])
+        if chr_ in have:
+            continue
+        cand = [(m["kind"] != 2, m["mid"], m, e) for m in usable for e in m["enemies"] if e["chr"] == chr_]
+        if cand:
+            _, _, m, e = min(cand, key=lambda t: t[:2])
+            emit(m, e, "S%d" % chr_, "regular placement (no boss record)")
+    return rows
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--game")
+    ap.add_argument("--out", default=TSV)
+    ap.add_argument("--report", default=REPORT)
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--quiet", action="store_true")
+    a = ap.parse_args(argv)
+    log = (lambda s: None) if a.quiet else (lambda s: print(s, file=sys.stderr))
+    g = game_dir(a.game)
+    if not g:
+        if a.check:
+            n = sum(1 for l in open(a.out, encoding="utf-8") if l.strip() and not l.startswith("#"))
+            print("no game folder: committed table has %d rows (not rebuilt)" % n)
+            return 0
+        raise SystemExit("game folder not found: pass --game or set NIOH3_DIR")
+    L = Lfm(g)
+    t = find_tables(L, log)
+    ms = mission_data(L, t, log)
+    old = old_table(a.out)
+    rows = build_rows(ms, old, log)
+    chrs = {r["chr"] for r in rows} | {int(c[3]) for (rid, s), c in old.items() if s and c[3].isdigit()}
+    tid = chara_names(L, chrs, log)
+    text = english_text(L, set(tid.values()) | {r["mname"] for r in rows if r["mname"]})
+    cname = {c: rc.ascii_(text[i]) for c, i in tid.items() if i in text}
+    oldn = {rid: c[14] for (rid, s), c in old.items()}
+    oldcells = {rid: c[15] for (rid, s), c in old.items() if len(c) > 15 and c[15]}
+    out = [HEADER, "# game data fingerprint %s (archive sizes + times): rerun tools/auto_arena.py when it changes" % L.fingerprint()]
+    rep = []
+    arena_chr = set()
+    for r in rows:
+        nm = oldn.get(r["id"]) or cname.get(r["chr"]) or "chr %d" % r["chr"]
+        if r["id"] not in oldn and r["mname"] in text and r["kind"] != "field" and not r["id"].startswith("S"):
+            nm = "%s (%s)" % (nm, rc.ascii_(text[r["mname"]]))
+        c = ["0x%04X" % r["mission"], str(r["start"]), "0x%02X" % r["world"], str(r["chr"]), str(r["pid"]),
+             "%.0f" % r["p"][0], "%.0f" % r["p"][1], "%.0f" % r["p"][2], "%.1f" % r["p"][3], "%.0f" % r["b"][0], "%.0f" % r["b"][1],
+             "%.0f" % r["b"][2], r["kind"], r["id"], nm.replace("\t", " ")[:63]]
+        if r["id"] in oldcells:
+            c.append(oldcells[r["id"]])
+        out.append("\t".join(c))
+        arena_chr.add(r["chr"])
+        rep.append({"id": r["id"], "name": nm, "chr": r["chr"], "kind": r["kind"], "mission": "0x%04X" % r["mission"],
+                    "world": "0x%02X" % r["world"], "placement": r["pid"], "source": r["how"], "confidence": r["conf"]})
+    # roster: every boss character without a mission (R/D) row of its own -> kind summon (mission 0), its arena/field row (if any) has id S<chr>
+    prim = {r["chr"] for r in rows if not r["id"].startswith("S")}
+    out.append("# roster (kind summon, mission 0, id S<chr>): every boss character without a mission row of its own; 'Fight in arena' uses its "
+               "S<chr> arena/field row when there is one (Nioh3Training_FightNowChr)")
+    roster = collections.OrderedDict()
+    for (rid, s), c in old.items():     # committed summon rows first (catalogue rows with mission != 0 too), in their order
+        if s and c[3].isdigit():
+            roster[(c[0], int(c[3]))] = (c[13], c[14])
+    for r in rows:
+        if r["chr"] not in prim:
+            roster.setdefault(("0", r["chr"]), ("S%d" % r["chr"], oldn.get("S%d" % r["chr"]) or cname.get(r["chr"]) or "chr %d" % r["chr"]))
+    for (mis, chr_), (rid, nm) in roster.items():
+        if mis not in ("0", "") and int(mis, 16) in {r["mission"] for r in rows}:
+            continue     # this catalogue mission has an arena row now
+        out.append("\t".join([mis if mis else "0", "0", "0x00", str(chr_), "0", "0", "0", "0", "0.0", "0", "0", "0", "summon", rid, nm]))
+        if chr_ not in arena_chr:
+            rep.append({"id": rid, "name": nm, "chr": chr_, "kind": "summon", "mission": mis, "world": "-", "placement": "-",
+                        "source": "no placement of this character in any shipped mission/region table", "confidence": "-"})
+    text_out = "\n".join(out) + "\n"
+    if a.check:
+        cur = open(a.out, encoding="utf-8").read() if os.path.exists(a.out) else ""
+        same = [l for l in cur.splitlines() if not l.startswith("#")] == [l for l in text_out.splitlines() if not l.startswith("#")]
+        print("table %s" % ("up to date" if same else "DIFFERS from a rebuild"))
+        return 0 if same else 1
+    open(a.out, "w", encoding="utf-8", newline="\n").write(text_out)
+    if a.report:
+        with open(a.report, "w", encoding="utf-8", newline="") as o:
+            w = csv.DictWriter(o, fieldnames=list(rep[0].keys()), lineterminator="\n")
+            w.writeheader()
+            w.writerows(rep)
+    c = collections.Counter(r["kind"] for r in rows)
+    print("%d arena rows (%s) + %d roster rows -> %s" % (len(rows), ", ".join("%s %d" % kv for kv in sorted(c.items())),
+                                                        sum(1 for l in out if "\tsummon\t" in l), a.out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
