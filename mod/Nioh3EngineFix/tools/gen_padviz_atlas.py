@@ -82,9 +82,16 @@ def dualsense():
     return (807, 651), S
 
 
-def svg(name, box=None):
+def svg(name, box=None, recolor=None):
     import resvg_py
-    png = bytes(resvg_py.svg_to_bytes(svg_path=str(ASSETS / "xbox" / f"{name}.svg")))
+    path = ASSETS / "xbox" / f"{name}.svg"
+    if recolor:  # user #23305: pressed face button must visibly light the whole disc (grey-on-grey vanished at low opacity)
+        txt = path.read_text(encoding="utf-8")
+        for a, b in recolor:
+            txt = txt.replace(a, b)
+        png = bytes(resvg_py.svg_to_bytes(svg_string=txt))
+    else:
+        png = bytes(resvg_py.svg_to_bytes(svg_path=str(path)))
     im = Image.open(io.BytesIO(png)).convert("RGBA")
     if box:  # CSS element box: the background sits at its top-left at natural size, clipped to the box
         out = Image.new("RGBA", box)
@@ -106,7 +113,7 @@ def xbox():
     # x top 48.5 right 98; y top 0 left 48.5
     bx, by = 470.71, 166.9
     for k, px, py in (("A", 48.5, 147 - 50), ("B", 147 - 50, 48.8), ("X", 147 - 98 - 50, 48.5), ("Y", 48.5, 0)):
-        S[k + "_LIT"] = (svg(k + "_", (50, 50)), bx + px, by + py)
+        S[k + "_LIT"] = (svg(k + "_", (50, 50), (("#979797", "#ffffff"), ("#f7f6fb", "#1a1a1a"))), bx + px, by + py)
     # .dpad 112.2 @ (213,299.8); .face 39x39 pad_.svg opacity 0 (pressed 1); up rotate .25turn (36.1,1); down .75turn
     # bottom 1 left 36.1; left (1,37); right .5turn top 37 right 1   (CSS rotate = clockwise; PIL rotate = counter-clockwise)
     pad = svg("pad_", (39, 39))
