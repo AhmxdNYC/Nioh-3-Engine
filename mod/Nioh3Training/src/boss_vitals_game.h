@@ -31,11 +31,19 @@ static __attribute__((noinline)) int BvWriteHp(int s, uint64_t a, uint64_t st, u
           off > 0 ? (keep ? ", NOFIN reserve kept" : ", NOFIN reserve dropped") : "", back == raw ? "" : " - WRITE DID NOT STICK");
     return back == raw;
 }
+// Ki ceiling loss (#22592 Reset fight 'WRITE DID NOT STICK'): KiSetCur 2F88D0 clamps to max - [K+0x88] (K = st+0x98, so st+0x120), and the native
+// regen 2F83A0..2F8400 stops at the same ceiling. It is 0 at spawn and grows with the player's hits (live: 2.9 after a few light hits on Hino-enma,
+// regen then stuck at 1661.1 / 1664; cleared by hand -> regen back to 1664). A refill / set above the ceiling clears it (= the spawn state) first.
 static __attribute__((noinline)) int BvWriteKi(int s, uint64_t a, uint64_t st, float v, float max, const char* why) {
-    float back = -1.0f;
-    __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, v); back = *(volatile float*)(st + 0xAC); } __except (EXCEPTION_EXECUTE_HANDLER) { back = -1.0f; }
+    float back = -1.0f, loss = 0.0f; int cleared = 0;
+    __try {
+        volatile float* lp = (volatile float*)(st + 0x98 + 0x88); loss = *lp;
+        if (BvKiCeilClear(v, max, loss)) { *lp = 0.0f; cleared = 1; }
+        ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, v); back = *(volatile float*)(st + 0xAC);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { back = -1.0f; }
     const int ok = back > v - 0.5f && back < v + 0.5f;
-    BvLog("BOSSVITALS Boss %c %p: Ki -> %.1f / %.1f (%s)%s", 'A' + s, (void*)a, v, max, why, ok ? "" : " - WRITE DID NOT STICK");
+    char cl[80] = ""; if (cleared) snprintf(cl, sizeof cl, ", Ki ceiling loss %.1f cleared", loss);
+    BvLog("BOSSVITALS Boss %c %p: Ki -> %.1f / %.1f (%s%s), read back %.1f%s", 'A' + s, (void*)a, v, max, why, cl, back, ok ? "" : " - WRITE DID NOT STICK");
     return ok;
 }
 static __attribute__((noinline)) void BvSlotTick(int s, DWORD now) {

@@ -32,7 +32,8 @@ static void FmFeed(double gdt) {
     if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; return; }  // no boss: the last picture stays
     int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
     for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
-    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].t0 == g_fp[s].runW.t0) { active = 1; if (g_fpw[w].great) ub = 1; }
+    // any open window of this boss is active, also one opened by the previous action (a combo chain: the swing outlives its action id)
+    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s) { active = 1; if (g_fpw[w].great) ub = 1; }
     AcquireSRWLockExclusive(&g_fm_lock);
     if (s != g_fm_slot) { FmReset(&g_fm); g_fm_slot = s; Log("FRAME METER: following Boss %c (chr %u)", 'A' + s, g_fp[s].chr); }
     FmSample(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub);

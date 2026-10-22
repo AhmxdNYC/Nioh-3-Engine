@@ -6,6 +6,9 @@
 #include <assert.h>
 #include "../src/frame_probe.h"
 static int near(double a, double b) { return a - b < 0.001 && b - a < 0.001; }
+#include <string.h>
+static uint64_t g_fake[0x800];
+static int FakeRd(uint64_t a, uint64_t* out) { if (a < 0x1000 || a >= 0x1000 + sizeof g_fake || (a & 7)) return 0; *out = g_fake[(a - 0x1000) / 8]; return 1; }
 int main(void) {
     FpRun r; double ran, su, ac, rc;
     // two-hit move: start 1000 ms, hits at +500 / +700, windows end at +550 / +760, next action at +1500
@@ -44,6 +47,25 @@ int main(void) {
     for (int i = 0; i < 100; ++i) ok += FpRateOk(&b, 1000.0, 40.0);
     assert(ok == 40);
     assert(!FpRateOk(&b, 1010.0, 40.0) && FpRateOk(&b, 1030.0, 40.0));
+    // attacker owner resolver (325F4C): fake memory of qwords at (x - 0x1000) / 8
+    {   memset(g_fake, 0, sizeof g_fake);
+        #define M(a) g_fake[((a) - 0x1000) / 8]
+        const uint64_t boss = 0x1000, shot = 0x1400, gen = 0x1800, gp = 0x1C00, sum = 0x2000, sumo = 0x2400, odd = 0x2800;
+        M(boss) = 0x10;                           // type 0 = a character
+        M(shot) = 0x4; M(shot + 0x260) = boss;    // live Hino-enma projectile: type 4, +0x260 = boss actor
+        M(gen) = 0x2; M(gen + 0x240) = gp; M(gp + 0x690) = boss;  // type 2 via [[x+0x240]+0x690]
+        M(sum) = 0x4; M(sum + 0x260) = sumo; M(sumo) = 0x3; M(sumo + 0x1E0) = boss;  // type 4 -> type 3 owner -> +0x1E0
+        M(odd) = 0x5;
+        assert(FpOwnerChar(boss, FakeRd) == boss && FpOwnerChar(shot, FakeRd) == boss && FpOwnerChar(gen, FakeRd) == boss && FpOwnerChar(sum, FakeRd) == boss);
+        assert(FpOwnerChar(odd, FakeRd) == 0 && FpOwnerChar(0, FakeRd) == 0 && FpOwnerChar(0x900000, FakeRd) == 0);
+        M(shot + 0x260) = 0; assert(FpOwnerChar(shot, FakeRd) == 0);  // type 4 without an owner: none (C62570 false for 4)
+        #undef M
+    }
+    assert(FpNoDamageRow(1, 0, 0) && !FpNoDamageRow(1, 50, 0) && !FpNoDamageRow(1, 0, 14) && !FpNoDamageRow(0, 0, 0));
+    // cut: a window still open when the action changes ends there
+    FpRunStart(&r, 0x4E5F, 0.0, 0); FpRunHitEx(&r, 545.0, 0, 1, -1, 0);
+    assert(FpRunCut(&r, 657.0) == 1 && near(r.end[0], 657.0) && FpRunSummary(&r, 657.0, &ran, &su, &ac, &rc) && near(ac, 112.0) && near(rc, 0.0));
+    FpRunStart(&r, 1, 0.0, 0); FpRunHitEx(&r, 10.0, 0, 1, -1, 0); FpRunHitEnd(&r, 0, 50.0); assert(FpRunCut(&r, 90.0) == 0 && near(r.end[0], 50.0));
     puts("frame_probe_test: ok");
     return 0;
 }

@@ -49,6 +49,9 @@ static inline int BvKiHold(const BvCfg* c, int dead, int window, int broken, flo
     if (cur >= t - 0.01f) return 0;
     *out = t; return 1;
 }
+// Ki ceiling loss (Ki object +0x88): KiSetCur and the native regen stop at max - loss. 1 = clear it before writing v (v above that ceiling,
+// loss sane). Without it a refill to 100 % reads back max - loss ('WRITE DID NOT STICK', #22592).
+static inline int BvKiCeilClear(float v, float max, float loss) { return loss > 0.0f && loss <= max && v > max - loss + 0.25f; }
 // One-shot Ki set (Set boss Ki % / Refill) while the boss is Ki broken: waits for the break to end, at most this long, then dropped.
 #define BV_KI_WAIT_MS 8000
 // HP write with the KiBreakNoFinisher hidden reserve (#9319: real HP = shown + off): keep the reserve when it fits under max, else drop it.

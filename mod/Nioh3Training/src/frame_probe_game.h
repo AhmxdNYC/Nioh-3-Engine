@@ -21,7 +21,7 @@ typedef uint64_t (*FpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static FpFn o_fp;
 volatile uint64_t g_fp_rbx __attribute__((used));  // caller's rbx at 2B4A45 (the collision object when the caller is 2B30A0); checked against [obj+0xB0] == H
 static double g_fp_qpf; static volatile uint32_t g_fp_frame;
-static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid, pulse, pulseUb; FpRun run, runW; double stopMs; } g_fp[N3T_SLOTS];  // run = game clock, runW = wall clock; stopMs = game ms with the boss motion play rate 0 (hit-stop)  // pulse: a hit since the last frame meter sample
+static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid, pulse, pulseUb, nodmg; FpRun run, runW; double stopMs; } g_fp[N3T_SLOTS];  // run = game clock, runW = wall clock; stopMs = game ms with the boss motion play rate 0 (hit-stop)  // pulse: a hit since the last frame meter sample
 static volatile LONG g_fp_calls, g_fp_match, g_fp_diag; static DWORD g_fp_diagT;
 #define FP_WIN 128  // open colliders tracked (#22575: a 30 fps cap makes ~100 per 0x4E6E swing, about 50 open at once)
 static struct { uint64_t obj, H; int pid, slot, idx, used, great; double t, t0, gt, gt0; uint32_t f, act; } g_fpw[FP_WIN];  // t/t0 wall, gt/gt0 game clock
@@ -55,14 +55,15 @@ static void FpLog(const char* fmt, ...) {
 static void FpRunEnd(int s, uint32_t next, double now) {
     FpRun* r = &g_fp[s].run; FpRun* w = &g_fp[s].runW; double ran, su, ac, rc, wran, wsu, wac, wrc;
     const int n = r->hits;
+    const int cut = FpRunCut(r, g_fp_gms); FpRunCut(w, now);  // windows still open at the action change end with it (the hitend line still follows)
     char hs[300], ws[300]; int o = 0, ow = 0; hs[0] = ws[0] = 0;
     // first 12 only (log line cap); every window also has its own hit / hitend line
     for (int i = 0; i < n && i < 12 && o < (int)sizeof hs - 40; ++i) o += snprintf(hs + o, sizeof hs - o, "%s%.1f/%.1f", i ? " " : "", r->hit[i], r->end[i]);
     for (int i = 0; i < n && i < 12 && ow < (int)sizeof ws - 40; ++i) ow += snprintf(ws + ow, sizeof ws - ow, "%s%.1f/%.1f", i ? " " : "", w->hit[i], w->end[i]);
     FpRunSummary(w, now, &wran, &wsu, &wac, &wrc);
     if (FpRunSummary(r, g_fp_gms, &ran, &su, &ac, &rc))
-        FpLog("FRAMEPROBE run chr %u boss %c act 0x%X -> 0x%X ran %.1f ms (%.1f f60, wall %.1f ms, %u pump frames, fps %d) hits %d (colliders %d) great %d startup %.1f ms (%.1f f) active %.1f ms (%.1f f) recovery %.1f ms (%.1f f) hit/end ms [%s] wall hit/end [%s] boss stopped %.1f f",
-            g_fp[s].chr, 'A' + s, r->act, next, ran, FpFrames60(ran), wran, g_fp_frame - r->f0, g_fp_gfps, r->hits, r->colliders, r->great, su, FpFrames60(su), ac, FpFrames60(ac), rc, FpFrames60(rc), hs, ws, FpFrames60(g_fp[s].stopMs));
+        FpLog("FRAMEPROBE run chr %u boss %c act 0x%X -> 0x%X ran %.1f ms (%.1f f60, wall %.1f ms, %u pump frames, fps %d) hits %d (colliders %d, cut at the action end %d) great %d startup %.1f ms (%.1f f) active %.1f ms (%.1f f) recovery %.1f ms (%.1f f) hit/end ms [%s] wall hit/end [%s] boss stopped %.1f f",
+            g_fp[s].chr, 'A' + s, r->act, next, ran, FpFrames60(ran), wran, g_fp_frame - r->f0, g_fp_gfps, r->hits, r->colliders, cut, r->great, su, FpFrames60(su), ac, FpFrames60(ac), rc, FpFrames60(rc), hs, ws, FpFrames60(g_fp[s].stopMs));
     else FpLog("FRAMEPROBE run chr %u boss %c act 0x%X -> 0x%X ran %.1f ms (%.1f f60, wall %.1f ms, %u pump frames, fps %d) hits 0", g_fp[s].chr, 'A' + s, r->act, next, ran, FpFrames60(ran), wran, g_fp_frame - r->f0, g_fp_gfps);
 }
 static void FpObserve(int s, uint32_t id, double now, const char* by) {
@@ -80,9 +81,10 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     InterlockedIncrement(&g_fp_calls);
     uint64_t a8 = 0; if (atk) Rd64(atk + 8, &a8);
     int s = -1, how = 0;
-    for (int i = 0; i < N3T_SLOTS; ++i) if (atk && g_fp[i].a) { const int h = g_fp[i].a == atk ? 1 : g_fp[i].ai == atk ? 2 : g_fp[i].ctrl && a8 == g_fp[i].ctrl ? 3 : 0; if (h) { s = i; how = h; } }
+    const uint64_t owner = atk ? FpOwnerChar(atk, (FpRd64)Rd64) : 0;  // projectiles / shots: the owner character (game resolver 325F4C), match kind 4
+    for (int i = 0; i < N3T_SLOTS; ++i) if (atk && g_fp[i].a) { const int h = g_fp[i].a == atk ? 1 : g_fp[i].ai == atk ? 2 : g_fp[i].ctrl && a8 == g_fp[i].ctrl ? 3 : owner && owner == g_fp[i].a ? 4 : 0; if (h) { s = i; how = h; } }
     if (s < 0) {  // not a Training boss (player, allies, NPCs, projectiles without an owner link); the first 40 are logged for the attacker mapping
-        if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 40) Log("FRAMEPROBE diag call from %X atk %p [atk+8] %p H %p R %p obj %p | boss A a %p ai %p ctrl %p | player %p ai %p", (uint32_t)(ra - B), (void*)atk, (void*)a8, (void*)H, (void*)R, (void*)obj,
+        if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 40) Log("FRAMEPROBE diag call from %X atk %p [atk+8] %p owner %p H %p R %p obj %p | boss A a %p ai %p ctrl %p | player %p ai %p", (uint32_t)(ra - B), (void*)atk, (void*)a8, (void*)owner, (void*)H, (void*)R, (void*)obj,
             (void*)g_fp[0].a, (void*)g_fp[0].ai, (void*)g_fp[0].ctrl, (void*)PlayerChar(), (void*)(PlayerChar() ? *(volatile uint64_t*)(PlayerChar() + 0x3B0) : 0));
         return;
     }
@@ -100,6 +102,11 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     if (!FpLock()) return;
     const double now = FpNow();
     FpObserve(s, id, now, "hook");
+    if (FpNoDamageRow(R != 0, pw, el)) {  // live Hino-enma: a power 0 / 0 type 12 collider at the start of its steps 0x4E20-22 (static: no own rows)
+        if (++g_fp[s].nodmg <= 3) FpLog("FRAMEPROBE nodmg chr %u boss %c act 0x%X at %.1f ms: row %p power 0 0 type %u r28 %u from %X match %d (not a hit window; not on the meter)",
+            g_fp[s].chr, 'A' + s, id, g_fp_gms - g_fp[s].run.t0, (void*)R, ty, r28, (uint32_t)(ra - B), how);
+        FpUnlock(); return;
+    }
     int wf = -1; if (pid >= 0) for (int w = 0; w < FP_WIN; ++w) if (!g_fpw[w].used) { wf = w; break; }
     FpRun* r = &g_fp[s].run; int isNew = 0; const int great = (h13c >> 10) & 1;
     const int k = FpRunHitEx(r, g_fp_gms, great, wf >= 0, -1, &isNew); FpRunHitEx(&g_fp[s].runW, now, great, wf >= 0, k, 0);
@@ -144,7 +151,8 @@ static void FpTick(void) {
     for (int s = 0; s < N3T_SLOTS; ++s) {
         const uint64_t a = BvActor(s); uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
         if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = 0; continue; }
-        if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = g_slot_chr[s]; }
+        if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = g_slot_chr[s]; g_fp[s].nodmg = 0;
+            InterlockedExchange(&g_fp_diag, 0); }  // new boss: fresh diag budget, so unmatched calls during this fight (projectiles, helpers) are logged too
         g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;
         __try { id = ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
         FpObserve(s, id, now, "pump");

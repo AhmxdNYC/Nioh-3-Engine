@@ -31,13 +31,14 @@ def to_wall(ln):
 def parse(lines, wall=False):
     """Windows come from the 'hit' (open, power) and 'hitend' (end) lines; the run line's hit/end list (first 8 or 12) is the fallback.
     Since #22575 every ms is game time (the game's own step per tick); wall=True reads the real-time values instead."""
-    runs, pend, last_run = [], {}, None
+    runs, pend, pact, last_run = [], {}, {}, None  # pact = action id of the pending run per (chr, boss)
     for ln in lines:
         if wall:
             ln = to_wall(ln)
         m = RE_START.search(ln)
         if m:
             pend[(m.group(5), m.group(6))] = {}
+            pact[(m.group(5), m.group(6))] = int(m.group(7), 16)
             continue
         m = RE_HIT.search(ln)
         if m:
@@ -46,10 +47,12 @@ def parse(lines, wall=False):
             continue
         m = RE_END.search(ln)
         if m:
-            w = pend.get((m.group(5), m.group(6)), {}).get(int(m.group(8)))
+            key, act = (m.group(5), m.group(6)), int(m.group(7), 16)
+            # #22356 Hino-enma 0x4E8C -> 0x4E8D: a window that outlived its action must not land on the next run's own window with the same index
+            w = pend.get(key, {}).get(int(m.group(8))) if pact.get(key, act) == act else None
             if w is not None:
                 w['end'] = float(m.group(10))
-            elif runs and runs[-1]['chr'] == int(m.group(5)) and int(m.group(8)) < len(runs[-1]['win']):  # window outlived its action
+            elif runs and runs[-1]['chr'] == int(m.group(5)) and runs[-1]['act'] == act and int(m.group(8)) < len(runs[-1]['win']):  # window outlived its action
                 runs[-1]['win'][int(m.group(8))]['end'] = float(m.group(10))
             continue
         m = RE_RUN.search(ln)

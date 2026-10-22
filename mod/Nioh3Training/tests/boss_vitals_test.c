@@ -42,6 +42,9 @@ int main(void) {
     assert(BvHpRaw(20000, M, 10342, &keep) == 30342 && keep == 1);
     assert(BvHpRaw(M, M, 10342, &keep) == M && keep == 0);
     assert(BvHpRaw(20000, M, 0, &keep) == 20000 && keep == 0);
+    // Ki ceiling loss (+0x88, #22592 live: 2.91 on 1664 -> KiSetCur stopped at 1661.1): cleared only when the target is above max - loss
+    assert(BvKiCeilClear(1664.0f, 1664.0f, 2.91f) && !BvKiCeilClear(1661.0f, 1664.0f, 2.91f) && !BvKiCeilClear(832.0f, 1664.0f, 2.91f));
+    assert(!BvKiCeilClear(1664.0f, 1664.0f, 0.0f) && !BvKiCeilClear(1664.0f, 1664.0f, -1.0f) && !BvKiCeilClear(1664.0f, 1664.0f, 5000.0f));
     puts("PASS: boss vitals: defaults OFF, infinite health / Ki hold at the set level, Ki left alone while broken, NOFIN reserve kept (#14320)");
     return 0;
 }

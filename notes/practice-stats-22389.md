@@ -79,3 +79,7 @@ instead of the debug freeze) and `StepKey` (default 117 = F6, hold = repeat afte
   `kill last` while frozen -> released at once ("boss died"); `trainstop` while frozen -> released ("session ended"). Also released on load / transition
   (MenuPauseBusy), boss actor change, player change, 20 min, pump stalled 2 s (watchdog thread), Return.
 - Not tested live: release on a real mission change (covered by the load / busy check), [Debug] Hotkeys = 0.
+
+## Reset fight boss Ki 'WRITE DID NOT STICK' (fixed, live 2026-10-21)
+KiSetCur 2F88D0 and the native regen stop at `max - [st+0x120]` (a Ki ceiling loss that the player's hits add to; 0 at spawn). BvWriteKi now clears it
+when the target is above that ceiling; live read back 1664 / 1664 after Reset fight. Details: notes/frame-meter-second-boss-22356.md.
