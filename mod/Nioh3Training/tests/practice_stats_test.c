@@ -40,14 +40,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 14);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 17);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 14 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 17 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
@@ -175,6 +175,27 @@ int main(void) {
         memset(&e, 0, sizeof e); cur = 0.5f; cur = PstEnvApply(&e, cur, 0.5f); assert(!PstEnvRelease(&e, cur, &o));  // wrote the stock value itself: nothing to do
     }
     assert(PstEnvSane(0.5f) && PstEnvSane(-20.0f) && !PstEnvSane(1e9f) && !PstEnvSane(0.0f / 0.0f));
+    {   // user #23013: KiLog / HoldKiBreakV2 toggles default OFF, KiFloorDepth slider default 100 (stock), 0 .. 1000
+        PstCfg d; PstDefaults(&d);
+        assert(PS_KI_LOG == 14 && PS_HOLD_KI_V2 == 15 && PS_KI_FLOOR == 16 && d.v[PS_KI_LOG] == 0 && d.v[PS_HOLD_KI_V2] == 0 && d.v[PS_KI_FLOOR] == 100);
+        assert(PstIsToggle(PS_KI_LOG) && PstIsToggle(PS_HOLD_KI_V2) && !PstIsToggle(PS_KI_FLOOR));
+        assert(PstClamp(PS_KI_LOG, 9) == 1 && PstClamp(PS_HOLD_KI_V2, -1) == 0 && PstClamp(PS_KI_FLOOR, -5) == 0 && PstClamp(PS_KI_FLOOR, 5000) == 1000);
+        assert(PstStep(PS_KI_FLOOR, 100, 1) == 150 && PstStep(PS_KI_FLOOR, 100, -1) == 50 && PstStep(PS_KI_FLOOR, 50, -1) == 0 && PstStep(PS_KI_FLOOR, 0, -1) == 0);
+        assert(PstStep(PS_KI_FLOOR, 500, 1) == 1000 && PstStep(PS_KI_FLOOR, 1000, 1) == 1000 && PstStep(PS_KI_FLOOR, 120, 1) == 150 && PstStep(PS_KI_FLOOR, 120, -1) == 100);
+        assert(PstFromIni(PS_KI_FLOOR, 300) == 300 && PstToIni(PS_KI_FLOOR, 300) == 300 && PstFromIni(PS_HOLD_KI_V2, 7) == 1);
+        // Ki floor: stock for anyone but a Training boss, and at 100 %; scaled stock; -max base when the stock floor is missing (0)
+        assert(PstKiFloor(-1000.0f, 1000.0f, 300, 0) == -1000.0f && PstKiFloor(-1000.0f, 1000.0f, 100, 1) == -1000.0f);
+        assert(PstKiFloor(-1000.0f, 1000.0f, 300, 1) == -3000.0f && PstKiFloor(-800.0f, 1000.0f, 50, 1) == -400.0f && PstKiFloor(-800.0f, 1000.0f, 0, 1) == 0.0f);
+        assert(PstKiFloor(0.0f, 1200.0f, 200, 1) == -2400.0f && PstKiFloor(0.0f, 0.0f, 200, 1) == 0.0f && PstKiFloor(0.0f, 1e9f, 200, 1) == 0.0f);
+        assert(PstKiFloor(-1000.0f, 1000.0f, 5000, 1) == -10000.0f);
+        { const float nan = 0.0f / 0.0f; const float r = PstKiFloor(nan, 1000.0f, 300, 1); assert(r != r); }
+        // Hold v2 writes: cur / K+60 only when above the floor, K+58 / K+5C when non-zero; a positive or garbage floor writes nothing
+        assert(PstHoldV2Writes(-200.0f, 300.0f, 10.0f, 50.0f, -1000.0f) == (1 | 2 | 4 | 8));
+        assert(PstHoldV2Writes(-1000.0f, -1000.0f, 0.0f, 0.0f, -1000.0f) == 0);
+        assert(PstHoldV2Writes(-1000.0f, 5.0f, 0.0f, 0.0f, -1000.0f) == 2 && PstHoldV2Writes(0.0f, -1000.0f, 0.0f, 0.0f, -1000.0f) == 1);
+        assert(PstHoldV2Writes(-200.0f, 300.0f, 10.0f, 50.0f, 5.0f) == 0 && PstHoldV2Writes(-200.0f, 300.0f, 10.0f, 50.0f, 0.0f / 0.0f) == 0);
+        assert(PstHoldV2Writes(5.0f, 5.0f, 0.0f, 0.0f, 0.0f) == 3);
+    }
     puts("practice_stats_test: all passed");
     return 0;
 }
