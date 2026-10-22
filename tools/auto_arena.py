@@ -311,8 +311,22 @@ def mission_data(L, t, log):
 
 
 # ---------------------------------------------------------------- rows
+def valid(e):
+    return 0 < e["chr"] < 0xFFFFFFFF and 0 < e["pid"] < 0xFFFFFFFF and all(math.isfinite(v) for v in e["pos"]) and any(e["pos"])
+
+
 def is_boss(e):
-    return bool(e["fl"] & 0x04) or "BOSS" in e["name"].upper()
+    return valid(e) and (bool(e["fl"] & 0x04) or "BOSS" in e["name"].upper())
+
+
+def opponent(m):
+    """a mission with no boss record: its one opponent when the data says so (no list): a single valid enemy record, or exactly
+    one record not named *ZAKO* (the game's 'grunt' suffix) next to ZAKO records (the dojo duels TEACHER_MISSION_*)."""
+    es = [e for e in m["enemies"] if valid(e)]
+    if len(es) == 1:
+        return es[0]
+    nz = [e for e in es if "ZAKO" not in e["name"].upper()]
+    return nz[0] if len(nz) == 1 and len(es) > 1 else None
 
 
 def old_table(path):
@@ -382,6 +396,9 @@ def build_rows(ms, old, log):
                 emit(m, e, op[0], "mission (boss kept from the committed row)")
                 continue
         if not bs:
+            e = opponent(m)
+            if e:
+                emit(m, e, "%s%04X" % ("D" if m["flags"] & 0x41 else "R", m["mid"]), "mission (its only opponent, no boss record)")
             continue
         e = next((e for e in bs if e["fl"] & 0x04 and "BOSS" in e["name"].upper()), None) or next((e for e in bs if e["fl"] & 0x04), bs[0])
         listed = not m["flags"] & 0x41    # +0x40 bit0 / 0x40 = not in the replay list (0x4000 = hidden duel, listed by Boss Rematch H)
@@ -401,7 +418,7 @@ def build_rows(ms, old, log):
         chr_ = int(c[3])
         if chr_ in have:
             continue
-        cand = [(m["kind"] != 2, m["mid"], m, e) for m in usable for e in m["enemies"] if e["chr"] == chr_]
+        cand = [(m["kind"] != 2, m["mid"], m, e) for m in usable for e in m["enemies"] if e["chr"] == chr_ and valid(e)]
         if cand:
             _, _, m, e = min(cand, key=lambda t: t[:2])
             emit(m, e, "S%d" % chr_, "regular placement (no boss record)")
