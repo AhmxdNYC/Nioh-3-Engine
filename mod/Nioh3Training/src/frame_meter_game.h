@@ -11,7 +11,7 @@
 #include "frame_meter.h"
 static volatile LONG g_fz_hold, g_fz_over, g_fz_frames, g_fz_steps; static int g_fz_vk_freeze, g_fz_vk_step;  // practice_freeze_game.h (Practice freeze + frame advance)
 static const char* FzKeyName(int vk, char* b, int n);
-static FmMeter g_fm; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
+static FmMeter g_fm, g_fmp; static volatile LONG g_fmp_show; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
 static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 10;
 static HWND g_fm_wnd, g_fm_game;
 static DWORD WINAPI FmThread(LPVOID p);
@@ -21,15 +21,28 @@ static void FmLoadIni(const char* ini) {
 }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
-    if (!g_pst.v[PS_FRAME_METER] || !g_pst_live) { g_fm_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
+    const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER];
+    if ((!wantB && !wantP) || !g_pst_live) { g_fm_show = 0; g_fmp_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
     if (!g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
     double dt = gdt;
     if (dt < 0) dt = 0; if (dt > 150) dt = 150;
     const uint8_t* gs = GameState();
     if (((g_menu_frozen || g_dbg_frozen) && !g_fz_over) || (gs && gs[2])) dt = 0;  // a Practice frame step runs one frame through every stop request
     g_fm_clock += dt;
+    // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
+    if (!wantP) g_fmp_show = 0;
+    else if (g_fp[FP_PL].valid) {
+        int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb;
+        for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL) { active = 1; if (g_fpw[w].great) ub = 1; }
+        AcquireSRWLockExclusive(&g_fm_lock);
+        FmSample(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub);
+        ReleaseSRWLockExclusive(&g_fm_lock);
+        g_fmp_show = 1;
+    }
+    g_fp[FP_PL].pulse = g_fp[FP_PL].pulseUb = 0;
+    if (!wantB) { g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }
     int s = -1; for (int i = 0; i < N3T_SLOTS; ++i) if (g_fp[i].valid) { s = i; break; }
-    if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; return; }  // no boss: the last picture stays
+    if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }  // no boss: the last picture stays
     int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
     for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
     // any open window of this boss is active, also one opened by the previous action (a combo chain: the swing outlives its action id)
@@ -62,21 +75,21 @@ static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {  // 
     *lineH = (int)(20 * k) + 2; *pad = (int)(6 * k) + 1;
     return *pad * 2 + *lineH * 3 + *barH + 6;
 }
-static void FmPaint(HDC dc, int w, int h, int H) {
-    static FmMeter m; AcquireSRWLockShared(&g_fm_lock); m = g_fm; ReleaseSRWLockShared(&g_fm_lock);
-    FmFill(dc, 0, 0, w, h, FM_KEY);
-    int cw, barH, lineH, pad; FmGeom(w, H, &cw, &barH, &lineH, &pad);
+static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (g_pst.v[PS_PLAYER_METER] && g_fmp_show ? 1 : 0); }
+static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who) {
+    const FmMeter m = *mp;
+    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); (void)h;
     const int px = lineH - 4;
     if (!g_fm_font || g_fm_fontPx != px) { if (g_fm_font) DeleteObject(g_fm_font); g_fm_fontPx = px; g_fm_font = CreateFontW(-px, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas"); }
     const int barW = cw * FM_CELLS, x0 = (w - barW) / 2;
-    FmFill(dc, x0 - pad, 0, barW + 2 * pad, h, RGB(16, 18, 24));
+    FmFill(dc, x0 - pad, oy, barW + 2 * pad, ph, RGB(16, 18, 24));
     HGDIOBJ of = SelectObject(dc, g_fm_font); SetBkMode(dc, TRANSPARENT);
     char l1[200], l2[220]; FmText(&m.cur, l1, sizeof l1, l2, sizeof l2);
     char head[240], fz[96] = ""; if (g_fz_hold) { char a[16], b[16]; snprintf(fz, sizeof fz, "  FROZEN +%ld f (%s step, %s resume)", g_fz_frames, FzKeyName(g_fz_vk_step, a, sizeof a), FzKeyName(g_fz_vk_freeze, b, sizeof b)); }
-    snprintf(head, sizeof head, "FRAME METER  Boss %c  %s%s", 'A' + (g_fm_slot < 0 ? 0 : g_fm_slot), l1, fz);
-    SetTextColor(dc, m.cur.ub ? RGB(215, 150, 255) : RGB(235, 235, 235)); TextOutA(dc, x0, pad, head, (int)strlen(head));
-    SetTextColor(dc, RGB(230, 225, 150)); TextOutA(dc, x0, pad + lineH, l2, (int)strlen(l2));
-    const int by = pad + lineH * 2 + 3;
+    snprintf(head, sizeof head, "FRAME METER  %s  %s%s", who, l1, fz);
+    SetTextColor(dc, m.cur.ub ? RGB(215, 150, 255) : RGB(235, 235, 235)); TextOutA(dc, x0, oy + pad, head, (int)strlen(head));
+    SetTextColor(dc, RGB(230, 225, 150)); TextOutA(dc, x0, oy + pad + lineH, l2, (int)strlen(l2));
+    const int by = oy + pad + lineH * 2 + 3;
     FmFill(dc, x0 - 1, by - 1, barW + 2, barH + 2, RGB(8, 8, 10));
     for (int i = 0; i < FM_CELLS; ++i) {
         const uint8_t c = FmViewCell(&m, i);
@@ -94,6 +107,13 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     const char* tail = "1 cell = 1/60 s of game time";
     SIZE ts; GetTextExtentPoint32A(dc, tail, (int)strlen(tail), &ts); if (lx + ts.cx < x0 + barW) TextOutA(dc, x0 + barW - ts.cx, ly, tail, (int)strlen(tail));
     SelectObject(dc, of);
+}
+static void FmPaint(HDC dc, int w, int h, int H) {
+    static FmMeter m, mp; AcquireSRWLockShared(&g_fm_lock); m = g_fm; mp = g_fmp; ReleaseSRWLockShared(&g_fm_lock);
+    FmFill(dc, 0, 0, w, h, FM_KEY);
+    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); int oy = 0; char who[16];
+    if (g_pst.v[PS_FRAME_METER] && g_fm_show) { snprintf(who, sizeof who, "Boss %c", 'A' + (g_fm_slot < 0 ? 0 : g_fm_slot)); FmPanel(dc, w, h, H, oy, &m, who); oy += ph; }
+    if (g_pst.v[PS_PLAYER_METER] && g_fmp_show) FmPanel(dc, w, h, H, oy, &mp, "Player");
 }
 static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
@@ -125,10 +145,10 @@ static DWORD WINAPI FmThread(LPVOID p) {
         Sleep(33);
         MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_fm_game || !IsWindow(g_fm_game)) { g_fm_game = 0; EnumWindows(FmFind, 0); }
-        const int want = g_pst.v[PS_FRAME_METER] && g_pst_live && g_fm_show && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
+        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) && g_pst_live && FmPanels() && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
         if (!want) { if (shown) { ShowWindow(g_fm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_fm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_fm_game, &o);
-        int cw, barH, lineH, pad; g_fm_H = cr.bottom; const int hh = FmGeom(cr.right, cr.bottom, &cw, &barH, &lineH, &pad);
+        int cw, barH, lineH, pad; g_fm_H = cr.bottom; const int hh = FmGeom(cr.right, cr.bottom, &cw, &barH, &lineH, &pad) * FmPanels();
         RECT want_r = {o.x, o.y + cr.bottom * g_cfg_fm_y / 100, o.x + cr.right, o.y + cr.bottom * g_cfg_fm_y / 100 + hh};
         if (!shown || memcmp(&want_r, &last, sizeof last)) {
             SetWindowPos(g_fm_wnd, HWND_TOPMOST, want_r.left, want_r.top, want_r.right - want_r.left, hh, SWP_NOACTIVATE | SWP_SHOWWINDOW);
