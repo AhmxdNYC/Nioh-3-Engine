@@ -1,0 +1,6 @@
+# Gamepad Viewer (gamepadviewer.com) - how it is built (user #23125/#23126), web research 2026-10-22
+- Skins offered: Xbox One (+white), Xbox 360, PS3, PS4 (+white), GameCube, FightPad Pro, Fight Stick, NES, N64. NO named DualSense / Xbox Series skin (closest: PS4, Xbox One).
+- Drawing: each skin is a layered image set (first Xbox skin SVG; others bitmap being moved to SVG), styled with CSS; elements selected by data-name (buttons/axes). Not a hand-drawn shape: a controller photo-like body with each button/stick/trigger a separate layer.
+- Input look: pressed button = layer lit (opacity/colour); sticks = layer translated by axis with radial deadzone; triggers = opacity or fill meter; d-pad arrows via CSS; disconnected = red silhouette.
+- No public repo for the viewer; it uses Gamepad.js (Marcin Wichary). Open SVG controller art exists: icculus ControllerImage (zlib license; Xbox, PlayStation, Switch) https://wiki.icculus.org/ControllerImage
+- Plan for our overlay: base body layer + per-button highlight layers + moving stick caps + trigger fill meters, art from ControllerImage SVGs rasterised offline into embedded alpha masks (no runtime SVG). Need user to confirm which skin look (Xbox One / PS4 style likely) - asked #23127.
