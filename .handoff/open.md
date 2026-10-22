@@ -67,4 +67,4 @@
 - [ ] (user #22952) Live controller INPUT DISPLAY overlay (top-left pad graphic showing pressed buttons, PS/Xbox style per ButtonStyle) - NOT built; current ButtonStyle only changes menu glyphs | pc
 - [ ] (user #22984) Verify ALL catalogue bosses are summonable / startable in Training and Boss Matches; document which need a cleared mission (Boss Matches replays cleared missions; 100% save likely unlocks them) vs summon-anywhere; produce per-boss table | pc
 - [ ] (user #22978) After input-display overlay is built+tested: record ~1 min video of new features + controller display, send via tools/notify/notify.py | pc
-- [ ] (user #23013) Ki model: verify boss Ki can go negative (stun-extend pool) - find the field, log it during breaks, consider making Hold Ki break use real negative-Ki mechanic and add Ki-floor slider | pc
+- [ ] (user #23013/#23017) Ki model (examples Kagetoki, Yagyu Jubei): verify boss Ki can go negative (stun-extend pool) - find the field, log it during breaks, consider making Hold Ki break use real negative-Ki mechanic and add Ki-floor slider | pc
