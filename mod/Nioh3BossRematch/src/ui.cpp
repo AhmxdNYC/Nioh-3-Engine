@@ -158,6 +158,17 @@ void Paint(HDC dc, int w, int h) {
             const int maxW = pw - 24;
             SIZE rs;
             GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs);
+            // user #23924: first shrink the font for a long row (down to 70 %) so nothing is lost; only what still does not fit is cut in the middle
+            HGDIOBJ prevFont = nullptr; HFONT small = nullptr;
+            if (rs.cx > maxW) {
+                LOGFONTW lf;
+                if (GetObjectW(g_font, sizeof lf, &lf)) {
+                    const int h0 = lf.lfHeight < 0 ? -lf.lfHeight : lf.lfHeight, h1 = (int)((double)h0 * maxW / rs.cx);
+                    lf.lfHeight = lf.lfHeight < 0 ? -(h1 < h0 * 7 / 10 ? h0 * 7 / 10 : h1) : (h1 < h0 * 7 / 10 ? h0 * 7 / 10 : h1);
+                    small = CreateFontIndirectW(&lf);
+                    if (small) { prevFont = SelectObject(dc, small); GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs); }
+                }
+            }
             if (rs.cx > maxW) {
                 const int len = (int)strlen(fit), tail = len > 30 ? 30 : len / 2;
                 char cut[256]; snprintf(cut, sizeof cut, "%s", fit);
@@ -169,6 +180,7 @@ void Paint(HDC dc, int w, int h) {
                 snprintf(fit, sizeof fit, "%s", cut);
             }
             TextOutA(dc, 30, 28 + i * lh, fit, (int)strlen(fit));
+            if (small) { SelectObject(dc, prevFont); DeleteObject(small); }
         }
         SetTextColor(dc, RGB(220, 220, 140));
         RECT fr = {30, 28 + (n + 1) * lh, 10 + pw, 28 + (n + 3) * lh};

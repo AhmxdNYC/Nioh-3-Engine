@@ -4216,8 +4216,11 @@ static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Pract
 // (type 0 = the character itself; a projectile / gadget (type 4) -> its owner +0x260 / +0x1E0; 588700 for the rest; pure reads). 327DEC calls it
 // right after the HP damage (3298EF) and 35 more times. The stub at 329890 passes r13 (the hit) in r9 (the site's own r9 is a constant 0).
 // Attacker == the player -> DamageDealtPct ('Damage I deal'), attacker == a Training boss -> DamageTakenPct ('Damage boss deals'), else x1.
-// HP only: Ki damage has its own hook (KiDamage 844604 at 329E9D, PstKiDamage in practice_stats_game.h, user #22588); the 7 other HP-damage callers
-// (DoT / status / scripts) are not scaled.
+// Ki ('spirit') damage has its own hook (KiDamage 844604 at 329E9D, PstKiDamage in practice_stats_game.h, user #22588); since #23924 it also applies
+// Damage I deal (player -> others, x Ki damage I deal) and Damage boss deals (Training boss -> the player) to the hit's Ki damage.
+// NOT reachable (#23924): damage over time (poison / burn / status ticks) and script / environment damage. The 7 other callers of the HP damage
+// 787268 are not in the hit apply 327DEC, carry no hit object (so no attacker to tell 'mine' from 'the boss's'), and hooking them would need call-site
+// RVAs and byte signatures that are not RE'd yet; hooking 787268 itself would also catch heals and our own call. They stay unscaled.
 static int PstIsBossActor(uint64_t a);  // practice_stats_game.h
 static volatile LONG g_pst_atk_ok;  // 1 = the 325F40 bytes match (HpDmgHookInstall); otherwise no attacker = no scaling
 static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t hit) {

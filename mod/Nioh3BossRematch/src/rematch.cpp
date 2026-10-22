@@ -3436,9 +3436,22 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             char tag[32], tagTxt[36] = "";  // user #22349: Unblockable rows say their hit count ('2 hits, unblockable')
             if (*N3MoveHitTag(&move, tag, sizeof tag)) snprintf(tagTxt, sizeof tagTxt, " [%s]", tag);
             if (N3MoveProtected(move.id)) add(sel ? cWhite : cDim, sel, "%s 0x%04X  Idle / initialization (required, always used)", mk, move.id);
-            else add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel,
-                "%s 0x%04X %-8s %4s %.*s%s%s  Repeat %s  Used %s", mk, move.id, MoveKindName(move.kind), msTxt, tagTxt[0] ? 24 : 36, MoveName(move),
-                *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "", tagTxt, rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
+            else {
+                // user #23924: the tail (tag, Repeat / Used state) was clipped at the right edge on long rows. Every other part is measured first and the NAME
+                // gets what is left of a 86-char budget (cut with '..'); the kind column is dropped on tagged rows (the group header already says it).
+                const char* nm = MoveName(move);
+                const char* q = *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "";
+                char head[40], tail[64];
+                if (tagTxt[0]) snprintf(head, sizeof head, "%s 0x%04X %4s ", mk, move.id, msTxt);
+                else snprintf(head, sizeof head, "%s 0x%04X %-8s %4s ", mk, move.id, MoveKindName(move.kind), msTxt);
+                snprintf(tail, sizeof tail, "%s%s  Repeat %s  Used %s", q, tagTxt, rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
+                int room = 86 - (int)strlen(head) - (int)strlen(tail);
+                if (room < 12) room = 12;
+                if (room > 36) room = 36;
+                const int nl = (int)strlen(nm);
+                if (nl > room) add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel, "%s%.*s..%s", head, room - 2, nm, tail);
+                else add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel, "%s%s%s", head, nm, tail);
+            }
         } else if (IsMoveCatItem(it[i])) {  // user #14291: 'Attacks   24 moves, 2 OFF, repeating 0x4E64   A: open'
             const int c = kItMoveCatBase - it[i];
             int off = 0, cnt = 0;
