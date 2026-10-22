@@ -40,14 +40,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 17);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 18);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 17 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 18 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
@@ -183,6 +183,8 @@ int main(void) {
         assert(PstStep(PS_KI_FLOOR, 100, 1) == 150 && PstStep(PS_KI_FLOOR, 100, -1) == 50 && PstStep(PS_KI_FLOOR, 50, -1) == 0 && PstStep(PS_KI_FLOOR, 0, -1) == 0);
         assert(PstStep(PS_KI_FLOOR, 500, 1) == 1000 && PstStep(PS_KI_FLOOR, 1000, 1) == 1000 && PstStep(PS_KI_FLOOR, 120, 1) == 150 && PstStep(PS_KI_FLOOR, 120, -1) == 100);
         assert(PstFromIni(PS_KI_FLOOR, 300) == 300 && PstToIni(PS_KI_FLOOR, 300) == 300 && PstFromIni(PS_HOLD_KI_V2, 7) == 1);
+        // user #23400 NegKiMeter: toggle, default ON (the only toggle that is)
+        assert(PS_NEG_KI_METER == 17 && d.v[PS_NEG_KI_METER] == 1 && PstIsToggle(PS_NEG_KI_METER) && PstClamp(PS_NEG_KI_METER, 9) == 1 && PstStep(PS_NEG_KI_METER, 1, 0) == 0 && PstFromIni(PS_NEG_KI_METER, 0) == 0);
         // Ki floor: stock for anyone but a Training boss, and at 100 %; scaled stock; -max base when the stock floor is missing (0)
         assert(PstKiFloor(-1000.0f, 1000.0f, 300, 0) == -1000.0f && PstKiFloor(-1000.0f, 1000.0f, 100, 1) == -1000.0f);
         assert(PstKiFloor(-1000.0f, 1000.0f, 300, 1) == -3000.0f && PstKiFloor(-800.0f, 1000.0f, 50, 1) == -400.0f && PstKiFloor(-800.0f, 1000.0f, 0, 1) == 0.0f);

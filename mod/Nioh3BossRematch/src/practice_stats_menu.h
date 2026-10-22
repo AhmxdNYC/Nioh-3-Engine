@@ -1,10 +1,10 @@
 // user #22389: Practice stats rows. Included by rematch.cpp inside its UI namespace right after boss_vitals_menu.h (same helpers: TrainingExport,
 // g_msg, Log, colours). Training side: Nioh3Training practice_stats_game.h (exports Nioh3Training_PracticeStatGet / _PracticeStatSet, constants in
-// practice_stats.h). Values are saved in Nioh3Training.ini [Practice]; every one defaults OFF / 1.0x.
+// practice_stats.h). Values are saved in Nioh3Training.ini [Practice]; every one defaults OFF / 1.0x (Negative Ki meter: ON).
 //   Practice > Player page : Infinite Ki (stamina), Damage I deal (x0.1 .. x10), Ki damage I deal (x0 .. x10, user #22588), Infinite ninjutsu, Player speed.
 //   Boss X health and Ki page (below that boss's own infinite health / infinite Ki rows): Damage boss deals (x0 .. x10), Boss Ki drain
 //   (Ki lost per second, 0 = OFF), One-hit Ki break (user #22588), Hold Ki break (user #22918), then (user #23013) Hold Ki break v2, Ki floor depth and
-//   Ki break log, Boss speed (notes/boss-speed-lever-22389.md). These apply to all Training bosses.
+//   Ki break log, (user #23400) Negative Ki meter, Boss speed (notes/boss-speed-lever-22389.md). These apply to all Training bosses.
 //   Practice hub: Time of day (Stock / 00:00 .. 23:30 in 30-min steps) and Weather (Stock / Clear / Overcast / Rain / Storm / Snow), user #22942.
 #include "../../Nioh3Training/src/practice_stats.h"
 constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kItBvOpenBase; no other range uses 0xD0000)
@@ -54,11 +54,12 @@ void PstResetFight() {
         ToastF(cGreen, 2000, "Fight reset.");
     }
 }
-template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_ONE_HIT_KI); add(kItPstBase + PS_HOLD_KI_BREAK); add(kItPstBase + PS_HOLD_KI_V2); add(kItPstBase + PS_KI_FLOOR); add(kItPstBase + PS_KI_LOG); add(kItPstBase + PS_BOSS_SPEED); } }
+template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_ONE_HIT_KI); add(kItPstBase + PS_HOLD_KI_BREAK); add(kItPstBase + PS_HOLD_KI_V2); add(kItPstBase + PS_KI_FLOOR); add(kItPstBase + PS_KI_LOG); add(kItPstBase + PS_NEG_KI_METER); add(kItPstBase + PS_BOSS_SPEED); } }
 const char* PstLabel(int what) {
     if (what == PS_HOLD_KI_V2) return "Hold Ki break v2:";  // user #23013
     if (what == PS_KI_FLOOR) return "Ki floor depth:";
     if (what == PS_KI_LOG) return "Ki break log:";
+    if (what == PS_NEG_KI_METER) return "Negative Ki meter:";  // user #23400
     return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Ki damage I deal:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
@@ -102,6 +103,7 @@ bool PstChange(int item, int dir) {
     else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: a Ki-broken Training boss stays broken (no recovery, no moves) until you turn this OFF or it dies. Saved." : "Hold Ki break OFF: a held boss recovers normally now. Saved.");
     else if (what == PS_HOLD_KI_V2) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break v2 ON: a held boss's Ki and its negative reserve are kept at the Ki floor (needs Hold Ki break ON). Experimental. Saved." : "Hold Ki break v2 OFF: Hold Ki break uses the timer hold. Saved.");
     else if (what == PS_KI_FLOOR) snprintf(g_msg, sizeof g_msg, v == 100 ? "Ki floor depth %s: stock negative Ki for Training bosses. Saved." : "Ki floor depth %s: a Training boss's Ki can go that much deeper below 0 than stock. Experimental. Saved.", t);
+    else if (what == PS_NEG_KI_METER) snprintf(g_msg, sizeof g_msg, v ? "Negative Ki meter ON: when a Training boss's Ki goes below 0, a thin red bar under its Ki bar shows how deep (close the menu). Saved." : "Negative Ki meter OFF. Saved.");
     else if (what == PS_KI_LOG) snprintf(g_msg, sizeof g_msg, v ? "Ki break log ON: Ki-break details of Training bosses go to Nioh3Training.log (KILOG lines). Saved." : "Ki break log OFF. Saved.");
     else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: your next hit on a Training boss empties its Ki = Ki break. Practice only. Saved." : "One-hit Ki break OFF. Saved.");
     else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: your ninjutsu gauges stay full. Practice only. Saved." : "Infinite ninjutsu OFF. Saved.");
@@ -149,6 +151,7 @@ const char* PstFooter(int item) {
     case PS_HOLD_KI_BREAK: return "ON: once a Training boss is Ki-broken it stays broken (it does not recover and does not act) until you turn this OFF or it dies; OFF = it recovers normally. Does not cause a break itself (One-hit Ki break does). A grapple still ends the break. Saved.";
     case PS_HOLD_KI_V2: return "Needs Hold Ki break ON. ON = the held boss's Ki and its negative Ki reserve stay at the Ki floor and its Ki regen is off (instead of only freezing the break timers). OFF = the normal Hold Ki break. Experimental (#23013). Saved.";
     case PS_KI_FLOOR: return "How far a Training boss's Ki can go below 0 during a Ki break, in multiples of the game's own floor (x1.00 = stock, x0 = never below 0, up to x10). Deeper = more Ki to recover before the break ends. Other characters are not changed. Experimental (#23013). Saved.";
+    case PS_NEG_KI_METER: return "ON (default): a thin dark-red bar under a Training boss's Ki bar, shown only while its Ki or its negative Ki reserve is below 0, filled by how deep it is compared to the Ki floor (label: -Ki now / reserve / floor). Read only. Position: NegKiMeterY / NegKiMeterW in Nioh3Training.ini. Saved.";
     case PS_KI_LOG: return "ON: while a Training boss is Ki-broken, its Ki pool values and the Ki floor are written to Nioh3Training.log every 0.1 s, plus one line per Ki-damage hit (KILOG). Changes nothing in the fight. Saved.";
     case PS_PLAYER_INF_NIN: return "ON: your ninjutsu gauges are kept full. Only while a Practice session runs or a Training boss is alive. Saved.";
     case PS_PLAYER_SPEED: return "Animation speed of your character (x0.10 .. x3.00, x1.00 = normal). Applies from your next move; attacks and dodges follow. Only while a Practice session runs or a Training boss is alive. Saved.";

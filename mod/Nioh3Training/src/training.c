@@ -4723,6 +4723,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
+#include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
@@ -4819,6 +4820,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         PstLoadIni(ini);  // user #22389 [Practice]
         g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0)");  // user #22356
         FmLoadIni(ini);  // Practice frame meter
+        NkmLoadIni(ini);  // user #23400 negative Ki meter
         FzLoadIni(ini);  // user #22589 Practice freeze keys
         { HANDLE t = CreateThread(0, 0, FzKeyThread, 0, 0, 0); if (t) CloseHandle(t); }
         g_cfg_aware = GetPrivateProfileIntA("Summon", "AwareFlag", 1, ini); g_cfg_aware_ms = GetPrivateProfileIntA("Summon", "AwareDelayMs", 400, ini);

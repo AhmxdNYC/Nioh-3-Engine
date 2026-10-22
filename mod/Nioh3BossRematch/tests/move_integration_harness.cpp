@@ -62,10 +62,10 @@ static int BvSetX(int slot, int what, int value) {
     if (what == 4) { bvCfg[slot][2] = bvCfg[slot][3] = 100; ++bvRefills; return 1; }
     return bvCfg[slot][what] = what < 2 ? (value < 0 ? !bvCfg[slot][what] : value != 0) : value;
 }
-static int pst[17] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0, 0, 0, 0, 0, 0, 0, 100}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
-static int PstGetX(int what) { return what >= 0 && what < 17 ? pst[what] : -1; }
+static int pst[18] = {0, 100, 100, 0, 100, 0, 100, 0, 100, 0, 0, 0, 0, 0, 0, 0, 100, 1}, pstSets, pstPersist;  // user #22389 Practice stats (PS_* order, practice_stats.h)
+static int PstGetX(int what) { return what >= 0 && what < 18 ? pst[what] : -1; }
 static int resetFightCalls; static int ResetFightX() { ++resetFightCalls; return 15; }  // user #22592 Reset fight
-static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 16) return -1; if ((what == 7 || what == 9 || what == 10 || what == 11 || what == 14 || what == 15) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
+static int PstSetX(int what, int v, int persist) { if (what < 0 || what > 17) return -1; if ((what == 7 || what == 9 || what == 10 || what == 11 || what == 14 || what == 15 || what == 17) && v < 0) v = !pst[what]; ++pstSets; pstPersist += persist != 0; return pst[what] = v; }
 static HMODULE TestModule(const wchar_t*) { return (HMODULE)1; }
 static FARPROC TestProc(HMODULE, const char* name) {
 #define EXPORT(n, f) if (!strcmp(name, "Nioh3Training_" n)) return (FARPROC)f
@@ -248,7 +248,7 @@ int main() {
     CHECK(!UiAct() && bvCfg[0][0] == 1);
     {   // user #22389: Boss X page = that boss's infinite Ki row, then Damage boss deals / Boss Ki drain / Boss speed (all Training bosses, saved)
         list(); const int d = at(kItPstBase + PS_BOSS_KI_DRAIN), t = at(kItPstBase + PS_DMG_TAKEN);
-        CHECK(at(kItBvInfKi) >= 0 && t > at(kItBvInfKi) && d == t + 1 && at(kItPstBase + PS_ONE_HIT_KI) == d + 1 && at(kItPstBase + PS_HOLD_KI_BREAK) == d + 2 && at(kItPstBase + PS_HOLD_KI_V2) == d + 3 && at(kItPstBase + PS_KI_FLOOR) == d + 4 && at(kItPstBase + PS_KI_LOG) == d + 5 && at(kItPstBase + PS_BOSS_SPEED) == d + 6 && items[n - 1] == kItBack);
+        CHECK(at(kItBvInfKi) >= 0 && t > at(kItBvInfKi) && d == t + 1 && at(kItPstBase + PS_ONE_HIT_KI) == d + 1 && at(kItPstBase + PS_HOLD_KI_BREAK) == d + 2 && at(kItPstBase + PS_HOLD_KI_V2) == d + 3 && at(kItPstBase + PS_KI_FLOOR) == d + 4 && at(kItPstBase + PS_KI_LOG) == d + 5 && at(kItPstBase + PS_NEG_KI_METER) == d + 6 && at(kItPstBase + PS_BOSS_SPEED) == d + 7 && items[n - 1] == kItBack);
         CHECK(!has(kItPstBase + PS_DMG_DEALT) && !has(kItPstBase + PS_PLAYER_INF_KI) && !has(kItPstBase + PS_KI_DEALT));
         {   // user #22588 One-hit Ki break: toggle, default OFF, saved
             CHECK(shown("One-hit Ki break:", "OFF")); const int o = at(kItPstBase + PS_ONE_HIT_KI), p1 = pstPersist;
@@ -269,6 +269,11 @@ int main() {
             for (int i = 0; i < 20; ++i) UiChange(1);
             CHECK(pst[16] == 1000 && shown("Ki floor depth:", "x10.00")); for (int i = 0; i < 20; ++i) UiChange(-1);
             CHECK(pst[16] == 0 && shown("Ki floor depth:", "x0.00")); pst[16] = 100;
+        }
+        {   // user #23400 Negative Ki meter: toggle right after Ki break log, default ON, saved
+            CHECK(shown("Negative Ki meter:", "ON")); const int p1 = pstPersist;
+            g_sel = at(kItPstBase + PS_NEG_KI_METER); CHECK(!UiAct() && pst[17] == 0 && shown("Negative Ki meter:", "OFF") && pstPersist == p1 + 1);
+            UiChange(1); CHECK(pst[17] == 1 && shown("Negative Ki meter:", "ON"));
         }
         CHECK(shown("Boss Ki drain:", "OFF") && shown("Damage boss deals:", "x1.00") && shown("-- All Training bosses (saved) --"));
         const int p0 = pstPersist;

@@ -18,6 +18,7 @@ static const char* PstKey(int what) {
     if (what == PS_KI_LOG) return "KiLog";
     if (what == PS_HOLD_KI_V2) return "HoldKiBreakV2";
     if (what == PS_KI_FLOOR) return "KiFloorDepth";
+    if (what == PS_NEG_KI_METER) return "NegKiMeter";
     return what == PS_TIME_OF_DAY ? "TimeOfDayMin" : what == PS_WEATHER ? "Weather" : what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
@@ -478,17 +479,19 @@ static void PstEnvHookInstall(void) {
         Log("hook env 39B67D: on (user #22942: TimeOfDayMin %d, Weather %s)", PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), PstWeatherName(g_pst.v[PS_WEATHER])); }
 }
 static int g_pst_env_sess;
+static void NkmTick(int live);  // user #23400 negative Ki meter (negki_meter_game.h)
 static void PstTick(void) {
     const DWORD now = GetTickCount();
     if (now - g_pst_t < 50) return;
     const int dt = g_pst_t ? (int)(now - g_pst_t) : 50; g_pst_t = now;
-    if (GameState() && GameState()[2]) return;  // loading
+    if (GameState() && GameState()[2]) { __try { NkmTick(0); } __except (EXCEPTION_EXECUTE_HANDLER) { } return; }  // loading (#23400: no stale negative Ki meter over a load)
     PstIniPoll();
     PstResetFightTick();
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
     if (live != g_pst_live) { InterlockedExchange(&g_pst_live, live); InterlockedExchange(&g_pst_logs, 0); g_pst_kiSeen = 0; InterlockedExchange(&g_kl_lines, 0); InterlockedExchange(&g_kf_logs, 0); }
     KfRefresh(live);  // user #23013: Training boss Ki structs for the floor hook / KiLog
+    __try { NkmTick(live); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #23400 negative Ki meter (read only; clears itself when not live)
     {   // user #22942: one read-only line of the sky time / weather at each session start (Training boss alive, then a Practice session)
         const int sess = live ? 1 + (g_tr.active != 0) : 0;
         if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
