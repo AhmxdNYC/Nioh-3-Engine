@@ -365,7 +365,8 @@ def build_rows(ms, old, log):
         else:
             (x, y, z), yaw, kind, start, conf = f["pos"], f["yaw"], "start", f["start"], "%s %s %.0fm" % (f["conf"], f["kind"], f["dist"])
         rows.append({"mission": mid, "start": start, "world": m["world"], "chr": e["chr"], "pid": e["pid"], "p": (x, y, z, yaw),
-                     "b": e["pos"], "kind": kind, "id": rid, "how": how, "conf": conf, "mname": m["name_id"]})
+                     "b": e["pos"], "kind": kind, "id": rid, "how": how, "conf": conf, "mname": m["name_id"],
+                     "region": m["kind"] == 2})
         have.add(e["chr"])
 
     usable = [m for m in ms if m["shipped"] and m["world"] and m["enemies"]]
@@ -437,10 +438,16 @@ def main(argv=None):
     out = [HEADER, "# game data fingerprint %s (archive sizes + times): rerun tools/auto_arena.py when it changes" % L.fingerprint()]
     rep = []
     arena_chr = set()
+    base = {r["id"]: oldn.get(r["id"]) or cname.get(r["chr"]) or "chr %d" % r["chr"] for r in rows}
+    dup = collections.Counter(base.values())
+    names = {}
+    for r in rows:     # a new row whose name is not unique gets its mission / region title (Kondo Isami (Kiyomizu Defiled))
+        nm = base[r["id"]]
+        if r["id"] not in oldn and dup[nm] > 1 and (r["region"] or r["mname"] in text):   # region titles read 'Dummy'
+            nm = "%s (%s)" % (nm, "open field" if r["region"] else rc.ascii_(text[r["mname"]]))
+        names[r["id"]] = nm
     for r in rows:
-        nm = oldn.get(r["id"]) or cname.get(r["chr"]) or "chr %d" % r["chr"]
-        if r["id"] not in oldn and r["mname"] in text and r["kind"] != "field" and not r["id"].startswith("S"):
-            nm = "%s (%s)" % (nm, rc.ascii_(text[r["mname"]]))
+        nm = names[r["id"]]
         c = ["0x%04X" % r["mission"], str(r["start"]), "0x%02X" % r["world"], str(r["chr"]), str(r["pid"]),
              "%.0f" % r["p"][0], "%.0f" % r["p"][1], "%.0f" % r["p"][2], "%.1f" % r["p"][3], "%.0f" % r["b"][0], "%.0f" % r["b"][1],
              "%.0f" % r["b"][2], r["kind"], r["id"], nm.replace("\t", " ")[:63]]
@@ -460,7 +467,7 @@ def main(argv=None):
             roster[(c[0], int(c[3]))] = (c[13], c[14])
     for r in rows:
         if r["chr"] not in prim:
-            roster.setdefault(("0", r["chr"]), ("S%d" % r["chr"], oldn.get("S%d" % r["chr"]) or cname.get(r["chr"]) or "chr %d" % r["chr"]))
+            roster.setdefault(("0", r["chr"]), ("S%d" % r["chr"], oldn.get("S%d" % r["chr"]) or names[r["id"]]))
     for (mis, chr_), (rid, nm) in roster.items():
         if mis not in ("0", "") and int(mis, 16) in {r["mission"] for r in rows}:
             continue     # this catalogue mission has an arena row now

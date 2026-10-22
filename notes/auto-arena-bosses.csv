@@ -1,0 +1,143 @@
+id,name,chr,kind,mission,world,placement,source,confidence
+D1DE7,chr 0,0,field,0x1DE7,0xCD,0,mission (first boss record),field placement
+RC1D9,Tokugawa Kunimatsu,803396,start,0xC1D9,0xDF,555606,mission (boss kept from the committed row),medium spawn point 16m
+R1CBC,Yamagata Masakage,307259,arena,0x1CBC,0x4B,65092,mission (boss kept from the committed row),high (script trigger 66599 CH02_MAIN01_HITOKOTO_BOSSAREABOX)
+R0034,Jakotsu-baba,947280,arena,0x0034,0x96,76781,mission (first boss record),low (boss area box 70646 CH02_MAIN03_HAMAMATSU_BOSS_AREA)
+R1C7C,Baba Nobuharu,482895,start,0x1C7C,0x96,84220,mission (first boss record),medium spawn point 25m
+R0F7F,Yamagata Masakage (A Fiery Invasion),598115,start,0x0F7F,0x96,94568,mission (first boss record),high boss retry point 35m
+R15FF,Takeda Shingen,42450,arena,0x15FF,0x96,102544,mission (boss kept from the committed row),medium (script trigger 103199 CH02_MAIN05_STAGE_BOSSBOX)
+R1352,Ryomen Sukuna (The Apparition of Ryotan Temple),451004,start,0x1352,0x96,117731,mission (boss kept from the committed row),high boss retry point 17m
+R23E5,Hino-enma,83953,arena,0x23E5,0x96,206387,mission (boss kept from the committed row),medium (script trigger 206651 CH02_MAIN07_YOUGASHIDOU_BOSSBOX)
+RC72E,Great Tengu,269750,start,0xC72E,0x8E,333550,mission (first boss record),medium shrine 43m
+R2EE9,Otoroshi,371449,start,0x2EE9,0xB1,340693,mission (boss kept from the committed row),low gadget point 54m
+R9A25,Kajiwara Kagetoki (Subterfuge at the Abandoned Shrine),724394,start,0x9A25,0xB1,353508,mission (first boss record),low spawn point 45m
+REA75,Ibaraki Doji,894462,arena,0xEA75,0xB1,364374,mission (boss kept from the committed row),medium (script trigger 368649 CH03_RAJOMON_BOSS_AREA_ENTER)
+R7B35,Minamoto no Yoritomo,16102,arena,0x7B35,0xB1,375545,mission (boss kept from the committed row),low (boss area box 371660 CH03_DAIDAIRI_BOSS_AREA)
+R3513,Kusanagi,656503,start,0x3513,0xD8,580015,mission (boss kept from the committed row),medium spawn point 23m
+R0C12,Hiruko (Dark Roots),745563,start,0x0C12,0xD8,597242,mission (first boss record),medium shrine 41m
+RA4B4,Tokugawa Kunimatsu (Light of Hope),989823,arena,0xA4B4,0x39,563857,mission (first boss record),low (boss area box 563659 CH05_EDO_BOSS_AREA)
+R4D8E,Takasugi Shinsaku,778951,start,0x4D8E,0xE0,4056771,mission (boss kept from the committed row),medium spawn point 20m
+RCC53,Kasha,829576,start,0xCC53,0xE0,4067651,mission (boss kept from the committed row),low shrine 117m
+RE7BD,Onmoraki,799359,arena,0xE7BD,0xE0,4075848,mission (first boss record),medium (script trigger 4070877 CH06_MAIN03_KIYOMIZU_BOX_BOSS_ENTER)
+R401E,Nuribotoke,392871,start,0x401E,0xE0,4087191,mission (boss kept from the committed row),low shrine 79m
+R1DEA,Okita Soji (Scion of the Gods),889237,arena,0x1DEA,0xE0,4092708,mission (first boss record),medium (script trigger 4092678 CH06_MAIN05_GOSHO_BOSSBOX)
+R5CC4,Okita Soji,889237,start,0x5CC4,0xE0,4105770,mission (boss kept from the committed row),medium shrine 31m
+RB24D,Death Veil,720656,start,0xB24D,0x59,573339,mission (first boss record),low shrine 96m
+R1359,Yagyu Jubei (A Fortress in Ruins),412493,arena,0x1359,0x35,8043173,mission (boss kept from the committed row),low (boss area box 8043201 CH08_MAIN01_EDO_BOSS_AREA)
+R19EA,Kanai Hanbei (The Hollow Schoolhouse),96759,arena,0x19EA,0x35,8054890,mission (first boss record),low (boss area box 8051101 CH08_MAIN02_CHOKODO_BOSSBOX)
+RB3FE,Kumagai Naoyoshi,485999,start,0xB3FE,0x35,8066787,mission (boss kept from the committed row),medium shrine 18m
+RDC12,Giant Toad,210803,start,0xDC12,0x35,8073284,mission (boss kept from the committed row),medium shrine 27m
+D7F16,Yamagata Masakage (The Battle of Hitokoto Slope),307259,arena,0x7F16,0x4B,1010621,mission (first boss record),medium (script trigger 1018910 PARALLEL_001_HITOKOTO_BOSSAREABOX)
+R0B0B,Naito Masatoyo,502003,start,0x0B0B,0x96,1038159,mission (first boss record),high mission start 17m
+RC362,Hattori Hanzo (The Demon's Regimen),131751,start,0xC362,0x96,1102178,mission (boss kept from the committed row),high mission start 18m
+R2068,Otazu no Kata,132808,start,0x2068,0x96,1071509,mission (boss kept from the committed row),medium gadget point 17m
+R25E4,Ippon-Datara,352684,arena,0x25E4,0x96,1047415,mission (boss kept from the committed row),medium (script trigger 1043843 PARALLEL_104_BOSS_AREA_01)
+R04DF,Magatsu Warrior,445093,arena,0x04DF,0x96,1055821,mission (boss kept from the committed row),medium (script trigger 1051105 PARALLEL_105_BOSS_BOX_00)
+R8FF1,Cavern Ascetic,847229,start,0x8FF1,0x96,1065308,mission (boss kept from the committed row),medium spawn point 28m
+RFCCB,Kamaitachi,816820,start,0xFCCB,0x96,1088859,mission (boss kept from the committed row),medium spawn point 20m
+RCB9B,Ryomen Sukuna (The Mystery of Rajomon),451004,start,0xCB9B,0xB1,1096187,mission (boss kept from the committed row),low shrine 79m
+RCB08,Tomoe Gozen (Beneath a Pure White Flag),586715,start,0xCB08,0x8E,1116015,mission (first boss record),high mission start 16m
+RF60A,Hino-enma (Drawn to Yokai Incense),83953,arena,0xF60A,0xE0,1139399,mission (first boss record),low (boss area box 1134384 PARALLEL_113_BOSS_AREA)
+R6351,Gozuki,665148,start,0x6351,0xE0,1144515,mission (first boss record),high mission start 27m
+RA0CB,Demon of Pride,810814,start,0xA0CB,0x59,1161567,mission (first boss record),high mission start 19m
+R3B19,Red Kappa,405836,start,0x3B19,0xE0,1223672,mission (boss kept from the committed row),low shrine 78m
+R7C85,Nagakura Shinpachi,614441,start,0x7C85,0xE0,1249440,mission (first boss record),high mission start 10m
+R61A2,Onryoki,264763,start,0x61A2,0x96,1259657,mission (first boss record),high mission start 20m
+R1D60,Yagyu Munenori,776661,start,0x1D60,0x8E,1268863,mission (first boss record),high mission start 13m
+R523B,Hino-enma (Rampant Temptation),83953,start,0x523B,0x96,1278948,mission (first boss record),high mission start 19m
+RAC1F,Joro-gumo,96976,start,0xAC1F,0xB1,1288358,mission (first boss record),high mission start 20m
+R945F,Takeda Shingen (Gathering of the Greats),42450,start,0x945F,0xE0,1292577,mission (first boss record),high mission start 23m
+RD617,Tokugawa Kunimatsu (Ghosts at Hirakawa Gate),969076,arena,0xD617,0x35,2145000,mission (first boss record),low (boss area box 2146155 BOSS_AREA1)
+R3B58,Kanai Hanbei,63946,arena,0x3B58,0x35,2159368,mission (boss kept from the committed row),low (boss area box 2157570 PARALLEL_201_ENEMY_BOSSAREA_DOOR_ROCKBOX)
+RD84E,Kawara Jurobei,602366,start,0xD84E,0x35,2161257,mission (first boss record),high mission start 15m
+DB90D,Fuma Kotaro,826751,start,0xB90D,0x96,2000784,mission (boss kept from the committed row),high mission start 9m
+D084F,Ito Ittosai,512653,start,0x084F,0x96,2018827,mission (boss kept from the committed row),high mission start 8m
+DCE5A,Sugitani Zenjubo,321472,start,0xCE5A,0x96,2024153,mission (boss kept from the committed row),high mission start 7m
+DA30C,Takahashi Deishu,950461,start,0xA30C,0xE0,2054018,mission (boss kept from the committed row),high mission start 7m
+D5A7B,Sawamura Yasusuke,686458,start,0x5A7B,0xE0,2083931,mission (boss kept from the committed row),high mission start 7m
+D6B58,Tomoe Gozen,586715,start,0x6B58,0xB1,2107933,mission (boss kept from the committed row),high mission start 8m
+D95FA,Nasu no Yoichi,236383,start,0x95FA,0xB1,2117063,mission (boss kept from the committed row),medium mission start 58m
+D63A9,Shinran,800450,start,0x63A9,0xB1,2135664,mission (boss kept from the committed row),high mission start 8m
+DA709,Maeda Mitsutaka,64826,start,0xA709,0x35,2171204,mission (boss kept from the committed row),high mission start 11m
+D7BA1,Nakane Masamori,766640,start,0x7BA1,0x35,2185058,mission (boss kept from the committed row),high mission start 7m
+RD22D,Honda Tadakatsu,983905,start,0xD22D,0x96,3001410,mission (boss kept from the committed row),high mission start 7m
+RB3F8,Minamoto no Yoshitsune,478320,start,0xB3F8,0x8E,3012580,mission (boss kept from the committed row),high mission start 10m
+RBAB8,Anazawa Morihide,38227,start,0xBAB8,0x35,3025509,mission (first boss record),high mission start 17m
+RFB96,Yagyu Jubei (Yagyu Principles),412493,start,0xFB96,0x35,3035151,mission (boss kept from the committed row),high mission start 14m
+RF5E5,Yagyu Munenori (Novice),696121,start,0xF5E5,0xDF,5001293,mission (boss kept from the committed row),high mission start 17m
+R6E65,Yagyu Munenori (Adept),540782,start,0x6E65,0xDF,5017215,mission (boss kept from the committed row),high mission start 10m
+R1A5E,Yagyu Munenori (Veteran),776661,start,0x1A5E,0xDF,5027806,mission (boss kept from the committed row),high mission start 10m
+RD759,Hattori Hanzo (Novice),139791,start,0xD759,0xDF,5034429,mission (boss kept from the committed row),high mission start 17m
+RE18C,Hattori Hanzo (Adept),339773,start,0xE18C,0xDF,5043775,mission (boss kept from the committed row),high mission start 10m
+R9BE4,Hattori Hanzo (Veteran),865761,start,0x9BE4,0xDF,5051552,mission (boss kept from the committed row),high mission start 10m
+R26F3,Saito Fuku (Novice),631242,start,0x26F3,0xDF,5067353,mission (boss kept from the committed row),high mission start 20m
+RA0A1,Saito Fuku (Adept),631242,start,0xA0A1,0xDF,5072278,mission (boss kept from the committed row),high mission start 20m
+R2826,Saito Fuku (Veteran),671570,start,0x2826,0xDF,5084399,mission (boss kept from the committed row),high mission start 11m
+RA19A,Kasha (Hundred Demon Realms Picture Scroll),829576,start,0xA19A,0x96,16999046,mission (first boss record),medium mission start 60m
+S488671,Enenra,488671,start,0x0034,0x96,74751,mission boss record,low shrine 88m
+S982853,Anayama Nobutada,982853,start,0x1C7C,0x96,89386,mission boss record,medium shrine 43m
+S466641,Takeda Shingen (Human),466641,start,0x0F7F,0x96,96416,mission boss record,medium shrine 58m
+S274906,Kosaka Masanobu,274906,start,0x0F7F,0x96,95891,mission boss record,high boss retry point 27m
+S306399,Hiruko (Yokai),306399,start,0x0C12,0xD8,594637,mission boss record,medium shrine 41m
+S308102,Kondo Isami (Kiyomizu Defiled),308102,start,0xE7BD,0xE0,4079148,mission boss record,medium gadget point 26m
+S51699,Hijikata Toshizo (Kiyomizu Defiled),51699,start,0xE7BD,0xE0,4071605,mission boss record,medium shrine 46m
+S268880,Tokugawa Yoshinobu,268880,arena,0x1DEA,0xE0,4097963,mission boss record,medium (script trigger 4092678 CH06_MAIN05_GOSHO_BOSSBOX)
+S170729,Okita Soji (Solitary Blade),170729,start,0x5CC4,0xE0,4108934,mission boss record,medium shrine 31m
+S606073,Hiruko (A Sinister End),606073,start,0xB24D,0x59,572110,mission boss record,low spawn point 7m
+S27230,Nuribotoke (A Sinister End),27230,arena,0xB24D,0x59,579330,mission boss record,medium (script trigger 571232 CH07_MAIN01_MID_BOSS_AREA)
+S492278,Mezuki,492278,start,0xB24D,0x59,577097,mission boss record,medium shrine 46m
+S381593,Marubashi Chuya,381593,start,0x19EA,0x35,8053276,mission boss record,medium spawn point 26m
+S253407,Ooka Genzaburo,253407,start,0x19EA,0x35,8057057,mission boss record,medium spawn point 28m
+S428785,Yui Shosetsu,428785,arena,0xB3FE,0x35,8062848,mission boss record,low (boss area box 8066402 CH08_MAIN03_DOKANYAMA_BOSS_BATTLE_AREA)
+S200413,Fabricated Warrior,200413,start,0xB3FE,0x35,8069233,mission boss record,medium shrine 56m
+S765992,Demon of Envy,765992,start,0xA0CB,0x59,1162241,mission boss record,high mission start 19m
+S510357,Demon of Obsession,510357,start,0xA0CB,0x59,1160051,mission boss record,high mission start 19m
+S745986,Saito Hajime,745986,start,0x7C85,0xE0,1248546,mission boss record,high mission start 11m
+S223221,Hijikata Toshizo,223221,start,0x7C85,0xE0,1244872,mission boss record,high mission start 11m
+S128741,Kondo Isami,128741,start,0x7C85,0xE0,1243320,mission boss record,high mission start 11m
+S14625,Bloodedge Demon,14625,start,0x61A2,0x96,1259130,mission boss record,high mission start 18m
+S626327,Mori Gentatsu,626327,start,0xBAB8,0x35,3026327,mission boss record,high mission start 17m
+S613533,Yamada Shinryuken,613533,start,0xBAB8,0x35,3022777,mission boss record,high mission start 17m
+S597530,Ninja Yoki,597530,field,0x0F6A,0x96,21540,region boss record,field placement
+S536709,Kyokotsu,536709,field,0x1371,0x96,35665,region boss record,field placement
+S304746,Nozuchi,304746,field,0x1371,0x96,37391,region boss record,field placement
+S141706,Gaki Chief,141706,field,0x1371,0x96,39676,region boss record,field placement
+S904088,Nuppeppo,904088,field,0x14B9,0x96,59305,region boss record,field placement
+S999088,Yoki,999088,field,0x14B9,0x96,58984,region boss record,field placement
+S804607,Green Shadow's Blade,804607,field,0x14B9,0x96,56508,region boss record,field placement
+S314396,Blood-Spurting Ogin,314396,field,0xF722,0x96,321324,region boss record,field placement
+S189627,Aggrieved Warrior,189627,field,0xF722,0x96,324074,region boss record,field placement
+S100898,All-Seeing Mage,100898,field,0x1782,0xB1,145262,region boss record,field placement
+S560912,Yasha,560912,field,0x1782,0xB1,142525,region boss record,field placement
+S521334,Tsurara-onna (open field),521334,field,0x1BA2,0xB1,157656,region boss record,field placement
+S90358,Kajiwara Kagetoki (open field),90358,field,0x1BA2,0xB1,150817,region boss record,field placement
+S115893,Waira,115893,field,0x1BA2,0xB1,153074,region boss record,field placement
+S482715,One-eyed Oni,482715,field,0x1BA2,0xB1,150810,region boss record,field placement
+S986563,Gaki,986563,field,0x1BA2,0xB1,152666,region boss record,field placement
+S530144,Ninja Yoki (open field),530144,field,0x1744,0xB1,160286,region boss record,field placement
+S287588,Usui Sadamitsu,287588,field,0x09E7,0xB1,177825,region boss record,field placement
+S410613,Yamainu,410613,field,0xDFE0,0xE0,4027404,region boss record,field placement
+S970966,Karasu Tengu,970966,field,0xDFE0,0xE0,4022609,region boss record,field placement
+S485856,Saito Hajime (open field),485856,field,0x8289,0xE0,4037837,region boss record,field placement
+S109203,Enki,109203,field,0x8289,0xE0,4030598,region boss record,field placement
+S240225,Hattori Takeo,240225,field,0x8289,0xE0,4036786,region boss record,field placement
+S97403,Tesso,97403,field,0x4431,0x35,8019116,region boss record,field placement
+S143867,Jinnosuke the Shadow Slicer,143867,field,0x4431,0x35,8012979,region boss record,field placement
+S245775,Berenguela the Whimsical,245775,field,0x4431,0x35,8018825,region boss record,field placement
+S450193,Ichimokuren,450193,field,0x4431,0x35,8016958,region boss record,field placement
+S433499,Itsumade,433499,field,0x4431,0x35,8015561,region boss record,field placement
+S931361,Robust Spear Samurai,931361,field,0x4431,0x35,8017514,region boss record,field placement
+S702734,Mujina,702734,field,0x4431,0x35,8015858,region boss record,field placement
+S773019,Iron-Fisted Rogue,773019,field,0xC502,0x35,8027374,region boss record,field placement
+S770346,Rattan-Clad Ninja Oni,770346,field,0xC502,0x35,8020703,region boss record,field placement
+S468979,Marubashi Chuya (open field),468979,field,0xC502,0x35,8028750,region boss record,field placement
+S368726,Raiju,368726,field,0x0F6A,0x96,25812,regular placement (no boss record),field placement
+S246537,Tsurara-onna,246537,field,0x1BA2,0xB1,150256,regular placement (no boss record),field placement
+S60383,Araki Mataemon,60383,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S966334,Daidara Bocchi,966334,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S566824,Demon Slayer,566824,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S972886,Denrinbo Raikei,972886,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S334318,Ishikawa Goemon,334318,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S966721,Shishido Kagetoshi,966721,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S198738,Taigen Sessai,198738,summon,0,-,-,no placement of this character in any shipped mission/region table,-
+S524713,Takashima Shuhan,524713,summon,0,-,-,no placement of this character in any shipped mission/region table,-
