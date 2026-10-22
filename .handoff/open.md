@@ -64,3 +64,4 @@
 - [ ] Training time-of-day slider (#22942) | find the game's time-of-day/sky state, add Practice slider | pc
 - [ ] (user #22942/#22943) Training: Time of day slider + Sky picker. First research: find game time-of-day/sky/weather params (grep notes/ and decomp for sky, TimeOfDay, weather, atmosphere); report feasible or not | pc
 - [ ] Follow-ups from integ-22826 test: boss frame meter fake run on next idle action 0x2 (hitbox still open at action change); PS style still shows LB/RB + 'press A' text; startup counts from 1 vs active from 0 display; one-hit Ki break stays on in memory after ini=0 until restart. Then re-arm captures/pj_bench_105.ps1 (PJ bench) | pc
+- [ ] (user #22952) Live controller INPUT DISPLAY overlay (top-left pad graphic showing pressed buttons, PS/Xbox style per ButtonStyle) - NOT built; current ButtonStyle only changes menu glyphs | pc
