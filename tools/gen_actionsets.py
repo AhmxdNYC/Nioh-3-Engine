@@ -1,4 +1,4 @@
-"""Build mod/Nioh3Training/Nioh3Training_actionsets.tsv: one line per archive_01 action file = its action id set (rows +0x0C), for the runtime
+"""Build mod/Nioh3Training/Nioh3Training_actionsets.tsv: one line per archive_01 action file = its action object hash set (rows +0xF0), for the runtime
 auto-bind (training: autobind.h). Names come from notes/boss-action-bind-auto.tsv (file -> character), '?' when the file has no setting DB owner.
   py -I tools/gen_actionsets.py [game dir]            cols: file(62 hex)  char  rows  id,id,...(hex)"""
 import csv, os, struct, sys
@@ -25,12 +25,12 @@ for i, e in enumerate(L.entries(d)):
         o, s = struct.unpack_from('<II', b, 12)
         if not s or s % REC or s // REC <= 3:
             continue
-        ids = sorted({struct.unpack_from('<H', b, o + r * REC + 0xC)[0] for r in range(s // REC)} - {0xFFFF})
+        ids = sorted({struct.unpack_from('<I', b, o + r * REC + 0xF0)[0] for r in range(s // REC)} - {0, 0xFFFFFFFF})  # action object name hashes (row +0xF0)
     except Exception:
         continue
     p = paths.get(i)
     if p:
         out.append('%s\t%s\t%d\t%s' % (p.replace('/', ''), owner.get(p, '?'), s // REC, ','.join('%X' % x for x in ids)))
 dst = os.path.join(ROOT, 'mod', 'Nioh3Training', 'Nioh3Training_actionsets.tsv')
-open(dst, 'w', newline='\n').write('# Nioh3Training action sets (tools/gen_actionsets.py): file, character, rows, action ids (hex)\n' + '\n'.join(out) + '\n')
+open(dst, 'w', newline='\n').write('# Nioh3Training action sets (tools/gen_actionsets.py): file, character, rows, action object hashes (hex)\n' + '\n'.join(out) + '\n')
 print(len(out), 'files', os.path.getsize(dst), 'bytes')

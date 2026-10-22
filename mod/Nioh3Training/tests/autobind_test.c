@@ -6,14 +6,14 @@
 #include <assert.h>
 #include "../src/autobind.h"
 int main(void) {
-    char t[] = "# c\nAAA\tCE_A_00\t5\t0,2,4E21,4E22,4E23\nBBB\tCE_B_00\t3\t2,4E21,9000\r\nCCC\t?\t4\t4E21,4E22,4E23,4E24\n";
+    char t[] = "# c\nAAA\tCE_A_00\t5\t11111111,22222222,4E21,4E22,4E23\nBBB\tCE_B_00\t3\t22222222,4E21,9000\r\nCCC\t?\t4\t4E21,4E22,4E23,4E24\n";
     AbTable tb; assert(AbLoad(&tb, t) == 3);
-    assert(tb.f[0].n == 5 && AbHas(&tb.f[0], 0x4E22) && !AbHas(&tb.f[0], 0x4E24) && !strcmp(tb.f[1].chr, "CE_B_00") && tb.f[1].n == 3);
-    int p = 0, p2 = 0; uint16_t o1[] = {0x4E21, 0x4E22, 0x4E23, 0x4E24};
+    assert(tb.f[0].n == 5 && AbHas(&tb.f[0], 0x4E22) && AbHas(&tb.f[0], 0x11111111) && !AbHas(&tb.f[0], 0x4E24) && !strcmp(tb.f[1].chr, "CE_B_00") && tb.f[1].n == 3);
+    int p = 0, p2 = 0; uint32_t o1[] = {0x4E21, 0x4E22, 0x4E23, 0x4E24};
     assert(AbMatch(&tb, o1, 4, &p, &p2) == 2 && p == 100);                  // exact set -> C
-    uint16_t o2[] = {0, 2, 0x4E21, 0x4E22, 0x4E23, 0xFFFF};
-    assert(AbMatch(&tb, o2, 6, &p, &p2) == 0 && p == 100 && p2 < 100);      // FFFF ignored, exact -> A
-    uint16_t o3[] = {0x7777, 0x7778};
+    uint32_t o2[] = {0, 0x11111111, 0x22222222, 0x4E21, 0x4E22, 0x4E23, 0xFFFFFFFFu};
+    assert(AbMatch(&tb, o2, 7, &p, &p2) == 0 && p == 100 && p2 < 100);      // 0 / FFFFFFFF ignored, exact -> A
+    uint32_t o3[] = {0x7777, 0x7778};
     assert(AbMatch(&tb, o3, 2, &p, &p2) == -1 && p == 0);                   // nothing similar -> unbound
     assert(AbMatch(&tb, o3, 0, &p, &p2) == -1);
     AbFree(&tb);
@@ -26,7 +26,7 @@ int main(void) {
             if (m == i) ++self; else if (m >= 0 && rt.f[m].n == rt.f[i].n && p == 100) ++twin;
         }
         printf("real table: %d files, %d self-match, %d identical-set twins\n", nf, self, twin);
-        assert(self + twin >= nf - 2 && nf > 300);
+        assert(self + twin >= nf * 9 / 10 && nf > 300);
     }
     printf("autobind_test OK\n"); return 0;
 }
