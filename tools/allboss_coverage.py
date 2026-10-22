@@ -59,8 +59,8 @@ def stats(path):
                 sp[-1][1] = max(sp[-1][1], b)
             else:
                 sp.append([a, b])
-        if h != '' and len(sp) < h:
-            s['simul'] += 1  # windows of different groups that overlap in time: may be 1 hit by 2 hitboxes (over-count risk)
+        if x['hits_upper_bound']:
+            s['simul'] += 1  # counted windows (different hit keys) live at the same frame: the count is an upper bound
         for w in x['windows'].split():
             a, b = w.split('(')[0].split('-')
             a, b = int(a), int(b)

@@ -19,9 +19,12 @@ Fields used (all from the file, RVAs are re/Nioh3.dump.exe):
   +0x10 u16 physical power, +0x12 u16 element power (GetAttackBaseDamage RVA 0x23C785C), +0xA5 u8 group id (meaning not proven).
 - action events (+0x40, 16 x (id, frame, len)): 20000+N = spawn of sub-table 7 row N (projectile / spawned object).
 
-Hit count = number of hit windows: frame-timed rows with power or element > 0, merged when they overlap or touch
-(start <= previous end + 1) and have the same group id (group 0 rows must also have the same power/element).
-Rows that sweep one swing (e.g. 0x4E8E at frames 52..57) merge into one.
+Hit count = number of hit windows: frame-timed rows with power or element > 0.
+1. Rows with the same (start frame +0x08, hit group) are one hit, power = max: the game's own key (RVA 0x78EADF..0x78EB74 sums power over
+   these keys; hit group = getter RVA 0x2B5B98 = byte +0xA5, 0xFF -> qword +0x00 bit 17 + 2 * bit 18). Proven in code.
+2. Keys that overlap or touch (start <= previous end + 1) and have the same hit group merge (group 0 keys must also have the same
+   power/element): rows that sweep one swing (e.g. 0x4E8E at frames 52..57) merge into one. Data rule.
+hits_upper_bound = 1 when two counted windows are live at the same frame (different keys): maybe 1 hit with 2 hitboxes.
 ASSUMPTION (not proven in code): one window hits the player once.
 """
 import os
@@ -57,26 +60,54 @@ def load(path):
     return d, st, owned
 
 
+def hit_group(d, b):
+    """The game's hit group of a hitbox row = RVA 0x2B5B98: byte +0xA5; 0xFF -> (qword +0x00 bit 17 ? 1 : 0) + (bit 18 ? 2 : 0)."""
+    g = d[b + 0xA5]
+    if g == 0xFF:
+        q = struct.unpack_from('<Q', d, b)[0]
+        g = (q >> 17 & 1) + 2 * (q >> 18 & 1)
+    return g
+
+
 def hitbox(d, st, i):
     b = st[2][0] + i * HB
     start, endf, ln = u16(d, b + 8), u16(d, b + 0xA), u16(d, b + 0xC)
     end = endf if endf != 0xFFFF else (start + ln if start != 0xFFFF else 0xFFFF)
-    return {'row': i, 'start': start, 'end': end, 'pow': u16(d, b + 0x10), 'elem': u16(d, b + 0x12), 'grp': d[b + 0xA5]}
+    return {'row': i, 'start': start, 'end': end, 'pow': u16(d, b + 0x10), 'elem': u16(d, b + 0x12), 'grp': hit_group(d, b)}
 
 
 def windows(rows):
-    timed = sorted((h for h in rows if h['start'] != 0xFFFF and (h['pow'] or h['elem'])), key=lambda h: (h['start'], h['row']))
+    timed = [h for h in rows if h['start'] != 0xFFFF and (h['pow'] or h['elem'])]
+    # 1. the game's own hit key (RVA 0x78EADF..0x78EB74, the action's power total): rows with the same (start frame +0x08, hit group 0x2B5B98)
+    #    are ONE hit whose power / element = the max over those rows (a swing with 2+ capsules / body spheres). Distinct keys are summed.
+    keys = {}
+    for h in sorted(timed, key=lambda h: (h['start'], h['row'])):
+        k = keys.get((h['start'], h['grp']))
+        if k:
+            k['end'] = max(k['end'], h['end'])
+            k['pow'], k['elem'], k['rows'] = max(k['pow'], h['pow']), max(k['elem'], h['elem']), k['rows'] + 1
+        else:
+            keys[(h['start'], h['grp'])] = dict(h, rows=1)
+    # 2. one capsule sweeping a swing (start frames 52, 53, 54 ... each a few frames long, 0x4E8E): keys of the same hit group that overlap or
+    #    touch merge into one window (group 0 keys also need the same power / element). Data rule, not in the code above.
     out = []
-    for h in timed:
+    for h in sorted(keys.values(), key=lambda h: (h['start'], h['row'])):
         for w in out:
             same = w['grp'] == h['grp'] and (h['grp'] or (w['pow'], w['elem']) == (h['pow'], h['elem']))
             if same and h['start'] <= w['end'] + 1:
                 w['end'] = max(w['end'], h['end'])
-                w['rows'] += 1
+                w['rows'] += h['rows']
                 break
         else:
-            out.append(dict(h, rows=1))
+            out.append(dict(h))
     return sorted(out, key=lambda w: w['start'])
+
+
+def uncertain(win):
+    """1 = two counted windows are live at the same frame ([start, end) overlap). The game counts them as separate hits (different hit key),
+    but whether both connect on the player is spatial, so the count is an upper bound for such a move."""
+    s = sorted(win, key=lambda w: w['start'])
+    return int(any(b['start'] < a['end'] for i, a in enumerate(s) for b in s[i + 1:]))
 
 
 def facts(path):
@@ -103,12 +134,12 @@ def facts(path):
             'hits': len(win) if win else ('' if how == 'no own hitbox rows' else 0),
             'windows': ' '.join('%d-%d(%d/%d)' % (w['start'], w['end'], w['pow'], w['elem']) for w in win),
             'spawns': ' '.join('%d@%d' % s for s in spawns), 'untimed_rows': len(untimed), 'zero_power_rows': len(zero),
-            'n_rows': len(rows), 'how': how,
+            'n_rows': len(rows), 'how': how, 'hits_upper_bound': uncertain(win),
         }
 
 
 COLS = ['action', 'motion', 'attack', 'unblockable', 'power_attack', 'red_events', 'hits', 'windows', 'spawns',
-        'untimed_rows', 'zero_power_rows', 'n_rows', 'how']
+        'untimed_rows', 'zero_power_rows', 'n_rows', 'how', 'hits_upper_bound']
 
 
 def main(argv):
