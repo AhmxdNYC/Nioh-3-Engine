@@ -360,3 +360,4 @@
 - #22978/#22989 (2026-10-22): send a video showcasing the new training features + the live controller input display (Xbox/PS style) when ready. #22984: wants all bosses summonable even without playing missions (100% save or reverse).
 - #22918/#22920/#22921 (2026-10-22): training should not lack options: keep boss in Ki break, stage toggling, make things adjustable (sliders) instead of toggles where sensible; time of day + sky wanted.
 - #23003 (2026-10-22): order doesn't matter, do ALL of it: controller display, demo video, all-bosses summonable check, hold Ki break test, stages, time of day/sky, sliders.
+- #23004 (2026-10-22): controller display video ASAP (priority over rest).
