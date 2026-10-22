@@ -13,6 +13,9 @@
 //     change the globals below live). Nothing is drawn while off or when the game has not polled a pad for 1.5 s.
 // XInput has no touchpad and XInputGetState no guide bit: kTouch / kGuide light only when a feed sets them (none does today).
 #pragma once
+#include <cstdlib>
+#include <cstring>
+#include <string.h>
 #include <cmath>
 #include <cstdint>
 #include "menu_style.h"  // g_btnStyle; osd.h (DrawSprite)
@@ -36,6 +39,9 @@ struct State {
 inline volatile int g_on = 0;
 inline volatile int g_size100 = 100;      // size x100: 50..400
 inline volatile int g_opacity100 = 45;    // opacity x100: 20..100
+inline volatile uint32_t g_pressRGB = 0x00FFFFFFu;  // colour of pressed (solid) parts, 0x00RRGGBB; white = the art as drawn (user #23367)
+inline volatile int g_posX = 0;           // horizontal position, % of the free screen width: 0 = left .. 100 = right
+inline volatile int g_posY = 0;           // vertical position, % of the free height below the default top spot: 0 = top .. 100 = bottom
 
 // ---- feed ----
 inline volatile uint32_t g_buttons = 0;
@@ -72,6 +78,17 @@ inline float Scale(unsigned H, int style) {
     float s = (float)H / 1080.0f * (float)g_size100 / 100.0f * kBaseWidth / SkinFor(style).canvasW;
     return s < 0.05f ? 0.05f : s > 4.0f ? 4.0f : s;
 }
+// the "Pressed button colour" choices (settings catalog) -> 0x00RRGGBB; also accepts a bare RRGGBB / #RRGGBB hex for the ini
+inline uint32_t PressColor(const char* n) {
+    static const struct { const char* name; uint32_t rgb; } k[] = {
+        {"White", 0xFFFFFF}, {"Red", 0xFF3B3B}, {"Orange", 0xFF9A2E}, {"Yellow", 0xFFE74A}, {"Green", 0x4CE86A},
+        {"Cyan", 0x3FE0F0}, {"Blue", 0x4C8CFF}, {"Purple", 0xA960FF}, {"Pink", 0xFF6EC7}};
+    for (auto& e : k) if (!_stricmp(n, e.name)) return e.rgb;
+    if (*n == '#') ++n;
+    char* end = nullptr;
+    const unsigned long v = strtoul(n, &end, 16);
+    return (end && end != n && !*end && strlen(n) == 6) ? (uint32_t)v : 0xFFFFFFu;
+}
 inline float Opacity() { return (float)g_opacity100 / 100.0f; }
 inline uint32_t White(float a) {
     const float c = a < 0 ? 0 : a > 1 ? 1 : a;
@@ -95,7 +112,7 @@ inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, f
         h *= fill;
         v0 += (v1 - v0) * cut;
     }
-    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, White(a));
+    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, a >= 1.0f ? (White(a) & 0xFF000000u) | (g_pressRGB & 0x00FFFFFFu) : White(a));
 }
 
 inline float Axis(int v) {

@@ -710,6 +710,11 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             if (g_cfg.fpsCounter) py = std::max(py, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
         }
         const int skin = padviz::Style();
+        {   // user position (% of the free space): 0/0 = the default top-left spot
+            const float ps = padviz::Scale(H, skin), pw = padviz::SkinFor(skin).canvasW * ps, ph = padviz::SkinFor(skin).canvasH * ps;
+            px += std::max(0.0f, (float)W - px - pw) * (float)padviz::g_posX / 100.0f;
+            py += std::max(0.0f, (float)H - py - ph) * (float)padviz::g_posY / 100.0f;
+        }
         if (PadAtlasReady(skin) && padviz::Draw(px, py, H, (uint64_t)GetTickCount64(), skin)) {
             g_padScale = 1.0f;  // sprites only (no text in this group)
             g_padSkin = skin;

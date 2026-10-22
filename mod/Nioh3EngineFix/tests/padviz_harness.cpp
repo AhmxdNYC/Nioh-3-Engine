@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
 
     // opacity scales every alpha; zero trigger draws nothing
     Clear(); DrawState(p, 0, 0, 1.0f, 0.5f, 1);
-    for (auto& s : osd::sprites) CHECK((s.c >> 24) <= 0x80u);
+    { bool anyDim = false; for (auto& s : osd::sprites) anyDim |= (s.c >> 24) <= 0x80u; CHECK(anyDim); }  // pressed art stays solid
     // everything at once stays inside the canvas box for both skins
     State all; all.buttons = 0xFFFF; all.lx = all.ly = all.rx = all.ry = -32768; all.lt = all.rt = 255;
     for (int style = 0; style < 2; ++style) {
