@@ -14,3 +14,9 @@ Goal: player never feels an option is missing vs SF6-style training.
 ## Feedback
 - Boss + player frame meter (done), freeze/frame-step (built), damage + combo counter, hitbox display, input display (controller overlay), record/replay.
 Priority next: Stage picker, boss phase/HP preset, position save/load, damage/combo counter.
+## Toggle -> adjustable (user #22921)
+- Hold Ki break: toggle + hold duration slider (1 s .. forever); one-hit Ki break: Ki damage multiplier slider (x1..x10..instant)
+- Infinite HP/Ki/ninjutsu: keep toggle + regen-rate slider (0 = off, per-second %); player/boss HP set % slider
+- Boss Ki drain per s (exists), boss Ki regen rate, boss aggression/reaction delay, repeat-move gap (exists)
+- Speeds (exist), freeze: frame-step count N, slow-motion % slider
+- Damage multipliers (exist); boss guard chance %; boss attack-frequency slider; stage time-of-day slider if exposed

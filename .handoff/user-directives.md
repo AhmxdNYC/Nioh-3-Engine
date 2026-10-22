@@ -351,3 +351,4 @@
 - #22873 (2026-10-22): when done send a ~1 min video (fits Discord) showing the controller overlay/button style and updated menus. #22870: use all Claude agents, keep work going.
 - #22918 (2026-10-22): user asks for a way in Training to keep the boss in Ki break (hold break). Feature to build: 'Hold Ki break' toggle.
 - #22920 (2026-10-22): Training mode should not feel like it is missing options: think about toggling stages/areas etc. and other training options; goal = complete training feature set.
+- #22921 (2026-10-22): in Training, anything that makes sense as an adjustable slider should be adjustable, not just a toggle (e.g. Hold Ki break -> adjustable hold duration, boss HP preset, etc.).
