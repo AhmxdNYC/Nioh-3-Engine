@@ -357,3 +357,6 @@
 - #22956 (2026-10-22): input display overlay should come in Xbox and PlayStation styles (follows ButtonStyle pick); top-left pad graphic, sticks/triggers.
 - #22972/#22973 (2026-10-22): user not home; go ahead, install the fixes build and restart the game as needed.
 - #22978 (2026-10-22): user wants a video showcasing more features AND the controller display; tell him when sent (needs input display built first). #22984: asks whether a 100% save gives access to all bosses or missions must still be played; wants all bosses confirmed summonable (reverse/verify all).
+- #22978/#22989 (2026-10-22): send a video showcasing the new training features + the live controller input display (Xbox/PS style) when ready. #22984: wants all bosses summonable even without playing missions (100% save or reverse).
+- #22918/#22920/#22921 (2026-10-22): training should not lack options: keep boss in Ki break, stage toggling, make things adjustable (sliders) instead of toggles where sensible; time of day + sky wanted.
+- #23003 (2026-10-22): order doesn't matter, do ALL of it: controller display, demo video, all-bosses summonable check, hold Ki break test, stages, time of day/sky, sliders.
