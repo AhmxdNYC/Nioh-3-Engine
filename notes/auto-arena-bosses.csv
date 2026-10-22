@@ -1,5 +1,4 @@
 id,name,chr,kind,mission,world,placement,source,confidence
-D1DE7,chr 0,0,field,0x1DE7,0xCD,0,mission (first boss record),field placement
 RC1D9,Tokugawa Kunimatsu,803396,start,0xC1D9,0xDF,555606,mission (boss kept from the committed row),medium spawn point 16m
 R1CBC,Yamagata Masakage,307259,arena,0x1CBC,0x4B,65092,mission (boss kept from the committed row),high (script trigger 66599 CH02_MAIN01_HITOKOTO_BOSSAREABOX)
 R0034,Jakotsu-baba,947280,arena,0x0034,0x96,76781,mission (first boss record),low (boss area box 70646 CH02_MAIN03_HAMAMATSU_BOSS_AREA)
@@ -27,6 +26,7 @@ R1359,Yagyu Jubei (A Fortress in Ruins),412493,arena,0x1359,0x35,8043173,mission
 R19EA,Kanai Hanbei (The Hollow Schoolhouse),96759,arena,0x19EA,0x35,8054890,mission (first boss record),low (boss area box 8051101 CH08_MAIN02_CHOKODO_BOSSBOX)
 RB3FE,Kumagai Naoyoshi,485999,start,0xB3FE,0x35,8066787,mission (boss kept from the committed row),medium shrine 18m
 RDC12,Giant Toad,210803,start,0xDC12,0x35,8073284,mission (boss kept from the committed row),medium shrine 27m
+D1C95,Takeda Shingen,466641,start,0x1C95,0x96,1008922,"mission (its only opponent, no boss record)",high mission start 15m
 D7F16,Yamagata Masakage (The Battle of Hitokoto Slope),307259,arena,0x7F16,0x4B,1010621,mission (first boss record),medium (script trigger 1018910 PARALLEL_001_HITOKOTO_BOSSAREABOX)
 R0B0B,Naito Masatoyo,502003,start,0x0B0B,0x96,1038159,mission (first boss record),high mission start 17m
 RC362,Hattori Hanzo (The Demon's Regimen),131751,start,0xC362,0x96,1102178,mission (boss kept from the committed row),high mission start 18m
@@ -76,7 +76,6 @@ R2826,Saito Fuku (Veteran),671570,start,0x2826,0xDF,5084399,mission (boss kept f
 RA19A,Kasha (Hundred Demon Realms Picture Scroll),829576,start,0xA19A,0x96,16999046,mission (first boss record),medium mission start 60m
 S488671,Enenra,488671,start,0x0034,0x96,74751,mission boss record,low shrine 88m
 S982853,Anayama Nobutada,982853,start,0x1C7C,0x96,89386,mission boss record,medium shrine 43m
-S466641,Takeda Shingen (Human),466641,start,0x0F7F,0x96,96416,mission boss record,medium shrine 58m
 S274906,Kosaka Masanobu,274906,start,0x0F7F,0x96,95891,mission boss record,high boss retry point 27m
 S306399,Hiruko (Yokai),306399,start,0x0C12,0xD8,594637,mission boss record,medium shrine 41m
 S308102,Kondo Isami (Kiyomizu Defiled),308102,start,0xE7BD,0xE0,4079148,mission boss record,medium gadget point 26m
