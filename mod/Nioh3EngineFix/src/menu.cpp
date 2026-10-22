@@ -1298,8 +1298,13 @@ void ChangeConfig(int index, int dir) {
         else if (!strcmp(d.key, "StartupPopupDelay")) o.popupDelay = (float)atof(v.c_str());
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
-        g_cfg.scale = (float)atof(v.c_str());
-        snprintf(g_configReply, sizeof(g_configReply), "Menu text size applies now; 0 = auto. Save to keep it.");
+        if (!strcmp(d.key, "ButtonStyle")) {
+            menu_style::g_btnStyle = _stricmp(v.c_str(), "PlayStation") == 0 ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
+        } else {
+            g_cfg.scale = (float)atof(v.c_str());
+            snprintf(g_configReply, sizeof(g_configReply), "Menu text size applies now; 0 = auto. Save to keep it.");
+        }
     } else if (d.apply == setting_ui::Apply::TuningLive && g_host.tuning) {
         // Install-with-switch-off (2) means OFF now, install OFF on the next launch.
         const char* live = !strcmp(d.section, "Patches") && v == "2" ? "0" : v.c_str();
@@ -2682,6 +2687,8 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
+    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Xbox", b, 96, f);
+    menu_style::g_btnStyle = !_wcsicmp(b, L"PlayStation") ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;

@@ -134,6 +134,41 @@ inline void ArrowHead(float x, float y, float w, float h, int dir, uint32_t c) {
 
 inline float BadgeH(float s) { return Snap((float)osd::kGlyphH * s); }
 // shoulder button (LB / RB / LT / RT): dark bumper, strongly rounded top, flat-ish bottom, light text (#13537)
+// [Menu] ButtonStyle: 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle); set by the menu
+inline volatile int g_btnStyle = 0;
+// PlayStation symbol in the round badge box (x, top, d = diameter), built from 1 px rects like the rest of this file
+inline void PsSymbol(float x, float top, float d, char k, uint32_t c) {
+    x = Snap(x); top = Snap(top); d = Snap(d);
+    const float m = Snap(d * 0.28f), sz = d - 2.0f * m, t = sz < 9.0f ? 1.0f : 2.0f;  // symbol box, stroke
+    const float bx = x + m, by = top + m;
+    if (k == 'A') {  // Cross: two diagonals
+        for (int i = 0; i < (int)sz; ++i) {
+            osd::DrawRect(bx + (float)i, by + (float)i, t, 1.0f, c);
+            osd::DrawRect(bx + sz - t - (float)i, by + (float)i, t, 1.0f, c);
+        }
+    } else if (k == 'B') {  // Circle: ring from rows
+        const float r = sz * 0.5f;
+        for (int i = 0; i < (int)sz; ++i) {
+            const float dy = r - ((float)i + 0.5f), o = r - std::sqrt(std::fmax(0.0f, r * r - dy * dy));
+            const float ri = r - t, in = std::fabs(dy) < ri ? r - std::sqrt(std::fmax(0.0f, ri * ri - dy * dy)) : r;
+            if (in > o + 0.5f) {  // row crosses the hole: two end strokes
+                osd::DrawRect(bx + Snap(o), by + (float)i, std::fmax(1.0f, Snap(in - o)), 1.0f, c);
+                osd::DrawRect(bx + sz - Snap(in), by + (float)i, std::fmax(1.0f, Snap(in - o)), 1.0f, c);
+            } else osd::DrawRect(bx + Snap(o), by + (float)i, sz - 2.0f * Snap(o), 1.0f, c);
+        }
+    } else if (k == 'X') {  // Square outline
+        osd::DrawRect(bx, by, sz, t, c); osd::DrawRect(bx, by + sz - t, sz, t, c);
+        osd::DrawRect(bx, by + t, t, sz - 2.0f * t, c); osd::DrawRect(bx + sz - t, by + t, t, sz - 2.0f * t, c);
+    } else {  // Triangle outline: two slanted sides and the base
+        const float h = sz, half = sz * 0.5f;
+        for (int i = 0; i < (int)h; ++i) {
+            const float e = half * ((float)i + 0.5f) / h;
+            osd::DrawRect(bx + half - e, by + (float)i, t, 1.0f, c);
+            osd::DrawRect(bx + half + e - t, by + (float)i, t, 1.0f, c);
+        }
+        osd::DrawRect(bx, by + h - t, sz, t, c);
+    }
+}
 inline bool IsBumper(const char* k, size_t n) { return n == 2 && (k[0] == 'L' || k[0] == 'R') && (k[1] == 'B' || k[1] == 'T'); }
 inline void Bumper(float x, float y, const char* k, float cw, float s, float a) {
     const float h = BadgeH(s), top = Snap(y), w = Snap(3.0f * cw);
@@ -162,6 +197,11 @@ inline float BadgeW(const char* k, size_t n, float cw, float s) {
 inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, float a) {
     const float h = BadgeH(s), top = Snap(y), w = BadgeW(k, n, cw, s);
     if (n == 1 && strchr("ABXY", k[0])) {
+        if (g_btnStyle) {  // PlayStation: dark round badge, coloured symbol (Cross blue, Circle red, Square pink, Triangle green)
+            RoundRect(x, top, w, h, h * 0.5f, Fade(0xF0382E28, a));
+            PsSymbol(x, top, h, k[0], Fade(k[0] == 'A' ? 0xFFF0A050 : k[0] == 'B' ? 0xFF5050F0 : k[0] == 'X' ? 0xFFC888F0 : 0xFF80D060, a));
+            return;
+        }
         const uint32_t bg = k[0] == 'A' ? kBtnA : k[0] == 'B' ? kBtnB : k[0] == 'X' ? kBtnX : kBtnY;
         RoundRect(x, top, w, h, h * 0.5f, Fade(bg, a));
         const char t[2] = {k[0], 0};

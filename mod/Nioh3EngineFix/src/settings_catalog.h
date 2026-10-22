@@ -27,6 +27,7 @@ const setting_ui::Def kConfigSettings[] = {
     {"Menu", "HoldButton", "Controller gesture button", "Start", setting_ui::Kind::Choice, 0, 0, 0, "Start|Back|L3|R3|LB|RB|Back+Start|L3+R3|None", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Menu", "HoldSeconds", "Controller hold duration (s)", "5", setting_ui::Kind::Number, 0, 30, 0.5, "", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Menu", "Scale", "Text size", "0", setting_ui::Kind::Number, 0, 8, 0.5, "0|1", setting_ui::Apply::MenuLive, "Menu.Scale", -1, 2, false, "Saved at once; applies now."},
+    {"Menu", "ButtonStyle", "Controller button style", "Xbox", setting_ui::Kind::Choice, 0, 0, 0, "Xbox|PlayStation", setting_ui::Apply::MenuLive, "Menu.ButtonStyle", -1, 2, false, "Xbox: A B X Y. PlayStation: Cross Circle Square Triangle. Footer button prompts; applies now. Save to keep it."},
     {"Menu", "PauseHint", "Pause hint", "2", setting_ui::Kind::Choice, 0, 0, 0, "0|1|2", setting_ui::Apply::NextLaunch, "", kHint, 2, false, "Saved at once; restart the game to apply."},
     {"Menu", "PauseHintSource", "Pause hint source", "Both", setting_ui::Kind::Choice, 0, 0, 0, "Both|Menu|StopFlags", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Menu", "KeyTripleTap", "Key triple tap", "Escape", setting_ui::Kind::Choice, 0, 0, 0, "Escape|None", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
