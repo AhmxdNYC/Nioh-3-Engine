@@ -26,6 +26,7 @@ def main():
         rows = list(rd)
     have = {(int(r['chr']), int(r['action_id'], 0)) for r in rows}
     names = {int(r['chr']): r['boss'] for r in rows}
+    names.update(g.NAMES)
     added = 0
     for chr_id, rel in sorted(g.BOSSES.items()):
         if chr_id == 16102:
