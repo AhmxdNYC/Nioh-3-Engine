@@ -102,5 +102,8 @@ constexpr int kGlyphW = 8, kGlyphH = 16;  // font cell in texels
 void DrawRect(float x, float y, float w, float h, uint32_t abgr);
 bool DrawCoverRect(float w,float h); // true only if opaque quad was appended
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale);  // returns the end x
+// textured quad from the controller display's sprite atlas (padviz.h; only inside padviz::Draw - the atlas of the current
+// skin is bound for that quad group). uv 0..1 (u0 > u1 mirrors); abgr tints/fades (0xFFFFFFFF = as drawn)
+void DrawSprite(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t abgr);
 
 }  // namespace osd

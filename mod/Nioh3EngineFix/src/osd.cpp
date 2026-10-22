@@ -51,6 +51,8 @@
 #include "osd_font.h"
 #include "padviz.h"
 #include "osd_shaders.h"
+#include "padviz_atlas_data.h"
+#include "padviz_png.h"
 
 // diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
 extern "C" {
@@ -81,10 +83,11 @@ constexpr int kSlotPresent = 8, kSlotPresent1 = 22, kSlotSetColorSpace1 = 38;
 
 constexpr int kRing = 4;          // command allocators / instance regions in flight
 constexpr int kMaxInst = 4096;    // quads per frame (counter + popup + mod menu)
-constexpr UINT kInstBytes = 24;   // float4 rect + uint glyph + uint color
+constexpr UINT kInstBytes = 40;   // float4 rect + uint glyph + uint color + float4 uv (sprites)
 constexpr UINT kFontCb = 6144;    // 95 glyphs * 16 rows * 4 B = 6080, rounded to 256
 constexpr UINT kSlotBytes = kMaxInst * kInstBytes;
 constexpr uint32_t kSolid = 0xFFFF;
+constexpr uint32_t kSprite = 0xFFFE;  // controller-display atlas quad (padviz.h)
 static_assert(osdfont::kWords * 4 <= (int)kFontCb, "font does not fit the constant buffer");
 
 using LogFn = void (*)(const char*, ...);
@@ -417,6 +420,7 @@ const char* FgActiveName() {
 struct Inst {
     float x, y, w, h;
     uint32_t glyph, color;
+    float u0, v0, u1, v1;
 };
 static_assert(sizeof(Inst) == kInstBytes, "instance layout");
 Inst g_inst[kMaxInst];
@@ -456,9 +460,49 @@ struct Line {
     }
 };
 
-void AddQuad(float x, float y, float w, float h, uint32_t glyph, uint32_t color) {
+void AddQuad(float x, float y, float w, float h, uint32_t glyph, uint32_t color, float u0 = 0, float v0 = 0, float u1 = 0,
+             float v1 = 0) {
     if (g_n >= kMaxInst) return;
-    g_inst[g_n++] = {x, y, w, h, glyph, color};
+    g_inst[g_n++] = {x, y, w, h, glyph, color, u0, v0, u1, v1};
+}
+
+// ---- controller-display atlases (padviz.h): PNG -> premultiplied RGBA + box-filtered mip chain, decoded once per skin on a
+// worker thread the first time the display is on with that skin; kept for swapchain rebuilds. ------------------------------
+struct PadAtlas {
+    padviz_png::Atlas a;
+    volatile LONG state = 0;  // 0 not started, 1 decoding, 2 ready, 3 failed
+};
+PadAtlas g_padAtlas[2];  // [0] Xbox, [1] DualSense (= padviz style)
+int g_padSkin = -1;      // skin whose quads are in this frame's pad group (-1 none)
+
+DWORD WINAPI PadAtlasThread(void* arg) {
+    const int skin = (int)(intptr_t)arg;
+    PadAtlas& A = g_padAtlas[skin];
+    const unsigned char* png = skin ? padviz::kAtlasPng_dualsense : padviz::kAtlasPng_xbox;
+    const size_t n = skin ? sizeof(padviz::kAtlasPng_dualsense) : sizeof(padviz::kAtlasPng_xbox);
+    const ULONGLONG t0 = GetTickCount64();
+    LONG result = 3;
+    try {
+        if (padviz_png::DecodeAtlas(png, n, A.a)) result = 2;
+    } catch (...) {
+        result = 3;
+    }
+    OLOG("controller display: %s atlas %s (%dx%d, %d mips, %llu ms)", skin ? "DualSense" : "Xbox", result == 2 ? "decoded" : "FAILED",
+         A.a.w, A.a.h, A.a.levels, (unsigned long long)(GetTickCount64() - t0));
+    InterlockedExchange(&A.state, result);
+    return 0;
+}
+
+// true when the atlas of `skin` can be drawn; starts its decode the first time
+bool PadAtlasReady(int skin) {
+    PadAtlas& A = g_padAtlas[skin];
+    if (A.state == 2) return true;
+    if (InterlockedCompareExchange(&A.state, 1, 0) == 0) {
+        HANDLE t = CreateThread(nullptr, 0, PadAtlasThread, (void*)(intptr_t)skin, 0, nullptr);
+        if (t) CloseHandle(t);
+        else InterlockedExchange(&A.state, 3);
+    }
+    return false;
 }
 
 float AddText(float x, float y, const char* t, uint32_t color, float sc) {
@@ -528,6 +572,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_menuScale = 0;
     g_nPad = 0;
     g_padScale = 0;
+    g_padSkin = -1;
     const float sc = CounterScaleImpl(H);
     const float k1080 = (float)H / 1080.0f;
     const float margin = 8 * sc;
@@ -656,7 +701,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     if (nn && noteAlpha > 0) place(note, nn, noteAlpha);
     g_nMain = g_n;
     // controller display (padviz.h): top-left below the game's HUD bars (DefaultOffsetY) and below the counter when that sits there;
-    // its own quad group because the face-button letters need their own text scale
+    // its own quad group: textured sprites from the skin's atlas (bound for this group only)
     if (padviz::g_on) {
         const bool tl = g_cfg.pos == 0;
         float px = 16.0f * k1080, py = (float)DefaultOffsetY(0) * k1080;
@@ -664,8 +709,13 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             px = margin + offX;
             if (g_cfg.fpsCounter) py = std::max(py, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
         }
-        if (padviz::Draw(px, py, H, (uint64_t)GetTickCount64())) g_padScale = padviz::Scale(H);
-        else g_n = g_nMain;
+        const int skin = padviz::Style();
+        if (PadAtlasReady(skin) && padviz::Draw(px, py, H, (uint64_t)GetTickCount64(), skin)) {
+            g_padScale = 1.0f;  // sprites only (no text in this group)
+            g_padSkin = skin;
+        } else {
+            g_n = g_nMain;
+        }
     }
     g_nPad = g_n;
     g_menuScale = menu::Draw(W, H);  // mod menu / pause hint / hold indicator (menu.cpp), drawn at its own scale
@@ -695,6 +745,13 @@ struct Ctx {
     uint8_t* mapped = nullptr;
     ID3D12RootSignature* rs = nullptr;
     ID3D12PipelineState* pso = nullptr;
+    // controller-display atlases: SRV heap slot 0 = null SRV (nothing uploaded yet), 1 = Xbox, 2 = DualSense (each written once,
+    // before any command list references it)
+    ID3D12DescriptorHeap* srv = nullptr;
+    UINT srvInc = 0;
+    ID3D12Resource* tex[2] = {};
+    ID3D12Resource* texUp[2] = {};  // staging buffer, released once the copy's fence value passed
+    uint64_t texUpVal[2] = {};
     DXGI_FORMAT psoFmt = DXGI_FORMAT_UNKNOWN;
     uint64_t frame = 0;
     int64_t lastPresent = 0;
@@ -806,6 +863,11 @@ void DestroyCtx(Ctx& c) {
     g_coverContextGeneration.fetch_add(1);
     WaitIdle(c, 1500);  // the old context's last submission must be done before anything it uses is released
     if (c.upload && c.mapped) c.upload->Unmap(0, nullptr);
+    for (int i = 0; i < 2; ++i) {
+        SafeRelease(c.tex[i]);
+        SafeRelease(c.texUp[i]);
+    }
+    SafeRelease(c.srv);
     SafeRelease(c.pso);
     SafeRelease(c.rs);
     SafeRelease(c.upload);
@@ -876,6 +938,21 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     hd.NumDescriptors = kRing;
     CHECK(c.dev->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&c.rtv)), "CreateDescriptorHeap(RTV)");
     c.rtvInc = c.dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    D3D12_DESCRIPTOR_HEAP_DESC sh{};
+    sh.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    sh.NumDescriptors = 3;
+    sh.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    CHECK(c.dev->CreateDescriptorHeap(&sh, IID_PPV_ARGS(&c.srv)), "CreateDescriptorHeap(SRV)");
+    c.srvInc = c.dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    {
+        D3D12_SHADER_RESOURCE_VIEW_DESC nd{};
+        nd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        nd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        nd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        nd.Texture2D.MipLevels = 1;
+        D3D12_CPU_DESCRIPTOR_HANDLE h = c.srv->GetCPUDescriptorHandleForHeapStart();
+        for (int i = 0; i < 3; ++i, h.ptr += c.srvInc) c.dev->CreateShaderResourceView(nullptr, &nd, h);
+    }
 
     D3D12_HEAP_PROPERTIES hp{};
     hp.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -901,7 +978,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
     auto serialize = d3d12 ? reinterpret_cast<SerializeFn>(GetProcAddress(d3d12, "D3D12SerializeRootSignature")) : nullptr;
     if (!serialize) { OLOG("D3D12SerializeRootSignature not found"); return false; }
-    D3D12_ROOT_PARAMETER rp[2]{};
+    D3D12_ROOT_PARAMETER rp[3]{};
     rp[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rp[0].Descriptor.ShaderRegister = 0;
     rp[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -909,9 +986,25 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     rp[1].Constants.ShaderRegister = 1;
     rp[1].Constants.Num32BitValues = 4;
     rp[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_DESCRIPTOR_RANGE range{};  // t0: controller-display atlas
+    range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    range.NumDescriptors = 1;
+    range.BaseShaderRegister = 0;
+    rp[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    rp[2].DescriptorTable.NumDescriptorRanges = 1;
+    rp[2].DescriptorTable.pDescriptorRanges = &range;
+    rp[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_STATIC_SAMPLER_DESC ss{};
+    ss.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    ss.AddressU = ss.AddressV = ss.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    ss.MaxLOD = D3D12_FLOAT32_MAX;
+    ss.ShaderRegister = 0;
+    ss.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     D3D12_ROOT_SIGNATURE_DESC rsd{};
-    rsd.NumParameters = 2;
+    rsd.NumParameters = 3;
     rsd.pParameters = rp;
+    rsd.NumStaticSamplers = 1;
+    rsd.pStaticSamplers = &ss;
     rsd.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     ID3DBlob* blob = nullptr;
     ID3DBlob* err = nullptr;
@@ -946,10 +1039,11 @@ bool EnsurePso(Ctx& c, DXGI_FORMAT fmt) {
         WaitIdle(c, 500);  // in-flight lists still reference the old PSO
         SafeRelease(c.pso);
     }
-    static const D3D12_INPUT_ELEMENT_DESC il[3] = {
+    static const D3D12_INPUT_ELEMENT_DESC il[4] = {
         {"RECT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
         {"GLYPH", 0, DXGI_FORMAT_R32_UINT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
         {"COLOR", 0, DXGI_FORMAT_R32_UINT, 0, 20, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
+        {"UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1},
     };
     D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
     d.pRootSignature = c.rs;
@@ -971,7 +1065,7 @@ bool EnsurePso(Ctx& c, DXGI_FORMAT fmt) {
     d.RasterizerState.DepthClipEnable = TRUE;
     d.DepthStencilState.DepthEnable = FALSE;
     d.DepthStencilState.StencilEnable = FALSE;
-    d.InputLayout = {il, 3};
+    d.InputLayout = {il, 4};
     d.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     d.NumRenderTargets = 1;
     d.RTVFormats[0] = fmt;
@@ -979,6 +1073,97 @@ bool EnsurePso(Ctx& c, DXGI_FORMAT fmt) {
     CHECK(c.dev->CreateGraphicsPipelineState(&d, IID_PPV_ARGS(&c.pso)), "CreateGraphicsPipelineState");
     c.psoFmt = fmt;
     OLOG("pipeline created for back buffer format %d", (int)fmt);
+    return true;
+}
+
+// records the upload of a decoded controller-display atlas into this frame's command list (once per skin and context) and
+// writes its SRV. false = could not (the pad group is then dropped for this frame; logged once).
+bool EnsurePadTexture(Ctx& c, int skin) {
+    if (c.tex[skin]) return true;
+    static bool logged = false;
+    if (g_padAtlas[skin].state != 2) return false;
+    const padviz_png::Atlas& A = g_padAtlas[skin].a;
+    D3D12_HEAP_PROPERTIES hp{};
+    hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+    D3D12_RESOURCE_DESC td{};
+    td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    td.Width = (UINT64)A.w;
+    td.Height = (UINT)A.h;
+    td.DepthOrArraySize = 1;
+    td.MipLevels = (UINT16)A.levels;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    ID3D12Resource* tex = nullptr;
+    HRESULT hr = c.dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                                IID_PPV_ARGS(&tex));
+    if (FAILED(hr) || !tex) {
+        if (!logged) OLOG("controller display: CreateCommittedResource(atlas) failed (hr %08lX)", (unsigned long)hr);
+        logged = true;
+        return false;
+    }
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp[12]{};
+    UINT rows[12]{};
+    UINT64 rowBytes[12]{}, total = 0;
+    c.dev->GetCopyableFootprints(&td, 0, (UINT)A.levels, 0, fp, rows, rowBytes, &total);
+    D3D12_HEAP_PROPERTIES up{};
+    up.Type = D3D12_HEAP_TYPE_UPLOAD;
+    D3D12_RESOURCE_DESC bd{};
+    bd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    bd.Width = total;
+    bd.Height = 1;
+    bd.DepthOrArraySize = 1;
+    bd.MipLevels = 1;
+    bd.SampleDesc.Count = 1;
+    bd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    ID3D12Resource* stage = nullptr;
+    uint8_t* m = nullptr;
+    hr = c.dev->CreateCommittedResource(&up, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&stage));
+    D3D12_RANGE none{0, 0};
+    if (FAILED(hr) || !stage || FAILED(stage->Map(0, &none, (void**)&m))) {
+        if (!logged) OLOG("controller display: atlas staging buffer failed (hr %08lX)", (unsigned long)hr);
+        logged = true;
+        SafeRelease(stage);
+        tex->Release();
+        return false;
+    }
+    int lw = A.w, lh = A.h;
+    for (int l = 0; l < A.levels; ++l) {
+        const size_t srcRow = (size_t)lw * 4;
+        for (UINT y = 0; y < rows[l] && y < (UINT)lh; ++y)
+            memcpy(m + fp[l].Offset + (size_t)y * fp[l].Footprint.RowPitch, &A.px[A.off[l] + y * srcRow], srcRow);
+        D3D12_TEXTURE_COPY_LOCATION dst{}, src{};
+        dst.pResource = tex;
+        dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dst.SubresourceIndex = (UINT)l;
+        src.pResource = stage;
+        src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src.PlacedFootprint = fp[l];
+        c.cl->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+        lw = std::max(1, lw / 2);
+        lh = std::max(1, lh / 2);
+    }
+    stage->Unmap(0, nullptr);
+    D3D12_RESOURCE_BARRIER br{};
+    br.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    br.Transition.pResource = tex;
+    br.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    br.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    br.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    c.cl->ResourceBarrier(1, &br);
+    D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
+    sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    sd.Texture2D.MipLevels = (UINT)A.levels;
+    D3D12_CPU_DESCRIPTOR_HANDLE h = c.srv->GetCPUDescriptorHandleForHeapStart();
+    h.ptr += (SIZE_T)(1 + skin) * c.srvInc;
+    c.dev->CreateShaderResourceView(tex, &sd, h);
+    c.tex[skin] = tex;
+    c.texUp[skin] = stage;
+    c.texUpVal[skin] = c.fenceVal + 1;  // the Signal that follows this frame's ExecuteCommandLists
+    OLOG("controller display: %s atlas uploaded (%dx%d, %d mips, %llu KB)", skin ? "DualSense" : "Xbox", A.w, A.h, A.levels,
+         (unsigned long long)(total >> 10));
     return true;
 }
 
@@ -1021,6 +1206,17 @@ bool DrawFrame(Ctx& c, int64_t now) {
         br.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
         br.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
         c.cl->ResourceBarrier(1, &br);
+        for (int i = 0; i < 2; ++i)  // staging buffers of finished atlas uploads
+            if (c.texUp[i] && c.fence->GetCompletedValue() >= c.texUpVal[i]) SafeRelease(c.texUp[i]);
+        if (g_padSkin >= 0 && g_nPad > g_nMain && !EnsurePadTexture(c, g_padSkin)) {
+            // no atlas on the GPU: drop the pad group (the menu quads after it move down)
+            const int drop = g_nPad - g_nMain;
+            memmove(c.mapped + off + (size_t)g_nMain * kInstBytes, c.mapped + off + (size_t)g_nPad * kInstBytes,
+                    (size_t)(g_n - g_nPad) * kInstBytes);
+            g_n -= drop;
+            g_nPad = g_nMain;
+            g_padSkin = -1;
+        }
         D3D12_CPU_DESCRIPTOR_HANDLE rtv = c.rtv->GetCPUDescriptorHandleForHeapStart();
         rtv.ptr += (SIZE_T)slot * c.rtvInc;
         c.dev->CreateRenderTargetView(bb, nullptr, rtv);
@@ -1032,6 +1228,10 @@ bool DrawFrame(Ctx& c, int64_t now) {
         c.cl->SetGraphicsRootSignature(c.rs);
         const D3D12_GPU_VIRTUAL_ADDRESS va = c.upload->GetGPUVirtualAddress();
         c.cl->SetGraphicsRootConstantBufferView(0, va);
+        c.cl->SetDescriptorHeaps(1, &c.srv);
+        D3D12_GPU_DESCRIPTOR_HANDLE th = c.srv->GetGPUDescriptorHandleForHeapStart();
+        if (g_padSkin >= 0 && c.tex[g_padSkin]) th.ptr += (UINT64)(1 + g_padSkin) * c.srvInc;
+        c.cl->SetGraphicsRootDescriptorTable(2, th);
         float bright = 1.0f;
         if (bd.Format == DXGI_FORMAT_R16G16B16A16_FLOAT) bright = 2.5f;  // scRGB: 1.0 = 80 nits
         else if (bd.Format == DXGI_FORMAT_R10G10B10A2_UNORM && g_colorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020)
@@ -1528,6 +1728,9 @@ float CounterScale(unsigned H) { return CounterScaleImpl(H); }
 void DrawRect(float x, float y, float w, float h, uint32_t abgr) { AddQuad(x, y, w, h, kSolid, abgr); }
 bool DrawCoverRect(float w,float h) { const int before=g_n;AddQuad(0,0,w,h,kSolid,0xFF000000);return g_n==before+1; }
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale) { return AddText(x, y, text, abgr, scale); }
+void DrawSprite(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t abgr) {
+    AddQuad(x, y, w, h, kSprite, abgr, u0, v0, u1, v1);
+}
 
 const char* FgTypeName(int v) {
     switch (v) {

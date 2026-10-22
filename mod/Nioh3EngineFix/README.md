@@ -594,6 +594,15 @@ Notes:
 * If the overlay stops drawing, the menu closes by itself within 1.5 s and the game's input passes through again.
   Any error disables only the menu and is logged (`MENU: ...` lines).
 
+### Controller display (`[Menu] ControllerDisplay`)
+A live picture of the controller, top-left under the FPS counter, drawn the way the Gamepad Viewer skins (gamepadviewer.com)
+draw it: the controller body, then for every pressed button its lit sprite, the stick caps moved (and tilted) by the axes,
+the triggers lit by how far they are pulled, and the touchpad / PS button when pressed. `ButtonStyle = PlayStation` shows a
+DualSense, `ButtonStyle = Xbox` an Xbox pad. `ControllerDisplaySize` (1 = about 280 px wide at 1080p) and
+`ControllerDisplayOpacity` change it live; the menu rows are under "Mod menu controls". The picture shows the raw pad
+before the menu masks anything. XInput has no touchpad and no PS/guide bit, so those two layers stay dark today.
+The sprites are embedded in the `.asi` (see Credits).
+
 ### Frame generation status and switch
 The startup popup and the menu show:
 * the game's **FRAME_GENERATION** setting (OFF, DLSS, FSR or XeSS) and its **upscaler** setting. FSR frame gen doesn't
@@ -650,6 +659,43 @@ To uninstall, delete the `.asi`/`.dll`, `.ini` and `.log`. Nothing else was chan
   one long step.
 * Per-frame script timers in the 30 cap, and anything above 120 fps, are only partly verified.
 * Menu fades are frame-counted and take a little longer below the cap (cosmetic).
+
+## Credits
+* Controller display, PlayStation style: the **Gamepad Viewer DualSense skin** by **CrazyGrape** (vector art, 2021), with
+  touchpad and PS button support by **Cubio300** (https://gist.github.com/Cubio300/e9ff30dff9a96081086f534b22bf05fd).
+  Licensed under Creative Commons Attribution 3.0 United States (https://creativecommons.org/licenses/by/3.0/us/).
+  The sprites are packed into one atlas (cropped, not otherwise changed). The DualSense design and the PlayStation logo are
+  the intellectual property of Sony.
+* Controller display, Xbox style: the **"xbox_star" skin of MyGamepadViewer** by **skyqyzm**
+  (https://github.com/skyjty/MyGamepadViewer), MIT License, Copyright (c) 2024 skyqyzm (full text in
+  `assets/padviz/xbox/LICENSE`). Rasterised from its SVG layers. The Xbox design and logo are Microsoft's.
+  MIT licence text of the Xbox art (it ships inside the `.asi`):
+
+  ```
+  MIT License
+
+  Copyright (c) 2024 skyqyzm
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+* The layer behaviour (lit sprites, stick travel, trigger opacity) follows gamepadviewer.com and Marcin Wichary's
+  Gamepad tester (Apache 2.0). Details and sources: `assets/padviz/CREDITS.txt`.
 
 ---
 
