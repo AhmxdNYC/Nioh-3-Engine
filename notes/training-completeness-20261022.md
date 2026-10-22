@@ -24,3 +24,7 @@ Priority next: Stage picker, boss phase/HP preset, position save/load, damage/co
 - notes/renderer/09-volumetrics.md: time of day enters render via scene+2CC (seconds) and scene+B2EC; sun/moon directions (SkySunMoonDirections 5EBD08), fog, clouds, sky ambient all read it. => a Time-of-day slider = write scene+2CC each frame. UNPROVEN in game.
 - Sky: cloud/pattern params in NatureSkyUpdatePatternParams 5F1628, sky ambient change fires on RS+96C. Sky picker (clear/cloudy/night) = needs cloud param discovery.
 - Step 1: read scene+2CC live (log), step 2: freeze/write it, step 3: slider 0-24h, step 4: sky/cloud presets.
+## Boss availability (user #22984, from notes/rematch-all-bosses.md, static data, 2026-10-22)
+- 96 bosses total: 59 route R (replay mission), 8 D (master duels, field), 3 H variants, 29 X (no route: 19 field-only, 7 no boss record, 3 no data); 20 E0 are Hundred Demon wave battles, not named bosses.
+- Boss Matches gate = MissionClearedGetSlot(702B64)==1 on the current journey => a 100% save passes the gate for all R/H/D rows without replaying. Only 1 boss (Jakotsu-baba) is log-confirmed; 59 marked verified=1 in the tsv, not all in-game proven.
+- 29 X bosses cannot be started by the mod at all, even on a 100% save (field only / no data) unless summon-in-place works for them.
