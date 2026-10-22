@@ -49,6 +49,7 @@
 #include "samelook.h"
 #include "livectl.h"
 #include "osd_font.h"
+#include "padviz.h"
 #include "osd_shaders.h"
 
 // diagnostics exported by caves.asm (VRR). vrr_scale stays 1.0 when the VRR group is not installed.
@@ -422,6 +423,8 @@ Inst g_inst[kMaxInst];
 int g_n = 0;
 int g_nMain = 0;          // quads [0, g_nMain) use the counter scale, [g_nMain, g_n) the menu scale
 float g_menuScale = 0;    // text scale of the menu quads (0 = none this frame)
+int g_nPad = 0;           // padviz.h controller display: quads [g_nMain, g_nPad) use g_padScale, [g_nPad, g_n) the menu scale
+float g_padScale = 0;
 
 constexpr uint32_t kWhite = 0xFFFFFFFF, kGray = 0xFFB4B4B4, kGreen = 0xFF6CFF6C, kYellow = 0xFF40E6FF,
                    kOrange = 0xFF3C8CFF, kCyan = 0xFFFFE08C, kRed = 0xFF5050FF, kPanel = 0xA0000000;
@@ -523,6 +526,8 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     }
     g_nMain = 0;
     g_menuScale = 0;
+    g_nPad = 0;
+    g_padScale = 0;
     const float sc = CounterScaleImpl(H);
     const float k1080 = (float)H / 1080.0f;
     const float margin = 8 * sc;
@@ -650,8 +655,21 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     if (np && popAlpha > 0) place(pop, np, popAlpha);
     if (nn && noteAlpha > 0) place(note, nn, noteAlpha);
     g_nMain = g_n;
+    // controller display (padviz.h): top-left below the game's HUD bars (DefaultOffsetY) and below the counter when that sits there;
+    // its own quad group because the face-button letters need their own text scale
+    if (padviz::g_on) {
+        const bool tl = g_cfg.pos == 0;
+        float px = 16.0f * k1080, py = (float)DefaultOffsetY(0) * k1080;
+        if (tl) {
+            px = margin + offX;
+            if (g_cfg.fpsCounter) py = std::max(py, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
+        }
+        if (padviz::Draw(px, py, H, (uint64_t)GetTickCount64())) g_padScale = padviz::Scale(H);
+        else g_n = g_nMain;
+    }
+    g_nPad = g_n;
     g_menuScale = menu::Draw(W, H);  // mod menu / pause hint / hold indicator (menu.cpp), drawn at its own scale
-    if (g_menuScale <= 0) g_n = g_nMain;
+    if (g_menuScale <= 0) g_n = g_nPad;
 }
 
 // ---- D3D12 drawing context (one per swapchain; rebuilt when the presenting swapchain changes) -----------------------
@@ -1027,10 +1045,15 @@ bool DrawFrame(Ctx& c, int64_t now) {
             c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
             c.cl->DrawInstanced(4, (UINT)g_nMain, 0, 0);
         }
-        if (g_n > g_nMain) {
+        if (g_nPad > g_nMain) {
+            consts[2] = g_padScale;
+            c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
+            c.cl->DrawInstanced(4, (UINT)(g_nPad - g_nMain), 0, (UINT)g_nMain);
+        }
+        if (g_n > g_nPad) {
             consts[2] = g_menuScale;
             c.cl->SetGraphicsRoot32BitConstants(1, 4, consts, 0);
-            c.cl->DrawInstanced(4, (UINT)(g_n - g_nMain), 0, (UINT)g_nMain);
+            c.cl->DrawInstanced(4, (UINT)(g_n - g_nPad), 0, (UINT)g_nPad);
         }
         std::swap(br.Transition.StateBefore, br.Transition.StateAfter);
         c.cl->ResourceBarrier(1, &br);

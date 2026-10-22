@@ -40,6 +40,7 @@
 #include "../../menu_navigation.h"
 #include "osd.h"
 #include "menu_style.h"
+#include "padviz.h"
 #include "../../rematch_menu_bridge.h"
 
 namespace menu {
@@ -212,6 +213,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     const ULONGLONG t = Now();
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
+    padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
     const uint32_t prev = s.prev;
     uint32_t raw = g.wButtons;
     if (g.sThumbLY > ((prev & B_SU) ? 12000 : 20000)) raw |= B_SU;  // hysteresis: no edge flicker at the threshold
@@ -1301,6 +1303,15 @@ void ChangeConfig(int index, int dir) {
         if (!strcmp(d.key, "ButtonStyle")) {
             menu_style::g_btnStyle = _stricmp(v.c_str(), "PlayStation") == 0 ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
+        } else if (!strcmp(d.key, "ControllerDisplay")) {
+            padviz::g_on = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), padviz::g_on ? "Controller display on (top-left). Save to keep it." : "Controller display off. Save to keep it.");
+        } else if (!strcmp(d.key, "ControllerDisplaySize")) {
+            padviz::g_size100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 50, 400);
+            snprintf(g_configReply, sizeof(g_configReply), "Controller display size applies now. Save to keep it.");
+        } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
+            padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
+            snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
         } else {
             g_cfg.scale = (float)atof(v.c_str());
             snprintf(g_configReply, sizeof(g_configReply), "Menu text size applies now; 0 = auto. Save to keep it.");
@@ -2689,6 +2700,11 @@ void Configure(const Host& h) {
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
     GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Xbox", b, 96, f);
     menu_style::g_btnStyle = !_wcsicmp(b, L"PlayStation") ? 1 : 0;
+    padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
+    GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
+    padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
+    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.8", b, 96, f);
+    padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
