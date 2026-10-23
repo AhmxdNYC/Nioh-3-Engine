@@ -184,7 +184,9 @@ try {
         Copy-Item $perfIni "$out\$tag.ini" -Force
         $tag = $run.run_id
         try {
-            $null = Launch
+            for ($att = 1; $att -le 2; $att++) {   # a launch that stalls before the player loads (about every 2nd run on pc) is retried once
+                try { $null = Launch; break } catch { T "  launch attempt $att failed: $($_.Exception.Message)"; if ($att -ge 2) { throw }; Close-Game }
+            }
             $q = RMP "fight $Row"; T "  fight: $q"
             if ($q -notmatch '^queued') { throw "fight refused: $q" }
             $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') -or (LastOf $x) -match '^(started.*in place|refused)' } 30 1
