@@ -4,6 +4,7 @@ r"""Static boss move list straight from the game's action files: no hand table, 
     py -I tools/auto_movelist.py --file FA/5FBD...54 [--file ...] [--all-rows]
                                                                  move list of one action file, or of several layered files (first = base)
     py -I tools/auto_movelist.py --chr 16102 [--all-rows]        move list of a boss; its files come from the runtime binding logs (see BINDING)
+    py -I tools/auto_movelist.py --check                         assert the known Yoritomo facts
     py -I tools/auto_movelist.py --validate [--hand-binding]     compare with mod/boss_moves.h, boss_move_facts.h, boss_sequences.h
     py -I tools/auto_movelist.py --sweep [--outdir notes/auto-movelist]
                                                                  every boss in the binding logs: summary.tsv + moves.tsv
@@ -24,9 +25,10 @@ OVER THE (LAYERED) TABLE:
   sequence head = has a link, is no link target, not idle, and its chain (max 8) contains an attack
 
 LAYERING (human duelists, notes/auto-movelist-human-layering.md): a boss has several action files loaded at once (its own file, or the
-shared CP_HUMAN_COMMON base + one CP_HUMAN_<weapon> file + small extras). The files' action-id spaces are disjoint except a handful of
-system ids (0x0, 0x41A, 0xC51, 0x1035, ...); the union is the move list and an id defined twice resolves to the more specific file
-(listed later): runtime evidence = Kajiwara Kagetoki's current action 0x0 pointed into the CP_HUMAN_TEONO row, not the common one.
+shared CP_HUMAN_COMMON base + one CP_HUMAN_<weapon> file + small extras). Over all 27 multi-file human sets the files' action-id spaces
+are disjoint except 11 system ids (0x0, 0x2, 0x61, 0x41A, 0xC51, 0x1035, 0x6AE, 0x3EE9-0x3EEC); 7 of them carry the same action-object
+hash in both files (= the same action object) and none is an attack. So the move list = the union; for the few duplicate ids the later
+(more specific) file is kept: INFERRED, it changes no attack / hit / sequence fact.
 
 BINDING (which files a chr uses) is the runtime's job (autobind_game.h finds the loaded rows in memory). Offline the same information is
 read back from the autobind sweep logs (captures/pc2-autobind/run*/Nioh3Training.log): a bound block names its file; an unbound block
@@ -497,6 +499,14 @@ def sweep(outdir):
 
 
 def main(argv):
+    if '--check' in argv:  # known Yoritomo facts (notes/yoritomo-hits-and-unblockable.md), from the file alone
+        t, by_id = table_for(['FA5FBD421BF96B8514DA056584B9507A22DC7956B1793995A113FBA714CFFA54'])
+        s = summary(t)
+        assert s['actions'] == 173 and s['attack_block'] == 88, s
+        assert by_id[0x4E6E]['hits'] == 2 and by_id[0x4E6E]['great'] and by_id[0x4E68]['hits'] == 3 and not by_id[0x4E68]['great']
+        assert by_id[0x4E5C]['chain'] == '4E5C>4E60>4E61 loop'
+        print('check ok:', s)
+        return 0
     if '--extract' in argv:
         extract()
         return 0
