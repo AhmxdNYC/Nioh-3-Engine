@@ -71,3 +71,30 @@ One motion, different lists:
 - Otoroshi motion 1012. `0x4E4E` owns rows 32-34, and all three words at `+0x10` are 0. `0x4EED` and `0x4E72` on that same motion each own one row at power 105 (base 525).
 
 A power of 0 is what the file stores. It is not a claim that the swing does no damage. Element is the word at `+0x12`. These examples are element 0. The row count is still not a hit count.
+
+## Hit count is not on the ActLog object
+
+2026-10-22, offline. The game was not launched. The dump is `re/Nioh3.dump.exe`, 87,011,328 bytes. RVA `0x358528` is still the 15 bytes `48 8B 81 E8 00 00 00 48 85 C0 74 03 8B 00 C3`. It loads the object at `state+0xE8` and returns that object's first dword. That dword is the action id. It is not a hit count, and it is not a combo counter.
+
+The same dump has no `HitCount`, `hit_count`, `ComboCount`, `combo`, or `HitNum` string. The only `GetHit` string is `Collision::Attack::Hit::GetHitEffLocalPos`.
+
+There is no state field that already holds the number of hits. A display has to count.
+
+What it reads:
+
+1. The action id, from `0x358528` (the first dword of `state+0xE8`). That is all ActLog has today.
+2. That action's hitbox rows, through the index list in the section above.
+3. On each row, byte `+0xA5`. Getter `0x2B46E0` returns that byte, unless hit-record `+0x13C` bit 15 or 23 forces `0xC8` or `0xC9`. Byte `0xFF` becomes 0. The read is `0x2B5B98`.
+4. The hit count is the number of different `+0xA5` values among rows whose start frame (`+0x08`) is not `FFFF`. Rows that share an id are one hit. The number of rows is the wrong number.
+
+Checked this session:
+
+| boss | action | motion | rows | distinct ids | ids |
+|---|---:|---:|---:|---:|---|
+| Yoritomo | `0x4E6E` | 1050 | 5 | 2 | 1, 2 |
+| Shingen | `0x4E4E` | 1030 | 5 | 3 | 1, 2, 3 |
+| Otoroshi | `0x4E4E` | 1012 | 3 | 1 | 0 |
+
+Attack-motion actions that have at least one started row, so this count exists in the file: Yoritomo 41 of 96, Shingen 50 of 57, Otoroshi 19 of 22. The rest own no started row. Yoritomo `0x4E6F` is motion 1050 and owns 0 rows, so this read says 0. A sibling or a projectile can still hit. That path is not a field on `state+0xE8`.
+
+A "hits so far" number also needs the current motion frame, and then counts only the ids whose start frame has been reached. A "hits that landed" number is not on this object. The file count is how many hits the move is built to throw.
