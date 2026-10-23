@@ -1,22 +1,4 @@
 
-## 2026-10-22 17:16:16 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing, and the one new message was pc2's status on the matching fix.
-
-- **pc2 (RX 6650 XT):** It tightened the matching rule. A match must now be above 70%, and the runner-up must be at least 15 points lower. Shared generic human files stay unbound. The offline test gives 314 of 363 files matched to themselves and 0 wrong. It is now rerunning the 68-boss sweep in the game, about 45 minutes.
-- **pc:** The game is still running the merged build. I left it alone. The Jubei Ki-break check still waits for someone to play the fight.
-
-After pc2's rerun I'll install one combined build here. I sent no new messages.
-
-## 2026-10-22 17:46:59 session a7924822-795a-45db-83ca-1242c89313af
-pc2 released its game lock at 5:28 pm EST, so its rerun of the 68-boss sweep has finished. It hasn't sent the result yet, so I have no bound, unbound or wrong counts. Nothing is failing, and I'll wait for that result before installing a combined build here.
-
-The game on this PC is still open on the merged build, and the Jubei Ki-break check is still unplayed. I sent no messages and changed nothing.
-
-## 2026-10-22 18:17:32 session a7924822-795a-45db-83ca-1242c89313af
-Nothing has changed since my last check. No new messages, nothing failing on pc2 or ally, and pc2 still hasn't sent the result of its rerun sweep.
-
-The game on this PC is still open on the merged build, and the Jubei Ki-break check is still waiting for someone to play the fight. I sent no messages and changed nothing.
-
 ## 2026-10-22 18:48:00 session a7924822-795a-45db-83ca-1242c89313af
 pc2 hasn't sent the result of its rerun sweep with the stricter matching rule. It released its game lock at 5:28 pm EST and it's now about 6:48 pm EST. I sent pc2 a question asking for the bound, unbound and wrong-match counts, the log path, and the merged commit on `pc/release-1022`. If the sweep failed, I asked for the exact error.
 
@@ -336,3 +318,23 @@ pc2 hasn't picked up its two tests, memory-copy and constant-data skip, in over 
 
 I told you the same in the phone chat. I didn't start or touch the game.
 2026-10-23 pc: ally MCE neutral (12.11 vs 12.00 fps). Classified keys: notes/default-on-candidates-20261023.md (fc3645ac): group A 32 no-visual keys (default-on candidates), group B 12 visual keys (full-mod arm), 51 leave off. NEXT: build arm INIs (stock / A / A+B), final 3-arm bench on pc, pc2, ally (PresentMon needs admin on pc); pc2 offline? #111/#113 unclaimed.
+
+## 2026-10-23 15:39:13 session 9651b621-53f7-49f6-9b41-8469f66b3f7a
+Progress on the final benchmark and the settings choice, as I told you in the phone chat:
+
+- **Settings classified:** from all the audit data, 32 are safe to turn on by default, 12 lower the picture (full-mod arm only), and 51 stay off. The list is in `notes/default-on-candidates-20261023.md`.
+- **Arm settings files:** built for the pure-performance arm and the full-mod arm.
+- **Ally:** it has the final 3-way benchmark running.
+- **pc2:** its try failed 35 seconds after it claimed the job, with "worker ended without reporting". This is probably the Windows update. I asked pc2 which step failed and re-posted the task.
+- **Main PC:** still waiting on the admin run. Paste the one-line command I sent earlier into the admin PowerShell. It takes about 25 minutes.
+
+There are no final numbers yet. I didn't touch the game.
+
+## 2026-10-23 ~3:50 pm EST pc (context full)
+- DONE: feedback site live+redesigned (https://nioh3-mod-feedback.vercel.app, Vercel project nioh3-mod-feedback, site dir C:/Users/Ahmad Hamza/nioh3-mod-site/site; node at C:\Program Files\nodejs must be added to PATH). Report button default URL = that site (pc/report-specs 1cdccfb1, worktree C:/Users/Ahmad Hamza/nioh3-report-specs; NOT built/installed in game yet). 32/12/51 settings classification: notes/default-on-candidates-20261023.md.
+- HALF-DONE: final 3-arm bench: ally task #115 running; pc2 retry #116 open (#114 failed after 35s, asked pc2 why, Windows update); pc leg needs admin PresentMon: created tools/rematch/make_elevated_task.cmd + elevated_entry.ps1 (gitignored dir 'tools', so NOT committed; main worktree has an unfinished cherry-pick, left untouched). Human must right-click make_elevated_task.cmd > Run as administrator once (needs-player.md line added); then I can `schtasks /run /tn Nioh3ElevatedRun` with script path in tools/rematch/elevated_next.txt.
+- NEXT: (1) when human confirms, write elevated_next.txt -> pc final bench (stock / pure-perf arm2 / full arm3, 2 reps each interleaved, all metrics: fps, lows, latency, temps, util, power, in-game+external); (2) digest ally #115/pc2 #116 RESULTs, tell human; (3) human #26397: ONE universal mod -> make platform-only keys (Proton/handheld/non-ReBAR) auto-detect (-1), re-check borderline MW,P12,M1,DL,R1; (4) after bench: install pc/report-specs build on pc (rematch asi) and test report button; (5) answer human question pending: switch Proton-only keys on for Ally? (they said one mod, so use auto).
+
+## 2026-10-23 16:38:56 session 92d972c4-c27e-4aef-9d84-93cf4123d632
+I'm waiting for the last baseline run of the main PC's 8-run check. Once it ends I launch the final three-way benchmark through the same admin task.
+2026-10-23 4:52 PM EST pc CHECKPOINT | task: final 3-arm bench + default-on settings. DONE: key classification (notes/default-on-candidates-20261023.md: 32 safe / 12 visual / 51 off), arm INIs + pc plan (captures/final-bench/{arm2-pureperf,arm3-fullmod}.ini, pc-plan/), runner fixes (per-device lock nioh3-$Device; accepts 'fight now: in place'), stage2 EP on pc (OFF 93.3 vs ON 91.0, neutral; EP maybe veto), feedback site live https://nioh3-mod-feedback.vercel.app, CBN+CBT run OK on pc (225MB/s skipped). HALF-DONE: pc final bench RUNNING elevated since 4:49 pm (captures/final-bench/run-pc-final.ps1 -> results-pc-final.csv, pc-sensors.csv, newest captures/audit-screen/run-pc-*; marker test-active set, runner removes it at end). ally #115 running (another ally session), pc2 #113 CBN then #117 final bench then #111 MCE (pc2 has dup-session issues). NEXT: when pc run ends verify saves restored + lock nioh3-pc released + test-active gone; collect results of all 3 devices, compute 3 arm means, tell human; reconsider EP in group A; make installed INI use default-on (CBN/CBT missing keys); merge pc/newopt-20261023 MCE; ONE-mod auto device detection for platform-only keys.
