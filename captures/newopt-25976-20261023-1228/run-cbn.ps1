@@ -1,0 +1,1 @@
+& 'C:\Users\Ahmad Hamza\nioh3-engine\tools\rematch\fightnow_test.ps1' -Rows R7B35 -WalkSec 60 -PerfAsi 'C:\Users\Ahmad Hamza\nioh3-engine\captures\newopt-25976-20261023-1228\installed.asi' -PerfSet 'Patches/CBN=2','Patches/CBT=2','Profiler/CbvStats=1','Profiler/CbvStatsSec=10' -KeepBuild:$false -OwnerPid $PID
