@@ -1950,3 +1950,4 @@ Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up
 2026-10-22 22:35 pc: see checkpoints.md latest entry (pc/merge-kappa, audit, final bench, 10x ping).
 2026-10-22 pc: settings audit stage1 plan generated+pushed (captures/audit-screen); board tasks posted for pc/pc2/ally (~4.5h each). After results: stage 2 confirm, then final bench, then 10x ping.
 2026-10-22 22:35 pc: see checkpoints.md last entry (audit #110 next, then final bench, then 10x ping).
+2026-10-22 10:47 pm EST gxl-pc: human #24353 asked if the website link is ready. It is not. No public link. The other gxl-pc slot is still building it. Phone #24354. Do not start a second copy. Game not touched.
