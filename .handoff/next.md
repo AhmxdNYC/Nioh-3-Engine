@@ -1951,3 +1951,9 @@ Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up
 2026-10-22 pc: settings audit stage1 plan generated+pushed (captures/audit-screen); board tasks posted for pc/pc2/ally (~4.5h each). After results: stage 2 confirm, then final bench, then 10x ping.
 2026-10-22 22:35 pc: see checkpoints.md last entry (audit #110 next, then final bench, then 10x ping).
 2026-10-22 22:52 pc: stage-1 audit runner is running the game on this PC (marker test-active, ~4.6h from 22:46 pm EST). Do NOT touch the game. Track: captures/audit-screen/run-pc.log. If it died, rerun wrapper (resumes). Then task report 110, collect pc2/ally csv, confirm stage, final bench, 10x ping.
+
+## 2026-10-22 10:53 PM EST (board 71)
+Boss action rows are written in notes/boss-action-record.md. Yoritomo 173, Shingen 136, Otoroshi 141. No hit-count field. Commit 3669b4d4. Game not opened.
+
+## 2026-10-22 10:58 PM EST (#24420)
+Website link is not ready. The new build started at 10:57 pm EST and has saved 0 files. Phone #24422. The other gxl-pc slot owns that build. Do not start a second copy. Game not touched.
