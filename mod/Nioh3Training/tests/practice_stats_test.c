@@ -68,6 +68,8 @@ int main(void) {
     assert(PstScaleKi(40.0f, 1000) == 400.0f && PstScaleKi(40.0f, 5000) == 400.0f /* clamped x10 */);
     assert(PstScaleKi(0.0f, 500) == 0.0f && PstScaleKi(-10.0f, 500) == -10.0f /* a Ki gain is untouched */);
     // sides: only the player's hits on someone else; the boss hitting the player / allies untouched
+    assert(PstKiPct(1, 0, 0, 100, 100, 100) == 100 && PstKiPct(1, 0, 0, 200, 150, 100) == 300 && PstKiPct(1, 0, 1, 200, 150, 100) == 100 /* self */);
+    assert(PstKiPct(1, 0, 0, 1000, 1000, 100) == 1000 /* capped */ && PstKiPct(0, 1, 1, 100, 100, 50) == 50 && PstKiPct(0, 1, 0, 100, 100, 50) == 100 && PstKiPct(0, 0, 1, 100, 100, 50) == 100);
     assert(PstKiDmg(1, 0, 1, 200, 0, 0, 500, 40) == 80.0f && PstKiDmg(1, 0, 0, 200, 0, 0, 500, 40) == 80.0f /* any non-player victim, like Damage I deal */);
     assert(PstKiDmg(0, 1, 0, 200, 1, 0, 500, 40) == 40.0f /* boss hits the player */ && PstKiDmg(1, 1, 0, 0, 1, 0, 500, 40) == 40.0f /* player hurts itself */);
     assert(PstKiDmg(0, 0, 1, 0, 1, 0, 500, 40) == 40.0f /* an ally hits the boss */ && PstKiDmg(1, 0, 1, 100, 0, 0, 500, 40) == 40.0f /* defaults */);
