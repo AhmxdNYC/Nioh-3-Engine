@@ -1973,3 +1973,10 @@ Human asked for a free public host. Vercel can take the uploads. A GitHub Page c
 
 ## 2026-10-22 11:22 pm EST (#24486)
 Vercel setup is in nioh3-mod-site\site. The human runs vercel-signin.ps1 later and finishes the browser sign-in. Phone will say that. Do not publish before then. Do not restart port 8791. Game not touched.
+
+## 2026-10-23 12:52 am EST (#24647)
+Attack-motion hit ids are in notes/boss-action-record.md. 110 of 175 actions have a hit. Yoritomo 41/96, Shingen 50/57, Otoroshi 19/22. Commit da331ce2. RESULT #24651. No open offline board task. Game not opened.
+
+- 2026-10-23 1:09 AM EDT cx-pc #24680 DONE: cx-pc/action-record-24680 feature a8a57f9b + plan f771b89c; data dependency gx-pc 8a20056a. pc integrate/rebuild BOTH ASIs and package Nioh3Training_action_records.tsv; no game touched by cx-pc.
+2026-10-23 pc: cx-pc built auto hit/damage integration (branch cx-pc/action-record-24680, note notes/action-record-integration-24680.md, rebuild BOTH ASIs + package Nioh3Training_action_records.tsv). Compiles, offline tests pass. NEXT after pc audit ends (~5 am EST): merge, install on pc, verify in game (Yoritomo 2 hits 250/275, Shingen 3, Otoroshi 1 zero-power flagged), then 2-page menu test, then stage 2 + final bench + 10x ping.
+2026-10-23 01:50 | Settings audit stage 1 running on all 3 devices (pc 38/43 rows valid of 69, pc2 23/23 of 67 on branch pc2/audit-run-24483, ally 1/3 of 64 on ally/audit-results, ally had duplicate drivers, now one) | runner fix 21a3cc19 (60 s boss HB poll) pushed; boss action table (gx-pc 8a20056a) and auto hit/damage integration (cx-pc/action-record-24680) built offline, NOT tested in game | NEXT: hourly check pc2/ally counts, chase ally; when pc audit ends (~5 am EST) merge+install cx-pc/action-record-24680 and verify in game, test 2-page menu, then stage 2 (py tools/settings_audit.py --stage confirm), stock-vs-mod bench on 3 devices, then 10x Discord ping | files: tools/rematch/audit_screen_run.ps1, captures/audit-screen/, notes/settings-audit-plan.md

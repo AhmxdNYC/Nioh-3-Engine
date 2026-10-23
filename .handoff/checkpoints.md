@@ -1,53 +1,4 @@
 
-## 2026-10-22 00:14:19 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-Nothing is finished, and I told you so on your phone.
-
-- **Shader-prewarm test on this PC:** not started. It waits for you to close the game or stop touching the PC for 2 minutes. As of 12:14 am EST the game was still open and the waiting script (PID 31412) was still running.
-- **Other devices:** the PC2 task (#106) and the first Ally task (#104) show as failed on the task list, and the other Ally task (#107) is open. I haven't looked into why PC2 failed. I did not re-run the failed PC2 task.
-- **Still to build:**
-  - Ki damage multiplier and one-hit Ki break.
-  - Player frame meter.
-  - Controller button style setting (PlayStation or Xbox).
-- **Unconfirmed:** the fix for clipped rows in the move menus is built but I haven't confirmed it in the game.
-
-I'll message you when each item lands.
-
-## 2026-10-22 00:44:13 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-No, I wasn't using helper agents until you asked. I've started two now and both have finished building. Nothing is installed or played yet, and I haven't merged the two builds.
-
-- **Button style:** a "Controller button style" setting in the mod menu. You pick Xbox or PlayStation. Xbox is the default.
-  - The PlayStation option draws the footer badges as colored Cross, Circle, Square and Triangle symbols. Text in menu rows such as "press A" still says Xbox letters, and so does the standalone footer in the Boss Rematch add-on.
-  - It builds, but the PlayStation symbols are unseen in game. Branch `pc/btn-style-22826`, commit `ebd8453f`.
-- **Player frame meter:** a second bar labelled "Player" under the boss one. You switch it on in Practice > Player.
-  - It reuses the boss meter's code, which already sees your attacks. The offline tests pass.
-  - It's unproven in game whether your character gives a changing action id for each attack. If the bar shows nothing or one endless run, the id is somewhere else, and `notes/player-frame-meter-22796.md` has the next step. Branch `pc/player-meter-22796`, commit `b96fa07a`.
-- **Ki damage multiplier and one-hit Ki break:** already built earlier in commit `e3fff864`, not yet tested in game.
-- **Test failures I haven't investigated:** one settings-preservation compile check failed in the button-style worktree, and `mod/settings/test_catalog.py` fails on four unrelated keys (`DxgiDiag`, `MW`, `RD`, `M2S`).
-
-The shader-prewarm benchmark on this P
-2026-10-22 00:49 pc: agents done: pc/allboss-coverage 8ba35937 (37 of ~81 named bosses have data; 3,437 moves, 0 errors; hit counts upper bound on 241 moves); pc/integ-hitmenu 3e1a3ad0 (Training dd69e3bf, Rematch 8e749d01; hitmenu+practice stats+Ki dmg merged, tests pass). Not installed. In flight elsewhere: pc/btn-style-22826, pc/player-meter-22796 worktrees. NEXT: install integ build when user away, test; player frame meter; button style.
-2026-10-22 01:02 pc: hit-count rule fixed pc/allboss-coverage 7b6c2f71 (same start frame + hit group = 1 hit, game's own rule at RVA 78EADF; uncertain moves 241->136, flagged hits_upper_bound). Stale N3_MOVE_COUNT test fix lives on pc/integ-hitmenu 3e1a3ad0 - merge both before next install. Game untouched (user input live, installed Training d58a8e7c by another session).
-2026-10-22 01:17 | all requested practice features merged on pc/integ-release-22882 f8199746 | built, none tested in game | next: build Training.asi, install when user away, test Ki dmg/one-hit/player meter/button style | files: notes/player-frame-meter-22796.md
-2026-10-22 01:32 pc CHECKPOINT (context full): TASK practice mode + all-boss move algorithm. DONE: pc/allboss-coverage 7b6c2f71 (hit rule = same start frame+hit group; 37/~81 bosses have data; 136 uncertain moves flagged hits_upper_bound); pc/integ-hitmenu 3e1a3ad0 (Training dd69e3bf, Rematch 8e749d01: hit-grouped Boss moves menu + practice stats + Ki damage, tests pass, fixes stale N3_MOVE_COUNT test); pc/practice-stats-22389 has Ki dmg/one-hit Ki break. HALF-DONE: player frame meter (worktree ../nioh3-pmeter, pc/player-meter-22796), PS/Xbox button style (../nioh3-btnstyle, pc/btn-style-22826), instant reset + freeze/frame-advance (not started). NOT INSTALLED: user at PC (input live); installed Training d58a8e7c from another session. NEXT: merge pc/allboss-coverage into pc/integ-hitmenu, build, install+test when user idle>=2min/away (backup, swap asi, relaunch, ping), then finish pmeter/btnstyle.
-2026-10-22 | pc | #22920 completeness checklist written (notes/training-completeness-20261022.md), queued in open.md | unbuilt: stage picker etc | NEXT: finish hold-Ki-break, then stage picker via arena-switch contract | files: notes/, open.md
-2026-10-22 01:58 pc: integ-22826 live test done | player frame meter WORKS (light 0x6248 14/13-17/33/50, heavy 0x624D 22/21-28/30/58), Ki x3 ok (8.9->26.8), one-hit Ki break ok (Yoritomo broken in 1 hit), PS button style ok (footer Cross/Circle; LB/RB still Xbox) | bug: boss meter credits leftover hitbox to next action 0x2 | demo.mp4 75 s sent | notes c594ce87 on pc/integ-22826
-
-## 2026-10-22 02:58:07 session 7e8dd9c3-b699-4eef-9ece-efcd02d05988
-The new build (Hold Ki break plus the 4 bug fixes) is installed and the game restarted at 2:43 am EST. None of the new items is verified in game. I couldn't test Hold Ki break or the fixes myself.
-
-- **Install:** I merged Hold Ki break into the release branch, rebuilt `Nioh3Training.asi` and `Nioh3BossRematch.asi`, and pushed the branch. The game relaunched with no crash in either mod's log.
-- **Test attempt:** a test agent got into the game but never reached the Hold Ki break toggle. Its simulated keys landed in the wrong window. The idle timer read 0 throughout, and a Yoritomo training session had started that the agent didn't launch, so I think someone is playing now.
-- **Not checked:** Hold Ki break, the live reload of One-hit Ki break, frame numbers starting at 1, and the PlayStation L1/R1 labels. Button labels read "LB RB" because the installed Training ini has no button-style key.
-- **What I've asked you to do:** try it by hand. On the Boss page, turn on One-hit Ki break and Hold Ki break, hit the boss once, and see whether he stays stunned until you switch it off. I told you this on the bridge.
-- **Next:** I'm moving on to the controller display, time of day and the stage picker. The handoff is updated in `.handoff/next.md`.
-
-## 2026-10-22 03:18:21 session 7e8dd9c3-b699-4eef-9ece-efcd02d05988
-The controller display video is now the top priority. I've told you on the bridge. The video isn't recorded yet, so I can't give you a time.
-
-The helper agent building the display has the code in progress. It has written the display file and an offline test harness, but nothing is built, installed or tested in game yet. When it finishes, I'll build it, install it, restart the game, record the clip and send it to Discord. I'll message you when it's sent.
-
-I recorded your request in `user-directives.md`.
-
 ## 2026-10-22 03:57:40 session 7e8dd9c3-b699-4eef-9ece-efcd02d05988
 Status sent. The controller display is built, but the video isn't recorded or sent yet.
 
@@ -338,3 +289,51 @@ I haven't sent the 10 Discord pings. Ally's benchmarks and pc2's Himiko fix are 
 2026-10-22 22:35 | menu 2 pages (same-picture vs may-change-look) built, compiles | NOT yet tested in game | next: install after audit slot frees the game, F10 -> 'Settings page' row, check both pages | menu.cpp
 - 2026-10-22 10:51 PM EST | gx-pc checked #23272 PJ bench | capture matches 0 hitches, worst about 13 ms | board task 105 still failed with the old not-run text | no rerun | NOTE #24370
 2026-10-22 22:52 pc | settings audit stage 1 (board task #110) RUNNING on pc | runner tools/rematch/audit_screen_run.ps1 (wrapper captures/audit-screen/run-pc-wrapper.ps1, log run-pc.log, results captures/audit-screen/results-pc.csv, resumable: valid rows skipped); first baseline 80.99 avg / 45.81 1%low; ~4 min/run, 69 runs ~4.6h, started 22:46 | finish watcher run-pc-finish.ps1 commits csv, clears test-active marker, sends RESULT | NEXT when done: py -m uo_bridge task report 110, run settings_audit.py --stage confirm with all 3 devices' results | files: tools/rematch/audit_screen_run.ps1
+2026-10-22 10:53 PM EST | gx-pc board 71 action record | 173/136/141 rows for Yoritomo/Shingen/Otoroshi | hit count, damage, name, duration are not fields on the 336-byte row | commit 3669b4d4 pushed on pc/fightnow-swap-wire | next is a live hit-count probe, not run
+2026-10-22 10:58 PM EST | website progress #24420 | 0 files saved | new build started 10:57 pm EST | phone #24422 | next: other gxl-pc slot sends the link | game not touched
+- 2026-10-22 10:58 PM EST | gx-pc #24392 hitbox rows | 182 / 194 / 162 rows | motion does not index the row, the action id does | commit ad80ca1d | RESULT #24423 | game not opened
+2026-10-22 11:00 PM EDT | cxl-pc #24405: offline audit pruning DONE/pushed 29fe08d3 on cxl-pc/audit-short-24405; 92->91 keys, 199->197 captures, only Ally SR provably redundant.
+Proven: 197 preserved run rows, 15 anchors, all 185 copied and committed INI hashes pass. 30s/15s UNPROVEN (only one baseline).
+Next pc: read notes/settings-audit-short-24405.md; retain active 60s run, adopt safe pruning at owner-controlled transition; conditional 30s budget needs fresh stability validation. Separate worktree ../nioh3-audit-short-24405; no game/running files changed.
+2026-10-22 11:05 PM EST | gx-pc #24426 hit count | no stored field; distinct +0xA5 ids | Yoritomo 0x4E6E = 2, Shingen 0x4E4E = 3, Otoroshi 0x4E4E = 1 | commit 50a3c0d8 | RESULT #24449 | game not opened | next: live frame is still required for hits-so-far
+
+2026-10-22 11:08 pm EST | Nioh 3 feedback site serves three forms and files GitHub issues | Proven: page 200, issue #2, feature #3, unnamed file #4 (all closed after the check). Unproven: phone open from another device, GitHub file attach (API 422, files stay on this PC) | Leave the server on port 8791; do not start a second site | branch gxl-pc/mod-site commit 622d3fa1, site/server.py site/index.html
+2026-10-22 23:12 | pc audit runner: retry stalled launch added (every 2nd launch stalled 'no player after Continue'); runs 0001,0003 valid | rerun runner after pass to fill failures (skips valid ones) | tools/rematch/audit_screen_run.ps1
+2026-10-22 11:12 PM EST | #24466 public host | Vercel can, GitHub Pages cannot | PC not signed in to Vercel | phone #24470 #24474 | next: wait for a Vercel sign-in | site stays on port 8791 | game not touched
+2026-10-22 11:22 PM EST | #24486 Vercel setup ready | script site\vercel-signin.ps1 | not published | private site still port 8791 | next: human signs in | game not touched
+
+## 2026-10-22 23:43:08 session ff0e64e6-687d-4329-a5d8-ecbf60f9cf63
+Ally confirmed its settings audit is running on Linux. It has 3 valid runs done: the baseline plus 2 settings, about 8 minutes each. Its results are in `/tmp/t23929/audit/results.csv` on the ally, and it will push each chunk. It gave no ETA for the full list.
+
+pc is at about 9 of 69 runs. pc2 hasn't confirmed anything yet, so I'll chase it. I sent the human a short status.
+2026-10-22 23:48 | pc2 audit failed (no boss HB, 8 s wait too short); runner now polls 60 s (21a3cc19) | unproven on pc2 | next: pc2 reruns 2 runs, check results; pc audit continues | tools/rematch/audit_screen_run.ps1
+2026-10-23 00:04 | audit: pc 16/69 valid, pc2 2 valid running, ally running | all 3 on stage 1 | next hourly check of results csvs, chase silent | open.md TRACK
+
+## 2026-10-23 00:25:41 session b8158c6b-d846-4c6a-b760-e6cf37db9f82
+I've sent you the 12:25 am EST update. pc has 21 of 69 audit runs valid, at about 5 minutes each, and should finish around 5 am EST.
+
+pc2 and ally are running their shares and report after each chunk of 16. Neither has pushed results to the repo yet, so I have no fresh counts for them. No errors showed up anywhere, and nothing needs you. The next real checkpoint is the first pc2 and ally results, in about an hour.
+
+I didn't touch the game this run.
+
+## 2026-10-23 00:46:42 session ff0e64e6-687d-4329-a5d8-ecbf60f9cf63
+I haven't found anything that needs action, so I'm not changing anything.
+
+- **pc:** 25 of 28 run rows are valid. That is only about 1 more row in the last 20 minutes or so, well below the earlier 5 min per run. The runner may be stalling, so I'll look at it on the next run if it doesn't pick up.
+- **pc2:** its branch still has no results CSV, because its first chunk of 16 isn't finished.
+- **ally:** my read of its results is still garbled, so I have no confirmed count.
+
+The inbox is empty and no device has reported an error.
+
+2026-10-23 12:52 AM EST | gx-pc #24647 hit-id table | 175 attack actions, 110 with a hit | Yoritomo 41/96 sum 61 max 3; Shingen 50/57 sum 86 max 5; Otoroshi 19/22 sum 19 max 1 | commit da331ce2 | RESULT #24651 | game not opened | next: task 60 still needs a live soul-core test
+
+- 2026-10-23 1:09 AM EDT | cx-pc #24680: plan f771b89c + compiling feature a8a57f9b pushed; archive 8a20056a dependency (8232bf80 equivalent here). 11476-row parser/catalogue tests and BOTH ASI builds PASS.
+  Proven offline: triple identity, zero-power handling and no hand hit metadata; live menu untested. Next pc: integrate both ASIs + generated runtime TSV, test under existing game ownership. notes/action-record-integration-24680.md.
+
+## 2026-10-23 01:34:44 session b8158c6b-d846-4c6a-b760-e6cf37db9f82
+pc has 35 of 69 audit runs valid, with about 3 hours to go. I sent you that at 1:35 am EST.
+
+pc2 and ally haven't reported any new errors. I got no fresh counts from them this time, and neither has pushed a results file to the repo. I'll check their counts at the top of the hour and chase either one if it goes quiet.
+
+I didn't touch the game this run.
+2026-10-23 01:50 | Settings audit stage 1 running on all 3 devices (pc 38/43 rows valid of 69, pc2 23/23 of 67 on branch pc2/audit-run-24483, ally 1/3 of 64 on ally/audit-results, ally had duplicate drivers, now one) | runner fix 21a3cc19 (60 s boss HB poll) pushed; boss action table (gx-pc 8a20056a) and auto hit/damage integration (cx-pc/action-record-24680) built offline, NOT tested in game | NEXT: hourly check pc2/ally counts, chase ally; when pc audit ends (~5 am EST) merge+install cx-pc/action-record-24680 and verify in game, test 2-page menu, then stage 2 (py tools/settings_audit.py --stage confirm), stock-vs-mod bench on 3 devices, then 10x Discord ping | files: tools/rematch/audit_screen_run.ps1, captures/audit-screen/, notes/settings-audit-plan.md
