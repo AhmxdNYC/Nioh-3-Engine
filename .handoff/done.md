@@ -379,3 +379,6 @@
 - 2026-10-23 | Settings audit stage 1 (3 devices) | Find which of 91 settings help | pc 67/72, pc2 67/67, ally 63/65 valid; winners: pc EP, pc2 none, ally P12 PP FPC S1 SH R1 -> stage-2 confirm running | captures/audit-final-20261023
 - 2026-10-23 | Ally final 3-arm bench | measure mod gain on ROG Ally | stock 11.3 -> mod 20.7 fps avg (1% low 4.5 -> 13.0); picture-lowering arm 20.8, no extra gain; visual gate unreviewed
 - 2026-10-23 | Final 3-arm bench on pc | measure stock vs mod on main PC | stock ~76 fps avg, pure-perf mod ~98 (+29%), full mod ~97; 1% low 51 -> ~72
+- 2026-10-23 | Final 3-arm bench pc2 | measure stock vs mod on pc2 | stock 52.6 fps, pure 52.9 (+0.6%), full 57.2 (+8.8%), FG off, 1080p FSR65
+- 2026-10-23 | pc final bench (3 arms) | measure mod gain vs stock on main PC | RX 9070, 2 runs/arm: stock 76.2 fps, safe mod 98.1, safe+visual-lowering 97.3 (+28%); FG-on set and GitHub chart still pending
+- 2026-10-23 | Final 3-arm bench ally | measure stock vs mod on ally | stock not measurable (needs EngineFix to summon); mod-opts-off 19.8 -> pure 20.7, full 20.8 fps (+4-5%), FG off. Earlier 'nearly doubles' claim was invalid (loading screen runs)
