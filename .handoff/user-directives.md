@@ -19,3 +19,11 @@
 - #24318 (2026-10-22): human finds the 4.5 h settings audit too long; shorten it.
 - #24466 (2026-10-22 11:11 pm EST): The feedback site should be a free public host if possible. Vercel can do the uploads. A GitHub Page cannot, because it cannot save a file or open an issue. This PC is not signed in to Vercel. Do not put the GitHub token in a public page. The working link stays http://100.120.236.18:8791/ until a Vercel sign-in exists. Do not launch the game for this.
 - #24486 (2026-10-22 11:20 pm EST): Set the feedback site up for Vercel so the human only signs in later. The script is nioh3-mod-site\site\vercel-signin.ps1. Do not publish until they run it. Do not restart the site on port 8791. Do not launch the game.
+- #24846 (2026-10-23): final benchmark = THREE arms on all 3 devices: stock default game vs optimized mod with NO visual change (pure perf) vs optimized mod WITH visual-affecting settings (best fps).
+- #24854: confirmed arm2 = all proven no-visual-change settings ON; arm3 = arm2 + visual-lowering settings.
+- #24918: when pad customization is done, send the human a screenshot of the pad display (transparent body + white border) like the commenter described.
+- #24936 (2026-10-23): a user wants lower heat at native 120fps/4K measured by CPU temp before/after (same fps, less work). Add CPU temp/power logging (before/after) to the final benchmark.
+- #24943 (2026-10-23): final bench must also record latency/delay (input/frame latency) plus CPU/GPU util, temps, power. Keep-on rule: a setting that is not an fps win but lowers CPU/GPU utilization/temps/latency, or is clearly better code, stays ON (judge on all metrics, not fps only), as long as it doesn't change visuals or hurt other metrics.
+- #24946 (2026-10-23): do NOT repeat the whole ~69-run audit on each device again. Final bench = only the 3 arms per device (stock / pure-perf mod / full mod); stage 2 confirm only a short list of candidates, not all settings.
+- Discord images/files: py -I C:/Users/Ahmad Hamza/universal-optimizer/tools/notify/notify.py file <path> <text> (<=8 MB). Use it when the human asks for pictures/videos in Discord.
+- #24979 (2026-10-23): pad display default must stay the ORIGINAL look; transparent+white-border is a selectable preset only. cx-pc fixed (b35dea02 on cx-pc/pad-style-24886); pc installs+verifies after audits.

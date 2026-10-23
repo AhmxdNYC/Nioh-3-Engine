@@ -75,3 +75,5 @@
 - [ ] Menu 2 pages | F10 > top row 'Settings page' Left/Right: page 1 = same picture, page 2 = look-changing | pc (test by agent once game free)
 - [ ] TRACK settings audit stage 1 (human #24532): pc 9/69 valid at 23:40 (running, ~5 min/run). pc2 + ally: no csv on origin as of 23:42, asked Q. Each hour: git fetch, check captures/audit-screen/results-{pc,pc2,ally}.csv on origin; chase silent devices; after all 3 done -> stage 2 confirm, defaults, final stock-vs-mod bench, then 10x ping.
 - [ ] integrate+verify automatic hit/damage (cx-pc/action-record-24680) in game after the pc audit ends
+- [ ] (user #24936) Add CPU temp + package power logging to the final 3-arm bench (fps-capped run, stock vs mod), all 3 devices.
+- [ ] (user #24939) Audit/bench rows only have avg fps/1% low/frametime. Add CPU util, GPU util, CPU temp, power per run to final bench (all 3 devices). Mod has [Profiler] MemStats etc but no per-run util in results.

@@ -1,45 +1,4 @@
 
-## 2026-10-22 03:57:40 session 7e8dd9c3-b699-4eef-9ece-efcd02d05988
-Status sent. The controller display is built, but the video isn't recorded or sent yet.
-
-- **Display:** it's built as commit `e3cdeeb1` on `pc/padviz-22952`, showing an Xbox/PS pad top-left. The last fix made the LB/RB bumper labels readable.
-- **Testing:** the test marker file in the daemon folder is named `padviz-test`, and the game is running, so I left it alone and didn't drive it. I haven't confirmed the display in game myself.
-- **Video:** once the display looks right, the helper films the clip and sends it to Discord.
-- **Time of day:** it already works in your game.
-
-I told you on the bridge that there's nothing for you to do yet.
-
-## 2026-10-22 04:20:57 session 7e8dd9c3-b699-4eef-9ece-efcd02d05988
-The controller display demo clip is recorded but not sent yet. The raw file finished at 4:19 am EST and is 68 MB, too big for Discord, so it needs shrinking first.
-
-- **What the clip shows:** the script presses the Xbox buttons, triggers and sticks, then goes through the Practice menus. I haven't watched the clip myself.
-- **Who does what:** the helper that recorded it is still running, and the game's test marker is still set. I didn't touch the game or the clip, to avoid clashing with it. It should compress and send the clip, but I haven't seen that happen.
-- **What I told you:** I sent you this status on the bridge and said I'll ping when the video lands.
-
-## 2026-10-22 05:14:23 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-The video you're waiting for hasn't been sent. I told you that on your phone at 5:14 am EST.
-
-- **Already sent:** the first controller-display video, with the plain pad in Xbox and PlayStation button styles, is on Discord.
-- **Not recorded yet:** the new clip with the DualSense and Xbox Series body shapes. I couldn't find any commit for the redraw on `pc/padviz-22952`; its latest commit is still `e3cdeeb1`. Another session was building it, so I didn't start a second copy.
-- **Game state:** it's running (started 5:06 am EST). In the game folder, Boss Rematch and EngineFix match the `pc/fixes-22918` build. The Training file is `8A82ABCF`, not the `54532f58` that build was meant to carry, so another session probably rebuilt it.
-- **Fix verification:** I don't know whether the Hold Ki break, Infinite health and boss-meter fixes got verified in game. The helper I started to install and check them was cut off when my last run ended, and I don't know how far it got. A test marker from 4:50 am EST is still set.
-
-I'll message you when the new clip is on Discord.
-
-## 2026-10-22 05:35:26 session 17646b4d-2fdf-4b38-9ab0-6df5b5b1cf8c
-The controller display is now redrawn as a gamepad-viewer, but it hasn't been tried in the game yet. I've posted two preview pictures to Discord (offline renders, not from the game): the DualSense shape and the Xbox Series shape. My first send used the wrong path, so I sent a correction in chat.
-
-- **What changed:** the "Controller button style" setting now picks the body. PlayStation style draws a DualSense body, and Xbox style draws an Xbox Series body. The buttons, sticks and triggers light up as you press them. The change is commit f3ac6a19 on `pc/padshape-23083`, and its EngineFix file hash starts F87FAC30.
-- **Tests:** the pad display's offline test passes, and so do the related menu checks. A separate settings-catalog test fails, but it fails the same way without this change.
-- **Needs checking in the game:**
-  - How it looks.
-  - Whether it costs frame time. The helper raised the overlay's per-frame limit from 4,096 to 16,384 drawn pieces, because the smooth edges need far more of them. The game's larger upload buffer for that is unproven.
-
-Next I'll install it, check it looks right and doesn't cost fps, and send you a short clip. I've logged this in `.handoff/next.md`.
-2026-10-22 06:14 | padviz Gamepad-Viewer skins built, previews sent | in-game unproven | install when game free, film clip | 06fbb93c
-2026-10-22 06:25 pc CHECKPOINT | task: practice mode + controller display | DONE+proven in game: time of day, player frame meter, one-hit Ki break, Reset fight, freeze/step, padshape (DualSense/Xbox Series bodies, no fps cost, pc/padshape-23083 f3ac6a19, clip on Discord) | UNPROVEN: Hold Ki break (pc/holdbreak-22918 f38db4cc), Ki dmg x3, weather (game refills fields; rework/drop), live PS<->Xbox switch | game currently has padskin-23147 EngineFix 167D04B9 (other session) | NEXT: below-zero Ki lead on Kagetoki/Yagyu Jubei, all-bosses summon check, stage picker, sky, sliders; re-arm captures/pj_bench_105.ps1 | files: notes/training-time-of-day-22942.md, captures/padviz-demo/
-2026-10-22 06:24 | TASK Training completeness + padviz. DONE: Gamepad-Viewer skins (DualSense CC BY, Xbox MIT) built pc/padviz-22952 06fbb93c, INSTALLED (EngineFix sha 167D04B9), game PID 10864, Xbox display seen in game, screenshot sent. HALF: DualSense switch live untested (ini edit didn't switch), pressed-button lighting unverified, clip not filmed; Hold Ki break + Ki negative pool (Kagetoki/Yagyu Jubei) unverified. NEXT: switch ButtonStyle via menu, film <25MB clip, send via universal-optimizer/tools/notify/notify.py; then Ki probe, stage picker, all-boss summon check (needs 100% save). Files: notes/training-completeness-20261022.md, notes/gamepadviewer-research-20261022.md, .handoff/open.md
-
 ## 2026-10-22 07:09:00 session f4d8e5ec-5692-4b60-b049-11a66045c33d
 The controller display video is sent, and the Kagetoki / Yagyu Jubei Ki trick has only had an offline look so far.
 
@@ -338,3 +297,41 @@ pc2 and ally haven't reported any new errors. I got no fresh counts from them th
 I didn't touch the game this run.
 2026-10-23 01:50 | Settings audit stage 1 running on all 3 devices (pc 38/43 rows valid of 69, pc2 23/23 of 67 on branch pc2/audit-run-24483, ally 1/3 of 64 on ally/audit-results, ally had duplicate drivers, now one) | runner fix 21a3cc19 (60 s boss HB poll) pushed; boss action table (gx-pc 8a20056a) and auto hit/damage integration (cx-pc/action-record-24680) built offline, NOT tested in game | NEXT: hourly check pc2/ally counts, chase ally; when pc audit ends (~5 am EST) merge+install cx-pc/action-record-24680 and verify in game, test 2-page menu, then stage 2 (py tools/settings_audit.py --stage confirm), stock-vs-mod bench on 3 devices, then 10x Discord ping | files: tools/rematch/audit_screen_run.ps1, captures/audit-screen/, notes/settings-audit-plan.md
 2026-10-23 02:07 | TASK: settings audit stage 1 tracking (human #24532/#24749) + 2-page menu. DONE: menu.cpp 2 pages built+pushed (untested in game); audit runner retry+-MaxRuns pushed; pc audit running detached (40/69 valid at 01:56, ~5 min/run, ends ~05:00; results captures/audit-screen/results-pc.csv); pc2 running (12/67 at 01:00, own csv push per 16); ally restarted after fix (collision w/ old relaunch script killed), no valid run seen yet. HALF: pc2/ally exact counts requested (Q #24752), no csv on origin yet. NEXT: git fetch, check results-{pc,pc2,ally}.csv hourly, chase silent; rerun runner on pc to fill failed runs (skips valid); then test 2-page menu in game (F10 > Settings page) when game free, stage 2 confirm, defaults, final stock-vs-mod bench x3 devices, last 7 duelists + poison/burn, report site URL from grok, then 10x ping. Tracked in .handoff/open.md TRACK.
+
+## 2026-10-23 02:31:47 session 62b5729a-9088-474f-aa68-fcd76c5a56c5
+I sent you the progress update on the phone. As of 2:32 am EST:
+
+- **Main pc:** the results file has 55 audit rows of about 69, and the game is mid-fight on the next run. It should finish around 5 am EST.
+- **pc2:** the last number I have is 23 of 67 valid, from about 2 am.
+- **Ally:** it was retrying run 5 of 64 after the black-screen hang. I have no newer count.
+
+I just asked pc2 and ally for exact counts and will pass them on when they answer. I haven't touched the game on any machine.
+
+## 2026-10-23 02:52:26 session 62b5729a-9088-474f-aa68-fcd76c5a56c5
+I sent you the progress update on the phone. As of 2:52 am EST:
+
+- **Main pc:** it's on audit run 61 of 69, with about 1.5 hours left. It should finish around 4:30 to 5 am EST.
+- **pc2:** 35 of 67 valid at 2:40 am, with no failures. That is the last count I have from it.
+- **Ally:** 5 valid, and it's the slow one at about 7 hours left. Its 2 invalid runs aren't rerun automatically, so I'll queue a manual rerun after its main pass.
+
+Nothing is stuck. I'm only watching and haven't touched the game on any machine.
+
+## 2026-10-23 03:13:23 session 62b5729a-9088-474f-aa68-fcd76c5a56c5
+I sent you the answer on the phone: mostly yes, and I wouldn't do a rewrite.
+
+Patching the shipped game can't double or triple fps on its own. The limits are how the engine schedules CPU work and draws, and we can only trim those. There are two routes to a 2-3x jump:
+
+- **Visual-lowering settings:** clouds, GI, fog and terrain can give big gains on the GPU-bound machines (pc2 and Ally), at a cost in image quality.
+- **Rewriting the renderer or engine:** this isn't realistic for us.
+
+My rough expectation is +10-30% for free, and more only by trading visuals. That range is a guess, not something I measured.
+- 2026-10-23 3:29 AM Eastern cx-pc #24886 | Six controller appearance/position rows plus zero fill implemented; d3a2f4e6 on cx-pc/pad-style-24886. Both ASIs build, three offline suites and catalog check pass. Next pc: integrate and verify live menu persistence/visuals; no game touched.
+
+## 2026-10-23 03:51:18 session ff9738e9-70c2-4819-b0f6-947e35eba710
+pc's rerun of its 5 invalid audit runs hasn't started. It was blocked first by a quoting mistake in my launch command, which I fixed. It is now blocked by the shared game lock, which pc2 holds on purpose until its last run, about 4:35 am EST.
+
+A retry loop (`run-pc-retry-loop.ps1`) checks every 5 minutes and starts the rerun once the lock frees. I told the human this in #24966. I also deleted the `test-active` marker so it doesn't look like a test is running. Nothing was lost.
+
+pc2's runner is alive at 55 of 67 valid with 0 failures, and I told the human that too (#24964).
+- 2026-10-23 4:02 AM Eastern cx-pc #24980 | Original default restored in b35dea02 (cx-pc/pad-style-24886); optional Transparent + white border preset retained. Both ASIs build; 393216 default command comparisons and 4 offline suites pass. Next pc: integrate correction and verify live menu; no game touched.
+2026-10-23 04:17 pc CHECKPOINT | task: settings audit stage 1 + user Q&A | DONE: pc audit finished 62 valid/67 rows (5 invalid: 4 'no player after Continue', 1 no boss; need rerun once pc2 frees game lock); pc2 ~59/67 valid done ~4:40 am, then TASKed #25003 (ideas #9 memcpy probe, #3 PSO prewarm); ally ~16/65 runs, ~noon EST, slow. Pad customization built by cx-pc (default restored to old look, Transparent+white border preset), previews sent to Discord via universal-optimizer/tools/notify/notify.py file <path> <text>. | UNPROVEN: cx-pc/action-record-24680 + pad build not merged/installed/tested in game | NEXT: rerun 5 invalid pc rows; analyse results (settings_audit.py); merge+install cx-pc branches, verify in game (Yoritomo hits, pad preset), send in-game pad screenshot via notify.py file; build bench logging CPU/GPU util, temps, power, latency; 3-arm final bench (stock / no-visual-change mod / full mod) on all 3 devices, no second full audit; keep rule: keep setting if it helps ANY metric; then 10x Discord ping | files: captures/audit-screen/results-pc.csv, settings-list.md, .handoff/user-directives.md (#24846..#24979), open.md
