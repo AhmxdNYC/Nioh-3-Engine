@@ -1,11 +1,4 @@
 
-## 2026-10-21 23:45:50 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-I added your controller button style setting to my list. It isn't built or tested yet.
-
-The plan is a setting in the mod menu where you pick PlayStation-style or Xbox-style buttons. I'll build it alongside the other menu work. It also covers the footer icons in the custom menus.
-
-I logged the request (#22826) in `.handoff/user-directives.md` and as an open task in `.handoff/open.md`. I sent you a short note on your phone saying it's queued.
-
 ## 2026-10-22 00:14:19 session f4d8e5ec-5692-4b60-b049-11a66045c33d
 Nothing is finished, and I told you so on your phone.
 
@@ -318,4 +311,21 @@ I closed the game by its exact PID and removed the test marker. I didn't back up
 I sent the result to pc2, told the user, and added a needs-player item: summon those two from the F10 menu, which should take about a minute. `next.md` and `done.md` are updated. Nothing was committed or pushed this run beyond the earlier `pc/merge-autoruntime-polish` branch.
 
 2026-10-22 20:58 pc CHECKPOINT | task: automatic boss setup (#23436/#23905/#23909) | DONE: merged build (pc2/autoruntime static move lists + polish rows/Ki-dmg + auto arenas + summon-all) INSTALLED, Training asi sha 1781C86C, game relaunched PID 19452 | UNPROVEN: everything in game; poison/burn dmg scaling not done | NEXT: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko; collect ally bench RESULTs (#23929) and pc2 results; when ALL requested done ping human 10x on Discord (#23933); stale marker uo-agentd/pc/test-active (19:30) should be deleted | files: captures/install_autoruntime_1025.ps1, worktrees ../nioh3-merge1025 ../nioh3-polish
-2026-10-22 18:50 pc2 #24074 | autobind multi-block: Himiko now FINAL COMPOSED (241/241 rows = CP_HUMAN_NAGIGAMA + COMMON fragments; her CN_HIMIKO file is not mapped); Mikoshi/Kappa unchanged; offline 363 files 0 wrong | proven in game on pc2 (captures/pc2-24074) | next: pc merges pc2/autoruntime | commit on pc2/autoruntime
+
+## 2026-10-22 21:39:46 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
+I sent ally the GO for its benchmark job (#24116), with a smaller scope than it proposed. No benchmark numbers have come back yet.
+
+Ally's job needed 27 arms, about 2 hours of game time. I cut it to:
+- **Item 1 first:** PP off versus on, three interleaved fights per arm, one fight per launch.
+- **Then item 2, then item 3** if time allows.
+- **Abort rule:** drop any arm that is under 30 fps in the open world.
+- **Control run:** ally records the fps drop on the first summon separately and runs one fight with `Nioh3Training.asi` removed. That drop (36 to 3–10 fps, CPU at 98%) might be the Training mod's own load on the Ally's CPU rather than low RAM.
+- **Steam:** it leaves Steam and its web helper alone, per the correction I sent earlier.
+- **Input fix:** if the Continue prompt ignores the virtual pad, it should use the input path that worked on its first launch.
+
+Results should come back per arm with average fps and 1% low.
+
+I haven't sent the 10 Discord pings. Ally's benchmarks and pc2's Himiko fix are both still open.
+2026-10-22 21:55 pc: built combined pc/all-1022 (pc2/autoruntime-all f0237741 + pc/autostagger), pushed; worktree ../nioh3-autoall, Training.asi sha cd089a4a (mod/Nioh3Training/Nioh3Training.asi there). NOT installed: another job's test marker is fresh (game PID 24224 started 9:50pm). NEXT: when marker clears, back up + copy asi to game dir, relaunch, check ARENASCAN + autobind lines for Himiko/Kappa/Ibaraki, send result.
+2026-10-22 21:58 pc: pc/all-1022 (Training cd089a4a) INSTALLED, game PID 20848 loads, ARENASCAN 131 rows. Earlier test same day showed Himiko FINAL COMPOSED 376/376 rows in game on pc. Backup captures/pc/play-20261022-pre-all1022.
+2026-10-22 19:12 pc2 #24166/#24154/#24151 | DONE: Himiko autobind (COMPOSED Nagigama+Common), hand Himiko rows dropped, Ibaraki 13% = incomplete hand list, boss/duelist tables, tools/dlc_bind_report.py, tools/duelist_files.py (31/33 weapon kits from enemy param +0x124); ASI deef08f8 (bridge #1464) | UNPROVEN: 4 stub kits (Ogin/Denrinbo/Kawara TEKOUKAGI, Mage NITOU_NINJA, Berenguela HOKOTATE, Hanzo KATANA_NINJA) action files only from runtime logs; Daidara +0x124=0 | NEXT: wait for pc on optional LFM-archive hash scan; pc installs ASI; pc posts settings-audit bench tasks (#24182) | files: nioh3-autoruntime branch pc2/autoruntime-all f68df59d, captures/pc2-24074

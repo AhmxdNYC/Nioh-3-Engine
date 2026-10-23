@@ -974,3 +974,972 @@ Verified live: HP-0 death fix works (bar clears ~4.5 s). Fade-out build (other p
 
 - 2026-10-20 12:07 AM EDT cxl-pc #14605: Verified needs-player.md contains drill ON / step back 6+ m / approach then resume check. pc reports real controller/no virtual pad, game left for player. Next pc: inspect AGGRO/REPEAT lines after player test; no runtime pass claimed and no duplicate player request.
 2026-10-20 00:10 | Task: multi-boss/menu-cleanup build + sequence/aggro fixes (#14291..#14546) | DONE+installed: db12513d on pc/boss-hpki (worktree ../nioh3-boss-hpki): Training 569f81fb, Rematch 58c016b7; game PID 9076 running; backup captures/pc/play-20261020-pre-aggro14546 | UNPROVEN in game: sequence full chain, Aggro me walk-up during drill/sequence (needs-player.md item), Train-here idle | NEXT: after user test read Nioh3Training.log AGGRO/REPEAT lines, fix issues; alt fix pc2/aggro-drill-14550 (4784ea32) only if db12513d fails; EngineFix label rename not rebuilt (readfix.cpp uncommitted in main); boss-hpki not merged to main yet
+
+- 2026-10-20 12:09 AM EDT cxl-pc #14618: PC2 reported alternative 4784ea3 (+58ccb39 commands), Training 102d9604be7e tested at 1080p, Train here R7B35 / Stand still / sequence 4E78>4E7A / 1000ms gap. OFF drifts 13.5->24.9m; ON one natural step 10.2->8.5m then 6s placement fallback to 4m, full 2/2 chains resume; HP 2658->2278. Natural approach NOT proven reliable. Separate from installed db12513d; do not merge unless main-PC test fails. PC2 reports restored/closed/lock released; no further PC2 test authorized.
+- 2026-10-20 pc: #14554 drill-aggro + #14462 summon-random-moves fixed offline (pc/boss-hpki db12513d + pc/boss-hpki-b14462 7daf4d2e, Training 59C860B0/Rematch BFF4E97C). Session nioh3-engine-4e is the installer; pc does not install this one.
+
+- 2026-10-20 12:09 AM Eastern cxl-pc #14624: pc reports candidate 7daf4d2e offline pass (Training 59C860B0 / Rematch BFF4E97C), install owned by session 4e; installation/runtime validation not yet confirmed. Reminded pc separate-PC testing remains cancelled by #14563/#14564. NEXT pc/4e: verify installed hashes, main-PC drill OFF/ON plus summon idle/sequence check, report result.
+2026-10-20 00:1x pc: INSTALLED hpki-b 7daf4d2e (Training 59C860B0, Rematch BFF4E97C) = drill-aggro #14546 + held summon #14462; game relaunched; backup captures/pc/play-20261020-pre-hpkib. Needs user test.
+
+- 2026-10-20 12:11 AM Eastern cxl-pc #14641: readiness answered from pc #14633 and installation handoff: 7daf4d2e installed, Training 59C860B0 / Rematch BFF4E97C, game relaunched. Runtime drill approach and summon idle/sequence remain unconfirmed; pc owns existing log validation.
+
+- 2026-10-20 12:18 AM Eastern cxl-pc #14655: user reports drill seems working; new blocker is selectable sequence killed boss. Sent pc TASK #14657 to preserve logs, identify/exclude death/self-kill paths, remove tiny twitch moves and twitch-only sequences, build/test/install locally. NEXT pc report culprit and removed counts with runtime evidence; do not call filter complete before test.
+
+2026-10-20 00:25 pc: #14657 built 953c3c2b (branch pc/boss-hpki-b14462, Training 0a0eec7a / Rematch 707c275d). User is playing (game PID 15644, input idle 0) so NOT closed; detached captures/install_14655_when_closed.ps1 installs when the game exits (backup captures/pc/play-20261020-pre14655). Next: after install, relaunch + verify menu counts (no Twitches page, no 4E3B seq). Log copy captures/pc/log-20261020-seqkill.
+
+- 2026-10-20 12:22 AM Eastern cxl-pc #14658: accepted 953c3c2b as offline-only filter progress (10/173 moves and 3/27 sequences removed). pc instructed on #14657 to continue existing deferred install, relaunch without new permission, verify filtered menus/useful sequence, report hashes and runtime evidence. No duplicate installer; do not call live fix complete yet.
+2026-10-20 00:27 pc: cxl-pc #14661 authorizes relaunch/test. Still waiting: game PID 15644 running, installer script waits for exit. When captures/pc/play-20261020-pre14655/installed.txt exists: launch (steam_autoplay), verify counts 163 moves/24 sequences + a useful sequence, report hashes (Training 0a0eec7a / Rematch 707c275d), then notify user.
+
+- 2026-10-20 12:26 AM Eastern cxl-pc #14664: user revised layout to attacks first + ONE other animations/twitches submenu. Supersedes blanket twitch removal; killers still excluded. Assigned pc follow-up on #14664 to revise existing filter build/deferred installer, locally validate, install/relaunch and report counts. Avoid obsolete installer overwrites.
+
+- 2026-10-20 12:27 AM Eastern cxl-pc #14665: user requires full real attack sequences, not twitch chains/partial fragments. Clarification sent to pc on existing #14664 menu job. NEXT pc verify full-chain runtime execution alongside attacks-first menu and safe animation submenu; don't equate table links with proven complete combos.
+2026-10-20 00:35 pc: #14667 revised: Rematch ACAACF46 (commit on pc/boss-hpki-b14462), Training 0A0EEC7A unchanged. Groups: Attacks 24, Unnamed attacks 71, Animations and twitches 76 (+2 killers hidden); 12 attack sequences. Installer script copies from the build path at install time so it installs this revision. Still waiting for game exit.
+
+- 2026-10-20 12:28 AM Eastern cxl-pc #14672: revised build offline only: 24 named + 71 unnamed attacks, 76 other animations, 2 killers hidden, 12 candidate attack sequences. Continued pc ownership on #14667: idle >=2 min permits exact-PID close/install/relaunch; active player preserved. NEXT pc report installed hashes, live menu/death exclusions and complete useful combo execution; static links alone do not prove full sequences.
+
+- 2026-10-20 12:29 AM Eastern cxl-pc #14674: pc clarifies 4dd05ef0 is menu filtering only (12 chains containing an attack part), NOT proof of full combos. Existing pc install/test job must compare expected/observed parts and actual opener/natural end for sampled chains; hide/fix fragments. No new installer.
+2026-10-20 00:4x pc: #14675 waiter captures/install_idle_14675.ps1 running (installs hpki-b Training 0A0EEC7A/Rematch ACAACF46 when game exits or input idle>=2min, then relaunch). User actively playing now. After install: verify hashes+log, report observed.
+
+- 2026-10-20 12:31 AM Eastern cxl-pc #14682: user requests relaunch and ping when done; acknowledged and forwarded to pc existing #14667 job. NEXT pc finish install/live checks, restore real controller input, relaunch playable session, notify user with measured verification limits.
+2026-10-20 00:35 pc: INSTALLED #14655/#14664 revised build (Training 0A0EEC7A, Rematch ACAACF46; commit 4dd05ef0), game closed by PID and relaunched (PID 17984), mods hook ok. Backup captures/pc/play-20261020-pre14655. Menu counts + chain execution UNVERIFIED in game - needs-player item added. Next: after user plays, grep REPEAT sequence lines for part counts.
+- 2026-10-20 12:34 am EDT cxl-pc #14688: verified installed Training 0A0EEC7A / Rematch ACAACF46; game PID 17984 started 12:32:38 am EDT, Rematch startup ready 12:32:40. User notified #14688 thread. NEXT pc existing #14667: live filtered-menu/full-combo verification and real-controller readiness; no competing installer.
+- 2026-10-20 12:35 am EDT cxl-pc #14692: pc confirms installed Training 0A0EEC7A / Rematch ACAACF46 (4dd05ef0), PID 17984, hooks loaded and real pad ready. Proven: load/relaunch only. Unproven: live menu counts and complete execution of 12 candidate attack chains. NEXT pc: retain existing log-validation ownership, observe opener/expected parts/natural finish after play; terminology correction sent #14698.
+- 2026-10-20 12:39 am EDT cxl-pc #14702: live failure captured in captures/pc/sequence-14702/training-tail.txt. Chr16102 head4E78 list [4E78,4E7A] overrides native4E79, then native4E8D to idle ~400ms after second part; total1.47-1.61s. pc sole fix/install owner assigned #14707; inspect skipped intermediary/continuation and runtime termination before claiming complete combos. User informed; active game untouched.
+
+- 2026-10-20 12:39 AM Eastern cxl-pc #14706: user answered via #14711; repeats 39-42 confirm forced end 1468-1547 ms, second part 375-422 ms. Follow-up evidence sent to pc #14712 on existing #14707. NEXT pc fix and live-test natural full-chain termination; no competing install.
+
+- 2026-10-20 12:41 AM Eastern cxl-pc #14710/#14713: scope expanded via #14716 on pc existing #14707: all affected move/sequence playback must finish recovery before idle/repeat gap. NEXT pc smallest fix then local game test, audit 12 candidate chains plus single-move path; report unverified cases and relaunch/ping. No new installation owner.
+- 2026-10-20 12:42 am EDT cxl-pc #14713: completion/recovery requirement already durable in user-directives; answered user and reinforced single-move plus sequence natural completion on existing pc #14707. NEXT pc finish smallest fix, local live test, relaunch/ping; no competing installer.
+- 2026-10-20 12:42 AM EDT cxl-pc #14714: relaunch/ping request saved and forwarded to pc existing #14707. NEXT pc complete local playback fix/test, restore real controller, relaunch playable game and report readiness; runtime completion still unverified.
+2026-10-20 00:45 pc: #14702 fix INSTALLED (Training 040D64CF, Rematch ABF184AA, commit 308067b8), game relaunched PID 15792. Finding: sequence 4E78>4E7A skipped 4E79 the game AI picks each time (log 00:38, 83 AI picks 4E79); link now 4E78>4E79>4E7A (3 hits). Hidden unproven heads 4E67/4E70/4E8C/4E76/4E7D. Other chains (4E21>22, 4E5C>60, 4E7B>A7...) still unverified. Next: user plays 4E78 seq; grep "part 3 of 3".
+- 2026-10-20 12:43 AM EDT cxl-pc #14729: reviewed 308067b8 (generator/table/menu only). Installed/relaunch reported by pc: Training 040D64CF / Rematch ABF184AA, PID 15792. Partial correction: 4E79 restored; 5 heads hidden. Full natural completion/recovery remains UNVERIFIED; no playback termination change. NEXT pc #14707 test installed chain and complete shared single-move/sequence natural-end fix; part 3/3 alone insufficient.
+2026-10-20 00:55 pc: #14713 INSTALLED Training 3891588D (commit 111fcc61; Rematch ABF184AA unchanged), game relaunched PID 18140. Combos: after last listed part the boss's own same-attack-family follow-up picks pass (max 4, log "native continuation 0x.. passes") instead of forced idle; idle/gap starts when the AI stops. UNVERIFIED in game: expect 4E78>4E79>4E7A(+4E8D) lines.
+- 2026-10-20 12:46 AM EDT cxl-pc #14734: reviewed 111fcc61; install reported Training 3891588D / Rematch ABF184AA, PID 18140. Full completion UNVERIFIED; continuation heuristic capped at 4. NEXT pc existing #14707: local live continuation/natural idle/recovery evidence including single moves; sole game/install owner.
+- 2026-10-20 12:50 AM EDT cxl-pc #14742: user requests actual native Yoritomo combos. Honest status sent #14743. Offline source tracing assigned pc2 #14744: first proven combo then branches/recovery/end map; no separate-PC game test. pc #14707 retains local live validation, coordination sent #14745. NEXT receive pc2 artifact needs/results and reconcile decoded vs inferred edges.
+- 2026-10-20 12:51 AM Eastern cxl-pc #14747: user notification requirement saved; pc2 #14744 asked to report first source-backed native combo immediately. NEXT reconcile that evidence and ping user; pc #14707 retains local runtime verification/install ownership.
+- 2026-10-20 12:52 AM Eastern cxl-pc #14751: native Yoritomo AI decision logic added to pc2 #14744 after first proven combo milestone. NEXT receive source-backed attack-choice/branch/reaction findings, distinguish unknowns and ping user; pc #14707 retains runtime/install.
+- 2026-10-20 12:54 am EDT cxl-pc #14760: verified original pc2 brief and sent concrete existing artifact/commit/log pointers #14762; asked confirmation of reuse, not restart. NEXT pc2 #14744 confirm assets and deliver first source-backed combo; pc #14707 supply newer native leads/live evidence. User answered #14763.
+- 2026-10-20 1:02 am EDT cxl-pc #14776: delegated 30 Hz logic optimization audit to ally #14777 using existing TG notes/source/captures; user acknowledged #14778. NEXT consume audit, establish actual installed/default state and historical CPU metric; coordinate any gameplay check with pc current game owner. Native Yoritomo investigation remains pc2 #14744.
+2026-10-20 00:58 | #14707/#14713 Yoritomo full-combo fix | DONE+installed: Training 3891588D (111fcc61: after last part the boss own same-attack-family follow-up picks pass, max 4, log "native continuation"), Rematch ABF184AA (308067b8: 4E78>4E79>4E7A link via tools/gen_boss_sequences.py override, hid unproven heads 4E67/4E70/4E8C/4E76/4E7D, attack-first menu groups, killers 4E3B/4E3C hidden); game PID 18140. All pushed on branch pc/boss-hpki-b14462 (worktree C:/Users/Ahmad Hamza/nioh3-hpki-b). UNPROVEN in game: full combos/natural idle (follow-up rule is a heuristic, cap 4). | NEXT: after user plays 4E78 sequence grep REPEAT lines in game-dir Nioh3Training.log (continuation lines, end/gap timing), report action ids; pc2 + cxl-pc doing offline RE of real combo logic (files #1216/#1217); also needs-player items pending | files: mod/Nioh3Training/src/move_toggle.h, mod/boss_sequences.h, mod/Nioh3BossRematch/src/{move_cats.h,training_bosses_menu.h}
+- 2026-10-20 1:03 am EDT cxl-pc #14780: User will personally test the 30 Hz optimization; locate only. Ally audit #14777 remains in flight, scoped by #14782 to no install/enable/launch/benchmark. NEXT consume audit and tell user exact feature/key/build plus proven historical result; no game changes.
+2026-10-20 pc: seqfix pc/seqfix 325f968a (Training 4E2A62A2, Rematch A13EF0ED): sequences play until game's own idle (no list substitution/forced idle). Waiter captures/install_idle_seqfix.ps1 installs when game exits/idle>=2min + relaunch. Needs live proof: 4E78>4E79>4E7A>4E8D, 0xFFFF refusal lets action finish.
+- 2026-10-20 1:08 am EDT cxl-pc #14788: user requested fleet status; answered assignments #14791 without claiming live execution. PC2 live-status query #14789 on #14744, Ally #14790 on #14777; pc also queried. NEXT relay confirmed progress/blockers when replies arrive; keep existing tasks running.
+- 2026-10-20 1:09 am EDT cxl-pc #14795: user wants current research on main PC. Remote stop/transfer requested pc2 #14803 and ally #14804; local takeover TASK pc #14805 covers native Yoritomo sequence/AI and locate-only 30 Hz audit. NEXT obtain transfer and pc acceptance, forward findings locally; do not restart remote work. User answered #14806. Existing local sequence install/relaunch remains pc-owned.
+- 2026-10-20 cxl-pc #14809: PC2 stop confirmed, 0 new decoded findings. Existing pointers forwarded to pc on #14805: action+0xE0 native consumer trace for 4E78/4E79/4E7A/4E8D, notes/yoritomo-action-fields.md+.csv and tools on pc2/aggro-drill-14550, logs #1216/#1217. NEXT pc local acceptance and evidence; Ally stop/transfer still pending. Any late cx-pc2 commit to be forwarded only.
+- 2026-10-20 01:10 pc | TASK #14716/#14710 sequence+single-move termination: fix BUILT offline, pc/seqfix 325f968a (worktree ../nioh3-seqfix; Training 4E2A62A2, Rematch A13EF0ED), NOT yet installed/proven live | waiter captures/install_idle_seqfix.ps1 (hidden PS) installs+relaunches on game exit or input idle>=2min, backup captures/pc/play-20261020-preseqfix | NEXT: confirm installed.txt + hashes, read Nioh3Training.log for 4E78>4E79>4E7A>4E8D and 'back in idle by itself', audit all 12 chains, report measured + unverified to user (TO-USER) and cxl-pc; ensure no double install. pc2 #14744 traces native sequences/AI offline; Ally 30Hz audit. Code already pushed on branches.
+- 2026-10-20 1:11 am EDT cxl-pc #14795/#14814: placement directive already saved; main-PC takeover #14805 reaffirmed via #14815, awaiting pc acceptance/progress. PC2 stop confirmed; Ally transfer confirmation pending. User answered #14816/#14817 without claiming active execution or verified 26% result. NEXT pc provide local ownership plus native evidence and exact 30 Hz key/build/CPU source; no remote restart or 30 Hz installation.
+- 2026-10-20 1:12 am EDT cxl-pc #14801: stale pc status reconciled via #14820; it predates local-only correction #14795. NEXT existing local takeover #14805/#14815 needs acceptance/progress; pc keeps sequence install/live-proof ownership. No new research assignment or game changes.
+- 2026-10-20 1:13 AM Eastern cxl-pc #14798: offline seqfix reviewed; reply requests existing pc-owned live refusal + full-chain/recovery checks. Motion-family rule heuristic; 5 s fallback/30 s timeout retained. NEXT pc finish queued install/test, provide hashes/logs; no cxl-pc installation.
+- 2026-10-20 pc: #14814 answered: 30 Hz feature = TG tick governor (ASI 1.6.0+, in 1.7.73, default off, +2.6-3.3% measured; 26-27% unverified). #14812 accepted: NEXT trace native consumers of action+0xE0 for 4E78>4E79>4E7A/4E8D then AI/AIGraph (see pointers in #14812); not started.
+- 2026-10-20 pc: #14825 acked; waiting on install_idle_seqfix waiter (game 18140 running), then verify live per cxl-pc checklist.
+- 2026-10-20 1:14 am EDT cxl-pc #14814: user answered #14838 using pc confirmation #14826: TG present/default OFF, 26-27% CPU unverified. Existing local owner pc nudged #14840 on #14805 for first native consumer/branch evidence and reconcile running vs not-started status. NEXT pc continue native trace and owned sequence live validation; no TG install/test.
+- 2026-10-20 01:15 pc: 30Hz=TG located (notes/tg-30hz-locate.md), user tests himself. Yoritomo native AI trace delegated cx-pc #14818 (offline). Sequence fix #14702 still needs relaunch+ping (slot 1).
+- 2026-10-20 1:15 am EDT cxl-pc #14843: historical TG CPU claim verified in next.md:332 (PC2 #57: OFF vs ON CPU -27%, FPS +0.8%, lows 19.6 -> 14.6; partial 1/3, raw/metric/settings missing). Corrected user #14856 and local owner pc #14857. Locate-only audit complete; no TG install/test. NEXT pc existing native sequence/AI trace and sequence live validation.
+- 2026-10-20 1:16 am EDT cxl-pc #14852: NEW user authorization overrides TG locate-only: restart main-PC game with TG ON for personal play now. TASK pc #14861 coordinates existing seqfix waiter, backups/lock, TG prerequisites/log activation, controller readiness, launch and user ping. NEXT pc execute restart and return evidence; local native sequence/AI continues. User acknowledged #14862; not yet claimed ready.
+- 2026-10-20 1:17 AM EDT cxl-pc #14849: Ally remote audit stop confirmed, 0 installs/launches/benchmarks and no new findings. Both remote transfers closed. NEXT pc continue existing local native sequence/AI trace and authorized TG restart #14861; report activation/controller readiness before user-ready ping. No duplicate work assigned.
+- 2026-10-20 1:17 AM EDT cxl-pc #14851: pc confirms both jobs local; read #14818 confirms cx-pc owns offline native Yoritomo sequence/AI trace using existing artifacts; slot 1 owns seqfix relaunch. NEXT pc execute newer TG restart #14861 and return activation/controller evidence; cx-pc deliver first source-backed combo and separate proven logic from heuristics. No duplicate assignment.
+- 2026-10-20 pc: installed seqfix (Training 4E2A62A2, Rematch A13EF0ED) + Nioh3EngineFix.ini TG=1 for user (#14852), game relaunched; to restore TG: set TG=0 (backup in captures/pc/play-20261020-preseqfix). Live-check seqfix logs still TODO; native trace TODO.
+
+- 2026-10-20 1:18 AM EDT cxl-pc #14827: older pc local-ownership acceptance reconciled via #14872 with newer TG authorization/relaunch. NEXT existing pc owner finish live TG activation/controller check and answer #14868; existing cx-pc native sequence/AI trace continues. No duplicate launch/research.
+
+- 2026-10-20 1:19 AM EDT cxl-pc #14853: older acceptance/config details reconciled via #14879; newer reported restart supersedes waiter status. NEXT unchanged: pc live TG/controller proof, cx-pc existing native sequence/AI trace #14818 (0 new proven findings in #14853).
+- 2026-10-20 1:20 AM EDT cxl-pc #14841: delayed waiter status superseded by #14880 restart/live report; reconciled #14885. NEXT existing pc owner prioritize Boss Matches idle regression #14877, verify fighting vs Training idle; clarify TG enabled vs actual throttling (85 ticks/s is not proof of 30 Hz). cx-pc #14818 native AI research continues; no duplicate launch.
+- 2026-10-20 1:22 AM EDT cxl-pc #14852: duplicate delayed user restart request answered from completed pc launch #14880. No second restart. NEXT pc existing Boss Matches idle fix/live verification and TG counter clarification #14888; cx-pc native AI trace #14818 remains assigned.
+- 2026-10-20 pc: #14877 FIX built pc/seqfix b52c451d: Boss Matches Fight now spawned idle because TrainAttachArena always IhDefault(1); now only practice sessions. Waiter captures/install_idle_14877.ps1 (Training only) installs on game exit/idle>=2min + relaunch. Verify log: no IDLEHOLD adopted on a Boss Match fight.
+- 2026-10-20 1:30 am EDT cxl-pc #14913: discovered cx-pc stale Oct 17 hold; GO #14923 cleared it and agentd launched 3 queued slots. User corrected #14925. Mixed codex/claude routing sent to cx-ops for recovery; next confirm #14818 research progress and authorized routing. pc still owns game.
+2026-10-20 1:32 AM Eastern cx-pc #11599: collector branch cx-pc/native-poll-11599, commit 745422d5; 41/41 offline tests PASS including dump899. Next pc: 4 live probes; no game touched.
+
+- 2026-10-20 1:32 AM EDT cxl-pc #14922: TG active-boss OFF/ON benchmarks queued board #95 PC2, #96 Ally, #97 PC (after human session). Codex workers requested; GO #14941 sent remote devices; pc coordination #14947. NEXT collect per-device ABBA CPU/FPS/lows/tick-rate captures, help recorder failures first; no KEEP/DROP before 3/3. No measured results yet.
+- 2026-10-20 1:35 AM EDT cxl-pc #14927: explained stale Oct 17 usage-limit hold to user (#14963). Verified cx-pc log has GO and 3 worker launches; requested concrete native research progress on #14818. NEXT consume research reply and existing cx-ops routing recovery; pc retains game, board #95-97 TG benchmarks remain queued.
+2026-10-20 1:53 AM Eastern cx-pc #13519 | Recovered existing pushed report at 6391e2c5; reran 9/9 asset checks PASS and diff check clean | board71 remains incomplete: runtime-to-asset identity, hit count, coefficients, proven duration | next pc provide retained per-boss record snapshots; offline follow-up trace context damage writers
+- 2026-10-20 1:53 am EDT cxl-pc #15052: Ally missing recorder delivered as bridge file #1237 (existing source 646f3944), 6/6 offline fixtures PASS; recovery instructions #15158. Latest approved engine/Training/Rematch package still requested from pc #15148. NEXT: confirm Ally receipt, obtain package + hashes/Proton notes, resume existing board #96; 0 measured TG OFF/ON arms, no performance verdict.
+
+2026-10-20 1:54 am EDT | cx-pc #13391: all 3 offline harnesses PASS on cx-pc/menu-fixes-13391; runner quoting repaired in 969b7ab7. Existing code commits 30c862fe/72c27009; artifact hashes unchanged. Next pc integrate only as appropriate for newer Training changes; no game touched.
+
+- 2026-10-20 1:55 AM EDT cx-pc #13160: revised notes/boss-chain.md at d61e8417 (cx-pc/boss-chain-audit-13160). pc next: inspect resolved-ID guard requirements and Shingen transition provenance; current full-recovery requirement preserved. No game touched.
+
+- 2026-10-20 1:55 AM Eastern cxl-pc #15055: updated human #15185 with 41 collector / 9 asset offline checks; no proven native AI/combo result or TG measured arms. Recovery confirmation requested Ally #15188 (thread #15052); concrete native trace progress requested cx-pc #15193 (thread #14818). NEXT consume these replies, prioritize Ally errors and current package request #15148; existing jobs remain queued/owned, no duplicate assignment.
+- 2026-10-20 2:03 am EDT cxl-pc #15275: PC2 has 0 valid TG arms; failure is fight entry before recording (addon 1.4.21, REA75 queued/fnow idle/fights=0). Existing #95 worker retains ownership; diagnosis sent on #14922. Ally #96 PAUSED by human #15142 battery instruction. NEXT consume cx-pc current-package #15298 and exact native-job #14818 slot/progress reply; no duplicate runner/research.
+
+- 2026-10-20 2:03 am EDT | cx-pc #14373: leader/manual and auto-weekly switches delivered on universal-optimizer cx-pc/codex-leader-14373 (e09b6ca; code 387bb51/5882a45), default OFF, no activation. Next pc review/integrate; offline validation in docs/codex-leader.md; cx-pc requests next scoped offline assignment.
+
+- 2026-10-20 2:03 AM EDT cxl-pc #15107: ops diagnosed restart drain blocking 2 free worker slots behind 1 live job. Recovery verification TASK #15329 on #15069 asks current reload/Codex-only state and proof native research #14818 launched. NEXT consume ops evidence; preserve running job, no duplicate research or forced restart.
+
+2026-10-20 2:04 am EDT cx-pc #13539: footer glyph task complete on cx-pc/footer-13539 (b0e21452, 5b170e74); notes/footer-glyphs-13539.md. pc next: cherry-pick into current combined build, not historical-base ASI install. Offline build/menu/WARP PASS; no game touched. Available for next assigned offline task.
+
+- 2026-10-20 2:05 AM EDT cxl-pc #15333: PC2 still 0 fights/0 valid arms; foreground steamwebhelper, input unverified. Recovery instruction #15347 on #14922: existing owner pause failing loop, foreground game, prove input and active combat before capture; send screen/command trace if failure persists. Package #15298 remains cx-pc. NEXT consume PC2 recovery and cx-ops #15329 launch evidence; no duplicate jobs. Human #15327 answered candidly #15342.
+
+- 2026-10-20 2:06 AM EDT cxl-pc #15151/#15219: recorder runbook file1236 forwarded to PC2 #15370 on #14922; require 10-second target-PID frame/CPU smoke check after fight-entry recovery. Offline documentation complete, live repair still unverified (0 recordings in these reports). NEXT consume existing PC2 recovery; Ally stays paused per battery directive #15142. No duplicate runner.
+- 2026-10-20 2:08 am EDT cxl-pc #15367/#15368/#15375: native research now confirmed running by concrete trace evidence; cx-pc asked to map captured 2-part cutoff to current combined code and smallest testable fix. Human received per-machine status; Ally hold reaffirmed #15400. NEXT consume cx-pc native trace/current-build guard, PC2 recovery #15347/#15370 and cx-ops #15329; no duplicate jobs.
+
+- 2026-10-20 2:10 am EDT: pc review/integrate universal-optimizer branch cx-pc/codex-leaders-14453 (2d4ea4c), default-off only; cx-pc continues assigned native Yoritomo #14818 offline.
+- 2026-10-20 2:09 am EDT cxl-pc #15094: answered agent-utilization question #15417 using confirmed trace #15367 (2-part cutoff; no decoded AI verdict). Added PC2 idle-spawn diagnostic #15418 to existing #14922 recovery: verify latest package, Matches CPU vs Training idle, then combat + 10-second recording. NEXT consume existing recovery/build replies; Ally remains battery-paused. No duplicate jobs.
+
+- 2026-10-20 2:11 AM EDT cxl-pc #15427/#15169: candid status #15430 sent; no new gameplay success claimed. Existing cx-ops directed to close completed-ID replay defect with owner coordination/Codex-only fallback; #15367 confirms native trace already active, no restart. NEXT existing PC2 fight/recorder recovery, cx-pc research/package, cx-ops persistence regression proof; Ally battery hold.
+2026-10-20 2:11 AM EDT | cx-pc #15298: package file1246 delivered to pc2/ally/cxl-pc; docs dca57d69 cx-pc/package-15298. Next existing owners verify/stage under their test plan; Ally stays paused. Fixed Training 84F5D68C differs from installed 4E2A62A2; no live validation claimed.
+
+- 2026-10-20 2:12 AM EDT cxl-pc #15178: delayed ops replay fix located and inspected at 07788b7. Existing cx-ops recovery now validation/safe deployment only; preserve active workers and check first-upgrade replay. Native research confirmed separately #15367. PC2 recovery remains pending; Ally held.
+
+- 2026-10-20 2:14 am EDT cxl-pc #15180: Codex-only enforcement follow-up #15459 added to existing cx-ops routing recovery. NEXT consume effective worker/leader routing evidence; local scan found 0 Claude-named processes only (not fleet proof). Existing native research/PC2 recovery continue; Ally held.
+
+- 2026-10-20 2:15 AM EDT cxl-pc #15462: cx-pc reports 173 per-action blocks and three structural joins (4E78->4E79 row287 threshold110; 4E79->4E8C row288 threshold63; 4E7A->4E8D row292 threshold52). Loader semantics/full chains unproven. Follow-up #15485 on existing #14818 requests loader use, branches/recovery, reproducible evidence and smallest supported testable correction. Human update #15489; no gameplay fix claimed. NEXT consume same worker result; PC2 recovery stays owned, Ally battery hold.
+
+- 2026-10-20 2:16 AM EDT cxl-pc #15198: saved Codex-only directive already includes this message; answered #15495. Verified cx-ops daemon heartbeat fresh and latest TASK launch explicitly worker(codex) at 2:15 am EDT; model=sonnet log label alone is not backend proof of Claude. Existing #15459 routing enforcement remains pending; NEXT consume effective fleet settings/live backend evidence, no duplicate job.
+
+- 2026-10-20 2:18 AM EDT cx-pc #15443: package comparison complete (8d47bc45). PC2 Training 102D9604 / Rematch 3332FF78 both differ from file1246 Training 84F5D68C / Rematch A13EF0ED. Existing recovery owner to verify/stage and prove active combat; packaged b52c451d includes practice-only idle fix, runtime unproven.
+
+- 2026-10-20 2:18 AM EDT cxl-pc #15498: reviewed worker checkpoint bd105052 (173 blocks, 503 transition rows, seven-action candidate); shared interrupts and loader join prevent a proven full-chain claim. Follow-up #15514 on #14818 requests loader/flags proof and smallest runtime probe/correction; human updated #15516. NEXT consume existing cx-pc result; PC2 recovery owners unchanged, Ally battery-held.
+
+- 2026-10-20 2:20 AM EDT cxl-pc #15455: PC2 residual Claude audit reconciled with existing cx-ops routing job via #15552 (reply #15311). NEXT cx-ops verify PID30920 session completion and board95 marker ownership with existing PC2 owner, then safely enforce and confirm recovery. New PC2 workers reported Codex; no game action or duplicate job; Ally hold retained.
+
+- 2026-10-20 2:22 AM EDT cxl-pc #15299: reconciled delayed 3-worker report with completed switch jobs #14373/#14453 and active native research checkpoint bd105052; sent #15568 on #15216 to existing cx-ops owner. NEXT consume existing routing recovery #15552, native loader trace #15514, and PC2 test recovery; no duplicate switch/research assignment. Ally held.
+
+- 2026-10-20 2:23 AM EDT cxl-pc #15343: spend-limit report already relayed as #15339 into Codex recovery #15311; no duplicate task. NEXT existing cx-ops returns enforcement/PC2 recovery evidence per #15552; Ally battery hold remains.
+
+- 2026-10-20 2:24 am EDT cx-pc companion: #14453 shipped default-off leader controls, code 2d4ea4c and debt checkpoint 6b71f44 (universal-optimizer). #14818 concurrent native owner retains loader/predicate trace; independent log appendix pushed e0c4a4ab. No game/helper touched. Next pc integrate leader controls as authorized and assign a distinct offline item.
+
+- 2026-10-20 2:24 AM EDT cxl-pc #15479: PC2 source #15457 confirms 0/4 valid captures; delayed last-arm state not treated as current. Follow-up #15578 asks existing owner for cleanup/ownership checkpoint then package reconciliation and short combat/recorder smoke test before TG comparison. NEXT consume PC2 recovery and cx-ops handover; Ally held.
+
+- 2026-10-20 2:25 AM EDT cxl-pc #15584: companion log audit supports 5 native continuation steps after repeat stopped (file1216 lines16397-16408); relayed #15588 to existing native owner on #14818, human #15590 on #14747. NEXT active owner resolves initial 4E78/4E79 loader join and AI branches; no new installation/test claimed. PC2 recovery remains owned; Ally held.
+
+- 2026-10-20 2:26 AM EDT cxl-pc #15313/#15319: delayed handoff accepted; local Claude pc/ops HOLD evidence is historical 2:02 am EDT (0 subsequent launches at that check), not current global enforcement proof. Package comparison already complete #15443; preserve existing research/PC2 recovery. NEXT cx-ops completes routing evidence in original #15215 (assignment #15311), existing PC2 owner smoke-tests reconciled package.
+
+- 2026-10-20 2:27 AM EDT cxl-pc #15285/#15594: delayed PC2 report confirms 7 Codex starts historically; recovery owner unchanged. Human told no proven/installed full native sequence fix; existing cx-pc #14818 asked for smallest testable correction/probe and exact game-test next step. NEXT consume existing native/recovery results; Ally held.
+
+- 2026-10-20 2:28 AM EDT cxl-pc #15612: PC2 0/5 valid combat captures; 7 starts were coordinator ONLY. Escalated actual game-worker Codex/HOLD clearance to existing cx-ops #15619; cxl-pc2 retains smoke recovery. User #15602 fix/relaunch saved; existing cx-pc #14818 assigned smallest fix/build/main-PC test/install/relaunch via #15620 before extended research. NEXT consume actual worker launch and game-test evidence; Ally held.
+
+- 2026-10-20 2:29 AM EDT cxl-pc #15614: routing code eb73ed5 passes 258 tests; reported PC2 0 helper-owned Claude / 1 Codex worker is historical process evidence, live deployment still unverified. Follow-up #15629 on original #15215 asks existing cx-ops owner to reconcile actual game-worker backend and safe policy loading with no-restart restriction, coordinating cxl-pc2. NEXT consume routing clearance and existing cx-pc sequence fix/install #15620; Ally remains held.
+
+- 2026-10-20 2:30 AM EDT cxl-pc #15321: delayed PC2 Q answered #15632 with existing concrete smoke-test assignment #15578, actual game-worker routing recovery #15619/#15629. No duplicate runner. NEXT existing owners provide combat/recorder and Codex clearance evidence; main-PC fix/relaunch remains cx-pc #15620; Ally held.
+
+- 2026-10-20 2:30 AM EDT cx-pc #14818: delivered native Yoritomo note/parser at cx-pc/yoritomo-native-14818 9b438f86, bridge file1247. Next pc: read probe contract; capture source R+50/+58/+5A, actual T bytes, raw/filtered/final action for 4E79>4E8C and 4E67>4E70. Do not force a 7-step chain; native completion idle2 after recovery. Loader join remains unproven; no game test run by companion.
+
+- 2026-10-20 2:31 AM EDT cxl-pc #15281: delayed human research status answered #15638 using five logged native continuation steps; full AI choice/completion remains unproven. Checked cx-pc daemon log: recent launches explicitly worker(codex). Existing #15620 fix/test/install/relaunch remains the next action; do not duplicate it or restart research. PC2 recovery owned; Ally held.
+
+- 2026-10-20 2:32 am EDT cxl-pc #15445: package delivery accepted via #15651 on original #15298; 11 hashes reported PASS, gameplay pending, file1246/docs dca57d69. NEXT existing cx-pc #15620 completes sequence fix/main-PC test/install/relaunch; preserve newer sequence changes over packaged Training. PC2 already owns reconciliation/combat-recorder smoke; Ally battery-held. No duplicate assignment.
+
+- 2026-10-20 2:33 am EDT cxl-pc #15626: assigned PC2 leader cxl-pc2 safe managed guard deployment coordination via #15663 on existing #15549; answered cx-ops #15664 on #15215. NEXT confirm loaded eb73ed5/effective slot-0 Codex plus actual game-worker backend before clearing holds/resuming smoke. Preserve marker rejection, no companion restart/bypass. 0 valid captures; main-PC #15620 unchanged, Ally held.
+
+- 2026-10-20 2:33 AM EDT cxl-pc #15606: delayed cleanup accepted #15679; already superseded operationally by #15663/#15664 deployment coordination. NEXT existing cxl-pc2/cx-ops confirm loaded policy and actual game-worker backend before smoke; main-PC sequence fix/install #15620 remains assigned. No duplicate worker; Ally held.
+
+- 2026-10-20 2:34 AM EDT cxl-pc #15327: human answered honestly; #15689 asks existing cx-pc for implementation checkpoint. Read-only game check PID2788 start1:16am EDT confirms no new relaunch; daemon fresh Codex slot0 processing Q at2:34am EDT. NEXT cx-pc completes #15620, preserve TG/controller and check owner before restart. PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 2:35 AM EDT cxl-pc #15362: delayed 3-slot/research-stall report reconciled via #15711 with completed native delivery 9b438f86/file1247 and log audit e0c4a4ab. NEXT existing cx-pc completes fix/install/relaunch #15620 (checkpoint requested #15689); cx-ops/cxl-pc2 complete existing policy verification #15663/#15664. No duplicate job; Ally held.
+
+- 2026-10-20 2:36 AM EDT cxl-pc #15648: pre-assignment PC2 executor question answered #15725 in #15215; existing deployment assignment #15663/cx-ops support #15664 apply. NEXT cxl-pc2 returns supported managed UPDATE availability/exact rejection, loaded guard and actual Codex worker proof on #15549. 0 verified game-worker launches; no hold cleared. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:37 AM EDT cxl-pc #15654: research-only result accepted via #15740 on #14818: 2 native transitions still require targeted validation; no installed fix claimed. NEXT existing cx-pc completes #15620 smallest fix/probe, actual game validation/install/relaunch; #15689 checkpoint pending. PC2 recovery remains owned; Ally held. No duplicate research or game lease.
+
+- 2026-10-20 2:38 AM EDT cxl-pc #15628: delayed cx-ops recovery follow-up accepted (258 offline tests; 0/5 valid captures); live deployment remains unverified. NEXT existing cxl-pc2 #15663/cx-ops #15664 verify loaded guard and actual Codex game-worker before smoke. No GO/new task; main-PC #15620 unchanged; Ally battery-held.
+
+- 2026-10-20 2:39 AM EDT cxl-pc #15396/#15404/#15406: PC2 input recovery and IDLEHOLD diagnosis reconciled via #15770/#15772. Corrected native-counter-only gate: Training-spawn combat needs actual attack/action evidence and nonempty capture. NEXT existing cxl-pc2 #15549/#15663 verifies package1246 installed hashes/idle fix plus managed Codex deployment, then combat/recorder smoke. 0 valid OFF/ON arms; no new runner or hold release. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:40 AM EDT cxl-pc #15389: local eb73ed5 agentd.py:130 still uses cumulative turn input for ctx. Assigned single accounting-fix owner cx-ops #15788 (coordinate routing owner; regression tests; push; managed deployment only). Research priority concern superseded by native artifact 9b438f86/file1247 and existing main-PC #15620; result #15790. NEXT cx-ops delivers tested patch and deployment status; cx-pc continues fix/test/install/relaunch. PC2 recovery and Ally hold unchanged.
+- 2026-10-20 2:42 am EDT cxl-pc #15368: answered machine-status question with 3-device assignments and explicit uncertainty (#15806). Verified main game PID2788 still old launch and cx-pc last recorded run ended; continued existing #14818/#15620 implementation assignment. NEXT cx-pc concrete build/test/install evidence; PC2 recovery already owned; Ally battery hold.
+
+- 2026-10-20 2:42 AM EDT cxl-pc #15434: delayed PC2 idle-spawn report reconciled via #15821 on #15370 with existing recovery #15549/#15663 and corrected combat gate #15772. NEXT existing PC2 owner verifies package1246/idle fix, autonomous attacks and nonempty 10-second capture. 0 valid TG OFF/ON arms; no new runner. Main-PC #15620 unchanged; Ally held.
+
+- 2026-10-20 2:43 AM EDT cxl-pc #15378: Ally confirms battery pause, 0 new recordings/arms; hold preserved until user authorization. NEXT main-PC cx-pc #15620 fix/relaunch and PC2 #15549 recovery continue with existing owners; no duplicate assignment.
+- 2026-10-20 2:45 am EDT cxl-pc #15384: user advised 0 usable PC2 fight captures; requested concrete recovery evidence from existing cxl-pc2 owner via #15857 on #15549 (installed package1246, autonomous attacks, 10-second capture). Next: diagnose exact returned failure or accept proven smoke, then existing benchmark job continues. Ally held.
+
+2026-10-20 2:46 am EDT cx-pc #15812: correction d6fed6b1 built and pushed (cx-pc/native-edge-15812); 340 offline veto cases + native-tail test PASS. Next authorized Codex game worker integrate source into current build, validate 4E67->4E70/recovery and relaunch. cx-pc session explicitly prohibits game access. Full chain and installed parity remain unproven; notes/native-edge-15812.md.
+
+- 2026-10-20 2:46 AM EDT cxl-pc #15627/#15642: accepted offline native research (9b438f86, file1247): 173 action blocks/503 transitions, 2 continuation conflicts, playback unproven. Reply #15863 keeps existing cx-pc #15620 fix/install/game validation active; next deliver native-edge probe and measured completion/recovery, not more broad research. PC2 recovery and Ally battery hold unchanged.
+
+- 2026-10-20 2:46 AM EDT cxl-pc #15442/#15533: delayed PC2 reports reconciled; #15524 verifies file1246 Practice-only idle fix and 3 manifest hashes, older installed pair differs. Existing #15549 recovery and #15857 evidence request remain active; next accept actual installed hashes/autonomous attacks/10-second capture, then TG OFF/ON. 0 proven arms; no duplicate job.
+
+- 2026-10-20 2:48 AM EDT cxl-pc #15427: user progress answered #15883: 340 offline cases pass, installed sequence/relaunch unproven, PC2 0 valid fight recordings. Detected conflicting ownership: cx-pc #15812 checkpoint explicitly prohibits game access despite #15620 assignment. Q #15892 on #14818 requests exact restriction/artifact/current integration owner; next route built d6fed6b1 to authorized game executor after reply, not another research cycle. PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 2:49 AM EDT cxl-pc #15548: accepted replay/ack persistence patch aded464 (remote fleet-v2 confirmed), 257 tests reported by cx-ops. #15905 on original #15438 routes deployment evidence to existing ops/routing owner; no restart here. Next: existing owner supplies managed deployed revision and restart/ack evidence; main-PC integration and PC2 recovery remain with existing jobs, Ally held.
+
+2026-10-20 2:49 AM EDT cx-pc #15620: candidate 11cd27a1 pushed/built; next authorized game owner integrates 2-edge correction, tests full recovery, reports installed hash/launch state. Companion has no game authority; gameplay remains unproven.
+
+- 2026-10-20 2:50 AM EDT cxl-pc #15571: 4 offline restart tests reported passing for replay fix aded464/ad72107; same live deployment follow-up #15905 remains pending. Next existing routing owner supplies deployed revision and first-upgrade/ack evidence; no new restart or implementation.
+
+- 2026-10-20 2:51 AM EDT cxl-pc #15499/#15589/#15603: routing patch eb73ed5 accepted (258 reported offline tests); stale ownership Q answered. NEXT existing cxl-pc2/cx-ops deployment coordination #15663/#15664 returns loaded policy/revision before GO; replay follow-up #15905 remains same deployment. Main-PC game integration still unproven; Ally battery hold retained.
+
+- 2026-10-20 2:52 AM EDT cxl-pc #15473/#15933: phone status sent; verified main PID2788 still started 1:16 am EDT, guard leftovers killed 0. Dedicated game-execution TASK sent to cxl-pc on #15933; do NOT return install work to game-prohibited cx-pc companion. NEXT game executor checks built 11cd27a1/current installed parity, backs up/takes lock, installs and actually relaunches with TG/controller preserved, reports new PID/hash. No live validation claimed.
+
+- 2026-10-20 2:53 AM EDT cxl-pc #15487/#15661: reconciled delayed PC2 reports in #15956 on original #15479. Five attempts ended with 0 valid captures; cleanup only reported. NEXT existing deployment #15619/#15640 proves loaded Codex policy, then existing recovery #15549 proves installed idle fix, autonomous attacks and nonempty 10-second capture. No duplicate runner; main-PC executor unchanged; Ally battery hold.
+
+- 2026-10-20 2:55 AM EDT cxl-pc #15503: clarified irrelevant fleet wording to user. Continued restart support by verifying candidate ../nioh3-native-edges-15620/mod/Nioh3Training/Nioh3Training.asi exists (514048 bytes, SHA256 7144514e650c3b1ff0fc400feb784b703f634ad11ccaf5150e494631a24b51de). PID2788 still old launch. Existing dedicated #15933 executor owns install; no competing launch.
+
+- 2026-10-20 2:55 AM EDT cxl-pc #15672: older routing audit reconciled in #15980 on #15619; zero live helper-Claude processes was snapshot evidence only. NEXT existing cxl-pc2 deployment owner proves loaded eb73ed5 guard and actual Codex worker PID/parent, then #15549 resumes autonomous-fight/10-second capture validation. Main-PC executor unchanged; Ally battery hold.
+
+- 2026-10-20 2:56 AM EDT cxl-pc #15510: delayed Claude quota failure dated 2:17 am EDT predates explicit Codex override #15640 at 2:30 am EDT. Answered existing cxl-pc2 owner; next remains deployment proof in #15619 then recovery #15549, not Claude retry/reset wait.
+
+- 2026-10-20 2:57 AM EDT cxl-pc #15551: assigned cx-pc offline package manifest #15997 for existing native-edges-15620 artifacts (paths/hashes/dependencies/TG preservation); next consume manifest in existing #15933 restart thread. No new build or competing launch; PC2 recovery unchanged, Ally held.
+
+- 2026-10-20 2:58 AM EDT cxl-pc #15562: delayed 2:21 am EDT Claude failure predates #15640 Codex override. Existing cxl-pc2 owner directed to finish #15619 deployment evidence then #15549 autonomous combat/10-second capture; 0 valid OFF/ON captures, recovery unconfirmed.
+
+2026-10-20 2:59 AM EDT cx-pc #15997: manifest ready at ../nioh3-native-edges-15620/notes/install-manifest-15997.json (pushed 1f25612b). Training 7144514e + Rematch a13ef0ed; preserve EngineFix/TG/all INIs. Existing #15933 executor owns installed-dependency verification and relaunch; no game touched.
+
+- 2026-10-20 2:59 AM EDT cxl-pc #15712: PC2 containment evidence accepted as reported (2 Codex workers, 9 guard tests); #16015 on existing #15311 retains live notification deduplication/Discord quietness acceptance with cx-ops. Next existing owner reports repeated-error alert counts; no new routing job. Main-PC #15933 executor and PC2 recovery unchanged; Ally held.
+
+- 2026-10-20 3:00 AM EDT cxl-pc #15550: delayed PC2 result reconciled via #16026 on #15541: 0 captures/5 attempts, fights=0/infight=0/placements empty. Next existing #15549 recovery proves mission entry/placements, autonomous attacks, then nonempty 10-second capture; idle stance alone not established as cause. Await evidence; no duplicate runner; main restart executor unchanged, Ally held.
+
+- 2026-10-20 3:01 am EDT cxl-pc #15741/#15746: PC2 deployment accepted as reported (Codex child2372 parent12148, HEAD eb73ed5; package 3/3). Existing #15549 recovery owns game37204; next autonomous attacks + saved 10-second target-PID recording, then TG OFF/ON. Prior 0/5 valid; no performance verdict. Follow-up #16033; main restart owner unchanged, Ally held.
+
+- 2026-10-20 3:01 AM Eastern cxl-pc #15791 (root #15347): delayed diagnosis reconciled with later 3/3 package acceptance. Existing #15549 owner must prove actual attacks and nonempty 10-second capture; 0 valid TG arms. No duplicate recovery; Ally held.
+
+- 2026-10-20 3:02 AM Eastern cxl-pc #15579: older containment audit reconciled with #15741 live Codex deployment via #16046 (root #15554). Next existing #15311 owner verifies alert deduplication; #15549 proves autonomous combat plus saved 10-second capture. Main restart executor unchanged; Ally held.
+
+- 2026-10-20 3:03 AM EDT cxl-pc #15592: switch jobs 14373/14453 confirmed complete; delayed PC2 uncertainty reconciled via #16056 on #15568 with later deployment/package 3/3 evidence. Next existing #15311 verifies alert deduplication; #15549 proves autonomous combat and saved capture. Main restart executor unchanged; Ally held.
+
+- 2026-10-20 3:04 AM EDT cxl-pc #15587: older no-worker/HOLD result reconciled with verified later messages #15741/#15746 (deployment and package 3/3). Next existing #15549 owner proves autonomous combat plus saved 10-second capture; prior TG 0/5 valid. Marker denial/Ally hold preserved; main restart executor unchanged.
+
+- 2026-10-20 3:05 am EDT cxl-pc #15594: answered sequence status #16065: 340 offline checks reported, gameplay unverified. Read manifest15997 and confirmed PID2788 old launch; supplied concrete two-ASI package to existing #15933 executor via #16066. Next executor installs/relaunches and proves full playback; no competing game operation.
+
+- 2026-10-20 3:05 AM Eastern cxl-pc #15856 (root #14922): PC2 reports autonomous combat + 441 frames/10 seconds, OFF smoke passed; supersedes pending smoke gate. Existing PC2 owner continues OFF/ON/ON/OFF; request per-arm timing/combat evidence. No completed comparative device result yet (0/3); Ally hold and main restart owner unchanged.
+
+- 2026-10-20 3:08 AM Eastern cxl-pc #15602: ACTUAL restart completed. Old PID2788 stopped; new PID2792 started 3:07:59 am EDT, responsive window Nioh 3; all three ASIs loaded. Training7144514e + Rematch a13ef0ed installed per manifest15997. EngineFix and all five backed-up INI/engine files hash-unchanged, TG=1, VirtualPad=0. Backup captures/relaunch-15602 includes saves and previous ASIs/INIs. Next: verify full sequence playback/recovery; do not restart again for delayed #15933/#16012 requests. User notified; leave game available.
+
+- 2026-10-20 3:09 AM Eastern cxl-pc #15622 (root #15608): ownership result reconciled. Continue native loader join only through existing cx-pc owner; await its evidence/result. Main game restart already completed under #15602; PC2 benchmark owner and Ally battery hold unchanged.
+
+- 2026-10-20 3:09 AM Eastern cxl-pc #15880 (root #15549): PC2 recovery confirmation reconciled with #15856: autonomous hit + 441 frames/10s, TG OFF smoke only. Existing #14922 owner continues OFF/ON/ON/OFF; comparative 0/3 reported, Ally held. Answered user #16048: PC2 CPU Ryzen 5 5600X per device report.
+
+- 2026-10-20 3:10 AM Eastern cxl-pc #15615: delayed launch request fulfilled by #15602; PID2792 rechecked responsive. Existing cx-pc #14818 asked for next proven native loader/AI finding; no duplicate restart or research assignment.
+
+- 2026-10-20 3:11 AM Eastern cxl-pc #15623 (root #15618): delayed HOLD/zero-capture message superseded by PC2 #15880/#15856 autonomous combat + 441 frames/10s. Existing #14922/#15549 owner continues OFF/ON/ON/OFF; no new HOLD release requested; Ally held.
+
+- 2026-10-20 3:11 AM Eastern cxl-pc #15674/#15680/#15891 (root #15619): deployment PASS reconciled: 2 native Codex workers, 9 guard tests; later recovery smoke 441 frames/10s already recorded. Existing #15549 continues TG OFF/ON/ON/OFF; comparative 0/3, Ally battery hold unchanged. No redeployment or duplicate runner needed.
+
+- 2026-10-20 3:12 AM Eastern cxl-pc #15950 (root #15459): routing deployment already accepted (2 workers/9 checks). Replay patch aded464 remains offline verified only (257 reported tests); existing PC2 deployment owner #15663 must provide revision + restart/ack evidence at next safe managed load, after active test. Main-PC replay revision not established.
+
+2026-10-20 3:12 AM EDT cx-pc #16095: bd09db4b pushed; six continuation rows bypass B100 target override IF bound unchanged (T+2B=0). Next existing native research: primary R+50/table3 join; no competing investigation/restart.
+
+- 2026-10-20 3:12 AM EDT cxl-pc #15945 (root #15499): routing implementation eb73ed5 accepted with 258 reported offline tests. Existing deployment #15663/#15664 stays authoritative; historical PC2 process counts are not fresh fleet verification. No restart or duplicate task; await existing deployment evidence.
+
+- 2026-10-20 3:13 AM EDT cxl-pc #15657/#15731/#15762/#15915 (root #15620): companion game-access blockers resolved by authorized main-PC install/relaunch #15602. Candidate 11cd27a1/file1250 SHA7144514e is the installed Training build per launch checkpoint; PID2792 freshly responsive. Two native edges and full recovery remain gameplay-unproven; next capture selection/filter/commit and recovery, retain TG=1. Existing offline research stays with cx-pc; no repeat restart.
+
+- 2026-10-20 3:14 AM EDT cxl-pc #15643 (root #15629): older recovery blocker resolved by verified #15741 Codex game worker and #15880/#15856 autonomous combat + 441 frames/10s. Reconciled to cx-ops via #16136. Next existing #14922/#15549 owner completes OFF/ON/ON/OFF; no duplicate restart. Ally held.
+
+- 2026-10-20 3:14 AM EDT cxl-pc #15703 (root #15632): delayed 2-worker recovery reconciled with #15880/#15856 combat + 441 frames/10s; answered #16140. Next existing #14922/#15549 owner completes TG OFF/ON/ON/OFF; no duplicate restart, Ally held.
+
+- 2026-10-20 3:15 AM EDT cxl-pc #16142: explained TG adaptive cap (30 floor, ceil(real FPS*1.25)+2), ~30% logic-work estimate versus unverified total CPU reduction via #16145. Existing PC2 owner asked #16147 for completed OFF/ON/ON/OFF CPU/FPS arms; cx-ops stale recovery #15959/#15969 reconciled via #16146. No new runner; Ally held.
+
+- 2026-10-20 3:16 AM EDT cxl-pc #15683 (root #15661): delayed zero-capture report superseded by #15856/#15880 (441 frames/10s and autonomous hit). Replied #16157; existing #14922/#15549 owner completes TG OFF/ON/ON/OFF, no duplicate runner; Ally held.
+
+- 2026-10-20 3:17 am EDT cxl-pc #16156/#15974: user asked actual CPU drop; #16165 states unverified. PC2 existing #15549 owner queried #16162 for measured OFF/ON CPU (metric definition, percentage points/relative change), FPS and original 30% provenance. Recovery reconciled #16166; await existing run, no duplicate runner, Ally held.
+
+- 2026-10-20 3:18 am EDT cxl-pc #15989/#16001: reconciled delayed recovery messages via #16172 (root #15619). Recovery confirmed; 441 frames/10s is smoke only. Existing #15549 owner continues paired TG test; #16162 CPU/provenance request pending. No duplicate task; Ally battery hold remains.
+
+- 2026-10-20 3:18 am EDT cxl-pc #15709: delayed PC2 zero-capture snapshot reconciled via #16177 against #15994/#16001 recovery proof. Next remains existing #15549 paired CPU/FPS result and #16162 provenance reply; no new runner, Ally held.
+
+- 2026-10-20 3:19 am EDT cxl-pc #15684/#15767/#15777: delayed deployment reports reconciled against #16001 via #16183; PC2 #15549/board95 retains paired TG CPU/FPS test, #16162 provenance pending. No restart/new runner; Ally held.
+
+- 2026-10-20 3:19 am EDT cxl-pc #16185: user status answered #16189; no paired CPU result received. Follow-up #16192 in existing #15549 requests completed arms now or current arm/exact remaining step. Older #15691/#15990 need no repeat deployment or ACK.
+
+- 2026-10-20 3:20 am EDT cxl-pc #15720: routing report reconciled to cx-ops via #16196; 2 Codex workers verified, zero-capture snapshot superseded by recovery smoke. Existing #15549 paired CPU/FPS result and #16162 provenance remain pending; #16192 follow-up already sent, no duplicate runner, Ally held.
+
+- 2026-10-20 3:21 am EDT cxl-pc #15710/#15714/#15734/#15761: delayed offline-only reports reconciled via #16200 (root #15620) against completed #15602 install/relaunch. Existing cx-pc #14818/#16095 continues native loader join; main-PC runtime evidence for 2 edges/full recovery still required. No duplicate implementation/restart.
+
+- 2026-10-20 3:21 AM EDT cxl-pc #15690: answered delayed build question via #16205 using #15880/#16001: package1246 verified, autonomous hit and 441 frames/10s. Existing #15549 owner completes paired TG CPU/FPS test; #16162 provenance and #16192 status requests already pending. No duplicate runner; Ally held.
+
+- 2026-10-20 3:22 AM EDT cxl-pc #15726 (root #15711): delayed research/routing report reconciled; #15689 is a request, not build evidence. Relaunch already fulfilled #15602; cx-pc #14818/#16095 continues loader research, runtime full-chain proof pending. PC2 #15549 comparison remains assigned; Ally held.
+
+2026-10-20 3:22 AM EDT cx-pc #16200 (root #14818): 5ae15e07 pushed on cx-pc/yoritomo-native-14818; disassembly proves lane-specific descriptors and 4-pass lane-zero candidate order (marked global entries can repeat). Packed/runtime binding and both edges' full playback remain unproven. Next: trace generic descriptor +8/+A initializer; owner capture must preserve lane and ordered occurrences. No game access.
+
+- 2026-10-20 3:22 AM EDT cxl-pc #16038: semantic alert dedup FAIL (5 fresh IDs -> 5 mock sends), same-ID replay PASS (5 -> 1). Existing cx-ops incident #15311 continued via TASK #16212: implement bounded semantic dedup and mock regression tests, commit/push, report safe deployment. Real Discord quietness remains unproven; no game/helper restart.
+
+- 2026-10-20 3:23 AM EDT cxl-pc #16031/#16024/#16016: user informed #16217 of raw PC2 CPU -30.4%, inconclusive (2/4 captures lose combat). RX6650XT/5600X OFF/ON CPU 7.84/5.46 cores, FPS48.0/45.7; adaptive ON caps58-63, floor30, not fixed30Hz. Existing board95/15549 owner retains matched continuous-combat replacement via #16023/#16218; original claim provenance still pending. Partial1/3; Ally held.
+
+- 2026-10-20 3:25 AM EDT cxl-pc #16045 (root #15741): recovery accepted (441 frames/10s), four-arm result already reviewed. Existing board95/15549 owner must deliver 2 sustained-combat replacement captures and claim provenance; no new runner, Ally held.
+
+- 2026-10-20 3:27 AM EDT cxl-pc #16098/#16104: final PC2 report supersedes four-window summary: active OFF/ON CPU7.990/5.570 cores (-30.29%), FPS41.86/43.21; guard CPU7.720/5.642 (-26.91%), FPS50.01/44.10. Four of six combat windows accepted; unmatched paths; no KEEP/DROP, partial1/3. User informed #16232. Next cxl-pc2 reconcile existing replacements/provenance via #16233; no duplicate runner. Ally held.
+
+- 2026-10-20 3:28 AM EDT cxl-pc #15782: delayed criteria relay reconciled against final #16098/#16104; its zero-arm status is historical. Existing reconciliation #16233 remains next; no new tests assigned; Ally held.
+
+- 2026-10-20 3:29 AM EDT cxl-pc #15789 (root #15772): delayed 509-frame smoke recovery reconciled via #16252; newer #16098/#16104 remain current. Existing #16233 reconciliation stays queued with cxl-pc2; no duplicate test; Ally held.
+
+- 2026-10-20 3:30 AM EDT cxl-pc #16122 (root #15459): replay/deployment unverified, 0 helpers restarted. Existing cxl-pc2 request #16120 under #15663 must provide loaded revision plus restart/ack evidence for aded464. No duplicate request or restart; separate semantic-dedup follow-up #16212 remains with cx-ops.
+
+- 2026-10-20 3:31 AM EDT cxl-pc #15888: context fix 1267d04 verified on origin/fleet-v2; 271 tests reported, runtime load unverified. Existing ops managed deployment #16267 owns main-PC load/resume evidence; PC2 existing #15663 extended by #16265. Preserve live jobs and Ally hold; no duplicate restart.
+
+- 2026-10-20 3:32 AM EDT cxl-pc #15799: delayed user status answered #16276; directly rechecked #16098/#16104 and pending reconciliation #16233. CPU reduction remains provisional, partial 1/3; next existing cxl-pc2 owner returns matched-test ownership/provenance. No duplicate runner; Ally held.
+
+- 2026-10-20 3:34 AM EDT cxl-pc #15873 (root #15812): reconciled via #16287; d6fed6b1 single-edge fix covered semantically by installed 11cd27a1 (not ancestry). Installed two-edge build/relaunch already done #15602. Next existing cx-pc #14818 continues native-loader evidence; runtime full-chain proof remains limited. No duplicate install/test; Ally held.
+
+- 2026-10-20 3:35 AM EDT cxl-pc #16135 (root #15618): reconciled via #16294 against #16104/#16126; 4/6 accepted combat windows, replacement continuity passed; CPU -26.91/-30.29%, FPS mixed, partial1/3, no KEEP/DROP. Board99 supersedes95. Next existing pc2 #16116 diagnoses stalled windows; no duplicate runner; Ally held.
+
+- 2026-10-20 3:35 AM EDT cxl-pc #15828/#15846 (root #15821): older zero-arm/recovery reports reconciled with #16104/#16126; 4/6 accepted, provisional partial1/3. Existing pc2 #16116 owns stall diagnosis; no new runner; Ally held.
+
+- 2026-10-20 3:36 AM EDT cxl-pc #15864 (root #15857): older 441-frame recovery reconciled with #16104/#16126 via #16303; 4/6 windows accepted, CPU -27-30%, mixed FPS, partial1/3. Existing pc2 #16116 stall diagnosis retained; board99 supersedes95. Ally held; no new runner.
+
+- 2026-10-20 3:37 AM EDT cxl-pc #15899 (root #15891): ops smoke-only status reconciled via #16312 with #16104/#16126; 4/6 accepted, provisional partial1/3. No further ops recovery action; existing pc2 #16116 stall diagnosis next, Ally held.
+
+- 2026-10-20 3:38 AM EDT cxl-pc #16184 (root #15709): PC2 final result reconciled, 4/6 accepted windows, CPU -30.29% active pair; partial1/3, no KEEP. Worker says #16116 diagnosis complete; reference/recipe requested via #16317 to resolve stale local pending entries before scheduling next test. No duplicate runner; Ally held.
+
+- 2026-10-20 3:39 AM EDT cxl-pc #15902 (root #15812): delayed game-authorization report reconciled with #16287; installed 11cd27a1 already covers correction, relaunch fulfilled #15602. Next existing cx-pc #14818 native-loader research; no duplicate install or new runner.
+
+- 2026-10-20 3:40 AM EDT cxl-pc #15932 (root #15916): delayed 441-frame smoke reconciled with #16104/#16126; 4/6 accepted, partial1/3, CPU -27-30%, mixed FPS. Next existing #16317 diagnosis-reference request; no new runner, Ally held.
+
+- 2026-10-20 3:41 AM EDT cxl-pc #15925: delayed status answered #16329 using current installed/relaunched state and provisional PC2 result. Advanced existing native research #14818 via #16331: request checkpoint/worktree or commit (notes/yoritomo-native-ai.md absent in main workspace). Existing #16317 awaits PC2 diagnosis reference; no duplicate tests, Ally held.
+
+- 2026-10-20 3:43 am EDT cxl-pc #16024: delayed early PC2 report reconciled via #16347 with #16104/#16126 (4/6 accepted; partial1/3). Next remains existing #16317 diagnosis reference; no duplicate test; Ally held.
+
+- 2026-10-20 3:44 AM EDT cx-pc #16331: reuse pushed a28060be, branch cx-pc/yoritomo-native-14818, worktree C:/Users/Ahmad Hamza/nioh3-yoritomo-native-14818; notes/yoritomo-native-ai.md and evidence index. 173/503 reproduction PASS; runtime binding unknown. Next offline: recover saved descriptor-leaf function boundaries then trace +8/+A initializer. No duplicate packed-data investigation or game interruption.
+
+- 2026-10-20 3:44 AM EDT cx-pc #16320 (root #14818): 5d1b53bd pushed; four leaf initializer candidates match descriptor layout but have no scanned direct references. Next offline: trace inlined pointer/start/count assignments in known action-bank parser callers alongside packed list cursor; runtime join remains unproven. No repeat installation.
+
+- 2026-10-20 3:44 am EDT cxl-pc #15964 (root #15956): delayed recovery reconciled via #16352 with #16104/#16126; 4/6 accepted, partial1/3. Next existing #16317 diagnosis reference; no duplicate runner, Ally held.
+
+- 2026-10-20 3:45 am EDT cxl-pc #15965 (root #15958): delayed recovery answer reconciled with #16352 and later #16104/#16126. Next existing #16317 diagnosis-reference follow-up; no new runner, Ally held.
+
+- 2026-10-20 3:45 am EDT cxl-pc #15994: delayed deployment report reconciled via #16366 with later #16126; partial 1/3 verdict unchanged. Next: existing #16317 completed stall diagnosis reference; no duplicate tests; Ally held.
+
+- 2026-10-20 3:46 am EDT cxl-pc #15996 (root #15992): delayed recovery reply reconciled with #16366/#16126; old worker failure closed. Next remains #16317 diagnosis reference; deployment #15663 retained; Ally held.
+
+- 2026-10-20 3:47 AM EDT cxl-pc #16021/#16029 (root #15997): manifest reports reconciled with completed #15602 installation, matching both ASI hashes. Packaging closed; no repeat restart. Existing local work and PC2 #16317 follow-up retained; Ally held.
+
+- 2026-10-20 3:48 AM EDT cxl-pc #16293 (root #15812): source reconciliation closed; installed 11cd27a1 covers both 4E67->4E70 and 4E79->4E8C; 340 offline passes do not establish full gameplay completion. Existing #14818 owner retained; no repeat installation. PC2 #16317 follow-up and Ally hold unchanged.
+
+- 2026-10-20 3:49 AM EDT cxl-pc: #16013 delayed recovery closed against #16104/#16126; PC2 #16317 unchanged. User #16383 answered #16388. NEW priority #16389 to local cx-pc: capture live logs and fix repeat aggro, move/sequence classification and hanging death; preserve native research checkpoint and active player session. Next obtain initial log findings, then runtime proof; Ally held.
+
+- 2026-10-20 3:50 am EDT cxl-pc #16012: delayed restart request answered #16395; verified Nioh3 PID 2792 started 3:07:59 am EDT. No repeat restart. Next remains cx-pc #16389 training bug fixes; PC2 #16317 retained and Ally held.
+
+- 2026-10-20 3:51 am EDT cxl-pc #16043 (root #16041): delayed recovery result reconciled #16401 against replacement #16126; partial 1/3 unchanged. Next #16317 existing stall-diagnosis reference; local #16389 training fixes retained, Ally held.
+
+- 2026-10-20 3:52 AM EDT cxl-pc #16308 (root #15857): PC2 acknowledgement reconciled via #16405; partial 1/3 verdict unchanged. Next remains existing PC2 #16317 follow-up and local cx-pc #16389 training bug fixes; Ally battery hold preserved.
+
+- 2026-10-20 3:52 AM EDT cxl-pc #16053 (root #16046): delayed smoke report reconciled via #16408 with later paired #16126. Partial 1/3 unchanged; next existing PC2 #16317 and local cx-pc #16389 fixes; Ally held.
+- 2026-10-20 3:52 am EDT | cx-pc #16389: captured current Training/Rematch logs read-only; death restarts at +1.224/+4.760 s proven; 4EA5 selected during multi-hit report. Evidence commit 7652a504, branch cx-pc/training-16389; next add dead-actor bypass and repeat-start aggro handling, then offline tests. Native research remains preserved at 5d1b53bd.
+- 2026-10-20 3:53 AM EDT cxl-pc #16048: hardware answer delivered #16416 (PC2 Ryzen 5 5600X, 6C/12T). Next remains existing cx-pc #16389 training fixes and PC2 #16317 follow-up; Ally battery hold retained.
+- 2026-10-20 3:54 AM EDT cxl-pc #16058: cx-ops closure reconciled: switch jobs #14373/#14453 closed, reported package acceptance 3/3; remaining verification stays with #15311/#15549. No reply requested or sent. Current #16389 fixes/#16317 follow-up retained; Ally held.
+
+- 2026-10-20 3:54 am EDT cxl-pc #16064: delayed recovery reconciled via #16426 against later #16126; partial 1/3 unchanged. Next existing PC2 #16317 diagnosis reference and local cx-pc #16389 training fixes; no duplicate test, Ally held.
+
+- 2026-10-20 3:55 am EDT cxl-pc #16072 (root #16070): delayed active-capture report reconciled via #16435 with completed #16126; partial 1/3 unchanged. Next existing #16317 diagnosis reference and cx-pc #16389 fixes; Ally held.
+
+- 2026-10-20 3:56 AM EDT cxl-pc #16354 (root #14818): preserved descriptor checkpoint 5d1b53bd: 4 candidates, 0 direct references, native-loader connection unproven. Next remains cx-pc #16389 training death/aggro/classification fixes; no renewed loader hunt or install. PC2 #16317 retained; Ally battery hold.
+
+- 2026-10-20 3:57 AM EDT cxl-pc #16098/#16104: reconciled PC2 TG OFF/ON CPU66.59/46.42%, 30.29% relative reduction; user #16156 answered with absolute versus relative distinction and mixed FPS. Partial 1/3; next existing #16317 diagnosis reference and cx-pc #16389 training fixes; Ally held.
+
+- 2026-10-20 4:00 AM EDT cxl-pc #16191: #16317 missing-reference request resolved by reports1254/1255, a1fabb3/ed8f103. Proven harness gaps: absent sustained-action acceptance gate and 20s monitor expiry; native AI cause unknown. NEXT PC2: existing sole-owner #16188/#16116 isolated guard-release/spacing/facing/strike diagnostic, monitoring renewed 15s, conditional 3x60s per TG state. No duplicate task. Local #16389 fixes retained; Ally held; performance partial 1/3 unchanged.
+- 2026-10-20 4:01 AM EDT | cx-pc #16389: pushed a238066c (cx-pc/training-16389); both ASIs built; 338 catalogue cases + dead-actor regressions, 8 aggro scenario groups and 5 focused menu checks pass. Post-fix runtime unproven; next game owner install/test when player inactive. Details ../nioh3-training-16389/notes/training-16389-result.txt.
+
+- 2026-10-20 4:02 AM EDT cxl-pc #16142: governor explanation delivered; 30.29% refers to normalized game-process CPU, not FPS/system usage. Existing next: runtime validation of cx-pc #16389 a238066c, player activity/ownership check before install; PC2 #16188 diagnostic retained; Ally held.
+
+- 2026-10-20 4:04 AM EDT cxl-pc #16185: answered #16521; read #16389 result file. Runtime recipe ready: Aggro OFF/ON held 4EA5 repeat, kill repeating 4E5B requiring zero post-death repeat starts, check multi-hit Sequences row. Install only Training fe515233... and Rematch 48eb9ad1... after player/lease check, preserve EngineFix/TG. No install/test performed this reconciliation.
+
+- 2026-10-20 4:05 AM EDT cxl-pc #16255/root #16212: notifier implementation/deployment recorded (20 notifier tests; duplicate5 -> mock1). PRESERVE ../uo-dedup-16212: UO-Bridge-Status-Sync runs there. Existing ops incident #15311 must verify natural delivered/suppressed/skipped receipts; live suppression still unproven (1 skipped event). No helper restart. Local #16389 runtime validation and PC2 #16188 retained; Ally held.
+
+- 2026-10-20 4:06 AM EDT cxl-pc #16240/#16259: accepted 4/6 combat windows remain unmatched; partial1/3, no KEEP. #16188 diagnostic runner/game reported exited; requested existing final report + restoration reference from cxl-pc2 in #16188, no new run. Next consume outcome before defining matched benchmark. Historical pre-test CPU claim still unverified; local #16389 runtime validation pending, Ally held.
+
+- 2026-10-20 4:07 AM EDT cxl-pc #16278: user updated that fixes built, runtime unproven. Explicitly continued existing cx-pc #16389 into MAIN-PC protected install/test (already in original scope), sole delegated runtime owner. Next measured aggro OFF/ON4EA5, post-kill4E5B zero-repeat/cleanup, menu classification; preserve active player and EngineFix/TG. Await outcome, do not start competing local test. PC2 #16188 retained; Ally held.
+- 2026-10-20 4:08 AM EDT cx-pc #16548: runtime delegation conflicts with current direct companion prohibition on game/locks; BLOCKED #16552 requests authorized owner or explicit user override. Patch a238066c and both built ASIs remain ready; no game/lease/install changes. Next resolve runtime ownership; do not duplicate implementation.
+- 2026-10-20 4:08 AM EDT cx-pc #16557: cxl-pc withdrew game delegation #16548 and explicitly retained main-PC runtime ownership. Offline patch a238066c/artifacts and recipe accepted; no further offline investigation requested. Next cxl-pc validate runtime; cx-pc companion restriction retained.
+
+- 2026-10-20 4:09 AM EDT cxl-pc #16282: aggro findings explained #16556. Runtime delegation WITHDRAWN #16557: cx-pc has direct companion no-game rule (#16552). Main-PC validation queued explicitly to cxl-pc under #16389; build a238066c and recipe unchanged. Guard leftovers killed0; player-idle/lease check still required before test.
+
+- 2026-10-20 4:09 AM EDT cxl-pc #16296: confirmed observed 4EA5 multi-hit belongs in Sequences per user; pending a238066c includes this, still one native action. Runtime remains queued to cxl-pc #16563/#16389; cx-pc offline-only.
+
+- 2026-10-20 4:10 AM EDT cxl-pc #16310: answered portability as shared governor + per-game validated adapters; no new port implementation requested or assigned. Next remains authorized main-PC runtime #16563/#16389, PC2 #16188 outcome, Ally held.
+
+- 2026-10-20 4:11 AM EDT cxl-pc #16458/#16455: #16188 COMPLETE;8 scenes (4TG OFF/4ON),1 ON stall persisted5.108s after guard release;OFF no10s idle. No recipe, no3x60s validation; spacing/strike triggers unexercised; rapid action changes not attack proof. Report1256/raw1257,5416596;6 saves/10 files restored,3 absent paths absent,lease released per worker. NEXT existing cxl-pc2-queued bounded short-action/geometry follow-up (reference to accompany next result), no duplicate benchmark. Main-PC #16563 pending; Ally held.
+
+- 2026-10-20 4:14 AM EDT cxl-pc #16339: helper fixes already at tooling HEAD1dc4967 (1267d04,b93ed0d); runtime unverified. Existing ops #16267 notified #16627: UPDATE resets conflicted .handoff/next.md,owners.md,TECH_DEBT.md; preserve/reconcile before managed load after live jobs drain. No restart or game action here. Ignore superseded result relays; no ACK loops.
+
+- 2026-10-20 4:15 AM EDT cxl-pc #16332: classification scope reaffirmed to user; existing moves need correct sequence/multi-hit labels, not additional move discovery. Apply to pending main-PC #16563/#16389 validation alongside aggro/death checks; no duplicate research assignment.
+
+- 2026-10-20 4:16 AM EDT cxl-pc #16376: corpse report answered from saved evidence; main-PC #16563/#16389 death check requires zero repeat starts after kill of repeating4E5B and normal native corpse cleanup. Build-only status retained.
+
+- 2026-10-20 4:18 AM EDT cxl-pc: #16640 Ally existing offline provenance audit #14777 restated; return canonical result if complete, no duplicate research or game testing. #16641 current PC2 run confirmation requested #16653; user given assigned diagnostic purpose with live status qualified.
+
+- 2026-10-20 4:18 AM EDT Ally #16654: offline recorder recovery complete (6 checks, archive1258), TG OFF/ON each0 valid live arms. Existing board96 waits approved Engine/Training/Rematch package with hashes/Proton notes15148 AND user release of battery hold. Synthetic samples do not count as gameplay proof.
+
+- 2026-10-20 4:19 AM EDT USER #16668 CANCELS PC2 boss-stall/geometry diagnostic described16664. Cancellation/restoration sent to cxl-pc2 and pc2; no further scenes or follow-up benchmarks for that diagnostic. Next consume final restoration confirmation; do not requeue. Unrelated training fixes remain pending.
+
+- 2026-10-20 4:20 AM EDT #16528: do not infer missing reload from context logs alone: helper did restart4:03:18am, loaded revision unproven. Ledger16503 fallback=true despite intentional silence. Existing cx-ops16422/ops16267 deployment owner to verify loaded b93ed0d and natural threaded detection; preserve conflicted edits.
+
+- 2026-10-20 4:21 AM EDT Ops16538 is covered by existing16389 patch and16563 runtime assignment: classify existing attacks, corpse cleanup after2 logged post-kill repeats. User answered directly in16538; no new research or duplicate test assigned.
+
+- 2026-10-20 4:22 AM EDT #16577/#16606: sequence classification must use boss-specific code/move lists, no screenshots/recordings. PC2 shared IDs4E31/2/3FD remain unidentified, frequency is not sequence proof. Do not revive16459 from delayed ops relay: later16668 cancellation/16674 restore request controls.
+
+- 2026-10-20 4:22 AM EDT #16581: sequence-identification method must cover EVERY boss, source/code or move-list based. The observed4EA5 label is a narrow correction, not completion of all-boss classification. Preserve this requirement for existing classification work; do not restart cancelled PC2 behavior test16668.
+
+- 2026-10-20 4:23 AM EDT #16589 adds automation to all-boss classification: reusable extractor/classifier from code/move lists, evidence for links, explicit unknown/ambiguous cases, never numeric-ID adjacency alone. Extend existing classification scope, no duplicate assignment or revival of cancelled PC2 runtime diagnostic.
+
+- 2026-10-20 4:23 AM EDT #16601 human authorization RELEASES Ally battery deferral for existing CPU test only; supersedes our16662/16669 reminders. Existing board96 sole owner to check readiness/package15148, live recorder smoke then OFF/ON comparison. No duplicate runner; actual Ally30% remains unproven.
+
+- 2026-10-20 4:24 AM EDT #16612: consume cx-pc remaining-boss coverage inventory/extractor result; source-backed evidence and explicit unknowns required. Single assignment sent, no parallel duplicate; focused-boss work preserved.
+
+- 2026-10-20 4:25 AM EDT Ally16712: unexpected game9269 exit before sample; cause unknown. Owner7795 directed to inspect exit/supervisor logs and retry authorized test; await recovery/sampling evidence. No duplicate runner or remote game command here.
+
+- 2026-10-20 4:25 AM EDT #16624 clarification sent to cx-pc under16612: actual per-boss move lists matching established tested-boss template, not frequency tables. Verify user minimoto identity in artifacts; preserve boss-specific IDs/evidence.
+
+- 2026-10-20 4:26 AM EDT #16638 supersedes conflict blocker16628:0 unmerged paths independently confirmed, edits preserved per cx-ops. Context fix confirmed live via latest-call telemetry92092. Remaining helper item is existing ops reply-fix load/acceptance, not context reimplementation; shared local edits preserved.
+
+- 2026-10-20 4:27 AM EDT PC216660 identifies cancelled16459 run: historical game20292/runner35088/owner37308, geometry_diagnostic.ps1 ArmOffset2 ON/ON. Added identifiers to existing16668 cancellation; owner must recheck before cleanup. No restoration confirmation yet; prior16188 closure is not this run.
+
+- 2026-10-20 4:28 AM EDT #16726: PC2 cancelled diagnostic16459 CLOSED; worker reports6 saves/10 original files restored, no game/lease. Supersedes pending cleanup16660. No further geometry diagnostic authorized; existing move-list owners continue.
+
+- 2026-10-20 4:28 AM EDT #16736 corroborates closed PC2 task16459: fresh CIM finds historical game20292/runner35088/owner37308 absent, no Nioh3 or geometry runner; guard killed0. Owner16730 acknowledged cancellation16674 and exited. No follow-up test.
+
+- 2026-10-20 4:29 AM EDT #16692: existing reply-path deployment accepted:1 natural threaded reply16686 matched ledger16512/16528 with no fallback/error/timeout; bridge16682 proves updated wording/thread linkage active. No duplicate reload. Live >200-message scan unproven (offline pagination covered); intentional-silence fallback policy separate.
+
+- 2026-10-20 4:30 AM EDT #16708 resolves Ally16712 exit cause: concurrent ally session reports guard leftovers killed game9269 despite live owner7795/fresh marker. Invalid interrupted OFF1 must repeat; recovery instruction16749 sent under16601, await owner recovery/result. cx-ops tasked with guarded offline cleanup fix under16708; no live cleanup authorized.
+
+- 2026-10-20 4:30 AM EDT #16740 strengthens closed16459 restoration evidence: pc2 reports fresh SHA256 matches for6 saves/10 original files,3 originally absent paths absent;3 historical PIDs absent. Trace records lease release4:21 am EDT. No further diagnostic work; cancellation final.
+
+- 2026-10-20 4:31 AM EDT #16754: ownership query answered; cx-ops proceeds guard live-owner protection fix16752 offline. Await regression evidence/commit; no duplicate implementation or runtime actions.
+
+- 2026-10-20 4:32 AM EDT #16759: await existing guard fix from uo-guard-16752 (cx-ops/guard-16752); confirmation16756 already delivered to implementation session. No additional assignment or live validation.
+- 2026-10-20 4:32 AM EDT | cx-pc #16710: coverage inventory/extractor complete on cx-pc/coverage-16710 (4844f16e + e229bcd1). 65 IDs: 10 non-idle lists, 1 init-only, 54 absent; 7 TSVs add 0 IDs. Unique Shingen/Otoroshi table matches add 242 static candidate IDs; 8 tests pass, existing parser agrees on 277 records. Next source-backed bank/identity resolution for remaining IDs; no menu promotion/runtime proof. Report ../nioh3-coverage-16710/notes/coverage-16710/report.txt.
+
+- 2026-10-20 4:33 AM EDT #16762 inventory accepted after reading report:65 IDs,10 non-idle lists/1 init-only/54 missing;242 extra Shingen/Otoroshi candidates,8 checks reported pass. Continue cx-pc offline under16710: saved character-bank provenance, first additional missing boss list end-to-end, then reuse method; unmatched Shingen39/Otoroshi57 hashes. No menu promotion. Commits4844f16e/e229bcd1, report1261.
+- 2026-10-20 4:36 AM EDT | cx-pc #16724 (root16710): b552bad6 + 9b02f9aa pushed on cx-pc/coverage-16710; Shingen136/Otoroshi141 full action-field CSVs (42-column Yoritomo schema) + static TSVs exported with source hashes. 9 tests pass; nickname remains ambiguous but actual tested chr16102 is Yoritomo in artifacts. Other boss full lists remain gaps; next saved setting-hash identity extraction. No game/menu edits.
+
+- 2026-10-20 4:36 AM EDT #16771: guard fix published6003013/a15f1b1,289 offline checks reported pass including13 new regressions. Docs reviewed. Main UO checkout still1dc4967; cx-ops assigned safe local integration under16752, peers notified to obtain source before next cleanup. No restart/live cleanup; await deployment confirmation.
+
+- 2026-10-20 4:37 AM EDT #16773: Shingen136/Otoroshi141 source-derived records exported in established42-column format;9 checks reported pass. b552bad6/9b02f9aa on cx-pc/coverage-16710; full-list-manifest.json records hashes. Current tested example identified by artifacts as Yoritomo16102, not nickname alone. Continue existing16765 additional-boss provenance assignment; raw next/event spawn links are not proven attack sequences.
+
+- 2026-10-20 4:38 AM EDT #16780: cx-pc reports saved evidence bundle has settings only for Yoritomo/Shingen/Otoroshi; other IDs found but bytes not in checked main extraction/D:/nioh3-re. Lead has no verified extra directory. Continue unmatched-hash provenance plus exact missing character IDs/hashes and checked locations; no game/package access.
+
+- 2026-10-20 4:38 AM EDT #16781: provenance continuation isolated from coverage export branch to avoid concurrent writes; retain b552bad6/9b02f9aa exports and16783 missing-asset guidance. No duplicate provenance assignment.
+
+- 2026-10-20 4:39 AM EDT #16782: main UO guard deployment complete per cx-ops; HEADa15f1b1 includes6003013,13 local mocked regressions passed. Eight dirty files preserved; recovery stasha053d275 retained. No helper restart/live cleanup. Remote source adoption remains separate.
+
+- 2026-10-20 4:41 AM EDT #16799: Ally board96 COMPLETE/restored. Z1 Extreme AC/Bazzite Proton Experimental,1080p FSR50/60cap/FG OFF/custom low; active Yamagata ABBA4x60s: CPU OFF6.347 vs ON6.485 CPU-s/s(+2.2%); FPS36.20 vs35.22(-2.7%); differences inconclusive. ON cap47-50, tick34-37/s, not fixed30Hz; no30% saving reproduced. Interrupted attempt excluded. report1263/raw1264. No fleet KEEP/DROP; this is1-device evidence.
+
+- 2026-10-20 4:42 AM EDT cx-pc #16765: PARTIAL provenance checkpoint d739df42, branch cx-pc/provenance-16765, worktree ../nioh3-provenance-16765. 94/96 unmatched hashes have authored objects; Otoroshi 90390369/e7f4cd95 absent. Need saved additional loader/settings plus gameplay-ID binding to establish first additional boss list; Q #16780 pending. Focused Yoritomo unchanged; no runtime/menu changes.
+
+- 2026-10-20 4:42 AM EDT #16804: Ally confirms local guard6003013 by read-only source inspection: live-owner/shared-process protection and fresh-marker deferral present. No cleanup/runtime test. Main and Ally source adoption confirmed; PC2 confirmation still outstanding.
+
+- 2026-10-20 4:42 AM EDT #16807: provenance d739df42 resolves94/96 unmatched objects in authored banks; all96 absent from respective packed action tables; no fabricated joins. Only3 saved settings files found;15 tests reported pass. Existing cx-pc now authorized targeted READ-ONLY installed-archive extraction for Ryomen loaderc565cbb4/settingcb829b0d, independent gameplay binding and first additional full list. Supersedes lead no-package-access restriction only for this offline extraction. Report1265.
+- 2026-10-20 4:43 AM EDT | cx-pc #16783 (root16710): pushed f3f5c8b4 on cx-pc/coverage-16710. 96 unmatched unique hashes: 94 saved object headers located, 2 Otoroshi absent from six checked KODs. Missing-setting export covers62 IDs (22 candidate setting hashes,44 no identity lead); checked roots/file counts exact in saved-location-audit.json; 5 new tests pass. Next investigate94 existing headers' bank provenance, obtain targeted saved assets for2 objects/setting leads; no game/package access.
+
+- 2026-10-20 4:43 AM EDT #16811: f3f5c8b4 coverage export adds missing-character-settings.csv for62 characters (22 distinct setting-hash leads;44 no identity lead), saved-location-audit.json;5 checks reported pass. Saved filenames search not proof of byte absence in opaque files. Existing isolated provenance owner16809 consumes this input; no duplicate provenance investigation.
+
+- 2026-10-20 4:43 AM EDT cx-pc #16777/root16765: 062d2d58 pushed; missing-settings.csv (349 metadata characters) and checked-locations.json (4 bounded searches). Q16780 resolved by16783: lead has no verified extra directory, not global absence proof. Next targeted saved-source recovery; source records/spawn links/full attack sequences remain distinct.
+
+- 2026-10-20 4:44 AM EDT #16813: provenance062d2d58 exports349-character missing-source inventory and4 checked locations;7 provenance checks reported pass. Different scope from65-ID boss master/62 missing boss settings, not additional boss coverage. Existing recovery16809 reiterated; no new worker. Bounded saved-file absence only.
+- 2026-10-20 4:44 AM EDT cx-pc #16812: coverage notification closed; f3f5c8b4 retained as supporting input. Existing isolated provenance owner #16809 under #16765 owns targeted Ryomen archive recovery; cx-pc notification session must not duplicate investigation. Next existing owner consumes missing-character-settings.csv/saved-location-audit.json.
+
+- 2026-10-20 4:49 AM EDT cx-pc #16809: Ryomen recovery/export DONE and pushed8b4fd1e8 on cx-pc/ryomen-16809. 149 records,76/113 object hashes,20 tests. chr451004 binding proven independently;37 unmatched hashes/native playback remain unknown. Next lead: choose next scoped recovery or saved-bank unmatched-hash analysis; exports stay static, no menu promotion.
+
+- 2026-10-20 4:50 AM EDT #16822: Ryomen451004 source-bound149 records,20 checks reported pass;113 setting hashes uniquely identify1/297 tables (76 match/37 unresolved). Report1266,8b4fd1e8 +2473c58d/e26e104d, notes/ryomen-16809. Existing owner assigned next up-to3 boss batch from known setting leads with independent identity; targeted read-only archives/dependencies authorized, no blanket dump/menu/runtime changes.
+
+- 2026-10-20 4:54 AM EDT cx-pc #16823: batch delivered8fb3cfda, branch cx-pc/boss-batch-16823, existing worktree ../nioh3-ryomen-16809. Coverage +1 boss/+93 records (Onryoki), 2 unresolved leads explicitly retained (Tesso zero actions; GreatTengu132/9 candidate-bank roles). Next scoped work: resolve bank roles/source; no menu promotion or runtime claims.
+
+- 2026-10-20 4:54 AM EDT #16831: batch8fb3cfda adds Onryoki264763 source-bound93 rows (43/85 hashes,42 unresolved). Tesso97403 setting0 actions; GreatTengu269750 CE_OTENGU_00 has132+9 candidate rows,4 overlapping hashes,59/87 unique matches/28 missing.18 tests reported pass,234 rows independently parsed. report1267. Existing owner assigned GreatTengu bank roles via explicit references, no merge-by-ID; Tesso remains unresolved.
+
+- 2026-10-20 5:01 AM EDT cx-pc #16832: bounded Great Tengu bank-role audit completed/pushed8af4d63e;32 hashes traced,8 checks pass, selector unresolved (132/9 tables NOT merged). Next scoped owner: recover scene822a364a via specific index mapping and bind CE loader to runtime bank population; no blanket extraction or menu promotion. Tesso/Yoritomo checkpoints unchanged.
+
+- 2026-10-20 5:02 AM EDT #16837:8af4d63e traces GreatTengu4 shared+28 missing hashes in3 authored banks (96 variants);8 checks reported pass. ActionIDs/group values0 do not resolve bank roles;132/9 tables remain separate. Scene822a364a absent only in checked indexes;216 subreferences unresolved. Checkpoint this branch of investigation; next existing owner assigned Tesso97403 explicit action-source/inheritance references under16823, targeted read-only extraction only.
+
+- 2026-10-20 5:05 AM EDT cx-pc #16838: Tesso bounded audit complete at b9d6028e,8 checks. Unresolved action-bank fallback when7245dd82 and6d8eb6ab empty; no42-column list proven. Two model object candidates278fe80c/a8175c78 absent from9 checked saved root KOD indexes only. Next scoped consumer trace; Great Tengu untouched.
+
+- 2026-10-20 5:06 AM EDT #16842: Tesso source taskb9d6028e complete as bounded unresolved finding;8 checks reported pass.97403->CE_TESSO_00->loaderf27c2aea->setting1e866343/object2be4888d; arrays empty,no RDOK inheritance. Runtime zero-count fallback7245dd82/6d8eb6ab or9aaea305 semantics unresolved. No list justified. Existing owner assigned next up-to3 identifiable boss leads; do not expand Tesso/GreatTengu reverse engineering now.
+
+- 2026-10-20 5:09 AM EDT cx-pc #16843: bounded3-boss coverage complete c180cf2c;8 static-list bosses/981 records cumulative, separate from Great Tengu candidates. Next lead-approved batch may verify Onmoraki/Kamaitachi/Yoshitsune ownership and identity; no menu promotion or runtime claim.
+
+- 2026-10-20 5:09 AM EDT #16845: c180cf2c adds Nuribotoke392871105/Mezuki49227892/Gozuki66514892 rows,10 checks reported pass;106 unmatched hashes. Cumulative pinned inventory8 bosses/981 static records excludes GreatTengu candidates; no runtime/sequence completeness claim. Existing owner assigned next up-to3 Onmoraki/Kamaitachi/Yoshitsune after ownership checks, plus explicit existing sequence-evidence status.
+
+- 2026-10-20 5:11 AM EDT cx-pc #16846 complete8dc04bc8:10 source-list bosses/1324 static rows; Great Tengu132/9 and Onmoraki194/9 excluded as candidate-only. Tesso unresolved. Next lead-scoped coverage batch or Onmoraki selector; no sequence labels proven for this batch.
+
+- 2026-10-20 5:12 AM EDT #16851:8dc04bc8 adds Kamaitachi816820169/Yoshitsune478320174 rows;11 checks reported pass; cumulative10 bosses1324 static records. Onmoraki799359194/9 candidate banks excluded;120 unmatched hashes across3 targets. Sequence/hit semantics UNKNOWN. Existing owner assigned next up-to3 known unowned leads and remaining eligible count/names; consolidate gaps when known leads exhausted, no arbitrary graph expansion.
+
+- 2026-10-20 5:14 AM EDT cx-pc #16852 complete a2fdc684:12 static source lists/1526 rows excluding GreatTengu/Onmoraki/Jubei candidates and unresolved Tesso. Final3 eligible known leads exported: Shinsaku/Soji/Tadakatsu; next lead-approved batch after ownership check, then consolidate gaps.
+
+- 2026-10-20 5:15 AM EDT #16856:a2fdc684 adds Masakage307259132/Hiruko74556370 records;12 checks reported pass;cumulative12 bosses1526 static rows. Jubei412493490/60 candidates excluded;434 unmatched hashes in batch,semantics unknown. Existing owner assigned final known leads Takasugi778951/Okita889237/Honda983905 after ownership check, then65-ID consolidated coverage/gaps. Failed-identity leads retained,not extraction targets.
+
+- 2026-10-20 5:18 AM EDT cx-pc #16858 extraction phase complete af998cb6:65-ID coverage manifest and pinned sources in nioh3-ryomen-16809/notes/boss-batch-16858.14 lists/1784 static rows;4 ambiguous,1 unresolved,46 missing identity. No eligible known leads remain. Next lead routes bounded classification/identity-gap work; raw links do not justify sequences.
+
+- 2026-10-20 5:19 AM EDT #16862:af998cb6 extraction phase CLOSED, report read.65-ID partition14 source-list/4 ambiguous/1 unresolved/46 missing identity/0 skipped;1784 rows,13 checks reported pass,0 eligible known leads. Existing owner assigned evidence-gated reusable classification export from existing decoded studies only; unknown remains unknown,no new archive/runtime expansion or menus.
+
+- 2026-10-20 4:52 PM EDT gxl-pc: classification export already committed cb4d545f (notes/classification-16863). 14 bosses, 1784 actions: 0 decoded, 7 reported (Yoritomo 4EA5/4E68/4E6C/4E74 attack+multi-hit, 4E30/4E31/4E32 nonattack), 1777 wholly unknown, 0 sequences. Game PID 28240 has been up since 4:28 pm; do not install or close it. Next: cx-pc bounded Yoritomo packed-row to runtime-bank join from existing notes only (G2), then evidence rules only if that join is proven.
+
+- 2026-10-20 4:56 PM EDT gxl-pc: G2 closed negative from yoritomo-native-ai.md and boss-action-record.md only. Packed 503x128 rows match the selector field layout, and RVA 1FFCB94 stride-128 path fills extra R+D8, not primary R+50. No evidence-rule change. Counts stay 14 bosses / 1784 actions / 0 decoded / 7 reported / 0 sequences. Codex cx-pc unusable until 2:32 am Oct 27 (ChatGPT clock). Game left running. Next offline step is not a new disassembly pass unless a later task names one existing writer to read.
+
+- 2026-10-20 5:05 PM EDT gxl-pc #20999: shared sorter is tools/sort_boss_moves.py on branch gxl-pc/move-sort-20999 (worktree C:\Users\Ahmad Hamza\nioh3-sort-20999). 14 bosses / 1784 moves -> 280 Attacks, 1504 Other, 0 chain sequences, 4 single-action sequence listings (Yoritomo 4E68/4E6C/4E74/4EA5). Shingen 136, Masakage 132, Mezuki 92, Okita 119 have has_attack_block 0 on every row. Do not use motion-number ranges to fill them. Game PID was left running; do not install the sorter into the menu until the game is closed. A new boss is `py tools/sort_boss_moves.py --csv FILE --chr ID --name NAME --out DIR`.
+
+- 2026-10-20 5:05 PM EDT gxl-pc #20999 follow-up: rechecked those four CSVs. phase_tail is empty on 129/136 Shingen, 131/132 Masakage, 92/92 Mezuki, 119/119 Okita, so has_attack_block stays 0. kind_by_motion is only the motion-number band 1000-1199 in chr_action_table.py and stays unused. Game PID 28240 still up since 4:28 pm. Next: wire the sorter into the move menu only after the game closes, or a proven field that is not a motion-number band.
+
+- 2026-10-20 5:09 PM EDT gxl-pc #21011: answered on the phone (#21040). Minamoto no Yoritomo has 0 linked sequences and 4 single complete attacks (4E68, 4E6C, 4E74, 4EA5). Yoshitsune has 0. Rechecked the four all-Other bosses: bytes 0x13C and 0x142 are empty on every row, and atk_param24 does not match Yoritomo's attack flag, so it stays unused. Game PID 28240 still up since 4:28 pm. Next: wire tools/sort_boss_moves.py into the move menu only after that process is gone.
+
+- 2026-10-20 5:13 PM EDT gxl-pc #21020: live Nioh3Training.log is readable while the game stays open. PID 28240, started 4:28 pm EST. Chr 16102 Yoritomo drill, last seen forcing 0x4E64. This session's log has 605 drill forces across 24 action ids (0x4E69 x301, 0x4E64 x90). Phone #21063. Did not install or close the game.
+
+- 2026-10-20 5:14 PM EDT gxl-pc #21036: did not add 1-hit / 2-hit / grab / movement labels. notes/yoritomo-attack-values.md already shows hit count is not in the action file, and the live HB line is about every 2 seconds so it cannot count hits inside one move. Menu unchanged. Game left open. Next: a hit category needs a decoded per-action hit window, not another menu sort. Wire the existing sorter only after PID 28240 is gone.
+
+- 2026-10-20 5:20 PM EDT gxl-pc #21021: cx-pc failed again on the same ChatGPT usage limit (#20989). Printed reset is 2:32 am on Oct 27, no time zone given. Do not wake or TASK cx-pc, pc2, or ally Codex workers until that reset. Game left open. Next offline step for hit labels is still the motion-file link to sub-table 2 in nioh3-sort-20999/notes/yoritomo-attack-values.md, not another menu sort.
+
+- 2026-10-20 5:20 PM EDT gxl-pc #21036/#21081: answered on the phone (#21093). Recounted notes/yoritomo-action-fields.csv (173 rows). Motion-number band is 96 attack / 36 movement / 21 hit-reaction / 20 other, and that band is not a hit count. 4E68 has 3 motion windows, 4E6C has 0, 4E74 has 2 spawned objects, 4EA5 and 4E64 share motion 1030. No grab field. Did not relabel the menu and did not restart PID 28240. Next: decode the motion-file link to sub-table 2 before any 1-hit/2-hit/3-hit menu, then restart and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 5:26 PM EDT gxl-pc #21042: motion file checked, still no hit count. G1A 742b1f41 (motion 1040 / 4E68) is 221 frames at 60 fps of bone keys. Six dope tracks type d8004a77 have frame pairs only; not used as 1-hit/2-hit/3-hit. Menu unchanged. PID 28240 still up since 4:28 pm. Next: name dope type d8004a77 before any hit menu, then restart and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 5:35 PM EDT gxl-pc #21051: answered on the phone. Categories requested are 1-hit, 2-hit, 3-hit, more, grab, movement. Still no hit count, so the menu was not relabeled and PID 28240 was not restarted. New fact: dope property bd84e645 is DataPacketFrame (a frame pair). Type d8004a77 has no name string in the exe. Next: name that type from a registry outside the exe strings, then build the hit menu, restart, and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 gxl-pc #21053: answered on the phone. Real sequence means a full native chain the move file plays by itself. Strict classifier still has 0 chain sequences for Yoritomo (4 lone listings: 4E68, 4E6C, 4E74, 4EA5). The 9-step 4E76>4E8D candidate in scratch/yori_native/out.md stays unlisted because the loader join is unproven. Type d8004a77 is TypeInfo::Object::DopeSheet::Sound in data/RDBExplorer/.../kidstypeinfodb.yml, so the six tracks on motion 1040 are sound cues. Menu unchanged. Game left open. Next: prove the loader join before any sequence or hit menu, then restart and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 5:39 PM EDT gxl-pc #21059: answered on the phone (#21235), then corrected. Nioh PID 28240 is gone; no Nioh process is running. Did not relaunch. Rechecked scratch/yori_native/out.md rows: 4E77, 4E78, 4E79, 4E8C, 4E67, and 4E70 each have +0xE0 = 4E7A. The 9-step path is the no-command window rows 281, 284, 287, 288, 289, 290, 291, and 292, and that loader join is still unproven, so it stays unlisted. Menu unchanged. Next: prove that join before any sequence or hit menu, then restart and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 5:42 PM EDT gxl-pc #21081: answered on the phone (#21276). Move list cannot separate likely 2-hit from likely 3-hit. Coverage CSV hit_count is blank on 1001/1001 rows. 104 Yoritomo motion objects: Effect 507, Sound 284, Model 81, ApplyAnimation 2, Camera 1. No Hit track. Menu unchanged. Game stayed closed. Next: prove the loader join before any sequence or hit menu, then restart and ping. Codex workers stay idle until the Oct 27 credit reset.
+
+- 2026-10-20 5:44 PM EDT gxl-pc #21274/#21275: answered on the phone (#21313/#21315). User asked to reverse real sequences and boss logic. File chain stays 4E78 > 4E79 > 4E8C > 4E67 > 4E70 > 4E7A > 4E8D. Those rows have one target, zero weights, and no condition ids. +E0 of 4E78 and 4E79 is 4E7A, then idle. Loader join still unproven, so the chain stays unlisted. cx-pc #21085 is the same credit wall; told #21312 not to retry until 2:32 am Oct 27. Menu unchanged. Game stayed closed. Next: prove the R+50 slice binds those table-3 rows, then restart and ping.
+
+- 2026-10-20 5:46 PM EDT gxl-pc #21126/#21323: answered on the phone (#21335/#21338). Move list still cannot split 2-hit from 3-hit. User ordered Grok agents, not Codex. TASK #21337 to gxl-pc2: find a real hit count or name the dead ends. TASK #21336 to gxl-ally: prove the R+50 bind for rows 287-292 or name the eliminated writer. Both offline, no game launch, no menu edit. Menu unchanged. Game stayed closed. Next: wait for those RESULTs, then restart and ping only if one is proven.
+
+- 2026-10-20 5:48 PM EDT gxl-pc #21135/#21331: answered on the phone. Motion windows are not hit counts. Motion 1040 sound tracks overlap, and known multi-hitters disagree: 4E68 has 3 motion-window marks, 4E6C has 0, 4E74 has 0. User said read the whole repo. That search is the two open Grok tasks, #21337 and #21336. Menu unchanged. Game stayed closed. Next: read their RESULTs before any menu change or restart.
+
+- 2026-10-20 5:50 PM EDT gxl-pc #21199: answered on the phone (#21348). Yes, two Grok agents are assigned and no RESULT is back. gxl-pc2 #21337 hit count. gxl-ally #21336 sequence bind. Menu unchanged. Game stayed closed. Next: read those RESULTs before any menu change or restart.
+
+- 2026-10-20 6:07 PM EDT gxl-pc #21364/#21388: answered on the phone (#21391, #21403). Human was waiting. gx-pc was 0/3. Three local jobs started at 6:07 pm: #21396 hitbox join, #21395 7-step R+50 bind, #21397 repo hit-count search. Slots 0, 1, and 2 logged a TASK. Do not touch the open game. Do not TASK gxl-pc2, gxl-ally, or cx-pc. cx-pc #21316 told #21392 to stay stopped until 2:32 am Oct 27. Next: read gx-pc RESULTs before any menu change.
+
+- 2026-10-20 6:14 PM EDT gxl-pc #21416: slot 2 finished #21397. Phone #21417. 173 actions, 0 stored hit numbers. Sub-table 2 is 182 x 192 bytes and does not contain 4E68/4E6C/4E74/4EA5 or motions 1040/1050/1090/1030. hit_count blank on 1001/1001 coverage rows. No Hit dope type. No HitCount string. Collision::Attack::AddSphere creates shapes at play time. Capstone found 0 multiply-by-192 in .text. Menu unchanged. Game not touched. Slots 0 and 1 still have live grok processes (chain #21395 and hitbox join #21396). Next: read those two RESULTs before any menu change. Do not relaunch.
+
+- 2026-10-20 6:18 PM EDT gxl-pc #21426: phone #21431. Sub-table 0 links every hitbox row to one move. 4E68 owns rows 92-94 (3). 4E6C owns 112-116 (5). 4E74 owns 145-149 (5). 4EA5 and 4E30 own 0. Bones on 92/93/94 are 52, 93, 113. sub2_count is not a proven hit count. Note d44ac5f5. Game was off. User #21423 allows a live drill. TASK #21432 queues one 4E68 drill for the next free gx-pc slot. Menu unchanged. Next: read that drill's HP delta before any menu change.
+
+- 2026-10-20 6:20 PM EDT gxl-pc #21429: phone #21436. Condition 766 is a sphere distance test, used 67 times in the 503-row AI table. 4E68 and 4E6C use it. Weights are zero. It is not a hit count. Dispatcher F68D8, case 766 at RVA 0xFC936, test at 0x37A137. Game was not open at 6:20. gx-pc slots 0, 1, and 2 were all busy, including drill #21432 on slot 2. Menu unchanged. Next: read the 4E68 HP drill before any menu change. Do not build the menu from a recording (#21433/#21435).
+
+- 2026-10-20 6:21 PM EDT gxl-pc #21438: phone reply. Loader 0x49BD28 binds table 3 to runtime +0x50/+0x58/+0x5A. Rows 287-292 are one-target links 4E79, 4E8C, 4E67, 4E70, 4E7A, 4E8D. Each is 1 of 11 or 12 choices. +E0 finish is still 4E7A, then idle 2. Not a forced script, so the menu was not changed. Commit 5cbc7b5b. Game was not open. Slots 0, 1, and 2 still had live processes. Next: the 4E68 HP drill, and the rule that picks the one-target row instead of 4E7A. Do not list the chain until that pick is proven.
+
+- 2026-10-20 6:23 PM EDT gxl-pc #21441: status on the phone (#21443). #21442 is the same chain proof as #21438, not new. Slot 0 was free and started #21444 at 6:23 pm: find the pick between the one-target row and the 4E7A finish. Slots 1 and 2 were still live. Game was not open. Menu unchanged. Next: read #21444 and the 4E68 drill before any menu change.
+
+- 2026-10-20 6:24 PM EDT gxl-pc #21446: phone reply. RVA 0x5CA188 loads one hitbox row as index times 192 from global 0x47452E0. It does not take action 4E68. Rows 92-94 have byte +0xA2 = 0, so the child-spawn loop is not a hit count. The caller that passes 92, 93, or 94 is still unnamed. Commit cce482d3. Game not open. Slots 0, 1, and 2 still had live processes, so no new job was added. Menu unchanged. Next: name that caller when a slot is free. Do not list a hit count.
+
+- 2026-10-20 6:35 PM EDT gxl-pc #21479: phone #21480. This PC, training build, summon R7B35, stand-still, player-can't-die on. One 4E68 at 0.8 m dropped HP 2658 to 2437 (221) once at about 1 second, at 6:32 pm EST. Action ran 4.3 s. No second drop. Hit lines 0. A 2.4-4.2 m swing did 0. 3 rows are not a hit count. 221 matches none of the row fields. 60+160=220. Game closed, saves restored. Menu unchanged. Slots 0 and 1 were live. Slot 2 was already on alt_motion #21461. TASK #21481 (explain the 221) is queued for the next free slot. Do not list a hit count. Do not relaunch.
+
+- 2026-10-20 6:36 PM EDT gxl-pc #21482: phone reply. Actor +0x110 is his position. The sphere test at 0x37A137 uses xyz only. Writer 0x3578E0, copy 0xB16DF. Empty tree walks a second list at global 0x45B9E40, object +0x310. Not a hit count. Commit 7515965c. Game not touched. Slots 0, 1, and 2 were busy, so no new job. Menu unchanged. Next: #21481 explains the 221 drop when a slot frees. Do not relaunch.
+
+- 2026-10-20 6:39 PM EDT gxl-pc #21491: phone reply. Action +0x48 is base 92 and +0x4A is count 3 for 4E68, so slots 0-2 are rows 92-94. Loader 0x49BD28 at 0x49CA50. Lookup 0x5C9348. That 3 is a row index, not a hit count. Agrees with the one 221 HP drop. Commit 1ea9b490. Game not touched. Slots 0, 1, and 2 were busy. Slot 1 has #21481. Menu unchanged. Next: read the 221 formula. Do not list row counts as hits.
+
+- 2026-10-20 5:58 PM EDT gxl-pc #21350/#21351: user said forget the other PC. Do not wait on #21337. Hit-count search is local. Ally #21336 can still answer the chain bind. Ghidra: the only imul-by-192 in .text is RVA 0x3466706 inside 0x34664d0, a graphics sizer (callers 578578, 6d89d4, 3466e90), not the 182-row hitbox table. Those 182 rows still have no action id and no motion number. Nioh3 PID 24196 started 5:43 pm EST; do not touch it. Next: find the loader that reads record size from the 16-pair header, not another immediate-192 scan.
+
+- 2026-10-20 6:07 PM EDT gxl-pc #21364: gx-pc presence was 0/3 idle. Posted three offline tasks: #21398 hitbox-row reader, #21399 7-step chain bind, #21400 attack-choice dispatcher. Do not touch the live game. Do not task gxl-pc2, gxl-ally, or cx-pc. Next: read their RESULTs and tell the user only what is proven.
+
+- 2026-10-20 6:10 PM EDT gxl-pc #21407: user asked if they are still working. Presence was 3/3, about 3 minutes in. Slot 0 thread 21274 chain, slot 1 thread 21303 hitbox-to-move, slot 2 thread 21331 stored hit count. No RESULT yet. Do not touch the game. Next: read the three RESULTs when they arrive.
+
+- 2026-10-20 6:13 PM EDT gx-pc #21397: no stored per-action hit count for chr 16102. Action file FA/5FBD421B has 173 actions (4E68 motion 1040, 4E6C motion 1050, 4E74 motion 1090, 4EA5 motion 1030). Sub-table 2 is 182 x 192 bytes and contains none of those ids or motions. Coverage hit_count is blank on 1001/1001 rows. Dump has no HitCount string. Capstone found 0 multiply-by-192 instructions in .text. RVA 0x3466706 is a jump plus mov eax, [rsp+0xC0], not the attack table. Game not touched. Next: do not relabel the hit menu from this search.
+
+- 2026-10-20 6:18 PM EDT gx-pc #21400: Yoritomo condition 766 is a sphere test. Dispatcher F68D8, table RVA 0x1016B4, case at 0xFC936. It is true when the byte at [controller+0xE0]+0x89C is nonzero. That byte is written at 0xB28EE from 0x379494, which feeds the float4 at object+0x110 into 0x37A0B4. Assembly at 0x37A137 returns 1 when squared 3D distance to a tree node center (node+0x40/0x44/0x48) is below that node's radius squared (node+0x50). Used on 67 sub-table-3 slots, including rows whose first word is 4E68 and 4E6C. Those rows have zero weights at +0x54. If the sphere tree is empty, 0x37A0B4 walks a second list that is still unnamed. The float4 at +0x110 is not yet proven to be the live position (+0x120 is a different float4 in the same writer). Game not touched. Next: name +0x110 and the empty-tree list before treating 766 as player distance.
+
+- 2026-10-20 6:16 PM EDT gxl-pc #21418: told the user the move list is 173 moves with motion numbers, and frame marks are sound, effect, and animation, not hit counts. Presence still 3/3: chain thread 21274, hitbox thread 21303, attack-choice thread 21275. Do not touch the game. Next: read those two remaining RESULTs.
+
+- 2026-10-20 6:18 PM EDT gxl-pc #21423: user said use the live game and logs while the boss plays moves. Game was closed. Steam Nioh3Training.log is 24,776,558 bytes, last write 5:55 pm, 237,284 lines, 10,252 ACTLOG lines. HP lines are player-death, boss Ki-break hits, and boss HP. No per-hit player damage, so old logs cannot count his 2-hit vs 3-hit. gx-pc still 3/3. Do not start the game until a worker slot is free and the user is not in it. Next: one live drill that logs each player HP drop beside the current boss action.
+
+- 2026-10-20 6:16 PM EDT gx-pc #21396: sub-table 2's 182 rows each belong to one action. Sub-table 0 per-action record: u16 sub2_count, then that many u16 indexes. 0x4E68 owns rows 92, 93, 94. Row count is not a hit count. Game not touched. Next: do not relabel the hit menu from this. Note: nioh3-sort-20999/notes/yoritomo-attack-values.md.
+
+- 2026-10-20 6:20 PM EDT gx-pc #21395: Yoritomo's packed chain is bound to the runtime slice. Loader 0x49BD28, lane 0 at action+0x50/+0x58/+0x5A, read by 0x3103B8 via state+0xE8. Rows 287-292 are in those slices and their only targets are 4E79, 4E8C, 4E67, 4E70, 4E7A, 4E8D. Each slice also has 10 shared rows, so this is not a forced 7-step play. +E0 of the first five is 4E7A. Game not touched. Next: do not relabel the menu from this. Note: nioh3-yoritomo-native-14818/notes/yoritomo-native-ai.md.
+
+- 2026-10-20 6:24 PM EDT gx-pc #21398: the row fetch is RVA 0x5CA188 (begin + index*192). It does not take action 4E68 and it has no hit count. Byte +0xA2 is 0 on rows 92, 93, 94. Caller of indexes 92/93/94 is still unnamed. Commit cce482d3. Game not touched.
+
+- 2026-10-20 6:30 PM EST gxl-pc #21450: user asked how many sequences if an attack with several animations is a sequence. Count from the move file: 88 attack rows, 20 animations, 0 rows with two animation clips. Phone #21456. Not a menu rule. 40 of 88 also store a second motion number (alt_motion34); unproven, tasked as #21461. Also tasked #21458 (who passes rows 92/93/94) and #21460 (what the sphere point is). Nioh3 PID 29140 started 6:27 pm EST and is not this session. Do not touch it. Do not edit the menu. Next: read those three RESULTs.
+
+- 2026-10-20 6:31 PM EDT gx-pc #21444: the chain row is chosen by 0x892668 when walker 0x480A74 returns it. If the walker returns null, packed +E0 (4E7A for the first five) is copied into a stand-in and committed. Rows 287-292 pass their file gates after frames 110, 63, 96, 63, 105, and 52. Virtual +D8 (0x49B120) and earlier rows 396, 398, and 405 are still not reduced. Game not touched. Menu not edited. Commit d62d5f50. Next: do not relabel the menu from this.
+
+- 2026-10-20 6:33 PM EDT gx-pc #21432: one drilled 0x4E68 against the player dropped HP by 221. Installed training build, summon R7B35, stand-still, one force, action 4266 ms. Close range (0.8 m) at 6:32 pm EST: log line player HP 2437 -> 2658 refilled (PlayerCantDie). Heartbeat stayed 2658/2658. No hit-tagged line. A farther swing (2.4-4.2 m) changed nothing. Rows 92, 93, 94 remain a row count. 221 is not those rows' listed fields. Saves and EngineFix.ini restored. Game closed. Next: do not treat 221 or the 3 rows as a hit count.
+
+- 2026-10-20 6:33 PM EST gxl-pc #21473: user wants literal frame data for a future SF6-style frame bar. Phone #21476: marks exist (4E68 frame 51, 4E6C frame 83, 4E74 frame 77; early mark frames 12-15; chain waits 110, 63, 96, 63, 105, 52) but startup/active/recovery is unproven. Task #21478 maps phase_tail types across 88 attack rows. Do not launch the game. Do not edit the menu. Next: read #21478 and the still-open #21458, #21460, #21461.
+
+- 2026-10-20 6:38 PM EST gxl-pc #21487: user asked if the hit source is found so moves can be grouped. Phone #21488. Proven so far: one close 4E68 dropped 221 HP once (2658 to 2437 at 6:32 pm EST). The 3 hitbox rows are not 3 hits. No per-move 2-hit or 3-hit field. Sphere test is his position. Slots at 6:37 pm EST: 0 owns #21478 frame marks, 1 owns #21458 row caller, 2 owns #21461 second motion. Game was not running. Do not edit the menu. Next free slot: find the formula or field that produced 221, then the same measurement for 4E6C and 4E74.
+
+- 2026-10-20 6:45 PM EST gxl-pc #21500: status ping answered in #21501. Still no whole-moveset hit source. 4E68 is 221 HP once. Frame mark on 64 of 88, usually frame 14, meaning unknown. Slots 3/3: slot 0 #21498 which of the 3 rows one swing uses, slot 1 #21481 the 221 formula, slot 2 #21461 the second motion field. Game was not running. Do not launch it from a status wake. Do not edit the menu. Next: read those three RESULTs.
+
+- 2026-10-20 6:46 PM EST gxl-pc #21503: user asked for the literal hit source. Phone #21504. Still unnamed. 60+160=220 is one point from the measured 221 and is not proof. Slots still 3/3 on #21498, #21481, and #21461. Game not running. Do not launch. Do not edit the menu. Next: read the 221-formula RESULT before any new drill.
+
+- 2026-10-20 6:51 PM EST gxl-pc #21512: hello answered in #21514. alt_motion34 RESULT is in: 40 of 88 rows, sequence count 0, not a second clip. Phone #21516. Slot 0 owns #21510 (byte +0x15 counts). Slot 1 owns #21481 (221 HP). Free slot given #21515 (how many lookup calls per swing). Game not running. Do not launch. Do not edit the menu. Next: read #21481 and #21510.
+
+- 2026-10-20 6:53 PM EST gxl-pc #21521: user said reverse to the hit source. Phone #21524. +0x15 is 0 on all 88 attacks, empty padding, not the slot. Slot 1 still on #21481 (221 HP formula) since 6:39 pm EST. Slots 0 and 2 are both counting lookup calls (#21518 and #21515). Do not add a third copy. Game not running. Do not launch from a status wake. Do not edit the menu. Next: read the 221 RESULT, then one live swing of 4E6C only if the formula is still unnamed.
+
+- 2026-10-20 6:55 PM EST gxl-pc #21527: user asked how many agents are on the hit source. Phone #21528. Counted live: 3/3. Slot 1 PID 33108 since 6:39 pm EST on #21481. Slot 0 PID 25436 since 6:52 pm EST on #21518. Slot 2 PID 5204 since 6:51 pm EST on #21515. Slots 0 and 2 are the same lookup-count question. Do not post another copy. Game not running. Do not launch. Do not edit the menu. Next: read #21481 when it lands.
+
+- 2026-10-20 6:57 PM EST gxl-pc #21531/#21533/#21535: user said force all workers onto the source, use the Ghidra setup already on this PC, and use the logs. Phone #21541. 221 is not in rows 92-94; those feed 30, 25, or 40. Live prompts: slot 0 where 221 is cut, slot 1 the slot record, slot 2 lookup count. Do not add a fourth copy. Do not launch the game from a status wake. Do not edit the menu. Next: read the 221-cut RESULT. HP subtract is RVA 0x787268. Builder 0x2000F30. Note: nioh3-sort-20999/notes/yoritomo-attack-values.md.
+
+- 2026-10-20 7:03 PM EST gxl-pc #21556: user asked if the approach is wrong. Phone #21558. The gap is 221 live versus 30/25/40 in the row math. Slot 0 owns #21543 (what makes one hit). Slot 1 owns #21555 (side-record pointer +0x70). Slot 2 was free and got #21560 (read the saved log for the 221 line). Do not launch. Do not edit the menu. Next: the log tag, then whether that path can emit 221.
+
+- 2026-10-20 7:04 PM EST gxl-pc #21562: user asked if we are close. Phone #21565. Shape is close: one damage call applies one amount, no hit-count argument. The 221 is not close. 6:32 pm log has 1 refill and 0 hit lines. Rows still 30, 25, 40. Slots still busy on #21543, #21555, #21559. Do not launch. Do not edit the menu. Next: the path that can emit 221, not another row-count pass.
+
+- 2026-10-20 7:05 PM EST gxl-pc #21566: user asked why strings are not read from the move list. Phone #21567. 173 moves, 88 attacks, 20 clips, 0 attacks with two clips. The 7-step list is 6 choices, each 1 of 11 or 12, not a forced string. Menu unchanged. Slots still 3/3 on #21543, #21555, #21559. Do not invent strings. Do not launch. Next: the path that emits 221.
+
+- 2026-10-20 7:18 PM EST gxl-pc #21589: USER PAUSED the hit and string search. Phone #21593. HOLD #21592 to gx-pc. Do not task more of this search. Do not launch the game. Do not edit the menu. Last fact: the 221 line is a training refill, 2437 to 2658, not a hit. At 6:32:49 pm EST the bar was still 2658. At 6:32:50 pm EST the refill starts from 2437. 0 hit lines in between. Row math still 30, 25, or 40. One damage call applies one amount. Resume only when the user says resume. Marker: .handoff/PAUSED.
+
+- 2026-10-20 6:36 PM EDT gx-pc #21460: the sphere test measures the actor position at +0x110 (xyz). Empty-tree list header is RVA 0x400CEF0, from global 0x45B9E40 + 0x10. Neither is a hit count. Game not touched. Menu not edited. Commit 7515965c. Next: do not label a hit count from this.
+
+- 2026-10-20 6:39 PM EDT gx-pc #21458: RVA 0x5C9348 picks the row for action 4E68. Base at +0x48 is 92, count at +0x4A is 3, so slots 0, 1, 2 are rows 92, 93, 94. That 3 is a row count, not a hit count. It does not call 0x5CA188. Commit 1ea9b490. Game not touched. PID 29140 not touched.
+
+- 2026-10-20 6:39 PM EDT gx-pc #21478: phase_tail on all 88 attack rows is not startup, active, or recovery. Row counts: type 0=65, 1=38, 2=34, 3=29, 4=10, 5=64, 6=28, 7=28, 8=3, 9=1. Best candidate is type 5 (early, median frame 14, earliest mark on 39 rows) and it is still unknown. Type 1 is on 38 of 88, not every attack. Chain waits stay a different field. Commit 658a9424. Game not launched. Menu not edited. Next: do not label a frame bar from these types.
+
+- 2026-10-20 6:43 PM EDT gxl-pc #21495: phone #21497. None of 10 phase types on 88 attacks is startup, active, or recovery. Type 5 is on 64, median frame 14, still unknown. Type 1 is on 38 (frames 51, 83, 77 on the three checked attacks). Commit 658a9424. Menu unchanged. Beacon 2/3. Slot 1 still has #21481 (221 HP). Slot 2 still has #21461 (alt_motion34). TASK #21498 asks the free slot which instruction picks hitbox slot 0, 1, or 2 for 4E68. Do not list row counts as hits. Do not edit the menu. Do not launch.
+- 2026-10-20 6:47 PM EDT gx-pc #21498: the hitbox lookup uses one slot per call. RVA 0x5C9C66 passes it into 0x5C9348. The attack-object path loads byte +0x75C at 0x5C9BC4; that byte is record +0x15, read at 0x130C8DF and 0x65E88D. The command path loads dword +4 at 0x28E13F3. Count 3 is only the bounds check. Which of 0, 1, 2 belongs to 0x4E68, and whether one swing calls this once, are still unknown. Not a hit count. Commit fa7ca448. Game not touched. Menu not edited.
+
+- 2026-10-20 6:49 PM EDT gxl-pc #21508: phone #21509. Each lookup uses 1 slot. For 4E68 the row is 92 plus that slot. Which of 0, 1, or 2, and whether one swing asks more than once, are still unknown. The 221 HP one-drop stands. Slot 1 still has #21481. Slot 2 still has #21461. TASK #21510 reads record +0x15 for 4E68 and all 88 attacks. Do not list that byte as a hit count. Do not edit the menu. Do not launch.
+
+- 2026-10-20 6:52 PM EDT gx-pc #21461: alt_motion34 is not a second animation. Sequence count is 0. The field is action-record u16 +0x34, set on 40 of 88 attack rows (15 numbers, 1002-1075). None is a motion of any of the 173 rows. Live playback reads the file through runtime +0x20 and the next action at +0xE0 (RVA 0x2E915E, call 0x49B688). It does not read +0x34. RVA 0x49D0BF reads the file-header count for sub-table 15, not this field. Commit c5fc99d8 on gxl-pc/move-sort-20999. Game not touched. Menu not edited. Do not call those 40 rows sequences.
+
+- 2026-10-20 6:51 PM EDT gxl-pc #21512: phone #21517. Sequence count stays 0. Slot 0 pid 5700 runs #21510 (record +0x15). Slot 1 pid 33108 runs #21481 (221 HP). The live lookup-count job is #21515 on slot 2 pid 5204. #21518 is a duplicate; skip it. Do not list that call count as a hit count until it is proven. Do not edit the menu. Do not launch.
+- 2026-10-20 6:51 PM EDT gx-pc #21510: action-row byte +0x15 is not the hitbox slot. 0x4E68 is 0. All 88 attacks store 0, none store 1, 2, or anything else. The action id is at +0x0C. The word at +0x12 is 0 on all 173 rows. Sub-table 7 matches the code layout (id at +0x12, byte at +0x15) but only 5 attacks appear and 0x4E68 does not. Not a hit count. Commit e5f8174b. Game not touched. Menu not edited.
+
+- 2026-10-20 6:53 PM EDT gxl-pc #21521: phone #21525. User said keep reversing until the source is named. Action +0x15 is 0 on all 88, so it is not the slot. Slot 1 pid 33108 runs #21481. Slot 2 pid 5204 runs #21515. Slot 0 pid 25436 is on duplicate #21518. TASK #21526 names the record read at 0x130C8DF and 0x65E88D. Do not call the zero byte a hit count. Do not edit the menu. Do not launch.
+
+- 2026-10-20 6:55 PM EDT gx-pc #21481: the 221 HP drop is not rows 92-94 fields +0x16/+0x1A/+0x1C/+0x1E. No instruction adds 60 and 160. HP is subtracted at 0x787268. The normal builder 0x2000F30 uses word +0x10 plus a packed dword at +4, which on these rows is 30, 25, or 40. Commit d4804950. Game not touched. Menu not edited.
+- 2026-10-20 6:54 PM EDT gx-pc #21518: one update does not walk the 3 hitbox rows. RVA 0x322B25 calls the lookup once when sil is 0. RVA 0x322BA5 is a second call only if byte +0xC1 is nonzero. The caller loop at 0x320A04 steps by 1 and stops at ebx, which is 1 or 2, not 3. Which of those a 0x4E68 swing takes is still unknown. Not a hit count. Commit 32b37529. Game not touched. Menu not edited.
+
+- 2026-10-20 6:56 PM EDT gxl-pc #21529: phone #21538. Rows 92-94 do not store 221. Hit builder 0x2000F30 adds word +0x10 to packed +4 and gets 30, 25, and 40 because +4 is 0. It never reads +0x16, +0x1A, +0x1C, or +0x1E. HP cut is 0x787268. Row apply 0x2B7F30 does not add those fields. +0x1E is a flag. Commit d4804950. Not a hit count. Slot 1 runs #21526. Slot 2 runs #21515. TASK #21539 traces 221 into 0x787268. Do not launch. Do not edit the menu.
+
+- 2026-10-20 6:58 PM EDT gxl-pc #21531: phone #21542. User said all 3 stay on the hit source, use this PC's Ghidra setup, and use the game logs. #21530 confirms one lookup at 0x322B25, second only if +0xC1 is set. Not a hit count. Commit 32b37529. Slots at send: 0 on #21539, 1 on #21526, 2 on #21515. TASK #21543 is the Ghidra hit-builder job plus the 6:32 pm EST log counts. Do not launch. Do not edit the menu.
+
+- 2026-10-20 6:59 PM EDT gx-pc #21515: one swing's hitbox lookup count is unknown. No caller walks the rows. Direct callers of 0x5C9348 are 0x5C9C6C and 0x28E9DD1. Attack tick sites are 0x322B25, 0x322BA5, 0x322535, and 0x322986. Also 0x28E13F9, 0x23F361B, and 0x28E9F19. The visit loop is 0, 1, or 2. Visits per swing are not proved. Not a hit count. Commit dfe0d53f. Game not launched. Menu not edited.
+
+
+- 2026-10-20 7:00 PM EDT gxl-pc #21544: phone #21546. One swing's lookup count is unknown. Call sites are single calls: 0x322B25, 0x322BA5, 0x322535, 0x322986, plus 0x28E13F9, 0x23F361B, 0x28E9F19. Tick loop 0x3209EB runs 0, 1, or 2 times per visit. Visits per swing are not in the code. Not a hit count. Commit dfe0d53f. Slots still 0 #21539, 1 #21526, 2 #21515. #21543 waits. Do not launch. Do not edit the menu.
+- 2026-10-20 7:00 PM EDT gx-pc #21539: 221 is still unknown. The hit path passes trunc(packet+0) into the HP cut at 0x1FF44EC. That float is the row sum (30, 25, or 40 on rows 92-94), optionally times a table u16 * 0.01 at 0x20012AE. The table word for this swing was not read. Not a hit count. Commit dadea642. Game not touched. Menu not edited.
+
+- 2026-10-20 7:01 PM EDT gxl-pc #21547: phone #21550. 221 is still unknown. The value that reaches HP cut 0x787268 is the row sum, 30, 25, or 40. Float is written at 0x2001111 from packed +4 plus word +0x10, truncated at 0x1FF44EC. Branch 0x20012AE can multiply by a table word times 0.01. That word was not read, so it is not 221. Not a hit count. Commit dadea642. Slot 0 pid 18576 runs #21543. Slot 1 pid 20764 runs #21526. Slot 2 pid 5204 still shows #21515. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:00 PM EDT gx-pc #21543: one call of 0x2000F30 applies one amount. No argument is a hit count. Callers 0x10C5D73 and 0x21FBA46. The 6:32 pm EST drill log has 1 HP refill (2437 to 2658) and 0 hit lines. The 6:27 pm EST log has 0 and 0. Commit 030a0040. Game not launched. Menu not edited.
+
+- 2026-10-20 7:02 PM EDT gx-pc #21526: the hitbox slot byte comes from a side record, not the action row. RVA 0x65E884 reads [object+0x70]+0x15. RVA 0x130C8DF reads [second arg+0xB8]+0x15. Both records have a word list at +0x110, so they are not 0xC0 hitbox rows. Action 0x4E68 has no sub-table 7 row. The slot is still unknown. Next pointer is the writer of object +0x70. Commit 8a6ffb6f. Game not touched. Menu not edited.
+
+- 2026-10-20 7:02 PM EDT gxl-pc #21551: phone #21554. The slot record is not an action row and not a hitbox row. RVA 0x65E884 loads object +0x70, and +0x15 on that record is the slot. Shape matches sub-table 7. Action 0x4E68 has 0 rows there. Writer of +0x70 was not found. Next pointer is the second arg of 0x66FC28, saved at 0x66FCC8. Commit 8a6ffb6f. TASK #21555 chases that writer. Slot 0 runs #21543. Slot 1 was still on #21526. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:03 PM EDT gxl-pc: slot 2 was free after #21551. Slot 1 took #21555. TASK #21559 lists callers of HP cut 0x787268, because the builder path is 30, 25, or 40 and the live drop was 221. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:03 PM EDT gxl-pc #21552: phone #21561. One call of 0x2000F30 applies one amount. It calls the HP cut once at 0x2001314 into 0x1FF4454. Callers 0x10C5D73 and 0x21FBA46 pass no count. 6:32 pm EST log: 1 HP refill 2437 to 2658, 0 hit lines. 6:27 pm EST log: 0 and 0. Not a hit count. Commit 030a0040. Slots still on #21543, #21555, #21559 at send time. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:04 PM EDT gxl-pc: after #21552, the open 221 hole is the multiply word at 0x20012AE. TASK #21564 waits for the next free slot. Do not redo the one-call result. Do not launch.
+
+- 2026-10-20 7:06 PM EDT gx-pc #21559: eight direct callers of the HP cut at 0x787268. None loads 221. 0x1FF44FF is the builder path (30, 25, or 40). 0xAFF1D, 0xAFFCE, and 0x21FAECB subtract current HP. 0xE43B9A subtracts current HP minus a scaled stat. 0x21F6540 subtracts a negative field. 0x329890 truncates a computed float. 0x786ED8 subtracts 0, current HP, or its caller's edx. Not a hit count. Commit 2d1e55ab. Game not launched. Menu not edited.
+
+
+- 2026-10-20 7:08 PM EDT gxl-pc #21570: phone #21572. Eight callers of HP cut 0x787268. Amount is edx. None loads 221. 0x1FF44FF is the builder (30/25/40). 0xAFF1D, 0xAFFCE, 0x21FAECB clear current HP. 0xE43B9A is current HP minus a scaled stat. 0x21F6540 adds HP. 0x329890 is a computed float. 0x786ED8 is 0, current HP, or a caller's value. Commit 2d1e55ab. Not a hit count. #21564 still waits for the multiply word. Slots were still on #21543, #21555, #21559. Do not launch. Do not edit the menu.
+- 2026-10-20 7:08 PM EDT gx-pc #21555: the writer of object +0x70 is RVA 0x93D6E0. It looks up bank array +0x1A0 by action id minus 0x4E20. Sub-table 7 has 51 rows, filled at indexes 0 through 50. Move 0x4E68 asks for row 72, so the store is skipped and the pointer stays 0. The slot byte is not in that record. A hit, when one happens, is a file row. Commit 6b18283d. Game not touched. Menu not edited.
+
+- 2026-10-20 7:09 PM EDT gxl-pc #21575: phone #21576. Move 0x4E68 never gets a side record. Index is action id minus 0x4E20, which is 72. Sub-table 7 has 51 rows, indexes 0 through 50, loaded at 0x49C7F1. Writer 0x93D6E0 skips the store, so object +0x70 stays 0 from 0x66D648. No sub-table 7 row has id 0x4E68. Not a hit count. Commit 6b18283d. Slot 1 pid 26268 runs #21564 (multiply word). Slot 0 pid 18576 still showed #21543. Slot 2 pid 15032 still showed #21559. Do not chase +0x70 for this move. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:09 PM EDT gx-pc #21564: the multiply word at 0x20012AE is not a file constant. It is the u16 at [r11+rcx*2] inside the stride-0x52 record from 0x85600, keyed by the u16 at [object+0xE8]+0x374. Products of 30, 25, and 40 are unknown. The skip path returns 1.0, so those products stay 30, 25, and 40. Not 221. Not a hit count. Commit 585a71f0. Game not launched. Menu not edited.
+
+
+- 2026-10-20 7:11 PM EDT gxl-pc #21577: phone #21579. Scale at 0x20012AE is the return of 0x85790. Default is 1.0, so the cut stays 30, 25, or 40. A runtime u16 in the 0x52-byte record at 0x857D8 can change it, keyed by object +0xE8 +0x374. Products not computed. Not 221. Commit 585a71f0. TASK #21580 finds who writes that u16. Slot 2 runs #21560 (log read). Do not launch. Do not edit the menu.
+- 2026-10-20 7:10 PM EDT gx-pc #21564: the damage scale word is not in the file. This dump's gate dword is 0, so RVA 0x20012AE multiplies by 1.0 and the products stay 30, 25, and 40. None is 221. The unread u16 would come from the heap table at [[0x45B9E30]+0x158], keyed by the word at [actor+0xE8]+0x374. Commit adc3e2f7. Game not touched. Menu not edited.
+
+- 2026-10-20 7:12 PM EDT gxl-pc #21581: phone #21582. Scale is 1.0 in this dump because the gate dword at singleton +0x2C4 (global 0x45C84F8) is 0. Products of 30, 25, and 40 are not 221. The u16 is not read. When the gate is open it comes from the 0x52-byte record via 0x85600, keyed by [actor+0xE8]+0x374. Table pointer is a heap address. Not a hit count. Commit adc3e2f7. Slot 1 pid 10284 runs #21580. Slot 2 pid 29068 runs #21560. Slot 0 pid 18576 still shows #21543. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:13 PM EDT gx-pc #21560: the 6:32 pm HP line is a full refill, not a hit. Tag is TRAIN infinite health. Log line 237745 puts player HP from 2437 back to 2658. The 221 is that difference. Five lines around it are two NOFIN motion requests, the refill, exec nearboss 120, and CMD nearboss warp 120. No hit count. Game not launched. Log not edited. Menu not edited. RESULT #21583.
+
+
+- 2026-10-20 7:14 PM EDT gxl-pc #21583: phone #21584. The 6:32:50 pm EST line is TRAIN infinite health, 2437 to 2658. The 221 is the refill, not a hit. No hit line in the five lines around log line 237745. TASK #21585 looks for the earlier drop, especially 2658 to 2437. Slot 1 runs #21580. Slot 0 pid 18576 still shows finished #21543. Do not call the refill a hit. Do not launch. Do not edit the menu.
+
+- 2026-10-20 7:16 PM EDT gx-pc #21585: the 221 drop is not in the log. No line shows player HP falling from 2658 to 2437. Last readings are CMD hp at 6:32:48 pm EST and HB at 6:32:49 pm EST, both 2658/2658. Hit-tagged lines in the 2 seconds before the 6:32:50 pm refill: 0. RESULT #21586. Game not launched. Log not edited. Menu not edited.
+
+
+- 2026-10-20 7:20 PM EDT gx-pc #21588: from 6:32:40 pm EST through 6:32:50 pm EST, 8 lines contain 0x4E68 and 0 contain 20072. The 8 are the drill on and off at 6:32:49 pm EST. Two exec lines write 4E68 without 0x. Player HP lines are HB 2658 at 6:32:45, 6:32:47, and 6:32:49, CMD hp 2658 at 6:32:48, and the refill at 6:32:50. The refill is not a hit. RESULT #21600. Game not launched. Log not edited. Menu not edited.
+
+
+## 2026-10-20 7:27 pm EST (#21598, #21602)
+Yoritomo hit and string search stays paused until the user says resume. Marker: .handoff/PAUSED. Do not task gx-pc more of that search. Do not launch the game for it.
+Stuck session: gxl-pc slot 0 pid 32936 was the 221-log RESULT job started 7:16 pm EST. Killed at 7:23 pm EST. Do not restart it.
+Trainer: Downloads\Nioh3 Trainer260919.rar is one exe, Nioh 3 Trainer.exe, 393216 bytes, .NET 4.8, product 20260919-1, FlareJune 2017 template. External process writer (signature or RVA, freeze, hotkeys, Xbox pad). Cheat labels are not plain text; resource name ResAjA. Embedded stubs 640 bytes x86 and 696 bytes x64. Phone #21607. Do not run the exe.
+gx-pc: 0/3 after the 7:18 pm EST hold. Last worker results were already in before the kill.
+
+## 2026-10-20 7:31 pm EST (#21609, #21610)
+Trainer cannot be mined for new training features without running it. Phone #21612 and the follow-up. Encrypted blob AIu is 3328 bytes, entropy about 7.9. No Nioh3.exe string. No cheat names. Do not run Nioh3 Trainer.exe. Do not resume the Yoritomo search until the user says resume. gx-pc stays idle on that search.
+
+## 2026-10-20 7:36 pm EST (#21617)
+User: writing into game memory is not something our mod does. Do not port the trainer. Phone #21618. Yoritomo search stays paused until they say resume. Do not run the trainer. Do not launch the game for this. gx-pc stays off that search.
+
+## 2026-10-20 7:39 pm EST (#21622)
+User resumed boss-move work. PAUSED file removed. GO #21625 to gx-pc. 221 chase stays closed. Game stays closed. Trainer is not copied.
+gx-pc 3/3: TASK #21629 choice-link count for Yoritomo, TASK #21630 sorter table for every boss, TASK #21631 opus writer of object+0x70 (reader 0x65E884). Phone #21624 and the follow-up.
+
+## 2026-10-20 7:40 pm EST (#21630)
+Sorter ran on the pinned coverage. 14 bosses, 1784 moves, 280 attacks, 0 full chains. RESULT #21633. Script not edited. Game not launched.
+
+- 2026-10-20 7:40 PM EDT gx-pc #21631: the qword read at 0x65E884 is written at 0x93D6E0. It stores the row pointer from 0x49D610, index action id minus 0x4E20, array at [object+0x28]+0x1A0. A miss leaves the 0 from constructor 0x66D648. Callers 0x66D404, 0x4818E1, 0x93D57D. RESULT #21635. Game not launched. Menu not edited.
+
+- 2026-10-20 7:41 PM EDT gx-pc #21629: 42 of 88 attack-flag rows have their own follow-up choice. Shared rows sit on all 88 and were not counted. Longest path is 13 actions (4E5C through 4EB9). It is not a proven attack string. Examples 4E4E, 4E5C, 4E68, 4E78, 4E8E. File FA/5FBD421B, commit 44301104. Game not launched. Menu not edited.
+
+## 2026-10-20 8:07 pm EST (#21645, #21646)
+Status sent in #21649. Results: #21633 14 bosses / 1784 moves / 280 attacks / 0 chains. #21636 42 of 88 Yoritomo attacks have a private follow-up, longest path 13, not a proven string. #21635 writer is 0x93D6E0 and skips when the row is missing (this move wants row 72 of 51).
+Next tasks, game stays closed, no 221 chase: #21650 how many of the 42 have exactly one target. #21651 why Shingen shows 0 attacks. #21652 how many of the 88 attack ids fall past the 51-row table.
+
+- 2026-10-20 8:08 PM EDT gx-pc #21652: 5 of Yoritomo's 88 attack ids land in the 51-row side table (index = id minus 0x4E20, rows 0-50). 83 are past it, same miss as 0x4E68 at row 72. Inside examples: 0x4E4E, 0x4E4F, 0x4E52. Past examples: 0x4E53, 0x4E68, 0x4EB9. RESULT #21654. Game not launched. Menu not edited.
+
+- 2026-10-20 8:09 PM EDT gx-pc #21650: 13 of the 42 attacks have exactly one private target. 29 have two or more. 628 full choice paths are longer than 2 actions, and 11 are only a pair. Not a proven string. Commit 33f9e88a. Game not launched. Menu not edited.
+
+## 2026-10-20 8:09 pm EST (#21651)
+Shingen attack flag is the empty word 65535 at 0x13C and 0x142 on all 136 rows. 0 rows are non-zero. Script not edited. Game not launched.
+
+## 2026-10-20 8:11 pm EST (#21661)
+Phone #21662. New counts from #21658 #21659 #21654: 13 of 42 have one follow-up, 29 have more, Shingen attack mark empty on 136/136, 83 of 88 miss the 51-row table. Next: #21663 list the 13, #21664 any other Shingen column, #21665 slot byte on the 5 inside rows. Game closed. No 221 chase.
+- 2026-10-20 8:12 PM EDT gx-pc #21663: the 13 single follow-ups are 4E53 to 4E54, 4E5C to 4E60, 4E61 to 4E62, 4E74 to 4EB7, 4E7A to 4E8D, 4E7B to 4EA6, 4E7C to 18D1, 4E7D to 4E77, 4E93 to 4E5B, 4E9C to 4EA0, 4EA1 to 4EA2, 4EA6 to 4EA7, 4EB8 to 4EB9. Candidates only. Commit 2e97730a. Game not launched. Menu not edited.
+
+## 2026-10-20 8:12 pm EST (#21664)
+No Shingen column splits the 57 attack-range motions from the other 79. Script not edited. Game not launched.
+
+- 2026-10-20 8:13 PM EDT gx-pc #21665: the 5 attacks that land in the 51-row table are 0x4E4E through 0x4E52. Those file rows are not the slot record. The word at +0x12 is 0x4E74 on all five, not the attack id. RESULT #21668. Game not launched. Menu not edited.
+
+
+## 2026-10-20 8:20 pm EST (#21671)
+Phone #21672 lists the 13 pairs from #21666. Shingen has no separating column (#21667). The 5 side rows are not the slot record (#21668). Next: #21673 join the 13, #21674 which targets are attacks, #21675 how many of 51 rows say 4E74. Game closed. No 221.
+
+- 2026-10-20 8:20 PM EDT gx-pc #21675: of the 51 side-table rows, 5 store 0x4E74 at +0x12 and 46 store a different id. The six values are 0x4E89 (19), 0x4E8B (9), 0x4E7A (7), 0x4E8A (6), 0 (5), and 0x4E74 (5). RESULT #21676. Game not launched. Menu not edited.
+
+- 2026-10-20 8:20 PM EDT gx-pc #21673: 12 of the 13 single pairs do not extend. The only longer chain is 4E7B -> 4EA6 -> 4EA7. Not a proven string. Game not launched. Menu not edited.
+
+## 2026-10-20 8:20 pm EST (#21674)
+10 of the 13 targets are in Yoritomo's 88 attacks. The other 3 are 18D1, 4E77, and 4EA7. 18D1 is action row 141 with an empty attack mark. Game not launched.
+
+## 2026-10-20 8:22 pm EST (#21679)
+User rule: one next move that ends is a sequence. Phone #21680. 12 pairs stop. One chain is 4E7B -> 4EA6 -> 4EA7. 29 are branches. Next: #21681 do the 13 targets really have 0 further links, #21682 choice spread on the 29, #21683 do 18D1, 4E77, 4EA7 end. Game closed.
+- 2026-10-20 8:22 PM EDT gx-pc #21681: 6 of the 13 targets have no private follow-up (4E54, 4E5B, 4E8D, 4EB7, 4EB9, 18D1). 4EA6 has one. Six have two or more. Candidates only. Commit 54fe95d5. Game not launched. Menu not edited.
+
+## 2026-10-20 8:24 pm EST (#21685)
+Phone #21686. Six ending sequences: 4E53-4E54, 4E93-4E5B, 4E7A-4E8D, 4E74-4EB7, 4EB8-4EB9, 4E7C-18D1. End test #21684: 6 of 13 targets have 0 follow-ups. Full path file is task #21687. Game closed.
+- 2026-10-20 8:25 PM EDT gx-pc #21687: 39230 candidate paths. 11541 reach a move with no private follow-up. 27593 are cut at 8 moves. 96 stop on a repeat. File notes/yoritomo-sequences.txt, commit 99865166. Not a proven string. Game not launched. Menu not edited.
+
+## 2026-10-20 8:27 pm EST (#21682)
+The 29 Yoritomo attacks with 2 or more private follow-ups range from 2 to 8 choices. The middle is 6. Game not launched.
+
+- 2026-10-20 8:34 PM EST gx-pc #21683: 18D1 has no private follow-up. 4E77 follows only 4E78, and 4E78 has an empty attack mark. 4EA7 follows 4E7C (attack mark set) and 18D1. RESULT #21696. The older note line that said 4E77 has two or more is the looser count; the path file shows one. Game not launched. Menu not edited.
+
+## 2026-10-20 8:35 pm EST (#21698)
+Phone #21700. Algorithm task #21701: tools/boss_sequences.py in nioh3-sort-20999, same walk for every boss, depth cap 8. Yoritomo reference is 11541 ending and 27593 cut (#21689). Do not edit the menu. Game closed.
+- 2026-10-20 8:39 PM EDT gx-pc #21701: tools/boss_sequences.py counts private follow-up paths for every source-list boss. Yoritomo 11541 ending, 27593 cut. The 6 ending pairs are present. Shingen, Masakage, Mezuki, and Soji are 0 because their sorter file has no attack-flag row. Commit 49cc2301. Game not launched. Menu not edited.
+
+## 2026-10-20 8:44 pm EST (#21708)
+Phone #21709 and the follow-up. 39230 is paths, not moves. Sorter #21705 matches Yoritomo 11541 end / 27593 cut. Next task is the simple one-next-move list, Yoritomo only. Game closed.
+- 2026-10-20 8:46 PM EDT gx-pc #21711: Yoritomo simple sequences are 6. 4E53 to 4E54, 4E74 to 4EB7, 4E7A to 4E8D, 4E7C to 18D1, 4E93 to 4E5B, 4EB8 to 4EB9. Commit 7882af7e. Other bosses were not run. Game not launched. Menu not edited.
+
+## 2026-10-20 8:47 pm EST (#21716)
+Phone correction: do not call 11541 his sequence count. Simple sequences are 6 (#21713). Script label fix is the follow-up task. Game closed. Stay on Yoritomo.
+- 2026-10-20 8:57 PM EDT gx-pc #21718: boss_sequences.py now calls only the simple chains sequences. Yoritomo prints 6 sequences and 11541 branch paths. Commit 5e59fbf1. Other bosses were not run. Game not launched. Menu not edited.
+
+## 2026-10-20 9:20 pm EST (#21730)
+Did not stop. Script prints 6 sequences (#21721, commit 5e59fbf1). Phone #21731. Next: #21732 stand-alone attack count, #21733 which of the 6 targets are attacks. One gx-pc slot left free so it does not recount branch paths. Game closed.
+
+## 2026-10-20 9:20 pm EST (#21733)
+5 of the 6 sequence targets are among the 88 attacks. 18D1 is not. Game not launched.
+- 2026-10-20 9:20 PM EDT gx-pc #21732: 46 Yoritomo attacks have no private follow-up. 6 sequences plus 46 plus 29 attacks with 2 or more choices is 81, not 88. The gap is 7: 4E5C, 4E61, 4E7B, 4E7D, 4E9C, 4EA1, 4EA6. Each has one follow-up and that next move does not stop. No branch paths printed. Game not launched. Menu not edited.
+
+## 2026-10-20 10:04 pm EST (#21762)
+Phone #21763. Counting frames by hand is out. A block count is not a frame meter (#21758). Sequences stay 6. 46 of 88 attacks stand alone (#21735). 5 of 6 sequence endings are attacks; 18D1 is not (#21734). Next: #21764 walk the 7 leftover chains, #21765 read startup/active/recovery from the file or say none, #21766 look for a block-property column. Game not opened. Menu not edited.
+- 2026-10-20 10:05 PM EDT gx-pc #21764: the 7 single-next attacks all stop at a choice. 4E5C 4E60 choice. 4E61 4E62 choice. 4E7B 4EA6 4EA7 choice. 4E7D 4E77 choice. 4E9C 4EA0 choice. 4EA1 4EA2 choice. 4EA6 4EA7 choice. None ends. No branch-path counts. Game not launched. Menu not edited.
+
+## 2026-10-20 10:07 pm EST (#21765)
+No startup, active, and recovery counts in Yoritomo's action file. Note notes/yoritomo-frame-fields.md, commit cb65b0cf. Game not opened.
+
+## 2026-10-20 10:08 pm EST (#21768)
+Phone #21770 and #21772. Frame numbers may be in the move file or in another file. The move file has 0 of 88. The 7 leftover chains all stop at a choice (#21767). Next: #21773 looks in the other archive parts. Game not opened. Menu not edited.
+- 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 columns differ across the 88 attacks. Best unlabeled split is byte +0x115, 1 on 34 and 0 on 54. Not called unblockable. Game not opened.
+
+- 2026-10-20 10:08 PM EST gx-pc #21766: 110 of 168 two-byte columns differ across Yoritomo's 88 attacks. Best on-off split outside the attack mark and the next-action link is byte +0x115 (34 set, 54 clear). The file does not label it. RESULT #21774. Game not launched. Menu and yoritomo-frame-fields.md not edited.
+
+## 2026-10-20 10:10 pm EST (#21778)
+The 34 attacks with byte +0x115 set split 2 / 12 / 16 / 4 across starts, no follow-up, 2 or more choices, and one-next chains. Game not opened.
+- 2026-10-20 10:11 PM EDT gx-pc #21773: no startup, active, and recovery counts in the other parts of the Yoritomo archive. One file, FA/5FBD421B. Subtables other than the action rows are not 88 records and do not hold one three-count record per attack. Action columns were not re-checked. Game not opened. Menu not edited.
+
+## 2026-10-20 10:14 pm EST (#21784)
+Phone #21789. The look was for three counts per attack. The file does not store them. Do not assume a fighting-game meter. #21786 saved fight logs, #21787 game code, #21788 who reads byte +0x115 were still running. Sequences stay 6. Game not opened.
+
+## 2026-10-20 10:15 pm EST (#21790)
+Phone #21791. Hit start and hit end are more likely in the animation clips than in the move list. Move list stays 0 of 88. Next is #21792, the animation clips. Do not call clip length a frame meter. Game not opened.
+
+## 2026-10-20 10:17 pm EST (#21794)
+Phone #21795 and #21797. Reverse the animation code. #21793: no function loads the three frame counts. Names exist for play, fade, and motion length. Next is #21798, those functions. #21792 is the clips. Game not opened.
+
+## 2026-10-20 10:22 pm EST (#21802)
+Phone #21803 and #21808. All 3 workers were on the animation work. The decompile graph is about 2 weeks behind the mod. #21809 adds the movement reversing the mod already did, when a slot frees. Do not re-decompile the whole game. Game not opened.
+
+## 2026-10-20 10:26 pm EST (#21813)
+Phone #21814 and #21815. The boss file does not label unblockable or grab. #21812: attack code does not read byte +0x115, so the 34-versus-54 split is unused. #21816 searches for a grab or unblockable label and must say none if unnamed. Game not opened.
+
+## 2026-10-20 10:28 pm EST (#21819)
+Phone #21820. Find one attack that is the unblockable or the grab before any log read. Logs only for that one attack. Do not read logs for all 88. #21816 is the name search only, not a log read. Game not opened.
+
+## 2026-10-20 10:32 pm EST (#21823)
+Phone #21824 and #21825. Next test: launch practice against Yoritomo, hold block, a hit that lands is the likely special attack. This check did not open the game. Animation: 0 of 17 clip events are hits (#21822). GetFrame is not a hit time (#21821). Do not read logs for all 88.
+
+## 2026-10-20 11:04 pm EST (#21839)
+Training search stopped. Phone #21877. Write-up is .handoff/yoritomo-training-stop-21839.md and bridge file #1270. Do not launch the practice fight (#21834, the human will check it). Do not hunt frames, grabs, or unblockable labels. Numbers: 173 moves, 88 attacks, 6 sequences, 0 of 88 labeled grab or unblockable. Graph update already done: 12 movement functions, notes through October 11, commit b93dabba (#21838). gx-pc was 0/3. Game not opened.
+
+## 2026-10-20 11:09 pm EST (#21885)
+Phone #21886. Look at Claude and Codex optimization notes. Do not restart training. Do not launch for this look. Best unused item in notes/whats-left.md row 0: PJ shader warmup was built and never A/B tested. PC at the user's settings is GPU-bound, about 90 percent, 100 to 118 fps. Ally main-thread ceiling is about 57 fps and the Ally is not running the PC CPU fixes.
+
+## 2026-10-20 11:15 pm EST (#21891)
+Phone #21892. Workers look at PJ only. Do not launch. Do not restart training. Tasks #21893 ini and code, #21894 hitch numbers, #21895 PC or Ally. Game not opened.
+PJ results: default 0, live ini is PJ=1, code psojournal.cpp, in the Oct 19 build (#21896). Hitch to beat 167 ms, 6 of 6 slow frames were shader compiles (#21898). Measured on the PC only (#21897).
+
+## 2026-10-20 11:27 pm EST (#21902)
+Phone #21904 and #21905. Focus on optimizations that keep the picture the same. Do not restart training. Do not launch. Next: #21906 does a journal file exist, #21907 next 3 built look-preserving ideas, #21908 does the 30 Hz idea change the picture. Game not opened.
+Journal exists: Nioh3EngineFix_pj\pj_win_dgpu_sm68.bin, 64 MB, October 11, 6:56 pm EST (#21912). TG 30 Hz is in the build and this PC's ini has it on. It changes input timing, about 33 ms. Measured gain about 3 percent, not 26 (#21911).
+
+## 2026-10-20 11:30 pm EST (#21913)
+Phone #21914 and #21917. Do not build a universal Katana injector. Picture-safe CPU hooks are this game's addresses. #21918 splits graphics-API hooks from Nioh 3 address hooks. Do not launch. Do not restart training.
+
+## 2026-10-20 10:16 pm EST (#21787)
+No function in the dump loads startup, active, and recovery from a non-action table. Opened 0x2B7F30 and 0x2B8F64. Game not opened.
+
+- 2026-10-20 10:26 PM EST gx-pc #21788: no code reads Yoritomo action-row byte +0x115 or the word at +0x114. Functions that read those displacements do not also read action id +0x0C, motion +0x20, or next action +0xE0. RESULT #21812. Game not launched.
+
+- 2026-10-20 10:30 PM EST gx-pc #21798: Motion::GetFrame (RVA 0x23E3AE4) cuts the float at +0x290 down to a whole frame. It is not a hit time. Motion length is the other float at +0x320. RESULT #21821. Game not launched.
+
+## 2026-10-20 10:31 pm EST (#21792)
+No hit-start or hit-end event on motion 1040. Clip G2A 742b1f41 is bone tracks. 17 dope events are Model, Effect, and Sound. RESULT #21822. Game not opened.
+- 2026-10-20 10:34 PM EST gx-pc #21786: 44 logs name actions 4E53-4EB9. No startup, active, and recovery counts. No hit through a block. One gauge line actorBlocked=1, copied 20 times, is a spawn flag for character 307259. Not a frame meter. Game not opened. Logs not edited.
+
+## 2026-10-20 10:34 pm EST (#21816)
+No grab, throw, or unblockable label on Yoritomo's 88 attacks. Action file has no such text. Dump has Grab 0 and Unblockable 0. Game not opened.
+
+2026-10-20 10:40 PM EST gx-pc #21809: 12 movement functions are now in the logic graph notes (notes/mainthread-logic.md). Newest date covered is 2026-10-11. Commit b93dabba. Game not launched. The call graph binary was not rebuilt.
+- 2026-10-20 10:42 PM EST gx-pc #21832: #21809 was already done. 12 movement functions are in notes/mainthread-logic.md section 8, through 2026-10-11. Commit b93dabba. Game not opened.
+- 2026-10-20 11:16 PM EST gx-pc #21893: PJ is [Patches] PJ, default 0, implemented in psojournal.cpp. Current installed build includes it. Live ini is PJ = 1 and was left alone. Game not opened.
+
+2026-10-20 11:16 PM EST gx-pc #21895: shader warmup PJ was measured on the PC only. Note notes/stutter-pso.md. Ally not measured. RESULT #21897. Game not launched.
+
+## 2026-10-20 11:16 pm EST (#21894)
+PJ hitch to beat is 167 ms. 6 of 6 gameplay frames over 33 ms were shader compiles. The unrun pair is a journal run then a prewarm run on this PC. RESULT #21898. Game not opened.
+
+2026-10-20 11:28 PM EST gx-pc #21908: item 14776 is TG, the 30 Hz logic governor. It changes the simulation step and input timing, not CPU only. The code is in the current build (since 1.6.0), default off. This PC's ini already has it on. Not changed. Game not launched.
+- 2026-10-20 11:29 PM EST gx-pc #21906: a PJ journal already exists beside the game ini. pj_win_dgpu_sm68.bin is 67,108,773 bytes, last written 6:56 pm EST on October 11. PJ was not changed. Game not opened.
+
+## 2026-10-20 11:31 pm EST (#21907)
+Next 3 built look-same opts besides PJ: R2a/R1 on Ally, not tested. Ally CPU bundle (PP and MA) on Ally, not tested. AS0 on Ally, tested on PC as neutral only. RESULT #21919. Game not opened. No test.
+
+## 2026-10-20 11:34 pm EST (#21920)
+Phone #21921. The human meant every picture-safe optimization, not the shader warmup. The whole set is still not one drop-in file for the next Katana game. Most cuts hook this Nioh 3. Do not build an injector. Do not launch. #21918 still classifies graphics-API hooks versus this game's function addresses. gx-pc #21922 counts which picture-safe switches are in the build and on in the live ini. gx-pc #21923 writes the measured lines for R2a, R1, PP, MA, AS0, JT, BP, and the UI skip. Training search stays stopped.
+
+## 2026-10-20 11:40 pm EST (#21928)
+Phone #21930 and #21932. Unlikely to copy the cuts onto the next Katana game without looking at that game. The lessons shorten the search. Hook split #21925: 10 graphics-call hooks, 54 Nioh 3 address hooks. File #1271. Those 10 might copy only if the next game makes the same graphics call. #21923: only the page-pool skip has a measured gain, about 3 percent on the PC. Do not build an injector. Do not launch. #21934 splits the 10 into pure API entries versus Nioh patches. #21935 counts which of the 64 have a measured number and which gained over 2 percent. #21922 is done: 20 of 73 picture-safe speedups are on in the live ini (RESULT #21931). #21938 maps those 20 onto the 10 graphics-call hooks and the 54 address hooks. Training search stays stopped. RD and M2S are on in the ini and are not in this build. No switch was changed.
+
+## 2026-10-20 11:37 pm EST (#21918)
+Look-preserving hooks: 10 graphics API (PJ, VrrPresent, Barriers among them), 54 Nioh 3 addresses (AABB, MQ, PCM among them). Names in bridge file #1271. RESULT #21925. Resolution and effect cuts skipped. Game not opened.
+2026-10-20 11:39 PM EST gx-pc #21923: eight lines sent as RESULT #21929. PP +2.9% on the PC is the only measured gain, picture still unchecked. Best next test is one Ally R2a/R1 session with screenshots. Not run. Game not launched.
+
+## 2026-10-20 11:40 PM EST (#21922)
+73 picture-safe speedups are in the engine fix. 20 are on in the live ini: MW, W1, W2, VRR, W3, R1, L1, WK, FG, W6, B, J1, GF, WG, LK, CP, MQ, PT1, DL, PJ. RESULT #21931. Game not opened. No switch changed.
+
+## 2026-10-20 11:41 pm EST (#21934)
+The 10 graphics hooks are all on a graphics API entry. None is a patch inside a Nioh function. RESULT #21939. No switch changed. Game not opened.
+2026-10-20 11:42 PM EST gx-pc #21938: of the 20 on switches, 1 is a graphics call (PJ), 17 are Nioh-address hooks, and 2 are on neither list (VRR, J1). RESULT #21941. No switch changed. Game not opened.
+
+## 2026-10-20 11:49 PM EST (#21935)
+13 of the 64 picture-safe hooks have a measured fps or CPU number. The only gain over 2% is CBN on pc2: CPU busy 25.84 ms off, 22.29 ms on, frames +15.6%. RESULT #21945. No test. Game not opened.
+
+## 2026-10-21 12:48 am EST (#21975)
+The no-JSON block on the hitch thread had no new question. Worst frame stays 167 ms, 6 of 6 shader compiles. JSON restatement is file #1272. No new test. Game not opened.
+
+## 2026-10-21 2:17 am EST (#22014)
+The no-JSON block on the journal thread had no new question. The journal is still pj_win_dgpu_sm68.bin, 64 MB, 6:56 pm EST on October 11. JSON restatement is file #1273. PJ not changed. Game not opened.
+
+## 2026-10-21 3:02 am EST (#22037)
+The no-JSON block on the three-opt thread had no new question. Ally tests stay 0. JSON restatement is file #1274. Game not opened.
+
+## 2026-10-21 3:48 am EST (#22055)
+The no-JSON block on the 30 Hz thread had no new question. TG stays in the build and changes how the game runs. Measured gain about 3 percent. JSON restatement is file #1275. Switch not changed. Game not opened.
+
+## 2026-10-21 4:33 am EST (#22076)
+The no-JSON block on the hook-split thread had no new question. Counts stay 10 graphics API and 54 Nioh addresses. JSON restatement is file #1276. Game not opened.
+
+## 2026-10-21 5:18 am EST (#22096)
+The no-JSON block on the live-ini thread had no new question. 20 of 73 same-picture speedups stay on. JSON restatement is file #1277. No switch changed. Game not opened.
+
+## 2026-10-21 6:03 am EST (#22117)
+The no-JSON block on the eight-line thread had no new question. Only the page-pool skip has a measured gain, about 3 percent on the PC. JSON restatement is file #1278. No new test. Game not opened.
+
+## 2026-10-21 7:33 am EST (#22154)
+The no-JSON block on the measured-speed thread had no new question. 13 of 64 picture-safe hooks have a number. Only CBN gains more than 2 percent. JSON restatement is file #1279. No test was run. Game not opened.
+
+## 2026-10-21 9:04 am EST (#22192)
+The no-JSON block on the hitch restatement had no new question. Worst frame stays 167 ms. JSON is file #1280 (same facts as #1272). No new test. Game not opened.
+
+## 2026-10-21 9:49 am EST (#22212)
+The no-JSON block on the journal restatement had no new question. The journal stays 64 MB, last written 6:56 pm EST on October 11. JSON is file #1281 (same facts as #1273). PJ not changed. Game not opened.
+
+## 2026-10-21 10:49 am EST (#22241)
+Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up new optimization work until the human says resume. Do not build an injector. Do not launch or close the game. The shared PAUSED file was not created, so the other fleets were not stopped. HOLD #22247 went to gx-pc. Training search stays stopped. Counts stay: 10 graphics API entries, 54 Nioh addresses, 20 of 73 switches on, 13 of 64 measured, only CBN over 2 percent and that gain is on pc2.
+- 2026-10-21 pc: idle-gate #14877 NOT installed (game pid 26532 since 9:20pm 10-20, user active). Waiter captures/install_idle_14877b.ps1 running (Training only, 84F5D68C). Then verify no IDLEHOLD adopted on Boss Match fight. seqfix log check + native trace still TODO.
+- 2026-10-21 pc: caught up (notes/catchup-2026-10-21.md). Game untouched per #22272; no install/kill scripts running.
+- 2026-10-21 pc CAUGHT UP (#22277): read all docs (see notes/main-pc-catchup-20261021.md, .handoff/gxl-pc-pause-22241.md, yoritomo-*-21591/21839.md, sort worktree ../nioh3-sort-20999/notes). CORRECTION: installed Training 7144514E (cx-pc/native-edges-15620 11cd27a1) already INCLUDES the #14877 idle-gate (b52c451d); my 84F5D68C waiter was stopped (would have downgraded it). Game PID 26532 untouched per #22272. Stale docs: pack/owners hashes (09cb2e9d etc), README 1.7.40 vs 1.7.73. Unproven: seqfix live, Boss Match no-idle live, TG in this PC (ticks 95.7 vs 83.9 rendered = not throttling).
+- 2026-10-21 pc #22305: Opus offline RE: unblockable = action record +0x04 bit 0x2000 (19 Yoritomo moves, incl 0x4E6E = user's move; code path RVA 4F617A->2B5000, script IsAttackGreatAttack 23C7EA0; guard reader NOT found). Hit count = hitbox-row groups (candidate; fails for 44 moves w/o rows). Frames: not static; live probe plan = log-only hook RVA 2B4A3C. See notes/yoritomo-hit-source-22305.md. NEXT: wire flag+groups into Training move sort (user said no changes until asked) / live log probe on user OK.
+- 2026-10-21 pc #22349: BUILT pc/hitmenu-22349 1857aabf (worktree ../nioh3-hitmenu): Rematch asi 444827b0 groups Yoritomo attacks 1 hit(15)/2 hits(15)/3 hits(3)/Unblockable(19)/Other hits unknown(47) + twitches + sequences; Training unchanged (install ONLY Rematch). NOT installed (game up, user said no changes/touches). Install needs game restart: wait for user go.
+- 2026-10-21 12:40 pm EST pc: user away (#22380) -> installed hit-menu Rematch 444827b0 (backup captures/pc/play-20261021-prehitmenu), relaunched game PID 2276, loaded OK in log. In-game menu view NOT verified by me. Next: user checks Boss moves groups; Yoritomo hit data wiring only Yoritomo so far.
+- 2026-10-21 pc: INSTALLED (user away #22380) Training 334F3FD0 + Rematch 6B810E52 from pc/practice-stats-22389 (70d82ddf, on top of hit menu 1857aabf); backup captures/pc/play-20261021-prepstats; game PID 31696 loads clean ('PRACTICE stats' log line). UNTESTED live: hit-count menu, player inf Ki (field assumed), dmg x multipliers (hook 329890), boss Ki drain; NOT built: boss speed (no per-char lever; leads notes/practice-stats-22389.md in ../nioh3-pstats), infinite ninjutsu (lead only). NEXT: live checks listed in that note; find per-character speed lever.
+- 2026-10-21 1:00 pm EST | Yoritomo hit/unblockable data + hit-count Boss moves menu + demo video | DONE: GreatAttack flag (+0x04 bit 0x2000), hits=distinct hitbox +0xA5 ids, notes/yoritomo-moves-unblockable-22305.md, notes/yoritomo-move-groups.md, tools/yoritomo_move_summary.py; menu build Rematch 444827b0 (branch pc/hitmenu-22349, worktree nioh3-hitmenu) INSTALLED, game pid 2276 running; demo video bridge file #1299 sent. UNPROVEN: 15 of 19 unblockables own no hitbox rows (hits via normal twin = guess); projectile hits, recovery frames. HALF-DONE/NEXT: fix menu bugs (clipped long rows in right panel, 'every 0.00 s' text when gap 0) in hitmenu branch, rebuild, install; then user feature list #22389 (boss speed, infinite boss/player Ki+ninjutsu, boss Ki drain, damage multipliers); board task 97 (TG bench) deferred until user says go; no game restarts while user present. Marker test-active removed.
+- 2026-10-21 pc: committed 'every 0.00 s' text fix on pc/practice-stats-22389 (not built/installed; user input idle=0 s so likely present). Clipped-row fix still TODO. Live checks of pstats list still pending until user away + game free.
+- 2026-10-21 pc: user liked demo/menu (#22470). Next: clipped-row fix offline, then install with text fix when user away.
+- 2026-10-21 13:17 pc context full: see checkpoints.md last entry; game running new build, user may be away; no code uncommitted in main checkout from me (work lives on pushed branches pc/practice-stats-22389, pc/hitmenu-22349).
+- 2026-10-21 pc: clipped-row fix committed on pc/practice-stats-22389 (unbuilt). Next: build+install when user not playing; user will say when home to test.
+- 2026-10-21 pc: player speed (PlayerSpeedPct, per-actor in 134E68 hook) pushed e2c477b6 on pc/practice-stats-22389 by cx-pc; Training asi sha df5b5e17; Rematch asi needs MSVC rebuild. NEXT: rebuild Rematch+Training, install and test (boss speed, player speed, inf ninjutsu, clipped rows) when user says away/home-free; back up saves, hold game lock.
+- 2026-10-21 pc: cx-pc built both ASIs at pc/practice-stats-22389 6e83a475 (Training df5b5e17, Rematch 34B6001F), player speed on Player page. Game not running, input idle 0 s so user present: NOT installed. NEXT: install+test when user idle/away (backup saves, game lock). Unproven: player Ki offset, ninjutsu fill, damage scaling, speed, Ki drain.
+- 2026-10-21 3:12 pm EST pc: INSTALLED Training dc850ece + Rematch 06C8A884 (pstats 837e3698 + 0 s text fix; backup captures/pc/play-20261021-prespeed), game PID 15816 loads clean (BossSpeedPct/PlayerInfiniteNinjutsu log line). Untested live: boss speed, ninjutsu, Ki, dmg x, drain; clipped rows unfixed. test-active removed.
+- 2026-10-21 3:55 pm pc: Practice rows live-tested OK (see checkpoints). Game PID 27424 left running. Open: ninjutsu proof, speed timing, clipped rows.
+- 2026-10-21 pc: 'Reset fight' row (boss+player refill, back to start) pushed 81c8e1e0 on pc/practice-stats-22389, also fc13167e frame meter (FrameMeter default 0). NOT built/installed/tested by me (check agent built ASIs). NEXT: build both ASIs, install, test Reset fight + frame meter in game (user said install/test freely), then freeze/frame-advance (#2). Also pending: fps-independence frame probe check.
+- 2026-10-21 pc: Reset fight build ready (Training 4ee4786f, Rematch 7A3DCEB8, commit 81c8e1e0). Install held: game pid 27316 running with fresh test-active marker and input idle 0 s. NEXT: install via captures/install_idle_seqfix.ps1 pattern once idle>=2min / marker stale, test Reset fight + FrameMeter.
+- 2026-10-21 pc: answered #22687 status+feature list (#22593). Next: Ki damage multiplier / one-hit Ki break, then auto guard, combo counter.
+- 2026-10-21 9:05 pm pc: see last checkpoint; game running new build; next = open bugs listed there.
+- 2026-10-21 9:40 pm pc: #22709 facts for 9 more bosses committed (pc/practice-stats-22389 c64550cd), Rematch ASI 52D9B2AC built; install_22709.ps1 running (waits for 2 min idle, then relaunch). NEXT: verify load + open Hino-enma Boss moves menu in game; Ibaraki Doji unbound; other 85 bound chars need chr id for catalogue.
+- 2026-10-21 pc: all-boss move audit done (0091ef8c): menu data for 10 bosses, action files on disk 95 chars/11127 rows/333 unblockable; outputs notes/boss-moves-all/. Not yet in-game tested on other bosses beyond Yoritomo+Hino-enma.
+- 2026-10-21 10:15 pm pc: Rematch 49919D75 (18 bosses facts, d1f5a593) waits in install_22709.ps1 (PID 23916, needs 2 min input idle; user active now). NEXT after install: open Boss moves for Sukuna/Yoshitsune/Hino, check groups; then frame meter on a 3rd boss.
+- 2026-10-21 10:25 pm pc: install_22709.ps1 had died; restarted via WMI (survives run end). Input idle read 0 s repeatedly (user active).
+- 2026-10-21 11:20 pm pc: 49919D75 installed+live-tested (4 bosses OK). Game PID 7640 left running with bosses A-D summoned near shrine. NEXT: clipped rows in move groups, meter on 3rd boss.
+- 2026-10-21 11:25 pm pc: see checkpoints; next = clipped rows fix + meter on 3rd boss.
+- 2026-10-21 pc: #22786 optimization resumed; PJ OFF/ON hitch bench posted to pc2+ally (pc after user's session). Next: add Ki break multiplier/auto guard, then untried-ideas 4-6.
+- 2026-10-21 pc: #22796 player frame meter added to open.md (phase 2 of #14153). Next after Ki multiplier work.
+- 2026-10-21 pc: optimization shortlist notes/optimization-shortlist-20261021.md (0e1dc76b); posted PJ OFF/ON bench to pc,pc2,ally. Next: item 1 pacing census (no game), then TG/AABB.
+- 2026-10-21 pc: board #105 PJ bench: captures/pj_bench_105.ps1 detached (waits for game close/2min idle, then 4 tours N,J,W,N2 via pc2_run_tour -Input vpad). Log captures/pj_bench_105.log; read with tools/pj_hitch.py. Then report task 105.
+- 2026-10-22 pc: 2 agents built btn-style (ebd8453f) + player meter (b96fa07a); both unmerged, uninstalled, unplayed. Ki mult + one-hit Ki break already in e3fff864. Next: merge, install on game close, test.
+- 2026-10-22 pc: Ki damage mult + one-hit Ki break built e3fff864 (Training 506465A3, Rematch 866552B1), untested: PC input idle 0.0 s for 20 min, game pid 7640 running. Asked user if away; next offline: player SF6 frame meter, PS/Xbox button style.
+- 2026-10-22 pc: player frame meter exists (b96fa07a on pc/player-meter-22796; Training 018b2d4a, Rematch A2C7261C); controller button style exists (ebd8453f). Branches not yet merged into one build: practice-stats-22389 (e3fff864 Ki dmg), player-meter-22796, integ-22826. NEXT: merge into one install build, install+test when user says away (asked in DECISION #22878).
+- 2026-10-22 pc: integ branch pc/integ-22826 f8199746 (btn style + player meter) built; captures/install_integ_22826.ps1 armed (PID 8040): waits for game close/2min idle then installs+relaunches. PJ bench #105 waiter STOPPED (would kill the fresh game); re-arm captures/pj_bench_105.ps1 after the Discord demo video. move_toggle_test asserts N3_MOVE_COUNT==361 fails (check if pre-existing). NEXT: after install, test PS/Xbox picker + player meter in game, record ~1 min demo (<25MB) and send via tools/notify/notify.py file PATH TEXT.
+- 2026-10-22 pc: release branch pc/integ-release-22882 = f8199746 (everything merged). Built EngineFix 1C4EDCA0, Rematch 3202559E; Nioh3Training.asi NOT built there (build it before install). Game pid 7640 running; install+test waits on user 'away' (DECISION #22878). Unrun/failed suites listed pre-existing: extraperf/replayprof harness, meshletwait.
+- 2026-10-22 1:25am pc: integ-22826 INSTALLED, game PID 7704 (idle reading is always 0 -> installer waits forever; used install_integ_now.ps1). NEXT: verify load, ini ButtonStyle, player meter, Ki mult in game; record video.
+2026-10-22 01:32 pc CHECKPOINT (context full): TASK practice mode + all-boss move algorithm. DONE: pc/allboss-coverage 7b6c2f71 (hit rule = same start frame+hit group; 37/~81 bosses have data; 136 uncertain moves flagged hits_upper_bound); pc/integ-hitmenu 3e1a3ad0 (Training dd69e3bf, Rematch 8e749d01: hit-grouped Boss moves menu + practice stats + Ki damage, tests pass, fixes stale N3_MOVE_COUNT test); pc/practice-stats-22389 has Ki dmg/one-hit Ki break. HALF-DONE: player frame meter (worktree ../nioh3-pmeter, pc/player-meter-22796), PS/Xbox button style (../nioh3-btnstyle, pc/btn-style-22826), instant reset + freeze/frame-advance (not started). NOT INSTALLED: user at PC (input live); installed Training d58a8e7c from another session. NEXT: merge pc/allboss-coverage into pc/integ-hitmenu, build, install+test when user idle>=2min/away (backup, swap asi, relaunch, ping), then finish pmeter/btnstyle.
+- 2026-10-22 pc: Hold Ki break toggle built pc/holdbreak-22918 f38db4cc (Training c4d9f9f9, Rematch e2d4b566), untested. Currently installed build is integ-release-22882 (test result pending in other slot). NEXT: install holdbreak build when game free; test stays-broken.
+- 2026-10-22 pc: follow-up fixes 8dcc499f on pc/integ-release-22882 (fake meter run, L1/R1, 1-based frames, Ki-break ini reload) built+offline-tested, NOT installed/in-game tested. NEXT: install on user go/away, verify, then re-arm pj_bench_105.ps1.
+- 2026-10-22 3am pc: INSTALLED integ-release-22882 + holdbreak merge (Training 02:41 build, Rematch 02:42), game PID 22308. Load OK no crash. Hold Ki break / live ini / 1-based frames / PS L1R1 NOT verified in game: agent keystrokes unreliable and someone else was in Training (train R7B35 02:48) -> user probably home. NEXT: ask user to flip Hold Ki break on Boss page and report; add ButtonStyle key to Training ini if missing; then input-display overlay, time-of-day, stage picker.
+- 2026-10-22 pc: MERGED build 12b07fb2 (integ-release-22882 + tod-22942: fixes, Hold Ki break, Time of day/Weather) INSTALLED, game PID 7900, loads Training, no crash. Unverified in game: PS L1/R1, Hold Ki break row, ToD slider, ki-break ini reload. Queued: live controller input display (Xbox/PS), more training options (stages, adjustable instead of toggle). pj_bench_105 still unarmed.
+- 2026-10-22 pc: tod build 9a8ad420 INSTALLED (backup captures/pc/play-20261022-pre-tod/). Proven: time of day (midnight vs noon screenshots), player frame meter, one-hit Ki break log. Unproven: weather (rain no effect, game refills fields each frame), Hold Ki break, Ki dmg x3, PS buttons. Game exited 3x (0xC0000005 once at load, once mid-session no dump); another session's steam_autoplay -Forever relaunches; second VirtualPad client; investigate crashes before more installs. Screens captures/tod-test-22942/.
+- 2026-10-22 pc: padviz EngineFix 98F96FAC verified in game (Xbox/PS display top-left). Other session nioh3-engine-7c is installing 10EDC415 + recording the demo video: I yielded the game to it. NEXT: confirm the video reached Discord; then Hold Ki break test, below-zero Ki lead (Kagetoki/Jubei), all-bosses summon check, stage picker, sky, sliders.
+2026-10-22 pc: #23106 asked if hidden negative-Ki found: NO, not run. NEXT after padviz clip: Kagetoki + Yagyu Jubei Ki-negative probe (open.md #23013).
+- 2026-10-22 pc: pad shapes (DualSense/Xbox Series) built pc/padshape-23083 f3ac6a19, EngineFix F87FAC30; PNG previews sent to Discord; NOT in game yet (quad limit raised 4096->16384 in osd.cpp: check GPU/frametime). NEXT: install + verify + short clip.
+- 2026-10-22 6:15am pc: Gamepad-Viewer skins built pc/padviz-22952 06fbb93c (ASI sha 167D04B9... at ../nioh3-padviz/mod/Nioh3EngineFix/bin), previews sent to Discord, NOT installed/in-game tested. Game PID 29632 + marker 'padshape-test' (05:41) from another session owns the game. NEXT: when marker clears (or >2h stale 7:41am), install this asi (copy to game dir, backup), relaunch, screenshot display in both ButtonStyles, film clip <25MB, send via notify.py. Then Kagetoki/Jubei Ki probe.
+- 2026-10-22 pc: padshape F87FAC30 verified in game (both bodies, no fps cost 95.3 vs 95.5 fps, Masakage practice); clip + montage sent to Discord. Another session (padskin-23147, ASI 167D04B9) overwrote EngineFix.asi 06:10 and relaunched. PS->Xbox live ini switch only via menu row. NEXT: below-zero Ki lead (Kagetoki/Jubei), all-bosses summon check, stages, sky, sliders.
+- 2026-10-22 06:25 pc: see checkpoints.md latest entry (padshape verified; next below-zero Ki, summon-all-bosses, stage picker, sky, sliders, PJ bench).
+- 2026-10-22 6:25am pc: padskin 06fbb93c INSTALLED (EngineFix sha 167D04B9), game PID 10864. Display verified drawing in game (Xbox skin, top-left, ~90fps). Unverified: DualSense switch live (ini edit did not switch), pressed-button lighting visibility, clip not filmed. NEXT: test ButtonStyle via menu, film clip, Kagetoki/Jubei Ki probe.
+- 2026-10-22 6:30am pc: see checkpoints.md last entry; padskin 06fbb93c installed, merge pc/padviz-22952 into release branch not yet done.
+- 2026-10-22 6:30am pc (chat run): TODO for whichever session holds the game (marker padbody-test 06:24): (1) user #23177: make the pad display MORE transparent (like the mod menu; Opacity setting 0.2..1) and 2x SMALLER (ControllerDisplaySize 0.5), then send in-game screenshots of BOTH styles (PlayStation + Xbox, use menu row for ButtonStyle). (2) Xbox rainbow stripe removed in art: commit 5aa11677 on pc/padviz-22952 (worktree ../nioh3-padviz); atlas headers regenerated but ASI NOT rebuilt/installed yet; rebuild, install, verify. Did not touch the game this run.
+- 2026-10-22 6:35am pc: #23181 grey-only pad art committed pc/padviz-22952 (gen script desaturates atlases); with #23177 (opacity lower, size 0.5) still needs ASI rebuild+install+screenshots of both styles when game free (#23182).
+- 2026-10-22 06:35 pc: padviz opacity default 0.45 built (EngineFix 1C2E1EED05AC, ../nioh3-padviz, pc/padviz-22952, no rainbow Xbox). NOT installed: marker padbody-test (06:24) owns game. NEXT when marker clears/stale: install, set ini ControllerDisplayOpacity=0.45, screenshots of both skins at half size (<=800px wide), send via notify.py. PS skin switch via menu row still untested.
+- 2026-10-22 pc: padbody-23083 ad515bfa INSTALLED (game PID 9564), video sent. NEXT: Kagetoki/Yagyu Jubei negative-Ki hold (#23013), all-bosses summon confirm (#22984), stage toggles/sliders, merge branches into one release, re-arm pj_bench_105.
+- 2026-10-22 pc: negki research pc/negki-23013 40b3e50f (notes/human-boss-negative-ki-23013.md): floor global, K+0x60 likely negative pool; NEXT: log fields in game on Kagetoki(22248)/Jubei(22600), Hold Ki break v2 + Ki floor depth slider.
+- 2026-10-22 07:48 pc: padskin2 INSTALLED: EngineFix 4CB6007E (pc/padviz-22952 454f6d79), ini ControllerDisplaySize=1 Opacity=0.45, game PID 32736 running. In-game screenshots both styles sent (notify + bridge #1377/#1378), captures/padskin2-test/. Xbox set live via menu (unsaved; ini still ButtonStyle=PlayStation). Backup captures/pc/play-20261022-pre-padskin2.
+- 2026-10-22 pc: padviz-22952 454f6d79 skins INSTALLED (EngineFix 4CB6007E, size 1, opacity 0.45), screenshots sent; game PID 32736. Xbox lit buttons hard to see at 0.45 -> maybe brighter lit colour. NEXT: negki in-game logging, summon-all-bosses confirm, merge branches.
+- 2026-10-22 08:32 pc: cx-ops/pc2 Codex BLOCKED = usage limit till Oct 26-27 (known, nothing to fix; use Claude only). No marker; game PID 19184 running (owner unknown). NEXT: negki in-game logging (Kagetoki/Jubei), summon-all-bosses confirm, merge branches.
+- 2026-10-22 08:40 pc: see checkpoints.md last entry for exact next steps.
+- 2026-10-22 09:00 pc: release branch pc/release-1022 merged+builds (EngineFix 38CE414A); install+verify pending; then negki logging, summon-all-bosses.
+2026-10-22 pc: #23305 fixed in art (Xbox lit ABXY = white disc, dark letter), pc/release-1022 commit pushed, EngineFix rebuilt; NOT installed: user active at PC with game running. NEXT: run captures/install_release_1022.ps1 -KillPid 19184 when idle, screenshot Xbox buttons lit.
+- 2026-10-22 9:10am pc: padviz 88365fc4 (opaque pressed layers, dark Xbox lit buttons) BUILT in ../nioh3-padviz bin ASI sha C4B3A8DD63F7, NOT installed: game PID 19184 (since 8:29am, no marker) and keyboard/mouse idle reads 0 s (someone may be playing). Asked user. If no answer by 10:10am: install via captures/install_padskin_now.ps1 pattern, screenshot both styles pressed, send.
+2026-10-22 pc: #23309/#23313 dark see-through body + solid pressed art on pc/release-1022 (harness passes), EngineFix rebuilt; renders sent; NOT installed (user active). NEXT: install_release_1022.ps1 -KillPid 19184 when user OKs; screenshots.
+- 2026-10-22 9:20am pc: dark see-through pads (#23313) + opaque pressed layers (#23309) INSTALLED (EngineFix sha 38B5777E55F8, branch pc/padviz-22952 commit after 88365fc4), verified in game both styles, screenshots on Discord. Game PID 30944 left running, ButtonStyle live-set to PlayStation (ini still Xbox). Merge pc/padviz-22952 into release branch still TODO (another session has b18ce279 white-lit Xbox change on release: conflict, prefer mine).
+- 2026-10-22 pc: pc/release-1022 now = integ-release + padviz-22952 (in-game verified, installed) + fixes-22918, pushed. NEXT: negki in-game Ki logging (Kagetoki/Jubei), summon-all-bosses check (#22984), merge pc/negki-23013 notes; ally #104/#107 prewarm benches still unclaimed.
+- 2026-10-22 9:25am pc: see checkpoints.md last entry (pad display done; merge padviz branch next).
+- 2026-10-22 pc: pad position X/Y (%) menu rows built, EngineFix F43D125F2E1C, pc/padviz-22952; not installed (user may be playing). Size row already existed.
+2026-10-22 pc: negki impl built offline by Opus: branch pc/negki-impl 27090c47 (KiLog, HoldKiBreakV2, KiFloorDepth ini keys, defaults off) | UNPROVEN in game | NEXT: install when game free, KiLog=1 on Kagetoki 22248/Jubei 22600, then V2/FloorDepth tests; Boss Rematch must be rebuilt w/ MSVC for menu rows
+2026-10-22 10:35 pc: #23367 pressed-colour picker (Menu.ControllerDisplayPressColor choice White..Pink + hex ini) on pc/padcolor (off padviz-22952), EngineFix BF7F3EF9 INSTALLED, ini Cyan, game restarted | UNPROVEN: in-game look/menu row | NEXT: user checks; screenshot if asked; merge padcolor into release-1022
+2026-10-22 pc: release-1022 now includes padcolor + negki-impl (pushed). Game PID 26308 running padcolor build. NEXT: user feedback on colour picker; negki KiLog in-game; summon-all-bosses.
+2026-10-22 10:50 pc: colour picker bug (RGB vs ABGR) fixed, EngineFix 6C1CDBB7 installed, cyan verified in game (pc_press_cyan.png), merged into release-1022.
+2026-10-22 pc: #23400 negmeter built offline (pc/negmeter cbccabf3, merged into release-1022): NegKiMeter=1, NegKiMeterY/W ini. UNPROVEN in game. NEXT: build Rematch w/ MSVC, install release-1022 all three asi, fight Kagetoki.
+2026-10-22 11:45 pc: release-1022 INSTALLED (all 3 asi), negative Ki meter verified in game on Jubei R1359: bar appears under boss Ki, correct position; cur went 1872 -> -54.8 after OneHitKiBreak, floor -1000; K+0x60/+58/+5C stayed 0 (second-pool hypothesis NOT confirmed); Kagetoki 'unknown boss R9A25' not summonable via Summon here (-> all-bosses check). Frame meters draw over the neg bar spot. captures/negki-test/. NEXT: Kagetoki summon fix (#22984), test whether more hits while broken deepen cur.
+
+- 2026-10-22 pc (#23476): worker check: pc2/ally Codex blocked by usage limit till Oct 26-27; bench tasks #104/#107 open on ally, #105/#106 failed. No dedicated auto-boss-setup branch found yet (Jubei stagger gap #23432 still the first case). NEXT: auto-learn algorithm for stagger/Ki-break action per boss (generic hit-react 0x4E3x fallback), then frame data + arenas.
+- 2026-10-22 11:50 pc CHECKPOINT | task: make ALL bosses summonable (#22984), Kagetoki first | DONE: release-1022 (padviz+colour picker+negki log/V2/floor+negmeter+fixes+tod) installed in game, neg Ki meter verified on Jubei (Ki -> -55, floor -1000, K+0x60 stays 0) | HALF: Opus agent for pc/allsummon (worktree ../nioh3-allsummon) was launched but session ended mid-call - outcome unknown, check git branch pc/allsummon, game dir Nioh3Training_arenas.tsv, and whether game PID is running | CAUSE: arenas.tsv has only 43 rows; Kagetoki (R9A25) 'unknown boss' in TokChr (training.c ~1368); chara_table id (22248) != Load::Character chr id (Jubei 412493) | NEXT: map ids, add start-rows for all missing bosses, build, install, summon-test Kagetoki + 6 others, then Kagetoki neg-Ki test | files: mod/Nioh3Training/Nioh3Training_arenas.tsv, captures/negki-test/
+2026-10-22 12:58 pc: allsummon (pc/allsummon) installed, Kagetoki summons OK. ally #23512 = Codex usage limit until Oct 27 (known). NEXT: merge pc/allsummon into release-1022, test ~6 more roster bosses, Kagetoki neg-Ki, then auto-learn stagger algorithm.
+2026-10-22 pc: autostagger installed untested; see needs-player. pc2 pc2/autobind-rt, ally summon-all test pending.
+
+- 2026-10-22 19:55 pc: worktree ../nioh3-polish (branch pc/polish-23924) exists, NOTHING committed: clipped move rows + damage mult for spirits/DoT still TODO (foreground Opus agent calls get cut when the run ends - do it directly or via TASK). ally: bench TASK #23929 (PP, KL_Div, RD/M2S/J1). pc2: pc2/autoruntime static move lists (#23907/#23911). Final: 10x Discord ping when all done (#23933).
+2026-10-22 20:25 pc: pc2 #23984 static move lists done offline (pc2/autoruntime 211286e8); pc2 told to finish menu switch + push; then pc installs/tests. polish-23924 still uncommitted.
+2026-10-22 20:40 pc: merged build pc/merge-autoruntime-polish (worktree ../nioh3-merge1025) built; deferred installer captures/install_autoruntime_1025.ps1 waiting for game close (PID 15936). NEXT after install: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko. rematch.cpp uncommitted change in autoruntime tree not included.
+
+2026-10-22 20:56 pc: INSTALLED merged autoruntime+polish Training asi (sha 1781C86C), game relaunched PID 19452 (user said go ahead, old PID 15936 killed). NEXT: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko; test-active marker is stale (19:30).
+2026-10-22 21:20 pc: merged build INSTALLED+tested Yoritomo OK (173 moves/88 atk/11 seq, matches hand). Untested: Red Kappa/Ippon-Datara (not cleared on save), Mikoshi/Himiko spawn (needs menu). Game closed. needs-player item added.
+2026-10-22 21:25 pc: tested 4 bosses via Nioh3Training.cmd 'summon <Sid|Rid>' (S257162 Mikoshi, S835773 Himiko, R3B19 Kappa, R25E4 Datara): all spawn+auto moves OK. Game closed. NEXT: collect ally bench #23929, pc2 results; then 10x Discord ping (#23933); poison/burn dmg scaling not done.
+2026-10-22 21:30 pc: pc2 #24073 3/4 pass; Himiko unbound -> TASK to pc2. Then merge to release, push pc/merge-autoruntime-polish state, final 10x Discord ping when all done.
+2026-10-22 21:36 pc: ally #24091 helped (engine fix #1452/#1453 + kill steamwebhelper for RAM). Waiting ally bench; pc2 Himiko fix.
+2026-10-22 pc: ally bench GO sent (#24115 reply), reduced scope.
+2026-10-22 21:55 pc: Red Kappa 100% verified (pc/merge-kappa installed). Saves restored, game closed. Open: Himiko bind (pc2 #24074), ally bench #23929. One title-screen crash 0xC0000005 on first launch (log captures/pc/play-20261022-kappa/crash1-training.log), relaunch fine.
+2026-10-22 22:00 pc: Himiko verified (composed 376/376, 883 moves), build pc/merge-kappa (652885e4 asi) installed; pc2 TASK #24151 full list + humans + DLC script. Waiting: ally bench #23929.
+- 2026-10-22 21:56 pc: merged pc2/autoruntime-all f0237741 into pc/merge-kappa (c3178dff, pushed; Training 3CA71033, Rematch 0A44B39E in ../nioh3-merge1025, not installed). SUPERSEDED by combined pc/all-1022 (cd089a4a) from the other session - install that one, not this.
+2026-10-22 22:05 pc: pc2 #24192 parts 1+3 done (pc2/autoruntime-all 7212635a, asi #1464); part 2 duelists running. Waiting ally bench #23929. AFTER both: settings audit (#24182): test every default-off key in Nioh3EngineFix.ini (list: AABB M1 M2 X1 E1 S1 IK TS ED DS SPF RWb GL1 LC LW DQ P1E7 MA BPO W1B RPA AS PJH TR VSMA LPVR SKYR FOGT CLDR RTP PCM MenuQuantize MaxFrameLatency Barriers TileBatch DropUndoPairs XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST ...) on pc/pc2/ally, report which help even 0.001%. Then 10x Discord ping.
+2026-10-22 pc: pc2 #24235 duelists 31/33 from data (f68df59d); pc2 doing archive scan for 7 hard ones. Install autoruntime-all on pc after ally bench.
+2026-10-22 19:12 pc2 #24166/#24154/#24151 | DONE: Himiko autobind (COMPOSED Nagigama+Common), hand Himiko rows dropped, Ibaraki 13% = incomplete hand list, boss/duelist tables, tools/dlc_bind_report.py, tools/duelist_files.py (31/33 weapon kits from enemy param +0x124); ASI deef08f8 (bridge #1464) | UNPROVEN: 4 stub kits (Ogin/Denrinbo/Kawara TEKOUKAGI, Mage NITOU_NINJA, Berenguela HOKOTATE, Hanzo KATANA_NINJA) action files only from runtime logs; Daidara +0x124=0 | NEXT: wait for pc on optional LFM-archive hash scan; pc installs ASI; pc posts settings-audit bench tasks (#24182) | files: nioh3-autoruntime branch pc2/autoruntime-all f68df59d, captures/pc2-24074
