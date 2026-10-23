@@ -818,7 +818,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
-          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
@@ -936,6 +936,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
+    {"Settings page", "", "Page 1 = settings that keep the picture exactly the same. Page 2 = settings that can change how the game looks (extra performance, frame gen, experiments). Left/Right or A switches.", "Menu only."},
     {"Skip loading tip screen", "(AutoContinueLoad)", "Presses Continue for you when a load finishes.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
@@ -950,7 +951,7 @@ struct OrderEnt {
     const char* section;  // header drawn before this item (nullptr = none)
 };
 const OrderEnt kOrder[] = {
-    {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
+    {kPage, "Menu"}, {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
@@ -977,13 +978,21 @@ int OrderPos(int id) {
     return 0;
 }
 
-int g_sel = kFps;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
+int g_page = 0;  // 0 = picture-identical settings, 1 = settings that can change the look
+int g_sel = kPage;  // first row of the menu (kOrder[0]); Up from it wraps to 'Close menu'
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
 bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
 int g_latBoot = 0;
 int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (live state when installed)
+
+// settings that can change the picture live on page 2; everything else (and the page switch, Save, Close) on page 1
+bool LookChanging(int id) {
+    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler || id == kXLPVR || id == kXSKYR || id == kXFOGT ||
+           id == kXCLDR || id == kGR2b || id == kGR1;
+}
+bool OnPage(int id) { return id == kPage || id == kSave || id == kClose || LookChanging(id) == (g_page == 1); }
 
 bool Visible(int id) {
     switch (id) {
@@ -1213,6 +1222,10 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         case kHint:
             snprintf(buf, n, "%s", g_cfg.pauseHint == 2 ? "Always" : g_cfg.pauseHint ? "In game menus" : "OFF");
             color = g_cfg.pauseHint ? cGreen : cGray;
+            break;
+        case kPage:
+            snprintf(buf, n, "%s", g_page ? "2/2 may change the look" : "1/2 same picture");
+            color = g_page ? cOrange : cGreen;
             break;
         case kFrameTime: onoff(o.frameTime != 0); break;
         case kSpeed: onoff(o.speed != 0); break;
@@ -1584,6 +1597,7 @@ void Change(int id, int dir) {
             *g_host.r1Timeout = (uint32_t)v;
             break;
         }
+        case kPage: g_page ^= 1; break;
         case kFps: o.fpsCounter = !o.fpsCounter; break;
         case kAutoCont: SetAutoContinue(*g_host.autoContinue == 0); break;
         case kHint: g_cfg.pauseHint = (g_cfg.pauseHint + (dir < 0 ? 2 : 1)) % 3; break;  // Always -> Off -> In game menus
@@ -1633,7 +1647,7 @@ void Move(int dir) {
     for (int k = 0; k < kOrderN; ++k) {
         pos = (pos + dir + kOrderN) % kOrderN;
         const int id = kOrder[pos].id;
-        if (Visible(id) && !ReadOnly(id)) {
+        if (Visible(id) && OnPage(id) && !ReadOnly(id)) {
             g_sel = id;
             return;
         }
@@ -2137,7 +2151,7 @@ float DrawImpl(unsigned W, unsigned H) {
     for (int oi = 0; oi < kOrderN; ++oi) {
         const int id = kOrder[oi].id;
         if (kOrder[oi].section) pending = kOrder[oi].section;
-        if (!Visible(id)) continue;
+        if (!Visible(id) || !OnPage(id)) continue;
         if (pending) {
             put(body, nb, 96, pending, "", "", cCyan, cWhite, false, false);
             pending = nullptr;

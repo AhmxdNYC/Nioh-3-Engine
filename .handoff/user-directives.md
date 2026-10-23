@@ -15,3 +15,5 @@
 - #24195 (2026-10-22): after the optimization-settings audit (#24182), run the final benchmark: stock/default Nioh 3 vs the optimized mod version in boss fights on ALL 3 devices (pc, pc2, ally).
 - #24256 (2026-10-22): human is away from the PC and stays away until pc says EVERYTHING is done: use the PC freely (no hands-on asks), game launches/closes are fine.
 - #24206 / #24258 (2026-10-22 10:18 pm EST): Build a website tied to the Nioh 3 GitHub. People can upload a file whose type is not known yet (Claude figures that out), plus text and images, report a mod issue, and request a feature. Tell the human when they can open it. Another gxl-pc slot is building it. Do not start a second copy. Do not touch the game from the status reply.
+- #24317 (2026-10-22): mod menu: settings that keep the game looking the same (pure performance) must be separated from the rest into 2 sub menus.
+- #24318 (2026-10-22): human finds the 4.5 h settings audit too long; shorten it.
