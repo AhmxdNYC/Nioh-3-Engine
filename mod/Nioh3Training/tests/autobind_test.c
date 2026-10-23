@@ -44,6 +44,28 @@ int main(void) {
         }
         printf("real table: %d files, %d self-match, %d identical-set twins\n", nf, self, twin);
         assert(self + twin >= nf * 8 / 10 && nf > 300);
+        // pc2 #24074: multi-block union. Each non-shared file of >= 20 ids plus a third of an unrelated file as noise must bind itself (or an identical-set / same-family twin),
+        // never another family.
+        { int ok = 0, tw = 0, un = 0, bad = 0, cnt = 0;
+          for (int i = 0; i < nf; ++i) {
+              const AbFile* f = &rt.f[i]; if (f->n < AB_UNION_MIN || AbIsShared(f)) continue;
+              static uint32_t u[8192]; int n = 0; for (int k = 0; k < f->n; ++k) u[n++] = f->ids[k];
+              const AbFile* g = &rt.f[(i * 7 + 13) % nf]; for (int k = 0; k < g->n / 3 && n < 8000; ++k) u[n++] = g->ids[k];
+              int c = 0, i2 = 0; const int m = AbMatchUnion(&rt, u, n, &c, &i2); ++cnt;
+              if (m == i) ++ok; else if (m < 0) ++un; else if (AbSameFamily(&rt.f[m], f) || (rt.f[m].n == f->n && c == 100)) ++tw; else { ++bad; printf("UNION WRONG %s -> %s\n", f->chr, rt.f[m].chr); }
+          }
+          printf("union: %d files, %d self, %d twin, %d unbound(ambiguous), %d wrong\n", cnt, ok, tw, un, bad);
+          assert(bad == 0 && ok >= cnt / 2); }
+        // pc2 #24074: a fragment (every 2nd id, >= 8 ids) of a file is contained in that file -> binds it (or an identical-set / same-family twin), never another family.
+        { int ok = 0, tw = 0, un = 0, bad = 0, cnt = 0;
+          for (int i = 0; i < nf; ++i) {
+              const AbFile* f = &rt.f[i]; if (f->n < 2 * AB_CONTAIN_MIN) continue;
+              static uint32_t u[8192]; int n = 0; for (int k = 0; k < f->n; k += 2) u[n++] = f->ids[k];
+              int c = 0; const int m = AbBlockFile(&rt, u, n, &c); ++cnt;
+              if (m == i) ++ok; else if (m < 0) ++un; else if (AbSameFamily(&rt.f[m], f) || c == 100) ++tw; else { ++bad; printf("BLOCK WRONG %s -> %s\n", f->chr, rt.f[m].chr); }
+          }
+          printf("fragments: %d, %d self, %d twin/contained, %d unresolved, %d wrong\n", cnt, ok, tw, un, bad);
+          assert(bad == 0 && ok + tw >= cnt / 2); }
     }
     printf("autobind_test OK\n"); return 0;
 }

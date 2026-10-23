@@ -77,3 +77,38 @@ static int AbMatch(const AbTable* t, const uint32_t* obs, int nobs, int* pct, in
 }
 // Shared / generic action files (the CP_HUMAN_* family: Common, Katana, Nitou ... used by many different humans) are never a boss's own file: stay unbound.
 static inline int AbIsShared(const AbFile* f) { return !strncmp(f->chr, "CP_HUMAN_", 9); }
+
+// pc2 #24074: multi-block bosses (Himiko: 5 row blocks, none a whole file). A boss's own action file can be spread over several memory blocks, so no single block reaches
+// the Jaccard bar. Fallback: the union of the observed ids (blocks that bound a shared CP_HUMAN_* file left out) is matched by COVERAGE: share of a file's own ids present in
+// the union (>= AB_UNION_COV_PCT, file of >= AB_UNION_MIN ids, never a shared file). Most covered ids win; a different-family file within 85 % of it makes the call ambiguous -> -1.
+enum { AB_UNION_COV_PCT = 90, AB_UNION_MIN = 20 };
+static int AbMatchUnion(const AbTable* t, const uint32_t* obs, int nobs, int* cov, int* inter2) {
+    int best = -1, bi = 0, sec = -1, si = 0;
+    for (int k = 0; k < t->n; ++k) {
+        const AbFile* f = &t->f[k]; if (f->n < AB_UNION_MIN || AbIsShared(f)) continue;
+        int inter = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i]) && AbHas(f, obs[i])) ++inter;
+        if (inter * 100 < f->n * AB_UNION_COV_PCT) continue;
+        if (inter > bi || (inter == bi && best >= 0 && f->n < t->f[best].n)) { sec = best; si = bi; best = k; bi = inter; }
+        else if (inter > si) { sec = k; si = inter; }
+    }
+    if (cov) *cov = best >= 0 ? bi * 100 / t->f[best].n : 0;
+    if (inter2) *inter2 = si;
+    if (best < 0) return -1;
+    if (sec >= 0 && si * 100 >= bi * 85 && !AbSameFamily(&t->f[best], &t->f[sec])) return -1;
+    return best;
+}
+// pc2 #24074: a block that is a fragment of a file (Himiko: her 5 blocks are 100 % inside the shared CP_HUMAN_NAGIGAMA / CP_HUMAN_COMMON files, her own CN_HIMIKO file is not mapped).
+// Containment = share of the BLOCK's ids found in a file. The file holding the most ids wins when >= AB_CONTAIN_PCT of the block is inside it and the runner-up holds <= 85 % as many
+// (ties: the smaller file). Returns the index or -1; *pct = containment of the winner.
+enum { AB_CONTAIN_PCT = 90, AB_CONTAIN_MIN = 8 };
+static int AbBlockFile(const AbTable* t, const uint32_t* obs, int nobs, int* pct) {
+    int best = -1, bi = 0, si = 0, nv = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i])) ++nv;
+    if (pct) *pct = 0; if (nv < AB_CONTAIN_MIN) return -1;
+    for (int k = 0; k < t->n; ++k) {
+        const AbFile* f = &t->f[k]; int inter = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i]) && AbHas(f, obs[i])) ++inter;
+        if (inter > bi || (inter == bi && best >= 0 && f->n < t->f[best].n)) { si = bi; best = k; bi = inter; } else if (inter > si) si = inter;
+    }
+    if (pct) *pct = best >= 0 ? bi * 100 / nv : 0;
+    if (best < 0 || bi * 100 < nv * AB_CONTAIN_PCT || si * 100 > bi * 85) return -1;
+    return best;
+}
