@@ -18,8 +18,6 @@ import argparse, csv, json, math, os, re, sys
 from datetime import datetime
 from collections import defaultdict
 
-ARMS = ["STOCKLIKE", "PURE", "FULL"]
-FGS = ["FSR", "OFF"]
 NA = "unavailable"
 
 
@@ -100,7 +98,7 @@ def osd_speeds(run_dir, rid):
             continue
         t = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + float("0." + m.group(4))
         if (t0 <= t <= t1) if t0 <= t1 else (t >= t0 or t <= t1):   # window may cross midnight
-            out.append(float(m.group(5)))
+            out.append((f"{m.group(1)}:{m.group(2)}:{m.group(3)}.{m.group(4)}", float(m.group(5))))
     return out
 
 
@@ -130,8 +128,9 @@ def metrics(run_dirs, rid, res):
         n = max(1, math.ceil(len(ft) * 0.01))
         high = 1000.0 / (sum(sorted(ft)[:n]) / n)
     pm = j.get("presentmon") or {}
-    sp = osd_speeds(run_dir, rid)
-    return dict(speeds=sp, avg=num(res.get("avg_fps")), low1=num(res.get("low1_fps")), high1=high,
+    spt = osd_speeds(run_dir, rid)
+    sp = None if spt is None else [v for _, v in spt]
+    return dict(speeds=sp, speed_ts=spt or [], avg=num(res.get("avg_fps")), low1=num(res.get("low1_fps")), high1=high,
                 v2avg=num(fps.get("avg_fps")), v2low1=num(fps.get("low1_meantail_fps")),
                 lat=lat_mean(run_dir, rid), cpu=hwval(j, "cpu_pct"), gpu=hwval(j, "gpu_pct"), cores=cpu_cores(run_dir, rid),
                 cpu_temp=hwval(j, "cpu_temp"), gpu_temp=hwval(j, "gpu_temp"), cpu_w=hwval(j, "cpu_w"), gpu_w=hwval(j, "gpu_w"),
@@ -177,6 +176,10 @@ def main():
         m["id"] = rid
         groups[(s["fg"], s["arm"])].append(m)
 
+    # arms / FG groups come from the schedule itself (first-appearance order); the first arm of each FG group is the baseline
+    FGS = list(dict.fromkeys(r["fg"] for r in sched.values()))
+    ARMS = list(dict.fromkeys(r["arm"] for r in sched.values()))
+    fglabel = lambda fg: {"FSR": "ON", "OFF": "OFF"}.get(fg, fg)
     rows, incomplete = [], []
     keys = ("v2avg", "v2low1", "avg", "low1", "high1", "lat", "cpu", "gpu", "cores", "cpu_temp", "gpu_temp", "cpu_w", "gpu_w", "input_lat")
     for fg in FGS:
@@ -186,7 +189,7 @@ def main():
                 incomplete.append(f"{fg}/{arm}: {len(g)} valid (need exactly 2)")
             if not g:
                 continue
-            row = dict(fg="ON" if fg == "FSR" else "OFF", arm=arm, n=len(g), ids="+".join(x["id"][-4:] for x in g),
+            row = dict(fg=fglabel(fg), arm=arm, runs=g, n=len(g), ids="+".join(x["id"][-4:] for x in g),
                        spread=(max(x["avg"] for x in g) - min(x["avg"] for x in g)))
             row.update({k: mean([x[k] for x in g]) for k in keys})
             sp = [v for x in g for v in (x["speeds"] or [])]
@@ -201,20 +204,28 @@ def main():
               fmt(r["gpu_w"], 1), fmt(r["input_lat"]),
               fmt(r["sp_min"]), fmt(r["sp_mean"]), r["sp_n"], r["sp_runs"], fmt(r["v2avg"]), fmt(r["v2low1"])] for r in rows]
     md = ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)] + ["| " + " | ".join(map(str, t)) + " |" for t in table]
-    base = {r["fg"]: r for r in rows if r["arm"] == "STOCKLIKE"}
+    base = {}
+    for r in rows:
+        base.setdefault(r["fg"], r)   # baseline = first arm (schedule order) present in each FG group
     md.append("")
     for r in rows:
         b = base.get(r["fg"])
-        if b and r["arm"] != "STOCKLIKE" and b["avg"] and r["avg"]:
-            md.append(f"- FG {r['fg']} {r['arm']} vs STOCKLIKE: avg fps {100 * (r['avg'] / b['avg'] - 1):+.1f}%"
+        if b and r is not b and b["avg"] and r["avg"]:
+            md.append(f"- FG {r['fg']} {r['arm']} vs {b['arm']}: avg fps {100 * (r['avg'] / b['avg'] - 1):+.1f}%"
                       + (f", 1% low {100 * (r['low1'] / b['low1'] - 1):+.1f}%" if b["low1"] and r["low1"] else ""))
     md.append("")
     for fg in FGS:   # unequal simulation speed => raw fps arms are not like-for-like (flag only, no normalisation)
-        rs = [r for r in rows if r["fg"] == ("ON" if fg == "FSR" else "OFF") and r["sp_mean"] is not None]
+        rs = [r for r in rows if r["fg"] == fglabel(fg) and r["sp_mean"] is not None]
         if len(rs) > 1 and max(r["sp_mean"] for r in rs) - min(r["sp_mean"] for r in rs) > 0.03:
             md.append(f"WARNING: FG {rs[0]['fg']} arms ran at UNEQUAL simulation speed ("
                       + ", ".join(f"{r['arm']} {r['sp_mean']:.2f}x" for r in rs) + "): raw FPS is shown as measured and is not normalised; "
                       "fps differences are partly game-speed differences.")
+    md.append("Per-run OSD speed (local time of each stats line inside the capture window):")
+    for r in rows:
+        for x in r["runs"]:
+            md.append(f"- {x['id']} {r['fg']}/{r['arm']}: " + (", ".join(f"{t} {v:g}x" for t, v in x["speed_ts"]) or "no samples in window")
+                      + (f" (min {min(x['speeds']):g}, mean {sum(x['speeds']) / len(x['speeds']):g})" if x["speeds"] else ""))
+    md.append("")
     md.append("PRIMARY metrics = PresentMon v1 (results.csv avg_fps / low1_fps = mean of slowest 1% frames; 1% high from v1 MsBetweenPresents), "
               "comparable with PC/ally. AUXILIARY = PresentMon v2 (display latency, aux_v2_avg_fps / aux_v2_low1_fps; small differences vs primary are expected).")
     md.append("Notes: FG on/off = native config.xml (schedule fg column); mod FG-off presenter telemetry ignored. CPU/GPU % are 1 Hz machine-wide "
