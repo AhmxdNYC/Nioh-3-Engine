@@ -1,0 +1,4 @@
+[ExtraPerf] Enabled = 1
+[ExtraPerf] Preset = 0
+[ExtraPerf] XSHD = 0
+[General] Enabled = 1

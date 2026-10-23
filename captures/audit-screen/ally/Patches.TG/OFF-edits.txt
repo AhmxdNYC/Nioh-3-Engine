@@ -1,0 +1,5 @@
+[General] Enabled = 1
+[Patches] L1 = 1
+[Patches] L1OnWine = 1
+[Patches] TG = 0
+[Patches] VRR = 1

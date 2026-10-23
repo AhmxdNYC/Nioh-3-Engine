@@ -1,0 +1,3 @@
+[General] Enabled = 1
+[GpuOpt] CbvMirror = 0
+[Patches] CBS = 1

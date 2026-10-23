@@ -1,0 +1,2 @@
+[Debug] SkipDebugString = 1
+[General] Enabled = 1
