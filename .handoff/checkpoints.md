@@ -320,3 +320,43 @@ I didn't launch the game or touch the running audits. I also didn't write a chec
 - 2026-10-23 6:20 AM Eastern cx-pc #25250 | Pre-colour-picker default audit PASS: 393216 exact draws and identical atlases; default White already correct, Cyan optional. Both ASIs rebuilt, 5 suites + catalog pass. Next pc: use Original/White for any saved Cyan config; no game touched. See notes/pad-pressed-default-25250.md.
 2026-10-23 06:30 | pc loose ends: MCP probe ASI built (bridge #1525/#1526, branch pc/mc-probe-build-25148, build.bat link fix) for pc2 to measure; pc2 also doing PJ shader precompile; ally audit ~10:45 am EST, its 2 AS0 OFF runs need manual rerun; user wants final 3-arm bench with temps/CPU/GPU/latency, no second full audit | NEXT: open mod menu via pad (View+DpadUp 1s), screenshot new pad rows + TransparentWhite preset; analyse results-pc.csv + results-pc2.csv; answer pc2/ally RESULTs
 2026-10-23 06:40 | pc: installed cx-pc 25250 EngineFix cb453309 + Rematch 24292782 on pc (game closed); INI pad = Original, opacity 0.8, press colour White (old look). Unverified in game; backups *.pre25250.bak | NEXT: launch, screenshot, menu rows
+- 2026-10-23 6:27 AM Eastern cx-pc #25267 | SF6-style frame-meter drawing implemented on cx-pc/frame-meter-sf6; Training build and frame_meter_test PASS; sampler unchanged. Mock captures/frame-meter-sf6/mock.png. Next pc: review mock, integrate and check live visuals.
+- 2026-10-23 6:33 AM Eastern cx-pc #25280 | Colour key added (10 swatches, responsive wrap), saved Practice/FrameMeterLegend toggle default ON. Training/Rematch build, stats/frame-meter and targeted menu tests PASS. Mock updated; next pc integrate branch cx-pc/frame-meter-sf6 and check live.
+- 2026-10-23 6:35 AM Eastern cx-pc #25288 | All features merged on cx-pc/merged-pc-install (85d61923); 3 ASIs + runtime TSV bundled captures/pc-install-25288. Eight targeted suites + catalog PASS. Hashes notes/merged-pc-install-25288.md. Next pc install 4 bundle files and validate live.
+- 2026-10-23 6:37 AM Eastern cx-pc #25301 | Removed number axis; run lengths now inside each final coloured cell. Training rebuild + meter/stats tests PASS; mock captures/frame-meter-sf6/mock.png. Next pc: replace Training only, other #25299 files stay compatible. Branch cx-pc/merged-pc-install.
+
+- 2026-10-23 6:41 AM EDT cx-pc #25310 | Three real SF6 screenshots downloaded/viewed; cited design notes pushed a4d284bd on cx-pc/sf6-reference-25310 | paired strips and outside summaries proven visually; concurrent drawing owner unresolved | next: integrate drawing in isolation then coordinate merged bundle; no game touched.
+- 2026-10-23 6:41 AM Eastern cx-pc #25323 | v4 973ba295 merged into cx-pc/merged-pc-install; exact renderer/mock, pad + records preserved. Three ASIs rebuilt; 8 targeted suites + catalog PASS. Four-file bundle captures/pc-install-25323; hashes notes/merged-pc-install-25323.md. Next pc approve/install/live check.
+
+- 2026-10-23 6:49 AM Eastern | cx-pc #25350 combined thin+centred bundle verified, pushed review 65ec81e1 on cx-pc/merged-pc-install (bundle build f23bcafb).
+  9 independent suites PASS, all 4 bundle bytes verified, EngineFix/action data retained. Next pc install captures/pc-install-25345 from ../nioh3-merged-pc-install and validate live; notes/merged-pc-install-25350.md.
+
+- 2026-10-23 6:50 AM EDT cx-pc #25310 | Real SF6 reference study plus thin/centred combined source validated;3 ASIs rebuilt,9 targeted suites pass,12960 count cases | full catalog coverage fails existing keys; later25379 visuals remain separately owned | next: integrate documentation-only delta and deliver snapshot hashes | cx-pc/sf6-reference-25310, notes/merged-pc-install-25310.md
+
+- 2026-10-23 6:51 AM EDT cx-pc #25310 COMPLETE | reference-study branch fast-forwarded/pushed onto cx-pc/merged-pc-install de8b73e9; final merge changes documentation/images only, accepted thin code unchanged |9 targeted suites pass; full catalog coverage fails baseline keys | next: existing25379 owner ships newer inline labels/readability | bundle ../nioh3-sf6-reference-25310/captures/pc-install-25310, notes/merged-pc-install-25310.md
+
+- 2026-10-23 06:52 AM Eastern cx-pc #25376 | 52aa2139 pushed: PLAYER/BOSS, single default-ON top readout, bold white outlined centered counts, near-black idle cells; 52px total at 1080p. Training + Rematch builds, 12960 GDI cases, sampler/stats PASS. Next pc integrate/install/live check; set saved FrameMeterReadout=1. Mock captures/frame-meter-sf6/mock.png. No game touched.
+
+- 2026-10-23 6:53 AM EDT cx-pc #25400 review only | immutable52aa2139:12960 GDI cases PASS, actual geometry harness gives18+18+16=52px FAIL vs40px; separate readout, purple unblockable/no grab key remain | no final bundle approved | next existing implementation owner finishes inline/colours then resubmits; no source/game/build-output edits
+
+- 2026-10-23 6:55 AM Eastern | cx-pc #25379 isolated inline meter built/pushed 99fc1d4c on cx-pc/frame-meter-25379-isolated; 40px two-row layout, inline key/readout, near-black idle, readable counts.
+  Training build PASS; remaining: authorized experimental grab-bit classifier, suites and bundle. Isolated worktree ../nioh3-frame-meter-25379-isolated avoids duplicate-session writes.
+
+- 2026-10-23 6:56 AM EDT cx-pc review #25422 | isolated99fc1d4c geometry compiled:20px x2=40 PASS;12960 count placement cases PASS; inline readout/key, labels, red UB verified | grab changes still uncommitted by existing owner, no final bundle approval | next review owner's final immutable commit/bundle; no edits/builds in owner worktree
+
+- 2026-10-23 06:56 AM Eastern cx-pc #25411 | 2dea3caa implements silver native grabs, red unblockable, retained key + readability; three ASIs built and bundled captures/pc-install-25411 with TSV + manifest. Offline tests PASS; no game touched. Next pc install bundle, set FrameMeterLegend=1/FrameMeterReadout=1, validate live. Hashes notes/frame-meter-bundle-25411.md.
+
+- 2026-10-23 6:56 AM Eastern | cx-pc #25379 isolated grab colour + production GDI checks built/pushed; branch cx-pc/frame-meter-25379-isolated.
+  40px total height and grab/recovery/unblockable states PASS offline. Next rebuild Rematch/EngineFix, suites, package; grab predicate live-unverified per pc #25434.
+
+- 2026-10-23 06:57 AM Eastern cx-pc #25430 | Audited 11476-row TSV: no grab field; documented native H->R->flags pointer proof in notes/grab-classifier-25430.md. Existing 25411 bundle unchanged. Next pc live-check silver grab windows; cx-pc no game lease.
+
+- 2026-10-23 6:59 AM Eastern | cx-pc #25379 authoritative isolated bundle complete, pushed a4bdf751 on cx-pc/frame-meter-25379-isolated.
+  Three release builds + 10 suites + 40px production-renderer/catalog checks PASS. Bundle ../nioh3-frame-meter-25379-isolated/captures/pc-install-25379; next pc install all four files, set readout/key=1, verify experimental grab classification live.
+
+- 2026-10-23 7:01 AM Eastern | cx-pc #25462 four-line layout built/pushed on isolated branch; actual GDI sample asserts 80px total, 16px cells, rows/key positioned correctly.
+  Grab uses installed 25411 R+0x4C bit0 under SEH (prior obj offset removed). Next run remaining suites/builds/package; notes/frame-meter-25462.md.
+
+- 2026-10-23 7:03 AM Eastern | cx-pc #25462 four-line bundle complete/pushed 010ea37b, cx-pc/frame-meter-25379-isolated.
+  Training/Rematch rebuilt; 5 suites + production GDI checks PASS; EngineFix/action table unchanged. Bundle ../nioh3-frame-meter-25379-isolated/captures/pc-install-25462; next pc install all four and verify live. Mock sent Discord, grab matches installed R+0x4C path.
+2026-10-23 07:02 pc | TASK: frame-meter SF6 redesign install+verify. DONE: installed on pc game dir: EngineFix AAE6ED22, Rematch 4D03A264, Training 2A2E5CC8 (layout readout/PLAYER/BOSS/KEY, 76px), action TSV; INI Readout=1 Legend=1; Original pad (opacity 0.8, press White). Backups *.pre25446/pre25465.bak. HALF: nothing viewed live in game; grab (silver) uses +0x4C bit0 predicate, unproven live; cx-pc isolated branch cx-pc/frame-meter-25379-isolated (a4bdf751, 40px inline) is superseded. NEXT: launch game (steam_autoplay), check meter in fight + pad look + menu rows, screenshot to Discord (notify.py file); don't use fightnow_test.ps1 (overwrites installed ASIs); then analyse audit CSVs, 3-arm bench when ally audit done. Files: captures/pc-install-25458, .handoff/next.md

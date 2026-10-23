@@ -1990,3 +1990,43 @@ Attack-motion hit ids are in notes/boss-action-record.md. 110 of 175 actions hav
 2026-10-23 04:17 pc: see checkpoints.md latest entry; ally status asked (#25013), answer pending.
 2026-10-23 05:59 pc: 5 audit reruns done (results-pc.csv 73 lines, game closed). NEXT: py tools/settings_audit.py analysis; install cx-pc builds (action-record-24680, pad-style-24886 b35dea02) and verify in game; then 3-arm final bench (needs ally audit done ~10:45 am EST).
 - 2026-10-23 6:13 AM Eastern cx-pc #25224 | Combined action records + Original-default pad at 1baaca34, cx-pc/merged-pc-install. Three ASIs and five offline suites PASS; artifact hashes in notes/merged-pc-install-25224.md. Next pc: install matching Training/Rematch + TSV and EngineFix, verify live; no game touched.
+- 2026-10-23 6:20 AM Eastern cx-pc #25250 | Pre-colour-picker default audit PASS: 393216 exact draws and identical atlases; default White already correct, Cyan optional. Both ASIs rebuilt, 5 suites + catalog pass. Next pc: use Original/White for any saved Cyan config; no game touched. See notes/pad-pressed-default-25250.md.
+2026-10-23 06:45 pc: 25250 builds installed on pc (Original/White INI). NEXT: launch game, verify press look + menu pad rows/TransparentWhite preset (pad View+DpadUp 1s), then analyse audit CSVs and 3-arm bench once ally audit done (~10:45 am EST).
+- 2026-10-23 6:27 AM Eastern cx-pc #25267 | SF6-style frame-meter drawing implemented on cx-pc/frame-meter-sf6; Training build and frame_meter_test PASS; sampler unchanged. Mock captures/frame-meter-sf6/mock.png. Next pc: review mock, integrate and check live visuals.
+2026-10-23 pc: frame-meter SF6 mock sent to Discord (cx-pc/frame-meter-sf6 a9c86b66, ASI 2925E2F1). NEXT: on user OK, install Training ASI + view live.
+- 2026-10-23 6:33 AM Eastern cx-pc #25280 | Colour key added (10 swatches, responsive wrap), saved Practice/FrameMeterLegend toggle default ON. Training/Rematch build, stats/frame-meter and targeted menu tests PASS. Mock updated; next pc integrate branch cx-pc/frame-meter-sf6 and check live.
+2026-10-23 pc: frame-meter+legend (cx-pc 669b6056) NOT installed: branch lacks action records; TASKed cx-pc to merge onto merged-pc-install. Installed ASIs restored (Training pre25287 bak). NEXT: install merged result, view live.
+- 2026-10-23 6:35 AM Eastern cx-pc #25288 | All features merged on cx-pc/merged-pc-install (85d61923); 3 ASIs + runtime TSV bundled captures/pc-install-25288. Eight targeted suites + catalog PASS. Hashes notes/merged-pc-install-25288.md. Next pc install 4 bundle files and validate live.
+2026-10-23 pc: installed cx-pc 25299 bundle (EngineFix 40b4bce9, Rematch 89ca548f, Training 1d5fd03d, TSV) on pc, game closed; bak *.pre25299.bak. Run-length-in-cell (#25292) status unknown - not confirmed in cx-pc msg. NEXT: launch, view meter live.
+- 2026-10-23 6:37 AM Eastern cx-pc #25301 | Removed number axis; run lengths now inside each final coloured cell. Training rebuild + meter/stats tests PASS; mock captures/frame-meter-sf6/mock.png. Next pc: replace Training only, other #25299 files stay compatible. Branch cx-pc/merged-pc-install.
+2026-10-23 pc: installed Training CC56BC99 (run-length in cells, cx-pc 25312) on pc; v4 SF6-pictures redesign pending from cx-pc. Not yet viewed live.
+- 2026-10-23 6:41 AM Eastern cx-pc #25323 | v4 973ba295 merged into cx-pc/merged-pc-install; exact renderer/mock, pad + records preserved. Three ASIs rebuilt; 8 targeted suites + catalog PASS. Four-file bundle captures/pc-install-25323; hashes notes/merged-pc-install-25323.md. Next pc approve/install/live check.
+2026-10-23 pc: installed v4 bundle 25328 (EngineFix 8C7D457F, Rematch 939CD606, Training AD9BF361, TSV) on pc; bak *.pre25328.bak; not yet viewed live. User OK on v4 mock pending.
+2026-10-23 pc: thin meter v5 8687f566 mock sent; cx-pc merging onto merged-pc-install; on bundle: install + set [Practice] FrameMeterLegend=0 FrameMeterReadout=0 in Nioh3Training.ini, view live.
+2026-10-23 pc: waiting for cx-pc merged bundle incl. thin meter + centring 55554e63; then install, set FrameMeterLegend=0/FrameMeterReadout=0, view live.
+2026-10-23 pc: installed thin-meter bundle 25345 (EngineFix 6BBD81CA, Rematch 18F4E79B, Training 28B3DB6F) on pc; no FrameMeterLegend/Readout keys in INI (defaults OFF). Not viewed live. cx-pc now doing #25372 (Player/Boss labels, inline Startup/Total/Adv text, bigger numbers, dark empty cells); install result then view live.
+
+- 2026-10-23 6:49 AM Eastern cx-pc #25350 | 4-file bundle ready at ../nioh3-merged-pc-install/captures/pc-install-25345; 9 suites PASS, pushed 65ec81e1. pc install/live owner; minimal look needs saved FrameMeterLegend=0 / FrameMeterReadout=0.
+2026-10-23 pc: frame-meter #25372 tweaks in progress by a second local cx session in merged-pc-install worktree; cx-pc reviews. Wait for final bundle.
+
+- 2026-10-23 6:51 AM EDT cx-pc #25310: screenshot study and accepted thin/centred snapshot DONE, merged/pushed de8b73e9. 3 real reference pictures,9 targeted suites pass,12960 count cases. Snapshot bundle ../nioh3-sf6-reference-25310/captures/pc-install-25310; later25379 UI work remains with existing owner; use its subsequent bundle for latest user request.
+2026-10-23 pc: SF6 ref snapshot 25409 NOT installed (outdated). Next bundle must add #25401 grab colour grey-ish, unblockable red + #25372 items.
+2026-10-23 pc: cx-pc doing final meter in isolated worktree (dup session collision). Only install its bundle.
+
+- 2026-10-23 06:52 AM Eastern cx-pc #25376 | 52aa2139 pushed: PLAYER/BOSS, single default-ON top readout, bold white outlined centered counts, near-black idle cells; 52px total at 1080p. Training + Rematch builds, 12960 GDI cases, sampler/stats PASS. Next pc integrate/install/live check; set saved FrameMeterReadout=1. Mock captures/frame-meter-sf6/mock.png. No game touched.
+2026-10-23 pc: installed 52aa2139 Training F395A0F8 + Rematch (frame-meter-sf6). TODO cx-pc: grab colour, <=40px. Not viewed live.
+
+- 2026-10-23 6:53 AM EDT cx-pc #25400 review rejects52aa2139:52px total and separate readout; latest red unblockable/grey grab absent.12960 centering cases pass. Await existing implementation owner's corrected final commit/bundle; review session does not own edits/builds.
+
+- 2026-10-23 6:56 AM EDT cx-pc #25422 review:99fc1d4c fixes prior52px failure (40px actual geometry), count12960 PASS. Grab implementation actively changing in isolated owner worktree; await committed final bundle before approval.
+
+- 2026-10-23 06:56 AM Eastern cx-pc #25411 | 2dea3caa implements silver native grabs, red unblockable, retained key + readability; three ASIs built and bundled captures/pc-install-25411 with TSV + manifest. Offline tests PASS; no game touched. Next pc install bundle, set FrameMeterLegend=1/FrameMeterReadout=1, validate live. Hashes notes/frame-meter-bundle-25411.md.
+2026-10-23 pc: installed full meter bundle 25446 (EngineFix AAE6ED22, Rematch 4D03A264, Training E9F2697D + TSV) w/ grab (silver) + red unblockable; INI Readout=1 Legend=0; bak *.pre25446.bak. NOT viewed live. NEXT: launch, check meter in fight, screenshot to user; then final 3-arm bench.
+
+- 2026-10-23 06:57 AM Eastern cx-pc #25430 | Audited 11476-row TSV: no grab field; documented native H->R->flags pointer proof in notes/grab-classifier-25430.md. Existing 25411 bundle unchanged. Next pc live-check silver grab windows; cx-pc no game lease.
+
+- 2026-10-23 6:59 AM Eastern cx-pc #25379 | authoritative isolated bundle captures/pc-install-25379 at ../nioh3-frame-meter-25379-isolated; a4bdf751 pushed. Labels + inline readout/key + 40px height + red unblockable + experimental grey grab. Mock sent Discord. pc install/live validation next; readout/key=1.
+2026-10-23 pc: human #25456 layout = readout line above rows, key line under rows. cx-pc redoing (isolated branch, 25379). Installed now: bundle 25446 (25411).
+2026-10-23 pc: installed Training 2A2E5CC8 (layout 25458: readout/PLAYER/BOSS/KEY) on pc, Legend=1 Readout=1. NOT viewed live. NEXT: launch + screenshot.
+
+- 2026-10-23 7:03 AM Eastern cx-pc #25462 | four-line meter ready: readout / PLAYER / BOSS / key, 16px cells (80px whole layout), 010ea37b. Bundle ../nioh3-frame-meter-25379-isolated/captures/pc-install-25462; pc install/live next, FrameMeterReadout=1 / FrameMeterLegend=1.
