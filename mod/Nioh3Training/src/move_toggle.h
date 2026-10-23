@@ -8,7 +8,10 @@ static volatile LONG g_mv_hooked;
 static SRWLOCK g_mv_legacy_lock = SRWLOCK_INIT;
 static uint32_t g_mv_fallback = 2;
 // 0 inherits legacy MoveBlock; 1 explicitly allows; 2 explicitly blocks.
-static volatile LONG g_mv_pref[N3_MOVE_COUNT], g_mv_current_chr, g_mv_install_pending;
+#ifndef N3CAT_CAP
+#define N3CAT_CAP N3_MOVE_COUNT  // tests: the generated table; training.c: the live catalogue capacity (move_catalog.h)
+#endif
+static volatile LONG g_mv_pref[N3CAT_CAP], g_mv_current_chr, g_mv_install_pending;
 typedef uint32_t (*MvSelFn)(uint64_t, uint64_t);
 typedef uint64_t (*MvComFn)(uint64_t, uint32_t, uint64_t, int, uint64_t);
 static MvSelFn o_mvsel;

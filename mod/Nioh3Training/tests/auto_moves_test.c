@@ -27,20 +27,7 @@ static uint8_t* ReadAll(const char* rel, uint32_t* n) {
 static AmTable g_t;
 int main(void) {
     setvbuf(stdout, 0, _IONBF, 0);
-    // synthetic: header search must reject a lone 16 and find a real header before the row
-    {
-        static uint8_t buf[8192]; memset(buf, 0xCD, sizeof buf);
-        const uint32_t base = 1000;  // not 8-aligned on purpose (4-aligned)
-        uint32_t* w = (uint32_t*)(buf + 16); *w = 16;  // decoy
-        uint8_t* h = buf + base; uint32_t off = 132, len[16] = {72, 2 * AM_ROW, AM_HB, 0};
-        memcpy(h, &(uint32_t){16}, 4);
-        for (int i = 0; i < 16; ++i) { memcpy(h + 4 + 8 * i, &off, 4); memcpy(h + 8 + 8 * i, &len[i], 4); off += len[i]; }
-        const uint32_t w1 = 2 | (AM_ROW << 16), w2 = 1 | (AM_HB << 16); memcpy(h + 132 + 4, &w1, 4); memcpy(h + 132 + 8, &w2, 4);
-        const uint64_t bb = 0x10000000ull, row = bb + base + 132 + 72 + AM_ROW;
-        assert(AmFindBase(buf, bb, sizeof buf, row) == base);
-        assert(AmFindBase(buf, bb, sizeof buf, row + 8) == -1);   // not on a row boundary
-        assert(AmHeader(buf + 16, sizeof buf - 16) == 0);
-    }
+    { static const uint8_t bad[8] = {16, 0, 0, 0}; assert(AmHeader(bad, sizeof bad) == 0); }  // a lone 16 is not a header
     static const struct { uint32_t chr; const char* name; const char* rel; } B[] = {
         {16102u, "Minamoto no Yoritomo", "FA/5FBD421BF96B8514DA056584B9507A22DC7956B1793995A113FBA714CFFA54"},
         {482895u, "Baba Nobuharu", "5E/B7FA064C0CC4146F0D8543E8BA5E5551669A50436A9C0B5FC327059F858A22"},
@@ -52,10 +39,25 @@ int main(void) {
         if (!d) { printf("SKIP %s: action file not extracted\n", B[b].name); continue; }
         ++real;
         const int na = AmParse(d, n, &g_t); assert(na > 0 && g_t.size == n);
-        // header search inside a padded copy, row in the middle of the row block
-        uint8_t* pad = (uint8_t*)malloc(n + 4096); memset(pad, 0x10, 4096); memcpy(pad + 4096, d, n);
-        const uint64_t bb = 0x7FF000000000ull, row = bb + 4096 + g_t.off[1] + (uint32_t)(na / 2) * AM_ROW;
-        assert(AmFindBase(pad, bb, n + 4096, row) == 4096); free(pad);
+        // memory form (auto_moves_game.h): rows + hitbox rows as in the file, each action's hitbox list as (first, count). Rebuild and re-parse:
+        // every field must be identical to the parse of the file itself. Also proves the file's lists are contiguous ranges.
+        {
+            static uint16_t first[AM_MAXMOVES], cnt[AM_MAXMOVES]; static AmTable t2;
+            const uint32_t o0 = g_t.off[0], l0 = g_t.len[0]; uint32_t sum = 0;
+            for (int r = 0; r < na; ++r) sum += AmU16(d, o0 + 64 + 2 * r);
+            uint32_t q = o0 + l0 - sum;
+            for (int r = 0; r < na; ++r) {
+                const uint16_t c0 = AmU16(d, q); first[r] = c0 ? AmU16(d, q + 2) : 0; cnt[r] = c0;
+                for (int k = 1; k < c0; ++k) assert(AmU16(d, q + 2 + 2 * k) == first[r] + k);  // contiguous
+                q += AmU16(d, o0 + 64 + 2 * r);
+            }
+            const int nhb = (int)(g_t.len[2] / AM_HB); const uint32_t cap = AmImageSize(na, nhb, cnt);
+            uint8_t* img = (uint8_t*)malloc(cap);
+            const uint32_t sz = AmBuildImage(img, cap, d + g_t.off[1], na, d + g_t.off[2], nhb, first, cnt);
+            assert(sz == cap && AmParse(img, sz, &t2) == na);
+            assert(!memcmp(t2.m, g_t.m, sizeof(AmMove) * (size_t)na));
+            free(img);
+        }
         AmCmp c; AmCompare(&g_t, B[b].chr, &c); char line[2048]; AmCmpText(&c, line, sizeof line);
         int nA = 0, nM = 0, nI = 0, nAtk = 0, nBlk = 0; for (int i = 0; i < na; ++i) { nA += g_t.m[i].kind == 'A'; nM += g_t.m[i].kind == 'M'; nI += g_t.m[i].kind == 'I'; nAtk += g_t.m[i].attack; nBlk += g_t.m[i].block; }
         printf("%s (chr %u): %d actions, attack-block %d, attack %d, kinds A %d M %d I %d\n  %s\n  sequence heads:", B[b].name, B[b].chr, na, nBlk, nAtk, nA, nM, nI, line);

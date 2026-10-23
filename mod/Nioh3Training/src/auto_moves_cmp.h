@@ -7,6 +7,17 @@
 #include "../../boss_sequences.h"
 #include "../../boss_move_facts.h"
 #include <stdio.h>
+#ifndef AMC_MOVES  // move_catalog.h points these at the generated tables when the live catalogue (macros over kN3Moves ...) is in use
+#define AMC_MOVES kN3Moves
+#define AMC_MOVE_COUNT N3_MOVE_COUNT
+#define AMC_NEXT kN3Next
+#define AMC_NEXT_COUNT N3_NEXT_COUNT
+#define AMC_FACTS kN3MoveFacts
+#define AMC_FACT_COUNT N3_MOVE_FACT_COUNT
+#endif
+static int AmcFind(uint32_t chr, uint32_t id) { for (int i = 0; i < AMC_MOVE_COUNT; ++i) if (AMC_MOVES[i].chr == chr && AMC_MOVES[i].id == id) return i; return -1; }
+static const N3MoveFact* AmcFact(uint32_t chr, uint32_t id) { for (int i = 0; i < AMC_FACT_COUNT; ++i) if (AMC_FACTS[i].chr == chr && AMC_FACTS[i].id == id) return &AMC_FACTS[i]; return 0; }
+static int AmcFactsBoss(uint32_t chr) { for (int i = 0; i < AMC_FACT_COUNT; ++i) if (AMC_FACTS[i].chr == chr) return 1; return 0; }
 typedef struct {
     int ids_both, ids_hand_only, ids_rt_only;           // kN3Moves ids vs action rows
     int fact_both, fact_hand_only, fact_rt_only;        // which moves have a facts row
@@ -22,25 +33,25 @@ static void AmCmpBad(AmCmp* c, const char* what, uint32_t id, int h, int r) {
 }
 static void AmCompare(const AmTable* t, uint32_t chr, AmCmp* c) {
     memset(c, 0, sizeof *c);
-    for (int i = 0; i < N3_MOVE_COUNT; ++i) {
-        if (kN3Moves[i].chr != chr) continue;
-        const int k = AmFind(t, kN3Moves[i].id);
-        if (k < 0) { ++c->ids_hand_only; AmCmpBad(c, "id", kN3Moves[i].id, 1, 0); continue; }
+    for (int i = 0; i < AMC_MOVE_COUNT; ++i) {
+        if (AMC_MOVES[i].chr != chr) continue;
+        const int k = AmFind(t, AMC_MOVES[i].id);
+        if (k < 0) { ++c->ids_hand_only; AmCmpBad(c, "id", AMC_MOVES[i].id, 1, 0); continue; }
         ++c->ids_both;
-        const char hk = kN3Moves[i].kind, rk = t->m[k].kind;
+        const char hk = AMC_MOVES[i].kind, rk = t->m[k].kind;
         // hand A / S = attack / wind-up seen in a fight; 0 = static attack row (add_static_boss_rows.py) or not classified (Yoritomo); T twitch / L link = log timing
         // classes (how long it ran, what the AI chained): no static twin, not compared
         // compared as attack vs non-attack: hand A / S (seen hitting / winding up) or a static attack row ("static table: attack-family") = attack,
         // hand M / I = non-attack; runtime A = attack, M / I = non-attack
-        const int hAtk = hk == 'A' || hk == 'S' || (hk == 0 && kN3Moves[i].label && !strncmp(kN3Moves[i].label, "static table: attack-family", 27));
+        const int hAtk = hk == 'A' || hk == 'S' || (hk == 0 && AMC_MOVES[i].label && !strncmp(AMC_MOVES[i].label, "static table: attack-family", 27));
         const int hNon = hk == 'M' || hk == 'I';
         if (!hAtk && !hNon) ++c->kind_skip;
         else if (hAtk == (rk == 'A')) ++c->kind_ok;
-        else { ++c->kind_bad; AmCmpBad(c, "kind", kN3Moves[i].id, hk ? hk : '0', rk); }
+        else { ++c->kind_bad; AmCmpBad(c, "kind", AMC_MOVES[i].id, hk ? hk : '0', rk); }
     }
-    for (int k = 0; k < t->n; ++k) if (N3MoveFind(chr, t->m[k].id) < 0) { ++c->ids_rt_only; AmCmpBad(c, "id", t->m[k].id, 0, 1); }
-    for (int i = 0; i < N3_MOVE_FACT_COUNT; ++i) {
-        const N3MoveFact* f = &kN3MoveFacts[i];
+    for (int k = 0; k < t->n; ++k) if (AmcFind(chr, t->m[k].id) < 0) { ++c->ids_rt_only; AmCmpBad(c, "id", t->m[k].id, 0, 1); }
+    for (int i = 0; i < AMC_FACT_COUNT; ++i) {
+        const N3MoveFact* f = &AMC_FACTS[i];
         if (f->chr != chr) continue;
         const int k = AmFind(t, f->id);
         if (k < 0 || !t->m[k].fact) { ++c->fact_hand_only; AmCmpBad(c, "fact", f->id, 1, 0); continue; }
@@ -49,18 +60,18 @@ static void AmCompare(const AmTable* t, uint32_t chr, AmCmp* c) {
         if (m->great == f->great) ++c->great_ok; else { ++c->great_bad; AmCmpBad(c, "great", f->id, f->great, m->great); }
         if (m->hits == f->hits) ++c->hits_ok; else { ++c->hits_bad; AmCmpBad(c, "hits", f->id, f->hits, m->hits); }
     }
-    if (N3MoveFactsBoss(chr)) for (int k = 0; k < t->n; ++k) if (t->m[k].fact && !N3MoveFactFind(chr, t->m[k].id)) { ++c->fact_rt_only; AmCmpBad(c, "fact", t->m[k].id, 0, 1); }
+    if (AmcFactsBoss(chr)) for (int k = 0; k < t->n; ++k) if (t->m[k].fact && !AmcFact(chr, t->m[k].id)) { ++c->fact_rt_only; AmCmpBad(c, "fact", t->m[k].id, 0, 1); }
     int handNext = 0;
-    for (int i = 0; i < N3_NEXT_COUNT; ++i) {
-        if (kN3Next[i].chr != chr) continue;
+    for (int i = 0; i < AMC_NEXT_COUNT; ++i) {
+        if (AMC_NEXT[i].chr != chr) continue;
         ++handNext;
-        const int k = AmFind(t, kN3Next[i].id);
-        if (k >= 0 && t->m[k].link && t->m[k].next == kN3Next[i].next && t->m[k].loop == kN3Next[i].loop) ++c->next_ok;
-        else { ++c->next_bad; AmCmpBad(c, "next", kN3Next[i].id, (int)kN3Next[i].next, k >= 0 ? t->m[k].next : -1); }
+        const int k = AmFind(t, AMC_NEXT[i].id);
+        if (k >= 0 && t->m[k].link && t->m[k].next == AMC_NEXT[i].next && t->m[k].loop == AMC_NEXT[i].loop) ++c->next_ok;
+        else { ++c->next_bad; AmCmpBad(c, "next", AMC_NEXT[i].id, (int)AMC_NEXT[i].next, k >= 0 ? t->m[k].next : -1); }
     }
     if (handNext) for (int k = 0; k < t->n; ++k) {
         if (!t->m[k].link) continue;
-        int has = 0; for (int i = 0; i < N3_NEXT_COUNT; ++i) has |= kN3Next[i].chr == chr && kN3Next[i].id == t->m[k].id;
+        int has = 0; for (int i = 0; i < AMC_NEXT_COUNT; ++i) has |= AMC_NEXT[i].chr == chr && AMC_NEXT[i].id == t->m[k].id;
         if (!has) { ++c->next_rt_only; AmCmpBad(c, "next", t->m[k].id, -1, t->m[k].next); }
     }
     for (int k = 0; k < t->n; ++k) c->seq_rt += AmSeqHead(t, k);

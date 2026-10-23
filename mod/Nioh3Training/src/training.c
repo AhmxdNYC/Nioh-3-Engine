@@ -3751,6 +3751,8 @@ static void AlDump(void) {
     fclose(f);
 }
 #include "../../boss_moves.h"
+#include "../../move_catalog.h"  // pc2 #23907: live move catalogue (runtime game data over the optional hand tables)
+static int g_cfg_handmoves = 1;  // [Debug] HandMoves: 1 = seed the catalogue with the hand tables (fallback), 0 = nothing by hand
 // user #13786: one MOVE line per finished boss action of a catalogued boss (not capped like ACTLOG): what the boss actually did, its kind
 // (attack / wind-up / link / twitch / movement from boss_moves.h), how long it really ran and whether a Training REPEAT forced it.
 static volatile LONG g_mvlog_lines;
@@ -4790,6 +4792,18 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
 #include "autobind_game.h"  // pc2 #23565: automatic boss action-file binding ([Debug] AutoBind, default 1, log only)
 #include "auto_moves_game.h"  // pc2 #23907: runtime boss move list from the loaded action file ([Debug] AutoMoves, default 1)
+static void N3CatMergeAuto(uint32_t chr, const AmTable* t) {
+    char nm[64] = {0}; Nioh3Training_BossName(chr, nm, (int)sizeof nm);
+    const int add = N3CatMerge(chr, t->m, t->n, nm);
+    Log("AUTOMOVES chr %u: move catalogue now from game data (%d moves, %d new rows; next links, hits and unblockable replaced)", chr, t->n, add);
+}
+// pc2 #23907: the runtime move list of a boss for Nioh3BossRematch (its Boss moves page). abi = sizeof(AmMove) of the caller (-1 if it differs);
+// returns the number of moves copied (0 = not read yet / AutoMoves off).
+N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
+    if (abi != (int)sizeof(AmMove)) return -1;
+    const AmTable* t = AmFor(chr); if (!t || !out || cap <= 0) return 0;
+    const int n = t->n < cap ? t->n : cap; memcpy(out, t->m, sizeof(AmMove) * (size_t)n); return n;
+}
 #include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
@@ -4994,6 +5008,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         Log("KiBreakHp0Stagger %d, KiBreakGoldFadeMs %d, BossGraceAfterCoverMs %d, BossHoldMaxMs %d (#9133)", g_nf_stagger, g_cfg_nf_fade, g_cfg_bossgrace, g_cfg_bosshold_max);
         Log("KiBreakNoFinisher %d, KiBreakHp0WindowMs %d, KiBreakHp0Kneel %d (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips %d)", g_cfg_nofin, g_cfg_nofin_ms, g_nf_kneel, g_nf_nstrip);
         { char b[512]; GetPrivateProfileStringA("Summon", "MoveBlock", "", b, sizeof b, ini); uint32_t ids[64]; int k = 0; for (char* t = strtok(b, ", "); t && k < 64; t = strtok(0, ", ")) ids[k++] = (uint32_t)strtoul(t, 0, 0); g_mv_fallback = (uint32_t)GetPrivateProfileIntA("Summon", "MoveBlockFallback", 2, ini); if (k) MvSet(ids, k); }
+        g_cfg_handmoves = GetPrivateProfileIntA("Debug", "HandMoves", 1, ini); N3CatInit(g_cfg_handmoves);  // pc2 #23907, before the per-move prefs
+        Log("MOVES catalogue: %d hand rows (HandMoves %d), runtime game data %s", N3_MOVE_COUNT, g_cfg_handmoves, g_cfg_am ? "on (AutoMoves 1)" : "OFF (AutoMoves 0)");
         MvLoadPrefs(ini);
         g_cfg_aggro = GetPrivateProfileIntA("Training", "BossAggro", 0, ini) != 0; g_cfg_aggro_range = GetPrivateProfileIntA("Training", "AggroRangeCm", 500, ini); if (g_cfg_aggro_range < 100) g_cfg_aggro_range = 100;
         g_cfg_aggro_face = GetPrivateProfileIntA("Training", "AggroFace", 1, ini) != 0; g_cfg_aggro_walk_ms = GetPrivateProfileIntA("Training", "AggroWalkTimeoutMs", 6000, ini);  // user #14147 / #14267
