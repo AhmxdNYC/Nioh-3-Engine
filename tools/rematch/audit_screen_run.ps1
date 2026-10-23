@@ -15,7 +15,7 @@
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
-param([int]$OwnerPid = 0, [string]$Device = "pc", [string]$Plan = "", [string]$ResultsCsv = "", [string]$Row = "R7B35", [int]$MeasureSec = 60, [int]$SettleSec = 8, [int]$WarmupSec = 30, [int]$MaxRetries = 1,
+param([int]$OwnerPid = 0, [string]$Device = "pc", [string]$Plan = "", [string]$ResultsCsv = "", [string]$Row = "R7B35", [int]$MeasureSec = 60, [int]$SettleSec = 8, [int]$WarmupSec = 30, [int]$MaxRetries = 1, [int]$MaxRuns = 0,
       [int]$WaitMinutes = 480, [int]$MaxMinutes = 240, [int]$LoadWaitSec = 240, [string]$PerfAsi = "", [bool]$KeepBuild = $true, [switch]$DryRun)
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -173,9 +173,12 @@ try {
     if (-not (Test-Path $ResultsCsv)) { "run_id,fixture,ini_sha256,valid,avg_fps,low1_fps,frametime_ms,key,arm,frames,loads,note" | Set-Content $ResultsCsv }
     $done = @{}; foreach ($r in (Import-Csv $ResultsCsv)) { if ($r.valid -eq "1") { $done[$r.run_id] = 1 } }
     $armN = 0
+    $ran = 0
     foreach ($run in $sched) {
         $arm = $run.arm; $armN++; $tag = $run.run_id
         if ($done[$tag]) { T "skip $tag (already valid)"; continue }
+        if ($MaxRuns -and $ran -ge $MaxRuns) { T "chunk of $MaxRuns runs done - stop (re-run for the next chunk)"; break }
+        $ran++
         if (Test-Path (Join-Path $repo ".handoff\PAUSED")) { T "PAUSED - stop"; break }
         Set-TestStatus "run $armN/$($sched.Count): $($run.key) $arm"
         T "== run $tag $($run.key) $arm"
