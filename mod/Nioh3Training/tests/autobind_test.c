@@ -21,6 +21,18 @@ int main(void) {
     { char t2[] = "X\tCE_X_00\t4\t1,2,3,4\nY\tCE_Y_00\t4\t1,2,3,5\n"; AbTable b; AbLoad(&b, t2); uint32_t o[] = {1, 2, 3, 4, 5};
       assert(AbMatch(&b, o, 5, &p, &p2) == -1 && p == 80 && p2 == 80); AbFree(&b); }   // runner-up as good (80 % vs 80 %) -> unbound
     assert(AbIsShared(&(AbFile){.chr = "CP_HUMAN_COMMON"}) && !AbIsShared(&tb.f[0]));
+    // pc #23911: near-twin runner-up of the same family (Red Kappa 100 vs 91, Ippon-Datara 100 vs 90) binds the top file; another family stays unbound
+    { char t3[] = "K1\tCE_KAPPA_00\t10\t1,2,3,4,5,6,7,8,9,A\nK2\tCE_KAPPA_00\t11\t1,2,3,4,5,6,7,8,9,A,B\nO\tCE_ONI_00\t3\t70,71,72\n";
+      AbTable b; AbLoad(&b, t3); uint32_t o[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA};
+      assert(AbMatch(&b, o, 10, &p, &p2) == 0 && p == 100 && p2 == 90); AbFree(&b); }
+    { char t4[] = "K1\tCE_KAPPA_00\t10\t1,2,3,4,5,6,7,8,9,A\nN\tCE_NUREONNA_00\t11\t1,2,3,4,5,6,7,8,9,A,B\n";
+      AbTable b; AbLoad(&b, t4); uint32_t o[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA};
+      assert(AbMatch(&b, o, 10, &p, &p2) == -1 && p == 100 && p2 == 90); AbFree(&b); }
+    { char t5[] = "Q1\t?\t10\t1,2,3,4,5,6,7,8,9,A\nQ2\t?\t11\t1,2,3,4,5,6,7,8,9,A,B\n";   // no owner = no family: stays unbound
+      AbTable b; AbLoad(&b, t5); uint32_t o[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA};
+      assert(AbMatch(&b, o, 10, &p, &p2) == -1); AbFree(&b); }
+    { char x[AB_NAME]; AbFile f = {.chr = "CE_KAPPA_00"}; assert(AbFamily(&f, x, sizeof x) && !strcmp(x, "CE_KAPPA"));
+      AbFile g = {.chr = "CN_SHINGEN"}; assert(AbFamily(&g, x, sizeof x) && !strcmp(x, "CN_SHINGEN")); }
     AbFree(&tb);
     FILE* f = fopen("Nioh3Training_actionsets.tsv", "rb");
     if (f) {  // real table: every file matched with its own id set must come back as itself (or a same-set twin)
@@ -28,7 +40,7 @@ int main(void) {
         static AbTable rt; int nf = AbLoad(&rt, buf); int self = 0, twin = 0;
         for (int i = 0; i < nf; ++i) {
             const int m = AbMatch(&rt, rt.f[i].ids, rt.f[i].n, &p, &p2);
-            if (m == i) ++self; else if (m < 0 && p == 100 && p2 >= 100 - AB_MIN_GAP_PCT) ++twin; else if (m >= 0) printf("WRONG %s -> %s\n", rt.f[i].chr, rt.f[m].chr);  // identical-set twin: ambiguous -> unbound
+            if (m == i) ++self; else if (m < 0 && p == 100 && p2 >= 100 - AB_MIN_GAP_PCT) ++twin; else if (m >= 0 && AbSameFamily(&rt.f[m], &rt.f[i])) ++twin; else if (m >= 0) printf("WRONG %s -> %s\n", rt.f[i].chr, rt.f[m].chr);  // identical-set twin: ambiguous -> unbound
         }
         printf("real table: %d files, %d self-match, %d identical-set twins\n", nf, self, twin);
         assert(self + twin >= nf * 8 / 10 && nf > 300);

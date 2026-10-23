@@ -46,18 +46,34 @@ static int AbLoad(AbTable* t, char* text) {
 static void AbFree(AbTable* t) { for (int i = 0; i < t->n; ++i) free(t->f[i].ids); t->n = 0; }
 // Best file for an observed id set (ids unique, 0xFFFF ignored). Returns the index or -1; *pct = Jaccard in percent (0..100); *pct2 = runner-up.
 // Ties go to the file with fewer ids (the more specific one: a part file that is a subset of the main file does not steal it).
+// Character family of a file: its character key without the trailing "_<digits>" variant (CE_KAPPA_00 -> CE_KAPPA). "?" (no owner) has no family.
+static int AbFamily(const AbFile* f, char* out, size_t n) {
+    if (!f->chr[0] || !strcmp(f->chr, "?")) return 0;
+    snprintf(out, n, "%s", f->chr);
+    size_t L = strlen(out), e = L; while (e && out[e - 1] >= '0' && out[e - 1] <= '9') --e;
+    if (e < L && e && out[e - 1] == '_') out[e - 1] = 0;
+    return 1;
+}
+static int AbSameFamily(const AbFile* a, const AbFile* b) {
+    char x[AB_NAME], y[AB_NAME];
+    return AbFamily(a, x, sizeof x) && AbFamily(b, y, sizeof y) && !strcmp(x, y);
+}
 static int AbMatch(const AbTable* t, const uint32_t* obs, int nobs, int* pct, int* pct2) {
-    int best = -1, bestPct = 0, second = 0;
+    int best = -1, bestPct = 0, second = 0, sec = -1;
     int nv = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i])) ++nv;
     for (int k = 0; k < t->n && nv; ++k) {
         const AbFile* f = &t->f[k]; int inter = 0;
         for (int i = 0; i < nobs; ++i) if (AbOk(obs[i]) && AbHas(f, obs[i])) ++inter;
         const int uni = nv + f->n - inter, p = uni ? inter * 100 / uni : 0;
-        if (p > bestPct || (p == bestPct && best >= 0 && f->n < t->f[best].n)) { second = bestPct > p ? second : bestPct; bestPct = p; best = k; }
-        else if (p > second) second = p;
+        if (p > bestPct || (p == bestPct && best >= 0 && f->n < t->f[best].n)) { second = bestPct; sec = best; bestPct = p; best = k; }
+        else if (p > second) { second = p; sec = k; }
     }
     if (pct) *pct = bestPct; if (pct2) *pct2 = second;
-    return bestPct > AB_MIN_SCORE_PCT && bestPct - second >= AB_MIN_GAP_PCT ? best : -1;
+    if (bestPct <= AB_MIN_SCORE_PCT) return -1;
+    if (bestPct - second >= AB_MIN_GAP_PCT) return best;
+    // pc #23911: a near-twin runner-up of the SAME character family (Red Kappa CE_KAPPA_00 100 vs 91, Ippon-Datara CE_IPPONDATARA_00 100 vs 90:
+    // variant files of one boss with near-identical move sets) does not make the match ambiguous: bind the top one. A different family stays unbound.
+    return sec >= 0 && second < bestPct && AbSameFamily(&t->f[best], &t->f[sec]) ? best : -1;
 }
 // Shared / generic action files (the CP_HUMAN_* family: Common, Katana, Nitou ... used by many different humans) are never a boss's own file: stay unbound.
 static inline int AbIsShared(const AbFile* f) { return !strncmp(f->chr, "CP_HUMAN_", 9); }
