@@ -1,0 +1,1 @@
+& 'C:\Users\Ahmad Hamza\nioh3-engine\tools\rematch\fightnow_test.ps1' -Rows R7B35 -WalkSec 60 -PerfAsi 'C:\Users\Ahmad Hamza\nioh3-engine\captures\newopt-25976-20261023-1228\mc\Nioh3EngineFix.asi' -PerfSet 'Profiler/MCProbe=1' -KeepBuild:$false -OwnerPid $PID

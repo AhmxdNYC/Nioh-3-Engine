@@ -1,0 +1,914 @@
+[12:37:14.945] Nioh3EngineFix 1.7.61 (built Oct 23 2026) - native port of the live-tested Nioh 3 engine patches
+[12:37:14.945] OS: native Windows; ini keys set to -1 (auto) resolve by OS - none are -1 in this ini
+[12:37:14.945] Nioh3.exe at 00007FF759910000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[12:37:14.946] PJ: PJ = 1 (journal + title-screen prewarm), journal folder C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3EngineFix_pj, max 64 MB, quiet 3000 ms, title gate G+58Ah; PJH = 0 (off, keep <= 4096)
+[12:37:14.947] PSOSWAP: Enabled=0: D3D12CreateDevice hook armed only to report the device to PJ (no swap, no dump, no tracking)
+[12:37:14.947] PSOSWAP: IAT hook on sl.interposer.dll!D3D12CreateDevice armed (slot RVA 0x38e2e18, target sl.interposer.dll)
+[12:37:15.156] code is decrypted (203 ms after start)
+[12:37:15.157] resolving sites:
+[12:37:15.164]   W1   OK at RVA 61BAC
+[12:37:15.167]   W2a  OK at RVA 13721F
+[12:37:15.178]   W2b  OK at RVA 137269
+[12:37:15.189]   W2c  OK at RVA 1372B4
+[12:37:15.198]   W2d  OK at RVA 1372FE
+[12:37:15.208]   P3a  OK at RVA 43593A
+[12:37:15.223]   P3b  OK at RVA 437EE5
+[12:37:15.233]   P3c  OK at RVA 438473
+[12:37:15.244]   P3d  OK at RVA 55DC56
+[12:37:15.255]   P3e  OK at RVA 5AF6C9
+[12:37:15.266]   P3f  OK at RVA 29770C6
+[12:37:15.275]   P3g  OK at RVA 29771B4
+[12:37:15.284]   P6   OK at RVA 1975BAA
+[12:37:15.301]   P8a  OK at RVA 20E77B
+[12:37:15.314]   P8b  OK at RVA 5AF526
+[12:37:15.332]   P8c  OK at RVA 5AF682
+[12:37:15.349]   P8d  OK at RVA 5AF69F
+[12:37:15.361]   P9   OK at RVA 5AD89B
+[12:37:15.374]   P2   OK at RVA 5AD6AA
+[12:37:15.388]   P4   OK at RVA 5AD860
+[12:37:15.403]   P1   OK at RVA 5AD677
+[12:37:15.421]   W3   OK at RVA 1A6BF2D
+[12:37:15.434]   R1   OK at RVA 4A5346
+[12:37:15.448]   R1j  OK at RVA 4A5357
+[12:37:15.473]   L1   OK at RVA 19DF57E
+[12:37:15.491]   F1   OK at RVA 3777A40
+[12:37:15.501]   WK   OK at RVA 40A4C
+[12:37:15.513]   B    OK at RVA 3BC17
+[12:37:15.539]   PP   OK at RVA 252677
+[12:37:15.549]   J1a  OK at RVA 4122D
+[12:37:15.562]   J1b  OK at RVA 41265
+[12:37:15.572]   J1c  OK at RVA 41397
+[12:37:15.582]   J1d  OK at RVA 414B6
+[12:37:15.595]   J1e  OK at RVA 40899
+[12:37:15.608]   J1f  OK at RVA 40481
+[12:37:15.619]   J1g  OK at RVA 3E7F5
+[12:37:15.630]   J1h  OK at RVA 3E821
+[12:37:15.664]   MWR  OK at RVA 3FD5C
+[12:37:15.673]   MWW  OK at RVA 981211
+[12:37:15.699]   W6   OK at RVA 7D9EA2
+[12:37:15.715]   W6W  OK at RVA 1A822D9
+[12:37:15.729]   SPg  OK at RVA 11970A
+[12:37:15.742]   SPu  OK at RVA 62D7E7
+[12:37:15.764]   WS0  OK at RVA 40B0A
+[12:37:15.782]   WS1  OK at RVA 40D2F
+[12:37:15.799]   WS2  OK at RVA 48C6B
+[12:37:15.817]   WS3  OK at RVA 48D06
+[12:37:15.835]   WS4  OK at RVA 48DEC
+[12:37:15.853]   WS5  OK at RVA 48E3C
+[12:37:15.878]   WSs  OK at RVA 1A6BC35
+[12:37:15.900]   GF1  OK at RVA 7D9E66
+[12:37:15.921]   GF2  OK at RVA 117D9F
+[12:37:15.936]   WL   OK at RVA 4A5338
+[12:37:15.950]   CP   OK at RVA D8180
+[12:37:15.966]   DL   OK at RVA D83F4
+[12:37:15.973]   MQ   OK at RVA 88780
+[12:37:15.995]   PT1a OK at RVA 114CA8
+[12:37:16.014]   PT1r OK at RVA 114CEE
+[12:37:16.024]   PT1b OK at RVA 129651
+[12:37:16.034]   PT1c OK at RVA 12982E
+[12:37:16.042]   PT1d OK at RVA 1298B3
+[12:37:16.061]   LKO1 OK at RVA 1A18C9
+[12:37:16.077]   LKO2 OK at RVA 1A1935
+[12:37:16.097]   LKO3 OK at RVA 42877
+[12:37:16.113]   LKM1 OK at RVA 4A545
+[12:37:16.125]   LKM2 OK at RVA 4A55A
+[12:37:16.141]   LKM3 OK at RVA 4A708
+[12:37:16.153]   LKM4 OK at RVA 4A719
+[12:37:16.168]   LKM5 OK at RVA 130096
+[12:37:16.175]   LKM6 OK at RVA 1301B4
+[12:37:16.186]   LKM7 OK at RVA 1301C5
+[12:37:16.200]   LKM8 OK at RVA 1301E4
+[12:37:16.206]   LKM9 OK at RVA 130225
+[12:37:16.224]   LKJ1 OK at RVA 40921
+[12:37:16.238]   LKJ2 OK at RVA 40A14
+[12:37:16.254]   LKJ3 OK at RVA 40CE4
+[12:37:16.268]   LKJ4 OK at RVA 40D75
+[12:37:16.282]   LKJ5 OK at RVA 41325
+[12:37:16.296]   LKJ6 OK at RVA 41447
+[12:37:16.307]   JTc  OK at RVA 40E4E
+[12:37:16.315]   JTw  OK at RVA B616B7
+[12:37:16.326]   JTx  OK at RVA B616F7
+[12:37:16.333]   JTn1 OK at RVA B61674
+[12:37:16.351]   JTn2 OK at RVA B6165C
+[12:37:16.359]   PMw  OK at RVA 13503A3
+[12:37:16.368]   PMs  OK at RVA 2EEBB68
+[12:37:16.376]   RCO1 OK at RVA 39B7CA
+[12:37:16.400]   GIS1 OK at RVA 18745A
+[12:37:16.417]   GIS2 OK at RVA 187464
+[12:37:16.433]   GIS3 OK at RVA 187471
+[12:37:16.447]   GIS4 OK at RVA 18747F
+[12:37:16.466]   EPL1 OK at RVA 233A49
+[12:37:16.497]   EPF1 OK at RVA 4A5B76
+[12:37:16.531]   EPF2 OK at RVA 4A5B7E
+[12:37:16.531] near page at 00007FF759900000
+[12:37:16.573]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[12:37:16.573] W1: applied (1 site(s), 1 attempt(s))
+[12:37:16.618]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[12:37:16.618] W2a: applied (1 site(s), 1 attempt(s))
+[12:37:16.637] PJ: hooked device vtable 00007FFE515324F0: CreateGraphics/ComputePipelineState, CreateRootSignature, CreatePipelineState (stream)
+[12:37:16.664]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[12:37:16.664] W2b: applied (1 site(s), 1 attempt(s))
+[12:37:16.709]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[12:37:16.709] W2c: applied (1 site(s), 1 attempt(s))
+[12:37:16.754]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[12:37:16.754] W2d: applied (1 site(s), 1 attempt(s))
+[12:37:16.754] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[12:37:16.754] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[12:37:16.754] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[12:37:16.800]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[12:37:16.800]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[12:37:16.800]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[12:37:16.800]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[12:37:16.800]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[12:37:16.800]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[12:37:16.800]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[12:37:16.800]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[12:37:16.800]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[12:37:16.800]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[12:37:16.800]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[12:37:16.800]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[12:37:16.800]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[12:37:16.800]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[12:37:16.800]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[12:37:16.800]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[12:37:16.800] VRR: applied (16 site(s), 1 attempt(s))
+[12:37:16.846]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[12:37:16.846] W3: applied (1 site(s), 1 attempt(s))
+[12:37:16.881]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[12:37:16.881]   R1j  RVA 4A5357   patched: 75 ED 
+[12:37:16.881] R1: applied (2 site(s), 1 attempt(s))
+[12:37:16.918]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[12:37:16.918] L1: applied (1 site(s), 1 attempt(s))
+[12:37:16.986]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[12:37:16.986] F1: applied (1 site(s), 1 attempt(s))
+[12:37:17.038]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[12:37:17.038] WK: applied (1 site(s), 1 attempt(s))
+[12:37:17.732] MW install diagnostics: snapshot=0 open=0 owner=0 suspend=200 context=0 rip=0 census=0 census_api=0 census_unknown=0 census_bound=0 original=0 rollback=0 last=SuspendThread tid=1828 error=5 status=00000000 site=none rip=0
+[12:37:17.732] MW: not installed after 200 attempts; no writes retained
+[12:37:17.732] MW: SKIPPED
+[12:37:17.732] MW: skipped, stock retained (paired meshlet completion wait/wake; startup-only; no job work skipped)
+[12:37:17.813]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[12:37:17.813] W6: applied (1 site(s), 1 attempt(s))
+[12:37:17.891]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[12:37:17.891] W6W: applied (1 site(s), 1 attempt(s))
+[12:37:17.891] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[12:37:17.968]   B    RVA 3BC17    patched: E9 C4 44 FB FF 
+[12:37:17.968] B: applied (1 site(s), 1 attempt(s))
+[12:37:18.043]   PP   RVA 252677   patched: E8 74 DA D9 FF 
+[12:37:18.043] PP: applied (1 site(s), 1 attempt(s))
+[12:37:18.113]   J1a  RVA 4122D    patched: 42 8B 04 19 66 90 
+[12:37:18.113]   J1b  RVA 41265    patched: 42 8B 04 19 85 C0 
+[12:37:18.113]   J1c  RVA 41397    patched: 42 8B 04 19 66 90 
+[12:37:18.113]   J1d  RVA 414B6    patched: 42 8B 04 19 85 C0 
+[12:37:18.113]   J1e  RVA 40899    patched: 42 8B 04 01 85 C0 
+[12:37:18.113]   J1f  RVA 40481    patched: 41 8B 87 54 04 00 00 66 90 
+[12:37:18.113]   J1g  RVA 3E7F5    patched: 8B 41 34 0F 1F 00 
+[12:37:18.113]   J1h  RVA 3E821    patched: 8B 43 34 0F 1F 00 
+[12:37:18.113] J1: applied (8 site(s), 1 attempt(s))
+[12:37:18.209]   SPg  RVA 11970A   patched: E8 C1 6B ED FF 
+[12:37:18.209]   SPu  RVA 62D7E7   patched: E8 F4 2A 9C FF 
+[12:37:18.210] SPR: applied (2 site(s), 1 attempt(s))
+[12:37:18.319]   WS0  RVA 40B0A    patched: 90 E8 D0 F6 FA FF 
+[12:37:18.319]   WS1  RVA 40D2F    patched: 90 E8 BB F4 FA FF 
+[12:37:18.319]   WS2  RVA 48C6B    patched: 90 E8 8F 75 FA FF 
+[12:37:18.319]   WS3  RVA 48D06    patched: 90 E8 04 75 FA FF 
+[12:37:18.319]   WS4  RVA 48DEC    patched: 90 E8 2E 74 FA FF 
+[12:37:18.319]   WS5  RVA 48E3C    patched: 90 E8 EE 73 FA FF 
+[12:37:18.319]   WSs  RVA 1A6BC35  patched: 90 E8 05 46 58 FE 
+[12:37:18.319] WS: applied (7 site(s), 1 attempt(s))
+[12:37:18.319] WG: wake gate on the wake-one sites 48C6B / 48D06 installed (switch ON, MaxPending 1, window 2000 us); worker sleep 1A6BC35 wrapped
+[12:37:18.396]   GF1  RVA 7D9E66   patched: E8 05 64 81 FF 0F 1F 00 
+[12:37:18.396]   GF2  RVA 117D9F   patched: E8 DC 84 ED FF 0F 1F 00 
+[12:37:18.396] GF: applied (2 site(s), 1 attempt(s))
+[12:37:18.396] GF: GPU-fence waits use SetEventOnCompletion + an event wait (100 ms rounds) instead of Sleep(0)
+[12:37:18.485]   WL   RVA 4A5338   patched: E8 53 AF B4 FF 90 
+[12:37:18.485] WL: applied (1 site(s), 1 attempt(s))
+[12:37:18.560]   LKO1 RVA 1A18C9   patched: 8B 07 66 90 
+[12:37:18.561]   LKO2 RVA 1A1935   patched: 8B 04 91 66 90 
+[12:37:18.561]   LKO3 RVA 42877    patched: 41 8B 86 CC 09 00 00 66 90 
+[12:37:18.561]   LKM1 RVA 4A545    patched: 8B 04 0A 0F 1F 00 
+[12:37:18.561]   LKM2 RVA 4A55A    patched: 8B 81 B4 00 00 00 0F 1F 00 
+[12:37:18.561]   LKM3 RVA 4A708    patched: 8B 04 0B 0F 1F 00 
+[12:37:18.561]   LKM4 RVA 4A719    patched: 8B 81 B4 00 00 00 0F 1F 00 
+[12:37:18.561]   LKM5 RVA 130096   patched: 8B 04 AE 85 C0 90 
+[12:37:18.561]   LKM6 RVA 1301B4   patched: 41 8B 41 08 66 90 
+[12:37:18.561]   LKM7 RVA 1301C5   patched: 41 8B 41 08 85 C0 
+[12:37:18.561]   LKM8 RVA 1301E4   patched: 41 8B 41 0C 66 90 
+[12:37:18.561]   LKM9 RVA 130225   patched: 43 8B 44 99 10 66 90 
+[12:37:18.561]   LKJ1 RVA 40921    patched: 49 8B 02 66 90 
+[12:37:18.561]   LKJ2 RVA 40A14    patched: 8B 42 30 66 90 
+[12:37:18.561]   LKJ3 RVA 40CE4    patched: 41 8B 40 10 66 90 
+[12:37:18.561]   LKJ4 RVA 40D75    patched: 48 8B 47 30 66 90 
+[12:37:18.561]   LKJ5 RVA 41325    patched: 49 8B 06 66 90 
+[12:37:18.561]   LKJ6 RVA 41447    patched: 49 8B 06 66 90 
+[12:37:18.561] LK: applied (18 site(s), 1 attempt(s))
+[12:37:18.641]   CP   RVA D8180    patched: E9 2B 81 F1 FF 66 90 
+[12:37:18.641]   DL   RVA D83F4    patched: E8 F7 7E F1 FF 
+[12:37:18.641] CP: applied (2 site(s), 1 attempt(s))
+[12:37:18.641] CP/SPF: worker prefetch caves installed: CP ON, SPF -
+[12:37:18.641] DL: dead first part-map lookup (D83F4, CP group) switch ON
+[12:37:18.736]   MQ   RVA 88780    patched: E9 7B 7B F6 FF 0F 1F 44 00 00 
+[12:37:18.736] MQ: applied (1 site(s), 1 attempt(s))
+[12:37:18.736] MQ: MatrixFromScaleQuatTrans SSE cave installed, switch ON
+[12:37:18.829]   RCO1 RVA 39B7CA   patched: E8 11 4D C5 FF 90 
+[12:37:18.829] RCO: applied (1 site(s), 1 attempt(s))
+[12:37:18.829] EXTRA: render-config options installed (XCLD 0, XFOG 0, XSHD 0, XSHF 0, XTER 0, XAO 0, XPOST 0)
+[12:37:18.829] EXTRA: GI gather scale installed (XGI 0 = x1.00)
+[12:37:18.906]   GIS1 RVA 18745A   patched: E8 91 90 E6 FF 
+[12:37:18.906]   GIS2 RVA 187464   patched: E8 87 90 E6 FF 
+[12:37:18.906]   GIS3 RVA 187471   patched: E8 7A 90 E6 FF 
+[12:37:18.906]   GIS4 RVA 18747F   patched: E8 6C 90 E6 FF 
+[12:37:18.906] GIS: applied (4 site(s), 1 attempt(s))
+[12:37:18.906] EXTRA: meshlet LOD scale installed (XLOD 0 = x1.0)
+[12:37:18.988]   EPL1 RVA 233A49   patched: E8 B2 CA DB FF 
+[12:37:18.988] EPL: applied (1 site(s), 1 attempt(s))
+[12:37:18.988] EXTRA: GPU particle share installed (XPRT 0 = x1.00; globals 00007FF75DE76008 / 00007FF75DE76000)
+[12:37:19.068]   EPF1 RVA 4A5B76   patched: E8 95 A9 B4 FF 0F 1F 00 
+[12:37:19.068]   EPF2 RVA 4A5B7E   patched: E8 9D A9 B4 FF 0F 1F 00 
+[12:37:19.068] EPF: applied (2 site(s), 1 attempt(s))
+[12:37:19.145]   PT1a RVA 114CA8   patched: E8 63 B6 ED FF 90 
+[12:37:19.146]   PT1r RVA 114CEE   patched: E8 2D B6 ED FF 90 
+[12:37:19.146]   PT1b RVA 129651   patched: E9 DA 6C EC FF 66 90 
+[12:37:19.146]   PT1c RVA 12982E   patched: E9 0D 6B EC FF 66 90 
+[12:37:19.146]   PT1d RVA 1298B3   patched: E9 98 6A EC FF 0F 1F 44 00 00 
+[12:37:19.146] PT1: applied (5 site(s), 1 attempt(s))
+[12:37:19.146] PT1: pool lock held once per texture in TextureStreamRequestTiles, switch ON
+[12:37:19.146] TG: tick governor available (switch ON, floor 30 ticks/s, ratio 125 %)
+[12:37:19.224]   JTc  RVA 40E4E    patched: E8 9D F5 FA FF 
+[12:37:19.224]   JTw  RVA B616B7   patched: 90 E8 43 ED 48 FF 
+[12:37:19.224]   JTx  RVA B616F7   patched: 90 E8 03 ED 48 FF 
+[12:37:19.224]   JTn1 RVA B61674   patched: E9 97 ED 48 FF 66 90 
+[12:37:19.224]   JTn2 RVA B6165C   patched: E9 BF ED 48 FF 66 90 
+[12:37:19.224] JT: applied (5 site(s), 1 attempt(s))
+[12:37:19.224] JT: job-timing probe on: every JobWorkerPoll job (40E4E) timed with 2 QPC reads (17 ns each), CV waits of KIDSTaskScheduler0 and their wakers recorded; report every 30 s, top 6 (notes/gq-jt-probes.md)
+[12:37:19.304]   PMw  RVA 13503A3  patched: E8 B8 00 CA FE 90 
+[12:37:19.304]   PMs  RVA 2EEBB68  patched: E8 03 49 10 FD 90 
+[12:37:19.304] PM: applied (2 site(s), 1 attempt(s))
+[12:37:19.304] VRR: VRROnline = -1 (auto) - suspended while an online session is detected
+[12:37:19.304] AutoContinue: installed (tip page confirm check 1CECAED), ON: the 'press to continue' page after a load closes as soon as the load is done - [General] AutoContinueLoad = 1; switch in the mod menu
+[12:37:19.314] MENU: game menu signal (5A37D4 / D63C0): bytes verified; pause hint source Both
+[12:37:19.314] MENU: frame generation: live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified
+[12:37:19.314] MENU: enabled - key F10, controller triple-tap Start (window 900 ms, gap 300 ms, swallow 1), scale auto, pause hint on (flags mask 18)
+[12:37:19.318] MEM: MemStats on - one 'stats mem:' line per stats period (process memory, handles, threads, VRAM)
+[12:37:19.320] LoadGates: 9/9 gate call sites hooked
+[12:37:19.320] LoadStats: mode 1, 24/25 sites hooked, 1 differ, 0 skipped - 11970A(bytes)
+[12:37:19.320] EP: ini -1 (auto) on native Windows -> OFF
+[12:37:19.321] SR: ini -1 (auto) on native Windows -> OFF
+[12:37:19.321] LoadOnlyCpuFixes = 0 (off, GF/W6/RWb follow their own keys); user GF 1 W6 1 RWb 0
+[12:37:19.321] [Debug] BossLog: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)
+[12:37:19.321] [Debug] RematchLog: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)
+[12:37:19.323] KeepRunningUnfocused: installed at 3/3 IsAppActive call sites (pad update 436758, pad slot read 436A20, focus-loss pause 89B2FD): pads keep working and the game does not pause while its window is inactive. Mouse / keyboard / cursor keep the stock answer (an unfocused game never reads the user's mouse or moves the cursor)
+[12:37:19.323] KeepRunningUnfocused: power throttling off (EcoQoS + Windows 11 timer-resolution throttling of hidden windows)
+[12:37:19.323] VPad: installed (VirtualPad = 1, exclusive - the real pads are hidden from the game this session): the game's XInputGetState (IAT Nioh3.exe+38E2C50) answers slot 0 from the pipe \\.\pipe\nioh3vpad; idle release after 600 s. Commands: commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | wait <ms> | log <text> | realpads on|off
+[12:37:19.324] BootNotice: installed (boot sequencer 1C35188 sites BN1 1C35393 notice, BN2 1C353A2 graphics warning), ON: the autosave notice and the 'reset settings?' warning are skipped (hands-free boot) - default: on because [Debug] VirtualPad != 0
+[12:37:19.324] VrrPresent = 0 (off: the game's own present arguments)
+[12:37:19.324] PresentModeLog = 1 (one line per present-mode / engine SyncInterval change)
+[12:37:19.325] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00 Offset=0,160 (px at 1080p)
+[12:37:19.326] done: 30 group(s) applied, 1 skipped. Patches live until the game exits (nothing is written to disk).
+[12:37:24.781] PJ: journal C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3EngineFix_pj\pj_win_dgpu_sm68.bin: 15576 PSOs, 1643 shaders, 16 root signatures, 64.0 MB, indexed in 7527 ms
+[12:37:24.782] PJ: boot PSO list: 52 engine creates on 2 thread(s), first +4.50 s, last +4.54 s after process start (device +3.92 s, gate +12.06 s) = 0.05 s wall; create calls 0.03 thread-s (avg 0.59 ms, max 2.7 ms)
+[12:37:24.782] PJ: boot PSO list done: 52 engine creates so far (not journaled); runtime creates are journaled from now on
+[12:37:24.782] PJ: prewarm start: 15576 journaled PSOs (title idle, quiet 3000 ms)
+[12:37:25.407] LoadSeq blocking widget ([45C84A8]+430h != 0) -1->0 @6.1 s (no window)
+[12:37:25.807] LoadSeq [[45B9E40]+58h] -1->0 @6.5 s (no window)
+[12:37:26.273] RCO: engine values in S at the first frame: LPVUpdateFrequency 1, SkylightAmbientUpdateFreq 1.000, VolumetricFogTemporalFactor 0.000, VolumetricCloudReprojectionBlendWeightCurrentFrame 0.000; offset check: VolumetricFogResolutionX (S+13DC) 160, VolumetricFogResolutionZ (S+13E0) 64, SSAORayNum (S+12F4) 7
+[12:37:26.882] OSD: engine is rendering (7562 ms after start) - installing the Present hook
+[12:37:26.883] OSD: system d3d12 C:\WINDOWS\SYSTEM32\d3d12.dll+0, dxgi C:\Program Files (x86)\Steam\steamapps\common\Nioh3\dxgi.dll+0
+[12:37:26.908] OSD: dummy swapchain 000001CDECA46AC0, vtable C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260
+[12:37:26.908] OSD: hooked ExecuteCommandLists: vtable slot 00007FFE515352B0, original C:\WINDOWS\SYSTEM32\D3D12Core.dll+11120
+[12:37:26.908] OSD: hooked Present: vtable slot 00007FFE7B8B6368, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+29090
+[12:37:26.908] OSD: hooked Present1: vtable slot 00007FFE7B8B63D8, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[12:37:26.908] OSD: hooked SetColorSpace1: vtable slot 00007FFE7B8B6458, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[12:37:26.914] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to Nioh3EngineFix.asi+27EE0
+[12:37:26.915] OSD: Present called from thread 27240 ""
+[12:37:26.915] OSD: MaxFrameLatency: swapchain 000001CBD4C6A3A0 (flags 2) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable (setting is 0 anyway)
+[12:37:26.915] OSD: captured DIRECT queue 000001CB81A459D0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260, other thread), device 000001CB817D70A0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0); back buffer device 000001CB817D70A0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0) -> same device, using it
+[12:37:26.915] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[12:37:26.915] OSD: swapchain 000001CBD4C6A3A0: 2560x1440 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000001CB81A459D0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260), device 000001CB817D70A0
+[12:37:26.915] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+38238, original DINPUT8.dll+13060
+[12:37:26.915] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+38100, original DINPUT8.dll+13060
+[12:37:26.915] MENU: own XInput for fallback polling: XINPUT1_4.dll+9A60
+[12:37:26.915] MENU: ready - open with F10 / Esc x3 / Start x3
+[12:37:26.916] OSD: drawing context ready (build #1)
+[12:37:26.916] MENU: controller: the game has not polled its pad for 0.5 s - polling XInput ourselves (the game will also see menu button presses)
+[12:37:26.917] MENU: keyboard: no DirectInput keyboard read for 0.5 s - polling GetAsyncKeyState (the game will also see menu key presses)
+[12:37:26.917] MENU: engine stop flags (G+588..58D) now: none
+[12:37:26.917] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[12:37:26.917] OSD: pipeline created for back buffer format 87
+[12:37:26.917] OSD: first overlay frame drawn (33 quads)
+[12:37:26.917] PresentMode: engine SyncInterval (GfxDevice 000001CC49E200C0 +424C) = 1 (DisplaySettingsWatcher 1350210 (VSync slot ON)); game VSync ON, FG 0
+[12:37:26.917] PresentMode: Nioh3.exe+1A822D2 (thread 27240, game/other) presents SI 1 flags 0x0 on swapchain 000001CBD4C6A3A0; engine SI 1, request 1, VSync ON, FG 0
+[12:37:27.421] TG: idle - nothing to govern (logic ticks: stock limiter)
+[12:37:27.421] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING XeSS (3)
+[12:37:27.421] OSD: FG state: OFF [setting 0, game thread 112.8/s, presenter thread 0.0/s, ratio 1.00, pause reason 0]
+[12:37:27.565] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[12:37:29.363] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[12:37:29.513] JT: watching KIDSTaskScheduler0 (tid 31688): its condition-variable waits, their wakers and every job of the KIDS pools are timed
+[12:37:31.103] PJ: prewarm done in 6.3 s: 15567 created (5279 ms total, max 56.6 ms), 0 already created by the game, 0 refused, 9 with a missing/corrupt blob
+[12:37:39.764] VPad: ping -> ok vpad 1.7.61 mode=exclusive armed=1 unfocused=on
+[12:37:39.906] VPad: ping -> ok vpad 1.7.61 mode=exclusive armed=1 unfocused=on
+[12:37:39.906] VPad: state -> ok frame=1584 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4732 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/960 clients=1
+[12:37:39.956] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[12:37:40.039] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[12:37:40.534] PJ: journal full (64.0 MB, 15576 PSOs) - nothing new is journaled
+[12:37:41.039] VPad: state -> ok frame=1720 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5138 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/1635 clients=1
+[12:37:42.040] VPad: state -> ok frame=1840 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5501 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/2240 clients=1
+[12:37:42.148] BootNotice: skipped the 'This game has an autosave feature' notice (#1)
+[12:37:42.153] BootNotice: boot sequencer state -1 -> 8 (+22.8 s after install)
+[12:37:42.153] BootNotice: save manager state [+10h] = 0 (sequencer state 8 waits for it)
+[12:37:42.207] BootNotice: boot sequencer state 8 -> 9 (+22.9 s after install)
+[12:37:43.040] VPad: state -> ok frame=1933 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5781 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/2705 clients=1
+[12:37:43.070] BootNotice: boot sequencer state 9 -> 15 (+23.8 s after install)
+[12:37:43.070] BootNotice: boot sequencer past the save-data load (state 15) - state log done
+[12:37:44.042] VPad: state -> ok frame=2052 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6138 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/3300 clients=1
+[12:37:44.174] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[12:37:44.182] LoadSeq [[45B9E40]+58h] 0->1564054352 @24.9 s (no window)
+[12:37:45.174] VPad: state -> ok frame=2181 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6526 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/3945 clients=1
+[12:37:46.175] VPad: state -> ok frame=2300 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6883 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/4540 clients=1
+[12:37:47.176] VPad: state -> ok frame=2420 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7244 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/5140 clients=1
+[12:37:48.118] TG: governing
+[12:37:48.176] VPad: state -> ok frame=2539 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7601 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/5735 clients=1
+[12:37:48.313] VPad: press A 120 -> ok press 1000 120 ms (28 pad reads rounds)
+[12:37:48.313] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[12:37:49.314] VPad: state -> ok frame=2653 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=7944 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/6305 clients=1
+[12:37:49.341] stats spr: runtime gfx PSO creates 92 (+92 in 30 s, avg 134 us, max 333 us, >=1 ms: 0) | upload-heap dedicated fallbacks 54 (+54 in 30 s, avg 11 us, max 93 us, >=1 ms: 0)
+[12:37:49.341] stats cpu: MQ ON, calls 11180880 (+11180880 in 30 s) | PT1 ON, textures claimed 10734 (+10734), lock pairs saved 42010 (+42010) | DL ON, lookups skipped 0 (+0)
+[12:37:49.341] stats/s WG: wake-one wakes skipped 25426, counted (worker on its way) 3317, stale window -> woke 3 | pending now 0 (max per pool 0), switch ON
+[12:37:49.341] stats/s TG: switch ON, state governing, logic tick cap 102 (0 = stock), game ticks 99.2/s vs rendered 79.3/s, L1 timer sleeps 86/s
+[12:37:49.341] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:37:49.390] MEM: VRAM source: AMD Radeon RX 9070 (the game's device, by LUID), LUID 00000000:00018EF2, dedicated 16189 MB, shared 15940 MB
+[12:37:49.392] stats mem: private 14701 MB, working set 5574 MB (peak 5580), commit 14701 MB, handles 2733, threads 253, VRAM local used/budget 6104/15417 MB, non-local 186/15172 MB | sys RAM avail 6351 MB, commit 46443/68744 MB
+[12:37:49.392] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17119 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 159 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:37:49.392] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2661, LOD ticks 2661; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:37:49.392] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:37:49.392] stats/s GF: fence waits 240, avg wait 498 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:37:49.392] stats/s: W3 waits 532 (MsgWait), L1 timer sleeps 87, F1 timer sleeps 0, WK wakes kept 9651 / skipped 395
+[12:37:49.392] stats/s exp: W6 waits 0 avg 2147 us (slept 0, spun 0, wakes 0) | PP scans 20 skipped 62 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:37:49.398] JT: window 30.2 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2315 (76.7/s) | CV waits 7927 (3.42/tick), blocked 0.193 ms/tick (1.5 % of the window); blocked per tick p50 0.077 p90 0.553 max 2.873 ms; timed out 0, no waker seen 0 | jobs 10179397 (337344/s, 32.080 ms/tick summed) on 61 threads | dropped: jobs 31210403, waits 0, wakes 0; unbalanced 0
+[12:37:49.398] JT: JTCP observed wait split: matched 7927 unmatched-or-timeout 0 | pre-notify 0.150 ms/tick post-notify 0.043 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:37:49.398] JT: JTCP 1 notifier job 1196230/-: observed pre-notify overlap 0.007 ms/tick across 1364 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: JTCP 2 notifier job 11966F0/-: observed pre-notify overlap 0.004 ms/tick across 805 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: JTCP 3 notifier job 98F2B4/-: observed pre-notify overlap 0.003 ms/tick across 805 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: JTCP 4 notifier job FE79C0/-: observed pre-notify overlap 0.001 ms/tick across 1112 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: JTCP 5 notifier job 1323370/-: observed pre-notify overlap 0.000 ms/tick across 190 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: JTCP 6 notifier job 1026260/-: observed pre-notify overlap 0.000 ms/tick across 195 waits (clipped to wait, not full inclusive job time)
+[12:37:49.398] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:37:49.398] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.068 | 0.25 | 272 / 385 / 2591 | KIDSTS[s3:CharacterUpdate]7 91 %, KIDSTS[s3:CharacterUpdate]4 4 %, KIDSTS[s3:CharacterUpdate]5 2 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 10 us, started before the wait in 0 % (p50 0 us before), else p50 261 us after it began
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 4032E8/- 76 % (p50 272 us); 2) 1343D00/- 5 % (p50 29404 us); 3) 429E4/- 4 % (p50 34967 us) | other job threads busy 32 % of the wait (7.2 threads ran jobs), no job running on any other thread 5 % of the wait
+[12:37:49.398] JT:   2 [3D7D14 < 5ACDC7 < 396434] | 0.038 | 0.21 | 176 / 239 / 586 | KIDSTS[s3:CharacterUpdate]7 94 %, KIDSTS[s3:CharacterUpdate]6 6 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 10 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 161 us after it began
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 8437C/- 90 % (p50 219 us); 2) 9811F8/- 5 % (p50 570 us); 3) 892EDC/- 3 % (p50 7676 us) | other job threads busy 43 % of the wait (3.1 threads ran jobs), no job running on any other thread 4 % of the wait
+[12:37:49.398] JT:   3 [3D7D14 < 231BC1 < 231BEA] | 0.021 | 0.64 | 32 / 41 / 162 | [App]UpdateScreenLayoutThread 100 % | [130825F < 5B669F] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 1002570/- 72 % (p50 70 us); 2) 2DFBA0/- 2 % (p50 4977 us); 3) 429E4/- 1 % (p50 3227 us) | other job threads busy 76 % of the wait (3.4 threads ran jobs), no job running on any other thread 22 % of the wait
+[12:37:49.398] JT:   4 [3D7D14 < 5BD391 < 5BC988] | 0.016 | 0.33 | 40 / 62 / 855 | KIDSTaskScheduler5 52 %, KIDSTaskScheduler6 27 %, KIDSTaskScheduler4 21 % | [2F66A2 < 98F2C1 < 40E53] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 98F2B4/- 100 % of the waits, job p50 12 p90 29 us, started before the wait in 1 % (p50 1 us before), else p50 21 us after it began
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 98F2B4/- 49 % (p50 12 us); 2) FE8FB0/- 15 % (p50 13 us); 3) 429E4/- 6 % (p50 32065 us) | other job threads busy 65 % of the wait (3.1 threads ran jobs), no job running on any other thread 33 % of the wait
+[12:37:49.398] JT:   5 [3D7D14 < 252C45 < 252CA0] | 0.014 | 0.66 | 18 / 25 / 579 | [App]PreUpdateMenuThread 100 % | [113917F < 5B669F] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 1002570/- 70 % (p50 70 us); 2) 2DFBA0/- 2 % (p50 4977 us); 3) 429E4/- 2 % (p50 3227 us) | other job threads busy 109 % of the wait (2.0 threads ran jobs), no job running on any other thread 25 % of the wait
+[12:37:49.398] JT:   6 [3D7D14 < 123ADB9 < 5AC978] | 0.013 | 0.59 | 20 / 28 / 480 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:37:49.398] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 21 p90 32 us, started before the wait in 96 % (p50 5 us before), else p50 1 us after it began
+[12:37:49.398] JT:      longest job overlapping the wait: 1) 1196230/- 77 % (p50 20 us); 2) 1002570/- 4 % (p50 100 us); 3) 2DFBA0/- 3 % (p50 4370 us) | other job threads busy 70 % of the wait (2.2 threads ran jobs), no job running on any other thread 29 % of the wait
+[12:37:49.398] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:37:49.398] JT:   1 429E4/- | 10.725 | 311.5 | 0 / 1 / 235173 | 4 | -
+[12:37:49.400] JT:   2 111184/5ACEE8 | 6.763 | 0.9 | 8015 / 8015 / 69614 | 1 | -
+[12:37:49.400] JT:   3 4205BC/- | 2.113 | 14.3 | 54 / 479 / 6144 | 4 | -
+[12:37:49.400] JT:   4 34835D4/- | 1.497 | 0.0 | 3227 / 256526 / 490923 | 8 | -
+[12:37:49.400] JT:   5 1343CB0/- | 1.333 | 1538.5 | 0 / 1 / 516398 | 8 | -
+[12:37:49.400] JT:   6 61FDA8/- | 1.300 | 7.8 | 114 / 385 / 2634 | 7 | -
+[12:37:49.400] JT:   7 1343D00/- | 1.113 | 1565.4 | 0 / 1 / 51917 | 3 | -
+[12:37:49.400] JT:   8 2DFBA0/- | 1.024 | 0.4 | 1684 / 4766 / 36205 | 4 | -
+[12:37:49.400] JT:   9 204584/616760 | 0.661 | 5.5 | 0 / 124 / 5432 | 7 | leaves 2.2/tick, grain 16, leaf range 11.5
+[12:37:49.400] JT:   10 111184/855E40 | 0.649 | 6.3 | 0 / 10 / 12140 | 5 | -
+[12:37:49.400] JT:   11 111EA4/- | 0.517 | 2.6 | 136 / 500 / 12125 | 7 | -
+[12:37:49.400] JT:   12 892EDC/- | 0.494 | 0.2 | 338 / 4564 / 300490 | 4 | -
+[12:37:50.314] VPad: state -> ok frame=2755 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=8250 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/6815 clients=1
+[12:37:51.148] TG: idle - nothing to govern (logic ticks: stock limiter)
+[12:37:51.314] VPad: state -> ok frame=2862 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=8572 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/7350 clients=1
+[12:37:52.315] VPad: state -> ok frame=2982 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=8932 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/7950 clients=1
+[12:37:52.445] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[12:37:53.446] VPad: state -> ok frame=3118 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=9341 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/8630 clients=1
+[12:37:54.446] VPad: state -> ok frame=3238 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=9698 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/9225 clients=1
+[12:37:55.447] VPad: state -> ok frame=3358 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10059 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/9825 clients=1
+[12:37:56.448] VPad: state -> ok frame=3478 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10422 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/10430 clients=1
+[12:37:56.581] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[12:37:57.210] OSD: stats: rendered 119.8 fps, displayed 119.8 fps (x1.00, FG off, 1 chain(s), threads game 119.8/s presenter 0.0/s), game ticks 119.8/s, speed 1.00x, vrr tier 120 cap 120 armed 120, draws 3342, skipped 0
+[12:37:57.581] VPad: state -> ok frame=3614 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10829 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/11105 clients=1
+[12:37:57.969] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[12:37:58.582] VPad: state -> ok frame=3734 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=11191 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/11710 clients=1
+[12:37:59.563] LoadSeq blocking widget ([45C84A8]+430h != 0) 0->1 @40.2 s (no window)
+[12:37:59.582] VPad: state -> ok frame=3844 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=11522 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/12260 clients=1
+[12:38:00.583] VPad: state -> ok frame=3930 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=11777 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/12685 clients=1
+[12:38:00.718] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[12:38:01.718] VPad: state -> ok frame=4066 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12189 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/13370 clients=1
+[12:38:01.766] LoadSeq FT 0->1577481040 @42.4 s (no window) (timer 0.0, popping wait 0.0)
+[12:38:01.766] LoadSeq B 0->1577162400 @42.4 s (no window) (timer 0.0)
+[12:38:01.776] MENU: engine stop flags (G+588..58D) now: 58A
+[12:38:01.777] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[12:38:01.777] LoadSeq #1 owner at set: script/other (FT state 1577481040, B state 1577162400)
+[12:38:02.719] VPad: state -> ok frame=4167 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12489 pad_age_ms=6 key_age_ms=6 held=0000 lx=0 ly=0 unfocused=on/13870 clients=1
+[12:38:03.834] VPad: state -> ok frame=4294 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12874 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/14510 clients=1
+[12:38:04.937] VPad: state -> ok frame=4424 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=13264 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/15160 clients=1
+[12:38:05.983] VPad: state -> ok frame=4545 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=13628 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/15765 clients=1
+[12:38:07.081] VPad: state -> ok frame=4672 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=14006 pad_age_ms=9 key_age_ms=9 held=0000 lx=0 ly=0 unfocused=on/16395 clients=1
+[12:38:10.318] VPad: state -> ok frame=5022 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15061 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/18150 clients=1
+[12:38:11.381] VPad: state -> ok frame=5129 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15380 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/18680 clients=1
+[12:38:12.421] VPad: state -> ok frame=5231 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15689 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/19195 clients=1
+[12:38:13.432] VPad: state -> ok frame=5328 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15981 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/19680 clients=1
+[12:38:14.434] VPad: state -> ok frame=5427 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16278 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/20175 clients=1
+[12:38:15.442] VPad: state -> ok frame=5531 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16588 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/20690 clients=1
+[12:38:15.538] RB: AMD Radeon RX 9070 (the game's device), dedicated 16189 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 186 MB (median of 10) -> UPLOAD heaps in VRAM (Resizable BAR / SAM on, or an APU)
+[12:38:16.464] VPad: state -> ok frame=5629 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16882 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/21180 clients=1
+[12:38:17.531] VPad: state -> ok frame=5731 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=17192 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/21695 clients=1
+[12:38:19.514] VPad: state -> ok frame=5909 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=17727 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/22585 clients=1
+[12:38:19.538] JT: window 30.1 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 3249 (107.8/s) | CV waits 13559 (4.17/tick), blocked 0.692 ms/tick (7.5 % of the window); blocked per tick p50 0.574 p90 1.090 max 32.914 ms; timed out 30, no waker seen 25 | jobs 16871509 (559768/s, 49.596 ms/tick summed) on 70 threads | dropped: jobs 43290905, waits 0, wakes 0; unbalanced 0
+[12:38:19.539] JT: JTCP observed wait split: matched 13529 unmatched-or-timeout 30 | pre-notify 0.602 ms/tick post-notify 0.089 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:38:19.539] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.063 ms/tick across 3010 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.012 ms/tick across 878 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: JTCP 3 notifier job 98F2B4/-: observed pre-notify overlap 0.006 ms/tick across 2914 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: JTCP 4 notifier job FE79C0/-: observed pre-notify overlap 0.002 ms/tick across 4500 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: JTCP 5 notifier job 319E00/-: observed pre-notify overlap 0.001 ms/tick across 2 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: JTCP 6 notifier job FAE380/-: observed pre-notify overlap 0.001 ms/tick across 1 waits (clipped to wait, not full inclusive job time)
+[12:38:19.539] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:38:19.539] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.358 | 0.91 | 338 / 621 / 2961 | KIDSTS[s3:CharacterUpdate]7 100 %, KIDSTS[s3:CharacterUpdate]6 0 %, KIDSTS[s3:CharacterUpdate]5 0 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:38:19.539] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 324 us after it began
+[12:38:19.539] JT:      longest job overlapping the wait: 1) 4032E8/- 44 % (p50 261 us); 2) 2DFBA0/- 12 % (p50 14078 us); 3) 1343D00/- 10 % (p50 14078 us) | other job threads busy 56 % of the wait (8.2 threads ran jobs), no job running on any other thread 19 % of the wait
+[12:38:19.540] JT:   2 [3D7D14 < 123ADEA < 5AC960] | 0.085 | 0.93 | 28 / 184 / 4492 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:38:19.540] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 210 p90 338 us, started before the wait in 100 % (p50 155 us before), else p50 96 us after it began
+[12:38:19.540] JT:      longest job overlapping the wait: 1) 11966F0/- 38 % (p50 184 us); 2) 1343D00/- 11 % (p50 10395 us); 3) 2DFBA0/- 11 % (p50 14078 us) | other job threads busy 111 % of the wait (7.0 threads ran jobs), no job running on any other thread 22 % of the wait
+[12:38:19.540] JT:   3 [3D7D14 < 5ACDC7 < 396434] | 0.075 | 0.44 | 169 / 229 / 1280 | KIDSTS[s3:CharacterUpdate]7 97 %, KIDSTS[s3:CharacterUpdate]6 3 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:38:19.540] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 11 p90 13 us, started before the wait in 0 % (p50 0 us before), else p50 155 us after it began
+[12:38:19.540] JT:      longest job overlapping the wait: 1) 8437C/- 83 % (p50 229 us); 2) 1343CB0/- 4 % (p50 103282 us); 3) 429E4/- 3 % (p50 10855 us) | other job threads busy 45 % of the wait (3.2 threads ran jobs), no job running on any other thread 7 % of the wait
+[12:38:19.540] JT:   4 [3D7D14 < 5BD391 < 5BC988] | 0.040 | 0.90 | 40 / 62 / 1836 | KIDSTaskScheduler5 60 %, KIDSTaskScheduler6 23 %, KIDSTaskScheduler4 17 % | [2F66A2 < 98F2C1 < 40E53] 100 %
+[12:38:19.540] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 98F2B4/- 100 % of the waits, job p50 12 p90 26 us, started before the wait in 2 % (p50 1 us before), else p50 21 us after it began
+[12:38:19.540] JT:      longest job overlapping the wait: 1) FE8FB0/- 30 % (p50 14 us); 2) 98F2B4/- 14 % (p50 13 us); 3) 1343D00/- 13 % (p50 8741 us) | other job threads busy 65 % of the wait (3.8 threads ran jobs), no job running on any other thread 31 % of the wait
+[12:38:19.540] JT:   5 [3D7D14 < 123ADB9 < 5AC978] | 0.030 | 0.27 | 49 / 169 / 2569 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:38:19.540] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 84 p90 109 us, started before the wait in 92 % (p50 38 us before), else p50 73 us after it began
+[12:38:19.540] JT:      longest job overlapping the wait: 1) 2DFBA0/- 15 % (p50 10855 us); 2) 1343D00/- 11 % (p50 11838 us); 3) 1343CB0/- 10 % (p50 103282 us) | other job threads busy 90 % of the wait (6.7 threads ran jobs), no job running on any other thread 30 % of the wait
+[12:38:19.540] JT:   6 [86C33A < 86C216 < 86C093] | 0.028 | 0.31 | 84 / 124 / 574 | [App]InputUpdateWorker 98 %, no waker 2 % | [2F66A2 < 435432 < 1A7B8E1] 98 %
+[12:38:19.540] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 98 % (its last job ended p50 0 us before the wake)
+[12:38:19.540] JT:      longest job overlapping the wait: 1) 1343D00/- 32 % (p50 5918 us); 2) 2DFBA0/- 24 % (p50 16742 us); 3) 429E4/- 3 % (p50 16742 us) | other job threads busy 87 % of the wait (3.0 threads ran jobs), no job running on any other thread 34 % of the wait
+[12:38:19.540] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:38:19.540] JT:   1 111184/5ACEE8 | 5.377 | 0.8 | 6181 / 8015 / 95602 | 1 | -
+[12:38:19.540] JT:   2 1343D00/- | 5.062 | 2748.5 | 0 / 1 / 186191 | 3 | -
+[12:38:19.540] JT:   3 2DFBA0/- | 4.288 | 1.0 | 2185 / 9128 / 194135 | 4 | -
+[12:38:19.540] JT:   4 1343CB0/- | 3.122 | 644.3 | 0 / 1 / 2491811 | 8 | -
+[12:38:19.540] JT:   5 204584/616760 | 3.066 | 119.6 | 0 / 54 / 5294 | 7 | leaves 42.9/tick, grain 16, leaf range 10.4
+[12:38:19.540] JT:   6 429E4/- | 2.985 | 186.6 | 0 / 2 / 118142 | 4 | -
+[12:38:19.540] JT:   7 61FDA8/- | 2.466 | 87.7 | 7 / 56 / 2721 | 7 | -
+[12:38:19.540] JT:   8 7E35E4/- | 2.368 | 3.7 | 192 / 2003 / 5306 | 7 | -
+[12:38:19.540] JT:   9 904ADC/- | 2.228 | 477.9 | 0 / 7 / 91464 | 8 | -
+[12:38:19.540] JT:   10 2D7F20/- | 2.135 | 48.7 | 0 / 169 / 5208 | 10 | -
+[12:38:19.540] JT:   11 319D5C/- | 1.692 | 3.7 | 1 / 1092 / 5439 | 9 | -
+[12:38:19.540] JT:   12 111184/855E40 | 1.575 | 5.8 | 1 / 1479 / 5323 | 7 | -
+[12:38:19.719] stats spr: runtime gfx PSO creates 121 (+29 in 30 s, avg 146 us, max 414 us, >=1 ms: 0) | upload-heap dedicated fallbacks 125 (+71 in 30 s, avg 28 us, max 304 us, >=1 ms: 0)
+[12:38:19.721] stats cpu: MQ ON, calls 40662524 (+29481644 in 30 s) | PT1 ON, textures claimed 86122 (+75388), lock pairs saved 361830 (+319820) | DL ON, lookups skipped 981160 (+981160)
+[12:38:19.721] stats/s WG: wake-one wakes skipped 15857, counted (worker on its way) 10263, stale window -> woke 8 | pending now 1 (max per pool 1), switch ON
+[12:38:19.721] stats/s TG: switch ON, state nothing to govern (rendered near the cap), logic tick cap 0 (0 = stock), game ticks 96.2/s vs rendered 96.2/s, L1 timer sleeps 62/s
+[12:38:19.721] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:38:20.088] stats mem: private 16528 MB, working set 6145 MB (peak 6155), commit 16528 MB, handles 3075, threads 251, VRAM local used/budget 7967/15417 MB, non-local 186/15172 MB | sys RAM avail 5681 MB, commit 47917/68744 MB | since start (1 min): private +1828, ws +571, handles +342, threads -2, VRAM local +1862, non-local +0
+[12:38:20.088] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17156 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 196 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:38:20.088] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 3298, LOD ticks 3298; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:38:20.088] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:38:20.088] stats/s GF: fence waits 726, avg wait 197 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:38:20.088] stats/s: W3 waits 558 (MsgWait), L1 timer sleeps 62, F1 timer sleeps 0, WK wakes kept 27894 / skipped 120
+[12:38:20.088] stats/s exp: W6 waits 13 avg 1006 us (slept 12, spun 0, wakes 12) | PP scans 27 skipped 81 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:38:20.616] VPad: state -> ok frame=6003 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18009 pad_age_ms=6 key_age_ms=6 held=0000 lx=0 ly=0 unfocused=on/23055 clients=1
+[12:38:21.630] VPad: state -> ok frame=6085 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18256 pad_age_ms=1 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/23465 clients=1
+[12:38:22.039] TG: governing
+[12:38:22.040] AutoContinue #1: load done - answered the tip page's 'press to continue' check
+[12:38:22.695] VPad: state -> ok frame=6159 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18478 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/23835 clients=1
+[12:38:23.697] VPad: state -> ok frame=6232 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18698 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/24200 clients=1
+[12:38:23.751] LoadStats #1: 22.0 s | frames 2164 (10.2 ms) | CPU 7.66 cores | stage ready +0.6 s | loaders busy 18.5/8.8 s (first +0.0, last +20.2), in-flight avg A 9.5 B 4.2 of 10 (at cap A 88 % B 21 %), pending avg A 954.7 B 24.8 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[12:38:23.751] LoadStats #1 io: read 1434 MB archive (65975 calls, 2065 MB overlapped, 1941 ms in-call) + 631 MB other (561336 calls, 4074 ms) | inflate 5.59 CPU-s, 81663 chunks, 487 -> 1149 MB, 0 failed, max 4 parallel, 4 threads so far | PSO gfx 0 rt + 0 preload, cmp 8 rt + 0 preload, 0.00 CPU-s, max 28.1 ms | mgr Sleep(1) A idle 639, A no-progress 873, B idle 3869
+[12:38:23.751] LoadGates #1: 1381 evaluations (0 with no failing gate) | last failing eval +20.2 s, first full-pass eval -999.0 s, last eval +20.2 s, window 22.0 s
+[12:38:23.751] LoadGates #1 G1 StagePathInitStep       calls 1381, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[12:38:23.751] LoadGates #1 G2 StageAreaListBusy       calls 1381, failed 423, first-failing in 423 evals (31 %), held 3.99 s (18 % of window) | first fail +5.7 s, last fail +9.7 s, last flip to pass +9.7 s
+[12:38:23.751] LoadGates #1 G3 StageRequestQueueBusy   calls 958, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[12:38:23.751] LoadGates #1 G4 UiLoadPairReady         calls 958, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[12:38:23.751] LoadGates #1 G5 ObjectListAnyNotReady   calls 958, failed 299, first-failing in 299 evals (22 %), held 3.47 s (16 % of window) | first fail +16.5 s, last fail +20.0 s, last flip to pass +20.0 s
+[12:38:23.751] LoadGates #1 G6 CurrentAreaPresent      calls 659, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[12:38:23.751] LoadGates #1 G7 LoadEndBlockerScan      calls 659, failed 1, first-failing in 1 evals (0 %), held 0.01 s (0 % of window) | first fail +20.0 s, last fail +20.0 s, last flip to pass +20.0 s
+[12:38:23.751] LoadGates #1 G8 StageAreasObjectsReady  calls 658, failed 636, first-failing in 636 evals (46 %), held 6.49 s (30 % of window) | first fail +5.7 s, last fail +16.4 s, last flip to pass +16.4 s
+[12:38:23.751] LoadGates #1 G9 LoadCharacterReady      calls 58, failed 58, first-failing in 3 evals (0 %), held 2.08 s (9 % of window) | first fail +15.9 s, last fail +20.2 s, last flip to pass -999.0 s
+[12:38:23.751] LoadGates #1 holder: G8 StageAreasObjectsReady (6.49 s of 22.0 s)
+[12:38:23.751] LoadStats #1 split [set->stage ready] 0.6 s: frames 67 (8.4 ms) | CPU 7.29 cores | read 24 MB (in-call 138 ms) | inflate 0.50 s, 11092 ch, 71->144 MB | PSO 0 (gfx 0+0 pre, cmp 0+0 pre) in 0.00 s
+[12:38:23.751] LoadStats #1 split [stage ready->clear] 21.4 s: frames 2097 (10.2 ms) | CPU 7.67 cores | read 2041 MB (in-call 5878 ms) | inflate 5.09 s, 70571 ch, 416->1004 MB | PSO 8 (gfx 0+0 pre, cmp 8+0 pre) in 0.00 s
+[12:38:23.763] MENU: engine stop flags (G+588..58D) now: none
+[12:38:24.370] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[12:38:26.586] VPad: state -> ok frame=6471 active=0 loading=0 paused=0 player=1 pos=237879.7,11456.7,217099.1 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19416 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/25395 clients=1
+[12:38:27.594] VPad: state -> ok frame=6551 active=0 loading=0 paused=0 player=1 pos=237879.5,11456.9,217098.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19657 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/25795 clients=1
+[12:38:27.640] OSD: stats: rendered 80.7 fps, displayed 80.7 fps (x1.00, FG off, 1 chain(s), threads game 80.7/s presenter 0.0/s), game ticks 82.7/s, speed 1.03x, vrr tier 120 cap 120 armed 85, draws 6260, skipped 0
+[12:38:28.608] VPad: state -> ok frame=6631 active=0 loading=0 paused=0 player=1 pos=237879.8,11456.9,217098.5 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19894 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/26190 clients=1
+[12:38:29.667] VPad: state -> ok frame=6712 active=0 loading=0 paused=0 player=1 pos=237879.3,11456.7,217099.4 field=1 menu_pause=0 fg=0 armed=1 pad_reads=20141 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/26600 clients=1
+[12:38:38.799] TG: idle - nothing to govern (logic ticks: stock limiter)
+[12:38:42.854] TG: governing
+[12:38:49.677] JT: window 30.1 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2496 (82.8/s) | CV waits 16790 (6.73/tick), blocked 1.701 ms/tick (14.1 % of the window); blocked per tick p50 1.546 p90 2.677 max 26.094 ms; timed out 25, no waker seen 16 | jobs 16928383 (561655/s, 116.101 ms/tick summed) on 75 threads | dropped: jobs 56511898, waits 0, wakes 0; unbalanced 0
+[12:38:49.677] JT: JTCP observed wait split: matched 16765 unmatched-or-timeout 25 | pre-notify 1.268 ms/tick post-notify 0.431 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:38:49.677] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.087 ms/tick across 2402 waits (clipped to wait, not full inclusive job time)
+[12:38:49.677] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.083 ms/tick across 981 waits (clipped to wait, not full inclusive job time)
+[12:38:49.677] JT: JTCP 3 notifier job 98F2B4/-: observed pre-notify overlap 0.007 ms/tick across 4589 waits (clipped to wait, not full inclusive job time)
+[12:38:49.679] JT: JTCP 4 notifier job 1196F10/-: observed pre-notify overlap 0.005 ms/tick across 322 waits (clipped to wait, not full inclusive job time)
+[12:38:49.679] JT: JTCP 5 notifier job FAE380/-: observed pre-notify overlap 0.005 ms/tick across 22 waits (clipped to wait, not full inclusive job time)
+[12:38:49.679] JT: JTCP 6 notifier job 1323370/-: observed pre-notify overlap 0.004 ms/tick across 864 waits (clipped to wait, not full inclusive job time)
+[12:38:49.679] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:38:49.679] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.457 | 0.96 | 420 / 739 / 4018 | KIDSTS[s3:CharacterUpdate]7 87 %, KIDSTS[s3:CharacterUpdate]6 4 %, KIDSTS[s3:CharacterUpdate]5 4 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 1 us before), else p50 402 us after it began
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 34 % (p50 8370 us); 2) 1343D00/- 12 % (p50 22673 us); 3) 429E4/- 9 % (p50 43424 us) | other job threads busy 94 % of the wait (10.5 threads ran jobs), no job running on any other thread 18 % of the wait
+[12:38:49.679] JT:   2 [3D7D14 < 123ADEA < 5AC960] | 0.229 | 0.96 | 91 / 649 / 5727 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1140 p90 1837 us, started before the wait in 100 % (p50 1092 us before), else p50 0 us after it began
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 34 % (p50 8370 us); 2) 1343D00/- 11 % (p50 24725 us); 3) 429E4/- 9 % (p50 43424 us) | other job threads busy 127 % of the wait (9.7 threads ran jobs), no job running on any other thread 18 % of the wait
+[12:38:49.679] JT:   3 [3D7D14 < 123ADB9 < 5AC978] | 0.214 | 0.39 | 458 / 1092 / 3584 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 261 p90 500 us, started before the wait in 41 % (p50 176 us before), else p50 479 us after it began
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 33 % (p50 8015 us); 2) 1343D00/- 10 % (p50 26963 us); 3) 319E00/- 9 % (p50 1416 us) | other job threads busy 102 % of the wait (10.0 threads ran jobs), no job running on any other thread 21 % of the wait
+[12:38:49.679] JT:   4 [3D7D14 < 5AAEED < 5ACA61] | 0.158 | 0.72 | 148 / 369 / 24318 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 18 % (p50 9954 us); 2) 1343D00/- 14 % (p50 18257 us); 3) 1197C30/- 11 % (p50 155 us) | other job threads busy 80 % of the wait (2.5 threads ran jobs), no job running on any other thread 39 % of the wait
+[12:38:49.679] JT:   5 [3D7D14 < 39FDBC < B0862] | 0.152 | 0.34 | 310 / 1001 / 3116 | KIDSTS[s10:StgGdtUpd]2 42 %, KIDSTS[s10:StgGdtUpd]3 26 %, KIDSTS[s10:StgGdtUpd]1 24 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 21 us, started before the wait in 2 % (p50 1 us before), else p50 80 us after it began
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 18 % (p50 9532 us); 2) 1343D00/- 16 % (p50 24725 us); 3) FAE380/- 14 % (p50 1416 us) | other job threads busy 107 % of the wait (9.3 threads ran jobs), no job running on any other thread 23 % of the wait
+[12:38:49.679] JT:   6 [3D7D14 < 955B1A < 39F5A5] | 0.069 | 0.22 | 192 / 678 / 4291 | [App]DiscoverFlagThread 100 % | [2F66A2 < 1A791AD < 5B669F] 100 %
+[12:38:49.679] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:38:49.679] JT:      longest job overlapping the wait: 1) 9811F8/- 24 % (p50 9954 us); 2) 1343D00/- 13 % (p50 21712 us); 3) 429E4/- 10 % (p50 45347 us) | other job threads busy 98 % of the wait (4.9 threads ran jobs), no job running on any other thread 28 % of the wait
+[12:38:49.679] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:38:49.679] JT:   1 204584/616760 | 10.135 | 491.5 | 0 / 49 / 23431 | 7 | leaves 173.0/tick, grain 16, leaf range 10.1
+[12:38:49.679] JT:   2 1343CB0/- | 8.751 | 859.1 | 0 / 1 / 1755901 | 8 | -
+[12:38:49.679] JT:   3 1343D00/- | 8.351 | 3340.7 | 0 / 1 / 685918 | 3 | -
+[12:38:49.679] JT:   4 7E35E4/- | 7.740 | 11.4 | 219 / 2281 / 24880 | 7 | -
+[12:38:49.679] JT:   5 429E4/- | 6.255 | 619.4 | 0 / 2 / 596566 | 4 | -
+[12:38:49.679] JT:   6 9811F8/- | 5.809 | 0.7 | 7350 / 11838 / 52493 | 2 | -
+[12:38:49.679] JT:   7 111184/5ACEE8 | 5.705 | 0.8 | 7038 / 9128 / 32493 | 1 | -
+[12:38:49.679] JT:   8 111EA4/- | 5.389 | 66.3 | 5 / 261 / 7831 | 7 | -
+[12:38:49.679] JT:   9 319D5C/- | 4.638 | 4.0 | 1140 / 1299 / 7228 | 9 | -
+[12:38:49.679] JT:   10 2DFBA0/- | 4.464 | 0.6 | 4007 / 15352 / 113117 | 4 | -
+[12:38:49.679] JT:   11 FADEA0/- | 4.393 | 11.3 | 100 / 1191 / 6669 | 8 | -
+[12:38:49.679] JT:   12 111184/855E40 | 3.742 | 5.6 | 1 / 2959 / 25582 | 7 | -
+[12:38:50.272] stats spr: runtime gfx PSO creates 140 (+19 in 30 s, avg 168 us, max 414 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+3 in 30 s, avg 17 us, max 304 us, >=1 ms: 0)
+[12:38:50.272] stats cpu: MQ ON, calls 100087392 (+59424868 in 30 s) | PT1 ON, textures claimed 145877 (+59755), lock pairs saved 480883 (+119053) | DL ON, lookups skipped 2607932 (+1626772)
+[12:38:50.272] stats/s WG: wake-one wakes skipped 10793, counted (worker on its way) 8173, stale window -> woke 32 | pending now 1 (max per pool 1), switch ON
+[12:38:50.272] stats/s TG: switch ON, state governing, logic tick cap 104 (0 = stock), game ticks 81.0/s vs rendered 81.0/s, L1 timer sleeps 0/s
+[12:38:50.272] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:38:50.388] stats mem: private 17627 MB, working set 6376 MB (peak 6392), commit 17627 MB, handles 2809, threads 254, VRAM local used/budget 9143/15417 MB, non-local 186/15172 MB | sys RAM avail 5501 MB, commit 49099/68744 MB | since start (1 min): private +2926, ws +802, handles +76, threads +1, VRAM local +3039, non-local +0
+[12:38:50.388] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17175 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 215 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:38:50.388] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2506, LOD ticks 2506; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:38:50.388] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:38:50.388] stats/s GF: fence waits 326, avg wait 287 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:38:50.388] stats/s: W3 waits 508 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 37733 / skipped 68
+[12:38:50.388] stats/s exp: W6 waits 48 avg 1107 us (slept 47, spun 1, wakes 47) | PP scans 19 skipped 58 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:38:58.061] OSD: stats: rendered 73.9 fps, displayed 73.9 fps (x1.00, FG off, 1 chain(s), threads game 73.9/s presenter 0.0/s), game ticks 73.9/s, speed 0.99x, vrr tier 120 cap 120 armed 63, draws 8654, skipped 0
+[12:39:19.700] JT: window 30.0 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2373 (79.0/s) | CV waits 16551 (6.97/tick), blocked 1.910 ms/tick (15.1 % of the window); blocked per tick p50 1.817 p90 2.876 max 7.650 ms; timed out 15, no waker seen 11 | jobs 8530695 (284139/s, 121.417 ms/tick summed) on 70 threads | dropped: jobs 56700530, waits 0, wakes 0; unbalanced 0
+[12:39:19.700] JT: JTCP observed wait split: matched 16536 unmatched-or-timeout 15 | pre-notify 1.245 ms/tick post-notify 0.664 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:39:19.700] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.090 ms/tick across 2289 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.070 ms/tick across 658 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.040 ms/tick across 648 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: JTCP 4 notifier job 98F2B4/-: observed pre-notify overlap 0.006 ms/tick across 4140 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: JTCP 5 notifier job FAE380/-: observed pre-notify overlap 0.006 ms/tick across 23 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: JTCP 6 notifier job 1323370/-: observed pre-notify overlap 0.005 ms/tick across 2182 waits (clipped to wait, not full inclusive job time)
+[12:39:19.700] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:39:19.700] JT:   1 [3D7D14 < 39FDBC < B0862] | 0.464 | 0.92 | 369 / 1045 / 3100 | KIDSTS[s10:StgGdtUpd]2 39 %, KIDSTS[s10:StgGdtUpd]1 27 %, KIDSTS[s10:StgGdtUpd]3 24 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:39:19.700] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 13 us, started before the wait in 0 % (p50 1 us before), else p50 142 us after it began
+[12:39:19.700] JT:      longest job overlapping the wait: 1) FAE380/- 52 % (p50 1416 us); 2) 9811F8/- 37 % (p50 7350 us); 3) 1197C30/- 4 % (p50 11336 us) | other job threads busy 106 % of the wait (10.8 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:19.700] JT:   2 [3D7D14 < 90CAB3 < 39EE50] | 0.463 | 0.98 | 420 / 739 / 3006 | KIDSTS[s3:CharacterUpdate]7 83 %, KIDSTS[s3:CharacterUpdate]6 6 %, KIDSTS[s3:CharacterUpdate]5 6 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:39:19.700] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 1 us before), else p50 402 us after it began
+[12:39:19.701] JT:      longest job overlapping the wait: 1) 9811F8/- 63 % (p50 6740 us); 2) FAE200/- 17 % (p50 420 us); 3) 4032E8/- 10 % (p50 439 us) | other job threads busy 110 % of the wait (10.9 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:39:19.701] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.321 | 0.96 | 136 / 959 / 6409 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:39:19.701] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1837 us, started before the wait in 100 % (p50 1092 us before), else p50 0 us after it began
+[12:39:19.701] JT:      longest job overlapping the wait: 1) 9811F8/- 57 % (p50 8015 us); 2) 1002570/- 25 % (p50 2713 us); 3) 319E00/- 8 % (p50 1613 us) | other job threads busy 125 % of the wait (10.4 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:19.701] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.146 | 0.28 | 402 / 1092 / 2729 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:39:19.701] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 284 p90 649 us, started before the wait in 49 % (p50 192 us before), else p50 420 us after it began
+[12:39:19.701] JT:      longest job overlapping the wait: 1) 9811F8/- 56 % (p50 7676 us); 2) 1002570/- 27 % (p50 2488 us); 3) 319E00/- 6 % (p50 1544 us) | other job threads busy 122 % of the wait (11.6 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:39:19.701] JT:   5 [3D7D14 < 5AAEED < 5ACA61] | 0.108 | 0.59 | 109 / 500 / 1054 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:39:19.701] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:39:19.701] JT:      longest job overlapping the wait: 1) 9811F8/- 34 % (p50 8370 us); 2) 1197C30/- 24 % (p50 155 us); 3) FADD70/- 9 % (p50 15 us) | other job threads busy 62 % of the wait (1.4 threads ran jobs), no job running on any other thread 46 % of the wait
+[12:39:19.701] JT:   6 [3D7D14 < 233C04 < 233B6E] | 0.093 | 0.27 | 229 / 739 / 4604 | KIDSTS[s2:StageUpdate]7 99 %, KIDSTS[s2:StageUpdate]3 1 % | [11970DE < 40E53 < 3FF5E] 100 %
+[12:39:19.701] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196F10/- 100 % of the waits, job p50 169 p90 369 us, started before the wait in 46 % (p50 77 us before), else p50 169 us after it began
+[12:39:19.701] JT:      longest job overlapping the wait: 1) 9811F8/- 57 % (p50 8370 us); 2) 1002570/- 24 % (p50 2488 us); 3) 319E00/- 9 % (p50 1613 us) | other job threads busy 81 % of the wait (10.1 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:39:19.701] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:39:19.701] JT:   1 204584/616760 | 13.766 | 618.8 | 0 / 56 / 9365 | 7 | leaves 220.2/tick, grain 16, leaf range 12.4
+[12:39:19.701] JT:   2 7E35E4/- | 10.998 | 17.9 | 176 / 2092 / 9373 | 7 | -
+[12:39:19.701] JT:   3 111184/5ACEE8 | 7.324 | 1.0 | 7038 / 9128 / 16594 | 1 | -
+[12:39:19.701] JT:   4 111EA4/- | 7.059 | 117.2 | 4 / 142 / 10257 | 7 | -
+[12:39:19.701] JT:   5 9811F8/- | 6.945 | 1.0 | 6740 / 10855 / 23516 | 3 | -
+[12:39:19.701] JT:   6 319D5C/- | 6.437 | 5.0 | 1243 / 1416 / 7994 | 9 | -
+[12:39:19.701] JT:   7 FADEA0/- | 6.313 | 16.9 | 176 / 1045 / 6370 | 8 | -
+[12:39:19.701] JT:   8 111184/855E40 | 5.128 | 7.0 | 1 / 3090 / 10386 | 6 | -
+[12:39:19.701] JT:   9 1196290/- | 4.940 | 101.6 | 8 / 176 / 1916 | 8 | -
+[12:39:19.701] JT:   10 1195F80/- | 3.872 | 17.9 | 219 / 385 / 6936 | 8 | -
+[12:39:19.701] JT:   11 10E2200/- | 3.835 | 18.1 | 219 / 385 / 5481 | 8 | -
+[12:39:19.701] JT:   12 16EF8C/- | 3.441 | 2.5 | 1092 / 3090 / 9288 | 7 | -
+[12:39:20.586] stats spr: runtime gfx PSO creates 144 (+4 in 30 s, avg 287 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:39:20.587] stats cpu: MQ ON, calls 166573944 (+66486552 in 30 s) | PT1 ON, textures claimed 201395 (+55518), lock pairs saved 669476 (+188593) | DL ON, lookups skipped 4499122 (+1891190)
+[12:39:20.587] stats/s WG: wake-one wakes skipped 6111, counted (worker on its way) 8931, stale window -> woke 7 | pending now 1 (max per pool 1), switch ON
+[12:39:20.587] stats/s TG: switch ON, state governing, logic tick cap 106 (0 = stock), game ticks 82.8/s vs rendered 82.8/s, L1 timer sleeps 0/s
+[12:39:20.587] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:39:20.763] stats mem: private 17755 MB, working set 6385 MB (peak 6400), commit 17755 MB, handles 2811, threads 255, VRAM local used/budget 9273/15417 MB, non-local 186/15172 MB | sys RAM avail 5263 MB, commit 49506/68744 MB | since start (2 min): private +3054, ws +811, handles +78, threads +2, VRAM local +3169, non-local +0
+[12:39:20.763] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:39:20.763] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2403, LOD ticks 2403; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:39:20.763] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:39:20.763] stats/s GF: fence waits 187, avg wait 167 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:39:20.763] stats/s: W3 waits 519 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 39223 / skipped 51
+[12:39:20.763] stats/s exp: W6 waits 46 avg 732 us (slept 41, spun 5, wakes 41) | PP scans 19 skipped 58 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:39:28.476] OSD: stats: rendered 87.3 fps, displayed 87.3 fps (x1.00, FG off, 1 chain(s), threads game 87.3/s presenter 0.0/s), game ticks 87.3/s, speed 1.00x, vrr tier 120 cap 120 armed 87, draws 11029, skipped 0
+[12:39:49.788] JT: window 30.1 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2558 (85.0/s) | CV waits 17210 (6.73/tick), blocked 1.677 ms/tick (14.3 % of the window); blocked per tick p50 1.597 p90 2.581 max 4.885 ms; timed out 25, no waker seen 20 | jobs 7921714 (263287/s, 115.735 ms/tick summed) on 63 threads | dropped: jobs 56813116, waits 0, wakes 0; unbalanced 0
+[12:39:49.789] JT: JTCP observed wait split: matched 17185 unmatched-or-timeout 25 | pre-notify 1.086 ms/tick post-notify 0.590 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:39:49.789] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.087 ms/tick across 2493 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.060 ms/tick across 641 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.016 ms/tick across 496 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: JTCP 4 notifier job 98F2B4/-: observed pre-notify overlap 0.005 ms/tick across 4505 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: JTCP 5 notifier job 1323370/-: observed pre-notify overlap 0.004 ms/tick across 2388 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: JTCP 6 notifier job FE79C0/-: observed pre-notify overlap 0.002 ms/tick across 3264 waits (clipped to wait, not full inclusive job time)
+[12:39:49.789] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:39:49.789] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.443 | 0.99 | 402 / 708 / 2292 | KIDSTS[s3:CharacterUpdate]7 84 %, KIDSTS[s3:CharacterUpdate]5 6 %, KIDSTS[s3:CharacterUpdate]6 5 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:39:49.789] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 385 us after it began
+[12:39:49.789] JT:      longest job overlapping the wait: 1) 9811F8/- 80 % (p50 5667 us); 2) FAE200/- 9 % (p50 385 us); 3) 4032E8/- 5 % (p50 402 us) | other job threads busy 184 % of the wait (10.7 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:49.789] JT:   2 [3D7D14 < 39FDBC < B0862] | 0.425 | 0.93 | 324 / 959 / 2870 | KIDSTS[s10:StgGdtUpd]2 31 %, KIDSTS[s10:StgGdtUpd]3 27 %, KIDSTS[s10:StgGdtUpd]1 27 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:39:49.789] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 12 us, started before the wait in 0 % (p50 100 us before), else p50 109 us after it began
+[12:39:49.789] JT:      longest job overlapping the wait: 1) FAE380/- 65 % (p50 1299 us); 2) 9811F8/- 29 % (p50 5918 us); 3) 429E4/- 1 % (p50 56315 us) | other job threads busy 96 % of the wait (11.1 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:49.789] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.301 | 0.97 | 136 / 842 / 3013 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:39:49.789] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1837 us, started before the wait in 100 % (p50 1140 us before), else p50 0 us after it began
+[12:39:49.790] JT:      longest job overlapping the wait: 1) 9811F8/- 68 % (p50 6454 us); 2) 1002570/- 15 % (p50 2281 us); 3) 319E00/- 10 % (p50 1684 us) | other job threads busy 131 % of the wait (10.1 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:49.790] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.122 | 0.25 | 338 / 1045 / 1972 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:39:49.790] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 297 p90 545 us, started before the wait in 53 % (p50 184 us before), else p50 420 us after it began
+[12:39:49.790] JT:      longest job overlapping the wait: 1) 9811F8/- 71 % (p50 6454 us); 2) 1002570/- 15 % (p50 2281 us); 3) 319E00/- 9 % (p50 1613 us) | other job threads busy 134 % of the wait (10.9 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:39:49.790] JT:   5 [3D7D14 < 5AAEED < 5ACA61] | 0.096 | 0.74 | 91 / 250 / 1279 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:39:49.790] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:39:49.790] JT:      longest job overlapping the wait: 1) 1197C30/- 30 % (p50 136 us); 2) 9811F8/- 15 % (p50 8370 us); 3) FADD70/- 6 % (p50 17 us) | other job threads busy 72 % of the wait (1.0 threads ran jobs), no job running on any other thread 61 % of the wait
+[12:39:49.790] JT:   6 [48741 < 5B91E7 < 5BF4DB] | 0.061 | 0.77 | 67 / 114 / 731 | KIDSTaskScheduler2 42 %, KIDSTaskScheduler3 37 %, KIDSTaskScheduler4 8 %, no waker 1 % | [2F66A2 < 98F2C1 < 40E53] 99 %
+[12:39:49.790] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 98F2B4/- 99 % of the waits, job p50 11 p90 13 us, started before the wait in 0 % (p50 1 us before), else p50 49 us after it began
+[12:39:49.790] JT:      longest job overlapping the wait: 1) 9811F8/- 75 % (p50 5667 us); 2) 4032E8/- 16 % (p50 201 us); 3) FE7AF0/- 3 % (p50 29 us) | other job threads busy 62 % of the wait (6.1 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:39:49.790] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:39:49.790] JT:   1 204584/616760 | 13.126 | 606.5 | 0 / 56 / 5158 | 7 | leaves 216.1/tick, grain 16, leaf range 12.6
+[12:39:49.790] JT:   2 7E35E4/- | 8.663 | 18.0 | 91 / 2092 / 5182 | 7 | -
+[12:39:49.790] JT:   3 111EA4/- | 6.981 | 118.7 | 4 / 136 / 8404 | 7 | -
+[12:39:49.790] JT:   4 111184/5ACEE8 | 6.907 | 1.0 | 6740 / 8370 / 19794 | 1 | -
+[12:39:49.790] JT:   5 319D5C/- | 6.579 | 5.0 | 1299 / 1416 / 8339 | 9 | -
+[12:39:49.790] JT:   6 9811F8/- | 6.195 | 1.0 | 5918 / 9128 / 50785 | 1 | -
+[12:39:49.790] JT:   7 FADEA0/- | 5.253 | 17.0 | 148 / 918 / 6343 | 8 | -
+[12:39:49.790] JT:   8 1196290/- | 5.205 | 101.1 | 8 / 192 / 1516 | 8 | -
+[12:39:49.790] JT:   9 FADF90/- | 4.703 | 16.9 | 284 / 439 / 2466 | 8 | -
+[12:39:49.790] JT:   10 111184/855E40 | 4.656 | 7.0 | 1 / 2833 / 8419 | 6 | -
+[12:39:49.790] JT:   11 61FDA8/- | 3.739 | 335.8 | 6 / 18 / 3019 | 7 | -
+[12:39:49.790] JT:   12 10E2230/- | 3.434 | 17.1 | 155 / 385 / 2302 | 8 | -
+[12:39:50.871] stats spr: runtime gfx PSO creates 144 (+0 in 30 s, avg 0 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:39:50.871] stats cpu: MQ ON, calls 236328605 (+69754661 in 30 s) | PT1 ON, textures claimed 259794 (+58399), lock pairs saved 913094 (+243618) | DL ON, lookups skipped 6522858 (+2023736)
+[12:39:50.871] stats/s WG: wake-one wakes skipped 3579, counted (worker on its way) 5414, stale window -> woke 5 | pending now 1 (max per pool 1), switch ON
+[12:39:50.871] stats/s TG: switch ON, state governing, logic tick cap 109 (0 = stock), game ticks 72.2/s vs rendered 70.3/s, L1 timer sleeps 0/s
+[12:39:50.871] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:39:50.958] VPad: stick L 0 1 60000 -> ok stick L 0 32767 60000 ms (9814 rounds)
+[12:39:51.445] stats mem: private 17767 MB, working set 6396 MB (peak 6402), commit 17767 MB, handles 2827, threads 252, VRAM local used/budget 9273/15417 MB, non-local 186/15172 MB | sys RAM avail 5413 MB, commit 49273/68744 MB | since start (2 min): private +3066, ws +822, handles +94, threads -1, VRAM local +3169, non-local +0
+[12:39:51.445] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:39:51.445] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2589, LOD ticks 2589; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:39:51.445] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:39:51.445] stats/s GF: fence waits 196, avg wait 155 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:39:51.447] stats/s: W3 waits 554 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 42243 / skipped 39
+[12:39:51.447] stats/s exp: W6 waits 36 avg 603 us (slept 30, spun 5, wakes 30) | PP scans 21 skipped 63 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:39:58.874] OSD: stats: rendered 87.6 fps, displayed 87.6 fps (x1.00, FG off, 1 chain(s), threads game 87.6/s presenter 0.0/s), game ticks 87.6/s, speed 1.00x, vrr tier 120 cap 120 armed 92, draws 13528, skipped 0
+[12:40:16.419] VPad: stick L 0 1 3000 -> ok stick L 0 32767 3000 ms (502 rounds)
+[12:40:18.868] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[12:40:19.699] JT: window 29.9 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2507 (83.8/s) | CV waits 17256 (6.88/tick), blocked 1.829 ms/tick (15.3 % of the window); blocked per tick p50 1.745 p90 2.745 max 19.197 ms; timed out 27, no waker seen 23 | jobs 8452651 (282586/s, 119.795 ms/tick summed) on 65 threads | dropped: jobs 56960829, waits 0, wakes 0; unbalanced 0
+[12:40:19.699] JT: JTCP observed wait split: matched 17229 unmatched-or-timeout 27 | pre-notify 1.198 ms/tick post-notify 0.629 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:40:19.699] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.080 ms/tick across 2439 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.065 ms/tick across 620 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.035 ms/tick across 678 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: JTCP 4 notifier job 1323370/-: observed pre-notify overlap 0.006 ms/tick across 2286 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: JTCP 5 notifier job 98F2B4/-: observed pre-notify overlap 0.006 ms/tick across 4391 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: JTCP 6 notifier job FAE380/-: observed pre-notify overlap 0.003 ms/tick across 14 waits (clipped to wait, not full inclusive job time)
+[12:40:19.699] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:40:19.699] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.452 | 0.98 | 420 / 678 / 3447 | KIDSTS[s3:CharacterUpdate]7 83 %, KIDSTS[s3:CharacterUpdate]6 7 %, KIDSTS[s3:CharacterUpdate]5 6 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 402 us after it began
+[12:40:19.699] JT:      longest job overlapping the wait: 1) 9811F8/- 61 % (p50 7038 us); 2) FAE200/- 20 % (p50 458 us); 3) 4032E8/- 6 % (p50 500 us) | other job threads busy 106 % of the wait (11.2 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:40:19.699] JT:   2 [3D7D14 < 39FDBC < B0862] | 0.448 | 0.91 | 324 / 1045 / 2836 | KIDSTS[s10:StgGdtUpd]2 36 %, KIDSTS[s10:StgGdtUpd]3 27 %, KIDSTS[s10:StgGdtUpd]1 24 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 12 us, started before the wait in 0 % (p50 2 us before), else p50 114 us after it began
+[12:40:19.699] JT:      longest job overlapping the wait: 1) FAE380/- 52 % (p50 1416 us); 2) 9811F8/- 35 % (p50 7676 us); 3) 2DFBA0/- 3 % (p50 19910 us) | other job threads busy 100 % of the wait (11.1 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:40:19.699] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.293 | 0.97 | 119 / 918 / 3187 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1759 us, started before the wait in 100 % (p50 1092 us before), else p50 0 us after it began
+[12:40:19.699] JT:      longest job overlapping the wait: 1) 9811F8/- 61 % (p50 7676 us); 2) 1002570/- 14 % (p50 2488 us); 3) 319E00/- 11 % (p50 1759 us) | other job threads busy 123 % of the wait (10.5 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:19.699] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.138 | 0.25 | 420 / 1191 / 2625 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 297 p90 739 us, started before the wait in 52 % (p50 229 us before), else p50 479 us after it began
+[12:40:19.699] JT:      longest job overlapping the wait: 1) 9811F8/- 59 % (p50 7350 us); 2) 1002570/- 15 % (p50 2488 us); 3) 319E00/- 10 % (p50 1684 us) | other job threads busy 116 % of the wait (11.8 threads ran jobs), no job running on any other thread 1 % of the wait
+[12:40:19.699] JT:   5 [3D7D14 < 5AAEED < 5ACA61] | 0.104 | 0.61 | 96 / 479 / 1747 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:40:19.699] JT:      longest job overlapping the wait: 1) 9811F8/- 38 % (p50 8370 us); 2) 1197C30/- 20 % (p50 136 us); 3) FADD70/- 6 % (p50 15 us) | other job threads busy 68 % of the wait (1.6 threads ran jobs), no job running on any other thread 39 % of the wait
+[12:40:19.699] JT:   6 [3D7D14 < 233C04 < 233B6E] | 0.095 | 0.27 | 229 / 842 / 2464 | KIDSTS[s2:StageUpdate]7 100 %, KIDSTS[s2:StageUpdate]3 0 %, KIDSTS[s2:StageUpdate]2 0 % | [11970DE < 40E53 < 3FF5E] 100 %
+[12:40:19.699] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196F10/- 100 % of the waits, job p50 148 p90 284 us, started before the wait in 44 % (p50 70 us before), else p50 176 us after it began
+[12:40:19.699] JT:      longest job overlapping the wait: 1) 9811F8/- 64 % (p50 8015 us); 2) 1002570/- 13 % (p50 2488 us); 3) 319E00/- 9 % (p50 1684 us) | other job threads busy 85 % of the wait (10.4 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:19.699] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:40:19.699] JT:   1 204584/616760 | 13.077 | 595.9 | 0 / 59 / 40938 | 7 | leaves 212.6/tick, grain 16, leaf range 13.4
+[12:40:19.699] JT:   2 7E35E4/- | 9.386 | 17.9 | 169 / 1759 / 41286 | 7 | -
+[12:40:19.699] JT:   3 111184/5ACEE8 | 7.163 | 1.0 | 7038 / 8741 / 24512 | 1 | -
+[12:40:19.699] JT:   4 9811F8/- | 7.102 | 1.0 | 6740 / 10395 / 87601 | 1 | -
+[12:40:19.699] JT:   5 111EA4/- | 7.079 | 118.6 | 4 / 142 / 11190 | 7 | -
+[12:40:19.699] JT:   6 319D5C/- | 6.995 | 5.0 | 1356 / 1544 / 13487 | 9 | -
+[12:40:19.699] JT:   7 FADEA0/- | 5.698 | 17.0 | 136 / 1045 / 7287 | 8 | -
+[12:40:19.699] JT:   8 1196290/- | 4.697 | 101.3 | 7 / 169 / 2306 | 8 | -
+[12:40:19.699] JT:   9 111184/855E40 | 4.518 | 7.0 | 1 / 2713 / 41898 | 7 | -
+[12:40:19.699] JT:   10 10E2200/- | 4.213 | 16.3 | 239 / 420 / 6172 | 8 | -
+[12:40:19.699] JT:   11 1195F80/- | 3.891 | 17.9 | 229 / 402 / 2404 | 8 | -
+[12:40:19.699] JT:   12 2DFBA0/- | 2.569 | 0.5 | 3227 / 10855 / 201414 | 4 | -
+[12:40:21.600] stats spr: runtime gfx PSO creates 144 (+0 in 30 s, avg 0 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:40:21.601] stats cpu: MQ ON, calls 305729902 (+69401297 in 30 s) | PT1 ON, textures claimed 321598 (+61804), lock pairs saved 1161106 (+248012) | DL ON, lookups skipped 8720499 (+2197641)
+[12:40:21.601] stats/s WG: wake-one wakes skipped 3718, counted (worker on its way) 6465, stale window -> woke 8 | pending now 1 (max per pool 1), switch ON
+[12:40:21.601] stats/s TG: switch ON, state governing, logic tick cap 114 (0 = stock), game ticks 63.7/s vs rendered 57.7/s, L1 timer sleeps 1/s
+[12:40:21.601] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:40:21.801] stats mem: private 17874 MB, working set 6387 MB (peak 6402), commit 17874 MB, handles 2843, threads 252, VRAM local used/budget 9393/15417 MB, non-local 186/15172 MB | sys RAM avail 5298 MB, commit 49441/68744 MB | since start (3 min): private +3174, ws +814, handles +110, threads -1, VRAM local +3288, non-local +0
+[12:40:21.802] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:40:21.802] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2537, LOD ticks 2537; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:40:21.802] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:40:21.802] stats/s GF: fence waits 247, avg wait 208 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:40:21.802] stats/s: W3 waits 534 (MsgWait), L1 timer sleeps 1, F1 timer sleeps 0, WK wakes kept 39040 / skipped 46
+[12:40:21.802] stats/s exp: W6 waits 46 avg 719 us (slept 40, spun 5, wakes 40) | PP scans 20 skipped 61 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:40:22.246] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:24.214] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:26.231] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:28.107] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:29.281] OSD: stats: rendered 76.8 fps, displayed 76.8 fps (x1.00, FG off, 1 chain(s), threads game 76.8/s presenter 0.0/s), game ticks 76.8/s, speed 1.00x, vrr tier 120 cap 120 armed 71, draws 15981, skipped 0
+[12:40:29.916] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:31.887] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:34.120] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[12:40:36.344] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[12:40:38.329] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:40.234] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:42.322] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:44.375] VPad: press RB 120 -> ok press 0200 120 ms (20 pad reads rounds)
+[12:40:47.596] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[12:40:49.829] JT: window 30.1 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2375 (78.8/s) | CV waits 16525 (6.96/tick), blocked 1.723 ms/tick (13.6 % of the window); blocked per tick p50 1.657 p90 2.628 max 5.652 ms; timed out 9, no waker seen 8 | jobs 6732747 (223444/s, 127.677 ms/tick summed) on 65 threads | dropped: jobs 56960829, waits 0, wakes 0; unbalanced 0
+[12:40:49.829] JT: JTCP observed wait split: matched 16515 unmatched-or-timeout 10 | pre-notify 1.162 ms/tick post-notify 0.561 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:40:49.829] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.081 ms/tick across 2307 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.068 ms/tick across 690 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.024 ms/tick across 650 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: JTCP 4 notifier job 98F2B4/-: observed pre-notify overlap 0.006 ms/tick across 4290 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: JTCP 5 notifier job 1323370/-: observed pre-notify overlap 0.006 ms/tick across 2150 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: JTCP 6 notifier job FAE380/-: observed pre-notify overlap 0.004 ms/tick across 17 waits (clipped to wait, not full inclusive job time)
+[12:40:49.829] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:40:49.829] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.450 | 0.98 | 420 / 678 / 4306 | KIDSTS[s3:CharacterUpdate]7 80 %, KIDSTS[s3:CharacterUpdate]6 7 %, KIDSTS[s3:CharacterUpdate]5 7 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:40:49.829] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 402 us after it began
+[12:40:49.829] JT:      longest job overlapping the wait: 1) 9811F8/- 77 % (p50 9128 us); 2) FAE200/- 14 % (p50 439 us); 3) 4032E8/- 4 % (p50 479 us) | other job threads busy 109 % of the wait (11.0 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:49.829] JT:   2 [3D7D14 < 39FDBC < B0862] | 0.421 | 0.90 | 261 / 1045 / 2475 | KIDSTS[s10:StgGdtUpd]2 35 %, KIDSTS[s10:StgGdtUpd]3 27 %, KIDSTS[s10:StgGdtUpd]1 26 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:40:49.829] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 13 us, started before the wait in 0 % (p50 0 us before), else p50 109 us after it began
+[12:40:49.829] JT:      longest job overlapping the wait: 1) 9811F8/- 50 % (p50 9532 us); 2) FAE380/- 45 % (p50 1416 us); 3) 1197C30/- 3 % (p50 22673 us) | other job threads busy 104 % of the wait (11.0 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:49.829] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.251 | 0.97 | 88 / 739 / 2895 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:40:49.829] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1759 us, started before the wait in 100 % (p50 1140 us before), else p50 0 us after it began
+[12:40:49.830] JT:      longest job overlapping the wait: 1) 9811F8/- 73 % (p50 9532 us); 2) 1002570/- 13 % (p50 2598 us); 3) 319E00/- 8 % (p50 1684 us) | other job threads busy 133 % of the wait (10.2 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:49.830] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.158 | 0.29 | 439 / 1140 / 3032 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:40:49.830] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 284 p90 545 us, started before the wait in 46 % (p50 261 us before), else p50 458 us after it began
+[12:40:49.830] JT:      longest job overlapping the wait: 1) 9811F8/- 73 % (p50 9532 us); 2) 1002570/- 15 % (p50 2598 us); 3) 319E00/- 7 % (p50 1613 us) | other job threads busy 122 % of the wait (11.3 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:49.830] JT:   5 [3D7D14 < 5AAEED < 5ACA61] | 0.081 | 0.56 | 88 / 324 / 1141 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:40:49.830] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:40:49.831] JT:      longest job overlapping the wait: 1) 9811F8/- 47 % (p50 9532 us); 2) 1197C30/- 15 % (p50 142 us); 3) FADD70/- 3 % (p50 17 us) | other job threads busy 79 % of the wait (1.3 threads ran jobs), no job running on any other thread 33 % of the wait
+[12:40:49.831] JT:   6 [3D7D14 < 233C04 < 233B6E] | 0.076 | 0.27 | 184 / 621 / 1608 | KIDSTS[s2:StageUpdate]7 100 %, KIDSTS[s2:StageUpdate]3 0 % | [11970DE < 40E53 < 3FF5E] 100 %
+[12:40:49.831] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196F10/- 100 % of the waits, job p50 100 p90 136 us, started before the wait in 36 % (p50 59 us before), else p50 155 us after it began
+[12:40:49.831] JT:      longest job overlapping the wait: 1) 9811F8/- 71 % (p50 9954 us); 2) 1002570/- 14 % (p50 2598 us); 3) 319E00/- 8 % (p50 1613 us) | other job threads busy 85 % of the wait (9.4 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:40:49.831] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:40:49.831] JT:   1 204584/616760 | 15.328 | 608.6 | 0 / 56 / 7296 | 7 | leaves 216.9/tick, grain 16, leaf range 13.0
+[12:40:49.831] JT:   2 7E35E4/- | 14.199 | 18.0 | 385 / 2281 / 7303 | 7 | -
+[12:40:49.831] JT:   3 9811F8/- | 8.618 | 1.0 | 9128 / 12362 / 44636 | 3 | -
+[12:40:49.831] JT:   4 111184/5ACEE8 | 6.934 | 1.0 | 6740 / 8370 / 13337 | 1 | -
+[12:40:49.831] JT:   5 319D5C/- | 6.789 | 5.0 | 1299 / 1479 / 7719 | 9 | -
+[12:40:49.831] JT:   6 111EA4/- | 6.748 | 117.1 | 4 / 142 / 5988 | 7 | -
+[12:40:49.831] JT:   7 FADEA0/- | 6.189 | 17.0 | 148 / 1092 / 6014 | 8 | -
+[12:40:49.831] JT:   8 111184/855E40 | 5.822 | 7.0 | 1 / 3675 / 8071 | 7 | -
+[12:40:49.831] JT:   9 1196290/- | 4.934 | 102.5 | 8 / 176 / 1978 | 8 | -
+[12:40:49.831] JT:   10 16EF8C/- | 4.876 | 3.5 | 918 / 3837 / 7225 | 7 | -
+[12:40:49.831] JT:   11 10E2200/- | 4.240 | 18.1 | 239 / 402 / 5814 | 8 | -
+[12:40:49.831] JT:   12 1195F80/- | 3.972 | 18.0 | 229 / 402 / 2242 | 8 | -
+[12:40:50.333] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[12:40:51.904] stats spr: runtime gfx PSO creates 144 (+0 in 30 s, avg 0 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:40:51.904] stats cpu: MQ ON, calls 373027698 (+67297796 in 30 s) | PT1 ON, textures claimed 375105 (+53507), lock pairs saved 1403096 (+241990) | DL ON, lookups skipped 10733753 (+2013254)
+[12:40:51.904] stats/s WG: wake-one wakes skipped 1669, counted (worker on its way) 5169, stale window -> woke 3 | pending now 0 (max per pool 0), switch ON
+[12:40:51.904] stats/s TG: switch ON, state governing, logic tick cap 108 (0 = stock), game ticks 88.3/s vs rendered 82.4/s, L1 timer sleeps 0/s
+[12:40:51.904] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:40:52.065] stats mem: private 17874 MB, working set 6388 MB (peak 6403), commit 17874 MB, handles 2802, threads 252, VRAM local used/budget 9393/15417 MB, non-local 186/15172 MB | sys RAM avail 5295 MB, commit 49424/68744 MB | since start (3 min): private +3174, ws +814, handles +69, threads -1, VRAM local +3288, non-local +0
+[12:40:52.065] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:40:52.065] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2417, LOD ticks 2417; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:40:52.067] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:40:52.067] stats/s GF: fence waits 173, avg wait 155 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:40:52.067] stats/s: W3 waits 532 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 38153 / skipped 46
+[12:40:52.067] stats/s exp: W6 waits 44 avg 635 us (slept 40, spun 3, wakes 40) | PP scans 19 skipped 58 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:40:52.333] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:54.988] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:57.547] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:40:59.649] OSD: stats: rendered 78.1 fps, displayed 78.1 fps (x1.00, FG off, 1 chain(s), threads game 78.1/s presenter 0.0/s), game ticks 83.9/s, speed 1.02x, vrr tier 120 cap 120 armed 84, draws 18317, skipped 0
+[12:41:00.282] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:41:02.479] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[12:41:05.543] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[12:41:08.969] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:41:12.316] VPad: press RB 120 -> ok press 0200 120 ms (22 pad reads rounds)
+[12:41:14.776] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[12:41:19.933] JT: window 30.1 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2462 (81.8/s) | CV waits 17363 (7.05/tick), blocked 1.704 ms/tick (13.9 % of the window); blocked per tick p50 1.644 p90 2.608 max 5.236 ms; timed out 26, no waker seen 21 | jobs 6453407 (214397/s, 119.536 ms/tick summed) on 67 threads | dropped: jobs 56960829, waits 0, wakes 0; unbalanced 0
+[12:41:19.936] JT: JTCP observed wait split: matched 17337 unmatched-or-timeout 26 | pre-notify 1.126 ms/tick post-notify 0.577 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:41:19.936] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.078 ms/tick across 2397 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.063 ms/tick across 614 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.028 ms/tick across 696 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: JTCP 4 notifier job 98F2B4/-: observed pre-notify overlap 0.006 ms/tick across 4728 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: JTCP 5 notifier job 1323370/-: observed pre-notify overlap 0.006 ms/tick across 2260 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: JTCP 6 notifier job FAE380/-: observed pre-notify overlap 0.002 ms/tick across 15 waits (clipped to wait, not full inclusive job time)
+[12:41:19.936] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:41:19.936] JT:   1 [3D7D14 < 39FDBC < B0862] | 0.432 | 0.92 | 297 / 1045 / 2334 | KIDSTS[s10:StgGdtUpd]2 35 %, KIDSTS[s10:StgGdtUpd]3 28 %, KIDSTS[s10:StgGdtUpd]1 27 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 12 us, started before the wait in 0 % (p50 1 us before), else p50 119 us after it began
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 56 % (p50 9532 us); 2) FAE380/- 40 % (p50 1479 us); 3) 1197C30/- 2 % (p50 9128 us) | other job threads busy 105 % of the wait (10.8 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:19.936] JT:   2 [3D7D14 < 90CAB3 < 39EE50] | 0.424 | 0.99 | 385 / 649 / 3038 | KIDSTS[s3:CharacterUpdate]7 84 %, KIDSTS[s3:CharacterUpdate]6 7 %, KIDSTS[s3:CharacterUpdate]5 5 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 8 p90 11 us, started before the wait in 0 % (p50 0 us before), else p50 369 us after it began
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 64 % (p50 9532 us); 2) FAE200/- 25 % (p50 439 us); 3) 4032E8/- 7 % (p50 479 us) | other job threads busy 114 % of the wait (10.8 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:19.936] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.251 | 0.97 | 91 / 806 / 2872 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1684 us, started before the wait in 100 % (p50 1092 us before), else p50 0 us after it began
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 72 % (p50 9128 us); 2) 1002570/- 13 % (p50 2382 us); 3) 319E00/- 10 % (p50 1684 us) | other job threads busy 129 % of the wait (10.1 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:19.936] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.134 | 0.25 | 402 / 1140 / 2459 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 297 p90 708 us, started before the wait in 48 % (p50 297 us before), else p50 402 us after it began
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 73 % (p50 9532 us); 2) 1002570/- 15 % (p50 2488 us); 3) 319E00/- 8 % (p50 1684 us) | other job threads busy 122 % of the wait (11.2 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:19.936] JT:   5 [3D7D14 < 233C04 < 233B6E] | 0.091 | 0.28 | 201 / 772 / 2402 | KIDSTS[s2:StageUpdate]7 100 %, KIDSTS[s2:StageUpdate]3 0 % | [11970DE < 40E53 < 3FF5E] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196F10/- 100 % of the waits, job p50 114 p90 192 us, started before the wait in 42 % (p50 64 us before), else p50 201 us after it began
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 71 % (p50 9532 us); 2) 1002570/- 14 % (p50 2382 us); 3) 319E00/- 10 % (p50 1684 us) | other job threads busy 82 % of the wait (9.7 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:19.936] JT:   6 [3D7D14 < 5AAEED < 5ACA61] | 0.078 | 0.47 | 100 / 458 / 1502 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:41:19.936] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:41:19.936] JT:      longest job overlapping the wait: 1) 9811F8/- 67 % (p50 9128 us); 2) 1197C30/- 11 % (p50 142 us); 3) FADD70/- 4 % (p50 16 us) | other job threads busy 65 % of the wait (1.6 threads ran jobs), no job running on any other thread 25 % of the wait
+[12:41:19.936] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:41:19.936] JT:   1 204584/616760 | 14.928 | 628.3 | 0 / 64 / 13845 | 7 | leaves 223.4/tick, grain 16, leaf range 13.1
+[12:41:19.936] JT:   2 7E35E4/- | 9.961 | 18.0 | 114 / 2281 / 15838 | 7 | -
+[12:41:19.937] JT:   3 9811F8/- | 8.557 | 1.0 | 8741 / 11838 / 51016 | 4 | -
+[12:41:19.937] JT:   4 111EA4/- | 7.008 | 117.5 | 4 / 136 / 16459 | 7 | -
+[12:41:19.937] JT:   5 111184/5ACEE8 | 6.890 | 1.0 | 6740 / 8370 / 13482 | 1 | -
+[12:41:19.937] JT:   6 319D5C/- | 6.853 | 5.0 | 1299 / 1479 / 7917 | 9 | -
+[12:41:19.937] JT:   7 FADEA0/- | 6.225 | 17.0 | 148 / 1092 / 3946 | 8 | -
+[12:41:19.937] JT:   8 111184/855E40 | 5.130 | 7.0 | 1 / 3090 / 16642 | 7 | -
+[12:41:19.937] JT:   9 1196290/- | 4.675 | 102.9 | 7 / 161 / 2171 | 8 | -
+[12:41:19.937] JT:   10 10E2200/- | 4.207 | 18.1 | 229 / 402 / 3185 | 8 | -
+[12:41:19.937] JT:   11 1195F80/- | 3.965 | 18.0 | 229 / 402 / 3023 | 8 | -
+[12:41:19.937] JT:   12 16EF8C/- | 3.094 | 2.0 | 1759 / 3370 / 6531 | 7 | -
+[12:41:22.151] stats spr: runtime gfx PSO creates 144 (+0 in 30 s, avg 0 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:41:22.158] stats cpu: MQ ON, calls 440418895 (+67391197 in 30 s) | PT1 ON, textures claimed 440425 (+65320), lock pairs saved 1631076 (+227980) | DL ON, lookups skipped 12813654 (+2079901)
+[12:41:22.158] stats/s WG: wake-one wakes skipped 1290, counted (worker on its way) 4641, stale window -> woke 3 | pending now 2 (max per pool 1), switch ON
+[12:41:22.158] stats/s TG: switch ON, state governing, logic tick cap 109 (0 = stock), game ticks 78.3/s vs rendered 62.6/s, L1 timer sleeps 0/s
+[12:41:22.158] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:41:22.530] stats mem: private 17904 MB, working set 6389 MB (peak 6405), commit 17904 MB, handles 2986, threads 253, VRAM local used/budget 9393/15417 MB, non-local 186/15172 MB | sys RAM avail 5170 MB, commit 49595/68744 MB | since start (4 min): private +3203, ws +815, handles +253, threads +0, VRAM local +3288, non-local +0
+[12:41:22.530] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:41:22.530] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2480, LOD ticks 2480; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:41:22.530] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:41:22.530] stats/s GF: fence waits 179, avg wait 176 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:41:22.530] stats/s: W3 waits 528 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 38780 / skipped 40
+[12:41:22.530] stats/s exp: W6 waits 59 avg 614 us (slept 52, spun 7, wakes 52) | PP scans 19 skipped 59 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:41:30.022] OSD: stats: rendered 80.9 fps, displayed 80.9 fps (x1.00, FG off, 1 chain(s), threads game 80.9/s presenter 0.0/s), game ticks 84.9/s, speed 0.99x, vrr tier 120 cap 120 armed 87, draws 20714, skipped 0
+[12:41:50.109] JT: window 30.2 s | watched KIDSTaskScheduler0 (tid 31688) | logic ticks 2350 (77.9/s) | CV waits 16109 (6.85/tick), blocked 1.824 ms/tick (14.2 % of the window); blocked per tick p50 1.722 p90 2.836 max 6.602 ms; timed out 20, no waker seen 15 | jobs 6731974 (223058/s, 128.522 ms/tick summed) on 65 threads | dropped: jobs 56960829, waits 0, wakes 0; unbalanced 0
+[12:41:50.109] JT: JTCP observed wait split: matched 16089 unmatched-or-timeout 20 | pre-notify 1.260 ms/tick post-notify 0.563 ms/tick | last notify is correlation, not proven cause; dropped rings invalidate attribution
+[12:41:50.109] JT: JTCP 1 notifier job 11966F0/-: observed pre-notify overlap 0.080 ms/tick across 2295 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: JTCP 2 notifier job 1196230/-: observed pre-notify overlap 0.075 ms/tick across 706 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: JTCP 3 notifier job 1196F10/-: observed pre-notify overlap 0.033 ms/tick across 748 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: JTCP 4 notifier job 1323370/-: observed pre-notify overlap 0.006 ms/tick across 2151 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: JTCP 5 notifier job 98F2B4/-: observed pre-notify overlap 0.005 ms/tick across 3674 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: JTCP 6 notifier job FE79C0/-: observed pre-notify overlap 0.003 ms/tick across 3067 waits (clipped to wait, not full inclusive job time)
+[12:41:50.109] JT: wait sites by blocked time [return RVAs of the first 3 game frames above the STL wait, innermost first] | ms/tick | waits/tick | wait p50 / p90 / max us | released by (thread share) | waker call site (share)
+[12:41:50.109] JT:   1 [3D7D14 < 90CAB3 < 39EE50] | 0.462 | 0.98 | 420 / 708 / 2569 | KIDSTS[s3:CharacterUpdate]7 81 %, KIDSTS[s3:CharacterUpdate]6 8 %, KIDSTS[s3:CharacterUpdate]5 6 % | [FE79E6 < 40E53 < 3FF5E] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) FE79C0/- 100 % of the waits, job p50 9 p90 12 us, started before the wait in 0 % (p50 0 us before), else p50 420 us after it began
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 71 % (p50 9532 us); 2) FAE200/- 15 % (p50 458 us); 3) 4032E8/- 4 % (p50 522 us) | other job threads busy 104 % of the wait (11.1 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:50.109] JT:   2 [3D7D14 < 39FDBC < B0862] | 0.402 | 0.91 | 219 / 1045 / 3915 | KIDSTS[s10:StgGdtUpd]2 36 %, KIDSTS[s10:StgGdtUpd]1 27 %, KIDSTS[s10:StgGdtUpd]3 25 % | [1323396 < 40E53 < 3FF5E] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1323370/- 100 % of the waits, job p50 10 p90 13 us, started before the wait in 0 % (p50 3 us before), else p50 124 us after it began
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 49 % (p50 9954 us); 2) FAE380/- 42 % (p50 1479 us); 3) 1197C30/- 3 % (p50 13481 us) | other job threads busy 101 % of the wait (10.9 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:50.109] JT:   3 [3D7D14 < 123ADEA < 5AC960] | 0.255 | 0.98 | 84 / 806 / 2441 | KIDSTS[s4:UpdStgEdt]7 100 % | [1196725 < 40E53 < 3FF5E] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 11966F0/- 100 % of the waits, job p50 1191 p90 1684 us, started before the wait in 100 % (p50 1092 us before), else p50 0 us after it began
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 73 % (p50 9954 us); 2) 1002570/- 11 % (p50 2488 us); 3) 319E00/- 7 % (p50 1684 us) | other job threads busy 132 % of the wait (10.2 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:50.109] JT:   4 [3D7D14 < 123ADB9 < 5AC978] | 0.188 | 0.30 | 545 / 1191 / 4321 | KIDSTS[s5:UpdSclEdt]7 100 % | [1196270 < 40E53 < 3FF5E] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196230/- 100 % of the waits, job p50 272 p90 545 us, started before the wait in 41 % (p50 250 us before), else p50 522 us after it began
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 73 % (p50 9954 us); 2) 1002570/- 13 % (p50 2382 us); 3) 319E00/- 7 % (p50 1684 us) | other job threads busy 108 % of the wait (11.7 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:50.109] JT:   5 [3D7D14 < 233C04 < 233B6E] | 0.100 | 0.32 | 219 / 739 / 2037 | KIDSTS[s2:StageUpdate]7 100 %, KIDSTS[s2:StageUpdate]3 0 %, KIDSTS[s2:StageUpdate]6 0 % | [11970DE < 40E53 < 3FF5E] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): 1) 1196F10/- 100 % of the waits, job p50 114 p90 192 us, started before the wait in 39 % (p50 64 us before), else p50 161 us after it began
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 70 % (p50 9954 us); 2) 1002570/- 11 % (p50 2382 us); 3) 319E00/- 9 % (p50 1613 us) | other job threads busy 81 % of the wait (10.1 threads ran jobs), no job running on any other thread 0 % of the wait
+[12:41:50.109] JT:   6 [3D7D14 < 5AAEED < 5ACA61] | 0.099 | 0.59 | 104 / 458 / 1502 | [App]MissionThread 100 % | [E5E0CC < 5B669F] 100 %
+[12:41:50.109] JT:      critical job (what the releasing thread was running at the wake, job fn/inner callback): -releaser not in a job 100 % (its last job ended p50 0 us before the wake)
+[12:41:50.109] JT:      longest job overlapping the wait: 1) 9811F8/- 47 % (p50 10395 us); 2) 1197C30/- 14 % (p50 142 us); 3) FADD70/- 7 % (p50 16 us) | other job threads busy 82 % of the wait (1.5 threads ran jobs), no job running on any other thread 34 % of the wait
+[12:41:50.110] JT: jobs by total time (all threads; fn = job function RVA, inner = JobNode callback / ParallelFor body) | ms/tick | jobs/tick | p50 / p90 / max us | threads | split jobs: leaves/tick, grain (most common), mean leaf range
+[12:41:50.110] JT:   1 204584/616760 | 14.711 | 593.3 | 0 / 56 / 34799 | 7 | leaves 211.8/tick, grain 16, leaf range 13.1
+[12:41:50.110] JT:   2 7E35E4/- | 12.582 | 18.0 | 310 / 2092 / 36865 | 7 | -
+[12:41:50.110] JT:   3 9811F8/- | 8.874 | 1.0 | 9128 / 12909 / 42642 | 2 | -
+[12:41:50.110] JT:   4 111EA4/- | 7.572 | 120.4 | 4 / 155 / 30536 | 7 | -
+[12:41:50.110] JT:   5 111184/5ACEE8 | 7.304 | 1.0 | 7038 / 9128 / 15648 | 1 | -
+[12:41:50.110] JT:   6 319D5C/- | 6.913 | 5.0 | 1299 / 1479 / 10013 | 9 | -
+[12:41:50.110] JT:   7 FADEA0/- | 5.938 | 17.0 | 136 / 1092 / 6808 | 8 | -
+[12:41:50.110] JT:   8 111184/855E40 | 5.470 | 7.0 | 1 / 3227 / 37450 | 6 | -
+[12:41:50.110] JT:   9 1196290/- | 4.624 | 101.8 | 7 / 161 / 2233 | 8 | -
+[12:41:50.110] JT:   10 16EF8C/- | 4.455 | 3.8 | 649 / 3370 / 7081 | 7 | -
+[12:41:50.110] JT:   11 10E2200/- | 4.347 | 16.6 | 250 / 439 / 5876 | 8 | -
+[12:41:50.110] JT:   12 1195F80/- | 3.898 | 18.0 | 229 / 402 / 2557 | 8 | -
+[12:41:52.650] stats spr: runtime gfx PSO creates 144 (+0 in 30 s, avg 0 us, max 647 us, >=1 ms: 0) | upload-heap dedicated fallbacks 128 (+0 in 30 s, avg 0 us, max 304 us, >=1 ms: 0)
+[12:41:52.650] stats cpu: MQ ON, calls 507952289 (+67533394 in 30 s) | PT1 ON, textures claimed 490987 (+50562), lock pairs saved 1894407 (+263331) | DL ON, lookups skipped 14821058 (+2007404)
+[12:41:52.650] stats/s WG: wake-one wakes skipped 1892, counted (worker on its way) 4929, stale window -> woke 4 | pending now 1 (max per pool 1), switch ON
+[12:41:52.650] stats/s TG: switch ON, state governing, logic tick cap 105 (0 = stock), game ticks 78.6/s vs rendered 78.6/s, L1 timer sleeps 2/s
+[12:41:52.650] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[12:41:52.792] stats mem: private 17876 MB, working set 6390 MB (peak 6405), commit 17876 MB, handles 2800, threads 251, VRAM local used/budget 9393/15417 MB, non-local 186/15172 MB | sys RAM avail 4952 MB, commit 50094/68744 MB | since start (4 min): private +3175, ws +816, handles +67, threads -2, VRAM local +3288, non-local +0
+[12:41:52.792] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17179 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 219 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 5279 ms (max 56.6)
+[12:41:52.792] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2357, LOD ticks 2357; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[12:41:52.792] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[12:41:52.792] stats/s GF: fence waits 221, avg wait 172 us, fallbacks to Sleep(0) 0 (switch ON)
+[12:41:52.792] stats/s: W3 waits 515 (MsgWait), L1 timer sleeps 2, F1 timer sleeps 0, WK wakes kept 36579 / skipped 39
+[12:41:52.792] stats/s exp: W6 waits 42 avg 820 us (slept 39, spun 3, wakes 39) | PP scans 18 skipped 56 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[12:41:57.562] MENU: engine stop flags (G+588..58D) now: 588
+[12:41:57.693] LoadSeq FT 1577481040->0 @278.4 s (no window) (timer 0.0, popping wait 0.0)
+[12:41:57.693] LoadSeq B 1577162400->0 @278.4 s (no window) (timer 0.0)
+[12:41:57.693] LoadSeq blocking widget ([45C84A8]+430h != 0) 1->0 @278.4 s (no window)
+[12:41:57.785] MENU: engine stop flags (G+588..58D) now: none
+[12:41:57.785] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[12:41:58.254] TG: idle - nothing to govern (logic ticks: stock limiter)
+[12:42:03.414] TG: governing
+[12:42:03.414] OSD: stats: rendered 1.7 fps, displayed 1.7 fps (x1.00, FG off, 1 chain(s), threads game 1.7/s presenter 0.0/s), game ticks 1.7/s, speed 0.02x, vrr tier 120 cap 120 armed 48, draws 22763, skipped 0
+[12:42:03.594] LoadSeq [[45B9E40]+58h] 1564054352->-1 @284.3 s (no window)
+[12:42:04.039] LoadSeq blocking widget ([45C84A8]+430h != 0) 0->-1 @284.7 s (no window)
