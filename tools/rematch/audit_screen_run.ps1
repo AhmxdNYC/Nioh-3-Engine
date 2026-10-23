@@ -59,7 +59,7 @@ if (-not $DryRun -and (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { T "Ni
 . "$tm\vpad.ps1"
 $uo = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"
 $env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = "pc"
-function Lock([string]$a) { Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a nioh3 --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
+function Lock([string]$a) { Push-Location $uo; try { $o = (py -m uo_bridge.gamelock $a nioh3-$Device --ttl 14400 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } } finally { Pop-Location } }
 function Set-IniKey([string]$t, [string]$sec, [string]$key, [string]$val) {
     $nl = "`r`n"
     $m = [regex]::Match($t, "(?ms)^\[$([regex]::Escape($sec))\][^\r\n]*\r?\n(.*?)(?=^\[|\z)")
