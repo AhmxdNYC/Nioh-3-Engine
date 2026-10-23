@@ -66,3 +66,8 @@ s1-pc-0064,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,205297b614aa10a5f909b94b74
 s1-pc-0065,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8,1,85.01,45.66,11.7633,Debug.SkipDebugString,OFF,5100,0,
 s1-pc-0066,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,a39933a05f95371af6866df5a89f480152d5d4fb1278f4ac71123dd60fb5223b,1,88.72,47.4,11.2714,Debug.SkipDebugString,ON,5323,0,
 s1-pc-0067,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8,1,85.34,51.8,11.7178,__baseline__,BASELINE,5121,0,
+s1-pc-0002,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8,1,87.56,47.72,11.4207,Patches.FGC,OFF,5253,0,
+s1-pc-0004,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,2a24c6b15c88555f1d12773efcd87230ec905da79772f9ae57ad89215cf2ead9,1,82.87,51.09,12.0671,Patches.B,ON,4974,0,
+s1-pc-0021,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,d27016c85b07a732c7b90cecc8aaa117e7f462fe43117cf0bdb1618fc443051c,1,86.5,25.26,11.5607,Patches.DL,ON,5190,0,
+s1-pc-0029,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,6d25ef6f0ec22f6c5e4e5cfd8583946d138ce0146ed816c550c29558b68b623a,1,87.4,42.19,11.4416,Patches.CBS,ON,5244,0,
+s1-pc-0031,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8,1,88.3,38.21,11.325,Patches.LPVR,OFF,5298,0,
