@@ -205,7 +205,7 @@ try {
             $fightOffset=Get-AuditLogOffset $trainingLog
             $q = RMP "fight $Row"; T "  fight: $q"
             if ($q -notmatch '^queued') { throw "fight refused: $q" }
-            $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') -or (LastOf $x) -match '^(started.*in place|refused)' } 30 1
+            $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') -or (LastOf $x) -match '(^started.*in place|^fight now: in place|^refused)' } 30 1
             if (-not $end -or (LastOf $end) -match '^refused' -or (F $end 'fnow') -eq 'fail') { throw "fight not entered: $(RMP status)" }
             $swapMode=(F $end 'fnow') -ne 'pass'
             if ($swapMode) {   # no-load swap: the boss is live when Nioh3Training logs boss HP heartbeats
