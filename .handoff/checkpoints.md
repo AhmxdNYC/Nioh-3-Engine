@@ -1,152 +1,4 @@
 
-## 2026-10-22 07:47:59 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-I sent two in-game screenshots to Discord, one in PlayStation style and one in Xbox style. The Xbox lit buttons are hard to see at this transparency.
-
-- **Look:** both pads are grey, white and black, see-through like the mod menu, at half the old size, with no rainbow stripe on the Xbox one. The settings are size 1 and opacity 0.45.
-- **PlayStation shot:** taken holding L1, Square and D-pad Up. Square and D-pad Up are visibly lit.
-- **Xbox shot:** taken with the same buttons held, but the lit buttons were hard to make out, so I can't confirm they show clearly at this opacity. Tell me if you want pressed buttons brighter.
-- **Button style setting:** the game is showing Xbox right now because the helper switched it live without saving. The saved setting is still PlayStation, so the next launch shows PlayStation.
-- **Install:** only the EngineFix file changed (branch `pc/padviz-22952`, commit `454f6d79`). The game was restarted and is running (PID 32736).
-
-Still open:
-- Log the Ki values in game on Kagetoki and Jubei.
-- Confirm all bosses are summonable.
-- Merge the branches into one release.
-- Run the shader-prewarm benchmark on this PC.
-- The pc2 and Ally prewarm tasks had no result when I last checked, and I didn't re-check.
-
-I sent you a short note on your phone and updated `.handoff/next.md`.
-2026-10-22 08:40 | lead pc: PJ bench #105 on pc DONE = DROP (0 frames>33ms all 4 arms; captures/pc/pjbench105/pc_summary.txt, driver captures/pj_bench_105_pc.ps1); pad display (padviz-22952 454f6d79 skins, size1 opacity .45) installed+screenshots sent; fixes-22918 (Hold Ki break/inf HP/meter label) + padbody installed earlier | UNPROVEN: Xbox lit buttons visible at 0.45; merged release of branches (padviz-22952, fixes-22918, negki-23013, tod) not done; PJ on ally (#104/#107 open), pc2 Codex out of usage until Oct 26 11:32 pm | NEXT: (1) log Ki fields in game on Kagetoki 22248/Jubei 22600 + Ki floor depth slider (notes/human-boss-negative-ki-23013.md); (2) confirm all bosses summonable (#22984); (3) merge branches into one release + install; (4) stage options/sliders (#22920/21). Game PID 19184 running. Note: installer Idle check always reads 0 -> force Idle 999 to install; never kill game without marker check.
-2026-10-22 09:00 | pc: merged release branch pc/release-1022 (integ-release-22882 + padviz-22952 + fixes-22918, pushed); EngineFix.asi sha 38CE414A... and Training.asi build clean | UNPROVEN in game (game PID 19184 running, not installed) | NEXT: install release-1022 when game is free, verify, then negki in-game logging + summon-all-bosses | worktree ../nioh3-release-1022
-
-## 2026-10-22 09:19:06 session 186bc813-97d1-4ba7-8522-f64c31b5c475
-The dark see-through pad build is installed and running in your game, and I verified it in game for both styles. I sent two screenshots to Discord and told you on the bridge (#23328).
-
-- **Xbox:** The body is dark and see-through. With X, A, D-pad up and LB held, X and A showed as solid white round buttons. The LB press showed only as a pale sweep shape near the left bumper.
-- **PlayStation:** The DualSense body is darkened. With Square, Cross, D-pad up and R1 held, they lit up solid. Triangle and Circle stayed dim.
-- **Build:** EngineFix sha `38B5777E55F8`, commit `7d373779`, pushed on `pc/padviz-22952`. The pre-install backup is in `captures/pc/play-20261022-pre-dark`.
-- **Release branch:** Merging into it is not done. Another session's Xbox art change (`b18ce279`, white lit buttons) is on it and may conflict. I'd keep mine.
-- **Size:** I left the display size at 1.0 and didn't change it. The screenshots show the pad small, about 190 px wide on a 1280 px capture.
-- **Crash:** The first launch hit a "Fatal error" dialog (0xC0000005) on the title screen; the second launch was fine. I didn't look into the cause.
-- **Style setting:** The game is still on the PlayStation style from my live switch. The saved ini setting is still Xbox. The `ButtonStyle` setting can't be changed through `vpad`, so I switched it through the menu.
-
-I added a note to `.handoff/next.md` and removed the test marker.
-2026-10-22 09:25 pc CHECKPOINT | task: controller (pad) display look (#23125..#23313) | DONE+proven in game: Gamepad-Viewer skins, dark see-through bodies, grey-only, Xbox rainbow removed, pressed layers solid opaque, lit Xbox buttons whole white discs; installed EngineFix sha 38B5777E55F8 (pc/padviz-22952 7d373779 pushed, worktree ../nioh3-padviz); in-game screenshots both styles sent to Discord | UNPROVEN: clip not filmed (user said 'No clip' earlier), size left at 1.0 | NEXT: merge pc/padviz-22952 into release branch (conflict w/ b18ce279 on pc/release-1022, prefer mine); game PID 30944 still running (PlayStation live, ini Xbox); then Kagetoki/Jubei negative-Ki in-game, all-bosses summon, stage picker, sky, sliders (open.md)
-2026-10-22 9:57am pc: #23343 PS5 outline contrast (edge highlights on DualSense body) installed + verified in game; commit on pc/padviz-22952; game PID 28484 running. TODO merge into pc/release-1022.
-
-## 2026-10-22 10:37:08 session f4150bf3-8079-4bb1-81f5-3d9474c026b0
-`pc/release-1022` now includes the pressed-button colour picker (`pc/padcolor`) and the Ki-break work (`pc/negki-impl`). Both merged without conflicts and the branch is pushed. I didn't rebuild or re-run any tests after the merges.
-
-The game is running with the colour-picker build (PID 26308). The picker is set to Cyan, but I still haven't seen it in game or heard back from you on how it looks.
-
-Still open:
-- The Ki-break logging test on Kagetoki and Jubei. The Ki-break build is not installed yet.
-- The check that all bosses can be summoned.
-- Ally prewarm tasks #104 and #107, which are unclaimed.
-
-I added this to `next.md`. I'm not messaging your phone, since nothing new needs you.
-2026-10-22 10:50 pc: padcolor verified in game (ini Cyan -> cyan; live Yellow was unsaved menu pick). Game PID 10324 running. Negki KiLog in-game still TODO (needs boss fight).
-2026-10-22 pc: #23432 human boss (Jubei) Ki-broken (flag 23=1 in KILOG) but no out-of-Ki animation. KiBreakActFix has NO learned good action for Jubei (learned.ini good=0x0, 'bad ids {}'), so the universal fix does nothing there. NEXT: log Jubei action id sequence during a one-hit break (KiBreakLog), find his real stagger action, seed it as good id / fall back to the generic hit-react 0x4E3x family.
-
-## 2026-10-22 12:26:08 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I sent the human a short reply through the bridge (#23466). It says one automatic algorithm will set up every boss, including future DLC bosses. That covers the Ki-break animation, stagger move, hit counts, frame data, arenas and Ki states, with no per-boss lists. It also says another session is already working on this and that I haven't touched the game.
-
-I didn't change any files or run any tests this run.
-2026-10-22 11:50 pc CHECKPOINT | task: make ALL bosses summonable (#22984), Kagetoki first | DONE: release-1022 (padviz+colour picker+negki log/V2/floor+negmeter+fixes+tod) installed in game, neg Ki meter verified on Jubei (Ki -> -55, floor -1000, K+0x60 stays 0) | HALF: Opus agent for pc/allsummon (worktree ../nioh3-allsummon) was launched but session ended mid-call - outcome unknown, check git branch pc/allsummon, game dir Nioh3Training_arenas.tsv, and whether game PID is running | CAUSE: arenas.tsv has only 43 rows; Kagetoki (R9A25) 'unknown boss' in TokChr (training.c ~1368); chara_table id (22248) != Load::Character chr id (Jubei 412493) | NEXT: map ids, add start-rows for all missing bosses, build, install, summon-test Kagetoki + 6 others, then Kagetoki neg-Ki test | files: mod/Nioh3Training/Nioh3Training_arenas.tsv, captures/negki-test/
-2026-10-22 12:58 pc CHECKPOINT | all-boss summon (#22984): allsummon built+installed (Training+Rematch asi+arenas.tsv, 64 roster bosses); Kagetoki (S724394) summoned in game with name+gauge, Jubei still fine | UNPROVEN: other roster bosses; one unexplained 0xC0000005 crash at first attempt (cmd sent right after entering, Kagetoki; did not repeat) | NEXT: merge pc/allsummon into release-1022, test 6 more roster bosses, Kagetoki neg-Ki | files: pc/allsummon commit in ../nioh3-allsummon
-
-## 2026-10-22 13:17:53 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I told the human (#23581) the list I mentioned isn't everything. It has about 10 untried items:
-
-- page pool on Ally
-- KL_Div 4 vs 0
-- RD, M2S and J1 tested one at a time
-- the load-memory sweeper
-- first-load LC/TSY
-- small-copy memcpy
-- the barrier fixes
-- shader scalarization
-
-I also said more may exist that I haven't found yet. The best measured gain so far is about 3 percent on the PC, and most of the rest are small. The list comes from `.handoff/untried-ideas.md`.
-
-I said those benchmarks wait until the automatic boss work is done and the three devices are free. I didn't touch the game or any files.
-2026-10-22 13:40 pc CHECKPOINT | auto stagger fallback (Opus, pc/autostagger 5ff6bdd7) built, unit tests pass, Training asi 45628FBB installed (game closed) | UNPROVEN in game: Jubei reel on Ki break | NEXT: user/pc test Jubei, log 'learned AUTO stagger'; pc2 autobind-rt, ally summon test running
-
-## 2026-10-22 13:58:50 session a7924822-795a-45db-83ca-1242c89313af
-Nothing new has failed. I already told you the one thing I need from you (the Jubei Ki-break check), so I won't repeat it.
-
-- **Workers:** Nobody has reported an error or a block. The status beacons show every agent idle or running normally.
-- **pc:** The game is closed and the lock is free. I didn't launch it, because the Jubei check needs your hands.
-
-I'm ending this run.
-
-## 2026-10-22 14:20:04 session a7924822-795a-45db-83ca-1242c89313af
-Automatic arenas work on the Ally. The mod now builds them from the game's own data files at startup, with no hand-written rows, and it should pick up new DLC archives. 54 of the 64 roster bosses get an arena, field or start position (5 arenas, 20 fields, 29 start positions), up from the 43 hand-made rows. Ten roster bosses have none.
-
-- **Proof:** I'm going by Ally's report; I haven't run this on the PC. With the arena TSV deleted, the mod rebuilt 131 rows itself in 355 ms. Tesso (a field boss in another world) switched world and arena in 11 s, and the auto-added Joro-gumo fought fine.
-- **Gaps:**
-  - Eight bosses (Araki Mataemon, Daidara Bocchi, Demon Slayer, Denrinbo Raikei, Ishikawa Goemon, Shishido Kagetoshi, Taigen Sessai, Takashima Shuhan) have no placement anywhere in the game data, so they stay summon-only.
-  - Two bosses (Raiju and Tsurara-onna) have no boss record.
-  - Newly added bosses show as "Boss <chr>" until the names are regenerated.
-  - The Fight-in-arena menu for roster bosses is still untested.
-- **Branch:** `origin/ally/autoarena` at `0091122`. It isn't merged into the main build yet.
-
-I logged it in `done.md` and sent you the summary on the bridge. I didn't touch the game on pc. Next I merge arenas, pc2's automatic move matching and the Ki-break fix into one build and test it on this PC.
-2026-10-22 14:25 pc: game running PID 1612 (started 2:20 pm, fresh test-active marker, another job's test). Ally pushed ally/autoarena-r1022 55809ee (autoarena on release-1022+autostagger, asi sha 1ef3551a, untested on pc). NEXT: when game closes, build+install it on pc, test Kagetoki/Jubei summon + arena fight + autostagger; pc2 autobind-r1022 pending.
-2026-10-22 pc: merged ally/autoarena (44df6ed) into pc/release-1022, Training.asi b5d2dceb built+installed, game PID 1612: ARENASCAN 131 rows derived (88 added to TSV) in 188 ms on pc. KIAUTO fallback Ki-break (5ff6bdd7) installed, NOT yet tested on Jubei. NEXT: Jubei one-hit break check (KIAUTO lines), pc2 move-match merge.
-2026-10-22 pc: NOTE the release worktree ../nioh3-release-1022 is on branch pc/autostagger (release-1022 + KIAUTO fallback + ally/autoarena), pushed. That is the installed build.
-
-## 2026-10-22 14:43:38 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing on pc2 or ally, so I started nothing new. Another session of mine already installed the merged build on this PC (Ally's automatic arenas plus the Ki-break animation fallback) and has the game running. I left the game alone.
-
-- **Arenas on pc:** At game start the build created 131 arena rows from the game's own files in 0.19 s.
-- **Not tested yet:** The Jubei one-hit Ki-break check on the PC. That test is the next step, and I haven't seen its result.
-- **After that:** pc2's automatic move matching, which pc2 is still merging onto the main build.
-
-I sent no new messages, since you already have the status.
-
-## 2026-10-22 15:14:22 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing on pc2 or ally, and the only fresh message is pc2's.
-
-- **pc2:** It is running the 64-boss sweep with the improved move matching. That's 68 roster rows at about 34 seconds each, roughly 40 minutes in total. It will analyse the log when it finishes.
-- **pc:** The game is still running the merged build, and the training log has no `KIAUTO` lines yet. That means nobody has tested the Jubei Ki-break on this PC.
-
-I didn't touch the game and sent no new messages. The Jubei Ki-break check still needs someone to play the fight.
-
-## 2026-10-22 15:44:50 session a7924822-795a-45db-83ca-1242c89313af
-Nothing has changed since my last update, and nothing is failing on pc2 or ally.
-
-- **Game on pc:** Still running the merged build (PID 1612), with no `KIAUTO` lines in the training log. The Jubei Ki-break test still needs someone to play the fight.
-- **pc2:** Its 64-boss sweep with the improved move matching is still in progress.
-
-I sent no new messages and didn't touch the game.
-
-## 2026-10-22 16:15:10 session a7924822-795a-45db-83ca-1242c89313af
-No new messages since my last check, and nothing is failing on pc2 or ally.
-
-- **pc2:** No result from its 64-boss sweep has reached me yet.
-- **pc:** The training log still has no `KIAUTO` lines, so the Jubei Ki-break check hasn't been done. It needs someone to play the fight. The controller is ready, and the item is in `needs-player.md`.
-
-I sent no messages and didn't touch the game.
-
-## 2026-10-22 16:41:21 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I sent the human a status update (#23763), built from the earlier replies in this thread. I didn't re-check any of it this run.
-
-- **Arenas:** done and installed on the PC. The mod built 131 arena rows from the game's own files in 0.19 s at startup.
-- **Summoning:** all 64 bosses summon on the Ally.
-- **Move matching:** PC2's automatic matching worked for 17 of 23 bosses and is being widened to all 64.
-- **Still open:** the check that Jubei plays his out-of-Ki animation, merging hit counts and frame data, and in-game checks of the other bosses.
-
-I didn't touch the game or change any files.
-
-## 2026-10-22 17:16:16 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing, and the one new message was pc2's status on the matching fix.
-
-- **pc2 (RX 6650 XT):** It tightened the matching rule. A match must now be above 70%, and the runner-up must be at least 15 points lower. Shared generic human files stay unbound. The offline test gives 314 of 363 files matched to themselves and 0 wrong. It is now rerunning the 68-boss sweep in the game, about 45 minutes.
-- **pc:** The game is still running the merged build. I left it alone. The Jubei Ki-break check still waits for someone to play the fight.
-
-After pc2's rerun I'll install one combined build here. I sent no new messages.
-
 ## 2026-10-22 17:46:59 session a7924822-795a-45db-83ca-1242c89313af
 pc2 released its game lock at 5:28 pm EST, so its rerun of the 68-boss sweep has finished. It hasn't sent the result yet, so I have no bound, unbound or wrong counts. Nothing is failing, and I'll wait for that result before installing a combined build here.
 
@@ -325,4 +177,172 @@ Nothing is failing, but pc's 5 audit reruns are still waiting. pc2 took the game
 
 Ally is still running. Its last count was 18 of 65 valid at 4:26 am EST.
 
-2026-10-23 02:00 PDT pc2 | board task #108 settings audit stage 1 on pc2 (pc asked #25045). DONE: 65/67 valid in nioh3-auditrun/captures/audit-screen/results-pc2.csv (0059 retried OK). HALF: s1-pc2-0066 (Memory.LM ON) aborts at launch guard (commit headroom 17.6 < 18 GB); 0067 (final baseline) not run. Wrapper nioh3-auditrun/run-pc2-wrapper.ps1 (pid 25408, 20 chunks) still retrying, pushes to branch pc2/audit-run-24483, holds 'nioh3' lock. NEXT: when wrapper exits/pc says stop: push results, `UO_AGENT_ID=pc2 py -m uo_bridge.gamelock release nioh3`, delete C:/Users/User/AppData/Local/uo-agentd/pc2/test-active, restore user's game files from captures/audit-runs/user-game-202155 (Training/EngineFix/Rematch asi+tsv; approved 1.7.73 payload from captures/approved-1246/payload is installed now), send final RESULT to pc (reply #25045). Files: tools/audit/audit_run.ps1 + pm_metrics.py (my own runner, not used for final data), RESULT sent #25093.
+## 2026-10-23 05:20:24 session ff9738e9-70c2-4819-b0f6-947e35eba710
+pc2's audit is finished: 67 of 67 runs are valid, with the game closed and the lock released. I told the human (#25133).
+
+pc2 says run `s1-pc2-0066` (Memory.LM ON) had already measured fine at 43.11 fps before my message, so it was not marked NOT_MEASURABLE. The baseline run `s1-pc2-0067` came in at 51.82 fps. The results are on the branch `pc2/audit-run-24483`.
+
+I tasked pc2 (#25132) with its next job. It builds and measures two small optimizations, OFF versus ON, on its RX 6650 XT: the memory-copy hot spot probe and shader precompile for boss-fight hitches. That uses the same Yoritomo fight, 60-second PresentMon, 3 repetitions per arm.
+
+pc's 5 reruns should start on the retry loop's next check. The last check I saw, at 5:16 am EST, had not started them. I haven't confirmed that they have started.
+
+Ally is still at about 18 of 65.
+
+## 2026-10-23 05:42:58 session c72f5b92-5e9f-4b93-ac59-4666484b9cc2
+I built the MCP probe `Nioh3EngineFix.asi` from `cx-pc2/mc-probe-25132` (d18e0ab1) and uploaded it to the bridge as file #1527 (sha256 prefix b4be7d2180be). I haven't run it in the game, and I told pc2 and cx-pc2 in #25177; pc2 does the test.
+
+The branch's `build.bat` had two bugs that stopped it linking:
+- `mcprobe.obj` was missing from the link line, which caused the unresolved-symbol errors.
+- A stray `build\mcprobe.obj` sat on the `psomemo` compile line.
+
+I fixed both and pushed the fix to branch `pc/mc-probe-build`. It is not merged into cx-pc2's branch.
+
+To use the probe, set `[Patches] MCP=1`; it defaults to 0.
+
+I didn't launch the game or touch the running audits. I also didn't write a checkpoint or update `.handoff/next.md` this run.
+2026-10-23 06:12 pc | pc audit rows complete (results-pc.csv 73 lines); evaluate stage waits for ally rows | unproven: cx-pc builds not yet installed/verified | NEXT: merge cx-pc/action-record-24680 + cx-pc/pad-style-24886, build, install, verify in game; then settings_audit.py --stage evaluate | branches above
+- 2026-10-23 6:13 AM Eastern cx-pc #25224 | Combined action records + Original-default pad at 1baaca34, cx-pc/merged-pc-install. Three ASIs and five offline suites PASS; artifact hashes in notes/merged-pc-install-25224.md. Next pc: install matching Training/Rematch + TSV and EngineFix, verify live; no game touched.
+
+2026-10-23 06:25 | pc: pc audit reruns done (all 67 rows); pc2 67/67 valid; ally ~20/65 running. Merged build (cx-pc/merged-pc-install 78139235: pad customization w/ Original default + auto hit/damage action records) INSTALLED on pc and run in game: Yoritomo fight OK ~90 fps, pad display original look + cyan pressed OK, ACTIONRECORD 11476 rows loaded. | UNPROVEN: new menu page (preset/colour rows, TransparentWhite preset visually in game), per-hit damage readouts in menu (F10 via keybd_event did not open menu; use pad View+DpadUp 1s). | NEXT: open menu via pad, screenshot new rows + preset; analyse pc/pc2 audit csvs; final 3-arm bench w/ temps/CPU/GPU/latency. Backup of old files: captures/pc/play-20261023-pre-merged. | files: captures/merged_verify.ps1, captures/merged-verify-20261023/
+- 2026-10-23 6:20 AM Eastern cx-pc #25250 | Pre-colour-picker default audit PASS: 393216 exact draws and identical atlases; default White already correct, Cyan optional. Both ASIs rebuilt, 5 suites + catalog pass. Next pc: use Original/White for any saved Cyan config; no game touched. See notes/pad-pressed-default-25250.md.
+2026-10-23 06:30 | pc loose ends: MCP probe ASI built (bridge #1525/#1526, branch pc/mc-probe-build-25148, build.bat link fix) for pc2 to measure; pc2 also doing PJ shader precompile; ally audit ~10:45 am EST, its 2 AS0 OFF runs need manual rerun; user wants final 3-arm bench with temps/CPU/GPU/latency, no second full audit | NEXT: open mod menu via pad (View+DpadUp 1s), screenshot new pad rows + TransparentWhite preset; analyse results-pc.csv + results-pc2.csv; answer pc2/ally RESULTs
+2026-10-23 06:40 | pc: installed cx-pc 25250 EngineFix cb453309 + Rematch 24292782 on pc (game closed); INI pad = Original, opacity 0.8, press colour White (old look). Unverified in game; backups *.pre25250.bak | NEXT: launch, screenshot, menu rows
+- 2026-10-23 6:27 AM Eastern cx-pc #25267 | SF6-style frame-meter drawing implemented on cx-pc/frame-meter-sf6; Training build and frame_meter_test PASS; sampler unchanged. Mock captures/frame-meter-sf6/mock.png. Next pc: review mock, integrate and check live visuals.
+- 2026-10-23 6:33 AM Eastern cx-pc #25280 | Colour key added (10 swatches, responsive wrap), saved Practice/FrameMeterLegend toggle default ON. Training/Rematch build, stats/frame-meter and targeted menu tests PASS. Mock updated; next pc integrate branch cx-pc/frame-meter-sf6 and check live.
+- 2026-10-23 6:35 AM Eastern cx-pc #25288 | All features merged on cx-pc/merged-pc-install (85d61923); 3 ASIs + runtime TSV bundled captures/pc-install-25288. Eight targeted suites + catalog PASS. Hashes notes/merged-pc-install-25288.md. Next pc install 4 bundle files and validate live.
+- 2026-10-23 6:37 AM Eastern cx-pc #25301 | Removed number axis; run lengths now inside each final coloured cell. Training rebuild + meter/stats tests PASS; mock captures/frame-meter-sf6/mock.png. Next pc: replace Training only, other #25299 files stay compatible. Branch cx-pc/merged-pc-install.
+
+- 2026-10-23 6:41 AM EDT cx-pc #25310 | Three real SF6 screenshots downloaded/viewed; cited design notes pushed a4d284bd on cx-pc/sf6-reference-25310 | paired strips and outside summaries proven visually; concurrent drawing owner unresolved | next: integrate drawing in isolation then coordinate merged bundle; no game touched.
+- 2026-10-23 6:41 AM Eastern cx-pc #25323 | v4 973ba295 merged into cx-pc/merged-pc-install; exact renderer/mock, pad + records preserved. Three ASIs rebuilt; 8 targeted suites + catalog PASS. Four-file bundle captures/pc-install-25323; hashes notes/merged-pc-install-25323.md. Next pc approve/install/live check.
+
+- 2026-10-23 6:49 AM Eastern | cx-pc #25350 combined thin+centred bundle verified, pushed review 65ec81e1 on cx-pc/merged-pc-install (bundle build f23bcafb).
+  9 independent suites PASS, all 4 bundle bytes verified, EngineFix/action data retained. Next pc install captures/pc-install-25345 from ../nioh3-merged-pc-install and validate live; notes/merged-pc-install-25350.md.
+
+- 2026-10-23 6:50 AM EDT cx-pc #25310 | Real SF6 reference study plus thin/centred combined source validated;3 ASIs rebuilt,9 targeted suites pass,12960 count cases | full catalog coverage fails existing keys; later25379 visuals remain separately owned | next: integrate documentation-only delta and deliver snapshot hashes | cx-pc/sf6-reference-25310, notes/merged-pc-install-25310.md
+
+- 2026-10-23 6:51 AM EDT cx-pc #25310 COMPLETE | reference-study branch fast-forwarded/pushed onto cx-pc/merged-pc-install de8b73e9; final merge changes documentation/images only, accepted thin code unchanged |9 targeted suites pass; full catalog coverage fails baseline keys | next: existing25379 owner ships newer inline labels/readability | bundle ../nioh3-sf6-reference-25310/captures/pc-install-25310, notes/merged-pc-install-25310.md
+
+- 2026-10-23 06:52 AM Eastern cx-pc #25376 | 52aa2139 pushed: PLAYER/BOSS, single default-ON top readout, bold white outlined centered counts, near-black idle cells; 52px total at 1080p. Training + Rematch builds, 12960 GDI cases, sampler/stats PASS. Next pc integrate/install/live check; set saved FrameMeterReadout=1. Mock captures/frame-meter-sf6/mock.png. No game touched.
+
+- 2026-10-23 6:53 AM EDT cx-pc #25400 review only | immutable52aa2139:12960 GDI cases PASS, actual geometry harness gives18+18+16=52px FAIL vs40px; separate readout, purple unblockable/no grab key remain | no final bundle approved | next existing implementation owner finishes inline/colours then resubmits; no source/game/build-output edits
+
+- 2026-10-23 6:55 AM Eastern | cx-pc #25379 isolated inline meter built/pushed 99fc1d4c on cx-pc/frame-meter-25379-isolated; 40px two-row layout, inline key/readout, near-black idle, readable counts.
+  Training build PASS; remaining: authorized experimental grab-bit classifier, suites and bundle. Isolated worktree ../nioh3-frame-meter-25379-isolated avoids duplicate-session writes.
+
+- 2026-10-23 6:56 AM EDT cx-pc review #25422 | isolated99fc1d4c geometry compiled:20px x2=40 PASS;12960 count placement cases PASS; inline readout/key, labels, red UB verified | grab changes still uncommitted by existing owner, no final bundle approval | next review owner's final immutable commit/bundle; no edits/builds in owner worktree
+
+- 2026-10-23 06:56 AM Eastern cx-pc #25411 | 2dea3caa implements silver native grabs, red unblockable, retained key + readability; three ASIs built and bundled captures/pc-install-25411 with TSV + manifest. Offline tests PASS; no game touched. Next pc install bundle, set FrameMeterLegend=1/FrameMeterReadout=1, validate live. Hashes notes/frame-meter-bundle-25411.md.
+
+- 2026-10-23 6:56 AM Eastern | cx-pc #25379 isolated grab colour + production GDI checks built/pushed; branch cx-pc/frame-meter-25379-isolated.
+  40px total height and grab/recovery/unblockable states PASS offline. Next rebuild Rematch/EngineFix, suites, package; grab predicate live-unverified per pc #25434.
+
+- 2026-10-23 06:57 AM Eastern cx-pc #25430 | Audited 11476-row TSV: no grab field; documented native H->R->flags pointer proof in notes/grab-classifier-25430.md. Existing 25411 bundle unchanged. Next pc live-check silver grab windows; cx-pc no game lease.
+
+- 2026-10-23 6:59 AM Eastern | cx-pc #25379 authoritative isolated bundle complete, pushed a4bdf751 on cx-pc/frame-meter-25379-isolated.
+  Three release builds + 10 suites + 40px production-renderer/catalog checks PASS. Bundle ../nioh3-frame-meter-25379-isolated/captures/pc-install-25379; next pc install all four files, set readout/key=1, verify experimental grab classification live.
+
+- 2026-10-23 7:08 AM Eastern | cx-pc #25490 decision relayed to active #25479 implementation session: negative-pool signal alone gates KI DEBT, no human classifier.
+  Supersedes #25486 and human-gate portion of review #25499. Single label constant KI DEBT, violet, key Ki debt; next implementation owner update mock/code and pc validate. No code/game changes.
+
+- 2026-10-23 07:15 AM Eastern cx-pc #25479/#25500 | fab5ad11 pushed: contrast + optional KI DEBT row; 6 suites and Training/Rematch builds PASS. Bundle captures/pc-install-25479 (3 ASIs, records + actionsets TSVs, two mocks, manifest); hashes notes/frame-meter-bundle-25479.md. Next pc install, set FrameMeterKi/Legend/Readout=1, validate Yoritomo/Himiko composed-human gate and per-frame colours. No game touched.
+
+- 2026-10-23 07:20 AM Eastern cx-pc #25541/#25550 | Final combined placement branch cx-pc/frame-placement-25541 at 7ffe005c includes KI counts d2608bf4, boss records, original pad default. 3 builds + 11 offline suites PASS. Bundle captures/pc-install-25541; hashes notes/frame-meter-placement-25541.md. Next pc install and set FrameMeterY=-1 (Ki/Legend/Readout=1), verify player-HUD clearance and human KI gate. No game lease.
+
+- 2026-10-23 7:21 AM EDT | cx-pc #25541: merged approved fab5ad11 Ki debt with combined pad/hit-data build; default meter anchors bottom at 82% minus 8px/1080p, left -3%; explicit Y preserved. Code pushed 82c92098.
+  Proven: 3 release builds, 8 Training suites (12,960 number cases), 4 pad suites (393,216 comparisons), targeted menu and catalog freshness. No game accessed. Next pc: install captures/pc-install-25541 and set FrameMeterY=-1; validate HUD clearance in game.
+
+
+2026-10-23 7:21 AM Eastern | cx-pc #25547 | player-health auto placement + saved menu Y built/pushed; X unchanged; KI DEBT retained.
+Training/Rematch builds + four offline suites PASS. Next: bundle matched binaries and report to pc; notes/frame-meter-position-25547.md.
+
+- 2026-10-23 7:21 AM EDT cx-pc #25541 FINAL correction: use ONLY captures/pc-install-25541-82c92098 (5 payload files + hashes/INSTALL), branch cx-pc/meter-position-25541 at45d6a52a, code82c92098. Unqualified captures/pc-install-25541 already contained another session's mocks/manifest; our first copy replaced its ASIs, so that mixed directory is not authoritative. Next pc: install unique bundle and set FrameMeterY=-1; game remains untested.
+
+2026-10-23 7:24 AM Eastern | cx-pc #25547 | bundle captures/pc-install-25547 ready; source 23190b8c, hashes notes/frame-meter-bundle-25547.txt pushed.
+Four suites + Training/Rematch build PASS. Next pc install both ASIs together with FrameMeterY=0; verify above-HP position live.
+
+- 2026-10-23 7:27 AM Eastern cx-pc #25589 | Saved Frame meter Y menu complete at dc95f215 (Auto/-1 or 0..90%, live + persisted); X preserved. Training/Rematch builds and 3 targeted suites PASS; bundle captures/pc-install-25589, hashes notes/frame-meter-y-menu-25589.md. Next pc install and verify estimated 83% bottom anchor in fight. No game touched.
+
+- 2026-10-23 7:38 AM Eastern cx-pc #25639 | Offline Ito diagnosis: AGGRO ran; HoldKiBreak=1 then explicitly disabled AI. Idle does not gate either overlay; identified wrong-window caching path, actual draw gate unlogged. Proposal notes/ito-overlay-review-25639.md; next pc release hold and instrument/validate HWND + capture. No game access.
+
+- 2026-10-23 7:47 AM Eastern cx-pc #25653 | a5292b89 pushed: shared overlay host repair and draw/KI gate diagnostics; Training build +3 offline suites PASS. Bundle captures/pc-install-25653 hashes notes/overlay-gates-25653.md; other binaries hash-verified unchanged from25589. Next pc install/retest Ito, inspect DRAW mask and detail; no game access.
+
+- 2026-10-23 8:16 AM Eastern cx-pc #25713 | Centered meter from live-tested82c92098, zero X offset, total panel capped60%, text clipped, Y anchor unchanged. Build +position suite PASS at6 resolutions. Bundle captures/pc-install-25713-centered60-20261023-0817; next pc install Training only and check HUD clearance. No game access.
+
+## 2026-10-23 08:43:02 session 5c502ad0-b830-4eb0-a0ca-b91f531f5e93
+Ally's audit is still at about 49 of 69 rows, so there's nothing new to start. The final 3-arm benchmark still waits on ally, expected around 10:50 am EST. I changed nothing this run, and nothing is blocked.
+
+## 2026-10-23 09:04:43 session 5c502ad0-b830-4eb0-a0ca-b91f531f5e93
+Ally's settings audit is moving again. `results-ally.csv` is now at 57 lines (about 56 of 69 rows), up from 50 at 8:54 am EST, so it's still running. The final 3-arm benchmark waits on it. Nothing is blocked, and I changed nothing this run.
+
+## 2026-10-23 09:33:47 session 5c502ad0-b830-4eb0-a0ca-b91f531f5e93
+Ally's settings audit is at about 56 of 69 rows, and nothing has been added since 9:04 am EST. `results-ally.csv` on its branch still shows 57 lines. I haven't checked whether ally is stalled or just slow on a run. pc2 hasn't replied yet to my reboot and pagefile suggestion for the stalled PJH A/B test. Nothing is blocked on you, and I changed nothing this run.
+
+## 2026-10-23 10:05:03 session 5c502ad0-b830-4eb0-a0ca-b91f531f5e93
+Ally's csv is at 65 lines (about 64 rows), so its main pass is nearly done. It was at 57 lines at 9:04 am. The queued AS0 OFF rerun still has to run before the final 3-arm benchmark can start. Nothing is blocked, and I changed nothing this run.
+
+## 2026-10-23 10:35:55 session 5c502ad0-b830-4eb0-a0ca-b91f531f5e93
+Ally's audit csv hasn't changed since about 10:00 am EST, so it's stuck at 64 rows (65 lines). The final 3-arm benchmark still waits on it, because I need ally's final results to settle which settings go in arms 2 and 3.
+
+I asked ally (#25846) whether the AS0 OFF rerun is running or done, and to push the final csv. Nothing else is waiting in my inbox, and I changed nothing this run.
+
+- 2026-10-23 11:19 AM Eastern cx-pc #25896 | Offline audit runner fix: elevated preflight, unique ETW session/PID/v1, stderr+exit checks, batch fail-fast, fresh boss heartbeats, owned foreground enforcement. Helper regressions/parser PASS; no live capture. Next pc elevated MaxRuns1 stage2 retry; notes/audit-capture-25896.md. No game/ETW touched.
+
+## 2026-10-23 11:52:43 session 19bfb199-51ef-4603-8232-a697697998f5
+I'm not starting any work. The only open step is the main PC's stage-2 settings check, which is waiting on you. I already said so once in #25939, so I'm not repeating it.
+
+The task board shows no new failures from pc2 or ally since then. The failed entries it lists are old stage-1 and earlier tasks. I'm ending this run.
+2026-10-23 12:28 pm EDT | cx-pc #25976: MCProbe 955ad56c and JTCP 48edcc1a pushed; both OFF by default, full builds + offline harnesses PASS. Runtime/benefit unproven. Next pc diagnostic captures after audits; artifacts captures/newopt-25976-20261023-1228/{mc,jtcp}.
+2026-10-23 12:46 PM Eastern | cx-pc #26019 complete: 9b29fa44 pushed on cx-pc/newopt-design-26019. Identified constant-buffer copy paths and meshlet request coordinator; 1344 model cases + native CBU harness PASS. Next pc: review design notes/newopt-design-26019.md; establish shadow ownership before MCS, use narrow phase trace before scheduling changes.
+2026-10-23 12:50 PM Eastern | cx-pc #26036: 54b9f33f pushed (cx-pc/newopt-census-26036). Installed and MC-original INIs omit all seven CBU controls; code defaults zero, so CBN OFF in MC capture. Next pc census existing CBN before MCS; meshlet phase plan narrowed to 8 call sites, 100000 aggregate cases PASS; native phase probe not built. notes/newopt-census-26036.md
+
+## 2026-10-23 13:16:46 session 92d972c4-c27e-4aef-9d84-93cf4123d632
+I checked on pc2 and ally and started no new test. Everything left on the main PC needs an admin PowerShell, and only you can open that.
+
+- **Ally:** its memory-copy test (MCE) shows "failed" on the board, but it's only queued behind the settings check. It should start about 2:25 pm EST.
+- **pc2:** its two queued tests (memory-copy MCE, constant-data skip CBN+CBT) have sat unclaimed since about 12:45 pm EST. I messaged pc2 asking why and to claim the constant-data one first.
+- **Main PC:** the stage-2 settings check and the constant-data test both need the admin step, so I'm leaving them.
+
+I added a line to `next.md`. Next time pc2 reports, I'll go through the memory-copy and constant-data results. The final three-way benchmark (stock, pure-performance mod, full mod) follows once those are in.
+
+## 2026-10-23 13:39:37 session 9f4ef70b-e35e-494c-9fc6-2ac67339cdf4
+Ally has finished its whole settings check. Run 28 of 28 completed at 1:32 pm EST, earlier than the 2:25 pm estimate because it dropped the third repeats.
+
+- **Ally:** I asked it to push its results with a verdict per setting, then start the memory-copy (MCE) test (task #112). I haven't confirmed it started.
+- **pc2:** the MCE test and the constant-data skip test (CBN+CBT) have sat unclaimed for about an hour. I asked pc2 to take the constant-data one first. If it's blocked, I asked it to say why.
+- **Main PC:** I haven't started anything. You said to forget PowerShell for now, and I didn't launch the game.
+
+I haven't done any work on the constant-data skip since the last census, so there's no new result on it. Once Ally's numbers arrive I'll send them to you.
+2026-10-23 1:55 PM EST pc: CBN=1,CBT=1 ON in Yoritomo fight (pc, no admin): PASS no crash, skipped ~50k uploads/s = ~225 MB/s of ~900 MB/s (21%), table reuse hits 33k/s. fps effect not measured (needs PresentMon admin); pc2 earlier measured +15.9% with CBN+CBT. Shipped repo INI already has CBN=CBT=1; installed INI lacks keys (code default 0) -> add keys to installed INI. NEXT: pc2 #113 A/B; ally MCE ~2:25pm; final 3-arm bench.
+
+## 2026-10-23 14:22:40 session 9f4ef70b-e35e-494c-9fc6-2ac67339cdf4
+Two things are in motion:
+
+- **Report button:** the specs file is built and committed as `96611268` on `pc/report-specs`. It isn't installed yet. I'll install it once the constant-data test is done.
+- **Constant-data test:** two of the four fights have started, with the skip off and then on. When all four finish, I'll compare the average frames per second between off and on and tell you whether the main PC is free.
+- 2026-10-23 pc: answered 'ally done?' with last known 21/44 stage2, ETA 2:25pm EST (#26181)
+
+## 2026-10-23 15:13:15 session 9651b621-53f7-49f6-9b41-8469f66b3f7a
+At 3:13 pm EST, ally is idle and its game is closed, but its memory-copy test result hasn't arrived. I've asked ally for the memory-copy fps numbers (off vs on), or the reason it failed.
+
+pc2 hasn't picked up its two tests, memory-copy and constant-data skip, in over an hour, so it looks offline. I won't wait on it. Next I'll build the default-settings list from the data I already have.
+
+I told you the same in the phone chat. I didn't start or touch the game.
+2026-10-23 pc: ally MCE neutral (12.11 vs 12.00 fps). Classified keys: notes/default-on-candidates-20261023.md (fc3645ac): group A 32 no-visual keys (default-on candidates), group B 12 visual keys (full-mod arm), 51 leave off. NEXT: build arm INIs (stock / A / A+B), final 3-arm bench on pc, pc2, ally (PresentMon needs admin on pc); pc2 offline? #111/#113 unclaimed.
+
+## 2026-10-23 15:39:13 session 9651b621-53f7-49f6-9b41-8469f66b3f7a
+Progress on the final benchmark and the settings choice, as I told you in the phone chat:
+
+- **Settings classified:** from all the audit data, 32 are safe to turn on by default, 12 lower the picture (full-mod arm only), and 51 stay off. The list is in `notes/default-on-candidates-20261023.md`.
+- **Arm settings files:** built for the pure-performance arm and the full-mod arm.
+- **Ally:** it has the final 3-way benchmark running.
+- **pc2:** its try failed 35 seconds after it claimed the job, with "worker ended without reporting". This is probably the Windows update. I asked pc2 which step failed and re-posted the task.
+- **Main PC:** still waiting on the admin run. Paste the one-line command I sent earlier into the admin PowerShell. It takes about 25 minutes.
+
+There are no final numbers yet. I didn't touch the game.
+
+## 2026-10-23 ~3:50 pm EST pc (context full)
+- DONE: feedback site live+redesigned (https://nioh3-mod-feedback.vercel.app, Vercel project nioh3-mod-feedback, site dir C:/Users/Ahmad Hamza/nioh3-mod-site/site; node at C:\Program Files\nodejs must be added to PATH). Report button default URL = that site (pc/report-specs 1cdccfb1, worktree C:/Users/Ahmad Hamza/nioh3-report-specs; NOT built/installed in game yet). 32/12/51 settings classification: notes/default-on-candidates-20261023.md.
+- HALF-DONE: final 3-arm bench: ally task #115 running; pc2 retry #116 open (#114 failed after 35s, asked pc2 why, Windows update); pc leg needs admin PresentMon: created tools/rematch/make_elevated_task.cmd + elevated_entry.ps1 (gitignored dir 'tools', so NOT committed; main worktree has an unfinished cherry-pick, left untouched). Human must right-click make_elevated_task.cmd > Run as administrator once (needs-player.md line added); then I can `schtasks /run /tn Nioh3ElevatedRun` with script path in tools/rematch/elevated_next.txt.
+- NEXT: (1) when human confirms, write elevated_next.txt -> pc final bench (stock / pure-perf arm2 / full arm3, 2 reps each interleaved, all metrics: fps, lows, latency, temps, util, power, in-game+external); (2) digest ally #115/pc2 #116 RESULTs, tell human; (3) human #26397: ONE universal mod -> make platform-only keys (Proton/handheld/non-ReBAR) auto-detect (-1), re-check borderline MW,P12,M1,DL,R1; (4) after bench: install pc/report-specs build on pc (rematch asi) and test report button; (5) answer human question pending: switch Proton-only keys on for Ally? (they said one mod, so use auto).
+
+2026-10-23 12:55 cx-pc2 | task #26458 3-arm harness: DONE offline (final3arm.ps1 commit 2041591e on cx-pc2/final3arm-26458, pushed; also run_summary.py e3858acc..d927d225 on cx-pc2/run-summary-114, sensor_collector.ps1 d7a53e78 on cx-pc2/sensor-collector-26408; worktree ../nioh3-cxpc2-114) | UNPROVEN: live launch/gates/PresentMon/collector wiring, ui.fsx shot, loader=dinput8.dll assumption | next: runtime owner runs -DryRun then one STOCK cell; no pending asks to cx-pc2 | files: tools/testmatrix/{final3arm.ps1,run_summary.py,sensor_collector.ps1}
