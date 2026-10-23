@@ -111,3 +111,29 @@
 0	0	0x00	560912	0	0	0	0	0.0	0	0	0	summon	S560912	Yasha
 0	0	0x00	999088	0	0	0	0	0.0	0	0	0	summon	S999088	Yoki
 0	0	0x00	428785	0	0	0	0	0.0	0	0	0	summon	S428785	Yui Shosetsu
+# roster rows from the enemy parameter table (tools/gen_roster_rows.py, pc #23911; do not edit by hand)
+0	0	0x00	835773	0	0	0	0	0.0	0	0	0	summon	S835773	Himiko
+0	0	0x00	970926	0	0	0	0	0.0	0	0	0	summon	S970926	Ii Naotora
+0	0	0x00	105687	0	0	0	0	0.0	0	0	0	summon	S105687	Shizuka Gozen
+0	0	0x00	553084	0	0	0	0	0.0	0	0	0	summon	S553084	Tokugawa Ieyasu
+0	0	0x00	946425	0	0	0	0	0.0	0	0	0	summon	S946425	Matsunaga Hisahide
+0	0	0x00	170511	0	0	0	0	0.0	0	0	0	summon	S170511	Tatsumaro
+0	0	0x00	833653	0	0	0	0	0.0	0	0	0	summon	S833653	Mysterious Ninja
+0	0	0x00	607333	0	0	0	0	0.0	0	0	0	summon	S607333	Todo Heisuke
+0	0	0x00	22946	0	0	0	0	0.0	0	0	0	summon	S22946	Nakane Masateru
+0	0	0x00	455184	0	0	0	0	0.0	0	0	0	summon	S455184	Sakakibara Yasumasa
+0	0	0x00	892516	0	0	0	0	0.0	0	0	0	summon	S892516	Sakai Tadatsugu
+0	0	0x00	826546	0	0	0	0	0.0	0	0	0	summon	S826546	Thomas Glover
+0	0	0x00	744182	0	0	0	0	0.0	0	0	0	summon	S744182	Kusumoto Ine
+0	0	0x00	32793	0	0	0	0	0.0	0	0	0	summon	S32793	Rodrigo
+0	0	0x00	67912	0	0	0	0	0.0	0	0	0	summon	S67912	Maria
+0	0	0x00	761230	0	0	0	0	0.0	0	0	0	summon	S761230	Matsudaira Nobutsuna
+0	0	0x00	166930	0	0	0	0	0.0	0	0	0	summon	S166930	Tokugawa Mitsukuni
+0	0	0x00	931361	0	0	0	0	0.0	0	0	0	summon	S931361	Robust Spear Samurai
+0	0	0x00	253407	0	0	0	0	0.0	0	0	0	summon	S253407	Ooka Genzaburo
+0	0	0x00	770346	0	0	0	0	0.0	0	0	0	summon	S770346	Rattan-Clad Ninja Oni
+0	0	0x00	143867	0	0	0	0	0.0	0	0	0	summon	S143867	Jinnosuke the Shadow Slicer
+0	0	0x00	773019	0	0	0	0	0.0	0	0	0	summon	S773019	Iron-Fisted Rogue
+0	0	0x00	257162	0	0	0	0	0.0	0	0	0	summon	S257162	Mikoshi Nyudo
+0	0	0x00	450193	0	0	0	0	0.0	0	0	0	summon	S450193	Ichimokuren
+0	0	0x00	433499	0	0	0	0	0.0	0	0	0	summon	S433499	Itsumade
