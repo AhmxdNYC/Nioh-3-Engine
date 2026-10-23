@@ -1,137 +1,4 @@
 
-## 2026-10-21 12:56:44 session 4fe3896e-4c70-4836-b75d-c128981e04fe
-I recorded the demo video and sent it over the bridge as file #1299. It runs 65 s and is 6.4 MB. I haven't watched the whole video. The agent that recorded it checked it from a 6-frame contact sheet.
-
-**What it shows:**
-- Train here with Yoritomo and the grouped Boss moves menu.
-- 0x4E6E (2 hits, unblockable) repeating, then 0x4E50 (unblockable), then a 1-hit move.
-
-**Menu groups it showed:**
-
-| Group | Moves |
-|---|---|
-| 1 hit | 13 |
-| 2 hits | 16 |
-| 3 hits | 3 |
-| Unblockable | 19 |
-| Other attacks (hits unknown) | 47 |
-
-**Problems seen:**
-- **"Hits unknown" on unblockables:** Only 0x4E6E shows a hit count, but that matches the data. Only 4 of the 19 unblockables own hitbox rows: 0x4E6E, 0x4EAE, 0x4E72 and 0x4EB7. The other 15 own none. Their hits probably come from the normal move that shares the same animation, but that is a guess I haven't proven. I sent you this correction (#22412) after first calling it a menu bug.
-- **Clipped rows:** Long move rows are cut off and wrap in the right-hand panel. I haven't fixed this yet.
-- **"every 0.00 s":** The move text reads "Boss does 0x4E6E every 0.00 s" when the gap is 0. I haven't fixed this yet.
-- **Not an arena swap:** Train here put Yoritomo in the field next to you, not in an arena swap. The agent didn't try "Train in a boss arena".
-
-I logged your feature list (#22389) in `.handoff/user-directives.md`. I haven't started any of it.
-
-The game is still running (pid 2276), and I changed no mod files.
-- 2026-10-21 1:00 pm EST | Yoritomo hit/unblockable data + hit-count Boss moves menu + demo video | DONE: GreatAttack flag (+0x04 bit 0x2000), hits=distinct hitbox +0xA5 ids, notes/yoritomo-moves-unblockable-22305.md, notes/yoritomo-move-groups.md, tools/yoritomo_move_summary.py; menu build Rematch 444827b0 (branch pc/hitmenu-22349, worktree nioh3-hitmenu) INSTALLED, game pid 2276 running; demo video bridge file #1299 sent. UNPROVEN: 15 of 19 unblockables own no hitbox rows (hits via normal twin = guess); projectile hits, recovery frames. HALF-DONE/NEXT: fix menu bugs (clipped long rows in right panel, 'every 0.00 s' text when gap 0) in hitmenu branch, rebuild, install; then user feature list #22389 (boss speed, infinite boss/player Ki+ninjutsu, boss Ki drain, damage multipliers); board task 97 (TG bench) deferred until user says go; no game restarts while user present. Marker test-active removed.
-
-## 2026-10-21 13:36:32 session 97b0627b-85ec-4f1b-aea5-5ca02e32b2b2
-Nothing has changed since my last update, so I'm not sending another message.
-
-- **Video:** I can't tell whether the video reached Discord. If it's still missing, tell me and I'll try another route.
-- **Game:** untouched. The menu text fix is committed but not installed, and installing needs a game restart.
-- **pc2 and ally:** no errors or unanswered messages from either.
-
-Each next step needs you or the game:
-- Installing the fix and doing the live checks of the new Practice rows both need the game free.
-- The clipped long rows in the Boss moves panel are a fix I can do offline when you say go.
-
-## 2026-10-21 13:57:02 session 97b0627b-85ec-4f1b-aea5-5ca02e32b2b2
-Nothing new to do on pc this run, so I'm stopping here.
-
-- **New Practice rows:** the log shows the game loaded them with everything off or at default (infinite player Ki 0, damage dealt and taken 100%, boss Ki drain 0), and nothing has used them since. They are still untested in a fight.
-- **Video:** I can't tell whether it reached Discord. If it's still missing, tell me and I'll try another route.
-- **Menu fix:** the "0 s (back to back)" text fix is committed but not installed.
-- **pc2 and ally:** no errors from either.
-
-I'm waiting on you for two things:
-1. Tell me when you're away from the game, and I'll install the fix and run the live checks of the Ki and damage rows.
-2. Say go and I'll fix the clipped long rows in the Boss moves panel, which I can do without the game.
-
-## 2026-10-21 14:27:23 session 97b0627b-85ec-4f1b-aea5-5ca02e32b2b2
-Nothing has changed since my last run, so I did nothing new and sent no message.
-
-- **pc2 and ally:** no errors or unanswered messages from either.
-- **Video:** I still can't tell whether it reached Discord. If it's missing, tell me and I'll try another route.
-- **Menu text fix:** committed, not installed. Installing it needs a game restart.
-- **Clipped long rows:** still unfixed. I can do that without the game if you say go.
-- **Practice rows:** infinite player Ki, damage dealt and taken multipliers, and boss Ki drain are still untested in a fight. They need the game free.
-
-I'm waiting on you to tell me when you're away from the game.
-
-## 2026-10-21 14:52:54 session 97b0627b-85ec-4f1b-aea5-5ca02e32b2b2
-I replied to your "I like it" (#22470) with #22471 and noted it in `.handoff/next.md`. I haven't started any new work.
-
-Next:
-- **Clipped rows:** I'll fix the clipped long rows in the Boss moves panel, which needs no game.
-- **Install:** the "0 s (back to back)" text fix and the clipped-row fix go in together when you're away from the game.
-
-If you want anything else changed first, tell me.
-- 2026-10-21 13:17 pc | Yoritomo hit-count menu + Practice stats (#22305/#22349/#22389) | DONE+INSTALLED in game (PID 31696): Training 334F3FD0 + Rematch 6B810E52 from branch pc/practice-stats-22389 (70d82ddf on pc/hitmenu-22349 1857aabf), worktrees ../nioh3-pstats, ../nioh3-hitmenu; backup captures/pc/play-20261021-prepstats; demo video sent to Discord via tools/notify/notify.py file (user to confirm receipt) | UNPROVEN live: damage x multipliers, infinite player Ki (field assumed), boss Ki drain; NOT built: boss speed (no per-char lever), infinite ninjutsu (lead only); video-noted menu bugs (hits unknown for 15 of 19 unblockables, clipped long rows, "every 0.00 s" text) not yet fixed | NEXT: fix those 3 menu bugs, run live checks in notes/practice-stats-22389.md (in ../nioh3-pstats), find per-boss speed lever; also seqfix live log check + native Yoritomo AI trace still open | files: .handoff/next.md, needs-player.md, notes/yoritomo-hit-source-22305.md
-2026-10-21 14:57 | clipped-row fix (middle ellipsis in ui.cpp) committed d03e9b7f+1 on pc/practice-stats-22389 | NOT built/installed/tested | next: build Rematch, install when user away (they will say when home) | files: mod/Nioh3BossRematch/src/ui.cpp
-- 2026-10-21 cx-pc #22484: pstats boss speed + inf ninjutsu committed 837e3698 (branch pc/practice-stats-22389), training asi built, rematch asi unbuilt; live check pending (log speed/ninjutsu lines).
-2026-10-21 15:08 | player speed built e2c477b6 | unit tests pass, UNTESTED in game | next: rebuild+install+test when user away | branch pc/practice-stats-22389
-2026-10-21 15:21 pc: practice-stats build f5465112 (Training 6fa24c8e, Rematch 3193ce7b) pushed on pc/practice-stats-22389, based on installed 11cd27a1; NOT installed (PC has live input, game PID 15816). Install when idle>=2 min / user says away: backup, swap both asi, relaunch. Unproven: Ki stays full, damage mults, boss Ki drain.
-2026-10-21 3:55 pm | Practice build f5465112 installed (Training 6fa24c8e) + live tested | PROVEN: player Ki (1153 max), dmg x2 (428->856), boss deals x0, Ki drain 5/10/20, speed 200% applied (log play rate 2.0, not timed); UNPROVEN: ninjutsu effect, speed feel/attack timing | next: verify ninjutsu (find gauge), time speed, clipped rows, frame meter data | game PID 27424 running, backup captures/pc/play-20261021-prepractice2, shots captures/practice-live-20261021
-2026-10-21 4:05 pm | infinite ninjutsu PROVEN live (slot1 4->5, log 'gauge 0 800 -> 1000'); only gauge 0 seen, slots 2/3 untested; style shift = R key; Shift+wheel casts ninjutsu 1 | next: time speed rows, clipped rows, frame meter | game PID 27424
-2026-10-21 5 pm | FRAMEPROBE hit hook live, Yoritomo frames measured (pstats aba98a55, Training asi 218d2fd0 installed, FrameProbe=1 in installed ini, game PID 12188) | proven: 18 runs of 0x4E6E consistent within ~1f | unproven: other bosses, frame meter UI | next: HUD/menu frame meter drawing from probe data, generic per-boss, clipped rows
-
-## 2026-10-21 17:22:49 session 17646b4d-2fdf-4b38-9ab0-6df5b5b1cf8c
-From your list, these are the most useful things Training mode doesn't have yet, in order:
-
-1. **Instant reset:** boss HP, Ki and phase, plus your position, for fast retries.
-2. **Freeze and frame-advance:** with the frame data display on screen. You need it to learn the unblockable moves.
-3. **Ki damage multiplier / one-hit Ki break:** for practising punishes.
-4. **Auto or perfect guard:** for practising offense.
-5. **Damage and combo counter.**
-
-You already have infinite HP, Ki and ninjutsu, boss and player speed, damage multipliers, boss spawning, boss AI and move picking.
-
-I'll start on the instant reset unless you say otherwise. I've sent you this ranking in chat and added it to `.handoff/user-directives.md`. I haven't started on the reset yet or touched the game.
-2026-10-21 6 pm | frame meter built+installed (Training D1073D67, Rematch FB78F2D8, FrameMeter=1, FrameProbe state per ini; game PID 31484) | proven: Yoritomo 0x4E6E numbers on screen | unproven: other bosses, moves with 0 hits shown (0x18D1 probe missed?) | next: test 2nd boss, clipped rows, speed timing | backup captures/pc/play-20261021-premeter
-2026-10-21 7 pm | installed Rematch 84CBF650 (+Training D1073D67), game PID 27368; Reset fight proven; frame-meter video sent (captures/frame-meter-20261021/video) | unproven: Reset fight boss Ki write sticks?, 0x4E6E 'hits 1 total ~100' cut-short runs, fps independence of frames (#22576), freeze/frame-advance not started | next: those; clipped rows | backup captures/pc/play-20261021-prereset
-2026-10-21 9 pm | frame unit now game-time (1/60 s), verified caps 30/60/120 (startup 94-97, total 324-333) | Training a4e7da0f installed, FrameProbe=0 in ini (running game still has probe on), commit 2900108b | unproven: VRR makes move ~9f longer (AI pick delay); Repeat move loops at 30fps | next: freeze+frame-advance, boss Ki refill, clipped rows
-2026-10-21 10 pm | freeze/step shipped+installed (Training c548226E, Rematch 4C48CC79, game PID 10620, backup captures/pc/play-20261021-prefreeze) | untested: release on real mission change, [Debug] Hotkeys=0 | open: Reset fight boss Ki write, Repeat move cuts 0x4E6E into 0x3F1 at VRR fps, clipped rows, other bosses on meter
-
-## 2026-10-21 20:24:03 session 17646b4d-2fdf-4b38-9ab0-6df5b5b1cf8c
-Not everything you asked for is finished. I sent you the full status and feature list in chat.
-
-**Done and tested in your game:**
-- Reset fight and the frame meter, which now counts game time so your fps doesn't change the numbers.
-- Freeze (F9) and frame-step (F6).
-- Infinite player Ki and infinite ninjutsu.
-- Damage you deal and take, x0–x10.
-- Boss Ki drain, boss speed and player speed.
-- The Boss moves menu grouped by hit count, with Unblockables.
-- Boss infinite HP and Ki, set or refill boss HP and Ki, and summoning several bosses.
-- Boss stance and aggro, repeating moves and sequences, and resetting the boss position.
-
-**Not done yet from your list:**
-- Ki damage multiplier and one-hit Ki break.
-- Auto or perfect guard.
-- Damage and combo counter.
-- Save and load training states.
-- Hitbox view.
-- Record and replay enemy attacks.
-- One-hit kill.
-
-The fix for clipped long menu rows is built, but I haven't confirmed it in the game.
-
-I'll start on Ki damage multiplier and one-hit Ki break next unless you want something else first. I've logged this in `.handoff/next.md`.
-2026-10-22 | meter generic on Hino-enma, Reset Ki fixed (pstats 10eadd26, Training d58a8e7c, Rematch 4c48cc79 installed, game PID 31928, backup captures/pc/play-20261021-pre2ndboss) | open: Repeat move cuts 0x4E6E at VRR fps, clipped rows, release-on-mission-change untested, meter on 3rd boss | next: UI polish / more training features from user list
-2026-10-21 9:05 pm EST | TASK: Practice/Training mode features (#22389/#22588) on branch pc/practice-stats-22389 (worktree ../nioh3-pstats, pushed 10eadd26) | DONE+LIVE-TESTED+INSTALLED: boss/player speed, inf Ki/ninjutsu, damage x, boss Ki drain, frame meter (game-time frames, 2 bosses), Reset fight (Ki ceiling fix), freeze F9/step F6; Training d58a8e7c + Rematch 4c48cc79, game PID 31928, backups captures/pc/play-20261021-* | OPEN: Repeat move cuts 0x4E6E short at VRR fps; clipped long rows in Boss moves panel; freeze release on real mission change untested; meter on 3rd boss; VRR makes moves ~9f longer (Engine Fix AI delay?) | NEXT: pick from notes/training-features-20261021.md (more user-list items), then those open bugs | no uncommitted code in main checkout
-2026-10-21 9:40 pm | #22709 move facts all bosses: 94 chars bound to action files, 10 bosses with hit/unblockable groups, harness PASS | in-game menu on non-Yoritomo boss unproven | open Hino-enma Boss moves page, check groups; confirm 0x4E67 = 3 hits | notes/boss-move-facts-all-bosses-22709.md, commits 932e0844 c64550cd
-2026-10-21 10:10 pm | #22746 all bosses: +8 bosses (26 chr ids) in menu data, harness PASS, Rematch ASI 49919D75 built (install_22709.ps1 will pick it up on idle) | in-game unproven | verify after install: Hino/Sukuna/Yoshitsune Boss moves page | pstats commit pushed
-
-## 2026-10-21 22:35:54 session b748773d-7c8c-439e-b905-1e8798af8da2
-Nothing new to run: pc2 and ally have no unanswered errors or BLOCKED reports in the thread. The new Rematch build (`49919D75`, move data for 18 bosses) is still not in your game. The installer (PID 23916) is waiting for 2 minutes with no keyboard or mouse input, and you were at the PC a moment ago, so it hasn't gone ahead. It will relaunch the game by itself once you stop for 2 minutes.
-
-Once it's installed, I'll open the Boss moves page for Sukuna, Yoshitsune and Hino-enma and check the groups. After that comes the frame meter on a third boss. I added both steps to `.handoff/next.md`.
-2026-10-21 11:20 pm | all-boss move groups LIVE-TESTED in game (Rematch 49919D75, PID 7640): Hino-enma, Shingen, Sukuna, Yoshitsune show 1..N hits + Unblockable groups | clipped rows inside a group (known) still open; Mikoshi/Tengu/Enki/Nobuharu not opened | next: clipped-row fix, frame meter on a 3rd boss | shots captures/moves-all-bosses-20261021/
-2026-10-21 11:25 pm | TASK #22709/#22746 move facts all bosses: DONE+live-tested 18 bosses (Rematch 49919D75 installed, PID 7640, bosses A-D summoned) | half-done: clipped rows inside move groups (fix built earlier, unconfirmed); Mikoshi/Tengu/Enki/Nobuharu menus unopened | NEXT: fix clipped rows (rematch.cpp menu draw), frame meter on 3rd boss | pstats d1f5a593, notes/boss-move-facts-all-bosses-22709.md, captures/moves-all-bosses-20261021/
-
 ## 2026-10-21 23:45:50 session f4d8e5ec-5692-4b60-b049-11a66045c33d
 I added your controller button style setting to my list. It isn't built or tested yet.
 
@@ -384,4 +251,71 @@ I sent the human a status update (#23763), built from the earlier replies in thi
 - **Still open:** the check that Jubei plays his out-of-Ki animation, merging hit counts and frame data, and in-game checks of the other bosses.
 
 I didn't touch the game or change any files.
-2026-10-22 12:00 pc2 | #23658: autobind rescan-until-stable + finalize-on-despawn + dedupe fix pushed as pc2/autobind-r1022 sha 4ba9a130 (merged onto pc/release-1022; conflict in run_move_toggle_tests.py resolved; tools/gen_summon_rows.py is NOT in git so that runner fails on any checkout). 30 s sweep done on pc2 (68 roster rows): 43 bound / 24 unbound / 67 seen (captures/pc2-autobind/training3.log, roster.tsv). Wrong-bind suspects: Mori Gentatsu, Tsurara-onna -> CP_HUMAN_COMMON at 100%; Araki/Hattori/Hijikata/Anayama all -> CP_HUMAN_NITOU 60% (shared file); Daidara Bocchi COMMON 66%; Kagetoki TEONO 62%. 24 unbound = generic humans (Munenori, Hanzo, Kondo, Saito...). | NEXT: (1) game may still be closing: check tasklist, confirm harness (run3 cmd.txt got 'quit') restored files + lock; (2) send RESULT to pc reply-to 23658 with sha + 43/67 + wrong-bind list; (3) improve humans: rank by per-block containment, prefer non-COMMON file; (4) bridge RESULT for #23658 NOT yet sent
+
+## 2026-10-22 17:16:16 session a7924822-795a-45db-83ca-1242c89313af
+Nothing is failing, and the one new message was pc2's status on the matching fix.
+
+- **pc2 (RX 6650 XT):** It tightened the matching rule. A match must now be above 70%, and the runner-up must be at least 15 points lower. Shared generic human files stay unbound. The offline test gives 314 of 363 files matched to themselves and 0 wrong. It is now rerunning the 68-boss sweep in the game, about 45 minutes.
+- **pc:** The game is still running the merged build. I left it alone. The Jubei Ki-break check still waits for someone to play the fight.
+
+After pc2's rerun I'll install one combined build here. I sent no new messages.
+
+## 2026-10-22 17:46:59 session a7924822-795a-45db-83ca-1242c89313af
+pc2 released its game lock at 5:28 pm EST, so its rerun of the 68-boss sweep has finished. It hasn't sent the result yet, so I have no bound, unbound or wrong counts. Nothing is failing, and I'll wait for that result before installing a combined build here.
+
+The game on this PC is still open on the merged build, and the Jubei Ki-break check is still unplayed. I sent no messages and changed nothing.
+
+## 2026-10-22 18:17:32 session a7924822-795a-45db-83ca-1242c89313af
+Nothing has changed since my last check. No new messages, nothing failing on pc2 or ally, and pc2 still hasn't sent the result of its rerun sweep.
+
+The game on this PC is still open on the merged build, and the Jubei Ki-break check is still waiting for someone to play the fight. I sent no messages and changed nothing.
+
+## 2026-10-22 18:48:00 session a7924822-795a-45db-83ca-1242c89313af
+pc2 hasn't sent the result of its rerun sweep with the stricter matching rule. It released its game lock at 5:28 pm EST and it's now about 6:48 pm EST. I sent pc2 a question asking for the bound, unbound and wrong-match counts, the log path, and the merged commit on `pc/release-1022`. If the sweep failed, I asked for the exact error.
+
+Nothing else is failing on pc2 or ally. The game on this PC is still open on the merged build, and the Jubei Ki-break check is still unplayed.
+2026-10-22 18:55 pc: pc2 autobind stricter b2850017 merged on pc/release-1022 (33/66 bound, all 100%). NEXT: when game 1612 closes (or user says go): build+install release-1022 b2850017 on pc, test Jubei Ki-break (KIAUTO log), Kagetoki neg Ki, arena fight.
+
+## 2026-10-22 19:19:11 session a7924822-795a-45db-83ca-1242c89313af
+Nothing is failing on pc2 or ally, and there are no new messages or replies from you since my last note.
+
+I'm waiting on you for one thing: close the game or say "go", so I can restart it with the combined build. The game on this PC is still open (PID 1612, running since 2:20 pm EST). The Jubei Ki-break check is still unplayed.
+
+I sent no messages and changed nothing.
+2026-10-22 19:34 pc: relaunched game PID 15936 with pc/combined-1022b (release-1022 b2850017 + ally autoarena-r1022), Training asi ac3dd853, backup captures/pc/play-20261022-pre-combined. test-active marker set. UNPROVEN: Jubei reel (KIAUTO log), arena fight for roster bosses, autobind in-game on pc. NEXT: after user plays, read Nioh3Training.log for KIAUTO/AUTOBIND; delete marker.
+
+## 2026-10-22 19:54:13 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
+I told the human (#23940) that I'll ping them about 10 times on Discord once everything requested is done, and not before. I logged this in `.handoff/user-directives.md`.
+
+Still open:
+- **pc2:** the automatic move lists, via the static-derivation task.
+- **Ally:** the benchmarks (page pool, KL_Div, RD/M2S/J1).
+- **This PC:** the clipped move rows and the damage-multiplier fix for spirits and damage-over-time. The worktree `../nioh3-polish` (branch `pc/polish-23924`) exists but has nothing committed. Two earlier attempts to start this work in a background agent were cut off when my session ended. I'll do it directly or hand it to a separate helper instead.
+
+The plan is in `.handoff/next.md`. I didn't touch the game or change any code.
+2026-10-22 20:03 pc: pc/polish-23924 (unclipped boss-move rows + Ki/spirit scaled by damage x; DoT not reachable) built (Training 03fdbfaa, Rematch asi built via tools/msvc) and pushed; captures/install_polish_23924.ps1 waits for game close then installs (no relaunch). UNTESTED in game. Game 15936 in use (log active 19:54). NEXT: after close/relaunch test row layout + damage x on Ki.
+2026-10-22 20:05 pc CHECKPOINT | task: automatic boss setup (move lists/arenas/Ki-break) + pc polish | DONE: pc/combined-1022b (release-1022 b2850017 + ally autoarena) pushed, installed, game PID 15936 running since 7:30 pm EST (Training asi ac3dd853); pc/polish-23924 pushed (unclipped move rows + Ki scaled by damage x; DoT unreachable; Training 03fdbfaa + Rematch built), hidden script captures/install_polish_23924.ps1 waits for game close then installs (no relaunch) | UNPROVEN in game: Jubei Ki-break reel (look for KIAUTO in Nioh3Training.log), arena fight for roster bosses, polish row layout + Ki damage x; test-active marker is set (delete when test ends) | pc2: #23907 pc2/autoruntime static move lists from game data (no live fight), near-twin bind rule, roster rows for Mikoshi Nyudo/Himiko | ally: items page pool/KL_Div/RD-M2S-J1 benches (session holds lock, asi #1441) | NEXT: when game closes confirm polish installed, relaunch, test Jubei + polish; merge pc/polish-23924 into combined; ping user 10x on Discord only when ALL requested work done | files: captures/install_polish_23924.ps1, .handoff/needs-player.md
+
+## 2026-10-22 20:49:43 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
+The merged build is not installed yet, so nothing has been tested in the game. Nioh 3 (PID 15936) has been open since 7:30 pm EST. The installer is queued and runs when the game closes.
+
+pc2 and ally have no unanswered errors or BLOCKED messages. I'm not starting anything new while the game is open: the only remaining step is the in-game test (Yoritomo's 88 attacks, Red Kappa bound, summoning Mikoshi Nyudo and Himiko). It can only run once the game closes.
+
+## 2026-10-22 21:13:50 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
+The merged build is installed on this PC. Yoritomo checks out in the game, but Red Kappa, Ippon-Datara, Mikoshi Nyudo and Himiko are untested.
+
+**What passed (Yoritomo):**
+- The Training log shows 173 moves from game data, 88 of them attack moves, and 11 sequences.
+- The runtime list matches the old hand list on all 173 ids (0 disagreements), and the live frame bar read Yoritomo's attacks.
+- The roster grew from 83 to 101 summon rows.
+
+**What I couldn't test:**
+- Red Kappa and Ippon-Datara: "Fight now" refused both because those missions aren't cleared on this save.
+- Mikoshi Nyudo and Himiko spawn: I can't open the mod menu with synthetic keys, so I couldn't summon them.
+
+I closed the game by its exact PID and removed the test marker. I didn't back up or restore saves for this test, so I haven't checked whether the in-place fight changed the save.
+
+I sent the result to pc2, told the user, and added a needs-player item: summon those two from the F10 menu, which should take about a minute. `next.md` and `done.md` are updated. Nothing was committed or pushed this run beyond the earlier `pc/merge-autoruntime-polish` branch.
+
+2026-10-22 20:58 pc CHECKPOINT | task: automatic boss setup (#23436/#23905/#23909) | DONE: merged build (pc2/autoruntime static move lists + polish rows/Ki-dmg + auto arenas + summon-all) INSTALLED, Training asi sha 1781C86C, game relaunched PID 19452 | UNPROVEN: everything in game; poison/burn dmg scaling not done | NEXT: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko; collect ally bench RESULTs (#23929) and pc2 results; when ALL requested done ping human 10x on Discord (#23933); stale marker uo-agentd/pc/test-active (19:30) should be deleted | files: captures/install_autoruntime_1025.ps1, worktrees ../nioh3-merge1025 ../nioh3-polish
+2026-10-22 18:50 pc2 #24074 | autobind multi-block: Himiko now FINAL COMPOSED (241/241 rows = CP_HUMAN_NAGIGAMA + COMMON fragments; her CN_HIMIKO file is not mapped); Mikoshi/Kappa unchanged; offline 363 files 0 wrong | proven in game on pc2 (captures/pc2-24074) | next: pc merges pc2/autoruntime | commit on pc2/autoruntime
