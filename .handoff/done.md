@@ -375,3 +375,5 @@
 - 2026-10-22 | Vercel setup for the feedback site | The human wants a free public link and will sign in later | The sign-in script is ready in the site folder. The private site on port 8791 was left running. Files on the free host are capped at 4 MB.
 - 2026-10-23 | pc2 audit unblocked | pc2 audit runs failed: boss never spawned | runner waited 8 s for boss, now polls 60 s (+path fixes); pc2 2 valid runs (42.5 fps baseline), now running in chunks
 - 2026-10-23 | pc settings audit reruns | 5 invalid pc audit runs | all 67 pc rows now logged; pc2 67/67 valid | audit analysis next
+- 2026-10-23 | Frame meter final in game | Human wanted meter above player health bar (no left shift), KI DEBT row, pad display on, real mid-fight screenshots | Installed bundle 25541 on pc, fought Ito Ittosai, screenshots sent to Discord (captures/meter-final-0723/live25541_*.png); meter sits just above health bar, full width ~83% of height
+- 2026-10-23 | Settings audit stage 1 (3 devices) | Find which of 91 settings help | pc 67/72, pc2 67/67, ally 63/65 valid; winners: pc EP, pc2 none, ally P12 PP FPC S1 SH R1 -> stage-2 confirm running | captures/audit-final-20261023

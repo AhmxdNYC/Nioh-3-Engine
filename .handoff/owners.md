@@ -687,3 +687,68 @@
 - 2026-10-21 9:04 AM EST gx-pc #22192: answered. Hitch result already filed. No game lease.
 - 2026-10-21 9:49 AM EST gx-pc #22212: answered. Journal result already filed. No game lease. PJ not changed.
 - 2026-10-21 10:49 AM EST gxl-pc: paused by #22241. Write-up .handoff/gxl-pc-pause-22241.md. HOLD #22247 to gx-pc. No game lease. No switch changed. Shared PAUSED file not created.
+- 2026-10-22 pc: cxl-pc2 (Codex on pc2) BLOCKED #23273: Codex usage limit until Oct 26 11:32 PM. Codex is not to be used anyway (#22494); route pc2 work to agent pc2 (Claude) only. Nothing to fix on our side.
+
+- 2026-10-22 10:27 PM EDT cx-pc #24269: offline split-screen/confirmation tooling complete; no game/lock/install ownership. pc and device owners execute; available for next scoped offline assignment.
+- 2026-10-22 10:51 PM EST gx-pc: checked PJ bench #23272 against captures/pc/pjbench105/pc_summary.txt. Numbers match. No game lease. NOTE #24370.
+
+2026-10-22 10:53 PM EST gx-pc board 71: done. notes/boss-action-record.md, commit 3669b4d4. No game lease.
+- 2026-10-22 10:58 PM EST gx-pc #24392: done. Hitbox rows 182/194/162. Commit ad80ca1d. RESULT #24423. No game lease.
+2026-10-22 11:00 PM EDT | cxl-pc #24405 offline plan delivered; no game lease; pc retains running audit and adoption ownership. Branch cxl-pc/audit-short-24405 pushed 29fe08d3.
+- 2026-10-22 cxl-pc #24425: informational gx-pc finding logged; no implementation or game ownership taken. Existing pc audit ownership unchanged.
+- 2026-10-22 11:05 PM EST gx-pc #24426: done. No stored hit count. Display counts distinct +0xA5. Commit 50a3c0d8. RESULT #24449. No game lease.
+- 2026-10-22 11:08 pm EST gxl-pc: feedback site owner. PID 7316 on port 8791, worktree C:\Users\Ahmad Hamza\nioh3-mod-site. No game lease.
+
+- 2026-10-23 12:52 AM EST gx-pc #24647: done. Hit-id table 110 of 175. Commit da331ce2. RESULT #24651. No game lease.
+
+- 2026-10-23 1:09 AM EDT cx-pc #24680: offline integration/tests/builds complete; pc retains game/install validation ownership. Available for next scoped offline task.
+- 2026-10-23 3:29 AM Eastern cx-pc #24886: offline pad customization complete; pc owns installation/game verification; cx-pc has no game lease.
+- 2026-10-23 4:02 AM Eastern cx-pc #24980 completed offline correction; pc retains integration/game ownership. No cx-pc lease.
+- 2026-10-23 6:13 AM Eastern cx-pc #25224 completed combined offline build; pc owns installation/live validation. No cx-pc game lease.
+- 2026-10-23 6:20 AM Eastern cx-pc #25250 offline audit complete; pc retains installation/game ownership.
+- 2026-10-23 6:27 AM Eastern cx-pc #25267 drawing-only build complete; pc owns live verification; no cx-pc game lease.
+- 2026-10-23 6:33 AM Eastern cx-pc #25280 offline work complete; pc owns integration/game verification.
+- 2026-10-23 6:35 AM Eastern cx-pc #25288 offline combined build complete; pc owns installation/game validation.
+- 2026-10-23 6:37 AM Eastern cx-pc #25301 drawing update complete; pc owns installation/live verification.
+- 2026-10-23 6:41 AM Eastern cx-pc #25323 offline bundle complete; pc owns approval/install/game validation.
+
+- 2026-10-23 6:49 AM Eastern cx-pc #25350 completed merge/bundle verification; pc owns install/live validation. No game touched; ready for next scoped offline assignment.
+
+- 2026-10-23 6:51 AM EDT cx-pc #25310: reference study/build ownership released after de8b73e9 push to merged-pc-install. No game/install/lock ownership. Later25379 labels/readability work remains assigned to existing frame-meter worker.
+
+- 2026-10-23 06:52 AM Eastern cx-pc #25376 complete/pushed 52aa2139; pc owns integration and game validation. No game lease.
+
+- 2026-10-23 6:53 AM EDT cx-pc reference/review session #25400: review-only; no implementation/build ownership. Existing frame-meter session retains sole editing/build ownership;52aa2139 not approved as final.
+
+- 2026-10-23 6:56 AM EDT cx-pc review session #25422: retains review-only scope; isolated implementation/build owner unchanged. No game/lock/install ownership.
+
+- 2026-10-23 06:56 AM Eastern cx-pc #25411 | 2dea3caa implements silver native grabs, red unblockable, retained key + readability; three ASIs built and bundled captures/pc-install-25411 with TSV + manifest. Offline tests PASS; no game touched. Next pc install bundle, set FrameMeterLegend=1/FrameMeterReadout=1, validate live. Hashes notes/frame-meter-bundle-25411.md.
+
+- 2026-10-23 06:57 AM Eastern cx-pc #25430 | Audited 11476-row TSV: no grab field; documented native H->R->flags pointer proof in notes/grab-classifier-25430.md. Existing 25411 bundle unchanged. Next pc live-check silver grab windows; cx-pc no game lease.
+
+- 2026-10-23 6:59 AM Eastern cx-pc #25379 isolated implementation/bundle complete at a4bdf751; no game access. pc owns installation and experimental grab validation; duplicate shared-worktree bundles superseded per #25418.
+
+- 2026-10-23 7:08 AM Eastern cx-pc reviewer relayed #25490 to active #25479 session; no implementation ownership taken or competing edits.
+
+- 2026-10-23 07:15 AM Eastern cx-pc #25479/#25500 | fab5ad11 pushed: contrast + optional KI DEBT row; 6 suites and Training/Rematch builds PASS. Bundle captures/pc-install-25479 (3 ASIs, records + actionsets TSVs, two mocks, manifest); hashes notes/frame-meter-bundle-25479.md. Next pc install, set FrameMeterKi/Legend/Readout=1, validate Yoritomo/Himiko composed-human gate and per-frame colours. No game touched.
+
+- 2026-10-23 07:20 AM Eastern cx-pc #25541/#25550 | Final combined placement branch cx-pc/frame-placement-25541 at 7ffe005c includes KI counts d2608bf4, boss records, original pad default. 3 builds + 11 offline suites PASS. Bundle captures/pc-install-25541; hashes notes/frame-meter-placement-25541.md. Next pc install and set FrameMeterY=-1 (Ki/Legend/Readout=1), verify player-HUD clearance and human KI gate. No game lease.
+
+- 2026-10-23 7:21 AM EDT cx-pc #25541: isolated placement implementation complete/pushed667d4079; no game ownership. pc owns installation/live validation; worker available for next scoped offline assignment.
+
+- 2026-10-23 7:21 AM EDT cx-pc #25541 FINAL correction: use ONLY captures/pc-install-25541-82c92098 (5 payload files + hashes/INSTALL), branch cx-pc/meter-position-25541 at45d6a52a, code82c92098. Unqualified captures/pc-install-25541 already contained another session's mocks/manifest; our first copy replaced its ASIs, so that mixed directory is not authoritative. Next pc: install unique bundle and set FrameMeterY=-1; game remains untested.
+
+- 2026-10-23 7:24 AM Eastern cx-pc #25547: offline position/bundle complete; no game ownership. pc owns installation/live check; awaiting next scoped offline assignment.
+
+- 2026-10-23 7:27 AM Eastern cx-pc #25589 | Saved Frame meter Y menu complete at dc95f215 (Auto/-1 or 0..90%, live + persisted); X preserved. Training/Rematch builds and 3 targeted suites PASS; bundle captures/pc-install-25589, hashes notes/frame-meter-y-menu-25589.md. Next pc install and verify estimated 83% bottom anchor in fight. No game touched.
+
+- 2026-10-23 7:38 AM Eastern cx-pc #25639 | Offline Ito diagnosis: AGGRO ran; HoldKiBreak=1 then explicitly disabled AI. Idle does not gate either overlay; identified wrong-window caching path, actual draw gate unlogged. Proposal notes/ito-overlay-review-25639.md; next pc release hold and instrument/validate HWND + capture. No game access.
+
+- 2026-10-23 7:47 AM Eastern cx-pc #25653 | a5292b89 pushed: shared overlay host repair and draw/KI gate diagnostics; Training build +3 offline suites PASS. Bundle captures/pc-install-25653 hashes notes/overlay-gates-25653.md; other binaries hash-verified unchanged from25589. Next pc install/retest Ito, inspect DRAW mask and detail; no game access.
+
+- 2026-10-23 8:16 AM Eastern cx-pc #25713 | Centered meter from live-tested82c92098, zero X offset, total panel capped60%, text clipped, Y anchor unchanged. Build +position suite PASS at6 resolutions. Bundle captures/pc-install-25713-centered60-20261023-0817; next pc install Training only and check HUD clearance. No game access.
+
+- 2026-10-23 11:19 AM Eastern cx-pc #25896 | Offline audit runner fix: elevated preflight, unique ETW session/PID/v1, stderr+exit checks, batch fail-fast, fresh boss heartbeats, owned foreground enforcement. Helper regressions/parser PASS; no live capture. Next pc elevated MaxRuns1 stage2 retry; notes/audit-capture-25896.md. No game/ETW touched.
+2026-10-23 12:28 pm EDT cx-pc #25976: offline MC/JTCP probes delivered/pushed; no game/lock ownership. pc owns integration/runtime; available for next assigned offline task.
+2026-10-23 12:46 PM Eastern cx-pc #26019: offline design delivered; no game/lock ownership; pc owns runtime follow-up; available for another scoped offline task.
+2026-10-23 12:50 PM Eastern cx-pc #26036 complete; offline only, no game/config changes. pc owns CBU census and native phase-probe scheduling.

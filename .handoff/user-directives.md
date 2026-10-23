@@ -36,3 +36,7 @@
 - #25534/#25544 (2026-10-23): frame meter default position = right above the player health bar, NOT shifted left; KI DEBT row (human bosses only, number in last cell) goes into the game build; then get in a fight and send mid-fight screenshots with controller display on (#25536/#25538).
 - #25536/#25538/#25544 (2026-10-23): frame meter default position = just above player healthbar, NOT shifted left at all (centred over it). pc must get into a fight with controller display ON and send mid-fight screenshots to Discord.
 - #25964 (2026-10-23): settings audits use 2 repeats per arm only, never 3 (all devices, stage 2 included).
+- #25964 (2026-10-23): stage-2 confirm = 2 repeats per arm only, no third repeat (all devices).
+- #26131 (2026-10-23): the automatic report button (feedback) must include the user's specs (OS: Linux or Windows for sure, plus CPU/GPU/RAM) in the report.
+- #26198 (2026-10-23): after the MCE test, analyse data across all 3 devices, pick best universal default settings and turn them ON if unlikely to harm; THEN run final 3-device benchmarks.
+- #26201 (2026-10-23): a setting that is on paper more optimal (even without measured win) should be ON by default. Only two groups: optimized-no-visual-change vs optimized-affects-visuals.

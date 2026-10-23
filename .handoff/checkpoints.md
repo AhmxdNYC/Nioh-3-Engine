@@ -1,22 +1,4 @@
 
-## 2026-10-22 16:15:10 session a7924822-795a-45db-83ca-1242c89313af
-No new messages since my last check, and nothing is failing on pc2 or ally.
-
-- **pc2:** No result from its 64-boss sweep has reached me yet.
-- **pc:** The training log still has no `KIAUTO` lines, so the Jubei Ki-break check hasn't been done. It needs someone to play the fight. The controller is ready, and the item is in `needs-player.md`.
-
-I sent no messages and didn't touch the game.
-
-## 2026-10-22 16:41:21 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I sent the human a status update (#23763), built from the earlier replies in this thread. I didn't re-check any of it this run.
-
-- **Arenas:** done and installed on the PC. The mod built 131 arena rows from the game's own files in 0.19 s at startup.
-- **Summoning:** all 64 bosses summon on the Ally.
-- **Move matching:** PC2's automatic matching worked for 17 of 23 bosses and is being widened to all 64.
-- **Still open:** the check that Jubei plays his out-of-Ki animation, merging hit counts and frame data, and in-game checks of the other bosses.
-
-I didn't touch the game or change any files.
-
 ## 2026-10-22 17:16:16 session a7924822-795a-45db-83ca-1242c89313af
 Nothing is failing, and the one new message was pc2's status on the matching fix.
 
@@ -339,3 +321,18 @@ Ally has finished its whole settings check. Run 28 of 28 completed at 1:32 pm ES
 
 I haven't done any work on the constant-data skip since the last census, so there's no new result on it. Once Ally's numbers arrive I'll send them to you.
 2026-10-23 1:55 PM EST pc: CBN=1,CBT=1 ON in Yoritomo fight (pc, no admin): PASS no crash, skipped ~50k uploads/s = ~225 MB/s of ~900 MB/s (21%), table reuse hits 33k/s. fps effect not measured (needs PresentMon admin); pc2 earlier measured +15.9% with CBN+CBT. Shipped repo INI already has CBN=CBT=1; installed INI lacks keys (code default 0) -> add keys to installed INI. NEXT: pc2 #113 A/B; ally MCE ~2:25pm; final 3-arm bench.
+
+## 2026-10-23 14:22:40 session 9f4ef70b-e35e-494c-9fc6-2ac67339cdf4
+Two things are in motion:
+
+- **Report button:** the specs file is built and committed as `96611268` on `pc/report-specs`. It isn't installed yet. I'll install it once the constant-data test is done.
+- **Constant-data test:** two of the four fights have started, with the skip off and then on. When all four finish, I'll compare the average frames per second between off and on and tell you whether the main PC is free.
+- 2026-10-23 pc: answered 'ally done?' with last known 21/44 stage2, ETA 2:25pm EST (#26181)
+
+## 2026-10-23 15:13:15 session 9651b621-53f7-49f6-9b41-8469f66b3f7a
+At 3:13 pm EST, ally is idle and its game is closed, but its memory-copy test result hasn't arrived. I've asked ally for the memory-copy fps numbers (off vs on), or the reason it failed.
+
+pc2 hasn't picked up its two tests, memory-copy and constant-data skip, in over an hour, so it looks offline. I won't wait on it. Next I'll build the default-settings list from the data I already have.
+
+I told you the same in the phone chat. I didn't start or touch the game.
+2026-10-23 pc: ally MCE neutral (12.11 vs 12.00 fps). Classified keys: notes/default-on-candidates-20261023.md (fc3645ac): group A 32 no-visual keys (default-on candidates), group B 12 visual keys (full-mod arm), 51 leave off. NEXT: build arm INIs (stock / A / A+B), final 3-arm bench on pc, pc2, ally (PresentMon needs admin on pc); pc2 offline? #111/#113 unclaimed.
