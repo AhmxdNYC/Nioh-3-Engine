@@ -1,3 +1,4 @@
+- 2026-10-23 06:25 pc: merged pad+action-record build installed on main PC (backup captures/pc/play-20261023-pre-merged); game closed, lock free. pc2 doing mc-probe + PJ measurements; ally audit running (~10:45 am EST).
 Work through open.md in order (resumed 2026-10-14; keep going until the user says pause); rules: preserve user saves, reuse tools, both measured arms for any claim, no OS/driver tuning or graphics reductions.
 
 ## RESUMED 2026-10-14 10:30 by user (#3233) - supersedes PAUSED above
@@ -1987,3 +1988,5 @@ Attack-motion hit ids are in notes/boss-action-record.md. 110 of 175 actions hav
 - 2026-10-23 4:02 AM Eastern cx-pc #24980 | Original default restored in b35dea02 (cx-pc/pad-style-24886); optional Transparent + white border preset retained. Both ASIs build; 393216 default command comparisons and 4 offline suites pass. Next pc: integrate correction and verify live menu; no game touched.
 2026-10-23 04:15 pc: TASKed pc2 with untried ideas #9 and #3 for after its audit; pc itself next does: 5 reruns, install cx-pc builds (action-record + pad customization), in-game verify, 3-arm bench with temps/util/latency.
 2026-10-23 04:17 pc: see checkpoints.md latest entry; ally status asked (#25013), answer pending.
+2026-10-23 05:59 pc: 5 audit reruns done (results-pc.csv 73 lines, game closed). NEXT: py tools/settings_audit.py analysis; install cx-pc builds (action-record-24680, pad-style-24886 b35dea02) and verify in game; then 3-arm final bench (needs ally audit done ~10:45 am EST).
+- 2026-10-23 6:13 AM Eastern cx-pc #25224 | Combined action records + Original-default pad at 1baaca34, cx-pc/merged-pc-install. Three ASIs and five offline suites PASS; artifact hashes in notes/merged-pc-install-25224.md. Next pc: install matching Training/Rematch + TSV and EngineFix, verify live; no game touched.

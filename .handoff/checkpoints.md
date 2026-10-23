@@ -1,55 +1,4 @@
 
-## 2026-10-22 07:09:00 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-The controller display video is sent, and the Kagetoki / Yagyu Jubei Ki trick has only had an offline look so far.
-
-**Controller display (video sent):**
-- **Video:** 69 s, on Discord. Discord rejected the 11.4 MB file because its webhook limit is 8 MB, so I sent a 5.0 MB re-encode.
-- **Bodies:** a DualSense-shaped body for PlayStation style and an Xbox Series-shaped body for Xbox style, top-left. Buttons, d-pad, sticks, stick clicks and triggers light up from virtual-pad presses.
-- **Fix found in test:** the unlit d-pad and Share button were invisible on the dark Xbox body, so they now use a lighter grey (commit `ad515bfa`, branch `pc/padbody-23083`).
-- **Install:** it's installed and the game is running (PID 9564).
-- **Touchpad, PS button, Xbox logo:** they stay dark on a normal pad.
-
-**Also confirmed in game:**
-- **Hold Ki break:** held Yamagata's Ki bar near zero for over 2 minutes after one hit (boss page read Ki -0 / 1872). It creeps up to +4 between corrections, so it is not strictly at or below 0 the whole time.
-- **Infinite health:** stayed 2658/2658 through about 85 s of Yamagata's attacks in a Boss Match.
-
-**Kagetoki and Yagyu Jubei (offline only):** Ki can go below zero, and a second counter drops with each extra hit while a boss is at zero Ki. That counter is probably the "negative part" in the tip, but nothing in the code confirms it. I don't know why high-stun moves matter. Both bosses are in the boss tables (Kagetoki chr 22248, Jubei chr 22600). I haven't check
-
-## 2026-10-22 07:47:59 session f4d8e5ec-5692-4b60-b049-11a66045c33d
-I sent two in-game screenshots to Discord, one in PlayStation style and one in Xbox style. The Xbox lit buttons are hard to see at this transparency.
-
-- **Look:** both pads are grey, white and black, see-through like the mod menu, at half the old size, with no rainbow stripe on the Xbox one. The settings are size 1 and opacity 0.45.
-- **PlayStation shot:** taken holding L1, Square and D-pad Up. Square and D-pad Up are visibly lit.
-- **Xbox shot:** taken with the same buttons held, but the lit buttons were hard to make out, so I can't confirm they show clearly at this opacity. Tell me if you want pressed buttons brighter.
-- **Button style setting:** the game is showing Xbox right now because the helper switched it live without saving. The saved setting is still PlayStation, so the next launch shows PlayStation.
-- **Install:** only the EngineFix file changed (branch `pc/padviz-22952`, commit `454f6d79`). The game was restarted and is running (PID 32736).
-
-Still open:
-- Log the Ki values in game on Kagetoki and Jubei.
-- Confirm all bosses are summonable.
-- Merge the branches into one release.
-- Run the shader-prewarm benchmark on this PC.
-- The pc2 and Ally prewarm tasks had no result when I last checked, and I didn't re-check.
-
-I sent you a short note on your phone and updated `.handoff/next.md`.
-2026-10-22 08:40 | lead pc: PJ bench #105 on pc DONE = DROP (0 frames>33ms all 4 arms; captures/pc/pjbench105/pc_summary.txt, driver captures/pj_bench_105_pc.ps1); pad display (padviz-22952 454f6d79 skins, size1 opacity .45) installed+screenshots sent; fixes-22918 (Hold Ki break/inf HP/meter label) + padbody installed earlier | UNPROVEN: Xbox lit buttons visible at 0.45; merged release of branches (padviz-22952, fixes-22918, negki-23013, tod) not done; PJ on ally (#104/#107 open), pc2 Codex out of usage until Oct 26 11:32 pm | NEXT: (1) log Ki fields in game on Kagetoki 22248/Jubei 22600 + Ki floor depth slider (notes/human-boss-negative-ki-23013.md); (2) confirm all bosses summonable (#22984); (3) merge branches into one release + install; (4) stage options/sliders (#22920/21). Game PID 19184 running. Note: installer Idle check always reads 0 -> force Idle 999 to install; never kill game without marker check.
-2026-10-22 09:00 | pc: merged release branch pc/release-1022 (integ-release-22882 + padviz-22952 + fixes-22918, pushed); EngineFix.asi sha 38CE414A... and Training.asi build clean | UNPROVEN in game (game PID 19184 running, not installed) | NEXT: install release-1022 when game is free, verify, then negki in-game logging + summon-all-bosses | worktree ../nioh3-release-1022
-
-## 2026-10-22 09:19:06 session 186bc813-97d1-4ba7-8522-f64c31b5c475
-The dark see-through pad build is installed and running in your game, and I verified it in game for both styles. I sent two screenshots to Discord and told you on the bridge (#23328).
-
-- **Xbox:** The body is dark and see-through. With X, A, D-pad up and LB held, X and A showed as solid white round buttons. The LB press showed only as a pale sweep shape near the left bumper.
-- **PlayStation:** The DualSense body is darkened. With Square, Cross, D-pad up and R1 held, they lit up solid. Triangle and Circle stayed dim.
-- **Build:** EngineFix sha `38B5777E55F8`, commit `7d373779`, pushed on `pc/padviz-22952`. The pre-install backup is in `captures/pc/play-20261022-pre-dark`.
-- **Release branch:** Merging into it is not done. Another session's Xbox art change (`b18ce279`, white lit buttons) is on it and may conflict. I'd keep mine.
-- **Size:** I left the display size at 1.0 and didn't change it. The screenshots show the pad small, about 190 px wide on a 1280 px capture.
-- **Crash:** The first launch hit a "Fatal error" dialog (0xC0000005) on the title screen; the second launch was fine. I didn't look into the cause.
-- **Style setting:** The game is still on the PlayStation style from my live switch. The saved ini setting is still Xbox. The `ButtonStyle` setting can't be changed through `vpad`, so I switched it through the menu.
-
-I added a note to `.handoff/next.md` and removed the test marker.
-2026-10-22 09:25 pc CHECKPOINT | task: controller (pad) display look (#23125..#23313) | DONE+proven in game: Gamepad-Viewer skins, dark see-through bodies, grey-only, Xbox rainbow removed, pressed layers solid opaque, lit Xbox buttons whole white discs; installed EngineFix sha 38B5777E55F8 (pc/padviz-22952 7d373779 pushed, worktree ../nioh3-padviz); in-game screenshots both styles sent to Discord | UNPROVEN: clip not filmed (user said 'No clip' earlier), size left at 1.0 | NEXT: merge pc/padviz-22952 into release branch (conflict w/ b18ce279 on pc/release-1022, prefer mine); game PID 30944 still running (PlayStation live, ini Xbox); then Kagetoki/Jubei negative-Ki in-game, all-bosses summon, stage picker, sky, sliders (open.md)
-2026-10-22 9:57am pc: #23343 PS5 outline contrast (edge highlights on DualSense body) installed + verified in game; commit on pc/padviz-22952; game PID 28484 running. TODO merge into pc/release-1022.
-
 ## 2026-10-22 10:37:08 session f4150bf3-8079-4bb1-81f5-3d9474c026b0
 `pc/release-1022` now includes the pressed-button colour picker (`pc/padcolor`) and the Ki-break work (`pc/negki-impl`). Both merged without conflicts and the branch is pushed. I didn't rebuild or re-run any tests after the merges.
 
@@ -335,3 +284,36 @@ A retry loop (`run-pc-retry-loop.ps1`) checks every 5 minutes and starts the rer
 pc2's runner is alive at 55 of 67 valid with 0 failures, and I told the human that too (#24964).
 - 2026-10-23 4:02 AM Eastern cx-pc #24980 | Original default restored in b35dea02 (cx-pc/pad-style-24886); optional Transparent + white border preset retained. Both ASIs build; 393216 default command comparisons and 4 offline suites pass. Next pc: integrate correction and verify live menu; no game touched.
 2026-10-23 04:17 pc CHECKPOINT | task: settings audit stage 1 + user Q&A | DONE: pc audit finished 62 valid/67 rows (5 invalid: 4 'no player after Continue', 1 no boss; need rerun once pc2 frees game lock); pc2 ~59/67 valid done ~4:40 am, then TASKed #25003 (ideas #9 memcpy probe, #3 PSO prewarm); ally ~16/65 runs, ~noon EST, slow. Pad customization built by cx-pc (default restored to old look, Transparent+white border preset), previews sent to Discord via universal-optimizer/tools/notify/notify.py file <path> <text>. | UNPROVEN: cx-pc/action-record-24680 + pad build not merged/installed/tested in game | NEXT: rerun 5 invalid pc rows; analyse results (settings_audit.py); merge+install cx-pc branches, verify in game (Yoritomo hits, pad preset), send in-game pad screenshot via notify.py file; build bench logging CPU/GPU util, temps, power, latency; 3-arm final bench (stock / no-visual-change mod / full mod) on all 3 devices, no second full audit; keep rule: keep setting if it helps ANY metric; then 10x Discord ping | files: captures/audit-screen/results-pc.csv, settings-list.md, .handoff/user-directives.md (#24846..#24979), open.md
+
+## 2026-10-23 04:54:30 session ff9738e9-70c2-4819-b0f6-947e35eba710
+Nothing is failing, but pc's 5 audit reruns are still waiting. pc2 took the game lock back to finish its 4 missing audit runs, which should take about 30 minutes. The retry loop on pc checks every 5 minutes and starts the reruns once the lock frees. I told the human this (#25088). I did not touch the game.
+
+Ally is still running. Its last count was 18 of 65 valid at 4:26 am EST.
+
+## 2026-10-23 05:20:24 session ff9738e9-70c2-4819-b0f6-947e35eba710
+pc2's audit is finished: 67 of 67 runs are valid, with the game closed and the lock released. I told the human (#25133).
+
+pc2 says run `s1-pc2-0066` (Memory.LM ON) had already measured fine at 43.11 fps before my message, so it was not marked NOT_MEASURABLE. The baseline run `s1-pc2-0067` came in at 51.82 fps. The results are on the branch `pc2/audit-run-24483`.
+
+I tasked pc2 (#25132) with its next job. It builds and measures two small optimizations, OFF versus ON, on its RX 6650 XT: the memory-copy hot spot probe and shader precompile for boss-fight hitches. That uses the same Yoritomo fight, 60-second PresentMon, 3 repetitions per arm.
+
+pc's 5 reruns should start on the retry loop's next check. The last check I saw, at 5:16 am EST, had not started them. I haven't confirmed that they have started.
+
+Ally is still at about 18 of 65.
+
+## 2026-10-23 05:42:58 session c72f5b92-5e9f-4b93-ac59-4666484b9cc2
+I built the MCP probe `Nioh3EngineFix.asi` from `cx-pc2/mc-probe-25132` (d18e0ab1) and uploaded it to the bridge as file #1527 (sha256 prefix b4be7d2180be). I haven't run it in the game, and I told pc2 and cx-pc2 in #25177; pc2 does the test.
+
+The branch's `build.bat` had two bugs that stopped it linking:
+- `mcprobe.obj` was missing from the link line, which caused the unresolved-symbol errors.
+- A stray `build\mcprobe.obj` sat on the `psomemo` compile line.
+
+I fixed both and pushed the fix to branch `pc/mc-probe-build`. It is not merged into cx-pc2's branch.
+
+To use the probe, set `[Patches] MCP=1`; it defaults to 0.
+
+I didn't launch the game or touch the running audits. I also didn't write a checkpoint or update `.handoff/next.md` this run.
+2026-10-23 06:12 pc | pc audit rows complete (results-pc.csv 73 lines); evaluate stage waits for ally rows | unproven: cx-pc builds not yet installed/verified | NEXT: merge cx-pc/action-record-24680 + cx-pc/pad-style-24886, build, install, verify in game; then settings_audit.py --stage evaluate | branches above
+- 2026-10-23 6:13 AM Eastern cx-pc #25224 | Combined action records + Original-default pad at 1baaca34, cx-pc/merged-pc-install. Three ASIs and five offline suites PASS; artifact hashes in notes/merged-pc-install-25224.md. Next pc: install matching Training/Rematch + TSV and EngineFix, verify live; no game touched.
+
+2026-10-23 06:25 | pc: pc audit reruns done (all 67 rows); pc2 67/67 valid; ally ~20/65 running. Merged build (cx-pc/merged-pc-install 78139235: pad customization w/ Original default + auto hit/damage action records) INSTALLED on pc and run in game: Yoritomo fight OK ~90 fps, pad display original look + cyan pressed OK, ACTIONRECORD 11476 rows loaded. | UNPROVEN: new menu page (preset/colour rows, TransparentWhite preset visually in game), per-hit damage readouts in menu (F10 via keybd_event did not open menu; use pad View+DpadUp 1s). | NEXT: open menu via pad, screenshot new rows + preset; analyse pc/pc2 audit csvs; final 3-arm bench w/ temps/CPU/GPU/latency. Backup of old files: captures/pc/play-20261023-pre-merged. | files: captures/merged_verify.ps1, captures/merged-verify-20261023/
