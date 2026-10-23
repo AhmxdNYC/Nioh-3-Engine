@@ -11,3 +11,7 @@
 - #23905 (2026-10-22): NOTHING by hand anymore: no hand-written move lists/rows for any boss; everything (move lists, frame data, arenas, Ki-break, summon) must be fully automatic, incl. new DLC bosses, even the 19 older hand-listed bosses and the 33 human duelists.
 - #23909 (2026-10-22): No live-fight-reading approach for move lists: derive from the boss data/files the game loads (static, deterministic), not by observing moves during a fight.
 - #23933 (2026-10-22): When EVERYTHING requested is done, ping the human about 10 times on Discord (notify). Not before.
+- #24182 (2026-10-22): when everything else is done, audit ALL optimization settings: how many are on by default, and confirm which non-default ones actually help (even 0.001%) so they can be enabled by default.
+- #24195 (2026-10-22): after the optimization-settings audit (#24182), run the final benchmark: stock/default Nioh 3 vs the optimized mod version in boss fights on ALL 3 devices (pc, pc2, ally).
+- #24256 (2026-10-22): human is away from the PC and stays away until pc says EVERYTHING is done: use the PC freely (no hands-on asks), game launches/closes are fine.
+- #24206 / #24258 (2026-10-22 10:18 pm EST): Build a website tied to the Nioh 3 GitHub. People can upload a file whose type is not known yet (Claude figures that out), plus text and images, report a mod issue, and request a feature. Tell the human when they can open it. Another gxl-pc slot is building it. Do not start a second copy. Do not touch the game from the status reply.
