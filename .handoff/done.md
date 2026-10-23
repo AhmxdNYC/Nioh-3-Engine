@@ -382,3 +382,4 @@
 - 2026-10-23 | Final 3-arm bench pc2 | measure stock vs mod on pc2 | stock 52.6 fps, pure 52.9 (+0.6%), full 57.2 (+8.8%), FG off, 1080p FSR65
 - 2026-10-23 | pc final bench (3 arms) | measure mod gain vs stock on main PC | RX 9070, 2 runs/arm: stock 76.2 fps, safe mod 98.1, safe+visual-lowering 97.3 (+28%); FG-on set and GitHub chart still pending
 - 2026-10-23 | Final 3-arm bench ally | measure stock vs mod on ally | stock not measurable (needs EngineFix to summon); mod-opts-off 19.8 -> pure 20.7, full 20.8 fps (+4-5%), FG off. Earlier 'nearly doubles' claim was invalid (loading screen runs)
+- 2026-10-23 | Final bench pc FG-ON | measure mod with frame gen on, main PC | RX 9070 FG on: baseline 146.8 fps (low1 84.8), safe mod 152.6 (+4.0%, 90.9), full mod 156.0 (+6.3%, 94.9)

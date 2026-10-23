@@ -1,12 +1,4 @@
 
-## 2026-10-22 19:19:11 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing on pc2 or ally, and there are no new messages or replies from you since my last note.
-
-I'm waiting on you for one thing: close the game or say "go", so I can restart it with the combined build. The game on this PC is still open (PID 1612, running since 2:20 pm EST). The Jubei Ki-break check is still unplayed.
-
-I sent no messages and changed nothing.
-2026-10-22 19:34 pc: relaunched game PID 15936 with pc/combined-1022b (release-1022 b2850017 + ally autoarena-r1022), Training asi ac3dd853, backup captures/pc/play-20261022-pre-combined. test-active marker set. UNPROVEN: Jubei reel (KIAUTO log), arena fight for roster bosses, autobind in-game on pc. NEXT: after user plays, read Nioh3Training.log for KIAUTO/AUTOBIND; delete marker.
-
 ## 2026-10-22 19:54:13 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
 I told the human (#23940) that I'll ping them about 10 times on Discord once everything requested is done, and not before. I logged this in `.handoff/user-directives.md`.
 
@@ -350,3 +342,22 @@ Still pending:
 2026-10-23 5:56 pm EST pc | pc final 3-arm bench done (results-pc-final.csv) | FG-on runs, pc2 final, ally #119, GitHub chart pending | next: queue FG-on arms on all 3 devices | captures/final-bench/results-pc-final.csv
 2026-10-23 6:15 PM EST pc | pc FG-on final bench launched elevated (run-pc-final-fgon.ps1, results-pc-final-fgon.csv), ~35 min; config.xml restored by finally | pc2 FG-on done (stock 87.1/safe 88.3/full 93.6); ally FG-on sent | next: collect, then GitHub chart | captures/final-bench
 2026-10-23 6:11 PM EST pc CHECKPOINT | pc FG-ON final bench launched elevated (run-pc-final-fgon.ps1, config.xml FRAME_GENERATION=FSR, auto-restored from captures/final-bench/config.xml.prefg after). pc2 FG-ON done (stock 87.1/pure 88.3/full 93.6), pc2/pc FG-off done, ally FG-OFF done (+4-5%), ally FG-ON task posted. NEXT: when results-pc-final-fgon.csv has 6 rows + test-active gone: verify config.xml FRAME_GENERATION=OFF restored, digest, then ally FG-ON RESULT, then README chart (dataviz skill) + notify human.
+
+## 2026-10-23 18:32:29 session 24f4977c-0ded-46f9-8e4d-cfd55e02dc1a
+Not done yet, and I told the user so in #26849.
+
+- **Main PC:** the frame-generation-ON benchmark is running now. It started around 6:10 pm EST and should end around 6:50 pm EST. Its results file has 5 data rows so far.
+- **pc2:** its frame-generation-ON result is in.
+- **Ally:** its frame-generation-ON result is still pending.
+
+Once all three are in, I'll build the GitHub chart and message the user.
+
+I haven't touched the game this turn.
+2026-10-23 6:52 PM EST pc CHECKPOINT | pc FG-ON bench DONE 6/6 (146.8/152.6/156.0 fps), config.xml restored OFF, game closed. Waiting: ally FG-ON (#121 ~7:30 pm), pc2 boss-fight 12 runs (#26758). NEXT: when both in, build README chart (dataviz skill) from results-pc-final*.csv, pc2 final-pc2-118/120, ally ally/final-bench-119 + FG-ON; notify human | captures/final-bench/results-pc-final-fgon.csv
+
+## 2026-10-23 ~7:03 pm EST pc (context full)
+- TASK: final 3-arm bench (stock / arm2 pure-perf / arm3 full mod) x FG off/on, all 3 devices, then GitHub chart (user #26593).
+- DONE: pc FG-off (stock 76.2 / arm2 98.1 / arm3 97.3 fps; lows 50.7/72.5/66.6) and pc FG-on (146.8 / 152.6 / 156.0; lows 84.8/90.9/94.9), files captures/final-bench/results-pc-final.csv + results-pc-final-fgon.csv. pc2 FG-on: 87.1/88.3/93.6 (Kyoto scene, game speed 0.69x in stock FG-on => not comparable). 
+- BROKEN/REDO: ally runs INVALID: player died ~30s in (god-mode off in bench INI?) AND platform limit stuck ~5W not 30W. Ally redoing FG off+on with god-mode on + power fix. Open Qs to ally: #26947 #26953 #26961 #26967 #26992 (god-mode key diff vs human's INI; game speed per arm). Human says god mode was ON by default and played Ally 30-45 fps fine.
+- NOT tracked on pc: temps/power/latency (no sensor tool; offered to install, awaiting yes/no). In-game settings per device asked of pc2/ally (#26923); pc = CUSTOM preset, XeSS, landscape/meshlet HIGH.
+- NEXT: digest ally/pc2 RESULTs; re-check pc2 game speed; then build chart + table + per-device settings on GitHub README (open.md item), ping human. Directives logged in user-directives.md (#26524..#26964).

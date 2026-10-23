@@ -40,3 +40,13 @@
 - #26131 (2026-10-23): the automatic report button (feedback) must include the user's specs (OS: Linux or Windows for sure, plus CPU/GPU/RAM) in the report.
 - #26198 (2026-10-23): after the MCE test, analyse data across all 3 devices, pick best universal default settings and turn them ON if unlikely to harm; THEN run final 3-device benchmarks.
 - #26201 (2026-10-23): a setting that is on paper more optimal (even without measured win) should be ON by default. Only two groups: optimized-no-visual-change vs optimized-affects-visuals.
+- #26262 (2026-10-23): final benchmarks must record EVERYTHING: temps, latency/delay, avg fps, 1% low/high, CPU/GPU usage, power.
+- #26271 (2026-10-23): final bench should measure like real users: an in-game overlay (MangoHud on Linux, RTSS/RivaTuner-style on Windows) AND an outside-the-game capture, both recorded.
+- #26397 (2026-10-23): ONE mod that just works best for everyone: no separate versions (no 2-3 builds). Device/OS differences must be handled by auto-detection inside the one mod; picture-affecting settings are in-menu options, not a separate build.
+- #26524 (2026-10-23): human suggests final bench run in 2 sets: (a) optimized no-visual-change with frame gen ON vs (b) optimized touching visuals with frame gen ON (FG pinned the same on all arms). pc recommended: FG ON set is main, FG OFF set after; ally FG off (Proton).
+- #26539 (2026-10-23): ally DOES have frame gen (universal Proton-safe FG, mode 3). FG-ON bench set applies to all 3 devices incl. ally.
+- #26552 (2026-10-23): goal of final bench = accurate data on how much the mod improves the game: matrix stock vs mod(same visuals) vs mod(visuals possibly altered), each with frame gen ON and OFF, all 3 devices.
+- #26589 (2026-10-23): handle errors yourself during final bench (retry/fix/restore), don't stop on them.
+- #26593 (2026-10-23): when all benches are done, publish a nice graph on the GitHub repo (README/docs): metrics for default vs optimized vs optimized-may-affect-visuals, frame gen on/off, all 3 devices, all info.
+- #26960 (2026-10-23): human played Ally at 30-45 fps fine on the mod for a week; bench ~20 fps on Ally conflicts -> reconcile (settings, scene, FG displayed fps) before claiming handheld is unplayable.
+- #26964: human played straight boss fights on Ally at 30-45 fps; bench scene difference alone does not explain ~20 fps -> check bench settings/config vs human's play.

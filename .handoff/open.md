@@ -77,3 +77,5 @@
 - [ ] integrate+verify automatic hit/damage (cx-pc/action-record-24680) in game after the pc audit ends
 - [ ] (user #24936) Add CPU temp + package power logging to the final 3-arm bench (fps-capped run, stock vs mod), all 3 devices.
 - [ ] (user #24939) Audit/bench rows only have avg fps/1% low/frametime. Add CPU util, GPU util, CPU temp, power per run to final bench (all 3 devices). Mod has [Profiler] MemStats etc but no per-run util in results.
+- [ ] publish final-bench graph (default vs optimized vs optimized+visuals, FG on/off, 3 devices) to GitHub README after all results | user #26593
+- [ ] collect per-device in-game settings (pc2, ally asked #user 26922) and list them on the GitHub chart | user #26922
