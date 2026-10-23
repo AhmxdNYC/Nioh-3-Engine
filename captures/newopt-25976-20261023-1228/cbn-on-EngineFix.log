@@ -1,0 +1,598 @@
+[13:41:52.978] Nioh3EngineFix 1.7.61 (built Oct 22 2026) - native port of the live-tested Nioh 3 engine patches
+[13:41:52.978] OS: native Windows; ini keys set to -1 (auto) resolve by OS - none are -1 in this ini
+[13:41:52.978] Nioh3.exe at 00007FF759910000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[13:41:52.979] PJ: PJ = 1 (journal + title-screen prewarm), journal folder C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3EngineFix_pj, max 64 MB, quiet 3000 ms, title gate G+58Ah; PJH = 0 (off, keep <= 4096)
+[13:41:52.980] PSOSWAP: Enabled=0: D3D12CreateDevice hook armed only to report the device to PJ (no swap, no dump, no tracking)
+[13:41:52.980] PSOSWAP: IAT hook on sl.interposer.dll!D3D12CreateDevice armed (slot RVA 0x38e2e18, target sl.interposer.dll)
+[13:41:53.192] code is decrypted (219 ms after start)
+[13:41:53.193] resolving sites:
+[13:41:53.200]   W1   OK at RVA 61BAC
+[13:41:53.203]   W2a  OK at RVA 13721F
+[13:41:53.213]   W2b  OK at RVA 137269
+[13:41:53.224]   W2c  OK at RVA 1372B4
+[13:41:53.233]   W2d  OK at RVA 1372FE
+[13:41:53.243]   P3a  OK at RVA 43593A
+[13:41:53.258]   P3b  OK at RVA 437EE5
+[13:41:53.268]   P3c  OK at RVA 438473
+[13:41:53.278]   P3d  OK at RVA 55DC56
+[13:41:53.290]   P3e  OK at RVA 5AF6C9
+[13:41:53.300]   P3f  OK at RVA 29770C6
+[13:41:53.310]   P3g  OK at RVA 29771B4
+[13:41:53.320]   P6   OK at RVA 1975BAA
+[13:41:53.337]   P8a  OK at RVA 20E77B
+[13:41:53.350]   P8b  OK at RVA 5AF526
+[13:41:53.368]   P8c  OK at RVA 5AF682
+[13:41:53.386]   P8d  OK at RVA 5AF69F
+[13:41:53.396]   P9   OK at RVA 5AD89B
+[13:41:53.409]   P2   OK at RVA 5AD6AA
+[13:41:53.424]   P4   OK at RVA 5AD860
+[13:41:53.438]   P1   OK at RVA 5AD677
+[13:41:53.455]   W3   OK at RVA 1A6BF2D
+[13:41:53.467]   R1   OK at RVA 4A5346
+[13:41:53.482]   R1j  OK at RVA 4A5357
+[13:41:53.507]   L1   OK at RVA 19DF57E
+[13:41:53.524]   F1   OK at RVA 3777A40
+[13:41:53.535]   WK   OK at RVA 40A4C
+[13:41:53.546]   B    OK at RVA 3BC17
+[13:41:53.572]   PP   OK at RVA 252677
+[13:41:53.583]   J1a  OK at RVA 4122D
+[13:41:53.596]   J1b  OK at RVA 41265
+[13:41:53.605]   J1c  OK at RVA 41397
+[13:41:53.615]   J1d  OK at RVA 414B6
+[13:41:53.627]   J1e  OK at RVA 40899
+[13:41:53.640]   J1f  OK at RVA 40481
+[13:41:53.652]   J1g  OK at RVA 3E7F5
+[13:41:53.663]   J1h  OK at RVA 3E821
+[13:41:53.695]   MWR  OK at RVA 3FD5C
+[13:41:53.704]   MWW  OK at RVA 981211
+[13:41:53.729]   W6   OK at RVA 7D9EA2
+[13:41:53.746]   W6W  OK at RVA 1A822D9
+[13:41:53.761]   SPg  OK at RVA 11970A
+[13:41:53.773]   SPu  OK at RVA 62D7E7
+[13:41:53.797]   WS0  OK at RVA 40B0A
+[13:41:53.816]   WS1  OK at RVA 40D2F
+[13:41:53.834]   WS2  OK at RVA 48C6B
+[13:41:53.851]   WS3  OK at RVA 48D06
+[13:41:53.869]   WS4  OK at RVA 48DEC
+[13:41:53.886]   WS5  OK at RVA 48E3C
+[13:41:53.911]   WSs  OK at RVA 1A6BC35
+[13:41:53.932]   GF1  OK at RVA 7D9E66
+[13:41:53.954]   GF2  OK at RVA 117D9F
+[13:41:53.967]   WL   OK at RVA 4A5338
+[13:41:53.981]   CP   OK at RVA D8180
+[13:41:53.998]   DL   OK at RVA D83F4
+[13:41:54.005]   MQ   OK at RVA 88780
+[13:41:54.027]   PT1a OK at RVA 114CA8
+[13:41:54.046]   PT1r OK at RVA 114CEE
+[13:41:54.056]   PT1b OK at RVA 129651
+[13:41:54.066]   PT1c OK at RVA 12982E
+[13:41:54.074]   PT1d OK at RVA 1298B3
+[13:41:54.094]   LKO1 OK at RVA 1A18C9
+[13:41:54.111]   LKO2 OK at RVA 1A1935
+[13:41:54.132]   LKO3 OK at RVA 42877
+[13:41:54.148]   LKM1 OK at RVA 4A545
+[13:41:54.159]   LKM2 OK at RVA 4A55A
+[13:41:54.176]   LKM3 OK at RVA 4A708
+[13:41:54.186]   LKM4 OK at RVA 4A719
+[13:41:54.201]   LKM5 OK at RVA 130096
+[13:41:54.209]   LKM6 OK at RVA 1301B4
+[13:41:54.220]   LKM7 OK at RVA 1301C5
+[13:41:54.233]   LKM8 OK at RVA 1301E4
+[13:41:54.240]   LKM9 OK at RVA 130225
+[13:41:54.257]   LKJ1 OK at RVA 40921
+[13:41:54.271]   LKJ2 OK at RVA 40A14
+[13:41:54.287]   LKJ3 OK at RVA 40CE4
+[13:41:54.301]   LKJ4 OK at RVA 40D75
+[13:41:54.314]   LKJ5 OK at RVA 41325
+[13:41:54.328]   LKJ6 OK at RVA 41447
+[13:41:54.335]   PMw  OK at RVA 13503A3
+[13:41:54.344]   PMs  OK at RVA 2EEBB68
+[13:41:54.352]   RCO1 OK at RVA 39B7CA
+[13:41:54.375]   GIS1 OK at RVA 18745A
+[13:41:54.392]   GIS2 OK at RVA 187464
+[13:41:54.409]   GIS3 OK at RVA 187471
+[13:41:54.425]   GIS4 OK at RVA 18747F
+[13:41:54.444]   EPL1 OK at RVA 233A49
+[13:41:54.477]   EPF1 OK at RVA 4A5B76
+[13:41:54.483] PJ: hooked device vtable 00007FFE515324F0: CreateGraphics/ComputePipelineState, CreateRootSignature, CreatePipelineState (stream)
+[13:41:54.510]   EPF2 OK at RVA 4A5B7E
+[13:41:54.510] near page at 00007FF759900000
+[13:41:54.551]   W1   RVA 61BAC    patched: 41 0F B6 06 41 03 C7 48 8D 3C 83 44 89 F9 31 C0 F3 AB 0F 1F 40 00 
+[13:41:54.551] W1: applied (1 site(s), 1 attempt(s))
+[13:41:54.594]   W2a  RVA 13721F   patched: 80 7C 24 58 00 66 0F D6 43 04 0F 1F 40 00 
+[13:41:54.594] W2a: applied (1 site(s), 1 attempt(s))
+[13:41:54.639]   W2b  RVA 137269   patched: 80 7C 24 58 00 66 0F D6 4B 30 0F 1F 40 00 
+[13:41:54.639] W2b: applied (1 site(s), 1 attempt(s))
+[13:41:54.685]   W2c  RVA 1372B4   patched: 80 7C 24 58 00 66 0F D6 4B 5C 0F 1F 40 00 
+[13:41:54.685] W2c: applied (1 site(s), 1 attempt(s))
+[13:41:54.729]   W2d  RVA 1372FE   patched: 48 8B 6C 24 38 48 8B 74 24 40 66 0F D6 8B 88 00 00 00 0F 1F 80 00 00 00 00 
+[13:41:54.729] W2d: applied (1 site(s), 1 attempt(s))
+[13:41:54.729] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[13:41:54.729] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[13:41:54.729] VRR tier 120: armed=1 clamp 48..120 fps, limiter cap 120
+[13:41:54.777]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[13:41:54.777]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[13:41:54.777]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[13:41:54.777]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[13:41:54.777]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[13:41:54.777]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[13:41:54.777]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[13:41:54.777]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[13:41:54.777]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[13:41:54.777]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[13:41:54.777]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[13:41:54.777]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[13:41:54.777]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[13:41:54.777]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[13:41:54.777]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[13:41:54.777]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[13:41:54.777] VRR: applied (16 site(s), 1 attempt(s))
+[13:41:54.827]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[13:41:54.827] W3: applied (1 site(s), 1 attempt(s))
+[13:41:54.867]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[13:41:54.867]   R1j  RVA 4A5357   patched: 75 ED 
+[13:41:54.867] R1: applied (2 site(s), 1 attempt(s))
+[13:41:54.904]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[13:41:54.904] L1: applied (1 site(s), 1 attempt(s))
+[13:41:54.952]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[13:41:54.952] F1: applied (1 site(s), 1 attempt(s))
+[13:41:55.011]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[13:41:55.011] WK: applied (1 site(s), 1 attempt(s))
+[13:41:55.731] MW install diagnostics: snapshot=0 open=0 owner=0 suspend=200 context=0 rip=0 census=0 census_api=0 census_unknown=0 census_bound=0 original=0 rollback=0 last=SuspendThread tid=32392 error=5 status=00000000 site=none rip=0
+[13:41:55.731] MW: not installed after 200 attempts; no writes retained
+[13:41:55.731] MW: SKIPPED
+[13:41:55.731] MW: skipped, stock retained (paired meshlet completion wait/wake; startup-only; no job work skipped)
+[13:41:55.783]   W6   RVA 7D9EA2   patched: E8 B9 62 81 FF 0F 1F 00 
+[13:41:55.783] W6: applied (1 site(s), 1 attempt(s))
+[13:41:55.850]   W6W  RVA 1A822D9  patched: E8 92 DE 56 FE 66 90 
+[13:41:55.850] W6W: applied (1 site(s), 1 attempt(s))
+[13:41:55.850] W6: hybrid present wait on (spin 50 us, then WaitOnAddress, 1 ms timeout); waker at the Present thread's flag clear installed
+[13:41:55.911]   B    RVA 3BC17    patched: E9 C4 44 FB FF 
+[13:41:55.911] B: applied (1 site(s), 1 attempt(s))
+[13:41:55.972]   PP   RVA 252677   patched: E8 74 DA D9 FF 
+[13:41:55.972] PP: applied (1 site(s), 1 attempt(s))
+[13:41:56.032]   J1a  RVA 4122D    patched: 42 8B 04 19 66 90 
+[13:41:56.032]   J1b  RVA 41265    patched: 42 8B 04 19 85 C0 
+[13:41:56.032]   J1c  RVA 41397    patched: 42 8B 04 19 66 90 
+[13:41:56.032]   J1d  RVA 414B6    patched: 42 8B 04 19 85 C0 
+[13:41:56.032]   J1e  RVA 40899    patched: 42 8B 04 01 85 C0 
+[13:41:56.032]   J1f  RVA 40481    patched: 41 8B 87 54 04 00 00 66 90 
+[13:41:56.032]   J1g  RVA 3E7F5    patched: 8B 41 34 0F 1F 00 
+[13:41:56.032]   J1h  RVA 3E821    patched: 8B 43 34 0F 1F 00 
+[13:41:56.032] J1: applied (8 site(s), 1 attempt(s))
+[13:41:56.113]   SPg  RVA 11970A   patched: E8 C1 6B ED FF 
+[13:41:56.113]   SPu  RVA 62D7E7   patched: E8 F4 2A 9C FF 
+[13:41:56.113] SPR: applied (2 site(s), 1 attempt(s))
+[13:41:56.194]   WS0  RVA 40B0A    patched: 90 E8 D0 F6 FA FF 
+[13:41:56.194]   WS1  RVA 40D2F    patched: 90 E8 BB F4 FA FF 
+[13:41:56.194]   WS2  RVA 48C6B    patched: 90 E8 8F 75 FA FF 
+[13:41:56.194]   WS3  RVA 48D06    patched: 90 E8 04 75 FA FF 
+[13:41:56.194]   WS4  RVA 48DEC    patched: 90 E8 2E 74 FA FF 
+[13:41:56.194]   WS5  RVA 48E3C    patched: 90 E8 EE 73 FA FF 
+[13:41:56.194]   WSs  RVA 1A6BC35  patched: 90 E8 05 46 58 FE 
+[13:41:56.194] WS: applied (7 site(s), 1 attempt(s))
+[13:41:56.194] WG: wake gate on the wake-one sites 48C6B / 48D06 installed (switch ON, MaxPending 1, window 2000 us); worker sleep 1A6BC35 wrapped
+[13:41:56.266]   GF1  RVA 7D9E66   patched: E8 05 64 81 FF 0F 1F 00 
+[13:41:56.266]   GF2  RVA 117D9F   patched: E8 DC 84 ED FF 0F 1F 00 
+[13:41:56.266] GF: applied (2 site(s), 1 attempt(s))
+[13:41:56.266] GF: GPU-fence waits use SetEventOnCompletion + an event wait (100 ms rounds) instead of Sleep(0)
+[13:41:56.329]   WL   RVA 4A5338   patched: E8 53 AF B4 FF 90 
+[13:41:56.329] WL: applied (1 site(s), 1 attempt(s))
+[13:41:56.389]   LKO1 RVA 1A18C9   patched: 8B 07 66 90 
+[13:41:56.389]   LKO2 RVA 1A1935   patched: 8B 04 91 66 90 
+[13:41:56.389]   LKO3 RVA 42877    patched: 41 8B 86 CC 09 00 00 66 90 
+[13:41:56.389]   LKM1 RVA 4A545    patched: 8B 04 0A 0F 1F 00 
+[13:41:56.389]   LKM2 RVA 4A55A    patched: 8B 81 B4 00 00 00 0F 1F 00 
+[13:41:56.389]   LKM3 RVA 4A708    patched: 8B 04 0B 0F 1F 00 
+[13:41:56.389]   LKM4 RVA 4A719    patched: 8B 81 B4 00 00 00 0F 1F 00 
+[13:41:56.389]   LKM5 RVA 130096   patched: 8B 04 AE 85 C0 90 
+[13:41:56.389]   LKM6 RVA 1301B4   patched: 41 8B 41 08 66 90 
+[13:41:56.389]   LKM7 RVA 1301C5   patched: 41 8B 41 08 85 C0 
+[13:41:56.389]   LKM8 RVA 1301E4   patched: 41 8B 41 0C 66 90 
+[13:41:56.389]   LKM9 RVA 130225   patched: 43 8B 44 99 10 66 90 
+[13:41:56.389]   LKJ1 RVA 40921    patched: 49 8B 02 66 90 
+[13:41:56.389]   LKJ2 RVA 40A14    patched: 8B 42 30 66 90 
+[13:41:56.389]   LKJ3 RVA 40CE4    patched: 41 8B 40 10 66 90 
+[13:41:56.389]   LKJ4 RVA 40D75    patched: 48 8B 47 30 66 90 
+[13:41:56.390]   LKJ5 RVA 41325    patched: 49 8B 06 66 90 
+[13:41:56.390]   LKJ6 RVA 41447    patched: 49 8B 06 66 90 
+[13:41:56.390] LK: applied (18 site(s), 1 attempt(s))
+[13:41:56.464]   CP   RVA D8180    patched: E9 2B 81 F1 FF 66 90 
+[13:41:56.464]   DL   RVA D83F4    patched: E8 F7 7E F1 FF 
+[13:41:56.464] CP: applied (2 site(s), 1 attempt(s))
+[13:41:56.464] CP/SPF: worker prefetch caves installed: CP ON, SPF -
+[13:41:56.464] DL: dead first part-map lookup (D83F4, CP group) switch ON
+[13:41:56.520]   MQ   RVA 88780    patched: E9 7B 7B F6 FF 0F 1F 44 00 00 
+[13:41:56.520] MQ: applied (1 site(s), 1 attempt(s))
+[13:41:56.520] MQ: MatrixFromScaleQuatTrans SSE cave installed, switch ON
+[13:41:56.585]   RCO1 RVA 39B7CA   patched: E8 11 4D C5 FF 90 
+[13:41:56.585] RCO: applied (1 site(s), 1 attempt(s))
+[13:41:56.585] EXTRA: render-config options installed (XCLD 0, XFOG 0, XSHD 0, XSHF 0, XTER 0, XAO 0, XPOST 0)
+[13:41:56.585] EXTRA: GI gather scale installed (XGI 0 = x1.00)
+[13:41:56.648]   GIS1 RVA 18745A   patched: E8 91 90 E6 FF 
+[13:41:56.648]   GIS2 RVA 187464   patched: E8 87 90 E6 FF 
+[13:41:56.648]   GIS3 RVA 187471   patched: E8 7A 90 E6 FF 
+[13:41:56.648]   GIS4 RVA 18747F   patched: E8 6C 90 E6 FF 
+[13:41:56.648] GIS: applied (4 site(s), 1 attempt(s))
+[13:41:56.648] EXTRA: meshlet LOD scale installed (XLOD 0 = x1.0)
+[13:41:56.709]   EPL1 RVA 233A49   patched: E8 B2 CA DB FF 
+[13:41:56.709] EPL: applied (1 site(s), 1 attempt(s))
+[13:41:56.709] EXTRA: GPU particle share installed (XPRT 0 = x1.00; globals 00007FF75DE76008 / 00007FF75DE76000)
+[13:41:56.767]   EPF1 RVA 4A5B76   patched: E8 95 A9 B4 FF 0F 1F 00 
+[13:41:56.767]   EPF2 RVA 4A5B7E   patched: E8 9D A9 B4 FF 0F 1F 00 
+[13:41:56.767] EPF: applied (2 site(s), 1 attempt(s))
+[13:41:56.831]   PT1a RVA 114CA8   patched: E8 63 B6 ED FF 90 
+[13:41:56.831]   PT1r RVA 114CEE   patched: E8 2D B6 ED FF 90 
+[13:41:56.831]   PT1b RVA 129651   patched: E9 DA 6C EC FF 66 90 
+[13:41:56.831]   PT1c RVA 12982E   patched: E9 0D 6B EC FF 66 90 
+[13:41:56.831]   PT1d RVA 1298B3   patched: E9 98 6A EC FF 0F 1F 44 00 00 
+[13:41:56.831] PT1: applied (5 site(s), 1 attempt(s))
+[13:41:56.831] PT1: pool lock held once per texture in TextureStreamRequestTiles, switch ON
+[13:41:56.831] TG: tick governor available (switch ON, floor 30 ticks/s, ratio 125 %)
+[13:41:56.893]   PMw  RVA 13503A3  patched: E8 B8 00 CA FE 90 
+[13:41:56.893]   PMs  RVA 2EEBB68  patched: E8 03 49 10 FD 90 
+[13:41:56.893] PM: applied (2 site(s), 1 attempt(s))
+[13:41:56.893] VRR: VRROnline = -1 (auto) - suspended while an online session is detected
+[13:41:56.894] AutoContinue: installed (tip page confirm check 1CECAED), ON: the 'press to continue' page after a load closes as soon as the load is done - [General] AutoContinueLoad = 1; switch in the mod menu
+[13:41:56.964] CBU: table wrapper at 118E19: CBN ON, CBT ON, stats ON (every 10 s), record 0 calls after 60 s
+[13:41:56.971] MENU: game menu signal (5A37D4 / D63C0): bytes verified; pause hint source Both
+[13:41:56.971] MENU: frame generation: live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified
+[13:41:56.971] MENU: enabled - key F10, controller triple-tap Start (window 900 ms, gap 300 ms, swallow 1), scale auto, pause hint on (flags mask 18)
+[13:41:56.975] MEM: MemStats on - one 'stats mem:' line per stats period (process memory, handles, threads, VRAM)
+[13:41:56.977] LoadGates: 9/9 gate call sites hooked
+[13:41:56.977] LoadStats: mode 1, 24/25 sites hooked, 1 differ, 0 skipped - 11970A(bytes)
+[13:41:56.978] EP: ini -1 (auto) on native Windows -> OFF
+[13:41:56.978] SR: ini -1 (auto) on native Windows -> OFF
+[13:41:56.978] LoadOnlyCpuFixes = 0 (off, GF/W6/RWb follow their own keys); user GF 1 W6 1 RWb 0
+[13:41:56.978] [Debug] BossLog: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)
+[13:41:56.978] [Debug] RematchLog: moved to Nioh3BossRematch (set it in Nioh3BossRematch.ini; this ASI has no boss hooks since 1.7.41)
+[13:41:56.979] KeepRunningUnfocused: installed at 3/3 IsAppActive call sites (pad update 436758, pad slot read 436A20, focus-loss pause 89B2FD): pads keep working and the game does not pause while its window is inactive. Mouse / keyboard / cursor keep the stock answer (an unfocused game never reads the user's mouse or moves the cursor)
+[13:41:56.979] KeepRunningUnfocused: power throttling off (EcoQoS + Windows 11 timer-resolution throttling of hidden windows)
+[13:41:56.980] VPad: installed (VirtualPad = 1, exclusive - the real pads are hidden from the game this session): the game's XInputGetState (IAT Nioh3.exe+38E2C50) answers slot 0 from the pipe \\.\pipe\nioh3vpad; idle release after 600 s. Commands: commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | wait <ms> | log <text> | realpads on|off
+[13:41:56.981] BootNotice: installed (boot sequencer 1C35188 sites BN1 1C35393 notice, BN2 1C353A2 graphics warning), ON: the autosave notice and the 'reset settings?' warning are skipped (hands-free boot) - default: on because [Debug] VirtualPad != 0
+[13:41:56.981] VrrPresent = 0 (off: the game's own present arguments)
+[13:41:56.981] PresentModeLog = 1 (one line per present-mode / engine SyncInterval change)
+[13:41:56.983] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00 Offset=0,160 (px at 1080p)
+[13:41:56.983] done: 29 group(s) applied, 1 skipped. Patches live until the game exits (nothing is written to disk).
+[13:41:57.526] PJ: journal C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3EngineFix_pj\pj_win_dgpu_sm68.bin: 15576 PSOs, 1643 shaders, 16 root signatures, 64.0 MB, indexed in 2399 ms
+[13:41:57.946] LoadSeq blocking widget ([45C84A8]+430h != 0) -1->0 @1.0 s (no window)
+[13:41:58.278] PJ: boot PSO list: 52 engine creates on 2 thread(s), first +4.26 s, last +4.30 s after process start (device +3.65 s, gate +7.45 s) = 0.04 s wall; create calls 0.03 thread-s (avg 0.57 ms, max 2.5 ms)
+[13:41:58.278] PJ: boot PSO list done: 52 engine creates so far (not journaled); runtime creates are journaled from now on
+[13:41:58.278] PJ: prewarm start: 15576 journaled PSOs (title idle, quiet 3000 ms)
+[13:41:58.384] LoadSeq [[45B9E40]+58h] -1->0 @1.4 s (no window)
+[13:41:58.841] RCO: engine values in S at the first frame: LPVUpdateFrequency 1, SkylightAmbientUpdateFreq 1.000, VolumetricFogTemporalFactor 0.000, VolumetricCloudReprojectionBlendWeightCurrentFrame 0.000; offset check: VolumetricFogResolutionX (S+13DC) 160, VolumetricFogResolutionZ (S+13E0) 64, SSAORayNum (S+12F4) 7
+[13:41:59.497] OSD: engine is rendering (2515 ms after start) - installing the Present hook
+[13:41:59.498] OSD: system d3d12 C:\WINDOWS\SYSTEM32\d3d12.dll+0, dxgi C:\Program Files (x86)\Steam\steamapps\common\Nioh3\dxgi.dll+0
+[13:41:59.526] OSD: dummy swapchain 00000169E66C8960, vtable C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260
+[13:41:59.527] OSD: hooked ExecuteCommandLists: vtable slot 00007FFE515352B0, original C:\WINDOWS\SYSTEM32\D3D12Core.dll+11120
+[13:41:59.527] OSD: hooked Present: vtable slot 00007FFE7B8B6368, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+29090
+[13:41:59.527] OSD: hooked Present1: vtable slot 00007FFE7B8B63D8, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[13:41:59.527] OSD: hooked SetColorSpace1: vtable slot 00007FFE7B8B6458, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[13:41:59.531] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to Nioh3EngineFix.asi+27F60
+[13:41:59.532] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+38238, original DINPUT8.dll+13060
+[13:41:59.532] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+38100, original DINPUT8.dll+13060
+[13:41:59.532] MENU: own XInput for fallback polling: XINPUT1_4.dll+9A60
+[13:41:59.532] MENU: ready - open with F10 / Esc x3 / Start x3
+[13:41:59.532] OSD: Present called from thread 31700 ""
+[13:41:59.532] OSD: MaxFrameLatency: swapchain 00000167D4060430 (flags 2) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable (setting is 0 anyway)
+[13:41:59.532] OSD: captured DIRECT queue 000001678064C550 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260, other thread), device 00000167803CB4E0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0); back buffer device 00000167803CB4E0 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+2524F0) -> same device, using it
+[13:41:59.532] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[13:41:59.532] OSD: swapchain 00000167D4060430: 2560x1440 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000001678064C550 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+255260), device 00000167803CB4E0
+[13:41:59.533] OSD: drawing context ready (build #1)
+[13:41:59.534] MENU: keyboard: no DirectInput keyboard read for 0.5 s - polling GetAsyncKeyState (the game will also see menu key presses)
+[13:41:59.534] MENU: engine stop flags (G+588..58D) now: none
+[13:41:59.534] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[13:41:59.534] OSD: pipeline created for back buffer format 87
+[13:41:59.534] OSD: first overlay frame drawn (33 quads)
+[13:41:59.534] PresentMode: engine SyncInterval (GfxDevice 000001682A3000C0 +424C) = 1 (DisplaySettingsWatcher 1350210 (VSync slot ON)); game VSync ON, FG 0
+[13:41:59.535] PresentMode: Nioh3.exe+1A822D2 (thread 31700, game/other) presents SI 1 flags 0x0 on swapchain 00000167D4060430; engine SI 1, request 1, VSync ON, FG 0
+[13:41:59.922] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[13:42:00.037] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:42:00.037] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING XeSS (3)
+[13:42:00.037] OSD: FG state: OFF [setting 0, game thread 93.2/s, presenter thread 0.0/s, ratio 1.00, pause reason 0]
+[13:42:03.446] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[13:42:05.409] PJ: prewarm done in 7.1 s: 15567 created (6118 ms total, max 177.9 ms), 0 already created by the game, 0 refused, 9 with a missing/corrupt blob
+[13:42:06.965] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 3241/s, uploads 3241/s (0.31 MB/s, avg 102 B) | no-op uploads: any list 5.8 %, same list 3.0 % (0.00 MB/s) | skipped 98/s (0.00 MB/s) | table reuse candidates 3.0 % of tables, hits 98/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:14.127] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[13:42:14.780] PJ: journal full (64.0 MB, 15576 PSOs) - nothing new is journaled
+[13:42:14.835] VPad: ping -> ok vpad 1.7.61 mode=exclusive armed=1 unfocused=on
+[13:42:14.995] VPad: ping -> ok vpad 1.7.61 mode=exclusive armed=1 unfocused=on
+[13:42:14.995] VPad: state -> ok frame=1851 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5544 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/975 clients=1
+[13:42:15.124] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[13:42:16.125] VPad: state -> ok frame=1987 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5953 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/1655 clients=1
+[13:42:16.375] BootNotice: skipped the 'This game has an autosave feature' notice (#1)
+[13:42:16.382] BootNotice: boot sequencer state -1 -> 7 (+19.4 s after install)
+[13:42:16.382] BootNotice: save manager state [+10h] = 1 (sequencer state 7 waits for it)
+[13:42:16.443] BootNotice: boot sequencer state 7 -> 9 (+19.5 s after install)
+[13:42:16.443] BootNotice: save manager state [+10h] = 0 (sequencer state 9 waits for it)
+[13:42:16.966] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 4908/s, uploads 4909/s (0.95 MB/s, avg 202 B) | no-op uploads: any list 8.0 %, same list 5.6 % (0.17 MB/s) | skipped 275/s (0.17 MB/s) | table reuse candidates 5.6 % of tables, hits 274/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:17.132] VPad: state -> ok frame=2089 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6259 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/2165 clients=1
+[13:42:17.330] BootNotice: boot sequencer state 9 -> 15 (+20.4 s after install)
+[13:42:17.330] BootNotice: boot sequencer past the save-data load (state 15) - state log done
+[13:42:18.208] VPad: state -> ok frame=2209 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6620 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/2765 clients=1
+[13:42:18.539] LoadSeq [[45B9E40]+58h] 0->1564054352 @21.6 s (no window)
+[13:42:19.210] VPad: state -> ok frame=2328 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6977 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/3360 clients=1
+[13:42:19.340] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[13:42:20.341] VPad: state -> ok frame=2459 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7371 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/4015 clients=1
+[13:42:21.341] VPad: state -> ok frame=2579 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7731 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/4615 clients=1
+[13:42:22.333] TG: governing
+[13:42:22.341] VPad: state -> ok frame=2699 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8092 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/5215 clients=1
+[13:42:22.604] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[13:42:23.342] VPad: state -> ok frame=2798 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=8389 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/5710 clients=1
+[13:42:23.475] VPad: press A 120 -> ok press 1000 120 ms (28 pad reads rounds)
+[13:42:24.476] VPad: state -> ok frame=2914 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=8738 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/6290 clients=1
+[13:42:25.477] VPad: state -> ok frame=3016 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=9045 pad_age_ms=0 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/6800 clients=1
+[13:42:26.399] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:42:26.477] VPad: state -> ok frame=3122 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=9360 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/7325 clients=1
+[13:42:26.927] stats spr: runtime gfx PSO creates 99 (+99 in 30 s, avg 147 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 54 (+54 in 30 s, avg 11 us, max 98 us, >=1 ms: 0)
+[13:42:26.927] stats cpu: MQ ON, calls 19294959 (+19294959 in 30 s) | PT1 ON, textures claimed 18281 (+18281), lock pairs saved 87749 (+87749) | DL ON, lookups skipped 0 (+0)
+[13:42:26.927] stats/s WG: wake-one wakes skipped 5466, counted (worker on its way) 4859, stale window -> woke 1 | pending now 0 (max per pool 0), switch ON
+[13:42:26.927] stats/s TG: switch ON, state nothing to govern (rendered near the cap), logic tick cap 0 (0 = stock), game ticks 119.9/s vs rendered 119.9/s, L1 timer sleeps 104/s
+[13:42:26.927] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:42:26.966] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 118323/s, uploads 134988/s (494.26 MB/s, avg 3839 B) | no-op uploads: any list 20.9 %, same list 20.6 % (143.50 MB/s) | skipped 27810/s (143.50 MB/s) | table reuse candidates 15.0 % of tables, hits 17726/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:26.987] MEM: VRAM source: AMD Radeon RX 9070 (the game's device, by LUID), LUID 00000000:00018EF2, dedicated 16189 MB, shared 15940 MB
+[13:42:26.987] stats mem: private 14521 MB, working set 5466 MB (peak 5467), commit 14521 MB, handles 2733, threads 253, VRAM local used/budget 6232/15417 MB, non-local 186/15172 MB | sys RAM avail 6359 MB, commit 46469/68744 MB
+[13:42:26.987] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17126 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 144 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:42:26.987] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 3183, LOD ticks 3183; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:42:26.987] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:42:26.987] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:42:26.987] stats/s GF: fence waits 284, avg wait 593 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:42:26.987] stats/s: W3 waits 545 (MsgWait), L1 timer sleeps 105, F1 timer sleeps 0, WK wakes kept 10066 / skipped 233
+[13:42:26.987] stats/s exp: W6 waits 0 avg 6430 us (slept 0, spun 0, wakes 0) | PP scans 24 skipped 74 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:42:27.478] VPad: state -> ok frame=3242 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=9721 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/7925 clients=1
+[13:42:27.604] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[13:42:28.605] VPad: state -> ok frame=3377 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10129 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/8605 clients=1
+[13:42:29.605] VPad: state -> ok frame=3497 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10490 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/9205 clients=1
+[13:42:29.932] OSD: stats: rendered 119.8 fps, displayed 119.8 fps (x1.00, FG off, 1 chain(s), threads game 119.8/s presenter 0.0/s), game ticks 119.8/s, speed 1.00x, vrr tier 120 cap 120 armed 119, draws 3291, skipped 0
+[13:42:30.606] VPad: state -> ok frame=3617 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=10850 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/9805 clients=1
+[13:42:31.606] VPad: state -> ok frame=3737 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=11211 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/10405 clients=1
+[13:42:31.740] VPad: press A 120 -> ok press 1000 120 ms (32 pad reads rounds)
+[13:42:32.741] VPad: state -> ok frame=3873 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=11619 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/11085 clients=1
+[13:42:33.132] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[13:42:33.742] VPad: state -> ok frame=3993 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=11980 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/11685 clients=1
+[13:42:34.742] LoadSeq blocking widget ([45C84A8]+430h != 0) 0->1 @37.8 s (no window)
+[13:42:34.742] VPad: state -> ok frame=4103 active=0 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12310 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/12235 clients=1
+[13:42:35.564] LoadSeq FT 0->1577481040 @38.6 s (no window) (timer 0.0, popping wait 0.0)
+[13:42:35.564] LoadSeq B 0->1577162400 @38.6 s (no window) (timer 0.0)
+[13:42:35.564] LoadStats #1: 58A set (loader in-flight cap 10, GameMain+4Dh = 0)
+[13:42:35.564] LoadSeq #1 owner at set: script/other (FT state 1577481040, B state 1577162400)
+[13:42:35.565] MENU: engine stop flags (G+588..58D) now: 58A
+[13:42:35.747] VPad: state -> ok frame=4187 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12562 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/12655 clients=1
+[13:42:36.747] VPad: state -> ok frame=4286 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=12858 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/13145 clients=1
+[13:42:36.967] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 141444/s, uploads 170145/s (714.43 MB/s, avg 4403 B) | no-op uploads: any list 24.0 %, same list 23.6 % (206.80 MB/s) | skipped 40225/s (206.80 MB/s) | table reuse candidates 18.0 % of tables, hits 25432/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:37.793] VPad: state -> ok frame=4410 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=13232 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/13770 clients=1
+[13:42:38.794] VPad: state -> ok frame=4530 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=13593 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/14370 clients=1
+[13:42:39.827] VPad: state -> ok frame=4650 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=13950 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/14965 clients=1
+[13:42:40.921] VPad: state -> ok frame=4773 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=14323 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/15585 clients=1
+[13:42:42.484] VPad: state -> ok frame=4952 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=14858 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/16475 clients=1
+[13:42:43.492] VPad: state -> ok frame=5067 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15206 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/17055 clients=1
+[13:42:44.498] VPad: state -> ok frame=5182 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15549 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/17625 clients=1
+[13:42:45.542] VPad: state -> ok frame=5302 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=15912 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/18230 clients=1
+[13:42:46.690] VPad: state -> ok frame=5432 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16303 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/18880 clients=1
+[13:42:46.976] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 74508/s, uploads 79874/s (79.79 MB/s, avg 1048 B) | no-op uploads: any list 13.4 %, same list 12.5 % (35.57 MB/s) | skipped 9964/s (35.57 MB/s) | table reuse candidates 9.7 % of tables, hits 7234/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:47.767] VPad: state -> ok frame=5552 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16660 pad_age_ms=10 key_age_ms=10 held=0000 lx=0 ly=0 unfocused=on/19475 clients=1
+[13:42:48.554] RB: AMD Radeon RX 9070 (the game's device), dedicated 16189 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 186 MB (median of 10) -> UPLOAD heaps in VRAM (Resizable BAR / SAM on, or an APU)
+[13:42:48.776] VPad: state -> ok frame=5662 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=16991 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/20025 clients=1
+[13:42:49.848] VPad: state -> ok frame=5776 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=17333 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/20595 clients=1
+[13:42:51.122] VPad: state -> ok frame=5897 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=17700 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/21205 clients=1
+[13:42:53.003] VPad: state -> ok frame=6078 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18241 pad_age_ms=10 key_age_ms=10 held=0000 lx=0 ly=0 unfocused=on/22105 clients=1
+[13:42:54.049] VPad: state -> ok frame=6169 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18518 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/22565 clients=1
+[13:42:54.772] AutoContinue #1: load done - answered the tip page's 'press to continue' check
+[13:42:55.055] VPad: state -> ok frame=6246 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18749 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/22950 clients=1
+[13:42:55.847] TG: governing
+[13:42:56.056] VPad: state -> ok frame=6323 active=0 loading=1 paused=0 player=1 pos=237879.8,11449.0,217098.4 field=0 menu_pause=1 fg=0 armed=1 pad_reads=18980 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/23335 clients=1
+[13:42:56.072] MENU: engine stop flags (G+588..58D) now: none
+[13:42:56.076] LoadStats #1: 20.5 s | frames 2158 (9.5 ms) | CPU 7.61 cores | stage ready +0.6 s | loaders busy 16.9/6.9 s (first +0.0, last +18.8), in-flight avg A 9.6 B 5.2 of 10 (at cap A 91 % B 33 %), pending avg A 777.7 B 44.3 | ready-wait -1.0..-1.0 s (acc max 0.0) | event scene 0.0 s
+[13:42:56.076] LoadStats #1 io: read 1400 MB archive (65427 calls, 2024 MB overlapped, 2649 ms in-call) + 624 MB other (554585 calls, 4993 ms) | inflate 5.71 CPU-s, 82395 chunks, 492 -> 1160 MB, 0 failed, max 4 parallel, 4 threads so far | PSO gfx 0 rt + 0 preload, cmp 8 rt + 0 preload, 0.00 CPU-s, max 32.2 ms | mgr Sleep(1) A idle 755, A no-progress 2262, B idle 3085
+[13:42:56.076] LoadGates #1: 1489 evaluations (0 with no failing gate) | last failing eval +18.8 s, first full-pass eval -999.0 s, last eval +18.8 s, window 20.5 s
+[13:42:56.076] LoadGates #1 G1 StagePathInitStep       calls 1489, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[13:42:56.076] LoadGates #1 G2 StageAreaListBusy       calls 1489, failed 429, first-failing in 429 evals (29 %), held 3.76 s (18 % of window) | first fail +4.5 s, last fail +8.3 s, last flip to pass +8.3 s
+[13:42:56.076] LoadGates #1 G3 StageRequestQueueBusy   calls 1060, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[13:42:56.076] LoadGates #1 G4 UiLoadPairReady         calls 1060, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[13:42:56.076] LoadGates #1 G5 ObjectListAnyNotReady   calls 1060, failed 312, first-failing in 312 evals (21 %), held 3.35 s (16 % of window) | first fail +15.2 s, last fail +18.5 s, last flip to pass +18.6 s
+[13:42:56.076] LoadGates #1 G6 CurrentAreaPresent      calls 748, failed 0, first-failing in 0 evals (0 %), held 0.00 s (0 % of window) | first fail -999.0 s, last fail -999.0 s, last flip to pass -999.0 s
+[13:42:56.076] LoadGates #1 G7 LoadEndBlockerScan      calls 748, failed 1, first-failing in 1 evals (0 %), held 0.01 s (0 % of window) | first fail +18.6 s, last fail +18.6 s, last flip to pass +18.6 s
+[13:42:56.076] LoadGates #1 G8 StageAreasObjectsReady  calls 747, failed 727, first-failing in 727 evals (49 %), held 6.55 s (32 % of window) | first fail +4.5 s, last fail +15.1 s, last flip to pass +15.1 s
+[13:42:56.076] LoadGates #1 G9 LoadCharacterReady      calls 58, failed 58, first-failing in 3 evals (0 %), held 2.14 s (10 % of window) | first fail +14.4 s, last fail +18.8 s, last flip to pass -999.0 s
+[13:42:56.076] LoadGates #1 holder: G8 StageAreasObjectsReady (6.55 s of 20.5 s)
+[13:42:56.076] LoadStats #1 split [set->stage ready] 0.6 s: frames 74 (8.4 ms) | CPU 7.10 cores | read 23 MB (in-call 133 ms) | inflate 0.53 s, 11826 ch, 76->156 MB | PSO 0 (gfx 0+0 pre, cmp 0+0 pre) in 0.00 s
+[13:42:56.076] LoadStats #1 split [stage ready->clear] 19.9 s: frames 2084 (9.5 ms) | CPU 7.63 cores | read 2001 MB (in-call 7509 ms) | inflate 5.18 s, 70569 ch, 416->1004 MB | PSO 8 (gfx 0+0 pre, cmp 8+0 pre) in 0.00 s
+[13:42:56.670] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[13:42:56.983] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 106405/s, uploads 114335/s (146.13 MB/s, avg 1340 B) | no-op uploads: any list 12.8 %, same list 12.2 % (55.34 MB/s) | skipped 14001/s (55.34 MB/s) | table reuse candidates 9.2 % of tables, hits 9751/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:42:57.075] VPad: state -> ok frame=6395 active=0 loading=0 paused=0 player=1 pos=237879.3,11456.7,217099.5 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19197 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/23695 clients=1
+[13:42:57.086] stats spr: runtime gfx PSO creates 143 (+44 in 30 s, avg 140 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 123 (+69 in 30 s, avg 12 us, max 98 us, >=1 ms: 0)
+[13:42:57.086] stats cpu: MQ ON, calls 45084490 (+25789531 in 30 s) | PT1 ON, textures claimed 96965 (+78684), lock pairs saved 376537 (+288788) | DL ON, lookups skipped 1206647 (+1206647)
+[13:42:57.086] stats/s WG: wake-one wakes skipped 13529, counted (worker on its way) 6795, stale window -> woke 13 | pending now 2 (max per pool 1), switch ON
+[13:42:57.086] stats/s TG: switch ON, state governing, logic tick cap 89 (0 = stock), game ticks 71.4/s vs rendered 69.4/s, L1 timer sleeps 49/s
+[13:42:57.086] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:42:57.271] stats mem: private 17118 MB, working set 6164 MB (peak 6164), commit 17118 MB, handles 2801, threads 254, VRAM local used/budget 8767/15417 MB, non-local 186/15172 MB | sys RAM avail 5552 MB, commit 49109/68744 MB | since start (1 min): private +2597, ws +698, handles +68, threads +1, VRAM local +2535, non-local +0
+[13:42:57.271] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17178 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 196 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:42:57.271] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 3229, LOD ticks 3229; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:42:57.271] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:42:57.271] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:42:57.271] stats/s GF: fence waits 746, avg wait 188 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:42:57.271] stats/s: W3 waits 546 (MsgWait), L1 timer sleeps 49, F1 timer sleeps 0, WK wakes kept 33796 / skipped 177
+[13:42:57.271] stats/s exp: W6 waits 19 avg 517 us (slept 19, spun 0, wakes 19) | PP scans 26 skipped 79 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:42:58.076] VPad: state -> ok frame=6486 active=0 loading=0 paused=0 player=1 pos=237879.7,11456.8,217098.6 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19470 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/24150 clients=1
+[13:42:59.255] VPad: state -> ok frame=6588 active=0 loading=0 paused=0 player=1 pos=237879.9,11456.8,217098.6 field=1 menu_pause=0 fg=0 armed=1 pad_reads=19777 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/24660 clients=1
+[13:43:00.422] OSD: stats: rendered 77.7 fps, displayed 77.7 fps (x1.00, FG off, 1 chain(s), threads game 77.7/s presenter 0.0/s), game ticks 89.7/s, speed 1.00x, vrr tier 120 cap 120 armed 92, draws 6375, skipped 0
+[13:43:00.739] VPad: state -> ok frame=6719 active=0 loading=0 paused=0 player=1 pos=237879.7,11456.8,217098.9 field=1 menu_pause=0 fg=0 armed=1 pad_reads=20168 pad_age_ms=6 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/25310 clients=1
+[13:43:06.983] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 232374/s, uploads 268469/s (830.38 MB/s, avg 3243 B) | no-op uploads: any list 19.2 %, same list 18.9 % (209.18 MB/s) | skipped 50869/s (209.18 MB/s) | table reuse candidates 13.9 % of tables, hits 32377/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:10.535] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:43:17.000] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 193169/s, uploads 221188/s (813.85 MB/s, avg 3858 B) | no-op uploads: any list 21.7 %, same list 21.4 % (219.89 MB/s) | skipped 47303/s (219.89 MB/s) | table reuse candidates 16.0 % of tables, hits 30942/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:19.201] TG: governing
+[13:43:23.772] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:43:26.806] TG: governing
+[13:43:27.001] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 187491/s, uploads 214133/s (769.75 MB/s, avg 3769 B) | no-op uploads: any list 21.0 %, same list 20.7 % (207.31 MB/s) | skipped 44380/s (207.31 MB/s) | table reuse candidates 15.3 % of tables, hits 28772/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:27.417] stats spr: runtime gfx PSO creates 151 (+8 in 30 s, avg 285 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+3 in 30 s, avg 20 us, max 98 us, >=1 ms: 0)
+[13:43:27.417] stats cpu: MQ ON, calls 120237400 (+75152910 in 30 s) | PT1 ON, textures claimed 164249 (+67284), lock pairs saved 540584 (+164047) | DL ON, lookups skipped 3094773 (+1888126)
+[13:43:27.417] stats/s WG: wake-one wakes skipped 6837, counted (worker on its way) 5329, stale window -> woke 34 | pending now 0 (max per pool 0), switch ON
+[13:43:27.417] stats/s TG: switch ON, state governing, logic tick cap 115 (0 = stock), game ticks 90.1/s vs rendered 90.1/s, L1 timer sleeps 0/s
+[13:43:27.417] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:43:27.589] stats mem: private 17374 MB, working set 6286 MB (peak 6286), commit 17374 MB, handles 2829, threads 255, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5325 MB, commit 49463/68744 MB | since start (1 min): private +2853, ws +820, handles +96, threads +2, VRAM local +2803, non-local +0
+[13:43:27.589] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17186 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 204 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:43:27.589] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2860, LOD ticks 2860; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:43:27.589] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:43:27.589] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:43:27.589] stats/s GF: fence waits 298, avg wait 275 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:43:27.589] stats/s: W3 waits 540 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 42408 / skipped 50
+[13:43:27.589] stats/s exp: W6 waits 71 avg 591 us (slept 68, spun 3, wakes 68) | PP scans 22 skipped 66 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:43:30.350] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:43:30.862] OSD: stats: rendered 91.8 fps, displayed 91.8 fps (x1.00, FG off, 1 chain(s), threads game 91.8/s presenter 0.0/s), game ticks 99.6/s, speed 1.01x, vrr tier 120 cap 120 armed 90, draws 9077, skipped 0
+[13:43:37.003] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 191801/s, uploads 220239/s (820.34 MB/s, avg 3906 B) | no-op uploads: any list 22.2 %, same list 21.9 % (219.32 MB/s) | skipped 48283/s (219.32 MB/s) | table reuse candidates 16.6 % of tables, hits 31896/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:39.468] TG: governing
+[13:43:47.003] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 209237/s, uploads 244772/s (896.28 MB/s, avg 3840 B) | no-op uploads: any list 21.6 %, same list 21.4 % (220.43 MB/s) | skipped 52351/s (220.43 MB/s) | table reuse candidates 16.2 % of tables, hits 33942/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:57.005] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 227024/s, uploads 265451/s (948.80 MB/s, avg 3748 B) | no-op uploads: any list 21.0 %, same list 20.8 % (222.43 MB/s) | skipped 55172/s (222.43 MB/s) | table reuse candidates 14.9 % of tables, hits 33864/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:43:57.652] stats spr: runtime gfx PSO creates 151 (+0 in 30 s, avg 0 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:43:57.652] stats cpu: MQ ON, calls 198798361 (+78560961 in 30 s) | PT1 ON, textures claimed 233346 (+69097), lock pairs saved 794362 (+253778) | DL ON, lookups skipped 5394072 (+2299299)
+[13:43:57.652] stats/s WG: wake-one wakes skipped 206, counted (worker on its way) 3629, stale window -> woke 6 | pending now 0 (max per pool 0), switch ON
+[13:43:57.653] stats/s TG: switch ON, state governing, logic tick cap 115 (0 = stock), game ticks 98.4/s vs rendered 88.6/s, L1 timer sleeps 0/s
+[13:43:57.653] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:43:57.763] stats mem: private 17374 MB, working set 6287 MB (peak 6291), commit 17374 MB, handles 2812, threads 255, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5577 MB, commit 49540/68744 MB | since start (2 min): private +2853, ws +821, handles +79, threads +2, VRAM local +2803, non-local +0
+[13:43:57.763] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17186 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 204 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:43:57.763] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2928, LOD ticks 2928; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:43:57.763] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:43:57.763] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:43:57.763] stats/s GF: fence waits 166, avg wait 148 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:43:57.763] stats/s: W3 waits 562 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 44981 / skipped 39
+[13:43:57.764] stats/s exp: W6 waits 83 avg 406 us (slept 78, spun 5, wakes 78) | PP scans 21 skipped 65 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:44:01.237] OSD: stats: rendered 88.9 fps, displayed 88.9 fps (x1.00, FG off, 1 chain(s), threads game 88.9/s presenter 0.0/s), game ticks 100.8/s, speed 1.01x, vrr tier 120 cap 120 armed 96, draws 11718, skipped 0
+[13:44:07.006] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 229857/s, uploads 272341/s (967.40 MB/s, avg 3725 B) | no-op uploads: any list 21.2 %, same list 21.0 % (228.95 MB/s) | skipped 57305/s (228.95 MB/s) | table reuse candidates 15.0 % of tables, hits 34455/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:17.007] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 235213/s, uploads 283509/s (969.65 MB/s, avg 3586 B) | no-op uploads: any list 21.2 %, same list 21.0 % (231.44 MB/s) | skipped 59645/s (231.44 MB/s) | table reuse candidates 15.0 % of tables, hits 35395/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:25.239] VPad: stick L 0 1 60000 -> ok stick L 0 32767 60000 ms (11588 rounds)
+[13:44:27.012] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 231805/s, uploads 278117/s (969.39 MB/s, avg 3655 B) | no-op uploads: any list 21.4 %, same list 21.2 % (232.19 MB/s) | skipped 59002/s (232.19 MB/s) | table reuse candidates 15.0 % of tables, hits 34716/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:27.830] stats spr: runtime gfx PSO creates 151 (+0 in 30 s, avg 0 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:44:27.832] stats cpu: MQ ON, calls 277210146 (+78411785 in 30 s) | PT1 ON, textures claimed 302658 (+69312), lock pairs saved 1054125 (+259763) | DL ON, lookups skipped 7676865 (+2282793)
+[13:44:27.832] stats/s WG: wake-one wakes skipped 40, counted (worker on its way) 2818, stale window -> woke 2 | pending now 3 (max per pool 1), switch ON
+[13:44:27.833] stats/s TG: switch ON, state governing, logic tick cap 119 (0 = stock), game ticks 94.4/s vs rendered 90.4/s, L1 timer sleeps 0/s
+[13:44:27.833] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:44:27.949] stats mem: private 17374 MB, working set 6288 MB (peak 6291), commit 17374 MB, handles 2801, threads 251, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5510 MB, commit 49518/68744 MB | since start (2 min): private +2853, ws +822, handles +68, threads -2, VRAM local +2803, non-local +0
+[13:44:27.950] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17186 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 204 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:44:27.950] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2911, LOD ticks 2911; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:44:27.950] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:44:27.950] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:44:27.950] stats/s GF: fence waits 168, avg wait 135 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:44:27.950] stats/s: W3 waits 562 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 44754 / skipped 36
+[13:44:27.950] stats/s exp: W6 waits 77 avg 379 us (slept 64, spun 13, wakes 64) | PP scans 21 skipped 65 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:44:29.045] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:44:31.568] OSD: stats: rendered 93.8 fps, displayed 93.8 fps (x1.00, FG off, 1 chain(s), threads game 93.8/s presenter 0.0/s), game ticks 99.8/s, speed 0.99x, vrr tier 120 cap 120 armed 105, draws 14382, skipped 0
+[13:44:37.014] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 223718/s, uploads 260047/s (973.10 MB/s, avg 3924 B) | no-op uploads: any list 21.3 %, same list 21.1 % (237.21 MB/s) | skipped 54867/s (237.21 MB/s) | table reuse candidates 15.5 % of tables, hits 34616/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:43.710] TG: governing
+[13:44:47.024] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 210404/s, uploads 246238/s (896.36 MB/s, avg 3817 B) | no-op uploads: any list 21.4 %, same list 21.1 % (222.63 MB/s) | skipped 52046/s (222.63 MB/s) | table reuse candidates 15.7 % of tables, hits 33133/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:50.438] VPad: stick L 0 1 3000 -> ok stick L 0 32767 3000 ms (550 rounds)
+[13:44:52.976] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:44:55.343] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:44:55.834] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:44:57.027] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 205810/s, uploads 237522/s (858.87 MB/s, avg 3792 B) | no-op uploads: any list 20.9 %, same list 20.7 % (221.15 MB/s) | skipped 49177/s (221.15 MB/s) | table reuse candidates 15.2 % of tables, hits 31225/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:44:57.476] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:44:58.067] stats spr: runtime gfx PSO creates 152 (+1 in 30 s, avg 170 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:44:58.067] stats cpu: MQ ON, calls 354440099 (+77229953 in 30 s) | PT1 ON, textures claimed 371266 (+68608), lock pairs saved 1302705 (+248580) | DL ON, lookups skipped 9928448 (+2251583)
+[13:44:58.067] stats/s WG: wake-one wakes skipped 1725, counted (worker on its way) 3512, stale window -> woke 7 | pending now 0 (max per pool 0), switch ON
+[13:44:58.067] stats/s TG: switch ON, state nothing to govern (rendered near the cap), logic tick cap 0 (0 = stock), game ticks 90.6/s vs rendered 86.6/s, L1 timer sleeps 0/s
+[13:44:58.067] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:44:58.240] stats mem: private 17374 MB, working set 6289 MB (peak 6291), commit 17374 MB, handles 2807, threads 251, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5377 MB, commit 49663/68744 MB | since start (3 min): private +2853, ws +823, handles +74, threads -2, VRAM local +2803, non-local +0
+[13:44:58.240] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17187 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 205 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:44:58.240] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2878, LOD ticks 2878; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:44:58.240] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:44:58.240] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:44:58.240] stats/s GF: fence waits 215, avg wait 175 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:44:58.240] stats/s: W3 waits 564 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 45083 / skipped 41
+[13:44:58.240] stats/s exp: W6 waits 66 avg 392 us (slept 55, spun 11, wakes 55) | PP scans 22 skipped 67 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:44:59.877] TG: governing
+[13:45:00.167] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:01.905] OSD: stats: rendered 89.3 fps, displayed 89.3 fps (x1.00, FG off, 1 chain(s), threads game 89.3/s presenter 0.0/s), game ticks 93.3/s, speed 0.99x, vrr tier 120 cap 120 armed 93, draws 17071, skipped 0
+[13:45:02.239] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:04.448] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:45:06.760] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:07.029] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 206545/s, uploads 244526/s (865.14 MB/s, avg 3710 B) | no-op uploads: any list 21.6 %, same list 21.3 % (226.96 MB/s) | skipped 52205/s (226.96 MB/s) | table reuse candidates 15.9 % of tables, hits 32847/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:09.391] VPad: press RB 120 -> ok press 0200 120 ms (28 pad reads rounds)
+[13:45:10.497] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:45:11.956] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:14.115] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:14.520] TG: governing
+[13:45:16.376] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:45:17.031] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 196104/s, uploads 227758/s (826.31 MB/s, avg 3804 B) | no-op uploads: any list 20.9 %, same list 20.7 % (205.82 MB/s) | skipped 47124/s (205.82 MB/s) | table reuse candidates 15.5 % of tables, hits 30337/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:18.504] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:19.593] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:45:21.032] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:23.459] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:26.674] TG: governing
+[13:45:27.031] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 200788/s, uploads 232330/s (890.08 MB/s, avg 4017 B) | no-op uploads: any list 21.5 %, same list 21.3 % (223.54 MB/s) | skipped 49383/s (223.54 MB/s) | table reuse candidates 15.8 % of tables, hits 31733/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:27.187] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:45:28.305] stats spr: runtime gfx PSO creates 152 (+0 in 30 s, avg 0 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:45:28.305] stats cpu: MQ ON, calls 429875582 (+75435483 in 30 s) | PT1 ON, textures claimed 437008 (+65742), lock pairs saved 1542531 (+239826) | DL ON, lookups skipped 11950703 (+2022255)
+[13:45:28.305] stats/s WG: wake-one wakes skipped 721, counted (worker on its way) 3079, stale window -> woke 7 | pending now 1 (max per pool 1), switch ON
+[13:45:28.305] stats/s TG: switch ON, state governing, logic tick cap 113 (0 = stock), game ticks 91.6/s vs rendered 87.6/s, L1 timer sleeps 0/s
+[13:45:28.305] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:45:28.457] stats mem: private 17374 MB, working set 6290 MB (peak 6291), commit 17374 MB, handles 2810, threads 252, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5431 MB, commit 49572/68744 MB | since start (3 min): private +2854, ws +823, handles +77, threads -1, VRAM local +2803, non-local +0
+[13:45:28.457] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17187 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 205 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:45:28.457] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2795, LOD ticks 2795; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:45:28.457] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:45:28.457] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:45:28.457] stats/s GF: fence waits 178, avg wait 157 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:45:28.457] stats/s: W3 waits 565 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 43835 / skipped 34
+[13:45:28.457] stats/s exp: W6 waits 69 avg 418 us (slept 56, spun 13, wakes 56) | PP scans 22 skipped 66 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:45:30.025] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:32.229] OSD: stats: rendered 91.0 fps, displayed 91.0 fps (x1.00, FG off, 1 chain(s), threads game 91.0/s presenter 0.0/s), game ticks 91.0/s, speed 1.00x, vrr tier 120 cap 120 armed 94, draws 19748, skipped 0
+[13:45:32.419] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:45:35.565] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:35.777] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:45:37.033] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 202263/s, uploads 234753/s (890.59 MB/s, avg 3978 B) | no-op uploads: any list 21.5 %, same list 21.2 % (222.24 MB/s) | skipped 49820/s (222.24 MB/s) | table reuse candidates 15.9 % of tables, hits 32209/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:38.326] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:40.881] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:43.428] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:46.028] VPad: press RB 120 -> ok press 0200 120 ms (24 pad reads rounds)
+[13:45:46.355] TG: governing
+[13:45:47.033] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 204427/s, uploads 236605/s (912.46 MB/s, avg 4044 B) | no-op uploads: any list 21.6 %, same list 21.4 % (229.62 MB/s) | skipped 50590/s (229.62 MB/s) | table reuse candidates 15.9 % of tables, hits 32438/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:48.198] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:48.884] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:45:50.483] VPad: press RB 120 -> ok press 0200 120 ms (26 pad reads rounds)
+[13:45:56.484] TG: governing
+[13:45:57.034] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 206846/s, uploads 239805/s (912.00 MB/s, avg 3988 B) | no-op uploads: any list 21.7 %, same list 21.4 % (230.94 MB/s) | skipped 51376/s (230.94 MB/s) | table reuse candidates 15.9 % of tables, hits 32926/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:45:58.583] stats spr: runtime gfx PSO creates 152 (+0 in 30 s, avg 0 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:45:58.583] stats cpu: MQ ON, calls 505728681 (+75853099 in 30 s) | PT1 ON, textures claimed 507944 (+70936), lock pairs saved 1895088 (+352557) | DL ON, lookups skipped 14142811 (+2192108)
+[13:45:58.583] stats/s WG: wake-one wakes skipped 751, counted (worker on its way) 3112, stale window -> woke 4 | pending now 0 (max per pool 0), switch ON
+[13:45:58.583] stats/s TG: switch ON, state governing, logic tick cap 118 (0 = stock), game ticks 92.5/s vs rendered 92.5/s, L1 timer sleeps 0/s
+[13:45:58.583] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:45:58.756] stats mem: private 17374 MB, working set 6290 MB (peak 6291), commit 17374 MB, handles 2808, threads 251, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5421 MB, commit 49546/68744 MB | since start (4 min): private +2854, ws +823, handles +75, threads -2, VRAM local +2803, non-local +0
+[13:45:58.756] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17187 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 205 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:45:58.756] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2782, LOD ticks 2782; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:45:58.756] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:45:58.756] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:45:58.756] stats/s GF: fence waits 182, avg wait 137 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:45:58.756] stats/s: W3 waits 560 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 43930 / skipped 36
+[13:45:58.756] stats/s exp: W6 waits 50 avg 347 us (slept 41, spun 9, wakes 41) | PP scans 22 skipped 68 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:46:01.543] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:46:02.546] OSD: stats: rendered 89.9 fps, displayed 89.9 fps (x1.00, FG off, 1 chain(s), threads game 89.9/s presenter 0.0/s), game ticks 91.9/s, speed 1.00x, vrr tier 120 cap 120 armed 99, draws 22505, skipped 0
+[13:46:05.584] TG: governing
+[13:46:07.034] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 211567/s, uploads 244665/s (928.09 MB/s, avg 3978 B) | no-op uploads: any list 21.2 %, same list 21.0 % (226.40 MB/s) | skipped 51365/s (226.40 MB/s) | table reuse candidates 15.4 % of tables, hits 32635/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:46:13.681] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:46:16.208] TG: governing
+[13:46:16.718] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:46:17.034] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 209051/s, uploads 245551/s (904.45 MB/s, avg 3862 B) | no-op uploads: any list 21.4 %, same list 21.2 % (224.77 MB/s) | skipped 52032/s (224.77 MB/s) | table reuse candidates 16.0 % of tables, hits 33412/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:46:19.257] TG: governing
+[13:46:27.036] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 234549/s, uploads 284678/s (935.77 MB/s, avg 3447 B) | no-op uploads: any list 21.0 %, same list 20.8 % (225.92 MB/s) | skipped 59222/s (225.92 MB/s) | table reuse candidates 14.9 % of tables, hits 34950/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:46:28.875] stats spr: runtime gfx PSO creates 152 (+0 in 30 s, avg 0 us, max 856 us, >=1 ms: 0) | upload-heap dedicated fallbacks 126 (+0 in 30 s, avg 0 us, max 98 us, >=1 ms: 0)
+[13:46:28.875] stats cpu: MQ ON, calls 582991391 (+77262710 in 30 s) | PT1 ON, textures claimed 575126 (+67182), lock pairs saved 2168166 (+273078) | DL ON, lookups skipped 16318332 (+2175521)
+[13:46:28.875] stats/s WG: wake-one wakes skipped 1081, counted (worker on its way) 3162, stale window -> woke 6 | pending now 0 (max per pool 0), switch ON
+[13:46:28.875] stats/s TG: switch ON, state governing, logic tick cap 108 (0 = stock), game ticks 89.9/s vs rendered 83.9/s, L1 timer sleeps 0/s
+[13:46:28.875] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[13:46:28.972] stats mem: private 17375 MB, working set 6291 MB (peak 6291), commit 17375 MB, handles 2806, threads 251, VRAM local used/budget 9035/15417 MB, non-local 186/15172 MB | sys RAM avail 5228 MB, commit 50078/68744 MB | since start (4 min): private +2854, ws +825, handles +73, threads -2, VRAM local +2803, non-local +0
+[13:46:28.972] stats/s PJ: journal 15576 PSOs (+0 new), 1643 shaders, 16 root sigs, 64.0 MB; engine creates 17187 (boot list 52), not journaled 0 (rs 0, unsupported 0, fault 0) + dropped 205 | prewarm done: 15567/15576 created, 0 already, 0 refused, 9 missing, 6118 ms (max 177.9)
+[13:46:28.972] stats/30s EXTRA: levels XCLD=0 XFOG=0 XGI=0 XSHD=0 XSHF=0 XLOD=0 XTER=0 XPRT=0 XAO=0 XPOST=0 preset game (all off); RCO ticks 2752, LOD ticks 2752; fields written/refilled:; GI scale engine 0.600 -> used 0.600; GPU particle fractions sim 1.000 draw 1.000
+[13:46:28.972] stats/s CBU: CBS -, CBN ON, CBT ON, stats ON
+[13:46:28.972] stats/s WL: waitable handles closed 0 (total 0, switch ON; 0 = no waitable swapchain, e.g. Proton)
+[13:46:28.972] stats/s GF: fence waits 223, avg wait 158 us, fallbacks to Sleep(0) 0 (switch ON)
+[13:46:28.972] stats/s: W3 waits 549 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 43711 / skipped 35
+[13:46:28.972] stats/s exp: W6 waits 58 avg 413 us (slept 47, spun 11, wakes 47) | PP scans 21 skipped 65 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[13:46:32.928] OSD: stats: rendered 86.0 fps, displayed 86.0 fps (x1.00, FG off, 1 chain(s), threads game 86.0/s presenter 0.0/s), game ticks 89.9/s, speed 0.99x, vrr tier 120 cap 120 armed 92, draws 25107, skipped 0
+[13:46:35.010] MENU: engine stop flags (G+588..58D) now: 588
+[13:46:35.161] LoadSeq FT 1577481040->0 @278.2 s (no window) (timer 0.0, popping wait 0.0)
+[13:46:35.161] LoadSeq B 1577162400->0 @278.2 s (no window) (timer 0.0)
+[13:46:35.161] LoadSeq blocking widget ([45C84A8]+430h != 0) 1->0 @278.2 s (no window)
+[13:46:35.294] MENU: engine stop flags (G+588..58D) now: none
+[13:46:35.294] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[13:46:35.836] TG: idle - nothing to govern (logic ticks: stock limiter)
+[13:46:37.037] CBU: 10.0 s | switches CBS 0 CBN 1 CBT 1 fence 1 | tables 183543/s, uploads 224852/s (736.53 MB/s, avg 3435 B) | no-op uploads: any list 21.3 %, same list 21.1 % (179.88 MB/s) | skipped 47518/s (179.88 MB/s) | table reuse candidates 15.1 % of tables, hits 27753/s | list cuts in a table 0 (re-uploaded 0) | CBS copies 0/s (0.00 MB/s)
+[13:46:41.307] LoadSeq [[45B9E40]+58h] 1564054352->-1 @284.3 s (no window)
+[13:46:41.736] LoadSeq blocking widget ([45C84A8]+430h != 0) 0->-1 @284.8 s (no window)

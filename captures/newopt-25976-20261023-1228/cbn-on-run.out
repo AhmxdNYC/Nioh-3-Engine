@@ -1,0 +1,39 @@
+[13:41:24] Nioh3 is not running (waited 0 min)
+[13:41:45] GUARD: init name=fightnow_test harness=8604 owner=15132 maxMinutes=240 minHeadroom=18GB maxCrashes=2
+[13:41:45] fightnow_test: 1 rows: R7B35; out=C:\Users\Ahmad Hamza\nioh3-engine\captures\rematch\fightnow-20261023-134124 csv=C:\Users\Ahmad Hamza\nioh3-engine\captures\rematch\fightnow-20261023-134124.csv
+[13:41:45] lock: acquired
+[13:41:45] save folder backed up to C:\Users\Ahmad Hamza\nioh3-engine\captures\save-backups\20261023-134124-fightnow-test (robocopy exit 1)
+[13:41:45] test perf ini: [Patches] CBN = 1
+[13:41:45] test perf ini: [Patches] CBT = 1
+[13:41:45] test perf ini: [Profiler] CbvStats = 1
+[13:41:45] installed C:\Users\Ahmad Hamza\nioh3-engine\mod\Nioh3BossRematch\bin\Nioh3BossRematch.asi + catalogue, perf ASI C:\Users\Ahmad Hamza\nioh3-engine\mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi (VirtualPad; the user's comes back after); test inis: FightNow/FightNowWarp/ArenaCapture/Pipe/BossLog = 1, Overlay = 0; perf VirtualPad/KeepRunningUnfocused
+[13:41:46] GUARD: headroom OK (commit 29.3/67.1 GB, current headroom 37.8 GB, effective headroom 50.8 GB (C: free 27.6 GB, RAM 31.1 GB); need effective >= 18, current >= 6)
+10-23 13:41:48 watching Steam windows for 'play anyway' (15 min); pid=30860; helper=C:\Users\Ahmad Hamza\universal-optimizer\tools\steam\steam_autoplay.ps1
+Steam autoplay ready: pid=30860, helper=C:\Users\Ahmad Hamza\universal-optimizer\tools\steam\steam_autoplay.ps1, SHA256=5263724FD31C7779B218F99E4518349F6314E23DA91107DE6C9A8DE683CCD321
+10-23 13:41:50 clicked 'Play anyway' in 'Steam' at 1066,608; pid=30860
+[13:42:01] launch #1: game pid 32704
+[13:43:02] title -> Continue -> field: True; add-on: pong Nioh3BossRematch 1.3.3 live=1
+[13:43:08] == 1/1 R7B35 Minamoto no Yoritomo [arena low: boss_area_box_371660_CH03_DAIDAIRI_BOSS_AREA gate=62177372/door]
+[13:43:08]   id=R7B35 route=replay mission=0x7B35 emaki=-1 placement=375545 verified=1 status=2 gen=1 fight=374664/high/33 arena=1 atfight=0 arenaconf=captured
+[13:43:08]   fight: queued R7B35 fight start=374664
+[13:43:14]   walk forward 60 s (no-load summon spacing test)
+[13:44:25]   walk: ok stick L 0 32767 60000 ms (11588 rounds)
+[13:44:50]   swap: walked 3 s: ok stick L 0 32767 3000 ms (550 rounds)
+[13:45:51]   swap: 24 RB presses
+[13:45:58]   shot swap_R7B35.png
+[13:46:11]   [13:44:51.605] BOSSMON +1000 ms boss 215748 15046 220256 player 216337 15011 220467 dist 6.3 m (min 6.3) team 1
+[13:46:11]   [13:44:52.114] BOSSMON +1500 ms boss 216692 15010 220772 player 216445 15010 220496 dist 3.7 m (min 3.7) team 1
+[13:46:11]   [13:44:52.610] BOSSMON +2000 ms boss 215992 15029 219843 player 216320 15011 220345 dist 6.0 m (min 3.7) team 1
+[13:46:11]   [13:45:10.109] BOSSMON +19500 ms boss 216718 15010 220688 player 217206 15010 220797 dist 5.0 m (min 2.0) team 1
+[13:46:11]   [13:45:10.609] BOSSMON +20000 ms boss 216724 15010 220683 player 217206 15010 220797 dist 5.0 m (min 2.0) team 1
+[13:46:11]   [13:45:11.104] BOSSMON +20500 ms boss 216724 15010 220683 player 217206 15010 220797 dist 5.0 m (min 2.0) team 1
+[13:46:11]   -> PASS swap BOSSMON rows=40 first=6.3 last=5 min=2
+[13:46:14]   exit: queued
+[13:46:55] game folder restored (inis, perf ASI); arena captures kept
+[13:46:55] save folder restored from C:\Users\Ahmad Hamza\nioh3-engine\captures\save-backups\20261023-134124-fightnow-test (robocopy /MIR exit 1)
+[13:46:56] save restore verified byte for byte: True (8 files)
+[13:46:57] lock released: 
+[13:46:57] GUARD: done
+[13:46:57] summary: {"rows":1,"pass":1,"fail":0,"skip":0}
+[13:46:57] csv: C:\Users\Ahmad Hamza\nioh3-engine\captures\rematch\fightnow-20261023-134124.csv
+10-23 13:46:57 launch owner exited; watch ended
