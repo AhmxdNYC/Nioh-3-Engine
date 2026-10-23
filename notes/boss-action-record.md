@@ -42,3 +42,32 @@ Sources: `nioh3-ryomen-16809/notes/yoritomo-action-fields.csv` (sha256 `db246290
 ## What this does not claim
 
 Hit count, damage, and a display name are not columns of the 336-byte row. Duration is not a column either. Shingen has 57 attack-motion rows and zero attack-block rows, so the attack-block words are not how every boss marks an attack.
+
+## Hitbox rows (damage)
+
+2026-10-22, offline. The game was not launched. The damage table is sub-table 2 of the same LFM action file. Each row is 192 bytes. The size of that sub-table divides by 192 on all three files, and the packed-record tail of sub-table 0 walks to the end with nothing left over.
+
+| boss | file | hitbox rows | actions that own a row | attack motions 1000-1199 | of those, with a row |
+|---|---|---:|---:|---:|---:|
+| Yoritomo | `archive_01/FA/5FBD421B...CFFA54` | 182 | 50 | 96 | 48 |
+| Shingen | `archive_01/E5/D7F89184...94F6DE` | 194 | 67 | 57 | 51 |
+| Otoroshi | `archive_01/17/7C2A9D27...4EED78` | 162 | 69 | 22 | 19 |
+
+The motion number does not select a hitbox row. It is only the u16 at action-row `+0x20`. Several action ids can share one motion, and each action has its own list.
+
+The link is the action-row index:
+
+1. Action row `r` (the 336-byte row whose id is at `+0x0C`) has a packed record in sub-table 0, in the same order as the action rows.
+2. That record is a u16 count, then that many u16 indexes.
+3. Each index picks one 192-byte row in sub-table 2.
+4. The lookup `0x5C9348` takes `(action id, slot)` and returns that one row. It does not take the motion number.
+
+Base damage is the word at hitbox-row `+0x10`, times `0.01`, times `500` (the same as times 5). That formula is the Yoritomo getter `GetAttackBaseDamage` at RVA `0x23C785C`. Shingen and Otoroshi use the same row size and the same word. Their numbers below were not checked against a live health drop.
+
+One motion, different lists:
+
+- Yoritomo motion 1050. `0x4E6E` owns rows 122-126: power 50, 50, 50, 55, 55 (base 250, then 275). `0x4E6F` is the same motion and owns 0 rows.
+- Shingen motion 1030. `0x4E4E` owns rows 48-52: power 17, 17, 48, 48, 48 (base 85, then 240). `0x4E73` on that motion owns five rows at 12 and 42. `0x4E8B` owns seven, the last two at power 0.
+- Otoroshi motion 1012. `0x4E4E` owns rows 32-34, and all three words at `+0x10` are 0. `0x4EED` and `0x4E72` on that same motion each own one row at power 105 (base 525).
+
+A power of 0 is what the file stores. It is not a claim that the swing does no damage. Element is the word at `+0x12`. These examples are element 0. The row count is still not a hit count.
