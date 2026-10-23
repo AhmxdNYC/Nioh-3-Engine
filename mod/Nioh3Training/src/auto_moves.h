@@ -172,16 +172,16 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     }
     return na;
 }
-// Sequence heads (training_bosses_menu.h SeqHead without hand lists): has a link, is no link target, not idle, and the chain has an attack.
+// Sequence heads (training_bosses_menu.h SeqHead without hand lists): has a link, is no link target, not idle, the chain has 2+ moves and an attack.
 static int AmSeqChain(const AmTable* t, int head, int* out, int cap, int* loop) {
     int n = 0; *loop = 0;
     for (int c = head; c >= 0 && n < cap;) {
         out[n++] = c;
         if (!t->m[c].link) break;
         const int k = AmFind(t, t->m[c].next);
+        if (k < 0) break;  // the target is not in the table (another file): the chain ends here
         int seen = 0; for (int i = 0; i < n; ++i) seen |= out[i] == k;
         if (seen) { *loop = 1; break; }
-        if (k < 0) break;
         if (t->m[c].loop && n < cap) { out[n++] = k; *loop = 1; break; }
         c = k;
     }
@@ -191,6 +191,7 @@ static int AmSeqHead(const AmTable* t, int i) {
     if (!t->m[i].link || t->m[i].kind == 'I') return 0;
     for (int j = 0; j < t->n; ++j) if (t->m[j].link && t->m[j].next == t->m[i].id) return 0;
     int ids[8], loop = 0; const int k = AmSeqChain(t, i, ids, 8, &loop);
+    if (k < 2) return 0;  // a chain of one move is no sequence
     for (int q = 0; q < k; ++q) if (t->m[ids[q]].attack) return 1;
     return 0;
 }

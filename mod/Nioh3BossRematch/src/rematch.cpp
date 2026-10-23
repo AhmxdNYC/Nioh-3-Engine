@@ -29,6 +29,7 @@
 #include "transition_native_read.h"
 #include "../../menu_navigation.h"
 #include "../../boss_moves.h"
+#include "../../move_catalog.h"  // pc2 #23907: live move catalogue; the runtime list comes from Nioh3Training_AutoMoves
 #include "move_cats.h"
 #include "../../settings/store.h"
 
@@ -1862,9 +1863,11 @@ void TfTick(const Snap& s, ULONGLONG t) {
     }
 }
 
+void AutoMovesTick();  // pc2 #23907, end of file
 void Tick() {
     const ULONGLONG t = Ms();
     g_lastTick.store(t);
+    { static ULONGLONG nx; if (t >= nx) { nx = t + 1000; AutoMovesTick(); } }
     Snap s = ReadSnap();
     CoverTick(s,t);
     AttemptObserve(s, t);
@@ -2287,11 +2290,28 @@ void IdleHoldToggle(int dir) {
 }
 uint32_t g_uiMoveChr = 0;
 int g_bossSlot = -1;  // user #14309: the Boss X page being shown (A = 0); its moves, repeat and settings are that boss's
+// pc2 #23907: the boss's move list from the game's own action data (Nioh3Training reads it when the boss spawns): merged into the live catalogue
+// (move_catalog.h) the first time its page is built after Training has it. Hand rows stay only for bosses Training has not read.
+static const int g_n3catBoot = (N3CatInit(1), 1);
+void AutoMovesSync(uint32_t chr) {
+    if (!chr || N3CatIsAuto(chr)) return;
+    static DWORD last; const DWORD now = GetTickCount();
+    if (now - last < 500) return;
+    last = now;
+    using Fn = int (*)(uint32_t, void*, int, int);
+    const auto f = (Fn)TrainingExport("Nioh3Training_AutoMoves");
+    if (!f) return;
+    static AmMove buf[AM_MAXMOVES];
+    const int n = f(chr, buf, AM_MAXMOVES, (int)sizeof(AmMove));
+    if (n > 0) { const int add = N3CatMerge(chr, buf, n, SlotBossName(chr)); Log("Rematch: AUTOMOVES chr %u: Boss moves page from game data (%d moves, %d new rows)", chr, n, add); }
+    else if (n < 0) Log("Rematch: AUTOMOVES chr %u: Nioh3Training.asi move data layout differs (update both mods)", chr);
+}
 uint32_t MoveBoss() {
-    if (g_bossSlot >= 0) return SlotChr(g_bossSlot);
-    using Fn = uint32_t (*)();
-    const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveBoss");
-    return f ? f() : 0;
+    uint32_t chr = 0;
+    if (g_bossSlot >= 0) chr = SlotChr(g_bossSlot);
+    else { using Fn = uint32_t (*)(); const auto f = (Fn)TrainingExport("Nioh3Training_GetMoveBoss"); chr = f ? f() : 0; }
+    AutoMovesSync(chr);
+    return chr;
 }
 int MoveAllowed(const N3Move& move) {
     using Fn = int (*)(uint32_t, uint32_t);
@@ -2770,6 +2790,18 @@ int Items(int* out, int cap) {
         }
     add(kItBack);
     return n;
+}
+
+// pc2 #23907: once a boss's runtime list is merged, log what its Boss moves page shows (the same counts as the page rows / title).
+void AutoMovesTick() {
+    static uint32_t logged[64]; static int nlog;
+    const uint32_t chr = MoveBoss();  // syncs (AutoMovesSync)
+    if (!chr || !N3CatIsAuto(chr)) return;
+    for (int i = 0; i < nlog; ++i) if (logged[i] == chr) return;
+    if (nlog < 64) logged[nlog++] = chr;
+    char b[700]; size_t o = 0; int tot = 0;
+    for (int c : kMcOrder) { const int k = MoveCatCount(chr, c); tot += k; if (k && o + 48 < sizeof b) o += (size_t)snprintf(b + o, sizeof b - o, "%s%s %d", o ? ", " : "", N3MoveCatName(c), k); }
+    Log("Rematch: AUTOMOVES chr %u Boss moves page (game data): %d moves in groups: %s; Sequences %d", chr, tot, o ? b : "none", SeqCount(chr));
 }
 
 }  // namespace

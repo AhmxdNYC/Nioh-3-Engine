@@ -77,13 +77,24 @@ static void AmFinal(int s, const char* why) {
     g_ams[s].done = 1;
     int best = -1; for (int k = 0; k < g_ams[s].nf; ++k) if (best < 0 || g_ami[g_ams[s].f[k]].n > g_ami[best].n) best = g_ams[s].f[k];
     if (best < 0) { Log("AUTOMOVES spawn #%d chr %u: FINAL none (no action data found, %d misses) [%s]", s, g_ams[s].chr, g_ams[s].miss, why); return; }
-    const AmTable* t = g_ami[best].t; const uint32_t chr = g_ams[s].chr;
+    const uint32_t chr = g_ams[s].chr;
+    if (g_ams[s].nf > 1 && g_ami_n < AM_FILES) {  // a boss that uses several files (humans: own file + the shared CP_HUMAN ones): the move list is their union
+        AmTable* u = (AmTable*)malloc(sizeof(AmTable));
+        if (u) {
+            *u = *g_ami[best].t;
+            for (int k = 0; k < g_ams[s].nf; ++k) { const AmTable* f = g_ami[g_ams[s].f[k]].t; if (f == g_ami[best].t) continue;
+                for (int i = 0; i < f->n && u->n < AM_MAXMOVES; ++i) if (AmFind(u, f->m[i].id) < 0) u->m[u->n++] = f->m[i]; }
+            g_ami[g_ami_n].base = 0; g_ami[g_ami_n].n = u->n; g_ami[g_ami_n].t = u; best = g_ami_n++;
+        }
+    }
+    const AmTable* t = g_ami[best].t;
     int atk = 0, blk = 0, great = 0, hk = 0, links = 0, seq = 0, idle = 0, mov = 0;
     for (int i = 0; i < t->n; ++i) { atk += t->m[i].attack; blk += t->m[i].block; great += t->m[i].great; hk += t->m[i].hits > 0; links += t->m[i].link; seq += AmSeqHead(t, i); idle += t->m[i].kind == 'I'; mov += t->m[i].kind == 'M'; }
-    Log("AUTOMOVES spawn #%d chr %u: FINAL own action data %p: %d moves (attack %d, attack block %d, unblockable %d, hit count known %d, movement %d, idle %d), "
+    Log("AUTOMOVES spawn #%d chr %u: FINAL action data %p (0 = union of the files seen): %d moves (attack %d, attack block %d, unblockable %d, hit count known %d, movement %d, idle %d), "
         "%d next links, %d sequences; %d file(s) seen [%s]", s, chr, (void*)g_ami[best].base, t->n, atk, blk, great, hk, mov, idle, links, seq, g_ams[s].nf, why);
     // the proof compares with the hand tables' ORIGINAL contents (move_catalog.h kN3MovesHand ..., apart from the live catalogue)
-    if (!AmFor(chr)) { char line[1400]; AmCmp c; AmCompare(t, chr, &c); AmCmpText(&c, line, sizeof line); Log("AUTOMOVES PROOF chr %u runtime vs hand: %s", chr, line); }
+    if (!AmFor(chr) && AmcHasChr(chr)) { char line[1400]; AmCmp c; AmCompare(t, chr, &c); AmCmpText(&c, line, sizeof line); Log("AUTOMOVES PROOF chr %u runtime vs hand: %s", chr, line); }
+    else if (!AmFor(chr)) Log("AUTOMOVES chr %u: no hand data for this boss: the move list is game data only", chr);
     char sb[900]; size_t o = 0; sb[0] = 0;
     for (int i = 0; i < t->n && o + 60 < sizeof sb; ++i) if (AmSeqHead(t, i)) {
         int ids[8], lp; const int k = AmSeqChain(t, i, ids, 8, &lp);

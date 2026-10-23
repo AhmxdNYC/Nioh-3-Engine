@@ -17,6 +17,7 @@
 #endif
 static int AmcFind(uint32_t chr, uint32_t id) { for (int i = 0; i < AMC_MOVE_COUNT; ++i) if (AMC_MOVES[i].chr == chr && AMC_MOVES[i].id == id) return i; return -1; }
 static const N3MoveFact* AmcFact(uint32_t chr, uint32_t id) { for (int i = 0; i < AMC_FACT_COUNT; ++i) if (AMC_FACTS[i].chr == chr && AMC_FACTS[i].id == id) return &AMC_FACTS[i]; return 0; }
+static inline int AmcHasChr(uint32_t chr) { for (int i = 0; i < AMC_MOVE_COUNT; ++i) if (AMC_MOVES[i].chr == chr) return 1; return 0; }
 static int AmcFactsBoss(uint32_t chr) { for (int i = 0; i < AMC_FACT_COUNT; ++i) if (AMC_FACTS[i].chr == chr) return 1; return 0; }
 typedef struct {
     int ids_both, ids_hand_only, ids_rt_only;           // kN3Moves ids vs action rows
