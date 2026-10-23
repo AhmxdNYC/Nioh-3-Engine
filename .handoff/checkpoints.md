@@ -1,10 +1,4 @@
 
-## 2026-10-22 18:48:00 session a7924822-795a-45db-83ca-1242c89313af
-pc2 hasn't sent the result of its rerun sweep with the stricter matching rule. It released its game lock at 5:28 pm EST and it's now about 6:48 pm EST. I sent pc2 a question asking for the bound, unbound and wrong-match counts, the log path, and the merged commit on `pc/release-1022`. If the sweep failed, I asked for the exact error.
-
-Nothing else is failing on pc2 or ally. The game on this PC is still open on the merged build, and the Jubei Ki-break check is still unplayed.
-2026-10-22 18:55 pc: pc2 autobind stricter b2850017 merged on pc/release-1022 (33/66 bound, all 100%). NEXT: when game 1612 closes (or user says go): build+install release-1022 b2850017 on pc, test Jubei Ki-break (KIAUTO log), Kagetoki neg Ki, arena fight.
-
 ## 2026-10-22 19:19:11 session a7924822-795a-45db-83ca-1242c89313af
 Nothing is failing on pc2 or ally, and there are no new messages or replies from you since my last note.
 
@@ -339,3 +333,20 @@ There are no final numbers yet. I didn't touch the game.
 I'm waiting for the last baseline run of the main PC's 8-run check. Once it ends I launch the final three-way benchmark through the same admin task.
 2026-10-23 4:52 PM EST pc CHECKPOINT | task: final 3-arm bench + default-on settings. DONE: key classification (notes/default-on-candidates-20261023.md: 32 safe / 12 visual / 51 off), arm INIs + pc plan (captures/final-bench/{arm2-pureperf,arm3-fullmod}.ini, pc-plan/), runner fixes (per-device lock nioh3-$Device; accepts 'fight now: in place'), stage2 EP on pc (OFF 93.3 vs ON 91.0, neutral; EP maybe veto), feedback site live https://nioh3-mod-feedback.vercel.app, CBN+CBT run OK on pc (225MB/s skipped). HALF-DONE: pc final bench RUNNING elevated since 4:49 pm (captures/final-bench/run-pc-final.ps1 -> results-pc-final.csv, pc-sensors.csv, newest captures/audit-screen/run-pc-*; marker test-active set, runner removes it at end). ally #115 running (another ally session), pc2 #113 CBN then #117 final bench then #111 MCE (pc2 has dup-session issues). NEXT: when pc run ends verify saves restored + lock nioh3-pc released + test-active gone; collect results of all 3 devices, compute 3 arm means, tell human; reconsider EP in group A; make installed INI use default-on (CBN/CBT missing keys); merge pc/newopt-20261023 MCE; ONE-mod auto device detection for platform-only keys.
 2026-10-23 5:23 PM EST pc CHECKPOINT | pc final 3-arm bench DONE (6/6 valid): stock 77.3/75.2 avg (low1 51/50), pure-perf 100.5/95.7 (77/68), full 95.5/99.0 (58/75). Sensors in captures/final-bench. pc2 #118, ally #119 reposted/running. NEXT: digest pc2/ally RESULTs, then FG ON/OFF set, then README chart | captures/final-bench/results-pc-final.csv
+
+## 2026-10-23 17:49:24 session c4e7c846-c79b-4ffe-b1de-f03286909067
+I logged pc2's note and took no other action, so it needs no reply.
+
+The note says the FSR frame-generation overlay can wrongly read OFF. Its "rendered" counter also just copies the displayed fps when it has no game-thread samples. In frame-gen runs I'll use PresentMon or the externally displayed fps instead. pc2's PresentMon figure of 87.72 fps matched the on-screen counter at about 85–88.
+
+I added this as a line in `TECH_DEBT.md`.
+
+pc2 also said its earlier final117 run is an incomplete frame-gen-off capture set, not a finished six-run benchmark. Its resumed session found a newer game launch with a fresh test marker, so it is leaving the game, ASIs, INIs and saves alone.
+
+Still pending:
+- **ally:** its 3-arm task (#119) is still running.
+- **Frame-gen runs:** frame-gen-on runs are still needed on all three devices.
+- **GitHub chart:** this comes last.
+2026-10-23 5:56 pm EST pc | pc final 3-arm bench done (results-pc-final.csv) | FG-on runs, pc2 final, ally #119, GitHub chart pending | next: queue FG-on arms on all 3 devices | captures/final-bench/results-pc-final.csv
+2026-10-23 6:15 PM EST pc | pc FG-on final bench launched elevated (run-pc-final-fgon.ps1, results-pc-final-fgon.csv), ~35 min; config.xml restored by finally | pc2 FG-on done (stock 87.1/safe 88.3/full 93.6); ally FG-on sent | next: collect, then GitHub chart | captures/final-bench
+2026-10-23 6:11 PM EST pc CHECKPOINT | pc FG-ON final bench launched elevated (run-pc-final-fgon.ps1, config.xml FRAME_GENERATION=FSR, auto-restored from captures/final-bench/config.xml.prefg after). pc2 FG-ON done (stock 87.1/pure 88.3/full 93.6), pc2/pc FG-off done, ally FG-OFF done (+4-5%), ally FG-ON task posted. NEXT: when results-pc-final-fgon.csv has 6 rows + test-active gone: verify config.xml FRAME_GENERATION=OFF restored, digest, then ally FG-ON RESULT, then README chart (dataviz skill) + notify human.
