@@ -24,7 +24,8 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $DryRun) {
     $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
     $principal=New-Object Security.Principal.WindowsPrincipal($identity)
-    if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw "AUDIT-FATAL: run this audit from an elevated owner shell for ETW capture"}
+    $plu=$principal.IsInRole("Performance Log Users")  # ETW sessions are also allowed for this group (stage1 ran so)
+    if(-not $plu -and -not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw "AUDIT-FATAL: run this audit from an elevated owner shell for ETW capture"}
 }
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
 $repo = Split-Path -Parent (Split-Path -Parent $here)

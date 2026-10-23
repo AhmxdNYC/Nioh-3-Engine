@@ -41,12 +41,20 @@ public static class AuditFocus {
  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr h,int n);
+ [DllImport("user32.dll")] public static extern void keybd_event(byte vk,byte sc,uint fl,UIntPtr ex);
 }
 "@
     }
     $game=Get-Process -Id $GameProcessId -ErrorAction Stop
-    $null=[AuditFocus]::ShowWindowAsync($game.MainWindowHandle,9)
-    $null=[AuditFocus]::SetForegroundWindow($game.MainWindowHandle)
-    Start-Sleep -Milliseconds 300
+    # Steam's launch splash can hold the foreground for a few seconds: retry (ALT tap lifts the focus-steal lock) before failing
+    for($i=0;$i -lt 10;$i++){
+        $game.Refresh()
+        $null=[AuditFocus]::ShowWindowAsync($game.MainWindowHandle,9)
+        [AuditFocus]::keybd_event(0x12,0,0,[UIntPtr]::Zero); [AuditFocus]::keybd_event(0x12,0,2,[UIntPtr]::Zero)
+        $null=[AuditFocus]::SetForegroundWindow($game.MainWindowHandle)
+        Start-Sleep -Milliseconds 500
+        [uint32]$fp=0; $null=[AuditFocus]::GetWindowThreadProcessId([AuditFocus]::GetForegroundWindow(),[ref]$fp)
+        if($fp -eq $GameProcessId){break}
+    }
     Assert-AuditForeground $GameProcessId
 }
