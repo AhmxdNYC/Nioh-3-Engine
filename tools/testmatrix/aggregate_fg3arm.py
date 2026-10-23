@@ -10,8 +10,9 @@ Each (fg, arm) needs exactly 2 valid runs, else it is reported INCOMPLETE (exit 
 earlier rows). Capture-window OSD speed: mod log '<id>-Nioh3EngineFix.log' 'OSD: stats ... speed N.NNx' lines whose local time-of-day lies
 inside the cpu.json summary start_utc..end_utc (converted to local); min/mean/count are reported and runs with unequal simulation speed are
 FLAGGED (raw fps is never normalised).
-Per run: avg fps and 1% low (mean of slowest 1%) from <id>-run.json; 1% high = 1000/mean of fastest ceil(1%) frame times (same frame
-source as run.json: v2 FrameTime, fallback v1 msBetweenPresents); display latency = mean of v2 DisplayLatency; CPU/GPU % from the 1 Hz
+Per run (PRIMARY = PresentMon v1, comparable with PC/ally): avg fps and 1% low (mean of slowest 1%) from results.csv avg_fps/low1_fps;
+1% high = 1000/mean of fastest ceil(1%) v1 MsBetweenPresents (header case-insensitive). AUXILIARY v2: display latency = mean of v2 DisplayLatency,
+aux_v2_avg_fps/aux_v2_low1_fps from run.json; CPU/GPU % from the 1 Hz
 collector (run.json hw); process CPU cores from <id>-cpu.json summary. Temp, power and input latency are printed as 'unavailable' when absent."""
 import argparse, csv, json, math, os, re, sys
 from datetime import datetime
@@ -32,16 +33,15 @@ def num(x):
 
 def read_col(path, col):
     with open(path, newline="", encoding="utf-8-sig") as f:
-        return [num(row.get(col)) for row in csv.DictReader(f)]
+        r = csv.DictReader(f)
+        key = next((c for c in (r.fieldnames or []) if c.lower() == col.lower()), col)   # header case differs between PresentMon v1/v2
+        return [num(row.get(key)) for row in r]
 
 
 def frametimes(run_dir, rid):
-    for name, col in (("-presentmon-v2.csv", "FrameTime"), ("-presentmon.csv", "msBetweenPresents")):
-        p = os.path.join(run_dir, rid + name)
-        if os.path.isfile(p):
-            v = [x for x in read_col(p, col) if x is not None and x > 0]
-            if v:
-                return v
+    p = os.path.join(run_dir, rid + "-presentmon.csv")   # PRIMARY: PresentMon v1 MsBetweenPresents (PC/ally comparable)
+    if os.path.isfile(p):
+        return [x for x in read_col(p, "MsBetweenPresents") if x is not None and x > 0]
     return []
 
 
@@ -117,7 +117,7 @@ def find_dir(run_dirs, rid):
     return None
 
 
-def metrics(run_dirs, rid):
+def metrics(run_dirs, rid, res):
     run_dir = find_dir(run_dirs, rid)
     if not run_dir:
         return None
@@ -131,7 +131,8 @@ def metrics(run_dirs, rid):
         high = 1000.0 / (sum(sorted(ft)[:n]) / n)
     pm = j.get("presentmon") or {}
     sp = osd_speeds(run_dir, rid)
-    return dict(speeds=sp, avg=num(fps.get("avg_fps")), low1=num(fps.get("low1_meantail_fps")), high1=high,
+    return dict(speeds=sp, avg=num(res.get("avg_fps")), low1=num(res.get("low1_fps")), high1=high,
+                v2avg=num(fps.get("avg_fps")), v2low1=num(fps.get("low1_meantail_fps")),
                 lat=lat_mean(run_dir, rid), cpu=hwval(j, "cpu_pct"), gpu=hwval(j, "gpu_pct"), cores=cpu_cores(run_dir, rid),
                 cpu_temp=hwval(j, "cpu_temp"), gpu_temp=hwval(j, "gpu_temp"), cpu_w=hwval(j, "cpu_w"), gpu_w=hwval(j, "gpu_w"),
                 input_lat=num((pm.get("v2_AllInputToPhotonLatency") or {}).get("median")))
@@ -169,7 +170,7 @@ def main():
         if r.get("valid") != "1":
             skipped.append((rid, (r.get("note") or "invalid")[:80]))
             continue
-        m = metrics(a.run_dir, rid)
+        m = metrics(a.run_dir, rid, r)
         if not m or m["avg"] is None:
             skipped.append((rid, "no run.json metrics"))
             continue
@@ -177,7 +178,7 @@ def main():
         groups[(s["fg"], s["arm"])].append(m)
 
     rows, incomplete = [], []
-    keys = ("avg", "low1", "high1", "lat", "cpu", "gpu", "cores", "cpu_temp", "gpu_temp", "cpu_w", "gpu_w", "input_lat")
+    keys = ("v2avg", "v2low1", "avg", "low1", "high1", "lat", "cpu", "gpu", "cores", "cpu_temp", "gpu_temp", "cpu_w", "gpu_w", "input_lat")
     for fg in FGS:
         for arm in ARMS:
             g = groups.get((fg, arm), [])
@@ -194,11 +195,11 @@ def main():
             rows.append(row)
 
     hdr = ["fg", "arm", "n", "runs", "avg_fps", "avg_spread", "low1_meantail_fps", "high1_meantail_fps", "display_latency_ms", "cpu_pct", "gpu_pct",
-           "proc_cpu_cores", "cpu_temp_c", "gpu_temp_c", "cpu_w", "gpu_w", "input_latency_ms", "osd_speed_min", "osd_speed_mean", "osd_speed_n", "osd_speed_per_run"]
+           "proc_cpu_cores", "cpu_temp_c", "gpu_temp_c", "cpu_w", "gpu_w", "input_latency_ms", "osd_speed_min", "osd_speed_mean", "osd_speed_n", "osd_speed_per_run", "aux_v2_avg_fps", "aux_v2_low1_fps"]
     table = [[r["fg"], r["arm"], r["n"], r["ids"], fmt(r["avg"]), fmt(r["spread"]), fmt(r["low1"]), fmt(r["high1"]), fmt(r["lat"]),
               fmt(r["cpu"], 1), fmt(r["gpu"], 1), fmt(r["cores"]), fmt(r["cpu_temp"], 1), fmt(r["gpu_temp"], 1), fmt(r["cpu_w"], 1),
               fmt(r["gpu_w"], 1), fmt(r["input_lat"]),
-              fmt(r["sp_min"]), fmt(r["sp_mean"]), r["sp_n"], r["sp_runs"]] for r in rows]
+              fmt(r["sp_min"]), fmt(r["sp_mean"]), r["sp_n"], r["sp_runs"], fmt(r["v2avg"]), fmt(r["v2low1"])] for r in rows]
     md = ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)] + ["| " + " | ".join(map(str, t)) + " |" for t in table]
     base = {r["fg"]: r for r in rows if r["arm"] == "STOCKLIKE"}
     md.append("")
@@ -214,6 +215,8 @@ def main():
             md.append(f"WARNING: FG {rs[0]['fg']} arms ran at UNEQUAL simulation speed ("
                       + ", ".join(f"{r['arm']} {r['sp_mean']:.2f}x" for r in rs) + "): raw FPS is shown as measured and is not normalised; "
                       "fps differences are partly game-speed differences.")
+    md.append("PRIMARY metrics = PresentMon v1 (results.csv avg_fps / low1_fps = mean of slowest 1% frames; 1% high from v1 MsBetweenPresents), "
+              "comparable with PC/ally. AUXILIARY = PresentMon v2 (display latency, aux_v2_avg_fps / aux_v2_low1_fps; small differences vs primary are expected).")
     md.append("Notes: FG on/off = native config.xml (schedule fg column); mod FG-off presenter telemetry ignored. CPU/GPU % are 1 Hz machine-wide "
               "samples; 'unavailable' = collector had no such column (temp/power/input latency). 1% low/high = mean-tail of slowest/fastest 1% frames.")
     if skipped:
