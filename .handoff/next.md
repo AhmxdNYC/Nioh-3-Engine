@@ -1970,3 +1970,6 @@ Feedback site is running. Open http://100.120.236.18:8791/ (Tailscale) or http:/
 
 ## 2026-10-22 11:12 pm EST (#24466)
 Human asked for a free public host. Vercel can take the uploads. A GitHub Page cannot. This PC is not signed in to Vercel. Phone #24470 and #24474. Do not publish the GitHub token. Do not start a second server. Game not touched.
+
+## 2026-10-22 11:22 pm EST (#24486)
+Vercel setup is in nioh3-mod-site\site. The human runs vercel-signin.ps1 later and finishes the browser sign-in. Phone will say that. Do not publish before then. Do not restart port 8791. Game not touched.

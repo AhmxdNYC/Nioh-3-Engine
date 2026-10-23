@@ -18,3 +18,4 @@
 - #24317 (2026-10-22): mod menu: settings that keep the game looking the same (pure performance) must be separated from the rest into 2 sub menus.
 - #24318 (2026-10-22): human finds the 4.5 h settings audit too long; shorten it.
 - #24466 (2026-10-22 11:11 pm EST): The feedback site should be a free public host if possible. Vercel can do the uploads. A GitHub Page cannot, because it cannot save a file or open an issue. This PC is not signed in to Vercel. Do not put the GitHub token in a public page. The working link stays http://100.120.236.18:8791/ until a Vercel sign-in exists. Do not launch the game for this.
+- #24486 (2026-10-22 11:20 pm EST): Set the feedback site up for Vercel so the human only signs in later. The script is nioh3-mod-site\site\vercel-signin.ps1. Do not publish until they run it. Do not restart the site on port 8791. Do not launch the game.
