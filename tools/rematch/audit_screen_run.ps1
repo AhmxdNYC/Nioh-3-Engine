@@ -187,8 +187,13 @@ try {
             $null = Launch
             $q = RMP "fight $Row"; T "  fight: $q"
             if ($q -notmatch '^queued') { throw "fight refused: $q" }
-            $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') } ($LoadWaitSec + 60) 1
-            if ((F $end 'fnow') -ne 'pass') { throw "fight not entered: $(RMP status)" }
+            $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') -or (LastOf $x) -match '^(started.*in place|refused)' } 30 1
+            if (-not $end -or (LastOf $end) -match '^refused' -or (F $end 'fnow') -eq 'fail') { throw "fight not entered: $(RMP status)" }
+            if ((F $end 'fnow') -ne 'pass') {   # no-load swap: the boss is live when Nioh3Training logs boss HP heartbeats
+                Start-Sleep 8
+                $hb = @(Get-Content "$GameDir\Nioh3Training.log" -Tail 60 -ErrorAction SilentlyContinue | Where-Object { $_ -match ' HB \+\d+ ms boss HP \d+/\d+' })
+                if (-not $hb.Count) { throw "swap started but no boss HB in Training log: $(RMP status)" }
+            }
             T "  in the fight: $(RMP status)"
             Start-Sleep $SettleSec
             $w0 = Get-Date; while (((Get-Date) - $w0).TotalSeconds -lt $WarmupSec) { Combat-Pass }
