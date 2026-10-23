@@ -27,3 +27,12 @@
 - #24946 (2026-10-23): do NOT repeat the whole ~69-run audit on each device again. Final bench = only the 3 arms per device (stock / pure-perf mod / full mod); stage 2 confirm only a short list of candidates, not all settings.
 - Discord images/files: py -I C:/Users/Ahmad Hamza/universal-optimizer/tools/notify/notify.py file <path> <text> (<=8 MB). Use it when the human asks for pictures/videos in Discord.
 - #24979 (2026-10-23): pad display default must stay the ORIGINAL look; transparent+white-border is a selectable preset only. cx-pc fixed (b35dea02 on cx-pc/pad-style-24886); pc installs+verifies after audits.
+- #25333 (2026-10-23): frame meter is too vertically tall; must be much skinnier (drop extra info rows: readout/legend extras).
+- #25337 (2026-10-23): frame meter: run-length numbers must be centered/aligned inside their frame squares.
+- #25456 (2026-10-23): frame meter layout: colour KEY goes BELOW the two cell rows; the Startup/Active/... readout text goes ABOVE the top row of cells as its own line, NOT part of the row. Colour key stays ON by default (they want it).
+- #25485/#25487/#25488 (2026-10-23): human withdrew the objection to the row name; keep my choice "KI DEBT" for the negative-Ki frame-meter row.
+- #25529 (2026-10-23): KI DEBT row must show the run-length number in its last cell like the other rows.
+- #25534 (2026-10-23): frame meter design approved -> add it to the game. Default position: move the whole overlay down to just above the player healthbar / skills, shifted a bit LEFT of the healthbar.
+- #25534/#25544 (2026-10-23): frame meter default position = right above the player health bar, NOT shifted left; KI DEBT row (human bosses only, number in last cell) goes into the game build; then get in a fight and send mid-fight screenshots with controller display on (#25536/#25538).
+- #25536/#25538/#25544 (2026-10-23): frame meter default position = just above player healthbar, NOT shifted left at all (centred over it). pc must get into a fight with controller display ON and send mid-fight screenshots to Discord.
+- #25964 (2026-10-23): settings audits use 2 repeats per arm only, never 3 (all devices, stage 2 included).

@@ -4,8 +4,6 @@ s2-pc-0002,pc,Patches.EP,1,OFF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,Presen
 s2-pc-0003,pc,Patches.EP,1,ON,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/Patches.EP/ON.ini,UNMEASURED
 s2-pc-0004,pc,Patches.EP,2,ON,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/Patches.EP/ON.ini,UNMEASURED
 s2-pc-0005,pc,Patches.EP,2,OFF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/Patches.EP/OFF.ini,UNMEASURED
-s2-pc-0006,pc,Patches.EP,3,OFF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/Patches.EP/OFF.ini,UNMEASURED
-s2-pc-0007,pc,Patches.EP,3,ON,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/Patches.EP/ON.ini,UNMEASURED
 s2-pc-0008,pc,__baseline__,0,BASELINE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/source-baseline.ini,UNMEASURED
 s2-ally-0001,ally,__baseline__,0,BASELINE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,ally/source-baseline.ini,UNMEASURED
 s2-ally-0002,ally,Patches.P12,1,OFF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,ally/Patches.P12/OFF.ini,UNMEASURED
