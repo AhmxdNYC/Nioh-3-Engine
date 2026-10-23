@@ -17,8 +17,15 @@
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
 param([int]$OwnerPid = 0, [string]$Device = "pc", [string]$Plan = "", [string]$ResultsCsv = "", [string]$Row = "R7B35", [int]$MeasureSec = 60, [int]$SettleSec = 8, [int]$WarmupSec = 30, [int]$MaxRetries = 1, [int]$MaxRuns = 0,
       [int]$WaitMinutes = 480, [int]$MaxMinutes = 240, [int]$LoadWaitSec = 240, [string]$PerfAsi = "", [bool]$KeepBuild = $true, [switch]$DryRun)
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. "$here\audit_capture_helpers.ps1"
+# Fail before waiting, launching, locks or save changes; no unattended UAC prompt.
+if (-not $DryRun) {
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal=New-Object Security.Principal.WindowsPrincipal($identity)
+    if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw "AUDIT-FATAL: run this audit from an elevated owner shell for ETW capture"}
+}
 $tm = Join-Path (Split-Path -Parent $here) "testmatrix"
 $repo = Split-Path -Parent (Split-Path -Parent $here)
 $AddonDir = Join-Path $repo "mod\Nioh3BossRematch"
@@ -95,7 +102,7 @@ function Launch {
     }
     if (-not $p) { Note-Crash "no window"; throw "no game window after 180 s" }
     $script:gamePid = $p.Id; $script:launchN++; Register-Game; T "launch #$($script:launchN): game pid $($p.Id)"
-    Start-Sleep 3; VP-GiveBackFocus $before; Start-Sleep 1
+    Start-Sleep 3; Set-AuditForeground $script:gamePid; Start-Sleep 1
     if (-not (VP-WaitPipe 180)) { throw "no VirtualPad pipe (perf ASI with VirtualPad = 1?)" }
     $ok = VP-TitleContinue 300 "$out\title_continue_$($script:launchN).txt"
     $pg = RMP ping; T "title -> Continue -> field: $ok; add-on: $pg"
@@ -108,6 +115,7 @@ function Close-Game {
     $p = if ($script:gamePid) { Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue } else { $null }
     if ($p) { Note-Closed; $null = $p.CloseMainWindow(); $p.WaitForExit(45000) | Out-Null; if (-not $p.HasExited) { T "!! game did not exit in 45 s - killing pid $($p.Id)"; Stop-Process -Id $p.Id -Force }; Start-Sleep 8 }
     $script:gamePid = 0
+    if(Test-Path "$GameDir\Nioh3Training.log"){Copy-Item "$GameDir\Nioh3Training.log" "$out\training_launch$($script:launchN).log" -Force -ErrorAction SilentlyContinue}
     if (Test-Path $aLog) { Copy-Item $aLog "$out\addon_launch$($script:launchN).log" -Force -ErrorAction SilentlyContinue }
 }
 function Restore {
@@ -186,21 +194,27 @@ try {
         [IO.File]::WriteAllText($perfIni, $iniText, (New-Object Text.UTF8Encoding($false)))
         Copy-Item $perfIni "$out\$tag.ini" -Force
         $tag = $run.run_id
+        $pm=$null; $cp=$null; $fatal=$false
         try {
             for ($att = 1; $att -le 2; $att++) {   # a launch that stalls before the player loads (about every 2nd run on pc) is retried once
                 try { $null = Launch; break } catch { T "  launch attempt $att failed: $($_.Exception.Message)"; if ($att -ge 2) { throw }; Close-Game }
             }
+            Set-AuditForeground $script:gamePid
+            $trainingLog="$GameDir\Nioh3Training.log"
+            $fightOffset=Get-AuditLogOffset $trainingLog
             $q = RMP "fight $Row"; T "  fight: $q"
             if ($q -notmatch '^queued') { throw "fight refused: $q" }
             $end = Wait-RM { param($x) (F $x 'fnow') -in @('pass','fail') -or (LastOf $x) -match '^(started.*in place|refused)' } 30 1
             if (-not $end -or (LastOf $end) -match '^refused' -or (F $end 'fnow') -eq 'fail') { throw "fight not entered: $(RMP status)" }
-            if ((F $end 'fnow') -ne 'pass') {   # no-load swap: the boss is live when Nioh3Training logs boss HP heartbeats
-                $hb = @(); $hbT = [Diagnostics.Stopwatch]::StartNew()   # boss spawn is held up to AreaWaitCrossMs (15 s) + slow cell loads: poll up to 60 s
-                while (-not $hb.Count -and $hbT.Elapsed.TotalSeconds -lt 60) {
+            $swapMode=(F $end 'fnow') -ne 'pass'
+            if ($swapMode) {   # no-load swap: the boss is live when Nioh3Training logs boss HP heartbeats
+                $fresh=''; $hbT=[Diagnostics.Stopwatch]::StartNew()
+                while(-not(Test-AuditBossHeartbeat $fresh) -and $hbT.Elapsed.TotalSeconds -lt 60){
                     Start-Sleep 2
-                    $hb = @(Get-Content "$GameDir\Nioh3Training.log" -Tail 60 -ErrorAction SilentlyContinue | Where-Object { $_ -match ' HB \+\d+ ms boss HP \d+/\d+' })
+                    $fresh += Read-AuditLogDelta $trainingLog ([ref]$fightOffset)
                 }
-                if (-not $hb.Count) { throw "swap started but no boss HB in Training log: $(RMP status)" }
+                $fresh | Set-Content "$out\$tag-spawn-evidence.log"
+                if(-not(Test-AuditBossHeartbeat $fresh)){throw "AUDIT-FATAL: swap acknowledged but no NEW live boss heartbeat: $(RMP status)"}
             }
             T "  in the fight: $(RMP status)"
             Start-Sleep $SettleSec
@@ -208,27 +222,54 @@ try {
             $p0 = Pos (RMP status); $null = VP "stick L 0 1 1200"; Start-Sleep 1; $p1 = Pos (RMP status)
             T "  gate: player=$(F (RMP status) 'player') fnow=$(F (RMP status) 'fnow') pos $p0 -> $p1"
             Shot "$tag-gate"
+            if($swapMode){
+                $fresh=Read-AuditLogDelta $trainingLog ([ref]$fightOffset)
+                if(-not(Test-AuditBossHeartbeat $fresh)){throw 'AUDIT-FATAL: no new boss heartbeat during warmup'}
+            }
+            Set-AuditForeground $script:gamePid
             $gp = $script:gamePid
             $pmCsv = "$out\$tag-presentmon.csv"
-            $pm = Start-Process "$repo\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList "--process_name Nioh3.exe --output_file `"$pmCsv`" --timed $MeasureSec --terminate_after_timed --stop_existing_session --no_console_stats"
+            $session="NiohAudit-$PID-$([guid]::NewGuid().ToString('N'))"
+            $pmErr="$out\$tag-presentmon.stderr.log"
+            $pmArgs=Get-AuditPresentArgs $gp $pmCsv $MeasureSec $session
+            T "  PresentMon session=$session pid=$gp args=$pmArgs"
+            $captureStart=Get-Date
+            try { $pm = Start-Process "$repo\tools\PresentMon.exe" -PassThru -WindowStyle Hidden -ArgumentList $pmArgs -RedirectStandardOutput "$out\$tag-presentmon.stdout.log" -RedirectStandardError $pmErr } catch { throw "AUDIT-FATAL: PresentMon could not start: $($_.Exception.Message)" }
             Register-Child $pm "PresentMon"
+            Start-Sleep -Milliseconds 500
+            $pm.Refresh()
+            if($pm.HasExited){Assert-AuditCaptureResult $true $pm.ExitCode $pmCsv $pmErr; throw 'AUDIT-FATAL: PresentMon exited before capture started'}
             $cpuOut = "$out\$tag-cpu.json"
             $cp = Start-Process py -PassThru -WindowStyle Hidden -RedirectStandardOutput "$out\$tag-cpu.out" -ArgumentList "-I `"$tm\process_cpu_window.py`" --pid $gp --seconds $MeasureSec --out `"$cpuOut`" --label $tag"
             Register-Child $cp "cpuwindow"
-            $t0 = Get-Date; $loads = 0; $prevL = '0'; $shots = 0
+            $t0 = $captureStart; $lastBoss=$t0; $bossDelta=''; $loads = 0; $prevL = '0'; $shots = 0
             while (((Get-Date) - $t0).TotalSeconds -lt $MeasureSec) {
+                Assert-AuditForeground $gp
                 Combat-Pass
+                Assert-AuditForeground $gp
+                $pm.Refresh()
+                if($pm.HasExited -and ((Get-Date)-$t0).TotalSeconds -lt ($MeasureSec-2)){throw "AUDIT-FATAL: PresentMon exited early ($($pm.ExitCode)); see $pmErr"}
+                if($swapMode){
+                    $bossDelta+=Read-AuditLogDelta $trainingLog ([ref]$fightOffset)
+                    if(Test-AuditBossHeartbeat $bossDelta){$lastBoss=Get-Date;$bossDelta=''}
+                    if(((Get-Date)-$lastBoss).TotalSeconds -gt 15){throw 'AUDIT-FATAL: no live boss heartbeat for 15 seconds during capture'}
+                }
                 $sx = RMP status; $l = F $sx 'loading'
                 if ($l -eq '1' -and $prevL -ne '1') { $loads++; T "  !! loading during measure at +$([int](((Get-Date) - $t0).TotalSeconds)) s: $(LastOf $sx)" }
                 $prevL = $l
                 if (((Get-Date) - $t0).TotalSeconds -ge ($shots + 1) * 20) { $shots++; Shot "$tag-mid$shots" }
             }
-            $pm.WaitForExit(30000) | Out-Null; $cp.WaitForExit(30000) | Out-Null
+            $pmDone=$pm.WaitForExit(30000)
+            $pmCode=if($pmDone){$pm.ExitCode}else{-1}
+            Assert-AuditCaptureResult $pmDone $pmCode $pmCsv $pmErr
+            $cp.WaitForExit(30000) | Out-Null
             Shot "$tag-end"
             T "  end status: $(RMP status)"
-            $rows = Import-Csv $pmCsv
+            $rows = @(Import-Csv $pmCsv)
+            if(-not $rows.Count -or $rows[0].PSObject.Properties.Name -notcontains 'MsBetweenPresents'){throw 'AUDIT-FATAL: missing v1 frame-time column/rows in PresentMon CSV'}
             $col = if ($rows[0].PSObject.Properties.Name -contains 'MsBetweenPresents') { 'MsBetweenPresents' } else { 'msBetweenPresents' }
             $ms = @($rows | ForEach-Object { [double]$_.$col } | Where-Object { $_ -gt 0 })
+            if($ms.Count -lt 2){throw 'AUDIT-FATAL: fewer than two positive frame times'}
             $sec = ($ms | Measure-Object -Sum).Sum / 1000.0
             $fps = [math]::Round($ms.Count / $sec, 2)
             $sorted = $ms | Sort-Object -Descending; $k = [math]::Max(1, [int][math]::Ceiling($ms.Count * 0.01))
@@ -239,8 +280,13 @@ try {
             T "  ARM $tag : avg_fps=$fps low1_fps=$low1 frames=$($ms.Count) over $([math]::Round($sec,1)) s loads=$loads valid=$valid cpu=$cpuTxt"
             $ft = [math]::Round(1000.0 / $fps, 4)
             ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},' -f $tag, $tmpl[$tag].fixture, $tmpl[$tag].ini_sha256, [int]$valid, $fps, $low1, $ft, $run.key, $arm, $ms.Count, $loads) | Add-Content $ResultsCsv
-        } catch { T "!! run $tag failed: $($_.Exception.Message)"; "$tag,$($tmpl[$tag].fixture),$($tmpl[$tag].ini_sha256),0,,,,$($run.key),$arm,,,$($_.Exception.Message -replace '[,\r\n]',' ')" | Add-Content $ResultsCsv }
+        } catch { $fatal=$_.Exception.Message -like 'AUDIT-FATAL:*'; T "!! run $tag failed: $($_.Exception.Message)"; "$tag,$($tmpl[$tag].fixture),$($tmpl[$tag].ini_sha256),0,,,,$($run.key),$arm,,,$($_.Exception.Message -replace '[,\r\n]',' ')" | Add-Content $ResultsCsv }
+        # Only capture children created by this run; never terminate other ETW consumers.
+        foreach($child in @($pm,$cp)){if($child){$child.Refresh();if(-not $child.HasExited){Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue}}}
         Close-Game
+        if($fatal){throw 'AUDIT-FATAL: batch stopped after infrastructure failure; inspect per-run capture logs before retry'}
     }
-} catch { T "!! $($_.Exception.Message)" }
+} catch { $script:auditFailed=$true; T "!! $($_.Exception.Message)" }
 finally { Close-Game; Stop-TestPopup; Restore; Done-Guard; T "results: $ResultsCsv" }
+
+if($script:auditFailed){exit 1}
