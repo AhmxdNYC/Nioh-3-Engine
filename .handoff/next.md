@@ -1956,4 +1956,17 @@ Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up
 Boss action rows are written in notes/boss-action-record.md. Yoritomo 173, Shingen 136, Otoroshi 141. No hit-count field. Commit 3669b4d4. Game not opened.
 
 ## 2026-10-22 10:58 PM EST (#24420)
-Website link is not ready. The new build started at 10:57 pm EST and has saved 0 files. Phone #24422. The other gxl-pc slot owns that build. Do not start a second copy. Game not touched.
+Superseded at 11:08 pm EST. The feedback site is up. Do not start a second copy.
+## 2026-10-22 10:58 pm EST (#24392)
+Hitbox damage for Yoritomo, Shingen, and Otoroshi is sub-table 2: 182, 194, and 162 rows. The motion number does not select a row. The action id does. Note notes/boss-action-record.md, commit ad80ca1d. RESULT #24423. Game not opened.
+2026-10-22 11:00 PM EDT | cxl-pc #24405 complete: 29fe08d3, separate captures/audit-short-24405 (91 keys,197 captures); pc owns safe transition. 30s/15s not yet justified; see notes/settings-audit-short-24405.md.
+- 2026-10-22 cxl-pc #24425: gx-pc static hitbox findings already checkpointed in ad80ca1d; use action ID, not motion, when consuming sub-table-2 rows. Runtime verification remains unproven; pc owns scheduling. No new task or game action requested.
+
+## 2026-10-22 11:05 pm EST (#24426)
+No stored hit count on the ActLog object. RVA 0x358528 returns the action id. A display counts distinct hitbox byte +0xA5 values. Yoritomo 0x4E6E is 2, Shingen 0x4E4E is 3, Otoroshi 0x4E4E is 1. Note notes/boss-action-record.md, commit 50a3c0d8. RESULT #24449. Game not opened.
+
+## 2026-10-22 11:08 pm EST (site #24414)
+Feedback site is running. Open http://100.120.236.18:8791/ (Tailscale) or http://192.168.1.165:8791/ (home Wi-Fi). Worktree C:\Users\Ahmad Hamza\nioh3-mod-site branch gxl-pc/mod-site. Server PID 7316, port 8791. Uploads in %LOCALAPPDATA%\nioh3-site-inbox. Do not start a second server. Game not touched.
+
+## 2026-10-22 11:12 pm EST (#24466)
+Human asked for a free public host. Vercel can take the uploads. A GitHub Page cannot. This PC is not signed in to Vercel. Phone #24470 and #24474. Do not publish the GitHub token. Do not start a second server. Game not touched.
