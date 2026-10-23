@@ -4789,6 +4789,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
 #include "autobind_game.h"  // pc2 #23565: automatic boss action-file binding ([Debug] AutoBind, default 1, log only)
+#include "auto_moves_game.h"  // pc2 #23907: runtime boss move list from the loaded action file ([Debug] AutoMoves, default 1)
 #include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
@@ -4826,6 +4827,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { MvTick(); ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { AbTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_ab = 0; }  // pc2 #23565
+    __try { AmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_am = 0; Log("AUTOMOVES tick exception %08lX, off", GetExceptionCode()); }  // pc2 #23907
     __try { FpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FpUnlock(); }  // user #22356 frame probe (log only, off unless [Debug] FrameProbe 1)
     __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
@@ -4886,6 +4888,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         PstLoadIni(ini);  // user #22389 [Practice]
         g_cfg_ab = GetPrivateProfileIntA("Debug", "AutoBind", 1, ini);
+        g_cfg_am = GetPrivateProfileIntA("Debug", "AutoMoves", 1, ini);  // pc2 #23907
         g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0)");  // user #22356
         FmLoadIni(ini);  // Practice frame meter
         NkmLoadIni(ini);  // user #23400 negative Ki meter
