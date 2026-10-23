@@ -1,0 +1,52 @@
+847229	Cavern Ascetic	FINAL action data 0000000000000000 (0 = union of the files seen): 1174 moves (attack 179, attack block 6, unblockable 0, hit count known 156, movement 925, idle 10), 252 next links, 31 sequences; 2 fi
+720656	Death Veil	FINAL CE_SORANAKI_BG_00 (100%, 6 rows) file 22A9D51F5DBC460E10ED72400640E67044359D953817EB581A6FF90B83820831; 1 block(s) seen [stable]
+826751	Fuma Kotaro	FINAL COMPOSED of known files (129 of 129 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) + CP_HUMAN_COMMON(0) + CP_HUMAN_COMMON(86) [stable]
+210803	Giant Toad	FINAL ? (100%, 48 rows) file 98A39544553277A061AB34F7A3EB9B7A0FBFA834260AC9BA7CBEFD1C69D3E7EF; 1 block(s) seen [stable]
+339773	Hattori Hanzo (Adept)	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [despawned/replaced]
+131751	Hattori Hanzo (The Demon's Regimen)	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 1 file(s)
+865761	Hattori Hanzo (Veteran)	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [despawned/replaced]
+51699	Hijikata Toshizo (Kiyomizu Defiled)	FINAL action data 0000000000000000 (0 = union of the files seen): 1470 moves (attack 236, attack block 11, unblockable 0, hit count known 195, movement 1143, idle 10), 258 next links, 23 sequences; 2 
+606073	Hiruko (A Sinister End)	FINAL ? (100%, 72 rows) file DA8595339A2FE7EF2C03DB48DE7C0805F030FC30E201993F333AF68E6ED46C54; 1 block(s) seen [despawned/replaced]
+983905	Honda Tadakatsu	FINAL CN_TADAKATSU (100%, 69 rows) file 148AA83379593557E60E6F25D5A2970F4D618F476FA3430249804CE81968E102; 1 block(s) seen [stable]
+450193	Ichimokuren	FINAL CE_ICHIMOKUREN_00 (100%, 63 rows) file 7DED4F2A7CC863DD5A0E920CE77BC1AA1B63FE62D4BCF4916A755420BA2BA436; 1 block(s) seen [despawned/replaced]
+773019	Iron-Fisted Rogue	FINAL COMPOSED of known files (151 of 151 rows explained, biggest block -> CP_HUMAN_TEKOU): CP_HUMAN_COMMON(43) + CP_HUMAN_TEKOU(105) + CP_HUMAN_TEKOU(3) [despawned/replaced]
+512653	Ito Ittosai	FINAL COMPOSED of known files (187 of 187 rows explained, biggest block -> CP_HUMAN_TACHI): CP_HUMAN_COMMON(43) + CP_HUMAN_TACHI(118) + CP_HUMAN_TACHI(26) [stable]
+433499	Itsumade	FINAL CE_ITSUMADE_00 (100%, 43 rows) file 06E8311D99680749706494D5C56831A0997D76A5B1D7977F492A4B8A945CCF22; 1 block(s) seen [despawned/replaced]
+143867	Jinnosuke the Shadow Slicer	FINAL action data 0000000000000000 (0 = union of the files seen): 1488 moves (attack 220, attack block 7, unblockable 3, hit count known 180, movement 1165, idle 11), 266 next links, 28 sequences; 2 f
+90358	Kajiwara Kagetoki (open field)	FINAL action data 0000000000000000 (0 = union of the files seen): 681 moves (attack 151, attack block 2, unblockable 0, hit count known 114, movement 450, idle 6), 193 next links, 29 sequences; 2 file
+63946	Kanai Hanbei	FINAL COMPOSED of known files (187 of 187 rows explained, biggest block -> CP_HUMAN_TACHI): CP_HUMAN_COMMON(43) + CP_HUMAN_TACHI(118) + CP_HUMAN_TACHI(26) [despawned/replaced]
+829576	Kasha	FINAL CE_KASYA_00 (100%, 66 rows) file 3E2644940CB7E12A5063B0A6ED37ED67D475AC5941A9DF59D3D6E29CAF379645; 1 block(s) seen [despawned/replaced]
+308102	Kondo Isami (Kiyomizu Defiled)	FINAL COMPOSED of known files (340 of 340 rows explained, biggest block -> CP_HUMAN_KATANA): CP_HUMAN_COMMON(43) + CP_HUMAN_KATANA(133) + CP_HUMAN_KATANA(164) [despawned/replaced]
+485999	Kumagai Naoyoshi	FINAL action data 0000000000000000 (0 = union of the files seen): 1498 moves (attack 261, attack block 7, unblockable 12, hit count known 214, movement 1145, idle 9), 261 next links, 19 sequences; 2 f
+656503	Kusanagi	FINAL ? (100%, 59 rows) file 7670C402EE30A0854F714D2A60EF8AA22354ECCA655EEB39AA48F00F27EA3A30; 1 block(s) seen [despawned/replaced]
+64826	Maeda Mitsutaka	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [despawned/replaced]
+445093	Magatsu Warrior	FINAL CE_SHIGURUI_BIG_00 (100%, 53 rows) file A4613897A3C31AF83FB227BD3E0F8830EFAD8A97A0D49A3FE4F80BCD9EBB0C92; 1 block(s) seen [stable]
+468979	Marubashi Chuya (open field)	FINAL action data 0000000000000000 (0 = union of the files seen): 1454 moves (attack 278, attack block 7, unblockable 0, hit count known 228, movement 1121, idle 10), 270 next links, 35 sequences; 2 f
+702734	Mujina	FINAL COMPOSED of known files (193 of 193 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) + CP_HUMAN_COMMON(150) [despawned/replaced]
+766640	Nakane Masamori	FINAL action data 0000000000000000 (0 = union of the files seen): 1311 moves (attack 188, attack block 8, unblockable 0, hit count known 153, movement 1044, idle 12), 377 next links, 36 sequences; 3 f
+236383	Nasu no Yoichi	FINAL ? (union of 2 blocks, 93 ids, 100% of the file covered, runner-up 0 ids) file B1F2FCDD459F4C9073A9B1942557B5E85268A701FD85F2BF9F6A942502C49160 [despawned/replaced]
+530144	Ninja Yoki (open field)	FINAL CE_YOUKI_SPEED_00 (71%, 50 rows) file 37416F4CE4A334EAE9B2D0774D14F92F5CE52EE620D9A038DA84E9E70E9D74C8; 2 block(s) seen [stable]
+304746	Nozuchi	FINAL CE_NOZUCHI_00 (100%, 60 rows) file F6D0C03557E479DF4DD566BC912C86F1DF4754B4688477B4319056E861616D72; 1 block(s) seen [stable]
+27230	Nuribotoke (A Sinister End)	FINAL CE_NURIBOTOKE_01 (100%, 43 rows) file E70F7276EE16FE635423F6009E25615EAE39CFEA2AEBF1D5708BA5FB1CF11917; 1 block(s) seen [despawned/replaced]
+889237	Okita Soji (Scion of the Gods)	FINAL CN_SOUJI (100%, 85 rows) file 2269829620D501D2215F6CF0BEB6CB75578C79EC5D0934AC8281D903A04B4F83; 1 block(s) seen [stable]
+170729	Okita Soji (Solitary Blade)	FINAL action data 0000021E0A2585A0 (0 = union of the files seen): 119 moves (attack 34, attack block 0, unblockable 4, hit count known 34, movement 73, idle 3), 18 next links, 3 sequences; 1 file(s) s
+253407	Ooka Genzaburo	FINAL action data 0000000000000000 (0 = union of the files seen): 1454 moves (attack 278, attack block 7, unblockable 0, hit count known 228, movement 1121, idle 10), 270 next links, 35 sequences; 2 f
+132808	Otazu no Kata	FINAL COMPOSED of known files (187 of 187 rows explained, biggest block -> CP_HUMAN_KATANA): CP_HUMAN_COMMON(43) + CP_HUMAN_KATANA(133) + CP_HUMAN_KATANA(11) [despawned/replaced]
+770346	Rattan-Clad Ninja Oni	FINAL COMPOSED of known files (103 of 103 rows explained, biggest block -> CP_HUMAN_TEONO_NINJA): CP_HUMAN_COMMON(43) + CP_HUMAN_TEONO_NINJA(60) [despawned/replaced]
+931361	Robust Spear Samurai	FINAL COMPOSED of known files (183 of 183 rows explained, biggest block -> CP_HUMAN_YARI): CP_HUMAN_COMMON(48) + CP_HUMAN_YARI(135) [stable]
+671570	Saito Fuku (Veteran)	FINAL UNBOUND (1 block(s) seen) [stable]
+485856	Saito Hajime (open field)	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 2 file(s)
+686458	Sawamura Yasusuke	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [stable]
+800450	Shinran	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [stable]
+321472	Sugitani Zenjubo	FINAL COMPOSED of known files (43 of 43 rows explained, biggest block -> CP_HUMAN_COMMON): CP_HUMAN_COMMON(43) [stable]
+950461	Takahashi Deishu	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 2 file(s)
+803396	Tokugawa Kunimatsu	FINAL CN_KUNIMATU (100%, 106 rows) file 9ADA308F8EF1A886B657261593646893259F39114B11E7FCEBC2FD7BB55D80AC; 1 block(s) seen [stable]
+969076	Tokugawa Kunimatsu (Ghosts at Hirakawa Gate)	FINAL COMPOSED of known files (133 of 133 rows explained, biggest block -> CP_HUMAN_KATANA): CP_HUMAN_KATANA(133) [stable]
+989823	Tokugawa Kunimatsu (Light of Hope)	FINAL CN_KUNIMATU (100%, 106 rows) file 9ADA308F8EF1A886B657261593646893259F39114B11E7FCEBC2FD7BB55D80AC; 1 block(s) seen [stable]
+586715	Tomoe Gozen (Beneath a Pure White Flag)	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 1 file(s)
+521334	Tsurara-onna (open field)	FINAL CE_TSURARAONNA_00 (100%, 54 rows) file 14868F0A4722CFC620276CDA4CD13C254543F336C9381AD5429A9720DEAAC4CA; 1 block(s) seen [despawned/replaced]
+412493	Yagyu Jubei (A Fortress in Ruins)	FINAL CN_JUBE (79%, 178 rows) file 246322F7518BB62693C9EF60F9AE91268A5857B55D8831DB9E44C6F8FEA44007; 1 block(s) seen [stable]
+776661	Yagyu Munenori	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 2 file(s)
+540782	Yagyu Munenori (Adept)	FINAL action data 0000021E62F13F00 (0 = union of the files seen): 767 moves (attack 28, attack block 6, unblockable 0, hit count known 22, movement 708, idle 7), 200 next links, 3 sequences; 2 file(s)
+307259	Yamagata Masakage	FINAL CN_MASAKAGE (100%, 85 rows) file 68C41C904AB5F805ABD435FA2D65C850CD7A6708AB10826F4095E351428BCE50; 1 block(s) seen [stable]
+DONE
