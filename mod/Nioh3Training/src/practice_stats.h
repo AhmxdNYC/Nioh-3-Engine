@@ -104,6 +104,12 @@ static inline float PstScaleKi(float amt, int pct) {
     if (pct > 1000) pct = 1000;
     return amt * (float)pct / 100.0f;
 }
+// user #23924 the HP multipliers also scale Ki ('spirit') damage: the Ki percentage of one hit. Player -> someone else: Ki damage I deal x Damage I deal
+// (both sliders, 100 % = neutral); a Training boss -> the player: Damage boss deals; anyone else x1. Capped at x10 like the sliders.
+static inline int PstKiPct(int atkPlayer, int atkBoss, int vicPlayer, int kiDealt, int dealt, int boss) {
+    if (atkPlayer) { if (vicPlayer) return 100; const int64_t p = (int64_t)kiDealt * dealt / 100; return p > 1000 ? 1000 : (int)p; }
+    return atkBoss && vicPlayer ? boss : 100;
+}
 static inline float PstKiDmg(int atkPlayer, int vicPlayer, int vicBoss, int pct, int oneHit, int blocked, float cur, float amt) {
     if (!atkPlayer || vicPlayer || !(amt == amt)) return amt;
     const float a = PstScaleKi(amt, pct);

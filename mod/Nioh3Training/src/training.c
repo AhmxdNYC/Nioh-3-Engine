@@ -1225,15 +1225,47 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) 
 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
 typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
-static ArenaRow g_rows[160]; static int g_nrows;
+// #23451: the table is generated from the game data by tools/auto_arena.py (every boss incl. DLC: one R/D row per mission, then S<chr> rows for every
+// further boss character, kind 'field' = an open-field placement with no arena trigger). MAXROWS leaves room for future DLC.
+#define MAXROWS 512
+static ArenaRow g_rows[MAXROWS]; static int g_nrows;
 // user #22984: kind 'summon' rows (tools/gen_summon_rows.py) = summon-only bosses with no arena data, kept apart from g_rows so the Fight now /
 // world / preload scans never see them. mission != 0: a catalogue row (menu token R<mission>); mission 0: the per-boss roster (id S<chr>).
-static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[160]; static int g_nsum, g_nroster;
+static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[MAXROWS]; static int g_nsum, g_nroster;
+// #23436/#23447/#23451/#23479: rows derived in-process from the game's own data files (arena_scan.h, the C port of tools/auto_arena.py, no game
+// addresses). [ArenaSwap] AutoArena = 1 (default): after the TSV (= cache + override) every scanned row whose mission (R/D rows) or boss character
+// (S rows) the TSV does not have is added, so a game patch / DLC boss gets its arena with no table update; new characters also join the summon
+// roster (named 'Boss <chr>' until the TSV names them). 0 = TSV only.
+static int g_cfg_autoarena = 1;
+#define AS_LOG(...) Log(__VA_ARGS__)
+#include "arena_scan.h"
+static void AsAddRow(const AsRow* s, void* ctx) {
+    int* added = (int*)ctx;
+    for (int i = 0; i < g_nrows; ++i) {
+        if (s->id[0] != 'S' && g_rows[i].id[0] != 'S' && g_rows[i].mission == s->mission) return;  // the TSV has this mission
+        if (g_rows[i].chr == s->chr && (s->id[0] == 'S' || !_stricmp(g_rows[i].id, s->id))) return;  // or this boss character
+    }
+    if (g_nrows >= MAXROWS) return;
+    ArenaRow* r = &g_rows[g_nrows++]; memset(r, 0, sizeof *r);
+    r->mission = s->mission; r->start = s->start; r->world = s->world; r->chr = s->chr; r->placement = s->placement;
+    for (int i = 0; i < 4; ++i) r->p[i] = (float)s->p[i];
+    for (int i = 0; i < 3; ++i) r->b[i] = (float)s->b[i];
+    snprintf(r->kind, sizeof r->kind, "%s", s->kind); snprintf(r->id, sizeof r->id, "%s", s->id);
+    const char* nm = 0; for (int i = 0; i < g_nsum && !nm; ++i) if (g_sum[i].chr == s->chr) nm = g_sum[i].name;
+    for (int i = 0; i < g_nrows - 1 && !nm; ++i) if (g_rows[i].chr == s->chr) nm = g_rows[i].name;
+    if (nm) snprintf(r->name, sizeof r->name, "%s", nm); else snprintf(r->name, sizeof r->name, "Boss %u", s->chr);
+    int inRoster = 0; for (int i = 0; i < g_nsum; ++i) if (g_sum[i].chr == s->chr) inRoster = 1;
+    if (r->id[0] == 'S' && !inRoster && g_nsum < MAXROWS) {
+        g_sum[g_nsum].mission = 0; g_sum[g_nsum].chr = s->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); ++g_nsum; ++g_nroster;
+    }
+    Log("ARENASCAN: added %s %s mission 0x%X world 0x%02X chr %u (%s), not in the TSV", r->kind, r->id, r->mission, r->world, r->chr, r->name);
+    ++*added;
+}
 static void LoadTable(void) {
     char path[MAX_PATH]; snprintf(path, sizeof path, "%s\\Nioh3Training_arenas.tsv", g_dir);
-    FILE* f = fopen(path, "r"); if (!f) { Log("arena table %s not found: Fight now keeps the native load", path); return; }
-    char line[512];
-    while (fgets(line, sizeof line, f) && g_nrows < 160) {
+    FILE* f = fopen(path, "r"); char line[512];
+    if (!f) Log("arena table %s not found", path);
+    while (f && fgets(line, sizeof line, f) && g_nrows < MAXROWS) {
         if (line[0] == '#' || line[0] == '\n') continue;
         char* col[16]; int n = 0; char* c = line;
         while (n < 16) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
@@ -1248,12 +1280,19 @@ static void LoadTable(void) {
         r->ncells = 0;  // optional col 16: comma list of arena cell ids (CrossWorldCellSkip whitelist)
         if (n > 15) for (const char* q = col[15]; *q && r->ncells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->cells[r->ncells++] = (uint32_t)v; q = e; }
         if (!strcmp(r->kind, "summon")) {
-            if (r->chr && g_nsum < 160) { g_sum[g_nsum].mission = r->mission; g_sum[g_nsum].chr = r->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); g_nroster += !r->mission; ++g_nsum; }
+            if (r->chr && g_nsum < MAXROWS) { g_sum[g_nsum].mission = r->mission; g_sum[g_nsum].chr = r->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); g_nroster += !r->mission; ++g_nsum; }
             continue;
         }
         if (r->mission && r->chr) ++g_nrows;
     }
-    fclose(f);
+    if (f) fclose(f);
+    { char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir); g_cfg_autoarena = GetPrivateProfileIntA("ArenaSwap", "AutoArena", 1, ini); }
+    if (g_cfg_autoarena) {
+        DWORD t0 = GetTickCount(); int added = 0, n = AsScan(g_dir, AsAddRow, &added);
+        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena 1): %d rows from the game data, %d not in the TSV added (%lu ms)", n, added, GetTickCount() - t0);
+    }
+    if (!g_nrows) { Log("arena table empty: Fight now keeps the native load"); return; }
+
     snprintf(path, sizeof path, "%s\\Nioh3Training_bgm.tsv", g_dir);  // mission<TAB>0xHASH
     int nb = 0; if ((f = fopen(path, "r"))) {
         while (fgets(line, sizeof line, f)) {
@@ -1266,7 +1305,21 @@ static void LoadTable(void) {
     }
     Log("arena table: %d bosses, %d with a boss BGM id; %d summon-only rows (%d roster)", g_nrows, nb, g_nsum, g_nroster);
 }
-static ArenaRow* FindRow(uint32_t mission) { for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission) return &g_rows[i]; return 0; }
+// #23451: S<chr> rows (a further boss of a mission, or an open-field boss) share their mission id with the mission's own row (or are a region
+// mission no add-on ever requests), so a mission lookup only sees R/D rows; an S row is reached by its character through Nioh3Training_FightNowChr,
+// which pins it in g_pick for the Fight now that follows (FindRow then returns it for its mission until the next external Fight now).
+static ArenaRow* g_pick;
+static int FightNowEntry(uint32_t mission);
+static ArenaRow* FindRow(uint32_t mission) {
+    if (g_pick && g_pick->mission == mission) return g_pick;
+    for (int i = 0; i < g_nrows; ++i) if (g_rows[i].mission == mission && g_rows[i].id[0] != 'S') return &g_rows[i];
+    return 0;
+}
+static ArenaRow* FindRowChr(uint32_t chr) {  // the boss's own mission row first, else its S<chr> row
+    ArenaRow* s = 0;
+    for (int i = 0; chr && i < g_nrows; ++i) if (g_rows[i].chr == chr) { if (g_rows[i].id[0] != 'S') return &g_rows[i]; if (!s) s = &g_rows[i]; }
+    return s;
+}
 // user #22984: summon token of a catalogue mission: the arena row's id, else a summon-only row's id (the menu built 'R%X', which missed
 // zero-padded ids like R04DF and every D-route row). 0 = this mission cannot be summoned.
 static const char* SummonTok(uint32_t mission) {
@@ -1644,7 +1697,7 @@ static void EnterTick(void) {
         if (now - g_en.tWarp > 2000 && st[2]) { Log("ENTER %s: the mission script started a load/cutscene %lu ms after the warp: native fight (intro first)", r->id, now - g_en.tWarp); g_en.active = 0; return; }  // Yamagata: ~10 s after the warp
         if (now - g_en.tWarp > 30000) {  // the script trigger did not fire from the table's arena point: fall back to the in-place swap (no fog/intro for this boss)
             Log("ENTER %s: no native boss/intro 30 s after the warp, falling back to the in-place swap", r->id); g_en.active = 0;
-            int keep = g_cfg_native; g_cfg_native = 0; Nioh3Training_FightNow(r->mission); g_cfg_native = keep;
+            int keep = g_cfg_native; g_cfg_native = 0; g_pick = r; FightNowEntry(r->mission); g_cfg_native = keep;
         }
         return;
     }
@@ -2217,7 +2270,7 @@ static void XwTick(void) {
     if (now - g_xw.tReady < (DWORD)g_cfg_xsettle) return;
     g_xw.active = 0; CellSkipClose("arena swap");
     int sf = g_cfg_fn_summon, sn = g_cfg_native; g_cfg_fn_summon = 0; g_cfg_native = 0; g_xw_busy = 1;
-    int ok = Nioh3Training_FightNow(r->mission);
+    g_pick = r; int ok = FightNowEntry(r->mission);  // #23451: this exact row (an S<chr> row shares its mission id)
     g_xw_busy = 0; g_cfg_fn_summon = sf; g_cfg_native = sn;
     Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request, +%lu ms after Fight now claimed it)", r->id, ok, now - g_xw.t0, now - g_xw.tClaim);
     XsBlkRestore("arena swap fired");
@@ -2423,7 +2476,17 @@ static void FadeTick(void) {
     Log("FADE: arena settled %lu ms after the swap (stable %lu ms, ready +%lu ms%s)", now - g_fd.tSwap, now - g_fd.tStable, g_fd.tBase - g_fd.tSwap, g_fd.areaSkip ? ", area streaming skipped" : "");
     g_fd.phase = 0; g_fd.areaSkip = 0; g_fd.tBase = 0; FadeWant(0, "settled");
 }
-N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+N3T_API int Nioh3Training_FightNow(uint32_t mission) { g_pick = 0; return FightNowEntry(mission); }
+// #23451: Fight now for a boss character (roster / Boss A-B menus): its mission row, else its S<chr> arena / field row. 1 = handled (in-place swap,
+// cross-world switch or summon); 0 = no row / not handled: the caller must NOT issue a native mission request for it (a field row's mission id is
+// an open-field region), summon it here instead (Nioh3Training_SummonSlotChr).
+N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
+    ArenaRow* r = FindRowChr(chr);
+    if (!r) { Log("FIGHTNOW chr %u: no arena row", chr); return 0; }
+    g_pick = r; Log("FIGHTNOW chr %u -> %s (%s) kind %s, mission 0x%X world 0x%02X", chr, r->id, r->name, r->kind, r->mission, r->world);
+    return FightNowEntry(r->mission);
+}
+static int FightNowEntry(uint32_t mission) {
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
@@ -3605,6 +3668,8 @@ static __attribute__((noinline)) void Exec(char* line) {
             if (flag != 0xFFFFFFFFu || !comp) { Log("CMD killid: guard refused (needs +ab84==-1 and comp)"); return; }
             g_kill_act = act; ((void (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))(B + 0x786C84))(comp, 0, 0, 0xFFFFFFFFull, drop ? 1 : 0, 1, 0, 0, 1); g_kill_act = 0;
             Log("CMD killid: EnemyForceKill called");
+        } else if (!strcmp(op, "fnowchr")) {  // #23451 fnowchr <charId>: Fight now for a boss character (its R/D row, else its S<chr> arena / field row); never a native request
+            Log("CMD fnowchr %llu -> %d", a[0], Nioh3Training_FightNowChr((uint32_t)a[0]));
         } else if (!strcmp(op, "fnow")) {  // Fight now through the hooked MissionRequestById (as an add-on caller): swaps in place when the row is eligible, else the native load
             Log("CMD fnow mission 0x%llX", a[0]);
             int r = Nioh3Training_FightNow((uint32_t)a[0]);
@@ -4153,8 +4218,11 @@ static volatile LONG g_pst_dmg_logs, g_pst_live;  // g_pst_live: PsTick (a Pract
 // (type 0 = the character itself; a projectile / gadget (type 4) -> its owner +0x260 / +0x1E0; 588700 for the rest; pure reads). 327DEC calls it
 // right after the HP damage (3298EF) and 35 more times. The stub at 329890 passes r13 (the hit) in r9 (the site's own r9 is a constant 0).
 // Attacker == the player -> DamageDealtPct ('Damage I deal'), attacker == a Training boss -> DamageTakenPct ('Damage boss deals'), else x1.
-// HP only: Ki damage has its own hook (KiDamage 844604 at 329E9D, PstKiDamage in practice_stats_game.h, user #22588); the 7 other HP-damage callers
-// (DoT / status / scripts) are not scaled.
+// Ki ('spirit') damage has its own hook (KiDamage 844604 at 329E9D, PstKiDamage in practice_stats_game.h, user #22588); since #23924 it also applies
+// Damage I deal (player -> others, x Ki damage I deal) and Damage boss deals (Training boss -> the player) to the hit's Ki damage.
+// NOT reachable (#23924): damage over time (poison / burn / status ticks) and script / environment damage. The 7 other callers of the HP damage
+// 787268 are not in the hit apply 327DEC, carry no hit object (so no attacker to tell 'mine' from 'the boss's'), and hooking them would need call-site
+// RVAs and byte signatures that are not RE'd yet; hooking 787268 itself would also catch heals and our own call. They stay unscaled.
 static int PstIsBossActor(uint64_t a);  // practice_stats_game.h
 static volatile LONG g_pst_atk_ok;  // 1 = the 325F40 bytes match (HpDmgHookInstall); otherwise no attacker = no scaling
 static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t hit) {

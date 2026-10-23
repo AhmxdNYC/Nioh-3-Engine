@@ -230,12 +230,20 @@ static __attribute__((noinline)) void KlHit(uint64_t K, float amt0, float amt, f
 // so the same hit crosses 0 = the native break (the NOFIN prime 0.5 relies on the same crossing, live #9319). Infinite boss Ki wins (no forced break).
 typedef uint8_t (*PstKiFn)(uint64_t, float); static volatile LONG g_pst_ki_hooked, g_pst_ki_logs;  // 0 not tried, 1 on, 2 failed
 static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_t hit) {
-    const int pct = g_pst.v[PS_KI_DEALT], one = g_pst.v[PS_ONE_HIT_KI];
-    if (!g_pst_live || (pct == 100 && !one) || !K || !hit || !g_pst_atk_ok) return amt;
+    const int kd = g_pst.v[PS_KI_DEALT], one = g_pst.v[PS_ONE_HIT_KI], dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
+    if (!g_pst_live || (kd == 100 && !one && dealt == 100 && boss == 100) || !K || !hit || !g_pst_atk_ok) return amt;
     uint64_t me = PlayerChar(), pst = 0; if (me) Rd64(me + 0x3A0, &pst);
     const uint64_t atk = ((uint64_t (*)(uint64_t))(B + 0x325F40))(hit);
     const int atkPlayer = me && atk == me, vicPlayer = pst && pst + 0x98 == K;
-    if (!atkPlayer || vicPlayer) return amt;
+    // user #23924: a Training boss's hit on the player also scales the Ki damage (Damage boss deals); the boss's hit on anyone else is left alone
+    if (!atkPlayer) {
+        if (!vicPlayer || boss == 100 || !PstIsBossActor(atk)) return amt;
+        const float r = PstScaleKi(amt, boss);
+        if (r != amt && InterlockedIncrement(&g_pst_ki_logs) <= 30) PstLog("PRACTICE Ki damage: boss hit on the player, Ki damage %.1f -> %.1f (x%d.%02d)", amt, r, boss / 100, boss % 100);
+        return r;
+    }
+    if (vicPlayer) return amt;
+    const int pct = PstKiPct(1, 0, 0, kd, dealt, boss);
     int slot = -1, blocked = 1; uint64_t a = 0;
     for (int s = 0; s < N3T_SLOTS && slot < 0; ++s) { uint64_t st = 0; a = BvActor(s); if (a && Rd64(a + 0x3A0, &st) && st && st + 0x98 == K) slot = s; }
     const float cur = *(volatile float*)(K + 0x14);
@@ -500,7 +508,7 @@ static void PstTick(void) {
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
-    if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_ONE_HIT_KI] || g_pst.v[PS_KI_LOG]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588 (+ #23013 KiLog per-hit lines)
+    if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100 || g_pst.v[PS_ONE_HIT_KI] || g_pst.v[PS_KI_LOG]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588 (+ #23013 KiLog per-hit lines)
     if (g_pst.v[PS_KI_FLOOR] != 100 && !g_kf_hooked) KfHookInstall();  // user #23013 Ki floor depth (first non-stock value; stays installed, 100 = stock pass-through)
     if ((g_pst.v[PS_TIME_OF_DAY] || g_pst.v[PS_WEATHER]) && !g_pst_env_hooked) PstEnvHookInstall();  // user #22942 (first non-Stock value)
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
