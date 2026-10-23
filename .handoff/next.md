@@ -1948,3 +1948,5 @@ Paused. Phone #22246. Write-up is .handoff/gxl-pc-pause-22241.md. Do not pick up
 
 - 2026-10-22 10:27 PM EDT cx-pc #24269: supersedes full sweep with two-stage audit on cx-pc/settings-audit (code c9cc05aa). Split pc32/pc2 31/ally31; 203 screen captures incl drift anchors. pc binds Yoritomo R7B35 fight-now and assigns execution.
 2026-10-22 22:35 pc: see checkpoints.md latest entry (pc/merge-kappa, audit, final bench, 10x ping).
+2026-10-22 pc: settings audit stage1 plan generated+pushed (captures/audit-screen); board tasks posted for pc/pc2/ally (~4.5h each). After results: stage 2 confirm, then final bench, then 10x ping.
+2026-10-22 22:35 pc: see checkpoints.md last entry (audit #110 next, then final bench, then 10x ping).
