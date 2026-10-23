@@ -14,3 +14,5 @@
 - [ ] Boss Matches Fight now fights at once (no idle) | after the auto relaunch, start a Boss Match fight; boss must attack. Also Practice should still start idle | pc
 - [ ] Boss moves menu grouped by hits + Unblockable (Yoritomo) | INSTALLED 12:38 pm EST (Rematch 444827b0, game relaunched PID 2276); open Boss moves: 1 hit/2 hits/3 hits/Unblockable groups, 0x4E6E under Unblockable [2 hits, unblockable] | pc
 - [ ] New Practice stats + hit-count menu | open Practice > Player: Infinite Ki, damage dealt/taken x, boss Ki drain; Boss moves groups 1/2/3 hits + Unblockable; report anything that does nothing | pc
+- [ ] Verify Xbox pressed-button lighting + merged release | when PC is idle I install captures/install_release_1022.ps1 -KillPid <game pid> (needs game restart); then press A/B/X/Y on the Xbox skin and check whole disc lights white | pc
+- [ ] Negative Ki meter + Ki log | install release-1022 (Training+Rematch+EngineFix), summon Kagetoki (22248) in Training, break Ki, keep hitting: red '-Ki' bar under boss Ki bar should appear; check Nioh3Training.log (KiLog=1) | pc (needs hands)
