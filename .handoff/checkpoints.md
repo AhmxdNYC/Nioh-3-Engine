@@ -1,29 +1,4 @@
 
-## 2026-10-22 19:19:11 session a7924822-795a-45db-83ca-1242c89313af
-Nothing is failing on pc2 or ally, and there are no new messages or replies from you since my last note.
-
-I'm waiting on you for one thing: close the game or say "go", so I can restart it with the combined build. The game on this PC is still open (PID 1612, running since 2:20 pm EST). The Jubei Ki-break check is still unplayed.
-
-I sent no messages and changed nothing.
-2026-10-22 19:34 pc: relaunched game PID 15936 with pc/combined-1022b (release-1022 b2850017 + ally autoarena-r1022), Training asi ac3dd853, backup captures/pc/play-20261022-pre-combined. test-active marker set. UNPROVEN: Jubei reel (KIAUTO log), arena fight for roster bosses, autobind in-game on pc. NEXT: after user plays, read Nioh3Training.log for KIAUTO/AUTOBIND; delete marker.
-
-## 2026-10-22 19:54:13 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I told the human (#23940) that I'll ping them about 10 times on Discord once everything requested is done, and not before. I logged this in `.handoff/user-directives.md`.
-
-Still open:
-- **pc2:** the automatic move lists, via the static-derivation task.
-- **Ally:** the benchmarks (page pool, KL_Div, RD/M2S/J1).
-- **This PC:** the clipped move rows and the damage-multiplier fix for spirits and damage-over-time. The worktree `../nioh3-polish` (branch `pc/polish-23924`) exists but has nothing committed. Two earlier attempts to start this work in a background agent were cut off when my session ended. I'll do it directly or hand it to a separate helper instead.
-
-The plan is in `.handoff/next.md`. I didn't touch the game or change any code.
-2026-10-22 20:03 pc: pc/polish-23924 (unclipped boss-move rows + Ki/spirit scaled by damage x; DoT not reachable) built (Training 03fdbfaa, Rematch asi built via tools/msvc) and pushed; captures/install_polish_23924.ps1 waits for game close then installs (no relaunch). UNTESTED in game. Game 15936 in use (log active 19:54). NEXT: after close/relaunch test row layout + damage x on Ki.
-2026-10-22 20:05 pc CHECKPOINT | task: automatic boss setup (move lists/arenas/Ki-break) + pc polish | DONE: pc/combined-1022b (release-1022 b2850017 + ally autoarena) pushed, installed, game PID 15936 running since 7:30 pm EST (Training asi ac3dd853); pc/polish-23924 pushed (unclipped move rows + Ki scaled by damage x; DoT unreachable; Training 03fdbfaa + Rematch built), hidden script captures/install_polish_23924.ps1 waits for game close then installs (no relaunch) | UNPROVEN in game: Jubei Ki-break reel (look for KIAUTO in Nioh3Training.log), arena fight for roster bosses, polish row layout + Ki damage x; test-active marker is set (delete when test ends) | pc2: #23907 pc2/autoruntime static move lists from game data (no live fight), near-twin bind rule, roster rows for Mikoshi Nyudo/Himiko | ally: items page pool/KL_Div/RD-M2S-J1 benches (session holds lock, asi #1441) | NEXT: when game closes confirm polish installed, relaunch, test Jubei + polish; merge pc/polish-23924 into combined; ping user 10x on Discord only when ALL requested work done | files: captures/install_polish_23924.ps1, .handoff/needs-player.md
-
-## 2026-10-22 20:49:43 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
-The merged build is not installed yet, so nothing has been tested in the game. Nioh 3 (PID 15936) has been open since 7:30 pm EST. The installer is queued and runs when the game closes.
-
-pc2 and ally have no unanswered errors or BLOCKED messages. I'm not starting anything new while the game is open: the only remaining step is the in-game test (Yoritomo's 88 attacks, Red Kappa bound, summoning Mikoshi Nyudo and Himiko). It can only run once the game closes.
-
 ## 2026-10-22 21:13:50 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
 The merged build is installed on this PC. Yoritomo checks out in the game, but Red Kappa, Ippon-Datara, Mikoshi Nyudo and Himiko are untested.
 
@@ -350,4 +325,29 @@ Still pending:
 2026-10-23 5:56 pm EST pc | pc final 3-arm bench done (results-pc-final.csv) | FG-on runs, pc2 final, ally #119, GitHub chart pending | next: queue FG-on arms on all 3 devices | captures/final-bench/results-pc-final.csv
 2026-10-23 6:15 PM EST pc | pc FG-on final bench launched elevated (run-pc-final-fgon.ps1, results-pc-final-fgon.csv), ~35 min; config.xml restored by finally | pc2 FG-on done (stock 87.1/safe 88.3/full 93.6); ally FG-on sent | next: collect, then GitHub chart | captures/final-bench
 2026-10-23 6:11 PM EST pc CHECKPOINT | pc FG-ON final bench launched elevated (run-pc-final-fgon.ps1, config.xml FRAME_GENERATION=FSR, auto-restored from captures/final-bench/config.xml.prefg after). pc2 FG-ON done (stock 87.1/pure 88.3/full 93.6), pc2/pc FG-off done, ally FG-OFF done (+4-5%), ally FG-ON task posted. NEXT: when results-pc-final-fgon.csv has 6 rows + test-active gone: verify config.xml FRAME_GENERATION=OFF restored, digest, then ally FG-ON RESULT, then README chart (dataviz skill) + notify human.
-2026-10-23 15:23 | cx-pc2 tasks #26479/#26541/#26682/#26768/#26779/#26785/#26793 all DONE+reported (offline, game untouched) | final3arm fixes f94357c1, run_summary v2 cols a65352a5 (branch cx-pc2/final3arm-26458); PC2 FG x 3-arm plan+runner on cx-pc2/pc2-fg3arm-26768 (worktree ../nioh3-pc2fg-26768) head 98be78ff: STOCKLIKE=pc arm1-stocklike.ini, v1 primary + v2 companion PM session + sensor_collector | UNPROVEN live: two PM sessions on one pid (rerun -NoV2Companion if v1 breaks) | next: wait for pc2 TASKs; no open work | files: tools/rematch/audit_screen_run.ps1, audit_capture_helpers.ps1, make_final_pc2fg_plan.py, captures/audit-screen/final-pc2fg
+
+## 2026-10-23 18:32:29 session 24f4977c-0ded-46f9-8e4d-cfd55e02dc1a
+Not done yet, and I told the user so in #26849.
+
+- **Main PC:** the frame-generation-ON benchmark is running now. It started around 6:10 pm EST and should end around 6:50 pm EST. Its results file has 5 data rows so far.
+- **pc2:** its frame-generation-ON result is in.
+- **Ally:** its frame-generation-ON result is still pending.
+
+Once all three are in, I'll build the GitHub chart and message the user.
+
+I haven't touched the game this turn.
+2026-10-23 6:52 PM EST pc CHECKPOINT | pc FG-ON bench DONE 6/6 (146.8/152.6/156.0 fps), config.xml restored OFF, game closed. Waiting: ally FG-ON (#121 ~7:30 pm), pc2 boss-fight 12 runs (#26758). NEXT: when both in, build README chart (dataviz skill) from results-pc-final*.csv, pc2 final-pc2-118/120, ally ally/final-bench-119 + FG-ON; notify human | captures/final-bench/results-pc-final-fgon.csv
+
+## 2026-10-23 ~7:03 pm EST pc (context full)
+- TASK: final 3-arm bench (stock / arm2 pure-perf / arm3 full mod) x FG off/on, all 3 devices, then GitHub chart (user #26593).
+- DONE: pc FG-off (stock 76.2 / arm2 98.1 / arm3 97.3 fps; lows 50.7/72.5/66.6) and pc FG-on (146.8 / 152.6 / 156.0; lows 84.8/90.9/94.9), files captures/final-bench/results-pc-final.csv + results-pc-final-fgon.csv. pc2 FG-on: 87.1/88.3/93.6 (Kyoto scene, game speed 0.69x in stock FG-on => not comparable). 
+- BROKEN/REDO: ally runs INVALID: player died ~30s in (god-mode off in bench INI?) AND platform limit stuck ~5W not 30W. Ally redoing FG off+on with god-mode on + power fix. Open Qs to ally: #26947 #26953 #26961 #26967 #26992 (god-mode key diff vs human's INI; game speed per arm). Human says god mode was ON by default and played Ally 30-45 fps fine.
+- NOT tracked on pc: temps/power/latency (no sensor tool; offered to install, awaiting yes/no). In-game settings per device asked of pc2/ally (#26923); pc = CUSTOM preset, XeSS, landscape/meshlet HIGH.
+- NEXT: digest ally/pc2 RESULTs; re-check pc2 game speed; then build chart + table + per-device settings on GitHub README (open.md item), ping human. Directives logged in user-directives.md (#26524..#26964).
+2026-10-23 07:45 pc | meter build 25589 INSTALLED+tested (Yoritomo, shots bridge #1575/#1576); KI DEBT on duelist Ito (D084F) NOT drawing: frame meter/KI row/negKI overlay invisible although log says following+overlay ready (HoldKiBreak=1 also holds his AI off; with 0 he fights). | cx-pc TASK #25653 pending (patch for overlay HWND selector 1ae6042f on cx-pc/ito-overlay-review-25639 + draw-gate logging) | NEXT: install cx-pc bundle, retest D084F with HoldKiBreak=0 (Training.ini orig saved captures/meter-final-0723/Training.ini.orig; current INI is the original), then audit: pc stage-1 done (67 valid, captures/audit-screen/results-pc.csv, NOT pushed/reported: git pull --rebase blocked by unstaged changes; run `task report 110`), pc2/ally results pending, then confirm stage, final bench, 10x ping | files: tools/rematch/audit_screen_run.ps1 (local commit only), captures/meter-final-0723
+
+## 2026-10-23 19:36:39 session b0fc9051-736a-4c8e-a18e-14ee016e3f16
+I told the user the Ally should now benchmark much faster, since its CPU hits 4.1 GHz under load again instead of about 0.9 GHz. That is a guess: I haven't seen any new Ally numbers yet.
+
+I said the first valid runs are due soon and that I'd send them when they land. I haven't touched the game, and I'm still waiting on the Ally's results.
+2026-10-23 16:57:43 | cx-pc2 | #27220 acc5 plan (5 arms x2, A B C D E E D C B A) prepared + validate_acc5.py + snapshot_config.py, pushed a5c411a8 on cx-pc2/acc5-27220 (worktree nioh3-acc-27220) | DryRun only, game never run | unproven: validator on real acc5 runs, RAPL power unit | next: pc2 runs plan; if asked add CPU-power (rapl Energy Meter Power) to a collector copy and E-vs-B cross-group line in aggregate_fg3arm.py (main 55c87afc) | also open: none
