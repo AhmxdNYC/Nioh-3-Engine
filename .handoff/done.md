@@ -377,3 +377,5 @@
 - 2026-10-23 | pc settings audit reruns | 5 invalid pc audit runs | all 67 pc rows now logged; pc2 67/67 valid | audit analysis next
 - 2026-10-23 | Frame meter final in game | Human wanted meter above player health bar (no left shift), KI DEBT row, pad display on, real mid-fight screenshots | Installed bundle 25541 on pc, fought Ito Ittosai, screenshots sent to Discord (captures/meter-final-0723/live25541_*.png); meter sits just above health bar, full width ~83% of height
 - 2026-10-23 | Settings audit stage 1 (3 devices) | Find which of 91 settings help | pc 67/72, pc2 67/67, ally 63/65 valid; winners: pc EP, pc2 none, ally P12 PP FPC S1 SH R1 -> stage-2 confirm running | captures/audit-final-20261023
+- 2026-10-23 | Ally final 3-arm bench | measure mod gain on ROG Ally | stock 11.3 -> mod 20.7 fps avg (1% low 4.5 -> 13.0); picture-lowering arm 20.8, no extra gain; visual gate unreviewed
+- 2026-10-23 | Final 3-arm bench on pc | measure stock vs mod on main PC | stock ~76 fps avg, pure-perf mod ~98 (+29%), full mod ~97; 1% low 51 -> ~72

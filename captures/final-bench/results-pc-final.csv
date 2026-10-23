@@ -1,0 +1,7 @@
+run_id,fixture,ini_sha256,valid,avg_fps,low1_fps,frametime_ms,key,arm,frames,loads,note
+fb-pc-0001,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,77.33,51.25,12.9316,final-bench,ARM1-STOCKLIKE,4641,0,
+fb-pc-0002,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,100.53,76.96,9.9473,final-bench,ARM2-PUREPERF,6031,0,
+fb-pc-0003,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,95.46,57.98,10.4756,final-bench,ARM3-FULLMOD,5728,0,
+fb-pc-0004,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,99.04,75.14,10.0969,final-bench,ARM3-FULLMOD,5941,0,
+fb-pc-0005,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,95.73,67.95,10.446,final-bench,ARM2-PUREPERF,5743,0,
+fb-pc-0006,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,75.15,50.17,13.3067,final-bench,ARM1-STOCKLIKE,4509,0,
