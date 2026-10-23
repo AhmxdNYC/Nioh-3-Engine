@@ -1,0 +1,931 @@
+[18:44:13.015] Nioh3Training probe loaded, base 00007FF66D7A0000
+[18:44:58.016] hook FindWrapper ok (boss gauge for dynamic bosses)
+[18:44:58.017] hook CreateDynamic ok
+[18:44:58.023] hook Load::Character ok
+[18:44:58.023] hook registry Post ok
+[18:44:58.069] PRACTICE stats (#22389): PlayerInfiniteKi 0, DamageDealtPct 100, DamageTakenPct 100, BossKiDrainPerSec 0, BossSpeedPct 100, PlayerInfiniteNinjutsu 0, PlayerSpeedPct 100, FrameMeter 0, KiDamageDealtPct 100, OneHitKiBreak 0, HoldKiBreak 0, TimeOfDayMin -1, Weather 0 (Stock)
+[18:44:58.069] PRACTICE Ki break (#23013): KiLog 0, HoldKiBreakV2 0, KiFloorDepth 100 %
+[18:44:58.073] FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0)
+[18:44:58.073] FRAME METER: [Practice] FrameMeter 0, FrameMeterY 10 % (drawn from the FRAMEPROBE hook signals; GDI overlay window)
+[18:44:58.076] NEG KI METER (#23400): [Practice] NegKiMeter 1, NegKiMeterY 89 / 1000, NegKiMeterW 334 / 1000 (read-only, GDI overlay window)
+[18:44:58.079] PRACTICE FREEZE (#22589): [Practice] FreezeKey F9, StepKey F6 (freeze + frame advance; default OFF, never saved)
+[18:44:58.083] summon death (#6185): BossLoot 0, DeathBlowRequired 1, CutsceneOnKill 0, FinisherKillTimeoutMs 6000, BodyFade 1, BodyFadeDelayMs 25000, KillFadeFrames 120
+[18:44:58.083] summon (bridge 4942): FightNowSummon 1, Distance 300, PlayerNoDeath 1, SessionNoDeath 1 (#14147), PlayerCantDie 1 (#14150 infinite health), BeatenRespawnMs 0, RespawnOnWinMs 0
+[18:44:58.086] CrossWorldEarlySwap 1
+[18:44:58.088] bridge 6375: CrossWorldSettleMs 700, CrossWorldPrewarm 1, PrewarmMission 0x0
+[18:44:58.088] cross-world Fight now (bridge 5276): CrossWorld 1, CrossWorldPreload 1
+[18:44:58.091] cross-world (bridge 6047c): CrossWorldAreaObjSkipMs 500
+[18:44:58.094] cross-world (#8236): CrossWorldForceCells 0
+[18:44:58.095] cross-world (bridge 6047b): CrossWorldPreloadAfterSwitch 0
+[18:44:58.095] cross-world streaming (bridge 6047): CrossWorldCellLoads 0 (native cap 4, timeline log only)
+[18:44:58.099] cross-world (pc2 #6801): CrossWorldLoaderGateSkip 0
+[18:44:58.099] cross-world (pc2 placeable-skip): CrossWorldPlaceableSkip 0, MaxMs 20000
+[18:44:58.100] cross-world (pc #8552): NearArenaOnly 0, NearArenaRadius 15000, NearArenaMaxMs 40000
+[18:44:58.103] perception (bridge 5201): PerceptionFix 0, PerceptionDiag 1
+[18:44:58.105] team fix (bridge 4878): TeamFix 1, EnemyTeam -1 (-1 = from live enemies, else 1), ForceOwner 0
+[18:44:58.110] fade (pc2 #6801): PlaceableWaitMs -1
+[18:44:58.111] cover release (pc2 #8619): CoverReleaseMs -1
+[18:44:58.112] loading screen end (#9182): LoadingScreenEndMs -1
+[18:44:58.112] fade (bridge 6519): Enable 1, OutMs 250, InMs 400, MinHoldMs 800, StableMs 500, MaxHoldMs 60000, AreaWaitMs 500, AreaWaitCrossMs 15000
+[18:44:58.113] RETURN gate (#9909): ReturnGateMaskHoldMs 2000 (mask kept after leaving the gate radius)
+[18:44:58.114] RETURN gate (#9324): native interact hidden within 400 cm of the gate (buttons 0xF000), EngineFix export MISSING: the native end-mission prompt can open
+[18:44:58.115] RECORD (#9291): Enable 0, Script C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3FightRecorder.ps1, OutRoot C:\Program Files (x86)\Steam\steamapps\common\Nioh3, MaxMinutes 20
+[18:44:58.116] RETURN loading screen (#8902): [Return] LoadScreen 1, EngineFix export missing (black only)
+[18:44:58.117] FADE: Nioh3EngineFix fade export not found, using the GDI overlay window
+[18:44:58.157] arena table: 133 bosses, 23 with a boss BGM id; 101 summon-only rows (101 roster)
+[18:44:58.157] arena swap: Enable 1, Preload 0 (max 3, ambient 0); API Nioh3Training_FightNow / _Preload for Boss Rematch; MissionRequestById hook off (HookFightNow = 0)
+[18:44:58.164] hook StageAreasObjectsReady 3B3A28 ok (CrossWorldAreaObjSkipMs 500)
+[18:44:58.170] KiBreakKneelBlockAll 1, KiBreakHp0AiHold 1 (#9542); KiBreakHp0FadeDelayMs 1000, ReturnGateGround 1 (#9543), ReturnGateAlways 1 (#13255)
+[18:44:58.171] KiBreakBareFix 1, KiBreakBareMs 200 (#9579: bare Ki break = crouch without stagger -> cancelled, Ki primed for a real break)
+[18:44:58.173] KiBreakActFix 1 mode 2 (2 forced 66C4A8, 1 pending +2E4): bad ids {} -> good 0x0 after 100 ms, max 3 per break, gap 500 ms, window 4000 ms (#9937, defaults seen on Yoritomo R7B35)
+[18:44:58.173] KiBreakAutoStagger 1, KiBreakAutoHoldMs 2500 (#23432: bare / no-action Ki break with no learned real stagger -> the boss's learned hit-reaction action)
+[18:44:58.175] KiBreakHp0ClearDeathBlow 1, KiBreakGoldUnbreak 1, KillFadeDelayMs 5000 (#8827)
+[18:44:58.175] KiBreakHp0StaggerId 0 (0 = learned from the boss's own Ki break, #9297)
+[18:44:58.178] KiBreakBlockDeathBlow 1 (#9135: no death-blow offer + no plain grab box on a gold boss)
+[18:44:58.181] KiBreakHp0Prime 1, KiBreakHp0Reserve 1
+[18:44:58.183] KiBreakHp0NonLethal 1 (#9319: HP-floor hits stay normal hits = native hit reaction + Ki-break stagger)
+[18:44:58.183] KiBreakHp0Stagger 1, KiBreakGoldFadeMs 350, BossGraceAfterCoverMs 1500, BossHoldMaxMs 60000 (#9133)
+[18:44:58.184] KiBreakNoFinisher 0, KiBreakHp0WindowMs 1000, KiBreakHp0Kneel 0 (#7465: no grapple finisher on a boss, gold Ki bar while Ki-broken, HP-0 window; Ki strips 4)
+[18:44:58.198] MOVES catalogue: 5067 hand rows (HandMoves 1), runtime game data on (AutoMoves 1)
+[18:45:00.594] BossAggro 0, AggroRangeCm 500, AggroFace 1 (user #13787 / #14147: Training bosses keep the player as target and close in before the repeat, Stand still too)
+[18:45:00.594] ActionLog 1 (#9508 boss current-action id log + Nioh3Training_actions.tsv)
+[18:45:00.596] KiBreakLog 1 (#7290 passive Ki-break / grapple finisher log, read only)
+[18:45:00.597] AutoRetryOnDeath 1 (forced, user #13229: player beaten = instant dejavu reset; ini value 1 ignored)
+[18:45:00.598] return gate (#6789): ReturnGate 1, FakeRecord 1, Distance 220, TouchMs 1500, Radius 110, Ids 10,11,13,12; GoldKiBar 1
+[18:45:00.599] RETURN gate zone (#13796): ReturnGateZone 1 (one zone for every mode, radius ReturnGateMaskRadius 400 u), open buttons 0x1000 on a tap <= 350 ms, hold = cancel; native modal safety net dialog hooks only (EngineFix export missing)
+[18:45:00.599] ReturnGateOpenOnA 1 (#9664/#9670: pad A near the gate opens our gate page), BossBarAfterVisibleMs 600 (#9685), FinisherKillTimeoutMs 6000 / KiBreakHp0WindowMs 1000 (Boss Rematch sliders, #9585)
+[18:45:00.602] DBG hotkeys (#9658): freeze VK 0x78, BUG HERE VK 0x77, shots -> C:\Program Files (x86)\Steam\steamapps\common\Nioh3\marks
+[18:45:00.603] hook MissionRequestReturn 22396D8 ok (return gate)
+[18:45:00.603] hook EndMissionConfirmOpen 12A1F80 ok (#9909: the native 'This will end the mission' box never opens while our Return gate is up)
+[18:45:00.603] MENU PAUSE (#13274): on while the mod menu is open in a Boss Match / Practice session
+[18:45:00.604] hook PauseMenuDecide 1DAE4E0 ok (#10020: pause-menu 'end mission' near our gate opens our gate page)
+[18:45:00.604] hook PauseMenuDecide 1DB58B0 ok (#10020)
+[18:45:00.614] hook DialogOpen 348274 ok (#10022: any Yes/No box with the end-mission text is dropped near our gate; every box while the gate is up is logged with its stack)
+[18:45:00.617] hook OpenCommonWindowTwoButton 23F8CC0 ok (clear gadget script's 'This will end the mission' box -> our gate page)
+[18:45:00.619] GOLDKI: boss Ki bar style hook at 1D220C1 on (GoldKiBar 1)
+[18:45:00.620] GOLDKI: vertex tint hook at UiQuadBuild 1CD7CD on (gold 255 200 50, passive learn 1 (boss Ki read only), colours 0, dump 0; alpha pass flag 1)
+[18:45:00.620] DEATHBLOW hook 787004: HP-floor stagger path (KiBreakHp0Stagger) available
+[18:45:00.620] DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub 00007FF5FDF20000 (previous target rva 4893B8)
+[18:45:00.621] pump: hooked 56529C, previous target 00007FF66DB529E4 (rva 3B29E4), stub 00007FF5FDD00000
+[18:45:00.623] pump: first game-thread tick (thread 24132)
+[18:45:00.623] GAMESTATE bytes 0 0 1 0 0 0
+[18:45:00.623] KIBRK SET hook A4F098: on
+[18:45:00.624] KIBRK SET hook 236DF4C: on
+[18:45:00.641] AUTOBIND: 363 action files, 15658 distinct hashes loaded from C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3Training_actionsets.tsv
+[18:45:02.757] TRACE Post vtbl=+38F5328 id=2356120973 (0x8C6F8D8D) w10=0000003C w14=0000 ret=000000000060B053
+[18:45:02.758] TRACE Post vtbl=+38F5328 id=4191963820 (0xF9DC4AAC) w10=00000032 w14=0000 ret=000000000060B053
+[18:45:02.758] TRACE Post vtbl=+38F53C8 id=4191963820 (0xF9DC4AAC) w10=00000000 w14=0000 ret=000000000060B7DF
+[18:45:02.773] TRACE Post vtbl=+38F53C8 id=1187352741 (0x46C590A5) w10=00000017 w14=0000 ret=000000000060B7DF
+[18:45:02.774] TRACE Post vtbl=+38F53C8 id=2782873760 (0xA5DF48A0) w10=00000017 w14=0000 ret=000000000060B7DF
+[18:45:02.775] TRACE Post vtbl=+38F53C8 id=2093857436 (0x7CCDBA9C) w10=00000018 w14=0000 ret=000000000060B7DF
+[18:45:02.775] TRACE Post vtbl=+38F53C8 id=4177397014 (0xF8FE0516) w10=00000018 w14=0000 ret=000000000060B7DF
+[18:45:02.775] TRACE Post vtbl=+38F53C8 id=1113347062 (0x425C53F6) w10=00000006 w14=0000 ret=000000000060B7DF
+[18:45:02.776] TRACE Post vtbl=+38F53C8 id=2222162261 (0x84738155) w10=00000004 w14=0000 ret=000000000060B7DF
+[18:45:02.776] TRACE Post vtbl=+38F53C8 id=3335971418 (0xC6D6E25A) w10=00000005 w14=0000 ret=000000000060B7DF
+[18:45:02.776] TRACE Post vtbl=+38F53C8 id=1966694849 (0x753961C1) w10=00000001 w14=0000 ret=000000000060B7DF
+[18:45:02.776] TRACE Post vtbl=+38F5288 id=3112452442 (0xB984415A) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:02.777] TRACE Post vtbl=+38F5288 id=3316815588 (0xC5B296E4) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:02.793] TRACE Load::Character id=974821 (0xEDFE5) loader=00000168E6C43CE0 ret=0000000000A42A4B
+[18:45:02.793] TRACE Load::Character id=254771 (0x3E333) loader=00000168E6C43CE0 ret=0000000000A42A4B
+[18:45:02.795] TRACE Post vtbl=+38F5468 id=1985427266 (0x76573742) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:45:03.364] TRACE Load::Character id=254771 (0x3E333) loader=00000168E6C44F80 ret=0000000000A42A4B
+[18:45:03.454] TRACE Post vtbl=+38F5468 id=704569612 (0x29FEE10C) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:03.454] TRACE Post vtbl=+38F5468 id=1988480779 (0x7685CF0B) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:03.454] TRACE Post vtbl=+38F5378 id=3715625741 (0xDD77F30D) w10=00000001 w14=0000 ret=000000000060B400
+[18:45:03.454] TRACE Post vtbl=+38F52D8 id=3715625741 (0xDD77F30D) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:45:03.454] TRACE Post vtbl=+38F5468 id=3715625741 (0xDD77F30D) w10=00000003 w14=0000 ret=000000000060C884
+[18:45:03.455] TRACE Post vtbl=+38F5468 id=1985427266 (0x76573742) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:45:03.461] TRACE Post vtbl=+38F5378 id=3885759653 (0xE79BFCA5) w10=00000001 w14=0000 ret=000000000060B400
+[18:45:03.462] TRACE Post vtbl=+38F52D8 id=3885759653 (0xE79BFCA5) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:45:03.462] TRACE Post vtbl=+38F5468 id=3885759653 (0xE79BFCA5) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:45:03.462] TRACE Post vtbl=+38F5418 id=740754776 (0x2C270558) w10=E6ED5420 w14=0168 ret=000000000060BB8F
+[18:45:03.467] TRACE Post vtbl=+38F53C8 id=3687850619 (0xDBD0227B) w10=00000004 w14=0000 ret=000000000060B7DF
+[18:45:03.467] TRACE Post vtbl=+38F5328 id=3687850619 (0xDBD0227B) w10=00000014 w14=0000 ret=000000000060B053
+[18:45:03.467] TRACE Post vtbl=+38F5468 id=811725912 (0x3061F458) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:03.471] TRACE Post vtbl=+38F5328 id=3091116872 (0xB83EB348) w10=00000003 w14=0000 ret=000000000060B053
+[18:45:03.471] TRACE Post vtbl=+3910CE8 id=3091116872 (0xB83EB348) w10=00000003 w14=0000 ret=0000000000A3D6E3
+[18:45:03.471] TRACE Post vtbl=+38F5328 id=3164750976 (0xBCA24480) w10=00000002 w14=0000 ret=000000000060B053
+[18:45:03.472] TRACE Post vtbl=+38F5378 id=3694614375 (0xDC375767) w10=00000001 w14=0000 ret=000000000060B400
+[18:45:03.472] TRACE Post vtbl=+38F52D8 id=3694614375 (0xDC375767) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:45:03.472] TRACE Post vtbl=+38F5328 id=3694614375 (0xDC375767) w10=00000032 w14=0000 ret=000000000060B053
+[18:45:03.473] TRACE Post vtbl=+38F5288 id=3491959347 (0xD0231233) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:03.473] TRACE Post vtbl=+38F5418 id=3491959347 (0xD0231233) w10=E6F1CC50 w14=0168 ret=000000000060BB8F
+[18:45:03.477] TRACE Post vtbl=+38F5378 id=3285348496 (0xC3D27090) w10=00000001 w14=0000 ret=000000000060B400
+[18:45:03.477] TRACE Post vtbl=+38F52D8 id=3285348496 (0xC3D27090) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:45:03.477] TRACE Post vtbl=+38F5378 id=2639888331 (0x9D597FCB) w10=00000001 w14=0000 ret=000000000060B400
+[18:45:03.478] TRACE Post vtbl=+38F52D8 id=2639888331 (0x9D597FCB) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:45:03.478] TRACE Post vtbl=+38F5468 id=2955139020 (0xB023D7CC) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:03.478] TRACE Post vtbl=+38F5328 id=1158620433 (0x450F2511) w10=00000003 w14=0000 ret=000000000060B053
+[18:45:03.479] TRACE Post vtbl=+38F5328 id=3779499145 (0xE1469489) w10=00000002 w14=0000 ret=000000000060B053
+[18:45:06.620] GAMESTATE bytes 0 0 0 0 0 0
+[18:45:06.650] TRACE Post vtbl=+38F5468 id=363794254 (0x15AF0F4E) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:06.650] TRACE Post vtbl=+38F5468 id=3066530526 (0xB6C78ADE) w10=00000002 w14=0000 ret=000000000239DD60
+[18:45:06.650] TRACE Post vtbl=+38F5288 id=3112452442 (0xB984415A) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.651] TRACE Post vtbl=+38F5418 id=3112452442 (0xB984415A) w10=E6F53450 w14=0168 ret=000000000060BB8F
+[18:45:06.651] TRACE Post vtbl=+38F5288 id=2781287653 (0xA5C714E5) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.652] TRACE Post vtbl=+38F5418 id=2781287653 (0xA5C714E5) w10=E6F536A0 w14=0168 ret=000000000060BB8F
+[18:45:06.652] TRACE Post vtbl=+38F5288 id=606968839 (0x242D9C07) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.652] TRACE Post vtbl=+38F5418 id=606968839 (0x242D9C07) w10=E6F53800 w14=0168 ret=000000000060BB8F
+[18:45:06.665] TRACE Post vtbl=+38F53C8 id=3045271311 (0xB583270F) w10=00000007 w14=0000 ret=000000000060B7DF
+[18:45:06.667] TRACE Post vtbl=+38F53C8 id=3932494157 (0xEA65194D) w10=00000006 w14=0000 ret=000000000060B7DF
+[18:45:06.667] TRACE Post vtbl=+38F53C8 id=81138284 (0x4D6126C) w10=00000007 w14=0000 ret=000000000060B7DF
+[18:45:06.667] TRACE Post vtbl=+38F53C8 id=524749707 (0x1F470B8B) w10=00000005 w14=0000 ret=000000000060B7DF
+[18:45:06.667] TRACE Post vtbl=+38F5328 id=3045271311 (0xB583270F) w10=00000014 w14=0000 ret=000000000060B053
+[18:45:06.668] TRACE Post vtbl=+38F5328 id=3932494157 (0xEA65194D) w10=00000014 w14=0000 ret=000000000060B053
+[18:45:06.668] TRACE Post vtbl=+38F5328 id=81138284 (0x4D6126C) w10=00000014 w14=0000 ret=000000000060B053
+[18:45:06.668] TRACE Post vtbl=+38F5328 id=524749707 (0x1F470B8B) w10=00000014 w14=0000 ret=000000000060B053
+[18:45:06.669] TRACE Post vtbl=+38F5288 id=1072939493 (0x3FF3C1E5) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.669] TRACE Post vtbl=+38F5418 id=1072939493 (0x3FF3C1E5) w10=E6F54AA0 w14=0168 ret=000000000060BB8F
+[18:45:06.670] TRACE Post vtbl=+38F5328 id=1072939493 (0x3FF3C1E5) w10=00000006 w14=0000 ret=000000000060B053
+[18:45:06.670] TRACE Post vtbl=+38F5288 id=1110646016 (0x42331D00) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.670] TRACE Post vtbl=+38F5418 id=1110646016 (0x42331D00) w10=E6F54C90 w14=0168 ret=000000000060BB8F
+[18:45:06.670] TRACE Post vtbl=+38F5328 id=1110646016 (0x42331D00) w10=00000006 w14=0000 ret=000000000060B053
+[18:45:06.671] TRACE Post vtbl=+38F5288 id=2594315516 (0x9AA21CFC) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.671] TRACE Post vtbl=+38F5418 id=2594315516 (0x9AA21CFC) w10=E6F54E80 w14=0168 ret=000000000060BB8F
+[18:45:06.671] TRACE Post vtbl=+38F5328 id=2594315516 (0x9AA21CFC) w10=00000006 w14=0000 ret=000000000060B053
+[18:45:06.671] TRACE Post vtbl=+38F5288 id=2964991553 (0xB0BA2E41) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.671] TRACE Post vtbl=+38F5418 id=2964991553 (0xB0BA2E41) w10=E6F55070 w14=0168 ret=000000000060BB8F
+[18:45:06.672] TRACE Post vtbl=+38F5328 id=2964991553 (0xB0BA2E41) w10=00000006 w14=0000 ret=000000000060B053
+[18:45:06.672] TRACE Post vtbl=+38F5418 id=3198618311 (0xBEA70AC7) w10=E6F55180 w14=0168 ret=000000000060BB8F
+[18:45:06.672] TRACE Post vtbl=+38F5288 id=3095005017 (0xB87A0759) w10=00000000 w14=0000 ret=000000000060A903
+[18:45:06.673] TRACE Post vtbl=+38F5418 id=3095005017 (0xB87A0759) w10=E6F552E0 w14=0168 ret=000000000060BB8F
+[18:45:06.678] TRACE Post vtbl=+38F5328 id=400966733 (0x17E6444D) w10=00000000 w14=0168 ret=000000000060B053
+[18:45:06.679] TRACE Post vtbl=+38F5328 id=3091116872 (0xB83EB348) w10=00000003 w14=0000 ret=000000000060B053
+[18:45:06.679] TRACE Post vtbl=+3910CE8 id=3091116872 (0xB83EB348) w10=00000003 w14=7FF6 ret=0000000000A3D6E3
+[18:45:06.680] TRACE Post vtbl=+38F5328 id=3164750976 (0xBCA24480) w10=00000002 w14=0000 ret=000000000060B053
+[18:45:06.683] TRACE Post vtbl=+38F5468 id=1765768116 (0x693F7BB4) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:46:00.310] exec: summon S835773
+[18:46:00.310] SUMMON S835773 -> char 835773 dist 400 world 0xE0: Load::Character requested
+[18:46:00.837] SPAWNPOS 25 candidates (trail 40 samples, player 153558 21790 202241 camyaw -166.2)
+[18:46:00.837] SPAWNPOS cand 0 fan 153463 21790 201852
+[18:46:00.837] SPAWNPOS cand 1 fan 153216 21790 202033
+[18:46:00.837] SPAWNPOS cand 2 fan 153765 21790 201899
+[18:46:00.838] SPAWNPOS cand 3 fan 153169 21790 202336
+[18:46:00.838] SPAWNPOS cand 4 fan 153946 21790 202145
+[18:46:00.838] SPAWNPOS cand 5 fan 153350 21790 202582
+[18:46:00.839] SPAWNPOS cand 6 fan 153900 21790 202448
+[18:46:00.839] SPAWNPOS cand 7 fan 153653 21790 202629
+[18:46:00.839] SPAWNPOS cand 8 fan 153439 21790 201755
+[18:46:00.839] SPAWNPOS cand 9 fan 153130 21790 201981
+[18:46:00.839] SPAWNPOS cand 10 fan 153817 21790 201813
+[18:46:00.840] SPAWNPOS cand 11 fan 153072 21790 202359
+[18:46:00.840] SPAWNPOS chosen cand 0/25 (fan) 153463 21790 201852, 400 from the player; rejected so far: 0
+[18:46:00.840] TRACE CreateDynamic a0=835773 (0xCC0BD) pos=153462.6 21789.9 201852.0 yaw=13.75 a4=0 a5=4013495 a6=0 -> 809319863 (0x303D3DB7) ret=0000000491004621
+[18:46:00.840] SPAWN 835773: resources ready after 516 ms; camyaw -166.2 fwd -0.24 -0.97; CreateDynamic(owner 4013495) player 153558 21790 202241 -> at 153463 21790 201852 yaw 13.8 -> 0x303D3DB7
+[18:46:00.840] SPAWN 835773: boss gauge requested for 0x303D3DB7
+[18:46:00.841] BBM 809319863: no registered wrapper (dynamic boss): HUD/mode steps only, no listener message
+[18:46:00.841] BBM 809319863: BossBattleMode applied (wrapper 0000000000000000, +26AA=1, alive sensor -1, notify 0)
+[18:46:00.841] SUMMON done: handle 0x303D3DB7
+[18:46:00.853] SPAWN actor #0 appeared in table: 00000168E5AC0600 handle 00CC0BD0 303D3DB7 pos 153463 21790 201852 +ab84=FFFFFFFF (+15 ms)
+[18:46:00.853] SPAWN actor #0 team 1 (player team 0)
+[18:46:00.853] SIDEFIX: 1C272F0(actor,1) team 1 -> 1
+[18:46:00.855] KIBREAK watch boss 00000168E5AC0600 HP 25361/25361 Ki 1100/1100 (broken 0, fin 0)
+[18:46:00.855] ACTLOG boss 00000168E5AC0600 chr 0: action 0x7D0 (prev 0xFFFFFFFF, ran 0 ms)
+[18:46:00.855] AUTOBIND spawn #0: boss chr 835773 actor 00000168E5AC0600 seen
+[18:46:00.856] AUTOBIND spawn #0 chr 835773: block 0 at 000001684E6B2BA0 (row of action 0x7D0): 48 rows -> UNBOUND match 66% (runner-up 42%)
+[18:46:00.857] AUTOMOVES: loaded action data 00000168B8ED0F80: 235 actions (objects 000001684E74E630 stride 0xF0, first row 000001684E6B2BA0), 84 hitbox rows (array 000001684E75C9F8); current action 0x7D0
+[18:46:00.857] AUTOMOVES spawn #0 chr 835773: uses action data 00000168B8ED0F80 (235 actions)
+[18:46:00.857] hook HP damage 329890: on for Infinite health (#22918) (KiBreakHp0NonLethal 1: hits at the HP floor stay normal hits; damage I deal 100 %, boss deals 100 %)
+[18:46:01.087] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61E2 (prev 0x7D0, ran 235 ms)
+[18:46:01.088] HB +250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:01.088] BBM +250 ms actor in table, death sensor baseline 0
+[18:46:01.114] AUTOBIND spawn #0 chr 835773: block 1 at 000001684D61F590 (row of action 0x61E2): 115 rows -> UNBOUND match 36% (runner-up 0%)
+[18:46:01.115] AUTOMOVES: loaded action data 00000168B8D53680: 883 actions (objects 000001684D80F200 stride 0xF0, first row 000001684D61A2E0), 1125 hitbox rows (array 000001684D844988); current action 0x61E2
+[18:46:01.115] AUTOMOVES spawn #0 chr 835773: uses action data 00000168B8D53680 (883 actions)
+[18:46:01.265] AWARE spawn: SetAwareFlg applied to actor 00000168E5AC0600 (ai 00000168E5892CA0)
+[18:46:01.330] ACTLOG boss 00000168E5AC0600 chr 0: action 0x82A (prev 0x61E2, ran 234 ms)
+[18:46:01.363] BOSSMON +500 ms boss 153479 21792 201899 player 153558 21790 202241 dist 3.5 m (min 3.5) team 1
+[18:46:01.364] AUTOBIND spawn #0 chr 835773: block 2 at 000001684E6BD100 (row of action 0x82A): 41 rows -> UNBOUND match 56% (runner-up 28%)
+[18:46:01.465] GAUGE bar shown +625 ms after the boss request (screen visible 610 ms, #9685)
+[18:46:01.465] GAUGE pre-show #1: hud+2C=0 hud+1F=0
+[18:46:01.468] GAUGE diag #1: hud 00000168BE00CF50 vf50=0 rows=1 actorBlocked(4892A8)=0
+[18:46:01.468] GAUGE ShowBossGauge(fake id 0x7FFF0002) for actor 00000168E5AC0600 (handle 0x303D3DB7, wrapper template owner 4013495 -> 00000168E6CB3340)
+[18:46:01.469] GOLDKI: first boss Ki row: charParam+0x80 = 0, native style 1, GoldKiBar 1
+[18:46:01.481] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 0, walks 0, best score 0 (0000000000000000), gold elements 0
+[18:46:01.701] KIBREAK start #1 boss 00000168E5AC0600: Ki 1100.0/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:01.702] KIBRK ACT start #1 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 1100.0 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:01.702] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x82A, ran 375 ms)
+[18:46:01.853] BOSSMON +1000 ms boss 153524 21794 202075 player 153558 21790 202241 dist 1.7 m (min 1.7) team 1
+[18:46:01.853] KIBRK ACT +156 ms #1 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 1100.0 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:01.853] AUTOBIND spawn #0 chr 835773: block 3 at 000001685FD81410 (row of action 0x61CB): 37 rows -> UNBOUND match 100% (runner-up 65%)
+[18:46:01.855] AUTOMOVES: loaded action data 000001685FD7D6E0: 67 actions (objects 000001685FD93E60 stride 0xF0, first row 000001685FD7D900), 103 hitbox rows (array 000001685FD97F68); current action 0x61CB
+[18:46:01.855] AUTOMOVES spawn #0 chr 835773: uses action data 000001685FD7D6E0 (67 actions)
+[18:46:01.918] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:02.113] KIBRK ACT +406 ms #1 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 900.0 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:02.186] KIBRK ACT change +484 ms #1 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 900.0 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:02.212] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 516 ms)
+[18:46:02.360] BOSSMON +1500 ms boss 153526 21796 202130 player 153596 21783 202282 dist 1.7 m (min 1.7) team 1
+[18:46:02.405] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:02.693] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:02.699] KIBRK ACT +1000 ms #1 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki 700.0 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:02.767] AWARE retry: SetAwareFlg applied to actor 00000168E5AC0600 (ai 00000168E5892CA0)
+[18:46:02.832] KIBRK ACT change +1125 ms #1 boss 00000168E5AC0600: action 0x61CC -> 0x61CD (start 0x61CB), Ki 700.0 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:02.833] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CD (prev 0x61CC, ran 609 ms)
+[18:46:02.860] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=30 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:02.860] BOSSMON +2000 ms boss 153542 21801 202149 player 153750 21787 202552 dist 4.5 m (min 1.7) team 1
+[18:46:03.088] HB +2250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:03.362] BOSSMON +2500 ms boss 153564 21796 202182 player 153744 21786 202539 dist 4.0 m (min 1.7) team 1
+[18:46:03.428] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:03.854] BOSSMON +3000 ms boss 153562 21797 202180 player 153826 21776 202700 dist 5.8 m (min 1.7) team 1
+[18:46:04.051] KIBREAK end #1 boss 00000168E5AC0600 after 2344 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 631.7/1100.0
+[18:46:04.051] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C2 (prev 0x61CD, ran 1219 ms)
+[18:46:04.090] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61C2, ran 47 ms)
+[18:46:04.144] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B3 (prev 0x61A8, ran 47 ms)
+[18:46:04.358] BOSSMON +3500 ms boss 153582 21789 202222 player 153824 21776 202686 dist 5.2 m (min 1.7) team 1
+[18:46:04.858] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=233 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:04.858] BOSSMON +4000 ms boss 153613 21786 202291 player 153825 21776 202685 dist 4.5 m (min 1.7) team 1
+[18:46:05.094] HB +4250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:05.361] BOSSMON +4500 ms boss 153652 21788 202356 player 153825 21776 202684 dist 3.7 m (min 1.7) team 1
+[18:46:05.844] SPAWNPOS verify: boss 0x303D3DB7 299 from the player after 5000 ms (start 400), attempt 0: ok
+[18:46:05.858] BOSSMON +5000 ms boss 153684 21790 202421 player 153825 21776 202685 dist 3.0 m (min 1.7) team 1
+[18:46:05.858] KIBREAK start #2 boss 00000168E5AC0600: Ki 1044.3/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:05.858] KIBRK ACT start #2 boss 00000168E5AC0600: action 0x61CF (25039), last motion 0x0 0 ms ago, Ki 1044.3 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:05.869] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CF (prev 0x61B3, ran 1734 ms)
+[18:46:06.014] KIBRK ACT +157 ms #2 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 1044.3 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:06.085] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:06.267] KIBRK ACT +407 ms #2 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 844.3 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:06.339] KIBRK ACT change +485 ms #2 boss 00000168E5AC0600: action 0x61CF -> 0x61D0 (start 0x61CF), Ki 844.3 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:06.364] BOSSMON +5500 ms boss 153701 21799 202458 player 153883 21776 202732 dist 3.3 m (min 1.7) team 1
+[18:46:06.365] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D0 (prev 0x61CF, ran 484 ms)
+[18:46:06.487] GOLDKI diag (learning, boss Ki read only): Ki 0.77 HP 1.00, quads tracked 3072, walks 221, best score 1 (0000016838300BF0), gold elements 0
+[18:46:06.598] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:06.859] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=56 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:06.860] BOSSMON +6000 ms boss 153734 21787 202512 player 153953 21779 202765 dist 3.3 m (min 1.7) team 1
+[18:46:06.860] KIBRK ACT +1000 ms #2 boss 00000168E5AC0600: action 0x61D0 (start 0x61CF), last motion 0x0 0 ms ago, Ki 644.3 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:06.869] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:06.992] KIBRK ACT change +1125 ms #2 boss 00000168E5AC0600: action 0x61D0 -> 0x4E3F (start 0x61CF), Ki 644.3 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:07.017] ACTLOG boss 00000168E5AC0600 chr 0: action 0x4E3F (prev 0x61D0, ran 657 ms)
+[18:46:07.095] HB +6250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:07.365] BOSSMON +6500 ms boss 153761 21787 202535 player 154036 21792 202909 dist 4.6 m (min 1.7) team 1
+[18:46:07.602] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:07.858] BOSSMON +7000 ms boss 153756 21786 202530 player 154136 21789 203054 dist 6.5 m (min 1.7) team 1
+[18:46:08.219] KIBREAK end #2 boss 00000168E5AC0600 after 2360 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 577.6/1100.0
+[18:46:08.235] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C2 (prev 0x4E3F, ran 1218 ms)
+[18:46:08.283] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61C2, ran 47 ms)
+[18:46:08.323] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61A8, ran 47 ms)
+[18:46:08.363] BOSSMON +7500 ms boss 153781 21784 202573 player 154134 21788 203038 dist 5.8 m (min 1.7) team 1
+[18:46:08.659] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B1 (prev 0x61B0, ran 328 ms)
+[18:46:08.697] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61B1, ran 47 ms)
+[18:46:08.863] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=234 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:08.863] BOSSMON +8000 ms boss 153908 21776 202738 player 154137 21788 203035 dist 3.8 m (min 1.7) team 1
+[18:46:09.055] KIBREAK start #3 boss 00000168E5AC0600: Ki 766.6/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:09.055] KIBRK ACT start #3 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 766.6 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:09.079] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61B0, ran 375 ms)
+[18:46:09.091] HB +8250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:09.103] AUTOBIND spawn #0 chr 835773: union of 4 blocks (187 ids) matches no file (best coverage 0%, runner-up 0 ids)
+[18:46:09.103] AUTOBIND spawn #0 chr 835773: FINAL COMPOSED of known files (241 of 241 rows explained, biggest block -> CP_HUMAN_NAGIGAMA): CP_HUMAN_COMMON(48) + CP_HUMAN_NAGIGAMA(115) + CP_HUMAN_COMMON(41) + CP_HUMAN_COMMON(37) [stable]
+[18:46:09.104] AUTOMOVES spawn #0 chr 835773: FINAL action data 0000000000000000 (0 = union of the files seen): 1169 moves (attack 275, attack block 3, unblockable 0, hit count known 224, movement 783, idle 8), 322 next links, 49 sequences; 3 file(s) seen [stable]
+[18:46:09.107] AUTOMOVES PROOF chr 835773 runtime vs hand: ids 40 agree / 58 hand-only / 1129 runtime-only; facts rows 0/19/378; attack 0/0, great 0/0, hits 0/0 (agree/disagree); next links 0 agree / 0 disagree / 0 runtime-only; kind 36/4 (0 not comparable); sequences(runtime) 49; first diffs: id:0x0 1/0 id:0x5208 1/0 id:0x5209 1/0 id:0x4 1/0 id:0x3F1 1/0 id:0x6B 1/0 kind:0x4E3F 77/65 id:0x102D 1/0 id:0x5212 1/0 id:0x5213 1/0 id:0x5214 1/0 kind:0x4E43 77/65 id:0x4E84 1/0 id:0x4E85 1/0 id:0x4E86 1/0 id:0x4E87 1/0 id:0x4E8F 1/0 id:0x4E90 1/0 id:0x4E91 1/0 id:0x4E99 1/0 id:0x4E9A 1/0 id:0x4E9B 1/0 id:0x4EA3 1/0 id:0x4EA4 1/0 id:0x4EA5 1/0 id:0x4EE8 1/0 id:0x4F4C 1/0 id:0x4F4D 1/0 id:0x4F4E 1/0 id:0x4F56 1/0 id:0x4F57 1/0 id:0x4F58 1/0 id:0x4F60 1/0 id:0x4F61 1/0
+[18:46:09.108] AUTOMOVES chr 835773 sequences: [6300>6301] [6468>6306] [631A>3] [631B>3] [632C>3] [632D>3] [632F>3] [6330>3] [6331>3] [6333>3] [6334>3] [635F>3] [6360>3] [6361>3] [16CC>3] [6362>3] [6363>3] [6364>3] [16CE>3] [6365>3] [16CA>3] [6366>3] [639F>6380] [63A0>6380] [63A1>6380] [63C6>63C7>63C8] [647B>3] [647C>3] [641E>641F] [6469>6424] [646A>641F] [6471>6424] [6427>3] [6428>3] [6429>3] [642A>3] [642B>3] [642C>3] [642D>3] [642E>3] [6436>6380] [6437>6380] [6438>6380] [6455>3] [828>2] [84B>2] [4E3F>2] [4E43>2] [4E44>2]
+[18:46:09.111] AUTOMOVES chr 835773: move catalogue now from game data (1169 moves, 1129 new rows; next links, hits and unblockable replaced)
+[18:46:09.201] KIBRK ACT +156 ms #3 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 766.6 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:09.286] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:09.363] BOSSMON +8500 ms boss 153985 21785 202837 player 154204 21788 203072 dist 3.2 m (min 1.7) team 1
+[18:46:09.463] KIBRK ACT +422 ms #3 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 566.6 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:09.524] KIBRK ACT change +469 ms #3 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 566.6 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:09.565] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 484 ms)
+[18:46:09.772] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:09.858] BOSSMON +9000 ms boss 154021 21792 202888 player 154277 21786 203098 dist 3.3 m (min 1.7) team 1
+[18:46:10.011] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:10.041] KIBRK ACT +1000 ms #3 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki 366.6 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:10.178] KIBRK ACT change +1125 ms #3 boss 00000168E5AC0600: action 0x61CC -> 0x61CD (start 0x61CB), Ki 366.6 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:10.179] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CD (prev 0x61CC, ran 610 ms)
+[18:46:10.355] BOSSMON +9500 ms boss 154031 21793 202884 player 154395 21790 203258 dist 5.2 m (min 1.7) team 1
+[18:46:10.793] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:10.853] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=42 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:10.854] BOSSMON +10000 ms boss 154051 21792 202900 player 154507 21790 203376 dist 6.6 m (min 1.7) team 1
+[18:46:11.095] HB +10250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:11.358] BOSSMON +10500 ms boss 154055 21792 202914 player 154509 21789 203373 dist 6.5 m (min 1.7) team 1
+[18:46:11.393] KIBREAK end #3 boss 00000168E5AC0600 after 2344 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 298.3/1100.0
+[18:46:11.394] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C2 (prev 0x61CD, ran 1219 ms)
+[18:46:11.434] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61C2, ran 46 ms)
+[18:46:11.484] GOLDKI diag (learning, boss Ki read only): Ki 0.29 HP 1.00, quads tracked 3072, walks 431, best score 1 (0000016838300BF0), gold elements 0
+[18:46:11.532] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61A8, ran 94 ms)
+[18:46:11.855] BOSSMON +11000 ms boss 154168 21788 203025 player 154512 21789 203368 dist 4.9 m (min 1.7) team 1
+[18:46:12.296] KIBREAK start #4 boss 00000168E5AC0600: Ki 504.9/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:12.298] KIBRK ACT start #4 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 504.9 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:12.322] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61B0, ran 797 ms)
+[18:46:12.359] BOSSMON +11500 ms boss 154303 21785 203159 player 154512 21789 203367 dist 2.9 m (min 1.7) team 1
+[18:46:12.455] KIBRK ACT +156 ms #4 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 504.9 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:12.526] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:12.699] KIBRK ACT +406 ms #4 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 304.9 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:12.783] KIBRK ACT change +484 ms #4 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 304.9 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:12.798] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 469 ms)
+[18:46:12.853] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=42 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:12.855] BOSSMON +12000 ms boss 154329 21787 203191 player 154578 21789 203396 dist 3.2 m (min 1.7) team 1
+[18:46:13.032] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:13.090] HB +12250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:13.293] KIBRK ACT +1000 ms #4 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki 104.9 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:13.329] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:13.358] BOSSMON +12500 ms boss 154372 21789 203228 player 154752 21790 203520 dist 4.8 m (min 1.7) team 1
+[18:46:13.423] KIBRK ACT change +1125 ms #4 boss 00000168E5AC0600: action 0x61CC -> 0x61CD (start 0x61CB), Ki 104.9 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:13.450] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CD (prev 0x61CC, ran 656 ms)
+[18:46:13.856] BOSSMON +13000 ms boss 154409 21790 203251 player 154773 21793 203535 dist 4.6 m (min 1.7) team 1
+[18:46:14.007] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:14.354] BOSSMON +13500 ms boss 154400 21789 203244 player 154904 21794 203654 dist 6.5 m (min 1.7) team 1
+[18:46:14.642] KIBREAK end #4 boss 00000168E5AC0600 after 2344 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 35.8/1100.0
+[18:46:14.676] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61CD, ran 1219 ms)
+[18:46:14.713] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 47 ms)
+[18:46:14.759] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61BA, ran 47 ms)
+[18:46:14.863] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=234 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:14.863] BOSSMON +14000 ms boss 154454 21791 203293 player 154902 21789 203639 dist 5.7 m (min 1.7) team 1
+[18:46:15.095] HB +14250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:15.357] BOSSMON +14500 ms boss 154628 21788 203427 player 154903 21789 203637 dist 3.5 m (min 1.7) team 1
+[18:46:15.519] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B1 (prev 0x61B0, ran 750 ms)
+[18:46:15.565] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61B1, ran 46 ms)
+[18:46:15.853] BOSSMON +15000 ms boss 154791 21791 203550 player 154903 21788 203637 dist 1.4 m (min 1.4) team 1
+[18:46:15.902] KIBREAK start #5 boss 00000168E5AC0600: Ki 324.9/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:15.903] KIBRK ACT start #5 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 324.9 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:15.936] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61B0, ran 375 ms)
+[18:46:16.060] KIBRK ACT +156 ms #5 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 324.9 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:16.126] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:16.308] KIBRK ACT +406 ms #5 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 124.9 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:16.357] BOSSMON +15500 ms boss 154833 21790 203588 player 154985 21802 203671 dist 1.7 m (min 1.4) team 1
+[18:46:16.382] KIBRK ACT change +469 ms #5 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 124.9 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:16.407] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 469 ms)
+[18:46:16.482] GOLDKI diag (learning, boss Ki read only): Ki 0.11 HP 1.00, quads tracked 3072, walks 647, best score 1 (0000016838300BF0), gold elements 0
+[18:46:16.588] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:16.861] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=15 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:16.861] BOSSMON +16000 ms boss 154891 21781 203620 player 155111 21808 203702 dist 2.4 m (min 1.4) team 1
+[18:46:16.892] TRAIN infinite health: hit of 130 on the player cut to 0 (session Boss Match)
+[18:46:16.915] KIBRK ACT +1000 ms #5 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki -75.1 23=0, bits1060 0000000000000000 A8 0004081000000000
+[18:46:17.091] HB +16250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:17.355] BOSSMON +16500 ms boss 154904 21783 203621 player 155248 21808 203811 dist 3.9 m (min 1.4) team 1
+[18:46:17.810] KIBREAK end #5 boss 00000168E5AC0600 after 1906 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki -75.1/1100.0
+[18:46:17.861] BOSSMON +17000 ms boss 154913 21787 203627 player 155248 21808 203801 dist 3.8 m (min 1.4) team 1
+[18:46:17.950] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61CC, ran 1547 ms)
+[18:46:18.356] BOSSMON +17500 ms boss 154837 21790 203586 player 155248 21808 203800 dist 4.6 m (min 1.4) team 1
+[18:46:18.863] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=21 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:18.863] BOSSMON +18000 ms boss 154749 21797 203545 player 155248 21808 203799 dist 5.6 m (min 1.4) team 1
+[18:46:19.095] HB +18250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:19.357] BOSSMON +18500 ms boss 154663 21796 203496 player 155248 21808 203800 dist 6.6 m (min 1.4) team 1
+[18:46:19.862] BOSSMON +19000 ms boss 154572 21791 203454 player 155248 21808 203800 dist 7.6 m (min 1.4) team 1
+[18:46:20.104] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 2156 ms)
+[18:46:20.159] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61BA, ran 47 ms)
+[18:46:20.359] BOSSMON +19500 ms boss 154620 21789 203477 player 155248 21808 203799 dist 7.1 m (min 1.4) team 1
+[18:46:20.855] PERC mon 00000168E5AC0600 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=234 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:20.856] BOSSMON +20000 ms boss 154810 21790 203575 player 155248 21808 203799 dist 4.9 m (min 1.4) team 1
+[18:46:21.087] HB +20250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:21.323] KIBREAK start #6 boss 00000168E5AC0600: Ki 733.8/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:21.323] KIBRK ACT start #6 boss 00000168E5AC0600: action 0x61CF (25039), last motion 0x0 0 ms ago, Ki 733.8 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:21.323] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CF (prev 0x61B0, ran 1172 ms)
+[18:46:21.367] BOSSMON +20500 ms boss 154990 21801 203666 player 155248 21808 203800 dist 2.9 m (min 1.4) team 1
+[18:46:21.367] BOSSMON end: closest 1.4 m
+[18:46:21.490] GOLDKI diag (learning, boss Ki read only): Ki 0.67 HP 1.00, quads tracked 3072, walks 880, best score 1 (0000016838300BF0), gold elements 0
+[18:46:21.491] KIBRK ACT +156 ms #6 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 733.8 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:21.556] TRAIN infinite health: hit of 160 on the player cut to 0 (session Boss Match)
+[18:46:21.732] KIBRK ACT +406 ms #6 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 533.8 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:21.800] KIBRK ACT change +469 ms #6 boss 00000168E5AC0600: action 0x61CF -> 0x61D0 (start 0x61CF), Ki 533.8 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:21.800] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D0 (prev 0x61CF, ran 469 ms)
+[18:46:22.324] KIBRK ACT +1000 ms #6 boss 00000168E5AC0600: action 0x61D0 (start 0x61CF), last motion 0x0 0 ms ago, Ki 333.8 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:22.449] KIBRK ACT change +1125 ms #6 boss 00000168E5AC0600: action 0x61D0 -> 0x4E3F (start 0x61CF), Ki 333.8 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:22.450] ACTLOG boss 00000168E5AC0600 chr 0: action 0x4E3F (prev 0x61D0, ran 656 ms)
+[18:46:23.090] HB +22250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:23.673] KIBREAK end #6 boss 00000168E5AC0600 after 2344 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 265.8/1100.0
+[18:46:23.674] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C2 (prev 0x4E3F, ran 1219 ms)
+[18:46:23.722] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61C2, ran 47 ms)
+[18:46:23.809] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D5 (prev 0x61A8, ran 93 ms)
+[18:46:24.192] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B3 (prev 0x61D5, ran 375 ms)
+[18:46:25.087] HB +24250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:25.985] KIBREAK start #7 boss 00000168E5AC0600: Ki 520.9/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:25.986] KIBRK ACT start #7 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 520.9 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:26.012] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61B3, ran 1829 ms)
+[18:46:26.142] KIBRK ACT +157 ms #7 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 520.9 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:26.389] KIBRK ACT +407 ms #7 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 320.9 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:26.469] KIBRK ACT change +485 ms #7 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 320.9 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:26.481] GOLDKI diag (learning, boss Ki read only): Ki 0.29 HP 1.00, quads tracked 3072, walks 1108, best score 1 (0000016838300BF0), gold elements 0
+[18:46:26.481] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 468 ms)
+[18:46:26.987] KIBRK ACT +1000 ms #7 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki 120.9 23=0, bits1060 0000000000000000 A8 0000080000008000
+[18:46:27.090] HB +26250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:27.115] KIBRK ACT change +1125 ms #7 boss 00000168E5AC0600: action 0x61CC -> 0x61CD (start 0x61CB), Ki 120.9 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:27.139] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CD (prev 0x61CC, ran 657 ms)
+[18:46:28.331] KIBREAK end #7 boss 00000168E5AC0600 after 2344 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 52.8/1100.0
+[18:46:28.355] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61CD, ran 1218 ms)
+[18:46:28.410] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61A8, ran 47 ms)
+[18:46:28.460] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 47 ms)
+[18:46:28.500] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61BA, ran 47 ms)
+[18:46:29.093] HB +28250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:29.333] KIBREAK start #8 boss 00000168E5AC0600: Ki 282.0/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:29.333] KIBRK ACT start #8 boss 00000168E5AC0600: action 0x61CF (25039), last motion 0x0 0 ms ago, Ki 282.0 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:29.345] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CF (prev 0x64A4, ran 844 ms)
+[18:46:29.486] KIBRK ACT +156 ms #8 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 282.0 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:29.733] KIBRK ACT +406 ms #8 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 82.0 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:29.805] KIBRK ACT change +469 ms #8 boss 00000168E5AC0600: action 0x61CF -> 0x61D0 (start 0x61CF), Ki 82.0 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:29.817] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D0 (prev 0x61CF, ran 468 ms)
+[18:46:30.336] KIBRK ACT +1000 ms #8 boss 00000168E5AC0600: action 0x61D0 (start 0x61CF), last motion 0x0 0 ms ago, Ki -118.0 23=0, bits1060 0000000000000000 A8 0004081000000000
+[18:46:31.094] HB +30250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:31.228] KIBREAK end #8 boss 00000168E5AC0600 after 1906 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki -118.0/1100.0
+[18:46:31.380] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61D0, ran 1563 ms)
+[18:46:31.482] GOLDKI diag (learning, boss Ki read only): Ki 0.00 HP 1.00, quads tracked 3072, walks 1346, best score 1 (0000016838300BF0), gold elements 0
+[18:46:33.088] HB +32250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:33.809] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 2437 ms)
+[18:46:33.854] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D3 (prev 0x61BA, ran 47 ms)
+[18:46:34.231] KIBREAK start #9 boss 00000168E5AC0600: Ki 288.6/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 115.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:34.232] KIBRK ACT start #9 boss 00000168E5AC0600: action 0x6287 (25223), last motion 0x0 0 ms ago, Ki 288.6 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:34.232] ACTLOG boss 00000168E5AC0600 chr 0: action 0x6287 (prev 0x61D3, ran 375 ms)
+[18:46:34.389] KIBRK ACT +157 ms #9 boss 00000168E5AC0600: action 0x6287 (start 0x6287, unchanged), last motion 0x0 0 ms ago, Ki 180.7 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:34.637] KIBRK ACT +407 ms #9 boss 00000168E5AC0600: action 0x6287 (start 0x6287, unchanged), last motion 0x0 0 ms ago, Ki 58.6 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:35.099] HB +34250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:35.233] KIBRK ACT +1000 ms #9 boss 00000168E5AC0600: action 0x6287 (start 0x6287, unchanged), last motion 0x0 0 ms ago, Ki 58.6 23=0, bits1060 0000000000000000 A8 0001081000000000
+[18:46:35.590] KIBRK ACT change +1360 ms #9 boss 00000168E5AC0600: action 0x6287 -> 0x61A9 (start 0x6287), Ki 95.4 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:35.592] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A9 (prev 0x6287, ran 1360 ms)
+[18:46:35.664] KIBRK ACT change +1422 ms #9 boss 00000168E5AC0600: action 0x61A9 -> 0x64A4 (start 0x6287), Ki 111.1 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:35.682] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61A9, ran 93 ms)
+[18:46:35.746] KIBREAK end #9 boss 00000168E5AC0600 after 1516 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 131.8/1100.0
+[18:46:36.483] GOLDKI diag (learning, boss Ki read only): Ki 0.27 HP 1.00, quads tracked 3072, walks 1642, best score 1 (0000016838300BF0), gold elements 0
+[18:46:36.735] KIBREAK start #10 boss 00000168E5AC0600: Ki 358.7/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:36.736] KIBRK ACT start #10 boss 00000168E5AC0600: action 0x61CF (25039), last motion 0x0 0 ms ago, Ki 358.7 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:36.763] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CF (prev 0x64A4, ran 1079 ms)
+[18:46:36.891] KIBRK ACT +157 ms #10 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 358.7 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:37.098] HB +36250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:37.137] KIBRK ACT +407 ms #10 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 158.7 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:37.210] KIBRK ACT change +469 ms #10 boss 00000168E5AC0600: action 0x61CF -> 0x61D0 (start 0x61CF), Ki 158.7 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:37.236] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D0 (prev 0x61CF, ran 468 ms)
+[18:46:37.732] KIBRK ACT +1000 ms #10 boss 00000168E5AC0600: action 0x61D0 (start 0x61CF), last motion 0x0 0 ms ago, Ki -41.3 23=0, bits1060 0000000000000000 A8 0004081000000000
+[18:46:38.639] KIBREAK end #10 boss 00000168E5AC0600 after 1907 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki -41.3/1100.0
+[18:46:38.783] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61D0, ran 1547 ms)
+[18:46:39.092] HB +38250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:40.654] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 1875 ms)
+[18:46:40.705] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61BA, ran 47 ms)
+[18:46:41.092] HB +40250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:41.481] GOLDKI diag (learning, boss Ki read only): Ki 0.56 HP 1.00, quads tracked 3072, walks 1937, best score 2 (0000016838306540), gold elements 0
+[18:46:41.848] KIBREAK start #11 boss 00000168E5AC0600: Ki 697.3/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:41.849] KIBRK ACT start #11 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 697.3 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:41.872] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61B0, ran 1172 ms)
+[18:46:41.995] KIBRK ACT +156 ms #11 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 697.3 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:42.252] KIBRK ACT +406 ms #11 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 497.3 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:42.320] KIBRK ACT change +468 ms #11 boss 00000168E5AC0600: action 0x61CB -> 0x61CC (start 0x61CB), Ki 497.3 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:42.343] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CC (prev 0x61CB, ran 469 ms)
+[18:46:42.841] KIBRK ACT +1000 ms #11 boss 00000168E5AC0600: action 0x61CC (start 0x61CB), last motion 0x0 0 ms ago, Ki 297.3 23=0, bits1060 0000000000000000 A8 0000081000008000
+[18:46:42.970] KIBRK ACT change +1125 ms #11 boss 00000168E5AC0600: action 0x61CC -> 0x61CD (start 0x61CB), Ki 297.3 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:42.996] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CD (prev 0x61CC, ran 656 ms)
+[18:46:43.092] HB +42250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:44.203] KIBREAK end #11 boss 00000168E5AC0600 after 2359 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 230.3/1100.0
+[18:46:44.216] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C2 (prev 0x61CD, ran 1219 ms)
+[18:46:44.268] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61C2, ran 47 ms)
+[18:46:44.280] KIBREAK start #12 boss 00000168E5AC0600: Ki 243.7/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:44.280] KIBRK ACT start #12 boss 00000168E5AC0600: action 0x61CB (25035), last motion 0x0 0 ms ago, Ki 243.7 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:44.317] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CB (prev 0x61A8, ran 46 ms)
+[18:46:44.432] KIBRK ACT +156 ms #12 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 243.7 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:44.691] KIBRK ACT +406 ms #12 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 43.7 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:45.089] HB +44250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:45.283] KIBRK ACT +1000 ms #12 boss 00000168E5AC0600: action 0x61CB (start 0x61CB, unchanged), last motion 0x0 0 ms ago, Ki 43.7 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:45.687] KIBREAK end #12 boss 00000168E5AC0600 after 1406 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 69.5/1100.0
+[18:46:45.807] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61CB, ran 1500 ms)
+[18:46:45.866] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CA (prev 0x61A8, ran 47 ms)
+[18:46:46.138] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61CA, ran 282 ms)
+[18:46:46.185] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D4 (prev 0x61A8, ran 46 ms)
+[18:46:46.485] GOLDKI diag (learning, boss Ki read only): Ki 0.00 HP 1.00, quads tracked 3072, walks 2197, best score 2 (0000016838306540), gold elements 0
+[18:46:46.510] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B3 (prev 0x61D4, ran 329 ms)
+[18:46:47.096] HB +46250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:47.920] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61B3, ran 1406 ms)
+[18:46:48.289] KIBREAK start #13 boss 00000168E5AC0600: Ki 363.3/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 100.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:48.289] KIBRK ACT start #13 boss 00000168E5AC0600: action 0x61CF (25039), last motion 0x0 0 ms ago, Ki 363.3 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:48.304] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61CF (prev 0x64A4, ran 375 ms)
+[18:46:48.441] KIBRK ACT +156 ms #13 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 363.3 23=0, bits1060 0000000000000000 A8 0000080000000000
+[18:46:48.685] KIBRK ACT +406 ms #13 boss 00000168E5AC0600: action 0x61CF (start 0x61CF, unchanged), last motion 0x0 0 ms ago, Ki 163.3 23=0, bits1060 0000000000000000 A8 0000081000000000
+[18:46:48.759] KIBRK ACT change +485 ms #13 boss 00000168E5AC0600: action 0x61CF -> 0x61D0 (start 0x61CF), Ki 163.3 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:48.759] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D0 (prev 0x61CF, ran 469 ms)
+[18:46:49.095] HB +48250 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:49.281] KIBRK ACT +1000 ms #13 boss 00000168E5AC0600: action 0x61D0 (start 0x61CF), last motion 0x0 0 ms ago, Ki -36.7 23=0, bits1060 0000000000000000 A8 0004081000000000
+[18:46:50.173] KIBREAK end #13 boss 00000168E5AC0600 after 1891 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki -36.7/1100.0
+[18:46:50.323] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61D0, ran 1562 ms)
+[18:46:50.395] exec: summon S257162
+[18:46:50.397] BBM END (new summon): BossBattleModeEnd steps done
+[18:46:50.397] SUMMON S257162 -> char 257162 dist 400 world 0xE0: resources already loaded
+[18:46:50.397] SPAWNPOS 26 candidates (trail 40 samples, player 155623 21817 204832 camyaw -166.2)
+[18:46:50.398] SPAWNPOS cand 0 trail 155603 21817 204328
+[18:46:50.398] SPAWNPOS cand 1 fan 155527 21817 204443
+[18:46:50.398] SPAWNPOS cand 2 fan 155281 21817 204624
+[18:46:50.398] SPAWNPOS cand 3 fan 155830 21817 204490
+[18:46:50.398] SPAWNPOS cand 4 fan 155234 21817 204927
+[18:46:50.398] SPAWNPOS cand 5 fan 156011 21817 204737
+[18:46:50.399] SPAWNPOS cand 6 fan 155415 21817 205174
+[18:46:50.399] SPAWNPOS cand 7 fan 155965 21817 205039
+[18:46:50.399] SPAWNPOS cand 8 fan 155718 21817 205220
+[18:46:50.399] SPAWNPOS cand 9 fan 155504 21817 204346
+[18:46:50.400] SPAWNPOS cand 10 fan 155195 21817 204573
+[18:46:50.400] SPAWNPOS cand 11 fan 155882 21817 204404
+[18:46:50.400] SPAWNPOS chosen cand 0/26 (trail) 155603 21817 204328, 504 from the player; rejected so far: 0
+[18:46:50.400] TRACE CreateDynamic a0=257162 (0x3EC8A) pos=155602.9 21816.5 204328.5 yaw=2.23 a4=0 a5=4013495 a6=0 -> 809319863 (0x303D3DB7) ret=0000000491004621
+[18:46:50.401] SPAWN 257162: resources ready after 0 ms; camyaw -177.8 fwd -0.24 -0.97; CreateDynamic(owner 4013495) player 155623 21817 204832 -> at 155603 21817 204328 yaw 2.2 -> 0x303D3DB7
+[18:46:50.401] GAUGE HideBossGauge(fake id) (new request)
+[18:46:50.401] GAUGE force hide done (new request), hud 00000168BE00CF50
+[18:46:50.401] SPAWN 257162: boss gauge requested for 0x303D3DB7
+[18:46:50.401] BBM 809319863: no registered wrapper (dynamic boss): HUD/mode steps only, no listener message
+[18:46:50.402] BBM 809319863: BossBattleMode applied (wrapper 0000000000000000, +26AA=1, alive sensor -1, notify 0)
+[18:46:50.402] SUMMON done: handle 0x303D3DB7
+[18:46:50.414] SPAWN actor #1 appeared in table: 00000168E5A378F0 handle 003EC8A0 303D3DB7 pos 155406 21825 204330 +ab84=FFFFFFFF (+0 ms)
+[18:46:50.415] SPAWN actor #1 team 1 (player team 0)
+[18:46:50.416] SIDEFIX: 1C272F0(actor,1) team 1 -> 1
+[18:46:50.416] AUTOBIND spawn #1: boss chr 257162 actor 00000168E5A378F0 seen
+[18:46:50.417] AUTOBIND spawn #1 chr 257162: block 0 at 000001685DBBAAE0 (row of action 0x0): 87 rows -> CE_MIKOSHI_00 match 100% (runner-up 93%) file 7B5B1D30E4DA4ADE236BBBEA40E9049C28454DFAB0E780EB3E4ED10130E51EF5
+[18:46:50.417] AUTOMOVES: loaded action data 000001685E08CDD0: 191 actions (objects 000001685D645120 stride 0xF0, first row 000001685DBBAAE0), 125 hitbox rows (array 000001685F3801C8); current action 0x0
+[18:46:50.417] AUTOMOVES spawn #1 chr 257162: uses action data 000001685E08CDD0 (191 actions)
+[18:46:50.655] BBM +250 ms actor in table, death sensor baseline 0
+[18:46:50.829] AWARE spawn: SetAwareFlg applied to actor 00000168E5A378F0 (ai 00000168E58A0C00)
+[18:46:50.916] BOSSMON +500 ms boss 155351 21802 204403 player 155623 21817 204831 dist 5.1 m (min 5.1) team 1
+[18:46:51.028] GAUGE bar shown +625 ms after the boss request (screen visible 609 ms, #9685)
+[18:46:51.028] GAUGE pre-show #2: hud+2C=2 hud+1F=0 -> reset to 0
+[18:46:51.032] GAUGE diag #2: hud 00000168BE00CF50 vf50=0 rows=1 actorBlocked(4892A8)=0
+[18:46:51.032] GAUGE ShowBossGauge(fake id 0x7FFF0003) for actor 00000168E5A378F0 (handle 0x303D3DB7, wrapper template owner 4013495 -> 00000168E6CB3340)
+[18:46:51.032] KIBREAK watch boss 00000168E5A378F0 HP 22613/22613 Ki 1760/1760 (broken 0, fin 0)
+[18:46:51.032] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4EA2 (prev 0xFFFFFFFF, ran 0 ms)
+[18:46:51.164] HB +750 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:51.277] GAUGE elem vis rows 1 details 0 -> 1
+[18:46:51.424] BOSSMON +1000 ms boss 155350 21782 204451 player 155623 21817 204831 dist 4.7 m (min 4.7) team 1
+[18:46:51.482] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 3072, walks 2440, best score 2 (0000016838306540), gold elements 0
+[18:46:51.920] BOSSMON +1500 ms boss 155341 21782 204451 player 155628 21817 204844 dist 4.9 m (min 4.7) team 1
+[18:46:52.061] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4EA3 (prev 0x4EA2, ran 1031 ms)
+[18:46:52.301] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E3F (prev 0x4EA3, ran 235 ms)
+[18:46:52.331] AWARE retry: SetAwareFlg applied to actor 00000168E5A378F0 (ai 00000168E58A0C00)
+[18:46:52.415] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:52.416] BOSSMON +2000 ms boss 155323 21785 204449 player 155621 21817 204832 dist 4.9 m (min 4.7) team 1
+[18:46:52.919] BOSSMON +2500 ms boss 155342 21749 204534 player 155624 21817 204829 dist 4.1 m (min 4.1) team 1
+[18:46:53.157] HB +2750 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:53.423] BOSSMON +3000 ms boss 155346 21747 204536 player 155616 21817 204871 dist 4.3 m (min 4.1) team 1
+[18:46:53.607] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 3281 ms)
+[18:46:53.651] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61BA, ran 47 ms)
+[18:46:53.922] BOSSMON +3500 ms boss 155347 21756 204519 player 155616 21817 204871 dist 4.4 m (min 4.1) team 1
+[18:46:54.415] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:54.415] BOSSMON +4000 ms boss 155331 21746 204542 player 155617 21817 204869 dist 4.3 m (min 4.1) team 1
+[18:46:54.830] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B1 (prev 0x61B0, ran 1172 ms)
+[18:46:54.878] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61B1, ran 47 ms)
+[18:46:54.922] BOSSMON +4500 ms boss 155324 21683 204559 player 155617 21817 204869 dist 4.3 m (min 4.1) team 1
+[18:46:55.155] HB +4750 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:55.205] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C3 (prev 0x61B0, ran 328 ms)
+[18:46:55.254] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C8 (prev 0x61C3, ran 47 ms)
+[18:46:55.401] SPAWNPOS verify: boss 0x303D3DB7 150 from the player after 5000 ms (start 504), attempt 0: ok
+[18:46:55.428] BOSSMON +5000 ms boss 155301 21656 204572 player 155617 21817 204868 dist 4.3 m (min 4.1) team 1
+[18:46:55.924] BOSSMON +5500 ms boss 155275 21661 204575 player 155619 21817 204904 dist 4.8 m (min 4.1) team 1
+[18:46:56.415] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:56.416] BOSSMON +6000 ms boss 155281 21663 204566 player 155619 21817 204904 dist 4.8 m (min 4.1) team 1
+[18:46:56.488] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 3072, walks 2712, best score 2 (0000016838306540), gold elements 0
+[18:46:56.605] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C3 (prev 0x61C8, ran 1359 ms)
+[18:46:56.651] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61C9 (prev 0x61C3, ran 47 ms)
+[18:46:56.897] ACTLOG boss 00000168E5A378F0 chr 0: action 0x0 (prev 0x4E3F, ran 4594 ms)
+[18:46:56.923] BOSSMON +6500 ms boss 155267 21662 204576 player 155619 21817 204904 dist 4.8 m (min 4.1) team 1
+[18:46:57.032] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D4 (prev 0x61C9, ran 375 ms)
+[18:46:57.156] HB +6750 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:57.319] KIBREAK start #14 boss 00000168E5AC0600: Ki 909.8/1100.0 HP 25361/25361 (state23 0 exhausted 1 [5C 115.00 74 -1.00 7C -1.00 83 0]) bits1060 0000000000004000 1068 0000000000000000 A8 0000080000000000
+[18:46:57.319] KIBRK ACT start #14 boss 00000168E5AC0600: action 0x6288 (25224), last motion 0x0 0 ms ago, Ki 909.8 HP 25361/25361 (100.0 %), 23=0 exh 1, bits1060 0000000000004000 A8 0000080000000000
+[18:46:57.364] ACTLOG boss 00000168E5AC0600 chr 0: action 0x6288 (prev 0x61D4, ran 328 ms)
+[18:46:57.415] BOSSMON +7000 ms boss 155271 21661 204576 player 155619 21817 204904 dist 4.8 m (min 4.1) team 1
+[18:46:57.464] KIBRK ACT +157 ms #14 boss 00000168E5AC0600: action 0x6288 (start 0x6288, unchanged), last motion 0x0 0 ms ago, Ki 869.2 23=0, bits1060 0000000000000000 A8 0001080000000000
+[18:46:57.722] KIBRK ACT +407 ms #14 boss 00000168E5AC0600: action 0x6288 (start 0x6288, unchanged), last motion 0x0 0 ms ago, Ki 679.8 23=0, bits1060 0000000000000000 A8 0001080000000000
+[18:46:57.918] BOSSMON +7500 ms boss 155272 21662 204573 player 155621 21817 204933 dist 5.0 m (min 4.1) team 1
+[18:46:58.309] KIBRK ACT +1000 ms #14 boss 00000168E5AC0600: action 0x6288 (start 0x6288, unchanged), last motion 0x0 0 ms ago, Ki 679.8 23=0, bits1060 0000000000000000 A8 0001081000000000
+[18:46:58.425] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:46:58.425] BOSSMON +8000 ms boss 155270 21663 204570 player 155621 21817 204946 dist 5.1 m (min 4.1) team 1
+[18:46:58.545] KIBRK ACT change +1235 ms #14 boss 00000168E5AC0600: action 0x6288 -> 0x64A4 (start 0x6288), Ki 685.7 HP 25361/25361 23=0, bits1060 0000000000004000
+[18:46:58.568] KIBREAK end #14 boss 00000168E5AC0600 after 1250 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 691.7/1100.0
+[18:46:58.582] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61D4 (prev 0x6288, ran 1219 ms)
+[18:46:58.666] AUTOBIND spawn #1 chr 257162: FINAL CE_MIKOSHI_00 (100%, 87 rows) file 7B5B1D30E4DA4ADE236BBBEA40E9049C28454DFAB0E780EB3E4ED10130E51EF5; 1 block(s) seen [stable]
+[18:46:58.667] AUTOMOVES spawn #1 chr 257162: FINAL action data 000001685E08CDD0 (0 = union of the files seen): 191 moves (attack 73, attack block 70, unblockable 0, hit count known 14, movement 104, idle 6), 50 next links, 21 sequences; 1 file(s) seen [stable]
+[18:46:58.667] AUTOMOVES PROOF chr 257162 runtime vs hand: ids 191 agree / 0 hand-only / 0 runtime-only; facts rows 81/0/0; attack 81/0, great 81/0, hits 81/0 (agree/disagree); next links 0 agree / 0 disagree / 0 runtime-only; kind 191/0 (0 not comparable); sequences(runtime) 21; first diffs: -
+[18:46:58.668] AUTOMOVES chr 257162 sequences: [4E22>4E23 loop] [4E25>4E26 loop] [4E28>4E29 loop] [4E2B>4E2C loop] [4E2E>4E2F loop] [4EAC>4EAD] [4E41>4E43] [4E42>4E43] [4E4A>4E4B loop] [4E4D>4E4E loop] [4E50>4E51 loop] [4E53>4E54 loop] [4E56>4E57 loop] [4EAF>4EB0] [4E6C>4E6E] [4E6D>4E6E] [4E74>4E75 loop] [4E9E>4E9F] [4EA0>4EA1] [4EA2>4EA3] [4EA4>4EA5]
+[18:46:58.668] AUTOMOVES chr 257162 action 0x4E6E: hits 0 (windows 0), unblockable 0, attack block 1
+[18:46:58.668] AUTOMOVES chr 257162: move catalogue now from game data (191 moves, 0 new rows; next links, hits and unblockable replaced)
+[18:46:58.904] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61D4, ran 328 ms)
+[18:46:58.915] BOSSMON +8500 ms boss 155269 21665 204567 player 155624 21817 204971 dist 5.4 m (min 4.1) team 1
+[18:46:59.158] HB +8750 ms boss HP 25361/25361 player HP 2658/2658
+[18:46:59.328] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B1 (prev 0x61B0, ran 422 ms)
+[18:46:59.378] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B0 (prev 0x61B1, ran 47 ms)
+[18:46:59.429] BOSSMON +9000 ms boss 155273 21663 204572 player 155629 21651 205082 dist 6.2 m (min 4.1) team 1
+[18:46:59.558] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61B1 (prev 0x61B0, ran 187 ms)
+[18:46:59.927] BOSSMON +9500 ms boss 155273 21661 204577 player 155633 21120 205094 dist 6.3 m (min 4.1) team 1
+[18:46:59.990] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61A8 (prev 0x61B1, ran 422 ms)
+[18:47:00.036] ACTLOG boss 00000168E5AC0600 chr 0: action 0x64A4 (prev 0x61A8, ran 47 ms)
+[18:47:00.085] ACTLOG boss 00000168E5AC0600 chr 0: action 0x61BA (prev 0x64A4, ran 47 ms)
+[18:47:00.174] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E22 (prev 0x0, ran 3281 ms)
+[18:47:00.424] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=17 perc+2D0=-1 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target PLAYER 00000168E5706030 | 
+[18:47:00.424] BOSSMON +10000 ms boss 155222 21655 204650 player 155624 20340 205195 dist 6.8 m (min 4.1) team 1
+[18:47:00.497] ACTLOG boss 00000168E5AC0600 chr 0: action 0x62B1 (prev 0x61BA, ran 422 ms)
+[18:47:00.595] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E23 (prev 0x4E22, ran 422 ms)
+[18:47:00.637] ACTLOG boss 00000168E5A378F0 chr 0: action 0x73A (prev 0x4E23, ran 47 ms)
+[18:47:00.924] BOSSMON +10500 ms boss 155233 21650 204658 player 155610 20121 205186 dist 6.5 m (min 4.1) team 1
+[18:47:01.159] HB +10750 ms boss HP 25361/25361 player HP 0/2658
+[18:47:01.159] HB player HP 0 (dead)
+[18:47:01.419] BOSSMON +11000 ms boss 155242 21660 204599 player 155609 20116 205186 dist 6.9 m (min 4.1) team 1
+[18:47:01.918] BOSSMON +11500 ms boss 155272 21846 204480 player 155609 20115 205186 dist 7.8 m (min 4.1) team 1
+[18:47:02.141] ACTLOG boss 00000168E5A378F0 chr 0: action 0x3F1 (prev 0x73A, ran 1500 ms)
+[18:47:02.188] ACTLOG boss 00000168E5A378F0 chr 0: action 0x6B (prev 0x3F1, ran 46 ms)
+[18:47:02.189] ACTLOG boss 00000168E5AC0600 chr 0: action 0x7D0 (prev 0x62B1, ran 1687 ms)
+[18:47:02.425] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=17 perc+2D0=-1 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target PLAYER 00000168E5706030 | 
+[18:47:02.426] BOSSMON +12000 ms boss 155315 21788 204428 player 155610 20043 205177 dist 8.1 m (min 4.1) team 1
+[18:47:02.923] BOSSMON +12500 ms boss 155306 21789 204421 player 155596 20189 205117 dist 7.5 m (min 4.1) team 1
+[18:47:03.127] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E22 (prev 0x6B, ran 938 ms)
+[18:47:03.160] HB +12750 ms boss HP 25361/25361 player HP 0/2658
+[18:47:03.418] BOSSMON +13000 ms boss 155308 21792 204390 player 155554 20021 205161 dist 8.1 m (min 4.1) team 1
+[18:47:03.593] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E23 (prev 0x4E22, ran 469 ms)
+[18:47:03.729] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E24 (prev 0x4E23, ran 140 ms)
+[18:47:03.924] BOSSMON +13500 ms boss 155303 21793 204399 player 155553 20021 205160 dist 8.0 m (min 4.1) team 1
+[18:47:04.421] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=17 perc+2D0=-1 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target PLAYER 00000168E5706030 | 
+[18:47:04.422] BOSSMON +14000 ms boss 155303 21793 204389 player 155549 20099 205135 dist 7.9 m (min 4.1) team 1
+[18:47:04.916] BOSSMON +14500 ms boss 155300 21795 204361 player 155510 20017 205137 dist 8.0 m (min 4.1) team 1
+[18:47:05.143] ACTLOG boss 00000168E5A378F0 chr 0: action 0x0 (prev 0x4E24, ran 1407 ms)
+[18:47:05.153] HB +14750 ms boss HP 25361/25361 player HP 0/2658
+[18:47:05.182] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E22 (prev 0x0, ran 46 ms)
+[18:47:05.415] BOSSMON +15000 ms boss 155301 21795 204366 player 155507 19997 205140 dist 8.0 m (min 4.1) team 1
+[18:47:05.612] ACTLOG boss 00000168E5A378F0 chr 0: action 0x4E23 (prev 0x4E22, ran 422 ms)
+[18:47:05.918] BOSSMON +15500 ms boss 155302 21794 204378 player 155507 19998 205141 dist 7.9 m (min 4.1) team 1
+[18:47:06.416] PERC mon 00000168E5A378F0 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=17 perc+2D0=-1 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target PLAYER 00000168E5706030 | 
+[18:47:06.416] BOSSMON +16000 ms boss 155300 21796 204351 player 155505 19997 205140 dist 8.1 m (min 4.1) team 1
+[18:47:06.515] GAMESTATE bytes 0 0 1 0 0 0
+[18:47:06.516] ACTLOG boss 00000168E5A378F0 chr 0: action 0x0 (prev 0x4E23, ran 907 ms)
+[18:47:06.544] TRACE Post vtbl=+38F5328 id=2356120973 (0x8C6F8D8D) w10=0000003C w14=0168 ret=000000000060B053
+[18:47:06.544] TRACE Post vtbl=+38F5328 id=4191963820 (0xF9DC4AAC) w10=00000032 w14=0000 ret=000000000060B053
+[18:47:06.544] TRACE Post vtbl=+38F53C8 id=4191963820 (0xF9DC4AAC) w10=00000000 w14=0000 ret=000000000060B7DF
+[18:47:06.545] TRACE Post vtbl=+38F53C8 id=1187352741 (0x46C590A5) w10=00000017 w14=0168 ret=000000000060B7DF
+[18:47:06.545] TRACE Post vtbl=+38F53C8 id=2782873760 (0xA5DF48A0) w10=00000017 w14=0168 ret=000000000060B7DF
+[18:47:06.547] TRACE Post vtbl=+38F53C8 id=2093857436 (0x7CCDBA9C) w10=00000018 w14=0000 ret=000000000060B7DF
+[18:47:06.547] TRACE Post vtbl=+38F53C8 id=4177397014 (0xF8FE0516) w10=00000018 w14=0000 ret=000000000060B7DF
+[18:47:06.548] TRACE Post vtbl=+38F53C8 id=1113347062 (0x425C53F6) w10=00000006 w14=0168 ret=000000000060B7DF
+[18:47:06.549] TRACE Post vtbl=+38F53C8 id=2222162261 (0x84738155) w10=00000004 w14=0168 ret=000000000060B7DF
+[18:47:06.549] TRACE Post vtbl=+38F53C8 id=3335971418 (0xC6D6E25A) w10=00000005 w14=0168 ret=000000000060B7DF
+[18:47:06.549] TRACE Post vtbl=+38F53C8 id=1966694849 (0x753961C1) w10=00000001 w14=0168 ret=000000000060B7DF
+[18:47:06.549] TRACE Post vtbl=+38F5288 id=3112452442 (0xB984415A) w10=E6F55700 w14=0168 ret=000000000060A903
+[18:47:06.551] TRACE Post vtbl=+38F5288 id=3316815588 (0xC5B296E4) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:06.551] TRACE Load::Character id=974821 (0xEDFE5) loader=00000168E6C43CE0 ret=0000000000A42A4B
+[18:47:06.551] TRACE Load::Character id=254771 (0x3E333) loader=00000168E6C43CE0 ret=0000000000A42A4B
+[18:47:06.553] TRACE Post vtbl=+38F5468 id=1985427266 (0x76573742) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:47:06.553] TRACE Load::Character id=254771 (0x3E333) loader=00000168E6C44F80 ret=0000000000A42A4B
+[18:47:06.554] TRACE Post vtbl=+38F5468 id=704569612 (0x29FEE10C) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:06.554] TRACE Post vtbl=+38F5468 id=1988480779 (0x7685CF0B) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:06.555] TRACE Post vtbl=+38F5378 id=3715625741 (0xDD77F30D) w10=E6F1C901 w14=0168 ret=000000000060B400
+[18:47:06.555] TRACE Post vtbl=+38F52D8 id=3715625741 (0xDD77F30D) w10=E6F1C901 w14=0168 ret=000000000060ACAB
+[18:47:06.556] TRACE Post vtbl=+38F5468 id=3715625741 (0xDD77F30D) w10=00000003 w14=0000 ret=000000000060C884
+[18:47:06.556] TRACE Post vtbl=+38F5468 id=1985427266 (0x76573742) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:47:06.560] TRACE Post vtbl=+38F5378 id=3885759653 (0xE79BFCA5) w10=00000001 w14=0000 ret=000000000060B400
+[18:47:06.560] TRACE Post vtbl=+38F52D8 id=3885759653 (0xE79BFCA5) w10=E6F54D01 w14=0168 ret=000000000060ACAB
+[18:47:06.560] TRACE Post vtbl=+38F5468 id=3885759653 (0xE79BFCA5) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:47:06.561] TRACE Post vtbl=+38F5418 id=740754776 (0x2C270558) w10=E6F54A10 w14=0168 ret=000000000060BB8F
+[18:47:06.561] TRACE Post vtbl=+38F53C8 id=3687850619 (0xDBD0227B) w10=00000004 w14=7FF6 ret=000000000060B7DF
+[18:47:06.562] TRACE Post vtbl=+38F5328 id=3687850619 (0xDBD0227B) w10=00000014 w14=0168 ret=000000000060B053
+[18:47:06.562] TRACE Post vtbl=+38F5468 id=811725912 (0x3061F458) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:06.564] TRACE Post vtbl=+38F5328 id=3091116872 (0xB83EB348) w10=00000003 w14=0168 ret=000000000060B053
+[18:47:06.565] TRACE Post vtbl=+3910CE8 id=3091116872 (0xB83EB348) w10=00000003 w14=0168 ret=0000000000A3D6E3
+[18:47:06.565] TRACE Post vtbl=+38F5328 id=3164750976 (0xBCA24480) w10=00000002 w14=0168 ret=000000000060B053
+[18:47:06.566] TRACE Post vtbl=+38F5378 id=3694614375 (0xDC375767) w10=E6F54801 w14=0168 ret=000000000060B400
+[18:47:06.566] TRACE Post vtbl=+38F52D8 id=3694614375 (0xDC375767) w10=00000001 w14=0000 ret=000000000060ACAB
+[18:47:06.566] TRACE Post vtbl=+38F5328 id=3694614375 (0xDC375767) w10=00000032 w14=0168 ret=000000000060B053
+[18:47:06.567] TRACE Post vtbl=+38F5288 id=3491959347 (0xD0231233) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:06.567] TRACE Post vtbl=+38F5418 id=3491959347 (0xD0231233) w10=E6F53920 w14=0168 ret=000000000060BB8F
+[18:47:06.569] TRACE Post vtbl=+38F5378 id=3285348496 (0xC3D27090) w10=71097301 w14=7FF6 ret=000000000060B400
+[18:47:06.569] TRACE Post vtbl=+38F52D8 id=3285348496 (0xC3D27090) w10=E6F53A01 w14=0168 ret=000000000060ACAB
+[18:47:06.570] TRACE Post vtbl=+38F5378 id=2639888331 (0x9D597FCB) w10=E6F53901 w14=0168 ret=000000000060B400
+[18:47:06.570] TRACE Post vtbl=+38F52D8 id=2639888331 (0x9D597FCB) w10=E6F52A01 w14=0168 ret=000000000060ACAB
+[18:47:06.570] TRACE Post vtbl=+38F5468 id=2955139020 (0xB023D7CC) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:06.570] TRACE Post vtbl=+38F5328 id=1158620433 (0x450F2511) w10=00000003 w14=7FF6 ret=000000000060B053
+[18:47:06.570] TRACE Post vtbl=+38F5328 id=3779499145 (0xE1469489) w10=00000002 w14=7FF6 ret=000000000060B053
+[18:47:06.658] BBM +16250 ms alive sensor 0 -> 1
+[18:47:06.921] BOSSMON +16500 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:07.158] HB +16750 ms boss HP 0/0 (n/a) player HP 2658/2658
+[18:47:07.422] BOSSMON +17000 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:07.915] BOSSMON +17500 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:08.415] PERC mon 00000168E5A378F0 id 083D49B7 team 1: ai+1574=0 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target 0000000000000000 | 
+[18:47:08.415] BOSSMON +18000 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:08.923] BOSSMON +18500 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:09.159] HB +18750 ms boss HP 0/0 (n/a) player HP 2658/2658
+[18:47:09.417] BOSSMON +19000 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:09.924] BOSSMON +19500 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:10.425] PERC mon 00000168E5A378F0 id 083D49B7 team 1: ai+1574=0 ai+1AA8=0 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry -1 used 0 main-target 0000000000000000 | 
+[18:47:10.425] BOSSMON +20000 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:10.916] BOSSMON +20500 ms boss 145427 23082 201964 player 153478 21786 201896 dist 80.5 m (min 4.1) team 1
+[18:47:10.916] BOSSMON end: closest 4.1 m
+[18:47:11.159] HB +20750 ms boss HP 0/0 (n/a) player HP 2658/2658
+[18:47:11.160] BBM +20750 ms boss 809319863 dead (sensor 1, was 0)
+[18:47:11.160] BBM END (boss dead): BossBattleModeEnd steps done
+[18:47:11.160] GAUGE HideBossGauge(fake id) (boss mode end)
+[18:47:11.160] GAUGE force hide done (boss mode end), hud 00000168BE00CF50
+[18:47:11.854] GAUGE force hide done (delayed), hud 00000168BE00CF50
+[18:47:12.513] GAMESTATE bytes 0 0 0 0 0 0
+[18:47:12.527] TRACE Post vtbl=+38F5468 id=363794254 (0x15AF0F4E) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:12.527] TRACE Post vtbl=+38F5468 id=3066530526 (0xB6C78ADE) w10=00000002 w14=0000 ret=000000000239DD60
+[18:47:12.529] TRACE Post vtbl=+38F5288 id=3112452442 (0xB984415A) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:12.529] TRACE Post vtbl=+38F5418 id=3112452442 (0xB984415A) w10=E6F51B20 w14=0168 ret=000000000060BB8F
+[18:47:12.531] TRACE Post vtbl=+38F5288 id=2781287653 (0xA5C714E5) w10=E6F51B00 w14=0168 ret=000000000060A903
+[18:47:12.531] TRACE Post vtbl=+38F5418 id=2781287653 (0xA5C714E5) w10=E6F51C30 w14=0168 ret=000000000060BB8F
+[18:47:12.531] TRACE Post vtbl=+38F5288 id=606968839 (0x242D9C07) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:12.531] TRACE Post vtbl=+38F5418 id=606968839 (0x242D9C07) w10=E6F51D40 w14=0168 ret=000000000060BB8F
+[18:47:12.544] TRACE Post vtbl=+38F53C8 id=3045271311 (0xB583270F) w10=00000007 w14=0168 ret=000000000060B7DF
+[18:47:12.544] TRACE Post vtbl=+38F53C8 id=3932494157 (0xEA65194D) w10=00000006 w14=0168 ret=000000000060B7DF
+[18:47:12.544] TRACE Post vtbl=+38F53C8 id=81138284 (0x4D6126C) w10=00000007 w14=7FF6 ret=000000000060B7DF
+[18:47:12.544] TRACE Post vtbl=+38F53C8 id=524749707 (0x1F470B8B) w10=00000005 w14=7FF6 ret=000000000060B7DF
+[18:47:12.544] TRACE Post vtbl=+38F5328 id=3045271311 (0xB583270F) w10=00000014 w14=0168 ret=000000000060B053
+[18:47:12.545] TRACE Post vtbl=+38F5328 id=3932494157 (0xEA65194D) w10=00000014 w14=0000 ret=000000000060B053
+[18:47:12.545] TRACE Post vtbl=+38F5328 id=81138284 (0x4D6126C) w10=00000014 w14=7FF6 ret=000000000060B053
+[18:47:12.545] TRACE Post vtbl=+38F5328 id=524749707 (0x1F470B8B) w10=00000014 w14=0168 ret=000000000060B053
+[18:47:12.546] TRACE Post vtbl=+38F5288 id=1072939493 (0x3FF3C1E5) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:12.546] TRACE Post vtbl=+38F5418 id=1072939493 (0x3FF3C1E5) w10=E6DDAA20 w14=0168 ret=000000000060BB8F
+[18:47:12.546] TRACE Post vtbl=+38F5328 id=1072939493 (0x3FF3C1E5) w10=00000006 w14=0168 ret=000000000060B053
+[18:47:12.546] TRACE Post vtbl=+38F5288 id=1110646016 (0x42331D00) w10=00000000 w14=0000 ret=000000000060A903
+[18:47:12.547] TRACE Post vtbl=+38F5418 id=1110646016 (0x42331D00) w10=E6F56430 w14=0168 ret=000000000060BB8F
+[18:47:12.547] TRACE Post vtbl=+38F5328 id=1110646016 (0x42331D00) w10=00000006 w14=7FF6 ret=000000000060B053
+[18:47:12.547] TRACE Post vtbl=+38F5288 id=2594315516 (0x9AA21CFC) w10=E6F56400 w14=0168 ret=000000000060A903
+[18:47:12.547] TRACE Post vtbl=+38F5418 id=2594315516 (0x9AA21CFC) w10=E6F565D0 w14=0168 ret=000000000060BB8F
+[18:47:12.547] TRACE Post vtbl=+38F5328 id=2594315516 (0x9AA21CFC) w10=00000006 w14=0168 ret=000000000060B053
+[18:47:12.548] TRACE Post vtbl=+38F5288 id=2964991553 (0xB0BA2E41) w10=E6F45E00 w14=0168 ret=000000000060A903
+[18:47:12.548] TRACE Post vtbl=+38F5418 id=2964991553 (0xB0BA2E41) w10=E6F582D0 w14=0168 ret=000000000060BB8F
+[18:47:12.548] TRACE Post vtbl=+38F5328 id=2964991553 (0xB0BA2E41) w10=00000006 w14=0168 ret=000000000060B053
+[18:47:12.548] TRACE Post vtbl=+38F5418 id=3198618311 (0xBEA70AC7) w10=E6F583E0 w14=0168 ret=000000000060BB8F
+[18:47:12.548] TRACE Post vtbl=+38F5288 id=3095005017 (0xB87A0759) w10=00000000 w14=0168 ret=000000000060A903
+[18:47:12.549] TRACE Post vtbl=+38F5418 id=3095005017 (0xB87A0759) w10=E6F584F0 w14=0168 ret=000000000060BB8F
+[18:47:12.553] TRACE Post vtbl=+38F5328 id=400966733 (0x17E6444D) w10=00000000 w14=0168 ret=000000000060B053
+[18:47:12.554] TRACE Post vtbl=+38F5328 id=3091116872 (0xB83EB348) w10=00000003 w14=0000 ret=000000000060B053
+[18:47:12.554] TRACE Post vtbl=+3910CE8 id=3091116872 (0xB83EB348) w10=00000003 w14=7FF6 ret=0000000000A3D6E3
+[18:47:12.554] TRACE Post vtbl=+38F5328 id=3164750976 (0xBCA24480) w10=00000002 w14=0000 ret=000000000060B053
+[18:47:12.558] TRACE Post vtbl=+38F5468 id=1765768116 (0x693F7BB4) w10=00000004 w14=0000 ret=000000000060A4FC
+[18:47:40.771] exec: summon R3B19
+[18:47:40.772] SUMMON R3B19 -> char 405836 dist 400 world 0xE0: Load::Character requested
+[18:47:40.805] SPAWNPOS 25 candidates (trail 40 samples, player 153478 21792 201896 camyaw -166.2)
+[18:47:40.805] SPAWNPOS cand 0 fan 153383 21792 201507
+[18:47:40.806] SPAWNPOS cand 1 fan 153136 21792 201688
+[18:47:40.806] SPAWNPOS cand 2 fan 153685 21792 201554
+[18:47:40.806] SPAWNPOS cand 3 fan 153089 21792 201991
+[18:47:40.806] SPAWNPOS cand 4 fan 153866 21792 201801
+[18:47:40.806] SPAWNPOS cand 5 fan 153270 21792 202238
+[18:47:40.807] SPAWNPOS cand 6 fan 153820 21792 202103
+[18:47:40.807] SPAWNPOS cand 7 fan 153573 21792 202284
+[18:47:40.807] SPAWNPOS cand 8 fan 153359 21792 201410
+[18:47:40.807] SPAWNPOS cand 9 fan 153050 21792 201636
+[18:47:40.807] SPAWNPOS cand 10 fan 153737 21792 201468
+[18:47:40.807] SPAWNPOS cand 11 fan 152992 21792 202014
+[18:47:40.808] SPAWNPOS chosen cand 0/25 (fan) 153383 21792 201507, 400 from the player; rejected so far: 0
+[18:47:40.808] TRACE CreateDynamic a0=405836 (0x6314C) pos=153382.6 21792.0 201507.1 yaw=13.75 a4=0 a5=4013495 a6=0 -> 809319863 (0x303D3DB7) ret=0000000491004621
+[18:47:40.808] SPAWN 405836: resources ready after 31 ms; camyaw -166.2 fwd -0.24 -0.97; CreateDynamic(owner 4013495) player 153478 21792 201896 -> at 153383 21792 201507 yaw 13.8 -> 0x303D3DB7
+[18:47:40.808] SPAWN 405836: boss gauge requested for 0x303D3DB7
+[18:47:40.808] BBM 809319863: no registered wrapper (dynamic boss): HUD/mode steps only, no listener message
+[18:47:40.808] BBM 809319863: BossBattleMode applied (wrapper 0000000000000000, +26AA=1, alive sensor -1, notify 0)
+[18:47:40.808] SUMMON done: handle 0x303D3DB7
+[18:47:40.820] SPAWN actor #2 appeared in table: 00000168E59AFC60 handle 006314C0 303D3DB7 pos 153382 21808 201507 +ab84=FFFFFFFF (+0 ms)
+[18:47:40.820] SPAWN actor #2 team 1 (player team 0)
+[18:47:40.821] SIDEFIX: 1C272F0(actor,1) team 1 -> 1
+[18:47:40.821] KIBREAK watch boss 00000168E59AFC60 HP 7608/7608 Ki 1650/1650 (broken 0, fin 0)
+[18:47:40.821] ACTLOG boss 00000168E59AFC60 chr 0: action 0x0 (prev 0xFFFFFFFF, ran 0 ms)
+[18:47:40.822] AUTOBIND spawn #2: boss chr 405836 actor 00000168E59AFC60 seen
+[18:47:40.822] AUTOBIND spawn #2 chr 405836: block 0 at 000001685EFCF410 (row of action 0x0): 44 rows -> CE_KAPPA_00 match 100% (runner-up 91%) file 9F82419925B6E38603BF41EC38B20530F90DF6945058C5DAF6BAD1C7CB4F92DF
+[18:47:40.822] AUTOMOVES: loaded action data 000001685FD21EE0: 107 actions (objects 000001685EFE9840 stride 0xF0, first row 000001685EFCF410), 18 hitbox rows (array 000001685EFF0008); current action 0x0
+[18:47:40.823] AUTOMOVES spawn #2 chr 405836: uses action data 000001685FD21EE0 (107 actions)
+[18:47:40.856] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x0, ran 47 ms)
+[18:47:41.058] HB +250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:41.059] BBM +250 ms actor in table, death sensor baseline 0
+[18:47:41.214] AWARE spawn: SetAwareFlg applied to actor 00000168E59AFC60 (ai 00000168E5A57C10)
+[18:47:41.280] ACTLOG boss 00000168E59AFC60 chr 0: action 0x3ED (prev 0x2, ran 422 ms)
+[18:47:41.315] BOSSMON +500 ms boss 153384 21808 201513 player 153478 21792 201896 dist 3.9 m (min 3.9) team 1
+[18:47:41.422] GAUGE bar shown +610 ms after the boss request (screen visible 610 ms, #9685)
+[18:47:41.423] GAUGE pre-show #3: hud+2C=0 hud+1F=0
+[18:47:41.425] GAUGE diag #3: hud 00000168BE00CF50 vf50=0 rows=1 actorBlocked(4892A8)=0
+[18:47:41.426] GAUGE ShowBossGauge(fake id 0x7FFF0004) for actor 00000168E59AFC60 (handle 0x303D3DB7, wrapper template owner 4013495 -> 00000168E6CB3340)
+[18:47:41.438] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 3072, walks 2921, best score 2 (0000016838306540), gold elements 0
+[18:47:41.667] GAUGE elem vis rows 1 details 0 -> 1
+[18:47:41.814] BOSSMON +1000 ms boss 153532 21808 201510 player 153478 21792 201895 dist 3.9 m (min 3.9) team 1
+[18:47:42.308] BOSSMON +1500 ms boss 153580 21800 201729 player 153478 21792 201895 dist 2.0 m (min 2.0) team 1
+[18:47:42.691] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x3ED, ran 1406 ms)
+[18:47:42.721] AWARE retry: SetAwareFlg applied to actor 00000168E59AFC60 (ai 00000168E5A57C10)
+[18:47:42.812] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=53 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:42.812] BOSSMON +2000 ms boss 153480 21792 201901 player 153402 21792 201929 dist 0.8 m (min 0.8) team 1
+[18:47:43.059] HB +2250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:43.308] BOSSMON +2500 ms boss 153302 21792 201949 player 153202 21792 201985 dist 1.1 m (min 0.8) team 1
+[18:47:43.814] BOSSMON +3000 ms boss 153184 21792 201999 player 153012 21793 202006 dist 1.7 m (min 0.8) team 1
+[18:47:44.139] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1454 ms)
+[18:47:44.186] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x2, ran 46 ms)
+[18:47:44.316] BOSSMON +3500 ms boss 153159 21792 202008 player 153029 21792 202056 dist 1.4 m (min 0.8) team 1
+[18:47:44.817] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=53 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:44.817] BOSSMON +4000 ms boss 152980 21792 202064 player 152909 21792 202141 dist 1.0 m (min 0.8) team 1
+[18:47:45.065] HB +4250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:45.309] BOSSMON +4500 ms boss 152864 21790 202115 player 152870 21788 202326 dist 2.1 m (min 0.8) team 1
+[18:47:45.589] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1407 ms)
+[18:47:45.640] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E51 (prev 0x2, ran 47 ms)
+[18:47:45.818] SPAWNPOS verify: boss 0x303D3DB7 261 from the player after 5000 ms (start 400), attempt 0: ok
+[18:47:45.818] BOSSMON +5000 ms boss 152848 21791 202110 player 152880 21785 202370 dist 2.6 m (min 0.8) team 1
+[18:47:46.251] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x4E51, ran 609 ms)
+[18:47:46.313] BOSSMON +5500 ms boss 152614 21784 202403 player 152881 21785 202368 dist 2.7 m (min 0.8) team 1
+[18:47:46.436] GOLDKI diag (learning, boss Ki read only): Ki 0.97 HP 1.00, quads tracked 3072, walks 3143, best score 2 (0000016838306540), gold elements 0
+[18:47:46.816] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=88 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:46.818] BOSSMON +6000 ms boss 152811 21783 202387 player 152932 21785 202368 dist 1.2 m (min 0.8) team 1
+[18:47:47.061] HB +6250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:47.312] BOSSMON +6500 ms boss 152917 21786 202366 player 153091 21786 202378 dist 1.7 m (min 0.8) team 1
+[18:47:47.569] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1312 ms)
+[18:47:47.608] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E52 (prev 0x2, ran 47 ms)
+[18:47:47.817] BOSSMON +7000 ms boss 152813 21786 202327 player 153098 21783 202418 dist 3.0 m (min 0.8) team 1
+[18:47:48.217] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E32 (prev 0x4E52, ran 610 ms)
+[18:47:48.306] BOSSMON +7500 ms boss 152275 21786 202219 player 153099 21783 202417 dist 8.5 m (min 0.8) team 1
+[18:47:48.816] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=8 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:48.816] BOSSMON +8000 ms boss 152596 21786 202303 player 153099 21784 202416 dist 5.2 m (min 0.8) team 1
+[18:47:48.920] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E35 (prev 0x4E32, ran 703 ms)
+[18:47:49.065] HB +8250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:49.076] AUTOBIND spawn #2 chr 405836: FINAL CE_KAPPA_00 (100%, 44 rows) file 9F82419925B6E38603BF41EC38B20530F90DF6945058C5DAF6BAD1C7CB4F92DF; 1 block(s) seen [stable]
+[18:47:49.077] AUTOMOVES spawn #2 chr 405836: FINAL action data 000001685FD21EE0 (0 = union of the files seen): 107 moves (attack 10, attack block 0, unblockable 0, hit count known 10, movement 94, idle 3), 11 next links, 2 sequences; 1 file(s) seen [stable]
+[18:47:49.077] AUTOMOVES PROOF chr 405836 runtime vs hand: ids 102 agree / 11 hand-only / 5 runtime-only; facts rows 3/6/7; attack 3/0, great 3/0, hits 2/1 (agree/disagree); next links 0 agree / 0 disagree / 0 runtime-only; kind 76/5 (21 not comparable); sequences(runtime) 2; first diffs: kind:0x4E2F 48/77 kind:0x4E31 77/65 kind:0x4E35 48/77 kind:0x4E37 48/77 id:0x494 1/0 kind:0x4E5B 77/65 id:0x73C 1/0 id:0x73D 1/0 id:0x73E 1/0 id:0x73F 1/0 id:0x740 1/0 id:0x741 1/0 id:0x742 1/0 id:0x745 1/0 id:0x746 1/0 id:0x747 1/0 id:0x4E72 0/1 id:0x4E73 0/1 id:0x4E74 0/1 id:0x4E75 0/1 id:0x4E84 0/1 fact:0x4E2E 1/0 fact:0x4E2F 1/0 fact:0x4E30 1/0 hits:0x4E33 1/2 fact:0x4E34 1/0 fact:0x4E35 1/0 fact:0x4E37 1/0 fact:0x4E31 0/1 fact:0x4E32 0/1 fact:0x4E36 0/1 fact:0x4E4E 0/1
+[18:47:49.077] AUTOMOVES chr 405836 sequences: [4E59>4E5A>FE1] [4E5B>4E5A>FE1]
+[18:47:49.078] AUTOMOVES chr 405836 action 0x4E6E: hits 0 (windows 0), unblockable 0, attack block 0
+[18:47:49.078] AUTOMOVES chr 405836: move catalogue now from game data (107 moves, 5 new rows; next links, hits and unblockable replaced)
+[18:47:49.311] BOSSMON +8500 ms boss 152694 21786 202325 player 153098 21784 202416 dist 4.1 m (min 0.8) team 1
+[18:47:49.594] ACTLOG boss 00000168E59AFC60 chr 0: action 0xFE1 (prev 0x4E35, ran 672 ms)
+[18:47:49.809] BOSSMON +9000 ms boss 152596 21786 202339 player 153099 21784 202417 dist 5.1 m (min 0.8) team 1
+[18:47:50.247] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0xFE1, ran 656 ms)
+[18:47:50.292] ACTLOG boss 00000168E59AFC60 chr 0: action 0x3FC (prev 0x2, ran 47 ms)
+[18:47:50.318] BOSSMON +9500 ms boss 152535 21786 202335 player 153099 21784 202416 dist 5.7 m (min 0.8) team 1
+[18:47:50.817] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=31 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:50.817] BOSSMON +10000 ms boss 152715 21791 202043 player 153098 21784 202416 dist 5.4 m (min 0.8) team 1
+[18:47:51.061] HB +10250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:51.317] BOSSMON +10500 ms boss 152748 21792 202011 player 153098 21784 202417 dist 5.4 m (min 0.8) team 1
+[18:47:51.330] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4F (prev 0x3FC, ran 1031 ms)
+[18:47:51.444] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 3072, walks 3364, best score 2 (0000016838306540), gold elements 0
+[18:47:51.814] BOSSMON +11000 ms boss 152740 21792 202001 player 153099 21784 202416 dist 5.5 m (min 0.8) team 1
+[18:47:52.314] BOSSMON +11500 ms boss 152742 21794 201986 player 153099 21784 202416 dist 5.6 m (min 0.8) team 1
+[18:47:52.810] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=70 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:52.810] BOSSMON +12000 ms boss 152588 21788 201940 player 153098 21784 202417 dist 7.0 m (min 0.8) team 1
+[18:47:53.059] HB +12250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:53.160] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E30 (prev 0x4E4F, ran 1828 ms)
+[18:47:53.313] BOSSMON +12500 ms boss 152524 21787 201786 player 153146 21783 202504 dist 9.5 m (min 0.8) team 1
+[18:47:53.808] BOSSMON +13000 ms boss 152479 21788 201707 player 153190 21784 202589 dist 11.3 m (min 0.8) team 1
+[18:47:54.143] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E30, ran 985 ms)
+[18:47:54.182] ACTLOG boss 00000168E59AFC60 chr 0: action 0x3ED (prev 0x2, ran 46 ms)
+[18:47:54.309] BOSSMON +13500 ms boss 152473 21795 201718 player 153249 21788 202707 dist 12.6 m (min 0.8) team 1
+[18:47:54.810] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=19 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:54.810] BOSSMON +14000 ms boss 152635 21785 201930 player 153265 21784 202755 dist 10.4 m (min 0.8) team 1
+[18:47:55.068] HB +14250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:55.310] BOSSMON +14500 ms boss 152796 21791 202141 player 153265 21783 202753 dist 7.7 m (min 0.8) team 1
+[18:47:55.808] BOSSMON +15000 ms boss 152956 21787 202349 player 153265 21784 202753 dist 5.1 m (min 0.8) team 1
+[18:47:56.204] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2E (prev 0x3ED, ran 2016 ms)
+[18:47:56.255] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E51 (prev 0x4E2E, ran 47 ms)
+[18:47:56.308] BOSSMON +15500 ms boss 153062 21782 202492 player 153265 21784 202753 dist 3.3 m (min 0.8) team 1
+[18:47:56.439] GOLDKI diag (learning, boss Ki read only): Ki 0.96 HP 1.00, quads tracked 3072, walks 3574, best score 2 (0000016838306540), gold elements 0
+[18:47:56.814] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=88 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:56.814] BOSSMON +16000 ms boss 152949 21802 202890 player 153265 21783 202754 dist 3.4 m (min 0.8) team 1
+[18:47:56.860] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x4E51, ran 609 ms)
+[18:47:57.057] HB +16250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:57.317] BOSSMON +16500 ms boss 153119 21784 202827 player 153308 21782 202745 dist 2.1 m (min 0.8) team 1
+[18:47:57.810] BOSSMON +17000 ms boss 153236 21786 202766 player 153415 21778 202724 dist 1.8 m (min 0.8) team 1
+[18:47:58.144] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1282 ms)
+[18:47:58.183] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E50 (prev 0x2, ran 46 ms)
+[18:47:58.316] BOSSMON +17500 ms boss 153228 21786 202763 player 153415 21777 202725 dist 1.9 m (min 0.8) team 1
+[18:47:58.817] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=87 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:47:58.818] BOSSMON +18000 ms boss 153485 21785 202485 player 153414 21777 202725 dist 2.5 m (min 0.8) team 1
+[18:47:58.843] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x4E50, ran 657 ms)
+[18:47:59.059] HB +18250 ms boss HP 7608/7608 player HP 2658/2658
+[18:47:59.316] BOSSMON +18500 ms boss 153422 21781 202662 player 153398 21776 202784 dist 1.2 m (min 0.8) team 1
+[18:47:59.806] BOSSMON +19000 ms boss 153395 21776 202785 player 153392 21776 202949 dist 1.6 m (min 0.8) team 1
+[18:48:00.104] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1265 ms)
+[18:48:00.156] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4E (prev 0x2, ran 47 ms)
+[18:48:00.314] BOSSMON +19500 ms boss 153395 21776 202811 player 153400 21776 202992 dist 1.8 m (min 0.8) team 1
+[18:48:00.816] PERC mon 00000168E59AFC60 id 303D3DB7 team 1: ai+1574=1 ai+1AA8=53 perc+2D0=0 +2DC=0 +558=0 +378=0 actor+8A4=0 player+8A4=0 actor+ACCA=0 player-entry 0 used 1 main-target PLAYER 00000168E5706030 | [0 PLAYER 00000168E5706030 id 00000001 team 0 aw 1] 
+[18:48:00.817] BOSSMON +20000 ms boss 153391 21778 203004 player 153406 21783 203091 dist 0.9 m (min 0.8) team 1
+[18:48:01.058] HB +20250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:01.309] BOSSMON +20500 ms boss 153403 21786 203123 player 153473 21817 203302 dist 1.9 m (min 0.8) team 1
+[18:48:01.310] BOSSMON end: closest 0.8 m
+[18:48:01.434] GOLDKI diag (learning, boss Ki read only): Ki 0.96 HP 1.00, quads tracked 3072, walks 3777, best score 2 (0000016838306540), gold elements 0
+[18:48:01.559] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E4E, ran 1406 ms)
+[18:48:01.609] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E33 (prev 0x2, ran 47 ms)
+[18:48:02.639] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E34 (prev 0x4E33, ran 1032 ms)
+[18:48:03.066] HB +22250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:03.771] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E36 (prev 0x4E34, ran 1125 ms)
+[18:48:04.706] ACTLOG boss 00000168E59AFC60 chr 0: action 0x16F2 (prev 0x4E36, ran 937 ms)
+[18:48:05.066] HB +24250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:06.442] GOLDKI diag (learning, boss Ki read only): Ki 0.84 HP 1.00, quads tracked 3072, walks 3991, best score 2 (0000016838306540), gold elements 0
+[18:48:07.062] HB +26250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:09.058] HB +28250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:09.156] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2E (prev 0x16F2, ran 4453 ms)
+[18:48:09.208] ACTLOG boss 00000168E59AFC60 chr 0: action 0x1B (prev 0x4E2E, ran 47 ms)
+[18:48:10.617] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2C (prev 0x1B, ran 1406 ms)
+[18:48:11.034] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2E (prev 0x4E2C, ran 422 ms)
+[18:48:11.058] HB +30250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:11.081] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E30 (prev 0x4E2E, ran 47 ms)
+[18:48:11.443] GOLDKI diag (learning, boss Ki read only): Ki 0.84 HP 1.00, quads tracked 3072, walks 4217, best score 2 (0000016838306540), gold elements 0
+[18:48:13.066] HB +32250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:13.191] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E30, ran 2109 ms)
+[18:48:13.229] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E59 (prev 0x2, ran 47 ms)
+[18:48:13.983] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E5A (prev 0x4E59, ran 750 ms)
+[18:48:15.058] HB +34250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:16.440] GOLDKI diag (learning, boss Ki read only): Ki 0.84 HP 1.00, quads tracked 3072, walks 4434, best score 2 (0000016838306540), gold elements 0
+[18:48:16.984] ACTLOG boss 00000168E59AFC60 chr 0: action 0xFE1 (prev 0x4E5A, ran 3000 ms)
+[18:48:17.065] HB +36250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:17.828] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0xFE1, ran 844 ms)
+[18:48:17.873] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E4F (prev 0x2, ran 47 ms)
+[18:48:19.063] HB +38250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:19.656] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E30 (prev 0x4E4F, ran 1781 ms)
+[18:48:20.682] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E30, ran 1031 ms)
+[18:48:20.743] ACTLOG boss 00000168E59AFC60 chr 0: action 0x3ED (prev 0x2, ran 63 ms)
+[18:48:21.067] HB +40250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:21.441] GOLDKI diag (learning, boss Ki read only): Ki 0.98 HP 1.00, quads tracked 3072, walks 4650, best score 2 (0000016838306540), gold elements 0
+[18:48:21.966] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2C (prev 0x3ED, ran 1219 ms)
+[18:48:22.386] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2E (prev 0x4E2C, ran 422 ms)
+[18:48:22.434] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E59 (prev 0x4E2E, ran 46 ms)
+[18:48:23.057] HB +42250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:23.185] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E5A (prev 0x4E59, ran 750 ms)
+[18:48:25.065] HB +44250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:26.139] ACTLOG boss 00000168E59AFC60 chr 0: action 0xFE1 (prev 0x4E5A, ran 2954 ms)
+[18:48:26.443] GOLDKI diag (learning, boss Ki read only): Ki 1.00 HP 1.00, quads tracked 3072, walks 4869, best score 2 (0000016838306540), gold elements 0
+[18:48:26.984] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0xFE1, ran 843 ms)
+[18:48:27.031] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2C (prev 0x2, ran 47 ms)
+[18:48:27.066] HB +46250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:27.407] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E2E (prev 0x4E2C, ran 375 ms)
+[18:48:27.454] ACTLOG boss 00000168E59AFC60 chr 0: action 0x3FC (prev 0x4E2E, ran 47 ms)
+[18:48:28.434] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x3FC, ran 984 ms)
+[18:48:28.479] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E32 (prev 0x2, ran 47 ms)
+[18:48:29.066] HB +48250 ms boss HP 7608/7608 player HP 2658/2658
+[18:48:29.467] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E34 (prev 0x4E32, ran 985 ms)
+[18:48:30.871] ACTLOG boss 00000168E59AFC60 chr 0: action 0x2 (prev 0x4E34, ran 1406 ms)
+[18:48:30.919] ACTLOG boss 00000168E59AFC60 chr 0: action 0x4E51 (prev 0x2, ran 47 ms)

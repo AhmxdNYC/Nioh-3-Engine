@@ -1,0 +1,9 @@
+[18:44:06] lock: acquired
+[18:44:06] saves backed up to C:\Users\User\projects\nioh3-engine\captures\pc2-24074\run4\saves
+[18:44:06] installed (existing EngineFix/Rematch inis kept, VirtualPad on); Training ini = branch default
+[18:44:19] game pid 15024
+[18:44:27] ping: ok vpad 1.7.55 mode=exclusive armed=1 unfocused=on
+[18:45:10] title-continue: True
+[18:45:11] state: ok frame=5799 active=1 loading=0 paused=0 player=1 pos=153557.7,21789.9,202241.4 field=1 menu_pause=0 fg=0 armed=1 pad_reads=17411 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[18:45:11] READY - serving C:\Users\User\projects\nioh3-engine\captures\pc2-24074\run4\cmd.txt
+[18:48:31] quit requested
