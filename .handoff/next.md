@@ -2378,3 +2378,11 @@ Half-rate menu is on gx-pc/half-rate-reuse eccb0650. Keys HRS HRG HRC default 0,
 2026-10-24 pc: cx-ops audit #28922: 8 PC helpers at 2bf951f current; UPDATE sent to ops/cx-pc/cxl-pc; pc2/ally HEAD unverified (waiting).
 2026-10-24 pc: pc2 #28947: no-admin OK: CPU util/RAPL power, GPU util/VRAM, PresentMon latency. NOT OK w/o admin: CPU temp, GPU temp/power. gxl-pc asked to build ADLX no-admin GPU reader; default = log CPU power as heat proxy. Waiting ally + pc replies.
 2026-10-24 pc: see checkpoints.md entry 00:50 for full state.
+2026-10-24 pc: pc2 #28978 LHM UAC waiting for human; told human. Then verify temps reading on pc2; same for pc (HWiNFO).
+2026-10-24 12:53 AM EST gxl-pc #28903: this PC can log RAPL package power, CPU util, GPU engine util, RX 9070 temp/power, and PresentMon frame time with no admin. CPU temperature is unavailable. No game lease.
+2026-10-24 pc: pc+pc2 LHM temps live (pc Tdie 89.6C/73.8W). Waiting ally sensor list; then plan full-data final bench (log lhm_log.ps1 alongside runs).
+2026-10-24 pc: ally #29052 sensors OK no root (CPU 70C, GPU 64C/28W, use); latency from bench only. All 3 devices cleared for full-data final bench.
+2026-10-24 12:57 AM EST gxl-pc #28958: GPU temp/power/clock logger is on gxl-pc/gpu-sensors-28958 caaf6e4c. Tested on this RX 9070, no admin. CPU package temp still needs LibreHardwareMonitor's driver. No game lease.
+2026-10-24 1:14 AM EST gxl-pc #28975: HWiNFO64 is not installed on this PC yet. Shared memory was not readable. Retry the 5 second read when the install is running.
+2026-10-24 1:25 AM EST gxl-pc #29060: chunk runner, boot-hang guard, foreign-game guard, and LHM logger are on gxl-pc/chunk-sensors-29060 commit bcb6484. Four selftests passed. No game. fleet-v2 was not edited. Next: pc reviews that branch.
+- 2026-10-24 02:14 EDT pc #128 done (inconclusive, notes/halfrate-counters-pc-128.md). Launch flaky ('no game window 180 s' 7/12). Next: if wanted, rerun HRG/HRC with more repeats after fixing launch flakiness; pc game idle, files restored.
