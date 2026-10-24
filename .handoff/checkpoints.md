@@ -1,22 +1,4 @@
 
-## 2026-10-22 21:13:50 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
-The merged build is installed on this PC. Yoritomo checks out in the game, but Red Kappa, Ippon-Datara, Mikoshi Nyudo and Himiko are untested.
-
-**What passed (Yoritomo):**
-- The Training log shows 173 moves from game data, 88 of them attack moves, and 11 sequences.
-- The runtime list matches the old hand list on all 173 ids (0 disagreements), and the live frame bar read Yoritomo's attacks.
-- The roster grew from 83 to 101 summon rows.
-
-**What I couldn't test:**
-- Red Kappa and Ippon-Datara: "Fight now" refused both because those missions aren't cleared on this save.
-- Mikoshi Nyudo and Himiko spawn: I can't open the mod menu with synthetic keys, so I couldn't summon them.
-
-I closed the game by its exact PID and removed the test marker. I didn't back up or restore saves for this test, so I haven't checked whether the in-place fight changed the save.
-
-I sent the result to pc2, told the user, and added a needs-player item: summon those two from the F10 menu, which should take about a minute. `next.md` and `done.md` are updated. Nothing was committed or pushed this run beyond the earlier `pc/merge-autoruntime-polish` branch.
-
-2026-10-22 20:58 pc CHECKPOINT | task: automatic boss setup (#23436/#23905/#23909) | DONE: merged build (pc2/autoruntime static move lists + polish rows/Ki-dmg + auto arenas + summon-all) INSTALLED, Training asi sha 1781C86C, game relaunched PID 19452 | UNPROVEN: everything in game; poison/burn dmg scaling not done | NEXT: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko; collect ally bench RESULTs (#23929) and pc2 results; when ALL requested done ping human 10x on Discord (#23933); stale marker uo-agentd/pc/test-active (19:30) should be deleted | files: captures/install_autoruntime_1025.ps1, worktrees ../nioh3-merge1025 ../nioh3-polish
-
 ## 2026-10-22 21:39:46 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
 I sent ally the GO for its benchmark job (#24116), with a smaller scope than it proposed. No benchmark numbers have come back yet.
 
@@ -350,4 +332,11 @@ I haven't touched the game this turn.
 I told the user the Ally should now benchmark much faster, since its CPU hits 4.1 GHz under load again instead of about 0.9 GHz. That is a guess: I haven't seen any new Ally numbers yet.
 
 I said the first valid runs are due soon and that I'd send them when they land. I haven't touched the game, and I'm still waiting on the Ally's results.
-2026-10-23 16:57:43 | cx-pc2 | #27220 acc5 plan (5 arms x2, A B C D E E D C B A) prepared + validate_acc5.py + snapshot_config.py, pushed a5c411a8 on cx-pc2/acc5-27220 (worktree nioh3-acc-27220) | DryRun only, game never run | unproven: validator on real acc5 runs, RAPL power unit | next: pc2 runs plan; if asked add CPU-power (rapl Energy Meter Power) to a collector copy and E-vs-B cross-group line in aggregate_fg3arm.py (main 55c87afc) | also open: none
+
+## 2026-10-23 19:58:01 session b0fc9051-736a-4c8e-a18e-14ee016e3f16
+The answer to the user is no: this PC hasn't started the default + fps-fix-only run. I was told not to touch the game in this run, so I haven't launched it.
+
+I told them it launches in my next work run: same boss fight, god mode on, game speed logged. I logged the next step in `.handoff/next.md`: build and launch the main-PC arm B after taking the game lock and backing up saves. The earlier final-bench runner scripts in `captures/audit-final-20261023/` are the pattern to follow. pc2 and the Ally are already on their sets.
+
+2026-10-23 8:04 pm EDT | #27165 delivered27300: fixed-speedFGON means stocklike+VRR74.825 vs pure73.555fps; speeds~1x all4, no reliable FPSwin; CPUtemp/powern/a. | New27234: ONLY missing A/B4runsFGoff next; reuse C8/11,D9/10,E2/5 after HP audit (30positive samples/run). Game restored after confirmation, pending separate health-guard runner fromcx-pc2. | Evidence3002b25a, files1699/1700.
+2026-10-23 cx-pc2 | #27228/#27247 acc5 plan v2 pushed 8f48442b (branch cx-pc2/acc5-27220, worktree nioh3-acc-27220): E=C+FSR, missing-only 8-run plan acc5-noE-pc2-27228 (A B C D D C B A), reuse map, runner copy audit_screen_run_acc5.ps1 with player-alive guards, validator per-run config/speed | proven: parse OK, validator on spd-0001..4 PASS; unproven: runner copy never run in game | next: pc2 runs acc5-noE plan with -Plan <dir> after speed27165, E reused from spd-pc2-0002/0003 unless lead rejects | files: tools/rematch/make_acc5_runner.py, validate_acc5.py
