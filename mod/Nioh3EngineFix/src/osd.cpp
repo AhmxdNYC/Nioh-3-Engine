@@ -1,3 +1,4 @@
+#include "halfrate.h"
 // osd.cpp - in-game overlay for Nioh3EngineFix (see osd.h and notes\osd-design.md).
 //
 // How it works
@@ -246,6 +247,7 @@ void NotePresentThread(int64_t now) {
     if (t_named) {
         if (!t_isFsr) g_gamePresentTid = tid;
         InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
+        if (!t_isFsr) halfrate::OnGamePresent();
         return;
     }
     t_named = 1;
@@ -258,6 +260,7 @@ void NotePresentThread(int64_t now) {
     }
     if (!t_isFsr) g_gamePresentTid = tid;
     InterlockedIncrement64(t_isFsr ? &g_nFsr : &g_nGame);
+    if (!t_isFsr) halfrate::OnGamePresent();
     OLOG("Present called from thread %lu \"%s\"", tid, name.c_str());
 }
 

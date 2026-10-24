@@ -17,6 +17,8 @@ struct StartInfo {
 
 void Start(const StartInfo& info);
 bool Installed();
+void OnGamePresent();  // telemetry only; no policy changes
+void LogLine();        // cumulative counters, existing log, once per second
 int Enabled(int channel);          // 0 shadow, 1 GI, 2 clouds
 void SetEnabled(int channel, int on);
 const char* StatusLine(char* buf, size_t n);

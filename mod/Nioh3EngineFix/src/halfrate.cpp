@@ -39,6 +39,20 @@ CRITICAL_SECTION g_cs;
 bool g_csInit = false;
 bool g_installed = false;
 World g_world;
+struct Counts {
+    uint64_t reusedFrames = 0, recomputedFrames = 0, mixedFrames = 0, absentFrames = 0;
+    unsigned pending = 0;
+};
+Counts g_counts[kChannels];
+uint64_t g_frames = 0;
+SRWLOCK g_countLock = SRWLOCK_INIT;
+void Count(int channel, bool reuse) {
+    AcquireSRWLockExclusive(&g_countLock);
+    g_counts[channel].pending |= reuse ? 1u : 2u;
+    if (reuse) InterlockedIncrement64(&g_reuses[channel]);
+    else InterlockedIncrement64(&g_updates[channel]);
+    ReleaseSRWLockExclusive(&g_countLock);
+}
 
 void Log(const char* fmt, ...) {
     if (!g_log) return;
@@ -63,15 +77,15 @@ void Unlock() {
 
 int Gate(int channel, bool allow) {
     if (channel < 0 || channel >= kChannels) return 0;
-    if (!g_on[channel] || !allow) return 0;
+    if (!g_on[channel] || !allow) { Count(channel, false); return 0; }
     Lock();
     const Act a = Decide(g_world, channel, allow);
     Unlock();
     if (a == Act::Reuse) {
-        InterlockedIncrement64(&g_reuses[channel]);
+        Count(channel, true);
         return 1;
     }
-    InterlockedIncrement64(&g_updates[channel]);
+    Count(channel, false);
     return 0;
 }
 
@@ -239,6 +253,43 @@ bool FillJmp(Write& w, uint8_t* site, unsigned len, uint8_t* cave) {
 }
 
 }  // namespace
+
+// Count observed game-thread Present windows, never generated-presenter frames.
+// A mixed window has both reused and recomputed calls (e.g. different cascades).
+void OnGamePresent() {
+    AcquireSRWLockExclusive(&g_countLock);
+    ++g_frames;
+    for (auto& c : g_counts) {
+        if (c.pending & 1) ++c.reusedFrames;
+        if (c.pending & 2) ++c.recomputedFrames;
+        if (c.pending == 3) ++c.mixedFrames;
+        if (!c.pending) ++c.absentFrames;
+        c.pending = 0;
+    }
+    ReleaseSRWLockExclusive(&g_countLock);
+}
+void LogLine() {
+    if (!g_installed || !g_log) return;
+    Counts counts[kChannels];
+    long long updates[kChannels], reuses[kChannels];
+    uint64_t frames;
+    AcquireSRWLockExclusive(&g_countLock);
+    frames = g_frames;
+    for (int i = 0; i < kChannels; ++i) {
+        counts[i] = g_counts[i];
+        updates[i] = g_updates[i]; reuses[i] = g_reuses[i];
+    }
+    ReleaseSRWLockExclusive(&g_countLock);
+    const char* keys[] = {"HRS", "HRG", "HRC"};
+    for (int i = 0; i < kChannels; ++i) {
+        const auto& c = counts[i];
+        Log("HalfRate: %s enabled=%d frames=%llu reused_frames=%llu recomputed_frames=%llu mixed_frames=%llu absent_frames=%llu reused_calls=%lld recomputed_calls=%lld pending=%u clock=game_present totals=1",
+            keys[i], Enabled(i), (unsigned long long)frames,
+            (unsigned long long)c.reusedFrames, (unsigned long long)c.recomputedFrames,
+            (unsigned long long)c.mixedFrames, (unsigned long long)c.absentFrames,
+            reuses[i], updates[i], c.pending);
+    }
+}
 
 bool Installed() { return g_installed; }
 int Enabled(int channel) { return (channel >= 0 && channel < kChannels && g_on[channel]) ? 1 : 0; }
