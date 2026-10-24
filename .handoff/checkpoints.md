@@ -338,3 +338,35 @@ The answer to the user is no: this PC hasn't started the default + fps-fix-only 
 
 I told them it launches in my next work run: same boss fight, god mode on, game speed logged. I logged the next step in `.handoff/next.md`: build and launch the main-PC arm B after taking the game lock and backing up saves. The earlier final-bench runner scripts in `captures/audit-final-20261023/` are the pattern to follow. pc2 and the Ally are already on their sets.
 2026-10-23 20:27 | pc arm B done | fps-fix vs stock-like ~equal fps on pc; speed unlogged | wait ally/pc2, build chart | captures/final-bench/*B*
+2026-10-23 8:37 PM Eastern | cx-pc #27402: DRAFT bench chart/table pushed 78bd3c8a (cx-pc/bench-chart), local ../nioh3-bench-chart/docs/bench-draft.{png,md}. 14 measured aggregates, 16 PC capture counts verified, separate fix-only baseline; PC2 VRR-off caveat and Ally pending. Next pc review/integrate then update pending results; generator docs/build_bench_draft.py.
+
+2026-10-23 8:43 PM Eastern | cx-pc #27408 | three README refreshes committed/pushed e6c3d65b on cx-pc/readme-refresh; no main merge.
+Verified 55 INI defaults, local links, unchanged renderer section; docs cover source/integration differences. Next pc: review/cherry-pick documentation; benchmark chart remains separate.
+2026-10-23 8:46 PM Eastern | cx-pc #27430: benchmark redesign pushed f58a3a24 cx-pc/bench-chart; Discord file sends confirmed for PC, PC2, combined PNG. Sorted avg/1%/derived0.1 bars, deltas, PC frametime traces + CPU/display panels; unavailable sensors hatched, PC2 invalid-stock deltas withheld, Ally pending. Next pc review/integrate docs/bench-draft*.png/md. No game touched.
+2026-10-23 8:52 PM Eastern | cx-pc #27449: 9317dcaa pushed cx-pc/bench-chart; fixed REAL DEFAULT/REAL FPS FIX/SAFE MODE/EVERYTHING colours/order, +FG labels, proxy caveats. Three Discord PNG sends confirmed. Next pc review docs/bench-draft*.png; no game or measurement changes.
+
+2026-10-23 8:59 PM Eastern | cx-pc #27479: hitch panels built and pushed cb1505c4 on cx-pc/bench-chart; 16 raw PC captures hash/count verified, strict thresholds/percentile checks PASS.
+PC paired FPS-fix worst 111.09 ms, >50 ms 1.00/min vs default 21.60 ms, 0/min; descriptive only, game untouched. Next: send PNGs to Discord and pc review; docs/bench-draft-hitches.md + pc-hitches.json.
+
+- 2026-10-23 9:02 PM EDT cx-pc #27507: README draft pushed 4b2c8b37 on cx-pc/readme-final-27507 (based on e6c3d65b); report/Vercel workflow, one EngineFix INI OS auto-detection, optimization groups, pad/frame/KI features, benchmark table and chart evidence. 27 links and 19 imported evidence files verified; no code/game changes. Next pc: review branch only, do not merge to main until approved; final fleet figures still await valid PC2 baseline/Ally.
+
+2026-10-23 9:02 PM Eastern | cx-pc #27491 | PC2 five-arm chart update pushed f3381603 on cx-pc/bench-chart; 10 files, retained bridge 1712/1713 inputs.
+Exact FPS/lows, FG flags, B-relative deltas and PNG integrity/size PASS; offline only. Next: send PC2 + combined PNGs to Discord, pc review. Hitch panel retained from cb1505c4; PC2 raw intervals unavailable.
+
+2026-10-23 9:02 PM Eastern | cx-pc #27491 | PC2 and combined PNGs successfully sent via Discord notify; source f3381603 pushed.
+Next pc: consume charts; PC2 hitch counts remain n/a until raw intervals are supplied.
+
+2026-10-23 9:07 PM Eastern | cx-pc #27555: MPC20 guarded scalarization built/signed; branch cx-pc/mpc-scalar-27555 pushed. 149 original/298 candidate blocks checked, 3 mutation tests caught, 38 other records unchanged.
+Native/perf and full interpreter untested; no game touched. Next: finish ranked CPU/preset plan and deliver branch + artifact; files gpu-shaders/meshcull/{mpc_uniform,verify_mpc_uniform,build_mpc_uniform}.py + mpc20-uniform-manifest.json.
+
+2026-10-23 9:09 PM Eastern | cx-pc #27555: ranked plan complete/pushed 971e232b (implementation 270191a6), cx-pc/mpc-scalar-27555. Candidate bridge file 1729, sha256 2652a13f0fb7; 38 unchanged records, 3 mutation tests, compiler/roundtrip PASS.
+Native ISA/perf/full interpreter untested; MPC33 planned, CPU wait tuning and opt-in 60%/50% presets ranked with explicit arms. Next pc: review notes/remaining-perf-plan-27555.md, test isolated MPC20 OFF/ON 2 repeats each. No game touched.
+
+2026-10-23 9:10 PM Eastern | cx-pc #27562 | ranked historical Ally GPU/CPU evidence and 5 large-win hypotheses; built opt-in XLOD4 x6, pushed ce4a0f7e cx-pc/big-wins-27562.
+Native ExtraPerf + 257-site pattern validation PASS; ASI B4600562ABBC8F6B02A701DB3FB5D02E35266D8AA70FBAB63425D92C513E98D6. No measured gain/game access. Next pc/ally integrate source into current matched bundle, test XLOD0 vs4.
+2026-10-23 9:11 PM EST | gx-pc #27623 big-risky priority | human wants shadow/GI/cloud half-rate, VRS, dynamic res, culling rewrite first | each opt-in default off, tests on 3 devices later | next code step is meshlet culling milestone 1 | STATUS #27633 | game not opened
+2026-10-23 9:14 PM EST | gx-pc #27660 exclusivity | cx-pc static preset sets REN_RAT 60/50 and DYNAMIC_RESOLUTION OFF, restores originals when disabled, no renderer hooks | gx-pc dynamic-res hook must stay off while that preset is on | next build is still meshlet culling opt-in | STATUS #27668 | game not opened
+2026-10-23 9:14 PM EDT | cxl-pc #27602: offline VRS/native particle contribution pushed cxl-pc/vrs-27602 at 9b410b3c (base helper fb6dc6c7).
+Proven: standalone header compiles /W4 /WX, mock feature/admission/state-restore tests pass, independent review no blocker. UNPROVEN: integration, actual device VRS, depth-aware merge, any game gain.
+Next pc/team: integrate typed draw wrappers after exact PSO qualification; witness native EffReduction scale/depth bindings before override. Note notes/big-wins-vrs-particles-27602.md; worktree ../nioh3-vrs-27602. No game touched.
+2026-10-23 21:15 pc | final-bench coordination. DONE: pc arm B (fps fix vs stock-like, 82.8 vs 81.9 avg, results captures/final-bench/results-pc-final-B.csv); pc2 14 cells done (#27552, SAFE 46 / fix 42.8 FG off; files 1722-1724, branch cx-pc2/pc2-fg3arm-26768); cx-pc charts (cx-pc/bench-chart cb1505c4/f3381603, with hitch panels), README draft (cx-pc/readme-final-27507 4b2c8b37). HALF: Ally redo (asked status #27662, ETA was 9:15pm EST; 5-arm A-E ~10:45pm); pc2 per-key GPU sweep running (#27558); big-win study gx-pc (notes/big-wins-gx-27597.md) + cx-pc XLOD integrate (#27635). NEXT: relay ally status to human (#27654), then final chart+README table with ally, publish to main (big merge, main ~617 files behind), queue Ally XLOD OFF/ON test after its bench. Game closed, no marker.
