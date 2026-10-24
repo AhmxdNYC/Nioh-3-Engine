@@ -6,6 +6,10 @@ The curated public source repository is [AhmxdNYC/Nioh-3-Engine](https://github.
 
 The tested baseline is **1.7.61**, with CBN=1, CBT=1, CBS=0, CBF=0, FrameOverlap=0, Extra Performance preset=0, ShaderSwap=0 and ShaderHot=0. PC, pc2 and Ally component smokes passed. A complete benchmark of this default stack against EngineFix absent is still pending. A new patch-installation safety candidate is under isolated validation; it is not the tested baseline.
 
+## Final bench charts
+
+`tools/bench/final_full_report.py` reads `captures/final-full/<device>/results.csv` and writes [docs/final-bench/report.md](docs/final-bench/report.md). The arms are stock, pure-perf, and full. The charts are average fps, 1% low, hitches, CPU and GPU temperature, power, and utilization, for PC, pc2, and the Ally, with frame generation off and on. A row is used only when `valid` is 1. On 2026-10-24 that folder has 0 valid rows (the PC file has 1 invalid row: no game window). No fps number is drawn from it.
+
 ## Measured component results
 
 These are single-feature A/B measurements at fixed gameplay spots, not whole-mod gains. Values are paired percent differences with standard errors. PC and remote trials each used three adjacent pairs in one launch.
