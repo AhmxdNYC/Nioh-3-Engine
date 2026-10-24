@@ -1,43 +1,4 @@
 
-## 2026-10-22 21:39:46 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
-I sent ally the GO for its benchmark job (#24116), with a smaller scope than it proposed. No benchmark numbers have come back yet.
-
-Ally's job needed 27 arms, about 2 hours of game time. I cut it to:
-- **Item 1 first:** PP off versus on, three interleaved fights per arm, one fight per launch.
-- **Then item 2, then item 3** if time allows.
-- **Abort rule:** drop any arm that is under 30 fps in the open world.
-- **Control run:** ally records the fps drop on the first summon separately and runs one fight with `Nioh3Training.asi` removed. That drop (36 to 3–10 fps, CPU at 98%) might be the Training mod's own load on the Ally's CPU rather than low RAM.
-- **Steam:** it leaves Steam and its web helper alone, per the correction I sent earlier.
-- **Input fix:** if the Continue prompt ignores the virtual pad, it should use the input path that worked on its first launch.
-
-Results should come back per arm with average fps and 1% low.
-
-I haven't sent the 10 Discord pings. Ally's benchmarks and pc2's Himiko fix are both still open.
-2026-10-22 21:55 pc: built combined pc/all-1022 (pc2/autoruntime-all f0237741 + pc/autostagger), pushed; worktree ../nioh3-autoall, Training.asi sha cd089a4a (mod/Nioh3Training/Nioh3Training.asi there). NOT installed: another job's test marker is fresh (game PID 24224 started 9:50pm). NEXT: when marker clears, back up + copy asi to game dir, relaunch, check ARENASCAN + autobind lines for Himiko/Kappa/Ibaraki, send result.
-2026-10-22 21:58 pc: pc/all-1022 (Training cd089a4a) INSTALLED, game PID 20848 loads, ARENASCAN 131 rows. Earlier test same day showed Himiko FINAL COMPOSED 376/376 rows in game on pc. Backup captures/pc/play-20261022-pre-all1022.
-
-- 2026-10-22 10:27 PM EDT | cx-pc #24269: two-stage planner c9cc05aa and revised settings-audit-plan.md DONE; Stage 1 pc/pc2/ally 32/31/31 keys, 69/67/67 captures including 5 baseline anchors/device.
-  Proven: 9 offline tests PASS; fixed Yoritomo R7B35 fight-now/60s/PresentMon; Stage 2 only drift-qualified keys, 3+3, KEEP mean gain >2x baseline spread and no 1% low regression. No game touched.
-  Next: pc integrates planner, game owners run split screens and return results-template.csv to generate confirmation.
-2026-10-22 22:35 | pc: auto move lists / duelists / report button / settings audit | DONE+verified in game on pc: Yoritomo 173 moves, Red Kappa 107/107, Mikoshi, Ippon-Datara, Himiko (composed 376/376); merged branch pc/merge-kappa (worktree ../nioh3-merge1025, pushed) = pc2/autoruntime-all + polish-23924 + cx-pc report button; Report-button build installed 22:18 (another pc session testing it, marker 22:18). UNPROVEN: Report button UI in game; Ogin/Denrinbo/Kawara AUTOBIND in game (pc2 #24262 33/33 duelists, needs actionsets.tsv, installer captures/install_actionsets_1022.ps1 queued hidden); ally bench #23929 (GO sent, reduced scope, no result yet). NEXT: when game closed install actionsets.tsv, spawn Ogin + check Report button; then cx-pc 2-stage settings audit (#24269) -> post board tasks bench,on:pc/pc2/ally; then stock vs mod boss benchmark 3 devices x3 runs (#24195); then ping human ~10x on Discord (#23933). | files: captures/install_*_1022.ps1, branch pc/merge-kappa, cx-pc/settings-audit
-2026-10-22 22:30 | pc: pc2 autoruntime-all 10ef2467 confirmed merged in pc/merge-kappa (ebdade8a) + installed (asi d3cf3ccac50d); actionsets.tsv installed in game dir | UNPROVEN in game: Ogin/Denrinbo/Kawara autobind | NEXT: launch, summon Ogin, check AUTOBIND log; then settings audit, final bench, 10x ping | branch pc/merge-kappa
-2026-10-22 22:35 pc CHECKPOINT | task: finish all requested work then 10x Discord ping (#23933) | DONE+tested in game: auto move lists (Yoritomo/Mikoshi/Datara/Kappa 100%, Himiko composed 376/376), auto arenas, Report-a-problem button (Practice page; zip clean; site URL empty -> need grok's URL for [Report] Url in Nioh3BossRematch.ini), duelists 33 resolve (pc2). Installed build = merge1025 + report button. Game closed | HALF-DONE: settings audit stage 1 (board task #110 claimed by pc, plan notes/settings-audit-plan.md, captures/audit-screen/<device>/; pc2+ally have own tasks; one setting at a time); ally #23929 bench was RAM-blocked, reduced scope; poison/burn dmg scaling not done | NEXT: finish #110 on pc, collect pc2/ally audit RESULTs, run stage 2 (3 OFF+3 ON) for advancing keys, then final stock-vs-mod boss bench on all 3 devices (#24195), then 10x Discord ping; in-game menu driving: py -I tools/testmatrix/vpad.py key F10/DOWN/RETURN | files: .handoff/next.md open.md done.md
-2026-10-22 22:35 | menu 2 pages (same-picture vs may-change-look) built, compiles | NOT yet tested in game | next: install after audit slot frees the game, F10 -> 'Settings page' row, check both pages | menu.cpp
-- 2026-10-22 10:51 PM EST | gx-pc checked #23272 PJ bench | capture matches 0 hitches, worst about 13 ms | board task 105 still failed with the old not-run text | no rerun | NOTE #24370
-2026-10-22 22:52 pc | settings audit stage 1 (board task #110) RUNNING on pc | runner tools/rematch/audit_screen_run.ps1 (wrapper captures/audit-screen/run-pc-wrapper.ps1, log run-pc.log, results captures/audit-screen/results-pc.csv, resumable: valid rows skipped); first baseline 80.99 avg / 45.81 1%low; ~4 min/run, 69 runs ~4.6h, started 22:46 | finish watcher run-pc-finish.ps1 commits csv, clears test-active marker, sends RESULT | NEXT when done: py -m uo_bridge task report 110, run settings_audit.py --stage confirm with all 3 devices' results | files: tools/rematch/audit_screen_run.ps1
-2026-10-22 10:53 PM EST | gx-pc board 71 action record | 173/136/141 rows for Yoritomo/Shingen/Otoroshi | hit count, damage, name, duration are not fields on the 336-byte row | commit 3669b4d4 pushed on pc/fightnow-swap-wire | next is a live hit-count probe, not run
-2026-10-22 10:58 PM EST | website progress #24420 | 0 files saved | new build started 10:57 pm EST | phone #24422 | next: other gxl-pc slot sends the link | game not touched
-- 2026-10-22 10:58 PM EST | gx-pc #24392 hitbox rows | 182 / 194 / 162 rows | motion does not index the row, the action id does | commit ad80ca1d | RESULT #24423 | game not opened
-2026-10-22 11:00 PM EDT | cxl-pc #24405: offline audit pruning DONE/pushed 29fe08d3 on cxl-pc/audit-short-24405; 92->91 keys, 199->197 captures, only Ally SR provably redundant.
-Proven: 197 preserved run rows, 15 anchors, all 185 copied and committed INI hashes pass. 30s/15s UNPROVEN (only one baseline).
-Next pc: read notes/settings-audit-short-24405.md; retain active 60s run, adopt safe pruning at owner-controlled transition; conditional 30s budget needs fresh stability validation. Separate worktree ../nioh3-audit-short-24405; no game/running files changed.
-2026-10-22 11:05 PM EST | gx-pc #24426 hit count | no stored field; distinct +0xA5 ids | Yoritomo 0x4E6E = 2, Shingen 0x4E4E = 3, Otoroshi 0x4E4E = 1 | commit 50a3c0d8 | RESULT #24449 | game not opened | next: live frame is still required for hits-so-far
-
-2026-10-22 11:08 pm EST | Nioh 3 feedback site serves three forms and files GitHub issues | Proven: page 200, issue #2, feature #3, unnamed file #4 (all closed after the check). Unproven: phone open from another device, GitHub file attach (API 422, files stay on this PC) | Leave the server on port 8791; do not start a second site | branch gxl-pc/mod-site commit 622d3fa1, site/server.py site/index.html
-2026-10-22 23:12 | pc audit runner: retry stalled launch added (every 2nd launch stalled 'no player after Continue'); runs 0001,0003 valid | rerun runner after pass to fill failures (skips valid ones) | tools/rematch/audit_screen_run.ps1
-2026-10-22 11:12 PM EST | #24466 public host | Vercel can, GitHub Pages cannot | PC not signed in to Vercel | phone #24470 #24474 | next: wait for a Vercel sign-in | site stays on port 8791 | game not touched
-2026-10-22 11:22 PM EST | #24486 Vercel setup ready | script site\vercel-signin.ps1 | not published | private site still port 8791 | next: human signs in | game not touched
-
 ## 2026-10-22 23:43:08 session ff0e64e6-687d-4329-a5d8-ecbf60f9cf63
 Ally confirmed its settings audit is running on Linux. It has 3 valid runs done: the baseline plus 2 settings, about 8 minutes each. Its results are in `/tmp/t23929/audit/results.csv` on the ally, and it will push each chunk. It gave no ETA for the full list.
 
@@ -446,3 +407,53 @@ README.md, mod/Nioh3EngineFix/README.md, release/USER_GUIDE.md, notes/archive/re
   Prior-research map saved in notes/big-wins-prior-research-27716.md; VRS runtime coverage remains 0 draws, no measured gain. Next: pc assigns implementation/test; no cxl-pc work in flight.
 2026-10-23 9:15 pm EST | pc final-bench coordination kept from the previous checkpoint | pc arm B 82.8 vs 81.9 avg | pc2 14 cells #27552 | Ally redo and XLOD OFF/ON were still queued then | game was closed
 2026-10-23 10:50 pm EDT | gx-pc #28264 checkpoint | half-rate reuse is already pushed, three menu keys default off, no in-game milliseconds | commit eccb0650 on gx-pc/half-rate-reuse, ASI file 1780 | DRS stays cx-pc and off | next: pc benches one key at a time after the current arms
+2026-10-23 10:45 PM EST | leftover levers ranked for #28243 | none of async, jobs, skinning, or particles clears 3.74 ms | particles 1.34 ms E, jobs about 0 frame ms, skinning has no stamp | commit 8927133e notes/new-levers-28243.md | next: do not build these; the 35% dip stays with cx-pc
+2026-10-23 10:46 PM EST | standing order #28258 checked | gxl-pc code already pushed | lever note 8927133e matches origin; half-rate eccb0650 matches origin | no uncommitted code of mine | next: keep committing each step on its own branch
+
+- 2026-10-23 10:46 PM Eastern | cx-pc #28234: open-world research +15-area renderer coverage pushed b40ff17a on cx-pc/openworld-research-28234; notes/openworld-research-28221.md.
+  Primary external sources + local notes/symbols checked;23 links and3.7435 ms budget arithmetic checked. All new savings are estimates, no game work. Next pc: reuse existing50/35 and half-rate tests, then combat/route G-buffer/VFX/skinning attribution; no new implementation ownership.
+
+2026-10-23 10:46 PM EDT | cx-pc #28242: CPU animation/physics rank complete and pushed c20573da (cx-pc/cpu-anim-28242), notes/cpu-anim-physics-rank.md | reproduced 139 Ally SP windows and 2 PC JT windows; no new runtime result | next pc: reuse existing controls/timing probes before a new optimization build.
+Verdict: no demonstrated >=1 ms animation/physics frame saving; PC joins character+stage 0.424 ms/tick, historical AABB+BPO work estimate 0.62-0.85 ms/tick; pc2 render drain 5.09-6.1 ms is stronger structural target, already studied. No game touched.
+
+2026-10-23 10:49 PM EST | gx-pc #28269 | VRS treats 0 draws: helper unwired and the game never loads the List5 interface | hook exists on draw slots 12 and 13, not built | next: do not wire VRS until a device tier query and one PSO allow-list exist | notes/vrs-followup-28258.md on gx-pc/vrs-followup-28258 76c35f1b | game not opened
+
+- 2026-10-23 10:50 PM Eastern | cxl-pc #28298: offline web research committed/pushed 29722c8c on cxl-pc/openworld-research-28298; notes/openworld-research-28279.md maps 14 technique families to existing hooks and dispositions.
+  Proven: source-backed survey, duplicate check, git diff --check. Unproven: spatial upscaler runtime/quality/gain; complete FSR family ceiling 3.59-3.65 ms <3.74 ms. Next: pc considers only this new hypothesis; existing owners retain tests. No game touched.
+
+- 2026-10-23 10:53 PM Eastern | cx-pc #28343: half-rate cave ABI fix351ef60d on cx-pc/halfrate-abi-28343, artifact1812 SHA2566edadcd4ccfe6514a09af1344ec90a0e7e2c909972603f419ebcd2130ad5beca.
+  Camera RCX + volatile SIMD/flags preserved;3000 executable cave calls + hostile helper + policy/telemetry harnesses PASS, full build PASS. Exact PC2 crash causality unproved. Next pc2: controlled startup test of1812, all OFF first; no game touched by cx-pc.
+2026-10-23 10:56 pm EST | gx-pc #28247 screen-space half-rate | pushed db572882 on gx-pc/post-reuse. HRR 0x295C44 about 0.04 ms E, HRA 0x3688234 about 0.02-0.08 ms E, HRB/HRP not hooked. All keys 0. Harness passed. Game not launched.
+Proven: offline skip/reuse/camera-cut policy. Unproven: frame time, a later SSR merge overwriting the reused target, and whether the 2135-byte AO apply holds the HBAO draws. Caves are the pre-351ef60d entry ABI.
+Next: merge onto cx-pc/halfrate-abi-28343 before any install. Do not turn keys on. Do not replace artifact 1812.
+Files: notes/post-reuse-28247.md, mod/Nioh3EngineFix/src/halfrate.cpp, commit db572882.
+
+- 2026-10-23 10:59 PM Eastern | cx-pc #28358: matched1.7.73-drs-hrabi artifact1813, SHA256729ac5fc763a2fac2c397f69323e90622e038f62fdc757b43dde1b7257c48f77; cx-pc/halfrate-matched-28358 source96433c40.
+  Full build/261 patterns/17 DRS/3000 cave calls+hostile helper PASS; existing menu IDs and6 interface/core files preserved. Next pc2: allOFF startup then existing12-window test with DRS off; native crash fix unproved. No game touched.
+2026-10-23 11:02 pm EST | gx-pc #28247 ABI merge | tip b5e0eb88 on gx-pc/post-reuse includes the register-save caves. HRR 0x295C44 0.04 ms E, HRA 0x3688234 0.02-0.08 ms E. Both harnesses passed. Keys 0. Game not launched.
+Proven: offline policy plus 3000 executable cave calls. Unproven: frame time and whether the SSR merge overwrites the reused target.
+Next: no install until pc assigns a device test. Do not turn keys on.
+Files: mod/Nioh3EngineFix/src/halfrate.cpp, commit b5e0eb88.
+
+## 2026-10-24 00:06:40 session 086e967c-e09e-4942-a9f2-3ab9caf58ce4
+Board task #127 is done on the main PC. Ultra Performance 35% gave no fps gain, and the half-rate build hangs the game at startup, so it has no numbers.
+
+**Ultra Performance 35%** (RX 9070, 1440p XeSS, frame gen off, same Yoritomo fight, 2 repeats per arm):
+
+| | OFF (50% scale) | ON (35%) | Change |
+|---|---|---|---|
+| Avg fps | 90.3 | 89.3 | −1.2% (within noise) |
+| 1% low | about 59.1 | about 56.1 | −5.2% (within noise) |
+| GPU active time | 7.77 and 8.16 ms | 6.94 and 7.33 ms | −0.83 ms |
+
+- **Why no fps gain:** this PC is CPU/pacing-bound, with 7–8 ms of GPU work in an 11 ms frame.
+- **Caveat:** the 35% render size was never sampled, and `config.xml` still read 50 after the ON runs. The 0.8 ms GPU drop fits it being applied, but that is unproven.
+- **Power:** not recorded.
+
+**Half-rate shadow/GI/cloud** (bridge file 1780, the HRS, HRG and HRC keys): the game hangs at startup on all 6 launches, even with every half-rate key off. The same source without half-rate boots at 88–93 fps. That points at the half-rate hooks. I sent the blocker to gx-pc (#28648) to fix and resend.
+
+I filed the result on task #127 and the bridge (#28647), messaged you, and added a line to `.handoff/done.md`. The helper restored the install, config and saves to their pre-test hashes, and no game process or lock marker is left. Its results note (`notes/ultra35-halfrate-pc-127.md`) went to `gx-pc/post-reuse`, not the current branch.
+
+Still pending: Ally's XLOD, fixed-scale and DRS tests. I haven't seen
+
+2026-10-24 12:10 am EST | pc lead: big-wins tests | DONE: pc DRS (#123) no gain 83.8 vs 79.0 fps; pc2 DRS no gain (47.79 vs 47.53); pc Ultra35 (#127) no fps gain 90.3 vs 89.3 (CPU-bound, GPU -0.83ms); half-rate build file1780 hangs at boot (BLOCKED sent to gx-pc #28648). Culling owner = cx-pc (after 35% build). | UNPROVEN: Ally A1 XLOD 0 vs 4 (file 1758), A3 fixed scale 50 vs 35 (file 1762), A4 DRS (art 1765) queued behind Ally 12-run bench (last ETA 9:35 pm, result not yet seen). | NEXT: digest Ally bench RESULT + A1/A3/A4, update charts/README, await gx-pc half-rate fix then re-test on pc/pc2/ally; check pc2 #122/ally #124 board tasks. | files: notes/drs-pc-test-123.md, notes/ultra35-halfrate-pc-127.md (on gx-pc branches), captures/drs-123, captures/test127
