@@ -1,0 +1,5 @@
+window,arm,order,live_control_file,settle_s,measure_s,note
+W1,OFF,1,live-W1-OFF.ini,60,300,native DRS ON both arms; hook Enabled=0 (stock native target)
+W2,ON,2,live-W2-ON.ini,60,300,hook Enabled=1 NativeTargetFPS=40
+W3,ON,3,live-W3-ON.ini,60,300,repeat ON
+W4,OFF,4,live-W4-OFF.ini,60,300,repeat OFF
