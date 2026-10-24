@@ -88,6 +88,45 @@ class Stats(unittest.TestCase):
         result = self.stats(fixture)
         self.assertEqual((result["fps"], result["display_fps"], result["lat_click"]), (100, 50, 7))
 
+    def test_hitch_is_strictly_over_twice_median(self):
+        over = self.stats(self.capture([1, 10, 10, 10, 30]))
+        self.assertEqual(over["hitch_count"], 1)
+        self.assertEqual(over["hitch_worst_ms"], 30)
+        tied = self.stats(self.capture([1, 10, 10, 10, 20]))
+        self.assertEqual(tied["hitch_count"], 0)
+        self.assertIsNone(tied["hitch_worst_ms"])
+
+    def test_lhm_temperature_and_power_headers(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "lhm.csv"
+            p.write_text(
+                "ts,/gpu/core [Temperature],/cpu/package [Power],/gpu/core [Power],/cpu/package [Temperature]\n"
+                "2026-10-24T00:00:00,70,40,180,60\n"
+                "2026-10-24T00:00:01,80,50,200,70\n",
+                encoding="utf-8")
+            got = tm.sensors(p)
+        self.assertEqual(got["gpu_temp"], 75)
+        self.assertEqual(got["cpu_temp"], 65)
+        self.assertEqual(got["gpu_w"], 190)
+        self.assertEqual(got["cpu_w"], 45)
+
+    def test_hitch_columns_sum_and_table(self):
+        with tempfile.TemporaryDirectory() as d:
+            def dump(name, counts, worsts):
+                windows = [dict(ok=True, kind="stand", fps=60, hitch_count=c, hitch_worst_ms=w)
+                           for c, w in zip(counts, worsts)]
+                Path(d, name).write_text(json.dumps(
+                    {"cfg": "STOCK", "preset": "USER", "sweep": None, "valid": True, "windows": windows}),
+                    encoding="utf-8")
+            dump("final_pc_STOCK_USER_r1.json", [1, 2], [40, 55])
+            dump("final_pc_STOCK_USER_r2.json", [3], [70])
+            cell = tm.cells(d, "pc")[("STOCK", "USER", "")]
+            self.assertEqual(cell["hitch_count"], 6)
+            self.assertEqual(cell["hitch_worst_ms"], 70)
+            text = tm.table_md(d, "pc")
+        self.assertIn("| hitch n | hitch worst ms |", text)
+        self.assertIn("|" + "---|" * 18, text)
+
 
 def launches():
     records = []

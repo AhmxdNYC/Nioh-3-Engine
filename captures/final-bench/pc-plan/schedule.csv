@@ -1,7 +1,7 @@
 run_id,device,key,replicate,arm,boss,collector,capture_seconds,warmup_seconds,restart_required,status,ini,result
-fb-pc-0001,pc,final-bench,1,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm1-stocklike.ini,UNMEASURED
-fb-pc-0002,pc,final-bench,2,ARM2-PUREPERF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm2.ini,UNMEASURED
-fb-pc-0003,pc,final-bench,3,ARM3-FULLMOD,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm3.ini,UNMEASURED
-fb-pc-0004,pc,final-bench,4,ARM3-FULLMOD,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm3.ini,UNMEASURED
-fb-pc-0005,pc,final-bench,5,ARM2-PUREPERF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm2.ini,UNMEASURED
-fb-pc-0006,pc,final-bench,6,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/arm1-stocklike.ini,UNMEASURED
+fb-pc-0001,pc,final-bench,1,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,True,planned,pc/arm1-stocklike.ini,UNMEASURED
+fb-pc-0006,pc,final-bench,6,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,False,planned,pc/arm1-stocklike.ini,UNMEASURED
+fb-pc-0002,pc,final-bench,2,ARM2-PUREPERF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,True,planned,pc/arm2.ini,UNMEASURED
+fb-pc-0005,pc,final-bench,5,ARM2-PUREPERF,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,False,planned,pc/arm2.ini,UNMEASURED
+fb-pc-0003,pc,final-bench,3,ARM3-FULLMOD,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,True,planned,pc/arm3.ini,UNMEASURED
+fb-pc-0004,pc,final-bench,4,ARM3-FULLMOD,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,12,False,planned,pc/arm3.ini,UNMEASURED

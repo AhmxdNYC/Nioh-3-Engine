@@ -15,7 +15,7 @@
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\rematch\fightnow_test.ps1 -OwnerPid <agent pid> [-Rows R1CBC,R15FF]
 #        [-IncludeAtFight] [-WaitMinutes 480] [-MaxMinutes 240] [-LoadWaitSec 240] [-DryRun]
-param([int]$OwnerPid = 0, [string]$Device = "pc", [string]$Plan = "", [string]$ResultsCsv = "", [string]$Row = "R7B35", [int]$MeasureSec = 60, [int]$SettleSec = 8, [int]$WarmupSec = 30, [int]$MaxRetries = 1, [int]$MaxRuns = 0,
+param([int]$OwnerPid = 0, [string]$Device = "pc", [string]$Plan = "", [string]$ResultsCsv = "", [string]$Row = "R7B35", [int]$MeasureSec = 60, [int]$SettleSec = 8, [int]$WarmupSec = 30, [int]$MaxRetries = 1, [int]$MaxRuns = 0, [int]$ChunkSec = 0,
       [int]$WaitMinutes = 480, [int]$MaxMinutes = 240, [int]$LoadWaitSec = 240, [string]$PerfAsi = "", [bool]$KeepBuild = $true, [switch]$DryRun)
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -89,7 +89,7 @@ function Wait-RM([scriptblock]$cond, [int]$sec, [int]$poll = 1) {
     return $null
 }
 
-$script:gamePid = 0; $script:locked = $false; $script:installed = $false; $script:saved = $false; $script:had = @{}; $script:launchN = 0
+$script:gamePid = 0; $script:locked = $false; $script:installed = $false; $script:saved = $false; $script:had = @{}; $script:launchN = 0; $script:swapMode = $false; $script:fightOffset = 0
 function Launch {
     Assert-Launch
     $before = VP-ForegroundInfo
@@ -154,7 +154,20 @@ function Combat-Pass {
     foreach ($c in @("press RB 80","wait 450","press RB 80","wait 450","press RB 80","wait 500","hold LB","wait 1100","release LB","stick L 0 -1 400","press RB 80","wait 500","press A 80","wait 700")) { $null = VP $c }
 }
 function Pos([string]$s) { return (F $s 'pos') }
-$armCsv = "$out\arms.csv"; "arm,n,seconds,avg_fps,low1_fps,cpu_cores,cpu_pct_one_core,loads,valid,note" | Set-Content $armCsv
+function Test-RowRestart($row) {
+    if (@($row.PSObject.Properties.Name) -notcontains 'restart_required') { return $true }
+    return "$($row.restart_required)".Trim() -notmatch '^(?i:false|0|no)$'
+}
+function Get-RowWarm($row) {
+    if (@($row.PSObject.Properties.Name) -contains 'warmup_seconds' -and "$($row.warmup_seconds)".Trim() -match '^\d+$') { return [int]$row.warmup_seconds }
+    return $WarmupSec
+}
+function Get-ArmEst($row, [bool]$reuseArm) {
+    $e = $SettleSec + (Get-RowWarm $row) + $MeasureSec
+    if (-not $reuseArm) { $e += 17 }   # launch fixed sleeps 9 + close 8; title-continue waits are not in this estimate
+    return $e
+}
+$armCsv = "$out\arms.csv"; "arm,n,seconds,avg_fps,low1_fps,cpu_cores,cpu_pct_one_core,loads,valid,note,hitch_count,hitch_worst_ms" | Set-Content $armCsv
 Init-Guard -Name "ibaraki_bench" -OwnerPid $OwnerPid -MaxMinutes $MaxMinutes -Cleanup { Close-Game; Restore; Stop-TestPopup }
 try {
     T "audit_screen_run: device $Device row $Row measure $MeasureSec s out=$out"
@@ -183,10 +196,29 @@ try {
     $done = @{}; foreach ($r in (Import-Csv $ResultsCsv)) { if ($r.valid -eq "1") { $done[$r.run_id] = 1 } }
     $armN = 0
     $ran = 0
-    foreach ($run in $sched) {
+    $chunkT0 = Get-Date
+    for ($ri = 0; $ri -lt $sched.Count; $ri++) {
+        $run = $sched[$ri]
         $arm = $run.arm; $armN++; $tag = $run.run_id
         if ($done[$tag]) { T "skip $tag (already valid)"; continue }
         if ($MaxRuns -and $ran -ge $MaxRuns) { T "chunk of $MaxRuns runs done - stop (re-run for the next chunk)"; break }
+        $restart = Test-RowRestart $run
+        $warm = Get-RowWarm $run
+        $alive = $false
+        if ($script:gamePid) {
+            $gpAlive = Get-Process -Id $script:gamePid -ErrorAction SilentlyContinue
+            $alive = [bool]($gpAlive -and -not $gpAlive.HasExited)
+        }
+        $reuseLive = (-not $restart) -and $alive
+        if ($ChunkSec -gt 0 -and $ran -gt 0) {
+            $elapsed = ((Get-Date) - $chunkT0).TotalSeconds
+            $est = Get-ArmEst $run $reuseLive
+            if ($restart -and ($ri + 1) -lt $sched.Count) {
+                $nx = $sched[$ri + 1]
+                if (-not (Test-RowRestart $nx) -and "$($nx.ini)" -eq "$($run.ini)" -and -not $done[$nx.run_id]) { $est += (Get-ArmEst $nx $true) }
+            }
+            if (($elapsed + $est) -gt $ChunkSec) { T "chunk ${ChunkSec}s would be exceeded ($([int]$elapsed)s + ${est}s) - stop (re-run continues)"; break }
+        }
         $ran++
         if (Test-Path (Join-Path $repo ".handoff\PAUSED")) { T "PAUSED - stop"; break }
         Set-TestStatus "run $armN/$($sched.Count): $($run.key) $arm"
@@ -195,8 +227,16 @@ try {
         [IO.File]::WriteAllText($perfIni, $iniText, (New-Object Text.UTF8Encoding($false)))
         Copy-Item $perfIni "$out\$tag.ini" -Force
         $tag = $run.run_id
-        $pm=$null; $cp=$null; $fatal=$false
+        if (-not $reuseLive -and $alive) { Close-Game }
+        $pm=$null; $cp=$null; $fatal=$false; $valid=$false
         try {
+            if ($reuseLive) {
+                T "  reuse pid $($script:gamePid) for $tag (restart_required false)"
+                $trainingLog="$GameDir\Nioh3Training.log"
+                $fightOffset = $script:fightOffset
+                $swapMode = [bool]$script:swapMode
+                Set-AuditForeground $script:gamePid
+            } else {
             for ($att = 1; $att -le 2; $att++) {   # a launch that stalls before the player loads (about every 2nd run on pc) is retried once
                 try { $null = Launch; break } catch { T "  launch attempt $att failed: $($_.Exception.Message)"; if ($att -ge 2) { throw }; Close-Game }
             }
@@ -218,8 +258,11 @@ try {
                 if(-not(Test-AuditBossHeartbeat $fresh)){throw "AUDIT-FATAL: swap acknowledged but no NEW live boss heartbeat: $(RMP status)"}
             }
             T "  in the fight: $(RMP status)"
+            $script:swapMode = [bool]$swapMode
+            $script:fightOffset = $fightOffset
+            }
             Start-Sleep $SettleSec
-            $w0 = Get-Date; while (((Get-Date) - $w0).TotalSeconds -lt $WarmupSec) { Combat-Pass }
+            $w0 = Get-Date; while (((Get-Date) - $w0).TotalSeconds -lt $warm) { Combat-Pass }
             $p0 = Pos (RMP status); $null = VP "stick L 0 1 1200"; Start-Sleep 1; $p1 = Pos (RMP status)
             T "  gate: player=$(F (RMP status) 'player') fnow=$(F (RMP status) 'fnow') pos $p0 -> $p1"
             Shot "$tag-gate"
@@ -278,13 +321,18 @@ try {
             $cj = if (Test-Path $cpuOut) { (Get-Content $cpuOut | Select-Object -Last 1 | ConvertFrom-Json) } else { $null }
             $cpuTxt = if ($cj) { ($cj | ConvertTo-Json -Compress -Depth 4) } else { "" }
             $valid = ($loads -eq 0 -and $ms.Count -gt 500)
-            T "  ARM $tag : avg_fps=$fps low1_fps=$low1 frames=$($ms.Count) over $([math]::Round($sec,1)) s loads=$loads valid=$valid cpu=$cpuTxt"
+            $hj = py -I "$repo\tools\bench\arm_budget.py" hitch-csv $pmCsv | ConvertFrom-Json
+            $hN = [int]$hj.count; $hW = $hj.worst
+            T "  ARM $tag : avg_fps=$fps low1_fps=$low1 frames=$($ms.Count) over $([math]::Round($sec,1)) s loads=$loads valid=$valid hitch_count=$hN hitch_worst_ms=$hW cpu=$cpuTxt"
             $ft = [math]::Round(1000.0 / $fps, 4)
             ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},' -f $tag, $tmpl[$tag].fixture, $tmpl[$tag].ini_sha256, [int]$valid, $fps, $low1, $ft, $run.key, $arm, $ms.Count, $loads) | Add-Content $ResultsCsv
-        } catch { $fatal=$_.Exception.Message -like 'AUDIT-FATAL:*'; T "!! run $tag failed: $($_.Exception.Message)"; "$tag,$($tmpl[$tag].fixture),$($tmpl[$tag].ini_sha256),0,,,,$($run.key),$arm,,,$($_.Exception.Message -replace '[,\r\n]',' ')" | Add-Content $ResultsCsv }
+            $cpuCores = if ($cj -and $null -ne $cj.cpu_cores) { $cj.cpu_cores } else { "" }
+            $cpuOne = if ($cj -and $null -ne $cj.cpu_pct_one_core) { $cj.cpu_pct_one_core } else { "" }
+            "$arm,$armN,$([math]::Round($sec,1)),$fps,$low1,$cpuCores,$cpuOne,$loads,$([int]$valid),,$hN,$hW" | Add-Content $armCsv
+        } catch { $fatal=$_.Exception.Message -like 'AUDIT-FATAL:*'; $valid=$false; T "!! run $tag failed: $($_.Exception.Message)"; "$tag,$($tmpl[$tag].fixture),$($tmpl[$tag].ini_sha256),0,,,,$($run.key),$arm,,,$($_.Exception.Message -replace '[,\r\n]',' ')" | Add-Content $ResultsCsv }
         # Only capture children created by this run; never terminate other ETW consumers.
         foreach($child in @($pm,$cp)){if($child){$child.Refresh();if(-not $child.HasExited){Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue}}}
-        Close-Game
+        if ($fatal -or -not $valid) { Close-Game }
         if($fatal){throw 'AUDIT-FATAL: batch stopped after infrastructure failure; inspect per-run capture logs before retry'}
     }
 } catch { $script:auditFailed=$true; T "!! $($_.Exception.Message)" }
