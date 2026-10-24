@@ -57,6 +57,35 @@ class Means(unittest.TestCase):
                 text = handle.read()
             self.assertIn("No valid measurement", text)
             self.assertNotIn("77", text)
+            self.assertIn("pending", text)
+        finally:
+            shutil.rmtree(root)
+            shutil.rmtree(out)
+
+    def test_ally_codes_and_sensor_aliases(self):
+        root = tempfile.mkdtemp()
+        out = tempfile.mkdtemp()
+        try:
+            write(os.path.join(root, "captures", "final-full", "ally", "results.csv"),
+                  "label,arm,fg,avg_fps,low1_fps,hitches_2x,cpu_temp,gpu_temp,cpu_power,gpu_power,cpu_load,gpu_load\n"
+                  "c1,a1,off,10,8,0,70,60,9,20,50,99\n"
+                  "c2,a3,off,12,9,6,71,61,10,21,55,98\n")
+            write(os.path.join(root, "captures", "final-full", "pc2", "results.csv"),
+                  "run_id,arm,fg,avg_fps,hitch_n,cpu_c,gpu_c,cpu_w,gpu_w,cpu_pct,gpu_pct\n"
+                  "r1,ARM2-PUREPERF,off,40,1,66,67,76,120,96,98\n")
+            info = fr.write_report(root, out)
+            self.assertEqual(info["rows"], 3)
+            self.assertIn("avg_fps.svg", info["charts"])
+            with open(os.path.join(out, "report.md"), encoding="utf-8") as handle:
+                text = handle.read()
+            self.assertIn("c1", text)
+            self.assertIn("| ally | off | stock | 1 | 10.00 |", text)
+            self.assertIn("| ally | off | full | 1 | 12.00 |", text)
+            self.assertIn("| pc2 | off | pure-perf | 1 | 40.00 |", text)
+            png = os.path.join(out, "avg_fps.png")
+            if os.path.isfile(png):
+                with open(png, "rb") as handle:
+                    self.assertEqual(handle.read(8), b"\x89PNG\r\n\x1a\n")
         finally:
             shutil.rmtree(root)
             shutil.rmtree(out)

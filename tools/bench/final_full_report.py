@@ -16,22 +16,22 @@ import sys
 from collections import defaultdict
 
 ARMS = (
-    ("stock", ("arm1-stocklike", "stock", "stocklike", "arm1")),
-    ("pure-perf", ("arm2-pureperf", "pureperf", "pure-perf", "pure_perf", "arm2")),
-    ("full", ("arm3-fullmod", "fullmod", "full", "arm3")),
+    ("stock", ("arm1-stocklike", "stock", "stocklike", "stock-like", "arm1", "a1")),
+    ("pure-perf", ("arm2-pureperf", "pureperf", "pure-perf", "pure_perf", "arm2", "a2")),
+    ("full", ("arm3-fullmod", "fullmod", "full", "arm3", "a3")),
 )
 ARM_ORDER = [a[0] for a in ARMS]
 ARM_COLOR = {"stock": "#8b949e", "pure-perf": "#3fb950", "full": "#58a6ff"}
 METRICS = (
     ("avg_fps", "Average fps", ("avg_fps",)),
     ("low1_fps", "1% low fps", ("low1_fps", "low_1_fps")),
-    ("hitches", "Hitches", ("hitches", "hitch_count", "hitch")),
-    ("cpu_temp", "CPU temp C", ("cpu_temp", "cpu_temp_c")),
-    ("gpu_temp", "GPU temp C", ("gpu_temp", "gpu_temp_c")),
+    ("hitches", "Hitches", ("hitches", "hitch_count", "hitch", "hitch_n", "hitches_2x")),
+    ("cpu_temp", "CPU temp C", ("cpu_temp", "cpu_temp_c", "cpu_c")),
+    ("gpu_temp", "GPU temp C", ("gpu_temp", "gpu_temp_c", "gpu_c")),
     ("cpu_power", "CPU power W", ("cpu_power", "cpu_power_w", "cpu_w")),
     ("gpu_power", "GPU power W", ("gpu_power", "gpu_power_w", "gpu_w")),
-    ("cpu_util", "CPU util %", ("cpu_util", "cpu_load")),
-    ("gpu_util", "GPU util %", ("gpu_util", "gpu_load")),
+    ("cpu_util", "CPU util %", ("cpu_util", "cpu_load", "cpu_pct")),
+    ("gpu_util", "GPU util %", ("gpu_util", "gpu_load", "gpu_pct")),
 )
 DEVICE_ORDER = ("pc", "pc2", "ally")
 FG_ORDER = ("off", "on")
@@ -106,6 +106,7 @@ def load_csv(path, device, default_fg):
                 "device": norm_device(folded.get("device") or device),
                 "fg": norm_fg(folded.get("fg") or folded.get("frame_gen") or folded.get("framegen"), default_fg),
                 "arm": arm,
+                "label": (folded.get("label") or folded.get("run_id") or "").strip(),
                 "source": path,
             }
             kept = False
@@ -185,13 +186,53 @@ def devices_of(cells):
     return seen or list(DEVICE_ORDER)
 
 
+def fg_present(cells):
+    found = [fg for fg in FG_ORDER if any(c["fg"] == fg for c in cells)]
+    return found or ["off"]
+
+
 def fmt(value):
     if value is None:
         return ""
     return "%.2f" % value
 
 
-def report_md(cells, skipped, sources):
+def ally_chunk_lines(rows):
+    lines = [
+        "## Ally chunks",
+        "",
+        "ROG Ally, Linux/Proton, frame generation off. One row is one fight chunk.",
+        "a1 is stock, a2 is pure-perf, a3 is full. The means above include every valid row.",
+        "",
+        "| chunk | arm | avg_fps | low1_fps | hitches | cpu_temp | gpu_temp | cpu_power | gpu_power | cpu_util | gpu_util |",
+        "| " + " | ".join("---" for _ in range(11)) + " |",
+    ]
+    ally = [row for row in rows if row["device"] == "ally"]
+    if not ally:
+        lines.append("| | | | | | | | | | | |")
+        lines.append("")
+        lines.append("No Ally chunk is in captures/final-full/ally.")
+        lines.append("")
+        return lines
+    for row in ally:
+        lines.append("| " + " | ".join([
+            row.get("label") or "",
+            row["arm"],
+            fmt(row["avg_fps"]),
+            fmt(row["low1_fps"]),
+            fmt(row["hitches"]),
+            fmt(row["cpu_temp"]),
+            fmt(row["gpu_temp"]),
+            fmt(row["cpu_power"]),
+            fmt(row["gpu_power"]),
+            fmt(row["cpu_util"]),
+            fmt(row["gpu_util"]),
+        ]) + " |")
+    lines.append("")
+    return lines
+
+
+def report_md(cells, skipped, sources, rows):
     lines = [
         "# Final bench",
         "",
@@ -201,6 +242,9 @@ def report_md(cells, skipped, sources):
         "Valid groups: %d. Skipped rows: %d." % (len(cells), skipped),
         "",
     ]
+    if not any(cell["fg"] == "on" for cell in cells):
+        lines.append("Frame generation on is pending. No fg=on row is in these files. pc2 session 3689466d was still running that set.")
+        lines.append("")
     if not cells:
         lines.append("No valid measurement is in captures/final-full yet. The charts are not drawn.")
         lines.append("")
@@ -214,6 +258,7 @@ def report_md(cells, skipped, sources):
             [cell["device"], cell["fg"], cell["arm"], str(cell["n"])] + [fmt(cell[m[0]]) for m in METRICS]
         ) + " |")
     lines.append("")
+    lines.extend(ally_chunk_lines(rows))
     lines.append("Sources:")
     if sources:
         for path in sources:
@@ -226,7 +271,7 @@ def report_md(cells, skipped, sources):
 
 def svg_chart(metric, label, cells):
     devices = devices_of(cells)
-    groups = [(d, fg) for d in devices for fg in FG_ORDER]
+    groups = [(d, fg) for d in devices for fg in fg_present(cells)]
     width, height = 920, 320
     left, top, plot_w, plot_h = 48, 36, 760, 220
     vals = [c[metric] for c in cells if c[metric] is not None]
@@ -264,12 +309,50 @@ def svg_chart(metric, label, cells):
     return "\n".join(parts) + "\n"
 
 
+def png_chart(path, metric, label, cells):
+    from PIL import Image, ImageDraw, ImageFont
+    devices = devices_of(cells)
+    groups = [(d, fg) for d in devices for fg in fg_present(cells)]
+    width, height = 920, 320
+    left, top, plot_w, plot_h = 48, 36, 760, 220
+    image = Image.new("RGB", (width, height), (13, 17, 23))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    vals = [c[metric] for c in cells if c[metric] is not None]
+    peak = max(vals) if vals else 1
+    if peak <= 0:
+        peak = 1
+    slot = plot_w / max(len(groups), 1)
+    bar_w = min(28, slot / 4)
+    colors = {"stock": (139, 148, 158), "pure-perf": (63, 185, 80), "full": (88, 166, 255)}
+    draw.text((16, 8), label, fill=(230, 237, 243), font=font)
+    x = 560
+    for arm in ARM_ORDER:
+        draw.rectangle((x, 10, x + 12, 22), fill=colors[arm])
+        draw.text((x + 16, 8), arm, fill=(201, 209, 217), font=font)
+        x += 110
+    for i, (device, fg) in enumerate(groups):
+        gx = left + i * slot
+        draw.text((gx + 8, top + plot_h + 8), device + " FG " + fg, fill=(139, 148, 158), font=font)
+        for j, arm in enumerate(ARM_ORDER):
+            match = [c for c in cells if c["device"] == device and c["fg"] == fg and c["arm"] == arm]
+            value = match[0][metric] if match else None
+            if value is None:
+                continue
+            h = plot_h * (value / peak)
+            bx = gx + 8 + j * (bar_w + 4)
+            y0 = top + plot_h - h
+            draw.rectangle((bx, y0, bx + bar_w, top + plot_h), fill=colors[arm])
+            draw.text((bx, max(top, y0 - 12)), fmt(value), fill=(230, 237, 243), font=font)
+    image.save(path, "PNG")
+
+
 def write_report(root, out_dir=None):
     rows, skipped, sources = load_tree(root)
     cells = summarize(rows)
     out = out_dir or os.path.join(root, "docs", "final-bench")
     os.makedirs(out, exist_ok=True)
-    text = report_md(cells, skipped, [os.path.relpath(p, root) for p in sources])
+    text = report_md(cells, skipped, [os.path.relpath(p, root) for p in sources], rows)
     with open(os.path.join(out, "report.md"), "w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
     written = []
@@ -279,6 +362,12 @@ def write_report(root, out_dir=None):
             with open(os.path.join(out, name), "w", encoding="utf-8", newline="\n") as handle:
                 handle.write(svg_chart(key, label, cells))
             written.append(name)
+            png_name = key + ".png"
+            try:
+                png_chart(os.path.join(out, png_name), key, label, cells)
+            except ImportError:
+                continue
+            written.append(png_name)
     return {"groups": len(cells), "skipped": skipped, "charts": written, "rows": len(rows)}
 
 
