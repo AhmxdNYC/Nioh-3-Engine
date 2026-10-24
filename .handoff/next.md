@@ -2341,3 +2341,21 @@ Half-rate menu is on gx-pc/half-rate-reuse eccb0650. Keys HRS HRG HRC default 0,
 2026-10-23 11:02 pm EST | gx-pc #28247 tip is b5e0eb88 (register-save plus SSR/AO). About 0.06-0.12 ms E. Keys off. Game not launched. Next is a device test only if pc assigns one.
 2026-10-24 pc: #127 done: ultra35 no gain on pc; half-rate file1780 hangs at boot -> BLOCKED to gx-pc. DRS pc2 no gain, pc no gain; ally A1/A3/A4 pending.
 2026-10-24 12:10 am EST pc: see checkpoints.md latest entry; next = Ally bench/A1/A3/A4 results, gx-pc half-rate fix, charts.
+2026-10-24 12:11 am EST | gx-pc #28648: half-rate boot fix is bridge file 1816 (1.7.61-hrabi, 940e1d62). Keys 0. Not boot-tested because pc holds the game for test128. Next boot is one launch with a window check, then restore.
+
+2026-10-24 pc: human #28341 answered (order). #28660 -> cx-pc CPU submit/draw-prep exploration task. Pending: gx-pc post-reuse b5e0eb88 (0.06-0.12ms, off) parked; half-rate hang at startup sent to gx-pc.
+
+2026-10-24 pc: pc2 #28357/#28362 half-rate crash at startup (0xC0000005 RVA 1EA26B, 0/12 windows), restored; recovery build with cx-pc (#28343/#28358), pc2 retries on corrected SHA. Already told human (#28649/#28705).
+2026-10-24 pc: cxl-pc #28352 spatial-vs-temporal FSR candidate 3.6ms<3.74 unbuilt; pc2 half-rate crash BLOCKED -> told pc2 run 35% test, wait for fixed half-rate build from gx-pc.
+2026-10-24 pc: cx-pc #28398 matched 1.7.73 half-rate artifact 1813 (sha 729ac5fc...) delivered to pc2 (all-OFF startup check then 12 windows). pc/ally also should run it after pc2 validates startup.
+
+2026-10-24 pc: ops #28517/pc2 #28514 half-rate on pc2 (FG off, 60s, 2 rep): HRS 40.75->41.27, HRG 41.17->42.00, HRC 42.06->42.19 (+0.3..2%, noise); reuse_calls check pending. Verdict partial 1/3 devices: no win so far; keep default off. CSV notes/halfrate-pc2-28375-results.csv.
+2026-10-24 pc: ally #28516 FG-off 6/6 valid, FG-on 0/6 (death) -> told ally rerun 6 FG-on after checking nodeath. pc2 half-rate +0.3..2% (#28514).
+
+2026-10-24 pc: ops #28527/pc2 #28523: only HRG reuses (~99%, 4.4k calls/run), gain noise (+0.8 fps); HRS/HRC logged 0 reuse so #28514 numbers for them tested nothing. pc2 next HRG alone bigger bench. Ally redo 11:43pm: FG-off valid 6/6, FG-on 0/6 (death under FG-on) - Ally must fix + rerun FG-on.
+2026-10-24 pc: human rule #28530 chunked tests; relayed to pc2/ally; recorded in user-directives.
+
+2026-10-24 pc: human #28530 chunk rule recorded + sent to ally.
+
+2026-10-24 pc: test127 wrapper finished: old half-rate base boot-hung on pc (0 rows), restored cfg/asi/ini. test128 (fresh marker 12:15am, Nioh pid 39792) now running = matched 1.7.73 artifact attempt; do not touch. pc2 #28624 HRG +3.2% (40.32/41.21 -> 40.96/43.16), inconclusive; needs more repeats, 1% low not better.
+2026-10-24 pc: stopped test127 hr loop (old half-rate ASIs boot-hang; dup wrappers); restored bak asi/ini; test-active marker removed. Next: after pc2 validates artifact 1813 startup, run pc hr in 10-min chunks.

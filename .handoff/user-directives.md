@@ -50,3 +50,15 @@
 - #26593 (2026-10-23): when all benches are done, publish a nice graph on the GitHub repo (README/docs): metrics for default vs optimized vs optimized-may-affect-visuals, frame gen on/off, all 3 devices, all info.
 - #26960 (2026-10-23): human played Ally at 30-45 fps fine on the mod for a week; bench ~20 fps on Ally conflicts -> reconcile (settings, scene, FG displayed fps) before claiming handheld is unplayable.
 - #26964: human played straight boss fights on Ally at 30-45 fps; bench scene difference alone does not explain ~20 fps -> check bench settings/config vs human's play.
+- #27204 (2026-10-23): new final bench with fps/game-speed fix: arms = (1) default game, (2) game + fps fix only, (3) fixed + optimized (no visual change), (4) fixed + optimized w/ visual loss, (5) fixed + frame gen version. All 3 devices; accurate results (no deaths, power OK, speed logged).
+- #27405 (2026-10-23): update the GitHub repo: READMEs / mod features list are outdated. Decompilation chart can wait (no recent reversing logged).
+- #27614/#27623 (2026-10-23): BIG RISKY optimizations first: shadow/GI/cloud half-rate reuse, VRS, dynamic resolution, meshlet culling rewrite. Skip small tweaks. Each risky build is its own opt-in menu option, default off. Test later on all 3 devices (pc, pc2, ally). Do not run that test in the same step as the build.
+- #27660 (2026-10-23): cx-pc static 60/50 preset sets REN_RAT and DYNAMIC_RESOLUTION OFF and restores originals when disabled. gx-pc dynamic-res hook is mutually exclusive and must not run while that preset is on.
+- #27597 (2026-10-23): Claude, Codex, and Grok work the large speedup items together and reuse each other's branches. Target is a real engine speedup of at least 15% on Ally and pc2. Offline until a test arm is ready.
+- #27706 (2026-10-23, relayed by pc #27716): Reuse all prior optimization research, proven hooks and addresses; identify already tried/failed approaches so the big-wins team does not repeat them.
+- #27908 (2026-10-23): human: risk level doesn't matter for the big optimizations (go for risky ones).
+- #28219 (2026-10-23): human believes we already have most of the source/RE knowledge needed; reuse existing research, don't redo reversing.
+- #28243 (2026-10-23): human: we have more AI power than pc is using; spread big offline work across all idle Claude/Codex/Grok helpers.
+- #28258 (2026-10-23): human: make sure Codex/Grok helpers save progress (commit+push branch, checkpoints.md) so resets lose nothing; Grok has more capacity than we use.
+- #28530 (2026-10-24): HARD RULE: never run long game tests/benchmarks as one single run. Split into short chunks (one arm/phase per launch, ~10 min max), save results after each, resume from last finished chunk. A chunk failing twice: stop and fix the cause, no relaunch loops.
+- #28530 (2026-10-24): HARD RULE: never run long game tests/benchmarks as one single run; split into short chunks (one arm/phase per launch, ~10 min max), save results after each, resume from last chunk.
