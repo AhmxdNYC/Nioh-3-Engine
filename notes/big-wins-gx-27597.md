@@ -6,15 +6,15 @@ Sources: `notes/ally-gpu-budget.md` (USER span 28.7–29.2 ms, about 34.9 fps, R
 
 ## The bar
 
-15% of the Ally USER frame is **4.3 ms** off 28.7 ms. On pc2 the same bar is about **4.1 ms** of the ~27 ms target, or **3.5 ms** of the 23.2 ms GP2 stamp (`gpu-resolution-audit.md`). None of pass reuse or variable-rate shading reaches that bar. Dynamic resolution can, and only by drawing fewer pixels than the user already chose.
++15% fps at 28.7 ms needs **3.74 ms** saved. **4.3 ms** is 15% less frame time, about +18% fps (cxl-pc #27724). On pc2, 15% of frame time is about **4.1 ms** of the ~27 ms target, or **3.5 ms** of the 23.2 ms GP2 stamp (`gpu-resolution-audit.md`). None of pass reuse or variable-rate shading reaches that bar. Dynamic resolution can, and only by drawing fewer pixels than the user already chose.
 
 ## Rank
 
-| rank | change | where to hook | expected frame ms | risk | clears 4.3 ms? |
+| rank | change | where to hook | expected frame ms | risk | clears 3.74 ms (+15% fps)? |
 |---|---|---|---|---|---|
 | 1 | Let internal resolution fall below the current REN_RAT on slow frames | Not the 60-frame average. `DynResolutionController` `0x5AF7F8` calls `0x5AFA40`, which keeps a 3-sample minimum (`0x5AFAB0`, ring `+0x2B8`). `0x10F3330` is a later path and is not proof that replacing the 60-frame average moves the scale (cx-pc `58ffdeea`). The current policy floor is 50, so on Ally USER it saves nothing. A static REN_RAT 35 arm is the test (review A4) | **E, not measured below 50.** Same two-point model as cx-pc: about REN_RAT **35** saves ~4.4 ms on the Ally. One step, 65→60, is only ~1.2–1.5 ms on pc2 | Look change while it is dipped. Opt-in. Do not run it on top of cx-pc's fixed preset | only if the picture is allowed to soften |
 | 2 | Half-rate GI gather (reuse last frame) | RefProbe CS `4b4c3cbe` (#121, 1.26 ms M). Scale path, which is not a rate: `GiRenderScalesApply` `0x1872C4` / `GiScaleLookup` `0x187A50` | **0.5–1 ms E** (half of the 1.77 ms USER GI family is 0.9). At MAX the gathers are ~7.9 ms, and 15% of that 64 ms frame is 9.6 ms, so half-rate still misses | Medium. GI lag, disocclusion | no |
-| 3 | Variable-rate shading on G-buffer and deferred pixel shaders | **No call in the game exe.** `Nioh3.dump.exe` has no `ShadingRate` string (searched 2026-10-23). cxl-pc's helper (`cxl-pc/vrs-27602`) is unwired: the review counted 0 draws treated. The capture layer only names `RSSetShadingRate` | Review ceiling **0.5–1.0 ms**. Older note: **0.3–0.8 ms E** on pc2, small on the Ally. Loose upper bound if the whole pixel share of the 7.54 ms G-buffer ran at 2×2: about **1.4 ms E** | FSR3 can amplify the blocks. Needs VRS tier 2. Drop it if the Ally reports tier below 1 | no |
+| 3 | Variable-rate shading on G-buffer and deferred pixel shaders | **No call in the game exe.** `Nioh3.dump.exe` has no `ShadingRate` string (searched 2026-10-23). cxl-pc's helper (`cxl-pc/vrs-27602`) is unwired: the review counted 0 draws treated. The capture layer only names `RSSetShadingRate` | Review ceiling **0.5–1.0 ms**. Older note: **0.3–0.8 ms E** on pc2, small on the Ally. Loose upper bound if the whole pixel share of the 7.54 ms G-buffer ran at 2×2: about **1.4 ms E** | FSR3 can amplify the blocks. Per-draw 2×2 needs Tier 1. A shading-rate image needs Tier 2. Query the device; do not assume support from the GPU name | no |
 | 4 | Far shadow cascade every 2nd frame | Shadow-map draws (family 1.38 ms M). Not the deferred resolve (2.04 ms), which still lights the frame | **0.1–0.2 ms E** Ally. Halving the whole map family would be ≤0.7 ms and would strobe near casters | Low–medium at cascade distance. High if the near maps are skipped | no |
 | 5 | Half-rate clouds | Already done. Dispatch `0x1900E8` → `0x190350`, shader `b76874bb`, target render/8, 16-frame Bayer (`g_iBayerPosNum`) | Real frame cost **≤ ~0.3 ms E**. The 1.52 ms row is async wall time | Further reuse changes the sky for almost no frame time | no |
 
@@ -59,8 +59,10 @@ XeSS is the wrong swap on the Ally 780M: about 1 fps slower than FSR (DP4a). Fra
 
 ## 3. Variable-rate shading
 
-The G-buffer is 7.54 ms, which is 26% of the frame, but the top PB2 pair is about 75% meshlet vertex shader (`ally-gpu-budget.md` §2 and §6). VRS does not cut vertex work. A 2×2 rate on the pixel fraction is the ~1.4 ms upper bound above. The published estimate is smaller. No on/off capture exists. Do not build it for this bar.
+The G-buffer is 7.54 ms, which is 26% of the frame, but the top PB2 pair is about 75% meshlet vertex shader (`ally-gpu-budget.md` §2 and §6). VRS does not cut vertex work. A 2×2 rate on the pixel fraction is the ~1.4 ms upper bound above. The published estimate is smaller. Per-draw 2×2 needs VRS tier 1. Tier 2 is only for a shading-rate image (cxl-pc #27724). No on/off capture exists. Do not build it for this bar.
 
 ## Verdict
 
-Ship nothing from this list as a same-picture 15% patch. The only candidate that can clear 4.3 ms on the Ally is a static dip to about REN_RAT 35. The live policy does not do that today, and the 4.4 ms is the same unmeasured two-point model cx-pc already published. The best same-picture item here is half-rate GI, about 1 ms **E**.
+Ship nothing from this list as a same-picture 15% patch. The only candidate that can clear 3.74 ms on the Ally is a static dip to about REN_RAT 35. The live policy does not do that today, and the 4.4 ms is the same unmeasured two-point model cx-pc already published. The best same-picture item here is half-rate GI, about 1 ms **E**.
+
+pc #27770: the static 35% scale is cx-pc's build (#27751), before their culling shaders. Dynamic resolution stays with gx-pc. It is opt-in and default off. The stock floor is 50, so it saves 0 ms on Ally USER until a dip below 50 is explicitly enabled. It stays off while cx-pc's fixed preset is on. Hook points remain `0x5AF7F8`, `0x5AFA40`, and `0x5AFAB0`. No dynamic-resolution patch was built in this pass. Culling addresses for cx-pc are in `notes/culling-hooks-for-cx-27770.md`.
