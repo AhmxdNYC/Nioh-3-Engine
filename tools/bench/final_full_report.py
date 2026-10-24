@@ -24,6 +24,8 @@ ARMS = (
 )
 ARM_ORDER = [a[0] for a in ARMS]
 ARM_COLOR = {"stock": "#8b949e", "pure-perf": "#3fb950", "full": "#58a6ff"}
+# README names: default, optimized, optimized-visuals. CSV arms stay stock, pure-perf, full.
+ARM_LABEL = {"stock": "default", "pure-perf": "optimized", "full": "optimized-visuals"}
 METRICS = (
     ("avg_fps", "Average fps", ("avg_fps",)),
     ("low1_fps", "1% low fps", ("low1_fps", "low_1_fps")),
@@ -242,15 +244,16 @@ def ally_chunk_lines(rows):
     lines = [
         "## Ally chunks",
         "",
-        "ROG Ally, Linux/Proton, frame generation off. One row is one fight chunk.",
-        "a1 is stock, a2 is pure-perf, a3 is full. The means above include every valid row.",
+        "ROG Ally, Linux/Proton. One row is one fight chunk. fg is off or on.",
+        "a1 is default (stock), a2 is optimized (pure-perf), a3 is optimized-visuals (full).",
+        "The means above include every valid row.",
         "",
-        "| chunk | arm | avg_fps | low1_fps | hitches | cpu_temp | gpu_temp | cpu_power | gpu_power | cpu_util | gpu_util |",
-        "| " + " | ".join("---" for _ in range(11)) + " |",
+        "| chunk | fg | arm | avg_fps | low1_fps | hitches | cpu_temp | gpu_temp | cpu_power | gpu_power | cpu_util | gpu_util |",
+        "| " + " | ".join("---" for _ in range(12)) + " |",
     ]
     ally = [row for row in rows if row["device"] == "ally"]
     if not ally:
-        lines.append("| | | | | | | | | | | |")
+        lines.append("| | | | | | | | | | | | |")
         lines.append("")
         lines.append("No Ally chunk is in captures/final-full/ally.")
         lines.append("")
@@ -258,6 +261,7 @@ def ally_chunk_lines(rows):
     for row in ally:
         lines.append("| " + " | ".join([
             row.get("label") or "",
+            row["fg"],
             row["arm"],
             fmt(row["avg_fps"]),
             fmt(row["low1_fps"]),
@@ -277,7 +281,8 @@ def report_md(cells, skipped, sources, rows):
     lines = [
         "# Final bench",
         "",
-        "Stock, pure-perf, and full. One mean per device and frame-generation setting.",
+        "Default (stock), optimized (pure-perf), and optimized-visuals (full).",
+        "One mean per device and frame-generation setting.",
         "Only rows with valid=1 and a filled metric are included. Empty cells were not measured.",
         "",
         "Valid groups: %d. Skipped rows: %d." % (len(cells), skipped),
@@ -316,14 +321,14 @@ def group_caption(cells, device, fg, metric):
     for arm in ARM_ORDER:
         match = [c for c in cells if c["device"] == device and c["fg"] == fg and c["arm"] == arm]
         value = match[0][metric] if match else None
-        bits.append("%.1f" % value if value is not None else "-")
+        bits.append("%.2f" % value if value is not None else "-")
     return " / ".join(bits)
 
 
 def svg_chart(metric, label, cells):
     groups = chart_groups(cells)
-    width, height = 920, 348
-    left, top, plot_w, plot_h = 48, 36, 760, 220
+    width, height = 1080, 360
+    left, top, plot_w, plot_h = 48, 46, 1000, 220
     vals = [c[metric] for c in cells if c[metric] is not None]
     peak = max(vals) if vals else 1
     if peak <= 0:
@@ -335,11 +340,11 @@ def svg_chart(metric, label, cells):
         '<rect width="100%" height="100%" fill="#0d1117"/>',
         '<text x="16" y="22" fill="#e6edf3" font-size="15" font-weight="700">%s</text>' % label,
     ]
-    x = 560
+    x = 360
     for arm in ARM_ORDER:
         parts.append('<rect x="%d" y="10" width="12" height="12" fill="%s"/>' % (x, ARM_COLOR[arm]))
-        parts.append('<text x="%d" y="21" fill="#c9d1d9" font-size="12">%s</text>' % (x + 16, arm))
-        x += 110
+        parts.append('<text x="%d" y="21" fill="#c9d1d9" font-size="12">%s</text>' % (x + 16, ARM_LABEL[arm]))
+        x += 230
     for i, (device, fg) in enumerate(groups):
         gx = left + i * slot
         parts.append('<text x="%d" y="%d" fill="#8b949e" font-size="11" text-anchor="middle">%s %s</text>' % (
@@ -362,8 +367,8 @@ def svg_chart(metric, label, cells):
 def png_chart(path, metric, label, cells):
     from PIL import Image, ImageDraw, ImageFont
     groups = chart_groups(cells)
-    width, height = 920, 348
-    left, top, plot_w, plot_h = 48, 36, 760, 220
+    width, height = 1080, 360
+    left, top, plot_w, plot_h = 48, 46, 1000, 220
     image = Image.new("RGB", (width, height), (13, 17, 23))
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
@@ -375,11 +380,11 @@ def png_chart(path, metric, label, cells):
     bar_w = min(28, slot / 4)
     colors = {"stock": (139, 148, 158), "pure-perf": (63, 185, 80), "full": (88, 166, 255)}
     draw.text((16, 8), label, fill=(230, 237, 243), font=font)
-    x = 560
+    x = 360
     for arm in ARM_ORDER:
         draw.rectangle((x, 10, x + 12, 22), fill=colors[arm])
-        draw.text((x + 16, 8), arm, fill=(201, 209, 217), font=font)
-        x += 110
+        draw.text((x + 16, 8), ARM_LABEL[arm], fill=(201, 209, 217), font=font)
+        x += 230
     for i, (device, fg) in enumerate(groups):
         gx = left + i * slot
         draw.text((gx + 8, top + plot_h + 8), device + " FG " + fg, fill=(139, 148, 158), font=font)
