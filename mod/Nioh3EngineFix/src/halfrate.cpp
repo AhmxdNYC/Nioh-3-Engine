@@ -90,8 +90,8 @@ int Gate(int channel, bool allow) {
 }
 
 // Caller of ShadowCascadeRender stores cascade at [rsp+F8h] and the vsm byte at [rsp+100h]
-// (p32 / p33). After CALL those are [rsp+100h] and [rsp+108h]. The cave's frame is 7 pushes
-// plus a 0x20 shadow (0x58). The slots are then [rsp+158h] and [rsp+160h].
+// (p32 / p33). After CALL those are [rsp+100h] and [rsp+108h].
+// The preserved cave frame adds0xC8, giving [rsp+1C8h] and [rsp+1D0h].
 extern "C" int HrShadowGate(uint32_t cascade, uint32_t vsm) {
     return Gate(kShadow, ShadowMaySkip(cascade, vsm));
 }
@@ -187,55 +187,40 @@ void Put64(uint8_t*& w, uint64_t v) {
     w += 8;
 }
 
-// Entry RSP is 8 mod 16. Seven pushes leave it 0 mod 16, and sub rsp, 20h keeps the call aligned.
-// Caller slots [rsp+100h]/[rsp+108h] are then [rsp+158h] (cascade) and [rsp+160h] (vsm byte).
-// Returns the address past the cave, or null if the skip branch does not fit a short jump.
+// Preserve every volatile register and flags: these internal entries need not
+// obey a public ABI at every caller. Entry RSP=8 mod16; 8 pushes +0x88 align CALL.
+void SaveVolatile(uint8_t*& w) {
+    Put(w, {0x9C, 0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});
+    Put(w, {0x48, 0x81, 0xEC, 0x88, 0, 0, 0});
+    for (int i=0;i<6;++i) Put(w, {0xF3,0x0F,0x7F,(uint8_t)(0x44+i*8),0x24,(uint8_t)(0x20+i*16)});
+}
+void RestoreVolatile(uint8_t*& w) {
+    for (int i=0;i<6;++i) Put(w, {0xF3,0x0F,0x6F,(uint8_t)(0x44+i*8),0x24,(uint8_t)(0x20+i*16)});
+    Put(w, {0x48,0x81,0xC4,0x88,0,0,0,0x41,0x5B,0x41,0x5A,0x41,0x59,0x41,0x58,0x5A,0x59,0x58,0x9D});
+}
 uint8_t* Emit(uint8_t* w, bool shadow, int channel, const uint8_t* stolen, int n, const void* resume) {
-    Put(w, {0x50, 0x51, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});  // rax rcx rdx r8 r9 r10 r11
-    Put(w, {0x48, 0x83, 0xEC, 0x20});
+    SaveVolatile(w);
     if (shadow) {
-        Put(w, {0x8B, 0x84, 0x24, 0x58, 0x01, 0x00, 0x00});              // mov eax, [rsp+158h] cascade
-        Put(w, {0x0F, 0xB6, 0x94, 0x24, 0x60, 0x01, 0x00, 0x00});        // movzx edx, byte [rsp+160h] vsm
-        Put(w, {0x89, 0xC1});                                            // mov ecx, eax
-    } else {
-        Put(w, {0xB9});                                                  // mov ecx, imm32 channel
-        memcpy(w, &channel, 4);
-        w += 4;
-    }
-    const void* gate = shadow ? (const void*)HrShadowGate : (const void*)HrPassGate;
-    Put(w, {0x48, 0xB8});  // mov rax, imm64 (rax is already saved)
-    Put64(w, (uint64_t)(uintptr_t)gate);
-    Put(w, {0xFF, 0xD0});  // call rax
-    Put(w, {0x48, 0x83, 0xC4, 0x20});
-    Put(w, {0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59});  // r11..rcx
-    Put(w, {0x85, 0xC0});
-    Put(w, {0x75});
-    uint8_t* jnz = w;
-    *w++ = 0;
-    Put(w, {0x58});  // pop rax
-    memcpy(w, stolen, (size_t)n);
-    w += n;
-    Put(w, {0xFF, 0x25, 0, 0, 0, 0});
-    Put64(w, (uint64_t)(uintptr_t)resume);
-    const int rel = (int)(w - (jnz + 1));
-    if (rel < -128 || rel > 127) return nullptr;
-    *jnz = (uint8_t)rel;
-    Put(w, {0x58, 0xC3});  // pop rax; ret
+        // Original stack arguments +0x100/+0x108; saved frame is0xC8 bytes.
+        Put(w, {0x8B,0x8C,0x24,0xC8,0x01,0,0});
+        Put(w, {0x0F,0xB6,0x94,0x24,0xD0,0x01,0,0});
+    } else { Put(w,{0xB9}); memcpy(w,&channel,4); w+=4; }
+    Put(w,{0x48,0xB8}); Put64(w,(uintptr_t)(shadow ? (const void*)HrShadowGate : (const void*)HrPassGate));
+    Put(w,{0xFF,0xD0,0x85,0xC0,0x0F,0x85});
+    uint8_t* branch=w; w+=4;
+    RestoreVolatile(w);
+    memcpy(w,stolen,(size_t)n); w+=n;
+    Put(w,{0xFF,0x25,0,0,0,0}); Put64(w,(uintptr_t)resume);
+    const int32_t rel=(int32_t)(w-(branch+4)); memcpy(branch,&rel,4);
+    RestoreVolatile(w); Put(w,{0xC3});
     return w;
 }
-
 uint8_t* EmitCam(uint8_t* w, const uint8_t* stolen, int n, const void* resume) {
-    Put(w, {0x50, 0x52, 0x41, 0x50, 0x41, 0x51, 0x41, 0x52, 0x41, 0x53});  // rax rdx r8 r9 r10 r11; rcx stays
-    Put(w, {0x48, 0x83, 0xEC, 0x28});
-    Put(w, {0x48, 0xB8});
-    Put64(w, (uint64_t)(uintptr_t)HrCamera);
-    Put(w, {0xFF, 0xD0});
-    Put(w, {0x48, 0x83, 0xC4, 0x28});
-    Put(w, {0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x58});  // r11..rdx, rax
-    memcpy(w, stolen, (size_t)n);
-    w += n;
-    Put(w, {0xFF, 0x25, 0, 0, 0, 0});
-    Put64(w, (uint64_t)(uintptr_t)resume);
+    SaveVolatile(w);
+    Put(w,{0x48,0xB8}); Put64(w,(uintptr_t)HrCamera); Put(w,{0xFF,0xD0});
+    RestoreVolatile(w);
+    memcpy(w,stolen,(size_t)n); w+=n;
+    Put(w,{0xFF,0x25,0,0,0,0}); Put64(w,(uintptr_t)resume);
     return w;
 }
 
