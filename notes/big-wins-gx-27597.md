@@ -12,15 +12,17 @@ Sources: `notes/ally-gpu-budget.md` (USER span 28.7–29.2 ms, about 34.9 fps, R
 
 | rank | change | where to hook | expected frame ms | risk | clears 4.3 ms? |
 |---|---|---|---|---|---|
-| 1 | Let internal resolution fall below the current REN_RAT on slow frames | Existing `DynResolutionController` `0x5AF7F8`. Compare is `0x10F3330` (target ×0.75 / ×0.9). Steps are `0x5AFA40` / `0x5AF950` (not decompiled here). Apply with `SetRenderRatioIndex` `0x1FDE3E8`. Bounds `DYNAMIC_RENDER_RATIO_MIN/MAX`, 25..100, steps of 5 | **E, not measured below 50.** Two-point model from U1 and U5b (below) needs about REN_RAT **35** to save ~4.4 ms on the Ally. One step, 65→60, is only ~1.2–1.5 ms on pc2 | Look change while it is dipped. Opt-in | only if the picture is allowed to soften |
+| 1 | Let internal resolution fall below the current REN_RAT on slow frames | Not the 60-frame average. `DynResolutionController` `0x5AF7F8` calls `0x5AFA40`, which keeps a 3-sample minimum (`0x5AFAB0`, ring `+0x2B8`). `0x10F3330` is a later path and is not proof that replacing the 60-frame average moves the scale (cx-pc `58ffdeea`). The current policy floor is 50, so on Ally USER it saves nothing. A static REN_RAT 35 arm is the test (review A4) | **E, not measured below 50.** Same two-point model as cx-pc: about REN_RAT **35** saves ~4.4 ms on the Ally. One step, 65→60, is only ~1.2–1.5 ms on pc2 | Look change while it is dipped. Opt-in. Do not run it on top of cx-pc's fixed preset | only if the picture is allowed to soften |
 | 2 | Half-rate GI gather (reuse last frame) | RefProbe CS `4b4c3cbe` (#121, 1.26 ms M). Scale path, which is not a rate: `GiRenderScalesApply` `0x1872C4` / `GiScaleLookup` `0x187A50` | **0.5–1 ms E** (half of the 1.77 ms USER GI family is 0.9). At MAX the gathers are ~7.9 ms, and 15% of that 64 ms frame is 9.6 ms, so half-rate still misses | Medium. GI lag, disocclusion | no |
-| 3 | Variable-rate shading on G-buffer and deferred pixel shaders | **No engine site.** `Nioh3.dump.exe` has no `ShadingRate` / `RSSetShadingRate` string (searched 2026-10-23). A hook would be a new `RSSetShadingRate` before PB2 and deferred PS draws | **0.3–0.8 ms E** on pc2, **small on the Ally** (`engine-rewrite-options.md` rank 10). Upper bound if every G-buffer pixel ran at 2×2 and the vertex share stayed ~75%: about **1.4 ms E**, still short | FSR3 can amplify the blocks. Needs VRS tier 2. vkd3d fragment shading rate is unproven here | no |
+| 3 | Variable-rate shading on G-buffer and deferred pixel shaders | **No call in the game exe.** `Nioh3.dump.exe` has no `ShadingRate` string (searched 2026-10-23). cxl-pc's helper (`cxl-pc/vrs-27602`) is unwired: the review counted 0 draws treated. The capture layer only names `RSSetShadingRate` | Review ceiling **0.5–1.0 ms**. Older note: **0.3–0.8 ms E** on pc2, small on the Ally. Loose upper bound if the whole pixel share of the 7.54 ms G-buffer ran at 2×2: about **1.4 ms E** | FSR3 can amplify the blocks. Needs VRS tier 2. Drop it if the Ally reports tier below 1 | no |
 | 4 | Far shadow cascade every 2nd frame | Shadow-map draws (family 1.38 ms M). Not the deferred resolve (2.04 ms), which still lights the frame | **0.1–0.2 ms E** Ally. Halving the whole map family would be ≤0.7 ms and would strobe near casters | Low–medium at cascade distance. High if the near maps are skipped | no |
 | 5 | Half-rate clouds | Already done. Dispatch `0x1900E8` → `0x190350`, shader `b76874bb`, target render/8, 16-frame Bayer (`g_iBayerPosNum`) | Real frame cost **≤ ~0.3 ms E**. The 1.52 ms row is async wall time | Further reuse changes the sky for almost no frame time | no |
 
 ## 1. Dynamic resolution
 
-The controller already exists. It averages 60 frames of a time history at `+0xA138` and compares that average with the target. Its input is frame time, so it drops resolution even when the CPU is the limit (`settings.md`). A mod would feed it GPU-busy time from our timestamps. Prologues at `0x5AF7F8`, `0x10F3330`, `0x5AFA40`, `0x5AF950`, and `0x1FDE3E8` were checked in `re/Nioh3.dump.exe` this session. The step functions were not decompiled.
+The controller already exists, and it is two paths. cx-pc read the dump on `58ffdeea`: `0x5AF7F8` loads three timing fields at `+0xA12C/+0xA130/+0xA134` and calls `0x5AFA40`. That path keeps a three-sample minimum in `0x5AFAB0` (ring `+0x2B8`). The 60-frame average at `+0xA138` feeds `0x10F3330` only after that, and that compare is not proof the average is what moves the scale. Do not feed GPU-busy time in until those three producers are known. Frame time is still the wrong signal when the CPU is the limit (`settings.md`). This session only checked that the prologues at `0x5AF7F8`, `0x10F3330`, `0x5AFA40`, `0x5AF950`, and `0x1FDE3E8` are real functions.
+
+The temporal policy's own floor is 50 and its ceiling is 75 (`big-wins-review-27604.md`). Ally USER is already 50, so that policy proposes no drop and saves 0 ms. A floor of 50 cannot beat a frame that is already rendered at 50. The experiment that matches the 15% bar is a static REN_RAT 35 (review arm A4), which is allowed to look worse. It stays off while cx-pc's fixed preset is on.
 
 `REN_RAT` is an enum, `OptsRatioPercent` = {25, 30, …, 100}. U5a sent 67, which is not in the list, and the game stayed at 50 (**M**). Use 65 or 70, or 35 / 40 for a dip.
 
@@ -33,7 +35,7 @@ Measured Ally arms, same upscaler launch (`ally-gpu-budget.md` §5):
 | U3 XeSS (still REN_RAT 50) | 33.3 | 29.56 ms |
 | U6 FSR + frame generation | 49.0–49.3 displayed | not a GPU-time cut of the real frame |
 
-Two-point model (**E**, two measurements, nothing below 50): span ≈ 20.2 + 34.4·r², with r = REN_RAT/100.
+Two-point model (**E**, two measurements, nothing below 50): span ≈ 20.2 + 34.4·r², with r = REN_RAT/100. cx-pc's note gets the same 4.39 ms at 35% from these two arms.
 
 | r | predicted span | saved vs 28.76 |
 |---|---|---|
@@ -61,4 +63,4 @@ The G-buffer is 7.54 ms, which is 26% of the frame, but the top PB2 pair is abou
 
 ## Verdict
 
-Ship nothing from this list as a same-picture 15% patch. The only candidate that can clear 4.3 ms on the Ally is an opt-in dip below REN_RAT 50, aimed at about 35, driven by GPU-busy time. It is unmeasured below 50. The best same-picture item here is half-rate GI, about 1 ms **E**.
+Ship nothing from this list as a same-picture 15% patch. The only candidate that can clear 4.3 ms on the Ally is a static dip to about REN_RAT 35. The live policy does not do that today, and the 4.4 ms is the same unmeasured two-point model cx-pc already published. The best same-picture item here is half-rate GI, about 1 ms **E**.
