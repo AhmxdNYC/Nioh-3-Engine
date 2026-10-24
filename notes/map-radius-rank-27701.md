@@ -1,8 +1,8 @@
 # Map load and draw radius: ranked against the Ally budget
 
-2026-10-23, offline. The game was not launched. Ally USER budget is `notes/ally-gpu-budget.md`: 28.7 ms GPU, 34.9 fps, REN_RAT 50 (960x540 to FSR 3.1 to 1080p), volumetrics STANDARD, frame generation off. A 15% win is 4.3 ms. Tags: **M** measured on a named device, **E** estimate from a stamped pass. The two measured rows are a different Ally capture (~41 fps, GPU 98%, bridge #1723), not the 28.7 ms budget, so their percents are not converted into 28.7 ms.
+2026-10-23, offline. The game was not launched. Ally USER budget is `notes/ally-gpu-budget.md`: 28.7 ms GPU, 34.9 fps, REN_RAT 50 (960x540 to FSR 3.1 to 1080p), volumetrics STANDARD, frame generation off. +15% fps needs 3.74 ms saved. 4.3 ms is 15% less frame time, about +18% fps (cxl-pc #27724). Tags: **M** measured on a named device, **E** estimate from a stamped pass. The two measured rows are a different Ally capture (~41 fps, GPU 98%, bridge #1723), not the 28.7 ms budget, so their percents are not converted into 28.7 ms.
 
-None of these clears 4.3 ms. Ranks 1 and 2 overlap, so they are not added.
+None of these clears 3.74 ms. Ranks 1 and 2 overlap, so they are not added.
 
 ## Rank
 

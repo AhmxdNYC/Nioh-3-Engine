@@ -2,11 +2,11 @@
 
 2026-10-23, offline. The game was not launched. Sources are the measured Ally USER budget in `notes/ally-gpu-budget.md` (28.7 ms GPU, 34.9 fps, 960x540 internal, FSR 3.1 to 1080p, volumetrics STANDARD, frame generation off) and the async measurements in `notes/ally-gpu-gap.md` and `notes/gpu-async-wins.md`. The triage in `notes/handoff-codex-next-perf-triage.md` still stands: do not treat an async row or a MinRun4 stamp as frame time saved.
 
-A 15% Ally win is 4.3 ms off 28.7. None of the four families below is estimated at that. Tags: **M** measured, **E** estimate from a measured pass. An async wall-clock number is not frame time.
+Two different bars, both off 28.7 ms (34.8 fps). **+15% fps needs 3.74 ms saved** (new frame 24.96 ms). **4.3 ms is 15% less frame time** (new frame 24.4 ms, about +18% fps). cxl-pc #27724. None of the four families below is estimated at 3.74 ms. Tags: **M** measured, **E** estimate from a measured pass. An async wall-clock number is not frame time.
 
 ## Rank
 
-| rank | trick other engines use | passes it would touch | frame ms, Ally USER | clears 4.3 ms? |
+| rank | trick other engines use | passes it would touch | frame ms, Ally USER | clears 3.74 ms (+15% fps)? |
 |---|---|---|---|---|
 | 1 | Draw distance, foliage LOD, shadow distance (Skyrim / Witcher / UE scalability). Picture changes. | G-buffer 7.54, trees 0.49, terrain 0.77, shadow maps 1.38, deferred resolve 2.04 | **1.5-2.7 E** if distant draws drop about a quarter and fog is also turned off | no |
 | 2 | Shader cuts: half-rate probes, fp16, meshlet scalarize (Frostbite / AMD). Half-rate changes the picture. The rest can match. | RefProbe 1.77; meshlet VS inside the 7.54; FSR accumulate 1.97; fogpar on the 1.78 async fog | **0.6-1.7 E** same picture. **+0.6-0.9 E** more if probes update every other frame | no |
@@ -19,7 +19,7 @@ A 15% Ally win is 4.3 ms off 28.7. None of the four families below is estimated 
 
 The only measured knob that already cleared 15% is internal resolution, and it is already on the fast side. REN_RAT 50 is 28.7 ms. REN_RAT 100 is 54.6 ms. There is no measurement below 50, so this note does not invent one.
 
-**Shader cuts.** The same-picture list in the budget note is fogpar 0.05-0.2 ms of frame time, meshlet load scalarize 0.3-1.0, FSR fp16 0.2-0.5, wave32 about 0. That stack is the 0.6-1.7 band. Half-rate GI is what other engines do with probes. USER RefProbe is only 1.77 ms, so half of it is under 1 ms. At the MAX preset the same gathers are about 7.9 ms, which is where a half-rate probe would matter. MAX is 64 ms, and 15% of that is 9.6 ms, so half-rate GI still does not clear it alone.
+**Shader cuts.** The same-picture list in the budget note is fogpar 0.05-0.2 ms of frame time, meshlet load scalarize 0.3-1.0, FSR fp16 0.2-0.5, wave32 about 0. That stack is the 0.6-1.7 band. Half-rate GI is what other engines do with probes. USER RefProbe is only 1.77 ms, so half of it is under 1 ms. At the MAX preset the same gathers are about 7.9 ms, which is where a half-rate probe would matter. MAX is 64 ms. +15% fps there needs 8.3 ms saved, and 15% less frame time is 9.6 ms, so half-rate GI still does not clear either bar alone.
 
 **Cull reuse.** The cull family is 2.88 ms. Reusing last frame's result skips dispatches only for what did not move, so the saving is a fraction of 2.88, written here as 0.3-0.6. Rejecting extra meshlets would also cut the G-buffer, up to about 1 ms more if 15% of those draws die. The two LOD resolves are not reusable copies of each other (`notes/meshlet-redundant-lod.md`).
 
