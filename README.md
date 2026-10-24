@@ -6,6 +6,27 @@ The curated public source repository is [AhmxdNYC/Nioh-3-Engine](https://github.
 
 The tested baseline is **1.7.61**, with CBN=1, CBT=1, CBS=0, CBF=0, FrameOverlap=0, Extra Performance preset=0, ShaderSwap=0 and ShaderHot=0. PC, pc2 and Ally component smokes passed. A complete benchmark of this default stack against EngineFix absent is still pending. A new patch-installation safety candidate is under isolated validation; it is not the tested baseline.
 
+## Final bench charts
+
+`tools/bench/final_full_report.py` reads `captures/final-full/<device>/results.csv` and writes [docs/final-bench/report.md](docs/final-bench/report.md) plus one SVG and one PNG per metric. The three arms are default (stock), optimized (pure-perf), and optimized-visuals (full). A row is used only when `valid` is 1. Empty cells were not measured. Frame generation on and off are separate bars. Fps is the presented rate.
+
+Two chunks per arm, 2026-10-24. All three devices have both frame-generation settings.
+
+![Presented fps for pc, pc2, and the Ally, frame generation off and on](docs/final-bench/avg_fps.png)
+
+| Device | Settings | Default (stock) | Optimized (pure-perf) | Optimized visuals (full) |
+|---|---|---|---|---|
+| pc | Ryzen 5 7600X + RX 9070, 1440p XeSS, FG off, Yoritomo R7B35 | 75.84 fps | 98.46 fps | 98.78 fps |
+| pc | Ryzen 5 7600X + RX 9070, 1440p XeSS, FG on, Yoritomo R7B35 | 141.42 fps | 144.41 fps | 151.58 fps |
+| pc2 | Ryzen 5 5600X + RX 6650 XT, FG off, Yoritomo R7B35 | 41.72 fps | 46.87 fps | 47.32 fps |
+| pc2 | Ryzen 5 5600X + RX 6650 XT, FG on, Yoritomo R7B35 | 77.07 fps | 73.59 fps | 74.30 fps |
+| ROG Ally | Linux/Proton, FG off, Yoritomo | 34.63 fps | 32.58 fps | 39.02 fps |
+| ROG Ally | Linux/Proton, FG on (FSR mode 3), Yoritomo, displayed fps | 42.06 fps | 44.65 fps | 52.38 fps |
+
+With frame generation off, full stays tied with pure-perf on pc and pc2. With frame generation on, pc full averages 151.58 fps against pure-perf 144.41 and stock 141.42. The pc stock runs are 148.65 and 134.19, and the pure-perf runs are 150.54 and 138.28. On pc2 with frame generation on, stock is ahead of both mod arms. On the Ally with frame generation on, the two-chunk means are 42.06 / 44.65 / 52.38 displayed fps (the Ally result rounded those to 42.1 / 44.7 / 52.4). The Ally stock arm is the mod loaded with every optimization switch off. The Ally result says the real pre-FG rate is about half the displayed number. The pc frame-generation-on file has no named temperature or hitch columns, so those pc bars are absent.
+
+Charts: [average fps](docs/final-bench/avg_fps.png), [1% low](docs/final-bench/low1_fps.png), [hitches](docs/final-bench/hitches.png), [CPU temp](docs/final-bench/cpu_temp.png), [GPU temp](docs/final-bench/gpu_temp.png), [CPU power](docs/final-bench/cpu_power.png), [GPU power](docs/final-bench/gpu_power.png), [CPU use](docs/final-bench/cpu_util.png), [GPU use](docs/final-bench/gpu_util.png). The pc fps file has no per-arm temperature or power, so those pc bars are absent.
+
 ## Measured component results
 
 These are single-feature A/B measurements at fixed gameplay spots, not whole-mod gains. Values are paired percent differences with standard errors. PC and remote trials each used three adjacent pairs in one launch.
@@ -22,9 +43,11 @@ The XPRE tests used CBMODE0. The CBMODE6/XPRE1 compatibility smoke does not esta
 
 Evidence: [PC smoke handoff](notes/handoff-codex-step1.md), [remote archive audit and metrics](notes/handoff-codex-rc1761-evidence.md), and [external-capture alignment limits](notes/handoff-codex-rc1761-capture.md). See the [Codex progress report](notes/codex-progress-report.md) and newest section of [STATUS](STATUS.md) for current gates.
 
+For the returning Claude agent: [Codex catch-up handoff, October 12](notes/handoff-codex-to-claude-2026-10-12.md) consolidates source work, device tests, failures, coordination workflows and evidence. Its first section states whether the current live trials have finished.
+
 ## Renderer progress
 
-All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. They are unchanged from the Codex takeover baseline. See [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions and caveats.
+All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. Whole-exe naming is now 12,679 of 211,206 functions (6.00%); profiled CPU and GPU time are 100% named. Regenerated 2026-10-24, see [reversing progress](notes/reversing-progress.md), [RE status](notes/re-status-2026-10-24.md) and [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions. The older audit [notes/codex-rendering-progress-2026-10-11.md](notes/codex-rendering-progress-2026-10-11.md) has the caveats.
 
 Frame overlap remains experimental and **NO-GO**. The +11.74% +/-1.54% SE experiment used an artificial 8 ms replay delay; it is not a native game gain. Producer closure, resource lifetime and retirement ordering still need proof before another candidate can be shared. See [the continuation ledger](notes/codex-task-ledger.md).
 
@@ -36,7 +59,7 @@ Three parallel research units traced enemy activation, mission/arena loading and
 
 Read [AGENT_BRIEF](AGENT_BRIEF.md), the newest [STATUS](STATUS.md) section and the relevant handoff before editing. Codex owns source/build integration; device agents own their tests. Only one writer changes EngineFix source at a time.
 
-EngineFix lives in [mod/Nioh3EngineFix](mod/Nioh3EngineFix). Use its build.bat and tests/test_patterns.py, then release/check_release.py --full and required native smoke gates before sharing a new build. The current pattern catalog contains 255 sites. The pinned whole-mod Windows benchmark and its recovery/ownership checks are documented in [the benchmark driver handoff](notes/pinned-default-benchmark-driver.md).
+EngineFix lives in [mod/Nioh3EngineFix](mod/Nioh3EngineFix). Use its build.bat and tests/test_patterns.py, then release/check_release.py --full and required native smoke gates before sharing a new build. The current pattern catalog contains 257 sites in 72 groups (`patches.json`). The pinned whole-mod Windows benchmark and its recovery/ownership checks are documented in [the benchmark driver handoff](notes/pinned-default-benchmark-driver.md).
 
 All game launches use the existing game lock and harness guard. PC and Ally launches also respect their shared Steam account. Never run Ghidra while Nioh3.exe runs. Game-side optimization only: no driver, BIOS, power, affinity or hardware tuning. Preserve and verify saves and entry ASI/INI/config before releasing a test lock.
 

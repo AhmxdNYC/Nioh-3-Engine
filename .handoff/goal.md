@@ -1,0 +1,1 @@
+Make Nioh 3 run better on the user's machines (PC RX 9070, PC2 RX 6650 XT on a slow chipset slot, ROG Ally) through game-side mods only (engine-fix ASI + boss-rematch addon): lower CPU cost (target 10-20 %), higher fps, faster loads, working boss rematch/training. Honest numbers only.

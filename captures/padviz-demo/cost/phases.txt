@@ -1,0 +1,12 @@
+== ON-A
+[06:06:40.620] rendered 96.2 fps draws 135597
+[06:07:10.893] rendered 95.3 fps draws 138461
+== OFF-A
+[06:08:41.967] rendered 95.3 fps draws 147014
+[06:09:12.522] rendered 49.3 fps draws 149843
+== ON-B
+[06:10:43.169] rendered 95.4 fps draws 158146
+[06:11:13.493] rendered 94.2 fps draws 160920
+== OFF-B
+[06:12:44.358] rendered 97.5 fps draws 169504
+[06:13:14.651] rendered 90.8 fps draws 172381

@@ -13,6 +13,7 @@ foreach($v in $Variants){
   [IO.File]::WriteAllText("$g\Nioh3EngineFix.ini",$t,(New-Object Text.UTF8Encoding($false)))
   Close-Game
   Assert-Launch
+  & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
   Start-Process "steam://rungameid/3681010"
   $t0=Get-Date
   while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { $cc = "$(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'steam_cloud_click.ps1') 2>$null | Select-Object -First 1)"; if ($cc -like 'clicked*') { Write-Host "[launch] Steam cloud dialog: $cc" }; Start-Sleep 3 }   # steam_cloud_click: 'Unable to Sync' -> Play anyway (user OK, bridge #602)

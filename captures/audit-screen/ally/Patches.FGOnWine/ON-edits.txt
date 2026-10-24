@@ -1,0 +1,3 @@
+[General] Enabled = 1
+[Patches] FG = 1
+[Patches] FGOnWine = 1

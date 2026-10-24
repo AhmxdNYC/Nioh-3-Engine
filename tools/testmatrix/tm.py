@@ -1,5 +1,5 @@
 """Helper for the test matrix (run via `py -I tm.py ...`).
-  stats  <presentmon.csv>                     -> one JSON line: fps, 1%low, p99 ms, gpu/cpu busy ms
+  stats  <presentmon.csv>                     -> one JSON line: fps, 1%low, p99 ms, gpu/cpu busy ms, hitch count/worst
   logtail <log> <offset> <out.txt>            -> copy the log lines after byte offset that carry stats/ GP / SP / lm / mem
   report <results_dir> <device> [--noise-floor 0.5]  -> summary.csv + verdict.md in results_dir
   best   <results_dir> <device> <matrix.json> [low] -> ini lines (section|key|value) of all KEEP items, for the BEST combo
@@ -11,6 +11,10 @@
   paired  <results_dir> <device>             -> read-only pinned launch-pair/block JSON; no significance verdict
 """
 import csv, json, math, os, re, statistics, sys
+_BENCH = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bench"))
+if _BENCH not in sys.path:
+    sys.path.insert(0, _BENCH)
+import arm_budget
 
 
 def pct(xs, p):
@@ -69,6 +73,7 @@ def stats(path):
     cpu = busy("MsCPUBusy", "CPUBusy")
     avg = statistics.mean(xs)
     p99 = pct(xs, .99)
+    hit = arm_budget.hitch(xs)
     lat = {}        # PresentMon 2.x latency columns (need --v2_metrics + input during the window); NA rows are skipped
     for key, names in (("lat_aip", ("MsAllInputToPhotonLatency", "AllInputToPhotonLatency")),
                        ("lat_click", ("MsClickToPhotonLatency", "ClickToPhotonLatency")),
@@ -91,6 +96,7 @@ def stats(path):
             "gpu_ms": round(statistics.mean(gpu), 2) if gpu else None,
             "gpu_time_ms": round(statistics.mean(gpu_time), 2) if gpu_time else None,
             "cpu_ms": round(statistics.mean(cpu), 2) if cpu else None,
+            "hitch_count": hit["count"], "hitch_worst_ms": hit["worst"],
             "boundary_rows_excluded": 1, "foreign_rows_excluded": len(raw)-len(rows)-1,
             "stream": dict(zip(identity, ("Nioh3.exe", *next(iter(streams))))),
             "frame_type_tracking": "FrameType" in fields, "fg_off_verified": False}
@@ -205,13 +211,13 @@ import datetime as _dt
 SENS_PAT = [  # metric, include regex, exclude regex (matched case-insensitively against the column header, first match wins)
     ("fps",      r"^(framerate|fps)$|framerate", r"1%|0\.1%|low"),
     ("cpu_pct",  r"^(total cpu usage|cpu usage|cpu total|cpu load|cpu utility)", r"temp|clock|power"),
-    ("cpu_temp", r"cpu.*(tctl|tdie|package|die|temperature)|^cpu temp", r"power|clock|usage|vid|limit|margin"),
-    ("cpu_w",    r"cpu.*package power|cpu.*(socket|ppt) ?power|^cpu power", r"limit|%|gpu"),
+    ("cpu_temp", r"cpu.*(tctl|tdie|package|die|temperature)|^cpu temp|cpu.*\[temperature\]", r"power|clock|usage|vid|limit|margin"),
+    ("cpu_w",    r"cpu.*package power|cpu.*(socket|ppt) ?power|^cpu power|cpu.*\[power\]", r"limit|%|gpu"),
     ("cpu_mhz",  r"core clocks? \(avg\)|average effective clock|cpu clock|cpu frequency|^core clock avg", r"gpu|ratio|limit"),
     ("gpu_pct",  r"gpu.*(core load|utilization|usage|load)|^gpu usage", r"memory|mem |video|d3d|encode|decode|power"),
     ("gpu_hot",  r"gpu.*(hot ?spot|junction)", r"memory"),
-    ("gpu_temp", r"^gpu.*temp", r"hot ?spot|junction|memory|limit"),
-    ("gpu_w",    r"gpu.*(asic power|board power|total board|chip power)|^gpu power|^power$", r"limit|%|effective"),
+    ("gpu_temp", r"^gpu.*temp|gpu.*\[temperature\]", r"hot ?spot|junction|memory|limit"),
+    ("gpu_w",    r"gpu.*(asic power|board power|total board|chip power)|^gpu power|^power$|gpu.*\[power\]", r"limit|%|effective"),
     ("gpu_mhz",  r"^gpu (core )?clock|gpu core clock|^core clock$", r"memory|effective|cpu"),
 ]
 TIME_FMTS = ("%d.%m.%Y %H:%M:%S.%f", "%d.%m.%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S",
@@ -344,6 +350,10 @@ def run_summary(j):
          "lat_aip": gm(lt, "lat_aip"), "lat_click": gm(lt, "lat_click"), "lat_pcl": gm(lt, "lat_pcl"),
          "lat_n": sum(w.get("lat_aip_n") or w.get("lat_click_n") or 0 for w in lt),
          "load1_s": j.get("load1_s"), "load2_s": j.get("load2_s"), "hitches": j.get("hitches"), "valid": bool(j.get("valid", True)) and bool(st)}
+    hc = [w.get("hitch_count") for w in st if isinstance(w.get("hitch_count"), (int, float))]
+    hw = [w.get("hitch_worst_ms") for w in st if isinstance(w.get("hitch_worst_ms"), (int, float))]
+    r["hitch_count"] = int(sum(hc)) if hc else None
+    r["hitch_worst_ms"] = max(hw) if hw else None
     for m in ("cpu_pct", "gpu_pct", "cpu_w", "gpu_w", "cpu_mhz", "gpu_mhz"):
         r[m] = med([_sv(w, m) for w in st + mv + cb])
     for m in ("cpu_temp", "gpu_temp", "gpu_hot"):
@@ -368,6 +378,10 @@ def cells(d, device):
         fps = [r["fps"] for r in runs if r["fps"] is not None]
         c["fps_min"], c["fps_max"] = (min(fps), max(fps)) if fps else (None, None)
         c["spread_pct"] = (c["fps_max"] - c["fps_min"]) / c["fps"] * 100 if fps and c["fps"] else 0
+        counts = [r.get("hitch_count") for r in runs if isinstance(r.get("hitch_count"), (int, float))]
+        worsts = [r.get("hitch_worst_ms") for r in runs if isinstance(r.get("hitch_worst_ms"), (int, float))]
+        c["hitch_count"] = int(sum(counts)) if counts else None
+        c["hitch_worst_ms"] = max(worsts) if worsts else None
         out[k] = c
     return out
 
@@ -410,9 +424,9 @@ def table_md(d, device):
          f"Generated by `py -I tm.py table`; {sum(c['runs'] for c in C.values())} valid runs in {len(C)} cells. Medians over runs, [min-max] fps. "
          "`d fps` is a descriptive comparison with STOCK of the same preset. Run ranges are not confidence intervals; this table does not retain ABBA pairing. Use `tm.py paired` for pinned launch pairs. New parser fps uses submission intervals; display fps is separate. Archived summaries are not silently recalculated.", ""]
     presets = sorted({k[1] for k in C if not k[2]}, key=lambda p: (p != "MAX", p != "USER", p))
-    hdr = "| config | fps [min-max] | 1% low | p99 ms | move fps | combat fps | GPU ms | CPU ms | GPU % | CPU % | GPU C | CPU C | GPU W | CPU W | fps/GPU W | d fps vs STOCK |"
+    hdr = "| config | fps [min-max] | 1% low | p99 ms | move fps | combat fps | GPU ms | CPU ms | GPU % | CPU % | GPU C | CPU C | GPU W | CPU W | fps/GPU W | hitch n | hitch worst ms | d fps vs STOCK |"
     for p in presets:
-        L += [f"## Preset {p}", "", hdr, "|" + "---|" * 16]
+        L += [f"## Preset {p}", "", hdr, "|" + "---|" * 18]
         base = C.get(("STOCK", p, ""))
         for cfg in CFG_ORDER:
             c = C.get((cfg, p, ""))
@@ -426,7 +440,7 @@ def table_md(d, device):
             eff = c["fps"] / c["gpu_w"] if c.get("gpu_w") and c.get("fps") else None
             L.append(f"| {cfg} | {f1(c['fps'])} [{f1(c['fps_min'])}-{f1(c['fps_max'])}] | {f1(c['low1'])} | {f1(c['p99'])} | {f1(c['move_fps'])} | {f1(c['combat_fps'])} | "
                      f"{f1(c['gpu_ms'], 2)} | {f1(c['cpu_ms'], 2)} | {f1(c['gpu_pct'], 0)} | {f1(c['cpu_pct'], 0)} | {f1(c['gpu_temp'], 0)} | {f1(c['cpu_temp'], 0)} | "
-                     f"{f1(c['gpu_w'], 0)} | {f1(c['cpu_w'], 0)} | {f1(eff, 2)} | {dv} |")
+                     f"{f1(c['gpu_w'], 0)} | {f1(c['cpu_w'], 0)} | {f1(eff, 2)} | {f1(c.get('hitch_count'), 0)} | {f1(c.get('hitch_worst_ms'), 1)} | {dv} |")
         L.append("")
     # bang for buck: sweep cells vs the base-preset cell of the same config
     pm = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json"), encoding="utf-8-sig"))

@@ -439,3 +439,108 @@ README.md, mod/Nioh3EngineFix/README.md, release/USER_GUIDE.md, notes/archive/re
 2026-10-23 10:12 pm EDT | pc2 task28122: Ultra35 runner prepared, syntax parsed, ASI1772 hash verified; code76741baa pushed. Zero captures: automatic review rejected launch as blocked by policy. Next: pc reassign authorized runtime test; cx-pc2 finishing offline half-rate plan.
 
 2026-10-23 18:45 | cx-pc2 #27937 Board122 DRS: runner+sampler+report+tests on branch cx-pc2/drs-task122-27937 (HEAD above). DONE: offline tests + DryRun. HALF: no live run; render dimensions NOT measurable (only published ratio 0x45BBCE8 via external sampler). NEXT: lead/sweep owner runs captures/drs-task122-plan/run.ps1 when idle; decide dimension source (RE or new ASI). FILES: tools/rematch/drs_task122_run.ps1, drs_ratio_sampler.ps1, drs_task122_report.py, test_drs_window.ps1, captures/drs-task122-plan/. Also superseded plan on main e4845f44.
+
+- 2026-10-23 10:18 PM Eastern | cx-pc #28160: half-rate counters built; cx-pc/halfrate-counters-28160 12788058, artifact1792 SHA25683a37dea5c99242a4616bc280e2807932efdf539b04be95f55eb197da17d7afc.
+  Production gate/counter/log harness + existing policy harness PASS; full ASI build PASS. Default OFF unchanged; cumulative game-Present windows and calls, not GPU completion. Next pc/pc2: use notes/halfrate-counters-28160.md activation deltas; pc owns game tests.
+
+- 2026-10-23 10:44 PM Eastern | cx-pc #28259 compute-culling gate: STOP, no justified sub-stage build from verified hooks | reviewed8ee53b88 culling-hooks/gpu-culling-rewrite/meshlet-redundant-lod and gx27805; historical same-result gain0.055-0.06ms PC, Ally0.11-0.24ms estimate; skip cnt/cbuffer equality unproven | next owner obtain MinRun1 per-stage Ally timing before reconsidering; no code/ASI.
+
+- 2026-10-23 10:44 PM Eastern | cxl-pc #28264: checkpoint audit complete; cxl-pc/vrs-27602 at 3e3918a68a7cf5e4b924140ba203b54239baf29d matches live origin; tracked worktree clean.
+  Prior-research map saved in notes/big-wins-prior-research-27716.md; VRS runtime coverage remains 0 draws, no measured gain. Next: pc assigns implementation/test; no cxl-pc work in flight.
+2026-10-23 9:15 pm EST | pc final-bench coordination kept from the previous checkpoint | pc arm B 82.8 vs 81.9 avg | pc2 14 cells #27552 | Ally redo and XLOD OFF/ON were still queued then | game was closed
+2026-10-23 10:50 pm EDT | gx-pc #28264 checkpoint | half-rate reuse is already pushed, three menu keys default off, no in-game milliseconds | commit eccb0650 on gx-pc/half-rate-reuse, ASI file 1780 | DRS stays cx-pc and off | next: pc benches one key at a time after the current arms
+2026-10-23 10:45 PM EST | leftover levers ranked for #28243 | none of async, jobs, skinning, or particles clears 3.74 ms | particles 1.34 ms E, jobs about 0 frame ms, skinning has no stamp | commit 8927133e notes/new-levers-28243.md | next: do not build these; the 35% dip stays with cx-pc
+2026-10-23 10:46 PM EST | standing order #28258 checked | gxl-pc code already pushed | lever note 8927133e matches origin; half-rate eccb0650 matches origin | no uncommitted code of mine | next: keep committing each step on its own branch
+
+- 2026-10-23 10:46 PM Eastern | cx-pc #28234: open-world research +15-area renderer coverage pushed b40ff17a on cx-pc/openworld-research-28234; notes/openworld-research-28221.md.
+  Primary external sources + local notes/symbols checked;23 links and3.7435 ms budget arithmetic checked. All new savings are estimates, no game work. Next pc: reuse existing50/35 and half-rate tests, then combat/route G-buffer/VFX/skinning attribution; no new implementation ownership.
+
+2026-10-23 10:46 PM EDT | cx-pc #28242: CPU animation/physics rank complete and pushed c20573da (cx-pc/cpu-anim-28242), notes/cpu-anim-physics-rank.md | reproduced 139 Ally SP windows and 2 PC JT windows; no new runtime result | next pc: reuse existing controls/timing probes before a new optimization build.
+Verdict: no demonstrated >=1 ms animation/physics frame saving; PC joins character+stage 0.424 ms/tick, historical AABB+BPO work estimate 0.62-0.85 ms/tick; pc2 render drain 5.09-6.1 ms is stronger structural target, already studied. No game touched.
+
+2026-10-23 10:49 PM EST | gx-pc #28269 | VRS treats 0 draws: helper unwired and the game never loads the List5 interface | hook exists on draw slots 12 and 13, not built | next: do not wire VRS until a device tier query and one PSO allow-list exist | notes/vrs-followup-28258.md on gx-pc/vrs-followup-28258 76c35f1b | game not opened
+
+- 2026-10-23 10:50 PM Eastern | cxl-pc #28298: offline web research committed/pushed 29722c8c on cxl-pc/openworld-research-28298; notes/openworld-research-28279.md maps 14 technique families to existing hooks and dispositions.
+  Proven: source-backed survey, duplicate check, git diff --check. Unproven: spatial upscaler runtime/quality/gain; complete FSR family ceiling 3.59-3.65 ms <3.74 ms. Next: pc considers only this new hypothesis; existing owners retain tests. No game touched.
+
+- 2026-10-23 10:53 PM Eastern | cx-pc #28343: half-rate cave ABI fix351ef60d on cx-pc/halfrate-abi-28343, artifact1812 SHA2566edadcd4ccfe6514a09af1344ec90a0e7e2c909972603f419ebcd2130ad5beca.
+  Camera RCX + volatile SIMD/flags preserved;3000 executable cave calls + hostile helper + policy/telemetry harnesses PASS, full build PASS. Exact PC2 crash causality unproved. Next pc2: controlled startup test of1812, all OFF first; no game touched by cx-pc.
+2026-10-23 10:56 pm EST | gx-pc #28247 screen-space half-rate | pushed db572882 on gx-pc/post-reuse. HRR 0x295C44 about 0.04 ms E, HRA 0x3688234 about 0.02-0.08 ms E, HRB/HRP not hooked. All keys 0. Harness passed. Game not launched.
+Proven: offline skip/reuse/camera-cut policy. Unproven: frame time, a later SSR merge overwriting the reused target, and whether the 2135-byte AO apply holds the HBAO draws. Caves are the pre-351ef60d entry ABI.
+Next: merge onto cx-pc/halfrate-abi-28343 before any install. Do not turn keys on. Do not replace artifact 1812.
+Files: notes/post-reuse-28247.md, mod/Nioh3EngineFix/src/halfrate.cpp, commit db572882.
+
+- 2026-10-23 10:59 PM Eastern | cx-pc #28358: matched1.7.73-drs-hrabi artifact1813, SHA256729ac5fc763a2fac2c397f69323e90622e038f62fdc757b43dde1b7257c48f77; cx-pc/halfrate-matched-28358 source96433c40.
+  Full build/261 patterns/17 DRS/3000 cave calls+hostile helper PASS; existing menu IDs and6 interface/core files preserved. Next pc2: allOFF startup then existing12-window test with DRS off; native crash fix unproved. No game touched.
+2026-10-23 11:02 pm EST | gx-pc #28247 ABI merge | tip b5e0eb88 on gx-pc/post-reuse includes the register-save caves. HRR 0x295C44 0.04 ms E, HRA 0x3688234 0.02-0.08 ms E. Both harnesses passed. Keys 0. Game not launched.
+Proven: offline policy plus 3000 executable cave calls. Unproven: frame time and whether the SSR merge overwrites the reused target.
+Next: no install until pc assigns a device test. Do not turn keys on.
+Files: mod/Nioh3EngineFix/src/halfrate.cpp, commit b5e0eb88.
+
+## 2026-10-24 00:06:40 session 086e967c-e09e-4942-a9f2-3ab9caf58ce4
+Board task #127 is done on the main PC. Ultra Performance 35% gave no fps gain, and the half-rate build hangs the game at startup, so it has no numbers.
+
+**Ultra Performance 35%** (RX 9070, 1440p XeSS, frame gen off, same Yoritomo fight, 2 repeats per arm):
+
+| | OFF (50% scale) | ON (35%) | Change |
+|---|---|---|---|
+| Avg fps | 90.3 | 89.3 | −1.2% (within noise) |
+| 1% low | about 59.1 | about 56.1 | −5.2% (within noise) |
+| GPU active time | 7.77 and 8.16 ms | 6.94 and 7.33 ms | −0.83 ms |
+
+- **Why no fps gain:** this PC is CPU/pacing-bound, with 7–8 ms of GPU work in an 11 ms frame.
+- **Caveat:** the 35% render size was never sampled, and `config.xml` still read 50 after the ON runs. The 0.8 ms GPU drop fits it being applied, but that is unproven.
+- **Power:** not recorded.
+
+**Half-rate shadow/GI/cloud** (bridge file 1780, the HRS, HRG and HRC keys): the game hangs at startup on all 6 launches, even with every half-rate key off. The same source without half-rate boots at 88–93 fps. That points at the half-rate hooks. I sent the blocker to gx-pc (#28648) to fix and resend.
+
+I filed the result on task #127 and the bridge (#28647), messaged you, and added a line to `.handoff/done.md`. The helper restored the install, config and saves to their pre-test hashes, and no game process or lock marker is left. Its results note (`notes/ultra35-halfrate-pc-127.md`) went to `gx-pc/post-reuse`, not the current branch.
+
+Still pending: Ally's XLOD, fixed-scale and DRS tests. I haven't seen
+
+2026-10-24 12:10 am EST | pc lead: big-wins tests | DONE: pc DRS (#123) no gain 83.8 vs 79.0 fps; pc2 DRS no gain (47.79 vs 47.53); pc Ultra35 (#127) no fps gain 90.3 vs 89.3 (CPU-bound, GPU -0.83ms); half-rate build file1780 hangs at boot (BLOCKED sent to gx-pc #28648). Culling owner = cx-pc (after 35% build). | UNPROVEN: Ally A1 XLOD 0 vs 4 (file 1758), A3 fixed scale 50 vs 35 (file 1762), A4 DRS (art 1765) queued behind Ally 12-run bench (last ETA 9:35 pm, result not yet seen). | NEXT: digest Ally bench RESULT + A1/A3/A4, update charts/README, await gx-pc half-rate fix then re-test on pc/pc2/ally; check pc2 #122/ally #124 board tasks. | files: notes/drs-pc-test-123.md, notes/ultra35-halfrate-pc-127.md (on gx-pc branches), captures/drs-123, captures/test127
+2026-10-24 12:11 am EST | gx-pc #28648 half-rate boot hang | file 1816 is 1.7.61-hrabi from 940e1d62. Camera cave restores RCX. Keys 0. sha256 8422FC6527CBD40F809CA432171C4A836854A1FAFEEF1D862BD9130DDA0E20F8.
+Proven: source of the 6/6 hang is the old camera cave resuming 0x244264 with RCX destroyed, and the new ASI contains version 1.7.61-hrabi. Unproven: a real boot. pc holds nioh3-pc and test128.
+Next: when that lock is free, install file 1816 over a backup, keys at 0, and confirm a window within 60s, then restore.
+Files: mod/Nioh3EngineFix/src/halfrate.cpp, notes/halfrate-abi-28343.md, bridge file 1816.
+
+2026-10-24 00:20 | pc lead: digesting big-win results | done: DRS (pc2 -0.55%, pc no gain), Ultra35 on pc no gain (89 vs 90, CPU-bound), culling/anim/post-reuse/far-LOD all <0.3ms parked, docs refreshed (cx-pc/docs-current-27936 604608ca, not merged to main), chunk rule #28530 recorded+sent to ally | half-done: half-rate (HRG only reuses, pc2 +3.2% inconclusive); pc test128 running (marker fresh, Nioh pid 39792, not mine); Ally FG-on 0/6 valid, rerun in chunks pending, Ally Ultra35 #124 queued; cx-pc CPU submit task #28702 + cxl-pc open-world research #28298 pending RESULTs | next: wait for test128/Ally/cx-pc RESULTs, update charts when Ally done, merge docs branch to main after human OK | ids: board #124 #127 #128, files notes/halfrate-*.md
+2026-10-24 12:22 AM EST | PC CPU rank for #28660 | logic join 1.44 ms is a wait, not a saving; AABB 0.5-0.6 ms est untested here; StateFilter unmeasured | two files compiled, game not opened | notes c768fd7e, StateFilter 90958584 | next: AABB off vs on, then StateFilter count-only, two short repeats, not stacked
+2026-10-24 12:22 am EST | gx-pc #28707 anim/physics levers | note notes/anim-physics-levers-28707.md on gx-pc/anim-physics-28707 e046c440. No new setting clears 1 ms. The 17.6 ms draw-prep number stays with cx-pc.
+Proven: existing rank c20573da still holds; only new candidate is AnimPoseDynamicsStep 0x7FE68, unbuilt, default off. Old shrine profile 0.6-2.0% inclusive of one scheduler thread, not frame ms. Character join ceiling 0.291 ms/tick on the old PC trace.
+Unproven: any OFF/ON frame time. No game.
+Next: do not build 0x7FE68 unless a later fight shows an exposed anim/physics wait of at least 1 ms. Half-rate file 1816 boot is still waiting on a free game lock, separate from this task.
+2026-10-24 00:30 | pc lead: gxl-pc CPU study digested | unproven: StateFilter=1 and AABB switch ms | next: time StateFilter 1 vs 0 and AABB on pc in short chunks after 1.7.73 half-rate boot check | notes/cpu-settings-28752.md, cx-pc/cpu-submit-28702 90958584
+2026-10-24 00:35 | pc: gx-pc anim/physics study digested (no >1ms lever; notes/anim-physics-levers-28707.md) | next: bench the already-built 1.7.73 camera-fix artifact (not the 1.7.61 file 1816): boot check then HRG in chunks, plus StateFilter/AABB timing
+
+2026-10-24 12:24 am EST | gx-pc #28803 | pc says file 1816 (1.7.61) boot PASS stands. File 1813 (1.7.73) was not booted: run128c was already launching, pc stopped it and restored the original mod files.
+Proven by pc's report, not a new gx-pc launch: 1816 reaches a boot. Unproven: 1813 startup and any fps arm.
+Next: pc boots 1813 after pc2 confirms startup and no wrapper is running. gx-pc does not take the lock.
+2026-10-24 00:40 | pc: pc2 Ultra35 +14% (inconclusive, 2 reps) digested | partial 2/3 devices (pc 0%, pc2 ~+14%), ally pending | next: ally Ultra35 #124 result, then verdict; 1813 boot on pc after pc2 startup check
+
+2026-10-24 12:45 am EST | gx-pc #28847 CPU levers | no new ASI. Note notes/cpu-levers-28847.md on gx-pc/cpu-levers 99cca947.
+Proven: 1.44 ms is a worker wait; box math already has AABB default 0 at 0.5-0.6 ms E; draw recording must not be batched. StateFilter 90958584 stays default 0, ceiling inside 0.57 ms, unmeasured.
+Unproven: any OFF/ON fps. No game.
+Next: AABB 0 vs 1 on this PC, two short repeats, then StateFilter count-only. Not stacked.
+2026-10-24 12:46 AM EST | CPU heat note for #28855 | shipped W3/R1/L1 can drop about 0.8-1.4 cores when the cap has slack; new W5 is 0.3-0.4 core with frame generation on, default off, not built | game not opened | note 9e46fb5f | next: util/power/temp at the same 120 fps, 4K, not stacked
+2026-10-24 00:50 | pc: Claude opus agent built [Patches] CoolCpu=0 (turns on GF/W6/S1/DS spin fixes) on branch claude-pc/cpu-heat 4e4ba22c, builds, unmeasured | RAPL power counter found (typeperf Energy Meter) | next: bench CoolCpu off/on at 4K 120cap equal fps logging package power+temp (chunks, after 1.7.73 half-rate boot); extend tm.py CPU power column | note notes/cpu-heat-spin-2026-10-24.md on that branch
+2026-10-24 00:55 | pc: cx-ops #28915 helper update fixed (HEAD 2bf951f); all 8 pc helpers current; pc2/ally update + sensor confirmations pending | next: collect sensor table from pc/pc2/ally, then CoolCpu bench
+2026-10-24 01:00 | pc: gx-pc #28944: frame-gen presenter-sleep heat fix already in 1.7.73 (FG=1, ~0.3 core, FG-on only), unmeasured 0/3; cx-pc update blocked w/ same git error, fix sent | next: CoolCpu + FG-sleep power bench (4K 120cap, watts/temp) after sensor table
+2026-10-24 01:05 | pc: pc2 sensor reply: util/CPU power/frametimes OK unprivileged; CPU temp + GPU temp/power need admin/ring0 tool | pc, ally replies pending | next: table to human; decide if one-time admin sensor driver on pc2 is wanted
+2026-10-24 01:10 | pc: pc2 full sensor reply #28946 (already relayed to human #28959): OK unprivileged = CPU power (RAPL counter), per-core CPU util, GPU util, PresentMon frame/display latency; NOT OK = CPU temp, GPU temp/power (need HWiNFO/LHM one-time admin), no RTSS/MangoHud | pc + ally replies pending | next: table to human when all 3 in; CoolCpu/FG-sleep power bench on pc (RAPL works here)
+2026-10-24 00:50 | pc lead session end | DONE: relayed chunked-test rule (#28530) to pc2/ally; stopped pc test127 hr boot-hang loop + restored bak asi/ini; ally FG-on gate switched to copy-jobs (first valid FG-on arm 42.3 vs 32.8 fps FG-off, unproven FG), 5 arms left; gxl-pc heat switch -> gx-pc build task; cx-pc out of credits until Oct 30 (CPU task moved to gxl-pc); cx-ops helper audit: 8 PC helpers current 2bf951f. | UNPROVEN: pc/pc2/ally no-admin stats table (pc2 says CPU temp, GPU temp/power need admin tool; gxl-pc asked to build ADLX no-admin GPU reader #28958); pc half-rate hr set running under another session's run128d (do not start 2nd wrapper; results captures/test127/results-pc-hr.csv). | NEXT: wait pc/ally stats replies -> send human per-device yes/no table; relay ally FG-on results + update charts; helper update audit pc2/ally HEAD; final 3-arm bench all devices in 10-min chunks. | no code committed this session.
+2026-10-24 | cx-pc #28702: built StateFilter (redundant SetPipelineState skip) in gpuopt, default off; builds, untested in game | next pc: StateFilter=2 count run for redundancy %, then =1 A/B on pc | branch cx-pc/cpu-submit-28702
+2026-10-24 01:25 | pc: gx-pc #28979 repeats #28944 (FG presenter-sleep F1 already in 1.7.73, FG=1, ~0.3-0.4 core, unmeasured 0/3, cx-pc/drs-matched-27690 0e992588); nothing new | next unchanged
+2026-10-24 01:30 | pc: pc2 LHM elevated, needs human to tick Options>Remote Web Server>Run (relayed); then pc2 logs via tools/sensors/lhm_log.ps1 | ally sensor Q sent | pc still needs HWiNFO as admin from human
+2026-10-24 12:53 AM EST | pc sensor check #28902 | CPU package power, CPU util, GPU util, RX 9070 temp/power, and PresentMon frame time read without admin. CPU temp has no source. Input-latency column was empty with no clicks. | game not opened | next: do not ask the human to install a sensor driver | no code commit
+2026-10-24 01:40 | pc: LibreHardwareMonitor web server works on pc: http://localhost:8085/data.json gives CPU Tctl 91.1C, CPU pkg 75.2W, GPU temp 49C/hotspot 53C, GPU pkg 38W (read now); pc2 web server ticked by human, awaiting pc2 verify; ally sensor Q pending | next: sensor CSV logger into final bench (tools/sensors/lhm_log.ps1 from pc2), CoolCpu/FG-sleep power bench
+2026-10-24 01:45 | pc: pc2 sensors verified (#29029: CPU 62C/52-59W, GPU 51C/21W via LHM web :8085); lhm_log.ps1 usage: -Out X.csv -Seconds N -Interval 1 | pc+pc2 sensors DONE, ally pending | next: wire lhm_log into final bench / CoolCpu bench
+2026-10-24 01:50 | pc: lhm_log.ps1 copied to tools/sensors (from dc7093fa, uncommitted; columns named by sensor path) | next: use in CoolCpu/FG-sleep bench
+2026-10-24 12:57 AM EST | ADL GPU logger #28958 | 5 rows on RX 9070: edge 54 C, hotspot 59 C, board 39-48 W, mem 2505 MHz | CPU temp not in WMI, PDH, or ADL | next: pc2 can run the same script only if that PC has atiadlxx.dll | tools/bench/amd_gpu_csv.py caaf6e4c
+2026-10-24 02:00 | pc: universal-tools shortlist done (notes/universal-tools-shortlist-20261024.md), porting items 1-4 tasked to gxl-pc | next: review its branch, then items 5-8
+2026-10-24 | cx-pc #29043: universal tools proposal + sensorlog/planrun/shotdiff (selftests pass) | live sensor backends untested | next: idle_run.py, steam OCR crop, fleet audit | uo branch cx-pc/universal-tools-29043 27f9aaf, notes/universal-tools-proposal.md
+2026-10-24 1:14 AM EST | HWiNFO shared memory #28975 | waited about 15 min | no HWiNFO64 install, process, or Global\HWiNFO_SENS_SM2 | next: read 5 s of CPU package and GPU temp/power when the human finishes the install | no code commit
+2026-10-24 1:25 AM EST | #29060 tools port | chunkrun, guard boot-hang, Close-Owned, lhm_log | proven by 4 selftests offline; not run in the game | next: pc reviews gxl-pc/chunk-sensors-29060; do not commit onto the dirty fleet-v2 checkout | bcb6484
+2026-10-24 cx-pc #29282 | RE status note + regenerated docs/progress charts + README numbers | whole exe 6.00% named (12679/211206), render 20.71% bytes; no new reversing | next: pc reviews notes/re-status-2026-10-24.md | branch cx-pc/cpu-submit-28702
+2026-10-24 cx-pc #29300 | idle_run.py built; sensorlog headline bug fixed + verified live on pc LHM; merged gxl chunkrun/lhm_log into cx-pc/universal-tools-29043 | steam OCR crop NOT done (needs dialog/game), Linux backend unverified | next: pc review/merge to fleet-v2 | uo branch cx-pc/universal-tools-29043
+2026-10-24 2:35 AM EST | gx-pc #29285 | final-bench report generator writes docs/final-bench from captures/final-full | proven by 2 offline tests; live folder has 0 valid rows (1 skipped) | next: rerun the script after a valid 3-device capture | tools/bench/final_full_report.py

@@ -11,6 +11,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <tlhelp32.h>
 
 #include <atomic>
 #include <cstdarg>
@@ -51,6 +52,32 @@ static void Check(bool c, const char* m) {
         ++fails;
         printf("FAIL: %s\n", m);
     }
+}
+
+// Production census deliberately has no affinity. Keep this fixture's sampler
+// and control threads off the one CPU whose five spinners we measure; otherwise
+// the HIGHEST-priority sampler consumes the share asserted below.
+static bool IsolateObservers(const DWORD (&spinners)[5], DWORD_PTR mask) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+    THREADENTRY32 entry{};
+    entry.dwSize = sizeof entry;
+    bool ok = Thread32First(snapshot, &entry) != FALSE;
+    unsigned isolated = 0;
+    if (ok) do {
+        if (entry.th32OwnerProcessID != GetCurrentProcessId()) continue;
+        bool spinner = false;
+        for (DWORD tid : spinners) spinner |= entry.th32ThreadID == tid;
+        if (spinner) continue;
+        HANDLE thread = OpenThread(THREAD_SET_INFORMATION | THREAD_QUERY_INFORMATION, FALSE, entry.th32ThreadID);
+        if (!thread) { ok = false; continue; }
+        if (!SetThreadAffinityMask(thread, mask)) ok = false;
+        else ++isolated;
+        CloseHandle(thread);
+    } while (Thread32Next(snapshot, &entry));
+    CloseHandle(snapshot);
+    printf("fixture: isolated %u observer/control threads from spinner CPU\n", isolated);
+    return ok && isolated >= 3;  // main, RTP manager, census
 }
 
 struct RowV {
@@ -97,7 +124,11 @@ int main() {
         printf("need >= 2 logical processors\n");
         return 1;
     }
-    g_mask = (DWORD_PTR)1 << (ncpu >= 3 ? 1 : 0);  // not the census CPU (the last one)
+    DWORD_PTR processMask = 0, systemMask = 0;
+    if (!GetProcessAffinityMask(GetCurrentProcess(), &processMask, &systemMask)) return 1;
+    g_mask = processMask & (~processMask + 1);  // first permitted logical processor
+    const DWORD_PTR observerMask = processMask & ~g_mask;
+    if (!observerMask) { printf("need >= 2 permitted logical processors\n"); return 1; }
     // HIGH class: the 5 spinners (13, raised 14) and the census (15) are not disturbed by normal-class load elsewhere on the PC
     SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
     wchar_t ini[MAX_PATH];
@@ -121,6 +152,7 @@ int main() {
     si.base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     si.presentTid = &PresentTid;
     thrsched::Start(si);
+    Check(IsolateObservers(tid, observerMask), "fixture: sampler/control threads isolated from spinner CPU");
     volatile uint32_t* sw = thrsched::RtpSwitch();
     Check(sw != nullptr && *sw == 0, "RTP = 2 installs the switch OFF");
 

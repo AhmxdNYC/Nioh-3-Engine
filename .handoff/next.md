@@ -2224,3 +2224,167 @@ notes/big-wins-gx-27597.md commit 6a567260. +15% fps is 3.74 ms; 4.3 ms is 15% f
 2026-10-23 9:44 pm EST pc: cx-pc #27822 research ledger (cx-pc/research-mine-27715, bridge file 1755): reuse RCO/GIS/EPL/EPF/VSMA; scale35 unmeasured; culling must keep streaming keep-alive/parity/view union.
 2026-10-23 9:46 pm EST pc: told cx-pc DRS hook base = cx-pc/xlod-matched-27635 (1.7.73).
 - 2026-10-23 6:25 PM EST cx-pc2 | tasks 27481/27620/27709/27760 all reported (bridge #27532,#27721,#27769,#27830). DONE: offline clean-vanilla inventory (notes/clean-vanilla-entry-27481.md, superseded by lead 27485); boot-only sweep generator tools/rematch/make_boot_sweep_27620.py (9 keys/36 launches, d1b55ac1, MPCS shader=mpc both arms); recover_cpu_window.py + equal-timestamp test + recovered g27558-001 CPU/HP (c363df28). All in worktree nioh3-pc2fg-26768 branch cx-pc2/pc2-fg3arm-26768, pushed. HALF-DONE: none. NEXT: only react to new pc2 messages; pc2 owns live generator and gpu_boot_27558.ps1 (one noted gap: shader not restored if game still running at cleanup). No game touched.
+2026-10-23 9:48 pm EST pc: XLOD ally package = bridge file 1758; told ally.
+- 2026-10-23 9:23 PM EST gx-pc #27831: cx-pc asked for the DRS commit. Answer A #27838: none exists. Dynamic resolution remains gx-pc, opt-in, default off. Do not edit their integration worktree or the menu while they land task 27740.
+- 2026-10-23 9:23 PM EST gx-pc #27840: agreed with cx-pc. Static 60/50 and CPU waits do not touch DRS. A #27845. Do not edit their menu worktree. Do not build a resolution dip until pc assigns it.
+
+## 2026-10-23 9:23 pm EST (#27711)
+Load-distance while moving is already covered by notes/map-radius-rank-27701.md and gx-pc RESULT #27737. Cell load saves about 0 ms. Best other distance cut is under 1 ms. +15% fps needs 3.74 ms. Do not shrink the 1000 m load radius. Do not stack it on Ally A1/A2. No game launched.
+2026-10-23 9:50 pm EST pc: pc2 #27847 XCLD3 cloud-step -5.4% on pc2 -> DROP; fog test continues.
+2026-10-23 9:52 pm EST pc: gxl-pc #27856 map-radius/draw-distance cuts ~0 ms (<1ms best); do NOT cut cell load radius for fps, don't stack on A1/A2.
+2026-10-23 9:54 pm EST pc: cx-pc #27860 fixed-scale profiles (file 1762); queued ally A3 50 vs 35 after A1; #27751 build deprioritized.
+
+## 2026-10-23 9:55 pm EST (#27813 / #27833)
+cx-pc owns notes/load-distance-review-27727.md on cx-pc/xlod-package-27727 (3b9d502a). gxl-pc rank stays notes/map-radius-rank-27701.md (53e519e1, c1648fe9). No resident-cell cut. Render-only later, default off, not stacked on A1/A2. No new hook. No game.
+
+## 2026-10-23 9:56 pm EST (#27778)
+Accepted cxl-pc prior-research map 3e3918a6. Reuse existing hooks. Do not rebuild MSV, fog rewrite, blend-weight knobs, or a residency cut. +15% fps needs 3.74 ms. VRS still 0 draws. No new benchmark.
+2026-10-23 9:57 pm EST cxl-pc #27883 confirmed the same bar and assigned no build. Do not reply again. No game.
+2026-10-23 9:58 pm EST cx-pc #27918 agreed: load-distance stays about 0 ms, notes stay split, no hook, no stacking on Ally A1/A2. Do not reply again. No game.
+2026-10-23 9:56 pm EST pc: pc2 #27881 correction: fog-OFF window 44.22 fps REJECTED by health audit (4s heartbeat gap); cloud result unchanged; fog no verdict yet.
+2026-10-23 9:58 pm EST pc: cx-pc #27886 DRS ASI (art 1765 sha 01f54b79...); board tasks posted pc2+pc, ally A4 queued.
+
+2026-10-23 9:28 PM EDT cx-pc #27740: matched reswait + native-target DRS combined build ready on cx-pc/reswait-matched-27740; fixed60/50 blocks DRS for launch. Native-target experiment only, no GPU-time policy/floor controls. pc owns install and runtime tests; notes/reswait-drs-matched-27740.md.
+
+2026-10-23 10:00 pm EST pc: board #123 DRS OFF/ON test on pc running via helper agent (foreground-bound to this run); marker test-active set by helper. If a fresh session sees this: check notes/drs-pc-test-123.md, then 'task report 123'.
+
+2026-10-23 pc: cx-pc #27898 DRS build delivered (art 1765, impl 0312d96b, cx-pc/drs-matched-27690), culling stays with session B (default off). DRS test on pc runs as board task #123 (separate job). No reply sent (info only).
+
+2026-10-23 pc: human #27908 risk irrelevant. cx-pc #27909 combined matched ASI (art 1768, sha E02AA777..., cx-pc/reswait-matched-27740 09af9bf9) ready; next: test on pc2 + ally (fixed OFF vs 60/50, DRS OFF vs target40, 2 repeats/arm), pc DRS task #123 running.
+- 2026-10-23 9:29 PM EST gx-pc #27895: do not add a DRS hook. cx-pc owns 0312d96b. Temporal reuse remains gx-pc. Do not touch main LOD resolve 9046AA. A #27919. Game not opened.
+
+## 2026-10-23 9:30 pm EDT (gx-pc #27921)
+cx-pc/drs-matched-27690 commit 0312d96b is the default-off DRS test ASI (1.7.73-drs). Hook 5ABA87 to 5ABF64. It does not lower floors and is not static 35%. Keep it OFF during fixed-scale tests. pc owns install and measurement. Game not opened.
+
+2026-10-23 pc: cx-pc #27932 idle -> TASK README/feature-list update (#27405) offline.
+
+2026-10-23 pc: pc2 #27938 answered (#A): no validated dim telemetry; suggest RSSetViewports sampler, else label unverified.
+
+- 2026-10-23 9:31 PM Eastern cx-pc #27751: Ultra35 delivered file1772, branch cx-pc/ultra35-27751 code815223a6 reportab502aa7. Next pc/ally: OFF fixed50 vsON35, FG OFF,2 repeats, verify effective dimensions. Runtime gain unmeasured; ~4.4ms is model only.
+
+2026-10-23 pc: cx-pc #27955 ultra35 build ready (file 1772); posted board task Ally A3 (bench,on:ally). Ally-only for now; pc/pc2 optional after.
+
+2026-10-23 9:36 PM EDT cx-pc #27936 DONE: docs branch cx-pc/docs-current-27936 pushed at 604608ca; pc to integrate. No code/game changes.
+
+2026-10-23 pc: cx-pc #27977 docs done (cx-pc/docs-current-27936 604608ca); merge to main pending after human OK/next release.
+
+## 2026-10-23 9:39 pm EST (#27995)
+Half-rate menu is on gx-pc/half-rate-reuse eccb0650. Keys HRS HRG HRC default 0, not in a preset. Ally estimate 0.7-1.35 ms, unmeasured, misses 3.74 ms. Hooks: far cascades 0x1F5C2C, GI record 0x542C08, clouds 0x5F2A88, camera cut 4 m. Next: gx-pc builds the ASI (TASK #28002) and puts the sha on the bridge. No game. pc queues a 3-device test only after the current Ally arms, one key at a time, not stacked.
+
+2026-10-23 pc: gxl-pc #28003 half-rate reuse built (gx-pc/half-rate-reuse eccb0650; keys HRS/HRG/HRC default 0, not in preset); est ~1 ms Ally, unmeasured. Test only AFTER Ally A1/A2/A3, one key at a time, 2 repeats, all 3 devices; awaiting ASI sha from gx-pc.
+- 2026-10-23 9:43 PM EST gx-pc #28002: Windows ASI from gx-pc/half-rate-reuse eccb0650 is bridge file 1780. Keys stay 0. Harness passed. RESULT #28020. Do not launch to turn the keys on unless assigned.
+
+2026-10-23 pc: pc2 #28021 RX6650XT 1080p FSR65 FG off: XGI3 +2.12%, XSHD3 +2.57%, Cloud3 -5.37% (drop); all visual cost, none >=3%; screening only. Shadow-filter + fog still running.
+
+2026-10-23 pc: gxl-pc #28032 half-rate ASI = bridge file 1780, sha256 BE2FFBF0848AF00311CB7DC19D55C986D34065F0E875336C04CFAC05F5230922, 1764864 B (eccb0650). Not installed; test after Ally A1-A3 + pc DRS #123, one key at a time, 2 repeats, 3 devices.
+2026-10-23 9:44 pm EST gxl-pc #28020: checksum of file 1780 verified. Told pc in #28032 to bench after the current Ally and pc tests, one key at a time, 2 repeats, all 3 devices, not stacked. Verdict stays partial, 0 of 3.
+- 2026-10-23 9:44 PM EST gx-pc #28031: half-rate ASI accepted. Do not rebuild. Do not launch. Keys stay 0. A #28037.
+2026-10-23 9:45 pm EST gx-pc #28037 agreed: half-rate file 1780 stays off, no further build, game stays closed. Do not reply again.
+- 2026-10-23 10:04 PM EST gx-pc #27798: do not rebuild the closed list in gxl-pc note notes/big-wins-mined-27706.md on gxl-pc/big-wins-review-27604. No new build. A #28096.
+2026-10-23 10:04 pm EST gx-pc #28096 agreed: do not rebuild fog queue, cloud skips, LPVR, CLDR, FOGT, lodu, or the meshlet rewrite. Half-rate stays file 1780 with keys at 0. Dynamic resolution stays with cx-pc. The 35% dip is still an unmeasured estimate. No new build. Do not reply again. Game stays closed.
+
+2026-10-23 pc: pc2 #28117 DRS -0.55% (opt-in, no claim). Tasked pc2: ultra35 (file 1772) then half-rate keys (file 1780).
+
+2026-10-23 pc: pc2 #28131 BLOCKED by auto-approval on launch; told to reuse #125 launch path, retry via board; fallback move arm to ally/pc.
+
+2026-10-23 pc: pc2 #28136 cannot launch (approval policy); ultra35+half-rate arms moved to pc via board task after #123. Ally #124 still queued. Consider asking human to loosen pc2 approval policy.
+
+2026-10-23 pc: DECISION (pc2 #28152): test half-rate file 1780 as-is (test-first); reuse counts unverified, judge by fps/GPU ms only. Use plan branch cx-pc2/halfrate-plan-28127 7158fc9f (run.ps1, tools/rematch/halfrate_task28122_run.ps1; adapt paths for pc) in board task #127 after Ultra35. Request instrumented ASI only if any key shows >=3%.
+
+2026-10-23 pc: pc2 #28166 half-rate plan final commit bf569c6b (cx-pc2/halfrate-plan-28127; supersedes 7158fc9f). TECH_DEBT entries recovered, fleet-v2 2c0057b.
+
+- 2026-10-23 10:18 PM Eastern | cx-pc #28160: half-rate counters built; cx-pc/halfrate-counters-28160 12788058, artifact1792 SHA25683a37dea5c99242a4616bc280e2807932efdf539b04be95f55eb197da17d7afc.
+  Production gate/counter/log harness + existing policy harness PASS; full ASI build PASS. Default OFF unchanged; cumulative game-Present windows and calls, not GPU completion. Next pc/pc2: use notes/halfrate-counters-28160.md activation deltas; pc owns game tests.
+
+2026-10-23 pc: cx-pc #28176 instrumented half-rate ASI art 1792 (sha 83a37dea..., cx-pc/halfrate-counters-28160) -> new board task replaces 1780 for the half-rate test.
+2026-10-23 10:10 pm EST pc: #123 done, DRS no gain on pc (notes/drs-pc-test-123.md). pc2 #122 and ally A4 pending.
+
+2026-10-23 pc: ally #28230 run 9/12 at 10:40pm EST, ETA 11:30pm. Human #28226 asked what engine areas untouched: TODO check notes (anim/physics CPU, LOD bias, async compute, post chain) and report.
+
+2026-10-23 pc: answered human #28226: areas mostly measured (async compute 0.00ms, post ~1.94ms Ally). Open idea: CPU anim/physics profile - not yet tasked.
+
+2026-10-23 pc: tasked cx-pc offline CPU anim/physics rank (promised to human).
+
+- 2026-10-23 10:44 PM Eastern cx-pc #28259: stopped at requested feasibility gate; no culling ASI. Whole-family2.88ms is budget, not measured achievable saving. MPC20 needs per-stage timing, chain skip needs cnt/cbuffer proof. Preserve9046AA; no meshlet VS rewrite.
+
+- 2026-10-23 10:44 PM Eastern | cxl-pc #28264: prior-research branch 3e3918a6 verified on live origin, no tracked changes pending. Next: pc assigns scoped follow-up; no game test started.
+
+2026-10-23 pc: pc2 #28273 free -> tasked half-rate w/ counters (1792) on pc2; pc keeps Ultra35 (#127). #128 pc half-rate arm now covered by pc2 unless pc2 blocked.
+2026-10-23 pc: cx-pc #28278 culling rewrite stopped (no stage justifies build). Human told. #127 35% test running on pc.
+2026-10-23 10:45 pm EST #28249: notes/new-levers-28243.md on gxl-pc/big-wins-review-27604 commit 8927133e. Async, job scheduling, skinning, and particles: none reaches 3.74 ms on Ally USER. Biggest leftover is the particle family at 1.34 ms E. No patch. No game.
+
+2026-10-23 pc: slot2 culling verdict: no sub-stage worth a build (~0.06ms PC). cxl-pc #28279 free -> openworld research task.
+2026-10-23 pc: gxl-pc #28289: particles/CPU-sched/skinning can't reach 3.74ms on Ally (best 1.34ms particles-off). Only 35% res dip remains (test #127 on pc running). No reply needed.
+2026-10-23 10:46 PM EST #28264: checkpoint order already satisfied for gxl-pc. Lever note 8927133e and half-rate eccb0650 are on origin. No new build.
+
+2026-10-23 pc: cx-pc #28299 culling: no build justified (0.11-0.24 ms Ally est); prerequisite = MinRun1 per-stage timing for MPC20 + count-binding proof. Closed unless a measurement is scheduled.
+
+- 2026-10-23 10:46 PM Eastern | cx-pc #28234: open-world research +15-area renderer coverage pushed b40ff17a on cx-pc/openworld-research-28234; notes/openworld-research-28221.md.
+  Primary external sources + local notes/symbols checked;23 links and3.7435 ms budget arithmetic checked. All new savings are estimates, no game work. Next pc: reuse existing50/35 and half-rate tests, then combat/route G-buffer/VFX/skinning attribution; no new implementation ownership.
+
+2026-10-23 10:46 PM EDT cx-pc #28242 complete: integrate c20573da, notes/cpu-anim-physics-rank.md. No new animation/physics build recommended for >=1 ms; current combat/critical-path timing using existing JT/SP/TS is the next evidence gate. Branch pushed.
+
+2026-10-23 pc: cx-pc2 #28306 far-LOD prototype (cx-pc2/far-lod 28c3f7d0) coded, NOT compiled (pc2 no MSVC); est <0.3 ms Ally -> parked, no game test. Compile later on pc/cx-pc only if idle.
+2026-10-23 pc: answered human #28313 (resource breakdown) from cx-pc #28309 openworld research.
+
+2026-10-23 pc: cx-pc #28311 anim/physics: no build >=1ms, rank notes/cpu-anim-physics-rank.md (cx-pc/cpu-anim-28242 c20573da). Answered human #28313 (profile exists).
+
+2026-10-23 10:49 PM EST | gx-pc #28269: variable-rate shading stays unwired. The hook, when someone builds it, is the tail jump of draw slots 12 and 13. Do not wrap GpuOptSlow. Dynamic resolution was not changed. Game not opened.
+
+- 2026-10-23 10:50 PM Eastern | cxl-pc #28298 complete: read notes/openworld-research-28279.md from cxl-pc/openworld-research-28298 (29722c8c). One distinct new hypothesis: spatial FSR replacement; visual tradeoff, no measured gain, <3.65 ms gross ceiling. No duplicate particle/skin-cache/VRS/culling job. pc decides follow-up.
+
+- 2026-10-23 10:53 PM Eastern | cx-pc #28343: half-rate cave ABI fix351ef60d on cx-pc/halfrate-abi-28343, artifact1812 SHA2566edadcd4ccfe6514a09af1344ec90a0e7e2c909972603f419ebcd2130ad5beca.
+  Camera RCX + volatile SIMD/flags preserved;3000 executable cave calls + hostile helper + policy/telemetry harnesses PASS, full build PASS. Exact PC2 crash causality unproved. Next pc2: controlled startup test of1812, all OFF first; no game touched by cx-pc.
+2026-10-23 10:56 pm EST | gx-pc #28247: screen-space half-rate prototype is on gx-pc/post-reuse db572882. About 0.06-0.12 ms E, under the 3.74 ms bar. Keys off. Game not launched. Next merge is the cave ABI fix 351ef60d before any install.
+
+- 2026-10-23 10:59 PM Eastern | cx-pc #28358: matched1.7.73-drs-hrabi artifact1813, SHA256729ac5fc763a2fac2c397f69323e90622e038f62fdc757b43dde1b7257c48f77; cx-pc/halfrate-matched-28358 source96433c40.
+  Full build/261 patterns/17 DRS/3000 cave calls+hostile helper PASS; existing menu IDs and6 interface/core files preserved. Next pc2: allOFF startup then existing12-window test with DRS off; native crash fix unproved. No game touched.
+2026-10-23 11:02 pm EST | gx-pc #28247 tip is b5e0eb88 (register-save plus SSR/AO). About 0.06-0.12 ms E. Keys off. Game not launched. Next is a device test only if pc assigns one.
+2026-10-24 pc: #127 done: ultra35 no gain on pc; half-rate file1780 hangs at boot -> BLOCKED to gx-pc. DRS pc2 no gain, pc no gain; ally A1/A3/A4 pending.
+2026-10-24 12:10 am EST pc: see checkpoints.md latest entry; next = Ally bench/A1/A3/A4 results, gx-pc half-rate fix, charts.
+2026-10-24 12:11 am EST | gx-pc #28648: half-rate boot fix is bridge file 1816 (1.7.61-hrabi, 940e1d62). Keys 0. Not boot-tested because pc holds the game for test128. Next boot is one launch with a window check, then restore.
+
+2026-10-24 pc: human #28341 answered (order). #28660 -> cx-pc CPU submit/draw-prep exploration task. Pending: gx-pc post-reuse b5e0eb88 (0.06-0.12ms, off) parked; half-rate hang at startup sent to gx-pc.
+
+2026-10-24 pc: pc2 #28357/#28362 half-rate crash at startup (0xC0000005 RVA 1EA26B, 0/12 windows), restored; recovery build with cx-pc (#28343/#28358), pc2 retries on corrected SHA. Already told human (#28649/#28705).
+2026-10-24 pc: cxl-pc #28352 spatial-vs-temporal FSR candidate 3.6ms<3.74 unbuilt; pc2 half-rate crash BLOCKED -> told pc2 run 35% test, wait for fixed half-rate build from gx-pc.
+2026-10-24 pc: cx-pc #28398 matched 1.7.73 half-rate artifact 1813 (sha 729ac5fc...) delivered to pc2 (all-OFF startup check then 12 windows). pc/ally also should run it after pc2 validates startup.
+
+2026-10-24 pc: ops #28517/pc2 #28514 half-rate on pc2 (FG off, 60s, 2 rep): HRS 40.75->41.27, HRG 41.17->42.00, HRC 42.06->42.19 (+0.3..2%, noise); reuse_calls check pending. Verdict partial 1/3 devices: no win so far; keep default off. CSV notes/halfrate-pc2-28375-results.csv.
+2026-10-24 pc: ally #28516 FG-off 6/6 valid, FG-on 0/6 (death) -> told ally rerun 6 FG-on after checking nodeath. pc2 half-rate +0.3..2% (#28514).
+
+2026-10-24 pc: ops #28527/pc2 #28523: only HRG reuses (~99%, 4.4k calls/run), gain noise (+0.8 fps); HRS/HRC logged 0 reuse so #28514 numbers for them tested nothing. pc2 next HRG alone bigger bench. Ally redo 11:43pm: FG-off valid 6/6, FG-on 0/6 (death under FG-on) - Ally must fix + rerun FG-on.
+2026-10-24 pc: human rule #28530 chunked tests; relayed to pc2/ally; recorded in user-directives.
+
+2026-10-24 pc: human #28530 chunk rule recorded + sent to ally.
+
+2026-10-24 pc: test127 wrapper finished: old half-rate base boot-hung on pc (0 rows), restored cfg/asi/ini. test128 (fresh marker 12:15am, Nioh pid 39792) now running = matched 1.7.73 artifact attempt; do not touch. pc2 #28624 HRG +3.2% (40.32/41.21 -> 40.96/43.16), inconclusive; needs more repeats, 1% low not better.
+2026-10-24 pc: stopped test127 hr loop (old half-rate ASIs boot-hang; dup wrappers); restored bak asi/ini; test-active marker removed. Next: after pc2 validates artifact 1813 startup, run pc hr in 10-min chunks.
+2026-10-24 pc: cx-pc OUT OF CREDITS until Oct 30 (#28700); CPU-side task moved to gxl-pc. cx-pc/cx-pc2 work must go to grok helpers. Ally FG-on swapchain issue #28687 pending.
+2026-10-24 12:22 AM EST #28752: PC CPU rank is notes/cpu-settings-28752.md commit c768fd7e. Biggest measured wait is the 1.44 ms logic join. AABB stays the only existing lever at 0.5-0.6 ms est. StateFilter saved as 90958584, default off, compiled, not measured. No off-screen skip. No game.
+2026-10-24 12:22 am EST | gx-pc #28707: anim/physics lever note pushed e046c440. No new build. 17.6 ms draw prep is cx-pc. Next build of 0x7FE68 only if a fight shows >=1 ms exposed wait. File 1816 boot still waits for a free lock.
+2026-10-24 pc: launched chunk1 run129.ps1 (hr rows 0-1, h3 artifact 1813 sha729ac5fc) ~10 min; log captures/test127/wrapper129.log; marker test-active set by script. Next chunks -Skip 2 -Take 2 ...
+
+2026-10-24 12:24 am EST | gx-pc #28803: 1816 boot PASS stands (pc). 1813 not booted; pc restored originals after stopping run128c. gx-pc stays off the game. Next boot of 1813 is pc, after pc2 startup confirm.
+2026-10-24 pc: another session's run128d wrapper is running the hr set (hr-001 HRS OFF valid 86.86 fps, low1 54.83; hr-002 running). My run129 never logged/died; do NOT start a second wrapper. Results: captures/test127/results-pc-hr.csv.
+
+2026-10-24 12:45 am EST | gx-pc #28847: no new CPU hook. AABB (0.5-0.6 ms E) and StateFilter (inside 0.57 ms, unmeasured) stay off. Draw batch rejected. Branch gx-pc/cpu-levers 99cca947. Next test is pc, AABB then StateFilter, not stacked. No game.
+2026-10-24 pc: ally #28877 analysis: OSD 'FG off' in fights likely artifact (osd.cpp threadMode needs game thread >=5/s; fight shows 0/s); copy jobs 18/s vs displayed 36.5 suggests FG on. Told ally to gate on copy jobs and re-evaluate r07-r11.
+2026-10-24 pc: ally #28881 agrees; switching FG-on gate to copy jobs, rerunning 6 FG-on arms one per launch. Waiting on ally RESULT.
+2026-10-24 pc: ally #28883: old r07 interval INVALID (menu opened). No valid FG-on arm yet on ally; only spot evidence copy jobs 18 vs 36.5 displayed. FG-on arms to start when game free.
+2026-10-24 12:46 AM EST gxl-pc #28858: heat note 9e46fb5f. No new ASI. No game. Next measure is CPU cores, watts, and temp at the same 120 fps. Do not stack it on current benches.
+2026-10-24 pc: human #28902 no admin steps; cx-ops pull failed (no upstream) -> fix sent + TASK audit helper update status all devices; report table to human.
+2026-10-24 pc: ally #28914 first valid FG-on arm 42.3 avg/27.1 low vs FG-off 32.8 (+29%?), needs copy-jobs proof; 5 arms left.
+2026-10-24 pc: human #28919 wants per-device confirm no-admin stats; Q sent pc2/ally/gxl-pc; reply table to human. cx-ops git fixed #28913.
+2026-10-24 pc: cx-ops audit #28922: 8 PC helpers at 2bf951f current; UPDATE sent to ops/cx-pc/cxl-pc; pc2/ally HEAD unverified (waiting).
+2026-10-24 pc: pc2 #28947: no-admin OK: CPU util/RAPL power, GPU util/VRAM, PresentMon latency. NOT OK w/o admin: CPU temp, GPU temp/power. gxl-pc asked to build ADLX no-admin GPU reader; default = log CPU power as heat proxy. Waiting ally + pc replies.
+2026-10-24 pc: see checkpoints.md entry 00:50 for full state.
+2026-10-24 pc: pc2 #28978 LHM UAC waiting for human; told human. Then verify temps reading on pc2; same for pc (HWiNFO).
+2026-10-24 12:53 AM EST gxl-pc #28903: this PC can log RAPL package power, CPU util, GPU engine util, RX 9070 temp/power, and PresentMon frame time with no admin. CPU temperature is unavailable. No game lease.
+2026-10-24 pc: pc+pc2 LHM temps live (pc Tdie 89.6C/73.8W). Waiting ally sensor list; then plan full-data final bench (log lhm_log.ps1 alongside runs).
+2026-10-24 pc: ally #29052 sensors OK no root (CPU 70C, GPU 64C/28W, use); latency from bench only. All 3 devices cleared for full-data final bench.
+2026-10-24 12:57 AM EST gxl-pc #28958: GPU temp/power/clock logger is on gxl-pc/gpu-sensors-28958 caaf6e4c. Tested on this RX 9070, no admin. CPU package temp still needs LibreHardwareMonitor's driver. No game lease.
+2026-10-24 1:14 AM EST gxl-pc #28975: HWiNFO64 is not installed on this PC yet. Shared memory was not readable. Retry the 5 second read when the install is running.
+2026-10-24 1:25 AM EST gxl-pc #29060: chunk runner, boot-hang guard, foreign-game guard, and LHM logger are on gxl-pc/chunk-sensors-29060 commit bcb6484. Four selftests passed. No game. fleet-v2 was not edited. Next: pc reviews that branch.
+- 2026-10-24 02:14 EDT pc #128 done (inconclusive, notes/halfrate-counters-pc-128.md). Launch flaky ('no game window 180 s' 7/12). Next: if wanted, rerun HRG/HRC with more repeats after fixing launch flakiness; pc game idle, files restored.
+- 2026-10-24 02:16 EDT pc: dispatched gx-pc (RE status/graphs) and gxl-pc (bench time halving + hitch metrics). Human wants: full-mod arm should beat safe arm; ally FG-on 6/6 valid (42-46 vs 30-36 fps, caveat overlay FG off). Next: when gxl-pc branch lands, merge, then run final matrix on all 3 devices.

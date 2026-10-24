@@ -1,0 +1,4 @@
+[ExtraPerf] Enabled = 1
+[ExtraPerf] Preset = 0
+[ExtraPerf] XAO = 1
+[General] Enabled = 1

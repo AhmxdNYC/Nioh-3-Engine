@@ -284,3 +284,33 @@ $env:FT_ALLOW_WRITE=1; dotnet fsi logic_live.fsx revert # original bytes back (c
   113204, 365AA98 chain, 1D69CC / 1D6E64 / 1D8720 / 1D84A0 / 1D8220 / 1D7EB0, 1DAF6C, 1DF880, 1E0B64, 1E5854, 242EB8,
   3D859C, 1DC0F0, 71C60, 6EA50, 182000, 204584, 408FE0, 16EF8C, 61FEA8, 66D00, 54360, 12B440, FE3AC0, E32D90, 284ED4,
   F33A0, 425B0); `bigframes.txt`; `dis_6EA50.txt`.
+
+## 8. Movement functions added from the mod (2026-10-20)
+
+The sections above are dated 2026-10-06. The mod already moves the player. These 12 functions are the ones that
+write or request that move. They were not in the g1..g5 list. `callgraph.bin` was not rebuilt. The game was not opened.
+Newest note that records the same move is `notes\training-stage-contract.md` (2026-10-11). The physics slot
+`[[ch+3B0]+28 or +18]+D0` stays a virtual call and is not one of the 12.
+
+Warp tail the boss-rematch add-on replays (`mod\Nioh3BossRematch\src\rematch.cpp` CallWarp; notes 2026-10-09).
+Call targets were read from the dump at the two WARP sites 23AB658 and 23AB6A7:
+
+| RVA | name in the mod or the symbol list | role |
+|---|---|---|
+| 23AB4DC | Player::SetPos | script native whose tail the add-on replays |
+| 1C27010 | CharacterSetPositionYaw | writes the position and the yaw |
+| 669AB8 | place player | position write inside SetPositionYaw and fast-travel state 4 |
+| A429B4 | actor-manager sync | copies the position onto the actor manager |
+| 1C2A3CC | position notify | called with the character position |
+| 3A083C | scene focus | points stage streaming at the new spot |
+| 3B35B4 | StagePathInitStep | path init around that spot |
+
+Fast travel the tour uses to move the player (`mod\Nioh3EngineFix\src\tour.cpp`, `notes\tour-mode.md`):
+
+| RVA | name | role |
+|---|---|---|
+| 3B29E4 | FastTravelSeqTickCall | ticks the sequencer that places the player |
+| 3B2528 | FastTravelFillWarpPoint | fills the destination from a warp point |
+| 22395AC | FastTravelRequestPost | posts the request |
+| 3B2488 | FastTravelSeqRequest | queues it on the sequencer |
+| 1C282CC | FastTravelRequestTo | native request to a warp point |

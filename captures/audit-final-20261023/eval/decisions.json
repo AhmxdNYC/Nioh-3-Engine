@@ -1,0 +1,2466 @@
+[
+  {
+    "device": "pc",
+    "key": "Patches.FGC",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -1.7816354499771612,
+      "low1_fps": -0.6496227996647156,
+      "frametime_ms": -1.8142495643874743
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 87.56,
+        "low1_fps": 47.72,
+        "frametime_ms": 11.4207
+      },
+      "ON": {
+        "avg_fps": 86.0,
+        "low1_fps": 47.41,
+        "frametime_ms": 11.6279
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.B",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.3680490103675673,
+      "low1_fps": 2.139144342263095,
+      "frametime_ms": -2.425878298659741
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 84.88,
+        "low1_fps": 50.02,
+        "frametime_ms": 11.7813
+      },
+      "ON": {
+        "avg_fps": 82.87,
+        "low1_fps": 51.09,
+        "frametime_ms": 12.0671
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.M1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 2.4413481005120845,
+      "low1_fps": -10.821062025881306,
+      "frametime_ms": 2.3830716265009753
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 83.97,
+        "low1_fps": 44.82,
+        "frametime_ms": 11.909
+      },
+      "ON": {
+        "avg_fps": 86.02,
+        "low1_fps": 39.97,
+        "frametime_ms": 11.6252
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.J1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -0.5626034197462825,
+      "low1_fps": -1.9424871453056485,
+      "frametime_ms": -0.5665645339666769
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 90.65,
+        "low1_fps": 52.51,
+        "frametime_ms": 11.0314
+      },
+      "ON": {
+        "avg_fps": 90.14,
+        "low1_fps": 51.49,
+        "frametime_ms": 11.0939
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.E1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -3.7485146375715663,
+      "low1_fps": 1.2801484230055749,
+      "frametime_ms": -3.894432821728103
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 92.57,
+        "low1_fps": 53.9,
+        "frametime_ms": 10.8026
+      },
+      "ON": {
+        "avg_fps": 89.1,
+        "low1_fps": 54.59,
+        "frametime_ms": 11.2233
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.WG",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.1532470507387416,
+      "low1_fps": 7.494365138993229,
+      "frametime_ms": -2.201093125185538
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 87.31,
+        "low1_fps": 53.24,
+        "frametime_ms": 11.4534
+      },
+      "ON": {
+        "avg_fps": 85.43,
+        "low1_fps": 57.23,
+        "frametime_ms": 11.7055
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.P1E7",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 2.4157435776573144,
+      "low1_fps": 15.129582068643485,
+      "frametime_ms": 2.358262404426309
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 84.86,
+        "low1_fps": 42.83,
+        "frametime_ms": 11.7841
+      },
+      "ON": {
+        "avg_fps": 86.91,
+        "low1_fps": 49.31,
+        "frametime_ms": 11.5062
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.MQ",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.0672853828306283,
+      "low1_fps": 36.69366098855068,
+      "frametime_ms": 1.0559525554051732
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 86.2,
+        "low1_fps": 35.81,
+        "frametime_ms": 11.6009
+      },
+      "ON": {
+        "avg_fps": 87.12,
+        "low1_fps": 48.95,
+        "frametime_ms": 11.4784
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.PT1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.3171696620323243,
+      "low1_fps": 3.507728894173595,
+      "frametime_ms": -2.3718737006007133
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 88.47,
+        "low1_fps": 50.46,
+        "frametime_ms": 11.3033
+      },
+      "ON": {
+        "avg_fps": 86.42,
+        "low1_fps": 52.23,
+        "frametime_ms": 11.5714
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.DL",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 4.204312733405607,
+      "low1_fps": -53.963914707490424,
+      "frametime_ms": 4.034299849751375
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 83.01,
+        "low1_fps": 54.87,
+        "frametime_ms": 12.0467
+      },
+      "ON": {
+        "avg_fps": 86.5,
+        "low1_fps": 25.26,
+        "frametime_ms": 11.5607
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.MPCS",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -5.712350417701516,
+      "low1_fps": -0.35762181493071904,
+      "frametime_ms": -6.058888140878017
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 88.58,
+        "low1_fps": 44.74,
+        "frametime_ms": 11.2892
+      },
+      "ON": {
+        "avg_fps": 83.52,
+        "low1_fps": 44.58,
+        "frametime_ms": 11.9732
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.TR",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -7.085503472222224,
+      "low1_fps": -10.938615274803716,
+      "frametime_ms": -7.626236095367124
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 92.16,
+        "low1_fps": 56.04,
+        "frametime_ms": 10.8507
+      },
+      "ON": {
+        "avg_fps": 85.63,
+        "low1_fps": 49.91,
+        "frametime_ms": 11.6782
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.RTP",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.688159437280185,
+      "low1_fps": 18.137254901960787,
+      "frametime_ms": 1.659942166454833
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 85.3,
+        "low1_fps": 38.76,
+        "frametime_ms": 11.7233
+      },
+      "ON": {
+        "avg_fps": 86.74,
+        "low1_fps": 45.79,
+        "frametime_ms": 11.5287
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.CBS",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.1925437073057787,
+      "low1_fps": 6.245278267438924,
+      "frametime_ms": 1.1789499140618915
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 86.37,
+        "low1_fps": 39.71,
+        "frametime_ms": 11.5781
+      },
+      "ON": {
+        "avg_fps": 87.4,
+        "low1_fps": 42.19,
+        "frametime_ms": 11.4416
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.LPVR",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 2.718006795016994,
+      "low1_fps": 38.52394661083486,
+      "frametime_ms": 2.6454746136865332
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 88.3,
+        "low1_fps": 38.21,
+        "frametime_ms": 11.325
+      },
+      "ON": {
+        "avg_fps": 90.7,
+        "low1_fps": 52.93,
+        "frametime_ms": 11.0254
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.SKYR",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 6.841491841491847,
+      "low1_fps": 16.03206412825652,
+      "frametime_ms": 6.403260403260401
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 85.8,
+        "low1_fps": 44.91,
+        "frametime_ms": 11.655
+      },
+      "ON": {
+        "avg_fps": 91.67,
+        "low1_fps": 52.11,
+        "frametime_ms": 10.9087
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.PJ",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.28821766197832605,
+      "low1_fps": -9.869083585095662,
+      "frametime_ms": 0.2871095613555823
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 86.74,
+        "low1_fps": 59.58,
+        "frametime_ms": 11.5287
+      },
+      "ON": {
+        "avg_fps": 86.99,
+        "low1_fps": 53.7,
+        "frametime_ms": 11.4956
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.EP",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 9.01180116819645,
+      "low1_fps": 39.17159763313609,
+      "frametime_ms": 8.267340022146909
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 83.89,
+        "low1_fps": 42.25,
+        "frametime_ms": 11.9204
+      },
+      "ON": {
+        "avg_fps": 91.45,
+        "low1_fps": 58.8,
+        "frametime_ms": 10.9349
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.AQ",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -4.902069270775708,
+      "low1_fps": -5.691360328419489,
+      "frametime_ms": -5.15471370734528
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 90.37,
+        "low1_fps": 53.59,
+        "frametime_ms": 11.0656
+      },
+      "ON": {
+        "avg_fps": 85.94,
+        "low1_fps": 50.54,
+        "frametime_ms": 11.636
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.TSY",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.2422360248447255,
+      "low1_fps": -3.082614056720099,
+      "frametime_ms": 1.2270768343040623
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 90.16,
+        "low1_fps": 48.66,
+        "frametime_ms": 11.0914
+      },
+      "ON": {
+        "avg_fps": 91.28,
+        "low1_fps": 47.16,
+        "frametime_ms": 10.9553
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Patches.GIMerge",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -10.301874088205581,
+      "low1_fps": -2.9499199634118436,
+      "frametime_ms": -11.484481514155107
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 89.11,
+        "low1_fps": 43.73,
+        "frametime_ms": 11.2221
+      },
+      "ON": {
+        "avg_fps": 79.93,
+        "low1_fps": 42.44,
+        "frametime_ms": 12.5109
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "ExtraPerf.XCLD",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -4.32464454976304,
+      "low1_fps": -15.959872321021432,
+      "frametime_ms": -4.520479731269469
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 84.4,
+        "low1_fps": 43.86,
+        "frametime_ms": 11.8483
+      },
+      "ON": {
+        "avg_fps": 80.75,
+        "low1_fps": 36.86,
+        "frametime_ms": 12.3839
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "ExtraPerf.XGI",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.8929606865360037,
+      "low1_fps": -37.798234078527145,
+      "frametime_ms": 0.8847191921979056
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 86.23,
+        "low1_fps": 53.23,
+        "frametime_ms": 11.5969
+      },
+      "ON": {
+        "avg_fps": 87.0,
+        "low1_fps": 33.11,
+        "frametime_ms": 11.4943
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "ExtraPerf.XTER",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.34349030470914377,
+      "low1_fps": -8.978013029315955,
+      "frametime_ms": 0.3420485004918523
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 90.25,
+        "low1_fps": 49.12,
+        "frametime_ms": 11.0803
+      },
+      "ON": {
+        "avg_fps": 90.56,
+        "low1_fps": 44.71,
+        "frametime_ms": 11.0424
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "ExtraPerf.XPRT",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.823825311535382,
+      "low1_fps": -28.139321723189727,
+      "frametime_ms": -2.905751148042863
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 87.47,
+        "low1_fps": 54.55,
+        "frametime_ms": 11.4325
+      },
+      "ON": {
+        "avg_fps": 85.0,
+        "low1_fps": 39.2,
+        "frametime_ms": 11.7647
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Tuning.KL_Div",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.8136792452830162,
+      "low1_fps": -5.080884028252458,
+      "frametime_ms": 0.8072927708289181
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 84.8,
+        "low1_fps": 43.89,
+        "frametime_ms": 11.7925
+      },
+      "ON": {
+        "avg_fps": 85.49,
+        "low1_fps": 41.66,
+        "frametime_ms": 11.6973
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Latency.MaxFrameLatency",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.0310633213859055,
+      "low1_fps": 48.57065803667747,
+      "frametime_ms": -2.0732544319266117
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 83.7,
+        "low1_fps": 37.08,
+        "frametime_ms": 11.9474
+      },
+      "ON": {
+        "avg_fps": 82.0,
+        "low1_fps": 55.09,
+        "frametime_ms": 12.1951
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "GpuOpt.DropUndoPairs",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -3.3370913190529965,
+      "low1_fps": -9.705882352941178,
+      "frametime_ms": -3.452190881674656
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 88.7,
+        "low1_fps": 57.8,
+        "frametime_ms": 11.274
+      },
+      "ON": {
+        "avg_fps": 85.74,
+        "low1_fps": 52.19,
+        "frametime_ms": 11.6632
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "GpuOpt.CbvMirror",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.213188798554661,
+      "low1_fps": 6.007954783336817,
+      "frametime_ms": -2.262703909031329
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 88.56,
+        "low1_fps": 47.77,
+        "frametime_ms": 11.2918
+      },
+      "ON": {
+        "avg_fps": 86.6,
+        "low1_fps": 50.64,
+        "frametime_ms": 11.5473
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "GpuOpt.SceneBufMirror",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -8.574933095450502,
+      "low1_fps": -12.126111560226354,
+      "frametime_ms": -9.378699286149871
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 89.68,
+        "low1_fps": 24.74,
+        "frametime_ms": 11.1508
+      },
+      "ON": {
+        "avg_fps": 81.99,
+        "low1_fps": 21.74,
+        "frametime_ms": 12.1966
+      }
+    }
+  },
+  {
+    "device": "pc",
+    "key": "Debug.SkipDebugString",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 4.364192447947293,
+      "low1_fps": 3.810775295663605,
+      "frametime_ms": 4.181649707139998
+    },
+    "spread_pct": {
+      "avg_fps": 6.997639350580529,
+      "low1_fps": 79.63478953129665,
+      "frametime_ms": 7.102383500501916
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 85.01,
+        "low1_fps": 45.66,
+        "frametime_ms": 11.7633
+      },
+      "ON": {
+        "avg_fps": 88.72,
+        "low1_fps": 47.4,
+        "frametime_ms": 11.2714
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.MW",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 16.083737554250696,
+      "low1_fps": 12.48662147698894,
+      "frametime_ms": 13.855235274993435
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.17,
+        "low1_fps": 28.03,
+        "frametime_ms": 25.5297
+      },
+      "ON": {
+        "avg_fps": 45.47,
+        "low1_fps": 31.53,
+        "frametime_ms": 21.9925
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.WorkerCap",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 4.8762001010611415,
+      "low1_fps": 2.1966527196652685,
+      "frametime_ms": 4.649459931210005
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.58,
+        "low1_fps": 28.68,
+        "frametime_ms": 25.2653
+      },
+      "ON": {
+        "avg_fps": 41.51,
+        "low1_fps": 29.31,
+        "frametime_ms": 24.0906
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.AS",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -1.2829650748396442,
+      "low1_fps": 26.173139158576063,
+      "frametime_ms": -1.2997398836631702
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 42.09,
+        "low1_fps": 24.72,
+        "frametime_ms": 23.7586
+      },
+      "ON": {
+        "avg_fps": 41.55,
+        "low1_fps": 31.19,
+        "frametime_ms": 24.0674
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.W6",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 6.7298347910592895,
+      "low1_fps": 1.591511936339524,
+      "frametime_ms": 6.30530882389259
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 41.16,
+        "low1_fps": 30.16,
+        "frametime_ms": 24.2954
+      },
+      "ON": {
+        "avg_fps": 43.93,
+        "low1_fps": 30.64,
+        "frametime_ms": 22.7635
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.M2",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.3297872340425463,
+      "low1_fps": -2.4005486968449907,
+      "frametime_ms": 1.3119418973525396
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 41.36,
+        "low1_fps": 29.16,
+        "frametime_ms": 24.1779
+      },
+      "ON": {
+        "avg_fps": 41.91,
+        "low1_fps": 28.46,
+        "frametime_ms": 23.8607
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.ED",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -6.3893357848770425,
+      "low1_fps": 13.898163606010009,
+      "frametime_ms": -6.825420307006856
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 43.51,
+        "low1_fps": 23.96,
+        "frametime_ms": 22.9832
+      },
+      "ON": {
+        "avg_fps": 40.73,
+        "low1_fps": 27.29,
+        "frametime_ms": 24.5519
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.GF",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -3.164708702948934,
+      "low1_fps": 1.3518450858604216,
+      "frametime_ms": -3.2679738562091507
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 41.71,
+        "low1_fps": 27.37,
+        "frametime_ms": 23.9751
+      },
+      "ON": {
+        "avg_fps": 40.39,
+        "low1_fps": 27.74,
+        "frametime_ms": 24.7586
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.DQ",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -1.8350702310829232,
+      "low1_fps": -11.590214067278295,
+      "frametime_ms": -1.869328012994812
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 44.14,
+        "low1_fps": 32.7,
+        "frametime_ms": 22.6552
+      },
+      "ON": {
+        "avg_fps": 43.33,
+        "low1_fps": 28.91,
+        "frametime_ms": 23.0787
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.BPO",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -6.295754026354316,
+      "low1_fps": -7.427597955706983,
+      "frametime_ms": -6.719093848480246
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.98,
+        "low1_fps": 29.35,
+        "frametime_ms": 24.4021
+      },
+      "ON": {
+        "avg_fps": 38.4,
+        "low1_fps": 27.17,
+        "frametime_ms": 26.0417
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.SPF",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -3.0192131747483995,
+      "low1_fps": -2.5064267352185126,
+      "frametime_ms": -3.113304886152983
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 43.72,
+        "low1_fps": 31.12,
+        "frametime_ms": 22.8728
+      },
+      "ON": {
+        "avg_fps": 42.4,
+        "low1_fps": 30.34,
+        "frametime_ms": 23.5849
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.RWb",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -0.8979206049149399,
+      "low1_fps": -15.255938440950159,
+      "frametime_ms": -0.9060708013288407
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 42.32,
+        "low1_fps": 29.89,
+        "frametime_ms": 23.6295
+      },
+      "ON": {
+        "avg_fps": 41.94,
+        "low1_fps": 25.33,
+        "frametime_ms": 23.8436
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.PCM",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 14.409722222222229,
+      "low1_fps": 23.41555977229602,
+      "frametime_ms": 12.594751951486998
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.32,
+        "low1_fps": 26.35,
+        "frametime_ms": 24.8016
+      },
+      "ON": {
+        "avg_fps": 46.13,
+        "low1_fps": 32.52,
+        "frametime_ms": 21.6779
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.VSMA",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -11.281489594742604,
+      "low1_fps": -0.03649635036495624,
+      "frametime_ms": -12.716266924741404
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 45.65,
+        "low1_fps": 27.4,
+        "frametime_ms": 21.9058
+      },
+      "ON": {
+        "avg_fps": 40.5,
+        "low1_fps": 27.39,
+        "frametime_ms": 24.6914
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.FOGT",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 4.276069017254316,
+      "low1_fps": 5.055976886962797,
+      "frametime_ms": 4.100966556427784
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.99,
+        "low1_fps": 27.69,
+        "frametime_ms": 25.0063
+      },
+      "ON": {
+        "avg_fps": 41.7,
+        "low1_fps": 29.09,
+        "frametime_ms": 23.9808
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.CLDR",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -5.33578656853726,
+      "low1_fps": -25.281069583713148,
+      "frametime_ms": -5.6363075076850935
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 43.48,
+        "low1_fps": 32.91,
+        "frametime_ms": 22.9991
+      },
+      "ON": {
+        "avg_fps": 41.16,
+        "low1_fps": 24.59,
+        "frametime_ms": 24.2954
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.PJH",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 9.442379182156122,
+      "low1_fps": 6.45933014354066,
+      "frametime_ms": 8.627653521956498
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.35,
+        "low1_fps": 29.26,
+        "frametime_ms": 24.7831
+      },
+      "ON": {
+        "avg_fps": 44.16,
+        "low1_fps": 31.15,
+        "frametime_ms": 22.6449
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.PL",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 21.74024640657084,
+      "low1_fps": 9.923398328690812,
+      "frametime_ms": 17.858061198251477
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 38.96,
+        "low1_fps": 28.72,
+        "frametime_ms": 25.6674
+      },
+      "ON": {
+        "avg_fps": 47.43,
+        "low1_fps": 31.57,
+        "frametime_ms": 21.0837
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.GL1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 5.105410210820435,
+      "low1_fps": 10.3601930932046,
+      "frametime_ms": 4.857461191097668
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.37,
+        "low1_fps": 26.93,
+        "frametime_ms": 25.4001
+      },
+      "ON": {
+        "avg_fps": 41.38,
+        "low1_fps": 29.72,
+        "frametime_ms": 24.1663
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.LC",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 13.550000000000006,
+      "low1_fps": 25.456621004566202,
+      "frametime_ms": 11.9332
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.0,
+        "low1_fps": 26.28,
+        "frametime_ms": 25.0
+      },
+      "ON": {
+        "avg_fps": 45.42,
+        "low1_fps": 32.97,
+        "frametime_ms": 22.0167
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.LW",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.2747881841080775,
+      "low1_fps": 4.231550440081246,
+      "frametime_ms": 0.27381108345342386
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 43.67,
+        "low1_fps": 29.54,
+        "frametime_ms": 22.899
+      },
+      "ON": {
+        "avg_fps": 43.79,
+        "low1_fps": 30.79,
+        "frametime_ms": 22.8363
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Patches.RC",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 6.29629629629629,
+      "low1_fps": 0.5403579871664983,
+      "frametime_ms": 5.923519930016126
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.5,
+        "low1_fps": 29.61,
+        "frametime_ms": 24.6914
+      },
+      "ON": {
+        "avg_fps": 43.05,
+        "low1_fps": 29.77,
+        "frametime_ms": 23.2288
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "ExtraPerf.XFOG",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.9637086751180868,
+      "low1_fps": 4.334828101644246,
+      "frametime_ms": 1.9258079180596286
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.23,
+        "low1_fps": 26.76,
+        "frametime_ms": 24.8571
+      },
+      "ON": {
+        "avg_fps": 41.02,
+        "low1_fps": 27.92,
+        "frametime_ms": 24.3784
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "ExtraPerf.XSHD",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 8.794788273615648,
+      "low1_fps": 6.302367941712206,
+      "frametime_ms": 8.083763030602963
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.91,
+        "low1_fps": 27.45,
+        "frametime_ms": 25.0564
+      },
+      "ON": {
+        "avg_fps": 43.42,
+        "low1_fps": 29.18,
+        "frametime_ms": 23.0309
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "ExtraPerf.XLOD",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -0.5025125628140596,
+      "low1_fps": 5.58225508317929,
+      "frametime_ms": -0.5050625656700842
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 39.8,
+        "low1_fps": 27.05,
+        "frametime_ms": 25.1256
+      },
+      "ON": {
+        "avg_fps": 39.6,
+        "low1_fps": 28.56,
+        "frametime_ms": 25.2525
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "ExtraPerf.XAO",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.4492753623188361,
+      "low1_fps": -0.16605778811026473,
+      "frametime_ms": 1.4287143571785865
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.02,
+        "low1_fps": 30.11,
+        "frametime_ms": 24.9875
+      },
+      "ON": {
+        "avg_fps": 40.6,
+        "low1_fps": 30.06,
+        "frametime_ms": 24.6305
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "VRR.MenuQuantize",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -8.209121245828708,
+      "low1_fps": 1.0000000000000024,
+      "frametime_ms": -8.94326850033038
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 44.95,
+        "low1_fps": 30.0,
+        "frametime_ms": 22.2469
+      },
+      "ON": {
+        "avg_fps": 41.26,
+        "low1_fps": 30.3,
+        "frametime_ms": 24.2365
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Latency.VrrPresent",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.8770301624129977,
+      "low1_fps": -7.274011299435024,
+      "frametime_ms": -2.9622574013335137
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 43.1,
+        "low1_fps": 28.32,
+        "frametime_ms": 23.2019
+      },
+      "ON": {
+        "avg_fps": 41.86,
+        "low1_fps": 26.26,
+        "frametime_ms": 23.8892
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "GpuOpt.FrameOverlap",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -4.3153326904532285,
+      "low1_fps": -9.136546184738958,
+      "frametime_ms": -4.510121121619376
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 41.48,
+        "low1_fps": 29.88,
+        "frametime_ms": 24.108
+      },
+      "ON": {
+        "avg_fps": 39.69,
+        "low1_fps": 27.15,
+        "frametime_ms": 25.1953
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "GpuOpt.AnyCaller",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 1.7991733527838436,
+      "low1_fps": 1.5619576535925126,
+      "frametime_ms": 1.7677640129641374
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 41.13,
+        "low1_fps": 28.81,
+        "frametime_ms": 24.3132
+      },
+      "ON": {
+        "avg_fps": 41.87,
+        "low1_fps": 29.26,
+        "frametime_ms": 23.8834
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "GpuOpt.CbvMirrorAllSites",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.1364721937905244,
+      "low1_fps": 1.2459371614301213,
+      "frametime_ms": 0.13599859311801848
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 29.31,
+        "low1_fps": 18.46,
+        "frametime_ms": 34.118
+      },
+      "ON": {
+        "avg_fps": 29.35,
+        "low1_fps": 18.69,
+        "frametime_ms": 34.0716
+      }
+    }
+  },
+  {
+    "device": "pc2",
+    "key": "Memory.LM",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 6.840148698884753,
+      "low1_fps": 4.833936205195656,
+      "frametime_ms": 6.401943259721345
+    },
+    "spread_pct": {
+      "avg_fps": 30.214608433734956,
+      "low1_fps": 43.277709944376625,
+      "frametime_ms": 26.718933764651787
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 40.35,
+        "low1_fps": 30.41,
+        "frametime_ms": 24.7831
+      },
+      "ON": {
+        "avg_fps": 43.11,
+        "low1_fps": 31.88,
+        "frametime_ms": 23.1965
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.AS0",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -19.20243068742878,
+      "low1_fps": -12.238474356600623,
+      "frametime_ms": -23.925872379575488
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.165,
+        "low1_fps": 5.401,
+        "frametime_ms": 76.085
+      },
+      "ON": {
+        "avg_fps": 10.637,
+        "low1_fps": 4.74,
+        "frametime_ms": 94.289
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.L1OnWine",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -7.494879672299033,
+      "low1_fps": -2.900262467191602,
+      "frametime_ms": -8.161545543920981
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 15.624,
+        "low1_fps": 7.62,
+        "frametime_ms": 64.081
+      },
+      "ON": {
+        "avg_fps": 14.453,
+        "low1_fps": 7.399,
+        "frametime_ms": 69.311
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.FGOnWine",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -15.557749259624883,
+      "low1_fps": -37.75140125288494,
+      "frametime_ms": -18.55713917095457
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 15.195,
+        "low1_fps": 9.099,
+        "frametime_ms": 65.883
+      },
+      "ON": {
+        "avg_fps": 12.831,
+        "low1_fps": 5.664,
+        "frametime_ms": 78.109
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.P12",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 36.84813753581663,
+      "low1_fps": 53.1904761904762,
+      "frametime_ms": 26.930021471793875
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 12.215,
+        "low1_fps": 6.3,
+        "frametime_ms": 81.968
+      },
+      "ON": {
+        "avg_fps": 16.716,
+        "low1_fps": 9.651,
+        "frametime_ms": 59.894
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.PP",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 24.934748564468414,
+      "low1_fps": 81.27098321342926,
+      "frametime_ms": 20.007114660791334
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.494,
+        "low1_fps": 4.17,
+        "frametime_ms": 87.144
+      },
+      "ON": {
+        "avg_fps": 14.36,
+        "low1_fps": 7.559,
+        "frametime_ms": 69.709
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.FPC",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 25.745694393550764,
+      "low1_fps": 98.60774818401934,
+      "frametime_ms": 20.468641376208073
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.645,
+        "low1_fps": 4.956,
+        "frametime_ms": 73.361
+      },
+      "ON": {
+        "avg_fps": 17.158,
+        "low1_fps": 9.843,
+        "frametime_ms": 58.345
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.AABB",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 17.881655949714617,
+      "low1_fps": 50.15820400783487,
+      "frametime_ms": 15.22051508787444
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.841,
+        "low1_fps": 6.637,
+        "frametime_ms": 72.376
+      },
+      "ON": {
+        "avg_fps": 16.316,
+        "low1_fps": 9.966,
+        "frametime_ms": 61.36
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.X1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 2.0071899340922625,
+      "low1_fps": -21.342646488164526,
+      "frametime_ms": 2.0450879227826073
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.352,
+        "low1_fps": 7.731,
+        "frametime_ms": 75.009
+      },
+      "ON": {
+        "avg_fps": 13.62,
+        "low1_fps": 6.081,
+        "frametime_ms": 73.475
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.S1",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 24.514858910659044,
+      "low1_fps": 104.85829959514172,
+      "frametime_ms": 19.6852070753863
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 10.667,
+        "low1_fps": 3.211,
+        "frametime_ms": 93.903
+      },
+      "ON": {
+        "avg_fps": 13.282,
+        "low1_fps": 6.578,
+        "frametime_ms": 75.418
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.IK",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -2.270327349524823,
+      "low1_fps": 24.658634538152604,
+      "frametime_ms": -2.381762890341326
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.364,
+        "low1_fps": 3.735,
+        "frametime_ms": 88.128
+      },
+      "ON": {
+        "avg_fps": 11.106,
+        "low1_fps": 4.656,
+        "frametime_ms": 90.227
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.TG",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -11.653684841222294,
+      "low1_fps": -23.383525243578383,
+      "frametime_ms": -13.303730965143883
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.352,
+        "low1_fps": 6.774,
+        "frametime_ms": 74.994
+      },
+      "ON": {
+        "avg_fps": 11.796,
+        "low1_fps": 5.19,
+        "frametime_ms": 84.971
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.DS",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -19.888676580543326,
+      "low1_fps": -17.96145440095372,
+      "frametime_ms": -25.30256595156541
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 12.037,
+        "low1_fps": 5.033,
+        "frametime_ms": 83.205
+      },
+      "ON": {
+        "avg_fps": 9.643,
+        "low1_fps": 4.129,
+        "frametime_ms": 104.258
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.LK",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 14.781553398058252,
+      "low1_fps": -11.228378774552915,
+      "frametime_ms": 12.875515292142877
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 12.36,
+        "low1_fps": 6.822,
+        "frametime_ms": 81.022
+      },
+      "ON": {
+        "avg_fps": 14.187,
+        "low1_fps": 6.056,
+        "frametime_ms": 70.59
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.MA",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -3.3367804205446396,
+      "low1_fps": -0.026402640264023496,
+      "frametime_ms": -3.464012517385265
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 14.505,
+        "low1_fps": 7.575,
+        "frametime_ms": 69.024
+      },
+      "ON": {
+        "avg_fps": 14.021,
+        "low1_fps": 7.573,
+        "frametime_ms": 71.415
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.W1B",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 2.5138068939249605,
+      "low1_fps": -0.8699434536755118,
+      "frametime_ms": 2.387871793526723
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 10.502,
+        "low1_fps": 4.598,
+        "frametime_ms": 95.315
+      },
+      "ON": {
+        "avg_fps": 10.766,
+        "low1_fps": 4.558,
+        "frametime_ms": 93.039
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.RPA",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 4.648014440433218,
+      "low1_fps": -14.66715435259692,
+      "frametime_ms": 4.480435431947161
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.08,
+        "low1_fps": 5.468,
+        "frametime_ms": 90.393
+      },
+      "ON": {
+        "avg_fps": 11.595,
+        "low1_fps": 4.666,
+        "frametime_ms": 86.343
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.CP",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 8.200263009581056,
+      "low1_fps": 12.704123996678662,
+      "frametime_ms": 7.472193275345059
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 10.646,
+        "low1_fps": 3.613,
+        "frametime_ms": 94.042
+      },
+      "ON": {
+        "avg_fps": 11.519,
+        "low1_fps": 4.072,
+        "frametime_ms": 87.015
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.ESM1",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -0.580030382543845,
+      "low1_fps": -17.671571819247298,
+      "frametime_ms": -0.5814626243925033
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 14.482,
+        "low1_fps": 7.679,
+        "frametime_ms": 69.136
+      },
+      "ON": {
+        "avg_fps": 14.398,
+        "low1_fps": 6.322,
+        "frametime_ms": 69.538
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.CBF",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 14.279433746592813,
+      "low1_fps": 56.15518527729421,
+      "frametime_ms": 12.810936828048249
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.373,
+        "low1_fps": 4.021,
+        "frametime_ms": 88.362
+      },
+      "ON": {
+        "avg_fps": 12.997,
+        "low1_fps": 6.279,
+        "frametime_ms": 77.042
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.LoadOnlyCpuFixes",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -20.80010904382198,
+      "low1_fps": -38.398472596585805,
+      "frametime_ms": -26.254650924325414
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 14.673,
+        "low1_fps": 8.904,
+        "frametime_ms": 68.266
+      },
+      "ON": {
+        "avg_fps": 11.621,
+        "low1_fps": 5.485,
+        "frametime_ms": 86.189
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.SR",
+    "verdict": "NOT_APPLICABLE",
+    "delta_pct": {},
+    "spread_pct": {}
+  },
+  {
+    "device": "ally",
+    "key": "Patches.SH",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 17.26904166307255,
+      "low1_fps": 133.57249626307922,
+      "frametime_ms": 14.789612553811969
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.593,
+        "low1_fps": 3.345,
+        "frametime_ms": 86.412
+      },
+      "ON": {
+        "avg_fps": 13.595,
+        "low1_fps": 7.813,
+        "frametime_ms": 73.632
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "Patches.PF",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -33.46941339027761,
+      "low1_fps": -54.12445730824892,
+      "frametime_ms": -51.20318091451293
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 15.922,
+        "low1_fps": 9.674,
+        "frametime_ms": 62.875
+      },
+      "ON": {
+        "avg_fps": 10.593,
+        "low1_fps": 4.438,
+        "frametime_ms": 95.069
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "ExtraPerf.XSHF",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 0.5559743686392694,
+      "low1_fps": 27.554882664647984,
+      "frametime_ms": 0.5057251908396837
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 10.612,
+        "low1_fps": 3.963,
+        "frametime_ms": 94.32
+      },
+      "ON": {
+        "avg_fps": 10.671,
+        "low1_fps": 5.055,
+        "frametime_ms": 93.843
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "ExtraPerf.XPOST",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -27.749382645150177,
+      "low1_fps": -48.06629834254144,
+      "frametime_ms": -38.39344718444574
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 17.413,
+        "low1_fps": 11.222,
+        "frametime_ms": 57.502
+      },
+      "ON": {
+        "avg_fps": 12.581,
+        "low1_fps": 5.828,
+        "frametime_ms": 79.579
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "GpuOpt.Barriers",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 5.02465197215777,
+      "low1_fps": 45.16129032258066,
+      "frametime_ms": 4.812458691341692
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.792,
+        "low1_fps": 6.076,
+        "frametime_ms": 72.624
+      },
+      "ON": {
+        "avg_fps": 14.485,
+        "low1_fps": 8.82,
+        "frametime_ms": 69.129
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "GpuOpt.TileBatch",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -11.517918676774636,
+      "low1_fps": 8.969607116382516,
+      "frametime_ms": -13.037732568249
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 11.608,
+        "low1_fps": 4.047,
+        "frametime_ms": 86.265
+      },
+      "ON": {
+        "avg_fps": 10.271,
+        "low1_fps": 4.41,
+        "frametime_ms": 97.512
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "GpuOpt.R2a",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": 12.119645494830133,
+      "low1_fps": 5.963360707517378,
+      "frametime_ms": 10.770603986908657
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 13.54,
+        "low1_fps": 7.915,
+        "frametime_ms": 73.942
+      },
+      "ON": {
+        "avg_fps": 15.181,
+        "low1_fps": 8.387,
+        "frametime_ms": 65.978
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "GpuOpt.R2b",
+    "verdict": "DROP_SCREEN",
+    "delta_pct": {
+      "avg_fps": -7.006896551724138,
+      "low1_fps": -5.761766132945168,
+      "frametime_ms": -7.59204008921587
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 14.5,
+        "low1_fps": 8.244,
+        "frametime_ms": 69.046
+      },
+      "ON": {
+        "avg_fps": 13.484,
+        "low1_fps": 7.769,
+        "frametime_ms": 74.288
+      }
+    }
+  },
+  {
+    "device": "ally",
+    "key": "GpuOpt.R1",
+    "verdict": "ADVANCE",
+    "delta_pct": {
+      "avg_fps": 40.81402982275157,
+      "low1_fps": 130.5142260506395,
+      "frametime_ms": 29.020033637776486
+    },
+    "spread_pct": {
+      "avg_fps": 24.80832187752442,
+      "low1_fps": 69.55527252878642,
+      "frametime_ms": 23.604934268455295
+    },
+    "means": {
+      "OFF": {
+        "avg_fps": 10.663,
+        "low1_fps": 3.831,
+        "frametime_ms": 93.942
+      },
+      "ON": {
+        "avg_fps": 15.015,
+        "low1_fps": 8.831,
+        "frametime_ms": 66.68
+      }
+    }
+  }
+]

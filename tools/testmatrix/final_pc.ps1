@@ -16,14 +16,15 @@
   After the session:  -ReportOnly [-Hwinfo f.csv] [-Rtss f.csv]  ingests sensor logs, writes results_table_pc.md + latency_pc.md.
 
     -DryRun   print the plan, per-cell config.xml changes (read-only), PresentMon capabilities, estimated time; touches nothing.
-  Order is interleaved (run -> preset -> config) so thermal drift hits all configs equally. Game lock, crash-safe restore of
-  config.xml / the .asi / shaders in `finally`.
+  Order is preset -> config -> run so the two repeats of one config share a launch. A chunk stops before the next
+  arm would pass ChunkSec (default 10 min); a re-run skips valid json and continues. Times match tools\bench\arm_budget.py
+  (launch 160, stats 8, close 8, window pad 4). Game lock, crash-safe restore of config.xml / the .asi / shaders in `finally`.
 #>
 param([switch]$DryRun, [switch]$Force, [switch]$ReportOnly, [switch]$NoLock, [switch]$NoLatency, [switch]$PcLatency,
       [string[]]$Configs = @("STOCK", "OPTIMIZED", "OPTIMIZED+FG"), [string[]]$Presets = @("USER", "MAX"),
-      [string[]]$Sweep = @(), [string]$SweepConfig = "OPTIMIZED", [int]$SweepRuns = 1, [int]$Runs = 3,
+      [string[]]$Sweep = @(), [string]$SweepConfig = "OPTIMIZED", [int]$SweepRuns = 1, [int]$Runs = 2,
       [int]$StandWindows = 2, [int]$WindowSec = 20, [int]$LatencySec = 30, [int]$Presses = 25, [ValidateSet("click", "key")][string]$PressKind = "click",
-      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "", [int]$OwnerPid = 0, [int]$MaxMinutes = 90,
+      [string]$KeepSet = "full", [string]$CombatScript = "", [string]$Hwinfo = "", [string]$Rtss = "", [string]$ConfigPath = "", [int]$OwnerPid = 0, [int]$MaxMinutes = 90, [int]$ChunkSec = 600,
       [string]$OptimizedIni = "", [string]$AsiPath = "", [switch]$SourceOwnershipConfirmed)   # Explicit pinned mode uses the independent state-safe driver.
 if ($OptimizedIni -or $AsiPath) {
     if ($NoLock -or $ReportOnly -or $Sweep.Count -or $CombatScript -or $Hwinfo -or $Rtss -or $PcLatency -or -not $NoLatency) {
@@ -48,7 +49,7 @@ $iniOrig = Join-Path $stateD "Nioh3EngineFix.ini.orig"; $shState = Join-Path $st
 $pmExe = "$ws\tools\PresentMon.exe"
 $uoBridge = "C:\Users\Ahmad Hamza\universal-optimizer\agent-bridge"
 $M = Get-Content (Join-Path $here "matrix.json") -Raw | ConvertFrom-Json
-$T = @{ launch = 210; window = ($WindowSec + 8); stats = 35; close = 25; shader = 8; combat = 40; swap = 10 }
+$T = @{ launch = 160; window = ($WindowSec + 4); stats = 8; close = 8; shader = 8; combat = 40; swap = 10 }
 
 function Slug([string]$s) { return ($s -replace '\+', 'plus' -replace '[^A-Za-z0-9=_.-]', '-') }
 function Get-PmInfo {
@@ -59,11 +60,12 @@ function Get-PmInfo {
 }
 function New-Cells {
     $cells = New-Object System.Collections.Generic.List[object]
-    foreach ($r in 1..$Runs) { foreach ($p in $Presets) { foreach ($c in $Configs) {
+    foreach ($p in $Presets) { foreach ($c in $Configs) { foreach ($r in 1..$Runs) {
         $cells.Add([pscustomobject]@{ cfg = $c; preset = $p; sweep = $null; run = $r; latency = (-not $NoLatency) }) } } }
     if ($Sweep.Count) {
         $base = (Get-Preset $PM.base_preset)
-        foreach ($r in 1..$SweepRuns) { foreach ($sc in (Get-SweepCells $Sweep)) { if ($sc.base) { continue }
+        foreach ($sc in (Get-SweepCells $Sweep)) { if ($sc.base) { continue }
+            foreach ($r in 1..$SweepRuns) {
             $cells.Add([pscustomobject]@{ cfg = $SweepConfig; preset = $PM.base_preset; sweep = @{ key = $sc.key; value = $sc.value }; run = $r; latency = $false }) } }
     }
     return $cells
@@ -79,10 +81,15 @@ function Test-Done($c) {
     $f = Join-Path $resD ((Get-CellId $c) + ".json"); if (-not (Test-Path $f)) { return $false }
     return [bool]((Get-Content $f -Raw | ConvertFrom-Json).valid)
 }
-function Get-Est($c) {
-    $s = $T.launch + $T.stats + $T.close + ($StandWindows + 1) * $T.window + $(if ($CombatScript) { $T.combat } else { 0 })
+function Get-SweepKey($c) { if ($c.sweep) { return "$($c.sweep.key)=$($c.sweep.value)" }; return "" }
+function Test-SameCfg($a, $b) { return ($a.cfg -eq $b.cfg -and $a.preset -eq $b.preset -and (Get-SweepKey $a) -eq (Get-SweepKey $b)) }
+function Get-Est($c, [bool]$reuse = $false) {
+    $s = $T.stats + ($StandWindows + 1) * $T.window + $(if ($CombatScript) { $T.combat } else { 0 })
     if ($c.latency) { $s += $LatencySec + 8 }
-    if ($c.cfg -ne "OPTIMIZED+FG" -and $c.cfg -ne "OPTIMIZED") { $s += $T.shader }
+    if (-not $reuse) {
+        $s += $T.launch + $T.close
+        if ($c.cfg -ne "OPTIMIZED+FG" -and $c.cfg -ne "OPTIMIZED") { $s += $T.shader }
+    }
     return $s
 }
 
@@ -105,15 +112,18 @@ if ($DryRun) {
         if ($haveSum) { "   KEEP set now (tm.py best): " + ((py -I "$here\tm.py" best $resD $Device (Join-Path $here "matrix.json") $(if ($KeepSet -eq "low") { "low" } else { "" })) -join " ; ") }
         else { "   !! results\summary_pc.csv missing: OPTIMIZED cells need the matrix run (run_pc.ps1) + report first; a real run would stop" }
     }
-    $tot = 0; $i = 0; $todo = 0
+    $tot = 0; $i = 0; $todo = 0; $prev = $null
     foreach ($c in $cells) {
-        $i++; $done = Test-Done $c; $est = Get-Est $c
+        $i++; $done = Test-Done $c
+        $reuse = [bool]($prev -and -not $done -and (Test-SameCfg $prev $c))
+        $est = Get-Est $c $reuse
         $kv = Get-CellGfx $c
         $ch = @(); if (Test-Path $gfxCfg) { try { $ch = @(Apply-Gfx $kv $true) } catch { $ch = @("!! $_") } }
         $fg = if ($c.cfg -eq "OPTIMIZED+FG") { " FG=" + $PM.fg_key[2] } else { " FG=" + $PM.fg_key[1] }
-        "{0,3}. {1,-30} {2,-13} {3,-22} {4,-5} {5,5}s lat={6} gfx[{7}]{8}" -f $i, (Get-CellId $c).Replace("final_pc_", ""), $c.cfg, $c.preset, $(if ($done) { "done" } else { "todo" }), $est, $c.latency, $ch.Count, $fg
+        $how = if ($reuse) { "reuse" } else { "launch" }
+        "{0,3}. {1,-30} {2,-13} {3,-22} {4,-5} {5,5}s lat={6} gfx[{7}]{8} {9}" -f $i, (Get-CellId $c).Replace("final_pc_", ""), $c.cfg, $c.preset, $(if ($done) { "done" } else { "todo" }), $est, $c.latency, $ch.Count, $fg, $how
         if ($ch.Count -and $ch.Count -le 12 -and ($i -le 6 -or $c.sweep)) { "       " + ($ch -join "; ") }
-        if (-not $done) { $tot += $est; $todo++ }
+        if (-not $done) { $tot += $est; $todo++; $prev = $c } else { $prev = $null }
     }
     "== {0} cells, {1} to do, estimated {2:N1} h. Presets USER/MAX vs the current config.xml shown as 'gfx[n changes]'." -f $cells.Count, $todo, ($tot / 3600)
     "   latency windows: $Presses scripted $PressKind presses in ${LatencySec}s; PresentMon args: --process_name Nioh3.exe --timed $LatencySec --terminate_after_timed --stop_existing_session --no_console_stats --v2_metrics$(if($PcLatency){' --track_pc_latency'})"
@@ -179,14 +189,15 @@ function Renew-Lock { if (-not $NoLock) { Push-Location $uoBridge; try { py -m u
 function Unlock-Game { if (-not $NoLock) { Push-Location $uoBridge; try { py -m uo_bridge.gamelock release nioh3 | Out-Null } finally { Pop-Location } } }
 function Start-GameToPlay {
     Close-Game; Assert-Launch; $t0 = Get-Date
+    & (Join-Path $PSScriptRoot '../steam/start_autoplay.ps1')
     Start-Process "steam://rungameid/$($M.steam_id)"
     while (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue | Where-Object MainWindowHandle -ne 0) -and ((Get-Date) - $t0).TotalSeconds -lt 180) { $cc = "$(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'steam_cloud_click.ps1') 2>$null | Select-Object -First 1)"; if ($cc -like 'clicked*') { Write-Host "[launch] Steam cloud dialog: $cc" }; Start-Sleep 3 }   # steam_cloud_click: 'Unable to Sync' -> Play anyway (user OK, bridge #602)
     Register-Game; if (-not (Get-Process Nioh3 -ErrorAction SilentlyContinue)) { Note-Crash "no game window after launch" }
-    Start-Sleep 25
-    U focus Nioh3; U click 1280 887; Start-Sleep 22
-    U focus Nioh3; U click 1280 1170; Start-Sleep 7
-    U focus Nioh3; U click 380 1024; Start-Sleep 25
-    U focus Nioh3; U key 20; Start-Sleep 5; U key 20; Start-Sleep 4
+    Start-Sleep 12
+    U focus Nioh3; U click 1280 887; Start-Sleep 10
+    U focus Nioh3; U click 1280 1170; Start-Sleep 3
+    U focus Nioh3; U click 380 1024; Start-Sleep 12
+    U focus Nioh3; U key 20; Start-Sleep 2; U key 20; Start-Sleep 2
     return @{ ok = (Ensure-InGame); boot_s = [int]((Get-Date) - $t0).TotalSeconds }
 }
 
@@ -239,32 +250,57 @@ if (Test-Path $iniOrig) { Copy-Item $iniOrig $ini -Force } else { Copy-Item $ini
 Backup-Gfx | Out-Null
 Lock-Game
 try {
-    foreach ($c in $cells) {
+    $live = $null; $chunkT0 = Get-Date; $did = 0
+    for ($i = 0; $i -lt $cells.Count; $i++) {
+        $c = $cells[$i]
         $id = Get-CellId $c
-        if (Test-Done $c) { "skip (done) $id"; continue }
+        if (Test-Done $c) { "skip (done) $id"; $live = $null; continue }
+        $reuse = [bool]($live -and (Test-SameCfg $live $c) -and (Test-InGame))
+        if ($ChunkSec -gt 0 -and $did -gt 0) {
+            $elapsed = ((Get-Date) - $chunkT0).TotalSeconds
+            $est = Get-Est $c $reuse
+            if (-not $reuse -and ($i + 1) -lt $cells.Count) {
+                $n = $cells[$i + 1]
+                if ((Test-SameCfg $c $n) -and -not (Test-Done $n)) { $est += (Get-Est $n $true) }
+            }
+            if (($elapsed + $est) -gt $ChunkSec) { "chunk cap ${ChunkSec}s at $([int]$elapsed)s elapsed - stop (re-run continues)"; break }
+        }
         "=== $id $(Get-Date -f HH:mm:ss)"
         Renew-Lock
         try {
-            Close-Game
-            if (Test-Path $asiOff) { Move-Item $asiOff $asi -Force }                  # always start from "mod present"
-            Copy-Item $gfxOrig $gfxCfg -Force
-            $null = Apply-Gfx (Get-CellGfx $c) $false
-            $null = Set-FgMode $(if ($c.cfg -eq "OPTIMIZED+FG") { $PM.fg_key[2] } else { $PM.fg_key[1] }) $false
-            if ($c.cfg -eq "STOCK") {
-                Set-Shaders @(); Set-Swaps @(); Copy-Item $iniOrig $ini -Force
-                Move-Item $asi $asiOff -Force
+            if (-not $reuse) {
+                Close-Game
+                if (Test-Path $asiOff) { Move-Item $asiOff $asi -Force }                  # always start from "mod present"
+                Copy-Item $gfxOrig $gfxCfg -Force
+                $null = Apply-Gfx (Get-CellGfx $c) $false
+                $null = Set-FgMode $(if ($c.cfg -eq "OPTIMIZED+FG") { $PM.fg_key[2] } else { $PM.fg_key[1] }) $false
+                if ($c.cfg -eq "STOCK") {
+                    Set-Shaders @(); Set-Swaps @(); Copy-Item $iniOrig $ini -Force
+                    Move-Item $asi $asiOff -Force
+                } else {
+                    $k = Resolve-Keep; Set-Shaders $k.shaders; Set-Swaps $k.swaps; Write-IniState $k.triples
+                }
+                $boot = Start-GameToPlay
             } else {
-                $k = Resolve-Keep; Set-Shaders $k.shaders; Set-Swaps $k.swaps; Write-IniState $k.triples
+                "    reuse live game (same config, no relaunch)"
+                $boot = @{ ok = $true; boot_s = 0 }
             }
-            $boot = Start-GameToPlay
             $wins = @(); if ($boot.ok) { $wins = Measure-Cell $c $id }
             py -I "$here\tm.py" logtail $logf 0 "$resD\$id.log" | Out-Null
             $valid = ($boot.ok -and (@($wins | Where-Object { $_.kind -eq "stand" -and $_.ok }).Count -ge 1))
             [ordered]@{ id = $id; device = $Device; cfg = $c.cfg; preset = $c.preset; sweep = $c.sweep; run = $c.run; when = (Get-Date -f s); load1_s = $boot.boot_s
                         load2_s = $null; hitches = $null; valid = $valid; windows = $wins } | ConvertTo-Json -Depth 6 | Set-Content "$resD\$id.json" -Encoding UTF8
-            "    -> valid=$valid " + (($wins | Where-Object { $_.ok } | ForEach-Object { "$($_.kind)=$($_.fps)fps" + $(if ($_.lat_aip) { "/aip $($_.lat_aip)ms" }) }) -join "  ")
-        } catch { "!! $id failed: $_" }
-        finally { Close-Game; if (Test-Path $asiOff) { Move-Item $asiOff $asi -Force }; Copy-Item $iniOrig $ini -Force; if (Test-Path $gfxOrig) { Copy-Item $gfxOrig $gfxCfg -Force } }
+            "    -> valid=$valid " + (($wins | Where-Object { $_.ok } | ForEach-Object { "$($_.kind)=$($_.fps)fps" + $(if ($_.hitch_count) { "/hitch $($_.hitch_count)" }) + $(if ($_.lat_aip) { "/aip $($_.lat_aip)ms" }) }) -join "  ")
+            if ($valid) { $live = $c } else { Close-Game; $live = $null }
+        } catch {
+            "!! $id failed: $_"
+            Close-Game
+            if (Test-Path $asiOff) { Move-Item $asiOff $asi -Force }
+            Copy-Item $iniOrig $ini -Force
+            if (Test-Path $gfxOrig) { Copy-Item $gfxOrig $gfxCfg -Force }
+            $live = $null
+        }
+        $did++
     }
 } finally {
     Close-Game

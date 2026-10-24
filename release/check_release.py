@@ -178,6 +178,12 @@ def run_tests():
         tail = (r.stdout.strip().splitlines() or [""])[-1][:160]
         good = r.returncode == 0 and (must is None or re.search(must, r.stdout))
         (ok if good else err)(f"{name}: rc={r.returncode} | {tail}")
+        if not good:
+            # Keep the actual assertion/guard refusal, not just a final FAILED
+            # line. In particular, sys.exit("reason") is written to stderr.
+            for label, output in (("stdout", r.stdout), ("stderr", r.stderr)):
+                if output.strip():
+                    print(f"      {label} (last 6000 characters):\n{output[-6000:].rstrip()}")
 
 
 def main(argv):

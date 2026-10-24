@@ -1,3 +1,7 @@
+## 2026-10-13 Codex - MW meshlet completion wait candidate (default OFF)
+
+Added a paired reader/writer patch for the observed meshlet completion byte: the native 256-poll loop can wait on the byte instead of repeatedly yielding, and the original completion writer wakes that same address after clearing it. Original work, dependencies and completion rechecks remain intact. Both sites are one verified installation group; MW-only strict freezing checks thread coverage and verifies/rolls back publication before resume. Default `[Patches] MW = 0`, startup-only. Native concurrency/publication harness and exact v2.02 byte/ABI checks pass; no installation, game launch or performance acceptance. See notes/meshlet-completion-wait-candidate.md.
+
 ## 2026-10-11 Codex - Save backups before mod installation and updates
 
 Added a private packaged Windows/Proton installer that verifies a fresh timestamped current-save backup before mod activation, preserves existing INIs, and records recovery paths and exact mod-file ownership. Partial failures never restore saves; unresolved rollback or journal failure retains its lock.20 fixture tests PASS, including unreadable nested saves, partial copies, changing targets, game startup during installation and package entry-point checks. Requires Python3.9+; manual downloads/drag-and-drop and existing public releases remain outside coverage. No real saves/game files changed, deployment or public publication.

@@ -173,13 +173,19 @@ Snap ReadSnap() {
     if (Rd(G_NET, net) && net && Rd(net + 0x1DC, conn)) s.guest = conn != 0;
     return s;
 }
+// Nioh3Training prewarm world load pending and unclaimed: not a reason to refuse, Fight now claims it (bridge 6473)
+static bool XwPending() {
+    using Fn = int (*)();
+    static const Fn f = [] { HMODULE m = GetModuleHandleW(L"Nioh3Training.asi"); return m ? (Fn)GetProcAddress(m, "Nioh3Training_XwPending") : nullptr; }();
+    return f && f();
+}
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
     if (s.online) return "online";
     if (s.guest) return "co-op session";
     if (!s.gm) return "game not ready";
-    if (s.st[2]) return "loading";
-    if (s.st[3] | s.st[4]) return "game paused";
+    if (s.st[2] && !XwPending()) return "loading";
+    if (!uiSide && (s.st[3] | s.st[4])) return "game paused";  // uiSide: our own menu pauses the game (menu pause), so a click from it is not "paused"
     if (!s.player) return "no save loaded";
     if (s.queueBusy) return "mission queue busy";
     if (s.emaki) return "in a Picture Scroll";
@@ -566,6 +572,21 @@ bool ClearedNow(uint16_t id, const char** why) {
     return true;
 }
 
+// Nioh3Training.asi (optional, ally arena-swap 4506): swaps the boss in place with no mission load; absent -> native load as before.
+HMODULE TrainingAsi() { return GetModuleHandleW(L"Nioh3Training.asi"); }
+int TrainingFightNow(uint32_t missionId) {
+    using Fn = int (*)(uint32_t);
+    static Fn fn = [] { HMODULE m = TrainingAsi(); return m ? (Fn)GetProcAddress(m, "Nioh3Training_FightNow") : nullptr; }();
+    return fn ? fn(missionId) : 0;
+}
+void TrainingPreload() {
+    using Fn = void (*)();
+    static Fn fn = [] { HMODULE m = TrainingAsi(); return m ? (Fn)GetProcAddress(m, "Nioh3Training_Preload") : nullptr; }();
+    static ULONGLONG last = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (fn && now - last > 15000) { last = now; fn(); }
+}
+
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
@@ -579,6 +600,11 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
     if (!ClearedNow(r.missionId, &why)) return Refuse(why);
+    if (fight && warp && TrainingFightNow(r.missionId)) {  // swapped in place: no queue slot, no load, nothing to arm
+        Log("Rematch: F %s: Nioh3Training swapped the boss in place (no mission load)", r.id);
+        Result("fight now: in place");
+        return;
+    }
     uint64_t g = 0, ms = 0;
     uint8_t slot = 0;
     if (!Rd(G_MS, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + 0x10, slot)) return Refuse("mission state not readable");
@@ -978,10 +1004,20 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (s.st[2] && !g_fightLoading) {
             ++g_fightLoads;
             Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
+            if (fight::g_active) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
+                InterlockedExchange(&fight::g_active, 0);
+                Log("Rematch: F load during a boss fight (death / retry) - fight flag cleared so the warp re-enters the arena");
+                if (g_gateWant.load()) {  // the boss script restarts and waits for the gate again: re-arm the gate request after the warp
+                    g_gateReq = false;
+                    g_gateSeen.store(false);
+                    g_gateDue = 0;
+                }
+            }
         }
         if (!s.st[2] && g_fightLoading && g_fightWarp && !(g_gateReq && g_fn.load() == kFnWarped)) {  // a reload (death / retry) ended: back into the arena; never during a gate intro
             g_warpPending = true;
             g_warpDue = t + 4500;  // 1.5 s after the 3 s settle the landing uses
+            if (g_gateWant.load() && !g_gateDue) g_gateDue = t + 4500 + 2500;  // retry: request the gate right again after the warp
         }
         g_fightLoading = s.st[2] != 0;
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
@@ -1563,6 +1599,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         rows[k].sel = sel;
         ++k;
     };
+    TrainingPreload();
     const Snap s = ReadSnap();
     const char* gate = g_state.load() != kIdle ? nullptr : Gates(s, true);
     const int st = g_state.load();

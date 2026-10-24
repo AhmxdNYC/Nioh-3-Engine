@@ -147,6 +147,10 @@ def main():
         logf = gd / "Nioh3BossRematch.log"
         t_launch = time.time()
         log("launching: %s" % a.launch)
+        if os.name == "nt":
+            subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                            str(Path(__file__).resolve().parents[1] / "steam" / "start_autoplay.ps1"),
+                            "-OwnerPid", str(os.getpid())], check=True)
         subprocess.Popen(a.launch, shell=True)
         deadline = t_launch + a.timeout_min * 60
         pos, lines, done = 0, [], False

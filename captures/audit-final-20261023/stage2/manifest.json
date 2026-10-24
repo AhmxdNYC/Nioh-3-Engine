@@ -1,0 +1,5444 @@
+{
+  "schema": 2,
+  "stage": 2,
+  "source_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+  "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+  "devices": {
+    "pc": "Windows / RX 9070",
+    "pc2": "Windows / RX 6650 XT",
+    "ally": "Linux / Proton / ROG Ally"
+  },
+  "candidate_count": 92,
+  "explicit_default_off_count": 86,
+  "auto_or_latency_count": 6,
+  "pairs": [
+    {
+      "device": "pc",
+      "platform": "Windows / RX 9070",
+      "key": "Patches.EP",
+      "source_line": 458,
+      "shipped_default": "-1",
+      "supplied_baseline_value": "-1",
+      "off": "-1",
+      "on": "1",
+      "status": "planned",
+      "notes": [
+        "Keep the same boss fight, but also time matched cold/warm entry or boot as appropriate; steady-fight FPS alone cannot rule out load benefit."
+      ],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] EP = -1"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] EP = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "f1ee02b5a8b1dbc2e73266dcf67320cc030c02018e912001abbc3a612043a8d6",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "Patches.P12",
+      "source_line": 177,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] P12 = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] P12 = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "abe4fe14f3160aa4303589842c19c702916536cfd14f21201a8c7e12a71fb94f",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "Patches.PP",
+      "source_line": 189,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] PP = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] PP = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "d5770ffa5253478e553cd76ee88a806c90ded4ab5dd5e5dec835e9bd6df0145d",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "Patches.FPC",
+      "source_line": 191,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] FPC = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] FPC = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "a19998af1372ec2a0f9a55365f5ab1a873c1a6636a6323b227f8a78d48f0c86e",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "Patches.S1",
+      "source_line": 205,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] S1 = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] S1 = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "69b0be8f61c56425e0543c96f9d87a211be4276910b15fc258e98e2470eba48c",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "Patches.SH",
+      "source_line": 488,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [
+        "Keep the same boss fight, but also time matched cold/warm entry or boot as appropriate; steady-fight FPS alone cannot rule out load benefit."
+      ],
+      "common_edits": [
+        "[General] Enabled = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[Patches] SH = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[Patches] SH = 1"
+      ],
+      "off_sha256": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+      "on_sha256": "0e55aae2c34fa3af1c7c920b224beeffc304a3d740813f3f3e0cbf5e52c2fe09",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    },
+    {
+      "device": "ally",
+      "platform": "Linux / Proton / ROG Ally",
+      "key": "GpuOpt.R1",
+      "source_line": 684,
+      "shipped_default": "0",
+      "supplied_baseline_value": "0",
+      "off": "0",
+      "on": "1",
+      "status": "planned",
+      "notes": [
+        "Compare against paired baseline with Barriers=1, not the global baseline.",
+        "Check motion/visual correctness alongside frame times before any default recommendation."
+      ],
+      "common_edits": [
+        "[General] Enabled = 1",
+        "[GpuOpt] Barriers = 1"
+      ],
+      "off_edits": [
+        "[General] Enabled = 1",
+        "[GpuOpt] Barriers = 1",
+        "[GpuOpt] R1 = 0"
+      ],
+      "on_edits": [
+        "[General] Enabled = 1",
+        "[GpuOpt] Barriers = 1",
+        "[GpuOpt] R1 = 1"
+      ],
+      "off_sha256": "086a8c121c706dc269b5e567ad3bece82e5458802b00b0a153c430e50085f568",
+      "on_sha256": "19105a29c1f91ca71f197d6ab781b54da782faf9ce0b0a5cb241706245a2e34e",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "runs_per_arm": 3
+    }
+  ],
+  "inventory": [
+    {
+      "section": "General",
+      "key": "Enabled",
+      "value": "1",
+      "line": 7,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "Log",
+      "value": "1",
+      "line": 8,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "AllowUnknownBuild",
+      "value": "0",
+      "line": 11,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "DecryptWaitSeconds",
+      "value": "60",
+      "line": 13,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "StartupPopup",
+      "value": "1",
+      "line": 16,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "AutoContinueLoad",
+      "value": "0",
+      "line": 28,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "General",
+      "key": "ReBarNotice",
+      "value": "1",
+      "line": 34,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "FpsCounter",
+      "value": "1",
+      "line": 39,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "FrameTime",
+      "value": "1",
+      "line": 41,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "SpeedFactor",
+      "value": "1",
+      "line": 42,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "Position",
+      "value": "TopLeft",
+      "line": 44,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "Scale",
+      "value": "1.0",
+      "line": 46,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Overlay",
+      "key": "Brightness",
+      "value": "1.0",
+      "line": 48,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "Enabled",
+      "value": "1",
+      "line": 58,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "Key",
+      "value": "F10",
+      "line": 61,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "Gesture",
+      "value": "TripleTap",
+      "line": 64,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "TapWindowMs",
+      "value": "900",
+      "line": 65,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "SwallowTaps",
+      "value": "1",
+      "line": 69,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "TapGapMs",
+      "value": "300",
+      "line": 70,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "HoldButton",
+      "value": "Start",
+      "line": 74,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "HoldSeconds",
+      "value": "5",
+      "line": 78,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "Scale",
+      "value": "0",
+      "line": 80,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "PauseHint",
+      "value": "2",
+      "line": 83,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "PauseHintSource",
+      "value": "Both",
+      "line": 87,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "KeyTripleTap",
+      "value": "Escape",
+      "line": 90,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "PauseHintFlags",
+      "value": "58B 58C",
+      "line": 94,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Menu",
+      "key": "FrameGenToggle",
+      "value": "1",
+      "line": 108,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "MW",
+      "value": "0",
+      "line": 113,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "W1",
+      "value": "1",
+      "line": 116,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "W2",
+      "value": "1",
+      "line": 118,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "VRR",
+      "value": "1",
+      "line": 121,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "VRROnline",
+      "value": "-1",
+      "line": 125,
+      "classification": "online compatibility policy (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "W3",
+      "value": "1",
+      "line": 127,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "R1",
+      "value": "1",
+      "line": 129,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "L1",
+      "value": "1",
+      "line": 132,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "WK",
+      "value": "1",
+      "line": 135,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "WorkerCap",
+      "value": "0",
+      "line": 139,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "AS0",
+      "value": "0",
+      "line": 146,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "AS",
+      "value": "0",
+      "line": 156,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "W3WineSleep",
+      "value": "1",
+      "line": 159,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "L1OnWine",
+      "value": "0",
+      "line": 162,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "FG",
+      "value": "1",
+      "line": 165,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "FGOnWine",
+      "value": "0",
+      "line": 167,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "FGC",
+      "value": "0",
+      "line": 173,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "P12",
+      "value": "0",
+      "line": 177,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "W6",
+      "value": "-1",
+      "line": 185,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Patches",
+      "key": "B",
+      "value": "0",
+      "line": 187,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PP",
+      "value": "0",
+      "line": 189,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "FPC",
+      "value": "0",
+      "line": 191,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "AABB",
+      "value": "0",
+      "line": 193,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "M1",
+      "value": "0",
+      "line": 195,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "M2",
+      "value": "0",
+      "line": 197,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "J1",
+      "value": "0",
+      "line": 199,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "X1",
+      "value": "0",
+      "line": 201,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "E1",
+      "value": "0",
+      "line": 203,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "S1",
+      "value": "0",
+      "line": 205,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "IK",
+      "value": "0",
+      "line": 210,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "TS",
+      "value": "0",
+      "line": 213,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "WakeStats",
+      "value": "0",
+      "line": 217,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "ED",
+      "value": "0",
+      "line": 220,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "GF",
+      "value": "-1",
+      "line": 226,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Patches",
+      "key": "WL",
+      "value": "1",
+      "line": 230,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "WG",
+      "value": "0",
+      "line": 236,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "TG",
+      "value": "0",
+      "line": 242,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "DS",
+      "value": "0",
+      "line": 246,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "DQ",
+      "value": "0",
+      "line": 251,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "P1E7",
+      "value": "0",
+      "line": 255,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "LK",
+      "value": "0",
+      "line": 258,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "MA",
+      "value": "0",
+      "line": 264,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "BPO",
+      "value": "0",
+      "line": 270,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "W1B",
+      "value": "0",
+      "line": 276,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "RPA",
+      "value": "0",
+      "line": 280,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "CP",
+      "value": "0",
+      "line": 283,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "SPF",
+      "value": "0",
+      "line": 285,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "MQ",
+      "value": "-1",
+      "line": 290,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Patches",
+      "key": "PT1",
+      "value": "0",
+      "line": 293,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "DL",
+      "value": "0",
+      "line": 296,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "CpuStats",
+      "value": "0",
+      "line": 298,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "RWb",
+      "value": "0",
+      "line": 302,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "ESM1",
+      "value": "0",
+      "line": 307,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "MPCS",
+      "value": "0",
+      "line": 314,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "TR",
+      "value": "0",
+      "line": 321,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "RTP",
+      "value": "0",
+      "line": 328,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PCM",
+      "value": "0",
+      "line": 335,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "CBS",
+      "value": "0",
+      "line": 347,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "CBN",
+      "value": "1",
+      "line": 348,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "CBT",
+      "value": "1",
+      "line": 349,
+      "classification": "enabled optimization / platform policy"
+    },
+    {
+      "section": "Patches",
+      "key": "CBF",
+      "value": "0",
+      "line": 356,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "VSMA",
+      "value": "0",
+      "line": 365,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "LPVR",
+      "value": "0",
+      "line": 372,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "SKYR",
+      "value": "0",
+      "line": 373,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "FOGT",
+      "value": "0",
+      "line": 374,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "CLDR",
+      "value": "0",
+      "line": 375,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "SPR",
+      "value": "0",
+      "line": 378,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Patches",
+      "key": "PJ",
+      "value": "0",
+      "line": 386,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PJ_MaxMB",
+      "value": "64",
+      "line": 388,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PJ_QuietMs",
+      "value": "3000",
+      "line": 390,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PJH",
+      "value": "0",
+      "line": 401,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PJ_KeepMax",
+      "value": "4096",
+      "line": 403,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PL",
+      "value": "0",
+      "line": 413,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PL_MaxMB",
+      "value": "1024",
+      "line": 415,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "GL1",
+      "value": "0",
+      "line": 423,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "LC",
+      "value": "0",
+      "line": 431,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "LW",
+      "value": "0",
+      "line": 438,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "LoadOnlyCpuFixes",
+      "value": "0",
+      "line": 449,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "EP",
+      "value": "-1",
+      "line": 458,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Patches",
+      "key": "SR",
+      "value": "-1",
+      "line": 470,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Patches",
+      "key": "RC",
+      "value": "0",
+      "line": 474,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "RCMB",
+      "value": "64",
+      "line": 475,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "RCKB",
+      "value": "64",
+      "line": 476,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "RCMaxReadKB",
+      "value": "64",
+      "line": 477,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "AQ",
+      "value": "0",
+      "line": 481,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "AQThreads",
+      "value": "4",
+      "line": 482,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "TSY",
+      "value": "0",
+      "line": 485,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "SH",
+      "value": "0",
+      "line": 488,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PF",
+      "value": "0",
+      "line": 498,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "PFThreads",
+      "value": "4",
+      "line": 501,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PFLeadMB",
+      "value": "768",
+      "line": 502,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PFTraces",
+      "value": "4",
+      "line": 503,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "PFMatchPct",
+      "value": "50",
+      "line": 504,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "Patches",
+      "key": "GIMerge",
+      "value": "0",
+      "line": 514,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Patches",
+      "key": "GIMergeQualify",
+      "value": "60",
+      "line": 515,
+      "classification": "parameter (not an off switch)"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "Enabled",
+      "value": "1",
+      "line": 524,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "Preset",
+      "value": "0",
+      "line": 526,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XCLD",
+      "value": "0",
+      "line": 528,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XFOG",
+      "value": "0",
+      "line": 530,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XGI",
+      "value": "0",
+      "line": 532,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XSHD",
+      "value": "0",
+      "line": 534,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XSHF",
+      "value": "0",
+      "line": 536,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XLOD",
+      "value": "0",
+      "line": 538,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XTER",
+      "value": "0",
+      "line": 540,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XPRT",
+      "value": "0",
+      "line": 542,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XAO",
+      "value": "0",
+      "line": 544,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "ExtraPerf",
+      "key": "XPOST",
+      "value": "0",
+      "line": 546,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "VRR",
+      "key": "Tier30",
+      "value": "1",
+      "line": 550,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Tier60",
+      "value": "1",
+      "line": 551,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Tier120",
+      "value": "1",
+      "line": 552,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Min30",
+      "value": "20",
+      "line": 554,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Max30",
+      "value": "30",
+      "line": 555,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Min60",
+      "value": "24",
+      "line": 556,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Max60",
+      "value": "60",
+      "line": 557,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Min120",
+      "value": "48",
+      "line": 558,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "Max120",
+      "value": "120",
+      "line": 559,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "MaxFps",
+      "value": "120",
+      "line": 562,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "VRR",
+      "key": "MenuQuantize",
+      "value": "0",
+      "line": 564,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Tuning",
+      "key": "AS_Slots",
+      "value": "0",
+      "line": 571,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "VSMA_K",
+      "value": "2",
+      "line": 576,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "VSMA_Front",
+      "value": "2",
+      "line": 577,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "VSMA_First",
+      "value": "0",
+      "line": 578,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "LPVR_N",
+      "value": "2",
+      "line": 580,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "SKYR_V",
+      "value": "4.0",
+      "line": 581,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "FOGT_V",
+      "value": "0.5",
+      "line": 582,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "CLDR_V",
+      "value": "0.5",
+      "line": 583,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "W3_TimeoutMs",
+      "value": "-1",
+      "line": 586,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "R1_TimeoutMs",
+      "value": "2",
+      "line": 588,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "L1_MarginUs",
+      "value": "1000",
+      "line": 590,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "L1_MinSleepUs",
+      "value": "500",
+      "line": 592,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "PP_Period",
+      "value": "4",
+      "line": 594,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "KL_Div",
+      "value": "0",
+      "line": 598,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Tuning",
+      "key": "FO_Pct",
+      "value": "25",
+      "line": 601,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "BPO_Mask",
+      "value": "7",
+      "line": 607,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "BPO_TableBits",
+      "value": "14",
+      "line": 609,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "E1_N",
+      "value": "2",
+      "line": 611,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "W6_SpinUs",
+      "value": "50",
+      "line": 613,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "W6_TimeoutMs",
+      "value": "1",
+      "line": 615,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "IK_PadWaitCapMs",
+      "value": "0",
+      "line": 618,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "GF_TimeoutMs",
+      "value": "100",
+      "line": 620,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "WG_MaxPending",
+      "value": "1",
+      "line": 622,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "WG_WindowUs",
+      "value": "2000",
+      "line": 624,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "TG_Floor",
+      "value": "30",
+      "line": 626,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "TG_RatioPct",
+      "value": "125",
+      "line": 628,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "RTP_Level",
+      "value": "1",
+      "line": 630,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "DS_MarginUs",
+      "value": "150",
+      "line": 632,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Tuning",
+      "key": "DQ_QuantumUs",
+      "value": "200",
+      "line": 634,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Latency",
+      "key": "MaxFrameLatency",
+      "value": "-1",
+      "line": 642,
+      "classification": "auto-default / latency probe"
+    },
+    {
+      "section": "Latency",
+      "key": "VrrPresent",
+      "value": "0",
+      "line": 651,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "Barriers",
+      "value": "0",
+      "line": 656,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "FrameOverlap",
+      "value": "0",
+      "line": 661,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "TileBatch",
+      "value": "0",
+      "line": 665,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "MergeAcrossBinds",
+      "value": "1",
+      "line": 667,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "DropDuplicateUav",
+      "value": "1",
+      "line": 669,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "DropUndoPairs",
+      "value": "0",
+      "line": 671,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "R2a",
+      "value": "0",
+      "line": 677,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "R2b",
+      "value": "0",
+      "line": 681,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "R1",
+      "value": "0",
+      "line": 684,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "MaxBatch",
+      "value": "64",
+      "line": 685,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "DeferThreads",
+      "value": "SynergisticDispatcher",
+      "line": 686,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "AnyCaller",
+      "value": "0",
+      "line": 687,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "TraceRecords",
+      "value": "0",
+      "line": 690,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "TraceDelaySec",
+      "value": "30",
+      "line": 691,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "InstallDelaySec",
+      "value": "20",
+      "line": 693,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirror",
+      "value": "0",
+      "line": 701,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirrorMB",
+      "value": "128",
+      "line": 702,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirrorAllSites",
+      "value": "0",
+      "line": 703,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirrorSites",
+      "value": "1",
+      "line": 707,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirrorQueue",
+      "value": "0",
+      "line": 711,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "CbvMirrorComputeCopy",
+      "value": "1",
+      "line": 712,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "SceneBufMirror",
+      "value": "0",
+      "line": 722,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "GpuOpt",
+      "key": "SceneBufMirrorQueue",
+      "value": "1",
+      "line": 723,
+      "classification": "parameter / mode (zero is not OFF)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MemStats",
+      "value": "0",
+      "line": 731,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "VSForceSysUpload",
+      "value": "0",
+      "line": 735,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "SceneBufProbe",
+      "value": "0",
+      "line": 740,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "LoadStats",
+      "value": "0",
+      "line": 745,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "LoadGates",
+      "value": "0",
+      "line": 752,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ReadProbe",
+      "value": "0",
+      "line": 762,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "TileStats",
+      "value": "0",
+      "line": 767,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf",
+      "value": "0",
+      "line": 772,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf_Markers",
+      "value": "0",
+      "line": 784,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf_MaxMarkers",
+      "value": "2048",
+      "line": 786,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf_Top",
+      "value": "30",
+      "line": 788,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf2_MaxStamps",
+      "value": "8192",
+      "line": 790,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf2_Top",
+      "value": "40",
+      "line": 792,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf2_AB",
+      "value": "1",
+      "line": 795,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf2_SampleEvery",
+      "value": "8",
+      "line": 800,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GPUProf2_MinRun",
+      "value": "4",
+      "line": 805,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GQ",
+      "value": "0",
+      "line": 812,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "GQ_Top",
+      "value": "5",
+      "line": 813,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MeshletProbe",
+      "value": "0",
+      "line": 822,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MeshletProbe_Stats",
+      "value": "1",
+      "line": 823,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MeshletProbe_Top",
+      "value": "40",
+      "line": 824,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MeshletProbe_Dump",
+      "value": "0",
+      "line": 825,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MeshletProbe_Barriers",
+      "value": "1",
+      "line": 828,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MpcCheck",
+      "value": "0",
+      "line": 834,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "MpcCheckMaxMB",
+      "value": "64",
+      "line": 835,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "JT",
+      "value": "0",
+      "line": 841,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "JT_Thread",
+      "value": "KIDSTaskScheduler0",
+      "line": 842,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "JT_Top",
+      "value": "6",
+      "line": 843,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "SP",
+      "value": "0",
+      "line": 850,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "IntervalUs",
+      "value": "1000",
+      "line": 851,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "Workers",
+      "value": "1",
+      "line": 852,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ReportSec",
+      "value": "30",
+      "line": 853,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "TopN",
+      "value": "25",
+      "line": 854,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "StackBytes",
+      "value": "2048",
+      "line": 855,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "StartDelaySec",
+      "value": "20",
+      "line": 856,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "Focus",
+      "value": "0",
+      "line": 859,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ThreadState",
+      "value": "0",
+      "line": 865,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ThreadStateUs",
+      "value": "100000",
+      "line": 866,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ThreadStateTop",
+      "value": "14",
+      "line": 867,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "Backend",
+      "value": "0",
+      "line": 875,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "BackendSampleUs",
+      "value": "1000",
+      "line": 876,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "ReplayProf",
+      "value": "0",
+      "line": 887,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "CbvStats",
+      "value": "0",
+      "line": 893,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Profiler",
+      "key": "CbvRecord",
+      "value": "0",
+      "line": 897,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "ShaderSwap",
+      "key": "Enabled",
+      "value": "0",
+      "line": 902,
+      "classification": "shader replacement infrastructure / diagnostics (not a standalone optimization)"
+    },
+    {
+      "section": "ShaderSwap",
+      "key": "Folder",
+      "value": "Nioh3EngineFix_shaders",
+      "line": 904,
+      "classification": "shader replacement infrastructure / diagnostics (not a standalone optimization)"
+    },
+    {
+      "section": "ShaderSwap",
+      "key": "DumpMode",
+      "value": "0",
+      "line": 906,
+      "classification": "shader replacement infrastructure / diagnostics (not a standalone optimization)"
+    },
+    {
+      "section": "ShaderSwap",
+      "key": "LogAll",
+      "value": "0",
+      "line": 908,
+      "classification": "shader replacement infrastructure / diagnostics (not a standalone optimization)"
+    },
+    {
+      "section": "ShaderHot",
+      "key": "Enabled",
+      "value": "0",
+      "line": 917,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "ShaderHot",
+      "key": "Folder",
+      "value": "Nioh3EngineFix_hot",
+      "line": 919,
+      "classification": "diagnostic (excluded)"
+    },
+    {
+      "section": "Memory",
+      "key": "LM",
+      "value": "0",
+      "line": 927,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Memory",
+      "key": "LM_Force",
+      "value": "0",
+      "line": 929,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Memory",
+      "key": "LM_PeriodMs",
+      "value": "1000",
+      "line": 930,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Memory",
+      "key": "LM_MinKB",
+      "value": "256",
+      "line": 931,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Memory",
+      "key": "LM_BudgetUs",
+      "value": "1000",
+      "line": 933,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Memory",
+      "key": "LM_SliceMB",
+      "value": "128",
+      "line": 934,
+      "classification": "parameter / parent switch / safety override (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "PresentModeLog",
+      "value": "1",
+      "line": 941,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipDebugString",
+      "value": "0",
+      "line": 945,
+      "classification": "default-off optimization"
+    },
+    {
+      "section": "Debug",
+      "key": "FnProbe",
+      "value": "0",
+      "line": 953,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "FnProbeList",
+      "value": "",
+      "line": 956,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "FnProbeReportSec",
+      "value": "30",
+      "line": 958,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "FnProbeArgs",
+      "value": "8",
+      "line": 960,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "FnProbeSample",
+      "value": "16",
+      "line": 962,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "PadLatency",
+      "value": "0",
+      "line": 971,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "PadLatencyReportSec",
+      "value": "30",
+      "line": 973,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipBootNotice",
+      "value": "-1",
+      "line": 979,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "Tour",
+      "value": "0",
+      "line": 988,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourDwellSec",
+      "value": "4",
+      "line": 990,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourPointsPerStage",
+      "value": "3",
+      "line": 992,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourList",
+      "value": "",
+      "line": 995,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourPasses",
+      "value": "1",
+      "line": 997,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourLoadTimeoutSec",
+      "value": "120",
+      "line": 999,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourWarpTimeoutSec",
+      "value": "45",
+      "line": 1001,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourStartDelaySec",
+      "value": "5",
+      "line": 1003,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourSettleSec",
+      "value": "3",
+      "line": 1004,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "TourMinPointDist",
+      "value": "3000",
+      "line": 1006,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "VirtualPad",
+      "value": "0",
+      "line": 1014,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "VirtualPadIdleReleaseSec",
+      "value": "600",
+      "line": 1016,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "KeepRunningUnfocused",
+      "value": "0",
+      "line": 1021,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "GIProbe",
+      "value": "0",
+      "line": 1027,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "GIProbeEvery",
+      "value": "300",
+      "line": 1028,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "GIProbeFrames",
+      "value": "30",
+      "line": 1029,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipFx",
+      "value": "0",
+      "line": 1037,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipFxFile",
+      "value": "Nioh3EngineFix_skip.ini",
+      "line": 1038,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipPSO",
+      "value": "",
+      "line": 1039,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipMarker",
+      "value": "",
+      "line": 1040,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipClearMode",
+      "value": "0",
+      "line": 1041,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "SkipClear",
+      "value": "0,0,0,0",
+      "line": 1042,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "LiveCtl",
+      "value": "0",
+      "line": 1047,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    },
+    {
+      "section": "Debug",
+      "key": "LiveCtlFile",
+      "value": "Nioh3EngineFix_live.ini",
+      "line": 1048,
+      "classification": "UI / diagnostic / compatibility / harness control (excluded)"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "s2-pc-0001",
+      "device": "pc",
+      "key": "__baseline__",
+      "replicate": 0,
+      "arm": "BASELINE",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/source-baseline.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0002",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0003",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0004",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0005",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0006",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0007",
+      "device": "pc",
+      "key": "Patches.EP",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/Patches.EP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-pc-0008",
+      "device": "pc",
+      "key": "__baseline__",
+      "replicate": 0,
+      "arm": "BASELINE",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "pc/source-baseline.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0001",
+      "device": "ally",
+      "key": "__baseline__",
+      "replicate": 0,
+      "arm": "BASELINE",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/source-baseline.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0002",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0003",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0004",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0005",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0006",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0007",
+      "device": "ally",
+      "key": "Patches.P12",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.P12/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0008",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0009",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0010",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0011",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0012",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0013",
+      "device": "ally",
+      "key": "Patches.PP",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.PP/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0014",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0015",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0016",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0017",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0018",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0019",
+      "device": "ally",
+      "key": "Patches.FPC",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.FPC/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0020",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0021",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0022",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0023",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0024",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0025",
+      "device": "ally",
+      "key": "Patches.S1",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.S1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0026",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0027",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0028",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0029",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0030",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0031",
+      "device": "ally",
+      "key": "Patches.SH",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/Patches.SH/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0032",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 1,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0033",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 1,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0034",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 2,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0035",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 2,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0036",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 3,
+      "arm": "ON",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/ON.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0037",
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "replicate": 3,
+      "arm": "OFF",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/GpuOpt.R1/OFF.ini",
+      "result": "UNMEASURED"
+    },
+    {
+      "run_id": "s2-ally-0038",
+      "device": "ally",
+      "key": "__baseline__",
+      "replicate": 0,
+      "arm": "BASELINE",
+      "boss": "Yoritomo-R7B35-fight-now-60s-PresentMon-v1",
+      "collector": "PresentMon",
+      "capture_seconds": 60,
+      "warmup_seconds": 30,
+      "restart_required": true,
+      "status": "planned",
+      "ini": "ally/source-baseline.ini",
+      "result": "UNMEASURED"
+    }
+  ],
+  "split": {
+    "pc": [
+      "Patches.EP"
+    ],
+    "pc2": [],
+    "ally": [
+      "Patches.P12",
+      "Patches.PP",
+      "Patches.FPC",
+      "Patches.S1",
+      "Patches.SH",
+      "GpuOpt.R1"
+    ]
+  },
+  "ini_hashes": {
+    "pc/Patches.EP/ON.ini": "f1ee02b5a8b1dbc2e73266dcf67320cc030c02018e912001abbc3a612043a8d6",
+    "ally/GpuOpt.R1/OFF.ini": "086a8c121c706dc269b5e567ad3bece82e5458802b00b0a153c430e50085f568",
+    "ally/Patches.SH/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "ally/Patches.P12/ON.ini": "abe4fe14f3160aa4303589842c19c702916536cfd14f21201a8c7e12a71fb94f",
+    "ally/Patches.FPC/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "ally/Patches.P12/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "ally/Patches.SH/ON.ini": "0e55aae2c34fa3af1c7c920b224beeffc304a3d740813f3f3e0cbf5e52c2fe09",
+    "ally/Patches.FPC/ON.ini": "a19998af1372ec2a0f9a55365f5ab1a873c1a6636a6323b227f8a78d48f0c86e",
+    "ally/GpuOpt.R1/ON.ini": "19105a29c1f91ca71f197d6ab781b54da782faf9ce0b0a5cb241706245a2e34e",
+    "ally/Patches.PP/ON.ini": "d5770ffa5253478e553cd76ee88a806c90ded4ab5dd5e5dec835e9bd6df0145d",
+    "ally/Patches.S1/ON.ini": "69b0be8f61c56425e0543c96f9d87a211be4276910b15fc258e98e2470eba48c",
+    "ally/Patches.S1/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "ally/Patches.PP/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "ally/source-baseline.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "pc/Patches.EP/OFF.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8",
+    "pc/source-baseline.ini": "205297b614aa10a5f909b94b74c75a3dbe0b173bb65d63b1f34f9a000d8fe3a8"
+  },
+  "screen_decisions": [
+    {
+      "device": "pc",
+      "key": "Patches.FGC",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -1.7816354499771612,
+        "low1_fps": -0.6496227996647156,
+        "frametime_ms": -1.8142495643874743
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 87.56,
+          "low1_fps": 47.72,
+          "frametime_ms": 11.4207
+        },
+        "ON": {
+          "avg_fps": 86.0,
+          "low1_fps": 47.41,
+          "frametime_ms": 11.6279
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.B",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.3680490103675673,
+        "low1_fps": 2.139144342263095,
+        "frametime_ms": -2.425878298659741
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 84.88,
+          "low1_fps": 50.02,
+          "frametime_ms": 11.7813
+        },
+        "ON": {
+          "avg_fps": 82.87,
+          "low1_fps": 51.09,
+          "frametime_ms": 12.0671
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.M1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 2.4413481005120845,
+        "low1_fps": -10.821062025881306,
+        "frametime_ms": 2.3830716265009753
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 83.97,
+          "low1_fps": 44.82,
+          "frametime_ms": 11.909
+        },
+        "ON": {
+          "avg_fps": 86.02,
+          "low1_fps": 39.97,
+          "frametime_ms": 11.6252
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.J1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -0.5626034197462825,
+        "low1_fps": -1.9424871453056485,
+        "frametime_ms": -0.5665645339666769
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 90.65,
+          "low1_fps": 52.51,
+          "frametime_ms": 11.0314
+        },
+        "ON": {
+          "avg_fps": 90.14,
+          "low1_fps": 51.49,
+          "frametime_ms": 11.0939
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.E1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -3.7485146375715663,
+        "low1_fps": 1.2801484230055749,
+        "frametime_ms": -3.894432821728103
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 92.57,
+          "low1_fps": 53.9,
+          "frametime_ms": 10.8026
+        },
+        "ON": {
+          "avg_fps": 89.1,
+          "low1_fps": 54.59,
+          "frametime_ms": 11.2233
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.WG",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.1532470507387416,
+        "low1_fps": 7.494365138993229,
+        "frametime_ms": -2.201093125185538
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 87.31,
+          "low1_fps": 53.24,
+          "frametime_ms": 11.4534
+        },
+        "ON": {
+          "avg_fps": 85.43,
+          "low1_fps": 57.23,
+          "frametime_ms": 11.7055
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.P1E7",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 2.4157435776573144,
+        "low1_fps": 15.129582068643485,
+        "frametime_ms": 2.358262404426309
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 84.86,
+          "low1_fps": 42.83,
+          "frametime_ms": 11.7841
+        },
+        "ON": {
+          "avg_fps": 86.91,
+          "low1_fps": 49.31,
+          "frametime_ms": 11.5062
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.MQ",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.0672853828306283,
+        "low1_fps": 36.69366098855068,
+        "frametime_ms": 1.0559525554051732
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 86.2,
+          "low1_fps": 35.81,
+          "frametime_ms": 11.6009
+        },
+        "ON": {
+          "avg_fps": 87.12,
+          "low1_fps": 48.95,
+          "frametime_ms": 11.4784
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.PT1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.3171696620323243,
+        "low1_fps": 3.507728894173595,
+        "frametime_ms": -2.3718737006007133
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 88.47,
+          "low1_fps": 50.46,
+          "frametime_ms": 11.3033
+        },
+        "ON": {
+          "avg_fps": 86.42,
+          "low1_fps": 52.23,
+          "frametime_ms": 11.5714
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.DL",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 4.204312733405607,
+        "low1_fps": -53.963914707490424,
+        "frametime_ms": 4.034299849751375
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 83.01,
+          "low1_fps": 54.87,
+          "frametime_ms": 12.0467
+        },
+        "ON": {
+          "avg_fps": 86.5,
+          "low1_fps": 25.26,
+          "frametime_ms": 11.5607
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.MPCS",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -5.712350417701516,
+        "low1_fps": -0.35762181493071904,
+        "frametime_ms": -6.058888140878017
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 88.58,
+          "low1_fps": 44.74,
+          "frametime_ms": 11.2892
+        },
+        "ON": {
+          "avg_fps": 83.52,
+          "low1_fps": 44.58,
+          "frametime_ms": 11.9732
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.TR",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -7.085503472222224,
+        "low1_fps": -10.938615274803716,
+        "frametime_ms": -7.626236095367124
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 92.16,
+          "low1_fps": 56.04,
+          "frametime_ms": 10.8507
+        },
+        "ON": {
+          "avg_fps": 85.63,
+          "low1_fps": 49.91,
+          "frametime_ms": 11.6782
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.RTP",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.688159437280185,
+        "low1_fps": 18.137254901960787,
+        "frametime_ms": 1.659942166454833
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 85.3,
+          "low1_fps": 38.76,
+          "frametime_ms": 11.7233
+        },
+        "ON": {
+          "avg_fps": 86.74,
+          "low1_fps": 45.79,
+          "frametime_ms": 11.5287
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.CBS",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.1925437073057787,
+        "low1_fps": 6.245278267438924,
+        "frametime_ms": 1.1789499140618915
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 86.37,
+          "low1_fps": 39.71,
+          "frametime_ms": 11.5781
+        },
+        "ON": {
+          "avg_fps": 87.4,
+          "low1_fps": 42.19,
+          "frametime_ms": 11.4416
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.LPVR",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 2.718006795016994,
+        "low1_fps": 38.52394661083486,
+        "frametime_ms": 2.6454746136865332
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 88.3,
+          "low1_fps": 38.21,
+          "frametime_ms": 11.325
+        },
+        "ON": {
+          "avg_fps": 90.7,
+          "low1_fps": 52.93,
+          "frametime_ms": 11.0254
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.SKYR",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 6.841491841491847,
+        "low1_fps": 16.03206412825652,
+        "frametime_ms": 6.403260403260401
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 85.8,
+          "low1_fps": 44.91,
+          "frametime_ms": 11.655
+        },
+        "ON": {
+          "avg_fps": 91.67,
+          "low1_fps": 52.11,
+          "frametime_ms": 10.9087
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.PJ",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.28821766197832605,
+        "low1_fps": -9.869083585095662,
+        "frametime_ms": 0.2871095613555823
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 86.74,
+          "low1_fps": 59.58,
+          "frametime_ms": 11.5287
+        },
+        "ON": {
+          "avg_fps": 86.99,
+          "low1_fps": 53.7,
+          "frametime_ms": 11.4956
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.EP",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 9.01180116819645,
+        "low1_fps": 39.17159763313609,
+        "frametime_ms": 8.267340022146909
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 83.89,
+          "low1_fps": 42.25,
+          "frametime_ms": 11.9204
+        },
+        "ON": {
+          "avg_fps": 91.45,
+          "low1_fps": 58.8,
+          "frametime_ms": 10.9349
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.AQ",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -4.902069270775708,
+        "low1_fps": -5.691360328419489,
+        "frametime_ms": -5.15471370734528
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 90.37,
+          "low1_fps": 53.59,
+          "frametime_ms": 11.0656
+        },
+        "ON": {
+          "avg_fps": 85.94,
+          "low1_fps": 50.54,
+          "frametime_ms": 11.636
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.TSY",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.2422360248447255,
+        "low1_fps": -3.082614056720099,
+        "frametime_ms": 1.2270768343040623
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 90.16,
+          "low1_fps": 48.66,
+          "frametime_ms": 11.0914
+        },
+        "ON": {
+          "avg_fps": 91.28,
+          "low1_fps": 47.16,
+          "frametime_ms": 10.9553
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Patches.GIMerge",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -10.301874088205581,
+        "low1_fps": -2.9499199634118436,
+        "frametime_ms": -11.484481514155107
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 89.11,
+          "low1_fps": 43.73,
+          "frametime_ms": 11.2221
+        },
+        "ON": {
+          "avg_fps": 79.93,
+          "low1_fps": 42.44,
+          "frametime_ms": 12.5109
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "ExtraPerf.XCLD",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -4.32464454976304,
+        "low1_fps": -15.959872321021432,
+        "frametime_ms": -4.520479731269469
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 84.4,
+          "low1_fps": 43.86,
+          "frametime_ms": 11.8483
+        },
+        "ON": {
+          "avg_fps": 80.75,
+          "low1_fps": 36.86,
+          "frametime_ms": 12.3839
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "ExtraPerf.XGI",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.8929606865360037,
+        "low1_fps": -37.798234078527145,
+        "frametime_ms": 0.8847191921979056
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 86.23,
+          "low1_fps": 53.23,
+          "frametime_ms": 11.5969
+        },
+        "ON": {
+          "avg_fps": 87.0,
+          "low1_fps": 33.11,
+          "frametime_ms": 11.4943
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "ExtraPerf.XTER",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.34349030470914377,
+        "low1_fps": -8.978013029315955,
+        "frametime_ms": 0.3420485004918523
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 90.25,
+          "low1_fps": 49.12,
+          "frametime_ms": 11.0803
+        },
+        "ON": {
+          "avg_fps": 90.56,
+          "low1_fps": 44.71,
+          "frametime_ms": 11.0424
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "ExtraPerf.XPRT",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.823825311535382,
+        "low1_fps": -28.139321723189727,
+        "frametime_ms": -2.905751148042863
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 87.47,
+          "low1_fps": 54.55,
+          "frametime_ms": 11.4325
+        },
+        "ON": {
+          "avg_fps": 85.0,
+          "low1_fps": 39.2,
+          "frametime_ms": 11.7647
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Tuning.KL_Div",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.8136792452830162,
+        "low1_fps": -5.080884028252458,
+        "frametime_ms": 0.8072927708289181
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 84.8,
+          "low1_fps": 43.89,
+          "frametime_ms": 11.7925
+        },
+        "ON": {
+          "avg_fps": 85.49,
+          "low1_fps": 41.66,
+          "frametime_ms": 11.6973
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Latency.MaxFrameLatency",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.0310633213859055,
+        "low1_fps": 48.57065803667747,
+        "frametime_ms": -2.0732544319266117
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 83.7,
+          "low1_fps": 37.08,
+          "frametime_ms": 11.9474
+        },
+        "ON": {
+          "avg_fps": 82.0,
+          "low1_fps": 55.09,
+          "frametime_ms": 12.1951
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "GpuOpt.DropUndoPairs",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -3.3370913190529965,
+        "low1_fps": -9.705882352941178,
+        "frametime_ms": -3.452190881674656
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 88.7,
+          "low1_fps": 57.8,
+          "frametime_ms": 11.274
+        },
+        "ON": {
+          "avg_fps": 85.74,
+          "low1_fps": 52.19,
+          "frametime_ms": 11.6632
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "GpuOpt.CbvMirror",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.213188798554661,
+        "low1_fps": 6.007954783336817,
+        "frametime_ms": -2.262703909031329
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 88.56,
+          "low1_fps": 47.77,
+          "frametime_ms": 11.2918
+        },
+        "ON": {
+          "avg_fps": 86.6,
+          "low1_fps": 50.64,
+          "frametime_ms": 11.5473
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "GpuOpt.SceneBufMirror",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -8.574933095450502,
+        "low1_fps": -12.126111560226354,
+        "frametime_ms": -9.378699286149871
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 89.68,
+          "low1_fps": 24.74,
+          "frametime_ms": 11.1508
+        },
+        "ON": {
+          "avg_fps": 81.99,
+          "low1_fps": 21.74,
+          "frametime_ms": 12.1966
+        }
+      }
+    },
+    {
+      "device": "pc",
+      "key": "Debug.SkipDebugString",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 4.364192447947293,
+        "low1_fps": 3.810775295663605,
+        "frametime_ms": 4.181649707139998
+      },
+      "spread_pct": {
+        "avg_fps": 6.997639350580529,
+        "low1_fps": 79.63478953129665,
+        "frametime_ms": 7.102383500501916
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 85.01,
+          "low1_fps": 45.66,
+          "frametime_ms": 11.7633
+        },
+        "ON": {
+          "avg_fps": 88.72,
+          "low1_fps": 47.4,
+          "frametime_ms": 11.2714
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.MW",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 16.083737554250696,
+        "low1_fps": 12.48662147698894,
+        "frametime_ms": 13.855235274993435
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.17,
+          "low1_fps": 28.03,
+          "frametime_ms": 25.5297
+        },
+        "ON": {
+          "avg_fps": 45.47,
+          "low1_fps": 31.53,
+          "frametime_ms": 21.9925
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.WorkerCap",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 4.8762001010611415,
+        "low1_fps": 2.1966527196652685,
+        "frametime_ms": 4.649459931210005
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.58,
+          "low1_fps": 28.68,
+          "frametime_ms": 25.2653
+        },
+        "ON": {
+          "avg_fps": 41.51,
+          "low1_fps": 29.31,
+          "frametime_ms": 24.0906
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.AS",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -1.2829650748396442,
+        "low1_fps": 26.173139158576063,
+        "frametime_ms": -1.2997398836631702
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 42.09,
+          "low1_fps": 24.72,
+          "frametime_ms": 23.7586
+        },
+        "ON": {
+          "avg_fps": 41.55,
+          "low1_fps": 31.19,
+          "frametime_ms": 24.0674
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.W6",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 6.7298347910592895,
+        "low1_fps": 1.591511936339524,
+        "frametime_ms": 6.30530882389259
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 41.16,
+          "low1_fps": 30.16,
+          "frametime_ms": 24.2954
+        },
+        "ON": {
+          "avg_fps": 43.93,
+          "low1_fps": 30.64,
+          "frametime_ms": 22.7635
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.M2",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.3297872340425463,
+        "low1_fps": -2.4005486968449907,
+        "frametime_ms": 1.3119418973525396
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 41.36,
+          "low1_fps": 29.16,
+          "frametime_ms": 24.1779
+        },
+        "ON": {
+          "avg_fps": 41.91,
+          "low1_fps": 28.46,
+          "frametime_ms": 23.8607
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.ED",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -6.3893357848770425,
+        "low1_fps": 13.898163606010009,
+        "frametime_ms": -6.825420307006856
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 43.51,
+          "low1_fps": 23.96,
+          "frametime_ms": 22.9832
+        },
+        "ON": {
+          "avg_fps": 40.73,
+          "low1_fps": 27.29,
+          "frametime_ms": 24.5519
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.GF",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -3.164708702948934,
+        "low1_fps": 1.3518450858604216,
+        "frametime_ms": -3.2679738562091507
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 41.71,
+          "low1_fps": 27.37,
+          "frametime_ms": 23.9751
+        },
+        "ON": {
+          "avg_fps": 40.39,
+          "low1_fps": 27.74,
+          "frametime_ms": 24.7586
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.DQ",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -1.8350702310829232,
+        "low1_fps": -11.590214067278295,
+        "frametime_ms": -1.869328012994812
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 44.14,
+          "low1_fps": 32.7,
+          "frametime_ms": 22.6552
+        },
+        "ON": {
+          "avg_fps": 43.33,
+          "low1_fps": 28.91,
+          "frametime_ms": 23.0787
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.BPO",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -6.295754026354316,
+        "low1_fps": -7.427597955706983,
+        "frametime_ms": -6.719093848480246
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.98,
+          "low1_fps": 29.35,
+          "frametime_ms": 24.4021
+        },
+        "ON": {
+          "avg_fps": 38.4,
+          "low1_fps": 27.17,
+          "frametime_ms": 26.0417
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.SPF",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -3.0192131747483995,
+        "low1_fps": -2.5064267352185126,
+        "frametime_ms": -3.113304886152983
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 43.72,
+          "low1_fps": 31.12,
+          "frametime_ms": 22.8728
+        },
+        "ON": {
+          "avg_fps": 42.4,
+          "low1_fps": 30.34,
+          "frametime_ms": 23.5849
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.RWb",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -0.8979206049149399,
+        "low1_fps": -15.255938440950159,
+        "frametime_ms": -0.9060708013288407
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 42.32,
+          "low1_fps": 29.89,
+          "frametime_ms": 23.6295
+        },
+        "ON": {
+          "avg_fps": 41.94,
+          "low1_fps": 25.33,
+          "frametime_ms": 23.8436
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.PCM",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 14.409722222222229,
+        "low1_fps": 23.41555977229602,
+        "frametime_ms": 12.594751951486998
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.32,
+          "low1_fps": 26.35,
+          "frametime_ms": 24.8016
+        },
+        "ON": {
+          "avg_fps": 46.13,
+          "low1_fps": 32.52,
+          "frametime_ms": 21.6779
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.VSMA",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -11.281489594742604,
+        "low1_fps": -0.03649635036495624,
+        "frametime_ms": -12.716266924741404
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 45.65,
+          "low1_fps": 27.4,
+          "frametime_ms": 21.9058
+        },
+        "ON": {
+          "avg_fps": 40.5,
+          "low1_fps": 27.39,
+          "frametime_ms": 24.6914
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.FOGT",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 4.276069017254316,
+        "low1_fps": 5.055976886962797,
+        "frametime_ms": 4.100966556427784
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.99,
+          "low1_fps": 27.69,
+          "frametime_ms": 25.0063
+        },
+        "ON": {
+          "avg_fps": 41.7,
+          "low1_fps": 29.09,
+          "frametime_ms": 23.9808
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.CLDR",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -5.33578656853726,
+        "low1_fps": -25.281069583713148,
+        "frametime_ms": -5.6363075076850935
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 43.48,
+          "low1_fps": 32.91,
+          "frametime_ms": 22.9991
+        },
+        "ON": {
+          "avg_fps": 41.16,
+          "low1_fps": 24.59,
+          "frametime_ms": 24.2954
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.PJH",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 9.442379182156122,
+        "low1_fps": 6.45933014354066,
+        "frametime_ms": 8.627653521956498
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.35,
+          "low1_fps": 29.26,
+          "frametime_ms": 24.7831
+        },
+        "ON": {
+          "avg_fps": 44.16,
+          "low1_fps": 31.15,
+          "frametime_ms": 22.6449
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.PL",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 21.74024640657084,
+        "low1_fps": 9.923398328690812,
+        "frametime_ms": 17.858061198251477
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 38.96,
+          "low1_fps": 28.72,
+          "frametime_ms": 25.6674
+        },
+        "ON": {
+          "avg_fps": 47.43,
+          "low1_fps": 31.57,
+          "frametime_ms": 21.0837
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.GL1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 5.105410210820435,
+        "low1_fps": 10.3601930932046,
+        "frametime_ms": 4.857461191097668
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.37,
+          "low1_fps": 26.93,
+          "frametime_ms": 25.4001
+        },
+        "ON": {
+          "avg_fps": 41.38,
+          "low1_fps": 29.72,
+          "frametime_ms": 24.1663
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.LC",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 13.550000000000006,
+        "low1_fps": 25.456621004566202,
+        "frametime_ms": 11.9332
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.0,
+          "low1_fps": 26.28,
+          "frametime_ms": 25.0
+        },
+        "ON": {
+          "avg_fps": 45.42,
+          "low1_fps": 32.97,
+          "frametime_ms": 22.0167
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.LW",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.2747881841080775,
+        "low1_fps": 4.231550440081246,
+        "frametime_ms": 0.27381108345342386
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 43.67,
+          "low1_fps": 29.54,
+          "frametime_ms": 22.899
+        },
+        "ON": {
+          "avg_fps": 43.79,
+          "low1_fps": 30.79,
+          "frametime_ms": 22.8363
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Patches.RC",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 6.29629629629629,
+        "low1_fps": 0.5403579871664983,
+        "frametime_ms": 5.923519930016126
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.5,
+          "low1_fps": 29.61,
+          "frametime_ms": 24.6914
+        },
+        "ON": {
+          "avg_fps": 43.05,
+          "low1_fps": 29.77,
+          "frametime_ms": 23.2288
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "ExtraPerf.XFOG",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.9637086751180868,
+        "low1_fps": 4.334828101644246,
+        "frametime_ms": 1.9258079180596286
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.23,
+          "low1_fps": 26.76,
+          "frametime_ms": 24.8571
+        },
+        "ON": {
+          "avg_fps": 41.02,
+          "low1_fps": 27.92,
+          "frametime_ms": 24.3784
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "ExtraPerf.XSHD",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 8.794788273615648,
+        "low1_fps": 6.302367941712206,
+        "frametime_ms": 8.083763030602963
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.91,
+          "low1_fps": 27.45,
+          "frametime_ms": 25.0564
+        },
+        "ON": {
+          "avg_fps": 43.42,
+          "low1_fps": 29.18,
+          "frametime_ms": 23.0309
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "ExtraPerf.XLOD",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -0.5025125628140596,
+        "low1_fps": 5.58225508317929,
+        "frametime_ms": -0.5050625656700842
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 39.8,
+          "low1_fps": 27.05,
+          "frametime_ms": 25.1256
+        },
+        "ON": {
+          "avg_fps": 39.6,
+          "low1_fps": 28.56,
+          "frametime_ms": 25.2525
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "ExtraPerf.XAO",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.4492753623188361,
+        "low1_fps": -0.16605778811026473,
+        "frametime_ms": 1.4287143571785865
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.02,
+          "low1_fps": 30.11,
+          "frametime_ms": 24.9875
+        },
+        "ON": {
+          "avg_fps": 40.6,
+          "low1_fps": 30.06,
+          "frametime_ms": 24.6305
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "VRR.MenuQuantize",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -8.209121245828708,
+        "low1_fps": 1.0000000000000024,
+        "frametime_ms": -8.94326850033038
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 44.95,
+          "low1_fps": 30.0,
+          "frametime_ms": 22.2469
+        },
+        "ON": {
+          "avg_fps": 41.26,
+          "low1_fps": 30.3,
+          "frametime_ms": 24.2365
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Latency.VrrPresent",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.8770301624129977,
+        "low1_fps": -7.274011299435024,
+        "frametime_ms": -2.9622574013335137
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 43.1,
+          "low1_fps": 28.32,
+          "frametime_ms": 23.2019
+        },
+        "ON": {
+          "avg_fps": 41.86,
+          "low1_fps": 26.26,
+          "frametime_ms": 23.8892
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "GpuOpt.FrameOverlap",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -4.3153326904532285,
+        "low1_fps": -9.136546184738958,
+        "frametime_ms": -4.510121121619376
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 41.48,
+          "low1_fps": 29.88,
+          "frametime_ms": 24.108
+        },
+        "ON": {
+          "avg_fps": 39.69,
+          "low1_fps": 27.15,
+          "frametime_ms": 25.1953
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "GpuOpt.AnyCaller",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 1.7991733527838436,
+        "low1_fps": 1.5619576535925126,
+        "frametime_ms": 1.7677640129641374
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 41.13,
+          "low1_fps": 28.81,
+          "frametime_ms": 24.3132
+        },
+        "ON": {
+          "avg_fps": 41.87,
+          "low1_fps": 29.26,
+          "frametime_ms": 23.8834
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "GpuOpt.CbvMirrorAllSites",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.1364721937905244,
+        "low1_fps": 1.2459371614301213,
+        "frametime_ms": 0.13599859311801848
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 29.31,
+          "low1_fps": 18.46,
+          "frametime_ms": 34.118
+        },
+        "ON": {
+          "avg_fps": 29.35,
+          "low1_fps": 18.69,
+          "frametime_ms": 34.0716
+        }
+      }
+    },
+    {
+      "device": "pc2",
+      "key": "Memory.LM",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 6.840148698884753,
+        "low1_fps": 4.833936205195656,
+        "frametime_ms": 6.401943259721345
+      },
+      "spread_pct": {
+        "avg_fps": 30.214608433734956,
+        "low1_fps": 43.277709944376625,
+        "frametime_ms": 26.718933764651787
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 40.35,
+          "low1_fps": 30.41,
+          "frametime_ms": 24.7831
+        },
+        "ON": {
+          "avg_fps": 43.11,
+          "low1_fps": 31.88,
+          "frametime_ms": 23.1965
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.AS0",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -19.20243068742878,
+        "low1_fps": -12.238474356600623,
+        "frametime_ms": -23.925872379575488
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.165,
+          "low1_fps": 5.401,
+          "frametime_ms": 76.085
+        },
+        "ON": {
+          "avg_fps": 10.637,
+          "low1_fps": 4.74,
+          "frametime_ms": 94.289
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.L1OnWine",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -7.494879672299033,
+        "low1_fps": -2.900262467191602,
+        "frametime_ms": -8.161545543920981
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 15.624,
+          "low1_fps": 7.62,
+          "frametime_ms": 64.081
+        },
+        "ON": {
+          "avg_fps": 14.453,
+          "low1_fps": 7.399,
+          "frametime_ms": 69.311
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.FGOnWine",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -15.557749259624883,
+        "low1_fps": -37.75140125288494,
+        "frametime_ms": -18.55713917095457
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 15.195,
+          "low1_fps": 9.099,
+          "frametime_ms": 65.883
+        },
+        "ON": {
+          "avg_fps": 12.831,
+          "low1_fps": 5.664,
+          "frametime_ms": 78.109
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.P12",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 36.84813753581663,
+        "low1_fps": 53.1904761904762,
+        "frametime_ms": 26.930021471793875
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 12.215,
+          "low1_fps": 6.3,
+          "frametime_ms": 81.968
+        },
+        "ON": {
+          "avg_fps": 16.716,
+          "low1_fps": 9.651,
+          "frametime_ms": 59.894
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.PP",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 24.934748564468414,
+        "low1_fps": 81.27098321342926,
+        "frametime_ms": 20.007114660791334
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.494,
+          "low1_fps": 4.17,
+          "frametime_ms": 87.144
+        },
+        "ON": {
+          "avg_fps": 14.36,
+          "low1_fps": 7.559,
+          "frametime_ms": 69.709
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.FPC",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 25.745694393550764,
+        "low1_fps": 98.60774818401934,
+        "frametime_ms": 20.468641376208073
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.645,
+          "low1_fps": 4.956,
+          "frametime_ms": 73.361
+        },
+        "ON": {
+          "avg_fps": 17.158,
+          "low1_fps": 9.843,
+          "frametime_ms": 58.345
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.AABB",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 17.881655949714617,
+        "low1_fps": 50.15820400783487,
+        "frametime_ms": 15.22051508787444
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.841,
+          "low1_fps": 6.637,
+          "frametime_ms": 72.376
+        },
+        "ON": {
+          "avg_fps": 16.316,
+          "low1_fps": 9.966,
+          "frametime_ms": 61.36
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.X1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 2.0071899340922625,
+        "low1_fps": -21.342646488164526,
+        "frametime_ms": 2.0450879227826073
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.352,
+          "low1_fps": 7.731,
+          "frametime_ms": 75.009
+        },
+        "ON": {
+          "avg_fps": 13.62,
+          "low1_fps": 6.081,
+          "frametime_ms": 73.475
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.S1",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 24.514858910659044,
+        "low1_fps": 104.85829959514172,
+        "frametime_ms": 19.6852070753863
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 10.667,
+          "low1_fps": 3.211,
+          "frametime_ms": 93.903
+        },
+        "ON": {
+          "avg_fps": 13.282,
+          "low1_fps": 6.578,
+          "frametime_ms": 75.418
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.IK",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -2.270327349524823,
+        "low1_fps": 24.658634538152604,
+        "frametime_ms": -2.381762890341326
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.364,
+          "low1_fps": 3.735,
+          "frametime_ms": 88.128
+        },
+        "ON": {
+          "avg_fps": 11.106,
+          "low1_fps": 4.656,
+          "frametime_ms": 90.227
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.TG",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -11.653684841222294,
+        "low1_fps": -23.383525243578383,
+        "frametime_ms": -13.303730965143883
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.352,
+          "low1_fps": 6.774,
+          "frametime_ms": 74.994
+        },
+        "ON": {
+          "avg_fps": 11.796,
+          "low1_fps": 5.19,
+          "frametime_ms": 84.971
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.DS",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -19.888676580543326,
+        "low1_fps": -17.96145440095372,
+        "frametime_ms": -25.30256595156541
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 12.037,
+          "low1_fps": 5.033,
+          "frametime_ms": 83.205
+        },
+        "ON": {
+          "avg_fps": 9.643,
+          "low1_fps": 4.129,
+          "frametime_ms": 104.258
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.LK",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 14.781553398058252,
+        "low1_fps": -11.228378774552915,
+        "frametime_ms": 12.875515292142877
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 12.36,
+          "low1_fps": 6.822,
+          "frametime_ms": 81.022
+        },
+        "ON": {
+          "avg_fps": 14.187,
+          "low1_fps": 6.056,
+          "frametime_ms": 70.59
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.MA",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -3.3367804205446396,
+        "low1_fps": -0.026402640264023496,
+        "frametime_ms": -3.464012517385265
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 14.505,
+          "low1_fps": 7.575,
+          "frametime_ms": 69.024
+        },
+        "ON": {
+          "avg_fps": 14.021,
+          "low1_fps": 7.573,
+          "frametime_ms": 71.415
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.W1B",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 2.5138068939249605,
+        "low1_fps": -0.8699434536755118,
+        "frametime_ms": 2.387871793526723
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 10.502,
+          "low1_fps": 4.598,
+          "frametime_ms": 95.315
+        },
+        "ON": {
+          "avg_fps": 10.766,
+          "low1_fps": 4.558,
+          "frametime_ms": 93.039
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.RPA",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 4.648014440433218,
+        "low1_fps": -14.66715435259692,
+        "frametime_ms": 4.480435431947161
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.08,
+          "low1_fps": 5.468,
+          "frametime_ms": 90.393
+        },
+        "ON": {
+          "avg_fps": 11.595,
+          "low1_fps": 4.666,
+          "frametime_ms": 86.343
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.CP",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 8.200263009581056,
+        "low1_fps": 12.704123996678662,
+        "frametime_ms": 7.472193275345059
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 10.646,
+          "low1_fps": 3.613,
+          "frametime_ms": 94.042
+        },
+        "ON": {
+          "avg_fps": 11.519,
+          "low1_fps": 4.072,
+          "frametime_ms": 87.015
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.ESM1",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -0.580030382543845,
+        "low1_fps": -17.671571819247298,
+        "frametime_ms": -0.5814626243925033
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 14.482,
+          "low1_fps": 7.679,
+          "frametime_ms": 69.136
+        },
+        "ON": {
+          "avg_fps": 14.398,
+          "low1_fps": 6.322,
+          "frametime_ms": 69.538
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.CBF",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 14.279433746592813,
+        "low1_fps": 56.15518527729421,
+        "frametime_ms": 12.810936828048249
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.373,
+          "low1_fps": 4.021,
+          "frametime_ms": 88.362
+        },
+        "ON": {
+          "avg_fps": 12.997,
+          "low1_fps": 6.279,
+          "frametime_ms": 77.042
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.LoadOnlyCpuFixes",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -20.80010904382198,
+        "low1_fps": -38.398472596585805,
+        "frametime_ms": -26.254650924325414
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 14.673,
+          "low1_fps": 8.904,
+          "frametime_ms": 68.266
+        },
+        "ON": {
+          "avg_fps": 11.621,
+          "low1_fps": 5.485,
+          "frametime_ms": 86.189
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.SR",
+      "verdict": "NOT_APPLICABLE",
+      "delta_pct": {},
+      "spread_pct": {}
+    },
+    {
+      "device": "ally",
+      "key": "Patches.SH",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 17.26904166307255,
+        "low1_fps": 133.57249626307922,
+        "frametime_ms": 14.789612553811969
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.593,
+          "low1_fps": 3.345,
+          "frametime_ms": 86.412
+        },
+        "ON": {
+          "avg_fps": 13.595,
+          "low1_fps": 7.813,
+          "frametime_ms": 73.632
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "Patches.PF",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -33.46941339027761,
+        "low1_fps": -54.12445730824892,
+        "frametime_ms": -51.20318091451293
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 15.922,
+          "low1_fps": 9.674,
+          "frametime_ms": 62.875
+        },
+        "ON": {
+          "avg_fps": 10.593,
+          "low1_fps": 4.438,
+          "frametime_ms": 95.069
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "ExtraPerf.XSHF",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 0.5559743686392694,
+        "low1_fps": 27.554882664647984,
+        "frametime_ms": 0.5057251908396837
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 10.612,
+          "low1_fps": 3.963,
+          "frametime_ms": 94.32
+        },
+        "ON": {
+          "avg_fps": 10.671,
+          "low1_fps": 5.055,
+          "frametime_ms": 93.843
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "ExtraPerf.XPOST",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -27.749382645150177,
+        "low1_fps": -48.06629834254144,
+        "frametime_ms": -38.39344718444574
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 17.413,
+          "low1_fps": 11.222,
+          "frametime_ms": 57.502
+        },
+        "ON": {
+          "avg_fps": 12.581,
+          "low1_fps": 5.828,
+          "frametime_ms": 79.579
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "GpuOpt.Barriers",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 5.02465197215777,
+        "low1_fps": 45.16129032258066,
+        "frametime_ms": 4.812458691341692
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.792,
+          "low1_fps": 6.076,
+          "frametime_ms": 72.624
+        },
+        "ON": {
+          "avg_fps": 14.485,
+          "low1_fps": 8.82,
+          "frametime_ms": 69.129
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "GpuOpt.TileBatch",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -11.517918676774636,
+        "low1_fps": 8.969607116382516,
+        "frametime_ms": -13.037732568249
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 11.608,
+          "low1_fps": 4.047,
+          "frametime_ms": 86.265
+        },
+        "ON": {
+          "avg_fps": 10.271,
+          "low1_fps": 4.41,
+          "frametime_ms": 97.512
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "GpuOpt.R2a",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": 12.119645494830133,
+        "low1_fps": 5.963360707517378,
+        "frametime_ms": 10.770603986908657
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 13.54,
+          "low1_fps": 7.915,
+          "frametime_ms": 73.942
+        },
+        "ON": {
+          "avg_fps": 15.181,
+          "low1_fps": 8.387,
+          "frametime_ms": 65.978
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "GpuOpt.R2b",
+      "verdict": "DROP_SCREEN",
+      "delta_pct": {
+        "avg_fps": -7.006896551724138,
+        "low1_fps": -5.761766132945168,
+        "frametime_ms": -7.59204008921587
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 14.5,
+          "low1_fps": 8.244,
+          "frametime_ms": 69.046
+        },
+        "ON": {
+          "avg_fps": 13.484,
+          "low1_fps": 7.769,
+          "frametime_ms": 74.288
+        }
+      }
+    },
+    {
+      "device": "ally",
+      "key": "GpuOpt.R1",
+      "verdict": "ADVANCE",
+      "delta_pct": {
+        "avg_fps": 40.81402982275157,
+        "low1_fps": 130.5142260506395,
+        "frametime_ms": 29.020033637776486
+      },
+      "spread_pct": {
+        "avg_fps": 24.80832187752442,
+        "low1_fps": 69.55527252878642,
+        "frametime_ms": 23.604934268455295
+      },
+      "means": {
+        "OFF": {
+          "avg_fps": 10.663,
+          "low1_fps": 3.831,
+          "frametime_ms": 93.942
+        },
+        "ON": {
+          "avg_fps": 15.015,
+          "low1_fps": 8.831,
+          "frametime_ms": 66.68
+        }
+      }
+    }
+  ]
+}

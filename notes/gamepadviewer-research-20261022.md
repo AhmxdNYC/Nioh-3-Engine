@@ -1,0 +1,12 @@
+# Gamepad Viewer (gamepadviewer.com) - how it is built (user #23125/#23126), web research 2026-10-22
+- Skins offered: Xbox One (+white), Xbox 360, PS3, PS4 (+white), GameCube, FightPad Pro, Fight Stick, NES, N64. NO named DualSense / Xbox Series skin (closest: PS4, Xbox One).
+- Drawing: each skin is a layered image set (first Xbox skin SVG; others bitmap being moved to SVG), styled with CSS; elements selected by data-name (buttons/axes). Not a hand-drawn shape: a controller photo-like body with each button/stick/trigger a separate layer.
+- Input look: pressed button = layer lit (opacity/colour); sticks = layer translated by axis with radial deadzone; triggers = opacity or fill meter; d-pad arrows via CSS; disconnected = red silhouette.
+- No public repo for the viewer; it uses Gamepad.js (Marcin Wichary). Open SVG controller art exists: icculus ControllerImage (zlib license; Xbox, PlayStation, Switch) https://wiki.icculus.org/ControllerImage
+- Plan for our overlay: base body layer + per-button highlight layers + moving stick caps + trigger fill meters, art from ControllerImage SVGs rasterised offline into embedded alpha masks (no runtime SVG). Need user to confirm which skin look (Xbox One / PS4 style likely) - asked #23127.
+## DualSense skin the user means (#23132)
+- Gist https://gist.github.com/Cubio300/e9ff30dff9a96081086f534b22bf05fd (CrazyGrape original, Cubio300 fork adds touchpad + PS button). Also: github.com/tomasdavies13/neon-ps5-gamepad, github.com/philipbry/dualsense_overlay, gitgud.io/Major_Zero/dualsense, topics: github.com/topics/gamepadviewer.
+- Built from PNG SPRITES via CSS url(), canvas 807x651. Layout (px): sticks container 367x100 @ (220,333), each stick 100x100, right stick @ +267; pressed = sprite shift -102px. Face buttons box 181x181 @ (573,178), each 58x58 (A 61,123 / B 123,62 / X 0,61 / Y 61,0), pressed -59px. D-pad 144x144 @ (71,196). Triggers 619x108 @ left 94, each 111x108; bumpers 620x35 @ (93,114), each 110x35; back/start 27x57; touchpad 333x177 @ (237,118); PS button 51x40.
+- Stick travel + trigger fill come from the site's JS, not the CSS.
+- License: CC BY 3.0 US (credit CrazyGrape + Cubio300); DualSense design/PS logo are Sony IP. Must credit in README if we reuse the sprites.
+- Plan: fetch gist CSS raw -> extract sprite PNG urls -> embed as textures in padviz (credit), same for an Xbox skin. Verify license of each sprite before shipping.

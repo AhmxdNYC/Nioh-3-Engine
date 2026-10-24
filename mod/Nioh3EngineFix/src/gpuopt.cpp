@@ -53,6 +53,7 @@ extern volatile uint8_t gpuopt_hook[96];  // GP profiler (gpuprof.cpp): slots th
 extern volatile uint8_t gpuopt_hook2[96];  // 1.7.29 gimerge.cpp: slots that always take the slow path
 extern void* volatile gpuopt_hold;         // 1.7.29 gimerge.cpp: list with a held Dispatch (all its calls: slow path)
 extern volatile uint8_t gpuopt_hook3[96];  // skipfx.cpp ([Debug] SkipFx diagnostic): slots that always take the slow path
+extern volatile uint8_t gpuopt_hook5[96];  // cx-pc StateFilter: PSO redundancy filter slots
 extern volatile uint8_t gpuopt_hook4[96];  // psoswap ShaderHot (fast-testing): SetPipelineState / Reset / ClearState rebind
 extern void* gpuopt_thunks0[96];
 extern void* gpuopt_thunks1[96];
@@ -133,6 +134,7 @@ struct Cfg {
     int anyCaller = 0;
     int maxBatch = 64;
     int r2a = 0, r2b = 0, r1 = 0;  // barrier rewrites (Wine only, dispatcher thread; notes\vkd3d-audit.md Addendum B)
+    int stateFilter = 0;       // cx-pc #28702: 0 off, 1 skip redundant SetPipelineState, 2 count only
     int traceRecords = 0;
     int traceDelaySec = 30;
     int installDelaySec = 20;
@@ -151,6 +153,17 @@ bool g_giHooks = false;  // 1.7.29: gimerge (GIProbe / GIMerge) needs them too
 bool g_skipFx = false;   // skipfx ([Debug] SkipFx diagnostic) needs them too
 bool g_shaderHot = false;  // psoswap ShaderHot (live shader A/B, fast-testing) needs the PSO-bind slots
 SRWLOCK g_installLock = SRWLOCK_INIT;
+
+// ---- StateFilter (cx-pc #28702): skip SetPipelineState(p) when p is already bound on that list -------------------------------
+// Direct-mapped shadow, one 16-byte {list, pso} entry per slot (aligned SSE load/store: atomic on x86-64 with AVX), so
+// lists recorded by different threads never see a torn entry. A miss only loses a skip; a hit means the same list had this
+// PSO set last through our hook with no Reset / ClearState / Close / ExecuteBundle / QueryInterface in between.
+volatile LONG g_sf = 0;  // live: 0 off, 1 filter, 2 count only
+struct alignas(16) SfEntry { uintptr_t list, pso; };
+constexpr int kSfN = 256;
+alignas(64) SfEntry g_sfTab[kSfN];
+volatile LONG64 g_sfSeen = 0, g_sfSame = 0;
+
 
 uintptr_t g_exeLo = 0, g_exeHi = 0;
 volatile uintptr_t g_slLo = 0, g_slHi = 0;
@@ -885,6 +898,22 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
     if (gpuopt_trace) TraceAdd(self, set, slot, 0, a1, a2, a3, kSlotInfo[slot].kind == kFlush);
     // gimerge first: a held Dispatch is replayed BEFORE the barriers deferred after it are emitted (original order)
     bool skip = (gpuopt_hook2[slot] || self == gpuopt_hold) && gimerge::OnListCall(self, set, slot, a1, a2, a3);
+    if (gpuopt_hook5[slot] && g_sf) {
+        SfEntry& e = g_sfTab[(((uintptr_t)self >> 4) ^ ((uintptr_t)self >> 12)) & (kSfN - 1)];
+        if (slot == 25) {  // SetPipelineState(pso): a1 = rdx
+            const __m128i v = _mm_load_si128((const __m128i*)&e);
+            const uintptr_t l = (uintptr_t)_mm_cvtsi128_si64(v), p = (uintptr_t)_mm_extract_epi64(v, 1);
+            Add(g_sfSeen);
+            if (l == (uintptr_t)self && p == a1 && a1) {
+                Add(g_sfSame);
+                if (g_sf == 1 && !skip) skip = true;
+            } else {
+                _mm_store_si128((__m128i*)&e, _mm_set_epi64x((long long)a1, (long long)(uintptr_t)self));
+            }
+        } else {  // Reset / ClearState / Close / ExecuteBundle / QueryInterface / SetPipelineState1 / SetProgram: forget the list
+            if (e.list == (uintptr_t)self) _mm_store_si128((__m128i*)&e, _mm_set_epi64x(0, (long long)(uintptr_t)self));
+        }
+    }
     if (gpuopt_flush[slot]) FlushList(self, -1, slot);
     if (gpuopt_hook[slot]) gp::OnListCall(self, set, slot, a1, a2, a3);  // GP: after the batch flush, before the method
     if (gp::g_fcCap && gpuopt_hook[slot]) gp::FcListCall(self, set, slot, a1, a2, a3, regs);  // FC frame capture
@@ -919,6 +948,8 @@ void Start(const StartInfo& info) {
     g_cfg.r2a = IniInt(L"R2a", 0, 0, 1);
     g_cfg.r2b = IniInt(L"R2b", 0, 0, 1);
     g_cfg.r1 = IniInt(L"R1", 0, 0, 1);
+    g_cfg.stateFilter = IniInt(L"StateFilter", 0, 0, 2);
+    g_sf = g_cfg.stateFilter;
     g_cfg.traceRecords = IniInt(L"TraceRecords", 0, 0, 4000000);
     g_cfg.traceDelaySec = IniInt(L"TraceDelaySec", 30, 0, 3600);
     g_cfg.installDelaySec = IniInt(L"InstallDelaySec", 20, 0, 600);
@@ -929,7 +960,7 @@ void Start(const StartInfo& info) {
     g_skipFx = info.skipFx;
     g_shaderHot = info.shaderHot;
     if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
-    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_skipFx && !g_shaderHot && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
+    if (!g_cfg.barriers && !g_cfg.traceRecords && !g_cfg.stateFilter && !g_gpuProf && !g_giHooks && !g_skipFx && !g_shaderHot && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
         g_state = (LONG)State::Off;
         return;
     }
@@ -972,6 +1003,15 @@ bool InstallNow() {
             if (g_gpuProf) gp::EnableHooks(gpuopt_hook, kSlots);
             if (g_giHooks) gimerge::EnableHooks(gpuopt_hook2, kSlots, gpuopt_orig0, g_vt[1] ? gpuopt_orig1 : nullptr, &gpuopt_hold);
             if (g_skipFx) skipfx::EnableHooks(gpuopt_hook3, kSlots, gpuopt_orig0, g_vt[1] ? gpuopt_orig1 : nullptr);
+            if (g_cfg.stateFilter) {
+                for (int i = 0; i < kSlots; ++i) {
+                    const char* n = kSlotInfo[i].name;
+                    if (i == 25 || i == 0 || i == 9 || i == 10 || i == 11 || !strcmp(n, "ExecuteBundle") ||
+                        !strcmp(n, "SetPipelineState1") || !strcmp(n, "SetProgram"))
+                        gpuopt_hook5[i] = 1;
+                }
+                LOG("StateFilter=%d: redundant SetPipelineState %s", g_cfg.stateFilter, g_cfg.stateFilter == 1 ? "skipped" : "counted only");
+            }
             if (g_shaderHot) {   // Reset 10, ClearState 11, SetPipelineState 25
                 gpuopt_hook4[10] = gpuopt_hook4[11] = gpuopt_hook4[25] = 1;
                 LOG("ShaderHot: PSO-bind slots (SetPipelineState, Reset, ClearState) routed to the twin map");
@@ -1085,6 +1125,16 @@ const char* StatusLine(char* buf, size_t n) {
                     g_r1 ? "ON" : "off", (s.r1Dropped - prev.r1Dropped) / div, unit, (s.keptTexture - prev.keptTexture) / div,
                     (s.keptUav - prev.keptUav) / div, (s.keptUnknown - prev.keptUnknown) / div,
                     (s.keptForeign - prev.keptForeign) / div);
+    }
+    if (g_sf) {
+        static LONG64 pSeen, pSame;
+        const LONG64 a = g_sfSeen, b = g_sfSame;
+        const size_t len = strlen(buf);
+        _snprintf_s(buf + len, n - len, _TRUNCATE, "; StateFilter %s: PSO sets %.0f/%s, redundant %.0f/%s (%.0f %%)",
+                    g_sf == 1 ? "skip" : "count", (a - pSeen) / div, unit, (b - pSame) / div, unit,
+                    a > pSeen ? (b - pSame) * 100.0 / (a - pSeen) : 0.0);
+        pSeen = a;
+        pSame = b;
     }
     prev = s;
     prevT = now;

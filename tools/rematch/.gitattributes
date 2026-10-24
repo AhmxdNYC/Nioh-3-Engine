@@ -1,0 +1,7 @@
+# Stable checkout bytes for pinned Yagyu witness dependencies.
+yagyu_camera_scope.ps1 text eol=lf
+yagyu_camera_watcher.ps1 text eol=lf
+yagyu_camera_witness.ps1 text eol=lf
+yagyu_camera_watcher_test.ps1 text eol=lf
+yagyu_child_process.ps1 text eol=lf
+yagyu_owned_capture.cs text eol=lf

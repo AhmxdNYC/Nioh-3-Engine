@@ -25,7 +25,7 @@ TARGETS = ["none", "caveFps", "caveScale", "caveLim", "caveTier", "caveMenu", "h
            "caveFgcSrc", "caveFgcDst", "caveFgp", "caveSiW", "caveSiS",
            "caveMpcsA", "caveMpcsB", "caveMpcsC",
            "caveVsmaEntry", "caveVsmaBudget", "caveVsmaBind", "caveRco",
-           "caveGiScale", "caveMeshLod", "caveFxSim", "caveFxDraw"]
+           "caveGiScale", "caveMeshLod", "caveFxSim", "caveFxDraw", "caveMW", "caveMWWake"]
 DATAS = ["none", "ticks120", "ticks60", "r1Timeout"]
 KINDS = {"bytes": "Bytes", "call": "Call", "ripload": "RipLoad", "jmp": "Jmp", "vptr": "VPtr", "check": "Check"}
 READS = {None: "None", "iat_disp32@2": "IatDisp32At2", "callee_rel32@1": "CalleeRel32At1", "callee_rel32@6": "CalleeRel32At6"}

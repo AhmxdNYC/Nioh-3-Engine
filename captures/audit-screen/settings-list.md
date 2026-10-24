@@ -1,0 +1,32 @@
+# Settings under audit (pc list: 31 settings, each run OFF vs ON = the "69 runs" with baselines/replicates)
+- FGC: skips a texture copy that crashes frame generation on Linux/Proton; shows generated fps.
+- B: faster draw-list search on the main thread (~5% on PC).
+- M1: meshlet-request workers stop re-adding page-pool size every chunk.
+- J1: idle job workers poll queues with cheaper loads.
+- E1: effects nobody can see update less often.
+- WG: fewer redundant thread wake-ups after loading (wake storms).
+- P1E7: main thread prefetches the next texture's streaming data.
+- MQ: skeleton bone math done with SSE (faster CPU).
+- PT1: texture tile requests take a lock once per texture, not per tile.
+- DL: collision update skips a search whose result is thrown away.
+- MPCS: drops useless culling-pass GPU recordings; same picture.
+- TR: precise timers / sleeps for game threads (Windows only).
+- RTP: render thread gets priority over logic so frames are not delayed.
+- CBS: command-buffer speedup variant (no gain on pc2 earlier).
+- LPVR: updates light-propagation GI less often.
+- SKYR: updates sky ambient light less often.
+- PJ: pre-compiles shaders (pipeline journal) on a low-priority thread.
+- EP: faster loading reads (big win on Ally/Proton, off on Windows).
+- AQ: async archive reads on worker threads for faster loads.
+- TSY: more TrySync worker threads (stock 3).
+- GIMerge: merges identical GI GPU dispatches.
+- XCLD: fewer cloud ray-march steps (visual cost).
+- XGI: lower GI/reflection gather resolution (visual cost).
+- XTER: less terrain tessellation (visual cost).
+- XPRT: fewer GPU particle groups (visual cost).
+- KL_Div: hands draw commands to the replay thread earlier.
+- MaxFrameLatency: swapchain queue depth; more fps if GPU-bound, +1 frame delay.
+- DropUndoPairs: drops redundant GPU barriers.
+- CbvMirror: copies constant buffers to fast VRAM ring (helps slow PCIe link).
+- SceneBufMirror: mirrors scene buffers to VRAM (needs no ReBAR).
+- SkipDebugString: stops duplicate debug logging (costly under Proton).
