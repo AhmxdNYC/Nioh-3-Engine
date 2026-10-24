@@ -107,6 +107,16 @@ class Means(unittest.TestCase):
             self.assertNotIn(("pc2-fgon", "off", "stock"), cells)
             groups = fr.chart_groups(list(fr.summarize(rows)))
             self.assertEqual(groups, [("pc2", "off"), ("pc2", "on")])
+            write(os.path.join(root, "captures", "final-full", "pc", "results.csv"),
+                  "valid,arm,fg,avg_fps\n1,ARM1-STOCKLIKE,off,75\n")
+            write(os.path.join(root, "captures", "final-full", "pc", "results-fgon-on.csv"),
+                  "valid,arm,avg_fps\n1,ARM1-STOCKLIKE,148\n1,ARM1-STOCKLIKE,134\n")
+            rows, skipped, _sources = fr.load_tree(root)
+            self.assertEqual(skipped, 0)
+            cells = {(c["device"], c["fg"], c["arm"]): c for c in fr.summarize(rows)}
+            self.assertEqual(cells[("pc", "off", "stock")]["avg_fps"], 75)
+            self.assertEqual(cells[("pc", "on", "stock")]["avg_fps"], 141)
+            self.assertEqual(cells[("pc", "on", "stock")]["n"], 2)
         finally:
             shutil.rmtree(root)
 

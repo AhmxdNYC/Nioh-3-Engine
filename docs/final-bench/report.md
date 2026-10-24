@@ -3,9 +3,9 @@
 Stock, pure-perf, and full. One mean per device and frame-generation setting.
 Only rows with valid=1 and a filled metric are included. Empty cells were not measured.
 
-Valid groups: 12. Skipped rows: 0.
+Valid groups: 15. Skipped rows: 0.
 
-Frame generation on is pending for pc and the Ally.
+Frame generation on is pending for the Ally.
 
 | device | fg | arm | n | avg_fps | low1_fps | hitches | cpu_temp | gpu_temp | cpu_power | gpu_power | cpu_util | gpu_util |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -15,6 +15,9 @@ Frame generation on is pending for pc and the Ally.
 | pc | off | full | 2 | 98.78 | 73.32 |  |  |  |  |  |  |  |
 | pc | off | pure-perf | 2 | 98.46 | 74.62 |  |  |  |  |  |  |  |
 | pc | off | stock | 2 | 75.84 | 60.52 |  |  |  |  |  |  |  |
+| pc | on | full | 2 | 151.58 | 86.47 |  |  |  |  |  |  |  |
+| pc | on | pure-perf | 2 | 144.41 | 78.80 |  |  |  |  |  |  |  |
+| pc | on | stock | 2 | 141.42 | 73.32 |  |  |  |  |  |  |  |
 | pc2 | off | full | 2 | 47.32 | 33.63 | 0.00 | 67.29 | 67.82 | 76.02 | 123.59 | 96.44 | 97.77 |
 | pc2 | off | pure-perf | 2 | 46.87 | 33.44 | 0.00 | 67.56 | 67.91 | 76.19 | 126.54 | 96.31 | 98.00 |
 | pc2 | off | stock | 2 | 41.72 | 29.18 | 0.00 | 66.44 | 67.57 | 75.94 | 122.54 | 98.96 | 97.91 |
@@ -39,5 +42,6 @@ a1 is stock, a2 is pure-perf, a3 is full. The means above include every valid ro
 Sources:
 - `captures/final-full/ally/results.csv`
 - `captures/final-full/pc/results.csv`
+- `captures/final-full/pc/results-fgon-on.csv`
 - `captures/final-full/pc2/results.csv`
 - `captures/final-full/pc2-fgon/results.csv`

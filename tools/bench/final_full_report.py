@@ -3,6 +3,7 @@
 Reads captures/final-full/<device>/results.csv. Also reads results-fgon.csv,
 results-fgoff.csv, fg-on/results.csv, and fg-off/results.csv in that folder.
 A folder named <device>-fgon or <device>-fgoff is that device with that setting.
+results-fgon-on.csv in a device folder is frame generation on.
 A row counts only when valid is 1 (or the valid column is absent and the metric
 cell is filled). Blank cells stay blank. This script does not invent a number.
 
@@ -147,6 +148,7 @@ def discover(root):
             ("results.csv", folder_fg or "off"),
             ("results-fgoff.csv", "off"),
             ("results-fgon.csv", "on"),
+            ("results-fgon-on.csv", "on"),
         )
         for filename, fg in specs:
             path = os.path.join(folder, filename)
@@ -309,9 +311,18 @@ def report_md(cells, skipped, sources, rows):
     return "\n".join(lines)
 
 
+def group_caption(cells, device, fg, metric):
+    bits = []
+    for arm in ARM_ORDER:
+        match = [c for c in cells if c["device"] == device and c["fg"] == fg and c["arm"] == arm]
+        value = match[0][metric] if match else None
+        bits.append("%.1f" % value if value is not None else "-")
+    return " / ".join(bits)
+
+
 def svg_chart(metric, label, cells):
     groups = chart_groups(cells)
-    width, height = 920, 320
+    width, height = 920, 348
     left, top, plot_w, plot_h = 48, 36, 760, 220
     vals = [c[metric] for c in cells if c[metric] is not None]
     peak = max(vals) if vals else 1
@@ -342,8 +353,8 @@ def svg_chart(metric, label, cells):
             bx = gx + 8 + j * (bar_w + 4)
             parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s"/>' % (
                 bx, top + plot_h - h, bar_w, h, ARM_COLOR[arm]))
-            parts.append('<text x="%.1f" y="%.1f" fill="#e6edf3" font-size="10" text-anchor="middle">%s</text>' % (
-                bx + bar_w / 2, top + plot_h - h - 4, fmt(value)))
+        parts.append('<text x="%d" y="%d" fill="#e6edf3" font-size="10" text-anchor="middle">%s</text>' % (
+            gx + slot / 2, top + plot_h + 34, group_caption(cells, device, fg, metric)))
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
@@ -351,7 +362,7 @@ def svg_chart(metric, label, cells):
 def png_chart(path, metric, label, cells):
     from PIL import Image, ImageDraw, ImageFont
     groups = chart_groups(cells)
-    width, height = 920, 320
+    width, height = 920, 348
     left, top, plot_w, plot_h = 48, 36, 760, 220
     image = Image.new("RGB", (width, height), (13, 17, 23))
     draw = ImageDraw.Draw(image)
@@ -381,7 +392,7 @@ def png_chart(path, metric, label, cells):
             bx = gx + 8 + j * (bar_w + 4)
             y0 = top + plot_h - h
             draw.rectangle((bx, y0, bx + bar_w, top + plot_h), fill=colors[arm])
-            draw.text((bx, max(top, y0 - 12)), fmt(value), fill=(230, 237, 243), font=font)
+        draw.text((gx + 4, top + plot_h + 22), group_caption(cells, device, fg, metric), fill=(230, 237, 243), font=font)
     image.save(path, "PNG")
 
 

@@ -1,0 +1,7 @@
+run_id,fixture,ini_sha256,valid,avg_fps,low1_fps,frametime_ms,key,arm,frames,loads,note
+ffo-pc-0001,,,1,148.65,77.5,6.7272,final-full,ARM1-STOCKLIKE,8983,0,
+ffo-pc-0002,,,1,150.54,82.31,6.6428,final-full,ARM2-PUREPERF,6023,0,,10.246,14.25,10,70.17,30.283,,,,,,,
+ffo-pc-0003,,,1,149.28,84.72,6.6988,final-full,ARM3-FULLMOD,5969,0,,10.537,14.145,10,70.7,16.139,,,,,,,
+ffo-pc-0004,,,1,153.89,88.23,6.4981,final-full,ARM3-FULLMOD,6154,0,,10.035,13.54,11,73.85,17.452,,,,,,,
+ffo-pc-0005,,,1,138.28,75.29,7.2317,final-full,ARM2-PUREPERF,5533,0,,11.104,15.566,11,64.24,48.584,,,,,,,
+ffo-pc-0006,,,1,134.19,69.14,7.4521,final-full,ARM1-STOCKLIKE,5367,0,,12.066,19.023,16,52.57,21.415,,,,,,,
