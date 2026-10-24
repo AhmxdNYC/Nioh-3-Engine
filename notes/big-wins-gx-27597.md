@@ -24,6 +24,8 @@ The controller already exists, and it is two paths. cx-pc read the dump on `58ff
 
 The temporal policy's own floor is 50 and its ceiling is 75 (`big-wins-review-27604.md`). Ally USER is already 50, so that policy proposes no drop and saves 0 ms. A floor of 50 cannot beat a frame that is already rendered at 50. The experiment that matches the 15% bar is a static REN_RAT 35 (review arm A4), which is allowed to look worse. It stays off while cx-pc's fixed preset is on.
 
+cx-pc later shipped a different, default-off prototype (result #27886, commit `0312d96b`, branch `cx-pc/drs-matched-27690`, ASI 1.7.73-drs). Its hook is `0x5ABA87` → `0x5ABF64`. It overrides the target only, leaves the native floors alone, and does not implement static 35%. `0x5AF7F8` / `0x5AFA40` / `0x5AFAB0` are a separate five-state path and were left untouched. `[DynamicResolution] Enabled` defaults to 0. Keep that build OFF during a fixed-scale test. pc owns installing and measuring it. Live savings are unmeasured. 17 wrapper checks and 261 patch checks passed offline.
+
 `REN_RAT` is an enum, `OptsRatioPercent` = {25, 30, …, 100}. U5a sent 67, which is not in the list, and the game stayed at 50 (**M**). Use 65 or 70, or 35 / 40 for a dip.
 
 Measured Ally arms, same upscaler launch (`ally-gpu-budget.md` §5):
