@@ -67,3 +67,8 @@
 - #28887 (2026-10-24): human: update all helpers asap when free; finish everything incl CPU fixes; final benchmarks will likely rerun with ALL data (temps, util, power, latency) on every device; human away - ask for manual/admin steps if any.
 - #28967 (2026-10-24): human is present and can do admin installs right now (sensor tools on devices).
 - #28902 (2026-10-24): human: no admin steps from the human. Sensor checks must be unprivileged and must not launch the game.
+- #28975 (2026-10-24): human is at the PCs installing HWiNFO64 with Shared Memory Support on pc and pc2. Read CPU package temp/power and GPU temp/power from that shared memory for 5 seconds once it is up.
+- #29132 (2026-10-24): benchmark times must be cut in half (time is being wasted).
+- #29157 (2026-10-24): the "everything" (visual-affecting) version should end up BETTER than the safe/no-visual-change one in performance; it doesn't need to feel unsafe.
+- #29158 (2026-10-24): benches must include hitches/stutter; full graphs with real data.
+- #29069/#29078/#29093 (2026-10-24): after all done, have agents update decompilation status/graphs and RE notes; keep work board current; utilize Grok helpers.
