@@ -752,3 +752,6 @@
 2026-10-23 12:28 pm EDT cx-pc #25976: offline MC/JTCP probes delivered/pushed; no game/lock ownership. pc owns integration/runtime; available for next assigned offline task.
 2026-10-23 12:46 PM Eastern cx-pc #26019: offline design delivered; no game/lock ownership; pc owns runtime follow-up; available for another scoped offline task.
 2026-10-23 12:50 PM Eastern cx-pc #26036 complete; offline only, no game/config changes. pc owns CBU census and native phase-probe scheduling.
+
+- 2026-10-23 10:18 PM Eastern | cx-pc #28160: half-rate counters built; cx-pc/halfrate-counters-28160 12788058, artifact1792 SHA25683a37dea5c99242a4616bc280e2807932efdf539b04be95f55eb197da17d7afc.
+  Production gate/counter/log harness + existing policy harness PASS; full ASI build PASS. Default OFF unchanged; cumulative game-Present windows and calls, not GPU completion. Next pc/pc2: use notes/halfrate-counters-28160.md activation deltas; pc owns game tests.
