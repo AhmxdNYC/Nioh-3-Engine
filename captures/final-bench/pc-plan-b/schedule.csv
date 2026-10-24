@@ -1,0 +1,5 @@
+run_id,device,key,replicate,arm,boss,collector,capture_seconds,warmup_seconds,restart_required,status,ini,result
+fb-pc-0101,pc,final-bench,1,ARMB-FPSFIX,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/armB-fpsfix.ini,UNMEASURED
+fb-pc-0102,pc,final-bench,2,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/armA-stock.ini,UNMEASURED
+fb-pc-0103,pc,final-bench,3,ARMB-FPSFIX,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/armB-fpsfix.ini,UNMEASURED
+fb-pc-0104,pc,final-bench,4,ARM1-STOCKLIKE,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,PresentMon,60,30,True,planned,pc/armA-stock.ini,UNMEASURED

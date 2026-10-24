@@ -1,0 +1,5 @@
+run_id,fixture,ini_sha256,valid,avg_fps,low1_fps,frametime_ms,key,arm,frames,loads,note
+fb-pc-0101,,,1,84.58,64.77,11.8231,final-bench,ARMB-FPSFIX,5072,0,
+fb-pc-0102,,,1,81.04,57.47,12.3396,final-bench,ARM1-STOCKLIKE,4862,0,
+fb-pc-0103,,,1,81.1,44.7,12.3305,final-bench,ARMB-FPSFIX,4863,0,
+fb-pc-0104,,,1,82.69,59.39,12.0934,final-bench,ARM1-STOCKLIKE,4980,0,

@@ -1,39 +1,4 @@
 
-## 2026-10-22 19:54:13 session bbf66a59-3890-4a3e-b1cd-ee97e88295d0
-I told the human (#23940) that I'll ping them about 10 times on Discord once everything requested is done, and not before. I logged this in `.handoff/user-directives.md`.
-
-Still open:
-- **pc2:** the automatic move lists, via the static-derivation task.
-- **Ally:** the benchmarks (page pool, KL_Div, RD/M2S/J1).
-- **This PC:** the clipped move rows and the damage-multiplier fix for spirits and damage-over-time. The worktree `../nioh3-polish` (branch `pc/polish-23924`) exists but has nothing committed. Two earlier attempts to start this work in a background agent were cut off when my session ended. I'll do it directly or hand it to a separate helper instead.
-
-The plan is in `.handoff/next.md`. I didn't touch the game or change any code.
-2026-10-22 20:03 pc: pc/polish-23924 (unclipped boss-move rows + Ki/spirit scaled by damage x; DoT not reachable) built (Training 03fdbfaa, Rematch asi built via tools/msvc) and pushed; captures/install_polish_23924.ps1 waits for game close then installs (no relaunch). UNTESTED in game. Game 15936 in use (log active 19:54). NEXT: after close/relaunch test row layout + damage x on Ki.
-2026-10-22 20:05 pc CHECKPOINT | task: automatic boss setup (move lists/arenas/Ki-break) + pc polish | DONE: pc/combined-1022b (release-1022 b2850017 + ally autoarena) pushed, installed, game PID 15936 running since 7:30 pm EST (Training asi ac3dd853); pc/polish-23924 pushed (unclipped move rows + Ki scaled by damage x; DoT unreachable; Training 03fdbfaa + Rematch built), hidden script captures/install_polish_23924.ps1 waits for game close then installs (no relaunch) | UNPROVEN in game: Jubei Ki-break reel (look for KIAUTO in Nioh3Training.log), arena fight for roster bosses, polish row layout + Ki damage x; test-active marker is set (delete when test ends) | pc2: #23907 pc2/autoruntime static move lists from game data (no live fight), near-twin bind rule, roster rows for Mikoshi Nyudo/Himiko | ally: items page pool/KL_Div/RD-M2S-J1 benches (session holds lock, asi #1441) | NEXT: when game closes confirm polish installed, relaunch, test Jubei + polish; merge pc/polish-23924 into combined; ping user 10x on Discord only when ALL requested work done | files: captures/install_polish_23924.ps1, .handoff/needs-player.md
-
-## 2026-10-22 20:49:43 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
-The merged build is not installed yet, so nothing has been tested in the game. Nioh 3 (PID 15936) has been open since 7:30 pm EST. The installer is queued and runs when the game closes.
-
-pc2 and ally have no unanswered errors or BLOCKED messages. I'm not starting anything new while the game is open: the only remaining step is the in-game test (Yoritomo's 88 attacks, Red Kappa bound, summoning Mikoshi Nyudo and Himiko). It can only run once the game closes.
-
-## 2026-10-22 21:13:50 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
-The merged build is installed on this PC. Yoritomo checks out in the game, but Red Kappa, Ippon-Datara, Mikoshi Nyudo and Himiko are untested.
-
-**What passed (Yoritomo):**
-- The Training log shows 173 moves from game data, 88 of them attack moves, and 11 sequences.
-- The runtime list matches the old hand list on all 173 ids (0 disagreements), and the live frame bar read Yoritomo's attacks.
-- The roster grew from 83 to 101 summon rows.
-
-**What I couldn't test:**
-- Red Kappa and Ippon-Datara: "Fight now" refused both because those missions aren't cleared on this save.
-- Mikoshi Nyudo and Himiko spawn: I can't open the mod menu with synthetic keys, so I couldn't summon them.
-
-I closed the game by its exact PID and removed the test marker. I didn't back up or restore saves for this test, so I haven't checked whether the in-place fight changed the save.
-
-I sent the result to pc2, told the user, and added a needs-player item: summon those two from the F10 menu, which should take about a minute. `next.md` and `done.md` are updated. Nothing was committed or pushed this run beyond the earlier `pc/merge-autoruntime-polish` branch.
-
-2026-10-22 20:58 pc CHECKPOINT | task: automatic boss setup (#23436/#23905/#23909) | DONE: merged build (pc2/autoruntime static move lists + polish rows/Ki-dmg + auto arenas + summon-all) INSTALLED, Training asi sha 1781C86C, game relaunched PID 19452 | UNPROVEN: everything in game; poison/burn dmg scaling not done | NEXT: test Yoritomo menu 88 attacks, Red Kappa bound, summon Mikoshi Nyudo/Himiko; collect ally bench RESULTs (#23929) and pc2 results; when ALL requested done ping human 10x on Discord (#23933); stale marker uo-agentd/pc/test-active (19:30) should be deleted | files: captures/install_autoruntime_1025.ps1, worktrees ../nioh3-merge1025 ../nioh3-polish
-
 ## 2026-10-22 21:39:46 session 5b28d499-3b66-4ca8-8837-3f4bccd992fa
 I sent ally the GO for its benchmark job (#24116), with a smaller scope than it proposed. No benchmark numbers have come back yet.
 
@@ -362,3 +327,14 @@ I haven't touched the game this turn.
 - NOT tracked on pc: temps/power/latency (no sensor tool; offered to install, awaiting yes/no). In-game settings per device asked of pc2/ally (#26923); pc = CUSTOM preset, XeSS, landscape/meshlet HIGH.
 - NEXT: digest ally/pc2 RESULTs; re-check pc2 game speed; then build chart + table + per-device settings on GitHub README (open.md item), ping human. Directives logged in user-directives.md (#26524..#26964).
 2026-10-23 07:45 pc | meter build 25589 INSTALLED+tested (Yoritomo, shots bridge #1575/#1576); KI DEBT on duelist Ito (D084F) NOT drawing: frame meter/KI row/negKI overlay invisible although log says following+overlay ready (HoldKiBreak=1 also holds his AI off; with 0 he fights). | cx-pc TASK #25653 pending (patch for overlay HWND selector 1ae6042f on cx-pc/ito-overlay-review-25639 + draw-gate logging) | NEXT: install cx-pc bundle, retest D084F with HoldKiBreak=0 (Training.ini orig saved captures/meter-final-0723/Training.ini.orig; current INI is the original), then audit: pc stage-1 done (67 valid, captures/audit-screen/results-pc.csv, NOT pushed/reported: git pull --rebase blocked by unstaged changes; run `task report 110`), pc2/ally results pending, then confirm stage, final bench, 10x ping | files: tools/rematch/audit_screen_run.ps1 (local commit only), captures/meter-final-0723
+
+## 2026-10-23 19:36:39 session b0fc9051-736a-4c8e-a18e-14ee016e3f16
+I told the user the Ally should now benchmark much faster, since its CPU hits 4.1 GHz under load again instead of about 0.9 GHz. That is a guess: I haven't seen any new Ally numbers yet.
+
+I said the first valid runs are due soon and that I'd send them when they land. I haven't touched the game, and I'm still waiting on the Ally's results.
+
+## 2026-10-23 19:58:01 session b0fc9051-736a-4c8e-a18e-14ee016e3f16
+The answer to the user is no: this PC hasn't started the default + fps-fix-only run. I was told not to touch the game in this run, so I haven't launched it.
+
+I told them it launches in my next work run: same boss fight, god mode on, game speed logged. I logged the next step in `.handoff/next.md`: build and launch the main-PC arm B after taking the game lock and backing up saves. The earlier final-bench runner scripts in `captures/audit-final-20261023/` are the pattern to follow. pc2 and the Ally are already on their sets.
+2026-10-23 20:27 | pc arm B done | fps-fix vs stock-like ~equal fps on pc; speed unlogged | wait ally/pc2, build chart | captures/final-bench/*B*

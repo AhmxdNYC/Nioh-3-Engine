@@ -2116,3 +2116,16 @@ Attack-motion hit ids are in notes/boss-action-record.md. 110 of 175 actions hav
 2026-10-23 pc: ally #27081 power OK after reboot (PL 30/43/53W, CPU 3.84GHz). Rebuilding driver; GPU clock under game load + 2-min re-check pending.
 2026-10-23 pc: assigned cxl-ally offline chart generator (tools/bench/make_chart.py, branch cxl-ally/bench-chart).
 2026-10-23 07:45 pc: see checkpoints latest. Game closed, marker cleared. Local commits unpushed (pull --rebase blocked by dirty tree).
+2026-10-23 pc: pc2 final bench 12 runs in captures/final-bench/results-pc2-summary.txt (#27148). Waiting ally; chart by cxl-ally.
+2026-10-23 pc: pc2 RESULT #27160 recorded (config + files). pc2 done, lock released. TASK pc2 next: see below.
+2026-10-23 pc: pc2 final bench done (12 captures). Game speed: stock-like 0.68x (FG on)/0.71x (off) vs mod arms ~1.0x -> raw fps gain 9-12% understates real gain (fps-fix). Files 1685/1687. Waiting: ally redo (~9-9:30pm EST), pc FG-on csv, then GitHub chart with speed column + per-device settings.
+2026-10-23 pc: human #27177 wants accurate results; pc2 tasked to validate stock-like 0.69x speed arm.
+2026-10-23 pc: pc2 #27201: 0.68x speed stocklike unproven as vanilla behavior; stocklike disables VRR/VRROnline, pure enables; A/B stocklike+VRR vs pure running (owner 10904). No HWiNFO on pc2 -> temps n/a.
+2026-10-23 pc: human #27204 new 5-arm bench (default / fps-fix / fixed+opt / fixed+opt+visuals / fixed+FG); TASKs sent to pc2, ally. NEXT pc runs same on main PC.
+2026-10-23 pc: 5-arm matrix defined to pc2 (A stock+instr, B +VRR fix, C +pure perf, D +visual, E FG ON on C/D). pc leg pending: build arms, run.
+2026-10-23 pc: human #27232: don't redo valid arms. pc runs only arm B (fps fix only); pc2 redo A,B; ally all 5.
+2026-10-23 pc: pc2 #27240 confirmed 5-arm defs. NEXT (pc): add ONLY arm B (stock-like + VRR/VRROnline on, all else off; FG off) to pc via run-pc-final.ps1 pattern (existing A=ARM1, C=ARM2, D=ARM3, E=fgon csv valid), order B,A,B,A; elevated task; then chart.
+2026-10-23 pc: human #27267 asked if pc runs arm B yet: NO. NEXT: build/launch pc arm B (default + fps fix only, VRR on, nodeath, speed logged) using captures/audit-final-20261023/run-pc*.ps1 pattern; hold game lock; backup saves.
+2026-10-23 pc: human #27272 wants start + stop notices for main-PC arm B run (TO-USER reply-to 27272).
+2026-10-23 20:07 pc: pc arm B bench STARTED (runner captures/final-bench/run-pc-final-B.ps1, plan pc-plan-b, B,A,B,A; results results-pc-final-B.csv; marker test-active set; runner pid 32576). NEXT: when done send TO-USER stop notice (reply-to 27272), delete marker if stale, chart merge with pc2 #27300 (A74.8 vs B73.6 fps pure, VRR fix restores 1.0x speed).
+2026-10-23 20:27 pc: arm B DONE (results captures/final-bench/results-pc-final-B.csv): B 84.58/81.10, A 81.04/82.69 avg fps; game restored, saves verified, lock released. NEXT: wait ally 5 arms + pc2 FG-off A/B, then chart/README.
