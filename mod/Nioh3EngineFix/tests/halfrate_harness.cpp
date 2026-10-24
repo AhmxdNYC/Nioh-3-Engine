@@ -46,12 +46,25 @@ int main() {
     CHECK(Decide(w, kCloud, true) == Act::Update, "clouds first frame updates");
     CHECK(Decide(w, kCloud, true) == Act::Reuse, "clouds second frame reuses");
 
+    w.ch[kSsr].enabled = 1;
+    CHECK(Decide(w, kSsr, true) == Act::Update, "SSR first frame updates");
+    CHECK(Decide(w, kSsr, true) == Act::Reuse, "SSR second frame reuses");
+    w.ch[kAo].enabled = 1;
+    CHECK(Decide(w, kAo, true) == Act::Update, "AO first frame updates");
+    CHECK(Decide(w, kAo, true) == Act::Reuse, "AO second frame reuses");
+    CHECK(ObserveCamera(w, 120, 0, 0, 4), "cut clears SSR and AO");
+    CHECK(w.ch[kSsr].have == 0 && w.ch[kAo].have == 0, "SSR and AO results dropped");
+
     const EstMs sh = Estimate(kShadow), gi = Estimate(kGi), cl = Estimate(kCloud);
+    const EstMs ssr = Estimate(kSsr), ao = Estimate(kAo);
     CHECK(sh.lo == 0.10f && sh.hi == 0.20f, "shadow estimate");
     CHECK(gi.lo == 0.50f && gi.hi == 1.00f, "GI estimate");
     CHECK(cl.lo == 0.10f && cl.hi == 0.15f, "cloud estimate");
+    CHECK(ssr.lo == 0.04f && ssr.hi == 0.04f, "SSR estimate");
+    CHECK(ao.lo == 0.02f && ao.hi == 0.08f, "AO estimate");
+    CHECK(BloomAndPostUnhooked(), "bloom and post are not hooked");
     CHECK(PresetLeavesOff(), "presets leave half-rate off");
-    std::printf("skip/reuse/cut ok  shadow %.2f-%.2f ms  GI %.2f-%.2f ms  clouds %.2f-%.2f ms\n",
-                sh.lo, sh.hi, gi.lo, gi.hi, cl.lo, cl.hi);
+    std::printf("skip/reuse/cut ok  shadow %.2f-%.2f ms  GI %.2f-%.2f ms  clouds %.2f-%.2f ms  SSR %.2f ms  AO %.2f-%.2f ms\n",
+                sh.lo, sh.hi, gi.lo, gi.hi, cl.lo, cl.hi, ssr.lo, ao.lo, ao.hi);
     return g_fail ? 1 : 0;
 }

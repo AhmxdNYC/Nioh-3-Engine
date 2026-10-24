@@ -20,6 +20,8 @@ namespace {
 constexpr uint32_t kRvaShadow = 0x1F5C2C;  // ShadowCascadeRender
 constexpr uint32_t kRvaGi = 0x542C08;      // ReflectionProbePassRecord
 constexpr uint32_t kRvaCloud = 0x5F2A88;   // NatureSkyDrawClouds
+constexpr uint32_t kRvaSsr = 0x295C44;     // RealtimeLocalReflectionPassExecute
+constexpr uint32_t kRvaAo = 0x3688234;     // ApplySSAOPassExecute
 constexpr uint32_t kRvaCam = 0x244264;     // CameraBuildLookAtView, eye at +0x10
 constexpr float kCutMeters = 4.0f;
 
@@ -28,6 +30,8 @@ constexpr float kCutMeters = 4.0f;
 const uint8_t kShadowBytes[] = {0x40, 0x55, 0x53, 0x56, 0x57};
 const uint8_t kGiBytes[] = {0x40, 0x55, 0x53, 0x56, 0x57};
 const uint8_t kCloudBytes[] = {0x48, 0x89, 0x5C, 0x24, 0x20};
+const uint8_t kSsrBytes[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18};
+const uint8_t kAoBytes[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18};
 const uint8_t kCamBytes[] = {0x48, 0x8B, 0xC4, 0x48, 0x83, 0xEC, 0x78};
 
 void (*g_log)(const char*, ...) = nullptr;
@@ -261,9 +265,12 @@ const char* StatusLine(char* buf, size_t n) {
         snprintf(buf, n, "half-rate: not installed");
         return buf;
     }
-    snprintf(buf, n, "half-rate HRS %d HRG %d HRC %d  updates %lld/%lld/%lld reuses %lld/%lld/%lld cuts %lld",
-             Enabled(0), Enabled(1), Enabled(2), (long long)g_updates[0], (long long)g_updates[1], (long long)g_updates[2],
-             (long long)g_reuses[0], (long long)g_reuses[1], (long long)g_reuses[2], (long long)g_cuts);
+    snprintf(buf, n,
+             "half-rate HRS %d HRG %d HRC %d HRR %d HRA %d  updates %lld/%lld/%lld/%lld/%lld reuses %lld/%lld/%lld/%lld/%lld cuts %lld",
+             Enabled(0), Enabled(1), Enabled(2), Enabled(3), Enabled(4),
+             (long long)g_updates[0], (long long)g_updates[1], (long long)g_updates[2], (long long)g_updates[3], (long long)g_updates[4],
+             (long long)g_reuses[0], (long long)g_reuses[1], (long long)g_reuses[2], (long long)g_reuses[3], (long long)g_reuses[4],
+             (long long)g_cuts);
     return buf;
 }
 
@@ -295,17 +302,32 @@ void Start(const StartInfo& info) {
     uint8_t* c3 = c2 ? Emit(c2, false, kCloud, kCloudBytes, (int)sizeof kCloudBytes,
                             (const void*)(info.base + kRvaCloud + sizeof kCloudBytes))
                      : nullptr;
-    if (c3) EmitCam(c3, kCamBytes, (int)sizeof kCamBytes, (const void*)(info.base + kRvaCam + sizeof kCamBytes));
+    const bool postSites = c3 && same(kRvaSsr, kSsrBytes, sizeof kSsrBytes) && same(kRvaAo, kAoBytes, sizeof kAoBytes);
+    uint8_t* ssrCave = c3;
+    uint8_t* afterSsr = postSites ? Emit(ssrCave, false, kSsr, kSsrBytes, (int)sizeof kSsrBytes,
+                                         (const void*)(info.base + kRvaSsr + sizeof kSsrBytes))
+                                  : nullptr;
+    uint8_t* aoCave = afterSsr;
+    uint8_t* afterAo = afterSsr ? Emit(aoCave, false, kAo, kAoBytes, (int)sizeof kAoBytes,
+                                       (const void*)(info.base + kRvaAo + sizeof kAoBytes))
+                                : nullptr;
+    uint8_t* camAt = afterAo ? afterAo : c3;
+    if (camAt) EmitCam(camAt, kCamBytes, (int)sizeof kCamBytes, (const void*)(info.base + kRvaCam + sizeof kCamBytes));
     if (!g_csInit) {
         InitializeCriticalSection(&g_cs);
         g_csInit = true;
     }
-    Write ws[4]{};
-    const bool ok = FillJmp(ws[0], (uint8_t*)(info.base + kRvaShadow), (unsigned)sizeof kShadowBytes, c0) &&
-                    FillJmp(ws[1], (uint8_t*)(info.base + kRvaGi), (unsigned)sizeof kGiBytes, c1) &&
-                    FillJmp(ws[2], (uint8_t*)(info.base + kRvaCloud), (unsigned)sizeof kCloudBytes, c2) &&
-                    FillJmp(ws[3], (uint8_t*)(info.base + kRvaCam), (unsigned)sizeof kCamBytes, c3) &&
-                    FrozenWrite(ws, 4);
+    Write ws[6]{};
+    int nw = 0;
+    const bool baseOk = FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaShadow), (unsigned)sizeof kShadowBytes, c0) &&
+                        FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaGi), (unsigned)sizeof kGiBytes, c1) &&
+                        FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaCloud), (unsigned)sizeof kCloudBytes, c2) &&
+                        FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaCam), (unsigned)sizeof kCamBytes, camAt);
+    const bool extraOk = postSites && afterAo &&
+                         FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaSsr), (unsigned)sizeof kSsrBytes, ssrCave) &&
+                         FillJmp(ws[nw++], (uint8_t*)(info.base + kRvaAo), (unsigned)sizeof kAoBytes, aoCave);
+    if (postSites && !extraOk) nw = 4;
+    const bool ok = baseOk && FrozenWrite(ws, extraOk ? nw : 4);
     if (!ok) {
         Log("HalfRate: entry hook was not written");
         return;
@@ -315,11 +337,18 @@ void Start(const StartInfo& info) {
         SetEnabled(kShadow, Key(L"HRS", info.iniPath) == 1);
         SetEnabled(kGi, Key(L"HRG", info.iniPath) == 1);
         SetEnabled(kCloud, Key(L"HRC", info.iniPath) == 1);
+        if (extraOk) {
+            SetEnabled(kSsr, Key(L"HRR", info.iniPath) == 1);
+            SetEnabled(kAo, Key(L"HRA", info.iniPath) == 1);
+        }
+        if (Key(L"HRB", info.iniPath) == 1 || Key(L"HRP", info.iniPath) == 1)
+            Log("HalfRate: HRB and HRP stay off. Bloom and post are inside PostEffectApply 6DA118, which also runs the upscaler.");
     }
-    Log("HalfRate: installed, default off unless the ini says 1 (HRS %d HRG %d HRC %d). Far shadows, GI gather, clouds. "
-        "Estimate Ally %.2f-%.2f / %.2f-%.2f / %.2f-%.2f ms. Not in a preset.",
-        Enabled(0), Enabled(1), Enabled(2), Estimate(kShadow).lo, Estimate(kShadow).hi, Estimate(kGi).lo, Estimate(kGi).hi,
-        Estimate(kCloud).lo, Estimate(kCloud).hi);
+    Log("HalfRate: installed (HRS %d HRG %d HRC %d HRR %d HRA %d). SSR %s, AO apply %s. "
+        "Ally estimate ms shadow %.2f-%.2f GI %.2f-%.2f cloud %.2f-%.2f SSR %.2f AO %.2f-%.2f. Not in a preset.",
+        Enabled(0), Enabled(1), Enabled(2), Enabled(3), Enabled(4), extraOk ? "hooked" : "not hooked", extraOk ? "hooked" : "not hooked",
+        Estimate(kShadow).lo, Estimate(kShadow).hi, Estimate(kGi).lo, Estimate(kGi).hi, Estimate(kCloud).lo, Estimate(kCloud).hi,
+        Estimate(kSsr).lo, Estimate(kAo).lo, Estimate(kAo).hi);
 }
 
 }  // namespace halfrate

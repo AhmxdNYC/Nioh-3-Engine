@@ -166,7 +166,7 @@ ml64 /nologo /c /W3 /Fobuild\samelook_caves.obj src\samelook.asm || exit /b 1
 rem Extra performance (changes the look): XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST (extraperf.cpp / .asm; [ExtraPerf]; notes\extra-performance-settings.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\extraperf.obj src\extraperf.cpp || exit /b 1
-rem Half-rate reuse (halfrate.cpp; [HalfRate] HRS/HRG/HRC = 0). Not an ExtraPerf preset.
+rem Half-rate reuse (halfrate.cpp; [HalfRate] HRS/HRG/HRC/HRR/HRA = 0, HRB/HRP stay 0). Not an ExtraPerf preset.
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\halfrate.obj src\halfrate.cpp || exit /b 1
 ml64 /nologo /c /W3 /Fobuild\extraperf_caves.obj src\extraperf.asm || exit /b 1

@@ -819,13 +819,14 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
-          kHRS, kHRG, kHRC,  // half-rate reuse, default off, not in a preset
+          kHRS, kHRG, kHRC, kHRR, kHRA,  // half-rate reuse, default off, not in a preset
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
 static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
 bool IsEp(int id) { return id >= kEp0 && id <= kEp9; }  // one Extra performance option each (level row)
+bool IsHr(int id) { return id >= kHRS && id <= kHRA; }
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
                                              L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
@@ -932,6 +933,10 @@ const ItemDef kItems[kCount] = {
      "Indirect light can lag one frame. Off by default. Not part of a preset. Estimate 0.5-1 ms on the Ally."},
     {"Reuse clouds", "(HRC)", "Skips the cloud record every other frame and keeps the last result. A camera jump draws it again.",
      "Clouds can lag one frame. Off by default. Not part of a preset. Estimate about 0.15 ms on the Ally."},
+    {"Reuse reflections", "(HRR)", "Skips the screen-space reflection record every other frame and keeps the last one. A camera jump draws it again.",
+     "Reflections can lag one frame. Off by default. Not part of a preset. Estimate 0.04 ms on the Ally."},
+    {"Reuse ambient occlusion", "(HRA)", "Skips the AO apply every other frame and keeps the last one. A camera jump draws it again.",
+     "Contact shadows can lag one frame. Off by default. Not part of a preset. Estimate 0.02-0.08 ms on the Ally."},
     {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
     {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
@@ -965,7 +970,7 @@ const OrderEnt kOrder[] = {
     {kAutoCont, "Gameplay"},
     {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
     {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
-    {kHRS, "Half-rate reuse (changes the look)"}, {kHRG, nullptr}, {kHRC, nullptr},
+    {kHRS, "Half-rate reuse (changes the look)"}, {kHRG, nullptr}, {kHRC, nullptr}, {kHRR, nullptr}, {kHRA, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -998,7 +1003,7 @@ int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (li
 
 // settings that can change the picture live on page 2; everything else (and the page switch, Save, Close) on page 1
 bool LookChanging(int id) {
-    return id == kEpPre || IsEp(id) || id == kHRS || id == kHRG || id == kHRC || id == kFg || id == kFgState || id == kUpscaler ||
+    return id == kEpPre || IsEp(id) || IsHr(id) || id == kFg || id == kFgState || id == kUpscaler ||
            id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
 }
 bool OnPage(int id) { return id == kPage || id == kSave || id == kClose || LookChanging(id) == (g_page == 1); }
@@ -1029,7 +1034,7 @@ bool Available(int id) {
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
         case kEpPre: return extraperf::AnyAvailable();
-        case kHRS: case kHRG: case kHRC: return halfrate::Installed();
+        case kHRS: case kHRG: case kHRC: case kHRR: case kHRA: return halfrate::Installed();
         case kFg: return g_fgOk;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1198,7 +1203,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
         return;
     }
-    if (id == kHRS || id == kHRG || id == kHRC) {
+    if (IsHr(id)) {
         const bool on = halfrate::Enabled(id - kHRS) != 0;
         snprintf(buf, n, "%s", on ? "ON" : "OFF");
         color = on ? cYellow : cGray;
@@ -1339,6 +1344,10 @@ void StartSave() {
         add(L"HalfRate", L"HRS", b(halfrate::Enabled(0) != 0));
         add(L"HalfRate", L"HRG", b(halfrate::Enabled(1) != 0));
         add(L"HalfRate", L"HRC", b(halfrate::Enabled(2) != 0));
+        add(L"HalfRate", L"HRR", b(halfrate::Enabled(3) != 0));
+        add(L"HalfRate", L"HRA", b(halfrate::Enabled(4) != 0));
+        add(L"HalfRate", L"HRB", L"0");
+        add(L"HalfRate", L"HRP", L"0");
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -1593,7 +1602,7 @@ void Change(int id, int dir) {
     } else if (IsEp(id)) {  // 1.7.59: Left/Right step the level, A cycles (wraps to the game's value)
         const int e = id - kEp0, nl = extraperf::Levels(e), l = extraperf::Level(e);
         extraperf::SetLevel(e, dir == 0 ? (l + 1) % nl : std::clamp(l + dir, 0, nl - 1));
-    } else if (id == kHRS || id == kHRG || id == kHRC) {
+    } else if (IsHr(id)) {
         halfrate::SetEnabled(id - kHRS, !halfrate::Enabled(id - kHRS));
     } else if (id == kEpPre) {  // next / previous preset, applied at once
         int m = extraperf::MatchPreset();
@@ -1729,7 +1738,7 @@ bool RemoteValue(int id, int& v) {
         v = extraperf::MatchPreset();  // -1 = custom
         return true;
     }
-    if (id == kHRS || id == kHRG || id == kHRC) {
+    if (IsHr(id)) {
         v = halfrate::Enabled(id - kHRS);
         return true;
     }

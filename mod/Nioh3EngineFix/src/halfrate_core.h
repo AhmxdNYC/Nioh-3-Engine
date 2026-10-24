@@ -9,7 +9,10 @@
 
 namespace halfrate {
 
-enum Channel { kShadow = 0, kGi = 1, kCloud = 2, kChannels = 3 };
+enum Channel { kShadow = 0, kGi = 1, kCloud = 2, kSsr = 3, kAo = 4, kChannels = 5 };
+
+// Bloom and the other post effects are not channels. They run inside PostEffectApply
+// 0x6DA118, which also runs the upscaler. That function is not skipped.
 
 enum class Act : int { Update = 0, Reuse = 1 };
 
@@ -72,8 +75,15 @@ inline EstMs Estimate(int channel) {
     if (channel == kShadow) return {0.10f, 0.20f};
     if (channel == kGi) return {0.50f, 1.00f};
     if (channel == kCloud) return {0.10f, 0.15f};
+    // Ally USER SSR row is 0.08 ms. Half of that record is 0.04. Not a new measurement.
+    if (channel == kSsr) return {0.04f, 0.04f};
+    // ApplySSAOPass is 2135 bytes. The 0.65 ms SSAO node draws geometry and is not this hook.
+    if (channel == kAo) return {0.02f, 0.08f};
     return {0, 0};
 }
+
+// True on purpose: HRB and HRP have no record of their own.
+inline bool BloomAndPostUnhooked() { return true; }
 
 // Extra-performance presets must not turn these on. The keys are not XLOD and not an MPC scalar.
 inline bool PresetLeavesOff() { return true; }
