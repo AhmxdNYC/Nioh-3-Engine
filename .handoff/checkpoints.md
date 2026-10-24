@@ -355,4 +355,58 @@ Exact FPS/lows, FG flags, B-relative deltas and PNG integrity/size PASS; offline
 
 2026-10-23 9:02 PM Eastern | cx-pc #27491 | PC2 and combined PNGs successfully sent via Discord notify; source f3381603 pushed.
 Next pc: consume charts; PC2 hitch counts remain n/a until raw intervals are supplied.
-2026-10-23 17:12 | cx-pc2: #27324 5-arm aggregator DONE + earlier #27264/27293/27312 (hp_audit, no-death guard + energy probe in audit_screen_ab_run.ps1) | proven offline only; nothing live-tested in a capture | next: only if pc2 asks - fix issues found when it runs aggregate_5arm.py on real ab-pc2-0001..4 | commits: 72aad21c (aggregate_5arm.py + fixtures, branch cx-pc2/hp-audit-27264), 00f3169a hp_audit.py, f39dae84/5c8896f2 runner (branch cx-pc2/pc2-fg3arm-26768, worktree nioh3-pc2fg-26768)
+
+2026-10-23 9:07 PM Eastern | cx-pc #27555: MPC20 guarded scalarization built/signed; branch cx-pc/mpc-scalar-27555 pushed. 149 original/298 candidate blocks checked, 3 mutation tests caught, 38 other records unchanged.
+Native/perf and full interpreter untested; no game touched. Next: finish ranked CPU/preset plan and deliver branch + artifact; files gpu-shaders/meshcull/{mpc_uniform,verify_mpc_uniform,build_mpc_uniform}.py + mpc20-uniform-manifest.json.
+
+2026-10-23 9:09 PM Eastern | cx-pc #27555: ranked plan complete/pushed 971e232b (implementation 270191a6), cx-pc/mpc-scalar-27555. Candidate bridge file 1729, sha256 2652a13f0fb7; 38 unchanged records, 3 mutation tests, compiler/roundtrip PASS.
+Native ISA/perf/full interpreter untested; MPC33 planned, CPU wait tuning and opt-in 60%/50% presets ranked with explicit arms. Next pc: review notes/remaining-perf-plan-27555.md, test isolated MPC20 OFF/ON 2 repeats each. No game touched.
+
+2026-10-23 9:10 PM Eastern | cx-pc #27562 | ranked historical Ally GPU/CPU evidence and 5 large-win hypotheses; built opt-in XLOD4 x6, pushed ce4a0f7e cx-pc/big-wins-27562.
+Native ExtraPerf + 257-site pattern validation PASS; ASI B4600562ABBC8F6B02A701DB3FB5D02E35266D8AA70FBAB63425D92C513E98D6. No measured gain/game access. Next pc/ally integrate source into current matched bundle, test XLOD0 vs4.
+2026-10-23 9:11 PM EST | gx-pc #27623 big-risky priority | human wants shadow/GI/cloud half-rate, VRS, dynamic res, culling rewrite first | each opt-in default off, tests on 3 devices later | next code step is meshlet culling milestone 1 | STATUS #27633 | game not opened
+2026-10-23 9:14 PM EST | gx-pc #27660 exclusivity | cx-pc static preset sets REN_RAT 60/50 and DYNAMIC_RESOLUTION OFF, restores originals when disabled, no renderer hooks | gx-pc dynamic-res hook must stay off while that preset is on | next build is still meshlet culling opt-in | STATUS #27668 | game not opened
+2026-10-23 9:14 PM EST | gx-pc #27603 big-wins rank | four families all under 4.3 ms on Ally USER 28.7 ms | best picture cut 1.5-2.7 ms E | commit 4199075e pushed | RESULT #27671 | game not opened | next measured step remains fogpar on Ally, not a new patch
+
+2026-10-23 9:15 PM Eastern | cx-pc #27600 complete: 58ffdeea pushed cx-pc/temporal-drs-27600. Offline policy tests PASS; reviewer stale-generation/old-ack defects fixed with monotonic generations and proposal tokens.
+New native DRS boundary: 5AFA40/5AFAB0 use 3-sample timing path before separate 60-sample avg. Ally 50->35% model saves 4.39 ms (18%, unmeasured); temporal alone not shown >=15%. Next pc: fixed-scale characterization + native producer/resize audit; notes/temporal-drs-bigwins-27600.md.
+
+2026-10-23 9:15 pm EST | Big-wins design review, no game | Proven: none of the current designs has a measured 4.3 ms Ally saving. XLOD x6 can clamp to the engine cap of 10. MPC20 record grew to 57724 bytes. VRS is unwired. DRS policy cannot drop Ally below 50%. | Next: run arms A1 then A2 on Ally before stacking. Do not serve compute-PSO cache hits. | branch gxl-pc/big-wins-review-27604 commit 9fcc558e notes/big-wins-review-27604.md
+
+2026-10-23 9:25 pm EDT | gx-pc #27607 reuse / dynamic res / VRS | none clears 4.3 ms of the Ally 28.7 ms frame as a same picture | REN_RAT 35 is an unmeasured ~4.4 ms E dip; the live policy floor of 50 saves 0 | commits 4411dc11 and 077576b5 pushed on pc/fightnow-swap-wire | next: do not build; static 35% arm is review A4; culling stays with cx-pc
+
+- 2026-10-23 9:17 PM EDT cx-pc #27635: matched XLOD integration pushed1243206c (code090f5bcb) on cx-pc/xlod-matched-27635, base1cdccfb1. 1.7.73-xlod4-27635 release build + ExtraPerf/padviz/260 patterns PASS; SHA473345313EF9A4B7C60A6134AA2F6807D229A38E365B006F1AA1E68DD7D47637. No game/Ally access. Authenticode unavailable (no signing cert); clarification Q27693 pending. Temporal condition not supported by gx note4199075e; Q27708 asks for any separate hook proof. Next pc: review/install hash-verified artifact after signing clarification; preserve matched addons and queue XLOD0 vs4 later.
+
+2026-10-23 9:17 pm EDT | cx-pc #27608: built opt-in 60%/50% fixed-resolution and CPU wait presets; code 844b2039 on cx-pc/reswait-27608 pushed.
+176 native offline checks PASS; ASI SHA256 a230a462368254f042916aec66f8617f4a492f6182cbb07eeb5c95a5fc990a03; runtime/gain unproven.
+Next pc: integrate/rebuild current stack, verify first-launch resolution, then pc2/Ally OFF vs ON 2 repeats/arm per notes/reswait-presets-27608.md; no game touched.
+
+2026-10-23 9:17 pm EDT | gx-pc #27607 RESULT #27733 to pc. Shared #27734 cx-pc and #27735 cxl-pc. Note 077576b5. Game not opened.
+2026-10-23 9:17 PM EST | gx-pc #27701 map radius | seven distance knobs, none clears 4.3 ms | XLOD2 and XSHD3 measured about 0 on Ally | best unmeasured 0.2-0.8 ms E foliage | commit 53e519e1 pushed | RESULT #27737 | game not opened | do not shrink the cell-load radius for fps
+2026-10-23 9:18 PM EST | gx-pc #27717 mined named notes | no measured item clears 4.3 ms Ally except untested REN_RAT 35 | failed: lodu, mpc shaders, fog-to-direct, VSMA, LPVR/SKYR/CLDR/FOGT, gi #121, VRS has no call | file 1744 RESULT #27746 | game not opened
+2026-10-23 9:18 PM EST | gx-pc #27724 bar correction | +15% fps at 28.7 ms is 3.74 ms; 4.3 ms is 15% less frame time | rankings still miss both | commit c1648fe9 | A #27763 | game not opened | next is cxl-pc reuse map, not a new gx-pc patch
+2026-10-23 9:18 pm EDT | gx-pc #27744 | cx-pc 27608 is static 60/50 presets only, not scale 35 | no culling build assigned | asked pc in #27766 | A #27765 | next: wait for pc to name the culling owner
+
+2026-10-23 9:21 pm EDT | cx-pc #27635 / approval #27696: SHA256-only artifact requirement resolved; existing matched XLOD build rehashed to 473345313EF9A4B7C60A6134AA2F6807D229A38E365B006F1AA1E68DD7D47637, base 1cdccfb1 ancestry confirmed.
+Build/test evidence remains 090f5bcb/1243206c; no code change or runtime claim. Unsupported temporal reuse explicitly skipped by pc.
+Next pc: retain matched addons and queue XLOD OFF0 vs ON4, 2 repeats/arm FG OFF on Ally; notes/xlod-matched-27635.md.
+
+2026-10-23 9:19 PM EDT | cxl-pc #27716 prior-research map DONE/pushed 3e3918a6 on cxl-pc/vrs-27602.
+Reviewed requested CPU/GPU/streaming/settings/rewrite notes with independent GPU read; historical hooks and failed/neutral attempts consolidated, no new measurements.
+Next big-wins team: reuse RCO/GIS/EPL/EPF/native EffReduction; read notes/big-wins-prior-research-27716.md before integration. VRS remains unwired; no game touched.
+
+- 2026-10-23 9:19 PM EDT cx-pc #27700: fixed characterization specification on cx-pc/drs-characterization-27700; policy integration belongs to separate cx-pc policy session58ffdeea (ownership confirmation Q27748). No adaptive ASI produced here: producer units/native resize acknowledgment unresolved. Next pc/policy owner: integrate authorized5AFA40/5AFAB0 only, floor35/40/50; no60-frame-average patch. Signing requirement resolved: SHA256 is sufficient for XLOD27723. No game access.
+
+- 2026-10-23 9:19 PM EDT cx-pc #27720 confirms conditional #27635 temporal step is not supported: gx-pc has no verified G-buffer/shadow history or invalidation hook; GI1872C4/187A50 change size only. No blind skip; gx-pc retains far-shadow/GI ownership. Existing matched-XLOD report6285c951 already records pc skip instruction/signing resolution. Next pc: use delivered XLOD artifact for queued testing; no temporal build queued by this worker.
+
+2026-10-23 9:22 pm EST | Mined prior research for the big risky wins | Proven misses: fog queue move 0.06 ms, lodu 0 fps, MSV stretched triangles, LPVR/CLDR/FOGT dropped, XLOD x2 -0.4% on Ally. Only unmeasured 4.3 ms idea is REN_RAT 35. Potato already measured +9.6% Ally | gx-pc half-rate build must skip RefProbe 4b4c3cbe, not the old knobs, and must not rebuild clouds or lodu | notes/big-wins-mined-27706.md
+2026-10-23 9:22 pm EDT | gx-pc #27778 | applied 3.74 ms fps bar and VRS tier 1 vs tier 2 | reuse and VRS still miss both bars | commit 6a567260 | next: no new build; culling owner still waiting on pc #27766
+2026-10-23 9:20 PM EST | gx-pc #27770 culling handoff | family 2.88 ms, under the 3.74 ms fps bar | addresses in notes/culling-hooks-for-cx-27770.md | commit 8ee53b88 | A #27805 to cx-pc | dynamic res stays opt-in default off, no patch | game not opened
+
+- 2026-10-23 9:21 PM EDT cx-pc #27778: prior-research map reconciled into ranking bd261f7d, cx-pc/big-wins-magic-27582. Corrected cloud-reuse bounds for existing partial refresh; FPS/time and VRS tier distinctions already correct. No ASI/game change. Next implementation owners reuse validated seams and avoid listed rejected experiments.
+
+2026-10-23 9:22 PM EDT | cx-pc #27715: prior-research ledger complete (15 requested notes, both gpu-rewrite rounds); notes/research-reuse-ledger-27715.md.
+Offline evidence only: existing hooks cross-checked in patches.json; terminal MSV failure, async neutrality and stale build-status claims reconciled; no new performance claim.
+Next pc: forward ledger to current scale/DRS/culling owners; keep scale35 and XLOD test arms separate, 2 repeats/arm; no game touched.
+
+2026-10-23 6:25 PM EST cx-pc2 | tasks 27481/27620/27709/27760 all reported (bridge #27532,#27721,#27769,#27830). DONE: offline clean-vanilla inventory (notes/clean-vanilla-entry-27481.md, superseded by lead 27485); boot-only sweep generator tools/rematch/make_boot_sweep_27620.py (9 keys/36 launches, d1b55ac1, MPCS shader=mpc both arms); recover_cpu_window.py + equal-timestamp test + recovered g27558-001 CPU/HP (c363df28). All in worktree nioh3-pc2fg-26768 branch cx-pc2/pc2-fg3arm-26768, pushed. HALF-DONE: none. NEXT: only react to new pc2 messages; pc2 owns live generator and gpu_boot_27558.ps1 (one noted gap: shader not restored if game still running at cleanup). No game touched.
