@@ -26,7 +26,7 @@ For the returning Claude agent: [Codex catch-up handoff, October 12](notes/hando
 
 ## Renderer progress
 
-All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. They are unchanged from the Codex takeover baseline. See [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions and caveats.
+All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. Whole-exe naming is now 12,679 of 211,206 functions (6.00%); profiled CPU and GPU time are 100% named. Regenerated 2026-10-24, see [RE status](notes/re-status-2026-10-24.md) and [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions. The older audit [notes/codex-rendering-progress-2026-10-11.md](notes/codex-rendering-progress-2026-10-11.md) has the caveats.
 
 Frame overlap remains experimental and **NO-GO**. The +11.74% +/-1.54% SE experiment used an artificial 8 ms replay delay; it is not a native game gain. Producer closure, resource lifetime and retirement ordering still need proof before another candidate can be shared. See [the continuation ledger](notes/codex-task-ledger.md).
 
