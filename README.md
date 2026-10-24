@@ -26,7 +26,7 @@ For the returning Claude agent: [Codex catch-up handoff, October 12](notes/hando
 
 ## Renderer progress
 
-All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. Whole-exe naming is now 12,679 of 211,206 functions (6.00%); profiled CPU and GPU time are 100% named. Regenerated 2026-10-24, see [RE status](notes/re-status-2026-10-24.md) and [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions. The older audit [notes/codex-rendering-progress-2026-10-11.md](notes/codex-rendering-progress-2026-10-11.md) has the caveats.
+All 54,295 renderer catalog entries have local C exports. Core naming coverage is 2,382/5,932 functions (40.2%); broader named byte coverage is 20.71%. These counts describe exports and symbol naming, not fully understood or rebuilt renderer code. Whole-exe naming is now 12,679 of 211,206 functions (6.00%); profiled CPU and GPU time are 100% named. Regenerated 2026-10-24, see [reversing progress](notes/reversing-progress.md), [RE status](notes/re-status-2026-10-24.md) and [the rendering progress audit](notes/codex-rendering-progress-2026-10-11.md) for definitions. The older audit [notes/codex-rendering-progress-2026-10-11.md](notes/codex-rendering-progress-2026-10-11.md) has the caveats.
 
 Frame overlap remains experimental and **NO-GO**. The +11.74% +/-1.54% SE experiment used an artificial 8 ms replay delay; it is not a native game gain. Producer closure, resource lifetime and retirement ordering still need proof before another candidate can be shared. See [the continuation ledger](notes/codex-task-ledger.md).
 
@@ -38,7 +38,7 @@ Three parallel research units traced enemy activation, mission/arena loading and
 
 Read [AGENT_BRIEF](AGENT_BRIEF.md), the newest [STATUS](STATUS.md) section and the relevant handoff before editing. Codex owns source/build integration; device agents own their tests. Only one writer changes EngineFix source at a time.
 
-EngineFix lives in [mod/Nioh3EngineFix](mod/Nioh3EngineFix). Use its build.bat and tests/test_patterns.py, then release/check_release.py --full and required native smoke gates before sharing a new build. The current pattern catalog contains 255 sites. The pinned whole-mod Windows benchmark and its recovery/ownership checks are documented in [the benchmark driver handoff](notes/pinned-default-benchmark-driver.md).
+EngineFix lives in [mod/Nioh3EngineFix](mod/Nioh3EngineFix). Use its build.bat and tests/test_patterns.py, then release/check_release.py --full and required native smoke gates before sharing a new build. The current pattern catalog contains 257 sites in 72 groups (`patches.json`). The pinned whole-mod Windows benchmark and its recovery/ownership checks are documented in [the benchmark driver handoff](notes/pinned-default-benchmark-driver.md).
 
 All game launches use the existing game lock and harness guard. PC and Ally launches also respect their shared Steam account. Never run Ghidra while Nioh3.exe runs. Game-side optimization only: no driver, BIOS, power, affinity or hardware tuning. Preserve and verify saves and entry ASI/INI/config before releasing a test lock.
 

@@ -1,6 +1,6 @@
 # Code map: what each part of Nioh3.exe is for
 
-The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draws one block per **purpose region**: what the code is for, not how far it is decompiled. The blocks come from `re\scripts_re\regions.tsv`, written by `re\scripts_re\regions.py` (about 15 s, no Ghidra needed). The "unknown purpose" share is **0.7 % of code bytes** (goal: < 5 %).
+The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draws one block per **purpose region**: what the code is for, not how far it is decompiled. How far the names and hooks go is [notes/reversing-progress.md](../notes/reversing-progress.md): 12,679 of 211,206 functions named (6.00%) on the 2026-10-24 recount. The blocks come from `re\scripts_re\regions.tsv`, written by `re\scripts_re\regions.py` (about 15 s, no Ghidra needed). The "unknown purpose" share is **0.7 % of code bytes** (goal: < 5 %).
 
 ## How the regions are made
 1. **Functions**: every `.pdata` start in `re\Nioh3.dump.exe`, with chained unwind entries folded in. That gives 211,206 functions and 52.7 MB of code.
