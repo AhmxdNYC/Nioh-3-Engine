@@ -2359,3 +2359,22 @@ Half-rate menu is on gx-pc/half-rate-reuse eccb0650. Keys HRS HRG HRC default 0,
 
 2026-10-24 pc: test127 wrapper finished: old half-rate base boot-hung on pc (0 rows), restored cfg/asi/ini. test128 (fresh marker 12:15am, Nioh pid 39792) now running = matched 1.7.73 artifact attempt; do not touch. pc2 #28624 HRG +3.2% (40.32/41.21 -> 40.96/43.16), inconclusive; needs more repeats, 1% low not better.
 2026-10-24 pc: stopped test127 hr loop (old half-rate ASIs boot-hang; dup wrappers); restored bak asi/ini; test-active marker removed. Next: after pc2 validates artifact 1813 startup, run pc hr in 10-min chunks.
+2026-10-24 pc: cx-pc OUT OF CREDITS until Oct 30 (#28700); CPU-side task moved to gxl-pc. cx-pc/cx-pc2 work must go to grok helpers. Ally FG-on swapchain issue #28687 pending.
+2026-10-24 12:22 AM EST #28752: PC CPU rank is notes/cpu-settings-28752.md commit c768fd7e. Biggest measured wait is the 1.44 ms logic join. AABB stays the only existing lever at 0.5-0.6 ms est. StateFilter saved as 90958584, default off, compiled, not measured. No off-screen skip. No game.
+2026-10-24 12:22 am EST | gx-pc #28707: anim/physics lever note pushed e046c440. No new build. 17.6 ms draw prep is cx-pc. Next build of 0x7FE68 only if a fight shows >=1 ms exposed wait. File 1816 boot still waits for a free lock.
+2026-10-24 pc: launched chunk1 run129.ps1 (hr rows 0-1, h3 artifact 1813 sha729ac5fc) ~10 min; log captures/test127/wrapper129.log; marker test-active set by script. Next chunks -Skip 2 -Take 2 ...
+
+2026-10-24 12:24 am EST | gx-pc #28803: 1816 boot PASS stands (pc). 1813 not booted; pc restored originals after stopping run128c. gx-pc stays off the game. Next boot of 1813 is pc, after pc2 startup confirm.
+2026-10-24 pc: another session's run128d wrapper is running the hr set (hr-001 HRS OFF valid 86.86 fps, low1 54.83; hr-002 running). My run129 never logged/died; do NOT start a second wrapper. Results: captures/test127/results-pc-hr.csv.
+
+2026-10-24 12:45 am EST | gx-pc #28847: no new CPU hook. AABB (0.5-0.6 ms E) and StateFilter (inside 0.57 ms, unmeasured) stay off. Draw batch rejected. Branch gx-pc/cpu-levers 99cca947. Next test is pc, AABB then StateFilter, not stacked. No game.
+2026-10-24 pc: ally #28877 analysis: OSD 'FG off' in fights likely artifact (osd.cpp threadMode needs game thread >=5/s; fight shows 0/s); copy jobs 18/s vs displayed 36.5 suggests FG on. Told ally to gate on copy jobs and re-evaluate r07-r11.
+2026-10-24 pc: ally #28881 agrees; switching FG-on gate to copy jobs, rerunning 6 FG-on arms one per launch. Waiting on ally RESULT.
+2026-10-24 pc: ally #28883: old r07 interval INVALID (menu opened). No valid FG-on arm yet on ally; only spot evidence copy jobs 18 vs 36.5 displayed. FG-on arms to start when game free.
+2026-10-24 12:46 AM EST gxl-pc #28858: heat note 9e46fb5f. No new ASI. No game. Next measure is CPU cores, watts, and temp at the same 120 fps. Do not stack it on current benches.
+2026-10-24 pc: human #28902 no admin steps; cx-ops pull failed (no upstream) -> fix sent + TASK audit helper update status all devices; report table to human.
+2026-10-24 pc: ally #28914 first valid FG-on arm 42.3 avg/27.1 low vs FG-off 32.8 (+29%?), needs copy-jobs proof; 5 arms left.
+2026-10-24 pc: human #28919 wants per-device confirm no-admin stats; Q sent pc2/ally/gxl-pc; reply table to human. cx-ops git fixed #28913.
+2026-10-24 pc: cx-ops audit #28922: 8 PC helpers at 2bf951f current; UPDATE sent to ops/cx-pc/cxl-pc; pc2/ally HEAD unverified (waiting).
+2026-10-24 pc: pc2 #28947: no-admin OK: CPU util/RAPL power, GPU util/VRAM, PresentMon latency. NOT OK w/o admin: CPU temp, GPU temp/power. gxl-pc asked to build ADLX no-admin GPU reader; default = log CPU power as heat proxy. Waiting ally + pc replies.
+2026-10-24 pc: see checkpoints.md entry 00:50 for full state.

@@ -60,5 +60,8 @@
 - #28219 (2026-10-23): human believes we already have most of the source/RE knowledge needed; reuse existing research, don't redo reversing.
 - #28243 (2026-10-23): human: we have more AI power than pc is using; spread big offline work across all idle Claude/Codex/Grok helpers.
 - #28258 (2026-10-23): human: make sure Codex/Grok helpers save progress (commit+push branch, checkpoints.md) so resets lose nothing; Grok has more capacity than we use.
+- #28660 (2026-10-24): human: the CPU-side work should be a setting, and the CPU side should be explored.
 - #28530 (2026-10-24): HARD RULE: never run long game tests/benchmarks as one single run. Split into short chunks (one arm/phase per launch, ~10 min max), save results after each, resume from last finished chunk. A chunk failing twice: stop and fix the cause, no relaunch loops.
 - #28530 (2026-10-24): HARD RULE: never run long game tests/benchmarks as one single run; split into short chunks (one arm/phase per launch, ~10 min max), save results after each, resume from last chunk.
+- #28855 (2026-10-24): human: players call the game 'CPU frying'; treat CPU heat/utilization (not only ms) as a target; reduce spin-wait burn.
+- #28887 (2026-10-24): human: update all helpers asap when free; finish everything incl CPU fixes; final benchmarks will likely rerun with ALL data (temps, util, power, latency) on every device; human away - ask for manual/admin steps if any.
