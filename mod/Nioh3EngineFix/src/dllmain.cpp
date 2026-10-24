@@ -61,6 +61,7 @@
 #include "cbvupload.h"
 #include "samelook.h"
 #include "extraperf.h"
+#include "halfrate.h"
 #include "livectl.h"
 #include "rebar.h"
 #include "scenemirror.h"
@@ -2910,6 +2911,14 @@ DWORD WINAPI Worker(LPVOID) {
             di.base = reinterpret_cast<uintptr_t>(g_base);
             di.knownBuild = known;
             drawprep::Start(di);
+            {  // Half-rate reuse of far shadows, the GI gather, and clouds. Default off. Not an ExtraPerf preset.
+                halfrate::StartInfo hi;
+                hi.log = &Log;
+                hi.iniPath = iniPath.c_str();
+                hi.base = reinterpret_cast<uintptr_t>(g_base);
+                hi.knownBuild = known;
+                halfrate::Start(hi);
+            }
             // 1.7.39: live menu rows for the two drawprep switches (same in-launch A/B as the other experimental rows)
             const struct { int e; const wchar_t* key; volatile uint32_t* sw; } dpRows[] = {
                 {menu::kExpDQ, L"DQ", drawprep::DqSwitch()}, {menu::kExpP1E7, L"P1E7", drawprep::P1e7Switch()},
