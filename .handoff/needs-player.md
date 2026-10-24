@@ -22,3 +22,6 @@
 - [ ] Vercel sign-in for the feedback site | When you are at this PC, run powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Ahmad Hamza\nioh3-mod-site\site\vercel-signin.ps1" and finish the browser sign-in. It prints the public link. Until then the site stays at http://100.120.236.18:8791/ | pc
 - [ ] Check 4-line frame meter | Game is open on main PC (installed 25462: readout / PLAYER / BOSS / colour key). Start any boss fight and look at the meter layout + height | pc
 - [ ] Open an ADMIN PowerShell on pc and run captures/audit-final-20261023/run-pc-stage2.ps1 | PresentMon records nothing without elevation (no UAC possible headless); stage-2 EP confirm (8 runs, ~25 min) then needs it once | pc
+- [ ] Install sensor tool (admin) | PC2 first, then this PC: install HWiNFO64 (free, run once as admin, Settings: enable Shared Memory Support, Sensors-only) so CPU temp, GPU temp/power can be logged; Ally (Linux) needs nothing unless it reports RAPL permission | pc2, pc
+- [ ] PC2 UAC prompt | click Yes on the LibreHardwareMonitor admin prompt on pc2 | pc2
+- [x] Install sensor tool (admin) | pc done 2026-10-24 (LibreHardwareMonitor, web server :8085 verified: CPU pkg 85.9 W, 90.5 C, GPU 49 C/46 W); pc2 ticked by human, verify; ally pending

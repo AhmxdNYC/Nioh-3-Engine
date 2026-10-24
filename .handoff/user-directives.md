@@ -65,3 +65,5 @@
 - #28530 (2026-10-24): HARD RULE: never run long game tests/benchmarks as one single run; split into short chunks (one arm/phase per launch, ~10 min max), save results after each, resume from last chunk.
 - #28855 (2026-10-24): human: players call the game 'CPU frying'; treat CPU heat/utilization (not only ms) as a target; reduce spin-wait burn.
 - #28887 (2026-10-24): human: update all helpers asap when free; finish everything incl CPU fixes; final benchmarks will likely rerun with ALL data (temps, util, power, latency) on every device; human away - ask for manual/admin steps if any.
+- #28967 (2026-10-24): human is present and can do admin installs right now (sensor tools on devices).
+- #28902 (2026-10-24): human: no admin steps from the human. Sensor checks must be unprivileged and must not launch the game.
