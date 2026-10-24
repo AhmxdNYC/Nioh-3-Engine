@@ -10,15 +10,16 @@ The tested baseline is **1.7.61**, with CBN=1, CBT=1, CBS=0, CBF=0, FrameOverlap
 
 `tools/bench/final_full_report.py` reads `captures/final-full/<device>/results.csv` and writes [docs/final-bench/report.md](docs/final-bench/report.md) plus one SVG and one PNG per metric. The arms are stock, pure-perf, and full. A row is used only when `valid` is 1. Empty cells were not measured.
 
-Frame generation off, 2026-10-24, two chunks each. Frame generation on is pending (pc2 session 3689466d was still running it).
+Two chunks per arm, 2026-10-24. Frame generation on is pending for pc and the Ally.
 
 | Device | Settings | Stock | Pure-perf | Full |
 |---|---|---|---|---|
 | pc | Ryzen 5 7600X + RX 9070, 1440p XeSS, FG off, Yoritomo R7B35 | 75.84 fps | 98.46 fps | 98.78 fps |
 | pc2 | Ryzen 5 5600X + RX 6650 XT, FG off, Yoritomo R7B35 | 41.72 fps | 46.87 fps | 47.32 fps |
+| pc2 | Ryzen 5 5600X + RX 6650 XT, FG on, Yoritomo R7B35 | 77.07 fps | 73.59 fps | 74.30 fps |
 | ROG Ally | Linux/Proton, FG off, Yoritomo | 34.63 fps | 32.58 fps | 39.02 fps |
 
-On pc and pc2, full stays tied with pure-perf. The Ally full mean is the average of a 33.06 fps chunk and a 44.97 fps chunk (6 hitches). The six Ally chunks are in the report.
+With frame generation off, full stays tied with pure-perf on pc and pc2. With frame generation on, pc2 stock is ahead of both mod arms (77.07 vs 73.59 and 74.30). The Ally full mean is the average of a 33.06 fps chunk and a 44.97 fps chunk (6 hitches). The six Ally chunks are in the report.
 
 Charts: [average fps](docs/final-bench/avg_fps.png), [1% low](docs/final-bench/low1_fps.png), [hitches](docs/final-bench/hitches.png), [CPU temp](docs/final-bench/cpu_temp.png), [GPU temp](docs/final-bench/gpu_temp.png), [CPU power](docs/final-bench/cpu_power.png), [GPU power](docs/final-bench/gpu_power.png), [CPU use](docs/final-bench/cpu_util.png), [GPU use](docs/final-bench/gpu_util.png). The pc fps file has no per-arm temperature or power, so those pc bars are absent.
 

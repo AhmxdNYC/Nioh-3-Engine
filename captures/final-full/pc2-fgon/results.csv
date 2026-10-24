@@ -1,0 +1,7 @@
+run_id,fixture,ini_sha256,valid,avg_fps,low1_fps,frametime_ms,key,arm,frames,loads,note,p99_ms,p999_ms,hitch_n,stall_ms,cpu_c,cpu_w,gpu_c,gpu_w,cpu_pct,gpu_pct,lat_ms,fg
+fb-pc2-0001,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,72.82,36.33,13.7325,final-bench,ARM1-STOCKLIKE,3275,0,,21.772,35.507,12,38.988,66.38,75.6,67.08,123.03,99.38,88.97,,on
+fb-pc2-0002,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,71.91,36.3,13.9063,final-bench,ARM2-PUREPERF,3235,0,,23.564,33.559,10,43.686,63.01,71.73,65.02,114.57,87.14,89.67,,on
+fb-pc2-0003,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,70.65,35.21,14.1543,final-bench,ARM3-FULLMOD,3178,0,,23.452,36.963,13,38.462,65.59,73.05,65.88,111.91,86.36,89.88,,on
+fb-pc2-0004,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,77.94,42.19,12.8304,final-bench,ARM3-FULLMOD,3505,0,,20.118,32.79,7,34.094,65.32,73.61,66.05,119.09,89.33,92.19,,on
+fb-pc2-0005,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,75.28,39.66,13.2837,final-bench,ARM2-PUREPERF,3386,0,,22.025,30.26,9,40.763,66.2,74.42,66.08,122.29,92.65,93.71,,on
+fb-pc2-0006,Yoritomo-R7B35-fight-now-60s-PresentMon-v1,,1,81.32,43.55,12.2971,final-bench,ARM1-STOCKLIKE,3657,0,,20.004,27.728,11,32.638,64.9,74.16,66.38,120.85,95.99,93.45,,on

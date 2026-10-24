@@ -2,6 +2,7 @@
 
 Reads captures/final-full/<device>/results.csv. Also reads results-fgon.csv,
 results-fgoff.csv, fg-on/results.csv, and fg-off/results.csv in that folder.
+A folder named <device>-fgon or <device>-fgoff is that device with that setting.
 A row counts only when valid is 1 (or the valid column is absent and the metric
 cell is filled). Blank cells stay blank. This script does not invent a number.
 
@@ -121,22 +122,34 @@ def load_csv(path, device, default_fg):
     return rows, skipped
 
 
+def folder_device(name):
+    low = name.lower()
+    if low.endswith("-fgon"):
+        return low[:-5], "on"
+    if low.endswith("-fgoff"):
+        return low[:-6], "off"
+    return low, None
+
+
 def discover(root):
     base = os.path.join(root, "captures", "final-full")
     found = []
     if not os.path.isdir(base):
         return found
-    for device in sorted(os.listdir(base)):
-        folder = os.path.join(base, device)
-        if not os.path.isdir(folder) or device.lower() == "plan":
+    for name in sorted(os.listdir(base)):
+        folder = os.path.join(base, name)
+        if not os.path.isdir(folder) or name.lower() == "plan":
+            continue
+        device, folder_fg = folder_device(name)
+        if not device:
             continue
         specs = (
-            ("results.csv", "off"),
+            ("results.csv", folder_fg or "off"),
             ("results-fgoff.csv", "off"),
             ("results-fgon.csv", "on"),
         )
-        for name, fg in specs:
-            path = os.path.join(folder, name)
+        for filename, fg in specs:
+            path = os.path.join(folder, filename)
             if os.path.isfile(path):
                 found.append((path, device, fg))
         for fg in FG_ORDER:
@@ -186,9 +199,35 @@ def devices_of(cells):
     return seen or list(DEVICE_ORDER)
 
 
-def fg_present(cells):
-    found = [fg for fg in FG_ORDER if any(c["fg"] == fg for c in cells)]
-    return found or ["off"]
+def chart_groups(cells):
+    devices = devices_of(cells)
+    groups = []
+    for device in devices:
+        for fg in FG_ORDER:
+            if any(c["device"] == device and c["fg"] == fg for c in cells):
+                groups.append((device, fg))
+    return groups
+
+
+def fg_gap_line(cells):
+    if not cells:
+        return "Frame generation on is pending. No fg=on row is in these files."
+    labels = (("pc", "pc"), ("pc2", "pc2"), ("ally", "the Ally"))
+    missing = []
+    for device, label in labels:
+        has_any = any(c["device"] == device for c in cells)
+        has_on = any(c["device"] == device and c["fg"] == "on" for c in cells)
+        if has_any and not has_on:
+            missing.append(label)
+    if not missing:
+        return None
+    if len(missing) == 1:
+        who = missing[0]
+    elif len(missing) == 2:
+        who = "%s and %s" % (missing[0], missing[1])
+    else:
+        who = ", ".join(missing[:-1]) + ", and " + missing[-1]
+    return "Frame generation on is pending for %s." % who
 
 
 def fmt(value):
@@ -242,8 +281,9 @@ def report_md(cells, skipped, sources, rows):
         "Valid groups: %d. Skipped rows: %d." % (len(cells), skipped),
         "",
     ]
-    if not any(cell["fg"] == "on" for cell in cells):
-        lines.append("Frame generation on is pending. No fg=on row is in these files. pc2 session 3689466d was still running that set.")
+    gap = fg_gap_line(cells)
+    if gap:
+        lines.append(gap)
         lines.append("")
     if not cells:
         lines.append("No valid measurement is in captures/final-full yet. The charts are not drawn.")
@@ -270,8 +310,7 @@ def report_md(cells, skipped, sources, rows):
 
 
 def svg_chart(metric, label, cells):
-    devices = devices_of(cells)
-    groups = [(d, fg) for d in devices for fg in fg_present(cells)]
+    groups = chart_groups(cells)
     width, height = 920, 320
     left, top, plot_w, plot_h = 48, 36, 760, 220
     vals = [c[metric] for c in cells if c[metric] is not None]
@@ -311,8 +350,7 @@ def svg_chart(metric, label, cells):
 
 def png_chart(path, metric, label, cells):
     from PIL import Image, ImageDraw, ImageFont
-    devices = devices_of(cells)
-    groups = [(d, fg) for d in devices for fg in fg_present(cells)]
+    groups = chart_groups(cells)
     width, height = 920, 320
     left, top, plot_w, plot_h = 48, 36, 760, 220
     image = Image.new("RGB", (width, height), (13, 17, 23))

@@ -82,6 +82,7 @@ class Means(unittest.TestCase):
             self.assertIn("| ally | off | stock | 1 | 10.00 |", text)
             self.assertIn("| ally | off | full | 1 | 12.00 |", text)
             self.assertIn("| pc2 | off | pure-perf | 1 | 40.00 |", text)
+            self.assertIn("pending for pc2 and the Ally", text)
             png = os.path.join(out, "avg_fps.png")
             if os.path.isfile(png):
                 with open(png, "rb") as handle:
@@ -89,6 +90,25 @@ class Means(unittest.TestCase):
         finally:
             shutil.rmtree(root)
             shutil.rmtree(out)
+
+
+    def test_fgon_folder_is_pc2_on(self):
+        root = tempfile.mkdtemp()
+        try:
+            write(os.path.join(root, "captures", "final-full", "pc2", "results.csv"),
+                  "valid,arm,fg,avg_fps\n1,ARM1-STOCKLIKE,off,40\n")
+            write(os.path.join(root, "captures", "final-full", "pc2-fgon", "results.csv"),
+                  "valid,arm,avg_fps\n1,ARM1-STOCKLIKE,77\n")
+            rows, skipped, _sources = fr.load_tree(root)
+            self.assertEqual(skipped, 0)
+            cells = {(c["device"], c["fg"], c["arm"]): c for c in fr.summarize(rows)}
+            self.assertEqual(cells[("pc2", "off", "stock")]["avg_fps"], 40)
+            self.assertEqual(cells[("pc2", "on", "stock")]["avg_fps"], 77)
+            self.assertNotIn(("pc2-fgon", "off", "stock"), cells)
+            groups = fr.chart_groups(list(fr.summarize(rows)))
+            self.assertEqual(groups, [("pc2", "off"), ("pc2", "on")])
+        finally:
+            shutil.rmtree(root)
 
 
 if __name__ == "__main__":
