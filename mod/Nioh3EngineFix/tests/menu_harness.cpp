@@ -47,6 +47,13 @@ int MatchPreset() { return 0; }
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
+int g_fm = 0;
+int HarnessPstGet(int what) { return what == 7 ? g_fm : -1; }
+int HarnessPstSet(int what, int value, int) {
+    if (what != 7) return -1;
+    g_fm = value < 0 ? !g_fm : (value ? 1 : 0);
+    return g_fm;
+}
 namespace host_fixture {
 namespace mb = rematch_menu_bridge;
 mb::Snapshot view{};
@@ -74,28 +81,74 @@ int main() {
     g_page = 0;
     g_sel = kPage;
     Open("harness");
-    CHECK(g_pages.page == pRoot && g_sel == kPageRow + pSettings);
+    CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
+    int rootN = PageRows(rows, true);
+    CHECK(rootN == 3 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pSettings && rows[2] == kClose);
     Change(g_sel, 0);
+    CHECK(g_pages.page == pDisplay && g_sel == kFps);
+    const int disp = PageRows(rows, true);
+    int pad = -1, padX = -1, padY = -1, padSize = -1, padOp = -1, padColor = -1;
+    for (int i = 0; i < kConfigN; ++i) {
+        const char* key = kConfigSettings[i].key;
+        if (!strcmp(key, "ControllerDisplay")) pad = i;
+        else if (!strcmp(key, "ControllerDisplayX")) padX = i;
+        else if (!strcmp(key, "ControllerDisplayY")) padY = i;
+        else if (!strcmp(key, "ControllerDisplaySize")) padSize = i;
+        else if (!strcmp(key, "ControllerDisplayOpacity")) padOp = i;
+        else if (!strcmp(key, "ControllerDisplayPressColor")) padColor = i;
+    }
+    CHECK(pad >= 0 && padX >= 0 && padY >= 0 && padSize >= 0 && padOp >= 0 && padColor >= 0);
+    bool sawFps = false, sawMeter = false, sawLook = false, sawPad = false, sawX = false, sawY = false;
+    bool sawSize = false, sawOp = false, sawColor = false;
+    for (int i = 0; i < disp; ++i) {
+        if (rows[i] == kFps) sawFps = true;
+        if (rows[i] == kFrameMeterRow) sawMeter = true;
+        if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
+        if (rows[i] == kSettingRow + pad) sawPad = true;
+        if (rows[i] == kSettingRow + padX) sawX = true;
+        if (rows[i] == kSettingRow + padY) sawY = true;
+        if (rows[i] == kSettingRow + padSize) sawSize = true;
+        if (rows[i] == kSettingRow + padOp) sawOp = true;
+        if (rows[i] == kSettingRow + padColor) sawColor = true;
+    }
+    CHECK(sawFps && sawMeter && sawPad && sawX && sawY && sawSize && sawOp && sawColor && !sawLook);
+    CHECK(rows[disp - 1] == kBackRow && strcmp(PageName(g_pages.page), "Display Overlays") == 0);
+    const int pageBefore = g_pages.page;
+    Change(kFrameMeterRow, 0);
+    CHECK(g_pages.page == pageBefore);
+    g_pstGet = HarnessPstGet;
+    g_pstSet = HarnessPstSet;
+    g_fm = 0;
+    Change(kFrameMeterRow, 0);
+    CHECK(g_fm == 1);
+    Change(kFrameMeterRow, -1);
+    CHECK(g_fm == 0);
+    g_pstGet = nullptr;
+    g_pstSet = nullptr;
+    Back();
+    CHECK(g_pages.page == pRoot);
+    Change(kPageRow + pSettings, 0);
     CHECK(g_pages.page == pSettings && g_sel == kPage);
     const int page1 = PageRows(rows, true);
     CHECK(rows[0] == kPage && rows[page1 - 1] == kBackRow);
-    bool sawSafe = false, sawLook = false;
+    bool sawSafe = false, sawMeterOnSettings = false;
     for (int i = 0; i < page1; ++i) {
         if (rows[i] == kFps) sawSafe = true;
         if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
+        if (rows[i] == kFrameMeterRow) sawMeterOnSettings = true;
     }
     char pageName[64];
     uint32_t pageColor = 0;
     Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(sawSafe && !sawLook && strcmp(pageName, "1/2 same picture") == 0);
+    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
     CHECK(g_sel == kBackRow);
     Close("harness");
     Open("harness");
-    CHECK(g_sel == kPageRow + pSettings);  // opens on Settings; the two pages are inside it
+    CHECK(g_sel == kPageRow + pDisplay);
     Close("harness");
     Open("harness");
-    Change(g_sel, 0);
+    Change(kPageRow + pSettings, 0);
     g_page = 1;
     const int page2 = PageRows(rows, true);
     sawSafe = false;
@@ -114,16 +167,12 @@ int main() {
     CHECK(g_pages.page == pRoot);
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    bool sawBoss = false, sawPractice = false;
-    for (int i = 0; i < bossN; ++i) {
-        sawBoss |= rows[i] == kRematchRow;
-        sawPractice |= rows[i] == kPracticeRow;
-    }
-    CHECK(sawBoss && sawPractice && rows[1] == kRematchRow && rows[2] == kPracticeRow);
+    CHECK(bossN == 5 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
+          rows[3] == kPageRow + pSettings && rows[4] == kClose);
     Change(kPageRow + pSettings, 0);
     g_page = 1;
     bossN = PageRows(rows, true);
-    sawBoss = sawPractice = false;
+    bool sawBoss = false, sawPractice = false;
     for (int i = 0; i < bossN; ++i) {
         sawBoss |= rows[i] == kRematchRow;
         sawPractice |= rows[i] == kPracticeRow;
