@@ -71,16 +71,59 @@ int main() {
     g_lastPadFeed = g_lastKeyFeed = (LONG64)Now();
     int rows[kMenuRowCap];
     g_cfg.layout = 0;
-    g_sel = kFps;
+    g_page = 0;
+    g_sel = kPage;
     Open("harness");
-    const int legacyN = PageRows(rows, true);
-    CHECK(rows[0] == kFps && rows[legacyN - 1] == kClose);
+    const int page1 = PageRows(rows, true);
+    CHECK(rows[0] == kPage && rows[page1 - 1] == kClose);
+    bool sawSafe = false, sawLook = false;
+    for (int i = 0; i < page1; ++i) {
+        if (rows[i] == kFps) sawSafe = true;
+        if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
+    }
+    char pageName[64];
+    uint32_t pageColor = 0;
+    Value(kPage, pageName, sizeof(pageName), pageColor);
+    CHECK(sawSafe && !sawLook && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
     CHECK(g_sel == kClose);
     Close("harness");
     Open("harness");
     CHECK(g_sel == kClose);  // flat-mode scripts still park their cursor
     Close("harness");
+    g_page = 1;
+    const int page2 = PageRows(rows, true);
+    sawSafe = false;
+    sawLook = false;
+    bool sawSwitcher = false;
+    for (int i = 0; i < page2; ++i) {
+        if (rows[i] == kFps) sawSafe = true;
+        if (rows[i] == kEpPre) sawLook = true;
+        if (rows[i] == kPage) sawSwitcher = true;
+    }
+    Value(kPage, pageName, sizeof(pageName), pageColor);
+    CHECK(!sawSafe && sawLook && sawSwitcher && strcmp(pageName, "2/2 may change the look") == 0);
+    Change(kPage, 0);
+    CHECK(g_page == 0);
+    g_rematchSession = 7;
+    int bossN = PageRows(rows, true);
+    bool sawBoss = false, sawPractice = false;
+    for (int i = 0; i < bossN; ++i) {
+        sawBoss |= rows[i] == kRematchRow;
+        sawPractice |= rows[i] == kPracticeRow;
+    }
+    CHECK(sawBoss && sawPractice && rows[1] == kRematchRow && rows[2] == kPracticeRow);
+    g_page = 1;
+    bossN = PageRows(rows, true);
+    sawBoss = sawPractice = false;
+    for (int i = 0; i < bossN; ++i) {
+        sawBoss |= rows[i] == kRematchRow;
+        sawPractice |= rows[i] == kPracticeRow;
+    }
+    CHECK(!sawBoss && !sawPractice);
+    g_rematchSession = 0;
+    g_page = 0;
+    const int legacyN = page1 + page2 - 3;  // switcher, save, and close sit on both pages
     g_cfg.layout = 1;
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pSettings);
@@ -95,7 +138,7 @@ int main() {
     OnPresentImpl();
     CHECK(g_pages.page == pSettings && osd::Overlay().fpsCounter == overlayValue);
     EnterPage(pAll);
-    CHECK(g_sel == kClose && PageRows(rows, true) == legacyN);
+    CHECK(g_sel == kClose && PageRows(rows, true) == legacyN - 1);  // grouped All hides the two-page switcher
     Move(1);
     CHECK(g_sel == kFps);
     MovePage(1);

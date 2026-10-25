@@ -56,6 +56,7 @@
 #include "thrsched.h"
 #include "psomemo.h"
 #include "bkstats.h"
+#include "rnt.h"
 #include "frameoverlap.h"
 #include "replayprof.h"
 #include "cbvupload.h"
@@ -134,7 +135,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.7.73"
+#define MOD_VERSION "1.7.75-allday"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -2974,6 +2975,12 @@ DWORD WINAPI Worker(LPVOID) {
             bki.base = reinterpret_cast<uintptr_t>(g_base);
             bki.knownBuild = known;
             bkstats::Start(bki);
+            rnt::StartInfo rni;  // render-node timer ([Profiler] NodeTimer = 0, F11). No code patch.
+            rni.log = &Log;
+            rni.iniPath = iniPath.c_str();
+            rni.base = reinterpret_cast<uintptr_t>(g_base);
+            rni.knownBuild = known;
+            rnt::Start(rni);
             frameoverlap::StartInfo foi;  // 1.7.59-fo1 FO frame overlap ([GpuOpt] FrameOverlap = 0; frameoverlap.cpp)
             foi.log = &Log;
             foi.iniPath = iniPath.c_str();

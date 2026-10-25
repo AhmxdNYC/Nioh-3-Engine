@@ -128,6 +128,9 @@ EclFn g_origEcl = nullptr;
 thread_local ID3D12CommandQueue* t_lastQ = nullptr;        // last queue seen on this thread (any type)
 thread_local ID3D12CommandQueue* t_lastDirectQ = nullptr;  // last DIRECT queue that submitted on this thread
 ID3D12CommandQueue* volatile g_lastDirectQ = nullptr;
+// [Debug] OsdAnyThreadQueue = 1 (test only): any thread's DIRECT queue, never re-checked. That is the FG-on
+// device-removed bug. Default 0 still uses another thread's game queue when THIS thread is not the FSR presenter.
+bool g_anyThreadQueue = false;
 thread_local int t_depth = 0;
 volatile LONG g_disabled = 0;
 volatile LONG g_colorSpace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
@@ -343,7 +346,7 @@ void UpdateStats(int64_t now) {
     // generated frames too (presented well above the tick rate), the engine tick rate is the best estimate
     const bool presenterRecent = g_lastFsrPresent && Secs(now - g_lastFsrPresent) < 1.0;
     double rendered = chains >= 2 ? lo : hi;
-    if (chains < 2 && g_st.tickFps > 5 && hi > 1.4 * g_st.tickFps) rendered = g_st.tickFps;
+    if (chains < 2 && g_st.tickFps > 5 && (presenterRecent || hi > 1.4 * g_st.tickFps)) rendered = g_st.tickFps;  // presenter thread alive: tick rate is the real rate (fixes ratio==1.00 paused flicker at ~1.4x)
     g_st.realFps = rendered;
     g_st.frameMs = rendered > 0.5 ? 1000.0 / rendered : 0.0;
     g_st.speed = g_st.dtN ? g_st.tickFps * g_st.dtSum / g_st.dtN : 0.0;  // game seconds per real second
@@ -358,7 +361,7 @@ void UpdateStats(int64_t now) {
         g_st.frameMs = 1000.0 / gameR;
         g_st.ratio = fsrR / gameR;
         g_st.fgActive = g_st.ratio > (g_st.fgActive ? 1.08 : 1.15);
-    } else if (presenterRecent && rendered > 5 && g_st.ratio >= 1.15) g_st.fgActive = true;
+    } else if (presenterRecent && rendered > 5 && g_st.ratio >= (g_st.fgActive ? 1.08 : 1.15)) g_st.fgActive = true;
     else if (!g_st.fgActive && rendered > 5 && g_st.ratio > 1.4) g_st.fgActive = true;
     else if (g_st.fgActive && (g_st.ratio < 1.2 || rendered <= 5)) g_st.fgActive = false;
     g_st.haveRates = true;
@@ -819,12 +822,18 @@ void STDMETHODCALLTYPE HkExecuteCommandLists(ID3D12CommandQueue* q, UINT n, ID3D
     g_origEcl(q, n, lists);
 }
 
-// The game's presenting queue when the swapchain won't say: the DIRECT queue that last submitted on this (the
-// presenting) thread, else on any thread, accepted only if it belongs to the device that owns the back buffers.
-// Returns an AddRef'd queue, or nullptr.
+// Another thread's game DIRECT queue is safe only when this thread is not the FSR presenter. With FG off the
+// game's Present (empty thread name, Nioh3.exe) is not the thread that calls ExecuteCommandLists, so refusing
+// that queue left the menu blank after 600 frames. The FSR presenter must wait for its own queue.
+bool OtherThreadQueueOk() {
+    return g_anyThreadQueue || !t_isFsr;
+}
+
+// The game's presenting queue when the swapchain won't say. Returns an AddRef'd queue, or nullptr (the caller
+// retries for up to 600 frames). The queue must belong to the device that owns the back buffers.
 ID3D12CommandQueue* CapturedQueue(IDXGISwapChain* sc) {
     if (!g_origEcl) return nullptr;
-    ID3D12CommandQueue* q = t_lastDirectQ ? t_lastDirectQ : g_lastDirectQ;
+    ID3D12CommandQueue* q = t_lastDirectQ ? t_lastDirectQ : OtherThreadQueueOk() ? g_lastDirectQ : nullptr;
     if (!q) return nullptr;
     q->AddRef();
     ID3D12Device *qDev = nullptr, *bufDev = nullptr;
@@ -833,7 +842,7 @@ ID3D12CommandQueue* CapturedQueue(IDXGISwapChain* sc) {
     if (SUCCEEDED(sc->GetBuffer(0, IID_PPV_ARGS(&buf))) && buf) buf->GetDevice(IID_PPV_ARGS(&bufDev));
     const bool match = qDev && (!bufDev || bufDev == qDev);
     OLOG("captured DIRECT queue %p (%s, %s thread), device %p (%s); back buffer device %p (%s) -> %s", (void*)q,
-         ModuleOf(*(void**)q).c_str(), q == t_lastDirectQ ? "presenting" : "other", (void*)qDev,
+         ModuleOf(*(void**)q).c_str(), q == t_lastDirectQ ? "presenting" : (t_isFsr ? "other-FSR" : "other-game"), (void*)qDev,
          qDev ? ModuleOf(*(void**)qDev).c_str() : "-", (void*)bufDev, bufDev ? ModuleOf(*(void**)bufDev).c_str() : "-",
          match ? (bufDev ? "same device, using it" : "back buffer device unknown, using it") : "DIFFERENT device, not used");
     if (bufDev) bufDev->Release();
@@ -915,6 +924,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
             return false;
         }
         c.qFallback = true;
+        g_queueWaits = 0;
         OLOG("IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr %08lX, swapchain %s) - drawing on the game's "
              "captured DIRECT queue instead", (unsigned long)qhr, ModuleOf(*(void**)sc).c_str());
     }
@@ -1365,21 +1375,37 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
         if (!BuildCtx(g_ctx, sc)) {
             DestroyCtx(g_ctx);
             if (g_needQueue && ++g_queueWaits < 600) {
-                --g_ctxBuilds;  // no game submission seen yet - try again next frame (not a failure)
+                --g_ctxBuilds;  // presenting thread has not submitted yet - try again next frame (not a failure)
                 return;
             }
+            if (g_needQueue)
+                OLOG("no %s DIRECT queue after 600 frames - overlay off for this swapchain%s",
+                     t_isFsr ? "FSR-presenter" : "presenting-thread",
+                     (!t_isFsr && !g_lastDirectQ) ? " (ExecuteCommandLists saw no game DIRECT queue on any thread)" : "");
             MarkBad(sc);
             return;
         }
     }
     if (!g_ctx.ok) return;
     // the same address can be a NEW swapchain (old one released, e.g. frame generation toggled): its queue tells.
-    // Not checkable when the queue came from ExecuteCommandLists (several DIRECT queues may take turns there).
+    // A fallback queue is re-checked, except [Debug] OsdAnyThreadQueue = 1 (the old never-re-checked behaviour).
+    // The FSR presenter drops a queue that belongs to another thread instead of drawing on it.
     ID3D12CommandQueue* q = g_ctx.q;
     if (!g_ctx.qFallback) {
         q = nullptr;
         if (FAILED(sc->GetDevice(IID_PPV_ARGS(&q))) || !q) return;
         q->Release();
+    } else if (!g_anyThreadQueue && t_isFsr && !t_lastDirectQ) {
+        // Leave the game thread's context in place. Tearing it down here thrashes the only overlay
+        // context, and drawing this present would submit on the game queue from the FSR thread.
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            OLOG("FSR presenter has no own DIRECT queue yet - not drawing on the game queue");
+        }
+        return;
+    } else if (!g_anyThreadQueue && t_lastDirectQ) {
+        q = t_lastDirectQ;
     }
     if (q != g_ctx.q) {
         OLOG("swapchain %p now presents on another queue (%p -> %p) - rebuilding", (void*)sc, (void*)g_ctx.q, (void*)q);
@@ -1835,6 +1861,10 @@ void Start(const StartupInfo& si) {
         wchar_t pos[32] = {};
         GetPrivateProfileStringW(L"Overlay", L"Position", L"TopLeft", pos, 32, f);
         g_cfg.pos = !_wcsicmp(pos, L"TopRight") ? 1 : !_wcsicmp(pos, L"BottomLeft") ? 2 : !_wcsicmp(pos, L"BottomRight") ? 3 : 0;
+        g_anyThreadQueue = I(L"Debug", L"OsdAnyThreadQueue", 0) != 0;
+        if (g_anyThreadQueue)
+            OLOG("[Debug] OsdAnyThreadQueue=1: TEST ONLY - the overlay may draw on another thread's queue (old fallback, "
+                 "known to remove the device under FSR FG)");
         {  // -1 = auto by OS: 1 under Wine/Proton (lowest latency, explicit under vkd3d), 0 on native Windows (the game's 1 is already lowest)
             int ml = I(L"Latency", L"MaxFrameLatency", 0);
             g_cfg.maxLatencyAuto = ml < 0;

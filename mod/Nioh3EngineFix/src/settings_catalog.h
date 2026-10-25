@@ -316,7 +316,7 @@ const setting_ui::Def kConfigSettings[] = {
     {"Profiler", "ReplayProfApi", "Replay prof api", "1", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 9, true, "Experimental. Saved at once; restart the game to apply. See the ini comments for prerequisites and caveats."},
     {"Profiler", "CbvStatsSec", "Cbv stats sec", "10", setting_ui::Kind::Number, 2, 600, 1, "", setting_ui::Apply::NextLaunch, "", -1, 9, true, "Experimental. Saved at once; restart the game to apply. See the ini comments for prerequisites and caveats."},
     {"Profiler", "CbvRecordDelaySec", "Cbv record delay sec", "60", setting_ui::Kind::Number, 0, 600, 5, "", setting_ui::Apply::NextLaunch, "", -1, 9, true, "Experimental. Saved at once; restart the game to apply. See the ini comments for prerequisites and caveats."},
-    {"Menu", "Layout", "Grouped settings menu", "1", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
+    {"Menu", "Layout", "Menu layout", "0", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "0 = two pages (same picture / may change the look). 1 = older grouped pages. Saved at once; restart to apply."},
 };
 constexpr int kConfigN = (int)(sizeof(kConfigSettings) / sizeof(kConfigSettings[0]));
 constexpr int kConfigGroupN = (int)(sizeof(kConfigGroups) / sizeof(kConfigGroups[0]));

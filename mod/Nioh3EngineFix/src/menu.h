@@ -1,6 +1,6 @@
 #include "cover_present.h"
 // menu.h - in-game mod menu of Nioh3EngineFix (F10 / Escape x3 / Start x3, configurable), drawn by the OSD (osd.cpp).
-// Grouped pages by default; B/Esc returns to the parent, root closes. LB/RB or PgUp/PgDn pages; Layout=0 keeps the flat menu.
+// Two pages by default (Layout=0): page 1 keeps the picture, page 2 can change the look. Layout=1 is the older grouped pages.
 //
 // Threads:
 //   * dllmain's Worker calls Configure() once, after the patches are applied.

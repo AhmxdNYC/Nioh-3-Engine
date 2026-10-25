@@ -19,6 +19,7 @@ inline const char* PageName(int page) {
     return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }
 inline int SettingsPage(int id) {
+    if (id == kPage) return pDisplay;  // grouped mode hides it (Visible); the two-page menu does not use this
     if (id >= kEpPre && id <= kEp9) return pExtra;
     if (id == kXTS || id == kXWS) return pDiagnostics;
     if (id == kXRTP || id == kXPCM) return pScheduling;

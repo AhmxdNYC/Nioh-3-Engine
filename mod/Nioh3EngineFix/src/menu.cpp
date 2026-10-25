@@ -612,7 +612,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
-          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kAutoCont,
+          kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
           kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
 #include "settings_catalog.h"
 #include "menu_pages.h"
@@ -734,6 +734,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
+    {"Settings page", "", "Page 1 = settings that keep the picture exactly the same, plus Boss Matches and Practice. Page 2 = settings that can change how the game looks. Left/Right or A switches.", "Menu only."},
     {"Skip loading tip screen", "(AutoContinueLoad)", "Presses Continue for you when a load finishes.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
@@ -748,6 +749,7 @@ struct OrderEnt {
     const char* section;  // header drawn before this item (nullptr = none)
 };
 const OrderEnt kOrder[] = {
+    {kPage, "Menu"},
     {kFps, "Display & overlay"}, {kFrameTime, nullptr}, {kSpeed, nullptr}, {kPos, nullptr}, {kOffX, nullptr}, {kOffY, nullptr},
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
@@ -775,7 +777,8 @@ int OrderPos(int id) {
     return 0;
 }
 
-int g_sel = kFps;  // unchanged for Layout=0; grouped opens start at Settings
+int g_sel = kPage;  // two-page menu (Layout=0) opens on the page switcher; grouped opens reset this
+int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
@@ -785,6 +788,7 @@ int g_expIni[kNumExp] = {};  // what Save writes for each experimental patch (li
 
 bool Visible(int id) {
     switch (id) {
+        case kPage: return !g_cfg.layout;  // the two-page switcher is the Layout=0 menu; grouped pages hide it
         case kW3Mode: return g_host.wine && g_host.w3Enable && g_host.w3UseSleep;
         case kL1Wine:
         case kFgWine: return g_host.wine;
@@ -798,13 +802,28 @@ bool Visible(int id) {
 // status rows: shown, never selected
 bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
 
+// Page 2 is only the rows whose text says the picture can change. Everything else stays on page 1.
+bool LookChanging(int id) {
+    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
+           id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
+}
+bool OnPage(int id) {
+    return id == kPage || id == kSave || id == kClose || LookChanging(id) == (g_page == 1);
+}
+const char* FlatPageName() { return g_page ? "2/2 may change the look" : "1/2 same picture"; }
+
 int PageRows(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
-        for (const auto& row : kOrder)
-            if (Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
-        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        for (const auto& row : kOrder) {
+            if (Visible(row.id) && OnPage(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+            // Boss Matches and Practice sit under the page switcher on page 1, once the boss mod has attached.
+            if (row.id == kPage && g_page == 0 && g_rematchSession.load()) {
+                add(kRematchRow);
+                add(kPracticeRow);
+            }
+        }
         return n;
     }
     const int page = g_pages.page;
@@ -1039,6 +1058,10 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
             snprintf(buf, n, "%s", g_cfg.pauseHint == 2 ? "Always" : g_cfg.pauseHint ? "In game menus" : "OFF");
             color = g_cfg.pauseHint ? cGreen : cGray;
             break;
+        case kPage:
+            snprintf(buf, n, "%s", FlatPageName());
+            color = g_page ? cOrange : cGreen;
+            break;
         case kFrameTime: onoff(o.frameTime != 0); break;
         case kSpeed: onoff(o.speed != 0); break;
         case kPos: snprintf(buf, n, "%s", osd::PositionName(o.pos)); break;
@@ -1185,7 +1208,7 @@ void Open(const char* how) {
     if (g_cfg.layout) {
         g_pages.Reset();
         g_sel = kPageRow + pSettings;
-    } else if (g_sel >= kCount || !Visible(g_sel)) g_sel = kOrder[0].id;
+    } else if (g_sel >= kCount || !Visible(g_sel) || !OnPage(g_sel)) g_sel = kPage;
     for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
@@ -1218,7 +1241,7 @@ int TrainingMode() {
     return r;
 }
 void OpenModePage(bool ready) {
-    if (!g_cfg.layout || !ready || !g_rematchSession.load()) return;
+    if (!ready || !g_rematchSession.load()) return;
     const int m = TrainingMode();
     if (m != 1 && m != 2) return;
     if (PostRematchAction(m == 1 ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu)) {
@@ -1358,6 +1381,11 @@ void Change(int id, int dir) {
     }
     if (id == kClose) {
         if (dir == 0) Close("Close menu item");
+        return;
+    }
+    if (id == kPage) {
+        g_page ^= 1;
+        MLOG("settings page -> %s", FlatPageName());
         return;
     }
     if (!Available(id)) return;
@@ -2349,7 +2377,7 @@ float DrawImpl(unsigned W, unsigned H) {
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
     // user #13279/#13296: plain title (the page name), the version goes to the right edge of the title bar
-    snprintf(title, sizeof(title), "%s", g_cfg.layout ? PageName(g_pages.page) : "Original controls");
+    snprintf(title, sizeof(title), "%s", g_cfg.layout ? PageName(g_pages.page) : FlatPageName());
     {
         int c = 0;
         char ver[40];
@@ -2666,7 +2694,7 @@ void Configure(const Host& h) {
     g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     if (g_cfg.enabled) StartRematchHostResolver();
-    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 1, f) != 0;
+    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 0, f) != 0;  // 0 = two pages; 1 = older grouped pages
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
     g_cfg.vk = 0;

@@ -256,7 +256,36 @@ void GateReqTick() {  // UI worker only. user #6789: Return gate used in the are
 }
 #include "menu_bridge_impl.h"
 
+UINT VkFromName(const wchar_t* s);
+bool EngineHostReady() {
+    const HMODULE engine = GetModuleHandleW(L"Nioh3EngineFix.asi");
+    const auto hostVersion = engine ? reinterpret_cast<uint32_t (*)()>(GetProcAddress(engine, "Nioh3EngineMenuHostVersion")) : nullptr;
+    return hostVersion && hostVersion() == rematch_menu_bridge::kVersion;
+}
+
 DWORD WINAPI UiThread(void*) {
+    // The host export is 0 until EngineFix has presented, so a check at load always missed it.
+    // Poll here, before any standalone window or pad hook. Attach can also set g_hostRequested.
+    const ULONGLONG t0 = GetTickCount64();
+    for (;;) {
+        if (g_hostRequested.load() || EngineHostReady()) {
+            g_hostRequested.store(true);
+            Log("Menu: EngineFix in-game host attached; standalone window/pad hook skipped");
+            return HostedThread(nullptr);
+        }
+        const ULONGLONG waited = GetTickCount64() - t0;
+        const bool engine = GetModuleHandleW(L"Nioh3EngineFix.asi") != nullptr;
+        if (waited >= (engine ? 180000ULL : 20000ULL)) break;
+        Sleep(200);
+    }
+    Log("Menu: EngineFix host did not answer; standalone overlay starting");
+    wchar_t hk[16] = {};
+    GetPrivateProfileStringW(L"Menu", L"Hotkey", L"F7", hk, 16, IniPath());
+    g_hotkey = VkFromName(hk);
+    g_gesture = IniInt(L"Menu", L"PadGesture", 1) != 0;
+    const bool pad = HookPad();
+    Log("Menu: overlay on (%ls%s; pad %s)", hk, g_gesture ? " or hold View + D-pad Up 1 s" : "",
+        pad ? "via the game's XInputGetState (masked while the menu is open)" : "NOT hooked (no xinput import) - keyboard only");
     WNDCLASSEXW wc = {sizeof(wc)};
     wc.lpfnWndProc = WndProc;
     wc.hInstance = GetModuleHandleW(nullptr);
@@ -354,28 +383,17 @@ bool Start() {
         return false;
     }
     rematch::UiSettingsPrepare();
-    // Both ASIs are normally loaded before their workers run. With the DX12
-    // host present, never create a second window or install a second pad hook.
-    const HMODULE engine = GetModuleHandleW(L"Nioh3EngineFix.asi");
-    const auto hostVersion = engine ? reinterpret_cast<uint32_t (*)()>(GetProcAddress(engine, "Nioh3EngineMenuHostVersion")) : nullptr;
-    if (hostVersion && hostVersion() == rematch_menu_bridge::kVersion) {
-        g_hostRequested.store(true);
-        if (HANDLE th = CreateThread(nullptr, 0, HostedThread, nullptr, 0, nullptr)) {
-            CloseHandle(th); g_bridgeAvailable.store(true);
-            Log("Menu: awaiting EngineFix in-game host; standalone window/pad hook skipped");
-            return true;
-        }
-        Log("Menu: hosted UI worker unavailable"); return false;
+    // One worker. It retries the host API until the in-game menu has presented,
+    // then attaches. Standalone F7 is only if EngineFix never shows up.
+    g_bridgeAvailable.store(true);
+    if (HANDLE th = CreateThread(nullptr, 0, UiThread, nullptr, 0, nullptr)) {
+        CloseHandle(th);
+        Log("Menu: retrying EngineFix host API before standalone overlay");
+        return true;
     }
-    wchar_t hk[16] = {};
-    GetPrivateProfileStringW(L"Menu", L"Hotkey", L"F7", hk, 16, IniPath());
-    g_hotkey = VkFromName(hk);
-    g_gesture = IniInt(L"Menu", L"PadGesture", 1) != 0;
-    const bool pad = HookPad();
-    if (HANDLE th = CreateThread(nullptr, 0, UiThread, nullptr, 0, nullptr)) { CloseHandle(th); g_bridgeAvailable.store(true); }
-    Log("Menu: overlay on (%ls%s; pad %s)", hk, g_gesture ? " or hold View + D-pad Up 1 s" : "",
-        pad ? "via the game's XInputGetState (masked while the menu is open)" : "NOT hooked (no xinput import) - keyboard only");
-    return true;
+    g_bridgeAvailable.store(false);
+    Log("Menu: UI worker unavailable");
+    return false;
 }
 
 }  // namespace ui
