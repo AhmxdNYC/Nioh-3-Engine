@@ -90,12 +90,18 @@ static void FmFeed(double gdt) {
             {
                 static uint32_t prevAct;
                 static float prevKt, prevKi;
-                static int prevBlue, sampleLogs;
+                static int prevBlue, sampleLogs, capTold;
                 const uint32_t act = g_fp[FP_PL].run.act;
                 const int jump = pkt > prevKt + 1.f || pkt < prevKt - 1.f || pki > prevKi + 15.f || pki < prevKi - 15.f;
-                if (sampleLogs < 60 && (act != prevAct || jump || open != prevBlue)) {
-                    sampleLogs++;
-                    Log("KI PULSE sample act %u timer %.1f Ki %.1f blue %d check %d", act, pkt, pki, open, landed);
+                const int watch = (act >= 6200u && act <= 6299u) || pkt > 0.f || open;
+                if (watch && (act != prevAct || jump || open != prevBlue)) {
+                    if (sampleLogs < 400) {
+                        sampleLogs++;
+                        Log("KI PULSE sample act %u timer %.1f Ki %.1f blue %d check %d", act, pkt, pki, open, landed);
+                    } else if (!capTold) {
+                        capTold = 1;
+                        Log("KI PULSE sample cap 400");
+                    }
                 }
                 prevAct = act; prevKt = pkt; prevKi = pki; prevBlue = open;
             }
