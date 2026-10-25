@@ -4972,7 +4972,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         PstLoadIni(ini);  // user #22389 [Practice]
         g_cfg_ab = GetPrivateProfileIntA("Debug", "AutoBind", 1, ini);
         g_cfg_am = GetPrivateProfileIntA("Debug", "AutoMoves", 1, ini);  // pc2 #23907
-        g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0)");  // user #22356
+        g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0, KiWindow 0)");  // user #22356
         FmLoadIni(ini);  // Practice frame meter
         NkmLoadIni(ini);  // user #23400 negative Ki meter
         FzLoadIni(ini);  // user #22589 Practice freeze keys

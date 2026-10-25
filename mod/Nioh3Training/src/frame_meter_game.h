@@ -29,22 +29,18 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
 static DWORD WINAPI FmThread(LPVOID p);
 static void FmLoadIni(const char* ini) {
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
-    g_pst.v[PS_FRAME_METER] = 1;
-    g_pst.v[PS_PLAYER_METER] = 1;
-    Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent) (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
-    Log("FRAME METER: player Ki window is dark blue on the lower half of those pips. Both meters are on for this build.");
+    Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
 }
-static int FmPlayerKiWindow(uint64_t a) {
-    uint64_t st = 0;
-    float kt = -1.f;
-    if (!a || !Rd64(a + 0x3A0, &st) || !st) return 0;
-    __try { kt = *(volatile float*)(st + 0x98 + 0x74); }
-    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+// Player KiTick K+0x74 (status = [actor+0x3A0], K = status+0x98). Read only. 1 while the 30-tick window is counting down.
+static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
+    uint64_t st = 0; float kt = -1.f;
+    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) return 0;
+    __try { kt = *(volatile float*)(st + 0x98 + 0x74); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return FmKiWindowOpen(kt);
 }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
-    const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER];
+    const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
     if ((!wantB && !wantP) || !g_pst_live) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
     if (!g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
     double dt = gdt;
@@ -59,7 +55,7 @@ static void FmFeed(double gdt) {
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
-        FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiWindow(g_fp[FP_PL].a));
+        if (g_pst.v[PS_KI_WINDOW]) FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiOpen(g_fp[FP_PL].a));
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
     }
@@ -120,7 +116,9 @@ static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {
 }
 static int FmReadoutHeight(int barH, int pad) { return g_pst.v[PS_FRAME_READOUT] ? barH+pad : 0; }
 static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_METER] && g_fm_show && g_fm_ki_show; }
-static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (g_pst.v[PS_PLAYER_METER] && g_fmp_show ? 1 : 0) + FmKiShown(); }
+static int FmPlayerRow(void) { return (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fmp_show; }
+static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmKiShown(); }
+#define FM_KIWIN_RGB RGB(16,44,168)
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
@@ -145,22 +143,21 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     FmFill(dc,x0-1,by-1,barW+2,barH+2,RGB(41,50,65));
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
         const uint8_t c=FmViewCell(&m,viewStart+i);
-        FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmColor(c&0x7F));
-        if(kiStripe && FmViewKiWin(&m,viewStart+i)) {
-            int bh=barH/2; if(bh<4) bh=4; if(bh>barH) bh=barH;
-            FmFill(dc,x0+i*cw,by+barH-bh,cw>3?cw-2:cw>1?cw-1:cw,bh,RGB(12,36,168));
-        }
-        if((c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
+        const int win=kiStripe && FmViewKiWin(&m,viewStart+i);
+        FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win?FM_KIWIN_RGB:FmColor(c&0x7F));
+        if(!win && (c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
     }
-    // Count each visible colour run; action boundaries also start a new run.
+    // Count each visible colour run; action boundaries and the Ki window also start a new run.
     // Centre within its LAST coloured cell, excluding the separator.
     for(int first=0;first<FM_CELLS;) {
         const uint8_t st=FmViewCell(&m,first)&0x7F;
+        const int win=kiStripe && FmViewKiWin(&m,first);
         int end=first+1;
         while(end<FM_CELLS) {
             const uint8_t next=FmViewCell(&m,end);
-            if((next&0x7F)!=st || (next&FM_EDGE)) break;
+            const int nwin=kiStripe && FmViewKiWin(&m,end);
+            if((next&0x7F)!=st || (next&FM_EDGE) || nwin!=win) break;
             ++end;
         }
         if(st!=FM_EMPTY && end>viewStart && end<=viewStart+FM_DISPLAY_CELLS) {
@@ -184,26 +181,30 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
+static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 1 : 0) + FmKiShown(); }
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
-    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>12+FmKiShown()) cols=12+FmKiShown();
-    return (((12+FmKiShown())+cols-1)/cols)*lh+pad*2;
+    const int n=FmLegendCount();
+    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
+    return ((n+cols-1)/cols)*lh+pad*2;
 }
 static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>12+FmKiShown()) cols=12+FmKiShown();
-    const int pitch=bw/cols;
     const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),RGB(12,36,168),RGB(138,92,255)};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255)};
+    int use[13]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0;
+    int idx[13], n=0; for(int i=0;i<13;++i) if(use[i]) idx[n++]=i;
+    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
+    const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
     HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
     FmLabel(dc,x-gutter,y+pad,"KEY",RGB(145,159,181));
-    for(int i=0;i<12+FmKiShown();++i) {
+    for(int i=0;i<n;++i) {
         const int xx=x+(i%cols)*pitch,yy=y+pad+(i/cols)*lh;
-        FmFill(dc,xx,yy+3,8,8,colors[i]); FmLabel(dc,xx+12,yy,names[i],RGB(183,194,211));
+        FmFill(dc,xx,yy+3,8,8,colors[idx[i]]); FmLabel(dc,xx+12,yy,names[idx[i]],RGB(183,194,211));
     }
     SelectObject(dc,old);
 }
@@ -219,7 +220,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
     int oy=FmReadoutHeight(barH,pad);
     if(oy) {
-        const FmSum* q=(g_pst.v[PS_PLAYER_METER] && g_fmp_show) ? &mp.cur : &m.cur;
+        const FmSum* q=FmPlayerRow() ? &mp.cur : &m.cur;
         char start[24]="--",active[192]="--",recovery[24]="--",total[24]="--",text[320];
         if(q->hits) {
             snprintf(start,sizeof start,"%d",q->startup);
@@ -238,7 +239,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(g_pst.v[PS_PLAYER_METER] && g_fmp_show) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",1); oy+=ph; }
+    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW]); oy+=ph; }
     if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0); oy+=ph; }
     if(showKi) {
         int used=FM_CELLS; while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
@@ -284,7 +285,7 @@ static DWORD WINAPI FmThread(LPVOID p) {
         Sleep(33);
         MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_fm_game || !IsWindow(g_fm_game)) { g_fm_game = 0; EnumWindows(FmFind, 0); }
-        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) && g_pst_live && FmPanels() && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
+        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live && FmPanels() && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
         if (!want) { if (shown) { ShowWindow(g_fm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_fm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_fm_game, &o);
         int cw, barH, lineH, pad; g_fm_H = cr.bottom;

@@ -95,7 +95,7 @@ static void FzTick(void) {
     for (int s = 0; s < N3T_SLOTS; ++s) { const uint64_t a = BvActor(s); if (a) live = 1; if (g_fz.held && g_fz_boss[s]) { if (a != g_fz_boss[s]) bossSame = 0; else if (FzBossDead(a)) bossDead = 1; } }
     const uint64_t me = PlayerChar();
     const int reason = g_fz_off ? FZR_BUSY : FzSafeReason(live, MenuPauseBusy(), bossSame, bossDead, !g_fz.held || me == g_fz_player, g_fz.held ? GetTickCount() - g_fz_t0 : 0);
-    const int src = g_fp_hooked == 1 && (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) && g_pst_live;  // 1 = the meter's clock
+    const int src = g_fp_hooked == 1 && (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live;  // 1 = the meter's clock
     const double clk = src ? g_fm_clock : g_fz_own;
     if (g_fz.held && src != g_fz_src) { const int64_t c = FzCell(clk); g_fz.cell0 += c - g_fz.cell; g_fz.target += c - g_fz.cell; g_fz.cell = c; }
     g_fz_src = src;

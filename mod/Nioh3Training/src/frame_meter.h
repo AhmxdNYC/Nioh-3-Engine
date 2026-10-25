@@ -26,10 +26,11 @@ typedef struct {
     double ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW];
     FmSum cur, last; int haveLast;
     uint8_t frozen[FM_CELLS]; int frozenN;  // the last completed attack as drawn when it ended (its first cell first)
-    uint8_t kiwin[FM_CELLS];                // 1 = the Ki window timer was open on that cell (player bar)
+    uint8_t kiwin[FM_CELLS];                // 1 while the player Ki window (KiTick K+0x74) was open on that cell
+    int64_t kiwinCell;                      // last global cell stamped into kiwin (-1 = none)
     uint8_t kiwinFrozen[FM_CELLS]; int kiwinFrozenN;
 } FmMeter;
-static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; }
+static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; m->kiwinCell = -1; }
 static inline int64_t FmCellOf(double t) { return t <= 0 ? 0 : (int64_t)(t * 0.06); }
 static inline int FmRound(double f) { return f <= 0 ? 0 : (int)(f + 0.5); }
 static inline void FmRecolor(FmMeter* m, int64_t from, int64_t to, uint8_t a, uint8_t b) {
@@ -118,19 +119,27 @@ static inline int64_t FmViewStart(const FmMeter* m) {
     if (m->on && m->nw && m->lastCell - m->c0 < FM_CELLS && m->c0 >= m->lastCell - (FM_CELLS - 1)) return m->c0;
     return m->lastCell - (FM_CELLS - 1);
 }
-// Cell i of the view, 0 = left .. FM_CELLS-1 = right (state | FM_EDGE, FM_EMPTY where nothing is drawn).
-// kt74 is closed at -1 and counts down from about 30 while the Ki window is open.
-static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 >= 0.f && kt74 <= 40.f; }
+// KiTick K+0x74 counts down from about 30. Closed at 0 and below, and a stuck high timer is not the window.
+static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 31.f; }
+// Stamp this sample onto the current cell and any cells the meter just filled across a hitch.
 static inline void FmMarkKiWin(FmMeter* m, double t, int open) {
+    if (m->lastCell < 0) return;
     const int64_t g = FmCellOf(t);
-    if (!m->on || m->lastCell < 0 || g < 0 || g > m->lastCell) return;
-    m->kiwin[g % FM_CELLS] = open ? 1 : 0;
+    if (g < 0 || g > m->lastCell) return;
+    int64_t from = m->kiwinCell < 0 ? g : m->kiwinCell + 1;
+    if (from > g) from = g;
+    if (from < g - (FM_CELLS - 1)) from = g - (FM_CELLS - 1);
+    if (from < 0) from = 0;
+    for (int64_t k = from; k <= g; ++k) m->kiwin[k % FM_CELLS] = open ? 1 : 0;
+    m->kiwinCell = g;
 }
+// Same index as FmViewCell. 1 = that cell was inside the Ki window.
 static inline int FmViewKiWin(const FmMeter* m, int i) {
-    if (!(m->on && m->nw) && m->haveLast) return i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
+    if (!(m->on && m->nw) && m->haveLast) return i >= 0 && i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
     const int64_t g = FmViewStart(m) + i;
     return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->kiwin[g % FM_CELLS];
 }
+// Cell i of the view, 0 = left .. FM_CELLS-1 = right (state | FM_EDGE, FM_EMPTY where nothing is drawn).
 static inline uint8_t FmViewCell(const FmMeter* m, int i) {
     if (!(m->on && m->nw) && m->haveLast) return i < m->frozenN ? m->frozen[i] : FM_EMPTY;
     const int64_t g = FmViewStart(m) + i;

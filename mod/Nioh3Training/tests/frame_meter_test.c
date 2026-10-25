@@ -102,14 +102,18 @@ int main(void) {
         b[2] = 1; assert(FmPickSlot(0, 4, v, b) == 0 /* busy but not valid: ignored */);
         v[0] = v[1] = 0; assert(FmPickSlot(0, 4, v, b) == -1);
     }
-    // Ki window: closed at -1, open while the timer is 0..40 (probe log #2236 kt74).
-    { float bad; memset(&bad, 0xFF, sizeof bad); assert(!FmKiWindowOpen(-1.f) && !FmKiWindowOpen(41.f) && !FmKiWindowOpen(bad));
-      assert(FmKiWindowOpen(0.f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(40.f)); }
+    // Ki window (#34558): KiTick K+0x74 closed at <=0 and above 31, open from just above 0 through 31.
+    { float bad; memset(&bad, 0xFF, sizeof bad);
+      assert(!FmKiWindowOpen(-1.f) && !FmKiWindowOpen(0.f) && !FmKiWindowOpen(0.05f) && !FmKiWindowOpen(31.1f) && !FmKiWindowOpen(bad));
+      assert(FmKiWindowOpen(0.06f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(31.f)); }
     FmReset(&m); t = 0;
-    FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1); // a hit keeps the bar on this action, so cell 0 is the open window
-    assert(FmViewKiWin(&m, 0) == 1);
-    FmSample(&m, t + 500, 2, 0, 0); // the attack freezes; the dark-blue cell stays
-    assert(m.haveLast && FmViewKiWin(&m, 0) == 1);
+    FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1); assert(FmViewKiWin(&m, 0) == 1);
+    for (int i = 0; i < 20; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 0); }
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n == 1); }
+    for (int i = 0; i < 30; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 1); }
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
+    FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
     puts("frame_meter_test: all passed");
     return 0;
 }
