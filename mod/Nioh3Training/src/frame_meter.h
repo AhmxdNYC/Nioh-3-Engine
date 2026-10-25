@@ -32,8 +32,12 @@ typedef struct {
     uint8_t kipulse[FM_CELLS];              // 1 on the cell where a Ki pulse landed
     int64_t kipulseCell;
     uint8_t kipulseFrozen[FM_CELLS]; int kipulseFrozenN;
+    uint8_t nodmg[FM_CELLS];                // #35176: 1 while a game no-hit / no-damage flag was set on that cell (i-frames, notes/iframes.md)
+    int64_t nodmgCell;                      // last global cell stamped into nodmg (-1 = none)
+    int nd;                                 // cells of the current run with nodmg set (a dodge with i-frames is shown like an attack)
+    uint8_t nodmgFrozen[FM_CELLS]; int nodmgFrozenN;
 } FmMeter;
-static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; m->kiwinCell = -1; m->kipulseCell = -1; }
+static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; m->kiwinCell = -1; m->kipulseCell = -1; m->nodmgCell = -1; }
 static inline int64_t FmCellOf(double t) { return t <= 0 ? 0 : (int64_t)(t * 0.06); }
 static inline int FmRound(double f) { return f <= 0 ? 0 : (int)(f + 0.5); }
 static inline void FmRecolor(FmMeter* m, int64_t from, int64_t to, uint8_t a, uint8_t b) {
@@ -67,26 +71,29 @@ static inline void FmSummary(const FmMeter* m, double t, int done, FmSum* s) {
 static inline void FmEnd(FmMeter* m, double t) {
     if (!m->on) return;
     if (!m->nw) FmRecolor(m, m->c0, m->lastCell, FM_PENDING, FM_NEUTRAL);
-    else {
+    if (m->nw || m->nd) {  // #35176: a run with i-frames but no hit (a dodge) is frozen too, so its i-frames stay on screen
         FmSummary(m, t, 1, &m->last); m->haveLast = 1;
         int64_t from = m->c0; if (from < m->lastCell - (FM_CELLS - 1)) from = m->lastCell - (FM_CELLS - 1); if (from < 0) from = 0;
-        m->frozenN = 0; m->kiwinFrozenN = 0; m->kipulseFrozenN = 0;
+        m->frozenN = 0; m->kiwinFrozenN = 0; m->kipulseFrozenN = 0; m->nodmgFrozenN = 0;
         for (int64_t g = from; g <= m->lastCell && m->frozenN < FM_CELLS; ++g) {
             m->frozen[m->frozenN] = m->cell[g % FM_CELLS];
             m->kiwinFrozen[m->kiwinFrozenN] = m->kiwin[g % FM_CELLS];
             m->kipulseFrozen[m->kipulseFrozenN] = m->kipulse[g % FM_CELLS];
-            m->frozenN++; m->kiwinFrozenN++; m->kipulseFrozenN++;
+            m->nodmgFrozen[m->nodmgFrozenN] = m->nodmg[g % FM_CELLS];
+            m->frozenN++; m->kiwinFrozenN++; m->kipulseFrozenN++; m->nodmgFrozenN++;
         }
     }
     m->cur = m->last; m->on = 0;
 }
+// The view shows the live run while it has a hit or an i-frame cell; otherwise the frozen last one.
+static inline int FmLiveRun(const FmMeter* m) { return m->on && (m->nw || m->nd); }
 // One sample per game tick. t = meter clock (ms, pausable), act = the boss action id, active = a hit window is open now or a hit was created
 // since the previous sample, ub = one of those windows is unblockable.
 static inline void FmSampleEx(FmMeter* m, double t, uint32_t act, int active, int ub, int grab) {
     int edge = 0;
     if (!m->on || act != m->act) {
         FmEnd(m, t);
-        m->on = 1; m->act = act; m->t0 = t; m->c0 = FmCellOf(t); m->nw = 0; m->open = 0; edge = 1;
+        m->on = 1; m->act = act; m->t0 = t; m->c0 = FmCellOf(t); m->nw = 0; m->nd = 0; m->open = 0; edge = 1;
     }
     const double rel = t - m->t0; const int64_t g = FmCellOf(t);
     if (active) {
@@ -120,7 +127,7 @@ static inline uint8_t FmCellAt(const FmMeter* m, int i) {
 // View (SF6 style): while the current action has a hit, the bar starts at its first cell (it scrolls only if the action outgrows FM_CELLS);
 // otherwise the last completed attack stays frozen (snapshot taken when it ended) until the next attack's first hit. Before any attack it scrolls.
 static inline int64_t FmViewStart(const FmMeter* m) {
-    if (m->on && m->nw && m->lastCell - m->c0 < FM_CELLS && m->c0 >= m->lastCell - (FM_CELLS - 1)) return m->c0;
+    if (FmLiveRun(m) && m->lastCell - m->c0 < FM_CELLS && m->c0 >= m->lastCell - (FM_CELLS - 1)) return m->c0;
     return m->lastCell - (FM_CELLS - 1);
 }
 // KiTick K+0x74 counts down from about 30. Closed at 0 and below, and a stuck high timer is not the window.
@@ -139,7 +146,7 @@ static inline void FmMarkKiWin(FmMeter* m, double t, int open) {
 }
 // Same index as FmViewCell. 1 = that cell was inside the Ki Pulse bar.
 static inline int FmViewKiWin(const FmMeter* m, int i) {
-    if (!(m->on && m->nw) && m->haveLast) return i >= 0 && i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
+    if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
     const int64_t g = FmViewStart(m) + i;
     return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->kiwin[g % FM_CELLS];
 }
@@ -211,15 +218,40 @@ static inline void FmMarkKiPulse(FmMeter* m, double t, int landed) {
     m->kipulseCell = g;
 }
 static inline int FmViewKiPulse(const FmMeter* m, int i) {
-    if (!(m->on && m->nw) && m->haveLast) return i >= 0 && i < m->kipulseFrozenN ? m->kipulseFrozen[i] : 0;
+    if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->kipulseFrozenN ? m->kipulseFrozen[i] : 0;
     const int64_t g = FmViewStart(m) + i;
     return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->kipulse[g % FM_CELLS];
 }
 // Cell i of the view, 0 = left .. FM_CELLS-1 = right (state | FM_EDGE, FM_EMPTY where nothing is drawn).
 static inline uint8_t FmViewCell(const FmMeter* m, int i) {
-    if (!(m->on && m->nw) && m->haveLast) return i < m->frozenN ? m->frozen[i] : FM_EMPTY;
+    if (!FmLiveRun(m) && m->haveLast) return i < m->frozenN ? m->frozen[i] : FM_EMPTY;
     const int64_t g = FmViewStart(m) + i;
     return m->lastCell < 0 || g < 0 || g > m->lastCell ? FM_EMPTY : m->cell[g % FM_CELLS];
+}
+// #35176: stamp the game's no-hit / no-damage state (i-frames) on the current cell and the cells filled across a hitch.
+// Call after FmSampleEx for the same t. Counts the run's i-frame cells (m->nd) so a dodge without hits is shown.
+static inline void FmMarkNoDmg(FmMeter* m, double t, int on) {
+    if (m->lastCell < 0) return;
+    const int64_t g = FmCellOf(t);
+    if (g < 0 || g > m->lastCell) return;
+    int64_t from = m->nodmgCell < 0 ? g : m->nodmgCell + 1;
+    if (from > g) from = g;
+    if (from < g - (FM_CELLS - 1)) from = g - (FM_CELLS - 1);
+    if (from < 0) from = 0;
+    for (int64_t k = from; k <= g; ++k) {
+        uint8_t* c = &m->nodmg[k % FM_CELLS]; const uint8_t v = on ? 1 : 0;
+        if (k > m->nodmgCell) *c = 0;  // a new cell: the ring slot still holds an old value
+        if (k >= m->c0 && v && !*c) m->nd++;
+        else if (k >= m->c0 && !v && *c && m->nd > 0) m->nd--;
+        *c = v;
+    }
+    m->nodmgCell = g;
+}
+// Same index as FmViewCell. 1 = the player could not be hit / damaged on that cell.
+static inline int FmViewNoDmg(const FmMeter* m, int i) {
+    if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->nodmgFrozenN ? m->nodmgFrozen[i] : 0;
+    const int64_t g = FmViewStart(m) + i;
+    return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->nodmg[g % FM_CELLS];
 }
 // Two text lines of a summary: "act 0x4E6E  hits 2 (2 unblockable)" / "startup 95 / active 94-106, 141-157 / recovery 176 / total 333".
 static inline void FmText(const FmSum* s, char* l1, size_t n1, char* l2, size_t n2) {

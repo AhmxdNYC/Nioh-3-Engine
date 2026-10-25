@@ -18,7 +18,37 @@ static void Drill(FmMeter* m, double* t, double step, int ub) {
         FmSample(m, *t, 0x4E6E, act, act && ub);
     }
 }
+// #35176: i-frames are a separate stripe, not recovery. A dodge (no hit window) with no-damage frames is shown and frozen.
+static void NoDmgTests(void) {
+    const double f = 1000.0 / 60.0; FmMeter g; FmReset(&g); double t = 1;
+    // attack 1: hit at frames 10-14, recovery after; no i-frames
+    for (int i = 0; i < 30; ++i, t += f) { FmSampleEx(&g, t, 0x10, i >= 10 && i < 15, 0, 0); FmMarkNoDmg(&g, t, 0); }
+    // dodge 2: 24 frames, no hit, i-frames on frames 3..12
+    for (int i = 0; i < 24; ++i, t += f) { FmSampleEx(&g, t, 0x20, 0, 0, 0); FmMarkNoDmg(&g, t, i >= 3 && i <= 12); }
+    assert(g.on && g.nw == 0 && g.nd == 10 && FmLiveRun(&g));  // live: the dodge, not the frozen attack
+    assert((FmViewCell(&g, 0) & FM_EDGE) && FmViewNoDmg(&g, 3) && FmViewNoDmg(&g, 12) && !FmViewNoDmg(&g, 2) && !FmViewNoDmg(&g, 13));
+    for (int i = 0; i < 24; ++i) assert((FmViewCell(&g, i) & 0x7F) != FM_RECOVERY);  // i-frame != recovery
+    // idle 3: the dodge stays frozen with its stripe
+    for (int i = 0; i < 5; ++i, t += f) { FmSampleEx(&g, t, 0x2, 0, 0, 0); FmMarkNoDmg(&g, t, 0); }
+    assert(!FmLiveRun(&g) && g.haveLast && g.nodmgFrozenN == 24);
+    int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewNoDmg(&g, i);
+    assert(n == 10 && (FmViewCell(&g, 0) & 0x7F) == FM_NEUTRAL);
+    // attack 4 with i-frames during its own active frames: both shown, counts unchanged
+    for (int i = 0; i < 20; ++i, t += f) { FmSampleEx(&g, t, 0x30, i >= 5 && i < 8, 0, 0); FmMarkNoDmg(&g, t, i >= 4 && i < 9); }
+    assert(g.nw == 1 && g.nd == 5 && FmViewNoDmg(&g, 4) && (FmViewCell(&g, 5) & 0x7F) == FM_ACTIVE && (FmViewCell(&g, 12) & 0x7F) == FM_RECOVERY && !FmViewNoDmg(&g, 12));
+    // a hitch: one sample jumps 6 cells with the flag on -> the skipped cells are stamped, counted once
+    FmReset(&g); t = 1;
+    FmSampleEx(&g, t, 0x40, 0, 0, 0); FmMarkNoDmg(&g, t, 0); t += 6 * f;
+    FmSampleEx(&g, t, 0x40, 0, 0, 0); FmMarkNoDmg(&g, t, 1);
+    FmMarkNoDmg(&g, t, 1);  // same cell again: no double count
+    assert(g.nd == 6);
+    // the ring reuses slots: an old stamp must not leak into a new cell
+    FmReset(&g); t = 1;
+    for (int i = 0; i < FM_CELLS + 50; ++i, t += f) { FmSampleEx(&g, t, 0x50 + (i >= FM_CELLS), 0, 0, 0); FmMarkNoDmg(&g, t, i < 20); }
+    assert(g.nd == 0 && !FmLiveRun(&g));
+}
 int main(void) {
+    NoDmgTests();
     { FmMeter g; FmReset(&g);
       FmSampleEx(&g,0,1,0,0,0);
       FmSampleEx(&g,20,1,1,1,1);
