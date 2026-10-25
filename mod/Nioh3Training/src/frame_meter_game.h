@@ -321,7 +321,19 @@ static DWORD WINAPI FmThread(LPVOID p) {
         Sleep(33);
         MSG msg; while (PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
         if (!g_fm_game || !IsWindow(g_fm_game)) { g_fm_game = 0; EnumWindows(FmFind, 0); }
-        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live && FmPanels() && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
+        const int have = g_fm_show || g_fmp_show;
+        const int gameOk = g_fm_game && !IsIconic(g_fm_game);
+        const int fg = gameOk && GetForegroundWindow() == g_fm_game;
+        const int menu = GateMenuOpen();
+        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live && FmPanels() && gameOk && fg && !menu;
+        if (have) {
+            static int toldOn, toldWhy;
+            if (want && !toldOn) { toldOn = 1; Log("FRAME METER: on screen"); }
+            else if (!want && !toldWhy) {
+                toldWhy = 1;
+                Log("FRAME METER: hidden live %d panels %d game %d foreground %d menu %d", (int)g_pst_live, FmPanels(), gameOk ? 1 : 0, fg ? 1 : 0, menu ? 1 : 0);
+            }
+        }
         if (!want) { if (shown) { ShowWindow(g_fm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_fm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_fm_game, &o);
         int cw, barH, lineH, pad; g_fm_H = cr.bottom;
