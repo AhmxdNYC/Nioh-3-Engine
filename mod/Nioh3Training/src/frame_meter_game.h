@@ -7,13 +7,19 @@
 // Drawing: a click-through topmost layered GDI window over the game (the same fallback renderer as the Rematch standalone menu and the fade window),
 // so no Present hook and no other ASI is involved. Hidden while the mod menu is open, the game is not the foreground window or no data yet.
 // Ini (Nioh3Training.ini [Practice]): FrameMeter = 0/1 (default 0, the Practice hub row 'Frame meter'), FrameMeterY = top of the meter in % of the
-// screen height (default 10: below the boss name and health bar).
+// screen height; -1 (default) anchors above the lower player HUD, slightly left.
 #include "frame_meter.h"
+#include "frame_meter_ki.h"
+#include "frame_meter_position.h"
+static __attribute__((noinline)) int NkmRead(uint64_t a,float* cur,float* mx,float* k60,int* dead);
+static int FmHumanBoss(uint64_t actor,uint32_t chr); // definition after automatic binding, no per-boss list
+static const char* const g_fm_ki_label="KI DEBT";
+static FmKi g_fm_ki; static volatile LONG g_fm_ki_show;
 static volatile LONG g_fz_hold, g_fz_over, g_fz_frames, g_fz_steps; static int g_fz_vk_freeze, g_fz_vk_step;  // practice_freeze_game.h (Practice freeze + frame advance)
 static const char* FzKeyName(int vk, char* b, int n);
 static FmMeter g_fm, g_fmp; static volatile LONG g_fmp_show; static SRWLOCK g_fm_lock = SRWLOCK_INIT;
-static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = 10;
-static HWND g_fm_wnd, g_fm_game; static uint64_t g_fm_actor; static char g_fm_who[48] = "Boss A";
+static volatile LONG g_fm_ver, g_fm_show, g_fm_thread; static int g_fm_slot = -1; static double g_fm_clock, g_fm_last; static int g_cfg_fm_y = -1;
+static HWND g_fm_wnd, g_fm_game; static uint64_t g_fm_actor; static uint32_t g_fm_chr; static char g_fm_who[48] = "Boss A";
 // Label of the followed boss: "Boss B - <name>" (name from the arena table row of its character id, when there is one).
 static void FmWho(int slot, uint32_t chr, char* out, int n) {
     const char* nm = 0;
@@ -22,13 +28,13 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
 }
 static DWORD WINAPI FmThread(LPVOID p);
 static void FmLoadIni(const char* ini) {
-    g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", 10, ini); if (g_cfg_fm_y < 0 || g_cfg_fm_y > 90) g_cfg_fm_y = 10;
-    Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d %% (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
+    g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
+    Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent) (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
 }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER];
-    if ((!wantB && !wantP) || !g_pst_live) { g_fm_show = 0; g_fmp_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
+    if ((!wantB && !wantP) || !g_pst_live) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
     if (!g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
     double dt = gdt;
     if (dt < 0) dt = 0; if (dt > 150) dt = 150;
@@ -38,98 +44,199 @@ static void FmFeed(double gdt) {
     // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
     if (!wantP) g_fmp_show = 0;
     else if (g_fp[FP_PL].valid) {
-        int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb;
-        for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; }
+        int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb, grab = g_fp[FP_PL].pulseGrab;
+        for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
-        FmSample(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub);
+        FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
     }
-    g_fp[FP_PL].pulse = g_fp[FP_PL].pulseUb = 0;
-    if (!wantB) { g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }
+    g_fp[FP_PL].pulse = g_fp[FP_PL].pulseUb = g_fp[FP_PL].pulseGrab = 0;
+    if (!wantB) { g_fm_ki_show = 0; g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = g_fp[i].pulseGrab = 0; InterlockedIncrement(&g_fm_ver); return; }
     int valid[N3T_SLOTS], busy[N3T_SLOTS];
     for (int i = 0; i < N3T_SLOTS; ++i) {
         valid[i] = g_fp[i].valid; busy[i] = g_fp[i].valid && (g_fp[i].pulse || g_fp[i].pulseUb);
         for (int w = 0; w < FP_WIN && valid[i] && !busy[i]; ++w) if (g_fpw[w].used && g_fpw[w].slot == i && g_fpw[w].act == g_fp[i].run.act) busy[i] = 1;
     }
     const int s = FmPickSlot(g_fm_slot, N3T_SLOTS, valid, busy);  // user #22918: the boss that is attacking, not always the first slot
-    if (s < 0) { for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0; InterlockedIncrement(&g_fm_ver); return; }  // no boss: the last picture stays
-    int active = g_fp[s].pulse, ub = g_fp[s].pulseUb;
-    for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = 0;
+    if (s < 0) { g_fm_ki_show = 0; g_fm_slot=-1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = g_fp[i].pulseGrab = 0; InterlockedIncrement(&g_fm_ver); return; }  // no boss: the last picture stays
+    int active = g_fp[s].pulse, ub = g_fp[s].pulseUb, grab = g_fp[s].pulseGrab;
+    for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = g_fp[i].pulseGrab = 0;
     // an open window of this boss is active only while it belongs to the CURRENT action: a window opened by the previous action (its hitbox still
     // open when the action id changes) is closed for the meter, so an idle/move action after an attack gets no fake active/recovery run
-    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) { active = 1; if (g_fpw[w].great) ub = 1; }
+    for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == s && g_fpw[w].act == g_fp[s].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
     AcquireSRWLockExclusive(&g_fm_lock);
-    if (s != g_fm_slot || g_fp[s].a != g_fm_actor) {  // another slot, or a new boss (retry / respawn / swap) in the same slot: fresh meter
-        FmReset(&g_fm); g_fm_slot = s; g_fm_actor = g_fp[s].a;
+    if (s != g_fm_slot || g_fp[s].a != g_fm_actor || g_fp[s].chr != g_fm_chr) {  // another slot, or a new boss (retry / respawn / swap) in the same slot: fresh meter
+        FmReset(&g_fm); FmKiReset(&g_fm_ki); g_fm_ki_show=0; g_fm_slot = s; g_fm_actor = g_fp[s].a; g_fm_chr=g_fp[s].chr;
         FmWho(s, g_fp[s].chr, g_fm_who, sizeof g_fm_who);
         Log("FRAME METER: following %s (chr %u)", g_fm_who, g_fp[s].chr);
     }
-    FmSample(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub);
+    float kiCur=0,kiMax=0,kiSecondary=0; int kiDead=0;
+    const int kiRead=g_pst.v[PS_FRAME_KI] && NkmRead(g_fp[s].a,&kiCur,&kiMax,&kiSecondary,&kiDead);
+    const int kiNegative=kiRead && !kiDead && NkmNeg(kiCur,kiSecondary,0)<0.0f;
+    g_fm_ki_show=FmKiEligible(g_pst.v[PS_FRAME_KI],FmHumanBoss(g_fp[s].a,g_fp[s].chr),kiRead,kiDead,kiCur,kiSecondary);
+    FmKiSample(&g_fm_ki,&g_fm,g_fm_clock,g_fp[s].run.act,kiNegative);
+    FmSampleEx(&g_fm, g_fm_clock, g_fp[s].run.act, active, ub, grab);
     ReleaseSRWLockExclusive(&g_fm_lock);
     InterlockedIncrement(&g_fm_ver); g_fm_show = 1;
 }
 // ---- drawing (own thread) ----
+#include "frame_meter_count.h"
+#define FM_DISPLAY_CELLS 120 // SF6-sized pips; retain the full 360-cell sampler history.
 #define FM_KEY RGB(255, 0, 255)
 static HFONT g_fm_font; static int g_fm_fontPx;
 static COLORREF FmColor(uint8_t st) {
     switch (st) {
-    case FM_NEUTRAL: return RGB(58, 62, 70);
-    case FM_PENDING: return RGB(96, 100, 110);
-    case FM_STARTUP: return RGB(40, 200, 90);     // SF6: startup green
-    case FM_ACTIVE: return RGB(235, 50, 60);      // active red
-    case FM_ACTIVE_UB: return RGB(190, 70, 250);  // unblockable purple
-    case FM_RECOVERY: return RGB(40, 120, 235);   // recovery blue
-    default: return RGB(24, 26, 32);
+    case FM_NEUTRAL: return RGB(9,12,17);
+    case FM_PENDING: return RGB(105,117,134);
+    case FM_STARTUP: return RGB(80,210,72);
+    case FM_ACTIVE: return RGB(255,142,91);
+    case FM_ACTIVE_UB: return RGB(155,18,39);
+    case FM_GRAB: return RGB(205,210,220);
+    case FM_RECOVERY: return RGB(35,157,220);
+    default: return RGB(5,7,10);
     }
 }
 static void FmFill(HDC dc, int x, int y, int w, int h, COLORREF c) { RECT r = {x, y, x + w, y + h}; HBRUSH b = CreateSolidBrush(c); FillRect(dc, &r, b); DeleteObject(b); }
-static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {  // returns the window height
+static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {
     const float k = H > 0 ? (float)H / 1080.0f : 1.0f;
-    *cw = (int)((float)W * 0.6f / FM_CELLS); if (*cw < 1) *cw = 1;
-    *barH = (int)(22 * k); if (*barH < 8) *barH = 8;
-    *lineH = (int)(20 * k) + 2; *pad = (int)(6 * k) + 1;
-    return *pad * 2 + *lineH * 3 + *barH + 6;
+    *lineH = (int)(20*k); if (*lineH<15) *lineH=15;
+    *pad = (int)(2*k); if (*pad<2) *pad=2;
+    *cw = FmCellWidth(W,*lineH*3,*pad,FM_DISPLAY_CELLS);
+    *barH = (int)(14*k); if (*barH<10) *barH=10;
+    return *pad*2 + *barH;
 }
-static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (g_pst.v[PS_PLAYER_METER] && g_fmp_show ? 1 : 0); }
-static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who) {
-    const FmMeter m = *mp;
-    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); (void)h;
-    const int px = lineH - 4;
-    if (!g_fm_font || g_fm_fontPx != px) { if (g_fm_font) DeleteObject(g_fm_font); g_fm_fontPx = px; g_fm_font = CreateFontW(-px, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas"); }
-    const int barW = cw * FM_CELLS, x0 = (w - barW) / 2;
-    FmFill(dc, x0 - pad, oy, barW + 2 * pad, ph, RGB(16, 18, 24));
-    HGDIOBJ of = SelectObject(dc, g_fm_font); SetBkMode(dc, TRANSPARENT);
-    char l1[200], l2[220]; FmText(&m.cur, l1, sizeof l1, l2, sizeof l2);
-    char head[240], fz[96] = ""; if (g_fz_hold) { char a[16], b[16]; snprintf(fz, sizeof fz, "  FROZEN +%ld f (%s step, %s resume)", g_fz_frames, FzKeyName(g_fz_vk_step, a, sizeof a), FzKeyName(g_fz_vk_freeze, b, sizeof b)); }
-    snprintf(head, sizeof head, "FRAME METER  %s  %s%s", who, l1, fz);
-    SetTextColor(dc, m.cur.ub ? RGB(215, 150, 255) : RGB(235, 235, 235)); TextOutA(dc, x0, oy + pad, head, (int)strlen(head));
-    SetTextColor(dc, RGB(230, 225, 150)); TextOutA(dc, x0, oy + pad + lineH, l2, (int)strlen(l2));
-    const int by = oy + pad + lineH * 2 + 3;
-    FmFill(dc, x0 - 1, by - 1, barW + 2, barH + 2, RGB(8, 8, 10));
-    for (int i = 0; i < FM_CELLS; ++i) {
-        const uint8_t c = FmViewCell(&m, i);
-        FmFill(dc, x0 + i * cw, by, cw > 2 ? cw - 1 : cw, barH, FmColor(c & 0x7F));
-        if (c & FM_EDGE) FmFill(dc, x0 + i * cw, by - 3, 1, barH + 6, RGB(250, 250, 250));  // action start
+static int FmReadoutHeight(int barH, int pad) { return g_pst.v[PS_FRAME_READOUT] ? barH+pad : 0; }
+static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_METER] && g_fm_show && g_fm_ki_show; }
+static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (g_pst.v[PS_PLAYER_METER] && g_fmp_show ? 1 : 0) + FmKiShown(); }
+static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
+    SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
+}
+static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side) {
+    const FmMeter m=*mp;
+    int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad); (void)h;
+    const int px=barH-2>9?barH-2:9;
+    if (!g_fm_font || g_fm_fontPx!=px) {
+        if(g_fm_font) DeleteObject(g_fm_font);
+        g_fm_fontPx=px; g_fm_font=CreateFontW(-px,0,0,0,FW_SEMIBOLD,0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,FIXED_PITCH,L"Consolas");
     }
-    // legend
-    static const struct { uint8_t st; const char* t; } lg[] = {{FM_STARTUP, "startup"}, {FM_ACTIVE, "active"}, {FM_ACTIVE_UB, "unblockable"}, {FM_RECOVERY, "recovery"}, {FM_NEUTRAL, "no hit"}, {FM_PENDING, "no hit yet"}};
-    int lx = x0; const int ly = by + barH + 4;
-    SetTextColor(dc, RGB(180, 185, 200));
-    for (int i = 0; i < (int)(sizeof lg / sizeof lg[0]); ++i) {
-        FmFill(dc, lx, ly + lineH / 4, lineH / 2, lineH / 2, FmColor(lg[i].st)); lx += lineH / 2 + 4;
-        TextOutA(dc, lx, ly, lg[i].t, (int)strlen(lg[i].t)); SIZE sz; GetTextExtentPoint32A(dc, lg[i].t, (int)strlen(lg[i].t), &sz); lx += sz.cx + lineH;
+    int used=FM_CELLS;
+    while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
+    const int viewStart=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
+    const int barW=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x0=(w-barW-gutter)/2+gutter,by=oy+pad;
+    FmFill(dc,x0-gutter-pad,oy,barW+gutter+pad*2,ph,RGB(16,21,30));
+    HGDIOBJ of=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+    // Clip long actor names/freeze hints to the strip instead of spilling outside the panel.
+    int saved=SaveDC(dc); IntersectClipRect(dc,x0-gutter,oy,x0+barW,oy+ph);
+    (void)who; // Compact default has no actor/title line.
+    FmLabel(dc,x0-gutter,by,side,RGB(240,243,249));
+    FmFill(dc,x0-1,by-1,barW+2,barH+2,RGB(41,50,65));
+    for(int i=0;i<FM_DISPLAY_CELLS;++i) {
+        const uint8_t c=FmViewCell(&m,viewStart+i);
+        FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmColor(c&0x7F));
+        if((c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
+        if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
     }
-    const char* tail = "1 cell = 1/60 s of game time";
-    SIZE ts; GetTextExtentPoint32A(dc, tail, (int)strlen(tail), &ts); if (lx + ts.cx < x0 + barW) TextOutA(dc, x0 + barW - ts.cx, ly, tail, (int)strlen(tail));
-    SelectObject(dc, of);
+    // Count each visible colour run; action boundaries also start a new run.
+    // Centre within its LAST coloured cell, excluding the separator.
+    for(int first=0;first<FM_CELLS;) {
+        const uint8_t st=FmViewCell(&m,first)&0x7F;
+        int end=first+1;
+        while(end<FM_CELLS) {
+            const uint8_t next=FmViewCell(&m,end);
+            if((next&0x7F)!=st || (next&FM_EDGE)) break;
+            ++end;
+        }
+        if(st!=FM_EMPTY && end>viewStart && end<=viewStart+FM_DISPLAY_CELLS) {
+            char n[12]; snprintf(n,sizeof n,"%d",end-first);
+            const int left=x0+(end-viewStart-1)*cw;
+            const int fillW=cw>3?cw-2:cw>1?cw-1:cw;
+            RECT cell={left,by,left+fillW,by+barH},textBox;
+            HFONT font=FmFitCount(dc,n,cell,px,&textBox);
+            if(font) {
+                HGDIOBJ normal=SelectObject(dc,font);
+                int clip=SaveDC(dc); IntersectClipRect(dc,cell.left,cell.top,cell.right,cell.bottom);
+                for(int dy=-1;dy<=1;++dy) for(int dx=-1;dx<=1;++dx)
+                    if(dx || dy) FmLabel(dc,textBox.left+dx,textBox.top+dy,n,RGB(2,3,5));
+                FmLabel(dc,textBox.left,textBox.top,n,
+                    RGB(255,255,255));
+                RestoreDC(dc,clip); SelectObject(dc,normal); DeleteObject(font);
+            }
+        }
+        first=end;
+    }
+    RestoreDC(dc,saved); SelectObject(dc,of);
+}
+// Shared legend below both rows; wraps at smaller resolutions.
+static int FmLegendHeight(int w,int H) {
+    if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
+    int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
+    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>11+FmKiShown()) cols=11+FmKiShown();
+    return (((11+FmKiShown())+cols-1)/cols)*lh+pad*2;
+}
+static void FmLegend(HDC dc,int w,int H,int y) {
+    if(!g_pst.v[PS_FRAME_LEGEND]) return;
+    int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
+    const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
+    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>11+FmKiShown()) cols=11+FmKiShown();
+    const int pitch=bw/cols;
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki debt"};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),RGB(138,92,255)};
+    FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
+    HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+    FmLabel(dc,x-gutter,y+pad,"KEY",RGB(145,159,181));
+    for(int i=0;i<11+FmKiShown();++i) {
+        const int xx=x+(i%cols)*pitch,yy=y+pad+(i/cols)*lh;
+        FmFill(dc,xx,yy+3,8,8,colors[i]); FmLabel(dc,xx+12,yy,names[i],RGB(183,194,211));
+    }
+    SelectObject(dc,old);
 }
 static void FmPaint(HDC dc, int w, int h, int H) {
-    static FmMeter m, mp; AcquireSRWLockShared(&g_fm_lock); m = g_fm; mp = g_fmp; ReleaseSRWLockShared(&g_fm_lock);
-    FmFill(dc, 0, 0, w, h, FM_KEY);
-    int cw, barH, lineH, pad; const int ph = FmGeom(w, H, &cw, &barH, &lineH, &pad); int oy = 0; char who[48];
-    if (g_pst.v[PS_FRAME_METER] && g_fm_show) { AcquireSRWLockShared(&g_fm_lock); snprintf(who, sizeof who, "%s", g_fm_who); ReleaseSRWLockShared(&g_fm_lock); FmPanel(dc, w, h, H, oy, &m, who); oy += ph; }
-    if (g_pst.v[PS_PLAYER_METER] && g_fmp_show) FmPanel(dc, w, h, H, oy, &mp, "Player");
+    static FmMeter m,mp; static FmKi ki; int showKi; char who[48]; AcquireSRWLockShared(&g_fm_lock);
+    m=g_fm; mp=g_fmp; ki=g_fm_ki; showKi=FmKiShown(); snprintf(who,sizeof who,"%s",g_fm_who); ReleaseSRWLockShared(&g_fm_lock);
+    FmFill(dc,0,0,w,h,FM_KEY);
+    int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad);
+    // Clip long readouts/key labels as well as cells to the centered panel bounds.
+    const int panelW=cw*FM_DISPLAY_CELLS+lineH*3+pad*2;
+    const int panelLeft=(w-cw*FM_DISPLAY_CELLS-lineH*3)/2-pad;
+    const int panelClip=SaveDC(dc);
+    IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
+    int oy=FmReadoutHeight(barH,pad);
+    if(oy) {
+        const FmSum* q=(g_pst.v[PS_PLAYER_METER] && g_fmp_show) ? &mp.cur : &m.cur;
+        char start[24]="--",active[192]="--",recovery[24]="--",total[24]="--",text[320];
+        if(q->hits) {
+            snprintf(start,sizeof start,"%d",q->startup);
+            snprintf(total,sizeof total,"%d%s",q->total,q->done?"":"+");
+            snprintf(recovery,sizeof recovery,"%d%s",q->recovery,q->done?"":"+");
+            int used=0; active[0]=0;
+            for(int i=0;i<q->hits && i<FM_MAXW && used<(int)sizeof active-24;++i)
+                used+=snprintf(active+used,sizeof active-used,"%s%d-%d",i?",":"",q->ws[i]+1,q->we[i]>q->ws[i]?q->we[i]:q->ws[i]+1);
+        }
+        // Separate header above both pip rows. Top actor's active windows are 1-based.
+        // Independent snapshots cannot measure advantage.
+        snprintf(text,sizeof text,"Startup %s  Active %s  Recovery %s  Total %s  Advantage --",start,active,recovery,total);
+        int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter;
+        FmFill(dc,x-gutter-pad,0,bw+gutter+pad*2,oy,RGB(16,21,30));
+        HFONT font=CreateFontW(-(barH-2),0,0,0,FW_SEMIBOLD,0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,FIXED_PITCH,L"Consolas");
+        HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
+        FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
+    }
+    if(g_pst.v[PS_PLAYER_METER] && g_fmp_show) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER"); oy+=ph; }
+    if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS"); oy+=ph; }
+    if(showKi) {
+        int used=FM_CELLS; while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
+        const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
+        const int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter,by=oy+pad;
+        FmFill(dc,x-gutter-pad,oy,bw+gutter+pad*2,ph,RGB(16,21,30));
+        HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+        FmLabel(dc,x-gutter,by,g_fm_ki_label,RGB(240,243,249));
+        FmFill(dc,x-1,by-1,bw+2,barH+2,RGB(41,50,65));
+        for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmKiView(&ki,&m,start+i)?RGB(138,92,255):FmColor(FM_EMPTY));
+        SelectObject(dc,old); oy+=ph;
+    }
+    FmLegend(dc,w,H,oy);
+    RestoreDC(dc,panelClip);
 }
 static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;
@@ -164,8 +271,12 @@ static DWORD WINAPI FmThread(LPVOID p) {
         const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER]) && g_pst_live && FmPanels() && g_fm_game && !IsIconic(g_fm_game) && GetForegroundWindow() == g_fm_game && !GateMenuOpen();
         if (!want) { if (shown) { ShowWindow(g_fm_wnd, SW_HIDE); shown = 0; } continue; }
         RECT cr; GetClientRect(g_fm_game, &cr); POINT o = {0, 0}; ClientToScreen(g_fm_game, &o);
-        int cw, barH, lineH, pad; g_fm_H = cr.bottom; const int hh = FmGeom(cr.right, cr.bottom, &cw, &barH, &lineH, &pad) * FmPanels();
-        RECT want_r = {o.x, o.y + cr.bottom * g_cfg_fm_y / 100, o.x + cr.right, o.y + cr.bottom * g_cfg_fm_y / 100 + hh};
+        int cw, barH, lineH, pad; g_fm_H = cr.bottom;
+        const int rowH = FmGeom(cr.right, cr.bottom, &cw, &barH, &lineH, &pad);
+        const int hh = rowH * FmPanels() + FmReadoutHeight(barH,pad) + FmLegendHeight(cr.right,cr.bottom);
+        const int top = o.y + FmPositionY(cr.bottom, hh, g_cfg_fm_y);
+        const int left = o.x + (g_cfg_fm_y < 0 ? FmPositionX(cr.right) : 0);
+        RECT want_r = {left, top, left + cr.right, top + hh};
         if (!shown || memcmp(&want_r, &last, sizeof last)) {
             SetWindowPos(g_fm_wnd, HWND_TOPMOST, want_r.left, want_r.top, want_r.right - want_r.left, hh, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want_r; shown = 1; lastVer = -1;

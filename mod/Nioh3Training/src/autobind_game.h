@@ -10,7 +10,7 @@ static AbTable g_ab; static int g_ab_state;  // 0 = not loaded, 1 = loaded, -1 =
 static uint32_t* g_ab_hash; static int g_ab_nhash;  // sorted union of every file's hashes
 static int g_cfg_ab = 1;
 enum { AB_UNI = 8192, AB_BLK = 12, AB_STABLE_MS = 6000, AB_MIN_MS = 8000, AB_MAX_MS = 30000 };
-static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nblk; struct { uint64_t lo, hi; int rows, file, pct, cfile, cpct; } blk[AB_BLK]; int nuni; uint32_t uni[AB_UNI]; } g_abs[MAXSP];
+static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, composedHuman, nblk; struct { uint64_t lo, hi; int rows, file, pct, cfile, cpct; uint32_t tiny[AB_CONTAIN_MIN]; } blk[AB_BLK]; int nuni; uint32_t uni[AB_UNI]; } g_abs[MAXSP];
 static __attribute__((noinline)) int AbRd(uint64_t a, void* out, int n) { __try { memcpy(out, (const void*)a, (size_t)n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 static int AbKnown(uint32_t h) { int lo = 0, hi = g_ab_nhash - 1; while (lo <= hi) { const int m = (lo + hi) >> 1; if (g_ab_hash[m] == h) return 1; if (g_ab_hash[m] < h) lo = m + 1; else hi = m - 1; } return 0; }
 static void AbLoadTable(void) {
@@ -56,15 +56,24 @@ static void AbFinal(int s, const char* why) {
         if (m >= 0) { Log("AUTOBIND spawn #%d chr %u: FINAL %s (union of %d blocks, %d ids, %d%% of the file covered, runner-up %d ids) file %s [%s]", s, g_abs[s].chr, g_ab.f[m].chr, g_abs[s].nblk, d, cov, i2, g_ab.f[m].file, why); return; }
         Log("AUTOBIND spawn #%d chr %u: union of %d blocks (%d ids) matches no file (best coverage %d%%, runner-up %d ids)", s, g_abs[s].chr, g_abs[s].nblk, d, cov, i2);
     }   // the biggest block is the boss's own file: if it is unmatched / ambiguous / shared, stay unbound (a small bound side block is never the boss file)
-    if (best < 0 && g_abs[s].nblk > 1) {   // pc2 #24074: no own file: explain the blocks as fragments of known files (human-style boss: moves come from shared weapon files)
-        int expl = 0, rows = 0, top = -1; char names[400] = "";
+    if (best < 0 && g_abs[s].nblk >= 1) {   // pc2 #24074: no own file: explain the blocks as fragments of known files (human-style boss: moves come from shared weapon files). #24140: also a lone block
+        int expl = 0, rows = 0, top = -1, common = 0, weapon = 0; char names[400] = "";
+        for (int k = 0; k < g_abs[s].nblk; ++k) {   // pc2 #24140: a block too small for containment (< AB_CONTAIN_MIN ids: 0-1 row weapon slices) is explained when its ids lie in a file another block was assigned to
+            if (g_abs[s].blk[k].cfile >= 0 || g_abs[s].blk[k].rows >= AB_CONTAIN_MIN) continue;
+            for (int j = 0; j < g_abs[s].nblk && g_abs[s].blk[k].cfile < 0; ++j) {
+                const int c = g_abs[s].blk[j].cfile; if (c < 0) continue;
+                int in = 1; for (int i = 0; i < g_abs[s].blk[k].rows; ++i) if (!AbHas(&g_ab.f[c], g_abs[s].blk[k].tiny[i])) in = 0;
+                if (in) g_abs[s].blk[k].cfile = c;
+            }
+        }
         for (int k = 0; k < g_abs[s].nblk; ++k) {
             rows += g_abs[s].blk[k].rows; const int c = g_abs[s].blk[k].cfile; if (c < 0) continue;
+            const int family=AbHumanFamily(g_ab.f[c].chr); common |= family==1; weapon |= family==2;
             expl += g_abs[s].blk[k].rows; if (top < 0 || g_abs[s].blk[k].rows > g_abs[s].blk[top].rows) top = k;
             char one[64]; snprintf(one, sizeof one, "%s%s(%d)", names[0] ? " + " : "", g_ab.f[c].chr, g_abs[s].blk[k].rows);
             if (strlen(names) + strlen(one) < sizeof names) strcat(names, one);
         }
-        if (expl * 100 >= rows * 80) { Log("AUTOBIND spawn #%d chr %u: FINAL COMPOSED of known files (%d of %d rows explained, biggest block -> %s): %s [%s]", s, g_abs[s].chr, expl, rows, g_ab.f[g_abs[s].blk[top].cfile].chr, names, why); return; }
+        if (top>=0 && rows>0 && expl * 100 >= rows * 80) { g_abs[s].composedHuman=AbComposedHuman(0,common,weapon,expl,rows); Log("AUTOBIND spawn #%d chr %u: FINAL COMPOSED of known files (%d of %d rows explained, biggest block -> %s): %s [%s]", s, g_abs[s].chr, expl, rows, g_ab.f[g_abs[s].blk[top].cfile].chr, names, why); return; }
     }
     if (best >= 0) Log("AUTOBIND spawn #%d chr %u: FINAL %s (%d%%, %d rows) file %s; %d block(s) seen [%s]", s, g_abs[s].chr, g_ab.f[g_abs[s].blk[best].file].chr, g_abs[s].blk[best].pct, g_abs[s].blk[best].rows, g_ab.f[g_abs[s].blk[best].file].file, g_abs[s].nblk, why);
     else Log("AUTOBIND spawn #%d chr %u: FINAL UNBOUND (%d block(s) seen) [%s]", s, g_abs[s].chr, g_abs[s].nblk, why);
@@ -91,6 +100,7 @@ static void AbTick(void) {
                 const int k = g_abs[s].nblk++; g_abs[s].tLast = now;
                 if (!shared) for (int i = 0; i < n && g_abs[s].nuni < AB_UNI; ++i) g_abs[s].uni[g_abs[s].nuni++] = hs[i];
                 g_abs[s].blk[k].lo = lo; g_abs[s].blk[k].hi = hi; g_abs[s].blk[k].rows = n; g_abs[s].blk[k].file = m; g_abs[s].blk[k].pct = p1; g_abs[s].blk[k].cfile = AbBlockFile(&g_ab, hs, n, &g_abs[s].blk[k].cpct);
+                for (int i = 0; i < n && i < AB_CONTAIN_MIN; ++i) g_abs[s].blk[k].tiny[i] = hs[i];
                 uint16_t id = 0; AbRd(row + 0xC, &id, 2);
                 Log("AUTOBIND spawn #%d chr %u: block %d at %p (row of action 0x%X): %d rows -> %s match %d%% (runner-up %d%%)%s%s", s, g_abs[s].chr, k, (void*)row, id, n,
                     m >= 0 ? g_ab.f[m].chr : "UNBOUND", p1, p2, m >= 0 ? " file " : "", m >= 0 ? g_ab.f[m].file : "");
@@ -100,4 +110,12 @@ static void AbTick(void) {
         if (age > AB_MAX_MS) AbFinal(s, "timeout");
         else if (age > AB_MIN_MS && g_abs[s].nblk && now - g_abs[s].tLast > AB_STABLE_MS) AbFinal(s, "stable");
     }
+}
+
+// Called only by the game-thread meter feed. Spawn index and Training slot are different namespaces.
+static int FmHumanBoss(uint64_t actor,uint32_t chr) {
+    if(!g_cfg_ab || g_ab_state!=1 || !actor) return 0;
+    for(int i=0;i<MAXSP;++i) if(g_abs[i].a==actor && g_abs[i].chr==chr)
+        return g_abs[i].done && g_abs[i].composedHuman;
+    return 0;
 }

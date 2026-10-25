@@ -25,6 +25,8 @@ static N3Move g_n3cat[N3CAT_CAP]; static volatile int g_n3cat_n;
 static N3Next g_n3nx[N3CAT_NEXT_CAP]; static volatile int g_n3nx_n;
 static N3MoveFact g_n3fa[N3CAT_FACT_CAP]; static volatile int g_n3fa_n;
 static N3Motion g_n3mo[N3CAT_MOTION_CAP]; static volatile int g_n3mo_n;
+typedef struct { uint8_t known, zero, hits; char damage[96]; } N3ActionRecord;
+static N3ActionRecord g_n3records[N3CAT_CAP];
 static volatile uint32_t g_n3auto[256]; static volatile int g_n3auto_n;  // bosses whose runtime list is merged
 static int g_n3cat_init;
 static void N3CatInit(int hand) {
@@ -33,15 +35,18 @@ static void N3CatInit(int hand) {
     if (!hand) return;
     for (int i = 0; i < N3_MOVE_COUNT && i < N3CAT_CAP; ++i) g_n3cat[i] = kN3Moves[i];
     for (int i = 0; i < N3_NEXT_COUNT && i < N3CAT_NEXT_CAP; ++i) g_n3nx[i] = kN3Next[i];
-    for (int i = 0; i < N3_MOVE_FACT_COUNT && i < N3CAT_FACT_CAP; ++i) g_n3fa[i] = kN3MoveFacts[i];
+    // Hit/damage metadata never seeds from hand facts; archive records or unknown only.
     for (int i = 0; i < N3_MOTION_COUNT && i < N3CAT_MOTION_CAP; ++i) g_n3mo[i] = kN3Motion[i];
     g_n3cat_n = N3_MOVE_COUNT < N3CAT_CAP ? N3_MOVE_COUNT : N3CAT_CAP; g_n3nx_n = N3_NEXT_COUNT < N3CAT_NEXT_CAP ? N3_NEXT_COUNT : N3CAT_NEXT_CAP;
-    g_n3fa_n = N3_MOVE_FACT_COUNT < N3CAT_FACT_CAP ? N3_MOVE_FACT_COUNT : N3CAT_FACT_CAP; g_n3mo_n = N3_MOTION_COUNT < N3CAT_MOTION_CAP ? N3_MOTION_COUNT : N3CAT_MOTION_CAP;
+    g_n3fa_n = 0; g_n3mo_n = N3_MOTION_COUNT < N3CAT_MOTION_CAP ? N3_MOTION_COUNT : N3CAT_MOTION_CAP;
 }
 static inline int N3CatFind(uint32_t chr, uint32_t id) {
     const int n = g_n3cat_n;
     for (int i = 0; i < n; ++i) if (g_n3cat[i].chr == chr && g_n3cat[i].id == id) return i;
     return -1;
+}
+static inline const N3ActionRecord* N3CatRecordFind(uint32_t chr, uint32_t id) {
+    int i = N3CatFind(chr, id); return i >= 0 && g_n3records[i].known ? &g_n3records[i] : 0;
 }
 static inline const N3MoveFact* N3CatFactFind(uint32_t chr, uint32_t id) {
     const int n = g_n3fa_n;
@@ -73,6 +78,11 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
         N3Move r; r.chr = chr; r.id = m[k].id; r.boss = name; r.label = N3CatLabel(&m[k]); r.kind = kind; r.ms = 0;
         g_n3cat[g_n3cat_n] = r; g_n3cat_n = g_n3cat_n + 1; ++added;
     }
+    for (int k = 0; k < n; ++k) {
+        int i = N3CatFind(chr, m[k].id); if (i < 0) continue;
+        N3ActionRecord* r = &g_n3records[i]; r->known = m[k].record_known; r->zero = m[k].zero_power; r->hits = m[k].hits;
+        memcpy(r->damage, m[k].damage, sizeof r->damage); r->damage[sizeof r->damage - 1] = 0;
+    }
     for (int i = 0; i < g_n3nx_n; ++i) if (g_n3nx[i].chr == chr) g_n3nx[i].chr = 0;
     for (int k = 0; k < n && g_n3nx_n < N3CAT_NEXT_CAP; ++k) if (m[k].link) {
         N3Next l; l.chr = chr; l.id = m[k].id; l.next = m[k].next; l.loop = m[k].loop;
@@ -80,7 +90,7 @@ static int N3CatMerge(uint32_t chr, const AmMove* m, int n, const char* boss) {
     }
     for (int i = 0; i < g_n3fa_n; ++i) if (g_n3fa[i].chr == chr) g_n3fa[i].chr = 0;
     for (int k = 0; k < n && g_n3fa_n < N3CAT_FACT_CAP; ++k) if (m[k].fact) {
-        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].hits; f.great = m[k].great; f.attack = m[k].attack;
+        N3MoveFact f; f.chr = chr; f.id = m[k].id; f.hits = m[k].record_known ? m[k].hits : 0; f.great = m[k].great; f.attack = m[k].attack;
         g_n3fa[g_n3fa_n] = f; g_n3fa_n = g_n3fa_n + 1;
     }
     for (int k = 0; k < n; ++k) {

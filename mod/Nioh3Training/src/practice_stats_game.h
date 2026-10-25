@@ -19,7 +19,7 @@ static const char* PstKey(int what) {
     if (what == PS_HOLD_KI_V2) return "HoldKiBreakV2";
     if (what == PS_KI_FLOOR) return "KiFloorDepth";
     if (what == PS_NEG_KI_METER) return "NegKiMeter";
-    return what == PS_TIME_OF_DAY ? "TimeOfDayMin" : what == PS_WEATHER ? "Weather" : what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
+    return what == PS_FRAME_KI ? "FrameMeterKi" : what == PS_FRAME_READOUT ? "FrameMeterReadout" : what == PS_FRAME_LEGEND ? "FrameMeterLegend" : what == PS_TIME_OF_DAY ? "TimeOfDayMin" : what == PS_WEATHER ? "Weather" : what == PS_HOLD_KI_BREAK ? "HoldKiBreak" : what == PS_KI_DEALT ? "KiDamageDealtPct" : what == PS_ONE_HIT_KI ? "OneHitKiBreak" : what == PS_PLAYER_METER ? "PlayerFrameMeter" : what == PS_FRAME_METER ? "FrameMeter" : what == PS_BOSS_SPEED ? "BossSpeedPct" : what == PS_PLAYER_SPEED ? "PlayerSpeedPct" : what == PS_PLAYER_INF_NIN ? "PlayerInfiniteNinjutsu" : what == PS_PLAYER_INF_KI ? "PlayerInfiniteKi" : what == PS_DMG_DEALT ? "DamageDealtPct" : what == PS_DMG_TAKEN ? "DamageTakenPct" : "BossKiDrainPerSec";
 }
 static void PstLoadIni(const char* ini) {
     for (int i = 0; i < PS_N; ++i) g_pst.v[i] = PstFromIni(i, (int)GetPrivateProfileIntA("Practice", PstKey(i), PstToIni(i, PstDefault(i)), ini));

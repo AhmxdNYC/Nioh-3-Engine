@@ -19,6 +19,20 @@ static void Drill(FmMeter* m, double* t, double step, int ub) {
     }
 }
 int main(void) {
+    { FmMeter g; FmReset(&g);
+      FmSampleEx(&g,0,1,0,0,0);
+      FmSampleEx(&g,20,1,1,1,1);
+      assert((g.cell[1]&0x7F)==FM_GRAB && g.cur.hits==1);
+      FmSampleEx(&g,21,1,1,0,0); // simultaneous normal collider cannot hide grab
+      assert((g.cell[1]&0x7F)==FM_GRAB);
+      FmSampleEx(&g,40,1,0,0,0);
+      assert((g.cell[2]&0x7F)==FM_RECOVERY);
+      FmSampleEx(&g,60,2,0,0,0);
+      assert(g.haveLast && (g.frozen[1]&0x7F)==FM_GRAB);
+      FmReset(&g); FmSampleEx(&g,0,1,1,1,0);
+      assert((g.cell[0]&0x7F)==FM_ACTIVE_UB);
+    }
+
     FmMeter m; FmReset(&m); char l1[200], l2[200];
     assert(m.lastCell == -1 && FmCellAt(&m, 0) == FM_EMPTY && FmCellAt(&m, FM_CELLS - 1) == FM_EMPTY);
     FmText(&m.cur, l1, sizeof l1, l2, sizeof l2); assert(strstr(l1, "waiting"));

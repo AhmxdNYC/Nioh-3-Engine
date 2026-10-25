@@ -120,6 +120,7 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     for (int r = 0; r < na; ++r) {
         const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW, rec = AmU16(d, t->off[0] + 64 + 2 * r);
         AmMove* m = &t->m[r];
+        m->anim_hash = AmU32(d, o + 0xF0);
         m->row = (uint16_t)r; m->id = AmU16(d, o + 0xC); m->motion = AmU16(d, o + 0x20); m->next = AmU16(d, o + 0xE0);
         m->block = AmU16(d, o + 0x13C) != 0xFFFF || AmU16(d, o + 0x142) != 0xFFFF;
         m->great = (AmU16(d, o + 0x04) & 0x2000) != 0;

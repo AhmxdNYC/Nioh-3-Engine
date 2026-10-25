@@ -23,10 +23,10 @@ typedef uint64_t (*FpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static FpFn o_fp;
 volatile uint64_t g_fp_rbx __attribute__((used));  // caller's rbx at 2B4A45 (the collision object when the caller is 2B30A0); checked against [obj+0xB0] == H
 static double g_fp_qpf; static volatile uint32_t g_fp_frame;
-static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid, pulse, pulseUb, nodmg; FpRun run, runW; double stopMs; } g_fp[N3T_SLOTS + 1];  // run = game clock, runW = wall clock; stopMs = game ms with the boss motion play rate 0 (hit-stop)  // pulse: a hit since the last frame meter sample
+static struct { uint64_t a, ai, ctrl; uint32_t chr; int valid, pulse, pulseUb, pulseGrab, nodmg; FpRun run, runW; double stopMs; } g_fp[N3T_SLOTS + 1];  // run = game clock, runW = wall clock; stopMs = game ms with the boss motion play rate 0 (hit-stop)  // pulse: a hit since the last frame meter sample
 static volatile LONG g_fp_calls, g_fp_match, g_fp_diag; static DWORD g_fp_diagT;
 #define FP_WIN 128  // open colliders tracked (#22575: a 30 fps cap makes ~100 per 0x4E6E swing, about 50 open at once)
-static struct { uint64_t obj, H; int pid, slot, idx, used, great; double t, t0, gt, gt0; uint32_t f, act; } g_fpw[FP_WIN];  // t/t0 wall, gt/gt0 game clock
+static struct { uint64_t obj, H; int pid, slot, idx, used, great, grab; double t, t0, gt, gt0; uint32_t f, act; } g_fpw[FP_WIN];  // t/t0 wall, gt/gt0 game clock
 static volatile LONG g_fp_lock, g_fp_lines; static LONG g_fp_lastCalls = -1; static FpRate g_fp_rate; static LONG g_fp_drop;
 static double FpNow(void) { LARGE_INTEGER c; QueryPerformanceCounter(&c); return (double)c.QuadPart * g_fp_qpf; }
 // Game clock (ms), advanced once per pump tick under the lock by FpGameStep. g_fp_g* = diagnostics for the stats line.
@@ -92,12 +92,12 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
         return;
     }
     InterlockedIncrement(&g_fp_match);
-    uint64_t ctrl = 0, act = 0, rowf = 0, q0 = 0; uint32_t id = 0xFFFFFFFF, h13c = 0; uint16_t pw = 0, el = 0, ty = 0, r28 = 0;
+    uint64_t ctrl = 0, act = 0, rowf = 0, q0 = 0; uint32_t id = 0xFFFFFFFF, h13c = 0; uint16_t pw = 0, el = 0, ty = 0, r28 = 0, flags4c = 0;
     __try {
         ctrl = g_fp[s].ctrl; act = ctrl ? *(volatile uint64_t*)(ctrl + 0xE8) : 0;  // attacker = actor (how 1), AI (2) or an object whose +8 is the ctrl (3)
         if (act) { id = *(volatile uint32_t*)act; rowf = *(volatile uint64_t*)(act + 0x20); if (rowf) q0 = *(volatile uint64_t*)rowf; }
         h13c = *(volatile uint32_t*)(H + 0x13C);
-        if (R) { pw = *(volatile uint16_t*)(R + 0x10); el = *(volatile uint16_t*)(R + 0x12); ty = *(volatile uint16_t*)(R + 0x14); r28 = *(volatile uint16_t*)(R + 0x28); }
+        if (R) { pw = *(volatile uint16_t*)(R + 0x10); el = *(volatile uint16_t*)(R + 0x12); ty = *(volatile uint16_t*)(R + 0x14); r28 = *(volatile uint16_t*)(R + 0x28); flags4c = *(volatile uint16_t*)(R + 0x4C); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 60) Log("FRAMEPROBE diag: boss call (match %d) read faulted, ctrl %p act %p H %p R %p", how, (void*)ctrl, (void*)act, (void*)H, (void*)R); return; }
     int own = 0; uint64_t hb = 0;
     if (ra - B == 0x2B30E2 && obj && Rd64(obj + 0xB0, &hb) && hb == H) own = 1;
@@ -105,7 +105,8 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     if (!FpLock()) return;
     const double now = FpNow();
     FpObserve(s, id, now, "hook");
-    if (FpNoDamageRow(R != 0, pw, el)) {  // live Hino-enma: a power 0 / 0 type 12 collider at the start of its steps 0x4E20-22 (static: no own rows)
+    const int grab = (flags4c & 1) != 0; // Native grab filter 117A99F: [[collision+0xB0]+0]+0x4C bit 0.
+    if (!grab && FpNoDamageRow(R != 0, pw, el)) {  // live Hino-enma: a power 0 / 0 type 12 collider at the start of its steps 0x4E20-22 (static: no own rows)
         if (++g_fp[s].nodmg <= 3) FpLog("FRAMEPROBE nodmg chr %u boss %c act 0x%X at %.1f ms: row %p power 0 0 type %u r28 %u from %X match %d (not a hit window; not on the meter)",
             g_fp[s].chr, FPB(s), id, g_fp_gms - g_fp[s].run.t0, (void*)R, ty, r28, (uint32_t)(ra - B), how);
         FpUnlock(); return;
@@ -113,9 +114,9 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
     int wf = -1; if (pid >= 0) for (int w = 0; w < FP_WIN; ++w) if (!g_fpw[w].used) { wf = w; break; }
     FpRun* r = &g_fp[s].run; int isNew = 0; const int great = (h13c >> 10) & 1;
     const int k = FpRunHitEx(r, g_fp_gms, great, wf >= 0, -1, &isNew); FpRunHitEx(&g_fp[s].runW, now, great, wf >= 0, k, 0);
-    g_fp[s].pulse = 1; if (great) g_fp[s].pulseUb = 1;  // frame meter: hit window opened (unblockable = GreatAttack bit)
+    g_fp[s].pulse = 1; if (grab) g_fp[s].pulseGrab = 1; if (great) g_fp[s].pulseUb = 1;  // frame meter: hit window opened (unblockable = GreatAttack bit)
     if (wf >= 0) for (int w = wf; w == wf; ++w) {
-        g_fpw[w].obj = obj; g_fpw[w].H = H; g_fpw[w].pid = pid; g_fpw[w].slot = s; g_fpw[w].idx = k; g_fpw[w].t = now; g_fpw[w].t0 = g_fp[s].runW.t0; g_fpw[w].gt = g_fp_gms; g_fpw[w].gt0 = r->t0; g_fpw[w].f = g_fp_frame; g_fpw[w].act = id; g_fpw[w].great = (h13c >> 10) & 1; g_fpw[w].used = 1; break; }
+        g_fpw[w].obj = obj; g_fpw[w].H = H; g_fpw[w].pid = pid; g_fpw[w].slot = s; g_fpw[w].idx = k; g_fpw[w].t = now; g_fpw[w].t0 = g_fp[s].runW.t0; g_fpw[w].gt = g_fp_gms; g_fpw[w].gt0 = r->t0; g_fpw[w].f = g_fp_frame; g_fpw[w].act = id; g_fpw[w].great = (h13c >> 10) & 1; g_fpw[w].grab = grab; g_fpw[w].used = 1; break; }
     if (isNew || r->colliders <= 12) FpLog("FRAMEPROBE hit chr %u boss %c act 0x%X #%d at %.1f ms (%.1f f60, wall %.1f ms, pump +%u, collider %d) great %d (row bit45 %d) power %u %u %u (type %u) r28 %u h13C %08X r8 %u row %p obj %p pool %d from %X match %d",
         g_fp[s].chr, FPB(s), id, k, g_fp_gms - r->t0, FpFrames60(g_fp_gms - r->t0), now - g_fp[s].runW.t0, g_fp_frame - r->f0, r->colliders, great, (int)((q0 >> 45) & 1), pw, el, ty, ty, r28, h13c, r8, (void*)R, (void*)obj, pid, (uint32_t)(ra - B), how);
     FpUnlock();

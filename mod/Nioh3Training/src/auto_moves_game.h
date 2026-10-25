@@ -7,6 +7,7 @@
 #pragma once
 #include "auto_moves.h"
 #include "auto_moves_cmp.h"
+#include "action_records_game.h"
 static int g_cfg_am = 1;
 enum { AM_FILES = 48, AM_SPF = 8, AM_CHRS = 64 };
 typedef struct { uint64_t base; int n; AmTable* t; } AmImg;
@@ -60,6 +61,7 @@ static int AmLoadImg(uint64_t P) {
     const int na = size ? AmParse(img, size, t) : 0;
     free(img); free(hb);
     if (na != n) { Log("AUTOMOVES: descriptor %p: rebuilt image did not parse (%d of %u actions)", (void*)X, na, n); free(t); return -1; }
+    ArApply(&g_action_records, t); // archive records replace the old window estimate before any catalogue/export publication
     uint32_t pid = 0; AmRd(P, &pid, 4);
     Log("AUTOMOVES: loaded action data %p: %u actions (objects %p stride 0x%llX, first row %p), %d hitbox rows (array %p)%s; current action 0x%X",
         (void*)X, n, (void*)A, (unsigned long long)stride, (void*)rp[0], nhb, (void*)hbArr, odd ? " [some actions use another hitbox array: hits unknown]" : "", pid);

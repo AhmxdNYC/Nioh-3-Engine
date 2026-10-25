@@ -9,12 +9,15 @@ typedef struct {
     uint8_t great;     // u16 +0x04 bit 0x2000 = GreatAttack (unblockable)
     uint8_t attack;    // block || hit window || great (the static-row rule of tools/add_static_boss_rows.py / gen_boss_move_facts.py)
     uint8_t fact;      // listed in boss_move_facts.h style: block || own hitbox rows || great
-    uint8_t hits;      // hit count (0 = unknown: no own timed rows, untimed rows or non-ambient spawned objects)
+    uint8_t hits;      // archive hit count when record_known; otherwise 0 = unknown (nwin retains old parser estimate)
     uint8_t nwin;      // raw hit windows (before the spawn / untimed rule)
     uint8_t nrows, untimed, spawns;  // own hitbox rows, untimed (spawned-object) rows, non-ambient spawn events
     uint8_t link;      // next is a real move (not idle, not self): a sequence link, as in boss_sequences.h
     uint8_t loop;      // the next action repeats itself (looping middle part)
     char kind;
+    uint32_t anim_hash; // action row +0xF0; with id/motion identifies archive metadata, never id alone
+    uint8_t record_known, zero_power; // a known zero is not missing; raw archive base values, not final HP damage
+    char damage[96]; // slash-separated hit groups; pipe-separated alternatives retained verbatim
 } AmMove;
 typedef struct { int n; uint32_t size, off[AM_NSUB], len[AM_NSUB]; AmMove m[AM_MAXMOVES]; } AmTable;
 

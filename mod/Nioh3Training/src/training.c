@@ -4954,6 +4954,7 @@ static int HookPump(void) {
 
 static DWORD WINAPI Worker(LPVOID x) {
     Sleep(45000);  // let the loader + BossRematch finish patching, then chain
+    ArLoadGame();  // immutable facts loaded before installing any hook that can publish AutoMoves
     // sanity: verify prologues before hooking
     const uint8_t dynp[] = {0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57};
     const uint8_t lchp[] = {0x89, 0x54, 0x24, 0x10, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xC2, 0x45, 0x33, 0xC0};

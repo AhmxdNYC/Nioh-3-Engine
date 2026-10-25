@@ -14,7 +14,7 @@
 #define FM_CELLS 360    // 6 s at 60 fps (0x4E6E is 333 frames)
 #define FM_MAXW 8       // merged windows (hits) kept per run; more are merged into the last one
 #define FM_TOL_MS 17.0  // one 60 fps frame
-enum { FM_EMPTY = 0, FM_NEUTRAL, FM_PENDING, FM_STARTUP, FM_ACTIVE, FM_ACTIVE_UB, FM_RECOVERY };
+enum { FM_EMPTY = 0, FM_NEUTRAL, FM_PENDING, FM_STARTUP, FM_ACTIVE, FM_ACTIVE_UB, FM_RECOVERY, FM_GRAB };
 #define FM_EDGE 0x80    // cell flag: first cell of an action
 typedef struct { uint32_t act; int hits, ub, startup, total, recovery, done; int ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW]; } FmSum;
 typedef struct {
@@ -36,12 +36,12 @@ static inline void FmRecolor(FmMeter* m, int64_t from, int64_t to, uint8_t a, ui
     if (to > m->lastCell) to = m->lastCell;
     for (int64_t g = from; g <= to; ++g) { uint8_t* c = &m->cell[g % FM_CELLS]; if ((*c & 0x7F) == a) *c = (uint8_t)((*c & FM_EDGE) | b); }
 }
-static inline int FmIsActive(uint8_t st) { return st == FM_ACTIVE || st == FM_ACTIVE_UB; }
+static inline int FmIsActive(uint8_t st) { return st == FM_ACTIVE || st == FM_ACTIVE_UB || st == FM_GRAB; }
 static inline void FmPut(FmMeter* m, int64_t g, uint8_t st, int edge) {
     if (g < m->lastCell) return;  // clock went back: ignore
     if (g == m->lastCell) {        // several ticks per 60 fps frame: active wins, the edge flag sticks
         uint8_t* c = &m->cell[g % FM_CELLS]; const uint8_t old = *c & 0x7F;
-        const uint8_t ns = FmIsActive(st) ? st : FmIsActive(old) ? old : st;
+        const uint8_t ns = st == FM_GRAB || old == FM_GRAB ? FM_GRAB : FmIsActive(st) ? st : FmIsActive(old) ? old : st;
         *c = (uint8_t)((*c & FM_EDGE) | (edge ? FM_EDGE : 0) | ns);
         m->prevSt = st; return;
     }
@@ -70,7 +70,7 @@ static inline void FmEnd(FmMeter* m, double t) {
 }
 // One sample per game tick. t = meter clock (ms, pausable), act = the boss action id, active = a hit window is open now or a hit was created
 // since the previous sample, ub = one of those windows is unblockable.
-static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int ub) {
+static inline void FmSampleEx(FmMeter* m, double t, uint32_t act, int active, int ub, int grab) {
     int edge = 0;
     if (!m->on || act != m->act) {
         FmEnd(m, t);
@@ -85,10 +85,11 @@ static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int 
             if (m->nw == 1) FmRecolor(m, m->c0, g - 1, FM_PENDING, FM_STARTUP);
         }
     } else if (m->open) { m->we[m->nw - 1] = rel; m->open = 0; }
-    const uint8_t st = active ? (ub ? FM_ACTIVE_UB : FM_ACTIVE) : m->nw ? FM_RECOVERY : FM_PENDING;
+    const uint8_t st = active ? (grab ? FM_GRAB : ub ? FM_ACTIVE_UB : FM_ACTIVE) : m->nw ? FM_RECOVERY : FM_PENDING;
     FmPut(m, g, st, edge);
     if (m->nw) FmSummary(m, t, 0, &m->cur); else if (m->haveLast) m->cur = m->last; else m->cur.act = 0, m->cur.hits = 0, m->cur.total = -1;
 }
+static inline void FmSample(FmMeter* m, double t, uint32_t act, int active, int ub) { FmSampleEx(m,t,act,active,ub,0); }
 // Which boss slot the meter follows (user #22918: it always followed the first valid slot = stuck on a stale / idle Boss A, labelled 'Boss A', while another boss
 // attacked). A slot that is busy now (hit this tick or an open window of its current action) wins; the current slot wins a tie; else keep the current one while it is
 // valid; else the first valid slot; -1 = none.

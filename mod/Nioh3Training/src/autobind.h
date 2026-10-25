@@ -102,13 +102,24 @@ static int AbMatchUnion(const AbTable* t, const uint32_t* obs, int nobs, int* co
 // (ties: the smaller file). Returns the index or -1; *pct = containment of the winner.
 enum { AB_CONTAIN_PCT = 90, AB_CONTAIN_MIN = 8 };
 static int AbBlockFile(const AbTable* t, const uint32_t* obs, int nobs, int* pct) {
-    int best = -1, bi = 0, si = 0, nv = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i])) ++nv;
+    int best = -1, sec = -1, bi = 0, si = 0, nv = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i])) ++nv;
     if (pct) *pct = 0; if (nv < AB_CONTAIN_MIN) return -1;
     for (int k = 0; k < t->n; ++k) {
         const AbFile* f = &t->f[k]; int inter = 0; for (int i = 0; i < nobs; ++i) if (AbOk(obs[i]) && AbHas(f, obs[i])) ++inter;
-        if (inter > bi || (inter == bi && best >= 0 && f->n < t->f[best].n)) { si = bi; best = k; bi = inter; } else if (inter > si) si = inter;
+        if (inter > bi || (inter == bi && best >= 0 && f->n < t->f[best].n)) { si = bi; sec = best; best = k; bi = inter; } else if (inter > si) { si = inter; sec = k; }
     }
     if (pct) *pct = best >= 0 ? bi * 100 / nv : 0;
-    if (best < 0 || bi * 100 < nv * AB_CONTAIN_PCT || si * 100 > bi * 85) return -1;
+    if (best < 0 || bi * 100 < nv * AB_CONTAIN_PCT) return -1;
+    // pc2 #24140: a runner-up of the SAME family (CP_HUMAN_KATANA x3 variants, the CP_HUMAN_COMMON parts) holds the same moves under another file key: not ambiguous, the top one wins.
+    if (sec >= 0 && si * 100 > bi * 85 && !AbSameFamily(&t->f[best], &t->f[sec])) return -1;
     return best;
+}
+
+// Conservative composed-human classifier: both shared common and weapon families.
+static inline int AbHumanFamily(const char* name) {
+    if(!strcmp(name,"CP_HUMAN_COMMON")) return 1;
+    return !strncmp(name,"CP_HUMAN_",9) && name[9] ? 2 : 0;
+}
+static inline int AbComposedHuman(int own,int common,int weapon,int explained,int rows) {
+    return !own && common && weapon && rows>0 && explained*100>=rows*80;
 }
