@@ -94,3 +94,15 @@ word, and count the player's enabled damage shapes per tick.
   condition 0xF1). Not the i-frame.
 - Still open in 0x117A6D0: **a damage collision whose def `[obj+0xB0]+0x14` is 0x17 or 0x19 never gets hit**. Also, a collision
   object that leaves the pool cannot be hit. Both are per-object, so the probe now logs the player's damage-collision objects.
+
+## Build 2f8b6086 (this commit): hurtbox probe and candidate
+- `FmHurtScan` (read only) walks the pool and keeps the player's damage collisions (`[obj+8] == actor`, `[[obj]+0x10] & 0x3FFFC0`).
+  For each one it records slot, obj+0xD4, obj+0xD8, shape+0x10 and def type `[[obj+0xB0]+0x14]`.
+- Gold stripe = the proven flags OR the hurtbox candidate: the player normally has damage collisions (the largest count
+  seen without no-hit types), and now has none, or every one has def type 0x17/0x19 (the no-hit types in 117A6D0).
+- `IFrameProbe = 1` now also logs `IFRAMEHB t .. act .. n .. off .. d4or .. d4and .. types ..: slot:d4/d8/mask/t<type> ...` every
+  time that set changes. The `IFRAME` line also has `eb0` (ctrl+0xEB0..EB7, with the EB4 part mask).
+- What to log in game: IFrameProbe 1, stand idle for 2 s, then do 5 dodges / steps with a gap between them. Send the `IFRAMEHB` lines.
+  If `n`, `off`, a `d4` bit or a type changes inside the dodge, that field is the i-frame. Compare it with the stripe.
+  If nothing in IFRAMEHB changes during a dodge, the window is in the motion data or in a timer. The next fields to log are then
+  the player status floats near `[actor+0x3A0]` and `ctrl+0x7F0..0x820`.

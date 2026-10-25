@@ -79,23 +79,62 @@ static __attribute__((noinline)) int FmPlayerNoDmg(uint64_t actor, uint64_t ctrl
     } __except (EXCEPTION_EXECUTE_HANDLER) { r = 0; }
     return r;
 }
+// #35176 hurtbox side. The collision pool [45C6F38]+0x20+i*8 (0xFA0 slots) holds attack and damage (hurtbox) collision objects:
+// obj+0 = shape (shape+0x10 = category mask, damage = 0x3FFFC0, attack = 0x440003F), obj+8 = owner actor, obj+0xD4 flags, obj+0xD8 part,
+// obj+0xB0 = def (def+0x14 = type). The contact handler 117A6D0 never hits a damage collision whose def type is 0x17 or 0x19, and an object
+// that is not in the pool cannot be touched at all. Read only. Fills a summary of the player's damage collisions; returns their count (-1 = no pool).
+typedef struct { int n, off; uint32_t d4or, d4and, types; char sig[360]; } FmHurt;
+static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
+    uint64_t pool = 0; int o = 0;
+    memset(h, 0, sizeof *h); h->d4and = 0xFFFFFFFFu;
+    if (!actor || !Rd64(B + 0x45C6F38, &pool) || !pool) return -1;
+    __try {
+        for (int i = 0; i < 0xFA0; ++i) {
+            const uint64_t obj = *(volatile uint64_t*)(pool + 0x20 + (uint64_t)i * 8);
+            if (!obj || *(volatile uint64_t*)(obj + 8) != actor) continue;
+            const uint64_t shape = *(volatile uint64_t*)obj;
+            if (!shape) continue;
+            const uint32_t m10 = *(volatile uint32_t*)(shape + 0x10);
+            if (!(m10 & 0x3FFFC0u)) continue;
+            const uint32_t d4 = *(volatile uint32_t*)(obj + 0xD4), d8 = *(volatile uint32_t*)(obj + 0xD8);
+            const uint64_t def = *(volatile uint64_t*)(obj + 0xB0);
+            const int type = def ? *(volatile int32_t*)(def + 0x14) : -1;
+            h->n++; h->d4or |= d4; h->d4and &= d4;
+            if (type == 0x17 || type == 0x19) h->off++;
+            if (type >= 0 && type < 32) h->types |= 1u << type;
+            if (o < (int)sizeof h->sig - 48) o += snprintf(h->sig + o, sizeof h->sig - o, " %d:%X/%X/%X/t%d", i, d4, d8, m10, type);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
+    if (!h->n) h->d4and = 0;
+    return h->n;
+}
+// Candidate i-frame from the hurtbox (UNPROVEN as the dodge mechanism, see notes/iframes.md): the player owns hurtbox objects normally,
+// so "none left" or "every one has a no-hit def type" means attacks cannot connect. `base` = the count seen while idle (>0).
+static int FmHurtOff(const FmHurt* h, int n, int base) { return n >= 0 && base > 0 && (n == 0 || h->off == n); }
 // [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
 // the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
 static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
-    static uint64_t pa8, p1060, pb0, pb1; static uint32_t pact; static int lines, told;
-    uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0;
+    static uint64_t pa8, p1060, pb0, pb1, pb2; static uint32_t pact; static int lines, told, hlines; static char psig[360];
+    uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0, b2 = 0;
     if (!g_cfg_ifp || !actor || !ctrl) return;
+    {   // hurtbox objects: one IFRAMEHB line when the set or a field changes
+        FmHurt h; const int n = FmHurtScan(actor, &h);
+        if (n >= 0 && strcmp(h.sig, psig) && hlines < 3000) {
+            hlines++; memcpy(psig, h.sig, sizeof psig);
+            Log("IFRAMEHB t %.1f act %u n %d off %d d4or %X d4and %X types %X:%s", t, act, n, h.off, h.d4or, h.d4and, h.types, h.sig);
+        }
+    }
     __try {
         a8 = *(volatile uint64_t*)(ctrl + 0xA8); x1060 = *(volatile uint64_t*)(ctrl + 0x1060);
-        b0 = *(volatile uint64_t*)(ctrl + 0xEA0); b1 = *(volatile uint64_t*)(ctrl + 0xEA8);
+        b0 = *(volatile uint64_t*)(ctrl + 0xEA0); b1 = *(volatile uint64_t*)(ctrl + 0xEA8); b2 = *(volatile uint64_t*)(ctrl + 0xEB0);
         b1 = (b1 & 0x0000FFFFFFFFFFFFull) | ((uint64_t)*(volatile uint8_t*)(actor + 0xABC0) << 48) | ((uint64_t)*(volatile uint8_t*)(actor + 0xADB1) << 56);
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
-    if (act == pact && a8 == pa8 && x1060 == p1060 && b0 == pb0 && b1 == pb1) return;
-    pact = act; pa8 = a8; p1060 = x1060; pb0 = b0; pb1 = b1;
+    if (act == pact && a8 == pa8 && x1060 == p1060 && b0 == pb0 && b1 == pb1 && b2 == pb2) return;
+    pact = act; pa8 = a8; p1060 = x1060; pb0 = b0; pb1 = b1; pb2 = b2;
     if (lines >= 3000) { if (!told) { told = 1; Log("IFRAME probe cap 3000"); } return; }
     lines++;
-    Log("IFRAME t %.1f act %u a8 %016llX x1060 %016llX ea0 %016llX ea8 %016llX (byte 6 = actor+ABC0, byte 7 = actor+ADB1) nodmg %d",
-        t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, FmPlayerNoDmg(actor, ctrl));
+    Log("IFRAME t %.1f act %u a8 %016llX x1060 %016llX ea0 %016llX ea8 %016llX (byte 6 = actor+ABC0, byte 7 = actor+ADB1) eb0 %016llX (EB4 = part mask) nodmg %d",
+        t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, (unsigned long long)b2, FmPlayerNoDmg(actor, ctrl));
 }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
@@ -114,7 +153,13 @@ static void FmFeed(double gdt) {
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
-        FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl));
+        {
+            static uint64_t hbActor; static int hbBase;  // hurtbox count seen outside i-frames for this actor (max seen)
+            FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
+            if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; }
+            if (hn > hbBase && !h.off) hbBase = hn;
+            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || FmHurtOff(&h, hn, hbBase));
+        }
         FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
