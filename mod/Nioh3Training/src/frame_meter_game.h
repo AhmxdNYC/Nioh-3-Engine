@@ -78,7 +78,7 @@ static void FmFeed(double gdt) {
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         if (g_pst.v[PS_KI_WINDOW]) {
-            static int wasOpen, blueLogs;
+            static int wasOpen;
             float pkt = 0.f, pki = 0.f;
             const int open = FmPlayerKiOpen(g_fp[FP_PL].a);
             int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki);
@@ -87,7 +87,18 @@ static void FmFeed(double gdt) {
             FmMarkKiWin(&g_fmp, g_fm_clock, open);
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
-            if (edge && blueLogs < 4) { blueLogs++; Log("KI PULSE: blue opened, timer %.1f, Ki %.1f, check %d", pkt, pki, landed); }
+            {
+                static uint32_t prevAct;
+                static float prevKt, prevKi;
+                static int prevBlue, sampleLogs;
+                const uint32_t act = g_fp[FP_PL].run.act;
+                const int jump = pkt > prevKt + 1.f || pkt < prevKt - 1.f || pki > prevKi + 15.f || pki < prevKi - 15.f;
+                if (sampleLogs < 60 && (act != prevAct || jump || open != prevBlue)) {
+                    sampleLogs++;
+                    Log("KI PULSE sample act %u timer %.1f Ki %.1f blue %d check %d", act, pkt, pki, open, landed);
+                }
+                prevAct = act; prevKt = pkt; prevKi = pki; prevBlue = open;
+            }
         }
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
