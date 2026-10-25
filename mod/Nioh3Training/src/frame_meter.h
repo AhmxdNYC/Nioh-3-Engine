@@ -164,6 +164,28 @@ static inline int FmKiPulseStep(FmPulseArm* a, float kt, float ki) {
     } else if (a->have && ++a->age > 45) a->have = 0;
     return hit;
 }
+// v2 (pc/ki-pulse-success). The old rule above matched log #2231 (probe-1332 t+290906): action 0x6248 -> 0x6249, motion
+// 4100 -> 4110, Ki 1019.5 -> 921.1. Ki went DOWN by 98: that is the second hit of the combo, not a pulse, so the old check
+// only lit on a second attack press. A pulse gives Ki back. In the vpad misses (#2301) the window K+0x74 counts down from
+// about 30 to 0 and the pool K+0x5C drains into Ki by at most about 3.5 Ki per sample (~10 ms) near the end; Ki never
+// jumps. Landed = while the window still had time left (previous K+0x74 above 3), either Ki jumps up by at least 15 and
+// by at least 60 % of the pool in one sample, or the window closes early (K+0x74 <= 0) with Ki going up.
+// Ki going down in the same sample (a new attack) is never a land. Unproven in game: no real pulse is logged yet.
+typedef struct { int have; float t74, pool, ki; } FmPulseWatch;
+static inline int FmKiPulseLanded2(float pt74, float t74, float ppool, float pki, float ki) {
+    float rise;
+    if (!(pt74 == pt74 && t74 == t74 && ppool == ppool && pki == pki && ki == ki)) return 0;
+    if (pt74 <= 3.f || pt74 > 31.f) return 0;
+    rise = ki - pki;
+    if (rise <= 0.f) return 0;
+    if (rise >= 15.f && rise >= 0.6f * ppool) return 1;
+    return t74 <= 0.05f && rise >= 5.f;
+}
+static inline int FmKiPulseStep2(FmPulseWatch* w, float t74, float pool, float ki) {
+    int hit = w->have && FmKiPulseLanded2(w->t74, t74, w->pool, w->ki, ki);
+    w->have = 1; w->t74 = t74; w->pool = pool; w->ki = ki;
+    return hit;
+}
 static inline int FmKiPulseRecent(const FmMeter* m, int64_t g, int span) {
     int64_t k, from;
     if (!m || g < 0 || span < 1) return 0;

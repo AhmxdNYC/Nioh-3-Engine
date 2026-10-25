@@ -40,24 +40,29 @@ static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
     return FmKiWindowOpen(kt);
 }
 // KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseStep).
-static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktOut, float* kiOut) {
+// v2: window K+0x74, pool K+0x5C, Ki status+0xAC (see FmKiPulseStep2).
+static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktOut, float* kiOut, float* t74Out) {
     static uint64_t who = 0;
-    static FmPulseArm arm;
+    static FmPulseWatch w;
     uint64_t st = 0;
-    float kt = 0.f, ki = 0.f;
+    float kt = 0.f, ki = 0.f, t74 = -1.f, pt74, ppool, pki;
     int landed = 0;
-    if (!actor || actor != who) { who = actor; memset(&arm, 0, sizeof arm); }
+    if (!actor || actor != who) { who = actor; memset(&w, 0, sizeof w); }
     if (ktOut) *ktOut = 0.f;
     if (kiOut) *kiOut = 0.f;
-    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) { memset(&arm, 0, sizeof arm); return 0; }
+    if (t74Out) *t74Out = -1.f;
+    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) { memset(&w, 0, sizeof w); return 0; }
     __try {
         kt = *(volatile float*)(st + 0x98 + 0x5C);
+        t74 = *(volatile float*)(st + 0x98 + 0x74);
         ki = *(volatile float*)(st + 0xAC);
-    } __except (EXCEPTION_EXECUTE_HANDLER) { memset(&arm, 0, sizeof arm); return 0; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { memset(&w, 0, sizeof w); return 0; }
     if (ktOut) *ktOut = kt;
     if (kiOut) *kiOut = ki;
-    landed = FmKiPulseStep(&arm, kt, ki);
-    if (landed) Log("KI PULSE land: timer %.1f -> %.1f, Ki %.1f -> %.1f", arm.kt, kt, arm.ki, ki);
+    if (t74Out) *t74Out = t74;
+    pt74 = w.t74; ppool = w.pool; pki = w.ki;
+    landed = FmKiPulseStep2(&w, t74, kt, ki);
+    if (landed) Log("KI PULSE land: window %.1f -> %.1f, pool %.1f -> %.1f, Ki %.1f -> %.1f", pt74, t74, ppool, kt, pki, ki);
     return landed;
 }
 // FpTick (game thread, FpLock held), once per pump tick.
@@ -79,9 +84,9 @@ static void FmFeed(double gdt) {
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
-            float pkt = 0.f, pki = 0.f;
+            float pkt = 0.f, pki = 0.f, pt74 = -1.f;
             const int open = FmPlayerKiOpen(g_fp[FP_PL].a);
-            int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki);
+            int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki, &pt74);
             const int edge = open && !wasOpen;
             wasOpen = open;
             FmMarkKiWin(&g_fmp, g_fm_clock, open);
@@ -97,7 +102,7 @@ static void FmFeed(double gdt) {
                 if (watch && (act != prevAct || jump || open != prevBlue)) {
                     if (sampleLogs < 400) {
                         sampleLogs++;
-                        Log("KI PULSE sample act %u timer %.1f Ki %.1f blue %d check %d", act, pkt, pki, open, landed);
+                        Log("KI PULSE sample act %u timer %.1f window %.2f Ki %.1f blue %d check %d", act, pkt, pt74, pki, open, landed);
                     } else if (!capTold) {
                         capTold = 1;
                         Log("KI PULSE sample cap 400");

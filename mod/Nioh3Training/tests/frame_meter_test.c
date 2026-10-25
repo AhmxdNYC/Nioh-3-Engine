@@ -127,6 +127,23 @@ int main(void) {
       assert(FmKiPulseStep(&a, 133.43f, 921.1f));
       assert(!FmKiPulseStep(&a, 133.43f, 921.1f)); }
     FmReset(&m); t = 0;
+    // v2: the second combo hit (Ki down 98, window not open) is not a land.
+    assert(!FmKiPulseLanded2(-1.f, -1.f, 53.94f, 1019.5f, 921.1f));
+    assert(!FmKiPulseLanded2(20.f, 19.f, 53.94f, 1019.5f, 921.1f));
+    // a vpad miss from log #2301 (18:10:58): window counts down, pool drains ~3.5 per sample, closes from 2.1 -> 0
+    { FmPulseWatch w; memset(&w, 0, sizeof w);
+      static const float t74[] = {30.f, 25.f, 20.f, 15.f, 12.f, 9.f, 6.f, 4.f, 2.1f, 0.f, 0.f};
+      static const float pool[] = {53.9f, 53.9f, 50.4f, 46.9f, 43.6f, 33.7f, 23.0f, 12.4f, 2.1f, 0.f, 0.f};
+      static const float ki[] = {1019.5f, 1019.5f, 1023.1f, 1026.5f, 1029.8f, 1039.7f, 1050.4f, 1061.0f, 1071.3f, 1075.0f, 1092.7f};
+      for (int i = 0; i < 11; ++i) assert(!FmKiPulseStep2(&w, t74[i], pool[i], ki[i])); }
+    // a pulse: window still at 18, Ki jumps by the pool at once and the window ends early
+    { FmPulseWatch w; memset(&w, 0, sizeof w);
+      assert(!FmKiPulseStep2(&w, 18.f, 53.9f, 1019.5f));
+      assert(FmKiPulseStep2(&w, 0.f, 0.f, 1080.f));
+      assert(!FmKiPulseStep2(&w, 0.f, 0.f, 1090.f)); }
+    // window closed early with a small Ki rise still counts; a NaN never does
+    assert(FmKiPulseLanded2(12.f, 0.f, 4.f, 1060.f, 1066.f));
+    { float bad; memset(&bad, 0xFF, sizeof bad); assert(!FmKiPulseLanded2(bad, 0.f, 50.f, 1000.f, 1060.f)); }
     FmSample(&m, t, 1, 1, 0); FmMarkKiPulse(&m, t, 0);
     t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiPulse(&m, t, 1);
     t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiPulse(&m, t, 0);
