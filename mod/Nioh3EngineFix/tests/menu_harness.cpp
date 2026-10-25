@@ -83,7 +83,7 @@ int main() {
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
-    CHECK(rootN == 3 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pSettings && rows[2] == kClose);
+    CHECK(rootN == 4 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pGameplay && rows[2] == kPageRow + pSettings && rows[3] == kClose);
     Change(g_sel, 0);
     CHECK(g_pages.page == pDisplay && g_sel == kFps);
     const int disp = PageRows(rows, true);
@@ -127,20 +127,27 @@ int main() {
     g_pstSet = nullptr;
     Back();
     CHECK(g_pages.page == pRoot);
+    Change(kPageRow + pGameplay, 0);
+    CHECK(g_pages.page == pGameplay && g_sel == kAutoCont && strcmp(PageName(pGameplay), "Load / Auto") == 0);
+    const int loadN = PageRows(rows, true);
+    CHECK(loadN == 2 && rows[0] == kAutoCont && rows[1] == kBackRow);
+    Back();
+    CHECK(g_pages.page == pRoot);
     Change(kPageRow + pSettings, 0);
     CHECK(g_pages.page == pSettings && g_sel == kPage);
     const int page1 = PageRows(rows, true);
     CHECK(rows[0] == kPage && rows[page1 - 1] == kBackRow);
-    bool sawSafe = false, sawMeterOnSettings = false;
+    bool sawSafe = false, sawMeterOnSettings = false, sawAuto = false;
     for (int i = 0; i < page1; ++i) {
         if (rows[i] == kFps) sawSafe = true;
         if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
         if (rows[i] == kFrameMeterRow) sawMeterOnSettings = true;
+        if (rows[i] == kAutoCont) sawAuto = true;
     }
     char pageName[64];
     uint32_t pageColor = 0;
     Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && strcmp(pageName, "1/2 same picture") == 0);
+    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && sawAuto && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
     CHECK(g_sel == kBackRow);
     Close("harness");
@@ -167,8 +174,8 @@ int main() {
     CHECK(g_pages.page == pRoot);
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 5 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
-          rows[3] == kPageRow + pSettings && rows[4] == kClose);
+    CHECK(bossN == 6 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
+          rows[3] == kPageRow + pGameplay && rows[4] == kPageRow + pSettings && rows[5] == kClose);
     Change(kPageRow + pSettings, 0);
     g_page = 1;
     bossN = PageRows(rows, true);

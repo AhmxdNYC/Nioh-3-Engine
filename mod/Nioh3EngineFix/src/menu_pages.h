@@ -14,7 +14,7 @@ constexpr int kPracticeRow = kRematchRow + 1;  // user #13223: first page = Sett
 constexpr int kFrameMeterRow = kPracticeRow + 1;  // #34265: Display Overlays toggle; Practice menu keeps its own row
 constexpr int kMenuRowCap = kCount + pCount + kConfigN + 4;
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
-const char* const kPageNames[] = {"Mod menu", "Settings", "Display Overlays", "Frame generation", "Gameplay",
+const char* const kPageNames[] = {"Mod menu", "Settings", "Display Overlays", "Frame generation", "Load / Auto",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section"};
 inline const char* PageName(int page) {

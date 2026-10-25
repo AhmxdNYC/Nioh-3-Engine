@@ -735,7 +735,7 @@ const ItemDef kItems[kCount] = {
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
     {"Settings page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Display Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
-    {"Skip loading tip screen", "(AutoContinueLoad)", "Presses Continue for you when a load finishes.", "Off by default. Applies now; saved to the ini at once."},
+    {"Auto-click loading screen", "(AutoContinueLoad)", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
@@ -875,8 +875,19 @@ int PageRows(int* out, bool selectable) {
             add(kBackRow);
             return n;
         }
+        if (g_pages.page == pGameplay) {
+            // #34283: the loading-screen auto-click, on its own first-screen page. Settings keeps the same row.
+            for (const auto& row : kOrder) {
+                if (SettingsPage(row.id) != pGameplay || !Visible(row.id)) continue;
+                if (selectable && ReadOnly(row.id)) continue;
+                add(row.id);
+            }
+            add(kBackRow);
+            return n;
+        }
         if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
         add(kPageRow + pDisplay);
+        add(kPageRow + pGameplay);
         add(kPageRow + pSettings);
         add(kClose);
         return n;
@@ -2523,6 +2534,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (!g_cfg.layout && g_sel == kPageRow + pDisplay) {
         snprintf(what, sizeof(what), "FPS counter, frame meter, and the controller display (on/off, position, size, opacity, colour).");
         snprintf(effect, sizeof(effect), "On-screen extras only. The picture of the game stays the same.");
+    } else if (!g_cfg.layout && g_sel == kPageRow + pGameplay) {
+        snprintf(what, sizeof(what), "Auto-click the loading screen: Continue is pressed for you when a load finishes.");
+        snprintf(effect, sizeof(effect), "Off until you turn it on. Applies now and is saved. The same switch is also under Settings.");
     } else if (g_sel >= kSettingRow && g_sel < kSettingRow + kConfigN) {
         const int index = g_sel - kSettingRow;
         const auto& d = kConfigSettings[index];
