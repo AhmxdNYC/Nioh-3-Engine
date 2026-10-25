@@ -11,6 +11,7 @@
 #include "frame_meter.h"
 #include "frame_meter_ki.h"
 #include "frame_meter_position.h"
+#include <string.h>
 static __attribute__((noinline)) int NkmRead(uint64_t a,float* cur,float* mx,float* k60,int* dead);
 static int FmHumanBoss(uint64_t actor,uint32_t chr); // definition after automatic binding, no per-boss list
 static const char* const g_fm_ki_label="KI DEBT";
@@ -38,22 +39,25 @@ static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
     __try { kt = *(volatile float*)(st + 0x98 + 0x74); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return FmKiWindowOpen(kt);
 }
-// KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseLanded).
-static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor) {
+// KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseStep).
+static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktOut, float* kiOut) {
     static uint64_t who = 0;
-    static int have = 0;
-    static float prevKt = 0.f, prevKi = 0.f;
+    static FmPulseArm arm;
     uint64_t st = 0;
     float kt = 0.f, ki = 0.f;
     int landed = 0;
-    if (!actor || actor != who) { who = actor; have = 0; }
-    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) { have = 0; return 0; }
+    if (!actor || actor != who) { who = actor; memset(&arm, 0, sizeof arm); }
+    if (ktOut) *ktOut = 0.f;
+    if (kiOut) *kiOut = 0.f;
+    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) { memset(&arm, 0, sizeof arm); return 0; }
     __try {
         kt = *(volatile float*)(st + 0x98 + 0x5C);
         ki = *(volatile float*)(st + 0xAC);
-    } __except (EXCEPTION_EXECUTE_HANDLER) { have = 0; return 0; }
-    if (have) landed = FmKiPulseLanded(prevKt, kt, prevKi, ki);
-    prevKt = kt; prevKi = ki; have = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { memset(&arm, 0, sizeof arm); return 0; }
+    if (ktOut) *ktOut = kt;
+    if (kiOut) *kiOut = ki;
+    landed = FmKiPulseStep(&arm, kt, ki);
+    if (landed) Log("KI PULSE land: timer %.1f -> %.1f, Ki %.1f -> %.1f", arm.kt, kt, arm.ki, ki);
     return landed;
 }
 // FpTick (game thread, FpLock held), once per pump tick.
@@ -74,8 +78,16 @@ static void FmFeed(double gdt) {
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         if (g_pst.v[PS_KI_WINDOW]) {
-            FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiOpen(g_fp[FP_PL].a));
-            FmMarkKiPulse(&g_fmp, g_fm_clock, FmPlayerKiLanded(g_fp[FP_PL].a));
+            static int wasOpen, blueLogs;
+            float pkt = 0.f, pki = 0.f;
+            const int open = FmPlayerKiOpen(g_fp[FP_PL].a);
+            int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki);
+            const int edge = open && !wasOpen;
+            wasOpen = open;
+            FmMarkKiWin(&g_fmp, g_fm_clock, open);
+            if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
+            FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
+            if (edge && blueLogs < 4) { blueLogs++; Log("KI PULSE: blue opened, timer %.1f, Ki %.1f, check %d", pkt, pki, landed); }
         }
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
@@ -144,7 +156,7 @@ static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
 static void FmCheck(HDC dc, int x, int y, int w, int h) {
-    const int thick = h / 5 > 2 ? h / 5 : 2;
+    const int thick = h / 3 > 3 ? h / 3 : 3;
     const int x0 = x + w / 5, y0 = y + h / 2, x1 = x + w / 2, y1 = y + (h * 4) / 5, x2 = x + (w * 4) / 5, y2 = y + h / 5;
     HPEN dark = CreatePen(PS_SOLID, thick + 2, RGB(8, 10, 16));
     HPEN light = CreatePen(PS_SOLID, thick, RGB(245, 248, 255));

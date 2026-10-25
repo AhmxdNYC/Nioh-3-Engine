@@ -119,6 +119,13 @@ int main(void) {
     assert(!FmKiPulseLanded(-1.f, 53.94f, 1153.f, 1019.5f));
     assert(!FmKiPulseLanded(53.94f, 53.94f, 1019.5f, 1016.f));
     { float bad; memset(&bad, 0xFF, sizeof bad); assert(!FmKiPulseLanded(bad, 133.f, 1000.f, 900.f)); }
+    { FmPulseArm a; int hit; memset(&a, 0, sizeof a);
+      hit = FmKiPulseStep(&a, -1.f, 1153.f); assert(!hit && !a.have);
+      hit = FmKiPulseStep(&a, 53.94f, 1019.5f); assert(!hit && a.have);
+      for (int i = 0; i < 20; ++i) assert(!FmKiPulseStep(&a, 53.94f, 1019.5f));
+      assert(!FmKiPulseStep(&a, 53.94f, 921.1f));
+      assert(FmKiPulseStep(&a, 133.43f, 921.1f));
+      assert(!FmKiPulseStep(&a, 133.43f, 921.1f)); }
     FmReset(&m); t = 0;
     FmSample(&m, t, 1, 1, 0); FmMarkKiPulse(&m, t, 0);
     t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiPulse(&m, t, 1);

@@ -145,6 +145,7 @@ static inline int FmViewKiWin(const FmMeter* m, int i) {
 }
 // The one measured land (log #2231): KiTick +0x5C sat near 53.94, then jumped to 133.43 as Ki moved by about 98.
 // The swing that only arms the bar sets +0x5C to about 54 from a low value, so it does not match.
+// The jump and the Ki move are not always the same sample. FmPulseArm keeps the Ki from when +0x5C entered 40..80.
 static inline int FmKiPulseLanded(float prevKt, float kt, float prevKi, float ki) {
     float d;
     if (!(prevKt == prevKt && kt == kt && prevKi == prevKi && ki == ki)) return 0;
@@ -152,6 +153,23 @@ static inline int FmKiPulseLanded(float prevKt, float kt, float prevKi, float ki
     if (kt < prevKt + 40.f) return 0;
     d = ki - prevKi; if (d < 0.f) d = -d;
     return d >= 20.f;
+}
+typedef struct { int have, age; float kt, ki; } FmPulseArm;
+static inline int FmKiPulseStep(FmPulseArm* a, float kt, float ki) {
+    int hit = a->have && a->age <= 45 && FmKiPulseLanded(a->kt, kt, a->ki, ki);
+    if (hit) a->have = 0;
+    else if (kt >= 40.f && kt <= 80.f) {
+        if (!a->have) { a->kt = kt; a->ki = ki; a->have = 1; a->age = 0; }
+        else if (++a->age > 45) a->have = 0;
+    } else if (a->have && ++a->age > 45) a->have = 0;
+    return hit;
+}
+static inline int FmKiPulseRecent(const FmMeter* m, int64_t g, int span) {
+    int64_t k, from;
+    if (!m || g < 0 || span < 1) return 0;
+    from = g - span; if (from < 0) from = 0;
+    for (k = from; k < g; ++k) if (m->kipulse[k % FM_CELLS]) return 1;
+    return 0;
 }
 // Stamp a single cell. Gaps between samples stay empty so an old check is not smeared forward.
 static inline void FmMarkKiPulse(FmMeter* m, double t, int landed) {
