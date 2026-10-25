@@ -816,14 +816,17 @@ int PageRows(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
+        // The two-page list lives inside Settings. The first screen is Settings / Boss Matches / Practice.
+        if (g_pages.page != pSettings) {
+            add(kPageRow + pSettings);
+            if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+            add(kClose);
+            return n;
+        }
         for (const auto& row : kOrder) {
             if (Visible(row.id) && OnPage(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
-            // Boss Matches and Practice sit under the page switcher on page 1, once the boss mod has attached.
-            if (row.id == kPage && g_page == 0 && g_rematchSession.load()) {
-                add(kRematchRow);
-                add(kPracticeRow);
-            }
         }
+        add(kBackRow);
         return n;
     }
     const int page = g_pages.page;
@@ -1205,10 +1208,8 @@ void Open(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
     MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
-    if (g_cfg.layout) {
-        g_pages.Reset();
-        g_sel = kPageRow + pSettings;
-    } else if (g_sel >= kCount || !Visible(g_sel) || !OnPage(g_sel)) g_sel = kPage;
+    g_pages.Reset();
+    g_sel = kPageRow + pSettings;  // first screen: Settings (the two pages sit inside it)
     for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
@@ -1260,7 +1261,7 @@ void CloseCover(const char* why) {
     MLOG("transition cover closed: %s (native ownership unchanged)",why);
 }
 void Back() {
-    if (!g_cfg.layout || !g_pages.Back(g_sel)) Close("B / Esc");
+    if (!g_pages.Back(g_sel)) Close("B / Esc");
     for (auto& repeat : g_rep) repeat = 0;
 }
 
@@ -2377,7 +2378,7 @@ float DrawImpl(unsigned W, unsigned H) {
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
     // user #13279/#13296: plain title (the page name), the version goes to the right edge of the title bar
-    snprintf(title, sizeof(title), "%s", g_cfg.layout ? PageName(g_pages.page) : FlatPageName());
+    snprintf(title, sizeof(title), "%s", (!g_cfg.layout && g_pages.page == pSettings) ? FlatPageName() : PageName(g_pages.page));
     {
         int c = 0;
         char ver[40];
@@ -2694,7 +2695,7 @@ void Configure(const Host& h) {
     g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     if (g_cfg.enabled) StartRematchHostResolver();
-    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 0, f) != 0;  // 0 = two pages; 1 = older grouped pages
+    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 0, f) != 0;  // 0 = Settings holds the two pages; 1 = older grouped folders
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
     g_cfg.vk = 0;
