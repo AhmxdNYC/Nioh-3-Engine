@@ -114,6 +114,18 @@ int main(void) {
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
     FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
+    // Landed Ki pulse (#34866): +0x5C near 54 jumping by 40 or more, with Ki moving by 20 or more.
+    assert(FmKiPulseLanded(53.94f, 133.43f, 1019.5f, 921.1f));
+    assert(!FmKiPulseLanded(-1.f, 53.94f, 1153.f, 1019.5f));
+    assert(!FmKiPulseLanded(53.94f, 53.94f, 1019.5f, 1016.f));
+    { float bad; memset(&bad, 0xFF, sizeof bad); assert(!FmKiPulseLanded(bad, 133.f, 1000.f, 900.f)); }
+    FmReset(&m); t = 0;
+    FmSample(&m, t, 1, 1, 0); FmMarkKiPulse(&m, t, 0);
+    t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiPulse(&m, t, 1);
+    t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiPulse(&m, t, 0);
+    { int n = 0, at = -1; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiPulse(&m, i)) { n++; at = i; } assert(n == 1 && at == 1); }
+    FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0);
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiPulse(&m, i); assert(n == 1); }
     puts("frame_meter_test: all passed");
     return 0;
 }

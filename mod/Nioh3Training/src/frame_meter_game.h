@@ -38,6 +38,24 @@ static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
     __try { kt = *(volatile float*)(st + 0x98 + 0x74); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return FmKiWindowOpen(kt);
 }
+// KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseLanded).
+static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor) {
+    static uint64_t who = 0;
+    static int have = 0;
+    static float prevKt = 0.f, prevKi = 0.f;
+    uint64_t st = 0;
+    float kt = 0.f, ki = 0.f;
+    int landed = 0;
+    if (!actor || actor != who) { who = actor; have = 0; }
+    if (!actor || !Rd64((uintptr_t)actor + 0x3A0, &st) || !st) { have = 0; return 0; }
+    __try {
+        kt = *(volatile float*)(st + 0x98 + 0x5C);
+        ki = *(volatile float*)(st + 0xAC);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { have = 0; return 0; }
+    if (have) landed = FmKiPulseLanded(prevKt, kt, prevKi, ki);
+    prevKt = kt; prevKi = ki; have = 1;
+    return landed;
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
@@ -55,7 +73,10 @@ static void FmFeed(double gdt) {
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
-        if (g_pst.v[PS_KI_WINDOW]) FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiOpen(g_fp[FP_PL].a));
+        if (g_pst.v[PS_KI_WINDOW]) {
+            FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiOpen(g_fp[FP_PL].a));
+            FmMarkKiPulse(&g_fmp, g_fm_clock, FmPlayerKiLanded(g_fp[FP_PL].a));
+        }
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
     }
@@ -122,6 +143,17 @@ static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
+static void FmCheck(HDC dc, int x, int y, int w, int h) {
+    const int thick = h / 5 > 2 ? h / 5 : 2;
+    const int x0 = x + w / 5, y0 = y + h / 2, x1 = x + w / 2, y1 = y + (h * 4) / 5, x2 = x + (w * 4) / 5, y2 = y + h / 5;
+    HPEN dark = CreatePen(PS_SOLID, thick + 2, RGB(8, 10, 16));
+    HPEN light = CreatePen(PS_SOLID, thick, RGB(245, 248, 255));
+    HGDIOBJ old = SelectObject(dc, dark);
+    MoveToEx(dc, x0, y0, 0); LineTo(dc, x1, y1); LineTo(dc, x2, y2);
+    SelectObject(dc, light);
+    MoveToEx(dc, x0, y0, 0); LineTo(dc, x1, y1); LineTo(dc, x2, y2);
+    SelectObject(dc, old); DeleteObject(dark); DeleteObject(light);
+}
 static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side, int kiStripe) {
     const FmMeter m=*mp;
     int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad); (void)h;
@@ -178,6 +210,10 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
         }
         first=end;
     }
+    if(kiStripe) {
+        for(int i=0;i<FM_DISPLAY_CELLS;++i) if(FmViewKiPulse(&m,viewStart+i))
+            FmCheck(dc,x0+i*cw,by,cw>3?cw-2:cw,barH);
+    }
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
@@ -193,7 +229,7 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt"};
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt"};
     COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255)};
     int use[13]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0;
     int idx[13], n=0; for(int i=0;i<13;++i) if(use[i]) idx[n++]=i;
