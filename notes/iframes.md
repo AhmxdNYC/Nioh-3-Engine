@@ -62,3 +62,8 @@ word, and count the player's enabled damage shapes per tick.
 - `tests/frame_meter_test.c` `NoDmgTests`: i-frame cells are never recovery; a dodge is shown and then frozen with its stripe;
   a hitch fills the skipped cells once; a ring slot that gets reused does not leak an old stamp.
 - Build: `mod/Nioh3Training/build.sh` (zig clang). The source uses `__attribute__`, so plain MSVC `cl` does not build it.
+
+## PC test of 89cd937d (coordinator, 2026-10-25)
+- Dodges are drawn as their own runs. The gold stripe never lit: `nodmg 0` on all 202 IFRAME lines, and ea0/ea8 were 0 every time.
+- a8/x1060 only flicker (bits 0x4000, 0x02, 0x01) on dodge actions 2060/2051/10024/10018, and the same bits flicker in idle.
+- Result: the script flags do not cover dodges. Dodge i-frames are hurtbox-based (the inference above). Next: find the hurtbox enable state.
