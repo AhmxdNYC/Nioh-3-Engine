@@ -67,3 +67,16 @@ word, and count the player's enabled damage shapes per tick.
 - Dodges are drawn as their own runs. The gold stripe never lit: `nodmg 0` on all 202 IFRAME lines, and ea0/ea8 were 0 every time.
 - a8/x1060 only flicker (bits 0x4000, 0x02, 0x01) on dodge actions 2060/2051/10024/10018, and the same bits flicker in idle.
 - Result: the script flags do not cover dodges. Dodge i-frames are hurtbox-based (the inference above). Next: find the hurtbox enable state.
+
+## Dodge data (offline, 2026-10-25, after the PC test)
+- Player dodge actions in the PC log: 10015/10018/10021/10024 (decimal). They are in archive_01 `88/2229E56A...` (787 actions).
+  2000/2001/2051/2060 are in `E5/95C355A8...`; 0x80C = 2060 loops (next = self), so it is a movement state and not a dodge.
+- Dodge records 10014-10030 (motions 30001-30018): flags00 0x0004/0x0005, flags10 0x0800. Their events are all instant (no length):
+  common 10072@0, local 40@0, 41@24, 42@0. Sub5 rows 40/41/42 differ only in a few u16 values (`+0x00 = 0x96`, `+0x04 = 0xC8` on 41,
+  `+0x30` 0x00FF / 0x7DFF, and the `+0x88..` 0x4B/0x64 bytes). They look like speed / motion-blend events, not a hurtbox window.
+  **The dodge record has no event with a length, so the i-frame window is not an event window in the action record.**
+- The PC log: on the dodge start `x1060` gets 0x4001 for one tick, then `a8` bit 48 (0x0001000000000000) is set for the whole dodge.
+  Bit 48 is also set in 2000/2001 (move), so it is not the i-frame.
+- New candidate: contacts whose shape mask is `0x3800000` (bits 23-25, neither attack 0x440003F nor damage 0x3FFFC0) go to
+  0x117C7F0 instead of 0x117A6D0 (dispatch 0x117A3E0). Nioh 3 has a JUST_DODGE event (UI/tutorial enum index 25 at 0x3C35888),
+  so the dodge may swap the damage shapes for a "dodge sensor" category. Next step: check 0x117C7F0 and who sets shape `+0x10`.
