@@ -821,9 +821,11 @@ bool IsControllerDisplayKey(const char* key) { return key && strncmp(key, "Contr
 
 // PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
 constexpr int kFrameMeterWhat = 7;
+constexpr int kKiWindowWhat = 21;  // PS_KI_WINDOW in Nioh3Training (#34558)
 int (*g_pstGet)(int) = nullptr;
 int (*g_pstSet)(int, int, int) = nullptr;
 char g_frameMeterNote[200] = "Boss frame meter. The Practice menu has this toggle too. Needs Nioh3Training.";
+char g_kiWindowNote[220] = "Dark blue on the player frame meter while the Ki window is open (about half a second after an attack). Needs Nioh3Training.";
 void ResolveFrameMeter() {
     if (g_pstGet && g_pstSet) return;
     static ULONGLONG tried = 0;
@@ -849,6 +851,21 @@ void ChangeFrameMeter() {
     else snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), v ? "Frame meter ON. Saved in Training. The Practice menu toggle still works."
                                                                   : "Frame meter OFF. Saved in Training. The Practice menu toggle still works.");
 }
+int KiWindowGet() {
+    ResolveFrameMeter();
+    return g_pstGet ? g_pstGet(kKiWindowWhat) : -1;
+}
+void ChangeKiWindow() {
+    ResolveFrameMeter();
+    if (!g_pstSet) {
+        snprintf(g_kiWindowNote, sizeof(g_kiWindowNote), "Needs a Nioh3Training.asi with the Ki window.");
+        return;
+    }
+    const int v = g_pstSet(kKiWindowWhat, -1, 1);
+    if (v < 0) snprintf(g_kiWindowNote, sizeof(g_kiWindowNote), "Needs a Nioh3Training.asi with the Ki window.");
+    else snprintf(g_kiWindowNote, sizeof(g_kiWindowNote), v ? "Ki window ON. Dark blue on the player frame meter. Saved in Training."
+                                                             : "Ki window OFF. The dark blue is hidden. Saved in Training.");
+}
 
 int PageRows(int* out, bool selectable) {
     int n = 0;
@@ -870,6 +887,7 @@ int PageRows(int* out, bool selectable) {
                 add(row.id);
             }
             add(kFrameMeterRow);
+            add(kKiWindowRow);
             for (int i = 0; i < kConfigN; ++i)
                 if (IsControllerDisplayKey(kConfigSettings[i].key)) add(kSettingRow + i);
             add(kBackRow);
@@ -1433,6 +1451,7 @@ void Change(int id, int dir) {
         return;
     }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
+    if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
     if (id >= kCount) {
         if (dir != 0) return;
@@ -2471,6 +2490,16 @@ float DrawImpl(unsigned W, unsigned H) {
                 v > 0 ? cGreen : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kKiWindowRow) {
+            if (id == g_sel) selRow = nb;
+            char text[48];
+            const int v = KiWindowGet();
+            if (v < 0) snprintf(text, sizeof(text), "needs Training");
+            else snprintf(text, sizeof(text), "%s", v ? "ON" : "OFF");
+            put(body, nb, 128, id == g_sel ? "> Ki window" : "  Ki window", "", text, id == g_sel ? cWhite : cGray,
+                v > 0 ? cGreen : cGray, id == g_sel, false);
+            continue;
+        }
         if (id >= kSettingRow && id < kSettingRow + kConfigN) {
             const int index = id - kSettingRow;
             const auto& d = kConfigSettings[index];
@@ -2531,8 +2560,11 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Same switch as Practice > Frame meter. Training saves it. FPS and the controller display are on this page too.");
+    } else if (g_sel == kKiWindowRow) {
+        snprintf(what, sizeof(what), "%s", g_kiWindowNote);
+        snprintf(effect, sizeof(effect), "On by default. Off hides the dark blue and leaves the other frame-meter colors. Training saves it.");
     } else if (!g_cfg.layout && g_sel == kPageRow + pDisplay) {
-        snprintf(what, sizeof(what), "FPS counter, frame meter, and the controller display (on/off, position, size, opacity, colour).");
+        snprintf(what, sizeof(what), "FPS counter, frame meter, Ki window, and the controller display (on/off, position, size, opacity, colour).");
         snprintf(effect, sizeof(effect), "On-screen extras only. The picture of the game stays the same.");
     } else if (!g_cfg.layout && g_sel == kPageRow + pGameplay) {
         snprintf(what, sizeof(what), "Auto-click the loading screen: Continue is pressed for you when a load finishes.");
