@@ -26,6 +26,8 @@ typedef struct {
     double ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW];
     FmSum cur, last; int haveLast;
     uint8_t frozen[FM_CELLS]; int frozenN;  // the last completed attack as drawn when it ended (its first cell first)
+    uint8_t kiwin[FM_CELLS];                // 1 = the Ki window timer was open on that cell (player bar)
+    uint8_t kiwinFrozen[FM_CELLS]; int kiwinFrozenN;
 } FmMeter;
 static inline void FmReset(FmMeter* m) { for (int i = 0; i < (int)sizeof *m; ++i) ((uint8_t*)m)[i] = 0; m->lastCell = -1; }
 static inline int64_t FmCellOf(double t) { return t <= 0 ? 0 : (int64_t)(t * 0.06); }
@@ -64,7 +66,12 @@ static inline void FmEnd(FmMeter* m, double t) {
     else {
         FmSummary(m, t, 1, &m->last); m->haveLast = 1;
         int64_t from = m->c0; if (from < m->lastCell - (FM_CELLS - 1)) from = m->lastCell - (FM_CELLS - 1); if (from < 0) from = 0;
-        m->frozenN = 0; for (int64_t g = from; g <= m->lastCell && m->frozenN < FM_CELLS; ++g) m->frozen[m->frozenN++] = m->cell[g % FM_CELLS];
+        m->frozenN = 0; m->kiwinFrozenN = 0;
+        for (int64_t g = from; g <= m->lastCell && m->frozenN < FM_CELLS; ++g) {
+            m->frozen[m->frozenN] = m->cell[g % FM_CELLS];
+            m->kiwinFrozen[m->kiwinFrozenN] = m->kiwin[g % FM_CELLS];
+            m->frozenN++; m->kiwinFrozenN++;
+        }
     }
     m->cur = m->last; m->on = 0;
 }
@@ -112,6 +119,18 @@ static inline int64_t FmViewStart(const FmMeter* m) {
     return m->lastCell - (FM_CELLS - 1);
 }
 // Cell i of the view, 0 = left .. FM_CELLS-1 = right (state | FM_EDGE, FM_EMPTY where nothing is drawn).
+// kt74 is closed at -1 and counts down from about 30 while the Ki window is open.
+static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 >= 0.f && kt74 <= 40.f; }
+static inline void FmMarkKiWin(FmMeter* m, double t, int open) {
+    const int64_t g = FmCellOf(t);
+    if (!m->on || m->lastCell < 0 || g < 0 || g > m->lastCell) return;
+    m->kiwin[g % FM_CELLS] = open ? 1 : 0;
+}
+static inline int FmViewKiWin(const FmMeter* m, int i) {
+    if (!(m->on && m->nw) && m->haveLast) return i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
+    const int64_t g = FmViewStart(m) + i;
+    return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->kiwin[g % FM_CELLS];
+}
 static inline uint8_t FmViewCell(const FmMeter* m, int i) {
     if (!(m->on && m->nw) && m->haveLast) return i < m->frozenN ? m->frozen[i] : FM_EMPTY;
     const int64_t g = FmViewStart(m) + i;

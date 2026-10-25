@@ -102,6 +102,14 @@ int main(void) {
         b[2] = 1; assert(FmPickSlot(0, 4, v, b) == 0 /* busy but not valid: ignored */);
         v[0] = v[1] = 0; assert(FmPickSlot(0, 4, v, b) == -1);
     }
+    // Ki window: closed at -1, open while the timer is 0..40 (probe log #2236 kt74).
+    { float bad; memset(&bad, 0xFF, sizeof bad); assert(!FmKiWindowOpen(-1.f) && !FmKiWindowOpen(41.f) && !FmKiWindowOpen(bad));
+      assert(FmKiWindowOpen(0.f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(40.f)); }
+    FmReset(&m); t = 0;
+    FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1); // a hit keeps the bar on this action, so cell 0 is the open window
+    assert(FmViewKiWin(&m, 0) == 1);
+    FmSample(&m, t + 500, 2, 0, 0); // the attack freezes; the dark-blue cell stays
+    assert(m.haveLast && FmViewKiWin(&m, 0) == 1);
     puts("frame_meter_test: all passed");
     return 0;
 }

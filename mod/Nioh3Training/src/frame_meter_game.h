@@ -29,7 +29,18 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
 static DWORD WINAPI FmThread(LPVOID p);
 static void FmLoadIni(const char* ini) {
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
+    g_pst.v[PS_FRAME_METER] = 1;
+    g_pst.v[PS_PLAYER_METER] = 1;
     Log("FRAME METER: [Practice] FrameMeter %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent) (drawn from the FRAMEPROBE hook signals; GDI overlay window)", g_pst.v[PS_FRAME_METER], g_cfg_fm_y);
+    Log("FRAME METER: player Ki window is dark blue on the lower half of those pips. Both meters are on for this build.");
+}
+static int FmPlayerKiWindow(uint64_t a) {
+    uint64_t st = 0;
+    float kt = -1.f;
+    if (!a || !Rd64(a + 0x3A0, &st) || !st) return 0;
+    __try { kt = *(volatile float*)(st + 0x98 + 0x74); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return FmKiWindowOpen(kt);
 }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
@@ -48,6 +59,7 @@ static void FmFeed(double gdt) {
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
+        FmMarkKiWin(&g_fmp, g_fm_clock, FmPlayerKiWindow(g_fp[FP_PL].a));
         ReleaseSRWLockExclusive(&g_fm_lock);
         g_fmp_show = 1;
     }
@@ -112,7 +124,7 @@ static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
-static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side) {
+static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side, int kiStripe) {
     const FmMeter m=*mp;
     int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad); (void)h;
     const int px=barH-2>9?barH-2:9;
@@ -134,6 +146,10 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
         const uint8_t c=FmViewCell(&m,viewStart+i);
         FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmColor(c&0x7F));
+        if(kiStripe && FmViewKiWin(&m,viewStart+i)) {
+            int bh=barH/2; if(bh<4) bh=4; if(bh>barH) bh=barH;
+            FmFill(dc,x0+i*cw,by+barH-bh,cw>3?cw-2:cw>1?cw-1:cw,bh,RGB(12,36,168));
+        }
         if((c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
     }
@@ -171,21 +187,21 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
-    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>11+FmKiShown()) cols=11+FmKiShown();
-    return (((11+FmKiShown())+cols-1)/cols)*lh+pad*2;
+    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>12+FmKiShown()) cols=12+FmKiShown();
+    return (((12+FmKiShown())+cols-1)/cols)*lh+pad*2;
 }
 static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>11+FmKiShown()) cols=11+FmKiShown();
+    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>12+FmKiShown()) cols=12+FmKiShown();
     const int pitch=bw/cols;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki debt"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),RGB(138,92,255)};
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt"};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),RGB(12,36,168),RGB(138,92,255)};
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
     HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
     FmLabel(dc,x-gutter,y+pad,"KEY",RGB(145,159,181));
-    for(int i=0;i<11+FmKiShown();++i) {
+    for(int i=0;i<12+FmKiShown();++i) {
         const int xx=x+(i%cols)*pitch,yy=y+pad+(i/cols)*lh;
         FmFill(dc,xx,yy+3,8,8,colors[i]); FmLabel(dc,xx+12,yy,names[i],RGB(183,194,211));
     }
@@ -222,8 +238,8 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(g_pst.v[PS_PLAYER_METER] && g_fmp_show) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER"); oy+=ph; }
-    if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS"); oy+=ph; }
+    if(g_pst.v[PS_PLAYER_METER] && g_fmp_show) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",1); oy+=ph; }
+    if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0); oy+=ph; }
     if(showKi) {
         int used=FM_CELLS; while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
