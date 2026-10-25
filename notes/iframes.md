@@ -80,3 +80,17 @@ word, and count the player's enabled damage shapes per tick.
 - New candidate: contacts whose shape mask is `0x3800000` (bits 23-25, neither attack 0x440003F nor damage 0x3FFFC0) go to
   0x117C7F0 instead of 0x117A6D0 (dispatch 0x117A3E0). Nioh 3 has a JUST_DODGE event (UI/tutorial enum index 25 at 0x3C35888),
   so the dodge may swap the damage shapes for a "dodge sensor" category. Next step: check 0x117C7F0 and who sets shape `+0x10`.
+
+## Hurtbox side (offline, continued)
+- Collision shape layout (proven): `+0x10` = own category mask (set by 0xB9F14), `+0x18` = collides-with mask (0xB9B38, under a spin
+  flag at `+0x40`). A layer id maps to the masks through 0x5884D4 and 0x5884B4. Collides-with is almost all bits
+  (0x3BFFFFFF / 0xDFFFFFF), so attack and damage are paired in the contact callback 0x117A3E0, not by the physics filter.
+- Damage-collision layer: 0x2B9140(side, obj+0xD4 flags, owner type). The result is 6..0x15, from the side
+  (`[actor+0xB0]+0x10`) and obj+0xD4 bits 0 / 2 / 15. It is re-applied only when the side changes (0x669738, 0x237D470/0x237D480,
+  which walk the pool and match obj+8 == owner). **Not a dodge switch.**
+- `ctrl+0xEB4` (u32 mask, by part index obj+0xD8) is the weak-point / part mask: 0x787D74 is used by 0x789A78 to pick the
+  better damage collision of a pair. Not the i-frame.
+- The attack-vs-sensor contacts (mask 0x3800000) go to 0x117C7F0. That only feeds the AI's "attack incoming" sensing (AI+0x1C0,
+  condition 0xF1). Not the i-frame.
+- Still open in 0x117A6D0: **a damage collision whose def `[obj+0xB0]+0x14` is 0x17 or 0x19 never gets hit**. Also, a collision
+  object that leaves the pool cannot be hit. Both are per-object, so the probe now logs the player's damage-collision objects.
