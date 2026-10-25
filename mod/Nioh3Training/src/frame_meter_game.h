@@ -28,7 +28,9 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
     if (nm) snprintf(out, n, "Boss %c - %s", 'A' + slot, nm); else snprintf(out, n, "Boss %c", 'A' + slot);
 }
 static DWORD WINAPI FmThread(LPVOID p);
+static int g_cfg_ifp;  // [Debug] IFrameProbe 1: log-only probe of the player's state bits (notes/iframes.md)
 static void FmLoadIni(const char* ini) {
+    g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
     Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
 }
@@ -65,6 +67,36 @@ static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktO
     if (landed) Log("KI PULSE land: window %.1f -> %.1f, pool %.1f -> %.1f, Ki %.1f -> %.1f", pt74, t74, ppool, kt, pki, ki);
     return landed;
 }
+// #35176 i-frames (notes/iframes.md). Read only. 1 while a flag the game's own hit / damage gates test is set:
+//   actor+0xABC0 (contact handler 117A6D0 returns: no hit), ctrl+0xEB1 (Character::SetNoHitInvincible, 117A7B6: no hit),
+//   ctrl+0xEB0 (Character::SetNoDamageInvincible) and actor+0xADB1 (NoDamageMode) read by IsNoDamage 2A343C: no damage.
+// ctrl = [[actor+0x3B0]+8]. Dodge i-frames are probably hurtbox-based and NOT covered by these flags (unproven; the probe below is for that).
+static __attribute__((noinline)) int FmPlayerNoDmg(uint64_t actor, uint64_t ctrl) {
+    int r = 0;
+    if (!actor || !ctrl) return 0;
+    __try {
+        r = *(volatile uint8_t*)(actor + 0xABC0) || *(volatile uint8_t*)(actor + 0xADB1) || *(volatile uint8_t*)(ctrl + 0xEB0) || *(volatile uint8_t*)(ctrl + 0xEB1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { r = 0; }
+    return r;
+}
+// [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
+// the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
+static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
+    static uint64_t pa8, p1060, pb0, pb1; static uint32_t pact; static int lines, told;
+    uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0;
+    if (!g_cfg_ifp || !actor || !ctrl) return;
+    __try {
+        a8 = *(volatile uint64_t*)(ctrl + 0xA8); x1060 = *(volatile uint64_t*)(ctrl + 0x1060);
+        b0 = *(volatile uint64_t*)(ctrl + 0xEA0); b1 = *(volatile uint64_t*)(ctrl + 0xEA8);
+        b1 = (b1 & 0x0000FFFFFFFFFFFFull) | ((uint64_t)*(volatile uint8_t*)(actor + 0xABC0) << 48) | ((uint64_t)*(volatile uint8_t*)(actor + 0xADB1) << 56);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (act == pact && a8 == pa8 && x1060 == p1060 && b0 == pb0 && b1 == pb1) return;
+    pact = act; pa8 = a8; p1060 = x1060; pb0 = b0; pb1 = b1;
+    if (lines >= 3000) { if (!told) { told = 1; Log("IFRAME probe cap 3000"); } return; }
+    lines++;
+    Log("IFRAME t %.1f act %u a8 %016llX x1060 %016llX ea0 %016llX ea8 %016llX (byte 6 = actor+ABC0, byte 7 = actor+ADB1) nodmg %d",
+        t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, FmPlayerNoDmg(actor, ctrl));
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
@@ -82,6 +114,8 @@ static void FmFeed(double gdt) {
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
+        FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl));
+        FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
             float pkt = 0.f, pki = 0.f, pt74 = -1.f;
@@ -174,6 +208,7 @@ static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_MET
 static int FmPlayerRow(void) { return (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fmp_show; }
 static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmKiShown(); }
 #define FM_KIWIN_RGB RGB(16,44,168)
+#define FM_NODMG_RGB RGB(255,206,48)  // #35176 i-frame stripe (gold), top third of the cell
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
@@ -188,7 +223,7 @@ static void FmCheck(HDC dc, int x, int y, int w, int h) {
     MoveToEx(dc, x0, y0, 0); LineTo(dc, x1, y1); LineTo(dc, x2, y2);
     SelectObject(dc, old); DeleteObject(dark); DeleteObject(light);
 }
-static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side, int kiStripe) {
+static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, const char* who, const char* side, int kiStripe, int noDmg) {
     const FmMeter m=*mp;
     int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad); (void)h;
     const int px=barH-2>9?barH-2:9;
@@ -213,6 +248,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
         FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win?FM_KIWIN_RGB:FmColor(c&0x7F));
         if(!win && (c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
+        if(noDmg && FmViewNoDmg(&m,viewStart+i)) FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH/3>2?barH/3:2,FM_NODMG_RGB);
     }
     // Count each visible colour run; action boundaries and the Ki window also start a new run.
     // Centre within its LAST coloured cell, excluding the separator.
@@ -251,7 +287,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
-static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 1 : 0) + FmKiShown(); }
+static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 1 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0); }
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
@@ -263,10 +299,10 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255)};
-    int use[13]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0;
-    int idx[13], n=0; for(int i=0;i<13;++i) if(use[i]) idx[n++]=i;
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","No damage (i-frame)"};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB};
+    int use[14]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0;
+    int idx[14], n=0; for(int i=0;i<14;++i) if(use[i]) idx[n++]=i;
     int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
@@ -309,8 +345,8 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW]); oy+=ph; }
-    if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0); oy+=ph; }
+    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],1); oy+=ph; }
+    if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0,0); oy+=ph; }
     if(showKi) {
         int used=FM_CELLS; while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;

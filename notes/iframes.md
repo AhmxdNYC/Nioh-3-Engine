@@ -39,7 +39,7 @@ The pool id is at `+0x58`, the pool is `[45C6F38]`. Then the attack-vs-damage-co
   the body collision set (`notes/yoritomo-attack-values.md`). With no damage shapes there is no contact, so no hit is
   ever queued. This is not proven yet: the field that says "hurtbox off" was not found.
 
-## Training change (this branch)
+## Training change (this branch, built and offline-tested only)
 - New cell overlay **"No damage" (i-frames)** on the PLAYER bar: a gold stripe across the cell while any proven game flag
   above is set (`ctrl+0xEB1`, `ctrl+0xEB0`, `actor+0xABC0`, `actor+0xADB1`). Read only.
 - A log-only probe (`[Debug] IFrameProbe 1`): it logs the player action id, `ctrl+0xA8`, `ctrl+0x1060` and the
@@ -52,3 +52,13 @@ Find the code that applies the sub5 collision-set events, starting from the per-
 action start 0x4F54C4. Also look at the Collision manager functions at 0x237CC54..0x237D8E8: 0x237D954 reads
 `actor+0xABC0`, and they are the main users of the pool `[45C6F38]`. Then find the hurtbox shapes' enable or filter
 word, and count the player's enabled damage shapes per tick.
+
+## Code
+- `frame_meter.h`: `nodmg[]` per cell plus a frozen copy, `FmMarkNoDmg`, `FmViewNoDmg`, and `FmLiveRun`. A run with i-frame cells
+  but no hit (a dodge) is shown live and then frozen, the same as an attack. Before this change a dodge was never on screen
+  while an older attack was frozen.
+- `frame_meter_game.h`: `FmPlayerNoDmg` (four byte reads under `__try`), the gold stripe on the PLAYER row only, and the
+  legend entry "No damage (i-frame)". `FmIFrameProbe` writes the `IFRAME ...` log lines when `[Debug] IFrameProbe = 1`.
+- `tests/frame_meter_test.c` `NoDmgTests`: i-frame cells are never recovery; a dodge is shown and then frozen with its stripe;
+  a hitch fills the skipped cells once; a ring slot that gets reused does not leak an old stamp.
+- Build: `mod/Nioh3Training/build.sh` (zig clang). The source uses `__attribute__`, so plain MSVC `cl` does not build it.
