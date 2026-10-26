@@ -10,6 +10,7 @@
 // screen height; -1 (default) anchors above the lower player HUD, slightly left.
 #include "frame_meter.h"
 #include "frame_meter_iframe.h"
+#include "frame_meter_kipress.h"
 #include "frame_meter_ki.h"
 #include "frame_meter_position.h"
 #include <string.h>
@@ -30,10 +31,13 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
 }
 static DWORD WINAPI FmThread(LPVOID p);
 static int g_cfg_ifp;  // [Debug] IFrameProbe 1: log-only probe of the player's state bits (notes/iframes.md)
+static int g_cfg_kipress;  // [Debug] KiPressProbe 1: log R1 against the blue bar (notes/ki-press-probe-35849.md)
 static void FmLoadIni(const char* ini) {
     g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
+    g_cfg_kipress = (int)GetPrivateProfileIntA("Debug", "KiPressProbe", 0, ini);
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
     Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
+    if (g_cfg_kipress) Log("KIPRESS on. Bar frame 0 is the tick the blue bar opens. R1 is XInput bit 0x0200.");
 }
 // Player KiTick K+0x74 (status = [actor+0x3A0], K = status+0x98). Read only. 1 while the 30-tick window is counting down.
 static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
@@ -492,11 +496,55 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
         t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, (unsigned long long)b2, FmPlayerNoDmg(actor, ctrl));
 }
 int FmIFrameProbeOn(void) { return g_cfg_ifp; }
+int FmKiPressOn(void) { return g_cfg_kipress; }
+// R1 through the game's XInput slot, so a VirtualPad tap is visible. Bit 0x0200.
+static int FmPadRB(void) {
+    typedef unsigned long (__stdcall *Fn)(unsigned long, void*);
+    Fn fn = 0; uint64_t slot = 0;
+    if (Rd64(B + 0x38E2C50, &slot) && slot > 0x10000ull) fn = (Fn)slot;
+    if (!fn) {
+        static Fn raw; static int tried;
+        if (!tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); raw = x ? (Fn)GetProcAddress(x, "XInputGetState") : 0; }
+        fn = raw;
+    }
+    if (!fn) return 0;
+    uint8_t st[32]; memset(st, 0, sizeof st);
+    __try { if (fn(0, st) != 0) return 0; return (*(unsigned short*)(st + 4) & 0x0200) != 0; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static void FmKiPressTick(void) {
+    static KpRun run; static int lines, told;
+    float t74 = -1.f, pool = 0.f, stored = 0.f, ki = 0.f; int end80 = 0; int ok = 0;
+    const uint64_t a = g_fp[FP_PL].valid ? g_fp[FP_PL].a : 0;
+    uint64_t st = 0;
+    if (a && Rd64(a + 0x3A0, &st) && st) {
+        __try {
+            t74 = *(volatile float*)(st + 0x98 + 0x74);
+            pool = *(volatile float*)(st + 0x98 + 0x5C);
+            stored = *(volatile float*)(st + 0x98 + 0x58);
+            ki = *(volatile float*)(st + 0xAC);
+            end80 = *(volatile uint8_t*)(st + 0x98 + 0x80);
+            ok = 1;
+        } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    }
+    if (!ok) return;
+    KpEv ev[4];
+    const int n = KpStep(&run, FmKiWindowOpen(t74), FmPadRB(), t74, pool, stored, ki, end80, g_fp[FP_PL].run.act, ev, 4);
+    for (int i = 0; i < n; ++i) {
+        if (lines >= 80) { if (!told) { told = 1; Log("KIPRESS cap 80"); } return; }
+        lines++;
+        if (ev[i].kind == KP_OPEN) Log("KIPRESS open act %u", ev[i].act);
+        else if (ev[i].kind == KP_R1) Log("KIPRESS r1 frame %d t74 %.2f pool %.1f stored %.1f Ki %.1f", ev[i].frame, ev[i].t74, ev[i].pool, ev[i].stored, ev[i].ki);
+        else if (ev[i].kind == KP_AFTER) Log("KIPRESS after frame %d dKi %.1f pool %.1f end80 %u", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80);
+        else if (ev[i].kind == KP_CLOSE) Log("KIPRESS close frame %d dKi %.1f pool %.1f end80 %u", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80);
+    }
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
     const int probe = g_cfg_ifp != 0;
-    if ((!wantB && !wantP && !probe) || (!g_pst_live && !probe)) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
+    const int kpress = g_cfg_kipress != 0;
+    if ((!wantB && !wantP && !probe && !kpress) || (!g_pst_live && !probe && !kpress)) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
     if (g_pst_live && !g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
     if (probe && !g_pst_live) { static int told; if (!told) { told = 1; Log("IFRAMEPR: logging in the field with no Practice session"); } }
     double dt = gdt;
@@ -507,6 +555,7 @@ static void FmFeed(double gdt) {
     // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
     if (!wantP) g_fmp_show = 0;
     if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
+    if (kpress && g_fp[FP_PL].valid) FmKiPressTick();
     if ((wantP || probe) && g_fp[FP_PL].valid) {
         static FmiState fmiS;
         int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb, grab = g_fp[FP_PL].pulseGrab;
