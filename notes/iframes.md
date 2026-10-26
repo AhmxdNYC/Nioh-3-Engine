@@ -211,3 +211,12 @@ word, and count the player's enabled damage shapes per tick.
   12. row+0x44 bit 9; dmgObj+0xD4 & 0x6000 (front / back only)
   13. otherwise the hit goes to the queue push 0x7897B0 -> 0x789844. The push merges a contact into an existing entry with the same
       attacker / defender / hit group in the same tick (returns 0 = no new entry). That explains standing `4 contacts, 1 queued`.
+
+## Build 055b0816 (this commit): per-contact inputs
+- For every player contact (max 1500) the detour reads the inputs of the exits above BEFORE the original runs, and logs one line:
+  `IFRAMECX t .. act .. queued 0/1 atk <owner> obj <atk obj> abc0 eb1 eb0 adb1 side d/a dtype d4 row r48 r44 r4c r21 r92 hcnt hist`.
+  `hist` = 0x2B44C4(defAI, atkObj) (1 = this attack's hit group is already in the player's hit history). `hcnt` = H+0xE4 vs `r21`.
+- Read-only: pure loads plus the list walk 2B44C4 (no writes, checked in the disassembly). It runs on the physics thread, like the game's own call.
+- What to check: IFrameProbe 1. Get hit once while standing (queued 1), then dodge through 5 attacks. Compare the IFRAMECX inputs of the
+  rejected dodge contacts with the queued standing contact. The field that differs is the i-frame rule. Look first at hist, hcnt/r21, dtype,
+  d4 & 0x6000, side, eb1 / abc0.

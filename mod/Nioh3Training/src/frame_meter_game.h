@@ -119,7 +119,32 @@ static int FmHurtOff(const FmHurt* h, int n, int base, int m18seen) { return n >
 // lea rbp,[r11-1E8h] (16 bytes, no rip-relative operand). The detour calls the original first, then counts player contacts and whether the
 // hit queue [[47452E0]+0x5910] grew (hit queued) or not (rejected in 117A6D0). Runs on the physics thread: Interlocked counters only.
 typedef void (*FmCtFn)(uint64_t, uint64_t);
-static FmCtFn o_fmct; static volatile LONG g_fmct_hooked, g_fmct_calls, g_fmct_pl, g_fmct_plq; static volatile uint64_t g_fmct_player, g_fmct_atkOwner, g_fmct_atkObj;
+static FmCtFn o_fmct; static volatile LONG g_fmct_hooked, g_fmct_calls, g_fmct_pl, g_fmct_plq, g_fmct_lines; static volatile uint64_t g_fmct_player, g_fmct_atkOwner, g_fmct_atkObj;
+static volatile uint32_t g_fmct_act; static volatile double g_fmct_t;
+typedef uint64_t (*FmHistFn)(uint64_t, uint64_t);
+// The inputs of the reject exits of 117A6D0 (notes/iframes.md), read BEFORE the original runs. Read only; the hit-history test 2B44C4 is a pure list walk.
+static __attribute__((noinline)) void FmCtInputs(uint64_t atk, uint64_t dmg, uint64_t def, char* o, int n) {
+    uint64_t ai = 0, ctrl = 0, H = 0, row = 0, dd = 0, ao = 0, hist = 0; int dtype = -1, hcnt = -1, side_d = -1, side_a = -1;
+    uint32_t r44 = 0, r48 = 0, r4c = 0, d4 = 0; int8_t r21 = 0; uint8_t abc0 = 0, adb1 = 0, eb1 = 0, eb0 = 0; uint8_t r92 = 0;
+    __try {
+        ao = *(volatile uint64_t*)(atk + 8);
+        abc0 = *(volatile uint8_t*)(def + 0xABC0); adb1 = *(volatile uint8_t*)(def + 0xADB1);
+        ai = *(volatile uint64_t*)(def + 0x3B0); if (ai) ctrl = *(volatile uint64_t*)(ai + 8);
+        if (ctrl) { eb1 = *(volatile uint8_t*)(ctrl + 0xEB1); eb0 = *(volatile uint8_t*)(ctrl + 0xEB0); }
+        { const uint64_t sd = *(volatile uint64_t*)(def + 0xB0); if (sd) side_d = *(volatile int32_t*)(sd + 0x10); }
+        if (ao && !(*(volatile uint8_t*)ao & 0xF)) { const uint64_t sa = *(volatile uint64_t*)(ao + 0xB0); if (sa) side_a = *(volatile int32_t*)(sa + 0x10); }
+        dd = *(volatile uint64_t*)(dmg + 0xB0); if (dd) dtype = *(volatile int32_t*)(dd + 0x14);
+        d4 = *(volatile uint32_t*)(dmg + 0xD4);
+        H = *(volatile uint64_t*)(atk + 0xB0);
+        if (H) {
+            row = *(volatile uint64_t*)H; hcnt = *(volatile int32_t*)(H + 0xE4);
+            if (row) { r44 = *(volatile uint32_t*)(row + 0x44); r48 = *(volatile uint32_t*)(row + 0x48); r4c = *(volatile uint16_t*)(row + 0x4C); r21 = *(volatile int8_t*)(row + 0x21); r92 = *(volatile uint8_t*)(row + 0x92); }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { snprintf(o, n, " read-fault"); return; }
+    if (ai && H) { __try { hist = ((FmHistFn)(B + 0x2B44C4))(ai, atk) & 0xFF; } __except (EXCEPTION_EXECUTE_HANDLER) { hist = 0xEE; } }
+    snprintf(o, n, " abc0 %u eb1 %u eb0 %u adb1 %u side %d/%d dtype %d d4 %X row %p r48 %X r44 %X r4c %X r21 %d r92 %u hcnt %d hist %u",
+        abc0, eb1, eb0, adb1, side_d, side_a, dtype, d4, (void*)row, r48, r44, r4c, (int)r21, r92, hcnt, (unsigned)hist);
+}
 __attribute__((used)) static void FmCtDetour(uint64_t atk, uint64_t dmg) {
     const uint64_t pl = g_fmct_player; int mine = 0; uint32_t q0 = 0, q1 = 0; uint64_t mgr = 0, ao = 0;
     InterlockedIncrement(&g_fmct_calls);
@@ -127,11 +152,15 @@ __attribute__((used)) static void FmCtDetour(uint64_t atk, uint64_t dmg) {
         __try { ao = *(volatile uint64_t*)(atk + 8); mine = *(volatile uint64_t*)(dmg + 8) == pl && ao != pl; } __except (EXCEPTION_EXECUTE_HANDLER) { mine = 0; }
         if (mine && Rd64(B + 0x47452E0, &mgr) && mgr) { __try { q0 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { mgr = 0; } }
     }
+    char in[400]; in[0] = 0;
+    if (mine && g_fmct_lines < 1500) FmCtInputs(atk, dmg, pl, in, sizeof in);
     o_fmct(atk, dmg);
     if (mine) {
         if (mgr) { __try { q1 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { q1 = q0; } }
         InterlockedIncrement(&g_fmct_pl); if (q1 != q0) InterlockedIncrement(&g_fmct_plq);
         g_fmct_atkOwner = ao; g_fmct_atkObj = atk;
+        if (in[0] && InterlockedIncrement(&g_fmct_lines) <= 1500)
+            Log("IFRAMECX t %.1f act %u queued %d atk %p obj %p%s", g_fmct_t, g_fmct_act, q1 != q0, (void*)ao, (void*)atk, in);
     }
 }
 static void FmCtInstall(void) {
@@ -145,7 +174,7 @@ static void FmCtInstall(void) {
 static void FmCtTick(uint64_t actor, uint32_t act, double t) {
     static LONG pc, pq; static int lines;
     if (g_fmct_hooked == 0) FmCtInstall();
-    g_fmct_player = actor;
+    g_fmct_player = actor; g_fmct_act = act; g_fmct_t = t;
     if (g_fmct_hooked != 1) return;
     const LONG c = g_fmct_pl, q = g_fmct_plq, dc = c - pc, dq = q - pq; pc = c; pq = q;
     if (dc > 0 && lines < 3000) {
