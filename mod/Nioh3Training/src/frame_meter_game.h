@@ -205,8 +205,8 @@ __attribute__((used)) static void FmDmDetour(uint64_t dmg) {
         atk = *(volatile uint64_t*)(dmg + 0x198);
         { const uint64_t r = *(volatile uint64_t*)(dmg + 0x190); if (r) row0 = *(volatile uint64_t*)r; }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
-    Log("IFRAMEDM t %.1f act %u state-id %u nodmg %u f14c %u 1e0 %d 1e4 %d 1ec %d 1fc %d guard282 %u 286 %u 28e %u 29e %u 2ae %u atk %p row0 %llX | rec0 %016llX (bit35 %u) rec18 %X stat48 %u s2dc8 %X ea0 %u ea1 %u eae %u ae0 %llX a8 %016llX",
-        g_fmct_t, g_fmct_act, id, nod, f14c, r1e0, r1e4, r1ec, r1fc, f282, f286, f28e, f29e, f2ae, (void*)atk, (unsigned long long)row0,
+    Log("IFRAMEDM t %.1f dmg %p act %u state-id %u nodmg %u f14c %u 1e0 %d 1e4 %d 1ec %d 1fc %d guard282 %u 286 %u 28e %u 29e %u 2ae %u atk %p row0 %llX | rec0 %016llX (bit35 %u) rec18 %X stat48 %u s2dc8 %X ea0 %u ea1 %u eae %u ae0 %llX a8 %016llX",
+        g_fmct_t, (void*)dmg, g_fmct_act, id, nod, f14c, r1e0, r1e4, r1ec, r1fc, f282, f286, f28e, f29e, f2ae, (void*)atk, (unsigned long long)row0,
         (unsigned long long)rq, (unsigned)(rq >> 35 & 1), rec18, stat48, s2dc8, ea0, ea1, eae, (unsigned long long)ae0, (unsigned long long)a8);
 }
 static void FmDmInstall(void) {
@@ -227,6 +227,16 @@ static void FmDmInstall(void) {
     memcpy(site, pt, 14);
     VirtualProtect(site, 14, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 14);
     g_fmdm_hooked = 1; Log("IFRAMEDM hook 78A7F0: on (log only, [Debug] IFrameProbe 1)");
+}
+// #35391: one IFRAMEHP line per HP-damage call on the player (NfHpDamage at 329890, IFrameProbe 1, max 1500): raw damage, after the Practice
+// multiplier, applied (after the Infinite-health cut), HP before (hp+0x20 = status+0x58). hit = the same object IFRAMEDM prints as 'dmg'.
+static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hit) {
+    static volatile LONG n; uint64_t me = PlayerChar(), st = 0; int64_t cur = -1, mx = -1;
+    if (!g_cfg_ifp || !hp || !me || !Rd64(me + 0x3A0, &st) || !st || st + 0x38 != hp) return;
+    if (InterlockedIncrement(&n) > 1500) return;
+    __try { cur = *(volatile int64_t*)(hp + 0x20); mx = *(volatile int64_t*)(hp + 0x18); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    Log("IFRAMEHP t %.1f act %u hit %p raw %d scaled %d applied %d hp-before %lld/%lld class %s", g_fmct_t, g_fmct_act, (void*)hit, raw, scaled, applied,
+        (long long)cur, (long long)mx, raw <= 0 ? "zero" : applied > 0 ? "damage" : "real-hit-cut-by-infinite-health");
 }
 // Pump side: one IFRAMECT line per tick with player contacts (max 3000).
 static void FmCtTick(uint64_t actor, uint32_t act, double t) {

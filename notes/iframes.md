@@ -263,3 +263,9 @@ word, and count the player's enabled damage shapes per tick.
 - (c) New probe line `IFRAMEHP` in NfHpDamage for every player hit (IFrameProbe 1, max 1500): raw damage, after the damage multiplier,
   applied (after the Infinite-health cut), HP before, the hit object, act. IFRAMEDM now also prints the hit object, so the two lines join.
   Class: IFRAMEDM nodmg 1 = no damage (i-frame / blocked in the pipeline); IFRAMEHP raw > 0 = a real hit (applied 0 only because of Infinite health).
+- Build **dca60b9c** (this commit). IFRAMEHP is added in NfHpDamage. That hook is installed whenever KiBreakNoFinisher or the damage
+  multipliers are on, as in these sessions ("hook HP damage 329890: on"). IFRAMEDM now prints `dmg <ptr>`, the same pointer as IFRAMEHP `hit`.
+- What the human should do by hand: Training > Player page **Infinite health OFF** (`[Summon] PlayerCantDie = 0`). SessionNoDeath 1 still
+  keeps HP >= 1 and BeatenRespawn respawns at the floor, so the HB `player HP` line and IFRAMEHP `applied` show real damage.
+  The same Yamagata Masakage arena is fine: (1) stand still and take 2 hits; (2) dodge 10 attacks, 5 early (dodge as the swing starts, so the hit
+  lands mid-dodge) and 5 late (dodge just before the hit). Expected: early dodges give IFRAMEDM nodmg 1 or no IFRAMEHP, and late dodges give IFRAMEHP applied > 0.

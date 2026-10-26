@@ -4236,9 +4236,12 @@ static __attribute__((noinline)) int PstDmgScale(uint64_t hp, int dmg, uint64_t 
     if (r != dmg && InterlockedIncrement(&g_pst_dmg_logs) <= 30) Log("PRACTICE damage x%d.%02d: %s hit %d -> %d (attacker %p)", pct / 100, pct % 100, atkPlayer ? "player deals" : "boss deals", dmg, r, (void*)atk);
     return r;
 }
+static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hit);  // #35391 frame_meter_game.h (IFrameProbe)
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
-    __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22389 (first: the NOFIN floor below sees the scaled hit)
+    const int rawDmg = dmg;
+    __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    const int scaledDmg = dmg;  // user #22389 (first: the NOFIN floor below sees the scaled hit)
     if (g_cfg_cantdie && dmg > 0 && hp && InfHpSession()) {  // user #22918 Infinite health: the player takes no HP damage at all (a one-hit lethal hit never lands)
         uint64_t me = PlayerChar(), pst = 0;
         if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
@@ -4264,6 +4267,7 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
             } } __except (EXCEPTION_EXECUTE_HANDLER) { }
         break;
     }
+    FmIfHpLog(hp, rawDmg, scaledDmg, dmg, hit);
     return ((uint64_t (*)(uint64_t, int, uint8_t, uint8_t))(B + 0x787268))(hp, dmg, keep, p4);
 }
 static __attribute__((noinline)) void NfHpRow(uint64_t w, uint64_t row, uint64_t snap, float ratio, float x5) {  // 1D220B5: boss HP row widget 235F92C(w, row, HP snapshot copy, ...)
