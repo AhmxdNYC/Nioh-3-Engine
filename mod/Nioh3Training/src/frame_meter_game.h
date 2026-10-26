@@ -929,37 +929,6 @@ static void KiDumpDef(uint32_t id) {
         id, (unsigned long long)def, flags, sz, f14, f18, f1c, d20, res, color, (unsigned)b34,
         tags[0], tags[1], tags[2], tags[3], name, raw);
 }
-static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
-    static int lines, told, busy, winLines, seenGen;
-    float t74; int r1, win, b19, pl, gen, named; uint32_t id, from; uint64_t actor;
-    (void)mgr; (void)out; (void)p4;
-    if (busy) return;
-    busy = 1;
-    id = (uint32_t)idreg;
-    named = KiNamedSlot(id) >= 0;
-    if (g_nm_shut && !named) { busy = 0; return; }
-    if (named) KiDumpDef(id);
-    if (g_nm_shut) { busy = 0; return; }
-    gen = g_nm_gen;
-    if (gen != seenGen) { seenGen = gen; winLines = 0; }
-    from = (uint32_t)(g_nm_def[4] - B);
-    actor = g_nm_actor;
-    t74 = KiNowT74();
-    r1 = FmPadRB();
-    b19 = FmBit19();
-    win = r1 && FmKiPerfect(t74);
-    pl = (g_fp[FP_PL].valid && actor == g_fp[FP_PL].a) ? 1 : 0;
-    if (winLines >= 200 || lines >= 800) {
-        g_nm_shut = 1;
-        if (!told) { told = 1; Log("KIFX cap 200 this window, 800 this run"); }
-        busy = 0; return;
-    }
-    winLines++;
-    lines++;
-    Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X",
-        b19, win, t74, r1, id, (unsigned long long)actor, pl, from);
-    busy = 0;
-}
 static void KiObjLog(uint64_t obj, uint64_t idreg, uint64_t r8, uint64_t r9) {
     static int lines, told, busy;
     float t74; int r1, perfect; uint32_t id, from; uint64_t row = 0; char hex[68];
@@ -1026,9 +995,127 @@ static void KiFinish(uint8_t* stub, int* at, uint8_t* site, int n, const uint8_t
     stub[(*at)++] = 0xFF; stub[(*at)++] = 0x25; *(uint32_t*)(stub + *at) = 0; *at += 4;
     *(uint64_t*)(stub + *at) = (uint64_t)(site + n);
 }
+typedef struct { volatile uint32_t ms, id, from, ready; volatile uint64_t rcx, sp30; } KifxSlot;
+static struct { volatile uint32_t seq; uint32_t pad; KifxSlot slot[4096]; } g_kifx;
+static int g_kifx_hooked, g_kifx_lines, g_kifx_told;
+static struct { int live; uint32_t t0, cursor; float t74; int b19, n, capped; } g_kifx_win[8];
+static void FmFxRingInstall(void) {
+    static const uint8_t proD[29] = {0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x88,0xFC,0xFF,0xFF,0x48,0x81,0xEC,0x38,0x04,0x00,0x00};
+    uint8_t* site; uint8_t* stub; int at;
+    if (g_kifx_hooked || !g_cfg_kipress) return;
+    site = (uint8_t*)(B + 0x4CE90C);
+    if (memcmp(site, proD, 29)) { g_kifx_hooked = 2; Log("KIFX hook 4CE90C: bytes differ"); return; }
+    if ((char*)&g_kifx.slot[0] - (char*)&g_kifx != 8 || sizeof(g_kifx.slot[0]) != 32) { g_kifx_hooked = 2; Log("KIFX hook: slot layout differs"); return; }
+    if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_kifx_hooked = 2; Log("KIFX hook: no stub page"); return; }
+    at = 0;
+    stub[at++] = 0x4C; stub[at++] = 0x8B; stub[at++] = 0x1C; stub[at++] = 0x24;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)B; at += 8;
+    stub[at++] = 0x4D; stub[at++] = 0x29; stub[at++] = 0xD3;
+    stub[at++] = 0x41; stub[at++] = 0x53;
+    stub[at++] = 0x51;
+    stub[at++] = 0x52;
+    stub[at++] = 0x41; stub[at++] = 0x50;
+    stub[at++] = 0x41; stub[at++] = 0x51;
+    stub[at++] = 0x48; stub[at++] = 0x83; stub[at++] = 0xEC; stub[at++] = 0x20;
+    stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)GetTickCount; at += 8;
+    stub[at++] = 0xFF; stub[at++] = 0xD0;
+    stub[at++] = 0x48; stub[at++] = 0x83; stub[at++] = 0xC4; stub[at++] = 0x20;
+    stub[at++] = 0x41; stub[at++] = 0x59;
+    stub[at++] = 0x41; stub[at++] = 0x58;
+    stub[at++] = 0x5A;
+    stub[at++] = 0x59;
+    stub[at++] = 0x41; stub[at++] = 0x5B;
+    stub[at++] = 0x50;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_kifx; at += 8;
+    stub[at++] = 0xB8; *(uint32_t*)(stub + at) = 1; at += 4;
+    stub[at++] = 0xF0; stub[at++] = 0x41; stub[at++] = 0x0F; stub[at++] = 0xC1; stub[at++] = 0x02;
+    stub[at++] = 0x50;
+    stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0x0FFF; at += 4;
+    stub[at++] = 0xC1; stub[at++] = 0xE0; stub[at++] = 0x05;
+    stub[at++] = 0x83; stub[at++] = 0xC0; stub[at++] = 0x08;
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x5C; stub[at++] = 0x02; stub[at++] = 0x08;
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x02; stub[at++] = 0x04;
+    stub[at++] = 0x49; stub[at++] = 0x89; stub[at++] = 0x4C; stub[at++] = 0x02; stub[at++] = 0x10;
+    stub[at++] = 0x4C; stub[at++] = 0x8B; stub[at++] = 0x5C; stub[at++] = 0x24; stub[at++] = 0x40;
+    stub[at++] = 0x4D; stub[at++] = 0x89; stub[at++] = 0x5C; stub[at++] = 0x02; stub[at++] = 0x18;
+    stub[at++] = 0x44; stub[at++] = 0x8B; stub[at++] = 0x5C; stub[at++] = 0x24; stub[at++] = 0x08;
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x1C; stub[at++] = 0x02;
+    stub[at++] = 0x44; stub[at++] = 0x8B; stub[at++] = 0x1C; stub[at++] = 0x24;
+    stub[at++] = 0x41; stub[at++] = 0x83; stub[at++] = 0xC3; stub[at++] = 0x01;
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x5C; stub[at++] = 0x02; stub[at++] = 0x0C;
+    stub[at++] = 0x58;
+    stub[at++] = 0x58;
+    KiFinish(stub, &at, site, 29, proD);
+    KiPatchSite(site, 29, stub); g_kifx_hooked = 1;
+    Log("KIFX hook 4CE90C on. Every effect is kept. Lines run from 0.5 s before each R1 press to 1.5 s after.");
+}
+static const char* KifxGrade(int b19) { return b19 < 0 ? "unread" : b19 ? "perfect" : "normal"; }
+static void KifxOnPress(float t74) {
+    uint32_t now = GetTickCount(), seq = g_kifx.seq;
+    int b19 = FmBit19(), i, slot = 0;
+    for (i = 0; i < 8; ++i) if (!g_kifx_win[i].live) { slot = i; break; }
+    if (i == 8) for (i = 1; i < 8; ++i) if ((int)(now - g_kifx_win[i].t0) > (int)(now - g_kifx_win[slot].t0)) slot = i;
+    g_kifx_win[slot].live = 1;
+    g_kifx_win[slot].t0 = now;
+    g_kifx_win[slot].t74 = t74;
+    g_kifx_win[slot].b19 = b19;
+    g_kifx_win[slot].n = 0;
+    g_kifx_win[slot].capped = 0;
+    g_kifx_win[slot].cursor = seq > 4096u ? seq - 4096u : 0;
+    Log("KIFX press bit19 %d t74 %.2f %s", b19, t74, KifxGrade(b19));
+}
+static void KifxDrain(void) {
+    uint32_t now = GetTickCount(), seq = g_kifx.seq, from;
+    int w;
+    static int wrapTold;
+    static uint32_t defSeen;
+    if (g_kifx_hooked != 1) return;
+    from = defSeen;
+    if (seq - from > 4096u) from = seq - 4096u;
+    while (from != seq) {
+        KifxSlot* s = &g_kifx.slot[from & 4095u];
+        if (s->ready != from + 1u) break;
+        if (KiNamedSlot(s->id) >= 0) KiDumpDef(s->id);
+        from++;
+    }
+    defSeen = from;
+    for (w = 0; w < 8; ++w) {
+        uint32_t guard = 0;
+        if (!g_kifx_win[w].live) continue;
+        if (seq - g_kifx_win[w].cursor > 4096u) {
+            g_kifx_win[w].cursor = seq - 4096u;
+            if (!wrapTold) { wrapTold = 1; Log("KIFX ring wrapped. Effects older than 4096 calls were dropped."); }
+        }
+        while (g_kifx_win[w].cursor != seq && guard < 4096u) {
+            uint32_t i = g_kifx_win[w].cursor, ms, id, caller;
+            uint64_t rcx, sp30;
+            KifxSlot* s = &g_kifx.slot[i & 4095u];
+            int dt;
+            guard++;
+            if (s->ready != i + 1u) break;
+            ms = s->ms; id = s->id; caller = s->from; rcx = s->rcx; sp30 = s->sp30;
+            g_kifx_win[w].cursor = i + 1u;
+            dt = (int)(ms - g_kifx_win[w].t0);
+            if (dt < -500 || dt > 1500) continue;
+            if (g_kifx_win[w].n >= 400 || g_kifx_lines >= 2400) {
+                if (!g_kifx_win[w].capped) { g_kifx_win[w].capped = 1; if (!g_kifx_told) { g_kifx_told = 1; Log("KIFX cap 400 a press, 2400 a run"); } }
+                continue;
+            }
+            g_kifx_win[w].n++;
+            g_kifx_lines++;
+            Log("KIFX id %u from %X rcx %llX sp30 %llX dt %d bit19 %d t74 %.2f %s",
+                id, caller, (unsigned long long)rcx, (unsigned long long)sp30, dt,
+                g_kifx_win[w].b19, g_kifx_win[w].t74, KifxGrade(g_kifx_win[w].b19));
+        }
+        if ((int)(now - g_kifx_win[w].t0) > 1500) {
+            Log("KIFX press done n %d bit19 %d t74 %.2f %s",
+                g_kifx_win[w].n, g_kifx_win[w].b19, g_kifx_win[w].t74, KifxGrade(g_kifx_win[w].b19));
+            g_kifx_win[w].live = 0;
+        }
+    }
+}
 static void FmNameInstall(void) {
     static const uint8_t proS[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x18,0x57,0x48,0x81,0xEC,0xD0,0x00,0x00,0x00};
-    static const uint8_t proD[29] = {0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x88,0xFC,0xFF,0xFF,0x48,0x81,0xEC,0x38,0x04,0x00,0x00};
     static const uint8_t proO[24] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xEC,0x30};
     uint8_t* site; uint8_t* stub; int at;
     if (!g_nm_start_hooked) {
@@ -1039,43 +1126,6 @@ static void FmNameInstall(void) {
             at = 0; KiCallStub(stub, &at, g_nm_start, (void*)KiStartLog); KiFinish(stub, &at, site, 15, proS);
             KiPatchSite(site, 15, stub); g_nm_start_hooked = 1;
             Log("KISTART hook 3EC0F4 on. Logs buff id, owner, and perfect on the 40060 start path.");
-        }
-    }
-    if (!g_nm_def_hooked) {
-        site = (uint8_t*)(B + 0x4CE90C);
-        if (memcmp(site, proD, 29)) { g_nm_def_hooked = 2; Log("KIDEF hook 4CE90C: bytes differ"); }
-        else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_def_hooked = 2; Log("KIDEF hook: no stub page"); }
-        else {
-            int jneShut, jneWatch, jneOther, checkAt, logAt;
-            at = 0;
-            stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_shut; at += 8;
-            stub[at++] = 0x83; stub[at++] = 0x38; stub[at++] = 0x00;
-            jneShut = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
-            stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_watch; at += 8;
-            stub[at++] = 0x83; stub[at++] = 0x38; stub[at++] = 0x00;
-            jneWatch = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
-            checkAt = at;
-            *(uint32_t*)(stub + jneShut + 2) = (uint32_t)(checkAt - (jneShut + 6));
-            {
-                static const uint32_t keepId[4] = {0x9C7Cu, 1000u, 10500u, 10510u};
-                int jeAt[4], k;
-                for (k = 0; k < 4; ++k) {
-                    stub[at++] = 0x41; stub[at++] = 0x81; stub[at++] = 0xF8; *(uint32_t*)(stub + at) = keepId[k]; at += 4;
-                    jeAt[k] = at; stub[at++] = 0x0F; stub[at++] = 0x84; *(uint32_t*)(stub + at) = 0; at += 4;
-                }
-                jneOther = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
-                logAt = at;
-                for (k = 0; k < 4; ++k) *(uint32_t*)(stub + jeAt[k] + 2) = (uint32_t)(logAt - (jeAt[k] + 6));
-            }
-            *(uint32_t*)(stub + jneWatch + 2) = (uint32_t)(logAt - (jneWatch + 6));
-            stub[at++] = 0x48; stub[at++] = 0x8B; stub[at++] = 0x44; stub[at++] = 0x24; stub[at++] = 0x30;
-            stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_actor; at += 8;
-            stub[at++] = 0x49; stub[at++] = 0x89; stub[at++] = 0x02;
-            KiCallStub(stub, &at, g_nm_def, (void*)KiDefLog);
-            *(uint32_t*)(stub + jneOther + 2) = (uint32_t)(at - (jneOther + 6));
-            KiFinish(stub, &at, site, 29, proD);
-            KiPatchSite(site, 29, stub); g_nm_def_hooked = 1;
-            Log("KIFX hook 4CE90C on. Press lines stay. Effects 1000, 10500 and 10510 dump their definition row once.");
         }
     }
     if (!g_nm_obj_hooked) {
@@ -1112,6 +1162,7 @@ static void FmKiPressTick(void) {
     if (!g_kp_pick_hooked) FmPickInstall();
     if (!g_kirow_hooked) FmRowInstall();
     FmNameInstall();
+    FmFxRingInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
             t74 = *(volatile float*)(st + 0x98 + 0x74);
@@ -1139,6 +1190,7 @@ static void FmKiPressTick(void) {
     for (int i = 0; i < n; ++i) {
         const unsigned fx = g_kp_fx.last;
         const unsigned who = g_kp_fx.from;
+        if (ev[i].kind == KP_R1) KifxOnPress(ev[i].t74);
         if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
         lines++;
         if (ev[i].kind == KP_OPEN) Log("KIPRESS open act %u", ev[i].act);
@@ -1148,14 +1200,6 @@ static void FmKiPressTick(void) {
     }
     }
     if (g_kp_frame < 0 && g_kp_tail > 0) g_kp_tail--;
-    {
-        static int was;
-        const int want = g_kp_frame >= 0 || g_kp_tail > 0;
-        if (want && !was) { g_nm_shut = 0; g_nm_gen++; Log("KIFX window on"); }
-        if (!want && was) Log("KIFX window off");
-        was = want;
-        g_nm_watch = want;
-    }
     {
         static uint32_t bseen;
         uint32_t bseq = g_kp_buff.seq, bfrom = bseen;
@@ -1287,7 +1331,7 @@ static void FmArmHooks(void) {
     static int once;
     if (once) return;
     once = 1;
-    Log("KIARM switch %d. Effect hooks arm either way. KISTART is the old KIEC name.", g_cfg_kipress);
+    Log("KIARM switch %d. KISTART, KIOBJ, KIPICK, and KIR1 arm either way. KIFX arms only when the switch is on.", g_cfg_kipress);
     FmNameInstall();
     FmPickInstall();
     FmR1Install();
@@ -1313,8 +1357,10 @@ static void FmFeed(double gdt) {
     if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
     if (!g_kirow_hooked) FmRowInstall();
     if (kpress) FmNameInstall();
+    if (kpress) FmFxRingInstall();
     if (kpress) FmBuffTableDump();
     if (kpress && g_fp[FP_PL].valid) FmKiPressTick();
+    if (kpress) KifxDrain();
     if ((wantP || probe) && g_fp[FP_PL].valid) {
         static FmiState fmiS;
         int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb, grab = g_fp[FP_PL].pulseGrab;

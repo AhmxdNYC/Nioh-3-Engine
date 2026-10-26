@@ -114,3 +114,8 @@ The effect hooks now arm on the first pump tick even when KiPressProbe is 0. The
 ## Definition row (#36825)
 
 While the Ki window is open, each effect still prints one KIFX line with bit19 and the id. The first time effect 1000, 10500, or 10510 is created, one KIROWDEF line dumps the 104-byte definition row. sz is the scale at +0x10. f14, f18, and f1c are the next three floats the spawn copies. res is the resource id at +0x28. color is the index at +0x30, and -1 means no color record. name is a dash when the row has no text pointer. Not installed. Training on this PC stays 8cfd9dc1.
+
+## R1 effect window (#36787)
+
+KiPressProbe=1 is the only switch that arms 0x4CE90C. The hook-on line is `KIFX hook 4CE90C on`. Every call is stored, and the effect call itself does not print. Each R1 press prints the calls from 500 ms before that press to 1500 ms after it. bit19 and t74 on those lines belong to the press. The words are perfect, normal, or unread. KIROWDEF still dumps effects 1000, 10500, 10510, and 40060 once, on the pump rather than inside the effect call. The ring holds 4096 calls. Not installed. Training on this PC stays 8cfd9dc1.
+
