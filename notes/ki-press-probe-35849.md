@@ -47,3 +47,14 @@ Ki amount is not a perfect mark. The miss paid more than the latest press, and t
 ## Caller (#35918)
 
 The effect line is `KIPRESS fx <id> from <rva> frame <n>`. `from` is the return address minus the image base (a direct call is 5 bytes earlier). Effects still log while the bar is up with no R1, which is the miss control: fx lines and a close, and no r1 line. The hook still stays off if the live bytes at 3EAB1C differ.
+
+## Measured effects (#36027)
+
+pc, Training #2421 sha 9ae298bd, KiPressProbe=1, act 25160. File #2433. Hook bytes matched. Game restored to 8cfd9dc1, VirtualPad 0. This is not the caller build.
+
+The file has 8 open/close pairs and no r1 line and no fx spawn line. The id below is the one on the close line.
+
+Miss, end80 1: frame 49 dKi 92.3 fx 204, frame 54 dKi 95.7 fx 204, frame 54 dKi 97.2 fx 204, frame 60 dKi 96.4 fx 200, frame 57 dKi 95.8 fx 200.
+Bar closed early, end80 0: frame 32 dKi 10.3 fx 202, frame 43 dKi 9.3 fx 202, frame 14 dKi -25.0 fx 200.
+
+No press near the end of the bar. 202 is the two short returns of about 10, not a perfect effect. 200 shows up on both a full miss and the negative close. Answer #36027.
