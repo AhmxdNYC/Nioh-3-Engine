@@ -134,6 +134,8 @@ static inline int64_t FmViewStart(const FmMeter* m) {
 static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 31.f; }
 // #36095: the game's perfect flag is on while this same timer is in (0, 4]. Same floor as the open window.
 static inline int FmKiPerfect(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 4.f; }
+// Cyan is the press, not the timer. A swing with no R1 still counts through 4 (#36404).
+static inline int FmKiPressPerfect(int open, int r1Edge, float kt74) { return open && r1Edge && FmKiPerfect(kt74); }
 // 0 off, 1 a Practice session, 2 the player row with no boss. KiWindow or PlayerFrameMeter is enough for the field row.
 static inline int FmScope(int wantB, int wantP, int live) {
     if (live && (wantB || wantP)) return 1;

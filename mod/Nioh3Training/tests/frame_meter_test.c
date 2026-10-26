@@ -137,6 +137,7 @@ int main(void) {
       assert(!FmKiWindowOpen(-1.f) && !FmKiWindowOpen(0.f) && !FmKiWindowOpen(0.05f) && !FmKiWindowOpen(31.1f) && !FmKiWindowOpen(bad));
       assert(FmKiWindowOpen(0.06f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(31.f));
       assert(FmKiPerfect(0.06f) && FmKiPerfect(2.31f) && FmKiPerfect(4.f));
+      assert(FmKiPressPerfect(1, 1, 3.96f) && !FmKiPressPerfect(1, 0, 3.96f) && !FmKiPressPerfect(0, 1, 3.96f) && !FmKiPressPerfect(1, 1, 15.f));
       assert(!FmKiPerfect(0.f) && !FmKiPerfect(0.05f) && !FmKiPerfect(4.01f) && !FmKiPerfect(15.47f) && !FmKiPerfect(bad));
       assert(FmScope(1, 1, 1) == 1 && FmScope(0, 1, 0) == 2 && FmScope(1, 0, 0) == 0 && FmScope(0, 0, 1) == 0);
       assert(FmKiPulseGrade(3.5f, -1.f, 1019.5f, 1073.4f, 1.f, 5.f) == 2);

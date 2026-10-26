@@ -716,9 +716,14 @@ static void FmFeed(double gdt) {
             int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki, &pt74);
             const int edge = open && !wasOpen;
             wasOpen = open;
-            FmMarkKiWin(&g_fmp, g_fm_clock, open ? (FmKiPerfect(pt74) ? 2 : 1) : 0);
-            if (open && FmKiPerfect(pt74) && !FmLiveRun(&g_fmp) && FmSealPerfectEnd(&g_fmp))
-                Log("KI cyan: timer %.2f sealed the last cell of the frozen bar", pt74);
+            static int wasRB;
+            const int rb = FmPadRB();
+            const int r1Edge = rb && !wasRB;
+            wasRB = rb;
+            const int perfect = FmKiPressPerfect(open, r1Edge, pt74);
+            FmMarkKiWin(&g_fmp, g_fm_clock, open ? (perfect ? 2 : 1) : 0);
+            if (perfect && !FmLiveRun(&g_fmp) && FmSealPerfectEnd(&g_fmp))
+                Log("KI cyan: R1 at timer %.2f sealed the last cell", pt74);
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
             {
