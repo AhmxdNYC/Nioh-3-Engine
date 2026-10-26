@@ -85,3 +85,8 @@ The player Ki bar stays blue for the open window. Cells where K+0x74 is in (0.05
 ## No boss (#36186)
 
 #2450 did not draw in an empty field because the overlay required a Practice session. Scope 2 draws the player row when KiWindow or PlayerFrameMeter is on and there is no boss. The boss row still needs a session. An idle refill to 1153 with the window closed and no after-time is not a press (`FmKiPulseGrade` returns 0). The game stays closed.
+
+
+## Buff grant log (#36261)
+
+Hook 0x3EFB90 when the live bytes match. The log line is caller RVA, buff id in DX, RCX, R8, actor+0x89C, both +0x13C words, and the Ki timer. Grade words are perfect, normal, closed, or unread. They come from the timer on the next pump tick, not from buff id 900. Missing 900 does not reject a perfect press. Seeing 900 does not name the swirl. Effect creates already log as KIPRESS fx with the timer. Grants are logged while the bar is open and for 20 ticks after it closes. The game stays closed. Not installed over Training af8b26c4.

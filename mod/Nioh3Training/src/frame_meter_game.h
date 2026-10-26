@@ -568,12 +568,45 @@ static void FmFxInstall(void) {
     g_kp_fx_hooked = 1;
     Log("KIPRESS fx hook 3EAB1C: bytes match, effect id is R8D, caller is the return RVA, calls 4CE90C");
 }
+// seq at 0. Each slot is 32 bytes at offset 8: return RVA, DX, RCX, R8.
+static struct { volatile uint32_t seq, pad; struct { volatile uint32_t ret, id; volatile uint64_t rcx, r8; } slot[8]; } g_kp_buff;
+static int g_kp_buff_hooked;
+static int g_kp_tail;
+static void FmBuffInstall(void) {
+    static const uint8_t pro[13] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x18,0x66,0x89,0x50,0x10,0x55,0x56};
+    uint8_t* site = (uint8_t*)(B + 0x3EFB90);
+    uint8_t* stub; uint8_t* tr; int at;
+    if (g_kp_buff_hooked) return;
+    if (memcmp(site, pro, sizeof pro)) { g_kp_buff_hooked = 2; Log("KIPRESS buff hook 3EFB90: bytes differ, buff log off"); return; }
+    stub = (uint8_t*)VirtualAlloc(0, 128, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) { g_kp_buff_hooked = 2; Log("KIPRESS buff hook: no stub page"); return; }
+    at = 0;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_kp_buff; at += 8;
+    stub[at++] = 0x48; stub[at++] = 0x8B; stub[at++] = 0x04; stub[at++] = 0x24;
+    stub[at++] = 0x49; stub[at++] = 0xBB; *(uint64_t*)(stub + at) = (uint64_t)B; at += 8;
+    stub[at++] = 0x4C; stub[at++] = 0x29; stub[at++] = 0xD8;
+    stub[at++] = 0x41; stub[at++] = 0xBB; *(uint32_t*)(stub + at) = 1; at += 4;
+    stub[at++] = 0xF0; stub[at++] = 0x45; stub[at++] = 0x0F; stub[at++] = 0xC1; stub[at++] = 0x1A;
+    stub[at++] = 0x41; stub[at++] = 0x83; stub[at++] = 0xE3; stub[at++] = 0x07;
+    stub[at++] = 0x41; stub[at++] = 0xC1; stub[at++] = 0xE3; stub[at++] = 0x05;
+    stub[at++] = 0x41; stub[at++] = 0x83; stub[at++] = 0xC3; stub[at++] = 0x08;
+    stub[at++] = 0x43; stub[at++] = 0x89; stub[at++] = 0x04; stub[at++] = 0x1A;
+    stub[at++] = 0x43; stub[at++] = 0x89; stub[at++] = 0x54; stub[at++] = 0x1A; stub[at++] = 0x04;
+    stub[at++] = 0x4B; stub[at++] = 0x89; stub[at++] = 0x4C; stub[at++] = 0x1A; stub[at++] = 0x08;
+    stub[at++] = 0x4F; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x1A; stub[at++] = 0x10;
+    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
+    tr = (uint8_t*)Hook(0x3EFB90, 13, stub);
+    *(uint64_t*)(stub + at) = (uint64_t)tr;
+    g_kp_buff_hooked = 1;
+    Log("KIPRESS buff hook 3EFB90: bytes match, DX is the id, R8 is the actor candidate");
+}
 static void FmKiPressTick(void) {
     static KpRun run; static int lines, told; static uint32_t seen;
     float t74 = -1.f, pool = 0.f, stored = 0.f, ki = 0.f; int end80 = 0; int ok = 0;
     const uint64_t a = g_fp[FP_PL].valid ? g_fp[FP_PL].a : 0;
     uint64_t st = 0; uint32_t seq, from; int open;
     if (!g_kp_fx_hooked) FmFxInstall();
+    if (!g_kp_buff_hooked) FmBuffInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
             t74 = *(volatile float*)(st + 0x98 + 0x74);
@@ -584,7 +617,7 @@ static void FmKiPressTick(void) {
             ok = 1;
         } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     }
-    if (!ok) return;
+    if (ok) {
     open = FmKiWindowOpen(t74);
     KpEv ev[4];
     const int n = KpStep(&run, open, FmPadRB(), t74, pool, stored, ki, end80, g_fp[FP_PL].run.act, ev, 4);
@@ -595,18 +628,46 @@ static void FmKiPressTick(void) {
         uint32_t who = g_kp_fx.callers[from & 15];
         from++;
         if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
-        lines++; Log("KIPRESS fx %u from %X frame %d", id, who, g_kp_frame);
+        lines++; Log("KIPRESS fx %u from %X frame %d t74 %.2f", id, who, g_kp_frame, t74);
     }
     seen = seq;
     for (int i = 0; i < n; ++i) {
         const unsigned fx = g_kp_fx.last;
         const unsigned who = g_kp_fx.from;
-        if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } return; }
+        if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
         lines++;
         if (ev[i].kind == KP_OPEN) Log("KIPRESS open act %u", ev[i].act);
         else if (ev[i].kind == KP_R1) Log("KIPRESS r1 frame %d t74 %.2f pool %.1f stored %.1f Ki %.1f fx %u from %X", ev[i].frame, ev[i].t74, ev[i].pool, ev[i].stored, ev[i].ki, fx, who);
         else if (ev[i].kind == KP_AFTER) Log("KIPRESS after frame %d dKi %.1f pool %.1f end80 %u fx %u from %X", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx, who);
-        else if (ev[i].kind == KP_CLOSE) Log("KIPRESS close frame %d dKi %.1f pool %.1f end80 %u fx %u from %X", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx, who);
+        else if (ev[i].kind == KP_CLOSE) { g_kp_tail = 20; Log("KIPRESS close frame %d dKi %.1f pool %.1f end80 %u fx %u from %X", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx, who); }
+    }
+    }
+    if (g_kp_frame < 0 && g_kp_tail > 0) g_kp_tail--;
+    {
+        static uint32_t bseen;
+        uint32_t bseq = g_kp_buff.seq, bfrom = bseen;
+        const int watch = g_kp_frame >= 0 || g_kp_tail > 0;
+        if (bseq - bfrom > 8) bfrom = bseq - 8;
+        while (bfrom != bseq) {
+            uint32_t ret = g_kp_buff.slot[bfrom & 7].ret, id = g_kp_buff.slot[bfrom & 7].id;
+            uint64_t rcx = g_kp_buff.slot[bfrom & 7].rcx, r8 = g_kp_buff.slot[bfrom & 7].r8;
+            uint32_t a89c = 0, c13c = 0, a13c = 0; float bt = -1.f; int got = 0;
+            bfrom++;
+            if (watch) {
+                __try {
+                    if (rcx > 0x10000ull) c13c = *(volatile uint32_t*)(rcx + 0x13C);
+                    if (r8 > 0x10000ull) { a89c = *(volatile uint32_t*)(r8 + 0x89C); a13c = *(volatile uint32_t*)(r8 + 0x13C);
+                        uint64_t bst = 0; if (Rd64(r8 + 0x3A0, &bst) && bst) bt = *(volatile float*)(bst + 0x98 + 0x74); }
+                    got = 1;
+                } __except (EXCEPTION_EXECUTE_HANDLER) { got = 0; }
+                if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
+                lines++;
+                Log("KIPRESS buff id %u from %X rcx %llX r8 %llX a89c %X c13c %X a13c %X t74 %.2f %s",
+                    id, ret, (unsigned long long)rcx, (unsigned long long)r8, a89c, c13c, a13c, bt,
+                    !got ? "unread" : (bt > 0.05f && bt <= 4.f) ? "perfect" : (bt > 0.05f && bt <= 31.f) ? "normal" : "closed");
+            }
+        }
+        bseen = bseq;
     }
 }
 // FpTick (game thread, FpLock held), once per pump tick.
