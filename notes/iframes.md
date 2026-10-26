@@ -155,3 +155,10 @@ word, and count the player's enabled damage shapes per tick.
   It needs a deref to see whether the referenced object has a type that means "no hit".
 - obj0 +0x18 / +0xE8 and the shape +0x70 / +0xB0.. change only when the hurtbox is re-created or at the end. No flag-like value
   turns on a few ticks after the start and off before the end.
+
+## Build 5fc59ebd (this commit): IFRAMEOB v2
+- Skips the known transform offsets and any change that looks like a small float step (both values normal floats, |delta| < 25 % + 1).
+- Adds `pJ=<ptr>:w0,w1,..` = the object obj+0x10 points to (+0..+0x40), logged when the pointer or its content changes.
+- Max 150 lines per dodge start, 2500 in total, so all dodges are covered. `[J new]` = the hurtbox was re-created.
+- What to check: IFrameProbe 1, 5 dodges. In the `p1=` lines, look for a word that differs between the fresh pointer set at +20 ms
+  and the later one at about 500 ms (a type / flag). Also look for any `oJ+` / `hJ+` integer that turns on after the start and off before the end.

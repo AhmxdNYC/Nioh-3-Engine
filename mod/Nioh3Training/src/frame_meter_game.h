@@ -114,6 +114,20 @@ static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
 // so "none left" or "every one has a no-hit def type" means attacks cannot connect. `base` = the count seen while idle (>0).
 // m18seen = the hurtboxes of this actor were seen colliding with attack categories before (so a mask without them is a change, not the norm).
 static int FmHurtOff(const FmHurt* h, int n, int base, int m18seen) { return n >= 0 && base > 0 && (n == 0 || h->off == n || (m18seen && n > 0 && !(h->m18or & 0x440003Full))); }
+// #35176 IFRAMEOB filter: skip the per-tick transform floats seen in log #2331 (shape +0x30..+0x3C, +0x80..+0x9C; object +0x90..+0xAC,
+// +0xC0..+0xCC, +0xF0..+0xFC) and any change that looks like a small step of a float (both values normal floats, |delta| < 25 % + 1).
+static int FmObNoisy(int shape, int off, uint32_t a, uint32_t b) {
+    if (shape ? ((off >= 0x30 && off < 0x40) || (off >= 0x80 && off < 0xA0)) : ((off >= 0x90 && off < 0xB0) || (off >= 0xC0 && off < 0xD0) || off >= 0xF0)) return 1;
+    {
+        const uint32_t ea = (a >> 23) & 0xFF, eb = (b >> 23) & 0xFF;
+        if (ea >= 0x60 && ea <= 0x9F && eb >= 0x60 && eb <= 0x9F) {
+            float fa, fb, d; memcpy(&fa, &a, 4); memcpy(&fb, &b, 4); d = fb - fa; if (d < 0) d = -d;
+            if (fa < 0) fa = -fa;
+            if (d < 0.25f * fa + 1.0f) return 1;
+        }
+    }
+    return 0;
+}
 // [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
 // the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
 static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
@@ -152,14 +166,15 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
             memcpy(ps, cs, sizeof ps); memcpy(ps2, cs2, sizeof ps2); memcpy(pc, cc, sizeof pc); have = 1; stAct = act;
         }
     }
-    {   // #35176 log #2328: status / ctrl were flat in dodges. Last cheap probe: per dodge tick, the u32s that changed in the player's first
-        // 4 hurtbox collision objects (obj +0x00..+0x100) and their shapes (shape +0x00..+0x100). IFRAMEOB lines, max 2500.
-        enum { NW = 0x100 / 4, NO = 4 };
-        static uint32_t po[NO][NW], psh[NO][NW]; static uint64_t pobj[NO]; static int obLines; static uint32_t obAct;
+    {   // #35176 IFRAMEOB v2 (log #2331): per dodge tick, the integer / flag-like u32s that changed in the player's first 4 hurtbox objects
+        // (obj +0..+0x100) and shapes (+0..+0x100). Transform floats are skipped (FmObNoisy). Also the object that obj+0x10 points to
+        // (+0..+0x40) whenever that pointer or its content changes. Max 150 lines per dodge start, 2500 in total.
+        enum { NW = 0x100 / 4, NO = 4, PW = 0x40 / 4 };
+        static uint32_t po[NO][NW], psh[NO][NW], ppt[NO][PW]; static uint64_t pobj[NO], pptr[NO]; static int obLines, perDodge; static uint32_t obAct;
         uint64_t pool = 0;
         if (act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + 0x45C6F38, &pool) && pool) {
-            uint64_t objs[NO] = {0}; int no = 0;
-            uint32_t co[NO][NW] = {{0}}, csh[NO][NW] = {{0}}; int ok = 1;
+            uint64_t objs[NO] = {0}, ptr[NO] = {0}; int no = 0;
+            uint32_t co[NO][NW] = {{0}}, csh[NO][NW] = {{0}}, cpt[NO][PW] = {{0}}; int ok = 1;
             __try {
                 for (int i = 0; i < 0xFA0 && no < NO; ++i) {
                     const uint64_t obj = *(volatile uint64_t*)(pool + 0x20 + (uint64_t)i * 8);
@@ -171,18 +186,29 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
                     no++;
                 }
             } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+            for (int j = 0; ok && j < no; ++j) {  // separate guard: a stale pointer must not drop the whole sample
+                ptr[j] = (uint64_t)co[j][4] | ((uint64_t)co[j][5] << 32);
+                if (ptr[j] < 0x10000 || ptr[j] > 0x7FFFFFFFFFFFull) { ptr[j] = 0; continue; }
+                __try { for (int k = 0; k < PW; ++k) cpt[j][k] = *(volatile uint32_t*)(ptr[j] + (uint64_t)k * 4); } __except (EXCEPTION_EXECUTE_HANDLER) { ptr[j] = 0; }
+            }
             if (ok) {
                 char b2[1000]; int o = 0, nch = 0;
-                for (int j = 0; j < no; ++j) {
-                    if (objs[j] != pobj[j] || act != obAct) { o += snprintf(b2 + o, sizeof b2 - o, " [%d new]", j); continue; }
-                    for (int k = 0; k < NW && o < (int)sizeof b2 - 40; ++k) {
-                        if (co[j][k] != po[j][k]) { o += snprintf(b2 + o, sizeof b2 - o, " o%d+%X=%X", j, k * 4, co[j][k]); nch++; }
-                        if (csh[j][k] != psh[j][k]) { o += snprintf(b2 + o, sizeof b2 - o, " h%d+%X=%X", j, k * 4, csh[j][k]); nch++; }
+                if (act != obAct) perDodge = 0;
+                for (int j = 0; j < no && o < (int)sizeof b2 - 80; ++j) {
+                    if (objs[j] != pobj[j] || act != obAct) { o += snprintf(b2 + o, sizeof b2 - o, " [%d new]", j); nch++; }
+                    else for (int k = 0; k < NW && o < (int)sizeof b2 - 40; ++k) {
+                        if (co[j][k] != po[j][k] && !FmObNoisy(0, k * 4, po[j][k], co[j][k])) { o += snprintf(b2 + o, sizeof b2 - o, " o%d+%X=%X", j, k * 4, co[j][k]); nch++; }
+                        if (csh[j][k] != psh[j][k] && !FmObNoisy(1, k * 4, psh[j][k], csh[j][k])) { o += snprintf(b2 + o, sizeof b2 - o, " h%d+%X=%X", j, k * 4, csh[j][k]); nch++; }
+                    }
+                    if (ptr[j] && (ptr[j] != pptr[j] || memcmp(cpt[j], ppt[j], sizeof cpt[j]))) {
+                        o += snprintf(b2 + o, sizeof b2 - o, " p%d=%llX:", j, (unsigned long long)ptr[j]);
+                        for (int k = 0; k < PW && o < (int)sizeof b2 - 12; ++k) o += snprintf(b2 + o, sizeof b2 - o, "%s%X", k ? "," : "", cpt[j][k]);
+                        nch++;
                     }
                 }
-                if (nch || act != obAct) { obLines++; Log("IFRAMEOB t %.1f act %u n %d%s", t, act, no, b2); }
-                for (int j = 0; j < NO; ++j) pobj[j] = j < no ? objs[j] : 0;
-                memcpy(po, co, sizeof po); memcpy(psh, csh, sizeof psh); obAct = act;
+                if (nch && perDodge < 150) { perDodge++; obLines++; Log("IFRAMEOB t %.1f act %u n %d%s", t, act, no, b2); }
+                for (int j = 0; j < NO; ++j) { pobj[j] = j < no ? objs[j] : 0; pptr[j] = j < no ? ptr[j] : 0; }
+                memcpy(po, co, sizeof po); memcpy(psh, csh, sizeof psh); memcpy(ppt, cpt, sizeof ppt); obAct = act;
             }
         }
     }
