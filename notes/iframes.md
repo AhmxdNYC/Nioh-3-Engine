@@ -186,3 +186,8 @@ word, and count the player's enabled damage shapes per tick.
   no contacts = the hurtbox is not touched (geometry / broadphase);
   contacts but rejected = an early-out in 117A6D0, which can then be bisected;
   queued = the hit is rejected later, in the damage queue.
+- Build **1bfef492** (this commit). 117A6D0 takes 2 arguments: a linear scan shows r8/r9/xmm0-3 are written before any read
+  (xorps xmm2 / movss xmm1 / movd xmm0 / mov r8). So the C detour forwards (rcx, rdx) only. The hook is installed only when IFrameProbe = 1,
+  on the pump thread (first FmIFrameProbe call). The original runs first and nothing is written to game memory.
+- What to check: IFrameProbe 1. (a) Let a boss hit you once while standing: that should give `IFRAMECT .. queued >= 1`. (b) Dodge through 5 attacks:
+  read IFRAMECT during act 10015-10042 (no line = no contact at all). Send the log. The stripe rule is unchanged.

@@ -114,6 +114,46 @@ static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
 // so "none left" or "every one has a no-hit def type" means attacks cannot connect. `base` = the count seen while idle (>0).
 // m18seen = the hurtboxes of this actor were seen colliding with attack categories before (so a mask without them is a change, not the norm).
 static int FmHurtOff(const FmHurt* h, int n, int base, int m18seen) { return n >= 0 && base > 0 && (n == 0 || h->off == n || (m18seen && n > 0 && !(h->m18or & 0x440003Full))); }
+// #35176 contact-handler probe (log only, [Debug] IFrameProbe 1). 117A6D0(attack obj, damage obj) is the attack-vs-hurtbox contact handler
+// (callers 117A49D/4E6/574/57F; hookcheck entry: must preserve []). Entry = mov r11,rsp / push rbp / push rdi / push r14 / push r15 /
+// lea rbp,[r11-1E8h] (16 bytes, no rip-relative operand). The detour calls the original first, then counts player contacts and whether the
+// hit queue [[47452E0]+0x5910] grew (hit queued) or not (rejected in 117A6D0). Runs on the physics thread: Interlocked counters only.
+typedef void (*FmCtFn)(uint64_t, uint64_t);
+static FmCtFn o_fmct; static volatile LONG g_fmct_hooked, g_fmct_calls, g_fmct_pl, g_fmct_plq; static volatile uint64_t g_fmct_player, g_fmct_atkOwner, g_fmct_atkObj;
+__attribute__((used)) static void FmCtDetour(uint64_t atk, uint64_t dmg) {
+    const uint64_t pl = g_fmct_player; int mine = 0; uint32_t q0 = 0, q1 = 0; uint64_t mgr = 0, ao = 0;
+    InterlockedIncrement(&g_fmct_calls);
+    if (pl && atk && dmg) {
+        __try { ao = *(volatile uint64_t*)(atk + 8); mine = *(volatile uint64_t*)(dmg + 8) == pl && ao != pl; } __except (EXCEPTION_EXECUTE_HANDLER) { mine = 0; }
+        if (mine && Rd64(B + 0x47452E0, &mgr) && mgr) { __try { q0 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { mgr = 0; } }
+    }
+    o_fmct(atk, dmg);
+    if (mine) {
+        if (mgr) { __try { q1 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { q1 = q0; } }
+        InterlockedIncrement(&g_fmct_pl); if (q1 != q0) InterlockedIncrement(&g_fmct_plq);
+        g_fmct_atkOwner = ao; g_fmct_atkObj = atk;
+    }
+}
+static void FmCtInstall(void) {
+    static const uint8_t pro[16] = {0x4C, 0x8B, 0xDC, 0x55, 0x57, 0x41, 0x56, 0x41, 0x57, 0x49, 0x8D, 0xAB, 0x18, 0xFE, 0xFF, 0xFF};
+    if (g_fmct_hooked) return;
+    if (memcmp((void*)(B + 0x117A6D0), pro, sizeof pro)) { g_fmct_hooked = 2; Log("IFRAMECT hook 117A6D0: bytes differ, probe off"); return; }
+    o_fmct = (FmCtFn)Hook(0x117A6D0, 16, (void*)FmCtDetour); g_fmct_hooked = 1;
+    Log("IFRAMECT hook 117A6D0: on (log only, [Debug] IFrameProbe 1)");
+}
+// Pump side: one IFRAMECT line per tick with player contacts (max 3000).
+static void FmCtTick(uint64_t actor, uint32_t act, double t) {
+    static LONG pc, pq; static int lines;
+    if (g_fmct_hooked == 0) FmCtInstall();
+    g_fmct_player = actor;
+    if (g_fmct_hooked != 1) return;
+    const LONG c = g_fmct_pl, q = g_fmct_plq, dc = c - pc, dq = q - pq; pc = c; pq = q;
+    if (dc > 0 && lines < 3000) {
+        lines++;
+        Log("IFRAMECT t %.1f act %u contacts %ld queued %ld rejected %ld atk %p obj %p (all calls %ld)", t, act, dc, dq, dc - dq,
+            (void*)g_fmct_atkOwner, (void*)g_fmct_atkObj, g_fmct_calls);
+    }
+}
 // #35176 IFRAMEOB filter: skip the per-tick transform floats seen in log #2331 (shape +0x30..+0x3C, +0x80..+0x9C; object +0x90..+0xAC,
 // +0xC0..+0xCC, +0xF0..+0xFC) and any change that looks like a small step of a float (both values normal floats, |delta| < 25 % + 1).
 static int FmObNoisy(int shape, int off, uint32_t a, uint32_t b) {
@@ -134,6 +174,7 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
     static uint64_t pa8, p1060, pb0, pb1, pb2; static uint32_t pact; static int lines, told, hlines; static char psig[480];
     uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0, b2 = 0;
     if (!g_cfg_ifp || !actor || !ctrl) return;
+    FmCtTick(actor, act, t);
     {   // hurtbox objects: one IFRAMEHB line when the set or a field changes
         FmHurt h; const int n = FmHurtScan(actor, &h);
         if (n >= 0 && strcmp(h.sig, psig) && hlines < 3000) {
