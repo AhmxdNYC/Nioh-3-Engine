@@ -249,3 +249,17 @@ word, and count the player's enabled damage shapes per tick.
 - What to check: IFrameProbe 1. One normal hit while standing (nodmg 0), then 5 dodges through attacks (the first contact of each dodge
   gives an IFRAMEDM line with nodmg 1). The field that is set only on the dodge lines is the i-frame rule. Strong candidates: `f14c`
   (0 = 78A7F0 skips the damage calc), `1e0` / `1e4`, `stat48`, `rec0 bit35`, `rec18` bit 29 with `ae0`.
+
+## #35391: is the damage real? (logs #2338 / #2341 / #2344)
+- (a) The HB line `player HP 2658/2658` is flat because the mod itself cuts the damage. The session ran with `[Summon] PlayerCantDie 1`
+  (Infinite health). NfHpDamage (the hook on the HP-damage call 787268 at 329890) zeroes every hit on the player. All three logs have
+  `TRAIN infinite health: hit of 153 / 94 / 109 / 79 ... on the player cut to 0` (capped at 20 lines). The HP field itself is live:
+  status `[actor+0x3A0]` +0x38 = the HP object, +0x58 = current, +0x50 = max (ActorHp). The #22918 HB lines vs Yamagata
+  (1969 -> 1280 -> 591 -> 0) show it moving when the cut is off.
+- (b) The Masakage hits are real, non-zero hits: 79-153 raw damage each. The mod sets them to 0 afterwards. Standing hits have nodmg 0 / f14c 1,
+  as expected. **A dodge hit can also land:** IFRAMEDM t 5039.4 act 10024 (21:01:14.823) nodmg 0 matches `hit of 94 ... cut to 0` at 21:01:14.835.
+  So that contact was outside the i-frame window (a late part of the dodge). The dodge contacts that get i-framed are the ones
+  later rejected by the hit history.
+- (c) New probe line `IFRAMEHP` in NfHpDamage for every player hit (IFrameProbe 1, max 1500): raw damage, after the damage multiplier,
+  applied (after the Infinite-health cut), HP before, the hit object, act. IFRAMEDM now also prints the hit object, so the two lines join.
+  Class: IFRAMEDM nodmg 1 = no damage (i-frame / blocked in the pipeline); IFRAMEHP raw > 0 = a real hit (applied 0 only because of Infinite health).
