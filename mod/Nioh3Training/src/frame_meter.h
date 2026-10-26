@@ -154,6 +154,17 @@ static inline void FmMarkKiWin(FmMeter* m, double t, int mark) {
     for (int64_t k = from; k <= g; ++k) m->kiwin[k % FM_CELLS] = v;
     m->kiwinCell = g;
 }
+// The R1 press often starts a new action on the same tick K+0x74 is still in (0, 4].
+// The bar freezes before that tick is drawn, so paint the last open cell of the frozen bar.
+static inline int FmSealPerfectEnd(FmMeter* m) {
+    int i;
+    if (!m->haveLast || m->kiwinFrozenN <= 0) return 0;
+    i = m->kiwinFrozenN - 1;
+    while (i > 0 && m->kiwinFrozen[i] == 0) --i;
+    if (m->kiwinFrozen[i] != 1) return 0;
+    m->kiwinFrozen[i] = 2;
+    return 1;
+}
 // Same index as FmViewCell. 1 = that cell was inside the Ki Pulse bar.
 static inline int FmViewKiWin(const FmMeter* m, int i) {
     if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;

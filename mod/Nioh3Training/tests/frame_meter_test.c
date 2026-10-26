@@ -157,6 +157,15 @@ int main(void) {
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
     FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
+    // #36326: the perfect timer is read on the tick the action changes, after the bar already froze blue.
+    FmReset(&m); t = 0;
+    FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1);
+    for (int i = 0; i < 25; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 1); }
+    FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); // freeze first, the way the game tick does
+    assert(m.haveLast);
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 0); }
+    FmSealPerfectEnd(&m);
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 1); }
     // Landed Ki pulse (#34866): +0x5C near 54 jumping by 40 or more, with Ki moving by 20 or more.
     assert(FmKiPulseLanded(53.94f, 133.43f, 1019.5f, 921.1f));
     assert(!FmKiPulseLanded(-1.f, 53.94f, 1153.f, 1019.5f));
