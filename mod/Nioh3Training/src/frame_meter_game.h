@@ -83,7 +83,7 @@ static __attribute__((noinline)) int FmPlayerNoDmg(uint64_t actor, uint64_t ctrl
 // obj+0 = shape (shape+0x10 = category mask, damage = 0x3FFFC0, attack = 0x440003F), obj+8 = owner actor, obj+0xD4 flags, obj+0xD8 part,
 // obj+0xB0 = def (def+0x14 = type). The contact handler 117A6D0 never hits a damage collision whose def type is 0x17 or 0x19, and an object
 // that is not in the pool cannot be touched at all. Read only. Fills a summary of the player's damage collisions; returns their count (-1 = no pool).
-typedef struct { int n, off; uint32_t d4or, d4and, types; char sig[360]; } FmHurt;
+typedef struct { int n, off; uint32_t d4or, d4and, types; uint64_t m18or; char sig[480]; } FmHurt;
 static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
     uint64_t pool = 0; int o = 0;
     memset(h, 0, sizeof *h); h->d4and = 0xFFFFFFFFu;
@@ -96,13 +96,15 @@ static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
             if (!shape) continue;
             const uint32_t m10 = *(volatile uint32_t*)(shape + 0x10);
             if (!(m10 & 0x3FFFC0u)) continue;
+            const uint64_t m18 = *(volatile uint64_t*)(shape + 0x18);  // collides-with mask (0xB9B38 / 0xA11340)
+            h->m18or |= m18;
             const uint32_t d4 = *(volatile uint32_t*)(obj + 0xD4), d8 = *(volatile uint32_t*)(obj + 0xD8);
             const uint64_t def = *(volatile uint64_t*)(obj + 0xB0);
             const int type = def ? *(volatile int32_t*)(def + 0x14) : -1;
             h->n++; h->d4or |= d4; h->d4and &= d4;
             if (type == 0x17 || type == 0x19) h->off++;
             if (type >= 0 && type < 32) h->types |= 1u << type;
-            if (o < (int)sizeof h->sig - 48) o += snprintf(h->sig + o, sizeof h->sig - o, " %d:%X/%X/%X/t%d", i, d4, d8, m10, type);
+            if (o < (int)sizeof h->sig - 64) o += snprintf(h->sig + o, sizeof h->sig - o, " %d:%X/%X/%X/%llX/t%d", i, d4, d8, m10, (unsigned long long)m18, type);
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; }
     if (!h->n) h->d4and = 0;
@@ -110,18 +112,44 @@ static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
 }
 // Candidate i-frame from the hurtbox (UNPROVEN as the dodge mechanism, see notes/iframes.md): the player owns hurtbox objects normally,
 // so "none left" or "every one has a no-hit def type" means attacks cannot connect. `base` = the count seen while idle (>0).
-static int FmHurtOff(const FmHurt* h, int n, int base) { return n >= 0 && base > 0 && (n == 0 || h->off == n); }
+// m18seen = the hurtboxes of this actor were seen colliding with attack categories before (so a mask without them is a change, not the norm).
+static int FmHurtOff(const FmHurt* h, int n, int base, int m18seen) { return n >= 0 && base > 0 && (n == 0 || h->off == n || (m18seen && n > 0 && !(h->m18or & 0x440003Full))); }
 // [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
 // the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
 static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
-    static uint64_t pa8, p1060, pb0, pb1, pb2; static uint32_t pact; static int lines, told, hlines; static char psig[360];
+    static uint64_t pa8, p1060, pb0, pb1, pb2; static uint32_t pact; static int lines, told, hlines; static char psig[480];
     uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0, b2 = 0;
     if (!g_cfg_ifp || !actor || !ctrl) return;
     {   // hurtbox objects: one IFRAMEHB line when the set or a field changes
         FmHurt h; const int n = FmHurtScan(actor, &h);
         if (n >= 0 && strcmp(h.sig, psig) && hlines < 3000) {
             hlines++; memcpy(psig, h.sig, sizeof psig);
-            Log("IFRAMEHB t %.1f act %u n %d off %d d4or %X d4and %X types %X:%s", t, act, n, h.off, h.d4or, h.d4and, h.types, h.sig);
+            Log("IFRAMEHB t %.1f act %u n %d off %d d4or %X d4and %X m18or %llX types %X:%s", t, act, n, h.off, h.d4or, h.d4and, (unsigned long long)h.m18or, h.types, h.sig);
+        }
+    }
+    {   // backup (#35176 log #2325): during dodge actions (10000-10199) log every u32 that changed since the previous tick in
+        // status [actor+0x3A0] +0x80..+0x400 and +0x2DC0..+0x2E00, and ctrl +0x7F0..+0x820. One IFRAMEST line per tick with changes.
+        enum { ST_A = 0x80 / 4, ST_B = 0x400 / 4, ST2_A = 0x2DC0 / 4, ST2_B = 0x2E00 / 4, CT_A = 0x7F0 / 4, CT_B = 0x820 / 4 };
+        static uint32_t ps[ST_B], ps2[ST2_B - ST2_A], pc[CT_B - CT_A]; static int have, stlines; static uint32_t stAct;
+        uint32_t cs[ST_B], cs2[ST2_B - ST2_A], cc[CT_B - CT_A]; uint64_t st = 0; int ok = 0;
+        if (act >= 10000 && act < 10200 && stlines < 2500 && Rd64(actor + 0x3A0, &st) && st) {
+            __try {
+                for (int k = ST_A; k < ST_B; ++k) cs[k] = *(volatile uint32_t*)(st + (uint64_t)k * 4);
+                for (int k = ST2_A; k < ST2_B; ++k) cs2[k - ST2_A] = *(volatile uint32_t*)(st + (uint64_t)k * 4);
+                for (int k = CT_A; k < CT_B; ++k) cc[k - CT_A] = *(volatile uint32_t*)(ctrl + (uint64_t)k * 4);
+                ok = 1;
+            } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+        }
+        if (!ok) have = 0;
+        else {
+            if (have && stAct == act) {
+                char b[900]; int o = 0, nch = 0;
+                for (int k = ST_A; k < ST_B && o < (int)sizeof b - 48; ++k) if (cs[k] != ps[k]) { float f; memcpy(&f, &cs[k], 4); o += snprintf(b + o, sizeof b - o, " s%X=%X(%.3g)", k * 4, cs[k], f); nch++; }
+                for (int k = 0; k < ST2_B - ST2_A && o < (int)sizeof b - 48; ++k) if (cs2[k] != ps2[k]) { o += snprintf(b + o, sizeof b - o, " s%X=%X", (ST2_A + k) * 4, cs2[k]); nch++; }
+                for (int k = 0; k < CT_B - CT_A && o < (int)sizeof b - 48; ++k) if (cc[k] != pc[k]) { float f; memcpy(&f, &cc[k], 4); o += snprintf(b + o, sizeof b - o, " c%X=%X(%.3g)", (CT_A + k) * 4, cc[k], f); nch++; }
+                if (nch) { stlines++; Log("IFRAMEST t %.1f act %u%s", t, act, b); }
+            } else { stlines++; Log("IFRAMEST t %.1f act %u start (baseline taken)", t, act); }
+            memcpy(ps, cs, sizeof ps); memcpy(ps2, cs2, sizeof ps2); memcpy(pc, cc, sizeof pc); have = 1; stAct = act;
         }
     }
     __try {
@@ -154,11 +182,12 @@ static void FmFeed(double gdt) {
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         {
-            static uint64_t hbActor; static int hbBase;  // hurtbox count seen outside i-frames for this actor (max seen)
+            static uint64_t hbActor; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
             FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
-            if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; }
+            if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; hbM18 = 0; }
             if (hn > hbBase && !h.off) hbBase = hn;
-            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || FmHurtOff(&h, hn, hbBase));
+            if (hn > 0 && (h.m18or & 0x440003Full)) hbM18 = 1;
+            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || FmHurtOff(&h, hn, hbBase, hbM18));
         }
         FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
         if (g_pst.v[PS_KI_WINDOW]) {

@@ -117,3 +117,12 @@ word, and count the player's enabled damage shapes per tick.
   guard, not dodge (ea0/ea8 were 0 in the log).
 - Next data needed: shape+0x18 (collides-with mask, set per bit by 0xA11340) of the player's hurtboxes was not logged.
   The status / ctrl blocks are not decoded yet, so they are logged as diffs during dodges.
+
+## Build 308d35bf (this commit)
+- IFRAMEHB now also has `m18or` and, per object, shape+0x18 (`slot:d4/d8/cat/collides/t<type>`).
+- Stripe candidate (added): the player's hurtboxes stop colliding with any attack category (`(OR of shape+0x18) & 0x440003F == 0`),
+  but only after they were seen colliding with one for this actor. The earlier rules stay: no hurtboxes left, all no-hit types, the 4 proven flags.
+- New backup line `IFRAMEST t .. act ..` during actions 10000-10199. It lists every u32 that changed since the previous tick in status
+  `[actor+0x3A0]` +0x80..+0x400 and +0x2DC0..+0x2E00 (`sOFF=hex(float)`) and in ctrl +0x7F0..+0x820 (`cOFF=...`). Max 2500 lines.
+- What to check: IFrameProbe 1, idle 2 s, 5 dodges. Send the IFRAMEHB + IFRAMEST lines and say whether the stripe lit.
+  Look for a field that changes a few ticks after the dodge start and changes back well before the end: that is the i-frame window.
