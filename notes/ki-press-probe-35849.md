@@ -43,3 +43,7 @@ dKi by press frame: f2 2.7, f10 10.0, f21 19.8, f29 27.9, f42 48.1, f48 67.6, f5
 Frame numbers are pump ticks from the bar opening, not 60 fps game frames. A press closes the bar at once, so end80 stays 0. The pool stays 53.9 until about f20, then drains.
 
 Ki amount is not a perfect mark. The miss paid more than the latest press, and the curve has no jump, so do not paint t74<=4 from this log. The particle was not logged. File #2421 (sha 9ae298bd, commit 614bfa34) logs `KIPRESS fx` while the bar is up. Answer #35991.
+
+## Caller (#35918)
+
+The effect line is `KIPRESS fx <id> from <rva> frame <n>`. `from` is the return address minus the image base (a direct call is 5 bytes earlier). Effects still log while the bar is up with no R1, which is the miss control: fx lines and a close, and no r1 line. The hook still stays off if the live bytes at 3EAB1C differ.

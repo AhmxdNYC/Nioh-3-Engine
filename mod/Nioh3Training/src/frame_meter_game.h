@@ -512,10 +512,11 @@ static int FmPadRB(void) {
     __try { if (fn(0, st) != 0) return 0; return (*(unsigned short*)(st + 4) & 0x0200) != 0; }
     __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
-static struct { volatile uint32_t last, seq; volatile uint32_t ring[16]; } g_kp_fx;
+// last/seq/from at 0/4/8, pad at 12, ring ids at 16, caller RVAs at 80. The stub below uses those offsets.
+static struct { volatile uint32_t last, seq, from, pad; volatile uint32_t ring[16]; volatile uint32_t callers[16]; } g_kp_fx;
 static volatile int g_kp_frame = -1;
 static int g_kp_fx_hooked;
-// Records R8D at 0x3EAB1C, then runs the original. The on-disk exe is packed, so the check is the bytes in the running image.
+// Records R8D and the return RVA at 0x3EAB1C, then runs the original. The on-disk exe is packed, so the check is the bytes in the running image.
 static void FmFxInstall(void) {
     static const uint8_t pro[14] = {0x40,0x53,0x48,0x83,0xEC,0x40,0x48,0x8B,0x44,0x24,0x78,0x48,0x8B,0xDA};
     uint8_t* site = (uint8_t*)(B + 0x3EAB1C);
@@ -524,20 +525,25 @@ static void FmFxInstall(void) {
     if (memcmp(site, pro, sizeof pro)) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook 3EAB1C: bytes differ, effect id off"); return; }
     rel = *(int32_t*)(site + 0x24);
     if (site[0x23] != 0xE8 || (uint32_t)(0x3EAB44 + rel) != 0x4CE90Cu) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook 3EAB1C: call is not 4CE90C, effect id off"); return; }
-    stub = (uint8_t*)VirtualAlloc(0, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    stub = (uint8_t*)VirtualAlloc(0, 128, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!stub) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook: no stub page"); return; }
     at = 0;
-    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_kp_fx; at += 8;
-    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x02;
-    stub[at++] = 0x41; stub[at++] = 0xBB; *(uint32_t*)(stub + at) = 1; at += 4;
-    stub[at++] = 0xF0; stub[at++] = 0x45; stub[at++] = 0x0F; stub[at++] = 0xC1; stub[at++] = 0x5A; stub[at++] = 0x04;
-    stub[at++] = 0x41; stub[at++] = 0x83; stub[at++] = 0xE3; stub[at++] = 0x0F;
-    stub[at++] = 0x47; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x9A; stub[at++] = 0x08;
-    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_kp_fx; at += 8; // mov r10, &g_kp_fx
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x02;                                     // mov [r10], r8d
+    stub[at++] = 0x48; stub[at++] = 0x8B; stub[at++] = 0x04; stub[at++] = 0x24;                   // mov rax, [rsp] return address
+    stub[at++] = 0x49; stub[at++] = 0xBB; *(uint64_t*)(stub + at) = (uint64_t)B; at += 8;         // mov r11, image base
+    stub[at++] = 0x4C; stub[at++] = 0x29; stub[at++] = 0xD8;                                       // sub rax, r11
+    stub[at++] = 0x41; stub[at++] = 0x89; stub[at++] = 0x42; stub[at++] = 0x08;                   // mov [r10+8], eax
+    stub[at++] = 0x41; stub[at++] = 0xBB; *(uint32_t*)(stub + at) = 1; at += 4;                   // mov r11d, 1
+    stub[at++] = 0xF0; stub[at++] = 0x45; stub[at++] = 0x0F; stub[at++] = 0xC1; stub[at++] = 0x5A; stub[at++] = 0x04; // lock xadd [r10+4], r11d
+    stub[at++] = 0x41; stub[at++] = 0x83; stub[at++] = 0xE3; stub[at++] = 0x0F;                   // and r11d, 15
+    stub[at++] = 0x47; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x9A; stub[at++] = 0x10; // mov [r10+r11*4+16], r8d
+    stub[at++] = 0x43; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x9A; stub[at++] = 0x50; // mov [r10+r11*4+80], eax
+    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;                   // jmp qword [rip]
     tr = (uint8_t*)Hook(0x3EAB1C, 14, stub);
     *(uint64_t*)(stub + at) = (uint64_t)tr;
     g_kp_fx_hooked = 1;
-    Log("KIPRESS fx hook 3EAB1C: bytes match, effect id is R8D, calls 4CE90C");
+    Log("KIPRESS fx hook 3EAB1C: bytes match, effect id is R8D, caller is the return RVA, calls 4CE90C");
 }
 static void FmKiPressTick(void) {
     static KpRun run; static int lines, told; static uint32_t seen;
@@ -562,19 +568,22 @@ static void FmKiPressTick(void) {
     g_kp_frame = run.wasOpen ? run.frame - 1 : -1;
     seq = g_kp_fx.seq; from = seen; if (seq - from > 16) from = seq - 16;
     while (from != seq && g_kp_frame >= 0) {
-        uint32_t id = g_kp_fx.ring[from & 15]; from++;
+        uint32_t id = g_kp_fx.ring[from & 15];
+        uint32_t who = g_kp_fx.callers[from & 15];
+        from++;
         if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
-        lines++; Log("KIPRESS fx %u frame %d", id, g_kp_frame);
+        lines++; Log("KIPRESS fx %u from %X frame %d", id, who, g_kp_frame);
     }
     seen = seq;
     for (int i = 0; i < n; ++i) {
         const unsigned fx = g_kp_fx.last;
+        const unsigned who = g_kp_fx.from;
         if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } return; }
         lines++;
         if (ev[i].kind == KP_OPEN) Log("KIPRESS open act %u", ev[i].act);
-        else if (ev[i].kind == KP_R1) Log("KIPRESS r1 frame %d t74 %.2f pool %.1f stored %.1f Ki %.1f fx %u", ev[i].frame, ev[i].t74, ev[i].pool, ev[i].stored, ev[i].ki, fx);
-        else if (ev[i].kind == KP_AFTER) Log("KIPRESS after frame %d dKi %.1f pool %.1f end80 %u fx %u", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx);
-        else if (ev[i].kind == KP_CLOSE) Log("KIPRESS close frame %d dKi %.1f pool %.1f end80 %u fx %u", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx);
+        else if (ev[i].kind == KP_R1) Log("KIPRESS r1 frame %d t74 %.2f pool %.1f stored %.1f Ki %.1f fx %u from %X", ev[i].frame, ev[i].t74, ev[i].pool, ev[i].stored, ev[i].ki, fx, who);
+        else if (ev[i].kind == KP_AFTER) Log("KIPRESS after frame %d dKi %.1f pool %.1f end80 %u fx %u from %X", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx, who);
+        else if (ev[i].kind == KP_CLOSE) Log("KIPRESS close frame %d dKi %.1f pool %.1f end80 %u fx %u from %X", ev[i].frame, ev[i].dKi, ev[i].pool, (unsigned)ev[i].end80, fx, who);
     }
 }
 // FpTick (game thread, FpLock held), once per pump tick.
