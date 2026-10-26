@@ -1750,8 +1750,9 @@ static DWORD WINAPI FmThread(LPVOID p) {
         const int front = gameOk && GetForegroundWindow() == g_fm_game;
         const int fg = front || (g_cfg_fm_unfocused && gameOk);
         const int menu = GateMenuOpen();
+        const uint8_t* lgs = GameState(); const int loading = lgs && lgs[2];  // #38144: no meter over a loading screen
         const int scope = FmScope(g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW], g_pst_live != 0);
-        const int want = scope && FmPanels() && gameOk && fg && !menu;
+        const int want = scope && FmPanels() && gameOk && fg && !menu && !loading;
         if (have) {
             static int toldOn, toldWhy;
             if (want && !toldOn) { toldOn = 1; Log("FRAME METER: on screen"); }
