@@ -114,6 +114,17 @@ static __attribute__((noinline)) int FmPlayerNoDmg(uint64_t actor, uint64_t ctrl
     } __except (EXCEPTION_EXECUTE_HANDLER) { r = 0; }
     return r;
 }
+// human #37361: bits for the I-FR row from the probe bytes (ctrl+0xEAA = COND4 / outside reverser byte, ctrl+0xEA5 = guard, ctrl+0xEA7). Read only.
+static __attribute__((noinline)) int FmPlayerFlagBits(uint64_t ctrl) {
+    int r = 0;
+    if (!ctrl) return 0;
+    __try {
+        if (*(volatile uint8_t*)(ctrl + 0xEAA)) r |= FMF_EAA;
+        if (*(volatile uint8_t*)(ctrl + 0xEA5)) r |= FMF_GUARD;
+        if (*(volatile uint8_t*)(ctrl + 0xEA7)) r |= FMF_EA7;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { r = 0; }
+    return r;
+}
 // #35176 hurtbox side. The collision pool [45C6F38]+0x20+i*8 (0xFA0 slots) holds attack and damage (hurtbox) collision objects:
 // obj+0 = shape (shape+0x10 = category mask, damage = 0x3FFFC0, attack = 0x440003F), obj+8 = owner actor, obj+0xD4 flags, obj+0xD8 part,
 // obj+0xB0 = def (def+0x14 = type). The contact handler 117A6D0 never hits a damage collision whose def type is 0x17 or 0x19, and an object
@@ -1405,7 +1416,7 @@ static void FmFeed(double gdt) {
             if (g_fp[FP_PL].a != hbActor2) { hbActor2 = g_fp[FP_PL].a; seenOff = 0; }
             FmiEval(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, hoff, &fmiS);
             const int pred = fmiS.ok && FmiStripe(fmiS.mask, &seenOff);
-            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred);
+            FmMarkNoDmg(&g_fmp, g_fm_clock, ((FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred) ? FMF_NODMG : 0) | FmPlayerFlagBits(g_fp[FP_PL].ctrl));
         }
         if (g_cfg_ifp) FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
         if (g_cfg_ifbyte) FmIFrameBytes(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
@@ -1510,7 +1521,13 @@ static int FmIFrRow(void) { return g_pst.v[PS_FRAME_IFR] && FmPlayerRow(); }  //
 static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmIFrRow() + FmKiShown(); }
 #define FM_KIWIN_RGB RGB(16,44,168)
 #define FM_KIPERF_RGB RGB(64,232,214)
+#define FM_EAA_RGB RGB(255,120,40)   // I-FR row: ctrl+EAA set (many specials)
+#define FM_GUARD_RGB RGB(70,200,120) // ctrl+EA5 (guard stance)
+#define FM_EA7_RGB RGB(220,110,225)  // ctrl+EA7
 #define FM_NODMG_RGB RGB(255,206,48)  // #35176 i-frame stripe (gold), top third of the cell
+static COLORREF FmIFrColor(int bits) {
+    return bits&FMF_NODMG ? FM_NODMG_RGB : bits&FMF_EAA ? FM_EAA_RGB : bits&FMF_EA7 ? FM_EA7_RGB : bits&FMF_GUARD ? FM_GUARD_RGB : FmColor(FM_EMPTY);
+}
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
@@ -1550,7 +1567,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
         FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
         if(!win && (c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
-        if(noDmg && FmViewNoDmg(&m,viewStart+i)) FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH/3>2?barH/3:2,FM_NODMG_RGB);
+        if(noDmg && (FmViewNoDmg(&m,viewStart+i)&FMF_NODMG)) FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH/3>2?barH/3:2,FM_NODMG_RGB);
     }
     // Count each visible colour run; action boundaries and the Ki window also start a new run.
     // Centre within its LAST coloured cell, excluding the separator.
@@ -1589,7 +1606,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
-static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 2 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0); }
+static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 2 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0) + (FmIFrRow() ? 3 : 0); }
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
@@ -1601,10 +1618,10 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","No damage (i-frame)","Perfect"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB};
-    int use[15]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0;
-    int idx[15], n=0; for(int i=0;i<15;++i) if(use[i]) idx[n++]=i;
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","No damage (i-frame)","Perfect","EAA flag","Guard EA5","EA7 flag"};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
+    int use[18]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0; use[15]=use[16]=use[17]=FmIFrRow()?1:0;
+    int idx[18], n=0; for(int i=0;i<18;++i) if(use[i]) idx[n++]=i;
     int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
@@ -1656,7 +1673,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x-gutter,by,"I-FR",RGB(240,243,249));
         FmFill(dc,x-1,by-1,bw+2,barH+2,RGB(41,50,65));
-        for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmViewNoDmg(&mp,start+i)?FM_NODMG_RGB:FmColor(FM_EMPTY));
+        for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmIFrColor(FmViewNoDmg(&mp,start+i)));
         SelectObject(dc,old); oy+=ph;
     }
     if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0,0); oy+=ph; }

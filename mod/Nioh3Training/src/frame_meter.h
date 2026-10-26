@@ -269,6 +269,7 @@ static inline uint8_t FmViewCell(const FmMeter* m, int i) {
 }
 // #35176: stamp the game's no-hit / no-damage state (i-frames) on the current cell and the cells filled across a hitch.
 // Call after FmSampleEx for the same t. Counts the run's i-frame cells (m->nd) so a dodge without hits is shown.
+enum { FMF_NODMG = 1, FMF_EAA = 2, FMF_GUARD = 4, FMF_EA7 = 8 };  // human #37361: special-move flags on the I-FR row
 static inline void FmMarkNoDmg(FmMeter* m, double t, int on) {
     if (m->lastCell < 0) return;
     const int64_t g = FmCellOf(t);
@@ -278,15 +279,15 @@ static inline void FmMarkNoDmg(FmMeter* m, double t, int on) {
     if (from < g - (FM_CELLS - 1)) from = g - (FM_CELLS - 1);
     if (from < 0) from = 0;
     for (int64_t k = from; k <= g; ++k) {
-        uint8_t* c = &m->nodmg[k % FM_CELLS]; const uint8_t v = on ? 1 : 0;
+        uint8_t* c = &m->nodmg[k % FM_CELLS]; const uint8_t v = (uint8_t)(on & 0xF);  // bit0 = no-damage (counted in nd), bits 1..3 = FMF_* flags (drawn only)
         if (k > m->nodmgCell) *c = 0;  // a new cell: the ring slot still holds an old value
-        if (k >= m->c0 && v && !*c) m->nd++;
-        else if (k >= m->c0 && !v && *c && m->nd > 0) m->nd--;
+        if (k >= m->c0 && (v & 1) && !(*c & 1)) m->nd++;
+        else if (k >= m->c0 && !(v & 1) && (*c & 1) && m->nd > 0) m->nd--;
         *c = v;
     }
     m->nodmgCell = g;
 }
-// Same index as FmViewCell. 1 = the player could not be hit / damaged on that cell.
+// Same index as FmViewCell. bit0 (1) = the player could not be hit / damaged on that cell.
 static inline int FmViewNoDmg(const FmMeter* m, int i) {
     if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->nodmgFrozenN ? m->nodmgFrozen[i] : 0;
     const int64_t g = FmViewStart(m) + i;
