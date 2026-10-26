@@ -953,6 +953,52 @@ static void FmKiPressTick(void) {
         xseen = xseq;
     }
 }
+/* One dump of the 7 buff records. Map pointer is *(T+0x20), not the inline address. */
+static void FmBuffTableDump(void) {
+    static int done;
+    static const uint16_t ids[7] = {900, 822, 496, 2, 0x15E, 0x1B2, 0x114};
+    uint64_t G = 0, T = 0, map = 0, begin = 0, end = 0, arr = 0;
+    uint32_t count = 0;
+    int nent, n;
+    if (done) return;
+    if (!Rd64(B + 0x45B9E30, &G) || G < 0x10000ull) return;
+    if (!Rd64(G + 0x7A8, &T) || T < 0x10000ull) return;
+    __try {
+        map = *(volatile uint64_t*)(T + 0x20);
+        arr = *(volatile uint64_t*)T;
+        if (map < 0x10000ull || arr < 0x10000ull) return;
+        begin = *(volatile uint64_t*)(map + 8);
+        end = *(volatile uint64_t*)(map + 0x10);
+        count = *(volatile uint32_t*)(arr + 4);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (begin < 0x10000ull || end < begin) return;
+    nent = (int)((end - begin) / 8);
+    if (nent <= 0 || nent > 200000) { done = 1; Log("KIBUFF table unreadable entries %d", nent); return; }
+    done = 1;
+    Log("KIBUFF table count %u entries %d", count, nent);
+    for (n = 0; n < 7; ++n) {
+        uint32_t idx = 0xFFFFFFFFu;
+        uint16_t kind = 0;
+        uint8_t raw[0x2C];
+        char hex[0x2C * 2 + 1];
+        int e, h;
+        memset(raw, 0, sizeof raw);
+        __try {
+            for (e = 0; e < nent; ++e) {
+                uint16_t key = *(volatile uint16_t*)(begin + (uint64_t)e * 8u);
+                if (key == ids[n]) { idx = *(volatile uint32_t*)(begin + (uint64_t)e * 8u + 4); break; }
+            }
+            if (idx < count) {
+                uint8_t* rec = (uint8_t*)(arr + 8 + (uint64_t)idx * 0x2C);
+                for (h = 0; h < 0x2C; ++h) raw[h] = rec[h];
+                kind = *(volatile uint16_t*)(rec + 0x2A);
+            }
+        } __except (EXCEPTION_EXECUTE_HANDLER) { idx = 0xFFFFFFFEu; }
+        for (h = 0; h < 0x2C; ++h) sprintf(hex + h * 2, "%02X", raw[h]);
+        hex[0x2C * 2] = 0;
+        Log("KIBUFF id %u idx %u kind %u raw %s", (unsigned)ids[n], idx, (unsigned)kind, hex);
+    }
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
@@ -972,6 +1018,7 @@ static void FmFeed(double gdt) {
     if (!wantP) g_fmp_show = 0;
     if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
     if (!g_kirow_hooked) FmRowInstall();
+    if (kpress) FmBuffTableDump();
     if (kpress && g_fp[FP_PL].valid) FmKiPressTick();
     if ((wantP || probe) && g_fp[FP_PL].valid) {
         static FmiState fmiS;

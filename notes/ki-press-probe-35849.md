@@ -100,3 +100,8 @@ One reader in the dump: 0x2362ED7 tests the pulse object +0x13C bit 0x2000. The 
 ## R1 buff and pick (#36541)
 
 Same probe, two more lines while the Ki bar is open and for 20 ticks after it closes. KIR1 call marks entry to 0x23644F0. KIR1 buff marks the grants whose caller is 0x23645EA, 0x2364652, or 0x8448D0 (ids 0x15E, 0x1B2, 0x114, 0x248, 0x140). KIPICK is helper 0x845148: status+2DC8 bit 0x80 clear logs skip and id 0; set logs 0xA605B when the grade byte is nonzero and 0x73E5A when it is zero. bit19 on the line is the press grade. Not installed.
+
+
+## Buff table dump (#36559)
+
+Once KiPressProbe is on and the table pointer is filled, seven lines: KIBUFF id, idx, kind, raw 44 bytes. Ids are 900, 822, 496, 2, 0x15E, 0x1B2, 0x114. The map object is the pointer at T+0x20. Kind is the u16 at record +0x2A. Not installed.
