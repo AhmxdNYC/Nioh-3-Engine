@@ -126,3 +126,22 @@ word, and count the player's enabled damage shapes per tick.
   `[actor+0x3A0]` +0x80..+0x400 and +0x2DC0..+0x2E00 (`sOFF=hex(float)`) and in ctrl +0x7F0..+0x820 (`cOFF=...`). Max 2500 lines.
 - What to check: IFrameProbe 1, idle 2 s, 5 dodges. Send the IFRAMEHB + IFRAMEST lines and say whether the stripe lit.
   Look for a field that changes a few ticks after the dodge start and changes back well before the end: that is the i-frame window.
+
+## PC test of 308d35bf (log #2328), analysed offline
+- IFRAMEHB is flat (m18or 0x3BFFFC0 in dodge and idle). The stripe did not light.
+- IFRAMEST: 526 lines over 36 dodge starts (10015/10017/10018/10019/10021/10024). The only fields that change are Ki
+  (status +0xAC current, +0xB8 previous, +0xCC regen step, +0x140 time-since-use ramp, +0xD4 = 1.0 once). ctrl +0x7F0..+0x820 never
+  changes. **No status / ctrl field marks the i-frame window.**
+- Dodge action data, again: event 10072 is common (165 player actions). Dodges have `+0xE8/+0xEA` = 36/36 (0x24) or 52/52 (0x34);
+  2051 has 9/9, idle/move have FFFF. That is about the frame where the end / cancel bit 0 appears, not an i-frame window.
+  Event 41 @24 is the same row class as 40/42 (speed / blend values). **No frame range in the action record can be read as i-frames.**
+- Also checked: the hit history at AI+0x78 (0x2B44C4) is a per-attack hit-group list, and the damage validity check 0x78AC18 tests condition
+  0x115 on the ATTACKER. Neither is a dodge state.
+
+## Build 37f97266 (this commit)
+- New `IFRAMEOB t .. act .. n ..` lines during dodges: every u32 that changed since the previous tick in the player's first 4
+  hurtbox collision objects (`oJ+OFF`, obj +0..+0x100) and their physics shapes (`hJ+OFF`, shape +0..+0x100). `[J new]` = the object was re-created.
+- If IFRAMEOB is also flat, the window is not stored in any runtime field we can reach cheaply. Then it is in the motion
+  file (motions 30001-30018) or computed from the equipment weight. Next step: decode the motion files' event tracks (root.rdb G1A /
+  motion, keyed by `+0xF0`), or put a log-only hook on the contact handler 0x117A6D0 (needs hookcheck) to see whether a contact
+  happens at all during a dodge.

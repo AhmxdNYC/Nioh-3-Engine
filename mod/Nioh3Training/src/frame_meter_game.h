@@ -152,6 +152,40 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
             memcpy(ps, cs, sizeof ps); memcpy(ps2, cs2, sizeof ps2); memcpy(pc, cc, sizeof pc); have = 1; stAct = act;
         }
     }
+    {   // #35176 log #2328: status / ctrl were flat in dodges. Last cheap probe: per dodge tick, the u32s that changed in the player's first
+        // 4 hurtbox collision objects (obj +0x00..+0x100) and their shapes (shape +0x00..+0x100). IFRAMEOB lines, max 2500.
+        enum { NW = 0x100 / 4, NO = 4 };
+        static uint32_t po[NO][NW], psh[NO][NW]; static uint64_t pobj[NO]; static int obLines; static uint32_t obAct;
+        uint64_t pool = 0;
+        if (act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + 0x45C6F38, &pool) && pool) {
+            uint64_t objs[NO] = {0}; int no = 0;
+            uint32_t co[NO][NW] = {{0}}, csh[NO][NW] = {{0}}; int ok = 1;
+            __try {
+                for (int i = 0; i < 0xFA0 && no < NO; ++i) {
+                    const uint64_t obj = *(volatile uint64_t*)(pool + 0x20 + (uint64_t)i * 8);
+                    if (!obj || *(volatile uint64_t*)(obj + 8) != actor) continue;
+                    const uint64_t sh = *(volatile uint64_t*)obj;
+                    if (!sh || !(*(volatile uint32_t*)(sh + 0x10) & 0x3FFFC0u)) continue;
+                    objs[no] = obj;
+                    for (int k = 0; k < NW; ++k) { co[no][k] = *(volatile uint32_t*)(obj + (uint64_t)k * 4); csh[no][k] = *(volatile uint32_t*)(sh + (uint64_t)k * 4); }
+                    no++;
+                }
+            } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+            if (ok) {
+                char b2[1000]; int o = 0, nch = 0;
+                for (int j = 0; j < no; ++j) {
+                    if (objs[j] != pobj[j] || act != obAct) { o += snprintf(b2 + o, sizeof b2 - o, " [%d new]", j); continue; }
+                    for (int k = 0; k < NW && o < (int)sizeof b2 - 40; ++k) {
+                        if (co[j][k] != po[j][k]) { o += snprintf(b2 + o, sizeof b2 - o, " o%d+%X=%X", j, k * 4, co[j][k]); nch++; }
+                        if (csh[j][k] != psh[j][k]) { o += snprintf(b2 + o, sizeof b2 - o, " h%d+%X=%X", j, k * 4, csh[j][k]); nch++; }
+                    }
+                }
+                if (nch || act != obAct) { obLines++; Log("IFRAMEOB t %.1f act %u n %d%s", t, act, no, b2); }
+                for (int j = 0; j < NO; ++j) pobj[j] = j < no ? objs[j] : 0;
+                memcpy(po, co, sizeof po); memcpy(psh, csh, sizeof psh); obAct = act;
+            }
+        }
+    }
     __try {
         a8 = *(volatile uint64_t*)(ctrl + 0xA8); x1060 = *(volatile uint64_t*)(ctrl + 0x1060);
         b0 = *(volatile uint64_t*)(ctrl + 0xEA0); b1 = *(volatile uint64_t*)(ctrl + 0xEA8); b2 = *(volatile uint64_t*)(ctrl + 0xEB0);
