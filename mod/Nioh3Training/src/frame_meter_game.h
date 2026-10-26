@@ -32,11 +32,14 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
 static DWORD WINAPI FmThread(LPVOID p);
 static int g_cfg_ifp;  // [Debug] IFrameProbe 1: log-only probe of the player's state bits (notes/iframes.md)
 static int g_cfg_kipress;  // [Debug] KiPressProbe 1: log R1 against the blue bar (notes/ki-press-probe-35849.md)
+static int g_cfg_fm_unfocused;  // [Debug] FrameMeterUnfocused 1: keep drawing when the game is not the front window. Default 0.
 static void FmLoadIni(const char* ini) {
     g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
     g_cfg_kipress = (int)GetPrivateProfileIntA("Debug", "KiPressProbe", 0, ini);
+    g_cfg_fm_unfocused = (int)GetPrivateProfileIntA("Debug", "FrameMeterUnfocused", 0, ini) ? 1 : 0;
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
     Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
+    if (g_cfg_fm_unfocused) Log("FRAME METER: [Debug] FrameMeterUnfocused 1, still drawing when the game is not the front window");
     if (g_cfg_kipress) Log("KIPRESS on. Bar frame 0 is the tick the blue bar opens. R1 is XInput bit 0x0200.");
 }
 // Player KiTick K+0x74 (status = [actor+0x3A0], K = status+0x98). Read only. 1 while the 30-tick window is counting down.
@@ -1123,7 +1126,8 @@ static DWORD WINAPI FmThread(LPVOID p) {
         if (!g_fm_game || !IsWindow(g_fm_game)) { g_fm_game = 0; EnumWindows(FmFind, 0); }
         const int have = g_fm_show || g_fmp_show;
         const int gameOk = g_fm_game && !IsIconic(g_fm_game);
-        const int fg = gameOk && GetForegroundWindow() == g_fm_game;
+        const int front = gameOk && GetForegroundWindow() == g_fm_game;
+        const int fg = front || (g_cfg_fm_unfocused && gameOk);
         const int menu = GateMenuOpen();
         const int scope = FmScope(g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW], g_pst_live != 0);
         const int want = scope && FmPanels() && gameOk && fg && !menu;
@@ -1132,7 +1136,7 @@ static DWORD WINAPI FmThread(LPVOID p) {
             if (want && !toldOn) { toldOn = 1; Log("FRAME METER: on screen"); }
             else if (!want && !toldWhy) {
                 toldWhy = 1;
-                Log("FRAME METER: hidden live %d panels %d game %d foreground %d menu %d", (int)g_pst_live, FmPanels(), gameOk ? 1 : 0, fg ? 1 : 0, menu ? 1 : 0);
+                Log("FRAME METER: hidden live %d panels %d game %d foreground %d menu %d unfocused %d", (int)g_pst_live, FmPanels(), gameOk ? 1 : 0, front ? 1 : 0, menu ? 1 : 0, g_cfg_fm_unfocused);
             }
         }
         if (!want) { if (shown) { ShowWindow(g_fm_wnd, SW_HIDE); shown = 0; } continue; }
