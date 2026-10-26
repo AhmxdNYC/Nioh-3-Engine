@@ -30,11 +30,14 @@ static void FmWho(int slot, uint32_t chr, char* out, int n) {
     if (nm) snprintf(out, n, "Boss %c - %s", 'A' + slot, nm); else snprintf(out, n, "Boss %c", 'A' + slot);
 }
 static DWORD WINAPI FmThread(LPVOID p);
+static int g_cfg_ifbyte;  // [Debug] IFrameBytes 1: log the outside-model i-frame bytes per change (notes/frame-meter-lanes-37199.md)
 static int g_cfg_ifp;  // [Debug] IFrameProbe 1: log-only probe of the player's state bits (notes/iframes.md)
 static int g_cfg_kipress;  // [Debug] KiPressProbe 1: log R1 against the blue bar (notes/ki-press-probe-35849.md)
 static int g_cfg_fm_unfocused;  // [Debug] FrameMeterUnfocused 1: keep drawing when the game is not the front window. Default 0.
 static void FmLoadIni(const char* ini) {
     g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
+    g_cfg_ifbyte = (int)GetPrivateProfileIntA("Debug", "IFrameBytes", 0, ini) ? 1 : 0;
+    if (g_cfg_ifbyte) Log("IFRAMEEA on: [Debug] IFrameBytes 1, log-only (ctrl+EAA/EA0/EA5/EA7/EA8/EB0 and status+2DC8 bit 12)");
     g_cfg_kipress = (int)GetPrivateProfileIntA("Debug", "KiPressProbe", 0, ini);
     g_cfg_fm_unfocused = (int)GetPrivateProfileIntA("Debug", "FrameMeterUnfocused", 0, ini) ? 1 : 0;
     g_fm_ki_perfect_only = (int)GetPrivateProfileIntA("Practice", "KiWindowPerfectOnly", 1, ini) ? 1 : 0;
@@ -422,6 +425,29 @@ static void FmiLogTick(uint64_t ctrl, uint32_t act, double t, const FmiState* s)
     perRun++; lines++; p = *s;
     Log("%s", b);
 }
+// #37169 i-frame byte probe ([Debug] IFrameBytes 1, log only, no game call). Outside model (#37168): C = *(*(char+0x3B0)+8) is the action controller,
+// u8(C+0xEAA) = i-frames, status+0x2DC8 bit 12 = same flag, C+0xEA5 auto-guard, C+0xEA7 / 0xEA8 deflect guard, C+0xEB0 super armor.
+// One IFRAMEEA line whenever the action id or any of the values changes; f = frames since the action id changed (60 per second, game clock).
+static __attribute__((noinline)) void FmIFrameBytes(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
+    static uint32_t pact = 0xFFFFFFFF; static double t0; static int lines, told; static uint64_t pv = ~0ull;
+    static const int off[6] = {0xEAA, 0xEA0, 0xEA5, 0xEA7, 0xEA8, 0xEB0};
+    if (!actor || !ctrl || lines >= 30000) return;
+    uint8_t v[7] = {0}; uint64_t stat = 0, s2 = 0, p3b0 = 0, c2 = 0;
+    __try {
+        for (int i = 0; i < 6; ++i) v[i] = *(volatile uint8_t*)(ctrl + off[i]);
+        stat = *(volatile uint64_t*)(actor + 0x3A0); if (stat) s2 = *(volatile uint64_t*)(stat + 0x2DC8);
+        p3b0 = *(volatile uint64_t*)(actor + 0x3B0); if (p3b0) c2 = *(volatile uint64_t*)(p3b0 + 8);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    v[6] = (uint8_t)(s2 >> 12 & 1);
+    if (!told) { told = 1; Log("IFRAMEEA start: C via actor+3B0 -> +8 = %llX, probe ctrl = %llX, %s. Fields: eaa ea0 ea5 ea7 ea8 eb0 b12 (status+2DC8 bit 12)", (unsigned long long)c2, (unsigned long long)ctrl, c2 == ctrl ? "SAME" : "DIFFERENT"); }
+    uint64_t raw = 0; for (int i = 0; i < 7; ++i) raw |= (uint64_t)v[i] << (8 * i);
+    const int start = act != pact;
+    if (start) { pact = act; t0 = t; }
+    if (!start && raw == pv) return;
+    pv = raw; lines++;
+    const double d = t - t0; const int f = d <= 0 ? 0 : (int)(d * 60.0 / 1000.0 + 1e-6);
+    Log("IFRAMEEA t %.1f act %u f %d eaa %u ea0 %u ea5 %u ea7 %u ea8 %u eb0 %u b12 %u%s", t, act, f, v[0], v[1], v[2], v[3], v[4], v[5], v[6], start ? " START" : "");
+}
 // [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
 // the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
 // #35411: also IFRAMEPR (per tick predicates) and IFRAMEWN (per run window scan). The older IFRAMEST / IFRAMEOB dumps need IFrameProbe 2.
@@ -522,7 +548,7 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
     Log("IFRAME t %.1f act %u a8 %016llX x1060 %016llX ea0 %016llX ea8 %016llX (byte 6 = actor+ABC0, byte 7 = actor+ADB1) eb0 %016llX (EB4 = part mask) nodmg %d",
         t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, (unsigned long long)b2, FmPlayerNoDmg(actor, ctrl));
 }
-int FmIFrameProbeOn(void) { return g_cfg_ifp; }
+int FmIFrameProbeOn(void) { return g_cfg_ifp || g_cfg_ifbyte; }
 int FmKiPressOn(void) { return g_cfg_kipress; }
 // R1 through the game's XInput slot, so a VirtualPad tap is visible. Bit 0x0200.
 static int FmPadRB(void) {
@@ -1340,7 +1366,7 @@ static void FmArmHooks(void) {
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
-    const int probe = g_cfg_ifp != 0;
+    const int probe = g_cfg_ifp != 0 || g_cfg_ifbyte != 0;
     const int kpress = g_cfg_kipress != 0;
     FmArmHooks();
     const int scope = FmScope(wantB, wantP, g_pst_live != 0);
@@ -1381,7 +1407,8 @@ static void FmFeed(double gdt) {
             const int pred = fmiS.ok && FmiStripe(fmiS.mask, &seenOff);
             FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred);
         }
-        FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
+        if (g_cfg_ifp) FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
+        if (g_cfg_ifbyte) FmIFrameBytes(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
             float pkt = 0.f, pki = 0.f, pt74 = -1.f;
