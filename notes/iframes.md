@@ -106,3 +106,14 @@ word, and count the player's enabled damage shapes per tick.
   If `n`, `off`, a `d4` bit or a type changes inside the dodge, that field is the i-frame. Compare it with the stripe.
   If nothing in IFRAMEHB changes during a dodge, the window is in the motion data or in a timer. The next fields to log are then
   the player status floats near `[actor+0x3A0]` and `ctrl+0x7F0..0x820`.
+
+## PC test of 2f8b6086 (log #2325), analysed offline
+- IFRAMEHB is flat across 5 dodges (10015-10042): n = 2, d4or 0x121, type -1, the same as idle. Only the pool slots change, because the hurtboxes are re-allocated per action. They are not removed.
+- ctrl+0xA8 in a dodge, tick by tick: start 0 (x1060 = 0x4001 for one tick, then 0) -> bit 48 (0x0001000000000000) set 9-53 ms
+  after the start, until the end -> bit 0 on the last tick (end / cancel).
+  Bit 48 is also set in 2000/2001 (move/idle) about 100 ms in, and in 4059. Bit 1 = next action queued, bit 42 = locomotion.
+  **No bit turns on and then off inside a dodge, so ctrl+0xA8 / x1060 do not mark the i-frame window.**
+- The damage path also has a "defence state" 0x2A34F8 (guard types from ctrl+0xEA2..0xEA8, Ki > 0). That is guard / perfect
+  guard, not dodge (ea0/ea8 were 0 in the log).
+- Next data needed: shape+0x18 (collides-with mask, set per bit by 0xA11340) of the player's hurtboxes was not logged.
+  The status / ctrl blocks are not decoded yet, so they are logged as diffs during dodges.
