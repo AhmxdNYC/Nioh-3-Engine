@@ -162,3 +162,27 @@ word, and count the player's enabled damage shapes per tick.
 - Max 150 lines per dodge start, 2500 in total, so all dodges are covered. `[J new]` = the hurtbox was re-created.
 - What to check: IFrameProbe 1, 5 dodges. In the `p1=` lines, look for a word that differs between the fresh pointer set at +20 ms
   and the later one at about 500 ms (a type / flag). Also look for any `oJ+` / `hJ+` integer that turns on after the start and off before the end.
+
+## PC test of 5fc59ebd (log #2335), analysed offline
+- The `pJ=` entries are there. 155 lines cover about 20 dodges. obj+0x10 points into a linked list of nodes, all with the same vtable
+  (0x1F96CE56030). Each node: +8 next, +0x10 back-link, then data.
+  - Around +20 ms after the dodge start, obj1 gets a fresh node: `+0x18 = 1, +0x1C = 0x1000001, +0x20` a rising counter,
+    `+0x30 = 100000.0f`, `+0x3C = 0x6197884D`.
+  - About 450-700 ms in, the next one has `+0x18 = 0xC` and hash `0x0AE72C5F`.
+  - After that come recurring nodes full of floats (world positions, which look like contact points).
+  - 10015 never gets the first kind.
+  - 0x6197884D is one of the hashes accepted by 0x95EC18 (a set test used near the action start, 0x4F3214). So these nodes are keyed
+    by an action / object hash. They are not a flag.
+- **The data is not flat, but there is still no proven on/off flag.** Doing the fallback: a log-only hook on the contact handler.
+
+## Contact-handler probe (this commit)
+- `hookcheck.fsx entry 0x117A6D0 all`: 4 direct callers (117A49D, 117A4E6, 117A574, 117A57F), **must preserve []**.
+  The entry bytes `mov r11,rsp; push rbp; push rdi; push r14; push r15; lea rbp,[r11-1E8h]` (16 B) have no rip-relative operand.
+- The detour (only with `[Debug] IFrameProbe = 1`) calls the original first. When the damage side belongs to the player (obj+8 == player actor)
+  and the attack side does not, it counts the contact and compares the hit-queue count `[[47452E0]+0x5910]` before and after.
+  So it tells "contact queued a hit" from "contact rejected inside 117A6D0".
+- Log `IFRAMECT t .. act .. contacts N queued Q rejected R atk <owner> <atk obj>` on every tick with player contacts.
+  Read during a dodge through an attack:
+  no contacts = the hurtbox is not touched (geometry / broadphase);
+  contacts but rejected = an early-out in 117A6D0, which can then be bisected;
+  queued = the hit is rejected later, in the damage queue.
