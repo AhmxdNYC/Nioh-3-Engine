@@ -95,3 +95,8 @@ Hook 0x3EFB90 when the live bytes match. The log line is caller RVA, buff id in 
 ## Flag 0x2000 (#36498)
 
 One reader in the dump: 0x2362ED7 tests the pulse object +0x13C bit 0x2000. The taken path grants buffs 900, 822, 496, or 2. It does not call the effect spawn. It also adds skill record +0x68C into a number (0x1ABB86C to 0x623AB4). No model, material, or mesh scale. Script effect 511 is only a Tokoyo-break candidate, not a read of this bit. The probe line is KIFLAG with bit19. Not installed. Training stays 8cfd9dc1.
+
+
+## R1 buff and pick (#36541)
+
+Same probe, two more lines while the Ki bar is open and for 20 ticks after it closes. KIR1 call marks entry to 0x23644F0. KIR1 buff marks the grants whose caller is 0x23645EA, 0x2364652, or 0x8448D0 (ids 0x15E, 0x1B2, 0x114, 0x248, 0x140). KIPICK is helper 0x845148: status+2DC8 bit 0x80 clear logs skip and id 0; set logs 0xA605B when the grade byte is nonzero and 0x73E5A when it is zero. bit19 on the line is the press grade. Not installed.

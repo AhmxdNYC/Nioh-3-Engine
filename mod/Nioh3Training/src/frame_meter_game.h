@@ -775,6 +775,57 @@ static void FmFlagInstall(void) {
     g_kp_flag_hooked = 1;
     Log("KIFLAG hook 2362ED7 on. Logs f13c bit 0x2000. It does not change a model.");
 }
+static struct { volatile uint32_t seq, pad; struct { volatile uint32_t kind, a, id; volatile uint64_t rcx; } slot[16]; } g_kp_x;
+static int g_kp_r1_hooked, g_kp_pick_hooked;
+static void (*o_kir1)(uint64_t, uint64_t);
+static void (*o_kipick)(uint64_t, uint64_t);
+static void KxPush(uint32_t kind, uint32_t a, uint32_t id, uint64_t rcx) {
+    uint32_t i = (uint32_t)InterlockedExchangeAdd((volatile LONG*)&g_kp_x.seq, 1);
+    g_kp_x.slot[i & 15].rcx = rcx;
+    g_kp_x.slot[i & 15].a = a;
+    g_kp_x.slot[i & 15].id = id;
+    g_kp_x.slot[i & 15].kind = kind;
+}
+static void KiR1Enter(uint64_t rcx, uint64_t rdx) {
+    KxPush(1, 0, 0, rcx);
+    o_kir1(rcx, rdx);
+}
+static void KiPickEnter(uint64_t rcx, uint64_t rdx) {
+    uint32_t bit80 = 0, id = 0;
+    __try {
+        uint64_t act = *(volatile uint64_t*)(rcx + 0xE0);
+        uint64_t st = act ? *(volatile uint64_t*)(act + 0x3A0) : 0;
+        if (st) bit80 = (*(volatile uint8_t*)(st + 0x2DC8) & 0x80) ? 1 : 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { bit80 = 2; }
+    if (bit80 == 1) id = (rdx & 0xFFu) ? 0xA605Bu : 0x73E5Au;
+    KxPush(2, (bit80 << 8) | (uint32_t)(rdx & 0xFFu), id, rcx);
+    o_kipick(rcx, rdx);
+}
+static void FmR1Install(void) {
+    static const uint8_t pro[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x48,0x89,0x78,0x18};
+    if (g_kp_r1_hooked) return;
+    if (memcmp((void*)(B + 0x23644F0), pro, sizeof pro)) { g_kp_r1_hooked = 2; Log("KIR1 hook 23644F0: bytes differ"); return; }
+    o_kir1 = (void (*)(uint64_t, uint64_t))Hook(0x23644F0, 15, (void*)KiR1Enter);
+    g_kp_r1_hooked = 1;
+    Log("KIR1 hook 23644F0 on. Buff ids still come from the 3EFB90 log.");
+}
+static void FmPickInstall(void) {
+    static const uint8_t pro[15] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC,0x40};
+    if (g_kp_pick_hooked) return;
+    if (memcmp((void*)(B + 0x845148), pro, sizeof pro)) { g_kp_pick_hooked = 2; Log("KIPICK hook 845148: bytes differ"); return; }
+    o_kipick = (void (*)(uint64_t, uint64_t))Hook(0x845148, 15, (void*)KiPickEnter);
+    g_kp_pick_hooked = 1;
+    Log("KIPICK hook 845148 on. bit80 set picks A605B or 73E5A from the grade byte.");
+}
+static int FmBit19(void) {
+    uint64_t ctrl = g_fp[FP_PL].valid ? g_fp[FP_PL].ctrl : 0;
+    int b = -1;
+    if (ctrl > 0x10000ull) {
+        __try { b = (int)((*(volatile uint64_t*)(ctrl + 0x1060) >> 0x19) & 1); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { b = -1; }
+    }
+    return b;
+}
 static void FmKiPressTick(void) {
     static KpRun run; static int lines, told; static uint32_t seen;
     float t74 = -1.f, pool = 0.f, stored = 0.f, ki = 0.f; int end80 = 0; int ok = 0;
@@ -783,6 +834,8 @@ static void FmKiPressTick(void) {
     if (!g_kp_fx_hooked) FmFxInstall();
     if (!g_kp_buff_hooked) FmBuffInstall();
     if (!g_kp_flag_hooked) FmFlagInstall();
+    if (!g_kp_r1_hooked) FmR1Install();
+    if (!g_kp_pick_hooked) FmPickInstall();
     if (!g_kirow_hooked) FmRowInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
@@ -842,6 +895,14 @@ static void FmKiPressTick(void) {
                 Log("KIPRESS buff id %u from %X rcx %llX r8 %llX a89c %X c13c %X a13c %X t74 %.2f %s",
                     id, ret, (unsigned long long)rcx, (unsigned long long)r8, a89c, c13c, a13c, bt,
                     !got ? "unread" : (bt > 0.05f && bt <= 4.f) ? "perfect" : (bt > 0.05f && bt <= 31.f) ? "normal" : "closed");
+                if (ret == 0x23645EA || ret == 0x2364652 || ret == 0x8448D0) {
+                    int b19 = FmBit19();
+                    if (lines < 160) {
+                        lines++;
+                        Log("KIR1 buff id %u from %X bit19 %d t74 %.2f %s",
+                            id, ret, b19, bt, b19 < 0 ? "unread" : b19 ? "perfect" : "normal");
+                    }
+                }
             }
         }
         bseen = bseq;
@@ -849,12 +910,7 @@ static void FmKiPressTick(void) {
     {
         static uint32_t fseen;
         uint32_t fseq = g_kp_flag.seq, ffrom = fseen;
-        int b19 = -1;
-        uint64_t ctrl = g_fp[FP_PL].valid ? g_fp[FP_PL].ctrl : 0;
-        if (ctrl > 0x10000ull) {
-            __try { b19 = (int)((*(volatile uint64_t*)(ctrl + 0x1060) >> 0x19) & 1); }
-            __except (EXCEPTION_EXECUTE_HANDLER) { b19 = -1; }
-        }
+        int b19 = FmBit19();
         if (fseq - ffrom > 8) ffrom = fseq - 8;
         while (ffrom != fseq) {
             uint64_t comp = g_kp_flag.slot[ffrom & 7].comp;
@@ -870,6 +926,31 @@ static void FmKiPressTick(void) {
                 b19 < 0 ? "unread" : b19 ? "perfect" : "normal");
         }
         fseen = fseq;
+    }
+    {
+        static uint32_t xseen;
+        uint32_t xseq = g_kp_x.seq, xfrom = xseen;
+        int b19 = FmBit19();
+        const int watch = g_kp_frame >= 0 || g_kp_tail > 0 || (t74 > 0.05f && t74 <= 31.f);
+        if (xseq - xfrom > 16) xfrom = xseq - 16;
+        while (xfrom != xseq) {
+            uint32_t kind = g_kp_x.slot[xfrom & 15].kind;
+            uint32_t xa = g_kp_x.slot[xfrom & 15].a;
+            uint32_t id = g_kp_x.slot[xfrom & 15].id;
+            uint64_t rcx = g_kp_x.slot[xfrom & 15].rcx;
+            xfrom++;
+            if (!watch) continue;
+            if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
+            lines++;
+            if (kind == 1)
+                Log("KIR1 call 23644F0 rcx %llX bit19 %d t74 %.2f %s",
+                    (unsigned long long)rcx, b19, t74, b19 < 0 ? "unread" : b19 ? "perfect" : "normal");
+            else
+                Log("KIPICK grade %u bit80 %u id %X rcx %llX bit19 %d t74 %.2f %s",
+                    xa & 0xFFu, xa >> 8, id, (unsigned long long)rcx, b19, t74,
+                    (xa >> 8) == 2 ? "unread" : (xa >> 8) != 1 ? "skip" : b19 < 0 ? "unread" : b19 ? "perfect" : "normal");
+        }
+        xseen = xseq;
     }
 }
 // FpTick (game thread, FpLock held), once per pump tick.
