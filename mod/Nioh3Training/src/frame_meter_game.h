@@ -730,6 +730,51 @@ static void FmBuffInstall(void) {
     g_kp_buff_hooked = 1;
     Log("KIPRESS buff hook 3EFB90: bytes match, DX is the id, R8 is the actor candidate");
 }
+/* The only test of pulse-object +0x13C bit 0x2000. 11-byte test plus the 6-byte je. */
+static struct { volatile uint32_t seq, pad; struct { volatile uint64_t comp; volatile uint32_t f13c, pad2; } slot[8]; } g_kp_flag;
+static int g_kp_flag_hooked;
+static void FmFlagInstall(void) {
+    static const uint8_t pro[17] = {
+        0x41,0xF7,0x86,0x3C,0x01,0x00,0x00,0x00,0x20,0x00,0x00,
+        0x0F,0x84,0x4E,0x02,0x00,0x00};
+    uint8_t* site = (uint8_t*)(B + 0x2362ED7);
+    uint8_t* stub; int at; DWORD old; int je_at, rel;
+    if (g_kp_flag_hooked) return;
+    if (memcmp(site, pro, sizeof pro)) {
+        g_kp_flag_hooked = 2;
+        Log("KIFLAG hook 2362ED7: bytes differ, flag log off");
+        return;
+    }
+    stub = (uint8_t*)VirtualAlloc(0, 160, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) { g_kp_flag_hooked = 2; Log("KIFLAG hook: no stub page"); return; }
+    at = 0;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_kp_flag; at += 8;
+    stub[at++] = 0xB8; *(uint32_t*)(stub + at) = 1; at += 4;
+    stub[at++] = 0xF0; stub[at++] = 0x41; stub[at++] = 0x0F; stub[at++] = 0xC1; stub[at++] = 0x02;
+    stub[at++] = 0x83; stub[at++] = 0xE0; stub[at++] = 0x07;
+    stub[at++] = 0xC1; stub[at++] = 0xE0; stub[at++] = 0x04;
+    stub[at++] = 0x83; stub[at++] = 0xC0; stub[at++] = 0x08;
+    stub[at++] = 0x4D; stub[at++] = 0x89; stub[at++] = 0x34; stub[at++] = 0x02;
+    stub[at++] = 0x45; stub[at++] = 0x8B; stub[at++] = 0x9E; *(uint32_t*)(stub + at) = 0x13C; at += 4;
+    stub[at++] = 0x45; stub[at++] = 0x89; stub[at++] = 0x5C; stub[at++] = 0x02; stub[at++] = 0x08;
+    memcpy(stub + at, pro, 11); at += 11;
+    je_at = at;
+    stub[at++] = 0x0F; stub[at++] = 0x84; *(uint32_t*)(stub + at) = 0; at += 4;
+    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
+    *(uint64_t*)(stub + at) = (uint64_t)(site + 17); at += 8;
+    rel = at - (je_at + 6);
+    *(uint32_t*)(stub + je_at + 2) = (uint32_t)rel;
+    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
+    *(uint64_t*)(stub + at) = (uint64_t)(B + 0x2363136); at += 8;
+    VirtualProtect(site, 17, PAGE_EXECUTE_READWRITE, &old);
+    site[0] = 0xFF; site[1] = 0x25; *(uint32_t*)(site + 2) = 0;
+    *(uint64_t*)(site + 6) = (uint64_t)stub;
+    site[14] = 0x90; site[15] = 0x90; site[16] = 0x90;
+    VirtualProtect(site, 17, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, 17);
+    g_kp_flag_hooked = 1;
+    Log("KIFLAG hook 2362ED7 on. Logs f13c bit 0x2000. It does not change a model.");
+}
 static void FmKiPressTick(void) {
     static KpRun run; static int lines, told; static uint32_t seen;
     float t74 = -1.f, pool = 0.f, stored = 0.f, ki = 0.f; int end80 = 0; int ok = 0;
@@ -737,6 +782,7 @@ static void FmKiPressTick(void) {
     uint64_t st = 0; uint32_t seq, from; int open;
     if (!g_kp_fx_hooked) FmFxInstall();
     if (!g_kp_buff_hooked) FmBuffInstall();
+    if (!g_kp_flag_hooked) FmFlagInstall();
     if (!g_kirow_hooked) FmRowInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
@@ -799,6 +845,31 @@ static void FmKiPressTick(void) {
             }
         }
         bseen = bseq;
+    }
+    {
+        static uint32_t fseen;
+        uint32_t fseq = g_kp_flag.seq, ffrom = fseen;
+        int b19 = -1;
+        uint64_t ctrl = g_fp[FP_PL].valid ? g_fp[FP_PL].ctrl : 0;
+        if (ctrl > 0x10000ull) {
+            __try { b19 = (int)((*(volatile uint64_t*)(ctrl + 0x1060) >> 0x19) & 1); }
+            __except (EXCEPTION_EXECUTE_HANDLER) { b19 = -1; }
+        }
+        if (fseq - ffrom > 8) ffrom = fseq - 8;
+        while (ffrom != fseq) {
+            uint64_t comp = g_kp_flag.slot[ffrom & 7].comp;
+            uint32_t f13c = g_kp_flag.slot[ffrom & 7].f13c;
+            const int bit = (f13c & 0x2000) != 0;
+            const int watch = g_kp_frame >= 0 || g_kp_tail > 0 || (t74 > 0.05f && t74 <= 31.f) || bit;
+            ffrom++;
+            if (!watch) continue;
+            if (lines >= 160) { if (!told) { told = 1; Log("KIPRESS cap 160"); } break; }
+            lines++;
+            Log("KIFLAG f13c %X bit2000 %d comp %llX bit19 %d t74 %.2f %s",
+                f13c, bit, (unsigned long long)comp, b19, t74,
+                b19 < 0 ? "unread" : b19 ? "perfect" : "normal");
+        }
+        fseen = fseq;
     }
 }
 // FpTick (game thread, FpLock held), once per pump tick.

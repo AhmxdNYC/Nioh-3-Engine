@@ -90,3 +90,8 @@ The player Ki bar stays blue for the open window. Cells where K+0x74 is in (0.05
 ## Buff grant log (#36261)
 
 Hook 0x3EFB90 when the live bytes match. The log line is caller RVA, buff id in DX, RCX, R8, actor+0x89C, both +0x13C words, and the Ki timer. Grade words are perfect, normal, closed, or unread. They come from the timer on the next pump tick, not from buff id 900. Missing 900 does not reject a perfect press. Seeing 900 does not name the swirl. Effect creates already log as KIPRESS fx with the timer. Grants are logged while the bar is open and for 20 ticks after it closes. The game stays closed. Not installed over Training af8b26c4.
+
+
+## Flag 0x2000 (#36498)
+
+One reader in the dump: 0x2362ED7 tests the pulse object +0x13C bit 0x2000. The taken path grants buffs 900, 822, 496, or 2. It does not call the effect spawn. It also adds skill record +0x68C into a number (0x1ABB86C to 0x623AB4). No model, material, or mesh scale. Script effect 511 is only a Tokoyo-break candidate, not a read of this bit. The probe line is KIFLAG with bit19. Not installed. Training stays 8cfd9dc1.
