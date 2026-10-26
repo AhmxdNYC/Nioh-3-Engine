@@ -269,3 +269,60 @@ word, and count the player's enabled damage shapes per tick.
   keeps HP >= 1 and BeatenRespawn respawns at the floor, so the HB `player HP` line and IFRAMEHP `applied` show real damage.
   The same Yamagata Masakage arena is fine: (1) stand still and take 2 hits; (2) dodge 10 attacks, 5 early (dodge as the swing starts, so the hit
   lands mid-dodge) and 5 late (dodge just before the hit). Expected: early dodges give IFRAMEDM nodmg 1 or no IFRAMEHP, and late dodges give IFRAMEHP applied > 0.
+
+## Empty-area probe (#35411, offline build, not run in game yet)
+Human order: i-frames must be seen from the player's own state per frame, with no enemy and no damage. The probe below needs no boss.
+
+### What the defender-side predicates really read (offline, from the disassembly / decompile)
+- `2A3264(ctrl, hitType)` "cannot be damaged" (called by the validity check 78AC18 through 2A3238 with hit type = row +0x72). Returns 1 if:
+  (`481290`: action record dword +0x18 bit 29 AND ctrl+0xAE0 != 0) AND (`866490`: ctrl+0xA8 bit 20); or ctrl+0xEA0; or status+0x2DC8 bit 31;
+  or ctrl+0xEA1 (not for hit type 4); or hit type 9 with ctrl+0xEAE; or `[ctrl+0x15D8]+2`. **Pure**: 2A3264 / 481290 / 866490 only load,
+  compare and call each other (checked instruction by instruction). In the player archive no dodge record has dword +0x18 bit 29 (only 25
+  records, e.g. 5778, 6108, 6201-6377, 3133, 3135), so this path can only mark a dodge through EA0/EA1/2DC8/15D8.
+- `326C94` (damage calc) no-damage path when not guarding: action record qword +0 bit 35 (only 10081-10096, 1476, 1480), or status+0x48 == 1
+  with attack row bit 1. Both are logged.
+- `IsNoDamage 2A343C` correction: for the player (`[[actor+0x3B0]+0x50]+0x1940 & 4`) it returns 1 when the vcall `ctrl vtbl+0x138(0x2AE, 0, 0xFF)`
+  returns **0**, else ctrl+0xEB0. Its result only clears dmg+0x29E/0x29F (damage / reaction flags) in 326C94, it does not set dmg+0x2A0.
+  The only ctrl vtable with the default condition evaluator at +0xC0 (2E9934) is 0x38FE698; its +0x138 is F6878, a wrapper that tail-calls
+  vtbl+0x208 = F68D8 (frame 0xA48 bytes, not proven pure). **Not called**; the probe logs the live vtable slots once instead.
+- Character conditions (`CharacterConditionEvaluate 2E9948`, via ctrl vtbl +0xC0) read mostly static action-record bits, ctrl+0xA8, ctrl+0x1060.
+  Condition 4 = `876130`: status+0x2DC8 bit 12 | ctrl+0xEAA (pure). `2A3764`: status+0x2DC8 bit 49 | ctrl+0xEAB (pure). `2A36FC`: status+0x2DC8 bit 11 |
+  bit 48 | ctrl+0xEA5 (re-implemented, its game-mode call skipped).
+- 78A458 calls a geometry pre-check 789E5C before it builds a damage object (a shield / barrier object type 4 with +0x9D); if it returns 1, no damage object is made.
+- dmg+0x14C is copied from the attacker's hit object (2B962C), so it is not a defender state.
+- **Caution**: the static parts (action record bits) are flat for dodges, and EA0..EB7 / a8 / x1060 / status +0x2DC0..0x2E00 were already flat in
+  the earlier logs. So the predicates may well stay 0 in dodges. The field scan (IFRAMEWN) is the part that can find a new field.
+
+### The probe (build of this branch, `[Debug] IFrameProbe = 1`, log only, read only)
+- `IFRAMEPR t <ms> act <id> f <frame> m <mask> <names> ...`: every game tick of a non-looping player action (record +0xE0 next != own id), max 150 per
+  action run and 6000 in total. `f` = 1/60 s game frames since the action start. Mask bits: 0 cannot0, 1 cannot4, 2 cannot9 (2A3264 with hit type
+  0 / 4 / 9), 3 r29ae0 (481290), 4 a8b20 (866490), 5 nodmgact (record bit 35), 6 s48, 7 s2dc8b31, 8 ea0, 9 ea1, 10 eae, 11 x15d8, 12 isnodmg
+  (ADB1 | EB0, without the buff call), 13 nohit (ABC0 | EB1), 14 cond4, 15 armor (2A3764), 16 guardx (2A36FC part), 17 hurtoff (hurtbox candidate).
+  Raw inputs follow only when they change (all on frame 0): `rec q0 r18 next recact` (frame 0 only), `a8 ae0 ea0 eb0 s2dc8 s48 abc0 adb1`.
+  The first line `IFRAMEPR start` has the live ctrl vtable and its +0xC0 / +0x138 slots and whether ctrl+0xE0 is the player.
+  The game functions are called only if their entry bytes match this exe (log line `IFRAMEPR predicate functions ...`).
+- `IFRAMEWN t <start ms> act <id> frames <n> noisy <a>/<c>/<s>: <entries>`: one line at the end of every player action run (looping ones too, as the
+  control group), max 1500. It compares every dword of the actor (0..0xB300), ctrl (0..0x1700) and status [actor+0x3A0] (0..0x3400) tick by tick.
+  Entry `c<off>=<start>><new>@<f1>-<f2>`: that field changed at frame f1 (>= 1) and was back at its start value at frame f2 (a window);
+  `@<f1>-` = changed once and stayed until the end. Fields with more than 4 changes in the run are counted as noisy and not listed. Max 40 entries.
+- The older IFRAMEST / IFRAMEOB dumps now need `IFrameProbe = 2`. IFRAME / IFRAMEHB (on change) and the hit hooks (IFRAMECT/CX/DM/HP, only on hits) stay.
+- Meter: the gold "No damage (i-frame)" stripe now also lights from the predicate bits of the stripe set (cannot0, nodmgact, nohit, hurtoff, ea0, ea1,
+  s2dc8b31, x15d8, a8b20), but a bit counts only after it was seen OFF once for this actor (so a bit that is always on cannot paint the bar).
+  The predicates are evaluated every player tick while the player meter is on, also without IFrameProbe. The old proven flags stay.
+- No synthetic damage object: the validity check 78AC18 also calls the attacker side (78C4F4, A5302C, condition 0x115 through the vcall) and 289B10,
+  which are not proven side-effect free, so a self-test through the pipeline was skipped. 2A3264 is its defender part and is evaluated directly.
+- No event hook: the action events of the dodge records are all instant (10072@0, 40@0, 41@24, 42@0; 10024-10031 have 10072@0 with a length 42-70),
+  so the event list was decoded offline instead: `notes/player-action-events.tsv` (both player archives, 1022 actions; `tools/player_action_events.py`).
+
+### What pc should do
+1. Copy the built `Nioh3Training.asi` from this branch into the game folder (pc only), set `[Debug] IFrameProbe = 1` in Nioh3Training.ini.
+2. Training > Practice > Player frame meter ON (the probe runs inside the player meter). Go to an empty arena / an area with no enemy.
+3. Stand still 2 s. Then 5 dodges, 5 steps (light-stance / quick steps), 5 attacks, with about 1 s of idle between them. No enemy, no damage needed.
+4. Note whether the gold stripe lit during any of them. Send the log lines `IFRAMEPR`, `IFRAMEWN` and the two start lines.
+### How to read it
+`py -I tools/iframe_probe_summary.py Nioh3Training.log` prints, per action id: the NO-DAMAGE WINDOW (first / last frame where any stripe bit was on,
+median over runs), each predicate bit with its frames (bits that are on for the whole run are marked "likely not a window"), the field-scan candidates
+(fields that open and close inside >= 60 % of the runs of that action and in < 20 % of the looping / idle runs), and the action's events and end frame
+from `notes/player-action-events.tsv`. A real i-frame field should open a few frames after the start of every dodge, close well before the end
+frame (36 / 52), and not appear in idle / move. Steps and attacks give the comparison. Tests: `tools/test_iframe_probe_summary.py`,
+`mod/Nioh3Training/tests/frame_meter_iframe_test.c`.
