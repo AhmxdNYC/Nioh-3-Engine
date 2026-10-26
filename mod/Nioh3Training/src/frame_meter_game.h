@@ -568,6 +568,133 @@ static void FmFxInstall(void) {
     g_kp_fx_hooked = 1;
     Log("KIPRESS fx hook 3EAB1C: bytes match, effect id is R8D, caller is the return RVA, calls 4CE90C");
 }
+// 0x3EA2C8 parses the row through 0x1399b0, and that parse advances a cursor, so this hook only reads.
+// Record i is (countA-countB)+i in the array at [[row+8]+0x18]. Type word at +4, value dword at +0.
+// Final size is fields 2-4 times the effect context +0x170/+0x174/+0x178 when its type nibble is 2, 6 or 7.
+// The first 12 bytes are mov rax,rsp / save rbx,rdi / push rbp, with no rip-relative byte, so they can run from the stub.
+static uint64_t g_kirow_save[4];
+static int g_kirow_hooked;
+static float KiRowF(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
+static int KiRowFields(uint64_t row, uint32_t* ty, uint32_t* val, uint32_t* nout, uint32_t* baseOut, uint64_t* objOut) {
+    uint64_t obj = 0, p8 = 0, p20 = 0, data = 0;
+    uint16_t countA = 0, countB = 0, base = 0;
+    int i, n;
+    *nout = 0; *baseOut = 0; *objOut = 0;
+    for (i = 0; i < 10; ++i) { ty[i] = 0; val[i] = 0; }
+    if (!row || !Rd64(row + 8, &obj) || obj < 0x10000) return 0;
+    *objOut = obj;
+    if (!Rd64(obj + 8, &p8) || p8 < 0x10000) return 0;
+    if (!Rd64(obj + 0x18, &data) || data < 0x10000) return 0;
+    if (!Rd64(obj + 0x20, &p20) || p20 < 0x10000) return 0;
+    __try {
+        countB = *(volatile uint16_t*)(p8 + 0xA6);
+        countA = *(volatile uint16_t*)p20;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    if (countA < countB || countB > 64) return 0;
+    base = (uint16_t)(countA - countB);
+    *baseOut = base;
+    *nout = countB;
+    n = countB > 10 ? 10 : (int)countB;
+    __try {
+        for (i = 0; i < n; ++i) {
+            uint64_t rp = data + (uint64_t)(uint16_t)(base + (uint16_t)i) * 8u;
+            val[i] = *(volatile uint32_t*)rp;
+            ty[i] = *(volatile uint16_t*)(rp + 4);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static void KiRowScale(float* m0, float* m1, float* m2, int* gate) {
+    uint64_t ctx = 0;
+    uint32_t nib;
+    *m0 = *m1 = *m2 = 1.f;
+    *gate = 0;
+    if (!Rd64(B + 0x45BA228, &ctx) || ctx < 0x10000) return;
+    __try {
+        nib = *(volatile uint32_t*)ctx & 0xFu;
+        if (nib == 2 || nib == 6 || nib == 7) {
+            *m0 = *(volatile float*)(ctx + 0x170);
+            *m1 = *(volatile float*)(ctx + 0x174);
+            *m2 = *(volatile float*)(ctx + 0x178);
+            *gate = (int)nib;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { *m0 = *m1 = *m2 = 1.f; *gate = 0; }
+}
+static void KiRowLog(uint64_t row) {
+    static int lines, told, busy;
+    float t74, s0, s1, s2, a0, a1, f7, f8, f9, m0, m1, m2;
+    uint32_t ty[10], val[10], n = 0, base = 0;
+    uint64_t obj = 0;
+    int i, r1, perfect, gate, ok;
+    if (busy) return;
+    busy = 1;
+    for (i = 0; i < 10; ++i) { ty[i] = 0; val[i] = 0; }
+    t74 = -1.f;
+    __try {
+        uint64_t a = g_fp[FP_PL].valid ? g_fp[FP_PL].a : 0, st = 0;
+        if (a && Rd64(a + 0x3A0, &st) && st) t74 = *(volatile float*)(st + 0x98 + 0x74);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { t74 = -1.f; }
+    ok = KiRowFields(row, ty, val, &n, &base, &obj);
+    KiRowScale(&m0, &m1, &m2, &gate);
+    r1 = FmPadRB();
+    perfect = r1 && FmKiPerfect(t74);
+    if (lines >= 240) { if (!told) { told = 1; Log("KIROW cap 240"); } busy = 0; return; }
+    lines++;
+    if (!ok) {
+        Log("KIROW perfect %d t74 %.2f r1 %d row %llX obj %llX UNREAD",
+            perfect, t74, r1, (unsigned long long)row, (unsigned long long)obj);
+        busy = 0;
+        return;
+    }
+    s0 = KiRowF(val[2]); s1 = KiRowF(val[3]); s2 = KiRowF(val[4]);
+    a0 = KiRowF(val[5]); a1 = KiRowF(val[6]);
+    f7 = KiRowF(val[7]); f8 = KiRowF(val[8]); f9 = KiRowF(val[9]);
+    Log("KIROW perfect %d t74 %.2f r1 %d n %u base %u row %llX id %u f1 %u ty %u %u %u %u %u %u %u %u %u %u sz %.4f %.4f %.4f ang %.4f %.4f f7 %.4f f8 %.4f f9 %.4f sc %d %.4f %.4f %.4f fin %.4f %.4f %.4f",
+        perfect, t74, r1, n, base, (unsigned long long)row, val[0], val[1],
+        ty[0], ty[1], ty[2], ty[3], ty[4], ty[5], ty[6], ty[7], ty[8], ty[9],
+        s0, s1, s2, a0, a1, f7, f8, f9,
+        gate, m0, m1, m2, s0 * m0, s1 * m1, s2 * m2);
+    busy = 0;
+}
+static void FmRowInstall(void) {
+    static const uint8_t pro[12] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,0x48,0x89,0x78,0x18,0x55};
+    uint8_t* site = (uint8_t*)(B + 0x3EA2C8);
+    uint8_t* stub; int at; DWORD old;
+    if (g_kirow_hooked) return;
+    if (memcmp(site, pro, 12)) {
+        g_kirow_hooked = 2;
+        Log("KIROW hook 3EA2C8: bytes differ %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+            site[0], site[1], site[2], site[3], site[4], site[5], site[6], site[7], site[8], site[9], site[10], site[11]);
+        return;
+    }
+    stub = (uint8_t*)VirtualAlloc(0, 160, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) { g_kirow_hooked = 2; Log("KIROW hook: no stub page"); return; }
+    at = 0;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)g_kirow_save; at += 8;
+    stub[at++] = 0x49; stub[at++] = 0x89; stub[at++] = 0x0A;
+    stub[at++] = 0x49; stub[at++] = 0x89; stub[at++] = 0x52; stub[at++] = 0x08;
+    stub[at++] = 0x4D; stub[at++] = 0x89; stub[at++] = 0x42; stub[at++] = 0x10;
+    stub[at++] = 0x4D; stub[at++] = 0x89; stub[at++] = 0x4A; stub[at++] = 0x18;
+    stub[at++] = 0x48; stub[at++] = 0x83; stub[at++] = 0xEC; stub[at++] = 0x28;
+    stub[at++] = 0x49; stub[at++] = 0x8B; stub[at++] = 0x0A;
+    stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)KiRowLog; at += 8;
+    stub[at++] = 0xFF; stub[at++] = 0xD0;
+    stub[at++] = 0x48; stub[at++] = 0x83; stub[at++] = 0xC4; stub[at++] = 0x28;
+    stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)g_kirow_save; at += 8;
+    stub[at++] = 0x49; stub[at++] = 0x8B; stub[at++] = 0x0A;
+    stub[at++] = 0x49; stub[at++] = 0x8B; stub[at++] = 0x52; stub[at++] = 0x08;
+    stub[at++] = 0x4D; stub[at++] = 0x8B; stub[at++] = 0x42; stub[at++] = 0x10;
+    stub[at++] = 0x4D; stub[at++] = 0x8B; stub[at++] = 0x4A; stub[at++] = 0x18;
+    memcpy(stub + at, pro, 12); at += 12;
+    stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
+    *(uint64_t*)(stub + at) = (uint64_t)(site + 12); at += 8;
+    VirtualProtect(site, 12, PAGE_EXECUTE_READWRITE, &old);
+    site[0] = 0x48; site[1] = 0xB8; *(uint64_t*)(site + 2) = (uint64_t)stub; site[10] = 0xFF; site[11] = 0xE0;
+    VirtualProtect(site, 12, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, 12);
+    g_kirow_hooked = 1;
+    Log("KIROW hook 3EA2C8 on. 10 row fields plus scaled size. perfect is R1 held and timer 0.05 to 4.");
+}
 // seq at 0. Each slot is 32 bytes at offset 8: return RVA, DX, RCX, R8.
 static struct { volatile uint32_t seq, pad; struct { volatile uint32_t ret, id; volatile uint64_t rcx, r8; } slot[8]; } g_kp_buff;
 static int g_kp_buff_hooked;
@@ -607,6 +734,7 @@ static void FmKiPressTick(void) {
     uint64_t st = 0; uint32_t seq, from; int open;
     if (!g_kp_fx_hooked) FmFxInstall();
     if (!g_kp_buff_hooked) FmBuffInstall();
+    if (!g_kirow_hooked) FmRowInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
             t74 = *(volatile float*)(st + 0x98 + 0x74);
@@ -688,6 +816,7 @@ static void FmFeed(double gdt) {
     // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
     if (!wantP) g_fmp_show = 0;
     if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
+    if (!g_kirow_hooked) FmRowInstall();
     if (kpress && g_fp[FP_PL].valid) FmKiPressTick();
     if ((wantP || probe) && g_fp[FP_PL].valid) {
         static FmiState fmiS;
