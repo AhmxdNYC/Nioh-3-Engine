@@ -37,6 +37,7 @@ static void FmLoadIni(const char* ini) {
     g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
     g_cfg_kipress = (int)GetPrivateProfileIntA("Debug", "KiPressProbe", 0, ini);
     g_cfg_fm_unfocused = (int)GetPrivateProfileIntA("Debug", "FrameMeterUnfocused", 0, ini) ? 1 : 0;
+    g_fm_ki_perfect_only = (int)GetPrivateProfileIntA("Practice", "KiWindowPerfectOnly", 1, ini) ? 1 : 0;
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
     Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
     if (g_cfg_fm_unfocused) Log("FRAME METER: [Debug] FrameMeterUnfocused 1, still drawing when the game is not the front window");

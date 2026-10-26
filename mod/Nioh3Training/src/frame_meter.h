@@ -168,10 +168,16 @@ static inline int FmSealPerfectEnd(FmMeter* m) {
     return 1;
 }
 // Same index as FmViewCell. 1 = that cell was inside the Ki Pulse bar.
-static inline int FmViewKiWin(const FmMeter* m, int i) {
+// [Practice] KiWindowPerfectOnly (default 1, human #37066): draw only the perfect part (mark 2); 0 draws the whole bar.
+static int g_fm_ki_perfect_only = 1;
+static inline int FmViewKiWinRaw(const FmMeter* m, int i) {
     if (!FmLiveRun(m) && m->haveLast) return i >= 0 && i < m->kiwinFrozenN ? m->kiwinFrozen[i] : 0;
     const int64_t g = FmViewStart(m) + i;
     return m->lastCell < 0 || g < 0 || g > m->lastCell ? 0 : m->kiwin[g % FM_CELLS];
+}
+static inline int FmViewKiWin(const FmMeter* m, int i) {
+    const int v = FmViewKiWinRaw(m, i);
+    return g_fm_ki_perfect_only && v == 1 ? 0 : v;
 }
 // The one measured land (log #2231): KiTick +0x5C sat near 53.94, then jumped to 133.43 as Ki moved by about 98.
 // The swing that only arms the bar sets +0x5C to about 54 from a low value, so it does not match.
