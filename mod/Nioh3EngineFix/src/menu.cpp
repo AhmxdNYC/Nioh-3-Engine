@@ -734,8 +734,8 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
-    {"Settings page", "", "Page 1 = settings that keep the picture exactly the same, plus Boss Matches and Practice. Page 2 = settings that can change how the game looks. Left/Right or A switches.", "Menu only."},
-    {"Skip loading tip screen", "(AutoContinueLoad)", "Presses Continue for you when a load finishes.", "Off by default. Applies now; saved to the ini at once."},
+    {"Settings page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Display Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
+    {"Auto-click loading screen", "(AutoContinueLoad)", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
@@ -812,18 +812,84 @@ bool OnPage(int id) {
 }
 const char* FlatPageName() { return g_page ? "2/2 may change the look" : "1/2 same picture"; }
 
+// #34265: these leave Settings and live on the Display Overlays page (Layout=0). Layout=1 still files them under pDisplay.
+bool OverlayRow(int id) {
+    return id == kFps || id == kFrameTime || id == kSpeed || id == kPos || id == kOffX || id == kOffY || id == kScale ||
+           id == kHint || id == kPerfNote;
+}
+bool IsControllerDisplayKey(const char* key) { return key && strncmp(key, "ControllerDisplay", 17) == 0; }
+
+// PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
+constexpr int kFrameMeterWhat = 7;
+int (*g_pstGet)(int) = nullptr;
+int (*g_pstSet)(int, int, int) = nullptr;
+char g_frameMeterNote[200] = "Boss frame meter. The Practice menu has this toggle too. Needs Nioh3Training.";
+void ResolveFrameMeter() {
+    if (g_pstGet && g_pstSet) return;
+    static ULONGLONG tried = 0;
+    if (tried && Now() - tried < 5000) return;
+    tried = Now();
+    const HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
+    if (!m) return;
+    if (!g_pstGet) g_pstGet = reinterpret_cast<int (*)(int)>(GetProcAddress(m, "Nioh3Training_PracticeStatGet"));
+    if (!g_pstSet) g_pstSet = reinterpret_cast<int (*)(int, int, int)>(GetProcAddress(m, "Nioh3Training_PracticeStatSet"));
+}
+int FrameMeterGet() {
+    ResolveFrameMeter();
+    return g_pstGet ? g_pstGet(kFrameMeterWhat) : -1;
+}
+void ChangeFrameMeter() {
+    ResolveFrameMeter();
+    if (!g_pstSet) {
+        snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), "Needs a Nioh3Training.asi with the frame meter.");
+        return;
+    }
+    const int v = g_pstSet(kFrameMeterWhat, -1, 1);  // -1 flips; Training saves its own ini
+    if (v < 0) snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), "Needs a Nioh3Training.asi with the frame meter.");
+    else snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), v ? "Frame meter ON. Saved in Training. The Practice menu toggle still works."
+                                                                  : "Frame meter OFF. Saved in Training. The Practice menu toggle still works.");
+}
+
 int PageRows(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
-        for (const auto& row : kOrder) {
-            if (Visible(row.id) && OnPage(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
-            // Boss Matches and Practice sit under the page switcher on page 1, once the boss mod has attached.
-            if (row.id == kPage && g_page == 0 && g_rematchSession.load()) {
-                add(kRematchRow);
-                add(kPracticeRow);
+        // #34265 first screen: Boss Matches, Practice, Display Overlays, Settings, Close.
+        if (g_pages.page == pSettings) {
+            for (const auto& row : kOrder) {
+                if (OverlayRow(row.id)) continue;
+                if (Visible(row.id) && OnPage(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
             }
+            add(kBackRow);
+            return n;
         }
+        if (g_pages.page == pDisplay) {
+            for (const auto& row : kOrder) {
+                if (!OverlayRow(row.id) || !Visible(row.id)) continue;
+                if (selectable && ReadOnly(row.id)) continue;
+                add(row.id);
+            }
+            add(kFrameMeterRow);
+            for (int i = 0; i < kConfigN; ++i)
+                if (IsControllerDisplayKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            add(kBackRow);
+            return n;
+        }
+        if (g_pages.page == pGameplay) {
+            // #34283: the loading-screen auto-click, on its own first-screen page. Settings keeps the same row.
+            for (const auto& row : kOrder) {
+                if (SettingsPage(row.id) != pGameplay || !Visible(row.id)) continue;
+                if (selectable && ReadOnly(row.id)) continue;
+                add(row.id);
+            }
+            add(kBackRow);
+            return n;
+        }
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        add(kPageRow + pDisplay);
+        add(kPageRow + pGameplay);
+        add(kPageRow + pSettings);
+        add(kClose);
         return n;
     }
     const int page = g_pages.page;
@@ -1205,10 +1271,9 @@ void Open(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
     MessageBeep(MB_OK);  // audible confirmation of the hold gesture, even if the overlay can't draw
-    if (g_cfg.layout) {
-        g_pages.Reset();
-        g_sel = kPageRow + pSettings;
-    } else if (g_sel >= kCount || !Visible(g_sel) || !OnPage(g_sel)) g_sel = kPage;
+    g_pages.Reset();
+    // Layout=1 harness and host open on Settings. Layout=0 opens on the first root row (Boss Matches when a session is up).
+    g_sel = g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay);
     for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
@@ -1260,7 +1325,7 @@ void CloseCover(const char* why) {
     MLOG("transition cover closed: %s (native ownership unchanged)",why);
 }
 void Back() {
-    if (!g_cfg.layout || !g_pages.Back(g_sel)) Close("B / Esc");
+    if (!g_pages.Back(g_sel)) Close("B / Esc");
     for (auto& repeat : g_rep) repeat = 0;
 }
 
@@ -1367,7 +1432,8 @@ void Change(int id, int dir) {
         }
         return;
     }
-    if (id >= kSettingRow) { ChangeConfig(id - kSettingRow, dir); return; }
+    if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
+    if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
     if (id >= kCount) {
         if (dir != 0) return;
         if (id == kBackRow) Back();
@@ -2377,7 +2443,7 @@ float DrawImpl(unsigned W, unsigned H) {
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
     // user #13279/#13296: plain title (the page name), the version goes to the right edge of the title bar
-    snprintf(title, sizeof(title), "%s", g_cfg.layout ? PageName(g_pages.page) : FlatPageName());
+    snprintf(title, sizeof(title), "%s", (!g_cfg.layout && g_pages.page == pSettings) ? FlatPageName() : PageName(g_pages.page));
     {
         int c = 0;
         char ver[40];
@@ -2395,7 +2461,17 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
-        if (id >= kSettingRow) {
+        if (id == kFrameMeterRow) {
+            if (id == g_sel) selRow = nb;
+            char text[48];
+            const int v = FrameMeterGet();
+            if (v < 0) snprintf(text, sizeof(text), "needs Training");
+            else snprintf(text, sizeof(text), "%s", v ? "ON" : "OFF");
+            put(body, nb, 128, id == g_sel ? "> Frame meter" : "  Frame meter", "", text, id == g_sel ? cWhite : cGray,
+                v > 0 ? cGreen : cGray, id == g_sel, false);
+            continue;
+        }
+        if (id >= kSettingRow && id < kSettingRow + kConfigN) {
             const int index = id - kSettingRow;
             const auto& d = kConfigSettings[index];
             const auto& v = g_configValues.values[(size_t)index];
@@ -2452,7 +2528,16 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
-    } else if (g_sel >= kSettingRow) {
+    } else if (g_sel == kFrameMeterRow) {
+        snprintf(what, sizeof(what), "%s", g_frameMeterNote);
+        snprintf(effect, sizeof(effect), "Same switch as Practice > Frame meter. Training saves it. FPS and the controller display are on this page too.");
+    } else if (!g_cfg.layout && g_sel == kPageRow + pDisplay) {
+        snprintf(what, sizeof(what), "FPS counter, frame meter, and the controller display (on/off, position, size, opacity, colour).");
+        snprintf(effect, sizeof(effect), "On-screen extras only. The picture of the game stays the same.");
+    } else if (!g_cfg.layout && g_sel == kPageRow + pGameplay) {
+        snprintf(what, sizeof(what), "Auto-click the loading screen: Continue is pressed for you when a load finishes.");
+        snprintf(effect, sizeof(effect), "Off until you turn it on. Applies now and is saved. The same switch is also under Settings.");
+    } else if (g_sel >= kSettingRow && g_sel < kSettingRow + kConfigN) {
         const int index = g_sel - kSettingRow;
         const auto& d = kConfigSettings[index];
         snprintf(what, sizeof(what), "[%s] %s: %s", d.section, d.key, d.help);
@@ -2694,7 +2779,7 @@ void Configure(const Host& h) {
     g_configValues.Load(kConfigSettings, f);
     g_cfg.enabled = (int)GetPrivateProfileIntW(L"Menu", L"Enabled", 1, f);
     if (g_cfg.enabled) StartRematchHostResolver();
-    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 0, f) != 0;  // 0 = two pages; 1 = older grouped pages
+    g_cfg.layout = GetPrivateProfileIntW(L"Menu", L"Layout", 0, f) != 0;  // 0 = Settings holds the two pages; 1 = older grouped folders
     wchar_t b[96] = {};
     GetPrivateProfileStringW(L"Menu", L"Key", L"F10", b, 96, f);
     g_cfg.vk = 0;
