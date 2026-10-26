@@ -20,9 +20,9 @@
 //                                         Ki-damage hit on it (user #23013, notes/human-boss-negative-ki-23013.md design 1). Log only, writes nothing.
 //   PS_HOLD_KI_V2     HoldKiBreakV2       0/1    Hold Ki break method (needs HoldKiBreak ON): 0 = timer hold (#22918), 1 = Ki-pool hold (design 2 of #23013)
 //   PS_KI_FLOOR       KiFloorDepth        0..1000 % of the stock negative Ki floor for Training bosses (100 = stock; design 3 of #23013)
-//   PS_NEG_KI_METER   NegKiMeter          0/1    (default ON) thin bar under a Training boss's Ki bar while its Ki or K+0x60 pool is below 0 (user #23400,
+//   PS_NEG_KI_METER   NegKiMeter          0/1    (default OFF since #38077) thin bar under a Training boss's Ki bar while its Ki or K+0x60 pool is below 0 (user #23400,
 //                                         negki_meter.h / negki_meter_game.h; read only)
-//   PS_KI_WINDOW      KiWindow            0/1    (default ON) dark blue on the player frame-meter row while KiTick K+0x74 counts down from about 30
+//   PS_KI_WINDOW      KiWindow            0/1    (default OFF since #38077) dark blue on the player frame-meter row while KiTick K+0x74 counts down from about 30
 //                                         (#34558, about 0.4 s after the attack starts). Gameplay / Overlays can turn it off. Not the boss Ki-debt strip.
 //   PS_FRAME_IFR      FrameMeterIFrames   0/1    (default ON, human #37322) own "I-FR" row under the PLAYER row showing only the i-frame (no damage) cells in gold;
 //                                         OFF = the gold stripe on the PLAYER row as before.
@@ -31,7 +31,7 @@
 enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_NEG_KI_METER = 17, PS_FRAME_LEGEND = 18, PS_FRAME_READOUT = 19, PS_FRAME_KI = 20, PS_KI_WINDOW = 21, PS_FRAME_IFR = 22, PS_N = 23 };
 static inline int PstIsToggle(int what) { return what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR ? 1 : 0; }
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
 enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };

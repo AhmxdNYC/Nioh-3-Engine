@@ -125,6 +125,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf);
 void UiMove(int dir);
 struct CoverInfo { uint64_t token, deadline; uint32_t phase; char reason[160]; };
 bool UiActHosted();
+bool UiTakeHostMenu();   // #38077: true while the hosted 'Mod menu' row asked the host to show its own first page
+void UiClearHostMenu();
 bool UiTestFight(const char* id,uint64_t& token,char* reason,size_t n); // UI-worker only, opt-in test caller
 bool CoverSnapshot(CoverInfo& out);
 void CoverPresented(uint64_t token);

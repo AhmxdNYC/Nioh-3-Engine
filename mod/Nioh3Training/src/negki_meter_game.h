@@ -7,7 +7,7 @@
 // x -440.5..440.5), so there is no cheap screen-position source: the meter sits at [Practice] NegKiMeterY / NegKiMeterW (1/1000 of the game client
 // height / width, centred), defaults measured on the 1280 x 720 capture in negki_meter.h. One row per boss with a negative pool, stacked downward.
 // Hidden while the mod menu is open, the game is not the foreground window, or no boss has a negative pool.
-// Ini: [Practice] NegKiMeter = 0/1 (default 1, Boss page row 'Negative Ki meter'), NegKiMeterY (default 89), NegKiMeterW (default 334).
+// Ini: [Practice] NegKiMeter = 0/1 (default 0 since #38077, Boss page row 'Negative Ki meter'), NegKiMeterY (default 89), NegKiMeterW (default 334).
 #include "negki_meter.h"
 typedef struct { int show; float cur, k60, floorv, max, fCur, f60; } NkmRow;
 static NkmRow g_nkm[N3T_SLOTS]; static SRWLOCK g_nkm_lock = SRWLOCK_INIT;

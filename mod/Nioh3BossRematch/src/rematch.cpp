@@ -2117,7 +2117,8 @@ const char* CanArena(int row) {
 }
 
 // ---- UI model (UI thread; snapshots / atomics from the game thread only) ----
-int g_sel = 0, g_confirm = -9;
+int g_sel = 0, g_confirm = -9;  // g_sel -2 = top row 'Mod menu', -1 = 'Close' (#38077), >= 0 = the page's own rows
+bool g_hostMenuReq = false;
 enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
@@ -3015,7 +3016,7 @@ void SaveUiSettings() {
 void UiChange(int dir) {
     static int items[kMaxRows + 4];
     const int n = Items(items, kMaxRows + 4);
-    if (!n) return;
+    if (!n || g_sel < 0) return;  // #38077: the two top rows (Mod menu / Close) have no Left / Right
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
@@ -3053,6 +3054,7 @@ void UiChange(int dir) {
 }
 
 void UiOpen() {
+    g_hostMenuReq = false;
     g_uiPages.Reset();
     g_uiBoss = -1;
     g_bossSlot = -1;
@@ -3074,13 +3076,24 @@ void UiOpenAt(int which) {  // user #13223: host first page -> Boss Rematch (1) 
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
-    g_sel = (dir == 10 || dir == -10) ? menu_nav::PageStep(g_sel, dir, n) : menu_nav::Wrap(g_sel, dir, n);
+    // #38077: virtual rows -2 'Mod menu' and -1 'Close' above the page's own rows; the cursor runs over [-2, n)
+    const int pos = (dir == 10 || dir == -10) ? menu_nav::PageStep(g_sel + 2, dir, n + 2) : menu_nav::Wrap(g_sel + 2, dir, n + 2);
+    g_sel = pos - 2;
     g_confirm = -9;
     g_msg[0] = 0;
 }
+// #38077: hosted 'Mod menu' row pressed: the host leaves this page for its own first page (sticky until reopened)
+bool UiTakeHostMenu() { const bool r = g_hostMenuReq; return r; }
+void UiClearHostMenu() { g_hostMenuReq = false; }
 bool UiAct() {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
+    if (g_sel == -1) return true;  // #38077 top row 'Close': close the whole menu (hosted: the host closes with it)
+    if (g_sel == -2) {  // #38077 top row 'Mod menu': jump to the menu's top-level page
+        if (g_hostedUiAction) { g_hostMenuReq = true; return true; }  // hosted: the EngineFix menu's first page is the top level
+        g_uiPages.Reset(); g_sel = 0; g_confirm = -9; g_msg[0] = 0; g_bossSlot = -1;
+        return false;
+    }
     if (!n) return false;
     if (g_sel >= n) g_sel = n - 1;
     const int item = it[g_sel];
@@ -3409,14 +3422,18 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
     if (g_sel >= n) g_sel = n ? n - 1 : 0;
+    if (g_sel < -2) g_sel = -2;
+    // #38077: every page starts with 'Mod menu' (jump to the top-level page) and 'Close' (close the menu)
+    add(g_sel == -2 ? cWhite : cGray, g_sel == -2, "%s Mod menu   A: top-level page", g_sel == -2 ? ">" : " ");
+    add(g_sel == -1 ? cWhite : cGray, g_sel == -1, "%s Close   A: close the mod menu", g_sel == -1 ? ">" : " ");
     const bool scanned = g_scanGen.load() != g_pageGen0;
     const bool grouped = ItemGroup(it[0]) != nullptr || (n > 1 && ItemGroup(it[1]) != nullptr);
     // user #13529: every page shows its Back row. A long list (arenas, boss moves) scrolled the last row (Back) off the panel, so the Back row is
     // pinned below the scrolled window; the list window covers the other rows. Up from the top row still wraps to it.
     const bool pinBack = n > 1 && it[n - 1] == kItBack && n > cap - 2 - (grouped ? 5 : 0);
     const int nList = pinBack ? n - 1 : n;
-    const int vis = cap - 2 - (grouped ? 5 : 0) - (pinBack ? 1 : 0);  // user #13279/#13296: room for the section header rows
-    const int selList = g_sel < nList ? g_sel : nList - 1;
+    const int vis = cap - 4 - (grouped ? 5 : 0) - (pinBack ? 1 : 0);  // user #13279/#13296: room for the section header rows
+    const int selList = g_sel < 0 ? 0 : g_sel < nList ? g_sel : nList - 1;
     int first = selList - vis / 2;
     if (first > nList - vis) first = nList - vis;
     if (first < 0) first = 0;
@@ -3688,7 +3705,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (pinBack && k < cap) add(g_sel == n - 1 ? cWhite : cGray, g_sel == n - 1, "%s Back   B / Esc / Backspace", g_sel == n - 1 ? ">" : " ");
     if (footer && nf) {
         footer[0] = 0;
-        const int item = n ? it[g_sel] : kItOpen;
+        const int item = g_sel < 0 ? kItClose : n ? it[g_sel] : kItOpen;
         if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
         else if (IsBossOpenItem(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "This boss's own page: stance, aggro, gap between repeats, reset position, health and Ki, its moves and sequences. Every boss is independent.");
@@ -3817,6 +3834,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItOpen) snprintf(footer, nf, "Opens the game's own replay list (whole mission). Best at a shrine, menus closed.");
         else if (item == kItScroll) snprintf(footer, nf, "Starts the first Picture Scroll in your inventory exactly as the item menu does (unverified).");
         else snprintf(footer, nf, "Restores everything now (only before the mission has loaded).");
+        if (g_sel == -2) snprintf(footer, nf, "Jump to the mod menu's top-level page. B goes back one page; Close (next row) closes the menu.");
     }
     return k;
 }

@@ -278,7 +278,7 @@ static struct { uint64_t a; DWORD t0, tRe; int ms, phase, nOff, sess, chase; } g
 // the user picks: stance 'Fight normally' (IhIdleStance 0), a repeat move for that boss (MvRepeatId), or the session ends. Used for bosses
 // summoned into slot A / B during a session and for the session boss whose Idle hold a new summon ends (IhKeepForSummon: no AI-on hand-back).
 #include "slot_hold.h"  // SPH_TRAINING, SphReleaseWhy / SphAiAction / SphChaseWanted (user #14462)
-static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void); static int MvRepFresh(uint32_t chr);
+static int SlotIdleDefault(void); static int IhIdleStance(void); static uint32_t MvRepeatId(uint32_t chr); static void IhKeepForSummon(void); static int TrActive(void); static int MvRepFresh(uint32_t chr);
 static float g_slot_sp[N3T_SLOTS][4]; static int g_slot_sp_ok[N3T_SLOTS];  // user #13787: where the boss in each slot appeared ('Reset boss position', aggro.h)
 static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic: collect actors that were not in the pre-spawn snapshot
     if (!g_watch) return;
@@ -300,9 +300,11 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
             memcpy(g_slot_sp[g_watch_slot], xyz, sizeof xyz); g_slot_sp_ok[g_watch_slot] = 1; SlotNew(g_watch_slot);
             // user #14304 / #14336 item 7: every summoned boss starts idle (AI held) until its own stance is set to Fight normally or a move repeats;
             // the old SummonPassiveMs 'wait before attacking' timer is no longer used for menu summons.
-            memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount();
-            g_sph[g_watch_slot].ms = SPH_TRAINING; g_sph[g_watch_slot].phase = 1; g_sph[g_watch_slot].sess = TrActive();
-            Log("SUMPASSIVE slot %c actor %p: idle by default, AI held until this boss is set to Fight normally or repeats a move (#14304 / #14309)", 'A' + g_watch_slot, (void*)cur[i]);
+            if (SlotIdleDefault()) {  // #38077: only a Practice session starts summons idle; Boss Matches summons fight (CPU) from the start
+                memset(&g_sph[g_watch_slot], 0, sizeof g_sph[0]); g_sph[g_watch_slot].a = cur[i]; g_sph[g_watch_slot].t0 = GetTickCount();
+                g_sph[g_watch_slot].ms = SPH_TRAINING; g_sph[g_watch_slot].phase = 1; g_sph[g_watch_slot].sess = TrActive();
+                Log("SUMPASSIVE slot %c actor %p: idle by default, AI held until this boss is set to Fight normally or repeats a move (#14304 / #14309)", 'A' + g_watch_slot, (void*)cur[i]);
+            } else { InterlockedExchange(&g_slot_fight[g_watch_slot], 1); Log("SUMPASSIVE slot %c actor %p: CPU-controlled by default (Boss Matches, #38077)", 'A' + g_watch_slot, (void*)cur[i]); }
             g_watch_slot = -1; }
         MvRepFresh(g_watch_chr);  // user #14462: a repeat armed for this character starts over for the new boss (idle first, one gap)
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
@@ -359,6 +361,9 @@ static __attribute__((noinline)) int FadeOutActor(int idx, float frames) {
 static int g_cfg_loot = 0, g_cfg_deathblow = 1, g_cfg_cutscene = 0, g_cfg_fin_timeout = 6000;
 // #7465/#7467 [Summon] KiBreakNoFinisher (default 0): no grapple finisher on a watched boss, gold Ki bar while it is Ki-broken, HP-0 window (see NfTick).
 static int g_cfg_nofin = 0, g_cfg_nofin_ms = 1000;
+// #38077: a Boss Matches session (practice 0) starts with the Boss Match defaults: boss loot OFF and no-finisher / HP-0 window OFF (live only, not saved).
+// A Practice session keeps whatever was set; the user's own values come back when the Boss Match ends (BossMatchRestore in TrainStop). The boss itself is CPU-controlled in a Boss Match (IhDefaultSession), summons included (SlotIdleDefault).
+static void BossMatchDefaults(void); static void BossMatchRestore(const char* why); static int g_bmd_on, g_bmd_loot, g_bmd_nofin;  // stash of the user's values while a Boss Match runs
 static void MvSet(const uint32_t* ids, int n); static int MvForce(uint32_t id); static volatile LONG g_mv_hooked; static volatile int g_mv_nblock; static volatile LONG g_mv_vetoes, g_mv_rerolls;  // #9928 move toggles (defined before KiBreakTick)
 static void BhStart(uint32_t handle); static void IhStop(const char* why, int failed); static void IhDefault(int fresh); static void IhDefaultSession(void); static int IhWantIdle(void); static int IhAdoptBossHold(uint32_t handle, uint64_t actor);
 static int HpDmgHookInstall(const char* who); static void NfInstallHooks(void); static void NfBreakNow(uint64_t st, const char* why, uint64_t a); static uint64_t NfFirstBoss(void); static int NfPrimeHold(uint64_t a, DWORD ms);
@@ -1490,7 +1495,7 @@ static int TrainStart(const char* tok, float d) {
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
-    g_tr.active = 1; IhDefaultSession(); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
+    g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
@@ -1518,7 +1523,7 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
 static void TrainStop(const char* why) {
     TrainClear(why); if (g_tr.nodeath || g_tr_nodeath_now) PlayerSetNoDeath(0);  // user #13197: also a summon's NoDeath (g_tr.nodeath is lost on the session memset)
     g_sum_nodeath = 0;
-    g_tr.active = 0; Log("TRAIN stop (%s)", why);
+    g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
 }
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
 // warp back into the arena and respawn the boss there (no open-world summon). NoDeath + round reset as for 'train'.
@@ -1529,7 +1534,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     memcpy(g_tr.pp, pp, 4 * sizeof(float)); memcpy(g_tr.bp, bp, 3 * sizeof(float)); g_tr.face = face; g_tr.hasStart = 1;
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
-    g_tr.active = 1; IhDefaultSession(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
+    g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
 // user #22918 Infinite health in every session: Practice (g_tr), Boss Match (g_bm) and the arena swap (g_ar). Damage cut in NfHpDamage; Boss Match / arena refill here
 // (Practice keeps its own refill in TrainTick). Game thread, every pump frame.
@@ -2562,12 +2567,12 @@ static DWORD WINAPI NoFinSaveThread(LPVOID p) {
 }
 N3T_API int Nioh3Training_GetNoFinisher(void) { return g_cfg_nofin; }
 N3T_API void Nioh3Training_SetNoFinisher(int on, int persist) {
-    g_cfg_nofin = on != 0; Log("API KiBreakNoFinisher %d (Boss Rematch menu)%s", g_cfg_nofin, persist ? " (saved to ini)" : "");
+    g_cfg_nofin = on != 0; g_bmd_on = 0; Log("API KiBreakNoFinisher %d (Boss Rematch menu)%s", g_cfg_nofin, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, NoFinSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
 N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
 N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
-    if (loot >= 0) g_cfg_loot = loot != 0; if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
+    if (loot >= 0) { g_cfg_loot = loot != 0; g_bmd_on = 0; } if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
@@ -3886,6 +3891,19 @@ static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + agg
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
 static int IhIdleStance(void) { return InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) != 0; }
 static int TrActive(void) { return g_tr.active; }
+static int SlotIdleDefault(void) { return g_tr.active && g_tr.practice; }
+static void BossMatchDefaults(void) {
+    if (g_tr.practice) { BossMatchRestore("Practice session"); return; }
+    if (!g_bmd_on) { g_bmd_on = 1; g_bmd_loot = g_cfg_loot; g_bmd_nofin = g_cfg_nofin; }
+    Log("BOSS MATCH defaults (#38077): boss CPU-controlled, BossLoot %d -> 0, KiBreakNoFinisher %d -> 0 (restored when the match ends)", g_cfg_loot, g_cfg_nofin);
+    g_cfg_loot = 0; g_cfg_nofin = 0;
+}
+// #38077: back to the user's own BossLoot / KiBreakNoFinisher after a Boss Match (a menu change during the match clears the stash: it wins).
+static void BossMatchRestore(const char* why) {
+    if (!g_bmd_on) return;
+    g_bmd_on = 0; g_cfg_loot = g_bmd_loot; g_cfg_nofin = g_bmd_nofin;
+    Log("BOSS MATCH defaults restored (%s): BossLoot %d, KiBreakNoFinisher %d", why, g_cfg_loot, g_cfg_nofin);
+}
 // user #14304 (log 20:07:16 'IDLEHOLD stop new summon ... owned 1' -> the session boss got its AI back and attacked with the new one): a summon
 // during a Training session hands the Stand-still session boss to the slot hold (SPH_TRAINING) instead of IhStop giving its AI back.
 static void IhKeepForSummon(void) {

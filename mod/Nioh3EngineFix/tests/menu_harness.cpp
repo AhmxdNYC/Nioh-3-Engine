@@ -84,7 +84,7 @@ int main() {
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
-    CHECK(rootN == 3 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pSettings && rows[2] == kClose);
+    CHECK(rootN == 5 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kPageRow + pDisplay && rows[3] == kPageRow + pSettings && rows[4] == kClose);  // #38077 top rows
     Change(g_sel, 0);
     CHECK(g_pages.page == pDisplay && g_sel == kFps);
     const int disp = PageRows(rows, true);
@@ -163,7 +163,7 @@ int main() {
     Change(kPageRow + pSettings, 0);
     CHECK(g_pages.page == pSettings && g_sel == kPage);
     const int page1 = PageRows(rows, true);
-    CHECK(rows[0] == kPage && rows[page1 - 1] == kBackRow);
+    CHECK(rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kPage && rows[page1 - 1] == kBackRow);
     bool sawSafe = false, sawMeterOnSettings = false, sawKiOnSettings = false, sawAuto = false;
     for (int i = 0; i < page1; ++i) {
         if (rows[i] == kFps) sawSafe = true;
@@ -177,7 +177,20 @@ int main() {
     Value(kPage, pageName, sizeof(pageName), pageColor);
     CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && !sawKiOnSettings && !sawAuto && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
+    CHECK(g_sel == kCloseTopRow);
+    Move(-1);
+    CHECK(g_sel == kModMenuRow);
+    Move(-1);
     CHECK(g_sel == kBackRow);
+    Move(1);
+    Move(1);
+    Change(kModMenuRow, 0);  // #38077: Mod menu = the top-level page
+    CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
+    Change(kPageRow + pSettings, 0);
+    CHECK(g_pages.page == pSettings && g_sel == kPage);
+    Change(kCloseTopRow, 0);  // #38077: Close closes the menu
+    CHECK(!g_open);
+    Open("harness");
     Close("harness");
     Open("harness");
     CHECK(g_sel == kPageRow + pDisplay);
@@ -202,8 +215,8 @@ int main() {
     CHECK(g_pages.page == pRoot);
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 5 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
-          rows[3] == kPageRow + pSettings && rows[4] == kClose);
+    CHECK(bossN == 7 && rows[2] == kRematchRow && rows[3] == kPracticeRow && rows[4] == kPageRow + pDisplay &&
+          rows[5] == kPageRow + pSettings && rows[6] == kClose);
     Change(kPageRow + pSettings, 0);
     g_page = 1;
     bossN = PageRows(rows, true);
@@ -234,9 +247,12 @@ int main() {
     for (int i = 0; i < n; ++i) allHasSwitcher |= rows[i] == kPage;
     CHECK(g_sel == kClose && !allHasSwitcher);  // grouped All hides the two-page switcher
     Move(1);
+    CHECK(g_sel == kModMenuRow);  // wraps from the last row to the new top
+    Move(1);
+    Move(1);
     CHECK(g_sel == kFps);
     MovePage(1);
-    CHECK(g_sel == rows[10]);
+    CHECK(g_sel == rows[12]);  // #38077: Mod menu + Close sit above the 10 steps
     Back();
     CHECK(g_pages.page == pSettings);
     Back();
@@ -348,7 +364,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==4 && rows[0]==kPageRow+pSettings && rows[1]==kRematchRow && rows[2]==kPracticeRow && rows[3]==kClose);
+    CHECK(g_pages.page==pRoot && n==6 && rows[2]==kPageRow+pSettings && rows[3]==kRematchRow && rows[4]==kPracticeRow && rows[5]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly

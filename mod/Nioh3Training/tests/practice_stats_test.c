@@ -9,7 +9,7 @@
 int main(void) {
     PstCfg c; PstDefaults(&c);
     assert(PS_FRAME_KI==20 && c.v[PS_FRAME_KI]==1 && PstIsToggle(PS_FRAME_KI));
-    assert(PS_KI_WINDOW==21 && c.v[PS_KI_WINDOW]==1 && PstIsToggle(PS_KI_WINDOW));
+    assert(PS_KI_WINDOW==21 && c.v[PS_KI_WINDOW]==0 && PstIsToggle(PS_KI_WINDOW));
     assert(PstStep(PS_KI_WINDOW,1,0)==0 && PstStep(PS_KI_WINDOW,0,0)==1 && PstClamp(PS_KI_WINDOW,9)==1);
     assert(PstStep(PS_FRAME_KI,1,0)==0 && PstStep(PS_FRAME_KI,0,0)==1);
     assert(PS_FRAME_LEGEND==18 && c.v[PS_FRAME_LEGEND]==1);
@@ -194,7 +194,7 @@ int main(void) {
         assert(PstStep(PS_KI_FLOOR, 500, 1) == 1000 && PstStep(PS_KI_FLOOR, 1000, 1) == 1000 && PstStep(PS_KI_FLOOR, 120, 1) == 150 && PstStep(PS_KI_FLOOR, 120, -1) == 100);
         assert(PstFromIni(PS_KI_FLOOR, 300) == 300 && PstToIni(PS_KI_FLOOR, 300) == 300 && PstFromIni(PS_HOLD_KI_V2, 7) == 1);
         // user #23400 NegKiMeter: toggle, default ON (the only toggle that is)
-        assert(PS_NEG_KI_METER == 17 && d.v[PS_NEG_KI_METER] == 1 && PstIsToggle(PS_NEG_KI_METER) && PstClamp(PS_NEG_KI_METER, 9) == 1 && PstStep(PS_NEG_KI_METER, 1, 0) == 0 && PstFromIni(PS_NEG_KI_METER, 0) == 0);
+        assert(PS_NEG_KI_METER == 17 && d.v[PS_NEG_KI_METER] == 0 && PstIsToggle(PS_NEG_KI_METER) && PstClamp(PS_NEG_KI_METER, 9) == 1 && PstStep(PS_NEG_KI_METER, 1, 0) == 0 && PstFromIni(PS_NEG_KI_METER, 0) == 0);
         // Ki floor: stock for anyone but a Training boss, and at 100 %; scaled stock; -max base when the stock floor is missing (0)
         assert(PstKiFloor(-1000.0f, 1000.0f, 300, 0) == -1000.0f && PstKiFloor(-1000.0f, 1000.0f, 100, 1) == -1000.0f);
         assert(PstKiFloor(-1000.0f, 1000.0f, 300, 1) == -3000.0f && PstKiFloor(-800.0f, 1000.0f, 50, 1) == -400.0f && PstKiFloor(-800.0f, 1000.0f, 0, 1) == 0.0f);

@@ -869,7 +869,7 @@ void ChangeKiWindow() {
                                                              : "Ki window OFF. The dark blue is hidden. Saved in Training.");
 }
 
-int PageRows(int* out, bool selectable) {
+int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
@@ -944,11 +944,20 @@ int PageRows(int* out, bool selectable) {
     return n;
 }
 
+// #38077: every page starts with 'Mod menu' (top-level page) and 'Close' (close the menu), then its own rows.
+int PageRows(int* out, bool selectable) {
+    out[0] = kModMenuRow;
+    out[1] = kCloseTopRow;
+    return 2 + PageRowsBody(out + 2, selectable);
+}
+int FirstOwnRow(const int* rows, int n) { return n > 2 ? rows[2] : n ? rows[0] : kBackRow; }
+int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
+
 void EnterPage(int page) {
     if (!g_pages.Enter(page, g_sel)) return;
     int rows[kMenuRowCap];
     const int n = PageRows(rows, true);
-    g_sel = page == pAll ? kClose : n ? rows[0] : kBackRow;
+    g_sel = page == pAll ? kClose : FirstOwnRow(rows, n);
     for (auto& repeat : g_rep) repeat = 0;
 }
 
@@ -1451,6 +1460,11 @@ void Change(int id, int dir) {
         }
         return;
     }
+    if (id == kModMenuRow) {  // #38077: back to the menu's top-level page (page trail reset, cursor on its first row)
+        if (dir == 0) { g_pages.Reset(); g_sel = TopLevelSel(); for (auto& repeat : g_rep) repeat = 0; MLOG("Mod menu row: top-level page"); }
+        return;
+    }
+    if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
@@ -1989,9 +2003,11 @@ void OnPresentImpl() {
         if ((g_rematchOpened || g_rematchLastAction == rmb::Back) && !(g_rematchView.flags & rmb::Open) && !g_rematchAwait) {
             // user #13796: a page the add-on opened by itself (the physical Return object) is the whole menu: B closes it, it never
             // falls back to the mod menu's first page (that second screen is where the player got stuck).
-            const bool back = g_rematchLastAction == rmb::Back, fromAddon = g_rematchFromAddon;
+            const bool toHost = (g_rematchView.flags & rmb::HostMenu) != 0;  // #38077: hosted 'Mod menu' row
+            const bool back = g_rematchLastAction == rmb::Back || toHost, fromAddon = g_rematchFromAddon && !toHost;
             CloseRematchHostPage();
-            if (!back) Close("rematch action");
+            if (toHost) { g_pages.Reset(); g_sel = TopLevelSel(); }
+            else if (!back) Close("rematch action");
             else if (fromAddon) Close("B on the Return object page");
             return;
         }
@@ -2481,6 +2497,14 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
+        if (id == kModMenuRow || id == kCloseTopRow) {
+            if (id == g_sel) selRow = nb;
+            const bool mod = id == kModMenuRow;
+            put(body, nb, 128, mod ? (id == g_sel ? "> Mod menu" : "  Mod menu") : (id == g_sel ? "> Close" : "  Close"), "",
+                mod ? menu_style::PadWord("A: top page", "Cross: top page") : menu_style::PadWord("A: close", "Cross: close"),
+                id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            continue;
+        }
         if (id == kFrameMeterRow) {
             if (id == g_sel) selRow = nb;
             char text[48];
@@ -2550,7 +2574,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");

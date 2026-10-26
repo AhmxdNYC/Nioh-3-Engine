@@ -9,7 +9,7 @@ constexpr uint32_t kVersion = 2;
 constexpr uint32_t kMaxRows = 24;
 constexpr const char* kExport = "Nioh3RematchMenuGetApi";
 enum Result : int { Accepted = 0, Busy = 1, Unavailable = 2, BadVersion = 3, StaleSession = 4, StaleGeneration = 5, InvalidArgument = 6 };
-enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u };
+enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u, HostMenu = 16u };  // HostMenu (#38077): page closed by its 'Mod menu' row = show the host's first page, do not close the host menu
 enum Capability : uint32_t { SnapshotV1 = 1u, InputV1 = 2u, ExclusiveHost = 4u };
 constexpr uint32_t kRequiredCapabilities = SnapshotV1 | InputV1 | ExclusiveHost;
 // user #13223: OpenRematch / OpenPractice open the add-on directly on its Boss Rematch / Practice page (the host's first page lists them);
@@ -64,7 +64,7 @@ template<size_t N> inline bool Terminated(const char (&text)[N]) {
 }
 inline bool ValidSnapshot(const Snapshot& s, uint64_t session) {
     if (!session || s.size != sizeof(Snapshot) || s.version != kVersion || s.session != session ||
-        !s.generation || s.rowCount > kMaxRows || (s.flags & ~(HostedReady | Open | CloseRequested | CoverActive)) ||
+        !s.generation || s.rowCount > kMaxRows || (s.flags & ~(HostedReady | Open | CloseRequested | CoverActive | HostMenu)) ||
         !Terminated(s.footer) || !Terminated(s.toast) || !Terminated(s.coverReason) || s.coverPhase>6) return false;
     if ((s.flags & HostedReady) && !s.workerTickMs) return false;
     if ((s.flags & Open) && !(s.flags & HostedReady)) return false;

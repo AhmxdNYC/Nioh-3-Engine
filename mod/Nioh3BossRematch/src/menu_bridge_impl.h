@@ -4,7 +4,7 @@ SRWLOCK g_bridgeLock = SRWLOCK_INIT;
 mb::Queue<> g_bridgeQueue;
 mb::Snapshot g_bridgeSnapshot{};
 uint64_t g_bridgeHost = 0, g_bridgeSession = 0, g_bridgeNext = 0;
-bool g_bridgeClose = false;
+bool g_bridgeClose = false, g_bridgeHostMenu = false;
 std::atomic<bool> g_bridgeAvailable{false};
 struct BridgeTryLock {
     bool held = TryAcquireSRWLockExclusive(&g_bridgeLock) != FALSE;
@@ -138,9 +138,9 @@ void HostedTick() {
     bool closeRequested = false;
     mb::QueuedAction action{};
     if (g_bridgeQueue.Pop(action) && action.session == g_bridgeSession && action.generation == g_bridgeSnapshot.generation) {
-        if (action.action == mb::OpenMenu) Toggle(true);
+        if (action.action == mb::OpenMenu) { rematch::UiClearHostMenu(); g_bridgeHostMenu = false; Toggle(true); }
         else if (action.action == mb::OpenRematch || action.action == mb::OpenPractice) {  // user #13223
-            Toggle(true); rematch::UiOpenAt(action.action == mb::OpenRematch ? 1 : 2);
+            rematch::UiClearHostMenu(); g_bridgeHostMenu = false; Toggle(true); rematch::UiOpenAt(action.action == mb::OpenRematch ? 1 : 2);
         }
         else if (g_open.load()) {
             switch (action.action) {
@@ -155,11 +155,11 @@ void HostedTick() {
                 default: break;
             }
         }
-        if (closeRequested) Toggle(false);
+        if (closeRequested) { if (rematch::UiTakeHostMenu()) g_bridgeHostMenu = true; Toggle(false); }
         ++g_bridgeSnapshot.generation;
     }
     if (g_bridgeSession) {
-        g_bridgeSnapshot.flags = mb::HostedReady | (g_open.load() ? mb::Open : 0u) | (closeRequested ? mb::CloseRequested : 0u);
+        g_bridgeSnapshot.flags = mb::HostedReady | (g_open.load() ? mb::Open : 0u) | (closeRequested ? mb::CloseRequested : 0u) | (g_bridgeHostMenu && !g_open.load() ? mb::HostMenu : 0u);
         if (g_open.load() || closeRequested) PublishHostedModel();
         rematch::CoverInfo cover{};
         if(rematch::CoverSnapshot(cover)) {
