@@ -140,9 +140,10 @@ static void FpInstall(void) {
 // user #22796: the player's action run, same bookkeeping as a boss slot (actor = PlayerChar(), ctrl = [[actor+0x3B0]+8], id = 358528(ctrl)).
 // UNTESTED live: that the player's ctrl gives a changing action id the same way (notes/player-frame-meter-22796.md); the hit windows are proven (the probe
 // already sees the player's 2B30A0 calls, atk == player actor).
+int FmIFrameProbeOn(void);  // frame_meter_game.h. 1 when [Debug] IFrameProbe is on, even with no Practice session.
 static void FpPlayerTick(double now, double gdt) {
     const int s = FP_PL; static int bad;
-    const uint64_t a = (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
+    const uint64_t a = ((g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live) || FmIFrameProbeOn() ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
     if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = g_fp[s].ctrl = 0; return; }
     if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = 0; }
     g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;

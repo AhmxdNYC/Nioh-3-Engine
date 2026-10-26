@@ -322,18 +322,9 @@ static __attribute__((noinline)) void FmiEval(uint64_t actor, uint64_t ctrl, int
     if (s->abc0 || eb[1]) m |= FMI_NOHIT;
     if ((s->s2dc8 >> 11 & 1) || (s->s2dc8 >> 48 & 1) || ea[5]) m |= FMI_GUARDX;
     if (hurtOff) m |= FMI_HURTOFF;
-    if (FmiCodeOk() && e0 == actor && stat && st) {  // the called functions read [ctrl+0xE0]+0x3A0 and [ctrl+0xE8]+0x20 themselves
-        __try {
-            if (((FmiFn2)(B + 0x2A3264))(ctrl, 0) & 0xFF) m |= FMI_CANNOT0;
-            if (((FmiFn2)(B + 0x2A3264))(ctrl, 4) & 0xFF) m |= FMI_CANNOT4;
-            if (((FmiFn2)(B + 0x2A3264))(ctrl, 9) & 0xFF) m |= FMI_CANNOT9;
-            if (((FmiFn1)(B + 0x481290))(ctrl) & 0xFF) m |= FMI_R29AE0;
-            if (((FmiFn1)(B + 0x866490))(ctrl) & 0xFF) m |= FMI_A8B20;
-            if (((FmiFn1)(B + 0x876130))(ctrl) & 0xFF) m |= FMI_COND4;
-            if (((FmiFn1)(B + 0x2A3764))(ctrl) & 0xFF) m |= FMI_ARMOR;
-            s->called = 1;
-        } __except (EXCEPTION_EXECUTE_HANDLER) { s->called = 0; }
-    }
+    (void)e0; (void)stat; (void)st;
+    { static int once; if (!once) { once = 1; FmiCodeOk(); Log("IFRAMEPR: game functions are not called from the pump"); } }
+    s->called = 0;
     s->mask = m;
 }
 // IFRAMEWN: per action run, the dwords of actor (0..0xB300), ctrl (0..0x1700) and status [actor+0x3A0] (0..0x3400) that turn on after the start
@@ -500,11 +491,14 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
     Log("IFRAME t %.1f act %u a8 %016llX x1060 %016llX ea0 %016llX ea8 %016llX (byte 6 = actor+ABC0, byte 7 = actor+ADB1) eb0 %016llX (EB4 = part mask) nodmg %d",
         t, act, (unsigned long long)a8, (unsigned long long)x1060, (unsigned long long)b0, (unsigned long long)b1, (unsigned long long)b2, FmPlayerNoDmg(actor, ctrl));
 }
+int FmIFrameProbeOn(void) { return g_cfg_ifp; }
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
-    if ((!wantB && !wantP) || !g_pst_live) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
-    if (!g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
+    const int probe = g_cfg_ifp != 0;
+    if ((!wantB && !wantP && !probe) || (!g_pst_live && !probe)) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
+    if (g_pst_live && !g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
+    if (probe && !g_pst_live) { static int told; if (!told) { told = 1; Log("IFRAMEPR: logging in the field with no Practice session"); } }
     double dt = gdt;
     if (dt < 0) dt = 0; if (dt > 150) dt = 150;
     const uint8_t* gs = GameState();
@@ -512,7 +506,8 @@ static void FmFeed(double gdt) {
     g_fm_clock += dt;
     // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
     if (!wantP) g_fmp_show = 0;
-    else if (g_fp[FP_PL].valid) {
+    if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
+    if ((wantP || probe) && g_fp[FP_PL].valid) {
         static FmiState fmiS;
         int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb, grab = g_fp[FP_PL].pulseGrab;
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
