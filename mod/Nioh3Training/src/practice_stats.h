@@ -23,7 +23,7 @@
 //   PS_NEG_KI_METER   NegKiMeter          0/1    (default ON) thin bar under a Training boss's Ki bar while its Ki or K+0x60 pool is below 0 (user #23400,
 //                                         negki_meter.h / negki_meter_game.h; read only)
 //   PS_KI_WINDOW      KiWindow            0/1    (default ON) dark blue on the player frame-meter row while KiTick K+0x74 counts down from about 30
-//                                         (#34558, about 0.4 s after the attack starts). Display Overlays can turn it off. Not the boss Ki-debt strip.
+//                                         (#34558, about 0.4 s after the attack starts). Gameplay / Overlays can turn it off. Not the boss Ki-debt strip.
 //   PS_FRAME_IFR      FrameMeterIFrames   0/1    (default ON, human #37322) own "I-FR" row under the PLAYER row showing only the i-frame (no damage) cells in gold;
 //                                         OFF = the gold stripe on the PLAYER row as before.
 #pragma once

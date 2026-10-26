@@ -734,7 +734,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
-    {"Settings page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Display Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
+    {"Settings page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Gameplay / Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
     {"Auto-click loading screen", "(AutoContinueLoad)", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
@@ -812,12 +812,14 @@ bool OnPage(int id) {
 }
 const char* FlatPageName() { return g_page ? "2/2 may change the look" : "1/2 same picture"; }
 
-// #34265: these leave Settings and live on the Display Overlays page (Layout=0). Layout=1 still files them under pDisplay.
+// #34265: these leave Settings and live on the Gameplay / Overlays page (Layout=0). Layout=1 still files them under pDisplay.
+// #37433: every non-performance row leaves Settings: frame-gen and upscaler status readouts, the input-to-screen and
+// worker-wake diagnostics, and the loading-screen auto-click (#37423). Settings keeps only the performance fixes and their switches.
 bool OverlayRow(int id) {
     return id == kFps || id == kFrameTime || id == kSpeed || id == kPos || id == kOffX || id == kOffY || id == kScale ||
-           id == kHint || id == kPerfNote;
+           id == kHint || id == kPerfNote || id == kAutoCont || id == kFgState || id == kUpscaler || id == kXTS || id == kXWS;
 }
-bool IsControllerDisplayKey(const char* key) { return key && strncmp(key, "ControllerDisplay", 17) == 0; }
+bool IsControllerDisplayKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }  // #37423: button style is a pad-display setting
 
 // PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
 constexpr int kFrameMeterWhat = 7;
@@ -871,7 +873,7 @@ int PageRows(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
-        // #34265 first screen: Boss Matches, Practice, Display Overlays, Settings, Close.
+        // #34265 first screen: Boss Matches, Practice, Gameplay / Overlays, Settings, Close.
         if (g_pages.page == pSettings) {
             for (const auto& row : kOrder) {
                 if (OverlayRow(row.id)) continue;
@@ -905,7 +907,6 @@ int PageRows(int* out, bool selectable) {
         }
         if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
         add(kPageRow + pDisplay);
-        add(kPageRow + pGameplay);
         add(kPageRow + pSettings);
         add(kClose);
         return n;
@@ -1416,7 +1417,7 @@ void ChangeConfig(int index, int dir) {
             padviz::g_size100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 50, 400);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display size applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplayX") || !strcmp(d.key, "ControllerDisplayY")) {
-            const int pv = std::clamp((int)std::lround(atof(v.c_str())), 0, 100);
+            const int pv = std::clamp((int)std::lround(atof(v.c_str())), -100, 100);
             (d.key[17] == 'X' ? padviz::g_posX : padviz::g_posY) = pv;
             snprintf(g_configReply, sizeof(g_configReply), "Controller display position applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplayPressColor")) {
@@ -1525,7 +1526,7 @@ void Change(int id, int dir) {
                 o.offUser = true;
             }
             if (dir == 0) v = id == kOffX ? 0 : osd::DefaultOffsetY(o.pos);
-            else v = std::clamp(v + (dir < 0 ? -20 : 20), 0, id == kOffX ? 1900 : 1060);
+            else v = std::clamp(v + (dir < 0 ? -20 : 20), id == kOffX ? -1900 : -1060, id == kOffX ? 1900 : 1060);
             break;
         }
         case kPerfNote: return;
@@ -2564,7 +2565,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "On by default. Off hides the dark blue and leaves the other frame-meter colors. Training saves it.");
     } else if (!g_cfg.layout && g_sel == kPageRow + pDisplay) {
-        snprintf(what, sizeof(what), "FPS counter, frame meter, Ki window, and the controller display (on/off, position, size, opacity, colour).");
+        snprintf(what, sizeof(what), "FPS counter, frame-gen and upscaler status, frame meter, Ki window, controller display (on/off, position, size, opacity, colour, button style), loading-screen auto-click, timing diagnostics.");
         snprintf(effect, sizeof(effect), "On-screen extras only. The picture of the game stays the same.");
     } else if (!g_cfg.layout && g_sel == kPageRow + pGameplay) {
         snprintf(what, sizeof(what), "Auto-click the loading screen: Continue is pressed for you when a load finishes.");
@@ -2855,8 +2856,8 @@ void Configure(const Host& h) {
     padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
-    padviz::g_posX = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayX", 0, f), 0, 100);
-    padviz::g_posY = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayY", 0, f), 0, 100);
+    padviz::g_posX = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayX", 0, f), -100, 100);
+    padviz::g_posY = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayY", 0, f), -100, 100);
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);

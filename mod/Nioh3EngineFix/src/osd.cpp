@@ -1879,8 +1879,8 @@ void Start(const StartupInfo& si) {
         const int ox = I(L"Overlay", L"OffsetX", -99999), oy = I(L"Overlay", L"OffsetY", -99999);
         if (ox != -99999 || oy != -99999) {  // pixels at 1080p; a missing key keeps the corner default
             g_cfg.offUser = true;
-            g_cfg.offX = std::clamp(ox == -99999 ? 0 : ox, 0, 1900);
-            g_cfg.offY = std::clamp(oy == -99999 ? DefaultOffsetY(g_cfg.pos) : oy, 0, 1060);
+            g_cfg.offX = std::clamp(ox == -99999 ? 0 : ox, -1900, 1900);
+            g_cfg.offY = std::clamp(oy == -99999 ? DefaultOffsetY(g_cfg.pos) : oy, -1060, 1060);
         }
     }
     if (g_cfg.maxLatency) OLOG("MaxFrameLatency=%d (applied to waitable swapchains as they present)", g_cfg.maxLatency);

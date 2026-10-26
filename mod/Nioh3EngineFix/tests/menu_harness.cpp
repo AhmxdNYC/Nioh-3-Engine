@@ -84,10 +84,22 @@ int main() {
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
-    CHECK(rootN == 4 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pGameplay && rows[2] == kPageRow + pSettings && rows[3] == kClose);
+    CHECK(rootN == 3 && rows[0] == kPageRow + pDisplay && rows[1] == kPageRow + pSettings && rows[2] == kClose);
     Change(g_sel, 0);
     CHECK(g_pages.page == pDisplay && g_sel == kFps);
     const int disp = PageRows(rows, true);
+    // #37433: the moved non-performance rows are on Gameplay / Overlays (status rows are listed, not selectable) and off Settings
+    auto countOf = [&](int n, int a, int b, int c, int d) {
+        int hits = 0;
+        for (int i = 0; i < n; ++i) hits += rows[i] == a || rows[i] == b || rows[i] == c || rows[i] == d;
+        return hits;
+    };
+    // (kFgState / kUpscaler need a known build, which this harness host is not: their placement is checked above)
+    CHECK(countOf(PageRows(rows, false), kXTS, kXWS, kXTS, kXWS) == 2);
+    g_pages.page = pSettings;
+    CHECK(countOf(PageRows(rows, false), kXTS, kXWS, kXTS, kXWS) == 0);
+    CHECK(countOf(PageRows(rows, false), kLat, kXIK, kVrr, kVrr) == 3);  // performance rows stay on Settings
+    g_pages.page = pDisplay;
     int pad = -1, padX = -1, padY = -1, padSize = -1, padOp = -1, padColor = -1;
     for (int i = 0; i < kConfigN; ++i) {
         const char* key = kConfigSettings[i].key;
@@ -114,8 +126,20 @@ int main() {
         if (rows[i] == kSettingRow + padOp) sawOp = true;
         if (rows[i] == kSettingRow + padColor) sawColor = true;
     }
-    CHECK(sawFps && sawMeter && sawKi && kiAt == meterAt + 1 && sawPad && sawX && sawY && sawSize && sawOp && sawColor && !sawLook);
-    CHECK(rows[disp - 1] == kBackRow && strcmp(PageName(g_pages.page), "Display Overlays") == 0);
+    CHECK(sawFps && sawMeter && sawKi && kiAt == meterAt + 1);
+    CHECK(sawPad && sawX && sawY && sawSize && sawOp && sawColor);
+    CHECK(!sawLook);
+    CHECK(rows[disp - 1] == kBackRow && strcmp(PageName(g_pages.page), "Gameplay / Overlays") == 0);
+    {
+        bool sawAutoO = false, sawStyleO = false;
+        int style = -1;
+        for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "ButtonStyle")) style = i;
+        for (int i = 0; i < disp; ++i) { if (rows[i] == kAutoCont) sawAutoO = true; if (style >= 0 && rows[i] == kSettingRow + style) sawStyleO = true; }
+        CHECK(sawAutoO && sawStyleO);  // #37423
+        int ox = -1, cx = -1;
+        for (int i = 0; i < kConfigN; ++i) { if (!strcmp(kConfigSettings[i].key, "OffsetX")) ox = i; if (!strcmp(kConfigSettings[i].key, "ControllerDisplayX")) cx = i; }
+        CHECK(ox >= 0 && cx >= 0 && kConfigSettings[ox].lo < 0 && kConfigSettings[cx].lo < 0);
+    }
     const int pageBefore = g_pages.page;
     Change(kFrameMeterRow, 0);
     CHECK(g_pages.page == pageBefore);
@@ -135,12 +159,6 @@ int main() {
     g_pstSet = nullptr;
     Back();
     CHECK(g_pages.page == pRoot);
-    Change(kPageRow + pGameplay, 0);
-    CHECK(g_pages.page == pGameplay && g_sel == kAutoCont && strcmp(PageName(pGameplay), "Load / Auto") == 0);
-    const int loadN = PageRows(rows, true);
-    CHECK(loadN == 2 && rows[0] == kAutoCont && rows[1] == kBackRow);
-    Back();
-    CHECK(g_pages.page == pRoot);
     Change(kPageRow + pSettings, 0);
     CHECK(g_pages.page == pSettings && g_sel == kPage);
     const int page1 = PageRows(rows, true);
@@ -156,7 +174,7 @@ int main() {
     char pageName[64];
     uint32_t pageColor = 0;
     Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && !sawKiOnSettings && sawAuto && strcmp(pageName, "1/2 same picture") == 0);
+    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && !sawKiOnSettings && !sawAuto && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
     CHECK(g_sel == kBackRow);
     Close("harness");
@@ -183,8 +201,8 @@ int main() {
     CHECK(g_pages.page == pRoot);
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 6 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
-          rows[3] == kPageRow + pGameplay && rows[4] == kPageRow + pSettings && rows[5] == kClose);
+    CHECK(bossN == 5 && rows[0] == kRematchRow && rows[1] == kPracticeRow && rows[2] == kPageRow + pDisplay &&
+          rows[3] == kPageRow + pSettings && rows[4] == kClose);
     Change(kPageRow + pSettings, 0);
     g_page = 1;
     bossN = PageRows(rows, true);
@@ -232,6 +250,12 @@ int main() {
     }
     CHECK(FindItem("GF") == kXGF && FindItem("WakeStats") == kXWS);
     CHECK(FindItem("R1") == kR1 && FindItem("FPS") == kFps && FindItem("AutoContinueLoad") == kAutoCont);
+    // #37433: status readouts and timing diagnostics are not performance fixes: they live on Gameplay / Overlays, not Settings
+    CHECK(SettingsPage(kFgState) == pDisplay && SettingsPage(kUpscaler) == pDisplay);
+    CHECK(SettingsPage(kXTS) == pDisplay && SettingsPage(kXWS) == pDisplay);
+    CHECK(SettingsPage(kFg) == pFrameGen && SettingsPage(kLat) == pSafe && SettingsPage(kXIK) == pCpu);
+    CHECK(OverlayRow(kFgState) && OverlayRow(kUpscaler) && OverlayRow(kXTS) && OverlayRow(kXWS) && OverlayRow(kAutoCont));
+    CHECK(!OverlayRow(kFg) && !OverlayRow(kLat) && !OverlayRow(kXIK) && !OverlayRow(kVrr));
     EnterPage(pFrameGen);
     n = PageRows(rows, true);
     for (int i = 0; i < n; ++i) CHECK(rows[i] != kFgState && rows[i] != kUpscaler);
