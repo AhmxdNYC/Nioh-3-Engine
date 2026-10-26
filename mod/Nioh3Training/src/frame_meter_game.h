@@ -9,6 +9,7 @@
 // Ini (Nioh3Training.ini [Practice]): FrameMeter = 0/1 (default 0, the Practice hub row 'Frame meter'), FrameMeterY = top of the meter in % of the
 // screen height; -1 (default) anchors above the lower player HUD, slightly left.
 #include "frame_meter.h"
+#include "frame_meter_iframe.h"
 #include "frame_meter_ki.h"
 #include "frame_meter_position.h"
 #include <string.h>
@@ -266,13 +267,149 @@ static int FmObNoisy(int shape, int off, uint32_t a, uint32_t b) {
     }
     return 0;
 }
+// #35411 empty-area probe (notes/iframes.md "Empty-area probe"). FmiEval runs every player tick while the player meter is on (also without
+// IFrameProbe, because the stripe uses it): the defender-side "no damage" predicates of the hit / damage pipeline, evaluated on the player
+// with no enemy and no hit. Game functions called (all checked in the disassembly: loads, compares and calls to each other only, no store
+// except their own stack frame): 2A3264 (cannot be damaged, hit type in edx), 481290, 866490, 876130 (condition 4), 2A3764. Everything else
+// is re-implemented from the decompile with plain loads. NOT evaluated: the buff vcall of IsNoDamage (ctrl vtbl +0x138 -> F6878 -> +0x208 =
+// F68D8, 2.6 KB frame, not proven pure) and the rest of the defence state 2A34F8 (vcalls). The probe logs the vtable slots once instead.
+// Entry bytes of the called functions (from re/Nioh3.dump.exe). If one differs (another game version), no game function is called.
+static int FmiCodeOk(void) {
+    static int ok = -1;
+    if (ok >= 0) return ok;
+    static const uint8_t k264[11] = {0x48, 0x83, 0xEC, 0x28, 0x44, 0x8B, 0xDA, 0x4C, 0x8B, 0xD1, 0xE8};
+    static const uint8_t k290[14] = {0x48, 0x8B, 0x81, 0xE8, 0x00, 0x00, 0x00, 0x45, 0x33, 0xC0, 0x48, 0x85, 0xC0, 0x74};
+    static const uint8_t k490[10] = {0x48, 0x83, 0xEC, 0x28, 0x8B, 0x81, 0xA8, 0x00, 0x00, 0x00};
+    static const uint8_t k130[13] = {0x48, 0x8B, 0x81, 0xE0, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x90, 0xA0, 0x03, 0x00};
+    static const uint8_t k764[13] = {0x48, 0x8B, 0x81, 0xE0, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x90, 0xA0, 0x03, 0x00};
+    __try {
+        ok = !memcmp((void*)(B + 0x2A3264), k264, sizeof k264) && !memcmp((void*)(B + 0x481290), k290, sizeof k290) && !memcmp((void*)(B + 0x866490), k490, sizeof k490)
+            && !memcmp((void*)(B + 0x876130), k130, sizeof k130) && !memcmp((void*)(B + 0x2A3764), k764, sizeof k764);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    Log("IFRAMEPR predicate functions 2A3264/481290/866490/876130/2A3764: %s", ok ? "bytes match, called read-only" : "bytes differ, only the re-implemented bits are used");
+    return ok;
+}
+typedef uint64_t (*FmiFn1)(uint64_t);
+typedef uint64_t (*FmiFn2)(uint64_t, int);
+typedef struct { uint32_t mask, r18, s48; uint64_t a8, ae0, ea0, eb0, s2dc8, rec, q0; uint16_t next, recAct; uint8_t abc0, adb1; int ok, called; } FmiState;
+static __attribute__((noinline)) void FmiEval(uint64_t actor, uint64_t ctrl, int hurtOff, FmiState* s) {
+    uint64_t st = 0, stat = 0, x15 = 0, e0 = 0; uint8_t x15b = 0;
+    memset(s, 0, sizeof *s);
+    if (!actor || !ctrl) return;
+    __try {
+        e0 = *(volatile uint64_t*)(ctrl + 0xE0);
+        stat = *(volatile uint64_t*)(actor + 0x3A0);
+        st = *(volatile uint64_t*)(ctrl + 0xE8);
+        if (st) s->rec = *(volatile uint64_t*)(st + 0x20);
+        if (s->rec) { s->q0 = *(volatile uint64_t*)s->rec; s->r18 = *(volatile uint32_t*)(s->rec + 0x18); s->recAct = *(volatile uint16_t*)(s->rec + 0x0C); s->next = *(volatile uint16_t*)(s->rec + 0xE0); }
+        if (stat) { s->s48 = *(volatile uint32_t*)(stat + 0x48); s->s2dc8 = *(volatile uint64_t*)(stat + 0x2DC8); }
+        s->a8 = *(volatile uint64_t*)(ctrl + 0xA8); s->ae0 = *(volatile uint64_t*)(ctrl + 0xAE0);
+        s->ea0 = *(volatile uint64_t*)(ctrl + 0xEA0); s->eb0 = *(volatile uint64_t*)(ctrl + 0xEB0);
+        x15 = *(volatile uint64_t*)(ctrl + 0x15D8); if (x15) x15b = *(volatile uint8_t*)(x15 + 2);
+        s->abc0 = *(volatile uint8_t*)(actor + 0xABC0); s->adb1 = *(volatile uint8_t*)(actor + 0xADB1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    s->ok = 1;
+    const uint8_t* ea = (const uint8_t*)&s->ea0; const uint8_t* eb = (const uint8_t*)&s->eb0;  // ea[k] = ctrl+0xEA0+k, eb[k] = ctrl+0xEB0+k
+    uint32_t m = 0;
+    if (s->q0 >> 35 & 1) m |= FMI_NODMGACT;
+    if (s->s48 == 1) m |= FMI_S48;
+    if (s->s2dc8 >> 31 & 1) m |= FMI_S2DC8;
+    if (ea[0]) m |= FMI_EA0;
+    if (ea[1]) m |= FMI_EA1;
+    if (ea[0xE]) m |= FMI_EAE;
+    if (x15b) m |= FMI_X15D8;
+    if (s->adb1 || eb[0]) m |= FMI_ISNODMG;
+    if (s->abc0 || eb[1]) m |= FMI_NOHIT;
+    if ((s->s2dc8 >> 11 & 1) || (s->s2dc8 >> 48 & 1) || ea[5]) m |= FMI_GUARDX;
+    if (hurtOff) m |= FMI_HURTOFF;
+    if (FmiCodeOk() && e0 == actor && stat && st) {  // the called functions read [ctrl+0xE0]+0x3A0 and [ctrl+0xE8]+0x20 themselves
+        __try {
+            if (((FmiFn2)(B + 0x2A3264))(ctrl, 0) & 0xFF) m |= FMI_CANNOT0;
+            if (((FmiFn2)(B + 0x2A3264))(ctrl, 4) & 0xFF) m |= FMI_CANNOT4;
+            if (((FmiFn2)(B + 0x2A3264))(ctrl, 9) & 0xFF) m |= FMI_CANNOT9;
+            if (((FmiFn1)(B + 0x481290))(ctrl) & 0xFF) m |= FMI_R29AE0;
+            if (((FmiFn1)(B + 0x866490))(ctrl) & 0xFF) m |= FMI_A8B20;
+            if (((FmiFn1)(B + 0x876130))(ctrl) & 0xFF) m |= FMI_COND4;
+            if (((FmiFn1)(B + 0x2A3764))(ctrl) & 0xFF) m |= FMI_ARMOR;
+            s->called = 1;
+        } __except (EXCEPTION_EXECUTE_HANDLER) { s->called = 0; }
+    }
+    s->mask = m;
+}
+// IFRAMEWN: per action run, the dwords of actor (0..0xB300), ctrl (0..0x1700) and status [actor+0x3A0] (0..0x3400) that turn on after the start
+// and back before the end (window) or turn once and stay (open). One line set at the end of every run. Read only.
+enum { FMI_NA = 0xB300 / 4, FMI_NC = 0x1700 / 4, FMI_NS = 0x3400 / 4 };
+static FmiWord g_fmi_wa[FMI_NA], g_fmi_wc[FMI_NC], g_fmi_ws[FMI_NS];
+static uint32_t g_fmi_ca[FMI_NA], g_fmi_cc[FMI_NC], g_fmi_cs[FMI_NS];
+static __attribute__((noinline)) int FmiReadBlock(uint64_t p, uint32_t* out, int n) {
+    if (!p) return 0;
+    __try { for (int i = 0; i < n; ++i) out[i] = *(volatile uint32_t*)(p + (uint64_t)i * 4); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return 1;
+}
+static void FmiWindows(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
+    static uint32_t pact = 0xFFFFFFFF; static double t0; static uint64_t pactor; static int have, lines, okA, okC, okS;
+    uint64_t stat = 0; Rd64(actor + 0x3A0, &stat);
+    const int a = FmiReadBlock(actor, g_fmi_ca, FMI_NA), c = FmiReadBlock(ctrl, g_fmi_cc, FMI_NC), s = FmiReadBlock(stat, g_fmi_cs, FMI_NS);
+    if (act != pact || actor != pactor || a != okA || c != okC || s != okS) {
+        if (have && pact != 0xFFFFFFFF && lines < 1500) {
+            const int frames = FmiFrame(t, t0);
+            if (frames >= 3) {
+                char b[960]; int o = snprintf(b, sizeof b, "IFRAMEWN t %.1f act %u frames %d noisy %d/%d/%d:", t0, pact, frames,
+                    okA ? FmiTrackNoisy(g_fmi_wa, FMI_NA) : -1, okC ? FmiTrackNoisy(g_fmi_wc, FMI_NC) : -1, okS ? FmiTrackNoisy(g_fmi_ws, FMI_NS) : -1);
+                int n = 0;
+                if (okC) n += FmiTrackFormat(g_fmi_wc, FMI_NC, 'c', 0, b, sizeof b, &o, 40 - n);
+                if (okS) n += FmiTrackFormat(g_fmi_ws, FMI_NS, 's', 0, b, sizeof b, &o, 40 - n);
+                if (okA) n += FmiTrackFormat(g_fmi_wa, FMI_NA, 'a', 0, b, sizeof b, &o, 40 - n);
+                if (!n) snprintf(b + o, sizeof b - o, " none");
+                lines++; Log("%s", b);
+            }
+        }
+        okA = a; okC = c; okS = s; pact = act; pactor = actor; t0 = t; have = a || c || s;
+        if (a) FmiTrackReset(g_fmi_wa, g_fmi_ca, FMI_NA);
+        if (c) FmiTrackReset(g_fmi_wc, g_fmi_cc, FMI_NC);
+        if (s) FmiTrackReset(g_fmi_ws, g_fmi_cs, FMI_NS);
+        return;
+    }
+    const int f = FmiFrame(t, t0);
+    if (a) FmiTrackStep(g_fmi_wa, g_fmi_ca, FMI_NA, f);
+    if (c) FmiTrackStep(g_fmi_wc, g_fmi_cc, FMI_NC, f);
+    if (s) FmiTrackStep(g_fmi_ws, g_fmi_cs, FMI_NS, f);
+}
+// IFRAMEPR: one line per tick while the player is in a non-looping action (record +0xE0 next != own id), max 150 per run and 6000 in total:
+// frame since the action start, the predicate mask, and the raw inputs that changed since the previous tick (all of them on frame 0).
+static void FmiLogTick(uint64_t ctrl, uint32_t act, double t, const FmiState* s) {
+    static uint32_t pact = 0xFFFFFFFF; static double t0; static int perRun, lines, told; static FmiState p;
+    if (!told) {
+        told = 1; uint64_t vt = 0, c0 = 0, c138 = 0, e0 = 0; Rd64(ctrl, &vt); if (vt) { Rd64(vt + 0xC0, &c0); Rd64(vt + 0x138, &c138); } Rd64(ctrl + 0xE0, &e0);
+        Log("IFRAMEPR start: ctrl vtbl %llX (+C0 %llX, +138 %llX; static base class 38FE698 / 2E9934 / F6878) ctrl+E0 == player %d, calls %d. Bits: 0 cannot0 1 cannot4 2 cannot9 3 r29ae0 4 a8b20 5 nodmgact 6 s48 7 s2dc8b31 8 ea0 9 ea1 10 eae 11 x15d8 12 isnodmg 13 nohit 14 cond4 15 armor 16 guardx 17 hurtoff; stripe set %X",
+            (unsigned long long)(vt ? vt - B : 0), (unsigned long long)(c0 ? c0 - B : 0), (unsigned long long)(c138 ? c138 - B : 0), e0 == g_fmct_player, s->called, (unsigned)FMI_STRIPE_MASK);
+    }
+    const int start = act != pact;
+    if (start) { pact = act; t0 = t; perRun = 0; }
+    if (!s->ok || act == 0xFFFF || (s->rec && s->next == (uint16_t)act) || perRun >= 150 || lines >= 6000) { p = *s; return; }
+    char b[700], nm[200]; int o; FmiNames(s->mask, nm, sizeof nm);
+    o = snprintf(b, sizeof b, "IFRAMEPR t %.1f act %u f %d m %05X %s", t, act, FmiFrame(t, t0), s->mask, nm);
+    if (start || perRun == 0) o += snprintf(b + o, sizeof b - o, " | rec %p q0 %016llX r18 %08X next %u recact %u", (void*)s->rec, (unsigned long long)s->q0, s->r18, s->next, s->recAct);
+    if (start || perRun == 0 || s->a8 != p.a8) o += snprintf(b + o, sizeof b - o, " a8=%llX", (unsigned long long)s->a8);
+    if (start || perRun == 0 || s->ae0 != p.ae0) o += snprintf(b + o, sizeof b - o, " ae0=%llX", (unsigned long long)s->ae0);
+    if (start || perRun == 0 || s->ea0 != p.ea0) o += snprintf(b + o, sizeof b - o, " ea0=%016llX", (unsigned long long)s->ea0);
+    if (start || perRun == 0 || s->eb0 != p.eb0) o += snprintf(b + o, sizeof b - o, " eb0=%016llX", (unsigned long long)s->eb0);
+    if (start || perRun == 0 || s->s2dc8 != p.s2dc8) o += snprintf(b + o, sizeof b - o, " s2dc8=%llX", (unsigned long long)s->s2dc8);
+    if (start || perRun == 0 || s->s48 != p.s48) o += snprintf(b + o, sizeof b - o, " s48=%u", s->s48);
+    if (start || perRun == 0 || s->abc0 != p.abc0 || s->adb1 != p.adb1) snprintf(b + o, sizeof b - o, " abc0=%u adb1=%u", s->abc0, s->adb1);
+    perRun++; lines++; p = *s;
+    Log("%s", b);
+}
 // [Debug] IFrameProbe 1: one log line whenever the player's action id or a candidate state word changes (ctrl+0xA8 / +0x1060 flag qwords,
 // the ctrl+0xEA0..0xEB2 state bytes, actor+0xABC0 / +0xADB1). Dodge in Practice, then read which bit follows the dodge window. Capped.
-static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t) {
+// #35411: also IFRAMEPR (per tick predicates) and IFRAMEWN (per run window scan). The older IFRAMEST / IFRAMEOB dumps need IFrameProbe 2.
+static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctrl, uint32_t act, double t, const FmiState* is) {
     static uint64_t pa8, p1060, pb0, pb1, pb2; static uint32_t pact; static int lines, told, hlines; static char psig[480];
     uint64_t a8 = 0, x1060 = 0, b0 = 0, b1 = 0, b2 = 0;
     if (!g_cfg_ifp || !actor || !ctrl) return;
     FmCtTick(actor, act, t);
+    FmiLogTick(ctrl, act, t, is);
+    FmiWindows(actor, ctrl, act, t);
     {   // hurtbox objects: one IFRAMEHB line when the set or a field changes
         FmHurt h; const int n = FmHurtScan(actor, &h);
         if (n >= 0 && strcmp(h.sig, psig) && hlines < 3000) {
@@ -285,7 +422,7 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
         enum { ST_A = 0x80 / 4, ST_B = 0x400 / 4, ST2_A = 0x2DC0 / 4, ST2_B = 0x2E00 / 4, CT_A = 0x7F0 / 4, CT_B = 0x820 / 4 };
         static uint32_t ps[ST_B], ps2[ST2_B - ST2_A], pc[CT_B - CT_A]; static int have, stlines; static uint32_t stAct;
         uint32_t cs[ST_B], cs2[ST2_B - ST2_A], cc[CT_B - CT_A]; uint64_t st = 0; int ok = 0;
-        if (act >= 10000 && act < 10200 && stlines < 2500 && Rd64(actor + 0x3A0, &st) && st) {
+        if (g_cfg_ifp >= 2 && act >= 10000 && act < 10200 && stlines < 2500 && Rd64(actor + 0x3A0, &st) && st) {
             __try {
                 for (int k = ST_A; k < ST_B; ++k) cs[k] = *(volatile uint32_t*)(st + (uint64_t)k * 4);
                 for (int k = ST2_A; k < ST2_B; ++k) cs2[k - ST2_A] = *(volatile uint32_t*)(st + (uint64_t)k * 4);
@@ -311,7 +448,7 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
         enum { NW = 0x100 / 4, NO = 4, PW = 0x40 / 4 };
         static uint32_t po[NO][NW], psh[NO][NW], ppt[NO][PW]; static uint64_t pobj[NO], pptr[NO]; static int obLines, perDodge; static uint32_t obAct;
         uint64_t pool = 0;
-        if (act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + 0x45C6F38, &pool) && pool) {
+        if (g_cfg_ifp >= 2 && act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + 0x45C6F38, &pool) && pool) {
             uint64_t objs[NO] = {0}, ptr[NO] = {0}; int no = 0;
             uint32_t co[NO][NW] = {{0}}, csh[NO][NW] = {{0}}, cpt[NO][PW] = {{0}}; int ok = 1;
             __try {
@@ -376,19 +513,25 @@ static void FmFeed(double gdt) {
     // player bar (user #22796): same sampler, same clock, fed from the player's g_fp entry
     if (!wantP) g_fmp_show = 0;
     else if (g_fp[FP_PL].valid) {
+        static FmiState fmiS;
         int active = g_fp[FP_PL].pulse, ub = g_fp[FP_PL].pulseUb, grab = g_fp[FP_PL].pulseGrab;
         for (int w = 0; w < FP_WIN; ++w) if (g_fpw[w].used && g_fpw[w].slot == FP_PL && g_fpw[w].act == g_fp[FP_PL].run.act) { active = 1; if (g_fpw[w].great) ub = 1; if (g_fpw[w].grab) grab = 1; }
         AcquireSRWLockExclusive(&g_fm_lock);
         FmSampleEx(&g_fmp, g_fm_clock, g_fp[FP_PL].run.act, active, ub, grab);
         {
-            static uint64_t hbActor; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
+            static uint64_t hbActor, hbActor2; static int hbBase, hbM18;  // hurtbox count seen outside i-frames for this actor (max seen); attack bits seen in its masks
             FmHurt h; const int hn = FmHurtScan(g_fp[FP_PL].a, &h);
             if (g_fp[FP_PL].a != hbActor) { hbActor = g_fp[FP_PL].a; hbBase = 0; hbM18 = 0; }
             if (hn > hbBase && !h.off) hbBase = hn;
             if (hn > 0 && (h.m18or & 0x440003Full)) hbM18 = 1;
-            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || FmHurtOff(&h, hn, hbBase, hbM18));
+            const int hoff = FmHurtOff(&h, hn, hbBase, hbM18);
+            static uint32_t seenOff;  // #35411 predicate bits seen OFF for this actor (FmiStripe)
+            if (g_fp[FP_PL].a != hbActor2) { hbActor2 = g_fp[FP_PL].a; seenOff = 0; }
+            FmiEval(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, hoff, &fmiS);
+            const int pred = fmiS.ok && FmiStripe(fmiS.mask, &seenOff);
+            FmMarkNoDmg(&g_fmp, g_fm_clock, FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred);
         }
-        FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
+        FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
             float pkt = 0.f, pki = 0.f, pt74 = -1.f;
