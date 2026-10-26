@@ -826,6 +826,186 @@ static int FmBit19(void) {
     }
     return b;
 }
+// 0x3EC0F4, EffectCreate 0x4CE90C, and 0x660B98 all use the entry stack. The stolen bytes run only after the logger returns.
+static uint64_t g_nm_start[5], g_nm_def[5], g_nm_obj[5];
+static int g_nm_start_hooked, g_nm_def_hooked, g_nm_obj_hooked;
+static float KiNowT74(void) {
+    float t = -1.f;
+    __try {
+        uint64_t a = g_fp[FP_PL].valid ? g_fp[FP_PL].a : 0, st = 0;
+        if (a && Rd64(a + 0x3A0, &st) && st) t = *(volatile float*)(st + 0x98 + 0x74);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { t = -1.f; }
+    return t;
+}
+static void KiHex32(uint64_t p, char* out) {
+    int i;
+    for (i = 0; i < 32; ++i) out[i * 2] = out[i * 2 + 1] = '0';
+    out[64] = 0;
+    if (p < 0x10000) return;
+    __try {
+        for (i = 0; i < 32; ++i) sprintf(out + i * 2, "%02X", ((volatile uint8_t*)p)[i]);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { out[0] = 0; }
+}
+static void KiStartLog(uint64_t entry, uint64_t state, uint64_t r8, uint64_t r9) {
+    static int lines, told, busy;
+    float t74; int r1, perfect; uint32_t buff = 0, from; uint64_t owner = 0;
+    (void)state; (void)r8; (void)r9;
+    if (busy) return;
+    busy = 1;
+    from = (uint32_t)(g_nm_start[4] - B);
+    t74 = KiNowT74();
+    r1 = FmPadRB();
+    perfect = r1 && FmKiPerfect(t74);
+    __try {
+        if (entry > 0x10000) { owner = *(volatile uint64_t*)(entry + 8); buff = *(volatile uint32_t*)(entry + 0x74); }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { owner = 0; buff = 0; }
+    if (lines >= 160) { if (!told) { told = 1; Log("KISTART cap 160"); } busy = 0; return; }
+    lines++;
+    Log("KISTART perfect %d t74 %.2f r1 %d fx 40060 buff %u owner %llX from %X",
+        perfect, t74, r1, buff, (unsigned long long)owner, from);
+    busy = 0;
+}
+static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
+    static int lines, told, busy;
+    float t74; int r1, perfect; uint32_t id, from; uint64_t def = 0, g = 0, table = 0; char hex[68];
+    typedef uint64_t (*Fn)(uint64_t, uint32_t);
+    (void)mgr; (void)out; (void)p4;
+    if (busy) return;
+    busy = 1;
+    id = (uint32_t)idreg;
+    from = (uint32_t)(g_nm_def[4] - B);
+    t74 = KiNowT74();
+    r1 = FmPadRB();
+    perfect = r1 && FmKiPerfect(t74);
+    if (Rd64(B + 0x45B9E30, &g) && g > 0x10000 && Rd64(g + 0x30, &table) && table > 0x10000) {
+        __try { def = ((Fn)(B + 0x1613D8))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
+    }
+    KiHex32(def, hex);
+    if (lines >= 80) { if (!told) { told = 1; Log("KIDEF cap 80"); } busy = 0; return; }
+    lines++;
+    Log("KIDEF perfect %d t74 %.2f r1 %d id %u def %llX from %X row %s",
+        perfect, t74, r1, id, (unsigned long long)def, from, hex);
+    busy = 0;
+}
+static void KiObjLog(uint64_t obj, uint64_t idreg, uint64_t r8, uint64_t r9) {
+    static int lines, told, busy;
+    float t74; int r1, perfect; uint32_t id, from; uint64_t row = 0; char hex[68];
+    typedef uint64_t (*Fn)(uint32_t);
+    (void)obj; (void)r8; (void)r9;
+    if (busy) return;
+    busy = 1;
+    id = (uint32_t)idreg;
+    from = (uint32_t)(g_nm_obj[4] - B);
+    t74 = KiNowT74();
+    r1 = FmPadRB();
+    perfect = r1 && FmKiPerfect(t74);
+    __try { row = ((Fn)(B + 0x66101C))(id); } __except (EXCEPTION_EXECUTE_HANDLER) { row = 0; }
+    KiHex32(row, hex);
+    if (lines >= 80) { if (!told) { told = 1; Log("KIOBJ cap 80"); } busy = 0; return; }
+    lines++;
+    Log("KIOBJ perfect %d t74 %.2f r1 %d id %X row %llX from %X bytes %s",
+        perfect, t74, r1, id, (unsigned long long)row, from, hex);
+    busy = 0;
+}
+static void KiCallStub(uint8_t* stub, int* at, uint64_t* save, void* fn) {
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0xBA; *(uint64_t*)(stub + *at) = (uint64_t)save; *at += 8;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x89; stub[(*at)++] = 0x0A;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x89; stub[(*at)++] = 0x52; stub[(*at)++] = 0x08;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x89; stub[(*at)++] = 0x42; stub[(*at)++] = 0x10;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x89; stub[(*at)++] = 0x4A; stub[(*at)++] = 0x18;
+    stub[(*at)++] = 0x48; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x04; stub[(*at)++] = 0x24;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x89; stub[(*at)++] = 0x42; stub[(*at)++] = 0x20;
+    stub[(*at)++] = 0x48; stub[(*at)++] = 0x83; stub[(*at)++] = 0xEC; stub[(*at)++] = 0x68;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x29; stub[(*at)++] = 0x44; stub[(*at)++] = 0x24; stub[(*at)++] = 0x20;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x29; stub[(*at)++] = 0x4C; stub[(*at)++] = 0x24; stub[(*at)++] = 0x30;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x29; stub[(*at)++] = 0x54; stub[(*at)++] = 0x24; stub[(*at)++] = 0x40;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x29; stub[(*at)++] = 0x5C; stub[(*at)++] = 0x24; stub[(*at)++] = 0x50;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x0A;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x52; stub[(*at)++] = 0x08;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x42; stub[(*at)++] = 0x10;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x4A; stub[(*at)++] = 0x18;
+    stub[(*at)++] = 0x48; stub[(*at)++] = 0xB8; *(uint64_t*)(stub + *at) = (uint64_t)fn; *at += 8;
+    stub[(*at)++] = 0xFF; stub[(*at)++] = 0xD0;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x28; stub[(*at)++] = 0x44; stub[(*at)++] = 0x24; stub[(*at)++] = 0x20;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x28; stub[(*at)++] = 0x4C; stub[(*at)++] = 0x24; stub[(*at)++] = 0x30;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x28; stub[(*at)++] = 0x54; stub[(*at)++] = 0x24; stub[(*at)++] = 0x40;
+    stub[(*at)++] = 0x0F; stub[(*at)++] = 0x28; stub[(*at)++] = 0x5C; stub[(*at)++] = 0x24; stub[(*at)++] = 0x50;
+    stub[(*at)++] = 0x48; stub[(*at)++] = 0x83; stub[(*at)++] = 0xC4; stub[(*at)++] = 0x68;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0xBA; *(uint64_t*)(stub + *at) = (uint64_t)save; *at += 8;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x0A;
+    stub[(*at)++] = 0x49; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x52; stub[(*at)++] = 0x08;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x42; stub[(*at)++] = 0x10;
+    stub[(*at)++] = 0x4D; stub[(*at)++] = 0x8B; stub[(*at)++] = 0x4A; stub[(*at)++] = 0x18;
+}
+static void KiPatchSite(uint8_t* site, int n, uint8_t* stub) {
+    DWORD old; int i;
+    uint8_t p[32];
+    memset(p, 0x90, sizeof p);
+    p[0] = 0x48; p[1] = 0xB8; *(uint64_t*)(p + 2) = (uint64_t)stub; p[10] = 0xFF; p[11] = 0xE0;
+    VirtualProtect(site, n, PAGE_EXECUTE_READWRITE, &old);
+    memcpy(site, p, n);
+    VirtualProtect(site, n, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, n);
+    (void)i;
+}
+static void KiFinish(uint8_t* stub, int* at, uint8_t* site, int n, const uint8_t* pro) {
+    memcpy(stub + *at, pro, n); *at += n;
+    stub[(*at)++] = 0xFF; stub[(*at)++] = 0x25; *(uint32_t*)(stub + *at) = 0; *at += 4;
+    *(uint64_t*)(stub + *at) = (uint64_t)(site + n);
+}
+static void FmNameInstall(void) {
+    static const uint8_t proS[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x18,0x57,0x48,0x81,0xEC,0xD0,0x00,0x00,0x00};
+    static const uint8_t proD[29] = {0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x88,0xFC,0xFF,0xFF,0x48,0x81,0xEC,0x38,0x04,0x00,0x00};
+    static const uint8_t proO[24] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xEC,0x30};
+    uint8_t* site; uint8_t* stub; int at, rel;
+    if (!g_nm_start_hooked) {
+        site = (uint8_t*)(B + 0x3EC0F4);
+        if (memcmp(site, proS, 15)) { g_nm_start_hooked = 2; Log("KISTART hook 3EC0F4: bytes differ"); }
+        else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_start_hooked = 2; Log("KISTART hook: no stub page"); }
+        else {
+            at = 0; KiCallStub(stub, &at, g_nm_start, (void*)KiStartLog); KiFinish(stub, &at, site, 15, proS);
+            KiPatchSite(site, 15, stub); g_nm_start_hooked = 1;
+            Log("KISTART hook 3EC0F4 on. Logs buff id, owner, and perfect on the 40060 start path.");
+        }
+    }
+    if (!g_nm_def_hooked) {
+        site = (uint8_t*)(B + 0x4CE90C);
+        if (memcmp(site, proD, 29)) { g_nm_def_hooked = 2; Log("KIDEF hook 4CE90C: bytes differ"); }
+        else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_def_hooked = 2; Log("KIDEF hook: no stub page"); }
+        else {
+            int jne;
+            at = 0;
+            stub[at++] = 0x41; stub[at++] = 0x81; stub[at++] = 0xF8; *(uint32_t*)(stub + at) = 0x9C7C; at += 4;
+            jne = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+            KiCallStub(stub, &at, g_nm_def, (void*)KiDefLog);
+            rel = at - (jne + 6); *(uint32_t*)(stub + jne + 2) = (uint32_t)rel;
+            KiFinish(stub, &at, site, 29, proD);
+            KiPatchSite(site, 29, stub); g_nm_def_hooked = 1;
+            Log("KIDEF hook 4CE90C on. Particle 40060 logs its definition row. Other effects are not logged.");
+        }
+    }
+    if (!g_nm_obj_hooked) {
+        site = (uint8_t*)(B + 0x660B98);
+        if (memcmp(site, proO, 24)) { g_nm_obj_hooked = 2; Log("KIOBJ hook 660B98: bytes differ"); }
+        else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_obj_hooked = 2; Log("KIOBJ hook: no stub page"); }
+        else {
+            int je1, je2, jmp;
+            at = 0;
+            stub[at++] = 0x81; stub[at++] = 0xFA; *(uint32_t*)(stub + at) = 0xA605B; at += 4;
+            je1 = at; stub[at++] = 0x0F; stub[at++] = 0x84; *(uint32_t*)(stub + at) = 0; at += 4;
+            stub[at++] = 0x81; stub[at++] = 0xFA; *(uint32_t*)(stub + at) = 0x73E5A; at += 4;
+            je2 = at; stub[at++] = 0x0F; stub[at++] = 0x84; *(uint32_t*)(stub + at) = 0; at += 4;
+            jmp = at; stub[at++] = 0xE9; *(uint32_t*)(stub + at) = 0; at += 4;
+            *(uint32_t*)(stub + je1 + 2) = (uint32_t)(at - (je1 + 6));
+            *(uint32_t*)(stub + je2 + 2) = (uint32_t)(at - (je2 + 6));
+            KiCallStub(stub, &at, g_nm_obj, (void*)KiObjLog);
+            *(uint32_t*)(stub + jmp + 1) = (uint32_t)(at - (jmp + 5));
+            KiFinish(stub, &at, site, 24, proO);
+            KiPatchSite(site, 24, stub); g_nm_obj_hooked = 1;
+            Log("KIOBJ hook 660B98 on. Logs A605B and 73E5A with the 66101C row.");
+        }
+    }
+}
 static void FmKiPressTick(void) {
     static KpRun run; static int lines, told; static uint32_t seen;
     float t74 = -1.f, pool = 0.f, stored = 0.f, ki = 0.f; int end80 = 0; int ok = 0;
@@ -837,6 +1017,7 @@ static void FmKiPressTick(void) {
     if (!g_kp_r1_hooked) FmR1Install();
     if (!g_kp_pick_hooked) FmPickInstall();
     if (!g_kirow_hooked) FmRowInstall();
+    FmNameInstall();
     if (a && Rd64(a + 0x3A0, &st) && st) {
         __try {
             t74 = *(volatile float*)(st + 0x98 + 0x74);
@@ -1018,6 +1199,7 @@ static void FmFeed(double gdt) {
     if (!wantP) g_fmp_show = 0;
     if (probe && !g_fp[FP_PL].valid) { static int toldP; if (!toldP) { toldP = 1; Log("IFRAMEPR: probe on, no player actor yet"); } }
     if (!g_kirow_hooked) FmRowInstall();
+    if (kpress) FmNameInstall();
     if (kpress) FmBuffTableDump();
     if (kpress && g_fp[FP_PL].valid) FmKiPressTick();
     if ((wantP || probe) && g_fp[FP_PL].valid) {
