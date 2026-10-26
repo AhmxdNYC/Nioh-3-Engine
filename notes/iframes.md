@@ -191,3 +191,23 @@ word, and count the player's enabled damage shapes per tick.
   on the pump thread (first FmIFrameProbe call). The original runs first and nothing is written to game memory.
 - What to check: IFrameProbe 1. (a) Let a boss hit you once while standing: that should give `IFRAMECT .. queued >= 1`. (b) Dodge through 5 attacks:
   read IFRAMECT during act 10015-10042 (no line = no contact at all). Send the log. The stripe rule is unchanged.
+
+## PC test of 1bfef492: contacts happen, every dodge contact is rejected
+- Standing: e.g. act 2000 `contacts 4 queued 1 rejected 3` (several shapes per tick, one hit gets queued). In dodges 10000-10199: 636 lines, all
+  `queued 0` (rejected 1-6). Some non-dodge lines are q0 too (act 4088).
+- Reject exits of 117A6D0, in order (from the decompile, `def` = dmgObj+8, `H` = atkObj+0xB0, `row` = [H]):
+  1. def+0xABC0 != 0
+  2. ctrl+0xEB1 (NoHitInvincible)
+  3. team block (attacker is a character): def+0xADB1; same side + 0xA5F20; both side 2; row+0x92 type 6/7 with another side;
+     attacker side 0 && def+0xAB84 != -1; both side 0 && !IsNoDamage && 0x402D88 != 5
+  4. dmgObj+0xB0 def type 0x17 / 0x19
+  5. row+0x48 bit 9; bit 6 (only its own target); bit 12 && !0x8AB924(def)
+  6. row+0x48 bit 24 (with def+0xAB84 / side)
+  7. row+0x4C bit 0: grab / owner chains (ctrl+0xB68, ctrl+0x668)
+  8. row+0x48 bits 7/8/14/10/13/15/28/31/30 and row+0x44 bit 24 (state conditions on def)
+  9. 0x9B4B2C (row+0x92 >= 0, attack-type special cases)
+  10. hit cap: (int8)row+0x21 vs H+0xE4
+  11. **hit history**: 0x2B44C4(defAI, atkObj) = the attack (owner, hit group) is already in defAI+0x78
+  12. row+0x44 bit 9; dmgObj+0xD4 & 0x6000 (front / back only)
+  13. otherwise the hit goes to the queue push 0x7897B0 -> 0x789844. The push merges a contact into an existing entry with the same
+      attacker / defender / hit group in the same tick (returns 0 = no new entry). That explains standing `4 contacts, 1 queued`.
