@@ -134,6 +134,12 @@ static inline int64_t FmViewStart(const FmMeter* m) {
 static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 31.f; }
 // #36095: the game's perfect flag is on while this same timer is in (0, 4]. Same floor as the open window.
 static inline int FmKiPerfect(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 4.f; }
+// 0 off, 1 a Practice session, 2 the player row with no boss. KiWindow or PlayerFrameMeter is enough for the field row.
+static inline int FmScope(int wantB, int wantP, int live) {
+    if (live && (wantB || wantP)) return 1;
+    if (wantP) return 2;
+    return 0;
+}
 // Stamp this sample onto the current cell and any cells the meter just filled across a hitch.
 // mark is 0 closed, 1 the rest of the bar, 2 the perfect end.
 static inline void FmMarkKiWin(FmMeter* m, double t, int mark) {
@@ -196,6 +202,16 @@ static inline int FmKiPulseStep2(FmPulseWatch* w, float t74, float pool, float k
     int hit = w->have && FmKiPulseLanded2(w->t74, t74, w->pool, w->ki, ki);
     w->have = 1; w->t74 = t74; w->pool = pool; w->ki = ki;
     return hit;
+}
+// #36086 idle refill: the window is already closed and the after-time is 0, so a Ki rise to the cap is not a press.
+// 0 = not a press, 1 = full window, 2 = perfect (previous timer <= 4).
+static inline int FmKiPulseGrade(float pt74, float t74, float pki, float ki, float slop, float pt7c) {
+    if (!(pt74 == pt74 && t74 == t74 && pki == pki && ki == ki)) return 0;
+    if (pt74 < 0.f || pt74 > 31.f) return 0;
+    if (t74 > -0.5f || t74 < -1.5f) return 0;
+    if (ki - pki < (pt74 > 0.f ? 1.f : 8.f)) return 0;
+    if (pt74 <= 0.f && !(pt7c > 0.f)) return 0;
+    return pt74 <= 4.f + slop ? 2 : 1;
 }
 static inline int FmKiPulseRecent(const FmMeter* m, int64_t g, int span) {
     int64_t k, from;

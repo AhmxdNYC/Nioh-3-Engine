@@ -81,3 +81,7 @@ No press in this log has t74 between 4 and 8. The code rule is <=4. The meter sl
 ## Meter slice (#36098)
 
 The player Ki bar stays blue for the open window. Cells where K+0x74 is in (0.05, 4] are a second color, cyan. The mark is 2 in `kiwin`. It is the timer, not a fixed 4-cell width. Not installed. The game stays closed.
+
+## No boss (#36186)
+
+#2450 did not draw in an empty field because the overlay required a Practice session. Scope 2 draws the player row when KiWindow or PlayerFrameMeter is on and there is no boss. The boss row still needs a session. An idle refill to 1153 with the window closed and no after-time is not a press (`FmKiPulseGrade` returns 0). The game stays closed.

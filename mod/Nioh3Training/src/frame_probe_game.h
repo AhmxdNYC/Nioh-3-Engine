@@ -144,7 +144,7 @@ int FmIFrameProbeOn(void);  // frame_meter_game.h. 1 when [Debug] IFrameProbe is
 int FmKiPressOn(void);      // frame_meter_game.h. 1 when [Debug] KiPressProbe is on.
 static void FpPlayerTick(double now, double gdt) {
     const int s = FP_PL; static int bad;
-    const uint64_t a = ((g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live) || FmIFrameProbeOn() || FmKiPressOn() ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
+    const uint64_t a = (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) || FmIFrameProbeOn() || FmKiPressOn() ? PlayerChar() : 0; uint64_t ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
     if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = g_fp[s].ctrl = 0; return; }
     if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = 0; }
     g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;
@@ -154,7 +154,7 @@ static void FpPlayerTick(double now, double gdt) {
 }
 // Pump (game thread, every frame): action changes of every Training boss, and the end of open hit windows.
 static void FpTick(void) {
-    if (!g_fp_hooked && (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live) FpInstall();  // frame meter switched ON in the menu (game thread, like the other Practice hooks)
+    if (!g_fp_hooked && ((g_pst.v[PS_FRAME_METER] && g_pst_live) || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW])) FpInstall();  // #36186 the player row also runs with no boss
     if (g_fp_hooked != 1) return;
     g_fp_frame++;
     if (!FpLock()) return;

@@ -46,15 +46,25 @@ static __attribute__((noinline)) int FmPlayerKiOpen(uint64_t actor) {
     __try { kt = *(volatile float*)(st + 0x98 + 0x74); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
     return FmKiWindowOpen(kt);
 }
+static __attribute__((noinline)) int FmKpCtrl(uint64_t actor, uint64_t ctrl, uint64_t* x1060, int* same) {
+    uint64_t a = 0;
+    *x1060 = 0; *same = 0;
+    if (!ctrl) return 0;
+    __try { *x1060 = *(volatile uint64_t*)(ctrl + 0x1060); a = *(volatile uint64_t*)(ctrl + 0xE0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    *same = a == actor;
+    return 1;
+}
 // KiTick +0x5C and current Ki. Read only. 1 on the tick a pulse lands (see FmKiPulseStep).
 // v2: window K+0x74, pool K+0x5C, Ki status+0xAC (see FmKiPulseStep2).
 static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktOut, float* kiOut, float* t74Out) {
     static uint64_t who = 0;
     static FmPulseWatch w;
+    static float pt7c = -1.f, pstored = 0.f;
     uint64_t st = 0;
-    float kt = 0.f, ki = 0.f, t74 = -1.f, pt74, ppool, pki;
+    float kt = 0.f, ki = 0.f, t74 = -1.f, t7c = -1.f, stored = 0.f, pt74, ppool, pki;
     int landed = 0;
-    if (!actor || actor != who) { who = actor; memset(&w, 0, sizeof w); }
+    if (!actor || actor != who) { who = actor; memset(&w, 0, sizeof w); pt7c = -1.f; }
     if (ktOut) *ktOut = 0.f;
     if (kiOut) *kiOut = 0.f;
     if (t74Out) *t74Out = -1.f;
@@ -63,12 +73,25 @@ static __attribute__((noinline)) int FmPlayerKiLanded(uint64_t actor, float* ktO
         kt = *(volatile float*)(st + 0x98 + 0x5C);
         t74 = *(volatile float*)(st + 0x98 + 0x74);
         ki = *(volatile float*)(st + 0xAC);
+        t7c = *(volatile float*)(st + 0x98 + 0x7C);
+        stored = *(volatile float*)(st + 0x98 + 0x58);
     } __except (EXCEPTION_EXECUTE_HANDLER) { memset(&w, 0, sizeof w); return 0; }
     if (ktOut) *ktOut = kt;
     if (kiOut) *kiOut = ki;
     if (t74Out) *t74Out = t74;
     pt74 = w.t74; ppool = w.pool; pki = w.ki;
     landed = FmKiPulseStep2(&w, t74, kt, ki);
+    {
+        const int grade = FmKiPulseGrade(pt74, t74, pki, ki, 1.f, pt7c);
+        if (grade) {
+            uint64_t ai = 0, ctrl = 0, x1060 = 0; int same = 0, cok = 0;
+            if (Rd64((uintptr_t)actor + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl) cok = FmKpCtrl(actor, ctrl, &x1060, &same);
+            Log("KI PULSE grade %s: window %.2f -> %.2f, after-time %.2f -> %.2f, stored %.1f -> %.1f, Ki %.1f -> %.1f (+%.1f), pool %.1f, x1060 %016llX bit19 %d (%s)",
+                grade == 2 ? "perfect" : "full", pt74, t74, pt7c, t7c, pstored, stored, pki, ki, ki - pki, ppool,
+                (unsigned long long)x1060, (int)((x1060 >> 0x19) & 1), !cok ? "ctrl unread" : same ? "ctrl ok" : "ctrl+0xE0 != actor");
+        }
+    }
+    pt7c = t7c; pstored = stored;
     if (landed) Log("KI PULSE land: window %.1f -> %.1f, pool %.1f -> %.1f, Ki %.1f -> %.1f", pt74, t74, ppool, kt, pki, ki);
     return landed;
 }
@@ -591,8 +614,10 @@ static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
     const int probe = g_cfg_ifp != 0;
     const int kpress = g_cfg_kipress != 0;
-    if ((!wantB && !wantP && !probe && !kpress) || (!g_pst_live && !probe && !kpress)) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
-    if (g_pst_live && !g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
+    const int scope = FmScope(wantB, wantP, g_pst_live != 0);
+    { static int pScope = -1; if (scope != pScope) { pScope = scope; Log("FRAME METER: scope %d (0 off, 1 session, 2 player row with no boss)", scope); } }
+    if (scope == 0 && !probe && !kpress) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
+    if (scope && !g_fm_thread && InterlockedExchange(&g_fm_thread, 1) == 0) { HANDLE t = CreateThread(0, 0, FmThread, 0, 0, 0); if (t) CloseHandle(t); else Log("FRAME METER: draw thread failed (%lu)", GetLastError()); }
     if (probe && !g_pst_live) { static int told; if (!told) { told = 1; Log("IFRAMEPR: logging in the field with no Practice session"); } }
     double dt = gdt;
     if (dt < 0) dt = 0; if (dt > 150) dt = 150;
@@ -656,7 +681,7 @@ static void FmFeed(double gdt) {
         g_fmp_show = 1;
     }
     g_fp[FP_PL].pulse = g_fp[FP_PL].pulseUb = g_fp[FP_PL].pulseGrab = 0;
-    if (!wantB) { g_fm_ki_show = 0; g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = g_fp[i].pulseGrab = 0; InterlockedIncrement(&g_fm_ver); return; }
+    if (!wantB || scope == 2) { g_fm_ki_show = 0; g_fm_show = 0; g_fm_slot = -1; for (int i = 0; i < N3T_SLOTS; ++i) g_fp[i].pulse = g_fp[i].pulseUb = g_fp[i].pulseGrab = 0; InterlockedIncrement(&g_fm_ver); return; }
     int valid[N3T_SLOTS], busy[N3T_SLOTS];
     for (int i = 0; i < N3T_SLOTS; ++i) {
         valid[i] = g_fp[i].valid; busy[i] = g_fp[i].valid && (g_fp[i].pulse || g_fp[i].pulseUb);
@@ -903,7 +928,8 @@ static DWORD WINAPI FmThread(LPVOID p) {
         const int gameOk = g_fm_game && !IsIconic(g_fm_game);
         const int fg = gameOk && GetForegroundWindow() == g_fm_game;
         const int menu = GateMenuOpen();
-        const int want = (g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_pst_live && FmPanels() && gameOk && fg && !menu;
+        const int scope = FmScope(g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW], g_pst_live != 0);
+        const int want = scope && FmPanels() && gameOk && fg && !menu;
         if (have) {
             static int toldOn, toldWhy;
             if (want && !toldOn) { toldOn = 1; Log("FRAME METER: on screen"); }
