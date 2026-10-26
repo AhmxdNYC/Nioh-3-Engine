@@ -236,3 +236,16 @@ word, and count the player's enabled damage shapes per tick.
     file only actions 10081-10096, 1476 and 1480 have it, not 10015-10042. Also status+0x48 == 1 together with row bit 1.
   - The guard path (+0x1E0 == 2, defence state 0x2A34F8).
 - Next: a log-only hook on 0x78A7F0 that logs the damage object's result fields for player hits.
+- The 207 non-dodge rejects with hist = 0 are most likely the queue merge in 0x789844. Contacts of the same attacker / defender / hit group
+  in the same tick fold into one queue entry (0x789844 returns 0). The hit history is written only when the queue is processed later
+  that frame. This matches "standing: 4 contacts, 1 queued, 3 rejected".
+
+## Build 23dc9fb4 (this commit): IFRAMEDM damage-pipeline probe
+- Hook on 0x78A7F0 (entry `push rbx / sub rsp,20h / mov rbx,rcx / call 78AC18`). The trampoline rebuilds those 3 instructions and calls 78AC18
+  through rax (it is a rel32 call, so it cannot be copied), then jumps to 78A7FE. hookcheck entry 78A7F0: 1 direct caller (78A4B5), must preserve [].
+  Installed only with IFrameProbe 1. The original runs, and nothing is written to game memory.
+- One line per hit on the player (max 1500): `IFRAMEDM t act state-id nodmg(+0x2A0) f14c 1e0 1e4 1ec 1fc guard282 286 28e 29e 2ae atk row0 |
+  rec0 (bit35) rec18 stat48 s2dc8 ea0 ea1 eae ae0 a8`. The defender inputs are read before the original runs.
+- What to check: IFrameProbe 1. One normal hit while standing (nodmg 0), then 5 dodges through attacks (the first contact of each dodge
+  gives an IFRAMEDM line with nodmg 1). The field that is set only on the dodge lines is the i-frame rule. Strong candidates: `f14c`
+  (0 = 78A7F0 skips the damage calc), `1e0` / `1e4`, `stat48`, `rec0 bit35`, `rec18` bit 29 with `ae0`.

@@ -170,10 +170,69 @@ static void FmCtInstall(void) {
     o_fmct = (FmCtFn)Hook(0x117A6D0, 16, (void*)FmCtDetour); g_fmct_hooked = 1;
     Log("IFRAMECT hook 117A6D0: on (log only, [Debug] IFrameProbe 1)");
 }
+// #35176 damage-pipeline probe (log only, IFrameProbe 1). 78A7F0(dmg) = evaluate a queued hit: 78AC18 (can be damaged) + dmg+0x14C, then 326C94
+// (damage / reaction), else dmg+0x2A0 = 1 (no damage). Its entry has a rel32 call at +9, so the trampoline re-creates the first 3 instructions
+// and calls 78AC18 by absolute address, then jumps back to 78A7FE. hookcheck entry 78A7F0: 1 direct caller (78A4B5), must preserve [].
+// After the original returns, one IFRAMEDM line per hit on the player: the result fields and the defender inputs the no-damage paths read.
+typedef void (*FmDmFn)(uint64_t);
+static FmDmFn o_fmdm; static volatile LONG g_fmdm_hooked, g_fmdm_lines;
+__attribute__((used)) static void FmDmDetour(uint64_t dmg) {
+    const uint64_t pl = g_fmct_player; uint64_t def = 0, ctrl = 0, st = 0, stat = 0, rec = 0, rq = 0; uint32_t rec18 = 0, stat48 = 0, s2dc8 = 0, id = 0;
+    uint8_t ea0 = 0, ea1 = 0, eae = 0; uint64_t ae0 = 0, a8 = 0;
+    int mine = 0;
+    __try {
+        def = *(volatile uint64_t*)(dmg + 0x1C8);
+        mine = pl && def == pl;
+        if (mine) {
+            const uint64_t ai = *(volatile uint64_t*)(def + 0x3B0); ctrl = ai ? *(volatile uint64_t*)(ai + 8) : 0;
+            stat = *(volatile uint64_t*)(def + 0x3A0);
+            if (stat) { stat48 = *(volatile uint32_t*)(stat + 0x48); s2dc8 = *(volatile uint32_t*)(stat + 0x2DC8); }
+            if (ctrl) {
+                st = *(volatile uint64_t*)(ctrl + 0xE8); if (st) { id = *(volatile uint32_t*)st; rec = *(volatile uint64_t*)(st + 0x20); }
+                if (rec) { rq = *(volatile uint64_t*)rec; rec18 = *(volatile uint32_t*)(rec + 0x18); }
+                ea0 = *(volatile uint8_t*)(ctrl + 0xEA0); ea1 = *(volatile uint8_t*)(ctrl + 0xEA1); eae = *(volatile uint8_t*)(ctrl + 0xEAE);
+                ae0 = *(volatile uint64_t*)(ctrl + 0xAE0); a8 = *(volatile uint64_t*)(ctrl + 0xA8);
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { mine = 0; }
+    o_fmdm(dmg);
+    if (!mine || InterlockedIncrement(&g_fmdm_lines) > 1500) return;
+    uint8_t nod = 0, f14c = 0, f282 = 0, f286 = 0, f28e = 0, f29e = 0, f2ae = 0; int32_t r1e0 = -9, r1e4 = -9, r1ec = -9, r1fc = -9; uint64_t row0 = 0, atk = 0;
+    __try {
+        nod = *(volatile uint8_t*)(dmg + 0x2A0); f14c = *(volatile uint8_t*)(dmg + 0x14C); f282 = *(volatile uint8_t*)(dmg + 0x282); f286 = *(volatile uint8_t*)(dmg + 0x286);
+        f28e = *(volatile uint8_t*)(dmg + 0x28E); f29e = *(volatile uint8_t*)(dmg + 0x29E); f2ae = *(volatile uint8_t*)(dmg + 0x2AE);
+        r1e0 = *(volatile int32_t*)(dmg + 0x1E0); r1e4 = *(volatile int32_t*)(dmg + 0x1E4); r1ec = *(volatile int32_t*)(dmg + 0x1EC); r1fc = *(volatile int32_t*)(dmg + 0x1FC);
+        atk = *(volatile uint64_t*)(dmg + 0x198);
+        { const uint64_t r = *(volatile uint64_t*)(dmg + 0x190); if (r) row0 = *(volatile uint64_t*)r; }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    Log("IFRAMEDM t %.1f act %u state-id %u nodmg %u f14c %u 1e0 %d 1e4 %d 1ec %d 1fc %d guard282 %u 286 %u 28e %u 29e %u 2ae %u atk %p row0 %llX | rec0 %016llX (bit35 %u) rec18 %X stat48 %u s2dc8 %X ea0 %u ea1 %u eae %u ae0 %llX a8 %016llX",
+        g_fmct_t, g_fmct_act, id, nod, f14c, r1e0, r1e4, r1ec, r1fc, f282, f286, f28e, f29e, f2ae, (void*)atk, (unsigned long long)row0,
+        (unsigned long long)rq, (unsigned)(rq >> 35 & 1), rec18, stat48, s2dc8, ea0, ea1, eae, (unsigned long long)ae0, (unsigned long long)a8);
+}
+static void FmDmInstall(void) {
+    static const uint8_t pro[14] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8, 0x1A, 0x04, 0x00, 0x00};
+    if (g_fmdm_hooked) return;
+    uint8_t* site = (uint8_t*)(B + 0x78A7F0);
+    if (memcmp(site, pro, sizeof pro)) { g_fmdm_hooked = 2; Log("IFRAMEDM hook 78A7F0: bytes differ, probe off"); return; }
+    uint8_t* tr = (uint8_t*)VirtualAlloc(0, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!tr) { g_fmdm_hooked = 2; return; }
+    int k = 0;
+    memcpy(tr, pro, 9); k = 9;                                                             // push rbx / sub rsp,20h / mov rbx,rcx
+    tr[k++] = 0x48; tr[k++] = 0xB8; *(uint64_t*)(tr + k) = (uint64_t)(B + 0x78AC18); k += 8; // mov rax, 78AC18
+    tr[k++] = 0xFF; tr[k++] = 0xD0;                                                        // call rax
+    tr[k++] = 0xFF; tr[k++] = 0x25; *(uint32_t*)(tr + k) = 0; k += 4; *(uint64_t*)(tr + k) = (uint64_t)(B + 0x78A7FE); k += 8;  // jmp [rip] -> 78A7FE
+    o_fmdm = (FmDmFn)tr;
+    DWORD old; VirtualProtect(site, 14, PAGE_EXECUTE_READWRITE, &old);
+    uint8_t pt[14]; pt[0] = 0x48; pt[1] = 0xB8; *(uint64_t*)(pt + 2) = (uint64_t)(void*)FmDmDetour; pt[10] = 0xFF; pt[11] = 0xE0; pt[12] = 0x90; pt[13] = 0x90;
+    memcpy(site, pt, 14);
+    VirtualProtect(site, 14, old, &old); FlushInstructionCache(GetCurrentProcess(), site, 14);
+    g_fmdm_hooked = 1; Log("IFRAMEDM hook 78A7F0: on (log only, [Debug] IFrameProbe 1)");
+}
 // Pump side: one IFRAMECT line per tick with player contacts (max 3000).
 static void FmCtTick(uint64_t actor, uint32_t act, double t) {
     static LONG pc, pq; static int lines;
     if (g_fmct_hooked == 0) FmCtInstall();
+    if (g_fmdm_hooked == 0) FmDmInstall();
     g_fmct_player = actor; g_fmct_act = act; g_fmct_t = t;
     if (g_fmct_hooked != 1) return;
     const LONG c = g_fmct_pl, q = g_fmct_plq, dc = c - pc, dq = q - pq; pc = c; pq = q;
