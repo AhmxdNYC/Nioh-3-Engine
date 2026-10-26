@@ -100,6 +100,7 @@ int main() {
     CHECK(countOf(PageRows(rows, false), kXTS, kXWS, kXTS, kXWS) == 0);
     CHECK(countOf(PageRows(rows, false), kLat, kXIK, kVrr, kVrr) == 3);  // performance rows stay on Settings
     g_pages.page = pDisplay;
+    PageRows(rows, true);  // rows was overwritten by the Settings listing above
     int pad = -1, padX = -1, padY = -1, padSize = -1, padOp = -1, padColor = -1;
     for (int i = 0; i < kConfigN; ++i) {
         const char* key = kConfigSettings[i].key;
