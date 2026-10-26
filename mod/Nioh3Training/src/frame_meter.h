@@ -26,7 +26,7 @@ typedef struct {
     double ws[FM_MAXW], we[FM_MAXW]; uint8_t wub[FM_MAXW];
     FmSum cur, last; int haveLast;
     uint8_t frozen[FM_CELLS]; int frozenN;  // the last completed attack as drawn when it ended (its first cell first)
-    uint8_t kiwin[FM_CELLS];                // 1 while the player Ki Pulse bar (KiTick K+0x74) was open on that cell
+    uint8_t kiwin[FM_CELLS];                // 0 closed, 1 open, 2 perfect (K+0x74 in (0.05, 4]) on that cell
     int64_t kiwinCell;                      // last global cell stamped into kiwin (-1 = none)
     uint8_t kiwinFrozen[FM_CELLS]; int kiwinFrozenN;
     uint8_t kipulse[FM_CELLS];              // 1 on the cell where a Ki pulse landed
@@ -132,8 +132,11 @@ static inline int64_t FmViewStart(const FmMeter* m) {
 }
 // KiTick K+0x74 counts down from about 30. Closed at 0 and below, and a stuck high timer is not the window.
 static inline int FmKiWindowOpen(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 31.f; }
+// #36095: the game's perfect flag is on while this same timer is in (0, 4]. Same floor as the open window.
+static inline int FmKiPerfect(float kt74) { return kt74 == kt74 && kt74 > 0.05f && kt74 <= 4.f; }
 // Stamp this sample onto the current cell and any cells the meter just filled across a hitch.
-static inline void FmMarkKiWin(FmMeter* m, double t, int open) {
+// mark is 0 closed, 1 the rest of the bar, 2 the perfect end.
+static inline void FmMarkKiWin(FmMeter* m, double t, int mark) {
     if (m->lastCell < 0) return;
     const int64_t g = FmCellOf(t);
     if (g < 0 || g > m->lastCell) return;
@@ -141,7 +144,8 @@ static inline void FmMarkKiWin(FmMeter* m, double t, int open) {
     if (from > g) from = g;
     if (from < g - (FM_CELLS - 1)) from = g - (FM_CELLS - 1);
     if (from < 0) from = 0;
-    for (int64_t k = from; k <= g; ++k) m->kiwin[k % FM_CELLS] = open ? 1 : 0;
+    const uint8_t v = (uint8_t)(mark == 2 ? 2 : mark ? 1 : 0);
+    for (int64_t k = from; k <= g; ++k) m->kiwin[k % FM_CELLS] = v;
     m->kiwinCell = g;
 }
 // Same index as FmViewCell. 1 = that cell was inside the Ki Pulse bar.

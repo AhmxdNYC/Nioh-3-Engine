@@ -135,7 +135,9 @@ int main(void) {
     // Ki window (#34558): KiTick K+0x74 closed at <=0 and above 31, open from just above 0 through 31.
     { float bad; memset(&bad, 0xFF, sizeof bad);
       assert(!FmKiWindowOpen(-1.f) && !FmKiWindowOpen(0.f) && !FmKiWindowOpen(0.05f) && !FmKiWindowOpen(31.1f) && !FmKiWindowOpen(bad));
-      assert(FmKiWindowOpen(0.06f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(31.f)); }
+      assert(FmKiWindowOpen(0.06f) && FmKiWindowOpen(30.f) && FmKiWindowOpen(31.f));
+      assert(FmKiPerfect(0.06f) && FmKiPerfect(2.31f) && FmKiPerfect(4.f));
+      assert(!FmKiPerfect(0.f) && !FmKiPerfect(0.05f) && !FmKiPerfect(4.01f) && !FmKiPerfect(15.47f) && !FmKiPerfect(bad)); }
     FmReset(&m); t = 0;
     FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1); assert(FmViewKiWin(&m, 0) == 1);
     for (int i = 0; i < 20; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 0); }
@@ -144,6 +146,13 @@ int main(void) {
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
     FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) n += FmViewKiWin(&m, i); assert(n >= 30 && n <= 32); }
+    // #36098: the perfect end of the bar is mark 2, and it stays after the action ends.
+    FmReset(&m); t = 0;
+    FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1);
+    for (int i = 0; i < 4; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 2); }
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
+    FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
+    { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
     // Landed Ki pulse (#34866): +0x5C near 54 jumping by 40 or more, with Ki moving by 20 or more.
     assert(FmKiPulseLanded(53.94f, 133.43f, 1019.5f, 921.1f));
     assert(!FmKiPulseLanded(-1.f, 53.94f, 1153.f, 1019.5f));

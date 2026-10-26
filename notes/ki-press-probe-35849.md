@@ -68,3 +68,7 @@ t74 15.47 at frame 29: b19=0, x1060=05004000, grade full, dKi 27.9.
 Same effect both times: fx 800650 from 3EA5A5.
 
 On these four presses bit 19 matches t74<=4. The effect id did not change. The earlier miss returned about 95.8, which is more than these perfect presses, so the flag is not the largest Ki number. One refill at 1153 had the window off and b19 0.
+
+## Meter slice (#36098)
+
+The player Ki bar stays blue for the open window. Cells where K+0x74 is in (0.05, 4] are a second color, cyan. The mark is 2 in `kiwin`. It is the timer, not a fixed 4-cell width. Not installed. The game stays closed.

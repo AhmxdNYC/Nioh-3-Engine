@@ -630,7 +630,7 @@ static void FmFeed(double gdt) {
             int landed = FmPlayerKiLanded(g_fp[FP_PL].a, &pkt, &pki, &pt74);
             const int edge = open && !wasOpen;
             wasOpen = open;
-            FmMarkKiWin(&g_fmp, g_fm_clock, open);
+            FmMarkKiWin(&g_fmp, g_fm_clock, open ? (FmKiPerfect(pt74) ? 2 : 1) : 0);
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
             {
@@ -715,6 +715,7 @@ static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_MET
 static int FmPlayerRow(void) { return (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fmp_show; }
 static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmKiShown(); }
 #define FM_KIWIN_RGB RGB(16,44,168)
+#define FM_KIPERF_RGB RGB(64,232,214)
 #define FM_NODMG_RGB RGB(255,206,48)  // #35176 i-frame stripe (gold), top third of the cell
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
@@ -751,8 +752,8 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     FmFill(dc,x0-1,by-1,barW+2,barH+2,RGB(41,50,65));
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
         const uint8_t c=FmViewCell(&m,viewStart+i);
-        const int win=kiStripe && FmViewKiWin(&m,viewStart+i);
-        FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win?FM_KIWIN_RGB:FmColor(c&0x7F));
+        const int win=kiStripe ? FmViewKiWin(&m,viewStart+i) : 0;
+        FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
         if(!win && (c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
         if(noDmg && FmViewNoDmg(&m,viewStart+i)) FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH/3>2?barH/3:2,FM_NODMG_RGB);
@@ -761,11 +762,11 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     // Centre within its LAST coloured cell, excluding the separator.
     for(int first=0;first<FM_CELLS;) {
         const uint8_t st=FmViewCell(&m,first)&0x7F;
-        const int win=kiStripe && FmViewKiWin(&m,first);
+        const int win=kiStripe ? FmViewKiWin(&m,first) : 0;
         int end=first+1;
         while(end<FM_CELLS) {
             const uint8_t next=FmViewCell(&m,end);
-            const int nwin=kiStripe && FmViewKiWin(&m,end);
+            const int nwin=kiStripe ? FmViewKiWin(&m,end) : 0;
             if((next&0x7F)!=st || (next&FM_EDGE) || nwin!=win) break;
             ++end;
         }
@@ -794,7 +795,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
-static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 1 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0); }
+static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 2 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0); }
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
@@ -806,10 +807,10 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","No damage (i-frame)"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB};
-    int use[14]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0;
-    int idx[14], n=0; for(int i=0;i<14;++i) if(use[i]) idx[n++]=i;
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","No damage (i-frame)","Perfect"};
+    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB};
+    int use[15]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0;
+    int idx[15], n=0; for(int i=0;i<15;++i) if(use[i]) idx[n++]=i;
     int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
