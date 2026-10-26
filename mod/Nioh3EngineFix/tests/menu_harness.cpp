@@ -47,12 +47,13 @@ int MatchPreset() { return 0; }
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
-int g_fm = 0;
-int HarnessPstGet(int what) { return what == 7 ? g_fm : -1; }
+int g_fm = 0, g_kw = 0;
+int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : -1; }
 int HarnessPstSet(int what, int value, int) {
-    if (what != 7) return -1;
-    g_fm = value < 0 ? !g_fm : (value ? 1 : 0);
-    return g_fm;
+    int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : nullptr;
+    if (!p) return -1;
+    *p = value < 0 ? !*p : (value ? 1 : 0);
+    return *p;
 }
 namespace host_fixture {
 namespace mb = rematch_menu_bridge;
@@ -98,11 +99,13 @@ int main() {
         else if (!strcmp(key, "ControllerDisplayPressColor")) padColor = i;
     }
     CHECK(pad >= 0 && padX >= 0 && padY >= 0 && padSize >= 0 && padOp >= 0 && padColor >= 0);
-    bool sawFps = false, sawMeter = false, sawLook = false, sawPad = false, sawX = false, sawY = false;
+    bool sawFps = false, sawMeter = false, sawKi = false, sawLook = false, sawPad = false, sawX = false, sawY = false;
+    int meterAt = -1, kiAt = -1;
     bool sawSize = false, sawOp = false, sawColor = false;
     for (int i = 0; i < disp; ++i) {
         if (rows[i] == kFps) sawFps = true;
-        if (rows[i] == kFrameMeterRow) sawMeter = true;
+        if (rows[i] == kFrameMeterRow) { sawMeter = true; meterAt = i; }
+        if (rows[i] == kKiWindowRow) { sawKi = true; kiAt = i; }
         if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
         if (rows[i] == kSettingRow + pad) sawPad = true;
         if (rows[i] == kSettingRow + padX) sawX = true;
@@ -111,7 +114,7 @@ int main() {
         if (rows[i] == kSettingRow + padOp) sawOp = true;
         if (rows[i] == kSettingRow + padColor) sawColor = true;
     }
-    CHECK(sawFps && sawMeter && sawPad && sawX && sawY && sawSize && sawOp && sawColor && !sawLook);
+    CHECK(sawFps && sawMeter && sawKi && kiAt == meterAt + 1 && sawPad && sawX && sawY && sawSize && sawOp && sawColor && !sawLook);
     CHECK(rows[disp - 1] == kBackRow && strcmp(PageName(g_pages.page), "Display Overlays") == 0);
     const int pageBefore = g_pages.page;
     Change(kFrameMeterRow, 0);
@@ -123,6 +126,11 @@ int main() {
     CHECK(g_fm == 1);
     Change(kFrameMeterRow, -1);
     CHECK(g_fm == 0);
+    g_kw = 1;
+    Change(kKiWindowRow, 0);
+    CHECK(g_kw == 0);
+    Change(kKiWindowRow, 0);
+    CHECK(g_kw == 1);
     g_pstGet = nullptr;
     g_pstSet = nullptr;
     Back();
@@ -137,17 +145,18 @@ int main() {
     CHECK(g_pages.page == pSettings && g_sel == kPage);
     const int page1 = PageRows(rows, true);
     CHECK(rows[0] == kPage && rows[page1 - 1] == kBackRow);
-    bool sawSafe = false, sawMeterOnSettings = false, sawAuto = false;
+    bool sawSafe = false, sawMeterOnSettings = false, sawKiOnSettings = false, sawAuto = false;
     for (int i = 0; i < page1; ++i) {
         if (rows[i] == kFps) sawSafe = true;
         if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
         if (rows[i] == kFrameMeterRow) sawMeterOnSettings = true;
+        if (rows[i] == kKiWindowRow) sawKiOnSettings = true;
         if (rows[i] == kAutoCont) sawAuto = true;
     }
     char pageName[64];
     uint32_t pageColor = 0;
     Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && sawAuto && strcmp(pageName, "1/2 same picture") == 0);
+    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && !sawKiOnSettings && sawAuto && strcmp(pageName, "1/2 same picture") == 0);
     Move(-1);
     CHECK(g_sel == kBackRow);
     Close("harness");
