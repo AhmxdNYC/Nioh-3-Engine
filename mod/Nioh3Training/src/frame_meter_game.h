@@ -826,11 +826,10 @@ static int FmBit19(void) {
     }
     return b;
 }
-// 0x3EC0F4, EffectCreate 0x4CE90C, and 0x660B98 all use the entry stack. The stolen bytes run only after the logger returns.
-static uint64_t g_nm_start[5], g_nm_def[5], g_nm_obj[5];
-static volatile uint64_t g_nm_actor;
-static volatile int g_nm_watch, g_nm_shut, g_nm_gen;
-static int g_nm_start_hooked, g_nm_def_hooked, g_nm_obj_hooked;
+// 0x3EC0F4 and 0x660B98 use the entry stack. The stolen bytes run only after the logger returns.
+// 0x4CE90C does not call out. It stores every effect in a ring. See KifxDrain.
+static uint64_t g_nm_start[5], g_nm_obj[5];
+static int g_nm_start_hooked, g_nm_obj_hooked;
 static float KiNowT74(void) {
     float t = -1.f;
     __try {
@@ -867,16 +866,80 @@ static void KiStartLog(uint64_t entry, uint64_t state, uint64_t r8, uint64_t r9)
         perfect, t74, r1, buff, (unsigned long long)owner, from);
     busy = 0;
 }
+static int KiNamedSlot(uint32_t id) {
+    if (id == 1000u) return 0;
+    if (id == 10500u) return 1;
+    if (id == 10510u) return 2;
+    if (id == 0x9C7Cu) return 3;
+    return -1;
+}
+static void KiAscii(uint64_t p, char* out, int n) {
+    int i;
+    out[0] = 0;
+    if (p < 0x10000ull || n < 1) return;
+    __try {
+        for (i = 0; i < n; ++i) {
+            unsigned char c = ((volatile uint8_t*)p)[i];
+            if (c == 0) { out[i] = 0; return; }
+            if (c < 32 || c > 126) { out[0] = 0; return; }
+            out[i] = (char)c;
+        }
+        out[n] = 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { out[0] = 0; }
+}
+static int g_nm_row_done[4];
+static void KiDumpDef(uint32_t id) {
+    int slot = KiNamedSlot(id), i;
+    uint64_t def = 0, g = 0, table = 0, p0 = 0, p8 = 0;
+    typedef uint64_t (*Fn)(uint64_t, uint32_t);
+    char raw[0x68 * 2 + 1], name[32];
+    uint32_t flags = 0, d20 = 0;
+    int res = 0, color = 0, b34 = 0, tags[4];
+    float sz = 0.f, f14 = 0.f, f18 = 0.f, f1c = 0.f;
+    if (slot < 0 || g_nm_row_done[slot]) return;
+    raw[0] = 0;
+    name[0] = 0;
+    for (i = 0; i < 4; ++i) tags[i] = 0;
+    if (!Rd64(B + 0x45B9E30, &g) || g < 0x10000ull || !Rd64(g + 0x30, &table) || table < 0x10000ull) return;
+    __try { def = ((Fn)(B + 0x1613D8))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
+    g_nm_row_done[slot] = 1;
+    if (def > 0x10000ull) {
+        __try {
+            volatile uint8_t* b = (volatile uint8_t*)def;
+            for (i = 0; i < 0x68; ++i) sprintf(raw + i * 2, "%02X", b[i]);
+            raw[0x68 * 2] = 0;
+            flags = *(volatile uint32_t*)(def + 0x0C);
+            sz = *(volatile float*)(def + 0x10);
+            f14 = *(volatile float*)(def + 0x14);
+            f18 = *(volatile float*)(def + 0x18);
+            f1c = *(volatile float*)(def + 0x1C);
+            d20 = *(volatile uint32_t*)(def + 0x20);
+            res = *(volatile int*)(def + 0x28);
+            color = *(volatile int*)(def + 0x30);
+            b34 = *(volatile uint8_t*)(def + 0x34);
+            for (i = 0; i < 4; ++i) tags[i] = *(volatile int*)(def + 0x58 + (uint64_t)i * 4u);
+            p0 = *(volatile uint64_t*)def;
+            p8 = *(volatile uint64_t*)(def + 8);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { raw[0] = 0; }
+        KiAscii(p0, name, 24);
+        if (!name[0]) KiAscii(p8, name, 24);
+    }
+    if (!name[0]) { name[0] = '-'; name[1] = 0; }
+    Log("KIROWDEF id %u def %llX flags %X sz %.3f f14 %.3f f18 %.3f f1c %.3f d20 %X res %d color %d b34 %u tag %d %d %d %d name %s raw %s",
+        id, (unsigned long long)def, flags, sz, f14, f18, f1c, d20, res, color, (unsigned)b34,
+        tags[0], tags[1], tags[2], tags[3], name, raw);
+}
 static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
     static int lines, told, busy, winLines, seenGen;
-    float t74; int r1, win, b19, pl, gen; uint32_t id, from;
-    uint64_t def = 0, actor, g = 0, table = 0; char hex[68];
-    typedef uint64_t (*Fn)(uint64_t, uint32_t);
+    float t74; int r1, win, b19, pl, gen, named; uint32_t id, from; uint64_t actor;
     (void)mgr; (void)out; (void)p4;
     if (busy) return;
     busy = 1;
     id = (uint32_t)idreg;
-    if (g_nm_shut && id != 0x9C7Cu) { busy = 0; return; }
+    named = KiNamedSlot(id) >= 0;
+    if (g_nm_shut && !named) { busy = 0; return; }
+    if (named) KiDumpDef(id);
+    if (g_nm_shut) { busy = 0; return; }
     gen = g_nm_gen;
     if (gen != seenGen) { seenGen = gen; winLines = 0; }
     from = (uint32_t)(g_nm_def[4] - B);
@@ -886,11 +949,6 @@ static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
     b19 = FmBit19();
     win = r1 && FmKiPerfect(t74);
     pl = (g_fp[FP_PL].valid && actor == g_fp[FP_PL].a) ? 1 : 0;
-    hex[0] = 0;
-    if (id == 0x9C7Cu && Rd64(B + 0x45B9E30, &g) && g > 0x10000 && Rd64(g + 0x30, &table) && table > 0x10000) {
-        __try { def = ((Fn)(B + 0x1613D8))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
-        KiHex32(def, hex);
-    }
     if (winLines >= 200 || lines >= 800) {
         g_nm_shut = 1;
         if (!told) { told = 1; Log("KIFX cap 200 this window, 800 this run"); }
@@ -898,12 +956,8 @@ static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
     }
     winLines++;
     lines++;
-    if (id == 0x9C7Cu)
-        Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X def %llX row %s",
-            b19, win, t74, r1, id, (unsigned long long)actor, pl, from, (unsigned long long)def, hex);
-    else
-        Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X",
-            b19, win, t74, r1, id, (unsigned long long)actor, pl, from);
+    Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X",
+        b19, win, t74, r1, id, (unsigned long long)actor, pl, from);
     busy = 0;
 }
 static void KiObjLog(uint64_t obj, uint64_t idreg, uint64_t r8, uint64_t r9) {
@@ -1002,9 +1056,17 @@ static void FmNameInstall(void) {
             jneWatch = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
             checkAt = at;
             *(uint32_t*)(stub + jneShut + 2) = (uint32_t)(checkAt - (jneShut + 6));
-            stub[at++] = 0x41; stub[at++] = 0x81; stub[at++] = 0xF8; *(uint32_t*)(stub + at) = 0x9C7C; at += 4;
-            jneOther = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
-            logAt = at;
+            {
+                static const uint32_t keepId[4] = {0x9C7Cu, 1000u, 10500u, 10510u};
+                int jeAt[4], k;
+                for (k = 0; k < 4; ++k) {
+                    stub[at++] = 0x41; stub[at++] = 0x81; stub[at++] = 0xF8; *(uint32_t*)(stub + at) = keepId[k]; at += 4;
+                    jeAt[k] = at; stub[at++] = 0x0F; stub[at++] = 0x84; *(uint32_t*)(stub + at) = 0; at += 4;
+                }
+                jneOther = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+                logAt = at;
+                for (k = 0; k < 4; ++k) *(uint32_t*)(stub + jeAt[k] + 2) = (uint32_t)(logAt - (jeAt[k] + 6));
+            }
             *(uint32_t*)(stub + jneWatch + 2) = (uint32_t)(logAt - (jneWatch + 6));
             stub[at++] = 0x48; stub[at++] = 0x8B; stub[at++] = 0x44; stub[at++] = 0x24; stub[at++] = 0x30;
             stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_actor; at += 8;
@@ -1013,7 +1075,7 @@ static void FmNameInstall(void) {
             *(uint32_t*)(stub + jneOther + 2) = (uint32_t)(at - (jneOther + 6));
             KiFinish(stub, &at, site, 29, proD);
             KiPatchSite(site, 29, stub); g_nm_def_hooked = 1;
-            Log("KIFX hook 4CE90C on. Logs every effect while the Ki window is open, plus particle 40060.");
+            Log("KIFX hook 4CE90C on. Press lines stay. Effects 1000, 10500 and 10510 dump their definition row once.");
         }
     }
     if (!g_nm_obj_hooked) {

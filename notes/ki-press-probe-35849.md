@@ -110,3 +110,7 @@ Once KiPressProbe is on and the table pointer is filled, seven lines: KIBUFF id,
 ## Hook arming (#36768)
 
 The effect hooks now arm on the first pump tick even when KiPressProbe is 0. The line is KIARM, then KISTART, KIDEF, KIPICK, and KIR1, each saying on or bytes differ. KISTART is the old KIEC name. Not installed. Training on this PC stays 8cfd9dc1.
+
+## R1 effect window (#36787)
+
+KiPressProbe=1 is the only switch that arms 0x4CE90C. The hook-on line is `KIFX hook 4CE90C on`. The stub records every call (effect id in r8d, caller RVA, rcx, and the qword at entry rsp+0x30) and does not print from the effect call. Each R1 press then prints calls from 500 ms before that press to 1500 ms after it. bit19 and t74 on those lines are the press, not the timer at the effect. Grade text is perfect, normal, or unread. `KIFX press` opens the window and `KIFX press done n` closes it. A ring of 4096 calls can drop older calls if the scene is busier than the empty field. Not installed. Training on this PC stays 8cfd9dc1.
