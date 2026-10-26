@@ -13,3 +13,10 @@ Two other callers can force one id: 200594B always passes the perfect byte when 
 ## Static rows (#36878)
 
 The 0x68 definition rows are not in re/Nioh3.dump.exe. Confidence 90. Lookup 0x1613D8 reads *(g_DataMgr+0x30), and g_DataMgr is 0x45B9E30. Both ids are members of a packed u32 list at file 0x4121920 (3804 ids, 0x4120eec through 0x4124a5c) with no record body. The float triple at 0x39bb810 is a per-100 curve, not the effect row, and 10510 is absent from that curve. The live dump is bridge file #2537, sha 656cf675, commit b5e370b5, with KiPressProbe=1 and the KIROWDEF line.
+
+
+## Resource hashes (#36904)
+
+Row +4 is two u32 resource ids, not a file name. 10500 is 0x9D74DF53 and 0xB6FE48A5. 10510 is 0x205ECDCD and 0x88B71D1F. The other 92 bytes of the two rows are identical.
+
+Those 8 bytes occur only in the effect-definition blob data/extract/lfm/archive_03/8D/4CF09EA40BA8F98076F26CBCD62583E15C0FBCC4BA8EAE0285EF6BF2667A62 (455424 bytes, 8-byte header, 4379 rows). The file has no strings. actionsets, rdb names, the rdb index, and exe strings do not contain the ids. kids, ktgl, FNV, and CRC of those names, including UTF-16, do not match.
