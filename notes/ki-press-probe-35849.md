@@ -33,3 +33,13 @@ VirtualPad on for that run only, then back to 0. Three swings. One-frame RB, not
 - Late: RB on bar frame 21
 
 The bar opens about swing frame 18, so the waits after the swing are about 20, 29, and 39 frames. One swing each. Send the log. No new check-mark rule until those three `dKi` numbers exist.
+
+## Measured (#35963)
+
+pc, Training `543a68c8` (file #2408, no effect id), empty field, act 25160, 120 pump ticks per second. A later R1 returns more Ki, smoothly, with no step.
+
+dKi by press frame: f2 2.7, f10 10.0, f21 19.8, f29 27.9, f42 48.1, f48 67.6, f52 78.7 (t74 3.98), f56 90.0 (t74 1.95). No press (miss): about 95.8.
+
+Frame numbers are pump ticks from the bar opening, not 60 fps game frames. A press closes the bar at once, so end80 stays 0. The pool stays 53.9 until about f20, then drains.
+
+Ki amount is not a perfect mark. The miss paid more than the latest press, and the curve has no jump, so do not paint t74<=4 from this log. The particle was not logged. File #2421 (sha 9ae298bd, commit 614bfa34) logs `KIPRESS fx` while the bar is up. Answer #35991.
