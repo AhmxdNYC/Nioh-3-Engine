@@ -1506,7 +1506,8 @@ static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {
 static int FmReadoutHeight(int barH, int pad) { return g_pst.v[PS_FRAME_READOUT] ? barH+pad : 0; }
 static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_METER] && g_fm_show && g_fm_ki_show; }
 static int FmPlayerRow(void) { return (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fmp_show; }
-static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmKiShown(); }
+static int FmIFrRow(void) { return g_pst.v[PS_FRAME_IFR] && FmPlayerRow(); }  // human #37322: separate i-frame row under the PLAYER row
+static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmIFrRow() + FmKiShown(); }
 #define FM_KIWIN_RGB RGB(16,44,168)
 #define FM_KIPERF_RGB RGB(64,232,214)
 #define FM_NODMG_RGB RGB(255,206,48)  // #35176 i-frame stripe (gold), top third of the cell
@@ -1646,7 +1647,18 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],1); oy+=ph; }
+    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
+    if(FmIFrRow()) {  // gold cells = the same no-damage marks the stripe used, in their own lane aligned with the PLAYER row
+        int used=FM_CELLS; while(used>0 && (FmViewCell(&mp,used-1)&0x7F)==FM_EMPTY) --used;
+        const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
+        const int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter,by=oy+pad;
+        FmFill(dc,x-gutter-pad,oy,bw+gutter+pad*2,ph,RGB(16,21,30));
+        HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+        FmLabel(dc,x-gutter,by,"I-FR",RGB(240,243,249));
+        FmFill(dc,x-1,by-1,bw+2,barH+2,RGB(41,50,65));
+        for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmViewNoDmg(&mp,start+i)?FM_NODMG_RGB:FmColor(FM_EMPTY));
+        SelectObject(dc,old); oy+=ph;
+    }
     if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0,0); oy+=ph; }
     if(showKi) {
         int used=FM_CELLS; while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;

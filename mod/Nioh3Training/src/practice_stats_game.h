@@ -16,6 +16,7 @@ static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, 
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
     if (what == PS_KI_WINDOW) return "KiWindow";
+    if (what == PS_FRAME_IFR) return "FrameMeterIFrames";
     if (what == PS_KI_LOG) return "KiLog";
     if (what == PS_HOLD_KI_V2) return "HoldKiBreakV2";
     if (what == PS_KI_FLOOR) return "KiFloorDepth";
