@@ -828,6 +828,8 @@ static int FmBit19(void) {
 }
 // 0x3EC0F4, EffectCreate 0x4CE90C, and 0x660B98 all use the entry stack. The stolen bytes run only after the logger returns.
 static uint64_t g_nm_start[5], g_nm_def[5], g_nm_obj[5];
+static volatile uint64_t g_nm_actor;
+static volatile int g_nm_watch, g_nm_shut, g_nm_gen;
 static int g_nm_start_hooked, g_nm_def_hooked, g_nm_obj_hooked;
 static float KiNowT74(void) {
     float t = -1.f;
@@ -866,25 +868,42 @@ static void KiStartLog(uint64_t entry, uint64_t state, uint64_t r8, uint64_t r9)
     busy = 0;
 }
 static void KiDefLog(uint64_t mgr, uint64_t out, uint64_t idreg, uint64_t p4) {
-    static int lines, told, busy;
-    float t74; int r1, perfect; uint32_t id, from; uint64_t def = 0, g = 0, table = 0; char hex[68];
+    static int lines, told, busy, winLines, seenGen;
+    float t74; int r1, win, b19, pl, gen; uint32_t id, from;
+    uint64_t def = 0, actor, g = 0, table = 0; char hex[68];
     typedef uint64_t (*Fn)(uint64_t, uint32_t);
     (void)mgr; (void)out; (void)p4;
     if (busy) return;
     busy = 1;
     id = (uint32_t)idreg;
+    if (g_nm_shut && id != 0x9C7Cu) { busy = 0; return; }
+    gen = g_nm_gen;
+    if (gen != seenGen) { seenGen = gen; winLines = 0; }
     from = (uint32_t)(g_nm_def[4] - B);
+    actor = g_nm_actor;
     t74 = KiNowT74();
     r1 = FmPadRB();
-    perfect = r1 && FmKiPerfect(t74);
-    if (Rd64(B + 0x45B9E30, &g) && g > 0x10000 && Rd64(g + 0x30, &table) && table > 0x10000) {
+    b19 = FmBit19();
+    win = r1 && FmKiPerfect(t74);
+    pl = (g_fp[FP_PL].valid && actor == g_fp[FP_PL].a) ? 1 : 0;
+    hex[0] = 0;
+    if (id == 0x9C7Cu && Rd64(B + 0x45B9E30, &g) && g > 0x10000 && Rd64(g + 0x30, &table) && table > 0x10000) {
         __try { def = ((Fn)(B + 0x1613D8))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
+        KiHex32(def, hex);
     }
-    KiHex32(def, hex);
-    if (lines >= 80) { if (!told) { told = 1; Log("KIDEF cap 80"); } busy = 0; return; }
+    if (winLines >= 200 || lines >= 800) {
+        g_nm_shut = 1;
+        if (!told) { told = 1; Log("KIFX cap 200 this window, 800 this run"); }
+        busy = 0; return;
+    }
+    winLines++;
     lines++;
-    Log("KIDEF perfect %d t74 %.2f r1 %d id %u def %llX from %X row %s",
-        perfect, t74, r1, id, (unsigned long long)def, from, hex);
+    if (id == 0x9C7Cu)
+        Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X def %llX row %s",
+            b19, win, t74, r1, id, (unsigned long long)actor, pl, from, (unsigned long long)def, hex);
+    else
+        Log("KIFX bit19 %d win %d t74 %.2f r1 %d id %u actor %llX pl %d from %X",
+            b19, win, t74, r1, id, (unsigned long long)actor, pl, from);
     busy = 0;
 }
 static void KiObjLog(uint64_t obj, uint64_t idreg, uint64_t r8, uint64_t r9) {
@@ -957,7 +976,7 @@ static void FmNameInstall(void) {
     static const uint8_t proS[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x18,0x57,0x48,0x81,0xEC,0xD0,0x00,0x00,0x00};
     static const uint8_t proD[29] = {0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x88,0xFC,0xFF,0xFF,0x48,0x81,0xEC,0x38,0x04,0x00,0x00};
     static const uint8_t proO[24] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xEC,0x30};
-    uint8_t* site; uint8_t* stub; int at, rel;
+    uint8_t* site; uint8_t* stub; int at;
     if (!g_nm_start_hooked) {
         site = (uint8_t*)(B + 0x3EC0F4);
         if (memcmp(site, proS, 15)) { g_nm_start_hooked = 2; Log("KISTART hook 3EC0F4: bytes differ"); }
@@ -973,15 +992,28 @@ static void FmNameInstall(void) {
         if (memcmp(site, proD, 29)) { g_nm_def_hooked = 2; Log("KIDEF hook 4CE90C: bytes differ"); }
         else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_def_hooked = 2; Log("KIDEF hook: no stub page"); }
         else {
-            int jne;
+            int jneShut, jneWatch, jneOther, checkAt, logAt;
             at = 0;
+            stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_shut; at += 8;
+            stub[at++] = 0x83; stub[at++] = 0x38; stub[at++] = 0x00;
+            jneShut = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+            stub[at++] = 0x48; stub[at++] = 0xB8; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_watch; at += 8;
+            stub[at++] = 0x83; stub[at++] = 0x38; stub[at++] = 0x00;
+            jneWatch = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+            checkAt = at;
+            *(uint32_t*)(stub + jneShut + 2) = (uint32_t)(checkAt - (jneShut + 6));
             stub[at++] = 0x41; stub[at++] = 0x81; stub[at++] = 0xF8; *(uint32_t*)(stub + at) = 0x9C7C; at += 4;
-            jne = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+            jneOther = at; stub[at++] = 0x0F; stub[at++] = 0x85; *(uint32_t*)(stub + at) = 0; at += 4;
+            logAt = at;
+            *(uint32_t*)(stub + jneWatch + 2) = (uint32_t)(logAt - (jneWatch + 6));
+            stub[at++] = 0x48; stub[at++] = 0x8B; stub[at++] = 0x44; stub[at++] = 0x24; stub[at++] = 0x30;
+            stub[at++] = 0x49; stub[at++] = 0xBA; *(uint64_t*)(stub + at) = (uint64_t)&g_nm_actor; at += 8;
+            stub[at++] = 0x49; stub[at++] = 0x89; stub[at++] = 0x02;
             KiCallStub(stub, &at, g_nm_def, (void*)KiDefLog);
-            rel = at - (jne + 6); *(uint32_t*)(stub + jne + 2) = (uint32_t)rel;
+            *(uint32_t*)(stub + jneOther + 2) = (uint32_t)(at - (jneOther + 6));
             KiFinish(stub, &at, site, 29, proD);
             KiPatchSite(site, 29, stub); g_nm_def_hooked = 1;
-            Log("KIDEF hook 4CE90C on. Particle 40060 logs its definition row. Other effects are not logged.");
+            Log("KIFX hook 4CE90C on. Logs every effect while the Ki window is open, plus particle 40060.");
         }
     }
     if (!g_nm_obj_hooked) {
@@ -1054,6 +1086,14 @@ static void FmKiPressTick(void) {
     }
     }
     if (g_kp_frame < 0 && g_kp_tail > 0) g_kp_tail--;
+    {
+        static int was;
+        const int want = g_kp_frame >= 0 || g_kp_tail > 0;
+        if (want && !was) { g_nm_shut = 0; g_nm_gen++; Log("KIFX window on"); }
+        if (!want && was) Log("KIFX window off");
+        was = want;
+        g_nm_watch = want;
+    }
     {
         static uint32_t bseen;
         uint32_t bseq = g_kp_buff.seq, bfrom = bseen;
