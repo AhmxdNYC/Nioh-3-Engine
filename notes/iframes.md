@@ -138,7 +138,7 @@ word, and count the player's enabled damage shapes per tick.
 - Also checked: the hit history at AI+0x78 (0x2B44C4) is a per-attack hit-group list, and the damage validity check 0x78AC18 tests condition
   0x115 on the ATTACKER. Neither is a dodge state.
 
-## Build 37f97266 (this commit)
+## Build 511a2719 (this commit)
 - New `IFRAMEOB t .. act .. n ..` lines during dodges: every u32 that changed since the previous tick in the player's first 4
   hurtbox collision objects (`oJ+OFF`, obj +0..+0x100) and their physics shapes (`hJ+OFF`, shape +0..+0x100). `[J new]` = the object was re-created.
 - If IFRAMEOB is also flat, the window is not stored in any runtime field we can reach cheaply. Then it is in the motion
