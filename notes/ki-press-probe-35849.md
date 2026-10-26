@@ -105,3 +105,8 @@ Same probe, two more lines while the Ki bar is open and for 20 ticks after it cl
 ## Buff table dump (#36559)
 
 Once KiPressProbe is on and the table pointer is filled, seven lines: KIBUFF id, idx, kind, raw 44 bytes. Ids are 900, 822, 496, 2, 0x15E, 0x1B2, 0x114. The map object is the pointer at T+0x20. Kind is the u16 at record +0x2A. Not installed.
+
+
+## Hook arming (#36768)
+
+The effect hooks now arm on the first pump tick even when KiPressProbe is 0. The line is KIARM, then KISTART, KIDEF, KIPICK, and KIR1, each saying on or bytes differ. KISTART is the old KIEC name. Not installed. Training on this PC stays 8cfd9dc1.

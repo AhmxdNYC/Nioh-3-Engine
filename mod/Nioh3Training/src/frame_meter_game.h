@@ -1180,11 +1180,22 @@ static void FmBuffTableDump(void) {
         Log("KIBUFF id %u idx %u kind %u raw %s", (unsigned)ids[n], idx, (unsigned)kind, hex);
     }
 }
+/* Arm the effect hooks even when KiPressProbe is off. The last run logged KIROW and never logged KIEC. */
+static void FmArmHooks(void) {
+    static int once;
+    if (once) return;
+    once = 1;
+    Log("KIARM switch %d. Effect hooks arm either way. KISTART is the old KIEC name.", g_cfg_kipress);
+    FmNameInstall();
+    FmPickInstall();
+    FmR1Install();
+}
 // FpTick (game thread, FpLock held), once per pump tick.
 static void FmFeed(double gdt) {
     const int wantB = g_pst.v[PS_FRAME_METER], wantP = g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW];
     const int probe = g_cfg_ifp != 0;
     const int kpress = g_cfg_kipress != 0;
+    FmArmHooks();
     const int scope = FmScope(wantB, wantP, g_pst_live != 0);
     { static int pScope = -1; if (scope != pScope) { pScope = scope; Log("FRAME METER: scope %d (0 off, 1 session, 2 player row with no boss)", scope); } }
     if (scope == 0 && !probe && !kpress) { g_fm_show = 0; g_fmp_show = 0; g_fm_ki_show = 0; g_fm_slot = -1; g_fm_last = 0; return; }
