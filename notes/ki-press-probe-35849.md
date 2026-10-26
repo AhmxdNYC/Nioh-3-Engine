@@ -69,6 +69,15 @@ Same effect both times: fx 800650 from 3EA5A5.
 
 On these four presses bit 19 matches t74<=4. The effect id did not change. The earlier miss returned about 95.8, which is more than these perfect presses, so the flag is not the largest Ki number. One refill at 1153 had the window off and b19 0.
 
+## Object flag (#36101)
+
+pc, Training cc892f00 file #2437, KiPressProbe=1, empty field, act 25160. Log captures/kipress/kipress-merged.log. Game restored to 8cfd9dc1, VirtualPad 0.
+
+The r1 line itself has b19 0. The next lines carry the grade. Perfect presses, bar frames 53, 54, 53, 55 (t74 3.45, 2.90, 3.45, 2.31): bits include 19, x1060 07004000, object slot 46 f13c 0x3080 (0x2000), close b19 1, dKi 78.8, 84.4, 78.8, 84.6.
+Normal: frame 29 t74 15.47 dKi 27.9, and frame 44 t74 7.96 dKi 56.3. Bits omit 19, x1060 05004000, f13c 0x1080 (0x1000), close b19 0.
+Same def 135 at +148. Effect id 800650 from 3EA5A5 on five of the six presses; the first perfect close is fx 0. The id does not split perfect from normal.
+No press in this log has t74 between 4 and 8. The code rule is <=4. The meter slice uses that rule.
+
 ## Meter slice (#36098)
 
 The player Ki bar stays blue for the open window. Cells where K+0x74 is in (0.05, 4] are a second color, cyan. The mark is 2 in `kiwin`. It is the timer, not a fixed 4-cell width. Not installed. The game stays closed.
