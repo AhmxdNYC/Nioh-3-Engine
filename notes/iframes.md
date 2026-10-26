@@ -220,3 +220,19 @@ word, and count the player's enabled damage shapes per tick.
 - What to check: IFrameProbe 1. Get hit once while standing (queued 1), then dodge through 5 attacks. Compare the IFRAMECX inputs of the
   rejected dodge contacts with the queued standing contact. The field that differs is the i-frame rule. Look first at hist, hcnt/r21, dtype,
   d4 & 0x6000, side, eb1 / abc0.
+
+## PC test of 055b0816 (IFRAMECX): the hit history rejects later dodge contacts
+- All exit inputs are the same in dodge and standing. Only `hist` / `hcnt` differ. In dodges the contacts are rejected with hist = 1
+  (the attack's hit group is already in the player's hit history), and the first contact of each dodge (6 seen) was queued with hist = 0.
+- Who writes the hit history (0x789134 = add the damage object to defAI+0x60 -> list +0x18 = AI+0x78)? Only the damage-object commit paths:
+  0x78A548 (78A458), 0x748EFA, 0x74901E, 0x1FF4444, and the contact handler's online/special branch 0x117C3BE (attacker [+0xE8]+0x80 in {2,5,6}).
+  The 0x78A458 path records it **also when the damage object ended with no damage (+0x2A0 = 1)**.
+  => In a dodge, the first contact is queued, the damage pipeline turns it into "no damage", and it is still recorded. Every later
+  contact of that attack is then rejected by the hit history. **The i-frame decision is in the damage pipeline, not in the contact handler.**
+- Candidates inside the pipeline (0x78A7F0 -> 0x78AC18 / 0x326C94), all read from the defender:
+  - 0x2A3264 "cannot be damaged": the current action record dword +0x18 bit 29 together with ctrl+0xAE0 (and ctrl+0xA8 bit 20); ctrl+0xEA0,
+    ctrl+0xEA1 (unless hit type 4), status+0x2DC8 bit 31, ctrl+0xEAE for hit type 9, [ctrl+0x15D8]+2.
+  - 0x326C94 when not guarding: **the defender's current action record qword +0 bit 35** gives no damage (cVar5 = 0). In the player
+    file only actions 10081-10096, 1476 and 1480 have it, not 10015-10042. Also status+0x48 == 1 together with row bit 1.
+  - The guard path (+0x1E0 == 2, defence state 0x2A34F8).
+- Next: a log-only hook on 0x78A7F0 that logs the damage object's result fields for player hits.
