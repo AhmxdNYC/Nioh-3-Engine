@@ -145,3 +145,13 @@ word, and count the player's enabled damage shapes per tick.
   file (motions 30001-30018) or computed from the equipment weight. Next step: decode the motion files' event tracks (root.rdb G1A /
   motion, keyed by `+0xF0`), or put a log-only hook on the contact handler 0x117A6D0 (needs hookcheck) to see whether a contact
   happens at all during a dodge.
+
+## PC test of 511a2719 (log #2331), analysed offline
+- IFRAMEOB hit its 2500-line cap, but it still covers 37 dodge starts (10015-10042). Every tick changes the transform floats:
+  h0/h1 +0x30..+0x3C, +0x80..+0x98, and o0/o1 +0x90..+0xAC, +0xC0, +0xF0..+0xF8.
+- Not a float: **obj1 +0x10/+0x14 is a 64-bit pointer** (high dword 0x260). It is re-set about 20 ms after every dodge start. Freshly
+  allocated values (0x260CFAxxxxx, rising) usually change again 450-650 ms in. Recurring values (0x260C37xxxxx, 0x260F9F8xxxx, 0x260C911xxxx)
+  come back across dodges. This looks like a reference to the current state / def object of the hurtbox. It is not a flag yet.
+  It needs a deref to see whether the referenced object has a type that means "no hit".
+- obj0 +0x18 / +0xE8 and the shape +0x70 / +0xB0.. change only when the hurtbox is re-created or at the end. No flag-like value
+  turns on a few ticks after the start and off before the end.
