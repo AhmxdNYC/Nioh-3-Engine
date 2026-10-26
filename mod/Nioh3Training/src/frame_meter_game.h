@@ -576,6 +576,29 @@ static int FmPadRB(void) {
     __try { if (fn(0, st) != 0) return 0; return (*(unsigned short*)(st + 4) & 0x0200) != 0; }
     __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
+// human #37394: PADBTN line whenever the real pad's buttons / triggers / stick change, next to the IFRAMEEA move lines ([Debug] IFrameBytes 1). Log only.
+static __attribute__((noinline)) void FmPadLog(double t) {
+    typedef unsigned long (__stdcall *Fn)(unsigned long, void*);
+    static Fn raw; static int tried, lines; static uint64_t pv = ~0ull;
+    if (lines >= 30000) return;
+    if (!tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); raw = x ? (Fn)GetProcAddress(x, "XInputGetState") : 0; }
+    Fn fn = raw; uint64_t slot = 0;
+    if (Rd64(B + 0x38E2C50, &slot) && slot > 0x10000ull) fn = (Fn)slot;
+    if (!fn) return;
+    uint8_t st[32]; memset(st, 0, sizeof st);
+    __try { if (fn(0, st) != 0) return; } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    const unsigned btn = *(unsigned short*)(st + 4); const int lt = st[6], rt = st[7]; const int lx = *(short*)(st + 8), ly = *(short*)(st + 10);
+    const int sx = lx > 12000 ? 1 : lx < -12000 ? -1 : 0, sy = ly > 12000 ? 1 : ly < -12000 ? -1 : 0;
+    const uint64_t key = (uint64_t)btn | (uint64_t)(lt > 100) << 16 | (uint64_t)(rt > 100) << 17 | (uint64_t)(sx + 1) << 18 | (uint64_t)(sy + 1) << 20;
+    if (key == pv) return;
+    pv = key; lines++;
+    static const char* const nm[16] = {"Up","Down","Left","Right","Start","Back","L3","R3","L1","R1","","","A","B","X","Y"};
+    char b[160]; int o = 0; b[0] = 0;
+    for (int i = 0; i < 16; ++i) if ((btn >> i & 1) && nm[i][0]) o += snprintf(b + o, sizeof b - o, "%s ", nm[i]);
+    if (lt > 100) o += snprintf(b + o, sizeof b - o, "L2 ");
+    if (rt > 100) o += snprintf(b + o, sizeof b - o, "R2 ");
+    Log("PADBTN t %.1f %sstick %+d,%+d", t, b, sx, sy);
+}
 // last/seq/from at 0/4/8, pad at 12, ring ids at 16, caller RVAs at 80. The stub below uses those offsets.
 static struct { volatile uint32_t last, seq, from, pad; volatile uint32_t ring[16]; volatile uint32_t callers[16]; } g_kp_fx;
 static volatile int g_kp_frame = -1;
@@ -1419,6 +1442,7 @@ static void FmFeed(double gdt) {
             FmMarkNoDmg(&g_fmp, g_fm_clock, ((FmPlayerNoDmg(g_fp[FP_PL].a, g_fp[FP_PL].ctrl) || hoff || pred) ? FMF_NODMG : 0) | FmPlayerFlagBits(g_fp[FP_PL].ctrl));
         }
         if (g_cfg_ifp) FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
+        if (g_cfg_ifbyte) FmPadLog(g_fm_clock);
         if (g_cfg_ifbyte) FmIFrameBytes(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
         if (g_pst.v[PS_KI_WINDOW]) {
             static int wasOpen;
