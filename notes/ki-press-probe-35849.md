@@ -58,3 +58,13 @@ Miss, end80 1: frame 49 dKi 92.3 fx 204, frame 54 dKi 95.7 fx 204, frame 54 dKi 
 Bar closed early, end80 0: frame 32 dKi 10.3 fx 202, frame 43 dKi 9.3 fx 202, frame 14 dKi -25.0 fx 200.
 
 No press near the end of the bar. The close-line id is `g_kp_fx.last` from commit 614bfa34: every call at 3EAB1C updates it, and it is not reset per bar and not limited to the player. With no spawn line, 202 is not proven to be the pulse on the two short closes, and it is not ruled out as a perfect effect. The eight bars stay inconclusive. cxl-pc #36047. cxl-pc #36049 agrees, commit 0c245342 on cxl-pc/ki-effect-35871: no effect can be assigned to a perfect pulse from this file. Training 96b640ca was not this run.
+
+## Grade flag (#36095)
+
+pc, Training cc892f00, grade lines from the 96b640ca code. Not run by gx-pc.
+
+t74 3.45, 2.90, 2.31 at frames 53-55: b19=1, x1060=07004000, grade perfect, dKi 78.8-84.6.
+t74 15.47 at frame 29: b19=0, x1060=05004000, grade full, dKi 27.9.
+Same effect both times: fx 800650 from 3EA5A5.
+
+On these four presses bit 19 matches t74<=4. The effect id did not change. The earlier miss returned about 95.8, which is more than these perfect presses, so the flag is not the largest Ki number. One refill at 1153 had the window off and b19 0.
