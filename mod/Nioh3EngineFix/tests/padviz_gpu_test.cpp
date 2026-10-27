@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
         if (history) {
             inputhist::g_n = inputhist::g_next = 0; inputhist::g_rows = 12;
             uint64_t now = 1000;
-            const uint32_t buttonsToShow[] = {0u, padviz::kA, padviz::kB, padviz::kX, padviz::kY,
+            const uint32_t buttonsToShow[] = {padviz::kUp, padviz::kRight | padviz::kA, padviz::kDown | padviz::kX, padviz::kLeft, 0u, padviz::kA, padviz::kB, padviz::kX, padviz::kY,
                  padviz::kLB, padviz::kRB, 0u, padviz::kRB, padviz::kX | padviz::kRB,
                  padviz::kA | padviz::kB | padviz::kX | padviz::kY | padviz::kLB | padviz::kRB};
             for (uint32_t buttons : buttonsToShow) {
