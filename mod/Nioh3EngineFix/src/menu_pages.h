@@ -21,6 +21,9 @@ constexpr int kPsToggleN = 16;                // #38437: Training frame-meter to
 constexpr int kPsRowFirst = kReportRow + 1;
 constexpr int kPsAllRowsRow = kPsRowFirst + kPsToggleN;  // 'All frame rows' master (moved here from Practice, human #38180 rows)
 constexpr int kPsAllKeysRow = kPsAllRowsRow + 1;         // 'All key indicators' master
+constexpr int kCamRowFirst = kPsAllKeysRow + 1;  // Camera settings page: left / right / forward / back / return to default
+constexpr int kCamRowN = 5;
+constexpr int kCamLeft = 0, kCamRight = 1, kCamFwd = 2, kCamBack = 3, kCamReset = 4;
 constexpr int kMenuRowCap = kPsRowFirst + kPsToggleN + 4;
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
