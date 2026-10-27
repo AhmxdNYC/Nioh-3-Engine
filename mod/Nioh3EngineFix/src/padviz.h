@@ -153,6 +153,7 @@ inline void DrawState(const State& p, float x, float y, float s, float a, int st
     if (b & kRB) Layer(k, S_RB, x, y, s, 1.0f);
     if (b & kTouch) Layer(k, S_TOUCH, x, y, s, 1.0f);
     if (b & kGuide) Layer(k, S_META, x, y, s, 1.0f);
+    else if (style == 0) Layer(k, S_META, x, y, s, a * 0.6f);  // Xbox logo shown dim at rest (human #38793), full when the guide button is held
     if (b & kBack) Layer(k, S_BACK, x, y, s, 1.0f);
     if (b & kStart) Layer(k, S_START, x, y, s, 1.0f);
     // pressed layers are drawn fully opaque (user #23309) while the body keeps the menu opacity
