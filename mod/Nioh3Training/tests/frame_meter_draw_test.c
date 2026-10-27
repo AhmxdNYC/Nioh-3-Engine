@@ -61,17 +61,31 @@ static uint32_t AtLane(Canvas* c,int H,int player,int lane,int cell) {
     CHECK(cx+p.x>=0&&cx+p.x<c->w&&cy+p.y>=0&&cy+p.y<c->h);
     return c->bits[(cy+p.y)*c->w+cx+p.x];
 }
+// At small sizes a 120-cell inner track can be narrower than one pixel.
+// Recover coverage from alpha and verify the exact palette colour over the shared panel.
+static int MatchesCoverage(uint32_t pixel,uint32_t color) {
+    const unsigned a=pixel>>24;
+    if(a<=FM_BG_ALPHA)return 0;
+    const float coverage=(a-FM_BG_ALPHA)/(255.f-FM_BG_ALPHA);
+    const uint32_t bg=0x10151e;
+    for(int shift=0;shift<24;shift+=8) {
+        const float premul=((((bg>>shift)&255)*FM_BG_ALPHA+127)/255);
+        const float want=((color>>shift)&255)*coverage+premul*(1-coverage);
+        if(fabsf((float)((pixel>>shift)&255)-want)>2.5f)return 0;
+    }
+    return 1;
+}
 static void Pixels(int w,int H) {
     Seed();g_pst.v[PS_FRAME_STYLE]=1;Canvas c=Make(w,FmDrawHeight(w,H));Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,8)&0xffffff)==DibColor(FmColor(FM_STARTUP)));
-    CHECK((AtLane(&c,H,1,0,85)&0xffffff)==DibColor(FM_KIWIN_RGB));
-    CHECK((AtLane(&c,H,1,0,92)&0xffffff)==DibColor(FM_KIPERF_RGB));
-    CHECK((AtLane(&c,H,0,0,85)&0xffffff)==DibColor(FmColor(FM_RECOVERY)));
-    CHECK((AtLane(&c,H,1,1,23)&0xffffff)==DibColor(FM_NODMG_RGB));
-    CHECK((AtLane(&c,H,1,1,33)&0xffffff)==DibColor(FM_EAA_RGB));
-    CHECK((AtLane(&c,H,1,1,43)&0xffffff)==DibColor(FM_GUARD_RGB));
-    CHECK((AtLane(&c,H,1,1,53)&0xffffff)==DibColor(FM_EA7_RGB));
-    CHECK((AtLane(&c,H,0,1,53)&0xffffff)==DibColor(RGB(138,92,255)));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,8),DibColor(FmColor(FM_STARTUP))));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,85),DibColor(FM_KIWIN_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,92),DibColor(FM_KIPERF_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,0,0,85),DibColor(FmColor(FM_RECOVERY))));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,1,23),DibColor(FM_NODMG_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,1,33),DibColor(FM_EAA_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,1,43),DibColor(FM_GUARD_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,1,53),DibColor(FM_EA7_RGB)));
+    CHECK(MatchesCoverage(AtLane(&c,H,0,1,53),DibColor(RGB(138,92,255))));
     if(w==1920) {
         const size_t bytes=(size_t)c.w*c.h*4;
         uint32_t* before=(uint32_t*)malloc(bytes);CHECK(before);memcpy(before,c.bits,bytes);
@@ -81,21 +95,34 @@ static void Pixels(int w,int H) {
         }
         CHECK(changed>0);free(before);g_fmp.kipulseFrozen[95]=1;
     }
+    // AA edges have intermediate alpha and remain stable with a frozen snapshot.
+    int partial=0;
+    for(int lane=0;lane<2;++lane)for(int cell=0;cell<FM_DISPLAY_CELLS;++cell) {
+        const FmRingTile* t=&g_fm_ringMesh.tile[lane][cell];CHECK(t->coverage);
+        for(int k=0;k<t->w*t->h;++k)partial+=t->coverage[k]>0&&t->coverage[k]<255;
+    }
+    CHECK(partial>100);
+    const size_t snapshotBytes=(size_t)c.w*c.h*4;
+    uint32_t* snapshot=(uint32_t*)malloc(snapshotBytes);CHECK(snapshot);
+    Draw(&c,H);memcpy(snapshot,c.bits,snapshotBytes);
+    unsigned char* cached=g_fm_ringMesh.tile[0][0].coverage;
+    Draw(&c,H);CHECK(cached==g_fm_ringMesh.tile[0][0].coverage);
+    CHECK(!memcmp(snapshot,c.bits,snapshotBytes));free(snapshot);
     g_pst.v[PS_KI_WINDOW]=0;Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,85)&0xffffff)==DibColor(FmColor(FM_RECOVERY)));
-    CHECK((AtLane(&c,H,1,0,92)&0xffffff)==DibColor(FM_KIPERF_RGB));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,85),DibColor(FmColor(FM_RECOVERY))));
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,92),DibColor(FM_KIPERF_RGB)));
     // Independent visibility: disabled tracks have the shared panel alpha, not a dark ghost ring.
     for(int mask=0;mask<8;++mask) {
         g_pst.v[PS_FRAME_PROW]=!!(mask&1);g_pst.v[PS_FRAME_IFR]=!!(mask&2);g_pst.v[PS_FRAME_KI]=!!(mask&4);
         Draw(&c,H);
         if(mask&3) {
-            CHECK((AtLane(&c,H,1,0,8)>>24)==((mask&1)?255:FM_BG_ALPHA));
-            CHECK((AtLane(&c,H,1,1,23)>>24)==((mask&2)?255:FM_BG_ALPHA));
+            CHECK(((AtLane(&c,H,1,0,8)>>24)>FM_BG_ALPHA)==!!(mask&1));
+            CHECK(((AtLane(&c,H,1,1,23)>>24)>FM_BG_ALPHA)==!!(mask&2));
         }
-        CHECK((AtLane(&c,H,0,1,53)>>24)==((mask&4)?255:FM_BG_ALPHA));
+        CHECK(((AtLane(&c,H,0,1,53)>>24)>FM_BG_ALPHA)==!!(mask&4));
     }
     Seed();g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_METER]=0;Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,8)&0xffffff)==DibColor(FmColor(FM_STARTUP))); // lone player centres
+    CHECK(MatchesCoverage(AtLane(&c,H,1,0,8),DibColor(FmColor(FM_STARTUP)))); // lone player centres
     CHECK(!FmKiShown());
     for(size_t i=0;i<(size_t)c.w*c.h;++i) {uint32_t p=c.bits[i],a=p>>24;
         CHECK(((p>>16)&255)<=a && ((p>>8)&255)<=a && (p&255)<=a); // premultiplied contract, no magenta leakage
@@ -134,6 +161,11 @@ int main(int argc,char** argv) {
     for(int i=0;i<400;++i)FmSampleEx(&g_fmp,i*1000./60.,100,1,0,0);
     CHECK(FmVisibleStart(&g_fmp)==240);
     Seed();
+    if(argc>1 && !strcmp(argv[1],"--preview")) {
+        Seed();g_pst.v[PS_FRAME_STYLE]=1;Canvas c=Make(1920,FmDrawHeight(1920,1080));
+        Draw(&c,1080);Save(&c,"ring-preview.bmp");Drop(&c);
+        printf("PASS: %d assertions; production AA preview saved, no timing run\\n",assertions);return 0;
+    }
     if(argc>1 && !strcmp(argv[1],"--check-only")) {
         printf("ALL PASSED: %d production renderer assertions (offline)\n",assertions);return 0;
     }
