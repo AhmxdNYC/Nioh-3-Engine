@@ -947,6 +947,18 @@ int PsGet(int what) {
     ResolveFrameMeter();
     return g_pstGet ? g_pstGet(what) : -1;
 }
+constexpr int kFrameMeterStyleWhat = 33; // append-only Training PracticeStat ABI
+void ChangeFrameMeterStyle(int dir) {
+    const int cur = PsGet(kFrameMeterStyleWhat);
+    if (cur < 0 || !g_pstSet) {
+        snprintf(g_psNote, sizeof(g_psNote), "Needs Nioh3Training with Ring frame meter support.");
+        return;
+    }
+    const int next = dir > 0 ? 1 : dir < 0 ? 0 : !cur;
+    const int v = g_pstSet(kFrameMeterStyleWhat, next, 1);
+    snprintf(g_psNote, sizeof(g_psNote), v < 0 ? "Could not change frame meter style." :
+        v ? "Ring style. Saved in Training." : "Row style. Saved in Training.");
+}
 // Global Display sky settings share Training's existing persistent stat ABI (#38871).
 constexpr int kTimeOfDayWhat = 12, kWeatherWhat = 13;
 char g_skyNote[200] = "";
@@ -1064,6 +1076,7 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pOvFrameMeter) {
             add(kFrameMeterRow);
+            add(kFrameMeterStyleRow);
             add(kPsAllRowsRow);
             add(kKiWindowRow);
             for (int i = 0; i < kPsToggleN; ++i) {
@@ -1740,6 +1753,7 @@ void Change(int id, int dir) {
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst, dir); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
+    if (id == kFrameMeterStyleRow) { ChangeFrameMeterStyle(dir); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
     if (id >= kCount) {
@@ -2865,6 +2879,14 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, on ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kFrameMeterStyleRow) {
+            if (id == g_sel) selRow = nb;
+            const int v = PsGet(kFrameMeterStyleWhat);
+            put(body, nb, 128, id == g_sel ? "> Frame meter style" : "  Frame meter style", "",
+                v < 0 ? "needs newer Training" : v ? "< Ring >" : "< Row >",
+                id == g_sel ? cWhite : cGray, cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kFrameMeterRow) {
             if (id == g_sel) selRow = nb;
             char text[48];
@@ -2955,6 +2977,9 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : g_sel == kPsAllKeysRow ? "Turns the KEY under the meter and all of its entries ON or OFF together. The Key rows below switch single entries."
             : "Turns the frame-meter rows (boss, player, i-frames) ON or OFF together. The rows below keep only some.");
         snprintf(effect, sizeof(effect), "A flips; Left = all OFF, Right = all ON. Needs Nioh3Training. Training saves it.");
+    } else if (g_sel == kFrameMeterStyleRow) {
+        snprintf(what, sizeof(what), "Row bars or separate PLAYER and BOSS rings. Same lanes, colours, Ki marks and legend.");
+        snprintf(effect, sizeof(effect), "Left: Row. Right: Ring. A / Enter switches. Saved in Training. %s", g_psNote);
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");

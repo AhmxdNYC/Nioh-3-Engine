@@ -33,10 +33,11 @@
 #include <stdint.h>
 enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_NEG_KI_METER = 17, PS_FRAME_LEGEND = 18, PS_FRAME_READOUT = 19, PS_FRAME_KI = 20, PS_KI_WINDOW = 21, PS_FRAME_IFR = 22,
        // human #38180 frame-meter visibility: PLAYER row + one key (legend) entry group each, all default ON
-       PS_FRAME_PROW = 23, PS_KEY_STARTUP = 24, PS_KEY_ACTIVE = 25, PS_KEY_RECOVERY = 26, PS_KEY_UNBLOCK = 27, PS_KEY_GRAB = 28, PS_KEY_OTHER = 29, PS_KEY_TIMING = 30, PS_KEY_KI = 31, PS_KEY_IFR = 32, PS_N = 33 };
+       PS_FRAME_PROW = 23, PS_KEY_STARTUP = 24, PS_KEY_ACTIVE = 25, PS_KEY_RECOVERY = 26, PS_KEY_UNBLOCK = 27, PS_KEY_GRAB = 28, PS_KEY_OTHER = 29, PS_KEY_TIMING = 30, PS_KEY_KI = 31, PS_KEY_IFR = 32,
+       PS_FRAME_STYLE = 33, PS_N = 34 }; // append-only ABI: 0 Row (default), 1 Ring
 static inline int PstIsToggle(int what) { return what >= PS_FRAME_PROW || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
-static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || what >= PS_FRAME_PROW ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF
+static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
 enum { PS_TOD_STEPS = 48 };  // 00:00 .. 23:30 in 30-min steps (internal 1..48; 0 = Stock)
 enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_WX_STORM = 4, PS_WX_SNOW = 5, PS_WX_N = 6 };

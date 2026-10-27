@@ -66,6 +66,7 @@ int PstMasterState(const int* set, int n) {
     return !off ? 1 : !on ? 0 : 2;
 }
 const char* PstLabel(int what) {
+    if (what == PS_FRAME_STYLE) return "Frame meter style:";
     if (what == PS_FRAME_PROW) return "Frame row: Player:";  // human #38180
     if (what == PS_FRAME_IFR) return "Frame row: I-frames:";
     if (what >= PS_KEY_STARTUP) { static const char* const k[] = {"Key: Startup:", "Key: Active:", "Key: Recovery:", "Key: Unblockable:", "Key: Grab:", "Key: No hit/Pending/Empty:", "Key: Action start/Total/Stun:", "Key: Ki Pulse/Ki debt/Perfect:", "Key: I-frames:"}; return k[what - PS_KEY_STARTUP]; }
@@ -77,6 +78,7 @@ const char* PstLabel(int what) {
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
+    else if (what == PS_FRAME_STYLE) snprintf(buf, n, "%s", v ? "Ring" : "Row");
     else if (PstIsToggle(what)) snprintf(buf, n, "%s", v ? "ON" : "OFF");
     else if (what == PS_TIME_OF_DAY) { const int m = PstTodMinutes(v); if (m < 0) snprintf(buf, n, "Stock"); else snprintf(buf, n, "%02d:%02d", m / 60, m % 60); }
     else if (what == PS_WEATHER) snprintf(buf, n, "%s", PstWeatherName(v));

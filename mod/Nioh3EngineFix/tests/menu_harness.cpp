@@ -61,12 +61,12 @@ int MatchPreset() { return 0; }
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
-int g_fm = 0, g_kw = 0, g_psv[33] = {};  // g_psv: the other Training switches (frame-meter master rows)
-int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : what >= 0 && what < 33 ? g_psv[what] : -1; }
+int g_fm = 0, g_kw = 0, g_psv[34] = {};  // g_psv: the other Training switches (frame-meter master rows)
+int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : what >= 0 && what < 34 ? g_psv[what] : -1; }
 int HarnessPstUnavailable(int) { return -1; }
 int g_skyPersist = 0;
 int HarnessPstSet(int what, int value, int persist) {
-    int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : what >= 0 && what < 33 ? &g_psv[what] : nullptr;
+    int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : what >= 0 && what < 34 ? &g_psv[what] : nullptr;
     if (!p) return -1;
     if (what == 12 || what == 13) { *p = std::clamp(value, 0, what == 12 ? 48 : 5); g_skyPersist += persist != 0; }
     else *p = value < 0 ? !*p : (value ? 1 : 0);
@@ -169,11 +169,24 @@ int main() {
     {
         g_pages.page = pOvFrameMeter;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 4 + kPsToggleN + 1 && rows[3] == kFrameMeterRow && rows[4] == kPsAllRowsRow && rows[5] == kKiWindowRow && rows[6] == kPsRowFirst &&
-              rows[13] == kPsAllKeysRow && rows[14] == kPsRowFirst + 7 && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
+        CHECK(n == 3 + 5 + kPsToggleN + 1 && rows[3] == kFrameMeterRow && rows[4] == kFrameMeterStyleRow && rows[5] == kPsAllRowsRow && rows[6] == kKiWindowRow && rows[7] == kPsRowFirst &&
+              rows[14] == kPsAllKeysRow && rows[15] == kPsRowFirst + 7 && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
     }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
+    // Style is persistent, directional, append-only, and unavailable on an older Training module.
+    CHECK(has(pOvFrameMeter,kFrameMeterStyleRow) && !has(pDisplay,kFrameMeterStyleRow));
+    CHECK(kFrameMeterStyleWhat==33 && g_psv[33]==0);
+    Change(kFrameMeterStyleRow,1); CHECK(g_psv[33]==1);
+    Change(kFrameMeterStyleRow,1); CHECK(g_psv[33]==1);
+    Change(kPsAllRowsRow,-1); CHECK(g_psv[33]==1);
+    Change(kPsAllKeysRow,1); CHECK(g_psv[33]==1);
+    Change(kFrameMeterStyleRow,-1); CHECK(g_psv[33]==0);
+    Change(kFrameMeterStyleRow,0); CHECK(g_psv[33]==1);
+    g_pstGet=HarnessPstUnavailable;
+    Change(kFrameMeterStyleRow,-1); CHECK(g_psv[33]==1 && strstr(g_psNote,"Needs"));
+    g_pstGet=HarnessPstGet; Change(kFrameMeterStyleRow,-1); CHECK(g_psv[33]==0);
+    for(int i=0;i<34;++i)g_psv[i]=0; g_psNote[0]=0;
     // Display sky sliders use the persistent Training ABI, including midnight/noon and endpoint clamps.
     CHECK(has(pDisplay, kTimeOfDayRow) && has(pDisplay, kWeatherRow));
     CHECK(!has(pOvFrameMeter, kTimeOfDayRow) && !has(pSettings, kWeatherRow));

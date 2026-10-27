@@ -35,3 +35,7 @@ Next pc install/native acceptance; no game/deployment touched. Offline preview s
 2026-10-27 5:34 pm EDT | cx-pc #40646: short update instruction pushed 34de61b7 on cx-pc/update-notice-40646, based on later1.7.83 source3129200e. Notice: Update <ver> available: Mod Menu > Open update page; URL removed, click/site+folder behavior preserved.
 Both menu suites +107 checker assertions PASS (no URL, exactly2 reminder lines, viewport fit320/800/1280, longest accepted version). Release EF bridge2926 SHAbcc09202ad709294c55f1d1acdc207496c9d536fa5f6d3abea8f0a3741b16267, MOD_VERSION1.7.83.
 Next pc install/native acceptance, cxl-pc publishing; no game or deployment touched. Offline preview sent via normal notify fallback (-I missing media module).
+
+2026-10-27 5:57 pm EDT | cx-pc #40696: Row/Ring setting, independent PLAYER/I-FR/BOSS/KI DEBT tracks and frozen-menu repaint implemented on cx-pc/ring-meter-40696.
+Training Release compile + both menu suites + 5-resolution production-DIB checker PASS; preliminary draw timings collected during compilation, native appearance/performance unproven.
+Next: finish EF Release build, inspect/send preview, isolate offline draw cost and optimize Ring label redraw if needed; no game touched. Files mod/Nioh3Training/src/frame_meter_{draw,ring,game}.h and menu/stat integration.

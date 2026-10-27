@@ -27,7 +27,9 @@ constexpr int kCamRight = 0, kCamUp = 1, kCamDistance = 2, kCamLens = 3, kCamRes
 constexpr int kTimeOfDayRow = kCamRowFirst + kCamRowN;
 constexpr int kWeatherRow = kTimeOfDayRow + 1;
 constexpr int kUpdatePageRow = kWeatherRow + 1;
-constexpr int kMenuRowCap = kUpdatePageRow + 1;
+constexpr int kFrameMeterStyleRow = kUpdatePageRow + 1;
+constexpr int kMenuRowCap = kFrameMeterStyleRow + 1;
+static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
