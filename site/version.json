@@ -1,1 +1,5 @@
-{"version":"1.7.84","url":"https://nioh3-mod-feedback.vercel.app","notes":"Combined UI build with background update checks."}
+{
+  "version": "1.7.85",
+  "url": "https://nioh3-mod-feedback.vercel.app",
+  "notes": "Combined UI build with background update checks."
+}
