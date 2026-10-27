@@ -130,46 +130,12 @@ bool IsWine() {
     const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
     return ntdll && GetProcAddress(ntdll, "wine_get_version");
 }
-std::wstring QuoteArgument(const std::wstring& value) {
-    std::wstring out = L"\"";
-    size_t slashes = 0;
-    for (wchar_t c : value) {
-        if (c == L'\\') { ++slashes; continue; }
-        out.append(slashes * (c == L'\"' ? 2 : 1), L'\\');
-        slashes = 0;
-        if (c == L'\"') out += L'\\';
-        out += c;
-    }
-    out.append(slashes * 2, L'\\');
-    return out + L'\"';
-}
-void OpenUnixTarget(const std::wstring& target, bool folder = false) {
-    if (target.empty()) return;
-    wchar_t system[MAX_PATH]{};
-    const UINT count = GetSystemDirectoryW(system, MAX_PATH);
-    if (!count || count >= MAX_PATH) return;
-    const std::wstring start = std::wstring(system, count) + L"\\start.exe";
-    std::wstring command = QuoteArgument(start) + L" /unix /usr/bin/xdg-open " + QuoteArgument(target);
-    if (folder) {
-        // Fixed shell program; the path is a positional argument, never shell code.
-        const std::wstring script = L"dolphin --new-window \"$1\" || xdg-open \"$1\" || kde-open5 \"$1\" || kde-open \"$1\"";
-        command = QuoteArgument(start) + L" /unix /bin/sh -c " + QuoteArgument(script)
-                  + L" nioh3-folder " + QuoteArgument(target);
-    }
-    STARTUPINFOW si{}; si.cb = sizeof(si);
-    PROCESS_INFORMATION pi{};
-    if (CreateProcessW(start.c_str(), command.data(), nullptr, nullptr, FALSE,
-                       CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-    }
-}
 void ShowFolderNotice(const std::wstring& folder) {
     char path[1900]{};
     if (!WideCharToMultiByte(CP_UTF8, 0, folder.c_str(), -1, path, sizeof(path), nullptr, nullptr))
         std::snprintf(path, sizeof(path), "Path too long; use Steam > Manage > Browse local files");
     AcquireSRWLockExclusive(&g_lock);
-    std::snprintf(g_folderNotice, sizeof(g_folderNotice), "Game folder: %s", path);
+    std::snprintf(g_folderNotice, sizeof(g_folderNotice), "Update website: https://nioh3-mod-feedback.vercel.app | Game folder: %s", path);
     g_folderUntil = 0; // starts only when the foreground game can draw it
     ReleaseSRWLockExclusive(&g_lock);
 }
@@ -186,21 +152,19 @@ void OpenWineFolder(const std::wstring& folder) {
     HeapFree(GetProcessHeap(), 0, path);
     if (count <= 1) { ShowFolderNotice(folder); return; }
     target.resize(count - 1);
-    if (target.front() == L'/') OpenUnixTarget(target, true);
     ShowFolderNotice(target);
 }
 void LaunchFixedPage(HMODULE module) {
     // Never use manifest or INI values as browser targets.
     const bool wine = IsWine();
-    if (wine) OpenUnixTarget(L"https://nioh3-mod-feedback.vercel.app");
-    else ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
+    if (!wine) ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
     // Resolve only this ASI's directory; no configuration, manifest or working-directory input.
     std::wstring path(32768, L'\0');
     const DWORD length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
-    if (!length || length >= path.size()) return;
+    if (!length || length >= path.size()) { if(wine) ShowFolderNotice(L"Use Steam > Manage > Browse local files"); return; }
     path.resize(length);
     const auto slash = path.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) return;
+    if (slash == std::wstring::npos) { if(wine) ShowFolderNotice(L"Use Steam > Manage > Browse local files"); return; }
     const std::wstring folder = path.substr(0, slash + 1);
     if (wine) { OpenWineFolder(folder); return; }
     const std::wstring updater = folder + L"Nioh3Updater.exe";

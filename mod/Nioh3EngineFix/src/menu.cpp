@@ -1529,10 +1529,10 @@ void Close(const char* how) {
 
 void LaunchUpdatePage() {
     if (updatecheck::RunningUnderWine()) {
-        Close("opening update browser on Wine");
+        Close("showing update instructions on Wine");
         g_pressed=0; g_toggleReq=0;
         for (auto& repeat : g_rep) repeat=0;
-        MLOG("update browser: closed menu and cleared queued navigation before focus leaves");
+        MLOG("update instructions: Wine uses in-game URL and path only; no external app launch");
     }
     updatecheck::OpenPage();
 }

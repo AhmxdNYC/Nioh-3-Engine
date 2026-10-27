@@ -78,8 +78,8 @@ static FARPROC FakeProc(HMODULE module,LPCSTR name) {
  if(std::strcmp(name,"wine_get_unix_file_name")==0)return missingUnixExport?nullptr:reinterpret_cast<FARPROC>(&FakeUnixName);
  return GetProcAddress(module,name);
 }
-static UINT FakeSystem(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Windows\\system32");return 19;}
-static BOOL FakeProcess(LPCWSTR app,LPWSTR command,LPSECURITY_ATTRIBUTES,LPSECURITY_ATTRIBUTES,
+[[maybe_unused]] static UINT FakeSystem(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Windows\\system32");return 19;}
+[[maybe_unused]] static BOOL FakeProcess(LPCWSTR app,LPWSTR command,LPSECURITY_ATTRIBUTES,LPSECURITY_ATTRIBUTES,
  BOOL inherit,DWORD flags,LPVOID,LPCWSTR,LPSTARTUPINFOW,LPPROCESS_INFORMATION pi) {
  if(inherit || flags!=CREATE_NO_WINDOW)std::abort();
  processCalls.push_back({app,command});
@@ -182,23 +182,19 @@ int main(){
  pathFailure=false;modulePath=L"no-directory.asi";shellCalls.clear();LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
  wineMode=true;modulePath=L"C:\\Steam Games\\Nioh3\\Nioh3EngineFix.asi";
  shellCalls.clear();LaunchFixedPage(testModule);
- CHECK(shellCalls.empty());CHECK(processCalls.size()==2);CHECK(processCloses==4);
- CHECK(processCalls[0].target==L"C:\\Windows\\system32\\start.exe");
- CHECK(processCalls[0].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"https://nioh3-mod-feedback.vercel.app\"");
- CHECK(processCalls[1].args.find(L"dolphin --new-window")!=std::wstring::npos); CHECK(popupCount==0);
+ CHECK(shellCalls.empty());CHECK(processCalls.empty());CHECK(processCloses==0);CHECK(popupCount==0);
  char folderNotice[2048]{}; CHECK(!CopyFolderNotice(folderNotice,sizeof(folderNotice),false));
  clockMs+=60000; CHECK(CopyFolderNotice(folderNotice,sizeof(folderNotice),true));
- CHECK(std::string(folderNotice)=="Game folder: /home/player/Steam Games/Nioh3/");
+ CHECK(std::string(folderNotice)=="Update website: https://nioh3-mod-feedback.vercel.app | Game folder: /home/player/Steam Games/Nioh3/");
  clockMs+=20000; CHECK(!CopyFolderNotice(folderNotice,sizeof(folderNotice),true));
  CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
  CHECK(std::string(folderNotice).find("Update ")==0);
- CHECK(QuoteArgument(L"a\"b\\")==L"\"a\\\"b\\\\\"");
- conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.empty());
  conversionFails=false;processFails=true;processCalls.clear();int closes=processCloses;
- LaunchFixedPage(testModule);CHECK(processCalls.size()==2);CHECK(processCloses==closes);
- processFails=false;unixFolder="relative/path";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
- missingUnixExport=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
- missingUnixExport=false;unixFolder="/bad/\xC3\x28";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ LaunchFixedPage(testModule);CHECK(processCalls.empty());CHECK(processCloses==closes);
+ processFails=false;unixFolder="relative/path";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.empty());
+ missingUnixExport=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.empty());
+ missingUnixExport=false;unixFolder="/bad/\xC3\x28";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.empty());
  CHECK(popupCount==0);
  wineMode=false;
  reset();g_openAfter.store(0);int before=threadAttempts;

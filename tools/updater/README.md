@@ -136,7 +136,6 @@ If an install swap fails after files changed, the existing verified backup is re
 
 In `Nioh3Training.ini`, put `FrameMeterStyle=1` under `[Practice]` for Ring,
 or `FrameMeterStyle=0` for Row. `[Training]` does not read this setting.
-The Linux folder action tries Dolphin first, then xdg-open and KDE openers.
-A non-modal in-game notice supplies the folder path for 20 seconds because Game Mode may have no file manager.
+On Wine/Linux the in-game action launches no external app: it shows the website URL and game folder in a non-modal 20-second notice. Open the website from the desktop after leaving the game. Windows behavior is unchanged.
 The updater reads the installed EngineFix binary version and refuses a public
 stable downgrade; explicit backup rollback remains available.
