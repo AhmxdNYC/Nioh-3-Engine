@@ -4,6 +4,8 @@
 // gamescope, on every presented frame (generated ones too), with no external files. See notes\osd-design.md.
 // The mod menu (menu.h) is drawn through the same hook with the primitives at the bottom of this header.
 #pragma once
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -105,5 +107,71 @@ float DrawText(float x, float y, const char* text, uint32_t abgr, float scale); 
 // textured quad from the controller display's sprite atlas (padviz.h; only inside padviz::Draw - the atlas of the current
 // skin is bound for that quad group). uv 0..1 (u0 > u1 mirrors); abgr tints/fades (0xFFFFFFFF = as drawn)
 void DrawSprite(float x, float y, float w, float h, float u0, float v0, float u1, float v1, uint32_t abgr);
+
+// ---- rounded panels (#38505): one helper set for the mod menu panels, input display, FPS / info blocks and corner notes
+// (not the controller overlay). Built from DrawRect: corner rows are 1 px slices, the straight part is one rect, rows never overlap.
+inline float PanelRadius(float s) { const float r = std::floor(5.0f * s + 0.5f); return r < 4.0f ? 4.0f : r; }  // 1080p menu (s 1.5) = 8 px
+// x inset of row i of a box h rows tall with corner radius R (integers); 0 on the straight part
+inline float RoundInset(int R, int H, int i) {
+    const int k = i < R ? i : H - 1 - i < R ? H - 1 - i : -1;
+    if (k < 0) return 0.0f;
+    const float dy = (float)R - ((float)k + 0.5f);
+    return std::floor((float)R - std::sqrt(std::fmax(0.0f, (float)(R * R) - dy * dy)) + 0.5f);
+}
+// rows [row0, row0 + rows) of the rounded box (x, y, w, h, r), each row also inset at least `side` px from both edges
+inline void DrawRoundBand(float x, float y, float w, float h, float r, float row0, float rows, uint32_t abgr, float side = 0.0f) {
+    x = std::floor(x + 0.5f); y = std::floor(y + 0.5f); w = std::floor(w + 0.5f); h = std::floor(h + 0.5f);
+    if (w <= 0 || h <= 0) return;
+    const int H = (int)h, R = (int)std::fmin(r, std::fmin(w, h) * 0.5f);
+    int i = std::max(0, (int)std::floor(row0 + 0.5f));
+    const int end = std::min(H, (int)std::floor(row0 + rows + 0.5f));
+    side = std::floor(side + 0.5f);
+    while (i < end) {
+        if (i >= R && i < H - R) {  // straight part: one rect
+            const int e = std::min(end, H - R);
+            if (w > 2.0f * side) DrawRect(x + side, y + (float)i, w - 2.0f * side, (float)(e - i), abgr);
+            i = e;
+            continue;
+        }
+        const float in = std::fmax(RoundInset(R, H, i), side);
+        if (w > 2.0f * in) DrawRect(x + in, y + (float)i, w - 2.0f * in, 1.0f, abgr);
+        ++i;
+    }
+}
+inline void DrawRoundRect(float x, float y, float w, float h, float r, uint32_t abgr) { DrawRoundBand(x, y, w, h, r, 0.0f, h, abgr); }
+// outline of thickness t following the rounded edge
+inline void DrawRoundFrame(float x, float y, float w, float h, float r, float t, uint32_t abgr) {
+    x = std::floor(x + 0.5f); y = std::floor(y + 0.5f); w = std::floor(w + 0.5f); h = std::floor(h + 0.5f);
+    const int H = (int)h, T = std::max(1, (int)std::floor(t + 0.5f)), R = (int)std::fmin(r, std::fmin(w, h) * 0.5f);
+    if (w <= 2.0f * T || H <= 2 * T) { DrawRect(x, y, w, h, abgr); return; }
+    const float tf = (float)T;
+    if (R <= T) {
+        DrawRect(x, y, w, tf, abgr); DrawRect(x, y + h - tf, w, tf, abgr);
+        DrawRect(x, y + tf, tf, h - 2.0f * tf, abgr); DrawRect(x + w - tf, y + tf, tf, h - 2.0f * tf, abgr);
+        return;
+    }
+    const int R2 = R - T, H2 = H - 2 * T;
+    for (int i = 0; i < H; ++i) {
+        if (i == R && H - R > R) {  // straight sides: one rect each
+            DrawRect(x, y + (float)R, tf, (float)(H - 2 * R), abgr); DrawRect(x + w - tf, y + (float)R, tf, (float)(H - 2 * R), abgr);
+            i = H - R - 1;
+            continue;
+        }
+        const float o = RoundInset(R, H, i);
+        if (i < T || i >= H - T) { DrawRect(x + o, y + (float)i, w - 2.0f * o, 1.0f, abgr); continue; }
+        const float in = tf + RoundInset(R2, H2, i - T), seg = std::fmax(1.0f, in - o);
+        DrawRect(x + o, y + (float)i, seg, 1.0f, abgr); DrawRect(x + w - o - seg, y + (float)i, seg, 1.0f, abgr);
+    }
+}
+// left accent stripe t px wide that follows the rounded left edge of the box (x, y, w, h, r)
+inline void DrawRoundEdge(float x, float y, float w, float h, float r, float t, uint32_t abgr) {
+    x = std::floor(x + 0.5f); y = std::floor(y + 0.5f); w = std::floor(w + 0.5f); h = std::floor(h + 0.5f);
+    if (w <= 0 || h <= 0) return;
+    const int H = (int)h, R = (int)std::fmin(r, std::fmin(w, h) * 0.5f);
+    for (int i = 0; i < H; ++i) {
+        if (i == R && H - R > R) { DrawRect(x, y + (float)R, t, (float)(H - 2 * R), abgr); i = H - R - 1; continue; }
+        DrawRect(x + RoundInset(R, H, i), y + (float)i, t, 1.0f, abgr);
+    }
+}
 
 }  // namespace osd

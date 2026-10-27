@@ -454,7 +454,13 @@ int main() {
             const unsigned height=width==800u?600u:width*9/16;
             osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextScale.clear();
             const float sc=DrawRematchHost(width,height); CHECK(sc>0 && !osd::drawnRects.empty());
-            const auto panel=osd::drawnRects[0]; const float cw=osd::kGlyphW*sc;
+            // #38505: the panel body is drawn as rounded rows top to bottom; its bounds = the union of that first run of rects
+            auto panel=osd::drawnRects[0];
+            for(size_t k=1;k<osd::drawnRects.size()&&osd::drawnRects[k].y>osd::drawnRects[k-1].y;++k){
+                const auto& q=osd::drawnRects[k]; const float r=std::max(panel.x+panel.w,q.x+q.w),b=std::max(panel.y+panel.h,q.y+q.h);
+                panel.x=std::min(panel.x,q.x); panel.w=r-panel.x; panel.h=b-panel.y;
+            }
+            const float cw=osd::kGlyphW*sc;
             CHECK(panel.w/cw>=58.f && panel.x>=(float)width*0.5f && panel.h<=0.70f*(float)height);
             for(const auto& r:osd::drawnRects)CHECK(r.x>=panel.x-1&&r.y>=panel.y-1&&r.x+r.w<=panel.x+panel.w+1&&r.y+r.h<=panel.y+panel.h+1);
             bool sawPill=false,sawWrap=false,sawHeader=false,sawRepeat=false;

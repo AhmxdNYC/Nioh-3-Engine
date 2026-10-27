@@ -830,7 +830,7 @@ constexpr int kKiWindowWhat = 21;  // PS_KI_WINDOW in Nioh3Training (#34558)
 int (*g_pstGet)(int) = nullptr;
 int (*g_pstSet)(int, int, int) = nullptr;
 char g_frameMeterNote[200] = "Boss frame meter. Needs Nioh3Training.";
-char g_kiWindowNote[220] = "Dark blue on the player frame meter while the Ki window is open (about half a second after an attack). Needs Nioh3Training.";
+char g_kiWindowNote[220] = "Whole Ki window in dark blue on the player frame meter. The perfect Ki Pulse part (teal) always shows. Needs Nioh3Training.";
 void ResolveFrameMeter() {
     if (g_pstGet && g_pstSet) return;
     static ULONGLONG tried = 0;
@@ -2221,8 +2221,9 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
         y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
     }
     const float x = (float)W - margin - w;
-    osd::DrawRect(x, y, w, h, menu_style::kPanelBgSide);
-    osd::DrawRect(x, y, std::max(2.0f, sc * 1.5f), h, menu_style::kAccent);  // #13257: gold accent edge
+    const float r = menu_style::PanelR(sc);  // #38505: rounded like every mod panel
+    osd::DrawRoundRect(x, y, w, h, r, menu_style::kPanelBgSide);
+    osd::DrawRoundEdge(x, y, w, h, r, std::max(2.0f, sc * 1.5f), menu_style::kAccent);  // #13257: gold accent edge
     osd::DrawText(x + pad, y + pad, text, color, sc);
     return sc;
 }
@@ -2448,7 +2449,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
     const float bodyH = line * (float)shownV, h = maxH;  // #38102: fixed height, the panel does not resize while navigating
     ms::Panel(x, y0, width, h, scale, ms::kPanelBgSide, a);
     // title bar: page name left, worker status right (or below when both do not fit)
-    osd::DrawRect(x + scale, y0 + 2.f * scale, width - 2.f * scale, titleH - 2.f * scale, ms::Fade(ms::kTitleBg, a));
+    ms::PanelBand(x, y0, width, h, scale, 2.f * scale, titleH - 2.f * scale, scale, ms::Fade(ms::kTitleBg, a));
     osd::DrawText(tx, y0 + pad, title, ms::Fade(ms::kTitleText, a), scale);
     if (status[0]) {
         if (statusOwnLine) osd::DrawText(tx, y0 + pad + line, status, ms::Fade(statusC, a), scale);
@@ -2504,7 +2505,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
     }
     // button prompts in a darker footer band
     y = y0 + h - hintH;
-    osd::DrawRect(x + scale, y, width - 2.f * scale, hintH - scale, ms::Fade(ms::kFooterBg, a));
+    ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale)) * 0.5f);  // badges centred in the band (#13537)
     static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
@@ -2732,7 +2733,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
-        snprintf(effect, sizeof(effect), "On by default. Off hides the dark blue and leaves the other frame-meter colors. Training saves it.");
+        snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");
     } else if (!g_cfg.layout && g_sel >= kPageRow && g_sel < kBackRow) {
         const int pg = g_sel - kPageRow;
         const char* w = pg == pDisplay ? "Display overlays: controller overlay, frame meter, input display, FPS counter and status readouts, loading-screen auto-click."
@@ -2860,7 +2861,7 @@ float DrawImpl(unsigned W, unsigned H) {
     namespace ms = menu_style;
     const float fa = ms::OpenFade(t);
     ms::Panel(x0, y0, w, h, sc, ms::kPanelBg, fa);
-    osd::DrawRect(x0 + sc, y0 + 2 * sc, w - 2 * sc, pad + lineH - 2 * sc, ms::Fade(ms::kTitleBg, fa));
+    ms::PanelBand(x0, y0, w, h, sc, 2 * sc, pad + lineH - 2 * sc, sc, ms::Fade(ms::kTitleBg, fa));
     int line = 0;
     auto drawRow = [&](const Row& rw, bool isHead) {
         const float y = y0 + pad + line * lineH;
@@ -2903,7 +2904,7 @@ float DrawImpl(unsigned W, unsigned H) {
     };
     if (nt >= 2) {  // the two control lines at the bottom sit in a darker footer band
         const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
-        osd::DrawRect(x0 + sc, fy, w - 2 * sc, y0 + h - fy - sc, ms::Fade(ms::kFooterBg, fa));
+        ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);
     for (int i = 0; i < shown; ++i) drawRow(body[first + i], false);

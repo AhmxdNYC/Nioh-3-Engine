@@ -69,7 +69,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     const float h = (float)rows * rowH + 2.0f * pad;
     if (right) x -= w;
 
-    menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false);  // #38452: no gold top line
+    menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false, false);  // #38452: no gold top line, #38501: no outline
 
     Entry e[kMaxRows];
     const int n = Snapshot(e, rows);

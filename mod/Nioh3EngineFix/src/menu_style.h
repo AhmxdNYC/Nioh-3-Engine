@@ -43,15 +43,17 @@ inline float OpenFade(uint64_t nowMs) {
     return t >= 1.0f ? 1.0f : t < 0.0f ? 0.0f : 0.35f + 0.65f * t;
 }
 
-// panel body with a 1 px outline and a 2 px gold line on top
-inline void Panel(float x, float y, float w, float h, float s, uint32_t bg, float a, bool accentLine = true) {
-    const float px = s < 1.0f ? 1.0f : (float)(int)(s * 0.75f + 0.5f);
-    osd::DrawRect(x, y, w, h, Fade(bg, a));
-    osd::DrawRect(x, y, w, px, Fade(kBorder, a));
-    osd::DrawRect(x, y + h - px, w, px, Fade(kBorder, a));
-    osd::DrawRect(x, y + px, px, h - 2 * px, Fade(kBorder, a));
-    osd::DrawRect(x + w - px, y + px, px, h - 2 * px, Fade(kBorder, a));
-    if (accentLine) osd::DrawRect(x, y, w, 2 * px, Fade(kAccent, a));
+// panel body with a 1 px outline and a 2 px gold line on top; rounded corners, radius osd::PanelRadius(s) (#38505)
+inline float PanelR(float s) { return osd::PanelRadius(s); }
+inline void Panel(float x, float y, float w, float h, float s, uint32_t bg, float a, bool accentLine = true, bool border = true) {
+    const float px = s < 1.0f ? 1.0f : (float)(int)(s * 0.75f + 0.5f), r = PanelR(s);
+    osd::DrawRoundRect(x, y, w, h, r, Fade(bg, a));
+    if (border) osd::DrawRoundFrame(x, y, w, h, r, px, Fade(kBorder, a));
+    if (accentLine) osd::DrawRoundBand(x, y, w, h, r, 0.0f, 2 * px, Fade(kAccent, a));
+}
+// a band (title bar / footer) of rows [row0, row0 + rows) inside a Panel(x, y, w, h, s), inset `side` px, clipped to its corners
+inline void PanelBand(float x, float y, float w, float h, float s, float row0, float rows, float side, uint32_t c) {
+    osd::DrawRoundBand(x, y, w, h, PanelR(s), row0, rows, c, side);
 }
 
 // selected row: soft gold wash plus a solid stripe on the left edge
@@ -102,19 +104,8 @@ constexpr uint32_t kBumperBg = 0xF0585858, kBumperText = 0xFFF0F0F0;
 
 inline float Snap(float v) { return (float)(int)(v + 0.5f); }
 
-// filled rounded rectangle; corner rows are separate 1 px slices (no overlap)
-inline void RoundRect(float x, float y, float w, float h, float r, uint32_t c) {
-    x = Snap(x); y = Snap(y); w = Snap(w); h = Snap(h);
-    if (w <= 0 || h <= 0) return;
-    r = (float)(int)std::fmin(r, std::fmin(w, h) * 0.5f);
-    if (r < 1.0f) { osd::DrawRect(x, y, w, h, c); return; }
-    for (int i = 0; i < (int)r; ++i) {
-        const float dy = r - ((float)i + 0.5f), in = Snap(r - std::sqrt(std::fmax(0.0f, r * r - dy * dy)));
-        osd::DrawRect(x + in, y + (float)i, w - 2.0f * in, 1.0f, c);
-        osd::DrawRect(x + in, y + h - 1.0f - (float)i, w - 2.0f * in, 1.0f, c);
-    }
-    if (h > 2.0f * r) osd::DrawRect(x, y + r, w, h - 2.0f * r, c);
-}
+// filled rounded rectangle; corner rows are separate 1 px slices (no overlap). Same shared helper as the panels (osd.h).
+inline void RoundRect(float x, float y, float w, float h, float r, uint32_t c) { osd::DrawRoundRect(x, y, w, h, r, c); }
 
 // solid arrow head in a box: dir 0 left, 1 right, 2 up, 3 down (1 px slices)
 inline void ArrowHead(float x, float y, float w, float h, int dir, uint32_t c) {

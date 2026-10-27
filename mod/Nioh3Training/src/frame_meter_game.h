@@ -1444,7 +1444,7 @@ static void FmFeed(double gdt) {
         if (g_cfg_ifp) FmIFrameProbe(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock, &fmiS);
         if (g_cfg_ifbyte) FmPadLog(g_fm_clock);
         if (g_cfg_ifbyte) FmIFrameBytes(g_fp[FP_PL].a, g_fp[FP_PL].ctrl, g_fp[FP_PL].run.act, g_fm_clock);
-        if (g_pst.v[PS_KI_WINDOW]) {
+        {  // #38492/#38843: the Ki window is always sampled for the PLAYER row so the perfect part (teal) shows; KiWindow adds the whole blue bar
             static int wasOpen;
             float pkt = 0.f, pki = 0.f, pt74 = -1.f;
             const int open = FmPlayerKiOpen(g_fp[FP_PL].a);
@@ -1456,9 +1456,10 @@ static void FmFeed(double gdt) {
             const int r1Edge = rb && !wasRB;
             wasRB = rb;
             const int perfect = FmKiPressPerfect(open, r1Edge, pt74);
-            FmMarkKiWin(&g_fmp, g_fm_clock, open ? (perfect ? 2 : 1) : 0);
-            if (perfect && !FmLiveRun(&g_fmp) && FmSealPerfectEnd(&g_fmp))
-                Log("KI cyan: R1 at timer %.2f sealed the last cell", pt74);
+            const int perfWin = open && FmKiPerfect(pt74);  // #38492: the perfect window itself (timer in (0.05, 4]), press or not
+            FmMarkKiWin(&g_fmp, g_fm_clock, open ? (perfect || perfWin ? 2 : 1) : 0);
+            if ((perfect || perfWin) && !FmLiveRun(&g_fmp) && FmSealPerfectEnd(&g_fmp))
+                Log("KI cyan: %s at timer %.2f sealed the last cell", perfect ? "R1" : "window", pt74);
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
             {
@@ -1550,6 +1551,26 @@ static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0
 #define FM_GUARD_RGB RGB(70,200,120) // ctrl+EA5 (guard stance)
 #define FM_EA7_RGB RGB(220,110,225)  // ctrl+EA7
 #define FM_NODMG_RGB RGB(255,206,48)  // #35176 i-frame stripe (gold), top third of the cell
+// #38492: teal (perfect Ki Pulse window, mark 2) always shows on the PLAYER row; dark blue (mark 1, whole window) only with KiWindow ON
+static int FmShowKiWin(const FmMeter* m, int i) { const int v = FmViewKiWinRaw(m, i); return v == 1 && !g_pst.v[PS_KI_WINDOW] ? 0 : v; }
+// #38505: rounded corners for the whole meter stack (all rows share one x extent). Paints the colour key (transparent) outside a
+// circle of radius r in each corner, one FillRect per corner row.
+static int FmRadius(int H) { const int r = (int)(6.0f * (H > 0 ? (float)H / 1080.0f : 1.0f) + 0.5f); return r < 4 ? 4 : r; }
+static void FmRoundCorners(HDC dc, int x, int y, int w, int h, int r) {
+    if (w <= 0 || h <= 0) return;
+    if (r > w / 2) r = w / 2;
+    if (r > h / 2) r = h / 2;
+    HBRUSH key = CreateSolidBrush(FM_KEY);
+    for (int i = 0; i < r; ++i) {
+        const float dy = (float)r - ((float)i + 0.5f);
+        const int in = (int)((float)r - sqrtf((float)(r * r) - dy * dy) + 0.5f);
+        if (in <= 0) continue;
+        RECT a = {x, y + i, x + in, y + i + 1}, b = {x + w - in, y + i, x + w, y + i + 1};
+        RECT c = {x, y + h - 1 - i, x + in, y + h - i}, d = {x + w - in, y + h - 1 - i, x + w, y + h - i};
+        FillRect(dc, &a, key); FillRect(dc, &b, key); FillRect(dc, &c, key); FillRect(dc, &d, key);
+    }
+    DeleteObject(key);
+}
 static COLORREF FmIFrColor(int bits) {
     return bits&FMF_NODMG ? FM_NODMG_RGB : bits&FMF_EAA ? FM_EAA_RGB : bits&FMF_EA7 ? FM_EA7_RGB : bits&FMF_GUARD ? FM_GUARD_RGB : FmColor(FM_EMPTY);
 }
@@ -1588,7 +1609,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     FmFill(dc,x0-1,by-1,barW+2,barH+2,RGB(41,50,65));
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
         const uint8_t c=FmViewCell(&m,viewStart+i);
-        const int win=kiStripe ? FmViewKiWin(&m,viewStart+i) : 0;
+        const int win=kiStripe ? FmShowKiWin(&m,viewStart+i) : 0;
         FmFill(dc,x0+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
         if(!win && (c&0x7F)==FM_ACTIVE_UB) FmFill(dc,x0+i*cw,by+barH/2,cw>3?cw-2:1,1,RGB(255,210,216));
         if(c&FM_EDGE) FmFill(dc,x0+i*cw,by-2,1,barH+4,RGB(235,240,248));
@@ -1598,11 +1619,11 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     // Centre within its LAST coloured cell, excluding the separator.
     for(int first=0;first<FM_CELLS;) {
         const uint8_t st=FmViewCell(&m,first)&0x7F;
-        const int win=kiStripe ? FmViewKiWin(&m,first) : 0;
+        const int win=kiStripe ? FmShowKiWin(&m,first) : 0;
         int end=first+1;
         while(end<FM_CELLS) {
             const uint8_t next=FmViewCell(&m,end);
-            const int nwin=kiStripe ? FmViewKiWin(&m,end) : 0;
+            const int nwin=kiStripe ? FmShowKiWin(&m,end) : 0;
             if((next&0x7F)!=st || (next&FM_EDGE) || nwin!=win) break;
             ++end;
         }
@@ -1634,7 +1655,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
 // KEY entries (names/colours in FmLegend): which are listed = what the meter can show now AND the per-group KEY toggles (#38180)
 static int FmLegendUse(int use[18]) {
     for(int i=0;i<11;++i) use[i]=1;
-    use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0; use[15]=use[16]=use[17]=FmIFrRow()?1:0;
+    use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=FmPlayerDraw()?1:0; use[15]=use[16]=use[17]=FmIFrRow()?1:0;
     static const struct { int i, key; } grp[] = {{0,PS_KEY_STARTUP},{1,PS_KEY_ACTIVE},{2,PS_KEY_RECOVERY},{3,PS_KEY_UNBLOCK},{4,PS_KEY_GRAB},{5,PS_KEY_OTHER},{6,PS_KEY_OTHER},{7,PS_KEY_OTHER},
         {8,PS_KEY_TIMING},{9,PS_KEY_TIMING},{10,PS_KEY_TIMING},{11,PS_KEY_KI},{12,PS_KEY_KI},{14,PS_KEY_KI},{13,PS_KEY_IFR},{15,PS_KEY_IFR},{16,PS_KEY_IFR},{17,PS_KEY_IFR}};
     for(int k=0;k<18;++k) if(!g_pst.v[grp[k].key]) use[grp[k].i]=0;
@@ -1699,7 +1720,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(FmPlayerDraw()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
+    if(FmPlayerDraw()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",1,!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
     if(FmIFrRow()) {  // gold cells = the same no-damage marks the stripe used, in their own lane aligned with the PLAYER row
         int used=FM_CELLS; while(used>0 && (FmViewCell(&mp,used-1)&0x7F)==FM_EMPTY) --used;
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
@@ -1724,6 +1745,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         SelectObject(dc,old); oy+=ph;
     }
     FmLegend(dc,w,H,oy);
+    FmRoundCorners(dc,panelLeft,0,panelW,oy+FmLegendHeight(w,H),FmRadius(H));
     RestoreDC(dc,panelClip);
 }
 static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;
