@@ -2221,9 +2221,7 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
         y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
     }
     const float x = (float)W - margin - w;
-    const float r = menu_style::PanelR(sc);  // #38505: rounded like every mod panel
-    osd::DrawRoundRect(x, y, w, h, r, menu_style::kPanelBgSide);
-    osd::DrawRoundEdge(x, y, w, h, r, std::max(2.0f, sc * 1.5f), menu_style::kAccent);  // #13257: gold accent edge
+    menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false);  // rounded, no gold edge (#38505)
     osd::DrawText(x + pad, y + pad, text, color, sc);
     return sc;
 }
@@ -2507,8 +2505,8 @@ float DrawRematchHost(unsigned W, unsigned H) {
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale)) * 0.5f);  // badges centred in the band (#13537)
-    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}};
-    ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
+    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}, {"Start", "x3 Exit"}};
+    ms::HintRow(tx, hy, x + width - pad, kPad, 6, cw, line, scale, a);
     return scale;
 }
 
@@ -2868,12 +2866,12 @@ float DrawImpl(unsigned W, unsigned H) {
         if (rw.label[0] == '\x01') {  // #13537 control prompts: pad (P = back, p = close) or keyboard (K), badges + labels
             const float right = x0 + w - pad;
             if (rw.label[1] == 'K') {
-                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}};
+                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}, {"F10", "Exit"}};
                 const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
-                ms::HintRow(kx, y, right, kKeyPrompts, 4, cw, lineH, sc, fa);
+                ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
             } else {
-                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}};
-                ms::HintRow(x0 + pad, y, right, kPad, 5, cw, lineH, sc, fa);
+                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}, {"Start", "x3 Exit"}};
+                ms::HintRow(x0 + pad, y, right, kPad, 6, cw, lineH, sc, fa);
             }
             ++line;
             return;

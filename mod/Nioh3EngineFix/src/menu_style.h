@@ -204,20 +204,20 @@ inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, 
         return;
     }
     if (IsBumper(k, n)) { Bumper(x, y, k, cw, s, a); return; }
-    RoundRect(x, top, w, h, h * 0.3f, Fade(kCapBg, a));
+    RoundRect(x, top, w, h, h * 0.3f, Fade(kBumperBg, a));
     if (n == 2 && (!strncmp(k, "LR", 2) || !strncmp(k, "UD", 2))) {  // two arrow heads, centred in the cap
         const float ah = Snap(h * 0.5f), aw = Snap(ah * 0.6f), cy = top + Snap((h - ah) * 0.5f), gap = Snap(cw * 0.35f);
         const float x0 = x + Snap((w - (2.0f * aw + gap)) * 0.5f);
-        if (k[0] == 'L') { ArrowHead(x0, cy, aw, ah, 0, Fade(kCapText, a)); ArrowHead(x0 + aw + gap, cy, aw, ah, 1, Fade(kCapText, a)); }
+        if (k[0] == 'L') { ArrowHead(x0, cy, aw, ah, 0, Fade(kBumperText, a)); ArrowHead(x0 + aw + gap, cy, aw, ah, 1, Fade(kBumperText, a)); }
         else {  // up / down: the heads stand side by side, each ah wide and aw tall
             const float vx0 = x + Snap((w - (2.0f * ah + gap)) * 0.5f), vy = top + Snap((h - aw) * 0.5f);
-            ArrowHead(vx0, vy, ah, aw, 2, Fade(kCapText, a)); ArrowHead(vx0 + ah + gap, vy, ah, aw, 3, Fade(kCapText, a));
+            ArrowHead(vx0, vy, ah, aw, 2, Fade(kBumperText, a)); ArrowHead(vx0 + ah + gap, vy, ah, aw, 3, Fade(kBumperText, a));
         }
         return;
     }
     char t[16];
     snprintf(t, sizeof t, "%.*s", (int)(n < 15 ? n : 15), k);
-    osd::DrawText(Snap(x + cw * 0.5f), top, t, Fade(kCapText, a), s);
+    osd::DrawText(Snap(x + cw * 0.5f), top, t, Fade(kBumperText, a), s);
 }
 
 // width of a whole prompt incl. its trailing gap
