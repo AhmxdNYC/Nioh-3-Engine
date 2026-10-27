@@ -51,7 +51,7 @@ int main() {
     CHECK(Snapshot(e, kCap) == kCap);
     CHECK(e[0].t0 == 2000 + 20 * 99 && e[1].t0 == 2000 + 20 * 98);
     // layout: all rows get a number; arrows / glyphs produce quads; every arrow bitmap has ink
-    for (int d = 1; d <= 8; ++d) { int ink = 0; for (int r = 0; r < 7; ++r) for (int c = 0; c < 7; ++c) ink += inputhist_draw::Cell(d, r, c); CHECK(ink >= 9); }
+    for (int d = 1; d <= 8; ++d) { int ink = 0; for (int r = 0; r < 20; ++r) for (int c = 0; c < 20; ++c) ink += inputhist_draw::ArrowSd(((float)c + 0.5f) / 20.0f - 0.5f, ((float)r + 0.5f) / 20.0f - 0.5f) < 0.0f; CHECK(ink >= 40); }
     g_rows = 6;
     g_n = 0; g_next = 0;
     Push(0x0001 | 0x1000 | 0x0100, 0, 0, 0, 0, 100);
@@ -59,8 +59,8 @@ int main() {
     osd::g_rect = osd::g_text = osd::g_sprite = 0;
     const float sc = inputhist_draw::Draw(1920, 1080, 16, 200, false, 900, 1);
     CHECK(sc > 0.0f);
-    CHECK(osd::g_text >= 3);    // 2 numbers + N + chip label
-    CHECK(osd::g_sprite >= 1);  // the A glyph
+    CHECK(osd::g_text >= 3);    // 2 numbers + N
+    CHECK(osd::g_sprite >= 2);  // the A glyph + the LB shoulder shape
     CHECK(inputhist_draw::PanelHeight(1080) > 0);
     printf("%s (rect %d text %d sprite %d)\n", fails ? "FAILED" : "PASS", osd::g_rect, osd::g_text, osd::g_sprite);
     fflush(stdout);
