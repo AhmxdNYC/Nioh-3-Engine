@@ -34,12 +34,14 @@ static int g_cfg_ifbyte;  // [Debug] IFrameBytes 1: log the outside-model i-fram
 static int g_cfg_ifp;  // [Debug] IFrameProbe 1: log-only probe of the player's state bits (notes/iframes.md)
 static int g_cfg_kipress;  // [Debug] KiPressProbe 1: log R1 against the blue bar (notes/ki-press-probe-35849.md)
 static int g_cfg_fm_unfocused;  // [Debug] FrameMeterUnfocused 1: keep drawing when the game is not the front window. Default 0.
+static int g_cfg_fm_drawcost; // [Debug] FrameMeterDrawCost 1: opt-in CPU paint/upload timing, per style.
 static void FmLoadIni(const char* ini) {
     g_cfg_ifp = (int)GetPrivateProfileIntA("Debug", "IFrameProbe", 0, ini);
     g_cfg_ifbyte = (int)GetPrivateProfileIntA("Debug", "IFrameBytes", 0, ini) ? 1 : 0;
     if (g_cfg_ifbyte) Log("IFRAMEEA on: [Debug] IFrameBytes 1, log-only (ctrl+EAA/EA0/EA5/EA7/EA8/EB0 and status+2DC8 bit 12)");
     g_cfg_kipress = (int)GetPrivateProfileIntA("Debug", "KiPressProbe", 0, ini);
     g_cfg_fm_unfocused = (int)GetPrivateProfileIntA("Debug", "FrameMeterUnfocused", 0, ini) ? 1 : 0;
+    g_cfg_fm_drawcost = (int)GetPrivateProfileIntA("Debug", "FrameMeterDrawCost", 0, ini) ? 1 : 0;
     g_fm_ki_perfect_only = (int)GetPrivateProfileIntA("Practice", "KiWindowPerfectOnly", 1, ini) ? 1 : 0;
     g_cfg_fm_y = (int)GetPrivateProfileIntA("Practice", "FrameMeterY", -1, ini); if (g_cfg_fm_y < -1 || g_cfg_fm_y > 90) g_cfg_fm_y = -1;
     Log("FRAME METER: [Practice] FrameMeter %d, PlayerFrameMeter %d, KiWindow %d, FrameMeterY %d (-1 = above player HUD; otherwise top percent)", g_pst.v[PS_FRAME_METER], g_pst.v[PS_PLAYER_METER], g_pst.v[PS_KI_WINDOW], g_cfg_fm_y);
@@ -1531,6 +1533,8 @@ static int g_fm_H;  // game client height (font / bar scale)
 // #38961: per-pixel alpha. Draw with GDI into a 32-bit DIB, then set alpha per pixel: colour key = clear, panel background = the
 // mod-panel translucency (menu_style kPanelBg 0x73), everything else (bars, text) opaque.
 static void FmRender(HWND wnd) {
+    LARGE_INTEGER begin={0},painted={0};
+    if(g_cfg_fm_drawcost)QueryPerformanceCounter(&begin);
     RECT r; GetClientRect(wnd, &r);
     const int w = r.right, h = r.bottom;
     if (w <= 0 || h <= 0) return;
@@ -1547,6 +1551,7 @@ static void FmRender(HWND wnd) {
         n3_stroke_layered=0;
         GdiFlush();
         FmFinalizeAlpha(px,w,h);
+        if(g_cfg_fm_drawcost)QueryPerformanceCounter(&painted);
         POINT src = {0, 0}; SIZE sz = {w, h};
         BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
         UpdateLayeredWindow(wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
@@ -1554,6 +1559,17 @@ static void FmRender(HWND wnd) {
     }
     if (bmp) DeleteObject(bmp);
     DeleteDC(mem); ReleaseDC(0, scr);
+    if(g_cfg_fm_drawcost && painted.QuadPart) {
+        LARGE_INTEGER end,freq;QueryPerformanceCounter(&end);QueryPerformanceFrequency(&freq);
+        const int style=g_pst.v[PS_FRAME_STYLE]?1:0;
+        static unsigned count[2];static double total[2],paint[2],peak[2];
+        const double elapsed=1000.*(end.QuadPart-begin.QuadPart)/freq.QuadPart;
+        ++count[style];total[style]+=elapsed;paint[style]+=1000.*(painted.QuadPart-begin.QuadPart)/freq.QuadPart;
+        if(elapsed>peak[style])peak[style]=elapsed;
+        if(count[style]==1 || count[style]%30==0)
+            Log("FRAME METER DRAW %s %dx%d n %u paint %.3f total %.3f peak %.3f ms (CPU incl layered upload; not FPS)",
+                style?"Ring":"Row",w,h,count[style],paint[style]/count[style],total[style]/count[style],peak[style]);
+    }
 }
 static LRESULT CALLBACK FmProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCHITTEST) return HTTRANSPARENT;

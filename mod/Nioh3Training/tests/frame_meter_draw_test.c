@@ -72,6 +72,15 @@ static void Pixels(int w,int H) {
     CHECK((AtLane(&c,H,1,1,43)&0xffffff)==DibColor(FM_GUARD_RGB));
     CHECK((AtLane(&c,H,1,1,53)&0xffffff)==DibColor(FM_EA7_RGB));
     CHECK((AtLane(&c,H,0,1,53)&0xffffff)==DibColor(RGB(138,92,255)));
+    if(w==1920) {
+        const size_t bytes=(size_t)c.w*c.h*4;
+        uint32_t* before=(uint32_t*)malloc(bytes);CHECK(before);memcpy(before,c.bits,bytes);
+        g_fmp.kipulseFrozen[95]=0;Draw(&c,H);int changed=0;
+        for(int y=0;y<c.h;++y)for(int x=0;x<c.w;++x)if(before[y*c.w+x]!=c.bits[y*c.w+x]) {
+            ++changed;CHECK(x<c.w/2); // a perfect press changes PLAYER only, never the boss or legend
+        }
+        CHECK(changed>0);free(before);g_fmp.kipulseFrozen[95]=1;
+    }
     g_pst.v[PS_KI_WINDOW]=0;Draw(&c,H);
     CHECK((AtLane(&c,H,1,0,85)&0xffffff)==DibColor(FmColor(FM_RECOVERY)));
     CHECK((AtLane(&c,H,1,0,92)&0xffffff)==DibColor(FM_KIPERF_RGB));
@@ -95,7 +104,22 @@ static void Pixels(int w,int H) {
     Drop(&c);
 }
 static double Now(void){LARGE_INTEGER q,f;QueryPerformanceCounter(&q);QueryPerformanceFrequency(&f);return 1000.*q.QuadPart/f.QuadPart;}
-int main(void) {
+static void CacheEquivalence(void) {
+    Canvas a=Make(240,60),b=Make(240,60);Seed();g_fm_fontPx=18;
+    const COLORREF bg[]={FM_KEY,RGB(16,21,30),FM_KIWIN_RGB};
+    for(int fill=0;fill<3;++fill)for(int clipped=0;clipped<2;++clipped)for(int hit=0;hit<2;++hit) {
+        Canvas* c[]={&a,&b};
+        for(int i=0;i<2;++i){g_pst.v[PS_FRAME_STYLE]=i;FmFill(c[i]->dc,0,0,240,60,bg[fill]);
+            int saved=SaveDC(c[i]->dc);if(clipped)IntersectClipRect(c[i]->dc,23,9,118,23);
+            n3_stroke_layered=1;FmLabel(c[i]->dc,11,7,"PLAYER 120+",RGB(214,222,234));n3_stroke_layered=0;
+            RestoreDC(c[i]->dc,saved);GdiFlush();FmFinalizeAlpha(c[i]->bits,240,60);
+        }
+        CHECK(!memcmp(a.bits,b.bits,240*60*4));
+    }
+    CHECK(FmPositionX(1920)==0);Drop(&a);Drop(&b);
+}
+int main(int argc,char** argv) {
+    CacheEquivalence();
     const int sizes[][2]={{800,600},{1280,720},{1920,1080},{2560,1440},{3840,2160}};
     for(int i=0;i<5;++i)Pixels(sizes[i][0],sizes[i][1]);
     Seed();const int n=FmLegendCount();CHECK(n==18);
@@ -110,14 +134,23 @@ int main(void) {
     for(int i=0;i<400;++i)FmSampleEx(&g_fmp,i*1000./60.,100,1,0,0);
     CHECK(FmVisibleStart(&g_fmp)==240);
     Seed();
+    if(argc>1 && !strcmp(argv[1],"--check-only")) {
+        printf("ALL PASSED: %d production renderer assertions (offline)\n",assertions);return 0;
+    }
     // OFF=Row / ON=Ring, CPU paint+GDI flush+alpha only; no game/GPU/presentation claim.
-    for(int size=0;size<3;++size){const int w=sizes[size+1][0],H=sizes[size+1][1];
+    for(int dynamic=0;dynamic<2;++dynamic)for(int size=0;size<3;++size){const int w=sizes[size+1][0],H=sizes[size+1][1];
+        Seed();
+        for(int i=0;i<64;++i){free(g_fm_textTiles[i].bits);memset(&g_fm_textTiles[i],0,sizeof g_fm_textTiles[i]);}
         Canvas c[2];double sum[2]={0},max[2]={0};
         for(int s=0;s<2;++s){g_pst.v[PS_FRAME_STYLE]=s;c[s]=Make(w,FmDrawHeight(w,H));Draw(&c[s],H);}
         for(int i=0;i<30;++i)for(int arm=0;arm<2;++arm){const int s=(i&1)?1-arm:arm;g_pst.v[PS_FRAME_STYLE]=s;
+            if(dynamic){g_fmp.cur.total=g_fm.cur.total=120+i;g_fmp.cur.recovery=g_fm.cur.recovery=60+i;
+                for(int j=0;j<120;++j)g_fmp.frozen[j]=(uint8_t)(j<20+i?FM_STARTUP:j<60?FM_ACTIVE:FM_RECOVERY);
+                g_fmp.frozen[0]|=FM_EDGE;g_fm.frozenN=120;
+            }
             double t=Now();Draw(&c[s],H);t=Now()-t;if(i>=5){sum[s]+=t;if(t>max[s])max[s]=t;}}
-        printf("DRAW %dx%d all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean %.3f max %.3f ms; ON Ring mean %.3f max %.3f ms; ratio %.3f\n",w,H,sum[0]/25,max[0],sum[1]/25,max[1],sum[1]/sum[0]);
-        if(w==1920){Save(&c[0],"row-preview.bmp");Save(&c[1],"ring-preview.bmp");}
+        printf("DRAW %s %dx%d all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean %.3f max %.3f ms; ON Ring mean %.3f max %.3f ms; ratio %.3f\n",dynamic?"changing":"frozen",w,H,sum[0]/25,max[0],sum[1]/25,max[1],sum[1]/sum[0]);
+        if(w==1920 && !dynamic){Save(&c[0],"row-preview.bmp");Save(&c[1],"ring-preview.bmp");}
         Drop(&c[0]);Drop(&c[1]);
     }
     printf("ALL PASSED: %d production renderer assertions (offline)\n",assertions);return 0;

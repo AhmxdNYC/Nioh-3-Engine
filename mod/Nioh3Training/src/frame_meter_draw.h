@@ -61,7 +61,9 @@ static void FmRoundCorners(HDC dc, int x, int y, int w, int h, int r) {
 static COLORREF FmIFrColor(int bits) {
     return bits&FMF_NODMG ? FM_NODMG_RGB : bits&FMF_EAA ? FM_EAA_RGB : bits&FMF_EA7 ? FM_EA7_RGB : bits&FMF_GUARD ? FM_GUARD_RGB : FmColor(FM_EMPTY);
 }
+#include "frame_meter_text_cache.h"
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
+    if(g_pst.v[PS_FRAME_STYLE] && FmCachedLabel(dc,x,y,text,g_fm_fontPx,color))return;
     SetTextColor(dc,color); N3StrokeText(dc,x,y,text,(int)strlen(text),g_fm_fontPx,N3StrokeWidth(g_fm_fontPx));
 }
 static void FmCheck(HDC dc, int x, int y, int w, int h) {

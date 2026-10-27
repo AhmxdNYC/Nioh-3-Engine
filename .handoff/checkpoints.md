@@ -39,3 +39,7 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-10-27 5:57 pm EDT | cx-pc #40696: Row/Ring setting, independent PLAYER/I-FR/BOSS/KI DEBT tracks and frozen-menu repaint implemented on cx-pc/ring-meter-40696.
 Training Release compile + both menu suites + 5-resolution production-DIB checker PASS; preliminary draw timings collected during compilation, native appearance/performance unproven.
 Next: finish EF Release build, inspect/send preview, isolate offline draw cost and optimize Ring label redraw if needed; no game touched. Files mod/Nioh3Training/src/frame_meter_{draw,ring,game}.h and menu/stat integration.
+
+2026-10-27 6:05 pm EDT | cx-pc #40696: cached Ring stroke labels preserve exact premultiplied glyph pixels; final EF + Training Release compile and renderer/core tests PASS.
+PC Ryzen 5 7600X, 1080p all4 lanes+legend/readout, CPU GDI paint/flush/alpha: OFF Row vs ON Ring means frozen65.701/2.139ms, changing67.041/10.872ms (25 samples each); native upload/FPS unproven.
+Next pc install both ASIs, switch Display Overlays > Frame meter style, validate native appearance/toggles/menu-open visibility and optional Debug FrameMeterDrawCost logs. No game touched.
