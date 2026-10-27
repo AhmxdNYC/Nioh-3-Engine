@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3EngineFix.asi",
+      "sha256": "1f238488b679adc89b71e50530af1d2513cf918ae3eb925b99a34d9bc2a5883d",
+      "name": "Nioh3EngineFix.asi"
+    },
+    {
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3Training.asi",
+      "sha256": "0efb046238cd398bd2d2e67dbf2fb96a22dc807d17da07492fa6c7f25f6c8531",
+      "name": "Nioh3Training.asi"
+    },
+    {
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3BossRematch.asi",
+      "sha256": "4443c2d715bff2da4871c8d3bb72da01bebcb7830fecf823fa91f01d752a2899",
+      "name": "Nioh3BossRematch.asi"
+    }
+  ],
+  "news": "Smooth ring frame meter, corrected Yoritomo hit groups, and Linux update opening.",
+  "schema": 1,
+  "version": "1.7.85"
+}
