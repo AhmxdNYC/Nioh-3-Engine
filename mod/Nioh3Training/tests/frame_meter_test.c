@@ -143,6 +143,7 @@ int main(void) {
       assert(FmKiPulseGrade(3.5f, -1.f, 1019.5f, 1073.4f, 1.f, 5.f) == 2);
       assert(FmKiPulseGrade(15.5f, -1.f, 1019.5f, 1073.4f, 1.f, 5.f) == 1);
       assert(FmKiPulseGrade(0.f, -1.f, 1000.f, 1153.f, 1.f, 0.f) == 0); }
+    g_fm_ki_perfect_only = 0;  // whole-bar mode; the default (1, #37066) draws only the perfect end, checked below
     FmReset(&m); t = 0;
     FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1); assert(FmViewKiWin(&m, 0) == 1);
     for (int i = 0; i < 20; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 0); }
@@ -155,6 +156,7 @@ int main(void) {
     FmReset(&m); t = 0;
     FmSample(&m, t, 1, 1, 0); FmMarkKiWin(&m, t, 1);
     for (int i = 0; i < 4; ++i) { t += 1000.0 / 60.0; FmSample(&m, t, 1, 0, 0); FmMarkKiWin(&m, t, 2); }
+    g_fm_ki_perfect_only = 1; { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 1) n++; assert(n == 0); } g_fm_ki_perfect_only = 0;
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
     FmSample(&m, t + 1000.0 / 60.0, 2, 0, 0); assert(m.haveLast);
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 4); }
