@@ -2392,18 +2392,15 @@ void PollUpdateHint(unsigned W, unsigned H, float x, float y, float w, float h) 
     TryUpdateHintClick(g_updateMouseEdge, true, p.x * (float)W / client.right,
         p.y * (float)H / client.bottom, x, y, w, h);
 }
-// Top-right reminder with clickable update line and controller shortcut guidance.
+// Top-right reminder with a single clickable, controller-friendly menu instruction.
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
-    char update[64]{};
+    char update[128]{};
     const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
-    const char* click = "Click: website + updater folder";
-    const char* shortcut = "Controller: use Nioh3 Mod Website";
-    const char* folder = "shortcut in the game folder";
-    const size_t chars = hasUpdate ? std::max(strlen(text), std::max(strlen(shortcut), std::max(strlen(update), strlen(updatecheck::kSite)))) : strlen(text);
+    const size_t chars = hasUpdate ? std::max(strlen(text), strlen(update)) : strlen(text);
     const float normalScale = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);
     const float sc = std::min(normalScale, std::max(0.25f, ((float)W - 2 * osd::kCornerPx) / ((float)chars * osd::kGlyphW + 8.f)));
     const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
-    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 6 : 1) * lineH + 2 * pad - 4 * sc;
+    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 2 : 1) * lineH + 2 * pad - 4 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
@@ -2415,11 +2412,7 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     osd::DrawText(x + pad, y + pad, text, color, sc);
     if (hasUpdate) {
         osd::DrawText(x + pad, y + pad + lineH, update, cGold, sc);
-        osd::DrawText(x + pad, y + pad + 2 * lineH, updatecheck::kSite, cWhite, sc);
-        osd::DrawText(x + pad, y + pad + 4 * lineH, shortcut, cWhite, sc);
-        osd::DrawText(x + pad, y + pad + 5 * lineH, folder, cWhite, sc);
-        osd::DrawText(x + pad, y + pad + 3 * lineH, click, cWhite, sc);
-        PollUpdateHint(W, H, x, y + pad + lineH, w, 2 * lineH);
+        PollUpdateHint(W, H, x, y + pad + lineH, w, lineH);
     }
     return sc;
 }

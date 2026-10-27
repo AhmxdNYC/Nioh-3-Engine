@@ -91,13 +91,20 @@ void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (op
 int main() {
     using namespace menu;
     // Update hint is fitted to small viewports and leaves the ordinary reminder intact.
-    updatecheck::testNotice = "Update available v1.8.0";
+    updatecheck::testNotice = "Update 1.8.0 available: Mod Menu > Open update page";
     osd::drawnRects.clear(); osd::drawnTexts.clear();
     DrawCornerNote(800, 600, "Mod menu: F10 / Start x3", 0xFFFFFFFF);
     bool updateSeen=false, urlSeen=false, folderSeen=false;
     for (const auto& text : osd::drawnTexts) { updateSeen |= text == updatecheck::testNotice; urlSeen |= text == updatecheck::kSite; folderSeen |= text == "Click: website + updater folder"; }
-    CHECK(updateSeen && urlSeen && folderSeen);
+    CHECK(updateSeen && !urlSeen && !folderSeen);
+    CHECK(osd::drawnTexts.size() == 2);
     for (const auto& rect : osd::drawnRects) CHECK(rect.x >= 0 && rect.x + rect.w <= 800.01f);
+    for (unsigned width : {320u, 800u, 1280u}) {
+        osd::drawnRects.clear(); osd::drawnTexts.clear();
+        DrawCornerNote(width, 600, "Mod menu: F10 / Start x3", 0xFFFFFFFF);
+        CHECK(osd::drawnTexts.size() == 2 && osd::drawnTexts[1] == updatecheck::testNotice);
+        for (const auto& rect : osd::drawnRects) CHECK(rect.x >= 0 && rect.x + rect.w <= width + .01f);
+    }
     updatecheck::testNotice.clear();
     osd::drawnRects.clear(); osd::drawnTexts.clear();
 

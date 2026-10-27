@@ -11,7 +11,7 @@
 namespace updatecheck {
 namespace {
 SRWLOCK g_lock = SRWLOCK_INIT;
-char g_notice[64]{};
+char g_notice[128]{};
 std::atomic<bool> g_busy{false};
 std::atomic<ULONGLONG> g_next{0};
 bool g_enabled=true;
@@ -74,8 +74,8 @@ bool Fetch(char (&body)[kMaxBody+1], size_t& length) {
 void Publish(std::string_view body,const char* installed) {
     Version remote{},local{};
     if(!ParseManifest(body,remote)||!ParseVersion(installed,local,true)) return;
-    char notice[64]{};
-    if(Newer(remote,local)) std::snprintf(notice,sizeof(notice),"Update available v%u.%u.%u",
+    char notice[128]{};
+    if(Newer(remote,local)) std::snprintf(notice,sizeof(notice),"Update %u.%u.%u available: Mod Menu > Open update page",
         remote.part[0],remote.part[1],remote.part[2]);
     AcquireSRWLockExclusive(&g_lock);
     std::memcpy(g_notice,notice,sizeof(g_notice));

@@ -122,11 +122,14 @@ int main(){
  reset();response=std::string(513,'x');CHECK(!Fetch(body,length));CHECK(opened==closed);
  reset();response=std::string(512,' ');CHECK(Fetch(body,length));CHECK(length==512);CHECK(opened==closed);
  reset();deadline=true;chunk=1;CHECK(!Fetch(body,length));CHECK(opened==closed);
- char notice[64]{};
- Publish("{\"version\":\"1.8.0\"}","1.7.80");CHECK(CopyNotice(notice,sizeof(notice)));CHECK(std::string(notice)=="Update available v1.8.0");
+ char notice[128]{};
+ Publish("{\"version\":\"1.8.0\"}","1.7.80");CHECK(CopyNotice(notice,sizeof(notice)));CHECK(std::string(notice)=="Update 1.8.0 available: Mod Menu > Open update page");
  Publish("<html>error</html>","1.7.80");CHECK(CopyNotice(notice,sizeof(notice))); // silent failure retains last validated result
  Publish("{\"version\":\"1.7.80\"}","1.7.80");CHECK(!CopyNotice(notice,sizeof(notice)));
  CHECK(!CopyNotice(nullptr,0));
+ Publish("{\"version\":\"999999.999999.999999\"}","1.7.83");
+ CHECK(CopyNotice(notice,sizeof(notice)));
+ CHECK(std::string(notice)=="Update 999999.999999.999999 available: Mod Menu > Open update page");
  reset();g_next.store(500);g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==0);
  g_next.store(0);g_busy.store(true);Tick("1.7.80");CHECK(threadAttempts==0);
  g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==1);CHECK(!g_busy.load());CHECK(g_next.load()==clockMs+30ull*60*1000);
