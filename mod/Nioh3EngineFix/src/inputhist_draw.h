@@ -15,6 +15,8 @@
 
 namespace inputhist_draw {
 
+#include "inputhist_glyphs.inc"
+
 constexpr int kSlots = 6;  // button glyphs per row
 
 // direction arrow (#38929, restored dpad design): the original arrow = chevron head on a stem, rotated per direction (inputhist::Dir:
@@ -71,23 +73,75 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
     padviz::Layer(k, spriteId, ox, oy, s, 0.97f, 0, 0, 1, 1, 1, false);  // #38919: resting (unlit) sprite, no pressed tint
 }
 
-// bumper / trigger cap (#39102): hint-cap sized (3 glyphs wide, one text line tall). Bumper = wide shoulder with an arched top; trigger =
-// narrower, rounded top, tapering toward the bottom. Drawn in 1 px rows (no overlap), dark cap with the light label.
+// stroke glyphs (approved art v7): digits, N and cap labels are unit-box segment sets drawn with the same anti-aliased rounded stroke as
+// the arrows (one weight everywhere). Runs of equal alpha merge into one DrawRect.
+struct Seg4 { float x0, y0, x1, y1; };
+inline void StrokeSegs(const Seg4* sg, int n, float bx, float by, float w, float h, float lw, uint32_t color) {
+    const uint32_t alpha0 = color >> 24, rgb = color & 0x00FFFFFFu;
+    const int pad = (int)std::ceil(lw) + 1, nw = (int)std::ceil(w) + 2 * pad, nh = (int)std::ceil(h) + 2 * pad;
+    for (int y = 0; y < nh; ++y) {
+        int runStart = 0, runQ = 0;
+        for (int x = 0; x <= nw; ++x) {
+            int q = 0;
+            if (x < nw) {
+                const float px = (float)(x - pad) + 0.5f, py = (float)(y - pad) + 0.5f;
+                float dmin = 1e9f;
+                for (int i = 0; i < n; ++i) dmin = std::min(dmin, Seg(px, py, sg[i].x0 * w, sg[i].y0 * h, sg[i].x1 * w, sg[i].y1 * h));
+                q = (int)std::lround(std::min(1.0f, std::max(0.0f, 0.5f - (dmin - lw * 0.5f))) * 8.0f);
+            }
+            if (q != runQ || x == nw) {
+                if (runQ > 0) osd::DrawRect(bx - (float)pad + (float)runStart, by - (float)pad + (float)y, (float)(x - runStart), 1.0f, ((alpha0 * (uint32_t)runQ / 8u) << 24) | rgb);
+                runStart = x; runQ = q;
+            }
+        }
+    }
+}
+inline void GlyphAt(char c, float bx, float by, float w, float h, float lw, uint32_t color) {
+    for (const GlyphDef& g : kGlyphs)
+        if (g.ch == c) { StrokeSegs((const Seg4*)g.seg, g.n, bx, by, w, h, lw, color); return; }
+}
+// string of stroke glyphs: total width tw = n*gw + (n-1)*gap; centred on cx (center = true) or starting at cx
+inline float GlyphsW(int n, float gw, float gap) { return (float)n * gw + (float)(n - 1) * gap; }
+inline void GlyphStr(const char* t, float cx, float top, float gh, bool center, uint32_t color) {
+    const int n = (int)strlen(t);
+    const float gw = gh * 0.58f, gap = gh * 0.25f, lw = std::max(1.25f, gh * 0.125f);
+    float x = center ? cx - GlyphsW(n, gw, gap) * 0.5f : cx;
+    for (int i = 0; i < n; ++i, x += gw + gap) GlyphAt(t[i], std::floor(x + 0.5f), std::floor(top + 0.5f), gw, gh, lw, color);
+}
+
+// bumper / trigger cap (art v7): same shoulder shape, trigger just taller; outer top corner rounded, thin light outline, stroke label.
 inline void ShoulderCap(int style, int b, float bx, float top, float cw, float th) {  // b: 0 LB 1 RB 2 LT 3 RT
     namespace ms = menu_style;
-    const bool trig = b >= 2;
-    const float w = ms::Snap(trig ? 2.6f * cw : 3.2f * cw), h = ms::Snap(th), x0 = ms::Snap(bx), y0 = ms::Snap(top);
-    const float arch = (trig ? 0.40f : 0.60f) * h;
-    for (int r = 0; r < (int)h; ++r) {
+    const bool trig = b >= 2, left = !(b & 1);
+    const float w = ms::Snap(3.2f * cw), h = ms::Snap(trig ? th * 1.45f : th), x0 = ms::Snap(bx), y0 = ms::Snap(top - (trig ? (h - th) * 0.5f : 0.0f));
+    const float r = std::floor(h * (trig ? 0.32f : 0.38f)), lw = std::max(1.2f, th * 0.085f);
+    for (int rr = 0; rr < (int)h; ++rr) {  // fill, 1 px rows
         float in = 0.0f;
-        if ((float)r < arch) { const float k = (arch - ((float)r + 0.5f)) / arch; in = (w * 0.5f) * (1.0f - std::sqrt(std::max(0.0f, 1.0f - k * k))); }
-        else if (trig) in = w * 0.16f * ((float)r - arch) / (h - arch);
-        in = ms::Snap(in);
-        if (w - 2.0f * in >= 1.0f) osd::DrawRect(x0 + in, y0 + (float)r, w - 2.0f * in, 1.0f, ms::kBumperBg);
+        if ((float)rr < r) { const float k = (r - ((float)rr + 0.5f)) / r; in = r * (1.0f - std::sqrt(std::max(0.0f, 1.0f - k * k))); }
+        in = std::floor(in);
+        osd::DrawRect(x0 + (left ? in : 0.0f), y0 + (float)rr, w - in, 1.0f, ms::kBumperBg);
     }
+    Seg4 sg[16]; int n = 0;
+    const float u = lw * 0.5f, W = w - lw, H = h - lw;  // outline centreline inset by half the weight
+    const float cr = r;
+    float pts[16][2]; int m = 0;
+    pts[m][0] = left ? 0.0f : W; pts[m][1] = H; ++m;                 // bottom outer
+    pts[m][0] = left ? 0.0f : W; pts[m][1] = cr; ++m;               // up to arc start
+    for (int k = 1; k <= 5; ++k) {                                  // arc
+        const float a = 1.5707963f * (float)k / 5.0f;
+        pts[m][0] = left ? cr - cr * std::cos(a) : W - cr + cr * std::cos(a);
+        pts[m][1] = cr - cr * std::sin(a);
+        ++m;
+    }
+    pts[m][0] = left ? W : 0.0f; pts[m][1] = 0.0f; ++m;             // top far corner
+    pts[m][0] = left ? W : 0.0f; pts[m][1] = H; ++m;                // bottom far
+    pts[m][0] = pts[0][0]; pts[m][1] = pts[0][1]; ++m;              // close
+    for (int i = 0; i + 1 < m && n < 16; ++i) sg[n++] = {pts[i][0] / W, pts[i][1] / H, pts[i + 1][0] / W, pts[i + 1][1] / H};
+    StrokeSegs(sg, n, x0 + u, y0 + u, W, H, lw, 0xFFEBECF0u);
     char t[3] = {b & 1 ? 'R' : 'L', 0, 0};
     t[1] = b >= 2 ? (style ? '2' : 'T') : (style ? '1' : 'B');
-    osd::DrawText(ms::Snap(x0 + (w - 2.0f * cw) * 0.5f), y0 + ms::Snap(h * 0.08f), t, ms::kBumperText, th / (float)osd::kGlyphH);
+    const float gh = std::floor(h * (trig ? 0.36f : 0.5f));
+    GlyphStr(t, x0 + w * 0.5f, y0 + (h - gh) * 0.5f + h * 0.04f, gh, true, 0xFFEBECF0u);
 }
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
@@ -124,9 +178,10 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
         snprintf(buf, sizeof buf, "%d", Frames(e[i].t0, t1));
         const float ty = ry + std::floor((rowH - th) * 0.5f);
         const float nx = x + pad + (float)(2 - (int)strlen(buf)) * cw;
-        osd::DrawText(nx, ty, buf, menu_style::kText, sc);
+        (void)nx; (void)ty;
+        { const float gh = std::floor(th * 0.62f); GlyphStr(buf, x + pad + (float)(2 - (int)strlen(buf)) * cw * 1.0f + 0.0f, ry + std::floor((rowH - gh) * 0.5f), gh, false, menu_style::kText); }
         const float ax = x + pad + numW + std::floor(pad * 1.5f), ay = ry + std::floor((rowH - icon) * 0.5f);
-        if (e[i].dir == N) osd::DrawText(ax + std::floor((icon - cw) * 0.5f), ty, "N", menu_style::kTextDim, sc);
+        if (e[i].dir == N) { const float gh = std::floor(icon * 0.6f); GlyphAt('N', std::floor(ax + (icon - gh * 0.78f) * 0.5f), std::floor(ay + (icon - gh) * 0.5f), gh * 0.78f, gh, std::max(1.5f, icon * 0.1f), menu_style::kText); }
         else Arrow(e[i].dir, ax, ay, icon, menu_style::kText);
         float bx = ax + icon + pad;
         int used = 0;
