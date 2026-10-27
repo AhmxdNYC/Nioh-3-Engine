@@ -17,6 +17,7 @@ static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs)
 static const char* PstKey(int what) {
     if (what == PS_KI_WINDOW) return "KiWindow";
     if (what == PS_FRAME_IFR) return "FrameMeterIFrames";
+    if (what >= PS_FRAME_PROW) { static const char* const k[] = {"FrameMeterPlayerRow", "FrameMeterKeyStartup", "FrameMeterKeyActive", "FrameMeterKeyRecovery", "FrameMeterKeyUnblockable", "FrameMeterKeyGrab", "FrameMeterKeyOther", "FrameMeterKeyTiming", "FrameMeterKeyKi", "FrameMeterKeyIFrames"}; return k[what - PS_FRAME_PROW]; }
     if (what == PS_KI_LOG) return "KiLog";
     if (what == PS_HOLD_KI_V2) return "HoldKiBreakV2";
     if (what == PS_KI_FLOOR) return "KiFloorDepth";

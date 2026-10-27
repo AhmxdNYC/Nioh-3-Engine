@@ -11,7 +11,12 @@ constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kIt
 constexpr int kItPstResetFight = kItPstBase + 0x80;  // user #22592: 'Reset fight' action row on the Practice hub (not a PS_* setting)
 constexpr int kItPstFreeze = kItPstBase + 0x81;  // user #22589: 'Freeze fight' toggle (Nioh3Training practice_freeze_game.h, not saved)
 constexpr int kItPstStep = kItPstBase + 0x82;    // user #22589: 'Step 1 frame' action row
-bool IsPstItem(int item) { return (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep; }
+constexpr int kItPstAllRows = kItPstBase + 0x83;  // human #38180: master for the frame-meter rows (boss / player / i-frames)
+constexpr int kItPstAllKeys = kItPstBase + 0x84;  // human #38180: master for the KEY (legend) and every KEY entry group
+bool IsPstItem(int item) { return (item >= kItPstBase && item < kItPstBase + PS_N) || item == kItPstResetFight || item == kItPstFreeze || item == kItPstStep || item == kItPstAllRows || item == kItPstAllKeys; }
+// the settings each master covers; value 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Nioh3Training too old
+constexpr int kPstRowSet[] = {PS_FRAME_METER, PS_PLAYER_METER, PS_FRAME_PROW, PS_FRAME_IFR};
+constexpr int kPstKeySet[] = {PS_FRAME_LEGEND, PS_KEY_STARTUP, PS_KEY_ACTIVE, PS_KEY_RECOVERY, PS_KEY_UNBLOCK, PS_KEY_GRAB, PS_KEY_OTHER, PS_KEY_TIMING, PS_KEY_KI, PS_KEY_IFR};
 // Practice freeze export: op 0 off, 1 on, -1 toggle, 2 step, 3 query -> -2 not live, else bit 0 frozen, bit 1 requested, bit 2 step ok, frames << 8.
 int PfzCall(int op) { using F = int (*)(int); const auto f = (F)TrainingExport("Nioh3Training_PracticeFreeze"); return f ? f(op) : -1; }
 const char* PfzKey(int which, char* b, size_t n) {  // which 0 freeze, 1 step
@@ -40,6 +45,11 @@ template <class Add> void PstAddHubRows(Add&& add) {
     if (PstAvailable()) { add(kItPstBase + PS_FRAME_METER); add(kItPstBase + PS_TIME_OF_DAY); add(kItPstBase + PS_WEATHER); }  // user #22942
     if (TrainingExport("Nioh3Training_PracticeFreeze")) { add(kItPstFreeze); add(kItPstStep); }  // user #22589
     if (TrainingExport("Nioh3Training_ResetFight")) add(kItPstResetFight);
+    if (PstAvailable() && PstGet(PS_KEY_IFR) >= 0) {  // human #38180: frame meter rows + KEY entries (older Training: not listed)
+        add(kItPstAllRows); add(kItPstBase + PS_FRAME_PROW); add(kItPstBase + PS_FRAME_IFR);
+        add(kItPstAllKeys);
+        for (int w = PS_KEY_STARTUP; w <= PS_KEY_IFR; ++w) add(kItPstBase + w);
+    }
 }
 // 'Reset fight': bosses full HP/Ki + back at their start, player full HP/Ki + back at the Practice start (Nioh3Training_ResetFight, bit mask 1/2/4/8).
 void PstResetFight() {
@@ -55,7 +65,15 @@ void PstResetFight() {
     }
 }
 template <class Add> void PstAddBossRows(Add&& add) { if (PstAvailable()) { add(kItPstBase + PS_DMG_TAKEN); add(kItPstBase + PS_BOSS_KI_DRAIN); add(kItPstBase + PS_ONE_HIT_KI); add(kItPstBase + PS_HOLD_KI_BREAK); add(kItPstBase + PS_HOLD_KI_V2); add(kItPstBase + PS_KI_FLOOR); add(kItPstBase + PS_KI_LOG); add(kItPstBase + PS_NEG_KI_METER); add(kItPstBase + PS_BOSS_SPEED); } }
+int PstMasterState(const int* set, int n) {
+    int on = 0, off = 0;
+    for (int i = 0; i < n; ++i) { const int v = PstGet(set[i]); if (v < 0) return -1; (v ? on : off)++; }
+    return !off ? 1 : !on ? 0 : 2;
+}
 const char* PstLabel(int what) {
+    if (what == PS_FRAME_PROW) return "Frame row: Player:";  // human #38180
+    if (what == PS_FRAME_IFR) return "Frame row: I-frames:";
+    if (what >= PS_KEY_STARTUP) { static const char* const k[] = {"Key: Startup:", "Key: Active:", "Key: Recovery:", "Key: Unblockable:", "Key: Grab:", "Key: No hit/Pending/Empty:", "Key: Action start/Total/Stun:", "Key: Ki Pulse/Ki debt/Perfect:", "Key: I-frames:"}; return k[what - PS_KEY_STARTUP]; }
     if (what == PS_HOLD_KI_V2) return "Hold Ki break v2:";  // user #23013
     if (what == PS_KI_FLOOR) return "Ki floor depth:";
     if (what == PS_KI_LOG) return "Ki break log:";
@@ -73,6 +91,17 @@ void PstValueText(int what, int v, char* buf, size_t n) {
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool PstChange(int item, int dir) {
     if (!IsPstItem(item)) return false;
+    if (item == kItPstAllRows || item == kItPstAllKeys) {  // human #38180: set every setting of the group
+        const bool rows = item == kItPstAllRows;
+        const int* set = rows ? kPstRowSet : kPstKeySet; const int n = rows ? (int)(sizeof kPstRowSet / sizeof *kPstRowSet) : (int)(sizeof kPstKeySet / sizeof *kPstKeySet);
+        const int st = PstMasterState(set, n);
+        if (st < 0) { snprintf(g_msg, sizeof g_msg, "Needs a newer Nioh3Training.asi."); return true; }
+        const int want = dir > 0 ? 1 : dir < 0 ? 0 : st == 1 ? 0 : 1;
+        for (int i = 0; i < n; ++i) PstSet(set[i], want);
+        Log("Rematch: menu %s -> %d (#38180)", rows ? "All frame rows" : "All key indicators", want);
+        snprintf(g_msg, sizeof g_msg, rows ? "All frame rows %s (boss, player, i-frames). Saved." : "All key indicators %s (the KEY under the meter and every entry). Saved.", want ? "ON" : "OFF");
+        return true;
+    }
     if (item == kItPstResetFight) { if (!dir) PstResetFight(); return true; }  // action row: Left / Right do nothing
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
@@ -94,7 +123,8 @@ bool PstChange(int item, int dir) {
     const int v = PstSet(what, want);
     char t[24]; PstValueText(what, v, t, sizeof t);
     Log("Rematch: menu Practice %s -> %d (#22389)", PstLabel(what), v);
-    if (what == PS_PLAYER_METER) snprintf(g_msg, sizeof g_msg, v ? "Player frame meter ON: your own attacks show as frames under the boss meter (close the menu). Saved." : "Player frame meter OFF. Saved.");
+    if (what == PS_FRAME_PROW || what == PS_FRAME_IFR || what >= PS_KEY_STARTUP) snprintf(g_msg, sizeof g_msg, "%s %s. Saved.", PstLabel(what), t);
+    else if (what == PS_PLAYER_METER) snprintf(g_msg, sizeof g_msg, v ? "Player frame meter ON: your own attacks show as frames under the boss meter (close the menu). Saved." : "Player frame meter OFF. Saved.");
     else if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: the first Training boss's moves show as frames at the top of the screen (close the menu). Saved." : "Frame meter OFF. Saved.");
     else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: your Ki (stamina) is refilled whenever it drops. Practice only. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
     else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Ki damage I deal %s: the Ki damage of the hits you land. Practice only. Saved.", t);
@@ -115,6 +145,13 @@ bool PstChange(int item, int dir) {
 }
 bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (!IsPstItem(item)) return false;
+    if (item == kItPstAllRows || item == kItPstAllKeys) {
+        const bool rows = item == kItPstAllRows;
+        const int st = rows ? PstMasterState(kPstRowSet, (int)(sizeof kPstRowSet / sizeof *kPstRowSet)) : PstMasterState(kPstKeySet, (int)(sizeof kPstKeySet / sizeof *kPstKeySet));
+        snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, rows ? "All frame rows:" : "All key indicators:", st < 0 ? "?" : st == 2 ? "MIXED" : st ? "ON" : "OFF");
+        *color = sel ? cWhite : st < 0 ? cDim : st == 1 ? cGray : cGreen;
+        return true;
+    }
     if (item == kItPstResetFight) { snprintf(buf, n, "%s Reset fight (bosses + you: full HP and Ki, back to start)   press A", mk); *color = sel ? cWhite : cGreen; return true; }
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         const int r = PfzCall(3); char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
@@ -139,6 +176,11 @@ const char* PstFooter(int item) {
         else snprintf(f, sizeof f, "While frozen: advances the game by exactly one frame (1/60 s of game time = 1 meter cell), then freezes again. %s in game (hold = repeat). Pressed while running it freezes first.", ks);
         return f;
     }
+    if (item == kItPstAllRows) return "Turns the three frame-meter rows (boss, player, i-frames) ON or OFF together. Use the rows below to keep only some, e.g. only i-frames: boss meter OFF, Player row OFF, I-frames ON. Saved.";
+    if (item == kItPstAllKeys) return "Turns the KEY under the meter and all of its entries ON or OFF together. The rows below switch single entries. Saved.";
+    if (item - kItPstBase == PS_FRAME_PROW) return "ON: the PLAYER row of the frame meter. OFF hides it but keeps the I-frames row (needs Player frame meter ON). Saved.";
+    if (item - kItPstBase == PS_FRAME_IFR) return "ON: a separate gold I-frames row under the PLAYER row (no-damage cells). Needs Player frame meter ON. Saved.";
+    if (item - kItPstBase >= PS_KEY_STARTUP) return "Shows or hides this entry of the KEY under the frame meter (the cells keep their colours). Only entries the meter can show right now are listed. Saved.";
     if (item == kItPstResetFight) return "One press: every Training boss gets full HP and Ki and goes back to its start point; you get full HP and Ki and go back to where the Practice session started.";
     switch (item - kItPstBase) {
     case PS_PLAYER_INF_KI: return "ON: your Ki (stamina) is refilled to full whenever it drops. Only while a Practice session runs or a Training boss is alive. Saved.";

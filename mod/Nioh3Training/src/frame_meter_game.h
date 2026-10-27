@@ -1542,7 +1542,8 @@ static int FmReadoutHeight(int barH, int pad) { return g_pst.v[PS_FRAME_READOUT]
 static int FmKiShown(void) { return g_pst.v[PS_FRAME_KI] && g_pst.v[PS_FRAME_METER] && g_fm_show && g_fm_ki_show; }
 static int FmPlayerRow(void) { return (g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) && g_fmp_show; }
 static int FmIFrRow(void) { return g_pst.v[PS_FRAME_IFR] && FmPlayerRow(); }  // human #37322: separate i-frame row under the PLAYER row
-static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerRow() ? 1 : 0) + FmIFrRow() + FmKiShown(); }
+static int FmPlayerDraw(void) { return FmPlayerRow() && g_pst.v[PS_FRAME_PROW]; }  // #38180: PLAYER row can be hidden while the I-FR row stays
+static int FmPanels(void) { return (g_pst.v[PS_FRAME_METER] && g_fm_show ? 1 : 0) + (FmPlayerDraw() ? 1 : 0) + FmIFrRow() + FmKiShown(); }
 #define FM_KIWIN_RGB RGB(16,44,168)
 #define FM_KIPERF_RGB RGB(64,232,214)
 #define FM_EAA_RGB RGB(255,120,40)   // I-FR row: ctrl+EAA set (many specials)
@@ -1630,21 +1631,31 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     RestoreDC(dc,saved); SelectObject(dc,of);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
-static int FmLegendCount(void) { return 11 + (g_pst.v[PS_KI_WINDOW] ? 2 : 0) + FmKiShown() + (FmPlayerRow() ? 1 : 0) + (FmIFrRow() ? 3 : 0); }
+// KEY entries (names/colours in FmLegend): which are listed = what the meter can show now AND the per-group KEY toggles (#38180)
+static int FmLegendUse(int use[18]) {
+    for(int i=0;i<11;++i) use[i]=1;
+    use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0; use[15]=use[16]=use[17]=FmIFrRow()?1:0;
+    static const struct { int i, key; } grp[] = {{0,PS_KEY_STARTUP},{1,PS_KEY_ACTIVE},{2,PS_KEY_RECOVERY},{3,PS_KEY_UNBLOCK},{4,PS_KEY_GRAB},{5,PS_KEY_OTHER},{6,PS_KEY_OTHER},{7,PS_KEY_OTHER},
+        {8,PS_KEY_TIMING},{9,PS_KEY_TIMING},{10,PS_KEY_TIMING},{11,PS_KEY_KI},{12,PS_KEY_KI},{14,PS_KEY_KI},{13,PS_KEY_IFR},{15,PS_KEY_IFR},{16,PS_KEY_IFR},{17,PS_KEY_IFR}};
+    for(int k=0;k<18;++k) if(!g_pst.v[grp[k].key]) use[grp[k].i]=0;
+    int n=0; for(int i=0;i<18;++i) n+=use[i]; return n;
+}
+static int FmLegendCount(void) { int u[18]; return FmLegendUse(u); }
 static int FmLegendHeight(int w,int H) {
     if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int n=FmLegendCount();
+    if(n<=0) return 0;
     int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     return ((n+cols-1)/cols)*lh+pad*2;
 }
 static void FmLegend(HDC dc,int w,int H,int y) {
-    if(!g_pst.v[PS_FRAME_LEGEND]) return;
+    if(!g_pst.v[PS_FRAME_LEGEND] || FmLegendCount()<=0) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
     const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki Pulse","Ki debt","I FR","Perfect","I FR special","I FR guard","I FR other"};
     COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
-    int use[18]; for(int i=0;i<11;++i) use[i]=1; use[11]=g_pst.v[PS_KI_WINDOW]?1:0; use[12]=FmKiShown()?1:0; use[13]=FmPlayerRow()?1:0; use[14]=g_pst.v[PS_KI_WINDOW]?1:0; use[15]=use[16]=use[17]=FmIFrRow()?1:0;
+    int use[18]; FmLegendUse(use);
     int idx[18], n=0; for(int i=0;i<18;++i) if(use[i]) idx[n++]=i;
     int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
@@ -1688,7 +1699,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
     }
-    if(FmPlayerRow()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
+    if(FmPlayerDraw()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",g_pst.v[PS_KI_WINDOW],!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
     if(FmIFrRow()) {  // gold cells = the same no-damage marks the stripe used, in their own lane aligned with the PLAYER row
         int used=FM_CELLS; while(used>0 && (FmViewCell(&mp,used-1)&0x7F)==FM_EMPTY) --used;
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
