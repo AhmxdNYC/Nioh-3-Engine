@@ -152,7 +152,7 @@ inline void Face(const Skin& k, uint32_t bit, uint32_t buttons, int idRest, int 
         return;
     }
     Layer(k, idFill, ox, oy, s, 1.0f);
-    Layer(k, idGlyph, ox, oy, s, 1.0f, 0, 0, 1, 1, 1, false);
+    Layer(k, idGlyph, ox, oy, s, 0.75f, 0, 0, 1, 1, 1, false);
 }
 
 // draws the whole picture with its top-left at (x, y) pixels; s = Scale(H, style); a = opacity; style 0 Xbox / 1 PlayStation

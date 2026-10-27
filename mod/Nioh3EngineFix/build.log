@@ -1,2 +1,62 @@
-'build.bat' is not recognized as an internal or external command,
-operable program or batch file.
+wrote C:\Users\Ahmad Hamza\nioh3-engine\.claude\worktrees\agent-a072b18c230b948da\mod\Nioh3EngineFix\src\patches_gen.h
+ Assembling: src\caves.asm
+ Assembling: src\gpuopt_thunks.asm
+ Assembling: src\drawprep.asm
+ Assembling: src\asyncslots.asm
+asyncslots.cpp
+ Assembling: src\jt.asm
+ Assembling: src\pmode.asm
+jt.cpp
+drawprep.cpp
+dllmain.cpp
+src\dllmain.cpp(1557): warning C4456: declaration of 'nt' hides previous local declaration
+src\dllmain.cpp(1528): note: see declaration of 'nt'
+osd.cpp
+dxgidiag.cpp
+menu.cpp
+gpuopt.cpp
+memstats.cpp
+upmirror.cpp
+gpuprof.cpp
+sp.cpp
+psoswap.cpp
+gimerge.cpp
+tilestats.cpp
+loadmem.cpp
+loadstats.cpp
+fnprobe.cpp
+padlat.cpp
+tour.cpp
+vpad.cpp
+autocont.cpp
+bootnotice.cpp
+readprobe.cpp
+loadonly.cpp
+prefetch.cpp
+readfix.cpp
+psojournal.cpp
+pmode.cpp
+skipfx.cpp
+livectl.cpp
+rebar.cpp
+scenemirror.cpp
+mlprobe.cpp
+mpccheck.cpp
+ Assembling: src\mpcskip.asm
+timerres.cpp
+thrsched.cpp
+psomemo.cpp
+bkstats.cpp
+rnt.cpp
+frameoverlap.cpp
+replayprof.cpp
+ Assembling: src\replayprof.asm
+cbvupload.cpp
+cbvstage.cpp
+samelook.cpp
+ Assembling: src\samelook.asm
+extraperf.cpp
+ Assembling: src\extraperf.asm
+crashreport.cpp
+   Creating library bin\Nioh3EngineFix.lib and object bin\Nioh3EngineFix.exp
+built C:\Users\Ahmad Hamza\nioh3-engine\.claude\worktrees\agent-a072b18c230b948da\mod\Nioh3EngineFix\bin\Nioh3EngineFix.asi
