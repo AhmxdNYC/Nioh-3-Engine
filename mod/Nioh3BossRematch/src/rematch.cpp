@@ -98,7 +98,7 @@ const char* g_spawnWhy = "";
 
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
-         fightSpawn = true;
+         fightSpawn = true, anyBoss = true;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here
 } g_cfg;
 
 std::vector<Row> g_rows;
@@ -2863,6 +2863,7 @@ bool Prepare() {
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
+    g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
     g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
     wchar_t stw[512] = {};
@@ -3085,6 +3086,9 @@ void UiMove(int dir) {
 // #38077: hosted 'Mod menu' row pressed: the host leaves this page for its own first page (sticky until reopened)
 bool UiTakeHostMenu() { const bool r = g_hostMenuReq; return r; }
 void UiClearHostMenu() { g_hostMenuReq = false; }
+// #38216: a boss not beaten on this journey cannot be replayed (a real mission would write progress to the save). With [Rematch] AnyBoss = 1
+// its Fight now / arena rows start a Practice boss right here instead (Nioh3Training_TrainHere: a no-load summon, no mission, no save write).
+bool AnyBossOk(int row) { return g_cfg.anyBoss && row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId && TrainingExport("Nioh3Training_TrainHere"); }
 bool UiAct() {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -3301,6 +3305,16 @@ bool UiAct() {
         const bool arena = item < kItShrine || tele;
         const int row = item - (tele ? kItTeleport : arena ? kItFight : kItShrine);
         if (g_status[(size_t)row].load() != 2) {
+            if (arena && AnyBossOk(row)) {  // #38216: not beaten -> Practice boss right here, nothing of the save is touched
+                if (g_confirm != item) { g_confirm = item; snprintf(g_msg, sizeof(g_msg), "Not beaten yet: summon %s here as a Practice boss (no mission, your save is not touched)? A confirm / B back.", g_rows[(size_t)row].name); return false; }
+                g_confirm = -9;
+                using Fn = int (*)(uint32_t);
+                const int rc = ((Fn)TrainingExport("Nioh3Training_TrainHere"))(g_rows[(size_t)row].missionId);
+                Log("Rematch: menu '%s' not beaten -> Practice here %s -> %d (#38216)", tele ? "Teleport" : "Fight now", g_rows[(size_t)row].id, rc);
+                if (!rc) { snprintf(g_msg, sizeof(g_msg), "Busy (a summon or load is running): try again in a moment."); return false; }
+                ToastF(cGreen, 5000, "Practice: %s, right here (no mission, save untouched)...", g_rows[(size_t)row].name);
+                return true;
+            }
             snprintf(g_msg, sizeof(g_msg), "Not beaten on this journey: Fight now only replays bosses you have beaten.");
             return false;
         }
@@ -3667,8 +3681,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanArena(row);
             const uint8_t stt = g_status[(size_t)row].load();
             if (g_uiPages.page == uTraining)  // user #13164: Training arena list (details in the footer)
-                add(sel ? cWhite : stt != 2 || why ? cDim : cGreen, sel, "%s Arena: %s", mk, g_rows[(size_t)row].name /* ally #89: full name, the host panel word-wraps (58 cols) */);
-            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
+                add(sel ? cWhite : (stt != 2 && !AnyBossOk(row)) || (stt == 2 && why) ? cDim : cGreen, sel, "%s Arena: %s", mk, g_rows[(size_t)row].name /* ally #89: full name, the host panel word-wraps (58 cols) */);
+            else if (stt != 2) add(sel ? cWhite : cDim, sel, AnyBossOk(row) ? "%s    Practice boss here   not beaten: no mission, save untouched" : "%s    Teleport to arena (fast load)   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Teleport to arena (fast load)   - %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s    Teleport to arena (fast load)   boss stands still", mk);
         } else if (it[i] >= kItShrine) {
@@ -3687,7 +3701,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* action = "Fight now";
             const char* conf = r.atFight ? r.fightConf : r.arenaConf;
             const uint32_t c = why || stt != 2 ? cDim : (!strcmp(conf, "high") || !strcmp(conf, "captured")) ? cGreen : !strcmp(conf, "medium") ? cYellow : cOrange;
-            if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    %s   - not beaten on this journey", mk, action);
+            if (stt != 2 && AnyBossOk(row)) add(sel ? cWhite : cGreen, sel, "%s    Practice boss here   not beaten: no mission, save untouched", mk);
+            else if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    %s   - not beaten on this journey", mk, action);
             else if (why) add(sel ? cWhite : c, sel, "%s    %s   - %s", mk, action, why);
             else add(sel ? cWhite : c, sel, "%s    %s   %s   [%s]", mk, action, r.atFight ? "the mission starts at the fight" : "warp into the trigger", conf);
         } else {
@@ -3809,7 +3824,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItClose) snprintf(footer, nf, "Close the mod menu. Held controller buttons stay hidden until you release them.");
         else if (item >= kItTeleport) {
             const char* why = CanArena(item - kItTeleport);
-            if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
+            if (g_status[(size_t)(item - kItTeleport)].load() != 2) snprintf(footer, nf, AnyBossOk(item - kItTeleport) ? "Not beaten on this journey: A summons this boss right here as a Practice boss. No mission is started and your save is not touched. B back." : "Not beaten on this journey: arenas open for bosses you have beaten. B back.");
             else if (why) snprintf(footer, nf, "%s. B back.", why);
             else snprintf(footer, nf, "Teleport to arena (fast load): in-place arena swap (cross-world with a fade), boss standing still as a Training session. A start, B back.");
         } else if (item >= kItShrine) {
