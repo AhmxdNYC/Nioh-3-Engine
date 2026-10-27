@@ -6,3 +6,4 @@
 
 2026-10-27 4:08 pm EDT | cx-pc #40254: background HTTPS update checker + three-line hint implemented on pc/final-combined-4 d874f32b; Release EF build PASS, 64 mocked HTTP/version assertions + both menu suites PASS.
 Next: final review/preview and report separate branch to pc; site/version.json prepared only, no deployment or game access.
+2026-10-27 4:11 pm EDT | cx-pc #40254 offline update checker complete; branch cx-pc/update-check-40254. pc owns integration, deployment and live validation; no game lease.

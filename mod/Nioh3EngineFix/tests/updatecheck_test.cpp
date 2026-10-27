@@ -39,6 +39,8 @@ static BOOL Read(HINTERNET,LPVOID dst,DWORD count,LPDWORD got){
 }
 static BOOL Close(HINTERNET){++closed;return TRUE;}
 static ULONGLONG Clock(){return clockMs;}
+static int threadAttempts=0;
+static HANDLE NoThread(...){++threadAttempts;return nullptr;}
 #define WinHttpOpen Open
 #define WinHttpConnect Connect
 #define WinHttpOpenRequest Request
@@ -50,6 +52,7 @@ static ULONGLONG Clock(){return clockMs;}
 #define WinHttpReadData Read
 #define WinHttpCloseHandle Close
 #define GetTickCount64 Clock
+#define CreateThread NoThread
 #include "../src/updatecheck.cpp"
 #define CHECK(x) do{++checks;if(!(x)){std::printf("FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static int checks=0;
@@ -78,5 +81,10 @@ int main(){
  Publish("<html>error</html>","1.7.80");CHECK(CopyNotice(notice,sizeof(notice))); // silent failure retains last validated result
  Publish("{\"version\":\"1.7.80\"}","1.7.80");CHECK(!CopyNotice(notice,sizeof(notice)));
  CHECK(!CopyNotice(nullptr,0));
+ reset();g_next.store(500);g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==0);
+ g_next.store(0);g_busy.store(true);Tick("1.7.80");CHECK(threadAttempts==0);
+ g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==1);CHECK(!g_busy.load());CHECK(g_next.load()==clockMs+30ull*60*1000);
+ Tick("1.7.80");CHECK(threadAttempts==1);
+
  std::printf("PASS %d update-check assertions; no network, game or installed files accessed\n",checks);
 }

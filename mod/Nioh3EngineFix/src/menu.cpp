@@ -2373,7 +2373,7 @@ float AutoScale(unsigned H) {
     return std::max(1.0f, std::round((float)H / 540.0f * 2.0f) / 2.0f);  // 800p 1.5, 1080p 2, 1440p 2.5, 4K 4
 }
 
-// one-line note in the top-right corner (below the FPS counter when that sits there too)
+// Top-right reminder; two extra lines appear only for a validated newer release.
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     char update[64]{};
     const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
