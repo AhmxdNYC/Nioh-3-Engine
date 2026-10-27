@@ -25,9 +25,11 @@ Hit count = number of hit windows: frame-timed rows with power or element > 0.
 2. Keys that overlap or touch (start <= previous end + 1) and have the same hit group merge (group 0 keys must also have the same
    power/element): rows that sweep one swing (e.g. 0x4E8E at frames 52..57) merge into one. Data rule.
 hits_upper_bound = 1 when two counted windows are live at the same frame (different keys): maybe 1 hit with 2 hitboxes.
-ASSUMPTION (not proven in code): one window hits the player once.
+ASSUMPTION (not proven in code): one window hits the player once. Player observations contradict this for two moves.
+Exact archive/action observations take priority; static_hits and hit_source retain provenance. See notes/yoritomo-hitcount-40826.md.
 """
 import os
+import hashlib
 import struct
 import sys
 
@@ -36,6 +38,14 @@ HB = 192
 RED_EVENTS = {10250, 10251, 10254, 10255}
 DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'extract', 'lfm', 'archive_01', 'FA',
                        '5FBD421BF96B8514DA056584B9507A22DC7956B1793995A113FBA714CFFA54')
+
+
+# Human #40826, action mapping #40838. Observations, not a decoded rehit field.
+# Exact archive digest prevents applying an action-id override to other bosses/builds.
+OBSERVED_HITS = {
+    ('89836dd44b6b741ef3e8ba3c54d7d55961c32324ede7e3bacce778b27dfba568', 0x4E4E): 2,
+    ('89836dd44b6b741ef3e8ba3c54d7d55961c32324ede7e3bacce778b27dfba568', 0x4E55): 2,
+}
 
 
 def u16(d, o):
@@ -113,6 +123,7 @@ def uncertain(win):
 def facts(path):
     d, st, owned = load(path)
     o1 = st[1][0]
+    archive_sha = hashlib.sha256(d).hexdigest()
     for r, idx in enumerate(owned):
         o = o1 + r * REC
         aid, motion = u16(d, o + 0xC), u16(d, o + 0x20)
@@ -127,11 +138,15 @@ def facts(path):
         zero = [h for h in rows if h['start'] != 0xFFFF and not (h['pow'] or h['elem'])]
         parts = (['hitbox windows'] if win else []) + (['spawned objects'] if spawns or untimed else [])
         how = ' + '.join(parts) or ('zero-power rows only' if rows else 'no own hitbox rows')
+        static_hits = len(win) if win else ('' if how == 'no own hitbox rows' else 0)
+        observed = OBSERVED_HITS.get((archive_sha, aid))
         yield {
             'action': '0x%X' % aid, 'motion': motion, 'attack': int(attack),
             'unblockable': q0 >> 45 & 1, 'power_attack': q0 >> 41 & 1,
             'red_events': int(bool(RED_EVENTS & {t[0] for t in ev})),
-            'hits': len(win) if win else ('' if how == 'no own hitbox rows' else 0),
+            'hits': observed if observed is not None else static_hits,
+            'static_hits': static_hits,
+            'hit_source': 'player observation #40826' if observed is not None else 'static window estimate',
             'windows': ' '.join('%d-%d(%d/%d)' % (w['start'], w['end'], w['pow'], w['elem']) for w in win),
             'spawns': ' '.join('%d@%d' % s for s in spawns), 'untimed_rows': len(untimed), 'zero_power_rows': len(zero),
             'n_rows': len(rows), 'how': how, 'hits_upper_bound': uncertain(win),
@@ -139,7 +154,7 @@ def facts(path):
 
 
 COLS = ['action', 'motion', 'attack', 'unblockable', 'power_attack', 'red_events', 'hits', 'windows', 'spawns',
-        'untimed_rows', 'zero_power_rows', 'n_rows', 'how', 'hits_upper_bound']
+        'untimed_rows', 'zero_power_rows', 'n_rows', 'how', 'hits_upper_bound', 'static_hits', 'hit_source']
 
 
 def main(argv):
@@ -148,6 +163,8 @@ def main(argv):
     out = list(facts(path))
     if '--check' in argv:
         f = {x['action']: x for x in out}
+        assert all(f[a]['hits'] == 2 and f[a]['static_hits'] == 1 for a in ('0x4E4E', '0x4E55'))
+        assert f['0x4E52']['hits'] == 2
         assert f['0x4E6E']['hits'] == 2 and f['0x4E6E']['unblockable'] == 1, f['0x4E6E']
         assert f['0x4E6C']['hits'] == 2 and f['0x4E6C']['unblockable'] == 0, f['0x4E6C']
         assert f['0x4E68']['hits'] == 3 and f['0x4E68']['unblockable'] == 0, f['0x4E68']
