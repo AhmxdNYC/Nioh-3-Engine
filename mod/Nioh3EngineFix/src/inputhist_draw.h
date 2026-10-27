@@ -17,25 +17,45 @@ namespace inputhist_draw {
 
 constexpr int kSlots = 6;  // button glyphs per row
 
-// smooth direction arrow (#38929): a filled triangle pointing along dir (inputhist::Dir: 1 up, then clockwise in 45 degree steps),
-// scan-converted into 1 px high spans so it is crisp at any size instead of a chunky bitmap
+// direction arrow (#38929, restored dpad design): the original arrow = chevron head on a stem, rotated per direction (inputhist::Dir:
+// 1 up, then clockwise in 45 degree steps), drawn as an anti-aliased signed-distance shape with rounded corners. Every pixel gets
+// coverage alpha; runs of equal alpha are merged into one DrawRect.
+inline float ArrowSd(float u, float v) {  // local space, forward = +u, unit = size; rounded head triangle united with a capsule stem
+    const float r = 0.07f;                 // corner rounding
+    const float tx = 0.50f - r * 2.0f, bx = -0.04f, hw = 0.42f - r;  // triangle shrunk by r, then re-grown below
+    // edges of the head triangle: tip (tx,0), base corners (bx, +-hw)
+    const float ex = tx - bx, ey = hw, el = std::sqrt(ex * ex + ey * ey);
+    const float d1 = ((u - bx) * ey - std::fabs(v) * ex) / el;  // distance to the slanted edge (negative inside)
+    const float d2 = bx - u;                                      // base edge
+    const float head = std::max(d1, d2) - r;
+    const float su = std::min(std::max(u, -0.46f), 0.02f);      // stem capsule from -0.46 to 0.02
+    const float stem = std::sqrt((u - su) * (u - su) + v * v) - 0.115f;
+    return std::min(head, stem);
+}
+
 inline void Arrow(int dir, float bx, float by, float size, uint32_t color) {
     const float PI = 3.14159265f, a = (float)(dir - 1) * PI * 0.25f;
-    const float dx = std::sin(a), dy = -std::cos(a), px = -dy, py = dx;  // forward and perpendicular unit vectors
-    const float R = size * 0.46f, cx = bx + size * 0.5f, cy = by + size * 0.5f;
-    const float vx[3] = {cx + dx * R, cx - dx * R * 0.7f + px * R * 0.85f, cx - dx * R * 0.7f - px * R * 0.85f};
-    const float vy[3] = {cy + dy * R, cy - dy * R * 0.7f + py * R * 0.85f, cy - dy * R * 0.7f - py * R * 0.85f};
-    const int y0 = (int)std::floor(std::min(vy[0], std::min(vy[1], vy[2]))), y1 = (int)std::ceil(std::max(vy[0], std::max(vy[1], vy[2])));
-    for (int y = y0; y < y1; ++y) {
-        const float sy = (float)y + 0.5f;
-        float lo = 1e9f, hi = -1e9f;
-        for (int i = 0; i < 3; ++i) {
-            const int j = (i + 1) % 3;
-            if ((vy[i] <= sy) == (vy[j] <= sy)) continue;
-            const float x = vx[i] + (sy - vy[i]) * (vx[j] - vx[i]) / (vy[j] - vy[i]);
-            lo = std::min(lo, x); hi = std::max(hi, x);
+    const float fx = std::sin(a), fy = -std::cos(a);  // forward unit vector (screen space)
+    const float cx = bx + size * 0.5f, cy = by + size * 0.5f, inv = 1.0f / size;
+    const uint32_t alpha0 = color >> 24, rgb = color & 0x00FFFFFFu;
+    const int n = (int)std::ceil(size);
+    for (int y = 0; y < n; ++y) {
+        int runStart = 0, runQ = 0;
+        for (int x = 0; x <= n; ++x) {
+            int q = 0;
+            if (x < n) {
+                const float dx = (bx + (float)x + 0.5f) - cx, dy = (by + (float)y + 0.5f) - cy;
+                const float sd = ArrowSd((dx * fx + dy * fy) * inv, (-dx * fy + dy * fx) * inv) * size;  // pixels
+                q = (int)std::lround(std::min(1.0f, std::max(0.0f, 0.5f - sd)) * 8.0f);
+            }
+            if (q != runQ || x == n) {
+                if (runQ > 0) {
+                    const uint32_t al = alpha0 * (uint32_t)runQ / 8u;
+                    osd::DrawRect(bx + (float)runStart, by + (float)y, (float)(x - runStart), 1.0f, (al << 24) | rgb);
+                }
+                runStart = x; runQ = q;
+            }
         }
-        if (hi > lo) osd::DrawRect(std::floor(lo + 0.5f), (float)y, std::max(1.0f, std::floor(hi + 0.5f) - std::floor(lo + 0.5f)), 1.0f, color);
     }
 }
 

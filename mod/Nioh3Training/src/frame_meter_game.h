@@ -1585,6 +1585,9 @@ static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
     SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
 }
 static void FmCheck(HDC dc, int x, int y, int w, int h) {
+    // #38492: check mark ~25% smaller than the full cell, centred
+    const int cx = x + w / 2, cy = y + h / 2, sw = (w * 3) / 4, sh = (h * 3) / 4;
+    x = cx - sw / 2; y = cy - sh / 2; w = sw; h = sh;
     const int thick = h / 3 > 3 ? h / 3 : 3;
     const int x0 = x + w / 5, y0 = y + h / 2, x1 = x + w / 2, y1 = y + (h * 4) / 5, x2 = x + (w * 4) / 5, y2 = y + h / 5;
     HPEN dark = CreatePen(PS_SOLID, thick + 2, RGB(8, 10, 16));
@@ -1681,7 +1684,7 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND] || FmLegendCount()<=0) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt","I FR","Perf Ki (teal)","I FR special","I FR guard","I FR other"};
+    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt","I FR","Perf Ki","I FR special","I FR guard","I FR other"};
     COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
     int use[18]; FmLegendUse(use);
     int idx[18], n=0; for(int i=0;i<18;++i) if(use[i]) idx[n++]=i;
