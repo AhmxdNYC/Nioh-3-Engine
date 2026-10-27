@@ -25,6 +25,7 @@ enum Btn : uint16_t { bA = 1, bB = 2, bX = 4, bY = 8, bLB = 16, bRB = 32, bLT = 
 struct Entry {
     uint8_t dir = N;
     uint16_t btn = 0;
+    uint8_t dpad = 0; // raw XInput directional buttons, separate from left-stick movement
     uint64_t t0 = 0;  // ms when this state started
 };
 
@@ -69,12 +70,13 @@ inline uint16_t BtnOf(uint32_t buttons, int lt, int rt) {
 
 // one accepted pad sample (XInput layout); a new entry starts whenever the direction or the held buttons change
 inline void Push(uint32_t buttons, int lx, int ly, int lt, int rt, uint64_t nowMs) {
-    const uint8_t d = DirOf(buttons, lx, ly);
+    const uint8_t d = DirOf(0, lx, ly);
+    const uint8_t dp = (uint8_t)(buttons & 15);
     const uint16_t b = BtnOf(buttons, lt, rt);
     Lock();
     const int last = (g_next + kCap - 1) % kCap;
-    if (g_n == 0 || g_ring[last].dir != d || g_ring[last].btn != b) {
-        g_ring[g_next] = {d, b, nowMs};
+    if (g_n == 0 || g_ring[last].dir != d || g_ring[last].btn != b || g_ring[last].dpad != dp) {
+        g_ring[g_next] = {d, b, dp, nowMs};
         g_next = (g_next + 1) % kCap;
         if (g_n < kCap) ++g_n;
     }

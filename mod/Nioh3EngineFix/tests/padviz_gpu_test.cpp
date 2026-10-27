@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "../src/padviz.h"
+#include "../src/inputhist_dpad.h"
 #include "../src/padviz_atlas_data.h"
 #include "../src/padviz_png.h"
 #include "../src/osd_font.h"
@@ -151,7 +152,7 @@ int main(int argc, char** argv) {
                                      style ? sizeof(padviz::kAtlasPng_dualsense) : sizeof(padviz::kAtlasPng_xbox), A)) { printf("FAIL decode\n"); return 1; }
         // frame: 3 panels like the CPU preview, plus a text line and a solid rect (the other two quad kinds still work)
         const float s = 420.0f / k.canvasW, pw = k.canvasW * s, ph = k.canvasH * s, gap = 24;
-        const UINT W = (UINT)(3 * pw + 4 * gap), H = (UINT)(ph + 2 * gap + 32);
+        const UINT W = (UINT)(3 * pw + 4 * gap), H = (UINT)(ph + 2 * gap + 110);
         g_inst.clear();
         padviz::State idle, a, c;
         a.buttons = padviz::kA | padviz::kRB | padviz::kUp | padviz::kStart | padviz::kR3; a.lt = 255; a.rt = 128; a.lx = 23000; a.ly = 23000;
@@ -161,6 +162,11 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 3; ++i) padviz::DrawState(*st3[i], gap + i * (pw + gap), gap, s, 0.9f, style);
         const size_t nSprites = g_inst.size();
         osd::DrawRect(4, 4, 40, 8, 0xFF3C8CFF);
+        for(int arm=0;arm<4;++arm) {
+            const unsigned bits[]={1,8,2,4};
+            osd::DrawRect(20.f+arm*59.f,(float)H-100,59,44,0xff382e29);
+            inputhist_dpad::Draw(style,bits[arm],32.f+arm*59.f,(float)H-96,35);
+        }
         const char* label="Startup 14 Active 15-20 Recovery 18 | Perf Ki | Mod menu";
         for(int n=0;label[n];++n) if(label[n]!=' ')
             g_inst.push_back({19.f+n*8.f,(float)H-25.f,10.f,18.f,(uint32_t)(label[n]-32),0xffffffff,0,0,0,0});

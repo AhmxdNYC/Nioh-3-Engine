@@ -14,6 +14,8 @@
 #include "menu_style.h"
 #include "hint_shapes.h"
 
+#include "inputhist_dpad.h"
+
 namespace inputhist_draw {
 
 constexpr int kSlots = 6;  // button glyphs per row
@@ -99,6 +101,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
         else Arrow(e[i].dir, ax, ay, icon, menu_style::kText);
         float bx = ax + icon + pad;
         int used = 0;
+        if(e[i].dpad) { inputhist_dpad::Draw(style,e[i].dpad,bx,ay,icon);bx+=slotW;++used; }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (1 << b)) {
                 FaceGlyph(style, kFace[b], bx, ay, icon);

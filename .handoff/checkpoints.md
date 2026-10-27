@@ -10,3 +10,4 @@ Live unproven; next pc2 owner tests exact fresh pair. Paths/hashes in notes/move
 PC2 offline generic-x64 harness rebuilt: both timing sliders, idle and 12 editable move dispatches PASS; no game touched. Next: pc2 live validation; publish exact requested branch.
 2026-10-27 3:40 pm EDT | cx-pc #40138 | shared GDI stroke helper + Training/Rematch conversion builds; 285 glyph checks,12960 count checks,1000 handle-stability draws pass. Next pc: integrate and live-check; notes/gdi-stroke-40138.md. No game touched.
 2026-10-27 3:54 pm EDT | cx-pc #40170 | all3 smooth-text ASIs build; GDI 13245 cases+alpha regression and both actual GPU text/sprite cases PASS. Next pc integrate/live-check. notes/smooth-text-40170.md; no game touched.
+2026-10-27 3:58 pm EDT | cx-pc #40219 | approved Xbox/PS dpad in separate history button slot; stick arrows preserved; cached4x AA; input+2GPU previews PASS, EF e4a7d0dc built. Next pc merge camera on top; notes/dpad-40219.md.
