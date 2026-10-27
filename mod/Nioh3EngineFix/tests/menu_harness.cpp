@@ -237,10 +237,35 @@ int main() {
         Change(kCamRowFirst + kCamRight, 0); CHECK(g_camRight == 0.f && g_camUp == 60.f);
         Change(kCamRowFirst + kCamReset, 0);
         CHECK(!CamAny());
-        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetUp", 999, probe.c_str()) == 0);
-        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetRight", 999, probe.c_str()) == 0);
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetUp", 999, probe.c_str()) == 999);
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetRight", 999, probe.c_str()) == 999);
         CHECK(has(pCamera, kCamRowFirst + kCamRight) && has(pCamera, kCamRowFirst + kCamUp));
-        CHECK(!has(pCamera, kCamRowFirst + kCamLeft) && !has(pCamera, kCamRowFirst + kCamFwd));
+        CHECK(kCamRowN == 5 && has(pCamera, kCamRowFirst + kCamDistance) && has(pCamera, kCamRowFirst + kCamLens));
+        // Every slider crosses the actual unset center; restarting preserves saved values.
+        for (int axis : {kCamRight, kCamUp, kCamDistance, kCamLens}) {
+            Change(kCamRowFirst + axis, -1); CHECK(CamValue(axis) < 0.f);
+            CamReadIni(); CHECK(CamValue(axis) < 0.f);
+            Change(kCamRowFirst + axis, 1); CHECK(CamValue(axis) == 0.f && !CamAny());
+            Change(kCamRowFirst + axis, 1); CHECK(CamValue(axis) > 0.f);
+            Change(kCamRowFirst + axis, -1); CHECK(CamValue(axis) == 0.f && !CamAny());
+            Change(kCamRowFirst + axis, 1); Change(kCamRowFirst + axis, 0); CHECK(!CamAny());
+        }
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamDist", 999, probe.c_str()) == 999);
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamFovDeg", 999, probe.c_str()) == 999);
+        Change(kCamRowFirst + kCamDistance, -1); CHECK(g_camDist == kCamDistDefault - kCamDistStep);
+        Change(kCamRowFirst + kCamLens, 1); CHECK(g_camFov == kCamFovDefault + kCamFovStep);
+        CHECK(g_camDist == kCamDistDefault - kCamDistStep); // preserve other axis
+        for (int i = 0; i < 100; ++i) { Change(kCamRowFirst + kCamDistance, -1); Change(kCamRowFirst + kCamLens, -1); }
+        CHECK(g_camDist == kCamDistMin && g_camFov == kCamFovMin);
+        for (int i = 0; i < 200; ++i) { Change(kCamRowFirst + kCamDistance, 1); Change(kCamRowFirst + kCamLens, 1); }
+        CHECK(g_camDist == kCamDistMax && g_camFov == kCamFovMax);
+        Change(kCamRowFirst + kCamReset, 0); CHECK(!CamAny());
+        // Old off-grid absolute overrides still reach zero rather than skipping it.
+        WritePrivateProfileStringW(L"CamKiProbe", L"CamDist", L"470", probe.c_str());
+        WritePrivateProfileStringW(L"CamKiProbe", L"CamFovDeg", L"46", probe.c_str());
+        Change(kCamRowFirst + kCamDistance, 1); CHECK(g_camDist == 530.f);
+        Change(kCamRowFirst + kCamDistance, 1); CHECK(g_camDist == 0.f);
+        Change(kCamRowFirst + kCamLens, 1); CHECK(g_camFov == 0.f && !CamAny());
         DeleteFileW(probe.c_str()); RemoveDirectoryW(folder); g_ini = savedIni;
     }
     // Settings: CPU / GPU / Game / Frame Gen, performance only

@@ -22,8 +22,8 @@ constexpr int kPsRowFirst = kReportRow + 1;
 constexpr int kPsAllRowsRow = kPsRowFirst + kPsToggleN;  // 'All frame rows' master (moved here from Practice, human #38180 rows)
 constexpr int kPsAllKeysRow = kPsAllRowsRow + 1;         // 'All key indicators' master
 constexpr int kCamRowFirst = kPsAllKeysRow + 1;  // Camera settings page: left / right / forward / back / return to default
-constexpr int kCamRowN = 9;
-constexpr int kCamLeft = 0, kCamRight = 1, kCamUp = 2, kCamDown = 3, kCamFwd = 4, kCamBack = 5, kCamLensNarrow = 6, kCamLensWide = 7, kCamReset = 8;
+constexpr int kCamRowN = 5;
+constexpr int kCamRight = 0, kCamUp = 1, kCamDistance = 2, kCamLens = 3, kCamReset = 4;
 constexpr int kTimeOfDayRow = kCamRowFirst + kCamRowN;
 constexpr int kWeatherRow = kTimeOfDayRow + 1;
 constexpr int kMenuRowCap = kWeatherRow + 1;
