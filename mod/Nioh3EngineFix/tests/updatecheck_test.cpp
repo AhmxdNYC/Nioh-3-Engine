@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <winhttp.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -41,6 +42,11 @@ static BOOL Close(HINTERNET){++closed;return TRUE;}
 static ULONGLONG Clock(){return clockMs;}
 static int threadAttempts=0;
 static HANDLE NoThread(...){++threadAttempts;return nullptr;}
+static std::wstring launchedUrl;
+static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR url,LPCWSTR,LPCWSTR,int) {
+ launchedUrl=url; return reinterpret_cast<HINSTANCE>(33);
+}
+#define ShellExecuteW FakeShell
 #define WinHttpOpen Open
 #define WinHttpConnect Connect
 #define WinHttpOpenRequest Request
@@ -108,5 +114,10 @@ int main(){
  g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==1);CHECK(!g_busy.load());CHECK(g_next.load()==clockMs+30ull*60*1000);
  Tick("1.7.80");CHECK(threadAttempts==1);
 
+ CHECK(SetEndpoint(L"https://untrusted.example/manifest.json"));
+ LaunchFixedPage();CHECK(launchedUrl==L"https://nioh3-mod-feedback.vercel.app");
+ reset();g_openAfter.store(0);int before=threadAttempts;
+ OpenPage();CHECK(threadAttempts==before+1);OpenPage();CHECK(threadAttempts==before+1);
+ clockMs+=2000;OpenPage();CHECK(threadAttempts==before+2);
  std::printf("PASS %d update-check assertions; no network, game or installed files accessed\n",checks);
 }

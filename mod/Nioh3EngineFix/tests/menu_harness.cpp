@@ -27,6 +27,8 @@ float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts
 }
 namespace updatecheck {
 std::string testNotice;
+int pageOpens=0;
+void OpenPage() { ++pageOpens; }
 bool CopyNotice(char* dst, size_t n) { snprintf(dst,n,"%s",testNotice.c_str());return !testNotice.empty(); }
 }
 namespace gpuopt {
@@ -99,6 +101,13 @@ int main() {
     updatecheck::testNotice.clear();
     osd::drawnRects.clear(); osd::drawnTexts.clear();
 
+    CHECK(!TryUpdateHintClick(false,true,15,15,10,10,20,20));
+    CHECK(!TryUpdateHintClick(true,false,15,15,10,10,20,20));
+    CHECK(!TryUpdateHintClick(true,true,30,15,10,10,20,20));
+    CHECK(TryUpdateHintClick(true,true,10,10,10,10,20,20));
+    CHECK(updatecheck::pageOpens == 1);
+    Change(kUpdatePageRow, 1); CHECK(updatecheck::pageOpens == 1);
+    Change(kUpdatePageRow, 0); CHECK(updatecheck::pageOpens == 2);
     g_cfg.holdMask = 0;
     g_padHooked = g_keyHooked = true;
     g_lastPresent = (LONG64)Now();
@@ -111,8 +120,8 @@ int main() {
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
     // #38437 top rows: Mod menu, Close, Report; then Display Overlays, Camera settings, Settings, Close
-    CHECK(rootN == 7 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
-          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kClose);
+    CHECK(rootN == 8 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
+          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kUpdatePageRow && rows[7] == kClose);
     CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
     // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
     for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
@@ -323,8 +332,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 9 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
-          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kClose);
+    CHECK(bossN == 10 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
+          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kUpdatePageRow && rows[9] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -464,7 +473,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==7 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kClose);
+    CHECK(g_pages.page==pRoot && n==8 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kUpdatePageRow && rows[7]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly

@@ -1131,7 +1131,9 @@ int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
-    return 3 + PageRowsBody(out + 3, selectable);
+    int n = 3 + PageRowsBody(out + 3, selectable);
+    if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
+    return n;
 }
 int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
 int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
@@ -1731,6 +1733,7 @@ void Change(int id, int dir) {
         return;
     }
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
+    if (id == kUpdatePageRow) { if (dir == 0) updatecheck::OpenPage(); return; }
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
@@ -2373,15 +2376,33 @@ float AutoScale(unsigned H) {
     return std::max(1.0f, std::round((float)H / 540.0f * 2.0f) / 2.0f);  // 800p 1.5, 1080p 2, 1440p 2.5, 4K 4
 }
 
-// Top-right reminder; two extra lines appear only for a validated newer release.
+bool g_updateMouseDown = false, g_updateMouseEdge = false;
+bool TryUpdateHintClick(bool edge, bool focused, float px, float py, float x, float y, float w, float h) {
+    if (!edge || !focused || px < x || py < y || px >= x+w || py >= y+h) return false;
+    updatecheck::OpenPage();
+    return true;
+}
+// Hit test in render pixels, mapped from the foreground game window's client area.
+void PollUpdateHint(unsigned W, unsigned H, float x, float y, float w, float h) {
+    HWND window = GetForegroundWindow(); DWORD pid = 0;
+    if (!window || !GetWindowThreadProcessId(window, &pid) || pid != GetCurrentProcessId()) return;
+    POINT p{}; RECT client{};
+    if (!GetCursorPos(&p) || !ScreenToClient(window, &p) || !GetClientRect(window, &client) ||
+        client.right <= 0 || client.bottom <= 0) return;
+    TryUpdateHintClick(g_updateMouseEdge, true, p.x * (float)W / client.right,
+        p.y * (float)H / client.bottom, x, y, w, h);
+}
+// Top-right reminder with clickable update line and controller shortcut guidance.
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     char update[64]{};
     const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
-    const size_t chars = hasUpdate ? std::max(strlen(text), std::max(strlen(update), strlen(updatecheck::kSite))) : strlen(text);
+    const char* shortcut = "Controller: use Nioh3 Mod Website";
+    const char* folder = "shortcut in the game folder";
+    const size_t chars = hasUpdate ? std::max(strlen(text), std::max(strlen(shortcut), std::max(strlen(update), strlen(updatecheck::kSite)))) : strlen(text);
     const float normalScale = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);
     const float sc = std::min(normalScale, std::max(0.25f, ((float)W - 2 * osd::kCornerPx) / ((float)chars * osd::kGlyphW + 8.f)));
     const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
-    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 3 : 1) * lineH + 2 * pad - 4 * sc;
+    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 5 : 1) * lineH + 2 * pad - 4 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
@@ -2394,6 +2415,9 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     if (hasUpdate) {
         osd::DrawText(x + pad, y + pad + lineH, update, cGold, sc);
         osd::DrawText(x + pad, y + pad + 2 * lineH, updatecheck::kSite, cWhite, sc);
+        osd::DrawText(x + pad, y + pad + 3 * lineH, shortcut, cWhite, sc);
+        osd::DrawText(x + pad, y + pad + 4 * lineH, folder, cWhite, sc);
+        PollUpdateHint(W, H, x, y + pad + lineH, w, 2 * lineH);
     }
     return sc;
 }
@@ -2686,6 +2710,9 @@ float DrawRematchHost(unsigned W, unsigned H) {
 // title + stage text given by the caller. Independent of the Rematch cover state machine (no native request, no input capture).
 SRWLOCK g_lsLock=SRWLOCK_INIT;volatile LONG g_lsOn=0;char g_lsTitle[64]="";char g_lsStage[96]="";
 float DrawImpl(unsigned W, unsigned H) {
+    const bool mouseDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    g_updateMouseEdge = mouseDown && !g_updateMouseDown;
+    g_updateMouseDown = mouseDown;
     g_coverDrawnToken=0;
     if(g_lsOn && !g_coverToken.load() && !g_open) {
         char title[64],stage[96];
@@ -2781,6 +2808,12 @@ float DrawImpl(unsigned W, unsigned H) {
             if (id == g_sel) selRow = nb;
             const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Practice" : "  Practice");
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id == kUpdatePageRow) {
+            if (id == g_sel) selRow = nb;
+            put(body, nb, 128, id == g_sel ? "> Open update page" : "  Open update page", "",
+                menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
         if (id == kModMenuRow || id == kCloseTopRow || id == kReportRow) {
@@ -2914,6 +2947,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
+    } else if (g_sel == kUpdatePageRow) {
+        snprintf(what, sizeof(what), "Open the official mod website in your browser.");
+        snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
         snprintf(effect, sizeof(effect), "File: Nioh3EngineFix-report-latest.txt beside the mod. Send it with the report. Link: [Report] Url in the ini.");

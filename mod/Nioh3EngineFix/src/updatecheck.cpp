@@ -1,6 +1,8 @@
 #include "updatecheck.h"
 #include <windows.h>
 #include <winhttp.h>
+#include <shellapi.h>
+#pragma comment(lib, "shell32.lib")
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -117,6 +119,27 @@ void Tick(const char* installedVersion) {
     }
     g_next.store(now+30ull*60*1000); // allocation/thread failure: quiet backoff
     g_busy.store(false);
+}
+namespace {
+std::atomic<ULONGLONG> g_openAfter{0};
+void LaunchFixedPage() {
+    // Never use manifest or INI values as browser targets.
+    ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
+}
+DWORD WINAPI OpenPageWorker(LPVOID module) {
+    LaunchFixedPage();
+    FreeLibraryAndExitThread(static_cast<HMODULE>(module), 0);
+}
+}
+void OpenPage() {
+    const auto now = GetTickCount64();
+    auto after = g_openAfter.load();
+    if (now < after || !g_openAfter.compare_exchange_strong(after, now + 2000)) return;
+    HMODULE module{};
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+        reinterpret_cast<LPCWSTR>(&OpenPage), &module)) return;
+    HANDLE thread = CreateThread(nullptr, 0, OpenPageWorker, module, 0, nullptr);
+    if (thread) CloseHandle(thread); else FreeLibrary(module);
 }
 bool CopyNotice(char* dst,size_t capacity) {
     if(!dst||!capacity) return false;
