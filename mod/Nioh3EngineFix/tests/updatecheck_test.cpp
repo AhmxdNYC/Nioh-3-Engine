@@ -61,7 +61,7 @@ static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR target,LPCWSTR args,LPCWSTR,int)
  shellCalls.push_back({target,args?args:L""}); return reinterpret_cast<HINSTANCE>(33);
 }
 #define GetModuleFileNameW FakeModulePath
-static bool wineMode=false, conversionFails=false, processFails=false;
+static bool wineMode=false, conversionFails=false, processFails=false, missingUnixExport=false;
 static std::string unixFolder="/home/player/Steam Games/Nioh3/";
 static std::vector<ShellCall> processCalls;
 static int processCloses=0;
@@ -72,7 +72,7 @@ static char* __cdecl FakeUnixName(LPCWSTR) {
 }
 static FARPROC FakeProc(HMODULE module,LPCSTR name) {
  if(std::strcmp(name,"wine_get_version")==0)return wineMode?reinterpret_cast<FARPROC>(&FakeUnixName):nullptr;
- if(std::strcmp(name,"wine_get_unix_file_name")==0)return reinterpret_cast<FARPROC>(&FakeUnixName);
+ if(std::strcmp(name,"wine_get_unix_file_name")==0)return missingUnixExport?nullptr:reinterpret_cast<FARPROC>(&FakeUnixName);
  return GetProcAddress(module,name);
 }
 static UINT FakeSystem(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Windows\\system32");return 19;}
@@ -188,6 +188,8 @@ int main(){
  conversionFails=false;processFails=true;processCalls.clear();int closes=processCloses;
  LaunchFixedPage(testModule);CHECK(processCalls.size()==2);CHECK(processCloses==closes);
  processFails=false;unixFolder="relative/path";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ missingUnixExport=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ missingUnixExport=false;unixFolder="/bad/\xC3\x28";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
  wineMode=false;
  reset();g_openAfter.store(0);int before=threadAttempts;
  OpenPage();CHECK(threadAttempts==before+1);OpenPage();CHECK(threadAttempts==before+1);
