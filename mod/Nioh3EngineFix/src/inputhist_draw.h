@@ -17,26 +17,26 @@ namespace inputhist_draw {
 
 constexpr int kSlots = 6;  // button glyphs per row
 
-// 7x7 arrow bitmaps: orthogonal up and diagonal up-right; the other six are rotations of these
-inline const char* const kUp[7] = {"...#...", "..###..", ".#####.", "...#...", "...#...", "...#...", "...#..."};
-inline const char* const kUR[7] = {"..#####", ".....##", "....#.#", "...#..#", "..#...#", ".#.....", "#......"};
-
-inline bool Cell(int dir, int r, int c) {  // dir: inputhist::Dir (not N)
-    const bool diag = (dir & 1) == 0;       // UR, DR, DL, UL are even
-    const int quarter = diag ? (dir - 2) / 2 : (dir - 1) / 2;  // clockwise quarter turns from the base bitmap
-    for (int q = 0; q < quarter; ++q) {  // rotating the bitmap cw: new(r, c) = old(6 - c, r)  =>  read old at the inverse
-        const int nr = 6 - c, nc = r;
-        r = nr; c = nc;
-    }
-    return (diag ? kUR[r] : kUp[r])[c] == '#';
-}
-
+// smooth direction arrow (#38929): a filled triangle pointing along dir (inputhist::Dir: 1 up, then clockwise in 45 degree steps),
+// scan-converted into 1 px high spans so it is crisp at any size instead of a chunky bitmap
 inline void Arrow(int dir, float bx, float by, float size, uint32_t color) {
-    const float u = std::max(1.0f, std::floor(size / 7.0f));
-    const float ox = bx + std::floor((size - 7.0f * u) * 0.5f), oy = by + std::floor((size - 7.0f * u) * 0.5f);
-    for (int r = 0; r < 7; ++r)
-        for (int c = 0; c < 7; ++c)
-            if (Cell(dir, r, c)) osd::DrawRect(ox + (float)c * u, oy + (float)r * u, u, u, color);
+    const float PI = 3.14159265f, a = (float)(dir - 1) * PI * 0.25f;
+    const float dx = std::sin(a), dy = -std::cos(a), px = -dy, py = dx;  // forward and perpendicular unit vectors
+    const float R = size * 0.46f, cx = bx + size * 0.5f, cy = by + size * 0.5f;
+    const float vx[3] = {cx + dx * R, cx - dx * R * 0.7f + px * R * 0.85f, cx - dx * R * 0.7f - px * R * 0.85f};
+    const float vy[3] = {cy + dy * R, cy - dy * R * 0.7f + py * R * 0.85f, cy - dy * R * 0.7f - py * R * 0.85f};
+    const int y0 = (int)std::floor(std::min(vy[0], std::min(vy[1], vy[2]))), y1 = (int)std::ceil(std::max(vy[0], std::max(vy[1], vy[2])));
+    for (int y = y0; y < y1; ++y) {
+        const float sy = (float)y + 0.5f;
+        float lo = 1e9f, hi = -1e9f;
+        for (int i = 0; i < 3; ++i) {
+            const int j = (i + 1) % 3;
+            if ((vy[i] <= sy) == (vy[j] <= sy)) continue;
+            const float x = vx[i] + (sy - vy[i]) * (vx[j] - vx[i]) / (vy[j] - vy[i]);
+            lo = std::min(lo, x); hi = std::max(hi, x);
+        }
+        if (hi > lo) osd::DrawRect(std::floor(lo + 0.5f), (float)y, std::max(1.0f, std::floor(hi + 0.5f) - std::floor(lo + 0.5f)), 1.0f, color);
+    }
 }
 
 // a face-button glyph: the controller display's lit sprite for that button, fitted into a size x size box (padviz::Layer: same call
