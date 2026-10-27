@@ -53,7 +53,8 @@ def u16(d, o):
 
 
 def load(path):
-    d = open(path, 'rb').read()
+    with open(path, 'rb') as source:
+        d = source.read()
     assert struct.unpack_from('<I', d, 0)[0] == 16, 'not a 16-sub-table archive_01 file'
     st = [struct.unpack_from('<II', d, 4 + 8 * i) for i in range(16)]
     o0, s0 = st[0]
