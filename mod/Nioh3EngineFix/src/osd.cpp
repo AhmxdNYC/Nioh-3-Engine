@@ -729,8 +729,8 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     }
     // input history (inputhist_draw.h): same quad group (its face-button glyphs are the controller display's atlas sprites; its
     // numbers are text, so this group then carries the text scale). Left: below the FPS counter and, when the controller picture sits
-    // top-left, below that; right: the top-right corner. Hidden while the mod menu is open.
-    if (inputhist::g_on && !menu::IsOpen()) {
+    // top-left, below that; right: the top-right corner. Stays visible while the mod menu is open (#38920).
+    if (inputhist::g_on) {
         const int skin = padviz::Style();
         const uint64_t nowMs = (uint64_t)GetTickCount64();
         if (PadAtlasReady(skin) && padviz::Live(nowMs)) {
