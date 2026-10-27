@@ -26,6 +26,13 @@ std::vector<float> drawnTextX, drawnTextScale, drawnTextY;
 std::vector<uint32_t> drawnTextColor;
 float DrawText(float x, float y, const char* text, uint32_t color, float s) { drawnTextY.push_back(y);drawnTextColor.push_back(color);drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
 }
+namespace savefiles {
+bool testAllowed=false;int requests=0;
+void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
+void Poll(){} bool Allowed(){return testAllowed;}
+bool Queue(int,bool){if(!testAllowed)return false;++requests;return true;}
+const char* Note(){return "Copy-only test";}
+}
 namespace updatecheck {
 std::string testNotice;
 int pageOpens=0;
@@ -95,6 +102,18 @@ int Copy(uint64_t, mb::Snapshot* out, uint32_t) { *out = view; return mb::Accept
 void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (open ? mb::Open : 0u); view.workerTickMs=GetTickCount64(); }
 }
 int main() {
+    { using namespace menu;
+      int rows[kMenuRowCap];g_pages.Reset();savefiles::testAllowed=false;
+      int n=PageRows(rows,true);for(int i=0;i<n;++i)CHECK(rows[i]!=kSaveFilesRow);
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pRoot);
+      savefiles::testAllowed=true;n=PageRows(rows,true);bool found=false;for(int i=0;i<n;++i)found|=rows[i]==kSaveFilesRow;CHECK(found);
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
+      Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
+      savefiles::testAllowed=false;Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
+      savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      savefiles::testAllowed=false;g_pages.Reset();g_saveConfirm=0;
+    }
+
     using namespace menu;
     // Update hint is fitted to small viewports and leaves the ordinary reminder intact.
     updatecheck::testNotice = "Update 1.8.0 available: Mod Menu > Open update page";

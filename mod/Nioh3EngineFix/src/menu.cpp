@@ -37,6 +37,7 @@
 #include "gpuopt.h"
 #include "menu.h"
 #include "updatecheck.h"
+#include "savefiles.h"
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
@@ -1049,9 +1050,14 @@ int SetGroup(int id) {
     return -1;
 }
 
+int g_saveSlot=1,g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
+    if(g_pages.page==pSaveFiles){
+        if(savefiles::Allowed()){add(kSaveSlotRow);add(kSaveBackupRow);add(kSaveSwitchRow);}
+        add(kBackRow);return n;
+    }
     if (!g_cfg.layout) {
         // #38437 first screen: Boss Matches, Practice, Display Overlays, Camera settings, Settings, Close.
         const int pg = g_pages.page;
@@ -1155,6 +1161,7 @@ int PageRows(int* out, bool selectable) {
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
+    if (g_pages.page == pRoot && savefiles::Allowed()) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     return n;
 }
@@ -1752,6 +1759,16 @@ void ChangeCamera(int which, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if(id==kSaveFilesRow){if(!dir&&savefiles::Allowed()){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id>=kSaveSlotRow&&id<=kSaveSwitchRow){
+        if(!savefiles::Allowed()){g_saveConfirm=0;return;}
+        if(id==kSaveSlotRow){g_saveSlot=1+menu_nav::Wrap(g_saveSlot-1,dir?dir:1,8);g_saveConfirm=0;return;}
+        if(dir)return;
+        const auto now=Now();
+        if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){savefiles::Queue(g_saveSlot,id==kSaveBackupRow);g_saveConfirm=0;}
+        else{g_saveConfirm=id;g_saveConfirmAt=now;}
+        return;
+    }
     if (id == kRematchRow || id == kPracticeRow) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
@@ -2276,6 +2293,8 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
 }
 
 void OnPresentImpl() {
+    savefiles::Poll();
+    if(g_pages.page==pSaveFiles&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
     const bool rematchReady = RefreshRematchHost(t);
@@ -2855,6 +2874,13 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
+        if(id>=kSaveFilesRow&&id<=kSaveSwitchRow){
+            if(id==g_sel)selRow=nb;
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up after Quit":"Switch after Quit";
+            char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
+            if(id==kSaveSlotRow)snprintf(value,sizeof value,"slot%d",g_saveSlot);
+            put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
+        }
         if (id == kUpdatePageRow) {
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, id == g_sel ? "> Open update page" : "  Open update page", "",
@@ -3008,6 +3034,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
+    } else if(g_sel>=kSaveFilesRow&&g_sel<=kSaveSwitchRow){
+        snprintf(what,sizeof what,"%s",savefiles::Note());
+        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Copy-only prototype. Applies after normal exit; entering gameplay cancels.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
@@ -3277,6 +3306,7 @@ void Configure(const Host& h) {
     g_host = h;
     g_log = h.log;
     g_ini = h.iniPath ? h.iniPath : L"";
+    savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;

@@ -29,7 +29,12 @@ constexpr int kWeatherRow = kTimeOfDayRow + 1;
 constexpr int kUpdatePageRow = kWeatherRow + 1;
 constexpr int kFrameMeterStyleRow = kUpdatePageRow + 1;
 constexpr int kFrameMeterSizeRow = kFrameMeterStyleRow + 1;
-constexpr int kMenuRowCap = kFrameMeterSizeRow + 1;
+constexpr int pSaveFiles = -2; // private subpage, keeps all existing page/row IDs stable
+constexpr int kSaveFilesRow = kFrameMeterSizeRow + 1;
+constexpr int kSaveSlotRow = kSaveFilesRow + 1;
+constexpr int kSaveBackupRow = kSaveSlotRow + 1;
+constexpr int kSaveSwitchRow = kSaveBackupRow + 1;
+constexpr int kMenuRowCap = kSaveSwitchRow + 1;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
@@ -42,6 +47,7 @@ const char* const kPageNames[] = {"Mod menu", "Optimizations", "Display Overlays
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section",
     "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game"};
 inline const char* PageName(int page) {
+    if (page == pSaveFiles) return "Save files";
     return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }
 inline int SettingsPage(int id) {
