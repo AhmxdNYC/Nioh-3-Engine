@@ -27,3 +27,7 @@ Both menu suites +94 update-check assertions and hourly compile-time assertion P
 
 2026-10-27 4:57 pm EDT | cx-pc #40553 COMPLETE: hourly poll fef827fd on cx-pc/update-click-40452, Release EF bridge2910 SHA8ddb270c300e72e6c27dd7338f95adfa2ba41e2141de9b16f2c6106e1c16e6b8, MOD_VERSION1.7.81.
 Both menu suites +94 update-check assertions + hourly compile-time assertion PASS. Same background worker and failure backoff; pc installs/accepts. No game or deployment touched.
+
+2026-10-27 5:02 pm EDT | cx-pc #40571: pushed 3ccd4a82 on cx-pc/update-click-40452; website action also selects module-folder Nioh3Updater.exe via Windows Explorer, folder fallback if missing; same worker/2s throttle/hourly poll/version1.7.81.
+Release EF bridge2914 SHA28bb5750e6611df7c00288daa1d778daa58273f48f764529bfd5debf0046bbfc; both menu suites +105 checker assertions PASS (mock shell, module path, quoted spaces, missing/directory updater, truncated/failed module path, throttle).
+Next pc install/native acceptance; no game/deployment touched. Offline preview sent using normal-Python notify fallback after -I media import failure.
