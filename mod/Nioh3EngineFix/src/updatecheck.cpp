@@ -122,9 +122,60 @@ void Tick(const char* installedVersion) {
 }
 namespace {
 std::atomic<ULONGLONG> g_openAfter{0};
+// Wine's Explorer can stay open indefinitely without reaching a Linux file manager.
+// Launch the native desktop opener in a separate process, never wait on desktop UI.
+bool IsWine() {
+    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    return ntdll && GetProcAddress(ntdll, "wine_get_version");
+}
+std::wstring QuoteArgument(const std::wstring& value) {
+    std::wstring out = L"\"";
+    size_t slashes = 0;
+    for (wchar_t c : value) {
+        if (c == L'\\') { ++slashes; continue; }
+        out.append(slashes * (c == L'\"' ? 2 : 1), L'\\');
+        slashes = 0;
+        if (c == L'\"') out += L'\\';
+        out += c;
+    }
+    out.append(slashes * 2, L'\\');
+    return out + L'\"';
+}
+void OpenUnixTarget(const std::wstring& target) {
+    if (target.empty()) return;
+    wchar_t system[MAX_PATH]{};
+    const UINT count = GetSystemDirectoryW(system, MAX_PATH);
+    if (!count || count >= MAX_PATH) return;
+    const std::wstring start = std::wstring(system, count) + L"\\start.exe";
+    std::wstring command = QuoteArgument(start) + L" /unix /usr/bin/xdg-open " + QuoteArgument(target);
+    STARTUPINFOW si{}; si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+    if (CreateProcessW(start.c_str(), command.data(), nullptr, nullptr, FALSE,
+                       CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    }
+}
+void OpenWineFolder(const std::wstring& folder) {
+    using UnixName = char* (__cdecl*)(LPCWSTR);
+    const HMODULE kernel = GetModuleHandleW(L"kernel32.dll");
+    const auto convert = kernel ? reinterpret_cast<UnixName>(GetProcAddress(kernel, "wine_get_unix_file_name")) : nullptr;
+    if (!convert) return;
+    char* path = convert(folder.c_str());
+    if (!path) return;
+    const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
+    std::wstring target(count > 0 ? count : 0, L'\0');
+    if (count > 0) MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, target.data(), count);
+    HeapFree(GetProcessHeap(), 0, path);
+    if (count <= 1) return;
+    target.resize(count - 1);
+    if (target.front() == L'/') OpenUnixTarget(target);
+}
 void LaunchFixedPage(HMODULE module) {
     // Never use manifest or INI values as browser targets.
-    ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
+    const bool wine = IsWine();
+    if (wine) OpenUnixTarget(L"https://nioh3-mod-feedback.vercel.app");
+    else ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
     // Resolve only this ASI's directory; no configuration, manifest or working-directory input.
     std::wstring path(32768, L'\0');
     const DWORD length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
@@ -133,6 +184,7 @@ void LaunchFixedPage(HMODULE module) {
     const auto slash = path.find_last_of(L"\\/");
     if (slash == std::wstring::npos) return;
     const std::wstring folder = path.substr(0, slash + 1);
+    if (wine) { OpenWineFolder(folder); return; }
     const std::wstring updater = folder + L"Nioh3Updater.exe";
     const DWORD attributes = GetFileAttributesW(updater.c_str());
     const bool exists = attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);

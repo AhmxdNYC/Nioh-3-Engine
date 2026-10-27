@@ -61,6 +61,33 @@ static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR target,LPCWSTR args,LPCWSTR,int)
  shellCalls.push_back({target,args?args:L""}); return reinterpret_cast<HINSTANCE>(33);
 }
 #define GetModuleFileNameW FakeModulePath
+static bool wineMode=false, conversionFails=false, processFails=false;
+static std::string unixFolder="/home/player/Steam Games/Nioh3/";
+static std::vector<ShellCall> processCalls;
+static int processCloses=0;
+static char* __cdecl FakeUnixName(LPCWSTR) {
+ if(conversionFails)return nullptr;
+ char* p=static_cast<char*>(HeapAlloc(GetProcessHeap(),0,unixFolder.size()+1));
+ std::memcpy(p,unixFolder.c_str(),unixFolder.size()+1);return p;
+}
+static FARPROC FakeProc(HMODULE module,LPCSTR name) {
+ if(std::strcmp(name,"wine_get_version")==0)return wineMode?reinterpret_cast<FARPROC>(&FakeUnixName):nullptr;
+ if(std::strcmp(name,"wine_get_unix_file_name")==0)return reinterpret_cast<FARPROC>(&FakeUnixName);
+ return GetProcAddress(module,name);
+}
+static UINT FakeSystem(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Windows\\system32");return 19;}
+static BOOL FakeProcess(LPCWSTR app,LPWSTR command,LPSECURITY_ATTRIBUTES,LPSECURITY_ATTRIBUTES,
+ BOOL inherit,DWORD flags,LPVOID,LPCWSTR,LPSTARTUPINFOW,LPPROCESS_INFORMATION pi) {
+ if(inherit || flags!=CREATE_NO_WINDOW)std::abort();
+ processCalls.push_back({app,command});
+ if(processFails)return FALSE;
+ pi->hThread=reinterpret_cast<HANDLE>(234);pi->hProcess=reinterpret_cast<HANDLE>(235);return TRUE;
+}
+static BOOL FakeCloseProcess(HANDLE){++processCloses;return TRUE;}
+#define GetProcAddress FakeProc
+#define GetSystemDirectoryW FakeSystem
+#define CreateProcessW FakeProcess
+#define CloseHandle FakeCloseProcess
 #define GetFileAttributesW FakeAttributes
 #define GetWindowsDirectoryW FakeWindows
 #define ShellExecuteW FakeShell
@@ -150,6 +177,18 @@ int main(){
  shellCalls.clear();pathTruncated=true;LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
  pathTruncated=false;pathFailure=true;shellCalls.clear();LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
  pathFailure=false;modulePath=L"no-directory.asi";shellCalls.clear();LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
+ wineMode=true;modulePath=L"C:\\Steam Games\\Nioh3\\Nioh3EngineFix.asi";
+ shellCalls.clear();LaunchFixedPage(testModule);
+ CHECK(shellCalls.empty());CHECK(processCalls.size()==2);CHECK(processCloses==4);
+ CHECK(processCalls[0].target==L"C:\\Windows\\system32\\start.exe");
+ CHECK(processCalls[0].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"https://nioh3-mod-feedback.vercel.app\"");
+ CHECK(processCalls[1].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"/home/player/Steam Games/Nioh3/\"");
+ CHECK(QuoteArgument(L"a\"b\\")==L"\"a\\\"b\\\\\"");
+ conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ conversionFails=false;processFails=true;processCalls.clear();int closes=processCloses;
+ LaunchFixedPage(testModule);CHECK(processCalls.size()==2);CHECK(processCloses==closes);
+ processFails=false;unixFolder="relative/path";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ wineMode=false;
  reset();g_openAfter.store(0);int before=threadAttempts;
  OpenPage();CHECK(threadAttempts==before+1);OpenPage();CHECK(threadAttempts==before+1);
  clockMs+=2000;OpenPage();CHECK(threadAttempts==before+2);
