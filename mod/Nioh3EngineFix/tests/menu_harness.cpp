@@ -163,6 +163,31 @@ int main() {
     g_pstSet = nullptr;
     // Camera page: the existing camera-effects option
     CHECK(has(pCamera, kEp9) && !has(pCamera, kLat));
+    // The Camera page always draws a panel (every row + Back) at several screen sizes, and B leaves it
+    {
+        g_pages.Reset(); g_sel = TopLevelSel();
+        const LONG wasOpen = g_open; g_open = 1;
+        EnterPage(pCamera);
+        CHECK(g_pages.page == pCamera && g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN);
+        for (unsigned width : {800u, 1280u, 1920u, 3840u}) {
+            const unsigned height = width == 800u ? 600u : width * 9 / 16;
+            osd::drawnRects.clear(); osd::drawnTexts.clear();
+            CHECK(DrawImpl(width, height) > 0 && !osd::drawnRects.empty() && !osd::drawnTexts.empty());
+            bool title = false, back = false, reset = false;
+            for (const auto& t : osd::drawnTexts) { title |= t == "Camera settings"; back |= t == "Back"; reset |= t == "Return to default camera"; }
+            if (!(title && back && reset)) { printf("camera page W%u title %d back %d reset %d\n", width, title, back, reset); for (auto& t : osd::drawnTexts) printf("  [%s]\n", t.c_str()); }
+            CHECK(title);
+        }
+        for (int i = 0; i < 20; ++i) Move(+1);  // walk the whole page incl. wrap, drawing each step
+        for (int i = 0; i < 14; ++i) { Move(+1); osd::drawnTexts.clear(); CHECK(DrawImpl(1280, 720) > 0 && !osd::drawnTexts.empty()); }
+        g_sel = kBackRow; osd::drawnTexts.clear();
+        CHECK(DrawImpl(1280, 720) > 0);
+        bool back = false; for (const auto& t : osd::drawnTexts) back |= t == "Back";
+        CHECK(back);
+        Back();
+        CHECK(g_pages.page == pRoot && g_open);
+        g_open = wasOpen; g_pages.Reset(); g_sel = TopLevelSel();
+    }
     // Settings: CPU / GPU / Game / Frame Gen, performance only
     g_pages.Reset();
     {
