@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include "osd.h"
+#include "hint_shapes.h"
 
 namespace menu_style {
 
@@ -94,7 +95,7 @@ inline void Slider(float x, float y, float w, float lh, float frac, float s, flo
 
 // ---- button prompts (#13537). Every prompt is one or more badges of the same height, centred on the text line, then a muted
 // label. Badges: face buttons A / B / X / Y = round badge in the controller colour with a white (Y: dark) letter; the D-pad pairs
-// "LR" / "UD" = a light key cap with two drawn arrow heads (no '<' '>' characters); anything else (LB, RB, Start, Enter, Esc, PgUp ...)
+// "LR" / "UD" = a light key cap with two drawn shaft-and-head arrows (no '<' '>' characters); anything else (LB, RB, Start, Enter, Esc, PgUp ...)
 // = a light rounded key cap with dark text. Keys in one prompt are separated by spaces: Hint(x, y, "LB RB", "Page", ...).
 // All edges are snapped to whole pixels and the rounded shapes are built from non-overlapping rows, so they stay crisp and the open
 // fade does not show seams. y is the text top of the line (as for osd::DrawText); s = text scale, cw = glyph width (kGlyphW * s).
@@ -106,22 +107,6 @@ inline float Snap(float v) { return (float)(int)(v + 0.5f); }
 
 // filled rounded rectangle; corner rows are separate 1 px slices (no overlap). Same shared helper as the panels (osd.h).
 inline void RoundRect(float x, float y, float w, float h, float r, uint32_t c) { osd::DrawRoundRect(x, y, w, h, r, c); }
-
-// solid arrow head in a box: dir 0 left, 1 right, 2 up, 3 down (1 px slices)
-inline void ArrowHead(float x, float y, float w, float h, int dir, uint32_t c) {
-    x = Snap(x); y = Snap(y); w = Snap(w); h = Snap(h);
-    const bool horiz = dir < 2;
-    const int n = (int)(horiz ? h : w);
-    const float len = horiz ? w : h;
-    for (int i = 0; i < n; ++i) {
-        const float t = 1.0f - std::fabs(((float)i + 0.5f) - (float)n * 0.5f) / ((float)n * 0.5f), l = Snap(len * t);
-        if (l < 1.0f) continue;
-        if (dir == 0) osd::DrawRect(x + w - l, y + (float)i, l, 1.0f, c);
-        else if (dir == 1) osd::DrawRect(x, y + (float)i, l, 1.0f, c);
-        else if (dir == 2) osd::DrawRect(x + (float)i, y + h - l, 1.0f, l, c);
-        else osd::DrawRect(x + (float)i, y, 1.0f, l, c);
-    }
-}
 
 inline float BadgeH(float s) { return Snap((float)osd::kGlyphH * s); }
 // shoulder button (LB / RB / LT / RT): dark bumper, strongly rounded top, flat-ish bottom, light text (#13537)
@@ -164,22 +149,11 @@ inline volatile int g_btnStyle = 0;
 inline const char* PadWord(const char* xbox, const char* ps) { return g_btnStyle ? ps : xbox; }
 inline bool IsBumper(const char* k, size_t n) { return n == 2 && (k[0] == 'L' || k[0] == 'R') && (k[1] == 'B' || k[1] == 'T'); }
 inline void Bumper(float x, float y, const char* k, float cw, float s, float a) {
-    const float h = BadgeH(s), top = Snap(y), w = Snap(3.0f * cw);
-    const float rt = Snap(h * 0.45f), rb = Snap(h * 0.15f) < 1.0f ? 1.0f : Snap(h * 0.15f);
-    const uint32_t c = Fade(kBumperBg, a);
-    // rows top to bottom, each drawn once (no overlap, so the fade shows no seams)
-    for (int i = 0; i < (int)h; ++i) {
-        float in = 0;
-        if ((float)i < rt) { const float dy = rt - ((float)i + 0.5f); in = Snap(rt - std::sqrt(std::fmax(0.0f, rt * rt - dy * dy))); }
-        else if ((float)i >= h - rb) { const float dy = (float)i + 0.5f - (h - rb); in = Snap(rb - std::sqrt(std::fmax(0.0f, rb * rb - dy * dy))); }
-        // shoulder slant: the outer side (left for L, right for R) leans in a little toward the top
-        const float lean = Snap((rt * 0.5f) * (1.0f - (float)i / h));
-        const float l = in + (k[0] == 'L' ? lean : 0.0f), r = in + (k[0] == 'R' ? lean : 0.0f);
-        if (w - l - r >= 1.0f) osd::DrawRect(Snap(x) + l, top + (float)i, w - l - r, 1.0f, c);
-    }
-    char t[3] = {k[0], k[1], 0};
-    if (g_btnStyle) t[1] = k[1] == 'B' ? '1' : '2';  // PlayStation: LB/RB = L1/R1, LT/RT = L2/R2
-    osd::DrawText(Snap(x + (w - 2.0f * cw) * 0.5f), top, t, Fade(kBumperText, a), s);
+    (void)cw;
+    const float h = BadgeH(s);
+    const int b = (k[0] == 'R' ? 1 : 0) + (k[1] == 'T' ? 2 : 0);
+    hint_shapes::ShoulderCap(g_btnStyle, b, Snap(x), Snap(y) + h * 0.5f, h,
+                            Fade(kBumperBg, a), Fade(kBumperText, a));
 }
 // width of one badge for key k (n chars)
 inline float BadgeW(const char* k, size_t n, float cw, float s) {
@@ -205,14 +179,12 @@ inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, 
     }
     if (IsBumper(k, n)) { Bumper(x, y, k, cw, s, a); return; }
     RoundRect(x, top, w, h, h * 0.3f, Fade(kBumperBg, a));
-    if (n == 2 && (!strncmp(k, "LR", 2) || !strncmp(k, "UD", 2))) {  // two arrow heads, centred in the cap
-        const float ah = Snap(h * 0.5f), aw = Snap(ah * 0.6f), cy = top + Snap((h - ah) * 0.5f), gap = Snap(cw * 0.35f);
-        const float x0 = x + Snap((w - (2.0f * aw + gap)) * 0.5f);
-        if (k[0] == 'L') { ArrowHead(x0, cy, aw, ah, 0, Fade(kBumperText, a)); ArrowHead(x0 + aw + gap, cy, aw, ah, 1, Fade(kBumperText, a)); }
-        else {  // up / down: the heads stand side by side, each ah wide and aw tall
-            const float vx0 = x + Snap((w - (2.0f * ah + gap)) * 0.5f), vy = top + Snap((h - aw) * 0.5f);
-            ArrowHead(vx0, vy, ah, aw, 2, Fade(kBumperText, a)); ArrowHead(vx0 + ah + gap, vy, ah, aw, 3, Fade(kBumperText, a));
-        }
+    if (n == 2 && (!strncmp(k, "LR", 2) || !strncmp(k, "UD", 2))) {
+        // Same shaft + chevron as input history, two square glyphs within the existing badge width.
+        const float gap = Snap(cw * 0.15f), size = std::floor((w - gap) * 0.5f);
+        const float x0 = x + (w - 2.0f * size - gap) * 0.5f, cy = top + (h - size) * 0.5f;
+        hint_shapes::Arrow(k[0] == 'L' ? 7 : 1, x0, cy, size, Fade(kBumperText, a));
+        hint_shapes::Arrow(k[0] == 'L' ? 3 : 5, x0 + size + gap, cy, size, Fade(kBumperText, a));
         return;
     }
     char t[16];
