@@ -1002,7 +1002,7 @@ int PageRowsBody(int* out, bool selectable) {
             return n;
         }
         if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
-            for (int i = 0; i < kCamRowN; ++i) add(kCamRowFirst + i);
+            for (int i = 0; i < kCamRowN; ++i) if (i != kCamFwd && i != kCamBack) add(kCamRowFirst + i);  // #39056: no closer/farther pair
             if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
@@ -2697,7 +2697,7 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
             if (id == g_sel) selRow = nb;
-            static const char* const kCamLabels[kCamRowN] = {"Camera turn left", "Camera turn right", "Camera tilt up", "Camera tilt down", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
+            static const char* const kCamLabels[kCamRowN] = {"Camera left from default", "Camera right from default", "Camera up from default", "Camera down from default", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
             char lab[96], text[40];
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
