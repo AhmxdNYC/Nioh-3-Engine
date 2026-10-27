@@ -37,6 +37,7 @@
 #include "loadstats.h"
 #include "patches_gen.h"
 #include "menu.h"
+#include "updatecheck.h"
 #include "osd.h"
 #include "fnprobe.h"
 #include "mlprobe.h"
@@ -2577,6 +2578,7 @@ DWORD WINAPI Worker(LPVOID) {
             uint64_t ikAgeSum = lat_agesum, ikAgeCnt = lat_agecnt, ikTo = lat_timeouts, ikKs = lat_kstock, ikKi = lat_kik;
             for (int sec = 1;; ++sec) {
                 Sleep(1000);
+                updatecheck::Tick(MOD_VERSION);
                 if (s_tsDone && sec % 2 == 0) TsAnalyse(sec % 30 == 0, (double)f.QuadPart);
                 if (s_ikDone && sec % 30 == 0) {
                     const uint64_t s = lat_agesum - ikAgeSum, n = lat_agecnt - ikAgeCnt;

@@ -25,6 +25,10 @@ bool DrawCoverRect(float,float){return true;}
 std::vector<float> drawnTextX, drawnTextScale;
 float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
 }
+namespace updatecheck {
+std::string testNotice;
+bool CopyNotice(char* dst, size_t n) { snprintf(dst,n,"%s",testNotice.c_str());return !testNotice.empty(); }
+}
 namespace gpuopt {
 State GetState() { return State::Off; }
 bool Batching() { return false; }
@@ -84,6 +88,17 @@ void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (op
 }
 int main() {
     using namespace menu;
+    // Update hint is fitted to small viewports and leaves the ordinary reminder intact.
+    updatecheck::testNotice = "Update available v1.8.0";
+    osd::drawnRects.clear(); osd::drawnTexts.clear();
+    DrawCornerNote(800, 600, "Mod menu: F10 / Start x3", 0xFFFFFFFF);
+    bool updateSeen=false, urlSeen=false;
+    for (const auto& text : osd::drawnTexts) { updateSeen |= text == updatecheck::testNotice; urlSeen |= text == updatecheck::kSite; }
+    CHECK(updateSeen && urlSeen);
+    for (const auto& rect : osd::drawnRects) CHECK(rect.x >= 0 && rect.x + rect.w <= 800.01f);
+    updatecheck::testNotice.clear();
+    osd::drawnRects.clear(); osd::drawnTexts.clear();
+
     g_cfg.holdMask = 0;
     g_padHooked = g_keyHooked = true;
     g_lastPresent = (LONG64)Now();

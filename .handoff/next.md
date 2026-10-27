@@ -3,3 +3,6 @@
 2026-10-17 4:59 AM EDT | #10870: requested integ/move-toggle-on-hp0 verified and ready; pc2 tests fresh pair in nioh3-integ-10870/mod (hashes in integration note).
 
 #11037: menu collision fix 4f7b7c7 verified again offline (both sliders, idle, 12 moves PASS). Next pc2: live menu validation; cx-pc2 has no game ownership.
+
+2026-10-27 4:08 pm EDT | cx-pc #40254: background HTTPS update checker + three-line hint implemented on pc/final-combined-4 d874f32b; Release EF build PASS, 64 mocked HTTP/version assertions + both menu suites PASS.
+Next: final review/preview and report separate branch to pc; site/version.json prepared only, no deployment or game access.

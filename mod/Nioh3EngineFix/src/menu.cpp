@@ -36,6 +36,7 @@
 #include "extraperf.h"
 #include "gpuopt.h"
 #include "menu.h"
+#include "updatecheck.h"
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
@@ -2374,9 +2375,13 @@ float AutoScale(unsigned H) {
 
 // one-line note in the top-right corner (below the FPS counter when that sits there too)
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
-    const float sc = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);  // 800p/1080p 1.5, 1440p 2
+    char update[64]{};
+    const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
+    const size_t chars = hasUpdate ? std::max(strlen(text), std::max(strlen(update), strlen(updatecheck::kSite))) : strlen(text);
+    const float normalScale = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);
+    const float sc = std::min(normalScale, std::max(0.25f, ((float)W - 2 * osd::kCornerPx) / ((float)chars * osd::kGlyphW + 8.f)));
     const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
-    const float w = (float)strlen(text) * osd::kGlyphW * sc + 2 * pad, h = lineH + 2 * pad - 4 * sc;
+    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 3 : 1) * lineH + 2 * pad - 4 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
@@ -2386,6 +2391,10 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     const float x = (float)W - margin - w;
     menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false);  // rounded, no gold edge (#38505)
     osd::DrawText(x + pad, y + pad, text, color, sc);
+    if (hasUpdate) {
+        osd::DrawText(x + pad, y + pad + lineH, update, cGold, sc);
+        osd::DrawText(x + pad, y + pad + 2 * lineH, updatecheck::kSite, cWhite, sc);
+    }
     return sc;
 }
 
