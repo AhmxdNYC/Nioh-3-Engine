@@ -57,15 +57,13 @@ static void NkmTick(int live) {
 }
 // ---- drawing (own thread) ----
 #define NKM_KEY RGB(255, 0, 255)
-static HFONT g_nkm_font; static int g_nkm_fontPx, g_nkm_H, g_nkm_W;
+static int g_nkm_H, g_nkm_W;
 static void NkmFill(HDC dc, int x, int y, int w, int h, COLORREF c) { if (w <= 0 || h <= 0) return; RECT r = {x, y, x + w, y + h}; HBRUSH b = CreateSolidBrush(c); FillRect(dc, &r, b); DeleteObject(b); }
 static int NkmCount(const NkmRow* rows) { int n = 0; for (int s = 0; s < N3T_SLOTS; ++s) n += rows[s].show != 0; return n; }
 static void NkmPaint(HDC dc, int w, int h) {
     NkmRow rows[N3T_SLOTS]; AcquireSRWLockShared(&g_nkm_lock); memcpy(rows, g_nkm, sizeof rows); ReleaseSRWLockShared(&g_nkm_lock);
     NkmFill(dc, 0, 0, w, h, NKM_KEY);
     const NkmGeo g = NkmGeom(g_nkm_W, g_nkm_H, g_cfg_nkm_y, g_cfg_nkm_w);
-    if (!g_nkm_font || g_nkm_fontPx != g.fontPx) { if (g_nkm_font) DeleteObject(g_nkm_font); g_nkm_fontPx = g.fontPx; g_nkm_font = CreateFontW(-g.fontPx, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas"); }
-    HGDIOBJ of = SelectObject(dc, g_nkm_font); SetBkMode(dc, TRANSPARENT);
     const int multi = NkmCount(rows) > 1; int row = 0;
     for (int s = 0; s < N3T_SLOTS; ++s) {
         const NkmRow* r = &rows[s]; if (!r->show) continue;
@@ -81,10 +79,9 @@ static void NkmPaint(HDC dc, int w, int h) {
         int n = snprintf(t, sizeof t, "%s-Ki %.0f", who, c < 0.0f ? -c : 0.0f);
         if (k < c && n > 0 && n < (int)sizeof t) n += snprintf(t + n, sizeof t - n, " res %.0f", -k);
         if (n > 0 && n < (int)sizeof t) snprintf(t + n, sizeof t - n, " / %.0f", sc);
-        SetTextColor(dc, RGB(235, 110, 115)); TextOutA(dc, g.x + g.w + 6, y, t, (int)strlen(t));
+        SetTextColor(dc, RGB(235, 110, 115)); N3StrokeText(dc, g.x + g.w + 6, y, t, (int)strlen(t), g.fontPx, N3StrokeWidth(g.fontPx));
         ++row;
     }
-    SelectObject(dc, of);
 }
 static BOOL CALLBACK NkmFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_nkm_wnd || h == g_fm_wnd || h == g_fd_wnd || GetWindow(h, GW_OWNER)) return TRUE;

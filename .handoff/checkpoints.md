@@ -1,4 +1,4 @@
-2026-10-17 4:46 am EDT | cx-pc2 #10870: both ASIs build; 202 moves plus idle/menu/cover suites pass. Startup unproven; next isolated atomic patch reproduction for #10995, then owner test. Integration b583133 plus menu-ID correction; notes/move-toggle-full-build-10870.md.
+﻿2026-10-17 4:46 am EDT | cx-pc2 #10870: both ASIs build; 202 moves plus idle/menu/cover suites pass. Startup unproven; next isolated atomic patch reproduction for #10995, then owner test. Integration b583133 plus menu-ID correction; notes/move-toggle-full-build-10870.md.
 2026-10-17 4:48 am EDT | #10995: exact BossBattleModeEnd installer and thunk execute offline; 150 patch layouts pass, 10 refusals preserve bytes; 63 hook/core checks pass. No startup fix proven. Next owner exclusive startup with crash context; tests/atomic_patch_harness.cpp.
 2026-10-17 4:51 am EDT | #11017 idle-default implemented and both ASIs built; 202 move tests, expanded idle lifecycle and merged-menu dispatch pass. CPU stance survives retry; new Training session defaults Idle after readiness. Live unproven; next owned-cleanup adapter. Files idle_hold.h, training.c, rematch.cpp, idle_hold_test.c.
 2026-10-17 4:53 am EDT | #10995 correction: exact generic ASI target reproduces 0xC0000005; companion cx16 fix cherry-picked as 314f9f5. Generic-target 225+150 patch cases, 10 safe refusals, 63 hook/core and menu regression pass. Next owner exclusive startup; hashes in notes/move-toggle-full-build-10870.md.
@@ -8,3 +8,4 @@ Live unproven; next pc2 owner tests exact fresh pair. Paths/hashes in notes/move
 
 2026-10-17 5:05 AM EDT | cx-pc2 #11037: existing fix 4f7b7c7 verified on integ/move-toggle-on-hp0; moves=-29, idle=-30, sliders=-27/-28.
 PC2 offline generic-x64 harness rebuilt: both timing sliders, idle and 12 editable move dispatches PASS; no game touched. Next: pc2 live validation; publish exact requested branch.
+2026-10-27 3:40 pm EDT | cx-pc #40138 | shared GDI stroke helper + Training/Rematch conversion builds; 285 glyph checks,12960 count checks,1000 handle-stability draws pass. Next pc: integrate and live-check; notes/gdi-stroke-40138.md. No game touched.

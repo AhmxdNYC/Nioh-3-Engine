@@ -1524,7 +1524,7 @@ static void FmFeed(double gdt) {
 #include "frame_meter_count.h"
 #define FM_DISPLAY_CELLS 120 // SF6-sized pips; retain the full 360-cell sampler history.
 #define FM_KEY RGB(255, 0, 255)
-static HFONT g_fm_font; static int g_fm_fontPx;
+static int g_fm_fontPx = 12;
 static COLORREF FmColor(uint8_t st) {
     switch (st) {
     case FM_NEUTRAL: return RGB(9,12,17);
@@ -1582,7 +1582,7 @@ static COLORREF FmIFrColor(int bits) {
     return bits&FMF_NODMG ? FM_NODMG_RGB : bits&FMF_EAA ? FM_EAA_RGB : bits&FMF_EA7 ? FM_EA7_RGB : bits&FMF_GUARD ? FM_GUARD_RGB : FmColor(FM_EMPTY);
 }
 static void FmLabel(HDC dc, int x, int y, const char* text, COLORREF color) {
-    SetTextColor(dc,color); TextOutA(dc,x,y,text,(int)strlen(text));
+    SetTextColor(dc,color); N3StrokeText(dc,x,y,text,(int)strlen(text),g_fm_fontPx,N3StrokeWidth(g_fm_fontPx));
 }
 static void FmCheck(HDC dc, int x, int y, int w, int h) {
     // #38492: check mark ~25% smaller than the full cell, centred
@@ -1602,16 +1602,13 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
     const FmMeter m=*mp;
     int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad); (void)h;
     const int px=barH-2>9?barH-2:9;
-    if (!g_fm_font || g_fm_fontPx!=px) {
-        if(g_fm_font) DeleteObject(g_fm_font);
-        g_fm_fontPx=px; g_fm_font=CreateFontW(-px,0,0,0,FW_SEMIBOLD,0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,FIXED_PITCH,L"Consolas");
-    }
+    g_fm_fontPx=px;
     int used=FM_CELLS;
     while(used>0 && (FmViewCell(&m,used-1)&0x7F)==FM_EMPTY) --used;
     const int viewStart=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
     const int barW=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x0=(w-barW-gutter)/2+gutter,by=oy+pad;
     FmFill(dc,x0-gutter-pad,oy,barW+gutter+pad*2,ph,RGB(16,21,30));
-    HGDIOBJ of=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+    SetBkMode(dc,TRANSPARENT);
     // Clip long actor names/freeze hints to the strip instead of spilling outside the panel.
     int saved=SaveDC(dc); IntersectClipRect(dc,x0-gutter,oy,x0+barW,oy+ph);
     (void)who; // Compact default has no actor/title line.
@@ -1642,15 +1639,13 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
             const int left=x0+(end-viewStart-1)*cw;
             const int fillW=cw>3?cw-2:cw>1?cw-1:cw;
             RECT cell={left,by,left+fillW,by+barH},textBox;
-            HFONT font=FmFitCount(dc,n,cell,px,&textBox);
-            if(font) {
-                HGDIOBJ normal=SelectObject(dc,font);
+            N3CountFont font=FmFitCount(dc,n,cell,px,&textBox);
+            if(font.px) {
                 int clip=SaveDC(dc); IntersectClipRect(dc,cell.left,cell.top,cell.right,cell.bottom);
                 for(int dy=-1;dy<=1;++dy) for(int dx=-1;dx<=1;++dx)
-                    if(dx || dy) FmLabel(dc,textBox.left+dx,textBox.top+dy,n,RGB(2,3,5));
-                FmLabel(dc,textBox.left,textBox.top,n,
-                    RGB(255,255,255));
-                RestoreDC(dc,clip); SelectObject(dc,normal); DeleteObject(font);
+                    if(dx || dy) { SetTextColor(dc,RGB(2,3,5)); N3StrokeText(dc,textBox.left+dx,textBox.top+dy,n,(int)strlen(n),font.px,font.advance); }
+                SetTextColor(dc,RGB(255,255,255)); N3StrokeText(dc,textBox.left,textBox.top,n,(int)strlen(n),font.px,font.advance);
+                RestoreDC(dc,clip);
             }
         }
         first=end;
@@ -1659,7 +1654,7 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
         for(int i=0;i<FM_DISPLAY_CELLS;++i) if(FmViewKiPulse(&m,viewStart+i))
             FmCheck(dc,x0+i*cw,by,cw>3?cw-2:cw,barH);
     }
-    RestoreDC(dc,saved); SelectObject(dc,of);
+    RestoreDC(dc,saved);
 }
 // Shared legend below both rows; wraps at smaller resolutions.
 // KEY entries (names/colours in FmLegend): which are listed = what the meter can show now AND the per-group KEY toggles (#38180)
@@ -1691,13 +1686,12 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
-    HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+    SetBkMode(dc,TRANSPARENT);
     FmLabel(dc,x-gutter,y+pad,"KEY",RGB(145,159,181));
     for(int i=0;i<n;++i) {
         const int xx=x+(i%cols)*pitch,yy=y+pad+(i/cols)*lh;
         FmFill(dc,xx,yy+3,8,8,colors[idx[i]]); FmLabel(dc,xx+12,yy,names[idx[i]],RGB(183,194,211));
     }
-    SelectObject(dc,old);
 }
 static void FmPaint(HDC dc, int w, int h, int H) {
     static FmMeter m,mp; static FmKi ki; int showKi; char who[48]; AcquireSRWLockShared(&g_fm_lock);
@@ -1709,6 +1703,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     const int panelLeft=(w-cw*FM_DISPLAY_CELLS-lineH*3)/2-pad;
     const int panelClip=SaveDC(dc);
     IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
+    g_fm_fontPx=barH-2>9?barH-2:9;
     int oy=FmReadoutHeight(barH,pad);
     if(oy) {
         const FmSum* q=FmPlayerRow() ? &mp.cur : &m.cur;
@@ -1726,9 +1721,8 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         snprintf(text,sizeof text,"Startup %s  Active %s  Recovery %s  Total %s  Advantage --",start,active,recovery,total);
         int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter;
         FmFill(dc,x-gutter-pad,0,bw+gutter+pad*2,oy,RGB(16,21,30));
-        HFONT font=CreateFontW(-(barH-2),0,0,0,FW_SEMIBOLD,0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,FIXED_PITCH,L"Consolas");
-        HGDIOBJ old=SelectObject(dc,font); SetBkMode(dc,TRANSPARENT);
-        FmLabel(dc,x,0,text,RGB(245,248,255)); SelectObject(dc,old); DeleteObject(font);
+        g_fm_fontPx=barH-2>9?barH-2:9;
+        FmLabel(dc,x,0,text,RGB(245,248,255));
     }
     if(FmPlayerDraw()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",1,!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
     if(FmIFrRow()) {  // gold cells = the same no-damage marks the stripe used, in their own lane aligned with the PLAYER row
@@ -1736,11 +1730,11 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
         const int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter,by=oy+pad;
         FmFill(dc,x-gutter-pad,oy,bw+gutter+pad*2,ph,RGB(16,21,30));
-        HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+        SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x-gutter,by,"I-FR",RGB(240,243,249));
         FmFill(dc,x-1,by-1,bw+2,barH+2,RGB(41,50,65));
         for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmIFrColor(FmViewNoDmg(&mp,start+i)));
-        SelectObject(dc,old); oy+=ph;
+        oy+=ph;
     }
     if(g_pst.v[PS_FRAME_METER] && g_fm_show) { FmPanel(dc,w,h,H,oy,&m,who,"BOSS",0,0); oy+=ph; }
     if(showKi) {
@@ -1748,11 +1742,11 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         const int start=used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
         const int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter,by=oy+pad;
         FmFill(dc,x-gutter-pad,oy,bw+gutter+pad*2,ph,RGB(16,21,30));
-        HGDIOBJ old=SelectObject(dc,g_fm_font); SetBkMode(dc,TRANSPARENT);
+        SetBkMode(dc,TRANSPARENT);
         FmLabel(dc,x-gutter,by,g_fm_ki_label,RGB(240,243,249));
         FmFill(dc,x-1,by-1,bw+2,barH+2,RGB(41,50,65));
         for(int i=0;i<FM_DISPLAY_CELLS;++i) FmFill(dc,x+i*cw,by,cw>3?cw-2:cw>1?cw-1:cw,barH,FmKiView(&ki,&m,start+i)?RGB(138,92,255):FmColor(FM_EMPTY));
-        SelectObject(dc,old); oy+=ph;
+        oy+=ph;
     }
     FmLegend(dc,w,H,oy);
     FmRoundCorners(dc,panelLeft,0,panelW,oy+FmLegendHeight(w,H),FmRadius(H));

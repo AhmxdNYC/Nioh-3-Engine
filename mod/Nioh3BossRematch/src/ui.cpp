@@ -8,6 +8,7 @@
 // [Menu] Overlay = 0 disables the window and the input hook (pipe / log only).
 #include "addon.h"
 #include "ui_input.h"
+#include "../../shared/gdi_stroke_text.h"
 #include "../../rematch_menu_bridge.h"
 
 #include <xinput.h>
@@ -122,7 +123,7 @@ BOOL CALLBACK FindGame(HWND h, LPARAM) {
     return FALSE;
 }
 
-HFONT g_font = nullptr;
+constexpr int kFontPx = 18;
 constexpr COLORREF kKey = RGB(255, 0, 255);
 
 void Paint(HDC dc, int w, int h) {
@@ -130,11 +131,7 @@ void Paint(HDC dc, int w, int h) {
     RECT all = {0, 0, w, h};
     FillRect(dc, &all, key);
     DeleteObject(key);
-    SelectObject(dc, g_font);
-    SetBkMode(dc, TRANSPARENT);
-    TEXTMETRICW tm;
-    GetTextMetricsW(dc, &tm);
-    const int lh = tm.tmHeight + 2;
+    const int lh = kFontPx + 2;
     if (g_open.load()) {
         rematch::UiRow rows[24];
         char footer[240] = "";
@@ -156,55 +153,50 @@ void Paint(HDC dc, int w, int h) {
             char fit[256];
             snprintf(fit, sizeof fit, "%s", rows[i].text);
             const int maxW = pw - 24;
-            SIZE rs;
-            GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs);
+            int rowPx=kFontPx;
+            SIZE rs=N3StrokeMeasure((int)strlen(fit),rowPx,N3StrokeWidth(rowPx));
             // user #23924: first shrink the font for a long row (down to 70 %) so nothing is lost; only what still does not fit is cut in the middle
-            HGDIOBJ prevFont = nullptr; HFONT small = nullptr;
-            if (rs.cx > maxW) {
-                LOGFONTW lf;
-                if (GetObjectW(g_font, sizeof lf, &lf)) {
-                    const int h0 = lf.lfHeight < 0 ? -lf.lfHeight : lf.lfHeight, h1 = (int)((double)h0 * maxW / rs.cx);
-                    lf.lfHeight = lf.lfHeight < 0 ? -(h1 < h0 * 7 / 10 ? h0 * 7 / 10 : h1) : (h1 < h0 * 7 / 10 ? h0 * 7 / 10 : h1);
-                    small = CreateFontIndirectW(&lf);
-                    if (small) { prevFont = SelectObject(dc, small); GetTextExtentPoint32A(dc, fit, (int)strlen(fit), &rs); }
-                }
+            while(rs.cx>maxW && rowPx>kFontPx*7/10) {
+                --rowPx;
+                rs=N3StrokeMeasure((int)strlen(fit),rowPx,N3StrokeWidth(rowPx));
             }
             if (rs.cx > maxW) {
                 const int len = (int)strlen(fit), tail = len > 30 ? 30 : len / 2;
                 char cut[256]; snprintf(cut, sizeof cut, "%s", fit);
                 for (int head = len - tail - 1; head > 4; head -= 2) {
                     snprintf(cut, sizeof cut, "%.*s...%s", head, fit, fit + len - tail);
-                    GetTextExtentPoint32A(dc, cut, (int)strlen(cut), &rs);
+                    rs=N3StrokeMeasure((int)strlen(cut),rowPx,N3StrokeWidth(rowPx));
                     if (rs.cx <= maxW) break;
                 }
                 snprintf(fit, sizeof fit, "%s", cut);
             }
-            TextOutA(dc, 30, 28 + i * lh, fit, (int)strlen(fit));
-            if (small) { SelectObject(dc, prevFont); DeleteObject(small); }
+            const int saved=SaveDC(dc);
+            IntersectClipRect(dc,30,28+i*lh,30+maxW,28+(i+1)*lh);
+            N3StrokeText(dc,30,28+i*lh,fit,(int)strlen(fit),rowPx,N3StrokeWidth(rowPx));
+            RestoreDC(dc,saved);
         }
         SetTextColor(dc, RGB(220, 220, 140));
         RECT fr = {30, 28 + (n + 1) * lh, 10 + pw, 28 + (n + 3) * lh};
-        DrawTextA(dc, footer, -1, &fr, DT_WORDBREAK | DT_NOPREFIX);
+        N3StrokeWrapped(dc,footer,fr,kFontPx,N3StrokeWidth(kFontPx));
         SetTextColor(dc, RGB(180, 185, 200));
         const char* controls = "D-pad / arrows: move/change   A / Enter: select   B / Esc / Backspace: back   LB / RB: page";
-        TextOutA(dc, 30, 28 + (n + 3) * lh, controls, (int)strlen(controls));
+        N3StrokeText(dc, 30, 28 + (n + 3) * lh, controls, (int)strlen(controls), kFontPx, N3StrokeWidth(kFontPx));
         char openHint[128];
         snprintf(openHint, sizeof(openHint), "Open / close: F%u%s", g_hotkey - VK_F1 + 1,
                  g_gesture ? " or hold View + D-pad Up for 1 second" : "");
-        TextOutA(dc, 30, 28 + (n + 4) * lh, openHint, (int)strlen(openHint));
+        N3StrokeText(dc, 30, 28 + (n + 4) * lh, openHint, (int)strlen(openHint), kFontPx, N3StrokeWidth(kFontPx));
         return;
     }
     char t[160];
     uint32_t c = 0;
     if (rematch::Toast(t, sizeof(t), c)) {
-        SIZE sz;
-        GetTextExtentPoint32A(dc, t, (int)strlen(t), &sz);
+        SIZE sz=N3StrokeMeasure((int)strlen(t),kFontPx,N3StrokeWidth(kFontPx));
         RECT p = {20, 20, 40 + sz.cx, 30 + lh};
         HBRUSH bg = CreateSolidBrush(RGB(16, 18, 24));
         FillRect(dc, &p, bg);
         DeleteObject(bg);
         SetTextColor(dc, c & 0xFFFFFF);
-        TextOutA(dc, 30, 25, t, (int)strlen(t));
+        N3StrokeText(dc, 30, 25, t, (int)strlen(t), kFontPx, N3StrokeWidth(kFontPx));
     }
 }
 
@@ -300,7 +292,6 @@ DWORD WINAPI UiThread(void*) {
         return HostedThread(nullptr); // still allow a later compatible in-game host
     }
     SetLayeredWindowAttributes(g_wnd, kKey, 235, LWA_COLORKEY | LWA_ALPHA);
-    g_font = CreateFontW(-18, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas");
     bool shown = false;
     for (;;) {
         GateReqTick();
