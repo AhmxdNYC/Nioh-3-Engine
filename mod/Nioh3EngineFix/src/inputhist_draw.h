@@ -1,6 +1,6 @@
 // inputhist_draw.h - draws the SF6-style input history panel (data: inputhist.h). Called from osd.cpp BuildOverlay inside the pad quad
 // group (padviz.h controller display): that group binds the current ButtonStyle skin's sprite atlas, so the face-button glyphs are the
-// controller display's own lit sprites drawn through padviz::Layer (same code path, same atlas, same Xbox / PlayStation skin, same
+// controller display's own resting sprites drawn through padviz::Layer (same code path, same atlas, same Xbox / PlayStation skin, same
 // pressed-colour setting) - not a copy. Newest row on top; per row: frames held (left, 60 Hz frames, 99 max), direction arrow
 // (8-way, "N" = neutral), buttons held (right). Panel look and text scale follow the mod menu side panel (menu_style.h, menu_geom
 // glyph metrics). The panel height is fixed by the row count, so nothing shifts while inputs change. Drawing only.
@@ -40,14 +40,15 @@ inline void Arrow(int dir, float bx, float by, float size, uint32_t color) {
 }
 
 // a face-button glyph: the controller display's lit sprite for that button, fitted into a size x size box (padviz::Layer: same call
-// the controller picture uses; opacity 1 = the pressed look incl. the pressed-colour tint)
+// the controller picture uses; the resting sprite in its own colours, never tinted by the pressed-colour setting, so it matches the
+// controller display's resting look)
 inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float size) {
     const padviz::Skin& k = padviz::SkinFor(skinStyle);
     const padviz::SpriteRect& r = k.s[spriteId];
     if (!r.w) return;
     const float s = size / (float)std::max(r.w, r.h);
     const float ox = bx + (size - (float)r.w * s) * 0.5f - r.cx * s, oy = by + (size - (float)r.h * s) * 0.5f - r.cy * s;
-    padviz::Layer(k, spriteId, ox, oy, s, 0.97f);  // #38919: resting (unlit) sprite, no pressed tint
+    padviz::Layer(k, spriteId, ox, oy, s, 0.97f, 0, 0, 1, 1, 1, false);  // #38919: resting (unlit) sprite, no pressed tint
 }
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).

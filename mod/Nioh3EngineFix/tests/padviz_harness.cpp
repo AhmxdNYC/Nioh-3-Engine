@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
             CHECK(r.x + r.w <= k->atlasW && r.y + r.h <= k->atlasH);
             CHECK(r.cx >= -1.01f && r.cy >= -0.01f && r.cx + r.w <= k->canvasW + 1.01f && r.cy + r.h <= k->canvasH + 0.5f);
         }
-    CHECK(kSkin_dualsense.s[S_TOUCH].w && kSkin_dualsense.s[S_A].w && !kSkin_xbox.s[S_TOUCH].w && !kSkin_xbox.s[S_A].w);
+    CHECK(kSkin_dualsense.s[S_TOUCH].w && kSkin_dualsense.s[S_A].w && !kSkin_xbox.s[S_TOUCH].w && kSkin_xbox.s[S_A].w);  // Xbox: coloured resting letters since human #38760
 
     // DualSense idle: body first (whole canvas), unlit A/B/X/Y and both sticks; nothing lit
     const State idle;
@@ -141,9 +141,9 @@ int main(int argc, char** argv) {
     CHECK(!osd::sprites.empty() && Near(osd::sprites[0].x, 100) && Near(osd::sprites[0].w, 807 * 0.5f) && Near(osd::sprites[0].h, 651 * 0.5f));
     CHECK(Find(ds, S_A) && Find(ds, S_STICK) && Find(ds, S_STICK_R) && !Find(ds, S_A_LIT) && !Find(ds, S_LT) && !Find(ds, S_UP));
     CHECK(osd::rects.empty() && osd::texts.empty());
-    // Xbox idle: body + sticks (its buttons are body art)
+    // Xbox idle: body, dim logo, the four resting coloured face buttons, both sticks (no pressed sprites)
     Clear(); DrawState(idle, 0, 0, 1.0f, 1.0f, 0);
-    CHECK(osd::sprites.size() == 3 && Find(xb, S_BODY) && Find(xb, S_STICK));
+    CHECK(osd::sprites.size() == 8 && Find(xb, S_BODY) && Find(xb, S_STICK) && Find(xb, S_A) && !Find(xb, S_A_LIT) && !Find(xb, S_A_GLYPH));
 
     // pressed: lit sprite replaces the unlit one; d-pad / bumpers / back / start / touchpad / PS appear
     State p; p.buttons = kA | kUp | kRB | kStart | kL3 | kTouch | kGuide; p.lx = 32767; p.lt = 255; p.rt = 128;
@@ -179,6 +179,36 @@ int main(int argc, char** argv) {
     // opacity scales every alpha; zero trigger draws nothing
     Clear(); DrawState(p, 0, 0, 1.0f, 0.5f, 1);
     { bool anyDim = false; for (auto& s : osd::sprites) anyDim |= (s.c >> 24) <= 0x80u; CHECK(anyDim); }  // pressed art stays solid
+    // pressed-colour customization: the pressed colour recolours only the face button BACKGROUND; the symbol sprite stays untinted
+    // (vertex colour white), for A/B/X/Y (Xbox) and Cross/Circle/Square/Triangle (PlayStation); resting sprites are never tinted
+    {
+        const uint32_t saved = g_pressRGB;
+        g_pressRGB = 0x00FF3B3Bu;  // red: PackBgr -> 0x3B3BFF
+        const uint32_t bits[4] = {kA, kB, kX, kY};
+        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT}, glyphId[4] = {S_A_GLYPH, S_B_GLYPH, S_X_GLYPH, S_Y_GLYPH};
+        const int restId[4] = {S_A, S_B, S_X, S_Y};
+        for (int style = 0; style < 2; ++style) {
+            const Skin& k = SkinFor(style);
+            for (int i = 0; i < 4; ++i) {
+                CHECK(k.s[fillId[i]].w && k.s[glyphId[i]].w && k.s[restId[i]].w);
+                CHECK(k.s[fillId[i]].w == k.s[glyphId[i]].w && Near(k.s[fillId[i]].cx, k.s[glyphId[i]].cx) && Near(k.s[fillId[i]].cy, k.s[glyphId[i]].cy));
+                State pr; pr.buttons = bits[i];
+                Clear(); DrawState(pr, 0, 0, 1.0f, 1.0f, style);
+                const osd::Spr* fill = Find(k, fillId[i]);
+                const osd::Spr* glyph = Find(k, glyphId[i]);
+                CHECK(fill && glyph && !Find(k, restId[i]));
+                CHECK(fill && (fill->c & 0x00FFFFFFu) == 0x003B3BFFu && (fill->c >> 24) == 255);   // background: pressed colour
+                CHECK(glyph && (glyph->c & 0x00FFFFFFu) == 0x00FFFFFFu && (glyph->c >> 24) == 255);  // symbol: its own colour
+                // symbol drawn after (on top of) the background
+                CHECK(fill && glyph && glyph > fill);
+                // resting at full opacity: no tint on the sprite
+                Clear(); DrawState(idle, 0, 0, 1.0f, 1.0f, style);
+                const osd::Spr* rest = Find(k, restId[i]);
+                CHECK(rest && (rest->c & 0x00FFFFFFu) == 0x00FFFFFFu);
+            }
+        }
+        g_pressRGB = saved;
+    }
     // everything at once stays inside the canvas box for both skins
     State all; all.buttons = 0xFFFF; all.lx = all.ly = all.rx = all.ry = -32768; all.lt = all.rt = 255;
     for (int style = 0; style < 2; ++style) {
@@ -204,6 +234,28 @@ int main(int argc, char** argv) {
         const SpriteRect& b = k.s[S_BODY];
         const size_t mid = ((size_t)(b.y + b.h / 2) * k.atlasW + b.x + b.w / 2) * 4 + 3, corner = ((size_t)b.y * k.atlasW + b.x) * 4 + 3;
         CHECK(atl[i].px[mid] == 255 && atl[i].px[corner] == 0);
+    }
+    // atlas content: the pressed background sprite is neutral grey / white (so the tint recolours it fully), the symbol sprite carries
+    // its own saturated colour and is transparent outside the symbol, so the pressed colour can not wash it out
+    for (int i = 0; i < 2; ++i) {
+        const Skin& k = SkinFor(i);
+        if (atl[i].w != k.atlasW) continue;
+        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT}, glyphId[4] = {S_A_GLYPH, S_B_GLYPH, S_X_GLYPH, S_Y_GLYPH};
+        for (int n = 0; n < 4; ++n) {
+            const SpriteRect& f = k.s[fillId[n]];
+            const SpriteRect& g = k.s[glyphId[n]];
+            int fillPx = 0, fillColour = 0, glyphColour = 0, glyphClear = 0;
+            for (int y = 0; y < f.h; ++y)
+                for (int x = 0; x < f.w; ++x) {
+                    const uint8_t* fp = &atl[i].px[((size_t)(f.y + y) * k.atlasW + f.x + x) * 4];
+                    if (fp[3] > 200) { ++fillPx; if (fp[0] != fp[1] || fp[1] != fp[2]) ++fillColour; }
+                    const uint8_t* q = &atl[i].px[((size_t)(g.y + y) * k.atlasW + g.x + x) * 4];
+                    if (q[3] > 200 && (std::abs((int)q[0] - q[1]) > 40 || std::abs((int)q[1] - q[2]) > 40)) ++glyphColour;
+                    if (q[3] == 0) ++glyphClear;
+                }
+            CHECK(fillPx > 1000 && fillColour == 0);
+            CHECK(glyphColour >= 20 && glyphClear > f.w * f.h / 3);
+        }
     }
     unsigned char junk[64] = {137, 80, 78, 71, 13, 10, 26, 10};
     padviz_png::Atlas bad;
