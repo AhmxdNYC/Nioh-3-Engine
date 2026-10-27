@@ -100,9 +100,10 @@ inline uint32_t White(float a) {
 }
 
 // one layer at its CSS place (+dx, dy canvas px), optionally narrowed around its centre (sx, sy: cos of the CSS rotateY / rotateX)
-// and clipped from the top to the bottom `fill` fraction (trigger meter)
+// and clipped from the top to the bottom `fill` fraction (trigger meter). Opaque layers (a >= 1) take the pressed colour unless
+// tint = false (the face-button symbols keep their own colour: only the button background is recoloured)
 inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, float dx = 0, float dy = 0, float sx = 1, float sy = 1,
-                  float fill = 1) {
+                  float fill = 1, bool tint = true) {
     const SpriteRect& r = k.s[id];
     if (!r.w || a <= 0.0f || fill <= 0.0f) return;
     const float iw = 1.0f / (float)k.atlasW, ih = 1.0f / (float)k.atlasH;
@@ -116,7 +117,7 @@ inline void Layer(const Skin& k, int id, float ox, float oy, float s, float a, f
         h *= fill;
         v0 += (v1 - v0) * cut;
     }
-    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, a >= 1.0f ? (White(a) & 0xFF000000u) | PackBgr(g_pressRGB) : White(a));
+    osd::DrawSprite(ox + x * s, oy + y * s, w * s, h * s, (float)r.x * iw, v0, (float)(r.x + r.w) * iw, v1, a >= 1.0f && tint ? (White(a) & 0xFF000000u) | PackBgr(g_pressRGB) : White(a));
 }
 
 inline float Axis(int v) {
@@ -141,6 +142,19 @@ inline void Trigger(const Skin& k, const SkinRules& r, int id, int value, float 
     else Layer(k, id, ox, oy, s, a * t);
 }
 
+// one face button. Resting: the full sprite (own colours) at the menu opacity, never tinted. Pressed: the background sprite in the
+// pressed colour, then the symbol sprite (outlined cross / circle / square / triangle / letter) on top in its OWN colour, so the
+// pressed colour recolours only the fill and the symbol stays readable. A skin without a symbol sprite draws just the background.
+inline void Face(const Skin& k, uint32_t bit, uint32_t buttons, int idRest, int idFill, int idGlyph, float ox, float oy, float s,
+                 float a) {
+    if (!(buttons & bit)) {
+        Layer(k, idRest, ox, oy, s, a, 0, 0, 1, 1, 1, false);
+        return;
+    }
+    Layer(k, idFill, ox, oy, s, 1.0f);
+    Layer(k, idGlyph, ox, oy, s, 1.0f, 0, 0, 1, 1, 1, false);
+}
+
 // draws the whole picture with its top-left at (x, y) pixels; s = Scale(H, style); a = opacity; style 0 Xbox / 1 PlayStation
 inline void DrawState(const State& p, float x, float y, float s, float a, int style) {
     const Skin& k = SkinFor(style);
@@ -158,10 +172,10 @@ inline void DrawState(const State& p, float x, float y, float s, float a, int st
     if (b & kStart) Layer(k, S_START, x, y, s, 1.0f);
     // pressed layers are drawn fully opaque (user #23309) while the body keeps the menu opacity
     // face buttons: the unlit sprite always (a skin without one shows its body art), the lit one instead while pressed
-    Layer(k, (b & kA) ? S_A_LIT : S_A, x, y, s, (b & kA) ? 1.0f : a);
-    Layer(k, (b & kB) ? S_B_LIT : S_B, x, y, s, (b & kB) ? 1.0f : a);
-    Layer(k, (b & kX) ? S_X_LIT : S_X, x, y, s, (b & kX) ? 1.0f : a);
-    Layer(k, (b & kY) ? S_Y_LIT : S_Y, x, y, s, (b & kY) ? 1.0f : a);
+    Face(k, kA, b, S_A, S_A_LIT, S_A_GLYPH, x, y, s, a);
+    Face(k, kB, b, S_B, S_B_LIT, S_B_GLYPH, x, y, s, a);
+    Face(k, kX, b, S_X, S_X_LIT, S_X_GLYPH, x, y, s, a);
+    Face(k, kY, b, S_Y, S_Y_LIT, S_Y_GLYPH, x, y, s, a);
     Stick(k, r, S_STICK, S_STICK_P, p.lx, p.ly, (b & kL3) != 0, x, y, s, a);
     Stick(k, r, S_STICK_R, S_STICK_R_P, p.rx, p.ry, (b & kR3) != 0, x, y, s, a);
     if (b & kUp) Layer(k, S_UP, x, y, s, 1.0f);

@@ -29,7 +29,8 @@ ATLAS_W = 1024
 
 # sprite ids shared by both skins (padviz.h draws by id; a skin may leave one empty)
 IDS = ["BODY", "STICK", "STICK_P", "A", "B", "X", "Y", "A_LIT", "B_LIT", "X_LIT", "Y_LIT", "UP", "DOWN", "LEFT",
-       "RIGHT", "BACK", "START", "LB", "RB", "LT", "RT", "TOUCH", "META", "STICK_R", "STICK_R_P"]
+       "RIGHT", "BACK", "START", "LB", "RB", "LT", "RT", "TOUCH", "META", "STICK_R", "STICK_R_P", "A_GLYPH", "B_GLYPH", "X_GLYPH",
+       "Y_GLYPH"]
 
 
 def crop(img, x, y, w, h):
@@ -61,6 +62,7 @@ def dualsense():
     for k, sx, px, py in (("A", 0, 61, 123), ("B", 59, 123, 62), ("X", 118, 0, 61), ("Y", 177, 61, 0)):
         S[k] = (crop(btn, sx, 0, 58, 58), 573 + px, 178 + py)
         S[k + "_LIT"] = (crop(btn, sx, 59, 58, 58), 573 + px, 178 + py)
+        S[k + "_GLYPH"] = (S[k][0], 573 + px, 178 + py)  # replaced by face_glyph() in main()
     # .dpad 144x144 @ (71,196); .face opacity 0 (pressed 1); up 0 -68 52x63 (46,0); down -54 +63 52x63 (46,81);
     # left -108 -68 64x52 (-1,47); right -175 -68 63x52 (81,46)
     S["UP"] = (crop(dpad, 0, 68, 52, 63), 71 + 46, 196 + 0)
@@ -114,6 +116,44 @@ def ps_face(src, rgb, lit):
     return out
 
 
+def face_fill(src):
+    """Pressed face button BACKGROUND only (rim + disc, no symbol), neutral grey / white so the pressed-colour setting tints it
+    (vertex colour multiply). The symbol is the separate *_GLYPH sprite, drawn untinted on top (human: pressed colour must not
+    recolour the outline / glyph)."""
+    w, h = src.size
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    out = Image.new("RGBA", src.size)
+    for y in range(h):
+        for x in range(w):
+            a = src.getpixel((x, y))[3]
+            if a:
+                v = 255 if math.hypot(x - cx, y - cy) >= 21.0 else 110
+                out.putpixel((x, y), (v, v, v, a))
+    return out
+
+
+def face_glyph(src, rgb, ps):
+    """The face symbol alone (cross / circle / square / triangle, or the Xbox letter) in its own colour with a thin dark outline,
+    transparent elsewhere: readable on any pressed-colour fill."""
+    from PIL import ImageFilter
+    w, h = src.size
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    mask = Image.new("L", src.size)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = src.getpixel((x, y))
+            if a and math.hypot(x - cx, y - cy) < 21.0:
+                v = (222 - r) * 255 / (222 - 88) if ps else (r - 38) * 255 / (247 - 38)
+                mask.putpixel((x, y), max(0, min(255, int(v))))
+    mask = mask.filter(ImageFilter.MaxFilter(3))
+    halo = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(0.5))
+    out = Image.new("RGBA", src.size, (16, 16, 20, 0))
+    out.putalpha(halo.point(lambda v: min(255, int(v * 1.6))))
+    fg = Image.new("RGBA", src.size, rgb + (0,))
+    fg.putalpha(mask)
+    return Image.alpha_composite(out, fg)
+
+
 def xbox_face(src, rgb, lit=True):
     """50x50 pressed face button: dark disc tinted with the button colour, coloured rim and letter (was a white-letter flash)."""
     from PIL import ImageFilter
@@ -164,7 +204,8 @@ def xbox():
     # x top 48.5 right 98; y top 0 left 48.5
     bx, by = 470.71, 166.9
     for k, px, py in (("A", 48.5, 147 - 50), ("B", 147 - 50, 48.8), ("X", 147 - 98 - 50, 48.5), ("Y", 48.5, 0)):
-        S[k + "_LIT"] = (xbox_face(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k]), bx + px, by + py)
+        S[k + "_LIT"] = (face_fill(svg(k + "_", (50, 50))), bx + px, by + py)  # pressed: tintable background; symbol = _GLYPH
+        S[k + "_GLYPH"] = (face_glyph(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k], False), bx + px, by + py)
         S[k] = (xbox_face(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k], False), bx + px, by + py)  # resting: coloured letter like the PS pad
     # .dpad 112.2 @ (213,299.8); .face 39x39 pad_.svg opacity 0 (pressed 1); up rotate .25turn (36.1,1); down .75turn
     # bottom 1 left 36.1; left (1,37); right .5turn top 37 right 1   (CSS rotate = clockwise; PIL rotate = counter-clockwise)
@@ -237,6 +278,7 @@ def main():
             atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
             for key in XBOX_FACE_RGB:  # human #38760: same clean coloured face buttons as the PS pad (pressed state)
                 atlas.paste(S[key + "_LIT"][0], place[key + "_LIT"])
+                atlas.paste(S[key + "_GLYPH"][0], place[key + "_GLYPH"])
                 atlas.paste(S[key][0], place[key])
         else:
             out_l = Image.new("L", atlas.size)
@@ -258,8 +300,9 @@ def main():
                     out_l.paste(tone.crop((kx, ky, kx + kw, ky + kh)), (kx, ky))
             atlas = Image.merge("RGBA", (out_l, out_l, out_l, atlas.getchannel("A")))
             for key, rgb in PS_FACE_RGB.items():  # human: coloured PS face buttons (resting sprite shape for both states)
-                for lit in (False, True):
-                    atlas.paste(ps_face(S[key][0], rgb, lit), place[key + ("_LIT" if lit else "")])
+                atlas.paste(ps_face(S[key][0], rgb, False), place[key])
+                atlas.paste(face_fill(S[key][0]), place[key + "_LIT"])  # pressed: tintable background; symbol = _GLYPH
+                atlas.paste(face_glyph(S[key][0], rgb, True), place[key + "_GLYPH"])
         out = ASSETS / f"atlas_{name}.png"
         atlas.save(out, optimize=True)
         raw = out.read_bytes()
