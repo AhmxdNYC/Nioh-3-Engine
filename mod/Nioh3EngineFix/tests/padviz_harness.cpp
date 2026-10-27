@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
     CHECK(osd::rects.empty() && osd::texts.empty());
     // Xbox idle: body, dim logo, the four resting coloured face buttons, both sticks (no pressed sprites)
     Clear(); DrawState(idle, 0, 0, 1.0f, 1.0f, 0);
-    CHECK(osd::sprites.size() == 8 && Find(xb, S_BODY) && Find(xb, S_STICK) && Find(xb, S_A) && !Find(xb, S_A_LIT) && !Find(xb, S_A_GLYPH));
+    CHECK(osd::sprites.size() == 8 && Find(xb, S_BODY) && Find(xb, S_STICK) && Find(xb, S_A) && !Find(xb, S_A_LIT));
 
     // pressed: lit sprite replaces the unlit one; d-pad / bumpers / back / start / touchpad / PS appear
     State p; p.buttons = kA | kUp | kRB | kStart | kL3 | kTouch | kGuide; p.lx = 32767; p.lt = 255; p.rt = 128;
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
     // DualSense triggers: opacity = value (Gamepad Viewer default), full size
     const osd::Spr* lt = Find(ds, S_LT);
     const osd::Spr* rt = Find(ds, S_RT);
-    CHECK(lt && rt && (lt->c >> 24) == 255 && (rt->c >> 24) >= 127 && (rt->c >> 24) <= 129 && Near(rt->h, 108));
+    CHECK(lt && rt && (lt->c >> 24) == 255 && (rt->c >> 24) >= 127 && (rt->c >> 24) <= 129 && Near(rt->h, 104));
     // left stick: +22 px right, narrowed by cos(22 deg) around its centre (rotateY), height unchanged
     const osd::Spr* st = Find(ds, S_STICK_P);
     const float sw = 100.0f * std::cos(22.0f * 3.14159265f / 180.0f);
@@ -179,28 +179,27 @@ int main(int argc, char** argv) {
     // opacity scales every alpha; zero trigger draws nothing
     Clear(); DrawState(p, 0, 0, 1.0f, 0.5f, 1);
     { bool anyDim = false; for (auto& s : osd::sprites) anyDim |= (s.c >> 24) <= 0x80u; CHECK(anyDim); }  // pressed art stays solid
-    // pressed-colour customization: the pressed colour recolours only the face button BACKGROUND; the symbol sprite stays untinted
-    // (vertex colour white), for A/B/X/Y (Xbox) and Cross/Circle/Square/Triangle (PlayStation); resting sprites are never tinted
+    // pressed-colour customization: the pressed colour recolours the WHOLE face button (rim, disc and symbol are one lit sprite, vertex
+    // colour = pressed colour), for A/B/X/Y (Xbox) and Cross/Circle/Square/Triangle (PlayStation); resting sprites are never tinted
     {
         const uint32_t saved = g_pressRGB;
         g_pressRGB = 0x00FF3B3Bu;  // red: PackBgr -> 0x3B3BFF
         const uint32_t bits[4] = {kA, kB, kX, kY};
-        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT}, glyphId[4] = {S_A_GLYPH, S_B_GLYPH, S_X_GLYPH, S_Y_GLYPH};
+        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT};
         const int restId[4] = {S_A, S_B, S_X, S_Y};
         for (int style = 0; style < 2; ++style) {
             const Skin& k = SkinFor(style);
             for (int i = 0; i < 4; ++i) {
-                CHECK(k.s[fillId[i]].w && k.s[glyphId[i]].w && k.s[restId[i]].w);
-                CHECK(k.s[fillId[i]].w == k.s[glyphId[i]].w && Near(k.s[fillId[i]].cx, k.s[glyphId[i]].cx) && Near(k.s[fillId[i]].cy, k.s[glyphId[i]].cy));
+                CHECK(k.s[fillId[i]].w && k.s[restId[i]].w);
                 State pr; pr.buttons = bits[i];
                 Clear(); DrawState(pr, 0, 0, 1.0f, 1.0f, style);
                 const osd::Spr* fill = Find(k, fillId[i]);
-                const osd::Spr* glyph = Find(k, glyphId[i]);
-                CHECK(fill && glyph && !Find(k, restId[i]));
-                CHECK(fill && (fill->c & 0x00FFFFFFu) == 0x003B3BFFu && (fill->c >> 24) == 255);   // background: pressed colour
-                CHECK(glyph && (glyph->c & 0x00FFFFFFu) == 0x00FFFFFFu && (glyph->c >> 24) == 255);  // symbol: its own colour
-                // symbol drawn after (on top of) the background
-                CHECK(fill && glyph && glyph > fill);
+                CHECK(fill && !Find(k, restId[i]));
+                CHECK(fill && (fill->c & 0x00FFFFFFu) == 0x003B3BFFu && (fill->c >> 24) == 255);   // whole button: pressed colour, opaque
+                // nothing else is drawn over the button (no separate symbol sprite)
+                int onButton = 0;
+                for (auto& s : osd::sprites) if (fill && s.x == fill->x && s.y == fill->y) ++onButton;
+                CHECK(onButton == 1);
                 // resting at full opacity: no tint on the sprite
                 Clear(); DrawState(idle, 0, 0, 1.0f, 1.0f, style);
                 const osd::Spr* rest = Find(k, restId[i]);
@@ -235,27 +234,38 @@ int main(int argc, char** argv) {
         const size_t mid = ((size_t)(b.y + b.h / 2) * k.atlasW + b.x + b.w / 2) * 4 + 3, corner = ((size_t)b.y * k.atlasW + b.x) * 4 + 3;
         CHECK(atl[i].px[mid] == 255 && atl[i].px[corner] == 0);
     }
-    // atlas content: the pressed background sprite is neutral grey / white (so the tint recolours it fully), the symbol sprite carries
-    // its own saturated colour and is transparent outside the symbol, so the pressed colour can not wash it out
+    // atlas content: the pressed face sprite is neutral grey (so the tint recolours rim, disc and symbol alike) with a darker symbol;
+    // every shoulder sprite (bumper / trigger) is a real shape: smooth, bright grey, and not a filled rectangle
     for (int i = 0; i < 2; ++i) {
         const Skin& k = SkinFor(i);
         if (atl[i].w != k.atlasW) continue;
-        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT}, glyphId[4] = {S_A_GLYPH, S_B_GLYPH, S_X_GLYPH, S_Y_GLYPH};
+        const int fillId[4] = {S_A_LIT, S_B_LIT, S_X_LIT, S_Y_LIT};
         for (int n = 0; n < 4; ++n) {
             const SpriteRect& f = k.s[fillId[n]];
-            const SpriteRect& g = k.s[glyphId[n]];
-            int fillPx = 0, fillColour = 0, glyphColour = 0, glyphClear = 0;
+            int fillPx = 0, fillColour = 0, dark = 0, light = 0;
             for (int y = 0; y < f.h; ++y)
                 for (int x = 0; x < f.w; ++x) {
                     const uint8_t* fp = &atl[i].px[((size_t)(f.y + y) * k.atlasW + f.x + x) * 4];
-                    if (fp[3] > 200) { ++fillPx; if (fp[0] != fp[1] || fp[1] != fp[2]) ++fillColour; }
-                    const uint8_t* q = &atl[i].px[((size_t)(g.y + y) * k.atlasW + g.x + x) * 4];
-                    if (q[3] > 200 && (std::abs((int)q[0] - q[1]) > 40 || std::abs((int)q[1] - q[2]) > 40)) ++glyphColour;
-                    if (q[3] == 0) ++glyphClear;
+                    if (fp[3] > 200) { ++fillPx; if (fp[0] != fp[1] || fp[1] != fp[2]) ++fillColour; dark += fp[0] < 160; light += fp[0] > 220; }
                 }
-            CHECK(fillPx > 1000 && fillColour == 0);
-            CHECK(glyphColour >= 20 && glyphClear > f.w * f.h / 3);
+            CHECK(fillPx > 1000 && fillColour == 0 && dark >= 20 && light > 300);
         }
+        const int shoulder[4] = {S_LB, S_RB, S_LT, S_RT};
+        for (int n = 0; n < 4; ++n) {
+            const SpriteRect& sr = k.s[shoulder[n]];
+            CHECK(sr.w >= 40 && sr.h >= 30);
+            int solid = 0, partial = 0, clear = 0;
+            for (int y = 0; y < sr.h; ++y)
+                for (int x = 0; x < sr.w; ++x) {
+                    const uint8_t* q = &atl[i].px[((size_t)(sr.y + y) * k.atlasW + sr.x + x) * 4];
+                    if (q[3] == 255) { ++solid; CHECK(q[0] >= 200); } else if (q[3]) ++partial; else ++clear;
+                }
+            CHECK(solid > sr.w * sr.h / 4 && partial > 20 && clear > sr.w * sr.h / 20);  // filled, anti-aliased, corners cut away
+        }
+        // mirrored pairs: LB/RB and LT/RT are left-right images of each other about the pad's centre line
+        CHECK(k.s[S_LB].w == k.s[S_RB].w && k.s[S_LT].w == k.s[S_RT].w);
+        CHECK(Near(k.s[S_LB].cx + k.s[S_LB].w * 0.5f + k.s[S_RB].cx + k.s[S_RB].w * 0.5f, k.canvasW, 1.0f));
+        CHECK(Near(k.s[S_LT].cx + k.s[S_LT].w * 0.5f + k.s[S_RT].cx + k.s[S_RT].w * 0.5f, k.canvasW, 1.0f));
     }
     unsigned char junk[64] = {137, 80, 78, 71, 13, 10, 26, 10};
     padviz_png::Atlas bad;

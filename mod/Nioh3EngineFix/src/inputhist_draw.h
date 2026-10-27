@@ -51,6 +51,18 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
     padviz::Layer(k, spriteId, ox, oy, s, 0.97f, 0, 0, 1, 1, 1, false);  // #38919: resting (unlit) sprite, no pressed tint
 }
 
+// a bumper / trigger glyph: the controller display's own redrawn shoulder sprite (curved bumper band, rounded trigger), tinted with
+// the pressed colour, scaled uniformly (aspect kept, never stretched) to fit the box bw x bh and centred in it. The sprite is already
+// a tight crop of the shape, so the box edge is the shape edge.
+inline void ShoulderGlyph(int skinStyle, int spriteId, float bx, float by, float bw, float bh) {
+    const padviz::Skin& k = padviz::SkinFor(skinStyle);
+    const padviz::SpriteRect& r = k.s[spriteId];
+    if (!r.w || !r.h) return;
+    const float s = std::min(bw / (float)r.w, bh / (float)r.h);
+    const float ox = bx + (bw - (float)r.w * s) * 0.5f - r.cx * s, oy = by + (bh - (float)r.h * s) * 0.5f - r.cy * s;
+    padviz::Layer(k, spriteId, ox, oy, s, 1.0f);
+}
+
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
 // Returns the text scale used (the caller sets the quad group's shader scale to it), 0 = nothing drawn.
 // the panel may grow down to kBottomFrac of the screen height: below that sit the game's own bottom HUD widgets (items / ninjutsu
@@ -74,11 +86,8 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
 
     Entry e[kMaxRows];
     const int n = Snapshot(e, rows);
-    static const char* const kLabelXbox[4] = {"LB", "RB", "LT", "RT"};
-    static const char* const kLabelPs[4] = {"L1", "R1", "L2", "R2"};
-    const char* const* label = style ? kLabelPs : kLabelXbox;
     static const int kFace[4] = {padviz::S_A, padviz::S_B, padviz::S_X, padviz::S_Y};
-    const uint32_t chipBg = 0xE0000000u | padviz::PackBgr(padviz::g_pressRGB);
+    static const int kShoulder[4] = {padviz::S_LB, padviz::S_RB, padviz::S_LT, padviz::S_RT};  // inputhist::btn bits 4..7 (LB RB LT RT / L1 R1 L2 R2)
     const float top = y + pad;
     for (int i = 0; i < n; ++i) {
         const float ry = top + (float)i * rowH;
@@ -102,9 +111,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
             }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (16 << b)) {
-                const float cx = bx, cy = ry + std::floor((rowH - th - 2.0f * sc) * 0.5f);
-                osd::DrawRect(cx, cy, chipW, th + 2.0f * sc, chipBg);
-                osd::DrawText(cx + std::floor(pad * 0.5f), cy + sc, label[b], menu_style::kChipText, sc);
+                ShoulderGlyph(style, kShoulder[b], bx, ay, slotW - std::floor(pad * 0.5f), icon);
                 bx += slotW;
                 ++used;
             }

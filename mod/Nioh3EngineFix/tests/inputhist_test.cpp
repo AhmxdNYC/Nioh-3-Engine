@@ -59,8 +59,8 @@ int main() {
     osd::g_rect = osd::g_text = osd::g_sprite = 0;
     const float sc = inputhist_draw::Draw(1920, 1080, 16, 200, false, 900, 1);
     CHECK(sc > 0.0f);
-    CHECK(osd::g_text >= 3);    // 2 numbers + N + chip label
-    CHECK(osd::g_sprite >= 1);  // the A glyph
+    CHECK(osd::g_text >= 3);    // 2 numbers + N
+    CHECK(osd::g_sprite >= 2);  // the A glyph + the LB shoulder shape
     CHECK(inputhist_draw::PanelHeight(1080) > 0);
     printf("%s (rect %d text %d sprite %d)\n", fails ? "FAILED" : "PASS", osd::g_rect, osd::g_text, osd::g_sprite);
     fflush(stdout);

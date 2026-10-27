@@ -29,8 +29,7 @@ ATLAS_W = 1024
 
 # sprite ids shared by both skins (padviz.h draws by id; a skin may leave one empty)
 IDS = ["BODY", "STICK", "STICK_P", "A", "B", "X", "Y", "A_LIT", "B_LIT", "X_LIT", "Y_LIT", "UP", "DOWN", "LEFT",
-       "RIGHT", "BACK", "START", "LB", "RB", "LT", "RT", "TOUCH", "META", "STICK_R", "STICK_R_P", "A_GLYPH", "B_GLYPH", "X_GLYPH",
-       "Y_GLYPH"]
+       "RIGHT", "BACK", "START", "LB", "RB", "LT", "RT", "TOUCH", "META", "STICK_R", "STICK_R_P"]
 
 
 def crop(img, x, y, w, h):
@@ -62,7 +61,6 @@ def dualsense():
     for k, sx, px, py in (("A", 0, 61, 123), ("B", 59, 123, 62), ("X", 118, 0, 61), ("Y", 177, 61, 0)):
         S[k] = (crop(btn, sx, 0, 58, 58), 573 + px, 178 + py)
         S[k + "_LIT"] = (crop(btn, sx, 59, 58, 58), 573 + px, 178 + py)
-        S[k + "_GLYPH"] = (S[k][0], 573 + px, 178 + py)  # replaced by face_glyph() in main()
     # .dpad 144x144 @ (71,196); .face opacity 0 (pressed 1); up 0 -68 52x63 (46,0); down -54 +63 52x63 (46,81);
     # left -108 -68 64x52 (-1,47); right -175 -68 63x52 (81,46)
     S["UP"] = (crop(dpad, 0, 68, 52, 63), 71 + 46, 196 + 0)
@@ -73,11 +71,8 @@ def dualsense():
     S["BACK"] = (crop(bs, 0, 0, 27, 57), 195, 140)
     S["START"] = (crop(bs, -27, 0, 27, 57), 195 + 416 - 27, 140)
     # .bumpers 620x35 @ (93,114); .bumper 110x35 opacity 0 (pressed 1); right floats right + rotateY(180deg) (site CSS)
-    S["LB"] = (crop(bump, 0, 0, 110, 35), 93, 114)
-    S["RB"] = (crop(bump, 0, 0, 110, 35).transpose(Image.FLIP_LEFT_RIGHT), 93 + 620 - 110, 114)
+    shoulders_ds(S)  # redrawn LB / RB / LT / RT (see shoulder())
     # .triggers 619x108 @ left 94 top 0; .trigger 111x108 opacity = value; right bg -113 0, rotateY(0) (not mirrored)
-    S["LT"] = (crop(trig, 0, 0, 111, 108), 94, 0)
-    S["RT"] = (crop(trig, 113, 0, 111, 108), 94 + 619 - 111, 0)
     # .touchpad 333x177 @ (237,118), pressed: sprite centred; .meta 51x40 @ left 378 bottom 255 -> top 651-255-40
     S["TOUCH"] = (L("touchpad"), 237, 118)
     S["META"] = (L("meta"), 378, 651 - 255 - 40)
@@ -116,25 +111,10 @@ def ps_face(src, rgb, lit):
     return out
 
 
-def face_fill(src):
-    """Pressed face button BACKGROUND only (rim + disc, no symbol), neutral grey / white so the pressed-colour setting tints it
-    (vertex colour multiply). The symbol is the separate *_GLYPH sprite, drawn untinted on top (human: pressed colour must not
-    recolour the outline / glyph)."""
-    w, h = src.size
-    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
-    out = Image.new("RGBA", src.size)
-    for y in range(h):
-        for x in range(w):
-            a = src.getpixel((x, y))[3]
-            if a:
-                v = 255 if math.hypot(x - cx, y - cy) >= 21.0 else 110
-                out.putpixel((x, y), (v, v, v, a))
-    return out
-
-
-def face_glyph(src, rgb, ps):
-    """The face symbol alone (cross / circle / square / triangle, or the Xbox letter) in its own colour with a thin dark outline,
-    transparent elsewhere: readable on any pressed-colour fill."""
+def face_lit(src, ps):
+    """Pressed face button as ONE tintable sprite (human: the whole button - rim, disc and symbol - takes the pressed colour):
+    light rim, slightly darker disc, the symbol (cross / circle / square / triangle / letter) a darker shade of the same colour so it
+    stays readable. Grey levels only: the vertex-colour multiply in padviz.h Layer turns it into the pressed colour."""
     from PIL import ImageFilter
     w, h = src.size
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
@@ -146,12 +126,74 @@ def face_glyph(src, rgb, ps):
                 v = (222 - r) * 255 / (222 - 88) if ps else (r - 38) * 255 / (247 - 38)
                 mask.putpixel((x, y), max(0, min(255, int(v))))
     mask = mask.filter(ImageFilter.MaxFilter(3))
-    halo = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(0.5))
-    out = Image.new("RGBA", src.size, (16, 16, 20, 0))
-    out.putalpha(halo.point(lambda v: min(255, int(v * 1.6))))
-    fg = Image.new("RGBA", src.size, rgb + (0,))
-    fg.putalpha(mask)
-    return Image.alpha_composite(out, fg)
+    out = Image.new("RGBA", src.size)
+    for y in range(h):
+        for x in range(w):
+            a = src.getpixel((x, y))[3]
+            if a:
+                base = 255 if math.hypot(x - cx, y - cy) >= 21.0 else 232
+                k = mask.getpixel((x, y)) / 255.0
+                v = int(base * (1 - k) + 105 * k + 0.5)
+                out.putpixel((x, y), (v, v, v, a))
+    return out
+
+
+SS = 4  # shape supersampling
+
+
+def _q(p0, c, p1, n=24):
+    return [((1 - t) ** 2 * p0[0] + 2 * t * (1 - t) * c[0] + t * t * p1[0], (1 - t) ** 2 * p0[1] + 2 * t * (1 - t) * c[1] + t * t * p1[1])
+            for t in (i / n for i in range(n + 1))]
+
+
+def shoulder(size, segs, rnd, lo=255, hi=212):
+    """A smooth shoulder sprite (bumper / trigger): closed outline from quadratic segments [(p0, ctrl, p1), ...] in local px,
+    corners rounded by `rnd` px (blur + threshold), 4x supersampled, vertical gradient lo (top) -> hi (bottom). Returns the
+    tight-cropped RGBA sprite and its (x, y) offset inside `size`."""
+    from PIL import ImageDraw, ImageFilter
+    pts = []
+    for p0, c, p1 in segs:
+        pts += _q(p0, c, p1)
+    W, H = size
+    m = Image.new("L", (W * SS, H * SS), 0)
+    ImageDraw.Draw(m).polygon([(x * SS, y * SS) for x, y in pts], fill=255)
+    m = m.filter(ImageFilter.GaussianBlur(rnd * SS)).point(lambda v: 255 if v > 128 else 0)
+    m = m.filter(ImageFilter.GaussianBlur(0.3 * SS)).resize((W, H), Image.LANCZOS)
+    bb = m.point(lambda v: 255 if v > 8 else 0).getbbox()
+    m = m.crop(bb)
+    gh = max(1, m.size[1] - 1)
+    g = Image.new("L", m.size)
+    for y in range(m.size[1]):
+        for x in range(m.size[0]):
+            g.putpixel((x, y), int(lo + (hi - lo) * y / gh))
+    return Image.merge("RGBA", (g, g, g, m)), bb[0], bb[1]
+
+
+def place_pair(S, name_l, name_r, size, segs, rnd, x0, y0, centre):
+    """Left shoulder sprite at canvas (x0, y0) and its mirror image about the vertical line x = centre."""
+    sp, ox, oy = shoulder(size, segs, rnd)
+    S[name_l] = (sp, x0 + ox, y0 + oy)
+    S[name_r] = (sp.transpose(Image.FLIP_LEFT_RIGHT), 2 * centre - (x0 + ox) - sp.size[0], y0 + oy)
+
+
+# Redrawn shoulder shapes (human: bumpers / triggers looked like plain squares): a curved bumper band and a tapered, rounded
+# trigger, smooth like the rest of the skin, drawn on the canvas slots of the body's own bumper / trigger outlines.
+def shoulders_xbox(S):
+    place_pair(S, "LB", "RB", (176, 129),
+               [((6, 70), (60, 16), (172, 8)), ((172, 8), (180, 24), (172, 40)), ((172, 40), (80, 44), (10, 108)),
+                ((10, 108), (0, 92), (6, 70))], 4, 77.32, 93.5, 77.32 + 566.86 / 2)
+    place_pair(S, "LT", "RT", (84, 103),
+               [((0, 102), (20, 62), (36, 14)), ((36, 14), (44, 0), (62, 2)), ((62, 2), (80, 6), (84, 30)),
+                ((84, 30), (86, 70), (84, 102)), ((84, 102), (42, 92), (0, 102))], 5, 143.1, 0, 143.1 + 434.62 / 2)
+
+
+def shoulders_ds(S):
+    place_pair(S, "LB", "RB", (110, 35),
+               [((0, 32), (14, 8), (60, 2)), ((60, 2), (96, 0), (110, 14)), ((110, 14), (112, 26), (104, 28)),
+                ((104, 28), (60, 20), (10, 34)), ((10, 34), (2, 36), (0, 32))], 3, 93, 114, 93 + 620 / 2)
+    place_pair(S, "LT", "RT", (111, 108),
+               [((5, 105), (10, 50), (18, 24)), ((18, 24), (28, 2), (62, 2)), ((62, 2), (98, 4), (104, 40)),
+                ((104, 40), (108, 70), (109, 105)), ((109, 105), (56, 96), (5, 105))], 5, 94, 0, 94 + 619 / 2)
 
 
 def xbox_face(src, rgb, lit=True):
@@ -204,8 +246,7 @@ def xbox():
     # x top 48.5 right 98; y top 0 left 48.5
     bx, by = 470.71, 166.9
     for k, px, py in (("A", 48.5, 147 - 50), ("B", 147 - 50, 48.8), ("X", 147 - 98 - 50, 48.5), ("Y", 48.5, 0)):
-        S[k + "_LIT"] = (face_fill(svg(k + "_", (50, 50))), bx + px, by + py)  # pressed: tintable background; symbol = _GLYPH
-        S[k + "_GLYPH"] = (face_glyph(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k], False), bx + px, by + py)
+        S[k + "_LIT"] = (face_lit(svg(k + "_", (50, 50)), False), bx + px, by + py)  # pressed: whole button tintable
         S[k] = (xbox_face(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k], False), bx + px, by + py)  # resting: coloured letter like the PS pad
     # .dpad 112.2 @ (213,299.8); .face 39x39 pad_.svg opacity 0 (pressed 1); up rotate .25turn (36.1,1); down .75turn
     # bottom 1 left 36.1; left (1,37); right .5turn top 37 right 1   (CSS rotate = clockwise; PIL rotate = counter-clockwise)
@@ -219,14 +260,9 @@ def xbox():
     S["BACK"] = (svg("map_", (33, 33)), 291.2, 222.37)
     S["START"] = (svg("settings_", (33, 33)), 291.2 + 139.03 - 32.92, 222.37)
     # .bumpers 566.86x128.92 @ (77.32,93.5); .bumper 175.74x128.92 bumper_.svg opacity 0 (pressed 1); right mirrored
-    b = svg("bumper_")
-    S["LB"] = (b, 77.32, 93.5)
-    S["RB"] = (b.transpose(Image.FLIP_LEFT_RIGHT), 77.32 + 566.86 - 175.74, 93.5)
     # .triggers 434.62x103.07 @ left 143.1; .trigger 84.2x103.07 trigger_.svg, meter: clip-path inset((1-v)*100% 0 0 0);
     # right mirrored
-    t = svg("trigger_")
-    S["LT"] = (t, 143.1, 0)
-    S["RT"] = (t.transpose(Image.FLIP_LEFT_RIGHT), 143.1 + 434.62 - 84.2, 0)
+    shoulders_xbox(S)  # redrawn LB / RB / LT / RT (see shoulder())
     # .meta 58x58 @ (331.57,135) meta.svg opacity 0 (pressed 1). No touchpad on an Xbox pad.
     S["META"] = (svg("meta", (58, 58)), 331.57, 135)
     return (721.14, 600), S
@@ -278,7 +314,8 @@ def main():
             atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
             for key in XBOX_FACE_RGB:  # human #38760: same clean coloured face buttons as the PS pad (pressed state)
                 atlas.paste(S[key + "_LIT"][0], place[key + "_LIT"])
-                atlas.paste(S[key + "_GLYPH"][0], place[key + "_GLYPH"])
+                atlas.paste(S[key][0], place[key])
+            for key in ("LB", "RB", "LT", "RT"):  # redrawn shoulder shapes: bright, no tone mapping
                 atlas.paste(S[key][0], place[key])
         else:
             out_l = Image.new("L", atlas.size)
@@ -301,8 +338,9 @@ def main():
             atlas = Image.merge("RGBA", (out_l, out_l, out_l, atlas.getchannel("A")))
             for key, rgb in PS_FACE_RGB.items():  # human: coloured PS face buttons (resting sprite shape for both states)
                 atlas.paste(ps_face(S[key][0], rgb, False), place[key])
-                atlas.paste(face_fill(S[key][0]), place[key + "_LIT"])  # pressed: tintable background; symbol = _GLYPH
-                atlas.paste(face_glyph(S[key][0], rgb, True), place[key + "_GLYPH"])
+                atlas.paste(face_lit(S[key][0], True), place[key + "_LIT"])  # pressed: the whole button, tintable
+            for key in ("LB", "RB", "LT", "RT"):  # redrawn shoulder shapes: bright, no tone mapping
+                atlas.paste(S[key][0], place[key])
         out = ASSETS / f"atlas_{name}.png"
         atlas.save(out, optimize=True)
         raw = out.read_bytes()
