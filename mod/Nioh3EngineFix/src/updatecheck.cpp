@@ -141,13 +141,19 @@ std::wstring QuoteArgument(const std::wstring& value) {
     out.append(slashes * 2, L'\\');
     return out + L'\"';
 }
-void OpenUnixTarget(const std::wstring& target) {
+void OpenUnixTarget(const std::wstring& target, bool folder = false) {
     if (target.empty()) return;
     wchar_t system[MAX_PATH]{};
     const UINT count = GetSystemDirectoryW(system, MAX_PATH);
     if (!count || count >= MAX_PATH) return;
     const std::wstring start = std::wstring(system, count) + L"\\start.exe";
     std::wstring command = QuoteArgument(start) + L" /unix /usr/bin/xdg-open " + QuoteArgument(target);
+    if (folder) {
+        // Fixed shell program; the path is a positional argument, never shell code.
+        const std::wstring script = L"dolphin --new-window \"$1\" || xdg-open \"$1\" || kde-open5 \"$1\" || kde-open \"$1\"";
+        command = QuoteArgument(start) + L" /unix /bin/sh -c " + QuoteArgument(script)
+                  + L" nioh3-folder " + QuoteArgument(target);
+    }
     STARTUPINFOW si{}; si.cb = sizeof(si);
     PROCESS_INFORMATION pi{};
     if (CreateProcessW(start.c_str(), command.data(), nullptr, nullptr, FALSE,
@@ -160,16 +166,20 @@ void OpenWineFolder(const std::wstring& folder) {
     using UnixName = char* (__cdecl*)(LPCWSTR);
     const HMODULE kernel = GetModuleHandleW(L"kernel32.dll");
     const auto convert = kernel ? reinterpret_cast<UnixName>(GetProcAddress(kernel, "wine_get_unix_file_name")) : nullptr;
-    if (!convert) return;
+    if (!convert) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
     char* path = convert(folder.c_str());
-    if (!path) return;
+    if (!path) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
     const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
     std::wstring target(count > 0 ? count : 0, L'\0');
     if (count > 0) MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, target.data(), count);
     HeapFree(GetProcessHeap(), 0, path);
-    if (count <= 1) return;
+    if (count <= 1) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
     target.resize(count - 1);
-    if (target.front() == L'/') OpenUnixTarget(target);
+    if (target.front() == L'/') OpenUnixTarget(target, true);
+    // Desktop launch is asynchronous: show a usable path even if the session has
+    // no file manager or a broken directory association (e.g. Filelight).
+    const std::wstring help = L"If the game folder did not open, paste this path into your file manager:\n\n" + target;
+    MessageBoxW(nullptr, help.c_str(), L"Nioh 3 game folder", MB_OK | MB_ICONINFORMATION);
 }
 void LaunchFixedPage(HMODULE module) {
     // Never use manifest or INI values as browser targets.

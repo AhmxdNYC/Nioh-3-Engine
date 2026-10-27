@@ -60,6 +60,9 @@ static UINT FakeWindows(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Wi
 static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR target,LPCWSTR args,LPCWSTR,int) {
  shellCalls.push_back({target,args?args:L""}); return reinterpret_cast<HINSTANCE>(33);
 }
+static int popupCount=0;
+static int FakeMessage(HWND,LPCWSTR,LPCWSTR,UINT){++popupCount;return IDOK;}
+#define MessageBoxW FakeMessage
 #define GetModuleFileNameW FakeModulePath
 static bool wineMode=false, conversionFails=false, processFails=false, missingUnixExport=false;
 static std::string unixFolder="/home/player/Steam Games/Nioh3/";
@@ -182,7 +185,7 @@ int main(){
  CHECK(shellCalls.empty());CHECK(processCalls.size()==2);CHECK(processCloses==4);
  CHECK(processCalls[0].target==L"C:\\Windows\\system32\\start.exe");
  CHECK(processCalls[0].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"https://nioh3-mod-feedback.vercel.app\"");
- CHECK(processCalls[1].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"/home/player/Steam Games/Nioh3/\"");
+ CHECK(processCalls[1].args.find(L"dolphin --new-window")!=std::wstring::npos); CHECK(popupCount==1);
  CHECK(QuoteArgument(L"a\"b\\")==L"\"a\\\"b\\\\\"");
  conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
  conversionFails=false;processFails=true;processCalls.clear();int closes=processCloses;

@@ -155,6 +155,23 @@ def restore(root, backup):
     write_json(backup / "journal.json", journal)
 
 
+def installed_version(root):
+    """Read the build banner from the installed binary, never a stale log/INI."""
+    binary = root / "Nioh3EngineFix.asi"
+    regular(binary)
+    if not binary.exists():
+        return None
+    data = binary.read_bytes()
+    versions = set(re.findall(rb"Nioh3EngineFix (\d+\.\d+\.\d+)(?:-[^\x00 ]+)? \(built ", data))
+    if len(versions) > 1:
+        raise ValueError("Ambiguous installed EngineFix version; update stopped")
+    return next(iter(versions)).decode("ascii") if versions else None
+
+
+def version_tuple(value):
+    return tuple(int(part) for part in value.split("."))
+
+
 def update(root, manifest_url=MANIFEST_URL, progress=print):
     root = Path(root).resolve(strict=True)
     with locked(root):
@@ -165,6 +182,10 @@ def update(root, manifest_url=MANIFEST_URL, progress=print):
                 raise RuntimeError(f"Interrupted update: roll back {j.parent.name} first")
         progress("Checking for updates...")
         m = validate(json.loads(fetch(manifest_url, 65536)))
+        current = installed_version(root)
+        if current and version_tuple(current) > version_tuple(m["version"]):
+            progress(f"Already newer: installed {current}; public stable {m['version']}. No files changed.")
+            return {"version": current, "changed": 0, "backup": None, "already_newer": True}
         progress(f"Version {m['version']}: {m['news']}")
         with tempfile.TemporaryDirectory(prefix=".nioh3-update-", dir=root) as td:
             stage = Path(td)

@@ -131,3 +131,12 @@ Copy `Nioh3Updater.exe` into the COPY of the game folder first, then double-clic
 The optional `Update Nioh3 Mod.bat` and `Nioh3Updater.ini` provide an alternative configurable launcher targeting their own folder. They use the same public URL; the normal EXE workflow needs neither file. `--manifest` and `--config` remain available for future controlled tests; explicit CLI URL wins. Player config files are not downloaded or overwritten.
 
 If an install swap fails after files changed, the existing verified backup is restored automatically. If the game starts during recovery, it is not force-closed: the prepared backup remains for explicit rollback after closing the game. Roll back with `Nioh3Updater.exe --game-dir . --rollback BACKUP_ID` from that same folder. Never launch the game during an update. pc owns deployment and the real player test; no website UI changes are part of this task.
+
+### Release candidate settings and Linux desktop
+
+In `Nioh3Training.ini`, put `FrameMeterStyle=1` under `[Practice]` for Ring,
+or `FrameMeterStyle=0` for Row. `[Training]` does not read this setting.
+The Linux folder action tries Dolphin first, then xdg-open and KDE openers.
+A dialog also supplies the folder path because Game Mode may have no file manager.
+The updater reads the installed EngineFix binary version and refuses a public
+stable downgrade; explicit backup rollback remains available.

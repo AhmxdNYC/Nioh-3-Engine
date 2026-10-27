@@ -30,6 +30,24 @@ class UpdaterTests(unittest.TestCase):
     def install(self):
         return u.update(self.root, self.url)
 
+    def test_newer_binary_blocks_downgrade_without_payload_download(self):
+        binary = self.root / "Nioh3EngineFix.asi"
+        original = b"MZ\0Nioh3EngineFix 1.10.0 (built Oct 27 2026)\0"
+        binary.write_bytes(original)
+        messages = []
+        result = u.update(self.root, self.url, messages.append)
+        self.assertTrue(result["already_newer"])
+        self.assertEqual(result["changed"], 0)
+        self.assertEqual(binary.read_bytes(), original)
+        self.assertEqual(self.net.call_count, 1)
+        self.assertIn("Already newer", messages[-1])
+
+    def test_version_uses_binary_not_stale_log_and_compares_numerically(self):
+        (self.root / "Nioh3EngineFix.log").write_text("Nioh3EngineFix 99.0.0 (built yesterday)")
+        self.assertIsNone(u.installed_version(self.root))
+        self.assertGreater(u.version_tuple("1.10.0"), u.version_tuple("1.9.99"))
+        self.assertLess(u.version_tuple("1.7.85"), u.version_tuple("2.0.0"))
+
     def test_install_backup_preserve_ini_and_rollback(self):
         binary = self.root / "Nioh3EngineFix.asi"
         ini = self.root / "Nioh3EngineFix.ini"
