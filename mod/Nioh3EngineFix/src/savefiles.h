@@ -2,8 +2,8 @@
 #include <cstdint>
 namespace savefiles {
 // Exact top-mode identity is required; boot/logo/movie and absent player are insufficient.
-struct Sample { bool known=false, readable=false, title=false, loading=true; uintptr_t manager=0, mode=0; int saveState=-1, titleState=-1; bool queueEmpty=false; };
-inline bool Ready(const Sample& s) { return s.known&&s.readable&&s.title&&!s.loading&&(s.titleState==2||s.titleState==3)&&s.queueEmpty; }
+struct Sample { bool known=false, readable=false, title=false, loading=true; uintptr_t manager=0, mode=0; int saveState=-1, titleState=-1; bool queueEmpty=false, messagesClear=false; int sequenceState=-1; };
+inline bool Ready(const Sample& s) { return s.known&&s.readable&&s.title&&!s.loading&&(s.titleState==2||s.titleState==3)&&s.queueEmpty&&s.messagesClear; }
 struct Gate {
     uint64_t since=0,last=0;uintptr_t mode=0;
     bool Update(const Sample& s,uint64_t now) {

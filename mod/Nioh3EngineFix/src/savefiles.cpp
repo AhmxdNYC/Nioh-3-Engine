@@ -10,7 +10,7 @@ namespace {
 uint8_t* base=nullptr;bool known=false,enabled=false,probe=false,allowed=false;
 void (*logfn)(const char*,...)=nullptr;Gate gate;uint64_t polled=0;
 std::wstring sandbox,helper,python;char note[200]="Copy-only test: choose a slot, then queue and quit normally.";
-HANDLE child=nullptr;std::wstring cancel;int lastTitle=-1,lastLoading=-1,lastSave=-2,lastTitleState=-1,lastQueue=-1;
+HANDLE child=nullptr;std::wstring cancel;int lastTitle=-1,lastLoading=-1,lastSave=-2,lastTitleState=-1,lastQueue=-1,lastMessages=-1,lastSequence=-1;uint64_t lastProbe=0;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
 template<class T> bool Rd(uintptr_t p,T& out){
@@ -32,6 +32,13 @@ Sample Read() {
     !Rd(end-8,again)||again!=mode||!Rd(mode+8,again)||again!=type||
     !Rd(mode+0x10,stateAgain)||stateAgain!=state||!Rd(mgr+0x18,again)||again!=qbegin||
     !Rd(mgr+0x20,again)||again!=qend)return s;
+ // SystemMessageQueued 21AB54C: [base+45BBF80]+C0 != 0.
+ // A missing/faulting manager is unverified, not an empty queue.
+ uintptr_t messageMgr=0,messages=0;
+ if(!Rd(b+0x45BBF80,messageMgr)||!messageMgr||!Rd(messageMgr+0xC0,messages))return s;
+ if(!Rd(b+0x45BBF80,again)||again!=messageMgr||!Rd(messageMgr+0xC0,again)||again!=messages)return s;
+ if(!Rd(mode+0x14,s.sequenceState))return s; // probe only; do not infer a screen from it yet
+ s.messagesClear=messages==0;
  s.titleState=state;s.queueEmpty=qbegin==qend;
  s.readable=true;s.manager=mgr;s.mode=mode;s.title=type==b+0x44C91D0;s.loading=loading!=0;
  if(Rd(b+0x45C8480,sm)&&sm)Rd(sm+0x10,s.saveState);
@@ -55,9 +62,9 @@ void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)
 void Poll(){
  if(!enabled&&!probe)return;const uint64_t now=GetTickCount64();if(now-polled<100)return;polled=now;
  const Sample s=Read();allowed=gate.Update(s,now)&&enabled;
- if(logfn&&(lastTitle!=(int)s.title||lastLoading!=(int)s.loading||lastSave!=s.saveState||lastTitleState!=s.titleState||lastQueue!=(int)s.queueEmpty)){
- logfn("SaveFilesProbe: readable=%d title=%d loading=%d saveState=%d titleState=%d queueEmpty=%d mode=%p manager=%p",s.readable,s.title,s.loading,s.saveState,s.titleState,s.queueEmpty,(void*)s.mode,(void*)s.manager);
- lastTitle=s.title;lastLoading=s.loading;lastSave=s.saveState;lastTitleState=s.titleState;lastQueue=s.queueEmpty;}
+ if(logfn&&(lastTitle!=(int)s.title||lastLoading!=(int)s.loading||lastSave!=s.saveState||lastTitleState!=s.titleState||lastQueue!=(int)s.queueEmpty||lastMessages!=(int)s.messagesClear||lastSequence!=s.sequenceState||(probe&&now-lastProbe>=1000))){
+ logfn("SaveFilesProbe: readable=%d title=%d loading=%d saveState=%d titleState=%d queueEmpty=%d messagesClear=%d sequenceState=%d mode=%p manager=%p",s.readable,s.title,s.loading,s.saveState,s.titleState,s.queueEmpty,s.messagesClear,s.sequenceState,(void*)s.mode,(void*)s.manager);
+ lastTitle=s.title;lastLoading=s.loading;lastSave=s.saveState;lastTitleState=s.titleState;lastQueue=s.queueEmpty;lastMessages=s.messagesClear;lastSequence=s.sequenceState;lastProbe=now;}
  if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);cancel.clear();}
  else if(!Ready(s)){Cancel();snprintf(note,sizeof note,"Cancelled: left the verified main menu.");}}
 }
