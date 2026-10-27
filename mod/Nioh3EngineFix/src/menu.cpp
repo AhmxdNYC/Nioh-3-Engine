@@ -2221,7 +2221,7 @@ void Parse(const char* text, uint32_t color, bool sel, Item& o) {
 float DrawRematchHost(unsigned W, unsigned H) {
     namespace ms = menu_style;
     constexpr int kCols = 58;
-    const float scale = std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.46f - 16.f) / ((float)(kCols + 3) * osd::kGlyphW)));
+    const float scale = PanelScale(W, H);
     const float cw = osd::kGlyphW * scale, line = (osd::kGlyphH + 4.f) * scale, pad = 8.f * scale, a = ms::OpenFade(Now());
     const float width = std::min((float)W - 16.f, (float)kCols * cw + pad * 2.f + cw);
     const float x = std::floor((float)W - width - 12.f), y0 = 12.f, tx = x + pad + 3.f * scale;  // tx: text left (after the stripe)
@@ -2332,7 +2332,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
         scroll = std::clamp(scroll, 0, bodyV - shownV);
         firstV = scroll;
     } else scroll = 0;
-    const float bodyH = line * (float)shownV, h = titleH + pad + bodyH + tailH + hintH;
+    const float bodyH = line * (float)shownV, h = maxH;  // #38102: fixed height, the panel does not resize while navigating
     ms::Panel(x, y0, width, h, scale, ms::kPanelBgSide, a);
     // title bar: page name left, worker status right (or below when both do not fit)
     osd::DrawRect(x + scale, y0 + 2.f * scale, width - 2.f * scale, titleH - 2.f * scale, ms::Fade(ms::kTitleBg, a));
@@ -2668,31 +2668,22 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     addT("\x01K", cDim);
 
-    // value column: just right of the longest "name (id)", between 30 and 48 characters
-    size_t valueCol = 30;
-    for (int i = 0; i < nb; ++i)
-        if (body[i].value[0]) {
-            const size_t w = strlen(body[i].label) + (body[i].tech[0] ? 1 + strlen(body[i].tech) : 0) + 2;
-            valueCol = std::max(valueCol, std::min<size_t>(w, 48));
-        }
-    size_t cols = 0;
-    auto widen = [&](const Row& rw) {
-        const size_t lc = strlen(rw.label) + (rw.tech[0] ? 1 + strlen(rw.tech) : 0), vc = strlen(rw.value);
-        cols = std::max(cols, vc ? std::max(lc + 2, valueCol) + vc : lc);
+    // #38102/#38134: every flat page is the same fixed right-side panel as the hosted pages (58 columns, 0.66 H high); long rows are clipped
+    constexpr size_t cols = 58, valueCol = 34;
+    auto clip = [&](Row& rw, bool isHead) {
+        if (rw.label[0] == '') return;
+        auto cut = [](char* sx, size_t lim) { if (strlen(sx) > lim) { if (lim >= 3) memcpy(sx + lim - 2, "..", 3); else sx[lim] = 0; } };
+        const size_t tl = rw.tech[0] ? 1 + strlen(rw.tech) : 0;
+        if (!isHead && rw.value[0]) {
+            cut(rw.value, cols - valueCol);
+            cut(rw.label, valueCol > tl + 4 ? valueCol - 2 - tl : 4);
+        } else cut(rw.label, cols - tl);
     };
-    for (int i = 0; i < nb; ++i) widen(body[i]);
-    for (int i = 0; i < nt; ++i) widen(tail[i]);
-    widen(head);
-    float sc = AutoScale(H);
-    const int minBody = std::min(nb, 22);
-    auto bodyRows = [&](float s2) {  // body rows that fit under this scale
-        const float lineH = (osd::kGlyphH + 2) * s2, pad = 6 * s2;
-        return (int)std::floor((0.94f * (float)H - 2 * pad) / lineH) - 1 - nt;
-    };
-    auto fitsW = [&](float s2) { return (float)cols * osd::kGlyphW * s2 + 12 * s2 <= 0.96f * (float)W; };
-    while (sc > 1.0f && (!fitsW(sc) || bodyRows(sc) < minBody)) sc -= 0.5f;
-    while (sc > 0.5f && (!fitsW(sc) || bodyRows(sc) < std::min(nb, 12))) sc -= 0.25f;
-    const int avail = std::max(5, bodyRows(sc));
+    for (int i = 0; i < nb; ++i) clip(body[i], false);
+    for (int i = 0; i < nt; ++i) clip(tail[i], false);
+    const float sc = PanelScale(W, H);
+    const int totalRows = std::max(8, (int)std::floor((0.66f * (float)H - 12 * sc) / ((osd::kGlyphH + 2) * sc)));
+    const int avail = std::max(3, totalRows - 1 - nt);
     int first = 0, shown = nb;
     char scrollNote[40] = "";
     if (nb > avail) {  // scroll window: keep the selected row visible with one row of context above and below
@@ -2710,12 +2701,10 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(tv, sizeof(tv), "%s%s%s", g_dirty ? "unsaved changes" : "", g_dirty && scrollNote[0] ? "  " : "", scrollNote);
         snprintf(head.value, sizeof(head.value), "%s", tv);
     }
-    const int n = 1 + shown + nt;
+    const int n = totalRows;
     const float lineH = (osd::kGlyphH + 2) * sc, pad = 6 * sc, cw = osd::kGlyphW * sc;
-    // #13257: at least 60 columns wide (short pages no longer look cramped), never wider than the old 96% screen limit
-    const float w = std::max((float)std::max(cols, strlen(head.label) + 2 + strlen(head.value)) * cw + 2 * pad,
-                             std::min(60.0f * cw + 2 * pad, std::floor(0.96f * (float)W))), h = n * lineH + 2 * pad;
-    const float x0 = std::floor(((float)W - w) / 2), y0 = std::floor(((float)H - h) / 2);
+    const float w = (float)cols * cw + 2 * pad + cw, h = n * lineH + 2 * pad;
+    const float x0 = std::floor((float)W - w - 12.0f), y0 = 12.0f;
     // #13257 look: shared menu_style panel (gold top line, outline), title bar, selection bar with stripe, gold section headers
     // with a rule, ON / OFF pills, dimmed footer band. Layout (columns, rows, scale) is unchanged.
     namespace ms = menu_style;
@@ -2768,6 +2757,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     drawRow(head, true);
     for (int i = 0; i < shown; ++i) drawRow(body[first + i], false);
+    line = n - nt;
     for (int i = 0; i < nt; ++i) drawRow(tail[i], false);
     return sc;
 }
@@ -2817,6 +2807,11 @@ bool ParseHold(const wchar_t* s, uint32_t& mask, char* name, size_t nameLen) {
 }
 
 }  // namespace
+
+// #38102/#38167: one scale for the right-side panel (every page) and the FPS overlay on the left, so both look the same size
+float PanelScale(unsigned W, unsigned H) {
+    return std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.46f - 16.f) / ((float)(58 + 3) * osd::kGlyphW)));
+}
 
 // ---- public ------------------------------------------------------------------------------------------------------------------
 void Configure(const Host& h) {

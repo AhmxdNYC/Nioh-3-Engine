@@ -527,7 +527,8 @@ float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight,
     for (int i = 0; i < count; ++i) maxChars = std::max(maxChars, lines[i].chars());
     const float w = (float)maxChars * osdfont::kW * sc + 2 * pad, h = count * lineH + 2 * pad - 2 * sc;
     if (alignRight) x -= w;
-    AddQuad(x, y, w, h, kSolid, Fade(kPanel, alpha));
+    AddQuad(x, y, w, h, kSolid, Fade(0xC0140F0Cu, alpha));  // same panel colour + gold edge as the mod menu (menu_style kPanelBgSide / kAccent)
+    AddQuad(x, y, std::max(2.0f, sc * 1.5f), h, kSolid, Fade(0xFF5AC8F0u, alpha));
     for (int i = 0; i < count; ++i) {
         float cx = x + pad;
         for (int k = 0; k < lines[i].n; ++k) cx = AddText(cx, y + pad + i * lineH, lines[i].s[k].t, Fade(lines[i].s[k].c, alpha), sc);
@@ -544,9 +545,8 @@ float g_noticeSecs = 25.0f;
 volatile LONG g_noticeState = 0;   // 0 none, 1 pending (waits for the startup popup), 2 on screen, 3 done
 int64_t g_noticeStart = 0;
 
-float CounterScaleImpl(UINT H) {
-    const float autoMul = (float)std::max(1u, (H + 540) / 1080);  // 1080p/1440p: 1, 4K: 2
-    return std::clamp(g_cfg.scale * autoMul, 0.5f, 8.0f);
+float CounterScaleImpl(UINT W, UINT H) {  // #38167: same size as the mod menu panel (menu::PanelScale)
+    return menu::PanelScale(W, H);
 }
 
 // ---- screen fade (bridge 6519/6536): Nioh3EngineFix_Fade(on, ms) ramps a full-screen black quad (alpha 0..255) ----------------------
@@ -576,11 +576,11 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_nPad = 0;
     g_padScale = 0;
     g_padSkin = -1;
-    const float sc = CounterScaleImpl(H);
+    const float sc = CounterScaleImpl(W, H);
     const float k1080 = (float)H / 1080.0f;
     const float margin = 8 * sc;
     const float offX = (float)OffsetX() * k1080, offY = (float)OffsetY() * k1080;
-    const bool right = g_cfg.pos == 1 || g_cfg.pos == 3, bottom = g_cfg.pos >= 2;
+    const bool right = false, bottom = g_cfg.pos >= 2;  // #38167: the FPS overlay always sits on the left, opposite the right-side menu panel
 
     Line counter;
     if (g_cfg.fpsCounter) {
@@ -1252,7 +1252,7 @@ bool DrawFrame(Ctx& c, int64_t now) {
         else if (bd.Format == DXGI_FORMAT_R10G10B10A2_UNORM && g_colorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020)
             bright = 0.55f;  // HDR10 PQ: keep text near 150-200 nits instead of 10000
         // the pixel shader derives font texels from one scale constant, so the counter and the menu are two draws
-        float consts[4] = {1.0f / W, 1.0f / H, CounterScaleImpl(H), bright * g_cfg.brightness};
+        float consts[4] = {1.0f / W, 1.0f / H, CounterScaleImpl(W, H), bright * g_cfg.brightness};
         c.cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
         D3D12_VERTEX_BUFFER_VIEW vbv{va + off, (UINT)g_n * kInstBytes, kInstBytes};
         c.cl->IASetVertexBuffers(0, 1, &vbv);
@@ -1755,7 +1755,7 @@ const char* PositionName(int pos) {
     static const char* const k[4] = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
     return k[pos & 3];
 }
-float CounterScale(unsigned H) { return CounterScaleImpl(H); }
+float CounterScale(unsigned H) { return CounterScaleImpl(H * 16 / 9, H); }
 void DrawRect(float x, float y, float w, float h, uint32_t abgr) { AddQuad(x, y, w, h, kSolid, abgr); }
 bool DrawCoverRect(float w,float h) { const int before=g_n;AddQuad(0,0,w,h,kSolid,0xFF000000);return g_n==before+1; }
 float DrawText(float x, float y, const char* text, uint32_t abgr, float scale) { return AddText(x, y, text, abgr, scale); }
