@@ -47,7 +47,7 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
     if (!r.w) return;
     const float s = size / (float)std::max(r.w, r.h);
     const float ox = bx + (size - (float)r.w * s) * 0.5f - r.cx * s, oy = by + (size - (float)r.h * s) * 0.5f - r.cy * s;
-    padviz::Layer(k, spriteId, ox, oy, s, 1.0f);
+    padviz::Layer(k, spriteId, ox, oy, s, 0.97f);  // #38919: resting (unlit) sprite, no pressed tint
 }
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
@@ -76,7 +76,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     static const char* const kLabelXbox[4] = {"LB", "RB", "LT", "RT"};
     static const char* const kLabelPs[4] = {"L1", "R1", "L2", "R2"};
     const char* const* label = style ? kLabelPs : kLabelXbox;
-    static const int kFace[4] = {padviz::S_A_LIT, padviz::S_B_LIT, padviz::S_X_LIT, padviz::S_Y_LIT};
+    static const int kFace[4] = {padviz::S_A, padviz::S_B, padviz::S_X, padviz::S_Y};
     const uint32_t chipBg = 0xE0000000u | padviz::PackBgr(padviz::g_pressRGB);
     const float top = y + pad;
     for (int i = 0; i < n; ++i) {
