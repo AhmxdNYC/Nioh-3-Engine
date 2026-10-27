@@ -531,7 +531,6 @@ float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight,
     // same panel colour + gold edge as the mod menu (menu_style kPanelBgSide / kAccent), rounded like it (#38505)
     const float r = PanelRadius(sc);
     DrawRoundRect(x, y, w, h, r, Fade(0x73140F0Cu, alpha));
-    DrawRoundEdge(x, y, w, h, r, std::max(2.0f, sc * 1.5f), Fade(0xFF5AC8F0u, alpha));
     for (int i = 0; i < count; ++i) {
         float cx = x + pad;
         for (int k = 0; k < lines[i].n; ++k) cx = AddText(cx, y + pad + i * lineH, lines[i].s[k].t, Fade(lines[i].s[k].c, alpha), sc);
