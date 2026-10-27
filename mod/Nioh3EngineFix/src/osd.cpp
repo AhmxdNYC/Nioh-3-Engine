@@ -83,7 +83,9 @@ constexpr uint32_t kRvaUpscaler = 0x45BAFF8;     // RESOLUTION_SCALING 0 OFF, 1 
 constexpr int kSlotPresent = 8, kSlotPresent1 = 22, kSlotSetColorSpace1 = 38;
 
 constexpr int kRing = 4;          // command allocators / instance regions in flight
-constexpr int kMaxInst = 4096;    // quads per frame (counter + popup + mod menu)
+constexpr int kMaxInst = 32768;   // quads per frame (counter + popup + pad/input history + mod menu); the input history's AA
+                                  // stroke glyphs / arrows / face rings are 1 px DrawRect runs (thousands of quads per frame)
+constexpr int kMenuReserve = 8192;  // quads kept free for the mod menu group (drawn last): earlier groups stop at kMaxInst - this
 constexpr UINT kInstBytes = 40;   // float4 rect + uint glyph + uint color + float4 uv (sprites)
 constexpr UINT kFontCb = 6144;    // 95 glyphs * 16 rows * 4 B = 6080, rounded to 256
 constexpr UINT kSlotBytes = kMaxInst * kInstBytes;
@@ -429,6 +431,7 @@ struct Inst {
 static_assert(sizeof(Inst) == kInstBytes, "instance layout");
 Inst g_inst[kMaxInst];
 int g_n = 0;
+int g_cap = kMaxInst;      // AddQuad limit: kMaxInst - kMenuReserve while the groups before the menu are built
 int g_nMain = 0;          // quads [0, g_nMain) use the counter scale, [g_nMain, g_n) the menu scale
 float g_menuScale = 0;    // text scale of the menu quads (0 = none this frame)
 int g_nPad = 0;           // padviz.h controller display: quads [g_nMain, g_nPad) use g_padScale, [g_nPad, g_n) the menu scale
@@ -466,7 +469,7 @@ struct Line {
 
 void AddQuad(float x, float y, float w, float h, uint32_t glyph, uint32_t color, float u0 = 0, float v0 = 0, float u1 = 0,
              float v1 = 0) {
-    if (g_n >= kMaxInst) return;
+    if (g_n >= g_cap) return;
     g_inst[g_n++] = {x, y, w, h, glyph, color, u0, v0, u1, v1};
 }
 
@@ -568,6 +571,7 @@ float FadeAlphaAt(int64_t now) {  // 0..255
 
 void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_n = 0;
+    g_cap = kMaxInst - kMenuReserve;
     if (g_fadeActive) {
         const float fa = FadeAlphaAt(now);
         if (fa >= 0.5f) AddQuad(0, 0, (float)W, (float)H, kSolid, (uint32_t)std::min(255.0f, fa + 0.5f) << 24);
@@ -753,6 +757,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         }
     }
     g_nPad = g_n;
+    g_cap = kMaxInst;  // the menu may use the reserve
     g_menuScale = menu::Draw(W, H);  // mod menu / pause hint / hold indicator (menu.cpp), drawn at its own scale
     if (g_menuScale <= 0) g_n = g_nPad;
 }
