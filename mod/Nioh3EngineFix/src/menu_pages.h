@@ -24,7 +24,7 @@ static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu i
 static_assert(kPsRowFirst + kPsToggleN <= kMenuRowCap, "top and frame meter rows must fit the menu id cap");
 static_assert(kCloseTopRow < kMenuRowCap, "top rows must fit the menu id cap");
 static_assert(kKiWindowRow < kMenuRowCap, "ki window row must fit the menu id cap");
-const char* const kPageNames[] = {"Mod menu", "Settings", "Display Overlays", "Frame Gen", "Load / Auto",
+const char* const kPageNames[] = {"Mod menu", "Optimizations", "Display Overlays", "Frame Gen", "Load / Auto",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section",
     "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game"};

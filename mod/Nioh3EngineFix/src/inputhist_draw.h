@@ -64,7 +64,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     const float h = (float)rows * rowH + 2.0f * pad;
     if (right) x -= w;
 
-    menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f);
+    menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false);  // #38452: no gold top line
 
     Entry e[kMaxRows];
     const int n = Snapshot(e, rows);
@@ -76,7 +76,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     const float top = y + pad;
     for (int i = 0; i < n; ++i) {
         const float ry = top + (float)i * rowH;
-        if (i & 1) osd::DrawRect(x + 2.0f, ry, w - 4.0f, rowH, 0x20FFFFFFu);
+        if (i & 1) osd::DrawRect(x + 2.0f, ry, w - 4.0f, rowH, 0x0CFFFFFFu);  // #38452: alternating row only slightly lighter
         const uint64_t t1 = i == 0 ? nowMs : e[i - 1].t0;
         char buf[8];
         snprintf(buf, sizeof buf, "%d", Frames(e[i].t0, t1));

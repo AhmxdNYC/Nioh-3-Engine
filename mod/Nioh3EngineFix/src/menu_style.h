@@ -44,14 +44,14 @@ inline float OpenFade(uint64_t nowMs) {
 }
 
 // panel body with a 1 px outline and a 2 px gold line on top
-inline void Panel(float x, float y, float w, float h, float s, uint32_t bg, float a) {
+inline void Panel(float x, float y, float w, float h, float s, uint32_t bg, float a, bool accentLine = true) {
     const float px = s < 1.0f ? 1.0f : (float)(int)(s * 0.75f + 0.5f);
     osd::DrawRect(x, y, w, h, Fade(bg, a));
     osd::DrawRect(x, y, w, px, Fade(kBorder, a));
     osd::DrawRect(x, y + h - px, w, px, Fade(kBorder, a));
     osd::DrawRect(x, y + px, px, h - 2 * px, Fade(kBorder, a));
     osd::DrawRect(x + w - px, y + px, px, h - 2 * px, Fade(kBorder, a));
-    osd::DrawRect(x, y, w, 2 * px, Fade(kAccent, a));
+    if (accentLine) osd::DrawRect(x, y, w, 2 * px, Fade(kAccent, a));
 }
 
 // selected row: soft gold wash plus a solid stripe on the left edge

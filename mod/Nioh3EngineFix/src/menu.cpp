@@ -738,7 +738,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
-    {"Settings page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Gameplay / Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
+    {"Optimizations page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Gameplay / Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
     {"Auto-click loading screen", "(AutoContinueLoad)", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
@@ -2699,7 +2699,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const int pg = g_sel - kPageRow;
         const char* w = pg == pDisplay ? "Display overlays: controller overlay, frame meter, input display, FPS counter and status readouts, loading-screen auto-click."
             : pg == pCamera ? "Camera settings: motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
-            : pg == pSettings ? "Performance settings only: CPU, GPU, Game and Frame Gen."
+            : pg == pSettings ? "Optimizations only: CPU, GPU, Game and Frame Gen."
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
             : pg == pOvInput ? "Input display: the vertical input history, its side and row count."
