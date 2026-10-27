@@ -82,6 +82,37 @@ def dualsense():
     return (807, 651), S
 
 
+# human: the DualSense face buttons in clean saturated PlayStation colours (the greyscale pass made them near-white discs and the
+# pressed ones a white flash). Built from the resting sprite's shape: its alpha, and the glyph = the dark lines inside the face.
+PS_FACE_RGB = {"A": (66, 135, 255), "B": (255, 64, 64), "X": (255, 105, 200), "Y": (40, 215, 140)}  # cross, circle, square, triangle
+
+
+def ps_face(src, rgb, lit):
+    """58x58 face button: dark disc, grey rim, coloured glyph; pressed: the rim and a tint of the disc in the colour too."""
+    from PIL import ImageFilter
+    w, h = src.size
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    glyph = Image.new("L", src.size)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = src.getpixel((x, y))
+            if a and math.hypot(x - cx, y - cy) < 21.0:  # inside the light face (rim ring starts at ~22)
+                glyph.putpixel((x, y), max(0, min(255, int((222 - r) * 255 / (222 - 88)))))
+    glyph = glyph.filter(ImageFilter.MaxFilter(3))  # bolder lines, readable at overlay size like the Xbox letters
+    dark, rim = (30, 30, 34), (96, 96, 102)
+    out = Image.new("RGBA", src.size)
+    for y in range(h):
+        for x in range(w):
+            a = src.getpixel((x, y))[3]
+            if not a:
+                continue
+            d = math.hypot(x - cx, y - cy)
+            base = (rgb if lit else rim) if d >= 21.0 else tuple(int(dk * 0.65 + c * 0.35) for dk, c in zip(dark, rgb)) if lit else dark
+            k = glyph.getpixel((x, y)) / 255.0
+            out.putpixel((x, y), tuple(int(bc * (1 - k) + c * k + 0.5) for bc, c in zip(base, rgb)) + (a,))
+    return out
+
+
 def svg(name, box=None):
     import resvg_py
     png = bytes(resvg_py.svg_to_bytes(svg_path=str(ASSETS / "xbox" / f"{name}.svg")))
@@ -195,6 +226,9 @@ def main():
                     kw, kh = S[key][0].size
                     out_l.paste(tone.crop((kx, ky, kx + kw, ky + kh)), (kx, ky))
             atlas = Image.merge("RGBA", (out_l, out_l, out_l, atlas.getchannel("A")))
+            for key, rgb in PS_FACE_RGB.items():  # human: coloured PS face buttons (resting sprite shape for both states)
+                for lit in (False, True):
+                    atlas.paste(ps_face(S[key][0], rgb, lit), place[key + ("_LIT" if lit else "")])
         out = ASSETS / f"atlas_{name}.png"
         atlas.save(out, optimize=True)
         raw = out.read_bytes()

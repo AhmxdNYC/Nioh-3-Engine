@@ -14,10 +14,10 @@ namespace inputhist {
 // ---- settings (menu.cpp: ini + menu rows) ----
 inline volatile int g_on = 0;    // default OFF
 inline volatile int g_side = 0;  // 0 left (below the FPS overlay), 1 right
-inline volatile int g_rows = 12; // visible history rows, kMinRows..kMaxRows
-constexpr int kMinRows = 4, kMaxRows = 24;
+inline volatile int g_rows = 20; // visible history rows, kMinRows..kMaxRows (human: longer history, was 12 / max 24)
+constexpr int kMinRows = 4, kMaxRows = 32;
 
-constexpr int kCap = 32;  // ring capacity (>= kMaxRows + 1 so the oldest visible row always has its end time)
+constexpr int kCap = 40;  // ring capacity (>= kMaxRows + 1 so the oldest visible row always has its end time)
 
 enum Dir : uint8_t { N = 0, U, UR, R, DR, D, DL, L, UL };  // numpad-style order, clockwise from up
 enum Btn : uint16_t { bA = 1, bB = 2, bX = 4, bY = 8, bLB = 16, bRB = 32, bLT = 64, bRT = 128 };

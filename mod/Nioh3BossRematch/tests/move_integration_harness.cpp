@@ -117,20 +117,20 @@ int main() {
     CHECK(!UiBack() && g_uiPages.page == uRoot);
     // Practice hub: Train here / arena / Training Bosses / Summon / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
-    list(); CHECK(n == 10 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_FRAME_METER && items[4] == kItPstBase + PS_TIME_OF_DAY && items[5] == kItPstBase + PS_WEATHER && items[6] == kItPstResetFight && items[7] == kItBossSumm && items[8] == kItRootRematch && items[9] == kItBack);
-    CHECK(shown("Frame meter:", "OFF")); g_sel = 3; CHECK(!UiAct() && pst[7] == 1 && shown("Frame meter:", "ON")); UiChange(-1); CHECK(pst[7] == 0);  // Practice frame meter row
+    list(); CHECK(n == 9 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_TIME_OF_DAY && items[4] == kItPstBase + PS_WEATHER && items[5] == kItPstResetFight && items[6] == kItBossSumm && items[7] == kItRootRematch && items[8] == kItBack);
+    CHECK(!has(kItPstBase + PS_FRAME_METER) && !has(kItPstAllRows) && !has(kItPstAllKeys) && !shown("Frame meter:"));  // frame meter: Display Overlays only
     {   // user #22942 Time of day / Weather: Stock by default, 30-min steps, Stock at the left end, saved
         CHECK(shown("Time of day:", "Stock") && shown("Weather:", "Stock")); const int p1 = pstPersist;
-        g_sel = 4; UiChange(1); CHECK(pst[12] == 1 && shown("Time of day:", "00:00") && pstPersist == p1 + 1);
+        g_sel = 3; UiChange(1); CHECK(pst[12] == 1 && shown("Time of day:", "00:00") && pstPersist == p1 + 1);
         UiChange(1); CHECK(pst[12] == 2 && shown("Time of day:", "00:30")); UiChange(-1); UiChange(-1); CHECK(pst[12] == 0 && shown("Time of day:", "Stock")); UiChange(-1); CHECK(pst[12] == 0);
         pst[12] = 25; CHECK(shown("Time of day:", "12:00")); UiChange(1); CHECK(pst[12] == 26 && shown("Time of day:", "12:30")); pst[12] = 48; CHECK(shown("Time of day:", "23:30")); UiChange(1); CHECK(pst[12] == 48); pst[12] = 0;
-        g_sel = 5; UiChange(1); CHECK(pst[13] == 1 && shown("Weather:", "Clear")); UiChange(1); UiChange(1); UiChange(1); UiChange(1); CHECK(pst[13] == 5 && shown("Weather:", "Snow")); UiChange(1); CHECK(pst[13] == 5);
+        g_sel = 4; UiChange(1); CHECK(pst[13] == 1 && shown("Weather:", "Clear")); UiChange(1); UiChange(1); UiChange(1); UiChange(1); CHECK(pst[13] == 5 && shown("Weather:", "Snow")); UiChange(1); CHECK(pst[13] == 5);
         UiChange(-1); CHECK(shown("Weather:", "Storm")); pst[13] = 0; CHECK(shown("Weather:", "Stock"));
     }
-    CHECK(shown("Reset fight")); g_sel = 6; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
+    CHECK(shown("Reset fight")); g_sel = 5; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
     CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
     sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
-    CHECK(n == 8 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_FRAME_METER && items[2] == kItPstBase + PS_TIME_OF_DAY);
+    CHECK(n == 7 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_TIME_OF_DAY);
     sessionActive = 0; list();
     // Training Bosses: Boss A row, Summon another boss, timer, Remove all (A listed), no old duplicate rows
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
@@ -327,7 +327,7 @@ int main() {
         CHECK(!has(kItPstBase + PS_BOSS_KI_DRAIN) && !has(kItPstBase + PS_DMG_TAKEN) && !has(kItPstBase + PS_BOSS_SPEED) && has(kItPstBase + PS_PLAYER_INF_KI) && has(kItPstBase + PS_DMG_DEALT));
         CHECK(!has(kItPstBase + PS_ONE_HIT_KI) && !has(kItPstBase + PS_HOLD_KI_BREAK) && at(kItPstBase + PS_KI_DEALT) == at(kItPstBase + PS_DMG_DEALT) + 1);  // user #22588
         CHECK(has(kItPstBase + PS_PLAYER_INF_NIN) && has(kItPstBase + PS_PLAYER_SPEED) && items[n - 1] == kItBack);
-        CHECK(has(kItPstBase + PS_PLAYER_METER) && shown("Player frame meter:", "OFF")); g_sel = at(kItPstBase + PS_PLAYER_METER); CHECK(!UiAct() && pst[10] == 1 && shown("Player frame meter:", "ON")); UiChange(-1); CHECK(pst[10] == 0);  // user #22796
+        CHECK(!has(kItPstBase + PS_PLAYER_METER) && !shown("Player frame meter:"));  // frame meter: Display Overlays only
         CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage I deal:", "x1.00"));
         g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);
         g_sel = at(kItPstBase + PS_DMG_DEALT); for (int i = 0; i < 20; ++i) UiChange(1);

@@ -38,18 +38,14 @@ int PstSet(int what, int value) {
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED); add(kItPstBase + PS_PLAYER_METER);
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
-// Practice hub row 'Frame meter' (PS_FRAME_METER, Nioh3Training frame_meter_game.h): an older Training answers -1 and the row says so.
+// Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
+// Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
 template <class Add> void PstAddHubRows(Add&& add) {
-    if (PstAvailable()) { add(kItPstBase + PS_FRAME_METER); add(kItPstBase + PS_TIME_OF_DAY); add(kItPstBase + PS_WEATHER); }  // user #22942
+    if (PstAvailable()) { add(kItPstBase + PS_TIME_OF_DAY); add(kItPstBase + PS_WEATHER); }  // user #22942
     if (TrainingExport("Nioh3Training_PracticeFreeze")) { add(kItPstFreeze); add(kItPstStep); }  // user #22589
     if (TrainingExport("Nioh3Training_ResetFight")) add(kItPstResetFight);
-    if (PstAvailable() && PstGet(PS_KEY_IFR) >= 0) {  // human #38180: frame meter rows + KEY entries (older Training: not listed)
-        add(kItPstAllRows); add(kItPstBase + PS_FRAME_PROW); add(kItPstBase + PS_FRAME_IFR);
-        add(kItPstAllKeys);
-        for (int w = PS_KEY_STARTUP; w <= PS_KEY_IFR; ++w) add(kItPstBase + w);
-    }
 }
 // 'Reset fight': bosses full HP/Ki + back at their start, player full HP/Ki + back at the Practice start (Nioh3Training_ResetFight, bit mask 1/2/4/8).
 void PstResetFight() {

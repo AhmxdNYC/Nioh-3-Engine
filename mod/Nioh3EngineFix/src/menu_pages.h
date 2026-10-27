@@ -12,14 +12,17 @@ constexpr int kBackRow = kPageRow + pCount;
 constexpr int kSettingRow = kBackRow + 1;
 constexpr int kRematchRow = kSettingRow + kConfigN;
 constexpr int kPracticeRow = kRematchRow + 1;  // user #13223: first page = Settings / Boss Matches (#13293 rename) / Practice
-constexpr int kFrameMeterRow = kPracticeRow + 1;  // #34265: Gameplay / Overlays toggle; Practice menu keeps its own row
+constexpr int kFrameMeterRow = kPracticeRow + 1;  // #34265: Display Overlays > Frame meter settings (the only frame meter toggle)
 constexpr int kKiWindowRow = kFrameMeterRow + 1;  // #34558: dark-blue Ki window on the player frame meter
 constexpr int kModMenuRow = kKiWindowRow + 1;  // #38077: first row of every page: jump to the menu's top-level page
 constexpr int kCloseTopRow = kKiWindowRow + 2;  // #38077: second row of every page: close the menu
 constexpr int kReportRow = kKiWindowRow + 3;  // #38437: third always-visible top row: state snapshot + report website
 constexpr int kPsToggleN = 16;                // #38437: Training frame-meter toggles (menu.cpp kPsToggles) as rows of the Frame meter page
 constexpr int kPsRowFirst = kReportRow + 1;
+constexpr int kPsAllRowsRow = kPsRowFirst + kPsToggleN;  // 'All frame rows' master (moved here from Practice, human #38180 rows)
+constexpr int kPsAllKeysRow = kPsAllRowsRow + 1;         // 'All key indicators' master
 constexpr int kMenuRowCap = kPsRowFirst + kPsToggleN + 4;
+static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
 static_assert(kPsRowFirst + kPsToggleN <= kMenuRowCap, "top and frame meter rows must fit the menu id cap");
 static_assert(kCloseTopRow < kMenuRowCap, "top rows must fit the menu id cap");

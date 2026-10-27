@@ -824,12 +824,12 @@ bool OverlayRow(int id) {
            id == kHint || id == kPerfNote || id == kAutoCont || id == kFgState || id == kUpscaler || id == kXTS || id == kXWS;
 }
 
-// PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
+// PS_FRAME_METER is index 7 in Nioh3Training. Its only menu row is Display Overlays > Frame meter settings.
 constexpr int kFrameMeterWhat = 7;
 constexpr int kKiWindowWhat = 21;  // PS_KI_WINDOW in Nioh3Training (#34558)
 int (*g_pstGet)(int) = nullptr;
 int (*g_pstSet)(int, int, int) = nullptr;
-char g_frameMeterNote[200] = "Boss frame meter. The Practice menu has this toggle too. Needs Nioh3Training.";
+char g_frameMeterNote[200] = "Boss frame meter. Needs Nioh3Training.";
 char g_kiWindowNote[220] = "Dark blue on the player frame meter while the Ki window is open (about half a second after an attack). Needs Nioh3Training.";
 void ResolveFrameMeter() {
     if (g_pstGet && g_pstSet) return;
@@ -853,8 +853,7 @@ void ChangeFrameMeter() {
     }
     const int v = g_pstSet(kFrameMeterWhat, -1, 1);  // -1 flips; Training saves its own ini
     if (v < 0) snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), "Needs a Nioh3Training.asi with the frame meter.");
-    else snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), v ? "Frame meter ON. Saved in Training. The Practice menu toggle still works."
-                                                                  : "Frame meter OFF. Saved in Training. The Practice menu toggle still works.");
+    else snprintf(g_frameMeterNote, sizeof(g_frameMeterNote), v ? "Frame meter ON. Saved in Training." : "Frame meter OFF. Saved in Training.");
 }
 int KiWindowGet() {
     ResolveFrameMeter();
@@ -904,6 +903,27 @@ void ChangePs(int index) {
     const int v = g_pstSet ? g_pstSet(t.what, -1, 1) : -1;
     if (v < 0) snprintf(g_psNote, sizeof(g_psNote), "Needs a Nioh3Training.asi with this switch.");
     else snprintf(g_psNote, sizeof(g_psNote), "%s %s. Saved in Training.", t.label, v ? "ON" : "OFF");
+}
+// 'All frame rows' / 'All key indicators' masters (were Practice hub rows, human #38180): same Training settings
+// as the Practice masters were. State 1 = all ON, 0 = all OFF, 2 = mixed, -1 = Training missing or too old.
+constexpr int kPsRowSet[] = {7, 10, 23, 22};                       // boss meter, player meter, Player row, I-frame lane
+constexpr int kPsKeySet[] = {18, 24, 25, 26, 27, 28, 29, 30, 31, 32};  // legend + every KEY entry group
+int PsMasterState(bool keys) {
+    const int* set = keys ? kPsKeySet : kPsRowSet;
+    const int n = keys ? (int)(sizeof(kPsKeySet) / sizeof(*kPsKeySet)) : (int)(sizeof(kPsRowSet) / sizeof(*kPsRowSet));
+    int on = 0, off = 0;
+    for (int i = 0; i < n; ++i) { const int v = PsGet(set[i]); if (v < 0) return -1; (v ? on : off)++; }
+    return !off ? 1 : !on ? 0 : 2;
+}
+void ChangePsMaster(bool keys, int dir) {
+    const int st = PsMasterState(keys);
+    if (st < 0 || !g_pstSet) { snprintf(g_psNote, sizeof(g_psNote), "Needs a newer Nioh3Training.asi."); return; }
+    const int want = dir > 0 ? 1 : dir < 0 ? 0 : st == 1 ? 0 : 1;
+    const int* set = keys ? kPsKeySet : kPsRowSet;
+    const int n = keys ? (int)(sizeof(kPsKeySet) / sizeof(*kPsKeySet)) : (int)(sizeof(kPsRowSet) / sizeof(*kPsRowSet));
+    for (int i = 0; i < n; ++i) g_pstSet(set[i], want, 1);
+    snprintf(g_psNote, sizeof(g_psNote), keys ? "All key indicators %s (the KEY under the meter and every entry). Saved in Training."
+                                              : "All frame rows %s (boss, player, i-frames). Saved in Training.", want ? "ON" : "OFF");
 }
 
 // #38437 Report row: write a state snapshot beside the crash reports, copy the report website to the clipboard
@@ -966,8 +986,12 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pOvFrameMeter) {
             add(kFrameMeterRow);
+            add(kPsAllRowsRow);
             add(kKiWindowRow);
-            for (int i = 0; i < kPsToggleN; ++i) add(kPsRowFirst + i);
+            for (int i = 0; i < kPsToggleN; ++i) {
+                if (i == 7) add(kPsAllKeysRow);  // before 'Key: Startup' (kPsToggles[7])
+                add(kPsRowFirst + i);
+            }
             add(kBackRow);
             return n;
         }
@@ -1555,6 +1579,7 @@ void Change(int id, int dir) {
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
+    if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
@@ -2606,6 +2631,15 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, v > 0 ? cGreen : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kPsAllRowsRow || id == kPsAllKeysRow) {
+            if (id == g_sel) selRow = nb;
+            const int st = PsMasterState(id == kPsAllKeysRow);
+            char lab[96];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kPsAllKeysRow ? "All key indicators" : "All frame rows");
+            put(body, nb, 128, lab, "", st < 0 ? "needs Training" : st == 2 ? "MIXED" : st ? "ON" : "OFF", id == g_sel ? cWhite : cGray,
+                st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kFrameMeterRow) {
             if (id == g_sel) selRow = nb;
             char text[48];
@@ -2689,9 +2723,13 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
+    } else if (g_sel == kPsAllRowsRow || g_sel == kPsAllKeysRow) {
+        snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : g_sel == kPsAllKeysRow ? "Turns the KEY under the meter and all of its entries ON or OFF together. The Key rows below switch single entries."
+            : "Turns the frame-meter rows (boss, player, i-frames) ON or OFF together. The rows below keep only some.");
+        snprintf(effect, sizeof(effect), "A flips; Left = all OFF, Right = all ON. Needs Nioh3Training. Training saves it.");
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
-        snprintf(effect, sizeof(effect), "Same switch as Practice > Frame meter. Training saves it. FPS and the controller display are on this page too.");
+        snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "On by default. Off hides the dark blue and leaves the other frame-meter colors. Training saves it.");
@@ -2996,7 +3034,7 @@ void Configure(const Host& h) {
     inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"InputDisplaySide", L"Left", b, 96, f);
     inputhist::g_side = !_wcsicmp(b, L"Right") ? 1 : 0;
-    inputhist::g_rows = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"InputDisplayRows", 12, f), inputhist::kMinRows, inputhist::kMaxRows);
+    inputhist::g_rows = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"InputDisplayRows", 20, f), inputhist::kMinRows, inputhist::kMaxRows);
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);
     padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);

@@ -2607,7 +2607,7 @@ int Items(int* out, int cap) {
         if (!inArena) add(kItArenas);
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
-        PstAddHubRows(add);  // Practice frame meter
+        PstAddHubRows(add);  // Time of day / Weather / Freeze / Reset fight
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
         add(kItBack);

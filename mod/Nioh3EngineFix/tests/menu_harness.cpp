@@ -55,10 +55,10 @@ int MatchPreset() { return 0; }
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
-int g_fm = 0, g_kw = 0;
-int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : -1; }
+int g_fm = 0, g_kw = 0, g_psv[33] = {};  // g_psv: the other Training switches (frame-meter master rows)
+int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : what >= 0 && what < 33 ? g_psv[what] : -1; }
 int HarnessPstSet(int what, int value, int) {
-    int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : nullptr;
+    int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : what >= 0 && what < 33 ? &g_psv[what] : nullptr;
     if (!p) return -1;
     *p = value < 0 ? !*p : (value ? 1 : 0);
     return *p;
@@ -135,10 +135,20 @@ int main() {
     {
         g_pages.page = pOvFrameMeter;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 2 + kPsToggleN + 1 && rows[3] == kFrameMeterRow && rows[4] == kKiWindowRow && rows[5] == kPsRowFirst && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
+        CHECK(n == 3 + 4 + kPsToggleN + 1 && rows[3] == kFrameMeterRow && rows[4] == kPsAllRowsRow && rows[5] == kKiWindowRow && rows[6] == kPsRowFirst &&
+              rows[13] == kPsAllKeysRow && rows[14] == kPsRowFirst + 7 && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
     }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
+    // the masters moved from Practice: Right = all ON, Left = all OFF (the boss meter is in the rows set)
+    Change(kPsAllRowsRow, 1);
+    CHECK(g_fm == 1 && PsMasterState(false) == 1);
+    Change(kPsAllRowsRow, -1);
+    CHECK(g_fm == 0 && PsMasterState(false) == 0);
+    g_psv[24] = 1;
+    CHECK(PsMasterState(true) == 2);
+    Change(kPsAllKeysRow, 0);
+    CHECK(PsMasterState(true) == 1 && g_psv[18] == 1 && g_psv[32] == 1 && g_psv[10] == 0);
     g_fm = 0;
     Change(kFrameMeterRow, 0);
     CHECK(g_fm == 1);

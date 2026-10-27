@@ -52,13 +52,18 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
 // Returns the text scale used (the caller sets the quad group's shader scale to it), 0 = nothing drawn.
+// the panel may grow down to kBottomFrac of the screen height: below that sit the game's own bottom HUD widgets (items / ninjutsu
+// shortcuts, boss HP bar), so a long history never covers them. Depends only on the screen size and the panel's top, so the panel
+// height stays fixed while inputs change.
+constexpr float kBottomFrac = 0.80f;
 inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t nowMs, int style) {
     using namespace inputhist;
     (void)W;
-    const int rows = std::clamp((int)g_rows, kMinRows, kMaxRows);
     const float sc = std::max(0.5f, std::floor((float)H / 1080.0f * 1.5f * 8.0f) / 8.0f);
     const float cw = (float)osd::kGlyphW * sc, th = (float)osd::kGlyphH * sc;
     const float rowH = std::floor(22.0f * sc), pad = std::floor(6.0f * sc), icon = std::floor(rowH * 0.8f);
+    const int fit = (int)std::floor(((float)H * kBottomFrac - y - 2.0f * pad) / rowH);
+    const int rows = std::clamp(std::min((int)g_rows, fit), kMinRows, kMaxRows);
     const float numW = 2.0f * cw, chipW = 2.0f * cw + pad, slotW = std::max(icon, chipW) + std::floor(pad * 0.5f);
     const float w = pad + numW + std::floor(pad * 1.5f) + icon + pad + (float)kSlots * slotW + pad;
     const float h = (float)rows * rowH + 2.0f * pad;
