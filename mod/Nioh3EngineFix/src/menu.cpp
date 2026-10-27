@@ -2912,7 +2912,7 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (!g_cfg.layout && g_sel >= kPageRow && g_sel < kBackRow) {
         const int pg = g_sel - kPageRow;
         const char* w = pg == pDisplay ? "Display: overlays, FPS, time of day, weather and loading-screen auto-click."
-            : pg == pCamera ? "Camera settings: turn / move the camera, return to default, motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
+            : pg == pCamera ? "Camera settings: lens adjustment, return to the native camera, and motion blur / depth of field / bloom options."
             : pg == pSettings ? "Optimizations only: CPU, GPU, Game and Frame Gen."
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
