@@ -948,6 +948,14 @@ int PsGet(int what) {
     return g_pstGet ? g_pstGet(what) : -1;
 }
 constexpr int kFrameMeterStyleWhat = 33; // append-only Training PracticeStat ABI
+constexpr int kFrameMeterSizeWhat = 34;
+void ChangeFrameMeterSize(int dir) {
+    const int cur=PsGet(kFrameMeterSizeWhat);
+    if(cur<0 || !g_pstSet){snprintf(g_psNote,sizeof g_psNote,"Needs Training with ring sizes.");return;}
+    const int next=dir?std::clamp(cur+(dir>0?1:-1),0,2):(cur+1)%3;
+    const int v=g_pstSet(kFrameMeterSizeWhat,next,1);
+    snprintf(g_psNote,sizeof g_psNote,v<0?"Could not change ring size.":"Ring size saved in Training.");
+}
 void ChangeFrameMeterStyle(int dir) {
     const int cur = PsGet(kFrameMeterStyleWhat);
     if (cur < 0 || !g_pstSet) {
@@ -1077,6 +1085,7 @@ int PageRowsBody(int* out, bool selectable) {
         if (pg == pOvFrameMeter) {
             add(kFrameMeterRow);
             add(kFrameMeterStyleRow);
+            add(kFrameMeterSizeRow);
             add(kPsAllRowsRow);
             add(kKiWindowRow);
             for (int i = 0; i < kPsToggleN; ++i) {
@@ -1754,6 +1763,7 @@ void Change(int id, int dir) {
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst, dir); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kFrameMeterStyleRow) { ChangeFrameMeterStyle(dir); return; }
+    if (id == kFrameMeterSizeRow) { ChangeFrameMeterSize(dir); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
     if (id >= kCount) {
@@ -2879,6 +2889,14 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, on ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kFrameMeterSizeRow) {
+            if(id==g_sel)selRow=nb;
+            const int v=PsGet(kFrameMeterSizeWhat);
+            put(body,nb,128,id==g_sel?"> Ring size":"  Ring size","",
+                v<0?"needs newer Training":v==0?"< Small >":v==1?"< Medium >":"< Large >",
+                id==g_sel?cWhite:cGray,cGray,id==g_sel,false);
+            continue;
+        }
         if (id == kFrameMeterStyleRow) {
             if (id == g_sel) selRow = nb;
             const int v = PsGet(kFrameMeterStyleWhat);
@@ -2977,6 +2995,9 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : g_sel == kPsAllKeysRow ? "Turns the KEY under the meter and all of its entries ON or OFF together. The Key rows below switch single entries."
             : "Turns the frame-meter rows (boss, player, i-frames) ON or OFF together. The rows below keep only some.");
         snprintf(effect, sizeof(effect), "A flips; Left = all OFF, Right = all ON. Needs Nioh3Training. Training saves it.");
+    } else if (g_sel == kFrameMeterSizeRow) {
+        snprintf(what,sizeof what,"Size of the circular frame meter: Small, Medium or Large.");
+        snprintf(effect,sizeof effect,"Small is the compact default. Row layout is unchanged. Saved in Training.");
     } else if (g_sel == kFrameMeterStyleRow) {
         snprintf(what, sizeof(what), "Row bars or separate PLAYER and BOSS rings. Same lanes, colours, Ki marks and legend.");
         snprintf(effect, sizeof(effect), "Left: Row. Right: Ring. A / Enter switches. Saved in Training. %s", g_psNote);

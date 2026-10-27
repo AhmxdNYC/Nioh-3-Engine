@@ -17,6 +17,7 @@ static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, 
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
     if (what == PS_FRAME_STYLE) return "FrameMeterStyle";
+    if (what == PS_FRAME_SIZE) return "FrameMeterRingSize";
     if (what == PS_KI_WINDOW) return "KiWindow";
     if (what == PS_FRAME_IFR) return "FrameMeterIFrames";
     if (what >= PS_FRAME_PROW) { static const char* const k[] = {"FrameMeterPlayerRow", "FrameMeterKeyStartup", "FrameMeterKeyActive", "FrameMeterKeyRecovery", "FrameMeterKeyUnblockable", "FrameMeterKeyGrab", "FrameMeterKeyOther", "FrameMeterKeyTiming", "FrameMeterKeyKi", "FrameMeterKeyIFrames"}; return k[what - PS_FRAME_PROW]; }

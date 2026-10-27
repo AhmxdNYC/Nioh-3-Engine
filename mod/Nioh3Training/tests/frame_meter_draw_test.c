@@ -72,8 +72,8 @@ static uint32_t AtLane(Canvas* c,int H,int player,int lane,int cell) {
     CHECK(cx+p.x>=0&&cx+p.x<c->w&&cy+p.y>=0&&cy+p.y<c->h);
     return c->bits[(cy+p.y)*c->w+cx+p.x];
 }
-static void Pixels(int w,int H) {
-    Seed();g_pst.v[PS_FRAME_STYLE]=1;Canvas c=Make(w,FmDrawHeight(w,H));Draw(&c,H);
+static void Pixels(int w,int H,int size) {
+    Seed();g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_SIZE]=size;Canvas c=Make(w,FmDrawHeight(w,H));Draw(&c,H);
     CHECK(g_fm_ringMesh.pixels && g_fm_ringMesh.pixelN>0);
     int feathered[2]={0};
     for(int i=0;i<g_fm_ringMesh.pixelN;++i){const FmRingPixel p=g_fm_ringMesh.pixels[i];
@@ -113,7 +113,7 @@ static void Pixels(int w,int H) {
         }
         CHECK((mask&4)?(AtLane(&c,H,0,1,53)>>24)>FM_BG_ALPHA:(AtLane(&c,H,0,1,53)>>24)==FM_BG_ALPHA);
     }
-    Seed();g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_METER]=0;Draw(&c,H);
+    Seed();g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_SIZE]=size;g_pst.v[PS_FRAME_METER]=0;Draw(&c,H);
     CHECK(HasColor(AtLane(&c,H,1,0,8),FmColor(FM_STARTUP))); // lone player centres
     CHECK(!FmKiShown());
     for(size_t i=0;i<(size_t)c.w*c.h;++i) {uint32_t p=c.bits[i],a=p>>24;
@@ -142,8 +142,14 @@ int main(int argc,char** argv) {
     CHECK(FmRingBlend(0xff000000,0x00ff00,128)==0xff008000);
     CHECK(FmRingBlend(0x0010151e,0xff0000,128)==0xb9830407); // premultiplied shared-panel edge
     CacheEquivalence();
+    Seed();g_pst.v[PS_FRAME_STYLE]=1;
+    int previous=0;
+    for(int size=0;size<3;++size){g_pst.v[PS_FRAME_SIZE]=size;FmRingLayout g=FmRingGeom(1920,1080);
+        CHECK(g.d>previous);previous=g.d;CHECK(g.thick>0 && g.gap>0);}
+    g_pst.v[PS_FRAME_STYLE]=0;g_pst.v[PS_FRAME_SIZE]=0;int rowHeight=FmDrawHeight(1920,1080);
+    g_pst.v[PS_FRAME_SIZE]=2;CHECK(FmDrawHeight(1920,1080)==rowHeight);
     const int sizes[][2]={{800,600},{1280,720},{1920,1080},{2560,1440},{3840,2160}};
-    for(int i=0;i<5;++i)Pixels(sizes[i][0],sizes[i][1]);
+    for(int i=0;i<5;++i)for(int size=0;size<3;++size)Pixels(sizes[i][0],sizes[i][1],size);
     Seed();const int n=FmLegendCount();CHECK(n==18);
     for(int k=PS_KEY_STARTUP;k<=PS_KEY_IFR;++k){g_pst.v[k]=0;CHECK(FmLegendCount()<n);g_pst.v[k]=1;}
     for(int style=0;style<2;++style){g_pst.v[PS_FRAME_STYLE]=style;
@@ -159,6 +165,9 @@ int main(int argc,char** argv) {
     if(argc>1 && !strcmp(argv[1],"--preview-only")) {
         for(int style=0;style<2;++style){g_pst.v[PS_FRAME_STYLE]=style;Canvas c=Make(1920,FmDrawHeight(1920,1080));
             Draw(&c,1080);Save(&c,style?"ring-preview.bmp":"row-preview.bmp");Drop(&c);}
+        for(int size=0;size<3;++size){g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_SIZE]=size;
+            Canvas c=Make(1920,FmDrawHeight(1920,1080));char file[48];snprintf(file,sizeof file,"ring-size-%d.bmp",size);
+            Draw(&c,1080);Save(&c,file);Drop(&c);}
         printf("ALL PASSED: %d production renderer assertions; previews saved\n",assertions);return 0;
     }
     if(argc>1 && !strcmp(argv[1],"--check-only")) {

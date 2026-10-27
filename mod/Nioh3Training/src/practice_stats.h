@@ -34,8 +34,8 @@
 enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_NEG_KI_METER = 17, PS_FRAME_LEGEND = 18, PS_FRAME_READOUT = 19, PS_FRAME_KI = 20, PS_KI_WINDOW = 21, PS_FRAME_IFR = 22,
        // human #38180 frame-meter visibility: PLAYER row + one key (legend) entry group each, all default ON
        PS_FRAME_PROW = 23, PS_KEY_STARTUP = 24, PS_KEY_ACTIVE = 25, PS_KEY_RECOVERY = 26, PS_KEY_UNBLOCK = 27, PS_KEY_GRAB = 28, PS_KEY_OTHER = 29, PS_KEY_TIMING = 30, PS_KEY_KI = 31, PS_KEY_IFR = 32,
-       PS_FRAME_STYLE = 33, PS_N = 34 }; // append-only ABI: 0 Row (default), 1 Ring
-static inline int PstIsToggle(int what) { return what >= PS_FRAME_PROW || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
+       PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_N = 35 }; // append-only ABI: 0 Row (default), 1 Ring
+static inline int PstIsToggle(int what) { return (what >= PS_FRAME_PROW && what <= PS_FRAME_STYLE) || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
 static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }
@@ -44,11 +44,12 @@ enum { PS_WX_STOCK = 0, PS_WX_CLEAR = 1, PS_WX_OVERCAST = 2, PS_WX_RAIN = 3, PS_
 static inline int PstClamp(int what, int v) {
     const int sp = what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED;
     const int lo = sp || what == PS_DMG_DEALT ? 10 : 0;
-    const int hi = PstIsToggle(what) ? 1 : what == PS_TIME_OF_DAY ? PS_TOD_STEPS : what == PS_WEATHER ? PS_WX_N - 1 : sp ? 300 : 1000;
+    const int hi = what == PS_FRAME_SIZE ? 2 : PstIsToggle(what) ? 1 : what == PS_TIME_OF_DAY ? PS_TOD_STEPS : what == PS_WEATHER ? PS_WX_N - 1 : sp ? 300 : 1000;
     return v < lo ? lo : v > hi ? hi : v;
 }
 // Left / Right steps of the menu sliders (A on an ON/OFF row flips it).
 static inline int PstStep(int what, int v, int dir) {
+    if(what == PS_FRAME_SIZE) return dir ? PstClamp(what,v+(dir>0?1:-1)) : (PstClamp(what,v)+1)%3;
     static const int dmg[] = {0, 10, 25, 50, 75, 100, 125, 150, 200, 300, 500, 1000};  // PS_DMG_DEALT starts at 10 (PstClamp); PS_KI_DEALT / PS_DMG_TAKEN at 0
     static const int drain[] = {0, 5, 10, 20, 30, 50, 100, 200, 500, 1000};  // Ki per second (a boss's max Ki is ~1000)
     static const int spd[] = {10, 25, 50, 75, 100, 125, 150, 200, 300};

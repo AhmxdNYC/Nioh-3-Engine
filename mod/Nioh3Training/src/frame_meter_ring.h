@@ -7,7 +7,9 @@ static FmRingLayout FmRingGeom(int w, int H) {
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int panelW=cw*FM_DISPLAY_CELLS+lh*3+pad*2;
     FmRingLayout g;
-    g.d=H*260/1080; if(g.d<180)g.d=180; if(g.d>512)g.d=512;
+    const int size=PstClamp(PS_FRAME_SIZE,g_pst.v[PS_FRAME_SIZE]);
+    const int diameter[]={160,210,260},minimum[]={128,154,180};
+    g.d=H*diameter[size]/1080; if(g.d<minimum[size])g.d=minimum[size]; if(g.d>512)g.d=512;
     if(g.d>(panelW-lh*2)/2)g.d=(panelW-lh*2)/2;
     if(g.d<64)g.d=64;
     g.thick=bh; if(g.thick>g.d/9)g.thick=g.d/9;
@@ -199,6 +201,8 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
         int cw=(int)((g.d-g.thick)*3.14159265f/FM_DISPLAY_CELLS);if(cw<6)cw=6;
         FmCheck(dc,cx+mesh->mid[i].x-cw/2,cy+mesh->mid[i].y-g.thick/2,cw,g.thick);
     }
+    const int oldLabelPx=g_fm_fontPx;
+    if(g_fm_fontPx>g.d/12)g_fm_fontPx=g.d/12;
     const int px=g_fm_fontPx;
     const char* actor=player?"PLAYER":"BOSS";
     FmLabel(dc,cx-(int)strlen(actor)*N3StrokeWidth(px)/2,cy-px,actor,RGB(240,243,249));
@@ -210,6 +214,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
         const char* label=player?"I-FR":g_fm_ki_label;
         FmLabel(dc,cx-(int)strlen(label)*N3StrokeWidth(px)/2,cy+px,label,RGB(145,159,181));
     }
+    g_fm_fontPx=oldLabelPx;
 }
 static int FmRings(HDC dc,int w,int H,int oy,const FmMeter* player,const FmMeter* boss,const FmKi* ki) {
     int cw,bh,lh,pad;FmGeom(w,H,&cw,&bh,&lh,&pad);

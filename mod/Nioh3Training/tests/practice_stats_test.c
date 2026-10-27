@@ -8,6 +8,11 @@
 #include "../src/practice_stats.h"
 int main(void) {
     PstCfg c; PstDefaults(&c);
+    assert(PS_FRAME_SIZE==34 && c.v[PS_FRAME_SIZE]==0 && !PstIsToggle(PS_FRAME_SIZE));
+    assert(PstClamp(PS_FRAME_SIZE,-5)==0 && PstClamp(PS_FRAME_SIZE,9)==2);
+    for(int i=0;i<3;++i)assert(PstFromIni(PS_FRAME_SIZE,PstToIni(PS_FRAME_SIZE,i))==i);
+    assert(PstStep(PS_FRAME_SIZE,0,1)==1 && PstStep(PS_FRAME_SIZE,1,1)==2);
+    assert(PstStep(PS_FRAME_SIZE,2,1)==2 && PstStep(PS_FRAME_SIZE,0,-1)==0 && PstStep(PS_FRAME_SIZE,2,0)==0);
     assert(PS_FRAME_STYLE==33 && c.v[PS_FRAME_STYLE]==0);
     assert(PstStep(PS_FRAME_STYLE,0,1)==1 && PstStep(PS_FRAME_STYLE,1,-1)==0);
     assert(PstStep(PS_FRAME_STYLE,0,0)==1 && PstClamp(PS_FRAME_STYLE,9)==1);
@@ -52,14 +57,14 @@ int main(void) {
     assert(!PstPlayerKiRefill(0, 10, 100) && PstPlayerKiRefill(1, 10, 100) && !PstPlayerKiRefill(1, 100, 100) && !PstPlayerKiRefill(1, 99.8f, 100));
     assert(!PstPlayerKiRefill(1, 0, 0) && !PstPlayerKiRefill(1, 0, 1e9f) && !PstPlayerKiRefill(1, 0, -5));  // garbage read: no write
     // boss speed + infinite ninjutsu
-    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 34);
+    assert(c.v[PS_BOSS_SPEED] == 100 && c.v[PS_PLAYER_INF_NIN] == 0 && PS_N == 35);
     assert(PstClamp(PS_BOSS_SPEED, 0) == 10 && PstClamp(PS_BOSS_SPEED, 999) == 300 && PstClamp(PS_PLAYER_INF_NIN, 7) == 1);
     assert(PstStep(PS_BOSS_SPEED, 100, 1) == 125 && PstStep(PS_BOSS_SPEED, 100, -1) == 75 && PstStep(PS_BOSS_SPEED, 10, -1) == 10 && PstStep(PS_BOSS_SPEED, 300, 1) == 300);
     assert(PstStep(PS_PLAYER_INF_NIN, 0, 0) == 1 && PstStep(PS_PLAYER_INF_NIN, 1, 0) == 0);
     assert(PstSpeedScale(100, 1.0f) == 1.0f && PstSpeedScale(50, 1.0f) == 0.5f && PstSpeedScale(200, 0.75f) == 1.5f);
     assert(PstSpeedScale(50, 0.0f) == 0.0f /* hit-stop stays 0 */ && PstSpeedScale(50, -1.0f) == -1.0f && PstSpeedScale(50, 1e9f) == 1e9f);
     assert(PstNinjutsuFill(1, 10, 100) && !PstNinjutsuFill(0, 10, 100) && !PstNinjutsuFill(1, 100, 100) && !PstNinjutsuFill(1, 0, 0) && !PstNinjutsuFill(1, 0, 1e9f));
-    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 34 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
+    assert(c.v[PS_PLAYER_SPEED] == 100 && PS_N == 35 && PstClamp(PS_PLAYER_SPEED, 0) == 10 && PstClamp(PS_PLAYER_SPEED, 999) == 300);
     assert(PstStep(PS_PLAYER_SPEED, 100, 1) == 125 && PstStep(PS_PLAYER_SPEED, 100, -1) == 75 && PstStep(PS_PLAYER_SPEED, 300, 1) == 300);
     // damage multiplier by attacker side: player hits -> dealt, Training boss hits -> boss, everyone else x1
     assert(PstDmgPct(1, 0, 0, 200, 50) == 200 && PstDmgPct(0, 1, 1, 200, 50) == 50 && PstDmgPct(0, 1, 0, 200, 50) == 50);
