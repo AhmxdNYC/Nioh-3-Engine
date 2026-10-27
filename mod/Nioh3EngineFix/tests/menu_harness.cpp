@@ -219,6 +219,30 @@ int main() {
         CHECK(g_pages.page == pRoot && g_open);
         g_open = wasOpen; g_pages.Reset(); g_sel = TopLevelSel();
     }
+    // Camera controls write the real probe keys, preserve the other axis, and reset both.
+    {
+        wchar_t temp[MAX_PATH], folder[MAX_PATH];
+        GetTempPathW(MAX_PATH, temp); GetTempFileNameW(temp, L"cam", 0, folder);
+        DeleteFileW(folder); CHECK(CreateDirectoryW(folder, nullptr));
+        const auto savedIni = g_ini;
+        g_ini = std::wstring(folder) + L"\\EngineFix.ini";
+        const auto probe = CamIniPath();
+        WritePrivateProfileStringW(L"CamKiProbe", L"CamOffsetUp", L"80", probe.c_str());
+        Change(kCamRowFirst + kCamRight, -1);
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetRight", 999, probe.c_str()) == -20);
+        CHECK(g_camUp == 80.f);
+        for (int i = 0; i < 30; ++i) Change(kCamRowFirst + kCamRight, 1);
+        CHECK(g_camRight == 400.f);
+        Change(kCamRowFirst + kCamUp, -1); CHECK(g_camUp == 60.f);
+        Change(kCamRowFirst + kCamRight, 0); CHECK(g_camRight == 0.f && g_camUp == 60.f);
+        Change(kCamRowFirst + kCamReset, 0);
+        CHECK(!CamAny());
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetUp", 999, probe.c_str()) == 0);
+        CHECK(GetPrivateProfileIntW(L"CamKiProbe", L"CamOffsetRight", 999, probe.c_str()) == 0);
+        CHECK(has(pCamera, kCamRowFirst + kCamRight) && has(pCamera, kCamRowFirst + kCamUp));
+        CHECK(!has(pCamera, kCamRowFirst + kCamLeft) && !has(pCamera, kCamRowFirst + kCamFwd));
+        DeleteFileW(probe.c_str()); RemoveDirectoryW(folder); g_ini = savedIni;
+    }
     // Settings: CPU / GPU / Game / Frame Gen, performance only
     g_pages.Reset();
     {

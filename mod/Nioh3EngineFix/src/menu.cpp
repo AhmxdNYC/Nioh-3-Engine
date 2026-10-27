@@ -1079,7 +1079,7 @@ int PageRowsBody(int* out, bool selectable) {
             return n;
         }
         if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
-            for (int i : {kCamLensNarrow, kCamLensWide, kCamReset}) add(kCamRowFirst + i);  // #39310: only implemented camera controls; offset backend pending
+            for (int i : {kCamRight, kCamUp, kCamLensNarrow, kCamLensWide, kCamReset}) add(kCamRowFirst + i);
             if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
@@ -1643,23 +1643,32 @@ void ChangeConfig(int index, int dir) {
     MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
 }
 
-// Camera probe 1.0.20 implements CamDist and CamFovDeg only. Legacy yaw/pitch rows stay hidden
-// until a real offset backend lands (#39310); the probe ignores those keys. Missing keys release
-// overrides to native camera computation. No stick input is simulated.
-constexpr float kCamDistDefault = 629.f, kCamDistStep = 60.f, kCamDistMin = 50.f, kCamDistMax = 4000.f;  // probe range 50..4000
+// Real camera offsets are applied by CamKiProbe 1.0.21; no stick simulation.
 constexpr float kCamFovDefault = 47.5f, kCamFovStep = 5.f, kCamFovMin = 20.f, kCamFovMax = 90.f;
-constexpr float kCamAngStep = 15.f, kCamYawLim = 180.f, kCamPitchLim = 80.f;
-float g_camDist = 0.f, g_camFov = 0.f;  // 0 = not set (game default)
-float g_camYaw = 0.f, g_camPitch = 0.f;
-bool g_camYawOn = false, g_camPitchOn = false;
+float g_camDist = 0.f, g_camFov = 0.f;
+float g_camRight = 0.f, g_camUp = 0.f;
 char g_camNote[160] = "";
-
-bool CamAny() { return g_camDist > 0.f || g_camFov > 0.f || g_camYawOn || g_camPitchOn; }
+std::wstring CamIniPath() {
+    const size_t slash = g_ini.find_last_of(L"\\/");
+    return (slash == std::wstring::npos ? L"" : g_ini.substr(0, slash + 1)) + L"Nioh3CamKiProbe.ini";
+}
+void CamReadIni() {
+    if (g_ini.empty()) return;
+    const auto p = CamIniPath();
+    auto read = [&](const wchar_t* key, float lo, float hi) {
+        wchar_t v[64]; GetPrivateProfileStringW(L"CamKiProbe", key, L"0", v, 64, p.c_str());
+        float f = (float)_wtof(v);
+        return std::isfinite(f) ? std::min(hi, std::max(lo, f)) : 0.f;
+    };
+    g_camRight = read(L"CamOffsetRight", -400.f, 400.f);
+    g_camUp = read(L"CamOffsetUp", -400.f, 400.f);
+    g_camDist = read(L"CamDist", 0.f, 4000.f);
+    g_camFov = read(L"CamFovDeg", 0.f, 90.f);
+}
+bool CamAny() { return g_camDist > 0.f || g_camFov > 0.f || g_camRight != 0.f || g_camUp != 0.f; }
 void CamWriteIni() {
     if (g_ini.empty()) return;
-    std::wstring p = g_ini;
-    const size_t slash = p.find_last_of(L"\\/");
-    p = (slash == std::wstring::npos ? L"" : p.substr(0, slash + 1)) + L"Nioh3CamKiProbe.ini";
+    const auto p = CamIniPath();
     wchar_t v[32];
     auto put = [&](const wchar_t* key, bool on, float val, const wchar_t* fmt) {
         swprintf(v, 32, fmt, val);
@@ -1667,33 +1676,25 @@ void CamWriteIni() {
     };
     put(L"CamDist", g_camDist > 0.f, g_camDist, L"%.0f");
     put(L"CamFovDeg", g_camFov > 0.f, g_camFov, L"%.1f");
-    put(L"CamYawDeg", g_camYawOn, g_camYaw, L"%.0f");
-    put(L"CamPitchDeg", g_camPitchOn, g_camPitch, L"%.0f");
+    put(L"CamOffsetRight", true, g_camRight, L"%.0f");
+    put(L"CamOffsetUp", true, g_camUp, L"%.0f");
 }
-void ChangeCamera(int which) {
+void ChangeCamera(int which, int dir) {
+    CamReadIni();
     auto clampf = [](float v, float lo, float hi) { return std::min(hi, std::max(lo, v)); };
-    if (which == kCamLeft || which == kCamRight) {
-        g_camYaw = clampf(g_camYaw + (which == kCamLeft ? -kCamAngStep : kCamAngStep), -kCamYawLim, kCamYawLim);
-        g_camYawOn = true;
-        snprintf(g_camNote, sizeof(g_camNote), "Camera yaw %.0f deg (applies within 2 s; needs Nioh3CamKiProbe.asi 1.0.20+).", g_camYaw);
-    } else if (which == kCamUp || which == kCamDown) {
-        g_camPitch = clampf(g_camPitch + (which == kCamUp ? kCamAngStep : -kCamAngStep), -kCamPitchLim, kCamPitchLim);
-        g_camPitchOn = true;
-        snprintf(g_camNote, sizeof(g_camNote), "Camera pitch %.0f deg (applies within 2 s; needs Nioh3CamKiProbe.asi 1.0.20+).", g_camPitch);
-    } else if (which == kCamFwd || which == kCamBack) {
-        float d = g_camDist > 0.f ? g_camDist : kCamDistDefault;
-        d += which == kCamFwd ? -kCamDistStep : kCamDistStep;
-        g_camDist = clampf(d, kCamDistMin, kCamDistMax);
-        snprintf(g_camNote, sizeof(g_camNote), "Camera distance %.0f (applies within 2 s; needs Nioh3CamKiProbe.asi 1.0.20+).", g_camDist);
+    if (which == kCamRight || which == kCamUp) {
+        float& value = which == kCamRight ? g_camRight : g_camUp;
+        value = dir == 0 ? 0.f : clampf(value + dir * 20.f, -400.f, 400.f);
+        snprintf(g_camNote, sizeof(g_camNote), "Camera %s offset %+.0f (applies within 2 s).", which == kCamRight ? "left/right" : "down/up", value);
     } else if (which == kCamLensNarrow || which == kCamLensWide) {
         float f = g_camFov > 0.f ? g_camFov : kCamFovDefault;
         f += which == kCamLensWide ? kCamFovStep : -kCamFovStep;
         g_camFov = clampf(f, kCamFovMin, kCamFovMax);
-        snprintf(g_camNote, sizeof(g_camNote), "Camera lens %.1f deg (applies within 2 s; needs Nioh3CamKiProbe.asi 1.0.20+).", g_camFov);
-    } else {
-        g_camDist = 0.f; g_camFov = 0.f; g_camYaw = 0.f; g_camPitch = 0.f; g_camYawOn = g_camPitchOn = false;
-        snprintf(g_camNote, sizeof(g_camNote), "Camera yaw, pitch, distance and lens back to the game's default (applies within 2 s).");
-    }
+        snprintf(g_camNote, sizeof(g_camNote), "Camera lens %.1f deg (applies within 2 s).", g_camFov);
+    } else if (which == kCamReset && dir == 0) {
+        g_camDist = g_camFov = g_camRight = g_camUp = 0.f;
+        snprintf(g_camNote, sizeof(g_camNote), "Camera offsets, distance and lens back to the game's default (within 2 s).");
+    } else return;
     CamWriteIni();
 }
 
@@ -1717,7 +1718,7 @@ void Change(int id, int dir) {
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
-    if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst); return; }
+    if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst, dir); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
@@ -1863,6 +1864,7 @@ void NormKey(const char* s, char* out, size_t n) {  // drop parentheses / spaces
 int FindItem(const char* key) {
     char want[48], have[48];
     NormKey(key, want, sizeof(want));
+    if (!strcmp(want, "AUTOCONTINUELOAD")) return kAutoCont;
     if (!strcmp(want, "FPS")) return kFps;
     if (!strcmp(want, "FRAMETIME")) return kFrameTime;
     if (!strcmp(want, "SPEED")) return kSpeed;
@@ -2794,14 +2796,15 @@ float DrawImpl(unsigned W, unsigned H) {
             continue;
         }
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
+            CamReadIni();
             if (id == g_sel) selRow = nb;
-            static const char* const kCamLabels[kCamRowN] = {"Camera left from default", "Camera right from default", "Camera up from default", "Camera down from default", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
+            static const char* const kCamLabels[kCamRowN] = {"Camera left from default", "Camera left / right", "Camera down / up", "Camera down from default", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
             char lab[96], text[40];
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
             bool on = false;
-            if (k == kCamLeft || k == kCamRight) { on = g_camYawOn; snprintf(text, sizeof(text), on ? "yaw %.0f" : "game default", g_camYaw); }
-            else if (k == kCamUp || k == kCamDown) { on = g_camPitchOn; snprintf(text, sizeof(text), on ? "pitch %.0f" : "game default", g_camPitch); }
+            if (k == kCamLeft || k == kCamRight) { on = g_camRight != 0.f; snprintf(text, sizeof(text), on ? "%+.0f" : "game default", g_camRight); }
+            else if (k == kCamUp || k == kCamDown) { on = g_camUp != 0.f; snprintf(text, sizeof(text), on ? "%+.0f" : "game default", g_camUp); }
             else if (k == kCamFwd || k == kCamBack) { on = g_camDist > 0.f; snprintf(text, sizeof(text), on ? "distance %.0f" : "game default", g_camDist); }
             else if (k == kCamLensNarrow || k == kCamLensWide) { on = g_camFov > 0.f; snprintf(text, sizeof(text), on ? "lens %.1f" : "game default", g_camFov); }
             else { on = CamAny(); snprintf(text, sizeof(text), "%s", on ? "A: reset" : "default"); }
@@ -2904,8 +2907,8 @@ float DrawImpl(unsigned W, unsigned H) {
             : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
-        snprintf(what, sizeof(what), "Adjusts the real camera lens in 5 degree steps. Return to default releases saved overrides so the game recomputes its own camera.");
-        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Needs Nioh3CamKiProbe.asi 1.0.20+; nothing is saved to the game.");
+        snprintf(what, sizeof(what), "Left / Right moves the real camera in 20-unit steps; A resets that axis. Return to default restores all camera settings.");
+        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Real camera offsets and lens; applies within 2 s. Nothing is saved to the game.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");
