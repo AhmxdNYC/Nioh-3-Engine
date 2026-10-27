@@ -11,7 +11,7 @@
 namespace menu_style {
 
 // ---- palette: dark slate panel, warm gold accent (matches the game's own UI gold) -------------------------------------
-constexpr uint32_t kPanelBg     = 0xD8140F0C;  // body: near-black slate, translucent
+constexpr uint32_t kPanelBg     = 0xC0140F0C;  // one shared translucency for every mod panel (#38305)
 constexpr uint32_t kPanelBgSide = 0xC0140F0C;  // side panel: lighter so the arena shows through
 constexpr uint32_t kTitleBg     = 0xF01C1A16;  // title bar
 constexpr uint32_t kFooterBg    = 0x90000000;  // footer band (hint line)

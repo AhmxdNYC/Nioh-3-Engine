@@ -39,7 +39,7 @@ struct State {
 // ---- settings (menu.cpp: ini + menu rows) ----
 inline volatile int g_on = 0;
 inline volatile int g_size100 = 100;      // size x100: 50..400
-inline volatile int g_opacity100 = 45;    // opacity x100: 20..100
+inline volatile int g_opacity100 = 75;    // opacity x100: 20..100
 inline volatile uint32_t g_pressRGB = 0x00FFFFFFu;  // colour of pressed (solid) parts, 0x00RRGGBB; white = the art as drawn (user #23367)
 inline volatile int g_posX = 0;           // horizontal position, % of the free screen width: 0 = left .. 100 = right
 inline volatile int g_posY = 0;           // vertical position, % of the free height below the default top spot: 0 = top .. 100 = bottom
