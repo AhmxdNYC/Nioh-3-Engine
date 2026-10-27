@@ -1,4 +1,4 @@
-// Nioh3CamKiProbe. F7 is read-only. An ini can lock distance, yaw, and pitch.
+// Nioh3CamKiProbe. F7 is read-only. An ini can set distance, lens, and a right/up camera position offset.
 // F7: snapshot A (stick LEFT), B (stick RIGHT), C (stick STILL), then a diff.
 // F8: dump the Ki-pulse ring after about 10 R1 pulses.
 // Log: Nioh3CamKiProbe.log next to this ASI.
@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.20-camki-blend";
+static const char* kVer = "1.0.21-camki-offset";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -1874,6 +1874,158 @@ static int HookFov(uint64_t base) {
     return 1;
 }
 
+/*
+ * Camera position offset (CamOffsetRight / CamOffsetUp).
+ * 2aeaa8 ends by filling its output camera (rsi = param_2, the manager camera at mgr+30): +10 eye, +20 target,
+ * +30 up, +140..+150 lens, then calls 243ed0(out, 1, 1), which builds the view matrices from those fields
+ * (call at rva 2afc54, return 2afc59). 243ed0 is shared by many cameras, so the hook only acts when its return
+ * address is 2afc59. Eye and target both move by the same vector, so the view direction (yaw/pitch) is unchanged.
+ * Nothing in the camera's own state (cam+10/+20/+270/+310, 2ab9f8 does not read the output) is touched, so there
+ * is no feedback: with both offsets at 0 the hook writes nothing and the game camera is the native one.
+ */
+static const uintptr_t kOutFn = 0x243ed0;
+static const uintptr_t kOutRet = 0x2afc59;
+static const float kOffMax = 400.f;
+static uint8_t* g_outStub;
+static int g_outTries;
+static uint64_t g_outRetAbs;
+static volatile LONG g_outCalls;
+static volatile LONG g_outWrites;
+static volatile float g_offRightSet;
+static volatile float g_offUpSet;
+static float g_offRight;
+static float g_offUp;
+static volatile float g_offEyeSeen[3];
+static volatile float g_offRightSeen;
+static volatile float g_offUpSeen;
+
+static float Ease(float cur, float want) {
+    float d = want - cur;
+    if (d < 0.5f && d > -0.5f) return want;
+    return cur + d * 0.2f;
+}
+
+static void OutTouch(uint8_t* out, uint64_t* retSlot) {
+    float eye[4], tgt[4], f[3], r[3], u[3], len, d[3];
+    LONG n;
+    if (!retSlot || !g_outRetAbs || *retSlot != g_outRetAbs) return;
+    InterlockedIncrement(&g_outCalls);
+    g_offRight = Ease(g_offRight, g_offRightSet);
+    g_offUp = Ease(g_offUp, g_offUpSet);
+    g_offRightSeen = g_offRight;
+    g_offUpSeen = g_offUp;
+    if (g_offRight == 0.f && g_offUp == 0.f) return;
+    if (!Rd((uintptr_t)(out + 0x10), eye, 16) || !Rd((uintptr_t)(out + 0x20), tgt, 16)) return;
+    if (!Fin3(eye) || !Fin3(tgt)) return;
+    f[0] = tgt[0] - eye[0];
+    f[1] = tgt[1] - eye[1];
+    f[2] = tgt[2] - eye[2];
+    len = sqrtf(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+    if (!(len > 1.0f)) return;
+    f[0] /= len; f[1] /= len; f[2] /= len;
+    /* right = forward x worldUp (horizontal), up = worldUp with the forward part removed. */
+    r[0] = -f[2]; r[1] = 0.f; r[2] = f[0];
+    len = sqrtf(r[0] * r[0] + r[2] * r[2]);
+    if (len < 0.01f) return;
+    r[0] /= len; r[2] /= len;
+    u[0] = -f[0] * f[1]; u[1] = 1.f - f[1] * f[1]; u[2] = -f[2] * f[1];
+    len = sqrtf(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+    if (len < 0.01f) return;
+    u[0] /= len; u[1] /= len; u[2] /= len;
+    d[0] = r[0] * g_offRight + u[0] * g_offUp;
+    d[1] = r[1] * g_offRight + u[1] * g_offUp;
+    d[2] = r[2] * g_offRight + u[2] * g_offUp;
+    eye[0] += d[0]; eye[1] += d[1]; eye[2] += d[2];
+    tgt[0] += d[0]; tgt[1] += d[1]; tgt[2] += d[2];
+    if (!Wr((uintptr_t)(out + 0x10), eye, 12) || !Wr((uintptr_t)(out + 0x20), tgt, 12)) return;
+    g_offEyeSeen[0] = eye[0];
+    g_offEyeSeen[1] = eye[1];
+    g_offEyeSeen[2] = eye[2];
+    n = InterlockedIncrement(&g_outWrites);
+    if (n <= 3 || n == 600) {
+        Log("OFFSET fire n=%ld out=%llx right %.1f up %.1f fwd %.3f %.3f %.3f rightv %.3f %.3f eye now %.1f %.1f %.1f",
+            (long)n, (unsigned long long)(uintptr_t)out, g_offRight, g_offUp, f[0], f[1], f[2], r[0], r[2],
+            eye[0], eye[1], eye[2]);
+    }
+}
+
+static int HookOut(uint64_t base) {
+    static const uint8_t kHead[15] = {
+        0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x32, 0xC0, 0x41, 0x8A, 0xF8
+    };
+    static const uint8_t kCall[5] = { 0xE8, 0x77, 0x42, 0xF9, 0xFF };
+    uint8_t* site;
+    uint8_t* stub;
+    uint8_t have[15], call[5];
+    DWORD old = 0;
+    int n = 0;
+    uint64_t back, stubAddr, fn;
+    if (!base || g_outStub || g_outTries) return 0;
+    g_outTries = 1;
+    site = (uint8_t*)(base + kOutFn);
+    memset(have, 0, sizeof have);
+    memset(call, 0, sizeof call);
+    if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
+        Log("OFFSET bytes differ at 243ed0. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
+        return 0;
+    }
+    if (!Rd((uintptr_t)(base + kOutRet - 5), call, 5) || memcmp(call, kCall, 5) != 0) {
+        Log("OFFSET call site 2afc54 differs. %02X%02X%02X%02X%02X hook skipped", call[0], call[1], call[2], call[3], call[4]);
+        return 0;
+    }
+    stub = (uint8_t*)VirtualAlloc(0, 256, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!stub) return 0;
+    memset(stub, 0, 256);
+    stub[n++] = 0x51; stub[n++] = 0x52;
+    stub[n++] = 0x41; stub[n++] = 0x50;
+    stub[n++] = 0x41; stub[n++] = 0x51;
+    stub[n++] = 0x48; stub[n++] = 0x81; stub[n++] = 0xEC; stub[n++] = 0x88; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x44; stub[n++] = 0x24; stub[n++] = 0x20;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x4C; stub[n++] = 0x24; stub[n++] = 0x30;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x54; stub[n++] = 0x24; stub[n++] = 0x40;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x5C; stub[n++] = 0x24; stub[n++] = 0x50;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x64; stub[n++] = 0x24; stub[n++] = 0x60;
+    stub[n++] = 0x0F; stub[n++] = 0x29; stub[n++] = 0x6C; stub[n++] = 0x24; stub[n++] = 0x70;
+    stub[n++] = 0x48; stub[n++] = 0x8D; stub[n++] = 0x94; stub[n++] = 0x24; stub[n++] = 0xA8; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
+    stub[n++] = 0x48; stub[n++] = 0x8B; stub[n++] = 0x8C; stub[n++] = 0x24; stub[n++] = 0xA0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
+    stub[n++] = 0x48; stub[n++] = 0xB8;
+    fn = (uint64_t)&OutTouch;
+    memcpy(stub + n, &fn, 8);
+    n += 8;
+    stub[n++] = 0xFF; stub[n++] = 0xD0;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x44; stub[n++] = 0x24; stub[n++] = 0x20;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x4C; stub[n++] = 0x24; stub[n++] = 0x30;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x54; stub[n++] = 0x24; stub[n++] = 0x40;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x5C; stub[n++] = 0x24; stub[n++] = 0x50;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x64; stub[n++] = 0x24; stub[n++] = 0x60;
+    stub[n++] = 0x0F; stub[n++] = 0x28; stub[n++] = 0x6C; stub[n++] = 0x24; stub[n++] = 0x70;
+    stub[n++] = 0x48; stub[n++] = 0x81; stub[n++] = 0xC4; stub[n++] = 0x88; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
+    stub[n++] = 0x41; stub[n++] = 0x59;
+    stub[n++] = 0x41; stub[n++] = 0x58;
+    stub[n++] = 0x5A; stub[n++] = 0x59;
+    memcpy(stub + n, kHead, 15);
+    n += 15;
+    stub[n++] = 0xFF; stub[n++] = 0x25; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
+    back = base + kOutFn + 15;
+    memcpy(stub + n, &back, 8);
+    g_outRetAbs = base + kOutRet;
+    if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
+        Log("OFFSET protect failed %lu", GetLastError());
+        return 0;
+    }
+    site[0] = 0xFF; site[1] = 0x25;
+    site[2] = site[3] = site[4] = site[5] = 0;
+    stubAddr = (uint64_t)stub;
+    memcpy(site + 6, &stubAddr, 8);
+    site[14] = 0x90;
+    VirtualProtect(site, 16, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), site, 16);
+    FlushInstructionCache(GetCurrentProcess(), stub, 256);
+    g_outStub = stub;
+    Log("OFFSET hook installed. rva 243ed0, acts only for the return 2afc59 (third-person output camera). An OFFSET fire line is the proof it moved the eye.");
+    return 1;
+}
+
 static int IniFloat(const char* s, const char* key, float* out) {
     size_t n = strlen(key);
     float sign = 1.f, v = 0.f, div = 1.f;
@@ -1901,7 +2053,7 @@ static void LoadCamIni(void) {
     FILE* f;
     char line[160];
     int sawDist = 0, sawYaw = 0, sawPitch = 0, sawFov = 0;
-    float dist = 0.f, yaw = 0.f, pitch = 0.f, fov = 0.f;
+    float dist = 0.f, yaw = 0.f, pitch = 0.f, fov = 0.f, offR = 0.f, offU = 0.f;
     DWORD n;
     int distOn, yawOn, pitchOn, fovOn;
     n = GetModuleFileNameW(g_mod, path, MAX_PATH);
@@ -1921,6 +2073,8 @@ static void LoadCamIni(void) {
             if (IniFloat(line, "CamYawDeg", &yaw)) sawYaw = 1;
             if (IniFloat(line, "CamPitchDeg", &pitch)) sawPitch = 1;
             if (IniFloat(line, "CamFovDeg", &fov)) sawFov = 1;
+            IniFloat(line, "CamOffsetRight", &offR);
+            IniFloat(line, "CamOffsetUp", &offU);
         }
         fclose(f);
         distOn = sawDist && dist >= 50.f && dist <= 4000.f;
@@ -1937,6 +2091,12 @@ static void LoadCamIni(void) {
             pitchOn ? "" : "off ", pitchOn ? pitch : 0.f,
             fovOn ? "" : "off ", fovOn ? fov : 0.f);
     }
+    if (!(offR >= -kOffMax && offR <= kOffMax)) offR = offR > 0.f ? kOffMax : -kOffMax;
+    if (!(offU >= -kOffMax && offU <= kOffMax)) offU = offU > 0.f ? kOffMax : -kOffMax;
+    if (offR != g_offRightSet || offU != g_offUpSet)
+        Log("CAM ini offset right=%.1f up=%.1f%s", offR, offU, (offR == 0.f && offU == 0.f) ? " (released, native camera)" : "");
+    g_offRightSet = offR;
+    g_offUpSet = offU;
     g_distSet = distOn ? dist : 0.f;
     g_yawDeg = yawOn ? yaw : 0.f;
     g_pitchDeg = pitchOn ? pitch : 0.f;
@@ -2041,6 +2201,7 @@ static DWORD WINAPI Worker(LPVOID) {
     Log("Then attack, tap R1 at short gaps, and press F8. KiTick floats are status+0x98.");
     Log("Nioh3CamKiProbe.ini beside this ASI: CamDist 50..4000 (camera +B0), CamFovDeg 20..90 (camera +40, radians). A missing key stays on the game.");
     Log("CamYawDeg and CamPitchDeg are ignored in this build. +290/+294 are stick deltas, not angles.");
+    Log("CamOffsetRight / CamOffsetUp (world units, same as CamDist, -400..400): move the eye and target together along the camera right and up vectors at 243ed0 (return 2afc59). 0 or missing = native camera.");
     Log("Writes happen at the entry of 9565e4 (before the eye offset reads +B0) and again at the entry of 2b0e4c.");
     while (g_run) {
         uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
@@ -2049,6 +2210,7 @@ static DWORD WINAPI Worker(LPVOID) {
         if (base) HookOrbit(base);
         if (base) HookBlend(base);
         if (base) HookFov(base);
+        if (base) HookOut(base);
         if (GetTickCount() - iniBeat > 2000) {
             LoadCamIni();
             iniBeat = GetTickCount();
@@ -2089,6 +2251,9 @@ static DWORD WINAPI Worker(LPVOID) {
                 (long)fc, (long)(fc - prevFov), (long)fw,
                 (unsigned long long)g_fovCamSeen, TouchWord(g_fovSt), g_fovSeen,
                 TouchWord(g_copyFovSt), g_copyFovSeen);
+            Log("OFFSET calls=%ld writes=%ld set right %.1f up %.1f now right %.1f up %.1f eye %.1f %.1f %.1f",
+                (long)g_outCalls, (long)g_outWrites, g_offRightSet, g_offUpSet, g_offRightSeen, g_offUpSeen,
+                g_offEyeSeen[0], g_offEyeSeen[1], g_offEyeSeen[2]);
             LogBoom(base);
             LogChain(base);
             prevOrbit = oc;
@@ -2115,6 +2280,7 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
             if (base) HookOrbit(base);
             if (base) HookBlend(base);
             if (base) HookFov(base);
+            if (base) HookOut(base);
         }
         CreateThread(0, 0, Worker, 0, 0, 0);
     } else if (reason == DLL_PROCESS_DETACH) {
