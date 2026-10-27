@@ -3,7 +3,7 @@
 #include <string_view>
 namespace updatecheck {
 inline constexpr char kSite[] = "https://nioh3-mod-feedback.vercel.app";
-inline constexpr uint64_t kPollMs = 6ull * 60 * 60 * 1000;
+inline constexpr uint64_t kPollMs = 1ull * 60 * 60 * 1000;
 inline constexpr size_t kMaxBody = 512;
 struct Version { uint32_t part[3]{}; };
 inline bool ParseVersion(std::string_view s, Version& out, bool buildLabel = false) {

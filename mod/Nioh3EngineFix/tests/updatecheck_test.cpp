@@ -65,6 +65,7 @@ static int checks=0;
 static void reset(){response="{\"version\":\"1.8.0\"}";cursor=0;chunk=11;statusCode=200;calls=failAt=opened=closed=readFail=0;clockMs=100;deadline=false;}
 int main(){
  using namespace updatecheck;
+ static_assert(kPollMs == 3600000ull, "Release poll must be hourly"); // hourly release polling; allocation/thread backoff below remains 30 minutes
  Version v{};
  CHECK(ParseManifest(R"({"notes":"hello\nworld","url":"https://example.com","version":"1.8.0"})",v));
  CHECK(!ParseManifest(R"({"version":"1.8.0","notes":"x","notes":"y"})",v));
