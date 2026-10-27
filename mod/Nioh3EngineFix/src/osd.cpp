@@ -687,8 +687,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     // stack: counter first, popup next to it (below for top positions, above for bottom positions)
     const float x = right ? (float)W - margin - offX : margin + offX;
     const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
-    // #38195: top-left default sits at the same top Y as the right-side menu panel (menu.cpp y0 = 12 px); an explicit OffsetY still wins
-    float y = bottom ? (float)H - margin - offY : (g_cfg.offUser ? margin + offY : 12.0f);
+    float y = bottom ? (float)H - margin - offY : margin + offY;
     auto place = [&](const Line* l, int n, float a) {
         if (n <= 0) return;
         const float h = n * lineH + 2 * pad - 2 * sc;
