@@ -71,6 +71,24 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
     const float s = size / (float)std::max(r.w, r.h);
     const float ox = bx + (size - (float)r.w * s) * 0.5f - r.cx * s, oy = by + (size - (float)r.h * s) * 0.5f - r.cy * s;
     padviz::Layer(k, spriteId, ox, oy, s, 0.97f, 0, 0, 1, 1, 1, false);  // #38919: resting (unlit) sprite, no pressed tint
+    // #39159: no grey ring - the dark button fill is extended over the sprite's ring (annulus 0.82R..R repainted in the disc colour)
+    const float R = (float)std::max(r.w, r.h) * s * 0.5f, cx = bx + size * 0.5f, cy = by + size * 0.5f, ri = R * 0.82f;
+    const int n = (int)std::ceil(R) + 1;
+    for (int y = -n; y <= n; ++y) {
+        int runStart = 0, runQ = 0;
+        for (int x = -n; x <= n + 1; ++x) {
+            int q = 0;
+            if (x <= n) {
+                const float d = std::sqrt(((float)x + 0.5f) * ((float)x + 0.5f) + ((float)y + 0.5f) * ((float)y + 0.5f));
+                const float cov = std::min(1.0f, std::max(0.0f, R + 0.5f - d)) * std::min(1.0f, std::max(0.0f, d - ri + 0.5f));
+                q = (int)std::lround(cov * 8.0f);
+            }
+            if (q != runQ || x == n + 1) {
+                if (runQ > 0) osd::DrawRect(cx + (float)runStart, cy + (float)y, (float)(x - runStart), 1.0f, ((0xF8u * (uint32_t)runQ / 8u) << 24) | 0x001C1D22u);
+                runStart = x; runQ = q;
+            }
+        }
+    }
 }
 
 // stroke glyphs (approved art v7): digits, N and cap labels are unit-box segment sets drawn with the same anti-aliased rounded stroke as
@@ -110,37 +128,20 @@ inline void GlyphStr(const char* t, float cx, float top, float gh, bool center, 
 }
 
 // bumper / trigger cap (art v7): same shoulder shape, trigger just taller; outer top corner rounded, thin light outline, stroke label.
-inline void ShoulderCap(int style, int b, float bx, float top, float cw, float th) {  // b: 0 LB 1 RB 2 LT 3 RT
+inline void ShoulderCap(int style, int b, float bx, float cy, float icon) {  // b: 0 LB 1 RB 2 LT 3 RT
     namespace ms = menu_style;
     const bool trig = b >= 2, left = !(b & 1);
-    const float w = ms::Snap(3.2f * cw), h = ms::Snap(trig ? th * 1.45f : th), x0 = ms::Snap(bx), y0 = ms::Snap(top - (trig ? (h - th) * 0.5f : 0.0f));
-    const float r = std::floor(h * (trig ? 0.32f : 0.38f)), lw = std::max(1.2f, th * 0.085f);
+    const float w = ms::Snap(1.5f * icon), h = ms::Snap(trig ? icon : 0.62f * icon), x0 = ms::Snap(bx), y0 = ms::Snap(cy - h * 0.5f);  // #39172: sized to the face buttons (icon)
+    const float r = std::floor(h * (trig ? 0.32f : 0.38f));
     for (int rr = 0; rr < (int)h; ++rr) {  // fill, 1 px rows
         float in = 0.0f;
         if ((float)rr < r) { const float k = (r - ((float)rr + 0.5f)) / r; in = r * (1.0f - std::sqrt(std::max(0.0f, 1.0f - k * k))); }
         in = std::floor(in);
         osd::DrawRect(x0 + (left ? in : 0.0f), y0 + (float)rr, w - in, 1.0f, ms::kBumperBg);
     }
-    Seg4 sg[16]; int n = 0;
-    const float u = lw * 0.5f, W = w - lw, H = h - lw;  // outline centreline inset by half the weight
-    const float cr = r;
-    float pts[16][2]; int m = 0;
-    pts[m][0] = left ? 0.0f : W; pts[m][1] = H; ++m;                 // bottom outer
-    pts[m][0] = left ? 0.0f : W; pts[m][1] = cr; ++m;               // up to arc start
-    for (int k = 1; k <= 5; ++k) {                                  // arc
-        const float a = 1.5707963f * (float)k / 5.0f;
-        pts[m][0] = left ? cr - cr * std::cos(a) : W - cr + cr * std::cos(a);
-        pts[m][1] = cr - cr * std::sin(a);
-        ++m;
-    }
-    pts[m][0] = left ? W : 0.0f; pts[m][1] = 0.0f; ++m;             // top far corner
-    pts[m][0] = left ? W : 0.0f; pts[m][1] = H; ++m;                // bottom far
-    pts[m][0] = pts[0][0]; pts[m][1] = pts[0][1]; ++m;              // close
-    for (int i = 0; i + 1 < m && n < 16; ++i) sg[n++] = {pts[i][0] / W, pts[i][1] / H, pts[i + 1][0] / W, pts[i + 1][1] / H};
-    StrokeSegs(sg, n, x0 + u, y0 + u, W, H, lw, 0xFFEBECF0u);
     char t[3] = {b & 1 ? 'R' : 'L', 0, 0};
     t[1] = b >= 2 ? (style ? '2' : 'T') : (style ? '1' : 'B');
-    const float gh = std::floor(h * (trig ? 0.36f : 0.5f));
+    const float gh = std::floor(h * (trig ? 0.5f : 0.62f));
     GlyphStr(t, x0 + w * 0.5f, y0 + (h - gh) * 0.5f + h * 0.04f, gh, true, 0xFFEBECF0u);
 }
 
@@ -158,7 +159,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     const float rowH = std::floor(22.0f * sc), pad = std::floor(6.0f * sc), icon = std::floor(rowH * 0.8f);
     const int fit = (int)std::floor(((float)H * kBottomFrac - y - 2.0f * pad) / rowH);
     const int rows = std::clamp(std::min((int)g_rows, fit), kMinRows, kMaxRows);
-    const float numW = 2.0f * cw, chipW = 2.0f * cw + pad, slotW = std::max(std::max(icon, chipW), std::ceil(3.2f * cw)) + std::floor(pad * 0.5f);
+    const float numW = 2.0f * cw, chipW = 2.0f * cw + pad, slotW = std::max(std::max(icon, chipW), std::ceil(1.5f * icon)) + std::floor(pad * 0.5f);
     const float w = pad + numW + std::floor(pad * 1.5f) + icon + pad + (float)kSlots * slotW + pad;
     const float h = (float)rows * rowH + 2.0f * pad;
     if (right) x -= w;
@@ -193,7 +194,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
             }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (16 << b)) {
-                ShoulderCap(style, b, bx, ry + std::floor((rowH - th) * 0.5f), cw, th);
+                ShoulderCap(style, b, bx, ay + icon * 0.5f, icon);
                 bx += slotW;
                 ++used;
             }
