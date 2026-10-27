@@ -2418,7 +2418,7 @@ void PollUpdateHint(unsigned W, unsigned H, float x, float y, float w, float h) 
 }
 // Top-right reminder with a single clickable, controller-friendly menu instruction.
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
-    char update[128]{};
+    char update[2048]{};
     const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
     const size_t chars = hasUpdate ? std::max(strlen(text), strlen(update)) : strlen(text);
     const float normalScale = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);
@@ -2436,7 +2436,8 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     osd::DrawText(x + pad, y + pad, text, color, sc);
     if (hasUpdate) {
         osd::DrawText(x + pad, y + pad + lineH, update, cGold, sc);
-        PollUpdateHint(W, H, x, y + pad + lineH, w, lineH);
+        if (strncmp(update, "Game folder:", 12) != 0)
+            PollUpdateHint(W, H, x, y + pad + lineH, w, lineH);
     }
     return sc;
 }

@@ -12,6 +12,8 @@ namespace updatecheck {
 namespace {
 SRWLOCK g_lock = SRWLOCK_INIT;
 char g_notice[128]{};
+char g_folderNotice[2048]{};
+ULONGLONG g_folderUntil=0;
 std::atomic<bool> g_busy{false};
 std::atomic<ULONGLONG> g_next{0};
 bool g_enabled=true;
@@ -162,24 +164,30 @@ void OpenUnixTarget(const std::wstring& target, bool folder = false) {
         CloseHandle(pi.hProcess);
     }
 }
+void ShowFolderNotice(const std::wstring& folder) {
+    char path[1900]{};
+    if (!WideCharToMultiByte(CP_UTF8, 0, folder.c_str(), -1, path, sizeof(path), nullptr, nullptr))
+        std::snprintf(path, sizeof(path), "Path too long; use Steam > Manage > Browse local files");
+    AcquireSRWLockExclusive(&g_lock);
+    std::snprintf(g_folderNotice, sizeof(g_folderNotice), "Game folder: %s", path);
+    g_folderUntil = GetTickCount64() + 20000;
+    ReleaseSRWLockExclusive(&g_lock);
+}
 void OpenWineFolder(const std::wstring& folder) {
     using UnixName = char* (__cdecl*)(LPCWSTR);
     const HMODULE kernel = GetModuleHandleW(L"kernel32.dll");
     const auto convert = kernel ? reinterpret_cast<UnixName>(GetProcAddress(kernel, "wine_get_unix_file_name")) : nullptr;
-    if (!convert) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
+    if (!convert) { ShowFolderNotice(folder); return; }
     char* path = convert(folder.c_str());
-    if (!path) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
+    if (!path) { ShowFolderNotice(folder); return; }
     const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
     std::wstring target(count > 0 ? count : 0, L'\0');
     if (count > 0) MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, target.data(), count);
     HeapFree(GetProcessHeap(), 0, path);
-    if (count <= 1) { MessageBoxW(nullptr, folder.c_str(), L"Game folder (Wine path)", MB_OK); return; }
+    if (count <= 1) { ShowFolderNotice(folder); return; }
     target.resize(count - 1);
     if (target.front() == L'/') OpenUnixTarget(target, true);
-    // Desktop launch is asynchronous: show a usable path even if the session has
-    // no file manager or a broken directory association (e.g. Filelight).
-    const std::wstring help = L"If the game folder did not open, paste this path into your file manager:\n\n" + target;
-    MessageBoxW(nullptr, help.c_str(), L"Nioh 3 game folder", MB_OK | MB_ICONINFORMATION);
+    ShowFolderNotice(target);
 }
 void LaunchFixedPage(HMODULE module) {
     // Never use manifest or INI values as browser targets.
@@ -227,7 +235,7 @@ bool CopyNotice(char* dst,size_t capacity) {
     if(!dst||!capacity) return false;
     dst[0]='\0';
     if(!TryAcquireSRWLockShared(&g_lock)) return false;
-    std::snprintf(dst,capacity,"%s",g_notice);
+    std::snprintf(dst,capacity,"%s",GetTickCount64() < g_folderUntil ? g_folderNotice : g_notice);
     ReleaseSRWLockShared(&g_lock);
     return dst[0]!=0;
 }

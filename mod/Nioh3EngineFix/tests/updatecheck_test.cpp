@@ -61,7 +61,7 @@ static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR target,LPCWSTR args,LPCWSTR,int)
  shellCalls.push_back({target,args?args:L""}); return reinterpret_cast<HINSTANCE>(33);
 }
 static int popupCount=0;
-static int FakeMessage(HWND,LPCWSTR,LPCWSTR,UINT){++popupCount;return IDOK;}
+[[maybe_unused]] static int FakeMessage(HWND,LPCWSTR,LPCWSTR,UINT){++popupCount;return IDOK;}
 #define MessageBoxW FakeMessage
 #define GetModuleFileNameW FakeModulePath
 static bool wineMode=false, conversionFails=false, processFails=false, missingUnixExport=false;
@@ -185,7 +185,11 @@ int main(){
  CHECK(shellCalls.empty());CHECK(processCalls.size()==2);CHECK(processCloses==4);
  CHECK(processCalls[0].target==L"C:\\Windows\\system32\\start.exe");
  CHECK(processCalls[0].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"https://nioh3-mod-feedback.vercel.app\"");
- CHECK(processCalls[1].args.find(L"dolphin --new-window")!=std::wstring::npos); CHECK(popupCount==1);
+ CHECK(processCalls[1].args.find(L"dolphin --new-window")!=std::wstring::npos); CHECK(popupCount==0);
+ char folderNotice[2048]{}; CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
+ CHECK(std::string(folderNotice)=="Game folder: /home/player/Steam Games/Nioh3/");
+ clockMs+=20000; CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
+ CHECK(std::string(folderNotice).find("Update ")==0);
  CHECK(QuoteArgument(L"a\"b\\")==L"\"a\\\"b\\\\\"");
  conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
  conversionFails=false;processFails=true;processCalls.clear();int closes=processCloses;
@@ -193,9 +197,11 @@ int main(){
  processFails=false;unixFolder="relative/path";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
  missingUnixExport=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
  missingUnixExport=false;unixFolder="/bad/\xC3\x28";processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);
+ CHECK(popupCount==0);
  wineMode=false;
  reset();g_openAfter.store(0);int before=threadAttempts;
  OpenPage();CHECK(threadAttempts==before+1);OpenPage();CHECK(threadAttempts==before+1);
  clockMs+=2000;OpenPage();CHECK(threadAttempts==before+2);
  std::printf("PASS %d update-check assertions; no network, game or installed files accessed\n",checks);
 }
+
