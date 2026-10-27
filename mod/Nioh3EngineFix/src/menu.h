@@ -120,6 +120,7 @@ void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGenerati
 // why the game is paused right now (any thread; set by the Present thread): 0 none, 1 a game menu is open (the engine's own
 // "menu open" getters 0x5A37D4 / 0xD63C0), 2 game time stopped (stop flags 58B / 58C), 3 loading (58A)
 int GamePauseReason();
+void ReleaseFreeze();  // gives back the menu's game-time stop request (DLL unload)
 // "F10 / Esc x3 / Start x3": all ways to open the menu (startup popup, pause hint)
 const char* OpenHint();
 

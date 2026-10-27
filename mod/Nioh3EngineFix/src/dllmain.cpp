@@ -3484,6 +3484,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
 }
 
 BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_DETACH && g_self) menu::ReleaseFreeze();
     if (reason == DLL_PROCESS_ATTACH) {
         g_self = mod;
         DisableThreadLibraryCalls(mod);
