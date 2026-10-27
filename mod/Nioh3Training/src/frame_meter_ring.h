@@ -26,10 +26,14 @@ static int FmVisibleStart(const FmMeter* m) {
     return used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
 }
 // Trigonometry only when resolution changes, not per cell per redraw.
+typedef struct { short x,y; unsigned char lane,cell,fill,stripe,ub,edgeCell,edge; } FmRingPixel;
 typedef struct { POINT cell[2][FM_DISPLAY_CELLS][4], stripe[FM_DISPLAY_CELLS][4];
     POINT edge[2][FM_DISPLAY_CELLS][2], ub[FM_DISPLAY_CELLS][2], mid[FM_DISPLAY_CELLS];
-    int d,thick,gap; } FmRingMesh;
+    int d,thick,gap,pixelN; FmRingPixel* pixels; } FmRingMesh;
 static FmRingMesh g_fm_ringMesh;
+static float FmCoverage(float distance) { return distance<=-.5f?0.f:distance>=.5f?1.f:distance+.5f; }
+static float FmMin(float a,float b){return a<b?a:b;}
+static unsigned char FmCoverageByte(float a){return (unsigned char)(a*255.f+.5f);}
 static POINT FmPolar(float r,float a) {
     POINT p={(LONG)lroundf(r*sinf(a)),(LONG)lroundf(-r*cosf(a))}; return p;
 }
@@ -55,6 +59,73 @@ static void FmRingBuild(FmRingLayout g) {
             }
         }
     }
+    // Analytic signed-distance coverage: circular arcs and straight radial separators
+    // get a one-pixel feather. Cache only annulus pixels; no trigonometry in redraws.
+    free(m->pixels);m->pixels=0;m->pixelN=0;
+    const int half=(g.d+1)/2+2,side=half*2+1;
+    m->pixels=(FmRingPixel*)malloc((size_t)side*side*sizeof(FmRingPixel));
+    if(!m->pixels)return; // existing GDI mesh remains an allocation-failure fallback
+    for(int y=-half;y<=half;++y)for(int x=-half;x<=half;++x) {
+        const float xx=x+.5f,yy=y+.5f,r=sqrtf(xx*xx+yy*yy);
+        int lane=-1;
+        for(int k=0;k<2;++k){const float ro=g.d*.5f-k*(g.thick+g.gap),ri=ro-g.thick;
+            if(r>=ri-1.5f && r<=ro+1.5f){lane=k;break;}}
+        if(lane<0)continue;
+        const float ro=g.d*.5f-lane*(g.thick+g.gap),ri=ro-g.thick;
+        float a=atan2f(xx,-yy);if(a<0)a+=6.28318530718f;
+        int cell=(int)(a/step);if(cell>=FM_DISPLAY_CELLS)cell=FM_DISPLAY_CELLS-1;
+        const float phase=a/step-cell,angular=FmMin(phase,1.f-phase)*step*r;
+        const float angularCoverage=FmCoverage(angular-.45f);
+        FmRingPixel p;p.x=(short)x;p.y=(short)y;p.lane=(unsigned char)lane;p.cell=(unsigned char)cell;
+        p.fill=FmCoverageByte(FmCoverage(FmMin(r-ri,ro-r))*angularCoverage);
+        p.stripe=FmCoverageByte(FmCoverage(FmMin(r-(ro-g.thick/3.f),ro-r))*angularCoverage);
+        p.ub=FmCoverageByte(FmCoverage(.5f-fabsf(r-(ro+ri)*.5f))*angularCoverage);
+        p.edgeCell=(unsigned char)(phase<.5f?cell:(cell+1)%FM_DISPLAY_CELLS);
+        p.edge=FmCoverageByte(FmCoverage(.5f-angular)*FmCoverage(FmMin(r-(ri-1),ro+1-r)));
+        if(p.fill || (!lane && (p.edge || p.stripe || p.ub)))m->pixels[m->pixelN++]=p;
+    }
+}
+static uint32_t FmRingRgb(COLORREF c) {return ((uint32_t)GetRValue(c)<<16)|((uint32_t)GetGValue(c)<<8)|GetBValue(c);}
+static uint32_t FmRingBlend(uint32_t dst,uint32_t rgb,unsigned a) {
+    if(!a)return dst;
+    if(a==255)return 0xff000000u|rgb;
+    unsigned da=dst>>24;
+    if(!da){const uint32_t c=dst&0xffffff;da=c==0xff00ff?0:c==0x10151e?115:255;
+        dst=(da<<24)|(((((c>>16)&255)*da+127)/255)<<16)|(((((c>>8)&255)*da+127)/255)<<8)|(((c&255)*da+127)/255);}
+    uint32_t result=(a+(da*(255-a)+127)/255)<<24;
+    for(int shift=0;shift<24;shift+=8) {
+        const unsigned source=(((rgb>>shift)&255)*a+127)/255;
+        const unsigned background=(((dst>>shift)&255)*(255-a)+127)/255;
+        result|=(source+background)<<shift;
+    }
+    return result;
+}
+static int FmRingPixels(HDC dc,int cx,int cy,const FmMeter* m,const FmKi* ki,int start,int player,int outer,int inner) {
+    DIBSECTION dib={0};RECT clip;
+    if(!n3_stroke_layered || !g_fm_ringMesh.pixels || GetClipBox(dc,&clip)!=SIMPLEREGION
+        || GetObject(GetCurrentObject(dc,OBJ_BITMAP),sizeof dib,&dib)!=sizeof dib || !dib.dsBm.bmBits || dib.dsBm.bmBitsPixel!=32)return 0;
+    uint32_t palette[2][FM_DISPLAY_CELLS];unsigned char stripe[FM_DISPLAY_CELLS],ub[FM_DISPLAY_CELLS],edge[FM_DISPLAY_CELLS];
+    for(int i=0;i<FM_DISPLAY_CELLS;++i){const uint8_t c=FmViewCell(m,start+i);const int win=player?FmShowKiWin(m,start+i):0;
+        palette[0][i]=FmRingRgb(win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
+        palette[1][i]=FmRingRgb(player?FmIFrColor(FmViewNoDmg(m,start+i)):FmKiView(ki,m,start+i)?RGB(138,92,255):FmColor(FM_EMPTY));
+        stripe[i]=(unsigned char)(player && !g_pst.v[PS_FRAME_IFR] && (FmViewNoDmg(m,start+i)&FMF_NODMG));
+        ub[i]=(unsigned char)((c&0x7F)==FM_ACTIVE_UB && !win);edge[i]=(unsigned char)!!(c&FM_EDGE);
+    }
+    GdiFlush();
+    for(int i=0;i<g_fm_ringMesh.pixelN;++i){const FmRingPixel p=g_fm_ringMesh.pixels[i];
+        if(p.lane?!inner:!outer)continue;
+        const int x=cx+p.x,y=cy+p.y;
+        if(x<clip.left || x>=clip.right || y<clip.top || y>=clip.bottom || x<0 || x>=dib.dsBm.bmWidth || y<0 || y>=dib.dsBm.bmHeight)continue;
+        uint32_t* dst=(uint32_t*)((char*)dib.dsBm.bmBits+y*dib.dsBm.bmWidthBytes)+x;
+        uint32_t v=FmRingBlend(*dst,palette[p.lane][p.cell],p.fill);
+        if(!p.lane){
+            if(stripe[p.cell])v=FmRingBlend(v,FmRingRgb(FM_NODMG_RGB),p.stripe);
+            if(ub[p.cell])v=FmRingBlend(v,FmRingRgb(RGB(255,210,216)),p.ub);
+            if(edge[p.edgeCell])v=FmRingBlend(v,FmRingRgb(RGB(235,240,248)),p.edge);
+        }
+        *dst=v;
+    }
+    return 1;
 }
 static void FmRingPoly(HDC dc,const POINT* points,int cx,int cy,COLORREF color) {
     POINT p[4];for(int j=0;j<4;++j){p[j].x=points[j].x+cx;p[j].y=points[j].y+cy;}
@@ -99,6 +170,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
                         int player,int outer,int inner) {
     const int start=FmVisibleStart(m);
     const FmRingMesh* mesh=&g_fm_ringMesh;
+    if(!FmRingPixels(dc,cx,cy,m,ki,start,player,outer,inner)) {
     HGDIOBJ oldBrush=SelectObject(dc,GetStockObject(DC_BRUSH));
     HGDIOBJ oldPen=SelectObject(dc,GetStockObject(NULL_PEN));
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
@@ -121,6 +193,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
             FmRingLine(dc,mesh->ub[i],cx,cy,RGB(255,210,216));
     }
     SelectObject(dc,oldPen);SelectObject(dc,oldBrush);
+    }
     if(outer)FmRingCounts(dc,m,start,cx,cy,g,player);
     if(outer && player)for(int i=0;i<FM_DISPLAY_CELLS;++i)if(FmViewKiPulse(m,start+i)) {
         int cw=(int)((g.d-g.thick)*3.14159265f/FM_DISPLAY_CELLS);if(cw<6)cw=6;

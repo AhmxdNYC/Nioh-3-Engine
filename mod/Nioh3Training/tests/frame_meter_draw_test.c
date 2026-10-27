@@ -52,26 +52,45 @@ static void Seed(void) {
     g_fmp.kipulseFrozen[95]=1;g_fm_ki.frozenN=120;
     for(int i=45;i<75;++i)g_fm_ki.frozen[i]=1;
 }
-static uint32_t DibColor(COLORREF c){return ((uint32_t)GetRValue(c)<<16)|((uint32_t)GetGValue(c)<<8)|GetBValue(c);}
+static int HasColor(uint32_t p,COLORREF c) {
+    const unsigned alpha=p>>24;
+    if(alpha<=FM_BG_ALPHA)return 0;
+    const double coverage=(alpha-FM_BG_ALPHA)/(255.-FM_BG_ALPHA);
+    const unsigned bg[]={14,9,7},color[]={GetBValue(c),GetGValue(c),GetRValue(c)};
+    for(int i=0;i<3;++i) {
+        const double expected=color[i]*coverage+bg[i]*(1.-coverage);
+        if(fabs((double)((p>>(i*8))&255)-expected)>2.5)return 0;
+    }
+    return 1;
+}
 static uint32_t AtLane(Canvas* c,int H,int player,int lane,int cell) {
     int cw,bh,lh,pad;FmGeom(c->w,H,&cw,&bh,&lh,&pad);FmRingLayout g=FmRingGeom(c->w,H);
     const int both=(FmPlayerDraw()||FmIFrRow()) && g_pst.v[PS_FRAME_METER]&&g_fm_show;
     int cx=c->w/2+(both?(player?-1:1)*(g.d+lh)/2:0),cy=FmReadoutHeight(bh,pad)+g.height/2;
-    POINT p=FmPolar(g.d*.5f-lane*(g.thick+g.gap)-g.thick*.5f,(cell+.5f)*6.28318530718f/FM_DISPLAY_CELLS);
+    const float radius=g.d*.5f-lane*(g.thick+g.gap)-g.thick*.5f,angle=(cell+.5f)*6.28318530718f/FM_DISPLAY_CELLS;
+    POINT p={(LONG)floorf(radius*sinf(angle)),(LONG)floorf(-radius*cosf(angle))};
     CHECK(cx+p.x>=0&&cx+p.x<c->w&&cy+p.y>=0&&cy+p.y<c->h);
     return c->bits[(cy+p.y)*c->w+cx+p.x];
 }
 static void Pixels(int w,int H) {
     Seed();g_pst.v[PS_FRAME_STYLE]=1;Canvas c=Make(w,FmDrawHeight(w,H));Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,8)&0xffffff)==DibColor(FmColor(FM_STARTUP)));
-    CHECK((AtLane(&c,H,1,0,85)&0xffffff)==DibColor(FM_KIWIN_RGB));
-    CHECK((AtLane(&c,H,1,0,92)&0xffffff)==DibColor(FM_KIPERF_RGB));
-    CHECK((AtLane(&c,H,0,0,85)&0xffffff)==DibColor(FmColor(FM_RECOVERY)));
-    CHECK((AtLane(&c,H,1,1,23)&0xffffff)==DibColor(FM_NODMG_RGB));
-    CHECK((AtLane(&c,H,1,1,33)&0xffffff)==DibColor(FM_EAA_RGB));
-    CHECK((AtLane(&c,H,1,1,43)&0xffffff)==DibColor(FM_GUARD_RGB));
-    CHECK((AtLane(&c,H,1,1,53)&0xffffff)==DibColor(FM_EA7_RGB));
-    CHECK((AtLane(&c,H,0,1,53)&0xffffff)==DibColor(RGB(138,92,255)));
+    CHECK(g_fm_ringMesh.pixels && g_fm_ringMesh.pixelN>0);
+    int feathered[2]={0};
+    for(int i=0;i<g_fm_ringMesh.pixelN;++i){const FmRingPixel p=g_fm_ringMesh.pixels[i];
+        CHECK(p.lane<2 && p.cell<FM_DISPLAY_CELLS && p.edgeCell<FM_DISPLAY_CELLS);
+        if(p.fill>0 && p.fill<255)++feathered[p.lane];
+    }
+    CHECK(feathered[0]>30 && feathered[1]>30); // both circular and radial boundaries have real coverage pixels
+    FmRingPixel* cached=g_fm_ringMesh.pixels;FmRingBuild(FmRingGeom(w,H));CHECK(cached==g_fm_ringMesh.pixels);
+    CHECK(HasColor(AtLane(&c,H,1,0,8),FmColor(FM_STARTUP)));
+    CHECK(HasColor(AtLane(&c,H,1,0,85),FM_KIWIN_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,0,92),FM_KIPERF_RGB));
+    CHECK(HasColor(AtLane(&c,H,0,0,85),FmColor(FM_RECOVERY)));
+    CHECK(HasColor(AtLane(&c,H,1,1,23),FM_NODMG_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,33),FM_EAA_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,43),FM_GUARD_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,53),FM_EA7_RGB));
+    CHECK(HasColor(AtLane(&c,H,0,1,53),RGB(138,92,255)));
     if(w==1920) {
         const size_t bytes=(size_t)c.w*c.h*4;
         uint32_t* before=(uint32_t*)malloc(bytes);CHECK(before);memcpy(before,c.bits,bytes);
@@ -82,20 +101,20 @@ static void Pixels(int w,int H) {
         CHECK(changed>0);free(before);g_fmp.kipulseFrozen[95]=1;
     }
     g_pst.v[PS_KI_WINDOW]=0;Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,85)&0xffffff)==DibColor(FmColor(FM_RECOVERY)));
-    CHECK((AtLane(&c,H,1,0,92)&0xffffff)==DibColor(FM_KIPERF_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,0,85),FmColor(FM_RECOVERY)));
+    CHECK(HasColor(AtLane(&c,H,1,0,92),FM_KIPERF_RGB));
     // Independent visibility: disabled tracks have the shared panel alpha, not a dark ghost ring.
     for(int mask=0;mask<8;++mask) {
         g_pst.v[PS_FRAME_PROW]=!!(mask&1);g_pst.v[PS_FRAME_IFR]=!!(mask&2);g_pst.v[PS_FRAME_KI]=!!(mask&4);
         Draw(&c,H);
         if(mask&3) {
-            CHECK((AtLane(&c,H,1,0,8)>>24)==((mask&1)?255:FM_BG_ALPHA));
-            CHECK((AtLane(&c,H,1,1,23)>>24)==((mask&2)?255:FM_BG_ALPHA));
+            CHECK((mask&1)?(AtLane(&c,H,1,0,8)>>24)>FM_BG_ALPHA:(AtLane(&c,H,1,0,8)>>24)==FM_BG_ALPHA);
+            CHECK((mask&2)?(AtLane(&c,H,1,1,23)>>24)>FM_BG_ALPHA:(AtLane(&c,H,1,1,23)>>24)==FM_BG_ALPHA);
         }
-        CHECK((AtLane(&c,H,0,1,53)>>24)==((mask&4)?255:FM_BG_ALPHA));
+        CHECK((mask&4)?(AtLane(&c,H,0,1,53)>>24)>FM_BG_ALPHA:(AtLane(&c,H,0,1,53)>>24)==FM_BG_ALPHA);
     }
     Seed();g_pst.v[PS_FRAME_STYLE]=1;g_pst.v[PS_FRAME_METER]=0;Draw(&c,H);
-    CHECK((AtLane(&c,H,1,0,8)&0xffffff)==DibColor(FmColor(FM_STARTUP))); // lone player centres
+    CHECK(HasColor(AtLane(&c,H,1,0,8),FmColor(FM_STARTUP))); // lone player centres
     CHECK(!FmKiShown());
     for(size_t i=0;i<(size_t)c.w*c.h;++i) {uint32_t p=c.bits[i],a=p>>24;
         CHECK(((p>>16)&255)<=a && ((p>>8)&255)<=a && (p&255)<=a); // premultiplied contract, no magenta leakage
@@ -119,6 +138,9 @@ static void CacheEquivalence(void) {
     CHECK(FmPositionX(1920)==0);Drop(&a);Drop(&b);
 }
 int main(int argc,char** argv) {
+    CHECK(FmRingBlend(0x00ff00ff,0xff0000,128)==0x80800000); // no magenta fringe over transparency
+    CHECK(FmRingBlend(0xff000000,0x00ff00,128)==0xff008000);
+    CHECK(FmRingBlend(0x0010151e,0xff0000,128)==0xb9830407); // premultiplied shared-panel edge
     CacheEquivalence();
     const int sizes[][2]={{800,600},{1280,720},{1920,1080},{2560,1440},{3840,2160}};
     for(int i=0;i<5;++i)Pixels(sizes[i][0],sizes[i][1]);
@@ -134,6 +156,11 @@ int main(int argc,char** argv) {
     for(int i=0;i<400;++i)FmSampleEx(&g_fmp,i*1000./60.,100,1,0,0);
     CHECK(FmVisibleStart(&g_fmp)==240);
     Seed();
+    if(argc>1 && !strcmp(argv[1],"--preview-only")) {
+        for(int style=0;style<2;++style){g_pst.v[PS_FRAME_STYLE]=style;Canvas c=Make(1920,FmDrawHeight(1920,1080));
+            Draw(&c,1080);Save(&c,style?"ring-preview.bmp":"row-preview.bmp");Drop(&c);}
+        printf("ALL PASSED: %d production renderer assertions; previews saved\n",assertions);return 0;
+    }
     if(argc>1 && !strcmp(argv[1],"--check-only")) {
         printf("ALL PASSED: %d production renderer assertions (offline)\n",assertions);return 0;
     }

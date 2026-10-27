@@ -46,3 +46,7 @@ Next pc install both ASIs, switch Display Overlays > Frame meter style, validate
 
 2026-10-27 6:06 pm EDT | cx-pc #40696: Ring feature7a442b67 + cached-font/perf proof b8665395 pushed; both menus +7 Training suites pass; EF2948 d46705ebadf5 / TR2949 3ed3f4780cb6 uploaded.
 Offline production preview sent to Discord. PC1080p changing OFF Row67.041ms vs ON Ring10.872ms CPU draw; native upload/gameplay unproven. Next pc install both, test toggles/menu/position/pulses and capture in-game pictures; report notes/ring-meter-40696/report.txt.
+
+2026-10-27 6:13 pm EDT | cx-pc #40835: replaced stair-stepped polygon edges with cached analytic pixel coverage for circular arcs/radial dividers; same four lanes and masks.
+Five-resolution renderer checks incl partial-alpha coverage, glyph equivalence, Ki checks and all lane toggles PASS; Training Release build PASS; revised production preview sent to Discord.
+Next: repeat offline Row/Ring CPU measurements for this AA version, upload replacement Training, report final hashes. Native game visuals remain pc-owned/unproven. Files frame_meter_ring.h, frame_meter_draw_test.c, production-preview-smooth.png.
