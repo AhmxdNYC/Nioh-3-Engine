@@ -687,7 +687,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     // stack: counter first, popup next to it (below for top positions, above for bottom positions)
     const float x = right ? (float)W - margin - offX : margin + offX;
     const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
-    float y = bottom ? (float)H - margin - offY : margin + offY;
+    float y = bottom ? (float)H - margin - offY : 12.0f + offY;  // top: same 12 px as the menu panel (menu.cpp DrawRematchHost y0)
     auto place = [&](const Line* l, int n, float a) {
         if (n <= 0) return;
         const float h = n * lineH + 2 * pad - 2 * sc;
@@ -708,10 +708,10 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     // its own quad group: textured sprites from the skin's atlas (bound for this group only)
     if (padviz::g_on) {
         const bool tl = g_cfg.pos == 0;
-        float px = 16.0f * k1080, py = (float)DefaultOffsetY(0) * k1080;
+        float px = 16.0f * k1080, py = 12.0f + (float)DefaultOffsetY(0) * k1080;  // #38199: moved up with the FPS overlay (was 160 px down)
         if (tl) {
             px = margin + offX;
-            if (g_cfg.fpsCounter) py = std::max(py, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
+            if (g_cfg.fpsCounter) py = std::max(py, 12.0f + offY + (osdfont::kH + 2) * sc + 10 * sc);
         }
         const int skin = padviz::Style();
         {   // user position (% of the free space): 0/0 = the default top-left spot
@@ -1773,7 +1773,7 @@ LatencyStatus Latency() {
     s.state = e->state;
     return s;
 }
-int DefaultOffsetY(int pos) { return pos == 0 ? 160 : 0; }
+int DefaultOffsetY(int pos) { (void)pos; return 0; }  // #38193: the FPS overlay's top edge matches the mod menu panel (12 px), no 160 px drop
 int OffsetX() { return g_cfg.offUser ? g_cfg.offX : 0; }
 int OffsetY() { return g_cfg.offUser ? g_cfg.offY : DefaultOffsetY(g_cfg.pos); }
 
