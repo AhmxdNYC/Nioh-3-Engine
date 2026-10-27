@@ -41,6 +41,7 @@
 #include "osd.h"
 #include "menu_style.h"
 #include "padviz.h"
+#include "inputhist.h"
 #include "../../rematch_menu_bridge.h"
 
 namespace menu {
@@ -821,7 +822,7 @@ bool OverlayRow(int id) {
     return id == kFps || id == kFrameTime || id == kSpeed || id == kPos || id == kOffX || id == kOffY || id == kScale ||
            id == kHint || id == kPerfNote || id == kAutoCont || id == kFgState || id == kUpscaler || id == kXTS || id == kXWS;
 }
-bool IsControllerDisplayKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }  // #37423: button style is a pad-display setting
+bool IsControllerDisplayKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strncmp(key, "InputDisplay", 12) == 0 || strcmp(key, "ButtonStyle") == 0); }  // #37423: button style is a pad-display setting
 
 // PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
 constexpr int kFrameMeterWhat = 7;
@@ -1434,6 +1435,15 @@ void ChangeConfig(int index, int dir) {
         } else if (!strcmp(d.key, "ControllerDisplayPressColor")) {
             padviz::g_pressRGB = padviz::PressColor(v.c_str());
             snprintf(g_configReply, sizeof(g_configReply), "Pressed-button colour applies now. Save to keep it.");
+        } else if (!strcmp(d.key, "InputDisplay")) {
+            inputhist::g_on = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), inputhist::g_on ? "Input display on. Save to keep it." : "Input display off. Save to keep it.");
+        } else if (!strcmp(d.key, "InputDisplaySide")) {
+            inputhist::g_side = _stricmp(v.c_str(), "Right") == 0 ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), "Input display side applies now. Save to keep it.");
+        } else if (!strcmp(d.key, "InputDisplayRows")) {
+            inputhist::g_rows = std::clamp((int)std::lround(atof(v.c_str())), inputhist::kMinRows, inputhist::kMaxRows);
+            snprintf(g_configReply, sizeof(g_configReply), "Input display rows apply now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -2881,6 +2891,10 @@ void Configure(const Host& h) {
     padviz::g_posY = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"ControllerDisplayY", 0, f), -100, 100);
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
+    inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
+    GetPrivateProfileStringW(L"Menu", L"InputDisplaySide", L"Left", b, 96, f);
+    inputhist::g_side = !_wcsicmp(b, L"Right") ? 1 : 0;
+    inputhist::g_rows = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"InputDisplayRows", 12, f), inputhist::kMinRows, inputhist::kMaxRows);
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);
     padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);

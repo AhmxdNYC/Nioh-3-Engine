@@ -50,6 +50,7 @@
 #include "livectl.h"
 #include "osd_font.h"
 #include "padviz.h"
+#include "inputhist_draw.h"
 #include "osd_shaders.h"
 #include "padviz_atlas_data.h"
 #include "padviz_png.h"
@@ -724,6 +725,31 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             g_padSkin = skin;
         } else {
             g_n = g_nMain;
+        }
+    }
+    // input history (inputhist_draw.h): same quad group (its face-button glyphs are the controller display's atlas sprites; its
+    // numbers are text, so this group then carries the text scale). Left: below the FPS counter and, when the controller picture sits
+    // top-left, below that; right: the top-right corner. Hidden while the mod menu is open.
+    if (inputhist::g_on && !menu::IsOpen()) {
+        const int skin = padviz::Style();
+        const uint64_t nowMs = (uint64_t)GetTickCount64();
+        if (PadAtlasReady(skin) && padviz::Live(nowMs)) {
+            const bool rightSide = inputhist::g_side != 0;
+            float ix = rightSide ? (float)W - 16.0f * k1080 : margin + offX;
+            float iy = (float)DefaultOffsetY(0) * k1080;
+            if (!rightSide) {
+                if (g_cfg.fpsCounter && g_cfg.pos == 0) iy = std::max(iy, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
+                if (padviz::g_on && padviz::g_posX <= 0 && padviz::g_posY <= 0)
+                    iy += padviz::SkinFor(skin).canvasH * padviz::Scale(H, skin) + 8.0f * k1080;
+            }
+            const int before = g_n;
+            const float ts = inputhist_draw::Draw(W, H, ix, iy, rightSide, nowMs, skin);
+            if (ts > 0) {
+                g_padScale = ts;
+                g_padSkin = skin;
+            } else {
+                g_n = before;
+            }
         }
     }
     g_nPad = g_n;

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include "menu_style.h"  // g_btnStyle; osd.h (DrawSprite)
 #include "padviz_atlas.h"
+#include "inputhist.h"
 
 namespace padviz {
 
@@ -51,13 +52,14 @@ inline volatile uint64_t g_at = 0;  // ms of the last accepted feed (0 = never)
 // one XInputGetState result for pad `slot`. The newest of the lowest-numbered live slot wins (the game polls all four while it scans
 // for the active pad; an unplugged slot is never fed), so two pads on one console do not flicker the picture.
 inline void Feed(int slot, uint32_t buttons, int lx, int ly, int rx, int ry, int lt, int rt, uint64_t nowMs) {
-    if (!g_on) return;
+    if (!g_on && !inputhist::g_on) return;  // the input history (inputhist.h) shares this feed
     if (slot > g_slot && g_at && nowMs - g_at <= 500) return;
     g_slot = slot;
     g_buttons = buttons; g_lx = lx; g_ly = ly; g_rx = rx; g_ry = ry; g_lt = lt; g_rt = rt;
     g_at = nowMs;
+    if (inputhist::g_on) inputhist::Push(buttons, lx, ly, lt, rt, nowMs);
 }
-inline bool Live(uint64_t nowMs) { return g_on && g_at && nowMs - g_at <= 1500; }
+inline bool Live(uint64_t nowMs) { return (g_on || inputhist::g_on) && g_at && nowMs - g_at <= 1500; }
 inline State Snapshot() {
     State s;
     s.buttons = g_buttons; s.lx = g_lx; s.ly = g_ly; s.rx = g_rx; s.ry = g_ry; s.lt = g_lt; s.rt = g_rt;

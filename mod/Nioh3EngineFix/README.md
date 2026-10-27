@@ -788,3 +788,12 @@ state from another thread or from the same list).
 Tests: `py -I tests\run_r2_harness.py` runs identical work (buffers with R2a read and write cases, a UAV buffer, a texture, a small
 render target) on this PC's real D3D12 device with every switch combination and requires bit-identical buffers and render target,
 the expected counters, and the trace columns.
+
+### Input display (`[Menu] InputDisplay`)
+
+SF6-style input history: newest row on top; per row the frames held (60 Hz frames, 99 max), the direction arrow (8-way, `N` = neutral)
+and the buttons held. Face buttons are the controller display's own lit sprites (same atlas, same Xbox / PlayStation skin from
+`ButtonStyle`, same `ControllerDisplayPressColor`); LB/RB/LT/RT are text chips (L1/R1/L2/R2 in PlayStation style). `InputDisplay = 0`
+(default) / 1, `InputDisplaySide = Left` (below the FPS counter and the controller picture) / `Right`, `InputDisplayRows = 4 .. 24`.
+Rows are on the Gameplay / Overlays page. It only reads the pad feed the controller display uses (raw state, before menu masking);
+it writes no game state and no save data. Hidden while the mod menu is open.
