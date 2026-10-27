@@ -5,12 +5,27 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <string>
 namespace updatecheck {
 namespace {
 SRWLOCK g_lock = SRWLOCK_INIT;
 char g_notice[64]{};
 std::atomic<bool> g_busy{false};
 std::atomic<ULONGLONG> g_next{0};
+bool g_enabled=true;
+std::wstring g_host=L"nioh3-mod-feedback.vercel.app",g_path=L"/version.json";
+INTERNET_PORT g_port=INTERNET_DEFAULT_HTTPS_PORT;
+bool SetEndpoint(const wchar_t* url) {
+    URL_COMPONENTS u{};u.dwStructSize=sizeof(u);
+    u.dwHostNameLength=u.dwUrlPathLength=u.dwExtraInfoLength=u.dwUserNameLength=u.dwPasswordLength=(DWORD)-1;
+    if(!url || wcslen(url)>1023 || !WinHttpCrackUrl(url,0,0,&u) ||
+       u.nScheme!=INTERNET_SCHEME_HTTPS || !u.dwHostNameLength ||
+       u.dwUserNameLength || u.dwPasswordLength || wcschr(url,L'#')) return false;
+    g_host.assign(u.lpszHostName,u.dwHostNameLength);
+    g_path=u.dwUrlPathLength?std::wstring(u.lpszUrlPath,u.dwUrlPathLength):L"/";
+    if(u.dwExtraInfoLength) g_path.append(u.lpszExtraInfo,u.dwExtraInfoLength);
+    g_port=u.nPort;return true;
+}
 struct HttpHandle {
     HINTERNET value;
     explicit HttpHandle(HINTERNET h) : value(h) {}
@@ -18,7 +33,7 @@ struct HttpHandle {
     HttpHandle(const HttpHandle&)=delete;
     HttpHandle& operator=(const HttpHandle&)=delete;
 };
-// Fixed HTTPS origin/path, no identifiers, cookies, automatic credentials or redirects.
+// Configured HTTPS endpoint; no identifiers, cookies, automatic credentials or redirects.
 bool Fetch(char (&body)[kMaxBody+1], size_t& length) {
     length=0;
     const ULONGLONG start=GetTickCount64();
@@ -27,10 +42,10 @@ bool Fetch(char (&body)[kMaxBody+1], size_t& length) {
     if(!session.value || !WinHttpSetTimeouts(session.value,1000,2000,2000,2000)) return false;
     DWORD retries=0;
     if(!WinHttpSetOption(session.value,WINHTTP_OPTION_CONNECT_RETRIES,&retries,sizeof(retries))) return false;
-    HttpHandle connection(WinHttpConnect(session.value,L"nioh3-mod-feedback.vercel.app",INTERNET_DEFAULT_HTTPS_PORT,0));
+    HttpHandle connection(WinHttpConnect(session.value,g_host.c_str(),g_port,0));
     if(!connection.value) return false;
     const wchar_t* accept[]={L"application/json",nullptr};
-    HttpHandle request(WinHttpOpenRequest(connection.value,L"GET",L"/version.json",nullptr,
+    HttpHandle request(WinHttpOpenRequest(connection.value,L"GET",g_path.c_str(),nullptr,
         WINHTTP_NO_REFERER,accept,WINHTTP_FLAG_SECURE));
     if(!request.value) return false;
     DWORD redirect=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
@@ -76,7 +91,15 @@ DWORD WINAPI Worker(LPVOID p) {
     FreeLibraryAndExitThread(module,0);
 }
 }
+void Configure(const wchar_t* iniPath) {
+    wchar_t url[1024]{};
+    g_enabled=GetPrivateProfileIntW(L"Update",L"Check",1,iniPath)!=0;
+    const DWORD n=GetPrivateProfileStringW(L"Update",L"Url",
+        L"https://nioh3-mod-feedback.vercel.app/version.json",url,1024,iniPath);
+    if(n>=1023 || !SetEndpoint(url)) g_enabled=false;
+}
 void Tick(const char* installedVersion) {
+    if(!g_enabled) return;
     const ULONGLONG now=GetTickCount64();
     if(now<g_next.load()) return;
     bool expected=false;

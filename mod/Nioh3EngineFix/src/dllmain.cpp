@@ -2576,6 +2576,7 @@ DWORD WINAPI Worker(LPVOID) {
             DWORD candTid = 0;
             Snap p = take();
             uint64_t ikAgeSum = lat_agesum, ikAgeCnt = lat_agecnt, ikTo = lat_timeouts, ikKs = lat_kstock, ikKi = lat_kik;
+            updatecheck::Configure(SelfPathWithExt(L".ini").c_str());
             for (int sec = 1;; ++sec) {
                 Sleep(1000);
                 updatecheck::Tick(MOD_VERSION);

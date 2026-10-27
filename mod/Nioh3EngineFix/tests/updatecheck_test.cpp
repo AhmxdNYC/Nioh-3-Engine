@@ -39,6 +39,9 @@ static BOOL Read(HINTERNET,LPVOID dst,DWORD count,LPDWORD got){
 }
 static BOOL Close(HINTERNET){++closed;return TRUE;}
 static ULONGLONG Clock(){return clockMs;}
+static int threadAttempts=0;
+static HANDLE NoThread(...){++threadAttempts;return nullptr;}
+#define CreateThread NoThread
 #define WinHttpOpen Open
 #define WinHttpConnect Connect
 #define WinHttpOpenRequest Request
@@ -57,13 +60,35 @@ static void reset(){response="{\"version\":\"1.8.0\"}";cursor=0;chunk=11;statusC
 int main(){
  using namespace updatecheck;
  Version v{};
+ CHECK(ParseManifest(R"({"notes":"hello\nworld","url":"https://example.com","version":"1.8.0"})",v));
+ CHECK(!ParseManifest(R"({"version":"1.8.0","notes":"x","notes":"y"})",v));
+ CHECK(!ParseManifest(R"({"version":"1.8.0","notes":42})",v));
+ CHECK(!ParseManifest(R"({"version":"1.8.0","extra":"x"})",v));
+ CHECK(SetEndpoint(L"https://example.com:8443/check/version.json?q=1"));
+ CHECK(g_host==L"example.com" && g_port==8443 && g_path==L"/check/version.json?q=1");
+ CHECK(!SetEndpoint(L"http://example.com/version.json"));
+ CHECK(!SetEndpoint(L"https://user:password@example.com/version.json"));
+ CHECK(!SetEndpoint(L"https://example.com/version.json#fragment"));
+ CHECK(SetEndpoint(L"https://nioh3-mod-feedback.vercel.app/version.json"));
+ wchar_t tempDir[MAX_PATH]{},tempIni[MAX_PATH]{};
+ CHECK(GetTempPathW(MAX_PATH,tempDir)>0);
+ CHECK(GetTempFileNameW(tempDir,L"n3u",0,tempIni)!=0);
+ CHECK(WritePrivateProfileStringW(L"Update",L"Check",L"0",tempIni));
+ Configure(tempIni);g_next.store(0);g_busy.store(false);Tick("1.7.80");CHECK(threadAttempts==0);
+ CHECK(WritePrivateProfileStringW(L"Update",L"Check",L"1",tempIni));
+ CHECK(WritePrivateProfileStringW(L"Update",L"Url",L"http://invalid.example/",tempIni));
+ Configure(tempIni);CHECK(!g_enabled);
+ CHECK(WritePrivateProfileStringW(L"Update",L"Url",L"https://example.com/version.json",tempIni));
+ Configure(tempIni);CHECK(g_enabled && g_host==L"example.com");
+ CHECK(DeleteFileW(tempIni));
+
  CHECK(Available("{\"version\":\"1.8.0\"}","1.7.80-settings37433",v));
  CHECK(Available(" { \"version\" : \"1.7.81\" }\r\n","1.7.80",v));
  CHECK(Available("{\"version\":\"2.0.0\"}","1.999999.999999",v));
  CHECK(!Available("{\"version\":\"1.7.80\"}","1.7.80-settings37433",v));
  CHECK(!Available("{\"version\":\"1.7.9\"}","1.7.80",v));
  CHECK(!Available("{\"version\":\"1.8.0\"}","broken",v));
- for(const char* s:{"", "{}","[]","<html>offline</html>","{\"version\":3}","{\"version\":\"1.8\"}","{\"version\":\"1.8.0\",\"version\":\"9.0.0\"}","{\"version\":\"1.8.0\",\"url\":\"bad\"}","{\"version\":\"01.8.0\"}","{\"version\":\"1.8.-1\"}","{\"version\":\"1.8.1000000\"}","{\"version\":\"1.8.0<script>\"}","{\"version\":\"1.8.0-beta\"}","{\"version\":\"1.8.0\"}junk"}) CHECK(!ParseManifest(s,v));
+ for(const char* s:{"", "{}","[]","<html>offline</html>","{\"version\":3}","{\"version\":\"1.8\"}","{\"version\":\"1.8.0\",\"version\":\"9.0.0\"}","{\"version\":\"01.8.0\"}","{\"version\":\"1.8.-1\"}","{\"version\":\"1.8.1000000\"}","{\"version\":\"1.8.0<script>\"}","{\"version\":\"1.8.0-beta\"}","{\"version\":\"1.8.0\"}junk"}) CHECK(!ParseManifest(s,v));
  CHECK(!ParseManifest(std::string(513,' '),v));
  char body[kMaxBody+1]{};size_t length=0;
  reset();CHECK(Fetch(body,length));CHECK(std::string(body,length)==response);CHECK(opened==closed);
