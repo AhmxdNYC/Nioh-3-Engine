@@ -2,17 +2,17 @@
   "files": [
     {
       "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3EngineFix.asi",
-      "sha256": "efa99f5b1aa476aa5d8d6f5b67c6b55f422a4a949d6c9732a2afb4632696078c",
+      "sha256": "a9528cf51159d5c7a08b0ed02f8f5f54752a82707bc790d8441c00022337bd34",
       "name": "Nioh3EngineFix.asi"
     },
     {
       "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3Training.asi",
-      "sha256": "2112a05703c2e0cba6112fcb43de66e902a0bf9f13469f46089da75017a13814",
+      "sha256": "2ace89eb9d29cdcedc44d8525059a7364196a4c2b264922d23b2671a9fdf887b",
       "name": "Nioh3Training.asi"
     },
     {
       "url": "https://nioh3-mod-feedback.vercel.app/releases/1.7.85/Nioh3BossRematch.asi",
-      "sha256": "4443c2d715bff2da4871c8d3bb72da01bebcb7830fecf823fa91f01d752a2899",
+      "sha256": "c60b849ccac38c2bb6df1d3bc1f05cd7195f36625b773077d11ede7ea98bbac4",
       "name": "Nioh3BossRematch.asi"
     }
   ],
