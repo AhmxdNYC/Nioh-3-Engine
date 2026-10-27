@@ -28,3 +28,7 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-10-27 6:06 pm EDT | cx-pc #40696: Ring meter candidate ready on cx-pc/ring-meter-40696 (7a442b67 + b8665395). Install BOTH EF bridge2948 SHA d46705ebadf5 and Training bridge2949 SHA 3ed3f4780cb6; keep BR793c10d4/CamKiProbe.
 Row default; FrameMeterStyle=1 selects separate PLAYER/I-FR and BOSS/KI DEBT rings. Both menu suites + 7 Training suites PASS. Offline PC1080p changing-history CPU draw: OFF Row67.041ms vs ON Ring10.872ms; native visuals/upload/FPS remain pc acceptance.
 Next pc combine cxl-pc Wine-opener changes if shipping, install/test switches+menu-open visibility+pulse, and send in-game pictures. Offline preview already sent to Discord; details notes/ring-meter-40696/report.txt in task worktree. No game touched.
+
+2026-10-27 6:16 pm EDT | cx-pc #40696/#40835 FINAL SMOOTH candidate: branch cx-pc/ring-meter-40696; commits7a442b67,b8665395,4b615014. EF bridge2948 SHA d46705ebadf5 + Training bridge2955 SHA68a5f928702f (supersedes2949). Both needed.
+Five-resolution AA renderer + core tests and both menu suites PASS. PC1080p all4 lanes+legend/readout, CPU draw OFF Row66.872ms vs ON Ring10.745ms changing /81.483 vs2.266ms frozen. Preview sent Discord. Native gameplay/upload/FPS unproven.
+Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/pulse and send in-game pictures. Details notes/ring-meter-40696/report.txt/results.json; no cx-pc game access.

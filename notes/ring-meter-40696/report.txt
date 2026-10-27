@@ -1,15 +1,16 @@
-Ring frame meter - task 40696
+Smooth Ring frame meter - tasks 40696 and 40835
 
 READY FOR PC NATIVE ACCEPTANCE. Branch only; no game, game INI, lock, helper or deployment touched.
-Base: shipped 1.7.84 source 1e65db41. Feature commits: 7a442b67, b8665395.
+Base: shipped 1.7.84 source 1e65db41. Feature commits: 7a442b67, b8665395, 4b615014.
 Keep the separately delivered cxl-pc Wine update opener when combining branches.
 
-Install BOTH EngineFix and Training artifacts in results.json; BossRematch and CamKiProbe need no replacement.
+Install EngineFix bridge2948 + SMOOTH Training bridge2955 (supersedes Training2949), hashes in results.json; BossRematch and CamKiProbe need no replacement.
 EngineFix still reports 1.7.84: this is a task candidate, not a newly published release.
 Display Overlays > Frame meter settings > Frame meter style: Row / Ring.
 Nioh3Training.ini [Practice] FrameMeterStyle=0 defaults Row, =1 selects Ring.
 Uses the existing Training PracticeStat persistence path (new append-only slot 33).
 
+Antialiased circular arcs and straight radial dividers use cached analytic coverage masks; no per-cell trigonometry in redraws.
 Two actor rings, clockwise from 12 o'clock. PLAYER outer / I-FR inner; BOSS outer / KI DEBT inner.
 Exactly the existing last 120 visible cells from the 360-cell sampler, independent actor histories, same 18 legend labels/RGBs.
 Readout, player sampler, Player row, I-FR, boss meter, Ki debt, Ki window, all row/key masters and each key group keep existing semantics.
@@ -27,9 +28,9 @@ Proven offline:
   missing boss, legend groups, 360-cell tail/wrap, cached glyph hit/miss + clipping, premultiplied alpha, automatic HUD bounds.
 - Default Row renderer retained; two styles share original FmPaint state snapshot/readout/legend.
 - Release EngineFix MSVC and Training Zig -O2/-fasync-exceptions builds PASS. Existing compiler warnings only.
-- CPU cost results in results.json: 1080p changing history OFF Row 67.041 ms vs ON Ring 10.872 ms mean (83.8% lower).
-  Repeated frozen image 65.701 vs 2.139 ms. These are overlay CPU draws, NOT game frame times or FPS.
-- Offline production-renderer preview sent to Discord through universal notify; sample data labelled explicitly.
+- CPU cost results in results.json: 1080p changing history OFF Row 66.872 ms vs ON Ring 10.745 ms mean (83.9% lower).
+  Repeated frozen image 81.483 vs 2.266 ms. These are overlay CPU draws, NOT game frame times or FPS.
+- Revised smooth production-renderer preview sent to Discord through universal notify; sample data labelled explicitly.
 
 Not proven here: native game visuals/placement, Wine presentation, layered-window upload cost, game FPS or real input/INI reload acceptance.
 PC owns native installation/test and in-game pictures. Optional [Debug] FrameMeterDrawCost=1 before launch logs per-style
@@ -39,3 +40,5 @@ Check switch while paused/menu open; hide/show each lane and key; save/restart; 
 Reproduce offline checks: py mod/Nioh3Training/tests/run_frame_meter_draw.py
 Reproduce paired CPU measurements and BMP previews: same command with --measure
 Menus: py -I mod/Nioh3EngineFix/tests/run_menu_harness.py (MSVC setup on PATH or tools/msvc/setup_x64.bat).
+
+AA revision checks: both annuli contain partial-coverage edge pixels; cache reused at fixed geometry; no magenta fringe and correct compositing over transparent/opaque/0x73 panels. Latest renderer: 6,164,321 assertions including per-pixel coverage/alpha checks.

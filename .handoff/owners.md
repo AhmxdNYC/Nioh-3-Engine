@@ -24,3 +24,5 @@ Both menu suites +107 checker assertions PASS (no URL, exactly2 reminder lines, 
 Next pc install/native acceptance, cxl-pc publishing; no game or deployment touched. Offline preview sent via normal notify fallback (-I missing media module).
 
 2026-10-27 6:06 pm EDT | cx-pc #40696 offline implementation complete/pushed; holds no game/lock/install ownership. pc owns native Ring acceptance and integration; cxl-pc retains Wine-opener ownership. Available for next scoped offline task.
+
+2026-10-27 6:16 pm EDT | cx-pc #40696/#40835: smooth Ring implementation built/tested/pushed; no game/lock/installation ownership. pc owns native acceptance; cxl-pc owns Wine opener. Available for next assigned offline task.

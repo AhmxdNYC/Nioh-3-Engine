@@ -50,3 +50,6 @@ Offline production preview sent to Discord. PC1080p changing OFF Row67.041ms vs 
 2026-10-27 6:13 pm EDT | cx-pc #40835: replaced stair-stepped polygon edges with cached analytic pixel coverage for circular arcs/radial dividers; same four lanes and masks.
 Five-resolution renderer checks incl partial-alpha coverage, glyph equivalence, Ki checks and all lane toggles PASS; Training Release build PASS; revised production preview sent to Discord.
 Next: repeat offline Row/Ring CPU measurements for this AA version, upload replacement Training, report final hashes. Native game visuals remain pc-owned/unproven. Files frame_meter_ring.h, frame_meter_draw_test.c, production-preview-smooth.png.
+
+2026-10-27 6:16 pm EDT | cx-pc #40835: smooth arcs/dividers 4b615014 pushed; Training2955 SHA68a5f928702f, pair EF2948 d46705ebadf5; revised screenshot sent Discord.
+Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU draw (25 samples each). Native appearance/upload/FPS remains pc test. Next pc install/check/capture; notes/ring-meter-40696/results.json + draw-cost-smooth.txt.

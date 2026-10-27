@@ -4,16 +4,19 @@
   "branch": "cx-pc/ring-meter-40696",
   "feature_commits": [
     "7a442b67",
-    "b8665395"
+    "b8665395",
+    "4b615014"
   ],
   "artifacts": {
     "EngineFix": {
       "path": "C:\\Users\\Ahmad Hamza\\nioh3-ring-meter-40696\\mod\\Nioh3EngineFix\\bin\\Nioh3EngineFix.asi",
-      "sha256": "d46705ebadf51ca1593022b1cf7187878043a46a12dfd7f3b9f519cc11801027"
+      "sha256": "d46705ebadf51ca1593022b1cf7187878043a46a12dfd7f3b9f519cc11801027",
+      "bridge_file": 2948
     },
     "Training": {
       "path": "C:\\Users\\Ahmad Hamza\\nioh3-ring-meter-40696\\mod\\Nioh3Training\\Nioh3Training.asi",
-      "sha256": "3ed3f4780cb6eb38e8131209158a7a99075f56f2dc51d28196f262d47bdd969c"
+      "sha256": "68a5f928702fcaeb67a3f0d32e42ce02e4a6568880094aa9f8cd3b0dd60b12bd",
+      "bridge_file": 2955
     }
   },
   "device": "PC, Ryzen 5 7600X / RX 9070, Windows",
@@ -37,55 +40,57 @@
       "frozen",
       1280,
       720,
-      59.635,
-      75.436,
-      1.584,
-      2.277
+      67.787,
+      95.73,
+      1.337,
+      2.22
     ],
     [
       "frozen",
       1920,
       1080,
-      65.701,
-      84.335,
-      2.139,
-      3.655
+      81.483,
+      102.258,
+      2.266,
+      4.217
     ],
     [
       "frozen",
       2560,
       1440,
-      86.161,
-      115.395,
-      2.949,
-      6.919
+      112.489,
+      172.313,
+      3.367,
+      7.438
     ],
     [
       "changing",
       1280,
       720,
-      60.637,
-      71.338,
-      9.183,
-      16.884
+      74.536,
+      97.323,
+      11.108,
+      18.906
     ],
     [
       "changing",
       1920,
       1080,
-      67.041,
-      79.134,
-      10.872,
-      16.649
+      66.872,
+      89.898,
+      10.745,
+      18.28
     ],
     [
       "changing",
       2560,
       1440,
-      76.616,
-      88.516,
-      13.577,
-      18.661
+      82.004,
+      97.951,
+      12.637,
+      17.691
     ]
-  ]
+  ],
+  "refinement_task": 40835,
+  "geometry": "cached analytic antialias coverage for arcs and straight radial dividers"
 }
