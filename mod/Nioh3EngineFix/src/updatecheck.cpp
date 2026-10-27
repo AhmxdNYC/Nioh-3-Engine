@@ -122,12 +122,32 @@ void Tick(const char* installedVersion) {
 }
 namespace {
 std::atomic<ULONGLONG> g_openAfter{0};
-void LaunchFixedPage() {
+void LaunchFixedPage(HMODULE module) {
     // Never use manifest or INI values as browser targets.
     ShellExecuteW(nullptr, L"open", L"https://nioh3-mod-feedback.vercel.app", nullptr, nullptr, SW_SHOWNORMAL);
+    // Resolve only this ASI's directory; no configuration, manifest or working-directory input.
+    std::wstring path(32768, L'\0');
+    const DWORD length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
+    if (!length || length >= path.size()) return;
+    path.resize(length);
+    const auto slash = path.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) return;
+    const std::wstring folder = path.substr(0, slash + 1);
+    const std::wstring updater = folder + L"Nioh3Updater.exe";
+    const DWORD attributes = GetFileAttributesW(updater.c_str());
+    const bool exists = attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+    // Fully qualify Explorer too, so a local executable cannot shadow it.
+    wchar_t windows[MAX_PATH]{};
+    const UINT count = GetWindowsDirectoryW(windows, MAX_PATH);
+    if (!count || count >= MAX_PATH) return;
+    const std::wstring explorer = std::wstring(windows, count) + L"\\explorer.exe";
+    // Avoid a trailing backslash before the closing quote for the folder fallback.
+    const std::wstring target = exists ? updater : folder + L".";
+    const std::wstring args = (exists ? L"/select,\"" : L"\"") + target + L"\"";
+    ShellExecuteW(nullptr, L"open", explorer.c_str(), args.c_str(), nullptr, SW_SHOWNORMAL);
 }
 DWORD WINAPI OpenPageWorker(LPVOID module) {
-    LaunchFixedPage();
+    try { LaunchFixedPage(static_cast<HMODULE>(module)); } catch (...) { /* Shell UI is best-effort; never unwind into the game. */ }
     FreeLibraryAndExitThread(static_cast<HMODULE>(module), 0);
 }
 }

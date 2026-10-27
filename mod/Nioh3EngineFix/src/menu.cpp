@@ -2396,13 +2396,14 @@ void PollUpdateHint(unsigned W, unsigned H, float x, float y, float w, float h) 
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     char update[64]{};
     const bool hasUpdate = updatecheck::CopyNotice(update, sizeof(update));
+    const char* click = "Click: website + updater folder";
     const char* shortcut = "Controller: use Nioh3 Mod Website";
     const char* folder = "shortcut in the game folder";
     const size_t chars = hasUpdate ? std::max(strlen(text), std::max(strlen(shortcut), std::max(strlen(update), strlen(updatecheck::kSite)))) : strlen(text);
     const float normalScale = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);
     const float sc = std::min(normalScale, std::max(0.25f, ((float)W - 2 * osd::kCornerPx) / ((float)chars * osd::kGlyphW + 8.f)));
     const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
-    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 5 : 1) * lineH + 2 * pad - 4 * sc;
+    const float w = (float)chars * osd::kGlyphW * sc + 2 * pad, h = (hasUpdate ? 6 : 1) * lineH + 2 * pad - 4 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
@@ -2415,8 +2416,9 @@ float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     if (hasUpdate) {
         osd::DrawText(x + pad, y + pad + lineH, update, cGold, sc);
         osd::DrawText(x + pad, y + pad + 2 * lineH, updatecheck::kSite, cWhite, sc);
-        osd::DrawText(x + pad, y + pad + 3 * lineH, shortcut, cWhite, sc);
-        osd::DrawText(x + pad, y + pad + 4 * lineH, folder, cWhite, sc);
+        osd::DrawText(x + pad, y + pad + 4 * lineH, shortcut, cWhite, sc);
+        osd::DrawText(x + pad, y + pad + 5 * lineH, folder, cWhite, sc);
+        osd::DrawText(x + pad, y + pad + 3 * lineH, click, cWhite, sc);
         PollUpdateHint(W, H, x, y + pad + lineH, w, 2 * lineH);
     }
     return sc;
@@ -2948,7 +2950,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if (g_sel == kUpdatePageRow) {
-        snprintf(what, sizeof(what), "Open the official mod website in your browser.");
+        snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);

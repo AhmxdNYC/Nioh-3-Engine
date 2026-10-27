@@ -94,9 +94,9 @@ int main() {
     updatecheck::testNotice = "Update available v1.8.0";
     osd::drawnRects.clear(); osd::drawnTexts.clear();
     DrawCornerNote(800, 600, "Mod menu: F10 / Start x3", 0xFFFFFFFF);
-    bool updateSeen=false, urlSeen=false;
-    for (const auto& text : osd::drawnTexts) { updateSeen |= text == updatecheck::testNotice; urlSeen |= text == updatecheck::kSite; }
-    CHECK(updateSeen && urlSeen);
+    bool updateSeen=false, urlSeen=false, folderSeen=false;
+    for (const auto& text : osd::drawnTexts) { updateSeen |= text == updatecheck::testNotice; urlSeen |= text == updatecheck::kSite; folderSeen |= text == "Click: website + updater folder"; }
+    CHECK(updateSeen && urlSeen && folderSeen);
     for (const auto& rect : osd::drawnRects) CHECK(rect.x >= 0 && rect.x + rect.w <= 800.01f);
     updatecheck::testNotice.clear();
     osd::drawnRects.clear(); osd::drawnTexts.clear();

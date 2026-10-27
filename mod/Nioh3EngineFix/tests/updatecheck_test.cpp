@@ -8,6 +8,7 @@
 #include <cstring>
 #include <string>
 #include <cstdlib>
+#include <vector>
 static std::string response;
 static size_t cursor=0,chunk=11;
 static DWORD statusCode=200;
@@ -42,10 +43,26 @@ static BOOL Close(HINTERNET){++closed;return TRUE;}
 static ULONGLONG Clock(){return clockMs;}
 static int threadAttempts=0;
 static HANDLE NoThread(...){++threadAttempts;return nullptr;}
-static std::wstring launchedUrl;
-static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR url,LPCWSTR,LPCWSTR,int) {
- launchedUrl=url; return reinterpret_cast<HINSTANCE>(33);
+struct ShellCall { std::wstring target, args; };
+static std::vector<ShellCall> shellCalls;
+static std::wstring modulePath = L"C:\\Steam Games\\Nioh3\\Nioh3EngineFix.asi", checkedPath;
+static DWORD updaterAttributes = FILE_ATTRIBUTE_NORMAL;
+static bool pathTruncated=false, pathFailure=false;
+static HMODULE seenModule{};
+static DWORD FakeModulePath(HMODULE module, LPWSTR out, DWORD capacity) {
+ seenModule=module;
+ if(pathFailure)return 0;
+ if(pathTruncated)return capacity;
+ wcscpy_s(out,capacity,modulePath.c_str());return static_cast<DWORD>(modulePath.size());
 }
+static DWORD FakeAttributes(LPCWSTR path){checkedPath=path;return updaterAttributes;}
+static UINT FakeWindows(LPWSTR out,UINT capacity){wcscpy_s(out,capacity,L"C:\\Windows");return 10;}
+static HINSTANCE FakeShell(HWND,LPCWSTR,LPCWSTR target,LPCWSTR args,LPCWSTR,int) {
+ shellCalls.push_back({target,args?args:L""}); return reinterpret_cast<HINSTANCE>(33);
+}
+#define GetModuleFileNameW FakeModulePath
+#define GetFileAttributesW FakeAttributes
+#define GetWindowsDirectoryW FakeWindows
 #define ShellExecuteW FakeShell
 #define WinHttpOpen Open
 #define WinHttpConnect Connect
@@ -116,7 +133,20 @@ int main(){
  Tick("1.7.80");CHECK(threadAttempts==1);
 
  CHECK(SetEndpoint(L"https://untrusted.example/manifest.json"));
- LaunchFixedPage();CHECK(launchedUrl==L"https://nioh3-mod-feedback.vercel.app");
+ HMODULE testModule=reinterpret_cast<HMODULE>(123);
+ LaunchFixedPage(testModule);
+ CHECK(shellCalls.size()==2);CHECK(seenModule==testModule);
+ CHECK(shellCalls[0].target==L"https://nioh3-mod-feedback.vercel.app");
+ CHECK(shellCalls[1].target==L"C:\\Windows\\explorer.exe");
+ CHECK(shellCalls[1].args==L"/select,\"C:\\Steam Games\\Nioh3\\Nioh3Updater.exe\"");
+ CHECK(checkedPath==L"C:\\Steam Games\\Nioh3\\Nioh3Updater.exe");
+ shellCalls.clear();updaterAttributes=INVALID_FILE_ATTRIBUTES;LaunchFixedPage(testModule);
+ CHECK(shellCalls.size()==2);CHECK(shellCalls[1].args==L"\"C:\\Steam Games\\Nioh3\\.\"");
+ shellCalls.clear();updaterAttributes=FILE_ATTRIBUTE_DIRECTORY;LaunchFixedPage(testModule);
+ CHECK(shellCalls[1].args==L"\"C:\\Steam Games\\Nioh3\\.\"");
+ shellCalls.clear();pathTruncated=true;LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
+ pathTruncated=false;pathFailure=true;shellCalls.clear();LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
+ pathFailure=false;modulePath=L"no-directory.asi";shellCalls.clear();LaunchFixedPage(testModule);CHECK(shellCalls.size()==1);
  reset();g_openAfter.store(0);int before=threadAttempts;
  OpenPage();CHECK(threadAttempts==before+1);OpenPage();CHECK(threadAttempts==before+1);
  clockMs+=2000;OpenPage();CHECK(threadAttempts==before+2);
