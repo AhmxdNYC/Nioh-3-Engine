@@ -102,6 +102,7 @@ struct Cfg {
     int pauseHint = 2;  // [Menu] PauseHint: 2 always, 1 while a game menu is open, 0 off
     uint8_t pauseMask = 0x18;  // bit i = G+0x588+i; default 58B + 58C (the two flags that stop game time)
     int pauseSrc = 2;          // [Menu] PauseHintSource: 0 Menu (the game's own "menu open" signal), 1 StopFlags (G+58B/58C), 2 Both
+    int freezeGame = 1;        // [Menu] FreezeGame: request the 58B stop flag (game time stops) while the mod menu is open
     uint8_t escDik = 0x01;     // [Menu] KeyTripleTap = Escape: press Escape 3x to open the menu (0 = off)
 };
 Cfg g_cfg;
@@ -129,6 +130,7 @@ const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},  
                            {K_PAGEUP, VK_PRIOR, 0xC9}, {K_PAGEDOWN, VK_NEXT, 0xD1}};
 
 volatile LONG g_open = 0;
+void SyncFreeze();  // holds / releases the 58B stop request so it follows g_open (defined with the engine reads)
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
@@ -207,6 +209,7 @@ void Request(ULONGLONG t, LONG src) {
 void ForceCloseIfDead(ULONGLONG t) {
     if (g_open && !Alive(t, 1500) && InterlockedExchange(&g_open, 0))
         MLOG("closed: the overlay stopped presenting for 1.5 s - game input passes through again");
+    SyncFreeze();
 }
 
 // ---- pad feed (game input thread via the IAT hook; Present thread for own polling) ------------------------------------
@@ -322,6 +325,7 @@ void PadFeedSafe(DWORD idx, XINPUT_STATE* st, bool own) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         InterlockedExchange(&g_disabled, 1);
         InterlockedExchange(&g_open, 0);
+        SyncFreeze();
         MLOG("exception %08lX in the pad hook - mod menu disabled for this session (input passes through)", GetExceptionCode());
     }
 }
@@ -405,6 +409,7 @@ void KeyFeedSafe(uint8_t* keys, bool own) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         InterlockedExchange(&g_disabled, 1);
         InterlockedExchange(&g_open, 0);
+        SyncFreeze();
         MLOG("exception %08lX in the keyboard hook - mod menu disabled for this session (input passes through)", GetExceptionCode());
     }
 }
@@ -601,6 +606,49 @@ bool Rd(const void* p, T& out) {
     }
 }
 
+// ---- freeze while the menu is open --------------------------------------------------------------------------------------
+// The game's own pause raises request counters in the latched stop-flag block (notes\osd-design.md 10.5): G+0x590+4*i feeds the byte
+// G+0x588+i, and FrameDtSetup zeroes the game time scale for 58B (i=3, counter G+0x59C, the same dword 0x10FD6E0 inc/decs) and 58C.
+// The mod adds one request to the 58B counter while g_open && FreezeGame and takes exactly that one back, so the count it held is
+// returned even when the menu is closed from another thread, a hook faults, the overlay dies, or the DLL is unloaded.
+constexpr uint32_t kOffFreezeCounter = 0x590 + 4 * 3;  // request counter of stop flag 58B
+volatile LONG g_freezeBusy = 0;
+uintptr_t g_freezeCounter = 0;  // address of the counter we incremented; 0 = nothing held (guarded by g_freezeBusy)
+
+void SyncFreezeLocked() {
+    const bool want = g_open && !g_disabled && g_cfg.freezeGame && g_host.knownBuild && g_host.base;
+    if (want == (g_freezeCounter != 0)) return;
+    __try {
+        if (want) {
+            uint64_t gp = 0;
+            if (!Rd(g_host.base + kRvaFrameMgrPtr, gp) || gp < 0x10000) return;
+            volatile LONG* c = reinterpret_cast<volatile LONG*>((uintptr_t)gp + kOffFreezeCounter);
+            if (*c < 0 || *c > 1000) return;  // not a sane counter: leave the game alone
+            InterlockedIncrement(c);
+            g_freezeCounter = (uintptr_t)c;
+            MLOG("freeze: game time stopped (58B request +1 -> %ld)", (long)*c);
+        } else {
+            volatile LONG* c = reinterpret_cast<volatile LONG*>(g_freezeCounter);
+            g_freezeCounter = 0;
+            LONG cur = *c;
+            while (cur > 0) {  // the game floors at 0 too; never go negative
+                const LONG seen = InterlockedCompareExchange(c, cur - 1, cur);
+                if (seen == cur) break;
+                cur = seen;
+            }
+            MLOG("freeze: game time resumed (58B request -> %ld)", (long)*c);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_freezeCounter = 0;  // the block vanished: nothing left to give back
+    }
+}
+
+void SyncFreeze() {
+    if (InterlockedCompareExchange(&g_freezeBusy, 1, 0) != 0) return;  // another thread is syncing; the next call re-checks
+    SyncFreezeLocked();
+    InterlockedExchange(&g_freezeBusy, 0);
+}
+
 bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
     __try {
         return memcmp(g_host.base + rva, b, n) == 0;
@@ -617,7 +665,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
-          kWorkerCap, kP12, kL1Wine, kFgWine, kSave, kClose, kCount };
+          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kCount };
 #include "settings_catalog.h"
 #include "menu_pages.h"
 menu_nav::Trail<> g_pages;
@@ -742,6 +790,7 @@ const ItemDef kItems[kCount] = {
     {"Skip load tip screen", "", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
+    {"Freeze game while menu is open", "(FreezeGame)", "Stops game time like the game's pause menu while any mod menu page is open; closing the menu resumes it. Overlays keep drawing.", "Picture unchanged. Applies now. Released on close, hide and unload."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
@@ -761,7 +810,7 @@ const OrderEnt kOrder[] = {
     {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
     {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
-    {kLat, nullptr}, {kGpu, nullptr},
+    {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
     {kXX1, nullptr}, {kXE1, nullptr}, {kXM2, nullptr}, {kXJ1, nullptr}, {kXS1, nullptr}, {kXWG, nullptr}, {kXTG, nullptr},
     {kXDS, nullptr}, {kXLK, nullptr}, {kXCP, nullptr}, {kXSPF, nullptr}, {kXMQ, nullptr}, {kXPT1, nullptr}, {kXDL, nullptr},
@@ -943,7 +992,7 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
-    if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12) return pSGame;
+    if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
     const int sp = SettingsPage(id);
     if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
@@ -1274,6 +1323,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
             color = ch ? cYellow : (g_bootWorkerCap ? cGreen : cGray);
             break;
         }
+        case kFreeze: onoff(g_cfg.freezeGame != 0); break;
         case kP12: boot(g_bootP12 != 0, g_bootP12 != g_host.p12); break;
         case kL1Wine: boot(g_bootL1Wine != 0, g_bootL1Wine != g_host.l1OnWine); break;
         case kFgWine: boot(g_bootFgWine != 0, g_bootFgWine != g_host.fgOnWine); break;
@@ -1369,6 +1419,7 @@ void StartSave() {
     add(L"Overlay", L"FpsCounter", b(o.fpsCounter != 0));
     if (Available(kAutoCont)) add(L"General", L"AutoContinueLoad", b(*g_host.autoContinue != 0));
     add(L"Menu", L"PauseHint", std::to_wstring(g_cfg.pauseHint));
+    add(L"Menu", L"FreezeGame", b(g_cfg.freezeGame != 0));
     add(L"Overlay", L"FrameTime", b(o.frameTime != 0));
     add(L"Overlay", L"SpeedFactor", b(o.speed != 0));
     {
@@ -1415,6 +1466,7 @@ void Close(const char* how) {
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedOr(&g_keyLatch, (LONG)K_NAV);
     InterlockedExchange(&g_open, 0);
+    SyncFreeze();
     MessageBeep(MB_ICONASTERISK);
     const bool autoSave = g_dirty && !g_ini.empty();
     MLOG("closed (%s)%s", how, autoSave ? " - auto-saving the changed settings to the ini" : "");
@@ -1699,6 +1751,7 @@ void Change(int id, int dir) {
         }
         case kFps: o.fpsCounter = !o.fpsCounter; break;
         case kAutoCont: SetAutoContinue(*g_host.autoContinue == 0); break;
+        case kFreeze: g_cfg.freezeGame = !g_cfg.freezeGame; break;
         case kHint: g_cfg.pauseHint = (g_cfg.pauseHint + (dir < 0 ? 2 : 1)) % 3; break;  // Always -> Off -> In game menus
         case kFrameTime: o.frameTime = !o.frameTime; break;
         case kSpeed: o.speed = !o.speed; break;
@@ -1823,6 +1876,7 @@ bool RemoteValue(int id, int& v) {
         case kSpeed: v = o.speed ? 1 : 0; return true;
         case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
         case kHint: v = g_cfg.pauseHint; return true;
+        case kFreeze: v = g_cfg.freezeGame; return true;
         case kWorkerCap: v = g_bootWorkerCap; return true;
         case kP12: v = g_bootP12; return true;
         case kL1Wine: v = g_bootL1Wine; return true;
@@ -1859,6 +1913,11 @@ void RunRemote(RemoteReq& q) {
                 break;
             case kLat:
                 o.maxLatency = std::clamp(q.value, 0, 3);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kFreeze:
+                g_cfg.freezeGame = q.value ? 1 : 0;
                 g_dirty = true;
                 LogItem(id);
                 break;
@@ -2988,6 +3047,7 @@ float DrawImpl(unsigned W, unsigned H) {
 void Fail(const char* where, DWORD code) {
     InterlockedExchange(&g_disabled, 1);
     InterlockedExchange(&g_open, 0);
+    SyncFreeze();
     MLOG("exception %08lX in %s - mod menu disabled for this session (the game and the fixes are unaffected)", code, where);
 }
 
@@ -3114,6 +3174,7 @@ void Configure(const Host& h) {
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
     if (g_cfg.scale > 0 && g_cfg.scale < 0.5f) g_cfg.scale = 0.5f;
     g_cfg.pauseHint = (int)GetPrivateProfileIntW(L"Menu", L"PauseHint", 2, f);
+    g_cfg.freezeGame = GetPrivateProfileIntW(L"Menu", L"FreezeGame", 1, f) != 0;
     GetPrivateProfileStringW(L"Menu", L"PauseHintSource", L"Both", b, 96, f);
     g_cfg.pauseSrc = !_wcsicmp(b, L"Menu") ? 0 : !_wcsicmp(b, L"StopFlags") ? 1 : 2;
     GetPrivateProfileStringW(L"Menu", L"KeyTripleTap", L"Escape", b, 96, f);
@@ -3180,6 +3241,7 @@ void OnPresent() {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         Fail("OnPresent", GetExceptionCode());
     }
+    SyncFreeze();  // after every path that may have closed the menu (Close, hooks, cover, add-on request)
 }
 
 float Draw(unsigned W, unsigned H) {
@@ -3216,6 +3278,12 @@ bool CoverTipAllowed() {
 }
 bool IsOpen() { return g_open != 0 && !g_disabled; }
 int GamePauseReason() { return (int)g_pauseReason; }
+void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state the menu is in
+    InterlockedExchange(&g_open, 0);
+    for (int i = 0; i < 100 && InterlockedCompareExchange(&g_freezeBusy, 1, 0) != 0; ++i) Sleep(1);
+    SyncFreezeLocked();
+    InterlockedExchange(&g_freezeBusy, 0);
+}
 
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
 
