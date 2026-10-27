@@ -2599,9 +2599,9 @@ float DrawImpl(unsigned W, unsigned H) {
         if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) {
             if (id == g_sel) selRow = nb;
             const PsToggle& pt = kPsToggles[id - kPsRowFirst];
-            const int v = PsGet(t.what);
+            const int v = PsGet(pt.what);
             char lab[96], text[32];
-            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", t.label);
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", pt.label);
             snprintf(text, sizeof(text), "%s", v < 0 ? "needs Training" : v ? "ON" : "OFF");
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, v > 0 ? cGreen : cGray, id == g_sel, false);
             continue;
