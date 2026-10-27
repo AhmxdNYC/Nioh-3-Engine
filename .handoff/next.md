@@ -24,4 +24,11 @@ Next pc install/native acceptance; no game/deployment touched. Offline preview s
 2026-10-27 5:34 pm EDT | cx-pc #40646: short update instruction pushed 34de61b7 on cx-pc/update-notice-40646, based on later1.7.83 source3129200e. Notice: Update <ver> available: Mod Menu > Open update page; URL removed, click/site+folder behavior preserved.
 Both menu suites +107 checker assertions PASS (no URL, exactly2 reminder lines, viewport fit320/800/1280, longest accepted version). Release EF bridge2926 SHAbcc09202ad709294c55f1d1acdc207496c9d536fa5f6d3abea8f0a3741b16267, MOD_VERSION1.7.83.
 Next pc install/native acceptance, cxl-pc publishing; no game or deployment touched. Offline preview sent via normal notify fallback (-I missing media module).
-2026-10-27 6:15 pm EDT | cx-pc #40835: cached4x coverage + curved cells built; 5927461 renderer assertions and all7 suites PASS. Training97e9c213; actual renderer preview ready. Next pc integrate/live-check; D:/nioh3-wt/ring-aa-40835, notes/ring-aa-40835.md; no game touched.
+
+2026-10-27 6:06 pm EDT | cx-pc #40696: Ring meter candidate ready on cx-pc/ring-meter-40696 (7a442b67 + b8665395). Install BOTH EF bridge2948 SHA d46705ebadf5 and Training bridge2949 SHA 3ed3f4780cb6; keep BR793c10d4/CamKiProbe.
+Row default; FrameMeterStyle=1 selects separate PLAYER/I-FR and BOSS/KI DEBT rings. Both menu suites + 7 Training suites PASS. Offline PC1080p changing-history CPU draw: OFF Row67.041ms vs ON Ring10.872ms; native visuals/upload/FPS remain pc acceptance.
+Next pc combine cxl-pc Wine-opener changes if shipping, install/test switches+menu-open visibility+pulse, and send in-game pictures. Offline preview already sent to Discord; details notes/ring-meter-40696/report.txt in task worktree. No game touched.
+
+2026-10-27 6:16 pm EDT | cx-pc #40696/#40835 FINAL SMOOTH candidate: branch cx-pc/ring-meter-40696; commits7a442b67,b8665395,4b615014. EF bridge2948 SHA d46705ebadf5 + Training bridge2955 SHA68a5f928702f (supersedes2949). Both needed.
+Five-resolution AA renderer + core tests and both menu suites PASS. PC1080p all4 lanes+legend/readout, CPU draw OFF Row66.872ms vs ON Ring10.745ms changing /81.483 vs2.266ms frozen. Preview sent Discord. Native gameplay/upload/FPS unproven.
+Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/pulse and send in-game pictures. Details notes/ring-meter-40696/report.txt/results.json; no cx-pc game access.

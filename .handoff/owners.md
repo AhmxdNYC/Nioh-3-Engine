@@ -22,4 +22,7 @@ Next pc install/native acceptance; no game/deployment touched. Offline preview s
 2026-10-27 5:34 pm EDT | cx-pc #40646: short update instruction pushed 34de61b7 on cx-pc/update-notice-40646, based on later1.7.83 source3129200e. Notice: Update <ver> available: Mod Menu > Open update page; URL removed, click/site+folder behavior preserved.
 Both menu suites +107 checker assertions PASS (no URL, exactly2 reminder lines, viewport fit320/800/1280, longest accepted version). Release EF bridge2926 SHAbcc09202ad709294c55f1d1acdc207496c9d536fa5f6d3abea8f0a3741b16267, MOD_VERSION1.7.83.
 Next pc install/native acceptance, cxl-pc publishing; no game or deployment touched. Offline preview sent via normal notify fallback (-I missing media module).
-2026-10-27 6:15 pm EDT | cx-pc #40835 implementation complete; pc owns integration/runtime. cxl-pc still owns Linux opener.
+
+2026-10-27 6:06 pm EDT | cx-pc #40696 offline implementation complete/pushed; holds no game/lock/install ownership. pc owns native Ring acceptance and integration; cxl-pc retains Wine-opener ownership. Available for next scoped offline task.
+
+2026-10-27 6:16 pm EDT | cx-pc #40696/#40835: smooth Ring implementation built/tested/pushed; no game/lock/installation ownership. pc owns native acceptance; cxl-pc owns Wine opener. Available for next assigned offline task.

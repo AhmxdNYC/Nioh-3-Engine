@@ -26,45 +26,16 @@ static int FmVisibleStart(const FmMeter* m) {
     return used>FM_DISPLAY_CELLS?used-FM_DISPLAY_CELLS:0;
 }
 // Trigonometry only when resolution changes, not per cell per redraw.
-// Coverage masks are built once per geometry, independent of sample colours.
-#define FM_RING_AA 4
-#define FM_RING_VERTS 8
-typedef struct { int x,y,w,h; unsigned char* coverage; POINT outline[FM_RING_VERTS]; } FmRingTile;
-static void FmRingTileBuild(FmRingTile* t,const POINT* p) {
-    free(t->coverage);memset(t,0,sizeof *t);
-    for(int j=0;j<FM_RING_VERTS;++j){t->outline[j].x=(LONG)lround(p[j].x/(double)FM_RING_AA);t->outline[j].y=(LONG)lround(p[j].y/(double)FM_RING_AA);}
-    int x0=p[0].x,y0=p[0].y,x1=x0,y1=y0;
-    for(int i=1;i<FM_RING_VERTS;++i){if(p[i].x<x0)x0=p[i].x;if(p[i].x>x1)x1=p[i].x;
-        if(p[i].y<y0)y0=p[i].y;if(p[i].y>y1)y1=p[i].y;}
-    t->x=(int)floor(x0/(double)FM_RING_AA)-1;t->y=(int)floor(y0/(double)FM_RING_AA)-1;
-    t->w=(int)ceil(x1/(double)FM_RING_AA)-t->x+1;t->h=(int)ceil(y1/(double)FM_RING_AA)-t->y+1;
-    const int w=t->w*FM_RING_AA,h=t->h*FM_RING_AA;
-    HDC dc=CreateCompatibleDC(0);if(!dc)return;
-    BITMAPINFO bi={0};bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=w;bi.bmiHeader.biHeight=-h;
-    bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;
-    uint32_t* bits=0;HBITMAP bm=CreateDIBSection(dc,&bi,DIB_RGB_COLORS,(void**)&bits,0,0);
-    t->coverage=(unsigned char*)malloc((size_t)t->w*t->h);
-    if(!bm||!bits||!t->coverage){free(t->coverage);t->coverage=0;if(bm)DeleteObject(bm);DeleteDC(dc);return;}
-    HGDIOBJ old=SelectObject(dc,bm),pen=SelectObject(dc,GetStockObject(NULL_PEN)),brush=SelectObject(dc,GetStockObject(WHITE_BRUSH));
-    memset(bits,0,(size_t)w*h*4);
-    POINT q[FM_RING_VERTS];for(int i=0;i<FM_RING_VERTS;++i){q[i].x=p[i].x-t->x*FM_RING_AA;q[i].y=p[i].y-t->y*FM_RING_AA;}
-    Polygon(dc,q,FM_RING_VERTS);GdiFlush();
-    for(int y=0;y<t->h;++y)for(int x=0;x<t->w;++x){unsigned n=0;
-        for(int dy=0;dy<FM_RING_AA;++dy)for(int dx=0;dx<FM_RING_AA;++dx)n+=(bits[(y*FM_RING_AA+dy)*w+x*FM_RING_AA+dx]&255)!=0;
-        t->coverage[y*t->w+x]=(unsigned char)((n*255+8)/16);}
-    SelectObject(dc,brush);SelectObject(dc,pen);SelectObject(dc,old);DeleteObject(bm);DeleteDC(dc);
-}
-typedef struct { POINT cell[2][FM_DISPLAY_CELLS][FM_RING_VERTS], stripe[FM_DISPLAY_CELLS][FM_RING_VERTS];
-    FmRingTile tile[2][FM_DISPLAY_CELLS], stripeTile[FM_DISPLAY_CELLS];
+typedef struct { short x,y; unsigned char lane,cell,fill,stripe,ub,edgeCell,edge; } FmRingPixel;
+typedef struct { POINT cell[2][FM_DISPLAY_CELLS][4], stripe[FM_DISPLAY_CELLS][4];
     POINT edge[2][FM_DISPLAY_CELLS][2], ub[FM_DISPLAY_CELLS][2], mid[FM_DISPLAY_CELLS];
-    int d,thick,gap; } FmRingMesh;
+    int d,thick,gap,pixelN; FmRingPixel* pixels; } FmRingMesh;
 static FmRingMesh g_fm_ringMesh;
+static float FmCoverage(float distance) { return distance<=-.5f?0.f:distance>=.5f?1.f:distance+.5f; }
+static float FmMin(float a,float b){return a<b?a:b;}
+static unsigned char FmCoverageByte(float a){return (unsigned char)(a*255.f+.5f);}
 static POINT FmPolar(float r,float a) {
     POINT p={(LONG)lroundf(r*sinf(a)),(LONG)lroundf(-r*cosf(a))}; return p;
-}
-static POINT FmPolarFine(float r,float a) {return FmPolar(r*FM_RING_AA,a);}
-static void FmRingSector(POINT* p,float ri,float ro,float a,float b) {
-    for(int j=0;j<4;++j){p[j]=FmPolarFine(ro,a+(b-a)*j/3.f);p[4+j]=FmPolarFine(ri,b-(b-a)*j/3.f);}
 }
 static void FmRingBuild(FmRingLayout g) {
     FmRingMesh* m=&g_fm_ringMesh;
@@ -77,46 +48,88 @@ static void FmRingBuild(FmRingLayout g) {
         for(int i=0;i<FM_DISPLAY_CELLS;++i) {
             const float a=i*step,b=(i+1)*step;
             POINT* p=m->cell[lane][i];
-            FmRingSector(p,ri,ro,a+inset,b-inset);
-            FmRingTileBuild(&m->tile[lane][i],p);
+            p[0]=FmPolar(ro,a+inset);p[1]=FmPolar(ro,b-inset);
+            p[2]=FmPolar(ri,b-inset);p[3]=FmPolar(ri,a+inset);
             m->edge[lane][i][0]=FmPolar(ri-1,a);m->edge[lane][i][1]=FmPolar(ro+1,a);
             if(!lane) {
-                POINT* s=m->stripe[i];FmRingSector(s,ro-g.thick/3.f,ro,a+inset,b-inset);
-                FmRingTileBuild(&m->stripeTile[i],s);
+                POINT* s=m->stripe[i];s[0]=p[0];s[1]=p[1];
+                s[2]=FmPolar(ro-g.thick/3.f,b-inset);s[3]=FmPolar(ro-g.thick/3.f,a+inset);
                 m->ub[i][0]=FmPolar((ro+ri)/2,a+inset);m->ub[i][1]=FmPolar((ro+ri)/2,b-inset);
                 m->mid[i]=FmPolar((ro+ri)/2,(a+b)/2);
             }
         }
     }
-}
-static void FmRingRaw(HDC dc,const FmRingTile* t,int cx,int cy,COLORREF color) {
-    POINT p[FM_RING_VERTS];for(int i=0;i<FM_RING_VERTS;++i){p[i].x=t->outline[i].x+cx;p[i].y=t->outline[i].y+cy;}
-    SetDCBrushColor(dc,color);Polygon(dc,p,FM_RING_VERTS);
-}
-static void FmRingPoly(HDC dc,const FmRingTile* t,int cx,int cy,COLORREF color) {
-    if(!t->coverage || !n3_stroke_layered){FmRingRaw(dc,t,cx,cy,color);return;}
-    DIBSECTION dst={0};RECT clip;
-    const int kind=GetClipBox(dc,&clip);
-    if(kind==NULLREGION)return;
-    if(kind!=SIMPLEREGION || GetObject(GetCurrentObject(dc,OBJ_BITMAP),sizeof dst,&dst)!=sizeof dst
-       || !dst.dsBm.bmBits || dst.dsBm.bmBitsPixel!=32){FmRingRaw(dc,t,cx,cy,color);return;}
-    if(clip.left<0)clip.left=0;if(clip.top<0)clip.top=0;
-    if(clip.right>dst.dsBm.bmWidth)clip.right=dst.dsBm.bmWidth;
-    if(clip.bottom>dst.dsBm.bmHeight)clip.bottom=dst.dsBm.bmHeight;
-    const uint32_t rgb=(GetRValue(color)<<16)|(GetGValue(color)<<8)|GetBValue(color);
-    GdiFlush(); // finish prior GDI fills before direct premultiplied DIB writes
-    for(int y=0;y<t->h;++y){int yy=cy+t->y+y;if(yy<clip.top||yy>=clip.bottom)continue;
-        for(int x=0;x<t->w;++x){int xx=cx+t->x+x;if(xx<clip.left||xx>=clip.right)continue;
-            const unsigned a=t->coverage[y*t->w+x];if(!a)continue;
-            uint32_t* out=(uint32_t*)((char*)dst.dsBm.bmBits+yy*dst.dsBm.bmWidthBytes)+xx;
-            uint32_t v=*out,da=v>>24,c=v&0xffffff;
-            if(!da){da=c==0xff00ff?0:c==0x10151e?115:255;v=da<<24;
-                for(int shift=0;shift<24;shift+=8)v|=((((c>>shift)&255)*da+127)/255)<<shift;}
-            uint32_t value=(a+(((v>>24)*(255-a)+127)/255))<<24;
-            for(int shift=0;shift<24;shift+=8)value|=(((((rgb>>shift)&255)*a+127)/255+(((v>>shift)&255)*(255-a)+127)/255)<<shift);
-            *out=value;
-        }
+    // Analytic signed-distance coverage: circular arcs and straight radial separators
+    // get a one-pixel feather. Cache only annulus pixels; no trigonometry in redraws.
+    free(m->pixels);m->pixels=0;m->pixelN=0;
+    const int half=(g.d+1)/2+2,side=half*2+1;
+    m->pixels=(FmRingPixel*)malloc((size_t)side*side*sizeof(FmRingPixel));
+    if(!m->pixels)return; // existing GDI mesh remains an allocation-failure fallback
+    for(int y=-half;y<=half;++y)for(int x=-half;x<=half;++x) {
+        const float xx=x+.5f,yy=y+.5f,r=sqrtf(xx*xx+yy*yy);
+        int lane=-1;
+        for(int k=0;k<2;++k){const float ro=g.d*.5f-k*(g.thick+g.gap),ri=ro-g.thick;
+            if(r>=ri-1.5f && r<=ro+1.5f){lane=k;break;}}
+        if(lane<0)continue;
+        const float ro=g.d*.5f-lane*(g.thick+g.gap),ri=ro-g.thick;
+        float a=atan2f(xx,-yy);if(a<0)a+=6.28318530718f;
+        int cell=(int)(a/step);if(cell>=FM_DISPLAY_CELLS)cell=FM_DISPLAY_CELLS-1;
+        const float phase=a/step-cell,angular=FmMin(phase,1.f-phase)*step*r;
+        const float angularCoverage=FmCoverage(angular-.45f);
+        FmRingPixel p;p.x=(short)x;p.y=(short)y;p.lane=(unsigned char)lane;p.cell=(unsigned char)cell;
+        p.fill=FmCoverageByte(FmCoverage(FmMin(r-ri,ro-r))*angularCoverage);
+        p.stripe=FmCoverageByte(FmCoverage(FmMin(r-(ro-g.thick/3.f),ro-r))*angularCoverage);
+        p.ub=FmCoverageByte(FmCoverage(.5f-fabsf(r-(ro+ri)*.5f))*angularCoverage);
+        p.edgeCell=(unsigned char)(phase<.5f?cell:(cell+1)%FM_DISPLAY_CELLS);
+        p.edge=FmCoverageByte(FmCoverage(.5f-angular)*FmCoverage(FmMin(r-(ri-1),ro+1-r)));
+        if(p.fill || (!lane && (p.edge || p.stripe || p.ub)))m->pixels[m->pixelN++]=p;
     }
+}
+static uint32_t FmRingRgb(COLORREF c) {return ((uint32_t)GetRValue(c)<<16)|((uint32_t)GetGValue(c)<<8)|GetBValue(c);}
+static uint32_t FmRingBlend(uint32_t dst,uint32_t rgb,unsigned a) {
+    if(!a)return dst;
+    if(a==255)return 0xff000000u|rgb;
+    unsigned da=dst>>24;
+    if(!da){const uint32_t c=dst&0xffffff;da=c==0xff00ff?0:c==0x10151e?115:255;
+        dst=(da<<24)|(((((c>>16)&255)*da+127)/255)<<16)|(((((c>>8)&255)*da+127)/255)<<8)|(((c&255)*da+127)/255);}
+    uint32_t result=(a+(da*(255-a)+127)/255)<<24;
+    for(int shift=0;shift<24;shift+=8) {
+        const unsigned source=(((rgb>>shift)&255)*a+127)/255;
+        const unsigned background=(((dst>>shift)&255)*(255-a)+127)/255;
+        result|=(source+background)<<shift;
+    }
+    return result;
+}
+static int FmRingPixels(HDC dc,int cx,int cy,const FmMeter* m,const FmKi* ki,int start,int player,int outer,int inner) {
+    DIBSECTION dib={0};RECT clip;
+    if(!n3_stroke_layered || !g_fm_ringMesh.pixels || GetClipBox(dc,&clip)!=SIMPLEREGION
+        || GetObject(GetCurrentObject(dc,OBJ_BITMAP),sizeof dib,&dib)!=sizeof dib || !dib.dsBm.bmBits || dib.dsBm.bmBitsPixel!=32)return 0;
+    uint32_t palette[2][FM_DISPLAY_CELLS];unsigned char stripe[FM_DISPLAY_CELLS],ub[FM_DISPLAY_CELLS],edge[FM_DISPLAY_CELLS];
+    for(int i=0;i<FM_DISPLAY_CELLS;++i){const uint8_t c=FmViewCell(m,start+i);const int win=player?FmShowKiWin(m,start+i):0;
+        palette[0][i]=FmRingRgb(win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
+        palette[1][i]=FmRingRgb(player?FmIFrColor(FmViewNoDmg(m,start+i)):FmKiView(ki,m,start+i)?RGB(138,92,255):FmColor(FM_EMPTY));
+        stripe[i]=(unsigned char)(player && !g_pst.v[PS_FRAME_IFR] && (FmViewNoDmg(m,start+i)&FMF_NODMG));
+        ub[i]=(unsigned char)((c&0x7F)==FM_ACTIVE_UB && !win);edge[i]=(unsigned char)!!(c&FM_EDGE);
+    }
+    GdiFlush();
+    for(int i=0;i<g_fm_ringMesh.pixelN;++i){const FmRingPixel p=g_fm_ringMesh.pixels[i];
+        if(p.lane?!inner:!outer)continue;
+        const int x=cx+p.x,y=cy+p.y;
+        if(x<clip.left || x>=clip.right || y<clip.top || y>=clip.bottom || x<0 || x>=dib.dsBm.bmWidth || y<0 || y>=dib.dsBm.bmHeight)continue;
+        uint32_t* dst=(uint32_t*)((char*)dib.dsBm.bmBits+y*dib.dsBm.bmWidthBytes)+x;
+        uint32_t v=FmRingBlend(*dst,palette[p.lane][p.cell],p.fill);
+        if(!p.lane){
+            if(stripe[p.cell])v=FmRingBlend(v,FmRingRgb(FM_NODMG_RGB),p.stripe);
+            if(ub[p.cell])v=FmRingBlend(v,FmRingRgb(RGB(255,210,216)),p.ub);
+            if(edge[p.edgeCell])v=FmRingBlend(v,FmRingRgb(RGB(235,240,248)),p.edge);
+        }
+        *dst=v;
+    }
+    return 1;
+}
+static void FmRingPoly(HDC dc,const POINT* points,int cx,int cy,COLORREF color) {
+    POINT p[4];for(int j=0;j<4;++j){p[j].x=points[j].x+cx;p[j].y=points[j].y+cy;}
+    SetDCBrushColor(dc,color);Polygon(dc,p,4);
 }
 static void FmRingLine(HDC dc,const POINT* p,int cx,int cy,COLORREF color) {
     SetDCPenColor(dc,color);MoveToEx(dc,p[0].x+cx,p[0].y+cy,0);LineTo(dc,p[1].x+cx,p[1].y+cy);
@@ -157,18 +170,19 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
                         int player,int outer,int inner) {
     const int start=FmVisibleStart(m);
     const FmRingMesh* mesh=&g_fm_ringMesh;
+    if(!FmRingPixels(dc,cx,cy,m,ki,start,player,outer,inner)) {
     HGDIOBJ oldBrush=SelectObject(dc,GetStockObject(DC_BRUSH));
     HGDIOBJ oldPen=SelectObject(dc,GetStockObject(NULL_PEN));
     for(int i=0;i<FM_DISPLAY_CELLS;++i) {
         const uint8_t c=FmViewCell(m,start+i);
         const int win=player?FmShowKiWin(m,start+i):0;
         if(outer) {
-            FmRingPoly(dc,&mesh->tile[0][i],cx,cy,win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
+            FmRingPoly(dc,mesh->cell[0][i],cx,cy,win==2?FM_KIPERF_RGB:win?FM_KIWIN_RGB:FmColor(c&0x7F));
             // The existing Row fallback: I-FR lane OFF leaves the gold no-damage stripe on PLAYER.
             if(player && !g_pst.v[PS_FRAME_IFR] && (FmViewNoDmg(m,start+i)&FMF_NODMG))
-                FmRingPoly(dc,&mesh->stripeTile[i],cx,cy,FM_NODMG_RGB);
+                FmRingPoly(dc,mesh->stripe[i],cx,cy,FM_NODMG_RGB);
         }
-        if(inner) FmRingPoly(dc,&mesh->tile[1][i],cx,cy,player?FmIFrColor(FmViewNoDmg(m,start+i)):
+        if(inner) FmRingPoly(dc,mesh->cell[1][i],cx,cy,player?FmIFrColor(FmViewNoDmg(m,start+i)):
             FmKiView(ki,m,start+i)?RGB(138,92,255):FmColor(FM_EMPTY));
     }
     SelectObject(dc,GetStockObject(DC_PEN));
@@ -179,6 +193,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
             FmRingLine(dc,mesh->ub[i],cx,cy,RGB(255,210,216));
     }
     SelectObject(dc,oldPen);SelectObject(dc,oldBrush);
+    }
     if(outer)FmRingCounts(dc,m,start,cx,cy,g,player);
     if(outer && player)for(int i=0;i<FM_DISPLAY_CELLS;++i)if(FmViewKiPulse(m,start+i)) {
         int cw=(int)((g.d-g.thick)*3.14159265f/FM_DISPLAY_CELLS);if(cw<6)cw=6;

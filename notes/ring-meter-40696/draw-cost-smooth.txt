@@ -1,0 +1,7 @@
+DRAW frozen 1280x720 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 67.787 max 95.730 ms; ON Ring mean 1.337 max 2.220 ms; ratio 0.020
+DRAW frozen 1920x1080 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 81.483 max 102.258 ms; ON Ring mean 2.266 max 4.217 ms; ratio 0.028
+DRAW frozen 2560x1440 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 112.489 max 172.313 ms; ON Ring mean 3.367 max 7.438 ms; ratio 0.030
+DRAW changing 1280x720 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 74.536 max 97.323 ms; ON Ring mean 11.108 max 18.906 ms; ratio 0.149
+DRAW changing 1920x1080 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 66.872 max 89.898 ms; ON Ring mean 10.745 max 18.280 ms; ratio 0.161
+DRAW changing 2560x1440 all 4 lanes+legend+readout, 120 cells, 25 samples/arm: OFF Row mean 82.004 max 97.951 ms; ON Ring mean 12.637 max 17.691 ms; ratio 0.154
+ALL PASSED: 6164321 production renderer assertions (offline)

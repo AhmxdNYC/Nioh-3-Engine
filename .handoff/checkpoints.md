@@ -43,4 +43,13 @@ Next: finish EF Release build, inspect/send preview, isolate offline draw cost a
 2026-10-27 6:05 pm EDT | cx-pc #40696: cached Ring stroke labels preserve exact premultiplied glyph pixels; final EF + Training Release compile and renderer/core tests PASS.
 PC Ryzen 5 7600X, 1080p all4 lanes+legend/readout, CPU GDI paint/flush/alpha: OFF Row vs ON Ring means frozen65.701/2.139ms, changing67.041/10.872ms (25 samples each); native upload/FPS unproven.
 Next pc install both ASIs, switch Display Overlays > Frame meter style, validate native appearance/toggles/menu-open visibility and optional Debug FrameMeterDrawCost logs. No game touched.
-2026-10-27 6:15 pm EDT | cx-pc #40835: cached4x coverage + curved cells built; 5927461 renderer assertions and all7 suites PASS. Training97e9c213; actual renderer preview ready. Next pc integrate/live-check; D:/nioh3-wt/ring-aa-40835, notes/ring-aa-40835.md; no game touched.
+
+2026-10-27 6:06 pm EDT | cx-pc #40696: Ring feature7a442b67 + cached-font/perf proof b8665395 pushed; both menus +7 Training suites pass; EF2948 d46705ebadf5 / TR2949 3ed3f4780cb6 uploaded.
+Offline production preview sent to Discord. PC1080p changing OFF Row67.041ms vs ON Ring10.872ms CPU draw; native upload/gameplay unproven. Next pc install both, test toggles/menu/position/pulses and capture in-game pictures; report notes/ring-meter-40696/report.txt.
+
+2026-10-27 6:13 pm EDT | cx-pc #40835: replaced stair-stepped polygon edges with cached analytic pixel coverage for circular arcs/radial dividers; same four lanes and masks.
+Five-resolution renderer checks incl partial-alpha coverage, glyph equivalence, Ki checks and all lane toggles PASS; Training Release build PASS; revised production preview sent to Discord.
+Next: repeat offline Row/Ring CPU measurements for this AA version, upload replacement Training, report final hashes. Native game visuals remain pc-owned/unproven. Files frame_meter_ring.h, frame_meter_draw_test.c, production-preview-smooth.png.
+
+2026-10-27 6:16 pm EDT | cx-pc #40835: smooth arcs/dividers 4b615014 pushed; Training2955 SHA68a5f928702f, pair EF2948 d46705ebadf5; revised screenshot sent Discord.
+Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU draw (25 samples each). Native appearance/upload/FPS remains pc test. Next pc install/check/capture; notes/ring-meter-40696/results.json + draw-cost-smooth.txt.
