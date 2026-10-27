@@ -18,22 +18,22 @@ int main(){
  mode[1]=(uintptr_t)base+0x44C91D0;mode[2]=2;known=true;
  auto a=Read();CHECK(a.known&&a.readable&&a.title&&!a.loading);CHECK(Ready(a));
  allowed=true;enabled=true;polled=GetTickCount64();gate.mode=(uintptr_t)mode;
- CHECK(Allowed());messages[24]=1;CHECK(!Allowed()); // autosave/system notice
- messages[24]=0;CHECK(Allowed());
+ CHECK(Ready(Read()));CHECK(!Allowed());messages[24]=1;CHECK(!Ready(Read()));CHECK(!Allowed()); // autosave/system notice
+ messages[24]=0;CHECK(Ready(Read()));CHECK(!Allowed());
  *(uintptr_t*)(base+0x45BBF80)=0;CHECK(!Allowed());
  *(uintptr_t*)(base+0x45BBF80)=1;CHECK(!Allowed());
  *(uintptr_t*)(base+0x45BBF80)=(uintptr_t)messages;
- CHECK(Allowed());mode[2]=3;CHECK(Allowed());
- for(int state : {-1,0,1,4,5,99}){mode[2]=(uintptr_t)state;CHECK(!Allowed());}
- mode[2]=2;manager[3]=0x100;manager[4]=0x108;CHECK(!Allowed());
- manager[4]=0x100;CHECK(Allowed()); // empty non-null vector
+ CHECK(Ready(Read()));CHECK(!Allowed());mode[2]=3;CHECK(Ready(Read()));CHECK(!Allowed());
+ for(int state : {-1,0,1,4,5,99}){mode[2]=(uintptr_t)state;CHECK(!Ready(Read()));CHECK(!Allowed());}
+ mode[2]=2;manager[3]=0x100;manager[4]=0x108;CHECK(!Ready(Read()));CHECK(!Allowed());
+ manager[4]=0x100;CHECK(Ready(Read()));CHECK(!Allowed()); // empty non-null vector
  manager[3]=manager[4]=0;
  uintptr_t invalid=123;CHECK(!Rd((uintptr_t)1,invalid)&&invalid==0);
  void* unreadable=VirtualAlloc(nullptr,4096,MEM_COMMIT|MEM_RESERVE,PAGE_NOACCESS);CHECK(unreadable);
  CHECK(!Rd((uintptr_t)unreadable,invalid));
  stack[0]=(uintptr_t)unreadable;CHECK(!Allowed());stack[0]=(uintptr_t)mode;
  VirtualFree(unreadable,0,MEM_RELEASE);
- CHECK(Allowed());
+ CHECK(Ready(Read()));CHECK(!Allowed());
  mode[1]=(uintptr_t)base+0x44C91E0;CHECK(!Read().title); // TitleMode is NOT TitleMenuMode
  mode[1]=(uintptr_t)base+0x44C91F0;CHECK(!Read().title); // movie
  mode[1]=(uintptr_t)base+0x44C91D0;gm[0x58A]=1;CHECK(Read().loading);

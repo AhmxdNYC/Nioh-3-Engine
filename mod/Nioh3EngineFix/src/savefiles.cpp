@@ -18,6 +18,19 @@ template<class T> bool Rd(uintptr_t p,T& out){
  __try { out=*reinterpret_cast<const volatile T*>(p);return true; }
  __except(EXCEPTION_EXECUTE_HANDLER){out=T{};return false;}
 }
+void ProbeFields(const Sample& s,uint64_t now){
+ if(!probe||!logfn||!s.readable||!s.title)return;
+ static uintptr_t oldMode=0;static uint32_t oldFields[29]{};static uint64_t last=0;
+ uint32_t fields[29]{};uintptr_t vt=0;
+ if(!Rd(s.mode,vt))return;
+ for(unsigned i=0;i<29;++i)if(!Rd(s.mode+0x10+i*4,fields[i]))return;
+ if(oldMode==s.mode&&!memcmp(fields,oldFields,sizeof fields)&&now-last<1000)return;
+ oldMode=s.mode;memcpy(oldFields,fields,sizeof fields);last=now;
+ char line[640]{};int used=0;
+ for(unsigned i=0;i<29;++i)used+=snprintf(line+used,sizeof line-used," +%02X=%08X",0x10+i*4,fields[i]);
+ const uintptr_t b=(uintptr_t)base;
+ logfn("SaveFilesFields: mode=%p vtable=%p vtableRva=%llX%s",(void*)s.mode,(void*)vt,(unsigned long long)(vt>=b&&vt<b+0x5000000?vt-b:0),line);
+}
 Sample Read() {
  Sample s;s.known=known;if(!known||!base)return s;
  uintptr_t mgr=0,begin=0,end=0,mode=0,type=0,gm=0,sm=0;unsigned char loading=1;
@@ -57,18 +70,19 @@ void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)
  unsigned char found[sizeof bytes]{};SIZE_T n=0;
  if(!known||!base||!ReadProcessMemory(GetCurrentProcess(),base+0x85960,found,sizeof found,&n)||n!=sizeof found||memcmp(found,bytes,sizeof bytes))known=false;
  allowed=false;gate={};polled=0;
+ if(logfn&&(enabled||probe))logfn("SaveFiles: admission forced OFF pending press-any/main-menu discriminator (#41309)");
  if(logfn&&(enabled||probe))logfn("SaveFiles: copy-only enabled=%d probe=%d known top-mode bytes=%d",enabled,probe,known);
 }
 void Poll(){
  if(!enabled&&!probe)return;const uint64_t now=GetTickCount64();if(now-polled<100)return;polled=now;
- const Sample s=Read();allowed=gate.Update(s,now)&&enabled;
+ const Sample s=Read();allowed=gate.Update(s,now)&&enabled&&kMainMenuScreenVerified;ProbeFields(s,now);
  if(logfn&&(lastTitle!=(int)s.title||lastLoading!=(int)s.loading||lastSave!=s.saveState||lastTitleState!=s.titleState||lastQueue!=(int)s.queueEmpty||lastMessages!=(int)s.messagesClear||lastSequence!=s.sequenceState||(probe&&now-lastProbe>=1000))){
  logfn("SaveFilesProbe: readable=%d title=%d loading=%d saveState=%d titleState=%d queueEmpty=%d messagesClear=%d sequenceState=%d mode=%p manager=%p",s.readable,s.title,s.loading,s.saveState,s.titleState,s.queueEmpty,s.messagesClear,s.sequenceState,(void*)s.mode,(void*)s.manager);
  lastTitle=s.title;lastLoading=s.loading;lastSave=s.saveState;lastTitleState=s.titleState;lastQueue=s.queueEmpty;lastMessages=s.messagesClear;lastSequence=s.sequenceState;lastProbe=now;}
  if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);cancel.clear();}
  else if(!Ready(s)){Cancel();snprintf(note,sizeof note,"Cancelled: left the verified main menu.");}}
 }
-bool Allowed(){const auto now=GetTickCount64();const auto s=Read();return allowed&&now>=polled&&now-polled<500&&Ready(s)&&s.mode==gate.mode;}
+bool Allowed(){if(!kMainMenuScreenVerified)return false;const auto now=GetTickCount64();const auto s=Read();return allowed&&now>=polled&&now-polled<500&&Ready(s)&&s.mode==gate.mode;}
 const char* Note(){return note;}
 bool Queue(int slot,bool backup){
  if(!Allowed()||slot<1||slot>8||child){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}

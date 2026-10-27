@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 namespace savefiles {
+// Native evidence #41309: TitleMenuMode state3 includes PRESS ANY BUTTON.
+// No runtime/INI override until a distinct main-menu predicate is proven.
+constexpr bool kMainMenuScreenVerified = false;
 // Exact top-mode identity is required; boot/logo/movie and absent player are insufficient.
 struct Sample { bool known=false, readable=false, title=false, loading=true; uintptr_t manager=0, mode=0; int saveState=-1, titleState=-1; bool queueEmpty=false, messagesClear=false; int sequenceState=-1; };
 inline bool Ready(const Sample& s) { return s.known&&s.readable&&s.title&&!s.loading&&(s.titleState==2||s.titleState==3)&&s.queueEmpty&&s.messagesClear; }
