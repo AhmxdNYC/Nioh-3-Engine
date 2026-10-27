@@ -528,7 +528,7 @@ float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight,
     for (int i = 0; i < count; ++i) maxChars = std::max(maxChars, lines[i].chars());
     const float w = (float)maxChars * osdfont::kW * sc + 2 * pad, h = count * lineH + 2 * pad - 2 * sc;
     if (alignRight) x -= w;
-    AddQuad(x, y, w, h, kSolid, Fade(0xC0140F0Cu, alpha));  // same panel colour + gold edge as the mod menu (menu_style kPanelBgSide / kAccent)
+    AddQuad(x, y, w, h, kSolid, Fade(0x73140F0Cu, alpha));  // same panel colour + gold edge as the mod menu (menu_style kPanelBgSide / kAccent)
     AddQuad(x, y, std::max(2.0f, sc * 1.5f), h, kSolid, Fade(0xFF5AC8F0u, alpha));
     for (int i = 0; i < count; ++i) {
         float cx = x + pad;

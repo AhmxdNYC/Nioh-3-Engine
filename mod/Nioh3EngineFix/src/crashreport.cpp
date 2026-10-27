@@ -1,4 +1,5 @@
 // crashreport.cpp - see crashreport.h.
+#pragma comment(lib, "bcrypt.lib")
 #include "crashreport.h"
 
 #include <windows.h>

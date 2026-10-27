@@ -2895,7 +2895,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"InputDisplaySide", L"Left", b, 96, f);
     inputhist::g_side = !_wcsicmp(b, L"Right") ? 1 : 0;
     inputhist::g_rows = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"InputDisplayRows", 12, f), inputhist::kMinRows, inputhist::kMaxRows);
-    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.75", b, 96, f);
+    GetPrivateProfileStringW(L"Menu", L"ControllerDisplayOpacity", L"0.45", b, 96, f);
     padviz::g_opacity100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 20, 100);
     GetPrivateProfileStringW(L"Menu", L"Scale", L"0", b, 96, f);
     g_cfg.scale = (float)std::clamp(_wtof(b), 0.0, 8.0);
