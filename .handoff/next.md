@@ -20,3 +20,7 @@ Both menu suites +94 update-check assertions + hourly compile-time assertion PAS
 2026-10-27 5:02 pm EDT | cx-pc #40571: pushed 3ccd4a82 on cx-pc/update-click-40452; website action also selects module-folder Nioh3Updater.exe via Windows Explorer, folder fallback if missing; same worker/2s throttle/hourly poll/version1.7.81.
 Release EF bridge2914 SHA28bb5750e6611df7c00288daa1d778daa58273f48f764529bfd5debf0046bbfc; both menu suites +105 checker assertions PASS (mock shell, module path, quoted spaces, missing/directory updater, truncated/failed module path, throttle).
 Next pc install/native acceptance; no game/deployment touched. Offline preview sent using normal-Python notify fallback after -I media import failure.
+
+2026-10-27 5:34 pm EDT | cx-pc #40646: short update instruction pushed 34de61b7 on cx-pc/update-notice-40646, based on later1.7.83 source3129200e. Notice: Update <ver> available: Mod Menu > Open update page; URL removed, click/site+folder behavior preserved.
+Both menu suites +107 checker assertions PASS (no URL, exactly2 reminder lines, viewport fit320/800/1280, longest accepted version). Release EF bridge2926 SHAbcc09202ad709294c55f1d1acdc207496c9d536fa5f6d3abea8f0a3741b16267, MOD_VERSION1.7.83.
+Next pc install/native acceptance, cxl-pc publishing; no game or deployment touched. Offline preview sent via normal notify fallback (-I missing media module).
