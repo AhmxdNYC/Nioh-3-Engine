@@ -90,9 +90,9 @@ inline void GlyphStr(const char* t, float cx, float top, float gh, bool center, 
 }
 
 // Approved solid shoulder caps: wider bumper, taller trigger, one shaped outer corner, no border.
-inline void ShoulderCap(int style, int b, float bx, float cy, float icon, uint32_t fill, uint32_t text) {  // b: 0 LB 1 RB 2 LT 3 RT
+inline void ShoulderCap(int style, int b, float bx, float cy, float icon, uint32_t fill, uint32_t text, float triggerHeight = 1.0f) {  // b: 0 LB 1 RB 2 LT 3 RT
     const bool trig = b >= 2, left = !(b & 1);
-    const float w = Snap(1.5f * icon), h = Snap(trig ? icon : 0.62f * icon), x0 = Snap(bx), y0 = Snap(cy - h * 0.5f);  // #39172: sized to the face buttons (icon)
+    const float w = Snap(1.5f * icon), h = Snap((trig ? triggerHeight : 0.62f) * icon), x0 = Snap(bx), y0 = Snap(cy - h * 0.5f);  // #39172: sized to the face buttons (icon)
     const float r = std::floor(h * (trig ? 0.32f : 0.38f));
     for (int rr = 0; rr < (int)h; ++rr) {  // fill, 1 px rows
         float in = 0.0f;
