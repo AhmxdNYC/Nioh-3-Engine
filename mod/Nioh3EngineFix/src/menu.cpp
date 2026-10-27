@@ -1079,7 +1079,7 @@ int PageRowsBody(int* out, bool selectable) {
             return n;
         }
         if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
-            for (int i : {kCamRight, kCamUp, kCamLensNarrow, kCamLensWide, kCamReset}) add(kCamRowFirst + i);
+            for (int i : {kCamRight, kCamUp, kCamDistance, kCamLens, kCamReset}) add(kCamRowFirst + i);
             if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
@@ -1644,6 +1644,9 @@ void ChangeConfig(int index, int dir) {
 }
 
 // Real camera offsets are applied by CamKiProbe 1.0.21; no stick simulation.
+// Nonzero distance/lens settings use calibrated references, not live per-scene defaults.
+// Zero always removes the key, releasing the camera to the native game calculation.
+constexpr float kCamDistDefault = 585.f, kCamDistStep = 60.f, kCamDistMin = 50.f, kCamDistMax = 4000.f;
 constexpr float kCamFovDefault = 47.5f, kCamFovStep = 5.f, kCamFovMin = 20.f, kCamFovMax = 90.f;
 float g_camDist = 0.f, g_camFov = 0.f;
 float g_camRight = 0.f, g_camUp = 0.f;
@@ -1676,25 +1679,38 @@ void CamWriteIni() {
     };
     put(L"CamDist", g_camDist > 0.f, g_camDist, L"%.0f");
     put(L"CamFovDeg", g_camFov > 0.f, g_camFov, L"%.1f");
-    put(L"CamOffsetRight", true, g_camRight, L"%.0f");
-    put(L"CamOffsetUp", true, g_camUp, L"%.0f");
+    put(L"CamOffsetRight", g_camRight != 0.f, g_camRight, L"%.0f");
+    put(L"CamOffsetUp", g_camUp != 0.f, g_camUp, L"%.0f");
+}
+// Always land on the unset center, including when coming from an old absolute
+// INI value or an asymmetric clamped endpoint that is not a multiple of the step.
+float CamStep(float value, int dir, float step, float lo, float hi) {
+    if (!dir) return 0.f;
+    if ((value < 0.f && dir > 0 && value >= -step) ||
+        (value > 0.f && dir < 0 && value <= step)) return 0.f;
+    return std::clamp(value + (dir < 0 ? -step : step), lo, hi);
+}
+float CamValue(int which) {
+    if (which == kCamRight) return g_camRight;
+    if (which == kCamUp) return g_camUp;
+    if (which == kCamDistance) return g_camDist > 0.f ? g_camDist - kCamDistDefault : 0.f;
+    return g_camFov > 0.f ? g_camFov - kCamFovDefault : 0.f;
 }
 void ChangeCamera(int which, int dir) {
     CamReadIni();
-    auto clampf = [](float v, float lo, float hi) { return std::min(hi, std::max(lo, v)); };
     if (which == kCamRight || which == kCamUp) {
         float& value = which == kCamRight ? g_camRight : g_camUp;
-        value = dir == 0 ? 0.f : clampf(value + dir * 20.f, -400.f, 400.f);
-        snprintf(g_camNote, sizeof(g_camNote), "Camera %s offset %+.0f (applies within 2 s).", which == kCamRight ? "left/right" : "down/up", value);
-    } else if (which == kCamLensNarrow || which == kCamLensWide) {
-        float f = g_camFov > 0.f ? g_camFov : kCamFovDefault;
-        f += which == kCamLensWide ? kCamFovStep : -kCamFovStep;
-        g_camFov = clampf(f, kCamFovMin, kCamFovMax);
-        snprintf(g_camNote, sizeof(g_camNote), "Camera lens %.1f deg (applies within 2 s).", g_camFov);
+        value = CamStep(value, dir, 20.f, -400.f, 400.f);
+    } else if (which == kCamDistance || which == kCamLens) {
+        const bool distance = which == kCamDistance;
+        const float ref = distance ? kCamDistDefault : kCamFovDefault;
+        const float v = CamStep(CamValue(which), dir, distance ? kCamDistStep : kCamFovStep,
+            (distance ? kCamDistMin : kCamFovMin) - ref, (distance ? kCamDistMax : kCamFovMax) - ref);
+        (distance ? g_camDist : g_camFov) = v == 0.f ? 0.f : ref + v;
     } else if (which == kCamReset && dir == 0) {
         g_camDist = g_camFov = g_camRight = g_camUp = 0.f;
-        snprintf(g_camNote, sizeof(g_camNote), "Camera offsets, distance and lens back to the game's default (within 2 s).");
     } else return;
+    snprintf(g_camNote, sizeof(g_camNote), "Saved. Applies within 2 s. Zero releases the selected override to the game's own camera.");
     CamWriteIni();
 }
 
@@ -2798,16 +2814,17 @@ float DrawImpl(unsigned W, unsigned H) {
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
             CamReadIni();
             if (id == g_sel) selRow = nb;
-            static const char* const kCamLabels[kCamRowN] = {"Camera left from default", "Camera left / right", "Camera down / up", "Camera down from default", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
+            static const char* const kCamLabels[kCamRowN] = {"Camera left / right", "Camera down / up", "Distance (closer / farther)", "Lens (narrower / wider)", "Return to default camera"};
             char lab[96], text[40];
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
             bool on = false;
-            if (k == kCamLeft || k == kCamRight) { on = g_camRight != 0.f; snprintf(text, sizeof(text), on ? "%+.0f" : "game default", g_camRight); }
-            else if (k == kCamUp || k == kCamDown) { on = g_camUp != 0.f; snprintf(text, sizeof(text), on ? "%+.0f" : "game default", g_camUp); }
-            else if (k == kCamFwd || k == kCamBack) { on = g_camDist > 0.f; snprintf(text, sizeof(text), on ? "distance %.0f" : "game default", g_camDist); }
-            else if (k == kCamLensNarrow || k == kCamLensWide) { on = g_camFov > 0.f; snprintf(text, sizeof(text), on ? "lens %.1f" : "game default", g_camFov); }
-            else { on = CamAny(); snprintf(text, sizeof(text), "%s", on ? "A: reset" : "default"); }
+            if (k != kCamReset) {
+                const float value = CamValue(k);
+                on = k == kCamDistance ? g_camDist > 0.f : k == kCamLens ? g_camFov > 0.f : value != 0.f;
+                if (on) snprintf(text, sizeof(text), k == kCamLens ? "< %+.1f >" : "< %+.0f >", value);
+                else snprintf(text, sizeof(text), "< 0 (default) >");
+            } else { on = CamAny(); snprintf(text, sizeof(text), "%s", on ? "A: reset" : "default"); }
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, on ? cYellow : cGray, id == g_sel, false);
             continue;
         }
@@ -2907,8 +2924,8 @@ float DrawImpl(unsigned W, unsigned H) {
             : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
-        snprintf(what, sizeof(what), "Left / Right moves the real camera in 20-unit steps; A resets that axis. Return to default restores all camera settings.");
-        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Real camera offsets and lens; applies within 2 s. Nothing is saved to the game.");
+        snprintf(what, sizeof(what), "Left / Right adjusts the selected axis; A / Enter resets it. Zero uses the game camera. Return to default resets all four.");
+        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Steps: position 20, distance 60, lens 5 degrees. Left = closer / narrower; right = farther / wider.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");

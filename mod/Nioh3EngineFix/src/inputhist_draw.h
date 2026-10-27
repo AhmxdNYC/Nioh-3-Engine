@@ -57,7 +57,7 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
 using hint_shapes::GlyphAt;
 using hint_shapes::GlyphStr;
 inline void ShoulderCap(int style, int b, float bx, float cy, float icon) {
-    hint_shapes::ShoulderCap(style, b, bx, cy, icon, menu_style::kBumperBg, 0xFFEBECF0u);
+    hint_shapes::ShoulderCap(style, b, bx, cy, icon, menu_style::kBumperBg, 0xFFEBECF0u, 0.72f);  // trigger only slightly taller than the 0.62-icon bumper
 }
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
@@ -96,7 +96,8 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
         const float nx = x + pad + (float)(2 - (int)strlen(buf)) * cw;
         (void)nx; (void)ty;
         { const float gh = std::floor(th * 0.62f); GlyphStr(buf, x + pad + (float)(2 - (int)strlen(buf)) * cw * 1.0f + 0.0f, ry + std::floor((rowH - gh) * 0.5f), gh, false, menu_style::kText); }
-        const float ax = x + pad + numW + std::floor(pad * 1.5f), ay = ry + std::floor((rowH - icon) * 0.5f);
+        const float cy = ry + rowH * 0.5f;
+        const float ax = x + pad + numW + std::floor(pad * 1.5f), ay = cy - icon * 0.5f;
         if (e[i].dir == N) { const float gh = std::floor(icon * 0.6f); GlyphAt('N', std::floor(ax + (icon - gh * 0.78f) * 0.5f), std::floor(ay + (icon - gh) * 0.5f), gh * 0.78f, gh, std::max(1.5f, icon * 0.1f), menu_style::kText); }
         else Arrow(e[i].dir, ax, ay, icon, menu_style::kText);
         float bx = ax + icon + pad;
@@ -104,13 +105,13 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
         if(e[i].dpad) { inputhist_dpad::Draw(style,e[i].dpad,bx,ay,icon);bx+=slotW;++used; }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (1 << b)) {
-                FaceGlyph(style, kFace[b], bx, ay, icon);
+                FaceGlyph(style, kFace[b], bx + (slotW - icon) * 0.5f, cy - icon * 0.5f, icon);
                 bx += slotW;
                 ++used;
             }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (16 << b)) {
-                ShoulderCap(style, b, bx, ay + icon * 0.5f, icon);
+                ShoulderCap(style, b, bx + (slotW - hint_shapes::Snap(1.5f * icon)) * 0.5f, cy, icon);
                 bx += slotW;
                 ++used;
             }

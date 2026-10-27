@@ -17,6 +17,7 @@
 #include <vector>
 #include "../src/padviz.h"
 #include "../src/inputhist_dpad.h"
+#include "../src/inputhist_draw.h"
 #include "../src/padviz_atlas_data.h"
 #include "../src/padviz_png.h"
 #include "../src/osd_font.h"
@@ -56,6 +57,7 @@ static int DebugMessages() {
 
 int main(int argc, char** argv) {
     const std::string out = argc > 1 ? argv[1] : ".";
+    const bool history = argc > 2 && !strcmp(argv[2], "--history");
     ID3D12Debug* dbg = nullptr;
     const bool debug = SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dbg)));
     if (debug) dbg->EnableDebugLayer();
@@ -152,14 +154,26 @@ int main(int argc, char** argv) {
                                      style ? sizeof(padviz::kAtlasPng_dualsense) : sizeof(padviz::kAtlasPng_xbox), A)) { printf("FAIL decode\n"); return 1; }
         // frame: 3 panels like the CPU preview, plus a text line and a solid rect (the other two quad kinds still work)
         const float s = 420.0f / k.canvasW, pw = k.canvasW * s, ph = k.canvasH * s, gap = 24;
-        const UINT W = (UINT)(3 * pw + 4 * gap), H = (UINT)(ph + 2 * gap + 110);
+        const UINT W = history ? 1000u : (UINT)(3 * pw + 4 * gap), H = history ? 760u : (UINT)(ph + 2 * gap + 110);
         g_inst.clear();
         padviz::State idle, a, c;
         a.buttons = padviz::kA | padviz::kRB | padviz::kUp | padviz::kStart | padviz::kR3; a.lt = 255; a.rt = 128; a.lx = 23000; a.ly = 23000;
         c.buttons = padviz::kY | padviz::kB | padviz::kLB | padviz::kDown | padviz::kLeft | padviz::kBack | padviz::kTouch | padviz::kGuide;
         c.rt = 255; c.rx = -32768; c.ry = -8000;
         const padviz::State* st3[3] = {&idle, &a, &c};
-        for (int i = 0; i < 3; ++i) padviz::DrawState(*st3[i], gap + i * (pw + gap), gap, s, 0.9f, style);
+        if (history) {
+            inputhist::g_n = inputhist::g_next = 0; inputhist::g_rows = 12;
+            uint64_t now = 1000;
+            const uint32_t buttonsToShow[] = {0u, padviz::kA, padviz::kB, padviz::kX, padviz::kY,
+                 padviz::kLB, padviz::kRB, 0u, padviz::kRB, padviz::kX | padviz::kRB,
+                 padviz::kA | padviz::kB | padviz::kX | padviz::kY | padviz::kLB | padviz::kRB};
+            for (uint32_t buttons : buttonsToShow) {
+                inputhist::Push(buttons, 0, 0, 255, 255, now); now += 100;
+            }
+            inputhist_draw::Draw(2560, 1440, 24, 24, false, now, style);
+        } else {
+            for (int i = 0; i < 3; ++i) padviz::DrawState(*st3[i], gap + i * (pw + gap), gap, s, 0.9f, style);
+        }
         const size_t nSprites = g_inst.size();
         osd::DrawRect(4, 4, 40, 8, 0xFF3C8CFF);
         for(int arm=0;arm<4;++arm) {
@@ -282,8 +296,9 @@ int main(int argc, char** argv) {
         failures += DebugMessages();
 
         HR(rbuf->Map(0, nullptr, (void**)&m));
-        const std::string path = out + (style ? "\\padviz_gpu_dualsense.tga" : "\\padviz_gpu_xbox.tga");
+        const std::string path = out + "\\" + (history ? "history_" : "") + (style ? "padviz_gpu_dualsense.tga" : "padviz_gpu_xbox.tga");
         FILE* f = fopen(path.c_str(), "wb");
+        if (!f) { printf("FAIL opening preview output: %s\n", path.c_str()); return 1; }
         uint8_t hd[18] = {0, 0, 2};
         hd[12] = (uint8_t)(W & 255); hd[13] = (uint8_t)(W >> 8); hd[14] = (uint8_t)(H & 255); hd[15] = (uint8_t)(H >> 8);
         hd[16] = 32; hd[17] = 0x28;
