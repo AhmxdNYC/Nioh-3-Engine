@@ -2,7 +2,7 @@
 // Uses the Row renderer's samples, colours, predicates, checks and legend.
 #pragma once
 #include <math.h>
-typedef struct { int d, thick, gap, height; } FmRingLayout;
+typedef struct { int d, thick, gap, height, legendPx, legendW, legendPitch, legendGap; } FmRingLayout;
 static FmRingLayout FmRingGeom(int w, int H) {
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int panelW=cw*FM_DISPLAY_CELLS+lh*3+pad*2;
@@ -10,11 +10,18 @@ static FmRingLayout FmRingGeom(int w, int H) {
     const int size=PstClamp(PS_FRAME_SIZE,g_pst.v[PS_FRAME_SIZE]);
     const int diameter[]={160,210,260},minimum[]={128,154,180};
     g.d=H*diameter[size]/1080; if(g.d<minimum[size])g.d=minimum[size]; if(g.d>512)g.d=512;
+    g.legendPx=H*12/1080; if(g.legendPx<9)g.legendPx=9;
+    g.legendPitch=g.legendPx+H*10/1080; if(g.legendPitch<15)g.legendPitch=15;
+    g.legendGap=H*10/1080; if(g.legendGap<8)g.legendGap=8;
+    g.legendW=g_pst.v[PS_FRAME_LEGEND] && FmLegendCount()>0 ? 12+12*N3StrokeWidth(g.legendPx) : 0;
+    const int reserve=g.legendW ? 2*(g.legendW+g.legendGap) : 0;
+    if(g.d>(panelW-lh*2-reserve)/2)g.d=(panelW-lh*2-reserve)/2;
     if(g.d>(panelW-lh*2)/2)g.d=(panelW-lh*2)/2;
     if(g.d<64)g.d=64;
     g.thick=bh; if(g.thick>g.d/9)g.thick=g.d/9;
     g.gap=pad*2+2;
     g.height=g.d+pad*4;
+    if(g.legendW && g.height<9*g.legendPitch+pad*4)g.height=9*g.legendPitch+pad*4;
     return g;
 }
 static int FmDrawHeight(int w,int H) {
@@ -249,6 +256,20 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
     }
     g_fm_fontPx=oldLabelPx;
 }
+static void FmRingLegend(HDC dc,int x,int cy,FmRingLayout g,int side) {
+    if(!g.legendW)return;
+    int use[18]; FmLegendUse(use);
+    const char** names=FmLegendNames();COLORREF colors[18];FmLegendColors(colors);
+    const int old=g_fm_fontPx;g_fm_fontPx=g.legendPx;
+    int n=0;for(int i=side*9;i<side*9+9;++i)n+=use[i];
+    int y=cy-n*g.legendPitch/2;
+    for(int i=side*9;i<side*9+9;++i)if(use[i]){
+        FmFill(dc,x,y+2,8,8,colors[i]);
+        FmLabel(dc,x+12,y,names[i],RGB(183,194,211));
+        y+=g.legendPitch;
+    }
+    g_fm_fontPx=old;
+}
 static int FmRings(HDC dc,int w,int H,int oy,const FmMeter* player,const FmMeter* boss,const FmKi* ki) {
     int cw,bh,lh,pad;FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int panelW=cw*FM_DISPLAY_CELLS+lh*3+pad*2,left=(w-panelW)/2;
@@ -259,5 +280,10 @@ static int FmRings(HDC dc,int w,int H,int oy,const FmMeter* player,const FmMeter
     const int cy=oy+g.height/2;
     if(hasPlayer)FmRingActor(dc,hasBoss?w/2-(g.d+lh)/2:w/2,cy,g,player,ki,1,FmPlayerDraw(),FmIFrRow());
     if(hasBoss)FmRingActor(dc,hasPlayer?w/2+(g.d+lh)/2:w/2,cy,g,boss,ki,0,1,FmKiShown());
+    if(g.legendW){
+        const int outer=(hasPlayer && hasBoss)?g.d+lh/2:g.d/2;
+        FmRingLegend(dc,w/2-outer-g.legendGap-g.legendW,cy,g,0);
+        FmRingLegend(dc,w/2+outer+g.legendGap,cy,g,1);
+    }
     return g.height;
 }
