@@ -2598,7 +2598,7 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) {
             if (id == g_sel) selRow = nb;
-            const PsToggle& t = kPsToggles[id - kPsRowFirst];
+            const PsToggle& pt = kPsToggles[id - kPsRowFirst];
             const int v = PsGet(t.what);
             char lab[96], text[32];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", t.label);
