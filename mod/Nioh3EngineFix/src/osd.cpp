@@ -49,6 +49,7 @@
 #include "samelook.h"
 #include "livectl.h"
 #include "osd_font.h"
+#include "../../shared/osd_stroke_data.h"
 #include "padviz.h"
 #include "inputhist_draw.h"
 #include "osd_shaders.h"
@@ -87,11 +88,11 @@ constexpr int kMaxInst = 32768;   // quads per frame (counter + popup + pad/inpu
                                   // stroke glyphs / arrows / face rings are 1 px DrawRect runs (thousands of quads per frame)
 constexpr int kMenuReserve = 8192;  // quads kept free for the mod menu group (drawn last): earlier groups stop at kMaxInst - this
 constexpr UINT kInstBytes = 40;   // float4 rect + uint glyph + uint color + float4 uv (sprites)
-constexpr UINT kFontCb = 6144;    // 95 glyphs * 16 rows * 4 B = 6080, rounded to 256
+constexpr UINT kFontCb = 9216;    // 95 float4 ranges + 481 float4 segments
 constexpr UINT kSlotBytes = kMaxInst * kInstBytes;
 constexpr uint32_t kSolid = 0xFFFF;
 constexpr uint32_t kSprite = 0xFFFE;  // controller-display atlas quad (padviz.h)
-static_assert(osdfont::kWords * 4 <= (int)kFontCb, "font does not fit the constant buffer");
+static_assert(sizeof(n3_osd_strokes) <= kFontCb, "font does not fit the constant buffer");
 
 using LogFn = void (*)(const char*, ...);
 LogFn g_log = nullptr;
@@ -1019,7 +1020,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
     CHECK(c.upload->Map(0, &none, &m), "Map(upload)");
     c.mapped = (uint8_t*)m;
     memset(c.mapped, 0, kFontCb);
-    memcpy(c.mapped, osdfont::kBits, osdfont::kWords * 4);
+    memcpy(c.mapped, n3_osd_strokes, sizeof(n3_osd_strokes));
 
     using SerializeFn = HRESULT(WINAPI*)(const D3D12_ROOT_SIGNATURE_DESC*, D3D_ROOT_SIGNATURE_VERSION, ID3DBlob**, ID3DBlob**);
     HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");

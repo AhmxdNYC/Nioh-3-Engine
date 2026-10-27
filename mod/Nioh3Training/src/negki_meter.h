@@ -50,7 +50,7 @@ static inline NkmGeo NkmGeom(int W, int H, int yPm, int wPm) {
     g.w = (int)((int64_t)W * wPm / 1000); if (g.w < 1) g.w = 1;
     g.x = (W - g.w) / 2;
     g.barH = (int)((int64_t)H * 6 / 1080); if (g.barH < 3) g.barH = 3;
-    g.fontPx = (int)((int64_t)H * 15 / 1080); if (g.fontPx < 10) g.fontPx = 10;
+    g.fontPx = (int)((int64_t)H * 22 / 1080); if (g.fontPx < 18) g.fontPx = 18;
     g.pitch = (g.fontPx > g.barH ? g.fontPx : g.barH) + 3;
     g.top = (int)((int64_t)H * yPm / 1000);
     return g;

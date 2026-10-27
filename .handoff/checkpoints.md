@@ -9,3 +9,4 @@ Live unproven; next pc2 owner tests exact fresh pair. Paths/hashes in notes/move
 2026-10-17 5:05 AM EDT | cx-pc2 #11037: existing fix 4f7b7c7 verified on integ/move-toggle-on-hp0; moves=-29, idle=-30, sliders=-27/-28.
 PC2 offline generic-x64 harness rebuilt: both timing sliders, idle and 12 editable move dispatches PASS; no game touched. Next: pc2 live validation; publish exact requested branch.
 2026-10-27 3:40 pm EDT | cx-pc #40138 | shared GDI stroke helper + Training/Rematch conversion builds; 285 glyph checks,12960 count checks,1000 handle-stability draws pass. Next pc: integrate and live-check; notes/gdi-stroke-40138.md. No game touched.
+2026-10-27 3:54 pm EDT | cx-pc #40170 | all3 smooth-text ASIs build; GDI 13245 cases+alpha regression and both actual GPU text/sprite cases PASS. Next pc integrate/live-check. notes/smooth-text-40170.md; no game touched.

@@ -123,7 +123,7 @@ BOOL CALLBACK FindGame(HWND h, LPARAM) {
     return FALSE;
 }
 
-constexpr int kFontPx = 18;
+constexpr int kFontPx = 20;
 constexpr COLORREF kKey = RGB(255, 0, 255);
 
 void Paint(HDC dc, int w, int h) {
@@ -204,16 +204,7 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     if (m == WM_PAINT) {
         PAINTSTRUCT ps;
         HDC dc = BeginPaint(h, &ps);
-        RECT r;
-        GetClientRect(h, &r);
-        HDC mem = CreateCompatibleDC(dc);
-        HBITMAP bmp = CreateCompatibleBitmap(dc, r.right, r.bottom);
-        HGDIOBJ ob = SelectObject(mem, bmp);
-        Paint(mem, r.right, r.bottom);
-        BitBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, ob);
-        DeleteObject(bmp);
-        DeleteDC(mem);
+        (void)dc; N3StrokeWindow(h,Paint);
         EndPaint(h, &ps);
         return 0;
     }
@@ -291,7 +282,7 @@ DWORD WINAPI UiThread(void*) {
         g_hostRequested.store(true);
         return HostedThread(nullptr); // still allow a later compatible in-game host
     }
-    SetLayeredWindowAttributes(g_wnd, kKey, 235, LWA_COLORKEY | LWA_ALPHA);
+    // Per-pixel alpha is supplied by N3StrokeWindow.
     bool shown = false;
     for (;;) {
         GateReqTick();

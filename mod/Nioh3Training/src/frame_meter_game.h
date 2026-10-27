@@ -1540,10 +1540,10 @@ static COLORREF FmColor(uint8_t st) {
 static void FmFill(HDC dc, int x, int y, int w, int h, COLORREF c) { RECT r = {x, y, x + w, y + h}; HBRUSH b = CreateSolidBrush(c); FillRect(dc, &r, b); DeleteObject(b); }
 static int FmGeom(int W, int H, int* cw, int* barH, int* lineH, int* pad) {
     const float k = H > 0 ? (float)H / 1080.0f : 1.0f;
-    *lineH = (int)(20*k); if (*lineH<15) *lineH=15;
+    *lineH = (int)(26*k); if (*lineH<22) *lineH=22;
     *pad = (int)(2*k); if (*pad<2) *pad=2;
     *cw = FmCellWidth(W,*lineH*3,*pad,FM_DISPLAY_CELLS);
-    *barH = (int)(14*k); if (*barH<10) *barH=10;
+    *barH = (int)(22*k); if (*barH<20) *barH=20;
     return *pad*2 + *barH;
 }
 static int FmReadoutHeight(int barH, int pad) { return g_pst.v[PS_FRAME_READOUT] ? barH+pad : 0; }
@@ -1636,9 +1636,14 @@ static void FmPanel(HDC dc, int w, int h, int H, int oy, const FmMeter* mp, cons
         }
         if(st!=FM_EMPTY && end>viewStart && end<=viewStart+FM_DISPLAY_CELLS) {
             char n[12]; snprintf(n,sizeof n,"%d",end-first);
-            const int left=x0+(end-viewStart-1)*cw;
+            const int visibleFirst=first>viewStart?first:viewStart;
+            const int right=x0+(end-viewStart)*cw;
+            const int wanted=(int)strlen(n)*N3StrokeWidth(px);
+            const int available=(end-visibleFirst)*cw;
+            const int countW=wanted<available?wanted:available;
+            const int left=right-countW;
             const int fillW=cw>3?cw-2:cw>1?cw-1:cw;
-            RECT cell={left,by,left+fillW,by+barH},textBox;
+            RECT cell={left,by,right-(cw-fillW),by+barH},textBox;
             N3CountFont font=FmFitCount(dc,n,cell,px,&textBox);
             if(font.px) {
                 int clip=SaveDC(dc); IntersectClipRect(dc,cell.left,cell.top,cell.right,cell.bottom);
@@ -1672,7 +1677,7 @@ static int FmLegendHeight(int w,int H) {
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int n=FmLegendCount();
     if(n<=0) return 0;
-    int cols=cw*FM_DISPLAY_CELLS/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
+    int cols=cw*FM_DISPLAY_CELLS/(lh*7); if(cols<1) cols=1; if(cols>n) cols=n;
     return ((n+cols-1)/cols)*lh+pad*2;
 }
 static void FmLegend(HDC dc,int w,int H,int y) {
@@ -1683,7 +1688,7 @@ static void FmLegend(HDC dc,int w,int H,int y) {
     COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
     int use[18]; FmLegendUse(use);
     int idx[18], n=0; for(int i=0;i<18;++i) if(use[i]) idx[n++]=i;
-    int cols=bw/(lh*6); if(cols<1) cols=1; if(cols>n) cols=n;
+    int cols=bw/(lh*7); if(cols<1) cols=1; if(cols>n) cols=n;
     const int pitch=bw/cols;
     FmFill(dc,x-gutter-pad,y,bw+gutter+pad*2,FmLegendHeight(w,H),RGB(16,21,30));
     SetBkMode(dc,TRANSPARENT);
@@ -1773,12 +1778,15 @@ static void FmRender(HWND wnd) {
     HBITMAP bmp = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, (void**)&px, 0, 0);
     if (bmp && px) {
         HGDIOBJ ob = SelectObject(mem, bmp);
+        n3_stroke_layered=1;
         __try { FmPaint(mem, w, h, g_fm_H); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        n3_stroke_layered=0;
         GdiFlush();
         const uint32_t key = 0x00FF00FFu;  // FM_KEY RGB(255,0,255) as 0x00RRGGBB
         const uint32_t bg = 0x0010151Eu;   // RGB(16,21,30), the panel fill
         for (size_t i = 0, n = (size_t)w * (size_t)h; i < n; ++i) {
             const uint32_t c = px[i] & 0x00FFFFFFu;
+            if (px[i] >> 24) continue; // AA text already composited in premultiplied linear coverage.
             if (c == key) px[i] = 0;
             else if (c == bg) {  // premultiplied
                 const uint32_t rr = (((c >> 16) & 255) * FM_BG_ALPHA + 127) / 255, gg = (((c >> 8) & 255) * FM_BG_ALPHA + 127) / 255, bb = ((c & 255) * FM_BG_ALPHA + 127) / 255;

@@ -9,6 +9,7 @@ static void SaveBmp(const char* path,const void* bits,int w,int h) {
     FILE* out=fopen(path,"wb"); assert(out);fwrite(&f,sizeof(f),1,out);fwrite(&i,sizeof(i),1,out);fwrite(bits,w*h*4,1,out);fclose(out);
 }
 int main(int argc,char** argv) {
+    setvbuf(stdout,NULL,_IONBF,0);
     enum {W=1000,H=420}; BITMAPINFO bi={0}; void* bits=NULL;
     bi.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);bi.bmiHeader.biWidth=W;bi.bmiHeader.biHeight=-H;
     bi.bmiHeader.biPlanes=1;bi.bmiHeader.biBitCount=32;
@@ -27,10 +28,20 @@ int main(int argc,char** argv) {
         int lit=0;
         for(int y=0;y<H;++y)for(int x=0;x<W;++x) if(pixels[y*W+x]) {
             assert(x>=20&&x<20+advance&&y>=20&&y<20+px);
-            assert((pixels[y*W+x]&0xffffff)==0xf0783c);++lit;
+            assert(((pixels[y*W+x]>>16)&255)<=240 && ((pixels[y*W+x]>>8)&255)<=120 && (pixels[y*W+x]&255)<=60);++lit;
         }
         assert(c==' '?lit==0:lit>0);++cases;
     }
+    // Layered text must retain fractional alpha and never bring magenta into the edge.
+    GdiFlush();for(int i=0;i<W*H;++i)pixels[i]=0xff00ff;
+    n3_stroke_layered=1;SetTextColor(dc,RGB(255,255,255));
+    N3StrokeText(dc,20,20,"Smooth",6,18,9);n3_stroke_layered=0;GdiFlush();
+    int edges=0;
+    for(int i=0;i<W*H;++i)if(pixels[i]>>24) {
+        unsigned a=pixels[i]>>24;assert(((pixels[i]>>16)&255)==a && ((pixels[i]>>8)&255)==a && (pixels[i]&255)==a);
+        if(a<255)++edges;
+    }
+    assert(edges>30);
     const DWORD handles=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
     for(int i=0;i<1000;++i)N3StrokeText(dc,0,0,"Perf Ki",7,18,9);
     assert(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)==handles);

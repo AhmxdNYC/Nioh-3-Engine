@@ -19,6 +19,7 @@
 #include "../src/padviz_atlas_data.h"
 #include "../src/padviz_png.h"
 #include "../src/osd_font.h"
+#include "../../shared/osd_stroke_data.h"
 #include "../src/osd_shaders.h"
 
 #pragma comment(lib, "d3d12.lib")
@@ -150,7 +151,7 @@ int main(int argc, char** argv) {
                                      style ? sizeof(padviz::kAtlasPng_dualsense) : sizeof(padviz::kAtlasPng_xbox), A)) { printf("FAIL decode\n"); return 1; }
         // frame: 3 panels like the CPU preview, plus a text line and a solid rect (the other two quad kinds still work)
         const float s = 420.0f / k.canvasW, pw = k.canvasW * s, ph = k.canvasH * s, gap = 24;
-        const UINT W = (UINT)(3 * pw + 4 * gap), H = (UINT)(ph + 2 * gap);
+        const UINT W = (UINT)(3 * pw + 4 * gap), H = (UINT)(ph + 2 * gap + 32);
         g_inst.clear();
         padviz::State idle, a, c;
         a.buttons = padviz::kA | padviz::kRB | padviz::kUp | padviz::kStart | padviz::kR3; a.lt = 255; a.rt = 128; a.lx = 23000; a.ly = 23000;
@@ -160,6 +161,9 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 3; ++i) padviz::DrawState(*st3[i], gap + i * (pw + gap), gap, s, 0.9f, style);
         const size_t nSprites = g_inst.size();
         osd::DrawRect(4, 4, 40, 8, 0xFF3C8CFF);
+        const char* label="Startup 14 Active 15-20 Recovery 18 | Perf Ki | Mod menu";
+        for(int n=0;label[n];++n) if(label[n]!=' ')
+            g_inst.push_back({19.f+n*8.f,(float)H-25.f,10.f,18.f,(uint32_t)(label[n]-32),0xffffffff,0,0,0,0});
 
         D3D12_HEAP_PROPERTIES def{D3D12_HEAP_TYPE_DEFAULT}, up{D3D12_HEAP_TYPE_UPLOAD}, rb{D3D12_HEAP_TYPE_READBACK};
         D3D12_RESOURCE_DESC td{};
@@ -185,7 +189,7 @@ int main(int argc, char** argv) {
         };
         ID3D12Resource *stage = nullptr, *ub = nullptr, *rbuf = nullptr, *rt = nullptr;
         HR(buffer(up, total, D3D12_RESOURCE_STATE_GENERIC_READ, &stage));
-        const UINT64 fontCb = 6144, instBytes = g_inst.size() * sizeof(Inst);
+        const UINT64 fontCb = 9216, instBytes = g_inst.size() * sizeof(Inst);
         HR(buffer(up, fontCb + instBytes, D3D12_RESOURCE_STATE_GENERIC_READ, &ub));
         uint8_t* m = nullptr;
         HR(stage->Map(0, nullptr, (void**)&m));
@@ -198,7 +202,7 @@ int main(int argc, char** argv) {
         stage->Unmap(0, nullptr);
         HR(ub->Map(0, nullptr, (void**)&m));
         memset(m, 0, fontCb);
-        memcpy(m, osdfont::kBits, osdfont::kWords * 4);
+        memcpy(m, n3_osd_strokes, sizeof(n3_osd_strokes));
         memcpy(m + fontCb, g_inst.data(), instBytes);
         ub->Unmap(0, nullptr);
         D3D12_RESOURCE_DESC rd = td;
@@ -278,15 +282,21 @@ int main(int argc, char** argv) {
         hd[12] = (uint8_t)(W & 255); hd[13] = (uint8_t)(W >> 8); hd[14] = (uint8_t)(H & 255); hd[15] = (uint8_t)(H >> 8);
         hd[16] = 32; hd[17] = 0x28;
         fwrite(hd, 1, 18, f);
-        long lit = 0;
+        long lit = 0, textLit=0, textAA=0;
         for (UINT y = 0; y < H; ++y)
             for (UINT x = 0; x < W; ++x) {
                 const uint8_t* p = m + rfp.Offset + (size_t)y * rfp.Footprint.RowPitch + x * 4;
                 const uint8_t bgra[4] = {p[2], p[1], p[0], 255};
                 fwrite(bgra, 1, 4, f);
+                if(y>=H-25 && y<H-7 && x>=19 && x<19+8*strlen(label)) {
+                    if(p[0]>180 && p[1]>180 && p[2]>180)++textLit;
+                    if(p[0]>50 && p[0]<180 && abs((int)p[0]-(int)p[1])<3)++textAA;
+                }
                 if (p[0] > 150 && p[1] > 150 && p[2] > 150) ++lit;
             }
         fclose(f);
+        printf("Analytic text pixels: solid=%ld AA=%ld\n",textLit,textAA);
+        if(textLit<30 || textAA<30) { printf("FAIL: analytic text missing or not antialiased\n");++failures; }
         rbuf->Unmap(0, nullptr);
         // the Xbox body is dark (human #23313) but its lit parts are bright: some share of the frame must be bright (sprites sampled), not just backdrop
         const double frac = (double)lit / ((double)W * H);

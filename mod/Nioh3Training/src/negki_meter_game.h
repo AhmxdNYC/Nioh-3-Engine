@@ -91,11 +91,9 @@ static BOOL CALLBACK NkmFind(HWND h, LPARAM lp) { (void)lp;
 static LRESULT CALLBACK NkmProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCHITTEST) return HTTRANSPARENT;
     if (msg == WM_PAINT) {
-        PAINTSTRUCT ps; HDC dc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r);
-        HDC mem = CreateCompatibleDC(dc); HBITMAP bmp = CreateCompatibleBitmap(dc, r.right, r.bottom); HGDIOBJ ob = SelectObject(mem, bmp);
-        __try { NkmPaint(mem, r.right, r.bottom); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-        BitBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, ob); DeleteObject(bmp); DeleteDC(mem); EndPaint(h, &ps); return 0;
+        PAINTSTRUCT ps; BeginPaint(h,&ps);
+        __try { N3StrokeWindow(h,NkmPaint); } __except (EXCEPTION_EXECUTE_HANDLER) { n3_stroke_layered=0; }
+        EndPaint(h,&ps);return 0;
     }
     return DefWindowProcW(h, msg, wp, lp);
 }
@@ -105,7 +103,7 @@ static DWORD WINAPI NkmThread(LPVOID p) {
     RegisterClassExW(&wc);
     g_nkm_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 10, 0, 0, wc.hInstance, 0);
     if (!g_nkm_wnd) { Log("NEG KI METER: overlay window failed (%lu), meter not drawn", GetLastError()); return 0; }
-    SetLayeredWindowAttributes(g_nkm_wnd, NKM_KEY, 235, LWA_COLORKEY | LWA_ALPHA);
+    // Per-pixel alpha is supplied by N3StrokeWindow.
     Log("NEG KI METER: overlay window ready");
     int shown = 0; LONG lastVer = -1; RECT last = {0};
     for (;;) {
