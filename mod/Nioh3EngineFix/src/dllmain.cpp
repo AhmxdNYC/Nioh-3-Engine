@@ -45,6 +45,7 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "bootnotice.h"
+#include "crashreport.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
@@ -406,6 +407,7 @@ void Log(const char* fmt, ...) {
     // 1.7.45 SkipDebugString: under Proton every OutputDebugStringA is a raised exception + a DBWIN mapping lookup through
     // wineserver (91 calls/s in the Ally PROTON_LOG run, all from this function); keep it only when a debugger listens
     if (!g_skipOds || IsDebuggerPresent()) OutputDebugStringA(line);
+    crashreport::NoteLog(line);
     if (g_log) {
         fputs(line, g_log);
         fflush(g_log);
@@ -3164,6 +3166,15 @@ DWORD WINAPI Worker(LPVOID) {
             ti.base = reinterpret_cast<uintptr_t>(g_base);
             ti.knownBuild = known;
             tour::Start(ti);
+        }
+        {  // [Debug] CrashReport (crashreport.cpp, default on): crash/abort/fatal-popup report file beside the .asi; CrashTest = forced-crash hook
+            crashreport::StartInfo cri;
+            cri.log = &Log;
+            cri.iniPath = iniPath.c_str();
+            cri.selfModule = g_self;
+            cri.base = reinterpret_cast<uintptr_t>(g_base);
+            cri.knownBuild = known;
+            crashreport::Start(cri);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
