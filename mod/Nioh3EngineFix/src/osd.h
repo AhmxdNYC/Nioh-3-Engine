@@ -68,6 +68,7 @@ const char* PositionName(int pos);
 // effective overlay offsets (pixels at 1080p): the user's, or the default of the current corner
 int OffsetX();
 int OffsetY();
+constexpr float kCornerPx = 2.0f;  // gap between the FPS counter / mod-menu hint and the screen edge
 int DefaultOffsetY(int pos);  // TopLeft 160 (below the game's health / ki HUD, ~15 % of 1080), others 0
 // FPS-counter text scale for a back buffer of height H (Scale x auto factor), as used by the counter itself
 float CounterScale(unsigned H);

@@ -2212,7 +2212,7 @@ float AutoScale(unsigned H) {
 // one-line note in the top-right corner (below the FPS counter when that sits there too)
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     const float sc = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);  // 800p/1080p 1.5, 1440p 2
-    const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = 8 * sc;
+    const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
     const float w = (float)strlen(text) * osd::kGlyphW * sc + 2 * pad, h = lineH + 2 * pad - 2 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();

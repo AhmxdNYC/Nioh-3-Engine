@@ -580,7 +580,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     g_padSkin = -1;
     const float sc = CounterScaleImpl(W, H);
     const float k1080 = (float)H / 1080.0f;
-    const float margin = 8 * sc;
+    const float margin = kCornerPx;  // #corners: flush with the screen corner (was 8 * sc)
     const float offX = (float)OffsetX() * k1080, offY = (float)OffsetY() * k1080;
     const bool right = false, bottom = g_cfg.pos >= 2;  // #38167: the FPS overlay always sits on the left, opposite the right-side menu panel
 
@@ -688,7 +688,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     // stack: counter first, popup next to it (below for top positions, above for bottom positions)
     const float x = right ? (float)W - margin - offX : margin + offX;
     const float gap = 4 * sc, lineH = (osdfont::kH + 2) * sc, pad = 4 * sc;
-    float y = bottom ? (float)H - margin - offY : 12.0f + offY;  // top: same 12 px as the menu panel (menu.cpp DrawRematchHost y0)
+    float y = bottom ? (float)H - margin - offY : kCornerPx + offY;  // top: flush with the corner
     auto place = [&](const Line* l, int n, float a) {
         if (n <= 0) return;
         const float h = n * lineH + 2 * pad - 2 * sc;
@@ -709,10 +709,10 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     // its own quad group: textured sprites from the skin's atlas (bound for this group only)
     if (padviz::g_on) {
         const bool tl = g_cfg.pos == 0;
-        float px = 16.0f * k1080, py = 12.0f + (float)DefaultOffsetY(0) * k1080;  // #38199: moved up with the FPS overlay (was 160 px down)
+        float px = 16.0f * k1080, py = kCornerPx + (float)DefaultOffsetY(0) * k1080;  // #38199: moved up with the FPS overlay (was 160 px down)
         if (tl) {
             px = margin + offX;
-            if (g_cfg.fpsCounter) py = std::max(py, 12.0f + offY + (osdfont::kH + 2) * sc + 10 * sc);
+            if (g_cfg.fpsCounter) py = std::max(py, kCornerPx + offY + (osdfont::kH + 2) * sc + 10 * sc);
         }
         const int skin = padviz::Style();
         {   // user position (% of the free space): 0/0 = the default top-left spot
@@ -735,8 +735,8 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         const uint64_t nowMs = (uint64_t)GetTickCount64();
         if (PadAtlasReady(skin) && padviz::Live(nowMs)) {
             const bool rightSide = inputhist::g_side != 0;
-            float ix = rightSide ? (float)W - 16.0f * k1080 : margin + offX;
-            float iy = (float)DefaultOffsetY(0) * k1080;
+            float ix = rightSide ? (float)W - kCornerPx : margin + offX;
+            float iy = kCornerPx + (float)DefaultOffsetY(0) * k1080;
             if (!rightSide) {
                 if (g_cfg.fpsCounter && g_cfg.pos == 0) iy = std::max(iy, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
                 if (padviz::g_on && padviz::g_posX <= 0 && padviz::g_posY <= 0)
