@@ -308,7 +308,9 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     }
     if (blank) {
         st->dwPacketNumber += 0x40000000u;  // the neutral state gets its own packet numbers (games may cache by packet)
+        const SHORT rx = g.sThumbRX, ry = g.sThumbRY;
         memset(&g, 0, sizeof(g));
+        if (g_open && !s.latch) { g.sThumbRX = rx; g.sThumbRY = ry; }  // #38155: the right stick (camera) stays live in the menu; the menu only navigates with the left stick/D-pad
     }
 }
 
