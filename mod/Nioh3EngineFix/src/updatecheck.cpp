@@ -170,7 +170,7 @@ void ShowFolderNotice(const std::wstring& folder) {
         std::snprintf(path, sizeof(path), "Path too long; use Steam > Manage > Browse local files");
     AcquireSRWLockExclusive(&g_lock);
     std::snprintf(g_folderNotice, sizeof(g_folderNotice), "Game folder: %s", path);
-    g_folderUntil = GetTickCount64() + 20000;
+    g_folderUntil = 0; // starts only when the foreground game can draw it
     ReleaseSRWLockExclusive(&g_lock);
 }
 void OpenWineFolder(const std::wstring& folder) {
@@ -231,11 +231,28 @@ void OpenPage() {
     HANDLE thread = CreateThread(nullptr, 0, OpenPageWorker, module, 0, nullptr);
     if (thread) CloseHandle(thread); else FreeLibrary(module);
 }
+bool RunningUnderWine() { return IsWine(); }
+bool CopyFolderNotice(char* dst, size_t capacity, bool focused) {
+    if (!dst || !capacity) return false;
+    dst[0]=0;
+    if (!TryAcquireSRWLockExclusive(&g_lock)) return false;
+    if (g_folderNotice[0]) {
+        if (!focused) g_folderUntil=0;
+        else {
+            const auto now=GetTickCount64();
+            if (!g_folderUntil) g_folderUntil=now+20000;
+            if (now < g_folderUntil) std::snprintf(dst,capacity,"%s",g_folderNotice);
+            else g_folderNotice[0]=0;
+        }
+    }
+    ReleaseSRWLockExclusive(&g_lock);
+    return dst[0]!=0;
+}
 bool CopyNotice(char* dst,size_t capacity) {
     if(!dst||!capacity) return false;
     dst[0]='\0';
     if(!TryAcquireSRWLockShared(&g_lock)) return false;
-    std::snprintf(dst,capacity,"%s",GetTickCount64() < g_folderUntil ? g_folderNotice : g_notice);
+    std::snprintf(dst,capacity,"%s",g_notice);
     ReleaseSRWLockShared(&g_lock);
     return dst[0]!=0;
 }

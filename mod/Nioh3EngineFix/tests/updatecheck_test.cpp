@@ -186,9 +186,11 @@ int main(){
  CHECK(processCalls[0].target==L"C:\\Windows\\system32\\start.exe");
  CHECK(processCalls[0].args==L"\"C:\\Windows\\system32\\start.exe\" /unix /usr/bin/xdg-open \"https://nioh3-mod-feedback.vercel.app\"");
  CHECK(processCalls[1].args.find(L"dolphin --new-window")!=std::wstring::npos); CHECK(popupCount==0);
- char folderNotice[2048]{}; CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
+ char folderNotice[2048]{}; CHECK(!CopyFolderNotice(folderNotice,sizeof(folderNotice),false));
+ clockMs+=60000; CHECK(CopyFolderNotice(folderNotice,sizeof(folderNotice),true));
  CHECK(std::string(folderNotice)=="Game folder: /home/player/Steam Games/Nioh3/");
- clockMs+=20000; CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
+ clockMs+=20000; CHECK(!CopyFolderNotice(folderNotice,sizeof(folderNotice),true));
+ CHECK(CopyNotice(folderNotice,sizeof(folderNotice)));
  CHECK(std::string(folderNotice).find("Update ")==0);
  CHECK(QuoteArgument(L"a\"b\\")==L"\"a\\\"b\\\\\"");
  conversionFails=true;processCalls.clear();LaunchFixedPage(testModule);CHECK(processCalls.size()==1);

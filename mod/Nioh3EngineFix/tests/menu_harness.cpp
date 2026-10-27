@@ -28,6 +28,10 @@ float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts
 namespace updatecheck {
 std::string testNotice;
 int pageOpens=0;
+bool wine=false;
+std::string folderNotice;
+bool RunningUnderWine(){return wine;}
+bool CopyFolderNotice(char* dst,size_t n,bool focused){snprintf(dst,n,"%s",focused?folderNotice.c_str():"");return focused&&!folderNotice.empty();}
 void OpenPage() { ++pageOpens; }
 bool CopyNotice(char* dst, size_t n) { snprintf(dst,n,"%s",testNotice.c_str());return !testNotice.empty(); }
 }
@@ -116,6 +120,17 @@ int main() {
     CHECK(updatecheck::pageOpens == 1);
     Change(kUpdatePageRow, 1); CHECK(updatecheck::pageOpens == 1);
     Change(kUpdatePageRow, 0); CHECK(updatecheck::pageOpens == 2);
+    updatecheck::wine=true; g_open=1; g_pressed=K_NAV; g_toggleReq=1;
+    Change(kUpdatePageRow,0); CHECK(!g_open && !g_pressed && !g_toggleReq);
+    updatecheck::wine=false;
+    updatecheck::folderNotice="Game folder: /home/player/Steam Games/Nioh3/";
+    g_open=1; g_cfg.pauseHint=0;
+    osd::drawnTexts.clear(); DrawFolderNotice(320,600,1,true);
+    CHECK(!osd::drawnTexts.empty());
+    std::string pathText; for(const auto& row:osd::drawnTexts)pathText+=row;
+    CHECK(pathText==updatecheck::folderNotice);
+    osd::drawnTexts.clear(); DrawFolderNotice(320,600,1,false);CHECK(osd::drawnTexts.empty());
+    updatecheck::folderNotice.clear(); g_open=0;
     g_cfg.holdMask = 0;
     g_padHooked = g_keyHooked = true;
     g_lastPresent = (LONG64)Now();

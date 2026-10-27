@@ -1527,6 +1527,16 @@ void Close(const char* how) {
     if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
 }
 
+void LaunchUpdatePage() {
+    if (updatecheck::RunningUnderWine()) {
+        Close("opening update browser on Wine");
+        g_pressed=0; g_toggleReq=0;
+        for (auto& repeat : g_rep) repeat=0;
+        MLOG("update browser: closed menu and cleared queued navigation before focus leaves");
+    }
+    updatecheck::OpenPage();
+}
+
 // user #13529: the open shortcut (Start x3, Esc x3, the menu key) opens the CURRENT mode's page: Practice / Training session (or summoned
 // bosses) -> the Practice page, a Boss Match (Fight now) -> the Boss Matches page, otherwise the first page. Mode from Nioh3Training:
 // Nioh3Training_SessionMode 1 Boss Match / 2 Practice, Nioh3Training_SessionActive bit 2 = summoned bosses alive. B on that page returns to the first page.
@@ -1755,7 +1765,7 @@ void Change(int id, int dir) {
         return;
     }
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
-    if (id == kUpdatePageRow) { if (dir == 0) updatecheck::OpenPage(); return; }
+    if (id == kUpdatePageRow) { if (dir == 0) LaunchUpdatePage(); return; }
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
@@ -2403,7 +2413,7 @@ float AutoScale(unsigned H) {
 bool g_updateMouseDown = false, g_updateMouseEdge = false;
 bool TryUpdateHintClick(bool edge, bool focused, float px, float py, float x, float y, float w, float h) {
     if (!edge || !focused || px < x || py < y || px >= x+w || py >= y+h) return false;
-    updatecheck::OpenPage();
+    LaunchUpdatePage();
     return true;
 }
 // Hit test in render pixels, mapped from the foreground game window's client area.
@@ -3395,10 +3405,30 @@ void OnPresent() {
     SyncFreeze();  // after every path that may have closed the menu (Close, hooks, cover, add-on request)
 }
 
+float DrawFolderNotice(unsigned W, unsigned H, float scale, bool focused) {
+    char notice[2048]{};
+    static bool shown=false;
+    if (!updatecheck::CopyFolderNotice(notice,sizeof(notice),focused)) { shown=false; return scale; }
+    if (!shown) { MLOG("folder notice visible (20 seconds): %s",notice); shown=true; }
+    const float sc=scale>0 ? scale : 1.0f;
+    const float pad=4*sc, lineH=(osd::kGlyphH+2)*sc;
+    const size_t cols=std::max<size_t>(1,static_cast<size_t>(std::max(1.0f,((float)W-32-2*pad)/(osd::kGlyphW*sc))));
+    const size_t len=strlen(notice), lines=(len+cols-1)/cols;
+    osd::DrawRect(8,8,(float)W-16,(float)lines*lineH+2*pad,0xF0202020);
+    for(size_t i=0;i<lines;++i) {
+        char row[2048]{}; const size_t n=std::min(cols,len-i*cols);
+        memcpy(row,notice+i*cols,n);
+        osd::DrawText(8+pad,8+pad+(float)i*lineH,row,cGold,sc);
+    }
+    (void)H;
+    return sc;
+}
+
 float Draw(unsigned W, unsigned H) {
     if (!Enabled()) return 0;
     __try {
-        return DrawImpl(W, H);
+        const float scale=DrawImpl(W, H);
+        return DrawFolderNotice(W,H,scale,ForegroundIsGame());
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         Fail("Draw", GetExceptionCode());
         return 0;

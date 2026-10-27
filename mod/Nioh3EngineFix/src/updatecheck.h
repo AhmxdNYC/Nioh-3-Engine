@@ -8,5 +8,7 @@ void Configure(const wchar_t* iniPath);
 void Tick(const char* installedVersion);
 // Menu reads a small immutable snapshot; no network, allocations or waits on HTTP here.
 void OpenPage(); // fixed website + module-folder updater selection, asynchronous shell launches
+bool RunningUnderWine();
+bool CopyFolderNotice(char* dst, size_t capacity, bool focused);
 bool CopyNotice(char* dst, size_t capacity);
 }
