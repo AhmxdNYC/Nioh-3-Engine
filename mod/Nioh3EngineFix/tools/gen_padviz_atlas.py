@@ -114,7 +114,7 @@ def ps_face(src, rgb, lit):
     return out
 
 
-def xbox_face(src, rgb):
+def xbox_face(src, rgb, lit=True):
     """50x50 pressed face button: dark disc tinted with the button colour, coloured rim and letter (was a white-letter flash)."""
     from PIL import ImageFilter
     w, h = src.size
@@ -127,14 +127,14 @@ def xbox_face(src, rgb):
                 glyph.putpixel((x, y), max(0, min(255, int((r - 38) * 255 / (247 - 38)))))
     glyph = glyph.filter(ImageFilter.MaxFilter(3))
     dark = (30, 30, 34)
-    disc = tuple(int(dk * 0.65 + c * 0.35) for dk, c in zip(dark, rgb))
+    disc = tuple(int(dk * 0.65 + c * 0.35) for dk, c in zip(dark, rgb)) if lit else dark
     out = Image.new("RGBA", src.size)
     for y in range(h):
         for x in range(w):
             a = src.getpixel((x, y))[3]
             if not a:
                 continue
-            base = rgb if math.hypot(x - cx, y - cy) >= 21.0 else disc
+            base = (rgb if lit else (96, 96, 102)) if math.hypot(x - cx, y - cy) >= 21.0 else disc
             k = glyph.getpixel((x, y)) / 255.0
             out.putpixel((x, y), tuple(int(bc * (1 - k) + c * k + 0.5) for bc, c in zip(base, rgb)) + (a,))
     return out
@@ -165,6 +165,7 @@ def xbox():
     bx, by = 470.71, 166.9
     for k, px, py in (("A", 48.5, 147 - 50), ("B", 147 - 50, 48.8), ("X", 147 - 98 - 50, 48.5), ("Y", 48.5, 0)):
         S[k + "_LIT"] = (xbox_face(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k]), bx + px, by + py)
+        S[k] = (xbox_face(svg(k + "_", (50, 50)), XBOX_FACE_RGB[k], False), bx + px, by + py)  # resting: coloured letter like the PS pad
     # .dpad 112.2 @ (213,299.8); .face 39x39 pad_.svg opacity 0 (pressed 1); up rotate .25turn (36.1,1); down .75turn
     # bottom 1 left 36.1; left (1,37); right .5turn top 37 right 1   (CSS rotate = clockwise; PIL rotate = counter-clockwise)
     pad = svg("pad_", (39, 39))
@@ -236,6 +237,7 @@ def main():
             atlas = Image.merge("RGBA", (lum, lum, lum, atlas.getchannel("A")))
             for key in XBOX_FACE_RGB:  # human #38760: same clean coloured face buttons as the PS pad (pressed state)
                 atlas.paste(S[key + "_LIT"][0], place[key + "_LIT"])
+                atlas.paste(S[key][0], place[key])
         else:
             out_l = Image.new("L", atlas.size)
             bright = lum.point(lambda v: int(255 * (0.55 + 0.45 * (1 - v / 255.0))))
