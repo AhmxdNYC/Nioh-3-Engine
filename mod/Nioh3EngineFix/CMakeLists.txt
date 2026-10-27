@@ -24,4 +24,4 @@ set_target_properties(Nioh3EngineFix PROPERTIES
 target_compile_definitions(Nioh3EngineFix PRIVATE UNICODE _UNICODE NDEBUG)
 target_compile_options(Nioh3EngineFix PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/O2 /GS /Gy /Gw /EHsc /W4 /permissive->)
 target_link_options(Nioh3EngineFix PRIVATE /OPT:REF /OPT:ICF /DEBUG:FULL)
-target_link_libraries(Nioh3EngineFix PRIVATE kernel32 user32 bcrypt psapi)
+target_link_libraries(Nioh3EngineFix PRIVATE kernel32 user32 bcrypt psapi shell32)

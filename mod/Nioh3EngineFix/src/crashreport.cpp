@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <psapi.h>
+#include <shellapi.h>
 #include <cwchar>
 #include <stdlib.h>
 #include <csignal>
@@ -34,6 +35,9 @@ wchar_t g_dir[MAX_PATH * 2];
 char g_shaText[1536];      // "Nioh3X.asi sha256 ... size ..." lines, computed once at Start
 DWORD g_startTick = 0;
 char g_fatalTitle[160];
+char g_url[300] = "https://nioh3-mod-feedback.vercel.app";  // [Report] Url (placeholder: the feedback site)
+bool g_urlOpen = false;
+char g_lastSnapshot[MAX_PATH * 2];
 
 // hand-off to the helper thread (own stack): filled by the faulting thread, consumed by Writer()
 HANDLE g_evGo = nullptr, g_evDone = nullptr;
@@ -41,6 +45,7 @@ struct Req {
     char reason[160];
     EXCEPTION_POINTERS ep;      // pointers only valid while the faulting thread waits
     bool hasEp = false;
+    bool snapshot = false;      // menu Report row: files are Nioh3EngineFix-report-*, title says so
     DWORD tid = 0;
     EXCEPTION_RECORD erCopy;
     CONTEXT ctxCopy;
@@ -143,17 +148,18 @@ const char* ExcName(DWORD c) {
     }
 }
 
-void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, DWORD faultTid) {
+void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, DWORD faultTid, bool snapshot) {
+    const wchar_t* kind = snapshot ? L"report" : L"crash";
     SYSTEMTIME st;
     GetLocalTime(&st);
     wchar_t path[MAX_PATH * 2], latest[MAX_PATH * 2];
-    swprintf(path, MAX_PATH * 2, L"%sNioh3EngineFix-crash-%04u%02u%02u-%02u%02u%02u.txt", g_dir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
-    swprintf(latest, MAX_PATH * 2, L"%sNioh3EngineFix-crash-latest.txt", g_dir);
+    swprintf(path, MAX_PATH * 2, L"%sNioh3EngineFix-%s-%04u%02u%02u-%02u%02u%02u.txt", g_dir, kind, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+    swprintf(latest, MAX_PATH * 2, L"%sNioh3EngineFix-%s-latest.txt", g_dir, kind);
     Out o;
     o.f = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (o.f == INVALID_HANDLE_VALUE) return;
 
-    o.P("Nioh 3 mod crash report\r\n=======================\r\n");
+    o.P(snapshot ? "Nioh 3 mod state snapshot (menu Report)\r\n======================================\r\n" : "Nioh 3 mod crash report\r\n=======================\r\n");
     o.P("time:      %04u-%02u-%02u %02u:%02u:%02u (local)\r\n", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     o.P("reason:    %s\r\n", reason);
     o.P("uptime:    %lu s since mod start\r\n", (unsigned long)((GetTickCount() - g_startTick) / 1000));
@@ -251,22 +257,24 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
             }
         }
     }
+    if (snapshot) { snprintf(g_lastSnapshot, sizeof(g_lastSnapshot), "%ls", path); }
     if (g_log) g_log("CRASHREPORT: wrote %ls (%s)", path, reason);
 }
 
 DWORD WINAPI Writer(LPVOID) {  // fresh stack: survives a stack overflow in the faulting thread
     for (;;) {
         if (WaitForSingleObject(g_evGo, INFINITE) != WAIT_OBJECT_0) return 0;
-        WriteReport(g_req.reason, g_req.hasEp ? &g_req.erCopy : nullptr, g_req.hasEp ? &g_req.ctxCopy : nullptr, g_req.tid);
+        WriteReport(g_req.reason, g_req.hasEp ? &g_req.erCopy : nullptr, g_req.hasEp ? &g_req.ctxCopy : nullptr, g_req.tid, g_req.snapshot);
         InterlockedExchange(&g_written, 1);
         SetEvent(g_evDone);
     }
 }
 
 // Hands one report to the helper thread and waits for it (max waitMs). Re-entrancy / second faults: only the first reports.
-void Submit(const char* reason, EXCEPTION_POINTERS* ep, DWORD waitMs) {
+void Submit(const char* reason, EXCEPTION_POINTERS* ep, DWORD waitMs, bool snapshot = false) {
     if (!g_evGo || InterlockedCompareExchange(&g_inReport, 1, 0) != 0) return;
     CopyTrunc(g_req.reason, sizeof(g_req.reason), reason);
+    g_req.snapshot = snapshot;
     g_req.tid = GetCurrentThreadId();
     g_req.hasEp = ep && ep->ExceptionRecord && ep->ContextRecord;
     if (g_req.hasEp) {
@@ -380,6 +388,38 @@ DWORD WINAPI TestThread(LPVOID p) {
 
 }  // namespace
 
+bool Snapshot(char* pathOut, unsigned cap) {
+    if (pathOut && cap) pathOut[0] = 0;
+    if (!g_evGo) return false;
+    g_lastSnapshot[0] = 0;
+    InterlockedExchange(&g_written, 0);
+    Submit("manual snapshot (menu Report row)", nullptr, 3000, true);
+    if (!g_lastSnapshot[0]) return false;
+    if (pathOut && cap) snprintf(pathOut, cap, "%s", g_lastSnapshot);
+    return true;
+}
+const char* ReportUrl() { return g_url; }
+bool ReportOpenWanted() { return g_urlOpen; }
+bool CopyReportUrl() {
+    const size_t n = strlen(g_url) + 1;
+    HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, n);
+    if (!h) return false;
+    if (void* p = GlobalLock(h)) { memcpy(p, g_url, n); GlobalUnlock(h); } else { GlobalFree(h); return false; }
+    bool ok = false;
+    if (OpenClipboard(nullptr)) {
+        EmptyClipboard();
+        ok = SetClipboardData(CF_TEXT, h) != nullptr;
+        CloseClipboard();
+    }
+    if (!ok) GlobalFree(h);
+    return ok;
+}
+void OpenReportUrl() {
+    wchar_t w[320];
+    MultiByteToWideChar(CP_UTF8, 0, g_url, -1, w, 320);
+    ShellExecuteW(nullptr, L"open", w, nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 void SetState(const char* key, const char* value) {
     if (!key) return;
     char k[kKeyLen];
@@ -419,6 +459,12 @@ void Start(const StartInfo& info) {
     int test = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashTest", 0, info.iniPath) : 0;
     int delay = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashTestDelaySec", 30, info.iniPath) : 30;
     g_dump = info.iniPath && GetPrivateProfileIntW(L"Debug", L"CrashDump", 0, info.iniPath) != 0;
+    if (info.iniPath) {
+        wchar_t wu[300] = {};
+        GetPrivateProfileStringW(L"Report", L"Url", L"", wu, 300, info.iniPath);
+        if (wu[0]) WideCharToMultiByte(CP_UTF8, 0, wu, -1, g_url, sizeof(g_url), nullptr, nullptr);
+        g_urlOpen = GetPrivateProfileIntW(L"Report", L"Open", 0, info.iniPath) != 0;
+    }
     if (!on) {
         if (g_log) g_log("CRASHREPORT: off ([Debug] CrashReport = 0)");
         return;

@@ -39,6 +39,7 @@
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
+#include "crashreport.h"
 #include "menu_style.h"
 #include "padviz.h"
 #include "inputhist.h"
@@ -822,7 +823,6 @@ bool OverlayRow(int id) {
     return id == kFps || id == kFrameTime || id == kSpeed || id == kPos || id == kOffX || id == kOffY || id == kScale ||
            id == kHint || id == kPerfNote || id == kAutoCont || id == kFgState || id == kUpscaler || id == kXTS || id == kXWS;
 }
-bool IsControllerDisplayKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strncmp(key, "InputDisplay", 12) == 0 || strcmp(key, "ButtonStyle") == 0); }  // #37423: button style is a pad-display setting
 
 // PS_FRAME_METER is index 7 in Nioh3Training (shipped meter and the older Practice hub). The Practice menu row stays.
 constexpr int kFrameMeterWhat = 7;
@@ -872,44 +872,119 @@ void ChangeKiWindow() {
                                                              : "Ki window OFF. The dark blue is hidden. Saved in Training.");
 }
 
+// #38437: the rest of Training's frame-meter switches as rows of the "Frame meter settings" page (same PracticeStat flip as the
+// Frame meter / Ki window rows; Training saves its own ini). kPsToggleN in menu_pages.h must match this table.
+struct PsToggle { int what; const char* label; const char* note; };
+const PsToggle kPsToggles[kPsToggleN] = {
+    {10, "Player frame meter", "Second bar under the boss meter for your own attacks."},
+    {22, "I-frame lane", "Own I-FR row under the PLAYER row showing only the i-frame cells in gold."},
+    {23, "Player row", "Draw the PLAYER row. Off keeps the I-FR row."},
+    {17, "Negative Ki meter", "Thin bar under a Training boss's Ki bar while its Ki is below 0. Off by default."},
+    {18, "Colour key (legend)", "Show the KEY legend under the meter."},
+    {19, "Readout line", "The top readout with the frame counts."},
+    {20, "Ki lane", "Ki pulse / Ki debt lane on the meter."},
+    {24, "Key: Startup", "Legend entry for startup frames."},
+    {25, "Key: Active", "Legend entry for active frames."},
+    {26, "Key: Recovery", "Legend entry for recovery frames."},
+    {27, "Key: Unblockable", "Legend entry for unblockable moves."},
+    {28, "Key: Grab", "Legend entry for grabs."},
+    {29, "Key: Other", "Legend entries No hit / Pending / Empty."},
+    {30, "Key: Timing", "Legend entries Action start / Total frames / Stun."},
+    {31, "Key: Ki", "Legend entries Ki Pulse / Ki debt / Perfect."},
+    {32, "Key: I-frames", "The four I-FR legend entries."},
+};
+char g_psNote[200] = "";
+int PsGet(int what) {
+    ResolveFrameMeter();
+    return g_pstGet ? g_pstGet(what) : -1;
+}
+void ChangePs(int index) {
+    ResolveFrameMeter();
+    const PsToggle& t = kPsToggles[index];
+    const int v = g_pstSet ? g_pstSet(t.what, -1, 1) : -1;
+    if (v < 0) snprintf(g_psNote, sizeof(g_psNote), "Needs a Nioh3Training.asi with this switch.");
+    else snprintf(g_psNote, sizeof(g_psNote), "%s %s. Saved in Training.", t.label, v ? "ON" : "OFF");
+}
+
+// #38437 Report row: write a state snapshot beside the crash reports, copy the report website to the clipboard
+char g_reportNote[300] = "A: save a state snapshot file and copy the report website link.";
+void DoReport() {
+    char path[520] = {};
+    const bool ok = crashreport::Snapshot(path, sizeof(path));
+    const bool clip = crashreport::CopyReportUrl();
+    if (crashreport::ReportOpenWanted()) crashreport::OpenReportUrl();
+    if (ok) snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. %s %s", path, clip ? "Link copied:" : "Link (clipboard failed):", crashreport::ReportUrl());
+    else snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). %s %s", clip ? "Link copied:" : "Link:", crashreport::ReportUrl());
+    MLOG("Report row: %s", g_reportNote);
+}
+
+bool IsInputDisplayKey(const char* key) { return key && strncmp(key, "InputDisplay", 12) == 0; }
+bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
+// Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
+int SetGroup(int id) {
+    if (id == kF1 || id == kFgWine) return pFrameGen;
+    if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12) return pSGame;
+    if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
+    const int sp = SettingsPage(id);
+    if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
+    if (sp == pCpu || sp == pScheduling || sp == pSafe) return pSCpu;
+    return -1;
+}
+
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (!g_cfg.layout) {
-        // #34265 first screen: Boss Matches, Practice, Gameplay / Overlays, Settings, Close.
-        if (g_pages.page == pSettings) {
+        // #38437 first screen: Boss Matches, Practice, Display Overlays, Camera settings, Settings, Close.
+        const int pg = g_pages.page;
+        if (pg == pSettings) {  // performance only, split into CPU / GPU / Game / Frame Gen
+            for (int p : {pSCpu, pSGpu, pSGame, pFrameGen}) add(kPageRow + p);
+            add(kSave);
+            add(kBackRow);
+            return n;
+        }
+        if (pg == pSCpu || pg == pSGpu || pg == pSGame || pg == pFrameGen) {
+            for (const auto& row : kOrder)
+                if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+            add(kBackRow);
+            return n;
+        }
+        if (pg == pDisplay) {
+            for (int p : {pOvController, pOvFrameMeter, pOvInput, pOvFps}) add(kPageRow + p);
+            if (Visible(kAutoCont)) add(kAutoCont);
+            add(kBackRow);
+            return n;
+        }
+        if (pg == pOvFps) {
             for (const auto& row : kOrder) {
-                if (OverlayRow(row.id)) continue;
-                if (Visible(row.id) && OnPage(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+                if (!OverlayRow(row.id) || row.id == kAutoCont || !Visible(row.id)) continue;
+                if (selectable && ReadOnly(row.id)) continue;
+                add(row.id);
             }
             add(kBackRow);
             return n;
         }
-        if (g_pages.page == pDisplay) {
-            for (const auto& row : kOrder) {
-                if (!OverlayRow(row.id) || !Visible(row.id)) continue;
-                if (selectable && ReadOnly(row.id)) continue;
-                add(row.id);
-            }
+        if (pg == pOvFrameMeter) {
             add(kFrameMeterRow);
             add(kKiWindowRow);
-            for (int i = 0; i < kConfigN; ++i)
-                if (IsControllerDisplayKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            for (int i = 0; i < kPsToggleN; ++i) add(kPsRowFirst + i);
             add(kBackRow);
             return n;
         }
-        if (g_pages.page == pGameplay) {
-            // #34283: the loading-screen auto-click, on its own first-screen page. Settings keeps the same row.
-            for (const auto& row : kOrder) {
-                if (SettingsPage(row.id) != pGameplay || !Visible(row.id)) continue;
-                if (selectable && ReadOnly(row.id)) continue;
-                add(row.id);
-            }
+        if (pg == pOvController || pg == pOvInput) {
+            for (int i = 0; i < kConfigN; ++i)
+                if (pg == pOvInput ? IsInputDisplayKey(kConfigSettings[i].key) : IsControllerOnlyKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            add(kBackRow);
+            return n;
+        }
+        if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
+            if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
         }
         if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
         add(kPageRow + pDisplay);
+        add(kPageRow + pCamera);
         add(kPageRow + pSettings);
         add(kClose);
         return n;
@@ -947,13 +1022,14 @@ int PageRowsBody(int* out, bool selectable) {
     return n;
 }
 
-// #38077: every page starts with 'Mod menu' (top-level page) and 'Close' (close the menu), then its own rows.
+// #38077/#38437: every page starts with 'Mod menu' (top-level page), 'Close' (close the menu) and 'Report', then its own rows.
 int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
-    return 2 + PageRowsBody(out + 2, selectable);
+    out[2] = kReportRow;  // #38437
+    return 3 + PageRowsBody(out + 3, selectable);
 }
-int FirstOwnRow(const int* rows, int n) { return n > 2 ? rows[2] : n ? rows[0] : kBackRow; }
+int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
 int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay); }
 
 void EnterPage(int page) {
@@ -1477,6 +1553,8 @@ void Change(int id, int dir) {
         return;
     }
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
+    if (id == kReportRow) { if (dir == 0) DoReport(); return; }
+    if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
@@ -2491,7 +2569,7 @@ float DrawImpl(unsigned W, unsigned H) {
     auto addT = [&](const char* label, uint32_t lc, bool rule = false) { put(tail, nt, 28, label, "", "", lc, cWhite, false, rule); };
     char title[96];
     // user #13279/#13296: plain title (the page name), the version goes to the right edge of the title bar
-    snprintf(title, sizeof(title), "%s", (!g_cfg.layout && g_pages.page == pSettings) ? FlatPageName() : PageName(g_pages.page));
+    snprintf(title, sizeof(title), "%s", PageName(g_pages.page));
     {
         int c = 0;
         char ver[40];
@@ -2509,12 +2587,23 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
-        if (id == kModMenuRow || id == kCloseTopRow) {
+        if (id == kModMenuRow || id == kCloseTopRow || id == kReportRow) {
             if (id == g_sel) selRow = nb;
             const bool mod = id == kModMenuRow;
-            put(body, nb, 128, mod ? (id == g_sel ? "> Mod menu" : "  Mod menu") : (id == g_sel ? "> Close" : "  Close"), "",
-                mod ? menu_style::PadWord("A: top page", "Cross: top page") : menu_style::PadWord("A: close", "Cross: close"),
+            const char* lab = mod ? (id == g_sel ? "> Mod menu" : "  Mod menu") : id == kCloseTopRow ? (id == g_sel ? "> Close" : "  Close") : (id == g_sel ? "> Report" : "  Report");
+            put(body, nb, 128, lab, "",
+                mod ? menu_style::PadWord("A: top page", "Cross: top page") : id == kCloseTopRow ? menu_style::PadWord("A: close", "Cross: close") : menu_style::PadWord("A: report", "Cross: report"),
                 id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) {
+            if (id == g_sel) selRow = nb;
+            const PsToggle& t = kPsToggles[id - kPsRowFirst];
+            const int v = PsGet(t.what);
+            char lab[96], text[32];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", t.label);
+            snprintf(text, sizeof(text), "%s", v < 0 ? "needs Training" : v ? "ON" : "OFF");
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, v > 0 ? cGreen : cGray, id == g_sel, false);
             continue;
         }
         if (id == kFrameMeterRow) {
@@ -2586,26 +2675,39 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
-    snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? "Settings keep their current values when you change pages." : kItems[g_sel].effect);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a state snapshot file and copies the report website link." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");
         snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
+    } else if (g_sel == kReportRow) {
+        snprintf(what, sizeof(what), "%s", g_reportNote);
+        snprintf(effect, sizeof(effect), "File: Nioh3EngineFix-report-latest.txt beside the mod. Send it with the report. Link: [Report] Url in the ini.");
+    } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
+        snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
+        snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Same switch as Practice > Frame meter. Training saves it. FPS and the controller display are on this page too.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "On by default. Off hides the dark blue and leaves the other frame-meter colors. Training saves it.");
-    } else if (!g_cfg.layout && g_sel == kPageRow + pDisplay) {
-        snprintf(what, sizeof(what), "FPS counter, frame-gen and upscaler status, frame meter, Ki window, controller display (on/off, position, size, opacity, colour, button style), loading-screen auto-click, timing diagnostics.");
-        snprintf(effect, sizeof(effect), "On-screen extras only. The picture of the game stays the same.");
-    } else if (!g_cfg.layout && g_sel == kPageRow + pGameplay) {
-        snprintf(what, sizeof(what), "Auto-click the loading screen: Continue is pressed for you when a load finishes.");
-        snprintf(effect, sizeof(effect), "Off until you turn it on. Applies now and is saved. The same switch is also under Settings.");
+    } else if (!g_cfg.layout && g_sel >= kPageRow && g_sel < kBackRow) {
+        const int pg = g_sel - kPageRow;
+        const char* w = pg == pDisplay ? "Display overlays: controller overlay, frame meter, input display, FPS counter and status readouts, loading-screen auto-click."
+            : pg == pCamera ? "Camera settings: motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
+            : pg == pSettings ? "Performance settings only: CPU, GPU, Game and Frame Gen."
+            : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
+            : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
+            : pg == pOvInput ? "Input display: the vertical input history, its side and row count."
+            : pg == pOvFps ? "FPS counter, frame time, game speed, position and size, frame-gen and upscaler status, timing diagnostics."
+            : pg == pSCpu ? "CPU fixes and experiments, thread scheduling." : pg == pSGpu ? "GPU fixes, experiments and the look-changing Extra performance rows."
+            : pg == pSGame ? "Frame pacing, latency, job-thread limits and other next-launch game settings." : pg == pFrameGen ? "Frame-gen presenter fixes." : "";
+        snprintf(what, sizeof(what), "%s", w);
+        snprintf(effect, sizeof(effect), "A / Enter opens this page.");
     } else if (g_sel >= kSettingRow && g_sel < kSettingRow + kConfigN) {
         const int index = g_sel - kSettingRow;
         const auto& d = kConfigSettings[index];

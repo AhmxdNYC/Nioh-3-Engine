@@ -33,6 +33,14 @@ bool Rewrite(int) { return false; }
 void SetBatching(bool) {}
 void SetRewrite(int, bool) {}
 }
+namespace crashreport {  // #38437: the Report row only needs these four
+int g_snapshots = 0;
+bool Snapshot(char* p, unsigned cap) { ++g_snapshots; snprintf(p, cap, "stub-report.txt"); return true; }
+const char* ReportUrl() { return "https://example.invalid/report"; }
+bool ReportOpenWanted() { return false; }
+bool CopyReportUrl() { return true; }
+void OpenReportUrl() {}
+}
 namespace extraperf {
 bool Available(int) { return false; }
 bool AnyAvailable() { return false; }
@@ -84,66 +92,51 @@ int main() {
     Open("harness");
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
-    CHECK(rootN == 5 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kPageRow + pDisplay && rows[3] == kPageRow + pSettings && rows[4] == kClose);  // #38077 top rows
-    Change(g_sel, 0);
-    CHECK(g_pages.page == pDisplay && g_sel == kFps);
-    const int disp = PageRows(rows, true);
-    // #37433: the moved non-performance rows are on Gameplay / Overlays (status rows are listed, not selectable) and off Settings
-    auto countOf = [&](int n, int a, int b, int c, int d) {
-        int hits = 0;
-        for (int i = 0; i < n; ++i) hits += rows[i] == a || rows[i] == b || rows[i] == c || rows[i] == d;
-        return hits;
-    };
-    // (kFgState / kUpscaler need a known build, which this harness host is not: their placement is checked above)
-    CHECK(countOf(PageRows(rows, false), kXTS, kXWS, kXTS, kXWS) == 2);
-    g_pages.page = pSettings;
-    CHECK(countOf(PageRows(rows, false), kXTS, kXWS, kXTS, kXWS) == 0);
-    CHECK(countOf(PageRows(rows, false), kLat, kXIK, kVrr, kVrr) == 3);  // performance rows stay on Settings
-    g_pages.page = pDisplay;
-    PageRows(rows, true);  // rows was overwritten by the Settings listing above
-    int pad = -1, padX = -1, padY = -1, padSize = -1, padOp = -1, padColor = -1;
-    for (int i = 0; i < kConfigN; ++i) {
-        const char* key = kConfigSettings[i].key;
-        if (!strcmp(key, "ControllerDisplay")) pad = i;
-        else if (!strcmp(key, "ControllerDisplayX")) padX = i;
-        else if (!strcmp(key, "ControllerDisplayY")) padY = i;
-        else if (!strcmp(key, "ControllerDisplaySize")) padSize = i;
-        else if (!strcmp(key, "ControllerDisplayOpacity")) padOp = i;
-        else if (!strcmp(key, "ControllerDisplayPressColor")) padColor = i;
+    // #38437 top rows: Mod menu, Close, Report; then Display Overlays, Camera settings, Settings, Close
+    CHECK(rootN == 7 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
+          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kClose);
+    CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
+    // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
+    for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
+        g_pages.page = p;
+        const int n = PageRows(rows, true);
+        CHECK(n >= 4 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[n - 1] == kBackRow);
     }
-    CHECK(pad >= 0 && padX >= 0 && padY >= 0 && padSize >= 0 && padOp >= 0 && padColor >= 0);
-    bool sawFps = false, sawMeter = false, sawKi = false, sawLook = false, sawPad = false, sawX = false, sawY = false;
-    int meterAt = -1, kiAt = -1;
-    bool sawSize = false, sawOp = false, sawColor = false;
-    for (int i = 0; i < disp; ++i) {
-        if (rows[i] == kFps) sawFps = true;
-        if (rows[i] == kFrameMeterRow) { sawMeter = true; meterAt = i; }
-        if (rows[i] == kKiWindowRow) { sawKi = true; kiAt = i; }
-        if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
-        if (rows[i] == kSettingRow + pad) sawPad = true;
-        if (rows[i] == kSettingRow + padX) sawX = true;
-        if (rows[i] == kSettingRow + padY) sawY = true;
-        if (rows[i] == kSettingRow + padSize) sawSize = true;
-        if (rows[i] == kSettingRow + padOp) sawOp = true;
-        if (rows[i] == kSettingRow + padColor) sawColor = true;
-    }
-    CHECK(sawFps && sawMeter && sawKi && kiAt == meterAt + 1);
-    CHECK(sawPad && sawX && sawY && sawSize && sawOp && sawColor);
-    CHECK(!sawLook);
-    CHECK(rows[disp - 1] == kBackRow && strcmp(PageName(g_pages.page), "Gameplay / Overlays") == 0);
+    g_pages.Reset();
+    // Display Overlays: four sub-pages + the loading-screen auto-click
+    Change(kPageRow + pDisplay, 0);
     {
-        bool sawAutoO = false, sawStyleO = false;
-        int style = -1;
-        for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "ButtonStyle")) style = i;
-        for (int i = 0; i < disp; ++i) { if (rows[i] == kAutoCont) sawAutoO = true; if (style >= 0 && rows[i] == kSettingRow + style) sawStyleO = true; }
-        CHECK(sawAutoO && sawStyleO);  // #37423
-        int ox = -1, cx = -1;
-        for (int i = 0; i < kConfigN; ++i) { if (!strcmp(kConfigSettings[i].key, "OffsetX")) ox = i; if (!strcmp(kConfigSettings[i].key, "ControllerDisplayX")) cx = i; }
-        CHECK(ox >= 0 && cx >= 0 && kConfigSettings[ox].lo < 0 && kConfigSettings[cx].lo < 0);
+        const int n = PageRows(rows, true);
+        CHECK(g_pages.page == pDisplay && n == 9 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kAutoCont && rows[8] == kBackRow);
     }
-    const int pageBefore = g_pages.page;
-    Change(kFrameMeterRow, 0);
-    CHECK(g_pages.page == pageBefore);
+    // FPS page: FPS rows and timing diagnostics, no performance rows
+    g_pages.page = pOvFps;
+    {
+        const int n = PageRows(rows, false);
+        bool fps = false, xts = false, perf = false;
+        for (int i = 0; i < n; ++i) { fps |= rows[i] == kFps; xts |= rows[i] == kXTS; perf |= rows[i] == kLat || rows[i] == kEpPre; }
+        CHECK(fps && xts && !perf);
+    }
+    // Controller / Input display pages split the config keys
+    auto cfgIndex = [&](const char* key) { for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, key)) return i; return -1; };
+    const int pad = cfgIndex("ControllerDisplay"), padColor = cfgIndex("ControllerDisplayPressColor"), style = cfgIndex("ButtonStyle");
+    const int inp = cfgIndex("InputDisplay"), inpRows = cfgIndex("InputDisplayRows");
+    CHECK(pad >= 0 && padColor >= 0 && style >= 0 && inp >= 0 && inpRows >= 0);
+    auto has = [&](int page, int id) {
+        g_pages.page = page;
+        const int n = PageRows(rows, false);
+        for (int i = 0; i < n; ++i) if (rows[i] == id) return true;
+        return false;
+    };
+    CHECK(has(pOvController, kSettingRow + pad) && has(pOvController, kSettingRow + padColor) && has(pOvController, kSettingRow + style));
+    CHECK(!has(pOvController, kSettingRow + inp) && has(pOvInput, kSettingRow + inp) && has(pOvInput, kSettingRow + inpRows) && !has(pOvInput, kSettingRow + pad));
+    // Frame meter page: meter, Ki window and every Training toggle row
+    {
+        g_pages.page = pOvFrameMeter;
+        const int n = PageRows(rows, true);
+        CHECK(n == 3 + 2 + kPsToggleN + 1 && rows[3] == kFrameMeterRow && rows[4] == kKiWindowRow && rows[5] == kPsRowFirst && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
+    }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
     g_fm = 0;
@@ -158,24 +151,26 @@ int main() {
     CHECK(g_kw == 1);
     g_pstGet = nullptr;
     g_pstSet = nullptr;
-    Back();
-    CHECK(g_pages.page == pRoot);
-    Change(kPageRow + pSettings, 0);
-    CHECK(g_pages.page == pSettings && g_sel == kPage);
-    const int page1 = PageRows(rows, true);
-    CHECK(rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kPage && rows[page1 - 1] == kBackRow);
-    bool sawSafe = false, sawMeterOnSettings = false, sawKiOnSettings = false, sawAuto = false;
-    for (int i = 0; i < page1; ++i) {
-        if (rows[i] == kFps) sawSafe = true;
-        if (rows[i] == kEpPre || rows[i] == kFg) sawLook = true;
-        if (rows[i] == kFrameMeterRow) sawMeterOnSettings = true;
-        if (rows[i] == kKiWindowRow) sawKiOnSettings = true;
-        if (rows[i] == kAutoCont) sawAuto = true;
+    // Camera page: the existing camera-effects option
+    CHECK(has(pCamera, kEp9) && !has(pCamera, kLat));
+    // Settings: CPU / GPU / Game / Frame Gen, performance only
+    g_pages.Reset();
+    {
+        g_pages.page = pSettings;
+        const int n = PageRows(rows, true);
+        CHECK(n == 3 + 4 + 2 && rows[3] == kPageRow + pSCpu && rows[4] == kPageRow + pSGpu && rows[5] == kPageRow + pSGame && rows[6] == kPageRow + pFrameGen && rows[7] == kSave && rows[8] == kBackRow);
+        CHECK(!has(pSettings, kFps) && !has(pSettings, kXTS) && !has(pSettings, kAutoCont) && !has(pSettings, kLat));
     }
-    char pageName[64];
-    uint32_t pageColor = 0;
-    Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(!sawSafe && !sawLook && !sawMeterOnSettings && !sawKiOnSettings && !sawAuto && strcmp(pageName, "1/2 same picture") == 0);
+    CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
+    CHECK(has(pSGpu, kGpu) && has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA));
+    CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
+    CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
+    // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
+    g_pages.Reset();
+    Change(kPageRow + pSettings, 0);
+    CHECK(g_pages.page == pSettings && g_sel == kPageRow + pSCpu);
+    Move(-1);
+    CHECK(g_sel == kReportRow);
     Move(-1);
     CHECK(g_sel == kCloseTopRow);
     Move(-1);
@@ -183,11 +178,11 @@ int main() {
     Move(-1);
     CHECK(g_sel == kBackRow);
     Move(1);
-    Move(1);
+    Change(kReportRow, 0);  // #38437: Report row writes one snapshot and keeps the page
+    CHECK(crashreport::g_snapshots == 1 && g_pages.page == pSettings && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
     Change(kModMenuRow, 0);  // #38077: Mod menu = the top-level page
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     Change(kPageRow + pSettings, 0);
-    CHECK(g_pages.page == pSettings && g_sel == kPage);
     Change(kCloseTopRow, 0);  // #38077: Close closes the menu
     CHECK(!g_open);
     Open("harness");
@@ -196,36 +191,10 @@ int main() {
     CHECK(g_sel == kPageRow + pDisplay);
     Close("harness");
     Open("harness");
-    Change(kPageRow + pSettings, 0);
-    g_page = 1;
-    const int page2 = PageRows(rows, true);
-    sawSafe = false;
-    sawLook = false;
-    bool sawSwitcher = false;
-    for (int i = 0; i < page2; ++i) {
-        if (rows[i] == kFps) sawSafe = true;
-        if (rows[i] == kEpPre) sawLook = true;
-        if (rows[i] == kPage) sawSwitcher = true;
-    }
-    Value(kPage, pageName, sizeof(pageName), pageColor);
-    CHECK(!sawSafe && sawLook && sawSwitcher && strcmp(pageName, "2/2 may change the look") == 0);
-    Change(kPage, 0);
-    CHECK(g_page == 0);
-    Back();
-    CHECK(g_pages.page == pRoot);
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 7 && rows[2] == kRematchRow && rows[3] == kPracticeRow && rows[4] == kPageRow + pDisplay &&
-          rows[5] == kPageRow + pSettings && rows[6] == kClose);
-    Change(kPageRow + pSettings, 0);
-    g_page = 1;
-    bossN = PageRows(rows, true);
-    bool sawBoss = false, sawPractice = false;
-    for (int i = 0; i < bossN; ++i) {
-        sawBoss |= rows[i] == kRematchRow;
-        sawPractice |= rows[i] == kPracticeRow;
-    }
-    CHECK(!sawBoss && !sawPractice);
+    CHECK(bossN == 9 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
+          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -250,9 +219,10 @@ int main() {
     CHECK(g_sel == kModMenuRow);  // wraps from the last row to the new top
     Move(1);
     Move(1);
+    Move(1);
     CHECK(g_sel == kFps);
     MovePage(1);
-    CHECK(g_sel == rows[12]);  // #38077: Mod menu + Close sit above the 10 steps
+    CHECK(g_sel == rows[13]);  // #38437: Mod menu + Close + Report sit above the 10 steps
     Back();
     CHECK(g_pages.page == pSettings);
     Back();
@@ -364,7 +334,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==6 && rows[2]==kPageRow+pSettings && rows[3]==kRematchRow && rows[4]==kPracticeRow && rows[5]==kClose);
+    CHECK(g_pages.page==pRoot && n==7 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly

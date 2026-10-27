@@ -5,7 +5,8 @@
 
 enum MenuPage { pRoot, pSettings, pDisplay, pFrameGen, pGameplay, pSafe, pExtra,
                 pExperimental, pCpu, pGpu, pScheduling, pProton, pDiagnostics, pBoot, pAll,
-                pConfig, pCfgFirst, pCount = pCfgFirst + kConfigGroupN };
+                pConfig, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame,
+                pCfgFirst, pCount = pCfgFirst + kConfigGroupN };
 constexpr int kPageRow = kCount;
 constexpr int kBackRow = kPageRow + pCount;
 constexpr int kSettingRow = kBackRow + 1;
@@ -15,13 +16,18 @@ constexpr int kFrameMeterRow = kPracticeRow + 1;  // #34265: Gameplay / Overlays
 constexpr int kKiWindowRow = kFrameMeterRow + 1;  // #34558: dark-blue Ki window on the player frame meter
 constexpr int kModMenuRow = kKiWindowRow + 1;  // #38077: first row of every page: jump to the menu's top-level page
 constexpr int kCloseTopRow = kKiWindowRow + 2;  // #38077: second row of every page: close the menu
-constexpr int kMenuRowCap = kCount + pCount + kConfigN + 7;
+constexpr int kReportRow = kKiWindowRow + 3;  // #38437: third always-visible top row: state snapshot + report website
+constexpr int kPsToggleN = 16;                // #38437: Training frame-meter toggles (menu.cpp kPsToggles) as rows of the Frame meter page
+constexpr int kPsRowFirst = kReportRow + 1;
+constexpr int kMenuRowCap = kPsRowFirst + kPsToggleN + 4;
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
+static_assert(kPsRowFirst + kPsToggleN <= kMenuRowCap, "top and frame meter rows must fit the menu id cap");
 static_assert(kCloseTopRow < kMenuRowCap, "top rows must fit the menu id cap");
 static_assert(kKiWindowRow < kMenuRowCap, "ki window row must fit the menu id cap");
-const char* const kPageNames[] = {"Mod menu", "Settings", "Gameplay / Overlays", "Frame generation", "Load / Auto",
+const char* const kPageNames[] = {"Mod menu", "Settings", "Display Overlays", "Frame Gen", "Load / Auto",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
-    "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section"};
+    "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section",
+    "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game"};
 inline const char* PageName(int page) {
     return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }

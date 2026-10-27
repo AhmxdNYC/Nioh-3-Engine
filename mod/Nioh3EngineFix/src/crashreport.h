@@ -32,6 +32,16 @@ void Start(const StartInfo& info);
 void SetState(const char* key, const char* value);
 void SetStateF(const char* key, const char* fmt, ...);
 
+// Menu "Report" row (#38437): writes the same report as a crash, without a crash, to Nioh3EngineFix-report-<date>-<time>.txt
+// + Nioh3EngineFix-report-latest.txt beside the .asi. Blocks up to 3 s (call it from the menu thread, not a hot path). Returns
+// false (path empty) when crash reports are off or the write failed. [Report] Url = the report website (INI), [Report] Open = 1
+// also opens it in the browser (default 0: do not leave the fullscreen game); CopyReportUrl() always works.
+bool Snapshot(char* pathOut, unsigned cap);
+const char* ReportUrl();
+bool ReportOpenWanted();
+bool CopyReportUrl();      // URL to the clipboard (text)
+void OpenReportUrl();      // ShellExecute "open"
+
 // Feeds the last-log-lines ring (called from the mod's Log()).
 void NoteLog(const char* line);
 
