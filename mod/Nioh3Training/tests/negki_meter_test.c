@@ -32,11 +32,12 @@ int main(void) {
     assert(NkmVisible(1, 1, 0, -10.0f, 0) && !NkmVisible(0, 1, 0, -10.0f, 0) && !NkmVisible(1, 0, 0, -10.0f, 0) && !NkmVisible(1, 1, 1, -10.0f, 0));
     assert(!NkmVisible(1, 1, 0, 0.0f, -1));                              // never negative: hidden (auto-detect)
     assert(NkmVisible(1, 1, 0, 0.0f, NKM_LINGER_MS - 1) && !NkmVisible(1, 1, 0, 0.0f, NKM_LINGER_MS));
+    // Font expectations include approved larger UI text (7fabe3a3).
     // geometry: defaults at 1280 x 720 = under the native Ki bar (x 426..854, y 59..62)
     NkmGeo g = NkmGeom(1280, 720, 89, 334);
-    assert(g.w == 427 && g.x == 426 && g.top == 64 && g.barH == 4 && g.fontPx == 10 && g.pitch == 13);
+    assert(g.w == 427 && g.x == 426 && g.top == 64 && g.barH == 4 && g.fontPx == 18 && g.pitch == 21);
     g = NkmGeom(1920, 1080, 89, 334);
-    assert(g.w == 641 && g.x == 639 && g.top == 96 && g.barH == 6 && g.fontPx == 15 && g.pitch == 18);
+    assert(g.w == 641 && g.x == 639 && g.top == 96 && g.barH == 6 && g.fontPx == 22 && g.pitch == 25);
     g = NkmGeom(0, 0, -5, 5000); assert(g.w == 1 && g.x == 0 && g.top == 0 && g.barH == 3);
     // fill px: at least 1 px for any negative value, never wider than the bar
     assert(NkmFillPx(0.0f, 400) == 0 && NkmFillPx(0.0001f, 400) == 1 && NkmFillPx(0.5f, 400) == 200 && NkmFillPx(1.0f, 400) == 400 && NkmFillPx(2.0f, 400) == 400 && NkmFillPx(nan, 400) == 0);
