@@ -28,4 +28,8 @@ py -I tools/gen_boss_move_facts.py --check
 if errorlevel 1 exit /b 1
 py -m unittest discover -s tools/updater -p test_updater.py
 if errorlevel 1 exit /b 1
-echo ALL RELEASE CHECKS PASSED
+set N3_EXTRACT=C:\Users\Ahmad Hamza\nioh3-engine\data\extract
+py mod/Nioh3Training/tests/run_move_toggle_available.py
+if errorlevel 1 exit /b 1
+echo ALL AVAILABLE RELEASE CHECKS PASSED
+exit /b 0
