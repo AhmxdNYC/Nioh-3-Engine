@@ -129,6 +129,8 @@ const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},  
                            {K_PAGEUP, VK_PRIOR, 0xC9}, {K_PAGEDOWN, VK_NEXT, 0xD1}};
 
 volatile LONG g_open = 0;
+std::atomic<ULONGLONG> g_camInjUntil{0};  // Camera settings left/right rows: injected right-stick X until this tick
+std::atomic<int> g_camInjX{0};
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
@@ -313,6 +315,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         const SHORT rx = g.sThumbRX, ry = g.sThumbRY;
         memset(&g, 0, sizeof(g));
         if (g_open && !s.latch) { g.sThumbRX = rx; g.sThumbRY = ry; }  // #38155: the right stick (camera) stays live in the menu; the menu only navigates with the left stick/D-pad
+        if (g_open && !s.latch && t < g_camInjUntil.load()) g.sThumbRX = (SHORT)g_camInjX.load();  // Camera settings left/right rows: a short right-stick push the game's own camera turns
     }
 }
 
@@ -1002,6 +1005,7 @@ int PageRowsBody(int* out, bool selectable) {
             return n;
         }
         if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
+            for (int i = 0; i < kCamRowN; ++i) add(kCamRowFirst + i);
             if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
@@ -1561,6 +1565,46 @@ void ChangeConfig(int index, int dir) {
     MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
 }
 
+// ---- Camera settings rows. Distance is the proven control: Nioh3CamKiProbe.asi (1.0.20+) reads CamDist (camera +B0 boom length)
+// from Nioh3CamKiProbe.ini beside the ASIs every 2 s and writes it before the game's smoothing step; a missing key leaves the game's
+// own value, so deleting the key is the true default. Left / right push the right stick for a moment (the game's own orbit).
+constexpr float kCamDistDefault = 629.f;  // measured eye distance at the game's default camera (582-629); first forward/back step starts here
+constexpr float kCamDistStep = 60.f;
+constexpr float kCamDistMin = 50.f, kCamDistMax = 4000.f;  // the probe ignores values outside this range
+constexpr ULONGLONG kCamPushMs = 220;
+constexpr int kCamPushX = 26000;
+float g_camDist = 0.f;  // 0 = not set (game default)
+char g_camNote[160] = "";
+
+void CamWriteIni() {
+    if (g_ini.empty()) return;
+    std::wstring p = g_ini;
+    const size_t slash = p.find_last_of(L"\\/");
+    p = (slash == std::wstring::npos ? L"" : p.substr(0, slash + 1)) + L"Nioh3CamKiProbe.ini";
+    wchar_t v[32];
+    if (g_camDist > 0.f) swprintf(v, 32, L"%.0f", g_camDist);
+    WritePrivateProfileStringW(L"CamKiProbe", L"CamDist", g_camDist > 0.f ? v : nullptr, p.c_str());
+    WritePrivateProfileStringW(L"CamKiProbe", L"CamFovDeg", nullptr, p.c_str());  // the lens always goes back to the game's own 47.5 deg
+}
+void ChangeCamera(int which) {
+    if (which == kCamLeft || which == kCamRight) {
+        g_camInjX = which == kCamLeft ? -kCamPushX : kCamPushX;
+        g_camInjUntil = Now() + kCamPushMs;
+        snprintf(g_camNote, sizeof(g_camNote), "Camera turned %s (right-stick push).", which == kCamLeft ? "left" : "right");
+    } else if (which == kCamFwd || which == kCamBack) {
+        float d = g_camDist > 0.f ? g_camDist : kCamDistDefault;
+        d += which == kCamFwd ? -kCamDistStep : kCamDistStep;
+        g_camDist = std::min(kCamDistMax, std::max(kCamDistMin, d));
+        CamWriteIni();
+        snprintf(g_camNote, sizeof(g_camNote), "Camera distance %.0f (applies within 2 s; needs Nioh3CamKiProbe.asi 1.0.20+).", g_camDist);
+    } else {
+        g_camDist = 0.f;
+        g_camInjUntil = 0;
+        CamWriteIni();
+        snprintf(g_camNote, sizeof(g_camNote), "Camera distance and lens back to the game's default (applies within 2 s).");
+    }
+}
+
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
     if (id == kRematchRow || id == kPracticeRow) {
@@ -1580,6 +1624,7 @@ void Change(int id, int dir) {
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
+    if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
     if (id >= kSettingRow && id < kSettingRow + kConfigN) { ChangeConfig(id - kSettingRow, dir); return; }
@@ -2639,6 +2684,17 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
+            if (id == g_sel) selRow = nb;
+            static const char* const kCamLabels[kCamRowN] = {"Camera left", "Camera right", "Camera forward (closer)", "Camera back (farther)", "Return to default camera"};
+            char lab[96], text[40];
+            const int k = id - kCamRowFirst;
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
+            if (k == kCamFwd || k == kCamBack) snprintf(text, sizeof(text), g_camDist > 0.f ? "distance %.0f" : "game default", g_camDist);
+            else snprintf(text, sizeof(text), "%s", k == kCamReset ? (g_camDist > 0.f ? "A: reset" : "default") : "A: turn");
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, g_camDist > 0.f && k != kCamLeft && k != kCamRight ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
         if (id == kFrameMeterRow) {
             if (id == g_sel) selRow = nb;
             char text[48];
@@ -2729,13 +2785,16 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
+        snprintf(what, sizeof(what), "Left / right turn the camera with a short right-stick push. Forward / back move it closer or farther in steps of 60. Return to default restores the game's distance and lens.");
+        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Distance needs Nioh3CamKiProbe.asi; nothing is saved to the game.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");
     } else if (!g_cfg.layout && g_sel >= kPageRow && g_sel < kBackRow) {
         const int pg = g_sel - kPageRow;
         const char* w = pg == pDisplay ? "Display overlays: controller overlay, frame meter, input display, FPS counter and status readouts, loading-screen auto-click."
-            : pg == pCamera ? "Camera settings: motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
+            : pg == pCamera ? "Camera settings: turn / move the camera, return to default, motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
             : pg == pSettings ? "Optimizations only: CPU, GPU, Game and Frame Gen."
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
