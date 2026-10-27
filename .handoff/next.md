@@ -13,3 +13,6 @@ Separate branch cx-pc/update-check-40254 from d874f32b; site/version.json prepar
 2026-10-27 4:42 pm EDT | cx-pc #40452: pushed aceefc52 on cx-pc/update-click-40452 from cxl package4c3bbe1d; version1.7.81, clickable update notice/URL + root Open update page; fixed asynchronous ShellExecute URL, controller shortcut guidance.
 Both menu suites +94 checker assertions PASS (mock shell target, throttling, click bounds/focus/action); Release EF bridge2900 SHA b479d8b150f33c0d1d63fcc79c017d043aecb15852e9c4101145764fa511e0b6.
 Next pc integrate/install and validate native mouse/controller/browser. No game/deployment changes. Site/version.json only prepared in this branch; cxl-pc owns shared staging.
+
+2026-10-27 4:57 pm EDT | cx-pc #40553 COMPLETE: hourly poll fef827fd on cx-pc/update-click-40452, Release EF bridge2910 SHA8ddb270c300e72e6c27dd7338f95adfa2ba41e2141de9b16f2c6106e1c16e6b8, MOD_VERSION1.7.81.
+Both menu suites +94 update-check assertions + hourly compile-time assertion PASS. Same background worker and failure backoff; pc installs/accepts. No game or deployment touched.
