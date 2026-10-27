@@ -117,20 +117,13 @@ int main() {
     CHECK(!UiBack() && g_uiPages.page == uRoot);
     // Practice hub: Train here / arena / Training Bosses / Summon / Boss Matches
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uPracticeHub);
-    list(); CHECK(n == 9 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstBase + PS_TIME_OF_DAY && items[4] == kItPstBase + PS_WEATHER && items[5] == kItPstResetFight && items[6] == kItBossSumm && items[7] == kItRootRematch && items[8] == kItBack);
+    list(); CHECK(n == 7 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstResetFight && items[4] == kItBossSumm && items[5] == kItRootRematch && items[6] == kItBack);
+    CHECK(!has(kItPstBase + PS_TIME_OF_DAY) && !has(kItPstBase + PS_WEATHER));  // global sky controls live in Display only
     CHECK(!has(kItPstBase + PS_FRAME_METER) && !has(kItPstAllRows) && !has(kItPstAllKeys) && !shown("Frame meter:"));  // frame meter: Display Overlays only
-    {   // user #22942 Time of day / Weather: Stock by default, 30-min steps, Stock at the left end, saved
-        CHECK(shown("Time of day:", "Stock") && shown("Weather:", "Stock")); const int p1 = pstPersist;
-        g_sel = 3; UiChange(1); CHECK(pst[12] == 1 && shown("Time of day:", "00:00") && pstPersist == p1 + 1);
-        UiChange(1); CHECK(pst[12] == 2 && shown("Time of day:", "00:30")); UiChange(-1); UiChange(-1); CHECK(pst[12] == 0 && shown("Time of day:", "Stock")); UiChange(-1); CHECK(pst[12] == 0);
-        pst[12] = 25; CHECK(shown("Time of day:", "12:00")); UiChange(1); CHECK(pst[12] == 26 && shown("Time of day:", "12:30")); pst[12] = 48; CHECK(shown("Time of day:", "23:30")); UiChange(1); CHECK(pst[12] == 48); pst[12] = 0;
-        g_sel = 4; UiChange(1); CHECK(pst[13] == 1 && shown("Weather:", "Clear")); UiChange(1); UiChange(1); UiChange(1); UiChange(1); CHECK(pst[13] == 5 && shown("Weather:", "Snow")); UiChange(1); CHECK(pst[13] == 5);
-        UiChange(-1); CHECK(shown("Weather:", "Storm")); pst[13] = 0; CHECK(shown("Weather:", "Stock"));
-    }
-    CHECK(shown("Reset fight")); g_sel = 5; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
+    CHECK(shown("Reset fight")); g_sel = 3; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
     CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
     sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
-    CHECK(n == 7 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstBase + PS_TIME_OF_DAY);
+    CHECK(n == 5 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstResetFight);
     sessionActive = 0; list();
     // Training Bosses: Boss A row, Summon another boss, timer, Remove all (A listed), no old duplicate rows
     g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);

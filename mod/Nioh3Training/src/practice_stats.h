@@ -218,6 +218,13 @@ static inline int PstWeatherValue(int w, int f, float* out) {
     if (set) *out = v;
     return set;
 }
+// Display sky scope (#38871): 0 = no memory access (unknown/loading/non-active object),
+// 1 = release our previous override only (no player or event scene), 2 = apply selected overrides.
+// There is deliberately no Practice-session input. eventScene also means unknown event-signature state.
+static inline int PstEnvScope(int gameStateKnown, int loading, int activeObject, int playerPresent, int eventScene) {
+    if (!gameStateKnown || loading || !activeObject) return 0;
+    return playerPresent && !eventScene ? 2 : 1;
+}
 // One overridden float of S, written every frame after the native fill. Stock is remembered so switching back restores it even if the game does NOT
 // re-fill S each frame (open question of the plan): stock = the value seen whenever it differs from what we wrote last frame (= the game wrote it).
 // Release: the first frame without an override; restores stock only if S still holds our last write (else the game already re-filled it).

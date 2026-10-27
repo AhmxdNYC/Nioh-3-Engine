@@ -5,7 +5,7 @@
 //   Boss X health and Ki page (below that boss's own infinite health / infinite Ki rows): Damage boss deals (x0 .. x10), Boss Ki drain
 //   (Ki lost per second, 0 = OFF), One-hit Ki break (user #22588), Hold Ki break (user #22918), then (user #23013) Hold Ki break v2, Ki floor depth and
 //   Ki break log, (user #23400) Negative Ki meter, Boss speed (notes/boss-speed-lever-22389.md). These apply to all Training bosses.
-//   Practice hub: Time of day (Stock / 00:00 .. 23:30 in 30-min steps) and Weather (Stock / Clear / Overcast / Rain / Storm / Snow), user #22942.
+//   Time of day / Weather are global settings in EngineFix Display Overlays (#38871), not Practice hub rows.
 #include "../../Nioh3Training/src/practice_stats.h"
 constexpr int kItPstBase = 0xD0000;  // kItPstBase + PS_* (positive ids like kItBvOpenBase; no other range uses 0xD0000)
 constexpr int kItPstResetFight = kItPstBase + 0x80;  // user #22592: 'Reset fight' action row on the Practice hub (not a PS_* setting)
@@ -43,7 +43,6 @@ template <class Add> void PstAddPlayerRows(Add&& add) {
 // Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
 // Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
 template <class Add> void PstAddHubRows(Add&& add) {
-    if (PstAvailable()) { add(kItPstBase + PS_TIME_OF_DAY); add(kItPstBase + PS_WEATHER); }  // user #22942
     if (TrainingExport("Nioh3Training_PracticeFreeze")) { add(kItPstFreeze); add(kItPstStep); }  // user #22589
     if (TrainingExport("Nioh3Training_ResetFight")) add(kItPstResetFight);
 }

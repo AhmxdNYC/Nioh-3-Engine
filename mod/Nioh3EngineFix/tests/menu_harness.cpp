@@ -57,10 +57,13 @@ int MatchPreset() { return 0; }
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
 int g_fm = 0, g_kw = 0, g_psv[33] = {};  // g_psv: the other Training switches (frame-meter master rows)
 int HarnessPstGet(int what) { return what == 7 ? g_fm : what == 21 ? g_kw : what >= 0 && what < 33 ? g_psv[what] : -1; }
-int HarnessPstSet(int what, int value, int) {
+int HarnessPstUnavailable(int) { return -1; }
+int g_skyPersist = 0;
+int HarnessPstSet(int what, int value, int persist) {
     int* p = what == 7 ? &g_fm : what == 21 ? &g_kw : what >= 0 && what < 33 ? &g_psv[what] : nullptr;
     if (!p) return -1;
-    *p = value < 0 ? !*p : (value ? 1 : 0);
+    if (what == 12 || what == 13) { *p = std::clamp(value, 0, what == 12 ? 48 : 5); g_skyPersist += persist != 0; }
+    else *p = value < 0 ? !*p : (value ? 1 : 0);
     return *p;
 }
 namespace host_fixture {
@@ -103,12 +106,12 @@ int main() {
         CHECK(n >= 4 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[n - 1] == kBackRow);
     }
     g_pages.Reset();
-    // Display Overlays: four sub-pages + the loading-screen auto-click
+    // Display Overlays: four sub-pages, global sky controls and loading-screen auto-click
     Change(kPageRow + pDisplay, 0);
     {
         const int n = PageRows(rows, true);
-        CHECK(g_pages.page == pDisplay && n == 9 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
-              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kAutoCont && rows[8] == kBackRow);
+        CHECK(g_pages.page == pDisplay && n == 11 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow && rows[9] == kAutoCont && rows[10] == kBackRow);
     }
     // FPS page: FPS rows and timing diagnostics, no performance rows
     g_pages.page = pOvFps;
@@ -140,6 +143,34 @@ int main() {
     }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
+    // Display sky sliders use the persistent Training ABI, including midnight/noon and endpoint clamps.
+    CHECK(has(pDisplay, kTimeOfDayRow) && has(pDisplay, kWeatherRow));
+    CHECK(!has(pOvFrameMeter, kTimeOfDayRow) && !has(pSettings, kWeatherRow));
+    char skyText[32];
+    SkyValueText(kTimeOfDayRow, 0, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "Stock"));
+    Change(kTimeOfDayRow, 1); CHECK(g_psv[12] == 1 && g_skyPersist == 1);
+    SkyValueText(kTimeOfDayRow, g_psv[12], skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "12:00 am"));
+    Change(kTimeOfDayRow, 1); CHECK(g_psv[12] == 2);
+    SkyValueText(kTimeOfDayRow, 2, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "12:30 am"));
+    SkyValueText(kTimeOfDayRow, 25, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "12:00 pm"));
+    SkyValueText(kTimeOfDayRow, 48, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "11:30 pm"));
+    g_psv[12] = 48; Change(kTimeOfDayRow, 1); CHECK(g_psv[12] == 48);
+    Change(kTimeOfDayRow, -1); CHECK(g_psv[12] == 47);
+    Change(kTimeOfDayRow, 0); CHECK(g_psv[12] == 0);
+    const int saved = g_skyPersist; Change(kTimeOfDayRow, -1); CHECK(g_psv[12] == 0 && g_skyPersist == saved);
+    const char* weather[] = {"Stock", "Clear", "Overcast", "Rain", "Storm", "Snow"};
+    for (int i = 0; i < 6; ++i) { SkyValueText(kWeatherRow, i, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, weather[i])); }
+    for (int i = 0; i < 9; ++i) Change(kWeatherRow, 1);
+    CHECK(g_psv[13] == 5); Change(kWeatherRow, -1); CHECK(g_psv[13] == 4);
+    Change(kWeatherRow, 0); CHECK(g_psv[13] == 0);
+    g_cfg.layout = 1; CHECK(has(pDisplay, kTimeOfDayRow) && has(pDisplay, kWeatherRow)); g_cfg.layout = 0;
+    g_pstGet = HarnessPstUnavailable;  // installed Training is missing/too old: no speculative writes
+    const int noWrite = g_skyPersist;
+    Change(kTimeOfDayRow, 1); Change(kWeatherRow, 1);
+    CHECK(g_psv[12] == 0 && g_psv[13] == 0 && g_skyPersist == noWrite);
+    CHECK(strstr(g_skyNote, "Needs Nioh3Training"));
+    SkyValueText(kTimeOfDayRow, -1, skyText, sizeof(skyText)); CHECK(!strcmp(skyText, "needs Training"));
+    g_pstGet = HarnessPstGet; g_skyNote[0] = 0;
     // the masters moved from Practice: Right = all ON, Left = all OFF (the boss meter is in the rows set)
     Change(kPsAllRowsRow, 1);
     CHECK(g_fm == 1 && PsMasterState(false) == 1);

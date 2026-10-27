@@ -184,6 +184,22 @@ int main(void) {
         assert(!PstEnvRelease(&e, 0.62f, &o));  // released once only
         memset(&e, 0, sizeof e); cur = 0.5f; cur = PstEnvApply(&e, cur, 0.5f); assert(!PstEnvRelease(&e, cur, &o));  // wrote the stock value itself: nothing to do
     }
+    // Global Display scope: ordinary gameplay needs no Practice session; transitions never override
+    // a loading/non-active sky, and event/player loss releases only the override we own.
+    assert(PstEnvScope(1, 0, 1, 1, 0) == 2);
+    assert(PstEnvScope(0, 0, 1, 1, 0) == 0);
+    assert(PstEnvScope(1, 1, 1, 1, 0) == 0);
+    assert(PstEnvScope(1, 0, 0, 1, 0) == 0);
+    assert(PstEnvScope(1, 0, 1, 0, 0) == 1);
+    assert(PstEnvScope(1, 0, 1, 1, 1) == 1);
+    {   PstEnvField e; memset(&e, 0, sizeof e); float sky = 0.43f, restore = 0;
+        if (PstEnvScope(1, 0, 1, 1, 0) == 2) sky = PstEnvApply(&e, sky, 0.75f);
+        assert(sky == 0.75f && e.wrote);
+        // Loading is a no-touch interval; the saved stock must survive until a safe restore.
+        assert(PstEnvScope(1, 1, 1, 1, 0) == 0 && e.stock == 0.43f);
+        if (PstEnvScope(1, 0, 1, 1, 1) == 1 && PstEnvRelease(&e, sky, &restore)) sky = restore;
+        assert(sky == 0.43f && !e.wrote);
+    }
     assert(PstEnvSane(0.5f) && PstEnvSane(-20.0f) && !PstEnvSane(1e9f) && !PstEnvSane(0.0f / 0.0f));
     {   // user #23013: KiLog / HoldKiBreakV2 toggles default OFF, KiFloorDepth slider default 100 (stock), 0 .. 1000
         PstCfg d; PstDefaults(&d);

@@ -11,7 +11,8 @@
 //   Hold Ki break      : user #22918, PstHoldBreak (break timers K+0x74 / K+0x7C / ctrl+0x1014 kept running, AI held off while a Training boss is broken).
 //   Ki break log / Hold Ki break v2 / Ki floor depth: user #23013 (notes/human-boss-negative-ki-23013.md designs 1-3), see 'user #23013' below.
 //   Time of day / Weather: user #22942, PstEnvApplyAll from the 39BEA4 call at 39B67D in RenderFrameSettingsApply (PstEnvHookInstall).
-// Active only while a Practice session runs or a Training boss is alive (g_pst_live), so the normal game is untouched even with a value saved.
+// Gameplay stats remain Practice-only (g_pst_live). Time of day / weather are global Display settings (#38871),
+// applied only to the active gameplay sky outside loading and event scenes; existing [Practice] ini keys stay compatible.
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
@@ -415,17 +416,23 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
 // user #22942 'Time of day' (PS_TIME_OF_DAY) / 'Weather' (PS_WEATHER). Static RE only (re/Nioh3.dump.exe, notes/training-time-of-day-22942.md):
 //   GameUpdateTick 2339C6: S = 164188() = [[[B+0x4751490]] + 0x28] (GetActiveSessionObj) -> RenderFrameSettingsApply 39B570(rcx, rdx, r8 = S); rsi = S there.
 //   39B67A  mov rcx,rsi | 39B67D  call 39BEA4 (-> 39BED0 storm lerp on S: +88 / +7C / +13C8 / +F70 / +F84 / +1968) | 39B684 S+CC = 1e20 s (no clock)
-// Hook: the E8 at 39B67D -> stub 'jmp PstEnvDetour' (S in rcx). The detour calls 39BEA4(S) first (native storm lerp), then, while Practice is live
-// (session / Training boss), no event scene (IsEventScene DA7C0) and S is the active session object, writes S+0xB0 (SkylightDateTime = min / 1440)
-// and the weather preset fields after it, before the renderer consumes S. Stock = no write; a field switched back to Stock is restored once if
+// Hook: the E8 at 39B67D -> stub 'jmp PstEnvDetour' (S in rcx). The detour calls 39BEA4(S) first (native storm lerp), then, with a player,
+// no load or event scene (IsEventScene DA7C0), and S the active session object, writes S+0xB0 (SkylightDateTime = min / 1440)
+// and the weather preset fields before the renderer consumes S. No Practice session or Training boss is required (#38871).
+// Unknown game/event state fails closed. Stock = no write; a field switched back to Stock is restored once if
 // the game did not re-fill it itself (PstEnvRelease). Game thread, aligned 4-byte float stores.
 typedef void (*PstEnvFn)(uint64_t); static volatile LONG g_pst_env_hooked, g_pst_env_logs;  // 0 not tried, 1 on, 2 failed
 static int g_pst_env_evOk = -1; static uint64_t g_pst_env_S; static PstEnvField g_pst_env_tod, g_pst_env_wx[PS_EF_N];
 static __attribute__((noinline)) uint64_t PstEnvObj(void) { uint64_t g = 0, o = 0, S = 0; if (Rd64(B + 0x4751490, &g) && g && Rd64(g, &o) && o) Rd64(o + 0x28, &S); return S; }
 static __attribute__((noinline)) int PstEnvEvent(void) {
-    if (g_pst_env_evOk < 0) g_pst_env_evOk = !memcmp((void*)(B + 0xDA7C0), "\x48\x8B\x0D\x39\x40\x4F\x04\x48\x85\xC9\x0F\x85", 12);  // mov rcx,[rip+..] | test rcx,rcx | jne
-    if (!g_pst_env_evOk) return 0;
-    return ((uint8_t (*)(void))(B + 0xDA7C0))() != 0;
+    __try {
+        if (g_pst_env_evOk < 0) {
+            g_pst_env_evOk = !memcmp((void*)(B + 0xDA7C0), "\x48\x8B\x0D\x39\x40\x4F\x04\x48\x85\xC9\x0F\x85", 12);  // mov rcx,[rip+..] | test rcx,rcx | jne
+            if (!g_pst_env_evOk) Log("DISPLAY env: event-scene signature differs; sky overrides disabled");
+        }
+        if (!g_pst_env_evOk) return 1;  // unknown event state is never permission to override a cutscene
+        return ((uint8_t (*)(void))(B + 0xDA7C0))() != 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 1; }
 }
 static __attribute__((noinline)) int PstEnvRdF(uint64_t a, float* v) { __try { *v = *(volatile float*)a; return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 // read-only state line (each session start): the values the plan's probe step 1 asks for
@@ -463,14 +470,19 @@ static __attribute__((noinline)) void PstEnvField1(uint64_t S, uint32_t off, Pst
 static __attribute__((noinline)) void PstEnvApplyAll(uint64_t S) {
     static const char* const nm[PS_EF_N] = {"Cloudy", "Temperature", "Humidity", "Precipitation", "Foggy", "Hazy", "SkyClearly", "RainDropPrecipitation", "FogKeyLightScatter", "GustPower", "GustIntervalPower", "Tree2WindScaler"};
     const int tod = g_pst.v[PS_TIME_OF_DAY], wx = g_pst.v[PS_WEATHER];
+    int any = g_pst_env_tod.wrote; for (int f = 0; f < PS_EF_N && !any; ++f) any = g_pst_env_wx[f].wrote;
+    if (!any && !tod && !wx) return;  // all Stock and nothing to give back: no game-state reads
+    const uint8_t* gs = GameState();
+    // A non-active or loading RenderConfig is not ours to write, even for restoration. A retained override
+    // on the same object can be restored after loading; a changed object drops the old pointer below.
+    // Check this before calling the native player/event getters during a transition.
+    if (!gs || gs[2] || !S || S != PstEnvObj()) return;
+    const int scope = PstEnvScope(1, 0, 1, PlayerChar() != 0, PstEnvEvent());
     if (S != g_pst_env_S) {  // another stage / RenderConfig: forget the old one (its fields are not ours to restore)
         if (g_pst_env_S && InterlockedIncrement(&g_pst_env_logs) <= 60) Log("PRACTICE env: RenderConfig S %p -> %p", (void*)g_pst_env_S, (void*)S);
         g_pst_env_S = S; memset(&g_pst_env_tod, 0, sizeof g_pst_env_tod); memset(g_pst_env_wx, 0, sizeof g_pst_env_wx);
     }
-    if (!S) return;
-    int any = g_pst_env_tod.wrote; for (int f = 0; f < PS_EF_N && !any; ++f) any = g_pst_env_wx[f].wrote;
-    if (!any && !tod && !wx) return;  // all Stock and nothing to give back: no reads at all
-    const int live = g_pst_live && S == PstEnvObj() && !PstEnvEvent();
+    const int live = scope == 2;  // global gameplay override, independent of Practice / Training boss state
     PstEnvField1(S, 0xB0, &g_pst_env_tod, live && tod > 0, PstTodFraction(tod), "SkylightDateTime");
     for (int f = 0; f < PS_EF_N; ++f) { float v = 0; const int on = live && PstWeatherValue(wx, f, &v); if (on || g_pst_env_wx[f].wrote) PstEnvField1(S, PstEnvFieldOff(f), &g_pst_env_wx[f], on, v, nm[f]); }
 }
@@ -497,6 +509,9 @@ static void PstTick(void) {
     const int dt = g_pst_t ? (int)(now - g_pst_t) : 50; g_pst_t = now;
     if (GameState() && GameState()[2]) { __try { NkmTick(0); } __except (EXCEPTION_EXECUTE_HANDLER) { } return; }  // loading (#23400: no stale negative Ki meter over a load)
     PstIniPoll();
+    // Install independently of Practice. The detour still requires the active gameplay sky and fails
+    // closed during loading, without a player, or in an event scene (including an unknown signature).
+    if ((g_pst.v[PS_TIME_OF_DAY] || g_pst.v[PS_WEATHER]) && !g_pst_env_hooked) PstEnvHookInstall();
     PstResetFightTick();
     int live = g_tr.active != 0;
     for (int s = 0; s < N3T_SLOTS && !live; ++s) if (BvActor(s)) live = 1;
@@ -513,7 +528,6 @@ static void PstTick(void) {
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
     if ((g_pst.v[PS_KI_DEALT] != 100 || g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100 || g_pst.v[PS_ONE_HIT_KI] || g_pst.v[PS_KI_LOG]) && !g_pst_ki_hooked) PstKiHookInstall();  // user #22588 (+ #23013 KiLog per-hit lines)
     if (g_pst.v[PS_KI_FLOOR] != 100 && !g_kf_hooked) KfHookInstall();  // user #23013 Ki floor depth (first non-stock value; stays installed, 100 = stock pass-through)
-    if ((g_pst.v[PS_TIME_OF_DAY] || g_pst.v[PS_WEATHER]) && !g_pst_env_hooked) PstEnvHookInstall();  // user #22942 (first non-Stock value)
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
     if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
@@ -534,7 +548,7 @@ N3T_API int Nioh3Training_ResetFight(void) {
     Log("RESETFIGHT request from the menu: mask %d (1 boss refill, 2 boss pos, 4 player refill, 8 player pos)", r);
     return r;
 }
-// C API for Boss Rematch's Practice pages. what = PS_* (practice_stats.h).
+// C API for Practice pages and Display time/weather rows. what = PS_* (practice_stats.h).
 // Get: the value (-1 = bad what). Set: value clamped (PS_PLAYER_INF_KI: -1 flips), persist = save [Practice] in Nioh3Training.ini; returns the new value.
 N3T_API int Nioh3Training_PracticeStatGet(int what) { return what >= 0 && what < PS_N ? g_pst.v[what] : -1; }
 N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {

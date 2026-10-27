@@ -946,6 +946,33 @@ int PsGet(int what) {
     ResolveFrameMeter();
     return g_pstGet ? g_pstGet(what) : -1;
 }
+// Global Display sky settings share Training's existing persistent stat ABI (#38871).
+constexpr int kTimeOfDayWhat = 12, kWeatherWhat = 13;
+char g_skyNote[200] = "";
+void SkyValueText(int id, int value, char* text, size_t cap) {
+    if (value < 0) { snprintf(text, cap, "needs Training"); return; }
+    if (!value) { snprintf(text, cap, "Stock"); return; }
+    if (id == kTimeOfDayRow) {
+        const int minutes = (std::min(value, 48) - 1) * 30;
+        const int hour = minutes / 60;
+        snprintf(text, cap, "%d:%02d %s", hour % 12 ? hour % 12 : 12, minutes % 60, hour < 12 ? "am" : "pm");
+    } else {
+        static const char* const names[] = {"Stock", "Clear", "Overcast", "Rain", "Storm", "Snow"};
+        snprintf(text, cap, "%s", names[std::min(value, 5)]);
+    }
+}
+void ChangeSky(int id, int dir) {
+    const int what = id == kTimeOfDayRow ? kTimeOfDayWhat : kWeatherWhat;
+    const int cur = PsGet(what);
+    if (cur < 0 || !g_pstSet) { snprintf(g_skyNote, sizeof(g_skyNote), "Needs Nioh3Training with Display time and weather support."); return; }
+    // Left/right select; A/Enter restores the area's own authored sky.
+    const int next = dir ? std::clamp(cur + (dir > 0 ? 1 : -1), 0, id == kTimeOfDayRow ? 48 : 5) : 0;
+    if (next == cur) return;
+    const int value = g_pstSet(what, next, 1);
+    if (value < 0) { snprintf(g_skyNote, sizeof(g_skyNote), "Could not change this sky setting."); return; }
+    char text[32]; SkyValueText(id, value, text, sizeof(text));
+    snprintf(g_skyNote, sizeof(g_skyNote), "%s: %s. Saved.", id == kTimeOfDayRow ? "Time of day" : "Weather", text);
+}
 void ChangePs(int index) {
     ResolveFrameMeter();
     const PsToggle& t = kPsToggles[index];
@@ -1020,6 +1047,7 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pDisplay) {
             for (int p : {pOvController, pOvFrameMeter, pOvInput, pOvFps}) add(kPageRow + p);
+            add(kTimeOfDayRow); add(kWeatherRow);
             if (Visible(kAutoCont)) add(kAutoCont);
             add(kBackRow);
             return n;
@@ -1051,7 +1079,7 @@ int PageRowsBody(int* out, bool selectable) {
             return n;
         }
         if (pg == pCamera) {  // the camera options the mod already has: motion blur / depth of field / bloom (XPOST)
-            for (int i = 0; i < kCamRowN; ++i) if (i != kCamFwd && i != kCamBack) add(kCamRowFirst + i);  // #39056: no closer/farther pair
+            for (int i : {kCamLensNarrow, kCamLensWide, kCamReset}) add(kCamRowFirst + i);  // #39310: only implemented camera controls; offset backend pending
             if (Visible(kEp9)) add(kEp9);
             add(kBackRow);
             return n;
@@ -1090,6 +1118,7 @@ int PageRowsBody(int* out, bool selectable) {
     }
     for (const auto& row : kOrder)
         if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+    if (page == pDisplay) { add(kTimeOfDayRow); add(kWeatherRow); }
     // All settings deliberately has exactly the original traversal order, so
     // keyed test sequences can enter it without acquiring an extra Back row.
     if (page != pRoot && page != pAll) add(kBackRow);
@@ -1614,9 +1643,9 @@ void ChangeConfig(int index, int dir) {
     MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
 }
 
-// ---- Camera settings rows. These set the real camera: Nioh3CamKiProbe.asi (1.0.20+) reads CamYawDeg / CamPitchDeg / CamDist (camera boom
-// length) / CamFovDeg from Nioh3CamKiProbe.ini beside the ASIs every 2 s and writes them into the game's camera before its smoothing
-// step. A missing key leaves the game's own value, so deleting the keys is the true default. No stick input is simulated.
+// Camera probe 1.0.20 implements CamDist and CamFovDeg only. Legacy yaw/pitch rows stay hidden
+// until a real offset backend lands (#39310); the probe ignores those keys. Missing keys release
+// overrides to native camera computation. No stick input is simulated.
 constexpr float kCamDistDefault = 629.f, kCamDistStep = 60.f, kCamDistMin = 50.f, kCamDistMax = 4000.f;  // probe range 50..4000
 constexpr float kCamFovDefault = 47.5f, kCamFovStep = 5.f, kCamFovMin = 20.f, kCamFovMax = 90.f;
 constexpr float kCamAngStep = 15.f, kCamYawLim = 180.f, kCamPitchLim = 80.f;
@@ -1687,6 +1716,7 @@ void Change(int id, int dir) {
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
+    if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst); return; }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kKiWindowRow) { ChangeKiWindow(); return; }
@@ -2754,6 +2784,15 @@ float DrawImpl(unsigned W, unsigned H) {
                 st == 1 ? cGreen : st == 2 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kTimeOfDayRow || id == kWeatherRow) {
+            if (id == g_sel) selRow = nb;
+            const int value = PsGet(id == kTimeOfDayRow ? kTimeOfDayWhat : kWeatherWhat);
+            char lab[96], text[32];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kTimeOfDayRow ? "Time of day" : "Weather");
+            SkyValueText(id, value, text, sizeof(text));
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, value > 0 ? cYellow : cGray, id == g_sel, false);
+            continue;
+        }
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
             if (id == g_sel) selRow = nb;
             static const char* const kCamLabels[kCamRowN] = {"Camera left from default", "Camera right from default", "Camera up from default", "Camera down from default", "Camera closer", "Camera farther", "Lens narrower (zoom in)", "Lens wider (zoom out)", "Return to default camera"};
@@ -2859,15 +2898,20 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kFrameMeterRow) {
         snprintf(what, sizeof(what), "%s", g_frameMeterNote);
         snprintf(effect, sizeof(effect), "Frame meter settings live only here (Display Overlays). Training saves it.");
+    } else if (g_sel == kTimeOfDayRow || g_sel == kWeatherRow) {
+        snprintf(what, sizeof(what), "%s", g_skyNote[0] ? g_skyNote : g_sel == kTimeOfDayRow
+            ? "Set the sky time in 30-minute steps. Stock follows the area's own time."
+            : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
+        snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
-        snprintf(what, sizeof(what), "Sets the real camera through the camera probe: turn and tilt in 15 degree steps, closer / farther in steps of 60, lens in steps of 5 degrees. Return to default restores the game's own camera.");
+        snprintf(what, sizeof(what), "Adjusts the real camera lens in 5 degree steps. Return to default releases saved overrides so the game recomputes its own camera.");
         snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Needs Nioh3CamKiProbe.asi 1.0.20+; nothing is saved to the game.");
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");
     } else if (!g_cfg.layout && g_sel >= kPageRow && g_sel < kBackRow) {
         const int pg = g_sel - kPageRow;
-        const char* w = pg == pDisplay ? "Display overlays: controller overlay, frame meter, input display, FPS counter and status readouts, loading-screen auto-click."
+        const char* w = pg == pDisplay ? "Display: overlays, FPS, time of day, weather and loading-screen auto-click."
             : pg == pCamera ? "Camera settings: turn / move the camera, return to default, motion blur / depth of field / bloom off. The right stick still moves the camera while this menu is open."
             : pg == pSettings ? "Optimizations only: CPU, GPU, Game and Frame Gen."
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."

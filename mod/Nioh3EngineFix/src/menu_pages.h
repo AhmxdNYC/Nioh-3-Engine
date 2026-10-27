@@ -24,7 +24,10 @@ constexpr int kPsAllKeysRow = kPsAllRowsRow + 1;         // 'All key indicators'
 constexpr int kCamRowFirst = kPsAllKeysRow + 1;  // Camera settings page: left / right / forward / back / return to default
 constexpr int kCamRowN = 9;
 constexpr int kCamLeft = 0, kCamRight = 1, kCamUp = 2, kCamDown = 3, kCamFwd = 4, kCamBack = 5, kCamLensNarrow = 6, kCamLensWide = 7, kCamReset = 8;
-constexpr int kMenuRowCap = kPsRowFirst + kPsToggleN + 4;
+constexpr int kTimeOfDayRow = kCamRowFirst + kCamRowN;
+constexpr int kWeatherRow = kTimeOfDayRow + 1;
+constexpr int kMenuRowCap = kWeatherRow + 1;
+static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
 static_assert(kFrameMeterRow < kMenuRowCap, "frame meter row must fit the menu id cap");
 static_assert(kPsRowFirst + kPsToggleN <= kMenuRowCap, "top and frame meter rows must fit the menu id cap");
