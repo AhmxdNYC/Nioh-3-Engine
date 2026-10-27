@@ -922,7 +922,7 @@ bool IsInputDisplayKey(const char* key) { return key && strncmp(key, "InputDispl
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
-    if (id == kF1 || id == kFgWine) return pFrameGen;
+    if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
     const int sp = SettingsPage(id);
@@ -957,7 +957,7 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pOvFps) {
             for (const auto& row : kOrder) {
-                if (!OverlayRow(row.id) || row.id == kAutoCont || !Visible(row.id)) continue;
+                if (!OverlayRow(row.id) || row.id == kAutoCont || SetGroup(row.id) == pFrameGen || !Visible(row.id)) continue;
                 if (selectable && ReadOnly(row.id)) continue;
                 add(row.id);
             }
@@ -2703,7 +2703,7 @@ float DrawImpl(unsigned W, unsigned H) {
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
             : pg == pOvInput ? "Input display: the vertical input history, its side and row count."
-            : pg == pOvFps ? "FPS counter, frame time, game speed, position and size, frame-gen and upscaler status, timing diagnostics."
+            : pg == pOvFps ? "FPS counter, frame time, game speed, position and size, timing diagnostics."
             : pg == pSCpu ? "CPU fixes and experiments, thread scheduling." : pg == pSGpu ? "GPU fixes, experiments and the look-changing Extra performance rows."
             : pg == pSGame ? "Frame pacing, latency, job-thread limits and other next-launch game settings." : pg == pFrameGen ? "Frame-gen presenter fixes." : "";
         snprintf(what, sizeof(what), "%s", w);
