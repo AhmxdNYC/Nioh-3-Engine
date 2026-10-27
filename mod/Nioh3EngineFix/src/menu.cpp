@@ -1629,7 +1629,7 @@ bool CamAny() { return g_camDist > 0.f || g_camFov > 0.f || g_camYawOn || g_camP
 void CamWriteIni() {
     if (g_ini.empty()) return;
     std::wstring p = g_ini;
-    const size_t slash = p.find_last_of(L"\/");
+    const size_t slash = p.find_last_of(L"\\/");
     p = (slash == std::wstring::npos ? L"" : p.substr(0, slash + 1)) + L"Nioh3CamKiProbe.ini";
     wchar_t v[32];
     auto put = [&](const wchar_t* key, bool on, float val, const wchar_t* fmt) {
