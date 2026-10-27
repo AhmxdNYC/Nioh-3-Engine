@@ -55,7 +55,7 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
 // the panel may grow down to kBottomFrac of the screen height: below that sit the game's own bottom HUD widgets (items / ninjutsu
 // shortcuts, boss HP bar), so a long history never covers them. Depends only on the screen size and the panel's top, so the panel
 // height stays fixed while inputs change.
-constexpr float kBottomFrac = 0.80f;
+constexpr float kBottomFrac = 0.63f;  // #38945: stop above the 3 triangle markers (~0.665) and the consumables (~0.78)
 inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t nowMs, int style) {
     using namespace inputhist;
     (void)W;
