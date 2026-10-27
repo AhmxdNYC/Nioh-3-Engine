@@ -20,17 +20,17 @@ constexpr int kSlots = 6;  // button glyphs per row
 // direction arrow (#38929, restored dpad design): the original arrow = chevron head on a stem, rotated per direction (inputhist::Dir:
 // 1 up, then clockwise in 45 degree steps), drawn as an anti-aliased signed-distance shape with rounded corners. Every pixel gets
 // coverage alpha; runs of equal alpha are merged into one DrawRect.
-inline float ArrowSd(float u, float v) {  // local space, forward = +u, unit = size; rounded head triangle united with a capsule stem
-    const float r = 0.07f;                 // corner rounding
-    const float tx = 0.50f - r * 2.0f, bx = -0.04f, hw = 0.42f - r;  // triangle shrunk by r, then re-grown below
-    // edges of the head triangle: tip (tx,0), base corners (bx, +-hw)
-    const float ex = tx - bx, ey = hw, el = std::sqrt(ex * ex + ey * ey);
-    const float d1 = ((u - bx) * ey - std::fabs(v) * ex) / el;  // distance to the slanted edge (negative inside)
-    const float d2 = bx - u;                                      // base edge
-    const float head = std::max(d1, d2) - r;
-    const float su = std::min(std::max(u, -0.46f), 0.02f);      // stem capsule from -0.46 to 0.02
-    const float stem = std::sqrt((u - su) * (u - su) + v * v) - 0.115f;
-    return std::min(head, stem);
+inline float Seg(float u, float v, float ax, float ay, float bx, float by) {  // distance to segment a-b
+    const float px = u - ax, py = v - ay, dx = bx - ax, dy = by - ay;
+    const float t = std::min(1.0f, std::max(0.0f, (px * dx + py * dy) / (dx * dx + dy * dy)));
+    return std::sqrt((px - dx * t) * (px - dx * t) + (py - dy * t) * (py - dy * t));
+}
+// #39098/#39102 approved look: round-capped shaft with a chevron head (the first arrows, smooth), no filled triangle
+inline float ArrowSd(float u, float v) {
+    const float r = 0.075f;
+    const float shaft = Seg(u, v, -0.38f, 0.0f, 0.38f, 0.0f);
+    const float h1 = Seg(u, v, 0.38f, 0.0f, 0.08f, 0.30f), h2 = Seg(u, v, 0.38f, 0.0f, 0.08f, -0.30f);
+    return std::min(shaft, std::min(h1, h2)) - r;
 }
 
 inline void Arrow(int dir, float bx, float by, float size, uint32_t color) {
@@ -71,16 +71,23 @@ inline void FaceGlyph(int skinStyle, int spriteId, float bx, float by, float siz
     padviz::Layer(k, spriteId, ox, oy, s, 0.97f, 0, 0, 1, 1, 1, false);  // #38919: resting (unlit) sprite, no pressed tint
 }
 
-// a bumper / trigger glyph: the controller display's own redrawn shoulder sprite (curved bumper band, rounded trigger), tinted with
-// the pressed colour, scaled uniformly (aspect kept, never stretched) to fit the box bw x bh and centred in it. The sprite is already
-// a tight crop of the shape, so the box edge is the shape edge.
-inline void ShoulderGlyph(int skinStyle, int spriteId, float bx, float by, float bw, float bh) {
-    const padviz::Skin& k = padviz::SkinFor(skinStyle);
-    const padviz::SpriteRect& r = k.s[spriteId];
-    if (!r.w || !r.h) return;
-    const float s = std::min(bw / (float)r.w, bh / (float)r.h);
-    const float ox = bx + (bw - (float)r.w * s) * 0.5f - r.cx * s, oy = by + (bh - (float)r.h * s) * 0.5f - r.cy * s;
-    padviz::Layer(k, spriteId, ox, oy, s, 1.0f);
+// bumper / trigger cap (#39102): hint-cap sized (3 glyphs wide, one text line tall). Bumper = wide shoulder with an arched top; trigger =
+// narrower, rounded top, tapering toward the bottom. Drawn in 1 px rows (no overlap), dark cap with the light label.
+inline void ShoulderCap(int style, int b, float bx, float top, float cw, float th) {  // b: 0 LB 1 RB 2 LT 3 RT
+    namespace ms = menu_style;
+    const bool trig = b >= 2;
+    const float w = ms::Snap(trig ? 2.6f * cw : 3.2f * cw), h = ms::Snap(th), x0 = ms::Snap(bx), y0 = ms::Snap(top);
+    const float arch = (trig ? 0.40f : 0.60f) * h;
+    for (int r = 0; r < (int)h; ++r) {
+        float in = 0.0f;
+        if ((float)r < arch) { const float k = (arch - ((float)r + 0.5f)) / arch; in = (w * 0.5f) * (1.0f - std::sqrt(std::max(0.0f, 1.0f - k * k))); }
+        else if (trig) in = w * 0.16f * ((float)r - arch) / (h - arch);
+        in = ms::Snap(in);
+        if (w - 2.0f * in >= 1.0f) osd::DrawRect(x0 + in, y0 + (float)r, w - 2.0f * in, 1.0f, ms::kBumperBg);
+    }
+    char t[3] = {b & 1 ? 'R' : 'L', 0, 0};
+    t[1] = b >= 2 ? (style ? '2' : 'T') : (style ? '1' : 'B');
+    osd::DrawText(ms::Snap(x0 + (w - 2.0f * cw) * 0.5f), y0 + ms::Snap(h * 0.08f), t, ms::kBumperText, th / (float)osd::kGlyphH);
 }
 
 // draws the panel with its top-left corner at (x, y) (right = false) or its top-right corner at (x, y) (right = true).
@@ -97,7 +104,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
     const float rowH = std::floor(22.0f * sc), pad = std::floor(6.0f * sc), icon = std::floor(rowH * 0.8f);
     const int fit = (int)std::floor(((float)H * kBottomFrac - y - 2.0f * pad) / rowH);
     const int rows = std::clamp(std::min((int)g_rows, fit), kMinRows, kMaxRows);
-    const float numW = 2.0f * cw, chipW = 2.0f * cw + pad, slotW = std::max(icon, chipW) + std::floor(pad * 0.5f);
+    const float numW = 2.0f * cw, chipW = 2.0f * cw + pad, slotW = std::max(std::max(icon, chipW), std::ceil(3.2f * cw)) + std::floor(pad * 0.5f);
     const float w = pad + numW + std::floor(pad * 1.5f) + icon + pad + (float)kSlots * slotW + pad;
     const float h = (float)rows * rowH + 2.0f * pad;
     if (right) x -= w;
@@ -131,7 +138,7 @@ inline float Draw(unsigned W, unsigned H, float x, float y, bool right, uint64_t
             }
         for (int b = 0; b < 4 && used < kSlots; ++b)
             if (e[i].btn & (16 << b)) {
-                ShoulderGlyph(style, kShoulder[b], bx, ay, slotW - std::floor(pad * 0.5f), icon);
+                ShoulderCap(style, b, bx, ry + std::floor((rowH - th) * 0.5f), cw, th);
                 bx += slotW;
                 ++used;
             }
