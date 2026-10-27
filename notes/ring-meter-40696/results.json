@@ -1,0 +1,91 @@
+{
+  "task": 40696,
+  "base": "1e65db41 (shipped 1.7.84)",
+  "branch": "cx-pc/ring-meter-40696",
+  "feature_commits": [
+    "7a442b67",
+    "b8665395"
+  ],
+  "artifacts": {
+    "EngineFix": {
+      "path": "C:\\Users\\Ahmad Hamza\\nioh3-ring-meter-40696\\mod\\Nioh3EngineFix\\bin\\Nioh3EngineFix.asi",
+      "sha256": "d46705ebadf51ca1593022b1cf7187878043a46a12dfd7f3b9f519cc11801027"
+    },
+    "Training": {
+      "path": "C:\\Users\\Ahmad Hamza\\nioh3-ring-meter-40696\\mod\\Nioh3Training\\Nioh3Training.asi",
+      "sha256": "3ed3f4780cb6eb38e8131209158a7a99075f56f2dc51d28196f262d47bdd969c"
+    }
+  },
+  "device": "PC, Ryzen 5 7600X / RX 9070, Windows",
+  "settings": "all 4 lanes, legend, readout, 120 visible cells; 25 measured samples per arm after 5 warmup; alternating arm order",
+  "scope": "CPU FmPaint + GdiFlush + alpha only, no game/GPU/UpdateLayeredWindow measurement",
+  "arms": {
+    "OFF": "Row",
+    "ON": "Ring"
+  },
+  "columns": [
+    "history",
+    "width",
+    "height",
+    "row_mean_ms",
+    "row_max_ms",
+    "ring_mean_ms",
+    "ring_max_ms"
+  ],
+  "timings": [
+    [
+      "frozen",
+      1280,
+      720,
+      59.635,
+      75.436,
+      1.584,
+      2.277
+    ],
+    [
+      "frozen",
+      1920,
+      1080,
+      65.701,
+      84.335,
+      2.139,
+      3.655
+    ],
+    [
+      "frozen",
+      2560,
+      1440,
+      86.161,
+      115.395,
+      2.949,
+      6.919
+    ],
+    [
+      "changing",
+      1280,
+      720,
+      60.637,
+      71.338,
+      9.183,
+      16.884
+    ],
+    [
+      "changing",
+      1920,
+      1080,
+      67.041,
+      79.134,
+      10.872,
+      16.649
+    ],
+    [
+      "changing",
+      2560,
+      1440,
+      76.616,
+      88.516,
+      13.577,
+      18.661
+    ]
+  ]
+}

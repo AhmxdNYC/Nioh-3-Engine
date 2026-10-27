@@ -43,3 +43,6 @@ Next: finish EF Release build, inspect/send preview, isolate offline draw cost a
 2026-10-27 6:05 pm EDT | cx-pc #40696: cached Ring stroke labels preserve exact premultiplied glyph pixels; final EF + Training Release compile and renderer/core tests PASS.
 PC Ryzen 5 7600X, 1080p all4 lanes+legend/readout, CPU GDI paint/flush/alpha: OFF Row vs ON Ring means frozen65.701/2.139ms, changing67.041/10.872ms (25 samples each); native upload/FPS unproven.
 Next pc install both ASIs, switch Display Overlays > Frame meter style, validate native appearance/toggles/menu-open visibility and optional Debug FrameMeterDrawCost logs. No game touched.
+
+2026-10-27 6:06 pm EDT | cx-pc #40696: Ring feature7a442b67 + cached-font/perf proof b8665395 pushed; both menus +7 Training suites pass; EF2948 d46705ebadf5 / TR2949 3ed3f4780cb6 uploaded.
+Offline production preview sent to Discord. PC1080p changing OFF Row67.041ms vs ON Ring10.872ms CPU draw; native upload/gameplay unproven. Next pc install both, test toggles/menu/position/pulses and capture in-game pictures; report notes/ring-meter-40696/report.txt.
