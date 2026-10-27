@@ -162,7 +162,7 @@ int main() {
         CHECK(!has(pSettings, kFps) && !has(pSettings, kXTS) && !has(pSettings, kAutoCont) && !has(pSettings, kLat));
     }
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
-    CHECK(has(pSGpu, kGpu) && has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA));
+    CHECK(!has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
     CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
     // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
