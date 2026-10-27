@@ -168,6 +168,40 @@ static void FmRingCounts(HDC dc,const FmMeter* m,int start,int cx,int cy,FmRingL
     }
     g_fm_fontPx=oldPx;
 }
+// Upright check proportions follow track thickness, not the very narrow 1/120 arc.
+// Thin antialiased strokes keep a tick readable rather than a tall white blob.
+static float FmCheckDistance(float x,float y,float ax,float ay,float bx,float by) {
+    const float dx=bx-ax,dy=by-ay;
+    float t=((x-ax)*dx+(y-ay)*dy)/(dx*dx+dy*dy);if(t<0)t=0;if(t>1)t=1;
+    return hypotf(x-ax-t*dx,y-ay-t*dy);
+}
+static void FmRingCheck(HDC dc,int cx,int cy,FmRingLayout g,int cell) {
+    const POINT mid=g_fm_ringMesh.mid[cell];
+    const float size=g.thick*.65f,stroke=size*.12f>1.f?size*.12f:1.f;
+    DIBSECTION dib={0};RECT clip;
+    if(!n3_stroke_layered || GetClipBox(dc,&clip)!=SIMPLEREGION ||
+       GetObject(GetCurrentObject(dc,OBJ_BITMAP),sizeof dib,&dib)!=sizeof dib || !dib.dsBm.bmBits || dib.dsBm.bmBitsPixel!=32){
+        int box=(int)size;FmCheck(dc,cx+mid.x-box/2,cy+mid.y-box/2,box,box);return;
+    }
+    const int half=g.thick/2+2;
+    GdiFlush();
+    for(int y=-half;y<=half;++y)for(int x=-half;x<=half;++x){
+        const int xx=cx+mid.x+x,yy=cy+mid.y+y;
+        if(xx<clip.left||xx>=clip.right||yy<clip.top||yy>=clip.bottom||
+           xx<0||xx>=dib.dsBm.bmWidth||yy<0||yy>=dib.dsBm.bmHeight)continue;
+        const float px=x+.5f,py=y+.5f;
+        const float distance=FmMin(FmCheckDistance(px,py,-size*.38f,0,-size*.10f,size*.28f),
+                                   FmCheckDistance(px,py,-size*.10f,size*.28f,size*.40f,-size*.34f));
+        // Restrict every mark pixel to its actor's outer track, even on the diagonal.
+        const float r=hypotf(mid.x+px,mid.y+py);
+        if(r<g.d*.5f-g.thick || r>g.d*.5f)continue;
+        const unsigned dark=FmCoverageByte(FmCoverage(stroke*.5f+1.f-distance));
+        if(!dark)continue;
+        const unsigned light=FmCoverageByte(FmCoverage(stroke*.5f-distance));
+        uint32_t* out=(uint32_t*)((char*)dib.dsBm.bmBits+yy*dib.dsBm.bmWidthBytes)+xx;
+        *out=FmRingBlend(FmRingBlend(*out,0x080a10,dark),0xf5f8ff,light);
+    }
+}
 static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,const FmKi* ki,
                         int player,int outer,int inner) {
     const int start=FmVisibleStart(m);
@@ -198,8 +232,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
     }
     if(outer)FmRingCounts(dc,m,start,cx,cy,g,player);
     if(outer && player)for(int i=0;i<FM_DISPLAY_CELLS;++i)if(FmViewKiPulse(m,start+i)) {
-        int cw=(int)((g.d-g.thick)*3.14159265f/FM_DISPLAY_CELLS);if(cw<6)cw=6;
-        FmCheck(dc,cx+mesh->mid[i].x-cw/2,cy+mesh->mid[i].y-g.thick/2,cw,g.thick);
+        FmRingCheck(dc,cx,cy,g,i);
     }
     const int oldLabelPx=g_fm_fontPx;
     if(g_fm_fontPx>g.d/12)g_fm_fontPx=g.d/12;
