@@ -526,7 +526,7 @@ float DrawBlock(const Line* lines, int count, float x, float y, bool alignRight,
     const float pad = 4 * sc, lineH = (osdfont::kH + 2) * sc;
     size_t maxChars = 0;
     for (int i = 0; i < count; ++i) maxChars = std::max(maxChars, lines[i].chars());
-    const float w = (float)maxChars * osdfont::kW * sc + 2 * pad, h = count * lineH + 2 * pad - 2 * sc;
+    const float w = (float)maxChars * osdfont::kW * sc + 2 * pad, h = count * lineH + 2 * pad - 4 * sc;  // #39008: 2 sc trimmed off the bottom so the box does not cover the game minimap/menu
     if (alignRight) x -= w;
     // same panel colour + gold edge as the mod menu (menu_style kPanelBgSide / kAccent), rounded like it (#38505)
     const float r = PanelRadius(sc);
@@ -691,7 +691,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     float y = bottom ? (float)H - margin - offY : kCornerPx + offY;  // top: flush with the corner
     auto place = [&](const Line* l, int n, float a) {
         if (n <= 0) return;
-        const float h = n * lineH + 2 * pad - 2 * sc;
+        const float h = n * lineH + 2 * pad - 4 * sc;
         if (bottom) {
             y -= h;
             DrawBlock(l, n, x, y, right, sc, a);
@@ -712,7 +712,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
         float px = 16.0f * k1080, py = kCornerPx + (float)DefaultOffsetY(0) * k1080;  // #38199: moved up with the FPS overlay (was 160 px down)
         if (tl) {
             px = margin + offX;
-            if (g_cfg.fpsCounter) py = std::max(py, kCornerPx + offY + (osdfont::kH + 2) * sc + 10 * sc);
+            if (g_cfg.fpsCounter) py = std::max(py, kCornerPx + offY + (osdfont::kH + 2) * sc + 8 * sc);
         }
         const int skin = padviz::Style();
         {   // user position (% of the free space): 0/0 = the default top-left spot
@@ -738,7 +738,7 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
             float ix = rightSide ? (float)W - kCornerPx : margin + offX;
             float iy = kCornerPx + (float)DefaultOffsetY(0) * k1080;
             if (!rightSide) {
-                if (g_cfg.fpsCounter && g_cfg.pos == 0) iy = std::max(iy, margin + offY + (osdfont::kH + 2) * sc + 10 * sc);
+                if (g_cfg.fpsCounter && g_cfg.pos == 0) iy = std::max(iy, margin + offY + (osdfont::kH + 2) * sc + 8 * sc);
                 if (padviz::g_on && padviz::g_posX <= 0 && padviz::g_posY <= 0)
                     iy += padviz::SkinFor(skin).canvasH * padviz::Scale(H, skin) + 8.0f * k1080;
             }

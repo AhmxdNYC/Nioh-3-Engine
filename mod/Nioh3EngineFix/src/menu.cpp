@@ -2269,12 +2269,12 @@ float AutoScale(unsigned H) {
 float DrawCornerNote(unsigned W, unsigned H, const char* text, uint32_t color) {
     const float sc = std::max(1.0f, std::round(AutoScale(H) * 0.75f * 2.0f) / 2.0f);  // 800p/1080p 1.5, 1440p 2
     const float pad = 4 * sc, lineH = (osd::kGlyphH + 2) * sc, margin = osd::kCornerPx;
-    const float w = (float)strlen(text) * osd::kGlyphW * sc + 2 * pad, h = lineH + 2 * pad - 2 * sc;
+    const float w = (float)strlen(text) * osd::kGlyphW * sc + 2 * pad, h = lineH + 2 * pad - 4 * sc;
     float y = margin;
     const osd::OverlaySettings& o = osd::Overlay();
     if (o.pos == 1 && o.fpsCounter) {
         const float csc = osd::CounterScale(H);
-        y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 2 * csc + 4 * csc;
+        y += (float)osd::OffsetY() * (float)H / 1080.0f + (osd::kGlyphH + 2) * csc + 8 * csc - 4 * csc + 4 * csc;
     }
     const float x = (float)W - margin - w;
     menu_style::Panel(x, y, w, h, sc, menu_style::kPanelBgSide, 1.0f, false);  // rounded, no gold edge (#38505)
