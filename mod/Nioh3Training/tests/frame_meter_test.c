@@ -169,6 +169,8 @@ int main(void) {
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 0); }
     FmSealPerfectEnd(&m);
     { int n = 0; for (int i = 0; i < FM_CELLS; ++i) if (FmViewKiWin(&m, i) == 2) n++; assert(n == 1); }
+    { FmMeter k; memset(&k,0,sizeof k); k.kiwinFrozenN=3; k.kipulseFrozenN=3; k.haveLast=1; k.kiwinFrozen[1]=1; k.kiwinFrozen[2]=1;
+      assert(FmSealPerfectCheck(&k) && k.kipulseFrozen[2]==1 && k.kipulseFrozen[0]==0); }
     // Landed Ki pulse (#34866): +0x5C near 54 jumping by 40 or more, with Ki moving by 20 or more.
     assert(FmKiPulseLanded(53.94f, 133.43f, 1019.5f, 921.1f));
     assert(!FmKiPulseLanded(-1.f, 53.94f, 1153.f, 1019.5f));

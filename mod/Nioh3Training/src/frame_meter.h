@@ -167,6 +167,16 @@ static inline int FmSealPerfectEnd(FmMeter* m) {
     m->kiwinFrozen[i] = 2;
     return 1;
 }
+// A perfect R1 press on a frozen bar: the check goes on the last open Ki cell, the same cell FmSealPerfectEnd paints cyan.
+static inline int FmSealPerfectCheck(FmMeter* m) {
+    int i;
+    if (!m->haveLast || m->kiwinFrozenN <= 0 || m->kipulseFrozenN < m->kiwinFrozenN) return 0;
+    i = m->kiwinFrozenN - 1;
+    while (i > 0 && m->kiwinFrozen[i] == 0) --i;
+    if (m->kiwinFrozen[i] == 0) return 0;
+    m->kipulseFrozen[i] = 1;
+    return 1;
+}
 // Same index as FmViewCell. 1 = that cell was inside the Ki Pulse bar.
 // [Practice] KiWindowPerfectOnly (default 1, human #37066): draw only the perfect part (mark 2); 0 draws the whole bar.
 static int g_fm_ki_perfect_only = 1;

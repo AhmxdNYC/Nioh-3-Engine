@@ -1455,11 +1455,18 @@ static void FmFeed(double gdt) {
             const int rb = FmPadRB();
             const int r1Edge = rb && !wasRB;
             wasRB = rb;
-            const int perfect = FmKiPressPerfect(open, r1Edge, pt74);
+            static int prevPerfWin;
+            // The press often ends the window on the same tick, so the previous sample's perfect window counts too.
+            const int perfect = FmKiPressPerfect(open, r1Edge, pt74) || (r1Edge && prevPerfWin);
             const int perfWin = open && FmKiPerfect(pt74);  // #38492: the perfect window itself (timer in (0.05, 4]), press or not
             FmMarkKiWin(&g_fmp, g_fm_clock, open ? (perfect || perfWin ? 2 : 1) : 0);
             if ((perfect || perfWin) && !FmLiveRun(&g_fmp) && FmSealPerfectEnd(&g_fmp))
                 Log("KI cyan: %s at timer %.2f sealed the last cell", perfect ? "R1" : "window", pt74);
+            prevPerfWin = open && FmKiPerfect(pt74);
+            if (perfect) {  // a perfect press shows the check on the PLAYER row at that moment (frozen bar: on its last open cell)
+                landed = 1;
+                if (!FmLiveRun(&g_fmp)) FmSealPerfectCheck(&g_fmp);
+            }
             if (!landed && edge && FmKiPulseRecent(&g_fmp, FmCellOf(g_fm_clock), 45)) landed = 1;
             FmMarkKiPulse(&g_fmp, g_fm_clock, landed);
             {
@@ -1754,14 +1761,45 @@ static BOOL CALLBACK FmFind(HWND h, LPARAM lp) { (void)lp;
     g_fm_game = h; return FALSE;
 }
 static int g_fm_H;  // game client height (font / bar scale)
+// #38961: per-pixel alpha. Draw with GDI into a 32-bit DIB, then set alpha per pixel: colour key = clear, panel background = the
+// mod-panel translucency (menu_style kPanelBg 0x73), everything else (bars, text) opaque.
+#define FM_BG_ALPHA 0x73
+static void FmRender(HWND wnd) {
+    RECT r; GetClientRect(wnd, &r);
+    const int w = r.right, h = r.bottom;
+    if (w <= 0 || h <= 0) return;
+    HDC scr = GetDC(0), mem = CreateCompatibleDC(scr);
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof bi.bmiHeader; bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t* px = 0;
+    HBITMAP bmp = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, (void**)&px, 0, 0);
+    if (bmp && px) {
+        HGDIOBJ ob = SelectObject(mem, bmp);
+        __try { FmPaint(mem, w, h, g_fm_H); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+        GdiFlush();
+        const uint32_t key = 0x00FF00FFu;  // FM_KEY RGB(255,0,255) as 0x00RRGGBB
+        const uint32_t bg = 0x0010151Eu;   // RGB(16,21,30), the panel fill
+        for (size_t i = 0, n = (size_t)w * (size_t)h; i < n; ++i) {
+            const uint32_t c = px[i] & 0x00FFFFFFu;
+            if (c == key) px[i] = 0;
+            else if (c == bg) {  // premultiplied
+                const uint32_t rr = (((c >> 16) & 255) * FM_BG_ALPHA + 127) / 255, gg = (((c >> 8) & 255) * FM_BG_ALPHA + 127) / 255, bb = ((c & 255) * FM_BG_ALPHA + 127) / 255;
+                px[i] = ((uint32_t)FM_BG_ALPHA << 24) | (rr << 16) | (gg << 8) | bb;
+            } else px[i] = c | 0xFF000000u;
+        }
+        POINT src = {0, 0}; SIZE sz = {w, h};
+        BLENDFUNCTION bf = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+        UpdateLayeredWindow(wnd, scr, 0, &sz, mem, &src, 0, &bf, ULW_ALPHA);
+        SelectObject(mem, ob);
+    }
+    if (bmp) DeleteObject(bmp);
+    DeleteDC(mem); ReleaseDC(0, scr);
+}
 static LRESULT CALLBACK FmProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCHITTEST) return HTTRANSPARENT;
     if (msg == WM_PAINT) {
-        PAINTSTRUCT ps; HDC dc = BeginPaint(h, &ps); RECT r; GetClientRect(h, &r);
-        HDC mem = CreateCompatibleDC(dc); HBITMAP bmp = CreateCompatibleBitmap(dc, r.right, r.bottom); HGDIOBJ ob = SelectObject(mem, bmp);
-        __try { FmPaint(mem, r.right, r.bottom, g_fm_H); } __except (EXCEPTION_EXECUTE_HANDLER) { }
-        BitBlt(dc, 0, 0, r.right, r.bottom, mem, 0, 0, SRCCOPY);
-        SelectObject(mem, ob); DeleteObject(bmp); DeleteDC(mem); EndPaint(h, &ps); return 0;
+        PAINTSTRUCT ps; BeginPaint(h, &ps); EndPaint(h, &ps); return 0;  // drawn by FmRender (UpdateLayeredWindow)
     }
     return DefWindowProcW(h, msg, wp, lp);
 }
@@ -1771,7 +1809,6 @@ static DWORD WINAPI FmThread(LPVOID p) {
     RegisterClassExW(&wc);
     g_fm_wnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, 0, 0, wc.hInstance, 0);
     if (!g_fm_wnd) { Log("FRAME METER: overlay window failed (%lu), meter not drawn", GetLastError()); return 0; }
-    SetLayeredWindowAttributes(g_fm_wnd, FM_KEY, 235, LWA_COLORKEY | LWA_ALPHA);
     Log("FRAME METER: overlay window ready");
     int shown = 0; LONG lastVer = -1; RECT last = {0};
     for (;;) {
@@ -1806,6 +1843,6 @@ static DWORD WINAPI FmThread(LPVOID p) {
             SetWindowPos(g_fm_wnd, HWND_TOPMOST, want_r.left, want_r.top, want_r.right - want_r.left, hh, SWP_NOACTIVATE | SWP_SHOWWINDOW);
             last = want_r; shown = 1; lastVer = -1;
         }
-        const LONG v = g_fm_ver; if (v != lastVer) { lastVer = v; InvalidateRect(g_fm_wnd, 0, FALSE); }
+        const LONG v = g_fm_ver; if (v != lastVer) { lastVer = v; FmRender(g_fm_wnd); }
     }
 }
