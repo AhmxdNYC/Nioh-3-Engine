@@ -5,7 +5,7 @@
 
 enum MenuPage { pRoot, pSettings, pDisplay, pFrameGen, pGameplay, pSafe, pExtra,
                 pExperimental, pCpu, pGpu, pScheduling, pProton, pDiagnostics, pBoot, pAll,
-                pConfig, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame,
+                pConfig, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame, pOvHud,
                 pCfgFirst, pCount = pCfgFirst + kConfigGroupN };
 constexpr int kPageRow = kCount;
 constexpr int kBackRow = kPageRow + pCount;
@@ -51,7 +51,7 @@ static_assert(kKiWindowRow < kMenuRowCap, "ki window row must fit the menu id ca
 const char* const kPageNames[] = {"Mod menu", "Optimizations", "Display Overlays", "Frame Gen", "Load / Auto",
     "Performance fixes", "Extra performance (changes the look)", "Experimental settings", "CPU experiments",
     "GPU experiments", "CPU scheduling", "GPU / Proton experiments", "Diagnostics & logging", "Next launch", "Original controls (flat order)", "Configuration by ini section",
-    "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game"};
+    "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game", "Game HUD"};
 inline const char* PageName(int page) {
     if (page == pSaveFiles) return "Save files";
     if (page == pSaveActions) return "Selected save";

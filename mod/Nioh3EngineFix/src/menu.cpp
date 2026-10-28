@@ -1114,9 +1114,14 @@ int PageRowsBody(int* out, bool selectable) {
         if (pg == pDisplay) {
             for (int p : {pOvController, pOvFrameMeter, pOvInput, pOvFps}) add(kPageRow + p);
             add(kTimeOfDayRow); add(kWeatherRow);
+            if (HideHudSettingRow() >= 0) add(kPageRow + pOvHud);  // one 'Game HUD >' row; the master + per-part rows live on that page
+            if (Visible(kAutoCont)) add(kAutoCont);
+            add(kBackRow);
+            return n;
+        }
+        if (pg == pOvHud) {  // master 'Hide game HUD' on top, then the per-element rows
             if (HideHudSettingRow() >= 0) add(HideHudSettingRow());
             for (int e = 0; e < hudparts::kNum; ++e) if (HideHudPartRow(e) >= 0) add(HideHudPartRow(e));
-            if (Visible(kAutoCont)) add(kAutoCont);
             add(kBackRow);
             return n;
         }
@@ -3283,6 +3288,7 @@ float DrawImpl(unsigned W, unsigned H) {
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
             : pg == pOvInput ? "Input display: the vertical input history, its side and row count."
+            : pg == pOvHud ? "Game HUD: hide the whole gameplay HUD with the master row, or hide health / Ki, shortcuts, style, stance, guardian, amrita and money one by one."
             : pg == pOvFps ? "FPS counter, frame time, game speed, position and size, timing diagnostics."
             : pg == pSCpu ? "CPU fixes and experiments, thread scheduling." : pg == pSGpu ? "GPU fixes, experiments and the look-changing Extra performance rows."
             : pg == pSGame ? "Frame pacing, latency, job-thread limits and other next-launch game settings." : pg == pFrameGen ? "Frame-gen presenter fixes." : "";
