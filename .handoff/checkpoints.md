@@ -64,3 +64,5 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 2026-10-27 8:47 pm EDT | cx-pc #41493 stage1: candidate gate drives menu/actions; 37 action checks, 106 core checks, both menu suites, 44 helper/slot tests PASS. Independent verified backup before mutation. Next implement RealRoot=0 adapter and deferred Quit monitoring; no game touched.
 
 2026-10-27 8:56 pm EDT | cx-pc #41493 stage2: real-root adapter behind RealRoot=0, mandatory full verified backup/retained dated original; queue-only gate per pc41536 with visible status/Cancel. 74 Python tests, 40 native action checks (29 logged), 106 core tests, both menu suites PASS. Next final Release/package and pc sandbox acceptance; human approval required before installed-save use.
+
+2026-10-27 8:58 pm EDT | cx-pc #41493 delivery: EF3073 SHA d84bf5a2 + helper3071; code3f68800f; Release and 40 native/106 core/74 Python/both menu suites PASS. Native sandbox/real-copy acceptance unproven. Next pc install sandbox Enabled1 RealRoot0; instructions notes/save-gate-41493.md.
