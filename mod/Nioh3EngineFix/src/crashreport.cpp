@@ -419,6 +419,23 @@ void OpenReportUrl() {
     MultiByteToWideChar(CP_UTF8, 0, g_url, -1, w, 320);
     ShellExecuteW(nullptr, L"open", w, nullptr, nullptr, SW_SHOWNORMAL);
 }
+void OpenReportFolder(const char* path) {
+    wchar_t windows[MAX_PATH]{};
+    const UINT count = GetWindowsDirectoryW(windows, MAX_PATH);
+    if (!count || count >= MAX_PATH) return;
+    wchar_t explorer[MAX_PATH + 16];
+    swprintf(explorer, MAX_PATH + 16, L"%s\\explorer.exe", windows);
+    wchar_t target[MAX_PATH * 2]{};
+    // Snapshot stores the wide path through narrow %ls, which is the ANSI code page, not UTF-8.
+    if (path && path[0]) MultiByteToWideChar(CP_ACP, 0, path, -1, target, MAX_PATH * 2);
+    if (!target[0] && g_dir[0]) wcsncpy_s(target, g_dir, _TRUNCATE);
+    if (!target[0]) return;
+    const DWORD attr = GetFileAttributesW(target);
+    const bool folder = attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY);
+    wchar_t args[MAX_PATH * 2 + 32];
+    swprintf(args, MAX_PATH * 2 + 32, folder ? L"\"%s\"" : L"/select,\"%s\"", target);
+    ShellExecuteW(nullptr, L"open", explorer, args, nullptr, SW_SHOWNORMAL);
+}
 
 void SetState(const char* key, const char* value) {
     if (!key) return;

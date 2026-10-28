@@ -1032,15 +1032,16 @@ void ChangePsMaster(bool keys, int dir) {
                                               : "All frame rows %s (boss, player, i-frames). Saved in Training.", want ? "ON" : "OFF");
 }
 
-// #38437 Report row: write a state snapshot beside the crash reports, copy the report website to the clipboard
-char g_reportNote[300] = "A: save a state snapshot file and copy the report website link.";
+// #38437 / human #43461: snapshot, then open the report folder and the website.
+char g_reportNote[300] = "A: save a snapshot, open its folder, and open the report website.";
 void DoReport() {
     char path[520] = {};
     const bool ok = crashreport::Snapshot(path, sizeof(path));
     const bool clip = crashreport::CopyReportUrl();
-    if (crashreport::ReportOpenWanted()) crashreport::OpenReportUrl();
-    if (ok) snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. %s %s", path, clip ? "Link copied:" : "Link (clipboard failed):", crashreport::ReportUrl());
-    else snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). %s %s", clip ? "Link copied:" : "Link:", crashreport::ReportUrl());
+    crashreport::OpenReportUrl();
+    crashreport::OpenReportFolder(ok ? path : nullptr);
+    if (ok) snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. Opened the folder and %s%s", path, crashreport::ReportUrl(), clip ? "." : " (clipboard failed).");
+    else snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). Opened the folder and %s.", crashreport::ReportUrl());
     MLOG("Report row: %s", g_reportNote);
 }
 
@@ -3072,7 +3073,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a state snapshot file and copies the report website link." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a snapshot, opens its folder, and opens the report website." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: replay cleared bosses in their arena or from their shrine. Death and loot rules are shared with Training.");
@@ -3088,7 +3089,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
-        snprintf(effect, sizeof(effect), "File: Nioh3EngineFix-report-latest.txt beside the mod. Send it with the report. Link: [Report] Url in the ini.");
+        snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");

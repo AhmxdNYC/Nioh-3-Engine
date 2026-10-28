@@ -29,7 +29,8 @@ def main():
         'diagnostics/Nioh3CamKiProbe.asi': ROOT/'mod/Nioh3CamKiProbe/bin/Nioh3CamKiProbe.asi',
         'update-linux.sh': ROOT/'tools/updater/update-linux.sh',
     })
-    for name in ('Nioh3 Mod Website.url','install_mod.py','Install-Mod.cmd','install-mod.sh','USER_GUIDE.md'):
+    for name in ('Nioh3 Mod Website.url','install_mod.py','Install-Mod.cmd','install-mod.sh','USER_GUIDE.md',
+                 'Restore Vanilla Game.cmd','Put the mod back.cmd'):
         files[name] = ROOT/'release'/name
     ini = configparser.ConfigParser(strict=False)
     ini.read(files['Nioh3EngineFix.ini'])
