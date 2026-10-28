@@ -14,7 +14,7 @@ void (*logfn)(const char*,...)=nullptr;Gate gate;uint64_t polled=0;
 std::wstring sandbox,helper,python,saveRoot;char note[200]="Copy-only test: choose a slot, then queue and quit normally.";
 HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 bool requestCancelled=false;
-bool liveEnabled=false,liveResetArmed=false,liveChild=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
+bool liveEnabled=false,liveResetArmed=false,liveChild=false,liveCloseMenu=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
 std::vector<std::string> slotNames;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
@@ -73,7 +73,7 @@ void Poll(){
   v[7]=(uint32_t)(s.top&0xFFFFFFFFu);
   if(memcmp(v,last,sizeof v)){logfn("LiveTitleWatch: reset279A=%u countdown=%u m+10=%u S+28(slot)=%d S+41(ckfail)=%u S+38(busy)=%u op=%u top=%p state=%u title=%d",v[0],v[1],v[2],(int)v[3],v[4],v[5],v[6],(void*)s.top,s.state,s.title);memcpy(last,v,sizeof v);}
  }
- if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(logfn)logfn("SaveFiles: helper exited code=%lu live=%d cancelled=%d",code,(int)liveChild,(int)requestCancelled);if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
+ if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(logfn)logfn("SaveFiles: helper exited code=%lu live=%d cancelled=%d",code,(int)liveChild,(int)requestCancelled);if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveCloseMenu=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
   else snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);liveChild=false;cancel.clear();}
  }
  if(liveResetArmed){
@@ -100,6 +100,7 @@ bool Check(const char* action){
 bool Allowed(){return Check(nullptr);}
 bool ActionAllowed(const char* action){return Check(action);}
 bool Pending(){return child&&!requestCancelled;}
+bool TakeMenuCloseRequest(){const bool r=liveCloseMenu;liveCloseMenu=false;return r;}
 void CancelPending(){
  if(logfn)logfn("SaveFilesAction: action=cancel pending=%d (no save writes)",Pending());
  if(Pending()){Cancel();requestCancelled=true;snprintf(note,sizeof note,"Queued save operation cancelled.");}

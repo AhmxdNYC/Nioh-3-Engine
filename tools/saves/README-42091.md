@@ -101,3 +101,26 @@ PASS (39.6 s). Run from `tools/saves`: `py -m unittest test_live_title -v` and
 Packaged CLI `--help` smoke PASS. Bridge artifact 3120, SHA256
 `ea28d277dbc267ea837836facabe814a4c93cf3de6aa99d8e3fc58d8ee22263a`.
 No game, installed mods or actual save files were accessed.
+
+## Native acceptance on pc, 2026-10-28 (branch pc2/live-title-menu)
+
+EF built with MSVC from this branch: SHA256 `5f3b14b53dd33d161ecd870d8fcedb8edde459e4191974eb6cfbd4e76c9246cd`.
+Helper pyz `7ce28f774b62e7ee7971511a0da1b9cba6e572875ee63455eff5f6077166d662`.
+Test root contained copies only: A = current save in SAVEDATA00 (newest), B = an older second-slot
+copy in SAVEDATA01. Library: Char A, Char B, Tampered B (body byte flipped). The original save folder
+and installed files were restored byte for byte afterwards.
+
+- Boot: title showed A, `S+0x28=0`.
+- Import Char B: the helper exited 0 after about 24 s and published SAVEDATA02, restamped. `1C205A4` was called once.
+  Countdown 40 -> 0, then a new TitleMode loaded with `S+0x28=2`. The title showed B (a different character) in the same PID.
+  Continue then entered B's game (prologue). **Restamped headers are accepted.**
+- Bug fixed here: the EF menu pauses the game, so the reset countdown stayed frozen until the menu closed.
+  The menu now closes when the reset is armed (`savefiles::TakeMenuCloseRequest`).
+- 3 repeats in one PID: B -> A -> B, slots 2, 3, 4. Handles 3211 -> 3218 -> 3213 -> 3213. Private bytes 14291 -> 14414 -> 14421 -> 14417 MB.
+  The reset lands on PRESS ANY BUTTON, then the title shows the new character.
+- Tampered library slot: the helper refused it (checksum, exit 1). No slot was published, no reset fired, and the title stayed usable.
+- Corrupt newest file on disk at boot: the game showed "Unable to open the saved data because the file is corrupted" (`S+0x41=1`).
+  After confirming, the title was usable (player hidden, Continue disabled).
+  A live import from that degraded title was refused: the helper reported "Title/save state changed during sample" because the
+  gate flickers on the alternate idle scene. The refusal is safe, but recovery there needs Load Game or a restart.
+- Fixes in 0551f411: the validator version offset (+0x158) previously refused every real save, and the cancel-path escape.

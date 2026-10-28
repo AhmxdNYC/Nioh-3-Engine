@@ -2316,6 +2316,7 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
 
 void OnPresentImpl() {
     savefiles::Poll();
+    if(savefiles::TakeMenuCloseRequest()&&g_open)Close("live title reset");
     if((g_pages.page==pSaveFiles||g_pages.page==pSaveActions)&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present

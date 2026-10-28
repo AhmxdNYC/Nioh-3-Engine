@@ -39,6 +39,7 @@ int SlotCount(){return 3;}
 const char* SlotName(int i){static const char* names[]={"New Game","Yoritomo Practice","slot1"};return i>=0&&i<3?names[i]:"";}
 bool QueueNamed(const char* name,bool,bool relaunch){if(!testAllowed)return false;queuedName=name;queuedRelaunch=relaunch;++requests;return true;}
 bool QueueNewBackup(){return QueueNamed("Backup-test",true,false);}
+bool TakeMenuCloseRequest(){return false;}
 bool testLive=false;std::string liveName;bool LiveAvailable(){return testLive;}
 bool QueueLive(const char* name){if(!testAllowed||!testLive)return false;liveName=name;return true;}
 bool Queue(int,bool){return false;}
