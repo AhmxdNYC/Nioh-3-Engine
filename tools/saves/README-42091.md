@@ -11,9 +11,20 @@ Remaining integration needs a verified native load of the selected profile and
 a verified rebuild of the title/profile display. Do not assume an op3 request
 selects the imported profile: it chooses the newest savedAt. Do not call the
 deserializer directly or assume completion alone rebuilds the title model.
-The static trace identifies TitleMode post-load step 1572AA0 as an unresolved
-candidate, not a proven refresh API. pc owns runtime proof: selected character
-appears at title without exiting, followed by correct Continue/Load and autosave.
+Updated static evidence from pc 42229, branch `pc/title-refresh-trace-42179`
+commit `857dc322`, corrects the earlier 1572AA0 candidate: that was a VA/RVA
+conversion error. The real call, 2162AA0, strips unowned DLC items and must not
+be treated as a display-refresh API. Title character 100 is created once per
+TitleMode by 1C2EE50, after the newest-profile load. Continue/Load do not rebuild
+it. The trace proposes the native soft-reset request 1C205A4 on the game thread,
+which schedules a new TitleMode, load and model rebuild without a process exit.
+Stack teardown and native acceptance remain unproven; pc2 owns integration.
+The chosen import must already be strictly newest or require a separately
+validated header timestamp change. This helper does not restamp saves or issue
+soft-reset calls. pc owns runtime proof: selected character appears at title
+without exiting, followed by correct Continue/Load and autosave with no model
+duplication across repeated resets. See `notes/title-refresh-trace.md` on pc's
+trace branch for the exact call chain and native test plan.
 
 Branch `cx-pc/live-title-42091`, based on named-save picker `b014da5c`.
 Uses Plan A from `pc/save-reload-trace-42007` (`4a2eb159`). Offline only;
