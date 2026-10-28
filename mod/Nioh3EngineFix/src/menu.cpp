@@ -1060,7 +1060,7 @@ int PageRowsBody(int* out, bool selectable) {
             if(g_pages.page==pSaveFiles){
                 for(int i=0;i<savefiles::SlotCount();++i)add(kSaveNamedFirst+i);
                 add(kSaveBackupRow);add(kSaveRefreshRow);
-            }else if(!g_saveName.empty()){add(kSaveSwitchRow);add(kSaveRelaunchRow);if(savefiles::LiveAvailable())add(kSaveLiveRow);}
+            }else if(!g_saveName.empty()){add(kSaveSwitchRow);if(savefiles::LiveAvailable())add(kSaveLiveRow);}
         }
         add(kBackRow);return n;
     }
@@ -1779,10 +1779,8 @@ void Change(int id, int dir) {
     }
     if(id==kSaveLiveRow){if(!dir&&!savefiles::Pending()&&!g_saveName.empty())savefiles::QueueLive(g_saveName.c_str());g_saveConfirm=0;return;}
     if(id==kSaveRefreshRow){if(!dir&&!savefiles::Pending()){savefiles::RefreshSlots();g_saveConfirm=0;}return;}
-    if(id==kSaveBackupRow||id==kSaveSwitchRow||id==kSaveRelaunchRow){
-        if(dir||savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveBackupRow?"confirm-backup":id==kSaveRelaunchRow?"switch-relaunch":"confirm-switch")){g_saveConfirm=0;return;}
-        // The dedicated relaunch action is one activation; normal backup/switch retain confirmation.
-        if(id==kSaveRelaunchRow){if(!g_saveName.empty())savefiles::QueueNamed(g_saveName.c_str(),false,true);g_saveConfirm=0;return;}
+    if(id==kSaveBackupRow||id==kSaveSwitchRow){
+        if(dir||savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
         const auto now=Now();
         if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){
             if(id==kSaveBackupRow)savefiles::QueueNewBackup();
@@ -2904,7 +2902,7 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if(id>=kSaveFilesRow&&id<=kSaveLiveRow){
             if(id==g_sel)selRow=nb;
-            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveRelaunchRow?"Switch and relaunch":id==kSaveLiveRow?"Import now, refresh title":"Switch after Quit";
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveLiveRow?"Import now, refresh title":"Switch after Quit";
             char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
 
             put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
@@ -3064,7 +3062,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if(g_sel>=kSaveFilesRow&&g_sel<kSaveNamedFirst+savefiles::kMaxSlots){
         snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":savefiles::Note());
-        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Relaunch requests a clean close, then switches and starts Steam.");
+        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Live import refreshes the title now. Switch after Quit waits for normal exit.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");

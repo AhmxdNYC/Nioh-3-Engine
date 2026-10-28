@@ -15,7 +15,7 @@ bool ValidSlotName(const char* name);
 void RefreshSlots();
 int SlotCount();
 const char* SlotName(int index);
-bool QueueNamed(const char* name,bool backup,bool relaunch=false);
+bool QueueNamed(const char* name,bool backup);
 bool QueueNewBackup();
 bool LiveAvailable();
 bool QueueLive(const char* name);

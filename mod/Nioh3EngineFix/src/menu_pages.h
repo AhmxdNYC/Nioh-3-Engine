@@ -36,8 +36,8 @@ constexpr int kSaveBackupRow = kSaveSlotRow + 1;
 constexpr int kSaveSwitchRow = kSaveBackupRow + 1;
 constexpr int kSaveCancelRow = kSaveSwitchRow + 1;
 constexpr int pSaveActions = -3;
-constexpr int kSaveRelaunchRow = kSaveCancelRow + 1;
-constexpr int kSaveRefreshRow = kSaveRelaunchRow + 1;
+// Keep the removed relaunch row ID reserved so later row IDs stay stable.
+constexpr int kSaveRefreshRow = kSaveCancelRow + 2;
 constexpr int kSaveLiveRow = kSaveRefreshRow + 1;
 constexpr int kSaveNamedFirst = kSaveLiveRow + 1;
 constexpr int kMenuRowCap = kSaveNamedFirst + savefiles::kMaxSlots;

@@ -141,8 +141,8 @@ void RefreshSlots(){
 }
 int SlotCount(){return (int)slotNames.size();}
 const char* SlotName(int index){return index>=0&&index<SlotCount()?slotNames[index].c_str():"";}
-bool QueueNamed(const char* name,bool backup,bool relaunch){
- if(!ActionAllowed(backup?"backup-request":"switch-request")||!ValidSlotName(name)||child||(backup&&relaunch)){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
+bool QueueNamed(const char* name,bool backup){
+ if(!ActionAllowed(backup?"backup-request":"switch-request")||!ValidSlotName(name)||child){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
  if(sandbox.empty()||helper.empty()||python.empty()||(realRoot&&saveRoot.empty())){snprintf(note,sizeof note,"Configure CopySandbox, Helper, Python and (for RealRoot) SaveRoot.");return false;}
  FILETIME created,exit,kernel,user;if(!GetProcessTimes(GetCurrentProcess(),&created,&exit,&kernel,&user))return false;
  const unsigned long long stamp=((unsigned long long)created.dwHighDateTime<<32)|created.dwLowDateTime;
@@ -151,14 +151,13 @@ bool QueueNamed(const char* name,bool backup,bool relaunch){
  const std::string slot(name);const std::wstring wideSlot(slot.begin(),slot.end());
  std::wstring cmd=Quote(python)+L" "+Quote(helper)+L" --sandbox "+Quote(sandbox)+L" --pid "+std::to_wstring(GetCurrentProcessId())+L" --created "+std::to_wstring(stamp)+L" --slot "+Quote(wideSlot)+L" --token "+Quote(token)+(backup?L" --action backup":L" --action switch");
  if(realRoot)cmd+=L" --real-root --save-root "+Quote(saveRoot);
- if(relaunch)cmd+=L" --quit --relaunch";
  STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
  // Final fresh SEH-backed admission after argument construction, immediately
  // before the only operation dispatch. The helper still waits for clean exit.
  if(!ActionAllowed(backup?"backup-dispatch":"switch-dispatch")){snprintf(note,sizeof note,"Cancelled: title state or request queue changed.");cancel.clear();return false;}
  requestCancelled=false;
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
- CloseHandle(pi.hThread);child=pi.hProcess;snprintf(note,sizeof note,"%s queued: %s%s.",relaunch?"Switch + relaunch":backup?"Backup":"Switch",realRoot?"":"copy ",name);
+ CloseHandle(pi.hThread);child=pi.hProcess;snprintf(note,sizeof note,"%s queued: %s%s.",backup?"Backup":"Switch",realRoot?"":"copy ",name);
  return true;
 }
 bool Queue(int slot,bool backup){if(slot<1||slot>8)return false;return QueueNamed(("slot"+std::to_string(slot)).c_str(),backup);}

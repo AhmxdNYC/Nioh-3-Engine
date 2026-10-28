@@ -4,7 +4,7 @@ Use this with the matching EF candidate, replacing the old helper pyz. Defaults 
 
 Run prepare_test.py as in README-41493.md, using NEW paths. It now creates three named synthetic slots: New Game (B), Yoritomo Practice (A), slot1 (A), with current=C. Merge its generated INI section into a preserved test configuration.
 
-At the verified main menu, open Save files. Pick a named row, then Switch after Quit (confirm twice), or Switch and relaunch (one activation). The latter asks the original window to close gracefully, waits for clean exit, verifies a backup and switches, then opens Steam for Nioh3. It never kills the process. Quit/cloud confirmations may remain and require pc native acceptance. Cancel still cancels pending work; later gameplay/menu changes alone do not.
+At the verified main menu, open Save files and pick a named row. Use Import now, refresh title when live import is enabled, or Switch after Quit (confirm twice) and quit normally. Switch and relaunch was removed by user request (#43064); no menu action requests automatic restart. Cancel still cancels pending work; later gameplay/menu changes alone do not.
 
 Back up current save creates a fresh timestamped named snapshot after exit, without replacing an existing slot. To name snapshots offline: python saveslot.py --sandbox <workspace> backup "Yoritomo Practice". Names are ASCII letters/numbers, spaces, underscores and hyphens, max48, starting with a letter/number and with no trailing space. Existing slot1..slot8 folders remain supported. Catalog supports64 entries; malformed/incomplete/reparse entries are not listed. Helper hashes/account checks still run before switching.
 
