@@ -720,6 +720,9 @@ int main() {
         if(GetEnvironmentVariableA("N3_SAVE_PREVIEW",nullptr,0)){
           savefiles::testAllowed=true;savefiles::testPending=previewStyle==1;
           EnterPage(pSaveFiles);g_sel=previewStyle==1?kSaveCancelRow:kSaveNamedFirst+1;
+          if(GetEnvironmentVariableA("N3_SAVE_ACTIONS_PREVIEW",nullptr,0)){
+            savefiles::testPending=false;g_saveName="Yoritomo Practice";EnterPage(pSaveActions);g_sel=kSaveRelaunchRow;
+          }
         }
         osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextScale.clear();osd::drawnTextColor.clear();
         DrawImpl(1920,1080);char path[1100];snprintf(path,sizeof path,"%s-%d.tsv",previewBase,previewStyle);

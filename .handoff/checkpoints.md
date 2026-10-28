@@ -68,3 +68,5 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 2026-10-27 8:58 pm EDT | cx-pc #41493 delivery: EF3073 SHA d84bf5a2 + helper3071; code3f68800f; Release and 40 native/106 core/74 Python/both menu suites PASS. Native sandbox/real-copy acceptance unproven. Next pc install sandbox Enabled1 RealRoot0; instructions notes/save-gate-41493.md.
 
 2026-10-28 2:59 am EDT | cx-pc #41985: named-slot list + single-activation graceful-close/switch/Steam-relaunch code implemented. 83 Python, 50 native action and106 core checks plus both menu suites PASS. Next Release build, UI previews and fresh static reload findings; native testing pc-owned.
+
+2026-10-28 3:12 am EDT | cx-pc #41985/#42000: EF3107 sha6f6e2b99 + helper3108 ready; named picker/relaunch Release and315 offline checks +both menu suites PASS. Fresh native ReadFile reload path proven statically; scoped no-quit transaction plan in notes/save-names-41985.md, apply/completion still needs tracing. Next pc sandbox native acceptance and independent Opus reload review; no game touched.
