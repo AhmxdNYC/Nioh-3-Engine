@@ -1990,7 +1990,7 @@ const char* TabName(int id) {
 const char* TabShort(int id) {
     if (!id) return "Home";
     if (id == kRematchRow) return "Boss";
-    if (id == kPracticeRow) return "Practice";
+    if (id == kPracticeRow) return "Training";  // the first page names this row Training
     if (id == kSaveFilesRow) return "Saves";
     const int pg = id - kPageRow;
     return pg == pDisplay ? "Display" : pg == pCamera ? "Camera" : pg == pSettings ? "Optimize" : PageName(pg);

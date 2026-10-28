@@ -36,8 +36,8 @@ int main() {
  g_rematchApi={sizeof(rmb::Api),rmb::kVersion,rmb::kRequiredCapabilities,0,hf::Attach,hf::Detach,hf::Post,hf::Copy,hf::Covered};g_rematchSession=7;
  Open("hosted tabbar");Change(kPracticeRow,0);hf::Complete(true);CHECK(RefreshRematchHost(Now())&&g_rematchPage);
  osd::drawnTexts.clear();osd::drawnTextColor.clear();CHECK(DrawRematchHost(1920,1080)>0);
- CHECK(CurrentIs("[Practice]")&&Find(" Boss ")>=0&&Find(" Home ")>=0);
- osd::drawnTexts.clear();osd::drawnTextColor.clear();CHECK(DrawRematchHost(1280,720)>0&&CurrentIs("[Practice]"));
+ CHECK(CurrentIs("[Training]")&&Find(" Boss ")>=0&&Find(" Home ")>=0);
+ osd::drawnTexts.clear();osd::drawnTextColor.clear();CHECK(DrawRematchHost(1280,720)>0&&CurrentIs("[Training]"));
  Close("hosted tabbar");
  puts("PASS: tab bar row on flat and hosted pages, current tab bracketed in gold, LB/RB order, overflow window with < > markers");
 }
