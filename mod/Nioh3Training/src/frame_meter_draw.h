@@ -155,19 +155,26 @@ static int FmLegendUse(int use[18]) {
 }
 static int FmLegendCount(void) { int u[18]; return FmLegendUse(u); }
 static int FmLegendHeight(int w,int H) {
-    if(!g_pst.v[PS_FRAME_LEGEND]) return 0;
+    if(!g_pst.v[PS_FRAME_LEGEND] || g_pst.v[PS_FRAME_STYLE]) return 0;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int n=FmLegendCount();
     if(n<=0) return 0;
     int cols=cw*FM_DISPLAY_CELLS/(lh*7); if(cols<1) cols=1; if(cols>n) cols=n;
     return ((n+cols-1)/cols)*lh+pad*2;
 }
+static const char** FmLegendNames(void) {
+    static const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt","I FR","Perf Ki","I FR special","I FR guard","I FR other"};
+    return names;
+}
+static void FmLegendColors(COLORREF colors[18]) {
+    COLORREF values[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
+    memcpy(colors,values,sizeof values);
+}
 static void FmLegend(HDC dc,int w,int H,int y) {
     if(!g_pst.v[PS_FRAME_LEGEND] || FmLegendCount()<=0) return;
     int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
     const int bw=cw*FM_DISPLAY_CELLS,gutter=lh*3,x=(w-bw-gutter)/2+gutter;
-    const char* names[]={"Startup","Active","Recovery","Unblockable","Grab","No hit","Pending","Empty","Action start","Total frames","Stun/adv --","Ki window","Ki debt","I FR","Perf Ki","I FR special","I FR guard","I FR other"};
-    COLORREF colors[]={FmColor(FM_STARTUP),FmColor(FM_ACTIVE),FmColor(FM_RECOVERY),FmColor(FM_ACTIVE_UB),FmColor(FM_GRAB),FmColor(FM_NEUTRAL),FmColor(FM_PENDING),FmColor(FM_EMPTY),RGB(235,240,248),RGB(214,222,234),RGB(145,159,181),FM_KIWIN_RGB,RGB(138,92,255),FM_NODMG_RGB,FM_KIPERF_RGB,FM_EAA_RGB,FM_GUARD_RGB,FM_EA7_RGB};
+    const char** names=FmLegendNames(); COLORREF colors[18]; FmLegendColors(colors);
     int use[18]; FmLegendUse(use);
     int idx[18], n=0; for(int i=0;i<18;++i) if(use[i]) idx[n++]=i;
     int cols=bw/(lh*7); if(cols<1) cols=1; if(cols>n) cols=n;
@@ -239,7 +246,7 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         oy+=ph;
     }
     } // Row style
-    FmLegend(dc,w,H,oy);
+    if(!g_pst.v[PS_FRAME_STYLE]) FmLegend(dc,w,H,oy);
     FmRoundCorners(dc,panelLeft,0,panelW,oy+FmLegendHeight(w,H),FmRadius(H));
     RestoreDC(dc,panelClip);
 }

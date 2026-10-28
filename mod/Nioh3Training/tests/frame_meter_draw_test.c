@@ -148,8 +148,20 @@ int main(int argc,char** argv) {
         CHECK(g.d>previous);previous=g.d;CHECK(g.thick>0 && g.gap>0);}
     g_pst.v[PS_FRAME_STYLE]=0;g_pst.v[PS_FRAME_SIZE]=0;int rowHeight=FmDrawHeight(1920,1080);
     g_pst.v[PS_FRAME_SIZE]=2;CHECK(FmDrawHeight(1920,1080)==rowHeight);
+    // Side legends must remain inside the panel and outside both rings at each aspect/size.
+    Seed();g_pst.v[PS_FRAME_STYLE]=1;
+    for(int H=600;H<=2160;H+=120)for(int aspect=0;aspect<2;++aspect)for(int size=0;size<3;++size){
+        const int W=H*16/(aspect?10:9);g_pst.v[PS_FRAME_SIZE]=size;
+        int cw,bh,lh,pad;FmGeom(W,H,&cw,&bh,&lh,&pad);
+        FmRingLayout g=FmRingGeom(W,H);
+        CHECK(2*(g.d+lh/2+g.legendW+g.legendGap)<=cw*FM_DISPLAY_CELLS+lh*3+pad*2);
+        CHECK(g.height>=9*g.legendPitch+pad*4);
+        CHECK(g.legendGap>=8);CHECK(FmLegendHeight(W,H)==0);
+        for(int i=0;i<18;++i)CHECK(12+(int)strlen(FmLegendNames()[i])*N3StrokeWidth(g.legendPx)<=g.legendW);
+    }
     const int sizes[][2]={{800,600},{1280,720},{1920,1080},{2560,1440},{3840,2160}};
     for(int i=0;i<5;++i)for(int size=0;size<3;++size)Pixels(sizes[i][0],sizes[i][1],size);
+    for(int size=0;size<3;++size){Pixels(1280,800,size);Pixels(1920,1200,size);Pixels(2560,1600,size);}
     Seed();const int n=FmLegendCount();CHECK(n==18);
     for(int k=PS_KEY_STARTUP;k<=PS_KEY_IFR;++k){g_pst.v[k]=0;CHECK(FmLegendCount()<n);g_pst.v[k]=1;}
     for(int style=0;style<2;++style){g_pst.v[PS_FRAME_STYLE]=style;
