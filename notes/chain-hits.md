@@ -38,3 +38,18 @@ Note with groups instead of hit ids 4E52 has 2 groups, which would give 4E4E = 3
   targets with a stray hit row (Shingen 4E22 motion 11, Otoroshi 4E22/25/28 motion 31) really hit.
 - Live fallback (if needed): the ACTLOG already logs transitions; count 4E4E->4E52 and 4E55->4E59 successions per run, and add the
   read-only hook at RVA 0x2B4A3C from `yoritomo-hit-source-22305.md` section 4 (one line per hit-record creation = one hit).
+
+## Applied to the menu data (human #41382, 2026-10-27, offline)
+The Boss moves menu '1 hit / 2 hits / ...' groups come from `data/boss-action-record.tsv` (`tools/boss_action_record.py`), which Training
+loads at runtime as `Nioh3Training_action_records.tsv` next to the ASI (`action_records_game.h`, joined by action id + motion + anim hash in
+`ArApply`, then `move_catalog.h` N3CatMerge -> kN3MoveFacts -> `move_cats.h`). Hit data is NOT compiled into any ASI (hand
+`boss_move_facts.h` never seeds hits), so no ASI rebuild was needed. GAP: the 1.7.8x releases ship only the three ASIs, not this TSV.
+`boss_action_record.py` now folds the best chain path of every action (`chain_hits.chain_paths`, depth 6) into hit_count /
+damage_per_hit (follow-up damage appended after own) / zero_power. Rule changes vs the table above (all INFERRED):
+- motions 11 / 31 (locomotion / walk) are never a piece;
+- a sub-table 3 combo link only into a piece with an attack block (+0xE0 forced links still take a hit-only piece). Drops Otoroshi
+  4E36/4E4E/4EF2 -> 18C7 (no attack block, 5 alternate damages at one frame = grab/throw damage) and Yoritomo 4E81/82/85/86 -> 4EA7;
+- a move whose every hit has power 0 is a catch check and ends the chain (Otoroshi 4E4E -> 4E6D throw only on a landed catch).
+Self-checks: Yoritomo 4E4E 200/150|210, 4E55 250/175|180, 4E6E 250/275 (2 each), Shingen 4E4E 3, Otoroshi 4E4E 1 zero-power.
+All 108 characters: own 3052 -> chain 3776 hits, 534 rows gain (70 characters); per row own/chain/path in `notes/chain-hits-gains.tsv`.
+Tests: `py -I tools/test_chain_hits.py` (rules + archive facts), `mod/Nioh3Training/tests/action_records_test.c <tsv>` (2 chained asserts).
