@@ -33,7 +33,13 @@ void CancelPending(){if(testPending){++cancels;testPending=false;}}
 void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
 void Poll(){} bool Allowed(){return testAllowed;}
 bool ActionAllowed(const char*){return testAllowed;}
-bool Queue(int,bool){if(!testAllowed)return false;++requests;return true;}
+std::string queuedName;bool queuedRelaunch=false;
+void RefreshSlots(){}
+int SlotCount(){return 3;}
+const char* SlotName(int i){static const char* names[]={"New Game","Yoritomo Practice","slot1"};return i>=0&&i<3?names[i]:"";}
+bool QueueNamed(const char* name,bool,bool relaunch){if(!testAllowed)return false;queuedName=name;queuedRelaunch=relaunch;++requests;return true;}
+bool QueueNewBackup(){return QueueNamed("Backup-test",true,false);}
+bool Queue(int,bool){return false;}
 const char* Note(){return testPending?"Switch queued: copy slot1.":"Copy-only test: choose a slot, then queue and quit normally.";}
 }
 namespace updatecheck {
@@ -111,14 +117,18 @@ int main() {
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pRoot);
       savefiles::testAllowed=true;n=PageRows(rows,true);bool found=false;for(int i=0;i<n;++i)found|=rows[i]==kSaveFilesRow;CHECK(found);
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
+      n=PageRows(rows,true);for(int i=0;i<3;++i){bool seen=false;for(int j=0;j<n;++j)seen|=rows[j]==kSaveNamedFirst+i;CHECK(seen);}
+      Change(kSaveNamedFirst+1,0);CHECK(g_pages.page==pSaveActions);CHECK(g_saveName=="Yoritomo Practice");
       Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
       savefiles::testAllowed=false;Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
-      savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);CHECK(savefiles::queuedName=="Yoritomo Practice");
+      Change(kSaveRelaunchRow,0);CHECK(savefiles::requests==2&&savefiles::queuedRelaunch);
+      CHECK(savefiles::queuedName=="Yoritomo Practice");
       savefiles::testAllowed=false;savefiles::testPending=true;g_pages.Reset();
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
       n=PageRows(rows,true);bool cancelFound=false;
       for(int i=0;i<n;++i){cancelFound|=rows[i]==kSaveCancelRow;CHECK(rows[i]!=kSaveSwitchRow&&rows[i]!=kSaveBackupRow);}
-      CHECK(cancelFound);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      CHECK(cancelFound);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==2);
       Change(kSaveCancelRow,0);CHECK(!savefiles::testPending&&savefiles::cancels==1);
       savefiles::testAllowed=false;g_pages.Reset();g_saveConfirm=0;
     }
@@ -709,7 +719,10 @@ int main() {
         g_open=true;g_rematchPage=false;g_cfg.layout=0;g_pages.Reset();g_sel=kPageRow+pDisplay;menu_style::g_btnStyle=previewStyle;
         if(GetEnvironmentVariableA("N3_SAVE_PREVIEW",nullptr,0)){
           savefiles::testAllowed=true;savefiles::testPending=previewStyle==1;
-          EnterPage(pSaveFiles);g_sel=previewStyle==1?kSaveCancelRow:kSaveSwitchRow;
+          EnterPage(pSaveFiles);g_sel=previewStyle==1?kSaveCancelRow:kSaveNamedFirst+1;
+          if(GetEnvironmentVariableA("N3_SAVE_ACTIONS_PREVIEW",nullptr,0)){
+            savefiles::testPending=false;g_saveName="Yoritomo Practice";EnterPage(pSaveActions);g_sel=kSaveRelaunchRow;
+          }
         }
         osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextScale.clear();osd::drawnTextColor.clear();
         DrawImpl(1920,1080);char path[1100];snprintf(path,sizeof path,"%s-%d.tsv",previewBase,previewStyle);

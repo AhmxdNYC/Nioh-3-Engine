@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
+#include <algorithm>
 #include "savefiles.h"
 namespace savefiles {
 namespace {
@@ -12,6 +14,7 @@ void (*logfn)(const char*,...)=nullptr;Gate gate;uint64_t polled=0;
 std::wstring sandbox,helper,python,saveRoot;char note[200]="Copy-only test: choose a slot, then queue and quit normally.";
 HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 bool requestCancelled=false;
+std::vector<std::string> slotNames;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
 template<class T> bool Rd(uintptr_t p,T& out){
@@ -78,22 +81,64 @@ void CancelPending(){
  if(Pending()){Cancel();requestCancelled=true;snprintf(note,sizeof note,"Queued save operation cancelled.");}
 }
 const char* Note(){return note;}
-bool Queue(int slot,bool backup){
- if(!ActionAllowed(backup?"backup-request":"switch-request")||slot<1||slot>8||child){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
+bool ValidSlotName(const char* name){
+ if(!name)return false;const size_t n=strlen(name);if(!n||n>48||name[n-1]==' ')return false;
+ auto alpha=[](char c){return (c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9');};
+ if(!alpha(name[0]))return false;
+ for(size_t i=1;i<n;++i)if(!alpha(name[i])&&name[i]!=' '&&name[i]!='_'&&name[i]!='-')return false;
+ if(!_stricmp(name,"CON")||!_stricmp(name,"PRN")||!_stricmp(name,"AUX")||!_stricmp(name,"NUL"))return false;
+ if(n==4&&(!_strnicmp(name,"COM",3)||!_strnicmp(name,"LPT",3))&&name[3]>='1'&&name[3]<='9')return false;
+ return true;
+}
+void RefreshSlots(){
+ if(!ActionAllowed("refresh-slots"))return;
+ slotNames.clear();const std::wstring dir=sandbox+L"\\slots";
+ const DWORD attrs=GetFileAttributesW(dir.c_str());
+ if(sandbox.empty()||attrs==INVALID_FILE_ATTRIBUTES||!(attrs&FILE_ATTRIBUTE_DIRECTORY)||(attrs&FILE_ATTRIBUTE_REPARSE_POINT)){
+  snprintf(note,sizeof note,"No slot library. Configure CopySandbox and create a backup first.");return;
+ }
+ WIN32_FIND_DATAW data{};HANDLE find=FindFirstFileW((dir+L"\\*").c_str(),&data);
+ if(find==INVALID_HANDLE_VALUE){snprintf(note,sizeof note,"Could not read the slot library.");return;}
+ bool overflow=false;
+ do{
+  if(!(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)||(data.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT))continue;
+  std::string name;for(const wchar_t* c=data.cFileName;*c;++c){if(*c>127){name.clear();break;}name+=(char)*c;}
+  if(!ValidSlotName(name.c_str()))continue;
+  const DWORD manifest=GetFileAttributesW((dir+L"\\"+data.cFileName+L"\\manifest.json").c_str());
+  if(manifest==INVALID_FILE_ATTRIBUTES||(manifest&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))continue;
+  slotNames.push_back(name);if(slotNames.size()>kMaxSlots){overflow=true;break;}
+ }while(FindNextFileW(find,&data));
+ const DWORD err=GetLastError();FindClose(find);
+ if(overflow||err!=ERROR_NO_MORE_FILES){slotNames.clear();snprintf(note,sizeof note,"Slot scan refused: %s.",overflow?"more than 64 slots":"read error");return;}
+ std::sort(slotNames.begin(),slotNames.end());
+ snprintf(note,sizeof note,"%u named saves. Pick a save to view switch options.",(unsigned)slotNames.size());
+}
+int SlotCount(){return (int)slotNames.size();}
+const char* SlotName(int index){return index>=0&&index<SlotCount()?slotNames[index].c_str():"";}
+bool QueueNamed(const char* name,bool backup,bool relaunch){
+ if(!ActionAllowed(backup?"backup-request":"switch-request")||!ValidSlotName(name)||child||(backup&&relaunch)){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
  if(sandbox.empty()||helper.empty()||python.empty()||(realRoot&&saveRoot.empty())){snprintf(note,sizeof note,"Configure CopySandbox, Helper, Python and (for RealRoot) SaveRoot.");return false;}
  FILETIME created,exit,kernel,user;if(!GetProcessTimes(GetCurrentProcess(),&created,&exit,&kernel,&user))return false;
  const unsigned long long stamp=((unsigned long long)created.dwHighDateTime<<32)|created.dwLowDateTime;
  wchar_t token[96];swprintf(token,96,L"%lu-%llu-%llu",GetCurrentProcessId(),stamp,GetTickCount64());
  cancel=sandbox+L"\\cancel-"+token;
- std::wstring cmd=Quote(python)+L" "+Quote(helper)+L" --sandbox "+Quote(sandbox)+L" --pid "+std::to_wstring(GetCurrentProcessId())+L" --created "+std::to_wstring(stamp)+L" --slot slot"+std::to_wstring(slot)+L" --token "+Quote(token)+(backup?L" --action backup":L" --action switch");
+ const std::string slot(name);const std::wstring wideSlot(slot.begin(),slot.end());
+ std::wstring cmd=Quote(python)+L" "+Quote(helper)+L" --sandbox "+Quote(sandbox)+L" --pid "+std::to_wstring(GetCurrentProcessId())+L" --created "+std::to_wstring(stamp)+L" --slot "+Quote(wideSlot)+L" --token "+Quote(token)+(backup?L" --action backup":L" --action switch");
  if(realRoot)cmd+=L" --real-root --save-root "+Quote(saveRoot);
+ if(relaunch)cmd+=L" --quit --relaunch";
  STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
  // Final fresh SEH-backed admission after argument construction, immediately
  // before the only operation dispatch. The helper still waits for clean exit.
  if(!ActionAllowed(backup?"backup-dispatch":"switch-dispatch")){snprintf(note,sizeof note,"Cancelled: title state or request queue changed.");cancel.clear();return false;}
  requestCancelled=false;
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
- CloseHandle(pi.hThread);child=pi.hProcess;snprintf(note,sizeof note,"%s queued: %sslot%d.",backup?"Backup":"Switch",realRoot?"":"copy ",slot);
+ CloseHandle(pi.hThread);child=pi.hProcess;snprintf(note,sizeof note,"%s queued: %s%s.",relaunch?"Switch + relaunch":backup?"Backup":"Switch",realRoot?"":"copy ",name);
  return true;
+}
+bool Queue(int slot,bool backup){if(slot<1||slot>8)return false;return QueueNamed(("slot"+std::to_string(slot)).c_str(),backup);}
+bool QueueNewBackup(){
+ SYSTEMTIME t{};GetLocalTime(&t);char name[49];
+ snprintf(name,sizeof name,"Backup-%04u%02u%02u-%02u%02u%02u-%03u",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond,t.wMilliseconds);
+ return QueueNamed(name,true);
 }
 }

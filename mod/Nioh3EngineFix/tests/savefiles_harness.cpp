@@ -18,7 +18,24 @@ int main(){
  manager[0]=(uintptr_t)stack;manager[1]=(uintptr_t)(stack+1);stack[0]=(uintptr_t)mode;
  mode[1]=(uintptr_t)base+0x44C91D0;mode[2]=3;mode[6]=100;mode[7]=200;mode[8]=300;mode[11]=1;
  known=true;enabled=true;logfn=&Capture;
+ CHECK(ValidSlotName("Yoritomo Practice"));CHECK(ValidSlotName("New Game"));
+ for(const char* name:{"../escape","A/B","CON","com1","bad "," bad","","A\"B"})CHECK(!ValidSlotName(name));
  auto arm=[&](){const auto now=GetTickCount64();gate={};gate.tracking=true;gate.since=now-1000;gate.last=now;gate.manager=(uintptr_t)manager;gate.top=(uintptr_t)mode;polled=now;allowed=true;};
+ // Exercise real Win32 directory enumeration against disposable metadata only.
+ wchar_t temp[MAX_PATH]{};CHECK(GetTempPathW(MAX_PATH,temp));
+ sandbox=std::wstring(temp)+L"nioh3-slot-catalog-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ CHECK(CreateDirectoryW(sandbox.c_str(),nullptr));CHECK(CreateDirectoryW((sandbox+L"\\slots").c_str(),nullptr));
+ auto addSlot=[&](const wchar_t* name){
+  const auto path=sandbox+L"\\slots\\"+name;if(!CreateDirectoryW(path.c_str(),nullptr))return false;
+  HANDLE f=CreateFileW((path+L"\\manifest.json").c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+  if(f==INVALID_HANDLE_VALUE)return false;CloseHandle(f);return true;
+ };
+ CHECK(addSlot(L"Yoritomo Practice"));CHECK(addSlot(L"New Game"));CHECK(addSlot(L"slot1"));
+ CHECK(CreateDirectoryW((sandbox+L"\\slots\\Incomplete").c_str(),nullptr));
+ arm();RefreshSlots();CHECK(SlotCount()==3);CHECK(!strcmp(SlotName(0),"New Game"));CHECK(!strcmp(SlotName(1),"Yoritomo Practice"));
+ CHECK(!strcmp(SlotName(2),"slot1"));CHECK(!*SlotName(-1)&&!*SlotName(3));
+ for(int i=3;i<=64;++i)CHECK(addSlot((L"extra"+std::to_wstring(i)).c_str()));
+ arm();RefreshSlots();CHECK(SlotCount()==0);CHECK(strstr(Note(),"more than 64"));sandbox.clear();
  CHECK(Ready(Read()));arm();CHECK(Allowed());CHECK(ActionAllowed("test-main"));CHECK(strstr(lastLog,"allow=1"));
  CHECK(!Queue(0,false));CHECK(!Queue(9,false));CHECK(!Queue(1,false)); // no helper config
  sandbox=L"D:\\fake-sandbox";helper=L"D:\\fake-helper.pyz";python=L"D:\\fake-python.exe";
