@@ -2,6 +2,10 @@
 
 Added a private packaged Windows/Proton installer that verifies a fresh timestamped current-save backup before mod activation, preserves existing INIs, and records recovery paths and exact mod-file ownership. Partial failures never restore saves; unresolved rollback or journal failure retains its lock.20 fixture tests PASS, including unreadable nested saves, partial copies, changing targets, game startup during installation and package entry-point checks. Requires Python3.9+; manual downloads/drag-and-drop and existing public releases remain outside coverage. No real saves/game files changed, deployment or public publication.
 
+## 2026-10-15 Claude - Hosted DX12 menu merged into the current line (EngineFix 1.7.74)
+
+Merged combo-3301b (hosted Boss Rematch / Practice page in the EngineFix menu, addon hosted UI worker, cover, CPU bundle, MW, dxgidiag) into the prewarm/fade line. Kept Nioh3EngineFix_Fade/_FadeAlpha, Nioh3Training_FightNow/_Preload/_XwPending calls. Hosted Fight now: a cover ends at once when Nioh3Training swapped in place; rows without a cover fall back to the plain request (swap). Builds only; not run in game.
+
 ## 2026-10-11 Codex - Native AABB control runner corrected
 
 Fixed Windows batch quoting/current-directory lookup; actual source-path control compiled and executed PASS, including uninstalled ACK counterexamples and7 installed/OFF toggles. No live-game or FPS acceptance. See notes/handoff-codex-cpu-ready-aabb.md.
@@ -68,6 +72,7 @@ Documentation/static provenance only: three swap-removal branches and locked ret
 ## 2026-10-11 Codex - FO98 consumer registration trace
 
 Documentation/static provenance only: native token98 registration and downstream object virtual calls traced;5identity checks PASS. FO remains NO-GO pending lifetime/admission/caller-mode proof. No runtime or performance claim, deployment or defaults change. See notes/handoff-codex-fo98-consumer.md.
+
 ## 2026-10-14 Codex - Preserve user game settings (Task 3254)
 
 Made FG status-only for every legacy toggle value. Removed game XML writes, native FG setter/dirty flag, and startup/exit repair; retained own-INI saves, telemetry and the independent FGC crash guard. Added a 64-case offline preservation harness. Source contracts PASS; native build/harness and pattern checks await MSVC and the decrypted dump. See notes/settings-isolation-pc2-3254.md. No game launch or installed-bin change.
@@ -1116,6 +1121,7 @@ patcher\live_reads_ro.fsx (VM_READ only). A4 meshlet table, GL1 list counts (pro
 ## 2026-10-11 02:56 - Codex experimental FO deferred-command audit (nothing applied)
 - Isolated branch negative controls against actual FO code reproduce overflow, stream bounds and late-producer queue hazards: 11 checks / 0 failures, zero compiler warnings. This is failure evidence, not release validation. Static startup availability / synchronization / drain constraints documented in notes/handoff-codex-fo98-audit.md.
 - No game, production source, ASI, user settings or saves changed. Main1.7.61 / FrameOverlap0 remains. Undo: none required. Experimental audit tests can be removed after conversion to repaired safety regressions.
+
 ## 2026-10-10 16:45 - Nioh3BossRematch 1.4.0: Fight now spawns in the arena (no shrine first), branch `rematch-instant` (not merged)
 - "Fight now (in the arena)" rows with an arena point: while the Fight now runs, the start point's warp-point record (game data in
   memory: spawn x y z yaw `+40h`, arrival-camera bit `+8 & 4`) holds the arena point, so the game's own placement / streaming / death

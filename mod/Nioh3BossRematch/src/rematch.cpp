@@ -147,6 +147,9 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
     const auto f = (Fn)TrainingExport("Nioh3Training_ReturnInfo");
     return f ? f() : -1;
 }
+// Set by ExecDirect when Nioh3Training swapped the boss in place: no native attempt exists for a hosted cover to wait on,
+// so CoverTick ends that cover at once (Nioh3Training draws its own fade through Nioh3EngineFix_Fade).
+std::atomic<bool> g_swappedInPlace{false};
 
 // ---- requests ----
 enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11 };
@@ -383,6 +386,7 @@ static bool TrainingOwnsFight() {
 std::atomic<bool> g_staleBbm{false};
 const char* Gates(const Snap& s, bool uiSide) {
     if (!g_live) return "not installed";
+
     if (const char* why = AttemptStartGate()) return why;
     if (const char* why = NativeGate(s)) return why;
     if (!s.queueOk) return "mission queue unreadable";
@@ -979,6 +983,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
         if (swap && swap(r.missionId)) {
             Log("Rematch: F %s: arena swap in place by Nioh3Training (no mission load)", r.id);
+            g_swappedInPlace.store(true);
             Result("started %s (fight now, in place)", r.id);
             ToastF(cGreen, 6000, "Boss Matches: into the fight with %s...", r.name);
             return;
@@ -1733,7 +1738,7 @@ bool CoverBegin(int row,uint64_t* token=nullptr) {
         }
     }
     const bool started=g_cover.Begin(++g_coverNext,(uint32_t)row,r.missionId,r.fightStart,r.placement,Ms());
-    if(started){g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
+    if(started){g_swappedInPlace.store(false);g_coverHostAt=0;g_coverControl=g_coverAlgo=g_coverLife=g_coverPlayer=false;g_coverSampleAt=0;Log("Rematch: cover token=%llu phase=%u attempt=0 event=begin mission=0x%X start=%u placement=%u",g_cover.token,(unsigned)g_cover.phase,r.missionId,r.fightStart,r.placement);}
     if(started&&token)*token=g_cover.token;
     return started;
 }
@@ -1746,6 +1751,11 @@ void CoverTick(const Snap& s, ULONGLONG) {
     if(g_cover.Active() && g_coverHostAt && (t<g_coverHostAt || t-g_coverHostAt>=1500))
         g_cover.End(transition_cover::Failed,"Cover renderer stale; native recovery remains owned");
     if(!g_cover.Active())return;
+    if(g_cover.issued && g_swappedInPlace.exchange(false)) {
+        Log("Rematch: cover token=%llu event=swapped_in_place (Nioh3Training arena swap, no native attempt to wait for)",g_cover.token);
+        g_cover.End(transition_cover::Ready,"Swapped in place by Nioh3Training");
+        return;
+    }
     if(g_cover.phase==transition_cover::AwaitNative && !g_cover.issued) {
         Log("Rematch: cover token=%llu phase=%u attempt=0 event=present_ack",g_cover.token,(unsigned)g_cover.phase);
         if(g_req.load() || g_pend){g_cover.End(transition_cover::Failed,"Another request is pending; no transition request sent");return;}

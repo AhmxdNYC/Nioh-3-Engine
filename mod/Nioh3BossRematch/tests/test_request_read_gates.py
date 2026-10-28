@@ -49,6 +49,8 @@ std::atomic<int> g_state{kIdle};
 namespace fight { bool g_active=false; }
 @SNAPSHOT@
 @ATTEMPT@
+bool XwPending() { return false; }  // Nioh3Training absent
+void CoverTick(const Snap&, ULONGLONG) {}
 @FUNCTIONS@
 void ToIdle(const char*,bool=false) {}
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;

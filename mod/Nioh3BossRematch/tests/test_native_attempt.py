@@ -329,7 +329,7 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='void CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='void* TrainingExport(const char*) { return nullptr; }\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
