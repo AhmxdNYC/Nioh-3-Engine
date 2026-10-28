@@ -172,3 +172,10 @@ After merging the Boss Match isolation fix (0e7ff1b7), the six boss effects belo
 | Boss Ki drain | Training / Boss Matches | Saved for Training; not applied during Boss Matches |
 
 Player options and read-only meters remain available during spawned Boss Matches. This is an offline candidate; runtime acceptance remains pending.
+
+## Auto retry correction
+
+| Before | After | Reason |
+|---|---|---|
+| Boss Matches follow Auto retry on death | Training and arena Boss Matches retry in place after defeat | Auto retry is forced on; its old toggle row is removed. |
+| All spawned bosses (Training / Boss Matches) | Boss settings (see each setting for mode) | Six boss effects are suppressed during Boss Matches. |

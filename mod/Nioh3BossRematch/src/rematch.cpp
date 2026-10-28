@@ -2534,7 +2534,7 @@ void CantDieToggle(int dir) {  // user #14150: dir 0 flips, > 0 on, < 0 off
     const int on = set(dir ? dir > 0 : !v, 1);
     Log("Rematch: menu Player can't die -> %d", on);
     snprintf(g_msg, sizeof g_msg, "%s", on ? "Infinite health ON: refill your HP during Training and Boss Matches. Saved."
-                                         : "Infinite health OFF: normal damage. Training retries in place; Boss Matches follow Auto retry on death. Saved.");
+                                         : "Infinite health OFF: normal damage. Training and arena Boss Matches retry in place after defeat. Saved.");
 }
 void ResetBossPos() {  // user #13787
     using F = int (*)();
@@ -3398,7 +3398,7 @@ const char* ItemGroup(int item) {
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
-    if (p == uBossVitals) return IsPstItem(item) ? "All spawned bosses (Training / Boss Matches)" : BvGroup(item);  // user #14320 / #22389
+    if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
     if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" : nullptr;  // user #22389
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
@@ -3769,7 +3769,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item == kItAggro) {  // user #13787
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "ON: the boss keeps you as its target and walks up to you, then does the repeating move at you. Works in both stances (Stand still: it walks up when you are out of range (5 m), then drills). Saved.");
         } else if (item == kItCantDie) {  // user #14150
-            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training and Boss Matches: ON refills your health. OFF allows damage. Training retries in place; Boss Matches follow Auto retry on death. Saved.");
+            snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training and Boss Matches: ON refills your health. OFF allows damage. Training and arena Boss Matches retry in place after defeat. Saved.");
         } else if (item == kItResetPos) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "A: puts the boss back where it first appeared in this Training session (summoned bosses: where they appeared), facing you.");
         } else if (item == kItRepNow) {  // user #13293
@@ -3826,7 +3826,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathBlow) snprintf(footer, nf, "Training / spawned Boss Matches: ON requires a final blow at zero HP; OFF kills at zero HP. No grapple overrides this rule. Saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "Training / spawned Boss Matches: drop boss loot and Amrita, with one final blow. No first-clear rewards. Boss Matches start this OFF; you can enable it during the match.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the arena session (boss removed) and puts you back where you stood before it started, in that world. Works after a kill, with no boss, or mid-switch.");
-        else if (item == kItAutoRetry) snprintf(footer, nf, "Boss Matches only: ON resets the round when you die. OFF ends the round and offers Return or Fight again. Training always retries in place. Saved.");
+        else if (item == kItAutoRetry) snprintf(footer, nf, "Training and arena Boss Matches retry in place after defeat. Auto retry is always enabled.");
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
         else if (item == kItFinT) snprintf(footer, nf, "Death animation / Boss loot: kill when the first final-blow animation ends, or after this timeout. Left / Right: 0.5 s. Saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "With No grapple ON, a zero-HP boss dies after this long without a hit. Left / Right: 0.1 s. Shared by Training and spawned Boss Matches. Saved.");
