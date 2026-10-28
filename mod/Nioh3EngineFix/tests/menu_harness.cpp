@@ -64,13 +64,15 @@ bool Rewrite(int) { return false; }
 void SetBatching(bool) {}
 void SetRewrite(int, bool) {}
 }
-namespace crashreport {  // #38437: the Report row only needs these four
-int g_snapshots = 0;
+namespace crashreport {  // #38437 / #43461: the Report row opens the folder and the website
+int g_snapshots = 0, g_urlOpens = 0, g_folderOpens = 0;
+char g_folderPath[260] = {};
 bool Snapshot(char* p, unsigned cap) { ++g_snapshots; snprintf(p, cap, "stub-report.txt"); return true; }
 const char* ReportUrl() { return "https://example.invalid/report"; }
 bool ReportOpenWanted() { return false; }
 bool CopyReportUrl() { return true; }
-void OpenReportUrl() {}
+void OpenReportUrl() { ++g_urlOpens; }
+void OpenReportFolder(const char* path) { ++g_folderOpens; snprintf(g_folderPath, sizeof g_folderPath, "%s", path ? path : ""); }
 }
 namespace extraperf {
 bool Available(int) { return false; }
@@ -407,7 +409,9 @@ int main() {
     CHECK(g_sel == kBackRow);
     Move(1);
     Change(kReportRow, 0);  // #38437: Report row writes one snapshot and keeps the page
-    CHECK(crashreport::g_snapshots == 1 && g_pages.page == pSettings && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
+    CHECK(crashreport::g_snapshots == 1 && crashreport::g_urlOpens == 1 && crashreport::g_folderOpens == 1
+        && strstr(crashreport::g_folderPath, "stub-report.txt") && g_pages.page == pSettings
+        && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
     Change(kModMenuRow, 0);  // #38077: Mod menu = the top-level page
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     Change(kPageRow + pSettings, 0);
