@@ -8,7 +8,7 @@
 #define N3T_API
 static uintptr_t B;
 static char g_dir[MAX_PATH];
-static struct { int active; uint32_t chr; } g_tr;
+static struct { int active, practice; uint32_t chr; } g_tr;
 static struct { int active; uint32_t id; uint64_t actor; } g_bm;
 // bridge 12666 summon slots (none in this fixture) and the pump-side natives move_toggle.h now uses
 static int g_nsp; static uint64_t g_sp_actor[2]; static uint32_t g_sp_chr[2];
@@ -70,7 +70,7 @@ int main(void) {
     }
     assert(!g_mv_install_pending && hook_calls == 0);
     puts("PASS: zero-session startup; all chr=0 queries/setters rejected without hooks");
-    g_tr.active = g_bm.active = 1; g_bm.id = 7;
+    g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7;
     o_mvsel = Select; o_mvcom = Commit;
     int tested = 0, protected_count = 0, yoritomo = 0;
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
@@ -153,7 +153,7 @@ int main(void) {
     // the move is OFF, and refuses only idle / init and unknown ids. Stand still only changes the log text (the drill plays it).
     {
         int armed = 0, unlabelled = 0;
-        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_cfg_rep_gap = 0;
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_cfg_rep_gap = 0;
         for (int i = 0; i < N3_MOVE_COUNT; ++i) {
             const N3Move* r = &kN3Moves[i];
             g_tr.chr = r->chr; standing = i & 1;
@@ -198,7 +198,7 @@ int main(void) {
     // is pending); the head counts as started only once it held SEQ_CONFIRM_MS or the boss moved on to another move. user #14702 / #14710: while
     // the chain plays, the game's own next piece passes and another attack is refused (MV_KEEP); the round ends back in idle by itself.
     {
-        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
         assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500);
         assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E7B, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E7B && Nioh3Training_GetMoveRepeatSeq(16102u) == 1);
         int ri = MvRepFind(16102u); assert(ri >= 0 && g_rep_nchain[ri] == 2 && g_rep_chain[ri][0] == 0x4E7B && g_rep_chain[ri][1] == 0x4EA7);
@@ -292,7 +292,7 @@ int main(void) {
     // the game pick 0x4E8D -> idle ('all 2 part(s) played'); 0x4E7A ran only 375-422 ms, round 1468-1547 ms. Now: 0x4E79 and 0x4E8D pass (the
     // attack's own pieces), the AI's 0x4E5A after them is refused, the round ends when the boss is back in idle by itself, gap 500 ms, head again.
     {
-        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 1;
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 1;
         assert(Nioh3Training_SetRepeatGapChr(16102u, 500, 0) == 500);
         assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E78, 1) == 1);
         // the listed chain is 0x4E78 > 0x4E7A (+0xE0 links) or, with the #14702 table override (308067b8), 0x4E78 > 0x4E79 > 0x4E7A: same result
@@ -383,7 +383,7 @@ int main(void) {
     // user #14710: a single-move repeat follows its move the same way (was: the first pick after it = 'finished' -> gap idle, live 22:17:24
     // 0x4EE8 > 0x4EE9 cut, 0x4E7B > 0x4EA7 cut by the 0x4E7C pick)
     {
-        g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
+        g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7; g_mv_hooked = 1; o_mvsel = Select; o_mvcom = Commit; g_tr.chr = 16102u; standing = 0;
         assert(Nioh3Training_SetMoveRepeatSeq(16102u, 0x4E7B, 1) == 1); int ri = MvRepFind(16102u);
         // a part switched OFF is not vetoed at commit while its sequence repeats; a single-move repeat of the head vetoes it again
         assert(Nioh3Training_SetMoveAllowed(16102u, 0x4EA7, 0, 0) == 1);
@@ -420,6 +420,22 @@ int main(void) {
         cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
         puts("PASS: single-move repeat (#14710): other attacks refused while the move plays, its link / own next piece pass, ends back in idle, drill-forced move followed");
     }
+    // A saved block and repeat must resume after a match without being overwritten.
+    g_tr.active=1;g_tr.practice=1;g_tr.chr=16102u;g_mv_hooked=1;
+    assert(Nioh3Training_SetMoveAllowed(16102u,0x4E21,0,0)==1);
+    assert(Nioh3Training_SetMoveRepeatSeq(16102u,0x4E21,1)==1);
+    assert(MvBlocked(16102u,0x4E21) && MvRepeatId(16102u)==0x4E21);
+    g_tr.practice=0;
+    assert(!MvBlocked(16102u,0x4E21) && !MvRepeatId(16102u));
+    assert(!Nioh3Training_GetMoveRepeatSeq(16102u));
+    assert(!MvRepeatPick(0x3000,0x4E21));
+    Pick(0x4E21);assert(h_mvsel(0x3000,0)==0x4E21);
+    { int ri=MvRepFind(16102u);g_rep_st[ri]=0x3000;cur_act=2;
+      const uint32_t before=forced_n;MvRepTick();assert(forced_n==before); }
+    g_tr.practice=1;
+    assert(MvBlocked(16102u,0x4E21) && MvRepeatId(16102u)==0x4E21);
+    assert(Nioh3Training_GetMoveRepeatSeq(16102u));
+    puts("PASS: Boss Match suppresses saved repeat and move veto; Training preferences survive");
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
 }

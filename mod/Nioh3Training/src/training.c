@@ -3892,8 +3892,10 @@ static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + agg
 static int IhIdleStance(void) { return InterlockedCompareExchange(&g_ih_idle_stance, 0, 0) != 0; }
 static int TrActive(void) { return g_tr.active; }
 static int SlotIdleDefault(void) { return g_tr.active && g_tr.practice; }
+static volatile LONG g_st_due, g_st_idle, g_st_armed;
 static void BossMatchDefaults(void) {
     if (g_tr.practice) { BossMatchRestore("Practice session"); return; }
+    InterlockedExchange(&g_st_armed, 0); // discard an old Training timer, never replay it after a match
     if (!g_bmd_on) { g_bmd_on = 1; g_bmd_loot = g_cfg_loot; g_bmd_nofin = g_cfg_nofin; }
     Log("BOSS MATCH defaults (#38077): boss CPU-controlled, BossLoot %d -> 0, KiBreakNoFinisher %d -> 0 (restored when the match ends)", g_cfg_loot, g_cfg_nofin);
     g_cfg_loot = 0; g_cfg_nofin = 0;
@@ -3957,7 +3959,7 @@ N3T_API int Nioh3Training_SetSlotStance(int s, int idle) {
     return 1;
 }
 // user #14313: timed switch of ALL Training bosses between Fight normally (CPU) and Stand still. Armed from the menu, fired on the game thread.
-static volatile LONG g_st_due, g_st_idle, g_st_armed;
+
 N3T_API int Nioh3Training_StanceTimer(int ms, int toIdle) {
     if (ms <= 0) { InterlockedExchange(&g_st_armed, 0); Log("STANCE timer cancelled"); return 0; }
     if (ms > 60000) ms = 60000;
@@ -3973,6 +3975,7 @@ N3T_API int Nioh3Training_GetStanceTimer(int* toIdle) {
     return left > 0 ? left : 1;
 }
 static void StanceTimerTick(void) {
+    if (g_tr.active && !g_tr.practice) { InterlockedExchange(&g_st_armed, 0); return; }
     if (!InterlockedCompareExchange(&g_st_armed, 0, 0) || (int)((DWORD)g_st_due - GetTickCount()) > 0) return;
     InterlockedExchange(&g_st_armed, 0);
     const int idle = (int)g_st_idle; int n = 0;

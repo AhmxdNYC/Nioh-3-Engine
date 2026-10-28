@@ -69,7 +69,7 @@ static void Unused(void) { (void)MvSet; (void)MvRepFresh; (void)MvLoadPrefs; (vo
 static uint32_t ai_pick = 0x4E23;
 static uint32_t Select(uint64_t st, uint64_t tr) { (void)st; (void)tr; return ai_pick; }
 static void Setup(void) {
-    memset(&g_tr, 0, sizeof g_tr); g_tr.active = g_tr.round = 1; g_tr.chr = 16102; g_tr.tCmd = 1;
+    memset(&g_tr, 0, sizeof g_tr); g_tr.active = g_tr.round = g_tr.practice = 1; g_tr.chr = 16102; g_tr.tCmd = 1;
     g_bm.active = 1; g_bm.id = 7; g_bm.actor = actor; g_bh.phase = 0;
     g_nsp = 1; g_sp_actor[0] = actor; g_sp_chr[0] = 16102;
     g_slot_act[0] = actor; g_slot_chr[0] = 16102; g_slot_aggro[0] = 1; g_slot_ih[0] = 1; g_cfg_aggro = 0;
@@ -86,6 +86,10 @@ static int Chasing(void) { return MvChasing(CTRL); }
 int main(void) {
     (void)Unused;
     Setup();
+    g_cfg_aggro=1;g_slot_aggro[0]=1;
+    g_tr.practice=0;assert(!AgOn(actor));
+    g_tr.practice=1;assert(AgOn(actor));
+    assert(g_cfg_aggro==1 && g_slot_aggro[0]==1);
     assert(Nioh3Training_SetMoveRepeatSeq(16102, 0x4E21, 1) == 1 && Nioh3Training_GetMoveRepeatSeq(16102));
     // the boss is 10 m away (range 5 m): Stand-still sequence boss -> walk-up (AI on, locomotion only), no drill
     Step(300);

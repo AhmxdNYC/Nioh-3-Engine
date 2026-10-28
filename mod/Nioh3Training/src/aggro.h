@@ -18,7 +18,7 @@ static LONG g_ag_logs;
 static volatile LONG g_ag_reset_req;
 static int AgInTable(uint64_t a, const uint64_t* cur, int n) { for (int i = 0; i < n; ++i) if (cur[i] == a) return 1; return 0; }
 // user #14309: aggro is per boss (Boss X page, g_slot_aggro, a new boss starts with the saved [Training] BossAggro). A boss in no slot uses BossAggro.
-static int AgOn(uint64_t a) { const int s = SlotOf(a); return s >= 0 && SlotAlive(s) ? g_slot_aggro[s] != 0 : g_cfg_aggro; }
+static int AgOn(uint64_t a) { if (g_tr.active && !g_tr.practice) return 0; const int s = SlotOf(a); return s >= 0 && SlotAlive(s) ? g_slot_aggro[s] != 0 : g_cfg_aggro; }
 static int AgAny(void) { if (g_cfg_aggro) return 1; for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_aggro[s] && SlotAlive(s)) return 1; return 0; }
 #define AG_MAX (N3T_SLOTS + 1)
 // Live Training bosses: the session boss first, then every slot A, B, C ... (deduplicated). Every actor is checked against the live actor table.
