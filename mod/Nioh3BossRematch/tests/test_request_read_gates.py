@@ -150,7 +150,7 @@ setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
     source.write_text(code)
-    command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
+    command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /I"{ROOT / "src"}" /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=10)
