@@ -38,6 +38,7 @@
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
+#include "titlegate.h"
 #include "osd.h"
 #include "fnprobe.h"
 #include "mlprobe.h"
@@ -1536,6 +1537,14 @@ DWORD WINAPI Worker(LPVOID) {
         return 0;
     }
 
+    // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
+    if (known) {
+        if (HANDLE h = CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
+            Log("TITLEGATE v1: 100ms polling, stable >=1000ms; Enabled=0 logOnly=1");
+            for (;;) { titlegate::Tick((uintptr_t)g_base, &Log); Sleep(100); }
+        }, nullptr, 0, nullptr)) CloseHandle(h);
+        else Log("TITLEGATE: worker creation failed (%lu); Enabled=0", GetLastError());
+    }
     if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
 
     // PSO bytecode swap / shader dump (notes\gpu-post-exe.md): early, so the IAT slot swap beats the engine's device creation
