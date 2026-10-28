@@ -206,8 +206,21 @@ int main() {
     Change(kPageRow + pDisplay, 0);
     {
         const int n = PageRows(rows, true);
-        CHECK(g_pages.page == pDisplay && n == 11 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
-              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow && rows[9] == kAutoCont && rows[10] == kBackRow);
+        CHECK(g_pages.page == pDisplay && n == 12 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow &&
+              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kBackRow);
+    }
+    {   // 'Game HUD >' page: master Hide game HUD on top, then every per-element row once (hudhide::kElems), then Back
+        const int saved = g_pages.page;
+        g_pages.page = pOvHud;
+        const int n = PageRows(rows, true);
+        CHECK(n == 3 + 1 + hudhide::kElemN + 1 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
+        for (int e = 0; e < hudhide::kElemN; ++e) {
+            int seen = 0;
+            for (int r = 4; r < n - 1; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
+            CHECK(seen == 1);
+        }
+        g_pages.page = saved;
     }
     // FPS page: FPS rows and timing diagnostics, no performance rows
     g_pages.page = pOvFps;
