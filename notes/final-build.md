@@ -27,7 +27,8 @@ Validation:
 -74 save-helper tests;19 updater tests;11 hit-label tests;9 chain tests;2 corrected fallback tests.
 -14 move native tests including3 real files pass; action records reader validates11,476 rows,11,474 unambiguous aliases and2 conflicts safely rejected.
 - Full108-character generator reproduces committed TSV exactly;3,566 total hits by generic rule.
-- Installer/package tests and zip hash validation run after packaging; see logs in worktree.
+-29 installer/scrubber tests pass, including combined TSV delivery/settings preservation; packaged updater self-test passes. Zip checks every payload checksum and save defaults.
+- Regenerated TSV is text-identical; package uses canonical LF bytes shared by data and Training copies.
 
 Install for acceptance: close game and use included Install-Mod.cmd/install-mod.sh; installer backs up saves and preserves existing INIs. Test first on copied saves. Save-manager helper requires separately configured Python and paths and remains OFF. No auto-load live swap implemented.
 
@@ -37,4 +38,4 @@ SHA256 artifacts:
 - BossRematch: d43ea35bc41877f3360c51bf18ddf7e7429e1253805a707348ce7fe1a17a8931 (mod/Nioh3BossRematch/bin/Nioh3BossRematch.asi)
 - CamKiProbe (optional diagnostics): 7de9053dfe36171bc1c68198741356c4334c463a48f0af76367e5fd12c323854 (mod/Nioh3CamKiProbe/bin/Nioh3CamKiProbe.asi)
 - Updater: 8a6b57c81b6dd21ce7572e9b51493b288fca4879cad0eccc28d48ed5af6e53ee (updater-dist/Nioh3Updater.exe)
-- Action records: e772852f067d318840d4a92450f7b8fb9111826a5cd0fcb2b52697ce3728a502 (mod/Nioh3Training/Nioh3Training_action_records.tsv)
+- Action records: df217c86010f000ef759a36c7e865be6689b0eea934f9c9b2225d4fe262f2898 (mod/Nioh3Training/Nioh3Training_action_records.tsv)
