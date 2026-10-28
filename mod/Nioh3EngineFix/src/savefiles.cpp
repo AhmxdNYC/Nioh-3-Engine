@@ -14,6 +14,7 @@ void (*logfn)(const char*,...)=nullptr;Gate gate;uint64_t polled=0;
 std::wstring sandbox,helper,python,saveRoot;char note[200]="Copy-only test: choose a slot, then queue and quit normally.";
 HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 bool requestCancelled=false;
+bool liveEnabled=false,liveResetArmed=false,liveChild=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
 std::vector<std::string> slotNames;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
@@ -43,6 +44,7 @@ void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)
  realRoot=GetPrivateProfileIntW(L"SaveFiles",L"RealRoot",0,ini)!=0;
  saveRoot=Value(L"SaveRoot",L"",ini);
  probe=GetPrivateProfileIntW(L"SaveFiles",L"Probe",0,ini)!=0;
+ liveEnabled=GetPrivateProfileIntW(L"SaveFiles",L"LiveTitle",0,ini)!=0;liveHelper=Value(L"LiveHelper",L"",ini);liveResetArmed=false;liveChild=false;
  sandbox=Value(L"CopySandbox",L"",ini);helper=Value(L"Helper",L"",ini);python=Value(L"Python",L"",ini);
  // Byte check the game's exact top-mode predicate; never invoke it or patch it.
  static const unsigned char bytes[]={0x48,0x8b,0x15,0xe9,0x41,0x68,0x04,0x33,0xc0,0x48,0x85,0xd2,0x74,0x1c,0x4c,0x8b,0x42,0x08,0x4c,0x39,0x02,0x74,0x13,0x49,0x8b,0x50,0xf8,0x48,0x85,0xd2,0x74,0x0a,0x48,0x8b,0x01,0x48,0x39,0x42,0x08,0x0f,0x94,0xc0,0xc3};
@@ -60,7 +62,18 @@ void Poll(){
   logfn("SaveFilesGate: candidate=%d verdict=%d Enabled=%d readable=%d title=%d state=%u queueEmpty=%d loading=%d top=%p",allowed,(int)verdict,enabled,s.readable,s.title,s.state,s.queueEmpty,s.loading,(void*)s.top);
   lastVerdict=verdict;lastState=s.state;
  }
- if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);cancel.clear();}
+ if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
+  else snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);liveChild=false;cancel.clear();}
+ }
+ if(liveResetArmed){
+  // Native soft reset (RVA 1C205A4): one call, game's own fade/teardown; requires an idle title gate and no pending reset.
+  if(now-liveArmedAt>15000){liveResetArmed=false;snprintf(note,sizeof note,"Imported, but title not idle for reset. Choose Load Game.");return;}
+  if(!allowed||!ActionAllowed("live-soft-reset"))return;
+  liveResetArmed=false;
+  uintptr_t holder=0,app=0;uint8_t pend=1;
+  if(!Rd((uintptr_t)base+0x45B9E40,holder)||!Rd(holder,app)||!app||!Rd(app+0x279A,pend)||pend!=0){snprintf(note,sizeof note,"Imported, reset refused (game busy). Choose Load Game.");return;}
+  __try{reinterpret_cast<void(*)(void*)>((uintptr_t)base+0x1C205A4)(reinterpret_cast<void*>(holder));snprintf(note,sizeof note,"Imported; title reloading with the newest save.");if(logfn)logfn("SaveFiles: live soft reset requested (holder=%p app=%p)",(void*)holder,(void*)app);}
+  __except(EXCEPTION_EXECUTE_HANDLER){snprintf(note,sizeof note,"Soft reset faulted.");if(logfn)logfn("SaveFiles: soft reset FAULT");}
  }
 }
 bool Check(const char* action){
@@ -140,5 +153,21 @@ bool QueueNewBackup(){
  SYSTEMTIME t{};GetLocalTime(&t);char name[49];
  snprintf(name,sizeof name,"Backup-%04u%02u%02u-%02u%02u%02u-%03u",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond,t.wMilliseconds);
  return QueueNamed(name,true);
+}
+bool LiveAvailable(){return liveEnabled&&!liveHelper.empty()&&!sandbox.empty()&&!python.empty()&&!saveRoot.empty();}
+bool QueueLive(const char* name){
+ if(!LiveAvailable()||!ValidSlotName(name)||child||!ActionAllowed("live-import-request")){snprintf(note,sizeof note,"Unavailable: set LiveTitle=1, LiveHelper, SaveRoot, CopySandbox, Python; title must be idle.");return false;}
+ FILETIME created,exit,kernel,user;if(!GetProcessTimes(GetCurrentProcess(),&created,&exit,&kernel,&user))return false;
+ const unsigned long long stamp=((unsigned long long)created.dwHighDateTime<<32)|created.dwLowDateTime;
+ wchar_t token[96];swprintf(token,96,L"live-%lu-%llu-%llu",GetCurrentProcessId(),stamp,GetTickCount64());
+ cancel=sandbox+L"\cancel-"+token;
+ const std::string slot(name);const std::wstring wideSlot(slot.begin(),slot.end());
+ std::wstring cmd=Quote(python)+L" "+Quote(liveHelper)+L" --sandbox "+Quote(sandbox)+L" --save-root "+Quote(saveRoot)+L" --slot "+Quote(wideSlot)+L" --token "+Quote(token)+L" --pid "+std::to_wstring(GetCurrentProcessId())+L" --created "+std::to_wstring(stamp)+L" --make-newest";
+ STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
+ if(!ActionAllowed("live-import-dispatch")){snprintf(note,sizeof note,"Cancelled: title state changed.");cancel.clear();return false;}
+ requestCancelled=false;
+ if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
+ CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;snprintf(note,sizeof note,"Importing %s at the title...",name);
+ return true;
 }
 }

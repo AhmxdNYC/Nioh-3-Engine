@@ -17,6 +17,8 @@ int SlotCount();
 const char* SlotName(int index);
 bool QueueNamed(const char* name,bool backup,bool relaunch=false);
 bool QueueNewBackup();
+bool LiveAvailable();
+bool QueueLive(const char* name);
 bool Pending();
 void CancelPending();
 const char* Note();

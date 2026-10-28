@@ -31,6 +31,26 @@ def validate(blob, account):
     return {'savedAt': struct.unpack_from('<Q', header, 0x20)[0], 'sha256': hashlib.sha256(blob).hexdigest()}
 
 
+def restamp(blob, floor):
+    """Return blob with header savedAt (+0x20) strictly above floor so native newest-slot load picks it."""
+    import savecrypt
+    header = bytearray(savecrypt.xor(blob[:0x158], savecrypt.hdr_stream()))
+    if struct.unpack_from('<Q', header, 0x20)[0] > floor: return blob
+    struct.pack_into('<Q', header, 0x20, floor + 1)
+    return savecrypt.xor(bytes(header), savecrypt.hdr_stream()) + blob[0x158:]
+
+
+def newest_stamp(account_dir):
+    import savecrypt
+    best = 0
+    for i in range(50):
+        f = account_dir/f'SAVEDATA{i:02d}'/'SAVEDATA.BIN'
+        if f.is_file():
+            h = savecrypt.xor(f.read_bytes()[:0x158], savecrypt.hdr_stream())
+            if h[:6] == b'RNNUSR': best = max(best, struct.unpack_from('<Q', h, 0x20)[0])
+    return best
+
+
 def publish(stage, target):
     # Windows MoveFileW has no replace flag. POSIX rename can replace an empty
     # directory, so the production publication is deliberately Windows-only.
@@ -42,7 +62,7 @@ def publish(stage, target):
     if not k.MoveFileW(str(stage), str(target)): raise ctypes.WinError(ctypes.get_last_error())
 
 
-def run(workspace, root, slot, token, gate, *, source_slot=None, validator=validate, publisher=publish):
+def run(workspace, root, slot, token, gate, *, source_slot=None, validator=validate, publisher=publish, make_newest=False):
     manager = s.Slots(workspace); s.name_ok(slot); s.name_ok(token)
     root = s.plain(root)
     if root == root.parent or root == manager.root or root in manager.root.parents or manager.root in root.parents:
@@ -68,6 +88,8 @@ def run(workspace, root, slot, token, gate, *, source_slot=None, validator=valid
             if source_slot not in candidates: raise ValueError('Invalid source SAVEDATAnn')
             blob = (source/source_slot/'SAVEDATA.BIN').read_bytes()
             metadata = validator(blob, account); guard()
+            if make_newest:
+                blob = restamp(blob, newest_stamp(root/'Savedata'/account)); metadata = dict(metadata, restamped=True)
             if manager.verify(slot) != manifest: raise ValueError('Source snapshot changed')
             before = s.inventory(root)
             tx = manager.root/'transactions'/('live-'+uuid.uuid4().hex); tx.mkdir()
@@ -111,12 +133,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('sandbox', 'save-root', 'slot', 'token'): p.add_argument('--'+key, required=True)
     for key in ('pid', 'created'): p.add_argument('--'+key, type=int, required=True)
-    p.add_argument('--source-slot'); a = p.parse_args()
+    p.add_argument('--source-slot'); p.add_argument('--make-newest', action='store_true'); a = p.parse_args()
     from title_gate import Gate
     gate = None
     try:
         gate = Gate(a.pid, a.created)
-        print(json.dumps(run(a.sandbox, a.save_root, a.slot, a.token, gate, source_slot=a.source_slot))); return 0
+        print(json.dumps(run(a.sandbox, a.save_root, a.slot, a.token, gate, source_slot=a.source_slot, make_newest=a.make_newest))); return 0
     except Exception as e: print(json.dumps({'error':str(e)})); return 1
     finally:
         if gate: gate.close()
