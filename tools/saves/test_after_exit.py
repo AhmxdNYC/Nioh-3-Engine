@@ -9,7 +9,7 @@ class FakeGame:
     def exited(self):return self.code
     def close(self):pass
 class HelperTests(base.Tests):
-    def invoke(self,**kw):return h.run(self.root,123,456,'A','test','switch',game_factory=FakeGame,clear=lambda:True,**kw)
+    def invoke(self,**kw):return h.run(self.root,123,456,'A','test','switch',game_factory=FakeGame,others=lambda pid:True,clear=lambda:True,**kw)
     def test_helper_clean_exit(self):
         FakeGame.code=0;self.invoke();self.assertEqual(s.inventory(self.root/'current'),self.a)
         with self.assertRaises(FileExistsError):self.invoke()
@@ -23,11 +23,18 @@ class HelperTests(base.Tests):
         self.assertEqual(s.inventory(self.root/'current'),self.b)
     def test_helper_second_process(self):
         FakeGame.code=0
-        with self.assertRaises(ValueError):h.run(self.root,123,456,'A','test','switch',game_factory=FakeGame,clear=lambda:False)
+        with self.assertRaises(ValueError):h.run(self.root,123,456,'A','test','switch',game_factory=FakeGame,others=lambda pid:True,clear=lambda:False)
         self.assertEqual(s.inventory(self.root/'current'),self.b)
-    def test_helper_timeout(self):
+    def test_helper_waits_past_old_timeout(self):
         FakeGame.code=None;t=iter([0,121])
-        with self.assertRaises(ValueError):self.invoke(clock=lambda:next(t))
+        def advance(_):FakeGame.code=0
+        self.invoke(clock=lambda:next(t),sleep=advance)
+        self.assertEqual(s.inventory(self.root/'current'),self.a)
+    def test_helper_different_pid_while_alive(self):
+        FakeGame.code=None
+        with self.assertRaises(ValueError):
+            h.run(self.root,123,456,'A','different-pid','switch',game_factory=FakeGame,
+                  clear=lambda:True,others=lambda pid:False)
         self.assertEqual(s.inventory(self.root/'current'),self.b)
     def test_helper_no_write_while_alive(self):
         FakeGame.code=None

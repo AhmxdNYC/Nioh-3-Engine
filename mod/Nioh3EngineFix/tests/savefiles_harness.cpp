@@ -4,7 +4,9 @@
 #include <initializer_list>
 int checks=0,logs=0;
 char lastLog[2048]{};
-void Capture(const char* fmt,...){++logs;va_list ap;va_start(ap,fmt);vsnprintf(lastLog,sizeof lastLog,fmt,ap);va_end(ap);}
+uintptr_t* mutateState=nullptr;
+void Capture(const char* fmt,...){++logs;va_list ap;va_start(ap,fmt);vsnprintf(lastLog,sizeof lastLog,fmt,ap);va_end(ap);
+ if(mutateState&&strstr(lastLog,"action=switch-request")){*mutateState=10;mutateState=nullptr;}}
 #define CHECK(x) do{++checks;if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(){
  using namespace savefiles;
@@ -19,6 +21,9 @@ int main(){
  auto arm=[&](){const auto now=GetTickCount64();gate={};gate.tracking=true;gate.since=now-1000;gate.last=now;gate.manager=(uintptr_t)manager;gate.top=(uintptr_t)mode;polled=now;allowed=true;};
  CHECK(Ready(Read()));arm();CHECK(Allowed());CHECK(ActionAllowed("test-main"));CHECK(strstr(lastLog,"allow=1"));
  CHECK(!Queue(0,false));CHECK(!Queue(9,false));CHECK(!Queue(1,false)); // no helper config
+ sandbox=L"D:\\fake-sandbox";helper=L"D:\\fake-helper.pyz";python=L"D:\\fake-python.exe";
+ arm();mutateState=&mode[2];CHECK(!Queue(1,false));CHECK(strstr(lastLog,"switch-dispatch")&&strstr(lastLog,"allow=0"));
+ CHECK(!child);mode[2]=3;sandbox.clear();helper.clear();python.clear();
  enabled=false;arm();CHECK(!ActionAllowed("disabled"));enabled=true;
  auto deny=[&](){arm();return !ActionAllowed("deny")&&strstr(lastLog,"allow=0");};
  mode[6]=mode[7]=mode[8]=(uintptr_t)mode+0x30;mode[11]=0;CHECK(deny());

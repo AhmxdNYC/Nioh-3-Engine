@@ -10,5 +10,7 @@ void Poll();
 bool Allowed();
 bool ActionAllowed(const char* action);
 bool Queue(int slot,bool backup);
+bool Pending();
+void CancelPending();
 const char* Note();
 }

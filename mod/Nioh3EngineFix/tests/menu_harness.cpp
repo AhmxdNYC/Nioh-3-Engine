@@ -27,12 +27,14 @@ std::vector<uint32_t> drawnTextColor;
 float DrawText(float x, float y, const char* text, uint32_t color, float s) { drawnTextY.push_back(y);drawnTextColor.push_back(color);drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
 }
 namespace savefiles {
-bool testAllowed=false;int requests=0;
+bool testAllowed=false,testPending=false;int requests=0,cancels=0;
+bool Pending(){return testPending;}
+void CancelPending(){if(testPending){++cancels;testPending=false;}}
 void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
 void Poll(){} bool Allowed(){return testAllowed;}
 bool ActionAllowed(const char*){return testAllowed;}
 bool Queue(int,bool){if(!testAllowed)return false;++requests;return true;}
-const char* Note(){return "Copy-only test";}
+const char* Note(){return testPending?"Switch queued: copy slot1.":"Copy-only test: choose a slot, then queue and quit normally.";}
 }
 namespace updatecheck {
 std::string testNotice;
@@ -112,6 +114,12 @@ int main() {
       Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
       savefiles::testAllowed=false;Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
       savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      savefiles::testAllowed=false;savefiles::testPending=true;g_pages.Reset();
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
+      n=PageRows(rows,true);bool cancelFound=false;
+      for(int i=0;i<n;++i){cancelFound|=rows[i]==kSaveCancelRow;CHECK(rows[i]!=kSaveSwitchRow&&rows[i]!=kSaveBackupRow);}
+      CHECK(cancelFound);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      Change(kSaveCancelRow,0);CHECK(!savefiles::testPending&&savefiles::cancels==1);
       savefiles::testAllowed=false;g_pages.Reset();g_saveConfirm=0;
     }
 
@@ -699,6 +707,10 @@ int main() {
     if(GetEnvironmentVariableA("N3_Y_CLOSE_PREVIEW",previewBase,sizeof previewBase)){
       for(int previewStyle=0;previewStyle<2;++previewStyle){
         g_open=true;g_rematchPage=false;g_cfg.layout=0;g_pages.Reset();g_sel=kPageRow+pDisplay;menu_style::g_btnStyle=previewStyle;
+        if(GetEnvironmentVariableA("N3_SAVE_PREVIEW",nullptr,0)){
+          savefiles::testAllowed=true;savefiles::testPending=previewStyle==1;
+          EnterPage(pSaveFiles);g_sel=previewStyle==1?kSaveCancelRow:kSaveSwitchRow;
+        }
         osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextScale.clear();osd::drawnTextColor.clear();
         DrawImpl(1920,1080);char path[1100];snprintf(path,sizeof path,"%s-%d.tsv",previewBase,previewStyle);
         FILE* f=nullptr;fopen_s(&f,path,"w");CHECK(f);

@@ -1055,7 +1055,8 @@ int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if(g_pages.page==pSaveFiles){
-        if(savefiles::Allowed()){add(kSaveSlotRow);add(kSaveBackupRow);add(kSaveSwitchRow);}
+        if(savefiles::Pending())add(kSaveCancelRow);
+        else if(savefiles::Allowed()){add(kSaveSlotRow);add(kSaveBackupRow);add(kSaveSwitchRow);}
         add(kBackRow);return n;
     }
     if (!g_cfg.layout) {
@@ -1161,7 +1162,7 @@ int PageRows(int* out, bool selectable) {
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
-    if (g_pages.page == pRoot && savefiles::Allowed()) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
+    if (g_pages.page == pRoot && (savefiles::Pending()||savefiles::Allowed())) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     return n;
 }
@@ -1759,9 +1760,10 @@ void ChangeCamera(int which, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
-    if(id==kSaveFilesRow){if(!dir&&savefiles::ActionAllowed("open-menu")){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id==kSaveFilesRow){if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id==kSaveCancelRow){if(!dir){savefiles::CancelPending();g_saveConfirm=0;}return;}
     if(id>=kSaveSlotRow&&id<=kSaveSwitchRow){
-        if(!savefiles::ActionAllowed(id==kSaveSlotRow?"select-slot":id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
+        if(savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveSlotRow?"select-slot":id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
         if(id==kSaveSlotRow){g_saveSlot=1+menu_nav::Wrap(g_saveSlot-1,dir?dir:1,8);g_saveConfirm=0;return;}
         if(dir)return;
         const auto now=Now();
@@ -2294,7 +2296,7 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
 
 void OnPresentImpl() {
     savefiles::Poll();
-    if(g_pages.page==pSaveFiles&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
+    if(g_pages.page==pSaveFiles&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
     const bool rematchReady = RefreshRematchHost(t);
@@ -2874,9 +2876,9 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
-        if(id>=kSaveFilesRow&&id<=kSaveSwitchRow){
+        if(id>=kSaveFilesRow&&id<=kSaveCancelRow){
             if(id==g_sel)selRow=nb;
-            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up after Quit":"Switch after Quit";
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up after Quit":id==kSaveCancelRow?"Cancel queued save":"Switch after Quit";
             char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
             if(id==kSaveSlotRow)snprintf(value,sizeof value,"slot%d",g_saveSlot);
             put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
@@ -3034,9 +3036,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
-    } else if(g_sel>=kSaveFilesRow&&g_sel<=kSaveSwitchRow){
-        snprintf(what,sizeof what,"%s",savefiles::Note());
-        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Copy-only prototype. Applies after normal exit; entering gameplay cancels.");
+    } else if(g_sel>=kSaveFilesRow&&g_sel<=kSaveCancelRow){
+        snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":savefiles::Note());
+        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"A verified backup is required before any switch.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
@@ -3101,6 +3103,7 @@ float DrawImpl(unsigned W, unsigned H) {
         effect[0] = 0;
     }
     addT("", cWhite, true);
+    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT("Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
