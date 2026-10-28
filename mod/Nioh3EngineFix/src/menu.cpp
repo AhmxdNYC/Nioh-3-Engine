@@ -1050,13 +1050,18 @@ int SetGroup(int id) {
     return -1;
 }
 
-int g_saveSlot=1,g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
+std::string g_saveName;int g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
-    if(g_pages.page==pSaveFiles){
+    if(g_pages.page==pSaveFiles||g_pages.page==pSaveActions){
         if(savefiles::Pending())add(kSaveCancelRow);
-        else if(savefiles::Allowed()){add(kSaveSlotRow);add(kSaveBackupRow);add(kSaveSwitchRow);}
+        else if(savefiles::Allowed()){
+            if(g_pages.page==pSaveFiles){
+                for(int i=0;i<savefiles::SlotCount();++i)add(kSaveNamedFirst+i);
+                add(kSaveBackupRow);add(kSaveRefreshRow);
+            }else if(!g_saveName.empty()){add(kSaveSwitchRow);add(kSaveRelaunchRow);}
+        }
         add(kBackRow);return n;
     }
     if (!g_cfg.layout) {
@@ -1760,15 +1765,29 @@ void ChangeCamera(int which, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
-    if(id==kSaveFilesRow){if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id==kSaveFilesRow){
+        if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){
+            g_saveConfirm=0;g_saveName.clear();if(!savefiles::Pending())savefiles::RefreshSlots();EnterPage(pSaveFiles);
+        }return;
+    }
     if(id==kSaveCancelRow){if(!dir){savefiles::CancelPending();g_saveConfirm=0;}return;}
-    if(id>=kSaveSlotRow&&id<=kSaveSwitchRow){
-        if(savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveSlotRow?"select-slot":id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
-        if(id==kSaveSlotRow){g_saveSlot=1+menu_nav::Wrap(g_saveSlot-1,dir?dir:1,8);g_saveConfirm=0;return;}
-        if(dir)return;
+    if(id>=kSaveNamedFirst&&id<kSaveNamedFirst+savefiles::kMaxSlots){
+        if(!dir&&!savefiles::Pending()&&savefiles::ActionAllowed("select-named-save")){
+            const char* name=savefiles::SlotName(id-kSaveNamedFirst);
+            if(*name){g_saveName=name;g_saveConfirm=0;EnterPage(pSaveActions);}
+        }return;
+    }
+    if(id==kSaveRefreshRow){if(!dir&&!savefiles::Pending()){savefiles::RefreshSlots();g_saveConfirm=0;}return;}
+    if(id==kSaveBackupRow||id==kSaveSwitchRow||id==kSaveRelaunchRow){
+        if(dir||savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveBackupRow?"confirm-backup":id==kSaveRelaunchRow?"switch-relaunch":"confirm-switch")){g_saveConfirm=0;return;}
+        // The dedicated relaunch action is one activation; normal backup/switch retain confirmation.
+        if(id==kSaveRelaunchRow){if(!g_saveName.empty())savefiles::QueueNamed(g_saveName.c_str(),false,true);g_saveConfirm=0;return;}
         const auto now=Now();
-        if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){savefiles::Queue(g_saveSlot,id==kSaveBackupRow);g_saveConfirm=0;}
-        else{g_saveConfirm=id;g_saveConfirmAt=now;}
+        if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){
+            if(id==kSaveBackupRow)savefiles::QueueNewBackup();
+            else if(!g_saveName.empty())savefiles::QueueNamed(g_saveName.c_str(),false);
+            g_saveConfirm=0;
+        }else{g_saveConfirm=id;g_saveConfirmAt=now;}
         return;
     }
     if (id == kRematchRow || id == kPracticeRow) {
@@ -2296,7 +2315,7 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
 
 void OnPresentImpl() {
     savefiles::Poll();
-    if(g_pages.page==pSaveFiles&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
+    if((g_pages.page==pSaveFiles||g_pages.page==pSaveActions)&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
     const bool rematchReady = RefreshRematchHost(t);
@@ -2876,11 +2895,16 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
-        if(id>=kSaveFilesRow&&id<=kSaveCancelRow){
+        if(id>=kSaveNamedFirst&&id<kSaveNamedFirst+savefiles::kMaxSlots){
             if(id==g_sel)selRow=nb;
-            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up after Quit":id==kSaveCancelRow?"Cancel queued save":"Switch after Quit";
+            char text[96];snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",savefiles::SlotName(id-kSaveNamedFirst));
+            put(body,nb,128,text,"",menu_style::PadWord("A: choose","Cross: choose"),cWhite,cCyan,id==g_sel,false);continue;
+        }
+        if(id>=kSaveFilesRow&&id<=kSaveRefreshRow){
+            if(id==g_sel)selRow=nb;
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveRelaunchRow?"Switch and relaunch":"Switch after Quit";
             char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
-            if(id==kSaveSlotRow)snprintf(value,sizeof value,"slot%d",g_saveSlot);
+
             put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
         }
         if (id == kUpdatePageRow) {
@@ -3036,9 +3060,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
-    } else if(g_sel>=kSaveFilesRow&&g_sel<=kSaveCancelRow){
+    } else if(g_sel>=kSaveFilesRow&&g_sel<kSaveNamedFirst+savefiles::kMaxSlots){
         snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":savefiles::Note());
-        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"A verified backup is required before any switch.");
+        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Relaunch requests a clean close, then switches and starts Steam.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
@@ -3103,6 +3127,7 @@ float DrawImpl(unsigned W, unsigned H) {
         effect[0] = 0;
     }
     addT("", cWhite, true);
+    if(g_pages.page==pSaveActions&&!g_saveName.empty())addT(g_saveName.c_str(),cCyan);
     if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT("Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);

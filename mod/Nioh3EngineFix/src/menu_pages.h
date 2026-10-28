@@ -35,7 +35,11 @@ constexpr int kSaveSlotRow = kSaveFilesRow + 1;
 constexpr int kSaveBackupRow = kSaveSlotRow + 1;
 constexpr int kSaveSwitchRow = kSaveBackupRow + 1;
 constexpr int kSaveCancelRow = kSaveSwitchRow + 1;
-constexpr int kMenuRowCap = kSaveCancelRow + 1;
+constexpr int pSaveActions = -3;
+constexpr int kSaveRelaunchRow = kSaveCancelRow + 1;
+constexpr int kSaveRefreshRow = kSaveRelaunchRow + 1;
+constexpr int kSaveNamedFirst = kSaveRefreshRow + 1;
+constexpr int kMenuRowCap = kSaveNamedFirst + savefiles::kMaxSlots;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
@@ -49,6 +53,7 @@ const char* const kPageNames[] = {"Mod menu", "Optimizations", "Display Overlays
     "Controller overlay settings", "Frame meter settings", "Input display", "FPS", "Camera settings", "CPU", "GPU", "Game"};
 inline const char* PageName(int page) {
     if (page == pSaveFiles) return "Save files";
+    if (page == pSaveActions) return "Selected save";
     return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }
 inline int SettingsPage(int id) {

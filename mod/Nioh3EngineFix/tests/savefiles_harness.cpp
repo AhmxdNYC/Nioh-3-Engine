@@ -18,6 +18,8 @@ int main(){
  manager[0]=(uintptr_t)stack;manager[1]=(uintptr_t)(stack+1);stack[0]=(uintptr_t)mode;
  mode[1]=(uintptr_t)base+0x44C91D0;mode[2]=3;mode[6]=100;mode[7]=200;mode[8]=300;mode[11]=1;
  known=true;enabled=true;logfn=&Capture;
+ CHECK(ValidSlotName("Yoritomo Practice"));CHECK(ValidSlotName("New Game"));
+ for(const char* name:{"../escape","A/B","CON","com1","bad "," bad","","A\"B"})CHECK(!ValidSlotName(name));
  auto arm=[&](){const auto now=GetTickCount64();gate={};gate.tracking=true;gate.since=now-1000;gate.last=now;gate.manager=(uintptr_t)manager;gate.top=(uintptr_t)mode;polled=now;allowed=true;};
  CHECK(Ready(Read()));arm();CHECK(Allowed());CHECK(ActionAllowed("test-main"));CHECK(strstr(lastLog,"allow=1"));
  CHECK(!Queue(0,false));CHECK(!Queue(9,false));CHECK(!Queue(1,false)); // no helper config

@@ -78,8 +78,13 @@ class Tests(unittest.TestCase):
             with self.assertRaises(FileExistsError):self.m.switch('A')
         self.assertEqual(s.inventory(self.root/'current'),self.b)
     def test_bad_names(self):
-        for name in ['../escape','A/B','C:\\x','','.', 'a'*49]:
+        for name in ['../escape','A/B','C:\\x','','.', 'a'*49,' trailing','trailing ','CON','com1','NUL']:
             with self.assertRaises(ValueError):self.m.snapshot(name)
+    def test_named_save_with_spaces(self):
+        self.m.snapshot('Yoritomo Practice')
+        self.assertEqual(self.m.verify('Yoritomo Practice')['tree'],self.b)
+        self.m.switch('A');self.m.switch('Yoritomo Practice')
+        self.assertEqual(s.inventory(self.root/'current'),self.b)
     def test_init_existing_refused(self):
         with self.assertRaises(FileExistsError):s.init(self.root)
     def test_installed_paths_refused(self):
