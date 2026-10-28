@@ -10,6 +10,14 @@ void Capture(const char* fmt,...){++logs;va_list ap;va_start(ap,fmt);vsnprintf(l
 #define CHECK(x) do{++checks;if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(){
  using namespace savefiles;
+ // Configure defaults are enabled; explicit user opt-out must still win.
+ wchar_t configDir[MAX_PATH]{},configPath[MAX_PATH]{};
+ CHECK(GetTempPathW(MAX_PATH,configDir));CHECK(GetTempFileNameW(configDir,L"n3d",0,configPath));
+ Configure(nullptr,false,configPath,nullptr);CHECK(enabled);CHECK(liveEnabled);
+ CHECK(WritePrivateProfileStringW(L"SaveFiles",L"Enabled",L"0",configPath));
+ CHECK(WritePrivateProfileStringW(L"SaveFiles",L"LiveTitle",L"0",configPath));
+ Configure(nullptr,false,configPath,nullptr);CHECK(!enabled);CHECK(!liveEnabled);
+ CHECK(DeleteFileW(configPath));
  base=(uint8_t*)VirtualAlloc(nullptr,0x4800000,MEM_COMMIT|MEM_RESERVE,PAGE_READWRITE);CHECK(base);
  uintptr_t manager[8]{},mode[12]{},stack[1]{},messages[25]{};unsigned char gm[0x600]{};
  *(uintptr_t*)(base+0x4709B50)=(uintptr_t)manager;

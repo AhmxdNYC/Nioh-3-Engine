@@ -40,11 +40,11 @@ void Cancel(){if(cancel.empty())return;HANDLE f=CreateFileW(cancel.c_str(),GENER
  else {if(logfn)logfn("SaveFiles: cancel marker failed (%lu); terminating waiting helper",GetLastError());if(child)TerminateProcess(child,1);}}
 }
 void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)){
- base=b;known=k;logfn=log;enabled=GetPrivateProfileIntW(L"SaveFiles",L"Enabled",0,ini)!=0;
+ base=b;known=k;logfn=log;enabled=GetPrivateProfileIntW(L"SaveFiles",L"Enabled",1,ini)!=0;
  realRoot=GetPrivateProfileIntW(L"SaveFiles",L"RealRoot",0,ini)!=0;
  saveRoot=Value(L"SaveRoot",L"",ini);
  probe=GetPrivateProfileIntW(L"SaveFiles",L"Probe",0,ini)!=0;
- liveEnabled=GetPrivateProfileIntW(L"SaveFiles",L"LiveTitle",0,ini)!=0;liveHelper=Value(L"LiveHelper",L"",ini);liveResetArmed=false;liveChild=false;
+ liveEnabled=GetPrivateProfileIntW(L"SaveFiles",L"LiveTitle",1,ini)!=0;liveHelper=Value(L"LiveHelper",L"",ini);liveResetArmed=false;liveChild=false;
  sandbox=Value(L"CopySandbox",L"",ini);helper=Value(L"Helper",L"",ini);python=Value(L"Python",L"",ini);
  // Byte check the game's exact top-mode predicate; never invoke it or patch it.
  static const unsigned char bytes[]={0x48,0x8b,0x15,0xe9,0x41,0x68,0x04,0x33,0xc0,0x48,0x85,0xd2,0x74,0x1c,0x4c,0x8b,0x42,0x08,0x4c,0x39,0x02,0x74,0x13,0x49,0x8b,0x50,0xf8,0x48,0x85,0xd2,0x74,0x0a,0x48,0x8b,0x01,0x48,0x39,0x42,0x08,0x0f,0x94,0xc0,0xc3};
