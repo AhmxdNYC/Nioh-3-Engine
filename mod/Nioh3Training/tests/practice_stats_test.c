@@ -233,6 +233,38 @@ int main(void) {
         assert(PstHoldV2Writes(-200.0f, 300.0f, 10.0f, 50.0f, 5.0f) == 0 && PstHoldV2Writes(-200.0f, 300.0f, 10.0f, 50.0f, 0.0f / 0.0f) == 0);
         assert(PstHoldV2Writes(5.0f, 5.0f, 0.0f, 0.0f, 0.0f) == 3);
     }
+    {   // #43283 Boss Match: gate dummy mutations, keep the saved preference, leave read-only overlays on.
+        PstCfg pref; PstDefaults(&pref);
+        pref.v[PS_HOLD_KI_BREAK] = 1; pref.v[PS_ONE_HIT_KI] = 1; pref.v[PS_HOLD_KI_V2] = 1;
+        pref.v[PS_BOSS_KI_DRAIN] = 50; pref.v[PS_KI_FLOOR] = 300; pref.v[PS_BOSS_SPEED] = 50;
+        pref.v[PS_KI_LOG] = 1; pref.v[PS_FRAME_METER] = 1; pref.v[PS_NEG_KI_METER] = 1; pref.v[PS_PLAYER_SPEED] = 50;
+        const int match = 1;
+        assert(PstBossMatchEffective(PS_HOLD_KI_BREAK, pref.v[PS_HOLD_KI_BREAK], match) == 0);
+        assert(PstBossMatchEffective(PS_ONE_HIT_KI, pref.v[PS_ONE_HIT_KI], match) == 0);
+        assert(PstBossMatchEffective(PS_HOLD_KI_V2, pref.v[PS_HOLD_KI_V2], match) == 0);
+        assert(PstBossMatchEffective(PS_BOSS_KI_DRAIN, pref.v[PS_BOSS_KI_DRAIN], match) == 0);
+        assert(PstBossMatchEffective(PS_KI_FLOOR, pref.v[PS_KI_FLOOR], match) == 100);
+        assert(PstBossMatchEffective(PS_BOSS_SPEED, pref.v[PS_BOSS_SPEED], match) == 100);
+        assert(PstBossMatchEffective(PS_KI_LOG, pref.v[PS_KI_LOG], match) == 1);
+        assert(PstBossMatchEffective(PS_FRAME_METER, pref.v[PS_FRAME_METER], match) == 1);
+        assert(PstBossMatchEffective(PS_NEG_KI_METER, pref.v[PS_NEG_KI_METER], match) == 1);
+        assert(PstBossMatchEffective(PS_PLAYER_SPEED, pref.v[PS_PLAYER_SPEED], match) == 50);
+        for (int i = 0; i < PS_N; ++i) assert(PstBossMatchSaved(i, pref.v[i], match) == pref.v[i]);
+        // new match with a hold already on: release it. A second tick does not start another.
+        const int on = PstBossMatchEffective(PS_HOLD_KI_BREAK, 1, 1);
+        assert(PstHoldBreakStep(on, 1, 0, 1, 1) == PS_HB_RELEASE);
+        assert(PstHoldBreakStep(on, 1, 0, 1, 0) == PS_HB_NONE);
+        // repeated start keeps the same gate and the same saved values
+        assert(PstBossMatchEffective(PS_ONE_HIT_KI, pref.v[PS_ONE_HIT_KI], 1) == 0);
+        assert(PstBossMatchSaved(PS_ONE_HIT_KI, pref.v[PS_ONE_HIT_KI], 1) == 1);
+        assert(PstKiDmg(1, 0, 1, 100, PstBossMatchEffective(PS_ONE_HIT_KI, 1, 1), 0, 1760.0f, 10.0f) == 10.0f);
+        // end -> Practice: the stored toggle applies again, including a fresh hold
+        assert(PstBossMatchEffective(PS_HOLD_KI_BREAK, 1, 0) == 1);
+        assert(PstBossMatchEffective(PS_ONE_HIT_KI, 1, 0) == 1);
+        assert(PstHoldBreakStep(PstBossMatchEffective(PS_HOLD_KI_BREAK, 1, 0), 1, 0, 1, 0) == PS_HB_START);
+        const float oh = PstKiDmg(1, 0, 1, 100, 1, 0, 1760.0f, 10.0f);
+        assert(oh > 1760.0f);
+    }
     puts("practice_stats_test: all passed");
     return 0;
 }

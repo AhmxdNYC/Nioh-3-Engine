@@ -83,6 +83,8 @@ static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
 // Boss speed (notes/boss-speed-lever-22389.md): entry hook on ComputeMotionSpeed 134E68(ctrl, dl layer, r8b flag) -> xmm0; [ctrl+0xE0] is the actor.
 // Only a Training/Rematch boss (BvActor) gets native * pct / 100; everyone else and 100 % pass through. Takes effect at the boss's next motion start / layer refresh.
 typedef float (*PstSpdFn)(uint64_t, uint8_t, uint8_t); static PstSpdFn o_pstspd; static volatile LONG g_pst_spd_hooked, g_pst_spd_logs;
+// #43283: a Boss Match is a Training session that is not Practice. g_bmd_on is the wrong flag: a loot or no-finisher menu change clears it. This never writes g_pst.v.
+static int PstBossMatchOn(void) { return g_tr.active && !g_tr.practice; }
 static __attribute__((noinline)) int PstIsBossActor(uint64_t a) {
     if (!a) return 0;
     for (int s = 0; s < N3T_SLOTS; ++s) if (BvActor(s) == a) return 1;
@@ -90,7 +92,7 @@ static __attribute__((noinline)) int PstIsBossActor(uint64_t a) {
 }
 static float PstSpdDetour(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     const float r = o_pstspd(ctrl, layer, flag);
-    const int bp = g_pst.v[PS_BOSS_SPEED], pp = g_pst.v[PS_PLAYER_SPEED];
+    const int bp = PstBossMatchEffective(PS_BOSS_SPEED, g_pst.v[PS_BOSS_SPEED], PstBossMatchOn()), pp = g_pst.v[PS_PLAYER_SPEED];
     if ((bp == 100 && pp == 100) || !g_pst_live) return r;
     uint64_t a = 0;
     if (!Rd64(ctrl + 0xE0, &a) || !a) return r;
@@ -133,14 +135,14 @@ static void KfRefresh(int live) {
 }
 // effective floor of K for a given stock value: KiFloorDepth for a Training boss while the hook is on, else stock
 static __attribute__((noinline)) float KfEffective(uint64_t K, float stock) {
-    const int pct = g_pst.v[PS_KI_FLOOR];
+    const int pct = PstBossMatchEffective(PS_KI_FLOOR, g_pst.v[PS_KI_FLOOR], PstBossMatchOn());
     if (g_kf_hooked != 1 || pct == 100 || !g_pst_live || KfBossSlot(K) < 0) return stock;
     float mx = 0.0f; __try { mx = *(volatile float*)(K + 0x18); } __except (EXCEPTION_EXECUTE_HANDLER) { return stock; }
     return PstKiFloor(stock, mx, pct, 1);
 }
 static float KfFloor(uint64_t K) {  // called by the stub instead of KiFloor 2F89C8, K = the caller's rbx
     const float stock = ((float (*)(void))(B + 0x2F89C8))();
-    if (g_pst.v[PS_KI_FLOOR] == 100 || !g_pst_live) return stock;
+    if (PstBossMatchEffective(PS_KI_FLOOR, g_pst.v[PS_KI_FLOOR], PstBossMatchOn()) == 100 || !g_pst_live) return stock;
     const float r = KfEffective(K, stock);
     if (r != stock && InterlockedIncrement(&g_kf_logs) <= 10) Log("PRACTICE Ki floor depth %d %%: Training boss K %p floor %.1f -> %.1f", g_pst.v[PS_KI_FLOOR], (void*)K, stock, r);
     return r;
@@ -236,7 +238,7 @@ static __attribute__((noinline)) void KlHit(uint64_t K, float amt0, float amt, f
 // so the same hit crosses 0 = the native break (the NOFIN prime 0.5 relies on the same crossing, live #9319). Infinite boss Ki wins (no forced break).
 typedef uint8_t (*PstKiFn)(uint64_t, float); static volatile LONG g_pst_ki_hooked, g_pst_ki_logs;  // 0 not tried, 1 on, 2 failed
 static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_t hit) {
-    const int kd = g_pst.v[PS_KI_DEALT], one = g_pst.v[PS_ONE_HIT_KI], dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
+    const int kd = g_pst.v[PS_KI_DEALT], one = PstBossMatchEffective(PS_ONE_HIT_KI, g_pst.v[PS_ONE_HIT_KI], PstBossMatchOn()), dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
     if (!g_pst_live || (kd == 100 && !one && dealt == 100 && boss == 100) || !K || !hit || !g_pst_atk_ok) return amt;
     uint64_t me = PlayerChar(), pst = 0; if (me) Rd64(me + 0x3A0, &pst);
     const uint64_t atk = ((uint64_t (*)(uint64_t))(B + 0x325F40))(hit);
@@ -370,7 +372,7 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
     if (g_pst_hb[s].a == a && g_pst_hb[s].v2 != v2) { PstHbRelease(s, dead, "hold method changed (HoldKiBreakV2)"); return; }  // re-held next tick with the new method
     const int held = g_pst_hb[s].a == a, act = PstHoldBreakStep(on, g_pst_live != 0, dead, PstHoldIsBroken(s23, exh, kc, km, g_pst_hb[s].a == a) && !window, held);
     if (act == PS_HB_NONE) return;
-    if (act == PS_HB_RELEASE) { PstHbRelease(s, dead, !on ? "toggle OFF" : dead ? "boss died" : window ? "HP-0 window" : "break ended by the game"); return; }
+    if (act == PS_HB_RELEASE) { PstHbRelease(s, dead, !on ? (PstBossMatchOn() ? "Boss Match" : "toggle OFF") : dead ? "boss died" : window ? "HP-0 window" : "break ended by the game"); return; }
     const DWORD now = GetTickCount();
     if (act == PS_HB_START) {
         memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]); g_pst_hb[s].a = a; g_pst_hb[s].t0 = now;
@@ -532,8 +534,15 @@ static void PstTick(void) {
     if (g_pst.v[PS_KI_FLOOR] != 100 && !g_kf_hooked) KfHookInstall();  // user #23013 Ki floor depth (first non-stock value; stays installed, 100 = stock pass-through)
     if (g_pst.v[PS_PLAYER_INF_NIN]) PstPlayerNin();
     if (g_pst.v[PS_PLAYER_INF_KI]) PstPlayerKi();
-    if (g_pst.v[PS_BOSS_KI_DRAIN] > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
-    for (int s = 0; s < N3T_SLOTS; ++s) if (g_pst.v[PS_HOLD_KI_BREAK] || g_pst_hb[s].a) PstHoldBreak(s, g_pst.v[PS_HOLD_KI_BREAK]);  // user #22918
+    {   // #43283: Boss Match applies dummy mutations as off. g_pst.v stays the saved preference, so PstSaveThread cannot persist the gate.
+        const int drain = PstBossMatchEffective(PS_BOSS_KI_DRAIN, g_pst.v[PS_BOSS_KI_DRAIN], PstBossMatchOn());
+        const int holdOn = PstBossMatchEffective(PS_HOLD_KI_BREAK, g_pst.v[PS_HOLD_KI_BREAK], PstBossMatchOn());
+        static int bmTold;
+        if (PstBossMatchOn() && !bmTold) { bmTold = 1; Log("BOSS MATCH practice gate: HoldKiBreak %d and OneHitKiBreak %d stay saved, applied off", g_pst.v[PS_HOLD_KI_BREAK], g_pst.v[PS_ONE_HIT_KI]); }
+        if (!PstBossMatchOn()) bmTold = 0;
+        if (drain > 0) for (int s = 0; s < N3T_SLOTS; ++s) PstBossDrain(s, dt);
+        for (int s = 0; s < N3T_SLOTS; ++s) if (holdOn || g_pst_hb[s].a) PstHoldBreak(s, holdOn);  // user #22918; on=0 releases a hold left over from Practice
+    }
     if (g_pst.v[PS_KI_LOG]) for (int s = 0; s < N3T_SLOTS; ++s) KlTick(s);  // user #23013 (after the hold, so a held tick logs the written values)
 }
 // Reset fight: returns a bit mask (0 = nothing to do: no Practice session and no Training boss). 1 = boss(es) refilled, 2 = boss position put back queued,

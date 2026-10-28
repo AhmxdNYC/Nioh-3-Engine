@@ -177,6 +177,17 @@ static inline int PstHoldV2Writes(float cur, float k60, float k58, float k5c, fl
 }
 // Release: give the AI back only if the hold switched it off (aiWas = 1 when held), it is still off now, and the boss is alive.
 static inline int PstHoldAiRestore(int weTurnedOff, int aiNow, int dead) { return weTurnedOff && aiNow == 0 && !dead; }
+// Boss Match (#43283): a CPU fight must not keep a Practice dummy mutation. The stored [Practice] value is what the
+// player chose and what an overlay save writes. The effective value is what the hooks apply. Read-only overlays
+// (Ki log, frame meter, negative-Ki meter) stay as stored. Gating never writes the ini.
+static inline int PstBossMatchMutates(int what) {
+    return what == PS_ONE_HIT_KI || what == PS_HOLD_KI_BREAK || what == PS_HOLD_KI_V2 || what == PS_BOSS_KI_DRAIN || what == PS_KI_FLOOR || what == PS_BOSS_SPEED;
+}
+static inline int PstBossMatchNeutral(int what) { return what == PS_KI_FLOOR || what == PS_BOSS_SPEED ? 100 : 0; }
+static inline int PstBossMatchEffective(int what, int stored, int bossMatch) {
+    return bossMatch && PstBossMatchMutates(what) ? PstBossMatchNeutral(what) : stored;
+}
+static inline int PstBossMatchSaved(int what, int stored, int bossMatch) { (void)what; (void)bossMatch; return stored; }
 // user #22942 Time of day / Weather (notes/training-time-of-day-22942.md). S = the active RenderConfig ([[B+0x4751490]]->+0x28 = GetActiveSessionObj
 // 164188), the r8 of RenderFrameSettingsApply 39B570; the game does not advance the clock (TimeSpanPerDay ~1e20 s, AutoDateTimeStepType 0 every frame).
 // SkylightDateTime S+0xB0 = fraction of a day (0.5 = noon), read by SkySunMoonDirections 5EBD08 as max(+B0, 0); it is not clamped above 1, so keep < 1.
