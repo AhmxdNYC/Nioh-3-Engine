@@ -1,5 +1,20 @@
 # Live title import helper (42091)
 
+## Updated acceptance requirement (human via pc 42175)
+
+The title screen must display the selected save's character after switching,
+inside the same running process. Importing a slot and asking the player to use
+Load is not sufficient acceptance. This helper is only the file-import component;
+it does not refresh the title model or complete the requested live switch.
+
+Remaining integration needs a verified native load of the selected profile and
+a verified rebuild of the title/profile display. Do not assume an op3 request
+selects the imported profile: it chooses the newest savedAt. Do not call the
+deserializer directly or assume completion alone rebuilds the title model.
+The static trace identifies TitleMode post-load step 1572AA0 as an unresolved
+candidate, not a proven refresh API. pc owns runtime proof: selected character
+appears at title without exiting, followed by correct Continue/Load and autosave.
+
 Branch `cx-pc/live-title-42091`, based on named-save picker `b014da5c`.
 Uses Plan A from `pc/save-reload-trace-42007` (`4a2eb159`). Offline only;
 pc owns native acceptance and installed saves. This is a separate helper, not
