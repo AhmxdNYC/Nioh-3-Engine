@@ -1,0 +1,1 @@
+- 2026-10-28 | Combined final candidate | Combine approved menu, ring and Boss Match fixes | 3 ASIs built; bundle3299; offline regressions pass incl64 settings cases and31 release tests; live acceptance remains pc-owned.

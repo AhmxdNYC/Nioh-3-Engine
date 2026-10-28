@@ -39,3 +39,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-10-28 7:18 AM EDT | cxl-pc2 mode-reopen43395 delivered offline; cxl-pc integration/runtime owner. No game lease. Prior glyph strict MSVC checks PASS warning-free43616.
 2026-10-28 7:20 AM EDT | cxl-pc2 Start-home43409 complete offline; no-boss pause remains assigned per43626; no game lease.
 2026-10-28 7:25 AM EDT | cxl-pc2 no-boss pause implementation done, compiler validation pending; cxl-pc integrates all3 behavior fixes, pc runtime owner. No game lease.
+2026-10-28 7:43 AM Eastern cxl-pc: #43548 merge/build complete, pc owns installation and runtime acceptance of3299. No cxl-pc game ownership; source branch cxl-pc/no-relaunch-43116 fa006a97.
