@@ -143,6 +143,27 @@ static void Pixels(int w,int H,int size) {
     const int y=FmPositionY(H,c.h,-1);CHECK(y>=0 && y+c.h<=H);
     Drop(&c);
 }
+static void CompactPanel(void) {
+    Seed();g_pst.v[PS_FRAME_STYLE]=1;
+    Canvas c=Make(1920,FmDrawHeight(1920,1080));
+    Draw(&c,1080);
+    int left=c.w,right=-1,tl=c.w,tr=-1;
+    for(int y=0;y<c.h;++y)for(int x=0;x<c.w;++x) {
+        const unsigned a=c.bits[y*c.w+x]>>24;
+        if(a){if(x<left)left=x;if(x>right)right=x;}
+        if(y<20 && a>FM_BG_ALPHA){if(x<tl)tl=x;if(x>tr)tr=x;}
+    }
+    CHECK(right-left+1<1100); // no inherited 120-cell-wide row background
+    CHECK(abs(left+right-(c.w-1))<=1);
+    CHECK(tr>=tl && abs(tl+tr-(c.w-1))<12); // header centered on the rings
+    g_pst.v[PS_FRAME_READOUT]=0;g_pst.v[PS_FRAME_LEGEND]=0;Draw(&c,1080);
+    int both=FmRingContentWidth(1920,1080);
+    g_pst.v[PS_FRAME_METER]=0;Draw(&c,1080);
+    int one=FmRingContentWidth(1920,1080);CHECK(one<both);
+    CHECK((c.bits[(c.h/2)*c.w+(c.w-one)/2-2]>>24)==0);
+    printf("COMPACT: default panel %d px; no-header/no-legend two actors %d px, one actor %d px\n",right-left+1,both,one);
+    Drop(&c);
+}
 static double Now(void){LARGE_INTEGER q,f;QueryPerformanceCounter(&q);QueryPerformanceFrequency(&f);return 1000.*q.QuadPart/f.QuadPart;}
 static void CacheEquivalence(void) {
     Canvas a=Make(240,60),b=Make(240,60);Seed();g_fm_fontPx=18;
@@ -163,6 +184,7 @@ int main(int argc,char** argv) {
     CHECK(FmRingBlend(0xff000000,0x00ff00,128)==0xff008000);
     CHECK(FmRingBlend(0x0010151e,0xff0000,128)==0xb9830407); // premultiplied shared-panel edge
     CacheEquivalence();
+    CompactPanel();
     Seed();g_pst.v[PS_FRAME_STYLE]=1;
     int previous=0;
     for(int size=0;size<3;++size){g_pst.v[PS_FRAME_SIZE]=size;FmRingLayout g=FmRingGeom(1920,1080);

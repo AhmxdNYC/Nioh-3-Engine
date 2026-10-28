@@ -24,6 +24,12 @@ static FmRingLayout FmRingGeom(int w, int H) {
     if(g.legendW && g.height<9*g.legendPitch+pad*4)g.height=9*g.legendPitch+pad*4;
     return g;
 }
+static int FmRingContentWidth(int w,int H) {
+    int cw,bh,lh,pad; FmGeom(w,H,&cw,&bh,&lh,&pad);
+    const FmRingLayout g=FmRingGeom(w,H);
+    const int actors=(FmPlayerDraw()||FmIFrRow())+(g_pst.v[PS_FRAME_METER]&&g_fm_show);
+    return actors*g.d+(actors>1?lh:0)+(g.legendW?2*(g.legendW+g.legendGap):0)+pad*4;
+}
 static int FmDrawHeight(int w,int H) {
     int cw,bh,lh,pad; const int rowH=FmGeom(w,H,&cw,&bh,&lh,&pad);
     return (g_pst.v[PS_FRAME_STYLE] ? FmRingGeom(w,H).height : rowH*FmPanels())
@@ -302,9 +308,9 @@ static void FmRingLegend(HDC dc,int x,int cy,FmRingLayout g,int side) {
     }
     g_fm_fontPx=old;
 }
-static int FmRings(HDC dc,int w,int H,int oy,const FmMeter* player,const FmMeter* boss,const FmKi* ki) {
+static int FmRings(HDC dc,int w,int H,int oy,int panelW,const FmMeter* player,const FmMeter* boss,const FmKi* ki) {
     int cw,bh,lh,pad;FmGeom(w,H,&cw,&bh,&lh,&pad);
-    const int panelW=cw*FM_DISPLAY_CELLS+lh*3+pad*2,left=(w-panelW)/2;
+    const int left=(w-panelW)/2;
     const FmRingLayout g=FmRingGeom(w,H);FmRingBuild(g);
     const int hasPlayer=FmPlayerDraw()||FmIFrRow(),hasBoss=g_pst.v[PS_FRAME_METER]&&g_fm_show;
     FmFill(dc,left,oy,panelW,g.height,RGB(16,21,30));

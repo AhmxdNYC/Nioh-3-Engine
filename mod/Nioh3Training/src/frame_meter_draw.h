@@ -194,10 +194,11 @@ static void FmPaint(HDC dc, int w, int h, int H) {
     FmFill(dc,0,0,w,h,FM_KEY);
     int cw,barH,lineH,pad; const int ph=FmGeom(w,H,&cw,&barH,&lineH,&pad);
     // Clip long readouts/key labels as well as cells to the centered panel bounds.
-    const int panelW=cw*FM_DISPLAY_CELLS+lineH*3+pad*2;
-    const int panelLeft=(w-cw*FM_DISPLAY_CELLS-lineH*3)/2-pad;
+    int panelW=cw*FM_DISPLAY_CELLS+lineH*3+pad*2;
+    const int ring=g_pst.v[PS_FRAME_STYLE];
+    if(ring) panelW=FmRingContentWidth(w,H);
+    int panelLeft=(w-panelW)/2;
     const int panelClip=SaveDC(dc);
-    IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
     g_fm_fontPx=barH-2>9?barH-2:9;
     int oy=FmReadoutHeight(barH,pad);
     if(oy) {
@@ -215,11 +216,20 @@ static void FmPaint(HDC dc, int w, int h, int H) {
         // Independent snapshots cannot measure advantage.
         snprintf(text,sizeof text,"Startup %s  Active %s  Recovery %s  Total %s  Advantage --",start,active,recovery,total);
         int bw=cw*FM_DISPLAY_CELLS,gutter=lineH*3,x=(w-bw-gutter)/2+gutter;
-        FmFill(dc,x-gutter-pad,0,bw+gutter+pad*2,oy,RGB(16,21,30));
-        g_fm_fontPx=barH-2>9?barH-2:9;
+        if(ring) {
+            const int limit=cw*FM_DISPLAY_CELLS+lineH*3;
+            while(g_fm_fontPx>9 && (int)strlen(text)*N3StrokeWidth(g_fm_fontPx)>limit) --g_fm_fontPx;
+            const int textW=(int)strlen(text)*N3StrokeWidth(g_fm_fontPx);
+            int need=textW+pad*4; if(need>limit+pad*2)need=limit+pad*2;
+            if(panelW<need)panelW=need;
+            panelLeft=(w-panelW)/2; x=(w-textW)/2;
+        }
+        IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
+        FmFill(dc,panelLeft,0,panelW,oy,RGB(16,21,30));
         FmLabel(dc,x,0,text,RGB(245,248,255));
     }
-    if(g_pst.v[PS_FRAME_STYLE]) { oy+=FmRings(dc,w,H,oy,&mp,&m,&ki); }
+    IntersectClipRect(dc,panelLeft,0,panelLeft+panelW,h);
+    if(ring) { oy+=FmRings(dc,w,H,oy,panelW,&mp,&m,&ki); }
     else {
     if(FmPlayerDraw()) { FmPanel(dc,w,h,H,oy,&mp,"PLAYER","PLAYER",1,!g_pst.v[PS_FRAME_IFR]); oy+=ph; }
     if(FmIFrRow()) {  // gold cells = the same no-damage marks the stripe used, in their own lane aligned with the PLAYER row
