@@ -116,7 +116,7 @@ bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t
     if (item == kItBvInfHp || item == kItBvInfKi) {
         const int on = v.cfg[item == kItBvInfHp ? 0 : 1];
         snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, item == kItBvInfHp ? "Infinite boss health:" : "Infinite boss Ki:", v.live < 0 ? "?" : on ? "ON" : "OFF");
-        *color = sel ? cWhite : v.live < 0 ? cDim : on ? cGreen : cGray;
+        *color = sel ? cWhite : v.live < 0 ? cDim : cGray;
         return true;
     }
     if (item == kItBvHpPct || item == kItBvKiPct) {

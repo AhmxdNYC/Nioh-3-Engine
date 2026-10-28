@@ -665,6 +665,7 @@ int main() {
             "  Cutscene on kill:        ON   A / Left / Right   (n/a: Final blow required is OFF)",
             "  0x00A1  RPT  Overhead slash into a delayed sweeping kick follow-up with grab (?)",
             "  0x4E30  REPEAT  Unlabelled action",  // user #13618: the repeating move row shows a REPEAT pill
+            "  1 : Anim 1.0s  1Hit3  0x4E4E\tAttack  [OFF]",  // human #44361: TAB = right column, type text + a state pill
             "      Teleport to arena (fast load)   - not beaten on this journey and some more words to force a wrap",
             "  Return to where I was   <- boss defeated: A takes you back", "  Arenas   A: open",
             "  Kashin Koji                              Kyoto      beaten     Native         unverified"};
@@ -685,17 +686,43 @@ int main() {
             const float cw=osd::kGlyphW*sc;
             CHECK(panel.w/cw>=58.f && panel.x>=(float)width*0.5f && panel.h<=0.70f*(float)height);
             for(const auto& r:osd::drawnRects)CHECK(r.x>=panel.x-1&&r.y>=panel.y-1&&r.x+r.w<=panel.x+panel.w+1&&r.y+r.h<=panel.y+panel.h+1);
-            bool sawPill=false,sawWrap=false,sawHeader=false,sawRepeat=false;
+            bool sawPill=false,sawWrap=false,sawHeader=false,sawRepeat=false,sawOn=false,sawOff=false,sawMoveLeft=false,sawType=false;
             for(size_t i=0;i<osd::drawnTexts.size();++i){
                 if(!(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f))printf("W%u x=%.1f px=%.1f pw=%.1f cw=%.1f [%s]\n",width,osd::drawnTextX[i],panel.x,panel.w,cw,osd::drawnTexts[i].c_str());
                 CHECK(osd::drawnTextX[i]>=panel.x && osd::drawnTextX[i]+(float)osd::drawnTexts[i].size()*cw<=panel.x+panel.w+0.5f);
                 CHECK(osd::drawnTexts[i].find("Left / Right")==std::string::npos && osd::drawnTexts[i].find("A: open")==std::string::npos);
                 sawPill|=osd::drawnTexts[i]=="ON"||osd::drawnTexts[i]=="RPT"; sawRepeat|=osd::drawnTexts[i]=="REPEAT"; sawWrap|=osd::drawnTexts[i].find("Kyushu)")!=std::string::npos;
                 sawHeader|=osd::drawnTexts[i]=="Options"; CHECK(osd::drawnTexts[i].find("--")==std::string::npos);
+                sawOn|=osd::drawnTexts[i]=="[ON]"; sawOff|=osd::drawnTexts[i]=="[OFF]"; sawType|=osd::drawnTexts[i]=="Attack";
+                sawMoveLeft|=osd::drawnTexts[i]=="1 : Anim 1.0s  1Hit3  0x4E4E"; CHECK(osd::drawnTexts[i].find('\t')==std::string::npos && osd::drawnTexts[i]!="ON");
             }
             if(!sawPill||!sawWrap){printf("pill %d wrap %d\n",sawPill,sawWrap);for(auto&t:osd::drawnTexts)printf("  [%s]\n",t.c_str());}
             CHECK(sawPill && sawWrap && sawHeader && sawRepeat);
+            if(!sawOn||!sawOff||!sawMoveLeft||!sawType){printf("on %d off %d left %d type %d\n",sawOn,sawOff,sawMoveLeft,sawType);for(auto&t:osd::drawnTexts)printf("  [%s]\n",t.c_str());}
+            CHECK(sawOn && sawOff && sawMoveLeft && sawType);  // human #44361: ON / OFF as [ON] / [OFF] text markers, the move row split in two columns
+            { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("[ON]",bg,fg) && bg==menu_style::kOnBg && fg==menu_style::kOnText); }
+            { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("[OFF]",bg,fg) && bg==menu_style::kOffBg); }
+            CHECK(!strcmp(menu_style::PillText("ON"),"[ON]") && !strcmp(menu_style::PillText("OFF"),"[OFF]") && !strcmp(menu_style::PillText("x1.00"),"x1.00"));
+            CHECK((menu_style::kOnBg&0x00FF00FFu)!=0x0030003Cu);  // the ON pill is not green any more
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
+        }
+        if (const char* dump = getenv("N3_MENU_DUMP")) {  // human #44361 preview: a move page drawn by the real host code, dumped for tests/menu_preview.py
+            const char* moveRows[]={"Boss A - Minamoto no Yoritomo - 1 hit (5)", "-- 1 hit --",
+                "  1 : Anim 1.2s  1Hit1  0x4E4E\tAttack  [ON]", "> 2 : Anim 0.9s  1Hit2  0x4E51\tAttack  [OFF]",
+                "  3 : Anim 2.4s  1Hit3  0x4E55\tAttack  [REPEAT]", "  4 : Anim 1.6s  Grab1  0x4E7B\tGrab  [ON]",
+                "  5 : Anim 3.1s  Unblockable2\tUnblockable  [ON]", "-- Boss settings --",
+                "  Follow and target me: ON   A / Left / Right", "  Infinite health: OFF   A / Left / Right"};
+            v.rowCount=(uint32_t)(sizeof moveRows/sizeof moveRows[0]);
+            for(uint32_t i=0;i<v.rowCount;++i){strcpy_s(v.rows[i].text,moveRows[i]);v.rows[i].color=i==4?0x0040E6FF:0x00B4B4B4;v.rows[i].selected=i==3;}
+            strcpy_s(v.footer,"0x4E51  Overhead slash. A: repeat | Left: block | Right: allow."); v.toast[0]=0;
+            osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextColor.clear();osd::drawnTextScale.clear();
+            const float sc=DrawRematchHost(1920u,1080u);
+            if (FILE* f=fopen(dump,"w")) {
+                fprintf(f,"S %g %d %d\n",sc,osd::kGlyphW,osd::kGlyphH);
+                for(const auto& r:osd::drawnRects)fprintf(f,"R %g %g %g %g %08X\n",r.x,r.y,r.w,r.h,r.color);
+                for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T %g %g %g %08X %s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
+                fclose(f);
+            }
         }
         g_rematchFreshAt=0; v={};
     }
