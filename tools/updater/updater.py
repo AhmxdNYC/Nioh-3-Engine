@@ -21,7 +21,7 @@ import time
 
 ALLOWED = {f"Nioh3{x}.{ext}" for x in
            ("EngineFix", "BossRematch", "Training", "CamKiProbe")
-           for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url"}
+           for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 

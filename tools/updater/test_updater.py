@@ -48,6 +48,15 @@ class UpdaterTests(unittest.TestCase):
         self.assertGreater(u.version_tuple("1.10.0"), u.version_tuple("1.9.99"))
         self.assertLess(u.version_tuple("1.7.85"), u.version_tuple("2.0.0"))
 
+    def test_action_records_ship_and_rollback(self):
+        name="Nioh3Training_action_records.tsv"
+        self.manifest["files"]=[{"name":name,"sha256":u.digest(self.payload),"url":"https://updates.example/records.tsv"}]
+        self.fixture.write_text(json.dumps(self.manifest))
+        result=self.install()
+        self.assertEqual((self.root/name).read_bytes(),self.payload)
+        u.rollback(self.root,result["backup"])
+        self.assertFalse((self.root/name).exists())
+
     def test_install_backup_preserve_ini_and_rollback(self):
         binary = self.root / "Nioh3EngineFix.asi"
         ini = self.root / "Nioh3EngineFix.ini"

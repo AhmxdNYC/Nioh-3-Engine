@@ -11,9 +11,9 @@ class HitCountTests(unittest.TestCase):
         self.assertIsNotNone(path)
         facts = {x['action']: x for x in g.ymf.facts(path)}
         for action in ('0x4E4E', '0x4E55'):
-            self.assertEqual(facts[action]['hits'], 2)
+            self.assertEqual(facts[action]['hits'], 1)
             self.assertEqual(facts[action]['static_hits'], 1)
-            self.assertEqual(facts[action]['hit_source'], 'player observation #40826')
+            self.assertEqual(facts[action]['hit_source'], 'static window estimate')
         self.assertEqual(facts['0x4E52']['hits'], 2)
         self.assertEqual(facts['0x4E4F']['hits'], '')
         self.assertEqual(facts['0x4E56']['hits'], '')
@@ -27,8 +27,8 @@ class HitCountTests(unittest.TestCase):
     def test_generated_scope(self):
         text = g.generate()
         self.assertIsNotNone(text)
-        self.assertIn('{16102u, 0x4E4Eu, 2, 0, 1}', text)
-        self.assertIn('{16102u, 0x4E55u, 2, 0, 1}', text)
+        self.assertIn('{16102u, 0x4E4Eu, 1, 0, 1}', text)
+        self.assertIn('{16102u, 0x4E55u, 1, 0, 1}', text)
         self.assertEqual(Path(g.OUT).read_text(), text)
 
 if __name__ == '__main__':

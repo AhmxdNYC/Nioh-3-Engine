@@ -42,10 +42,7 @@ DEFAULT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data',
 
 # Human #40826, action mapping #40838. Observations, not a decoded rehit field.
 # Exact archive digest prevents applying an action-id override to other bosses/builds.
-OBSERVED_HITS = {
-    ('89836dd44b6b741ef3e8ba3c54d7d55961c32324ede7e3bacce778b27dfba568', 0x4E4E): 2,
-    ('89836dd44b6b741ef3e8ba3c54d7d55961c32324ede7e3bacce778b27dfba568', 0x4E55): 2,
-}
+OBSERVED_HITS = {} # Superseded by measured action isolation: 1c272daf, #41579.
 
 
 def u16(d, o):

@@ -45,6 +45,16 @@ class InstallTests(unittest.TestCase):
         self.assertEqual((self.game / "Nioh3EngineFix.ini").read_bytes(), b"USER SETTINGS")
         self.assertFalse((self.game / ".nioh3-mod-install.lock").exists())
 
+    def test_combined_package_installs_action_records_and_keeps_training_ini(self):
+        for name in ("Nioh3Training.asi","Nioh3Training_action_records.tsv","Nioh3Training.ini","Nioh3 Mod Website.url","SaveSlots-after-exit.pyz"):
+            (self.package/name).write_bytes(b"combined payload")
+        (self.package/"SHA256SUMS.txt").write_text("\n".join(m.sha(self.package/n)+"  "+n for n in m.FILES if (self.package/n).exists()))
+        (self.game/"Nioh3Training.ini").write_bytes(b"USER TRAINING SETTINGS")
+        self.run_install()
+        self.assertEqual((self.game/"Nioh3Training_action_records.tsv").read_bytes(),b"combined payload")
+        self.assertEqual((self.game/"Nioh3Training.ini").read_bytes(),b"USER TRAINING SETTINGS")
+        self.assertEqual((self.saves/"account/SAVEDATA.BIN").read_bytes(),b"CURRENT SAVE")
+
     def test_running_game_refused_before_backup(self):
         with self.assertRaisesRegex(RuntimeError, "Close Nioh"):
             self.run_install(running=lambda: True)
