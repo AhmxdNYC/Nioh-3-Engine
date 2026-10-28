@@ -2144,6 +2144,14 @@ void LogItem(int id) {
 }
 void RunRemote(RemoteReq& q) {
     q.rc = -1;
+    for (int i = 0; i < kConfigN; ++i) {  // catalog Choice rows live-applied by the menu (e.g. HideGameHud, HideHud*): 'menu set <key> 0|1'
+        const auto& d = kConfigSettings[i];
+        if (_stricmp(d.key, q.key) || d.apply != setting_ui::Apply::MenuLive || d.kind != setting_ui::Kind::Choice) continue;
+        if (q.set && (atoi(g_configValues.values[(size_t)i].text.c_str()) != 0) != (q.value != 0)) ChangeConfig(i, 0);
+        snprintf(q.reply, sizeof(q.reply), "%s = %s", d.key, g_configValues.values[(size_t)i].text.c_str());
+        q.rc = 0;
+        return;
+    }
     const int id = FindItem(q.key);
     if (id < 0) {
         snprintf(q.reply, sizeof(q.reply), "no menu item '%s'", q.key);
