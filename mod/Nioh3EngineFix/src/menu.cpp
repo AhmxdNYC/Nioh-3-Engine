@@ -37,6 +37,7 @@
 #include "gpuopt.h"
 #include "menu.h"
 #include "updatecheck.h"
+#include "savefiles.h"
 #include "../../settings/store.h"
 #include "../../menu_navigation.h"
 #include "osd.h"
@@ -113,7 +114,7 @@ bool g_configured = false;
 volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
-enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128 };
+enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256 };
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
@@ -183,6 +184,7 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & (XINPUT_GAMEPAD_DPAD_RIGHT | B_SR)) n |= N_RIGHT;
     if (raw & XINPUT_GAMEPAD_A) n |= N_OK;
     if (raw & XINPUT_GAMEPAD_B) n |= N_BACK;
+    if (raw & XINPUT_GAMEPAD_Y) n |= N_CLOSE;
     if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_PAGEUP;
     if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_PAGEDOWN;
     return n;
@@ -1048,9 +1050,15 @@ int SetGroup(int id) {
     return -1;
 }
 
+int g_saveSlot=1,g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
+    if(g_pages.page==pSaveFiles){
+        if(savefiles::Pending())add(kSaveCancelRow);
+        else if(savefiles::Allowed()){add(kSaveSlotRow);add(kSaveBackupRow);add(kSaveSwitchRow);}
+        add(kBackRow);return n;
+    }
     if (!g_cfg.layout) {
         // #38437 first screen: Boss Matches, Practice, Display Overlays, Camera settings, Settings, Close.
         const int pg = g_pages.page;
@@ -1154,6 +1162,7 @@ int PageRows(int* out, bool selectable) {
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
+    if (g_pages.page == pRoot && (savefiles::Pending()||savefiles::Allowed())) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     return n;
 }
@@ -1751,6 +1760,17 @@ void ChangeCamera(int which, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
+    if(id==kSaveFilesRow){if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id==kSaveCancelRow){if(!dir){savefiles::CancelPending();g_saveConfirm=0;}return;}
+    if(id>=kSaveSlotRow&&id<=kSaveSwitchRow){
+        if(savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveSlotRow?"select-slot":id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
+        if(id==kSaveSlotRow){g_saveSlot=1+menu_nav::Wrap(g_saveSlot-1,dir?dir:1,8);g_saveConfirm=0;return;}
+        if(dir)return;
+        const auto now=Now();
+        if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){savefiles::Queue(g_saveSlot,id==kSaveBackupRow);g_saveConfirm=0;}
+        else{g_saveConfirm=id;g_saveConfirmAt=now;}
+        return;
+    }
     if (id == kRematchRow || id == kPracticeRow) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
@@ -2261,7 +2281,22 @@ void PauseDetect(ULONGLONG t) {
     g_paused = (useMenu && g_menuShown) || (useStop && g_stopPaused);
 }
 
+// Direct settings sliders have no modal edit session. While a value is being
+// adjusted/accepted, consume Y without closing. Hosted modal editors advertise
+// Editing; outstanding provider actions also retain input ownership.
+bool TryPadClose(uint32_t pressed, ULONGLONG now) {
+    if(!g_open || !(pressed & N_CLOSE))return false;
+    uint32_t editing=pressed & (N_LEFT|N_RIGHT|N_OK);
+    for(int i=0;i<4;++i)
+        if(now-(ULONGLONG)g_padHeldAt[i]<300)editing |= PadNav((uint32_t)g_padHeld[i]) & (N_LEFT|N_RIGHT|N_OK);
+    if(now-(ULONGLONG)g_keyHeldAt<300)editing |= KeyNav((uint32_t)g_keyHeld) & (N_LEFT|N_RIGHT|N_OK);
+    if(editing || (g_rematchPage && (g_rematchAwait || (g_rematchView.flags & rmb::Editing))))return true;
+    Close("Y / Triangle");return true;
+}
+
 void OnPresentImpl() {
+    savefiles::Poll();
+    if(g_pages.page==pSaveFiles&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
     const ULONGLONG t = Now();
     g_rematchRendererTick.store(t); // resolver may attach only after an actual usable Present
     const bool rematchReady = RefreshRematchHost(t);
@@ -2309,6 +2344,7 @@ void OnPresentImpl() {
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    if (TryPadClose(pressed,t)) return;
     if (g_rematchPage) {
         if (!rematchReady) {
             Close("rematch worker stale/unavailable");
@@ -2731,7 +2767,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale)) * 0.5f);  // badges centred in the band (#13537)
-    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}, {"Start", "x3 Exit"}};
+    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 6, cw, line, scale, a);
     return scale;
 }
@@ -2839,6 +2875,13 @@ float DrawImpl(unsigned W, unsigned H) {
             const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Practice" : "  Practice");
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
+        }
+        if(id>=kSaveFilesRow&&id<=kSaveCancelRow){
+            if(id==g_sel)selRow=nb;
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up after Quit":id==kSaveCancelRow?"Cancel queued save":"Switch after Quit";
+            char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
+            if(id==kSaveSlotRow)snprintf(value,sizeof value,"slot%d",g_saveSlot);
+            put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
         }
         if (id == kUpdatePageRow) {
             if (id == g_sel) selRow = nb;
@@ -2993,6 +3036,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
+    } else if(g_sel>=kSaveFilesRow&&g_sel<=kSaveCancelRow){
+        snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":savefiles::Note());
+        snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"A verified backup is required before any switch.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
@@ -3057,6 +3103,7 @@ float DrawImpl(unsigned W, unsigned H) {
         effect[0] = 0;
     }
     addT("", cWhite, true);
+    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT("Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
@@ -3164,7 +3211,7 @@ float DrawImpl(unsigned W, unsigned H) {
                 const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
                 ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
             } else {
-                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}, {"Start", "x3 Exit"}};
+                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}};
                 ms::HintRow(x0 + pad, y, right, kPad, 6, cw, lineH, sc, fa);
             }
             ++line;
@@ -3262,6 +3309,7 @@ void Configure(const Host& h) {
     g_host = h;
     g_log = h.log;
     g_ini = h.iniPath ? h.iniPath : L"";
+    savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;

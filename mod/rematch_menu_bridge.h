@@ -9,7 +9,7 @@ constexpr uint32_t kVersion = 2;
 constexpr uint32_t kMaxRows = 24;
 constexpr const char* kExport = "Nioh3RematchMenuGetApi";
 enum Result : int { Accepted = 0, Busy = 1, Unavailable = 2, BadVersion = 3, StaleSession = 4, StaleGeneration = 5, InvalidArgument = 6 };
-enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u, HostMenu = 16u };  // HostMenu (#38077): page closed by its 'Mod menu' row = show the host's first page, do not close the host menu
+enum Flags : uint32_t { HostedReady = 1u, Open = 2u, CloseRequested = 4u, CoverActive = 8u, HostMenu = 16u, Editing = 32u }; // Editing: modal text/slider editor owns input; host must not close with Y  // HostMenu (#38077): page closed by its 'Mod menu' row = show the host's first page, do not close the host menu
 enum Capability : uint32_t { SnapshotV1 = 1u, InputV1 = 2u, ExclusiveHost = 4u };
 constexpr uint32_t kRequiredCapabilities = SnapshotV1 | InputV1 | ExclusiveHost;
 // user #13223: OpenRematch / OpenPractice open the add-on directly on its Boss Rematch / Practice page (the host's first page lists them);

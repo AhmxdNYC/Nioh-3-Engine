@@ -17,13 +17,24 @@ FgStatus FrameGen() { return {}; }
 const char* FgTypeName(int) { return "OFF"; }
 const char* FgReason(const FgStatus&) { return nullptr; }
 void NoteFgSwitch() {}
-struct Rect { float x,y,w,h; };
+struct Rect { float x,y,w,h; uint32_t color; };
 std::vector<Rect> drawnRects;
 std::vector<std::string> drawnTexts;
-void DrawRect(float x, float y, float w, float h, uint32_t) { drawnRects.push_back({x,y,w,h}); }
+void DrawRect(float x, float y, float w, float h, uint32_t color) { drawnRects.push_back({x,y,w,h,color}); }
 bool DrawCoverRect(float,float){return true;}
-std::vector<float> drawnTextX, drawnTextScale;
-float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
+std::vector<float> drawnTextX, drawnTextScale, drawnTextY;
+std::vector<uint32_t> drawnTextColor;
+float DrawText(float x, float y, const char* text, uint32_t color, float s) { drawnTextY.push_back(y);drawnTextColor.push_back(color);drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
+}
+namespace savefiles {
+bool testAllowed=false,testPending=false;int requests=0,cancels=0;
+bool Pending(){return testPending;}
+void CancelPending(){if(testPending){++cancels;testPending=false;}}
+void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
+void Poll(){} bool Allowed(){return testAllowed;}
+bool ActionAllowed(const char*){return testAllowed;}
+bool Queue(int,bool){if(!testAllowed)return false;++requests;return true;}
+const char* Note(){return testPending?"Switch queued: copy slot1.":"Copy-only test: choose a slot, then queue and quit normally.";}
 }
 namespace updatecheck {
 std::string testNotice;
@@ -94,6 +105,24 @@ int Copy(uint64_t, mb::Snapshot* out, uint32_t) { *out = view; return mb::Accept
 void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (open ? mb::Open : 0u); view.workerTickMs=GetTickCount64(); }
 }
 int main() {
+    { using namespace menu;
+      int rows[kMenuRowCap];g_pages.Reset();savefiles::testAllowed=false;
+      int n=PageRows(rows,true);for(int i=0;i<n;++i)CHECK(rows[i]!=kSaveFilesRow);
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pRoot);
+      savefiles::testAllowed=true;n=PageRows(rows,true);bool found=false;for(int i=0;i<n;++i)found|=rows[i]==kSaveFilesRow;CHECK(found);
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
+      Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
+      savefiles::testAllowed=false;Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
+      savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      savefiles::testAllowed=false;savefiles::testPending=true;g_pages.Reset();
+      Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
+      n=PageRows(rows,true);bool cancelFound=false;
+      for(int i=0;i<n;++i){cancelFound|=rows[i]==kSaveCancelRow;CHECK(rows[i]!=kSaveSwitchRow&&rows[i]!=kSaveBackupRow);}
+      CHECK(cancelFound);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);
+      Change(kSaveCancelRow,0);CHECK(!savefiles::testPending&&savefiles::cancels==1);
+      savefiles::testAllowed=false;g_pages.Reset();g_saveConfirm=0;
+    }
+
     using namespace menu;
     // Update hint is fitted to small viewports and leaves the ordinary reminder intact.
     updatecheck::testNotice = "Update 1.8.0 available: Mod Menu > Open update page";
@@ -647,6 +676,48 @@ int main() {
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
         }
         g_rematchFreshAt=0; v={};
+    }
+    // Y/Triangle closes root, nested and hosted menus, but never steals edit input.
+    g_rematchSession=0;g_rematchPage=false;g_rematchAwait=false;g_cfg.holdMask=0;g_dirty=false;
+    g_disabled=0;g_pressed=0;g_toggleReq=0;
+    for(auto& closePad:g_pad)closePad={};for(int i=0;i<4;++i){g_padHeld[i]=0;g_padHeldAt[i]=0;}g_keyHeld=0;g_keyHeldAt=0;
+    CHECK(PadNav(XINPUT_GAMEPAD_Y)==N_CLOSE);
+    Open("Y root");g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open);
+    Open("Y nested");EnterPage(pCamera);g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open);
+    Open("edit");CHECK(TryPadClose(N_CLOSE|N_RIGHT,Now())&&g_open);
+    CHECK(TryPadClose(N_CLOSE|N_OK,Now())&&g_open);
+    g_padHeld[0]=XINPUT_GAMEPAD_DPAD_LEFT;g_padHeldAt[0]=Now();CHECK(TryPadClose(N_CLOSE,Now())&&g_open);g_padHeld[0]=0;
+    g_keyHeld=K_RIGHT;g_keyHeldAt=Now();CHECK(TryPadClose(N_CLOSE,Now())&&g_open);g_keyHeld=0;
+    g_rematchPage=true;g_rematchView.flags=rmb::Open|rmb::Editing;
+    CHECK(TryPadClose(N_CLOSE,Now())&&g_open); // explicit hosted text/slider edit
+    g_rematchView.flags=rmb::Open;g_rematchAwait=true;CHECK(TryPadClose(N_CLOSE,Now())&&g_open);
+    g_rematchAwait=false;CHECK(TryPadClose(N_CLOSE,Now())&&!g_open&&!g_rematchPage);
+    // The close press cannot leak into gameplay until released; later Y passes unchanged.
+    g_lastPresent=Now();XINPUT_STATE ypad{};ypad.Gamepad.wButtons=XINPUT_GAMEPAD_Y;
+    PadFeed(0,&ypad,false);CHECK(ypad.Gamepad.wButtons==0);
+    ypad={};PadFeed(0,&ypad,false);ypad.Gamepad.wButtons=XINPUT_GAMEPAD_Y;
+    PadFeed(0,&ypad,false);CHECK(ypad.Gamepad.wButtons==XINPUT_GAMEPAD_Y);
+    g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open); // closed menu ignores Y
+    // Existing Badge() maps Y to the correct glyph without spelling Triangle as text.
+    for(int closeStyle=0;closeStyle<2;++closeStyle){menu_style::g_btnStyle=closeStyle;osd::drawnTexts.clear();
+        menu_style::Badge(10,10,"Y",1,8,1,1);
+        bool sawY=false;for(auto& text:osd::drawnTexts)sawY|=text=="Y";CHECK(sawY==(closeStyle==0));}
+    menu_style::g_btnStyle=0;
+    char previewBase[1024]{};
+    if(GetEnvironmentVariableA("N3_Y_CLOSE_PREVIEW",previewBase,sizeof previewBase)){
+      for(int previewStyle=0;previewStyle<2;++previewStyle){
+        g_open=true;g_rematchPage=false;g_cfg.layout=0;g_pages.Reset();g_sel=kPageRow+pDisplay;menu_style::g_btnStyle=previewStyle;
+        if(GetEnvironmentVariableA("N3_SAVE_PREVIEW",nullptr,0)){
+          savefiles::testAllowed=true;savefiles::testPending=previewStyle==1;
+          EnterPage(pSaveFiles);g_sel=previewStyle==1?kSaveCancelRow:kSaveSwitchRow;
+        }
+        osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextScale.clear();osd::drawnTextColor.clear();
+        DrawImpl(1920,1080);char path[1100];snprintf(path,sizeof path,"%s-%d.tsv",previewBase,previewStyle);
+        FILE* f=nullptr;fopen_s(&f,path,"w");CHECK(f);
+        for(auto& r:osd::drawnRects)fprintf(f,"R\t%f\t%f\t%f\t%f\t%u\n",r.x,r.y,r.w,r.h,r.color);
+        for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T\t%f\t%f\t%f\t%u\t%s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
+        fclose(f);
+      }
     }
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;
