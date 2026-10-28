@@ -648,6 +648,32 @@ int main() {
         }
         g_rematchFreshAt=0; v={};
     }
+    // Y/Triangle closes root, nested and hosted menus, but never steals edit input.
+    g_rematchSession=0;g_rematchPage=false;g_rematchAwait=false;g_cfg.holdMask=0;g_dirty=false;
+    g_disabled=0;g_pressed=0;g_toggleReq=0;
+    for(auto& closePad:g_pad)closePad={};for(int i=0;i<4;++i){g_padHeld[i]=0;g_padHeldAt[i]=0;}g_keyHeld=0;g_keyHeldAt=0;
+    CHECK(PadNav(XINPUT_GAMEPAD_Y)==N_CLOSE);
+    Open("Y root");g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open);
+    Open("Y nested");EnterPage(pCamera);g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open);
+    Open("edit");CHECK(TryPadClose(N_CLOSE|N_RIGHT,Now())&&g_open);
+    CHECK(TryPadClose(N_CLOSE|N_OK,Now())&&g_open);
+    g_padHeld[0]=XINPUT_GAMEPAD_DPAD_LEFT;g_padHeldAt[0]=Now();CHECK(TryPadClose(N_CLOSE,Now())&&g_open);g_padHeld[0]=0;
+    g_keyHeld=K_RIGHT;g_keyHeldAt=Now();CHECK(TryPadClose(N_CLOSE,Now())&&g_open);g_keyHeld=0;
+    g_rematchPage=true;g_rematchView.flags=rmb::Open|rmb::Editing;
+    CHECK(TryPadClose(N_CLOSE,Now())&&g_open); // explicit hosted text/slider edit
+    g_rematchView.flags=rmb::Open;g_rematchAwait=true;CHECK(TryPadClose(N_CLOSE,Now())&&g_open);
+    g_rematchAwait=false;CHECK(TryPadClose(N_CLOSE,Now())&&!g_open&&!g_rematchPage);
+    // The close press cannot leak into gameplay until released; later Y passes unchanged.
+    g_lastPresent=Now();XINPUT_STATE ypad{};ypad.Gamepad.wButtons=XINPUT_GAMEPAD_Y;
+    PadFeed(0,&ypad,false);CHECK(ypad.Gamepad.wButtons==0);
+    ypad={};PadFeed(0,&ypad,false);ypad.Gamepad.wButtons=XINPUT_GAMEPAD_Y;
+    PadFeed(0,&ypad,false);CHECK(ypad.Gamepad.wButtons==XINPUT_GAMEPAD_Y);
+    g_pressed=N_CLOSE;OnPresentImpl();CHECK(!g_open); // closed menu ignores Y
+    // Existing Badge() maps Y to the correct glyph without spelling Triangle as text.
+    for(int closeStyle=0;closeStyle<2;++closeStyle){menu_style::g_btnStyle=closeStyle;osd::drawnTexts.clear();
+        menu_style::Badge(10,10,"Y",1,8,1,1);
+        bool sawY=false;for(auto& text:osd::drawnTexts)sawY|=text=="Y";CHECK(sawY==(closeStyle==0));}
+    menu_style::g_btnStyle=0;
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;
 }
