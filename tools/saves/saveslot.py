@@ -81,7 +81,9 @@ def copy_verified(src, dst):
     return expected
 
 def name_ok(name):
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,47}',name): raise ValueError('Invalid slot/transaction name')
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 _-]{0,47}',name) or name.endswith(' '): raise ValueError('Invalid slot/transaction name')
+    if name.upper() in {'CON','PRN','AUX','NUL',*(f'COM{i}' for i in range(1,10)),*(f'LPT{i}' for i in range(1,10))}:
+        raise ValueError('Reserved Windows name')
     return name
 
 class Slots:
