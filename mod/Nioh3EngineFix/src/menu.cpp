@@ -115,7 +115,8 @@ bool g_configured = false;
 volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
-enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256, N_HOME = 512 };
+enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256, N_HOME = 512,
+                  N_TAB_PREV = 1024, N_TAB_NEXT = 2048 };  // #44232: pad bumpers switch tabs; keyboard PgUp / PgDn still jump rows
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
@@ -186,9 +187,9 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & XINPUT_GAMEPAD_A) n |= N_OK;
     if (raw & XINPUT_GAMEPAD_B) n |= N_BACK;
     if (raw & XINPUT_GAMEPAD_Y) n |= N_CLOSE;
-    if (raw & XINPUT_GAMEPAD_START) n |= N_HOME;
-    if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_PAGEUP;
-    if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_PAGEDOWN;
+    if (raw & XINPUT_GAMEPAD_BACK) n |= N_HOME;  // user #44181: View / Create returns to the first page; Start no longer does
+    if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_TAB_PREV;
+    if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_TAB_NEXT;
     return n;
 }
 uint32_t KeyNav(uint32_t k) {
@@ -249,8 +250,8 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     // open/close gesture
     const uint32_t hm = g_cfg.holdMask;
     bool tapModified = false;
-    if (g_open && (hm & XINPUT_GAMEPAD_START)) {
-        // While open, Start/Options belongs to Home, never to the open gesture.
+    if (g_open && (hm & (XINPUT_GAMEPAD_START | XINPUT_GAMEPAD_BACK))) {
+        // While open, Start/Options does nothing: never the open gesture, and Home is View / Create now (#44181).
         s.nTaps = 0; s.tap0 = s.lastTap = s.synthUntil = 0;
         s.holdStart = 0; s.holdFired = false; s.passHold = false;
         g_holdSince = 0;
@@ -1589,12 +1590,13 @@ int TrainingMode() {
     return r;
 }
 menu_mode::Selection g_modeSelection;
+int g_hostTab = 0;  // #44232: kRematchRow / kPracticeRow = the tab of the hosted page on screen (valid while g_rematchPage)
 void OpenModePage(bool ready) {
     if (!ready || !g_rematchSession.load()) return;
     const int m = g_modeSelection.Reopen(TrainingMode());
     if (m != 1 && m != 2) return;
     if (PostRematchAction(m == 1 ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu)) {
-        g_rematchPage = true; g_rematchOpened = false;
+        g_rematchPage = true; g_rematchOpened = false; g_hostTab = m == 1 ? kRematchRow : kPracticeRow;
         for (auto& repeat : g_rep) repeat = 0;
         MLOG("opened on the %s page (current mode, #13529)", m == 1 ? "Boss Matches" : "Practice");
     }
@@ -1815,7 +1817,7 @@ void Change(int id, int dir) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
             (PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
-            g_rematchPage = true; g_rematchOpened = false;
+            g_rematchPage = true; g_rematchOpened = false; g_hostTab = id;
             g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
             for (auto& repeat : g_rep) repeat = 0;
         }
@@ -1957,6 +1959,57 @@ void MovePage(int dir) {
     int pos = 0;
     for (int i = 0; i < n; ++i) if (rows[i] == g_sel) pos = i;
     g_sel = rows[menu_nav::PageStep(pos, dir * 10, n)];
+}
+
+// user #44232: while the menu is open LB / RB step through the first page's destinations ("tabs"), in the order that page lists
+// them (Boss Matches, Practice, Display Overlays, Camera settings, Settings, Save files - whatever is shown this session). From the
+// first page itself RB goes to the first tab and LB to the last; the ends wrap. View / Create returns to the first page (TryPadHome).
+bool IsTabRow(int id) { return id == kRematchRow || id == kPracticeRow || id == kSaveFilesRow || (id >= kPageRow && id < kBackRow); }
+int TabRows(int* out) {
+    const int page = g_pages.page;
+    g_pages.page = pRoot;  // PageRows describes the current page; borrow the first page's list (Present thread only)
+    int rows[kMenuRowCap];
+    const int n = PageRows(rows, true);
+    g_pages.page = page;
+    int k = 0;
+    for (int i = 0; i < n; ++i)
+        if (IsTabRow(rows[i])) out[k++] = rows[i];
+    return k;
+}
+// the tab the player is in: the hosted page's tab, else the first-page row the page trail started from (0 = on the first page)
+int CurrentTab() {
+    if (g_rematchPage) return g_hostTab;
+    if (!g_pages.depth) return 0;
+    const int top = g_pages.depth >= 2 ? g_pages.pages[1] : g_pages.page;
+    return top == pSaveFiles || top == pSaveActions ? kSaveFilesRow : kPageRow + top;
+}
+const char* TabName(int id) {
+    return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Practice" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
+}
+void SwitchTab(int dir) {
+    int tabs[kMenuRowCap];
+    const int n = TabRows(tabs);
+    if (!n) return;
+    const int cur = CurrentTab();
+    int pos = -1;
+    for (int i = 0; i < n; ++i) if (tabs[i] == cur) pos = i;
+    const int next = tabs[pos < 0 ? (dir > 0 ? 0 : n - 1) : menu_nav::Wrap(pos, dir, n)];
+    if (next == cur) return;
+    for (auto& repeat : g_rep) repeat = 0;
+    const bool hosted = next == kRematchRow || next == kPracticeRow;
+    if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
+        if (PostRematchAction(next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice)) {
+            g_rematchOpened = false; g_hostTab = next;
+            g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
+            MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
+        }
+        return;
+    }
+    if (g_rematchPage) CloseRematchHostPage();
+    g_pages.Reset();
+    g_sel = next;  // stays on the first page with this tab selected when the tab cannot open (add-on busy, save files locked)
+    Change(next, 0);
+    MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
 }
 
 // ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------
@@ -2420,7 +2473,10 @@ void OnPresentImpl() {
         }
         // One normalized edge per frame; Back wins, then paging/navigation.
         // The addon worker rechecks the displayed generation before dispatch.
+        // #44232: bumpers switch tabs, except inside a value editor and on the Return object's own page (that page is the whole menu).
+        const uint32_t tab = pressed & (N_TAB_PREV | N_TAB_NEXT);
         if (pressed & N_BACK) PostRematchAction(rmb::Back);
+        else if (tab) { if (tab != (N_TAB_PREV | N_TAB_NEXT) && !g_rematchFromAddon && !(g_rematchView.flags & rmb::Editing)) SwitchTab(tab == N_TAB_NEXT ? 1 : -1); }
         else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
         else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
         else if (pressed & N_UP) PostRematchAction(rmb::Up);
@@ -2434,6 +2490,10 @@ void OnPresentImpl() {
     // activate the row being left, even if A arrives in the same Present.
     if (pressed & N_BACK) {
         Back();
+        return;
+    }
+    if (const uint32_t tab = pressed & (N_TAB_PREV | N_TAB_NEXT)) {  // #44232: one bumper = one tab; both at once = nothing
+        if (tab != (N_TAB_PREV | N_TAB_NEXT)) SwitchTab(tab == N_TAB_NEXT ? 1 : -1);
         return;
     }
     if (pressed & (N_PAGEUP | N_PAGEDOWN)) {
@@ -2743,7 +2803,8 @@ float DrawRematchHost(unsigned W, unsigned H) {
     if (g_rematchView.toast[0]) wrap(g_rematchView.toast, 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
     const int tailV = n - bodyN;
     const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
-    const float titleH = line * (statusOwnLine ? 2.f : 1.f) + pad * 1.5f, hintH = line + pad;
+    const bool tabHints = !g_rematchFromAddon;  // #44232
+    const float titleH = line * (statusOwnLine ? 2.f : 1.f) + pad * 1.5f, hintH = line * (tabHints ? 2.f : 1.f) + pad;
     const float tailH = tailV ? line * (float)tailV + pad : 0.f;
     const int room = std::max(4, (int)((maxH - titleH - pad - tailH - hintH) / line));
     // scroll window over the body (visual lines), the selected item kept in view with one line of context
@@ -2817,9 +2878,13 @@ float DrawRematchHost(unsigned W, unsigned H) {
     // button prompts in a darker footer band
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
-    const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale)) * 0.5f);  // badges centred in the band (#13537)
-    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}, {"LB RB", "Page"}};
-    ms::HintRow(tx, hy, x + width - pad, kPad, 6, cw, line, scale, a);
+    const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale) - (tabHints ? line : 0.f)) * 0.5f);  // badges centred in the band (#13537)
+    static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}};
+    ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
+    if (tabHints) {  // #44232: second prompt line, LB / RB tabs + View first page (not on the Return object's own page)
+        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+        ms::HintRow(tx, hy + line, x + width - pad, kTabs, 2, cw, line, scale, a);
+    }
     return scale;
 }
 
@@ -3213,6 +3278,7 @@ float DrawImpl(unsigned W, unsigned H) {
     } else {
         addT(g_cfg.layout && g_pages.depth ? "\x01P" : "\x01p", cDim);  // #13537: drawn as button badges (drawRow)
     }
+    addT("\x01T", cDim);  // #44232: LB / RB tabs + View first page, on every page
     addT("\x01K", cDim);
 
     // #38102/#38134: every flat page is the same fixed right-side panel as the hosted pages (58 columns, 0.66 H high); long rows are clipped
@@ -3267,9 +3333,12 @@ float DrawImpl(unsigned W, unsigned H) {
                 static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}, {"F10", "Exit"}};
                 const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
                 ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
+            } else if (rw.label[1] == 'T') {  // #44232: shoulder caps follow ButtonStyle (LB RB / L1 R1)
+                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+                ms::HintRow(x0 + pad, y, right, kTabs, 2, cw, lineH, sc, fa);
             } else {
-                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}, {"LB RB", "Page"}};
-                ms::HintRow(x0 + pad, y, right, kPad, 6, cw, lineH, sc, fa);
+                const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}};
+                ms::HintRow(x0 + pad, y, right, kPad, 5, cw, lineH, sc, fa);
             }
             ++line;
             return;
@@ -3303,8 +3372,8 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         ++line;
     };
-    if (nt >= 2) {  // the two control lines at the bottom sit in a darker footer band
-        const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
+    if (nt >= 3) {  // the three control lines at the bottom (pad, tabs, keys) sit in a darker footer band
+        const float fy = y0 + pad + (float)(n - 3) * lineH - 2 * sc;
         ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);

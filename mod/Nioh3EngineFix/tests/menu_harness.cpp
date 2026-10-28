@@ -479,7 +479,7 @@ int main() {
     n = PageRows(rows, true);
     for (int i = 0; i < n; ++i) CHECK(rows[i] != kFgState && rows[i] != kUpscaler);
     CHECK(PadNav(XINPUT_GAMEPAD_DPAD_DOWN | XINPUT_GAMEPAD_A) == (N_DOWN | N_OK));
-    CHECK(PadNav(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_B) == (N_PAGEUP | N_BACK));
+    CHECK(PadNav(XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_B) == (N_TAB_PREV | N_BACK));  // #44232: bumpers = tabs
     CHECK(KeyNav(K_PAGEUP | K_PAGEDOWN) == (N_PAGEUP | N_PAGEDOWN));
     // The real XInput feed masks open input, then the closing A/B until release.
     Open("harness");
