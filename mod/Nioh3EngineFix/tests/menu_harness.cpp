@@ -721,8 +721,8 @@ int main() {
         menu_style::Badge(10,10,"Y",1,8,1,1);
         bool sawY=false;for(auto& text:osd::drawnTexts)sawY|=text=="Y";CHECK(sawY==(closeStyle==0));}
     // Inline action values use the same controller glyphs as the footer.
-    for (int style = 0; style < 2; ++style) {
-        menu_style::g_btnStyle = style;
+    for (int actionStyle = 0; actionStyle < 2; ++actionStyle) {
+        menu_style::g_btnStyle = actionStyle;
         osd::drawnTexts.clear(); osd::drawnRects.clear();
         g_open = true; g_rematchPage = false; g_pages.Reset(); g_sel = kPageRow + pDisplay;
         g_cfg.layout = 0; DrawImpl(1920,1080);
