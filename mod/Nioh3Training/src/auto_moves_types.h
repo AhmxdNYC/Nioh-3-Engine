@@ -18,6 +18,14 @@ typedef struct {
     uint32_t anim_hash; // action row +0xF0; with id/motion identifies archive metadata, never id alone
     uint8_t record_known, zero_power; // a known zero is not missing; raw archive base values, not final HP damage
     char damage[96]; // slash-separated hit groups; pipe-separated alternatives retained verbatim
+    // human #44217: part of a grab (catch + throw), auto_moves.h AmGrabs. Sits in what was tail padding, so sizeof(AmMove) and the
+    // Nioh3Training_AutoMoves ABI are unchanged (an older Training leaves it 0 = no grab).
+    uint8_t grab;
 } AmMove;
+#ifdef __cplusplus
+static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");
+#else
+_Static_assert(sizeof(AmMove) == 124, "AmMove ABI (Nioh3Training_AutoMoves) changed");
+#endif
 typedef struct { int n; uint32_t size, off[AM_NSUB], len[AM_NSUB]; AmMove m[AM_MAXMOVES]; } AmTable;
 

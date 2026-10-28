@@ -3514,8 +3514,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 // gets what is left of a 86-char budget (cut with '..'); the kind column is dropped on tagged rows (the group header already says it).
                 const char* nm = MoveName(move);
                 const char* q = *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "";
-                char head[40], tail[64];
-                if (tagTxt[0]) snprintf(head, sizeof head, "%s 0x%04X %4s ", mk, move.id, msTxt);
+                char head[56], tail[64], lid[24];  // human #44241: the row leads with the player-facing id (1Hit3 / Grab3 / Unblockable8), then the run time
+                if (*N3MoveLabelId(&move, lid, sizeof lid)) snprintf(head, sizeof head, "%s 0x%04X %-12s %4s ", mk, move.id, lid, msTxt);
+                else if (tagTxt[0]) snprintf(head, sizeof head, "%s 0x%04X %4s ", mk, move.id, msTxt);
                 else snprintf(head, sizeof head, "%s 0x%04X %-8s %4s ", mk, move.id, MoveKindName(move.kind), msTxt);
                 snprintf(tail, sizeof tail, "%s%s  Repeat %s  Allow %s", q, tagTxt, rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
                 int room = 86 - (int)strlen(head) - (int)strlen(tail);

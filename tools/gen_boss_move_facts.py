@@ -72,7 +72,7 @@ def generate():
              '// great = action row +0x04 bit 0x2000 = GreatAttack (unblockable). Sources: notes/yoritomo-hits-and-unblockable.md,',
              '// notes/yoritomo-hit-source-22305.md. Only the bosses listed here are grouped by hits; the others keep the old groups.',
              '#pragma once', '#include <stdint.h>',
-             'typedef struct { uint32_t chr, id; unsigned char hits, great, attack; } N3MoveFact;',
+             'typedef struct { uint32_t chr, id; unsigned char hits, great, attack, grab; } N3MoveFact;  // grab: runtime only (auto_moves.h AmGrabs, #44217)',
              'static const N3MoveFact kN3MoveFacts[] = {']
     for chr_id, rel in sorted(BOSSES.items()):
         path = data_file(rel)

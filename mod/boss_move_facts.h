@@ -7,7 +7,7 @@
 // notes/yoritomo-hit-source-22305.md. Only the bosses listed here are grouped by hits; the others keep the old groups.
 #pragma once
 #include <stdint.h>
-typedef struct { uint32_t chr, id; unsigned char hits, great, attack; } N3MoveFact;
+typedef struct { uint32_t chr, id; unsigned char hits, great, attack, grab; } N3MoveFact;  // grab: runtime only (auto_moves.h AmGrabs, #44217)
 static const N3MoveFact kN3MoveFacts[] = {
     {16102u, 0x4E42u, 0, 0, 0},
     {16102u, 0x4E44u, 0, 0, 0},

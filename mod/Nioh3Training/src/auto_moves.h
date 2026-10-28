@@ -103,6 +103,39 @@ static int AmWindows(const uint8_t* d, const AmTable* t, const uint16_t* idx, in
 }
 static int AmFind(const AmTable* t, uint32_t id) { for (int i = 0; i < t->n; ++i) if (t->m[i].id == id) return i; return -1; }
 
+// human #44217: grabs. Hitbox row u16 +0x14 is the hit type: 12 on normal melee swings (4 / 5 / 7 / 16 / 17 elemental ...), 0xFFFF on grab rows.
+// A THROW is an action whose every frame-timed row (+0x08 != 0xFFFF) has type 0xFFFF and at least one deals damage (+0x10 / +0x12 > 0):
+// the damage ticks on the caught player (Yoritomo 0x18D1: frames 0 / 47 / 119, power 15 / 30 / 45). A CATCH is the same with power 0 (the
+// grab check; Yoritomo 0x4EA7 / 0x4E7C, frame 30). A grab is the throw plus the moves of its motion family (motion / 10: Yoritomo 1060 start
+// 0x4E7B, 1061 throw, 1062 catches) that deal no normal-type damage and are a catch, have an attack block or own hitbox rows.
+// Data rule (offline survey of the 108 archive characters, human #44217): 80 of the 93 throws are the paired 0x16xx-0x18xx ids next to a
+// xx00 / xx01 grab motion pair; motions < 1000 (Arachne 130-132, single body-drop rows) and >= 30000 (reactions) are not counted as throws.
+// No action with a damaging normal-type row is ever flagged, so ordinary swings cannot become grabs.
+// Proven live only for Yoritomo's 4E7B > 4EA7 > 4E7C > 18D1 chain (human #44217); other bosses are inferred.
+static void AmGrabs(const uint8_t* d, AmTable* t, const uint16_t (*rows)[AM_MAXROWS], const int* nrows) {
+    static uint8_t fl[AM_MAXMOVES];  // bit 0 throw, 1 catch, 2 normal-type damage
+    const uint32_t nhb = t->len[2] / AM_HB;
+    for (int r = 0; r < t->n; ++r) {
+        int timed = 0, ff = 0, ffdmg = 0, norm = 0;
+        for (int k = 0; k < nrows[r]; ++k) {
+            if (rows[r][k] >= nhb) continue;
+            const uint32_t b = t->off[2] + (uint32_t)rows[r][k] * AM_HB;
+            if (AmU16(d, b + 8) == 0xFFFF) continue;
+            const int dmg = AmU16(d, b + 0x10) || AmU16(d, b + 0x12);
+            ++timed;
+            if (AmU16(d, b + 0x14) == 0xFFFF) { ++ff; ffdmg += dmg; } else norm += dmg;
+        }
+        const uint16_t mo = t->m[r].motion;
+        fl[r] = (uint8_t)((timed && ff == timed && ffdmg && mo >= 1000 && mo < 30000) | (timed && ff == timed && !ffdmg) << 1 | (norm > 0) << 2);
+    }
+    for (int r = 0; r < t->n; ++r) {
+        AmMove* m = &t->m[r];
+        m->grab = fl[r] & 1;
+        if (m->grab || (fl[r] & 4) || m->motion >= 30000 || !((fl[r] & 2) || m->block || m->nrows)) continue;
+        for (int q = 0; q < t->n && !m->grab; ++q) m->grab = (fl[q] & 1) && t->m[q].motion / 10 == m->motion / 10;
+    }
+}
+
 // Parse a whole action-file image (d, size). Returns the number of actions (0 = not an action file).
 static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     memset(t, 0, sizeof *t);
@@ -117,6 +150,7 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
     if (sum > t->len[0]) return 0;
     uint32_t p = t->off[0] + t->len[0] - sum;
     static uint16_t sp[AM_MAXMOVES][16]; static int nsp[AM_MAXMOVES];  // spawn events at frame 0 (for the ambient rule), up to 16 per action
+    static uint16_t own[AM_MAXMOVES][AM_MAXROWS]; static int nown[AM_MAXMOVES];  // own hitbox rows per action (grab rule, AmGrabs)
     for (int r = 0; r < na; ++r) {
         const uint32_t o = t->off[1] + (uint32_t)r * AM_ROW, rec = AmU16(d, t->off[0] + 64 + 2 * r);
         AmMove* m = &t->m[r];
@@ -131,6 +165,7 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
             for (int k = 0; k < cnt; ++k) idx[k] = AmU16(d, p + 2 + 2 * k);
         }
         p += rec;
+        memcpy(own[r], idx, sizeof(uint16_t) * (size_t)cnt); nown[r] = cnt;
         int untimed = 0; const int nw = AmWindows(d, t, idx, cnt, &untimed);
         m->nrows = (uint8_t)(cnt > 255 ? 255 : cnt); m->untimed = (uint8_t)untimed; m->nwin = (uint8_t)(nw > 255 ? 255 : nw);
         nsp[r] = 0;
@@ -171,6 +206,7 @@ static int AmParse(const uint8_t* d, uint32_t size, AmTable* t) {
         m->link = m->next != 0xFFFF && m->next != m->id && !(k >= 0 && t->m[k].kind == 'I');
         m->loop = m->link && k >= 0 && t->m[k].next == t->m[k].id;
     }
+    AmGrabs(d, t, (const uint16_t (*)[AM_MAXROWS])own, nown);
     return na;
 }
 // Sequence heads (training_bosses_menu.h SeqHead without hand lists): has a link, is no link target, not idle, the chain has 2+ moves and an attack.

@@ -22,11 +22,12 @@
 
 enum { kMcAttack, kMcUnnamedAtk, kMcTwitch, kMcKiBreak, kMcMovement, kMcUnsorted, kMcCount };
 // user #22349: game-data attack groups. kMcCount itself is the Sequences row (training_bosses_menu.h kMcSeq), so these start after it.
-enum { kMcHitMax = 12, kMcHit1 = kMcCount + 1, kMcGreat = kMcHit1 + kMcHitMax, kMcHitUnknown, kMcAll };  // kMcHit1 + n - 1 = 'n hits'
-// menu order: attacks first (by hits, then Unblockable, then unknown), then the old groups (a boss without facts uses Attacks / Unnamed)
+// human #44217: kMcGrab = the moves of a grab (catch + throw, auto_moves.h AmGrabs); appended so the other group numbers stay put.
+enum { kMcHitMax = 12, kMcHit1 = kMcCount + 1, kMcGreat = kMcHit1 + kMcHitMax, kMcHitUnknown, kMcGrab, kMcAll };  // kMcHit1 + n - 1 = 'n hits'
+// menu order: attacks first (by hits, then Grabs, Unblockable, unknown), then the old groups (a boss without facts uses Attacks / Unnamed)
 static const int kMcOrder[] = {kMcHit1, kMcHit1 + 1, kMcHit1 + 2, kMcHit1 + 3, kMcHit1 + 4, kMcHit1 + 5, kMcHit1 + 6, kMcHit1 + 7, kMcHit1 + 8,
-                               kMcHit1 + 9, kMcHit1 + 10, kMcHit1 + 11, kMcGreat, kMcHitUnknown, kMcAttack, kMcUnnamedAtk, kMcTwitch, kMcKiBreak,
-                               kMcMovement, kMcUnsorted};
+                               kMcHit1 + 9, kMcHit1 + 10, kMcHit1 + 11, kMcGrab, kMcGreat, kMcHitUnknown, kMcAttack, kMcUnnamedAtk, kMcTwitch,
+                               kMcKiBreak, kMcMovement, kMcUnsorted};
 static_assert(sizeof kMcOrder / sizeof kMcOrder[0] == kMcAll - 1, "every group (not Sequences) once");
 static inline int N3MoveHitCat(int c) { return c >= kMcHit1 && c < kMcHit1 + kMcHitMax; }
 
@@ -35,6 +36,7 @@ static inline const char* N3MoveCatName(int c) {
                                                "11 hits", "12 or more hits"};
     if (N3MoveHitCat(c)) return hit[c - kMcHit1];
     if (c == kMcGreat) return "Unblockable";
+    if (c == kMcGrab) return "Grabs";
     if (c == kMcHitUnknown) return "Attacks: hit count unknown";
     return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Non-attack animations" : c == kMcKiBreak ? "Ki break"
          : c == kMcMovement ? "Movement and reactions" : c == kMcUnsorted ? "Unsorted" : "?";
@@ -43,6 +45,7 @@ static inline const char* N3MoveCatName(int c) {
 static inline const char* N3MoveCatHelp(int c) {
     if (N3MoveHitCat(c)) return "Attacks grouped by available hit counts, including linked moves where known. Hits can miss or be blocked; the label is not damage taken.";
     if (c == kMcGreat) return "Attacks marked unblockable in game data. Known hit counts appear beside each move.";
+    if (c == kMcGrab) return "Grabs from game data: the grab start, the catch check and the throw. Only lands on a caught player.";
     if (c == kMcHitUnknown) return "Hit count unavailable. Shared hitboxes or projectiles may have no count. Unknown does not mean zero hits.";
     return c == kMcAttack ? "Attacks seen in fights: hits, wind-ups and combo links. Best for drills."
          : c == kMcUnnamedAtk ? "Attacks from the game's move table that were not seen in a fight yet (no name yet). May not play from Stand still."
@@ -82,6 +85,7 @@ static inline int N3MoveCat(const N3Move* m) {
     // whose action row has an attack block is an attack too (Yoritomo 0x4E55 / 0x4E59 / 0x4E5E); seen twitches / movement stay twitches.
     const N3MoveFact* f = N3MoveFactFind(m->chr, m->id);
     if (c == kMcTwitch && !(m->kind == 0 && f && f->attack)) return c;
+    if (f && f->grab) return kMcGrab;  // human #44217: a grab part (catch / throw) is a Grab whatever its hit rows say
     if (f && f->great) return kMcGreat;
     if (f && f->hits) return kMcHit1 + (f->hits < kMcHitMax ? f->hits : kMcHitMax) - 1;
     return kMcHitUnknown;
@@ -92,5 +96,22 @@ static inline const char* N3MoveHitTag(const N3Move* m, char* b, size_t n) {
     if (!f) { if (n) b[0] = 0; return b; }
     if (f->hits) snprintf(b, n, "%u hit%s, unblockable", (unsigned)f->hits, f->hits == 1 ? "" : "s");
     else snprintf(b, n, "unblockable, hits unknown");
+    return b;
+}
+
+// human #44241: players name a boss move by type + number ("1Hit3", "2Hit4", "Grab3", "Unblockable8"). N = the 1-based rank of the move's id
+// among the boss's moves of the same group, sorted by id, so it is the same on every machine. "" for moves outside the attack groups.
+static inline const char* N3MoveLabelId(const N3Move* m, char* b, size_t n) {
+    if (n) b[0] = 0;
+    const int c = N3MoveCat(m);
+    const bool hit = N3MoveHitCat(c);
+    if (!(hit || c == kMcGrab || c == kMcGreat || c == kMcHitUnknown)) return b;
+    int rank = 1;
+    for (int i = 0; i < N3_MOVE_COUNT; ++i) {
+        const N3Move* o = &kN3Moves[i];
+        if (o->chr == m->chr && o->id < m->id && N3MoveCat(o) == c) ++rank;
+    }
+    if (hit) snprintf(b, n, "%d%s%d", c - kMcHit1 + 1, c == kMcHit1 + kMcHitMax - 1 ? "+Hit" : "Hit", rank);
+    else snprintf(b, n, "%s%d", c == kMcGrab ? "Grab" : c == kMcGreat ? "Unblockable" : "Atk?", rank);
     return b;
 }

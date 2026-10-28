@@ -73,6 +73,10 @@ int main(void) {
             const int k = AmFind(&g_t, 0x4E6E); assert(k >= 0 && g_t.m[k].hits == 2 && g_t.m[k].great && g_t.m[k].block);
             assert(nBlk == 88);
             const int k2 = AmFind(&g_t, 0x4E68); assert(g_t.m[k2].hits == 3 && !g_t.m[k2].great);
+            { int ng = 0; for (int q = 0; q < g_t.n; ++q) ng += g_t.m[q].grab; printf("Yoritomo grab-flagged actions: %d\n", ng);
+              static const unsigned gid[] = {0x4E7B, 0x4EA7, 0x4E7C, 0x18D1};
+              for (int q = 0; q < 4; ++q) { const int kg = AmFind(&g_t, gid[q]); assert(kg >= 0 && g_t.m[kg].grab); }
+              const int kn = AmFind(&g_t, 0x4E68); assert(!g_t.m[kn].grab); }
             assert(c.next_bad <= 1);  // the only hand edit: 0x4E78 -> 0x4E79 (AI continuation, gen_boss_sequences.py OVERRIDES); the file says 0x4E7A
         } else assert(c.atk_bad == 0);
         free(d);
