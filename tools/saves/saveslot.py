@@ -121,10 +121,18 @@ class Slots:
             before=inventory(current);txid=uuid.uuid4().hex;tx=self.root/'transactions'/txid;tx.mkdir()
             after=copy_verified(self.root/'slots'/name/'data',tx/'incoming')
             if after!=slot['tree']: raise ValueError('Slot changed before switch')
+            # A separate verified copy must exist BEFORE detaching current.
+            # The retained previous directory is an additional undo source,
+            # not a substitute for the mandatory pre-mutation backup.
+            backup=copy_verified(current,tx/'backup')
+            if backup!=before: raise ValueError('Current changed during mandatory backup')
+            write(tx/'backup.json',{'verified':True,'tree':backup})
+            if fail_at=='backed-up': raise RuntimeError('Injected interruption: backed-up')
             journal={'id':txid,'slot':name,'before':before,'after':after}
             write(tx/'receipt.json',journal);write(self.root/'pending.json',journal)
             if fail_at=='prepared': raise RuntimeError('Injected interruption: prepared')
             if inventory(current)!=before: raise ValueError('Current copy changed before swap')
+            if inventory(tx/'backup')!=before: raise ValueError('Mandatory backup verification failed')
             current.rename(tx/'previous')
             if fail_at=='detached': raise RuntimeError('Injected interruption: detached')
             (tx/'incoming').rename(current)

@@ -1759,9 +1759,9 @@ void ChangeCamera(int which, int dir) {
 
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
-    if(id==kSaveFilesRow){if(!dir&&savefiles::Allowed()){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
+    if(id==kSaveFilesRow){if(!dir&&savefiles::ActionAllowed("open-menu")){g_saveConfirm=0;EnterPage(pSaveFiles);}return;}
     if(id>=kSaveSlotRow&&id<=kSaveSwitchRow){
-        if(!savefiles::Allowed()){g_saveConfirm=0;return;}
+        if(!savefiles::ActionAllowed(id==kSaveSlotRow?"select-slot":id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
         if(id==kSaveSlotRow){g_saveSlot=1+menu_nav::Wrap(g_saveSlot-1,dir?dir:1,8);g_saveConfirm=0;return;}
         if(dir)return;
         const auto now=Now();

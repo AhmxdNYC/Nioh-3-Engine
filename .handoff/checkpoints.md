@@ -60,3 +60,5 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 2026-10-27 08:27 PM EDT | cx-pc #41422 done: Y/Triangle close codef30449ab on RCbase36a6f808; EF3049 shac7954203. Both menu suites and Release PASS; root/nested/hosted close, edit/busy guards and gameplay input isolation covered. Two glyph previews sent Discord. Next pc installs/native tests; Training/BR unchanged.
 
 2026-10-27 8:40 pm EDT | cx-pc #41472: log-only EF title gate implemented; 106 offline checks and Release build PASS. Native New Game/PC acceptance unproven; next pc captures TITLEGATE transitions. Files src/titlegate*.h, tests/titlegate_test.cpp, notes/title-gate-41472.md; branch cx-pc/title-gate-41472.
+
+2026-10-27 8:47 pm EDT | cx-pc #41493 stage1: candidate gate drives menu/actions; 37 action checks, 106 core checks, both menu suites, 44 helper/slot tests PASS. Independent verified backup before mutation. Next implement RealRoot=0 adapter and deferred Quit monitoring; no game touched.

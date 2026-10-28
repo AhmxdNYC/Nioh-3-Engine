@@ -10,7 +10,7 @@ namespace {
 uint8_t* base=nullptr;bool known=false,enabled=false,probe=false,allowed=false;
 void (*logfn)(const char*,...)=nullptr;Gate gate;uint64_t polled=0;
 std::wstring sandbox,helper,python;char note[200]="Copy-only test: choose a slot, then queue and quit normally.";
-HANDLE child=nullptr;std::wstring cancel;int lastTitle=-1,lastLoading=-1,lastSave=-2,lastTitleState=-1,lastQueue=-1,lastMessages=-1,lastSequence=-1;uint64_t lastProbe=0;
+HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
 template<class T> bool Rd(uintptr_t p,T& out){
@@ -18,43 +18,15 @@ template<class T> bool Rd(uintptr_t p,T& out){
  __try { out=*reinterpret_cast<const volatile T*>(p);return true; }
  __except(EXCEPTION_EXECUTE_HANDLER){out=T{};return false;}
 }
-void ProbeFields(const Sample& s,uint64_t now){
- if(!probe||!logfn||!s.readable||!s.title)return;
- static uintptr_t oldMode=0;static uint32_t oldFields[29]{};static uint64_t last=0;
- uint32_t fields[29]{};uintptr_t vt=0;
- if(!Rd(s.mode,vt))return;
- for(unsigned i=0;i<29;++i)if(!Rd(s.mode+0x10+i*4,fields[i]))return;
- if(oldMode==s.mode&&!memcmp(fields,oldFields,sizeof fields)&&now-last<1000)return;
- oldMode=s.mode;memcpy(oldFields,fields,sizeof fields);last=now;
- char line[640]{};int used=0;
- for(unsigned i=0;i<29;++i)used+=snprintf(line+used,sizeof line-used," +%02X=%08X",0x10+i*4,fields[i]);
- const uintptr_t b=(uintptr_t)base;
- logfn("SaveFilesFields: mode=%p vtable=%p vtableRva=%llX%s",(void*)s.mode,(void*)vt,(unsigned long long)(vt>=b&&vt<b+0x5000000?vt-b:0),line);
-}
+struct Reader { template<class T> bool operator()(uintptr_t p,T& out) const {return Rd(p,out);} };
 Sample Read() {
- Sample s;s.known=known;if(!known||!base)return s;
- uintptr_t mgr=0,begin=0,end=0,mode=0,type=0,gm=0,sm=0;unsigned char loading=1;
- const uintptr_t b=(uintptr_t)base;
- if(!Rd(b+0x4709B50,mgr)||!mgr||!Rd(mgr,begin)||!Rd(mgr+8,end)||end<begin||end-begin>4096||end==begin||((end-begin)&7))return s;
- if(!Rd(end-8,mode)||!mode||!Rd(mode+8,type)||!Rd(b+0x4759910,gm)||!gm||!Rd(gm+0x58A,loading))return s;
- uintptr_t qbegin=0,qend=0;int state=-1;
- if(!Rd(mode+0x10,state)||!Rd(mgr+0x18,qbegin)||!Rd(mgr+0x20,qend))return s;
- // Reject a torn traversal or a transition queued while collecting this sample.
- uintptr_t again=0;int stateAgain=-1;
- if(!Rd(b+0x4709B50,again)||again!=mgr||!Rd(mgr+8,again)||again!=end||
-    !Rd(end-8,again)||again!=mode||!Rd(mode+8,again)||again!=type||
-    !Rd(mode+0x10,stateAgain)||stateAgain!=state||!Rd(mgr+0x18,again)||again!=qbegin||
-    !Rd(mgr+0x20,again)||again!=qend)return s;
- // SystemMessageQueued 21AB54C: [base+45BBF80]+C0 != 0.
- // A missing/faulting manager is unverified, not an empty queue.
- uintptr_t messageMgr=0,messages=0;
- if(!Rd(b+0x45BBF80,messageMgr)||!messageMgr||!Rd(messageMgr+0xC0,messages))return s;
- if(!Rd(b+0x45BBF80,again)||again!=messageMgr||!Rd(messageMgr+0xC0,again)||again!=messages)return s;
- if(!Rd(mode+0x14,s.sequenceState))return s; // probe only; do not infer a screen from it yet
- s.messagesClear=messages==0;
- s.titleState=state;s.queueEmpty=qbegin==qend;
- s.readable=true;s.manager=mgr;s.mode=mode;s.title=type==b+0x44C91D0;s.loading=loading!=0;
- if(Rd(b+0x45C8480,sm)&&sm)Rd(sm+0x10,s.saveState);
+ Sample s;if(!known||!base)return s;
+ Reader rd;s=titlegate::Read((uintptr_t)base,rd);
+ // Retain the independent system-message exclusion. Faults remain a hard denial.
+ uintptr_t manager=0,messages=0,again=0;
+ if(!s.readable || !Rd((uintptr_t)base+0x45BBF80,manager)||!manager||
+    !Rd(manager+0xC0,messages)||!Rd((uintptr_t)base+0x45BBF80,again)||again!=manager||
+    !Rd(manager+0xC0,again)||again!=messages||messages){s.readable=false;}
  return s;
 }
 std::wstring Value(const wchar_t* key,const wchar_t* fallback,const wchar_t* ini){wchar_t b[2048]{};GetPrivateProfileStringW(L"SaveFiles",key,fallback,b,2048,ini);return b;}
@@ -70,22 +42,34 @@ void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)
  unsigned char found[sizeof bytes]{};SIZE_T n=0;
  if(!known||!base||!ReadProcessMemory(GetCurrentProcess(),base+0x85960,found,sizeof found,&n)||n!=sizeof found||memcmp(found,bytes,sizeof bytes))known=false;
  allowed=false;gate={};polled=0;
- if(logfn&&(enabled||probe))logfn("SaveFiles: admission forced OFF pending press-any/main-menu discriminator (#41309)");
+ if(logfn)logfn("SaveFiles: title candidate promoted; copy-only Enabled=%d; 1000ms stable + fresh action reads",enabled);
  if(logfn&&(enabled||probe))logfn("SaveFiles: copy-only enabled=%d probe=%d known top-mode bytes=%d",enabled,probe,known);
 }
 void Poll(){
  if(!enabled&&!probe)return;const uint64_t now=GetTickCount64();if(now-polled<100)return;polled=now;
- const Sample s=Read();allowed=gate.Update(s,now)&&enabled&&kMainMenuScreenVerified;ProbeFields(s,now);
- if(logfn&&(lastTitle!=(int)s.title||lastLoading!=(int)s.loading||lastSave!=s.saveState||lastTitleState!=s.titleState||lastQueue!=(int)s.queueEmpty||lastMessages!=(int)s.messagesClear||lastSequence!=s.sequenceState||(probe&&now-lastProbe>=1000))){
- logfn("SaveFilesProbe: readable=%d title=%d loading=%d saveState=%d titleState=%d queueEmpty=%d messagesClear=%d sequenceState=%d mode=%p manager=%p",s.readable,s.title,s.loading,s.saveState,s.titleState,s.queueEmpty,s.messagesClear,s.sequenceState,(void*)s.mode,(void*)s.manager);
- lastTitle=s.title;lastLoading=s.loading;lastSave=s.saveState;lastTitleState=s.titleState;lastQueue=s.queueEmpty;lastMessages=s.messagesClear;lastSequence=s.sequenceState;lastProbe=now;}
+ const Sample s=Read();const auto verdict=gate.Update(s,now);allowed=enabled&&verdict==titlegate::Candidate;
+ if(logfn&&(lastVerdict!=(int)verdict||lastState!=s.state)){
+  logfn("SaveFilesGate: candidate=%d verdict=%d Enabled=%d readable=%d title=%d state=%u queueEmpty=%d loading=%d top=%p",allowed,(int)verdict,enabled,s.readable,s.title,s.state,s.queueEmpty,s.loading,(void*)s.top);
+  lastVerdict=verdict;lastState=s.state;
+ }
  if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);cancel.clear();}
  else if(!Ready(s)){Cancel();snprintf(note,sizeof note,"Cancelled: left the verified main menu.");}}
 }
-bool Allowed(){if(!kMainMenuScreenVerified)return false;const auto now=GetTickCount64();const auto s=Read();return allowed&&now>=polled&&now-polled<500&&Ready(s)&&s.mode==gate.mode;}
+bool Check(const char* action){
+ const auto now=GetTickCount64();const auto s=Read();
+ const bool fresh=now>=polled&&now-polled<500;
+ const auto verdict=gate.Update(s,now);
+ const bool result=enabled&&allowed&&fresh&&verdict==titlegate::Candidate;
+ if(!result)allowed=false;
+ if(action&&logfn)logfn("SaveFilesAction: action=%s allow=%d Enabled=%d fresh=%d verdict=%d readable=%d title=%d state=%u queueEmpty=%d loading=%d top=%p +30=%p +38=%p +40=%p +58=%p",
+  action,result,enabled,fresh,(int)verdict,s.readable,s.title,s.state,s.queueEmpty,s.loading,(void*)s.top,(void*)s.p30,(void*)s.p38,(void*)s.p40,(void*)s.p58);
+ return result;
+}
+bool Allowed(){return Check(nullptr);}
+bool ActionAllowed(const char* action){return Check(action);}
 const char* Note(){return note;}
 bool Queue(int slot,bool backup){
- if(!Allowed()||slot<1||slot>8||child){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
+ if(!ActionAllowed(backup?"backup-request":"switch-request")||slot<1||slot>8||child){snprintf(note,sizeof note,"Unavailable: title state changed or a request is active.");return false;}
  if(sandbox.empty()||helper.empty()||python.empty()){snprintf(note,sizeof note,"CopySandbox, Helper and Python paths must be configured.");return false;}
  FILETIME created,exit,kernel,user;if(!GetProcessTimes(GetCurrentProcess(),&created,&exit,&kernel,&user))return false;
  const unsigned long long stamp=((unsigned long long)created.dwHighDateTime<<32)|created.dwLowDateTime;
@@ -95,7 +79,7 @@ bool Queue(int slot,bool backup){
  STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
  // Final fresh SEH-backed admission after argument construction, immediately
  // before the only operation dispatch. The helper still waits for clean exit.
- if(!Allowed()){snprintf(note,sizeof note,"Cancelled: title state or request queue changed.");cancel.clear();return false;}
+ if(!ActionAllowed(backup?"backup-dispatch":"switch-dispatch")){snprintf(note,sizeof note,"Cancelled: title state or request queue changed.");cancel.clear();return false;}
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
  CloseHandle(pi.hThread);child=pi.hProcess;snprintf(note,sizeof note,"Queued COPY slot%d. Close mod menu; use the game's Quit within 2 minutes.",slot);
  return true;

@@ -29,6 +29,28 @@ class Tests(unittest.TestCase):
         before=s.inventory(self.root/'current');r=self.m.switch('A')
         self.assertFalse((self.root/'current'/'extra.bin').exists())
         self.m.restore(r['undo']);self.assertEqual(s.inventory(self.root/'current'),before)
+    def test_mandatory_backup_before_mutation(self):
+        with self.assertRaises(RuntimeError):self.m.switch('A',fail_at='backed-up')
+        self.assertEqual(s.inventory(self.root/'current'),self.b)
+        tx=next((self.root/'transactions').iterdir())
+        self.assertEqual(s.inventory(tx/'backup'),self.b)
+        self.assertTrue(s.read(tx/'backup.json')['verified'])
+        self.assertFalse((tx/'previous').exists())
+    def test_backup_copy_failure_preserves_current(self):
+        original=s.copy_verified
+        def fail_backup(src,dst):
+            if dst.name=='backup':raise OSError('backup disk full')
+            return original(src,dst)
+        with patch.object(s,'copy_verified',side_effect=fail_backup):
+            with self.assertRaises(OSError):self.m.switch('A')
+        self.assertEqual(s.inventory(self.root/'current'),self.b)
+        self.assertFalse((self.root/'pending.json').exists())
+    def test_switch_retains_independent_backup(self):
+        result=self.m.switch('A');tx=self.root/'transactions'/result['undo']
+        self.assertEqual(s.inventory(tx/'backup'),self.b)
+        self.assertEqual(s.inventory(tx/'previous'),self.b)
+        self.m.restore(result['undo'])
+        self.assertEqual(s.inventory(tx/'backup'),self.b)
     def test_slot_immutable(self):
         with self.assertRaises(ValueError):self.m.snapshot('A')
         self.assertEqual(self.m.verify('A')['tree'],self.a)

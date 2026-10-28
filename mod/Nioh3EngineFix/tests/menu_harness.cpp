@@ -30,6 +30,7 @@ namespace savefiles {
 bool testAllowed=false;int requests=0;
 void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
 void Poll(){} bool Allowed(){return testAllowed;}
+bool ActionAllowed(const char*){return testAllowed;}
 bool Queue(int,bool){if(!testAllowed)return false;++requests;return true;}
 const char* Note(){return "Copy-only test";}
 }
