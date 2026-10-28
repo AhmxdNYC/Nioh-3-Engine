@@ -45,14 +45,15 @@ def source_checks():
     print('PASS: source contracts; FG read-only, own INI retained, repair/setter paths absent')
 
 
-def full_check(setup):
+def full_check(setup, skip_build=False):
     out = ROOT / 'build/settings-preservation'
     out.mkdir(parents=True, exist_ok=True)
     script = out / 'build-test.cmd'
     lines = ['@echo off', 'setlocal', f'cd /d "{ROOT}"']
     if setup:
         lines += [f'call "{Path(setup).resolve()}"', 'if errorlevel 1 exit /b 1']
-    lines += ['call build.bat', 'if errorlevel 1 exit /b 1']
+    if not skip_build:
+        lines += ['call build.bat', 'if errorlevel 1 exit /b 1']
     # build.bat uses setlocal; initialize the compiler again for this command.
     if setup:
         lines += [f'call "{Path(setup).resolve()}"']
@@ -64,7 +65,7 @@ def full_check(setup):
         'for %%f in (build\\*.obj) do if /I not "%%~nxf"=="menu.obj" call set "TEST_OBJECTS=%%TEST_OBJECTS%% %%f"',
         'cl /nologo /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE '
         'tests\\settings_preservation_harness.cpp /Fobuild\\settings-preservation\\harness.obj '
-        '/Febuild\\settings-preservation\\harness.exe /link /OPT:REF /OPT:ICF %TEST_OBJECTS% kernel32.lib user32.lib',
+        '/Febuild\\settings-preservation\\harness.exe /link /OPT:REF /OPT:ICF %TEST_OBJECTS% kernel32.lib user32.lib winhttp.lib',
         'exit /b %errorlevel%',
     ]
     script.write_text('\n'.join(lines) + '\n')
@@ -113,9 +114,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-only', action='store_true')
     parser.add_argument('--setup', help='MSVC x64 environment batch file')
+    parser.add_argument('--skip-build', action='store_true', help='Use existing freshly built objects')
     args = parser.parse_args()
     source_checks()
     if args.source_only:
         print('Native preservation/build NOT RUN (--source-only)')
     else:
-        full_check(args.setup)
+        full_check(args.setup, args.skip_build)
