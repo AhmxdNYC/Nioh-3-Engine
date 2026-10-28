@@ -20,6 +20,7 @@ bool QueueNewBackup();
 bool LiveAvailable();
 bool QueueLive(const char* name);
 bool Pending();
+bool LivePending();
 // One-shot: the EF menu pauses the game, which freezes the soft-reset countdown; close it first.
 bool TakeMenuCloseRequest();
 void CancelPending();

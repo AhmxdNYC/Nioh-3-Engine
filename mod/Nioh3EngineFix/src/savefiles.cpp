@@ -100,6 +100,7 @@ bool Check(const char* action){
 bool Allowed(){return Check(nullptr);}
 bool ActionAllowed(const char* action){return Check(action);}
 bool Pending(){return child&&!requestCancelled;}
+bool LivePending(){return Pending()&&liveChild;}
 bool TakeMenuCloseRequest(){const bool r=liveCloseMenu;liveCloseMenu=false;return r;}
 void CancelPending(){
  if(logfn)logfn("SaveFilesAction: action=cancel pending=%d (no save writes)",Pending());

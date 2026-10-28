@@ -3130,7 +3130,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     addT("", cWhite, true);
     if(g_pages.page==pSaveActions&&!g_saveName.empty())addT(g_saveName.c_str(),cCyan);
-    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT("Applies after you quit the game.",cWhite);}
+    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT(savefiles::LivePending()?"Applies live: the title reloads on its own, no quit needed.":"Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
