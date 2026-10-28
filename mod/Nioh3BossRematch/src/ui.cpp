@@ -152,6 +152,7 @@ void Paint(HDC dc, int w, int h) {
             // user #22412: a row wider than the panel lost its tail (Repeat / Used state). Cut the middle ("...") and keep the end.
             char fit[256];
             snprintf(fit, sizeof fit, "%s", rows[i].text);
+            for (char* t = strchr(fit, '	'); t; t = strchr(t, '	')) *t = ' ';  // human #44361: right-column TAB (EF host aligns it)
             const int maxW = pw - 24;
             int rowPx=kFontPx;
             SIZE rs=N3StrokeMeasure((int)strlen(fit),rowPx,N3StrokeWidth(rowPx));

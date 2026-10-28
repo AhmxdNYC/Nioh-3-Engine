@@ -2659,6 +2659,15 @@ void Parse(const char* text, uint32_t color, bool sel, Item& o) {
     for (const char* h : kAdj) if (Cut(b, h)) { o.adj = true; break; }
     for (const char* h : kSub) if (Cut(b, h)) { o.sub = true; break; }
     Cut(b, "   B / Esc / Backspace");
+    // human #44361: "left<TAB>right" = an explicit right column (Boss Rematch move rows: '1 : Anim 1.0s  1Hit3<TAB>Attack  [ON]')
+    if (char* tab = strchr(b, '	')) {
+        *tab = 0;
+        snprintf(o.label, sizeof o.label, "%s", b);
+        snprintf(o.value, sizeof o.value, "%s", tab + 1);
+        Trim(o.label);
+        Trim(o.value);
+        return;
+    }
     // move switch rows: "0x1234  ON   label"
     if (b[0] == '0' && b[1] == 'x' && strlen(b) > 8 && b[6] == ' ') {
         char st[8] = {};
@@ -2666,7 +2675,7 @@ void Parse(const char* text, uint32_t color, bool sel, Item& o) {
         while (b[i] == ' ') ++i;
         int k = 0;
         while (b[i] && b[i] != ' ' && k < 7) st[k++] = b[i++];
-        snprintf(o.value, sizeof o.value, "%s", st);
+        snprintf(o.value, sizeof o.value, "%s", menu_style::PillText(st));
         snprintf(o.label, sizeof o.label, "%s", b + i);
         Trim(o.label);
         snprintf(o.note, sizeof o.note, "%.6s", b);
@@ -2682,6 +2691,7 @@ void Parse(const char* text, uint32_t color, bool sel, Item& o) {
         const char* g2 = strstr(rest, "   ");
         snprintf(o.value, sizeof o.value, "%.*s", g2 ? (int)(g2 - rest) : (int)strlen(rest), rest);
         Trim(o.value);
+        if (strcmp(menu_style::PillText(o.value), o.value)) { char v[8]; snprintf(v, sizeof v, "%s", menu_style::PillText(o.value)); snprintf(o.value, sizeof o.value, "%s", v); }
         if (g2) { snprintf(o.note, sizeof o.note, "%s", g2); Trim(o.note); }
     } else {
         const char* body = strncmp(b, "Arena: ", 7) ? b : b + 7;
@@ -2852,8 +2862,16 @@ float DrawRematchHost(unsigned W, unsigned H) {
         } else if (it.value[0]) {
             uint32_t bg, fg;
             const float vx = rx - vw - (it.sel && it.adj ? cw * 2.f : cw * 0.5f);
+            const char* mark = strrchr(it.value, ' ');  // human #44361: "Attack  [ON]" = text + a trailing state pill
             if (ms::PillColors(it.value, bg, fg)) ms::Pill(vx, ly, it.value, bg, it.c == cDim ? cDim : fg, cw, line, scale, a);
-            else osd::DrawText(vx, ly, it.value, ms::Fade(it.sel ? cYellow : vc, a), scale);
+            else if (mark && mark[1] == '[' && ms::PillColors(mark + 1, bg, fg)) {
+                const int pre = (int)(mark - it.value);
+                char head[112];
+                snprintf(head, sizeof head, "%.*s", pre, it.value);
+                hostui::Trim(head);
+                osd::DrawText(vx, ly, head, ms::Fade(vc, a), scale);
+                ms::Pill(vx + (float)(pre + 1) * cw, ly, mark + 1, bg, it.c == cDim ? cDim : fg, cw, line, scale, a);
+            } else osd::DrawText(vx, ly, it.value, ms::Fade(it.sel ? cYellow : vc, a), scale);
             if (it.sel && it.adj) {
                 osd::DrawText(vx - cw * 1.5f, ly, "<", ms::Fade(ms::kAccent, a), scale);
                 osd::DrawText(vx + vw + cw * 0.5f, ly, ">", ms::Fade(ms::kAccent, a), scale);
@@ -3360,15 +3378,17 @@ float DrawImpl(unsigned W, unsigned H) {
             char tok[8] = {};
             const size_t tl = strcspn(rw.value, " ");
             if (tl < sizeof tok) memcpy(tok, rw.value, tl);
-            if (!isHead && tok[0] && ms::PillColors(tok, bg, fg)) {  // "ON", "OFF  * restart", "ON  (ini)": pill + the rest as text
-                ms::Pill(vx, y, tok, bg, rw.lc == cDim ? cDim : fg, cw, lineH, sc, fa);
-                if (rw.value[tl]) osd::DrawText(vx + (float)(tl + 1) * cw, y, rw.value + tl + 1, ms::Fade(rw.vc, fa), sc);
+            const char* pt = ms::PillText(tok);  // human #44361: ON / OFF drawn as [ON] / [OFF]
+            const uint32_t vcol = rw.vc == cGreen ? cGray : rw.vc;  // human #44361: no green text for ON values (the [ON] pill says it)
+            if (!isHead && tok[0] && ms::PillColors(pt, bg, fg)) {  // "ON", "OFF  * restart", "ON  (ini)": pill + the rest as text
+                ms::Pill(vx, y, pt, bg, rw.lc == cDim ? cDim : fg, cw, lineH, sc, fa);
+                if (rw.value[tl]) osd::DrawText(vx + (float)(strlen(pt) + 1) * cw, y, rw.value + tl + 1, ms::Fade(vcol, fa), sc);
             } else if (!isHead && rw.value[0] && strchr("ABXY", rw.value[0]) &&
                        (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
                 // Use the existing active-controller badge, including PlayStation symbols.
                 char key[2] = {rw.value[0], 0};
                 ms::Hint(vx, y, key, rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
-            } else osd::DrawText(vx, y, rw.value, ms::Fade(rw.vc, fa), sc);
+            } else osd::DrawText(vx, y, rw.value, ms::Fade(vcol, fa), sc);
         }
         ++line;
     };
