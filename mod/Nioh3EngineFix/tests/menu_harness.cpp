@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 // Exercise the real menu.cpp model and input feed; no game, graphics, hooks or files.
 #include "../src/menu.cpp"
 #include <cstdlib>
@@ -717,7 +718,7 @@ int main() {
             strcpy_s(v.footer,"0x4E51  Overhead slash. A: repeat | Left: block | Right: allow."); v.toast[0]=0;
             osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextColor.clear();osd::drawnTextScale.clear();
             const float sc=DrawRematchHost(1920u,1080u);
-            if (FILE* f=fopen(dump,"w")) {
+            FILE* f=nullptr; if ((f=fopen(dump,"w"))!=nullptr) {
                 fprintf(f,"S %g %d %d\n",sc,osd::kGlyphW,osd::kGlyphH);
                 for(const auto& r:osd::drawnRects)fprintf(f,"R %g %g %g %g %08X\n",r.x,r.y,r.w,r.h,r.color);
                 for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T %g %g %g %08X %s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
