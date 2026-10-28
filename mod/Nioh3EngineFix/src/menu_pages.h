@@ -39,7 +39,8 @@ constexpr int pSaveActions = -3;
 // Keep the removed relaunch row ID reserved so later row IDs stay stable.
 constexpr int kSaveRefreshRow = kSaveCancelRow + 2;
 constexpr int kSaveLiveRow = kSaveRefreshRow + 1;
-constexpr int kSaveNamedFirst = kSaveLiveRow + 1;
+constexpr int kSaveOpenRow = kSaveLiveRow + 1;
+constexpr int kSaveNamedFirst = kSaveOpenRow + 1;
 constexpr int kMenuRowCap = kSaveNamedFirst + savefiles::kMaxSlots;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");

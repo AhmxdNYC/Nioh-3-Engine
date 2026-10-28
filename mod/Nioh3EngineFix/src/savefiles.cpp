@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <shellapi.h>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -214,6 +215,7 @@ bool QueueNewBackup(){
  snprintf(name,sizeof name,"Backup-%04u%02u%02u-%02u%02u%02u-%03u",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond,t.wMilliseconds);
  return QueueNamed(name,true);
 }
+void OpenFolder(){const std::wstring dir=saveRoot.empty()?sandbox:saveRoot;if(dir.empty()){snprintf(note,sizeof note,"No saves folder configured.");return;}ShellExecuteW(nullptr,L"open",dir.c_str(),nullptr,nullptr,SW_SHOWNORMAL);}
 bool LiveAvailable(){return liveEnabled&&!liveHelper.empty()&&!sandbox.empty()&&!python.empty()&&!saveRoot.empty();}
 bool QueueLive(const char* name){
  if(!LiveAvailable()||!ValidSlotName(name)||child||!ActionAllowed("live-import-request")){snprintf(note,sizeof note,"Unavailable: set LiveTitle=1, LiveHelper, SaveRoot, CopySandbox, Python; title must be idle.");return false;}

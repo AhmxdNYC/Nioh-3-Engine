@@ -1080,7 +1080,7 @@ int PageRowsBody(int* out, bool selectable) {
         else if(savefiles::Allowed()){
             if(g_pages.page==pSaveFiles){
                 for(int i=0;i<savefiles::SlotCount();++i)add(kSaveNamedFirst+i);
-                add(kSaveBackupRow);add(kSaveRefreshRow);
+                add(kSaveBackupRow);add(kSaveRefreshRow);add(kSaveOpenRow);
             }else if(!g_saveName.empty()){add(kSaveSwitchRow);if(savefiles::LiveAvailable())add(kSaveLiveRow);}
         }
         add(kBackRow);return n;
@@ -1802,6 +1802,7 @@ void Change(int id, int dir) {
         }return;
     }
     if(id==kSaveLiveRow){if(!dir&&!savefiles::Pending()&&!g_saveName.empty())savefiles::QueueLive(g_saveName.c_str());g_saveConfirm=0;return;}
+    if(id==kSaveOpenRow){if(!dir)savefiles::OpenFolder();return;}
     if(id==kSaveRefreshRow){if(!dir&&!savefiles::Pending()){savefiles::RefreshSlots();g_saveConfirm=0;}return;}
     if(id==kSaveBackupRow||id==kSaveSwitchRow){
         if(dir||savefiles::Pending()||!savefiles::ActionAllowed(id==kSaveBackupRow?"confirm-backup":"confirm-switch")){g_saveConfirm=0;return;}
@@ -3051,9 +3052,9 @@ float DrawImpl(unsigned W, unsigned H) {
             char text[96];snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",savefiles::SlotName(id-kSaveNamedFirst));
             put(body,nb,128,text,"","A: choose",cWhite,cCyan,id==g_sel,false);continue;
         }
-        if(id>=kSaveFilesRow&&id<=kSaveLiveRow){
+        if(id>=kSaveFilesRow&&id<=kSaveOpenRow){
             if(id==g_sel)selRow=nb;
-            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveLiveRow?"Import now, refresh title":"Switch after Quit";
+            const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveLiveRow?"Import now, refresh title":id==kSaveOpenRow?"Open saves folder":"Switch after Quit";
             char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
 
             put(body,nb,128,text,value,"A: select",cWhite,cCyan,id==g_sel,false);continue;

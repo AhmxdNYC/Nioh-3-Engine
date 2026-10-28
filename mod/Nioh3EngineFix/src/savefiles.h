@@ -18,6 +18,7 @@ const char* SlotName(int index);
 bool QueueNamed(const char* name,bool backup);
 bool QueueNewBackup();
 bool LiveAvailable();
+void OpenFolder();
 bool QueueLive(const char* name);
 bool Pending();
 bool LivePending();
