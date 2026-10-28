@@ -1986,6 +1986,40 @@ int CurrentTab() {
 const char* TabName(int id) {
     return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Practice" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
 }
+// #44353: the tab bar row at the top of every page: Home (the first page) then the LB / RB order, short names
+const char* TabShort(int id) {
+    if (!id) return "Home";
+    if (id == kRematchRow) return "Boss";
+    if (id == kPracticeRow) return "Practice";
+    if (id == kSaveFilesRow) return "Saves";
+    const int pg = id - kPageRow;
+    return pg == pDisplay ? "Display" : pg == pCamera ? "Camera" : pg == pSettings ? "Optimize" : PageName(pg);
+}
+// draws the row at (x, y) within `cols` columns; the current tab is "[name]" in gold on the soft gold wash, the rest gray
+void DrawTabBar(float x, float y, int cols, float cw, float lineH, float sc, float a) {
+    namespace ms = menu_style;
+    int tabs[kMenuRowCap + 1], lens[kMenuRowCap + 1];
+    tabs[0] = 0;
+    const int n = 1 + TabRows(tabs + 1), cur = CurrentTab();
+    int ci = 0;
+    for (int i = 0; i < n; ++i) {
+        lens[i] = (int)strlen(TabShort(tabs[i]));
+        if (tabs[i] == cur) ci = i;
+    }
+    menu_nav::TabSeg seg[kMenuRowCap + 1];
+    bool moreL, moreR;
+    const int k = menu_nav::TabBar(lens, n, ci, cols, seg, moreL, moreR);
+    if (moreL) osd::DrawText(x, y, "<", ms::Fade(cDim, a), sc);
+    for (int i = 0; i < k; ++i) {
+        const bool on = seg[i].tab == ci;
+        char b[64];
+        snprintf(b, sizeof b, "%c%s%c", on ? '[' : ' ', TabShort(tabs[seg[i].tab]), on ? ']' : ' ');
+        const float sx = x + (float)seg[i].col * cw;
+        if (on) osd::DrawRect(sx, y - sc, (float)seg[i].len * cw, lineH, ms::Fade(ms::kAccentSoft, a));
+        osd::DrawText(sx, y, b, ms::Fade(on ? ms::kAccent : cGray, a), sc);
+    }
+    if (moreR) osd::DrawText(x + (float)(cols - 1) * cw, y, ">", ms::Fade(cDim, a), sc);
+}
 void SwitchTab(int dir) {
     int tabs[kMenuRowCap];
     const int n = TabRows(tabs);
@@ -2804,7 +2838,8 @@ float DrawRematchHost(unsigned W, unsigned H) {
     const int tailV = n - bodyN;
     const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
     const bool tabHints = !g_rematchFromAddon;  // #44232
-    const float titleH = line * (statusOwnLine ? 2.f : 1.f) + pad * 1.5f, hintH = line * (tabHints ? 2.f : 1.f) + pad;
+    const float tabBarH = tabHints ? line : 0.f;  // #44353: tab bar row inside the title band, under the page name
+    const float titleH = line * (statusOwnLine ? 2.f : 1.f) + pad * 1.5f + tabBarH, hintH = line * (tabHints ? 2.f : 1.f) + pad;
     const float tailH = tailV ? line * (float)tailV + pad : 0.f;
     const int room = std::max(4, (int)((maxH - titleH - pad - tailH - hintH) / line));
     // scroll window over the body (visual lines), the selected item kept in view with one line of context
@@ -2827,6 +2862,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
         if (statusOwnLine) osd::DrawText(tx, y0 + pad + line, status, ms::Fade(statusC, a), scale);
         else osd::DrawText(x + width - pad - (float)strlen(status) * cw, y0 + pad, status, ms::Fade(statusC, a), scale);
     }
+    if (tabHints) DrawTabBar(tx, y0 + pad + line * (statusOwnLine ? 2.f : 1.f), kCols, cw, line, scale, a);
     ms::Divider(x + scale, y0 + titleH, width - 2.f * scale, scale, a);
     // body
     const float bodyTop = y0 + titleH + pad * 0.5f, rx = x + width - pad - (bodyV > shownV ? cw * 0.5f : 0.f);  // rx: value right edge
@@ -3296,7 +3332,7 @@ float DrawImpl(unsigned W, unsigned H) {
     for (int i = 0; i < nt; ++i) clip(tail[i], false);
     const float sc = PanelScale(W, H);
     const int totalRows = std::max(8, (int)std::floor((0.66f * (float)H - 12 * sc) / ((osd::kGlyphH + 2) * sc)));
-    const int avail = std::max(3, totalRows - 1 - nt);
+    const int avail = std::max(3, totalRows - 2 - nt);  // head + the #44353 tab bar row
     int first = 0, shown = nb;
     char scrollNote[40] = "";
     if (nb > avail) {  // scroll window: keep the selected row visible with one row of context above and below
@@ -3377,6 +3413,8 @@ float DrawImpl(unsigned W, unsigned H) {
         ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);
+    DrawTabBar(x0 + pad, y0 + pad + (float)line * lineH, (int)cols, cw, lineH, sc, fa);  // #44353: tabs under the title, every page
+    ++line;
     for (int i = 0; i < shown; ++i) drawRow(body[first + i], false);
     line = n - nt;
     for (int i = 0; i < nt; ++i) drawRow(tail[i], false);
