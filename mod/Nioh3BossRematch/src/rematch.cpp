@@ -2358,6 +2358,16 @@ void RepeatWhat(const N3Move& m, char* b, size_t n) {
     else if (hold == 1) snprintf(b, n, "Boss does 0x%04X every %s once it stands still", m.id, gap);
     else snprintf(b, n, "Boss uses 0x%04X each time it attacks (gap %s)", m.id, gap);
 }
+// human #44361: the right-column type of a move row: Attack / Grab / Unblockable / Wind-up / Link / Twitch / Movement / Idle
+void MoveTypeTag(const N3Move& m, char* b, size_t n) {
+    const int c = N3MoveCat(&m);
+    if (c == kMcGrab) { snprintf(b, n, "Grab"); return; }
+    if (c == kMcGreat) { snprintf(b, n, "Unblockable"); return; }  // its hit count is in the footer (the row stays one line)
+    if (m.kind == 'S') { snprintf(b, n, "Wind-up"); return; }
+    if (m.kind == 'L') { snprintf(b, n, "Link"); return; }
+    if (N3MoveHitCat(c) || c == kMcHitUnknown || c == kMcAttack || c == kMcUnnamedAtk) { snprintf(b, n, "Attack"); return; }
+    snprintf(b, n, "%s", m.kind == 'T' ? "Twitch" : m.kind == 'M' ? "Movement" : m.kind == 'I' ? "Idle" : c == kMcKiBreak ? "Ki break" : "Other");
+}
 const char* MoveKindName(char k) {  // user #13786: N3Move.kind from tools/rematch/actlog_moves.py
     return k == 'A' ? "attack" : k == 'S' ? "wind-up" : k == 'L' ? "link" : k == 'T' ? "twitch" : k == 'M' ? "movement" : k == 'I' ? "idle" : "unsorted";
 }
@@ -3486,7 +3496,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : stn == 0 ? cGreen : stn >= 1 ? cYellow : cDim, sel, "%s Behavior: %s   Left: fight / Right: wait", mk, StanceName(stn));
         } else if (it[i] == kItBossAggro) {
             const int v = BossAggroGet();
-            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Follow and target me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Follow and target me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
         } else if (it[i] == kItBossGap) {
             const int v = BossGapGet();
             char val[24];
@@ -3506,25 +3516,22 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const bool rpt = MoveRepeating(move) && !RepeatIsSeq(move.chr);  // #14423: a sequence repeat shows on its Sequences row
             char msTxt[12] = "";  // user #13786: typical natural run time from the Training logs
             if (move.ms && !N3MoveProtected(move.id)) snprintf(msTxt, sizeof msTxt, "%u.%us", move.ms / 1000u, (move.ms % 1000u) / 100u);
-            char tag[32], tagTxt[36] = "";  // user #22349: Unblockable rows say their hit count ('2 hits, unblockable')
-            if (*N3MoveHitTag(&move, tag, sizeof tag)) snprintf(tagTxt, sizeof tagTxt, " [%s]", tag);
             if (N3MoveProtected(move.id)) add(sel ? cWhite : cDim, sel, "%s 0x%04X  Idle / initialization (required, always used)", mk, move.id);
             else {
-                // user #23924: the tail (tag, Repeat / Used state) was clipped at the right edge on long rows. Every other part is measured first and the NAME
-                // gets what is left of a 86-char budget (cut with '..'); the kind column is dropped on tagged rows (the group header already says it).
-                const char* nm = MoveName(move);
-                const char* q = *move.label && !N3KiNote(move.chr, move.id) ? " (?)" : "";
-                char head[56], tail[64], lid[24];  // human #44241: the row leads with the player-facing id (1Hit3 / Grab3 / Unblockable8), then the run time
-                if (*N3MoveLabelId(&move, lid, sizeof lid)) snprintf(head, sizeof head, "%s 0x%04X %-12s %4s ", mk, move.id, lid, msTxt);
-                else if (tagTxt[0]) snprintf(head, sizeof head, "%s 0x%04X %4s ", mk, move.id, msTxt);
-                else snprintf(head, sizeof head, "%s 0x%04X %-8s %4s ", mk, move.id, MoveKindName(move.kind), msTxt);
-                snprintf(tail, sizeof tail, "%s%s  Repeat %s  Allow %s", q, tagTxt, rpt ? "ON" : "OFF", allowed < 0 ? "?" : allowed ? "ON" : "OFF");
-                int room = 86 - (int)strlen(head) - (int)strlen(tail);
-                if (room < 12) room = 12;
-                if (room > 36) room = 36;
-                const int nl = (int)strlen(nm);
-                if (nl > room) add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel, "%s%.*s..%s", head, room - 2, nm, tail);
-                else add(sel ? cWhite : rpt ? cYellow : allowed > 0 ? cGreen : cGray, sel, "%s%s%s", head, nm, tail);
+                // human #44361: LEFT '<N> : Anim <x.y>s' (N = running number in this group) + the player-facing id (1Hit3) and the 0x id when it fits;
+                // a TAB starts the RIGHT column (EF host right-aligns it): the move type and one state marker [ON] / [OFF] / [REPEAT]. No colour
+                // carries the state (the selected row is white), no 'static move / attack family' label text; the name is in the footer.
+                int num = 0;
+                for (int j = 0; j <= i; ++j) num += IsMoveItem(it[j]) && !N3MoveProtected(kN3Moves[it[j] - kItMoveBase].id);
+                char lid[24], left[64], right[48];
+                N3MoveLabelId(&move, lid, sizeof lid);
+                snprintf(left, sizeof left, "%d : Anim %s", num, msTxt[0] ? msTxt : "?");
+                if (lid[0]) { const size_t l = strlen(left); snprintf(left + l, sizeof left - l, "  %s", lid); }
+                if (strlen(left) + 8 <= 30) { const size_t l = strlen(left); snprintf(left + l, sizeof left - l, "  0x%04X", move.id); }
+                char type[32];
+                MoveTypeTag(move, type, sizeof type);
+                snprintf(right, sizeof right, "%s  %s", type, rpt ? "[REPEAT]" : allowed < 0 ? "[?]" : allowed ? "[ON]" : "[OFF]");
+                add(sel ? cWhite : rpt ? cYellow : allowed == 0 ? cDim : cGray, sel, "%s %s\t%s", mk, left, right);
             }
         } else if (IsMoveCatItem(it[i])) {  // user #14291: 'Attacks   24 moves, 2 OFF, repeating 0x4E64   A: open'
             const int c = kItMoveCatBase - it[i];
@@ -3556,7 +3563,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const auto gnf = (G)TrainingExport("Nioh3Training_GetNoFinisher");
             const bool nofin = gnf && gnf() > 0;
             const char* why = it[i] == kItDeathLoot ? "" : nofin ? "   (inactive: No grapple is ON)" : (it[i] == kItDeathCut && !blow) ? "   (inactive: final blow is OFF)" : "";
-            add(sel ? cWhite : !ok || *why ? cDim : (v ? cGreen : cGray), sel, "%s %-24s %s   A / Left / Right%s", mk,
+            add(sel ? cWhite : !ok || *why ? cDim : cGray, sel, "%s %-24s %s   A / Left / Right%s", mk,
                 it[i] == kItDeathCut ? "Boss death animation:" : it[i] == kItDeathBlow ? "Require final blow:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF", why);
         }
         else if (it[i] == kItReturnHome) {
@@ -3570,13 +3577,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             using G = int (*)();
             const auto g = (G)TrainingExport("Nioh3Training_GetAutoRetry");
             const int v = g ? g() : -1;
-            add(sel ? cWhite : v > 0 ? cGreen : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "Auto retry on death:", v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "Auto retry on death:", v < 0 ? "?" : v ? "ON" : "OFF");
         }
         else if (it[i] == kItNoFin) {
             using G = int (*)();
             const auto g = (G)TrainingExport("Nioh3Training_GetNoFinisher");
             const int v = g ? g() : -1;
-            add(sel ? cWhite : v > 0 ? cGreen : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "No grapple in Ki break:", v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : cGray, sel, "%s %-24s %s   A / Left / Right", mk, "No grapple in Ki break:", v < 0 ? "?" : v ? "ON" : "OFF");
         }
         else if (it[i] == kItFinT || it[i] == kItHp0W) {
             const int v = TuneGet(it[i] == kItFinT ? 0 : 1);
@@ -3658,17 +3665,17 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] == kItAggro) {  // user #13787
             const int v = AggroGet();
-            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Follow and target me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Follow and target me: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
         }
         else if (it[i] == kItCantDie) {  // user #14150
             const int v = CantDieGet();
-            add(sel ? cWhite : v > 0 ? cGreen : v < 0 ? cDim : cGray, sel, "%s Infinite health: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
+            add(sel ? cWhite : v < 0 ? cDim : cGray, sel, "%s Infinite health: %s   A / Left / Right", mk, v < 0 ? "?" : v ? "ON" : "OFF");
         }
         else if (it[i] == kItResetPos) add(sel ? cWhite : cGray, sel, "%s Reset boss position   press A", mk);  // user #13787
         else if (it[i] == kItShowTw) {  // user #13786
             int tw = 0;
             for (int j = 0; j < N3_MOVE_COUNT; ++j) if (kN3Moves[j].chr == g_uiMoveChr && N3MoveTwitch(&kN3Moves[j])) ++tw;
-            add(sel ? cWhite : g_showTwitch ? cGreen : cGray, sel, "%s Show non-attack moves: %s (%d)   A / Left / Right", mk, g_showTwitch ? "ON" : "OFF", tw);
+            add(sel ? cWhite : cGray, sel, "%s Show non-attack moves: %s (%d)   A / Left / Right", mk, g_showTwitch ? "ON" : "OFF", tw);
         }
         else if (it[i] == kItRepGap) {
             const int v = RepGapGet();
@@ -3811,6 +3818,11 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             snprintf(footer, nf, "Advanced startup settings. Changes are saved immediately and take effect after restarting the game.");
         } else if (item == kItRootSummon) {
             snprintf(footer, nf, "Add a boss beside you without loading. It waits during Training; otherwise it fights normally. Change Behavior under Active bosses.");
+        } else if (IsMoveItem(item) && !g_msg[0]) {  // human #44361: the row has no name text any more; the selected move's name + id here
+            const auto& m = kN3Moves[item - kItMoveBase];
+            char tag[32];
+            N3MoveHitTag(&m, tag, sizeof tag);
+            snprintf(footer, nf, "0x%04X  %.60s%s%s. A: repeat | Left: block | Right: allow.", m.id, MoveName(m), tag[0] ? ", " : "", tag);
         } else if (item == kItMoves || g_uiPages.page == uMoves || g_uiPages.page == uMoveCat) {
             snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Moves grouped by hit count and type. A toggles repeat; Left blocks a move; Right allows it. Hit labels describe available data, not guaranteed damage taken.");
         } else if (item <= kItSettingBase) {

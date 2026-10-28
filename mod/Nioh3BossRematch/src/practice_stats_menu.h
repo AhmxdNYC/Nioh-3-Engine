@@ -164,7 +164,7 @@ bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     char t[24]; PstValueText(what, v, t, sizeof t);
     const bool changed = v >= 0 && v != PstDefault(what);
     snprintf(buf, n, "%s %-22s %s   %s", mk, PstLabel(what), t, PstIsToggle(what) ? "A / Left / Right" : "Left / Right");
-    *color = sel ? cWhite : v < 0 ? cDim : changed ? (PstIsToggle(what) ? cGreen : cYellow) : cGray;
+    *color = sel ? cWhite : v < 0 ? cDim : changed && !PstIsToggle(what) ? cYellow : cGray;
     return true;
 }
 const char* PstFooter(int item) {
