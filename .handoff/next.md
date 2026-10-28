@@ -33,3 +33,5 @@ Next pc combine cxl-pc Wine-opener changes if shipping, install/test switches+me
 Five-resolution AA renderer + core tests and both menu suites PASS. PC1080p all4 lanes+legend/readout, CPU draw OFF Row66.872ms vs ON Ring10.745ms changing /81.483 vs2.266ms frozen. Preview sent Discord. Native gameplay/upload/FPS unproven.
 Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/pulse and send in-game pictures. Details notes/ring-meter-40696/report.txt/results.json; no cx-pc game access.
 2026-10-27 6:37 pm EDT | cx-pc #40972: compact160/210/260px ring sizes implemented on combined430624ad; Training8fb6b814 built, all7 suites+16261412 renderer assertions and both menu suites PASS. Next finish EF build, send artifacts/preview; notes/ring-size-40972.md.
+
+2026-10-27 08:27 PM EDT | cx-pc #41422 done: Y/Triangle close codef30449ab on RCbase36a6f808; EF3049 shac7954203. Both menu suites and Release PASS; root/nested/hosted close, edit/busy guards and gameplay input isolation covered. Two glyph previews sent Discord. Next pc installs/native tests; Training/BR unchanged.

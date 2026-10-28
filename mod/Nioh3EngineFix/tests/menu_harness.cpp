@@ -17,13 +17,14 @@ FgStatus FrameGen() { return {}; }
 const char* FgTypeName(int) { return "OFF"; }
 const char* FgReason(const FgStatus&) { return nullptr; }
 void NoteFgSwitch() {}
-struct Rect { float x,y,w,h; };
+struct Rect { float x,y,w,h; uint32_t color; };
 std::vector<Rect> drawnRects;
 std::vector<std::string> drawnTexts;
-void DrawRect(float x, float y, float w, float h, uint32_t) { drawnRects.push_back({x,y,w,h}); }
+void DrawRect(float x, float y, float w, float h, uint32_t color) { drawnRects.push_back({x,y,w,h,color}); }
 bool DrawCoverRect(float,float){return true;}
-std::vector<float> drawnTextX, drawnTextScale;
-float DrawText(float x, float, const char* text, uint32_t, float s) { drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
+std::vector<float> drawnTextX, drawnTextScale, drawnTextY;
+std::vector<uint32_t> drawnTextColor;
+float DrawText(float x, float y, const char* text, uint32_t color, float s) { drawnTextY.push_back(y);drawnTextColor.push_back(color);drawnTexts.emplace_back(text);drawnTextX.push_back(x);drawnTextScale.push_back(s);return x; }
 }
 namespace updatecheck {
 std::string testNotice;
@@ -674,6 +675,18 @@ int main() {
         menu_style::Badge(10,10,"Y",1,8,1,1);
         bool sawY=false;for(auto& text:osd::drawnTexts)sawY|=text=="Y";CHECK(sawY==(closeStyle==0));}
     menu_style::g_btnStyle=0;
+    char previewBase[1024]{};
+    if(GetEnvironmentVariableA("N3_Y_CLOSE_PREVIEW",previewBase,sizeof previewBase)){
+      for(int previewStyle=0;previewStyle<2;++previewStyle){
+        g_open=true;g_rematchPage=false;g_cfg.layout=0;g_pages.Reset();g_sel=kPageRow+pDisplay;menu_style::g_btnStyle=previewStyle;
+        osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextScale.clear();osd::drawnTextColor.clear();
+        DrawImpl(1920,1080);char path[1100];snprintf(path,sizeof path,"%s-%d.tsv",previewBase,previewStyle);
+        FILE* f=nullptr;fopen_s(&f,path,"w");CHECK(f);
+        for(auto& r:osd::drawnRects)fprintf(f,"R\t%f\t%f\t%f\t%f\t%u\n",r.x,r.y,r.w,r.h,r.color);
+        for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T\t%f\t%f\t%f\t%u\t%s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
+        fclose(f);
+      }
+    }
     puts("ALL PASSED: real settings pages, legacy order, back priority, paging, keys and pad isolation");
     return 0;
 }

@@ -27,3 +27,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 2026-10-27 6:16 pm EDT | cx-pc #40696/#40835: smooth Ring implementation built/tested/pushed; no game/lock/installation ownership. pc owns native acceptance; cxl-pc owns Wine opener. Available for next assigned offline task.
 2026-10-27 6:37 pm EDT | cx-pc #40972 offline ring-size implementation; pc owns install/runtime.
+
+2026-10-27 08:27 PM EDT | cx-pc #41422 done: Y/Triangle close codef30449ab on RCbase36a6f808; EF3049 shac7954203. Both menu suites and Release PASS; root/nested/hosted close, edit/busy guards and gameplay input isolation covered. Two glyph previews sent Discord. Next pc installs/native tests; Training/BR unchanged.

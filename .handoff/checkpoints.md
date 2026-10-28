@@ -54,3 +54,7 @@ Next: repeat offline Row/Ring CPU measurements for this AA version, upload repla
 2026-10-27 6:16 pm EDT | cx-pc #40835: smooth arcs/dividers 4b615014 pushed; Training2955 SHA68a5f928702f, pair EF2948 d46705ebadf5; revised screenshot sent Discord.
 Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU draw (25 samples each). Native appearance/upload/FPS remains pc test. Next pc install/check/capture; notes/ring-meter-40696/results.json + draw-cost-smooth.txt.
 2026-10-27 6:37 pm EDT | cx-pc #40972: compact160/210/260px ring sizes implemented on combined430624ad; Training8fb6b814 built, all7 suites+16261412 renderer assertions and both menu suites PASS. Next finish EF build, send artifacts/preview; notes/ring-size-40972.md.
+
+2026-10-27 08:25 PM EDT | cx-pc #41422 checkpoint: Y/Triangle close f30449ab pushed on release-based cx-pc/menu-y-close-41422; both menu suites PASS, root/nested/hosted and held edit/busy/closed input checked. Next EF Release+offline glyph preview, pc native acceptance. No game touched.
+
+2026-10-27 08:27 PM EDT | cx-pc #41422 done: Y/Triangle close codef30449ab on RCbase36a6f808; EF3049 shac7954203. Both menu suites and Release PASS; root/nested/hosted close, edit/busy guards and gameplay input isolation covered. Two glyph previews sent Discord. Next pc installs/native tests; Training/BR unchanged.
