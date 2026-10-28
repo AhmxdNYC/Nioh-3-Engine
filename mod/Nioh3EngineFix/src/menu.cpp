@@ -1110,6 +1110,8 @@ int PageRowsBody(int* out, bool selectable) {
             for (int p : {pOvController, pOvFrameMeter, pOvInput, pOvFps}) add(kPageRow + p);
             add(kTimeOfDayRow); add(kWeatherRow);
             if (HideHudSettingRow() >= 0) add(HideHudSettingRow());
+            for (int i = 0; i < kConfigN; ++i)  // #44877: per-element HUD rows under the master switch
+                if (hudhide::ElemIndex(kConfigSettings[i].key) >= 0) add(kSettingRow + i);
             if (Visible(kAutoCont)) add(kAutoCont);
             add(kBackRow);
             return n;
@@ -1708,6 +1710,10 @@ void ChangeConfig(int index, int dir) {
         } else if (!strcmp(d.key, "HideGameHud")) {
             hudhide::g_want = atoi(v.c_str()) ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), hudhide::g_bad ? "Hide game HUD is not available on this game version." : hudhide::g_want ? "Game HUD hidden. Save to keep it." : "Game HUD shown. Save to keep it.");
+        } else if (hudhide::ElemIndex(d.key) >= 0) {  // #44877
+            const int on = atoi(v.c_str()) ? 1 : 0;
+            hudhide::g_elemOn[hudhide::ElemIndex(d.key)] = on;
+            snprintf(g_configReply, sizeof(g_configReply), hudhide::g_idsBad ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -2137,6 +2143,15 @@ void RunRemote(RemoteReq& q) {
     q.rc = -1;
     const int id = FindItem(q.key);
     if (id < 0) {
+        for (int i = 0; i < kConfigN; ++i) {  // #44877: HUD hide rows (master + per element) over the pipe, same path as the menu row
+            const char* k = kConfigSettings[i].key;
+            if (_stricmp(k, q.key) || (strcmp(k, "HideGameHud") && hudhide::ElemIndex(k) < 0)) continue;
+            if (q.set && (atoi(g_configValues.values[(size_t)i].text.c_str()) != 0) != (q.value != 0)) ChangeConfig(i, 1);
+            snprintf(q.reply, sizeof(q.reply), "%s = %s (ids %s)", k, g_configValues.values[(size_t)i].text.c_str(),
+                     hudhide::g_idsBad ? "unavailable" : hudhide::g_redirected ? "redirected" : "off");
+            q.rc = 0;
+            return;
+        }
         snprintf(q.reply, sizeof(q.reply), "no menu item '%s'", q.key);
         return;
     }
@@ -2441,6 +2456,7 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
 
 void OnPresentImpl() {
     hudhide::Sync();
+    hudhide::SyncIds();
     savefiles::Poll();
     if(savefiles::TakeMenuCloseRequest()&&g_open)Close("live title reset");
     if((g_pages.page==pSaveFiles||g_pages.page==pSaveActions)&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}
@@ -3574,6 +3590,12 @@ void Configure(const Host& h) {
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
     hudhide::g_want = GetPrivateProfileIntW(L"Menu", L"HideGameHud", 0, f) ? 1 : 0;
+    for (int i = 0; i < hudhide::kElemN; ++i) {  // #44877 per-element HUD hide
+        wchar_t wk[64]; MultiByteToWideChar(CP_UTF8, 0, hudhide::kElems[i].key, -1, wk, 64);
+        hudhide::g_elemOn[i] = GetPrivateProfileIntW(L"Menu", wk, 0, f) ? 1 : 0;
+    }
+    GetPrivateProfileStringW(L"Menu", L"HideHudIds", L"", b, 96, f);
+    { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); hudhide::ParseIds(nb); }
     GetPrivateProfileStringW(L"Menu", L"InputDisplaySide", L"Left", b, 96, f);
     inputhist::g_side = !_wcsicmp(b, L"Right") ? 1 : 0;
     inputhist::g_rows = std::clamp((int)GetPrivateProfileIntW(L"Menu", L"InputDisplayRows", 20, f), inputhist::kMinRows, inputhist::kMaxRows);
