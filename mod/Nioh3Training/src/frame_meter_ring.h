@@ -175,6 +175,37 @@ static void FmRingCounts(HDC dc,const FmMeter* m,int start,int cx,int cy,FmRingL
     }
     g_fm_fontPx=oldPx;
 }
+// Same priority as FmIFrColor. A zero kind is an empty I-FR cell and gets no number.
+static int FmIfrKind(int bits) {
+    return bits&FMF_NODMG ? 1 : bits&FMF_EAA ? 2 : bits&FMF_EA7 ? 3 : bits&FMF_GUARD ? 4 : 0;
+}
+// Run length of one I-FR colour, on the inner player lane. Independent of action cells and FM_EDGE.
+static void FmRingIfrCounts(HDC dc,const FmMeter* m,int start,int cx,int cy,FmRingLayout g) {
+    const int oldPx=g_fm_fontPx;
+    const float radius=g.d*.5f-(g.thick+g.gap)-g.thick*.5f;
+    const float step=6.28318530718f/FM_DISPLAY_CELLS;
+    for(int first=0;first<FM_CELLS;) {
+        const int kind=FmIfrKind(FmViewNoDmg(m,first));
+        int end=first+1;
+        while(end<FM_CELLS && FmIfrKind(FmViewNoDmg(m,end))==kind)++end;
+        if(kind && end>start && end<=start+FM_DISPLAY_CELLS) {
+            char text[12];snprintf(text,sizeof text,"%d",end-first);
+            int px=g.thick-3,chars=(int)strlen(text);
+            while(px>6 && chars*N3StrokeWidth(px)>g.thick-2)--px;
+            const int visible=first>start?first:start;
+            const float arc=(end-visible)*step*radius;
+            if(chars*N3StrokeWidth(px)<=arc && px>=6) {
+                const float offset=(chars*N3StrokeWidth(px)*.5f+1)/radius;
+                const POINT p=FmPolar(radius,(end-start)*step-offset);
+                const int x=cx+p.x-chars*N3StrokeWidth(px)/2,y=cy+p.y-px/2;
+                g_fm_fontPx=px;
+                FmLabel(dc,x+1,y+1,text,RGB(2,3,5));FmLabel(dc,x,y,text,RGB(255,255,255));
+            }
+        }
+        first=end;
+    }
+    g_fm_fontPx=oldPx;
+}
 // Upright check proportions follow track thickness, not the very narrow 1/120 arc.
 // Thin antialiased strokes keep a tick readable rather than a tall white blob.
 static float FmCheckDistance(float x,float y,float ax,float ay,float bx,float by) {
@@ -238,6 +269,7 @@ static void FmRingActor(HDC dc,int cx,int cy,FmRingLayout g,const FmMeter* m,con
     SelectObject(dc,oldPen);SelectObject(dc,oldBrush);
     }
     if(outer)FmRingCounts(dc,m,start,cx,cy,g,player);
+    if(inner && player)FmRingIfrCounts(dc,m,start,cx,cy,g);
     if(outer && player)for(int i=0;i<FM_DISPLAY_CELLS;++i)if(FmViewKiPulse(m,start+i)) {
         FmRingCheck(dc,cx,cy,g,i);
     }
