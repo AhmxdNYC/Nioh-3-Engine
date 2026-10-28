@@ -21,6 +21,18 @@ constexpr uintptr_t kRva = 0xF0228;
 constexpr uint8_t kOrig[23] = {0x48, 0x8B, 0x05, 0x79, 0x82, 0x4D, 0x04, 0x48, 0x8B, 0x48, 0x18, 0x48,
                                0x85, 0xC9, 0x74, 0x07, 0x8A, 0x81, 0xC0, 0x03, 0x00, 0x00, 0xC3};
 
+// True once the game bytes at kRva matched this build (original or our patch). Used by hudparts.h as the "known build" gate.
+inline bool Verify() {
+    static int s = 0;  // 0 unknown, 1 ok, -1 bad
+    if (s) return s > 0;
+    __try {
+        const uint8_t* p = (const uint8_t*)GetModuleHandleW(nullptr) + kRva;
+        const bool ok = memcmp(p + 3, kOrig + 3, sizeof(kOrig) - 3) == 0 && (memcmp(p, kOrig, 3) == 0 || (p[0] == 0x31 && p[1] == 0xC0 && p[2] == 0xC3));
+        s = ok ? 1 : -1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { s = -1; }
+    return s > 0;
+}
+
 // Call once per frame (present): applies g_want when it differs from what is installed. Returns false if the build does not match.
 inline bool Sync() {
     if (g_bad || g_want == g_applied) return !g_bad;
