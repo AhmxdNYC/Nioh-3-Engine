@@ -2146,7 +2146,7 @@ void RunRemote(RemoteReq& q) {
         for (int i = 0; i < kConfigN; ++i) {  // #44877: HUD hide rows (master + per element) over the pipe, same path as the menu row
             const char* k = kConfigSettings[i].key;
             if (_stricmp(k, q.key) || (strcmp(k, "HideGameHud") && hudhide::ElemIndex(k) < 0)) continue;
-            if (q.set && (atoi(g_configValues.values[(size_t)i].text.c_str()) != 0) != (q.value != 0)) ChangeConfig(i, 1);
+            if (q.set && (atoi(g_configValues.values[(size_t)i].text.c_str()) != 0) != (q.value != 0)) ChangeConfig(i, 0);  // 0 = cycle 0|1
             snprintf(q.reply, sizeof(q.reply), "%s = %s (ids %s)", k, g_configValues.values[(size_t)i].text.c_str(),
                      hudhide::g_idsBad ? "unavailable" : hudhide::g_redirected ? "redirected" : "off");
             q.rc = 0;
