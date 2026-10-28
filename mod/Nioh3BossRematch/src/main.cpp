@@ -107,7 +107,7 @@ void SharedPump() {
 bool StartRematchPump() {
     // Registration precedes every FIGHT installer, including debug logging.
     const bool observing = training::Prepare();
-    const bool rematching = IniInt(L"Rematch", L"Enable", 0) != 0 && rematch::Prepare();
+    const bool rematching = IniInt(L"Rematch", L"Enable", 1) != 0 && rematch::Prepare();
     const char* why = nullptr;
     const bool fight = observing && InstallGroup("FIGHT", &why);
     if (observing && !fight) Log("Training entries: off - FIGHT: %s", why ? why : "?");

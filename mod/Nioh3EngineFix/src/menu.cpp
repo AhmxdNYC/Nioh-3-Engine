@@ -1167,7 +1167,7 @@ int PageRows(int* out, bool selectable) {
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
-    if (g_pages.page == pRoot && (savefiles::Pending()||savefiles::Allowed())) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
+    if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     return n;
 }
@@ -3061,7 +3061,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
         snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
     } else if(g_sel>=kSaveFilesRow&&g_sel<kSaveNamedFirst+savefiles::kMaxSlots){
-        snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":savefiles::Note());
+        snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":!savefiles::Allowed()?"Return to the title screen to manage saves; no game restart needed.":savefiles::Note());
         snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Live import refreshes the title now. Switch after Quit waits for normal exit.");
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");

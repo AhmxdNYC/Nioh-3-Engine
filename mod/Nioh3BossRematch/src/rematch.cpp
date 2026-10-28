@@ -2863,7 +2863,7 @@ bool UiActHosted(){g_hostedUiAction=true;const bool result=UiAct();g_hostedUiAct
 
 bool Prepare() {
     const wchar_t* ini = IniPath();
-    if (!GetPrivateProfileIntW(L"Rematch", L"Enable", 0, ini)) {
+    if (!GetPrivateProfileIntW(L"Rematch", L"Enable", 1, ini)) {
         Log("Rematch: off ([Rematch] Enable = 0)");
         return false;
     }

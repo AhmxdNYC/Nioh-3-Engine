@@ -117,7 +117,7 @@ void Complete(bool open) { ++view.generation; view.flags = mb::HostedReady | (op
 int main() {
     { using namespace menu;
       int rows[kMenuRowCap];g_pages.Reset();savefiles::testAllowed=false;
-      int n=PageRows(rows,true);for(int i=0;i<n;++i)CHECK(rows[i]!=kSaveFilesRow);
+      int n=PageRows(rows,true);bool visible=false;for(int i=0;i<n;++i)visible|=rows[i]==kSaveFilesRow;CHECK(visible);
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pRoot);
       savefiles::testAllowed=true;n=PageRows(rows,true);bool found=false;for(int i=0;i<n;++i)found|=rows[i]==kSaveFilesRow;CHECK(found);
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
@@ -190,8 +190,8 @@ int main() {
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
     // #38437 top rows: Mod menu, Close, Report; then Display Overlays, Camera settings, Settings, Close
-    CHECK(rootN == 8 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
-          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kUpdatePageRow && rows[7] == kClose);
+    CHECK(rootN == 9 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
+          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kSaveFilesRow && rows[7] == kUpdatePageRow && rows[8] == kClose);
     CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
     // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
     for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
@@ -421,8 +421,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 10 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
-          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kUpdatePageRow && rows[9] == kClose);
+    CHECK(bossN == 11 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
+          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kSaveFilesRow && rows[9] == kUpdatePageRow && rows[10] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -562,7 +562,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==8 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kUpdatePageRow && rows[7]==kClose);
+    CHECK(g_pages.page==pRoot && n==9 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kSaveFilesRow && rows[7]==kUpdatePageRow && rows[8]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly

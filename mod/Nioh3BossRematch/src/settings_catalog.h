@@ -9,7 +9,7 @@ const setting_ui::Def kConfigSettings[] = {
     {"General", "DecryptWaitSeconds", "Decrypt wait seconds", "120", setting_ui::Kind::Number, 1, 600, 1, "", setting_ui::Apply::NextLaunch, "", -1, 0, false, "Saved at once; restart the game to apply."},
     {"Training", "Observe", "Observe training entries (experimental)", "0", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 1, true, "Read-only entry counts; no training mutation/session snapshots. Save, then restart."},
     {"Training", "Enable", "Enable feature at next launch", "0", setting_ui::Kind::Manual, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 1, true, "Reserved: mutation support is unavailable. This setting cannot enable training commands."},
-    {"Rematch", "Enable", "Enable feature at next launch", "0", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
+    {"Rematch", "Enable", "Enable feature at next launch", "1", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Rematch", "DirectStart", "Start cleared replay directly", "0", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Rematch", "HiddenDuels", "Show hidden duels in replay", "0", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},
     {"Rematch", "ShowAll", "Show every catalogue boss", "1", setting_ui::Kind::Choice, 0, 0, 0, "0|1", setting_ui::Apply::NextLaunch, "", -1, 2, false, "Saved at once; restart the game to apply."},

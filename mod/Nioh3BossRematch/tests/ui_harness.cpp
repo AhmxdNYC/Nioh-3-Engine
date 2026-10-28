@@ -40,10 +40,11 @@ int main() {
     CHECK(g_cfg.fightNow && g_cfg.fightWarp && g_cfg.fightSpawn);
     wchar_t tempPath[MAX_PATH]{};
     CHECK(GetTempPathW(MAX_PATH,tempPath) && GetTempFileNameW(tempPath,L"n3d",0,addon::testIni));
-    // Actual Prepare reads a private temporary INI; missing Enable remains off.
+    // Actual Prepare reads a private temporary INI; explicit off stays off, missing Enable defaults on.
+    CHECK(WritePrivateProfileStringW(L"Rematch",L"Enable",L"0",addon::testIni));
     g_cfg.fightNow=false; g_cfg.fightWarp=false;
     CHECK(!Prepare() && !g_cfg.fightNow && !g_cfg.fightWarp);
-    CHECK(WritePrivateProfileStringW(L"Rematch",L"Enable",L"1",addon::testIni));
+    CHECK(WritePrivateProfileStringW(L"Rematch",L"Enable",nullptr,addon::testIni));
     // GroupOk stub refuses hook installation after actual defaults are read.
     CHECK(!Prepare() && g_cfg.fightNow && g_cfg.fightWarp && g_cfg.fightSpawn);
     CHECK(WritePrivateProfileStringW(L"Rematch",L"FightNow",L"0",addon::testIni));
