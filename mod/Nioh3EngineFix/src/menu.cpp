@@ -2894,25 +2894,25 @@ float DrawImpl(unsigned W, unsigned H) {
         if (id == kRematchRow || id == kPracticeRow) {
             if (id == g_sel) selRow = nb;
             const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
-            put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
+            put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
         if(id>=kSaveNamedFirst&&id<kSaveNamedFirst+savefiles::kMaxSlots){
             if(id==g_sel)selRow=nb;
             char text[96];snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",savefiles::SlotName(id-kSaveNamedFirst));
-            put(body,nb,128,text,"",menu_style::PadWord("A: choose","Cross: choose"),cWhite,cCyan,id==g_sel,false);continue;
+            put(body,nb,128,text,"","A: choose",cWhite,cCyan,id==g_sel,false);continue;
         }
         if(id>=kSaveFilesRow&&id<=kSaveLiveRow){
             if(id==g_sel)selRow=nb;
             const char* label=id==kSaveFilesRow?"Save files":id==kSaveSlotRow?"Copy slot":id==kSaveBackupRow?"Back up current save":id==kSaveCancelRow?"Cancel queued save":id==kSaveRefreshRow?"Refresh saved slots":id==kSaveLiveRow?"Import now, refresh title":"Switch after Quit";
             char text[96],value[32]{};snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",label);
 
-            put(body,nb,128,text,value,menu_style::PadWord("A: select","Cross: select"),cWhite,cCyan,id==g_sel,false);continue;
+            put(body,nb,128,text,value,"A: select",cWhite,cCyan,id==g_sel,false);continue;
         }
         if (id == kUpdatePageRow) {
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, id == g_sel ? "> Open update page" : "  Open update page", "",
-                menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
+                "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
         if (id == kModMenuRow || id == kCloseTopRow || id == kReportRow) {
@@ -2920,7 +2920,7 @@ float DrawImpl(unsigned W, unsigned H) {
             const bool mod = id == kModMenuRow;
             const char* lab = mod ? (id == g_sel ? "> Mod menu" : "  Mod menu") : id == kCloseTopRow ? (id == g_sel ? "> Close" : "  Close") : (id == g_sel ? "> Report" : "  Report");
             put(body, nb, 128, lab, "",
-                mod ? menu_style::PadWord("A: top page", "Cross: top page") : id == kCloseTopRow ? menu_style::PadWord("A: close", "Cross: close") : menu_style::PadWord("A: report", "Cross: report"),
+                mod ? "A: top page" : id == kCloseTopRow ? "A: close" : "A: report",
                 id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
             continue;
         }
@@ -3023,7 +3023,7 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", id == kBackRow ? "Back" : PageName(id - kPageRow));
             if (id == g_sel) selRow = nb;
-            put(body, nb, 128, lab, "", id == kBackRow ? menu_style::PadWord("B", "Circle") : menu_style::PadWord("A: open", "Cross: open"), id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
+            put(body, nb, 128, lab, "", id == kBackRow ? "B" : "A: open", id == g_sel ? cWhite : cGray, cCyan, id == g_sel, false);
             continue;
         }
         if (!g_cfg.layout || g_pages.page == pAll) {
@@ -3264,6 +3264,11 @@ float DrawImpl(unsigned W, unsigned H) {
             if (!isHead && tok[0] && ms::PillColors(tok, bg, fg)) {  // "ON", "OFF  * restart", "ON  (ini)": pill + the rest as text
                 ms::Pill(vx, y, tok, bg, rw.lc == cDim ? cDim : fg, cw, lineH, sc, fa);
                 if (rw.value[tl]) osd::DrawText(vx + (float)(tl + 1) * cw, y, rw.value + tl + 1, ms::Fade(rw.vc, fa), sc);
+            } else if (!isHead && rw.value[0] && strchr("ABXY", rw.value[0]) &&
+                       (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
+                // Use the existing active-controller badge, including PlayStation symbols.
+                char key[2] = {rw.value[0], 0};
+                ms::Hint(vx, y, key, rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
             } else osd::DrawText(vx, y, rw.value, ms::Fade(rw.vc, fa), sc);
         }
         ++line;

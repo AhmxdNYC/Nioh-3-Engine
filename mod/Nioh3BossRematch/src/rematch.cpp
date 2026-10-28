@@ -3718,8 +3718,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const uint8_t stt = g_status[(size_t)it[i]].load();
-            const char* status = r.route == rcore::kX ? "-" : r.route == rcore::kE ? "" : !scanned ? "?" : stt == 2 ? "beaten" : stt == 1 ? "not beaten" : "error";
-            const uint32_t c = r.route == rcore::kX ? cDim : (r.route != rcore::kE && stt != 2) ? cDim : !r.Verified() ? cGray : cGreen;
+            const char* status = r.route == rcore::kX ? "-" : r.route == rcore::kE ? "" : !scanned ? "?" : stt == 2 ? "Replay" : stt == 1 ? (AnyBossOk(it[i]) ? "Train here" : "Not cleared") : "error";
+            const uint32_t c = r.route == rcore::kX ? cDim : (r.route != rcore::kE && stt != 2 && !AnyBossOk(it[i])) ? cDim : !r.Verified() ? cGray : cGreen;
             if (g_uiPages.page == uActions)
                 add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
             else

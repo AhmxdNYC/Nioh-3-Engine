@@ -720,6 +720,20 @@ int main() {
     for(int closeStyle=0;closeStyle<2;++closeStyle){menu_style::g_btnStyle=closeStyle;osd::drawnTexts.clear();
         menu_style::Badge(10,10,"Y",1,8,1,1);
         bool sawY=false;for(auto& text:osd::drawnTexts)sawY|=text=="Y";CHECK(sawY==(closeStyle==0));}
+    // Inline action values use the same controller glyphs as the footer.
+    for (int style = 0; style < 2; ++style) {
+        menu_style::g_btnStyle = style;
+        osd::drawnTexts.clear(); osd::drawnRects.clear();
+        g_open = true; g_rematchPage = false; g_pages.Reset(); g_sel = kPageRow + pDisplay;
+        g_cfg.layout = 0; DrawImpl(1920,1080);
+        bool actionText = false;
+        for (auto& text : osd::drawnTexts) {
+            CHECK(text.find("Cross:") == std::string::npos);
+            CHECK(text.find("A: open") == std::string::npos);
+            actionText |= text == "open";
+        }
+        CHECK(actionText); CHECK(!osd::drawnRects.empty());
+    }
     menu_style::g_btnStyle=0;
     char previewBase[1024]{};
     if(GetEnvironmentVariableA("N3_Y_CLOSE_PREVIEW",previewBase,sizeof previewBase)){
