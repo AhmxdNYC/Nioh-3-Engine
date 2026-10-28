@@ -36,6 +36,9 @@ if not EXTRACT.is_dir():  # worktrees do not carry the extract; use the main che
 NAMES = ROOT / "data" / "boss-action-names.tsv"
 REC, ROW, TR = 0x150, 192, 128
 IDLE = 2
+# human #41382: locomotion / walk motions are never a follow-up piece (Shingen 4E22 motion 11, Otoroshi 4E22/25/28 motion 31 carry a stray
+# hit row; counting them made Shingen / Otoroshi gains too high). A link into one of these motions is dropped, so the chain stops there.
+LOCOMOTION = frozenset((11, 31))
 
 
 def parse(d):
@@ -64,7 +67,7 @@ def parse(d):
         cur = end
         ro = a + i * REC
         aid = u16(ro + 0x0C)
-        hid_order, groups = [], []
+        hid_order, groups, powers = [], [], set()
         for k in hit_idx:
             b = o2 + k * ROW
             key = struct.unpack_from("<3H", d, b + 0x10)
@@ -74,6 +77,7 @@ def parse(d):
                 groups.append(key)
             if u16(b + 8) == 0xFFFF:
                 continue
+            powers.add(u16(b + 0x10))
             hid = d[b + 0xA5]
             if hid == 0xFF:
                 hid = 2 if struct.unpack_from("<Q", d, b)[0] & (1 << 18) else 0
@@ -82,7 +86,7 @@ def parse(d):
         acts[aid] = dict(
             row=i, motion=u16(ro + 0x20), nxt=u16(ro + 0xE0),
             attack=u16(ro + 0x13C) != 0xFFFF or u16(ro + 0x142) != 0xFFFF,
-            hits=len(hid_order), groups=len(groups), tr=tr_idx)
+            hits=len(hid_order), groups=len(groups), tr=tr_idx, catch=powers == {0})
         use.update(tr_idx)
     if cur != h + hs:
         raise ValueError("packed blocks do not cover sub-table 0")
@@ -90,8 +94,8 @@ def parse(d):
     return acts, rows, use
 
 
-def build_links(acts, rows, use):
-    """Return (links, followup set). links[src] = list of (dst, kind, ai_request)."""
+def build_links(acts, rows, use, exclude_motions=LOCOMOTION):
+    """Return (links, followup set). links[src] = list of (dst, kind, ai_request). Targets whose motion is in exclude_motions get no link."""
     entered_freely = set()  # reachable by a shared row or from a non-attack action
     private = defaultdict(list)
     for aid, a in acts.items():
@@ -103,7 +107,7 @@ def build_links(acts, rows, use):
                     entered_freely.add(t)
                 else:
                     private[aid].append((t, rows[k][6]))
-    hitter = lambda t: acts[t]["attack"] or acts[t]["hits"] > 0
+    hitter = lambda t: (acts[t]["attack"] or acts[t]["hits"] > 0) and acts[t]["motion"] not in exclude_motions
     follow = {t for t in acts if t not in entered_freely and hitter(t)}
     links = defaultdict(list)
     for aid, a in acts.items():
@@ -111,7 +115,9 @@ def build_links(acts, rows, use):
         if n != aid and n != IDLE and n in acts and hitter(n):  # forced: counted even into a standalone move
             links[aid].append((n, "E0", None))
         for t, req in private.get(aid, ()):
-            if t in follow and t != aid and (t, "S3", req) not in links[aid]:
+            # human #41382: a combo link (an AI choice) only into a piece with an attack block. Otoroshi 4E36/4E4E/4EF2 -> 18C7 (no attack
+            # block, 5 alternate damage rows at one frame = grab / throw damage, INFERRED) would make the known 1-hit zero-power 4E4E 2.
+            if t in follow and t != aid and acts[t]["attack"] and (t, "S3", req) not in links[aid]:
                 links[aid].append((t, "S3", req))
     return links, follow
 
@@ -121,7 +127,9 @@ def chain(acts, links, start, depth, forced_only):
     def walk(node, seen, left):
         own = acts[node]["hits"]
         best = (own, [node])
-        if left == 0:
+        # human #41382: a move whose every hit has power 0 is a catch check (Otoroshi 4E4E, the known 1-hit zero-power case); what it
+        # leads to (4E6D throw, 18C7) plays only when the catch lands, so the chain stops there (INFERRED).
+        if left == 0 or acts[node]["catch"]:
             return best
         for dst, kind, _req in links.get(node, ()):
             if forced_only and kind != "E0":
@@ -133,6 +141,13 @@ def chain(acts, links, start, depth, forced_only):
                 best = (own + sub[0], [node] + sub[1])
         return best
     return walk(start, {start}, depth)
+
+
+def chain_paths(data, depth=6, exclude_motions=LOCOMOTION):
+    """{action id: best path (list of action ids, starting with the action)} over +0xE0 and private sub-table 3 links."""
+    acts, rows, use = parse(data)
+    links, _follow = build_links(acts, rows, use, exclude_motions)
+    return {aid: chain(acts, links, aid, depth, False)[1] for aid in acts}
 
 
 def find_file(name):

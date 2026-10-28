@@ -10,6 +10,9 @@ int main(int argc,char** argv) {
     assert(ArFind(&table,0x4e6e,1050,0xe999d024,&r)==1&&r->hits==2&&!strcmp(r->damage,"250/275"));
     assert(ArFind(&table,0x4e4e,1030,0xd049c7ec,&r)==1&&r->hits==3&&!strcmp(r->damage,"85/85/240"));
     assert(ArFind(&table,0x4e4e,1012,0x0f6bedd8,&r)==1&&r->hits==1&&r->zero&&!strcmp(r->damage,"0"));
+    // human #41382 chain rule: Yoritomo 4E4E / 4E55 carry their follow-up piece (4E52 / 4E59) after their own hit
+    assert(ArFind(&table,0x4e4e,1000,0x1af425df,&r)==1&&r->hits==2&&!strcmp(r->damage,"200/150|210"));
+    assert(ArFind(&table,0x4e55,1010,0x44487b20,&r)==1&&r->hits==2&&!strcmp(r->damage,"250/175|180"));
     assert(ArFind(&table,0x4e4e,1050,0xe999d024,&r)==0); // same action id is NOT an identity
     assert(ArFind(&table,0x1f8f,265,0x8a13868a,&r)==-1&&!r);
     int known=0,ambiguous=0;
@@ -31,6 +34,6 @@ int main(int argc,char** argv) {
     const N3ActionRecord* record=N3CatRecordFind(999999,0x4e4e);assert(record&&record->zero&&!strcmp(record->damage,"0"));
     assert(!N3CatRecordFind(999999,0xeeee));
     free(moves);free(table.rows);
-    puts("PASS: 11476 rows, 11474 unambiguous aliases, 2 conflicting rows; 3 known examples, missing/malformed/overflow, zero power, catalogue propagation and no hand facts");
+    puts("PASS: 11476 rows, 11474 unambiguous aliases, 2 conflicting rows; 3 known examples, 2 chained moves, missing/malformed/overflow, zero power, catalogue propagation and no hand facts");
     return 0;
 }
