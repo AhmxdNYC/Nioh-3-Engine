@@ -386,17 +386,17 @@ int main() {
     {
         g_pages.page = pSettings;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 4 + 2 && rows[3] == kPageRow + pSCpu && rows[4] == kPageRow + pSGpu && rows[5] == kPageRow + pSGame && rows[6] == kPageRow + pFrameGen && rows[7] == kSave && rows[8] == kBackRow);
+        CHECK(n == 3 + 1 + 4 + 2 && rows[3] == kEpPre && rows[4] == kPageRow + pSCpu && rows[5] == kPageRow + pSGpu && rows[6] == kPageRow + pSGame && rows[7] == kPageRow + pFrameGen && rows[8] == kSave && rows[9] == kBackRow);
         CHECK(!has(pSettings, kFps) && !has(pSettings, kXTS) && !has(pSettings, kAutoCont) && !has(pSettings, kLat));
     }
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
-    CHECK(!has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA));
+    CHECK(has(pSettings, kEpPre) && !has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ !has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA) && has(pSGpu, kEp0));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
     CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
     // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
     g_pages.Reset();
     Change(kPageRow + pSettings, 0);
-    CHECK(g_pages.page == pSettings && g_sel == kPageRow + pSCpu);
+    CHECK(g_pages.page == pSettings && g_sel == kEpPre);
     Move(-1);
     CHECK(g_sel == kReportRow);
     Move(-1);

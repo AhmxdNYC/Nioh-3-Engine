@@ -755,8 +755,8 @@ const ItemDef kItems[kCount] = {
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
     {"Drop read->read barriers", "(R1 gpu)", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare.", "Judge with screenshots. Applies now."},
     // 1.7.59 Extra performance (changes the look): extraperf.h; gains = notes\extra-performance-settings.md (pc2 RX 6650 XT 1080p / Ally)
-    {"Preset", "(XPRE)", "Game = all rows off. Performance = cuts that are hard to see (clouds, GI, LOD, shadow distance; fog untouched). Potato = + coarser fog, AO off, 1-tap shadows.",
-     "Changes the look. Applies now. Left/Right picks the next preset. Gains: see each row."},
+    {"Preset", "(XPRE)", "Off = every look row at the game value. Optimized with effect visuals = clouds, GI, shadow distance and detail only. Optimized = those plus coarser fog, ambient occlusion off and blur off. Custom = the XCLD-style rows were set by hand.",
+     "Changes the look. Applies now. Left/Right picks the next preset. The CPU / GPU / Game groups stay under this row."},
     {"Cloud quality", "(XCLD)", "Fewer ray-march steps for the volumetric clouds (game: up to 256 per pixel).",
      "Blockier / noisier cloud edges. Applies now. PC RX 9070 (GPU-bound): no gain; Ally: untested."},
     {"Volumetric fog detail", "(XFOG)", "Coarser fog light grid than the game's lowest (LIGHT = 80x32); 'off' = VOLUMETRIC LIGHTEST.",
@@ -1042,6 +1042,7 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
+    if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
     const int sp = SettingsPage(id);
@@ -1067,7 +1068,8 @@ int PageRowsBody(int* out, bool selectable) {
     if (!g_cfg.layout) {
         // #38437 first screen: Boss Matches, Practice, Display Overlays, Camera settings, Settings, Close.
         const int pg = g_pages.page;
-        if (pg == pSettings) {  // performance only, split into CPU / GPU / Game / Frame Gen
+        if (pg == pSettings) {  // #43269: preset first, then the CPU / GPU / Game / Frame Gen groups
+            if (Visible(kEpPre)) add(kEpPre);
             for (int p : {pSCpu, pSGpu, pSGame, pFrameGen}) add(kPageRow + p);
             add(kSave);
             add(kBackRow);
@@ -3100,7 +3102,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const int pg = g_sel - kPageRow;
         const char* w = pg == pDisplay ? "Display: overlays, FPS, time of day, weather and loading-screen auto-click."
             : pg == pCamera ? "Camera settings: lens adjustment, return to the native camera, and motion blur / depth of field / bloom options."
-            : pg == pSettings ? "Optimizations only: CPU, GPU, Game and Frame Gen."
+            : pg == pSettings ? "Optimizations: a preset at the top, then CPU, GPU, Game and Frame Gen."
             : pg == pOvController ? "Controller overlay: on/off, position, size, opacity, pressed colour, button style."
             : pg == pOvFrameMeter ? "Frame meter: the meter, Ki window, player and i-frame lanes, readout and every colour-key group."
             : pg == pOvInput ? "Input display: the vertical input history, its side and row count."

@@ -46,10 +46,11 @@ const int kPresetLv[kNumPresets][kNumOpts] = {
     // XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST - tuned on the PC measurements (notes\extra-performance-settings.md 3):
     // XTER (visible flatter ground, no gain), XPRT (no measurable effect) and XPOST (no gain) are left to the player.
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  // game
-    {2, 0, 2, 1, 0, 1, 0, 0, 0, 0},  // Performance: clouds, GI, shadow distance, LOD only (all inside the A-vs-A screenshot noise); any fog cut visibly dims the glow
-    {3, 2, 3, 3, 2, 2, 0, 0, 1, 1},  // Potato: + coarser fog grid (glow kept: fog off was a big look change for +1.3 %), AO off, 1-tap shadows, blur / DOF off
+    {2, 0, 2, 1, 0, 1, 0, 0, 0, 0},  // Optimized with effect visuals: clouds, GI, shadow distance, LOD only; fog, particles, AO and camera effects stay
+    {3, 2, 3, 3, 2, 2, 0, 0, 1, 1},  // Optimized: + coarser fog grid (glow kept: fog off was a big look change for +1.3 %), AO off, 1-tap shadows, blur / DOF off
 };
-const char* const kPresetName[kNumPresets] = {"game (all off)", "Performance", "Potato"};
+// #43269: the Optimizations preset row. Custom is not a level row; PresetName returns it when the XCLD-style levels match none of these.
+const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized"};
 
 bool g_wanted = false;
 volatile LONG g_level[kNumOpts] = {};
