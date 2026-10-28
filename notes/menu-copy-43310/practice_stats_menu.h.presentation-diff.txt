@@ -1,0 +1,33 @@
+--- 
++++ 
+@@ -38,7 +38,7 @@
+ }
+ template <class Add> void PstAddPlayerRows(Add&& add) {
+     if (!PstAvailable()) return;
+-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);  
++    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  
+ }
+ 
+ 
+@@ -85,7 +85,7 @@
+     else if (what == PS_TIME_OF_DAY) { const int m = PstTodMinutes(v); if (m < 0) snprintf(buf, n, "TEXT"); else snprintf(buf, n, "TEXT", m / 60, m % 60); }
+     else if (what == PS_WEATHER) snprintf(buf, n, "TEXT", PstWeatherName(v));
+     else if (what == PS_BOSS_KI_DRAIN) { if (v) snprintf(buf, n, "TEXT", v); else snprintf(buf, n, "TEXT"); }
+-    else snprintf(buf, n, "TEXT", v / 100, v % 100);
++    else snprintf(buf, n, "TEXT", v);
+ }
+ 
+ bool PstChange(int item, int dir) {
+@@ -179,9 +179,11 @@
+     if (item == kItPstAllKeys) return "TEXT";
+     if (item - kItPstBase == PS_FRAME_PROW) return "TEXT";
+     if (item - kItPstBase == PS_FRAME_IFR) return "TEXT";
+-    if (item - kItPstBase >= PS_KEY_STARTUP) return "TEXT";
++    if (item - kItPstBase >= PS_KEY_STARTUP && item - kItPstBase <= PS_KEY_IFR) return "TEXT";
+     if (item == kItPstResetFight) return "TEXT";
+     switch (item - kItPstBase) {
++    case PS_FRAME_STYLE: return "TEXT";
++    case PS_FRAME_SIZE: return "TEXT";
+     case PS_PLAYER_INF_KI: return "TEXT";
+     case PS_DMG_DEALT: return "TEXT";
+     case PS_DMG_TAKEN: return "TEXT";

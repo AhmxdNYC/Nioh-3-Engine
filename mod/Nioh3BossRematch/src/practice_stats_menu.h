@@ -129,16 +129,16 @@ bool PstChange(int item, int dir) {
     else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Player Ki damage %s: combines with Player damage in Training and spawned Boss Matches. Saved.", t);
     else if (what == PS_TIME_OF_DAY) snprintf(g_msg, sizeof g_msg, v ? "Sky time %s during gameplay. Stock restores the area time. Saved." : "Time of day Stock: the area's own time again. Saved.", t);
     else if (what == PS_WEATHER) snprintf(g_msg, sizeof g_msg, v ? "Weather %s during gameplay. Stock restores the area weather. Saved." : "Weather Stock: the area's own weather again. Saved.", t);
-    else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: hold broken bosses and stop attacks. Turn OFF to release; grapples or death can end the break. Saved." : "Hold Ki break OFF: a held boss recovers normally now. Saved.");
-    else if (what == PS_HOLD_KI_V2) snprintf(g_msg, sizeof g_msg, v ? "Hold with negative Ki ON: use the Ki floor to hold breaks. Needs Hold Ki break ON. Experimental. Saved." : "Hold with negative Ki OFF: use the timer hold. Saved.");
-    else if (what == PS_KI_FLOOR) snprintf(g_msg, sizeof g_msg, v == 100 ? "Negative Ki depth %s: normal depth for spawned bosses. Saved." : "Negative Ki depth %s of normal for spawned bosses. Experimental. Saved.", t);
+    else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: hold broken bosses and stop attacks. Turn OFF to release; grapples or death can end the break. Saved for Training; not applied during Boss Matches." : "Hold Ki break OFF: a held boss recovers normally now. Saved for Training; not applied during Boss Matches.");
+    else if (what == PS_HOLD_KI_V2) snprintf(g_msg, sizeof g_msg, v ? "Hold with negative Ki ON: use the Ki floor to hold breaks. Needs Hold Ki break ON. Experimental. Saved for Training; not applied during Boss Matches." : "Hold with negative Ki OFF: use the timer hold. Saved for Training; not applied during Boss Matches.");
+    else if (what == PS_KI_FLOOR) snprintf(g_msg, sizeof g_msg, v == 100 ? "Negative Ki depth %s: normal depth for spawned bosses. Saved for Training; not applied during Boss Matches." : "Negative Ki depth %s of normal for spawned bosses. Experimental. Saved for Training; not applied during Boss Matches.", t);
     else if (what == PS_NEG_KI_METER) snprintf(g_msg, sizeof g_msg, v ? "Negative Ki meter ON: when a Training boss's Ki goes below 0, a thin red bar under its Ki bar shows how deep (close the menu). Saved." : "Negative Ki meter OFF. Saved.");
     else if (what == PS_KI_LOG) snprintf(g_msg, sizeof g_msg, v ? "Ki break log ON: Ki-break details of Training bosses go to Nioh3Training.log (KILOG lines). Saved." : "Ki break log OFF. Saved.");
-    else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: eligible hits empty spawned bosses' Ki. Training / Boss Matches. Saved." : "One-hit Ki break OFF. Saved.");
+    else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: eligible hits empty spawned bosses' Ki. Saved for Training; not applied during Boss Matches." : "One-hit Ki break OFF. Saved for Training; not applied during Boss Matches.");
     else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: gauges stay full in Training and spawned Boss Matches. Saved." : "Infinite ninjutsu OFF. Saved.");
     else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player animation speed %s, from your next move. Training / spawned Boss Matches. Saved.", t);
-    else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved.", t);
-    else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved." : "Boss Ki drain OFF. Saved.", t);
+    else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved for Training; not applied during Boss Matches.", t);
+    else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved for Training; not applied during Boss Matches." : "Boss Ki drain OFF. Saved for Training; not applied during Boss Matches.", t);
     else snprintf(g_msg, sizeof g_msg, "%s %s: scales HP and Ki damage of hits%s. Training / spawned Boss Matches. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " spawned bosses land");
     return true;
 }
@@ -188,19 +188,19 @@ const char* PstFooter(int item) {
     case PS_DMG_DEALT: return "Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.";
     case PS_DMG_TAKEN: return "All spawned bosses in Training / Boss Matches: scale HP damage and Ki damage against you. 100% = normal; 0% = none. Saved.";
     case PS_KI_DEALT: return "Training / spawned Boss Matches: extra multiplier for your Ki damage only. 100% = normal; 0% = none. Combines with Player damage, capped at 1000%. Saved.";
-    case PS_ONE_HIT_KI: return "All spawned bosses: your next eligible hit empties boss Ki. Skips bosses already broken, dying, or using infinite Ki. Training / Boss Matches. Saved.";
+    case PS_ONE_HIT_KI: return "All spawned bosses: your next eligible hit empties boss Ki. Skips bosses already broken, dying, or using infinite Ki. Saved for Training; not applied during Boss Matches.";
     case PS_TIME_OF_DAY: return "Global sky time during gameplay. Stock uses the area time; Left / Right changes it by 30 minutes. Cutscenes keep their lighting. Also in Display Overlays. Saved.";
     case PS_WEATHER: return "Global gameplay weather: Stock, Clear, Overcast, Rain, Storm, or Snow. Changes sky and weather effects; cutscenes keep their settings. Saved.";
-    case PS_HOLD_KI_BREAK: return "All spawned bosses: hold an existing Ki break and stop attacks until OFF or death. A grapple can end the break. Does not cause a break. Training / Boss Matches. Saved.";
-    case PS_HOLD_KI_V2: return "Experimental hold method. Requires Hold Ki break ON; keeps Ki at the negative floor and blocks regeneration. OFF uses the timer hold. All spawned bosses. Saved.";
-    case PS_KI_FLOOR: return "All spawned bosses: negative Ki limit. 100% = normal depth; 0% = no negative Ki; larger values allow deeper breaks. Experimental. Training / Boss Matches. Saved.";
+    case PS_HOLD_KI_BREAK: return "All spawned bosses: hold an existing Ki break and stop attacks until OFF or death. A grapple can end the break. Does not cause a break. Saved for Training; not applied during Boss Matches.";
+    case PS_HOLD_KI_V2: return "Experimental hold method. Requires Hold Ki break ON; keeps Ki at the negative floor and blocks regeneration. OFF uses the timer hold. All spawned bosses. Saved for Training; not applied during Boss Matches.";
+    case PS_KI_FLOOR: return "All spawned bosses: negative Ki limit. 100% = normal depth; 0% = no negative Ki; larger values allow deeper breaks. Experimental. Saved for Training; not applied during Boss Matches.";
     case PS_NEG_KI_METER: return "Show negative Ki below spawned bosses' Ki bars. Appears only below zero; shows current Ki, reserve, and floor. Display only; OFF by default. Saved.";
     case PS_KI_LOG: return "Write spawned bosses' Ki-break details to Nioh3Training.log every 0.1 s and on hits. Diagnostic only; does not change the fight. Saved.";
     case PS_PLAYER_INF_NIN: return "Training / spawned Boss Matches: keep your ninjutsu gauges full. Does not apply to ordinary story fights. Saved.";
     case PS_PLAYER_SPEED: return "Training / spawned Boss Matches: your animation speed, including attacks and dodges. 100% = normal; range 10-300%. Applies from your next move. Saved.";
     case PS_PLAYER_METER: return "Show player attack timing in the frame meter. One cell = one game frame at 60 fps. Choose Row or Ring and individual lanes in Mod menu > Display Overlays. Saved.";
     case PS_FRAME_METER: return "Show timing for the first spawned boss. One cell = one game frame at 60 fps. Row/Ring style, lanes, and legend: Mod menu > Display Overlays. Saved.";
-    case PS_BOSS_SPEED: return "All spawned bosses in Training / Boss Matches: animation speed, including attack timing. 100% = normal; range 10-300%. Applies from their next move. Saved.";
-    default: return "All spawned bosses: Ki lost per second. Stops just above zero; skips Ki breaks and infinite Ki. OFF = no extra drain. Training / Boss Matches. Saved.";
+    case PS_BOSS_SPEED: return "All spawned bosses in Training: animation speed, including attack timing. 100% = normal; range 10-300%. Applies from their next move. Saved for Training; not applied during Boss Matches.";
+    default: return "All spawned bosses: Ki lost per second. Stops just above zero; skips Ki breaks and infinite Ki. OFF = no extra drain. Saved for Training; not applied during Boss Matches.";
     }
 }

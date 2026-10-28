@@ -1,0 +1,25 @@
+OFFLINE MENU WORDING PREVIEW - sample values, no game
+PLAYER SETTINGS - Training / spawned Boss Matches
+Infinite Ki: OFF
+Infinite ninjutsu: OFF
+Player damage: 100 %
+Player Ki damage: 100 %
+Player animation speed: 100 %
+
+BOSS SETTINGS - see selected help for Training-only effects
+Boss damage: 100 %
+Boss Ki drain: OFF
+One-hit Ki break: OFF
+Hold Ki break: OFF
+Hold with negative Ki: OFF
+Negative Ki depth: 100 %
+Log Ki breaks: OFF
+Negative Ki meter: OFF
+Boss animation speed: 100 %
+
+SELECTED HELP
+Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.
+All spawned bosses: hold an existing Ki break and stop attacks until OFF or death. A grapple can end the break. Does not cause a break. Saved for Training; not applied during Boss Matches.
+Choose straight rows or concentric rings. Each lane keeps its own visibility switch. Display only. Saved.
+
+PASS: production label/value/footer output; 150-percent formatting; all move group text available.
