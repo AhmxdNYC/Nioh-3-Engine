@@ -57,12 +57,13 @@ inline bool Sync() {
 // (hidden), else tail-jump to F3444 unchanged. Hiding id 3 (the HUD parent) hides every child (4,5,10,13,17-20,23,24,33,35-38).
 // The call is redirected only while some bit is set; with no bits set the original call bytes are put back.
 // Live ids (pc2 2026-10-28, bridge #44958): 4 style, 5 player gauge (HP + ki + 3rd bar are one widget), 10 stance,
-// 11 item shortcut, 13 guardian spirit, 17 amrita, 18 money, 21 boss gauge, 25 minimap.
+// 11 item shortcut, 13 guardian spirit, 17 amrita, 18 money, 21 boss gauge, 25 minimap; found by hiding ids one at a time
+// in game (pc2 #44877): 6 enemy health bars over enemies, 12 lock-on marker. Damage numbers / interact prompt ids not found yet.
 struct Elem { const char* key; uint8_t ids[4]; };
 inline const Elem kElems[] = {
     {"HideHudPlayerBars", {5}},  {"HideHudStyle", {4}},  {"HideHudStance", {10}},   {"HideHudItems", {11}},
     {"HideHudGuardian", {13}},   {"HideHudAmrita", {17}}, {"HideHudMoney", {18}},   {"HideHudBossBar", {21}},
-    {"HideHudMinimap", {25}},
+    {"HideHudMinimap", {25}},    {"HideHudEnemyBars", {6}}, {"HideHudLockOn", {12}},
 };
 constexpr int kElemN = (int)(sizeof(kElems) / sizeof(kElems[0]));
 inline int ElemIndex(const char* key) {
