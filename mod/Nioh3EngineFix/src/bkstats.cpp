@@ -359,6 +359,43 @@ bool SetTuning(const char* key, const char* val, char* reply, size_t n) {
     return true;
 }
 
+namespace {
+bool HitchReady() {
+    static volatile LONG ok = -1;  // -1 not checked
+    if (ok < 0 && g_known && g_base) {
+        static const uint8_t kEcl[] = {0x4C, 0x8D, 0x81, 0xB0, 0x00, 0x00, 0x00};
+        static const uint8_t kDrain[] = {0x48, 0x8D, 0x42, 0x28};
+        const bool same = !memcmp((void*)(g_base + 0x86F775), kEcl, sizeof kEcl) &&
+                          !memcmp((void*)(g_base + 0x418F46), kDrain, sizeof kDrain);
+        if (same && g_tickMs <= 0) InitClock();
+        ok = same ? 1 : 0;
+    }
+    return ok == 1 && g_tickMs > 0;
+}
+bool ReadMs(const uintptr_t* at, int n, double* out) {
+    for (int i = 0; i < n; ++i) {
+        uint64_t t = 0;
+        if (!RdU64(at[i], t)) return false;
+        out[i] = (double)t * g_tickMs;
+    }
+    return true;
+}
+}  // namespace
+
+bool CumWaitsMs(double out[4]) {
+    const uintptr_t g = HitchReady() ? Gfx() : 0;
+    if (!g) return false;
+    const uintptr_t at[4] = {g + kLrStallEcl, g + kLrIdleSpin, g + kLrRecycle, g + kCacheTok95};
+    return ReadMs(at, 4, out);
+}
+
+bool LastFrameWaitsMs(double out[6]) {
+    const uintptr_t g = HitchReady() ? Gfx() : 0;
+    if (!g) return false;
+    const uintptr_t at[6] = {g + kSnapDrainTot, g + kSnapDrainMax, g + kSnapFullTot, g + kSnapHwTot, g + kSnapSwTot, g + kSnapSwMax};
+    return ReadMs(at, 6, out);
+}
+
 void Start(const StartInfo& info) {
     g_log = info.log;
     g_base = info.base;

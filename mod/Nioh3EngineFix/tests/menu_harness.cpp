@@ -706,7 +706,8 @@ int main() {
             CHECK((menu_style::kOnBg&0x00FF00FFu)!=0x0030003Cu);  // the ON pill is not green any more
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
         }
-        if (const char* dump = getenv("N3_MENU_DUMP")) {  // human #44361 preview: a move page drawn by the real host code, dumped for tests/menu_preview.py
+        char* dump = nullptr; size_t dumpLen = 0;
+        if (!_dupenv_s(&dump, &dumpLen, "N3_MENU_DUMP") && dump) {  // human #44361 preview: a move page drawn by the real host code, dumped for tests/menu_preview.py
             const char* moveRows[]={"Boss A - Minamoto no Yoritomo - 1 hit (5)", "-- 1 hit --",
                 "  1 : Anim 1.2s  1Hit1  0x4E4E\tAttack  [ON]", "> 2 : Anim 0.9s  1Hit2  0x4E51\tAttack  [OFF]",
                 "  3 : Anim 2.4s  1Hit3  0x4E55\tAttack  [REPEAT]", "  4 : Anim 1.6s  Grab1  0x4E7B\tGrab  [ON]",
@@ -717,13 +718,15 @@ int main() {
             strcpy_s(v.footer,"0x4E51  Overhead slash. A: repeat | Left: block | Right: allow."); v.toast[0]=0;
             osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextColor.clear();osd::drawnTextScale.clear();
             const float sc=DrawRematchHost(1920u,1080u);
-            if (FILE* f=fopen(dump,"w")) {
+            FILE* f=nullptr;
+            if (!fopen_s(&f,dump,"w") && f) {
                 fprintf(f,"S %g %d %d\n",sc,osd::kGlyphW,osd::kGlyphH);
                 for(const auto& r:osd::drawnRects)fprintf(f,"R %g %g %g %g %08X\n",r.x,r.y,r.w,r.h,r.color);
                 for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T %g %g %g %08X %s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
                 fclose(f);
             }
         }
+        free(dump);
         g_rematchFreshAt=0; v={};
     }
     // Y/Triangle closes root, nested and hosted menus, but never steals edit input.

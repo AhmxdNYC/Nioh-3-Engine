@@ -70,6 +70,7 @@
 #include "scenemirror.h"
 #include "meshletwait.h"
 #include "drainwait.h"
+#include "hitchlog.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -3197,6 +3198,21 @@ DWORD WINAPI Worker(LPVOID) {
             bi.knownBuild = known;
             bootnotice::Start(bi);
         }
+        {  // [Debug] HitchLog (hitchlog.cpp, default 1, measurement only; before osd::Start: osd asks hitchlog::Enabled())
+            hitchlog::StartInfo hi;
+            hi.log = &Log;
+            hi.iniPath = iniPath.c_str();
+            hi.c.w3 = &g_w3Count;  // the existing wait counters (stats line); the line logs their deltas over the gap
+            hi.c.l1 = &g_l1Count;
+            hi.c.f1 = &g_fgCount;
+            hi.c.w6 = &g_w6Waits;
+            hi.c.w6Ticks = &g_w6Ticks;
+            hi.c.gf = &g_gfWaits;
+            hi.c.gfTicks = &g_gfTicks;
+            hi.c.ds = &g_dsWaits;
+            hi.c.dsTicks = &g_dsTicks;
+            hitchlog::Start(hi);
+        }
         {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
             pmode::StartInfo pmi;
             pmi.log = &Log;
@@ -3256,11 +3272,13 @@ extern "C" BOOL WINAPI hookPeek(LPMSG msg, HWND wnd, UINT fmin, UINT fmax, UINT 
         menu::SwallowMessage(msg))
         msg->message = WM_NULL;
     if (!r && g_w3Enable) {
+        const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
         if (g_w3UseSleep)
             Sleep(g_w3Ms ? g_w3Ms : 1);  // Wine: ~1 kHz cap; window messages are picked up on the next Peek
         else
             MsgWaitForMultipleObjectsEx(0, nullptr, g_w3Ms, 0x4FF /* QS_ALLINPUT (Win7-era mask, as in the script) */,
                                         MWMO_INPUTAVAILABLE);
+        if (ht0) hitchlog::NoteWait(hitchlog::kW3, ht0, hitchlog::Now());
         InterlockedIncrement(&g_w3Count);
     }
     return r;
@@ -3289,7 +3307,9 @@ extern "C" int L1Wait(uint64_t now, uint64_t last, uint64_t ticksPerFrame, uint6
         g_l1Enable = 0;  // timer unusable: stock limiter from now on (as the script's cave did)
         return 0;
     }
+    const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
     WaitForSingleObject(g_l1Timer, 100);
+    if (ht0) hitchlog::NoteWait(hitchlog::kL1, ht0, hitchlog::Now());
     InterlockedIncrement(&g_l1Count);
     return 1;
 }
@@ -3305,7 +3325,9 @@ extern "C" void fgWait(int64_t target) {
         LARGE_INTEGER due;
         due.QuadPart = -(sleepTicks * 10000000 / g_qpcFreq);  // relative, 100 ns units (sleepTicks < ~1 s here)
         if (SetWaitableTimer(g_fgTimer, &due, 0, nullptr, nullptr, FALSE)) {
+            const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
             WaitForSingleObject(g_fgTimer, 100);
+            if (ht0) hitchlog::NoteWait(hitchlog::kF1, ht0, hitchlog::Now());
             InterlockedIncrement(&g_fgCount);
         } else {
             g_fgEnable = 0;  // timer unusable: plain spin from now on
@@ -3352,6 +3374,7 @@ extern "C" void W6Wait(uint8_t* ctx) {
     InterlockedIncrement(&g_w6Waits);
     if (slept) InterlockedIncrement(&g_w6Sleeps);
     InterlockedAdd64(&g_w6Ticks, now.QuadPart - t0.QuadPart);
+    hitchlog::NoteWait(hitchlog::kW6, t0.QuadPart, now.QuadPart);
 }
 
 // ---- GF: replaces the Sleep(0) of `while (fence->GetCompletedValue() < value) Sleep(0)` (7D9E1C event == NULL path,
@@ -3389,6 +3412,7 @@ extern "C" void GfWait(void** pf, uint64_t value) {
     QueryPerformanceCounter(&t1);
     InterlockedIncrement(&g_gfWaits);
     InterlockedAdd64(&g_gfTicks, t1.QuadPart - t0.QuadPart);
+    hitchlog::NoteWait(hitchlog::kGF, t0.QuadPart, t1.QuadPart);
 }
 
 // ---- WG (1.6.0): wake gate. Worker slot layout (v2.02, deps-checked): slot = pool->workers ([pool+10h]) + i*458h,
@@ -3492,6 +3516,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     QueryPerformanceCounter(now);
     InterlockedIncrement(&g_dsWaits);
     InterlockedAdd64(&g_dsTicks, now->QuadPart - before);
+    hitchlog::NoteWait(hitchlog::kDS, before, now->QuadPart);
     return TRUE;
 }
 
