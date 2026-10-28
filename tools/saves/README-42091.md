@@ -64,3 +64,14 @@ selection/character, autosave targets imported slot, original/system files stay
 unchanged. Test multiple source slots, occupied target and all 50 slots full.
 Proton publication is not accepted yet. Runtime UI/Windows API behavior remains
 unproven by the offline tests.
+
+Offline validation on PC (2026-10-28): 22 new tests PASS (69.6 s), including
+full-size encrypted synthetic user-save roundtrip/checksum rejection, gate
+failure at every prepublication boundary, post-publication gate loss, target
+creation races including an empty directory, mandatory backup failure,
+multi-profile selection, cancellation and nonce replay. Existing 83 save tests
+PASS (39.6 s). Run from `tools/saves`: `py -m unittest test_live_title -v` and
+`py -m unittest test_after_exit test_real_root test_saveslot -q`.
+Packaged CLI `--help` smoke PASS. Bridge artifact 3120, SHA256
+`ea28d277dbc267ea837836facabe814a4c93cf3de6aa99d8e3fc58d8ee22263a`.
+No game, installed mods or actual save files were accessed.
