@@ -2531,11 +2531,13 @@ N3T_API int Nioh3Training_Version(void) { return 4942; }
 // user #6618: Boss Rematch menu toggles = the 'deathcfg <loot> <blow> <cut>' command as an in-process API (no command file round trip).
 // Get fills any non-null pointer with the live value. Set: -1 keeps a value; persist 1 also writes [Summon] BossLoot/DeathBlowRequired/CutsceneOnKill
 // to Nioh3Training.ini on a short worker thread (the caller is the Rematch UI worker; no file I/O on its thread).
+typedef struct { int loot, blow, cut; } DeathCfgSave;
 static DWORD WINAPI DeathCfgSaveThread(LPVOID p) {
-    (void)p; char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
-    snprintf(v, sizeof v, "%d", g_cfg_loot); WritePrivateProfileStringA("Summon", "BossLoot", v, ini);
-    snprintf(v, sizeof v, "%d", g_cfg_deathblow); WritePrivateProfileStringA("Summon", "DeathBlowRequired", v, ini);
-    snprintf(v, sizeof v, "%d", g_cfg_cutscene); WritePrivateProfileStringA("Summon", "CutsceneOnKill", v, ini);
+    DeathCfgSave saved=*(DeathCfgSave*)p; free(p);
+    char ini[MAX_PATH], v[8]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
+    snprintf(v, sizeof v, "%d", saved.loot); WritePrivateProfileStringA("Summon", "BossLoot", v, ini);
+    snprintf(v, sizeof v, "%d", saved.blow); WritePrivateProfileStringA("Summon", "DeathBlowRequired", v, ini);
+    snprintf(v, sizeof v, "%d", saved.cut); WritePrivateProfileStringA("Summon", "CutsceneOnKill", v, ini);
     WritePrivateProfileStringA(0, 0, 0, ini); return 0;
 }
 static DWORD WINAPI AutoRetrySaveThread(LPVOID p) {
@@ -2567,14 +2569,22 @@ static DWORD WINAPI NoFinSaveThread(LPVOID p) {
 }
 N3T_API int Nioh3Training_GetNoFinisher(void) { return g_cfg_nofin; }
 N3T_API void Nioh3Training_SetNoFinisher(int on, int persist) {
-    g_cfg_nofin = on != 0; g_bmd_on = 0; Log("API KiBreakNoFinisher %d (Boss Rematch menu)%s", g_cfg_nofin, persist ? " (saved to ini)" : "");
+    g_cfg_nofin = on != 0; if (g_bmd_on) g_bmd_nofin = g_cfg_nofin; Log("API KiBreakNoFinisher %d (Boss Rematch menu)%s", g_cfg_nofin, persist ? " (saved to ini)" : "");
     if (persist) { HANDLE t = CreateThread(0, 0, NoFinSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
 }
 N3T_API void Nioh3Training_GetDeathCfg(int* loot, int* blow, int* cut) { if (loot) *loot = g_cfg_loot; if (blow) *blow = g_cfg_deathblow; if (cut) *cut = g_cfg_cutscene; }
 N3T_API void Nioh3Training_SetDeathCfg(int loot, int blow, int cut, int persist) {
-    if (loot >= 0) { g_cfg_loot = loot != 0; g_bmd_on = 0; } if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
+    if (loot >= 0) { g_cfg_loot = loot != 0; if (g_bmd_on) g_bmd_loot = g_cfg_loot; } if (blow >= 0) g_cfg_deathblow = blow != 0; if (cut >= 0) g_cfg_cutscene = cut != 0;
     Log("API deathcfg (Boss Rematch menu, #6618): BossLoot %d DeathBlowRequired %d CutsceneOnKill %d%s", g_cfg_loot, g_cfg_deathblow, g_cfg_cutscene, persist ? " (saved to ini)" : "");
-    if (persist) { HANDLE t = CreateThread(0, 0, DeathCfgSaveThread, 0, 0, 0); if (t) CloseHandle(t); }
+    if (persist) {
+        DeathCfgSave* saved=(DeathCfgSave*)malloc(sizeof *saved);
+        if (saved) {
+            saved->loot=g_bmd_on ? g_bmd_loot : g_cfg_loot;
+            saved->blow=g_cfg_deathblow; saved->cut=g_cfg_cutscene;
+            HANDLE t=CreateThread(0,0,DeathCfgSaveThread,saved,0,0);
+            if(t)CloseHandle(t); else free(saved);
+        }
+    }
 }
 // user #9585 (+ NEXT BUILD list item 1): Boss Rematch menu sliders. which 0 = [Summon] FinisherKillTimeoutMs (CutsceneOnKill finisher window, read live
 // by BossTick), 1 = [Summon] KiBreakHp0WindowMs (HP-0 no-hit window, read live by NfTick). Only the lengths change; the DeathBlowRequired /
@@ -3900,7 +3910,7 @@ static void BossMatchDefaults(void) {
     Log("BOSS MATCH defaults (#38077): boss CPU-controlled, BossLoot %d -> 0, KiBreakNoFinisher %d -> 0 (restored when the match ends)", g_cfg_loot, g_cfg_nofin);
     g_cfg_loot = 0; g_cfg_nofin = 0;
 }
-// #38077: back to the user's own BossLoot / KiBreakNoFinisher after a Boss Match (a menu change during the match clears the stash: it wins).
+// #38077: back to the user's own BossLoot / KiBreakNoFinisher after a Boss Match (an explicit menu change updates only its own stashed preference).
 static void BossMatchRestore(const char* why) {
     if (!g_bmd_on) return;
     g_bmd_on = 0; g_cfg_loot = g_bmd_loot; g_cfg_nofin = g_bmd_nofin;
