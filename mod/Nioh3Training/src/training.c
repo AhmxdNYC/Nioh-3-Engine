@@ -4857,7 +4857,7 @@ static DWORD WINAPI DbgThread(LPVOID p) {
 // user #13274: our mod menus pause the game during Boss Matches and Practice. Same stop counter as the F9 freeze above (the game's own pause:
 // time scale 0, logic and render keep running), held by its own flag so it never releases an F9 freeze or the native pause.
 // Held only while (1) the EngineFix mod menu is open (Nioh3EngineFix_MenuOpen, polled every 30 ms on this thread), (2) a Training / Boss Match
-// session or a summoned boss is live, and (3) nothing time-driven is running: no load, arena swap / prewarm, return trip, fade, arena settle,
+// boss actor is alive in the scene, and (3) nothing time-driven is running: no load, arena swap / prewarm, return trip, fade, arena settle,
 // summon or queued summon request. Released the moment any of these ends (closing the menu releases within 30 ms), and before a Return.
 // [Training] MenuPause = 0 turns it off. See TECH_DEBT.md (live acceptance pending).
 static int g_cfg_menupause = 1;
@@ -4873,16 +4873,32 @@ static int MenuPauseBusy(void) {
     const uint8_t* gs = GameState();
     return (gs && gs[2]) || g_rh.active || g_xw.active || g_xr.active || g_fd.pend || g_fd.phase == 2 || (g_ar.active && !g_ar.released) || g_sp.active || g_rq_op;
 }
-// #13274: a Boss Match run by Nioh3BossRematch (native replay mission / Fight now / practice attempt) counts as live too; 0 when the export is missing
-static int MenuPauseRematchMatch(void) {
-    static int (*im)(void); static int tried; if (!im && !tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); im = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_InMatch") : 0; if (!im) Log("MENU PAUSE: Boss Rematch InMatch export missing (Boss Match replays are not paused; Practice still is)"); }
-    return im ? im() : 0;
+// Pause requires a living actor, not merely an arena/session flag after a kill.
+static int MenuPauseActorPresent(uint64_t a) {
+    int dead = 0; uint64_t hp = 0, max = 0;
+    return a && ActorInTable(a) && !ActorDeadNow(a, &dead, &hp, &max) && max && hp;
+}
+static int MenuPauseBossPresent(void) {
+    for (int s = 0; s < N3T_SLOTS; ++s)
+        if (SlotAlive(s) && MenuPauseActorPresent(g_slot_act[s])) return 1;
+    uint64_t actors[8]; const int n = KbCollect(actors, 8);
+    for (int i = 0; i < n; ++i) if (MenuPauseActorPresent(actors[i])) return 1;
+    return 0;
+}
+static volatile LONG g_menu_pause_allowed;
+static volatile DWORD g_menu_pause_checked;
+N3T_API int Nioh3Training_MenuPauseAllowed(void) {
+    const DWORD checked = g_menu_pause_checked;
+    return checked && (DWORD)(GetTickCount() - checked) < 250 && g_menu_pause_allowed;
 }
 static DWORD WINAPI MenuPauseThread(LPVOID p) {
     (void)p; Log("MENU PAUSE (#13274): on while the mod menu is open in a Boss Match / Practice session");
     for (;;) {
         Sleep(30);
-        const int open = GateMenuOpen(), live = open && (g_tr.active || AnySlotAlive() || MenuPauseRematchMatch()), busy = live ? MenuPauseBusy() : 0;
+        const int open = GateMenuOpen(), busy = open ? MenuPauseBusy() : 0;
+        const int live = open && !busy && MenuPauseBossPresent();
+        InterlockedExchange(&g_menu_pause_allowed, live);
+        g_menu_pause_checked = GetTickCount();
         const int want = g_cfg_menupause && open && live && !busy;
         if (want && !g_menu_frozen) MenuFreeze(1, "mod menu opened");
         else if (!want && g_menu_frozen) MenuFreeze(0, !open ? "mod menu closed" : !live ? "session ended" : "a load / swap / summon started");
@@ -5141,7 +5157,8 @@ static DWORD WINAPI Worker(LPVOID x) {
         {   char dd[MAX_PATH]; snprintf(dd, sizeof dd, "%s\\marks", g_rec_out[0] ? g_rec_out : g_dir); GetPrivateProfileStringA("Debug", "ShotDir", dd, g_dbg_dir, sizeof g_dbg_dir, ini); }
         if (g_dbg_on) { HANDLE t = CreateThread(0, 0, DbgThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("DBG hotkeys off ([Debug] Hotkeys 0)");
         g_cfg_menupause = GetPrivateProfileIntA("Training", "MenuPause", 1, ini);  // user #13274
-        if (g_cfg_menupause) { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); } else Log("MENU PAUSE off ([Training] MenuPause 0)");
+        { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); }
+        if (!g_cfg_menupause) Log("MENU PAUSE off ([Training] MenuPause 0); boss-presence sampling remains available to EngineFix");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
         if (g_cfg_gate) { if (!memcmp((void*)(B + 0x22396D8), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
         g_cfg_gate_block = GetPrivateProfileIntA("Return", "ReturnGateBlockNativePrompt", 1, ini);

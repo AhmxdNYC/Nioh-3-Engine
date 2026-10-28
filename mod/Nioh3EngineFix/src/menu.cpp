@@ -625,8 +625,19 @@ constexpr uint32_t kOffFreezeCounter = 0x590 + 4 * 3;  // request counter of sto
 volatile LONG g_freezeBusy = 0;
 uintptr_t g_freezeCounter = 0;  // address of the counter we incremented; 0 = nothing held (guarded by g_freezeBusy)
 
+int (*g_menuPauseAllowed)() = nullptr;
+bool BossPauseAllowed() {
+    static ULONGLONG tried = 0;
+    if (!g_menuPauseAllowed && (!tried || Now() - tried > 5000)) {
+        tried = Now();
+        if (HMODULE m = GetModuleHandleW(L"Nioh3Training.asi"))
+            g_menuPauseAllowed = reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3Training_MenuPauseAllowed"));
+    }
+    // Missing/old Training or a stale sample must never freeze an empty scene.
+    return g_menuPauseAllowed && g_menuPauseAllowed() > 0;
+}
 void SyncFreezeLocked() {
-    const bool want = g_open && !g_disabled && g_cfg.freezeGame && g_host.knownBuild && g_host.base;
+    const bool want = g_open && !g_disabled && g_cfg.freezeGame && g_host.knownBuild && g_host.base && BossPauseAllowed();
     if (want == (g_freezeCounter != 0)) return;
     __try {
         if (want) {

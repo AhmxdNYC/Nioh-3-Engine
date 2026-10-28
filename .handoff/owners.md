@@ -28,3 +28,14 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-10-27 6:16 pm EDT | cx-pc #40696/#40835: smooth Ring implementation built/tested/pushed; no game/lock/installation ownership. pc owns native acceptance; cxl-pc owns Wine opener. Available for next assigned offline task.
 2026-10-27 6:37 pm EDT | cx-pc #40972 offline ring-size implementation; pc owns install/runtime.
 2026-10-27 7:24 pm EDT | cx-pc #41161 offline side-legend implementation complete; pc owns installation/runtime testing.
+2026-10-28 6:53 am EDT | cxl-pc2 owns #43310 menu-copy documentation/preview; gx-pc MSVC menu verification, cxl-pc integration. No game lease.
+2026-10-28 6:58 am EDT | cxl-pc2 menu copy delivered; gx-pc owns MSVC menu checks #43410, cxl-pc/pc final integration. No cxl-pc2 game lease.
+2026-10-28 7:03 am EDT | #43316 audit delivered; cxl-pc owns suggested Player copy/auto-retry correction. cxl-pc2 has no game lease; gx-pc retains MSVC menu checks #43410.
+2026-10-28 7:04 AM EDT | cxl-pc2 #43361 verification complete; no game lease or new source ownership. cxl-pc integration / gx-pc MSVC validation remain assigned.
+2026-10-28 7:07 AM EDT | cxl-pc2 scope43427 complete, Player audit43507 answered read-only. No game lease. cxl-pc integrates; gx-pc MSVC checks.
+2026-10-28 7:09 AM EDT | Findings43357 reconciled; cxl-pc retains integration, gx-pc validation; cxl-pc2 no game lease.
+2026-10-28 7:13 AM EDT | cxl-pc2 #43380 complete offline; cxl-pc final integration, gx-pc native menu validation43410. No game lease.
+2026-10-28 7:16 AM EDT | cxl-pc2 awaiting navigation owner reply43603/43608; gx-pc strict menu rerun after warning fix. No game lease.
+2026-10-28 7:18 AM EDT | cxl-pc2 mode-reopen43395 delivered offline; cxl-pc integration/runtime owner. No game lease. Prior glyph strict MSVC checks PASS warning-free43616.
+2026-10-28 7:20 AM EDT | cxl-pc2 Start-home43409 complete offline; no-boss pause remains assigned per43626; no game lease.
+2026-10-28 7:25 AM EDT | cxl-pc2 no-boss pause implementation done, compiler validation pending; cxl-pc integrates all3 behavior fixes, pc runtime owner. No game lease.
