@@ -63,6 +63,22 @@ static int HasColor(uint32_t p,COLORREF c) {
     }
     return 1;
 }
+// Near-white cores of the I-FR run digits, inset so the hole labels and the outer track do not count.
+static int InnerWhite(Canvas* c,int H) {
+    int cw,bh,lh,pad;FmGeom(c->w,H,&cw,&bh,&lh,&pad);FmRingLayout g=FmRingGeom(c->w,H);
+    const int both=(FmPlayerDraw()||FmIFrRow()) && g_pst.v[PS_FRAME_METER]&&g_fm_show;
+    const int cx=c->w/2+(both?(g.d+lh)/2:0)*-1,cy=FmReadoutHeight(bh,pad)+g.height/2;
+    const float ri=g.d*.5f-(g.thick+g.gap)-g.thick,ro=ri+g.thick;
+    int n=0,half=g.d/2+2;
+    for(int y=cy-half;y<=cy+half;++y)for(int x=cx-half;x<=cx+half;++x){
+        if(x<0||y<0||x>=c->w||y>=c->h)continue;
+        const float dx=x+.5f-cx,dy=y+.5f-cy,r=sqrtf(dx*dx+dy*dy);
+        if(r<ri+1.f || r>ro-1.f)continue;
+        const uint32_t p=c->bits[y*c->w+x];
+        if((p>>24)>180 && ((p>>16)&255)>230 && ((p>>8)&255)>230 && (p&255)>230)++n;
+    }
+    return n;
+}
 static uint32_t AtLane(Canvas* c,int H,int player,int lane,int cell) {
     int cw,bh,lh,pad;FmGeom(c->w,H,&cw,&bh,&lh,&pad);FmRingLayout g=FmRingGeom(c->w,H);
     const int both=(FmPlayerDraw()||FmIFrRow()) && g_pst.v[PS_FRAME_METER]&&g_fm_show;
@@ -86,11 +102,16 @@ static void Pixels(int w,int H,int size) {
     CHECK(HasColor(AtLane(&c,H,1,0,85),FM_KIWIN_RGB));
     CHECK(HasColor(AtLane(&c,H,1,0,92),FM_KIPERF_RGB));
     CHECK(HasColor(AtLane(&c,H,0,0,85),FmColor(FM_RECOVERY)));
-    CHECK(HasColor(AtLane(&c,H,1,1,23),FM_NODMG_RGB));
-    CHECK(HasColor(AtLane(&c,H,1,1,33),FM_EAA_RGB));
-    CHECK(HasColor(AtLane(&c,H,1,1,43),FM_GUARD_RGB));
-    CHECK(HasColor(AtLane(&c,H,1,1,53),FM_EA7_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,20),FM_NODMG_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,30),FM_EAA_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,40),FM_GUARD_RGB));
+    CHECK(HasColor(AtLane(&c,H,1,1,50),FM_EA7_RGB));
     CHECK(HasColor(AtLane(&c,H,0,1,53),RGB(138,92,255)));
+    if(w==1920 && size==1) {
+        CHECK(InnerWhite(&c,H)>15); // four "10" run lengths on the inner I-FR ring
+        g_pst.v[PS_FRAME_IFR]=0;Draw(&c,H);CHECK(InnerWhite(&c,H)==0);
+        g_pst.v[PS_FRAME_IFR]=1;Draw(&c,H);
+    }
     if(w==1920) {
         const size_t bytes=(size_t)c.w*c.h*4;
         uint32_t* before=(uint32_t*)malloc(bytes);CHECK(before);memcpy(before,c.bits,bytes);
