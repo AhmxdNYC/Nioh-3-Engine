@@ -29,6 +29,7 @@ float DrawText(float x, float y, const char* text, uint32_t color, float s) { dr
 namespace savefiles {
 bool testAllowed=false,testPending=false;int requests=0,cancels=0;
 bool Pending(){return testPending;}
+bool LivePending(){return false;}
 void CancelPending(){if(testPending){++cancels;testPending=false;}}
 void Configure(uint8_t*,bool,const wchar_t*,void (*)(const char*,...)){}
 void Poll(){} bool Allowed(){return testAllowed;}
