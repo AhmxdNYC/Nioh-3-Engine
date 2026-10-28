@@ -36,6 +36,7 @@
 #include "extraperf.h"
 #include "gpuopt.h"
 #include "menu.h"
+#include "menu_mode.h"
 #include "updatecheck.h"
 #include "savefiles.h"
 #include "../../settings/store.h"
@@ -1569,9 +1570,10 @@ int TrainingMode() {
     if (!r && active && (active() & 2)) r = 2;
     return r;
 }
+menu_mode::Selection g_modeSelection;
 void OpenModePage(bool ready) {
     if (!ready || !g_rematchSession.load()) return;
-    const int m = TrainingMode();
+    const int m = g_modeSelection.Reopen(TrainingMode());
     if (m != 1 && m != 2) return;
     if (PostRematchAction(m == 1 ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu)) {
         g_rematchPage = true; g_rematchOpened = false;
@@ -1796,6 +1798,7 @@ void Change(int id, int dir) {
         if (dir == 0 && RefreshRematchHost(Now()) &&
             (PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
             g_rematchPage = true; g_rematchOpened = false;
+            g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
             for (auto& repeat : g_rep) repeat = 0;
         }
         return;
