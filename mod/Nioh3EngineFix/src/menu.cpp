@@ -789,7 +789,7 @@ const ItemDef kItems[kCount] = {
     {"Nudge counter down", "(offset Y)", "Moves the counter away from its corner's top/bottom edge (pixels at 1080p).", "Overlay only. Applies now. A resets to the corner default."},
     {"Game's own performance display", "", "Nioh 3's built-in fps overlay is compiled out of the retail game: no setting exists to toggle.", "Nothing to switch. The counter above is the mod's own."},
     {"Mod menu reminder (top-right)", "(PauseHint)", "The small 'Mod menu: F10 / Esc x3 / Start x3' note. Always, only while a game menu is open, or off.", "Overlay only. Applies now. Save to ini keeps it."},
-    {"Optimizations page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Practice and Gameplay / Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
+    {"Optimizations page", "", "Page 1 keeps the picture the same. Page 2 can change how the game looks. Boss Matches, Training and Display Overlays are on the first screen. Left/Right or A switches.", "Menu only."},
     {"Skip load tip screen", "", "Presses Continue for you on the tip page when a load finishes. Tips still show while the game is loading.", "Off by default. Applies now; saved to the ini at once."},
     {"Job-thread limit (handhelds)", "(WorkerCap)", "Caps the job thread pools at N (try 10, then 8). Off on desktops.", "Picture unchanged. Applies at the next launch. Lowers CPU use on handhelds."},
     {"Keep 3 more pool threads", "(P12)", "Keeps 3 more pool threads on CPUs with <= 12 threads. Experimental.", "Picture unchanged. Applies at the next launch."},
@@ -2893,7 +2893,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const int id = pageRows[oi];
         if (id == kRematchRow || id == kPracticeRow) {
             if (id == g_sel) selRow = nb;
-            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Practice" : "  Practice");
+            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
             put(body, nb, 128, label, "", menu_style::PadWord("A: open", "Cross: open"), cWhite, cCyan, id == g_sel, false);
             continue;
         }
@@ -3057,11 +3057,11 @@ float DrawImpl(unsigned W, unsigned H) {
     snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a state snapshot file and copies the report website link." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
-        snprintf(what, sizeof(what), "Boss Matches: fight beaten bosses again (in the arena or from the shrine), kill and finisher rules, Yamagata practice.");
-        snprintf(effect, sizeof(effect), "Native replay rewards and progression apply. Existing solo and cleared-mission checks remain active.");
+        snprintf(what, sizeof(what), "Boss Matches: replay cleared bosses in their arena or from their shrine. Death and loot rules are shared with Training.");
+        snprintf(effect, sizeof(effect), "Arena matches use your death and loot rules. Mission replays keep normal rewards. Solo and cleared-boss checks still apply.");
     } else if (g_sel == kPracticeRow) {
-        snprintf(what, sizeof(what), "Train here, train in a boss arena, Training Bosses (each boss: stance, moves, repeat), summon a boss here.");
-        snprintf(effect, sizeof(effect), "Practice sessions retry in place when you are beaten; Return to where I was ends them.");
+        snprintf(what, sizeof(what), "Training: choose a location, add bosses, and control their moves. Shared player and boss stats also affect spawned Boss Matches.");
+        snprintf(effect, sizeof(effect), "Training retries in place when you die. Return to where I was ends the session. Frame meter: Display Overlays. Save manager: Mod menu at title.");
     } else if(g_sel>=kSaveFilesRow&&g_sel<kSaveNamedFirst+savefiles::kMaxSlots){
         snprintf(what,sizeof what,"%s",savefiles::Pending()?"Cancel stops the pending save operation.":!savefiles::Allowed()?"Return to the title screen to manage saves; no game restart needed.":savefiles::Note());
         snprintf(effect,sizeof effect,"%s",g_saveConfirm&&Now()-g_saveConfirmAt<5000?"Press again to confirm. Then close this menu and Quit the game normally.":"Live import refreshes the title now. Switch after Quit waits for normal exit.");

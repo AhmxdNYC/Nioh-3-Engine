@@ -211,7 +211,7 @@ int main() {
     practice.gateId=0; g_gateOk=false; g_confirm=-9;
     UiOpen(); g_sel = 1; UiAct(); g_sel = 25; CHECK(!UiAct() && g_uiPages.page == uPractice);
     CHECK(UiFill(rows,24,footer,sizeof(footer)) > 0 && strstr(footer,"Normal rewards, drops and progression apply"));
-    CHECK(strstr(rows[0].text,"Practice Yamagata"));
+    CHECK(strstr(rows[0].text,"Yamagata mission replay"));
     g_status[0]=1; CHECK(!UiAct() && !g_req);
     g_status[0]=2; CHECK(!UiAct() && g_confirm == kItPracticeStart && !g_req);
     CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uPractice);

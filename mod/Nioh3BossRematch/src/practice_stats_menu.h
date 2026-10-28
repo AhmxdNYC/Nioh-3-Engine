@@ -38,7 +38,7 @@ int PstSet(int what, int value) {
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
 // Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
 // Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
@@ -53,9 +53,9 @@ void PstResetFight() {
     const int rc = f ? f() : -1;
     Log("Rematch: menu Reset fight -> %d (#22592)", rc);
     if (rc < 0) snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with 'Reset fight'.");
-    else if (!rc) snprintf(g_msg, sizeof g_msg, "Nothing to reset: start a Practice session or summon a Training boss first.");
+    else if (!rc) snprintf(g_msg, sizeof g_msg, "Nothing to reset: start a Training session or summon a Training boss first.");
     else {
-        snprintf(g_msg, sizeof g_msg, "Fight reset: bosses %s, you %s%s.", (rc & 1) ? "at full HP and Ki" : "(none alive)", (rc & 4) ? "at full HP and Ki" : "unchanged", (rc & 8) ? ", back at your Practice start" : " (no Practice start recorded, your position is unchanged)");
+        snprintf(g_msg, sizeof g_msg, "Fight reset: bosses %s, you %s%s.", (rc & 1) ? "at full HP and Ki" : "(none alive)", (rc & 4) ? "at full HP and Ki" : "unchanged", (rc & 8) ? ", back at your session start" : " (no session start recorded, your position is unchanged)");
         ToastF(cGreen, 2000, "Fight reset.");
     }
 }
@@ -68,14 +68,14 @@ int PstMasterState(const int* set, int n) {
 const char* PstLabel(int what) {
     if (what == PS_FRAME_SIZE) return "Ring size:";
     if (what == PS_FRAME_STYLE) return "Frame meter style:";
-    if (what == PS_FRAME_PROW) return "Frame row: Player:";  // human #38180
-    if (what == PS_FRAME_IFR) return "Frame row: I-frames:";
+    if (what == PS_FRAME_PROW) return "Player attack lane:";  // human #38180
+    if (what == PS_FRAME_IFR) return "Invincibility lane:";
     if (what >= PS_KEY_STARTUP) { static const char* const k[] = {"Key: Startup:", "Key: Active:", "Key: Recovery:", "Key: Unblockable:", "Key: Grab:", "Key: No hit/Pending/Empty:", "Key: Action start/Total/Stun:", "Key: Ki Pulse/Ki debt/Perfect:", "Key: I-frames:"}; return k[what - PS_KEY_STARTUP]; }
-    if (what == PS_HOLD_KI_V2) return "Hold Ki break v2:";  // user #23013
-    if (what == PS_KI_FLOOR) return "Ki floor depth:";
-    if (what == PS_KI_LOG) return "Ki break log:";
+    if (what == PS_HOLD_KI_V2) return "Hold with negative Ki:";  // user #23013
+    if (what == PS_KI_FLOOR) return "Negative Ki depth:";
+    if (what == PS_KI_LOG) return "Log Ki breaks:";
     if (what == PS_NEG_KI_METER) return "Negative Ki meter:";  // user #23400
-    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Ki damage I deal:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss speed:" : what == PS_PLAYER_SPEED ? "Player speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki (stamina):" : what == PS_DMG_DEALT ? "Damage I deal:" : what == PS_DMG_TAKEN ? "Damage boss deals:" : "Boss Ki drain:";
+    return what == PS_TIME_OF_DAY ? "Time of day:" : what == PS_WEATHER ? "Weather:" : what == PS_HOLD_KI_BREAK ? "Hold Ki break:" : what == PS_PLAYER_METER ? "Player frame meter:" : what == PS_KI_DEALT ? "Player Ki damage:" : what == PS_ONE_HIT_KI ? "One-hit Ki break:" : what == PS_FRAME_METER ? "Frame meter:" : what == PS_BOSS_SPEED ? "Boss animation speed:" : what == PS_PLAYER_SPEED ? "Player animation speed:" : what == PS_PLAYER_INF_NIN ? "Infinite ninjutsu:" : what == PS_PLAYER_INF_KI ? "Infinite Ki:" : what == PS_DMG_DEALT ? "Player damage:" : what == PS_DMG_TAKEN ? "Boss damage:" : "Boss Ki drain:";
 }
 void PstValueText(int what, int v, char* buf, size_t n) {
     if (v < 0) snprintf(buf, n, "?");
@@ -85,7 +85,7 @@ void PstValueText(int what, int v, char* buf, size_t n) {
     else if (what == PS_TIME_OF_DAY) { const int m = PstTodMinutes(v); if (m < 0) snprintf(buf, n, "Stock"); else snprintf(buf, n, "%02d:%02d", m / 60, m % 60); }
     else if (what == PS_WEATHER) snprintf(buf, n, "%s", PstWeatherName(v));
     else if (what == PS_BOSS_KI_DRAIN) { if (v) snprintf(buf, n, "%d Ki / s", v); else snprintf(buf, n, "OFF"); }
-    else snprintf(buf, n, "x%d.%02d", v / 100, v % 100);
+    else snprintf(buf, n, "%d %%", v);
 }
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool PstChange(int item, int dir) {
@@ -98,7 +98,7 @@ bool PstChange(int item, int dir) {
         const int want = dir > 0 ? 1 : dir < 0 ? 0 : st == 1 ? 0 : 1;
         for (int i = 0; i < n; ++i) PstSet(set[i], want);
         Log("Rematch: menu %s -> %d (#38180)", rows ? "All frame rows" : "All key indicators", want);
-        snprintf(g_msg, sizeof g_msg, rows ? "All frame rows %s (boss, player, i-frames). Saved." : "All key indicators %s (the KEY under the meter and every entry). Saved.", want ? "ON" : "OFF");
+        snprintf(g_msg, sizeof g_msg, rows ? "All meter lanes %s (boss, player, invincibility). Saved." : "All legend entries %s. Applies to Row and Ring styles. Saved.", want ? "ON" : "OFF");
         return true;
     }
     if (item == kItPstResetFight) { if (!dir) PstResetFight(); return true; }  // action row: Left / Right do nothing
@@ -109,37 +109,37 @@ bool PstChange(int item, int dir) {
         const int r = PfzCall(op);
         Log("Rematch: menu Practice freeze op %d -> %d (#22589)", op, r);
         if (r == -1) snprintf(g_msg, sizeof g_msg, "Needs a Nioh3Training.asi with the Practice freeze.");
-        else if (r == -2) snprintf(g_msg, sizeof g_msg, "Freeze works in a Practice session or with a Training boss alive.");
+        else if (r == -2) snprintf(g_msg, sizeof g_msg, "Freeze works in a Training session or with a Training boss alive.");
         else if (item == kItPstStep && (r & 1)) snprintf(g_msg, sizeof g_msg, "Step 1 frame requested (was +%d since the freeze). %s = step in game, hold = repeat; the meter shows it with the menu closed.", r >> 8, ks);
         else if (item == kItPstStep) snprintf(g_msg, sizeof g_msg, "Fight freezing first; press again to step 1 frame. %s = step in game.", ks);
         else snprintf(g_msg, sizeof g_msg, (r & 2) ? "Fight FROZEN (boss + you). Close the menu: %s = step 1 frame (hold = repeat), %s = resume. Auto-released on a load, boss despawn or death." : "Fight running again (%s / %s).", ks, kf);
         return true;
     }
     const int what = item - kItPstBase, cur = PstGet(what);
-    if (cur < 0) { snprintf(g_msg, sizeof g_msg, what == PS_FRAME_METER ? "Needs a Nioh3Training.asi with the frame meter." : "Needs a Nioh3Training.asi with the Practice stats (#22389)."); return true; }
+    if (cur < 0) { snprintf(g_msg, sizeof g_msg, what == PS_FRAME_METER ? "Needs a Nioh3Training.asi with the frame meter." : "Update Nioh3Training.asi to use player and boss settings."); return true; }
     const int want = PstStep(what, cur, dir);
     if (!PstIsToggle(what) && want == cur && dir) return true;
     const int v = PstSet(what, want);
     char t[24]; PstValueText(what, v, t, sizeof t);
     Log("Rematch: menu Practice %s -> %d (#22389)", PstLabel(what), v);
     if (what == PS_FRAME_PROW || what == PS_FRAME_IFR || what >= PS_KEY_STARTUP) snprintf(g_msg, sizeof g_msg, "%s %s. Saved.", PstLabel(what), t);
-    else if (what == PS_PLAYER_METER) snprintf(g_msg, sizeof g_msg, v ? "Player frame meter ON: your own attacks show as frames under the boss meter (close the menu). Saved." : "Player frame meter OFF. Saved.");
-    else if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: the first Training boss's moves show as frames at the top of the screen (close the menu). Saved." : "Frame meter OFF. Saved.");
-    else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: your Ki (stamina) is refilled whenever it drops. Practice only. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
-    else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Ki damage I deal %s: the Ki damage of the hits you land. Practice only. Saved.", t);
-    else if (what == PS_TIME_OF_DAY) snprintf(g_msg, sizeof g_msg, v ? "Time of day %s: the sky (sun, moon, light) is set to that hour in Practice. Stock = the area's own time. Saved." : "Time of day Stock: the area's own time again. Saved.", t);
-    else if (what == PS_WEATHER) snprintf(g_msg, sizeof g_msg, v ? "Weather %s in Practice (clouds / rain / wind of the sky). Stock = the area's own weather. Saved." : "Weather Stock: the area's own weather again. Saved.", t);
-    else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: a Ki-broken Training boss stays broken (no recovery, no moves) until you turn this OFF or it dies. Saved." : "Hold Ki break OFF: a held boss recovers normally now. Saved.");
-    else if (what == PS_HOLD_KI_V2) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break v2 ON: a held boss's Ki and its negative reserve are kept at the Ki floor (needs Hold Ki break ON). Experimental. Saved." : "Hold Ki break v2 OFF: Hold Ki break uses the timer hold. Saved.");
-    else if (what == PS_KI_FLOOR) snprintf(g_msg, sizeof g_msg, v == 100 ? "Ki floor depth %s: stock negative Ki for Training bosses. Saved." : "Ki floor depth %s: a Training boss's Ki can go that much deeper below 0 than stock. Experimental. Saved.", t);
+    else if (what == PS_PLAYER_METER) snprintf(g_msg, sizeof g_msg, v ? "Player frame meter ON: show player timing in the selected Row or Ring style. Close the menu to view. Saved." : "Player frame meter OFF. Saved.");
+    else if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: show the first spawned boss in the selected Row or Ring style. Close the menu to view. Saved." : "Frame meter OFF. Saved.");
+    else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: keep your Ki full in Training and spawned Boss Matches. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
+    else if (what == PS_KI_DEALT) snprintf(g_msg, sizeof g_msg, "Player Ki damage %s: combines with Player damage in Training and spawned Boss Matches. Saved.", t);
+    else if (what == PS_TIME_OF_DAY) snprintf(g_msg, sizeof g_msg, v ? "Sky time %s during gameplay. Stock restores the area time. Saved." : "Time of day Stock: the area's own time again. Saved.", t);
+    else if (what == PS_WEATHER) snprintf(g_msg, sizeof g_msg, v ? "Weather %s during gameplay. Stock restores the area weather. Saved." : "Weather Stock: the area's own weather again. Saved.", t);
+    else if (what == PS_HOLD_KI_BREAK) snprintf(g_msg, sizeof g_msg, v ? "Hold Ki break ON: hold broken bosses and stop attacks. Turn OFF to release; grapples or death can end the break. Saved." : "Hold Ki break OFF: a held boss recovers normally now. Saved.");
+    else if (what == PS_HOLD_KI_V2) snprintf(g_msg, sizeof g_msg, v ? "Hold with negative Ki ON: use the Ki floor to hold breaks. Needs Hold Ki break ON. Experimental. Saved." : "Hold with negative Ki OFF: use the timer hold. Saved.");
+    else if (what == PS_KI_FLOOR) snprintf(g_msg, sizeof g_msg, v == 100 ? "Negative Ki depth %s: normal depth for spawned bosses. Saved." : "Negative Ki depth %s of normal for spawned bosses. Experimental. Saved.", t);
     else if (what == PS_NEG_KI_METER) snprintf(g_msg, sizeof g_msg, v ? "Negative Ki meter ON: when a Training boss's Ki goes below 0, a thin red bar under its Ki bar shows how deep (close the menu). Saved." : "Negative Ki meter OFF. Saved.");
     else if (what == PS_KI_LOG) snprintf(g_msg, sizeof g_msg, v ? "Ki break log ON: Ki-break details of Training bosses go to Nioh3Training.log (KILOG lines). Saved." : "Ki break log OFF. Saved.");
-    else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: your next hit on a Training boss empties its Ki = Ki break. Practice only. Saved." : "One-hit Ki break OFF. Saved.");
-    else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: your ninjutsu gauges stay full. Practice only. Saved." : "Infinite ninjutsu OFF. Saved.");
-    else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player speed %s: your animations run at that rate (from your next move). Practice only. Saved.", t);
-    else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss speed %s: Training bosses animate at that rate (from their next move). Practice only. Saved.", t);
-    else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: every Training boss loses that much Ki each second (stops one hit from a Ki break). Saved." : "Boss Ki drain OFF. Saved.", t);
-    else snprintf(g_msg, sizeof g_msg, "%s %s (HP damage of hits%s). Practice only. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " Training bosses land");
+    else if (what == PS_ONE_HIT_KI) snprintf(g_msg, sizeof g_msg, v ? "One-hit Ki break ON: eligible hits empty spawned bosses' Ki. Training / Boss Matches. Saved." : "One-hit Ki break OFF. Saved.");
+    else if (what == PS_PLAYER_INF_NIN) snprintf(g_msg, sizeof g_msg, v ? "Infinite ninjutsu ON: gauges stay full in Training and spawned Boss Matches. Saved." : "Infinite ninjutsu OFF. Saved.");
+    else if (what == PS_PLAYER_SPEED) snprintf(g_msg, sizeof g_msg, "Player animation speed %s, from your next move. Training / spawned Boss Matches. Saved.", t);
+    else if (what == PS_BOSS_SPEED) snprintf(g_msg, sizeof g_msg, "Boss animation speed %s, from their next move. All spawned bosses. Saved.", t);
+    else if (what == PS_BOSS_KI_DRAIN) snprintf(g_msg, sizeof g_msg, v ? "Boss Ki drain %s: all spawned bosses lose Ki, stopping just above zero. Saved." : "Boss Ki drain OFF. Saved.", t);
+    else snprintf(g_msg, sizeof g_msg, "%s %s: scales HP and Ki damage of hits%s. Training / spawned Boss Matches. Saved.", PstLabel(what), t, what == PS_DMG_DEALT ? " you land" : " spawned bosses land");
     return true;
 }
 bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
@@ -147,11 +147,11 @@ bool PstRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     if (item == kItPstAllRows || item == kItPstAllKeys) {
         const bool rows = item == kItPstAllRows;
         const int st = rows ? PstMasterState(kPstRowSet, (int)(sizeof kPstRowSet / sizeof *kPstRowSet)) : PstMasterState(kPstKeySet, (int)(sizeof kPstKeySet / sizeof *kPstKeySet));
-        snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, rows ? "All frame rows:" : "All key indicators:", st < 0 ? "?" : st == 2 ? "MIXED" : st ? "ON" : "OFF");
+        snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, rows ? "All meter lanes:" : "All legend entries:", st < 0 ? "?" : st == 2 ? "MIXED" : st ? "ON" : "OFF");
         *color = sel ? cWhite : st < 0 ? cDim : st == 1 ? cGray : cGreen;
         return true;
     }
-    if (item == kItPstResetFight) { snprintf(buf, n, "%s Reset fight (bosses + you: full HP and Ki, back to start)   press A", mk); *color = sel ? cWhite : cGreen; return true; }
+    if (item == kItPstResetFight) { snprintf(buf, n, "%s Reset fight   A: refill and return to start", mk); *color = sel ? cWhite : cGreen; return true; }
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         const int r = PfzCall(3); char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
         if (item == kItPstFreeze) snprintf(buf, n, "%s %-22s %s   A / Left / Right  (%s)", mk, "Freeze fight:", r < 0 ? "?" : (r & 1) ? "FROZEN" : (r & 2) ? "freezing..." : "OFF", kf);
@@ -171,34 +171,36 @@ const char* PstFooter(int item) {
     if (!IsPstItem(item)) return nullptr;
     if (item == kItPstFreeze || item == kItPstStep) {  // user #22589
         static char f[400]; char kf[16], ks[16]; PfzKey(0, kf, sizeof kf); PfzKey(1, ks, sizeof ks);
-        if (item == kItPstFreeze) snprintf(f, sizeof f, "Freezes the whole fight (Training bosses + you) with the game's own pause. %s toggles it in game, %s steps 1 frame (1/60 s of game time; hold = repeat). The frame meter stops and counts +1 per step. Not saved; released on a load, boss despawn / death or session end.", kf, ks);
-        else snprintf(f, sizeof f, "While frozen: advances the game by exactly one frame (1/60 s of game time = 1 meter cell), then freezes again. %s in game (hold = repeat). Pressed while running it freezes first.", ks);
+        if (item == kItPstFreeze) snprintf(f, sizeof f, "Training / spawned Boss Matches: pause the fight. %s toggles pause; %s advances one game frame (hold to repeat). Released on loading or session end. Not saved.", kf, ks);
+        else snprintf(f, sizeof f, "Advance one game frame, then pause again. %s in game; hold to repeat. If the fight is running, the first press pauses it. Training / spawned Boss Matches.", ks);
         return f;
     }
-    if (item == kItPstAllRows) return "Turns the three frame-meter rows (boss, player, i-frames) ON or OFF together. Use the rows below to keep only some, e.g. only i-frames: boss meter OFF, Player row OFF, I-frames ON. Saved.";
-    if (item == kItPstAllKeys) return "Turns the KEY under the meter and all of its entries ON or OFF together. The rows below switch single entries. Saved.";
-    if (item - kItPstBase == PS_FRAME_PROW) return "ON: the PLAYER row of the frame meter. OFF hides it but keeps the I-frames row (needs Player frame meter ON). Saved.";
-    if (item - kItPstBase == PS_FRAME_IFR) return "ON: a separate gold I-frames row under the PLAYER row (no-damage cells). Needs Player frame meter ON. Saved.";
-    if (item - kItPstBase >= PS_KEY_STARTUP) return "Shows or hides this entry of the KEY under the frame meter (the cells keep their colours). Only entries the meter can show right now are listed. Saved.";
-    if (item == kItPstResetFight) return "One press: every Training boss gets full HP and Ki and goes back to its start point; you get full HP and Ki and go back to where the Practice session started.";
+    if (item == kItPstAllRows) return "Show or hide the boss, player, and invincibility lanes together. Individual lane switches work in Row and Ring styles. Saved.";
+    if (item == kItPstAllKeys) return "Show or hide the frame-meter legend and all its entries. Works in Row and Ring styles. Saved.";
+    if (item - kItPstBase == PS_FRAME_PROW) return "Show player attack timing. Hiding this lane keeps the invincibility lane available. Requires Player frame meter ON. Row and Ring styles. Saved.";
+    if (item - kItPstBase == PS_FRAME_IFR) return "Show a separate gold lane for player invincibility frames. Requires Player frame meter ON. Row and Ring styles. Saved.";
+    if (item - kItPstBase >= PS_KEY_STARTUP && item - kItPstBase <= PS_KEY_IFR) return "Show or hide this legend entry. Meter colors stay unchanged. Applies to Row and Ring styles. Saved.";
+    if (item == kItPstResetFight) return "Training / spawned Boss Matches: refill player and boss HP/Ki and reset boss positions. You return to the session start if one is recorded.";
     switch (item - kItPstBase) {
-    case PS_PLAYER_INF_KI: return "ON: your Ki (stamina) is refilled to full whenever it drops. Only while a Practice session runs or a Training boss is alive. Saved.";
-    case PS_DMG_DEALT: return "Multiplies the HP damage of the hits you land (x0.10 .. x10). x1.00 = normal. Ki damage is not changed. Practice only (session / Training boss alive). Saved.";
-    case PS_DMG_TAKEN: return "Multiplies the HP damage of every Training boss's hits (x0 = none .. x10). x1.00 = normal. Ki damage is not changed. Practice only. Saved.";
-    case PS_KI_DEALT: return "Multiplies the Ki (stamina) damage of the hits you land (x0 = none .. x10). x1.00 = normal. HP damage is not changed (Damage I deal). Practice only (session / Training boss alive). Saved.";
-    case PS_ONE_HIT_KI: return "ON: any hit you land on a Training boss empties its Ki in that hit, so the boss is Ki-broken (the normal stagger / grapple chance). Not while it is already broken or its infinite Ki is ON. Saved.";
-    case PS_TIME_OF_DAY: return "Sky time of day in Practice (a session or a Training boss alive): Stock = the area's own time, else 00:00 .. 23:30 in 30-min steps (Left / Right). Sun, moon, stars and light follow; indoors little changes. Cutscenes keep their own light. Saved.";
-    case PS_WEATHER: return "Sky weather in Practice: Stock = the area's own, Clear, Overcast, Rain, Storm (rain + wind + fog), Snow. Changes the sky / cloud / rain settings only; indoors little changes. Cutscenes keep their own. Saved.";
-    case PS_HOLD_KI_BREAK: return "ON: once a Training boss is Ki-broken it stays broken (it does not recover and does not act) until you turn this OFF or it dies; OFF = it recovers normally. Does not cause a break itself (One-hit Ki break does). A grapple still ends the break. Saved.";
-    case PS_HOLD_KI_V2: return "Needs Hold Ki break ON. ON = the held boss's Ki and its negative Ki reserve stay at the Ki floor and its Ki regen is off (instead of only freezing the break timers). OFF = the normal Hold Ki break. Experimental (#23013). Saved.";
-    case PS_KI_FLOOR: return "How far a Training boss's Ki can go below 0 during a Ki break, in multiples of the game's own floor (x1.00 = stock, x0 = never below 0, up to x10). Deeper = more Ki to recover before the break ends. Other characters are not changed. Experimental (#23013). Saved.";
-    case PS_NEG_KI_METER: return "ON (default): a thin dark-red bar under a Training boss's Ki bar, shown only while its Ki or its negative Ki reserve is below 0, filled by how deep it is compared to the Ki floor (label: -Ki now / reserve / floor). Read only. Position: NegKiMeterY / NegKiMeterW in Nioh3Training.ini. Saved.";
-    case PS_KI_LOG: return "ON: while a Training boss is Ki-broken, its Ki pool values and the Ki floor are written to Nioh3Training.log every 0.1 s, plus one line per Ki-damage hit (KILOG). Changes nothing in the fight. Saved.";
-    case PS_PLAYER_INF_NIN: return "ON: your ninjutsu gauges are kept full. Only while a Practice session runs or a Training boss is alive. Saved.";
-    case PS_PLAYER_SPEED: return "Animation speed of your character (x0.10 .. x3.00, x1.00 = normal). Applies from your next move; attacks and dodges follow. Only while a Practice session runs or a Training boss is alive. Saved.";
-    case PS_PLAYER_METER: return "ON: a second SF6-style frame meter for YOUR attacks (startup green, active red, recovery blue; 1 cell = 1 frame of game time). Shown under the boss meter. Needs a Training session. Saved.";
-    case PS_FRAME_METER: return "ON: SF6-style frame meter for the first Training boss (1 cell = 1 frame at 60 fps, last 6 s): green startup, red active, purple unblockable, blue recovery, plus the numbers. Saved.";
-    case PS_BOSS_SPEED: return "Animation speed of every Training boss (x0.10 .. x3.00, x1.00 = normal). Applies from the boss's next move; attack timing follows. Saved.";
-    default: return "Every Training boss loses this much Ki per second (OFF = normal; a boss has about 1000 Ki). Stops at one hit from a Ki break; not during a break or with that boss's infinite Ki ON. Saved.";
+    case PS_FRAME_STYLE: return "Choose straight rows or concentric rings. Each lane keeps its own visibility switch. Display only. Saved.";
+    case PS_FRAME_SIZE: return "Ring size: Small, Medium, or Large. Applies only to Ring style; timing and lane settings stay the same. Saved.";
+    case PS_PLAYER_INF_KI: return "Training / spawned Boss Matches: keep your Ki full. Does not apply to ordinary story fights. Saved.";
+    case PS_DMG_DEALT: return "Training / spawned Boss Matches: scale your HP and Ki damage. 100% = normal. Ki damage also uses Player Ki damage, with a combined 1000% cap. Saved.";
+    case PS_DMG_TAKEN: return "All spawned bosses in Training / Boss Matches: scale HP damage and Ki damage against you. 100% = normal; 0% = none. Saved.";
+    case PS_KI_DEALT: return "Training / spawned Boss Matches: extra multiplier for your Ki damage only. 100% = normal; 0% = none. Combines with Player damage, capped at 1000%. Saved.";
+    case PS_ONE_HIT_KI: return "All spawned bosses: your next eligible hit empties boss Ki. Skips bosses already broken, dying, or using infinite Ki. Training / Boss Matches. Saved.";
+    case PS_TIME_OF_DAY: return "Global sky time during gameplay. Stock uses the area time; Left / Right changes it by 30 minutes. Cutscenes keep their lighting. Also in Display Overlays. Saved.";
+    case PS_WEATHER: return "Global gameplay weather: Stock, Clear, Overcast, Rain, Storm, or Snow. Changes sky and weather effects; cutscenes keep their settings. Saved.";
+    case PS_HOLD_KI_BREAK: return "All spawned bosses: hold an existing Ki break and stop attacks until OFF or death. A grapple can end the break. Does not cause a break. Training / Boss Matches. Saved.";
+    case PS_HOLD_KI_V2: return "Experimental hold method. Requires Hold Ki break ON; keeps Ki at the negative floor and blocks regeneration. OFF uses the timer hold. All spawned bosses. Saved.";
+    case PS_KI_FLOOR: return "All spawned bosses: negative Ki limit. 100% = normal depth; 0% = no negative Ki; larger values allow deeper breaks. Experimental. Training / Boss Matches. Saved.";
+    case PS_NEG_KI_METER: return "Show negative Ki below spawned bosses' Ki bars. Appears only below zero; shows current Ki, reserve, and floor. Display only; OFF by default. Saved.";
+    case PS_KI_LOG: return "Write spawned bosses' Ki-break details to Nioh3Training.log every 0.1 s and on hits. Diagnostic only; does not change the fight. Saved.";
+    case PS_PLAYER_INF_NIN: return "Training / spawned Boss Matches: keep your ninjutsu gauges full. Does not apply to ordinary story fights. Saved.";
+    case PS_PLAYER_SPEED: return "Training / spawned Boss Matches: your animation speed, including attacks and dodges. 100% = normal; range 10-300%. Applies from your next move. Saved.";
+    case PS_PLAYER_METER: return "Show player attack timing in the frame meter. One cell = one game frame at 60 fps. Choose Row or Ring and individual lanes in Mod menu > Display Overlays. Saved.";
+    case PS_FRAME_METER: return "Show timing for the first spawned boss. One cell = one game frame at 60 fps. Row/Ring style, lanes, and legend: Mod menu > Display Overlays. Saved.";
+    case PS_BOSS_SPEED: return "All spawned bosses in Training / Boss Matches: animation speed, including attack timing. 100% = normal; range 10-300%. Applies from their next move. Saved.";
+    default: return "All spawned bosses: Ki lost per second. Stops just above zero; skips Ki breaks and infinite Ki. OFF = no extra drain. Training / Boss Matches. Saved.";
     }
 }

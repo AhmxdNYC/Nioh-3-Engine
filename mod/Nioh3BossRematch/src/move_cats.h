@@ -35,18 +35,18 @@ static inline const char* N3MoveCatName(int c) {
                                                "11 hits", "12 or more hits"};
     if (N3MoveHitCat(c)) return hit[c - kMcHit1];
     if (c == kMcGreat) return "Unblockable";
-    if (c == kMcHitUnknown) return "Other attacks (hits unknown)";
-    return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Animations and twitches" : c == kMcKiBreak ? "Ki break"
+    if (c == kMcHitUnknown) return "Attacks: hit count unknown";
+    return c == kMcAttack ? "Attacks" : c == kMcUnnamedAtk ? "Unnamed attacks" : c == kMcTwitch ? "Non-attack animations" : c == kMcKiBreak ? "Ki break"
          : c == kMcMovement ? "Movement and reactions" : c == kMcUnsorted ? "Unsorted" : "?";
 }
 // one short line per group (footer of the group row)
 static inline const char* N3MoveCatHelp(int c) {
-    if (N3MoveHitCat(c)) return "Blockable attacks with this many hits (hit windows in the game's hitbox data for the move).";
-    if (c == kMcGreat) return "Unblockable attacks (the game's GreatAttack flag). Each row shows its hit count from the game data.";
-    if (c == kMcHitUnknown) return "Attacks whose hit count is not in their own game data (shared hitboxes, projectiles). Not guessed.";
+    if (N3MoveHitCat(c)) return "Attacks grouped by available hit counts, including linked moves where known. Hits can miss or be blocked; the label is not damage taken.";
+    if (c == kMcGreat) return "Attacks marked unblockable in game data. Known hit counts appear beside each move.";
+    if (c == kMcHitUnknown) return "Hit count unavailable. Shared hitboxes or projectiles may have no count. Unknown does not mean zero hits.";
     return c == kMcAttack ? "Attacks seen in fights: hits, wind-ups and combo links. Best for drills."
          : c == kMcUnnamedAtk ? "Attacks from the game's move table that were not seen in a fight yet (no name yet). May not play from Stand still."
-         : c == kMcTwitch ? "Everything that is not an attack: twitches, Ki-break poses, steps, turns, reactions, idle / initialization. Mostly for experiments."
+         : c == kMcTwitch ? "Non-attack states: poses, steps, turns, and reactions. For testing animations; some end immediately when repeated."
          : c == kMcKiBreak ? "Moves during a Ki break (break start, poses, recovery). Moves that CAUSE a Ki break are not known yet: they stay in Attacks."
          : c == kMcMovement ? "Steps, turns, recoveries, hit reactions and system states (plus idle / initialization, always ON)."
          : c == kMcUnsorted ? "Moves not sorted yet (no kind recorded and no attack / movement motion in the game data)."

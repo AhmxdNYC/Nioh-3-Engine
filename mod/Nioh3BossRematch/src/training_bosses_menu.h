@@ -15,7 +15,7 @@ constexpr int kMcSeq = kMcCount;  // the Sequences group row (kItMoveCatBase - k
 bool IsBossOpenItem(int item) { return item >= kItBossOpenBase && item < kItBossOpenEnd; }
 bool IsSeqItem(int item) { return item >= kItSeqBase && item < kItSeqBase + N3_MOVE_COUNT; }
 bool IsBossPageItem(int item) { return item <= kItBossStance && item >= kItBossRemove; }
-const char* CatName(int c) { return c == kMcSeq ? "Sequences" : N3MoveCatName(c); }
+const char* CatName(int c) { return c == kMcSeq ? "Move chains" : N3MoveCatName(c); }
 int SlotCountUi() {
     using Fn = int (*)();
     const auto f = (Fn)TrainingExport("Nioh3Training_SlotCount");
@@ -37,12 +37,12 @@ int SlotStance(int s) {
     return f ? f(s) : -3;
 }
 const char* StanceName(int st) {
-    return st == 0 ? "Fight normally (CPU)" : st == 1 ? "Stand still (getting ready)" : st == 2 ? "Stand still (idle)" : st == 3 ? "Stand still + repeating a move"
-         : st == -1 ? "Fight normally (stand still failed)" : st == -2 ? "gone" : "?";
+    return st == 0 ? "Fight normally" : st == 1 ? "Stand still (pending)" : st == 2 ? "Stand still" : st == 3 ? "Stand still + repeat"
+         : st == -1 ? "Fight normally (wait failed)" : st == -2 ? "gone" : "?";
 }
 bool StanceIdle(int st) { return st >= 1; }
 // ---- per-boss rows (g_bossSlot) ----
-void BossGone() { snprintf(g_msg, sizeof g_msg, "Boss %c is gone (removed or not spawned any more). B: back to Training Bosses.", 'A' + g_bossSlot); }
+void BossGone() { snprintf(g_msg, sizeof g_msg, "Boss %c is no longer active. B: return to Active bosses.", 'A' + g_bossSlot); }
 void BossStanceSet(int dir) {  // A flips, Right = stand still, Left = fight normally
     using Fn = int (*)(int, int);
     const auto f = (Fn)TrainingExport("Nioh3Training_SetSlotStance");
@@ -132,7 +132,7 @@ bool StanceTimerAct() {  // A: arm (closes the menu so you can get ready) / canc
     const int idle = StanceTimerTarget();
     f(g_stSec * 1000, idle);
     Log("Rematch: menu stance timer %d s -> all %s", g_stSec, idle ? "Stand still" : "Fight normally");
-    ToastF(cGreen, (ULONGLONG)g_stSec * 1000 + 1000, "In %d s every boss switches to %s.", g_stSec, idle ? "Stand still (idle)" : "Fight normally (CPU)");
+    ToastF(cGreen, (ULONGLONG)g_stSec * 1000 + 1000, "In %d s every boss switches to %s.", g_stSec, idle ? "Stand still" : "Fight normally");
     return true;
 }
 // ---- summon another boss (#14336 item 7: no slot picker) ----
@@ -145,7 +145,7 @@ bool SummonAnother(int row) {  // true = queued (menu closes)
     const int rc = f ? f(s, g_rows[(size_t)row].missionId) : 0;
     Log("Rematch: menu summon another boss %s as Boss %c -> %d", g_rows[(size_t)row].id, 'A' + s, rc);
     if (!rc) { snprintf(g_msg, sizeof g_msg, "Busy (a summon or load is running) or too many bosses: try again in a moment."); return false; }
-    ToastF(cGreen, 4000, "Summoning %s as Boss %c (stands still until you set it to fight)...", g_rows[(size_t)row].name, 'A' + s);
+    ToastF(cGreen, 4000, "Adding %s as Boss %c. Behavior follows the current session...", g_rows[(size_t)row].name, 'A' + s);
     return true;
 }
 // ---- user #22984: the Nioh3Training roster (summon-only bosses: every boss, e.g. Kajiwara Kagetoki, not only single-boss catalogue rows) ----
@@ -165,7 +165,7 @@ bool SummonRoster(int i) {  // true = queued (menu closes)
     const int rc = f ? f(s, chr) : 0;
     Log("Rematch: menu summon roster boss %s (char %u) as Boss %c -> %d", nm, chr, 'A' + s, rc);
     if (!rc) { snprintf(g_msg, sizeof g_msg, "Busy (a summon or load is running) or too many bosses: try again in a moment."); return false; }
-    ToastF(cGreen, 4000, "Summoning %s as Boss %c (stands still until you set it to fight)...", nm, 'A' + s);
+    ToastF(cGreen, 4000, "Adding %s as Boss %c. Behavior follows the current session...", nm, 'A' + s);
     return true;
 }
 // ---- sequences (#14317) ----
@@ -214,6 +214,6 @@ void SeqToggle(int item, int dir) {  // A flips the repeat of this sequence, Rig
     if (dir < 0 || (dir == 0 && on)) { if (on) RepeatStop("sequence row"); return; }
     if (RepeatArm(&m, "sequence row", true)) {
         char seq[80]; SeqText(m, seq, sizeof seq);
-        snprintf(g_msg, sizeof g_msg, "Repeating the sequence %s: the boss starts it, the game plays the rest, then the gap. A again stops.", seq);
+        snprintf(g_msg, sizeof g_msg, "Repeating chain %s, then waiting for Repeat delay. A again stops.", seq);
     }
 }

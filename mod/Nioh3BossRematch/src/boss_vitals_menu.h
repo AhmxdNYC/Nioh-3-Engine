@@ -30,7 +30,7 @@ template <class Add> void BvAddOpenRows(Add&& add, bool liveOnly) {
 template <class Add> void BvAddPage(Add&& add) {
     add(kItBvStatus); add(kItBvInfHp); add(kItBvInfKi); add(kItBvHpPct); add(kItBvKiPct); add(kItBvRefill);
 }
-#define BV_NEED_BOSS "Boss %c is gone (%c: no live boss with this letter). Practice > Training Bosses lists the bosses you have."
+#define BV_NEED_BOSS "Boss %c is gone (%c: no live boss with this letter). Training > Active bosses lists the bosses you have."
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool BvChange(int item, int dir) {
     if (!IsBvPageItem(item) || item == kItBvStatus) return IsBvPageItem(item);
@@ -85,9 +85,9 @@ const char* BvTitle() {
     return t;
 }
 const char* BvGroup(int item) {
-    if (item == kItBvStatus) return "Now";
-    if (item == kItBvInfHp || item == kItBvInfKi) return "Keep it up (this session)";
-    if (IsBvPageItem(item)) return "Set it now";
+    if (item == kItBvStatus) return "Current health and Ki";
+    if (item == kItBvInfHp || item == kItBvInfKi) return "This boss: keep filled (session only)";
+    if (IsBvPageItem(item)) return "This boss: set once";
     return nullptr;
 }
 // Row text for our items. Returns false when the item is not ours.
@@ -115,7 +115,7 @@ bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t
     }
     if (item == kItBvInfHp || item == kItBvInfKi) {
         const int on = v.cfg[item == kItBvInfHp ? 0 : 1];
-        snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, item == kItBvInfHp ? "Boss infinite health:" : "Boss infinite Ki:", v.live < 0 ? "?" : on ? "ON" : "OFF");
+        snprintf(buf, n, "%s %-22s %s   A / Left / Right", mk, item == kItBvInfHp ? "Infinite boss health:" : "Infinite boss Ki:", v.live < 0 ? "?" : on ? "ON" : "OFF");
         *color = sel ? cWhite : v.live < 0 ? cDim : on ? cGreen : cGray;
         return true;
     }
@@ -130,12 +130,12 @@ bool BvRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t
     return true;
 }
 const char* BvFooter(int item) {
-    if (IsBvOpenItem(item)) return "Health and Ki of this boss: infinite health, infinite Ki, set HP / Ki %, refill. Each boss has its own settings (this session, default OFF).";
-    if (item == kItBvStatus) return "The boss's HP and Ki right now (what its bars show).";
-    if (item == kItBvInfHp) return "ON: the boss's HP never stays below the Set boss HP level (100 % = it never loses HP, so it cannot be killed by damage). OFF: normal damage. Not saved.";
-    if (item == kItBvInfKi) return "ON: the boss's Ki never stays below the Set boss Ki level, so it is not Ki broken (a break already running plays out). OFF (default): normal Ki and Ki breaks.";
-    if (item == kItBvHpPct) return "Sets the boss's HP to this % of its max at once (Left / Right 1-100 %). With infinite health ON it is also the level HP is held at.";
-    if (item == kItBvKiPct) return "Sets the boss's Ki to this % at once (0 % = one hit from a Ki break). During a Ki break it waits until the break ends. With infinite Ki ON it is the held level.";
-    if (item == kItBvRefill) return "Full HP and Ki for this boss now; both levels back to 100 %. A Ki break that is running plays out first.";
+    if (IsBvOpenItem(item)) return "This boss only: set or refill HP/Ki, or keep them filled. Training and spawned Boss Matches. Settings last for this session.";
+    if (item == kItBvStatus) return "Current HP and Ki for this boss. Read only.";
+    if (item == kItBvInfHp) return "Keep this boss at the Set boss HP level. At 100%, damage cannot kill it. OFF allows normal damage. This session only.";
+    if (item == kItBvInfKi) return "Keep this boss at the Set boss Ki level. Existing Ki breaks finish first. OFF allows normal Ki loss and breaks. This session only.";
+    if (item == kItBvHpPct) return "Set this boss HP now: 1-100%. Infinite boss health also uses this as its refill level. A reapplies the value.";
+    if (item == kItBvKiPct) return "Set this boss Ki: 0-100%. Zero leaves it one hit from a break. Waits for an existing break to end. Infinite boss Ki uses this refill level.";
+    if (item == kItBvRefill) return "Refill this boss and set both levels to 100%. An existing Ki break finishes first.";
     return nullptr;
 }
