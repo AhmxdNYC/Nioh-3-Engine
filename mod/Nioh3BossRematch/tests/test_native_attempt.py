@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import os, sys
 ROOT=Path(__file__).resolve().parents[1]
 text=(ROOT/'src/rematch.cpp').read_text()
 def fn(sig):
@@ -20,6 +21,13 @@ using Row=rcore::Row;
 @GLOBALS@
 @SNAP@
 Snap fixtureSnap;
+int IniInt(const wchar_t*,const wchar_t*,int d) { return d; }
+const wchar_t* ModDir() { return L""; }
+int StageWorld(int*) { return 0; }
+void AutoMovesTick() {}
+bool TrainingOwnsFight() { return false; }
+std::atomic<bool> g_staleBbm{false};
+void TfTick(const Snap&,ULONGLONG) {}
 ULONGLONG now=20000;
 ULONGLONG Ms() { return now; }
 Snap ReadSnap() { return fixtureSnap; }
@@ -35,7 +43,7 @@ std::atomic<bool> g_gateSeen{false};
 uint8_t g_gateKey[16]{};
 bool g_live=true,g_raOk=true,g_fnowOk=true,g_warpOk=true,g_gateOk=true,g_spawnOk=true,g_exitOk=true,g_emakiOk=true;
 const char* g_raWhy="ra",*g_fnowWhy="fight",*g_warpWhy="warp",*g_spawnWhy="spawn",*g_exitWhy="exit",*g_emakiWhy="emaki";
-namespace fight { LONG g_active=0,g_fights=0; }
+namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } }
 std::atomic<bool> g_wantScan{false};
 constexpr int cOrange=0,cGreen=1,cRed=2;
 int requests=0,returns=0,opens=0,scrolls=0,warps=0,rights=0,writes=0,restores=0;
@@ -335,7 +343,7 @@ setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'; source.write_text(code)
     command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /I"{ROOT / "src"}" /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
-    result=subprocess.run('cmd /d /s /c "'+command+'"',capture_output=True,text=True)
+    result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
     for scenario in ('1','2','3','0'):

@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import os, sys
 
 ROOT = Path(__file__).resolve().parents[1]
 text = (ROOT / 'src/rematch.cpp').read_text()
@@ -24,6 +25,7 @@ code = r"""
 #include <cstdio>
 #include <map>
 #include <vector>
+#include "rematch_core.h"
 using ULONGLONG=unsigned long long;
 constexpr uint64_t G_GM=1,G_PT=2,G_MS=3,G_QUEUE=4,G_CH=5,G_PM=6,G_NET=7;
 std::map<uint64_t,std::vector<unsigned char>> memory;
@@ -46,7 +48,11 @@ bool g_live=true,g_exitOk=true;
 const char* g_exitWhy="exit unavailable";
 constexpr int kIdle=0;
 std::atomic<int> g_state{kIdle};
-namespace fight { bool g_active=false; }
+namespace fight { bool g_active=false; void ForceEnd(const char*) { g_active=false; } }
+void AutoMovesTick() {}
+bool TrainingOwnsFight() { return false; }
+std::atomic<bool> g_staleBbm{false};
+void Log(const char*,...);
 @SNAPSHOT@
 @ATTEMPT@
 bool XwPending() { return false; }  // Nioh3Training absent
@@ -145,7 +151,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
     source.write_text(code)
     command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
-    result=subprocess.run('cmd /d /s /c "'+command+'"',capture_output=True,text=True)
+    result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=10)
     print(result.stdout.strip()); assert result.returncode==0,result.stderr
