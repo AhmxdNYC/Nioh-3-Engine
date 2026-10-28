@@ -1,4 +1,5 @@
-"""Chain-aware hit counts (human #41382): rule tests on synthetic tables plus the known archive facts.
+"""Chain-aware hit counts (human #41382, pc #41677): rule tests on synthetic tables plus the known archive facts.
+The ChainRules cases test the AI-choice upper bound (chain_hits.chain, column ai_max); the menu uses plays_next (test_hit_labels.py).
 
     py -I tools/test_chain_hits.py
 """
@@ -67,9 +68,11 @@ class ArchiveFacts(unittest.TestCase):
             cls.rec = {(r["boss"], int(r["action_id"], 16)): r for r in csv.DictReader(f, delimiter="\t")}
 
     def test_known_counts(self):
-        want = {("CE_YORITOMO_00", 0x4E4E): (2, "200/150|210"), ("CE_YORITOMO_00", 0x4E55): (2, "250/175|180"),
+        # pc #41677 rule: hit windows, zero-damage rows dropped, only continuations that play (no AI-request links)
+        want = {("CE_YORITOMO_00", 0x4E4E): (1, "200"), ("CE_YORITOMO_00", 0x4E55): (1, "250"),
+                ("CE_YORITOMO_00", 0x4E59): (2, "175/180"), ("CE_YORITOMO_00", 0x4E5C): (3, "140/150/205"),
                 ("CE_YORITOMO_00", 0x4E6E): (2, "250/275"), ("CE_SHINGEN_00", 0x4E4E): (3, "85/85/240"),
-                ("CE_OTOROSHI_00", 0x4E4E): (1, "0")}
+                ("CE_OTOROSHI_00", 0x4E4E): (0, "")}
         for key, (hits, dmg) in want.items():
             r = self.rec[key]
             self.assertEqual((int(r["hit_count"]), r["damage_per_hit"]), (hits, dmg), key)

@@ -41,6 +41,62 @@ IDLE = 2
 LOCOMOTION = frozenset((11, 31))
 
 
+def hit_group(d, b):
+    """RVA 0x2B5B98: hitbox-row byte +0xA5; 0xFF -> qword +0x00 bit 17 + 2 * bit 18 (same as AmHitGroup in auto_moves.h)."""
+    g = d[b + 0xA5]
+    if g == 0xFF:
+        q = struct.unpack_from("<Q", d, b)[0]
+        g = ((q >> 17) & 1) + 2 * ((q >> 18) & 1)
+    return g
+
+
+def hit_windows(d, o2, idx):
+    """Hits a move lands = its hit windows, not its hitbox rows (pc #41677 accuracy run, notes/hit-label-accuracy-yoritomo.md).
+
+    Same rule as AmWindows (mod/Nioh3Training/src/auto_moves.h) and tools/yoritomo_move_facts.py windows():
+    rows with start frame (+0x08) FFFF never open; rows with power (+0x10) 0 and element (+0x12) 0 deal no damage and are dropped;
+    1. rows with the same (start frame, hit group) are ONE hit (the game's own per-action hit key, RVA 0x78EADF..0x78EB74);
+    2. keys of the same hit group that overlap or touch ([start, end] with end = +0x0A, or start + length +0x0C) merge into one swept
+       swing (group 0 keys also need the same power / element). Two windows of group 0 at different frames are two hits even when
+       their hit id is the same (Yoritomo 0x4E59: frames 88 and 104, measured 2 HP hits per rep).
+    Returns (windows, started) where each window is dict(start, end, grp, powers=[distinct powers in row order], pow, elem) and started
+    is the number of started rows (with or without damage)."""
+    u16 = lambda o: struct.unpack_from("<H", d, o)[0]
+    rows, started = [], 0
+    for n, k in enumerate(idx):
+        b = o2 + k * ROW
+        st = u16(b + 8)
+        if st == 0xFFFF:
+            continue
+        started += 1
+        pw, el = u16(b + 0x10), u16(b + 0x12)
+        if not pw and not el:
+            continue
+        ef = u16(b + 0xA)
+        rows.append(dict(start=st, end=ef if ef != 0xFFFF else st + u16(b + 0xC), grp=hit_group(d, b), pow=pw, elem=el,
+                         powers=[pw], n=n))
+    keys = {}
+    for r in sorted(rows, key=lambda r: (r["start"], r["n"])):
+        k = keys.get((r["start"], r["grp"]))
+        if k is None:
+            keys[(r["start"], r["grp"])] = dict(r, powers=list(r["powers"]))
+            continue
+        k["end"] = max(k["end"], r["end"])
+        k["pow"], k["elem"] = max(k["pow"], r["pow"]), max(k["elem"], r["elem"])
+        k["powers"] += [x for x in r["powers"] if x not in k["powers"]]
+    out = []
+    for r in sorted(keys.values(), key=lambda r: (r["start"], r["n"])):
+        for w in out:
+            same = w["grp"] == r["grp"] and (r["grp"] or (w["pow"], w["elem"]) == (r["pow"], r["elem"]))
+            if same and r["start"] <= w["end"] + 1:
+                w["end"] = max(w["end"], r["end"])
+                w["powers"] += [x for x in r["powers"] if x not in w["powers"]]
+                break
+        else:
+            out.append(dict(r, powers=list(r["powers"])))
+    return sorted(out, key=lambda w: (w["start"], w["n"])), started
+
+
 def parse(d):
     u16 = lambda o: struct.unpack_from("<H", d, o)[0]
     if len(d) < 132 or struct.unpack_from("<I", d, 0)[0] != 16:
@@ -67,26 +123,16 @@ def parse(d):
         cur = end
         ro = a + i * REC
         aid = u16(ro + 0x0C)
-        hid_order, groups, powers = [], [], set()
+        groups = []
         for k in hit_idx:
-            b = o2 + k * ROW
-            key = struct.unpack_from("<3H", d, b + 0x10)
-            if groups and groups[-1] == key:
-                pass
-            else:
+            key = struct.unpack_from("<3H", d, o2 + k * ROW + 0x10)
+            if not groups or groups[-1] != key:
                 groups.append(key)
-            if u16(b + 8) == 0xFFFF:
-                continue
-            powers.add(u16(b + 0x10))
-            hid = d[b + 0xA5]
-            if hid == 0xFF:
-                hid = 2 if struct.unpack_from("<Q", d, b)[0] & (1 << 18) else 0
-            if hid not in hid_order:
-                hid_order.append(hid)
+        win, started = hit_windows(d, o2, hit_idx)
         acts[aid] = dict(
             row=i, motion=u16(ro + 0x20), nxt=u16(ro + 0xE0),
             attack=u16(ro + 0x13C) != 0xFFFF or u16(ro + 0x142) != 0xFFFF,
-            hits=len(hid_order), groups=len(groups), tr=tr_idx, catch=powers == {0})
+            hits=len(win), groups=len(groups), tr=tr_idx, catch=bool(started) and not win)
         use.update(tr_idx)
     if cur != h + hs:
         raise ValueError("packed blocks do not cover sub-table 0")
@@ -122,6 +168,47 @@ def build_links(acts, rows, use, exclude_motions=LOCOMOTION):
     return links, follow
 
 
+def plays_next(acts, rows, use, exclude_motions=LOCOMOTION):
+    """{action: the follow-up the game plays after it in a drill, or None}. Rule (pc #41677 accuracy run, INFERRED from the ActLog):
+    - a private sub-table 3 row with no AI request (+0x10 = FFFF) is a combo continuation; the first such row in the action's own
+      row order wins (Yoritomo 4E60 lists 4E62 then 4E61 and plays 4E62; 4EA0 / 4EA1 play 4EA2; 4E5C plays 4E60; 4E59 plays 4E5E;
+      4E52 / 4E53 play 4E54; 4EB8 plays 4EB9 - every one seen in the ActLog of the drill run);
+    - it preempts the +0xE0 finish link (4E60 E0 = 4E61 and 4EA0 E0 = 4EA1 never played);
+    - with no such row, the +0xE0 finish link into a hitter plays (forced when the move ends: 4E5C -> 4E60);
+    - a row with an AI request (+0x10 set) is the AI choosing another move (4E4E -> 4E52 r13, 4E8E -> 4E92 r13, 4E95 -> 4E99 r8,
+      4E64 / 4E6C -> 4EB7 r6, 4E81 -> 4EA9 r53: none played in the drill run). It is not counted.
+    A continuation into idle, a locomotion motion or any action without an attack block (a recovery / stance, or grab / throw damage
+    such as Otoroshi 18C7) ends the chain: it is still the row that plays, so the +0xE0 link is not tried after it."""
+    hitter = lambda t: (acts[t]["attack"] or acts[t]["hits"] > 0) and acts[t]["motion"] not in exclude_motions
+    out = {}
+    for aid, a in acts.items():
+        combo = [t for k in a["tr"] if use[k] == 1 and rows[k][6] == 0xFFFF
+                 for t in rows[k][:6] if t != 0xFFFF and t != aid]
+        nxt = None
+        if combo:
+            t = combo[0]
+            if t in acts and t != IDLE and acts[t]["attack"] and acts[t]["motion"] not in exclude_motions:
+                nxt = t
+        elif a["nxt"] != aid and a["nxt"] != IDLE and a["nxt"] in acts and hitter(a["nxt"]):
+            nxt = a["nxt"]
+        out[aid] = nxt
+    return out
+
+
+def play_path(acts, nxt, start, depth=6):
+    """Hits the move lands in a drill: own windows plus each continuation that plays (plays_next), cycle-safe, depth limited.
+    A move whose every started row deals no damage is a catch: what follows plays only when the catch lands, so the chain stops."""
+    path = [start]
+    node = start
+    while len(path) <= depth and not acts[node]["catch"]:
+        n = nxt.get(node)
+        if n is None or n in path:
+            break
+        path.append(n)
+        node = n
+    return sum(acts[x]["hits"] for x in path), path
+
+
 def chain(acts, links, start, depth, forced_only):
     """Best total hits from start (own + follow-ups). Returns (total, path)."""
     def walk(node, seen, left):
@@ -144,10 +231,10 @@ def chain(acts, links, start, depth, forced_only):
 
 
 def chain_paths(data, depth=6, exclude_motions=LOCOMOTION):
-    """{action id: best path (list of action ids, starting with the action)} over +0xE0 and private sub-table 3 links."""
+    """{action id: path the move plays (list of action ids, starting with the action)}: plays_next / play_path."""
     acts, rows, use = parse(data)
-    links, _follow = build_links(acts, rows, use, exclude_motions)
-    return {aid: chain(acts, links, aid, depth, False)[1] for aid in acts}
+    nxt = plays_next(acts, rows, use, exclude_motions)
+    return {aid: play_path(acts, nxt, aid, depth)[1] for aid in acts}
 
 
 def find_file(name):
@@ -163,6 +250,7 @@ def find_file(name):
 def table(path, depth, show_all):
     acts, rows, use = parse(path.read_bytes())
     links, follow = build_links(acts, rows, use)
+    nxt = plays_next(acts, rows, use)
     out = []
     for aid in sorted(acts):
         a = acts[aid]
@@ -170,17 +258,17 @@ def table(path, depth, show_all):
             continue
         if not show_all and aid in follow:
             continue  # pieces are counted inside their parent move
-        lo, _ = chain(acts, links, aid, depth, True)
+        lo, play = play_path(acts, nxt, aid, depth)
         hi, path_ = chain(acts, links, aid, depth, False)
         ln = " ".join("%X>%X%s" % (aid, d, "" if k == "E0" or q == 0xFFFF else "(r%d)" % q)
                       if k == "S3" else "%X>%X(E0)" % (aid, d) for d, k, q in links.get(aid, ()))
-        out.append((aid, a["motion"], a["hits"], a["groups"], lo, hi, "-".join("%X" % x for x in path_),
-                    int(aid in follow), ln))
+        out.append((aid, a["motion"], a["hits"], a["groups"], lo, "-".join("%X" % x for x in play), hi,
+                    "-".join("%X" % x for x in path_), int(aid in follow), ln))
     return out, acts, links, follow
 
 
-CHECK = {  # Yoritomo: (own hits, chain_max)
-    0x4E6E: (2, 2), 0x4E4E: (1, None), 0x4E55: (1, 2),
+CHECK = {  # Yoritomo: (own hit windows, hits the move plays incl. its combo continuation) - pc #41677 drill measurements
+    0x4E6E: (2, 2), 0x4E4E: (1, 1), 0x4E55: (1, 1), 0x4E59: (2, 2), 0x4E5C: (1, 3), 0x4E7C: (0, 0), 0x4E8E: (1, 1),
 }
 LINKS = ((0x4E4E, 0x4E52), (0x4E60, 0x4E62), (0x4E53, 0x4E54), (0x4E5C, 0x4E60))
 
@@ -199,14 +287,12 @@ def main():
         by = {r[0]: r for r in out}
         bad = [p for p in LINKS if p[1] not in [d for d, _k, _q in links.get(p[0], ())]]
         for aid, (own, hi) in CHECK.items():
-            if by[aid][2] != own or (hi is not None and by[aid][5] != hi):
+            if by[aid][2] != own or by[aid][4] != hi:
                 bad.append((aid, by[aid]))
-        if by[0x4E4E][5] < 2:
-            bad.append(("4E4E chain_max < 2", by[0x4E4E]))
         print("self-check %s" % ("ok" if not bad else "FAILED %s" % bad))
         return 1 if bad else 0
     w = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
-    w.writerow(["action", "motion", "own_hits", "own_groups", "chain_min", "chain_max", "best_path", "is_piece", "links"])
+    w.writerow(["action", "motion", "own_hits", "own_groups", "plays_hits", "play_path", "ai_max", "ai_best_path", "is_piece", "links"])
     for r in out:
         w.writerow(["0x%X" % r[0]] + list(r[1:]))
     return 0

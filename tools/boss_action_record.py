@@ -11,22 +11,23 @@ Names come from data/boss-action-names.tsv (file key, character). That index is
 the action-set bind: row +0xF0 hashes matched to a character setting. It is not
 a display-name database. The anim hash column is that same +0xF0 word.
 
-Hit count is the number of different hitbox-row byte +0xA5 values on rows whose
-start frame (+0x08) is not FFFF. Byte FF becomes 0, or 2 when row-qword bit 18
-is set. Damage for a hit is the +0x10 word times 5. zero_power is 1 when any
-started row stores 0 in that word (the Otoroshi 0x4E4E case).
+Hit count = hits the player really takes (pc #41677 accuracy run, notes/hit-label-accuracy-yoritomo.md): the move's hit
+WINDOWS, not its hitbox rows or hit ids (tools/chain_hits.hit_windows, the same rule as AmWindows in auto_moves.h). Rows that
+never start (+0x08 FFFF) or deal no damage (power +0x10 and element +0x12 both 0) are dropped; rows with the same (start frame,
+hit group) are one hit; same-group keys that overlap / touch are one swept swing. Damage for a hit is the +0x10 word times 5; a
+window whose rows store different powers lists them as 'a|b' (alternatives of ONE hit). zero_power is 1 when any started row
+stores power 0 (such a row is not counted as a hit when its element is 0 too; the Otoroshi 0x4E4E catch is 0 hits).
 
-Chain rule (human #41382, notes/chain-hits.md): hit_count / damage_per_hit / zero_power
-of an action also include the follow-up pieces it chains into: the +0xE0 finish link and
-private sub-table 3 combo links into follow-up pieces, best path, cycle-safe, depth 6
-(tools/chain_hits.py). Locomotion / walk motions 11 and 31 are never a piece. Follow-up
-damage is appended after the action's own hits. Own counts and paths of every changed
-row go to notes/chain-hits-gains.tsv.
+Chain rule (notes/chain-hits.md, pc #41677): hit_count / damage_per_hit / zero_power of an action also include the follow-up
+pieces it really plays into (tools/chain_hits.plays_next): the first private sub-table 3 row with no AI request, else the +0xE0
+finish link, cycle-safe, depth 6. Links that carry an AI request are the AI picking another move and are not counted. Locomotion
+motions 11 / 31 are never a piece, and a zero-damage catch ends the chain. Follow-up damage is appended after the action's own hits.
+Own counts and paths of every changed row go to notes/chain-hits-gains.tsv.
 
 When two files share a character name, the larger action table is the moveset.
-The self-check exits non-zero unless Yoritomo 0x4E6E is 2 hits at 250/275,
-Yoritomo 0x4E4E and 0x4E55 are 2 hits (chained), Shingen 0x4E4E is 3 hits, and
-Otoroshi 0x4E4E is 1 hit with zero_power set.
+The self-check exits non-zero unless Yoritomo 0x4E6E is 2 hits at 250/275, the
+Yoritomo drill measurements of tools/test_hit_labels.py hold for 0x4E4E / 0x4E55 / 0x4E59 /
+0x4E5C, Shingen 0x4E4E is 3 hits, and Otoroshi 0x4E4E is 0 hits with zero_power set.
 """
 import csv
 import struct
@@ -50,9 +51,11 @@ ROW = 192
 CHECKS = {
     ("CE_YORITOMO_00", 0x4E6E): (2, "250/275", "0"),
     ("CE_SHINGEN_00", 0x4E4E): (3, "85/85/240", "0"),
-    ("CE_OTOROSHI_00", 0x4E4E): (1, "0", "1"),
+    ("CE_OTOROSHI_00", 0x4E4E): (0, "", "1"),
+    ("CE_YORITOMO_00", 0x4E59): (2, "175/180", "0"),
 }
-CHAIN_CHECKS = {("CE_YORITOMO_00", 0x4E4E): 2, ("CE_YORITOMO_00", 0x4E55): 2}
+# pc #41677 / #41579 drills (real game): 4E4E and 4E55 land 1 (their 2nd hit in a fight is an AI-chosen next move), 4E5C plays 4E60 > 4E62
+CHAIN_CHECKS = {("CE_YORITOMO_00", 0x4E4E): 1, ("CE_YORITOMO_00", 0x4E55): 1, ("CE_YORITOMO_00", 0x4E5C): 3}
 
 
 def load_names():
@@ -94,29 +97,11 @@ def own_rows(d):
         aid = struct.unpack_from("<H", d, ro + 0x0C)[0]
         mot = struct.unpack_from("<H", d, ro + 0x20)[0]
         anim = struct.unpack_from("<I", d, ro + 0xF0)[0]
-        order = []
-        powers = {}
-        zero = 0
-        for i in idx:
-            b = o2 + i * ROW
-            if struct.unpack_from("<H", d, b + 8)[0] == 0xFFFF:
-                continue
-            hid = d[b + 0xA5]
-            q = struct.unpack_from("<Q", d, b)[0]
-            if hid == 0xFF:
-                hid = 2 if q & (1 << 18) else 0
-            power = struct.unpack_from("<H", d, b + 0x10)[0]
-            if power == 0:
-                zero = 1
-            if hid not in powers:
-                order.append(hid)
-                powers[hid] = []
-            if power not in powers[hid]:
-                powers[hid].append(power)
-        parts = []
-        for hid in order:
-            parts.append("|".join(str(x * 5) for x in powers[hid]))
-        rows.append((aid, mot, anim, len(order), "/".join(parts), zero))
+        win, _started = chain_hits.hit_windows(d, o2, idx)
+        zero = int(any(struct.unpack_from("<H", d, o2 + i * ROW + 8)[0] != 0xFFFF
+                       and struct.unpack_from("<H", d, o2 + i * ROW + 0x10)[0] == 0 for i in idx))
+        parts = ["|".join(str(x * 5) for x in w["powers"]) for w in win]
+        rows.append((aid, mot, anim, len(win), "/".join(parts), zero))
     if p != o0 + s0:
         raise ValueError("packed walk left %d bytes" % (o0 + s0 - p))
     return rows

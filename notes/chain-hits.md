@@ -53,3 +53,28 @@ damage_per_hit (follow-up damage appended after own) / zero_power. Rule changes 
 Self-checks: Yoritomo 4E4E 200/150|210, 4E55 250/175|180, 4E6E 250/275 (2 each), Shingen 4E4E 3, Otoroshi 4E4E 1 zero-power.
 All 108 characters: own 3052 -> chain 3776 hits, 534 rows gain (70 characters); per row own/chain/path in `notes/chain-hits-gains.tsv`.
 Tests: `py -I tools/test_chain_hits.py` (rules + archive facts), `mod/Nioh3Training/tests/action_records_test.c <tsv>` (2 chained asserts).
+
+## Hits that land (pc #41677 accuracy run applied, 2026-10-28, offline, game not touched)
+The real-game run (`notes/hit-label-accuracy-yoritomo.md`) showed the menu labels from the rule above match 10 of 25 measured Yoritomo
+moves. Three causes, all fixed in the generator for every boss (no per-move records):
+1. **Hit ids are not hits.** 0x4E59 has two rows with hit id 0 at frames 88 and 104 (powers 35 / 36): one id, stored as `175|180`, labelled
+   1, lands 2. 0x4E8E's six capsules at frames 52-57 are one swing (3 with chain before). Own hits are now the move's hit **windows**
+   (`chain_hits.hit_windows`, the same rule as `AmWindows` in `auto_moves.h` / `yoritomo_move_facts.py windows()`): same (start frame,
+   hit group) = one hit (the game's hit key, RVA 0x78EADF), same-group keys that overlap or touch = one swept swing (group 0 also needs the
+   same power / element). `a|b` now only means alternative powers inside ONE window.
+2. **Zero damage is not a hit.** Started rows with power 0 and element 0 are dropped (0x4E7C, 0x4EA2's trailing `/0`). A move whose every
+   started row is like that is a catch (0 hits, `zero_power` 1) and ends the chain. Otoroshi 0x4E4E is now 0 hits.
+3. **AI choices are not chained.** A private sub-table 3 row with an AI request (+0x10 set) is the AI picking a next move: 4E4E > 4E52 (r13),
+   4E8E > 4E92, 4E95 > 4E99, 4E64 / 4E6C / 4EAC > 4EB7, 4E81 > 4EA9 never played in the drill. Chain-following is kept for what does play
+   (`chain_hits.plays_next`): the first private row with no AI request (4E5C > 4E60 > 4E62, 4EA0 / 4EA1 > 4EA2, 4E59 > 4E5E, 4E52 > 4E54,
+   4EB8 > 4EB9: all seen in the ActLog), which preempts the +0xE0 finish link (4E60 E0 4E61 and 4EA0 E0 4EA1 never played); with no such
+   row the +0xE0 link into a hitter. A row into idle / a non-attack action ends the chain. The old best-path-over-every-link total stays in
+   the `chain_hits.py` table as `ai_max` (upper bound in a real fight).
+
+Result: `py -I tools/test_hit_labels.py` replays the measured table: labels matching the measurement old 10 / 25, new 24 / 25. Remaining
+miss: 0x4E42 (motion 6910, one row at frame 87, power 20, element 10, type 5) says 1, measured 0 in 20 reps; nothing in the rows read so
+far separates it, so it is left as a known gap, not patched. 4E4E / 4E55 are now 1 (drilled: 1; their 2nd hit in a fight is the AI-chosen
+4E53 / 4E59). All 108 characters: 3776 -> 3566 hits (1080 rows down, 566 up, 9830 same). Rows that go up are moves whose one hit id spans
+several separate windows (Yamanba 0x4E43 1 -> 17 over frames 109-365, Shingen 0x187B 1 -> 9 ticks); those were not measured live.
+Self-checks in `boss_action_record.py`: Yoritomo 4E6E 2 (250/275), 4E59 2 (175/180), 4E4E 1, 4E55 1, 4E5C 3; Shingen 4E4E 3 (85/85/240);
+Otoroshi 4E4E 0 with zero_power. Data stays a runtime TSV (`Nioh3Training_action_records.tsv`); the Training ASI source is unchanged.
