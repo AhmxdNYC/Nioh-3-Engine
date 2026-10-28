@@ -13,7 +13,8 @@ int main(){
  // Configure defaults are enabled; explicit user opt-out must still win.
  wchar_t configDir[MAX_PATH]{},configPath[MAX_PATH]{};
  CHECK(GetTempPathW(MAX_PATH,configDir));CHECK(GetTempFileNameW(configDir,L"n3d",0,configPath));
- Configure(nullptr,false,configPath,nullptr);CHECK(enabled);CHECK(liveEnabled);
+ Configure(nullptr,false,configPath,nullptr);CHECK(enabled);CHECK(liveEnabled);CHECK(realRoot);
+ CHECK(!saveRoot.empty());CHECK(!sandbox.empty());CHECK(!helper.empty());CHECK(!liveHelper.empty());
  CHECK(WritePrivateProfileStringW(L"SaveFiles",L"Enabled",L"0",configPath));
  CHECK(WritePrivateProfileStringW(L"SaveFiles",L"LiveTitle",L"0",configPath));
  Configure(nullptr,false,configPath,nullptr);CHECK(!enabled);CHECK(!liveEnabled);

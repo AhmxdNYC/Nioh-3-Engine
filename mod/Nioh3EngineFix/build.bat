@@ -182,5 +182,11 @@ link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEB
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
    build\updatecheck.obj build\crashreport.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\menu.obj build\savefiles.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
+rem Ship the Python helpers used by automatic first-run save-library setup.
+py ..\..\tools\saves\build_package.py || exit /b 1
+py ..\..\tools\saves\build_live_package.py || exit /b 1
+if not exist bin\save_helpers mkdir bin\save_helpers
+copy /y ..\..\tools\saves\dist\SaveSlots-after-exit.pyz bin\save_helpers\ >nul || exit /b 1
+copy /y ..\..\tools\saves\dist\SaveSlots-live-title.pyz bin\save_helpers\ >nul || exit /b 1
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal

@@ -16,6 +16,7 @@ HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~
 bool requestCancelled=false;
 bool liveEnabled=false,liveResetArmed=false,liveChild=false,liveCloseMenu=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
 std::vector<std::string> slotNames;
+HANDLE setupChild=nullptr;bool setupAttempted=false;
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
 template<class T> bool Rd(uintptr_t p,T& out){
@@ -36,16 +37,57 @@ Sample Read() {
 }
 std::wstring Value(const wchar_t* key,const wchar_t* fallback,const wchar_t* ini){wchar_t b[2048]{};GetPrivateProfileStringW(L"SaveFiles",key,fallback,b,2048,ini);return b;}
 std::wstring Quote(const std::wstring& s){std::wstring out=L"\"";unsigned slashes=0;for(wchar_t c:s){if(c==L'\\'){++slashes;continue;}if(c==L'\"')out.append(slashes*2+1,L'\\');else out.append(slashes,L'\\');out+=c;slashes=0;}out.append(slashes*2,L'\\');return out+L"\"";}
+bool File(const std::wstring& path){const DWORD a=GetFileAttributesW(path.c_str());return a!=INVALID_FILE_ATTRIBUTES&&!(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT));}
+std::wstring Env(const wchar_t* name){wchar_t value[32768]{};const DWORD n=GetEnvironmentVariableW(name,value,32768);return n&&n<32768?value:L"";}
+std::wstring FindPython(const std::wstring& local){
+ // Prefer actual per-user installations; WindowsApps execution aliases can open the Store.
+ for(const auto& folder:{local+L"\\Python",local+L"\\Programs\\Python"}){
+  WIN32_FIND_DATAW d{};HANDLE h=FindFirstFileW((folder+L"\\*").c_str(),&d);
+  if(h==INVALID_HANDLE_VALUE)continue;std::wstring found;
+  do{if((d.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)&&d.cFileName[0]!=L'.'){
+   const auto p=folder+L"\\"+d.cFileName+L"\\python.exe";if(File(p)){found=p;break;}
+  }}while(FindNextFileW(h,&d));FindClose(h);if(!found.empty())return found;
+ }
+ wchar_t path[32768]{};
+ for(const auto name:{L"py.exe",L"python.exe"}){const DWORD n=SearchPathW(nullptr,name,nullptr,32768,path,nullptr);
+  if(n&&n<32768&&File(path)&&std::wstring(path).find(L"WindowsApps")==std::wstring::npos)return path;}
+ return L"";
+}
+void StartSetup(){
+ if(setupAttempted||setupChild||!allowed||sandbox.empty()||saveRoot.empty())return;
+ if(File(sandbox+L"\\sandbox.json")){setupAttempted=true;return;}
+ setupAttempted=true;
+ if(!File(python)||!File(liveHelper)){snprintf(note,sizeof note,"Save manager needs Python and the shipped save_helpers folder.");return;}
+ std::wstring cmd=Quote(python)+L" "+Quote(liveHelper)+L" --bootstrap --sandbox "+Quote(sandbox)+L" --save-root "+Quote(saveRoot);
+ STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
+ if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){
+  snprintf(note,sizeof note,"Save library setup could not start (%lu).",GetLastError());return;}
+ CloseHandle(pi.hThread);setupChild=pi.hProcess;
+ snprintf(note,sizeof note,"Creating a verified copy of your saves...");
+ if(logfn)logfn("SaveFiles: automatic library setup started pid=%lu",pi.dwProcessId);
+}
 void Cancel(){if(cancel.empty())return;HANDLE f=CreateFileW(cancel.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(f!=INVALID_HANDLE_VALUE)CloseHandle(f);
  else {if(logfn)logfn("SaveFiles: cancel marker failed (%lu); terminating waiting helper",GetLastError());if(child)TerminateProcess(child,1);}}
 }
 void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)){
  base=b;known=k;logfn=log;enabled=GetPrivateProfileIntW(L"SaveFiles",L"Enabled",1,ini)!=0;
- realRoot=GetPrivateProfileIntW(L"SaveFiles",L"RealRoot",0,ini)!=0;
+ realRoot=GetPrivateProfileIntW(L"SaveFiles",L"RealRoot",1,ini)!=0;
  saveRoot=Value(L"SaveRoot",L"",ini);
  probe=GetPrivateProfileIntW(L"SaveFiles",L"Probe",0,ini)!=0;
  liveEnabled=GetPrivateProfileIntW(L"SaveFiles",L"LiveTitle",1,ini)!=0;liveHelper=Value(L"LiveHelper",L"",ini);liveResetArmed=false;liveChild=false;
  sandbox=Value(L"CopySandbox",L"",ini);helper=Value(L"Helper",L"",ini);python=Value(L"Python",L"",ini);
+ const std::wstring local=Env(L"LOCALAPPDATA");std::wstring folder=ini?ini:L"";
+ const auto slash=folder.find_last_of(L"\\/");folder=slash==std::wstring::npos?L".":folder.substr(0,slash);
+ const std::wstring packaged=folder+L"\\save_helpers";
+ if(!local.empty()){
+  if(saveRoot.empty())saveRoot=local+L"\\KoeiTecmo\\NIOH3";
+  if(sandbox.empty())sandbox=local+L"\\Nioh3SaveManager\\library";
+ }
+ if(helper.empty())helper=packaged+L"\\SaveSlots-after-exit.pyz";
+ if(liveHelper.empty())liveHelper=packaged+L"\\SaveSlots-live-title.pyz";
+ if(python.empty())python=FindPython(local);
+ setupAttempted=false;
+
  // Byte check the game's exact top-mode predicate; never invoke it or patch it.
  static const unsigned char bytes[]={0x48,0x8b,0x15,0xe9,0x41,0x68,0x04,0x33,0xc0,0x48,0x85,0xd2,0x74,0x1c,0x4c,0x8b,0x42,0x08,0x4c,0x39,0x02,0x74,0x13,0x49,0x8b,0x50,0xf8,0x48,0x85,0xd2,0x74,0x0a,0x48,0x8b,0x01,0x48,0x39,0x42,0x08,0x0f,0x94,0xc0,0xc3};
  unsigned char found[sizeof bytes]{};SIZE_T n=0;
@@ -62,6 +104,12 @@ void Poll(){
   logfn("SaveFilesGate: candidate=%d verdict=%d Enabled=%d readable=%d title=%d state=%u queueEmpty=%d loading=%d top=%p",allowed,(int)verdict,enabled,s.readable,s.title,s.state,s.queueEmpty,s.loading,(void*)s.top);
   lastVerdict=verdict;lastState=s.state;
  }
+ if(setupChild&&WaitForSingleObject(setupChild,0)==WAIT_OBJECT_0){
+  DWORD code=1;GetExitCodeProcess(setupChild,&code);CloseHandle(setupChild);setupChild=nullptr;
+  if(logfn)logfn("SaveFiles: automatic library setup exited code=%lu",code);
+  if(code==0){RefreshSlots();}else snprintf(note,sizeof note,"Save copy setup failed; originals unchanged. Check library setup receipt.");
+ }
+ if(enabled)StartSetup();
  if(liveEnabled&&logfn){
   // Read-only live-title watch, logged on change: soft-reset pending/countdown, save completion,
   // loaded slot index S+0x28, checksum-fail S+0x41, busy S+0x38, live save op, top mode.
@@ -121,7 +169,7 @@ void RefreshSlots(){
  slotNames.clear();const std::wstring dir=sandbox+L"\\slots";
  const DWORD attrs=GetFileAttributesW(dir.c_str());
  if(sandbox.empty()||attrs==INVALID_FILE_ATTRIBUTES||!(attrs&FILE_ATTRIBUTE_DIRECTORY)||(attrs&FILE_ATTRIBUTE_REPARSE_POINT)){
-  snprintf(note,sizeof note,"No slot library. Configure CopySandbox and create a backup first.");return;
+  if(setupChild)snprintf(note,sizeof note,"Creating a verified copy of your saves...");else snprintf(note,sizeof note,"Save library unavailable; check Python and shipped save_helpers.");return;
  }
  WIN32_FIND_DATAW data{};HANDLE find=FindFirstFileW((dir+L"\\*").c_str(),&data);
  if(find==INVALID_HANDLE_VALUE){snprintf(note,sizeof note,"Could not read the slot library.");return;}
