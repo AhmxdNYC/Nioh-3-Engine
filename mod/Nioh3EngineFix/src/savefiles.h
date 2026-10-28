@@ -20,6 +20,7 @@ bool QueueNewBackup();
 bool LiveAvailable();
 void OpenFolder();
 bool IsActive(int index);
+int Progress(char* stage,size_t n);
 bool QueueLive(const char* name);
 bool Pending();
 bool LivePending();

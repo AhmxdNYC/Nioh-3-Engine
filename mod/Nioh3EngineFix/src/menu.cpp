@@ -3285,6 +3285,7 @@ float DrawImpl(unsigned W, unsigned H) {
     addT("", cWhite, true);
     if(g_pages.page==pSaveFiles)addT("Choose save data  ([x] = in use)",cCyan);
     if(g_pages.page==pSaveActions&&!g_saveName.empty())addT(g_saveName.c_str(),cCyan);
+    {char st[96];const int pr=savefiles::Progress(st,sizeof st);if(pr>=0){char bar[48];int f=pr*20/100;for(int i=0;i<20;++i)bar[i]=i<f?'#':'-';bar[20]=0;char ln[128];snprintf(ln,sizeof ln,"Switching save: [%s] %d%%",bar,pr);addT(ln,cGreen);addT(st,cCyan);}}
     if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT(savefiles::LivePending()?"Applies live: the title reloads on its own, no quit needed.":"Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);

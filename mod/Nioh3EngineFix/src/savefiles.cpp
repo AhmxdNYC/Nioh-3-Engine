@@ -16,7 +16,7 @@ std::wstring sandbox,helper,python,saveRoot;char note[200]="Copy-only test: choo
 HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 bool requestCancelled=false;
 bool liveEnabled=false,liveResetArmed=false,liveChild=false,liveCloseMenu=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
-std::vector<std::string> slotNames;std::string pendingLive,activeSlot;
+std::vector<std::string> slotNames;std::string pendingLive,activeSlot;uint64_t importStart=0,doneAt=0;
 HANDLE setupChild=nullptr;bool setupAttempted=false;
 void SetActive(){activeSlot=pendingLive;const std::wstring f=sandbox+L"\active.txt";HANDLE h=CreateFileW(f.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(h!=INVALID_HANDLE_VALUE){DWORD w;WriteFile(h,activeSlot.data(),(DWORD)activeSlot.size(),&w,nullptr);CloseHandle(h);}}
 // Engine objects can disappear between samples. Every individual load is SEH
@@ -133,7 +133,7 @@ void Poll(){
   liveResetArmed=false;
   uintptr_t holder=0,app=0;uint8_t pend=1;
   if(!Rd((uintptr_t)base+0x45B9E40,holder)||!Rd(holder,app)||!app||!Rd(app+0x279A,pend)||pend!=0){snprintf(note,sizeof note,"Imported, reset refused (game busy). Choose Load Game.");return;}
-  __try{reinterpret_cast<void(*)(void*)>((uintptr_t)base+0x1C205A4)(reinterpret_cast<void*>(holder));snprintf(note,sizeof note,"Imported; title reloading with the newest save.");if(logfn)logfn("SaveFiles: live soft reset requested (holder=%p app=%p)",(void*)holder,(void*)app);}
+  __try{reinterpret_cast<void(*)(void*)>((uintptr_t)base+0x1C205A4)(reinterpret_cast<void*>(holder));snprintf(note,sizeof note,"Imported; title reloading with the newest save.");doneAt=GetTickCount64();if(logfn)logfn("SaveFiles: live soft reset requested (holder=%p app=%p)",(void*)holder,(void*)app);}
   __except(EXCEPTION_EXECUTE_HANDLER){snprintf(note,sizeof note,"Soft reset faulted.");if(logfn)logfn("SaveFiles: soft reset FAULT");}
  }
 }
@@ -149,6 +149,13 @@ bool Check(const char* action){
 }
 bool Allowed(){return Check(nullptr);}
 bool ActionAllowed(const char* action){return Check(action);}
+int Progress(char* stage,size_t n){
+ const uint64_t t=GetTickCount64();
+ if(liveChild&&child){const uint64_t e=t-importStart;int p=5+(int)(e/100);if(p>60)p=60;snprintf(stage,n,"Step 1/3: copying the save in (%s)",pendingLive.c_str());return p;}
+ if(liveResetArmed){snprintf(stage,n,"Step 2/3: waiting for the title to be idle");return 70;}
+ if(doneAt&&t-doneAt<8000){const uint64_t e=t-doneAt;if(e<3000){snprintf(stage,n,"Step 3/3: reloading the title with your save");return 85;}snprintf(stage,n,"Done: now using %s",activeSlot.c_str());return 100;}
+ return -1;
+}
 bool Pending(){return child&&!requestCancelled;}
 bool LivePending(){return Pending()&&liveChild;}
 bool TakeMenuCloseRequest(){const bool r=liveCloseMenu;liveCloseMenu=false;return r;}
@@ -235,7 +242,7 @@ bool QueueLive(const char* name){
  if(!ActionAllowed("live-import-dispatch")){snprintf(note,sizeof note,"Cancelled: title state changed.");cancel.clear();return false;}
  requestCancelled=false;
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
- CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;pendingLive=name;snprintf(note,sizeof note,"Importing %s at the title...",name);
+ CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;pendingLive=name;importStart=GetTickCount64();doneAt=0;snprintf(note,sizeof note,"Importing %s at the title...",name);
  if(logfn)logfn("SaveFiles: live import dispatched slot=%s helper pid=%lu",name,pi.dwProcessId);
  return true;
 }
