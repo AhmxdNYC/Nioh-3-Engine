@@ -62,7 +62,18 @@ void Poll(){
   logfn("SaveFilesGate: candidate=%d verdict=%d Enabled=%d readable=%d title=%d state=%u queueEmpty=%d loading=%d top=%p",allowed,(int)verdict,enabled,s.readable,s.title,s.state,s.queueEmpty,s.loading,(void*)s.top);
   lastVerdict=verdict;lastState=s.state;
  }
- if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
+ if(liveEnabled&&logfn){
+  // Read-only live-title watch, logged on change: soft-reset pending/countdown, save completion,
+  // loaded slot index S+0x28, checksum-fail S+0x41, busy S+0x38, live save op, top mode.
+  static uint32_t last[8]={~0u,~0u,~0u,~0u,~0u,~0u,~0u,~0u};uint32_t v[8]={~1u,~1u,~1u,~1u,~1u,~1u,~1u,~1u};
+  uintptr_t holder=0,app=0,m=0,S=0,op=0;uint8_t b8=0;uint32_t u32=0;
+  if(Rd((uintptr_t)base+0x45B9E40,holder)&&Rd(holder,app)&&app){if(Rd(app+0x279A,b8))v[0]=b8;float f=0;if(Rd(app+0x279C,f))v[1]=(uint32_t)(f>0?f:0);}
+  if(Rd((uintptr_t)base+0x45C8480,m)&&m){if(Rd(m+0x10,u32))v[2]=u32;if(Rd(m,S)&&S){if(Rd(S+0x28,u32))v[3]=u32;if(Rd(S+0x41,b8))v[4]=b8;if(Rd(S+0x38,b8))v[5]=b8;}}
+  if(Rd((uintptr_t)base+0x45C6EC0,op))v[6]=op?1u:0u;
+  v[7]=(uint32_t)(s.top&0xFFFFFFFFu);
+  if(memcmp(v,last,sizeof v)){logfn("LiveTitleWatch: reset279A=%u countdown=%u m+10=%u S+28(slot)=%d S+41(ckfail)=%u S+38(busy)=%u op=%u top=%p state=%u title=%d",v[0],v[1],v[2],(int)v[3],v[4],v[5],v[6],(void*)s.top,s.state,s.title);memcpy(last,v,sizeof v);}
+ }
+ if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(logfn)logfn("SaveFiles: helper exited code=%lu live=%d cancelled=%d",code,(int)liveChild,(int)requestCancelled);if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
   else snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);liveChild=false;cancel.clear();}
  }
  if(liveResetArmed){
@@ -160,7 +171,7 @@ bool QueueLive(const char* name){
  FILETIME created,exit,kernel,user;if(!GetProcessTimes(GetCurrentProcess(),&created,&exit,&kernel,&user))return false;
  const unsigned long long stamp=((unsigned long long)created.dwHighDateTime<<32)|created.dwLowDateTime;
  wchar_t token[96];swprintf(token,96,L"live-%lu-%llu-%llu",GetCurrentProcessId(),stamp,GetTickCount64());
- cancel=sandbox+L"\cancel-"+token;
+ cancel=sandbox+L"\\cancel-"+token;
  const std::string slot(name);const std::wstring wideSlot(slot.begin(),slot.end());
  std::wstring cmd=Quote(python)+L" "+Quote(liveHelper)+L" --sandbox "+Quote(sandbox)+L" --save-root "+Quote(saveRoot)+L" --slot "+Quote(wideSlot)+L" --token "+Quote(token)+L" --pid "+std::to_wstring(GetCurrentProcessId())+L" --created "+std::to_wstring(stamp)+L" --make-newest";
  STARTUPINFOW si{};si.cb=sizeof si;PROCESS_INFORMATION pi{};
@@ -168,6 +179,7 @@ bool QueueLive(const char* name){
  requestCancelled=false;
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
  CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;snprintf(note,sizeof note,"Importing %s at the title...",name);
+ if(logfn)logfn("SaveFiles: live import dispatched slot=%s helper pid=%lu",name,pi.dwProcessId);
  return true;
 }
 }

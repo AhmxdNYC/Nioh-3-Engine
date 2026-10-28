@@ -153,7 +153,7 @@ class CryptoTests(unittest.TestCase):
         import savecrypt
         p=bytearray(0x900058+0x158);p[:6]=b'RNNUSR'
         struct.pack_into('<Q',p,0x10,int(ACCOUNT));struct.pack_into('<I',p,0x1C,0x900058)
-        struct.pack_into('<I',p,0x15C,0x25111400)
+        struct.pack_into('<I',p,0x158,0x25111400)
         struct.pack_into('<I',p,0x900194,savecrypt.checksum(p))
         cls.blob=savecrypt.encrypt(p)
     def test_valid_roundtrip(self):self.assertEqual(live.validate(self.blob,ACCOUNT)['sha256'],hashlib.sha256(self.blob).hexdigest())

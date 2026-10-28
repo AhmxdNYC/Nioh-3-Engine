@@ -39,6 +39,8 @@ int SlotCount(){return 3;}
 const char* SlotName(int i){static const char* names[]={"New Game","Yoritomo Practice","slot1"};return i>=0&&i<3?names[i]:"";}
 bool QueueNamed(const char* name,bool,bool relaunch){if(!testAllowed)return false;queuedName=name;queuedRelaunch=relaunch;++requests;return true;}
 bool QueueNewBackup(){return QueueNamed("Backup-test",true,false);}
+bool testLive=false;std::string liveName;bool LiveAvailable(){return testLive;}
+bool QueueLive(const char* name){if(!testAllowed||!testLive)return false;liveName=name;return true;}
 bool Queue(int,bool){return false;}
 const char* Note(){return testPending?"Switch queued: copy slot1.":"Copy-only test: choose a slot, then queue and quit normally.";}
 }
@@ -124,6 +126,9 @@ int main() {
       savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);CHECK(savefiles::queuedName=="Yoritomo Practice");
       Change(kSaveRelaunchRow,0);CHECK(savefiles::requests==2&&savefiles::queuedRelaunch);
       CHECK(savefiles::queuedName=="Yoritomo Practice");
+      n=PageRows(rows,true);{bool live=false;for(int i=0;i<n;++i)live|=rows[i]==kSaveLiveRow;CHECK(!live);}
+      savefiles::testLive=true;n=PageRows(rows,true);{bool live=false;for(int i=0;i<n;++i)live|=rows[i]==kSaveLiveRow;CHECK(live);}
+      Change(kSaveLiveRow,0);CHECK(savefiles::liveName=="Yoritomo Practice");savefiles::testLive=false;savefiles::liveName.clear();
       savefiles::testAllowed=false;savefiles::testPending=true;g_pages.Reset();
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
       n=PageRows(rows,true);bool cancelFound=false;

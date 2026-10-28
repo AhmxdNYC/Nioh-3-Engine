@@ -24,7 +24,7 @@ def validate(blob, account):
     if struct.unpack_from('<Q', header, 0x10)[0] != int(account): raise ValueError('Header Steam account mismatch')
     if struct.unpack_from('<I', header, 0x1C)[0] != 0x900058: raise ValueError('Invalid body size')
     plain = savecrypt.decrypt(blob)
-    if struct.unpack_from('<I', plain, 0x158+4)[0] != 0x25111400:
+    if struct.unpack_from('<I', plain, 0x158)[0] != 0x25111400:  # body version at plain+0x158 (real saves; +0x15C is the game build)
         raise ValueError('Unsupported user-save version')
     if savecrypt.checksum(plain) != struct.unpack_from('<I', plain, 0x900194)[0]:
         raise ValueError('User-save checksum mismatch')
