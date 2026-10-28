@@ -115,7 +115,7 @@ bool g_configured = false;
 volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
-enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256 };
+enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256, N_HOME = 512 };
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
@@ -186,6 +186,7 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & XINPUT_GAMEPAD_A) n |= N_OK;
     if (raw & XINPUT_GAMEPAD_B) n |= N_BACK;
     if (raw & XINPUT_GAMEPAD_Y) n |= N_CLOSE;
+    if (raw & XINPUT_GAMEPAD_START) n |= N_HOME;
     if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_PAGEUP;
     if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_PAGEDOWN;
     return n;
@@ -248,7 +249,12 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     // open/close gesture
     const uint32_t hm = g_cfg.holdMask;
     bool tapModified = false;
-    if (hm && g_cfg.gesture == 1) {
+    if (g_open && (hm & XINPUT_GAMEPAD_START)) {
+        // While open, Start/Options belongs to Home, never to the open gesture.
+        s.nTaps = 0; s.tap0 = s.lastTap = s.synthUntil = 0;
+        s.holdStart = 0; s.holdFired = false; s.passHold = false;
+        g_holdSince = 0;
+    } else if (hm && g_cfg.gesture == 1) {
         const bool down = (raw & hm) == hm, wasDown = (prev & hm) == hm;
         if (s.nTaps && t - s.lastTap >= (ULONGLONG)g_cfg.tapGapMs) {  // no further press in time: decide what the game sees
             if (down && wasDown && s.nTaps == 1) s.passHold = true;       // still held: a real hold, the game gets it now
@@ -2307,6 +2313,14 @@ void PauseDetect(ULONGLONG t) {
 // Direct settings sliders have no modal edit session. While a value is being
 // adjusted/accepted, consume Y without closing. Hosted modal editors advertise
 // Editing; outstanding provider actions also retain input ownership.
+bool TryPadHome(uint32_t pressed) {
+    if (!g_open || !(pressed & N_HOME)) return false;
+    CloseRematchHostPage();
+    g_pages.Reset(); g_sel = TopLevelSel();
+    for (auto& repeat : g_rep) repeat = 0;
+    return true;
+}
+
 bool TryPadClose(uint32_t pressed, ULONGLONG now) {
     if(!g_open || !(pressed & N_CLOSE))return false;
     uint32_t editing=pressed & (N_LEFT|N_RIGHT|N_OK);
@@ -2368,6 +2382,7 @@ void OnPresentImpl() {
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    if (TryPadHome(pressed)) return;
     if (TryPadClose(pressed,t)) return;
     if (g_rematchPage) {
         if (!rematchReady) {
