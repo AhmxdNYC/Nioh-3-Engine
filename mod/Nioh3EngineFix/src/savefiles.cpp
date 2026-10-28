@@ -16,8 +16,9 @@ std::wstring sandbox,helper,python,saveRoot;char note[200]="Copy-only test: choo
 HANDLE child=nullptr;std::wstring cancel;int lastVerdict=-1;uint32_t lastState=~0u;
 bool requestCancelled=false;
 bool liveEnabled=false,liveResetArmed=false,liveChild=false,liveCloseMenu=false;std::wstring liveHelper;uint64_t liveArmedAt=0;
-std::vector<std::string> slotNames;
+std::vector<std::string> slotNames;std::string pendingLive,activeSlot;
 HANDLE setupChild=nullptr;bool setupAttempted=false;
+void SetActive(){activeSlot=pendingLive;const std::wstring f=sandbox+L"\active.txt";HANDLE h=CreateFileW(f.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(h!=INVALID_HANDLE_VALUE){DWORD w;WriteFile(h,activeSlot.data(),(DWORD)activeSlot.size(),&w,nullptr);CloseHandle(h);}}
 // Engine objects can disappear between samples. Every individual load is SEH
 // protected, including the last admission read before helper dispatch.
 template<class T> bool Rd(uintptr_t p,T& out){
@@ -122,7 +123,7 @@ void Poll(){
   v[7]=(uint32_t)(s.top&0xFFFFFFFFu);
   if(memcmp(v,last,sizeof v)){logfn("LiveTitleWatch: reset279A=%u countdown=%u m+10=%u S+28(slot)=%d S+41(ckfail)=%u S+38(busy)=%u op=%u top=%p state=%u title=%d",v[0],v[1],v[2],(int)v[3],v[4],v[5],v[6],(void*)s.top,s.state,s.title);memcpy(last,v,sizeof v);}
  }
- if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(logfn)logfn("SaveFiles: helper exited code=%lu live=%d cancelled=%d",code,(int)liveChild,(int)requestCancelled);if(liveChild&&code==0&&!requestCancelled){liveResetArmed=true;liveCloseMenu=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
+ if(child){if(WaitForSingleObject(child,0)==WAIT_OBJECT_0){DWORD code=1;GetExitCodeProcess(child,&code);CloseHandle(child);child=nullptr;if(logfn)logfn("SaveFiles: helper exited code=%lu live=%d cancelled=%d",code,(int)liveChild,(int)requestCancelled);if(liveChild&&code==0&&!requestCancelled){SetActive();liveResetArmed=true;liveCloseMenu=true;liveArmedAt=now;snprintf(note,sizeof note,"Imported. Refreshing title in this session...");}
   else snprintf(note,sizeof note,"Helper ended (%lu). Check helper receipt.",code);liveChild=false;cancel.clear();}
  }
  if(liveResetArmed){
@@ -188,6 +189,11 @@ void RefreshSlots(){
  std::sort(slotNames.begin(),slotNames.end());
  snprintf(note,sizeof note,"%u named saves. Pick a save to view switch options.",(unsigned)slotNames.size());
 }
+bool IsActive(int index){
+ if(index<0||index>=(int)slotNames.size())return false;
+ if(activeSlot.empty()){char b[96]{};DWORD r=0;const std::wstring f=sandbox+L"\active.txt";HANDLE h=CreateFileW(f.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);if(h!=INVALID_HANDLE_VALUE){ReadFile(h,b,sizeof b-1,&r,nullptr);CloseHandle(h);}activeSlot=r?std::string(b,r):"My current save";}
+ return slotNames[index]==activeSlot;
+}
 int SlotCount(){return (int)slotNames.size();}
 const char* SlotName(int index){return index>=0&&index<SlotCount()?slotNames[index].c_str():"";}
 bool QueueNamed(const char* name,bool backup){
@@ -229,7 +235,7 @@ bool QueueLive(const char* name){
  if(!ActionAllowed("live-import-dispatch")){snprintf(note,sizeof note,"Cancelled: title state changed.");cancel.clear();return false;}
  requestCancelled=false;
  if(!CreateProcessW(python.c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi)){snprintf(note,sizeof note,"Helper launch failed (%lu).",GetLastError());cancel.clear();return false;}
- CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;snprintf(note,sizeof note,"Importing %s at the title...",name);
+ CloseHandle(pi.hThread);child=pi.hProcess;liveChild=true;pendingLive=name;snprintf(note,sizeof note,"Importing %s at the title...",name);
  if(logfn)logfn("SaveFiles: live import dispatched slot=%s helper pid=%lu",name,pi.dwProcessId);
  return true;
 }

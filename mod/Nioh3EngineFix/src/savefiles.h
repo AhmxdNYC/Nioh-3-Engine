@@ -19,6 +19,7 @@ bool QueueNamed(const char* name,bool backup);
 bool QueueNewBackup();
 bool LiveAvailable();
 void OpenFolder();
+bool IsActive(int index);
 bool QueueLive(const char* name);
 bool Pending();
 bool LivePending();

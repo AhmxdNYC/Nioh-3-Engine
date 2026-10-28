@@ -1798,7 +1798,11 @@ void Change(int id, int dir) {
     if(id>=kSaveNamedFirst&&id<kSaveNamedFirst+savefiles::kMaxSlots){
         if(!dir&&!savefiles::Pending()&&savefiles::ActionAllowed("select-named-save")){
             const char* name=savefiles::SlotName(id-kSaveNamedFirst);
-            if(*name){g_saveName=name;g_saveConfirm=0;EnterPage(pSaveActions);}
+            if(*name&&!savefiles::IsActive(id-kSaveNamedFirst)){
+                const auto now=Now();
+                if(g_saveConfirm==id&&now-g_saveConfirmAt<5000){g_saveName=name;g_saveConfirm=0;if(savefiles::LiveAvailable())savefiles::QueueLive(name);else{g_saveConfirm=0;EnterPage(pSaveActions);}}
+                else{g_saveConfirm=id;g_saveConfirmAt=now;}
+            }
         }return;
     }
     if(id==kSaveLiveRow){if(!dir&&!savefiles::Pending()&&!g_saveName.empty())savefiles::QueueLive(g_saveName.c_str());g_saveConfirm=0;return;}
@@ -3049,8 +3053,8 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if(id>=kSaveNamedFirst&&id<kSaveNamedFirst+savefiles::kMaxSlots){
             if(id==g_sel)selRow=nb;
-            char text[96];snprintf(text,sizeof text,"%s%s",id==g_sel?"> ":"  ",savefiles::SlotName(id-kSaveNamedFirst));
-            put(body,nb,128,text,"","A: choose",cWhite,cCyan,id==g_sel,false);continue;
+            char text[96];snprintf(text,sizeof text,"%s%s%s",id==g_sel?"> ":"  ",savefiles::IsActive(id-kSaveNamedFirst)?"[x] ":"[ ] ",savefiles::SlotName(id-kSaveNamedFirst));
+            put(body,nb,128,text,savefiles::IsActive(id-kSaveNamedFirst)?"in use":"","A: switch to this save",cWhite,cCyan,id==g_sel,false);continue;
         }
         if(id>=kSaveFilesRow&&id<=kSaveOpenRow){
             if(id==g_sel)selRow=nb;
@@ -3279,6 +3283,7 @@ float DrawImpl(unsigned W, unsigned H) {
         effect[0] = 0;
     }
     addT("", cWhite, true);
+    if(g_pages.page==pSaveFiles)addT("Choose save data  ([x] = in use)",cCyan);
     if(g_pages.page==pSaveActions&&!g_saveName.empty())addT(g_saveName.c_str(),cCyan);
     if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT(savefiles::LivePending()?"Applies live: the title reloads on its own, no quit needed.":"Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
