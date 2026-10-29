@@ -3923,6 +3923,21 @@ uint64_t SpiritRec(uint64_t base, uint64_t db, uint32_t id) {
         return 0;
     }
 }
+int SpiritGaugeFill(uint64_t base, uint64_t G, float mx) {
+    __try {
+        ((void (*)(uint64_t, float))(base + 0x916FAC))(G, mx);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+uint64_t SpiritGaugeEntry(uint64_t base, uint64_t G) {
+    __try {
+        return ((uint64_t(*)(uint64_t))(base + 0x377D30))(G);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
 int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
     __try {
         ((void (*)(uint64_t, uint32_t))(base + 0x2153E7C))(pd, id);
@@ -4047,6 +4062,24 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
+        if (!strcmp(arg, "gauge")) {  // spirit gauge [max] : ext=*(player+0x3A0), G=ext+0x1D8, max=*(float*)(ext+0x3AC); fill = 0x916FAC(G,max) (ally #46889)
+            const uint64_t ch = PlayerChar();
+            uint64_t ext = 0;
+            if (!ch || !Rd(ch + 0x3A0, ext) || !ext) {
+                snprintf(reply, n, "error no player");
+                return;
+            }
+            float mx = 0.f, cur0 = 0.f, cur1 = 0.f;
+            Rd(ext + 0x3AC, mx);
+            uint64_t ent = SpiritGaugeEntry(base, ext + 0x1D8);
+            if (ent) Rd(ent, cur0);
+            int rc = -1;
+            if (strstr(line, "max") && mx > 0.f) rc = SpiritGaugeFill(base, ext + 0x1D8, mx);
+            if (ent) Rd(ent, cur1);
+            Log("Spirit gauge ext=%llX ent=%llX max=%.1f cur %.1f->%.1f rc=%d", (unsigned long long)ext, (unsigned long long)ent, mx, cur0, cur1, rc);
+            snprintf(reply, n, "ok gauge ext=%llX ent=%llX max=%.1f cur %.1f->%.1f rc=%d", (unsigned long long)ext, (unsigned long long)ent, mx, cur0, cur1, rc);
+            return;
+        }
         if (!strcmp(arg, "scan") || !strcmp(arg, "equip") || !strcmp(arg, "add")) {  // spirit scan | spirit add <id> | spirit equip <id> [slot] (add first if not owned)
             uint64_t ctx = 0, db = 0, pd = 0, in = 0;
             if (!Rd(base + 0x45B9E30, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
