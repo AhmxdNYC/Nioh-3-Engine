@@ -1069,6 +1069,22 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinForm(uint32_t v) { g_tenForm.store(v); }
+void TenshinPreload(uint32_t id, bool request, char* out, size_t n) {
+    static const uint32_t kForms[] = {0x1909, 0x5FFF, 0x6E73, 0x5455, 0x5095, 0x1C17, 0x2D3F, 0x72B1, 0x5E1B, 0x27C, 0xD2F, 0x17D6, 0x4E6, 0x2552, 0x1302, 0x33C9};
+    size_t o = 0;
+    auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
+    for (uint32_t f : kForms) {
+        if (id && f != id) continue;
+        __try {
+            const uint32_t key = ((uint32_t(*)(uint32_t))(g_base + 0x11793F0))(f);
+            if (request) ((void (*)(uint32_t, uint32_t))(g_base + 0x1A8B990))(key, 0);
+            void* tbl = *(void**)(g_base + 0x45B9E60);
+            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + 0x133440))(tbl, 0x600000000ull + key);
+            add(" %X:key=%X,E=%s,2C8=%d", f, key, e ? "y" : "n", e ? (int)e[0x2C8] : -1);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { add(" %X:(fault)", f); }
+    }
+    Log("TenshinPreload(req=%d): %s", request ? 1 : 0, out);
+}
 void TenshinSlots(uint64_t ext, char* out, size_t n) {
     size_t o = 0;
     auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
