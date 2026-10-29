@@ -27,6 +27,8 @@ With frame generation off, full stays tied with pure-perf on pc and pc2. With fr
 
 Charts: [average fps](docs/final-bench/avg_fps.png), [1% low](docs/final-bench/low1_fps.png), [hitches](docs/final-bench/hitches.png), [CPU temp](docs/final-bench/cpu_temp.png), [GPU temp](docs/final-bench/gpu_temp.png), [CPU power](docs/final-bench/cpu_power.png), [GPU power](docs/final-bench/gpu_power.png), [CPU use](docs/final-bench/cpu_util.png), [GPU use](docs/final-bench/gpu_util.png). The pc fps file has no per-arm temperature or power, so those pc bars are absent.
 
+Why the game runs badly, what was tried, and what is still open: [docs/WHY_NIOH_RUNS_BADLY.md](docs/WHY_NIOH_RUNS_BADLY.md).
+
 ## Measured component results
 
 These are single-feature A/B measurements at fixed gameplay spots, not whole-mod gains. Values are paired percent differences with standard errors. PC and remote trials each used three adjacent pairs in one launch.
