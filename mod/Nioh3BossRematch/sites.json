@@ -586,6 +586,33 @@
    "offset": 0
   },
   {
+   "name": "EffectCreate",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 5040396,
+   "head": 5,
+   "pattern": "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_1320F2C",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 20057900,
+   "head": 11,
+   "pattern": "48 83 EC 28 48 8B 81 28 01 00 00 48 85 C0 74 1F",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_23CBF9C",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 37535644,
+   "head": 5,
+   "pattern": "50 01 00 00 5F C3 CC CC 48 89 5C 24 10 57 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 40 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20",
+   "offset": 8
+  },
+  {
    "name": "fn:MissionClearedGetSlot",
    "group": "CORE",
    "kind": "fn",

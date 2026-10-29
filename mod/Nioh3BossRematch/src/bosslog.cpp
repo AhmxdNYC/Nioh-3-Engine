@@ -825,6 +825,30 @@ void HkInvAdd(uint64_t save, uint64_t out, uint64_t desc, uint64_t r9, const uin
     (void)out;
 }
 
+// SC probe (same [Debug] InvLog switch): who runs while a soul core / item is used. Logs the first 4 args and up to 4 return addresses
+// above the hook (a call chain; function starts via pdata) for EffectCreate (r8 = effect id), 1320F2C and 23CBF9C. 60 lines/s.
+std::atomic<int64_t> g_scSec{-1};
+std::atomic<int> g_scInSec{0};
+template <int N>
+void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C"};
+    const double t = Now();
+    const int64_t sec = (int64_t)t;
+    if (g_scSec.exchange(sec) != sec) g_scInSec.store(0);
+    if (g_scInSec.fetch_add(1) >= 60) return;
+    char via[200] = "";
+    size_t vl = 0;
+    int found = 0;
+    for (int k = 0; k < 72 && found < 4; ++k) {
+        const uint64_t v = StackArg(sp, k);
+        if (!LooksLikeRet(v)) continue;
+        vl += (size_t)snprintf(via + vl, sizeof(via) - vl, " +%llX(fn %X)", (unsigned long long)(v - g_base), FnStart(v));
+        ++found;
+    }
+    Log("ScLog %s a=%llX b=%llX c=%llX(%u) d=%llX via%s t=%.3f", kName[N], (unsigned long long)a, (unsigned long long)b,
+          (unsigned long long)c, (unsigned)c, (unsigned long long)d, vl ? via : " -", t);
+}
+
 }  // namespace
 
 void Register(bool boss, bool rm, bool inv) {
@@ -897,7 +921,12 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("Player::NoGameOver", &HkEnd2<4>);
         OnEntry("BuildSaveFilePath", &HkSavePath);
     }
-    if (inv) OnEntry("InventoryAddItem", &HkInvAdd);
+    if (inv) {
+        OnEntry("InventoryAddItem", &HkInvAdd);
+        OnEntry("EffectCreate", &HkSc<0>);
+        OnEntry("ScProbe_1320F2C", &HkSc<1>);
+        OnEntry("ScProbe_23CBF9C", &HkSc<2>);
+    }
 }
 
 }  // namespace bosslog
