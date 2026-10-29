@@ -886,6 +886,7 @@ void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t*
 // Tenshin input: the game's local input path 2E6C34 (state = rcx; input-command word [state+0x1068], bit 0xE = NIOH_TENSHIN). TenshinGo() arms a
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
+std::atomic<uint32_t> g_tenForm{0};  // `rm tenshin form <hex>`: written to [state+0xA68] right before bit 0xE is OR'd (0 = leave)
 std::atomic<uint64_t> g_tenState{0};
 // 842FAC body (after its zero check): rcx = player data, edx = spirit id, r8b = active flag. The Tenshin Begin path passes the EQUIPPED id here.
 std::atomic<uint64_t> g_pdSeen{0};
@@ -1002,6 +1003,11 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (g_tenGo.load() > 0 && g_tenGo.fetch_sub(1) > 0) {
         uint32_t w = 0;
         if (Rd(a + 0x1068, w)) {
+            uint32_t a68 = 0;
+            Rd(a + 0xA68, a68);
+            const uint32_t fm = g_tenForm.load();
+            if (fm) WrU32(a + 0xA68, fm);
+            Log("TenshinInput: A68 state=%llX %X -> %X", (unsigned long long)a, a68, fm ? fm : a68);
             WrU32(a + 0x1068, w | 0x4000);
             Log("TenshinInput: bit 0xE set state=%llX word %08X->%08X", (unsigned long long)a, w, w | 0x4000);
         }
@@ -1011,6 +1017,7 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 }  // namespace
 
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
+void TenshinForm(uint32_t v) { g_tenForm.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 
 void Register(bool boss, bool rm, bool inv) {
