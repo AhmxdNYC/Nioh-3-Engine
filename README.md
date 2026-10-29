@@ -36,6 +36,16 @@ toggles, frame meter and Ki / I-frame ring meter, practice stats, boss vitals an
 
 Each mod works on its own; together they share one `dinput8.dll` loader and one menu.
 
+## What it looks like
+
+![Nioh 3 with the mod menu, frame meter and overlays](docs/screenshots/in-game-overlays-and-menu.jpg)
+
+A live capture from the 1.7.86 build (Windows, 2560x1440, 120 fps): the in-game **mod menu** open on *Display > Game HUD*
+(right; every part of the game HUD has its own hide switch plus a master switch, here the whole HUD is hidden), the
+**FPS / frame-time overlay** (top left: FPS, frame generation state, frame time, game speed factor), the **controller
+display** (faint Xbox-style pad, top left), the **input display** (frame counts and pressed buttons, left), and the Training
+**frame meter** (bottom: PLAYER and I-FR rows with startup / active / recovery frames and the colour legend).
+
 ## Install
 
 Releases are on the [**Releases**](../../releases) page. The player guide (Windows and Proton / Steam Deck / ROG Ally,

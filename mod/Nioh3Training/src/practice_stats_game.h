@@ -566,6 +566,10 @@ N3T_API int Nioh3Training_PracticeStatSet(int what, int value, int persist) {
     if (what < 0 || what >= PS_N) return -1;
     if (PstIsToggle(what) && value < 0) value = !g_pst.v[what];
     const int v = g_pst.v[what] = PstClamp(what, value);
+    if (what == PS_FRAME_METER) {  // human #45946: the master 'Frame meter' switch must hide the whole meter (player row, I-FR row, Ki window), not just the boss row
+        g_pst.v[PS_PLAYER_METER] = v; g_pst.v[PS_FRAME_IFR] = v;
+        if (!v) g_pst.v[PS_KI_WINDOW] = 0;
+    }
     if (what == PS_PLAYER_INF_KI) g_pst_kiFail = 0, g_pst_kiSeen = 0;
     if (what == PS_DMG_DEALT || what == PS_DMG_TAKEN) InterlockedExchange(&g_pst_dmg_logs, 0);
     if (what == PS_KI_DEALT || what == PS_ONE_HIT_KI) InterlockedExchange(&g_pst_ki_logs, 0);
