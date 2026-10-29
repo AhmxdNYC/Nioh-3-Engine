@@ -3904,6 +3904,46 @@ int TCall(int which, uint64_t base, uint64_t a, uint64_t b) {
     }
 }
 
+// ---- spirit probe: spawn chain 2916C5C(mgr,pos*,yaw,a4,a5); chr = *(*(mgr+0x128)+0x30), [inst]==2 when loaded (ally #46711) ----
+std::atomic<uint64_t> g_spMgr{0};
+std::atomic<int> g_spPin{0};
+int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
+    __try {
+        ((void (*)(uint64_t, const float*, float, int, int))(base + 0x2916C5C))(mgr, pos, yaw, 0, 0);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int SpiritSetPos(uint64_t chr, const float* pos) {
+    __try {
+        ((void (*)(uint64_t, const float*, float))F_SETPOSYAW)(chr, pos, 0.f);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+// mgr: *(holder+8); holder is tried at base+0x3744D8 and base+0x3624D4 (the notes give both, unclear if RVA of a pointer or of code)
+uint64_t SpiritMgr(uint64_t base, char* why, size_t n) {
+    static const uint64_t kH[2] = {0x3744D8, 0x3624D4};
+    for (int i = 0; i < 2; ++i) {
+        uint64_t holder = 0, mgr = 0;
+        if (Rd(base + kH[i], holder) && holder && Rd(holder + 8, mgr) && mgr) {
+            snprintf(why, n, "holder@+%llX=%llX mgr=%llX", (unsigned long long)kH[i], (unsigned long long)holder, (unsigned long long)mgr);
+            return mgr;
+        }
+    }
+    snprintf(why, n, "no holder chain");
+    return 0;
+}
+void SpiritChr(uint64_t mgr, uint64_t& inst, uint64_t& chr, uint64_t& state) {
+    inst = chr = state = 0;
+    if (mgr && Rd(mgr + 0x128, inst) && inst) {
+        Rd(inst + 0x30, chr);
+        Rd(inst, state);
+    }
+}
+
 // ---- pipe commands (remote.cpp thread) ----
 void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
@@ -3961,6 +4001,38 @@ void Command(const char* line, char* reply, size_t n) {
         Rd(in + 0x100 + slot * 4, now);
         Log("Tenshin equip: pd=%llX inner=%llX slot=%u (sel=%u) id %u(0x%X)->%u(0x%X)", (unsigned long long)pd, (unsigned long long)in, slot, sel, old, old, now, now);
         snprintf(reply, n, "ok equip slot=%u id %u->%u (sel=%u)", slot, old, now, sel);
+    if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        char why[160];
+        uint64_t mgr = SpiritMgr(base, why, sizeof(why));
+        float pp[4] = {};
+        const bool pok = PlayerPos(pp);
+        if (!strcmp(arg, "spawn") && mgr && pok) {
+            alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+            const int rc = SpiritCall(base, mgr, pos, 0.f);
+            Log("Spirit spawn rc=%d mgr=%llX", rc, (unsigned long long)mgr);
+        } else if (!strcmp(arg, "pin")) {
+            g_spPin.store(1);
+        } else if (!strcmp(arg, "unpin")) {
+            g_spPin.store(0);
+        } else if (!strcmp(arg, "tick")) {  // from the input hook: move the spirit chr onto the player (position only; model/attacks untouched)
+            uint64_t inst, chr, st;
+            SpiritChr(mgr, inst, chr, st);
+            if (g_spPin.load() && pok && chr && st == 2) {
+                alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+                SpiritSetPos(chr, pos);
+            }
+            snprintf(reply, n, "ok");
+            return;
+        }
+        uint64_t inst, chr, st;
+        SpiritChr(mgr, inst, chr, st);
+        uint32_t id = 0;
+        if (mgr) Rd(mgr + 0x10, id);
+        float sp[4] = {};
+        if (chr) Copy(sp, chr + 0x110, 16);
+        snprintf(reply, n, "ok spirit %s id=%u inst=%llX state=%llu chr=%llX pos=%.0f,%.0f,%.0f pin=%d", why, id, (unsigned long long)inst,
+                 (unsigned long long)st, (unsigned long long)chr, sp[0], sp[1], sp[2], g_spPin.load());
         return;
     }
     if (!strcmp(cmd, "tenshin")) {  // tenshin status|ready|begin|aura|hide|show|end : Nioh Tenshin (player form) live probe, RVAs from notes/player-transform-nioh-tenshin.md

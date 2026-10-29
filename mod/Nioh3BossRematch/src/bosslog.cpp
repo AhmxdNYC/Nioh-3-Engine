@@ -888,6 +888,13 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             wasDown = down;
         }
     }
+    {   // spirit pin: keep the spawned guardian-spirit chr on the player (no-op unless `rm spirit pin`)
+        static int n = 0;
+        if ((++n & 3) == 0) {
+            char rp[200];
+            addon::rematch::Command("spirit tick", rp, sizeof(rp));
+        }
+    }
     if (g_tenGo.load() > 0 && g_tenGo.fetch_sub(1) > 0) {
         uint32_t w = 0;
         if (Rd(a + 0x1068, w)) {
