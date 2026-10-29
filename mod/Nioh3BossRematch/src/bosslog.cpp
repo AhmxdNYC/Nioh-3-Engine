@@ -1085,6 +1085,25 @@ void TenshinPreload(uint32_t id, bool request, char* out, size_t n) {
     }
     Log("TenshinPreload(req=%d): %s", request ? 1 : 0, out);
 }
+// ally #47612: load a form's type-6 body pack the way the game does: 3F9C10(mgr=*(base+45B9E60), key=0x600000000+idx, ctx=29667D8()), then [133440(mgr,key)+2C8] != 0
+void TenshinLoad(uint32_t form, char* out, size_t n) {
+    static const struct { uint32_t f, idx; } kIdx[] = {{0x5455, 0x99}, {0x72B1, 0x10F}, {0x5E1B, 0x10}, {0x5FFF, 0x5D}, {0x6E73, 0x19F}, {0x1909, 0x184}, {0x17D6, 0x100}, {0x1C17, 0x131},
+                                                      {0x2552, 0x139}, {0x2D3F, 0x1EA}, {0x33C9, 0xFD}, {0x4E6, 0x110}, {0x27C, 0x158}, {0xD2F, 0xC5}, {0x1302, 0xD}, {0x5095, 0x154}};
+    size_t o = 0;
+    auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
+    for (auto& k : kIdx) {
+        if (form && k.f != form) continue;
+        __try {
+            void* mgr = *(void**)(g_base + 0x45B9E60);
+            const uint64_t key = 0x600000000ull + k.idx;
+            void* ctx = ((void* (*)())(g_base + 0x29667D8))();
+            ((void (*)(void*, uint64_t, void*))(g_base + 0x3F9C10))(mgr, key, ctx);
+            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + 0x133440))(mgr, key);
+            add(" %X(idx %X):E=%s,2C8=%d", k.f, k.idx, e ? "y" : "n", e ? (int)e[0x2C8] : -1);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { add(" %X:(fault)", k.f); }
+    }
+    Log("TenshinLoad: %s", out);
+}
 void TenshinSlots(uint64_t ext, char* out, size_t n) {
     size_t o = 0;
     auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };

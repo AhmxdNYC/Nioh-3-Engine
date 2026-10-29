@@ -70,6 +70,7 @@ void FightBegin(uint64_t ctx);                 // also used by rematch
 void TenshinReq();                             // game-thread request id 0x4E via fc1a20 (ally #47009)
 void TenshinMove(uint32_t v);                  // game 0x66C4A8(state, id, 0, 0.0f) once on the next input state
 void TenshinSetForm(uint32_t v);               // game SetForm 74C2FC+74C128 with this id before the go bit (0 = off)
+void TenshinLoad(uint32_t form, char* out, size_t n);  // ally #47612: 3F9C10 pack load per form (0 = all), reports [entry+2C8]
 void TenshinPreload(uint32_t id, bool request, char* out, size_t n);  // ally #47587: request the body pack load (1A8B990) and report [entry+2C8]; id 0 = all 17 forms
 void TenshinSlots(uint64_t ext, char* out, size_t n);  // dump the 0x11 equipped-gear slot words (ext+0x590 via F65D8) + form[+58] via the itemdef lookup F4DBC
 void TenshinForm(uint32_t v);                  // [state+0xA68] value written before the go bit (0 = none)
