@@ -42,6 +42,7 @@
 #include "upmirror.h"
 #include "scenemirror.h"
 #include "cbvstage.h"
+#include "hitchlog.h"
 #include "osd.h"
 #include "dxgidiag.h"
 #include "psoswap.h"
@@ -1489,6 +1490,7 @@ void Hooked(IDXGISwapChain* sc, UINT flags, cover_present::Ticket* cover) {
     const int64_t now = Qpc();
     CountPresent(sc, now);  // every swapchain, every presenting thread (FG presenter included), lock-free
     NotePresentThread(now);
+    if (!t_isFsr) hitchlog::OnGamePresent(now);  // [Debug] HitchLog: game-thread frame gap line (lock-free of the overlay)
     if (!TryAcquireSRWLockExclusive(&g_lock)) return;  // another thread is drawing: just present
     __try {
         ApplyLatency(sc, now);
@@ -1920,7 +1922,8 @@ void Start(const StartupInfo& si) {
     OLOG("FpsCounter=%d FrameTime=%d SpeedFactor=%d StartupPopup=%d Position=%d Scale=%.2f Offset=%d,%d (px at 1080p)", g_cfg.fpsCounter,
          g_cfg.frameTime, g_cfg.speed, g_cfg.popup, g_cfg.pos, g_cfg.scale, OffsetX(), OffsetY());
     if (!g_cfg.fpsCounter && !g_cfg.popup && !menu::Enabled() && !padlat::WantsPresentHook() && !pmode::WantsPresentHook() &&
-        !upmirror::WantsPresentHook() && !scenemirror::Wanted() && !cbvstage::WantsEclHook() && !dxgidiag::Enabled()) {
+        !upmirror::WantsPresentHook() && !scenemirror::Wanted() && !cbvstage::WantsEclHook() && !dxgidiag::Enabled() &&
+        !hitchlog::Enabled()) {
         OLOG("overlay off in ini ([Overlay] FpsCounter=0, [General] StartupPopup=0, [Menu] Enabled=0, [Debug] PresentModeLog=0, "
              "[Latency] VrrPresent=0) - no Present hook");
         return;

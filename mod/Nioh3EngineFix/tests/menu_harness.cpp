@@ -201,7 +201,7 @@ int main() {
           rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kSaveFilesRow && rows[7] == kUpdatePageRow && rows[8] == kClose);
     CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
     // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
-    for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
+    for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pOvHud, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
         g_pages.page = p;
         const int n = PageRows(rows, true);
         CHECK(n >= 4 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[n - 1] == kBackRow);
@@ -211,8 +211,21 @@ int main() {
     Change(kPageRow + pDisplay, 0);
     {
         const int n = PageRows(rows, true);
-        CHECK(g_pages.page == pDisplay && n == 11 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
-              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow && rows[9] == kAutoCont && rows[10] == kBackRow);
+        CHECK(g_pages.page == pDisplay && n == 12 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+              rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow &&
+              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kBackRow);
+    }
+    {   // 'Game HUD >' page: master Hide game HUD on top, then every per-element row once (hudhide::kElems), then Back
+        const int saved = g_pages.page;
+        g_pages.page = pOvHud;
+        const int n = PageRows(rows, true);
+        CHECK(n == 3 + 1 + hudhide::kElemN + 1 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
+        for (int e = 0; e < hudhide::kElemN; ++e) {
+            int seen = 0;
+            for (int r = 4; r < n - 1; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
+            CHECK(seen == 1);
+        }
+        g_pages.page = saved;
     }
     // FPS page: FPS rows and timing diagnostics, no performance rows
     g_pages.page = pOvFps;
@@ -711,7 +724,8 @@ int main() {
             CHECK((menu_style::kOnBg&0x00FF00FFu)!=0x0030003Cu);  // the ON pill is not green any more
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
         }
-        if (const char* dump = getenv("N3_MENU_DUMP")) {  // human #44361 preview: a move page drawn by the real host code, dumped for tests/menu_preview.py
+        char* dump = nullptr; size_t dumpLen = 0;
+        if (!_dupenv_s(&dump, &dumpLen, "N3_MENU_DUMP") && dump) {  // human #44361 preview: a move page drawn by the real host code, dumped for tests/menu_preview.py
             const char* moveRows[]={"Boss A - Minamoto no Yoritomo - 1 hit (5)", "-- 1 hit --",
                 "  1 : Anim 1.2s  1Hit1  0x4E4E\tAttack  [ON]", "> 2 : Anim 0.9s  1Hit2  0x4E51\tAttack  [OFF]",
                 "  3 : Anim 2.4s  1Hit3  0x4E55\tAttack  [REPEAT]", "  4 : Anim 1.6s  Grab1  0x4E7B\tGrab  [ON]",
@@ -722,13 +736,15 @@ int main() {
             strcpy_s(v.footer,"0x4E51  Overhead slash. A: repeat | Left: block | Right: allow."); v.toast[0]=0;
             osd::drawnRects.clear();osd::drawnTexts.clear();osd::drawnTextX.clear();osd::drawnTextY.clear();osd::drawnTextColor.clear();osd::drawnTextScale.clear();
             const float sc=DrawRematchHost(1920u,1080u);
-            FILE* f=nullptr; if ((f=fopen(dump,"w"))!=nullptr) {
+            FILE* f=nullptr;
+            if (!fopen_s(&f,dump,"w") && f) {
                 fprintf(f,"S %g %d %d\n",sc,osd::kGlyphW,osd::kGlyphH);
                 for(const auto& r:osd::drawnRects)fprintf(f,"R %g %g %g %g %08X\n",r.x,r.y,r.w,r.h,r.color);
                 for(size_t i=0;i<osd::drawnTexts.size();++i)fprintf(f,"T %g %g %g %08X %s\n",osd::drawnTextX[i],osd::drawnTextY[i],osd::drawnTextScale[i],osd::drawnTextColor[i],osd::drawnTexts[i].c_str());
                 fclose(f);
             }
         }
+        free(dump);
         g_rematchFreshAt=0; v={};
     }
     // Y/Triangle closes root, nested and hosted menus, but never steals edit input.

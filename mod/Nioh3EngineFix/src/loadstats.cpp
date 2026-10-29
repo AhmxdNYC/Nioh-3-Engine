@@ -819,6 +819,27 @@ void NoteRead(int cls, uint32_t bytes, bool overlapped, uint64_t qpcTicks) {
     if (overlapped) g_c.readAsync.fetch_add(bytes, std::memory_order_relaxed);
 }
 
+// hitchlog.cpp (1.7.60 HitchLog): request-manager queues right now (any thread; SEH-guarded reads). False until a manager
+// was captured by the Sleep thunks (LoadStats on and the first manager poll seen).
+bool LoaderQueues(int act[2], int pend[2]) {
+    bool any = false;
+    for (int m = 0; m < 2; ++m) {
+        act[m] = pend[m] = -1;
+        const uintptr_t mg = g_on ? g_mgr[m].load(std::memory_order_relaxed) : 0;
+        uint64_t p0 = 0, p1 = 0, b = 0, e = 0;
+        if (!mg || !Rd(mg + kMgr[m].pend0, p0) || !Rd(mg + kMgr[m].pend1, p1) || !Rd(mg + kMgr[m].actBeg, b) ||
+            !Rd(mg + kMgr[m].actEnd, e))
+            continue;
+        const uint64_t a = e >= b ? (e - b) >> 4 : 0;
+        if (p0 > (1u << 24) || p1 > (1u << 24) || a > 4096) continue;
+        act[m] = (int)a;
+        pend[m] = (int)(p0 + p1);
+        any = true;
+    }
+    return any;
+}
+int InflatesNow() { return g_on ? g_inflNow.load(std::memory_order_relaxed) : -1; }
+
 uint64_t LastFailEvalQpc() { return g_lg ? g_lastFailEvQ.load(std::memory_order_relaxed) : 0; }
 
 const char* StatusLine(char* buf, unsigned n) {

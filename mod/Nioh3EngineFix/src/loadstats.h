@@ -56,6 +56,10 @@ void NoteRead(int cls, uint32_t bytes, bool overlapped, uint64_t qpcTicks);
 // LoadGates: QPC of the last LoadIsLoadEnd evaluation that had a failing gate in the current/last 58A window (the "work end"
 // of notes\loading-ally-fixed.md 7); 0 when LoadGates is off or no evaluation failed.
 uint64_t LastFailEvalQpc();
+// hitchlog.cpp: loader request managers A/B in flight (active) and pending right now; false (all -1) when LoadStats is off
+// or no manager was seen yet. InflatesNow: inflate calls running right now (-1 = LoadStats off).
+bool LoaderQueues(int act[2], int pend[2]);
+int InflatesNow();
 
 // Menu / OSD: "LS: idle" or "LS: load 12.3 s, A 9/10, 412 MB, PSO 300" (empty when off).
 const char* StatusLine(char* buf, unsigned n);
