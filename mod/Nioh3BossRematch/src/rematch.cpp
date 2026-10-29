@@ -3889,6 +3889,21 @@ bool Toast(char* buf, size_t n, uint32_t& color) {
     return on;
 }
 
+// ---- Tenshin probe calls (SEH needs a function without C++ objects) ----
+int TCall(int which, uint64_t base, uint64_t a, uint64_t b) {
+    __try {
+        switch (which) {
+            case 1: ((void (*)(uint64_t))(base + 0x843010))(a); break;
+            case 2: ((void (*)(uint64_t))(base + 0x842A64))(a); break;
+            case 3: ((void (*)(uint64_t, int))(base + 0xA550E8))(a, (int)b); break;
+            case 4: ((void (*)(uint64_t, int, int))(base + 0x1AB4C5C))(a, 1, -1); break;
+        }
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+
 // ---- pipe commands (remote.cpp thread) ----
 void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
@@ -3922,6 +3937,50 @@ void Command(const char* line, char* reply, size_t n) {
                  "placements=[%s] last=%s",
                  g_state.load(), g_activeRow.load() >= 0 ? g_rows[(size_t)g_activeRow.load()].id : "-", fight::g_fights, fight::g_active, s.emaki,
                  s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), g_sp.last, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
+        return;
+    }
+    if (!strcmp(cmd, "tenshin")) {  // tenshin status|ready|begin|aura|hide|show|end : Nioh Tenshin (player form) live probe, RVAs from notes/player-transform-nioh-tenshin.md
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        const uint64_t ch = PlayerChar();
+        uint64_t ext = 0;
+        if (!ch || !Rd(ch + 0x3A0, ext) || !ext) {
+            snprintf(reply, n, "error no player");
+            return;
+        }
+        const uint64_t T = ext + 0x178;
+        // the prologue of Begin (0x843010) must match the dump, else the RVA is wrong for this build
+        static const uint8_t kBeginHead[8] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48};
+        uint8_t head[8] = {};
+        if (!Copy(head, base + 0x843010, 8) || memcmp(head, kBeginHead, 8)) {
+            snprintf(reply, n, "error Begin prologue mismatch %02X%02X%02X%02X", head[0], head[1], head[2], head[3]);
+            return;
+        }
+        uint8_t fl = 0;
+        float g0 = 0, g1 = 0;
+        uint32_t ft = 0, f188 = 0, hide = 0;
+        Rd(T + 0x10, fl); Rd(T + 0x14, ft); Rd(T + 0x20, g0); Rd(T + 0x24, g1); Rd(ext + 0x188, f188); Rd(ch + 0xB440, hide);
+        int rc = 0;
+        if (!strcmp(arg, "ready")) {
+            fl |= 1;
+            WrBytes(T + 0x10, &fl, 1);
+        } else if (!strcmp(arg, "begin")) {
+            rc = TCall(1, base, T, 0);
+        } else if (!strcmp(arg, "aura")) {
+            rc = TCall(2, base, T, 0);
+        } else if (!strcmp(arg, "hide") || !strcmp(arg, "show")) {
+            const bool h = !strcmp(arg, "hide");
+            rc = TCall(3, base, ch, h ? 1 : 0);
+        } else if (!strcmp(arg, "end")) {
+            rc = TCall(4, base, T, 0);
+        } else if (strcmp(arg, "status")) {
+            snprintf(reply, n, "error tenshin status|ready|begin|aura|hide|show|end");
+            return;
+        }
+        uint8_t fl2 = 0;
+        uint32_t f2 = 0, h2 = 0;
+        Rd(T + 0x10, fl2); Rd(ext + 0x188, f2); Rd(ch + 0xB440, h2);
+        Log("Tenshin %s rc=%d T=%llX flags %02X->%02X ext188 %X->%X hide %X->%X type=%u gauge=%.1f/%.1f", arg, rc, (unsigned long long)T, fl, fl2, f188, f2, hide, h2, ft, g0, g1);
+        snprintf(reply, n, "ok %s rc=%d flags %02X->%02X transformed %d->%d hide %X->%X type=%u gauge=%.1f/%.1f", arg, rc, fl, fl2, (f188 >> 1) & 1, (f2 >> 1) & 1, hide, h2, ft, g0, g1);
         return;
     }
     if (!strcmp(cmd, "scan")) {
