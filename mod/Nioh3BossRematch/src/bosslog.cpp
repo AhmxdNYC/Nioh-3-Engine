@@ -937,6 +937,15 @@ int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
         return 1;
     }
 }
+void* (*g_itemDefOrig)(void*, uint64_t) = nullptr;
+// call site 0x74C27F in RefreshForm 0x74C1DC: itemdef lookup for the equipped core; form id = [def+0x58] (ally #47284, pc2 #47448)
+void* HkItemDefForm(void* tbl, uint64_t id) {
+    void* r = g_itemDefOrig(tbl, id);
+    uint32_t f = 0xFFFFFFFF;
+    __try { if (r) f = *(uint32_t*)((uint8_t*)r + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("TenshinForm: RefreshForm itemid=%u (0x%X) itemdef=%p form[+58]=0x%X", (unsigned)(id & 0xFFFF), (unsigned)(id & 0xFFFF), r, f);
+    return r;
+}
 void HkTenshinReq(uint64_t a, uint64_t b, uint64_t c, uint64_t, const uint64_t* sp) {
     static std::atomic<int64_t> sec{-1};
     static std::atomic<int> inSec{0};
@@ -1119,6 +1128,7 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
         OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
         OnEntry("ScProbe_786C84", &HkTenshinReq);
+        { void* o = nullptr; const char* w = nullptr; if (InstallCallRetargetAt((uint8_t*)(g_base + 0x74C27F), "call:RefreshFormItemDef", (void*)&HkItemDefForm, &o, &w)) g_itemDefOrig = (void* (*)(void*, uint64_t))o; else Log("TenshinForm: itemdef hook failed: %s", w ? w : "?"); }
         OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
         OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
         OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);

@@ -61,6 +61,7 @@ bool InstallGroup(const char* group, const char** why);
 bool InstallPump(void (*tick)(), const char** why);
 // retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
+bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why);
 
 // ---- features ----
 namespace bosslog {

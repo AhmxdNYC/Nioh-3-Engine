@@ -294,7 +294,10 @@ bool InstallPump(void (*tick)(), const char** why) {
 
 // retarget an E8 rel32 call site (kind "call") to `fn` (same signature and ABI as the callee); *orig = the previous callee
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why) {
-    uint8_t* p = (uint8_t*)Site(site);
+    return InstallCallRetargetAt((uint8_t*)Site(site), site, fn, orig, why);
+}
+
+bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why) {
     uint8_t b[5];
     if (!p || !Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
         if (why) *why = "call site not resolved / not a call";
