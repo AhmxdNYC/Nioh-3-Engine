@@ -1101,7 +1101,7 @@ void TenshinPreload(uint32_t id, bool request, char* out, size_t n) {
             if (request) ((void (*)(uint32_t, uint32_t))(g_base + 0x1A8B990))(key, 0);
             void* tbl = *(void**)(g_base + 0x45B9E60);
             uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + 0x133440))(tbl, 0x600000000ull + key);
-            add(" %X:key=%X,E=%s,2C8=%d", f, key, e ? "y" : "n", e ? (int)e[0x2C8] : -1);
+            add(" %X:key=%X,E=%p,2C8=%d,m20=%llX,a18=%llX,m28=%llX", f, key, (void*)e, e ? (int)e[0x2C8] : -1, e ? *(unsigned long long*)(e + 0x20) : 0ull, e ? *(unsigned long long*)(e + 0x18) : 0ull, e ? *(unsigned long long*)(e + 0x28) : 0ull);
         } __except (EXCEPTION_EXECUTE_HANDLER) { add(" %X:(fault)", f); }
     }
     Log("TenshinPreload(req=%d): %s", request ? 1 : 0, out);
