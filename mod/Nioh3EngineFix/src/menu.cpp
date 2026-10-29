@@ -1093,7 +1093,7 @@ inline int Move(const std::wstring& dir, bool off) {
     return moved;
 }
 }  // namespace reversemods
-char g_reverseNote[200] = "A twice: turn the mod off for the next start (normal game). Saves and settings stay.";
+char g_reverseNote[200] = "A twice: mod OFF from the next start. Saves stay.";
 uint64_t g_reverseConfirmAt = 0;
 std::wstring g_reverseDir;  // tests point this at a temp folder; empty = the game folder
 void DoReverseMods(uint64_t now) {
@@ -1101,14 +1101,14 @@ void DoReverseMods(uint64_t now) {
     const bool off = !reversemods::IsOff(dir);
     if (!g_reverseConfirmAt || now - g_reverseConfirmAt > 5000) {
         g_reverseConfirmAt = now ? now : 1;
-        snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", off ? "Press A again to turn the mod OFF for the next start. Saves and settings stay."
-                                                                 : "Press A again to put the mod back for the next start.");
+        snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", off ? "Press A again: mod OFF from the next start."
+                                                                 : "Press A again: mod back ON from the next start.");
         return;
     }
     g_reverseConfirmAt = 0;
     const int moved = reversemods::Move(dir, off);
-    if (moved < 0) snprintf(g_reverseNote, sizeof(g_reverseNote), "Could not rename the mod files; nothing changed. Close the game and use '%s.cmd'.", off ? "Restore Vanilla Game" : "Put the mod back");
-    else if (off) snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", moved ? "Mod is OFF from the next start. Quit the game, then start it normally. A twice here (or 'Put the mod back.cmd') turns it on."
+    if (moved < 0) snprintf(g_reverseNote, sizeof(g_reverseNote), "Rename failed, nothing changed. Use '%s' instead.", off ? "Restore Vanilla Game" : "Put the mod back");
+    else if (off) snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", moved ? "Mod is OFF from the next start. A twice here: back ON."
                                                                            : "No mod files found to turn off.");
     else snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", moved ? "Mod is back ON from the next start." : "No parked mod files found.");
     MLOG("Reverse Mods row: %s (%d files)", off ? "off" : "on", moved);
@@ -3324,7 +3324,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
     } else if (g_sel == kReverseModsRow) {
         snprintf(what, sizeof(what), "%s", g_reverseNote);
-        snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game' in the game folder. This session keeps the mod until you quit.");
+        snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
         snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
