@@ -4244,6 +4244,11 @@ void Command(const char* line, char* reply, size_t n) {
             bosslog::TenshinGo();
         } else if (!strncmp(arg, "move", 4)) {  // move <hex>: play action id via 0x66C4A8 (after fill + go has begun the form)
             { const char* fp = strstr(line, "move"); bosslog::TenshinMove(fp ? (uint32_t)strtoul(fp + 4, nullptr, 16) : 0); }
+        } else if (!strcmp(arg, "slots")) {  // slots: gear-slot ids + form[+58] (pc2 #47582), also written to the log
+            char sb[512];
+            bosslog::TenshinSlots(ext, sb, sizeof(sb));
+            snprintf(reply, n, "ok %s", sb);
+            return;
         } else if (!strncmp(arg, "setform", 7)) {
             { const char* fp = strstr(line, "setform"); bosslog::TenshinSetForm(fp ? (uint32_t)strtoul(fp + 7, nullptr, 16) : 0); }
         } else if (!strncmp(arg, "form", 4)) {  // form <hex>: [state+0xA68] value for the next go (0 clears)

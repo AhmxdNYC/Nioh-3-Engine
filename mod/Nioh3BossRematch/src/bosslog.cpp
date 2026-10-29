@@ -1069,6 +1069,22 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinForm(uint32_t v) { g_tenForm.store(v); }
+void TenshinSlots(uint64_t ext, char* out, size_t n) {
+    size_t o = 0;
+    auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
+    __try {
+        uint8_t* tblp = (uint8_t*)(g_base + 0x45B3E30);  // [rip+3E6DBB5] at 74C274
+        uint8_t* tbl = *(uint8_t**)(*(uint8_t**)tblp + 0x68);
+        add("setidx=%d;", *(int32_t*)(ext + 0x590 + 0x1EE0));
+        for (int s = 0; s < 0x11; ++s) {
+            uint16_t* w = ((uint16_t * (*)(uint64_t, int)) (g_base + 0xF65D8))(ext + 0x590, s);
+            const uint32_t id = w ? *w : 0;
+            uint8_t* d = id ? ((uint8_t * (*)(void*, uint64_t)) (g_base + 0xF4DBC))(tbl, id) : nullptr;
+            add(" s%X=%X/%X", s, id, d ? *(uint32_t*)(d + 0x58) : 0xFFFFFFFFu);
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { add(" (fault)"); }
+    Log("TenshinSlots: %s", out);
+}
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
