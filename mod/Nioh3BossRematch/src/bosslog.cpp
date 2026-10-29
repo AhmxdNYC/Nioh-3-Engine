@@ -862,7 +862,8 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
         static bool wasDown = false;
         if (!tried) {
             tried = true;
-            for (const wchar_t* dll : {L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll"}) {
+            static const wchar_t* const kXi[] = {L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll"};
+            for (const wchar_t* dll : kXi) {
                 if (HMODULE m = GetModuleHandleW(dll)) { xget = (XGet)GetProcAddress(m, "XInputGetState"); if (xget) break; }
             }
         }
