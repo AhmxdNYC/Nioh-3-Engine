@@ -30,7 +30,7 @@ def main():
         'update-linux.sh': ROOT/'tools/updater/update-linux.sh',
     })
     for name in ('Nioh3 Mod Website.url','install_mod.py','Install-Mod.cmd','install-mod.sh','USER_GUIDE.md',
-                 'Restore Vanilla Game.cmd','Put the mod back.cmd'):
+                 'Restore Vanilla Game.cmd','Put the mod back.cmd','restore-vanilla.sh','put-mod-back.sh'):
         files[name] = ROOT/'release'/name
     ini = configparser.ConfigParser(strict=False)
     ini.read(files['Nioh3EngineFix.ini'])

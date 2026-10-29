@@ -77,7 +77,7 @@ void Publish(std::string_view body,const char* installed) {
     Version remote{},local{};
     if(!ParseManifest(body,remote)||!ParseVersion(installed,local,true)) return;
     char notice[128]{};
-    if(Newer(remote,local)) std::snprintf(notice,sizeof(notice),"Update %u.%u.%u available: Mod Menu > Open update page",
+    if(Newer(remote,local)) std::snprintf(notice,sizeof(notice),"Update %u.%u.%u available: Mod Menu > Update + Page",
         remote.part[0],remote.part[1],remote.part[2]);
     AcquireSRWLockExclusive(&g_lock);
     std::memcpy(g_notice,notice,sizeof(g_notice));

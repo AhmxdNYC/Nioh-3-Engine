@@ -41,7 +41,8 @@ constexpr int kSaveRefreshRow = kSaveCancelRow + 2;
 constexpr int kSaveLiveRow = kSaveRefreshRow + 1;
 constexpr int kSaveOpenRow = kSaveLiveRow + 1;
 constexpr int kSaveNamedFirst = kSaveOpenRow + 1;
-constexpr int kMenuRowCap = kSaveNamedFirst + savefiles::kMaxSlots;
+constexpr int kReverseModsRow = kSaveNamedFirst + savefiles::kMaxSlots;  // human #45507: first page, after 'Update + Page'
+constexpr int kMenuRowCap = kReverseModsRow + 1;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");

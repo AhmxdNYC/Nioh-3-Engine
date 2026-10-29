@@ -131,6 +131,12 @@ reason. Every 30 s it prints `stats` lines. Send this log with any report.
 | a fix row says `REFUSED` | it needs another fix on (the menu text says which) |
 | visual glitch | turn the newest experimental row off in the menu, note which one, report it |
 
+## Turn the mod off / back on (normal game)
+- In game: Mod menu first page > `Reverse Mods`, press A twice. The next start is the normal game; saves and settings stay.
+  Press it twice again (before starting the game without the mod) to put it back.
+- Windows, game closed: double-click `Restore Vanilla Game.cmd` in the game folder; `Put the mod back.cmd` turns it on again.
+- Linux / Steam Deck, game closed: run `sh restore-vanilla.sh` in the game folder; `sh put-mod-back.sh` turns it on again.
+
 ## Uninstall
 Delete `dinput8.dll` (unless another mod needs it), `Nioh3EngineFix.asi`, `.ini`, `.log` (and the `Nioh3EngineFix_pj` folder
 if you used PJ); on Proton also clear the launch option. If you installed the shaders, restore the originals or verify the game files in Steam.

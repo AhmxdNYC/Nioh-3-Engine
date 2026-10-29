@@ -1058,6 +1058,62 @@ void DoReport() {
     MLOG("Report row: %s", g_reportNote);
 }
 
+// human #45507: 'Reverse Mods' row = 'Restore Vanilla Game.cmd' from inside the game. Renames the loader and the .asi files
+// to *.mod-off (saves and ini files stay), so the NEXT start is the normal game. Windows and Wine both allow renaming a
+// loaded module; this session keeps the mod until the game closes. Pressing it again while the mod is off puts it back.
+namespace reversemods {
+const wchar_t* const kFiles[] = {L"dinput8.dll", L"Nioh3EngineFix.asi", L"Nioh3BossRematch.asi", L"Nioh3Training.asi", L"Nioh3CamKiProbe.asi"};
+inline bool Exists(const std::wstring& p) { return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES; }
+inline std::wstring GameDir() {
+    wchar_t exe[MAX_PATH] = {};
+    const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    std::wstring dir(exe, n);
+    const size_t slash = dir.find_last_of(L"\\/");
+    return slash == std::wstring::npos ? std::wstring() : dir.substr(0, slash + 1);
+}
+// The mod counts as off when the loader is parked and not present.
+inline bool IsOff(const std::wstring& dir) { return !Exists(dir + kFiles[0]) && Exists(dir + kFiles[0] + L".mod-off"); }
+// off=true parks every present file, off=false brings every parked file back. Returns files moved, or -1 after undoing a
+// partial move (a target already there, or a rename refused), so the folder is never left half on / half off.
+inline int Move(const std::wstring& dir, bool off) {
+    int moved = 0; const wchar_t* done[sizeof(kFiles) / sizeof(kFiles[0])] = {};
+    for (const wchar_t* f : kFiles) {
+        const std::wstring on = dir + f, parked = on + L".mod-off";
+        const std::wstring& from = off ? on : parked; const std::wstring& to = off ? parked : on;
+        if (!Exists(from)) continue;
+        if (Exists(to) || !MoveFileExW(from.c_str(), to.c_str(), 0)) {
+            for (int i = moved - 1; i >= 0; --i) {
+                const std::wstring a = dir + done[i], b = a + L".mod-off";
+                MoveFileExW(off ? b.c_str() : a.c_str(), off ? a.c_str() : b.c_str(), 0);
+            }
+            return -1;
+        }
+        done[moved++] = f;
+    }
+    return moved;
+}
+}  // namespace reversemods
+char g_reverseNote[200] = "A twice: turn the mod off for the next start (normal game). Saves and settings stay.";
+uint64_t g_reverseConfirmAt = 0;
+std::wstring g_reverseDir;  // tests point this at a temp folder; empty = the game folder
+void DoReverseMods(uint64_t now) {
+    const std::wstring dir = g_reverseDir.empty() ? reversemods::GameDir() : g_reverseDir;
+    const bool off = !reversemods::IsOff(dir);
+    if (!g_reverseConfirmAt || now - g_reverseConfirmAt > 5000) {
+        g_reverseConfirmAt = now ? now : 1;
+        snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", off ? "Press A again to turn the mod OFF for the next start. Saves and settings stay."
+                                                                 : "Press A again to put the mod back for the next start.");
+        return;
+    }
+    g_reverseConfirmAt = 0;
+    const int moved = reversemods::Move(dir, off);
+    if (moved < 0) snprintf(g_reverseNote, sizeof(g_reverseNote), "Could not rename the mod files; nothing changed. Close the game and use '%s.cmd'.", off ? "Restore Vanilla Game" : "Put the mod back");
+    else if (off) snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", moved ? "Mod is OFF from the next start. Quit the game, then start it normally. A twice here (or 'Put the mod back.cmd') turns it on."
+                                                                           : "No mod files found to turn off.");
+    else snprintf(g_reverseNote, sizeof(g_reverseNote), "%s", moved ? "Mod is back ON from the next start." : "No parked mod files found.");
+    MLOG("Reverse Mods row: %s (%d files)", off ? "off" : "on", moved);
+}
+
 int HideHudSettingRow() {  // #44871: Display Overlays row for [Menu] HideGameHud
     for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "HideGameHud")) return kSettingRow + i;
     return -1;
@@ -1204,6 +1260,7 @@ int PageRows(int* out, bool selectable) {
     int n = 3 + PageRowsBody(out + 3, selectable);
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
+    if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
     return n;
 }
 int FirstOwnRow(const int* rows, int n) { return n > 3 ? rows[3] : n ? rows[0] : kBackRow; }
@@ -1854,6 +1911,7 @@ void Change(int id, int dir) {
     }
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
     if (id == kUpdatePageRow) { if (dir == 0) LaunchUpdatePage(); return; }
+    if (id == kReverseModsRow) { if (dir == 0) DoReverseMods(Now()); return; }
     if (id == kReportRow) { if (dir == 0) DoReport(); return; }
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
@@ -3099,8 +3157,16 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id == kUpdatePageRow) {
             if (id == g_sel) selRow = nb;
-            put(body, nb, 128, id == g_sel ? "> Open update page" : "  Open update page", "",
+            put(body, nb, 128, id == g_sel ? "> Update + Page" : "  Update + Page", "",
                 "A: open", cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id == kReverseModsRow) {
+            if (id == g_sel) selRow = nb;
+            const bool off = reversemods::IsOff(g_reverseDir.empty() ? reversemods::GameDir() : g_reverseDir);
+            const bool armed = g_reverseConfirmAt && Now() - g_reverseConfirmAt <= 5000;
+            put(body, nb, 128, id == g_sel ? "> Reverse Mods" : "  Reverse Mods", off ? "OFF next start" : "",
+                armed ? "A again: confirm" : off ? "A: put back" : "A: turn off", cWhite, armed ? cYellow : cCyan, id == g_sel, false);
             continue;
         }
         if (id == kModMenuRow || id == kCloseTopRow || id == kReportRow) {
@@ -3256,6 +3322,9 @@ float DrawImpl(unsigned W, unsigned H) {
     } else if (g_sel == kUpdatePageRow) {
         snprintf(what, sizeof(what), "Open website and show Nioh3Updater.exe in the game folder.");
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
+    } else if (g_sel == kReverseModsRow) {
+        snprintf(what, sizeof(what), "%s", g_reverseNote);
+        snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game' in the game folder. This session keeps the mod until you quit.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
         snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");

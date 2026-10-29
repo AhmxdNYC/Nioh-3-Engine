@@ -1,5 +1,6 @@
 """The game-folder shortcuts turn the mod off and back on. Saves and ini files stay. No game launch."""
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -8,6 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OFF = ROOT / "Restore Vanilla Game.cmd"
 ON = ROOT / "Put the mod back.cmd"
+SH_OFF = ROOT / "restore-vanilla.sh"
+SH_ON = ROOT / "put-mod-back.sh"
+SH = shutil.which("sh")
 
 
 def run(cmd, folder):
@@ -17,7 +21,36 @@ def run(cmd, folder):
                           env=env, capture_output=True, text=True)
 
 
+def run_sh(script, folder):
+    env = os.environ.copy()
+    env["NIOH3_RESTORE_SKIP_RUNNING_CHECK"] = "1"
+    return subprocess.run([SH, str(script).replace("\\", "/"), str(folder).replace("\\", "/"), "--yes"],
+                          env=env, capture_output=True, text=True)
+
+
 class RestoreVanillaTest(unittest.TestCase):
+    @unittest.skipUnless(SH, "needs sh")
+    def test_linux_scripts_round_trip(self):
+        with tempfile.TemporaryDirectory() as raw:
+            game = Path(raw)
+            for name, data in (("Nioh3.exe", b"game"), ("dinput8.dll", b"loader"), ("Nioh3EngineFix.asi", b"ef"),
+                               ("Nioh3Training.asi", b"tr"), ("Nioh3EngineFix.ini", b"ini-keep"), ("SAVEDATA.BIN", b"save-keep")):
+                (game / name).write_bytes(data)
+            off = run_sh(SH_OFF, game)
+            self.assertEqual(off.returncode, 0, off.stdout + off.stderr)
+            self.assertFalse((game / "dinput8.dll").exists())
+            self.assertEqual((game / "dinput8.dll.mod-off").read_bytes(), b"loader")
+            self.assertEqual((game / "Nioh3Training.asi.mod-off").read_bytes(), b"tr")
+            self.assertEqual((game / "SAVEDATA.BIN").read_bytes(), b"save-keep")
+            self.assertEqual(run_sh(SH_OFF, game).returncode, 0)
+            back = run_sh(SH_ON, game)
+            self.assertEqual(back.returncode, 0, back.stdout + back.stderr)
+            self.assertEqual((game / "dinput8.dll").read_bytes(), b"loader")
+            self.assertEqual((game / "Nioh3EngineFix.asi").read_bytes(), b"ef")
+            self.assertFalse((game / "dinput8.dll.mod-off").exists())
+            self.assertEqual((game / "Nioh3EngineFix.ini").read_bytes(), b"ini-keep")
+            self.assertEqual(run_sh(SH_OFF, Path(raw) / "missing").returncode, 3)
+
     def test_round_trip_leaves_saves_and_settings(self):
         with tempfile.TemporaryDirectory() as raw:
             game = Path(raw)

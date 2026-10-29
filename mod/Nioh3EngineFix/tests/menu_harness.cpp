@@ -150,7 +150,7 @@ int main() {
 
     using namespace menu;
     // Update hint is fitted to small viewports and leaves the ordinary reminder intact.
-    updatecheck::testNotice = "Update 1.8.0 available: Mod Menu > Open update page";
+    updatecheck::testNotice = "Update 1.8.0 available: Mod Menu > Update + Page";
     osd::drawnRects.clear(); osd::drawnTexts.clear();
     DrawCornerNote(800, 600, "Mod menu: F10 / Start x3", 0xFFFFFFFF);
     bool updateSeen=false, urlSeen=false, folderSeen=false;
@@ -177,6 +177,25 @@ int main() {
     updatecheck::wine=true; g_open=1; g_pressed=K_NAV; g_toggleReq=1;
     Change(kUpdatePageRow,0); CHECK(!g_open && !g_pressed && !g_toggleReq);
     updatecheck::wine=false;
+    {   // human #45507: Reverse Mods = A twice parks the mod files (saves / ini stay), A twice again puts them back
+        wchar_t tmp[MAX_PATH]; GetTempPathW(MAX_PATH, tmp);
+        g_reverseDir = std::wstring(tmp) + L"n3rev-" + std::to_wstring(GetCurrentProcessId()) + L"\\";
+        CreateDirectoryW(g_reverseDir.c_str(), nullptr);
+        auto mk = [](const std::wstring& p) { HANDLE h = CreateFileW(p.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr); CloseHandle(h); };
+        auto ex = [](const std::wstring& p) { return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES; };
+        for (const wchar_t* f : {L"dinput8.dll", L"Nioh3EngineFix.asi", L"Nioh3Training.asi", L"Nioh3EngineFix.ini", L"SAVEDATA.BIN"}) mk(g_reverseDir + f);
+        Change(kReverseModsRow, 1); CHECK(ex(g_reverseDir + L"dinput8.dll"));           // Left/Right never act
+        Change(kReverseModsRow, 0); CHECK(ex(g_reverseDir + L"dinput8.dll"));           // first A only arms the confirm
+        Change(kReverseModsRow, 0);                                                      // second A turns the mod off
+        CHECK(reversemods::IsOff(g_reverseDir) && ex(g_reverseDir + L"Nioh3EngineFix.asi.mod-off") && ex(g_reverseDir + L"Nioh3Training.asi.mod-off"));
+        CHECK(ex(g_reverseDir + L"Nioh3EngineFix.ini") && ex(g_reverseDir + L"SAVEDATA.BIN") && strstr(g_reverseNote, "OFF"));
+        Change(kReverseModsRow, 0); Change(kReverseModsRow, 0);                          // A twice again puts it back
+        CHECK(!reversemods::IsOff(g_reverseDir) && ex(g_reverseDir + L"dinput8.dll") && ex(g_reverseDir + L"Nioh3Training.asi") && !ex(g_reverseDir + L"dinput8.dll.mod-off"));
+        mk(g_reverseDir + L"Nioh3Training.asi.mod-off");                                 // a stale parked copy blocks: nothing changes
+        CHECK(reversemods::Move(g_reverseDir, true) == -1 && ex(g_reverseDir + L"dinput8.dll") && ex(g_reverseDir + L"Nioh3EngineFix.asi") && !ex(g_reverseDir + L"dinput8.dll.mod-off"));
+        for (const wchar_t* f : {L"dinput8.dll", L"Nioh3EngineFix.asi", L"Nioh3Training.asi", L"Nioh3Training.asi.mod-off", L"Nioh3EngineFix.ini", L"SAVEDATA.BIN"}) DeleteFileW((g_reverseDir + f).c_str());
+        RemoveDirectoryW(g_reverseDir.c_str()); g_reverseDir.clear(); g_reverseConfirmAt = 0;
+    }
     updatecheck::folderNotice="Game folder: /home/player/Steam Games/Nioh3/";
     g_open=1; g_cfg.pauseHint=0;
     osd::drawnTexts.clear(); DrawFolderNotice(320,600,1,true);
@@ -197,8 +216,8 @@ int main() {
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     int rootN = PageRows(rows, true);
     // #38437 top rows: Mod menu, Close, Report; then Display Overlays, Camera settings, Settings, Close
-    CHECK(rootN == 9 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
-          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kSaveFilesRow && rows[7] == kUpdatePageRow && rows[8] == kClose);
+    CHECK(rootN == 10 && rows[0] == kModMenuRow && rows[1] == kCloseTopRow && rows[2] == kReportRow && rows[3] == kPageRow + pDisplay &&
+          rows[4] == kPageRow + pCamera && rows[5] == kPageRow + pSettings && rows[6] == kSaveFilesRow && rows[7] == kUpdatePageRow && rows[8] == kReverseModsRow && rows[9] == kClose);
     CHECK(strcmp(PageName(pDisplay), "Display Overlays") == 0 && strcmp(PageName(pFrameGen), "Frame Gen") == 0);
     // every page keeps the three top rows first and ends with Back (stable layout: nothing else is added dynamically)
     for (int p : {pSettings, pDisplay, pOvController, pOvFrameMeter, pOvInput, pOvFps, pOvHud, pCamera, pSCpu, pSGpu, pSGame, pFrameGen}) {
@@ -443,8 +462,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 11 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
-          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kSaveFilesRow && rows[9] == kUpdatePageRow && rows[10] == kClose);
+    CHECK(bossN == 12 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
+          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kSaveFilesRow && rows[9] == kUpdatePageRow && rows[10] == kReverseModsRow && rows[11] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -584,7 +603,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==9 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kSaveFilesRow && rows[7]==kUpdatePageRow && rows[8]==kClose);
+    CHECK(g_pages.page==pRoot && n==10 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kSaveFilesRow && rows[7]==kUpdatePageRow && rows[8]==kReverseModsRow && rows[9]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly
@@ -721,7 +740,7 @@ int main() {
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("[ON]",bg,fg) && bg==menu_style::kOnBg && fg==menu_style::kOnText); }
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("[OFF]",bg,fg) && bg==menu_style::kOffBg); }
             CHECK(!strcmp(menu_style::PillText("ON"),"[ON]") && !strcmp(menu_style::PillText("OFF"),"[OFF]") && !strcmp(menu_style::PillText("x1.00"),"x1.00"));
-            CHECK((menu_style::kOnBg&0x00FF00FFu)!=0x0030003Cu);  // the ON pill is not green any more
+            static_assert((menu_style::kOnBg&0x00FF00FFu)!=0x0030003Cu, "the ON pill is not green");  // the ON pill is not green any more
             { uint32_t bg=0,fg=0; CHECK(menu_style::PillColors("REPEAT",bg,fg) && bg==menu_style::kRptBg); }
         }
         char* dump = nullptr; size_t dumpLen = 0;

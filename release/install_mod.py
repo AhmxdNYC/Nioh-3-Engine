@@ -20,7 +20,7 @@ FILES = ("dinput8.dll", "Nioh3EngineFix.asi", "Nioh3EngineFix.ini",
          "Nioh3Training.asi", "Nioh3Training.ini", "Nioh3Training_action_records.tsv",
          "Nioh3Training_actionsets.tsv", "Nioh3Training_arenas.tsv", "Nioh3Training_bgm.tsv",
          "Nioh3 Mod Website.url", "Nioh3Updater.exe", "SaveSlots-after-exit.pyz",
-         "Restore Vanilla Game.cmd", "Put the mod back.cmd")
+         "Restore Vanilla Game.cmd", "Put the mod back.cmd", "restore-vanilla.sh", "put-mod-back.sh")
 
 
 def sha(path):
@@ -202,6 +202,8 @@ def install(package, game, saves, backups, running=game_running):
                 exclusive_copy(backup / "payload" / name, staged)
                 if sha(staged) != info["after"]:
                     raise RuntimeError("Staged payload changed; activation refused")
+                if name.endswith(".sh"):
+                    staged.chmod(staged.stat().st_mode | 0o755)  # Linux: restore-vanilla.sh / put-mod-back.sh run directly
                 if current_hash(target) != info["before"]:
                     raise RuntimeError("Installed target changed during payload copy")
                 if running():
