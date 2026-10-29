@@ -15,12 +15,20 @@ Everything works in the game's memory while it runs. Close the game and it is go
 do nothing on any version other than 2.02.
 
 **Nioh3EngineFix** (engine fix, [`mod/Nioh3EngineFix/`](mod/Nioh3EngineFix/), version 1.7.86 in this source)
-- **Real game speed below your fps cap.** Stock Nioh 3 runs the whole game in slow motion when it cannot hold its cap;
-  with the mod it stays at 1.00x speed down to a floor (48 fps at the 120 cap, 24 at 60). Pauses itself online.
-- **Much faster loading under Proton / Linux** (ROG Ally X: about 96 s -> 38 s per save load). Windows loading is unchanged.
+- **Real game speed when the update thread is CPU-limited.** Stock Nioh 3 slows the game down when its update thread
+  cannot keep the cap's tick rate (CPU-limited; e.g. 108 ticks/s at the 120 cap = 90 % speed). When only the GPU limits,
+  stock already runs at full speed (the update thread paces itself; you see uneven ticks per frame, not slow motion) and
+  VRR changes nothing. With the mod each update tick advances by its real interval down to a floor (48 ticks/s at the
+  120 cap, 24 at 60). Below the cap the step can reach 2.5x the cap's step while the engine's tier flags stay at the
+  cap, a combination stock never runs. Pauses itself online.
+- **Much faster loading under Proton / Linux** (ROG Ally X: about 96 s -> 38 s per save load, measured on 1.7.23-1.7.25 by chaining two tests; not re-run on the current build). Windows loading is unchanged.
 - **Less wasted CPU and power.** Engine threads that spin while waiting are made to sleep; this matters most on handhelds.
-- **Optional Extra Performance presets** (off by default): about +3 % (Performance) and +10 % (Potato) fps, with small image changes.
-- **Frame generation guard under Proton**, which avoids a game crash with frame generation on.
+- **Optional Extra Performance presets** (off by default, change the look): about +3 % fps with Performance (small image
+  changes) and +10 % with Potato (visibly coarser fog, no ambient occlusion; measured on 1.7.59), when the GPU is the
+  limit. No gain when CPU-bound (pc2: about 0).
+- **Frame generation crash guard for Proton: OFF by default** (`[Patches] FGC = 0`; set `FGC = 1` to turn it on). It
+  skips a game copy job that crashes when its texture is missing (vkd3d-proton #2845). It stays off by default on
+  purpose: crash logs from frame generation tell us what breaks.
 - **In-game mod menu** (F10, Esc x3, or triple-tap Start): every fix switchable live, plain-language help per row,
   tab bar with LB/RB, FPS / frame-time overlay, controller and input display.
 - **Game HUD toggles:** hide the whole HUD or single parts (health/Ki, shortcuts, style, stance, guardian, Amrita,
@@ -37,6 +45,9 @@ already beaten from an overlay menu, spawning in the boss arena, plus Boss Match
 toggles, frame meter and Ki / I-frame ring meter, practice stats, boss vitals and drills.
 
 Each mod works on its own; together they share one `dinput8.dll` loader and one menu.
+
+**Do not install these mods together with Lyall's Nioh3Fix.** Both patch the same engine code (frame timing and menu
+input), and the combination is not supported.
 
 ## What it looks like
 
@@ -79,16 +90,19 @@ Final bench, Yoritomo fight, average presented fps, two chunks per arm ("pure-pe
 
 | Device | FG | Stock | Pure-perf | Full |
 |---|---|--:|--:|--:|
-| PC: Ryzen 5 7600X + RX 9070, 1440p, Windows | off | 75.84 | 98.46 | 98.78 |
+| PC: Ryzen 5 7600X + RX 9070, 1440p, Windows | off | 75.84 | 98.46 (indicative, see caveats) | 98.78 |
 | PC: same | on | 141.42 | 144.41 | 151.58 |
 | PC2: Ryzen 5 5600X + RX 6650 XT, Windows (slow 0.8 GB/s GPU link) | off | 41.72 | 46.87 | 47.32 |
 | PC2: same | on | 77.07 | 73.59 | 74.30 |
 | ROG Ally X, Bazzite / Proton | off | 34.63 | 32.58 | 39.02 |
 | ROG Ally X, same (displayed fps) | on | 42.06 | 44.65 | 52.38 |
 
-Caveats: two chunks per arm in one fight; the Ally chunks vary widely; on PC2 with FG on stock is ahead; the earlier
-controlled same-picture A/B on the PC found 0 to +2.5 %, so treat the PC FG-off gap as indicative until it is
-reproduced. Tested on AMD hardware only (two Windows PCs and a ROG Ally X); NVIDIA, Intel Arc and Intel CPUs are
+Caveats: two chunks per arm (n = 2) in one fight, no error bars or confidence intervals, so no row here is a
+statistically significant result; the Ally chunks vary widely (Ally FG off: pure-perf -5.9 % and full +12.7 % are both
+inside chunk noise; CPU power unchanged); on PC2 with FG on stock is ahead. Ally "stock" = the mod installed with every
+optimization switched off, not a clean game. The PC FG-off gap (+29.8 %) is indicative only: n = 2, not reproduced,
+and the earlier controlled same-picture A/B on the PC found 0 to +2.5 %. We plan to re-measure with at least 5
+interleaved runs per arm before quoting headline numbers. Tested on AMD hardware only (two Windows PCs and a ROG Ally X); NVIDIA, Intel Arc and Intel CPUs are
 untested. Reports from other hardware are welcome; please attach `Nioh3EngineFix.log`.
 
 ## Repository layout
@@ -112,6 +126,11 @@ CPU time we measured in our profiles, and every GPU pass we captured (59 of 59) 
 The full-game chart stays mostly grey on purpose: we name code that matters for performance first, not the whole game.
 This is understanding the engine, not a full source rebuild. Charts as of 2026-10-11, regenerated from `symbols.tsv`.
 
+How to read these numbers: the 6 % counts every name, including machine-made template names (about 3,000
+`ScalarDeletingDtor_*` and 1,100 `CallIfSet_*`, plus other shape-based names), so hand-written names are a smaller
+share. The renderer percentage includes four very large `EnvParamSchemaFieldSwitch_A-D` functions (about 7 points).
+"100 % of profiled CPU time" covers only the published top rows of our profiles, not every sample.
+
 ### The whole game
 
 Every function in `Nioh3.exe`, grouped by what the code is for ([docs/code-map.md](docs/code-map.md)). Block size =
@@ -127,8 +146,9 @@ Only the functions that show up in our CPU profiles (ROG Ally + PC, self time). 
 
 ### GPU time
 
-One GPU capture on the ROG Ally, the 118 most expensive shader buckets (20.7 ms of a 30.1 ms frame). Area = time per
-frame. Green = shader/pass identified; blue = a faster replacement we kept in private tests (not distributed); red = a
+One GPU capture on the ROG Ally, the 118 most expensive shader buckets (20.7 ms of a 30.1 ms frame). Caveat: the
+30.1 ms is a mean over 27 title/menu windows (16.5-20.7 ms) and 11 gameplay windows (mean 62.7 ms); no window is near
+30 ms, so the figure is not a gameplay frame. Area = time per frame. Green = shader/pass identified; blue = a faster replacement we kept in private tests (not distributed); red = a
 rewrite we tried and dropped. These are ranking numbers from a profiler, not isolated costs.
 
 ![GPU time identified](docs/progress/gpu.svg)

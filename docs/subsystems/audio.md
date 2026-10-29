@@ -7,7 +7,7 @@ In-house KIDS mixer (`kids::audio` BeginUpdate/EndUpdate, Mixer/Mastering/Duckin
 ## Key data
 - Mix thread loop: 87 % blocked in `HandleWaitMs` (100 ms timeout wait); drives sink objects (vfunc +60h state 7 = ready, +88h get buffer) into a ring of 18h-byte slots; mixer block frames +12Ch, channels +11Ch, ring slots +130h; sets MXCSR FTZ.
 - Effect chain 36044C -> E2050 (7.6 % of thread) -> reverb E3FF0 -> `ConvReverbProcess` E5394 -> `ConvReverbPartitionMac` E5840 (partitioned FFT convolution: zero-pad to 2n, FFT E7840/E7D00, per-partition MAC); `AudioBiquadProcess` E1740 (direct-form, history f+24h).
-- Voice decode `AudioVoiceListDecode` 18AA7C -> `AudioVoiceDecodeBlock` 18AB80 (reader vfunc +60h, 5-tap IIR) -> `AudioVoiceDecodeInner` 69220 (libvorbis). Demand-driven ring refill; only paused voices skipped, zero-gain voices still decode.
+- Voice decode `AudioVoiceListDecode` 18AA7C -> `AudioVoiceDecodeBlock` 18AB80 (reader vfunc +60h, 5-tap IIR) -> `AudioVoiceDecodeInner` 69220 (int16->float conversion + likely linear resample; not libvorbis as an earlier version said). Demand-driven ring refill; only paused voices skipped, zero-gain voices still decode.
 - `AudioVoiceMixQueuedBuffers` E08A0 (6.3 KB, ring of 58h-byte buffers) on AudioMixThreadProc -> 361428. `SoundVoiceUpdate` 578E4 (processor chain v+358h).
 
 ## Hot functions

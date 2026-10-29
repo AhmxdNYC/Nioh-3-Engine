@@ -1,5 +1,5 @@
 # Main loop / timing
-CPU share 2.9 % (Ally 3.1 %, PC 2.7 %); coverage 98.9 %. Threads: [App]Game (main/game thread), WinMain thread (message pump, start 38E1290).
+CPU share 2.9 % (Ally 3.1 %, PC 2.7 %); coverage 98.9 %. Threads: [App]Game (main/game thread), WinMain thread (message pump; main thread starts at EP 52C1310, SteamStub .bind; an earlier "38E1290" is past the end of .text).
 
 ## Role
 `MainLoopFrame` 1A74130 is the [App]Game per-frame function (called from 27049CC <- 134EBD0). Game logic is NOT on this thread: [App]Game is a render task-graph executor

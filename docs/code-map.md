@@ -1,6 +1,10 @@
 # Code map: what each part of Nioh3.exe is for
 
-The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draws one block per **purpose region**: what the code is for, not how far it is decompiled. How far the names and hooks go is [notes/reversing-progress.md](../notes/reversing-progress.md): 12,679 of 211,206 functions named (6.00%) on the 2026-10-24 recount. The blocks come from `re\scripts_re\regions.tsv`, written by `re\scripts_re\regions.py` (about 15 s, no Ghidra needed). The "unknown purpose" share is **0.7 % of code bytes** (goal: < 5 %).
+> **Stale:** this page was written from an older 3,023-row region map. The published `data/regions.tsv` has 3,649 rows,
+> so most per-region sizes below differ from it. Regenerate with `py -I tools/progress/regions.py --md`. Some region
+> labels are known to be wrong (keyword rules such as `quest` also match `Request`).
+
+The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draws one block per **purpose region**: what the code is for, not how far it is decompiled. How far the names and hooks go is [notes/reversing-progress.md](../notes/reversing-progress.md): 12,679 of 211,206 functions named (6.00%) on the 2026-10-24 recount. The blocks come from `data/regions.tsv`, written by `tools/progress/regions.py` (about 15 s, no Ghidra needed). The "unknown purpose" share is **0.7 % of code bytes** (goal: < 5 %).
 
 ## How the regions are made
 1. **Functions**: every `.pdata` start in `re\Nioh3.dump.exe`, with chained unwind entries folded in. That gives 211,206 functions and 52.7 MB of code.
@@ -14,7 +18,7 @@ The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draw
    - Consecutive slots of each vtable, and a ctor's `lea` of its vtable.
    - **Shared module-local globals**: functions that reference the same static, vtable or constant, where only 2-30 functions reference it, are almost always in the same `.cpp`.
 4. **Propagation**: labels flow caller → callee at full weight (a helper used only by module X belongs to X). They flow callee → caller at 0.3, and never for service labels such as CRT, math, memory, jobs and zlib, because calling `malloc` does not make a function an allocator. Hubs are damped by their degree. Address neighbours then smooth the result over ±6, ±48 and ±256 functions, because MSVC links code roughly per object file. Three rounds feed the provisional labels back in as a weak prior.
-5. **Regions**: contiguous runs of one label in address order. Runs under 2 KB with no direct evidence are folded into the larger neighbour. The result is 3,023 rows with `start end label confidence evidence funcs code_bytes`.
+5. **Regions**: contiguous runs of one label in address order. Runs under 2 KB with no direct evidence are folded into the larger neighbour. The result (at the time this page was written) was 3,023 rows with `start end label confidence evidence funcs code_bytes`.
 
 **Confidence** (per region, by code bytes):
 - **high**: ≥ 25 % of its bytes carry their own evidence for this label.
@@ -25,10 +29,10 @@ The full-game chart ([docs/progress/full_game.svg](progress/full_game.svg)) draw
 **Validation (hold-out)**: we hid the evidence of a random 20 % of the evidence-bearing functions (1,754) and re-inferred their labels. Medium-confidence inferences were right 91 % of the time. Low-confidence ones matched the exact label (out of 41) 53 % of the time, and the coarse class (render / gameplay / library) 79 % of the time. Read a "low" block as "mostly this, with neighbours mixed in".
 
 Commands:
-- `py -I re\scripts_re\regions.py [--md]` rewrites `regions.tsv` and prints this table.
-- `py -I re\scripts_re\regions.py --why 0xRVA` prints all raw evidence for the region holding the RVA: strings, imports, names, and the labels it calls and is called from.
-- `py -I re\scripts_re\regions.py --survey` prints a per-MB evidence digest, for writing new rules.
-- `py -I re\scripts_re\progress_treemap.py` redraws the charts. If `regions.tsv` is missing it falls back to the old name-keyword areas. The perf and GPU charts are unchanged.
+- `py -I tools/progress/regions.py [--md]` rewrites `regions.tsv` and prints this table.
+- `py -I tools/progress/regions.py --why 0xRVA` prints all raw evidence for the region holding the RVA: strings, imports, names, and the labels it calls and is called from.
+- `py -I tools/progress/regions.py --survey` prints a per-MB evidence digest, for writing new rules.
+- `py -I tools/progress/progress_treemap.py` redraws the charts. If `regions.tsv` is missing it falls back to the old name-keyword areas. The perf and GPU charts are unchanged.
 
 ## What each section is
 | what it is (tech / plain) | code MB | share | confidence (high / medium / low, by bytes) |

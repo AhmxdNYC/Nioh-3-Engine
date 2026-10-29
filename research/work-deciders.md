@@ -24,7 +24,7 @@ offset. A helper script (`renderconfig_fields.py`, private dev repo) lists all *
 | LANDSCAPE_QUALITY (LIGHTEST..ULTRA) | ApplyGraphicsSettings 0x39A758 | +0x1970 **TerrainTessellationMaxDistance** = TerrainTessMaxDistanceTable 0x3978390 {1000,1250,1500,2000,4000} (absolute, **overrides env**); +0x1978 **TerrainTessellationDistanceAdaptRate** = TerrainTessAdaptRateTable 0x3977A58 {0.3,0.35,0.4,0.5,0.8}, 0.5 and no distance write while IsEventScene/photo | 5000 / 0.5 | No (it is tessellation reach, not LOD). Renames the two "LandscapeLod*" tables |
 | SHADOW_QUAL (OFF..HIGHEST) | ApplyShadowQuality 0x18A87C, ShadowQualityTable 0x3978210 (64 B rows, row = clamp(q,1,5)); ShadowQualityRowGet 0x18A9F8; ShadowRenderTargetsCreate 0x226E918 | rows 1..5: +0 -> +0xB98 **ShadowmapKeyLightResolution** 18/9/10/8/8; +0xC -> +0xB9C **ShadowmapCubicResolution** and +0xBA0 **ShadowmapPlanarResolution** 512/512/1024/1024/1024; +0x10 -> param 85A0BC7F 1024/1024/2048/2048/2048 (read by the VSM pass 0x466087); **+0x14 -> param 93BCE2C1 = VsmTilesPerFrameBudget 2/2/8/8/8** (default 16, read by 0x1F7960); +0x18 -> param 2CE47344 1/0/0/0/0 (read at 0x1F5487); +0x34 -> +0xBA8 SubShadowmapResolution 512/1024/2048/2048/2048; +0x1C..+0x30 RT hashes (HIGH = HIGHEST); +0x3C -> g_RenderGlobals+0x7598 | KeyLightRes 0, cascades start 2000, EraseFarEnd 50000 (env-only, no setting) | No |
 | SHADOW_QUAL column +0x38 | **CharacterFarCullFlag 0x876EB8** (the "no reader" column) | raw SHADOW_QUAL row (unclamped): 2000/2000/2000/2000/**3000**/**7000** cm; model +0xEE x100 can override; beyond it the character's render state +0x3B3 = 1 (far flag; most likely its shadow) | - | No (HIGHEST = 70 m vs 30 m) |
-| MODEL_QUAL (LIGHT..HIGH) | GetModelQualityLodBias 0x396E18 (2/1/0) -> ScaleByModelQuality 0x396D80, GetModelQualityLodDistance 0x397110, both only in MotionLodParamsBuild 0x396F54 | writes block +0x94..+0xAC (800/800/1200 x 0.5/0.75/1, 1000/1200/1400) | - | **No effect in v2.02** (see addendum A5 and streaming-anim.md): CharacterJobsDispatchA/B copy only bytes 0..0x1F of the block, nothing else reads it |
+| MODEL_QUAL (LIGHT..HIGH) | GetModelQualityLodBias 0x396E18 (2/1/0) -> ScaleByModelQuality 0x396D80, GetModelQualityLodDistance 0x397110, both only in MotionLodParamsBuild 0x396F54 | writes block +0x94..+0xAC (800/800/1200 x 0.5/0.75/1, 1000/1200/1400) | - | Scales the model-LOD distances: +0x94 = 1400/1200/1000 cm, +0x98/+0xA0/+0xA8 = 800/800/1200 x 1.0/0.75/0.5; consumed by 0x2879DC -> ch+0xB124 -> 0x42EA40 and cost fn 0xBD6D0 (addendum A5 corrected; an earlier version said "no effect") |
 | MODEL_DRAW (FEW..MANY) | GetModelDrawLevelBias 0x91743C (2/1/0) -> GetMaxDrawnCharacters 0x9173F8 = floor(60 x 0.5/0.75/1) = **30/45/60** -> CharacterDrawBudgetCull 0x2814F0 | sorts active characters (key +0xAD38) and hides the farthest beyond the budget (0x6BAC04(c,1), +0xAE27) | - | No (cap is rarely reached) |
 | MESHLET_QUALITY (LIGHT..HIGH) | ApplyMeshletLodScales 0x2353C0 | 8 per-category LOD scales (+0xA108..+0xA124) = param (hashes 1A2055FB, 5AC25A6D, 6FAB22AE, 8493EAEF, 997CB330, AE657B71, C34E43B2, D8370BF3; base 2.0 means "use entry[0]") x entry[1+q] of the runtime table g_pLodScaleCfg+0xA08 (7-float entries, LodScaleTableFindIndex 0x235638); cat 0 base = g+0x8BC; cats 0-3, 6 get + g+0x8C0, capped 10 | runtime data (not in the dumps) | Needs a live read of g_pLodScaleCfg+0xA08 |
 | GRASS_DENSITY (LOWEST..HIGH) | GrassPlacementCull 0x31EF94 | min(GRASS,4) -> placement +0xFC; a change rebuilds the placement (0xA483A4 / 0xA34750) | ProcPlacement density maps | See addendum A2 |
@@ -35,7 +35,7 @@ offset. A helper script (`renderconfig_fields.py`, private dev repo) lists all *
 | Decider | RVA | Rule / constants |
 |---|---|---|
 | Character LOD tier count | GetLodLevelCount 0x397218 / GetLodTier 0x3971BC | 8/6/4 levels by MOTION_QUALITY (8 if no provider), 1 when IsLodForcedMinimum |
-| Character LOD distances | MotionLodParamsBuild 0x396F54 | fixed 1000/3000/1500 + the MODEL_QUAL-scaled ones: **all unread** (only block bytes 0..0x1F are consumed; addendum A5) |
+| Character LOD distances | MotionLodParamsBuild 0x396F54 | fixed 1000/3000/1500 + the MODEL_QUAL-scaled ones: read by 0x2879DC via 0xB05DC (see corrected addendum A5) |
 | Character near/far state | CharacterDistanceLodState 0x42E90C | 18 m / 20 m hysteresis -> CharacterModelLodApply 0x42EA40 |
 | Placeable LOD | PlaceableDistanceLod 0xDBA70 | surface distance^2 >= 1e6 (10 m) -> far |
 | Meshlet LOD | ApplyMeshletLodScales 0x2353C0 (above) + MshLod GPU passes | per-category scale x MESHLET_QUALITY column |
@@ -145,9 +145,10 @@ table is attached at runtime by a resource load; the live read is the only sourc
   options 0x12A34FB/0x12A4486, config load/save 0x1FE0C7A..0x1FE5968, and an accessor pair 0x281F1DC (get) / 0x281F59C
   (set) that nothing calls or points to. 0x396E18's only callers are ScaleByModelQuality 0x396D80 and
   GetModelQualityLodDistance 0x397110, both called only from MotionLodParamsBuild 0x396F54.
-- CharacterUpdateDispatch 0x3972C4 passes the 0xE0-byte block only to CharacterUpdateBalanceAndRun 0x399C1C, which
-  passes it only to CharacterJobsDispatchA 0x31A86C (copies dwords 0..7) and CharacterJobsDispatchB 0x31A2C0 (two
-  movaps = 0x20 bytes; the block pointer [rbp+50h] is loaded once). Nothing reads +0x94..+0xAC (or +0x3C).
+- (Corrected.) CharacterUpdateDispatch 0x3972C4 passes the 0xE0-byte block to **0xB05DC** (r9, 0x397331) and then to
+  CharacterUpdateBalanceAndRun 0x399C1C. 0xB05DC keeps it in rdi, stores it to 0x45C90D8 (read by job 0x84394 ->
+  0x133D18) and passes it to 0x2879DC, 0x31A718, 0x42F3AC, 0xAF910, 0xB126C, 0x4D0824, 0xB2980. Fields +0x3C, +0x50,
+  +0x94..+0xA8 are consumed. (The Ghidra decompile of 3972C4 dropped the 0xB05DC arguments.)
 - **This agrees with streaming-anim.md; §1/§2 above reflect it.**
 
 ### A4 result (live read on PC, 2026-10-08)

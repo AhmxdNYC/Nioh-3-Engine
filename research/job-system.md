@@ -9,8 +9,10 @@ Scripts and raw outputs stay in the private dev repo. The live script is `jobs_l
 
 1. **The desktop main thread's kernel time is not job dispatch.** In all 12 captures, [App]Game has no samples in
    ZwSetEvent, NtAlertThreadByThreadId, NtWaitForAlertByThreadId or a job-related ReleaseSemaphore. It has no samples in
-   the job code either (403A0 / 3E7CC / 40800 / 411C0). A job push (3FAD8 / 417A0) **never** makes a syscall: the wake
-   happens on the *pop* side. So no job-system patch can raise desktop fps. §3 lists what the 17.6 % actually is.
+   the job code either (403A0 / 3E7CC / 40800 / 411C0). Pushes through JobPushToOwner 3FAD8 / JobPushLocal 417A0
+   make no syscall. Pushes through JobPushToPool 31A514 / 31A940 are usually followed by JobWakeOneInPool 48B9C
+   (SetEvent at 48C6B; 43 sites, e.g. 5A996, meshlet pool 0x42 on the render thread). The main thread had no ZwSetEvent
+   samples in our captures, so the fps conclusion stands for those captures, but "push never wakes" is wrong. §3 lists what the 17.6 % actually is.
 2. **The wake policy is "wake one on the first pop, unconditionally".** Each woken worker wakes one more on its own first
    pop, so wakes run in a serial cascade, and every cascade ends with at least one wasted wake. A one-job group (push one
    job, then pop it yourself) always wakes a worker that finds nothing. **WK** (built) gates the wake on "is anything
@@ -61,7 +63,7 @@ Scripts and raw outputs stay in the private dev repo. The live script is `jobs_l
   - `+8` owner worker;
   - `+34h` pending = jobs + 1 for the waiter.
 
-### Push: never wakes
+### Push: 3FAD8/417A0 never wake; 31A514 + 48B9C does
 - **JobPushToOwner 3FAD8** (212 callers) and **JobPushLocal 417A0** (16 callers): CAS-push onto `w+418h[prio]`, then
   CAS-set the bit in `w+448h`. That is user mode only, with no syscall and no wake check.
 - The main thread's pushes therefore cost no kernel time.
@@ -86,7 +88,7 @@ wake (40A4C): for i = me-1 downto (ring): t = workers[i].Thread;
   each step one wake latency apart.
 - The cascade has no idea how much work is left. It stops at the first woken worker that finds nothing, and that wake was
   wasted.
-- Second wake site: **40D2F**. For job type 616FA0 with `pool+34h != 0`, the same wake-one scan runs, followed by
+- Second wake site: **40D2F**. For job type 206FA0 with `pool+34h != 0`, the same wake-one scan runs, followed by
   JobWaitSleepBackoff.
 
 ### Worker sleep: JobWorkerThreadMain 1A6BB84
@@ -160,7 +162,8 @@ JobHelpStep: 40800 pop/run own queue; re-push deferred; steal 1 (411C0 over othe
     steals from every queue.
   - Affinity jobs are forwarded with their own SetEvent (48DF8).
   - Shutdown and pause use separate paths.
-  - The stock wake already happens only on pops and never on push, so the gate adds no new lost-wakeup window.
+  - Stock wakes happen on pop (40A4C/40D2F) and after pool pushes via 48B9C; WK gates only the pop-side wake.
+    (The lost-wakeup argument should be re-checked against the push-side wake; that wake makes WK safer, not riskier.)
 - **Cost.** About 5 loads per worker (7–13 workers), on the wake path only: the first pop per session, and every 30th
   solo pop. After J1 these are shared, read-mostly lines.
 - **Expected effect.**

@@ -257,8 +257,10 @@ checks this too. A whole-.text sweep found no direct branch target inside any pa
 ---
 
 ## 3. Other observations
-- **TS_MESHLET_REQ workers** (~13 % busy each, mostly 48E90). The hot loop 49150..4915A (38 %) walks four linked
-  lists (`[rsi+1C8h]+67A8h/67B0h/67B8h`) summing `+14h` **for every request**, which makes it quadratic-ish. That
+- **TS_MESHLET_REQ workers** (~13 % busy each, mostly 48E90). The loop 49150..4915A walks one list (`+67A8h`) when
+  `g+67C0h != 0`, else three (`+67A8h/67B0h/67B8h`), summing `+14h` **for every request**; 36-42 % of 48E90 self in our
+  r5/ingame2/r6/r7 captures, about 3.6 % on a 32-thread NVIDIA PC (outside data). Samples after a load mark where a
+  cache miss lands, not the removable cost. (An earlier version said "four lists".) That
   costs worker CPU, not the main thread, so it was left alone.
 - The A1 / A2 / A3 rows in `research/mainthread-drawprep.md` remain valid. C419 replaces A2's effect when it is on.
 

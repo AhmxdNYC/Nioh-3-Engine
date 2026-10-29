@@ -19,10 +19,13 @@ Raw disassembly dumps: `re\ft\*.txt`.
    passed since the last frame. While it waits, it steals scheduler jobs or calls `Sleep(0)`
    (`0x916EBC`). This is the "spin" CPU load the research mentioned. After the wait it stores the
    measured frame interval at `[r15+0x24]`. [high]
-3. **Why there is judder between 60 and 120.** With target 120 and GPU/CPU limits giving ~90 fps,
-   the limiter never waits. Every frame still advances 8.33 ms of game time but takes ~11 ms →
-   slow motion. Interval jitter gives uneven motion (judder). Locking exactly at the target makes
-   step == interval, so it's smooth. This matches every community report. [high]
+3. **Why there is judder between 60 and 120.** Each *update tick* advances 1/tier. The update
+   thread (Scheduler0) paces itself with the QPC limiter and is decoupled from rendering by a
+   single-slot packet hand-off (0x412748); the render thread draws only the newest packet. Game
+   speed = ticks/s / tier: below 1.0 only when the update thread itself can't reach the tier
+   (CPU-limited). When GPU-limited, ticks stay at the tier rate (PC2 stock: 118-120 ticks/s at
+   37 fps), and the visible problem is a varying 0/1/2+ ticks per shown frame (judder), not slow
+   motion. Locking exactly at the target gives one tick per shown frame, so it's smooth. [high]
 4. **Dynamic FPS only switches between tiers.** The controller (`0x5AF4E4`) can only go
    120↔60↔30, and it decides from **CPU-only** frame time (`mon+0x74` = time from frame start to the
    end of the update, ~8 ms at 60 fps in the menu). It cannot see GPU-bound drops.
@@ -74,8 +77,8 @@ Raw disassembly dumps: `re\ft\*.txt`.
 `r13 = [[frameTask+0x58]+0x28]`; the "frame profile" object is `r13+8` (vf+0x10 → profile, whose
 `+0x2C & 0x8000` = frameskip flag, `+0x44` = dt, `+0x24 & 8` = dt-mode flag; vf+0x28 → &fps).
 
-The simulation and render share one cadence: one simulation step per rendered frame, always sized
-1/target. No interpolation layer exists. Cutscenes are the exception: EVENT_FPS can give
+The simulation and render do not share one cadence: N update ticks per rendered frame (0, 1 or 2+),
+each sized 1/target, newest packet wins. No interpolation layer exists. Cutscenes are the exception: EVENT_FPS can give
 `ctx[1E6]`=2..4, which makes the scene run its heavy step every Nth render frame (`0x412748`: counter
 `ctx[1E7]`, flags `ctx[200]` bits 1/3).
 
@@ -84,8 +87,8 @@ The simulation and render share one cadence: one simulation step per rendered fr
 
 | RVA / field | Meaning |
 |---|---|
-| `0x4759910` | `G` = frame/time manager (vtable 0x3B1F308; vf[1]=0x5AC664) |
-| `G+0x610` | frame counter |
+| `0x4759910` | pointer to `G` (`g_GameMainPtr`); the frame/time manager object itself is at `0x4759090` (vtable 0x3B1F308; vf[1]=0x5AC664) |
+| `G+0x610` | update-tick counter (+1 per tick at 0x233B73) |
 | `G+0x614` | **fps used for dt this frame** (int) |
 | `G+0x618` | target fps after dynamic controller (`0x5AF5D2` writes it) |
 | `G+0x61C` / `G+0x620` | previous/raw target; `G+0x620` is forced to 30 by event code (`0x10F7DAF`) and to max(30,target/2) by `0x98F3C6` (when `[0x4757480]!=0`, FG-related?) |
@@ -106,7 +109,7 @@ The simulation and render share one cadence: one simulation step per rendered fr
 | `0x5AF604` | GetRenFpsCap() = {30,60,120}[REN_FPS] |
 | `0x46594` | GetFps() = `G[614]` — **129 call sites** (100 float `x/fps`, 7× int `120/fps`, 1× int `60/fps`, 4× `fps*1000/60`, 1× `fps/2` compare) |
 | `0x46484` | GetDeltaTime60() = `G[624]*60/G[614]` (~40 callers) |
-| 14 inlined readers of `G[614]` | `0xE50215, 0xE5ED17, 0xE704B4, 0xF1CA19, 0xF826E1, 0xF85ED9, 0x10E0537, 0x115A3D8, 0x124D029, 0x124F601, 0x1251069, 0x1253951, 0x1253ED1, 0x1272C08` — **all float `x/fps`** |
+| 56 direct readers of `G[614]` via the global (the 14 listed here were the first found) | `0xE50215, 0xE5ED17, 0xE704B4, 0xF1CA19, 0xF826E1, 0xF85ED9, 0x10E0537, 0x115A3D8, 0x124D029, 0x124F601, 0x1251069, 0x1253951, 0x1253ED1, 0x1272C08`. Most are float `x/fps`; integer uses at 0xE6657B / 0xE66E66 (`% (fps*3)`). About 42 were not reviewed for VRR safety |
 | `0x5AC664` | frame begin (stores frame-start ns) |
 | `0x5AD5F8` | dt setup (§1) |
 | `0x5ACF80` | frame end: frameskip flag, **QPC limiter**, measured interval, game clock |
@@ -137,14 +140,15 @@ Dynamic target `0x5AF5C2` (hook at +0x10 = `0x5AF5D2 mov [rcx+618h],eax`); Frame
 ### 4b. LIVE VERDICT — gameplay, idle at shrine (REN_FPS=120, DYNAMIC_FPS=OFF, FG OFF, VSync ON, 240 Hz desktop, OptiScaler XeSS→FSR4, RGP dev mode)
 `ft_live.fsx 5`:
 ```
-counter advanced 540 in 4996.6 ms -> 108.07 real frames/s
+counter advanced 540 in 4996.6 ms -> 108.07 update ticks/s (G+0x610 counts update ticks, not frames)
 fps used for dt [614]: 120 (all 530 samples)   target [618]=120  [61C]=120  [620]=120  scale [624]=1.0
 frame-start interval ms: mean 10.384  p1 8.307  p5 8.343  p50 9.342  p95 18.622  p99 20.045
 histogram: 8.5–11.5 ms ≈ 400 frames, 16.5–22.5 ms ≈ 56 frames (double-length hitches)
 implied game-time / wall-time = 0.901
 ```
-→ **Confirmed:** the game runs at **90% speed** (slow motion) and every frame advances a fixed 8.333 ms
-while real intervals jitter 8.3–20 ms (judder). Mechanism proven at the off-target rate.
+→ **Confirmed:** update thread at 108/120 ticks/s (a CPU-bound run), so the game runs at **90% speed**;
+every update tick advances a fixed 8.333 ms while real tick intervals jitter 8.3–20 ms. This slowdown is
+the update thread falling behind; it is not what happens when only the GPU limits.
 
 `ft_findtask.fsx 0x40358E8` (frame task, vtable RVA 0x40358E8, vf[1]=0x5ACEE8 → 0x5ACF80):
 ```
@@ -173,9 +177,13 @@ disassembly printed in the dry run). The final site table is §5-final; P4 below
 needed (§4b).
 
 Goal: when the player selects 120 (and no cutscene/event override is active), drive the game step
-from the measured frame interval. The limiter stays a cap at 120 (or a VRR-friendly cap such as
-116). Then 60–120 fps advances real time correctly, with no slow motion and no step/interval
-mismatch, i.e. no judder. At an exact 60/120 lock the result is bit-identical to stock (stock path).
+from the measured *update-tick* interval (the cave runs once per update tick, so it measures the
+tick interval, not the frame interval). The limiter stays a cap at 120 (or a VRR-friendly cap such
+as 116). When the update thread is CPU-limited this removes the slow-down. It does not change the
+ticks-per-rendered-frame judder, and when only the GPU limits it is effectively stock. Caveat: below
+the tier, dt can reach 2.5x the tier step (1/24 s at 60, 1/48 s at 120) while the engine's tier flags
+stay at the tier, a combination stock never runs. At an exact 60/120 lock the result is
+bit-identical to stock (stock path).
 
 Allocate one RWX cave within ±2 GB (`Target.AllocNear`). Data block `D`:
 ```
@@ -228,7 +236,9 @@ Original `F3 0F 11 97 24 06 00 00` (`movss [rdi+624h],xmm2`) → `E8 <rel32 cave
 ```
 caveScale: mulss xmm2,[D+28] ; movss [rdi+624h],xmm2 ; ret
 ```
-`xmm2` flows into the `G[62C]` accumulator right after, so the 60 Hz tick count gets corrected too.
+`xmm2` feeds `G[62C]`; the legacy 60 Hz callback (reader 0x5A535C via 0x5A540C -> 0x5A6BB0, once per
+tick from 0x39E7D2) fires at most once per update tick, so P2 keeps it at 60/s only while ticks >= 60/s.
+Below that it fires fps_i times per second (as in stock 30 mode).
 The pause zeroing (`0x5AD6BB/0x5AD6CE`) still applies. The 100+ unscaled `60/fps` users get
 `fps_i`, whose rounding error is ≤0.55% per frame, zero-mean, and causes no drift.
 
@@ -304,9 +314,12 @@ identical to the original code.
   judder; no separate "catch-up loop" (extra sim steps per frame) was found in the frame task. The
   research's catch-up theory isn't confirmed for Nioh 3; the "110 fps looks like 55" reports would
   instead come from the tier controller toggling 120↔60.
-* Consumers of the 60 Hz tick accumulator `G[62C]` were not found through the `G` global. They
-  probably use `this`=G inside G's virtual functions. At 30 fps it yields 2 ticks per frame, which
-  is the only multi-step-per-frame mechanism seen. P2 keeps it time-correct.
+* The 60 Hz tick accumulator `G[62C]` has a reader: leaf 0x5A535C (`cvttss2si rax,[rax+0x62C]`),
+  called from 0x5A540C, which calls 0x5A6BB0 (passes QPC to a callback `[rbx+0x28]`) when the
+  result is non-zero; 0x5A540C runs once per tick via 0x5A5374 (called at 0x39E7D2). The
+  accumulator at 0x5AD6D8 drops the integer part each tick, so the legacy tick fires at most once
+  per update tick and the excess is lost. (An earlier version said "2 ticks per frame at 30 fps";
+  that was wrong.)
 * In-game real frame rate vs `G[614]` with FG on (baseline shows ~92 presents/s for 59.4 displayed
   at REN_FPS=60).
 
@@ -371,7 +384,7 @@ if (fps == 30) *(u16*)(obj+0x1D) = 0x0100;      // +1D=0, +1E=1
 else if (fps == 60) *(u16*)(obj+0x1D) = 0;
 else if (fps == 120) *(u16*)(obj+0x1D) = 1;       // any other value: unchanged
 ```
-`obj+0x1E` is **`Is30Fps()` = `0x20E8F8`**. It has 64 call sites, including the script functions
+`obj+0x1E` is **`Is30Fps()` = `0x20E8F8`**. It has 107 call sites, including the script functions
 `Shot::Is30Fps` 0x23F0D48, `Shot::IsSecondHalfUpdate30Fps` 0x23F21E0 and
 `Groupthink::GetNumberToBeAddedToTimerByFPS` 0x23D8178 (returns 1 or 2). `obj+0x1D` is the 120-fps
 mode flag.
@@ -417,27 +430,30 @@ tier, exactly as stock does.
     tier/2 → max 30 = tier, and stock doesn't run at half rate there either.
 * The FG setting is `FRAME_GENERATION` = `[0x45BB008]` (written by `0x1FDDFCC`; 1/2/3 =
   DLSS/FSR/XeSS).
-  - It is used only by the render setup (`0x39A39C`: swapchain/FG params) and by dynamic resolution
-    (`0x5AF7F8`: resolution target ×0.5 with FG).
+  - 21 references: 3 writes in the settings code (0x1FDDxxx), 18 reads in 14 functions, including
+    the render setup (`0x39A39C`: swapchain/FG params) and dynamic resolution (`0x5AF7F8`:
+    resolution target ×0.5 with FG). None writes G[614/618/620], REN_FPS or DYNAMIC_FPS.
   - **There is no engine-side change to the sim fps.** REN_FPS sets the base rate and FG doubles the
     output, so the patch acts on the base frame rate and works unchanged with FG on.
   - Handheld example: REN 60 + FSR FG, base 35–55 fps → the 60 tier is armed → real time.
-  - The 2026-10-06 baseline (60 Hz desktop, REN 60, FG, ~46 base fps) means stock was running the
-    game at ≈77% speed.
+  - The 2026-10-06 baseline (60 Hz desktop, REN 60, FG, ~46 base fps): game speed was not measured
+    there (46 is a render rate, not an update-tick rate), so no speed figure follows from it.
 
 ### 8.4 Events and cutscenes
-* Two places override `G[620]`:
+* Five places write `G[620]`: 0x39E418, 0x98F3C6, 0x10F7DAF (= 30), 0x2705228, 0x28A9276 (= 60).
   - `0x10F7DAF`: event code sets 30 when the event-fps flag is set (EVENT_FPS).
   - `0x98F3C6`: the time effect from §8.3.
-* P1 arms only when the previous `G[620]` == tier, so events and effects in the 60/120 tiers run
-  **stock**. That keeps the event logic step (`ctx[1E6]` = tier/30 frames per event step) intact.
+  - `0x39E418` (EVENT_FPS, state 10-14) also writes `G[618]`, so VRR arms at the event rate there
+    (30-tier clamp).
+* P1 arms only when the previous `G[620]` == tier, so events and effects that write `G[620]` alone
+  (0x10F7DAF, 0x98F3C6) in the 60/120 tiers run **stock**. That keeps the event logic step (`ctx[1E6]` = tier/30 frames per event step) intact.
 * In the 30 tier an event sets 30 = tier, so the patch stays armed there. That is correct, since the
   ratio is 1 anyway.
 
 ### 8.5 Subsystems that may still assume a fixed fps (audit)
 | Item | Finding | Risk with v2 |
 |---|---|---|
-| Is30Fps / 120-mode gameplay branches (64 callers of 0x20E8F8) | mode flag set from the tier (v2) | none (stock mode per tier) |
+| Is30Fps / 120-mode gameplay branches (107 callers of 0x20E8F8) | mode flag set from the tier (v2) | none (stock mode per tier) |
 | `GetNumberToBeAddedToTimerByFPS` (script) | returns 1 or 2 by mode, per frame | per-frame script timers run slower when fps < tier (stock-like). Watch boss/script timers in the 30/60 tiers |
 | Integer 120/60 Hz timers | P3/P6 carry | none |
 | `0x20E540` speed integrator | P8 tier | none |
@@ -545,8 +561,8 @@ Every one of these would need its own patch, for no benefit over A. **Not recomm
    - If scripts add it once per render frame, stock script timers already run at a different
      real-time rate at 60 vs 120. That suggests scripts run on a fixed logic cadence instead:
      `IsSecondHalfUpdate30Fps` implies two 60 Hz half-steps per frame at 30 fps.
-   - I couldn't find the consumer of the `G[62C]` 60 Hz accumulator through `G`; only
-     `0x5AD6D8` reads it.
+   - The `G[62C]` 60 Hz accumulator is read by leaf 0x5A535C (via 0x5A540C -> 0x5A6BB0, once per
+     tick from 0x39E7D2); the legacy callback fires at most once per update tick.
    - If some script/AI update is instead gated by frame parity (every 2nd frame at 120), it runs 2×
      fast at 240, and 13% slow at 104 under v2 already.
    - Test: time a script-driven timer (status effect / buff duration, enemy grab or respawn timer,

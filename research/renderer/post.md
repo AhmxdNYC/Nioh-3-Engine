@@ -96,8 +96,8 @@ the end.
   That poll is the stricter limit and takes ~32 % of main-thread samples at times.
 - **Latency markers**: `LatencyMarkerBeginFrame` 0x6b8d34 (Reflex/AntiLag/XeLL abstraction from 0x6b88dc), `xellSleep` at 0x4a538c, `SlPclPresentStart` 0x6b9014. Reflex needs NVIDIA_REFLEX on and Streamline.
 - **Frame limiter**: `FrameEnd` 0x5acf80, QPC busy-wait 0x5ad229..0x5ad2bb (`QpcNow` 0x205530): spin until QPF/fps, running a scheduler job or `Sleep(0)` (`JobWaitStep` 0x916ebc) each pass. fps = G+0x614 = the **target tier**
-  (30/60/120 from REN_FPS or the `DynFpsGovernorTick` 0x5af4e4 controller, which looks at CPU time only), **never the measured rate**: each frame advances `1/fps` of game time (`FrameDtSetup` 0x5ad5f8),
-  so below the target the game runs in slow motion. The measured interval at [r15+0x24] is for stats only. The limiter fps is written by `FrameProfile_SetLimiterFps` 0x5af400.
+  (30/60/120 from REN_FPS or the `DynFpsGovernorTick` 0x5af4e4 controller, which looks at CPU time only), **never the measured rate**: each update tick advances `1/fps` of game time (`FrameDtSetup` 0x5ad5f8),
+  so below the target *tick rate* the game runs slow (CPU-limited update thread). When only the GPU limits, the update thread keeps the tick rate and the game runs at full speed (uneven ticks per shown frame, not slow motion). The measured interval at [r15+0x24] is for stats only. The limiter fps is written by `FrameProfile_SetLimiterFps` 0x5af400.
   The pad sample is taken at the end of the logic frame, before the limiter (`UpdateDispatchB_CallInputKick` 0x5ab6cf), so the limiter wait adds input latency.
 - Latency (PC, 60 cap, M): MsUntilDisplayed 25.8 ms with SI 1 composed flip, 6-10 ms with SI 0 independent flip (input-latency.md §3).
 
@@ -110,7 +110,7 @@ the FFX KTGL backend and FI proxy swapchain (use the stock ffx-api D3D12 backend
 **Easy wins seen:**
 1. Present with SyncInterval 0 + ALLOW_TEARING whenever VRR is on, driven by the display mode and not by a cached slot that can be lost (the `DisplaySettingsWatcher` guard).
 2. Call `SetMaximumFrameLatency(2)` explicitly, wait on the waitable with a timeout instead of the pause loop, and close the handle.
-3. Hybrid sleep-then-spin limiter to the deadline, and measured dt (or an accumulator) so a missed target is not slow motion.
+3. Hybrid sleep-then-spin limiter to the deadline, and measured dt (or an accumulator) so a missed tick-rate target is not a slow-down.
 4. Skip TOONEDGE2 when no stencil-8 pixel exists (0.05-0.2 ms); per-target post scale (bloom/histogram at render res, compose at output res: E 0.3-0.45 ms); CustomDepthUpscale -> plain depth copy where DOF/MB tolerate it (<= 0.06 ms).
 5. FSR3 CS are MinimumPrecision DXIL: native fp16 + wave size for RDNA2/Ally (accumulate+sharpen is 3.7 ms there; E large, changes rounding).
 6. Null-check every FG job and fall back when a UAV texture cannot be created, so a failed format cannot hit the copy executor 0x3718db4.

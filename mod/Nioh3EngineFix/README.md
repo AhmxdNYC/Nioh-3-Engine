@@ -13,7 +13,7 @@ files are changed, and nothing is left behind when the game exits.
 
 ## Which settings for which device
 
-- **ROG Ally X (RC72LA, Z1 Extreme, Radeon 780M, Bazzite + Proton):** GPU-bound (about 99 %; stock about 16 fps at MAX in Futamata). The GHDM shadow shader gives +6.4 to +8.7 % fps and the fogpar fog shader a little more (+0.15 to +0.30 fps). CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED) are fps-neutral but save CPU power. Loads: about 94 s -> 37-38 s with EP + SR (automatic under Proton). Needs `WINEDLLOVERRIDES="dinput8=n,b" %command%`.
+- **ROG Ally X (RC72LA, Z1 Extreme, Radeon 780M, Bazzite + Proton):** GPU-bound (about 99 %; stock about 16 fps at MAX in Futamata). The GHDM shadow shader gives +6.4 to +8.7 % fps and the fogpar fog shader a little more (+0.15 to +0.30 fps). CPU fixes (W6, GF, WK, WG, CP, SPF, LK, ED) are fps-neutral but save CPU power. Loads: about 96 s -> 38 s with EP + SR (automatic under Proton; chained from two tests on 1.7.23 and 1.7.25, not re-run on the current build). Needs `WINEDLLOVERRIDES="dinput8=n,b" %command%`.
 - **Desktop PC (Ryzen 5 7600X, RX 9070, 1440p, Windows 11):** CPU main-thread-bound, so the CPU fixes are the ones that matter. Stock all-off baseline about 149-153 fps standing, p99 14.3-14.7 ms; PP is kept (its "+2.9 %" is retracted), B / GF / MQ gave nothing. Both devices use the same zip and ini.
 
 ### What is new in 1.7.13 and 1.7.14 (plain language first)
@@ -30,7 +30,7 @@ files are changed, and nothing is left behind when the game exits.
 |---|---|---|
 | **W1** | Main-thread zero-fill loop on GPU upload memory no longer does a slow read-modify-write per element (it took 11-22 % of the main thread). | everyone |
 | **W2** | Vertex quad writer does one store instead of a read-modify-write on GPU upload memory. | everyone |
-| **VRR** | Variable-dt frame timing. In stock Nioh 3, the whole game slows down when you run below the FPS cap (e.g. 46 fps at a 60 cap = 77 % speed). With VRR, every frame advances by the real elapsed time, so the game runs at 1.00x speed at any frame rate inside the clamp. Works with the 30, 60 and 120 caps, with or without frame generation. | handhelds, VRR displays, anyone below their cap |
+| **VRR** | Variable-dt frame timing. In stock Nioh 3 the game slows down when its update thread can't keep the cap (CPU-limited; e.g. 108 ticks/s at the 120 cap = 90 % speed). When only the GPU limits, stock already runs at full speed (uneven ticks per shown frame, not slow motion) and VRR changes nothing; it does not remove that judder. With VRR every *update tick* advances by its real interval (clamped), so a CPU-limited game runs at about 1.00x inside the clamp (Ally: 0.97x at 44.6 ticks/s). Caveat: below the tier, dt can reach 2.5x the tier step (1/24 s at 60, 1/48 s at 120) while the engine's tier flags stay at the tier, a combination stock never runs. Works with the 30, 60 and 120 caps, with or without frame generation. | CPU-limited play (handhelds), anyone whose update thread falls below the cap |
 | **W3** | The window-message thread sleeps (≤1 ms, wakes instantly on input) instead of spinning a core at 26-62 %. | everyone, especially handhelds (power/thermals) |
 | **R1** | The game thread waits for the frame-latency signal with a timeout instead of a busy poll. | GPU-bound / capped play (handhelds) |
 | **L1** | The frame limiter sleeps on a high-resolution timer until ~1 ms before the deadline, then does its original precise spin. | capped play below what your CPU can do |
@@ -40,7 +40,11 @@ files are changed, and nothing is left behind when the game exits.
 On an APU (ROG Ally / Steam Deck), every watt a spinning core burns comes out of the GPU's shared power budget.
 W3, R1 and L1 hand those watts back to the GPU.
 
-### Experimental CPU-power patches (1.1.0, all off by default)
+### Experimental CPU-power patches (1.1.0)
+
+**Shipped state (1.7.86 ini):** `B`, `PP`, `FPC`, `AABB`, `M2`, `J1`, `E1` and `S1` ship on (`= 1`), `W6` is auto
+(`-1`, on under Proton), `M1`, `M2S` and `X1` ship off. Earlier text here said "all off by default"; that does not match
+the shipped ini. A later build will ship `E1 = 0` and `M2 = 0` (no measured gain for either).
 Ports of memory patches that were built and verified offline with the live scripts (most were never applied in the
 game yet). They exist so a power-bound handheld (ROG Ally: CPU + GPU share 25 W) can A/B them: every CPU watt removed
 goes to the GPU clock. Each has its own `[Patches]` key (0 = not installed). An installed patch with a runtime switch
@@ -178,8 +182,10 @@ lowered only after it stayed more than 2 below for 2 s; "nothing to govern" (cap
 the Present-hook thread after each overlay stats window (~0.5 s, rendered = the game's own frames, FG excluded); a
 watchdog drops the cap within 100 ms when TG is switched off, L1 or VRR go off, or presents stall for 250 ms.
 - **Why opt-in:** it is *not* "same behaviour". The simulation step becomes ~1/30 s (at the floor) instead of
-  ~1/45 s - exactly what the game does in its own 30 FPS mode (tier 30, dt 1/30), so it stays inside the engine's
-  designed envelope, and VRR keeps the game speed at 1.0x. But input is sampled once per tick: **a tap must be held
+  ~1/45 s - the same step size as the game's 30 FPS mode, **but not the same mode**. The engine's tier stays 60, so
+  Is30Fps = 0 (107 call sites, including GetNumberToBeAddedToTimerByFPS, IsSecondHalfUpdate30Fps and the 0x20E540
+  motion integrator) and 30-mode compensations don't run. Per-tick counters that assume 60 mode may run at half rate.
+  This is a state stock never runs. VRR keeps the game speed at 1.0x. But input is sampled once per tick: **a tap must be held
   ~33 ms instead of ~22 ms to be seen** (normal taps are 50-100 ms), and the newest frame packet is ~6 ms older on
   average when shown. Offline only (same caveat as VRR).
 - **Needs VRR** (armed tier; otherwise stock dt) **and L1** (installed and switched on). Without L1 the limiter slack
@@ -425,7 +431,8 @@ how the online sync code reacts. **For online co-op set `VRR = 0`** in the ini. 
   * `MaxFps`: with the in-game cap at 120, raise the limiter to 144/165/240, or 0 = unlocked. This is
     **experimental**: script timers and frame pacing above 120 have not been fully verified.
   * `MenuQuantize = 1` only if menu key-repeat misbehaves. Leave it at 0 if you use Nioh3Fix.
-* `[Patches]` also has the experimental keys `W6 B PP FPC AABB M1 M2 J1 X1 E1 S1` (0 = off, see above).
+* `[Patches]` also has the experimental keys `W6 B PP FPC AABB M1 M2 J1 X1 E1 S1` (0 = off). In the shipped 1.7.86 ini
+  `B PP FPC AABB M2 J1 E1 S1` are 1, `W6` is -1 (auto) and `M1 X1` are 0 (see above).
 * `[Tuning]`: W3/R1 wait times and the L1 margin. The defaults match the tested values. Experimental:
   `PP_Period` (2/4/8/16), `E1_N` (1/2/4/8), `W6_SpinUs` (0-2000), `W6_TimeoutMs` (1-16).
 * `[Patches] IK`, `TS` (input latency, 0 = off) and `[Tuning] IK_PadWaitCapMs` (0-8, default 0 = no wait).
@@ -626,7 +633,9 @@ change. It also prints which thread presents: `"AMD FSR Presenter Thread"` means
 
 The **Frame generation** item shows the game's current setting and runtime status. Change it in the
 game's Options. **Save to ini** saves only mod choices to `Nioh3EngineFix.ini`.
-`[Menu] FrameGenToggle` defaults to `0`; all legacy values are status-only on Windows and Proton.
+`[Menu] FrameGenToggle` defaults to `0`; all legacy values are status-only on Windows and Proton. The Proton
+frame-generation crash guard (`[Patches] FGC`) is **off by default** (`FGC = 0`) on purpose: crash logs tell us what
+breaks. Set `FGC = 1` to turn it on.
 Legacy `3` retains the independent FGC copy-job null guard under Proton, without settings writes or FG pause control.
 Old `.fgmarker` files and game-config backups are ignored; startup and exit never restore older settings.
 
@@ -654,13 +663,14 @@ recognise, so a skipped patch leaves that part of the game exactly stock.
 To uninstall, delete the `.asi`/`.dll`, `.ini` and `.log`. Nothing else was changed.
 
 ## Compatibility
-* **Nioh3Fix (Lyall) 0.0.6**: none of its hook sites overlap ours. Its Dynamic-FPS hook sits 0x1C bytes before
-  one of our VRR sites, and its menu-input hook is at our optional `MenuQuantize` site (so keep that off).
+* **Nioh3Fix (Lyall): do not install together with this mod.** Both patch the same engine code: its Dynamic-FPS
+  hook sits 0x1C bytes before one of our VRR sites, and its menu-input hook is at our optional `MenuQuantize` site.
+  The combination is not supported.
 * **OptiScaler / ReShade**: unrelated (graphics API layer).
 * The Steam DRM wrapper (SteamStub) is **not** touched. The mod only waits until it has decrypted the game code.
 
 ## Known limitations
-* The VRR step uses the previous frame's interval, like most engines. A single long hitch frame is followed by
+* The VRR step uses the previous update tick's interval, like most engines. A single long hitch frame is followed by
   one long step.
 * Per-frame script timers in the 30 cap, and anything above 120 fps, are only partly verified.
 * Menu fades are frame-counted and take a little longer below the cap (cosmetic).

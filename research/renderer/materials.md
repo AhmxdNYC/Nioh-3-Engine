@@ -46,8 +46,8 @@ PsoListLoad 3483E04 (boot list), ShaderGroupFileLoad A300B0 (files), MaterialTec
 
 `"IDRK0000"`, u64 file size, u64 compressed size, u64 uncompressed size, u32 0, u32 resource hash (= file name),
 u32 type hash 0x7BCD279F, u32 flags 0x00100000, u64 0; then zlib chunks `u32 zsize + "78 9C" stream` of 16 KiB
-uncompressed, terminated by u32 0. 2 of 3,897 files use flags 0x00400000 with an extra header and do not unpack with
-`gpu-shaders/idrk.py`. Tools: `gpu-shaders/idrk.py`, `gpu-shaders/sweep/s2g.py`.
+uncompressed, terminated by u32 0. 24 of 3,897 files use flags 0x00400000 (a 10-byte extra header, zlib at +66 instead of +60) and do not unpack
+with `gpu-shaders/idrk.py` (an earlier version said 2). Tools: `gpu-shaders/idrk.py`, `gpu-shaders/sweep/s2g.py`.
 
 ### 1.3 `_S2G7000` group payload (one technique, all permutations)
 

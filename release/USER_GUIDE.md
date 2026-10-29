@@ -7,7 +7,7 @@ checks the build and does nothing.
 ## What is in the zip
 | file | what |
 |---|---|
-| `dinput8.dll` | Ultimate ASI Loader (loads `.asi` mods; the same loader Lyall's Nioh3Fix ships - keep only one copy) |
+| `dinput8.dll` | Ultimate ASI Loader (loads `.asi` mods; the same loader Lyall's Nioh3Fix ships - keep only one copy). Do not install this mod together with Nioh3Fix: both patch the same engine code |
 | `Nioh3EngineFix.asi` | the mod |
 | `Nioh3EngineFix.ini` | settings for every device; `1` = on, `0` = off, `-1` = auto by OS (chosen at startup) |
 | `optional\shader_dx12\0x0104840c.file` | faster shadow shader (GHDM), same picture (see "Optional shaders") |
@@ -79,8 +79,9 @@ The installer does not change Steam settings, launch the game or modify `Nioh3.e
 
 ## In-game settings that matter
 - Set **"FPS dynamic adjustment" OFF** (the mod's frame-timing fix needs it; a warning shows when it is on).
-- Pick an FPS cap you can mostly hold (Ally: 30 or 60; PC: 60 or 120). With the mod the game runs at real speed below
-  the cap (no slow motion).
+- Pick an FPS cap you can mostly hold (Ally: 30 or 60; PC: 60 or 120). When the CPU can't keep the cap, stock slows
+  the game down; with the mod it keeps real speed (down to a floor). When only the GPU limits, stock already runs at
+  real speed and the mod changes nothing there.
 - **Online co-op:** the frame-timing fix (`[Patches] VRR`) was tested offline only. By default (`VRROnline = -1`, auto) the mod pauses it by itself while you are in an online session and brings it back afterwards, so you do not need to change anything. If you want it never active online, set `VRROnline = 0`. Online co-op itself is still untested.
 
 ## Biggest free fps boost: Resizable BAR

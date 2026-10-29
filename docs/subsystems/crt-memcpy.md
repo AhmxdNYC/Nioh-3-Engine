@@ -12,7 +12,7 @@ Statically linked MSVC CRT block at B90000-BEFFFF. Not a game system, but it sho
 | B93EE0 | MemsetBytewise | 0.61 | byte-loop small/unaligned fill next to memset B93F00 |
 | B94150 | memcmp | 0.09 | 128-byte keys (PSO cache B-tree find) |
 | BE6740 | PowfAvx | 0.05 | libm powf, FMA path gated by flag 45B9D5C |
-| BE0378 | SqrtfSlowPath | 0.02 | negative input, 3690 callers |
+| BE0378 | SqrtfSlowPath (misnamed: it is the full MSVC CRT `sqrtf`) | 0.02 | NaN -> NaN handler, x<0 -> EDOM path, else `sqrtss`; not only a negative-input path; 3690 callers |
 
 ## What drives the cost
 Callers, not the CRT: constants written into the KTGL token stream (`ShaderConstWriteStream` 1D7340, inline token-0x66 blobs), upload copies into

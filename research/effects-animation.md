@@ -24,10 +24,11 @@ Raw decompiles and scratch stay in the private dev repo. Live script: `fx_live.f
    That thread is kicked at the end of the game update and joined at the start of the next one. At the shrine it is at
    most ~7.6 % of a core (~1.3 ms/frame), so the join should not block there. It is the one effect-side path that could
    stall the update in a big, effect-dense area.
-4. **MOTION_QUALITY does nothing in v2.02.** Its only reader (3971BC) feeds GetLodLevelCount 8/6/4. That value lands in
-   a parameter block field (+0x3C) that nothing reads: only the first 0x20 bytes are copied on. The Nioh3Fix "Motion
-   Quality" hook (sig #19 at 39722B) patches the same dead value. This matches the settings sweep (no difference) and
-   predicts no difference in combat either. Keep it at HIGH; it costs nothing.
+4. **MOTION_QUALITY sets the full-rate character budget** (HIGH 8 / STANDARD 6 / LIGHT 4, 0x397218 -> block +0x3C).
+   0x2879DC (called from 0xB05DC) decrements it per full-rate character (0x287FBB); characters past it are throttled
+   (`ch+0x8A4 = 1`, 0x287F67) and are not updated every tick. Lowering it is a real CPU knob with a visual cost
+   (far/extra characters animate at a lower rate). CPU difference not measured. (An earlier version called it dead;
+   that was wrong.)
 5. **VISUAL_EFFECT only gates spawning.** When it is LIMITED, EffectCreate (4CE90C) refuses effects whose definition has
    flag 0x800000 ("optional"). It does not size the worker pools (settings.md is wrong there). That explains "no
    difference at an idle shrine" (nothing is spawning). In combat LIMITED is the real effect-CPU and effect-GPU knob.
@@ -37,7 +38,7 @@ Raw decompiles and scratch stay in the private dev repo. Live script: `fx_live.f
 | 1 | **VE** | VISUAL_EFFECT = LIMITED in fights (menu setting, no patch) | EffectCreate 4CE969 | combat only (unmeasured) | fewer optional effects: Disp/NoDisp update + particle GPU | config | visual: optional effects missing |
 | 2 | **E1** | Update invisible (NoDisp) effects every N-th pass with dt*N | 160B83 (call 73A6F8) + 7E82B4 (pass counter) | NoDisp thread ≤ 0.076 core at r5 | ≤ (1-1/N) of that, so **~0.02-0.04 core** at the shrine. More in effect-dense areas, and it halves the serial work that the next update joins | `fx_live.fsx` (cave, verified offline) | low: only invisible effects; ≤ (N-1)·dt clock lag once per invisible-to-visible transition |
 | 3 | E2 | Give the NoDisp pool more threads (pool 57 count 1 -> 2-4) | record 57 +0xC = 0x4B72834, read once by EffectThreadManagerInit 20A5BD0 | as E1 | no CPU saving; parallelises the serial invisible-effect pass (stall insurance) | boot-time byte, pool_patch-style; **not built** | low-medium: boot timing |
-| - | - | MOTION_QUALITY | 3971BC -> 396F54 +0x3C | 0 | 0 | none (dead) | - |
+| - | - | MOTION_QUALITY | 397218 -> +0x3C -> 0x2879DC budget | unmeasured | unmeasured | crowd-dependent; visual: throttled characters | - |
 | - | - | Disp workers (visible effects, 9 threads, ~0.45 core) | 3D83BC / 3D9F64 | real work | 0 | none | - |
 
 **Honest bottom line.** No candidate here moves fps today: the main thread never waits on this work. The safe,
@@ -168,11 +169,14 @@ busy) and PresentMon (CPU busy p95).
   - IsMotionQualityLightPlus1 3971DC.
   - Both are called only by MotionLodParamsBuild 396F54, which writes them to `+0x3C` and `+0x50` of a 0xE0-byte
     stack block.
-- **What happens to the block:** it is passed to CharacterUpdateBalanceAndRun 399C1C. That function hands it only to
-  31A86C / 31A2C0, and **both copy just bytes 0..0x1F** (dt, raw dt, camera position) into g_CharacterUpdateParams
-  (0x44BB9F0, readers 84554 / 406D10 / 31A940 / 31A1DC). Nothing else gets the pointer. 0x44BBA2C has no references.
-- **Result:** both MOTION_QUALITY-derived fields are dead stores. The setting changes nothing in v2.02, and lowering
-  it buys nothing. settings.md §6 "MOTION_QUALITY HIGH -> STANDARD (CPU relief)" should be dropped.
+- **What happens to the block (corrected):** 3972C4 passes it to **0xB05DC** first (r9, 0x397331) and then to
+  CharacterUpdateBalanceAndRun 399C1C. 0xB05DC keeps it in rdi, stores it to 0x45C90D8 (read by job 0x84394 ->
+  0x133D18) and passes it to 0x2879DC, 0x31A718, 0x42F3AC, 0xAF910, 0xB126C, 0x4D0824, 0xB2980. Fields +0x3C, +0x50,
+  +0x94..+0xA8 are consumed. (The Ghidra decompile of 3972C4 dropped the 0xB05DC arguments; an earlier version of this
+  note said only bytes 0..0x1F were used.)
+- **Result:** MOTION_QUALITY is a real CPU option with a visual cost (characters past the budget are throttled).
+  Keep HIGH as the quality recommendation; STANDARD/LIGHT are visual-changing CPU options for CPU-bound devices.
+  The CPU size is not measured.
   Nioh3Fix's sig #20 (39A86C) is unrelated: it sits in the render-settings setup 39A39C (Menu Framegen).
 
 ### 3.2 How characters are updated

@@ -39,7 +39,7 @@ All three machines are AMD. Nothing has been measured on NVIDIA, Intel Arc or In
 | pc2 | Same | 38.2 -> 44.3 fps, **+15.9 %** (SE 0.06 fps, 3 pairs) | 1.7.60 | `pc2/cbu1/cbu1.log`. **Slow-link machine only**; the normal PC above showed no change. |
 | Ally | Same | -0.16 % +-0.16: no change | 1.7.60 | Ally run log (CBMODE 0/6) |
 | PC | Old engine patches (W1/W2 memory fix, real-time frame step, spin fixes), two on/off pairs inside one launch, no profiler | 102.2 -> 103.5 and 99.5 -> 103.2 fps (about +2.5 % on average, only two pairs); 1 % lows 79.0 -> 80.6 and 82.2 -> 82.2 | patcher scripts (before the ASI) | `results.csv` rows 10-13 |
-| PC | Real-time frame step: game speed below the 120 cap | stock 0.83-0.90x (slow motion) -> **1.00x** | patcher scripts + ASI | `results.csv` rows 2-4, 10-13 |
+| PC | Real-time frame step: game speed when the update thread is below 120 ticks/s (CPU-limited run; speed = update ticks/s / 120) | stock 0.83-0.90x when the update thread is below 120 ticks/s -> **1.00x**. When only the GPU limits, stock already runs at full speed (PC2 stock: 118-120 ticks/s at 37 fps) | patcher scripts + ASI | `results.csv` rows 2-4, 10-13 |
 | PC | FSR frame-gen presenter fix (F1) | about 0.13 CPU core less on average over 6 frame-gen launches (one went the other way); fps differences were within the large noise of those runs | patcher scripts only; not a 1.7.61 option | `rounds2-4.csv` (round 2) |
 | Ally | GF (GPU-fence wait sleeps instead of spinning; auto-on under Proton) | main thread about 85 % -> 32 % busy; **fps unchanged** (the GPU is the limit) | 1.7.x | Ally run logs |
 | PC | GHDM shadow shader (optional file, **not distributed**), frame generation off | 102.7 -> 103.0 fps, +0.37 % +-0.09 SE; two repeats gave +0.65 % and +0.64 % | 1.7.54-55 | `fastab/20261009-1648-ghdm_vc2`, `.../1702-ghdm_vc2`, `.../1717-ghdm_gp2` |
@@ -50,8 +50,9 @@ PP page-pool sweep (+0.13 % and +0.92 %, within noise); B (ABBA -0.11 %); `[GpuO
 windows). GF and MQ on Windows have **no valid result**: the ABBA report marked both runs invalid because fps stepped
 after the first toggle. They stay off on Windows.
 
-W6 (main-thread GPU wait) has no measured fps effect in a normal setup: in the stock Proton environment it never
-engages. It is auto-on under Proton because it is harmless there.
+W6 (main-thread GPU wait): the 7D9E90 Present wait it patches is hot in stock Proton (our own Ally profiles: 52 of 239
+`[App]Game` blocks at 87-90 % in that function). W6's fps effect without the latency override is unmeasured. It is
+auto-on under Proton.
 
 ## (b) Setup and settings: real gains, but not the mod
 
@@ -73,7 +74,8 @@ These are things you can change yourself. They are not part of the engine fix.
 | Ally (Proton) | title -> Load Game, Level 136, cold first launch | 96.0 s (mod installed, EP off) | 47.3 s with EP (1.7.23). Paired SR test on 1.7.25: 47.25 -> **38.45 s**. EP and SR switch on automatically under Proton. | Ally logs `1723/`, `1725/` |
 | PC (Windows) | title -> Continue | no stock capture | 25.8 +-0.5 s with mod 1.7.16 (loading-flag window). LC, LW and GL1 measured no change. EP and SR are Proton-only and were never tested on Windows. | load-stats logs |
 
-The Ally numbers have not been re-measured on 1.7.61. Of the old 118.7 s Ally window, about 25 s was the tip page
+The Ally numbers have not been re-measured on 1.7.61 or 1.7.86. The README's "96 s -> 38 s" chains these two tests
+(EP on 1.7.23, then SR on 1.7.25); it is not a single measurement. Of the old 118.7 s Ally window, about 25 s was the tip page
 waiting for a button press, not loading.
 
 ## (d) Experimental, not shipped
@@ -108,9 +110,9 @@ These appeared in the development README at various points.
 - GHDM "+3 % / +11 % with FG" (PC) and "+6.4 to +8.7 % at MAX" (Ally): older multi-launch results. Later paired tests
   gave +0.4 % (PC, without frame gen) and +0.5 % (Ally, USER preset). Those are different settings, so the old numbers
   were never re-tested like for like.
-- "PP kept on PC (+2.9 %)": PP is off by default; paired re-tests showed no change.
-- "B +5 % on PC": a later ABBA test gave -0.11 %. B is off.
-- W6 "+7-12 % fps on the Ally": measured with a non-default `VKD3D_SWAPCHAIN_LATENCY_FRAMES=1` override. In a normal
-  setup W6 never engages.
+- "PP kept on PC (+2.9 %)": paired re-tests showed no change. (The shipped 1.7.86 ini has `PP = 1`.)
+- "B +5 % on PC": a later ABBA test gave -0.11 %. (The shipped 1.7.86 ini has `B = 1`.)
+- W6 "+7-12 % fps on the Ally": measured with a non-default `VKD3D_SWAPCHAIN_LATENCY_FRAMES=1` override. Without
+  that override its fps effect is unmeasured (the wait it patches is hot in stock Proton, see above).
 - ReBAR "about +35 % fps": calculated from GPU time on pc2. The measured fps gain was +6 %.
 - "Works on NVIDIA / Intel Arc": not tested.

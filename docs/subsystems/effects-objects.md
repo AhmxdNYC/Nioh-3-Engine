@@ -22,7 +22,7 @@ Particle/effect instances plus the generic per-object update that the area heuri
 
 ## What drives the cost
 Work scales with all loaded effect instances, not visible ones (invisible effects simulated every frame). Neither effects nor animation run on the render main thread, so they only matter
-if Scheduler0 becomes the limiter (heavy fights; no combat capture exists). MOTION_QUALITY is dead in v2.02 (feeds an unread field).
+if Scheduler0 becomes the limiter (heavy fights; no combat capture exists). MOTION_QUALITY is not dead: it sets the full-rate character budget consumed by 0x2879DC (characters past it are throttled); CPU difference not measured.
 
 ## Deeper notes
 notes/effects-animation.md (pool sizes Disp 9 / NoDisp 1, MOTION_QUALITY), mainthread-logic.md, gpu-post-exe.md and gpu-post-runtime.md (post passes), settings.md.

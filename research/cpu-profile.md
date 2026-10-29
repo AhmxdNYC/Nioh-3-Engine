@@ -9,7 +9,7 @@ patchable waste found (ranked by expected win):
 |---|---|---|---|---|---|
 | **W1** | **read-modify-write to WRITE-COMBINED (GPU upload) memory**: `and dword [rbx+rax*4],0` in a zero-fill loop, so every store does an uncached read | Nioh3+61B1C loop 61BAE..61BC2 (main thread) | **11-22 % of the main thread** (#1 hotspot) | in-place 22-byte rewrite to `rep stosd` (below) | trivial, no cave |
 | **W2** | same bug in a quad/vertex writer: `and dword [rbx+8],0` (z=0) x4 into a WC vertex buffer | Nioh3+1371D0 (6 callers) | 3-6 % of main thread | in-place: fold z=0 into a `movq` store (below) | trivial, no cave |
-| W3 | WinMain message pump never waits: `PeekMessageA` loop + per-iteration call to 47990 | Nioh3+1A6BF18..1A6BF84 (thread start 38E1290) | **0.26-0.62 core**, 18-44 % kernel | `MsgWaitForMultipleObjectsEx(0,0,1,QS_ALLINPUT,MWMO_INPUTAVAILABLE)` on the empty path (cave) | small |
+| W3 | WinMain message pump never waits: `PeekMessageA` loop + per-iteration call to 47990 | Nioh3+1A6BF18..1A6BF84 (main thread starts at EP 52C1310, SteamStub .bind; the profiler's "38E1290" is past the end of .text) | **0.26-0.62 core**, 18-44 % kernel | `MsgWaitForMultipleObjectsEx(0,0,1,QS_ALLINPUT,MWMO_INPUTAVAILABLE)` on the empty path (cave) | small |
 | W4 | frame limiter = Sleep(0)+job-poll busy-wait until the frame deadline | Nioh3+5ACF80 tail -> cold 19DF57E -> 916EBC (KIDSTaskScheduler0) | up to ~0.4-0.7 core **when there is slack** (shrine test: 40 % of Scheduler0 samples in NtDelayExecution); ~0 when CPU-bound | cave at call 19DF583: `Sleep(1)` while more than ~3 ms remain | small |
 | W5 | FSR3 FG presenter pacing = pure QPC spin | Nioh3+370F578 (single caller 3777A40) | ~0.4 core with FG on | hybrid sleep-then-spin cave | small |
 | W6 | `while(flag) Sleep(0)` on main thread | Nioh3+7D9E90 (4 callers: 3D652B, 7D9B91, 2EE090F, 2EEC4F9) | 2.5 % main thread | Sleep(0) -> WaitOnAddress / event (later built as mod option W6: no measured fps effect in a normal setup, see docs/BENCHMARKS.md) | small |
@@ -21,7 +21,8 @@ on/off pairs (docs/BENCHMARKS.md, section (a)).
 
 These did not matter in these captures: audio (SoundSystemUpdateThread 2.7 %, XAudio2 <1 %), input
 (InputUpdateWorker 3-4 %), USB/device polling (DINPUT8 only appears under the pump thread's overlay hook).
-Collision (KIDSTS[s9:CollisionUpdate] x9 = ~1 core) is std::map pointer-chasing (Nioh3+D80B0/D8B70/D8D90). That is
+Collision (KIDSTS[s9:CollisionUpdate] x9 = ~1 core) is mostly lower_bound binary searches over flat sorted 16-byte
+arrays (Nioh3+D8D90, D8740 x2) plus inlined std::map finds in D80B0 and one std::map walk 19CED0; D8B70 has no map. That is
 algorithmic, not a spin.
 
 ### W1 patch: Nioh3+61BAC (22 bytes, verified with `decode.fsx`)
@@ -56,9 +57,9 @@ check for WRITECOMBINE.
 | 21452 | [App]Game: main/game thread (frame fn 1A74130 <- 27049CC <- 134EBD0) | 92.6 | 17.8 | CPU-bound, 89 % busy; W1/W2/W6 live here |
 | 21760 | KIDSTaskScheduler0: frame step 5ACF80 + jobs | 83.0 | 4.9 | 14 % short SRW-condvar waits; frame limiter (W4) |
 | 2472 | SynergisticDispatcherTask: D3D12 submission (amdxc64 26 %, D3D12Core 6 %) | 49.4 | 1.4 | 47 % blocked |
-| 25244 | WinMain thread (start 38E1290): message pump | 43.0 | 29.7 | W3: PeekMessage 60 %, NtYieldExecution, Steam overlay hook |
+| 25244 | WinMain thread (start EP 52C1310; profiler showed 38E1290, past .text): message pump | 43.0 | 29.7 | W3: PeekMessage 60 %, NtYieldExecution, Steam overlay hook |
 | 21920,5388,29344,10064,29292,20500 | KIDSTaskScheduler6..1: job workers | 22-32 each | 1-6 | ~70 % blocked, the rest is real job work |
-| 9 threads | KIDSTS[s9:CollisionUpdate] | ~96 total | | std::map traversal (D80B0, D8B70) |
+| 9 threads | KIDSTS[s9:CollisionUpdate] | ~96 total | | binary search on flat arrays (D8D90/D8740) + std::map finds inlined in D80B0 |
 | 8 threads | KIDSTS[s2:StageUpdate] | ~82 total | | |
 | 10 threads | [App]EffectUpdateThread | ~43 total | | |
 | 10 threads | KIDSTS[s66:TS_MESHLET_REQ] | ~38 total | | some Sleep(0)/Sleep(1) (0.12 core in NtDelayExecution) |
@@ -83,7 +84,7 @@ to Nioh3+48230). Profiler since upgraded to real .pdata unwinding.
 |---|---|---|---|---|
 | 4072 | [App]Game (main) | 96.5 | 34 | 32 % blocked in WaitForSingleObject (from Nioh3+167D70); QPC polling in Nioh3+1A74130; rest = game logic |
 | 8812 | KIDSTaskScheduler0 | 80 | 23 | 40 % of samples in NtDelayExecution (Sleep) via Nioh3+916EBC / Nioh3+41050 |
-| 27908 | (unnamed, start Nioh3+38E1290) | 62 | **44** | **busy message pump**: 83 % NtUserPeekMessage + 13 % NtYieldExecution, under DINPUT8 / gameoverlayrenderer64 hooks; Nioh3 frame Nioh3+1A6BD18 |
+| 27908 | (unnamed, start shown as Nioh3+38E1290, an address past .text; real start EP 52C1310) | 62 | **44** | **busy message pump**: 83 % NtUserPeekMessage + 13 % NtYieldExecution, under DINPUT8 / gameoverlayrenderer64 hooks; Nioh3 frame Nioh3+1A6BD18 |
 | 14728 | AMD FSR Presenter Thread | 43 | 2 | FSR frame-gen pacing |
 | 13228 | SynergisticDispatcherTask | 28 | 10 | render submission (amdxc64/D3D12Core), 72 % blocked |
 | 14304/4756/4388/27572/25812/13816 | KIDSTaskScheduler1-6 | 15-22 each | low | job workers |

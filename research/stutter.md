@@ -192,7 +192,7 @@ draw can still miss:
   If G1/C* stay at 0 after the first minutes of a level, this class is closed.
 - **Confirmed from the decompiles of 119670 and 418F40:** the create runs on the
   SynergisticDispatcher thread (callers SynFlushPsoAndBindings 118604 / 118758), inside
-  `EnterCriticalSection([c+818h]+10h)` .. `LeaveCriticalSection`, as `CreateGfxPso(g_RenderGlobals 39CA588, key+8)`; the
+  `EnterCriticalSection([c+818h]+10h)` .. `LeaveCriticalSection`, as `CreateGfxPso(g_RenderGlobals 45BA588, key+8)`; the
   main thread blocks for it at frame end in WaitDispatcherDrainSpin 418F40 (`do { ... } while (g_DispatcherDrainBusy)`,
   from CmdStreamFinalKick 418C70). A failed insert (9B05BC) releases the new PSO and returns NULL (the draw keeps the old
   PSO state). CreateGfxPso's mesh path builds a stream of subobject types 0/2/8/9/10/11/14/15/16/18/24/25 (capstone at

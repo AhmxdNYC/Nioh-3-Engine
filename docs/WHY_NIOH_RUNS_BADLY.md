@@ -39,13 +39,13 @@ Source: docs/final-bench/report.md and README.md. Yoritomo fight, two chunks per
 | Ally, Linux/Proton | off | 34.63 | 32.58 | 39.02 |
 | Ally, Linux/Proton | on (displayed) | 42.06 | 44.65 | 52.38 |
 
-Caveats stated in the source: PC2 with FG on is better in stock than in both mod arms; the Ally chunks vary widely (for example FG-off Ally full chunks 33.06 and 44.97), so the Ally rows are noisy; the Ally "stock" arm is the mod loaded with every optimization switch off; the real pre-FG Ally rate is about half the displayed number. 1% low (stock / pure-perf / full): PC FG off 60.52 / 74.62 / 73.32; PC2 FG off 29.18 / 33.44 / 33.63; Ally FG off 29.79 / 26.44 / 24.39.
+Caveats stated in the source: PC2 with FG on is better in stock than in both mod arms; the Ally chunks vary widely (for example FG-off Ally full chunks 33.06 and 44.97), so the Ally rows are noisy; the Ally "stock" arm is the mod loaded with every optimization switch off; the real pre-FG Ally rate is about half the displayed number. Every row is n = 2 with no error bars: Ally FG off (pure-perf -5.9 %, full +12.7 %) is inside chunk noise with CPU power unchanged; the PC FG-off +29.8 % is indicative only (not reproduced; the controlled same-picture A/B found 0 to +2.5 %). 1% low (stock / pure-perf / full): PC FG off 60.52 / 74.62 / 73.32; PC2 FG off 29.18 / 33.44 / 33.63; Ally FG off 29.79 / 26.44 / 24.39.
 
 ## 3. Windows vs Linux (Proton/Bazzite): what differs
 
 - **Proton makes small kernel-object and I/O operations expensive.** CreateEvent+CloseHandle pair: 0.57 us on Windows vs 84 us under Proton; 1 KB overlapped read with per-read event: 4.0 us vs about 55 us (pc-vs-ally-load.md s1). That is why the loading fixes EP (pooled events) and SR (sync reads) are on automatically under Proton and are not needed on Windows (predicted gain on PC: at most 0.3 s of one thread, about 0 s wall).
 - **Window-message thread spins under Wine** (returns after about 40 us, about 24k wakes/s with a wineserver round trip each). Fixed by W3WineSleep (ally-report-2026-10-06.md).
-- **Frame generation crashes under Proton** from a game bug (a missing texture check in the FidelityFX copy; vkd3d-proton #2845). The mod has a guard (FGC) and a "safe FG" toggle that uses the engine's own FG pause (fg-proton-fix.md; written as not run in game at the time of that note, the Ally FG-on result in s2 is later).
+- **Frame generation crashes under Proton** from a game bug (a missing texture check in the FidelityFX copy; vkd3d-proton #2845). The mod has an opt-in guard (FGC) that is **off by default** (`FGC = 0` in the shipped ini); it stays off on purpose so crash logs show what breaks. The old "safe FG" toggle that used the engine's own FG pause was retired (fg-proton-fix.md).
 - **Some fixes are Windows-only**: VrrPresent (ignored under Proton), barrier batching (no-op on RADV), the R2a/R2b barrier items are Wine-only (backlog and gpu-barriers notes).
 - **Some shader rewrites that help on one GPU hurt on the other**: GI and fog rewrites lost on RADV/ACO (Ally) while GI was neutral on PC (s4).
 - **Same zip for both**; settings that differ by OS are -1 (auto) in the ini (mod/Nioh3EngineFix/README.md).
@@ -63,7 +63,7 @@ Verdict key: **Worked** = measured gain of at least about 2 % fps, or large load
 | W1/W2 zero-fill and quad writer no longer read-modify-write on upload memory | Worked (CPU) | Was 11-22 % of main thread. No separate fps number. W1B glyph-padding variant on PC2 Win: +0.1 % fps | mod README; cpu-bound-midrange.md |
 | R1, L1, FG presenter sleeps | Worked (power) | FG presenter about 0.2 core less, no fps change (PC) | mod README |
 | P12 (keep worker pools at 10 and 7 threads on 6-core/12-thread CPUs) | Small/unknown | No A/B number in the notes read | mod README |
-| VRR variable-dt timing | Worked (correctness) | Below the cap, stock slows the whole game (46 fps at a 60 cap = 77 % speed); VRR keeps 1.00x. Not a speed-up of fps | mod README |
+| VRR variable-dt timing | Worked (correctness, CPU-limited only) | Stock slows the game only when its update thread cannot reach the cap's tick rate (CPU-limited, e.g. 108 ticks/s at the 120 cap = 90 % speed); VRR keeps about 1.00x there (Ally 0.97x at 44.6 ticks/s). When only the GPU limits, stock already runs at full speed and VRR changes nothing. Not a speed-up of fps | mod README |
 | Constant-buffer upload fix (CBMODE 0 -> 6; CBN/CBT/CBS) | Worked on PC2 only | PC2 Win +16.50 % +/-0.16 SE (earlier CBN +15.9 %); PC +0.55 % +/-0.46 (neutral); Ally Lin +0.19 % +/-0.19 (neutral). PC2 gain is specific to its 0.8 GB/s GPU link | README.md; STATUS.md 2026-10 entries |
 | PP page-pool sweep every 4th frame | Small | PC Win +2.9 % (*historical claim*, retracted in BENCHMARKS.md); Ally not run | mod README (Which settings); .handoff/untried-ideas.md |
 | B draw-list search, GF, MQ | Failed | PC Win: "gave nothing" | mod README; perf-opportunities-pc-20261015.md |
@@ -75,7 +75,7 @@ Verdict key: **Worked** = measured gain of at least about 2 % fps, or large load
 | KL_Div (segment hand-off every 16 draws) | Maybe | PC2 Win +1.2-1.3 % twice; Ally Lin inconclusive (-5.9 % +/-1.5 at KL 4, +1.0 % +/-3.8 at KL 2) | backlog-small-wins.md |
 | Combined CPU bundle (RD, M2S, J1, WG, LK, MW) | Small | PC Win Ibaraki, 4 arms: 96.3 -> 99.5 fps, 1% low 44.6 -> 53.4, CPU 7.06 -> 6.34 cores (arm noise about 4 %). Fights: Yoritomo 86.01 -> 87.45 fps, CPU 71.58 % -> 69.49 %; Ibaraki 93.50 -> 94.24 fps, CPU 57.41 % -> 55.41 % (descriptive, not controlled). PC2 pair: -3.97 % CPU, +0.21 % fps, later marked INVALID | perf-opportunities-pc-20261015.md; combined-cpu-trial-2026-10-13.md; cpu-ab-pc2-3578.md |
 | WG/CP/SPF/LK/ED on Ally | Worked (power only) | Ally Lin: fps-neutral, saves CPU power | mod README |
-| X1, E1, S1, M1/M2, AABB, DQ, P1E7, JT/JG/BPO | Maybe | AABB: best estimate 0.5-0.6 ms per logic tick, one PC2 pair 0.71 ms, "not KEEP". BPO 0.12-0.25 ms E. DQ/P1E7 listed as dropped. M1/full M2 excluded for correctness gaps | .handoff/checkpoints.md 2026-10-28 11:08; perf-opportunities-pc-20261015.md; untried-ideas.md |
+| X1, E1, S1, M1/M2, AABB, DQ, P1E7, JT/JG/BPO | Maybe | AABB: best estimate 0.5-0.6 ms per logic tick, one PC2 pair 0.71 ms, "not KEEP". BPO 0.12-0.25 ms E. DQ/P1E7 listed as dropped. M1/full M2 excluded for correctness gaps; note the shipped 1.7.86 ini still has `M2 = 1` and `E1 = 1` (a later build will ship them off) | .handoff/checkpoints.md 2026-10-28 11:08; perf-opportunities-pc-20261015.md; untried-ideas.md |
 | Async compute slot 0 (AS) | Maybe/Small | Offline harness on RX 9070: 0.133 ms saved (about +1-1.5 %); costs +0.19 ms when CPU-bound; slots 11/12 net loss | gpu-async-wins.md |
 | Skip OutputDebugString, timer resolution (TR), SkipDebugString | Worked (cleanup) | OutputDebugStringA 91/s -> 0.1/s (Ally); TR neutral on PC | backlog-small-wins.md |
 
@@ -101,7 +101,7 @@ Verdict key: **Worked** = measured gain of at least about 2 % fps, or large load
 
 | Optimization | Verdict | Measured number, device, OS | Source |
 |---|---|---|---|
-| EP (pooled events) + SR (sync reads) | Worked on Linux | Ally Lin loads about 94 s -> 37-38 s; automatic under Proton. Not needed on Windows | mod README; pc-vs-ally-load.md |
+| EP (pooled events) + SR (sync reads) | Worked on Linux | Ally Lin loads about 96 s -> 38 s (chained from two tests: 96.0 -> 47.3 s with EP on 1.7.23, then 47.25 -> 38.45 s with EP+SR on 1.7.25; not re-run on the current build); automatic under Proton. Not needed on Windows | mod README; pc-vs-ally-load.md |
 | LC / LW / GL1 / ZI / PSO pre-creation / I/O tuning | Failed on PC | PC Win load window unchanged (25.3-26.4 s vs 25.8): managers finish 12+ s before the window ends | loading-bottleneck.md s1, s2, s4 |
 | Cross-world "Fight now" prewarm (CrossWorldPrewarm=2) | Worked if the menu is open long enough | PC2 Win: 27 s of menu dwell -> cover 1.0 s after the press, boss spawns 0.3 s later. Without it the cover lasts about 27 s. AreaObjSkip gave only about 1.8 s; loader gate skip no gain | faster-load-pc2-6801.md |
 | CoverReleaseMs / NearArenaOnly | Failed | PC Win: control returns in 0.5 s but screen stays black about 30-40 s; "7 s" was a log number only. Ally Lin 31.1 s vs 30.1-30.2 s | cross-world-load-2026-10-16.md |
@@ -132,7 +132,7 @@ Measured PC at 1440p GPU-bound with a cheap sky scene; the note expects heavy fo
 | VrrPresent | Maybe | Built, offline verified, not run when written; Windows only | vrr-present.md |
 | IK input kick | Failed on Ally | No effect (GPU-bound); 2 ms wait cap was a cost, now 0 | mod README |
 | MaxFrameLatency 2-3 | Maybe | "Throughput lever when the GPU is the limit, at up to one frame more delay"; no number | mod README |
-| Proton FG safe toggle | Worked (stability) | Ally FG on worked 3/3; stock FG off crashed 1/1 in that log | fg-proton-fix.md |
+| Proton FG safe toggle (retired; the FGC guard is the remaining fix, off by default) | Worked (stability) | Ally FG on worked 3/3; stock FG off crashed 1/1 in that log | fg-proton-fix.md |
 
 ### 4.6 Stutter
 
