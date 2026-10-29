@@ -930,9 +930,10 @@ int TenshinReqCall(uint64_t bits) {
         return 1;
     }
 }
+int g_tenSfRet = 0;  // al returned by the last TenshinSetFormCall
 int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
     __try {
-        ((void (*)(uint64_t, uint32_t))(g_base + (which ? 0x74C128 : 0x74C2FC)))(st, id);
+        g_tenSfRet = ((uint8_t(*)(uint64_t, uint32_t))(g_base + (which ? 0x74C128 : 0x74C2FC)))(st, id);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -1052,11 +1053,17 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             if (fm) WrU32(a + 0xA68, fm);
             const uint32_t sf = g_tenSetForm.load();
             if (sf) {
+                uint64_t t1d8a = 0, t1d8b = 0;
+                Rd(a + 0x1D8, t1d8a);
+                WrU32(a + 0xA68, 0);  // 74C608 returns early (al=0, no pack install) when the new id == [state+A68] (opus RE, pc #47700)
                 const int r1 = TenshinSetFormCall(a, sf, 0);
+                const int ret1 = g_tenSfRet & 0xFF;
                 const int r2 = TenshinSetFormCall(a, sf, 1);
                 uint32_t a68b = 0;
                 Rd(a + 0xA68, a68b);
-                Log("TenshinInput: SetForm(%X) 74C2FC rc=%d 74C128 rc=%d A68 %X -> %X", sf, r1, r2, a68, a68b);
+                Rd(a + 0x1D8, t1d8b);
+                Log("TenshinInput: SetForm(%X) 74C2FC fault=%d ret=%d 74C128 fault=%d A68 %X -> %X state+1D8 %llX -> %llX", sf, r1, ret1, r2, a68, a68b, (unsigned long long)t1d8a,
+                    (unsigned long long)t1d8b);
             }
             Log("TenshinInput: A68 state=%llX %X -> %X", (unsigned long long)a, a68, fm ? fm : a68);
             WrU32(a + 0x1068, w | 0x4000);
