@@ -152,6 +152,21 @@ int main(int argc, char** argv) {
         CHECK(!rcore::FightSlotOk(slot, 0x34, 72636), "a different start point (the default) is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x1CBC, 77032), "a different mission is reported");
         CHECK(!rcore::FightSlotOk(slot, 0x34, 0), "start point 0 is never a fight start");
+        // user 20261018: stale fight flag (BossBattleMode at a save load inside an arena, mission 0, no boss)
+        CHECK(rcore::FightRiseNearLoad(true, 1000, 0), "stale: a fight rising while loading is near a load");
+        CHECK(rcore::FightRiseNearLoad(false, 10000, 9985), "stale: 15 ms after the load ended (log 22:09:06.069 vs .084) is near a load");
+        CHECK(!rcore::FightRiseNearLoad(false, 200000, 9985), "stale: a fight minutes after the load is a real fight");
+        CHECK(!rcore::FightRiseNearLoad(false, 1000, 0), "stale: no load seen yet = not near a load");
+        CHECK(rcore::StaleFight(true, true, true, 0, true, false), "stale: user 22:09:06 case (mission 0, idle, no Training session) is stale");
+        CHECK(!rcore::StaleFight(true, true, true, 0x7B35, true, false), "stale: a running mission keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, true, 0, false, false), "stale: a rematch flow keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, true, 0, true, true), "stale: a Nioh3Training session / summon / swap keeps the fight");
+        CHECK(!rcore::StaleFight(true, false, true, 0, true, false), "stale: an open-world fight begun away from a load keeps the fight");
+        CHECK(!rcore::StaleFight(true, true, false, 0, true, false), "stale: unreadable mission state keeps the fight");
+        CHECK(!rcore::StaleFight(false, true, true, 0, true, false), "stale: no fight, nothing to clear");
+        CHECK(rcore::ClearFightOnLoad(true, true, false), "load: a load ends a fight BossBattleModeEnd never closed (22:11:11 load)");
+        CHECK(!rcore::ClearFightOnLoad(true, false, false), "load: a rematch flow owns its loads");
+        CHECK(!rcore::ClearFightOnLoad(true, true, true), "load: a Nioh3Training session owns its loads");
         // v2: arena points
         int nar = 0, nat = 0;
         for (auto& r : rows) {
@@ -167,6 +182,17 @@ int main(int argc, char** argv) {
             const float post[3] = {334650, 10100, 206713}, pre[3] = {337042, 10100, 206691}, shrine[3] = {339660, 10192, 206266};
             CHECK(y && y->boxOk && rcore::InTriggerBox(*y, y->arena) && rcore::InTriggerBox(*y, pre), "Yamagata: warp point and the captured trigger point are inside BOSSAREABOX");
             CHECK(y && !rcore::InTriggerBox(*y, post) && !rcore::InTriggerBox(*y, shrine), "Yamagata: the post-intro position and the shrine are outside it");
+            // 1.4.0 SPAWN: shrine 67064's shipped record spawns at 339659.9 10191.8 206266.3 yaw -145.5, flags 4 (arrival camera)
+            const float rec[4] = {339659.9f, 10191.8f, 206266.3f, -145.5f}, other[4] = {343783, 11114, 198363, -90};
+            CHECK(y && rcore::SpawnRecordMatches(*y, rec) && !rcore::SpawnRecordMatches(*y, other), "spawn: only the catalogue's start point record is patched");
+            CHECK(rcore::SpawnFlags(4) == 0 && rcore::SpawnFlags(0x44) == 0x40 && rcore::SpawnFlags(0x40) == 0x40, "spawn: only the arrival-camera bit is cleared");
+            const float landed[3] = {339660, 10195, 206265};  // 1.3.3 log: the player on the first frame at shrine 67064
+            CHECK(y && rcore::AtStartPoint(*y, landed) && !rcore::AtStartPoint(*y, y->arena) && !rcore::AtStartPoint(*y, post),
+                  "spawn: at the shrine = override did not take (warp fallback); the arena point / the post-intro spot = spawned in the arena");
+            int nsp = 0;
+            for (auto& r : rows) nsp += r.arenaOk && r.fightStart && !r.atFight && !rcore::AtStartPoint(r, r.arena);
+            printf("spawn override: %d rows spawn more than 5 m from their start point\n", nsp);
+            CHECK(nsp >= 10, "spawn: most arena rows are more than 5 m from their start point (a closer one keeps the plain warp)");
         }
         const rcore::Row* hz = nullptr;
         for (auto& r : rows)
@@ -181,6 +207,18 @@ int main(int argc, char** argv) {
             if (!strcmp(r.id, "R0034")) jc = &r;
         CHECK(jc && jc->arenaOk && !strcmp(jc->arenaConf, "captured") && jc->arena[0] == 204600.0f && jc->arena[1] == 12440.0f,
               "captured point overrides the catalogue (+0.5 m on y)");
+        {  // ally #8093: Otoroshi R2EE9 has no catalogue arena point; the Nioh3Training table fills it, rows with a point stay untouched
+            std::vector<rcore::Row> w = rows;
+            const rcore::Row* ot = nullptr;
+            for (auto& r : w)
+                if (!strcmp(r.id, "R2EE9")) ot = &r;
+            CHECK(ot && ot->fightStart && !ot->arenaOk, "Otoroshi: catalogue has a start point but no arena point");
+            const std::string tt = "# hdr\n0x2EE9\t348323\t0xB1\t371449\t340693\t143923\t11871\t244615\t155.9\t145760\t11300\t239615\tstart\tR2EE9\tOtoroshi\n"
+                                   "0x0034\t1\t0x96\t1\t1\t9\t9\t9\t0\t0\t0\t0\tarena\tR0034\tx\n";
+            CHECK(rcore::ApplyTrainingArenas(tt, w) == 1, "training table fills only rows without an arena point");
+            CHECK(ot && ot->arenaOk && ot->arena[0] == 143923.0f && ot->arena[2] == 244615.0f && !strcmp(ot->arenaConf, "training") && ot->FightNowReady(),
+                  "Otoroshi: Fight now ready from the Nioh3Training table");
+        }
     }
     CHECK(rcore::ParseCatalogue("garbage\n", rows) == -1, "a file without the header is rejected");
 
@@ -220,7 +258,7 @@ int main(int argc, char** argv) {
         CHECK(rcore::MapRestore(mp, &WrPlain) == -1, "restore twice = nothing active");
         CHECK(rcore::MapRedirect(mp, map, 41, empty, 2, 20, &WrPlain), "redirect again");
         map[5 * 8 + 1] ^= 1;  // somebody else writes a pad byte
-        CHECK(rcore::MapRestore(mp, &WrPlain) == 1 && !memcmp(map, orig, sizeof(map)), "restore after a foreign write: reported, restored");
+        CHECK(rcore::MapRestore(mp, &WrPlain) == -3 && mp.active && mp.conflict, "foreign write: ownership retained, no overwrite");
         CHECK(!rcore::MapRedirect(mp, map, 41, empty, 20, 20, &WrPlain), "target out of range refused");
     }
     // ---------------- E lifecycle ----------------

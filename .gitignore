@@ -52,3 +52,5 @@ release/profiles/
 # --- play session captures (tools\playsession): PresentMon per-frame CSVs are large ---
 captures/playsession/*/presentmon.csv
 captures/playsession/*/orig/
+mod/Nioh3Training/Nioh3Training.asi
+data/extract/

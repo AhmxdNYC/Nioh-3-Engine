@@ -306,17 +306,9 @@ the drawing swapchain. Menu: *GPU barrier batching* (live on/off when hooked) pl
   measures its interval per tick, so its "armed" values (39-56 there) follow the tick rate and the game speed stays
   right; the frames simply aren't all presented.
 
-### Proton: FG never stays on in config.xml because of the mod (1.1.0)
-With `[Menu] FrameGenToggle = 2` under Proton the mod switches FG on for the session only, but the game itself saves it
-when the user leaves its own Options/pause menu - and FG on is reported to crash-loop the game there. Now, when the mod
-switched FG on and config.xml had `FRAME_GENERATION` OFF at startup, the mod writes a marker file
-(`Nioh3EngineFix.fgmarker`) and puts OFF back:
-* at exit: hooks on the game's own `ExitProcess` / `TerminateProcess` imports (they run on the exiting thread before
-  teardown; `DLL_PROCESS_DETACH` is only the last resort because of the loader lock and already-killed threads);
-* at the next start, before the game reads its config, if the marker is still there (crash). This is the path that
-  breaks the crash loop.
-Both use the existing config.xml writer (value check, `.Nioh3EngineFix.bak` backup, only that value changed) and log
-`MENU: Proton ...` lines.
+### Game settings preservation
+Frame generation is status-only. The mod does not write the game's config.xml, call its FG setter,
+or restore settings at startup/exit. Old FG marker files are ignored. Save to ini saves only mod choices.
 
 ### 1.7.14: GL1, LC, LW - queued game-logic and loading patches (all default 0, v2.02 only, next launch, no menu rows)
 From `notes\gamelogic.md` (GL1) and `notes\loading.md` section 3 rows 4-5. Same checks as every patch (pattern, bytes,
@@ -583,7 +575,7 @@ Details by group (older description):
 * **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF, MQ, PT1, DL live;
   LK next launch. Items installed with the switch off are saved as 2 (stay installed).
 * **Overlay:** Show FPS counter, frame time, game speed, *Move FPS counter* (corner), *Nudge counter right / down*, text size. `[Overlay] OffsetX / OffsetY` are pixels at 1080p (scaled with the screen height) measured from the chosen corner's edges; with no offset keys the TopLeft counter starts **160 px down** so it sits below the game's health / ki bars (other corners 0). The first nudge in the menu takes over the current values; A resets a value. Save to ini writes the keys. With frame generation running the counter shows `FPS: 60 FG | FG FPS: 120`.
-* **Frame generation:** a status row `Frame gen: ON - running (60 -> 120 fps)` (green) / `ON - paused (game menu open | loading | menu/loading/cutscene)` (orange) / `OFF` (grey), a row that literally says **Turn frame gen ON** / **Turn frame gen OFF** (A / Enter; Left / Right picks the type), and the game's *Upscaler* setting. See
+* **Frame generation:** a status row `Frame gen: ON - running (60 -> 120 fps)` (green) / `ON - paused (game menu open | loading | menu/loading/cutscene)` (orange) / `OFF` (grey), the current FG type (read-only), and the game's *Upscaler* setting. See
   [Frame generation](#frame-generation-status-and-switch).
 * **Next launch:** WorkerCap, P12, and under Proton also L1/F1 on Proton. These are marked `* restart` when changed.
 * **Save to ini** writes everything to `Nioh3EngineFix.ini`. Without saving, changes last until the game exits.
@@ -602,6 +594,15 @@ Notes:
 * If the overlay stops drawing, the menu closes by itself within 1.5 s and the game's input passes through again.
   Any error disables only the menu and is logged (`MENU: ...` lines).
 
+### Controller display (`[Menu] ControllerDisplay`)
+A live picture of the controller, top-left under the FPS counter, drawn the way the Gamepad Viewer skins (gamepadviewer.com)
+draw it: the controller body, then for every pressed button its lit sprite, the stick caps moved (and tilted) by the axes,
+the triggers lit by how far they are pulled, and the touchpad / PS button when pressed. `ButtonStyle = PlayStation` shows a
+DualSense, `ButtonStyle = Xbox` an Xbox pad. `ControllerDisplaySize` (1 = about 280 px wide at 1080p) and
+`ControllerDisplayOpacity` change it live; the menu rows are under "Mod menu controls". The picture shows the raw pad
+before the menu masks anything. XInput has no touchpad and no PS/guide bit, so those two layers stay dark today.
+The sprites are embedded in the `.asi` (see Credits).
+
 ### Frame generation status and switch
 The startup popup and the menu show:
 * the game's **FRAME_GENERATION** setting (OFF, DLSS, FSR or XeSS) and its **upscaler** setting. FSR frame gen doesn't
@@ -618,22 +619,11 @@ The startup popup and the menu show:
 The log prints `OSD: game settings: FRAME_GENERATION ..., RESOLUTION_SCALING ...` at the first frame and on every
 change. It also prints which thread presents: `"AMD FSR Presenter Thread"` means FSR FG is running.
 
-The **Frame generation** item (Left/Right: OFF / FSR / XeSS / DLSS, only the types the game allows here; A: on/off)
-calls the game's own setter, the function its Options menu uses, and marks the game's settings as changed. The engine
-then rebuilds its swapchain with the new FG mode within a few frames, so the screen blinks once. There is one change
-per 2 s. **Save to ini** also writes the new FRAME_GENERATION value into the game's `config.xml`: only that one value,
-after copying the file to `config.xml.Nioh3EngineFix.bak`. The game would write the same value itself the next time
-you leave its options screen.
-
-`[Menu] FrameGenToggle` controls the switch:
-* `0`: status only.
-* `1` (default): switch on Windows, status only under Proton / Steam Deck / Bazzite.
-* `2`: switch under Proton too.
-
-Turning FG on under Proton is **reported to crash the game**. Afterwards the game won't start until config.xml is
-fixed (community reports, vkd3d-proton issue 2845). So with `2` under Proton, FG on is applied for the session only:
-the mod never saves it, and a crash is undone by restarting. While FG is on there, don't change other options in the
-game's own menu, because the game would then save FG on itself. Background: `notes\frame-generation.md`.
+The **Frame generation** item shows the game's current setting and runtime status. Change it in the
+game's Options. **Save to ini** saves only mod choices to `Nioh3EngineFix.ini`.
+`[Menu] FrameGenToggle` defaults to `0`; all legacy values are status-only on Windows and Proton.
+Legacy `3` retains the independent FGC copy-job null guard under Proton, without settings writes or FG pause control.
+Old `.fgmarker` files and game-config backups are ignored; startup and exit never restore older settings.
 
 Recommended in-game settings with VRR:
 * Pick the FPS cap (30/60/120) you can *mostly* hold.
@@ -669,6 +659,43 @@ To uninstall, delete the `.asi`/`.dll`, `.ini` and `.log`. Nothing else was chan
   one long step.
 * Per-frame script timers in the 30 cap, and anything above 120 fps, are only partly verified.
 * Menu fades are frame-counted and take a little longer below the cap (cosmetic).
+
+## Credits
+* Controller display, PlayStation style: the **Gamepad Viewer DualSense skin** by **CrazyGrape** (vector art, 2021), with
+  touchpad and PS button support by **Cubio300** (https://gist.github.com/Cubio300/e9ff30dff9a96081086f534b22bf05fd).
+  Licensed under Creative Commons Attribution 3.0 United States (https://creativecommons.org/licenses/by/3.0/us/).
+  The sprites are packed into one atlas (cropped, not otherwise changed). The DualSense design and the PlayStation logo are
+  the intellectual property of Sony.
+* Controller display, Xbox style: the **"xbox_star" skin of MyGamepadViewer** by **skyqyzm**
+  (https://github.com/skyjty/MyGamepadViewer), MIT License, Copyright (c) 2024 skyqyzm (full text in
+  `assets/padviz/xbox/LICENSE`). Rasterised from its SVG layers. The Xbox design and logo are Microsoft's.
+  MIT licence text of the Xbox art (it ships inside the `.asi`):
+
+  ```
+  MIT License
+
+  Copyright (c) 2024 skyqyzm
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+* The layer behaviour (lit sprites, stick travel, trigger opacity) follows gamepadviewer.com and Marcin Wichary's
+  Gamepad tester (Apache 2.0). Details and sources: `assets/padviz/CREDITS.txt`.
 
 ---
 
@@ -761,3 +788,12 @@ state from another thread or from the same list).
 Tests: `py -I tests\run_r2_harness.py` runs identical work (buffers with R2a read and write cases, a UAV buffer, a texture, a small
 render target) on this PC's real D3D12 device with every switch combination and requires bit-identical buffers and render target,
 the expected counters, and the trace columns.
+
+### Input display (`[Menu] InputDisplay`)
+
+SF6-style input history: newest row on top; per row the frames held (60 Hz frames, 99 max), the direction arrow (8-way, `N` = neutral)
+and the buttons held. Face buttons are the controller display's own lit sprites (same atlas, same Xbox / PlayStation skin from
+`ButtonStyle`, same `ControllerDisplayPressColor`); LB/RB/LT/RT are text chips (L1/R1/L2/R2 in PlayStation style). `InputDisplay = 0`
+(default) / 1, `InputDisplaySide = Left` (below the FPS counter and the controller picture) / `Right`, `InputDisplayRows = 4 .. 24`.
+Rows are on the Gameplay / Overlays page. It only reads the pad feed the controller display uses (raw state, before menu masking);
+it writes no game state and no save data. Hidden while the mod menu is open.

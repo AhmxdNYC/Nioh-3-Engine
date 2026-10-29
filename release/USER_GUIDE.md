@@ -35,7 +35,27 @@ each default is and where it was measured. Handheld-only extras (e.g. `WorkerCap
    Supply the game's actual prefix, or `--save-root "/path/to/KoeiTecmo/NIOH3"`. No prefix/account is guessed.
 3. Steam -> Nioh 3 -> Properties -> Launch options: `WINEDLLOVERRIDES="dinput8=n,b" %command%`
    (without it Proton ignores the loader and the mod never runs).
-4. Leave frame generation OFF on Proton: switching it is reported to crash there. The mod keeps it off in `config.xml`.
+4. Change frame generation in the game's Options. The mod shows its status and never changes or restores the game's settings; Save to ini saves only mod choices.
+
+### Automatic backups on installation and update
+
+Use the same installer command for updates. Before replacing any mod file, it creates a new UTC-timestamped backup in
+`NIOH3-mod-backups` beside the save root, copies every save file, verifies SHA256 hashes and rechecks that the source did not
+change. The printed backup directory contains `saves/`, previous mod files and `receipt.json`. Use `--backup-root "path"` to
+choose another directory outside the game/save/package folders. Existing INIs are preserved. Optional shaders are not installed.
+
+A missing/empty save directory, running game, incomplete backup or checksum mismatch stops installation. Backups are never
+reused, automatically deleted or automatically restored. If installation fails after a mod replacement, only this installer's
+unchanged replacement files are rolled back; conflicting files are left alone and marked for review in the receipt. An interrupted
+process, conflicting rollback, game starting mid-install or failed final receipt can leave `.nioh3-mod-install.lock` in the game
+directory: inspect its receipt and finish recovery before removing that lock. Loaded mod files are not rolled back while the game is running.
+For manual save recovery, close the game, preserve your current saves separately, then copy the chosen backup's `saves/` contents
+to the receipt's `save_source` directory. Older backups are never silently restored over newer progress.
+
+Downloading a ZIP cannot read or back up local saves. Automatic protection applies when this installer activates an install/update;
+manual drag-and-drop, third-party mod managers, optional shader copying and already-installed releases bypass it. Keep the game
+closed and avoid starting it or syncing/changing saves during installation; the checks do not suspend Steam Cloud or lock the game process.
+The installer does not change Steam settings, launch the game or modify `Nioh3.exe`.
 
 ### Automatic backups on installation and update
 
@@ -110,6 +130,12 @@ reason. Every 30 s it prints `stats` lines. Send this log with any report.
 | slow motion or judder below the cap | "FPS dynamic adjustment" is ON in the game options |
 | a fix row says `REFUSED` | it needs another fix on (the menu text says which) |
 | visual glitch | turn the newest experimental row off in the menu, note which one, report it |
+
+## Turn the mod off / back on (normal game)
+- In game: Mod menu first page > `Reverse Mods`, press A twice. The next start is the normal game; saves and settings stay.
+  Press it twice again (before starting the game without the mod) to put it back.
+- Windows, game closed: double-click `Restore Vanilla Game.cmd` in the game folder; `Put the mod back.cmd` turns it on again.
+- Linux / Steam Deck, game closed: run `sh restore-vanilla.sh` in the game folder; `sh put-mod-back.sh` turns it on again.
 
 ## Uninstall
 Delete `dinput8.dll` (unless another mod needs it), `Nioh3EngineFix.asi`, `.ini`, `.log` (and the `Nioh3EngineFix_pj` folder

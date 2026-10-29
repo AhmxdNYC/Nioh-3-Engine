@@ -1,0 +1,80 @@
+1675:[23:18:50.538] MENU: closed (B / Esc)
+1676:[23:18:50.577] MENU: engine stop flags (G+588..58D) now: none
+1678:[23:18:56.957] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1679:[23:18:56.957] MENU: opened on the Practice page (current mode, #13529)
+1680:[23:18:56.976] MENU: engine stop flags (G+588..58D) now: 58B
+1695:[23:19:05.599] MENU: closed (B / Esc)
+1696:[23:19:05.630] MENU: engine stop flags (G+588..58D) now: none
+1697:[23:19:12.534] MENU: game menu signal now OPEN (5A37D4=1 D63C0=0)
+1698:[23:19:13.969] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+1699:[23:19:14.594] MENU: game menu signal now OPEN (5A37D4=1 D63C0=0)
+1700:[23:19:16.000] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+1701:[23:19:16.175] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1702:[23:19:16.175] MENU: opened on the Practice page (current mode, #13529)
+1703:[23:19:16.222] MENU: engine stop flags (G+588..58D) now: 58B
+1719:[23:19:35.049] MENU: closed (B / Esc)
+1720:[23:19:35.093] MENU: engine stop flags (G+588..58D) now: none
+1721:[23:19:43.660] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1722:[23:19:43.660] MENU: opened on the Practice page (current mode, #13529)
+1723:[23:19:43.706] MENU: engine stop flags (G+588..58D) now: 58B
+1724:[23:19:54.307] MENU: closed (B / Esc)
+1725:[23:19:54.331] MENU: engine stop flags (G+588..58D) now: none
+1741:[23:20:04.248] MENU: game menu signal now OPEN (5A37D4=1 D63C0=0)
+1742:[23:20:05.379] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+1743:[23:20:05.826] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1744:[23:20:05.826] MENU: opened on the Practice page (current mode, #13529)
+1745:[23:20:05.846] MENU: engine stop flags (G+588..58D) now: 58B
+1746:[23:20:22.654] MENU: closed (B / Esc)
+1747:[23:20:22.696] MENU: engine stop flags (G+588..58D) now: none
+1749:[23:20:29.939] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1750:[23:20:29.939] MENU: opened on the Practice page (current mode, #13529)
+1751:[23:20:29.968] MENU: engine stop flags (G+588..58D) now: 58B
+1766:[23:20:43.490] MENU: closed (B / Esc)
+1767:[23:20:43.525] MENU: engine stop flags (G+588..58D) now: none
+1768:[23:20:48.578] MENU: opened (controller gesture) - game pad and navigation-key input is held neutral while open
+1769:[23:20:48.578] MENU: opened on the Practice page (current mode, #13529)
+1770:[23:20:48.588] MENU: engine stop flags (G+588..58D) now: 58B
+1772:[23:21:00.093] MENU: closed (B / Esc)
+1773:[23:21:00.136] MENU: engine stop flags (G+588..58D) now: none
+1908:[23:25:25.563] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1909:[23:25:25.587] MENU: engine stop flags (G+588..58D) now: 58B
+1910:[23:25:27.261] MENU: closed (B / Esc)
+1911:[23:25:27.297] MENU: engine stop flags (G+588..58D) now: none
+1912:[23:25:28.769] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1913:[23:25:28.794] MENU: engine stop flags (G+588..58D) now: 58B
+1914:[23:25:30.303] MENU: closed (B / Esc)
+1915:[23:25:30.337] MENU: engine stop flags (G+588..58D) now: none
+1917:[23:25:31.801] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1918:[23:25:31.814] MENU: engine stop flags (G+588..58D) now: 58B
+1919:[23:25:33.505] MENU: closed (B / Esc)
+1920:[23:25:33.539] MENU: engine stop flags (G+588..58D) now: none
+1921:[23:25:34.997] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1922:[23:25:35.017] MENU: engine stop flags (G+588..58D) now: 58B
+1937:[23:25:38.777] MENU: closed (B / Esc)
+1938:[23:25:38.786] MENU: engine stop flags (G+588..58D) now: none
+1939:[23:25:40.283] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1940:[23:25:40.313] MENU: engine stop flags (G+588..58D) now: 58B
+1941:[23:25:41.264] MENU: closed (B / Esc)
+1942:[23:25:41.277] MENU: engine stop flags (G+588..58D) now: none
+1943:[23:25:42.765] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1944:[23:25:42.797] MENU: engine stop flags (G+588..58D) now: 58B
+1960:[23:26:16.493] MENU: closed (B / Esc)
+1961:[23:26:16.526] MENU: engine stop flags (G+588..58D) now: none
+1962:[23:26:17.982] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1963:[23:26:18.003] MENU: engine stop flags (G+588..58D) now: 58B
+1964:[23:26:20.155] MENU: closed (B / Esc)
+1965:[23:26:20.193] MENU: engine stop flags (G+588..58D) now: none
+1966:[23:26:21.658] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1967:[23:26:21.680] MENU: engine stop flags (G+588..58D) now: 58B
+1968:[23:26:23.733] MENU: closed (B / Esc)
+1969:[23:26:23.758] MENU: engine stop flags (G+588..58D) now: none
+1970:[23:26:25.268] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1971:[23:26:25.299] MENU: engine stop flags (G+588..58D) now: 58B
+1972:[23:26:26.482] MENU: closed (B / Esc)
+1973:[23:26:26.513] MENU: engine stop flags (G+588..58D) now: none
+1974:[23:26:27.980] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1975:[23:26:28.026] MENU: engine stop flags (G+588..58D) now: 58B
+1976:[23:26:28.935] MENU: closed (B / Esc)
+1977:[23:26:28.973] MENU: engine stop flags (G+588..58D) now: none
+1978:[23:26:30.430] MENU: opened (Boss Rematch request) - game pad and navigation-key input is held neutral while open
+1979:[23:26:30.466] MENU: engine stop flags (G+588..58D) now: 58B

@@ -1,0 +1,82 @@
+Per boss: name | bound or composed | actions/attacks | agreement with old hand list (- none existed). All 80 sweep characters (47 bosses + 33 duelists) have an arena/start/summon row from the game data (auto_arena).
+Baba Nobuharu | bound CE_NOBUHARU_00 | 182/87 | 100%
+Bloodedge Demon | bound CE_SHIGURUI_SHURA_00 | 128/52 | -
+Demon of Envy | bound (unnamed file) | 110/31 | -
+Demon of Obsession | bound CE_SHUSHINKI_00 | 107/55 | -
+Demon of Pride | bound (unnamed file) | 118/36 | -
+Enenra | bound CE_ENENRA_00 | 119/27 | -
+Enki | bound CE_ENKI_00 | 128/44 | 100%
+Fabricated Warrior | bound (unnamed file) | 108/51 | -
+Gaki | bound CE_GAKI_00 | 99/18 | -
+Gaki Chief | bound CE_GAKIDAISHO_00 | 106/31 | -
+Gozuki | bound CE_GOZUKI_00 | 92/37 | -
+Great Tengu | bound CE_OTENGU_00 | 132/56 | 100%
+Himiko | composed COMMON+NAGIGAMA | 1169/275 | 17% MISMATCH
+Hino-enma | bound CE_HINOENMA_00 | 134/37 | 100%
+Hiruko (Human) | bound CN_HIRUKO | 70/15 | -
+Hiruko (Yokai) | bound (unnamed file) | 121/40 | -
+Ibaraki Doji | bound (unnamed file) | 107/39 | 13%
+Ippon-Datara | bound CE_IPPONDATARA_00 | 90/34 | 100%
+Jakotsu-baba | bound (unnamed file) | 107/27 | -
+Joro-gumo | bound CE_ARACHNE_00 | 109/31 | -
+Kamaitachi | bound CE_KAMAITACHI_00 | 169/63 | 100%
+Kanai Hanbei (Yokai) | bound CE_HANBE_00 | 104/46 | -
+Karasu Tengu | bound CE_TENGU_00 | 99/17 | -
+Kyokotsu | bound CE_KYOUKOTSU_00 | 127/19 | -
+Mezuki | bound CE_MEZUKI_00 | 92/34 | -
+Mikoshi Nyudo | bound CE_MIKOSHI_00 | 191/73 | 100%
+Minamoto no Yoritomo | bound CE_YORITOMO_00 | 173/91 | 100%
+Minamoto no Yoshitsune | bound CE_YOSHITSUNE_00 | 174/51 | 100%
+Ninja Yoki | bound CE_YOUKI_SPEED_00 | 123/17 | -
+Nuppeppo | bound CE_NUPPEFUHOFU_00 | 105/19 | -
+Nuribotoke | bound CE_NURIBOTOKE_00 | 105/25 | 100%
+One-eyed Oni | bound CE_ONI_00 | 115/27 | -
+Onmoraki | bound CE_ONMORAKI_00 | 194/51 | -
+Onryoki | bound CE_ONRYOKI_00 | 93/31 | -
+Otoroshi | bound CE_OTOROSHI_00 | 141/41 | 100%
+Raiju | bound CE_RAIJU_00 | 170/52 | -
+Red Kappa | bound CE_KAPPA_00 | 107/10 | 100%
+Ryomen Sukuna | bound CE_RYOUMENSUKUNA_00 | 149/15 | 100%
+Takasugi Shinsaku | bound CN_SHINSAKU | 139/63 | 100%
+Takeda Shingen (Human) | bound CN_SHINGEN | 140/70 | -
+Tesso | bound (unnamed file) | 71/18 | -
+Tokugawa Yoshinobu | bound CE_YOSHINOBU_00 | 176/42 | 100%
+Waira | bound CE_WAIRA_00 | 74/14 | -
+Yamagata Masakage (Yokai) | bound (unnamed file) | 142/53 | -
+Yamainu | bound CE_YAMAINU_00 | 154/34 | -
+Yasha | bound CE_YASHA_00 | 113/20 | -
+Yoki | bound CE_YOUKI_POWER_00 | 158/36 | -
+Yui Shosetsu | bound CE_SHOSETSU_00 | 140/56 | -
+--- duelists
+Aggrieved Warrior | composed COMMON+KATANA+DB_NOUMIN_F_00 | 1502/220 | -
+All-Seeing Mage | composed COMMON+? | 1275/187 | -
+Anayama Nobutada | composed COMMON+NITOU | 1470/236 | -
+Anazawa Morihide | composed COMMON+NAGIGAMA | 1646/285 | -
+Araki Mataemon | composed COMMON+NITOU | 1470/236 | -
+Berenguela the Whimsical | composed COMMON+? | 1472/237 | -
+Blood-Spurting Ogin | composed COMMON | 767/28 | -
+Daidara Bocchi | composed COMMON | 235/15 | -
+Demon Slayer | composed COMMON+TEKOU | 1452/224 | -
+Denrinbo Raikei | composed COMMON | 767/28 | -
+Green Shadow's Blade | composed COMMON+KATANA | 1488/220 | -
+Hattori Hanzo (Novice) | composed COMMON+? | 1336/164 | -
+Hattori Takeo | composed COMMON+NITOU | 1705/251 | -
+Hijikata Toshizo | composed COMMON+NITOU | 1470/236 | -
+Ishikawa Goemon | composed COMMON+TEKOU | 1452/224 | -
+Kajiwara Kagetoki | composed TEONO | 568/36 | -
+Kawara Jurobei | composed COMMON | 767/28 | -
+Kondo Isami | composed COMMON+KATANA | 1488/220 | -
+Kosaka Masanobu | composed COMMON+KATANA | 1488/220 | -
+Marubashi Chuya | composed COMMON+YARI | 1454/278 | -
+Mori Gentatsu | composed COMMON+TEONO_NINJA | 1354/165 | -
+Nagakura Shinpachi | composed COMMON+TACHI | 1498/261 | -
+Naito Masatoyo | composed COMMON+YARI | 1454/278 | -
+Saito Fuku (Novice) | composed COMMON+KATANA | 959/207 | -
+Saito Hajime | composed COMMON+TACHI | 1498/261 | -
+Shishido Kagetoshi | composed COMMON+KAMA_NINJA | 1291/188 | -
+Taigen Sessai | composed COMMON+ONO | 1551/313 | -
+Takashima Shuhan | composed COMMON+ONO | 1551/313 | -
+Tsurara-onna | composed COMMON+SUDE | 584/65 | -
+Usui Sadamitsu | composed COMMON+NAGIGAMA | 1646/285 | -
+Yagyu Munenori (Novice) | composed COMMON+KATANA | 959/207 | -
+Yamada Shinryuken | composed COMMON+KAMA_NINJA | 1163/180 | -

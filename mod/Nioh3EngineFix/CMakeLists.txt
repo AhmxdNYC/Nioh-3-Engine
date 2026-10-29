@@ -15,7 +15,7 @@ if(Python3_FOUND)
         COMMENT "Generating patches_gen.h from patches.json")
 endif()
 
-add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/menu.cpp src/gpuopt.cpp src/gimerge.cpp src/skipfx.cpp src/livectl.cpp src/gpuprof.cpp src/memstats.cpp src/upmirror.cpp src/tilestats.cpp src/loadmem.cpp src/loadstats.cpp src/fnprobe.cpp src/padlat.cpp src/tour.cpp src/vpad.cpp src/sp.cpp src/psoswap.cpp src/psojournal.cpp src/autocont.cpp src/bootnotice.cpp src/readprobe.cpp src/readfix.cpp src/prefetch.cpp src/loadonly.cpp src/drawprep.cpp src/drawprep.asm src/jt.cpp src/jt.asm src/pmode.cpp src/pmode.asm src/asyncslots.cpp src/asyncslots.asm src/timerres.cpp src/thrsched.cpp src/psomemo.cpp src/bkstats.cpp src/frameoverlap.cpp src/replayprof.cpp src/replayprof.asm src/cbvupload.cpp src/cbvstage.cpp src/samelook.cpp src/samelook.asm src/extraperf.cpp src/extraperf.asm src/mlprobe.cpp src/mpccheck.cpp src/mpcskip.asm src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
+add_library(Nioh3EngineFix SHARED src/dllmain.cpp src/osd.cpp src/hitchlog.cpp src/dxgidiag.cpp src/menu.cpp src/gpuopt.cpp src/gimerge.cpp src/skipfx.cpp src/livectl.cpp src/gpuprof.cpp src/memstats.cpp src/upmirror.cpp src/tilestats.cpp src/loadmem.cpp src/loadstats.cpp src/fnprobe.cpp src/padlat.cpp src/tour.cpp src/vpad.cpp src/sp.cpp src/psoswap.cpp src/psojournal.cpp src/autocont.cpp src/bootnotice.cpp src/crashreport.cpp src/updatecheck.cpp src/readprobe.cpp src/readfix.cpp src/prefetch.cpp src/loadonly.cpp src/drawprep.cpp src/drawprep.asm src/jt.cpp src/jt.asm src/pmode.cpp src/pmode.asm src/asyncslots.cpp src/asyncslots.asm src/timerres.cpp src/thrsched.cpp src/psomemo.cpp src/bkstats.cpp src/rnt.cpp src/frameoverlap.cpp src/replayprof.cpp src/replayprof.asm src/cbvupload.cpp src/cbvstage.cpp src/samelook.cpp src/samelook.asm src/extraperf.cpp src/extraperf.asm src/mlprobe.cpp src/mpccheck.cpp src/mpcskip.asm src/caves.asm src/gpuopt_thunks.asm src/patches_gen.h)
 set_target_properties(Nioh3EngineFix PROPERTIES
     SUFFIX ".asi"
     CXX_STANDARD 17
@@ -24,4 +24,4 @@ set_target_properties(Nioh3EngineFix PROPERTIES
 target_compile_definitions(Nioh3EngineFix PRIVATE UNICODE _UNICODE NDEBUG)
 target_compile_options(Nioh3EngineFix PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/O2 /GS /Gy /Gw /EHsc /W4 /permissive->)
 target_link_options(Nioh3EngineFix PRIVATE /OPT:REF /OPT:ICF /DEBUG:FULL)
-target_link_libraries(Nioh3EngineFix PRIVATE kernel32 user32)
+target_link_libraries(Nioh3EngineFix PRIVATE kernel32 user32 bcrypt psapi shell32 winhttp)

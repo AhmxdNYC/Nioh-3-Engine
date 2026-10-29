@@ -37,6 +37,8 @@
 #include "loadstats.h"
 #include "patches_gen.h"
 #include "menu.h"
+#include "updatecheck.h"
+#include "titlegate.h"
 #include "osd.h"
 #include "fnprobe.h"
 #include "mlprobe.h"
@@ -45,6 +47,7 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "bootnotice.h"
+#include "crashreport.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
@@ -56,16 +59,18 @@
 #include "thrsched.h"
 #include "psomemo.h"
 #include "bkstats.h"
+#include "rnt.h"
 #include "frameoverlap.h"
 #include "replayprof.h"
 #include "cbvupload.h"
 #include "samelook.h"
 #include "extraperf.h"
-#include "halfrate.h"
 #include "livectl.h"
 #include "rebar.h"
 #include "scenemirror.h"
 #include "meshletwait.h"
+#include "drainwait.h"
+#include "hitchlog.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -134,7 +139,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.7.61-hrabi"
+#define MOD_VERSION "1.7.86"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -405,6 +410,7 @@ void Log(const char* fmt, ...) {
     // 1.7.45 SkipDebugString: under Proton every OutputDebugStringA is a raised exception + a DBWIN mapping lookup through
     // wineserver (91 calls/s in the Ally PROTON_LOG run, all from this function); keep it only when a debugger listens
     if (!g_skipOds || IsDebuggerPresent()) OutputDebugStringA(line);
+    crashreport::NoteLog(line);
     if (g_log) {
         fputs(line, g_log);
         fflush(g_log);
@@ -424,6 +430,13 @@ std::wstring SelfPathWithExt(const wchar_t* ext) {
 static bool s_asyncKnown = false, s_as0Applied = false;  // AS0 / async-queue stats (stats thread)
 
 // ---- config ----------------------------------------------------------------------------------------------------
+drainwait::State g_rd;
+bool g_rdInstallUncertain = false;
+extern "C" void caveRDWait();
+extern "C" void caveRDWake();
+extern "C" uint64_t rd_resume;
+extern "C" bool RDWait(uint8_t* ring) { return g_rd.Poll(ring); }
+extern "C" void RDComplete(uint8_t* ring) { g_rd.Complete(ring); }
 meshletwait::State g_mw;
 bool g_mwInstallUncertain = false;
 extern "C" void caveMW();
@@ -432,7 +445,8 @@ extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
 extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
 
 struct Config {
-    int mw = 0;
+    int mw = 0, rd = 0;
+    int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
@@ -472,9 +486,8 @@ struct Config {
     // 1.7.0: GP GPU pass profiler ([Profiler]; gpuprof.cpp reads its own keys, these only decide the code checks)
     int gpuProf = 0, gpuMarkers = 0;
     int jt = 0;  // 1.7.40 JT job-timing probe ([Profiler] JT; measurement only, sites written only when 1)
-    // 1.7.44: FGC = FG copy-job null guard ([Patches] FGC, default 0); fgToggle = [Menu] FrameGenToggle (3 = Proton safe
-    // FG: FGC + FGP pause installed under Proton, FG kept in config.xml with the crash marker; notesg-proton-fix.md)
-    int fgc = 0, fgToggle = 1;
+    // Legacy FrameGenToggle=3 retains only the independent Proton FGC crash guard.
+    int fgc = 0, fgToggle = 0;
 };
 
 // OS-auto keys (ini value -1): resolved here, logged right after the version line (the log is not open yet).
@@ -540,9 +553,11 @@ Config LoadConfig() {
     c.aabb = I(L"Patches", L"AABB", c.aabb);
     c.m1 = I(L"Patches", L"M1", c.m1);
     c.m2 = I(L"Patches", L"M2", c.m2);
+    c.m2s = I(L"Patches", L"M2S", c.m2s);
     c.j1 = I(L"Patches", L"J1", c.j1);
     c.x1 = I(L"Patches", L"X1", c.x1);
     c.e1 = I(L"Patches", L"E1", c.e1);
+    c.rd = I(L"Patches", L"RD", 0); // startup-only paired renderer drain
     c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
     c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
@@ -765,6 +780,8 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveE1A: return (void*)&caveE1A;
         case gen::Target::caveE1B: return (void*)&caveE1B;
         case gen::Target::caveMW: return (void*)&caveMW;
+        case gen::Target::caveRDWait: return (void*)&caveRDWait;
+        case gen::Target::caveRDWake: return (void*)&caveRDWake;
         case gen::Target::caveMWWake: return (void*)&caveMWWake;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
@@ -831,7 +848,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveMWWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveRDWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1209,6 +1226,7 @@ bool BuildRepl(Item& it) {
             case 1: pp = pad1; break;
             case 2: pp = pad2; break;
             case 3: pp = pad3; break;
+            case 4: { static const uint8_t pad4[] = {0x0F,0x1F,0x40,0x00}; pp = pad4; break; }
             case 5: pp = pad5; break;
             default: return false;
         }
@@ -1240,7 +1258,8 @@ bool BuildRepl(Item& it) {
 // No heap / CRT / loader use while threads are suspended.
 bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     if (items.empty()) return true;
-    const bool strictMW = !strcmp(name, "MW");
+    const bool isRD = !strcmp(name, "RD");
+    const bool strictMW = !strcmp(name, "MW") || isRD;
     using NextThreadFn = LONG(NTAPI*)(HANDLE, HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
     NextThreadFn nextThread = nullptr;
     if (strictMW) {
@@ -1265,6 +1284,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     struct MWInstallDiag {
         unsigned snapshot=0, open=0, owner=0, suspend=0, context=0, rip=0;
         unsigned census=0, censusApi=0, censusUnknown=0, censusBound=0, original=0, rollback=0;
+        unsigned terminated=0; DWORD terminatedTid=0;
         DWORD tid=0, error=0; ULONG status=0; uintptr_t ip=0;
         const char* stage="none"; const char* site="none";
     } md;
@@ -1284,7 +1304,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             for (unsigned n = 0; n < 4096 && GetTickCount64() - snapshotStart < 100; ++n) {
                 HANDLE current = nullptr;
                 const LONG status = nextThread(GetCurrentProcess(), previous,
-                    THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, 0, 0, &current);
+                    SYNCHRONIZE | THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, 0, 0, &current);
                 if (previous && !previousRetained) CloseHandle(previous);
                 previous = current;
                 previousRetained = false;
@@ -1293,6 +1313,9 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
                     ++md.open; md.stage="NativeSnapshotApi"; md.status=static_cast<ULONG>(status); break;
                 }
                 const DWORD tid = GetThreadId(current);
+                const DWORD state = WaitForSingleObject(current, 0);
+                if (state == WAIT_OBJECT_0) {++md.terminated;md.terminatedTid=tid;continue;}
+                if (state != WAIT_TIMEOUT) {++md.open;md.stage="NativeSnapshotWait";md.tid=tid;md.error=GetLastError();break;}
                 if (!tid || GetProcessIdOfThread(current) != pid) {
                     ++md.owner; md.stage="NativeSnapshotOwner"; md.tid=tid; md.error=GetLastError(); break;
                 }
@@ -1332,12 +1355,21 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
         std::vector<uint8_t> suspended(hs.size(), 0);
         // ---- frozen section: no allocation from here until resume ----
         for (size_t i = 0; i < hs.size(); ++i) {
+            if (strictMW) {
+                const DWORD state=WaitForSingleObject(hs[i],0);
+                if(state==WAIT_OBJECT_0){suspended[i]=2;++md.terminated;md.terminatedTid=tids[i];continue;}
+                if(state!=WAIT_TIMEOUT){++md.suspend;md.stage="PreSuspendWait";md.error=GetLastError();md.tid=tids[i];continue;}
+            }
             suspended[i] = (SuspendThread(hs[i]) != (DWORD)-1);
-            if(strictMW && !suspended[i]){++md.suspend;md.stage="SuspendThread";md.error=GetLastError();md.tid=tids[i];}
+            if(strictMW && !suspended[i]){
+                const DWORD suspendError=GetLastError();
+                if(WaitForSingleObject(hs[i],0)==WAIT_OBJECT_0){suspended[i]=2;++md.terminated;md.terminatedTid=tids[i];}
+                else {++md.suspend;md.stage="SuspendThread";md.error=suspendError;md.tid=tids[i];}
+            }
         }
         bool clash = strictMW && std::find(suspended.begin(), suspended.end(), 0) != suspended.end();
         for (size_t i = 0; i < hs.size() && !clash; ++i) {
-            if (!suspended[i]) continue;
+            if (suspended[i] != 1) continue;
             CONTEXT ctx{};
             ctx.ContextFlags = CONTEXT_CONTROL;
             if (!GetThreadContext(hs[i], &ctx)) { if (strictMW) {clash = true;++md.context;md.stage="GetThreadContext";md.error=GetLastError();md.tid=tids[i];} continue; }
@@ -1356,12 +1388,15 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             for (unsigned n = 0; n < 4096 && GetTickCount64() - censusStart < 100; ++n) {
                 HANDLE current = nullptr;
                 const LONG status = nextThread(GetCurrentProcess(), previous,
-                    THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &current);
+                    SYNCHRONIZE | THREAD_QUERY_LIMITED_INFORMATION, 0, 0, &current);
                 if (previous) CloseHandle(previous);
                 previous = current;
                 if (static_cast<ULONG>(status) == 0x8000001Au) { complete = true; break; } // NO_MORE_ENTRIES
                 if (status != 0 || !current) {++md.censusApi;md.stage="CensusApi";md.status=static_cast<ULONG>(status);censusRejected=true;break;}
                 const DWORD observedTid=GetThreadId(current);
+                const DWORD state=WaitForSingleObject(current,0);
+                if(state==WAIT_OBJECT_0){++md.terminated;md.terminatedTid=observedTid;continue;}
+                if(state!=WAIT_TIMEOUT){++md.censusApi;md.stage="CensusWait";md.tid=observedTid;md.error=GetLastError();censusRejected=true;break;}
                 if (!meshletwait::KnownThread(observedTid, self, tids.data(), tids.size())) {++md.censusUnknown;md.stage="CensusUnknownThread";md.tid=observedTid;md.error=observedTid?0:GetLastError();censusRejected=true;break;}
             }
             if (previous) CloseHandle(previous);
@@ -1375,8 +1410,8 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             });
             written = result == meshletwait::Publication::Applied;
             if(!written && !originalMismatch){++md.rollback;md.stage="PublicationRollback";}
-            g_mwInstallUncertain = result == meshletwait::Publication::Uncertain;
-            if (g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
+            (isRD ? g_rdInstallUncertain : g_mwInstallUncertain) = result == meshletwait::Publication::Uncertain;
+            if (isRD ? g_rdInstallUncertain : g_mwInstallUncertain) attempts = 200; // never retry an uncertain write
         } else if (!clash) {
             for (Item* it : items) {
                 if (it->s->kind == gen::Kind::VPtr)  // vtable slot: one aligned 8-byte store
@@ -1388,7 +1423,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
             written = true;
         }
         for (size_t i = 0; i < hs.size(); ++i)
-            if (suspended[i]) ResumeThread(hs[i]);
+            if (suspended[i] == 1) ResumeThread(hs[i]);
         // ---- end frozen section ----
         for (HANDLE h : hs) CloseHandle(h);
         if (!written) Sleep(1 + attempts % 4);
@@ -1396,6 +1431,7 @@ bool ApplyBatch(const char* name, std::vector<Item*>& items) {
     for (size_t i = 0; i < items.size(); ++i) { DWORD t; VirtualProtect(items[i]->addr, items[i]->s->len, oldProt[i], &t); }
     if(strictMW) Log("MW install diagnostics: snapshot=%u open=%u owner=%u suspend=%u context=%u rip=%u census=%u census_api=%u census_unknown=%u census_bound=%u original=%u rollback=%u last=%s tid=%lu error=%lu status=%08lX site=%s rip=%llX",
         md.snapshot,md.open,md.owner,md.suspend,md.context,md.rip,md.census,md.censusApi,md.censusUnknown,md.censusBound,md.original,md.rollback,md.stage,md.tid,md.error,md.status,md.site,static_cast<unsigned long long>(md.ip));
+    if(strictMW) Log("MW thread lifetime: positively signaled observations=%u last_terminated_tid=%lu (no exit-code-only exclusion)",md.terminated,md.terminatedTid);
     if (!written) { Log("%s: not installed after %d attempts; %s", name, attempts, g_mwInstallUncertain && strictMW ? "UNRESOLVED rollback/cache flush - do not claim stock" : "no writes retained"); return false; }
     // MW readback and any rollback happened before resume, not after publication.
     // Other groups retain their existing behavior.
@@ -1436,50 +1472,8 @@ void ConfigureVrr(const Config& c) {
 
 bool InModule(uintptr_t a) { return a >= (uintptr_t)g_base && a < (uintptr_t)g_base + g_imageSize; }
 
-// ---- Proton FG guard: exit hooks on the game's own ExitProcess / TerminateProcess imports (menu::ProtonFgExit puts
-// FRAME_GENERATION OFF back into config.xml when the mod switched FG on this session). They run on the exiting thread
-// before the process is torn down, unlike DLL_PROCESS_DETACH (loader lock, other threads already killed).
-using ExitProcess_t = void(WINAPI*)(UINT);
-using TerminateProcess_t = BOOL(WINAPI*)(HANDLE, UINT);
-ExitProcess_t g_origExitProcess = nullptr;
-TerminateProcess_t g_origTerminateProcess = nullptr;
 bool g_wineEarly = false;
-bool g_fgcOn = false, g_fgpOn = false;  // 1.7.44 FGC / FGP written this session
-
-void WINAPI HkExitProcess(UINT code) {
-    menu::ProtonFgExit("ExitProcess");
-    g_origExitProcess(code);
-}
-BOOL WINAPI HkTerminateProcess(HANDLE h, UINT code) {
-    if (h == GetCurrentProcess() || GetProcessId(h) == GetCurrentProcessId()) menu::ProtonFgExit("TerminateProcess");
-    return g_origTerminateProcess(h, code);
-}
-
-void** ImportSlot(const char* dll, const char* fn) {
-    auto nt = Nt(g_base);
-    const IMAGE_DATA_DIRECTORY& dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
-    if (!dd.VirtualAddress) return nullptr;
-    for (auto d = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(g_base + dd.VirtualAddress); d->Name; ++d) {
-        if (_stricmp(reinterpret_cast<const char*>(g_base + d->Name), dll) != 0 || !d->OriginalFirstThunk) continue;
-        auto oft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->OriginalFirstThunk);
-        auto ft = reinterpret_cast<IMAGE_THUNK_DATA64*>(g_base + d->FirstThunk);
-        for (; oft->u1.AddressOfData; ++oft, ++ft)
-            if (!IMAGE_SNAP_BY_ORDINAL64(oft->u1.Ordinal) &&
-                !strcmp(reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(g_base + oft->u1.AddressOfData)->Name, fn))
-                return reinterpret_cast<void**>(&ft->u1.Function);
-    }
-    return nullptr;
-}
-
-bool SwapImport(const char* fn, void* hook, void** orig) {
-    void** slot = ImportSlot("KERNEL32.dll", fn);
-    if (!slot || !*slot) return false;
-    DWORD old, t;
-    if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) return false;
-    *orig = InterlockedExchangePointer(slot, hook);
-    VirtualProtect(slot, sizeof(void*), old, &t);
-    return true;
-}
+bool g_fgcOn = false;  // independent FG copy-job null guard
 
 // fast-testing LiveCtl 'Tuning.<key> = v': [Tuning] values that the installed code reads at use time. PP_Period is the
 // PP cave's mask (read on every sweep decision); the same-look values are read per clipmap visit / frame (samelook.cpp).
@@ -1544,16 +1538,15 @@ DWORD WINAPI Worker(LPVOID) {
         return 0;
     }
 
-    // Proton FG guard, before the game reads config.xml (the crash-loop case: put OFF back if the last session left
-    // the mod's FG marker), plus the exit hooks. The import table is the loader's, not encrypted by SteamStub.
-    if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
-    if (g_wineEarly) {
-        std::wstring marker = SelfPathWithExt(L".fgmarker");
-        menu::ProtonFgEarly(&Log, marker.c_str(), cfg.fgToggle);
-        const bool e = SwapImport("ExitProcess", (void*)&HkExitProcess, (void**)&g_origExitProcess);
-        const bool t = SwapImport("TerminateProcess", (void*)&HkTerminateProcess, (void**)&g_origTerminateProcess);
-        Log("Proton FG guard: exit hooks ExitProcess %s, TerminateProcess %s", e ? "ok" : "MISSING", t ? "ok" : "MISSING");
+    // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
+    if (known) {
+        if (HANDLE h = CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
+            Log("TITLEGATE v1: 100ms polling, stable >=1000ms; Enabled=0 logOnly=1");
+            for (;;) { titlegate::Tick((uintptr_t)g_base, &Log); Sleep(100); }
+        }, nullptr, 0, nullptr)) CloseHandle(h);
+        else Log("TITLEGATE: worker creation failed (%lu); Enabled=0", GetLastError());
     }
+    if (HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) g_wineEarly = GetProcAddress(ntdll, "wine_get_version") != nullptr;
 
     // PSO bytecode swap / shader dump (notes\gpu-post-exe.md): early, so the IAT slot swap beats the engine's device creation
     {
@@ -1736,11 +1729,13 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FPC")) return cfg.fpc != 0;
         if (!strcmp(g, "AABB")) return cfg.aabb != 0;
         if (!strcmp(g, "M1")) return cfg.m1 != 0;
-        if (!strcmp(g, "M2")) return cfg.m2 != 0;
+        if (!strcmp(g, "M2")) return cfg.m2 != 0 || cfg.m2s != 0;
+        if (!strcmp(g, "M2S")) return cfg.m2s != 0 && cfg.m2 == 0;
         if (!strcmp(g, "J1")) return cfg.j1 != 0;
         if (!strcmp(g, "X1")) return cfg.x1 != 0;
         if (!strcmp(g, "E1")) return cfg.e1 != 0;
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
+        if (!strcmp(g, "RD")) return cfg.rd != 0;
         if (!strcmp(g, "MW")) return cfg.mw != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
@@ -1782,7 +1777,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "GP")) return cfg.gpuProf != 0 || cfg.gpuMarkers != 0;  // check sites: verified, never written
         if (!strcmp(g, "JT")) return cfg.jt != 0;  // 1.7.40 job-timing probe (measurement only)
         if (!strcmp(g, "FGC")) return cfg.fgc != 0 || (g_wineEarly && cfg.fgToggle == 3);  // 1.7.44
-        if (!strcmp(g, "FGP")) return g_wineEarly && cfg.fgToggle == 3;                    // 1.7.44
+        if (!strcmp(g, "FGP")) return false;  // retired menu pause switch
         return false;  // P12 is handled in the decrypt-wait loop above
     };
     Log("resolving sites:");
@@ -1967,6 +1962,19 @@ DWORD WINAPI Worker(LPVOID) {
         if (ok && prep) ok = prep();
         return run(g, v, ok);
     };
+    if (cfg.rd) {
+        HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+        auto wait = kb ? reinterpret_cast<meshletwait::WaitFn>(GetProcAddress(kb, "WaitOnAddress")) : nullptr;
+        auto wake = kb ? reinterpret_cast<meshletwait::WakeFn>(GetProcAddress(kb, "WakeByAddressAll")) : nullptr;
+        const bool installed = expGroup("RD", wait && wake, [&]() {
+            rd_resume = (uint64_t)(uintptr_t)(g_base + 0x1A7C3F5);
+            g_rd.wait=wait; g_rd.wake=wake; g_rd.enabled=true;
+            return true;
+        });
+        if (!installed && !g_rdInstallUncertain) g_rd.enabled=false;
+        Log("RD: %s (paired renderer drain; startup-only; full native predicate retained)",
+            installed ? "ON" : g_rdInstallUncertain ? "UNRESOLVED publication; helpers retained" : "stock retained");
+    }
     // MW reader + completion writer are ONE atomic group: never timeout-only install.
     if (cfg.mw) {
         HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
@@ -1980,8 +1988,7 @@ DWORD WINAPI Worker(LPVOID) {
         Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
             installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
     }
-    // 1.7.44 FGC / FGP (FSR frame generation under Proton, notesg-proton-fix.md). Not menu rows: FGC is a pure
-    // crash guard (bit-identical while both textures exist), FGP is driven by the menu's frame-generation item.
+    // Independent FG copy-job crash guard; does not change game settings.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
         g_fgcOn = expGroup("FGC", true, [&]() {
             Item* i1 = findItem("FGC1");
@@ -1993,18 +2000,6 @@ DWORD WINAPI Worker(LPVOID) {
         });
         Log("FGC: frame-generation copy-job null guard %s (%s)", g_fgcOn ? "installed" : "NOT installed",
             cfg.fgc ? "[Patches] FGC = 1" : "[Menu] FrameGenToggle = 3 under Proton");
-    }
-    if (g_wineEarly && cfg.fgToggle == 3) {
-        g_fgpOn = expGroup("FGP", true, [&]() {
-            Item* i = findItem("FGP");
-            const uintptr_t t = (uintptr_t)(g_base + i->s->expectRva);
-            if (calleeOf(i->addr) != t) return false;
-            fgp_target = t;
-            fgp_pause = 0;
-            return true;
-        });
-        Log("FGP: frame-generation pause switch %s (FG off in the mod menu pauses FSR FG instead of rebuilding the swapchain)",
-            g_fgpOn ? "installed" : "NOT installed - FG off then applies at the next launch only");
     }
     LARGE_INTEGER qf;
     QueryPerformanceFrequency(&qf);
@@ -2073,6 +2068,16 @@ DWORD WINAPI Worker(LPVOID) {
         return true;
     });
     exDone[menu::kExpM2] = expGroup("M2", cfg.m2 != 0, nullptr);
+    // Reuse M2e's single manifest row so overlapping byte patches cannot coexist.
+    // Both seed loads reach an unconditional retained locked CAS before any other memory access.
+    // Full M2 takes precedence if explicitly requested; do not partially combine the two groups.
+    if (cfg.m2s && cfg.m2) Log("M2S: skipped because full M2 is requested; no extra seed site installed");
+    if (cfg.m2s && !cfg.m2) {
+        std::vector<Item*> seed{findItem("M2e"), findItem("M2S0")};
+        bool ok = known && seed[0] && seed[1] && allFound(seed) && DepsOk("M2S");
+        if (run("M2S", seed, ok))
+            Log("M2S: ON (2 completion seed loads; retained locked CAS barriers; startup-only)");
+    }
     exDone[menu::kExpJ1] = expGroup("J1", cfg.j1 != 0, nullptr);
     exDone[menu::kExpX1] = expGroup("X1", cfg.x1 != 0, [&]() {
         uint8_t* a = findItem("X1")->addr;  // FF 15 disp32
@@ -2581,9 +2586,10 @@ DWORD WINAPI Worker(LPVOID) {
             DWORD candTid = 0;
             Snap p = take();
             uint64_t ikAgeSum = lat_agesum, ikAgeCnt = lat_agecnt, ikTo = lat_timeouts, ikKs = lat_kstock, ikKi = lat_kik;
+            updatecheck::Configure(SelfPathWithExt(L".ini").c_str());
             for (int sec = 1;; ++sec) {
                 Sleep(1000);
-                halfrate::LogLine();
+                updatecheck::Tick(MOD_VERSION);
                 if (s_tsDone && sec % 2 == 0) TsAnalyse(sec % 30 == 0, (double)f.QuadPart);
                 if (s_ikDone && sec % 30 == 0) {
                     const uint64_t s = lat_agesum - ikAgeSum, n = lat_agecnt - ikAgeCnt;
@@ -2772,14 +2778,16 @@ DWORD WINAPI Worker(LPVOID) {
                     }
                 }
                 if (sec % 30) continue;
+                if (g_rd.enabled) Log("RD totals: rounds %ld timeouts %ld wakes %ld errors %ld fallback %ld",
+                    g_rd.rounds,g_rd.timeouts,g_rd.wakes,g_rd.errors,g_rd.failed);
                 if (g_mw.enabled) Log("MW totals: wait rounds %ld timeouts %ld wakes %ld errors %ld",
                     g_mw.rounds, g_mw.timeouts, g_mw.wakes, g_mw.errors);
-                if (g_fgcOn || g_fgpOn) {
+                if (g_fgcOn) {
                     static uint32_t s_pSrc = 0, s_pHits = 0;
                     const uint32_t src = fgc_src, hits = fgp_hits;
                     Log("stats/s FG: copy jobs %u (= frames interpolated/s = real fps while FSR FG runs), NULL textures skipped "
                         "src %u / dst %u (total) | FGP %s, paused frames %u",
-                        (src - s_pSrc) / 30, fgc_srcNull, fgc_dstNull, !g_fgpOn ? "not installed" : fgp_pause ? "PAUSED" : "off",
+                        (src - s_pSrc) / 30, fgc_srcNull, fgc_dstNull, "not installed",
                         (hits - s_pHits) / 30);
                     s_pSrc = src;
                     s_pHits = hits;
@@ -2807,6 +2815,7 @@ DWORD WINAPI Worker(LPVOID) {
         std::wstring iniPath = SelfPathWithExt(L".ini");
         menu::Host mh;
         mh.version = MOD_VERSION;
+        mh.tuning = &LiveTuning;
         mh.log = &Log;
         mh.iniPath = iniPath.c_str();
         mh.base = g_base;
@@ -2837,8 +2846,6 @@ DWORD WINAPI Worker(LPVOID) {
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
         mh.fgOnWine = cfg.fgOnWine;
-        mh.fgPause = g_fgpOn ? &fgp_pause : nullptr;  // 1.7.44 FGP (FrameGenToggle = 3 under Proton)
-        mh.fgcOn = g_fgcOn;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };
         volatile uint32_t* sw[menu::kNumExp] = {};
@@ -2901,6 +2908,7 @@ DWORD WINAPI Worker(LPVOID) {
             ai.iniPath = iniPath.c_str();
             ai.base = reinterpret_cast<uintptr_t>(g_base);
             ai.knownBuild = known;
+            ai.coverPermission = &menu::CoverTipAllowed;
             mh.autoContinue = autocont::Start(ai);
             mh.autoContinueCount = &autocont::Count;
         }
@@ -2912,14 +2920,6 @@ DWORD WINAPI Worker(LPVOID) {
             di.base = reinterpret_cast<uintptr_t>(g_base);
             di.knownBuild = known;
             drawprep::Start(di);
-            {  // Half-rate reuse of far shadows, the GI gather, and clouds. Default off. Not an ExtraPerf preset.
-                halfrate::StartInfo hi;
-                hi.log = &Log;
-                hi.iniPath = iniPath.c_str();
-                hi.base = reinterpret_cast<uintptr_t>(g_base);
-                hi.knownBuild = known;
-                halfrate::Start(hi);
-            }
             // 1.7.39: live menu rows for the two drawprep switches (same in-launch A/B as the other experimental rows)
             const struct { int e; const wchar_t* key; volatile uint32_t* sw; } dpRows[] = {
                 {menu::kExpDQ, L"DQ", drawprep::DqSwitch()}, {menu::kExpP1E7, L"P1E7", drawprep::P1e7Switch()},
@@ -2990,6 +2990,12 @@ DWORD WINAPI Worker(LPVOID) {
             bki.base = reinterpret_cast<uintptr_t>(g_base);
             bki.knownBuild = known;
             bkstats::Start(bki);
+            rnt::StartInfo rni;  // render-node timer ([Profiler] NodeTimer = 0, F11). No code patch.
+            rni.log = &Log;
+            rni.iniPath = iniPath.c_str();
+            rni.base = reinterpret_cast<uintptr_t>(g_base);
+            rni.knownBuild = known;
+            rnt::Start(rni);
             frameoverlap::StartInfo foi;  // 1.7.59-fo1 FO frame overlap ([GpuOpt] FrameOverlap = 0; frameoverlap.cpp)
             foi.log = &Log;
             foi.iniPath = iniPath.c_str();
@@ -3174,6 +3180,15 @@ DWORD WINAPI Worker(LPVOID) {
             ti.knownBuild = known;
             tour::Start(ti);
         }
+        {  // [Debug] CrashReport (crashreport.cpp, default on): crash/abort/fatal-popup report file beside the .asi; CrashTest = forced-crash hook
+            crashreport::StartInfo cri;
+            cri.log = &Log;
+            cri.iniPath = iniPath.c_str();
+            cri.selfModule = g_self;
+            cri.base = reinterpret_cast<uintptr_t>(g_base);
+            cri.knownBuild = known;
+            crashreport::Start(cri);
+        }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
             bootnotice::StartInfo bi;
@@ -3182,6 +3197,21 @@ DWORD WINAPI Worker(LPVOID) {
             bi.base = reinterpret_cast<uintptr_t>(g_base);
             bi.knownBuild = known;
             bootnotice::Start(bi);
+        }
+        {  // [Debug] HitchLog (hitchlog.cpp, default 1, measurement only; before osd::Start: osd asks hitchlog::Enabled())
+            hitchlog::StartInfo hi;
+            hi.log = &Log;
+            hi.iniPath = iniPath.c_str();
+            hi.c.w3 = &g_w3Count;  // the existing wait counters (stats line); the line logs their deltas over the gap
+            hi.c.l1 = &g_l1Count;
+            hi.c.f1 = &g_fgCount;
+            hi.c.w6 = &g_w6Waits;
+            hi.c.w6Ticks = &g_w6Ticks;
+            hi.c.gf = &g_gfWaits;
+            hi.c.gfTicks = &g_gfTicks;
+            hi.c.ds = &g_dsWaits;
+            hi.c.dsTicks = &g_dsTicks;
+            hitchlog::Start(hi);
         }
         {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
             pmode::StartInfo pmi;
@@ -3242,11 +3272,13 @@ extern "C" BOOL WINAPI hookPeek(LPMSG msg, HWND wnd, UINT fmin, UINT fmax, UINT 
         menu::SwallowMessage(msg))
         msg->message = WM_NULL;
     if (!r && g_w3Enable) {
+        const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
         if (g_w3UseSleep)
             Sleep(g_w3Ms ? g_w3Ms : 1);  // Wine: ~1 kHz cap; window messages are picked up on the next Peek
         else
             MsgWaitForMultipleObjectsEx(0, nullptr, g_w3Ms, 0x4FF /* QS_ALLINPUT (Win7-era mask, as in the script) */,
                                         MWMO_INPUTAVAILABLE);
+        if (ht0) hitchlog::NoteWait(hitchlog::kW3, ht0, hitchlog::Now());
         InterlockedIncrement(&g_w3Count);
     }
     return r;
@@ -3275,7 +3307,9 @@ extern "C" int L1Wait(uint64_t now, uint64_t last, uint64_t ticksPerFrame, uint6
         g_l1Enable = 0;  // timer unusable: stock limiter from now on (as the script's cave did)
         return 0;
     }
+    const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
     WaitForSingleObject(g_l1Timer, 100);
+    if (ht0) hitchlog::NoteWait(hitchlog::kL1, ht0, hitchlog::Now());
     InterlockedIncrement(&g_l1Count);
     return 1;
 }
@@ -3291,7 +3325,9 @@ extern "C" void fgWait(int64_t target) {
         LARGE_INTEGER due;
         due.QuadPart = -(sleepTicks * 10000000 / g_qpcFreq);  // relative, 100 ns units (sleepTicks < ~1 s here)
         if (SetWaitableTimer(g_fgTimer, &due, 0, nullptr, nullptr, FALSE)) {
+            const int64_t ht0 = hitchlog::g_on ? hitchlog::Now() : 0;
             WaitForSingleObject(g_fgTimer, 100);
+            if (ht0) hitchlog::NoteWait(hitchlog::kF1, ht0, hitchlog::Now());
             InterlockedIncrement(&g_fgCount);
         } else {
             g_fgEnable = 0;  // timer unusable: plain spin from now on
@@ -3338,6 +3374,7 @@ extern "C" void W6Wait(uint8_t* ctx) {
     InterlockedIncrement(&g_w6Waits);
     if (slept) InterlockedIncrement(&g_w6Sleeps);
     InterlockedAdd64(&g_w6Ticks, now.QuadPart - t0.QuadPart);
+    hitchlog::NoteWait(hitchlog::kW6, t0.QuadPart, now.QuadPart);
 }
 
 // ---- GF: replaces the Sleep(0) of `while (fence->GetCompletedValue() < value) Sleep(0)` (7D9E1C event == NULL path,
@@ -3375,6 +3412,7 @@ extern "C" void GfWait(void** pf, uint64_t value) {
     QueryPerformanceCounter(&t1);
     InterlockedIncrement(&g_gfWaits);
     InterlockedAdd64(&g_gfTicks, t1.QuadPart - t0.QuadPart);
+    hitchlog::NoteWait(hitchlog::kGF, t0.QuadPart, t1.QuadPart);
 }
 
 // ---- WG (1.6.0): wake gate. Worker slot layout (v2.02, deps-checked): slot = pool->workers ([pool+10h]) + i*458h,
@@ -3478,14 +3516,12 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     QueryPerformanceCounter(now);
     InterlockedIncrement(&g_dsWaits);
     InterlockedAdd64(&g_dsTicks, now->QuadPart - before);
+    hitchlog::NoteWait(hitchlog::kDS, before, now->QuadPart);
     return TRUE;
 }
 
-BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID reserved) {
-    if (reason == DLL_PROCESS_DETACH && reserved && g_wineEarly) {
-        menu::ProtonFgExit("DLL detach");  // last resort; no-op when an exit hook already ran or FG was never switched on
-        return TRUE;
-    }
+BOOL APIENTRY DllMain(HMODULE mod, DWORD reason, LPVOID) {
+    if (reason == DLL_PROCESS_DETACH && g_self) menu::ReleaseFreeze();
     if (reason == DLL_PROCESS_ATTACH) {
         g_self = mod;
         DisableThreadLibraryCalls(mod);

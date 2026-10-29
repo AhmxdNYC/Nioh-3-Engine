@@ -24,6 +24,7 @@ struct Row {
     uint16_t missionId = 0;
     int emakiIndex = -1;       // E rows: Emaki record index (0..19)
     uint32_t placement = 0;    // expected boss placement (BossLog Create id) or 0
+    int world = -1;            // catalogue region_byte: the world the boss stands in (-1 = unknown)
     bool hidden = false;
     bool verifiedCat = false;  // catalogue column
     bool verifiedRun = false;  // Nioh3BossRematch_verified.tsv (verify_all.ps1)
@@ -102,7 +103,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cPl = ci("placement_id"), cWhy = ci("reason"), cSt = ci("stage_mission"), cFk = ci("fight_kind"),
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
-              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos");
+              cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -123,6 +124,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
+        if (!col(cRb).empty()) r.world = (int)strtol(col(cRb).c_str(), nullptr, 0);  // #12444: the boss's world (teleport fast-load ready check)
         r.verifiedCat = col(cVer) == "1";
         if ((r.route == kR || r.route == kH || r.route == kD) && !r.missionId) continue;
         if ((r.route == kR || r.route == kH || r.route == kD) && !col(cFc).empty() && !col(cSt).empty()) {
@@ -193,6 +195,30 @@ inline int ApplyArenas(const std::string& text, std::vector<Row>& rows) {
     return n;
 }
 
+// ally #8093 (Otoroshi 0x2EE9): a row with neither a catalogue arena point nor a capture took 'no arena position yet' even though
+// Nioh3Training_arenas.tsv (tools/gen_arena_table.py, the table the in-place swap uses) has it. Fallback, applied after the captures:
+// "mission<TAB>start<TAB>world<TAB>char<TAB>placement<TAB>x<TAB>y<TAB>z<TAB>yaw<TAB>bx<TAB>by<TAB>bz<TAB>kind<TAB>id<TAB>name[...]"
+// (kind arena = inside the trigger, start = the Fight-now start point). Only fills rows still without an arena point.
+inline int ApplyTrainingArenas(const std::string& text, std::vector<Row>& rows) {
+    int n = 0;
+    for (const auto& line : Lines(text)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto f = SplitTab(line);
+        if (f.size() < 15) continue;
+        const uint32_t mis = (uint32_t)strtoul(f[0].c_str(), nullptr, 0);
+        if (!mis) continue;
+        for (auto& r : rows) {
+            if (r.missionId != mis || !r.fightStart || r.arenaOk || r.atFight) continue;
+            for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(f[(size_t)(5 + k)].c_str());
+            r.arenaOk = true;
+            snprintf(r.arenaConf, sizeof(r.arenaConf), "training");
+            snprintf(r.arenaSrc, sizeof(r.arenaSrc), "Nioh3Training_arenas.tsv %s", f[12].c_str());
+            ++n;
+        }
+    }
+    return n;
+}
+
 // verify_all.ps1 results: "id<TAB>verified<TAB>..." (header line "id\tverified..."); returns rows marked
 inline int ApplyVerified(const std::string& text, std::vector<Row>& rows) {
     int n = 0;
@@ -227,6 +253,20 @@ inline bool FightSlotOk(const uint8_t* slot, uint16_t mission, uint32_t start) {
     return m == mission && sp == start && start != 0 && mode == 2;
 }
 
+// ---- Fight now SPAWN (1.4.0): the start point's warp-point record (0xA4 B: +8 flags, +40h spawn x y z yaw) gets the arena point ----
+// Only a record that still spawns where the catalogue says (warp_x..z, the shipped +40h, within 1 m) is patched; bit 4 of the flags
+// (the arrival-camera preset +7Ch/+80h, aimed for the start point) is cleared while it spawns in the arena.
+inline bool SpawnRecordMatches(const Row& r, const float cur[4]) {
+    const float dx = cur[0] - r.warp[0], dy = cur[1] - r.warp[1], dz = cur[2] - r.warp[2];
+    return dx * dx + dy * dy + dz * dz <= 100.0f * 100.0f;
+}
+inline uint32_t SpawnFlags(uint32_t flags) { return flags & ~4u; }
+// a player within 5 m (horizontal) of the start point's spawn = the override did not take (the warp fallback runs)
+inline bool AtStartPoint(const Row& r, const float p[3]) {
+    const float dx = p[0] - r.warp[0], dz = p[2] - r.warp[2];
+    return dx * dx + dz * dz <= 500.0f * 500.0f;
+}
+
 inline uint32_t Crc32(const void* p, size_t n, uint32_t c = 0) {
     c = ~c;
     const uint8_t* b = (const uint8_t*)p;
@@ -244,16 +284,21 @@ struct MapPatch {
     static constexpr int kMax = 256;
     uint8_t* entries = nullptr;  // live map vector
     int n = 0;
-    uint8_t snap[kMax * 8] = {};
+    uint8_t snap[kMax * 8] = {}, written[kMax * 8] = {};
     uint32_t crcWritten = 0;
     uint32_t target = 0;
-    bool active = false;
+    bool active = false, conflict = false;
 };
 // writer: memcpy-like callback (so the live build can use a guarded write); returns false on failure
 using WriteFn = bool (*)(void* dst, const void* src, size_t n);
-inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey, uint32_t target, uint32_t count, WriteFn wr) {
+using ReadFn = bool (*)(void* dst, const void* src, size_t n);
+inline bool MapReadBytes(void* dst, const void* src, size_t n, ReadFn rd) {
+    if (rd) return rd(dst, src, n);
+    memcpy(dst, src, n); return true;  // pure harness callers own their memory
+}
+inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey, uint32_t target, uint32_t count, WriteFn wr, ReadFn rd = nullptr) {
     if (mp.active || !entries || n <= 0 || n > MapPatch::kMax || target >= count) return false;
-    memcpy(mp.snap, entries, (size_t)n * 8);
+    if (!MapReadBytes(mp.snap, entries, (size_t)n * 8, rd)) return false;
     std::vector<uint8_t> nw(mp.snap, mp.snap + (size_t)n * 8);
     int valid = 0;
     for (int i = 0; i < n; ++i) {
@@ -262,22 +307,29 @@ inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey,
         ++valid;
     }
     if (!valid) return false;
-    if (!wr(entries, nw.data(), (size_t)n * 8)) return false;
     mp.entries = entries;
     mp.n = n;
     mp.target = target;
     mp.crcWritten = Crc32(nw.data(), nw.size());
-    mp.active = true;
-    return true;
+    memcpy(mp.written, nw.data(), nw.size());
+    mp.active = true;  // recovery ownership precedes a possibly partial write
+    return wr(entries, nw.data(), (size_t)n * 8);
 }
-// 0 restored, 1 restored but the bytes had changed since our write (someone else wrote: logged), -1 nothing active, -2 write failed
-inline int MapRestore(MapPatch& mp, WriteFn wr) {
+// 0 restored/read back, -1 inactive, -2 write/readback failed, -3 foreign data, -4 unreadable.
+// Foreign identity/bytes latch a conflict; never overwrite another owner's data.
+inline int MapRestore(MapPatch& mp, WriteFn wr, ReadFn rd = nullptr) {
     if (!mp.active) return -1;
-    const uint32_t cur = Crc32(mp.entries, (size_t)mp.n * 8);
-    const bool ok = wr(mp.entries, mp.snap, (size_t)mp.n * 8);
+    if (mp.conflict) return -3;
+    uint8_t current[MapPatch::kMax * 8] = {};
+    const size_t size = (size_t)mp.n * 8;
+    if (!MapReadBytes(current, mp.entries, size, rd)) return -4;
+    if (memcmp(current, mp.snap, size)) {
+        if (memcmp(current, mp.written, size)) { mp.conflict = true; return -3; }
+        if (!wr(mp.entries, mp.snap, size)) return -2;
+    }
+    if (!MapReadBytes(current, mp.entries, size, rd) || memcmp(current, mp.snap, size)) return -2;
     mp.active = false;
-    if (!ok) return -2;
-    return cur == mp.crcWritten ? 0 : 1;
+    return 0;
 }
 
 // ---- E lifecycle (one call per pump tick) ----
@@ -318,5 +370,21 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
     }
     return 0;
 }
+
+// ---- stale fight flag (user 20261018) ----
+// A save made inside an arena reloads with no mission (0) and the area script runs BossBattleMode with no boss; BossBattleModeEnd never
+// comes, so fight::g_active blocked every Boss Match / Practice start ("in a boss fight") for the rest of the session.
+// Our flag is the stale one when: it went up while loading or within kStaleNearLoadMs after a load ended, no mission is running, no rematch
+// flow is active and Nioh3Training owns no session / summon / swap / return.
+constexpr uint64_t kStaleNearLoadMs = 5000;
+inline bool FightRiseNearLoad(bool loading, uint64_t now, uint64_t loadEndAt) {
+    return loading || (loadEndAt && now >= loadEndAt && now - loadEndAt < kStaleNearLoadMs);
+}
+inline bool StaleFight(bool active, bool riseNearLoad, bool msOk, uint32_t mission, bool idle, bool trainingOwns) {
+    return active && riseNearLoad && msOk && mission == 0 && idle && !trainingOwns;
+}
+// A world load ends any native boss mode (the area script runs BossBattleMode again after the load if it wants one): the flag is
+// dropped when a load begins, unless a rematch flow or a Nioh3Training session owns that load (they handle their own fight state).
+inline bool ClearFightOnLoad(bool active, bool idle, bool trainingOwns) { return active && idle && !trainingOwns; }
 
 }  // namespace rcore

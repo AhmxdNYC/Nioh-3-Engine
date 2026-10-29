@@ -1,0 +1,68 @@
+{
+  "task": 15997,
+  "branch": "cx-pc/native-edges-15620",
+  "source_commit": "11cd27a183cbf8ceb0fee79713787fd048e2a81a",
+  "scope": "Offline inventory of existing artifacts only; no rebuild, installation, or game access.",
+  "artifacts": [
+    {
+      "name": "Nioh3Training.asi",
+      "absolute_path": "C:\\Users\\Ahmad Hamza\\nioh3-native-edges-15620\\mod\\Nioh3Training\\Nioh3Training.asi",
+      "bytes": 514048,
+      "sha256": "7144514e650c3b1ff0fc400feb784b703f634ad11ccaf5150e494631a24b51de",
+      "action": "replace"
+    },
+    {
+      "name": "Nioh3BossRematch.asi",
+      "absolute_path": "C:\\Users\\Ahmad Hamza\\nioh3-seqfix\\mod\\Nioh3BossRematch\\bin\\Nioh3BossRematch.asi",
+      "bytes": 534528,
+      "sha256": "a13ef0eded0b46fdfca8969513b2e17aaff56173c28eb40819cf24f6d98a38fa",
+      "action": "replace only if installed hash differs"
+    },
+    {
+      "name": "Nioh3Training_arenas.tsv",
+      "absolute_path": "C:\\Users\\Ahmad Hamza\\nioh3-native-edges-15620\\mod\\Nioh3Training\\Nioh3Training_arenas.tsv",
+      "bytes": 5001,
+      "sha256": "26ff1f6642dee1bdac659c83784e4f82751510ba5d8212d0d6b124ee8c8614e1",
+      "action": "reference dependency; preserve installed custom tables; supply if absent"
+    },
+    {
+      "name": "Nioh3Training_bgm.tsv",
+      "absolute_path": "C:\\Users\\Ahmad Hamza\\nioh3-native-edges-15620\\mod\\Nioh3Training\\Nioh3Training_bgm.tsv",
+      "bytes": 990,
+      "sha256": "850ec6c7e3d46a2ffc960939c1dd4c7439f184e1507918f5df688902addb03b0",
+      "action": "reference dependency; preserve installed custom tables; supply if absent"
+    },
+    {
+      "name": "Nioh3BossRematch_bosses.tsv",
+      "absolute_path": "C:\\Users\\Ahmad Hamza\\nioh3-native-edges-15620\\mod\\Nioh3BossRematch\\Nioh3BossRematch_bosses.tsv",
+      "bytes": 36074,
+      "sha256": "7c0c158df9b7c5bc0ce89b6b6fee3ee384c7db94bde892eb38ad78741aad221b",
+      "action": "reference dependency; preserve installed custom tables; supply if absent"
+    }
+  ],
+  "included_fixes": [
+    "11cd27a1: permits native-selected Yoritomo 0x4E79 -> 0x4E8C and 0x4E67 -> 0x4E70 backward-motion continuations; does not force picks or bypass native conditions.",
+    "b52c451d: idle-by-default applies only to Practice; Boss Matches begin fighting.",
+    "Inherited 32de9608: repeat follows native pieces to idle without listed-part substitution or forced idle.",
+    "Inherited Rematch menu changes: attack picks versus animations/twitches; lethal picks excluded; unproven 1100-1103 sequence heads hidden; per-boss menus and HP/Ki controls."
+  ],
+  "provenance": [
+    "Training file matches hash independently recorded in main handoff at 2:55 am EDT.",
+    "Rematch artifact comes from pc/seqfix b52c451d; git diff pc/seqfix HEAD -- mod/Nioh3BossRematch is empty. Its SHA matches the previously distributed package artifact.",
+    "Source parity and hashes verify inventory, not reproducible build provenance or gameplay behavior."
+  ],
+  "preserve": [
+    "Keep existing Nioh3EngineFix.asi and its entire INI, including current TG enable state and tuning; do not substitute an old repository EngineFix binary.",
+    "Preserve Nioh3Training.ini, Nioh3BossRematch.ini, controller settings, existing ASI loader, custom arena/verified tables and save data. No INI replacement is required for this code change."
+  ],
+  "dependencies_and_missing": [
+    "Nioh3BossRematch.asi is absent from the requested native-edges worktree; existing compatible-source artifact located in nioh3-seqfix and hashed above. No rebuild needed.",
+    "Existing EngineFix/ASI loader and installed settings are runtime prerequisites retained in place; this offline task did not inspect the game installation or confirm their versions/exports. Executor must verify them.",
+    "All five listed artifact/table files exist. No missing source-package file identified."
+  ],
+  "validation": [
+    "Prior checkpoint reports 361 move entries, 340 veto cases and four new assertions passing; not rerun by this manifest-only task.",
+    "Full prior test runner blocked by existing idle_hold fixture missing practice; gameplay/full recovery unproven.",
+    "Executor should compare installed hashes and verify actual launch and complete native recovery; manifest is not a runtime PASS."
+  ]
+}

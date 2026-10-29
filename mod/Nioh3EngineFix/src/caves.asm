@@ -2101,4 +2101,26 @@ fgpStock:
     jmp     qword ptr [fgp_target]
 caveFgp ENDP
 
+EXTERN RDWait:PROC, RDComplete:PROC
+PUBLIC caveRDWait, caveRDWake, rd_resume
+.data
+rd_resume DQ 0
+.code
+caveRDWait PROC
+    jmp RDWait
+caveRDWait ENDP
+ ; JMP-entered: reuse the native 0x50 frame's now-dead shadow area.
+; Describe the inherited native frame, not a fictitious wrapper return address.
+caveRDWake PROC FRAME
+    .pushreg rbp
+    .allocstack 50h
+    .savereg rbx, 60h
+    .savereg rdi, 68h
+    .setframe rbp, 50h
+    .endprolog
+    mov rcx, rbx
+    call RDComplete
+    mov rax, qword ptr [rd_resume]
+    jmp rax
+caveRDWake ENDP
 END

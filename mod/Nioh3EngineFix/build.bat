@@ -45,12 +45,23 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
    /Fobuild\drawprep.obj src\drawprep.cpp || exit /b 1
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\dllmain.obj src\dllmain.cpp || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\updatecheck.obj src\updatecheck.cpp || exit /b 1
+
 rem in-game overlay (d3d12.dll / dxgi.dll are loaded at run time - no import dependency)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\osd.obj src\osd.cpp || exit /b 1
+rem Opt-in bounded DXGI diagnostics
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\dxgidiag.obj src\dxgidiag.cpp || exit /b 1
+rem HitchLog: one line per game-thread frame gap over HitchLogMs ([Debug] HitchLog = 1, measurement only)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\hitchlog.obj src\hitchlog.cpp || exit /b 1
 rem mod menu (xinput / dinput8 are loaded at run time too)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\menu.obj src\menu.cpp || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\savefiles.obj src\savefiles.cpp || exit /b 1
+rem native save library (savelib.cpp): Saves page operations without Python (works under Wine/Proton)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\savelib.obj src\savelib.cpp || exit /b 1
 rem GPU barrier batching (notes\gpu-barriers.md; [GpuOpt] Barriers = 0 by default)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\gpuopt.obj src\gpuopt.cpp || exit /b 1
@@ -147,6 +158,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem BKS back-end census + KL kick limit (bkstats.cpp; [Profiler] Backend = 0, [Tuning] KL_Div = 0; notes\renderer\backend.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\bkstats.obj src\bkstats.cpp || exit /b 1
+rem render-node timer (rnt.cpp; [Profiler] NodeTimer = 0, F11 arms; notes\node-timer-33584.md)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\rnt.obj src\rnt.cpp || exit /b 1
 rem FO frame overlap (frameoverlap.cpp; [GpuOpt] FrameOverlap = 0; notes\renderer\frame-overlap.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\frameoverlap.obj src\frameoverlap.cpp || exit /b 1
@@ -166,13 +180,18 @@ ml64 /nologo /c /W3 /Fobuild\samelook_caves.obj src\samelook.asm || exit /b 1
 rem Extra performance (changes the look): XCLD XFOG XGI XSHD XSHF XLOD XTER XPRT XAO XPOST (extraperf.cpp / .asm; [ExtraPerf]; notes\extra-performance-settings.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\extraperf.obj src\extraperf.cpp || exit /b 1
-rem Half-rate reuse (halfrate.cpp; [HalfRate] HRS/HRG/HRC/HRR/HRA = 0, HRB/HRP stay 0). Not an ExtraPerf preset.
-cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
-   /Fobuild\halfrate.obj src\halfrate.cpp || exit /b 1
 ml64 /nologo /c /W3 /Fobuild\extraperf_caves.obj src\extraperf.asm || exit /b 1
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\crashreport.obj src\crashreport.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\osd.obj build\menu.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\halfrate.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib || exit /b 1
+   build\updatecheck.obj build\crashreport.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
+rem Ship the Python helpers (only used with [SaveFiles] Native = 0; the default native path needs no Python).
+py ..\..\tools\saves\build_package.py || exit /b 1
+py ..\..\tools\saves\build_live_package.py || exit /b 1
+if not exist bin\save_helpers mkdir bin\save_helpers
+copy /y ..\..\tools\saves\dist\SaveSlots-after-exit.pyz bin\save_helpers\ >nul || exit /b 1
+copy /y ..\..\tools\saves\dist\SaveSlots-live-title.pyz bin\save_helpers\ >nul || exit /b 1
 echo built %~dp0bin\Nioh3EngineFix.asi
 endlocal

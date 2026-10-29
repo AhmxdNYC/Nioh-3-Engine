@@ -219,6 +219,9 @@ int main() {
     // ---- presets
     ApplyPreset(kPresetPerformance);
     CHECK(MatchPreset() == kPresetPerformance, "Performance preset");
+    CHECK(strcmp(PresetName(kPresetPerformance), "Optimized with effect visuals") == 0, "preset 1 name");
+    CHECK(strcmp(PresetName(kPresetPotato), "Optimized") == 0, "preset 2 name");
+    CHECK(strcmp(PresetName(-1), "custom") == 0, "custom name");
     SetLevel(kAO, 1);
     CHECK(MatchPreset() == -1, "a changed row must read 'custom'");
     ApplyPreset(kPresetGame);

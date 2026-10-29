@@ -1,0 +1,352 @@
+[03:13:09.511] KIBREAK watch boss 000001FB86A22390 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[03:13:09.511] NOFIN watch boss 000001FB86A22390 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[03:13:24.616] CMD nofin: KiBreakNoFinisher 0 window 2000 ms
+[03:13:26.129] NOFIN Ki primed boss 000001FB86A22390 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[03:13:26.129] CMD nofintrace: boss 000001FB86A22390 ctrl 000001FB5B852030, 6000 ms
+[03:13:29.256] KIBREAK start #1 boss 000001FB86A22390: Ki 0.0/1980.0 HP 53594/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[03:13:29.256] KIFINISHER hit boss 000001FB86A22390: hit on Ki-broken boss dmg 751 (1.4 % max) HP 54345 -> 53594/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[03:13:29.994] KIBREAK end #1 boss 000001FB86A22390 after 735 ms: 1 hits, 751 dmg (1.4 % max) during the break, grapple no, Ki 0.0/1980.0
+[03:13:30.984] KIFINISHER hit boss 000001FB86A22390: hit on Ki-broken boss dmg 1850 (3.4 % max) HP 53594 -> 51744/54345, Ki 0.0/1980.0, 23=0 35=0 B0=0 2C=0, +1719 ms since break, bits1060 0100000000000002 1068 0000000000000000
+[03:13:32.130] NOFIN trace: via4893B8 from 487962 id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.130] NOFIN trace: vcall at 356A67 id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.130] NOFIN trace: via4893B8 from 2F8269 id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: via4893B8 from 35904D id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: vcall at 357ADD id 00 n 590 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: via4893B8 from 488F0E id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: vcall at 40435B id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: vcall at 42EC39 id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: vcall at 42ECA0 id 00 n 699 true 0 t 0..6000 ms
+[03:13:32.131] NOFIN trace: vcall at 4F7593 id 00 n 5 true 0 t 1375..5735 ms
+[03:13:32.132] NOFIN trace: vcall at 68A0E6 id 7B n 699 true 0 t 0..6000 ms
+[03:13:32.132] NOFIN trace: vcall at 68A6F8 id 7B n 590 true 0 t 0..6000 ms
+[03:13:32.132] NOFIN trace: vcall at 401703 id 7B n 699 true 0 t 0..6000 ms
+[03:13:32.133] NOFIN trace: vcall at 401600 id 7B n 5 true 0 t 1375..5735 ms
+[03:13:32.133] NOFIN trace: vcall at 2E9D0D id 110 n 594 true 0 t 0..6000 ms
+[03:13:32.133] NOFIN trace: vcall at 28CFB3 id 110 n 699 true 0 t 0..6000 ms
+[03:13:32.133] NOFIN trace: vcall at 28ED55 id 110 n 1 true 0 t 1375..1375 ms
+[03:13:32.133] NOFIN trace: vcall at 6896F8 id 103 n 699 true 0 t 0..6000 ms
+[03:13:32.134] NOFIN trace: vcall at 68A2CB id 103 n 699 true 0 t 0..6000 ms
+[03:13:32.134] NOFIN trace: vcall at 28F6EB id 103 n 699 true 0 t 0..6000 ms
+[03:13:32.134] NOFIN trace: vcall at 0A341C id F6 n 366 true 0 t 0..3110 ms
+[03:13:32.134] NOFIN trace: via4893B8 from 1177DFC id 110 n 217 true 0 t 3860..4844 ms
+[03:13:32.134] NOFIN trace: via4893B8 from 2B4F32 id 2D n 1 true 0 t 3125..3125 ms
+[03:13:32.134] NOFIN trace: via4893B8 from 326FD7 id CF n 2 true 0 t 3110..3844 ms
+[03:13:32.134] NOFIN trace: vcall at 488174 id 20 n 264 true 0 t 0..2219 ms
+[03:13:32.135] NOFIN trace: via4893B8 from 27FF23 id 20 n 1812 true 0 t 0..5532 ms
+[03:13:32.135] NOFIN trace: via4893B8 from 35473F id 20 n 247 true 0 t 2235..6000 ms
+[03:13:32.135] NOFIN trace: vcall at 68A1AB id B5 n 699 true 0 t 0..6000 ms
+[03:13:32.135] NOFIN trace: vcall at 28F4FB id B5 n 699 true 0 t 0..6000 ms
+[03:13:32.135] NOFIN trace: vcall at 28FB5A id B5 n 699 true 0 t 0..6000 ms
+[03:13:32.135] NOFIN trace: via4893B8 from 28C544 id 06 n 206 true 0 t 0..6000 ms
+[03:13:32.136] NOFIN trace: via4893B8 from 48CB75 id B5 n 366 true 0 t 0..3110 ms
+[03:13:32.136] NOFIN trace: via4893B8 from 28C005 id 06 n 114 true 0 t 3125..5344 ms
+[03:13:32.136] NOFIN trace: vcall at 40175B id 81 n 699 true 0 t 0..6000 ms
+[03:13:32.136] NOFIN trace: vcall at 4F5E73 id 81 n 5 true 0 t 1375..5735 ms
+[03:13:32.136] NOFIN trace: vcall at 40164A id 81 n 5 true 0 t 1375..5735 ms
+[03:13:32.136] NOFIN trace: via4893B8 from 4041E4 id 74 n 699 true 0 t 0..6000 ms
+[03:13:32.137] NOFIN trace: via4893B8 from 117A343 id 67 n 10 true 0 t 3094..3844 ms
+[03:13:32.137] NOFIN trace: via4893B8 from 117A2E7 id 67 n 80 true 0 t 3125..3782 ms
+[03:13:32.137] NOFIN trace: via4893B8 from 2B5015 id FC n 1 true 0 t 3125..3125 ms
+[03:13:32.137] NOFIN trace: via4893B8 from 2B4F64 id 33 n 1 true 0 t 3125..3125 ms
+[03:13:32.137] NOFIN trace: vcall at 2A180D id 19 n 699 true 109 t 0..5985 ms
+[03:13:32.137] NOFIN trace: vcall at 788F8C id 19 n 1 true 0 t 3110..3110 ms
+[03:13:32.137] NOFIN trace: vcall at 40178C id 94 n 699 true 0 t 0..6000 ms
+[03:13:32.137] NOFIN trace: vcall at 40166D id 94 n 5 true 0 t 1375..5735 ms
+[03:13:32.138] NOFIN trace: via4893B8 from 897AD9 id 129 n 699 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 3572F3 id 7A n 699 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 35727E id 7A n 699 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 28D347 id 7A n 699 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 476298 id 10F n 699 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 8B3ACA id 10F n 109 true 0 t 3860..4844 ms
+[03:13:32.138] NOFIN trace: via4893B8 from 2B5039 id F5 n 1 true 0 t 3125..3125 ms
+[03:13:32.138] NOFIN trace: via4893B8 from F1A38D28 id 2C n 700 true 0 t 0..6000 ms
+[03:13:32.138] NOFIN trace: vcall at 489331 id 2C n 1693 true 0 t 0..6000 ms
+[03:13:32.139] NOFIN trace: vcall at 20B641 id 2C n 699 true 0 t 0..6000 ms
+[03:13:32.139] NOFIN trace: via4893B8 from 2B56B2 id 1F n 1 true 0 t 3125..3125 ms
+[03:13:32.139] NOFIN trace: vcall at 2906EE id 12 n 699 true 0 t 0..6000 ms
+[03:13:32.139] NOFIN trace: vcall at 27051B id 05 n 699 true 366 t 0..6000 ms
+[03:13:32.139] NOFIN trace: vcall at 0A341C id 05 n 366 true 366 t 0..3110 ms
+[03:13:32.139] NOFIN trace: via4893B8 from 48794A id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.140] NOFIN trace: via4893B8 from 487A12 id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.140] NOFIN trace: via4893B8 from 2F827A id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.140] NOFIN trace: via4893B8 from 4879D4 id 80 n 699 true 0 t 0..6000 ms
+[03:13:32.140] NOFIN trace: via4893B8 from 359062 id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 8EF5A7 id 80 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 4896A7 id 80 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 48995A id 80 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 684B41 id 115 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 4899CB id 80 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 48C9B8 id 115 n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: vcall at 42EC49 id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: vcall at 42ECAE id 8D n 699 true 0 t 0..6000 ms
+[03:13:32.141] NOFIN trace: via4893B8 from 20CA2F id 122 n 699 true 0 t 0..6000 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 56968D id 108 n 246 true 0 t 2235..5985 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 1000175 id 73 n 29 true 0 t 2875..3844 ms
+[03:13:32.142] NOFIN trace: vcall at 90239C id 115 n 1 true 0 t 3110..3110 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 0A5C2E id EE n 699 true 699 t 0..6000 ms
+[03:13:32.142] NOFIN trace: vcall at 35BE13 id 115 n 1 true 0 t 3110..3110 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 20E5DB id 115 n 88 true 0 t 3125..3844 ms
+[03:13:32.142] NOFIN trace: vcall at 20E3ED id 115 n 1 true 0 t 5735..5735 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 2B4F7D id 32 n 1 true 0 t 3125..3125 ms
+[03:13:32.142] NOFIN trace: via4893B8 from 327470 id 18 n 2 true 0 t 3110..3844 ms
+[03:13:32.143] NOFIN trace: vcall at 2A358E id 18 n 2 true 0 t 3110..4844 ms
+[03:13:32.143] NOFIN trace: vcall at 2A38B2 id 18 n 6 true 0 t 3110..3110 ms
+[03:13:32.143] NOFIN trace: via4893B8 from 5F9997 id 93 n 699 true 0 t 0..6000 ms
+[03:13:32.143] NOFIN trace: vcall at 4016DD id 86 n 699 true 0 t 0..6000 ms
+[03:13:32.143] NOFIN trace: vcall at 4015DD id 86 n 5 true 0 t 1375..5735 ms
+[03:13:32.143] NOFIN trace: vcall at 28D35C id 79 n 699 true 0 t 0..6000 ms
+[03:13:32.143] NOFIN trace: vcall at 401734 id 79 n 699 true 0 t 0..6000 ms
+[03:13:32.144] NOFIN trace: vcall at 4F5E5B id 79 n 5 true 0 t 1375..5735 ms
+[03:13:32.144] NOFIN trace: vcall at 401623 id 79 n 5 true 0 t 1375..5735 ms
+[03:13:32.144] NOFIN trace: vcall at 477991 id 52 n 3 true 0 t 1375..5735 ms
+[03:13:32.144] NOFIN trace: vcall at 47782A id 52 n 1 true 0 t 3125..3125 ms
+[03:13:32.144] NOFIN trace: via4893B8 from 48A532 id 2B n 699 true 0 t 0..6000 ms
+[03:13:32.144] NOFIN trace: via4893B8 from 28C51A id 2B n 206 true 0 t 0..6000 ms
+[03:13:32.144] NOFIN trace: via4893B8 from 28BFDB id 2B n 114 true 0 t 3125..5344 ms
+[03:13:32.144] NOFIN trace: vcall at 357C80 id 1E n 590 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: vcall at 4F506D id 1E n 4 true 0 t 1375..5735 ms
+[03:13:32.145] NOFIN trace: via4893B8 from 48B502 id 11 n 699 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: via4893B8 from 48BE14 id 11 n 699 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: via4893B8 from 28C52F id 11 n 206 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: via4893B8 from 0A5A3B id 04 n 699 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: vcall at 0A341C id 11 n 366 true 0 t 0..3110 ms
+[03:13:32.145] NOFIN trace: via4893B8 from 4891CB id 11 n 699 true 0 t 0..6000 ms
+[03:13:32.145] NOFIN trace: vcall at 4F5F5C id 11 n 5 true 0 t 1375..5735 ms
+[03:13:32.146] NOFIN trace: vcall at 4F83BB id 11 n 5 true 0 t 1375..5735 ms
+[03:13:32.146] NOFIN trace: vcall at 4F86DA id 11 n 5 true 0 t 1375..5735 ms
+[03:13:32.146] NOFIN trace: via4893B8 from 327307 id 11 n 3 true 0 t 3110..4844 ms
+[03:13:32.146] NOFIN trace: vcall at 2A3516 id 04 n 3 true 0 t 3110..4844 ms
+[03:13:32.146] NOFIN trace: vcall at 78ADAF id 04 n 3 true 0 t 3110..4844 ms
+[03:13:32.146] NOFIN trace: vcall at 787462 id 04 n 1 true 0 t 3110..3110 ms
+[03:13:32.146] NOFIN trace: vcall at 4F59DE id 04 n 1 true 0 t 3110..3110 ms
+[03:13:32.146] NOFIN trace: vcall at 4F4DB3 id 04 n 1 true 0 t 3125..3125 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 28BFF0 id 11 n 114 true 0 t 3125..5344 ms
+[03:13:32.147] NOFIN trace: vcall at 0B9DE8 id 121 n 2099 true 0 t 0..6000 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 4889D0 id ED n 699 true 0 t 0..6000 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 2B4FC8 id 31 n 1 true 0 t 3125..3125 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 0B2AA8 id C6 n 699 true 0 t 0..6000 ms
+[03:13:32.147] NOFIN trace: vcall at 0A341C id 17 n 366 true 0 t 0..3110 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 2E9607 id 17 n 23 true 0 t 3657..3844 ms
+[03:13:32.147] NOFIN trace: via4893B8 from 488ABF id 0A n 699 true 302 t 0..6000 ms
+[03:13:32.148] NOFIN trace: vcall at 28DEEB id 0A n 699 true 302 t 0..6000 ms
+[03:13:32.148] NOFIN trace: vcall at 28BC57 id 0A n 699 true 302 t 0..6000 ms
+[03:13:32.148] NOFIN trace: vcall at 0A341C id 0A n 732 true 0 t 0..3110 ms
+[03:13:32.148] NOFIN trace: vcall at 4F5DA0 id 0A n 5 true 3 t 1375..5735 ms
+[03:13:32.148] NOFIN trace: vcall at 4F610B id 0A n 5 true 3 t 1375..5735 ms
+[03:13:32.148] NOFIN trace: vcall at 4F6499 id 0A n 5 true 3 t 1375..5735 ms
+[03:13:32.148] NOFIN trace: vcall at 4F86EF id 0A n 5 true 3 t 1375..5735 ms
+[03:13:32.148] NOFIN trace: vcall at 4F7F44 id 0A n 1 true 1 t 3125..3125 ms
+[03:13:32.149] NOFIN trace: vcall at 2E94B1 id 127 n 5 true 0 t 1375..5735 ms
+[03:13:32.149] NOFIN trace: via4893B8 from 403B44 id 11A n 25 true 0 t 2922..3844 ms
+[03:13:32.149] NOFIN trace: via4893B8 from 0B245A id 11A n 2 true 0 t 3125..3860 ms
+[03:13:32.149] NOFIN trace: vcall at 568C1A id 10D n 1014 true 0 t 0..6000 ms
+[03:13:32.149] NOFIN trace: vcall at 568A9B id 10D n 238 true 0 t 3125..3844 ms
+[03:13:32.149] NOFIN trace: vcall at 19D43C0 id 10D n 77 true 0 t 5532..5735 ms
+[03:13:32.149] NOFIN trace: vcall at 27054B id 1D n 699 true 0 t 0..6000 ms
+[03:13:32.149] NOFIN trace: vcall at 28B62C id 1D n 699 true 0 t 0..6000 ms
+[03:13:32.149] NOFIN trace: vcall at 28B9AC id 1D n 699 true 0 t 0..6000 ms
+[03:13:32.150] NOFIN trace: via4893B8 from 2F99A6 id 10 n 699 true 0 t 0..6000 ms
+[03:13:32.150] NOFIN trace: vcall at 280624 id 03 n 699 true 0 t 0..6000 ms
+[03:13:32.150] NOFIN trace: vcall at 32732C id 03 n 3 true 0 t 3110..4844 ms
+[03:13:32.150] NOFIN trace: vcall at 794F28 id 03 n 3 true 0 t 3110..4844 ms
+[03:13:32.150] NOFIN trace: vcall at 327CD2 id 03 n 1 true 0 t 3110..3110 ms
+[03:13:32.150] NOFIN trace: vcall at 78741B id 03 n 1 true 0 t 3110..3110 ms
+[03:13:32.150] NOFIN trace: vcall at 68A196 id 98 n 699 true 0 t 0..6000 ms
+[03:13:32.150] NOFIN trace: vcall at 28F4E6 id 98 n 699 true 0 t 0..6000 ms
+[03:13:32.150] NOFIN trace: vcall at 28FB45 id 98 n 699 true 0 t 0..6000 ms
+[03:13:32.151] NOFIN trace: via4893B8 from 48CB5D id 98 n 366 true 0 t 0..3110 ms
+[03:13:32.151] NOFIN trace: vcall at 788BC9 id 03 n 3 true 0 t 3125..4844 ms
+[03:13:32.151] NOFIN trace: vcall at 788EDF id 03 n 3 true 0 t 3125..4844 ms
+[03:13:32.151] NOFIN trace: vcall at 4F4E9F id 03 n 1 true 0 t 3125..3125 ms
+[03:13:32.151] NOFIN trace: vcall at 788C0F id 03 n 2 true 0 t 3844..4844 ms
+[03:13:32.151] NOFIN trace: via4893B8 from 488FFC id 120 n 699 true 0 t 0..6000 ms
+[03:13:32.151] NOFIN trace: via4893B8 from 1000200 id 113 n 29 true 0 t 2875..3844 ms
+[03:13:32.151] NOFIN trace: vcall at 788A83 id 4A n 1 true 0 t 3844..3844 ms
+[03:13:32.151] NOFIN trace: via4893B8 from 2B4FE1 id EC n 1 true 0 t 3125..3125 ms
+[03:13:32.152] NOFIN trace: via4893B8 from 2B4FAF id 30 n 1 true 0 t 3125..3125 ms
+[03:13:32.152] NOFIN trace: via4893B8 from F1A38D28 id 23 n 1068 true 89 t 0..6000 ms
+[03:13:32.152] NOFIN trace: via4893B8 from 1D220D0 id 23 n 699 true 88 t 0..5985 ms
+[03:13:32.152] NOFIN trace: vcall at 27FFDD id 23 n 383 true 0 t 0..4938 ms
+[03:13:32.153] NOFIN trace: via4893B8 from 2F88AD id 23 n 702 true 89 t 0..6000 ms
+[03:13:32.153] NOFIN trace: via4893B8 from 0B09FA id 23 n 699 true 88 t 0..6000 ms
+[03:13:32.153] NOFIN trace: via4893B8 from 0A53C8 id 23 n 699 true 88 t 0..6000 ms
+[03:13:32.153] NOFIN trace: via4893B8 from 0AFD20 id 09 n 699 true 95 t 0..6000 ms
+[03:13:32.153] NOFIN trace: vcall at 27FFDD id 09 n 453 true 70 t 0..5532 ms
+[03:13:32.153] NOFIN trace: vcall at 1174A87 id 09 n 675 true 95 t 0..6000 ms
+[03:13:32.153] NOFIN trace: via4893B8 from 0B09E3 id 09 n 699 true 95 t 0..6000 ms
+[03:13:32.153] NOFIN trace: vcall at 0A341C id 23 n 366 true 0 t 0..3110 ms
+[03:13:32.153] NOFIN trace: vcall at 47FF07 id 09 n 5 true 1 t 1375..5735 ms
+[03:13:32.154] NOFIN trace: vcall at 47FF79 id 23 n 4 true 2 t 1375..5735 ms
+[03:13:32.154] NOFIN trace: via4893B8 from 5D3F69 id 23 n 435 true 88 t 2235..5985 ms
+[03:13:32.154] NOFIN trace: via4893B8 from 48A8D4 id 91 n 699 true 0 t 0..6000 ms
+[03:13:32.154] NOFIN trace: via4893B8 from 684FE8 id 91 n 699 true 0 t 0..6000 ms
+[03:13:32.154] NOFIN trace: via4893B8 from 684BFD id 91 n 699 true 0 t 0..6000 ms
+[03:13:32.154] NOFIN trace: via4893B8 from 48C9F6 id 91 n 699 true 0 t 0..6000 ms
+[03:13:32.154] NOFIN trace: vcall at 27FC6C id 09 n 222 true 25 t 2235..6000 ms
+[03:13:32.154] NOFIN trace: vcall at 27FC6C id 23 n 197 true 64 t 2235..6000 ms
+[03:13:32.155] NOFIN trace: via4893B8 from 326E63 id 09 n 3 true 0 t 3110..4844 ms
+[03:13:32.155] NOFIN trace: via4893B8 from 326E86 id 23 n 3 true 1 t 3110..4844 ms
+[03:13:32.155] NOFIN trace: vcall at 6861AC id 119 n 699 true 0 t 0..6000 ms
+[03:13:32.155] NOFIN trace: vcall at 6865A2 id 119 n 699 true 0 t 0..6000 ms
+[03:13:32.155] NOFIN trace: vcall at 78D6AC id 23 n 3 true 1 t 3110..4844 ms
+[03:13:32.155] NOFIN trace: vcall at 78E0DF id 23 n 3 true 1 t 3110..4844 ms
+[03:13:32.155] NOFIN trace: vcall at 78FA2D id 23 n 3 true 1 t 3110..4844 ms
+[03:13:32.155] NOFIN trace: vcall at 0F6FB3 id 23 n 1 true 0 t 3110..3110 ms
+[03:13:32.155] NOFIN trace: vcall at 4F4CC0 id 09 n 1 true 0 t 3125..3125 ms
+[03:13:32.156] NOFIN trace: via4893B8 from 28C389 id F2 n 310 true 0 t 0..6000 ms
+[03:13:32.156] NOFIN trace: via4893B8 from 28BE62 id F2 n 320 true 0 t 47..5547 ms
+[03:13:32.156] NOFIN trace: vcall at 2A352F id 1C n 3 true 0 t 3110..4844 ms
+[03:13:32.156] NOFIN trace: vcall at 78ADD0 id 1C n 3 true 0 t 3110..4844 ms
+[03:13:32.156] NOFIN trace: via4893B8 from 2F9995 id 0F n 699 true 0 t 0..6000 ms
+[03:13:32.156] NOFIN trace: vcall at FC3EC4 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.156] NOFIN trace: vcall at 357640 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.156] NOFIN trace: vcall at 4F5147 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: via4893B8 from 4879BC id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: vcall at 356C5F id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: vcall at 47F782 id 02 n 505 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: via4893B8 from 20D0BC id 02 n 367 true 0 t 0..3110 ms
+[03:13:32.157] NOFIN trace: vcall at 83AA0F id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: vcall at 357B05 id 02 n 590 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: vcall at 357F78 id 02 n 590 true 0 t 0..6000 ms
+[03:13:32.157] NOFIN trace: vcall at 28F801 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 47F626 id 7D n 505 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 29061C id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 2907B6 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 28B5FF id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 28B76B id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: via4893B8 from 685164 id 7D n 699 true 0 t 0..6000 ms
+[03:13:32.158] NOFIN trace: vcall at 28D125 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 488785 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 4895A5 id 12C n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 489694 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 4899B9 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 488F23 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 897AFE id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 2EBCF2 id 02 n 1284 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 28D532 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 28C3AA id 02 n 310 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 28DE1F id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 28DE3B id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 28BC71 id 02 n 397 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: vcall at 2E9BC6 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.159] NOFIN trace: via4893B8 from 402B3E id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.160] NOFIN trace: vcall at 4030DA id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.160] NOFIN trace: via4893B8 from 8CE80F id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.160] NOFIN trace: via4893B8 from 0B0D78 id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.160] NOFIN trace: vcall at 0A5799 id 7D n 699 true 0 t 0..6000 ms
+[03:13:32.160] NOFIN trace: vcall at 0B118D id 02 n 699 true 0 t 0..6000 ms
+[03:13:32.161] NOFIN trace: via4893B8 from 28BE80 id 02 n 320 true 0 t 47..5547 ms
+[03:13:32.161] NOFIN trace: vcall at 4F7704 id F8 n 5 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 4F83A6 id 2F n 5 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 4F88C6 id 02 n 5 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 35D2A1 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 35D2F9 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 35D30C id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 35D339 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.161] NOFIN trace: vcall at 35D358 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35D4B3 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35D4F4 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35DAC8 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35EA0E id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35EA48 id 02 n 4 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: vcall at 35B265 id 7D n 5 true 0 t 1375..5735 ms
+[03:13:32.162] NOFIN trace: via4893B8 from 2A9AB9 id 7D n 249 true 0 t 2235..6000 ms
+[03:13:32.162] NOFIN trace: via4893B8 from 10003E2 id 02 n 131 true 0 t 2922..4438 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 8ABDF3 id 118 n 699 true 0 t 0..6000 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 86F290 id 02 n 27 true 0 t 2922..3860 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 403B19 id 7D n 25 true 0 t 2922..3844 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 2B5C2F id 56 n 10 true 0 t 3094..3844 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 6FD0C9 id DE n 3 true 0 t 3110..4844 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 32C0D0 id DE n 3 true 0 t 3110..4844 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 35859C id FE n 699 true 0 t 0..6000 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 330B19 id DE n 3 true 0 t 3110..4844 ms
+[03:13:32.163] NOFIN trace: via4893B8 from 2B4F96 id 2F n 1 true 0 t 3125..3125 ms
+[03:13:32.164] NOFIN trace: vcall at 0A341C id F1 n 366 true 0 t 0..3110 ms
+[03:13:32.164] NOFIN trace: vcall at 4F4FC6 id 02 n 1 true 0 t 3125..3125 ms
+[03:13:32.164] NOFIN trace: via4893B8 from 0B242F id 7D n 2 true 0 t 3125..3860 ms
+[03:13:32.164] NOFIN trace: via4893B8 from 488B2D id 02 n 302 true 0 t 3125..5735 ms
+[03:13:32.164] NOFIN trace: via4893B8 from F1A38D28 id 35 n 700 true 0 t 0..6000 ms
+[03:13:32.164] NOFIN trace: via4893B8 from 568C33 id 35 n 1014 true 0 t 0..6000 ms
+[03:13:32.164] NOFIN trace: vcall at 4892E9 id 35 n 1693 true 0 t 0..6000 ms
+[03:13:32.164] NOFIN trace: via4893B8 from 0AFC99 id 02 n 248 true 0 t 3125..6000 ms
+[03:13:32.164] NOFIN trace: vcall at 117A025 id FE n 2 true 0 t 3750..3860 ms
+[03:13:32.164] NOFIN trace: vcall at 788371 id 02 n 1 true 0 t 3844..3844 ms
+[03:13:32.165] NOFIN trace: vcall at 788AEF id 02 n 1 true 0 t 3844..3844 ms
+[03:13:32.165] NOFIN trace: vcall at 748D67 id 02 n 1 true 0 t 3860..3860 ms
+[03:13:32.165] NOFIN trace: vcall at 748D7F id 02 n 1 true 0 t 3860..3860 ms
+[03:13:32.165] NOFIN trace: vcall at 35B8A4 id 7D n 10 true 0 t 3860..5579 ms
+[03:13:32.166] NOFIN trace: via4893B8 from F1A38D28 id B0 n 700 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 48930F id B0 n 1693 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 83AA24 id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 68A112 id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 68A5B7 id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 357AA4 id 01 n 590 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 28F885 id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 9061DA id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.166] NOFIN trace: vcall at 28D332 id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 48103D id 01 n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 28BC87 id 01 n 397 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: via4893B8 from 40250B id 12B n 257 true 0 t 1375..6000 ms
+[03:13:32.167] NOFIN trace: via4893B8 from 48797A id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 2E8892 id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 2E9736 id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 28F5DB id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 28B588 id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.167] NOFIN trace: vcall at 8AB5FD id 7C n 704 true 0 t 0..6000 ms
+[03:13:32.168] NOFIN trace: via4893B8 from 28BDAD id 11E n 699 true 0 t 0..6000 ms
+[03:13:32.168] NOFIN trace: via4893B8 from 28C266 id 11E n 585 true 0 t 0..6000 ms
+[03:13:32.168] NOFIN trace: via4893B8 from 402B29 id 7C n 699 true 0 t 0..6000 ms
+[03:13:32.168] NOFIN trace: vcall at 7885B3 id 104 n 699 true 0 t 0..6000 ms
+[03:13:32.168] NOFIN trace: vcall at 4F69DB id 104 n 5 true 0 t 1375..5735 ms
+[03:13:32.168] NOFIN trace: vcall at 35EB24 id 7C n 4 true 0 t 1375..5735 ms
+[03:13:32.168] NOFIN trace: via4893B8 from 10003F7 id 01 n 131 true 0 t 2922..4438 ms
+[03:13:32.168] NOFIN trace: vcall at 561C24 id 01 n 24 true 0 t 2922..3844 ms
+[03:13:32.168] NOFIN trace: via4893B8 from 2B4E96 id 104 n 1 true 0 t 3125..3125 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 488B46 id 01 n 302 true 0 t 3125..5735 ms
+[03:13:32.169] NOFIN trace: vcall at 28F2D5 id DD n 699 true 0 t 0..6000 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 2B4F4B id 2E n 1 true 0 t 3125..3125 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 28C57E id 21 n 206 true 0 t 0..6000 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 28C024 id 21 n 114 true 0 t 3125..5344 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 488F38 id 07 n 699 true 0 t 0..6000 ms
+[03:13:32.169] NOFIN trace: vcall at 48A0AA id 8F n 3017 true 0 t 0..6000 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 483C2F id 8F n 699 true 0 t 0..6000 ms
+[03:13:32.169] NOFIN trace: via4893B8 from 48863A id 75 n 699 true 0 t 0..5985 ms
+[03:13:32.170] NOFIN trace: via4893B8 from 7868BF id 75 n 3 true 0 t 3110..4844 ms
+[03:13:32.170] NOFIN trace: vcall at 787491 id 75 n 1 true 0 t 3110..3110 ms
+[03:13:32.170] NOFIN trace: via4893B8 from 2B4FFB id 75 n 1 true 0 t 3125..3125 ms
+[03:13:32.170] NOFIN trace: vcall at 787E1A id 75 n 2 true 0 t 3844..4844 ms
+[03:13:32.170] NOFIN trace: vcall at 35BE75 id 10A n 1 true 0 t 3110..3110 ms
+[03:13:32.170] NOFIN trace: vcall at 20E44F id 10A n 1 true 0 t 5735..5735 ms
+[03:13:32.170] NOFIN trace: via4893B8 from 358586 id FD n 699 true 0 t 0..6000 ms
+[03:13:32.170] NOFIN trace: vcall at 4810D6 id 4E n 699 true 0 t 0..6000 ms
+[03:13:32.170] NOFIN trace: vcall at 2E618D id F0 n 699 true 0 t 0..6000 ms
+[03:13:32.170] NOFIN trace: via4893B8 from 402B14 id 0D n 699 true 0 t 0..6000 ms
+[03:13:32.171] NOFIN trace end: 314 keys
+[03:18:35.043] NOFIN hooks (KiBreakNoFinisher 1, window 2000 ms): CanGrapple on, grab box on, bit-31 box on, bit-28 box on, lethal cond on, Ki row drain on, grapple target on
+[03:20:18.048] KIBREAK watch boss 00000259DF791D60 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[03:20:18.048] NOFIN watch boss 00000259DF791D60 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[03:20:31.073] NOFIN Ki primed boss 00000259DF791D60 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[03:20:34.452] KIBREAK start #1 boss 00000259DF791D60: Ki 0.0/1980.0 HP 53594/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[03:20:34.453] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 751 (1.4 % max) HP 54345 -> 53594/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[03:20:34.453] NOFIN boss 00000259DF791D60 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki 0.0, HP 53594/54345); blocked so far: grapple target 0, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[03:20:34.453] NOFIN gold Ki bar ON
+[03:20:38.338] KIBREAK end #1 boss 00000259DF791D60 after 3891 ms: 1 hits, 751 dmg (1.4 % max) during the break, grapple no, Ki 1980.0/1980.0
+[03:20:38.339] NOFIN boss 00000259DF791D60 Ki recovered (23=0 exhausted 0, Ki 1980.0, HP 53594/54345); blocked so far: grapple target 465, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[03:20:38.339] NOFIN gold Ki bar off
+[03:21:02.663] NOFIN Ki primed boss 00000259DF791D60 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[03:21:05.879] KIBREAK start #2 boss 00000259DF791D60: Ki 0.0/1980.0 HP 52843/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[03:21:05.879] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 751 (1.4 % max) HP 53594 -> 52843/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[03:21:05.879] NOFIN boss 00000259DF791D60 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki 0.0, HP 52843/54345); blocked so far: grapple target 465, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[03:21:05.879] NOFIN gold Ki bar ON
+[03:21:07.220] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 1051 (1.9 % max) HP 52843 -> 51792/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +1329 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[03:21:07.995] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 1167 (2.1 % max) HP 51792 -> 50625/54345, Ki 308.6/1980.0, 23=1 35=0 B0=0 2C=0, +2110 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[03:21:09.010] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 1350 (2.5 % max) HP 50625 -> 49275/54345, Ki 1093.3/1980.0, 23=1 35=0 B0=0 2C=0, +3125 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[03:21:09.765] KIBREAK end #2 boss 00000259DF791D60 after 3875 ms: 4 hits, 4319 dmg (7.9 % max) during the break, grapple no, Ki 1980.0/1980.0
+[03:21:09.765] NOFIN boss 00000259DF791D60 Ki recovered (23=0 exhausted 0, Ki 1980.0, HP 49275/54345); blocked so far: grapple target 928, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[03:21:09.765] NOFIN gold Ki bar off
+[03:21:19.816] CMD nofin: KiBreakNoFinisher 0 window 2000 ms
+[03:21:21.328] NOFIN Ki primed boss 00000259DF791D60 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[03:21:24.426] KIBREAK start #3 boss 00000259DF791D60: Ki 0.0/1980.0 HP 48524/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[03:21:24.426] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 751 (1.4 % max) HP 49275 -> 48524/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[03:21:24.945] KIBREAK end #3 boss 00000259DF791D60 after 516 ms: 1 hits, 751 dmg (1.4 % max) during the break, grapple no, Ki 0.0/1980.0
+[03:21:25.940] KIFINISHER hit boss 00000259DF791D60: hit on Ki-broken boss dmg 1850 (3.4 % max) HP 48524 -> 46674/54345, Ki 0.0/1980.0, 23=0 35=0 B0=0 2C=0, +1500 ms since break, bits1060 0100000000000002 1068 0000000000000000

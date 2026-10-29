@@ -1,0 +1,89 @@
+==== decompile RVA 0x1fd9c58 ====
+// function FUN_7ff7513e9c58 @ 0x1fd9c58  body=124 bytes  pdataStart=0x1fd9c58
+// callers(2): FUN_7ff7513ef158@0x1fdf158 FUN_7ff7513f497c@0x1fe497c 
+// callees(1): FUN_7ff7513eb78c@0x1fdb78c 
+
+undefined4 FUN_7ff7513e9c58(longlong param_1,LPVOID param_2,longlong param_3)
+
+{
+  BOOL BVar1;
+  HANDLE hFile;
+  DWORD local_res8 [2];
+  
+  if ((((param_1 != 0) && (param_2 != (LPVOID)0x0)) && (param_3 != 0)) &&
+     (hFile = (HANDLE)FUN_7ff7513eb78c(), hFile != (HANDLE)0xffffffffffffffff)) {
+    local_res8[0] = 0;
+    BVar1 = ReadFile(hFile,param_2,(DWORD)param_3,local_res8,(LPOVERLAPPED)0x0);
+    CloseHandle(hFile);
+    if ((BVar1 != 0) && ((DWORD)param_3 == local_res8[0])) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+
+==== decompile RVA 0x1fd9c14 ====
+// function FUN_7ff7513e9c14 @ 0x1fd9c14  body=65 bytes  pdataStart=0x1fd9c14
+// callers(2): FUN_7ff7513ef158@0x1fdf158 FUN_7ff7513f497c@0x1fe497c 
+// callees(2): FUN_7ff7513e9bb0@0x1fd9bb0 __security_check_cookie@0xb912e0 
+
+/* WARNING: Function: __security_check_cookie replaced with injection: security_check_cookie */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+undefined8 FUN_7ff7513e9c14(longlong param_1)
+
+{
+  char cVar1;
+  undefined1 auStack_58 [32];
+  undefined8 local_38 [4];
+  ulonglong local_18;
+  
+  local_18 = _DAT_7ff7538c7f30 ^ (ulonglong)auStack_58;
+  if ((param_1 == 0) || (cVar1 = FUN_7ff7513e9bb0(param_1,local_38), cVar1 == '\0')) {
+    local_38[0] = 0;
+  }
+  return local_38[0];
+}
+
+
+
+==== asm around RVA 0x1fe69e0 ====
+   0x1fe69ba  e8 51 1c ff ff                 CALL 0x7ff7513e8610 ; UNCONDITIONAL_CALL 0x1fd8610 FUN_7ff7513e8610
+   0x1fe69bf  48 8b c3                       MOV RAX,RBX
+   0x1fe69c2  48 8b 5c 24 50                 MOV RBX,qword ptr [RSP + 0x50]
+   0x1fe69c7  48 83 c4 40                    ADD RSP,0x40
+   0x1fe69cb  5f                             POP RDI
+   0x1fe69cc  c3                             RET
+   0x1fe69d0  e9 1f c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+   0x1fe69d8  e9 17 c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+=> 0x1fe69e0  e9 0f c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+   0x1fe69e8  48 89 5c 24 08                 MOV qword ptr [RSP + 0x8],RBX
+   0x1fe69ed  57                             PUSH RDI
+   0x1fe69ee  48 83 ec 20                    SUB RSP,0x20
+   0x1fe69f2  83 b9 fc e8 00 00 04           CMP dword ptr [RCX + 0xe8fc],0x4
+   0x1fe69f9  48 8b d9                       MOV RBX,RCX
+   0x1fe69fc  74 3e                          JZ 0x7ff7513f6a3c ; CONDITIONAL_JUMP 0x1fe6a3c LAB_7ff7513f6a3c
+   0x1fe69fe  48 8d 4b 10                    LEA RCX,[RBX + 0x10]
+   0x1fe6a02  e8 c1 12 3f fe                 CALL 0x7ff74f7e7cc8 ; UNCONDITIONAL_CALL 0x3d7cc8 FUN_7ff74f7e7cc8
+
+==== asm around RVA 0x1fe69d0 ====
+   0x1fe69b1  48 89 43 10                    MOV qword ptr [RBX + 0x10],RAX
+   0x1fe69b5  48 8d 4c 24 30                 LEA RCX,[RSP + 0x30]
+   0x1fe69ba  e8 51 1c ff ff                 CALL 0x7ff7513e8610 ; UNCONDITIONAL_CALL 0x1fd8610 FUN_7ff7513e8610
+   0x1fe69bf  48 8b c3                       MOV RAX,RBX
+   0x1fe69c2  48 8b 5c 24 50                 MOV RBX,qword ptr [RSP + 0x50]
+   0x1fe69c7  48 83 c4 40                    ADD RSP,0x40
+   0x1fe69cb  5f                             POP RDI
+   0x1fe69cc  c3                             RET
+=> 0x1fe69d0  e9 1f c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+   0x1fe69d8  e9 17 c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+   0x1fe69e0  e9 0f c1 1c fe                 JMP 0x7ff74f5c2af4 ; UNCONDITIONAL_CALL 0x1b2af4 FUN_7ff74f5c2af4
+   0x1fe69e8  48 89 5c 24 08                 MOV qword ptr [RSP + 0x8],RBX
+   0x1fe69ed  57                             PUSH RDI
+   0x1fe69ee  48 83 ec 20                    SUB RSP,0x20
+   0x1fe69f2  83 b9 fc e8 00 00 04           CMP dword ptr [RCX + 0xe8fc],0x4
+   0x1fe69f9  48 8b d9                       MOV RBX,RCX
+   0x1fe69fc  74 3e                          JZ 0x7ff7513f6a3c ; CONDITIONAL_JUMP 0x1fe6a3c LAB_7ff7513f6a3c
+

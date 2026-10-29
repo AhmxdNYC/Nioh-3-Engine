@@ -1,0 +1,159 @@
+[04:04:55.020] KIBREAK watch boss 0000018AA8DCE120 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[04:04:55.020] NOFIN watch boss 0000018AA8DCE120 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[04:05:00.934] NOFIN Ki primed boss 0000018AA8DCE120 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[04:05:04.112] KIBREAK start #1 boss 0000018AA8DCE120: Ki 0.0/1980.0 HP 53649/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[04:05:04.112] KIFINISHER hit boss 0000018AA8DCE120: hit on Ki-broken boss dmg 696 (1.3 % max) HP 54345 -> 53649/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[04:05:04.112] NOFIN boss 0000018AA8DCE120 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki 0.0, HP 53649/54345); blocked so far: grapple target 0, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:05:04.113] NOFIN gold Ki bar ON
+[04:05:05.461] KIFINISHER hit boss 0000018AA8DCE120: hit on Ki-broken boss dmg 979 (1.8 % max) HP 53649 -> 52670/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +1360 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[04:05:06.232] KIFINISHER hit boss 0000018AA8DCE120: hit on Ki-broken boss dmg 1092 (2.0 % max) HP 52670 -> 51578/54345, Ki 313.3/1980.0, 23=1 35=0 B0=0 2C=0, +2125 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[04:05:07.243] KIFINISHER hit boss 0000018AA8DCE120: hit on Ki-broken boss dmg 1271 (2.3 % max) HP 51578 -> 50307/54345, Ki 1095.6/1980.0, 23=1 35=0 B0=0 2C=0, +3141 ms since break, bits1060 0580000000000002 1068 0000000000000000
+[04:05:07.999] KIBREAK end #1 boss 0000018AA8DCE120 after 3891 ms: 4 hits, 4038 dmg (7.4 % max) during the break, grapple no, Ki 1980.0/1980.0
+[04:05:07.999] NOFIN boss 0000018AA8DCE120 Ki recovered (23=0 exhausted 0, Ki 1980.0, HP 50307/54345); blocked so far: grapple target 391, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:05:07.999] NOFIN gold Ki bar off
+[04:05:17.372] KIFINISHER hit boss 0000018AA8DCE120: BIG HIT outside a Ki break dmg 49707 (91.5 % max) HP 50307 -> 600/54345, Ki 1980.0/1980.0, 23=0 35=0 B0=0 2C=0, +13266 ms since break, bits1060 0100000000000000 1068 0000000000000000
+[04:05:17.372] NOFIN boss 0000018AA8DCE120 HP 50307 -> 600 (win 0)
+[04:05:20.335] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:05:20.339] NOFIN boss 0000018AA8DCE120 HP 600 -> 1 (win 0)
+[04:05:20.340] NOFIN HP-0 window start boss 0000018AA8DCE120 (HP 1/54345): Ki broken + gold bar draining 2000 ms; dies if not hit
+[04:05:20.340] NOFIN boss 0000018AA8DCE120: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:05:20.340] NOFIN boss 0000018AA8DCE120 at HP 0: Ki break set (A4F098 + kneel-down), break #1
+[04:05:20.340] NOFIN window boss 0000018AA8DCE120: +0 ms, Ki -133.6, 23=0 exh 0, hits 0, since last hit 0 ms
+[04:05:20.340] NOFIN gold Ki bar ON
+[04:05:20.347] KIBREAK start #2 boss 0000018AA8DCE120: Ki -130.1/1980.0 HP 1/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000000000 1068 0000000000000000 A8 0000000000000000
+[04:05:20.347] NOFIN boss 0000018AA8DCE120 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki -130.1, HP 1/54345); blocked so far: grapple target 392, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:05:20.509] DEATHBLOW diag: hp 1 ours 1 done 0 nsp 1 act 0000018AA8DCE120
+[04:05:20.584] NOFIN window boss 0000018AA8DCE120: +250 ms, Ki -29.2, 23=1 exh 0, hits 0, since last hit 250 ms
+[04:05:20.835] NOFIN window boss 0000018AA8DCE120: +500 ms, Ki 76.9, 23=1 exh 0, hits 0, since last hit 500 ms
+[04:05:21.086] NOFIN window boss 0000018AA8DCE120: +750 ms, Ki 182.8, 23=1 exh 0, hits 0, since last hit 750 ms
+[04:05:21.120] NOFIN hit at HP 0 boss 0000018AA8DCE120: window restarted (+781 ms since start, hit 1)
+[04:05:21.125] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:05:21.130] NOFIN boss 0000018AA8DCE120: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:05:21.221] KIBREAK end #2 boss 0000018AA8DCE120 after 860 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 44.3/1980.0
+[04:05:21.221] NOFIN boss 0000018AA8DCE120 Ki recovered (23=0 exhausted 0, Ki 44.3, HP 1/54345); blocked so far: grapple target 487, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:05:21.221] NOFIN boss 0000018AA8DCE120 at HP 0: Ki break set (A4F098), break #2
+[04:05:21.338] NOFIN window boss 0000018AA8DCE120: +1000 ms, Ki 6.0, 23=0 exh 0, hits 1, since last hit 219 ms
+[04:05:21.458] NOFIN boss 0000018AA8DCE120 at HP 0: Ki break set (A4F098), break #3
+[04:05:21.582] NOFIN window boss 0000018AA8DCE120: +1250 ms, Ki 6.0, 23=0 exh 0, hits 1, since last hit 469 ms
+[04:05:21.708] NOFIN boss 0000018AA8DCE120 at HP 0: Ki break set (A4F098), break #4
+[04:05:21.834] NOFIN window boss 0000018AA8DCE120: +1500 ms, Ki 6.0, 23=0 exh 0, hits 1, since last hit 719 ms
+[04:05:21.958] NOFIN boss 0000018AA8DCE120 at HP 0: Ki break set (A4F098), break #5
+[04:05:22.086] NOFIN window boss 0000018AA8DCE120: +1750 ms, Ki 6.1, 23=0 exh 0, hits 1, since last hit 969 ms
+[04:05:22.194] NOFIN boss 0000018AA8DCE120 HP 1 -> 0 (win 1)
+[04:05:22.194] NOFIN boss 0000018AA8DCE120 died during the HP-0 window
+[04:05:22.194] NOFIN gold Ki bar off
+[04:05:25.758] DEATHBLOW diag: hp 0 ours 1 done 0 nsp 1 act 0000018AA8DCE120
+[04:05:26.760] BBM +31750 ms boss 809319863 dead (HP 0 stable 4.5 s, sensor 1)
+[04:05:26.760] BBM END (boss dead (HP 0)): BossBattleModeEnd steps done
+[04:07:14.022] NOFIN hooks (KiBreakNoFinisher 1, window 2000 ms): CanGrapple on, grab box on, bit-31 box on, bit-28 box OFF (off by design), lethal cond on, Ki row drain on, grapple target on, hit probe on
+[04:07:14.022] DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub 00007FF683AB0000 (previous target rva 4893B8)
+[04:08:40.195] KIBREAK watch boss 0000023066ACD8E0 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[04:08:40.195] NOFIN watch boss 0000023066ACD8E0 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[04:08:46.058] KIFINISHER hit boss 0000023066ACD8E0: BIG HIT outside a Ki break dmg 53745 (98.9 % max) HP 54345 -> 600/54345, Ki 1980.0/1980.0, 23=0 35=0 B0=0 2C=0, +0 ms since break, bits1060 0100000000000000 1068 0000000000000000
+[04:08:46.058] NOFIN boss 0000023066ACD8E0 HP 54345 -> 600 (win 0)
+[04:08:49.241] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:08:49.246] NOFIN boss 0000023066ACD8E0 HP 600 -> 1 (win 0)
+[04:08:49.246] NOFIN HP-0 window start boss 0000023066ACD8E0 (HP 1/54345): Ki broken + gold bar draining 2000 ms; dies if not hit
+[04:08:49.246] NOFIN boss 0000023066ACD8E0: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:08:49.246] NOFIN boss 0000023066ACD8E0 at HP 0: Ki break set (A4F098 + kneel-down), break #1
+[04:08:49.246] NOFIN window boss 0000023066ACD8E0: +0 ms, Ki -133.6, 23=0 exh 0, hits 0, since last hit 0 ms
+[04:08:49.247] NOFIN gold Ki bar ON
+[04:08:49.254] KIBREAK start #1 boss 0000023066ACD8E0: Ki -130.1/1980.0 HP 1/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000000000 1068 0000000000000000 A8 0000000000000000
+[04:08:49.254] NOFIN boss 0000023066ACD8E0 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki -130.1, HP 1/54345); blocked so far: grapple target 1, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:08:49.431] DEATHBLOW diag: hp 1 ours 1 done 0 nsp 1 act 0000023066ACD8E0
+[04:08:49.490] NOFIN window boss 0000023066ACD8E0: +250 ms, Ki -29.4, 23=1 exh 0, hits 0, since last hit 250 ms
+[04:08:49.744] NOFIN window boss 0000023066ACD8E0: +500 ms, Ki 77.4, 23=1 exh 0, hits 0, since last hit 500 ms
+[04:08:49.994] NOFIN window boss 0000023066ACD8E0: +750 ms, Ki 183.4, 23=1 exh 0, hits 0, since last hit 750 ms
+[04:08:50.019] NOFIN hit at HP 0 boss 0000023066ACD8E0: window restarted (+781 ms since start, hit 1)
+[04:08:50.028] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:08:50.031] NOFIN boss 0000023066ACD8E0: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:08:50.239] NOFIN window boss 0000023066ACD8E0: +1000 ms, Ki 100.2, 23=1 exh 0, hits 1, since last hit 219 ms
+[04:08:50.490] NOFIN window boss 0000023066ACD8E0: +1250 ms, Ki 217.7, 23=1 exh 0, hits 1, since last hit 469 ms
+[04:08:50.742] NOFIN window boss 0000023066ACD8E0: +1500 ms, Ki 336.1, 23=1 exh 0, hits 1, since last hit 719 ms
+[04:08:50.990] NOFIN window boss 0000023066ACD8E0: +1750 ms, Ki 453.6, 23=1 exh 0, hits 1, since last hit 969 ms
+[04:08:51.035] NOFIN hit at HP 0 boss 0000023066ACD8E0: window restarted (+1797 ms since start, hit 2)
+[04:08:51.043] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:08:51.046] NOFIN boss 0000023066ACD8E0: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:08:51.238] NOFIN window boss 0000023066ACD8E0: +2000 ms, Ki 121.9, 23=1 exh 0, hits 2, since last hit 203 ms
+[04:08:51.488] NOFIN window boss 0000023066ACD8E0: +2250 ms, Ki 277.0, 23=1 exh 0, hits 2, since last hit 453 ms
+[04:08:51.740] NOFIN window boss 0000023066ACD8E0: +2500 ms, Ki 433.2, 23=1 exh 0, hits 2, since last hit 703 ms
+[04:08:51.990] NOFIN window boss 0000023066ACD8E0: +2750 ms, Ki 588.0, 23=1 exh 0, hits 2, since last hit 953 ms
+[04:08:52.178] NOFIN hit at HP 0 boss 0000023066ACD8E0: window restarted (+2937 ms since start, hit 3)
+[04:08:52.184] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:08:52.188] NOFIN boss 0000023066ACD8E0: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:08:52.242] NOFIN window boss 0000023066ACD8E0: +3000 ms, Ki 54.5, 23=1 exh 0, hits 3, since last hit 63 ms
+[04:08:52.493] NOFIN window boss 0000023066ACD8E0: +3250 ms, Ki 296.4, 23=1 exh 0, hits 3, since last hit 313 ms
+[04:08:52.744] NOFIN window boss 0000023066ACD8E0: +3500 ms, Ki 538.3, 23=1 exh 0, hits 3, since last hit 563 ms
+[04:08:52.794] KIBREAK end #1 boss 0000023066ACD8E0 after 3532 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 587.0/1980.0
+[04:08:52.794] NOFIN boss 0000023066ACD8E0 Ki recovered (23=0 exhausted 0, Ki 587.0, HP 1/54345); blocked so far: grapple target 240, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:08:52.794] NOFIN boss 0000023066ACD8E0 at HP 0: Ki break set (A4F098), break #2
+[04:08:52.836] NOFIN boss 0000023066ACD8E0: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:08:52.994] NOFIN window boss 0000023066ACD8E0: +3750 ms, Ki 6.0, 23=0 exh 0, hits 3, since last hit 813 ms
+[04:08:53.036] NOFIN boss 0000023066ACD8E0 at HP 0: Ki break set (A4F098), break #3
+[04:08:53.046] KIBREAK start #2 boss 0000023066ACD8E0: Ki 3.8/1980.0 HP 1/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000000000 1068 0000000000000000 A8 0000000000000000
+[04:08:53.048] NOFIN boss 0000023066ACD8E0 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki 3.8, HP 1/54345); blocked so far: grapple target 240, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:08:53.239] NOFIN window boss 0000023066ACD8E0: +4000 ms, Ki 81.5, 23=1 exh 0, hits 3, since last hit 1063 ms
+[04:08:53.490] NOFIN window boss 0000023066ACD8E0: +4250 ms, Ki 181.0, 23=1 exh 0, hits 3, since last hit 1313 ms
+[04:08:53.745] NOFIN window boss 0000023066ACD8E0: +4500 ms, Ki 280.9, 23=1 exh 0, hits 3, since last hit 1563 ms
+[04:08:53.996] NOFIN window boss 0000023066ACD8E0: +4750 ms, Ki 380.7, 23=1 exh 0, hits 3, since last hit 1813 ms
+[04:08:54.179] NOFIN boss 0000023066ACD8E0: no hit for 2000 ms at HP 0 (window 4937 ms, 3 hits, break ends 1) -> native kill (BossLoot 1)
+[04:08:54.182] KILL KiBreakNoFinisher HP-0 window 0000023066ACD8E0: native EnemyForceKillWithItemDrop 786C84 called -> dead (hp+48 1, HP 0 / 54345; gates before: chr+EB2 0, actor+894 0)
+[04:08:54.182] BBM +14000 ms boss 809319863 killed (KiBreakNoFinisher HP-0 window, hp+48 1, HP 0 / 54345): boss mode ends now, as the native kill
+[04:08:54.182] BBM END (boss killed): BossBattleModeEnd steps done
+[04:08:54.182] NOFIN gold Ki bar off
+[04:09:12.295] KIBREAK end #2 boss 0000023066ACD8E0 after 19250 ms: 0 hits, 0 dmg (0.0 % max) during the break, grapple no, Ki 1980.0/1980.0
+[04:09:12.296] NOFIN watch boss 0000023066ACD8E0 (row id 2147418115) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[04:09:12.390] NOFIN boss 0000023066ACD8E0 HP 54345 -> 0 (win 0)
+[04:09:12.770] DEATHBLOW diag: hp 0 ours 1 done 0 nsp 2 act 0000023066ACD8E0
+[04:09:17.784] NOFIN boss 0000023066ACD8E0 alive again (HP 54345, actor reused after despawn/summon): window re-armed
+[04:09:18.838] KIFINISHER hit boss 0000023066ACD8E0: BIG HIT outside a Ki break dmg 53745 (98.9 % max) HP 54345 -> 600/54345, Ki 1980.0/1980.0, 23=0 35=0 B0=0 2C=0, +25797 ms since break, bits1060 0100002000000000 1068 0000000000000000
+[04:09:18.838] NOFIN boss 0000023066ACD8E0 HP 54345 -> 600 (win 0)
+[04:09:18.938] NOFIN boss 0000023066ACD8E0 HP 600 -> 0 (win 0)
+[04:09:19.022] DEATHBLOW diag: hp 0 ours 1 done 0 nsp 1 act 0000023066ACD8E0
+[04:09:23.282] NOFIN boss 0000023066ACD8E0 alive again (HP 54345, actor reused after despawn/summon): window re-armed
+[04:09:23.347] NOFIN boss 0000023066ACD8E0 HP 54345 -> 0 (win 0)
+[04:09:23.775] BBM +500 ms boss 809319863 dead (HP 0 stable 4.5 s, sensor 1)
+[04:09:23.775] BBM END (boss dead (HP 0)): BossBattleModeEnd steps done
+[04:10:50.437] NOFIN hooks (KiBreakNoFinisher 1, window 2000 ms): CanGrapple on, grab box on, bit-31 box on, bit-28 box OFF (off by design), lethal cond on, Ki row drain on, grapple target on, hit probe on
+[04:10:50.437] DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub 00007FF683AB0000 (previous target rva 4893B8)
+[04:12:18.315] KIBREAK watch boss 00000255E21A6380 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[04:12:18.315] NOFIN watch boss 00000255E21A6380 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[04:12:24.406] KIFINISHER hit boss 00000255E21A6380: BIG HIT outside a Ki break dmg 53745 (98.9 % max) HP 54345 -> 600/54345, Ki 1980.0/1980.0, 23=0 35=0 B0=0 2C=0, +0 ms since break, bits1060 0100000000000000 1068 0000000000000000
+[04:12:24.406] NOFIN boss 00000255E21A6380 HP 54345 -> 600 (win 0)
+[04:12:27.622] NOFIN lethal hit on boss slot 0 -> survive at HP 1 (hits counted by the hit probe 326E81)
+[04:12:27.627] NOFIN boss 00000255E21A6380 HP 600 -> 1 (win 0)
+[04:12:27.628] NOFIN HP-0 window start boss 00000255E21A6380 (HP 1/54345): Ki broken + gold bar draining 2000 ms; dies if not hit
+[04:12:27.628] NOFIN boss 00000255E21A6380: death-blow pending flag ctrl+EA0 cleared (normal hits land again)
+[04:12:27.628] NOFIN boss 00000255E21A6380 at HP 0: Ki break set (A4F098 + kneel-down), break #1
+[04:12:27.628] NOFIN window boss 00000255E21A6380: +0 ms, Ki -133.6, 23=0 exh 0, hits 0, since last hit 0 ms
+[04:12:27.628] NOFIN gold Ki bar ON
+[04:12:27.636] KIBREAK start #1 boss 00000255E21A6380: Ki -130.1/1980.0 HP 1/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000000000 1068 0000000000000000 A8 0000000000000000
+[04:12:27.637] NOFIN boss 00000255E21A6380 Ki BROKEN -> gold Ki bar (23=1 exhausted 0, Ki -130.1, HP 1/54345); blocked so far: grapple target 1, CanGrapple 0, grab box 0, bit-31 box 0, bit-28 box 0
+[04:12:27.802] DEATHBLOW diag: hp 1 ours 1 done 0 nsp 1 act 00000255E21A6380
+[04:12:27.865] NOFIN window boss 00000255E21A6380: +250 ms, Ki -32.8, 23=1 exh 0, hits 0, since last hit 250 ms
+[04:12:28.116] NOFIN window boss 00000255E21A6380: +500 ms, Ki 74.1, 23=1 exh 0, hits 0, since last hit 500 ms
+[04:12:28.369] NOFIN window boss 00000255E21A6380: +750 ms, Ki 181.0, 23=1 exh 0, hits 0, since last hit 750 ms
+[04:12:28.614] NOFIN window boss 00000255E21A6380: +1000 ms, Ki 284.7, 23=1 exh 0, hits 0, since last hit 1000 ms
+[04:12:28.864] NOFIN window boss 00000255E21A6380: +1250 ms, Ki 390.6, 23=1 exh 0, hits 0, since last hit 1250 ms
+[04:12:29.117] NOFIN window boss 00000255E21A6380: +1500 ms, Ki 497.7, 23=1 exh 0, hits 0, since last hit 1500 ms
+[04:12:29.370] NOFIN window boss 00000255E21A6380: +1750 ms, Ki 605.2, 23=1 exh 0, hits 0, since last hit 1750 ms
+[04:12:29.614] NOFIN window boss 00000255E21A6380: +2000 ms, Ki 708.3, 23=1 exh 0, hits 0, since last hit 2000 ms
+[04:12:29.614] NOFIN boss 00000255E21A6380: no hit for 2000 ms at HP 0 (window 2000 ms, 0 hits, break ends 0) -> native kill (BossLoot 1)
+[04:12:29.616] KILL KiBreakNoFinisher HP-0 window 00000255E21A6380: native EnemyForceKillWithItemDrop 786C84 called -> dead (hp+48 1, HP 0 / 54345; gates before: chr+EB2 0, actor+894 0)
+[04:12:29.616] BBM +11313 ms boss 809319863 killed (KiBreakNoFinisher HP-0 window, hp+48 1, HP 0 / 54345): boss mode ends now, as the native kill
+[04:12:29.616] BBM END (boss killed): BossBattleModeEnd steps done
+[04:12:29.617] NOFIN gold Ki bar off
+[04:13:40.300] NOFIN hooks (KiBreakNoFinisher 1, window 2000 ms): CanGrapple on, grab box on, bit-31 box on, bit-28 box OFF (off by design), lethal cond on, Ki row drain on, grapple target on, hit probe on
+[04:13:40.300] DEATHBLOW hook 787004 ok: cond 0x27 revive call -> stub 00007FF683AB0000 (previous target rva 4893B8)
+[04:15:06.005] KIBREAK watch boss 000001D2DB9D21A0 HP 54345/54345 Ki 1980/1980 (broken 0, fin 0)
+[04:15:06.005] NOFIN watch boss 000001D2DB9D21A0 (row id 2147418114) HP 54345/54345: grapple blocked, gold Ki while broken, HP-0 window 2000 ms
+[04:15:12.314] CMD nofin: KiBreakNoFinisher 0 window 2000 ms
+[04:15:13.939] NOFIN Ki primed boss 000001D2DB9D21A0 (command, held 10 s): Ki -> 0.5 (next hit breaks it)
+[04:15:16.980] KIBREAK start #1 boss 000001D2DB9D21A0: Ki 0.0/1980.0 HP 53594/54345 (state23 1 exhausted 0 [5C 0.00 74 -1.00 7C -1.00 83 0]) bits1060 0500000000004001 1068 0000000000000000 A8 0002020000000000
+[04:15:16.981] KIFINISHER hit boss 000001D2DB9D21A0: hit on Ki-broken boss dmg 751 (1.4 % max) HP 54345 -> 53594/54345, Ki 0.0/1980.0, 23=1 35=0 B0=0 2C=0, +0 ms since break, bits1060 0500000000004001 1068 0000000000000000
+[04:15:17.511] KIBREAK end #1 boss 000001D2DB9D21A0 after 531 ms: 1 hits, 751 dmg (1.4 % max) during the break, grapple no, Ki 0.0/1980.0
+[04:15:25.461] KIFINISHER hit boss 000001D2DB9D21A0: BIG HIT outside a Ki break dmg 49559 (91.2 % max) HP 50159 -> 600/54345, Ki 1980.0/1980.0, 23=0 35=0 B0=0 2C=0, +8485 ms since break, bits1060 0100000000000000 1068 0000000000000000
+[04:15:28.491] DEATHBLOW diag: hp 0 ours 1 done 0 nsp 1 act 000001D2DB9D21A0
+[04:15:28.491] DEATHBLOW +22500 ms boss 809319863 at HP 0 / 54345: finisher started (sensor 0 -> 1)
+[04:15:32.988] BBM +27000 ms boss 809319863 dead (HP 0 stable 4.5 s, sensor 1)
+[04:15:32.989] BBM END (boss dead (HP 0)): BossBattleModeEnd steps done

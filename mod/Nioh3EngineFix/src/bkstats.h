@@ -34,4 +34,11 @@ void Start(const StartInfo& info);
 // LiveCtl 'Tuning.KL_Div = n' (dllmain LiveTuning): true = key handled (reply = new value text or the error)
 bool SetTuning(const char* key, const char* val, char* reply, size_t n);
 
+// hitchlog.cpp ([Debug] HitchLog): the engine's own back-end wait stats, read-only, any thread, no Backend census needed (v2.02
+// layout self-check once). Cumulative ms: [0] ECL ring full stall, [1] submit idle spin, [2] list recycle fence wait, [3] tok 0x95
+// cache upload. Last frame (CmdStreamEndFrame snapshot) ms: [0] drain spin, [1] drain max, [2] dispatcher ring full,
+// [3] handle wait, [4] sync-point GPU wait, [5] sync-point max. False = unknown build / layout differs / no device yet.
+bool CumWaitsMs(double out[4]);
+bool LastFrameWaitsMs(double out[6]);
+
 }  // namespace bkstats

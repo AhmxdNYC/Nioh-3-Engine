@@ -100,7 +100,7 @@ dm = (src / "dllmain.cpp").read_text(encoding="utf-8")
 for s in ('extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO', '"GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")',
           "extraperf::Configure(ep)", "extraperf::SetGiInstalled", "extraperf::SetLodInstalled", "extraperf::SetFxInstalled",
           "extraperf::SetRcoInstalled", "extraperf::StatusLine", "gen::Target::caveFxDraw: return",
-          "kLastTarget = (int)gen::Target::caveFxDraw"):
+          "kLastTarget = (int)gen::Target::caveRDWake"):
     check(s in dm, "dllmain.cpp lacks: " + s)
 check("extraperf::ApplyS(S)" in (src / "samelook.cpp").read_text(encoding="utf-8"), "samelook RcoApplyC does not call ApplyS")
 mc = (src / "menu.cpp").read_text(encoding="utf-8")

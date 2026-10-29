@@ -1,0 +1,21 @@
+# mission	boss BGM hash (Sound::PlayBossBGM first call in the boss script, notes/boss-script-args.csv)	id	name
+0x1CBC	0xe254478a	R1CBC	Yamagata Masakage
+0x15FF	0xf9b6ca15	R15FF	Takeda Shingen
+0x1352	0xd574c8ee	R1352	Ryomen Sukuna (The Apparition of Ryotan Temple)
+0x23E5	0xcba6398a	R23E5	Hino-enma
+0xC362	0xcba6398a	RC362	Hattori Hanzo (The Demon's Regimen)
+0x2EE9	0xc15bd2ea	R2EE9	Otoroshi
+0xEA75	0xc74a9c82	REA75	Ibaraki Doji
+0x7B35	0x2ba01e2a	R7B35	Minamoto no Yoritomo
+0xCB9B	0xd574c8ee	RCB9B	Ryomen Sukuna (The Mystery of Rajomon)
+0x3513	0x94f24407	R3513	Kusanagi
+0x4D8E	0x28d18d48	R4D8E	Takasugi Shinsaku
+0xCC53	0xc74a9c82	RCC53	Kasha
+0x401E	0xc15bd2ea	R401E	Nuribotoke
+0x5CC4	0xcfab3684	R5CC4	Okita Soji
+0x1359	0xe254478a	R1359	Yagyu Jubei (A Fortress in Ruins)
+0xB3FE	0x4b3119b3	RB3FE	Kumagai Naoyoshi
+0xDC12	0x7d1c0cbe	RDC12	Giant Toad
+0x3B58	0x2114f8e4	R3B58	Kanai Hanbei
+0xD22D	0x193bb0e7	RD22D	Honda Tadakatsu
+0xB3F8	0x4c425903	RB3F8	Minamoto no Yoshitsune

@@ -1,0 +1,22 @@
+{
+    "files":  [
+                  {
+                      "url":  "https://nioh3-mod-feedback.vercel.app/releases/1.7.82/Nioh3EngineFix.asi",
+                      "sha256":  "7a0aa7bb0fc8ec1003dd695419ff6f131fffd9644d73b990ceb4c0cb15cd6365",
+                      "name":  "Nioh3EngineFix.asi"
+                  },
+                  {
+                      "url":  "https://nioh3-mod-feedback.vercel.app/releases/1.7.82/Nioh3Training.asi",
+                      "sha256":  "5774223ac45f7a40cb9e92dc7be0e14f62c546b5db332b640bdfb6df491ef013",
+                      "name":  "Nioh3Training.asi"
+                  },
+                  {
+                      "url":  "https://nioh3-mod-feedback.vercel.app/releases/1.7.82/Nioh3BossRematch.asi",
+                      "sha256":  "793c10d45fcf9feebdbe0ffb4266a511245c636ad69da7b6cfe1229c948d72bf",
+                      "name":  "Nioh3BossRematch.asi"
+                  }
+              ],
+    "news":  "Update includes clickable website links and update instructions.",
+    "schema":  1,
+    "version":  "1.7.82"
+}

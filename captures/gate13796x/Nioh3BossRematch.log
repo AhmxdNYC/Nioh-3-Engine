@@ -1,0 +1,244 @@
+[22:36:23.218] Nioh3BossRematch 1.4.21 (separate add-on; boss logger + rematch). Game Nioh3.exe, TimeDateStamp 0x6AA7C106, SizeOfImage 0x52FB000: known build v2.02 (fast path). Nioh3EngineFix.asi not loaded (fine).
+[22:36:23.424] code ready 203 ms after start
+[22:36:23.443] Sites PUMP    1/1 resolved
+[22:36:23.443] Sites FIGHT   3/3 resolved
+[22:36:23.443] Sites BOSSLOG 27/27 resolved
+[22:36:23.443] Sites RLOG    29/29 resolved
+[22:36:23.443] Sites INV     1/1 resolved
+[22:36:23.443] Sites CORE    13/13 resolved
+[22:36:23.443] Sites RA      2/2 resolved
+[22:36:23.443] Sites EMAKI   4/4 resolved
+[22:36:23.443] Sites FNOW    3/3 resolved
+[22:36:23.443] Sites WARP    2/2 resolved
+[22:36:23.443] Sites EXIT    1/1 resolved
+[22:36:23.443] Sites GATE    2/2 resolved
+[22:36:23.443] Sites SPAWN   6/6 resolved
+[22:36:23.444] Rematch: transition readiness anchors matched
+[22:36:23.444] Hook: call +3B2323 (call:RightsCheck) now goes through the add-on, then +3B2354
+[22:36:23.471] Rematch: 58 rows take their arena point from D:\nioh3-re\rematch-pilots\user-rematch-34296f3-20261012\empty-arenas.tsv (captured)
+[22:36:23.471] Rematch: 14 rows without an arena point take it from C:\Program Files (x86)\Steam\steamapps\common\Nioh3\Nioh3Training_arenas.tsv (Nioh3Training table)
+[22:36:23.471] Startup: registering Rematch FIGHT callbacks
+[22:36:23.471] Startup: installing Rematch FIGHT group
+[22:36:23.471] Startup: installing hook BossBattleMode (FIGHT)
+[22:36:23.471] Startup: installed hook BossBattleMode
+[22:36:23.471] Startup: installing hook BossBattleModeEnd (FIGHT)
+[22:36:23.471] Startup: installed hook BossBattleModeEnd
+[22:36:23.471] Startup: installing hook Character::Create (FIGHT)
+[22:36:23.471] Startup: installed hook Character::Create
+[22:36:23.471] Rematch: prepared - 121 catalogue rows (R 59, H 3, D 10, E 20, X 29; 0 verified by verify_all); R-a on, E on; HiddenDuels 0, DirectStart 0, ShowAll 1, ShowUnverified 1. Solo/offline only; no story-flag writes.
+[22:36:23.471] Rematch: Fight now ON - 68 rows with a start point next to the boss (35 high confidence); arena warp ON (33 rows with an arena point, 29 start at the fight); ArenaCapture 1
+[22:36:23.471] Rematch: boss gates (door / box exclusive rights) on
+[22:36:23.471] Rematch: arena spawn (start point override, FightNowSpawn 1) on
+[22:36:23.471] Pump: per-frame call +56529C now runs the add-on tick first, then the original +3B29E4
+[22:36:23.471] BossLog: group FIGHT installed
+[22:36:23.471] Startup: installing hook SetMissionFlag (BOSSLOG)
+[22:36:23.471] Startup: installed hook SetMissionFlag
+[22:36:23.471] Startup: installing hook ShowBossGauge (BOSSLOG)
+[22:36:23.471] Startup: installed hook ShowBossGauge
+[22:36:23.471] Startup: installing hook SetMissionClearFlag (BOSSLOG)
+[22:36:23.471] Startup: installed hook SetMissionClearFlag
+[22:36:23.471] Startup: installing hook Character::AddDropTable (BOSSLOG)
+[22:36:23.471] Startup: installed hook Character::AddDropTable
+[22:36:23.471] Startup: installing hook Character::AddDropFixItem (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::AddDropFixItem
+[22:36:23.472] Startup: installing hook Character::AddDropKeyItemDirectGet (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::AddDropKeyItemDirectGet
+[22:36:23.472] Startup: installing hook Character::ForceDropAmurita (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::ForceDropAmurita
+[22:36:23.472] Startup: installing hook Character::ForceDropItem (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::ForceDropItem
+[22:36:23.472] Startup: installing hook Character::ForceDropItemAndGet (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::ForceDropItemAndGet
+[22:36:23.472] Startup: installing hook Character::EnemyForceKillWithItemDrop (BOSSLOG)
+[22:36:23.472] Startup: installed hook Character::EnemyForceKillWithItemDrop
+[22:36:23.472] Startup: installing hook Item::AddItem (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddItem
+[22:36:23.472] Startup: installing hook Item::AddFixItem (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddFixItem
+[22:36:23.472] Startup: installing hook Item::AddMagicItem (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddMagicItem
+[22:36:23.472] Startup: installing hook Item::AddItemNoNotice (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddItemNoNotice
+[22:36:23.472] Startup: installing hook Item::AddEquipment (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddEquipment
+[22:36:23.472] Startup: installing hook Item::AddEquipmentBySlot (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddEquipmentBySlot
+[22:36:23.472] Startup: installing hook Item::AddEquipmentPreset (BOSSLOG)
+[22:36:23.472] Startup: installed hook Item::AddEquipmentPreset
+[22:36:23.472] Startup: installing hook Player::AddGuardianSpirit (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddGuardianSpirit
+[22:36:23.472] Startup: installing hook Player::AddGuardianSpiritNoNotice (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddGuardianSpiritNoNotice
+[22:36:23.472] Startup: installing hook Player::AddGuardianSpiritWithTimer (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddGuardianSpiritWithTimer
+[22:36:23.472] Startup: installing hook Player::AddSkill (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddSkill
+[22:36:23.472] Startup: installing hook Player::AddSkillDojo (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddSkillDojo
+[22:36:23.472] Startup: installing hook Player::AddMoney (BOSSLOG)
+[22:36:23.472] Startup: installed hook Player::AddMoney
+[22:36:23.472] Startup: installing hook Mission::SetReward (BOSSLOG)
+[22:36:23.472] Startup: installed hook Mission::SetReward
+[22:36:23.472] Startup: installing hook Mission::GetGameClearRewardNormal (BOSSLOG)
+[22:36:23.472] Startup: installed hook Mission::GetGameClearRewardNormal
+[22:36:23.472] Startup: installing hook Mission::GetGameClearRewardHard (BOSSLOG)
+[22:36:23.472] Startup: installed hook Mission::GetGameClearRewardHard
+[22:36:23.472] Startup: installing hook GameClearRewardGrant (BOSSLOG)
+[22:36:23.472] Startup: installed hook GameClearRewardGrant
+[22:36:23.472] BossLog: group BOSSLOG installed
+[22:36:23.474] Menu: overlay on (F7 or hold View + D-pad Up 1 s; pad via the game's XInputGetState (masked while the menu is open))
+[22:36:23.474] Remote: pipe \\.\pipe\nioh3bossrematch on (local only)
+[22:36:23.474] ready (250 ms): BossLog 1, RematchLog 0, InvLog 0, Rematch live
+[23:08:36.654] Menu opened
+[23:08:36.663] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:08:44.151] Rematch: request Fight now (in the arena) for Minamoto no Yoritomo queued from the menu
+[23:08:44.165] Menu closed
+[23:08:44.158] Rematch: F R7B35: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey
+[23:08:44.166] Rematch: F R7B35: arena swap in place by Nioh3Training (no mission load)
+[23:09:28.331] Menu opened
+[23:09:28.331] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:09:34.046] Menu closed
+[23:09:34.761] Menu opened
+[23:09:34.765] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:09:54.997] Rematch: REPEAT arm (Right on move) chr 16102 0x4E30 Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E30 every 1.25 s, stands still between
+[23:09:55.919] Rematch: REPEAT stop (Left on move) chr 16102 0x4E30 -> stopped
+[23:09:56.917] Menu closed
+[23:10:03.908] Menu opened
+[23:10:03.913] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:10:10.815] Rematch: REPEAT arm FAILED (Right on move) chr 16102 0x0: idle / initialization cannot be repeated. Pick an attack.
+[23:10:12.833] Rematch: REPEAT arm (Right on move) chr 16102 0x4E30 Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E30 every 1.25 s, stands still between
+[23:10:14.066] Menu closed
+[23:10:24.089] Menu opened
+[23:10:24.100] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:10:39.788] Menu closed
+[23:11:10.773] Menu opened
+[23:11:10.780] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:16:21.037] Menu closed
+[23:16:25.784] Menu opened
+[23:16:25.793] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:16:32.582] Rematch: REPEAT stop (A turned 0x4E30 OFF) chr 16102
+[23:16:35.261] Menu closed
+[23:16:39.378] Menu opened
+[23:16:39.386] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:16:48.302] Rematch: REPEAT arm (Right on move) chr 16102 0x4E31 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E31 every 1.25 s, stands still between
+[23:16:48.507] Rematch: REPEAT arm (Right on move) chr 16102 0x4E31 Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E31 every 1.25 s, stands still between
+[23:16:49.802] Menu closed
+[23:16:58.764] Menu opened
+[23:16:58.767] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:17:06.642] Rematch: REPEAT stop (A turned 0x4E31 OFF) chr 16102
+[23:17:09.976] Menu closed
+[23:17:14.790] Menu opened
+[23:17:14.801] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:17:24.073] Rematch: REPEAT arm (Right on move) chr 16102 0x4E32 Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E32 every 1.25 s, stands still between
+[23:17:25.440] Menu closed
+[23:17:40.528] Menu opened
+[23:17:40.529] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:17:47.851] Rematch: REPEAT stop (A turned 0x4E32 OFF) chr 16102
+[23:17:48.791] Rematch: REPEAT arm (Right on move) chr 16102 0x4E6E Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E6E every 1.25 s, stands still between
+[23:17:50.019] Menu closed
+[23:17:55.457] Menu opened
+[23:17:55.465] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:18:00.431] Rematch: REPEAT stop (Left on move) chr 16102 0x4E6E -> stopped
+[23:18:00.917] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:18:01.398] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:18:02.699] Rematch: REPEAT arm (Right on move) chr 16102 0x4E24 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E24 every 1.25 s, stands still between
+[23:18:03.614] Menu closed
+[23:18:23.619] Menu opened
+[23:18:23.628] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:18:29.688] Rematch: REPEAT stop (Left on move) chr 16102 0x4E24 -> stopped
+[23:18:30.677] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:18:31.872] Rematch: REPEAT arm (Right on move) chr 16102 0x4E25 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E25 every 1.25 s, stands still between
+[23:18:33.370] Menu closed
+[23:18:42.687] Menu opened
+[23:18:42.688] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:18:47.135] Rematch: REPEAT stop (Left on move) chr 16102 0x4E25 -> stopped
+[23:18:47.579] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:18:48.056] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:18:49.245] Rematch: REPEAT arm (Right on move) chr 16102 0x4E26 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E26 every 1.25 s, stands still between
+[23:18:50.370] Menu closed
+[23:18:56.959] Menu opened
+[23:18:56.961] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:19:02.188] Rematch: REPEAT stop (Left on move) chr 16102 0x4E26 -> stopped
+[23:19:02.663] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:19:03.138] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:19:04.639] Rematch: REPEAT arm (Right on move) chr 16102 0x4E55 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E55 every 1.25 s, stands still between
+[23:19:05.459] Menu closed
+[23:19:16.178] Menu opened
+[23:19:16.180] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:19:24.225] Rematch: REPEAT stop (Left on move) chr 16102 0x4E55 -> stopped
+[23:19:24.842] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:19:25.664] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:19:28.300] Rematch: REPEAT arm (Right on move) chr 16102 0x4E59 Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E59 every 1.25 s, stands still between
+[23:19:34.693] Menu closed
+[23:19:43.680] Menu opened
+[23:19:43.683] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:19:50.882] Rematch: REPEAT stop (Left on move) chr 16102 0x4E59 -> stopped
+[23:19:51.331] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:19:52.847] Rematch: REPEAT arm (Right on move) chr 16102 0x4E5E Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E5E every 1.25 s, stands still between
+[23:19:53.979] Menu closed
+[23:20:05.856] Menu opened
+[23:20:05.856] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:20:14.565] Rematch: REPEAT stop (Left on move) chr 16102 0x4E5E -> stopped
+[23:20:15.046] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:15.461] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:18.751] Rematch: REPEAT arm (Right on move) chr 16102 0x4E64 close wing sweep (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E64 every 1.25 s, stands still between
+[23:20:22.506] Menu closed
+[23:20:29.970] Menu opened
+[23:20:29.970] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:20:37.099] Rematch: REPEAT stop (Left on move) chr 16102 0x4E64 -> stopped
+[23:20:37.614] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:38.396] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:40.275] Rematch: REPEAT arm (Right on move) chr 16102 0x4E7B Unlabelled action (was OFF, switched ON) -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E7B every 1.25 s, stands still between
+[23:20:40.448] Rematch: REPEAT arm (Right on move) chr 16102 0x4E7B Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E7B every 1.25 s, stands still between
+[23:20:41.436] Rematch: REPEAT stop (Left on move) chr 16102 0x4E7B -> stopped
+[23:20:41.955] Rematch: REPEAT arm (Right on move) chr 16102 0x4E7B Unlabelled action -> ON, stance 2, gap 1250 ms, hooks 1: Boss does 0x4E7B every 1.25 s, stands still between
+[23:20:43.360] Menu closed
+[23:20:48.596] Menu opened
+[23:20:48.601] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:20:56.979] Rematch: REPEAT stop (Left on move) chr 16102 0x4E7B -> stopped
+[23:20:57.392] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:57.902] Rematch: REPEAT stop (Left on move): nothing was repeating (boss chr 16102)
+[23:20:59.942] Menu closed
+[23:25:25.553] Menu opened
+[23:25:25.553] Menu: Return gate page opened
+[23:25:25.555] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:25:27.084] Menu closed
+[23:25:28.062] Menu opened
+[23:25:28.062] Menu: Return gate page opened
+[23:25:28.071] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:25:30.179] Menu closed
+[23:25:31.260] Menu opened
+[23:25:31.260] Menu: Return gate page opened
+[23:25:31.269] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:25:33.336] Menu closed
+[23:25:34.979] Menu opened
+[23:25:34.979] Menu: Return gate page opened
+[23:25:34.979] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:25:38.359] Menu closed
+[23:25:40.226] Menu opened
+[23:25:40.226] Menu: Return gate page opened
+[23:25:40.234] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:25:40.874] Menu closed
+[23:25:41.995] Menu opened
+[23:25:41.995] Menu: Return gate page opened
+[23:25:42.002] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:26:16.135] Menu closed
+[23:26:17.471] Menu opened
+[23:26:17.471] Menu: Return gate page opened
+[23:26:17.473] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:26:20.000] Menu closed
+[23:26:20.844] Menu opened
+[23:26:20.844] Menu: Return gate page opened
+[23:26:20.848] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:26:23.568] Menu closed
+[23:26:25.258] Menu opened
+[23:26:25.258] Menu: Return gate page opened
+[23:26:25.258] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:26:26.073] Menu closed
+[23:26:27.496] Menu opened
+[23:26:27.496] Menu: Return gate page opened
+[23:26:27.505] Rematch: scan: 41 catalogue missions cleared on the current journey
+[23:26:28.550] Menu closed
+[23:26:30.108] Menu opened
+[23:26:30.108] Menu: Return gate page opened
+[23:26:30.115] Rematch: scan: 41 catalogue missions cleared on the current journey

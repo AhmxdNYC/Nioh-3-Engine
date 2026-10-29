@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "autocont.h"
+#include "autocont_thunk.h"
 
 namespace autocont {
 namespace {
@@ -25,9 +26,12 @@ constexpr uint32_t kTick = 0x1CECB24;        // TipPageLoadDoneTick head: push r
 const uint8_t kTickBytes[] = {0x40, 0x53, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00, 0x80, 0xB9, 0x1B, 0x07, 0x00, 0x00, 0x00};
 
 void (*g_log)(const char*, ...) = nullptr;
+bool (*g_coverPermission)() = nullptr;
+bool CoverPermission() { return g_coverPermission && g_coverPermission(); }
 uint8_t* g_page = nullptr;            // thunk page (within rel32 reach of the image)
-volatile uint8_t* g_switch = nullptr;  // thunk + 28h
-volatile long* g_count = nullptr;      // thunk + 2Ch
+volatile uint8_t* g_switch = nullptr;  // private user preference byte
+volatile long* g_count = nullptr;      // answered tip checks
+RUNTIME_FUNCTION g_thunkFunction{};
 
 uint8_t* AllocIn(uintptr_t from, uintptr_t to, size_t size) {
     SYSTEM_INFO si;
@@ -144,29 +148,24 @@ volatile uint8_t* Start(const StartInfo& info) {
         g_log("AutoContinue: not installed (no executable page within 2 GB of the image)");
         return nullptr;
     }
-    // Thunk (touches al and the flags only; the original ConfirmPressed touches rax and the flags):
-    //   00 cmp byte [rip+21h], 0      ; switch at +28h
-    //   07 je 14h                     ; off -> original
-    //   09 mov al, 1                  ; "confirm pressed"
-    //   0B lock inc dword [rip+1Ah]   ; count at +2Ch
-    //   12 ret
-    //   14 jmp qword [rip+0]          ; -> 283950
-    //   1A dq 283950
+    // Separate ephemeral cover permission never writes the persistent user switch.
+    g_coverPermission = info.coverPermission;
     uint8_t* t = g_page;
-    static const uint8_t code[0x1A] = {0x80, 0x3D, 0x21, 0x00, 0x00, 0x00, 0x00,  // cmp byte [rip+21h], 0
-                                       0x74, 0x0B,                                // je +0Bh
-                                       0xB0, 0x01,                                // mov al, 1
-                                       0xF0, 0xFF, 0x05, 0x1A, 0x00, 0x00, 0x00,  // lock inc dword [rip+1Ah]
-                                       0xC3, 0x90,                                // ret; nop
-                                       0xFF, 0x25, 0x00, 0x00, 0x00, 0x00};       // jmp qword [rip+0]
-    memcpy(t, code, sizeof(code));
-    const uint64_t target = info.base + kCallee;
-    memcpy(t + 0x1A, &target, 8);
-    g_switch = t + 0x28;
-    g_count = (volatile long*)(t + 0x2C);
+    const size_t thunkSize = autocont_thunk::Build(t, info.base + kCallee, reinterpret_cast<uintptr_t>(&CoverPermission));
+    if (thunkSize >= autocont_thunk::kSwitch) return nullptr;
+    // Real nonleaf thunk: register its fixed C8 stack allocation for unwinding.
+    // Version1, prolog7, two unwind slots: UWOP_ALLOC_LARGE / C8 divided by8.
+    memcpy(t+autocont_thunk::kUnwind,autocont_thunk::kUnwindBytes,sizeof(autocont_thunk::kUnwindBytes));
+    g_thunkFunction={0,static_cast<DWORD>(thunkSize),static_cast<DWORD>(autocont_thunk::kUnwind)};
+    if(!RtlAddFunctionTable(&g_thunkFunction,1,reinterpret_cast<DWORD64>(t))) {
+        g_log("AutoContinue: not installed (thunk unwind registration failed)");
+        return nullptr;
+    }
+    g_switch = t + autocont_thunk::kSwitch;
+    g_count = reinterpret_cast<volatile long*>(t + autocont_thunk::kCount);
     *g_switch = want ? 1 : 0;
     *g_count = 0;
-    FlushInstructionCache(GetCurrentProcess(), t, 0x30);
+    FlushInstructionCache(GetCurrentProcess(), t, thunkSize);
     const intptr_t d = (intptr_t)t - (intptr_t)(site + 5);
     if (d < INT32_MIN || d > INT32_MAX) {
         g_log("AutoContinue: not installed (thunk out of rel32 reach)");
@@ -178,6 +177,7 @@ volatile uint8_t* Start(const StartInfo& info) {
     if (!Patch(site, nb, 5)) {
         g_log("AutoContinue: not installed (site write failed)");
         g_switch = nullptr;
+        RtlDeleteFunctionTable(&g_thunkFunction);
         return nullptr;
     }
     if (HANDLE h = CreateThread(nullptr, 0, Watch, nullptr, 0, nullptr)) CloseHandle(h);

@@ -1,0 +1,101 @@
+==== decompile RVA 0x1fe48f8 ====
+// function FUN_7ff7513f48f8 @ 0x1fe48f8  body=129 bytes  pdataStart=0x1fe48f8
+// callers(3): FUN_7ff7513f69e8@0x1fe69e8 FUN_7ff74f9c66e0@0x5b66e0 FUN_7ff7513f6ab4@0x1fe6ab4 
+// callees(2): FUN_7ff7513f497c@0x1fe497c FUN_7ff74f456858@0x46858 
+
+undefined8 FUN_7ff7513f48f8(longlong param_1)
+
+{
+  uint uVar1;
+  char cVar2;
+  undefined8 uVar3;
+  longlong lVar4;
+  
+  cVar2 = FUN_7ff7513f497c();
+  if (cVar2 == '\0') {
+LAB_7ff7513f490c:
+    uVar3 = 0;
+  }
+  else {
+    lVar4 = *(longlong *)(param_1 + 0xe0);
+    if (*(char *)(param_1 + 0xe27) == '\0') {
+      if (lVar4 != 0) {
+        if (*(int *)(lVar4 + 8) == 0) {
+          cVar2 = FUN_7ff74f456858();
+          if (cVar2 != '\0') goto LAB_7ff7513f494d;
+        }
+        uVar1 = *(uint *)(lVar4 + 4);
+        goto LAB_7ff7513f495c;
+      }
+    }
+    else if (lVar4 != 0) {
+      if (*(char *)(lVar4 + 0x3981c) == '\0') {
+        cVar2 = FUN_7ff74f456858();
+        if (cVar2 != '\0') {
+LAB_7ff7513f494d:
+          *(undefined4 *)(param_1 + 0xb8) = 0xf;
+          goto LAB_7ff7513f490c;
+        }
+      }
+      uVar1 = *(uint *)(lVar4 + 0xc);
+LAB_7ff7513f495c:
+      if (*(ulonglong *)(param_1 + 0xd8) < (ulonglong)uVar1) {
+        *(undefined4 *)(param_1 + 0xb8) = 0xe;
+        goto LAB_7ff7513f490c;
+      }
+    }
+    uVar3 = 1;
+  }
+  return uVar3;
+}
+
+
+
+==== decompile RVA 0x1fe69e8 ====
+// function FUN_7ff7513f69e8 @ 0x1fe69e8  body=95 bytes  pdataStart=0x1fe69e8
+// callers(0): 
+// callees(3): FUN_7ff74f7e7cc8@0x3d7cc8 FUN_7ff74f9c6794@0x5b6794 FUN_7ff7513f48f8@0x1fe48f8 
+
+void FUN_7ff7513f69e8(longlong param_1)
+
+{
+  int iVar1;
+  
+  iVar1 = *(int *)(param_1 + 0xe8fc);
+  do {
+    if (iVar1 == 4) {
+      return;
+    }
+    FUN_7ff74f7e7cc8(param_1 + 0x10);
+    iVar1 = *(int *)(param_1 + 0xe8fc);
+  } while (iVar1 != 2);
+  FUN_7ff74f9c6794(param_1);
+  if (*(char *)(param_1 + 0xe27) == '\0') {
+    FUN_7ff7513f48f8(param_1,1);
+  }
+  *(undefined4 *)(param_1 + 0xe8fc) = 4;
+  return;
+}
+
+
+
+==== decompile RVA 0x1b2af4 ====
+// function FUN_7ff74f5c2af4 @ 0x1b2af4  body=48 bytes  pdataStart=0x1b2af4
+// callers(1): FUN_7ff74f5c2ad0@0x1b2ad0 
+// callees(2): FUN_7ff74f666810@0x256810 FUN_7ff74f5c2b24@0x1b2b24 
+
+void FUN_7ff74f5c2af4(longlong param_1)
+
+{
+  if (*(longlong *)(param_1 + 8) != 0) {
+    FUN_7ff74f5c2b24();
+    if (*(longlong *)(param_1 + 8) != 0) {
+      FUN_7ff74f666810();
+      *(undefined8 *)(param_1 + 8) = 0;
+    }
+  }
+  return;
+}
+
+
+

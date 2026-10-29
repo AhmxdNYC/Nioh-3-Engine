@@ -21,7 +21,7 @@ OPTION CASEMAP:NONE
 
 EXTERN GpuOptSlow:PROC
 
-PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hook3, gpuopt_hook4, gpuopt_hook5, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
+PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hook3, gpuopt_hook4, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
 
 GPUOPT_SLOTS EQU 96
 
@@ -36,7 +36,6 @@ gpuopt_hook   db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOp
 gpuopt_hook2  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (gimerge: Dispatch, PSO, compute roots, ...)
 gpuopt_hook3  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (skipfx.cpp: [Debug] SkipFx diagnostic)
 gpuopt_hook4  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (psoswap ShaderHot: PSO argument rebind)
-gpuopt_hook5  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (cx-pc StateFilter: PSO redundancy filter)
 ALIGN 8
 gpuopt_hold   dq 0                        ; gimerge: the list with a held Dispatch - every call on it goes to GpuOptSlow
 
@@ -106,8 +105,6 @@ gpuopt_t&S&_&I LABEL PROC
     cmp     byte ptr [gpuopt_hook3 + I], 0
     jne     slow
     cmp     byte ptr [gpuopt_hook4 + I], 0
-    jne     slow
-    cmp     byte ptr [gpuopt_hook5 + I], 0
     jne     slow
     cmp     rcx, qword ptr [gpuopt_hold]
     je      slow
