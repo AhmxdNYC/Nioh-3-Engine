@@ -849,7 +849,24 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
           (unsigned long long)c, (unsigned)c, (unsigned long long)d, vl ? via : " -", t);
 }
 
+// Tenshin input: the game's local input path 2E6C34 (state = rcx; input-command word [state+0x1068], bit 0xE = NIOH_TENSHIN). TenshinGo() arms a
+// one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
+std::atomic<int> g_tenGo{0};
+std::atomic<uint64_t> g_tenState{0};
+void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (g_tenState.exchange(a) != a) Log("TenshinInput: state=%llX", (unsigned long long)a);
+    if (g_tenGo.exchange(0)) {
+        uint32_t w = 0;
+        if (Rd(a + 0x1068, w)) {
+            WrU32(a + 0x1068, w | 0x4000);
+            Log("TenshinInput: bit 0xE set state=%llX word %08X->%08X", (unsigned long long)a, w, w | 0x4000);
+        }
+    }
+}
+
 }  // namespace
+
+void TenshinGo() { g_tenGo.store(1); }
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
@@ -930,6 +947,7 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_GSpiritWork", &HkSc<4>);
         OnEntry("ScProbe_AsyncLoad", &HkSc<5>);
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
+        OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
     }
 }
 
