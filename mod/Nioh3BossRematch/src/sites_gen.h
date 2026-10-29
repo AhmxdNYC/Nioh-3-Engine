@@ -70,6 +70,7 @@ static const Def kDefs[] = {
     {"EffectCreate", "SC", kHook, 0x4CE90C, 5, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29", 0, 0, 0, 0, 0x0, nullptr},
     {"ScProbe_1320F2C", "SC", kHook, 0x1320F2C, 11, "48 83 EC 28 48 8B 81 28 01 00 00 48 85 C0 74 1F", 0, 0, 0, 0, 0x0, nullptr},
     {"ScProbe_23CBF9C", "SC", kHook, 0x23CBF9C, 5, "50 01 00 00 5F C3 CC CC 48 89 5C 24 10 57 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 40 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20", 8, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_GSpiritReq", "SC", kHook, 0x2916C34, 7, "48 83 EC 48 0F 28 02 48 8D 54 24 30 8B 44 24 70 48 8B 49 08 66 0F 7F 44 24 30 89 44 24 20 E8 05 00 00 00 48 83 C4 48 C3", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:MissionClearedGetSlot", "CORE", kFn, 0x702B64, 0, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:MissionRequestById", "CORE", kFn, 0x2239600, 0, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1", 0, 0, 0, 0, 0x0, nullptr},
     {"g:DataDb", "CORE", kGlobal, 0x45B9E30, 0, "48 8B 0D ?? ?? ?? ?? 8B D7 41 8A F4", 0, 3, 7, 0, 0x223963C, nullptr},
