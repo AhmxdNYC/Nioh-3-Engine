@@ -325,7 +325,7 @@ bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, 
     uint8_t nb[5] = {0xE8};
     const int32_t r2 = (int32_t)dd;
     memcpy(nb + 1, &r2, 4);
-    if (!Patch(p, nb, 5)) {
+    if (!Patch(p + 1, nb + 1, 4)) {
         if (why) *why = "atomic write failed";
         return false;
     }
