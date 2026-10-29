@@ -854,6 +854,35 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
           (unsigned long long)c, (unsigned)c, (unsigned long long)d, vl ? via : " -", t);
 }
 
+// Core-form probe (pc #46959): B611BC / 29EF38 args + 0x40 bytes behind rcx/rdx/r8, so core 0xF vs 0x111 can be diffed in the log.
+template <int N>
+void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    static std::atomic<int64_t> sec{-1};
+    static std::atomic<int> inSec{0};
+    const int64_t ts = (int64_t)Now();
+    if (sec.exchange(ts) != ts) inSec.store(0);
+    if (inSec.fetch_add(1) >= 20) return;
+    char via[200] = "";
+    size_t vl = 0;
+    int found = 0;
+    for (int k = 0; k < 72 && found < 4; ++k) {
+        const uint64_t v = StackArg(sp, k);
+        if (!LooksLikeRet(v)) continue;
+        vl += (size_t)snprintf(via + vl, sizeof(via) - vl, " +%llX(fn %X)", (unsigned long long)(v - g_base), FnStart(v));
+        ++found;
+    }
+    char ha[0x40 * 3 + 4], hb[0x40 * 3 + 4], hc[0x40 * 3 + 4];
+    HexSafe(ha, sizeof(ha), a, 0x40);
+    HexSafe(hb, sizeof(hb), b, 0x40);
+    HexSafe(hc, sizeof(hc), c, 0x40);
+    const char* nm = N == 0 ? "B611BC" : "29EF38";
+    Log("CoreProbe %s a=%llX b=%llX c=%llX d=%llX via%s t=%.3f", nm, (unsigned long long)a, (unsigned long long)b, (unsigned long long)c,
+          (unsigned long long)d, vl ? via : " -", Now());
+    Log("CoreProbe %s [a]=%s", nm, ha);
+    Log("CoreProbe %s [b]=%s", nm, hb);
+    Log("CoreProbe %s [c]=%s", nm, hc);
+}
+
 // Tenshin input: the game's local input path 2E6C34 (state = rcx; input-command word [state+0x1068], bit 0xE = NIOH_TENSHIN). TenshinGo() arms a
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
@@ -994,6 +1023,8 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
         OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
         OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
+        OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
+        OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);
     }
 }
 

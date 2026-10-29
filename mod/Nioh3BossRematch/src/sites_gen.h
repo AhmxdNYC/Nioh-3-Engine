@@ -75,6 +75,8 @@ static const Def kDefs[] = {
     {"ScProbe_AsyncLoad", "SC", kHook, 0x29138CC, 6, "40 53 48 83 EC 40 48 8B 84 24 80 00 00 00 48 8B D9 48 89 44 24 30 48 8B 44 24 78 48 89 44 24 28 48 8B 44 24 70 48 89 44 24 20 E8", 0, 0, 0, 0, 0x0, nullptr},
     {"ScProbe_MotionReq", "SC", kHook, 0x66C4A8, 10, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 40 48 8B 01 41 8B D8 0F 29 74 24 30 8B FA 0F 28 F3 48 8B F1 FF 90 00 01 00 00", 0, 0, 0, 0, 0x0, nullptr},
     {"ScProbe_SpiritActive", "SC", kHook, 0x842FB0, 10, "48 8B C4 48 89 58 08 89 50 10 57 48 83 EC 30 48", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_B611BC", "SC", kHook, 0xB611BC, 5, "48 89 5C 24 18 56 57 41 56 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 30 8B 01 4C 8B F2 0F BA F0 08 48 8B F1", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_29EF38", "SC", kHook, 0x29EF38, 7, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 A8 48 81 EC 58 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 83 79 08 00 45 8B F1 4C 8B BD C0 00 00 00 41 8B F8 4C 8B A5", 0, 0, 0, 0, 0x0, nullptr},
     {"ScProbe_TenshinInput", "SC", kHook, 0x2E6C34, 6, "40 53 48 83 EC 30 8B 81 68 10 00 00 48 8B D9 48 0F BA E0 0E 0F 83 AD 01 00 00 E8", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:MissionClearedGetSlot", "CORE", kFn, 0x702B64, 0, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:MissionRequestById", "CORE", kFn, 0x2239600, 0, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1", 0, 0, 0, 0, 0x0, nullptr},
