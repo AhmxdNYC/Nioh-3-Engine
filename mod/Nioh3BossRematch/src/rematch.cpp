@@ -3938,6 +3938,14 @@ uint64_t SpiritGaugeEntry(uint64_t base, uint64_t G) {
         return 0;
     }
 }
+int SpiritRawCall(uint64_t fn, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t& ret) {
+    __try {
+        ret = ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t))fn)(a, b, c, d);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
 int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
     __try {
         ((void (*)(uint64_t, uint32_t))(base + 0x2153E7C))(pd, id);
@@ -4062,6 +4070,45 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
+        if (!strcmp(arg, "slots") || !strcmp(arg, "call")) {  // spirit slots : dwords [P]+0xF0..0x130 ; spirit call <rva> [a1..a4] (P=playerdata E=ext C=char, else hex): blind SEH call
+            uint64_t pd = 0, in = 0;
+            if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in) {
+                snprintf(reply, n, "error player data not ready");
+                return;
+            }
+            if (!strcmp(arg, "slots")) {
+                size_t k = (size_t)snprintf(reply, n, "ok slots P=%llX in=%llX @F0:", (unsigned long long)pd, (unsigned long long)in);
+                for (unsigned o = 0xF0; o < 0x130 && k + 12 < n; o += 4) {
+                    uint32_t v = 0;
+                    Rd(in + o, v);
+                    k += (size_t)snprintf(reply + k, n - k, " %X", v);
+                }
+                return;
+            }
+            const uint64_t ch = PlayerChar();
+            uint64_t ext = 0;
+            if (ch) Rd(ch + 0x3A0, ext);
+            unsigned long long rva = 0;
+            char t[4][24] = {};
+            const char* p = strstr(line, "call");
+            const int got = p ? sscanf_s(p + 4, "%llx %23s %23s %23s %23s", &rva, t[0], 24u, t[1], 24u, t[2], 24u, t[3], 24u) : 0;
+            if (got < 1 || !rva) {
+                snprintf(reply, n, "error spirit call <rva> [a1..a4]");
+                return;
+            }
+            uint64_t a[4] = {};
+            for (int i = 0; i < 4; ++i) {
+                if (t[i][0] == 'P') a[i] = pd;
+                else if (t[i][0] == 'E') a[i] = ext;
+                else if (t[i][0] == 'C') a[i] = ch;
+                else if (t[i][0]) a[i] = strtoull(t[i], nullptr, 16);
+            }
+            uint64_t ret = 0;
+            const int rc = SpiritRawCall(base + rva, a[0], a[1], a[2], a[3], ret);
+            Log("Spirit call +%llX(%llX,%llX,%llX,%llX) rc=%d ret=%llX", rva, (unsigned long long)a[0], (unsigned long long)a[1], (unsigned long long)a[2], (unsigned long long)a[3], rc, (unsigned long long)ret);
+            snprintf(reply, n, "ok call rc=%d ret=%llX", rc, (unsigned long long)ret);
+            return;
+        }
         if (!strcmp(arg, "gauge")) {  // spirit gauge [max] : ext=*(player+0x3A0), G=ext+0x1D8, max=*(float*)(ext+0x3AC); fill = 0x916FAC(G,max) (ally #46889)
             const uint64_t ch = PlayerChar();
             uint64_t ext = 0;
