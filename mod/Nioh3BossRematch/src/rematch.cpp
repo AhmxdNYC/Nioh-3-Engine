@@ -3963,6 +3963,12 @@ void Command(const char* line, char* reply, size_t n) {
         if (!strcmp(arg, "ready")) {
             fl |= 1;
             WrBytes(T + 0x10, &fl, 1);
+        } else if (!strcmp(arg, "fill")) {  // gauge to max (and ready) so the real button path can fire
+            float mx = 0;
+            Rd(T + 0x24, mx);
+            WrBytes(T + 0x20, &mx, 4);
+            fl |= 1;
+            WrBytes(T + 0x10, &fl, 1);
         } else if (!strcmp(arg, "begin")) {
             rc = TCall(1, base, T, 0);
         } else if (!strcmp(arg, "aura")) {
@@ -3973,7 +3979,7 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (!strcmp(arg, "end")) {
             rc = TCall(4, base, T, 0);
         } else if (strcmp(arg, "status")) {
-            snprintf(reply, n, "error tenshin status|ready|begin|aura|hide|show|end");
+            snprintf(reply, n, "error tenshin status|ready|fill|begin|aura|hide|show|end");
             return;
         }
         uint8_t fl2 = 0;
