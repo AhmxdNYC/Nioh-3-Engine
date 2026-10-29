@@ -855,6 +855,31 @@ std::atomic<int> g_tenGo{0};
 std::atomic<uint64_t> g_tenState{0};
 void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (g_tenState.exchange(a) != a) Log("TenshinInput: state=%llX", (unsigned long long)a);
+    {   // real-button trigger: hold L3 + R3 (both stick clicks), rising edge -> fill the gauge and arm the input bit
+        using XGet = DWORD(WINAPI*)(DWORD, void*);
+        static XGet xget = nullptr;
+        static bool tried = false;
+        static bool wasDown = false;
+        if (!tried) {
+            tried = true;
+            for (const wchar_t* dll : {L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll"}) {
+                if (HMODULE m = GetModuleHandleW(dll)) { xget = (XGet)GetProcAddress(m, "XInputGetState"); if (xget) break; }
+            }
+        }
+        if (xget) {
+            struct { DWORD pkt; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } st = {};
+            bool down = false;
+            for (DWORD u = 0; u < 4 && !down; ++u)
+                if (xget(u, &st) == 0) down = (st.buttons & 0x0040) && (st.buttons & 0x0080);
+            if (down && !wasDown) {
+                char rp[128];
+                addon::rematch::Command("tenshin fill", rp, sizeof(rp));
+                g_tenGo.store(24);
+                Log("TenshinInput: L3+R3 pressed -> fill %s + go", rp);
+            }
+            wasDown = down;
+        }
+    }
     if (g_tenGo.load() > 0 && g_tenGo.fetch_sub(1) > 0) {
         uint32_t w = 0;
         if (Rd(a + 0x1068, w)) {
