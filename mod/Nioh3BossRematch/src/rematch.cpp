@@ -4001,6 +4001,8 @@ void Command(const char* line, char* reply, size_t n) {
         Rd(in + 0x100 + slot * 4, now);
         Log("Tenshin equip: pd=%llX inner=%llX slot=%u (sel=%u) id %u(0x%X)->%u(0x%X)", (unsigned long long)pd, (unsigned long long)in, slot, sel, old, old, now, now);
         snprintf(reply, n, "ok equip slot=%u id %u->%u (sel=%u)", slot, old, now, sel);
+        return;
+    }
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
