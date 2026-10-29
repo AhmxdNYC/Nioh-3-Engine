@@ -889,6 +889,7 @@ std::atomic<int> g_tenGo{0};
 std::atomic<uint32_t> g_tenForm{0};  // `rm tenshin form <hex>`: written to [state+0xA68] right before bit 0xE is OR'd (0 = leave)
 std::atomic<uint32_t> g_tenSetForm{0};  // `rm tenshin setform <hex>`: game SetForm 0x74C2FC(state,id)+0x74C128(state,id) before bit 0xE (ally #47284)
 std::atomic<uint64_t> g_tenState{0};
+std::atomic<uint32_t> g_tenMove{0};  // `rm tenshin move <hex>`: game 0x66C4A8(state, id, 0, 0.0f) once on the next input state (soulcore-A experiment 2)
 // 842FAC body (after its zero check): rcx = player data, edx = spirit id, r8b = active flag. The Tenshin Begin path passes the EQUIPPED id here.
 std::atomic<uint64_t> g_pdSeen{0};
 void HkSpiritActive(uint64_t a, uint64_t b, uint64_t c, uint64_t, const uint64_t* sp) {
@@ -932,6 +933,14 @@ int TenshinReqCall(uint64_t bits) {
 int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
     __try {
         ((void (*)(uint64_t, uint32_t))(g_base + (which ? 0x74C128 : 0x74C2FC)))(st, id);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int TenshinMoveCall(uint64_t st, uint32_t id) {
+    __try {
+        ((void (*)(uint64_t, uint32_t, uint32_t, float))(g_base + 0x66C4A8))(st, id, 0, 0.0f);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -1018,6 +1027,19 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             addon::rematch::Command("spirit tick", rp, sizeof(rp));
         }
     }
+    if (const uint32_t mv = g_tenMove.exchange(0)) {
+        uint8_t b0 = 0xFF, b1 = 0xFF;
+        uint64_t p50 = 0, q10 = 0;
+        Rd(a + 0xB440, b0);
+        Rd(a + 0x50, p50);
+        if (p50) Rd(p50 + 0x10, q10);
+        const int rc = TenshinMoveCall(a, mv);
+        Rd(a + 0xB440, b1);
+        uint64_t q10b = 0;
+        if (p50) Rd(p50 + 0x10, q10b);
+        Log("TenshinMove: 66C4A8(state=%llX, %X) rc=%d state+B440 %u->%u [[state+50]+10] %llX->%llX", (unsigned long long)a, mv, rc, (unsigned)b0, (unsigned)b1,
+            (unsigned long long)q10, (unsigned long long)q10b);
+    }
     if (g_tenGo.load() > 0 && g_tenGo.fetch_sub(1) > 0) {
         uint32_t w = 0;
         if (Rd(a + 0x1068, w)) {
@@ -1045,6 +1067,7 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinForm(uint32_t v) { g_tenForm.store(v); }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
+void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 
 void Register(bool boss, bool rm, bool inv) {

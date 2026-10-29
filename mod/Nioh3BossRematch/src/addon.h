@@ -68,6 +68,7 @@ namespace bosslog {
 void Register(bool boss, bool rm, bool inv);  // handlers; installed by main
 void FightBegin(uint64_t ctx);                 // also used by rematch
 void TenshinReq();                             // game-thread request id 0x4E via fc1a20 (ally #47009)
+void TenshinMove(uint32_t v);                  // game 0x66C4A8(state, id, 0, 0.0f) once on the next input state
 void TenshinSetForm(uint32_t v);               // game SetForm 74C2FC+74C128 with this id before the go bit (0 = off)
 void TenshinForm(uint32_t v);                  // [state+0xA68] value written before the go bit (0 = none)
 void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
