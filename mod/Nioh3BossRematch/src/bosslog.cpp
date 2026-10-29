@@ -831,7 +831,7 @@ std::atomic<int64_t> g_scSec{-1};
 std::atomic<int> g_scInSec{0};
 template <int N>
 void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
-    static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C", "GSpiritReq"};
+    static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C", "GSpiritReq", "GSpiritWork", "AsyncLoad"};
     const double t = Now();
     const int64_t sec = (int64_t)t;
     if (g_scSec.exchange(sec) != sec) g_scInSec.store(0);
@@ -927,6 +927,8 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_1320F2C", &HkSc<1>);
         OnEntry("ScProbe_23CBF9C", &HkSc<2>);
         OnEntry("ScProbe_GSpiritReq", &HkSc<3>);
+        OnEntry("ScProbe_GSpiritWork", &HkSc<4>);
+        OnEntry("ScProbe_AsyncLoad", &HkSc<5>);
     }
 }
 
