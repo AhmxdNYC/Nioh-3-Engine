@@ -4243,7 +4243,7 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (!strcmp(arg, "go")) {  // the game's own input path: bit 0xE on the next 2E6C34 call (gauge must be full: use fill first)
             bosslog::TenshinGo();
         } else if (!strncmp(arg, "setform", 7)) {
-            bosslog::TenshinSetForm((uint32_t)strtoul(arg + 7, nullptr, 16));
+            { const char* fp = strstr(line, "setform"); bosslog::TenshinSetForm(fp ? (uint32_t)strtoul(fp + 7, nullptr, 16) : 0); }
         } else if (!strncmp(arg, "form", 4)) {  // form <hex>: [state+0xA68] value for the next go (0 clears)
             { const char* fp = strstr(line, "form"); bosslog::TenshinForm(fp ? (uint32_t)strtoul(fp + 4, nullptr, 16) : 0); }
         } else if (!strcmp(arg, "req")) {  // fill + the game's own request-bit setter fc1a20(state+0x1060, 0x4E, 1) on the game thread
