@@ -4242,6 +4242,8 @@ void Command(const char* line, char* reply, size_t n) {
             WrBytes(T + 0x10, &fl, 1);
         } else if (!strcmp(arg, "go")) {  // the game's own input path: bit 0xE on the next 2E6C34 call (gauge must be full: use fill first)
             bosslog::TenshinGo();
+        } else if (!strcmp(arg, "req")) {  // fill + the game's own request-bit setter fc1a20(state+0x1060, 0x4E, 1) on the game thread
+            bosslog::TenshinReq();
         } else if (!strcmp(arg, "begin")) {
             rc = TCall(1, base, T, 0);
         } else if (!strcmp(arg, "aura")) {
@@ -4252,7 +4254,7 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (!strcmp(arg, "end")) {
             rc = TCall(4, base, T, 0);
         } else if (strcmp(arg, "status")) {
-            snprintf(reply, n, "error tenshin status|ready|fill|go|begin|aura|hide|show|end");
+            snprintf(reply, n, "error tenshin status|ready|fill|go|req|begin|aura|hide|show|end");
             return;
         }
         uint8_t fl2 = 0;

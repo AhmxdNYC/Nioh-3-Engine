@@ -66,6 +66,7 @@ bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** w
 namespace bosslog {
 void Register(bool boss, bool rm, bool inv);  // handlers; installed by main
 void FightBegin(uint64_t ctx);                 // also used by rematch
+void TenshinReq();                             // game-thread request id 0x4E via fc1a20 (ally #47009)
 void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)

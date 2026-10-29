@@ -894,6 +894,50 @@ void HkSpiritActive(uint64_t a, uint64_t b, uint64_t c, uint64_t, const uint64_t
     Log("SpiritActive: pd=%llX id=%u(0x%X) flag=%u caller=+%llX t=%.3f", (unsigned long long)a, (unsigned)(uint32_t)b, (unsigned)(uint32_t)b,
           (unsigned)(c & 0xFF), (unsigned long long)(StackArg(sp, 0) - g_base), Now());
 }
+// Tenshin request (ally #47009): bit 0xE of [state+0x1068] = request id 0x4E in the bitset at state+0x1060, set by fc1a20(bits, id, 1) only inside
+// 0x786C84 (at 0x786DA9) when the gauge/stock gates pass. The hook logs the caller + args + pad so the real binding shows up in the log.
+std::atomic<int> g_tenReq{0};
+WORD PadButtons(BYTE* lt, BYTE* rt) {
+    using XGet = DWORD(WINAPI*)(DWORD, void*);
+    static XGet xget = nullptr;
+    static bool tried = false;
+    if (!tried) {
+        tried = true;
+        static const wchar_t* const kXi[] = {L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll"};
+        for (const wchar_t* dll : kXi)
+            if (HMODULE m = GetModuleHandleW(dll)) { xget = (XGet)GetProcAddress(m, "XInputGetState"); if (xget) break; }
+    }
+    if (lt) *lt = 0;
+    if (rt) *rt = 0;
+    if (!xget) return 0;
+    struct { DWORD pkt; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } st = {};
+    for (DWORD u = 0; u < 4; ++u)
+        if (xget(u, &st) == 0) {
+            if (lt) *lt = st.lt;
+            if (rt) *rt = st.rt;
+            return st.buttons;
+        }
+    return 0;
+}
+int TenshinReqCall(uint64_t bits) {
+    __try {
+        ((void (*)(uint64_t, uint64_t, uint8_t))(g_base + 0xFC1A20))(bits, 0x4E, 1);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+void HkTenshinReq(uint64_t a, uint64_t b, uint64_t c, uint64_t, const uint64_t* sp) {
+    static std::atomic<int64_t> sec{-1};
+    static std::atomic<int> inSec{0};
+    const int64_t ts = (int64_t)Now();
+    if (sec.exchange(ts) != ts) inSec.store(0);
+    if (inSec.fetch_add(1) >= 30) return;
+    BYTE lt = 0, rt = 0;
+    const WORD bt = PadButtons(&lt, &rt);
+    Log("TenReq 786C84: ctrl=%llX edx=%u(0x%X) r8=%llX ra=+%llX(fn %X) pad=%04X lt=%u rt=%u t=%.3f", (unsigned long long)a, (unsigned)(uint32_t)b,
+          (unsigned)(uint32_t)b, (unsigned long long)c, (unsigned long long)(StackArg(sp, 0) - g_base), FnStart(StackArg(sp, 0)), bt, lt, rt, Now());
+}
 void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (g_tenState.exchange(a) != a) Log("TenshinInput: state=%llX", (unsigned long long)a);
     {   // real-button trigger: hold L3 + R3 (both stick clicks), rising edge -> fill the gauge and arm the input bit
@@ -922,6 +966,32 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             wasDown = down;
         }
     }
+    {   // find the real binding: log the pad whenever bit 0xE of the input word turns on without us arming it; Y+B (rising edge) / `rm tenshin req` requests 0x4E
+        static bool wasSet = false, wasYB = false;
+        uint32_t w0 = 0;
+        const bool ours = g_tenGo.load() > 0;
+        if (Rd(a + 0x1068, w0)) {
+            const bool set = (w0 & 0x4000) != 0;
+            if (set && !wasSet && !ours) {
+                BYTE lt = 0, rt = 0;
+                const WORD bt = PadButtons(&lt, &rt);
+                Log("TenshinInput: NATURAL bit 0xE state=%llX word=%08X pad=%04X lt=%u rt=%u", (unsigned long long)a, w0, bt, lt, rt);
+            }
+            wasSet = set;
+        }
+        const WORD bt2 = PadButtons(nullptr, nullptr);
+        const bool yb = (bt2 & 0x8000) && (bt2 & 0x2000);
+        if (yb && !wasYB) { g_tenReq.store(1); Log("TenshinInput: Y+B pressed -> request 0x4E"); }
+        wasYB = yb;
+        if (g_tenReq.exchange(0)) {
+            char rp[128];
+            addon::rematch::Command("tenshin fill", rp, sizeof(rp));
+            const int rc = TenshinReqCall(a + 0x1060);
+            uint32_t w1 = 0;
+            Rd(a + 0x1068, w1);
+            Log("TenshinInput: fc1a20(state+0x1060,0x4E,1) rc=%d word %08X->%08X fill=%s", rc, w0, w1, rp);
+        }
+    }
     {   // spirit pin: keep the spawned guardian-spirit chr on the player (no-op unless `rm spirit pin`)
         static int n = 0;
         if ((++n & 3) == 0) {
@@ -940,6 +1010,7 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 }  // namespace
 
+void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 
 void Register(bool boss, bool rm, bool inv) {
@@ -1022,6 +1093,7 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_AsyncLoad", &HkSc<5>);
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
         OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
+        OnEntry("ScProbe_786C84", &HkTenshinReq);
         OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
         OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
         OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);
