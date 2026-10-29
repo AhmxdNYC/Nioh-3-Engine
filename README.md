@@ -46,6 +46,14 @@ A live capture from the 1.7.86 build (Windows, 2560x1440, 120 fps): the in-game 
 display** (faint Xbox-style pad, top left), the **input display** (frame counts and pressed buttons, left), and the Training
 **frame meter** (bottom: PLAYER and I-FR rows with startup / active / recovery frames and the colour legend).
 
+### More of the mod menu
+
+| | |
+|---|---|
+| ![Training tab](docs/screenshots/menu-training-tab.jpg) **Training tab** - train here, summon a boss, freeze / step a fight, reset fight, boss matches. The overlay shows the input display and the ring frame meter. | ![Optimize tab](docs/screenshots/menu-optimize-tab-boss-ring-meter.jpg) **Optimize tab** against Minamoto no Yoritomo - performance presets (CPU / GPU / Game / Frame Gen), with the **ring frame meter** showing PLAYER and BOSS frame data and the colour legend. |
+| ![Display tab](docs/screenshots/menu-display-tab-ps-pad-row-meter.jpg) **Display tab** - controller overlay (here a PlayStation pad), frame meter, input display, FPS, time of day, weather, Game HUD. The bottom bar is the **row-style frame meter**. | ![Game HUD](docs/screenshots/menu-game-hud-submenu.jpg) **Game HUD sub-menu** - a master switch plus one switch per HUD element (health / ki, style crest, stance, item shortcuts, guardian spirit, amrita, money, boss bar, minimap, enemy health bars, lock-on marker). |
+| ![Camera tab](docs/screenshots/menu-camera-tab.jpg) **Camera tab** - move the camera left / right / up / down, distance and lens, with a one-press reset to the default camera. | ![Saves page](docs/screenshots/menu-saves-page.jpg) **Saves page** on the title screen - "Choose save data" lists your save files with a check mark on the one in use; switch, back up, refresh or open the saves folder. |
+
 ## Install
 
 Releases are on the [**Releases**](../../releases) page. The player guide (Windows and Proton / Steam Deck / ROG Ally,
