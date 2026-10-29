@@ -56,7 +56,17 @@ int main(){
  arm();CHECK(!QueueNewBackup());CHECK(!child);
  enabled=false;arm();CHECK(!ActionAllowed("disabled"));enabled=true;
  auto deny=[&](){arm();return !ActionAllowed("deny")&&strstr(lastLog,"allow=0");};
- mode[6]=mode[7]=mode[8]=(uintptr_t)mode+0x30;mode[11]=0;CHECK(deny());
+ // Live-reset PRESS ANY BUTTON (self-pointer and all-zero phases) is an idle title for save actions...
+ mode[6]=mode[7]=mode[8]=(uintptr_t)mode+0x30;mode[11]=0;arm();CHECK(ActionAllowed("press-any"));CHECK(strstr(lastLog,"allow=1"));
+ mode[6]=mode[7]=mode[8]=0;arm();CHECK(ActionAllowed("press-any-zero"));
+ // ...but loading, other states, queued modes and system messages there still deny.
+ mode[6]=mode[7]=mode[8]=(uintptr_t)mode+0x30;
+ gm[0x58A]=1;CHECK(deny());gm[0x58A]=0;
+ for(uint32_t state:{0u,2u,9u,10u}){mode[2]=state;CHECK(deny());}mode[2]=3;
+ messages[24]=1;CHECK(deny());messages[24]=0;
+ manager[3]=0x100;manager[4]=0x108;CHECK(deny());manager[3]=manager[4]=0;
+ mode[1]=(uintptr_t)base+0x44C91E0;CHECK(deny());mode[1]=(uintptr_t)base+0x44C91D0;
+ arm();gate.since=GetTickCount64();CHECK(!ActionAllowed("press-any-not-stable"));
  mode[6]=100;mode[7]=200;mode[8]=300;mode[11]=1;
  for(uint32_t state:{0u,1u,2u,6u,9u,10u,18u,99u}){mode[2]=state;CHECK(deny());}
  mode[2]=3;messages[24]=1;CHECK(deny());messages[24]=0;

@@ -48,5 +48,31 @@ int main(){
     for(auto address:{uintptr_t(0x1000),uintptr_t(0x1008),uintptr_t(0x2000),uintptr_t(0x4709B50),uintptr_t(0x4759910)}){
         auto f=fixture();f.mem[address]=0;check(!Read(0,f).readable);
     }
+    // Save-action gate: live-reset PRESS ANY BUTTON (log 2026-10-28) flickers between the self-pointer
+    // signature and all-zero fields on the same title object; it must become a candidate after 1 s ...
+    {
+        Gate a;a.admitPressAny=true;auto zero=s;zero.p30=zero.p38=zero.p40=zero.p58=0;
+        auto pab=press;check(PressAny(pab)&&!PressAny(zero));
+        for(int i=0;i<1000;i+=100)check(a.Update(i%200?zero:pab,10000+i)==(i%200?Settling:Press));
+        check(a.Update(pab,11000)==Candidate);check(a.Update(zero,11100)==Candidate);
+        check(a.Update(s,11200)==Candidate); // pressing through to the main menu keeps the same object
+        // ... while every non-title/busy reason still denies and resets stability.
+        auto deny=[&](Sample t,Verdict want,uint64_t at){
+            check(a.Update(t,at)==want);for(uint64_t n=at+100;n<at+1100;n+=100)check(a.Update(pab,n)==Press);
+            check(a.Update(pab,at+1100)==Candidate);
+        };
+        auto pl=pab;pl.loading=true;deny(pl,Loading,12000);
+        auto pn=pab;pn.title=false;deny(pn,NotTitle,14000);
+        auto pq=pab;pq.queueEmpty=false;deny(pq,Queue,16000);
+        auto pu=pab;pu.readable=false;deny(pu,Unreadable,18000);
+        for(uint32_t state=0;state<20;++state)if(state!=3){auto t=pab;t.state=state;deny(t,State,20000+state*2000);}
+        check(a.Update(pab,59200)==Candidate);
+        auto pm=pab;pm.top+=0x100;pm.p30=pm.p38=pm.p40=pm.top+0x30; // object replaced: restart the second
+        for(uint64_t n=59300;n<60300;n+=100)check(a.Update(pm,n)==Press);
+        check(a.Update(pm,60300)==Candidate);
+        check(a.Update(pm,60900)==Press); // >500 ms polling gap restarts
+        // Default (log-only TITLEGATE) gate keeps press-any strictly denied.
+        Gate strict;for(int i=0;i<=3000;i+=100)check(strict.Update(pab,i)==Press);
+    }
     printf("PASS %d checks; %d guarded reads/rechecks per title sample\n",checks,reads);
 }

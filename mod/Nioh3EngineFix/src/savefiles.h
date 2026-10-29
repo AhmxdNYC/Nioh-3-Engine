@@ -3,7 +3,8 @@
 namespace savefiles {
 // Ally native screen validation #41491; real-root adapter requires separate opt-in.
 using Sample = titlegate::Sample;
-using Gate = titlegate::Gate;
+// Save actions also admit the in-title PRESS ANY BUTTON screen; the log-only TITLEGATE keeps the strict gate.
+struct Gate : titlegate::Gate { Gate(){admitPressAny=true;} };
 inline bool Ready(const Sample& s) { return titlegate::MenuIdle(s) && !s.loading; }
 void Configure(uint8_t* base,bool known,const wchar_t* ini,void (*log)(const char*,...));
 void Poll();

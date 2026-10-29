@@ -24,14 +24,19 @@ inline Verdict Reason(const Sample& s) {
 }
 struct Gate {
     bool tracking=false;uint64_t since=0,last=0;uintptr_t manager=0,top=0;
+    // Live-reset PRESS ANY BUTTON lives inside the title object (title=1, state 3, queue empty, not loading):
+    // its +30/+38/+40/+58 alternate between the self-pointer signature and all zero, so it never
+    // stays Settling for a second. When set, Press counts as idle title for stability. Boot
+    // press-any is a non-title object (title=0) and stays NotTitle; loading/state/queue still deny.
+    bool admitPressAny=false;
     Verdict Update(const Sample& s,uint64_t now) {
         const Verdict reason=Reason(s);
-        if(reason!=Settling){tracking=false;last=now;return reason;}
+        if(reason!=Settling && !(admitPressAny && reason==Press)){tracking=false;last=now;return reason;}
         if(!tracking || manager!=s.manager || top!=s.top || now<last || now-last>500){
             tracking=true;since=now;manager=s.manager;top=s.top;
         }
         last=now;
-        return now-since>=1000?Candidate:Settling;
+        return now-since>=1000?Candidate:reason;
     }
 };
 // Reader is injectable for offline fault/torn-read tests; production loads are SEH guarded.
