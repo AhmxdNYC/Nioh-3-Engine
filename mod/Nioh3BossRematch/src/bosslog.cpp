@@ -831,6 +831,11 @@ std::atomic<int64_t> g_scSec{-1};
 std::atomic<int> g_scInSec{0};
 template <int N>
 void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    if (N == 4) {  // GSpiritWork 2916C5C: rcx = the spirit manager; keep it for `rm spirit status|spawn|pin`
+        char np[64], rp[32];
+        snprintf(np, sizeof(np), "spirit note %llX", (unsigned long long)a);
+        addon::rematch::Command(np, rp, sizeof(rp));
+    }
     static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C", "GSpiritReq", "GSpiritWork", "AsyncLoad", "MotionReq"};
     const double t = Now();
     const int64_t sec = (int64_t)t;

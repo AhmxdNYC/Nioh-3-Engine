@@ -3923,18 +3923,18 @@ int SpiritSetPos(uint64_t chr, const float* pos) {
         return 1;
     }
 }
-// mgr: *(holder+8); holder is tried at base+0x3744D8 and base+0x3624D4 (the notes give both, unclear if RVA of a pointer or of code)
+// mgr: G=*(base+0x45BA228) (transient script context, stale outside script ticks); holder=*(*(G+0x240)+0x5E0); mgr=*(holder+8) (ally #46783).
+// Falls back to the mgr captured by the 2916C5C hook (SpiritNoteMgr) when the chain is null.
 uint64_t SpiritMgr(uint64_t base, char* why, size_t n) {
-    static const uint64_t kH[2] = {0x3744D8, 0x3624D4};
-    for (int i = 0; i < 2; ++i) {
-        uint64_t holder = 0, mgr = 0;
-        if (Rd(base + kH[i], holder) && holder && Rd(holder + 8, mgr) && mgr) {
-            snprintf(why, n, "holder@+%llX=%llX mgr=%llX", (unsigned long long)kH[i], (unsigned long long)holder, (unsigned long long)mgr);
-            return mgr;
-        }
+    uint64_t G = 0, a = 0, holder = 0, mgr = 0;
+    Rd(base + 0x45BA228, G);
+    if (G && Rd(G + 0x240, a) && a && Rd(a + 0x5E0, holder) && holder && Rd(holder + 8, mgr) && mgr) {
+        snprintf(why, n, "G=%llX [G+240]=%llX holder=%llX mgr=%llX", (unsigned long long)G, (unsigned long long)a, (unsigned long long)holder, (unsigned long long)mgr);
+        return mgr;
     }
-    snprintf(why, n, "no holder chain");
-    return 0;
+    const uint64_t hk = g_spMgr.load();
+    snprintf(why, n, "chain null (G=%llX [G+240]=%llX) hookmgr=%llX", (unsigned long long)G, (unsigned long long)a, (unsigned long long)hk);
+    return hk;
 }
 void SpiritChr(uint64_t mgr, uint64_t& inst, uint64_t& chr, uint64_t& state) {
     inst = chr = state = 0;
@@ -4026,6 +4026,12 @@ void Command(const char* line, char* reply, size_t n) {
         uint64_t mgr = SpiritMgr(base, why, sizeof(why));
         float pp[4] = {};
         const bool pok = PlayerPos(pp);
+        if (!strcmp(arg, "note")) {  // from the 2916C5C hook: rcx = mgr
+            unsigned long long m = 0;
+            if (sscanf_s(line + 12, "%llx", &m) == 1 && m) g_spMgr.store(m);
+            snprintf(reply, n, "ok");
+            return;
+        }
         if (!strcmp(arg, "spawn") && mgr && pok) {
             alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
             const int rc = SpiritCall(base, mgr, pos, 0.f);
