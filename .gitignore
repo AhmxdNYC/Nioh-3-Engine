@@ -14,3 +14,19 @@ symbols/symbols_ida.py
 
 # tools/progress: your game dump and the tables made from it (game code/text: never commit)
 data/local/
+
+# never publish (see PUBLIC_EXCLUSIONS.md)
+captures/
+backups/
+saves/
+*.dxil
+*.ll
+*.pkl
+*.lib
+*.pak
+*.rdb
+*.fdata
+*.zip
+*.pyz
+*.dmp
+tools/saves/dist/

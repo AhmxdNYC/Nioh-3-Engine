@@ -449,9 +449,9 @@ For the ASI (Ally), the same nine sites are the same `E8 rel32` replacement the 
 An `SPR = 1` key with a 30 s `stats/s SPR:` line (count/ms/max per id) would give the Ally numbers that sections 3.1 and
 3.3 need.
 
-## 6.1 PJ - PSO journal + title-screen prewarm (ASI 1.7.31, `engine-fix/src/psojournal.cpp`, default off)
+## 6.1 PJ - PSO journal + title-screen prewarm (ASI 1.7.31, `mod/Nioh3EngineFix/src/psojournal.cpp`, default off)
 
-What it does (details in `engine-fix/src/psojournal.h`):
+What it does (details in `mod/Nioh3EngineFix/src/psojournal.h`):
 - Hooks ID3D12Device::CreateGraphicsPipelineState / CreateComputePipelineState / CreateRootSignature and
   ID3D12Device2::CreatePipelineState on the vtable of the engine's device (psoswap's D3D12CreateDevice IAT hook reports
   the device; with PJ on and ShaderSwap off psoswap arms that hook only to report it, its own state stays off).
@@ -468,7 +468,7 @@ What it does (details in `engine-fix/src/psojournal.h`):
 - Same look: the engine's calls get their own arguments and their own result; prewarm PSOs are never bound.
   Register-safe: COM vtable hooks (plain Win64 ABI, hook-register-audit.md).
 
-Offline (`py -I engine-fix/tests/run_pj_harness.py`, real D3D12 WARP device, six launches): **ALL PJ CHECKS OK**.
+Offline (`py -I mod/Nioh3EngineFix/tests/run_pj_harness.py`, real D3D12 WARP device, six launches): **ALL PJ CHECKS OK**.
 - The device reaches PJ through psoswap's observe-only D3D12CreateDevice IAT hook, as in the mod (psoswap stays off
   and hooks nothing itself).
 - Padding garbage does not split a desc (2 creates with different garbage -> 1 record); 3 records, 3 shaders, 1 root sig.

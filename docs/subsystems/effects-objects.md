@@ -8,7 +8,7 @@ Particle/effect instances plus the generic per-object update that the area heuri
 - `EffectManagerUpdateInstances` 15FC80 walks every live effect instance each frame: displayed ones go to the 9 Disp workers; non-displayed ones (out of range, owner hidden/faded) go to the single NoDisp worker, which runs the full update serially (kicked at end of game update, joined at the start of the next; at most ~7.6 % of a core at the shrine).
 - Particle emitter modules: `ParticleEmitterUpdateModules` CE7E0 (vtable slot 3BE57E8, spawn via 2ECE610), Alt C8958 (vtable 3BE46A8).
 - Object update chain 182000/204584 -> 408FE0 -> `ObjUpdatePerObject` 1A7BF0 (44.6 KB): part slots o+240h, attachments o+400h, resource attachment list o+170h (`ObjUpdateAttachedEffects` 1A7408), field o+3B0h (`ObjSetField3B0Propagate`), dirty transforms (`ObjNodeFlushDirtyTransform` 4C2DA0, bits u16 +56h).
-- Material bind: `MaterialBindS2FAcclParams` 3C4B74 (slot 10, 1/(far-near)), 3C7750 (hash then strcmp per node; working name MaterialParamNameEquals, not yet in `symbols.tsv`).
+- Material bind: `MaterialBindS2FAcclParams` 3C4B74 (slot 10, 1/(far-near)), `MaterialParamNameEquals` 3C7750 (hash then strcmp per node).
 
 ## Hot functions
 | RVA | name | % |
@@ -18,7 +18,7 @@ Particle/effect instances plus the generic per-object update that the area heuri
 | 168E80 | Vec3CopyW0 | 0.38 |
 | 1A6FC4 | ObjPartsAnyVirt508 | 0.20 |
 | 1A7408 | ObjUpdateAttachedEffects | 0.15 |
-| 3C7750 | (unnamed: material param name compare) | 0.11 |
+| 3C7750 | MaterialParamNameEquals | 0.11 |
 
 ## What drives the cost
 Work scales with all loaded effect instances, not visible ones (invisible effects simulated every frame). Neither effects nor animation run on the render main thread, so they only matter

@@ -330,7 +330,7 @@ Same save and route on the Ally. Time the "work end" (last LoadGates eval, manag
 
 ## 8. Read fix design (2026-10-08, static only; nothing built, game not run)
 
-Inputs: §7, `engine-fix/src/loadstats.cpp` (kRead sites), 4 read-only Ghidra queries, a byte scan of the exe dump. The
+Inputs: §7, `mod/Nioh3EngineFix/src/loadstats.cpp` (kRead sites), 4 read-only Ghidra queries, a byte scan of the exe dump. The
 names are in symbols/symbols.tsv. The SRW lock is not held across the read (8.1), so RP does not time it.
 
 ### 8.1 What the file layer does (static facts the design rests on)
@@ -421,11 +421,11 @@ ReadProbe calib: cached 4K sync 9 us ovl 14 us 1B 8 us | uncached 4K 95 us 64K 1
 Together (RP picks 2-3 of rows 2-7): **~15-40 s** off the ~93 s, plus row 1.
 - Build order: RP + LO (row 1) in one build, then the RP-chosen fix(es) in the next (one build per session).
 - **Proofs before shipping** (offline, no game):
-  - `engine-fix/tests/run_readfix_harness.py` (new) runs 8 threads of random reads on a 1 GiB test file: 1 B - 128 KiB,
+  - `mod/Nioh3EngineFix/tests/run_readfix_harness.py` (new) runs 8 threads of random reads on a 1 GiB test file: 1 B - 128 KiB,
     unaligned, block-crossing, at and past EOF, synchronous and overlapped handles, completion via WFMO on per-read
     events like 312754. It goes through RC, AQ, EP and RC+AQ, and compares against plain ReadFile: bytes, return value,
     `*got`, `GetLastError`, `Internal/InternalHigh` and event state -> `READFIX HARNESS: ALL OK`.
-  - Site bytes: `READPROBE SITES OK`, plus `engine-fix/tests/test_patterns.py` -> `ALL N SITES OK`.
+  - Site bytes: `READPROBE SITES OK`, plus `mod/Nioh3EngineFix/tests/test_patterns.py` -> `ALL N SITES OK`.
 
 ### 8.4 Ally A/B (exact)
 
@@ -468,7 +468,7 @@ PC: one ABBA of the kept fixes on the PC LG route (`loadstats_ab.ps1`) to confir
 
 ### 8.6 Built in ASI 1.7.23 (2026-10-08)
 
-- **RP** = `[Profiler] ReadProbe = 1|2` (needs LoadStats >= 1), `engine-fix/src/readprobe.cpp`. All of 8.2 except `rp_sim.py` (the RP=2
+- **RP** = `[Profiler] ReadProbe = 1|2` (needs LoadStats >= 1), `mod/Nioh3EngineFix/src/readprobe.cpp`. All of 8.2 except `rp_sim.py` (the RP=2
   trace format is in the `.txt` sidecar; the simulator is the next small job). Deviations: reread is checked before seq;
   calibration uses the biggest archive seen (root.rdb only as fallback) for all reads; first-touch reads are skipped for
   files < 64 MB; handle paths are re-read once per window (handle reuse inside one window would mix two files).
@@ -476,13 +476,13 @@ PC: one ABBA of the kept fixes on the PC LG route (`loadstats_ab.ps1`) to confir
   Thunks keep rcx/rdx/r8/r9/r10/r11 and forward the 5th stack argument; the R3 cache counter is an asm thunk that only
   changes rax/flags. Sites: patches.json RP1-RP18 + 3 deps; `ls_sites.py` -> READPROBE SITES OK (13 ReadFile + 1 ReadFileEx
   = every such call in .text).
-- **LO** = `[Patches] LoadOnlyCpuFixes = 1` (one key instead of GF/W6/RWb = 2), `engine-fix/src/loadonly.cpp`. GF/W6 installed with
+- **LO** = `[Patches] LoadOnlyCpuFixes = 1` (one key instead of GF/W6/RWb = 2), `mod/Nioh3EngineFix/src/loadonly.cpp`. GF/W6 installed with
   their words at the ini value; RWb via a switchable cave that rewrites only the first instruction (6 bytes, one CAS);
   the RWb order's wrapped case runs `dec ebx` and re-enters the stock tail, so the wake call stays in game code (no
   relocated call). `test_patterns.py` "LO" interprets the real bytes: cave word 0 == stock, word 1 == RWb, all 256 bl.
 - **EP** = `[Patches] EP = 1` (8.3 row 4, built early: exact by construction). A closed event is pooled only if
   NtResetEvent reports it was signalled (=> no read pending on it); otherwise it is really closed. Harness
-  `engine-fix/tests/run_readprobe_harness.py` -> READPROBE HARNESS: ALL OK (save-thunk registers, cache thunk, EP reuse/close paths).
+  `mod/Nioh3EngineFix/tests/run_readprobe_harness.py` -> READPROBE HARNESS: ALL OK (save-thunk registers, cache thunk, EP reuse/close paths).
 - Ally session R1 (8.4) can run with this build: base = 1.7.19 L1 ini + `ReadProbe=1`; arm A adds `LoadOnlyCpuFixes=1`;
   launch 1 of the first B arm uses `ReadProbe=2`. EP gets its own ABBA (A = base + `EP=1`) in the same or the next session.
 
@@ -522,7 +522,7 @@ Unlike SH it leaves the game's handles alone (ReadFileEx 631FD5 and the other su
 - Also built (default off): AQ (async queue; for a device-bound profile, not this one), TSY (TrySync threads, boot),
   SH (sync archive handles, boot, Wine only). TSY/SH run in dllmain's decrypt-wait loop like P12/WC.
 
-Proofs: `engine-fix/tests/run_readfix_harness.py` -> READFIX HARNESS: ALL OK (8 threads x 3-4k random reads per config: off, RC, AQ,
+Proofs: `mod/Nioh3EngineFix/tests/run_readfix_harness.py` -> READFIX HARNESS: ALL OK (8 threads x 3-4k random reads per config: off, RC, AQ,
 RC+AQ, SR, RC+SR, RC+AQ with private handles; each read compared with the real ReadFile on a twin handle of the same kind:
 bytes, result, count, error, event, file pointer; handle reuse; bad buffer; TSY float formula; SH refused off Wine).
 `test_patterns.py` ALL 212 SITES OK (RP19 CreateFileW 314199, RP20 CloseHandle 313AE6, RP21 SH imm, TSY dep 4B723B4).
@@ -577,7 +577,7 @@ handles, so its far 82 % is real. SR (1.7.25) removes the ~50 us Wine bookkeepin
 | skip redundant reads | RP: reread 0 % |
 | **prefetch into the page cache** | the only option that removes device latency, and exact by construction (the game's I/O is untouched) -> **PF** |
 
-### 8.8.4 PF = `[Patches] PF` (engine-fix/src/prefetch.cpp / prefetch.h; keys PF, PFThreads 4, PFLeadMB 768, PFTraces 4, PFMatchPct 50)
+### 8.8.4 PF = `[Patches] PF` (mod/Nioh3EngineFix/src/prefetch.cpp / prefetch.h; keys PF, PFThreads 4, PFLeadMB 768, PFTraces 4, PFMatchPct 50)
 
 - **Observe** (no new hook site): readprobe's existing R1 hooks at 631FD5 (RP14), 31305A (RP3), 3130D6 (RP4) call
   `prefetch::Note` before the real call. Note keeps the last error, takes the file id from NtQueryInformationFile
@@ -599,7 +599,7 @@ handles, so its far 82 % is real. SR (1.7.25) removes the ~50 us Wine bookkeepin
   SR): ~11 thread-s of blocked reads off ResourceLoad and the step threads. Wall clock **~3-8 s** of the load if those
   chains still gate G8/G9 after SR; 0 if the holder is then CPU work. The first load after turning PF on only records.
   PC ~0 (pc-vs-ally-load.md).
-- **Proofs**: `engine-fix/tests/run_prefetch_harness.py` -> PREFETCH HARNESS: ALL OK (the game's reads through the real HkReadEx /
+- **Proofs**: `mod/Nioh3EngineFix/tests/run_prefetch_harness.py` -> PREFETCH HARNESS: ALL OK (the game's reads through the real HkReadEx /
   HkRead<2>: bytes / results / counts / opens exact while recording and prefetching; last error kept; trace round trip;
   pick / no-match / record-only / corrupt trace / stop rule; run merging; synthetic W2: 96 % of reads prefetched before the
   game asked, lead <= limit). READPROBE / READFIX harnesses ALL OK, test_patterns ALL 212 SITES OK, READPROBE SITES OK.

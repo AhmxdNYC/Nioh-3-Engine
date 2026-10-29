@@ -1,0 +1,33 @@
+Controller display art (padviz.h) - sources, licences, what was changed
+=========================================================================
+
+dualsense/  (ButtonStyle = PlayStation)
+  "DualSense (PS5) Skin for GamepadViewer.com"
+  Vector art: Copyright (c) CrazyGrape 2021 - https://gist.github.com/CrazyGrape/08544e693f5d66b27e9261aef6380154
+  Touchpad + PS button support: Cubio300 - https://gist.github.com/Cubio300/e9ff30dff9a96081086f534b22bf05fd
+  Licence: Creative Commons Attribution 3.0 United States - https://creativecommons.org/licenses/by/3.0/us/
+           (stated at the end of DualSense_Skin.css, the gist's only file, fetched 2026-10-22)
+  Sprites (fetched 2026-10-22 from the imgur URLs in the CSS):
+    body.png      https://i.imgur.com/fJIyBwn.png   807x651
+    stick.png     https://i.imgur.com/nXaGdI2.png
+    buttons.png   https://i.imgur.com/DVqDSsJ.png
+    backstart.png https://imgur.com/jJhnjvL.png
+    dpad.png      https://i.imgur.com/hCmzXWK.png
+    touchpad.png  https://imgur.com/78UZdwp.png
+    meta.png      https://imgur.com/vJ4YyEZ.png
+    bumper.png    https://i.imgur.com/2YssqRT.png
+    trigger.png   https://i.imgur.com/LsxmGBD.png
+  Changes: cropped per CSS background-position, right bumper mirrored (as the site's CSS does), packed into one atlas.
+  The general design of the DualSense controller and the PlayStation logo are the intellectual property of Sony.
+
+xbox/  (ButtonStyle = Xbox)
+  "xbox_star" skin of MyGamepadViewer - https://github.com/skyjty/MyGamepadViewer (assests/svg/xbox_star, css/main.css)
+  Licence: MIT, Copyright (c) 2024 skyqyzm - full text in xbox/LICENSE
+  Changes: SVG layers rasterised at their CSS size (resvg), d-pad piece rotated / bumper + trigger mirrored as the CSS does,
+  packed into one atlas. The Xbox controller design and the Xbox logo are Microsoft's.
+
+Behaviour (which layer lights when, stick travel 22 px / 25 px with rotateX/rotateY tilt, trigger opacity or fill meter)
+follows gamepadviewer.com's style.css / tester.js (tester.js: Copyright 2012 Google Inc., Marcin Wichary, Apache 2.0) and
+MyGamepadViewer's Gamepad.js. No code from them is included.
+
+Rebuild the atlases: py -I tools\gen_padviz_atlas.py  (Pillow + resvg-py) -> atlas_*.png, src\padviz_atlas.h, src\padviz_atlas_data.h

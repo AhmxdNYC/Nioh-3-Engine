@@ -131,9 +131,9 @@ Expected saving:
 ```
 
 `X1m` is read-only. It gives the mod `g_pPadMgr` (0x45BA1E0), and the mod writes nothing at that site. It needs a new
-`kind: "read"` / `reads: "ripglobal_disp32@3"` in `engine-fix/tools/gen_header.py`. The W3 shape (`call`, `call_at` 1,
+`kind: "read"` / `reads: "ripglobal_disp32@3"` in `mod/Nioh3EngineFix/tools/gen_header.py`. The W3 shape (`call`, `call_at` 1,
 `iat_disp32@2`) needs no change. Both patterns are verified unique by `input_live.fsx offline`. Add them to
-`engine-fix/tests/test_patterns.py` when wiring this in. The `orig` of X1m is the dump bytes: disp 0x04184691 = 0x45BA1E0 - 0x435B4F.
+`mod/Nioh3EngineFix/tests/test_patterns.py` when wiring this in. The `orig` of X1m is the dump bytes: disp 0x04184691 = 0x45BA1E0 - 0x435B4F.
 
 C++ hook, with the same semantics as the cave:
 

@@ -110,7 +110,7 @@ LW (#5) and GL1 measured no change there (research/loading-bottleneck.md; docs/B
 
 ## 4. Measurement: LoadStats (ASI, new files)
 
-`engine-fix/src/loadstats.{h,cpp}`, integration: `engine-fix/loadstats_INTEGRATION.md`. `[Profiler]
+`mod/Nioh3EngineFix/src/loadstats.{h,cpp}`, integration: `mod/Nioh3EngineFix/loadstats_INTEGRATION.md`. `[Profiler]
 LoadStats = 1` logs per 58A window:
 ```
 LoadStats #n: total | frames, mean ms | CPU cores | stage ready +s | loaders busy s (first/last), in-flight avg and % at cap,
@@ -123,7 +123,7 @@ LoadStats #n split [set->stage ready] / [stage ready->clear]: the same counters 
 accumulator, event scene, GetProcessTimes, manager queues. Hooks (25 call sites, bytes verified, one interlocked
 write each, EB FE path for the 4 that straddle 16 B): manager Sleep(1)s (capture the manager from r14), the 3 inflate
 wrappers (8 sites), CreateGfxPso/CreateComputePso (7 sites; 11970A skipped when SPR's SPg owns it), ReadFile at 7
-sites. Checks: `ls_sites.py` -> LOADSTATS SITES OK; `py -I engine-fix/tests/run_loadstats_harness.py`
+sites. Checks: `ls_sites.py` -> LOADSTATS SITES OK; `py -I mod/Nioh3EngineFix/tests/run_loadstats_harness.py`
 (live patching of both paths under a concurrent caller) -> LOADSTATS HARNESS: ALL OK; compiles clean with build.bat
 flags (/W4).
 

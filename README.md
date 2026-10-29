@@ -1,63 +1,87 @@
 # Nioh 3 Engine
 
-Open-source engine fixes, a boss rematch mod, and reverse-engineering research for **Nioh 3 on PC (Steam, game version 2.02)**.
-Not affiliated with Koei Tecmo or Team Ninja. No game files are included in this repository or its downloads.
+Open-source engine fixes, boss practice add-ons and reverse-engineering research for **Nioh 3 on PC (Steam, game version 2.02)**.
 
-| folder | what it is | status |
-|---|---|---|
-| [`engine-fix/`](engine-fix/) | **Nioh3EngineFix**: a native mod (ASI) that fixes engine problems in memory | 1.7.61, tested on AMD hardware |
-| [`boss-rematch/`](boss-rematch/) | **Nioh3BossRematch**: a separate add-on to refight bosses you have beaten | 1.3.3 tested, 1.4.0 beta |
-| [`symbols/`](symbols/) | the **symbol database**: about 16,000 named functions, globals and structs in `Nioh3.exe` v2.02, with x64dbg and IDA exports | ongoing |
-| [`research/`](research/) | 46 reverse-engineering notes: the renderer (all 11 packages), frame timing, loading, jobs, profiles | ongoing |
-| [`tools/progress/`](tools/progress/) | the scripts that build every chart below and the code map, from your own copy of the game | |
-| [`docs/`](docs/) | [benchmarks](docs/BENCHMARKS.md), engine subsystem write-ups, code map, decompilation progress charts | |
+> **Unofficial fan project.** Not affiliated with, endorsed by or supported by Koei Tecmo or Team Ninja.
+> **No game files are included** in this repository or its downloads (no executable, archives, shaders, dumps or saves).
+> You need your own legal copy of Nioh 3 on Steam. Back up your saves before installing any mod.
+> What was deliberately left out: [PUBLIC_EXCLUSIONS.md](PUBLIC_EXCLUSIONS.md).
 
-## Download
+## Features
 
-Get the zips from the [**Releases**](../../releases) page:
+Everything works in the game's memory while it runs. Close the game and it is gone; the mods check the game build and
+do nothing on any version other than 2.02.
 
-- `Nioh3EngineFix-1.7.61.zip`: the engine fix with the ASI loader. Install steps: [engine-fix/README.md](engine-fix/README.md).
-- `Nioh3BossRematch-1.3.3.zip`: the rematch add-on, **tested** (33/33 in-game checks). Back up your saves first: [boss-rematch/README.md](boss-rematch/README.md).
-- `Nioh3BossRematch-1.4.0-beta.zip`: adds spawning straight into the boss arena. **Not fully tested yet.**
-- `nioh3-symbols-v2.02.zip`: the symbol database and its x64dbg / IDA scripts: [symbols/README.md](symbols/README.md).
+**Nioh3EngineFix** (engine fix, [`mod/Nioh3EngineFix/`](mod/Nioh3EngineFix/), version 1.7.86 in this source)
+- **Real game speed below your fps cap.** Stock Nioh 3 runs the whole game in slow motion when it cannot hold its cap;
+  with the mod it stays at 1.00x speed down to a floor (48 fps at the 120 cap, 24 at 60). Pauses itself online.
+- **Much faster loading under Proton / Linux** (ROG Ally X: about 96 s -> 38 s per save load). Windows loading is unchanged.
+- **Less wasted CPU and power.** Engine threads that spin while waiting are made to sleep; this matters most on handhelds.
+- **Optional Extra Performance presets** (off by default): about +3 % (Performance) and +10 % (Potato) fps, with small image changes.
+- **Frame generation guard under Proton**, which avoids a game crash with frame generation on.
+- **In-game mod menu** (F10, Esc x3, or triple-tap Start): every fix switchable live, plain-language help per row,
+  tab bar with LB/RB, FPS / frame-time overlay, controller and input display.
+- **Game HUD toggles:** hide the whole HUD or single parts (health/Ki, shortcuts, style, stance, guardian, Amrita,
+  money, enemy health bars, lock-on marker).
+- **Save files page:** switch between save sets with verified backups, from the menu or the title screen.
+- **Reverse Mods:** one menu row turns the mod off (or back on) for the next start; installers also ship
+  "Restore Vanilla Game" and "Put the mod back" shortcuts (Windows and Linux).
+- **Diagnostics:** hitch logger, load-time stats, GPU/CPU profilers, and a crash/issue report file.
 
-Each mod works on its own. They also work together and share one `dinput8.dll` loader.
+**Nioh3BossRematch** ([`mod/Nioh3BossRematch/`](mod/Nioh3BossRematch/), add-on 1.4.22): refight bosses you have
+already beaten from an overlay menu, spawning in the boss arena, plus Boss Matches; optional boss-fight logger for modders.
 
-## What the engine fix actually does
+**Nioh3Training** ([`mod/Nioh3Training/`](mod/Nioh3Training/)): boss practice tools: per-boss move lists with move
+toggles, frame meter and Ki / I-frame ring meter, practice stats, boss vitals and drills.
 
-Honest summary. Every number is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) with its evidence.
+Each mod works on its own; together they share one `dinput8.dll` loader and one menu.
 
-- **Fixes slow motion below your fps cap.** Stock Nioh 3 runs the whole game slower when it cannot hold its cap
-  (0.83-0.90x speed, which also causes the camera judder people report). With the mod the game runs at 1.00x speed
-  down to a floor: 48 fps at the 120 cap, 24 at the 60 cap, 20 at the 30 cap (adjustable in the ini). Below the floor
-  it slows down like stock. It pauses itself in online sessions.
-- **Much faster loading under Proton (Linux).** A save load on the ROG Ally X went from about 96 s to about 38 s (measured across two builds).
-  Only the Ally was measured; other Proton devices (such as the Steam Deck) are expected to gain too, but untested.
-  Windows loading is unchanged.
-- **Less wasted CPU.** Several engine threads spin a CPU core while they wait; the mod makes them sleep.
-  This frees CPU time and power, which mostly matters on handhelds and slower CPUs.
-- **Raw fps: small at best on a strong desktop.** With the picture unchanged, our Windows test PC (RX 9070, 1440p,
-  GPU-limited) measured between no change and about +2.5 %, mostly within test noise. Do not install it for an fps
-  jump there.
-- **Optional Extra Performance presets** trade a little image quality for fps: about +3 % (Performance) and
-  +10 % (Potato) on our test PC and the ROG Ally. Off by default.
+## Install
 
-The development notes once claimed "+74 %" and "+49 %". Those gains came from the test PC's setup (a 60 Hz desktop,
-settings, and the in-game "FPS dynamic adjustment" option), not from the mod. Details: the "Numbers we no longer use"
-section of the benchmarks.
+Releases are on the [**Releases**](../../releases) page. The player guide (Windows and Proton / Steam Deck / ROG Ally,
+automatic save backups, uninstall) is [release/USER_GUIDE.md](release/USER_GUIDE.md). In short: close the game,
+extract the zip, run `Install-Mod.cmd --game-dir "<Nioh 3 folder>"` (Windows) or
+`sh install-mod.sh --game-dir ... --proton-prefix ...` (Linux), and on Proton add the launch option
+`WINEDLLOVERRIDES="dinput8=n,b" %command%`.
 
-### The free wins you can do yourself
+Free wins you can do yourself: turn **FPS dynamic adjustment** OFF in the game's settings, run your desktop at the
+monitor's full refresh rate (the 120 fps option is hidden below 118 Hz), and turn on **Resizable BAR / SAM** if your GPU supports it.
 
-- Turn **FPS dynamic adjustment** OFF in the game's settings. It can lock the game into its 60 fps mode.
-- Make sure your Windows desktop runs at your monitor's full refresh rate. The 120 fps option is hidden below 118 Hz.
-- Turn on **Resizable BAR / Smart Access Memory** in your BIOS if your GPU supports it.
+## Performance: honest numbers
 
-## Tested hardware
+Every number is backed by a capture: [docs/BENCHMARKS.md](docs/BENCHMARKS.md) (controlled A/B results and the
+retracted early claims) and [docs/final-bench/report.md](docs/final-bench/report.md) (final build, 2026-10-24).
+Why the game runs badly, every optimization tried (including the failures), and what is still open:
+[docs/WHY_NIOH_RUNS_BADLY.md](docs/WHY_NIOH_RUNS_BADLY.md).
 
-Everything was measured on AMD hardware: a Ryzen 5 7600X + Radeon RX 9070 PC (Windows 11), a Ryzen 5 5600X +
-RX 6650 XT PC, and an ASUS ROG Ally X (Bazzite / Proton). **NVIDIA, Intel Arc and Intel CPUs have never been tested.**
-A code review found nothing vendor-specific in the default fixes, so they are expected to work there, but that is not
-a test. Reports from other hardware are welcome; please attach `Nioh3EngineFix.log`.
+Final bench, Yoritomo fight, average presented fps, two chunks per arm ("pure-perf" = same-picture fixes only,
+"full" = also the optional visual presets):
+
+| Device | FG | Stock | Pure-perf | Full |
+|---|---|--:|--:|--:|
+| PC: Ryzen 5 7600X + RX 9070, 1440p, Windows | off | 75.84 | 98.46 | 98.78 |
+| PC: same | on | 141.42 | 144.41 | 151.58 |
+| PC2: Ryzen 5 5600X + RX 6650 XT, Windows (slow 0.8 GB/s GPU link) | off | 41.72 | 46.87 | 47.32 |
+| PC2: same | on | 77.07 | 73.59 | 74.30 |
+| ROG Ally X, Bazzite / Proton | off | 34.63 | 32.58 | 39.02 |
+| ROG Ally X, same (displayed fps) | on | 42.06 | 44.65 | 52.38 |
+
+Caveats: two chunks per arm in one fight; the Ally chunks vary widely; on PC2 with FG on stock is ahead; the earlier
+controlled same-picture A/B on the PC found 0 to +2.5 %, so treat the PC FG-off gap as indicative until it is
+reproduced. Tested on AMD hardware only (two Windows PCs and a ROG Ally X); NVIDIA, Intel Arc and Intel CPUs are
+untested. Reports from other hardware are welcome; please attach `Nioh3EngineFix.log`.
+
+## Repository layout
+
+| folder | what it is |
+|---|---|
+| [`mod/`](mod/) | all mod source and offline tests: `Nioh3EngineFix`, `Nioh3BossRematch`, `Nioh3Training`, `Nioh3CamKiProbe` (diagnostic), plus shared menu/settings code |
+| [`release/`](release/) | installer, uninstall/restore scripts, packaging and release checks, player guide |
+| [`tools/saves/`](tools/saves/) | the save-file helpers the engine fix's Saves page uses (built into the package by `build.bat`) |
+| [`symbols/`](symbols/) | symbol database: about 16,000 named functions, globals and structs in `Nioh3.exe` v2.02 (RVAs only), with x64dbg / IDA / Ghidra scripts |
+| [`research/`](research/) | our reverse-engineering notes: renderer (all 11 packages), frame timing, loading, jobs, profiles |
+| [`docs/`](docs/) | benchmarks, final bench charts, why-it-runs-badly report, code map, engine subsystem write-ups, progress charts |
+| [`tools/progress/`](tools/progress/) + [`data/`](data/) | scripts and our own address tables that build every chart and the code map from your own copy of the game |
 
 ## Decompilation progress
 
@@ -117,20 +141,15 @@ Core functions per package (bar = named; the thin bar = nearby functions only gu
 Per-subsystem write-ups (what it does, data structures, hot addresses, threads, costs):
 [docs/subsystems/](docs/subsystems/).
 
-## Currently working on
 
-As of 2026-10-11. Nothing here is in the downloads until it is tested.
+## Currently open
 
-- **Confirming 1.7.61 on more hardware.** Smoke tests on the second PC and the ROG Ally are queued; results pending.
-- **Frame overlap** (recording the next frame's GPU commands while the current one is still being replayed).
-  An experimental build is not safe yet: an offline audit reproduces queue-overflow and stream-boundary bugs, which
-  are being fixed one at a time. Its only big number so far (+11.7 %) came from an emulator, so there is no real gain
-  to claim yet.
-- **Small renderer CPU wins** on the replay thread, each proven byte-for-byte and A/B tested before it ships.
-- **Boss Rematch:** full per-boss validation of the catalogue, and testing of the 1.4.0 in-arena spawn.
-- **Training mode** (switching or summoning bosses inside an arena): researched and planned only; no code yet.
-- **Decompilation:** the least understood renderer packages (meshlet, materials, effects, post-processing).
-  You can help: [CONTRIBUTING.md](CONTRIBUTING.md).
+As of 2026-10-29. See section 5 of [docs/WHY_NIOH_RUNS_BADLY.md](docs/WHY_NIOH_RUNS_BADLY.md) for the full list with expected gains.
+
+- First-sight PSO compile hitches (the PSO journal prewarm is built, default off, and promising).
+- The single D3D12 replay (dispatcher) thread is the CPU wall on mid-range PCs; frame overlap stays **NO-GO**.
+- Ally loading: the remaining Continue window is engine readiness gates, not disk.
+- Decompilation of the least understood renderer packages (meshlet, materials, effects, post-processing).
 
 ## Help decompile the game
 
@@ -139,15 +158,21 @@ Everything we know is public: the names ([`symbols/`](symbols/)), the reasoning 
 and the tools that draw the progress charts ([`tools/progress/`](tools/progress/)), so you can pick up exactly where we are.
 Setup, priorities and how to send a pull request: [CONTRIBUTING.md](CONTRIBUTING.md).
 
+
 ## Building
 
-Both mods build with MSVC (x64 C++ tools) and the Windows SDK: run `build.bat` in the mod's folder. Tests that check
-byte patterns need your own copy of the game executable; nothing from the game is shipped here. See each mod's README.
+The engine fix and the rematch add-on build with MSVC (x64 C++ tools) and the Windows SDK: run `build.bat` in the
+mod's folder (it finds Visual Studio / Build Tools through vswhere). The Training add-on builds with zig's clang:
+`mod/Nioh3Training/build.sh` (`pip install --user ziglang`). Offline tests live in each mod's `tests/` folder; tests
+that check byte patterns need your own copy of the game executable, passed on the command line. Paths such as
+`C:\nioh3-engine\...` in test scripts are the maintainers' defaults; pass your own. `release/package_final.py` and
+`release/check_release.py` build and verify a release zip.
 
 ## License and credits
 
-Code and documentation in this repository: [MIT](LICENSE). The overlay font in `engine-fix/src/osd_font.h` is derived
-from Inconsolata (SIL Open Font License 1.1). The release zips include the Ultimate ASI Loader by ThirteenAG (MIT).
-Nioh 3 is a trademark of Koei Tecmo; this project uses no game assets.
+Code and documentation in this repository: [MIT](LICENSE). The overlay font in `mod/Nioh3EngineFix/src/osd_font.h` is
+derived from Inconsolata (SIL Open Font License 1.1). Controller display art: see
+`mod/Nioh3EngineFix/assets/padviz/CREDITS.txt` (CC BY 3.0 and MIT sources). The release zips include the Ultimate ASI
+Loader by ThirteenAG (MIT). Nioh 3 is a trademark of Koei Tecmo; this project uses no game assets.
 
 This work builds on many community mods, tools and write-ups: [CREDITS.md](CREDITS.md).

@@ -7,7 +7,7 @@ GameModeUpdateMain 39E4E4 and joins everything; workers run object update, place
 
 ## Key data and behaviour
 - Pool queues + priority bitmaps polled with `lock cmpxchg [m],0` (atomic-load idiom), so cache lines bounce (`JobQueuePoll` 411C0, `JobWorkerPoll_40800`, 403A0, 3E7CC).
-- Push (3FAD8/417A0) never makes a syscall; wake is "wake one on first pop", cascading. No spin before blocking. `SizeWorkerPools` 1FE2FD4 (clamp site 1FE300B): the default clamp of 32 gives 127 threads across the 14 weighted pools on a 16-thread APU (a model of the pool sizes, not a measured thread count); WorkerCap 8 gives 63, 10 gives 78. WorkerCap is off by default.
+- Push (3FAD8/417A0) never makes a syscall; wake is "wake one on first pop", cascading. No spin before blocking. `SizeWorkerPools` 1FE300B: base clamp 32 gives 127 threads on a 16-thread APU (WorkerCap shrinks to 63).
 - Parallel-for: `JobParallelForSplit` 204584 claims flag +7Ch, halves index range [+70h,+74h).
 - Object model: part slots o+240h (count o+120h), flags o+4Ch, dirty o+388h, param table [o+3D30h] scanned by hash (`ParamTableGetU32_D15EC139` 121E90, `ParamTableGet_C4984B63` 1201F8).
 - Placeables: `PlaceableVisibilityUpdateWorker` DA830 (bit vectors world+1668h/+1680h), `PlaceableDistanceLod` DBA70, `PlaceableUpdateDetail` DBB90.

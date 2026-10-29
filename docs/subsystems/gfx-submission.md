@@ -28,7 +28,7 @@ The main thread then spins at frame end until the dispatcher drains (418F40, cou
 
 ## What drives the cost
 Number of draws and objects (cache-missing pointer chases), not API calls: state is already shadow-filtered. Main thread splits ~35 % draw walker 535188,
-13-19 % render-frame-begin 4A529C, 6-8 % UI (365AA98 is EffectViewRecordSync, so this is mostly effects), rest other render-graph nodes. The atomic-load idiom `lock cmpxchg [m],0` in per-draw paths serializes the chases.
+13-19 % render-frame-begin 4A529C, 6-8 % UI (corrected 2026-10-08, see notes/particles.md section 6: 365AA98 is EffectViewRecordSync, mostly effects), rest other render-graph nodes. The atomic-load idiom `lock cmpxchg [m],0` in per-draw paths serializes the chases.
 GPU-bound on the Ally, so CPU savings there are fps-neutral. The dispatcher is ~45 % idle (amdxc64 26 %, D3D12Core 6 %).
 
 ## Deeper notes

@@ -1,0 +1,159 @@
+{
+  "_doc": [
+    "ONE mod, ONE zip, ONE ini for every Windows PC and every Linux/Proton device (Steam Deck, Linux desktops, other handhelds).",
+    "make_profiles.py applies these overrides to mod\\Nioh3EngineFix\\Nioh3EngineFix.ini (comments kept) -> release\\profiles\\Nioh3EngineFix.<NAME>.ini; package.py writes Nioh3EngineFix-<ver>.zip.",
+    "A key whose best value differs by OS is '-1 = auto by OS' (ASI branch osauto; resolved at startup with wine_get_version, like SR/EP). The 'why' says where each side was MEASURED, never that it only works there.",
+    "status: kept = measured and safe as a default; provisional = recommended, live A/B still open (flip to kept/drop after the final re-test); off = deliberately off (measured loss, neutral, or opt-in).",
+    "'optin' lists keys that stay off by default but are documented for users who want them (shown in PROFILE.txt, not applied).",
+    "Edit when a matrix verdict lands (tools\\testmatrix verdict_*.md), then run make_profiles.py and check_release.py. package.py --final refuses any 'provisional' entry."
+  ],
+  "ALL": {
+    "title": "All devices: Windows PC and Linux/Proton (Steam Deck, Linux desktop, handhelds) - OS-dependent keys are -1 = auto by OS",
+    "zip_suffix": "",
+    "overrides": [
+      {
+        "section": "General",
+        "key": "AutoContinueLoad",
+        "value": "0",
+        "status": "off",
+        "why": "user option in the mod menu (Skip loading tip screen); off by default since 1.7.33"
+      },
+      {
+        "section": "Patches",
+        "key": "W6",
+        "value": "-1",
+        "status": "kept",
+        "why": "auto: Proton 1 (shipped in every Ally zip since 1.1.0: main-thread spin gone, fps flat, watts to GPU), Windows 0 (PC 1.7.16 ~0, exact; pc-keep-candidates s5)"
+      },
+      {
+        "section": "Patches",
+        "key": "GF",
+        "value": "-1",
+        "status": "kept",
+        "why": "auto: Proton 1 (~0.6 core of fence spin removed, GPU clock up, fps flat; measured on ROG Ally), Windows 0 (measured on RX 9070 PC 2026-10-08 abba2 run6: +0.38 % fps, below the +1 % keep bar)"
+      },
+      {
+        "section": "Patches",
+        "key": "MQ",
+        "value": "-1",
+        "status": "provisional",
+        "why": "auto: Proton 1 (bit-exact, CPU power only; not yet run on a handheld), Windows 0 (measured on RX 9070 PC 2026-10-08 abba2 run5: no gain)"
+      },
+      {
+        "section": "Tuning",
+        "key": "W3_TimeoutMs",
+        "value": "-1",
+        "status": "provisional",
+        "why": "auto: Proton 3 (WinMain pump polls ~890/s at 1 ms; cpu-hotspots-ally.md row 4; not A/B tested), Windows 1 (stock)"
+      },
+      {
+        "section": "Latency",
+        "key": "MaxFrameLatency",
+        "value": "-1",
+        "status": "kept",
+        "why": "auto: Proton 1 (shipped in Ally zips since 1.1.0; explicit under vkd3d), Windows 0 (game value 1 is already the lowest latency; measured on PC)"
+      },
+      {
+        "section": "Patches",
+        "key": "EP",
+        "value": "-1",
+        "status": "kept",
+        "why": "auto = on under Proton; Ally load 98.9 -> 50.1 s (1.7.23 R1); no-op on Windows"
+      },
+      {
+        "section": "Patches",
+        "key": "SR",
+        "value": "-1",
+        "status": "kept",
+        "why": "auto = on (load windows) under Proton; Ally R2 ABBA 47.25 -> 38.45 s, 0 failures (1.7.25); off on Windows"
+      },
+      {
+        "section": "Patches",
+        "key": "B",
+        "value": "0",
+        "status": "off",
+        "why": "dropped on PC: 2026-10-08 ABBA -0.11 % fps, screenshots identical; the 1.7.16 +15.6 % was not reproducible; fps-neutral when GPU-bound (Ally)"
+      },
+      {
+        "section": "Patches",
+        "key": "PP",
+        "value": "0",
+        "status": "off",
+        "why": "page-pool sweep every 4th frame: PC +5.3 % (one window), texture-sharpness gate still open; staleness argument weak at 16-30 fps (Ally). Opt-in"
+      },
+      {
+        "section": "Patches",
+        "key": "WorkerCap",
+        "value": "0",
+        "status": "off",
+        "why": "handheld/power-limited opt-in only: cap 10 on a 16-thread APU cuts the weighted pools 127 -> 78 threads (job-system.md WC); costs parallel width on a 6c/12t desktop CPU and the Deck (8 threads) is already at stock <= cap"
+      },
+      {
+        "section": "Patches",
+        "key": "AS0",
+        "value": "0",
+        "status": "off",
+        "why": "neutral on PC (results_pc_1716.md)"
+      },
+      {
+        "section": "Patches",
+        "key": "LoadOnlyCpuFixes",
+        "value": "0",
+        "status": "off",
+        "why": "pending Ally A/B (R2 later pair)"
+      },
+      {
+        "section": "Patches",
+        "key": "CBN",
+        "value": "1",
+        "status": "kept",
+        "why": "skip byte-identical per-draw constant uploads (same command list): pc2 CPU-bound on its slow chipset PCIe link +15.6 % (CBU1 #1609, ABBA x3, SE 0.07), offline byte-exact vs stock; Ally Proton/RADV no-harm (clean CBU-A1 rerun #1668: CBMODE 0/6 -0.16 % +- 0.16, no faults, no visible difference); PC RX 9070 no-harm A/B cbu2pc"
+      },
+      {
+        "section": "Patches",
+        "key": "CBT",
+        "value": "1",
+        "status": "kept",
+        "why": "with CBN: reuse the stage's CBV table of the same list when nothing changed; pc2 on its slow chipset PCIe link: CBN+CBT +15.9 % (CBU1 #1609, +0.1 fps over CBN alone); Ally Proton/RADV no-harm (CBU-A1 rerun #1668)"
+      },
+      {
+        "section": "GpuOpt",
+        "key": "Barriers",
+        "value": "0",
+        "status": "off",
+        "why": "measured -7 % on PC (results_pc_1716.md); RADV already merges barriers on Proton (R2a/R1 trace work only)"
+      }
+    ],
+    "optin": [
+      {
+        "key": "[Patches] WorkerCap = 10",
+        "for": "ROG Ally / Z1 class 16-thread APUs on battery or at low TDP",
+        "why": "fewer wake-ups and context switches (job-system.md WC, built and offline-proven; power not yet measured). Never on a 6-8 core desktop CPU."
+      },
+      {
+        "key": "[Patches] PP = 1",
+        "for": "CPU-bound desktops",
+        "why": "+5.3 % on PC in one window; visual gate (texture sharpness after fast travel) still open"
+      },
+      {
+        "key": "[Patches] GF = 1 / MQ = 1 / W6 = 1",
+        "for": "Windows users who want the lower CPU power use",
+        "why": "fps-neutral on the RX 9070 PC; exact and failure-safe"
+      }
+    ],
+    "shaders": [
+      {
+        "file": "0x0104840c.file",
+        "name": "GHDM fast shadow depth reduction",
+        "status": "kept",
+        "why": "same image; later re-check +0.5 % Ally / +0.4 % PC (original larger figures retracted, see docs/BENCHMARKS.md). DXIL, vendor/OS-neutral"
+      },
+      {
+        "file": "0xa9910db8.file",
+        "name": "fogpar VFSCAT early-exit (bit-exact)",
+        "status": "kept",
+        "why": "measured on the Ally: S1 USER ABBA +0.15/+0.30 fps (~-0.18 ms), shotdiff within noise (bridge #318, 2026-10-08); bit-exact DXIL so same output on any GPU; not yet measured on the PC; sha256 81007b3f"
+      }
+    ]
+  }
+}
