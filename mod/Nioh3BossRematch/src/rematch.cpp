@@ -3915,6 +3915,22 @@ int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
         return 1;
     }
 }
+// ---- soul-core ids (ally #46829): DB=*(ctx+0x3F0); rec=fn 0x3748E0(DB,id), stride 0x100; yokai-summon cores have *(u32*)(rec+0x38)!=0 ----
+uint64_t SpiritRec(uint64_t base, uint64_t db, uint32_t id) {
+    __try {
+        return ((uint64_t(*)(uint64_t, uint32_t))(base + 0x3748E0))(db, id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+int SpiritEquipCall(uint64_t base, uint64_t pd, uint32_t slot, uint32_t id) {
+    __try {
+        ((void (*)(uint64_t, uint32_t, uint32_t))(base + 0x217D8B4))(pd, slot, id);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
 int SpiritSetPos(uint64_t chr, const float* pos) {
     __try {
         ((void (*)(uint64_t, const float*, float))F_SETPOSYAW)(chr, pos, 0.f);
@@ -4023,6 +4039,44 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
+        if (!strcmp(arg, "scan") || !strcmp(arg, "equip")) {  // spirit scan | spirit equip <id> [slot]
+            uint64_t ctx = 0, db = 0, pd = 0, in = 0;
+            if (!Rd(base + 0x4751530, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
+                snprintf(reply, n, "error no ctx/DB (ctx=%llX db=%llX)", (unsigned long long)ctx, (unsigned long long)db);
+                return;
+            }
+            if (!strcmp(arg, "scan")) {
+                size_t k = (size_t)snprintf(reply, n, "ok scan db=%llX ids(rec+0x38!=0):", (unsigned long long)db);
+                int cnt = 0;
+                for (uint32_t id = 1; id < 0x4000; ++id) {
+                    const uint64_t rec = SpiritRec(base, db, id);
+                    uint32_t v = 0;
+                    if (!rec || rec < 0x10000 || !Rd(rec + 0x38, v) || !v) continue;
+                    ++cnt;
+                    Log("SpiritScan id=%u(0x%X) rec=%llX +38=%u", id, id, (unsigned long long)rec, v);
+                    if (cnt <= 24 && k + 24 < n) k += (size_t)snprintf(reply + k, n - k, " %X:%u", id, v);
+                }
+                snprintf(reply + (k < n ? k : n - 1), k < n ? n - k : 1, " total=%d", cnt);
+                return;
+            }
+            unsigned id = 0, slot = 0;
+            const char* p = strstr(line, "equip");
+            if (!p || sscanf_s(p + 5, "%i %u", &id, &slot) < 1 || slot > 1) {
+                snprintf(reply, n, "error spirit equip <id> [slot 0|1]");
+                return;
+            }
+            if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in) {
+                snprintf(reply, n, "error player data not ready");
+                return;
+            }
+            uint32_t before = 0, after = 0;
+            Rd(in + 0x100 + slot * 4, before);
+            const int rc = SpiritEquipCall(base, in, slot, id);
+            Rd(in + 0x100 + slot * 4, after);
+            Log("Spirit equip 217D8B4(in=%llX,slot=%u,id=%u) rc=%d %u->%u", (unsigned long long)in, slot, id, rc, before, after);
+            snprintf(reply, n, "ok equip rc=%d slot=%u id %u->%u", rc, slot, before, after);
+            return;
+        }
         uint64_t mgr = SpiritMgr(base, why, sizeof(why));
         float pp[4] = {};
         const bool pok = PlayerPos(pp);
