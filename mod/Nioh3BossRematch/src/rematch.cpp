@@ -3923,6 +3923,14 @@ uint64_t SpiritRec(uint64_t base, uint64_t db, uint32_t id) {
         return 0;
     }
 }
+int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
+    __try {
+        ((void (*)(uint64_t, uint32_t))(base + 0x2153E7C))(pd, id);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
 int SpiritEquipCall(uint64_t base, uint64_t pd, uint32_t slot, uint32_t id) {
     __try {
         ((void (*)(uint64_t, uint32_t, uint32_t))(base + 0x217D8B4))(pd, slot, id);
@@ -4039,9 +4047,9 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
-        if (!strcmp(arg, "scan") || !strcmp(arg, "equip")) {  // spirit scan | spirit equip <id> [slot]
+        if (!strcmp(arg, "scan") || !strcmp(arg, "equip") || !strcmp(arg, "add")) {  // spirit scan | spirit add <id> | spirit equip <id> [slot] (add first if not owned)
             uint64_t ctx = 0, db = 0, pd = 0, in = 0;
-            if (!Rd(base + 0x4751530, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
+            if (!Rd(base + 0x45B9E30, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
                 snprintf(reply, n, "error no ctx/DB (ctx=%llX db=%llX)", (unsigned long long)ctx, (unsigned long long)db);
                 return;
             }
@@ -4060,9 +4068,10 @@ void Command(const char* line, char* reply, size_t n) {
                 return;
             }
             unsigned id = 0, slot = 0;
-            const char* p = strstr(line, "equip");
-            if (!p || sscanf_s(p + 5, "%i %u", &id, &slot) < 1 || slot > 1) {
-                snprintf(reply, n, "error spirit equip <id> [slot 0|1]");
+            const bool isAdd = !strcmp(arg, "add");
+            const char* p = strstr(line, isAdd ? "add" : "equip");
+            if (!p || sscanf_s(p + (isAdd ? 3 : 5), "%i %u", &id, &slot) < 1 || slot > 1) {
+                snprintf(reply, n, "error spirit add <id> | equip <id> [slot 0|1]");
                 return;
             }
             if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in) {
@@ -4071,9 +4080,16 @@ void Command(const char* line, char* reply, size_t n) {
             }
             uint32_t before = 0, after = 0;
             Rd(in + 0x100 + slot * 4, before);
-            const int rc = SpiritEquipCall(base, in, slot, id);
+            int rc;
+            if (isAdd) {
+                rc = SpiritAddCall(base, pd, id);
+                Log("Spirit add 2153E7C(P=%llX,id=%u) rc=%d", (unsigned long long)pd, id, rc);
+                snprintf(reply, n, "ok add rc=%d id=%u", rc, id);
+                return;
+            }
+            rc = SpiritEquipCall(base, pd, slot, id);
             Rd(in + 0x100 + slot * 4, after);
-            Log("Spirit equip 217D8B4(in=%llX,slot=%u,id=%u) rc=%d %u->%u", (unsigned long long)in, slot, id, rc, before, after);
+            Log("Spirit equip 217D8B4(P=%llX,slot=%u,id=%u) rc=%d %u->%u", (unsigned long long)pd, slot, id, rc, before, after);
             snprintf(reply, n, "ok equip rc=%d slot=%u id %u->%u", rc, slot, before, after);
             return;
         }
