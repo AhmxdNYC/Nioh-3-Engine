@@ -855,7 +855,7 @@ std::atomic<int> g_tenGo{0};
 std::atomic<uint64_t> g_tenState{0};
 void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (g_tenState.exchange(a) != a) Log("TenshinInput: state=%llX", (unsigned long long)a);
-    if (g_tenGo.exchange(0)) {
+    if (g_tenGo.load() > 0 && g_tenGo.fetch_sub(1) > 0) {
         uint32_t w = 0;
         if (Rd(a + 0x1068, w)) {
             WrU32(a + 0x1068, w | 0x4000);
@@ -866,7 +866,7 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 }  // namespace
 
-void TenshinGo() { g_tenGo.store(1); }
+void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
