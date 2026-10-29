@@ -952,6 +952,9 @@ void* HkItemDefForm(void* tbl, uint64_t id) {
     void* r = g_itemDefOrig(tbl, id);
     uint32_t f = 0xFFFFFFFF;
     __try { if (r) f = *(uint32_t*)((uint8_t*)r + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (const uint32_t fm = g_tenForm.load()) {  // 74C1DC runs inside 2E6C34 AFTER our A68 write and overwrites it from [def+0x58]: force the def's form id instead
+        __try { if (r && f != fm) { DWORD op = 0; VirtualProtect((uint8_t*)r + 0x58, 4, PAGE_READWRITE, &op); *(uint32_t*)((uint8_t*)r + 0x58) = fm; VirtualProtect((uint8_t*)r + 0x58, 4, op, &op); Log("TenshinForm: itemdef %p form %X -> %X (forced)", r, f, fm); f = fm; } } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    }
     Log("TenshinForm: RefreshForm itemid=%u (0x%X) itemdef=%p form[+58]=0x%X", (unsigned)(id & 0xFFFF), (unsigned)(id & 0xFFFF), r, f);
     return r;
 }
