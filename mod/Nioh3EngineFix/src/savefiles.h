@@ -18,6 +18,8 @@ const char* SlotName(int index);
 bool QueueNamed(const char* name,bool backup);
 bool QueueNewBackup();
 bool LiveAvailable();
+// [SaveFiles] Native = 1 (default): operations run in-process (savelib.cpp), no Python; works under Wine/Proton.
+bool Native();
 void OpenFolder();
 bool IsActive(int index);
 int Progress(char* stage,size_t n);

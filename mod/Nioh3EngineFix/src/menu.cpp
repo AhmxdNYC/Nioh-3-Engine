@@ -3224,7 +3224,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Or use the Nioh3 Mod Website shortcut in the game folder.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
-        snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod.");
+        snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
@@ -3286,7 +3286,7 @@ float DrawImpl(unsigned W, unsigned H) {
     if(g_pages.page==pSaveFiles)addT("Choose save data  ([x] = in use)",cCyan);
     if(g_pages.page==pSaveActions&&!g_saveName.empty())addT(g_saveName.c_str(),cCyan);
     {char st[96];const int pr=savefiles::Progress(st,sizeof st);if(pr>=0){char bar[48];int f=pr*20/100;for(int i=0;i<20;++i)bar[i]=i<f?'#':'-';bar[20]=0;char ln[128];snprintf(ln,sizeof ln,"Switching save: [%s] %d%%",bar,pr);addT(ln,cGreen);addT(st,cCyan);}}
-    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT(savefiles::LivePending()?"Applies live: the title reloads on its own, no quit needed.":"Applies after you quit the game.",cWhite);}
+    if(savefiles::Pending()){addT(savefiles::Note(),cCyan);addT(savefiles::LivePending()?"Applies live: the title reloads on its own, no quit needed.":savefiles::Native()?"Runs now at the title; no quit needed.":"Applies after you quit the game.",cWhite);}
     addT(what, cWhite);
     addT(effect[0] ? effect : " ", cGray);
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes

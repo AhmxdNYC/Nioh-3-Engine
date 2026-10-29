@@ -45,6 +45,10 @@ bool TakeMenuCloseRequest(){return false;}
 bool testLive=false;std::string liveName;bool LiveAvailable(){return testLive;}
 bool QueueLive(const char* name){if(!testAllowed||!testLive)return false;liveName=name;return true;}
 bool Queue(int,bool){return false;}
+bool Native(){return true;}
+void OpenFolder(){}
+bool IsActive(int){return false;}
+int Progress(char*,size_t){return -1;}
 const char* Note(){return testPending?"Switch queued: copy slot1.":"Copy-only test: choose a slot, then queue and quit normally.";}
 }
 namespace updatecheck {
@@ -125,7 +129,7 @@ int main() {
       savefiles::testAllowed=true;n=PageRows(rows,true);bool found=false;for(int i=0;i<n;++i)found|=rows[i]==kSaveFilesRow;CHECK(found);
       Change(kSaveFilesRow,0);CHECK(g_pages.page==pSaveFiles);
       n=PageRows(rows,true);for(int i=0;i<3;++i){bool seen=false;for(int j=0;j<n;++j)seen|=rows[j]==kSaveNamedFirst+i;CHECK(seen);}
-      Change(kSaveNamedFirst+1,0);CHECK(g_pages.page==pSaveActions);CHECK(g_saveName=="Yoritomo Practice");
+      Change(kSaveNamedFirst+1,0);CHECK(g_pages.page==pSaveFiles);Change(kSaveNamedFirst+1,0);CHECK(g_pages.page==pSaveActions);  // A twice (65817b40)CHECK(g_saveName=="Yoritomo Practice");
       Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
       savefiles::testAllowed=false;Change(kSaveSwitchRow,0);CHECK(savefiles::requests==0);
       savefiles::testAllowed=true;Change(kSaveSwitchRow,0);Change(kSaveSwitchRow,0);CHECK(savefiles::requests==1);CHECK(savefiles::queuedName=="Yoritomo Practice");

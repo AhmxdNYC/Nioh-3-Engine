@@ -1,11 +1,14 @@
 // crashreport.cpp - see crashreport.h.
 #pragma comment(lib, "bcrypt.lib")
+#pragma comment(lib, "advapi32.lib")
 #include "crashreport.h"
 
 #include <windows.h>
 #include <bcrypt.h>
 #include <psapi.h>
 #include <shellapi.h>
+#include <dxgi.h>
+#include <intrin.h>
 #include <cwchar>
 #include <stdlib.h>
 #include <csignal>
@@ -129,6 +132,7 @@ struct Out {
         DWORD w = 0;
         WriteFile(f, b, (DWORD)n, &w, nullptr);
     }
+    void W(const char* d, size_t n) { DWORD w = 0; if (n) WriteFile(f, d, (DWORD)n, &w, nullptr); }
 };
 
 const char* ExcName(DWORD c) {
@@ -146,6 +150,190 @@ const char* ExcName(DWORD c) {
         case 0x80000003: return "BREAKPOINT";
         default: return "";
     }
+}
+
+// ---- report extras (Linux test #ab2e42d4): system specs, mod / Training / Boss Rematch settings, summoned bosses -------------
+// Specs port the Boss Rematch specs.txt (pc/report-specs 96611268): no user/computer name, paths, serials or network ids.
+wchar_t g_iniPath[MAX_PATH * 2];
+char g_redact[3][260];             // USERNAME / COMPUTERNAME / USERPROFILE (UTF-8), replaced by <redacted> in copied settings
+char g_specs[4096];
+volatile LONG g_specsReady = 0;
+
+std::string Utf8(const wchar_t* w) {
+    char b[1024];
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, b, sizeof(b), nullptr, nullptr);
+    return n > 0 ? std::string(b) : std::string();
+}
+std::string Specs() {
+    std::string o;
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    using WineVer = const char*(__cdecl*)();
+    using WineHost = void(__cdecl*)(const char**, const char**);
+    WineVer wv = nt ? (WineVer)GetProcAddress(nt, "wine_get_version") : nullptr;
+    WineHost wh = nt ? (WineHost)GetProcAddress(nt, "wine_get_host_version") : nullptr;
+    if (wv) {
+        const char* v = wv();
+        o += "  OS family:     Linux / SteamOS (Wine/Proton)\r\n  Wine version:  " + std::string(v ? v : "unknown") + "\r\n";
+        if (wh) { const char* sys = nullptr; const char* rel = nullptr; wh(&sys, &rel); o += "  Host kernel:   " + std::string(sys ? sys : "?") + " " + (rel ? rel : "?") + "\r\n"; }
+    } else {
+        o += "  OS family:     Windows\r\n";
+    }
+    using RtlGV = LONG(WINAPI*)(OSVERSIONINFOW*);
+    RtlGV rgv = nt ? (RtlGV)GetProcAddress(nt, "RtlGetVersion") : nullptr;
+    OSVERSIONINFOW vi{};
+    vi.dwOSVersionInfoSize = sizeof(vi);
+    if (rgv && rgv(&vi) == 0) o += "  Windows build: " + std::to_string(vi.dwMajorVersion) + "." + std::to_string(vi.dwMinorVersion) + "." + std::to_string(vi.dwBuildNumber) + " (reported)\r\n";
+    {
+        wchar_t prod[128] = {}, disp[64] = {};
+        DWORD n1 = sizeof(prod), n2 = sizeof(disp);
+        RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"ProductName", RRF_RT_REG_SZ, nullptr, prod, &n1);
+        RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", L"DisplayVersion", RRF_RT_REG_SZ, nullptr, disp, &n2);
+        std::string pn = Utf8(prod);
+        const size_t w10 = pn.find("Windows 10");
+        if (w10 != std::string::npos && vi.dwBuildNumber >= 22000) pn.replace(w10, 10, "Windows 11");  // registry still says 10 on 11
+        if (prod[0]) o += "  Product:       " + pn + (disp[0] ? " " + Utf8(disp) : std::string()) + "\r\n";
+    }
+    int r[4] = {0};
+    char brand[49] = {0};
+    __cpuid(r, 0x80000000);
+    if ((unsigned)r[0] >= 0x80000004u) for (int i = 0; i < 3; i++) { __cpuid(r, 0x80000002 + i); memcpy(brand + 16 * i, r, 16); }
+    std::string b(brand);
+    size_t a = b.find_first_not_of(' ');
+    b = a == std::string::npos ? "unknown" : b.substr(a);
+    while (!b.empty() && b.back() == ' ') b.pop_back();
+    SYSTEM_INFO si{};
+    GetNativeSystemInfo(&si);
+    o += "  CPU:           " + b + " (" + std::to_string(si.dwNumberOfProcessors) + " logical cores)\r\n";
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    if (GlobalMemoryStatusEx(&ms)) o += "  RAM:           " + std::to_string(ms.ullTotalPhys >> 20) + " MiB total, " + std::to_string(ms.ullAvailPhys >> 20) + " MiB available\r\n";
+    int gpus = 0;
+    if (HMODULE dx = LoadLibraryW(L"dxgi.dll")) {
+        using CF = HRESULT(WINAPI*)(REFIID, void**);
+        CF cf = (CF)GetProcAddress(dx, "CreateDXGIFactory1");
+        IDXGIFactory1* f = nullptr;
+        if (cf && SUCCEEDED(cf(__uuidof(IDXGIFactory1), (void**)&f)) && f) {
+            IDXGIAdapter1* ad = nullptr;
+            for (UINT i = 0; i < 8 && f->EnumAdapters1(i, &ad) == S_OK; i++) {
+                DXGI_ADAPTER_DESC1 d{};
+                ad->GetDesc1(&d);
+                if (!(d.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
+                    char ids[64];
+                    snprintf(ids, sizeof(ids), "vendor 0x%04X device 0x%04X", d.VendorId, d.DeviceId);
+                    o += "  GPU " + std::to_string(++gpus) + ":         " + Utf8(d.Description) + " (" + ids + "), " + std::to_string((unsigned long long)d.DedicatedVideoMemory >> 20) + " MiB VRAM\r\n";
+                    LARGE_INTEGER drv{};
+                    if (SUCCEEDED(ad->CheckInterfaceSupport(__uuidof(IDXGIDevice), &drv)))
+                        o += "    driver:      " + std::to_string(HIWORD(drv.HighPart)) + "." + std::to_string(LOWORD(drv.HighPart)) + "." + std::to_string(HIWORD(drv.LowPart)) + "." + std::to_string(LOWORD(drv.LowPart)) + "\r\n";
+                }
+                ad->Release();
+            }
+            f->Release();
+        }
+        // dxgi.dll stays loaded (the game uses it anyway); no FreeLibrary from a report thread
+    }
+    if (!gpus) o += "  GPU:           unavailable\r\n";
+    o += "  Display:       " + std::to_string(GetSystemMetrics(SM_CXSCREEN)) + "x" + std::to_string(GetSystemMetrics(SM_CYSCREEN)) + "\r\n";
+    return o;
+}
+DWORD WINAPI SpecsThread(LPVOID) {  // cache for crash reports (never enumerate DXGI from a crash path)
+    Sleep(20000);
+    const std::string s = Specs();
+    snprintf(g_specs, sizeof(g_specs), "%s", s.c_str());
+    InterlockedExchange(&g_specsReady, 1);
+    return 0;
+}
+
+// Training / Boss Rematch state through their exports. SEH-guarded: plain C types only in this function.
+void TrainingState(char* out, size_t cap) {
+    out[0] = 0;
+    size_t used = 0;
+    auto add = [&](const char* fmt, auto... args) {
+        if (used + 1 >= cap) return;
+        int n = snprintf(out + used, cap - used, fmt, args...);
+        if (n > 0) used += (size_t)n < cap - used ? (size_t)n : cap - used - 1;
+    };
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    HMODULE br = GetModuleHandleW(L"Nioh3BossRematch.asi");
+    if (!tr) add("  Nioh3Training.asi: not loaded\r\n");
+    if (tr) {
+        auto ver = (int (*)())GetProcAddress(tr, "Nioh3Training_Version");
+        auto mode = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionMode");
+        auto act = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionActive");
+        auto cnt = (int (*)())GetProcAddress(tr, "Nioh3Training_SlotCount");
+        auto chr = (uint32_t (*)(int))GetProcAddress(tr, "Nioh3Training_SlotChr");
+        auto name = (int (*)(uint32_t, char*, int))GetProcAddress(tr, "Nioh3Training_BossName");
+        auto vit = (int (*)(int, uint64_t*, uint64_t*, float*, float*, int*))GetProcAddress(tr, "Nioh3Training_BossVitalsGet");
+        __try {
+            const int m = mode ? mode() : -1, a = act ? act() : -1;
+            add("  Training version %d, session %s, active bits %d (1 session, 2 summoned boss alive)\r\n", ver ? ver() : -1,
+                m == 1 ? "Boss Match" : m == 2 ? "Practice" : m == 0 ? "none" : "?", a);
+            const int n = cnt ? cnt() : 0;
+            int alive = 0;
+            for (int s = 0; s < n && s < 8; ++s) {
+                const uint32_t c = chr ? chr(s) : 0;
+                if (!c) continue;
+                ++alive;
+                char nm[96] = "?";
+                if (name) name(c, nm, (int)sizeof(nm));
+                uint64_t hc = 0, hm = 0;
+                float kc = 0, km = 0;
+                int cfg[4] = {0, 0, 100, 100};
+                const int live = vit ? vit(s, &hc, &hm, &kc, &km, cfg) : -2;
+                add("  summoned boss %c: %s (chr 0x%08X) HP %llu/%llu Ki %.0f/%.0f live %d, infHP %d infKi %d HP%% %d Ki%% %d\r\n", 'A' + s, nm, c,
+                    (unsigned long long)hc, (unsigned long long)hm, kc, km, live, cfg[0], cfg[1], cfg[2], cfg[3]);
+            }
+            if (!alive) add("  summoned bosses: none (%d slots)\r\n", n);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            add("  (Training state read faulted)\r\n");
+        }
+    }
+    if (!br) add("  Nioh3BossRematch.asi: not loaded\r\n");
+    if (br) {
+        auto ver = (const char* (*)())GetProcAddress(br, "Nioh3BossRematch_Version");
+        auto inm = (int (*)())GetProcAddress(br, "Nioh3BossRematch_InMatch");
+        __try {
+            const char* v = ver ? ver() : nullptr;
+            add("  Boss Rematch version %s, in match %d\r\n", v ? v : "?", inm ? inm() : -1);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            add("  (Boss Rematch state read faulted)\r\n");
+        }
+    }
+}
+
+// Settings file without comments / blank lines; user / computer names and the profile path are redacted.
+std::string SettingsText(const wchar_t* path) {
+    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return "  (missing)\r\n";
+    std::string raw(512 * 1024, 0);
+    DWORD n = 0;
+    ReadFile(f, raw.data(), (DWORD)raw.size(), &n, nullptr);
+    CloseHandle(f);
+    raw.resize(n);
+    if (raw.size() >= 2 && (unsigned char)raw[0] == 0xFF && (unsigned char)raw[1] == 0xFE) {  // UTF-16 ini
+        std::wstring w((const wchar_t*)(raw.data() + 2), (raw.size() - 2) / 2);
+        int m = WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+        std::string u((size_t)m, 0);
+        WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), u.data(), m, nullptr, nullptr);
+        raw = u;
+    }
+    std::string out;
+    size_t pos = 0, lines = 0;
+    while (pos < raw.size()) {
+        size_t e = raw.find('\n', pos);
+        if (e == std::string::npos) e = raw.size();
+        std::string l = raw.substr(pos, e - pos);
+        pos = e + 1;
+        while (!l.empty() && (l.back() == '\r' || l.back() == ' ' || l.back() == '\t')) l.pop_back();
+        size_t a = l.find_first_not_of(" \t\xEF\xBB\xBF");
+        if (a == std::string::npos || l[a] == ';' || l[a] == '#') continue;
+        for (const char* id : g_redact) {
+            if (!id[0] || strlen(id) < 3) continue;
+            for (size_t k; (k = l.find(id)) != std::string::npos;) l.replace(k, strlen(id), "<redacted>");
+        }
+        out += "  " + l.substr(a) + "\r\n";
+        if (++lines >= 4000) { out += "  (truncated)\r\n"; break; }
+    }
+    return out.empty() ? "  (empty)\r\n" : out;
 }
 
 void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, DWORD faultTid, bool snapshot) {
@@ -166,6 +354,16 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     o.P("process:   pid %lu, crashing thread %lu\r\n", GetCurrentProcessId(), faultTid);
     o.P("exe base:  0x%llx, known build (v2.02): %s\r\n", (unsigned long long)g_base, g_known ? "yes" : "NO");
     o.P("\r\n-- mod build --\r\n%s", g_shaText[0] ? g_shaText : "  (no sha available)\r\n");
+    {
+        o.P("\r\n-- system --\r\n");
+        // Snapshot (menu Report): fresh specs on this helper thread. Crash: only the cached copy (no DXGI from a crash path).
+        std::string s = snapshot ? Specs() : std::string(g_specsReady ? g_specs : "  (not collected yet)\r\n");
+        o.W(s.data(), s.size());
+        char tr[2048];
+        TrainingState(tr, sizeof(tr));
+        o.P("\r\n-- Training session / summoned bosses --\r\n");
+        o.W(tr, strlen(tr));
+    }
 
     if (er) {
         char nm[64];
@@ -221,6 +419,19 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     for (int i = 0; i < kLogLines; ++i) {
         const char* l = g_logRing[(head + i) % kLogLines];
         if (l[0]) o.P("  %s\r\n", l);
+    }
+
+    {
+        struct { const char* title; std::wstring path; } files[] = {
+            {"mod settings (Nioh3EngineFix.ini)", g_iniPath[0] ? std::wstring(g_iniPath) : std::wstring(g_dir) + L"Nioh3EngineFix.ini"},
+            {"Training settings (Nioh3Training.ini)", std::wstring(g_dir) + L"Nioh3Training.ini"},
+            {"Boss Rematch settings (Nioh3BossRematch.ini)", std::wstring(g_dir) + L"Nioh3BossRematch.ini"},
+        };
+        for (auto& f : files) {
+            o.P("\r\n-- %s, comments removed --\r\n", f.title);
+            const std::string t = SettingsText(f.path.c_str());
+            o.W(t.data(), t.size());
+        }
     }
 
     o.P("\r\n-- loaded modules --\r\n");
@@ -393,7 +604,7 @@ bool Snapshot(char* pathOut, unsigned cap) {
     if (!g_evGo) return false;
     g_lastSnapshot[0] = 0;
     InterlockedExchange(&g_written, 0);
-    Submit("manual snapshot (menu Report row)", nullptr, 3000, true);
+    Submit("manual snapshot (menu Report row)", nullptr, 10000, true);
     if (!g_lastSnapshot[0]) return false;
     if (pathOut && cap) snprintf(pathOut, cap, "%s", g_lastSnapshot);
     return true;
@@ -491,11 +702,24 @@ void Start(const StartInfo& info) {
     g_dir[n] = 0;
     g_startTick = GetTickCount();
     ComputeShas();
+    if (info.iniPath) wcsncpy_s(g_iniPath, info.iniPath, _TRUNCATE);
+    {
+        const wchar_t* keys[3] = {L"USERNAME", L"COMPUTERNAME", L"USERPROFILE"};
+        for (int i = 0; i < 3; ++i) {
+            wchar_t v[260] = {};
+            DWORD len = GetEnvironmentVariableW(keys[i], v, 260);
+            g_redact[i][0] = 0;
+            if (len && len < 260) WideCharToMultiByte(CP_UTF8, 0, v, -1, g_redact[i], sizeof(g_redact[i]), nullptr, nullptr);
+        }
+        // USERPROFILE before USERNAME would leave nothing to match: redact the longest first
+        if (strlen(g_redact[2]) > strlen(g_redact[0])) { char t[260]; strcpy_s(t, g_redact[0]); strcpy_s(g_redact[0], g_redact[2]); strcpy_s(g_redact[2], t); }
+    }
     g_evGo = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     g_evDone = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!g_evGo || !g_evDone) return;
     if (HANDLE h = CreateThread(nullptr, 256 * 1024, Writer, nullptr, 0, nullptr)) CloseHandle(h);
     if (HANDLE h = CreateThread(nullptr, 64 * 1024, PopupWatcher, nullptr, 0, nullptr)) CloseHandle(h);
+    if (HANDLE h = CreateThread(nullptr, 256 * 1024, SpecsThread, nullptr, 0, nullptr)) CloseHandle(h);
     g_prevFilter = SetUnhandledExceptionFilter(Filter);
     signal(SIGABRT, OnSignalAbort);
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);  // our handler reports; no CRT message box in front of it

@@ -47,9 +47,13 @@ int main(){
  arm();RefreshSlots();CHECK(SlotCount()==0);CHECK(strstr(Note(),"more than 64"));sandbox.clear();
  CHECK(Ready(Read()));arm();CHECK(Allowed());CHECK(ActionAllowed("test-main"));CHECK(strstr(lastLog,"allow=1"));
  CHECK(!Queue(0,false));CHECK(!Queue(9,false));CHECK(!Queue(1,false)); // no helper config
+ native=false;  // the Python helper path ([SaveFiles] Native = 0)
  sandbox=L"D:\\fake-sandbox";helper=L"D:\\fake-helper.pyz";python=L"D:\\fake-python.exe";
  arm();mutateState=&mode[2];CHECK(!Queue(1,false));CHECK(strstr(lastLog,"switch-dispatch")&&strstr(lastLog,"allow=0"));
  CHECK(!child);mode[2]=3;sandbox.clear();helper.clear();python.clear();
+ native=true;  // native: a switch is a live import; refused without SaveRoot/CopySandbox, nothing dispatched
+ saveRoot.clear();arm();CHECK(!Queue(1,false));CHECK(!child);CHECK(strstr(Note(),"Unavailable"));
+ arm();CHECK(!QueueNewBackup());CHECK(!child);
  enabled=false;arm();CHECK(!ActionAllowed("disabled"));enabled=true;
  auto deny=[&](){arm();return !ActionAllowed("deny")&&strstr(lastLog,"allow=0");};
  mode[6]=mode[7]=mode[8]=(uintptr_t)mode+0x30;mode[11]=0;CHECK(deny());
