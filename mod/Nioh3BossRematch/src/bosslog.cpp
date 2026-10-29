@@ -853,6 +853,13 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
 std::atomic<uint64_t> g_tenState{0};
+// 842FAC body (after its zero check): rcx = player data, edx = spirit id, r8b = active flag. The Tenshin Begin path passes the EQUIPPED id here.
+std::atomic<uint64_t> g_pdSeen{0};
+void HkSpiritActive(uint64_t a, uint64_t b, uint64_t c, uint64_t, const uint64_t* sp) {
+    g_pdSeen.store(a);
+    Log("SpiritActive: pd=%llX id=%u(0x%X) flag=%u caller=+%llX t=%.3f", (unsigned long long)a, (unsigned)(uint32_t)b, (unsigned)(uint32_t)b,
+          (unsigned)(c & 0xFF), (unsigned long long)(StackArg(sp, 0) - g_base), Now());
+}
 void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (g_tenState.exchange(a) != a) Log("TenshinInput: state=%llX", (unsigned long long)a);
     {   // real-button trigger: hold L3 + R3 (both stick clicks), rising edge -> fill the gauge and arm the input bit
@@ -974,6 +981,7 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_AsyncLoad", &HkSc<5>);
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
         OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
+        OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
     }
 }
 

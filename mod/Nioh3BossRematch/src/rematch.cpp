@@ -3939,6 +3939,30 @@ void Command(const char* line, char* reply, size_t n) {
                  s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), g_sp.last, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
         return;
     }
+    if (!strcmp(cmd, "tenshin") && !strcmp(arg, "equip")) {  // tenshin equip <id> [slot] : write the equipped spirit id dword [[pd]+0x100+slot*4] (Equip 217D8B4 does the same store)
+        unsigned id = 0, slotArg = 9;
+        const char* p = strstr(line, "equip");
+        if (!p || sscanf_s(p + 5, "%i %u", &id, &slotArg) < 1) {
+            snprintf(reply, n, "error tenshin equip <id> [slot]");
+            return;
+        }
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        uint64_t pd = 0, in = 0, ctx = 0;
+        uint32_t sel = 0;
+        if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in || !Rd(base + 0x4751530, ctx) || !ctx) {
+            snprintf(reply, n, "error player data not ready");
+            return;
+        }
+        Rd(ctx + 0x23B62C, sel);
+        const unsigned slot = slotArg < 2 ? slotArg : (sel ? 1u : 0u);
+        uint32_t old = 0, now = 0;
+        Rd(in + 0x100 + slot * 4, old);
+        WrU32(in + 0x100 + slot * 4, id);
+        Rd(in + 0x100 + slot * 4, now);
+        Log("Tenshin equip: pd=%llX inner=%llX slot=%u (sel=%u) id %u(0x%X)->%u(0x%X)", (unsigned long long)pd, (unsigned long long)in, slot, sel, old, old, now, now);
+        snprintf(reply, n, "ok equip slot=%u id %u->%u (sel=%u)", slot, old, now, sel);
+        return;
+    }
     if (!strcmp(cmd, "tenshin")) {  // tenshin status|ready|begin|aura|hide|show|end : Nioh Tenshin (player form) live probe, RVAs from notes/player-transform-nioh-tenshin.md
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         const uint64_t ch = PlayerChar();
