@@ -1016,6 +1016,14 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             Rd(a + 0xA68, a68);
             const uint32_t fm = g_tenForm.load();
             if (fm) WrU32(a + 0xA68, fm);
+            const uint32_t sf = g_tenSetForm.load();
+            if (sf) {
+                const int r1 = TenshinSetFormCall(a, sf, 0);
+                const int r2 = TenshinSetFormCall(a, sf, 1);
+                uint32_t a68b = 0;
+                Rd(a + 0xA68, a68b);
+                Log("TenshinInput: SetForm(%X) 74C2FC rc=%d 74C128 rc=%d A68 %X -> %X", sf, r1, r2, a68, a68b);
+            }
             Log("TenshinInput: A68 state=%llX %X -> %X", (unsigned long long)a, a68, fm ? fm : a68);
             WrU32(a + 0x1068, w | 0x4000);
             Log("TenshinInput: bit 0xE set state=%llX word %08X->%08X", (unsigned long long)a, w, w | 0x4000);
