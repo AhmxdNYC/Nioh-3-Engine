@@ -4263,6 +4263,8 @@ void Command(const char* line, char* reply, size_t n) {
             bosslog::TenshinSlots(ext, sb, sizeof(sb));
             snprintf(reply, n, "ok %s", sb);
             return;
+        } else if (!strncmp(arg, "body", 4)) {  // body <0-3>: ally #52022 experiment on the hide-sphere slot
+            bosslog::TenshinBody(atoi(arg + 4));
         } else if (!strncmp(arg, "setform", 7)) {
             { const char* fp = strstr(line, "setform"); bosslog::TenshinSetForm(fp ? (uint32_t)strtoul(fp + 7, nullptr, 16) : 0); }
         } else if (!strncmp(arg, "form", 4)) {  // form <hex>: [state+0xA68] value for the next go (0 clears)

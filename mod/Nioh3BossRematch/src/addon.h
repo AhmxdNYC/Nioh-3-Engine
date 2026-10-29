@@ -73,6 +73,7 @@ void TenshinSetForm(uint32_t v);               // game SetForm 74C2FC+74C128 wit
 void TenshinLoad(uint32_t form, char* out, size_t n);  // ally #47612: 3F9C10 pack load per form (0 = all), reports [entry+2C8]
 void TenshinPreload(uint32_t id, bool request, char* out, size_t n);  // ally #47587: request the body pack load (1A8B990) and report [entry+2C8]; id 0 = all 17 forms
 void TenshinSlots(uint64_t ext, char* out, size_t n);  // dump the 0x11 equipped-gear slot words (ext+0x590 via F65D8) + form[+58] via the itemdef lookup F4DBC
+void TenshinBody(int m);                       // 0 off, 1 log body slot state, 2 +zero B440, 3 +set slot A0=1
 void TenshinForm(uint32_t v);                  // [state+0xA68] value written before the go bit (0 = none)
 void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
 }

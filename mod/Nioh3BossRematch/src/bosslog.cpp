@@ -930,6 +930,8 @@ int TenshinReqCall(uint64_t bits) {
         return 1;
     }
 }
+std::atomic<int> g_tenBody{0};  // `rm tenshin body <1|2|3>`: after go, log B440/[[st+50]+A0]/[[st+50]+10]; 2 also zeroes B440, 3 also sets slot A0=1 (ally #52022)
+int g_tenBodyTick = 0;
 int g_tenSfRet = 0;  // al returned by the last TenshinSetFormCall
 int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
     __try {
@@ -1031,6 +1033,18 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
             addon::rematch::Command("spirit tick", rp, sizeof(rp));
         }
     }
+    if (const int bm = g_tenBody.load()) {
+        if (g_tenBodyTick++ < 240) {
+            uint8_t b = 0xFF, a0 = 0xFF;
+            uint64_t p50 = 0, q10 = 0;
+            Rd(a + 0xB440, b);
+            Rd(a + 0x50, p50);
+            if (p50) { Rd(p50 + 0x10, q10); Rd(p50 + 0xA0, a0); }
+            if (bm >= 2 && b) { uint8_t z = 0; WrBytes(a + 0xB440, &z, 1); }
+            if (bm >= 3 && p50 && a0 != 1) { uint8_t one = 1; WrBytes(p50 + 0xA0, &one, 1); }
+            if ((g_tenBodyTick % 6) == 1) Log("TenshinBody[%d] t=%d B440=%u slotA0=%u [[st+50]+10]=%llX", bm, g_tenBodyTick, (unsigned)b, (unsigned)a0, (unsigned long long)q10);
+        }
+    }
     if (const uint32_t mv = g_tenMove.exchange(0)) {
         uint8_t b0 = 0xFF, b1 = 0xFF;
         uint64_t p50 = 0, q10 = 0;
@@ -1127,6 +1141,7 @@ void TenshinSlots(uint64_t ext, char* out, size_t n) {
     } __except (EXCEPTION_EXECUTE_HANDLER) { add(" (fault)"); }
     Log("TenshinSlots: %s", out);
 }
+void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
