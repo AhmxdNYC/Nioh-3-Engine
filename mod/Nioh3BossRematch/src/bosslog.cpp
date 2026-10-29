@@ -887,6 +887,7 @@ void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t*
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
 std::atomic<uint32_t> g_tenForm{0};  // `rm tenshin form <hex>`: written to [state+0xA68] right before bit 0xE is OR'd (0 = leave)
+std::atomic<uint32_t> g_tenSetForm{0};  // `rm tenshin setform <hex>`: game SetForm 0x74C2FC(state,id)+0x74C128(state,id) before bit 0xE (ally #47284)
 std::atomic<uint64_t> g_tenState{0};
 // 842FAC body (after its zero check): rcx = player data, edx = spirit id, r8b = active flag. The Tenshin Begin path passes the EQUIPPED id here.
 std::atomic<uint64_t> g_pdSeen{0};
@@ -923,6 +924,14 @@ WORD PadButtons(BYTE* lt, BYTE* rt) {
 int TenshinReqCall(uint64_t bits) {
     __try {
         ((void (*)(uint64_t, uint64_t, uint8_t))(g_base + 0xFC1A20))(bits, 0x4E, 1);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
+    __try {
+        ((void (*)(uint64_t, uint32_t))(g_base + (which ? 0x74C128 : 0x74C2FC)))(st, id);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -1018,6 +1027,7 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinForm(uint32_t v) { g_tenForm.store(v); }
+void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 
 void Register(bool boss, bool rm, bool inv) {
