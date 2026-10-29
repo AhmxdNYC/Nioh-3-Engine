@@ -4003,6 +4003,23 @@ void Command(const char* line, char* reply, size_t n) {
         snprintf(reply, n, "ok equip slot=%u id %u->%u (sel=%u)", slot, old, now, sel);
         return;
     }
+    if (!strcmp(cmd, "peek")) {  // peek <hex> [qwords<=16] : read memory (an address >= 0x10000000 is absolute, a smaller value is base-relative)
+        unsigned long long addr = 0;
+        unsigned cnt = 4;
+        if (sscanf_s(line + 4, "%llx %u", &addr, &cnt) < 1) {
+            snprintf(reply, n, "error peek <hex addr|rva> [qwords]");
+            return;
+        }
+        if (cnt > 16) cnt = 16;
+        if (addr < 0x10000000ull) addr += (uint64_t)GetModuleHandleW(nullptr);
+        size_t k = (size_t)snprintf(reply, n, "ok peek %llX:", addr);
+        for (unsigned i = 0; i < cnt && k + 24 < n; ++i) {
+            uint64_t v = 0;
+            if (!Rd(addr + i * 8ull, v)) { k += (size_t)snprintf(reply + k, n - k, " ??"); break; }
+            k += (size_t)snprintf(reply + k, n - k, " %llX", (unsigned long long)v);
+        }
+        return;
+    }
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
