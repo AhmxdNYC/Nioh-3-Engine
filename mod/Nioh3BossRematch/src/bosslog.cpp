@@ -2592,8 +2592,24 @@ std::atomic<float> g_ftMul{0};
 // pc #57162 (human #57147/#57150): [Spirit] SealTailSpeed=<x> (default 3, <=1 off). SealEndOnHit no longer despawns the seal at its last hit
 // burst; the seal actor's motion rate (same 134E68 hooks) is multiplied by x from that point until its natural end/despawn, so the yokai
 // plays its whole animation, only faster, and the form then ends on seal-despawn as before.
-std::atomic<float> g_tailMul{3.f};
+// pc #57226 (human #57218/#57219): [Spirit] SealSpeed=<x> (default 1.4, <=1 off) = the bound seal's motion rate x from bind/spawn until it
+// despawns, SealTailSpeed default 4, and at the last hit the rate ramps linearly from SealSpeed to SealTailSpeed over SealTailRampMs (250)
+// instead of a step jump, so the whole move is a bit faster and the end smooth.
+std::atomic<float> g_tailMul{4.f};
+std::atomic<float> g_sealMul{1.4f};
+std::atomic<float> g_tailRampMs{250.f};
+std::atomic<double> g_tailT0{0};
 std::atomic<uint64_t> g_tailSeal{0};
+float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
+    const float base = g_sealMul.load() > 1.f ? g_sealMul.load() : 1.f;
+    const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
+    if (ts && a == ts) {
+        const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
+        const double e = ms > 0.f ? (Now() - g_tailT0.load()) * 1000.0 / ms : 1.0;
+        return e >= 1.0 ? t : e <= 0.0 ? base : base + (t - base) * (float)e;
+    }
+    return g_fh4.owner && a == g_fh4.seal ? base : 1.f;
+}
 std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
 void* g_ftOrig = nullptr;
@@ -2602,9 +2618,13 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     if (!(r > 0.f) || r > 50.f) return r;
     uint64_t a = 0;
     if (!Rd(ctrl + 0xE0, a) || !a) return r;
-    if (const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed); ts && a == ts) {
-        const float t = g_tailMul.load();
-        return t > 1.f ? r * t : r;
+    if (const float sm = SealRateMul(a); sm != 1.f) {
+        static uint64_t loggedA = 0; static float loggedM = 0; static double loggedT = 0;
+        if (a != loggedA || (std::fabs(sm - loggedM) >= 0.5f && Now() - loggedT > 0.05) || (sm != loggedM && Now() - loggedT > 2) || (sm != loggedM && sm == g_tailMul.load())) {
+            loggedA = a; loggedM = sm; loggedT = Now();
+            Log("SealSpeed: seal %llX rate %.3f x%.2f t=%.3f", (unsigned long long)a, r, sm, Now());
+        }
+        return r * sm;
     }
     const float m = g_ftMul.load();
     if (m <= 1.f || a != FkPlayer()) return r;
@@ -2618,9 +2638,12 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
 }
 void FastThrowInstall() {
     const int pct = IniInt(L"Spirit", L"FastThrow", 0);
-    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"3", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"4", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealSpeed", L"1.4", tb, 32, IniPath()); g_sealMul.store((float)wcstod(tb, nullptr)); }
+    g_tailRampMs.store((float)IniInt(L"Spirit", L"SealTailRampMs", 250));
     const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
-    if (pct <= 1 && !tail) return;
+    const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
+    if (pct <= 1 && !tail && !sspeed) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB", ab, 128, IniPath());
     int n = 0;
@@ -2654,8 +2677,10 @@ void FastThrowInstall() {
         ++k;
     }
     g_ftMul.store(pct > 1 ? (float)pct : 0.f);
-    Log("FastThrow: x%d on actions %d ids, hooks %u/18; SealTailSpeed x%.2f%s", pct, n, k, g_tailMul.load(), tail ? "" : " (off)");
-    if (k != 18) g_tailMul.store(0.f);  // partial hook set: no tail speedup, SealEndOnHit falls back to the despawn
+    Log("FastThrow: x%d on actions %d ids, hooks %u/18; SealSpeed x%.2f%s; SealTailSpeed x%.2f%s ramp %.0f ms", pct, n, k, g_sealMul.load(),
+        sspeed ? "" : " (off)", g_tailMul.load(), tail ? "" : " (off)", g_tailRampMs.load());
+    if (!sspeed) g_sealMul.store(0.f);
+    if (k != 18) { g_tailMul.store(0.f); g_sealMul.store(0.f); }  // partial hook set: no tail speedup, SealEndOnHit falls back to the despawn
 }
 // pc #56515 [Spirit] OrbSkip=1: the seal item throws an orb object (322468 per-frame update, notes/soulcore-orb-56515.md) that shows
 // effect 0x6254D and flies until the ground test 6A3BB0 (call 322DD9) hits; only then does the landing object burst and spawn the yokai
@@ -3179,9 +3204,10 @@ void SealEndOnHitTick() {
     fired = true;
     if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
     if (g_tailMul.load() > 1.f) {  // pc #57162: no early cut - the rest of the animation plays at x speed until the seal's natural end
+        g_tailT0.store(now);
         g_tailSeal.store(seal);
-        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: tail speedup x%.2f until its natural end t=%.3f",
-            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), now);
+        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: tail speedup x%.2f (ramp from x%.2f over %.0f ms) until its natural end t=%.3f",
+            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), g_sealMul.load() > 1.f ? g_sealMul.load() : 1.f, g_tailRampMs.load(), now);
         return;
     }
     const int ok = SealQueueDespawn(seal);
