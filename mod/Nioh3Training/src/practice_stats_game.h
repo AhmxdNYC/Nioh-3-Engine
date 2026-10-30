@@ -16,6 +16,7 @@
 static volatile LONG g_pst_logs; static DWORD g_pst_t; static int g_pst_kiFail, g_pst_kiSeen; static int g_pst_drainOn[N3T_SLOTS];
 static void PstLog(const char* fmt, ...) { if (InterlockedIncrement(&g_pst_logs) > 200) return; char m[400]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m); }
 static const char* PstKey(int what) {
+    if (what == PS_PLAYER_INF_SOUL) return "PlayerInfiniteSoulCore";  // pc #57367 (before the PS_FRAME_PROW.. table: it is past that range)
     if (what == PS_FRAME_STYLE) return "FrameMeterStyle";
     if (what == PS_FRAME_SIZE) return "FrameMeterRingSize";
     if (what == PS_KI_WINDOW) return "KiWindow";
@@ -32,6 +33,7 @@ static void PstLoadIni(const char* ini) {
     Log("PRACTICE stats (#22389): PlayerInfiniteKi %d, DamageDealtPct %d, DamageTakenPct %d, BossKiDrainPerSec %d, BossSpeedPct %d, PlayerInfiniteNinjutsu %d, PlayerSpeedPct %d, FrameMeter %d, KiDamageDealtPct %d, OneHitKiBreak %d, HoldKiBreak %d, TimeOfDayMin %d, Weather %d (%s)",
         g_pst.v[0], g_pst.v[1], g_pst.v[2], g_pst.v[3], g_pst.v[4], g_pst.v[5], g_pst.v[6], g_pst.v[7], g_pst.v[8], g_pst.v[9], g_pst.v[PS_HOLD_KI_BREAK],
         PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), g_pst.v[PS_WEATHER], PstWeatherName(g_pst.v[PS_WEATHER]));
+    Log("PRACTICE PlayerInfiniteSoulCore %d (pc #57367)", g_pst.v[PS_PLAYER_INF_SOUL]);
     Log("PRACTICE Ki break (#23013): KiLog %d, HoldKiBreakV2 %d, KiFloorDepth %d %%", g_pst.v[PS_KI_LOG], g_pst.v[PS_HOLD_KI_V2], g_pst.v[PS_KI_FLOOR]);
 }
 static volatile LONG g_pst_saving; static ULONGLONG g_pst_iniStamp;  // ini mtime we last wrote / loaded (live reload, user #22826: a hand-edited 0 must switch a setting off at once)
@@ -299,6 +301,50 @@ static __attribute__((noinline)) void PstPlayerNin(void) {
         } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     }
 }
+// pc #57367 infinite soul cores. A soul core (d-pad LEFT / DOWN) is an inventory item: 0xE8-byte records at inv+0x1E0AD0 (u16 id, u16 base id,
+// u32 count at +4; ally #57367: DOWN 3 -> 2 -> 1 there and in the HUD, writing 3 back refilled the HUD and the next use). inv = [[g:Inventory]],
+// the global found by its load "mov rbp,[rip+x] / xor r10d,r10d / mov r8b" (48 8B 2D ?? ?? ?? ?? 45 33 D2 45 8A, one hit, RVA F4520 in 1.02).
+// Only counts that drop by exactly 1 while the player is in the seal throw (0x28FD / 0x28FB / 0x28AF, plus 2 s) are put back, so elixirs and
+// other consumables are not touched (that is board task #195).
+static uint64_t g_soul_glob; static int g_soul_scan; static uint32_t g_soul_prev[1200]; static uint8_t g_soul_have[1200]; static DWORD g_soul_until;
+static __attribute__((noinline)) uint64_t PstSoulFindGlob(void) {
+    __try {
+        const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)B; const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(B + dos->e_lfanew);
+        const IMAGE_SECTION_HEADER* sh = IMAGE_FIRST_SECTION(nt);
+        for (int k = 0; k < nt->FileHeader.NumberOfSections; ++k, ++sh) {
+            if (!(sh->Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+            const uint8_t* p = (const uint8_t*)(B + sh->VirtualAddress); const uint8_t* e = p + sh->Misc.VirtualSize - 11; uint64_t hit = 0; int n = 0;
+            for (; p < e; ++p)
+                if (p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x2D && p[7] == 0x45 && p[8] == 0x33 && p[9] == 0xD2 && p[10] == 0x45 && p[11] == 0x8A) {
+                    hit = (uint64_t)(p + 7 + *(const int32_t*)(p + 3)); ++n; }
+            if (n == 1) { Log("SOULCORE g:Inventory found at +%llX (load at a unique site)", (unsigned long long)(hit - B)); return hit; }
+            if (n) { Log("SOULCORE g:Inventory signature hit %d times, infinite soul cores off", n); return 0; }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    Log("SOULCORE g:Inventory signature not found, infinite soul cores off"); return 0;
+}
+static __attribute__((noinline)) void PstPlayerSoul(void) {
+    if (!g_soul_scan) { g_soul_scan = 1; g_soul_glob = PstSoulFindGlob(); }
+    uint64_t a = 0, inv = 0, me = PlayerChar(), ai = 0, ctrl = 0;
+    if (!g_soul_glob || !Rd64(g_soul_glob, &a) || !a || !Rd64(a, &inv) || !inv) return;
+    const DWORD now = GetTickCount();
+    if (me && Rd64(me + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl) {
+        const uint32_t act = ActIdOf(ctrl);
+        if (act == 0x28FD || act == 0x28FB || act == 0x28AF) g_soul_until = now + 2000;
+    }
+    const int seal = (int)(g_soul_until - now) > 0;
+    uint8_t* arr = (uint8_t*)(inv + 0x1E0AD0);
+    __try {
+        for (int i = 0; i < 1200; ++i) {
+            const uint8_t* r = arr + (size_t)i * 0xE8; const uint16_t id = *(const uint16_t*)r;
+            if (!id || id != *(const uint16_t*)(r + 2)) { g_soul_have[i] = 0; continue; }
+            volatile uint32_t* cnt = (volatile uint32_t*)(r + 4); const uint32_t c = *cnt;
+            if (seal && g_soul_have[i] && g_soul_prev[i] == c + 1 && c + 1 <= 99) {
+                *cnt = g_soul_prev[i]; PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (used in the seal throw, put back)", id, i, c, g_soul_prev[i]); continue; }
+            g_soul_prev[i] = c; g_soul_have[i] = 1;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+}
 // 'Reset fight' (user #22592): one press = every Training boss full HP + Ki (BV_REFILL) and back at its start point (Nioh3Training_ResetBossPos),
 // player full HP + Ki, player back at the Practice start (g_tr.pp, the round-1 player pose that TrainRetry / TrainLost also Warp to).
 // Boss parts reuse the existing exports (they queue to the game thread); the player parts run in PstResetFightTick on the game thread.
@@ -527,6 +573,8 @@ static void PstTick(void) {
         if (sess > g_pst_env_sess) PstEnvLogState(g_tr.active ? "Practice session start" : "Training boss alive");
         g_pst_env_sess = sess;
     }
+    if (g_pst.v[PS_PLAYER_INF_SOUL]) PstPlayerSoul();  // pc #57367: everywhere, not only in Practice (soul-core testing on any save)
+    else memset(g_soul_have, 0, sizeof g_soul_have);
     if (!live) { memset(g_pst_hb, 0, sizeof g_pst_hb); memset(g_kl, 0, sizeof g_kl); return; }  // user #22918: no session and no Training boss = nothing held (no actor left to touch)
     if ((g_pst.v[PS_DMG_DEALT] != 100 || g_pst.v[PS_DMG_TAKEN] != 100) && !g_hpdmg_hooked) HpDmgHookInstall("damage multipliers (#22389)");
     if (g_pst.v[PS_BOSS_SPEED] != 100 || g_pst.v[PS_PLAYER_SPEED] != 100) PstSpdHookInstall();
