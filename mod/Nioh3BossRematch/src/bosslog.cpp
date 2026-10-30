@@ -3203,7 +3203,9 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 1));
     {
         wchar_t ab[128] = {};
-        GetPrivateProfileStringW(L"Spirit", L"FormHideSealAct", L"", ab, 128, IniPath());
+        // Ally #55835: 0x28FD preceded both seal captures; action-only press 2 applied the hide at +36 ms.
+        // This fixes first-press action detection; the human-body visibility failure is a separate, still-open issue.
+        GetPrivateProfileStringW(L"Spirit", L"FormHideSealAct", L"28FD", ab, 128, IniPath());
         int n = 0;
         for (wchar_t* p = ab; *p && n < 4;) {
             while (*p == L',' || *p == L' ') ++p;
