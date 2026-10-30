@@ -1742,6 +1742,117 @@ void FaApply(uint64_t pchr, int round) {
         round, m, (unsigned long long)slot, st, v40, v20, (unsigned long long)obj, (unsigned long long)tgt, tgt == pchr ? "player chr" : "slot obj", key >> 4,
         k1fc, w, ok, a1fc, (unsigned long long)obj2, Now());
 }
+// pc #55034: [Spirit] FormCommit=1 - the seal yokai's kind-0 slot is committed by the per-frame appearance tick 3FD37C(chr, dl force, r8b)
+// -> 3FD3E8(chr+9F0) -> 3FD610(slot) state machine (yokai stack +3FD482 <- +3FD3E2 <- +F2D07). The player's staged slot never gets there
+// (pc2 #55031: 0 writes to +2F8 in 4 s). F2D02 is gated by chr+106 / [chr+AB84]==-1 / chr+886 / chr+A02 / chr+B313. FormCommit: (a) all 20
+// 3FD37C call sites are retargeted to log the chr walk (first 80 distinct chrs + every player call, site, dl, r8b); (b) for ~1 s after the
+// FormSlot0 kick, call 3FD37C(player, 1, 0) once per game frame and log the first kind-0 slot [+18]/+2F8/+2F9/+40/+20/+10/+328 before/after.
+std::atomic<int> g_fcMode{0};
+void* g_fcOrig = nullptr;
+volatile LONG g_fcLines = 0, g_fcPlayerCalls = 0, g_fcCalls = 0, g_fcDistinct = 0;
+uint64_t g_fcSeen[80] = {};
+std::atomic<int> g_fcWindow{0};
+void FcGate(const char* tag, uint64_t c) {
+    uint8_t b106 = 0, b886 = 0, bA02 = 0, bB313 = 0, b9D4 = 0, b109 = 0, bA03 = 0;
+    uint32_t ab84 = 0, key = 0;
+    float f8e4 = 0;
+    Rd(c, key); Rd(c + 0x106, b106); Rd(c + 0xAB84, ab84); Rd(c + 0x886, b886); Rd(c + 0xA02, bA02); Rd(c + 0xB313, bB313);
+    Rd(c + 0x9D4, b9D4); Rd(c + 0x109, b109); Rd(c + 0xA03, bA03); Rd(c + 0x8E4, f8e4);
+    Log("FormCommit gate %s chr=%llX id=%X F2D02 gate: +106=%u +AB84=%X +886=%u +A02=%u +B313=%u (all 0/-1 -> F2D02 skipped) +9D4(dl)=%u 3FD37C: +109=%u +8E4=%.3f +A03=%u",
+        tag, (unsigned long long)c, key >> 4, b106, ab84, b886, bA02, bB313, b9D4, b109, f8e4, bA03);
+}
+uint64_t HkFc3FD37C(uint64_t chr, uint64_t dl, uint64_t r8, uint64_t r9) {
+    const uint64_t site = (uint64_t)_ReturnAddress() - g_base - 5;
+    InterlockedIncrement(&g_fcCalls);
+    const uint64_t pl = FkPlayer();
+    const bool isPl = chr && chr == pl;
+    bool fresh = false;
+    if (!isPl && g_fcDistinct < 80) {
+        bool seen = false;
+        const LONG n = g_fcDistinct;
+        for (LONG i = 0; i < n; ++i) if (g_fcSeen[i] == chr) { seen = true; break; }
+        if (!seen) { const LONG k = InterlockedIncrement(&g_fcDistinct) - 1; if (k < 80) { g_fcSeen[k] = chr; fresh = true; } }
+    }
+    if (isPl) InterlockedIncrement(&g_fcPlayerCalls);
+    const bool sealish = chr && (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load() || chr == g_fs0CapChr.load());
+    if ((fresh || (isPl && (g_fcPlayerCalls <= 20 || g_fcWindow.load())) || sealish) && InterlockedIncrement(&g_fcLines) <= 600) {
+        uint32_t key = 0;
+        Rd(chr, key);
+        Log("FormCommit walk site=+%llX chr=%llX id=%X %s dl=%u r8b=%u calls=%ld playerCalls=%ld t=%.3f", (unsigned long long)site, (unsigned long long)chr,
+            key >> 4, isPl ? "PLAYER" : sealish ? "SEAL" : "other", (unsigned)(dl & 0xFF), (unsigned)(r8 & 0xFF), g_fcCalls, g_fcPlayerCalls, Now());
+    }
+    return ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t))g_fcOrig)(chr, dl, r8, r9);
+}
+void FormCommitInstall() {
+    static std::atomic<int> done{0};
+    if (done.exchange(1)) return;
+    if (!g_base) g_base = g_img.base;
+    static const uint32_t kS[] = {0xF2D02, 0x2BD04B, 0x3FC663, 0x485A70, 0x60370B, 0x603782, 0x66AB6A, 0x10C46A5, 0x10C4712, 0x1C0A659,
+                                  0x1C0F6D2, 0x1F5D682, 0x200388B, 0x2052E9F, 0x208B0E1, 0x238C945, 0x239441B, 0x23947B1, 0x23C419E, 0x23C41FC};
+    int n = 0;
+    char skipped[256];
+    int o = 0;
+    skipped[0] = 0;
+    for (uint32_t rva : kS) {
+        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x3FD37C) { if (o < 230) o += sprintf_s(skipped + o, sizeof(skipped) - o, " +%X(%02X)", rva, b[0]); continue; }
+        const char* w = nullptr;
+        void* orig = nullptr;
+        if (!InstallCallRetargetAt(p, "call:FormCommit3FD37C", (void*)&HkFc3FD37C, &orig, &w)) { Log("FormCommit: +%X failed: %s", rva, w ? w : "?"); continue; }
+        g_fcOrig = orig;
+        ++n;
+    }
+    Log("FormCommit: 3FD37C hooked on %d/20 call sites; not a direct call:%s", n, o ? skipped : " none");
+}
+struct FcSnap { uint32_t st, v40, v20; uint8_t f8, f9; uint64_t p10, p328; };
+void FcRead(uint64_t s, FcSnap& x) {
+    x = {};
+    if (!s) return;
+    Rd(s + 0x18, x.st); Rd(s + 0x40, x.v40); Rd(s + 0x20, x.v20); Rd(s + 0x2F8, x.f8); Rd(s + 0x2F9, x.f9); Rd(s + 0x10, x.p10); Rd(s + 0x328, x.p328);
+}
+bool FcCall(uint64_t chr) {
+    __try {
+        ((uint64_t(*)(uint64_t, uint64_t, uint64_t))(g_base + 0x3FD37C))(chr, 1, 0);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+void FcTick(uint64_t pchr, double dt) {  // game thread, inside the kick window
+    static int frames = 0, faults = 0;
+    static uint64_t lastCap = 0;
+    const uint64_t cap = g_fs0CapChr.load();
+    if (cap != lastCap) {
+        lastCap = cap; frames = 0; faults = 0;
+        FcGate("player", pchr);
+        if (cap) FcGate("seal", cap);
+    }
+    if (dt < 0.35 || dt > 1.35 || frames >= 120) {
+        if (g_fcWindow.load() && dt > 1.35) {
+            g_fcWindow.store(0);
+            FcSnap a;
+            FcRead(g_fs0FirstK0.load(), a);
+            Log("FormCommit done: %d forced 3FD37C(player,1,0) calls, %d faults, player calls through the 20 sites so far %ld; final slot state[+18]=%u +2F8=%u +2F9=%u +40=%X +20=%X +10=%llX +328=%llX t=%.3f",
+                frames, faults, g_fcPlayerCalls, a.st, a.f8, a.f9, a.v40, a.v20, (unsigned long long)a.p10, (unsigned long long)a.p328, Now());
+        }
+        return;
+    }
+    g_fcWindow.store(1);
+    const uint64_t s = g_fs0FirstK0.load();
+    FcSnap b, a;
+    FcRead(s, b);
+    const bool ok = FcCall(pchr);
+    if (!ok) ++faults;
+    FcRead(s, a);
+    ++frames;
+    if (frames <= 8 || memcmp(&a, &b, sizeof(a)) != 0 || !ok)
+        Log("FormCommit #%d 3FD37C(player,1,0) ok=%d slot=%llX state %u->%u +2F8 %u->%u +2F9 %u->%u +40 %X->%X +20 %X->%X +10 %llX->%llX +328 %llX->%llX dt=%.3f", frames, ok,
+            (unsigned long long)s, b.st, a.st, b.f8, a.f8, b.f9, a.f9, b.v40, a.v40, b.v20, a.v20, (unsigned long long)b.p10, (unsigned long long)a.p10,
+            (unsigned long long)b.p328, (unsigned long long)a.p328, dt);
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
@@ -1758,6 +1869,7 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
             if (fa1 != cap && dt >= 0.4) { fa1 = cap; FaApply(pchr, 1); }
             if (fa2 != cap && dt >= 1.3) { fa2 = cap; FaApply(pchr, 2); }
         }
+        if (g_fcMode.load() && g_fs0Active.load() && cap && kicked == cap) FcTick(pchr, dt);  // pc #55034 FormCommit
     }
     const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
     if (g_fs0Restore.exchange(0) || timeout) {
@@ -2169,6 +2281,7 @@ bool FormKeyInstall() {
         else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
     }
     if (g_ppOn.load() || g_fs0Mode.load() || g_swMode.load()) PartProbeInstall();
+    if (g_fcMode.load()) FormCommitInstall();
     ok = grp && n > 0;
     return ok;
 }
@@ -2248,6 +2361,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
+    g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
