@@ -4280,9 +4280,9 @@ void Command(const char* line, char* reply, size_t n) {
                 SpiritSetPos(sc, pos);
             }
             static double nextWait = 0;  // armed but nothing copied yet: say why every 5 s (the 22:07 run had 0 SpiritBody lines)
-            if (g_spBody.load() && !g_spBodyChr.load() && Now() >= nextWait) {
+            if (g_spBody.load() && !g_spBodyChr.load() && (Ms() / 1000.0) >= nextWait) {
                 static int waits = 0;
-                nextWait = Now() + 5.0;
+                nextWait = (Ms() / 1000.0) + 5.0;
                 if (waits++ < 60)
                     Log("SpiritBody armed, waiting: guardian mgr=%llX chr=%llX state=%llu | seal spawn chr=%llX", (unsigned long long)mgr,
                         (unsigned long long)chr, (unsigned long long)st, (unsigned long long)sc);
