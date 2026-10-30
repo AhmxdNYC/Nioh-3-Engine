@@ -1227,6 +1227,8 @@ std::atomic<int> g_fkAppRestore{0};
 std::atomic<uint64_t> g_fkAppSeal{0};  // first seal chr of this arm (0 = not yet applied)
 uint64_t g_fkAppBlk = 0;
 uint32_t g_fkAppOld = 0, g_fkAppNew = 0;
+// pc #54739 / cx-pc2 #54650: FormAppear=3 also writes blk+0 (the chr id EE7B4 keys the model request on) = seal chrId [schr]>>4 before the kick
+uint32_t g_fkAppOld0 = 0, g_fkAppNew0 = 0;
 double g_fkAppT = 0;
 int g_fkAppStep = 0;
 uint32_t g_fkAppLastSt = 0xFFFFFFFF;
@@ -1249,8 +1251,9 @@ void FkAppearLog(const char* tag, uint64_t chr) {
         tag, (unsigned long long)chr, key >> 4, FkBodyId(chr), (unsigned long long)blk, b4, row, b0, b8, st, dirty, fl[0], fl[1], fl[2], fl[3], fl[4],
         r[0], r[1], r[2], r[3], Now());
 }
-bool FkAppearWrite(uint64_t blk, uint32_t id, int kick) {
+bool FkAppearWrite(uint64_t blk, uint32_t id, int kick, uint32_t id0 = 0) {
     __try {
+        if (id0 && !WrU32(blk, id0)) return false;
         if (!WrU32(blk + 4, id) || !WrU32(blk + 0x814, 0x01010101)) return false;
         if (kick == 1) {  // 846B3C's reload request: +810=1, +80F=1, +811/+812=1
             const uint8_t one = 1;
@@ -1278,11 +1281,16 @@ void FkAppearApply(uint64_t pchr, uint64_t schr) {
     Rd(blk + 4, cur);
     if (cur == sb) { Log("FormKey APPEAR skip: player [blk+4] already %X", sb); return; }
     g_fkAppSeal.store(schr);
-    if (g_fkAppBlk != blk) { g_fkAppBlk = blk; g_fkAppOld = cur; }
+    uint32_t cur0 = 0;
+    Rd(blk, cur0);
+    if (g_fkAppBlk != blk) { g_fkAppBlk = blk; g_fkAppOld = cur; g_fkAppOld0 = cur0; }
     const int kick = g_fkAppKick.load();
+    const uint32_t id0 = g_fkAppearMode.load() == 3 ? schrKey >> 4 : 0;
     FkAppearLog("player before write", pchr);
-    const bool ok = FkAppearWrite(blk, sb, kick);
+    const bool ok = FkAppearWrite(blk, sb, kick, id0);
     g_fkAppNew = sb;
+    g_fkAppNew0 = id0;
+    if (id0) Log("FormKey APPEAR3 blk+0 %X -> %X (seal chrId) before kick", cur0, id0);
     g_fkAppT = Now();
     g_fkAppStep = 0;
     g_fkAppLastSt = 0xFFFFFFFF;
@@ -1309,7 +1317,9 @@ void FkAppearTick(uint64_t pchr) {  // game thread (2E6C34 input hook)
         if (dt > 5.0) g_fkAppT = 0;
     }
     if (g_fkAppRestore.exchange(0) && g_fkAppBlk) {
-        const bool ok = FkAppearWrite(g_fkAppBlk, g_fkAppOld, g_fkAppKick.load());
+        const bool ok = FkAppearWrite(g_fkAppBlk, g_fkAppOld, g_fkAppKick.load(), g_fkAppNew0 ? g_fkAppOld0 : 0);
+        if (g_fkAppNew0) Log("FormKey APPEAR3 RESTORE blk+0 %X -> %X", g_fkAppNew0, g_fkAppOld0);
+        g_fkAppNew0 = 0;
         Log("FormKey APPEAR RESTORE blk=%llX [blk+4] %X -> %X kick=%d ok=%d", (unsigned long long)g_fkAppBlk, g_fkAppNew, g_fkAppOld, g_fkAppKick.load(), ok);
         g_fkAppBlk = 0;
         g_fkAppSeal.store(0);
@@ -1320,7 +1330,75 @@ void FkAppearTick(uint64_t pchr) {  // game thread (2E6C34 input hook)
     }
 }
 uint64_t FkPlayer();
+// pc #54739 / cx-pc2 #54695: [Spirit] PartProbe=1 logs every part-id staging F3D78(slot, id, chr, flag) from all 10 call sites in F3478
+// (site = return RVA - 5) and every chr-level part apply 2C4450(chr, kind, state+3) from its 8 callers, for every chr (player, seal yokai, ...).
+std::atomic<int> g_ppOn{0};
+volatile LONG g_ppF3Hits = 0, g_ppC4Hits = 0, g_ppLines = 0;
+void* g_ppF3Orig = nullptr;
+void* g_ppC4Orig = nullptr;
+const char* PpWho(uint64_t chr, uint64_t pl) {
+    if (!chr) return "null";
+    if (chr == pl) return "PLAYER";
+    if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load() || chr == g_fkMSchr.load()) return "SEAL";
+    return "other";
+}
+void PpLogF3(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9, uint64_t ret) {
+    const LONG n = InterlockedIncrement(&g_ppF3Hits);
+    if (InterlockedIncrement(&g_ppLines) > 4000) return;
+    const uint64_t pl = FkPlayer();
+    uint32_t kind = 0, cached = 0, key = 0;
+    Rd(slot, kind);
+    Rd(slot + 0x20, cached);
+    if (chr) Rd(chr, key);
+    Log("PartProbe F3D78 #%ld site=+%llX who=%s chr=%llX chrId=%X slot=%llX kind[slot]=%X cached[slot+20]=%X id=%X flag=%u t=%.3f", n,
+        (unsigned long long)(ret - g_base - 5), PpWho(chr, pl), (unsigned long long)chr, key >> 4, (unsigned long long)slot, kind, cached, id,
+        (unsigned)(r9 & 0xFF), Now());
+}
+uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
+    if (g_ppOn.load()) PpLogF3(slot, id, chr, r9, (uint64_t)_ReturnAddress());
+    return ((uint64_t(*)(uint64_t, uint32_t, uint64_t, uint64_t))g_ppF3Orig)(slot, id, chr, r9);
+}
+uint64_t HkPp2C4450(uint64_t chr, uint32_t kind, uint32_t st, uint64_t r9) {
+    if (g_ppOn.load()) {
+        const LONG n = InterlockedIncrement(&g_ppC4Hits);
+        if (InterlockedIncrement(&g_ppLines) <= 4000) {
+            const uint64_t pl = FkPlayer();
+            uint32_t key = 0, c20 = 0, c1fc = 0;
+            Rd(chr, key);
+            Rd(chr + 0x20, c20);
+            Rd(chr + 0x1FC, c1fc);
+            Log("PartProbe 2C4450 #%ld site=+%llX who=%s chr=%llX chrId=%X kind(edx)=%X r8d=%X [chr+20]=%X [chr+1FC]=%X%s t=%.3f", n,
+                (unsigned long long)((uint64_t)_ReturnAddress() - g_base - 5), PpWho(chr, pl), (unsigned long long)chr, key >> 4, kind, st, c20, c1fc,
+                c1fc == kind ? " (skip: same)" : "", Now());
+        }
+    }
+    return ((uint64_t(*)(uint64_t, uint32_t, uint32_t, uint64_t))g_ppC4Orig)(chr, kind, st, r9);
+}
+void PartProbeInstall() {
+    static std::atomic<int> done{0};
+    if (done.exchange(1)) return;
+    if (!g_base) g_base = g_img.base;
+    static const uint32_t kF3[] = {0xF35AD, 0xF38E9, 0xF396C, 0xF39A9, 0xF39D7, 0xF3BA0, 0xF3C8B, 0xF3CBE, 0xF3D62};  // +F38AE = HkPart47 (FormKey)
+    static const uint32_t kC4[] = {0xED7CC, 0xEDB56, 0xEDB71, 0x902DD0, 0x902E40, 0x206F805, 0x206F830, 0x206F85B};
+    int nf = 0, nc = 0;
+    auto one = [&](uint32_t rva, uint32_t tgt, void* fn, void** orig, const char* name) {
+        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + tgt) { Log("PartProbe: +%X is not 'call %X' - skipped", rva, tgt); return false; }
+        const char* w = nullptr;
+        void* o = nullptr;
+        if (!InstallCallRetargetAt(p, name, fn, &o, &w)) { Log("PartProbe: +%X failed: %s", rva, w ? w : "?"); return false; }
+        *orig = o;
+        return true;
+    };
+    for (uint32_t r : kF3) nf += one(r, 0xF3D78, (void*)&HkPpF3D78, &g_ppF3Orig, "call:PartProbeF3D78");
+    for (uint32_t r : kC4) nc += one(r, 0x2C4450, (void*)&HkPp2C4450, &g_ppC4Orig, "call:PartProbe2C4450");
+    Log("PartProbe: F3D78 hooked on %d/9 sites (+F38AE via FormKey part-47 hook), 2C4450 on %d/8 callers", nf, nc);
+}
 uint64_t HkPart47(uint64_t part, uint32_t id, uint64_t chr, uint64_t r9) {
+    if (g_ppOn.load()) PpLogF3(part, id, chr, r9, (uint64_t)_ReturnAddress());
     const uint32_t in = id;
     if (g_fkOn.load()) {
         const uint64_t pl = FkPlayer();
@@ -1745,6 +1823,7 @@ bool FormKeyInstall() {
         else if (InstallCallRetargetAt(p, "call:FormPart47F3D78", (void*)&HkPart47, &g_fkPartOrig, &w)) Log("FormKey: part-47 hook on +F38AE (FormPart=%d)", g_fkPartMode.load());
         else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
     }
+    if (g_ppOn.load()) PartProbeInstall();
     ok = grp && n > 0;
     return ok;
 }
@@ -1806,7 +1885,8 @@ void Register(bool boss, bool rm, bool inv) {
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
-    g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
+    g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));
+    g_ppOn.store(IniInt(L"Spirit", L"PartProbe", 0));  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
