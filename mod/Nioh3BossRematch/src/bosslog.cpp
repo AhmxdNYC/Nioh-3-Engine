@@ -3111,15 +3111,18 @@ int SealHitsFor(uint32_t id) {
 }
 void SealEndOnHitTick() {
     if (!g_sehMode.load()) return;
+    // Session = one FormHide=4 form (from the press, before the seal exists): A2ACB is bound from its spawn hit only ~0.3 s after it spawns and
+    // its first burst can already be over by then (ally #57014 run 3), so bursts are counted from the press for the seal and every actor
+    // spawned (65A8A8) since, and the bound seal only picks the core's burst count.
+    static double sess = 0;
     static uint64_t seal = 0;
-    static double bindT = 0, lastClose = 0;
-    static int bursts = 0, want = 0, maxOpen = 0;
+    static int bursts = 0, want = 0;
     static bool open = false, fired = false;
     static uint32_t sid = 0;
     static std::vector<uint64_t> pool;
-    const uint64_t s = g_fh4.owner ? g_fh4.seal : 0;
-    if (s != seal) {
-        if (seal && !fired && bursts > 0) {  // form over without our end: learn this core's burst count
+    const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
+    if (on != (sess > 0)) {
+        if (seal && sid && !fired && bursts > 0) {  // form over without our end: learn this core's burst count
             const int had = SealHitsFor(sid);
             if (bursts > had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
@@ -3127,13 +3130,16 @@ void SealEndOnHitTick() {
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
             }
         }
-        seal = s; bindT = Now(); bursts = 0; open = false; fired = false; maxOpen = 0; lastClose = 0;
-        sid = 0;
-        if (s) { uint32_t k = 0; Rd(s, k); sid = k >> 4; want = SealHitsFor(sid);
-            Log("SealEndOnHit seal=%llX core %X: %d hit bursts known%s", (unsigned long long)s, sid, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
-        }
+        sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false;
     }
-    if (!seal || fired) return;
+    if (!sess || fired) return;
+    const double now = Now();
+    if (!seal && g_fh4.seal) {
+        seal = g_fh4.seal;
+        uint32_t k = 0; Rd(seal, k); sid = k >> 4; want = SealHitsFor(sid);
+        Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
+            bursts, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
+    }
     uint64_t pb = 0;
     if (!Rd(g_base + 0x45C6F38, pb) || !pb) return;
     pool.resize(0xFA0);
@@ -3143,25 +3149,24 @@ void SealEndOnHitTick() {
         const uint64_t o = pool[i];
         if (!o) continue;
         uint64_t own = 0;
-        if (!Rd(o + 8, own) || !own) continue;
-        bool mine = own == seal;
-        for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && own && g_sehKidT[k] >= bindT - 0.5;
+        if (!Rd(o + 8, own) || !own || own == g_fh4.owner) continue;
+        bool mine = seal && own == seal;
+        for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && g_sehKidT[k] >= sess - 0.05;
         if (mine) ++n;
     }
-    const double now = Now();
-    if (n && !open) { open = true; ++bursts; Log("SealEndOnHit core %X burst %d opens (%d colliders) dt=%.3f", sid, bursts, n, now - bindT); }
-    if (n > maxOpen) maxOpen = n;
+    if (n && !open) { open = true; ++bursts; Log("SealEndOnHit core %X burst %d opens (%d colliders) %.3f s after the press", sid, bursts, n, now - sess); }
+    bool fire = false;
     if (!n && open) {
-        open = false; lastClose = now;
-        Log("SealEndOnHit core %X burst %d closes dt=%.3f (want %d)", sid, bursts, now - bindT, want);
-        if (want && bursts >= want) {
-            fired = true;
-            if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
-            const int ok = SealQueueDespawn(seal);
-            Log("SealEndOnHit seal=%llX core %X last hit burst %d closed dt=%.3f: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid, bursts,
-                now - bindT, ok, now);
-        }
-    }
+        open = false;
+        Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
+        fire = seal && want && bursts >= want;
+    } else if (!n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+    if (!fire) return;
+    fired = true;
+    if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    const int ok = SealQueueDespawn(seal);
+    Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid,
+        bursts, now - sess, ok, now);
 }
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
