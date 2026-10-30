@@ -1610,7 +1610,7 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
             }
         } else if (chr == FkPlayer()) {
             Fs0Note(slot, kind, chr);
-            if (const uint32_t to = g_fs0Id.load(); to && g_fs0Active.load()) {
+            if (const uint32_t to = g_fs0Id.load(); to && g_fs0Active.load() && m != 9) {  // 9 = capture only (pc2 FormHide control: no player swap)
                 uint32_t nid = id;
                 if (kind == 0 && slot == g_fs0FirstK0.load()) {
                     nid = to;
@@ -2043,7 +2043,7 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
     if (g_fhMode.load()) FormHideTick(pchr);  // pc #55327 FormHide
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
-    if (g_fs0Active.load() && cap && kicked != cap && Now() - g_fs0CapT >= 0.3) {
+    if (g_fs0Active.load() && cap && kicked != cap && g_fs0Mode.load() != 9 && Now() - g_fs0CapT >= 0.3) {
         kicked = cap;
         if (g_fzsMode.load()) {  // ally/pc #55150 [Spirit] FormZeroSlot=1: zero the player kind-0 slot +2C0..+2F7 (902C00 copies it into obj +190.. / +2A4..)
             const uint64_t ps = g_fs0FirstK0.load();
