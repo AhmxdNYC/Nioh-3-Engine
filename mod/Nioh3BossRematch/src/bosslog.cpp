@@ -860,6 +860,7 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
           (unsigned long long)c, (unsigned)c, (unsigned long long)d, vl ? via : " -", t);
 }
 
+std::atomic<int> g_scProbes{0};  // pc #56435 [Spirit] Probes: 0 = CoreProbe/SealProbe/TenshinInput/TenshinForm/ChrCreated not installed
 // Core-form probe (pc #46959): B611BC / 29EF38 args + 0x40 bytes behind rcx/rdx/r8, so core 0xF vs 0x111 can be diffed in the log.
 template <int N>
 void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -899,6 +900,7 @@ void HkSeal(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) 
         uint32_t d0 = 0;
         if (Rd(b, d0)) FormKeySealDesc(d0);
     }
+    if (!g_scProbes.load()) return;
     static const char* const kNm[] = {"ChrSpawn65A8A8", "SpawnReq68157C", "ListIns5BA648", "Item322468", "Item3203EC"};
     static std::atomic<int64_t> sec{-1};
     static std::atomic<int> inSec{0}, total{0};
@@ -2112,7 +2114,9 @@ static bool FormPinWarpCall(uint64_t cap, const float* pos) {
     }
     return true;
 }
+std::atomic<int> g_fh4Mask{0x7F};  // pc #56435 [Spirit] FH4Mask bits: 1 B440, 2 B444, 4 root+3A8, 8 root+248, 16 shell46 alpha, 32 FormPin, 64 pin warp
 bool FormPin(uint64_t pchr, uint64_t cap) {
+    if (!(g_fh4Mask.load() & 32)) return true;
     if (g_fhUntilEnd.load() && FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 1) return false;
     float pos[4] = {};
     if (!Copy(pos, pchr + 0x110, 16)) return false;
@@ -2122,7 +2126,7 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
         int32_t rel = 0;
         if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + 0x2BF7F2, rel)) ag = g_base + 0x2BF7F6 + rel;
     }
-    const bool warped = g_fhWarp.load() && FormHideSealPresent(ag, cap) == 1 && FormPinWarpCall(cap, pos);
+    const bool warped = g_fhWarp.load() && (g_fh4Mask.load() & 64) && FormHideSealPresent(ag, cap) == 1 && FormPinWarpCall(cap, pos);
     if (!warped && !WrBytes(cap + 0x110, pos, 16)) return false;
     static uint64_t loggedCap = 0;
     float m[12] = {}, sm[12] = {};
@@ -2231,8 +2235,24 @@ struct Fh4State {
     double started = 0, capT = -1, nextLog = 0, nextShellLog = 0;
     uint8_t hide = 0;
     float blend = 0, multiplier = 0, fade = 1;
+    uint64_t sealRoot = 0;  // pc #56435: seal's model root, refreshed by the tick at 10 Hz (hooks used to walk the actor table per call)
+    double nextSealPoll = 0;
 };
 Fh4State g_fh4;
+// pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
+struct Fh4Perf { std::atomic<long> parts{0}, mult{0}, alpha{0}, writes{0}, ticks{0}; std::atomic<long long> qpc{0}; };
+Fh4Perf g_fh4Perf;
+struct Fh4Timer { long long t0 = (long long)Qpc(); ~Fh4Timer() { g_fh4Perf.qpc.fetch_add((long long)Qpc() - t0); } };
+// Heap fields: plain SEH write, and only when the value differs (no VirtualQuery/VirtualProtect, no needless store).
+template <class T>
+static bool Fh4Set(uint64_t a, T v) {
+    T cur{};
+    if (!Rd(a, cur)) return false;
+    if (cur == v) return true;
+    __try { *(volatile T*)a = v; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    g_fh4Perf.writes.fetch_add(1);
+    return true;
+}
 SRWLOCK g_fh4Lock = SRWLOCK_INIT;
 std::atomic<bool> g_fh4Ready{false}, g_fh4Fault{false};
 void* g_fh4PartsOrig = nullptr;
@@ -2247,14 +2267,14 @@ void Fh4Restore(uint64_t player) {
         if (!Rd(player + 0x20, root)) ok = false;
         else if (root && root == g_fh4.root) {
             if (!Rd(root + 0x3A8, current)) ok = false;
-            else if (current == 0 && !WrBytes(root + 0x3A8, &g_fh4.multiplier, 4)) ok = false;
+            else if (current == 0 && !Fh4Set(root + 0x3A8, g_fh4.multiplier)) ok = false;
             if (!Rd(root + 0x248, current)) ok = false;
-            else if (current == 0 && !WrBytes(root + 0x248, &g_fh4.fade, 4)) ok = false;
+            else if (current == 0 && !Fh4Set(root + 0x248, g_fh4.fade)) ok = false;
         }
         if (!Rd(player + 0xB440, h)) ok = false;
-        else if (h == 1 && !WrBytes(player + 0xB440, &g_fh4.hide, 1)) ok = false;
+        else if (h == 1 && !Fh4Set(player + 0xB440, g_fh4.hide)) ok = false;
         if (!Rd(player + 0xB444, current)) ok = false;
-        else if (current == 1.f && !WrBytes(player + 0xB444, &g_fh4.blend, 4)) ok = false;
+        else if (current == 1.f && !Fh4Set(player + 0xB444, g_fh4.blend)) ok = false;
     }
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
@@ -2267,11 +2287,7 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
         !Rd(chr + 0x20, actual) || actual != root) return false;
     // #56154: the seal chr is captured ~1.2 s after the press, before its model root exists;
     // a missing/unknown seal is the end-reason's job, so only refuse a real shared root here.
-    if (g_fh4.seal) {
-        uint64_t puppetRoot = 0;
-        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) == 1 &&
-            Rd(g_fh4.seal + 0x20, puppetRoot) && puppetRoot && puppetRoot == root) return false;
-    }
+    if (g_fh4.sealRoot && g_fh4.sealRoot == root) return false;
     float k8 = 0;
     if (!Rd(root + 0x3A8, k8) || !std::isfinite(k8)) return false;
     // ally #56104: k6=[root+248]=0 also hides slots 6/16-19 (dark throw layer, head, weapon) that k8=0 leaves.
@@ -2283,8 +2299,8 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
         if (nativeFresh || k8 != 0) g_fh4.multiplier = k8;
         if (k6 != 0) g_fh4.fade = k6;
     }
-    const float zero = 0;
-    return WrBytes(root + 0x3A8, &zero, 4) && WrBytes(root + 0x248, &zero, 4);
+    const int m = g_fh4Mask.load();
+    return (!(m & 4) || Fh4Set(root + 0x3A8, 0.f)) && (!(m & 8) || Fh4Set(root + 0x248, 0.f));
 }
 // pc #56223: the seal yokai fades itself out ~5 s after its spawn: its own model root fade [[seal+20]+248] goes 1 -> 0 at +5.0..+5.5 s
 // (ally trace, B440/B444/+3A8 of the seal never change), then it asks for despawn at +5.7 s (held by SealDefer). Nobody was visible from
@@ -2307,21 +2323,30 @@ bool Fh4Apply(uint64_t chr) {
     if (!chr || chr != g_fh4.owner || chr != FkPlayer()) return false;
     uint64_t root = 0;
     if (!Rd(chr + 0x20, root) || !Fh4ClampRoot(chr, root, false)) return false;
-    const uint8_t hide = 1; const float blend = 1;
-    return WrBytes(chr + 0xB440, &hide, 1) && WrBytes(chr + 0xB444, &blend, 4);
+    const int m = g_fh4Mask.load();
+    return (!(m & 1) || Fh4Set(chr + 0xB440, (uint8_t)1)) && (!(m & 2) || Fh4Set(chr + 0xB444, 1.f));
 }
 void HkFh4Parts(uint64_t chr) {
+    g_fh4Perf.parts.fetch_add(1);
+    if (!g_fh4.owner || chr != g_fh4.owner) { ((void(*)(uint64_t))g_fh4PartsOrig)(chr); return; }  // pc #56435: no lock for other actors
+    {
+    Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4Apply(chr)) g_fh4Fault.store(true);
     ReleaseSRWLockExclusive(&g_fh4Lock);
+    }
     // Before EFC30: b=1 makes ordinary alpha=0; k8=0 makes both special branches zero.
     ((void(*)(uint64_t))g_fh4PartsOrig)(chr);
+    Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4Apply(chr)) g_fh4Fault.store(true);
     ReleaseSRWLockExclusive(&g_fh4Lock);
 }
 void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
+    g_fh4Perf.mult.fetch_add(1);
+    if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
+    Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner && g_fh4.seal && chr == g_fh4.seal) Fh4KeepSeal();
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4ClampRoot(chr, root, true)) g_fh4Fault.store(true);
@@ -2336,8 +2361,8 @@ bool Fh4ClampShell(uint64_t parts, uint64_t context) {
     if (!Rd(parts, chr) || !chr || chr != g_fh4.owner || chr != FkPlayer() || parts != chr + 0x9F0 ||
         !Rd(chr + 0x20, root) || root != g_fh4.root || !root || context != root ||
         !Rd(chr + 0xB440, hide) || hide != 1 || !Rd(chr + 0xB444, blend) || blend != 1.f) return false;
-    if (g_fh4.seal && FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) == 1 &&
-        Rd(g_fh4.seal + 0x20, sealRoot) && sealRoot && sealRoot == root) return false; // #56154: unloaded seal root is not a fault
+    sealRoot = g_fh4.sealRoot;
+    if (sealRoot && sealRoot == root) return false; // #56154: unloaded seal root is not a fault
     if (!Rd(parts + 0x9F60, active) || !Rd(parts + 0x9F6C, enabled)) return false;
     if (!active || !enabled) active = parts + 0x20; // exact F5358/EFD74 selection
     if (!Rd(active + 0x9590, part)) return false;
@@ -2351,8 +2376,7 @@ bool Fh4ClampShell(uint64_t parts, uint64_t context) {
     // Recheck identity immediately before the write; keep no attachment pointer across frames.
     uint64_t check = 0;
     if (!Rd(active + 0x9590, check) || check != part || !Rd(part + 0x20, check) || check != render) return false;
-    const float zero = 0;
-    const bool ok = WrBytes(render + 0xC, &zero, 4);
+    const bool ok = !(g_fh4Mask.load() & 16) || Fh4Set(render + 0xC, 0.f);
     const double now = Now();
     if (now >= g_fh4.nextShellLog) {
         Log("FormHide=4 shell46 id=%X part=%llX render=%llX nativeAlpha=%.6f zero=%d t=%.3f",
@@ -2364,6 +2388,9 @@ bool Fh4ClampShell(uint64_t parts, uint64_t context) {
 void HkFh4Alpha(uint64_t parts, uint8_t flag, uint64_t context) {
     // Preserve native updates and all arguments, including calls on unrelated actors.
     ((void(*)(uint64_t, uint8_t, uint64_t))g_fh4AlphaOrig)(parts, flag, context);
+    g_fh4Perf.alpha.fetch_add(1);
+    if (!g_fh4.owner || parts != g_fh4.owner + 0x9F0) return;
+    Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
     uint64_t chr = 0;
     if (g_fh4Ready.load() && g_fhMode.load() == 4 && !g_fh4Fault.load() &&
@@ -2500,6 +2527,18 @@ void FormHide4Tick(uint64_t player) {
     static double attemptedT = -1;
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
     const uint64_t cap = g_fs0CapChr.load(); const double capT = g_fs0CapT, now = Now();
+    {   // pc #56435: 1 line/s cost report (ticks/s ~ game frames/s)
+        static double nextPerf = 0;
+        g_fh4Perf.ticks.fetch_add(1);
+        if (now >= nextPerf) {
+            LARGE_INTEGER fq; QueryPerformanceFrequency(&fq);
+            if (nextPerf > 0)
+                Log("FH4perf ticks=%ld parts=%ld mult=%ld alpha=%ld writes=%ld ours=%.0fus holding=%d mask=%X t=%.3f", g_fh4Perf.ticks.exchange(0),
+                    g_fh4Perf.parts.exchange(0), g_fh4Perf.mult.exchange(0), g_fh4Perf.alpha.exchange(0), g_fh4Perf.writes.exchange(0),
+                    g_fh4Perf.qpc.exchange(0) * 1e6 / (double)fq.QuadPart, g_fh4.owner != 0, g_fh4Mask.load(), now);
+            nextPerf = now + 1;
+        }
+    }
     const bool left = (PadButtons(nullptr, nullptr) & 4) != 0;
     const bool edge = g_fhPress.load() &&
         ((left && !leftWas && g_fhPress.load() != 2) || FhSealActTick(player, cap, capT, now));
@@ -2520,8 +2559,13 @@ void FormHide4Tick(uint64_t player) {
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) { Log("FormHide=4 end %s", reason); Fh4Restore(player); }
         else {
+            if (g_fh4.seal && now >= g_fh4.nextSealPoll) {  // pc #56435: hooks read this cache instead of walking the actor table per call
+                uint64_t sr = 0;
+                g_fh4.sealRoot = FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) == 1 && Rd(g_fh4.seal + 0x20, sr) ? sr : 0;
+                g_fh4.nextSealPoll = now + 0.1;
+            }
             if (!Fh4Apply(player)) g_fh4Fault.store(true);
-            if (g_fh4.seal) { FormPin(player, g_fh4.seal); Fh4KeepSeal(); }
+            if (g_fh4.seal) { Fh4Timer tm; FormPin(player, g_fh4.seal); Fh4KeepSeal(); }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
                (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
@@ -3522,6 +3566,13 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
             if (g_fs0Mode.load()) PartProbeInstall();
         }
         Log("FormSlot0 (pipe): mode=%d active=%d id=%X restorePending=%d", g_fs0Mode.load(), g_fs0Active.load(), g_fs0Id.load(), g_fs0Restore.load());
+    } else if (!strncmp(p, "fhmode", 6)) {  // pc #56435: live FormHide mode for a same-launch FormHide=0 vs 4 A/B
+        g_fhMode.store(atoi(p + 6));
+        FormHide4Install();
+        Log("FormHide mode (pipe) = %d", g_fhMode.load());
+    } else if (!strncmp(p, "fh4mask", 7)) {  // pc #56435: live A/B of the FormHide=4 writes (bits as [Spirit] FH4Mask)
+        g_fh4Mask.store((int)strtol(p + 7, nullptr, 0));
+        Log("FormHide=4 mask (pipe) = %X", g_fh4Mask.load());
     } else if (!strncmp(p, "off", 3)) {
         g_fs0Restore.store(1);
         g_fkOn.store(0);
@@ -3537,6 +3588,7 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
+    g_scProbes.store(IniInt(L"Spirit", L"Probes", 0));
     g_imgEnd = g_img.end;
     LARGE_INTEGER fq;
     QueryPerformanceFrequency(&fq);
@@ -3612,7 +3664,8 @@ void Register(bool boss, bool rm, bool inv) {
         g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
         g_slLoopEvery = IniInt(L"Spirit", L"SealLoopEveryMs", 4000) / 1000.0;
     }
-    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade, 4=full blend + root multiplier hold
+    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));
+    g_fh4Mask.store(IniInt(L"Spirit", L"FH4Mask", 0x7F));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade, 4=full blend + root multiplier hold
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
@@ -3680,18 +3733,21 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_GSpiritWork", &HkSc<4>);
         OnEntry("ScProbe_AsyncLoad", &HkSc<5>);
         OnEntry("ScProbe_MotionReq", &HkSc<6>);
-        OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
-        OnEntry("ScProbe_786C84", &HkTenshinReq);
-        { void* o = nullptr; const char* w = nullptr; if (InstallCallRetargetAt((uint8_t*)(g_base + 0x74C27F), "call:RefreshFormItemDef", (void*)&HkItemDefForm, &o, &w)) g_itemDefOrig = (void* (*)(void*, uint64_t))o; else Log("TenshinForm: itemdef hook failed: %s", w ? w : "?"); }
-        OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
-        OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
-        OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);
-        OnEntry("SealProbe_65A8A8", &HkSeal<0>);
-        OnEntry("SealProbe_68157C", &HkSeal<1>);
-        OnEntry("SealProbe_5BA648", &HkSeal<2>);
-        OnEntry("SealProbe_322468", &HkSeal<3>);
-        OnEntry("SealProbe_3203EC", &HkSeal<4>);
-        OnEntry("SealProbe_3578E0", &HkChrCreated);
+        // pc #56435: the log-only probes cost FPS (~100 log lines/s); [Spirit] Probes=1 installs them, 0 (default) leaves them out entirely
+        if (g_scProbes.load()) OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
+        if (g_scProbes.load()) OnEntry("ScProbe_786C84", &HkTenshinReq);
+        if (g_scProbes.load()) { void* o = nullptr; const char* w = nullptr; if (InstallCallRetargetAt((uint8_t*)(g_base + 0x74C27F), "call:RefreshFormItemDef", (void*)&HkItemDefForm, &o, &w)) g_itemDefOrig = (void* (*)(void*, uint64_t))o; else Log("TenshinForm: itemdef hook failed: %s", w ? w : "?"); }
+        if (g_scProbes.load()) OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
+        OnEntry("SealProbe_65A8A8", &HkSeal<0>);  // functional: desc[0] for FormKey; its log part is Probes-gated
+        if (g_scProbes.load()) {
+            OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
+            OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);
+            OnEntry("SealProbe_68157C", &HkSeal<1>);
+            OnEntry("SealProbe_5BA648", &HkSeal<2>);
+            OnEntry("SealProbe_322468", &HkSeal<3>);
+            OnEntry("SealProbe_3203EC", &HkSeal<4>);
+            OnEntry("SealProbe_3578E0", &HkChrCreated);
+        }
     }
 }
 
