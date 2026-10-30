@@ -1995,7 +1995,52 @@ void FatTick(uint64_t pchr, double dt) {  // game thread, inside the kick window
         have = true;
     }
 }
+// pc #55327 [Spirit] FormHide=1 - hide+puppet fallback step 1: 0.5 s after the FormSlot0 seal capture call the game's own SetHideModel A550E8(chr, 1)
+// on the player (writes [chr+B440]=1; the part code 3FFFEC/40343C/406EDC and 8591B read that byte; Tenshin end 1AB4C5C uses it) and show it again
+// with A550E8(chr, 0) 20 s later. Logs [chr+B440] before/after. 2 = also pin the seal chr position [+110] to the player's every frame while hidden.
+std::atomic<int> g_fhMode{0};
+void FormHideTick(uint64_t pchr) {
+    static uint64_t done = 0, undone = 0;
+    static double hideT = 0;
+    static int pins = 0;
+    const uint64_t cap = g_fs0CapChr.load();
+    if (!pchr || !cap) return;
+    auto call = [&](uint8_t h) {
+        static const uint8_t want[16] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9, 0xD4, 0x09, 0x00, 0x00};
+        uint8_t b[16] = {};
+        if (!Copy(b, g_base + 0xA550E8, 16) || memcmp(b, want, 16) != 0) { Log("FormHide: A550E8 bytes differ - skipped"); return false; }
+        uint8_t before = 0xFF, after = 0xFF;
+        Rd(pchr + 0xB440, before);
+        bool ok = true;
+        __try {
+            ((void (*)(uint64_t, uint8_t))(g_base + 0xA550E8))(pchr, h);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            ok = false;
+        }
+        Rd(pchr + 0xB440, after);
+        Log("FormHide A550E8(player %llX, %u) ok=%d [chr+B440] %u->%u seal chr %llX t=%.3f", (unsigned long long)pchr, h, ok, before, after,
+            (unsigned long long)cap, Now());
+        return ok;
+    };
+    if (done != cap && Now() - g_fs0CapT >= 0.5) {
+        done = cap;
+        hideT = Now();
+        pins = 0;
+        call(1);
+    }
+    if (done == cap && undone != cap) {
+        if (Now() - hideT >= 20.0) {
+            undone = cap;
+            call(0);
+            Log("FormHide: shown again after 20 s, %d seal pins", pins);
+        } else if (g_fhMode.load() >= 2) {
+            float pos[4] = {};
+            if (Copy(pos, pchr + 0x110, 16) && WrBytes(cap + 0x110, pos, 16)) ++pins;
+        }
+    }
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
+    if (g_fhMode.load()) FormHideTick(pchr);  // pc #55327 FormHide
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
     if (g_fs0Active.load() && cap && kicked != cap && Now() - g_fs0CapT >= 0.3) {
@@ -2657,6 +2702,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
+    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // pc #55327: SetHideModel A550E8 on the player after the seal capture (2 = + pin seal pos)
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
