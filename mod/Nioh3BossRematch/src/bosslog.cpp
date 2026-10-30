@@ -2117,6 +2117,76 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // later adopts the hide. No capture within 2.5 s = not a seal -> restore. FormHideExtra=1: a second seal chr loaded while hidden
 // (EE49E, ~0.5 s after the capture) gets the same hide byte, restored at the end only if it is still in the actor table.
 std::atomic<int> g_fhPress{0}, g_fhExtra{1};
+// pc #55814: pc2's pipe pad never reaches XInputGetState, so PadButtons() misses LEFT. Also fire the press-hide on the seal ACTION: the
+// player's current action id = dword [[ctrl+0xE8]], ctrl = [[pchr+0x3B0]+8] (358528 inlined; Training frame_probe_game.h), read every frame
+// from the 2E6C34 input tick. A change to a seal-use id hides on that frame. Ids: [Spirit] FormHideSealAct (hex list, up to 4) plus one
+// learned live: the action that started 0.6..2.0 s before a seal capture (nearest to the ~1.27 s press->capture gap). FormHideActLog=1 logs
+// every player action change (20/s cap) so the seal id shows in the log.
+std::atomic<uint32_t> g_fhActIds[4];
+std::atomic<int> g_fhActN{0}, g_fhActLog{1}, g_fhActLearn{1};
+std::atomic<uint32_t> g_fhActLearned{0};
+uint32_t PlayerActId(uint64_t pchr) {
+    uint64_t ai = 0, ctrl = 0, p = 0;
+    uint32_t id = 0xFFFFFFFF;
+    if (!pchr || !Rd(pchr + 0x3B0, ai) || !ai || !Rd(ai + 8, ctrl) || !ctrl || !Rd(ctrl + 0xE8, p)) return 0xFFFFFFFF;
+    if (!p) return 0xFFFF;
+    return Rd(p, id) ? id : 0xFFFFFFFF;
+}
+bool FhIsSealAct(uint32_t id) {
+    if (id == 0xFFFF || id == 0xFFFFFFFF || id == 0) return false;
+    if (id == g_fhActLearned.load()) return true;
+    for (int i = 0, n = g_fhActN.load(); i < n; ++i)
+        if (g_fhActIds[i].load() == id) return true;
+    return false;
+}
+// Returns true on the frame the player's action changes to a seal-use id. Keeps a 16-entry start history for the learner.
+bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
+    static uint32_t last = 0xFFFFFFFF;
+    static uint64_t lastChr = 0;
+    static struct { uint32_t id; double t; } hist[16] = {};
+    static int hn = 0;
+    static double learnedFor = -1;
+    static int64_t sec = -1;
+    static int inSec = 0;
+    const uint32_t id = PlayerActId(pchr);
+    if (pchr != lastChr) { lastChr = pchr; last = id; hn = 0; return false; }
+    bool edge = false;
+    if (id != last && id != 0xFFFFFFFF) {
+        const uint32_t prev = last;
+        last = id;
+        hist[hn % 16] = {id, now};
+        ++hn;
+        edge = FhIsSealAct(id);
+        if (g_fhActLog.load()) {
+            if ((int64_t)now != sec) { sec = (int64_t)now; inSec = 0; }
+            if (++inSec <= 20 || edge) Log("FormHide=3 player action 0x%X -> 0x%X%s t=%.3f", prev, id, edge ? " (seal action)" : "", now);
+        }
+    } else if (id == 0xFFFFFFFF) {
+        last = id;
+    }
+    if (g_fhActLearn.load() && cap && capT != learnedFor && now - capT < 1.0) {
+        learnedFor = capT;
+        int best = -1;
+        double bestD = 9;
+        for (int k = 0; k < 16 && k < hn; ++k) {
+            const auto& h = hist[(hn - 1 - k) % 16];
+            const double gap = capT - h.t;
+            if (gap < 0.6 || gap > 2.0 || h.id == 0xFFFF) continue;
+            const double d = gap > 1.27 ? gap - 1.27 : 1.27 - gap;
+            if (d < bestD) { bestD = d; best = (hn - 1 - k) % 16; }
+        }
+        if (best >= 0) {
+            const uint32_t cand = hist[best].id;
+            const bool known = FhIsSealAct(cand);
+            if (!known && !g_fhActLearned.load()) g_fhActLearned.store(cand);
+            Log("FormHide=3 seal action learn: capture %llX, action 0x%X started %.3f s before it (%s) learned=0x%X", (unsigned long long)cap, cand,
+                capT - hist[best].t, known ? "already known" : "new", g_fhActLearned.load());
+        } else {
+            Log("FormHide=3 seal action learn: capture %llX, no player action start 0.6..2.0 s before it", (unsigned long long)cap);
+        }
+    }
+    return edge;
+}
 void FormHideDirectTick(uint64_t pchr) {
     static uint64_t owner = 0, seal = 0, attempted = 0, extra = 0, extraDone = 0, sealAtHide = 0;  // sealAtHide: g_fkSealChr when the seal was bound
     static double attemptedT = -1, hideT = 0, pressT = 0;
@@ -2136,11 +2206,14 @@ void FormHideDirectTick(uint64_t pchr) {
         uint8_t b[sizeof(want)] = {};
         return Copy(b, g_base + 0xA550E8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
     };
-    bool leftEdge = false;
+    bool leftEdge = false, actEdge = false;
     if (g_fhPress.load() && mode == 3) {
         const bool left = (PadButtons(nullptr, nullptr) & 0x0004) != 0;  // XINPUT_GAMEPAD_DPAD_LEFT
-        leftEdge = left && !wasLeft;
+        const bool padEdge = left && !wasLeft;
         wasLeft = left;
+        if (padEdge) Log("FormHide=3 pad LEFT edge (XInput) t=%.3f", now);
+        leftEdge = padEdge && g_fhPress.load() != 2;  // FormHidePress=2: seal action only, the pad edge is logged for timing
+        actEdge = FhSealActTick(pchr, cap, capT, now);  // pc #55814: pad-independent
     }
     if (owner) {
         if (pchr != owner) {
@@ -2201,7 +2274,7 @@ void FormHideDirectTick(uint64_t pchr) {
         if (ok) { owner = 0; g_fhEnd.active = false; }
         return;
     }
-    const bool press = leftEdge && pchr;
+    const bool press = (leftEdge || actEdge) && pchr;
     if (!press && (mode != 3 || !pchr || !cap || now < capT || (attempted == cap && attemptedT == capT))) return;
     if (!press) { attempted = cap; attemptedT = capT; }
     if (!guarded()) { Log("FormHide=3: full 29-byte A550E8 guard differs - skipped"); return; }
@@ -2226,7 +2299,7 @@ void FormHideDirectTick(uint64_t pchr) {
         }
     }
     const bool ok = wrote && Rd(pchr + 0xB440, after) && after == hide;
-    Log("FormHide=3 APPLY (%s) player=%llX saved=%u byte=%u->%u ok=%d seal=%llX untilEnd=%d t=%.3f", press ? "seal press" : "capture",
+    Log("FormHide=3 APPLY (%s) player=%llX saved=%u byte=%u->%u ok=%d seal=%llX untilEnd=%d t=%.3f", press ? (actEdge ? "seal action" : "seal press") : "capture",
         (unsigned long long)pchr, (unsigned)before, (unsigned)before, (unsigned)after, ok, (unsigned long long)(press ? 0 : cap), g_fhUntilEnd.load(), now);
 }
 void FormHideTick(uint64_t pchr) {
@@ -3126,6 +3199,23 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
+    g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
+    g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 1));
+    {
+        wchar_t ab[128] = {};
+        GetPrivateProfileStringW(L"Spirit", L"FormHideSealAct", L"", ab, 128, IniPath());
+        int n = 0;
+        for (wchar_t* p = ab; *p && n < 4;) {
+            while (*p == L',' || *p == L' ') ++p;
+            if (!*p) break;
+            wchar_t* e = nullptr;
+            const unsigned long v = wcstoul(p, &e, 16);
+            if (e == p) break;
+            if (v) g_fhActIds[n++].store((uint32_t)v);
+            p = e;
+        }
+        g_fhActN.store(n);
+    }
     g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
     g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
     {
