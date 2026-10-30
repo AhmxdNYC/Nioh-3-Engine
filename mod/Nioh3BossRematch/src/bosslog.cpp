@@ -2088,10 +2088,42 @@ bool FormHideEndHolding(uint64_t player, uint64_t seal) {
 // [+FormPinRot] (default 0x120: +120 right, +130 up, +140 forward; ally chr dumps #55310) when every row of both chrs is a unit vector,
 // so the yokai turns with the stick. LA can outlive its seal: in end-driven mode never write onto a removed actor.
 std::atomic<int> g_fhRotOff{0x120};
+// pc #55842 [Spirit] FormPinWarp=1 (default): +110 alone is re-driven every frame from the physics controller [[chr+3B0]+30] (ally: 5129B
+// 1.9 m off after 2034 +110 pins). Move it like the game's own warp: CharacterSetPositionYaw 1C27010 = 669AB8(chr, pos, 0) (sets +110 via
+// 3578E0, the controller [[chr+3B0]+30] pos, history +260/+2B0, +340) + rotation rows +120..+14C + [[chr+3B0]+8]+D8 |= 11h. 0 = old +110 write.
+std::atomic<int> g_fhWarp{1};
+static bool FormPinWarpCall(uint64_t cap, const float* pos) {
+    static const uint8_t want[29] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57,
+                                     0x48, 0x83, 0xEC, 0x30, 0x41, 0x8A, 0xE8, 0x48, 0x8B, 0xFA, 0x48, 0x8B, 0xD9};
+    static int guard = -1;
+    if (guard < 0) {
+        uint8_t b[sizeof(want)] = {};
+        guard = Copy(b, g_base + 0x669AB8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
+        Log("FormPinWarp: 669AB8 guard %s", guard ? "ok" : "differs - falling back to the +110 write");
+    }
+    if (!guard) return false;
+    alignas(16) float p[4] = {pos[0], pos[1], pos[2], 1.0f};  // 3578E0 / 669C40 use movaps
+    __try {
+        ((void (*)(uint64_t, float*, uint8_t))(g_base + 0x669AB8))(cap, p, 0);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        guard = 0;
+        Log("FormPinWarp: 669AB8 faulted on chr %llX - disabled", (unsigned long long)cap);
+        return false;
+    }
+    return true;
+}
 bool FormPin(uint64_t pchr, uint64_t cap) {
     if (g_fhUntilEnd.load() && FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 1) return false;
     float pos[4] = {};
-    if (!Copy(pos, pchr + 0x110, 16) || !WrBytes(cap + 0x110, pos, 16)) return false;
+    if (!Copy(pos, pchr + 0x110, 16)) return false;
+    uint64_t ag = g_fhEnd.actorGlobal;  // only call into the game on a chr that is provably still in the actor table
+    if (!ag) {  // FormHideUntilEnd off: same RIP-relative actor manager load as FormHideEndBegin, opcode-checked
+        static const uint8_t mov[3] = {0x48, 0x8B, 0x0D};
+        int32_t rel = 0;
+        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + 0x2BF7F2, rel)) ag = g_base + 0x2BF7F6 + rel;
+    }
+    const bool warped = g_fhWarp.load() && FormHideSealPresent(ag, cap) == 1 && FormPinWarpCall(cap, pos);
+    if (!warped && !WrBytes(cap + 0x110, pos, 16)) return false;
     static uint64_t loggedCap = 0;
     float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
@@ -2103,10 +2135,15 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
             unit = unit && n > 0.98f && n < 1.02f && sn > 0.98f && sn < 1.02f;
         }
         const bool rot = unit && WrBytes(cap + ro, m, sizeof(m));
+        uint64_t comp = 0, xf = 0;
+        if (rot && warped && Rd(cap + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf) {  // 1C27010's transform-dirty mark after the rows
+            uint32_t fl = 0;
+            if (Rd(xf + 0xD8, fl)) { fl |= 0x11; WrBytes(xf + 0xD8, &fl, 4); }
+        }
         if (loggedCap != cap) {
             loggedCap = cap;
-            Log("FormPin first: rot +%X player fwd=%.3f %.3f %.3f seal fwd=%.3f %.3f %.3f copied=%d pos=%.2f %.2f %.2f", ro,
-                m[8], m[9], m[10], sm[8], sm[9], sm[10], rot, pos[0], pos[1], pos[2]);
+            Log("FormPin first: rot +%X player fwd=%.3f %.3f %.3f seal fwd=%.3f %.3f %.3f copied=%d warp=%d pos=%.2f %.2f %.2f", ro,
+                m[8], m[9], m[10], sm[8], sm[9], sm[10], rot, warped, pos[0], pos[1], pos[2]);
         }
     }
     return true;
@@ -3219,6 +3256,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_fhActN.store(n);
     }
     g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
+    g_fhWarp.store(IniInt(L"Spirit", L"FormPinWarp", 1));  // pc #55842: 1 = move via the game's warp setter 669AB8
     g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
     {
         wchar_t kb[128] = {};
