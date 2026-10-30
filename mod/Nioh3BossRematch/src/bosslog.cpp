@@ -1353,7 +1353,9 @@ double g_fs0CapT = 0;
 uint64_t g_fs0Slot[64];
 uint32_t g_fs0Kind[64];
 std::atomic<uint64_t> g_fs0FirstK0{0};
-void Fs0Note(uint64_t slot, uint32_t kind) {  // remember every player part slot (for the cached reset); first kind-0 = lowest address
+void Fs0Note(uint64_t slot, uint32_t kind, uint64_t chr) {  // remember every player part slot (for the cached reset); first kind-0 = lowest address
+    // inside the player chr block (chr+9F0 parts, e.g. chr+A10); ally #55049: the player also stages slots elsewhere (#33 1447453B0) which the
+    // F3478 rebuild never re-stages, and the old global-lowest rule picked that one (0 swaps)
     const LONG n = g_fs0N;
     for (LONG i = 0; i < n && i < 64; ++i)
         if (g_fs0Slot[i] == slot) return;
@@ -1361,7 +1363,7 @@ void Fs0Note(uint64_t slot, uint32_t kind) {  // remember every player part slot
     g_fs0Kind[n] = kind;
     g_fs0Slot[n] = slot;
     InterlockedIncrement(&g_fs0N);
-    if (kind == 0) {
+    if (kind == 0 && slot > chr && slot < chr + 0x40000) {
         uint64_t f = g_fs0FirstK0.load();
         while ((!f || slot < f) && !g_fs0FirstK0.compare_exchange_weak(f, slot)) {}
     }
@@ -1596,7 +1598,7 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
                     g_fs0N, (unsigned long long)g_fs0FirstK0.load(), g_fs0CapT);
             }
         } else if (chr == FkPlayer()) {
-            Fs0Note(slot, kind);
+            Fs0Note(slot, kind, chr);
             if (const uint32_t to = g_fs0Id.load(); to && g_fs0Active.load()) {
                 uint32_t nid = id;
                 if (kind == 0 && slot == g_fs0FirstK0.load()) {
