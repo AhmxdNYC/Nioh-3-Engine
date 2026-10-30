@@ -2207,6 +2207,7 @@ uint32_t g_slKeepOff[8] = {};
 bool g_slKeepExt[8] = {};
 int g_slKeepN = 0;
 double g_slKeepSec = 25;
+double g_slScanAt = 0.3;  // SealLifeScanAtMs: first clock-scan sample after capture
 std::atomic<int> g_slLoop{0};
 uint32_t g_slLoopMotion = 0;
 double g_slLoopAt = 4.0, g_slLoopEvery = 4.0;
@@ -2317,7 +2318,7 @@ void SealLifeTick() {
     if (cap != cap0 || capT != capT0) { cap0 = cap; capT0 = capT; ns = 0; extP = 0; kept = false; }
     if (!cap) return;
     const double dt = now - capT;
-    if (g_slMode.load() && ns < 5 && dt >= 0.3 + ns) {
+    if (g_slMode.load() && ns < 5 && dt >= g_slScanAt + ns) {
         if (ns == 0) Rd(cap + 0x3A0, extP);
         if (FormHideSealPresent(g_fhEnd.actorGlobal ? g_fhEnd.actorGlobal : 0, cap) == 0) { Log("SealLife: seal gone before sample %d", ns); ns = 5; return; }
         SlRead(chr[ns], cap, 0xC000);
@@ -3062,6 +3063,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_slKeepSec = IniInt(L"Spirit", L"SealKeepSec", 25);
         g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
         g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
+        g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
         g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
