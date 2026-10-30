@@ -3982,7 +3982,9 @@ void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input stat
 void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
-    if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || g_fkSealChr.load() == chr) return;
+    // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
+    // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
+    if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || (g_fkSealChr.load() == chr && Now() - g_fkSealT < 1.0)) return;
     g_fkSealMotion.store(motion);
     g_fkSealT = Now();
     g_fkSealChr.store(chr);
