@@ -128,10 +128,6 @@ volatile uint8_t* Start(const StartInfo& info) {
     g_log = info.log;
     if (!g_log || !info.base || !info.iniPath) return nullptr;
     const int want = (int)GetPrivateProfileIntW(L"General", L"AutoContinueLoad", 0, info.iniPath);
-    if (!info.knownBuild) {
-        g_log("AutoContinue: not installed (unknown build; addresses are v2.02)");
-        return nullptr;
-    }
     uint8_t* site = (uint8_t*)(info.base + kSite);
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);

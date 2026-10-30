@@ -1348,7 +1348,7 @@ void ExpValue(int id, char* buf, size_t n, uint32_t& color, uint32_t cGreenC, ui
     }
     const bool changed = g_expIni[e] != x.ini;
     if (x.ini && !x.applied && !changed) {
-        snprintf(buf, n, "%s", g_host.knownBuild ? "failed - see the log" : "v2.02 only");
+        snprintf(buf, n, "%s", g_host.knownBuild ? "failed - see the log" : "not in this update");
         color = cDimC;
         return;
     }

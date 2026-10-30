@@ -361,10 +361,6 @@ void Start(const StartInfo& info) {
     g_log = info.log;
     if (!g_log || !info.base || !info.boot || !info.boot->mode) return;
     g_boot = *info.boot;
-    if (!info.knownBuild) {
-        g_log("AS: v2.02 only - skipped on this build");
-        return;
-    }
     const uintptr_t b = info.base;
     const uint32_t want = (g_boot.added | g_boot.sync) & kSwitchable;
     if (const uint32_t bootOnly = g_boot.added & ~kSwitchable) {

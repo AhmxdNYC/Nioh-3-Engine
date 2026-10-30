@@ -229,10 +229,6 @@ void Start(const StartInfo& info) {
     if (us < 50) us = 50;
     if (us > 1000) us = 1000;
     if (!dq && !pf && !w1b && !rpa) return;
-    if (!info.knownBuild) {
-        g_log("DQ/P1E7/W1B/RPA: v2.02 only - skipped on this build");
-        return;
-    }
     const uintptr_t b = info.base;
     bool wantDq = dq != 0, wantPf = pf != 0, wantW1b = w1b != 0, wantRpa = rpa != 0;
     // W1B: the site holds W1's bytes ([Patches] W1 = 1, the default, applied before this) or the original loop

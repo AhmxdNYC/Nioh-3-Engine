@@ -634,10 +634,6 @@ void Start(const StartInfo& info) {
     const int cbs = Key(L"Patches", L"CBS", 0, ini), cbn = Key(L"Patches", L"CBN", 0, ini), cbt = Key(L"Patches", L"CBT", 0, ini);
     const int stats = Key(L"Profiler", L"CbvStats", 0, ini), rec = Key(L"Profiler", L"CbvRecord", 0, ini);
     if (!cbs && !cbn && !cbt && !stats && rec <= 0 && !Key(L"Patches", L"CBF", 0, ini)) return;
-    if (!info.knownBuild) {
-        g_log("CBU: v2.02 only - not installed");
-        return;
-    }
     const uintptr_t b = info.base;
     bool wantCbs = cbs == 1 || cbs == 2, wantCbn = cbn == 1 || cbn == 2, wantCbt = cbt == 1 || cbt == 2;
     const bool fnOk = Fnv(b, kFlushFn) == kFlushFn.fnv && Fnv(b, kUploadFn) == kUploadFn.fnv && Fnv(b, kDescFn) == kDescFn.fnv &&

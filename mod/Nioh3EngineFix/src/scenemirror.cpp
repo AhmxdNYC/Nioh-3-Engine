@@ -616,11 +616,6 @@ bool Start(const StartInfo& info) {
     Configure(info.iniPath, info.log);
     g_base = info.base;
     if (!Wanted() || !g_base) return false;
-    if (!info.knownBuild) {
-        SLOG("SBM: not installed (unknown build; MeshletSys offsets and the 5D417 site are v2.02)");
-        g_mode = g_probe = 0;
-        return false;
-    }
     uint8_t* site = (uint8_t*)(g_base + kSite);
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);

@@ -322,7 +322,6 @@ bool Start(const StartInfo& info) {
     if (!info.iniPath) return false;
     const int lm = (int)GetPrivateProfileIntW(L"Memory", L"LM", 0, info.iniPath);
     if (!lm) return false;
-    if (!info.knownBuild) { LLOG("LM: unknown build - not started"); return false; }
     g_base = info.base;
     QueryPerformanceFrequency(&g_qpf);
     if (!CodeLooksRight()) { LLOG("LM: _Mtx_lock/_Mtx_unlock bytes differ from v2.02 - not started"); return false; }

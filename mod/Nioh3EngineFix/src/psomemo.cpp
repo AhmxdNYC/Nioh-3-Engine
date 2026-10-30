@@ -182,10 +182,6 @@ void Start(const StartInfo& info) {
     if (!info.iniPath || !info.base) return;
     const int pm = (int)GetPrivateProfileIntW(L"Patches", L"PCM", 0, info.iniPath);
     if (pm != 1 && pm != 2) return;
-    if (!info.knownBuild) {
-        PLOG("PCM: not installed (unknown build; the 1196BD site is v2.02)");
-        return;
-    }
     uint8_t* site = (uint8_t*)(info.base + kSite);
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);

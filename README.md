@@ -11,10 +11,10 @@ Open-source engine fixes, boss practice add-ons and reverse-engineering research
 
 ## Features
 
-Everything works in the game's memory while it runs. Close the game and it is gone; the mods check the game build and
-do nothing on any version other than 2.02.
+Everything works in the game's memory while it runs. Close the game and it is gone. Each patch turns on only when its
+own bytes are in that game file. A patch whose bytes moved stays off.
 
-**Nioh3EngineFix** (engine fix, [`mod/Nioh3EngineFix/`](mod/Nioh3EngineFix/), version 1.7.86 in this source)
+**Nioh3EngineFix** (engine fix, [`mod/Nioh3EngineFix/`](mod/Nioh3EngineFix/), version 1.7.87 in this source)
 - **Real game speed when the update thread is CPU-limited.** Stock Nioh 3 slows the game down when its update thread
   cannot keep the cap's tick rate (CPU-limited; e.g. 108 ticks/s at the 120 cap = 90 % speed). When only the GPU limits,
   stock already runs at full speed (the update thread paces itself; you see uneven ticks per frame, not slow motion) and

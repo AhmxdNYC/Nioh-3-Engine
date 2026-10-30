@@ -175,10 +175,6 @@ void Start(const StartInfo& info) {
         if (strncmp(why, "default", 7) != 0) g_log("BootNotice: off (%s = 0) - the boot notices are stock", why);
         return;
     }
-    if (!info.knownBuild) {
-        g_log("BootNotice: not installed (unknown build; addresses are v2.02)");
-        return;
-    }
     const uint8_t* seq = (const uint8_t*)(info.base + kSeqAt);
     if (memcmp(seq, kSeqBytes, sizeof(kSeqBytes)) != 0 || memcmp((const void*)(info.base + kFree), kFreeBytes, sizeof(kFreeBytes)) != 0) {
         g_log("BootNotice: not installed (boot sequencer code bytes differ - another patch or build)");

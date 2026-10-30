@@ -139,7 +139,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.7.86"
+#define MOD_VERSION "1.7.87"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1533,10 +1533,8 @@ DWORD WINAPI Worker(LPVOID) {
     const bool known = nt->FileHeader.TimeDateStamp == gen::kBuildTimestamp && nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage;
     Log("Nioh3.exe at %p: TimeDateStamp %08lX SizeOfImage %zX -> %s", g_base, nt->FileHeader.TimeDateStamp, g_imageSize,
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
-    if (!known && !cfg.allowUnknownBuild) {
-        Log("refusing to patch an unknown build (set [General] AllowUnknownBuild=1 to try pattern-only matching at your own risk)");
-        return 0;
-    }
+    if (!known)
+        Log("unknown build: each patch is installed only when its own bytes match; a raw address with no byte check stays off");
 
     // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
     if (known) {
@@ -1722,8 +1720,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "L1")) return cfg.l1 != 0;
         if (!strcmp(g, "FG")) return cfg.fg != 0;
         if (!strcmp(g, "WK")) return cfg.wk != 0 || (cfg.wakeStats != 0 && known);  // WakeStats splits the checks here
-        // experimental (known build only)
-        if (!known) return false;
+        // experimental: a group installs only when its own bytes match (DepsOk). knownBuild is not required.
         if (!strcmp(g, "B")) return cfg.b != 0;
         if (!strcmp(g, "PP")) return cfg.pp != 0;
         if (!strcmp(g, "FPC")) return cfg.fpc != 0;
@@ -1953,10 +1950,6 @@ DWORD WINAPI Worker(LPVOID) {
     auto calleeOf = [](uint8_t* a) { return (uintptr_t)(a + 5 + *(int32_t*)(a + 1)); };  // E8 rel32 at a
     auto expGroup = [&](const char* g, bool want, const std::function<bool()>& prep) -> bool {
         if (!want) return false;
-        if (!known) {
-            Log("%s: experimental patch, v2.02 only - skipped on this build", g);
-            return false;
-        }
         auto v = collect(g);
         bool ok = allFound(v) && g_near != nullptr && DepsOk(g);
         if (ok && prep) ok = prep();
@@ -2524,7 +2517,7 @@ DWORD WINAPI Worker(LPVOID) {
         s_gpCodeOk = ok;
         Log("GP: engine marker code %s (%zu check sites, deps, token table)", ok ? "verified" : "NOT as expected - GP off", v.size());
     } else if (cfg.gpuProf || cfg.gpuMarkers) {
-        Log("GP: v2.02 only - off");
+        Log("GP: not in this update - off");
     }
     // ---- 1.7.40 JT: job-timing / logic-join probe (jt.cpp, jt.asm; notes\gq-jt-probes.md). Measurement only.
     if (expGroup("JT", cfg.jt != 0, [&]() {
