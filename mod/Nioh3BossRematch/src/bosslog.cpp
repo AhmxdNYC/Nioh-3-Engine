@@ -5,6 +5,7 @@
 #include "addon.h"
 
 #include <intrin.h>
+#include <tlhelp32.h>
 
 #include <atomic>
 #include <cstdint>
@@ -1384,7 +1385,128 @@ void PpLogF3(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9, uint64_t ret
         (unsigned long long)(ret - g_base - 5), PpWho(chr, pl), (unsigned long long)chr, key >> 4, (unsigned long long)slot, kind, cached, id,
         (unsigned)(r9 & 0xFF), Now());
 }
+// pc #54925: [Spirit] SlotWatch=1 - hardware write watch on a staged player kind-0 slot (DR0 = byte [slot+2F8] pending flag, DR1 = dword
+// [slot+40] pending id) on every thread for 4 s; the VEH records each writer (RIP after the write + 6 unwound frames). Armed once at boot
+// (the first real player kind-0 staging, chrId 0x64 = the normal flow) and once after the FormSlot0 apply. The writer that CLEARS +2F8 = commit.
+std::atomic<int> g_swMode{0};
+struct SwHit { uint64_t addr, fr[7]; uint32_t v40; uint8_t f2f8; double t; };
+SwHit g_swHits[96];
+volatile LONG g_swN = 0, g_swBusy = 0;
+volatile uint64_t g_swSlot = 0;
+PVOID g_swVeh = nullptr;
+LONG CALLBACK SwVeh(EXCEPTION_POINTERS* e) {
+    if (e->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP) return EXCEPTION_CONTINUE_SEARCH;
+    CONTEXT* c = e->ContextRecord;
+    const uint64_t dr6 = c->Dr6, slot = g_swSlot;
+    if (!(dr6 & 3) || !slot) return EXCEPTION_CONTINUE_SEARCH;
+    const LONG i = InterlockedIncrement(&g_swN) - 1;
+    if (i < 96) {
+        SwHit& h = g_swHits[i];
+        h.addr = (dr6 & 1) ? slot + 0x2F8 : slot + 0x40;
+        h.t = Now();
+        Rd(slot + 0x40, h.v40);
+        Rd(slot + 0x2F8, h.f2f8);
+        for (int f = 0; f < 7; ++f) h.fr[f] = 0;
+        CONTEXT k = *c;
+        for (int f = 0; f < 7; ++f) {
+            h.fr[f] = k.Rip;
+            DWORD64 ib = 0;
+            PRUNTIME_FUNCTION rf = RtlLookupFunctionEntry(k.Rip, &ib, nullptr);
+            if (!rf) {
+                uint64_t r = 0;
+                if (!Rd(k.Rsp, r)) break;
+                k.Rip = r;
+                k.Rsp += 8;
+            } else {
+                PVOID hd = nullptr;
+                DWORD64 ef = 0;
+                RtlVirtualUnwind(UNW_FLAG_NHANDLER, ib, k.Rip, rf, &k, &hd, &ef, nullptr);
+            }
+            if (!k.Rip) break;
+        }
+    }
+    c->Dr6 = 0;
+    return EXCEPTION_CONTINUE_EXECUTION;
+}
+int SwSetAll(bool on, uint64_t slot) {
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return -1;
+    THREADENTRY32 te{};
+    te.dwSize = sizeof(te);
+    const DWORD pid = GetCurrentProcessId(), me = GetCurrentThreadId();
+    int n = 0;
+    for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+        if (te.th32OwnerProcessID != pid || te.th32ThreadID == me) continue;
+        HANDLE h = OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT | THREAD_SUSPEND_RESUME, FALSE, te.th32ThreadID);
+        if (!h) continue;
+        if (SuspendThread(h) != (DWORD)-1) {
+            CONTEXT c{};
+            c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+            if (GetThreadContext(h, &c)) {
+                c.Dr7 &= ~0x00FF000Full;
+                if (on) {
+                    c.Dr0 = slot + 0x2F8;
+                    c.Dr1 = slot + 0x40;
+                    c.Dr7 |= 1ull | 4ull | (1ull << 16) | (1ull << 20) | (3ull << 22);  // L0 L1; RW0=write LEN0=1 byte; RW1=write LEN1=4 bytes
+                } else {
+                    c.Dr0 = c.Dr1 = 0;
+                }
+                if (SetThreadContext(h, &c)) ++n;
+            }
+            ResumeThread(h);
+        }
+        CloseHandle(h);
+    }
+    CloseHandle(snap);
+    return n;
+}
+DWORD WINAPI SwThread(LPVOID tagp) {
+    const char* tag = (const char*)tagp;
+    const uint64_t slot = g_swSlot;
+    Sleep(2);  // let the arming F3D78 call finish its own staging writes
+    if (!g_swVeh) g_swVeh = AddVectoredExceptionHandler(1, &SwVeh);
+    InterlockedExchange(&g_swN, 0);
+    uint32_t v40 = 0;
+    uint8_t f = 0;
+    Rd(slot + 0x40, v40);
+    Rd(slot + 0x2F8, f);
+    const int n = SwSetAll(true, slot);
+    Log("SlotWatch %s ARMED slot=%llX on %d threads ([slot+2F8]=%u [slot+40]=%X) t=%.3f", tag, (unsigned long long)slot, n, f, v40, Now());
+    Sleep(4000);
+    const int m = SwSetAll(false, slot);
+    const LONG hits = g_swN;
+    Log("SlotWatch %s DISARMED (%d threads) hits=%ld", tag, m, hits);
+    for (LONG i = 0; i < hits && i < 96; ++i) {
+        const SwHit& h = g_swHits[i];
+        char fr[256];
+        int o = 0;
+        fr[0] = 0;
+        for (int k = 0; k < 7 && h.fr[k] && o < 200; ++k) {
+            const uint64_t a = h.fr[k];
+            if (a >= g_base && a < g_base + 0x8000000) o += sprintf_s(fr + o, sizeof(fr) - o, " +%llX", (unsigned long long)(a - g_base));
+            else o += sprintf_s(fr + o, sizeof(fr) - o, " %llX", (unsigned long long)a);
+        }
+        Log("SlotWatch %s hit #%ld write %s -> now +2F8=%u +40=%X t=%.3f rip+stack:%s", tag, i, h.addr == slot + 0x2F8 ? "+2F8" : "+40", h.f2f8, h.v40, h.t, fr);
+    }
+    g_swSlot = 0;
+    InterlockedExchange(&g_swBusy, 0);
+    return 0;
+}
+void SwArm(uint64_t slot, const char* tag) {
+    if (!g_swMode.load() || !slot || InterlockedCompareExchange(&g_swBusy, 1, 0) != 0) return;
+    g_swSlot = slot;
+    HANDLE t = CreateThread(nullptr, 0, &SwThread, (LPVOID)tag, 0, nullptr);
+    if (t) CloseHandle(t);
+    else { g_swSlot = 0; InterlockedExchange(&g_swBusy, 0); }
+}
 uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
+    if (g_swMode.load() && id != 0xFFFFFFFF && chr) {
+        static bool bootArmed = false;
+        uint32_t kind = 0xFFFFFFFF, key = 0;
+        Rd(slot, kind);
+        Rd(chr, key);
+        if (!bootArmed && kind == 0 && (key >> 4) == 0x64) { bootArmed = true; SwArm(slot, "boot"); }
+    }
     if (g_ppOn.load()) PpLogF3(slot, id, chr, r9, (uint64_t)_ReturnAddress());
     if (const int m = g_fs0Mode.load(); m && chr) {
         uint32_t kind = 0xFFFFFFFF;
@@ -1423,6 +1545,16 @@ uint64_t HkPp2C4450(uint64_t chr, uint32_t kind, uint32_t st, uint64_t r9) {
             Rd(chr, key);
             Rd(chr + 0x20, c20);
             Rd(chr + 0x1FC, c1fc);
+            void* bt[8] = {};
+            const USHORT nb = RtlCaptureStackBackTrace(1, 8, bt, nullptr);
+            char st2[160];
+            int o = 0;
+            st2[0] = 0;
+            for (USHORT k = 0; k < nb && o < 140; ++k) {
+                const uint64_t a = (uint64_t)bt[k];
+                if (a >= g_base && a < g_base + 0x8000000) o += sprintf_s(st2 + o, sizeof(st2) - o, " +%llX", (unsigned long long)(a - g_base));
+            }
+            Log("PartProbe 2C4450 #%ld stack:%s", n, st2);
             Log("PartProbe 2C4450 #%ld site=+%llX who=%s chr=%llX chrId=%X kind(edx)=%X r8d=%X [chr+20]=%X [chr+1FC]=%X%s t=%.3f", n,
                 (unsigned long long)((uint64_t)_ReturnAddress() - g_base - 5), PpWho(chr, pl), (unsigned long long)chr, key >> 4, kind, st, c20, c1fc,
                 c1fc == kind ? " (skip: same)" : "", Now());
@@ -1504,6 +1636,7 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
     if (g_fs0Active.load() && cap && kicked != cap && Now() - g_fs0CapT >= 0.3) {
         kicked = cap;
         Fs0Reload(pchr, "player after FormSlot0 apply");
+        SwArm(g_fs0FirstK0.load(), "after-apply");
     }
     const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
     if (g_fs0Restore.exchange(0) || timeout) {
@@ -1914,7 +2047,7 @@ bool FormKeyInstall() {
         else if (InstallCallRetargetAt(p, "call:FormPart47F3D78", (void*)&HkPart47, &g_fkPartOrig, &w)) Log("FormKey: part-47 hook on +F38AE (FormPart=%d)", g_fkPartMode.load());
         else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
     }
-    if (g_ppOn.load() || g_fs0Mode.load()) PartProbeInstall();
+    if (g_ppOn.load() || g_fs0Mode.load() || g_swMode.load()) PartProbeInstall();
     ok = grp && n > 0;
     return ok;
 }
@@ -1990,6 +2123,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
     g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));
     g_ppOn.store(IniInt(L"Spirit", L"PartProbe", 0));
+    g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
