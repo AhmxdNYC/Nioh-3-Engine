@@ -2100,6 +2100,108 @@ uint64_t FkPlayer() {
     uint64_t pt = 0, pl = 0;
     return G_PTAB && Rd(G_PTAB, pt) && pt && Rd(pt + 0xCD * 0x18, pl) ? pl : 0;
 }
+// pc #55219 [Spirit] EquipDiff=1, log only: which player structure changes when one armor piece is equipped. A side thread snapshots every
+// 250 ms: player chr 0..0x10000 (incl. the chr+9F0 part slots and the part-46 slot at ~chr+9F90), appearance blk [chr+560] 0..0x840, and the
+// first 0x400 of every object pointer found at slot+10 for the 64 slots after chr+A10 (stride 0x340). Trigger = blk dword +814 goes 0 -> !0 or
+// the record blk+C..+53C changes. before = snapshot 0.5 s before the trigger, after = 2 s after it; noise = offsets that also differ between two
+// pre-trigger snapshots (0.75 s / 0.5 s before). Logs every non-noise differing qword (cap 500 lines per trigger, 3 triggers).
+struct EdSnap { uint64_t chr, blk; double t; uint8_t c[0x10000]; uint8_t b[0x840]; uint64_t obj[64]; uint8_t o[64][0x400]; };
+static EdSnap* g_edRing = nullptr;  // 4 entries
+std::atomic<int> g_edMode{0};
+static void EdTake(EdSnap& s, uint64_t chr) {
+    s.chr = chr;
+    s.t = Now();
+    s.blk = 0;
+    Rd(chr + 0x560, s.blk);
+    if (!Copy(s.c, chr, sizeof(s.c))) memset(s.c, 0, sizeof(s.c));
+    if (!s.blk || !Copy(s.b, s.blk, sizeof(s.b))) memset(s.b, 0, sizeof(s.b));
+    for (int i = 0; i < 64; ++i) {
+        s.obj[i] = 0;
+        Rd(chr + 0xA10 + (uint64_t)i * 0x340 + 0x10, s.obj[i]);
+        if (!s.obj[i] || !Copy(s.o[i], s.obj[i], 0x400)) memset(s.o[i], 0, 0x400);
+    }
+}
+static uint32_t EdRecHash(const EdSnap& s) {
+    uint32_t h = 2166136261u;
+    for (int i = 0xC; i < 0x53C; ++i) h = (h ^ s.b[i]) * 16777619u;
+    return h;
+}
+static int EdDiff(const char* tag, const uint8_t* a, const uint8_t* b, const uint8_t* n0, const uint8_t* n1, size_t len, uint64_t base, int budget) {
+    int lines = 0, noisy = 0, diffs = 0;
+    for (size_t off = 0; off + 8 <= len; off += 8) {
+        if (!memcmp(a + off, b + off, 8)) continue;
+        if (memcmp(n0 + off, n1 + off, 8)) { ++noisy; continue; }
+        ++diffs;
+        if (lines < budget) {
+            uint64_t x, y;
+            memcpy(&x, a + off, 8);
+            memcpy(&y, b + off, 8);
+            Log("EquipDiff %s +%05zX (%llX): %016llX -> %016llX", tag, off, (unsigned long long)(base + off), (unsigned long long)x, (unsigned long long)y);
+            ++lines;
+        }
+    }
+    Log("EquipDiff %s: %d changed qwords (%d logged), %d noisy skipped", tag, diffs, lines, noisy);
+    return lines;
+}
+DWORD WINAPI EdThread(LPVOID) {
+    g_edRing = (EdSnap*)VirtualAlloc(nullptr, sizeof(EdSnap) * 6, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!g_edRing) { Log("EquipDiff: no memory"); return 0; }
+    EdSnap* after = g_edRing + 4;
+    EdSnap* tmp = g_edRing + 5;
+    int n = 0, triggers = 0;
+    uint32_t lastDirty = 0, lastHash = 0;
+    bool haveHash = false;
+    Log("EquipDiff: armed (snapshot every 250 ms, trigger = blk+814 0->!0 or record change)");
+    while (triggers < 3) {
+        Sleep(250);
+        const uint64_t chr = FkPlayer();
+        if (!chr) { n = 0; haveHash = false; continue; }
+        EdSnap& cur = g_edRing[n % 4];
+        EdTake(cur, chr);
+        ++n;
+        uint32_t dirty = 0;
+        memcpy(&dirty, cur.b + 0x814, 4);
+        const uint32_t h = EdRecHash(cur);
+        const bool trig = n > 4 && cur.blk && ((dirty && !lastDirty) || (haveHash && h != lastHash));
+        const uint32_t ld = lastDirty, lh = lastHash;
+        lastDirty = dirty;
+        lastHash = h;
+        haveHash = cur.blk != 0;
+        if (!trig) continue;
+        ++triggers;
+        // ring: cur = n-1, before = n-3 (0.5 s), noise pair = n-4 (0.75 s) vs n-3
+        EdSnap& before = g_edRing[(n - 3) % 4];
+        EdSnap& old = g_edRing[(n - 4) % 4];
+        Log("EquipDiff TRIGGER #%d chr=%llX blk=%llX +814 %08X -> %08X rec hash %08X -> %08X t=%.3f (before t=%.3f)", triggers, (unsigned long long)chr,
+            (unsigned long long)cur.blk, ld, dirty, lh, h, cur.t, before.t);
+        Sleep(2000);
+        EdTake(*after, chr);
+        if (after->chr != before.chr) { Log("EquipDiff: player chr changed, skipped"); continue; }
+        int budget = 500;
+        budget -= EdDiff("CHR", before.c, after->c, old.c, before.c, sizeof(before.c), chr, budget);
+        budget -= EdDiff("BLK", before.b, after->b, old.b, before.b, sizeof(before.b), before.blk, budget > 0 ? budget : 0);
+        for (int i = 0; i < 64 && budget > 0; ++i) {
+            if (before.obj[i] != after->obj[i]) {
+                Log("EquipDiff SLOT %d (+%X) obj %llX -> %llX", i, 0xA10 + i * 0x340, (unsigned long long)before.obj[i], (unsigned long long)after->obj[i]);
+                --budget;
+            } else if (before.obj[i]) {
+                char tg[32];
+                snprintf(tg, sizeof(tg), "SLOT%d.OBJ", i);
+                budget -= EdDiff(tg, before.o[i], after->o[i], old.o[i], before.o[i], 0x400, before.obj[i], budget);
+            }
+        }
+        (void)tmp;
+        n = 0;  // rebuild the baseline ring
+    }
+    Log("EquipDiff: done (%d triggers)", triggers);
+    return 0;
+}
+void EdStart() {
+    if (!g_base) g_base = g_img.base;
+    if (!G_PTAB) G_PTAB = Site("g:PlayerTab");
+    HANDLE t = CreateThread(nullptr, 0, &EdThread, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+}
 struct FkChr {
     uint64_t chr, M, m8, m10, key, gkey, model, pack;
     uint32_t w0, idx;
@@ -2544,6 +2646,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
+    if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
     g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
