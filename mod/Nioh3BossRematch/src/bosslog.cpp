@@ -1866,6 +1866,102 @@ void FcTick(uint64_t pchr, double dt) {  // game thread, inside the kick window
             (unsigned long long)s, b.st, a.st, b.f8, a.f8, b.f9, a.f9, b.v40, a.v40, b.v20, a.v20, (unsigned long long)b.p10, (unsigned long long)a.p10,
             (unsigned long long)b.p328, (unsigned long long)a.p328, dt);
 }
+// pc #55111: [Spirit] FormAttach=1 - FormCommit showed the forced 3FD37C(player,1,0) commits the staged slot through the state-0 fast path only
+// (+20=40244A, new [slot+10], state stays 0), so 903088 (state 1: mesh create/attach, +3FE010) and 2C5FBC (state 2, +3FDE7C) never run for the
+// player. FormAttach: for dt 0.35..2.5 s after capture call 3FD37C(player,1,0) once per frame; once the slot holds the seal id (+20) with no
+// stage pending, copy the seal slot's load request [+60..+7F] ({id,+68,+70,+78}, what state 1 hands 3FE9D0 / 903088) into the player slot and set
+// state [+18]=1, so the next ticks take the slow path 1 -> 2 -> 3 -> 4. Logs every player slot change and the 903088 / 2C5FBC calls in the window.
+std::atomic<int> g_fatMode{0};
+std::atomic<int> g_fatWin{0};
+void* g_fat903Orig = nullptr;
+void* g_fat2C5Orig = nullptr;
+volatile LONG g_fatLines = 0;
+uint64_t HkFat903088(uint64_t slot, uint64_t rdx, uint64_t r8, uint64_t r9, uint64_t a5) {
+    const bool pl = slot && slot == g_fs0FirstK0.load();
+    if ((pl || g_fatWin.load()) && InterlockedIncrement(&g_fatLines) <= 200) {
+        uint32_t rid = 0;
+        Rd(r9, rid);
+        Log("FormAttach 903088 slot=%llX%s rdx=%llX chr(r8)=%llX req.id=%X t=%.3f", (unsigned long long)slot, pl ? " PLAYER" : "", (unsigned long long)rdx,
+            (unsigned long long)r8, rid, Now());
+    }
+    const uint64_t r = ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))g_fat903Orig)(slot, rdx, r8, r9, a5);
+    if (pl && InterlockedIncrement(&g_fatLines) <= 200) {
+        uint64_t p10 = 0;
+        uint32_t st = 0;
+        Rd(slot + 0x10, p10);
+        Rd(slot + 0x18, st);
+        Log("FormAttach 903088 PLAYER returned %llX -> +10=%llX state=%u t=%.3f", (unsigned long long)r, (unsigned long long)p10, st, Now());
+    }
+    return r;
+}
+uint64_t HkFat2C5FBC(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f) {
+    if (g_fatWin.load() && InterlockedIncrement(&g_fatLines) <= 200)
+        Log("FormAttach 2C5FBC (state 2) rcx=%llX rdx=%llX r8=%llX r9=%llX t=%.3f", (unsigned long long)a, (unsigned long long)b, (unsigned long long)c,
+            (unsigned long long)d, Now());
+    return ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))g_fat2C5Orig)(a, b, c, d, e, f);
+}
+void FormAttachInstall() {
+    static std::atomic<int> done{0};
+    if (done.exchange(1)) return;
+    if (!g_base) g_base = g_img.base;
+    auto one = [&](uint32_t rva, uint32_t tgt, void* fn, void** orig, const char* name) {
+        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + tgt) { Log("FormAttach: +%X is not 'call %X' - skipped", rva, tgt); return false; }
+        const char* w = nullptr;
+        if (!InstallCallRetargetAt(p, name, fn, orig, &w)) { Log("FormAttach: +%X failed: %s", rva, w ? w : "?"); return false; }
+        return true;
+    };
+    const bool a = one(0x3FE010, 0x903088, (void*)&HkFat903088, &g_fat903Orig, "call:FormAttach903088");
+    const bool b = one(0x3FDE7C, 0x2C5FBC, (void*)&HkFat2C5FBC, &g_fat2C5Orig, "call:FormAttach2C5FBC");
+    Log("FormAttach: hooks 903088@+3FE010=%d 2C5FBC@+3FDE7C=%d", a, b);
+}
+void FatTick(uint64_t pchr, double dt) {  // game thread, inside the kick window
+    static uint64_t lastCap = 0;
+    static int frames = 0, faults = 0, forced = 0;
+    static FcSnap last;
+    static bool have = false;
+    const uint64_t cap = g_fs0CapChr.load();
+    const uint64_t s = g_fs0FirstK0.load(), ss = g_spSealSlot.load();
+    if (cap != lastCap) { lastCap = cap; frames = faults = forced = 0; have = false; }
+    if (dt < 0.35 || dt > 2.5 || frames >= 400) {
+        if (g_fatWin.exchange(0) && dt > 2.5) {
+            FcSnap a;
+            FcRead(s, a);
+            Log("FormAttach done: %d forced ticks, %d faults, state-1 forced=%d; final player slot state=%u +20=%X +40=%X +10=%llX +328=%llX t=%.3f", frames, faults,
+                forced, a.st, a.v20, a.v40, (unsigned long long)a.p10, (unsigned long long)a.p328, Now());
+        }
+        return;
+    }
+    g_fatWin.store(1);
+    if (!FcCall(pchr)) ++faults;
+    ++frames;
+    FcSnap a;
+    FcRead(s, a);
+    if (!forced && s && ss && a.v20 == g_fs0Id.load() && a.f8 == 0 && a.st == 0) {
+        uint8_t mine[0x20] = {}, seal[0x20] = {};
+        Copy(mine, s + 0x60, 0x20);
+        const bool rs = Copy(seal, ss + 0x60, 0x20);
+        uint32_t sst = 0;
+        Rd(ss + 0x18, sst);
+        const bool w1 = rs && WrBytes(s + 0x60, seal, 0x20);
+        const bool w2 = w1 && WrU32(s + 0x18, 1);
+        forced = 1;
+        Log("FormAttach FORCE state 1: player slot %llX req[+60] was id=%X +68=%X +70=%llX +78=%X -> seal slot %llX (state %u) id=%X +68=%X +70=%llX +78=%X; copy=%d state=1 w=%d dt=%.3f",
+            (unsigned long long)s, *(uint32_t*)mine, *(uint32_t*)(mine + 8), (unsigned long long)*(uint64_t*)(mine + 0x10), *(uint32_t*)(mine + 0x18),
+            (unsigned long long)ss, sst, *(uint32_t*)seal, *(uint32_t*)(seal + 8), (unsigned long long)*(uint64_t*)(seal + 0x10), *(uint32_t*)(seal + 0x18), w1, w2, dt);
+        FcRead(s, a);
+    }
+    if (!have || memcmp(&a, &last, sizeof(a)) != 0) {
+        if (InterlockedIncrement(&g_fatLines) <= 200)
+            Log("FormAttach tick #%d player slot state=%u +2F8=%u +2F9=%u +40=%X +20=%X +10=%llX +328=%llX dt=%.3f", frames, a.st, a.f8, a.f9, a.v40, a.v20,
+                (unsigned long long)a.p10, (unsigned long long)a.p328, dt);
+        last = a;
+        have = true;
+    }
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
@@ -1883,6 +1979,7 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
             if (fa2 != cap && dt >= 1.3) { fa2 = cap; FaApply(pchr, 2); }
         }
         if (g_fcMode.load() && g_fs0Active.load() && cap && kicked == cap) FcTick(pchr, dt);  // pc #55034 FormCommit
+        if (g_fatMode.load() && g_fs0Active.load() && cap && kicked == cap) FatTick(pchr, dt);  // pc #55111 FormAttach
     }
     const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
     if (g_fs0Restore.exchange(0) || timeout) {
@@ -2295,6 +2392,7 @@ bool FormKeyInstall() {
     }
     if (g_ppOn.load() || g_fs0Mode.load() || g_swMode.load()) PartProbeInstall();
     if (g_fcMode.load()) FormCommitInstall();
+    if (g_fatMode.load()) FormAttachInstall();
     ok = grp && n > 0;
     return ok;
 }
@@ -2374,6 +2472,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
+    g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
     g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
