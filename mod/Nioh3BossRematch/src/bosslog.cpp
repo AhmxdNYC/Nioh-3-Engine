@@ -2286,6 +2286,23 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     const float zero = 0;
     return WrBytes(root + 0x3A8, &zero, 4) && WrBytes(root + 0x248, &zero, 4);
 }
+// pc #56223: the seal yokai fades itself out ~5 s after its spawn: its own model root fade [[seal+20]+248] goes 1 -> 0 at +5.0..+5.5 s
+// (ally trace, B440/B444/+3A8 of the seal never change), then it asks for despawn at +5.7 s (held by SealDefer). Nobody was visible from
+// then until the SealDefer deadline. [Spirit] FormSealKeep=1 (default) holds the seal root +248 at 1.0 while FormHide=4 owns a captured
+// seal that is still in the actor table, with its own root (never the player's).
+std::atomic<int> g_fhSealKeep{1};
+void Fh4KeepSeal() {
+    if (!g_fhSealKeep.load() || !g_fh4.owner || !g_fh4.seal) return;
+    if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1) return;
+    uint64_t sr = 0; float k6 = 0;
+    if (!Rd(g_fh4.seal + 0x20, sr) || !sr || sr == g_fh4.root || !Rd(sr + 0x248, k6) || !std::isfinite(k6) || k6 == 1.f) return;
+    const float one = 1.f;
+    if (WrBytes(sr + 0x248, &one, 4)) {
+        static uint64_t logged = 0;
+        if (logged != g_fh4.seal && k6 < 0.99f) { logged = g_fh4.seal; Log("FormSealKeep: seal %llX root %llX fade %.3f -> 1 (held until the form ends) t=%.3f",
+            (unsigned long long)g_fh4.seal, (unsigned long long)sr, k6, Now()); }
+    }
+}
 bool Fh4Apply(uint64_t chr) {
     if (!chr || chr != g_fh4.owner || chr != FkPlayer()) return false;
     uint64_t root = 0;
@@ -2306,6 +2323,7 @@ void HkFh4Parts(uint64_t chr) {
 void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
     AcquireSRWLockExclusive(&g_fh4Lock);
+    if (g_fh4.owner && g_fh4.seal && chr == g_fh4.seal) Fh4KeepSeal();
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4ClampRoot(chr, root, true)) g_fh4Fault.store(true);
     ReleaseSRWLockExclusive(&g_fh4Lock);
 }
@@ -2442,7 +2460,7 @@ void FormHide4Tick(uint64_t player) {
         if (reason) { Log("FormHide=4 end %s", reason); Fh4Restore(player); }
         else {
             if (!Fh4Apply(player)) g_fh4Fault.store(true);
-            if (g_fh4.seal) FormPin(player, g_fh4.seal);
+            if (g_fh4.seal) { FormPin(player, g_fh4.seal); Fh4KeepSeal(); }
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
                (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
@@ -3483,6 +3501,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
+    g_fhSealKeep.store(IniInt(L"Spirit", L"FormSealKeep", 1));
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
