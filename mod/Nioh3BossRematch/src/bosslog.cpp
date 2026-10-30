@@ -1728,6 +1728,7 @@ void Fs0Reload(uint64_t pchr, const char* why) {  // the game's reload trigger o
 // player's first kind-0 slot object [slot+10] (player chr if that is null); 2: target = the player chr. Two tries: 0.1 s and 1.0 s after the
 // rebuild. Logs the slot state, target id ([obj]>>4), +1FC before/after and [slot+10] after.
 std::atomic<int> g_faMode{0};
+std::atomic<int> g_foxMode{0};  // ally #55149 FormObjFix
 bool FaCall(uint64_t obj) {
     __try {
         ((void (*)(uint64_t, uint32_t, uint32_t))(g_base + 0x2C4450))(obj, 0, 0xFFFFFFFFu);
@@ -1970,6 +1971,35 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
         Fs0Reload(pchr, "player after FormSlot0 apply");
         SwArm(g_fs0FirstK0.load(), "after-apply");
         SpArm();
+    }
+    {   // ally #55149 [Spirit] FormObjFix=1: 0.6 s after the capture (the player kind-0 slot has committed its own 40244A obj by then), copy the
+        // seal obj's fields that differ onto the player obj: +004 dword (P=1 S=0), +190..+1AF (slot +2C0/+2D0 transform block, P 24.8/20.1/16.1 S 0),
+        // +2A4 (slot +2F0), +2AC dword. 2 = also +370..+397 (P 30.0/-4.0/2, S 0/+4.0/-1). Logs before/after.
+        static uint64_t fx = 0;
+        if (g_foxMode.load() && g_fs0Active.load() && cap && fx != cap && Now() - g_fs0CapT >= 0.6) {
+            fx = cap;
+            uint64_t po = 0, so = 0;
+            const uint64_t ps = g_fs0FirstK0.load(), ss = g_spSealSlot.load();
+            if (ps) Rd(ps + 0x10, po);
+            if (ss) Rd(ss + 0x10, so);
+            uint32_t pid = 0, sid = 0;
+            Rd(po, pid);
+            Rd(so, sid);
+            if (!po || !so || (pid >> 4) != (sid >> 4)) {
+                Log("FormObjFix skipped: player obj=%llX id %X, seal obj=%llX id %X (need both, same id)", (unsigned long long)po, pid >> 4, (unsigned long long)so, sid >> 4);
+            } else {
+                struct { uint32_t off, len; } rg[] = {{0x4, 4}, {0x190, 0x20}, {0x2A4, 4}, {0x2AC, 4}, {0x370, 0x28}};
+                const int n = g_foxMode.load() >= 2 ? 5 : 4;
+                char hb[0x28 * 3 + 4], ha[0x28 * 3 + 4];
+                for (int i = 0; i < n; ++i) {
+                    uint8_t buf[0x28];
+                    HexSafe(hb, sizeof(hb), po + rg[i].off, rg[i].len);
+                    const bool ok = Copy(buf, so + rg[i].off, rg[i].len) && WrBytes(po + rg[i].off, buf, rg[i].len);
+                    HexSafe(ha, sizeof(ha), po + rg[i].off, rg[i].len);
+                    Log("FormObjFix player obj %llX +%03X ok=%d before %s after %s", (unsigned long long)po, rg[i].off, ok, hb, ha);
+                }
+            }
+        }
     }
     {   // pc #54948 FormApply: 0.1 s and 1.0 s after the kick (kick = capture + 0.3 s)
         static uint64_t fa1 = 0, fa2 = 0;
@@ -2472,6 +2502,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
+    g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
     g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
