@@ -2247,10 +2247,11 @@ struct Fh4State {
 };
 Fh4State g_fh4;
 // pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
-// button mask dropped from the game's XInputGetState for that window (default 0xC200 = RB light attack, X item, Y), FormBlockRT=1 zeroes RT
-// (strong attack). The IAT slot is taken on the FIRST form start, not at load, so this hook sits outside EngineFix's PadLatency/VPad hooks
+// button mask dropped from the game's XInputGetState for that window (default 0xFF4F = every button except Start, Back and R3: attacks,
+// items, dodge/sprint, d-pad, guard), FormBlockRT=1 zeroes both triggers, FormBlockLS=1 zeroes the left stick (no walking; pc #56964 /
+// human #56935: no actions at all, camera free -> right stick untouched). The IAT slot is taken on the FIRST form start, not at load, so this hook sits outside EngineFix's PadLatency/VPad hooks
 // and also masks the harness pipe pad. Keyboard (DirectInput) is not masked. 0 = off.
-std::atomic<int> g_fbMask{0xC200}, g_fbRT{1};
+std::atomic<int> g_fbMask{0xFF4F}, g_fbRT{1}, g_fbLS{1};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
 std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
@@ -2263,9 +2264,11 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
         const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
-        if ((s->pad.buttons & m) || (g_fbRT.load(std::memory_order_relaxed) && s->pad.rt)) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
+        const bool trig = g_fbRT.load(std::memory_order_relaxed), ls = g_fbLS.load(std::memory_order_relaxed);
+        if ((s->pad.buttons & m) || (trig && (s->pad.rt || s->pad.lt)) || (ls && (s->pad.lx || s->pad.ly))) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
         s->pad.buttons &= (WORD)~m;
-        if (g_fbRT.load(std::memory_order_relaxed)) s->pad.rt = 0;
+        if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
+        if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
     }
     return r;
 }
@@ -2291,7 +2294,7 @@ void** FbXInputSlot() {
     return nullptr;
 }
 void FormBlockSet(bool on) {
-    if (!g_fbMask.load() && !g_fbRT.load()) return;
+    if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
     static bool hooked = false, tried = false;
     if (on && !tried) {
         tried = true;
@@ -2303,10 +2306,10 @@ void FormBlockSet(bool on) {
             VirtualProtect(slot, sizeof(void*), old, &t);
             hooked = true;
         }
-        Log("FormBlockPad: %s mask=%04X RT=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load());
+        Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
     if (!hooked || g_fbActive.exchange(on) == on) return;
-    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); Log("FormBlockPad: attacks/items blocked t=%.3f", Now()); }
+    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
     else Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
 }
 // pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
@@ -3847,8 +3850,9 @@ void Register(bool boss, bool rm, bool inv) {
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
     g_fhSealKeep.store(IniInt(L"Spirit", L"FormSealKeep", 1));
-    { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xC200", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
+    { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xFF4F", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
+    g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
