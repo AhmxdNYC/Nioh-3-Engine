@@ -2233,6 +2233,42 @@ void HkSealUnlink(uint64_t, uint64_t actor, uint64_t, uint64_t, const uint64_t* 
     Log("SealLife UNLINK actor=%llX key>>4=%X cap=%d seal=%d dtCap=%.3f via%s t=%.3f", (unsigned long long)actor, key >> 4, isCap, isSeal, dt,
         vl ? via : " -", t);
 }
+// SealDefer=1 (pc #55633): the seal chr leaves through the despawn queue: 681044(mgr+BD0, actor) (callers: wrapper 681E9C at 681EB6, and
+// E462E1), drained by 5BC9A0 -> 2BF7E8 unlink. Both E8 sites are retargeted; while capture < SealKeepSec a request for the captured seal chr is
+// held (not queued) and re-issued by SealLifeTick at the deadline or on a new capture. Other actors pass straight through.
+std::atomic<int> g_sdMode{0};
+void (*g_sdOrig)(uint64_t, uint64_t) = nullptr;
+uint64_t g_sdHeld = 0, g_sdList = 0;
+int g_sdSkips = 0;
+double g_sdHeldT = 0;
+void HkDespawnEnq(uint64_t list, uint64_t actor) {
+    const uint64_t cap = g_fs0CapChr.load();
+    if (actor && actor == cap) {
+        const double dt = Now() - g_fs0CapT;
+        if (g_sdMode.load() && dt >= 0 && dt < g_slKeepSec) {
+            if (!g_sdHeld) {
+                g_sdHeldT = Now();
+                Log("SealDefer HOLD despawn request seal=%llX list=%llX caller=+%llX dtCap=%.3f", (unsigned long long)actor, (unsigned long long)list,
+                    (unsigned long long)((uint64_t)_ReturnAddress() - g_base), dt);
+            }
+            g_sdHeld = actor;
+            g_sdList = list;
+            ++g_sdSkips;
+            return;
+        }
+        Log("SealDefer pass despawn request seal=%llX caller=+%llX dtCap=%.3f", (unsigned long long)actor, (unsigned long long)((uint64_t)_ReturnAddress() - g_base), dt);
+    }
+    g_sdOrig(list, actor);
+}
+void SealDeferRelease(const char* why) {
+    if (!g_sdHeld || !g_sdOrig) return;
+    const uint64_t a = g_sdHeld, l = g_sdList;
+    g_sdHeld = 0;
+    int ok = 1;
+    __try { g_sdOrig(l, a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
+    g_sdSkips = 0;
+}
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
     s.b.assign(n, 0);
@@ -2266,6 +2302,7 @@ void SlAnalyse(const char* nm, const SlSnap* s, int ns, const double* ts) {
     Log("SealLife scan %s done: %d clock-like fields", nm, hits);
 }
 void SealLifeTick() {
+    if (g_sdHeld && (g_sdHeld != g_fs0CapChr.load() || Now() - g_fs0CapT >= g_slKeepSec)) SealDeferRelease(g_sdHeld != g_fs0CapChr.load() ? "capture-change" : "deadline");
     if (!g_slMode.load() && !g_slKeepN && !g_slLoop.load()) return;
     static uint64_t cap0 = 0;
     static double capT0 = -1;
@@ -2866,6 +2903,22 @@ bool FormKeyInstall() {
     OnEntry("ScProbe_GSpiritWork", &HkFormKeySpawn);
     OnEntry("ScProbe_TenshinInput", &HkFormKeyInput);
     if (g_slMode.load()) OnEntry("SealLife_2BFC90", &HkSealUnlink);
+    if (g_sdMode.load()) {
+        for (uint32_t rva : {0x681EB6u, 0xE462E1u}) {
+            void* o = nullptr;
+            const char* w = nullptr;
+            uint8_t b[5] = {};
+            int32_t rel = 0;
+            if (!Copy(b, g_base + rva, 5) || b[0] != 0xE8 || (memcpy(&rel, b + 1, 4), g_base + rva + 5 + rel) != g_base + 0x681044) {
+                Log("SealDefer: call %X does not target 681044 - skipped", rva);
+                continue;
+            }
+            if (InstallCallRetargetAt((uint8_t*)(g_base + rva), "call:DespawnEnqueue", (void*)&HkDespawnEnq, &o, &w)) {
+                g_sdOrig = (void (*)(uint64_t, uint64_t))o;
+                Log("SealDefer: call %X -> hook", rva);
+            } else Log("SealDefer: call %X retarget failed: %s", rva, w ? w : "?");
+        }
+    }
     const char* why = nullptr;
     const bool grp = InstallGroup("SC", &why);  // installs only the SC hooks registered so far (InvLog=0: just these two)
     if (grp) Log("FormKey: group SC installed (2916C5C spawn + 2E6C34 input, independent of InvLog)");
@@ -3008,6 +3061,7 @@ void Register(bool boss, bool rm, bool inv) {
         }
         g_slKeepSec = IniInt(L"Spirit", L"SealKeepSec", 25);
         g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
+        g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
         g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
