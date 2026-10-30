@@ -3147,8 +3147,62 @@ int SealHitsFor(uint32_t id) {
     const int n = (int)GetPrivateProfileIntW(L"SealHits", k, 0, IniPath());
     return n ? n : id == 0x5129B ? 2 : id == 0xA2ACB ? 2 : 0;  // built-in seeds (ally trace #57014) when the ini has no [SealHits] line
 }
+// pc #57269 (human #57262): [Spirit] SealExitFx=1 - exit transition instead of the sped-up tail: at the last-hit close the dark appear
+// effects the seal yokai shows when it first spawns (Ibaraki 5129B spawn hit: 63056 63047 6304A 6304D 63050 63053 6307E 63027, from its motion
+// timeline 2C72D0 -> 2C6CE0 -> EffectCreate 4CE90C) are spawned on the player through the same wrapper 2C6CE0 the way the Ki pulse 844313 does
+// it (P = 0x58 block from 48E97C: +0 bone id, +10 offset, +20 rotation, +30 scale; rcx = effect manager [45B9E38], [rsp+20] = owner chr),
+// then after SealExitFxMs the seal is despawned (681E9C) under it and the player restored inside. SealExitFxId = comma list (hex),
+// SealExitFxBone = attach bone id (default 0), SealExitFxOwner 0 = player, 1 = seal. SealSpeed still applies; the tail speedup is skipped.
+std::atomic<int> g_sxfOn{0};
+uint32_t g_sxfIds[12] = {};
+int g_sxfN = 0, g_sxfBone = 0, g_sxfOwner = 0, g_sxfMs = 150;
+void SealExitFxLoad() {
+    g_sxfOn.store(IniInt(L"Spirit", L"SealExitFx", 0));
+    wchar_t b[256] = {};
+    GetPrivateProfileStringW(L"Spirit", L"SealExitFxId", L"63056,63047,6304A,6304D,63050,63053,6307E,63027", b, 256, IniPath());
+    g_sxfN = 0;
+    for (wchar_t* q = b; *q && g_sxfN < 12;) {
+        while (*q == L',' || *q == L' ') ++q;
+        if (!*q) break;
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(q, &e, 16);
+        if (e == q) break;
+        if (v) g_sxfIds[g_sxfN++] = (uint32_t)v;
+        q = e;
+    }
+    g_sxfBone = IniInt(L"Spirit", L"SealExitFxBone", 0);
+    g_sxfOwner = IniInt(L"Spirit", L"SealExitFxOwner", 0);
+    g_sxfMs = IniInt(L"Spirit", L"SealExitFxMs", 150);
+}
+int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
+    static int bytesOk = -1;
+    if (bytesOk < 0) {
+        static const uint8_t w1[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x40};
+        static const uint8_t w2[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x83, 0x21, 0x00, 0x48, 0x8B};
+        uint8_t b1[sizeof(w1)] = {}, b2[sizeof(w2)] = {};
+        bytesOk = Copy(b1, g_base + 0x2C6CE0, sizeof(b1)) && !memcmp(b1, w1, sizeof(w1)) && Copy(b2, g_base + 0x48E97C, sizeof(b2)) && !memcmp(b2, w2, sizeof(w2));
+        if (!bytesOk) Log("SealExitFx: 2C6CE0/48E97C bytes not found in this update - off");
+    }
+    if (!bytesOk || !owner) return 0;
+    uint64_t mgr = 0;
+    if (!Rd(g_base + 0x45B9E38, mgr) || !mgr) return 0;
+    int made = 0;
+    for (int i = 0; i < g_sxfN; ++i) {
+        alignas(16) uint8_t P[0x60] = {};
+        alignas(16) uint8_t out[0x20] = {};
+        __try {
+            ((void (*)(void*))(g_base + 0x48E97C))(P);
+            *(int32_t*)P = g_sxfBone;
+            ((void* (*)(uint64_t, void*, uint32_t, void*, uint64_t, uint64_t))(g_base + 0x2C6CE0))(mgr, out, g_sxfIds[i], P, owner, 0);
+            ++made;
+        } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SealExitFx: effect %X faulted", g_sxfIds[i]); }
+    }
+    return made;
+}
 void SealEndOnHitTick() {
     if (!g_sehMode.load()) return;
+    static uint64_t sxfSeal = 0;
+    static double sxfAt = 0;
     // Session = one FormHide=4 form (from the press, before the seal exists): A2ACB is bound from its spawn hit only ~0.3 s after it spawns and
     // its first burst can already be over by then (ally #57014 run 3), so bursts are counted from the press for the seal and every actor
     // spawned (65A8A8) since, and the bound seal only picks the core's burst count.
@@ -3169,7 +3223,12 @@ void SealEndOnHitTick() {
             }
         }
         if (const uint64_t ts = g_tailSeal.exchange(0)) Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
-        sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false;
+        sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0;
+    }
+    if (sxfSeal && Now() >= sxfAt) {
+        const uint64_t sx = sxfSeal; sxfSeal = 0;
+        const int ok = SealQueueDespawn(sx);
+        Log("SealExitFx: seal %llX despawn queued under the exit fx ok=%d t=%.3f", (unsigned long long)sx, ok, Now());
     }
     if (!sess || fired) return;
     const double now = Now();
@@ -3203,6 +3262,14 @@ void SealEndOnHitTick() {
     if (!fire) return;
     fired = true;
     if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (g_sxfOn.load() > 0 && g_sxfN > 0) {  // pc #57269: shadow exit instead of the tail
+        const uint64_t ow = g_sxfOwner == 1 ? seal : FkPlayer();
+        const int made = SealExitFxSpawn(ow);
+        sxfSeal = seal; sxfAt = now + g_sxfMs / 1000.0;
+        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: exit fx %d/%d on %s %llX bone %d, despawn in %d ms t=%.3f",
+            (unsigned long long)seal, sid, bursts, now - sess, made, g_sxfN, g_sxfOwner == 1 ? "seal" : "player", (unsigned long long)ow, g_sxfBone, g_sxfMs, now);
+        return;
+    }
     if (g_tailMul.load() > 1.f) {  // pc #57162: no early cut - the rest of the animation plays at x speed until the seal's natural end
         g_tailT0.store(now);
         g_tailSeal.store(seal);
@@ -4137,6 +4204,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fiFix.store(IniInt(L"Spirit", L"FormInvulnFix", 1));  // pc #56639
         g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
         g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
+        SealExitFxLoad();
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
