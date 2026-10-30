@@ -2014,7 +2014,7 @@ struct FormHideEndWatch {
 FormHideEndWatch g_fhEnd;
 
 bool FormHideCodeMatches(uint64_t rva, const uint8_t* want, size_t n) {
-    uint8_t bytes[64] = {};
+    uint8_t bytes[128] = {}; // shellWriter guard is 75 bytes (#56115: 64 made mode 4 never install)
     return n <= sizeof(bytes) && Copy(bytes, g_base + rva, n) && memcmp(bytes, want, n) == 0;
 }
 // Unknown is -1, never 'absent'. Only a complete, bounded walk can establish absence.
