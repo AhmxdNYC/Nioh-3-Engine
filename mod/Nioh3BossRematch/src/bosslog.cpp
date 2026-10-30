@@ -2154,6 +2154,50 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
     }
     return true;
 }
+// pc #56910 [Spirit] FormFollowSeal: traveling soul cores (d-pad DOWN) move their yokai away from the player, so FormPin (seal -> player)
+// would hold it in place. 1 = every frame warp the hidden player onto the seal (669AB8 on the player + its rotation rows), camera keeps
+// following the player, who reappears where the yokai stops. 2 = auto: no pin for the first FormFollowProbeMs after the seal is bound;
+// seal moved >= FormFollowCm from its first position -> follow, else pin as before. 0 = off (pin only).
+std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{150};
+bool FormFollow(uint64_t pchr, uint64_t cap) {
+    uint64_t ag = g_fhEnd.actorGlobal;  // never read a removed seal (same actor-table lookup as FormPin)
+    if (!ag) {
+        static const uint8_t mov[3] = {0x48, 0x8B, 0x0D};
+        int32_t rel = 0;
+        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + 0x2BF7F2, rel)) ag = g_base + 0x2BF7F6 + rel;
+    }
+    if (FormHideSealPresent(ag, cap) != 1) return false;
+    float pos[4] = {};
+    if (!Copy(pos, cap + 0x110, 16) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    const bool warped = g_fhWarp.load() && FormPinWarpCall(pchr, pos);
+    if (!warped && !WrBytes(pchr + 0x110, pos, 16)) return false;
+    float m[12] = {}, sm[12] = {};
+    const int ro = g_fhRotOff.load();
+    bool rot = false;
+    if (ro > 0 && Copy(sm, cap + ro, sizeof(sm)) && Copy(m, pchr + ro, sizeof(m))) {
+        bool unit = true;
+        for (int r = 0; r < 3; ++r) {
+            const float* a = m + r * 4; const float* b = sm + r * 4;
+            const float n = a[0] * a[0] + a[1] * a[1] + a[2] * a[2], sn = b[0] * b[0] + b[1] * b[1] + b[2] * b[2];
+            unit = unit && n > 0.98f && n < 1.02f && sn > 0.98f && sn < 1.02f;
+        }
+        rot = unit && WrBytes(pchr + ro, sm, sizeof(sm));
+        uint64_t comp = 0, xf = 0;
+        if (rot && warped && Rd(pchr + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf) {
+            uint32_t fl = 0;
+            if (Rd(xf + 0xD8, fl)) { fl |= 0x11; WrBytes(xf + 0xD8, &fl, 4); }
+        }
+    }
+    static uint64_t loggedCap = 0;
+    static double nextLog = 0;
+    const double now = Now();
+    if (loggedCap != cap || now >= nextLog) {
+        Log("FormFollow %s: player %llX -> seal %llX pos=%.1f %.1f %.1f warp=%d rot=%d t=%.3f", loggedCap != cap ? "first" : "at",
+            (unsigned long long)pchr, (unsigned long long)cap, pos[0], pos[1], pos[2], warped, rot, now);
+        loggedCap = cap; nextLog = now + 1;
+    }
+    return true;
+}
 // pc #55469: mode 3 writes only the guarded hide byte, without SetHideModel's fade or seal-position pinning.
 // Keep its saved byte separate from the native modes; never invoke native unhide for a direct-byte hide.
 // pc #55704 [Spirit] FormHidePress=1 (mode 3): hide on the d-pad LEFT (seal) press edge so the throw is never drawn; the capture ~1.3 s
@@ -2244,6 +2288,9 @@ struct Fh4State {
     float blend = 0, multiplier = 0, fade = 1;
     uint64_t sealRoot = 0;  // pc #56435: seal's model root, refreshed by the tick at 10 Hz (hooks used to walk the actor table per call)
     double nextSealPoll = 0;
+    int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
+    float sealP0[4] = {};
+    double followT0 = 0;
 };
 Fh4State g_fh4;
 // pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
@@ -2567,6 +2614,23 @@ void OrbSkipInstall() {
         Log("OrbSkip: orb effect hook failed (%s) - orb lands at once but its effect may flash", why ? why : "?");
     Log("OrbSkip: on (seal orb lands on its first tick, orb effect 0x6254D off)");
 }
+// 0 = pin seal to player, 1 = follow the seal, 2 = neither (auto probe running). Runs under g_fh4Lock.
+int Fh4FollowDecide(double now) {
+    const int m = g_fhFollow.load();
+    if (m <= 0) return 0;
+    if (m == 1) return 1;
+    if (g_fh4.follow >= 0) return g_fh4.follow;
+    float p[4] = {};
+    if (!Copy(p, g_fh4.seal + 0x110, 16)) return 2;
+    if (g_fh4.followT0 <= 0) { memcpy(g_fh4.sealP0, p, sizeof(p)); g_fh4.followT0 = now; return 2; }
+    const float dx = p[0] - g_fh4.sealP0[0], dy = p[1] - g_fh4.sealP0[1], dz = p[2] - g_fh4.sealP0[2];
+    const float d = sqrtf(dx * dx + dy * dy + dz * dz);
+    if (d >= (float)g_fhFollowCm.load()) g_fh4.follow = 1;
+    else if ((now - g_fh4.followT0) * 1000.0 >= g_fhFollowProbeMs.load()) g_fh4.follow = 0;
+    else return 2;
+    Log("FormFollowSeal auto: seal moved %.0f cm in %.2f s -> %s", d, now - g_fh4.followT0, g_fh4.follow ? "FOLLOW (player rides the seal)" : "pin");
+    return g_fh4.follow;
+}
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static uint64_t attempted = 0;
@@ -2611,7 +2675,13 @@ void FormHide4Tick(uint64_t player) {
                 g_fh4.nextSealPoll = now + 0.1;
             }
             if (!Fh4Apply(player)) g_fh4Fault.store(true);
-            if (g_fh4.seal) { Fh4Timer tm; FormPin(player, g_fh4.seal); Fh4KeepSeal(); }  // timed: FH4perf ours= includes the pin + warp
+            if (g_fh4.seal) {
+                Fh4Timer tm;
+                const int fd = Fh4FollowDecide(now);
+                if (fd == 1) FormFollow(player, g_fh4.seal);
+                else if (fd == 0) FormPin(player, g_fh4.seal);
+                Fh4KeepSeal();
+            }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
                (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
@@ -3695,6 +3765,9 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
         g_fhMode.store(atoi(p + 6));
         FormHide4Install();
         Log("FormHide mode (pipe) = %d", g_fhMode.load());
+    } else if (!strncmp(p, "follow", 6)) {  // pc #56910: live [Spirit] FormFollowSeal
+        g_fhFollow.store(atoi(p + 6));
+        Log("FormFollowSeal (pipe) = %d", g_fhFollow.load());
     } else if (!strncmp(p, "fh4mask", 7)) {  // pc #56435: live A/B of the FormHide=4 writes (bits as [Spirit] FH4Mask)
         g_fh4Mask.store((int)strtol(p + 7, nullptr, 0));
         Log("FormHide=4 mask (pipe) = %X", g_fh4Mask.load());
@@ -3763,7 +3836,10 @@ void Register(bool boss, bool rm, bool inv) {
         g_fhActN.store(n);
     }
     g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
-    g_fhWarp.store(IniInt(L"Spirit", L"FormPinWarp", 1));  // pc #55842: 1 = move via the game's warp setter 669AB8
+    g_fhWarp.store(IniInt(L"Spirit", L"FormPinWarp", 1));
+    g_fhFollow.store(IniInt(L"Spirit", L"FormFollowSeal", 0));  // pc #56910
+    g_fhFollowProbeMs.store(IniInt(L"Spirit", L"FormFollowProbeMs", 600));
+    g_fhFollowCm.store(IniInt(L"Spirit", L"FormFollowCm", 150));  // pc #55842: 1 = move via the game's warp setter 669AB8
     g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
     {
         wchar_t kb[128] = {};
