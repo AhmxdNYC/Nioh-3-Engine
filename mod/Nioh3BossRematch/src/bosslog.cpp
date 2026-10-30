@@ -2162,7 +2162,18 @@ DWORD WINAPI EdThread(LPVOID) {
         uint32_t dirty = 0;
         memcpy(&dirty, cur.b + 0x814, 4);
         const uint32_t h = EdRecHash(cur);
-        const bool trig = n > 4 && cur.blk && ((dirty && !lastDirty) || (haveHash && h != lastHash));
+        // ally #55240 run: removing the chest piece fired neither trigger (the player wears a fixed appearance), so also trigger on any chr+A10
+        // slot obj change, or by hand: the file EquipDiff.go next to the ASI (deleted when seen; 'touch' it right before the change)
+        static uint64_t lastObjSum = 0;
+        uint64_t objSum = 0;
+        for (int i = 0; i < 64; ++i) objSum = objSum * 31 + cur.obj[i];
+        wchar_t gof[MAX_PATH];
+        swprintf_s(gof, L"%sEquipDiff.go", ModDir());
+        const bool manual = GetFileAttributesW(gof) != INVALID_FILE_ATTRIBUTES && DeleteFileW(gof);
+        const bool slotTrig = n > 4 && lastObjSum && objSum != lastObjSum;
+        lastObjSum = objSum;
+        if (manual) Log("EquipDiff: manual trigger file seen");
+        const bool trig = n > 4 && (manual || slotTrig || (cur.blk && ((dirty && !lastDirty) || (haveHash && h != lastHash))));
         const uint32_t ld = lastDirty, lh = lastHash;
         lastDirty = dirty;
         lastHash = h;
@@ -2170,11 +2181,12 @@ DWORD WINAPI EdThread(LPVOID) {
         if (!trig) continue;
         ++triggers;
         // ring: cur = n-1, before = n-3 (0.5 s), noise pair = n-4 (0.75 s) vs n-3
-        EdSnap& before = g_edRing[(n - 3) % 4];
-        EdSnap& old = g_edRing[(n - 4) % 4];
-        Log("EquipDiff TRIGGER #%d chr=%llX blk=%llX +814 %08X -> %08X rec hash %08X -> %08X t=%.3f (before t=%.3f)", triggers, (unsigned long long)chr,
+        EdSnap& before = manual ? cur : g_edRing[(n - 3) % 4];
+        EdSnap& old = manual ? g_edRing[(n - 2) % 4] : g_edRing[(n - 4) % 4];
+        Log("EquipDiff TRIGGER #%d%s chr=%llX blk=%llX +814 %08X -> %08X rec hash %08X -> %08X t=%.3f (before t=%.3f)", triggers,
+            manual ? " (manual, after = +12 s)" : slotTrig ? " (slot obj change)" : "", (unsigned long long)chr,
             (unsigned long long)cur.blk, ld, dirty, lh, h, cur.t, before.t);
-        Sleep(2000);
+        Sleep(manual ? 12000 : 2000);  // manual: 12 s to make the change in the menu and close it
         EdTake(*after, chr);
         if (after->chr != before.chr) { Log("EquipDiff: player chr changed, skipped"); continue; }
         int budget = 500;
