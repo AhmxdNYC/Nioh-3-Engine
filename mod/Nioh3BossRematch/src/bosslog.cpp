@@ -2157,7 +2157,7 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 }
 // pc #56910 [Spirit] FormFollowSeal: traveling soul cores (d-pad DOWN) move their yokai away from the player, so FormPin (seal -> player)
 // would hold it in place. 1 = every frame warp the hidden player onto the seal (669AB8 on the player + its rotation rows), camera keeps
-// following the player, who reappears where the yokai stops. 2 = auto: no pin for the first FormFollowProbeMs after the seal is bound;
+// following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
 // seal moved >= FormFollowCm from its first position -> follow, else pin as before. 0 = off (pin only).
 std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{150};
 bool FormFollow(uint64_t pchr, uint64_t cap) {
@@ -2622,6 +2622,11 @@ int Fh4FollowDecide(double now) {
     if (m <= 0) return 0;
     if (m == 1) return 1;
     if (g_fh4.follow >= 0) return g_fh4.follow;
+    if (g_fh4.fromSpawn) {  // no FormSlot0 kind-0 capture = not the LEFT (5129B) body: traveling core (DOWN A2ACB), follow at once
+        g_fh4.follow = 1;
+        Log("FormFollowSeal auto: seal bound from the spawn hit (no FormSlot0 capture) -> FOLLOW");
+        return 1;
+    }
     float p[4] = {};
     if (!Copy(p, g_fh4.seal + 0x110, 16)) return 2;
     if (g_fh4.followT0 <= 0) { memcpy(g_fh4.sealP0, p, sizeof(p)); g_fh4.followT0 = now; return 2; }
