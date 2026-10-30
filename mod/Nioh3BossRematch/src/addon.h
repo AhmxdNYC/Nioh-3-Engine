@@ -151,6 +151,7 @@ void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
+void SpiritSpawnNote(uint64_t state, uint32_t motion);  // #54000: MotionReq from 65ADA6 (chr spawn 65A8A8)
 }
 namespace ui {
 void HostedFightCommand(const char* row,char* reply,size_t n);

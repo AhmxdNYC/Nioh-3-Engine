@@ -836,6 +836,7 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
         snprintf(np, sizeof(np), "spirit note %llX", (unsigned long long)a);
         addon::rematch::Command(np, rp, sizeof(rp));
     }
+    if (N == 6 && CallerRva(sp) == 0x65ADA6) addon::rematch::SpiritSpawnNote(a, (uint32_t)b);  // #54000: first motion of a 65A8A8 chr spawn
     static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C", "GSpiritReq", "GSpiritWork", "AsyncLoad", "MotionReq"};
     const double t = Now();
     const int64_t sec = (int64_t)t;

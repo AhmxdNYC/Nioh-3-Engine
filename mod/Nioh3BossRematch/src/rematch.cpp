@@ -3923,13 +3923,17 @@ uint64_t ModelSlot(uint64_t chr, uint64_t& M, uint32_t& idx) {
 void SpiritBodyApply(uint64_t schr) {
     if (g_spBodyChr.load() == schr) return;  // already copied for this spawn (no per-tick log spam)
     const uint64_t pch = PlayerChar();
+    if (schr == pch) return;
+    static uint64_t lastLogged = 0;  // log a chr whose model is not loaded yet once, then retry silently each tick
     uint64_t pM, sM, pm = 0, sm = 0;
     uint32_t pi, si;
     const uint64_t ps = ModelSlot(pch, pM, pi), ss = ModelSlot(schr, sM, si);
     if (ps) Rd(ps, pm);
     if (ss) Rd(ss, sm);
-    Log("SpiritBody player chr=%llX M=%llX idx=%u model=%llX | spirit chr=%llX M=%llX idx=%u model=%llX", (unsigned long long)pch,
-        (unsigned long long)pM, pi, (unsigned long long)pm, (unsigned long long)schr, (unsigned long long)sM, si, (unsigned long long)sm);
+    if (lastLogged != schr || sm)
+        Log("SpiritBody player chr=%llX M=%llX idx=%u model=%llX | spirit chr=%llX M=%llX idx=%u model=%llX", (unsigned long long)pch,
+            (unsigned long long)pM, pi, (unsigned long long)pm, (unsigned long long)schr, (unsigned long long)sM, si, (unsigned long long)sm);
+    lastLogged = schr;
     if (!ps || !sm || sm == pm) return;
     if (!g_spBodyOld.load()) { g_spBodyOld.store(pm); g_spBodySlot.store(ps); }
     const bool ok = WrBytes(ps, &sm, 8);
@@ -3942,6 +3946,28 @@ void SpiritBodyUndo() {
     if (ps && old) WrBytes(ps, &old, 8);
     g_spBodyChr.store(0);
     Log("SpiritBody UNDO [%llX] <- %llX", (unsigned long long)ps, (unsigned long long)old);
+}
+// #54000: the Summoning Seal's yokai is NOT a 2916C5C guardian spirit (that path is mission-script only and never ran in the seal test, so
+// the old tick never had a chr). It is spawned by 65A8A8 like any chr: rbx = new chr, its first motion goes 66C4A8(state=[[chr+0x3B0]+8],
+// [desc+0x6C]) with return address 65ADA6. The MotionReq hook calls this for that caller; the nearest such spawn (< 15 m) while armed is the
+// target. [Spirit] BodyMotion=<hex> limits it to one first-motion id (0 = any).
+std::atomic<uint64_t> g_spSpawnChr{0};
+void SpiritSpawnNote(uint64_t state, uint32_t motion) {
+    static const int onlyMotion = IniInt(L"Spirit", L"BodyMotion", 0);
+    static std::atomic<int> logged{0};
+    uint64_t chr = 0, back = 0, s3b0 = 0;
+    if (!Rd(state + 0xE0, chr) || !chr || !Rd(chr + 0x3B0, s3b0) || !s3b0 || !Rd(s3b0 + 8, back) || back != state) return;
+    const uint64_t pch = PlayerChar();
+    if (!pch || chr == pch) return;
+    float pp[4] = {}, cp[4] = {};
+    const bool ok = Copy(pp, pch + 0x110, 16) && Copy(cp, chr + 0x110, 16);
+    const float dx = cp[0] - pp[0], dy = cp[1] - pp[1], dz = cp[2] - pp[2];
+    const float d = ok ? sqrtf(dx * dx + dy * dy + dz * dz) / 100.0f : -1.f;  // position is in cm
+    const bool take = g_spBody.load() && ok && d < 15.f && (!onlyMotion || (uint32_t)onlyMotion == motion);
+    if (take) g_spSpawnChr.store(chr);
+    if (take || logged.fetch_add(1) < 40)
+        Log("SpiritBody spawn 65A8A8 chr=%llX state=%llX motion=%X dist=%.1f armed=%d take=%d", (unsigned long long)chr, (unsigned long long)state,
+            motion, d, g_spBody.load(), take);
 }
 int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
     __try {
@@ -4243,9 +4269,23 @@ void Command(const char* line, char* reply, size_t n) {
             static bool armed = (iniBody && (g_spBody.store(1), true));
             (void)armed;
             if (g_spBody.load() && chr && st == 2) SpiritBodyApply(chr);
+            const uint64_t sc = g_spSpawnChr.load();  // the seal's yokai from the 65A8A8 spawn (SpiritSpawnNote)
+            if (g_spBody.load() && sc) SpiritBodyApply(sc);
             if (g_spPin.load() && pok && chr && st == 2) {
                 alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
                 SpiritSetPos(chr, pos);
+            }
+            if (g_spPin.load() && pok && sc && g_spBodyChr.load() == sc) {
+                alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+                SpiritSetPos(sc, pos);
+            }
+            static double nextWait = 0;  // armed but nothing copied yet: say why every 5 s (the 22:07 run had 0 SpiritBody lines)
+            if (g_spBody.load() && !g_spBodyChr.load() && Now() >= nextWait) {
+                static int waits = 0;
+                nextWait = Now() + 5.0;
+                if (waits++ < 60)
+                    Log("SpiritBody armed, waiting: guardian mgr=%llX chr=%llX state=%llu | seal spawn chr=%llX", (unsigned long long)mgr,
+                        (unsigned long long)chr, (unsigned long long)st, (unsigned long long)sc);
             }
             snprintf(reply, n, "ok");
             return;

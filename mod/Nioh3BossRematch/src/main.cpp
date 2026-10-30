@@ -132,7 +132,8 @@ DWORD WINAPI Init(void*) {
     Sleep(200);
     Log("code ready %lu ms after start", GetTickCount() - t0);
     ResolveAll();
-    const bool boss = IniInt(L"Debug", L"BossLog", 0) != 0, rm = IniInt(L"Debug", L"RematchLog", 0) != 0, inv = IniInt(L"Debug", L"InvLog", 0) != 0;
+    const bool boss = IniInt(L"Debug", L"BossLog", 0) != 0, rm = IniInt(L"Debug", L"RematchLog", 0) != 0, inv = IniInt(L"Debug", L"InvLog", 0) != 0 ||
+                     IniInt(L"Spirit", L"Body", 0) != 0;  // #54000: the body copy runs from the SC hooks (MotionReq, TenshinInput tick)
     bosslog::Register(boss, rm, inv);
     const bool live = StartRematchPump();
     if (boss || rm) {
