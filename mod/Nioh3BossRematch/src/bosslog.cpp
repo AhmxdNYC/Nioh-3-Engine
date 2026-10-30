@@ -2589,15 +2589,25 @@ void FormHide4Install() {
 // (notes/boss-speed-lever-22389.md, [ctrl+E0] = actor) are retargeted: while the player's current action is in FastThrowActs (default
 // 28FD,28FB) the rate is multiplied by FastThrow, so the throw is over in a few frames and the timeline still spawns the yokai.
 std::atomic<float> g_ftMul{0};
+// pc #57162 (human #57147/#57150): [Spirit] SealTailSpeed=<x> (default 3, <=1 off). SealEndOnHit no longer despawns the seal at its last hit
+// burst; the seal actor's motion rate (same 134E68 hooks) is multiplied by x from that point until its natural end/despawn, so the yokai
+// plays its whole animation, only faster, and the form then ends on seal-despawn as before.
+std::atomic<float> g_tailMul{3.f};
+std::atomic<uint64_t> g_tailSeal{0};
 std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
 void* g_ftOrig = nullptr;
 float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     const float r = ((float (*)(uint64_t, uint8_t, uint8_t))g_ftOrig)(ctrl, layer, flag);
-    const float m = g_ftMul.load();
-    if (m <= 1.f || !(r > 0.f) || r > 50.f) return r;
+    if (!(r > 0.f) || r > 50.f) return r;
     uint64_t a = 0;
-    if (!Rd(ctrl + 0xE0, a) || !a || a != FkPlayer()) return r;
+    if (!Rd(ctrl + 0xE0, a) || !a) return r;
+    if (const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed); ts && a == ts) {
+        const float t = g_tailMul.load();
+        return t > 1.f ? r * t : r;
+    }
+    const float m = g_ftMul.load();
+    if (m <= 1.f || a != FkPlayer()) return r;
     const uint32_t id = PlayerActId(a);
     bool hit = false;
     for (int i = 0, n = g_ftN.load(); i < n; ++i) hit = hit || g_ftActs[i].load() == id;
@@ -2608,7 +2618,9 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
 }
 void FastThrowInstall() {
     const int pct = IniInt(L"Spirit", L"FastThrow", 0);
-    if (pct <= 1) return;
+    { wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", L"SealTailSpeed", L"3", tb, 32, IniPath()); g_tailMul.store((float)wcstod(tb, nullptr)); }
+    const bool tail = g_tailMul.load() > 1.f && IniInt(L"Spirit", L"SealEndOnHit", 0) > 0;
+    if (pct <= 1 && !tail) return;
     wchar_t ab[128] = {};
     GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB", ab, 128, IniPath());
     int n = 0;
@@ -2641,8 +2653,9 @@ void FastThrowInstall() {
         }
         ++k;
     }
-    g_ftMul.store((float)pct);
-    Log("FastThrow: x%d on actions %d ids, hooks %u/18", pct, n, k);
+    g_ftMul.store(pct > 1 ? (float)pct : 0.f);
+    Log("FastThrow: x%d on actions %d ids, hooks %u/18; SealTailSpeed x%.2f%s", pct, n, k, g_tailMul.load(), tail ? "" : " (off)");
+    if (k != 18) g_tailMul.store(0.f);  // partial hook set: no tail speedup, SealEndOnHit falls back to the despawn
 }
 // pc #56515 [Spirit] OrbSkip=1: the seal item throws an orb object (322468 per-frame update, notes/soulcore-orb-56515.md) that shows
 // effect 0x6254D and flies until the ground test 6A3BB0 (call 322DD9) hits; only then does the landing object burst and spawn the yokai
@@ -3130,6 +3143,7 @@ void SealEndOnHitTick() {
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
             }
         }
+        if (const uint64_t ts = g_tailSeal.exchange(0)) Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false;
     }
     if (!sess || fired) return;
@@ -3164,6 +3178,12 @@ void SealEndOnHitTick() {
     if (!fire) return;
     fired = true;
     if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (g_tailMul.load() > 1.f) {  // pc #57162: no early cut - the rest of the animation plays at x speed until the seal's natural end
+        g_tailSeal.store(seal);
+        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: tail speedup x%.2f until its natural end t=%.3f",
+            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), now);
+        return;
+    }
     const int ok = SealQueueDespawn(seal);
     Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid,
         bursts, now - sess, ok, now);
