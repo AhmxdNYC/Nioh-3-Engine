@@ -1186,6 +1186,7 @@ uintptr_t G_PTAB = 0;
 // (0x5129B), first motion from 65ADA6. FormKeySealDesc keeps the last desc[0]; FormKeySealNote (rematch SpiritSpawnNote) hands over the chr.
 std::atomic<uint64_t> g_fkSealChr{0};
 std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
+double g_fkSealT = -1;  // pc #56910: time of the last seal spawn hit (FormHide=4 falls back to it when FormSlot0 never captures, e.g. DOWN core A2ACB)
 // ally #54309: a type-3 chr pack has no kind-3 model (1175400 = 0), but the seal chr carries its own model in slot 1 ([[chr+50]+10]).
 // [Spirit] FormModel=1: keep the form's own key; only the model getter call 74C79D (call 1175400 in SetForm, result -> [[chr+50]+8+i*8]
 // at 74C7B1) returns that seal model once, then the game's own Living Artifact request (0x4E, as Y+B) runs the transform.
@@ -2288,6 +2289,7 @@ struct Fh4State {
     float blend = 0, multiplier = 0, fade = 1;
     uint64_t sealRoot = 0;  // pc #56435: seal's model root, refreshed by the tick at 10 Hz (hooks used to walk the actor table per call)
     double nextSealPoll = 0;
+    bool fromSpawn = false;  // pc #56910: seal bound from the spawn hit, not a FormSlot0 capture
     int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
     float sealP0[4] = {};
     double followT0 = 0;
@@ -2636,7 +2638,15 @@ void FormHide4Tick(uint64_t player) {
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
-    const uint64_t cap = g_fs0CapChr.load(); const double capT = g_fs0CapT, now = Now();
+    uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
+    if (g_fh4.owner && g_fh4.fromSpawn) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
+    else if (g_fhFollow.load() && g_fh4.owner && !g_fh4.seal) {  // pc #56910: no kind-0 capture for some cores (DOWN A2ACB) -> use the spawn hit
+        const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
+        if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3) {
+            Log("FormHide=4 seal from spawn hit (no FormSlot0 capture) chr=%llX desc=%X t=%.3f", (unsigned long long)sc, g_fkSealDesc.load(), now);
+            cap = sc; capT = st; g_fh4.fromSpawn = true;
+        }
+    }
     {   // pc #56435: 1 line/s cost report (ticks/s ~ game frames/s)
         static double nextPerf = 0;
         g_fh4Perf.ticks.fetch_add(1);
@@ -2703,8 +2713,11 @@ void FormHide4Tick(uint64_t player) {
         if (Rd(player + 0x20, root) && root && root == g_fh4.root) {
             Rd(root + 0x248, k6); Rd(root + 0x3A8, k8);
         }
-        Log("FormHide=4 hold B440=%u B444=%.6f k6=%.6f k8=%.6f age=%.3f fault=%d",
-            (unsigned)h, b, k6, k8, now - g_fh4.started, g_fh4Fault.load());
+        float sp[4] = {}, pp[4] = {};
+        if (g_fh4.seal) Copy(sp, g_fh4.seal + 0x110, 16);
+        Copy(pp, player + 0x110, 16);
+        Log("FormHide=4 hold B440=%u B444=%.6f k6=%.6f k8=%.6f age=%.3f fault=%d player=%.0f %.0f %.0f seal=%.0f %.0f %.0f follow=%d",
+            (unsigned)h, b, k6, k8, now - g_fh4.started, g_fh4Fault.load(), pp[0], pp[1], pp[2], sp[0], sp[1], sp[2], g_fh4.follow);
         g_fh4.nextLog = now + 1;
     }
     ReleaseSRWLockExclusive(&g_fh4Lock);
@@ -3646,6 +3659,7 @@ void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || g_fkSealChr.load() == chr) return;
     g_fkSealMotion.store(motion);
+    g_fkSealT = Now();
     g_fkSealChr.store(chr);
     Log("FormKey seal spawn hit (65A8A8 -> 66C4A8 from 65ADA6) chr=%llX desc[0]=%X motion=%X dist=%.1f swapArmed=%d", (unsigned long long)chr,
         g_fkSealDesc.load(), motion, dist, g_fkSwap.load());
