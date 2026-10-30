@@ -2844,6 +2844,7 @@ void HkSealUnlink(uint64_t, uint64_t actor, uint64_t, uint64_t, const uint64_t* 
 // E462E1), drained by 5BC9A0 -> 2BF7E8 unlink. Both E8 sites are retargeted; while capture < SealKeepSec a request for the captured seal chr is
 // held (not queued) and re-issued by SealLifeTick at the deadline or on a new capture. Other actors pass straight through.
 std::atomic<int> g_sdMode{0};
+uint64_t g_seoForce = 0;  // SealEndOnIdle: this seal's own despawn request passes SealDefer
 void (*g_sdOrig)(uint64_t, uint64_t) = nullptr;
 uint64_t g_sdHeld = 0, g_sdList = 0;
 int g_sdSkips = 0;
@@ -2852,7 +2853,7 @@ void HkDespawnEnq(uint64_t list, uint64_t actor) {
     const uint64_t cap = g_fs0CapChr.load();
     if (actor && actor == cap) {
         const double dt = Now() - g_fs0CapT;
-        if (g_sdMode.load() && dt >= 0 && dt < g_slKeepSec) {
+        if (g_sdMode.load() && dt >= 0 && dt < g_slKeepSec && actor != g_seoForce) {
             if (!g_sdHeld) {
                 g_sdHeldT = Now();
                 Log("SealDefer HOLD despawn request seal=%llX list=%llX caller=+%llX dtCap=%.3f", (unsigned long long)actor, (unsigned long long)list,
@@ -2875,6 +2876,45 @@ void SealDeferRelease(const char* why) {
     __try { g_sdOrig(l, a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
     g_sdSkips = 0;
+}
+// SealEndOnIdle=1 (pc #56896, ally trace #56896): the captured seal yokai plays its attack action(s) and, for some cores, then idles until the
+// game's own despawn request. Ibaraki 5129B: action C53 for 4.87 s, then 0x1 (idle) 0.84 s, then despawn. A2ACB: C53 -> C56 -> C57 (multi-part)
+// and despawn with no idle. Action id = PlayerActId(seal) ([[[[chr+3B0]+8]+E8]]). On the first attack -> idle (0x1) edge we queue the despawn
+// ourselves through 681E9C (the game's wrapper: [4745348]+BD0 -> 681044, same path as the natural caller +681EBB), so FormHide=4 ends on
+// seal-despawn. Never on a hit: only when the action itself becomes idle. A held SealDefer request is released instead.
+std::atomic<int> g_seoMode{0};
+void SealEndOnIdleTick() {
+    if (!g_seoMode.load()) return;
+    static uint64_t lastCap = 0;
+    static bool seenAtk = false, fired = false;
+    static uint32_t lastId = 0;
+    static int bytesOk = -1;
+    const uint64_t cap = g_fs0CapChr.load();
+    if (cap != lastCap) { lastCap = cap; seenAtk = false; fired = false; lastId = 0; }
+    if (!cap || fired) return;
+    const uint32_t id = PlayerActId(cap);
+    if (id == 0xFFFF || id == 0xFFFFFFFF || id == 0) return;
+    if (id != 1) { seenAtk = true; lastId = id; return; }
+    if (!seenAtk) return;
+    fired = true;
+    const double dt = Now() - g_fs0CapT;
+    if (g_sdHeld == cap) {
+        Log("SealEndOnIdle seal=%llX action 0x%X -> idle 0x1 dtCap=%.3f: releasing held SealDefer request", (unsigned long long)cap, lastId, dt);
+        SealDeferRelease("idle");
+        return;
+    }
+    if (bytesOk < 0) {
+        static const uint8_t want[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xD1, 0x48, 0x8B, 0x0D};
+        uint8_t b[sizeof(want)] = {};
+        bytesOk = Copy(b, g_base + 0x681E9C, sizeof(b)) && !memcmp(b, want, sizeof(want));
+        if (!bytesOk) Log("SealEndOnIdle: 681E9C bytes not found in this update - off");
+    }
+    if (!bytesOk) return;
+    int ok = 1;
+    g_seoForce = cap;
+    __try { ((void (*)(uint64_t))(g_base + 0x681E9C))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    g_seoForce = 0;
+    Log("SealEndOnIdle seal=%llX action 0x%X -> idle 0x1 dtCap=%.3f: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)cap, lastId, dt, ok, Now());
 }
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
@@ -2909,6 +2949,7 @@ void SlAnalyse(const char* nm, const SlSnap* s, int ns, const double* ts) {
     Log("SealLife scan %s done: %d clock-like fields", nm, hits);
 }
 void SealLifeTick() {
+    SealEndOnIdleTick();
     if (g_sdHeld && (g_sdHeld != g_fs0CapChr.load() || Now() - g_fs0CapT >= g_slKeepSec)) SealDeferRelease(g_sdHeld != g_fs0CapChr.load() ? "capture-change" : "deadline");
     if (!g_slMode.load() && !g_slKeepN && !g_slLoop.load()) return;
     static uint64_t cap0 = 0;
@@ -3784,6 +3825,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
         g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
     g_fiFix.store(IniInt(L"Spirit", L"FormInvulnFix", 1));  // pc #56639
+        g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
