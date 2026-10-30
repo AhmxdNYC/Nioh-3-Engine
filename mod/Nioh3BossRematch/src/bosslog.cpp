@@ -1358,9 +1358,11 @@ double g_fs0CapT = 0;
 uint64_t g_fs0Slot[64];
 uint32_t g_fs0Kind[64];
 std::atomic<uint64_t> g_fs0FirstK0{0};
+uint64_t g_fs0SlotChr = 0;  // pc #56639: the player chr the noted slots belong to
 void Fs0Note(uint64_t slot, uint32_t kind, uint64_t chr) {  // remember every player part slot (for the cached reset); first kind-0 = lowest address
     // inside the player chr block (chr+9F0 parts, e.g. chr+A10); ally #55049: the player also stages slots elsewhere (#33 1447453B0) which the
     // F3478 rebuild never re-stages, and the old global-lowest rule picked that one (0 swaps)
+    if (chr != g_fs0SlotChr) { g_fs0SlotChr = chr; g_fs0N = 0; g_fs0FirstK0.store(0); }  // pc #56639: the noted slots belong to one player chr
     const LONG n = g_fs0N;
     for (LONG i = 0; i < n && i < 64; ++i)
         if (g_fs0Slot[i] == slot) return;
@@ -2209,7 +2211,12 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
         learnedFor = capT;
         int best = -1;
         double bestD = 9;
+        bool knownNear = false;  // pc #56639: FastThrow ends the throw early, so an attack nearer 1.27 s got learned (0x7ED); a known seal act wins
         for (int k = 0; k < 16 && k < hn; ++k) {
+            const auto& h = hist[(hn - 1 - k) % 16];
+            if (capT - h.t >= 0 && capT - h.t <= 2.5 && FhIsSealAct(h.id)) knownNear = true;
+        }
+        for (int k = 0; k < 16 && k < hn && !knownNear; ++k) {
             const auto& h = hist[(hn - 1 - k) % 16];
             const double gap = capT - h.t;
             if (gap < 0.6 || gap > 2.0 || h.id == 0xFFFF) continue;
@@ -3024,7 +3031,10 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
     if (g_fs0Restore.exchange(0) || timeout) {
         if (g_fs0Active.exchange(0)) {
             g_fs0DoneChr.store(cap);
-            Fs0Reload(pchr, timeout ? "player after FormSlot0 restore (60 s)" : "player after FormSlot0 restore");
+            // pc #56639: mode 9 is capture only (nothing swapped), so nothing to reload; the 60 s reload wrote -1 into 64 cached slots after a
+            // shrine/area reload had freed them (crash at title: pointer 27A'FFFFFFFF).
+            if (g_fs0Mode.load() != 9 && pchr == g_fs0SlotChr) Fs0Reload(pchr, timeout ? "player after FormSlot0 restore (60 s)" : "player after FormSlot0 restore");
+            else Log("FormSlot0 restore%s: capture cleared, no slot reload (mode %d) t=%.3f", timeout ? " (60 s)" : "", g_fs0Mode.load(), Now());
         }
         g_fs0Id.store(0);
         g_fs0CapChr.store(0);
@@ -3259,14 +3269,89 @@ void FkSwap(uint64_t st, uint64_t key) {
     Log("FormKey swap ret al=%d fault=%d overrideHits=%ld cellLeft=%llX A68 %X -> %X [[chr+50]+10] %llX -> %llX state+1D8 %llX -> %llX", ret & 0xFF, fault, g_fkHits,
         (unsigned long long)left, a68, a68b, (unsigned long long)m10a, (unsigned long long)m10b, (unsigned long long)d8a, (unsigned long long)d8b);
 }
+// pc #56639: the player chr changed (title, area load): forget everything bound to the old one. Never call the game with the old actors.
+void FormPlayerChange(uint64_t pchr) {
+    static uint64_t last = 0;
+    if (pchr == last) return;
+    const uint64_t old = last;
+    last = pchr;
+    if (!old) return;
+    const uint64_t held = g_sdHeld;
+    g_sdHeld = 0; g_sdSkips = 0;
+    g_fs0Active.store(0); g_fs0CapChr.store(0); g_fs0Id.store(0); g_fs0Restore.store(0);
+    Log("FormReset player chr %llX -> %llX: dropped held seal %llX, FormSlot0 capture cleared, FormHide=4 owner %llX (ends as player-change)",
+        (unsigned long long)old, (unsigned long long)pchr, (unsigned long long)held, (unsigned long long)g_fh4.owner);
+}
+// pc #56639: the human stayed invincible after a FormHide=4 form. The player's i-frame flag is ctrl+EA0 (Training frame meter, pc #35618;
+// dodge sets it ~0.34 s). [Spirit] FormInvulnFix=1 (default): for 10 s after the form ends, an EA0 that stays set > 0.6 s is cleared.
+// Also logs EA0 during/after the form and a diff of ctrl 0..0x1000 / chr 0..0xC000 (before the form vs. 1 s and 2 s after, stable values only).
+std::atomic<int> g_fiFix{1};
+struct FiSnap { uint8_t c[0x1000]; uint8_t p[0xC000]; bool ok; };
+static FiSnap* g_fiSnap = nullptr;  // [0] before, [1] end+1 s, [2] end+2 s
+static void FiTake(FiSnap& s, uint64_t ctrl, uint64_t chr) { s.ok = Copy(s.c, ctrl, sizeof(s.c)) && Copy(s.p, chr, sizeof(s.p)); }
+static void FiDiff(const char* nm, const uint8_t* b, const uint8_t* a1, const uint8_t* a2, size_t n, int& lines) {
+    for (size_t o = 0; o + 4 <= n && lines < 120; o += 4) {
+        uint32_t vb, v1, v2;
+        memcpy(&vb, b + o, 4); memcpy(&v1, a1 + o, 4); memcpy(&v2, a2 + o, 4);
+        if (v1 != v2 || v1 == vb) continue;
+        ++lines;
+        Log("FormInvuln diff %s+%zX before %08X after %08X", nm, o, vb, v1);
+    }
+}
+void FormInvulnTick(uint64_t ctrl, uint64_t pchr) {
+    static bool was = false;
+    static double endT = -1, stuck = -1, nextLog = 0;
+    static int snaps = 0;
+    const double now = Now();
+    uint8_t e = 0;
+    Rd(ctrl + 0xEA0, e);
+    if (g_fh4.owner && g_fh4.owner == pchr) {
+        if (!was) {
+            was = true;
+            if (!g_fiSnap) g_fiSnap = new (std::nothrow) FiSnap[3];
+            if (g_fiSnap) FiTake(g_fiSnap[0], ctrl, pchr);
+            snaps = 1;
+            Log("FormInvuln form start ctrl=%llX EA0=%u act=0x%X", (unsigned long long)ctrl, e, PlayerActId(pchr));
+        } else if (now >= nextLog) {
+            Log("FormInvuln during form EA0=%u act=0x%X", e, PlayerActId(pchr));
+        }
+        if (now >= nextLog) nextLog = now + 2;
+        return;
+    }
+    if (was) { was = false; endT = now; stuck = -1; nextLog = 0; Log("FormInvuln form end EA0=%u act=0x%X", e, PlayerActId(pchr)); }
+    if (endT < 0) return;
+    const double dt = now - endT;
+    if (dt > 10) { endT = -1; return; }
+    if (g_fiSnap && snaps == 1 && dt >= 1.0) { FiTake(g_fiSnap[1], ctrl, pchr); snaps = 2; }
+    if (g_fiSnap && snaps == 2 && dt >= 2.0) {
+        FiTake(g_fiSnap[2], ctrl, pchr); snaps = 3;
+        int lines = 0;
+        if (g_fiSnap[0].ok && g_fiSnap[1].ok && g_fiSnap[2].ok) {
+            FiDiff("ctrl", g_fiSnap[0].c, g_fiSnap[1].c, g_fiSnap[2].c, sizeof(g_fiSnap[0].c), lines);
+            FiDiff("chr", g_fiSnap[0].p, g_fiSnap[1].p, g_fiSnap[2].p, sizeof(g_fiSnap[0].p), lines);
+        }
+        Log("FormInvuln diff done: %d stable changed dwords (snap ok %d%d%d)", lines, g_fiSnap[0].ok, g_fiSnap[1].ok, g_fiSnap[2].ok);
+    }
+    if (now >= nextLog) { nextLog = now + 1; Log("FormInvuln after form +%.1f s EA0=%u act=0x%X", dt, e, PlayerActId(pchr)); }
+    if (!e) { stuck = -1; return; }
+    if (stuck < 0) { stuck = now; return; }
+    if (now - stuck > 0.6 && g_fiFix.load()) {
+        const uint8_t z = 0;
+        const bool ok = WrBytes(ctrl + 0xEA0, &z, 1);
+        Log("FormInvuln: ctrl+EA0 stuck at %u for %.2f s after the form - cleared ok=%d act=0x%X", e, now - stuck, ok, PlayerActId(pchr));
+        stuck = -1;
+    }
+}
 // 2E6C34 entry (rcx = input state; game thread): spirit chr check + the pending swap
 void HkFormKeyInputBody(uint64_t a) {
     uint64_t pchr = 0;
     Rd(a + 0xE0, pchr);
     const uint64_t pl = FkPlayer();
-    if (!pchr || (pl && pchr != pl)) return;  // only the local player's state
+    if (!pchr || !pl || pchr != pl) return;  // pc #56639: only the live player (playerChr=0 at title/load ran this for every char, every frame)
+    FormPlayerChange(pchr);
     FkAppearTick(pchr);
     FkSlot0Tick(pchr);
+    FormInvulnTick(a, pchr);
     if (g_fkState.exchange(a) != a) Log("FormKey player state=%llX chr=[state+E0]=%llX playerChr=%llX", (unsigned long long)a, (unsigned long long)pchr, (unsigned long long)pl);
     const uint64_t mgr = g_fkMgr.load();
     uint64_t inst = 0, schr = 0, sst = 0;
@@ -3698,6 +3783,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_slKeepSec = IniInt(L"Spirit", L"SealKeepSec", 25);
         g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
         g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
+    g_fiFix.store(IniInt(L"Spirit", L"FormInvulnFix", 1));  // pc #56639
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
