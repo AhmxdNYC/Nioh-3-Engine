@@ -883,6 +883,44 @@ void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t*
     Log("CoreProbe %s [c]=%s", nm, hc);
 }
 
+// Seal-path probe (pc #53994): who queues the two chrs the Summoning Seal spawns (MotionReq C52/4E5C come from the queue flush
+// 5BCBAC -> 65A8A8, so the requester is not on that stack). Deep chain (12 return addrs over 400 slots) + desc dump at: 65A8A8 chr spawn
+// (rdx = desc: [0] id, [4] resolved id, +6C/+70 first motion), 68157C / 5BA648 queue insert (rcx / rdx = desc), 322468 / 3203EC item-use
+// path that fires the gold-burst effect. 20 lines/s and 300 lines total per hook.
+template <int N>
+void HkSeal(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    static const char* const kNm[] = {"ChrSpawn65A8A8", "SpawnReq68157C", "ListIns5BA648", "Item322468", "Item3203EC"};
+    static std::atomic<int64_t> sec{-1};
+    static std::atomic<int> inSec{0}, total{0};
+    const int64_t ts = (int64_t)Now();
+    if (sec.exchange(ts) != ts) inSec.store(0);
+    if (inSec.fetch_add(1) >= 20 || total.fetch_add(1) >= 300) return;
+    char via[600] = "";
+    size_t vl = 0;
+    int found = 0;
+    for (int k = 0; k < 400 && found < 12 && vl + 40 < sizeof(via); ++k) {
+        const uint64_t v = StackArg(sp, k);
+        if (!LooksLikeRet(v)) continue;
+        vl += (size_t)snprintf(via + vl, sizeof(via) - vl, " +%llX(fn %X)", (unsigned long long)(v - g_base), FnStart(v));
+        ++found;
+    }
+    Log("SealProbe %s a=%llX b=%llX c=%llX d=%llX via%s t=%.3f", kNm[N], (unsigned long long)a, (unsigned long long)b, (unsigned long long)c,
+          (unsigned long long)d, vl ? via : " -", Now());
+    const uint64_t desc = N == 0 || N == 2 ? b : N == 1 ? a : 0;
+    char h[0x40 * 3 + 4];
+    if (desc) {
+        for (uint64_t off = 0; off < 0x120; off += 0x40) {
+            HexSafe(h, sizeof(h), desc + off, 0x40);
+            Log("SealProbe %s desc+%03llX=%s", kNm[N], (unsigned long long)off, h);
+        }
+    } else {
+        HexSafe(h, sizeof(h), a, 0x40);
+        Log("SealProbe %s [a]=%s", kNm[N], h);
+        HexSafe(h, sizeof(h), b, 0x40);
+        Log("SealProbe %s [b]=%s", kNm[N], h);
+    }
+}
+
 // Tenshin input: the game's local input path 2E6C34 (state = rcx; input-command word [state+0x1068], bit 0xE = NIOH_TENSHIN). TenshinGo() arms a
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
@@ -1231,6 +1269,11 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
         OnEntry("ScProbe_B611BC", &HkCoreProbe<0>);
         OnEntry("ScProbe_29EF38", &HkCoreProbe<1>);
+        OnEntry("SealProbe_65A8A8", &HkSeal<0>);
+        OnEntry("SealProbe_68157C", &HkSeal<1>);
+        OnEntry("SealProbe_5BA648", &HkSeal<2>);
+        OnEntry("SealProbe_322468", &HkSeal<3>);
+        OnEntry("SealProbe_3203EC", &HkSeal<4>);
     }
 }
 
