@@ -1565,6 +1565,17 @@ DWORD WINAPI SpThread(LPVOID) {
         Sleep(10);
     }
     SpLookupLog("end");
+    {   // ally #55089: the player slot commits a new 40244A obj but the body stays human - dump both slot objects (player vs seal) to diff
+        for (int i = 0; i < 2; ++i) {
+            uint64_t o = 0;
+            if (!slots[i] || !Rd(slots[i] + 0x10, o) || !o) { Log("SlotProbe OBJ %s [slot+10]=0", nm[i]); continue; }
+            char h[0x40 * 3 + 4];
+            for (uint64_t off = 0; off < 0x400; off += 0x40) {
+                HexSafe(h, sizeof(h), o + off, 0x40);
+                Log("SlotProbe OBJ %s %llX+%03llX %s", nm[i], (unsigned long long)o, (unsigned long long)off, h);
+            }
+        }
+    }
     Log("SlotProbe done: %d player samples, %d in state 5, final player state=%u +40=%X +10=%llX lines=%d", samples, st5, last[0].st, last[0].v40,
         (unsigned long long)last[0].p10, lines);
     InterlockedExchange(&g_spBusy, 0);
