@@ -1337,15 +1337,35 @@ volatile LONG g_ppF3Hits = 0, g_ppC4Hits = 0, g_ppLines = 0;
 void* g_ppF3Orig = nullptr;
 void* g_ppC4Orig = nullptr;
 // pc2 #54828: the seal yokai 5129B stages exactly one real part, kind 0 id 0x40244A, through the generic F35AD loop (all its other slots -1).
-// [Spirit] FormSlot0 (needs FormKey=1; installs the F3D78 call-site hooks even with PartProbe=0): capture the seal chr's kind-0 id, then
-// 1 = every non-empty player kind-0 id becomes it, 2 = the first non-empty player kind-0 slot of a rebuild becomes it, later ones -1;
-// 0.3 s after the capture the player parts are rebuilt once (F3478(chr+9F0,0)) so the swap runs. Restore: pipe `rm spirit formkey appear off`
-// does not undo it; a rebuild with FormSlot0 off (area reload) does.
+// [Spirit] FormSlot0 (pc #54830, needs FormKey=1; installs the F3D78 call-site hooks even with PartProbe=0). While the seal is armed (its chr staged
+// a kind-0 id), at F3D78 for the PLAYER chr: 1 = the first kind-0 slot (lowest slot address) gets the seal id, other slots unchanged;
+// 2 = the same, plus the other kind-0 slots and kinds 1/2/3/D/E get -1 (hide the human). 0.3 s after the capture every player slot seen gets
+// cached [slot+20] = -1 (the game's own reload trigger, FED9E0 skips when id == cached) and the parts are rebuilt once (F3478(chr+9F0,0)).
+// Restore: 60 s after the capture, LA end, or pipe `rm spirit formkey slot0 off` - swap off, cached -1 again, rebuild (original ids reload).
+// Pipe `rm spirit formkey slot0 <n>` sets the mode (re-arms for the next seal chr).
 std::atomic<int> g_fs0Mode{0};
 std::atomic<uint32_t> g_fs0Id{0};
-volatile LONG g_fs0Swaps = 0, g_fs0Clears = 0;
+std::atomic<int> g_fs0Active{0}, g_fs0Restore{0};
+std::atomic<uint64_t> g_fs0CapChr{0}, g_fs0DoneChr{0};
+volatile LONG g_fs0Swaps = 0, g_fs0Clears = 0, g_fs0Lines = 0, g_fs0N = 0;
 double g_fs0CapT = 0;
-uint64_t g_fs0LastSlotBase = 0;
+uint64_t g_fs0Slot[64];
+uint32_t g_fs0Kind[64];
+std::atomic<uint64_t> g_fs0FirstK0{0};
+void Fs0Note(uint64_t slot, uint32_t kind) {  // remember every player part slot (for the cached reset); first kind-0 = lowest address
+    const LONG n = g_fs0N;
+    for (LONG i = 0; i < n && i < 64; ++i)
+        if (g_fs0Slot[i] == slot) return;
+    if (n >= 64) return;
+    g_fs0Kind[n] = kind;
+    g_fs0Slot[n] = slot;
+    InterlockedIncrement(&g_fs0N);
+    if (kind == 0) {
+        uint64_t f = g_fs0FirstK0.load();
+        while ((!f || slot < f) && !g_fs0FirstK0.compare_exchange_weak(f, slot)) {}
+    }
+    Log("FormSlot0 player slot #%ld %llX kind=%X%s", n, (unsigned long long)slot, kind, kind == 0 && g_fs0FirstK0.load() == slot ? " (first kind-0 so far)" : "");
+}
 const char* PpWho(uint64_t chr, uint64_t pl) {
     if (!chr) return "null";
     if (chr == pl) return "PLAYER";
@@ -1366,23 +1386,29 @@ void PpLogF3(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9, uint64_t ret
 }
 uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
     if (g_ppOn.load()) PpLogF3(slot, id, chr, r9, (uint64_t)_ReturnAddress());
-    if (const int m = g_fs0Mode.load()) {
+    if (const int m = g_fs0Mode.load(); m && chr) {
         uint32_t kind = 0xFFFFFFFF;
         Rd(slot, kind);
-        if (kind == 0 && id != 0xFFFFFFFF && chr) {
-            if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
-                if (g_fs0Id.exchange(id) != id) {
-                    g_fs0CapT = Now();
-                    Log("FormSlot0 CAPTURE seal chr=%llX kind-0 id=%X", (unsigned long long)chr, id);
+        if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
+            if (kind == 0 && id != 0xFFFFFFFF && chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) {
+                g_fs0Id.store(id);
+                g_fs0CapT = Now();
+                g_fs0Active.store(1);
+                Log("FormSlot0 CAPTURE seal chr=%llX kind-0 id=%X mode=%d (player slots known %ld, first kind-0 %llX) t=%.3f", (unsigned long long)chr, id, m,
+                    g_fs0N, (unsigned long long)g_fs0FirstK0.load(), g_fs0CapT);
+            }
+        } else if (chr == FkPlayer()) {
+            Fs0Note(slot, kind);
+            if (const uint32_t to = g_fs0Id.load(); to && g_fs0Active.load()) {
+                uint32_t nid = id;
+                if (kind == 0 && slot == g_fs0FirstK0.load()) nid = to;
+                else if (m == 2 && (kind <= 3 || kind == 0xD || kind == 0xE)) nid = 0xFFFFFFFF;
+                if (nid != id) {
+                    InterlockedIncrement(nid == to ? &g_fs0Swaps : &g_fs0Clears);
+                    if (InterlockedIncrement(&g_fs0Lines) <= 300)
+                        Log("FormSlot0 player slot=%llX kind=%X id %X -> %X (mode %d) t=%.3f", (unsigned long long)slot, kind, id, nid, m, Now());
+                    id = nid;
                 }
-            } else if (const uint32_t to = g_fs0Id.load(); to && chr == FkPlayer() && id != to) {
-                // a rebuild walks the slots in order; a new rebuild starts when the slot address goes back down
-                const bool first = slot <= g_fs0LastSlotBase || !g_fs0LastSlotBase;
-                if (first) g_fs0LastSlotBase = slot;
-                const uint32_t in = id;
-                id = (m == 2 && !first) ? 0xFFFFFFFF : to;
-                if (id == to) InterlockedIncrement(&g_fs0Swaps); else InterlockedIncrement(&g_fs0Clears);
-                Log("FormSlot0 player kind-0 slot=%llX id %X -> %X (mode %d) t=%.3f", (unsigned long long)slot, in, id, m, Now());
             }
         }
     }
@@ -1460,18 +1486,36 @@ bool FkRebuildParts(uint64_t chr) {
         return false;
     }
 }
-void FkSlot0Tick(uint64_t pchr) {  // game thread: one forced player part rebuild 0.3 s after the seal kind-0 capture
-    static uint32_t doneFor = 0;
-    const uint32_t to = g_fs0Id.load();
-    if (!g_fs0Mode.load() || !to || doneFor == to || Now() - g_fs0CapT < 0.3) return;
-    doneFor = to;
+void Fs0Reload(uint64_t pchr, const char* why) {  // the game's reload trigger on every player slot, then one parts rebuild
+    const LONG n = g_fs0N < 64 ? g_fs0N : 64;
+    const uint32_t m1 = 0xFFFFFFFF;
+    int w = 0;
+    for (LONG i = 0; i < n; ++i)
+        if (WrBytes(g_fs0Slot[i] + 0x20, &m1, 4)) ++w;
     const LONG s0 = g_fs0Swaps, c0 = g_fs0Clears;
-    g_fs0LastSlotBase = 0;
     const bool ok = FkRebuildParts(pchr);
-    Log("FormSlot0 forced rebuild F3478(chr+9F0,0) ok=%d id=%X swaps %ld -> %ld clears %ld -> %ld", ok, to, s0, g_fs0Swaps, c0, g_fs0Clears);
-    FkAppearLog("player after FormSlot0 rebuild", pchr);
+    Log("FormSlot0 %s: cached[slot+20]=-1 on %d/%ld slots, rebuild F3478(chr+9F0,0) ok=%d swaps %ld -> %ld clears %ld -> %ld t=%.3f", why, w, n, ok, s0,
+        g_fs0Swaps, c0, g_fs0Clears, Now());
+    FkAppearLog(why, pchr);
 }
-
+void FkSlot0Tick(uint64_t pchr) {  // game thread
+    static uint64_t kicked = 0;
+    const uint64_t cap = g_fs0CapChr.load();
+    if (g_fs0Active.load() && cap && kicked != cap && Now() - g_fs0CapT >= 0.3) {
+        kicked = cap;
+        Fs0Reload(pchr, "player after FormSlot0 apply");
+    }
+    const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
+    if (g_fs0Restore.exchange(0) || timeout) {
+        if (g_fs0Active.exchange(0)) {
+            g_fs0DoneChr.store(cap);
+            Fs0Reload(pchr, timeout ? "player after FormSlot0 restore (60 s)" : "player after FormSlot0 restore");
+        }
+        g_fs0Id.store(0);
+        g_fs0CapChr.store(0);
+        kicked = 0;
+    }
+}
 uint64_t FkPack(uint64_t key) {
     uint64_t m = 0;
     if (!Rd(g_base + 0x45B9E60, m) || !m) return 0;
@@ -1722,6 +1766,7 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("FormKey MODEL %s: restored [%llX] <- %llX, hits74C79D=%ld part47Loads=%ld part47Swaps=%ld", ended ? "LA ended" : "TIMEOUT 90 s",
                 (unsigned long long)wSlot, (unsigned long long)wOld, g_fkMHits, g_fkPartHits, g_fkPartSwaps);
             g_fkMSchr.store(0);
+            if (g_fs0Active.load()) g_fs0Restore.store(1);
             wSlot = wOld = 0;
             lastIx = 0xFF;
             g_fkMCell = 0;
@@ -1900,15 +1945,27 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
         }
         Log("FormKey appear (pipe): FormAppear=%d kick=%d restorePending=%d blk=%llX old=%X new=%X", g_fkAppearMode.load(), g_fkAppKick.load(), g_fkAppRestore.load(),
             (unsigned long long)g_fkAppBlk, g_fkAppOld, g_fkAppNew);
+    } else if (!strncmp(p, "slot0", 5)) {
+        const char* q = p + 5;
+        while (*q == ' ') ++q;
+        if (!strncmp(q, "off", 3)) g_fs0Restore.store(1);
+        else {
+            g_fs0Mode.store(atoi(q));
+            g_fs0DoneChr.store(0);  // re-arm on the current seal chr
+            if (g_fs0Mode.load()) PartProbeInstall();
+        }
+        Log("FormSlot0 (pipe): mode=%d active=%d id=%X restorePending=%d", g_fs0Mode.load(), g_fs0Active.load(), g_fs0Id.load(), g_fs0Restore.load());
     } else if (!strncmp(p, "off", 3)) {
+        g_fs0Restore.store(1);
         g_fkOn.store(0);
         g_fkSwap.store(0);
         g_fkPendKey.store(0);
         g_fkCell = 0;
         Log("FormKey off (pipe)");
     }
-    snprintf(reply, n, "ok formkey on=%d swapArmed=%d X=%X mgr=%llX state=%llX pendingKey=%llX lastHits=%ld", g_fkOn.load(), g_fkSwap.load(), g_fkX.load(),
-             (unsigned long long)g_fkMgr.load(), (unsigned long long)g_fkState.load(), (unsigned long long)g_fkPendKey.load(), g_fkHits);
+    snprintf(reply, n, "ok formkey on=%d swapArmed=%d X=%X mgr=%llX state=%llX pendingKey=%llX lastHits=%ld slot0 mode=%d active=%d id=%X swaps=%ld clears=%ld", g_fkOn.load(), g_fkSwap.load(), g_fkX.load(),
+             (unsigned long long)g_fkMgr.load(), (unsigned long long)g_fkState.load(), (unsigned long long)g_fkPendKey.load(), g_fkHits, g_fs0Mode.load(),
+             g_fs0Active.load(), g_fs0Id.load(), g_fs0Swaps, g_fs0Clears);
 }
 
 void Register(bool boss, bool rm, bool inv) {
