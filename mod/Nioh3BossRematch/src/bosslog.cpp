@@ -1709,6 +1709,39 @@ void Fs0Reload(uint64_t pchr, const char* why) {  // the game's reload trigger o
         g_fs0Swaps, c0, g_fs0Clears, Now());
     FkAppearLog(why, pchr);
 }
+// pc #54948: [Spirit] FormApply - after the FormSlot0 swap + rebuild, run the chr-level part apply 2C4450(obj, 0, -1) the way 902C00 applies
+// the seal yokai's own part object (902E40: rcx = [slot+10] = part object made by 902C00 from the slot, edx = 2C68B4 kind (0 for 40244A),
+// r8d = -1). 2C4450 skips when [obj+1FC] == kind (except chr ids 83DB1 / 909C3), so [obj+1FC] is set to -1 first. FormApply=1: target = the
+// player's first kind-0 slot object [slot+10] (player chr if that is null); 2: target = the player chr. Two tries: 0.1 s and 1.0 s after the
+// rebuild. Logs the slot state, target id ([obj]>>4), +1FC before/after and [slot+10] after.
+std::atomic<int> g_faMode{0};
+bool FaCall(uint64_t obj) {
+    __try {
+        ((void (*)(uint64_t, uint32_t, uint32_t))(g_base + 0x2C4450))(obj, 0, 0xFFFFFFFFu);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+void FaApply(uint64_t pchr, int round) {
+    const uint64_t slot = g_fs0FirstK0.load();
+    uint64_t obj = 0;
+    uint32_t st = 0, v40 = 0, v20 = 0;
+    if (slot) { Rd(slot + 0x10, obj); Rd(slot + 0x18, st); Rd(slot + 0x40, v40); Rd(slot + 0x20, v20); }
+    const int m = g_faMode.load();
+    const uint64_t tgt = m == 2 || !obj ? pchr : obj;
+    uint32_t key = 0, k1fc = 0, a1fc = 0;
+    Rd(tgt, key);
+    Rd(tgt + 0x1FC, k1fc);
+    const bool w = WrU32(tgt + 0x1FC, 0xFFFFFFFFu);
+    const bool ok = FaCall(tgt);
+    Rd(tgt + 0x1FC, a1fc);
+    uint64_t obj2 = 0;
+    if (slot) Rd(slot + 0x10, obj2);
+    Log("FormApply #%d mode=%d slot=%llX state[+18]=%u +40=%X +20=%X obj[+10]=%llX -> target=%llX (%s) id[t]>>4=%X +1FC %X -> -1 (w%d) -> call 2C4450(t,0,-1) ok=%d +1FC after=%X obj after=%llX t=%.3f",
+        round, m, (unsigned long long)slot, st, v40, v20, (unsigned long long)obj, (unsigned long long)tgt, tgt == pchr ? "player chr" : "slot obj", key >> 4,
+        k1fc, w, ok, a1fc, (unsigned long long)obj2, Now());
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
@@ -1717,6 +1750,14 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
         Fs0Reload(pchr, "player after FormSlot0 apply");
         SwArm(g_fs0FirstK0.load(), "after-apply");
         SpArm();
+    }
+    {   // pc #54948 FormApply: 0.1 s and 1.0 s after the kick (kick = capture + 0.3 s)
+        static uint64_t fa1 = 0, fa2 = 0;
+        const double dt = Now() - g_fs0CapT;
+        if (g_faMode.load() && g_fs0Active.load() && cap && kicked == cap) {
+            if (fa1 != cap && dt >= 0.4) { fa1 = cap; FaApply(pchr, 1); }
+            if (fa2 != cap && dt >= 1.3) { fa2 = cap; FaApply(pchr, 2); }
+        }
     }
     const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
     if (g_fs0Restore.exchange(0) || timeout) {
@@ -2206,6 +2247,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_spMode.store(IniInt(L"Spirit", L"SlotProbe", 0));  // pc #54959: 3 s state sampler of the player kind-0 slot + 406668 DB lookup
     g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
+    g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
