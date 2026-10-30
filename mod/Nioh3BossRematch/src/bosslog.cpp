@@ -2207,6 +2207,9 @@ uint32_t g_slKeepOff[8] = {};
 bool g_slKeepExt[8] = {};
 int g_slKeepN = 0;
 double g_slKeepSec = 25;
+std::atomic<int> g_slLoop{0};
+uint32_t g_slLoopMotion = 0;
+double g_slLoopAt = 4.0, g_slLoopEvery = 4.0;
 void HkSealUnlink(uint64_t, uint64_t actor, uint64_t, uint64_t, const uint64_t* sp) {
     if (!g_slMode.load() || !actor) return;
     const uint64_t cap = g_fs0CapChr.load();
@@ -2263,7 +2266,7 @@ void SlAnalyse(const char* nm, const SlSnap* s, int ns, const double* ts) {
     Log("SealLife scan %s done: %d clock-like fields", nm, hits);
 }
 void SealLifeTick() {
-    if (!g_slMode.load() && !g_slKeepN) return;
+    if (!g_slMode.load() && !g_slKeepN && !g_slLoop.load()) return;
     static uint64_t cap0 = 0;
     static double capT0 = -1;
     static int ns = 0;
@@ -2284,6 +2287,22 @@ void SealLifeTick() {
         SlRead(ext[ns], extP, 0x2000);
         ts[ns] = now;
         if (++ns == 5) { Log("SealLife: 5 samples seal=%llX ext=%llX t0=%.3f", (unsigned long long)cap, (unsigned long long)extP, ts[0]); SlAnalyse("chr", chr, 5, ts); if (extP) SlAnalyse("ext", ext, 5, ts); }
+    }
+    // SealLoop=1: the seal chr goes when its summon motion ends (run 1: no clock field; unlink via the 5BC9A0 queue at +5.9 s). Re-issue
+    // its motion (SealLoopMotion, default the spawn motion) with the game's 66C4A8(chr, id, 0, 0.0f) at capture + SealLoopAt, then every
+    // SealLoopEvery, while it is still registered and capture < SealKeepSec.
+    if (g_slLoop.load() && dt >= g_slLoopAt && dt < g_slKeepSec) {
+        static double next = 0;
+        static uint64_t loopCap = 0;
+        if (loopCap != cap) { loopCap = cap; next = 0; }
+        if (now >= next) {
+            next = now + g_slLoopEvery;
+            const uint32_t mv = g_slLoopMotion ? g_slLoopMotion : g_fkSealMotion.load();
+            const int present = FormHideSealPresent(g_fhEnd.actorGlobal, cap);
+            int rc = -1;
+            if (mv && present != 0) rc = TenshinMoveCall(cap, mv);
+            Log("SealLoop 66C4A8(seal %llX, %X) present=%d rc=%d dt=%.2f", (unsigned long long)cap, mv, present, rc, dt);
+        }
     }
     if (g_slKeepN && dt >= 0.5 && dt < g_slKeepSec) {
         uint64_t e = 0;
@@ -2988,6 +3007,11 @@ void Register(bool boss, bool rm, bool inv) {
             p = e;
         }
         g_slKeepSec = IniInt(L"Spirit", L"SealKeepSec", 25);
+        g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
+        GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
+        g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
+        g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
+        g_slLoopEvery = IniInt(L"Spirit", L"SealLoopEveryMs", 4000) / 1000.0;
     }
     g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
