@@ -2265,10 +2265,12 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     uint64_t actual = 0;
     if (!chr || chr != g_fh4.owner || chr != FkPlayer() || !root ||
         !Rd(chr + 0x20, actual) || actual != root) return false;
+    // #56154: the seal chr is captured ~1.2 s after the press, before its model root exists;
+    // a missing/unknown seal is the end-reason's job, so only refuse a real shared root here.
     if (g_fh4.seal) {
         uint64_t puppetRoot = 0;
-        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1 ||
-            !Rd(g_fh4.seal + 0x20, puppetRoot) || puppetRoot == root) return false;
+        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) == 1 &&
+            Rd(g_fh4.seal + 0x20, puppetRoot) && puppetRoot && puppetRoot == root) return false;
     }
     float k8 = 0;
     if (!Rd(root + 0x3A8, k8) || !std::isfinite(k8)) return false;
@@ -2316,10 +2318,8 @@ bool Fh4ClampShell(uint64_t parts, uint64_t context) {
     if (!Rd(parts, chr) || !chr || chr != g_fh4.owner || chr != FkPlayer() || parts != chr + 0x9F0 ||
         !Rd(chr + 0x20, root) || root != g_fh4.root || !root || context != root ||
         !Rd(chr + 0xB440, hide) || hide != 1 || !Rd(chr + 0xB444, blend) || blend != 1.f) return false;
-    if (g_fh4.seal) {
-        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1 ||
-            !Rd(g_fh4.seal + 0x20, sealRoot) || !sealRoot || sealRoot == root) return false;
-    }
+    if (g_fh4.seal && FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) == 1 &&
+        Rd(g_fh4.seal + 0x20, sealRoot) && sealRoot && sealRoot == root) return false; // #56154: unloaded seal root is not a fault
     if (!Rd(parts + 0x9F60, active) || !Rd(parts + 0x9F6C, enabled)) return false;
     if (!active || !enabled) active = parts + 0x20; // exact F5358/EFD74 selection
     if (!Rd(active + 0x9590, part)) return false;
