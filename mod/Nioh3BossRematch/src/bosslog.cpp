@@ -3033,6 +3033,23 @@ void SealDeferRelease(const char* why) {
     Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
     g_sdSkips = 0;
 }
+// Queue the seal's despawn through 681E9C (the game's own wrapper: [4745348]+BD0 -> 681044, natural caller +681EBB), byte-checked.
+// Returns 1 ok, 0 fault, -1 bytes not found (off). A SealDefer hold lets this request through (g_seoForce).
+int SealQueueDespawn(uint64_t cap) {
+    static int bytesOk = -1;
+    if (bytesOk < 0) {
+        static const uint8_t want[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xD1, 0x48, 0x8B, 0x0D};
+        uint8_t b[sizeof(want)] = {};
+        bytesOk = Copy(b, g_base + 0x681E9C, sizeof(b)) && !memcmp(b, want, sizeof(want));
+        if (!bytesOk) Log("SealEnd: 681E9C bytes not found in this update - off");
+    }
+    if (!bytesOk) return -1;
+    int ok = 1;
+    g_seoForce = cap;
+    __try { ((void (*)(uint64_t))(g_base + 0x681E9C))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    g_seoForce = 0;
+    return ok;
+}
 // SealEndOnIdle=1 (pc #56896, ally trace #56896): the captured seal yokai plays its attack action(s) and, for some cores, then idles until the
 // game's own despawn request. Ibaraki 5129B: action C53 for 4.87 s, then 0x1 (idle) 0.84 s, then despawn. A2ACB: C53 -> C56 -> C57 (multi-part)
 // and despawn with no idle. Action id = PlayerActId(seal) ([[[[chr+3B0]+8]+E8]]). On the first attack -> idle (0x1) edge we queue the despawn
@@ -3044,7 +3061,6 @@ void SealEndOnIdleTick() {
     static uint64_t lastCap = 0;
     static bool seenAtk = false, fired = false;
     static uint32_t lastId = 0;
-    static int bytesOk = -1;
     const uint64_t cap = g_fs0CapChr.load();
     if (cap != lastCap) { lastCap = cap; seenAtk = false; fired = false; lastId = 0; }
     if (!cap || fired) return;
@@ -3059,18 +3075,85 @@ void SealEndOnIdleTick() {
         SealDeferRelease("idle");
         return;
     }
-    if (bytesOk < 0) {
-        static const uint8_t want[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xD1, 0x48, 0x8B, 0x0D};
-        uint8_t b[sizeof(want)] = {};
-        bytesOk = Copy(b, g_base + 0x681E9C, sizeof(b)) && !memcmp(b, want, sizeof(want));
-        if (!bytesOk) Log("SealEndOnIdle: 681E9C bytes not found in this update - off");
-    }
-    if (!bytesOk) return;
-    int ok = 1;
-    g_seoForce = cap;
-    __try { ((void (*)(uint64_t))(g_base + 0x681E9C))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
-    g_seoForce = 0;
+    const int ok = SealQueueDespawn(cap);
+    if (ok < 0) return;
     Log("SealEndOnIdle seal=%llX action 0x%X -> idle 0x1 dtCap=%.3f: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)cap, lastId, dt, ok, Now());
+}
+// SealEndOnHit=1 (pc #57014, human #57010): end the form right after the seal's LAST hit window closes, not at the idle edge: the recovery
+// pose sits inside the attack action (Ibaraki C53 = 4.9 s, its last hit closes at 2.57 s). Hit windows = attack collision objects in the
+// pool [45C6F38]+0x20+i*8 (0xFA0 slots, obj+8 = owner actor; freed slot = window end, Training FRAMEPROBE) owned by the seal or by an actor
+// spawned through 65A8A8 after it (Ibaraki throws a helper EE49E that owns the first burst). A "burst" = the pool going from none to some of
+// those colliders. The gaps between bursts (0.7 s Ibaraki, 1.2 s A2ACB) are as long as the recovery, so a quiet-time rule cannot tell them
+// apart; instead each core has a burst count: [SealHits] <chrId hex>=N (seeded 5129B=2, A2ACB=2, ally trace #57014). When burst N closes we
+// queue the despawn (681E9C). A core with no count is learned: the bursts of a form that ended by itself are written to [SealHits], so its
+// next form ends on the hit; until then SealEndOnIdle stays the fallback.
+std::atomic<int> g_sehMode{0};
+uint64_t g_sehKid[8] = {};
+double g_sehKidT[8] = {};
+void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNote), any chr near the player
+    if (!g_sehMode.load() || !chr) return;
+    static int n = 0;
+    for (int i = 0; i < 8; ++i) if (g_sehKid[i] == chr) return;
+    g_sehKid[n % 8] = chr; g_sehKidT[n % 8] = Now(); ++n;
+}
+int SealHitsFor(uint32_t id) {
+    wchar_t k[16]; swprintf_s(k, L"%X", id);
+    const int n = (int)GetPrivateProfileIntW(L"SealHits", k, 0, IniPath());
+    return n ? n : id == 0x5129B ? 2 : id == 0xA2ACB ? 2 : 0;  // built-in seeds (ally trace #57014) when the ini has no [SealHits] line
+}
+void SealEndOnHitTick() {
+    if (!g_sehMode.load()) return;
+    static uint64_t seal = 0;
+    static double bindT = 0, lastClose = 0;
+    static int bursts = 0, want = 0, maxOpen = 0;
+    static bool open = false, fired = false;
+    static uint32_t sid = 0;
+    static std::vector<uint64_t> pool;
+    const uint64_t s = g_fh4.owner ? g_fh4.seal : 0;
+    if (s != seal) {
+        if (seal && !fired && bursts > 0) {  // form over without our end: learn this core's burst count
+            const int had = SealHitsFor(sid);
+            if (bursts > had) {
+                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
+                WritePrivateProfileStringW(L"SealHits", k, v, IniPath());
+                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
+            }
+        }
+        seal = s; bindT = Now(); bursts = 0; open = false; fired = false; maxOpen = 0; lastClose = 0;
+        sid = 0;
+        if (s) { uint32_t k = 0; Rd(s, k); sid = k >> 4; want = SealHitsFor(sid);
+            Log("SealEndOnHit seal=%llX core %X: %d hit bursts known%s", (unsigned long long)s, sid, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
+        }
+    }
+    if (!seal || fired) return;
+    uint64_t pb = 0;
+    if (!Rd(g_base + 0x45C6F38, pb) || !pb) return;
+    pool.resize(0xFA0);
+    if (!Copy(pool.data(), pb + 0x20, 0xFA0 * 8)) return;
+    int n = 0;
+    for (int i = 0; i < 0xFA0; ++i) {
+        const uint64_t o = pool[i];
+        if (!o) continue;
+        uint64_t own = 0;
+        if (!Rd(o + 8, own) || !own) continue;
+        bool mine = own == seal;
+        for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && own && g_sehKidT[k] >= bindT - 0.5;
+        if (mine) ++n;
+    }
+    const double now = Now();
+    if (n && !open) { open = true; ++bursts; Log("SealEndOnHit core %X burst %d opens (%d colliders) dt=%.3f", sid, bursts, n, now - bindT); }
+    if (n > maxOpen) maxOpen = n;
+    if (!n && open) {
+        open = false; lastClose = now;
+        Log("SealEndOnHit core %X burst %d closes dt=%.3f (want %d)", sid, bursts, now - bindT, want);
+        if (want && bursts >= want) {
+            fired = true;
+            if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+            const int ok = SealQueueDespawn(seal);
+            Log("SealEndOnHit seal=%llX core %X last hit burst %d closed dt=%.3f: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid, bursts,
+                now - bindT, ok, now);
+        }
+    }
 }
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
@@ -3105,6 +3188,7 @@ void SlAnalyse(const char* nm, const SlSnap* s, int ns, const double* ts) {
     Log("SealLife scan %s done: %d clock-like fields", nm, hits);
 }
 void SealLifeTick() {
+    SealEndOnHitTick();
     SealEndOnIdleTick();
     if (g_sdHeld && (g_sdHeld != g_fs0CapChr.load() || Now() - g_fs0CapT >= g_slKeepSec)) SealDeferRelease(g_sdHeld != g_fs0CapChr.load() ? "capture-change" : "deadline");
     if (!g_slMode.load() && !g_slKeepN && !g_slLoop.load()) return;
@@ -3771,6 +3855,7 @@ void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
 void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
+    if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || g_fkSealChr.load() == chr) return;
     g_fkSealMotion.store(motion);
     g_fkSealT = Now();
@@ -3992,6 +4077,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
     g_fiFix.store(IniInt(L"Spirit", L"FormInvulnFix", 1));  // pc #56639
         g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
+        g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
