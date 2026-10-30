@@ -2228,7 +2228,7 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
 // Keep the native +240 fade controller intact (FE37A0 consumes its +248).
 struct Fh4State {
     uint64_t owner = 0, seal = 0, root = 0;
-    double started = 0, capT = -1, nextLog = 0;
+    double started = 0, capT = -1, nextLog = 0, nextShellLog = 0;
     uint8_t hide = 0;
     float blend = 0, multiplier = 0;
 };
@@ -2237,6 +2237,7 @@ SRWLOCK g_fh4Lock = SRWLOCK_INIT;
 std::atomic<bool> g_fh4Ready{false}, g_fh4Fault{false};
 void* g_fh4PartsOrig = nullptr;
 void* g_fh4MultiplierOrig = nullptr;
+void* g_fh4AlphaOrig = nullptr;
 
 // All helpers below run with g_fh4Lock held. No stale-root restore on replacement.
 void Fh4Restore(uint64_t player) {
@@ -2298,6 +2299,54 @@ void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     if (g_fh4.owner && chr == g_fh4.owner && !Fh4ClampRoot(chr, root, true)) g_fh4Fault.store(true);
     ReleaseSRWLockExclusive(&g_fh4Lock);
 }
+// #56049: B444 is a crossfade TO the fixed part-46 armour shell, not invisibility.
+// EFC30 writes this derived alpha every update. Clamp its output at the actual
+// writer, without editing model pointers, equipment state, or the fade controller.
+bool Fh4ClampShell(uint64_t parts, uint64_t context) {
+    uint64_t chr = 0, root = 0, active = 0, part = 0, render = 0, sealRoot = 0;
+    uint32_t enabled = 0, handle = 0; uint8_t hide = 0; float blend = 0, alpha = 0;
+    if (!Rd(parts, chr) || !chr || chr != g_fh4.owner || chr != FkPlayer() || parts != chr + 0x9F0 ||
+        !Rd(chr + 0x20, root) || root != g_fh4.root || !root || context != root ||
+        !Rd(chr + 0xB440, hide) || hide != 1 || !Rd(chr + 0xB444, blend) || blend != 1.f) return false;
+    if (g_fh4.seal) {
+        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1 ||
+            !Rd(g_fh4.seal + 0x20, sealRoot) || !sealRoot || sealRoot == root) return false;
+    }
+    if (!Rd(parts + 0x9F60, active) || !Rd(parts + 0x9F6C, enabled)) return false;
+    if (!active || !enabled) active = parts + 0x20; // exact F5358/EFD74 selection
+    if (!Rd(active + 0x9590, part)) return false;
+    if (!part) return true; // no shell loaded
+    if (!Rd(part + 0x20, render)) return false;
+    if (!render) return true;
+    if (render == root || render == sealRoot || !Rd(part, handle) || !Rd(render + 0xC, alpha) || !std::isfinite(alpha)) return false;
+    // Four native type-5 models from F3CD6..F3D62; never clamp an arbitrary FormBody replacement.
+    const uint32_t id = handle >> 4;
+    if (id != 0x58C2A4 && id != 0x76D58 && id != 0x6CCDE0 && id != 0x295A89) return false;
+    // Recheck identity immediately before the write; keep no attachment pointer across frames.
+    uint64_t check = 0;
+    if (!Rd(active + 0x9590, check) || check != part || !Rd(part + 0x20, check) || check != render) return false;
+    const float zero = 0;
+    const bool ok = WrBytes(render + 0xC, &zero, 4);
+    const double now = Now();
+    if (now >= g_fh4.nextShellLog) {
+        Log("FormHide=4 shell46 id=%X part=%llX render=%llX nativeAlpha=%.6f zero=%d t=%.3f",
+            id, (unsigned long long)part, (unsigned long long)render, alpha, ok, now);
+        g_fh4.nextShellLog = now + 1;
+    }
+    return ok;
+}
+void HkFh4Alpha(uint64_t parts, uint8_t flag, uint64_t context) {
+    // Preserve native updates and all arguments, including calls on unrelated actors.
+    ((void(*)(uint64_t, uint8_t, uint64_t))g_fh4AlphaOrig)(parts, flag, context);
+    AcquireSRWLockExclusive(&g_fh4Lock);
+    uint64_t chr = 0;
+    if (g_fh4Ready.load() && g_fhMode.load() == 4 && !g_fh4Fault.load() &&
+        g_fh4.owner && Rd(parts, chr) && chr == g_fh4.owner && !Fh4ClampShell(parts, context))
+        g_fh4Fault.store(true);
+    ReleaseSRWLockExclusive(&g_fh4Lock);
+    // No retained alpha override: after release the next native EFC30 call
+    // computes the ordinary value. The clamped field is an output, not fade state.
+}
 void FormHide4Install() {
     if (g_fhMode.load() != 4 || g_fh4Ready.load()) return;
     static bool attempted = false;
@@ -2324,9 +2373,15 @@ void FormHide4Install() {
     if (!FormHideCodeMatches(0x56778C, g8, sizeof(g8))) { Log("FormHide=4 layout guard +56778C failed"); return; }
     static const uint8_t g9[] = {0x48,0x8B,0xD6,0x48,0x8B,0xCF,0xE8,0x63,0x53,0x40,0x00,0x48,0x8B,0xD6,0x48,0x8B};
     if (!FormHideCodeMatches(0x1621FA, g9, sizeof(g9))) { Log("FormHide=4 layout guard +1621FA failed"); return; }
-    static const uint32_t calls[] = {0x403495,0x403EC6,0x1A219A6,0x1C3687E,0x2052EA7,0x2055969,0x162200};
+    static const uint8_t shellWriter[] = {0x48,0x8B,0x83,0x60,0x9F,0x00,0x00,0x48,0x85,0xC0,0x74,0x09,0x83,0xBB,0x6C,0x9F,0x00,0x00,0x00,0x75,0x04,0x48,0x8D,0x43,0x20,0x48,0x8B,0x88,0x90,0x95,0x00,0x00,0x48,0x85,0xC9,0x74,0x76,0x4C,0x8B,0x41,0x20,0x4D,0x85,0xC0,0x74,0x6D,0x0F,0x28,0xC6,0xF3,0x0F,0x59,0x45,0x20,0xF3,0x41,0x0F,0x59,0xC0,0xF3,0x41,0x0F,0x11,0x40,0x0C,0x8B,0x01,0xC1,0xE8,0x04,0x3D,0xA4,0xC2,0x58,0x00};
+    if (!FormHideCodeMatches(0xEFD74, shellWriter, sizeof(shellWriter))) { Log("FormHide=4 shell guard +EFD74 failed"); return; }
+    static const uint8_t shellCall[] = {0x48,0x8B,0x7C,0x24,0x38,0x41,0x8A,0xD4,0x4C,0x8B,0xC7,0x48,0x8B,0xCB,0xE8,0x7B,0x9F,0xFF,0xFF,0x48,0x8B,0x0B};
+    if (!FormHideCodeMatches(0xF5CA2, shellCall, sizeof(shellCall))) { Log("FormHide=4 shell guard +F5CA2 failed"); return; }
+    static const uint8_t shellOwner[] = {0x4C,0x8B,0x19,0x49,0x8B,0xF8,0x0F,0x29,0x70,0xD8,0x40,0x8A,0xF2,0x0F,0x29,0x78,0xC8,0x48,0x8B,0xD9,0x44,0x0F,0x29,0x40,0xB8};
+    if (!FormHideCodeMatches(0xEFC41, shellOwner, sizeof(shellOwner))) { Log("FormHide=4 shell guard +EFC41 failed"); return; }
+    static const uint32_t calls[] = {0x403495,0x403EC6,0x1A219A6,0x1C3687E,0x2052EA7,0x2055969,0x162200,0xF5CB0};
     for (uint32_t rva : calls) {
-        const uint64_t target = rva == 0x162200 ? 0x567568 : 0x40169C;
+        const uint64_t target = rva == 0xF5CB0 ? 0xEFC30 : rva == 0x162200 ? 0x567568 : 0x40169C;
         uint8_t b[5] = {}; int32_t rel = 0;
         if (!Copy(b, g_base + rva, 5)) return;
         memcpy(&rel, b + 1, 4);
@@ -2337,19 +2392,20 @@ void FormHide4Install() {
     // Set originals before installing any live retarget; partial installation never arms writes.
     g_fh4PartsOrig = (void*)(g_base + 0x40169C);
     g_fh4MultiplierOrig = (void*)(g_base + 0x567568);
+    g_fh4AlphaOrig = (void*)(g_base + 0xEFC30);
     unsigned n = 0;
     for (uint32_t rva : calls) {
-        const bool mult = rva == 0x162200;
+        const bool mult = rva == 0x162200, alpha = rva == 0xF5CB0;
         const char* why = nullptr; void* original = nullptr;
         if (!InstallCallRetargetAt((uint8_t*)(g_base + rva),
-                mult ? "call:FormHide4Multiplier" : "call:FormHide4Parts",
-                mult ? (void*)&HkFh4Multiplier : (void*)&HkFh4Parts, &original, &why)) {
+                alpha ? "call:FormHide4ShellAlpha" : mult ? "call:FormHide4Multiplier" : "call:FormHide4Parts",
+                alpha ? (void*)&HkFh4Alpha : mult ? (void*)&HkFh4Multiplier : (void*)&HkFh4Parts, &original, &why)) {
             Log("FormHide=4 hook +%X failed (%s)", rva, why ? why : "unknown"); break;
         }
         ++n;
     }
-    g_fh4Ready.store(n == 7);
-    Log("FormHide=4 hooks=%u/7 ready=%d (B440=1 B444=1 root+3A8=0)", n, g_fh4Ready.load());
+    g_fh4Ready.store(n == 8);
+    Log("FormHide=4 hooks=%u/8 ready=%d (B440=1 B444=1 root+3A8=0 shell46+C=0)", n, g_fh4Ready.load());
 }
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
