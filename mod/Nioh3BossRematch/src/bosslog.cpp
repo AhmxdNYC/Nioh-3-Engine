@@ -1336,6 +1336,16 @@ std::atomic<int> g_ppOn{0};
 volatile LONG g_ppF3Hits = 0, g_ppC4Hits = 0, g_ppLines = 0;
 void* g_ppF3Orig = nullptr;
 void* g_ppC4Orig = nullptr;
+// pc2 #54828: the seal yokai 5129B stages exactly one real part, kind 0 id 0x40244A, through the generic F35AD loop (all its other slots -1).
+// [Spirit] FormSlot0 (needs FormKey=1; installs the F3D78 call-site hooks even with PartProbe=0): capture the seal chr's kind-0 id, then
+// 1 = every non-empty player kind-0 id becomes it, 2 = the first non-empty player kind-0 slot of a rebuild becomes it, later ones -1;
+// 0.3 s after the capture the player parts are rebuilt once (F3478(chr+9F0,0)) so the swap runs. Restore: pipe `rm spirit formkey appear off`
+// does not undo it; a rebuild with FormSlot0 off (area reload) does.
+std::atomic<int> g_fs0Mode{0};
+std::atomic<uint32_t> g_fs0Id{0};
+volatile LONG g_fs0Swaps = 0, g_fs0Clears = 0;
+double g_fs0CapT = 0;
+uint64_t g_fs0LastSlotBase = 0;
 const char* PpWho(uint64_t chr, uint64_t pl) {
     if (!chr) return "null";
     if (chr == pl) return "PLAYER";
@@ -1356,6 +1366,26 @@ void PpLogF3(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9, uint64_t ret
 }
 uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
     if (g_ppOn.load()) PpLogF3(slot, id, chr, r9, (uint64_t)_ReturnAddress());
+    if (const int m = g_fs0Mode.load()) {
+        uint32_t kind = 0xFFFFFFFF;
+        Rd(slot, kind);
+        if (kind == 0 && id != 0xFFFFFFFF && chr) {
+            if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
+                if (g_fs0Id.exchange(id) != id) {
+                    g_fs0CapT = Now();
+                    Log("FormSlot0 CAPTURE seal chr=%llX kind-0 id=%X", (unsigned long long)chr, id);
+                }
+            } else if (const uint32_t to = g_fs0Id.load(); to && chr == FkPlayer() && id != to) {
+                // a rebuild walks the slots in order; a new rebuild starts when the slot address goes back down
+                const bool first = slot <= g_fs0LastSlotBase || !g_fs0LastSlotBase;
+                if (first) g_fs0LastSlotBase = slot;
+                const uint32_t in = id;
+                id = (m == 2 && !first) ? 0xFFFFFFFF : to;
+                if (id == to) InterlockedIncrement(&g_fs0Swaps); else InterlockedIncrement(&g_fs0Clears);
+                Log("FormSlot0 player kind-0 slot=%llX id %X -> %X (mode %d) t=%.3f", (unsigned long long)slot, in, id, m, Now());
+            }
+        }
+    }
     return ((uint64_t(*)(uint64_t, uint32_t, uint64_t, uint64_t))g_ppF3Orig)(slot, id, chr, r9);
 }
 uint64_t HkPp2C4450(uint64_t chr, uint32_t kind, uint32_t st, uint64_t r9) {
@@ -1429,6 +1459,17 @@ bool FkRebuildParts(uint64_t chr) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
+}
+void FkSlot0Tick(uint64_t pchr) {  // game thread: one forced player part rebuild 0.3 s after the seal kind-0 capture
+    static uint32_t doneFor = 0;
+    const uint32_t to = g_fs0Id.load();
+    if (!g_fs0Mode.load() || !to || doneFor == to || Now() - g_fs0CapT < 0.3) return;
+    doneFor = to;
+    const LONG s0 = g_fs0Swaps, c0 = g_fs0Clears;
+    g_fs0LastSlotBase = 0;
+    const bool ok = FkRebuildParts(pchr);
+    Log("FormSlot0 forced rebuild F3478(chr+9F0,0) ok=%d id=%X swaps %ld -> %ld clears %ld -> %ld", ok, to, s0, g_fs0Swaps, c0, g_fs0Clears);
+    FkAppearLog("player after FormSlot0 rebuild", pchr);
 }
 
 uint64_t FkPack(uint64_t key) {
@@ -1552,6 +1593,7 @@ void HkFormKeyInputBody(uint64_t a) {
     const uint64_t pl = FkPlayer();
     if (!pchr || (pl && pchr != pl)) return;  // only the local player's state
     FkAppearTick(pchr);
+    FkSlot0Tick(pchr);
     if (g_fkState.exchange(a) != a) Log("FormKey player state=%llX chr=[state+E0]=%llX playerChr=%llX", (unsigned long long)a, (unsigned long long)pchr, (unsigned long long)pl);
     const uint64_t mgr = g_fkMgr.load();
     uint64_t inst = 0, schr = 0, sst = 0;
@@ -1827,7 +1869,7 @@ bool FormKeyInstall() {
         else if (InstallCallRetargetAt(p, "call:FormPart47F3D78", (void*)&HkPart47, &g_fkPartOrig, &w)) Log("FormKey: part-47 hook on +F38AE (FormPart=%d)", g_fkPartMode.load());
         else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
     }
-    if (g_ppOn.load()) PartProbeInstall();
+    if (g_ppOn.load() || g_fs0Mode.load()) PartProbeInstall();
     ok = grp && n > 0;
     return ok;
 }
@@ -1890,7 +1932,8 @@ void Register(bool boss, bool rm, bool inv) {
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
     g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));
-    g_ppOn.store(IniInt(L"Spirit", L"PartProbe", 0));  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
+    g_ppOn.store(IniInt(L"Spirit", L"PartProbe", 0));
+    g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
