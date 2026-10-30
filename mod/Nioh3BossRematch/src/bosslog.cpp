@@ -2521,6 +2521,45 @@ void FastThrowInstall() {
     g_ftMul.store((float)pct);
     Log("FastThrow: x%d on actions %d ids, hooks %u/18", pct, n, k);
 }
+// pc #56515 [Spirit] OrbSkip=1: the seal item throws an orb object (322468 per-frame update, notes/soulcore-orb-56515.md) that shows
+// effect 0x6254D and flies until the ground test 6A3BB0 (call 322DD9) hits; only then does the landing object burst and spawn the yokai
+// (+0.67 s on ally, +2.6 s on pc). Two call retargets inside 322468, both only for the seal orb (orb effect param O+0x644 == 0x6254D):
+// 322DD9 ground test returns 1 on the first flying tick (lands next to the player), 322958 skips creating the orb effect (zero handle,
+// the game's own failure result at 29F0E7). Ally live /proc test #56515: no 0x6254D, burst +0.13 s, yokai +0.41 s (was +0.67 s).
+void* g_orbLandOrig = nullptr;
+void* g_orbFxOrig = nullptr;
+std::atomic<uint32_t> g_orbHits{0};
+uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
+    uint32_t fx = 0;
+    if (o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {
+        if (g_orbHits.fetch_add(1) < 4) Log("OrbSkip: seal orb %llX lands on its first tick t=%.3f", (unsigned long long)o, Now());
+        return 1;
+    }
+    return ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))g_orbLandOrig)(o, edx, r8, r9);
+}
+uint64_t HkOrbFx(uint64_t ctrl, uint64_t out, uint64_t fx, uint64_t r9, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8) {
+    if ((uint32_t)fx == 0x6254D && out > 0x10000) {
+        *(volatile uint32_t*)out = 0;
+        Log("OrbSkip: orb effect 0x6254D skipped (ctrl %llX) t=%.3f", (unsigned long long)ctrl, Now());
+        return out;
+    }
+    return ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))g_orbFxOrig)(ctrl, out, fx, r9, s5, s6, s7, s8);
+}
+void OrbSkipInstall() {
+    if (IniInt(L"Spirit", L"OrbSkip", 0) <= 0) return;
+    static const uint8_t land[] = {0x81,0xC2,0x32,0x05,0x00,0x00,0xE8,0xD2,0x0D,0x38,0x00,0x84,0xC0,0x74,0x21};
+    static const uint8_t fx[] = {0x48,0x8B,0xCF,0xE8,0xDB,0xC5,0xF7,0xFF,0x8B,0x08,0x89,0x4F,0x78};
+    if (!FormHideCodeMatches(0x322DD3, land, sizeof(land)) || !FormHideCodeMatches(0x322955, fx, sizeof(fx))) {
+        Log("OrbSkip: 322468 call bytes differ (not this game build) - off"); return;
+    }
+    const char* why = nullptr;
+    if (!InstallCallRetargetAt((uint8_t*)(g_base + 0x322DD9), "call:OrbSkipGround", (void*)&HkOrbGround, &g_orbLandOrig, &why)) {
+        Log("OrbSkip: ground hook failed (%s) - off", why ? why : "?"); return;
+    }
+    if (!InstallCallRetargetAt((uint8_t*)(g_base + 0x322958), "call:OrbSkipFx", (void*)&HkOrbFx, &g_orbFxOrig, &why))
+        Log("OrbSkip: orb effect hook failed (%s) - orb lands at once but its effect may flash", why ? why : "?");
+    Log("OrbSkip: on (seal orb lands on its first tick, orb effect 0x6254D off)");
+}
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static uint64_t attempted = 0;
@@ -3526,6 +3565,7 @@ bool FormKeyInstall() {
     if (g_fatMode.load()) FormAttachInstall();
     FormHide4Install();
     FastThrowInstall();
+    OrbSkipInstall();
     ok = grp && n > 0;
     return ok;
 }
