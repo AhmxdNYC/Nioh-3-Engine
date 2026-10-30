@@ -1378,21 +1378,43 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("FormKey swap armed key=%llX: waiting for its pack (+2C8), timeout 5 s", (unsigned long long)key);
         }
     }
-    if (g_fkMVal) {  // model mode: report the hit (or time out after 15 s)
-        const LONG h = g_fkMHits;
-        if (h || Now() - g_fkMArmT > 15.0) {
-            uint64_t M = 0, m8 = 0, m10 = 0;
+    if (g_fkMVal) {  // model mode. ally #54340: the LA transform does not pass 74C79D; it switches the player's active slot ([M+A0] 0 -> 2) to
+        // the LA model. So while armed, put the seal yokai's model into the ACTIVE slot [M+8+idx*8] (idx != 0) and keep it there; restore at idx 0.
+        static uint64_t wSlot = 0, wOld = 0;
+        static uint8_t lastIx = 0xFF;
+        static double lastRe = 0;
+        uint64_t M = 0;
+        uint8_t ix = 0;
+        if (Rd(pchr + 0x50, M) && M) Rd(M + 0xA0, ix);
+        const uint64_t slot = M && ix ? M + 8 + 8ull * ix : 0;
+        uint64_t cur = 0;
+        if (slot) Rd(slot, cur);
+        if (ix != lastIx) {
             uint32_t a68 = 0;
-            uint8_t ix = 0;
-            if (Rd(pchr + 0x50, M) && M) {
-                Rd(M + 8, m8);
-                Rd(M + 0x10, m10);
-                Rd(M + 0xA0, ix);
-            }
             Rd(a + 0xA68, a68);
-            Log("FormKey MODEL %s hits=%ld val=%llX cellLeft=%llX | player M=%llX [M+8]=%llX [M+10]=%llX idxA0=%u A68=%X after %.2f s", h ? "HIT" : "TIMEOUT", h,
-                (unsigned long long)g_fkMVal, (unsigned long long)g_fkMCell, (unsigned long long)M, (unsigned long long)m8, (unsigned long long)m10, ix, a68,
+            Log("FormKey MODEL player idxA0 %u -> %u slot=%llX cur=%llX A68=%X t+%.2f s", lastIx, ix, (unsigned long long)slot, (unsigned long long)cur, a68,
                 Now() - g_fkMArmT);
+            lastIx = ix;
+        }
+        if (slot && cur != g_fkMVal) {
+            if (wSlot != slot) { wSlot = slot; wOld = cur; }
+            const bool ok = WrBytes(slot, (const void*)&g_fkMVal, 8);
+            if (Now() - lastRe > 1.0) {
+                lastRe = Now();
+                Log("FormKey MODEL WRITE active slot idx=%u [%llX] %llX -> %llX ok=%d t+%.2f s", ix, (unsigned long long)slot, (unsigned long long)cur,
+                    (unsigned long long)g_fkMVal, ok, Now() - g_fkMArmT);
+            }
+        }
+        const bool ended = wSlot && !ix;
+        if (ended || Now() - g_fkMArmT > 90.0) {
+            if (wSlot && wOld) {
+                uint64_t v = 0;
+                if (Rd(wSlot, v) && v == g_fkMVal) WrBytes(wSlot, &wOld, 8);
+            }
+            Log("FormKey MODEL %s: restored [%llX] <- %llX, hits74C79D=%ld", ended ? "LA ended" : "TIMEOUT 90 s", (unsigned long long)wSlot, (unsigned long long)wOld,
+                g_fkMHits);
+            wSlot = wOld = 0;
+            lastIx = 0xFF;
             g_fkMCell = 0;
             g_fkMVal = 0;
         }
