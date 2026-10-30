@@ -2158,8 +2158,8 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 // pc #56910 [Spirit] FormFollowSeal: traveling soul cores (d-pad DOWN) move their yokai away from the player, so FormPin (seal -> player)
 // would hold it in place. 1 = every frame warp the hidden player onto the seal (669AB8 on the player + its rotation rows), camera keeps
 // following the player, who reappears where the yokai stops. 2 = auto: seal bound from the spawn hit (no FormSlot0 capture) -> follow; else no pin for the first FormFollowProbeMs after the seal is bound;
-// seal moved >= FormFollowCm from its first position -> follow, else pin as before. 0 = off (pin only).
-std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{150};
+// seal moved >= FormFollowCm (default 400, was 150) from its first position -> follow, else pin as before. 0 = off (pin only).
+std::atomic<int> g_fhFollow{0}, g_fhFollowProbeMs{600}, g_fhFollowCm{400};
 bool FormFollow(uint64_t pchr, uint64_t cap) {
     uint64_t ag = g_fhEnd.actorGlobal;  // never read a removed seal (same actor-table lookup as FormPin)
     if (!ag) {
@@ -2689,6 +2689,8 @@ int Fh4FollowDecide(double now) {
     if (m <= 0) return 0;
     if (m == 1) return 1;
     if (g_fh4.follow >= 0) return g_fh4.follow;
+    // pc #57103: auto misfired on LEFT 5129B (lunge moved the seal 151 cm in 0.32 s vs 150 -> the player was warped = "teleport"). A seal
+    // FormSlot0 captured (LEFT) is probed against FormFollowCm (default now 400); a spawn-hit seal (DOWN A2ACB) follows at once.
     if (g_fh4.fromSpawn) {  // no FormSlot0 kind-0 capture = not the LEFT (5129B) body: traveling core (DOWN A2ACB), follow at once
         g_fh4.follow = 1;
         Log("FormFollowSeal auto: seal bound from the spawn hit (no FormSlot0 capture) -> FOLLOW");
@@ -2749,7 +2751,12 @@ void FormHide4Tick(uint64_t player) {
             } else if (now - g_fh4.started > 2.5) reason = "press-no-seal";
         } else if (cap != g_fh4.seal || capT != g_fh4.capT) reason = "capture-change";
         else reason = FormHideEndReason(player, cap, g_fh4.started);
-        if (reason) { Log("FormHide=4 end %s", reason); Fh4Restore(player); }
+        if (reason) {
+            Log("FormHide=4 end %s", reason); Fh4Restore(player);
+            // pc #57103: the FormSlot0 capture outlives the form (cleared only at 60 s). A spawn-hit form (DOWN A2ACB) never consumed it, so
+            // the same tick re-began a form on the stale LEFT seal -> hidden + locked 20 s. Every end consumes whatever capture is current.
+            attempted = g_fs0CapChr.load(); attemptedT = g_fs0CapT;
+        }
         else {
             if (g_fh4.seal && now >= g_fh4.nextSealPoll) {  // pc #56435: hooks read this cache instead of walking the actor table per call
                 uint64_t sr = 0;
@@ -2766,7 +2773,8 @@ void FormHide4Tick(uint64_t player) {
             }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
-               (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
+               (edge || (cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
+                         FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0))) {  // pc #57103: only a fresh capture of a live seal begins a form
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             g_fh4.owner = player; g_fh4.started = now; g_fh4Fault.store(false);
             FormBlockSet(true);
@@ -4055,7 +4063,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhWarp.store(IniInt(L"Spirit", L"FormPinWarp", 1));
     g_fhFollow.store(IniInt(L"Spirit", L"FormFollowSeal", 0));  // pc #56910
     g_fhFollowProbeMs.store(IniInt(L"Spirit", L"FormFollowProbeMs", 600));
-    g_fhFollowCm.store(IniInt(L"Spirit", L"FormFollowCm", 150));  // pc #55842: 1 = move via the game's warp setter 669AB8
+    g_fhFollowCm.store(IniInt(L"Spirit", L"FormFollowCm", 400));  // pc #55842: 1 = move via the game's warp setter 669AB8
     g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
     {
         wchar_t kb[128] = {};
