@@ -1188,6 +1188,60 @@ volatile uint64_t g_fkMCell = 0;
 volatile LONG g_fkMHits = 0;
 double g_fkMArmT = 0;
 uint64_t g_fkMState = 0, g_fkMVal = 0;
+// pc #54384: [Spirit] FormPart. The LA body is part 47 of the parts container X=chara+0x9F0, loaded by F3478 at +F38AE
+// (call F3D78(part, id, chara, 0); id = LA-row [row+0x10]; FED9E0 skips the reload when id == cached [part+0x20]).
+// The hook logs every part-47 load of the player; FormPart=1: while FormModel is armed, the id becomes the seal yokai's body id
+// [[schr+E8]+248]. FormPart=2: also rebuild the parts once (F3478(chara+9F0, 0)) if LA started and no part-47 load came.
+std::atomic<int> g_fkPartMode{0};
+std::atomic<uint64_t> g_fkMSchr{0};
+volatile LONG g_fkPartHits = 0, g_fkPartSwaps = 0;
+void* g_fkPartOrig = nullptr;
+uint32_t FkBodyId(uint64_t chr) {  // 0xF26C4: [[chr+560]+4] if chr+560 set, else [[chr+E8]+248]
+    uint64_t e8 = 0, a560 = 0;
+    uint32_t v = 0;
+    if (!chr || !Rd(chr + 0xE8, e8) || !e8) return 0;
+    Rd(e8 + 0x248, v);
+    if (Rd(chr + 0x560, a560) && a560) Rd(a560 + 4, v);
+    return v;
+}
+uint32_t FkSealBody(uint64_t schr) {  // pc #54384: [[schr+E8]+248]
+    uint64_t e8 = 0;
+    uint32_t v = 0;
+    return schr && Rd(schr + 0xE8, e8) && e8 && Rd(e8 + 0x248, v) ? v : 0;
+}
+uint64_t FkPlayer();
+uint64_t HkPart47(uint64_t part, uint32_t id, uint64_t chr, uint64_t r9) {
+    const uint32_t in = id;
+    if (g_fkOn.load()) {
+        const uint64_t pl = FkPlayer();
+        const LONG n = InterlockedIncrement(&g_fkPartHits);
+        const uint64_t schr = g_fkMSchr.load();
+        const bool armed = g_fkMVal != 0;
+        const uint32_t sb = FkSealBody(schr);
+        if (armed && g_fkPartMode.load() && chr && chr == pl && sb && sb != 0xFFFFFFFF && id != 0xFFFFFFFF && id != sb) {
+            id = sb;
+            InterlockedIncrement(&g_fkPartSwaps);
+        }
+        static uint32_t lastIn = 0xFFFFFFFE;
+        if (n <= 40 || in != lastIn || id != in) {
+            uint32_t cached = 0;
+            Rd(part + 0x20, cached);
+            Log("FormKey PART47 #%ld part=%llX chr=%llX player=%d id=%X%s%X cached[part+20]=%X armed=%d FormPart=%d F26C4(player)=%X F26C4(seal)=%X sealBody[[schr+E8]+248]=%X schr=%llX t=%.3f",
+                n, (unsigned long long)part, (unsigned long long)chr, chr && chr == pl, in, id != in ? " -> REPLACED " : " kept ", id, cached, armed,
+                g_fkPartMode.load(), FkBodyId(pl), FkBodyId(schr), sb, (unsigned long long)schr, Now());
+            lastIn = in;
+        }
+    }
+    return ((uint64_t(*)(uint64_t, uint32_t, uint64_t, uint64_t))g_fkPartOrig)(part, id, chr, r9);
+}
+bool FkRebuildParts(uint64_t chr) {
+    __try {
+        ((void (*)(uint64_t, uint64_t))(g_base + 0xF3478))(chr + 0x9F0, 0);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
 
 uint64_t FkPack(uint64_t key) {
     uint64_t m = 0;
@@ -1362,6 +1416,11 @@ void HkFormKeyInputBody(uint64_t a) {
                 g_fkMState = a;
                 g_fkMArmT = Now();
                 g_fkMCell = s.m10;
+                g_fkMSchr.store(schr);
+                g_fkPartHits = 0;
+                g_fkPartSwaps = 0;
+                Log("FormKey PART armed FormPart=%d: seal chr=%llX sealBody[[schr+E8]+248]=%X F26C4(seal)=%X F26C4(player)=%X", g_fkPartMode.load(),
+                    (unsigned long long)schr, FkSealBody(schr), FkBodyId(schr), FkBodyId(pchr));
                 g_tenReq.store(1);  // the game's own LA transform request on the next 2E6C34 call
                 Log("FormKey MODEL armed: 74C79D returns seal [[chr+50]+10]=%llX once (player M+8=%llX M+10=%llX); LA request 0x4E queued",
                     (unsigned long long)s.m10, (unsigned long long)p.m8, (unsigned long long)p.m10);
@@ -1389,6 +1448,17 @@ void HkFormKeyInputBody(uint64_t a) {
         const uint64_t slot = M && ix ? M + 8 + 8ull * ix : 0;
         uint64_t cur = 0;
         if (slot) Rd(slot, cur);
+        static double ixOnT = 0;
+        static bool rebuilt = false;
+        if (!ix) ixOnT = 0;
+        else if (!ixOnT) { ixOnT = Now(); rebuilt = false; }
+        if (ix && !rebuilt && g_fkPartMode.load() >= 2 && g_fkPartSwaps == 0 && ixOnT && Now() - ixOnT > 0.3) {
+            rebuilt = true;
+            const LONG h0 = g_fkPartHits;
+            const bool ok = FkRebuildParts(pchr);
+            Log("FormKey PART forced rebuild F3478(chr+9F0,0) ok=%d part47 loads %ld -> %ld swaps=%ld t+%.2f s", ok, h0, g_fkPartHits, g_fkPartSwaps,
+                Now() - g_fkMArmT);
+        }
         if (ix != lastIx) {
             uint32_t a68 = 0;
             Rd(a + 0xA68, a68);
@@ -1411,8 +1481,9 @@ void HkFormKeyInputBody(uint64_t a) {
                 uint64_t v = 0;
                 if (Rd(wSlot, v) && v == g_fkMVal) WrBytes(wSlot, &wOld, 8);
             }
-            Log("FormKey MODEL %s: restored [%llX] <- %llX, hits74C79D=%ld", ended ? "LA ended" : "TIMEOUT 90 s", (unsigned long long)wSlot, (unsigned long long)wOld,
-                g_fkMHits);
+            Log("FormKey MODEL %s: restored [%llX] <- %llX, hits74C79D=%ld part47Loads=%ld part47Swaps=%ld", ended ? "LA ended" : "TIMEOUT 90 s",
+                (unsigned long long)wSlot, (unsigned long long)wOld, g_fkMHits, g_fkPartHits, g_fkPartSwaps);
+            g_fkMSchr.store(0);
             wSlot = wOld = 0;
             lastIx = 0xFF;
             g_fkMCell = 0;
@@ -1550,6 +1621,16 @@ bool FormKeyInstall() {
         else if (InstallCallKeyOverride(p, "call:FormKeyModel1175400", &g_fkMCell, &g_fkMHits, &w)) Log("FormKey: model override on +74C79D (FormModel=%d)", g_fkModelMode.load());
         else Log("FormKey: model override at +74C79D failed: %s", w ? w : "?");
     }
+    {   // pc #54384: part-47 loader call in F3478 (+F38AE call F3D78)
+        uint8_t* p = (uint8_t*)(g_base + 0xF38AE);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        const char* w = nullptr;
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0xF3D78) Log("FormKey: +F38AE is not 'call F3D78' - part-47 hook not installed");
+        else if (InstallCallRetargetAt(p, "call:FormPart47F3D78", (void*)&HkPart47, &g_fkPartOrig, &w)) Log("FormKey: part-47 hook on +F38AE (FormPart=%d)", g_fkPartMode.load());
+        else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
+    }
     ok = grp && n > 0;
     return ok;
 }
@@ -1594,6 +1675,7 @@ void Register(bool boss, bool rm, bool inv) {
     F_UNL = Site("MissionUnlockedGet");
     g_logOn = boss || rm;
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
+    g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
