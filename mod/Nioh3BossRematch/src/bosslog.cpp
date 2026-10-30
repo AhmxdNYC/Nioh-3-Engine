@@ -2433,6 +2433,67 @@ void FormHide4Install() {
     g_fh4Ready.store(n == 8);
     Log("FormHide=4 hooks=%u/8 ready=%d (B440=1 B444=1 root+3A8=0 shell46+C=0)", n, g_fh4Ready.load());
 }
+// pc #56436 [Spirit] FastThrow=<x> (0 = off): the seal throw is the player's actions 0x28FD (~1.0 s, native play rate 2.2) then 0x28FB;
+// the yokai spawns from that motion's timeline ~1.2 s after the press. Poking the play-rate fields [chr+40]+324.. directly is undone every
+// frame (ally live test: layer refresh recomputes them), so all 18 calls of ComputeMotionSpeed 134E68(ctrl, layer, flag) -> xmm0
+// (notes/boss-speed-lever-22389.md, [ctrl+E0] = actor) are retargeted: while the player's current action is in FastThrowActs (default
+// 28FD,28FB) the rate is multiplied by FastThrow, so the throw is over in a few frames and the timeline still spawns the yokai.
+std::atomic<float> g_ftMul{0};
+std::atomic<uint32_t> g_ftActs[4];
+std::atomic<int> g_ftN{0};
+void* g_ftOrig = nullptr;
+float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
+    const float r = ((float (*)(uint64_t, uint8_t, uint8_t))g_ftOrig)(ctrl, layer, flag);
+    const float m = g_ftMul.load();
+    if (m <= 1.f || !(r > 0.f) || r > 50.f) return r;
+    uint64_t a = 0;
+    if (!Rd(ctrl + 0xE0, a) || !a || a != FkPlayer()) return r;
+    const uint32_t id = PlayerActId(a);
+    bool hit = false;
+    for (int i = 0, n = g_ftN.load(); i < n; ++i) hit = hit || g_ftActs[i].load() == id;
+    if (!hit) return r;
+    static uint32_t loggedId = 0; static double loggedT = 0;
+    if (id != loggedId || Now() - loggedT > 5) { loggedId = id; loggedT = Now(); Log("FastThrow: player action 0x%X layer %u rate %.3f -> %.3f t=%.3f", id, layer, r, r * m, Now()); }
+    return r * m;
+}
+void FastThrowInstall() {
+    const int pct = IniInt(L"Spirit", L"FastThrow", 0);
+    if (pct <= 1) return;
+    wchar_t ab[128] = {};
+    GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB", ab, 128, IniPath());
+    int n = 0;
+    for (wchar_t* q = ab; *q && n < 4;) {
+        while (*q == L',' || *q == L' ') ++q;
+        if (!*q) break;
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(q, &e, 16);
+        if (e == q) break;
+        if (v) g_ftActs[n++].store((uint32_t)v);
+        q = e;
+    }
+    g_ftN.store(n);
+    static const uint8_t pro[] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x68,0x10,0x48,0x89,0x70,0x18,0x48,0x89,0x78,0x20};
+    if (!FormHideCodeMatches(0x134E68, pro, sizeof(pro))) { Log("FastThrow: 134E68 prologue differs - off"); return; }
+    static const uint32_t calls[] = {0x133C3F,0x20DCCB,0x20DF26,0x20DF3F,0x4F3827,0x66CB7C,0x66CD36,0x66D883,0x66D8F4,0x66DEC0,0x66EC3C,0x673B2C,
+                                     0x67B1DE,0x6860F5,0x6861B8,0x9B8133,0x9B819F,0x201821A};
+    for (uint32_t rva : calls) {  // verify every site first; never install a partial set
+        uint8_t b[5] = {}; int32_t rel = 0;
+        if (!Copy(b, g_base + rva, 5)) { Log("FastThrow: +%X unreadable - off", rva); return; }
+        memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || g_base + rva + 5 + rel != g_base + 0x134E68) { Log("FastThrow: call guard +%X failed - off", rva); return; }
+    }
+    g_ftOrig = (void*)(g_base + 0x134E68);
+    unsigned k = 0;
+    for (uint32_t rva : calls) {
+        const char* why = nullptr; void* original = nullptr;
+        if (!InstallCallRetargetAt((uint8_t*)(g_base + rva), "call:FastThrow134E68", (void*)&HkMotionSpeed, &original, &why)) {
+            Log("FastThrow: hook +%X failed (%s)", rva, why ? why : "?"); break;
+        }
+        ++k;
+    }
+    g_ftMul.store((float)pct);
+    Log("FastThrow: x%d on actions %d ids, hooks %u/18", pct, n, k);
+}
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static uint64_t attempted = 0;
@@ -3420,6 +3481,7 @@ bool FormKeyInstall() {
     if (g_fcMode.load()) FormCommitInstall();
     if (g_fatMode.load()) FormAttachInstall();
     FormHide4Install();
+    FastThrowInstall();
     ok = grp && n > 0;
     return ok;
 }
