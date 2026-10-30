@@ -2253,13 +2253,14 @@ Fh4State g_fh4;
 std::atomic<int> g_fbMask{0xC200}, g_fbRT{1};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
+std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
 using FbXGet = DWORD(WINAPI*)(DWORD, void*);
 FbXGet g_fbPrev = nullptr;
 struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
 struct FbState { DWORD packet; FbPad pad; };
 DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
-    if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed)) {
+    if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
         const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
         if ((s->pad.buttons & m) || (g_fbRT.load(std::memory_order_relaxed) && s->pad.rt)) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
@@ -2305,7 +2306,7 @@ void FormBlockSet(bool on) {
         Log("FormBlockPad: %s mask=%04X RT=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load());
     }
     if (!hooked || g_fbActive.exchange(on) == on) return;
-    if (on) { g_fbDropped.store(0); Log("FormBlockPad: attacks/items blocked t=%.3f", Now()); }
+    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); Log("FormBlockPad: attacks/items blocked t=%.3f", Now()); }
     else Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
 }
 // pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
