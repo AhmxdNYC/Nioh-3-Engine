@@ -2224,6 +2224,189 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
     }
     return edge;
 }
+// pc #55953 / ally #55928: experimental full-blend + root-multiplier hold.
+// Keep the native +240 fade controller intact (FE37A0 consumes its +248).
+struct Fh4State {
+    uint64_t owner = 0, seal = 0, root = 0;
+    double started = 0, capT = -1, nextLog = 0;
+    uint8_t hide = 0;
+    float blend = 0, multiplier = 0;
+};
+Fh4State g_fh4;
+SRWLOCK g_fh4Lock = SRWLOCK_INIT;
+std::atomic<bool> g_fh4Ready{false}, g_fh4Fault{false};
+void* g_fh4PartsOrig = nullptr;
+void* g_fh4MultiplierOrig = nullptr;
+
+// All helpers below run with g_fh4Lock held. No stale-root restore on replacement.
+void Fh4Restore(uint64_t player) {
+    bool ok = true;
+    if (player == g_fh4.owner && player == FkPlayer()) {
+        uint64_t root = 0; float current = 0; uint8_t h = 0;
+        if (!Rd(player + 0x20, root)) ok = false;
+        else if (root && root == g_fh4.root) {
+            if (!Rd(root + 0x3A8, current)) ok = false;
+            else if (current == 0 && !WrBytes(root + 0x3A8, &g_fh4.multiplier, 4)) ok = false;
+        }
+        if (!Rd(player + 0xB440, h)) ok = false;
+        else if (h == 1 && !WrBytes(player + 0xB440, &g_fh4.hide, 1)) ok = false;
+        if (!Rd(player + 0xB444, current)) ok = false;
+        else if (current == 1.f && !WrBytes(player + 0xB444, &g_fh4.blend, 4)) ok = false;
+    }
+    Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
+        (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
+    if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
+    g_fh4 = {}; g_fhEnd.active = false;
+}
+bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
+    uint64_t actual = 0;
+    if (!chr || chr != g_fh4.owner || chr != FkPlayer() || !root ||
+        !Rd(chr + 0x20, actual) || actual != root) return false;
+    if (g_fh4.seal) {
+        uint64_t puppetRoot = 0;
+        if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1 ||
+            !Rd(g_fh4.seal + 0x20, puppetRoot) || puppetRoot == root) return false;
+    }
+    float k8 = 0;
+    if (!Rd(root + 0x3A8, k8) || !std::isfinite(k8)) return false;
+    if (!g_fh4.root) { g_fh4.root = root; g_fh4.multiplier = k8; }
+    else if (g_fh4.root != root) return false; // do not adopt a new model while holding the old one
+    else if (nativeFresh || k8 != 0) g_fh4.multiplier = k8;
+    const float zero = 0;
+    return WrBytes(root + 0x3A8, &zero, 4);
+}
+bool Fh4Apply(uint64_t chr) {
+    if (!chr || chr != g_fh4.owner || chr != FkPlayer()) return false;
+    uint64_t root = 0;
+    if (!Rd(chr + 0x20, root) || !Fh4ClampRoot(chr, root, false)) return false;
+    const uint8_t hide = 1; const float blend = 1;
+    return WrBytes(chr + 0xB440, &hide, 1) && WrBytes(chr + 0xB444, &blend, 4);
+}
+void HkFh4Parts(uint64_t chr) {
+    AcquireSRWLockExclusive(&g_fh4Lock);
+    if (g_fh4.owner && chr == g_fh4.owner && !Fh4Apply(chr)) g_fh4Fault.store(true);
+    ReleaseSRWLockExclusive(&g_fh4Lock);
+    // Before EFC30: b=1 makes ordinary alpha=0; k8=0 makes both special branches zero.
+    ((void(*)(uint64_t))g_fh4PartsOrig)(chr);
+    AcquireSRWLockExclusive(&g_fh4Lock);
+    if (g_fh4.owner && chr == g_fh4.owner && !Fh4Apply(chr)) g_fh4Fault.store(true);
+    ReleaseSRWLockExclusive(&g_fh4Lock);
+}
+void HkFh4Multiplier(uint64_t chr, uint64_t root) {
+    ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
+    AcquireSRWLockExclusive(&g_fh4Lock);
+    if (g_fh4.owner && chr == g_fh4.owner && !Fh4ClampRoot(chr, root, true)) g_fh4Fault.store(true);
+    ReleaseSRWLockExclusive(&g_fh4Lock);
+}
+void FormHide4Install() {
+    if (g_fhMode.load() != 4 || g_fh4Ready.load()) return;
+    static bool attempted = false;
+    if (attempted) return;
+    attempted = true;
+    // Check the actual offset-bearing instructions, never fake a known executable.
+    static const uint8_t g0[] = {0x48,0x8B,0x81,0x60,0x9F,0x00,0x00,0x48,0x85,0xC0,0x75,0x05,0x48,0x8D,0x41,0x20,0xC3,0x83,0xB9,0x6C,0x9F,0x00,0x00,0x00,0x75,0xF6,0xEB,0xF0};
+    if (!FormHideCodeMatches(0xF5358, g0, sizeof(g0))) { Log("FormHide=4 layout guard +F5358 failed"); return; }
+    static const uint8_t g1[] = {0x48,0x8B,0x53,0x20,0x48,0x85,0xD2,0x74,0x2A,0xF3,0x0F,0x10,0x83,0x44,0xB4,0x00,0x00,0x0F,0x2F,0xC6,0x73,0x04,0xF3,0x0F,0x5C,0xF0,0xF3,0x0F,0x11,0x72,0x0C};
+    if (!FormHideCodeMatches(0x401985, g1, sizeof(g1))) { Log("FormHide=4 layout guard +401985 failed"); return; }
+    static const uint8_t g2[] = {0xF3,0x0F,0x10,0xB7,0x48,0x02,0x00,0x00,0xF3,0x44,0x0F,0x10,0x87,0xA8,0x03,0x00,0x00};
+    if (!FormHideCodeMatches(0xEFD5A, g2, sizeof(g2))) { Log("FormHide=4 layout guard +EFD5A failed"); return; }
+    static const uint8_t g3[] = {0x49,0x8B,0x50,0x10,0x48,0x85,0xD2,0x74,0x3D,0x4C,0x8B,0x4A,0x20,0x4D,0x85,0xC9,0x74,0x34,0x49,0x8B,0x43,0x08,0x8B,0x08,0x41,0x89,0x49,0x0C};
+    if (!FormHideCodeMatches(0xFDE6A2, g3, sizeof(g3))) { Log("FormHide=4 layout guard +FDE6A2 failed"); return; }
+    static const uint8_t g4[] = {0x48,0x89,0x5C,0x24,0x10,0x57,0x48,0x83,0xEC,0x20,0x80,0xB9,0xD4,0x09,0x00,0x00,0x00,0x40,0x8A,0xFA,0x48,0x8B,0xD9,0x88,0x91,0x40,0xB4,0x00,0x00};
+    if (!FormHideCodeMatches(0xA550E8, g4, sizeof(g4))) { Log("FormHide=4 layout guard +A550E8 failed"); return; }
+    static const uint8_t g5[] = {0xF3,0x41,0x0F,0x10,0x8B,0x44,0xB4,0x00,0x00,0x48,0x8D,0x45,0x20,0xF3,0x0F,0x10};
+    if (!FormHideCodeMatches(0xEFC99, g5, sizeof(g5))) { Log("FormHide=4 layout guard +EFC99 failed"); return; }
+    static const uint8_t g6[] = {0xF3,0x0F,0x11,0x8E,0x44,0xB4,0x00,0x00};
+    if (!FormHideCodeMatches(0x403E99, g6, sizeof(g6))) { Log("FormHide=4 layout guard +403E99 failed"); return; }
+    static const uint8_t g7[] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x57,0x48,0x83,0xEC,0x50,0x80,0xB9,0x08,0x01,0x00,0x00,0x00,0x48,0x8B,0xF2,0x0F,0x29,0x70,0xE8};
+    if (!FormHideCodeMatches(0x567568, g7, sizeof(g7))) { Log("FormHide=4 layout guard +567568 failed"); return; }
+    static const uint8_t g8[] = {0xF3,0x0F,0x11,0xB6,0xA8,0x03,0x00,0x00};
+    if (!FormHideCodeMatches(0x56778C, g8, sizeof(g8))) { Log("FormHide=4 layout guard +56778C failed"); return; }
+    static const uint8_t g9[] = {0x48,0x8B,0xD6,0x48,0x8B,0xCF,0xE8,0x63,0x53,0x40,0x00,0x48,0x8B,0xD6,0x48,0x8B};
+    if (!FormHideCodeMatches(0x1621FA, g9, sizeof(g9))) { Log("FormHide=4 layout guard +1621FA failed"); return; }
+    static const uint32_t calls[] = {0x403495,0x403EC6,0x1A219A6,0x1C3687E,0x2052EA7,0x2055969,0x162200};
+    for (uint32_t rva : calls) {
+        const uint64_t target = rva == 0x162200 ? 0x567568 : 0x40169C;
+        uint8_t b[5] = {}; int32_t rel = 0;
+        if (!Copy(b, g_base + rva, 5)) return;
+        memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || g_base + rva + 5 + rel != g_base + target) {
+            Log("FormHide=4 call guard +%X failed", rva); return;
+        }
+    }
+    // Set originals before installing any live retarget; partial installation never arms writes.
+    g_fh4PartsOrig = (void*)(g_base + 0x40169C);
+    g_fh4MultiplierOrig = (void*)(g_base + 0x567568);
+    unsigned n = 0;
+    for (uint32_t rva : calls) {
+        const bool mult = rva == 0x162200;
+        const char* why = nullptr; void* original = nullptr;
+        if (!InstallCallRetargetAt((uint8_t*)(g_base + rva),
+                mult ? "call:FormHide4Multiplier" : "call:FormHide4Parts",
+                mult ? (void*)&HkFh4Multiplier : (void*)&HkFh4Parts, &original, &why)) {
+            Log("FormHide=4 hook +%X failed (%s)", rva, why ? why : "unknown"); break;
+        }
+        ++n;
+    }
+    g_fh4Ready.store(n == 7);
+    Log("FormHide=4 hooks=%u/7 ready=%d (B440=1 B444=1 root+3A8=0)", n, g_fh4Ready.load());
+}
+void FormHide4Tick(uint64_t player) {
+    static bool leftWas = false;
+    static uint64_t attempted = 0;
+    static double attemptedT = -1;
+    if (g_fhMode.load() != 4 && !g_fh4.owner) return;
+    const uint64_t cap = g_fs0CapChr.load(); const double capT = g_fs0CapT, now = Now();
+    const bool left = (PadButtons(nullptr, nullptr) & 4) != 0;
+    const bool edge = g_fhPress.load() &&
+        ((left && !leftWas && g_fhPress.load() != 2) || FhSealActTick(player, cap, capT, now));
+    leftWas = left;
+    AcquireSRWLockExclusive(&g_fh4Lock);
+    if (g_fh4.owner) {
+        const char* reason = nullptr;
+        if (g_fhMode.load() != 4) reason = "mode-change";
+        else if (player != g_fh4.owner) reason = "player-change";
+        else if (g_fh4Fault.load()) reason = "apply-fault";
+        else if (!g_fh4.seal) {
+            if (cap && capT >= g_fh4.started - .05) {
+                g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                g_fh4.started = now; FormHideEndBegin(player, cap);
+                FormHideEndReason(player, cap, now);
+            } else if (now - g_fh4.started > 2.5) reason = "press-no-seal";
+        } else if (cap != g_fh4.seal || capT != g_fh4.capT) reason = "capture-change";
+        else reason = FormHideEndReason(player, cap, g_fh4.started);
+        if (reason) { Log("FormHide=4 end %s", reason); Fh4Restore(player); }
+        else {
+            if (!Fh4Apply(player)) g_fh4Fault.store(true);
+            if (g_fh4.seal) FormPin(player, g_fh4.seal);
+        }
+    } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
+               (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
+        if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
+            g_fh4.owner = player; g_fh4.started = now; g_fh4Fault.store(false);
+            if (!edge) {
+                g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
+            }
+            if (!Fh4Apply(player)) { g_fh4Fault.store(true); Fh4Restore(player); }
+            else Log("FormHide=4 begin player=%llX seal=%llX root=%llX t=%.3f",
+                (unsigned long long)player, (unsigned long long)g_fh4.seal, (unsigned long long)g_fh4.root, now);
+        }
+    }
+    if (g_fh4.owner && player == g_fh4.owner && now >= g_fh4.nextLog) {
+        uint8_t h = 255; float b = -1, k6 = -1, k8 = -1;
+        Rd(player + 0xB440, h); Rd(player + 0xB444, b);
+        uint64_t root = 0;
+        if (Rd(player + 0x20, root) && root && root == g_fh4.root) {
+            Rd(root + 0x248, k6); Rd(root + 0x3A8, k8);
+        }
+        Log("FormHide=4 hold B440=%u B444=%.6f k6=%.6f k8=%.6f age=%.3f fault=%d",
+            (unsigned)h, b, k6, k8, now - g_fh4.started, g_fh4Fault.load());
+        g_fh4.nextLog = now + 1;
+    }
+    ReleaseSRWLockExclusive(&g_fh4Lock);
+}
+
 void FormHideDirectTick(uint64_t pchr) {
     static uint64_t owner = 0, seal = 0, attempted = 0, extra = 0, extraDone = 0, sealAtHide = 0;  // sealAtHide: g_fkSealChr when the seal was bound
     static double attemptedT = -1, hideT = 0, pressT = 0;
@@ -2554,7 +2737,8 @@ void SealLifeTick() {
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     SealLifeTick();
     FormHideDirectTick(pchr);  // also restores a mode-3 hide after mode/capture changes
-    if (const int mode = g_fhMode.load(); mode && mode != 3) FormHideTick(pchr);  // pc #55327: native modes unchanged
+    FormHide4Tick(pchr);
+    if (const int mode = g_fhMode.load(); mode && mode != 3 && mode != 4) FormHideTick(pchr);  // pc #55327: native modes unchanged
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
     if (g_fs0Active.load() && cap && kicked != cap && g_fs0Mode.load() != 9 && Now() - g_fs0CapT >= 0.3) {
@@ -3153,6 +3337,7 @@ bool FormKeyInstall() {
     if (g_ppOn.load() || g_fs0Mode.load() || g_swMode.load()) PartProbeInstall();
     if (g_fcMode.load()) FormCommitInstall();
     if (g_fatMode.load()) FormAttachInstall();
+    FormHide4Install();
     ok = grp && n > 0;
     return ok;
 }
@@ -3282,7 +3467,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
         g_slLoopEvery = IniInt(L"Spirit", L"SealLoopEveryMs", 4000) / 1000.0;
     }
-    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
+    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade, 4=full blend + root multiplier hold
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
