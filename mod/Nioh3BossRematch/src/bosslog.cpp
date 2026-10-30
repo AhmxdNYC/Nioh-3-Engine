@@ -1886,13 +1886,44 @@ uint64_t HkFat903088(uint64_t slot, uint64_t rdx, uint64_t r8, uint64_t r9, uint
         Log("FormAttach 903088 slot=%llX%s rdx=%llX chr(r8)=%llX req.id=%X t=%.3f", (unsigned long long)slot, pl ? " PLAYER" : "", (unsigned long long)rdx,
             (unsigned long long)r8, rid, Now());
     }
+    // pc #55177 FormAttach=2/3/4 (on b75c4d66): probe the 903088 inputs for player vs seal (406668 entry kind e[+4], chr+560 appearance blk),
+    // =2 zero player [slot+10] before 903088 so it must create, =4 hand 903088 the seal chr (seal chr+560 blk) for the player slot,
+    // =3 after 903088 point player [slot+10] at the seal slot's obj (borrow seal obj).
+    const int fm = g_fatMode.load();
+    const uint64_t sc = g_fs0CapChr.load();
+    if ((pl || (sc && r8 == sc)) && InterlockedIncrement(&g_fatLines) <= 200) {
+        uint32_t rid = 0, ek = 0, ekind = 0;
+        Rd(r9, rid);
+        const uint64_t e = SpLookup(rid, &ek);
+        if (e > 1) Rd(e + 4, ekind);
+        uint64_t b560 = 0, p10 = 0;
+        Rd(r8 + 0x560, b560);
+        Rd(slot + 0x10, p10);
+        Log("FormAttach probe %s slot=%llX chr=%llX [chr+560]=%llX 406668(%X)=%llX e[+4]=%X key[+3C]=%X +10=%llX mode=%d t=%.3f", pl ? "PLAYER" : "SEAL",
+            (unsigned long long)slot, (unsigned long long)r8, (unsigned long long)b560, rid, (unsigned long long)e, ekind, ek, (unsigned long long)p10, fm, Now());
+    }
+    if (pl && fm == 2) {
+        const bool ok = [&] { const uint64_t z = 0; return WrBytes(slot + 0x10, &z, 8); }();
+        Log("FormAttach=2 player [slot+10] zeroed before 903088 ok=%d", ok);
+    }
+    if (pl && fm == 4 && sc) {
+        Log("FormAttach=4 903088 player slot gets seal chr %llX instead of %llX", (unsigned long long)sc, (unsigned long long)r8);
+        r8 = sc;
+    }
     const uint64_t r = ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))g_fat903Orig)(slot, rdx, r8, r9, a5);
-    if (pl && InterlockedIncrement(&g_fatLines) <= 200) {
+    if (pl && fm == 3) {
+        uint64_t so = 0;
+        const uint64_t ss = g_spSealSlot.load();
+        if (ss) Rd(ss + 0x10, so);
+        const bool ok = so && WrBytes(slot + 0x10, &so, 8);
+        Log("FormAttach=3 player [slot+10] -> seal obj %llX ok=%d", (unsigned long long)so, ok);
+    }
+    if ((pl || (sc && r8 == sc)) && InterlockedIncrement(&g_fatLines) <= 200) {
         uint64_t p10 = 0;
         uint32_t st = 0;
         Rd(slot + 0x10, p10);
         Rd(slot + 0x18, st);
-        Log("FormAttach 903088 PLAYER returned %llX -> +10=%llX state=%u t=%.3f", (unsigned long long)r, (unsigned long long)p10, st, Now());
+        Log("FormAttach 903088 %s returned %llX -> +10=%llX state=%u t=%.3f", pl ? "PLAYER" : "SEAL", (unsigned long long)r, (unsigned long long)p10, st, Now());
     }
     return r;
 }
