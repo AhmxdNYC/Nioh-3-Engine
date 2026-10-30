@@ -4244,6 +4244,10 @@ void Command(const char* line, char* reply, size_t n) {
             snprintf(reply, n, "ok");
             return;
         }
+        if (!strcmp(arg, "formkey")) {  // spirit formkey on [hex X]|off|status : log the summon body key, then one SetForm with that key (pc/soulcore-formkey)
+            bosslog::FormKeyCmd(line, reply, n);
+            return;
+        }
         if (!strcmp(arg, "body")) {  // spirit body on|off|log : ally #53727 copy the summoned yokai model onto the player (applied on the next tick once the spirit is loaded)
             uint64_t inst, chr, st;
             SpiritChr(mgr, inst, chr, st);

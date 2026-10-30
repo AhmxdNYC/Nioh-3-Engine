@@ -143,6 +143,7 @@ DWORD WINAPI Init(void*) {
     if (rm) Feature("RematchLog", "RLOG");
     if (inv) Feature("InvLog", "INV");
     if (inv) Feature("InvLog", "SC");
+    if (IniInt(L"Spirit", L"FormKey", 0)) bosslog::FormKeyInstall();  // own switch: installs its SC hooks even with InvLog=0
     ui::Start();  // settings remain reachable with Rematch disabled; no rematch hooks are added
     remote::Start();
     Log("ready (%lu ms): BossLog %d, RematchLog %d, InvLog %d, Rematch %s", GetTickCount() - t0, boss, rm, inv, live ? "live" : "off");

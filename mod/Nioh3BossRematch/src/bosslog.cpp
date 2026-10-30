@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace addon {
@@ -1125,6 +1126,197 @@ void HkTenshinInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     }
 }
 
+// ---- [Spirit] FormKey (notes/soulcore-transform-model.md, branch pc/soulcore-formkey) ----
+// 1) log: when the soul-core summon chr is loaded, its body key 0x300000000+([chr]>>4), 1175400(key,3), [[chr+50]+8/+10], same for the player.
+// 2) swap (once per arm): wait until the key's pack is loaded (133440 +2C8, 5 s), arm the 0x11793D0 call-site override (74C698 / 74C438)
+//    to return that key once, then call the game's SetForm 74C2FC(state, X) with X != [state+A68]. All game calls are SEH-guarded.
+std::atomic<int> g_fkOn{0};            // ini [Spirit] FormKey=1 or `rm spirit formkey on`
+std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
+std::atomic<uint32_t> g_fkX{0};        // form id for 74C2FC (0 = auto: old [state+A68] after clearing A68, else 0x6E73)
+std::atomic<uint64_t> g_fkMgr{0};      // spirit mgr seen at the 2916C5C entry
+std::atomic<uint32_t> g_fkMgrId{0xFFFFFFFF};
+std::atomic<uint64_t> g_fkLogged{0};   // spirit chr already logged
+std::atomic<uint64_t> g_fkState{0};    // player input state seen at 2E6C34
+std::atomic<uint64_t> g_fkPendKey{0};  // swap waiting for this key's pack
+double g_fkPendT = 0;
+int g_fkPendPolls = 0;
+volatile uint64_t g_fkCell = 0;        // read by the call-site stubs: nonzero = return it once
+volatile LONG g_fkHits = 0;
+uintptr_t G_PTAB = 0;
+
+uint64_t FkPack(uint64_t key) {
+    uint64_t m = 0;
+    if (!Rd(g_base + 0x45B9E60, m) || !m) return 0;
+    __try {
+        return ((uint64_t(*)(uint64_t, uint64_t))(g_base + 0x133440))(m, key);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+uint64_t FkModel(uint64_t key, int& fault) {
+    fault = 0;
+    __try {
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x1175400))(key, 3);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        fault = 1;
+        return 0;
+    }
+}
+uint64_t FkGameKey(uint32_t id) {  // 0x134314(-, id) = 0x300000000 + id with the game's optional remap (SetForm 74C675)
+    __try {
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x134314))(0, id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+uint64_t FkRec(uint32_t id) {
+    uint64_t ctx = 0, db = 0;
+    if (!Rd(g_base + 0x45B9E30, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) return 0;
+    __try {
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x3748E0))(db, id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+uint64_t FkPlayer() {
+    uint64_t pt = 0, pl = 0;
+    return G_PTAB && Rd(G_PTAB, pt) && pt && Rd(pt + 0xCD * 0x18, pl) ? pl : 0;
+}
+struct FkChr {
+    uint64_t chr, M, m8, m10, key, gkey, model, pack;
+    uint32_t w0, idx;
+    int loaded, fault;
+};
+void FkRead(uint64_t chr, FkChr& o) {
+    memset(&o, 0, sizeof(o));
+    o.chr = chr;
+    o.loaded = -1;
+    if (!chr) return;
+    Rd(chr, o.w0);
+    o.key = 0x300000000ull + (o.w0 >> 4);
+    o.gkey = FkGameKey(o.w0 >> 4);
+    if (Rd(chr + 0x50, o.M) && o.M) {
+        Rd(o.M + 8, o.m8);
+        Rd(o.M + 0x10, o.m10);
+        Rd(o.M + 0xA0, o.idx);
+    }
+    o.pack = FkPack(o.key);
+    uint8_t l = 0;
+    if (o.pack && Rd(o.pack + 0x2C8, l)) o.loaded = l;
+    o.model = FkModel(o.key, o.fault);
+}
+void FkLogChr(const char* who, const FkChr& c) {
+    Log("FormKey %s chr=%llX [chr]=%X id=[chr]>>4=%X key=%llX gamekey(134314)=%llX pack=%llX loaded=%d model=1175400(key,3)=%llX fault=%d M=[chr+50]=%llX [M+8]=%llX [M+10]=%llX idxA0=%u match8=%d match10=%d",
+        who, (unsigned long long)c.chr, c.w0, c.w0 >> 4, (unsigned long long)c.key, (unsigned long long)c.gkey, (unsigned long long)c.pack, c.loaded,
+        (unsigned long long)c.model, c.fault, (unsigned long long)c.M, (unsigned long long)c.m8, (unsigned long long)c.m10, c.idx & 0xFF,
+        c.model && c.model == c.m8, c.model && c.model == c.m10);
+}
+// 2916C5C entry (rcx = spirit mgr): creator inputs [mgr+0x10] and rec+0x38 charId (logged when mgr/id changes)
+void HkFormKeySpawn(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (!g_fkOn.load() || a < 0x10000) return;
+    uint32_t id = 0xFFFFFFFF;
+    Rd(a + 0x10, id);
+    const bool chg = g_fkMgr.exchange(a) != a;
+    if (g_fkMgrId.exchange(id) == id && !chg) return;
+    const uint64_t rec = id != 0xFFFFFFFF ? FkRec(id) : 0;
+    uint32_t charId = 0;
+    if (rec) Rd(rec + 0x38, charId);
+    g_fkLogged.store(0);  // a new summon: log its chr again once it is loaded
+    Log("FormKey creator 2916C5C mgr=%llX [mgr+10]=%u(0x%X) rec=%llX charId[rec+38]=%u(0x%X) t=%.3f", (unsigned long long)a, id, id,
+        (unsigned long long)rec, charId, charId, Now());
+}
+int FkSetFormCall(uint64_t st, uint32_t x, int& ret) {
+    __try {
+        ret = ((uint8_t(*)(uint64_t, uint32_t))(g_base + 0x74C2FC))(st, x);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+void FkSwap(uint64_t st, uint64_t key) {
+    uint64_t pchr = 0, M = 0, m10a = 0, m10b = 0, d8a = 0, d8b = 0;
+    uint32_t a68 = 0, a68b = 0;
+    Rd(st + 0xE0, pchr);
+    if (pchr && Rd(pchr + 0x50, M) && M) Rd(M + 0x10, m10a);
+    Rd(st + 0xA68, a68);
+    Rd(st + 0x1D8, d8a);
+    uint32_t x = g_fkX.load();
+    if (!x) x = a68 ? a68 : 0x6E73;
+    if (x == a68) WrU32(st + 0xA68, 0);  // 74C608 returns early when id == [state+A68]
+    g_fkHits = 0;
+    g_fkCell = key;
+    Log("FormKey swap called 74C2FC(state=%llX, X=%X) key=%llX A68 was %X chr=[state+E0]=%llX [[chr+50]+10]=%llX state+1D8=%llX", (unsigned long long)st, x,
+        (unsigned long long)key, a68, (unsigned long long)pchr, (unsigned long long)m10a, (unsigned long long)d8a);
+    int ret = -1;
+    const int fault = FkSetFormCall(st, x, ret);
+    const uint64_t left = g_fkCell;
+    g_fkCell = 0;  // disarm (the stub clears it itself when it fires)
+    if (M) Rd(M + 0x10, m10b);
+    Rd(st + 0xA68, a68b);
+    Rd(st + 0x1D8, d8b);
+    if (fault && x == a68) WrU32(st + 0xA68, a68);
+    Log("FormKey swap ret al=%d fault=%d overrideHits=%ld cellLeft=%llX A68 %X -> %X [[chr+50]+10] %llX -> %llX state+1D8 %llX -> %llX", ret & 0xFF, fault, g_fkHits,
+        (unsigned long long)left, a68, a68b, (unsigned long long)m10a, (unsigned long long)m10b, (unsigned long long)d8a, (unsigned long long)d8b);
+}
+// 2E6C34 entry (rcx = input state; game thread): spirit chr check + the pending swap
+void HkFormKeyInputBody(uint64_t a) {
+    uint64_t pchr = 0;
+    Rd(a + 0xE0, pchr);
+    const uint64_t pl = FkPlayer();
+    if (!pchr || (pl && pchr != pl)) return;  // only the local player's state
+    if (g_fkState.exchange(a) != a) Log("FormKey player state=%llX chr=[state+E0]=%llX playerChr=%llX", (unsigned long long)a, (unsigned long long)pchr, (unsigned long long)pl);
+    const uint64_t mgr = g_fkMgr.load();
+    uint64_t inst = 0, schr = 0, sst = 0;
+    if (mgr && Rd(mgr + 0x128, inst) && inst) {
+        Rd(inst + 0x30, schr);
+        Rd(inst, sst);
+    }
+    if (schr && sst == 2 && g_fkLogged.exchange(schr) != schr) {
+        FkChr s, p;
+        FkRead(schr, s);
+        FkRead(pchr, p);
+        uint32_t id = 0xFFFFFFFF, charId = 0;
+        Rd(mgr + 0x10, id);
+        const uint64_t rec = id != 0xFFFFFFFF ? FkRec(id) : 0;
+        if (rec) Rd(rec + 0x38, charId);
+        Log("FormKey summon loaded mgr=%llX inst=%llX state=%llu [mgr+10]=%u(0x%X) rec=%llX charId[rec+38]=%u(0x%X) t=%.3f", (unsigned long long)mgr,
+            (unsigned long long)inst, (unsigned long long)sst, id, id, (unsigned long long)rec, charId, charId, Now());
+        FkLogChr("spirit", s);
+        FkLogChr("player", p);
+        if (g_fkSwap.exchange(0)) {
+            const uint64_t key = s.gkey ? s.gkey : s.key;
+            g_fkPendKey.store(key);
+            g_fkPendT = Now();
+            g_fkPendPolls = 0;
+            Log("FormKey swap armed key=%llX: waiting for its pack (+2C8), timeout 5 s", (unsigned long long)key);
+        }
+    }
+    if (const uint64_t key = g_fkPendKey.load()) {
+        const uint64_t pack = FkPack(key);
+        uint8_t l = 0;
+        if (pack) Rd(pack + 0x2C8, l);
+        ++g_fkPendPolls;
+        if (l) {
+            g_fkPendKey.store(0);
+            Log("FormKey pack ready key=%llX pack=%llX after %d polls %.2f s", (unsigned long long)key, (unsigned long long)pack, g_fkPendPolls, Now() - g_fkPendT);
+            FkSwap(a, key);
+        } else if (Now() - g_fkPendT > 5.0) {
+            g_fkPendKey.store(0);
+            Log("FormKey swap TIMEOUT key=%llX pack=%llX loaded=%u after %d polls: not called", (unsigned long long)key, (unsigned long long)pack, l, g_fkPendPolls);
+        }
+    }
+}
+void HkFormKeyInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (!g_fkOn.load()) return;
+    __try {
+        HkFormKeyInputBody(a);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_fkCell = 0;
+        g_fkPendKey.store(0);
+        Log("FormKey: exception in the input hook (swap disarmed; the game continues)");
+    }
+}
+
 }  // namespace
 
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
@@ -1184,6 +1376,59 @@ void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
+bool FormKeyInstall() {
+    static std::atomic<int> done{0};
+    static bool ok = false;
+    if (done.exchange(1)) return ok;
+    if (!g_base) g_base = g_img.base;
+    G_PTAB = Site("g:PlayerTab");
+    OnEntry("ScProbe_GSpiritWork", &HkFormKeySpawn);
+    OnEntry("ScProbe_TenshinInput", &HkFormKeyInput);
+    const char* why = nullptr;
+    const bool grp = InstallGroup("SC", &why);  // installs only the SC hooks registered so far (InvLog=0: just these two)
+    if (grp) Log("FormKey: group SC installed (2916C5C spawn + 2E6C34 input, independent of InvLog)");
+    else Log("FormKey: group SC OFF - %s", why ? why : "?");
+    int n = 0;
+    static const uint32_t kCalls[] = {0x74C698, 0x74C438};  // the only two callers of 0x11793D0 (SetForm / its online sibling)
+    for (uint32_t rva : kCalls) {
+        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x11793D0) {
+            Log("FormKey: call +%X is not 'call 11793D0' - key override not installed there", rva);
+            continue;
+        }
+        const char* w = nullptr;
+        if (InstallCallKeyOverride(p, "call:FormKey11793D0", &g_fkCell, &g_fkHits, &w)) ++n;
+        else Log("FormKey: key override at +%X failed: %s", rva, w ? w : "?");
+    }
+    Log("FormKey: key override on %d/2 call sites of 0x11793D0", n);
+    ok = grp && n > 0;
+    return ok;
+}
+void FormKeyCmd(const char* line, char* reply, size_t n) {
+    const char* p = strstr(line, "formkey");
+    p = p ? p + 7 : "";
+    while (*p == ' ') ++p;
+    if (!strncmp(p, "on", 2)) {
+        const uint32_t x = (uint32_t)strtoul(p + 2, nullptr, 16);
+        g_fkX.store(x);
+        const bool ok = FormKeyInstall();
+        g_fkOn.store(1);
+        g_fkSwap.store(1);
+        g_fkLogged.store(0);
+        Log("FormKey on (pipe): swap armed once, X=%X%s, hooks %s", x, x ? "" : " (auto)", ok ? "ok" : "FAILED");
+    } else if (!strncmp(p, "off", 3)) {
+        g_fkOn.store(0);
+        g_fkSwap.store(0);
+        g_fkPendKey.store(0);
+        g_fkCell = 0;
+        Log("FormKey off (pipe)");
+    }
+    snprintf(reply, n, "ok formkey on=%d swapArmed=%d X=%X mgr=%llX state=%llX pendingKey=%llX lastHits=%ld", g_fkOn.load(), g_fkSwap.load(), g_fkX.load(),
+             (unsigned long long)g_fkMgr.load(), (unsigned long long)g_fkState.load(), (unsigned long long)g_fkPendKey.load(), g_fkHits);
+}
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
@@ -1202,6 +1447,7 @@ void Register(bool boss, bool rm, bool inv) {
     F_CLR1 = Site("MissionClearedGet_37AFC0");
     F_UNL = Site("MissionUnlockedGet");
     g_logOn = boss || rm;
+    if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
     OnEntry("BossBattleModeEnd", &HkEnd);

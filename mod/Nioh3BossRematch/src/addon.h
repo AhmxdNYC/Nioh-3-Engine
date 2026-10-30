@@ -62,6 +62,8 @@ bool InstallPump(void (*tick)(), const char** why);
 // retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
 bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why);
+// E8 call site: while *cell != 0 the call returns *cell (one shot: cell cleared, ++*hits) instead of calling the callee
+bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cell, volatile LONG* hits, const char** why);
 
 // ---- features ----
 namespace bosslog {
@@ -76,6 +78,8 @@ void TenshinSlots(uint64_t ext, char* out, size_t n);  // dump the 0x11 equipped
 void TenshinBody(int m);                       // 0 off, 1 log body slot state, 2 +zero B440, 3 +set slot A0=1
 void TenshinForm(uint32_t v);                  // [state+0xA68] value written before the go bit (0 = none)
 void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
+bool FormKeyInstall();                         // [Spirit] FormKey: spirit-spawn + input-state hooks and the 0x11793D0 key override (idempotent)
+void FormKeyCmd(const char* line, char* reply, size_t n);  // `rm spirit formkey on [hex]|off|status`
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)
 extern volatile LONG g_fights;          // BossBattleMode starts this session
