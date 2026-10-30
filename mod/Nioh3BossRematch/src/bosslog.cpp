@@ -922,6 +922,35 @@ void HkSeal(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) 
     }
 }
 
+// ally #54196: log only. 65A8A8 calls 2BFA04 (new chr, rbx) and then 3578E0(chr, desc+0x10) at 65A992, so 3578E0 entered from 65A997 is the
+// first point after the chr exists. 65B2C0(desc[0]) is not a model lookup: it hands out a free chr handle id in 0x1388..0x2326 (unique key id<<4
+// in mgr+B98), kept in 65A8A8's local [rsp+0x64] (= entry sp+8+0x64 here). Logs desc[0], that id, the chr's model slot [chr+0x50]+8+idx*8
+// (idx [M+0xA0]) and the player's, so pc can see whether the new chr already shares the player's model at creation.
+void HkChrCreated(uint64_t a, uint64_t b, uint64_t, uint64_t, const uint64_t* sp) {
+    if (StackArg(sp, 0) - g_base != 0x65A997) return;
+    static std::atomic<int> n{0};
+    if (n.fetch_add(1) >= 60) return;
+    const uint64_t desc = b - 0x10, frame = (uint64_t)sp + 8;
+    uint32_t id0 = 0, id4 = 0, hid = 0, m6c = 0;
+    Rd(desc, id0); Rd(desc + 4, id4); Rd(frame + 0x64, hid); Rd(desc + 0x6C, m6c);
+    auto slot = [](uint64_t chr, uint64_t& M, uint32_t& idx, uint64_t& m0, uint64_t& m1, uint64_t& act) {
+        M = 0; idx = 0; m0 = m1 = act = 0;
+        if (!chr || !Rd(chr + 0x50, M) || !M) return;
+        Rd(M + 0xA0, idx); Rd(M + 8, m0); Rd(M + 0x10, m1);
+        if (idx <= 7) Rd(M + 8 + (uint64_t)idx * 8, act);
+    };
+    uint64_t cM, c0, c1, ca, pM, p0, p1, pa;
+    uint32_t ci, pi;
+    slot(a, cM, ci, c0, c1, ca);
+    uint64_t pt = 0, pch = 0;  // PlayerCharacterGet(0) = [[g:PlayerTab] + 0xCD*0x18]
+    if (const uint64_t g = (uint64_t)Site("g:PlayerTab")) { if (Rd(g, pt) && pt) Rd(pt + 0xCD * 0x18, pch); }
+    slot(pch, pM, pi, p0, p1, pa);
+    Log("ChrCreated 65A8A8 desc[0]=%X desc[4]=%X id65B2C0=%X motion=%X chr=%llX M=%llX idx=%u slot=%llX m0=%llX m1=%llX | player chr=%llX M=%llX idx=%u "
+        "slot=%llX m0=%llX m1=%llX same=%d t=%.3f",
+        id0, id4, hid, m6c, (unsigned long long)a, (unsigned long long)cM, ci, (unsigned long long)ca, (unsigned long long)c0, (unsigned long long)c1,
+        (unsigned long long)pch, (unsigned long long)pM, pi, (unsigned long long)pa, (unsigned long long)p0, (unsigned long long)p1, ca && ca == pa, Now());
+}
+
 // Tenshin input: the game's local input path 2E6C34 (state = rcx; input-command word [state+0x1068], bit 0xE = NIOH_TENSHIN). TenshinGo() arms a
 // one-shot: the next call gets the bit OR-ed in before the original runs, so the game's own path starts the form (Begin + activation motion).
 std::atomic<int> g_tenGo{0};
@@ -1275,6 +1304,7 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("SealProbe_5BA648", &HkSeal<2>);
         OnEntry("SealProbe_322468", &HkSeal<3>);
         OnEntry("SealProbe_3203EC", &HkSeal<4>);
+        OnEntry("SealProbe_3578E0", &HkChrCreated);
     }
 }
 
