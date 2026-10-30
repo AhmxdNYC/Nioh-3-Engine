@@ -1213,15 +1213,27 @@ uint32_t FkSealBody(uint64_t schr) {  // pc #54384: [[schr+E8]+248]
 // 0x530 bytes, +804 load state, +814 dirty bytes). ED584 reloads the parts when byte +814 != 0; the player writer 484EB8 copies the record
 // then sets +814=0x01010101 (4858EC). FormAppear=1: once per seal spawn, the seal yokai's body id [[schr+E8]+248] goes into the player's
 // [blk+4] and +814=0x01010101. `rm spirit formkey appear off` puts the old id back (and +814 again) on the next game-thread input call.
-// Unproven: that ED584 rebuilds the body from blk+4 (it may read the body only from the record at +C; the log dumps both).
+// pc #54571 v2 (pc2 static trace, dump899): blk state machine EE310 (called from ED584 each update):
+//   0 -(dl && +80E==0: byte +814=1, EE7B4(chrId)?2:1)-> 1 | 1: ED79A consumes +814 (2C4450 part load, then clears byte +814), EE310 84D540 -> 2
+//   3: waits the 3 handles at +6D8 | 4 -> 5 | 6 (player steady state): +80E||+80F -> 8, else EE7B4 -> 0xB | 8 -> 0xA (EDFB6) | 0xA -> 0 (EDE94)
+// The only writer of 1 is EE553 (state 0). The game's own reload request is 846B3C(obj,id,force) (called by 484EB8 at 485720): it sets
+// blk bytes +810=1 +80F=1 +811/+812=1; 20943B4 is a bare `+80F=1` setter. So the v2 kick (FormAppearKick, after the id write):
+//   1 = set +80F/+810/+811/+812 like 846B3C (the game walks 6->8->0xA->0->1 and consumes +814), 2 = force +804=1 (skips 0/8/0xA), 0 = none.
+// Only the FIRST seal chr of each arm is used (later seal figures like EE49E are skipped). Unproven: that the part load reads [blk+4]
+// (2C4450 gets the slot kind from the record via 903620; the body may come only from the record at +C).
 std::atomic<int> g_fkAppearMode{0};
+std::atomic<int> g_fkAppKick{1};
 std::atomic<int> g_fkAppRestore{0};
+std::atomic<uint64_t> g_fkAppSeal{0};  // first seal chr of this arm (0 = not yet applied)
 uint64_t g_fkAppBlk = 0;
 uint32_t g_fkAppOld = 0, g_fkAppNew = 0;
 double g_fkAppT = 0;
+int g_fkAppStep = 0;
+uint32_t g_fkAppLastSt = 0xFFFFFFFF;
 void FkAppearLog(const char* tag, uint64_t chr) {
     uint64_t e8 = 0, blk = 0;
     uint32_t key = 0, row = 0, b0 = 0, b4 = 0, b8 = 0, st = 0, dirty = 0, r[4] = {};
+    uint8_t fl[5] = {};  // +80E..+812
     Rd(chr, key);
     if (Rd(chr + 0xE8, e8) && e8) Rd(e8 + 0x248, row);
     if (Rd(chr + 0x560, blk) && blk) {
@@ -1230,14 +1242,22 @@ void FkAppearLog(const char* tag, uint64_t chr) {
         Rd(blk + 8, b8);
         Rd(blk + 0x804, st);
         Rd(blk + 0x814, dirty);
+        for (int i = 0; i < 5; ++i) Rd(blk + 0x80E + i, fl[i]);
         for (int i = 0; i < 4; ++i) Rd(blk + 0xC + 4ull * i, r[i]);
     }
-    Log("FormKey APPEAR %s chr=%llX chrId=[chr]>>4=%X F26C4=%X [chr+560]=%llX [[chr+560]+4]=%X [[chr+E8]+248]=%X blk+0=%X blk+8=%X state+804=%u dirty+814=%08X rec+C[0..3]=%X %X %X %X t=%.3f",
-        tag, (unsigned long long)chr, key >> 4, FkBodyId(chr), (unsigned long long)blk, b4, row, b0, b8, st, dirty, r[0], r[1], r[2], r[3], Now());
+    Log("FormKey APPEAR %s chr=%llX chrId=[chr]>>4=%X F26C4=%X [chr+560]=%llX [[chr+560]+4]=%X [[chr+E8]+248]=%X blk+0=%X blk+8=%X state+804=%u dirty+814=%08X +80E..812=%u%u%u%u%u rec+C[0..3]=%X %X %X %X t=%.3f",
+        tag, (unsigned long long)chr, key >> 4, FkBodyId(chr), (unsigned long long)blk, b4, row, b0, b8, st, dirty, fl[0], fl[1], fl[2], fl[3], fl[4],
+        r[0], r[1], r[2], r[3], Now());
 }
-bool FkAppearWrite(uint64_t blk, uint32_t id) {
+bool FkAppearWrite(uint64_t blk, uint32_t id, int kick) {
     __try {
-        return WrU32(blk + 4, id) && WrU32(blk + 0x814, 0x01010101);
+        if (!WrU32(blk + 4, id) || !WrU32(blk + 0x814, 0x01010101)) return false;
+        if (kick == 1) {  // 846B3C's reload request: +810=1, +80F=1, +811/+812=1
+            const uint8_t one = 1;
+            return WrBytes(blk + 0x810, &one, 1) && WrBytes(blk + 0x80F, &one, 1) && WrBytes(blk + 0x811, &one, 1) && WrBytes(blk + 0x812, &one, 1);
+        }
+        if (kick == 2) return WrU32(blk + 0x804, 1);
+        return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
@@ -1245,27 +1265,57 @@ bool FkAppearWrite(uint64_t blk, uint32_t id) {
 void FkAppearApply(uint64_t pchr, uint64_t schr) {
     uint64_t blk = 0;
     const uint32_t sb = FkSealBody(schr);
+    uint32_t schrKey = 0;
+    Rd(schr, schrKey);
+    const uint64_t first = g_fkAppSeal.load();
+    if (first && first != schr) {
+        Log("FormKey APPEAR skip: later seal chr=%llX chrId=%X (first seal chr=%llX already applied)", (unsigned long long)schr, schrKey >> 4, (unsigned long long)first);
+        return;
+    }
     if (!pchr || !Rd(pchr + 0x560, blk) || !blk) { Log("FormKey APPEAR skip: player has no appearance block [chr+560]"); return; }
     if (!sb || sb == 0xFFFFFFFF) { Log("FormKey APPEAR skip: seal body id [[schr+E8]+248]=%X", sb); return; }
     uint32_t cur = 0;
     Rd(blk + 4, cur);
     if (cur == sb) { Log("FormKey APPEAR skip: player [blk+4] already %X", sb); return; }
+    g_fkAppSeal.store(schr);
     if (g_fkAppBlk != blk) { g_fkAppBlk = blk; g_fkAppOld = cur; }
-    const bool ok = FkAppearWrite(blk, sb);
+    const int kick = g_fkAppKick.load();
+    FkAppearLog("player before write", pchr);
+    const bool ok = FkAppearWrite(blk, sb, kick);
     g_fkAppNew = sb;
     g_fkAppT = Now();
-    Log("FormKey APPEAR WRITE player blk=%llX [blk+4] %X -> %X, +814=01010101 ok=%d (restore id %X)", (unsigned long long)blk, cur, sb, ok, g_fkAppOld);
+    g_fkAppStep = 0;
+    g_fkAppLastSt = 0xFFFFFFFF;
+    Log("FormKey APPEAR WRITE first seal chr=%llX chrId=%X -> player blk=%llX [blk+4] %X -> %X, +814=01010101, kick=%d (%s) ok=%d (restore id %X)",
+        (unsigned long long)schr, schrKey >> 4, (unsigned long long)blk, cur, sb, kick,
+        kick == 1 ? "+80F/+810/+811/+812=1" : kick == 2 ? "+804=1" : "none", ok, g_fkAppOld);
     FkAppearLog("player after write", pchr);
 }
 void FkAppearTick(uint64_t pchr) {  // game thread (2E6C34 input hook)
-    if (g_fkAppT && Now() - g_fkAppT > 1.0) {
-        g_fkAppT = 0;
-        FkAppearLog("player +1 s", pchr);
+    if (g_fkAppT) {
+        const double dt = Now() - g_fkAppT;
+        uint64_t blk = 0;
+        uint32_t st = 0xFFFFFFFF;
+        if (Rd(pchr + 0x560, blk) && blk) Rd(blk + 0x804, st);
+        if (st != g_fkAppLastSt) {  // every state change in the first 5 s
+            g_fkAppLastSt = st;
+            char t[48];
+            sprintf_s(t, "player state change +%.3f s", dt);
+            FkAppearLog(t, pchr);
+        }
+        static const double marks[3] = {0.1, 1.0, 3.0};
+        static const char* const names[3] = {"player +0.1 s", "player +1 s", "player +3 s"};
+        if (g_fkAppStep < 3 && dt >= marks[g_fkAppStep]) FkAppearLog(names[g_fkAppStep++], pchr);
+        if (dt > 5.0) g_fkAppT = 0;
     }
     if (g_fkAppRestore.exchange(0) && g_fkAppBlk) {
-        const bool ok = FkAppearWrite(g_fkAppBlk, g_fkAppOld);
-        Log("FormKey APPEAR RESTORE blk=%llX [blk+4] %X -> %X ok=%d", (unsigned long long)g_fkAppBlk, g_fkAppNew, g_fkAppOld, ok);
+        const bool ok = FkAppearWrite(g_fkAppBlk, g_fkAppOld, g_fkAppKick.load());
+        Log("FormKey APPEAR RESTORE blk=%llX [blk+4] %X -> %X kick=%d ok=%d", (unsigned long long)g_fkAppBlk, g_fkAppNew, g_fkAppOld, g_fkAppKick.load(), ok);
         g_fkAppBlk = 0;
+        g_fkAppSeal.store(0);
+        g_fkAppT = Now();
+        g_fkAppStep = 0;
+        g_fkAppLastSt = 0xFFFFFFFF;
         FkAppearLog("player after restore", pchr);
     }
 }
@@ -1718,9 +1768,12 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
             g_fkAppRestore.store(1);
         } else if (!strncmp(q, "on", 2)) {
             g_fkAppearMode.store(1);
+            g_fkAppSeal.store(0);  // re-arm: the next first seal chr is used
             g_fkLogged.store(0);
+        } else if (!strncmp(q, "kick", 4)) {
+            g_fkAppKick.store(atoi(q + 4));
         }
-        Log("FormKey appear (pipe): FormAppear=%d restorePending=%d blk=%llX old=%X new=%X", g_fkAppearMode.load(), g_fkAppRestore.load(),
+        Log("FormKey appear (pipe): FormAppear=%d kick=%d restorePending=%d blk=%llX old=%X new=%X", g_fkAppearMode.load(), g_fkAppKick.load(), g_fkAppRestore.load(),
             (unsigned long long)g_fkAppBlk, g_fkAppOld, g_fkAppNew);
     } else if (!strncmp(p, "off", 3)) {
         g_fkOn.store(0);
@@ -1753,6 +1806,7 @@ void Register(bool boss, bool rm, bool inv) {
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
+    g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
