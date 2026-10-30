@@ -1499,6 +1499,81 @@ void SwArm(uint64_t slot, const char* tag) {
     if (t) CloseHandle(t);
     else { g_swSlot = 0; InterlockedExchange(&g_swBusy, 0); }
 }
+// pc #54959: [Spirit] SlotProbe=1 - for 3 s after the FormSlot0 apply, sample the player's first kind-0 slot (and the seal's kind-0 slot for
+// contrast) every ~10 ms on a side thread: state [slot+18] (0 idle 1 requested 2/3/4 building 5 = no asset), +2F8 staged, +2F9 defer, +40 staged
+// id, +20 cached id, +48 asset key (from 406668), +10 live resource, +328 visual handle; a line on every change. Plus 406668([G+58], id) with
+// G = [+45B9E30] (the part/asset DB lookup 3FD610 uses at +3FE11F) for the seal id and the player's original kind-0 id: rax 0 => state 5, nothing loads.
+std::atomic<int> g_spMode{0};
+std::atomic<uint64_t> g_spSealSlot{0};
+std::atomic<uint32_t> g_spOrigId{0};
+volatile LONG g_spBusy = 0;
+uint64_t SpLookup(uint32_t id, uint32_t* key0) {
+    uint64_t g = 0, db = 0;
+    *key0 = 0;
+    if (!Rd(g_base + 0x45B9E30, g) || !g || !Rd(g + 0x58, db) || !db) return 0;
+    uint64_t r = 0;
+    __try {
+        r = ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x406668))(db, id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+    if (r) Rd(r + 0x3C, *key0);
+    return r;
+}
+void SpLookupLog(const char* tag) {
+    const uint32_t ids[2] = {g_fs0Id.load(), g_spOrigId.load()};
+    for (int i = 0; i < 2; ++i) {
+        if (!ids[i] || ids[i] == 0xFFFFFFFF) continue;
+        uint32_t k = 0;
+        const uint64_t r = SpLookup(ids[i], &k);
+        Log("SlotProbe %s 406668(DB, %s id %X) = %llX%s key[+3C]=%X t=%.3f", tag, i ? "player orig" : "seal", ids[i], (unsigned long long)r,
+            r == 0 ? " NULL -> state 5 (asset not in DB)" : r == 1 ? " (fault)" : "", k, Now());
+    }
+}
+struct SpSnap { uint32_t st, v40, v20, v48; uint8_t f8, f9; uint64_t p10, p328; };
+bool SpRead(uint64_t slot, SpSnap& s) {
+    s = {};
+    return slot && Rd(slot + 0x18, s.st) && Rd(slot + 0x40, s.v40) && Rd(slot + 0x20, s.v20) && Rd(slot + 0x48, s.v48) && Rd(slot + 0x2F8, s.f8) &&
+           Rd(slot + 0x2F9, s.f9) && Rd(slot + 0x10, s.p10) && Rd(slot + 0x328, s.p328);
+}
+DWORD WINAPI SpThread(LPVOID) {
+    const uint64_t slots[2] = {g_fs0FirstK0.load(), g_spSealSlot.load()};
+    const char* nm[2] = {"PLAYER", "SEAL"};
+    SpSnap last[2];
+    bool have[2] = {false, false};
+    int lines = 0;
+    const double t0 = Now();
+    Log("SlotProbe start player slot=%llX seal slot=%llX seal id=%X player orig id=%X t=%.3f", (unsigned long long)slots[0], (unsigned long long)slots[1],
+        g_fs0Id.load(), g_spOrigId.load(), t0);
+    SpLookupLog("start");
+    int samples = 0, st5 = 0;
+    while (Now() - t0 < 3.0) {
+        for (int i = 0; i < 2; ++i) {
+            SpSnap s;
+            if (!SpRead(slots[i], s)) continue;
+            if (i == 0) { ++samples; if (s.st == 5) ++st5; }
+            if (!have[i] || memcmp(&s, &last[i], sizeof(s)) != 0) {
+                if (++lines <= 250)
+                    Log("SlotProbe %s slot=%llX state[+18]=%u +2F8=%u +2F9=%u +40=%X +20=%X +48=%X +10=%llX +328=%llX dt=%.3f", nm[i], (unsigned long long)slots[i],
+                        s.st, s.f8, s.f9, s.v40, s.v20, s.v48, (unsigned long long)s.p10, (unsigned long long)s.p328, Now() - t0);
+                last[i] = s;
+                have[i] = true;
+            }
+        }
+        Sleep(10);
+    }
+    SpLookupLog("end");
+    Log("SlotProbe done: %d player samples, %d in state 5, final player state=%u +40=%X +10=%llX lines=%d", samples, st5, last[0].st, last[0].v40,
+        (unsigned long long)last[0].p10, lines);
+    InterlockedExchange(&g_spBusy, 0);
+    return 0;
+}
+void SpArm() {
+    if (!g_spMode.load() || InterlockedCompareExchange(&g_spBusy, 1, 0) != 0) return;
+    HANDLE t = CreateThread(nullptr, 0, &SpThread, nullptr, 0, nullptr);
+    if (t) CloseHandle(t);
+    else InterlockedExchange(&g_spBusy, 0);
+}
 uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
     if (g_swMode.load() && id != 0xFFFFFFFF && chr) {
         static bool bootArmed = false;
@@ -1514,6 +1589,7 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
         if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
             if (kind == 0 && id != 0xFFFFFFFF && chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) {
                 g_fs0Id.store(id);
+                g_spSealSlot.store(slot);
                 g_fs0CapT = Now();
                 g_fs0Active.store(1);
                 Log("FormSlot0 CAPTURE seal chr=%llX kind-0 id=%X mode=%d (player slots known %ld, first kind-0 %llX) t=%.3f", (unsigned long long)chr, id, m,
@@ -1523,7 +1599,10 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
             Fs0Note(slot, kind);
             if (const uint32_t to = g_fs0Id.load(); to && g_fs0Active.load()) {
                 uint32_t nid = id;
-                if (kind == 0 && slot == g_fs0FirstK0.load()) nid = to;
+                if (kind == 0 && slot == g_fs0FirstK0.load()) {
+                    nid = to;
+                    if (id != to && id != 0xFFFFFFFF) g_spOrigId.store(id);
+                }
                 else if (m == 2 && (kind <= 3 || kind == 0xD || kind == 0xE)) nid = 0xFFFFFFFF;
                 if (nid != id) {
                     InterlockedIncrement(nid == to ? &g_fs0Swaps : &g_fs0Clears);
@@ -1637,6 +1716,7 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
         kicked = cap;
         Fs0Reload(pchr, "player after FormSlot0 apply");
         SwArm(g_fs0FirstK0.load(), "after-apply");
+        SpArm();
     }
     const bool timeout = g_fs0Active.load() && Now() - g_fs0CapT > 60.0;
     if (g_fs0Restore.exchange(0) || timeout) {
@@ -2123,6 +2203,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
     g_fkAppKick.store(IniInt(L"Spirit", L"FormAppearKick", 1));
     g_ppOn.store(IniInt(L"Spirit", L"PartProbe", 0));
+    g_spMode.store(IniInt(L"Spirit", L"SlotProbe", 0));  // pc #54959: 3 s state sampler of the player kind-0 slot + 406668 DB lookup
     g_swMode.store(IniInt(L"Spirit", L"SlotWatch", 0));  // pc #54925: HW write watch on the staged player kind-0 slot (+2F8/+40)
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
