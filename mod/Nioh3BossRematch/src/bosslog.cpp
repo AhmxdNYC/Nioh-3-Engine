@@ -1180,6 +1180,14 @@ uintptr_t G_PTAB = 0;
 // (0x5129B), first motion from 65ADA6. FormKeySealDesc keeps the last desc[0]; FormKeySealNote (rematch SpiritSpawnNote) hands over the chr.
 std::atomic<uint64_t> g_fkSealChr{0};
 std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
+// ally #54309: a type-3 chr pack has no kind-3 model (1175400 = 0), but the seal chr carries its own model in slot 1 ([[chr+50]+10]).
+// [Spirit] FormModel=1: keep the form's own key; only the model getter call 74C79D (call 1175400 in SetForm, result -> [[chr+50]+8+i*8]
+// at 74C7B1) returns that seal model once, then the game's own Living Artifact request (0x4E, as Y+B) runs the transform.
+std::atomic<int> g_fkModelMode{0};
+volatile uint64_t g_fkMCell = 0;
+volatile LONG g_fkMHits = 0;
+double g_fkMArmT = 0;
+uint64_t g_fkMState = 0, g_fkMVal = 0;
 
 uint64_t FkPack(uint64_t key) {
     uint64_t m = 0;
@@ -1346,13 +1354,47 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("FormKey seal desc key=%llX pack=%llX loaded=%u model=1175400(key,3)=%llX fault=%d sameAsPlayerKey=%d", (unsigned long long)dkey,
                 (unsigned long long)dpack, dl, (unsigned long long)dm, f, (s.gkey ? s.gkey : s.key) == (p.gkey ? p.gkey : p.key));
         }
-        if (g_fkSwap.exchange(0)) {
+        if (seal && g_fkModelMode.load() && g_fkSwap.load()) {
+            if (s.m10 && s.m10 != p.m8 && s.m10 != p.m10) {
+                g_fkSwap.store(0);
+                g_fkMHits = 0;
+                g_fkMVal = s.m10;
+                g_fkMState = a;
+                g_fkMArmT = Now();
+                g_fkMCell = s.m10;
+                g_tenReq.store(1);  // the game's own LA transform request on the next 2E6C34 call
+                Log("FormKey MODEL armed: 74C79D returns seal [[chr+50]+10]=%llX once (player M+8=%llX M+10=%llX); LA request 0x4E queued",
+                    (unsigned long long)s.m10, (unsigned long long)p.m8, (unsigned long long)p.m10);
+            } else {
+                g_fkLogged.store(0);  // look at the next seal spawn (the 2nd figure)
+                Log("FormKey MODEL: seal chr has no own slot-1 model (M+10=%llX) - waiting for the next spawn", (unsigned long long)s.m10);
+            }
+        } else if (g_fkSwap.exchange(0)) {
             uint64_t key = s.gkey ? s.gkey : s.key;
             if (dkey && (key == (p.gkey ? p.gkey : p.key) || !s.w0)) key = dkey;
             g_fkPendKey.store(key);
             g_fkPendT = Now();
             g_fkPendPolls = 0;
             Log("FormKey swap armed key=%llX: waiting for its pack (+2C8), timeout 5 s", (unsigned long long)key);
+        }
+    }
+    if (g_fkMVal) {  // model mode: report the hit (or time out after 15 s)
+        const LONG h = g_fkMHits;
+        if (h || Now() - g_fkMArmT > 15.0) {
+            uint64_t M = 0, m8 = 0, m10 = 0;
+            uint32_t a68 = 0;
+            uint8_t ix = 0;
+            if (Rd(pchr + 0x50, M) && M) {
+                Rd(M + 8, m8);
+                Rd(M + 0x10, m10);
+                Rd(M + 0xA0, ix);
+            }
+            Rd(a + 0xA68, a68);
+            Log("FormKey MODEL %s hits=%ld val=%llX cellLeft=%llX | player M=%llX [M+8]=%llX [M+10]=%llX idxA0=%u A68=%X after %.2f s", h ? "HIT" : "TIMEOUT", h,
+                (unsigned long long)g_fkMVal, (unsigned long long)g_fkMCell, (unsigned long long)M, (unsigned long long)m8, (unsigned long long)m10, ix, a68,
+                Now() - g_fkMArmT);
+            g_fkMCell = 0;
+            g_fkMVal = 0;
         }
     }
     if (const uint64_t key = g_fkPendKey.load()) {
@@ -1476,6 +1518,16 @@ bool FormKeyInstall() {
         else Log("FormKey: key override at +%X failed: %s", rva, w ? w : "?");
     }
     Log("FormKey: key override on %d/2 call sites of 0x11793D0", n);
+    {   // model mode: SetForm's model getter call (74C79D call 1175400 -> 74C7B1 write)
+        uint8_t* p = (uint8_t*)(g_base + 0x74C79D);
+        uint8_t b[5] = {};
+        int32_t rel = 0;
+        if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
+        const char* w = nullptr;
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x1175400) Log("FormKey: +74C79D is not 'call 1175400' - model override not installed");
+        else if (InstallCallKeyOverride(p, "call:FormKeyModel1175400", &g_fkMCell, &g_fkMHits, &w)) Log("FormKey: model override on +74C79D (FormModel=%d)", g_fkModelMode.load());
+        else Log("FormKey: model override at +74C79D failed: %s", w ? w : "?");
+    }
     ok = grp && n > 0;
     return ok;
 }
@@ -1519,7 +1571,8 @@ void Register(bool boss, bool rm, bool inv) {
     F_CLR1 = Site("MissionClearedGet_37AFC0");
     F_UNL = Site("MissionUnlockedGet");
     g_logOn = boss || rm;
-    if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
+    if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
+    g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
     OnEntry("BossBattleModeEnd", &HkEnd);
