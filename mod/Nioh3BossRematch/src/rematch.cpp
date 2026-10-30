@@ -3907,6 +3907,42 @@ int TCall(int which, uint64_t base, uint64_t a, uint64_t b) {
 // ---- spirit probe: spawn chain 2916C5C(mgr,pos*,yaw,a4,a5); chr = *(*(mgr+0x128)+0x30), [inst]==2 when loaded (ally #46711) ----
 std::atomic<uint64_t> g_spMgr{0};
 std::atomic<int> g_spPin{0};
+std::atomic<int> g_spBody{0};          // ally #53727: 1 = put the summoned yokai's model on the player
+std::atomic<uint64_t> g_spBodyChr{0};    // spirit chr already copied (once per spawn)
+std::atomic<uint64_t> g_spBodyOld{0};    // player's model ptr before the copy (for undo)
+std::atomic<uint64_t> g_spBodySlot{0};   // address written: [chr+0x50]+8+idx*8, idx=[[chr+0x50]+0xA0]
+// model container M=[chr+0x50]; active index [M+0xA0] (0x4F3B20); slot ptr = M+8+idx*8 (SetForm writes idx 1 = M+0x10)
+uint64_t ModelSlot(uint64_t chr, uint64_t& M, uint32_t& idx) {
+    M = 0; idx = 0;
+    if (!chr || !Rd(chr + 0x50, M) || !M) return 0;
+    Rd(M + 0xA0, idx);
+    if (idx > 7) idx = 0;
+    return M + 8 + (uint64_t)idx * 8;
+}
+// copy the spirit's active model onto the player's active slot, once per spawned spirit chr; logs both pointers
+void SpiritBodyApply(uint64_t schr) {
+    if (g_spBodyChr.load() == schr) return;  // already copied for this spawn (no per-tick log spam)
+    const uint64_t pch = PlayerChar();
+    uint64_t pM, sM, pm = 0, sm = 0;
+    uint32_t pi, si;
+    const uint64_t ps = ModelSlot(pch, pM, pi), ss = ModelSlot(schr, sM, si);
+    if (ps) Rd(ps, pm);
+    if (ss) Rd(ss, sm);
+    Log("SpiritBody player chr=%llX M=%llX idx=%u model=%llX | spirit chr=%llX M=%llX idx=%u model=%llX", (unsigned long long)pch,
+        (unsigned long long)pM, pi, (unsigned long long)pm, (unsigned long long)schr, (unsigned long long)sM, si, (unsigned long long)sm);
+    if (!ps || !sm || sm == pm) return;
+    if (!g_spBodyOld.load()) { g_spBodyOld.store(pm); g_spBodySlot.store(ps); }
+    const bool ok = WrBytes(ps, &sm, 8);
+    g_spBodyChr.store(schr);
+    g_spPin.store(1);  // keep the separate spirit on the player (hidden inside the body)
+    Log("SpiritBody WRITE [%llX] %llX -> %llX ok=%d", (unsigned long long)ps, (unsigned long long)pm, (unsigned long long)sm, ok);
+}
+void SpiritBodyUndo() {
+    const uint64_t ps = g_spBodySlot.exchange(0), old = g_spBodyOld.exchange(0);
+    if (ps && old) WrBytes(ps, &old, 8);
+    g_spBodyChr.store(0);
+    Log("SpiritBody UNDO [%llX] <- %llX", (unsigned long long)ps, (unsigned long long)old);
+}
 int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
     __try {
         ((void (*)(uint64_t, const float*, float, int, int))(base + 0x2916C5C))(mgr, pos, yaw, 0, 0);
@@ -4182,6 +4218,16 @@ void Command(const char* line, char* reply, size_t n) {
             snprintf(reply, n, "ok");
             return;
         }
+        if (!strcmp(arg, "body")) {  // spirit body on|off|log : ally #53727 copy the summoned yokai model onto the player (applied on the next tick once the spirit is loaded)
+            uint64_t inst, chr, st;
+            SpiritChr(mgr, inst, chr, st);
+            if (strstr(line, "off")) { g_spBody.store(0); SpiritBodyUndo(); }
+            else if (strstr(line, "on")) g_spBody.store(1);
+            if (chr) SpiritBodyApply(chr);  // with body off this only logs both pointers
+            snprintf(reply, n, "ok body=%d chr=%llX state=%llu copied=%llX", g_spBody.load(), (unsigned long long)chr, (unsigned long long)st,
+                     (unsigned long long)g_spBodyChr.load());
+            return;
+        }
         if (!strcmp(arg, "spawn") && mgr && pok) {
             alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
             const int rc = SpiritCall(base, mgr, pos, 0.f);
@@ -4193,6 +4239,10 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (!strcmp(arg, "tick")) {  // from the input hook: move the spirit chr onto the player (position only; model/attacks untouched)
             uint64_t inst, chr, st;
             SpiritChr(mgr, inst, chr, st);
+            static const int iniBody = IniInt(L"Spirit", L"Body", 0);  // [Spirit] Body=1 arms the copy from boot
+            static bool armed = (iniBody && (g_spBody.store(1), true));
+            (void)armed;
+            if (g_spBody.load() && chr && st == 2) SpiritBodyApply(chr);
             if (g_spPin.load() && pok && chr && st == 2) {
                 alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
                 SpiritSetPos(chr, pos);
