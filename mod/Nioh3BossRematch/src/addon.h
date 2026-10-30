@@ -80,6 +80,8 @@ void TenshinForm(uint32_t v);                  // [state+0xA68] value written be
 void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
 bool FormKeyInstall();                         // [Spirit] FormKey: spirit-spawn + input-state hooks and the 0x11793D0 key override (idempotent)
 void FormKeyCmd(const char* line, char* reply, size_t n);  // `rm spirit formkey on [hex]|off|status`
+void FormKeySealNote(uint64_t chr, uint32_t motion, float dist);  // #54190: seal 65A8A8 spawn chr near the player
+void FormKeySealDesc(uint32_t id);  // #54190: desc[0] at the 65A8A8 entry
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)
 extern volatile LONG g_fights;          // BossBattleMode starts this session

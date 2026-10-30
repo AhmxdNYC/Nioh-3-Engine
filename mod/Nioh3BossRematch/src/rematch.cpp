@@ -3965,6 +3965,7 @@ void SpiritSpawnNote(uint64_t state, uint32_t motion) {
     const float d = ok ? sqrtf(dx * dx + dy * dy + dz * dz) / 100.0f : -1.f;  // position is in cm
     const bool take = g_spBody.load() && ok && d < 15.f && (!onlyMotion || (uint32_t)onlyMotion == motion);
     if (take) g_spSpawnChr.store(chr);
+    if (ok) bosslog::FormKeySealNote(chr, motion, d);  // #54190: FormKey follows the same seal spawn
     if (take || logged.fetch_add(1) < 40)
         Log("SpiritBody spawn 65A8A8 chr=%llX state=%llX motion=%X dist=%.1f armed=%d take=%d", (unsigned long long)chr, (unsigned long long)state,
             motion, d, g_spBody.load(), take);

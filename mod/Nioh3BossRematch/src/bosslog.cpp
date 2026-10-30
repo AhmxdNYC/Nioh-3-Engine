@@ -891,6 +891,10 @@ void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t*
 // path that fires the gold-burst effect. 20 lines/s and 300 lines total per hook.
 template <int N>
 void HkSeal(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    if (N == 0 && b > 0x10000) {  // #54190: desc[0] = chr id of this spawn, for [Spirit] FormKey
+        uint32_t d0 = 0;
+        if (Rd(b, d0)) FormKeySealDesc(d0);
+    }
     static const char* const kNm[] = {"ChrSpawn65A8A8", "SpawnReq68157C", "ListIns5BA648", "Item322468", "Item3203EC"};
     static std::atomic<int64_t> sec{-1};
     static std::atomic<int> inSec{0}, total{0};
@@ -1143,6 +1147,10 @@ int g_fkPendPolls = 0;
 volatile uint64_t g_fkCell = 0;        // read by the call-site stubs: nonzero = return it once
 volatile LONG g_fkHits = 0;
 uintptr_t G_PTAB = 0;
+// #54190: the Summoning Seal never runs 2916C5C (pc2 #54173). Its yokai is a plain 65A8A8 chr spawn (ally #54100): desc[0] = chr id
+// (0x5129B), first motion from 65ADA6. FormKeySealDesc keeps the last desc[0]; FormKeySealNote (rematch SpiritSpawnNote) hands over the chr.
+std::atomic<uint64_t> g_fkSealChr{0};
+std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
 
 uint64_t FkPack(uint64_t key) {
     uint64_t m = 0;
@@ -1271,20 +1279,47 @@ void HkFormKeyInputBody(uint64_t a) {
         Rd(inst + 0x30, schr);
         Rd(inst, sst);
     }
+    bool seal = false;
+    uint32_t sealDesc = 0;
+    if (!(schr && sst == 2)) {  // no guardian spirit: the seal's 65A8A8 spawn
+        if (const uint64_t c = g_fkSealChr.load()) {
+            schr = c;
+            sst = 2;
+            seal = true;
+            sealDesc = g_fkSealDesc.load();
+        }
+    }
     if (schr && sst == 2 && g_fkLogged.exchange(schr) != schr) {
         FkChr s, p;
         FkRead(schr, s);
         FkRead(pchr, p);
         uint32_t id = 0xFFFFFFFF, charId = 0;
-        Rd(mgr + 0x10, id);
+        if (!seal) Rd(mgr + 0x10, id);
         const uint64_t rec = id != 0xFFFFFFFF ? FkRec(id) : 0;
         if (rec) Rd(rec + 0x38, charId);
-        Log("FormKey summon loaded mgr=%llX inst=%llX state=%llu [mgr+10]=%u(0x%X) rec=%llX charId[rec+38]=%u(0x%X) t=%.3f", (unsigned long long)mgr,
-            (unsigned long long)inst, (unsigned long long)sst, id, id, (unsigned long long)rec, charId, charId, Now());
+        if (seal)
+            Log("FormKey seal chr loaded (683F74/65A8A8 path) chr=%llX desc[0]=%X motion=%X t=%.3f", (unsigned long long)schr, sealDesc, g_fkSealMotion.load(), Now());
+        else
+            Log("FormKey summon loaded mgr=%llX inst=%llX state=%llu [mgr+10]=%u(0x%X) rec=%llX charId[rec+38]=%u(0x%X) t=%.3f", (unsigned long long)mgr,
+                (unsigned long long)inst, (unsigned long long)sst, id, id, (unsigned long long)rec, charId, charId, Now());
         FkLogChr("spirit", s);
         FkLogChr("player", p);
+        // ally #54204: the seal figures shared the player's model pointer. If the chr key is the player's own, use desc[0] as the body id.
+        uint64_t dkey = 0, dpack = 0;
+        uint8_t dl = 0;
+        if (seal && sealDesc) {
+            dkey = FkGameKey(sealDesc);
+            if (!dkey) dkey = 0x300000000ull + sealDesc;
+            dpack = FkPack(dkey);
+            if (dpack) Rd(dpack + 0x2C8, dl);
+            int f = 0;
+            const uint64_t dm = FkModel(dkey, f);
+            Log("FormKey seal desc key=%llX pack=%llX loaded=%u model=1175400(key,3)=%llX fault=%d sameAsPlayerKey=%d", (unsigned long long)dkey,
+                (unsigned long long)dpack, dl, (unsigned long long)dm, f, (s.gkey ? s.gkey : s.key) == (p.gkey ? p.gkey : p.key));
+        }
         if (g_fkSwap.exchange(0)) {
-            const uint64_t key = s.gkey ? s.gkey : s.key;
+            uint64_t key = s.gkey ? s.gkey : s.key;
+            if (dkey && (key == (p.gkey ? p.gkey : p.key) || !s.w0)) key = dkey;
             g_fkPendKey.store(key);
             g_fkPendT = Now();
             g_fkPendPolls = 0;
@@ -1376,6 +1411,14 @@ void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
+void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
+void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
+    if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || g_fkSealChr.load() == chr) return;
+    g_fkSealMotion.store(motion);
+    g_fkSealChr.store(chr);
+    Log("FormKey seal spawn hit (65A8A8 -> 66C4A8 from 65ADA6) chr=%llX desc[0]=%X motion=%X dist=%.1f swapArmed=%d", (unsigned long long)chr,
+        g_fkSealDesc.load(), motion, dist, g_fkSwap.load());
+}
 bool FormKeyInstall() {
     static std::atomic<int> done{0};
     static bool ok = false;
