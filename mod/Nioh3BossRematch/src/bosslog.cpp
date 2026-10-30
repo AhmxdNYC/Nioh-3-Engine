@@ -2110,11 +2110,16 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
 }
 // pc #55469: mode 3 writes only the guarded hide byte, without SetHideModel's fade or seal-position pinning.
 // Keep its saved byte separate from the native modes; never invoke native unhide for a direct-byte hide.
+// pc #55704 [Spirit] FormHidePress=1 (mode 3): hide on the d-pad LEFT (seal) press edge so the throw is never drawn; the capture ~1.3 s
+// later adopts the hide. No capture within 2.5 s = not a seal -> restore. FormHideExtra=1: a second seal chr loaded while hidden
+// (EE49E, ~0.5 s after the capture) gets the same hide byte, restored at the end only if it is still in the actor table.
+std::atomic<int> g_fhPress{0}, g_fhExtra{1};
 void FormHideDirectTick(uint64_t pchr) {
-    static uint64_t owner = 0, seal = 0, attempted = 0;
-    static double attemptedT = -1, hideT = 0;
-    static uint8_t saved = 0;
+    static uint64_t owner = 0, seal = 0, attempted = 0, extra = 0, extraDone = 0, sealAtHide = 0;  // sealAtHide: g_fkSealChr when the seal was bound
+    static double attemptedT = -1, hideT = 0, pressT = 0;
+    static uint8_t saved = 0, extraSaved = 0;
     static int pins = 0;
+    static bool wasLeft = false;
     const int mode = g_fhMode.load();
     const uint64_t cap = g_fs0CapChr.load();
     const double capT = g_fs0CapT;
@@ -2128,6 +2133,12 @@ void FormHideDirectTick(uint64_t pchr) {
         uint8_t b[sizeof(want)] = {};
         return Copy(b, g_base + 0xA550E8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
     };
+    bool leftEdge = false;
+    if (g_fhPress.load() && mode == 3) {
+        const bool left = (PadButtons(nullptr, nullptr) & 0x0004) != 0;  // XINPUT_GAMEPAD_DPAD_LEFT
+        leftEdge = left && !wasLeft;
+        wasLeft = left;
+    }
     if (owner) {
         if (pchr != owner) {
             Log("FormHide=3 abandon: player changed %llX -> %llX; no stale-pointer restore", (unsigned long long)owner, (unsigned long long)pchr);
@@ -2135,13 +2146,46 @@ void FormHideDirectTick(uint64_t pchr) {
             g_fhEnd.active = false;
             return;
         }
-        const char* reason = mode != 3 ? "mode-change" : cap != seal || capT != attemptedT ? "capture-change" : FormHideEndReason(pchr, seal, hideT);
+        const char* reason = nullptr;
+        if (!seal) {  // press-hide waiting for the seal capture
+            if (mode == 3 && cap && capT >= pressT - 0.05) {
+                seal = attempted = cap;
+                sealAtHide = g_fkSealChr.load();
+                attemptedT = capT;
+                hideT = now;
+                pins = 0;
+                FormHideEndBegin(pchr, cap);
+                FormHideEndReason(pchr, cap, hideT);
+                Log("FormHide=3 press-hide adopted seal=%llX %.3f s after the press t=%.3f", (unsigned long long)cap, capT - pressT, now);
+                return;
+            }
+            reason = mode != 3 ? "mode-change" : now - pressT > 2.5 ? "press-no-seal-2.5s" : nullptr;
+        } else {
+            reason = mode != 3 ? "mode-change" : cap != seal || capT != attemptedT ? "capture-change" : FormHideEndReason(pchr, seal, hideT);
+        }
         if (!reason) {
+            if (!seal) return;
             if (FormPin(pchr, seal) && (++pins == 1 || pins % 600 == 0)) Log("FormHide=3 pin #%d t=%.3f", pins, now);
+            const uint64_t sc = g_fkSealChr.load();
+            if (g_fhExtra.load() && sc && sc != seal && sc != pchr && sc != sealAtHide && sc != extraDone && guarded()) {  // only a chr loaded after binding
+                extraDone = sc;
+                uint8_t eb = 0xFF, ea = 0xFF;
+                const uint8_t hide = 1;
+                const bool ok = Rd(sc + 0xB440, eb) && WrBytes(sc + 0xB440, &hide, 1) && Rd(sc + 0xB440, ea) && ea == 1;
+                if (ok) { extra = sc; extraSaved = eb; }
+                Log("FormHide=3 EXTRA seal chr=%llX hide byte %u->%u ok=%d t=%.3f", (unsigned long long)sc, (unsigned)eb, (unsigned)ea, ok, now);
+            }
             return;
         }
         uint8_t current = 0xFF, after = 0xFF;
         if (!guarded() || !Rd(owner + 0xB440, current)) return;  // keep ownership so a later tick can retry
+        if (extra) {  // only touch the extra chr while it is provably still a live actor
+            const int present = FormHideSealPresent(g_fhEnd.actorGlobal, extra);
+            uint8_t ec = 0xFF;
+            const bool eok = present == 1 && Rd(extra + 0xB440, ec) && ec == 1 && WrBytes(extra + 0xB440, &extraSaved, 1);
+            Log("FormHide=3 EXTRA restore chr=%llX present=%d byte=%u ok=%d", (unsigned long long)extra, present, (unsigned)ec, eok);
+            extra = 0;
+        }
         if (current != 1) {
             Log("FormHide=3 restore skipped (%s): byte changed externally to %u; saved=%u", reason, (unsigned)current, (unsigned)saved);
             owner = 0;
@@ -2154,9 +2198,9 @@ void FormHideDirectTick(uint64_t pchr) {
         if (ok) { owner = 0; g_fhEnd.active = false; }
         return;
     }
-    if (mode != 3 || !pchr || !cap || now < capT || (attempted == cap && attemptedT == capT)) return;
-    attempted = cap;
-    attemptedT = capT;
+    const bool press = leftEdge && pchr;
+    if (!press && (mode != 3 || !pchr || !cap || now < capT || (attempted == cap && attemptedT == capT))) return;
+    if (!press) { attempted = cap; attemptedT = capT; }
     if (!guarded()) { Log("FormHide=3: full 29-byte A550E8 guard differs - skipped"); return; }
     uint8_t before = 0xFF, after = 0xFF;
     if (!Rd(pchr + 0xB440, before)) { Log("FormHide=3: hide-byte read failed - skipped"); return; }
@@ -2164,16 +2208,23 @@ void FormHideDirectTick(uint64_t pchr) {
     const bool wrote = WrBytes(pchr + 0xB440, &hide, 1);
     if (wrote) {  // retain the backup even if the readback fails
         owner = pchr;
-        seal = cap;
         saved = before;
         hideT = now;
         pins = 0;
-        FormHideEndBegin(pchr, cap);
-        FormHideEndReason(pchr, cap, hideT);  // observe the initial live state immediately
+        extra = 0;
+        if (press) {
+            seal = 0;
+            pressT = now;
+        } else {
+            seal = cap;
+            sealAtHide = g_fkSealChr.load();
+            FormHideEndBegin(pchr, cap);
+            FormHideEndReason(pchr, cap, hideT);  // observe the initial live state immediately
+        }
     }
     const bool ok = wrote && Rd(pchr + 0xB440, after) && after == hide;
-    Log("FormHide=3 APPLY player=%llX saved=%u byte=%u->%u ok=%d seal=%llX untilEnd=%d t=%.3f", (unsigned long long)pchr,
-        (unsigned)before, (unsigned)before, (unsigned)after, ok, (unsigned long long)cap, g_fhUntilEnd.load(), now);
+    Log("FormHide=3 APPLY (%s) player=%llX saved=%u byte=%u->%u ok=%d seal=%llX untilEnd=%d t=%.3f", press ? "seal press" : "capture",
+        (unsigned long long)pchr, (unsigned)before, (unsigned)before, (unsigned)after, ok, (unsigned long long)(press ? 0 : cap), g_fhUntilEnd.load(), now);
 }
 void FormHideTick(uint64_t pchr) {
     static uint64_t done = 0, undone = 0;
@@ -2888,6 +2939,8 @@ void Register(bool boss, bool rm, bool inv) {
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
+    g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
+    g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
     g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
