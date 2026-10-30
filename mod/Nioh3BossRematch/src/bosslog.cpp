@@ -1586,6 +1586,10 @@ void HkFormKeyInputBody(uint64_t a) {
         FkLogChr("player", p);
         FkAppearLog(seal ? "seal" : "spirit", schr);
         FkAppearLog("player", pchr);
+        if (seal && !g_fkAppSeal.load() && g_ppOn.load()) {  // pc2 #4045 run: the title screen used all 4000 lines; fresh budget at the first seal chr
+            Log("PartProbe: budget reset at first seal chr (so far F3D78 %ld, 2C4450 %ld calls)", g_ppF3Hits, g_ppC4Hits);
+            InterlockedExchange(&g_ppLines, 0);
+        }
         if (seal && g_fkAppearMode.load()) FkAppearApply(pchr, schr);
         // ally #54204: the seal figures shared the player's model pointer. If the chr key is the player's own, use desc[0] as the body id.
         uint64_t dkey = 0, dpack = 0;
