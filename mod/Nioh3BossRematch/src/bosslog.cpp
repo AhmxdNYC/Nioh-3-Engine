@@ -1999,6 +1999,64 @@ void FatTick(uint64_t pchr, double dt) {  // game thread, inside the kick window
 // on the player (writes [chr+B440]=1; the part code 3FFFEC/40343C/406EDC and 8591B read that byte; Tenshin end 1AB4C5C uses it) and show it again
 // with A550E8(chr, 0) 20 s later. Logs [chr+B440] before/after. 2 = also pin the seal chr position [+110] to the player's every frame while hidden.
 std::atomic<int> g_fhMode{0};
+// pc #55469: mode 3 writes only the guarded hide byte, without SetHideModel's fade or seal-position pinning.
+// Keep its saved byte separate from the native modes; never invoke native unhide for a direct-byte hide.
+void FormHideDirectTick(uint64_t pchr) {
+    static uint64_t owner = 0, seal = 0, attempted = 0;
+    static double attemptedT = -1, hideT = 0;
+    static uint8_t saved = 0;
+    const int mode = g_fhMode.load();
+    const uint64_t cap = g_fs0CapChr.load();
+    const double capT = g_fs0CapT;
+    const double now = Now();
+    if (!owner && mode != 3) return;
+    static const uint8_t want[29] = {
+        0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9, 0xD4, 0x09, 0x00, 0x00, 0x00,
+        0x40, 0x8A, 0xFA, 0x48, 0x8B, 0xD9, 0x88, 0x91, 0x40, 0xB4, 0x00, 0x00
+    };
+    auto guarded = [&]() {
+        uint8_t b[sizeof(want)] = {};
+        return Copy(b, g_base + 0xA550E8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
+    };
+    if (owner) {
+        if (pchr != owner) {
+            Log("FormHide=3 abandon: player changed %llX -> %llX; no stale-pointer restore", (unsigned long long)owner, (unsigned long long)pchr);
+            owner = 0;
+            return;
+        }
+        const char* reason = mode != 3 ? "mode-change" : cap != seal || capT != attemptedT ? "capture-change" : now - hideT >= 20.0 ? "timer" : nullptr;
+        if (!reason) return;
+        uint8_t current = 0xFF, after = 0xFF;
+        if (!guarded() || !Rd(owner + 0xB440, current)) return;  // keep ownership so a later tick can retry
+        if (current != 1) {
+            Log("FormHide=3 restore skipped (%s): byte changed externally to %u; saved=%u", reason, (unsigned)current, (unsigned)saved);
+            owner = 0;
+            return;
+        }
+        const bool ok = WrBytes(owner + 0xB440, &saved, 1) && Rd(owner + 0xB440, after) && after == saved;
+        Log("FormHide=3 RESTORE (%s) player=%llX saved=%u byte=%u->%u ok=%d t=%.3f", reason, (unsigned long long)owner,
+            (unsigned)saved, (unsigned)current, (unsigned)after, ok, now);
+        if (ok) owner = 0;
+        return;
+    }
+    if (mode != 3 || !pchr || !cap || now - capT < 0.5 || (attempted == cap && attemptedT == capT)) return;
+    attempted = cap;
+    attemptedT = capT;
+    if (!guarded()) { Log("FormHide=3: full 29-byte A550E8 guard differs - skipped"); return; }
+    uint8_t before = 0xFF, after = 0xFF;
+    if (!Rd(pchr + 0xB440, before)) { Log("FormHide=3: hide-byte read failed - skipped"); return; }
+    const uint8_t hide = 1;
+    const bool wrote = WrBytes(pchr + 0xB440, &hide, 1);
+    if (wrote) {  // retain the backup even if the readback fails
+        owner = pchr;
+        seal = cap;
+        saved = before;
+        hideT = now;
+    }
+    const bool ok = wrote && Rd(pchr + 0xB440, after) && after == hide;
+    Log("FormHide=3 APPLY player=%llX saved=%u byte=%u->%u ok=%d seal=%llX restore=20s t=%.3f", (unsigned long long)pchr,
+        (unsigned)before, (unsigned)before, (unsigned)after, ok, (unsigned long long)cap, now);
+}
 void FormHideTick(uint64_t pchr) {
     static uint64_t done = 0, undone = 0;
     static double hideT = 0;
@@ -2040,7 +2098,8 @@ void FormHideTick(uint64_t pchr) {
     }
 }
 void FkSlot0Tick(uint64_t pchr) {  // game thread
-    if (g_fhMode.load()) FormHideTick(pchr);  // pc #55327 FormHide
+    FormHideDirectTick(pchr);  // also restores a mode-3 hide after mode/capture changes
+    if (const int mode = g_fhMode.load(); mode && mode != 3) FormHideTick(pchr);  // pc #55327: native modes unchanged
     static uint64_t kicked = 0;
     const uint64_t cap = g_fs0CapChr.load();
     if (g_fs0Active.load() && cap && kicked != cap && g_fs0Mode.load() != 9 && Now() - g_fs0CapT >= 0.3) {
@@ -2702,7 +2761,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
-    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // pc #55327: SetHideModel A550E8 on the player after the seal capture (2 = + pin seal pos)
+    g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
