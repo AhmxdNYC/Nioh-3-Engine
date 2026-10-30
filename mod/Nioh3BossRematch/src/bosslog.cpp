@@ -1729,6 +1729,7 @@ void Fs0Reload(uint64_t pchr, const char* why) {  // the game's reload trigger o
 // rebuild. Logs the slot state, target id ([obj]>>4), +1FC before/after and [slot+10] after.
 std::atomic<int> g_faMode{0};
 std::atomic<int> g_foxMode{0};  // ally #55149 FormObjFix
+std::atomic<int> g_fzsMode{0};  // pc #55150 FormZeroSlot
 bool FaCall(uint64_t obj) {
     __try {
         ((void (*)(uint64_t, uint32_t, uint32_t))(g_base + 0x2C4450))(obj, 0, 0xFFFFFFFFu);
@@ -1968,6 +1969,14 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
     const uint64_t cap = g_fs0CapChr.load();
     if (g_fs0Active.load() && cap && kicked != cap && Now() - g_fs0CapT >= 0.3) {
         kicked = cap;
+        if (g_fzsMode.load()) {  // ally/pc #55150 [Spirit] FormZeroSlot=1: zero the player kind-0 slot +2C0..+2F7 (902C00 copies it into obj +190.. / +2A4..)
+            const uint64_t ps = g_fs0FirstK0.load();
+            char hb[0x38 * 3 + 4];
+            HexSafe(hb, sizeof(hb), ps + 0x2C0, 0x38);
+            static const uint8_t z[0x38] = {};
+            const bool ok = ps && WrBytes(ps + 0x2C0, z, sizeof(z));
+            Log("FormZeroSlot player slot %llX +2C0..+2F7 zeroed ok=%d (was %s)", (unsigned long long)ps, ok, hb);
+        }
         Fs0Reload(pchr, "player after FormSlot0 apply");
         SwArm(g_fs0FirstK0.load(), "after-apply");
         SpArm();
@@ -2503,6 +2512,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fs0Mode.store(IniInt(L"Spirit", L"FormSlot0", 0));  // pc2 #54828: player kind-0 part id -> seal's kind-0 id + one rebuild  // pc #54739: log every F3D78 / 2C4450 part load  // pc #54571: 1 = 846B3C reload flags, 2 = +804=1, 0 = none
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
+    g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
     g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
