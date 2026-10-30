@@ -2230,7 +2230,7 @@ struct Fh4State {
     uint64_t owner = 0, seal = 0, root = 0;
     double started = 0, capT = -1, nextLog = 0, nextShellLog = 0;
     uint8_t hide = 0;
-    float blend = 0, multiplier = 0;
+    float blend = 0, multiplier = 0, fade = 1;
 };
 Fh4State g_fh4;
 SRWLOCK g_fh4Lock = SRWLOCK_INIT;
@@ -2248,6 +2248,8 @@ void Fh4Restore(uint64_t player) {
         else if (root && root == g_fh4.root) {
             if (!Rd(root + 0x3A8, current)) ok = false;
             else if (current == 0 && !WrBytes(root + 0x3A8, &g_fh4.multiplier, 4)) ok = false;
+            if (!Rd(root + 0x248, current)) ok = false;
+            else if (current == 0 && !WrBytes(root + 0x248, &g_fh4.fade, 4)) ok = false;
         }
         if (!Rd(player + 0xB440, h)) ok = false;
         else if (h == 1 && !WrBytes(player + 0xB440, &g_fh4.hide, 1)) ok = false;
@@ -2270,11 +2272,17 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     }
     float k8 = 0;
     if (!Rd(root + 0x3A8, k8) || !std::isfinite(k8)) return false;
-    if (!g_fh4.root) { g_fh4.root = root; g_fh4.multiplier = k8; }
+    // ally #56104: k6=[root+248]=0 also hides slots 6/16-19 (dark throw layer, head, weapon) that k8=0 leaves.
+    float k6 = 0;
+    if (!Rd(root + 0x248, k6) || !std::isfinite(k6)) return false;
+    if (!g_fh4.root) { g_fh4.root = root; g_fh4.multiplier = k8; g_fh4.fade = k6; }
     else if (g_fh4.root != root) return false; // do not adopt a new model while holding the old one
-    else if (nativeFresh || k8 != 0) g_fh4.multiplier = k8;
+    else {
+        if (nativeFresh || k8 != 0) g_fh4.multiplier = k8;
+        if (k6 != 0) g_fh4.fade = k6;
+    }
     const float zero = 0;
-    return WrBytes(root + 0x3A8, &zero, 4);
+    return WrBytes(root + 0x3A8, &zero, 4) && WrBytes(root + 0x248, &zero, 4);
 }
 bool Fh4Apply(uint64_t chr) {
     if (!chr || chr != g_fh4.owner || chr != FkPlayer()) return false;
