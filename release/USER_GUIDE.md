@@ -1,6 +1,6 @@
 # Nioh3EngineFix - user guide
 
-Engine fixes for **Nioh 3 (Steam, v2.02 only)**. Everything is applied in the game's memory while it runs; no game file is
+Engine fixes for **Nioh 3 (Steam)**. Each patch turns on only when its own bytes are in that game file. Everything is applied in the game's memory while it runs; no game file is
 changed except the optional shadow shader below. Close the game and the mod is gone. On any other game version the mod
 checks the build and does nothing.
 
