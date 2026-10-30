@@ -2246,6 +2246,68 @@ struct Fh4State {
     double nextSealPoll = 0;
 };
 Fh4State g_fh4;
+// pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
+// button mask dropped from the game's XInputGetState for that window (default 0xC200 = RB light attack, X item, Y), FormBlockRT=1 zeroes RT
+// (strong attack). The IAT slot is taken on the FIRST form start, not at load, so this hook sits outside EngineFix's PadLatency/VPad hooks
+// and also masks the harness pipe pad. Keyboard (DirectInput) is not masked. 0 = off.
+std::atomic<int> g_fbMask{0xC200}, g_fbRT{1};
+std::atomic<bool> g_fbActive{false};
+std::atomic<long> g_fbDropped{0};
+using FbXGet = DWORD(WINAPI*)(DWORD, void*);
+FbXGet g_fbPrev = nullptr;
+struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
+struct FbState { DWORD packet; FbPad pad; };
+DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
+    const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
+    if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed)) {
+        FbState* s = (FbState*)st;
+        const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
+        if ((s->pad.buttons & m) || (g_fbRT.load(std::memory_order_relaxed) && s->pad.rt)) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
+        s->pad.buttons &= (WORD)~m;
+        if (g_fbRT.load(std::memory_order_relaxed)) s->pad.rt = 0;
+    }
+    return r;
+}
+void** FbXInputSlot() {
+    uint8_t* base = (uint8_t*)g_img.base;
+    __try {
+        auto nt = (IMAGE_NT_HEADERS64*)(base + ((IMAGE_DOS_HEADER*)base)->e_lfanew);
+        const IMAGE_DATA_DIRECTORY& dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+        if (!dd.VirtualAddress) return nullptr;
+        for (auto d = (IMAGE_IMPORT_DESCRIPTOR*)(base + dd.VirtualAddress); d->Name; ++d) {
+            const char* dll = (const char*)(base + d->Name);
+            if (_strnicmp(dll, "xinput", 6) != 0 || !d->OriginalFirstThunk || !d->FirstThunk) continue;
+            const bool ord2 = _strnicmp(dll, "xinput1_", 8) == 0;
+            auto names = (IMAGE_THUNK_DATA64*)(base + d->OriginalFirstThunk);
+            auto iat = (void**)(base + d->FirstThunk);
+            for (int i = 0; names[i].u1.AddressOfData; ++i) {
+                const ULONGLONG e = names[i].u1.AddressOfData;
+                if (IMAGE_SNAP_BY_ORDINAL64(e)) { if (ord2 && IMAGE_ORDINAL64(e) == 2) return &iat[i]; }
+                else if (!strcmp(((IMAGE_IMPORT_BY_NAME*)(base + e))->Name, "XInputGetState")) return &iat[i];
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    return nullptr;
+}
+void FormBlockSet(bool on) {
+    if (!g_fbMask.load() && !g_fbRT.load()) return;
+    static bool hooked = false, tried = false;
+    if (on && !tried) {
+        tried = true;
+        void** slot = FbXInputSlot();
+        DWORD old = 0, t = 0;
+        if (slot && *slot && VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &old)) {
+            g_fbPrev = (FbXGet)*slot;  // published before the swap so the hook never calls a null original
+            InterlockedExchangePointer(slot, (void*)&HkFormBlockPad);
+            VirtualProtect(slot, sizeof(void*), old, &t);
+            hooked = true;
+        }
+        Log("FormBlockPad: %s mask=%04X RT=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load());
+    }
+    if (!hooked || g_fbActive.exchange(on) == on) return;
+    if (on) { g_fbDropped.store(0); Log("FormBlockPad: attacks/items blocked t=%.3f", Now()); }
+    else Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
+}
 // pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
 struct Fh4Perf { std::atomic<long> parts{0}, mult{0}, alpha{0}, writes{0}, ticks{0}; std::atomic<long long> qpc{0}; };
 Fh4Perf g_fh4Perf;
@@ -2268,6 +2330,7 @@ void* g_fh4AlphaOrig = nullptr;
 
 // All helpers below run with g_fh4Lock held. No stale-root restore on replacement.
 void Fh4Restore(uint64_t player) {
+    FormBlockSet(false);  // input comes back even when the hide restore below has to retry
     bool ok = true;
     if (player == g_fh4.owner && player == FkPlayer()) {
         uint64_t root = 0; float current = 0; uint8_t h = 0;
@@ -2617,6 +2680,7 @@ void FormHide4Tick(uint64_t player) {
                (edge || (cap && now >= capT && (cap != attempted || capT != attemptedT)))) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             g_fh4.owner = player; g_fh4.started = now; g_fh4Fault.store(false);
+            FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
@@ -3782,6 +3846,8 @@ void Register(bool boss, bool rm, bool inv) {
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
     g_fhSealKeep.store(IniInt(L"Spirit", L"FormSealKeep", 1));
+    { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xC200", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
+    g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
