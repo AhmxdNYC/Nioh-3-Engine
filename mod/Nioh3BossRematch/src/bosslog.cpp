@@ -2081,25 +2081,29 @@ bool FormHideEndHolding(uint64_t player, uint64_t seal) {
     return g_fhUntilEnd.load() && g_fhMode.load() && g_fhEnd.active && !g_fhEnd.ended && g_fhEnd.player == player && g_fhEnd.seal == seal &&
         (g_fhEnd.laSeen || g_fhEnd.sealSeen);
 }
-// pc #55665: pin the seal chr onto the player's spot every tick while hidden: position [+110] (16 B) and, when both chrs hold a unit
-// quaternion there, the rotation at [+FormPinRot] (default 0x100) so the yokai turns with the stick. LA can outlive its seal: in end-driven
-// mode never write onto a removed actor.
-std::atomic<int> g_fhRotOff{0x100};
+// pc #55665: pin the seal chr onto the player's spot every tick while hidden: position [+110] (16 B) and the 3x3 rotation rows at
+// [+FormPinRot] (default 0x120: +120 right, +130 up, +140 forward; ally chr dumps #55310) when every row of both chrs is a unit vector,
+// so the yokai turns with the stick. LA can outlive its seal: in end-driven mode never write onto a removed actor.
+std::atomic<int> g_fhRotOff{0x120};
 bool FormPin(uint64_t pchr, uint64_t cap) {
     if (g_fhUntilEnd.load() && FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 1) return false;
     float pos[4] = {};
     if (!Copy(pos, pchr + 0x110, 16) || !WrBytes(cap + 0x110, pos, 16)) return false;
     static uint64_t loggedCap = 0;
-    float q[4] = {}, sq[4] = {};
+    float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
-    bool rot = false;
-    if (ro > 0 && Copy(q, pchr + ro, 16) && Copy(sq, cap + ro, 16)) {
-        const float n = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3], sn = sq[0] * sq[0] + sq[1] * sq[1] + sq[2] * sq[2] + sq[3] * sq[3];
-        if (n > 0.98f && n < 1.02f && sn > 0.98f && sn < 1.02f) rot = WrBytes(cap + ro, q, 16);
+    if (ro > 0 && Copy(m, pchr + ro, sizeof(m)) && Copy(sm, cap + ro, sizeof(sm))) {
+        bool unit = true;
+        for (int r = 0; r < 3; ++r) {
+            const float* a = m + r * 4; const float* b = sm + r * 4;
+            const float n = a[0] * a[0] + a[1] * a[1] + a[2] * a[2], sn = b[0] * b[0] + b[1] * b[1] + b[2] * b[2];
+            unit = unit && n > 0.98f && n < 1.02f && sn > 0.98f && sn < 1.02f;
+        }
+        const bool rot = unit && WrBytes(cap + ro, m, sizeof(m));
         if (loggedCap != cap) {
             loggedCap = cap;
-            Log("FormPin first: rot +%X player q=%.3f %.3f %.3f %.3f seal q=%.3f %.3f %.3f %.3f copied=%d pos=%.2f %.2f %.2f", ro,
-                q[0], q[1], q[2], q[3], sq[0], sq[1], sq[2], sq[3], rot, pos[0], pos[1], pos[2]);
+            Log("FormPin first: rot +%X player fwd=%.3f %.3f %.3f seal fwd=%.3f %.3f %.3f copied=%d pos=%.2f %.2f %.2f", ro,
+                m[8], m[9], m[10], sm[8], sm[9], sm[10], rot, pos[0], pos[1], pos[2]);
         }
     }
     return true;
@@ -2884,7 +2888,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_faMode.store(IniInt(L"Spirit", L"FormApply", 0));  // pc #54948: 2C4450(obj,0,-1) after the FormSlot0 swap (1 = slot obj, 2 = player chr)
     g_foxMode.store(IniInt(L"Spirit", L"FormObjFix", 0));  // ally #55149: copy the seal obj fields onto the player kind-0 obj after the commit
     g_fhUntilEnd.store(IniInt(L"Spirit", L"FormHideUntilEnd", 0) != 0);
-    g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x100));  // pc #55665: 0 = position-only pin
+    g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
     g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
