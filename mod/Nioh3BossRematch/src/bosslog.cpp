@@ -12,6 +12,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
+#include <cmath>
+#include <algorithm>
 
 namespace addon {
 namespace fight {
@@ -2274,7 +2277,172 @@ void FormHideTick(uint64_t pchr) {
         }
     }
 }
+// pc #55633 [Spirit] SealLife=1: why the seal chr despawns ~5 s after capture. (a) 2BFC90 (actor registry unlink, rdx = actor) logs every
+// actor removed 0..40 s after a capture with a deep return chain, marking the captured / spawn seal chrs; (b) snapshots the captured seal chr
+// [0,C000) and its [+3A0] ext [0,2000) at capture +0.3/+1.3/+2.3/+3.3/+4.3 s and logs 4-byte fields that move like a clock (float +-0.5..1.5/s,
+// steady; or int +20..200/s). SealKeepOff=<hex>[,<hex>..] (offsets into the seal chr, 'e' prefix = ext) + SealKeepSec: hold those floats at their
+// capture +0.5 s value until capture + SealKeepSec (default 25).
+std::atomic<int> g_slMode{0};
+uint32_t g_slKeepOff[8] = {};
+bool g_slKeepExt[8] = {};
+int g_slKeepN = 0;
+double g_slKeepSec = 25;
+double g_slScanAt = 0.3;  // SealLifeScanAtMs: first clock-scan sample after capture
+std::atomic<int> g_slLoop{0};
+uint32_t g_slLoopMotion = 0;
+double g_slLoopAt = 4.0, g_slLoopEvery = 4.0;
+void HkSealUnlink(uint64_t, uint64_t actor, uint64_t, uint64_t, const uint64_t* sp) {
+    if (!g_slMode.load() || !actor) return;
+    const uint64_t cap = g_fs0CapChr.load();
+    const double t = Now(), dt = t - g_fs0CapT;
+    if (!cap || dt < 0 || dt > 40) return;
+    const bool isCap = actor == cap, isSeal = actor == g_fkSealChr.load() || actor == g_fkAppSeal.load();
+    static std::atomic<int> n{0};
+    if (!isCap && !isSeal && n.load() >= 30) return;
+    if (n.fetch_add(1) >= 60) return;
+    uint32_t key = 0;
+    Rd(actor, key);
+    char via[600] = "";
+    size_t vl = 0;
+    int found = 0;
+    for (int k = 0; k < 400 && found < 14 && vl + 40 < sizeof(via); ++k) {
+        const uint64_t v = StackArg(sp, k);
+        if (!LooksLikeRet(v)) continue;
+        vl += (size_t)snprintf(via + vl, sizeof(via) - vl, " +%llX(fn %X)", (unsigned long long)(v - g_base), FnStart(v));
+        ++found;
+    }
+    Log("SealLife UNLINK actor=%llX key>>4=%X cap=%d seal=%d dtCap=%.3f via%s t=%.3f", (unsigned long long)actor, key >> 4, isCap, isSeal, dt,
+        vl ? via : " -", t);
+}
+// SealDefer=1 (pc #55633): the seal chr leaves through the despawn queue: 681044(mgr+BD0, actor) (callers: wrapper 681E9C at 681EB6, and
+// E462E1), drained by 5BC9A0 -> 2BF7E8 unlink. Both E8 sites are retargeted; while capture < SealKeepSec a request for the captured seal chr is
+// held (not queued) and re-issued by SealLifeTick at the deadline or on a new capture. Other actors pass straight through.
+std::atomic<int> g_sdMode{0};
+void (*g_sdOrig)(uint64_t, uint64_t) = nullptr;
+uint64_t g_sdHeld = 0, g_sdList = 0;
+int g_sdSkips = 0;
+double g_sdHeldT = 0;
+void HkDespawnEnq(uint64_t list, uint64_t actor) {
+    const uint64_t cap = g_fs0CapChr.load();
+    if (actor && actor == cap) {
+        const double dt = Now() - g_fs0CapT;
+        if (g_sdMode.load() && dt >= 0 && dt < g_slKeepSec) {
+            if (!g_sdHeld) {
+                g_sdHeldT = Now();
+                Log("SealDefer HOLD despawn request seal=%llX list=%llX caller=+%llX dtCap=%.3f", (unsigned long long)actor, (unsigned long long)list,
+                    (unsigned long long)((uint64_t)_ReturnAddress() - g_base), dt);
+            }
+            g_sdHeld = actor;
+            g_sdList = list;
+            ++g_sdSkips;
+            return;
+        }
+        Log("SealDefer pass despawn request seal=%llX caller=+%llX dtCap=%.3f", (unsigned long long)actor, (unsigned long long)((uint64_t)_ReturnAddress() - g_base), dt);
+    }
+    g_sdOrig(list, actor);
+}
+void SealDeferRelease(const char* why) {
+    if (!g_sdHeld || !g_sdOrig) return;
+    const uint64_t a = g_sdHeld, l = g_sdList;
+    g_sdHeld = 0;
+    int ok = 1;
+    __try { g_sdOrig(l, a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
+    g_sdSkips = 0;
+}
+struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
+void SlRead(SlSnap& s, uint64_t base, size_t n) {
+    s.b.assign(n, 0);
+    s.ok.assign(n / 0x1000, 0);
+    for (size_t p = 0; p < n / 0x1000; ++p) s.ok[p] = base && Copy(s.b.data() + p * 0x1000, base + p * 0x1000, 0x1000);
+}
+void SlAnalyse(const char* nm, const SlSnap* s, int ns, const double* ts) {
+    int hits = 0;
+    const size_t n = s[0].b.size();
+    for (size_t o = 0; o + 4 <= n && hits < 60; o += 4) {
+        bool okAll = true;
+        for (int i = 0; i < ns; ++i) okAll = okAll && s[i].ok[o / 0x1000];
+        if (!okAll) continue;
+        float f[8]; int32_t v[8];
+        for (int i = 0; i < ns; ++i) { memcpy(&f[i], &s[i].b[o], 4); memcpy(&v[i], &s[i].b[o], 4); }
+        bool fl = true, in = true;
+        double rmin = 1e9, rmax = -1e9, imin = 1e18, imax = -1e18;
+        for (int i = 1; i < ns; ++i) {
+            const double dtt = ts[i] - ts[i - 1];
+            if (!std::isfinite(f[i]) || !std::isfinite(f[i - 1]) || fabsf(f[i]) > 1e6f) fl = false;
+            else { const double r = (f[i] - f[i - 1]) / dtt; rmin = std::min(rmin, r); rmax = std::max(rmax, r); }
+            const double ri = (double)(v[i] - v[i - 1]) / dtt; imin = std::min(imin, ri); imax = std::max(imax, ri);
+        }
+        fl = fl && ((rmin > 0.4 && rmax < 1.6) || (rmax < -0.4 && rmin > -1.6)) && rmax - rmin < 0.3;
+        in = !fl && ((imin >= 20 && imax <= 200) || (imax <= -20 && imin >= -200)) && imax - imin < 0.35 * fabs(imax);
+        if (!fl && !in) continue;
+        ++hits;
+        if (fl) Log("SealLife CLOCK %s+%zX float %.3f %.3f %.3f %.3f %.3f rate=%.3f..%.3f/s", nm, o, f[0], f[1], f[2], ns > 3 ? f[3] : 0.f, ns > 4 ? f[4] : 0.f, rmin, rmax);
+        else Log("SealLife CLOCK %s+%zX int %d %d %d %d %d rate=%.0f..%.0f/s", nm, o, v[0], v[1], v[2], ns > 3 ? v[3] : 0, ns > 4 ? v[4] : 0, imin, imax);
+    }
+    Log("SealLife scan %s done: %d clock-like fields", nm, hits);
+}
+void SealLifeTick() {
+    if (g_sdHeld && (g_sdHeld != g_fs0CapChr.load() || Now() - g_fs0CapT >= g_slKeepSec)) SealDeferRelease(g_sdHeld != g_fs0CapChr.load() ? "capture-change" : "deadline");
+    if (!g_slMode.load() && !g_slKeepN && !g_slLoop.load()) return;
+    static uint64_t cap0 = 0;
+    static double capT0 = -1;
+    static int ns = 0;
+    static SlSnap chr[5], ext[5];
+    static double ts[5];
+    static uint64_t extP = 0;
+    static float keep[8];
+    static bool kept = false;
+    const uint64_t cap = g_fs0CapChr.load();
+    const double capT = g_fs0CapT, now = Now();
+    if (cap != cap0 || capT != capT0) { cap0 = cap; capT0 = capT; ns = 0; extP = 0; kept = false; }
+    if (!cap) return;
+    const double dt = now - capT;
+    if (g_slMode.load() && ns < 5 && dt >= g_slScanAt + ns) {
+        if (ns == 0) Rd(cap + 0x3A0, extP);
+        if (FormHideSealPresent(g_fhEnd.actorGlobal ? g_fhEnd.actorGlobal : 0, cap) == 0) { Log("SealLife: seal gone before sample %d", ns); ns = 5; return; }
+        SlRead(chr[ns], cap, 0xC000);
+        SlRead(ext[ns], extP, 0x2000);
+        ts[ns] = now;
+        if (++ns == 5) { Log("SealLife: 5 samples seal=%llX ext=%llX t0=%.3f", (unsigned long long)cap, (unsigned long long)extP, ts[0]); SlAnalyse("chr", chr, 5, ts); if (extP) SlAnalyse("ext", ext, 5, ts); }
+    }
+    // SealLoop=1: the seal chr goes when its summon motion ends (run 1: no clock field; unlink via the 5BC9A0 queue at +5.9 s). Re-issue
+    // its motion (SealLoopMotion, default the spawn motion) with the game's 66C4A8(chr, id, 0, 0.0f) at capture + SealLoopAt, then every
+    // SealLoopEvery, while it is still registered and capture < SealKeepSec.
+    if (g_slLoop.load() && dt >= g_slLoopAt && dt < g_slKeepSec) {
+        static double next = 0;
+        static uint64_t loopCap = 0;
+        if (loopCap != cap) { loopCap = cap; next = 0; }
+        if (now >= next) {
+            next = now + g_slLoopEvery;
+            const uint32_t mv = g_slLoopMotion ? g_slLoopMotion : g_fkSealMotion.load();
+            const int present = FormHideSealPresent(g_fhEnd.actorGlobal, cap);
+            int rc = -1;
+            if (mv && present != 0) rc = TenshinMoveCall(cap, mv);
+            Log("SealLoop 66C4A8(seal %llX, %X) present=%d rc=%d dt=%.2f", (unsigned long long)cap, mv, present, rc, dt);
+        }
+    }
+    if (g_slKeepN && dt >= 0.5 && dt < g_slKeepSec) {
+        uint64_t e = 0;
+        Rd(cap + 0x3A0, e);
+        if (!kept) {
+            for (int i = 0; i < g_slKeepN; ++i) { const uint64_t a = (g_slKeepExt[i] ? e : cap) + g_slKeepOff[i]; keep[i] = 0; Rd(a, keep[i]); Log("SealKeep hold %s+%X = %.3f", g_slKeepExt[i] ? "ext" : "chr", g_slKeepOff[i], keep[i]); }
+            kept = true;
+        }
+        static double nextLog = 0;
+        const bool lg = now >= nextLog;
+        if (lg) nextLog = now + 2;
+        for (int i = 0; i < g_slKeepN; ++i) {
+            const uint64_t a = (g_slKeepExt[i] ? e : cap) + g_slKeepOff[i];
+            float cur = 0;
+            if (!Rd(a, cur)) continue;
+            if (lg) Log("SealKeep %s+%X cur=%.3f -> %.3f dt=%.1f", g_slKeepExt[i] ? "ext" : "chr", g_slKeepOff[i], cur, keep[i], dt);
+            WrBytes(a, &keep[i], 4);
+        }
+    }
+}
 void FkSlot0Tick(uint64_t pchr) {  // game thread
+    SealLifeTick();
     FormHideDirectTick(pchr);  // also restores a mode-3 hide after mode/capture changes
     if (const int mode = g_fhMode.load(); mode && mode != 3) FormHideTick(pchr);  // pc #55327: native modes unchanged
     static uint64_t kicked = 0;
@@ -2815,6 +2983,23 @@ bool FormKeyInstall() {
     G_PTAB = Site("g:PlayerTab");
     OnEntry("ScProbe_GSpiritWork", &HkFormKeySpawn);
     OnEntry("ScProbe_TenshinInput", &HkFormKeyInput);
+    if (g_slMode.load()) OnEntry("SealLife_2BFC90", &HkSealUnlink);
+    if (g_sdMode.load()) {
+        for (uint32_t rva : {0x681EB6u, 0xE462E1u}) {
+            void* o = nullptr;
+            const char* w = nullptr;
+            uint8_t b[5] = {};
+            int32_t rel = 0;
+            if (!Copy(b, g_base + rva, 5) || b[0] != 0xE8 || (memcpy(&rel, b + 1, 4), g_base + rva + 5 + rel) != g_base + 0x681044) {
+                Log("SealDefer: call %X does not target 681044 - skipped", rva);
+                continue;
+            }
+            if (InstallCallRetargetAt((uint8_t*)(g_base + rva), "call:DespawnEnqueue", (void*)&HkDespawnEnq, &o, &w)) {
+                g_sdOrig = (void (*)(uint64_t, uint64_t))o;
+                Log("SealDefer: call %X -> hook", rva);
+            } else Log("SealDefer: call %X retarget failed: %s", rva, w ? w : "?");
+        }
+    }
     const char* why = nullptr;
     const bool grp = InstallGroup("SC", &why);  // installs only the SC hooks registered so far (InvLog=0: just these two)
     if (grp) Log("FormKey: group SC installed (2916C5C spawn + 2E6C34 input, independent of InvLog)");
@@ -2942,6 +3127,31 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhRotOff.store(IniInt(L"Spirit", L"FormPinRot", 0x120));  // pc #55665: 0 = position-only pin
+    g_slMode.store(IniInt(L"Spirit", L"SealLife", 0));  // pc #55633
+    {
+        wchar_t kb[128] = {};
+        GetPrivateProfileStringW(L"Spirit", L"SealKeepOff", L"", kb, 128, IniPath());
+        for (wchar_t* p = kb; *p && g_slKeepN < 8;) {
+            while (*p == L',' || *p == L' ') ++p;
+            if (!*p) break;
+            const bool ext = *p == L'e' || *p == L'E';
+            if (ext) ++p;
+            wchar_t* e = nullptr;
+            const unsigned long v = wcstoul(p, &e, 16);
+            if (e == p) break;
+            g_slKeepExt[g_slKeepN] = ext;
+            g_slKeepOff[g_slKeepN++] = (uint32_t)v;
+            p = e;
+        }
+        g_slKeepSec = IniInt(L"Spirit", L"SealKeepSec", 25);
+        g_slLoop.store(IniInt(L"Spirit", L"SealLoop", 0));
+        g_sdMode.store(IniInt(L"Spirit", L"SealDefer", 0));
+        g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
+        GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
+        g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
+        g_slLoopAt = IniInt(L"Spirit", L"SealLoopAtMs", 4000) / 1000.0;
+        g_slLoopEvery = IniInt(L"Spirit", L"SealLoopEveryMs", 4000) / 1000.0;
+    }
     g_fhMode.store(IniInt(L"Spirit", L"FormHide", 0));  // 1=native hide, 2=+pin seal pos, 3=guarded direct byte hide/restore without fade
     g_fzsMode.store(IniInt(L"Spirit", L"FormZeroSlot", 0));  // pc #55150: zero player kind-0 slot +2C0..+2F7 before the rebuild
     if (IniInt(L"Spirit", L"EquipDiff", 0)) { g_edMode.store(1); EdStart(); }  // pc #55219: log what changes in the player chr/blk/slot objs on an equip change
