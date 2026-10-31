@@ -3,15 +3,16 @@
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
 //   Training (Practice hub) > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
-constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 7;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
+constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 9;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
 template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
-                                      "Player hides after:", "Transform speed:", "Exit tail speed:"};
-const double kSctDefault[kSctN] = {350, 0, 0, 0, 150, 1.4, 4};
+                                      "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:"};
+const double kSctDefault[kSctN] = {200, 0, 0, 0, 150, 1.4, 4, 0, 0};
 void SctValueText(int w, double v, char* b, size_t n) {
-    if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
+    if (w >= 7) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");
+    else if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
     else if (w == 3 && v <= 0) snprintf(b, n, "OFF (once)");
     else snprintf(b, n, "%d ms", (int)v);
@@ -56,6 +57,8 @@ const char* SctFooter(int item) {
     case 4: return "Form start: delay before the player is hidden (after the LEFT press / seal capture). 0 = at once. 50 ms steps, 0-1000. [Spirit] FormHideDelayMs. Live, saved.";
     case 5: return "Yokai form animation speed from the transform to the last hit. x0.1 steps, x0.5-x3.0. [Spirit] SealSpeed (needs FormHide = 4). Live, saved.";
     case 6: return "Exit: yokai animation speed after its last hit (ramps up from Transform speed). x0.5 steps, x1-x8 (x1 = off). [Spirit] SealTailSpeed. Live, saved.";
+    case 7: return "ON: the start smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
+    case 8: return "ON: the end smoke stays up on you (spawned again and again); the forward / sideways rows move it live. OFF = normal.";
     default: return "A: open. Live LEFT soul core values: exit reveal delay, smoke position / repeat, hide delay, transform speed. Saved to Nioh3BossRematch.ini [Spirit].";
     }
 }

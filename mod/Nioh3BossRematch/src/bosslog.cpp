@@ -2521,7 +2521,7 @@ void CoverStartSmoke(uint64_t player, double now);  // SealExitReplay section, g
 // from its value at the last hit down to 0 over that time (the same fade the seal dissolves in with at its spawn, run backwards) instead of
 // the instant 0, and SealExitFx=1 also spawns the SealExitFxId effects (on SealExitFxOwner) at the ghost exit.
 uint32_t g_sxcCore[8] = {0x5129B};
-int g_sxcN = 1, g_ghostFadeMs = 0;
+int g_sxcN = 1, g_ghostFadeMs = 250;
 std::atomic<uint64_t> g_ghostFadeSeal{0};
 float g_ghostFade0 = 1.f;
 bool SealExitCore(uint32_t sid) {
@@ -3357,7 +3357,7 @@ void SealExitFxLoad() {
         if (v) g_sxcCore[g_sxcN++] = (uint32_t)v;
         q = e;
     }
-    g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 0);
+    g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
@@ -3407,7 +3407,7 @@ int g_fxrBone = 0;
 // human #58053: SealExitSmokeCenter=1 puts the big smoke (SealExitSmokeCenterIds, default 62557) on the player's x/z at the form start and
 // at the exit; SealExitRevealMs = how long after the exit smoke the player shows up (like the start: smoke first, then the yokai).
 int g_fxrCenter = 1;
-std::atomic<int> g_revealMs{350};  // human #58117: atomics, the Soul core tuning menu page writes them live (UI thread)
+std::atomic<int> g_revealMs{200};  // human #58117: atomics, the Soul core tuning menu page writes them live (UI thread)
 // human #58081 debug: SealExitSmokeFwd = units in front of the player (along the smoke matrix z row) for the centred smoke, start + exit;
 // SealExitSmokeRepeatMs > 0 = the exit smoke is spawned once more that long after the first (looks ~2x longer).
 // human #58117: SealExitSmokeSide = units to the side (perpendicular to that z row, (fz,-fx)); all three live from the Soul core tuning page.
@@ -3422,6 +3422,8 @@ int g_fxrCtrN = 0;
 bool FxCenterId(uint32_t id) { for (int i = 0; i < g_fxrCtrN; ++i) if (g_fxrCtr[i] == id) return g_fxrCenter > 0; return false; }
 FxRec g_coverTpl = {};  // human #58146: the last game-made big smoke (under g_fxRecLock)
 bool g_coverTplOk = false;
+std::atomic<int> g_frz[2] = {}; int g_frzMs = 600;
+FxRec g_frzRec[2]; bool g_frzOk[2] = {}; double g_frzNext[2] = {};  // game thread
 std::atomic<int> g_coverMade{0};  // our cover smoke is up for the press at g_coverT
 // the template moved onto the player (height over the player kept, x/z = player + SealExitSmokeFwd/Side)
 bool CoverAt(FxRec& r, const float* p) {
@@ -3465,7 +3467,7 @@ void SealExitReplayLoad() {
     g_fxrBone = IniInt(L"Spirit", L"SealExitReplayBone", 0);
     g_fxrCenter = IniInt(L"Spirit", L"SealExitSmokeCenter", 1);
     g_fxrCtrN = HexList(L"SealExitSmokeCenterIds", L"62557", g_fxrCtr, 12);
-    g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 350);
+    g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 200);
     g_fxrFwd = (float)IniInt(L"Spirit", L"SealExitSmokeFwd", 0);
     g_fxrSide = (float)IniInt(L"Spirit", L"SealExitSmokeSide", 0);  // human #58117
     g_fxrRepeatMs = IniInt(L"Spirit", L"SealExitSmokeRepeatMs", 0);
@@ -3474,6 +3476,8 @@ void SealExitReplayLoad() {
     g_ghostHideMs = IniInt(L"Spirit", L"SealExitYokaiHideMs", 0);
     g_exitSmokeAtMs = IniInt(L"Spirit", L"SealExitSmokeAtMs", 1450);  // human #58173
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
+    g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
+    if (g_frzMs < 100) g_frzMs = 100;
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3594,9 +3598,27 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
     for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
     for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
     const int rep = g_fxrRepeatMs.load();  // human #58117: one read per queue (menu writes it live)
+    for (int i = 0; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
     for (int i = 0, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
         if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += rep / 1000.0; }
     return g_fxPlayN;
+}
+// human #58146: freeze switches (Soul core tuning): 0 = start smoke, 1 = end smoke. ON = that smoke is spawned again every SmokeFreezeMs
+// at the spot it last appeared, so it stays up until switched off.
+void SmokeFreezeTick() {
+    const double now = Now();
+    for (int i = 0; i < 2; ++i) {
+        if (!g_frz[i].load(std::memory_order_relaxed) || !g_frzOk[i] || now < g_frzNext[i] || g_fxPlayN >= kFxRecMax) continue;
+        FxRec r = g_frzRec[i];  // on the player where they stand now, with the live forward/sideways sliders
+        float p[4] = {};
+        if (const uint64_t pl = FkPlayer(); pl && Copy(p, pl + 0x110, 16) && std::isfinite(p[0]) && std::isfinite(p[2])) {
+            float* m = (float*)r.blk;
+            m[13] = p[1] + (m[13] - r.pl[1]);
+            FxFwd(m, p[0], p[2]);
+        }
+        g_fxPlay[g_fxPlayN].at = now; g_fxPlay[g_fxPlayN++].r = r;
+        g_frzNext[i] = now + g_frzMs / 1000.0;
+    }
 }
 // human #58146: LEFT press -> our big smoke on the player right now (from the template = the last game-made one; the first use of a
 // session has none yet and keeps the game's own smoke). The yokai is held invisible until SealShowMs after the press.
@@ -3612,6 +3634,7 @@ void CoverStartSmoke(uint64_t player, double now) {
     g_fxPlay[g_fxPlayN].at = now;
     g_fxPlay[g_fxPlayN++].r = r;
     g_coverMade.store(1);
+    g_frzRec[0] = r; g_frzOk[0] = true;
     const float* m = (const float*)r.blk;
     Log("SealCover: press t=%.3f start smoke %X at %.0f %.0f %.0f, player hidden in %d ms, yokai shown at %d ms", now, r.id, m[12], m[13], m[14],
         g_fhDelayMs.load(), g_sealShowMs.load());
@@ -3648,6 +3671,7 @@ void SealExitReplayTick() {  // game thread
 }
 void SealEndOnHitTick() {
     if (!g_sehMode.load()) return;
+    SmokeFreezeTick();
     SealExitReplayTick();
     static uint64_t sxfSeal = 0;
     static double sxfAt = 0;
@@ -4416,12 +4440,12 @@ double SoulTune(int which, int dir, bool* live) {
     struct T { const wchar_t* key; double step, lo, hi; bool flt; };
     static const T k[] = {{L"SealExitRevealMs", 50, 0, 2000, false}, {L"SealExitSmokeFwd", 10, -200, 200, false}, {L"SealExitSmokeSide", 10, -200, 200, false},
                           {L"SealExitSmokeRepeatMs", 100, 0, 2000, false}, {L"FormHideDelayMs", 50, 0, 1000, false}, {L"SealSpeed", .1, .5, 3, true},
-                          {L"SealTailSpeed", .5, 1, 8, true}};
+                          {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}};
     if (which < 0 || which >= (int)(sizeof k / sizeof *k)) return 0;
-    if (live) *live = which < 5 || g_ftHooked.load();
+    if (live) *live = which < 5 || which >= 7 || g_ftHooked.load();
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
-             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : g_tailMul.load();
-    if (which >= 5 && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
+             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : g_frz[which - 7].load();
+    if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
     }
     if (!dir) return v;
@@ -4436,7 +4460,8 @@ double SoulTune(int which, int dir, bool* live) {
     case 3: g_fxrRepeatMs.store((int)v); break;
     case 4: g_fhDelayMs.store((int)v); break;
     case 5: if (g_ftHooked.load()) g_sealMul.store((float)v); break;
-    default: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
+    case 6: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
+    default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
     if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
