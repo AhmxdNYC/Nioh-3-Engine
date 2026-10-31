@@ -2320,6 +2320,10 @@ std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s eve
 // guardian skills) are ignored. Each style press toggles the queue (two presses = no change). Tracked per XInput user (ally has the
 // built-in pad and the virtual pad, read in turn every frame). 0 = off.
 std::atomic<int> g_fbStyle{1};
+// human #58381: [Spirit] FormStyleLive=1 - the style chord (RT, and A while RT is held) is NOT masked during the form, so the game can
+// switch at once (the replay after a DOWN form landed 1-2 s late: the game ignores it while the player recovers). At the form end the
+// replay only runs if the style did not change live. 0 = mask it and replay (old way).
+std::atomic<int> g_fbStyleLive{1};
 std::atomic<int> g_fbStyleQ{0}, g_fbInjUser{0};  // queued chord: 0 none, 1 RT tap, 2 RT+A
 struct FbUserSt { bool rt = false, chordA = false, other = false; ULONGLONG lastRt = 0; };
 FbUserSt g_fbUser[4];
@@ -2354,12 +2358,16 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
                 }
             }
         }
+        const BYTE rawRt = s->pad.rt; const WORD rawA = s->pad.buttons & 0x1000;
         const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
         const bool trig = g_fbRT.load(std::memory_order_relaxed), ls = g_fbLS.load(std::memory_order_relaxed);
         if ((s->pad.buttons & m) || (trig && (s->pad.rt || s->pad.lt)) || (ls && (s->pad.lx || s->pad.ly))) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
         if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
+        if (g_fbStyle.load(std::memory_order_relaxed) && g_fbStyleLive.load(std::memory_order_relaxed) && rawRt > 128) {  // human #58381
+            s->pad.rt = rawRt; s->pad.buttons |= rawA;
+        }
     } else if (r == ERROR_SUCCESS && user == 0 && !g_fbActive.load(std::memory_order_relaxed) && !g_fbInjT0.load(std::memory_order_relaxed)) {
         static ULONGLONG nextRd = 0; const ULONGLONG t = GetTickCount64();
         if (t >= nextRd) { nextRd = t + 50; const int v = FbStyleNow(); if (v >= 0) g_styleFree.store(v); }
@@ -2429,6 +2437,11 @@ void FormBlockSet(bool on) {
         Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
     else {
         Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
+        const int live = FbStyleNow(), ps = g_fbPressStyle.load();
+        if (g_fbStyle.load() && g_fbStyleQ.load() && g_fbStyleLive.load() && ps >= 0 && live >= 0 && live != ps) {  // human #58381
+            Log("FormStyleSwitch: switched live during the form (style %d -> %d), no replay t=%.3f", ps, live, Now());
+            g_fbStyleQ.store(0);
+        }
         if (g_fbStyle.load() && g_fbStyleQ.load()) {  // ally #57627: replay the chord 50..250 ms after the form ends
             g_fbStyle0.store(g_fbPressStyle.load() >= 0 ? g_fbPressStyle.load() : FbStyleNow()); g_fbTries.store(1);
             g_fbInjT0.store(GetTickCount64());
@@ -4789,6 +4802,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
+    g_fbStyleLive.store(IniInt(L"Spirit", L"FormStyleLive", 1));  // human #58381
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 400));  // human #58117; 400 = after the player's fade-out in the cover smoke (#58205)
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
