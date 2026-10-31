@@ -1186,6 +1186,10 @@ uintptr_t G_PTAB = 0;
 // (0x5129B), first motion from 65ADA6. FormKeySealDesc keeps the last desc[0]; FormKeySealNote (rematch SpiritSpawnNote) hands over the chr.
 std::atomic<uint64_t> g_fkSealChr{0};
 std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
+// ally #57758: last LEFT (Ibaraki 5129B) spawn hit. The game reuses the previous LEFT seal chr address on a later use, and the FormSlot0
+// 'same chr' dedupe then skipped the capture (late spawn-hit bind -> auto FOLLOW, first hit burst missed, form ran to the seal despawn).
+std::atomic<uint64_t> g_fkLeftChr{0};
+double g_fkLeftT = -1, g_fs0CapLeftT = -1;
 double g_fkSealT = -1;  // pc #56910: time of the last seal spawn hit (FormHide=4 falls back to it when FormSlot0 never captures, e.g. DOWN core A2ACB)
 // ally #54309: a type-3 chr pack has no kind-3 model (1175400 = 0), but the seal chr carries its own model in slot 1 ([[chr+50]+10]).
 // [Spirit] FormModel=1: keep the form's own key; only the model getter call 74C79D (call 1175400 in SetForm, result -> [[chr+50]+8+i*8]
@@ -1608,7 +1612,13 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
         uint32_t kind = 0xFFFFFFFF;
         Rd(slot, kind);
         if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
-            if (kind == 0 && id != 0xFFFFFFFF && chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) {
+            // ally #57758: a fresh LEFT spawn hit on a reused chr address is a new use - capture it again (once per spawn hit)
+            const bool leftAgain = chr == g_fkLeftChr.load() && g_fkLeftT > g_fs0CapLeftT;
+            if (kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {
+                if (leftAgain) {
+                    g_fs0CapLeftT = g_fkLeftT;
+                    g_fs0CapChr.store(chr);
+                }
                 g_fs0Id.store(id);
                 g_spSealSlot.store(slot);
                 g_fs0CapT = Now();
@@ -2807,6 +2817,11 @@ int Fh4FollowDecide(double now) {
     if (g_fh4.follow >= 0) return g_fh4.follow;
     // pc #57103: auto misfired on LEFT 5129B (lunge moved the seal 151 cm in 0.32 s vs 150 -> the player was warped = "teleport"). A seal
     // FormSlot0 captured (LEFT) is probed against FormFollowCm (default now 400); a spawn-hit seal (DOWN A2ACB) follows at once.
+    if (g_fh4.fromSpawn && g_fh4.seal && g_fh4.seal == g_fkLeftChr.load()) {  // ally #57758: LEFT (5129B) never rides the seal, even when bound from the spawn hit
+        g_fh4.follow = 0;
+        Log("FormFollowSeal auto: LEFT seal %llX (5129B) -> pin (never follow)", (unsigned long long)g_fh4.seal);
+        return 0;
+    }
     if (g_fh4.fromSpawn) {  // no FormSlot0 kind-0 capture = not the LEFT (5129B) body: traveling core (DOWN A2ACB), follow at once
         g_fh4.follow = 1;
         Log("FormFollowSeal auto: seal bound from the spawn hit (no FormSlot0 capture) -> FOLLOW");
@@ -4112,6 +4127,8 @@ void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     g_fkSealMotion.store(motion);
     g_fkSealT = Now();
     g_fkSealChr.store(chr);
+    if (g_fkSealDesc.load() == 0x5129B) { g_fkLeftT = g_fkSealT; g_fkLeftChr.store(chr); }
+    else if (chr == g_fkLeftChr.load()) g_fkLeftChr.store(0);  // another core (DOWN A2ACB) took the old LEFT address: not LEFT any more
     Log("FormKey seal spawn hit (65A8A8 -> 66C4A8 from 65ADA6) chr=%llX desc[0]=%X motion=%X dist=%.1f swapArmed=%d", (unsigned long long)chr,
         g_fkSealDesc.load(), motion, dist, g_fkSwap.load());
 }
