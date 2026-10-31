@@ -95,6 +95,10 @@ SPEC = [
     ("BuildSaveFilePath", "RLOG", H, 0x1FD6DD0, 7),
     # INV
     ("InventoryAddItem", "INV", H, 0x54D324, 5),
+    # SC (soul-core / effect / action probe, [Debug] InvLog = 1; log only)
+    ("EffectCreate", "SC", H, 0x4CE90C, 5),
+    ("ScProbe_1320F2C", "SC", H, 0x1320F2C, 11),
+    ("ScProbe_23CBF9C", "SC", H, 0x23CBF9C, 5),
     # CORE (every rematch route)
     ("fn:MissionClearedGetSlot", "CORE", "fn", 0x702B64, 0),
     ("fn:MissionRequestById", "CORE", "fn", 0x2239600, 0),

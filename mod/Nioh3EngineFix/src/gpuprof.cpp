@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <d3d12.h>
 #include <algorithm>
 #include <cctype>
@@ -1283,7 +1284,7 @@ DWORD WINAPI MarkerThread(LPVOID) {
     ULONGLONG onAt = 0;
     bool warnedNone = false;
     for (int i = 0;; ++i) {
-        uint8_t* g = *reinterpret_cast<uint8_t* volatile*>(g_base + kRvaG);
+        uint8_t* g = *reinterpret_cast<uint8_t* volatile*>(g_base + Grva(kRvaG));
         if (g) {
             MEMORY_BASIC_INFORMATION a{}, b{};
             const bool okA = VirtualQuery(g + kOffReplay, &a, sizeof(a)) && a.State == MEM_COMMIT &&
@@ -1301,7 +1302,7 @@ DWORD WINAPI MarkerThread(LPVOID) {
                     if (!on) {
                         on = true;
                         onAt = GetTickCount64();
-                        const void* iface = *reinterpret_cast<void* volatile*>(g_base + kRvaIface);
+                        const void* iface = *reinterpret_cast<void* volatile*>(g_base + Grva(kRvaIface));
                         GLOG("engine debug markers ON (g = %p: record g+2A62h, replay g+552h)%s%s", g,
                              iface ? " - WARNING: the engine's marker interface [4BD09C0] is set, so BeginEvent may not be called" : "",
                              g_cfg.prof ? "" : " - markers only (GPUProf_Markers), no queries");

@@ -1,0 +1,99 @@
+Static memory dump SHA256 f8a4fb31b691aaf9bb829fca4a32b49a4ad4c1c780f6c11cc516108b75b5d968
+RVA addressing; no live game access.
+
+LA Begin bit set
+00843032 48 8b d9                         mov rbx, rcx
+00843035 8a 41 10                         mov al, byte ptr [rcx + 0x10]
+00843038 a8 01                            test al, 1
+0084303A 0f 84 05 02 00 00                je 0x843245
+00843040 24 ef                            and al, 0xef
+00843042 33 d2                            xor edx, edx
+00843044 0c 02                            or al, 2
+00843046 88 41 10                         mov byte ptr [rcx + 0x10], al
+
+LA End bit clear
+01AB4C5C 48 8b c4                         mov rax, rsp
+01AB4C5F 48 89 58 08                      mov qword ptr [rax + 8], rbx
+01AB4C63 48 89 70 10                      mov qword ptr [rax + 0x10], rsi
+01AB4C67 57                               push rdi
+01AB4C68 48 81 ec c0 00 00 00             sub rsp, 0xc0
+01AB4C6F 80 61 10 fd                      and byte ptr [rcx + 0x10], 0xfd
+01AB4C73 40 8a f2                         mov sil, dl
+01AB4C76 f3 0f 10 59 20                   movss xmm3, dword ptr [rcx + 0x20]
+01AB4C7B 33 d2                            xor edx, edx
+01AB4C7D 0f 29 70 e8                      movaps xmmword ptr [rax - 0x18], xmm6
+01AB4C81 41 8b d8                         mov ebx, r8d
+01AB4C84 0f 57 f6                         xorps xmm6, xmm6
+
+LA End native unhide
+01AB4D35 44 8b c3                         mov r8d, ebx
+01AB4D38 40 8a d6                         mov dl, sil
+01AB4D3B 48 8b cf                         mov rcx, rdi
+01AB4D3E e8 fd df d8 fe                   call 0x842d40
+01AB4D43 48 8b cf                         mov rcx, rdi
+01AB4D46 e8 79 00 00 00                   call 0x1ab4dc4
+01AB4D4B e8 50 1b 5d fe                   call 0x868a0
+01AB4D50 48 8b c8                         mov rcx, rax
+01AB4D53 33 d2                            xor edx, edx
+01AB4D55 e8 8e 03 fa fe                   call 0xa550e8
+
+Remove actor wrapper
+002BF7E8 48 83 ec 28                      sub rsp, 0x28
+002BF7EC 48 8b d1                         mov rdx, rcx
+002BF7EF 48 8b 0d 52 5b 48 04             mov rcx, qword ptr [rip + 0x4485b52]
+002BF7F6 48 85 c9                         test rcx, rcx
+002BF7F9 74 0c                            je 0x2bf807
+002BF7FB 48 81 c1 98 0b 00 00             add rcx, 0xb98
+002BF802 e8 11 00 00 00                   call 0x2bf818
+002BF807 48 83 c4 28                      add rsp, 0x28
+002BF80B c3                               ret 
+002BF80C 48 81 c1 98 0b 00 00             add rcx, 0xb98
+002BF813 e9 00 00 00 00                   jmp 0x2bf818
+
+Remove actor from hash bucket
+002BF891 8b 16                            mov edx, dword ptr [rsi]
+002BF893 83 e2 f0                         and edx, 0xfffffff0
+002BF896 c1 e2 0c                         shl edx, 0xc
+002BF899 0b 56 04                         or edx, dword ptr [rsi + 4]
+002BF89C 8d 04 d2                         lea eax, [rdx + rdx*8]
+002BF89F c1 ea 10                         shr edx, 0x10
+002BF8A2 8b f8                            mov edi, eax
+002BF8A4 c1 ef 0b                         shr edi, 0xb
+002BF8A7 33 f8                            xor edi, eax
+002BF8A9 03 fa                            add edi, edx
+002BF8AB 48 8b d6                         mov rdx, rsi
+002BF8AE 83 e7 0f                         and edi, 0xf
+002BF8B1 48 c1 e7 04                      shl rdi, 4
+002BF8B5 48 03 7d 08                      add rdi, qword ptr [rbp + 8]
+002BF8B9 48 8b cf                         mov rcx, rdi
+002BF8BC 48 8b 5f 08                      mov rbx, qword ptr [rdi + 8]
+002BF8C0 e8 cb 03 00 00                   call 0x2bfc90
+002BF8C5 48 39 5f 08                      cmp qword ptr [rdi + 8], rbx
+002BF8C9 74 04                            je 0x2bf8cf
+002BF8CB 48 ff 4d 20                      dec qword ptr [rbp + 0x20]
+
+Unlink node actor+E0
+002BFC90 48 83 ec 28                      sub rsp, 0x28
+002BFC94 4c 8b c9                         mov r9, rcx
+002BFC97 48 85 d2                         test rdx, rdx
+002BFC9A 74 39                            je 0x2bfcd5
+002BFC9C 4c 8d 82 e0 00 00 00             lea r8, [rdx + 0xe0]
+002BFCA3 4d 39 00                         cmp qword ptr [r8], r8
+002BFCA6 74 2d                            je 0x2bfcd5
+002BFCA8 48 8b 01                         mov rax, qword ptr [rcx]
+002BFCAB 4c 8b d1                         mov r10, rcx
+002BFCAE 48 85 c0                         test rax, rax
+002BFCB1 74 22                            je 0x2bfcd5
+002BFCB3 49 3b c0                         cmp rax, r8
+002BFCB6 74 08                            je 0x2bfcc0
+002BFCB8 4c 8b d0                         mov r10, rax
+002BFCBB 48 8b 00                         mov rax, qword ptr [rax]
+002BFCBE eb ee                            jmp 0x2bfcae
+002BFCC0 49 8b 02                         mov rax, qword ptr [r10]
+002BFCC3 48 8b 08                         mov rcx, qword ptr [rax]
+002BFCC6 49 89 0a                         mov qword ptr [r10], rcx
+002BFCC9 49 ff 49 08                      dec qword ptr [r9 + 8]
+002BFCCD 4d 89 00                         mov qword ptr [r8], r8
+002BFCD0 e8 0f fc ff ff                   call 0x2bf8e4
+002BFCD5 48 83 c4 28                      add rsp, 0x28
+002BFCD9 c3                               ret 

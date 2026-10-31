@@ -3,6 +3,7 @@
 // except EP's two event hooks (pool hit / pool return), which are exact by construction (readprobe.h).
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <intrin.h>
 
 #include <atomic>
@@ -339,7 +340,7 @@ BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) 
     if (g_rp) Begin(h, ov, p);
     SetLastError(le0);
     const uint64_t t0 = Qpc();
-    const BOOL r = g_fix ? (BOOL)readfix::Read(S, h, buf, n, got, ov) : (*reinterpret_cast<ReadFn*>(g_base + kIatReadFile))(h, buf, n, got, ov);
+    const BOOL r = g_fix ? (BOOL)readfix::Read(S, h, buf, n, got, ov) : (*reinterpret_cast<ReadFn*>(g_base + Grva(kIatReadFile)))(h, buf, n, got, ov);
     const uint64_t t1 = Qpc();
     const DWORD le = GetLastError();
     if (g_rp) End(S, p, n, ov != nullptr, r, le, t0, t1);
@@ -350,12 +351,12 @@ BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) 
 
 BOOL WINAPI HkReadEx(HANDLE h, LPVOID buf, DWORD n, LPOVERLAPPED ov, LPOVERLAPPED_COMPLETION_ROUTINE cr) {
     if (g_pf) prefetch::Note(kNSites - 1, h, ov, n);  // observation only, keeps the last error
-    if (!g_rp) return (*reinterpret_cast<ReadExFn*>(g_base + kIatReadFileEx))(h, buf, n, ov, cr);
+    if (!g_rp) return (*reinterpret_cast<ReadExFn*>(g_base + Grva(kIatReadFileEx)))(h, buf, n, ov, cr);
     const DWORD le0 = GetLastError();
     Pre p;
     Begin(h, ov, p);
     SetLastError(le0);
-    const ReadExFn real = *reinterpret_cast<ReadExFn*>(g_base + kIatReadFileEx);
+    const ReadExFn real = *reinterpret_cast<ReadExFn*>(g_base + Grva(kIatReadFileEx));
     const uint64_t t0 = Qpc();
     const BOOL r = real(h, buf, n, ov, cr);
     const uint64_t t1 = Qpc();
@@ -409,7 +410,7 @@ HANDLE WINAPI HkCreateEventA(LPSECURITY_ATTRIBUTES sa, BOOL manual, BOOL initial
         Add(g_gv[gEpHit]);
         SetLastError(ERROR_SUCCESS);
     } else {
-        h = (*reinterpret_cast<CreateEvAFn*>(g_base + kIatCreateEventA))(sa, manual, initial, name);
+        h = (*reinterpret_cast<CreateEvAFn*>(g_base + Grva(kIatCreateEventA)))(sa, manual, initial, name);
     }
     if (g_rp) {
         const uint64_t t1 = Qpc();
@@ -426,7 +427,7 @@ BOOL WINAPI HkCloseEvent(HANDLE h) {
         r = TRUE;
         Add(g_gv[gEpPut]);
     } else {
-        r = (*reinterpret_cast<CloseFn*>(g_base + kIatCloseHandle))(h);
+        r = (*reinterpret_cast<CloseFn*>(g_base + Grva(kIatCloseHandle)))(h);
         if (g_ep) Add(g_gv[gEpClose]);
     }
     if (g_rp) {
@@ -439,7 +440,7 @@ BOOL WINAPI HkCloseEvent(HANDLE h) {
 
 DWORD WINAPI HkWfmo(DWORD n, const HANDLE* hs, BOOL all, DWORD ms) {
     const uint64_t t0 = Qpc();
-    const DWORD r = (*reinterpret_cast<WfmoFn*>(g_base + kIatWfmo))(n, hs, all, ms);
+    const DWORD r = (*reinterpret_cast<WfmoFn*>(g_base + Grva(kIatWfmo)))(n, hs, all, ms);
     const uint64_t dt = Qpc() - t0;
     const DWORD le = GetLastError();
     const int c = ThreadClass();
@@ -597,7 +598,7 @@ bool Patch(uint8_t* p, const uint8_t* bytes, size_t len) { return PatchAtomic(p,
 
 // FF 15 [iat] -> E8 save-thunk + NOP. 0 ok, 1 bytes differ (other build / another hook owns it), 2 no room / not atomic.
 int HookIatCall(uint32_t rva, uint32_t iat, const void* hook, int stackArgs = 1) {
-    uint8_t* p = (uint8_t*)(g_base + rva);
+    uint8_t* p = (uint8_t*)(g_base + Grva(rva));
     if (p[0] != 0xFF || p[1] != 0x15) return 1;
     int32_t rel;
     memcpy(&rel, p + 2, 4);
@@ -613,12 +614,12 @@ int HookIatCall(uint32_t rva, uint32_t iat, const void* hook, int stackArgs = 1)
 }
 
 int HookCacheCall() {
-    uint8_t* p = (uint8_t*)(g_base + kCacheCall);
+    uint8_t* p = (uint8_t*)(g_base + Grva(kCacheCall));
     if (p[0] != 0xE8) return 1;
     int32_t rel;
     memcpy(&rel, p + 1, 4);
-    if ((uintptr_t)(p + 5 + rel) != g_base + kCacheFn) return 1;
-    uint8_t* t = NewCacheThunk((const void*)(g_base + kCacheFn));
+    if ((uintptr_t)(p + 5 + rel) != g_base + Grva(kCacheFn)) return 1;
+    uint8_t* t = NewCacheThunk((const void*)(g_base + Grva(kCacheFn)));
     if (!t) return 2;
     const intptr_t d = (intptr_t)t - (intptr_t)(p + 5);
     if (d < INT32_MIN || d > INT32_MAX) return 2;
@@ -962,7 +963,7 @@ DWORD WINAPI Sampler(void*) {
     for (unsigned tick = 0;; ++tick) {
         Sleep(10);
         uintptr_t gm = 0;
-        if (!Rd(g_base + kGameMainPtr, gm) || !gm) continue;
+        if (!Rd(g_base + Grva(kGameMainPtr), gm) || !gm) continue;
         uint8_t f = 0;
         if (!Rd(gm + kGm58A, f)) continue;
         if (!g_open) {
@@ -1046,13 +1047,13 @@ bool Start(const StartInfo& info) {
     if (!kb) kb = GetModuleHandleW(L"kernel32.dll");
     if (kb) g_getDesc = reinterpret_cast<GetThrDescFn>(GetProcAddress(kb, "GetThreadDescription"));
     if (ep) {
-        const uint8_t* a = (const uint8_t*)(g_base + kEvArgs);
-        const uint8_t* w = (const uint8_t*)(g_base + kFreeWaitCall);
+        const uint8_t* a = (const uint8_t*)(g_base + Grva(kEvArgs));
+        const uint8_t* w = (const uint8_t*)(g_base + Grva(kFreeWaitCall));
         int32_t rel = 0;
         memcpy(&rel, w + 1, 4);
         const char* why = nullptr;
         if (memcmp(a, kEvArgBytes, sizeof(kEvArgBytes)) != 0) why = "CreateEventA arguments differ";
-        else if (w[0] != 0xE8 || (uintptr_t)(w + 5 + rel) != g_base + kWaitAll) why = "FileReqFree does not call FileReqWaitAll";
+        else if (w[0] != 0xE8 || (uintptr_t)(w + 5 + rel) != g_base + Grva(kWaitAll)) why = "FileReqFree does not call FileReqWaitAll";
         else if (!g_ntReset) why = "no NtResetEvent";
         if (why) {
             g_log("EP: off (%s)", why);

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include "gamerva.h"
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -103,7 +104,7 @@ inline bool LifeOnce(uint64_t base,uint32_t placement,const Actor& expected,Read
     if (s.status==1) return true;
     if (!At(read,ctx,s.actor.component,8,s.state) || !s.state ||
         !At(read,ctx,s.state,0,s.vtable) || !s.vtable ||
-        !At(read,ctx,s.vtable,0xC0,s.getter) || base>UINT64_MAX-0x2E9934 || s.getter!=base+0x2E9934 ||
+        !At(read,ctx,s.vtable,0xC0,s.getter) || base>UINT64_MAX-0x2E9934 || s.getter!=base+Grva(0x2E9934) ||
         !At(read,ctx,s.state,0xE8,s.primary) || !s.primary ||
         !At(read,ctx,s.primary,0x20,s.data) || !s.data ||
         !At(read,ctx,s.data,0x18,s.primaryFlags)) return false;

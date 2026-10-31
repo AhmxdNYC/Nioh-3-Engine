@@ -1,0 +1,13 @@
+rm tenshin status
+rm tenshin begin
+wait 500
+shot t1-begin
+rm tenshin aura
+wait 1500
+shot t2-aura
+rm tenshin hide
+wait 800
+shot t3-hide
+rm tenshin show
+rm tenshin end
+quit

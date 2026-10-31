@@ -11,6 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <dxgi.h>
 
 #include <algorithm>
@@ -93,7 +94,7 @@ bool RdP(uintptr_t a, uintptr_t& v) {
 
 int Slot(uint32_t rva) {
     int v = -1;
-    if (g_known && g_base) RdI((uintptr_t)g_base + rva, v);
+    if (g_known && g_base) RdI((uintptr_t)g_base + Grva(rva), v);
     return v;
 }
 const char* OnOff(int v) { return v == 0 ? "OFF" : v == 1 ? "ON" : "?"; }
@@ -138,7 +139,7 @@ void EngineText(char* out, size_t n) {
 void EngineSample(int64_t now) {
     if (!g_known || !g_base) return;
     uintptr_t dev = 0;
-    if (!RdP((uintptr_t)g_base + kRvaGfxDevice, dev) || dev < 0x10000) return;
+    if (!RdP((uintptr_t)g_base + Grva(kRvaGfxDevice), dev) || dev < 0x10000) return;
     int si = 0;
     if (!RdI(dev + kOffSi, si)) return;
     const int vs = Slot(kRvaVsync);

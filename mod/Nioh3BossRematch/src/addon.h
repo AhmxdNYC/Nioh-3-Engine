@@ -61,11 +61,30 @@ bool InstallGroup(const char* group, const char** why);
 bool InstallPump(void (*tick)(), const char** why);
 // retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
+bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why);
+// E8 call site: while *cell != 0 the call returns *cell (one shot: cell cleared, ++*hits) instead of calling the callee
+bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cell, volatile LONG* hits, const char** why);
 
 // ---- features ----
 namespace bosslog {
 void Register(bool boss, bool rm, bool inv);  // handlers; installed by main
 void FightBegin(uint64_t ctx);                 // also used by rematch
+void TenshinReq();                             // game-thread request id 0x4E via fc1a20 (ally #47009)
+void TenshinMove(uint32_t v);                  // game 0x66C4A8(state, id, 0, 0.0f) once on the next input state
+void TenshinSetForm(uint32_t v);               // game SetForm 74C2FC+74C128 with this id before the go bit (0 = off)
+void TenshinLoad(uint32_t form, char* out, size_t n);  // ally #47612: 3F9C10 pack load per form (0 = all), reports [entry+2C8]
+void TenshinPreload(uint32_t id, bool request, char* out, size_t n);  // ally #47587: request the body pack load (1A8B990) and report [entry+2C8]; id 0 = all 17 forms
+void TenshinSlots(uint64_t ext, char* out, size_t n);  // dump the 0x11 equipped-gear slot words (ext+0x590 via F65D8) + form[+58] via the itemdef lookup F4DBC
+void TenshinBody(int m);                       // 0 off, 1 log body slot state, 2 +zero B440, 3 +set slot A0=1
+void TenshinForm(uint32_t v);                  // [state+0xA68] value written before the go bit (0 = none)
+void TenshinGo();                              // next 0x2E6C34 call gets input bit 0xE (NIOH_TENSHIN)
+bool FormKeyInstall();                         // [Spirit] FormKey: spirit-spawn + input-state hooks and the 0x11793D0 key override (idempotent)
+void FormKeyCmd(const char* line, char* reply, size_t n);  // `rm spirit formkey on [hex]|off|status`
+void FormKeySealNote(uint64_t chr, uint32_t motion, float dist);  // #54190: seal 65A8A8 spawn chr near the player
+void FormKeySealDesc(uint32_t id);  // #54190: desc[0] at the 65A8A8 entry
+// human #58117: Soul core tuning menu: which 0 SealExitRevealMs, 1 SealExitSmokeFwd, 2 SealExitSmokeSide, 3 SealExitSmokeRepeatMs, 4 FormHideDelayMs,
+// 5 SealSpeed, 6 SealTailSpeed. dir 0 = read, +-1 = one step (live + saved to [Spirit]); *live false = saved only, next launch.
+double SoulTune(int which, int dir, bool* live);
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)
 extern volatile LONG g_fights;          // BossBattleMode starts this session
@@ -115,6 +134,7 @@ bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
 void SetPumpLive(bool installed);  // Init publishes pump installation outcome
 void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
+bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
 // UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];
@@ -141,6 +161,7 @@ void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
+void SpiritSpawnNote(uint64_t state, uint32_t motion);  // #54000: MotionReq from 65ADA6 (chr spawn 65A8A8)
 }
 namespace ui {
 void HostedFightCommand(const char* row,char* reply,size_t n);
