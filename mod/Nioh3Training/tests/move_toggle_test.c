@@ -7,6 +7,7 @@
 #include <assert.h>
 #define N3T_API
 static uintptr_t B;
+static uintptr_t Grva(uintptr_t rva) { return rva; }  // AOB build: identity in the fixture
 static char g_dir[MAX_PATH];
 static struct { int active, practice; uint32_t chr; } g_tr;
 static struct { int active; uint32_t id; uint64_t actor; } g_bm;
@@ -425,7 +426,7 @@ int main(void) {
     assert(Nioh3Training_SetMoveAllowed(16102u,0x4E21,0,0)==1);
     assert(Nioh3Training_SetMoveRepeatSeq(16102u,0x4E21,1)==1);
     assert(MvBlocked(16102u,0x4E21) && MvRepeatId(16102u)==0x4E21);
-    g_tr.practice=0;
+    g_tr.practice=0; ++g_bm_gen;  // BossMatchDefaults starts a new match generation
     assert(!MvBlocked(16102u,0x4E21) && !MvRepeatId(16102u));
     assert(!Nioh3Training_GetMoveRepeatSeq(16102u));
     assert(!MvRepeatPick(0x3000,0x4E21));
@@ -436,6 +437,18 @@ int main(void) {
     assert(MvBlocked(16102u,0x4E21) && MvRepeatId(16102u)==0x4E21);
     assert(Nioh3Training_GetMoveRepeatSeq(16102u));
     puts("PASS: Boss Match suppresses saved repeat and move veto; Training preferences survive");
+    // ally #59523: a block / repeat set from the menu DURING a Boss Match applies to that match only.
+    g_tr.practice=0; ++g_bm_gen;
+    assert(!MvBlocked(16102u,0x4E21) && !MvRepeatId(16102u));
+    assert(Nioh3Training_SetMoveAllowed(16102u,0x4E22,0,0)==1 && MvBlocked(16102u,0x4E22) && Nioh3Training_GetMoveAllowed(16102u,0x4E22)==0);
+    assert(Nioh3Training_SetMoveAllowed(16102u,0x4E22,1,0)==1 && !MvBlocked(16102u,0x4E22));
+    assert(Nioh3Training_SetMoveAllowed(16102u,0x4E22,0,0)==1 && MvBlocked(16102u,0x4E22));
+    assert(Nioh3Training_SetMoveRepeat(16102u,0x4E22,1)==1 && MvRepeatId(16102u)==0x4E22);
+    ++g_bm_gen;  // next match: neither carries over
+    assert(!MvBlocked(16102u,0x4E22) && !MvRepeatId(16102u));
+    g_tr.practice=1;
+    assert(MvBlocked(16102u,0x4E22) && MvRepeatId(16102u)==0x4E22);
+    puts("PASS: block / repeat set during a Boss Match apply to that match, not the next one (#59523)");
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
 }

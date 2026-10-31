@@ -17,7 +17,8 @@ fixture=r'''
 #undef NDEBUG
 #include <assert.h>
 static struct { int active,practice; } g_tr;
-static volatile LONG g_st_due,g_st_idle,g_st_armed;
+static volatile LONG g_st_due,g_st_idle,g_st_armed,g_st_bmgen,g_bm_gen;
+static int MvBossMatch(void) { return g_tr.active && !g_tr.practice; }
 static int g_bmd_on,g_bmd_loot,g_bmd_nofin,g_cfg_loot,g_cfg_nofin,changes;
 #define N3T_SLOTS 2
 #define Log(...) ((void)0)
@@ -31,6 +32,8 @@ int main(void) {
  g_st_armed=1;StanceTimerTick();assert(!g_st_armed && !changes);
  g_tr.practice=1;StanceTimerTick();assert(!changes);
  g_st_armed=1;StanceTimerTick();assert(changes==2 && !g_st_armed);
+ g_tr.practice=0;BossMatchDefaults();g_st_bmgen=g_bm_gen;g_st_armed=1;StanceTimerTick();assert(changes==4 && !g_st_armed); /* #59523 armed in the match fires */
+ BossMatchDefaults();g_st_armed=1;StanceTimerTick();assert(changes==4 && !g_st_armed); /* next match: old one cancelled */
  puts("PASS: match entry cancels old timer; match tick cancels new timer; Training timer still fires");
 }
 '''
