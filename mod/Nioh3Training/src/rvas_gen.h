@@ -226,6 +226,7 @@ static const GrDef k_grdefs[] = {
     {0x45C6F2C, GRV_GLOBAL, "38 1D ?? ?? ?? ?? 74 0D E8 ?? ?? ??", 0, 0x3B3488, 2, 6, 0, ""},  // training.c
     {0x45C6F38, GRV_GLOBAL, "4C 39 3D ?? ?? ?? ?? 0F 84 ?? ?? ?? ?? 4D 85 C9 0F 84 ?? ??", 0, 0x2B5F63, 3, 7, 0, ""},  // frame_meter_game.h, frame_probe_game.h
     {0x45C84A8, GRV_GLOBAL, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 23 08 00 00 C3 C3", 0, 0xEFBC8, 3, 7, 0, ""},  // training.c
+    {0x45CE800, GRV_GLOBAL, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 10 F3 0F 10 88 AC 1F 00 00", 0, 0x476B7, 3, 7, 0, ""},  // training.c
     {0x47452E0, GRV_GLOBAL, "48 8B 0D ?? ?? ?? ?? 45 33 C0 48 81 C1 48 59 00 00 48 8B D0 E8 ?? ?? ?? ?? 4C 8B F0", 0, 0xAE41E, 3, 7, 0, ""},  // frame_meter_game.h
     {0x4745348, GRV_GLOBAL, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 43 0F 28 00 48 8D 54 24 40 48 8B 84 24 88 00 00 00 48 81 C1 60 0C 00 00 48", 0, 0xAA8C3, 3, 7, 0, ""},  // training.c
     {0x4751490, GRV_GLOBAL, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 1B 83 B8 74 0B 00 00 00 74 09 48 8D 90 A0 01 00 00", 0, 0xDCCC2, 3, 7, 0, ""},  // practice_stats_game.h

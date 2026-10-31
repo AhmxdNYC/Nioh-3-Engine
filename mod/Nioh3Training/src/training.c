@@ -2046,7 +2046,7 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 // likely target (ini CrossWorldPrewarmMission, else the last cross-world boss) before the player picks; Fight now for a boss of that world then just claims the running request (or is a plain same-world swap once landed).
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel, forced; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
-static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused; int watch, pauseLogged; } g_xr;
+static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused, tSeq9, tCell; int watch, pauseLogged; uint32_t ev[9]; uint64_t lastR; } g_xr;
 static volatile LONG g_fz_hold; static int g_fz_vk_freeze; static int FzHoldSet(int on, const char* why);  // user #22589 Practice freeze (practice_freeze_game.h)
 static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on); static volatile LONG g_menu_frozen; static void MenuFreeze(int on, const char* why);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
@@ -2212,10 +2212,34 @@ static DWORD XrRunMs(DWORD now) {
     else { g_xr.run += dt; if (g_xr.pauseLogged) { g_xr.pauseLogged = 0; Log("XWORLD return: game time runs again (%lu ms stopped so far)", g_xr.paused); } }
     return g_xr.run;
 }
+// xworld-return-1790 (ally): the event-scene manager [45CE800] has 9 slots (+0x40, stride 0x308, scene id at +0x4C). Mission-sequencer state 9 (223C684) waits
+// until 282B5C(0) finds no slot whose scene is flagged load-blocking. Scenes the arena left running (Yamagata: 0x21D1, 0xB20B, state 6) never end after the
+// world trip, so a cross-world Return sat in state 9 with no player/HUD/control for 3-6 min (ally #59714). Proven live (#59906): zeroing those two ids let
+// state 9 pass at once (9 -> 20, player + HUD + control back). EvSnap stores the ids before the WarpOtherWorld; XrTick clears only those ids, only while
+// the sequencer has sat in state 9 for 1 s in the target world. New scenes of the home world (other ids) are never touched.
+static __attribute__((noinline)) int EvSnap(uint32_t* ids) {
+    uint64_t o = 0; int n = 0; memset(ids, 0, 9 * sizeof *ids);
+    if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try { for (int i = 0; i < 9; ++i) if ((ids[i] = *(volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C))) ++n; } __except (EXCEPTION_EXECUTE_HANDLER) { memset(ids, 0, 9 * sizeof *ids); return 0; }
+    return n;
+}
+static __attribute__((noinline)) int EvClearStale(uint32_t* ids, const char* tag) {
+    uint64_t o = 0; int n = 0;
+    if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try {
+        for (int i = 0; i < 9; ++i) {
+            volatile uint32_t* p = (volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C); uint32_t id = *p; if (!id) continue;
+            for (int k = 0; k < 9; ++k) if (ids[k] == id) { Log("%s: event scene 0x%X (slot %d, state %u) left over from before the world trip holds the load (sequencer state 9): cleared", tag, id, i, *(volatile uint32_t*)(o + 0x40 + i * 0x308)); *p = 0; ids[k] = 0; ++n; break; }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return n; }
+    return n;
+}
 static void XrTick(void) {
     if (!g_xr.active) return;
     DWORD now = GetTickCount(); const uint8_t* st = GameState(); if (!st) return;
     DWORD run = XrRunMs(now);
+    if (CurWorld() == g_xr.world && SeqState() == 9) { if (!g_xr.tSeq9) g_xr.tSeq9 = now; else if (now - g_xr.tSeq9 >= 1000) { EvClearStale(g_xr.ev, "XWORLD return"); g_xr.tSeq9 = now; } }  // xworld-return-1790
+    else g_xr.tSeq9 = 0;
     if (g_xr.watch && (g_tr.active || (g_xw.active && g_xw.claimed))) { Log("XWORLD return watch: cancelled (a new Fight now / session started)"); g_xr.active = 0; return; }
     if (!g_xr.watch && run > 60000) {
         g_xr.watch = 1; g_xr.tSeen = 0;
@@ -2226,7 +2250,7 @@ static void XrTick(void) {
     if (CurWorld() != g_xr.world || !PlayerChar() || StageState() != 5 || st[2]) { g_xr.tSeen = 0; return; }
     if (!g_xr.tSeen) { g_xr.tSeen = now; Log("XWORLD return: home world 0x%02X reached (+%lu ms wall, %lu ms game time, %lu ms stopped)%s", g_xr.world, now - g_xr.t0, run, g_xr.paused, g_xr.watch ? " [watch]" : ""); }
     if (now - g_xr.tSeen < 700) return;
-    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - g_xr.tSeen < 25000) return; }  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
+    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - g_xr.tSeen < 25000) { if (r != g_xr.lastR || !g_xr.tCell) { g_xr.lastR = r; g_xr.tCell = now; } if (now - g_xr.tCell < 4000) return; Log("XWORLD return: %llu/%llu cells loaded, no progress for 4 s: putting the player back now", (unsigned long long)r, (unsigned long long)n); } }  // xworld-return-1790: the far cells stalled (7/11 for minutes), the spot's cells are in  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
     if (g_xr.watch) {
         float p[4]; if (PlayerPos(p)) { float dx = p[0] - g_xr.pos[0], dz = p[2] - g_xr.pos[2]; if (dx * dx + dz * dz < 500.0f * 500.0f) { Log("XWORLD return watch: player already at the spot (%.0f %.0f %.0f), done", p[0], p[1], p[2]); g_xr.active = 0; return; } }
     }
@@ -2250,7 +2274,7 @@ static void XwCancelTick(DWORD now) {
     __attribute__((aligned(16))) uint8_t prm[32] = {0};
     ((void (*)(void*))(B + Grva(0x1BF7D68)))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3B28FC)))(2, 0, 0);
-    memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_xw.oWorld; g_xr.start = XwReturnStart(g_xw.oWorld, g_xw.oPos, g_xw.oStart); g_xr.t0 = now; memcpy(g_xr.pos, g_xw.oPos, sizeof g_xr.pos); g_xr.active = 1;
+    memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_xw.oWorld; g_xr.start = XwReturnStart(g_xw.oWorld, g_xw.oPos, g_xw.oStart); g_xr.t0 = now; memcpy(g_xr.pos, g_xw.oPos, sizeof g_xr.pos); g_xr.active = 1; { int ne = EvSnap(g_xr.ev); if (ne) Log("XWORLD cancel: %d event scene(s) running before the world trip (cleared if they hold the load)", ne); }
     Log("XWORLD cancel: prewarm landed in 0x%02X, returning to world 0x%02X start %u (WarpOtherWorld)", CurWorld(), g_xw.oWorld, g_xr.start);
     XwAbort("prewarm cancelled");
     g_ps_row = 0; XsStart("XCANCEL", g_xr.world); g_xs.maxMs = 180000;  // xworld-return-1790
@@ -2663,7 +2687,7 @@ static void RhTick(void) {
         __attribute__((aligned(16))) uint8_t prm[32] = {0};
         ((void (*)(void*))(B + Grva(0x1BF7D68)))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // as XwCancelTick
         ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3B28FC)))(2, 0, 0);
-        memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_home.world; g_xr.start = XwReturnStart(g_home.world, g_home.pos, g_home.start); g_xr.t0 = now; memcpy(g_xr.pos, g_home.pos, sizeof g_xr.pos); g_xr.active = 1;
+        memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_home.world; g_xr.start = XwReturnStart(g_home.world, g_home.pos, g_home.start); g_xr.t0 = now; memcpy(g_xr.pos, g_home.pos, sizeof g_xr.pos); g_xr.active = 1; { int ne = EvSnap(g_xr.ev); if (ne) Log("RETURN: %d event scene(s) running before the world trip (cleared if they hold the load)", ne); }
         Log("RETURN: world 0x%02X -> home world 0x%02X start %u (WarpOtherWorld), put back on the spot once its cells are loaded", CurWorld(), g_home.world, g_xr.start);
         g_ps_row = 0; XsStart("RETURN", g_home.world); g_xs.maxMs = 180000;  // xworld-return-1790: same streaming relief as Fight now (area-objects gate, cell cap); without it the home world needs minutes (load flag stays set)
         ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + Grva(0x22399B8)))(g_xr.world, g_home.journey, g_xr.start, g_home.mode, prm);
