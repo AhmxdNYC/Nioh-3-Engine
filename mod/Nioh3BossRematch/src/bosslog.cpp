@@ -2857,7 +2857,7 @@ void FastThrowInstall() {
     const bool sspeed = g_sealMul.load() > 1.f && IniInt(L"Spirit", L"FormHide", 0) == 4;
     if (pct <= 1 && !tail && !sspeed) return;
     wchar_t ab[128] = {};
-    GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB", ab, 128, IniPath());
+    GetPrivateProfileStringW(L"Spirit", L"FastThrowActs", L"28FD,28FB,28B6", ab, 128, IniPath());
     int n = 0;
     for (wchar_t* q = ab; *q && n < 4;) {
         while (*q == L',' || *q == L' ') ++q;
@@ -5019,7 +5019,7 @@ void Register(bool boss, bool rm, bool inv) {
         wchar_t ab[128] = {};
         // Ally #55835: 0x28FD preceded both seal captures; action-only press 2 applied the hide at +36 ms.
         // This fixes first-press action detection; the human-body visibility failure is a separate, still-open issue.
-        GetPrivateProfileStringW(L"Spirit", L"FormHideSealAct", L"28FD", ab, 128, IniPath());
+        GetPrivateProfileStringW(L"Spirit", L"FormHideSealAct", L"28FD,28B6", ab, 128, IniPath());
         int n = 0;
         for (wchar_t* p = ab; *p && n < 4;) {
             while (*p == L',' || *p == L' ') ++p;
