@@ -4,6 +4,8 @@
 // Log: Nioh3CamKiProbe.log next to this ASI.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
+#include "rvas_gen.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -434,7 +436,7 @@ static size_t ScanHeap(const float* player, uint64_t skipPos, DWORD wantType) {
 static int Player(uint64_t base, uint64_t* actor, float pos[4]) {
     uint64_t tab = 0, pl = 0;
     *actor = 0;
-    if (!base || !Rd64(base + kPlayerTab, &tab) || !tab) return 0;
+    if (!base || !Rd64(base + Grva(kPlayerTab), &tab) || !tab) return 0;
     if (!Rd64(tab + (uint64_t)0xCD * 0x18, &pl) || !pl) return 0;
     if (!Rd(pl + 0x110, pos, 16)) return 0;
     *actor = pl;
@@ -488,7 +490,7 @@ static int CamOk(uint64_t base) {
     uint64_t vt = 0, tag = 0;
     if (!g_cam || !base) return 0;
     if (!Rd(g_cam, &vt, 8) || !Rd(g_cam + 0x58, &tag, 8)) { g_cam = 0; return 0; }
-    if (vt != base + kCamVt || tag != base + kCamTag) { g_cam = 0; return 0; }
+    if (vt != base + Grva(kCamVt) || tag != base + Grva(kCamTag)) { g_cam = 0; return 0; }
     return 1;
 }
 
@@ -521,23 +523,23 @@ static void NoteGame(uint64_t addr) {
 
 static void NoteCamQword(uint64_t addr, uint64_t q, uint64_t base) {
     uint64_t other = 0;
-    if (q == base + kGameVt) {
+    if (q == base + Grva(kGameVt)) {
         g_gameHits++;
         Rd(addr + 0x58, &other, 8);
-        if (other == base + kGameTag) g_gameTagHits++;
+        if (other == base + Grva(kGameTag)) g_gameTagHits++;
         NoteGame(addr);
         if (g_gameHits <= 3)
             Log("GAME vtable addr=%llx tag-rva=%llx", (unsigned long long)addr,
                 (unsigned long long)(base && other >= base ? other - base : 0));
-    } else if (q == base + kCamVt) {
+    } else if (q == base + Grva(kCamVt)) {
         g_vtHits++;
         Rd(addr + 0x58, &other, 8);
-        if (other == base + kCamTag) g_cam = addr;
+        if (other == base + Grva(kCamTag)) g_cam = addr;
         else if (g_vtHits <= 3)
             Log("CAM vtable-only addr=%llx tag=%llx", (unsigned long long)addr, (unsigned long long)other);
-    } else if (q == base + 0x38ef258 || q == base + 0x38ef2a8) {
+    } else if (q == base + Grva(0x38ef258) || q == base + Grva(0x38ef2a8)) {
         g_otherHits++;
-        if (q == base + 0x38ef2a8 && g_sibN < 8) {
+        if (q == base + Grva(0x38ef2a8) && g_sibN < 8) {
             int k, dup = 0;
             for (k = 0; k < g_sibN; k++) if (g_sib[k] == addr) dup = 1;
             if (!dup) g_sib[g_sibN++] = addr;
@@ -545,11 +547,11 @@ static void NoteCamQword(uint64_t addr, uint64_t q, uint64_t base) {
         if (g_otherHits <= 3)
             Log("CAM other-vtable addr=%llx rva=%llx", (unsigned long long)addr,
                 (unsigned long long)(q - base));
-    } else if (q == base + kCamTag && addr > 0x80) {
+    } else if (q == base + Grva(kCamTag) && addr > 0x80) {
         uint64_t obj = addr - 0x58;
         g_tagHits++;
         Rd(obj, &other, 8);
-        if (other == base + kCamVt) g_cam = obj;
+        if (other == base + Grva(kCamVt)) g_cam = obj;
         else if (g_tagHits <= 3)
             Log("CAM tag-only obj=%llx vt=%llx", (unsigned long long)obj, (unsigned long long)other);
     }
@@ -592,7 +594,7 @@ static void ScanCamSlice(uint64_t base, size_t step) {
         g_gameHits = 0;
         g_gameTagHits = 0;
         g_gameN = 0;
-        Rd(base + kCamVt, &slot0, 8);
+        Rd(base + Grva(kCamVt), &slot0, 8);
         Log("CAM module slot0=%llx", (unsigned long long)slot0);
         g_scanStarted = 1;
         g_scanAt = 0;
@@ -1215,7 +1217,7 @@ static void MgrDiff(void) {
 static void LogOrbit(uint64_t base) {
     uint64_t mgr = 0, begin = 0, end = 0, cam = 0, tag = 0;
     float yaw = 0.f, pitch = 0.f, dist = 0.f, eye[3] = {0.f, 0.f, 0.f};
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("ORBIT mgr null");
         return;
     }
@@ -1243,7 +1245,7 @@ static void MgrShot(uint64_t base, int phase, const float* player) {
     memset(g_mgrSnap[phase], 0, 0x800);
     memset(g_mgrPlayer[phase], 0, sizeof g_mgrPlayer[phase]);
     if (player) memcpy(g_mgrPlayer[phase], player, 12);
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("MGR null");
         return;
     }
@@ -1388,7 +1390,7 @@ static int HookCtor(uint64_t base) {
     uint64_t stubAddr;
     if (!base || g_ctorStub || g_ctorTries) return 0;
     g_ctorTries = 1;
-    site = (uint8_t*)(base + 0x3b4288);
+    site = (uint8_t*)(base + Grva(0x3b4288));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("CAM ctor bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1413,7 +1415,7 @@ static int HookCtor(uint64_t base) {
     stub[n++] = 0;
     stub[n++] = 0;
     stub[n++] = 0;
-    back = base + 0x3b4288 + 15;
+    back = base + Grva(0x3b4288) + 15;
     memcpy(stub + n, &back, 8);
     n += 8;
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
@@ -1459,7 +1461,7 @@ static int HookView(uint64_t base) {
     uint64_t stubAddr;
     if (!base || g_viewStub || g_viewTries) return 0;
     g_viewTries = 1;
-    site = (uint8_t*)(base + 0x9fd530);
+    site = (uint8_t*)(base + Grva(0x9fd530));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("VIEW bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1499,7 +1501,7 @@ static int HookView(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + 0x9fd530 + 15;
+    back = base + Grva(0x9fd530) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("VIEW protect failed %lu", GetLastError());
@@ -1606,7 +1608,7 @@ static int HookOrbit(uint64_t base) {
     uint64_t fn;
     if (!base || g_orbitStub || g_orbitTries) return 0;
     g_orbitTries = 1;
-    site = (uint8_t*)(base + kOrbitFn);
+    site = (uint8_t*)(base + Grva(kOrbitFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("ORBIT bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1655,7 +1657,7 @@ static int HookOrbit(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kOrbitFn + 15;
+    back = base + Grva(kOrbitFn) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("ORBIT protect failed %lu", GetLastError());
@@ -1717,7 +1719,7 @@ static int HookBlend(uint64_t base) {
     uint64_t fn;
     if (!base || g_blendStub || g_blendTries) return 0;
     g_blendTries = 1;
-    site = (uint8_t*)(base + kBlendFn);
+    site = (uint8_t*)(base + Grva(kBlendFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("BLEND bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1766,7 +1768,7 @@ static int HookBlend(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kBlendFn + 15;
+    back = base + Grva(kBlendFn) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("BLEND protect failed %lu", GetLastError());
@@ -1817,7 +1819,7 @@ static int HookFov(uint64_t base) {
     uint64_t back, stubAddr, fn;
     if (!base || g_fovStub || g_fovTries) return 0;
     g_fovTries = 1;
-    site = (uint8_t*)(base + kFovFn);
+    site = (uint8_t*)(base + Grva(kFovFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 14) || memcmp(have, kHead, 14) != 0) {
         Log("FOV bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1856,7 +1858,7 @@ static int HookFov(uint64_t base) {
     memcpy(stub + n, kHead, 14);
     n += 14;
     stub[n++] = 0xFF; stub[n++] = 0x25; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kFovFn + 14;
+    back = base + Grva(kFovFn) + 14;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("FOV protect failed %lu", GetLastError());
@@ -1962,14 +1964,14 @@ static int HookOut(uint64_t base) {
     uint64_t back, stubAddr, fn;
     if (!base || g_outStub || g_outTries) return 0;
     g_outTries = 1;
-    site = (uint8_t*)(base + kOutFn);
+    site = (uint8_t*)(base + Grva(kOutFn));
     memset(have, 0, sizeof have);
     memset(call, 0, sizeof call);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("OFFSET bytes differ at 243ed0. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
         return 0;
     }
-    if (!Rd((uintptr_t)(base + kOutRet - 5), call, 5) || memcmp(call, kCall, 5) != 0) {
+    if (!Rd((uintptr_t)(base + Grva(kOutRet) - 5), call, 5) || memcmp(call, kCall, 5) != 0) {
         Log("OFFSET call site 2afc54 differs. %02X%02X%02X%02X%02X hook skipped", call[0], call[1], call[2], call[3], call[4]);
         return 0;
     }
@@ -2006,9 +2008,9 @@ static int HookOut(uint64_t base) {
     memcpy(stub + n, kHead, 15);
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kOutFn + 15;
+    back = base + Grva(kOutFn) + 15;
     memcpy(stub + n, &back, 8);
-    g_outRetAbs = base + kOutRet;
+    g_outRetAbs = base + Grva(kOutRet);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("OFFSET protect failed %lu", GetLastError());
         return 0;
@@ -2118,7 +2120,7 @@ static void LogBoom(uint64_t base) {
         Log("BOOM no player");
         return;
     }
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("BOOM no manager");
         return;
     }
@@ -2181,7 +2183,7 @@ static void LogChain(uint64_t base) {
     Rd((uintptr_t)(c + 0x341), &b341, 1);
     Rd((uintptr_t)(c + 0x231), &b231, 1);
     Rd((uintptr_t)(c + 0x610), &b610, 1);
-    if (Rd(base + kCamMgr, &mgr, 8) && mgr > 0x10000) {
+    if (Rd(base + Grva(kCamMgr), &mgr, 8) && mgr > 0x10000) {
         Rd((uintptr_t)(mgr + 0x40), me, 12);
         Rd((uintptr_t)(mgr + 0x50), mt, 12);
     }
@@ -2219,7 +2221,11 @@ static DWORD WINAPI Worker(LPVOID) {
         if (base) {
             uint64_t actor = 0;
             float pos[4] = {0, 0, 0, 0};
-            if (Player(base, &actor, pos)) ScanCamSlice(base, (size_t)128 << 20);
+            if (Player(base, &actor, pos)) {
+                static int verified;
+                if (!verified) verified = 1, gamerva::Verify();  // code is decrypted once the player exists
+                ScanCamSlice(base, (size_t)128 << 20);
+            }
         }
         int f7 = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
         int f8 = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
@@ -2275,6 +2281,11 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
         OpenLog();
         {
             uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
+            if (base) {  // Grva: identity on v2.02, byte-pattern lookup (rvas.json) on another build
+                const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+                gamerva::Init((uintptr_t)base, nt->FileHeader.TimeDateStamp == gamerva::rvas::kBuildTimestamp &&
+                                                   nt->OptionalHeader.SizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
+            }
             if (base) HookCtor(base);
             if (base) HookView(base);
             if (base) HookOrbit(base);
