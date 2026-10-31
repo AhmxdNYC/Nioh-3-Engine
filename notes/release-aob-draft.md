@@ -137,3 +137,28 @@ curl.exe -s https://nioh3-mod-feedback.vercel.app/version.json   # expect "1.7.8
 Rollback: site - restore previous `updates/stable.json` (1.7.87 content above in GitHub v1.7.87 asset) + redeploy;
 GitHub - `gh release edit v1.7.87 --latest` then `gh release delete v1.7.88 --yes`. Never overwrite /releases/1.7.88/ with
 different bytes (stage_site.py refuses).
+
+## Public source export (Nioh-3-Engine), dry run (ally #59153)
+
+`python3 tools/export_public.py [--ref ally/release-aob] [--out DIR] [--allow-soulcore]` - never pushes.
+Same path as v1.7.87 deb036c4: one new commit on `public/main` (curated history) in a temp worktree.
+- Takes only code/data files of `mod/Nioh3{EngineFix,Training,BossRematch,CamKiProbe}` + `tools/check_fixed_rvas.py`,
+  `tools/fixed_rvas_allow.txt` (BossRematch build.bat calls it). README/docs/release scripts/`tools/updater` stay as
+  public has them (public updater.py has the GitHub fallback 388ba7c8 that the private copy lacks).
+- Skips build output (`bin/`, `build/`, .obj/.lib/.pdb/.exp/.asi, build.log, plug/*.lib, mod .github) and the
+  soul-core dev fixtures `tests/formhide4*`.
+- Scrubs like the 1.7.86 export: `C:\Users\<name>\nioh3-engine` -> `C:\nioh3-engine` (53 lines), home dirs -> `~/`,
+  Steam IDs -> 76561190000000000 (tour_harness.cpp had a real one).
+- Gates (exit 1): public-newer lines missing from the ref, new binaries, new personal paths, version 1.7.88 present,
+  soul-core form code (markers FormKey/FormHide/Seal*/OrbSkip/...; public 1.7.87 had 0).
+- Result (10-31 5:24 am EST): 84 files, +13642/-633, 22 new files (gamerva/rvas per mod). Gates OK except:
+  **soul-core: 549 markers** (bosslog.cpp 478 = ~4.3k lines of compiled-out form code, Nioh3BossRematch.ini [Spirit] 36,
+  addon.h, soul_core_tuning_menu.h, rematch.cpp, main.cpp). `BR_SOULCORE=0` only cuts the entry points; the code stays
+  in the source and the binary. DECISION for pc: (a) publish dormant code (`--allow-soulcore`; source = shipped binary),
+  or (b) guard the form code with `#if BR_SOULCORE` on the branch (removes it from the binary -> rebuild + retest) and
+  strip at export, or (c) public BossRematch = 1.4.22 + only the generic AOB delta (source != binary).
+- FOUND + fixed on the branch: public 29215833 (frame-meter master switch hides player row / I-FR / Ki window,
+  shipped in 1.7.86 and 1.7.87) was missing from the private line -> **RC #4473 Training 02fed4cc lacks it**.
+  Restored in `practice_stats_game.h` (zig compile OK); Training must be rebuilt (MSVC) for the final assets.
+- rvas.json files carry short byte patterns (signatures), like the patterns already public in source.
+- Public README/USER_GUIDE still say 1.7.87; bump them in the same commit if wanted (not done by the script).
