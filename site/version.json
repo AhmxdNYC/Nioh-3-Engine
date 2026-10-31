@@ -1,5 +1,5 @@
 {
-  "version": "1.7.86",
+  "version": "1.7.89",
   "url": "https://nioh3-mod-feedback.vercel.app",
-  "notes": "Combined UI build with background update checks."
+  "notes": "Menu fixes: Boss Match settings, camera rows, FPS corner/size, Linux Report."
 }
