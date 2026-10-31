@@ -2327,7 +2327,7 @@ std::atomic<int> g_fbStyleLive{1};
 // human #58422: the style switch's own effect (flash on the hidden player) ruins the form visuals -> [Spirit] FormStyleFxHide=1: while a
 // form is up, every effect the game creates ON THE PLAYER within FormStyleFxHideMs of a style chord is moved far below the floor
 // (no id list: whatever the switch spawns, also on new styles/cores). 0 = off.
-std::atomic<int> g_fbStyleFx{1}, g_fbStyleFxMs{1500};
+std::atomic<int> g_fbStyleFx{1}, g_fbStyleFxMs{1000};
 std::atomic<double> g_fbStyleT{-1e9};
 std::atomic<int> g_fbStyleQ{0}, g_fbInjUser{0};  // queued chord: 0 none, 1 RT tap, 2 RT+A
 struct FbUserSt { bool rt = false, chordA = false, other = false; ULONGLONG lastRt = 0; };
@@ -2351,6 +2351,7 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
             const bool rt = s->pad.rt > 128;
             if (rt) { if (!u.rt) { u.rt = true; u.chordA = false; u.other = false; } u.lastRt = now; }
             if (u.rt) {
+                if ((s->pad.buttons & 0x1000) && !u.chordA && !u.other) g_fbStyleT.store(Now(), std::memory_order_relaxed);  // human #58445: the switch fires on A
                 if (s->pad.buttons & 0x1000) u.chordA = true;   // XINPUT_GAMEPAD_A
                 if (s->pad.buttons & 0xE000) u.other = true;    // B / X / Y: burst break or guardian skill, not a style shift
             }
@@ -2372,7 +2373,6 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
         if (g_fbStyle.load(std::memory_order_relaxed) && g_fbStyleLive.load(std::memory_order_relaxed) && rawRt > 128) {  // human #58381
             s->pad.rt = rawRt; s->pad.buttons |= rawA;
-            g_fbStyleT.store(Now(), std::memory_order_relaxed);  // human #58422: refreshed while RT is held
         }
     } else if (r == ERROR_SUCCESS && user == 0 && !g_fbActive.load(std::memory_order_relaxed) && !g_fbInjT0.load(std::memory_order_relaxed)) {
         static ULONGLONG nextRd = 0; const ULONGLONG t = GetTickCount64();
@@ -3588,8 +3588,11 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
         if (pl && StackArg(sp, 6) == pl) {
             const bool world = d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
             if (world) ((float*)d)[13] -= 100000.f;
-            Log("FormStyleFx: effect %X on the player during the form %s", (uint32_t)c, world ? "moved away" : "attached (P block, not moved)");
-            if (world) return;
+            // human #58445: the switch flash (3E8) is attached to the player via the P block (stack arg 5). Dropping the P block makes the
+            // game spawn it at r9's shared default matrix (world origin, far from any map spot) instead of on the hidden player.
+            else if (StackArg(sp, 5) && g_fbStyleFx.load() >= 1) ((uint64_t*)sp)[5] = 0;
+            Log("FormStyleFx: effect %X on the player during the form %s", (uint32_t)c, world ? "moved away" : "detached to the origin");
+            return;
         }
     }
     if (FxCenterId((uint32_t)c) && !StackArg(sp, 5) && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000) {
@@ -4823,7 +4826,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
     g_fbStyleLive.store(IniInt(L"Spirit", L"FormStyleLive", 1));  // human #58381
     g_fbStyleFx.store(IniInt(L"Spirit", L"FormStyleFxHide", 1));  // human #58422
-    g_fbStyleFxMs.store(IniInt(L"Spirit", L"FormStyleFxHideMs", 1500));
+    g_fbStyleFxMs.store(IniInt(L"Spirit", L"FormStyleFxHideMs", 1000));
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 400));  // human #58117; 400 = after the player's fade-out in the cover smoke (#58205)
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
