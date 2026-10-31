@@ -2436,6 +2436,8 @@ void* g_fh4PartsOrig = nullptr;
 void* g_fh4MultiplierOrig = nullptr;
 void* g_fh4AlphaOrig = nullptr;
 
+// human #58205: the player's own k8/k6 before the start fade-out (PlayerFadeOut), so FormHide never adopts the faded 0 as the restore value
+float g_plOutK8 = 0.f, g_plOutK6 = 0.f;
 // All helpers below run with g_fh4Lock held. No stale-root restore on replacement.
 void Fh4Restore(uint64_t player) {
     FormBlockSet(false);  // input comes back even when the hide restore below has to retry
@@ -2471,7 +2473,11 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     // ally #56104: k6=[root+248]=0 also hides slots 6/16-19 (dark throw layer, head, weapon) that k8=0 leaves.
     float k6 = 0;
     if (!Rd(root + 0x248, k6) || !std::isfinite(k6)) return false;
-    if (!g_fh4.root) { g_fh4.root = root; g_fh4.multiplier = k8; g_fh4.fade = k6; }
+    if (!g_fh4.root) {
+        g_fh4.root = root; g_fh4.multiplier = k8; g_fh4.fade = k6;
+        if (k8 == 0 && g_plOutK8 > 0) g_fh4.multiplier = g_plOutK8;  // human #58205: faded out by us, not by the game
+        if (k6 == 0 && g_plOutK6 > 0) g_fh4.fade = g_plOutK6;
+    }
     else if (g_fh4.root != root) return false; // do not adopt a new model while holding the old one
     else {
         if (nativeFresh || k8 != 0) g_fh4.multiplier = k8;
@@ -2497,7 +2503,7 @@ std::atomic<double> g_ghostT{0};
 // human #58146: the smoke covers the swap. Start (LEFT press): our smoke at once (SealCoverSmoke=1), the player is hidden FormHideDelayMs
 // later and the yokai body is held invisible until SealShowMs after the press (then fades in over 150 ms). Exit: the smoke, the yokai
 // hidden SealExitYokaiHideMs later, the player back SealExitRevealMs after the smoke (never before the yokai is gone).
-std::atomic<int> g_coverOn{1}, g_sealShowMs{300}, g_ghostHideMs{0};
+std::atomic<int> g_coverOn{1}, g_sealShowMs{400}, g_ghostHideMs{0};
 std::atomic<double> g_coverT{0}, g_sealShowAt{0}, g_ghostHideAt{0};
 // human #58173: the exit smoke starts while the yokai still attacks (SealExitSmokeAtMs after the press, or when its last hit burst opens,
 // whichever first); at the last-hit close it fades out (SealGhostFadeMs) and the player's body fades in over SealPlayerFadeMs.
@@ -2515,13 +2521,37 @@ void PlayerFadeIn(uint64_t chr) {  // multiplier hook, after the game's own writ
     if (Rd(root + 0x3A8, k8) && k8 > g_plFadeK8 * f) { const float v = (float)(g_plFadeK8 * (f > 0 ? f : 0)); WrBytes(root + 0x3A8, &v, 4); }
     if (Rd(root + 0x248, k6) && k6 > g_plFadeK6 * f) { const float v = (float)(g_plFadeK6 * (f > 0 ? f : 0)); WrBytes(root + 0x248, &v, 4); }
 }
+// human #58203/#58205: the start mirrors the exit: the player's body fades out inside the start smoke (SealPlayerOutAtMs after the press,
+// over SealPlayerOutMs) before FormHide hides it; the yokai then fades in over SealShowFadeMs (was a fixed 150 ms).
+std::atomic<int> g_plOutAtMs{150}, g_plOutMs{250}, g_showFadeMs{250};
+std::atomic<double> g_plOutT0{0};
+std::atomic<uint64_t> g_plOutChr{0};
+void PlayerFadeOut(uint64_t chr) {  // multiplier hook, after the game's own write; holds 0 until FormHide takes over (or 1.5 s)
+    const double t0 = g_plOutT0.load(std::memory_order_relaxed);
+    if (t0 <= 0 || chr != g_plOutChr.load(std::memory_order_relaxed)) return;
+    const double now = Now();
+    if (now < t0) return;
+    if (now - t0 > 1.5 || g_fh4.owner == chr) { g_plOutT0.store(0); return; }  // FormHide holds it hidden from here
+    double f = 1.0 - (now - t0) * 1000.0 / (g_plOutMs.load() > 0 ? g_plOutMs.load() : 1);
+    if (f < 0) f = 0;
+    uint64_t root = 0;
+    if (!Rd(chr + 0x20, root) || !root) return;
+    static double baseT = -1;
+    float k8 = 0, k6 = 0;
+    if (baseT != t0) {  // first frame of this fade: the game's own values
+        baseT = t0; g_plOutK8 = Rd(root + 0x3A8, k8) && std::isfinite(k8) ? k8 : 0.f; g_plOutK6 = Rd(root + 0x248, k6) && std::isfinite(k6) ? k6 : 0.f;
+        Log("SealCover: player fade-out from k8 %.3f k6 %.3f over %d ms t=%.3f", g_plOutK8, g_plOutK6, g_plOutMs.load(), now);
+    }
+    if (Rd(root + 0x3A8, k8) && std::isfinite(k8) && k8 > g_plOutK8 * f) { const float v = (float)(g_plOutK8 * f); WrBytes(root + 0x3A8, &v, 4); }
+    if (Rd(root + 0x248, k6) && std::isfinite(k6) && k6 > g_plOutK6 * f) { const float v = (float)(g_plOutK6 * f); WrBytes(root + 0x248, &v, 4); }
+}
 void CoverStartSmoke(uint64_t player, double now);  // SealExitReplay section, game thread
 // pc #57618 (human #57615): per-core exit smoke. Only cores listed in [Spirit] SealExitFxCore (hex list, default 5129B = Ibaraki LEFT) get it;
 // every other core (DOWN A2ACB) keeps the plain ghost exit. For a listed core: SealGhostFadeMs > 0 ramps the seal root fade [[seal+20]+248]
 // from its value at the last hit down to 0 over that time (the same fade the seal dissolves in with at its spawn, run backwards) instead of
 // the instant 0, and SealExitFx=1 also spawns the SealExitFxId effects (on SealExitFxOwner) at the ghost exit.
-uint32_t g_sxcCore[8] = {0x5129B};
-int g_sxcN = 1, g_ghostFadeMs = 250;
+uint32_t g_sxcCore[8] = {0x5129B, 0xA2ACB};  // human #58208: DOWN (traveling) A2ACB gets the same exit
+int g_sxcN = 2, g_ghostFadeMs = 250;
 std::atomic<uint64_t> g_ghostFadeSeal{0};
 float g_ghostFade0 = 1.f;
 bool SealExitCore(uint32_t sid) {
@@ -2578,7 +2608,7 @@ void HkFh4Parts(uint64_t chr) {
 }
 // human #58146: the fresh seal (spawned after the LEFT press) stays invisible until g_sealShowAt, then fades in over 150 ms
 void SealShowHold(uint64_t chr, double at) {
-    const double now = Now(), ramp = 0.15, press = g_coverT.load(std::memory_order_relaxed);
+    const double now = Now(), ramp = (g_showFadeMs.load() > 0 ? g_showFadeMs.load() : 1) / 1000.0, press = g_coverT.load(std::memory_order_relaxed);
     if (now >= at + ramp) { g_sealShowAt.store(0); return; }
     if (!chr || chr == FkPlayer()) return;
     if (!(chr == g_fkSealChr.load() && g_fkSealT >= press - .05) && !(chr == g_fs0CapChr.load() && g_fs0CapT >= press - .05)) return;
@@ -2591,9 +2621,10 @@ void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
     g_fh4Perf.mult.fetch_add(1);
     PlayerFadeIn(chr);  // human #58173
+    PlayerFadeOut(chr);  // human #58205
     if (const double sa = g_sealShowAt.load(std::memory_order_relaxed); sa > 0) {
         SealShowHold(chr, sa);
-        if (Now() < sa + 0.15 && chr && chr == g_fh4.seal && chr != g_fh4.owner) return;  // no FormSealKeep (fade 1) while held / fading in
+        if (Now() < sa + g_showFadeMs.load() / 1000.0 && chr && chr == g_fh4.seal && chr != g_fh4.owner) return;  // no FormSealKeep (fade 1) while held / fading in
     }
     if (const uint64_t gs = g_ghostSeal.load(std::memory_order_relaxed); gs && chr == gs) { GhostHideSeal(chr); return; }
     if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
@@ -2883,10 +2914,10 @@ int Fh4FollowDecide(double now) {
 // human #58117: [Spirit] FormHideDelayMs (default 0 = unchanged) postpones the FormHide=4 begin (player hidden + input blocked) by this
 // long after its trigger (LEFT press edge or the fresh seal capture), so the player stays visible a little longer at the form start.
 // Read on every trigger; the Soul core tuning menu page writes it live. A pending begin is dropped if the mode/player changes meanwhile.
-std::atomic<int> g_fhDelayMs{150};
+std::atomic<int> g_fhDelayMs{400};
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
-    static double pendAt = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
+    static double pendAt = 0, pendTrig = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
@@ -2924,8 +2955,12 @@ void FormHide4Tick(uint64_t player) {
     const bool left = (PadButtons(nullptr, nullptr) & 4) != 0;
     bool edge = g_fhPress.load() &&  // human #58117: not const, a delayed begin restores the edge it was armed with
         ((left && !leftWas && g_fhPress.load() != 2) || FhSealActTick(player, cap, capT, now));
-    static double leftT = -9;  // human #58146: only a form started within 1 s of a d-pad LEFT press gets the cover (DOWN core untouched)
+    static double leftT = -9;  // human #58146: only a form started within 1 s of a d-pad LEFT press gets the cover
     if (left && !leftWas) leftT = now;
+    static bool downWas = false;  // human #58208: the DOWN (traveling) core gets the same cover
+    const bool down = (PadButtons(nullptr, nullptr) & 2) != 0;  // XINPUT_GAMEPAD_DPAD_DOWN
+    if (down && !downWas) leftT = now;
+    downWas = down;
     const bool padLeft = now - leftT < 1.0;
     leftWas = left;
     AcquireSRWLockExclusive(&g_fh4Lock);
@@ -2974,7 +3009,7 @@ void FormHide4Tick(uint64_t player) {
                                       FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
                    if ((edge || fresh) && pendAt <= 0) {
-                       pendAt = now + g_fhDelayMs.load() / 1000.0; pendEdge = edge; pendPlayer = player;
+                       pendAt = now + g_fhDelayMs.load() / 1000.0; pendTrig = now; pendEdge = edge; pendPlayer = player;
                        if (padLeft) CoverStartSmoke(player, now);  // human #58146: smoke first, the player vanishes inside it
                    }
                    if (pendAt <= 0) return false;
@@ -2985,7 +3020,8 @@ void FormHide4Tick(uint64_t player) {
                    return edge || fresh;
                }()) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
-            g_fh4.owner = player; g_fh4.started = now; g_fh4Fault.store(false);
+            // human #58208: started = the trigger, not the delayed begin: the DOWN seal's spawn hit lands inside the delay and was missed
+            g_fh4.owner = player; g_fh4.started = pendTrig > 0 && pendTrig <= now ? pendTrig : now; g_fh4Fault.store(false);
             FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
@@ -3346,7 +3382,7 @@ void SealExitFxLoad() {
     g_sxfBone = IniInt(L"Spirit", L"SealExitFxBone", 0);
     g_sxfOwner = IniInt(L"Spirit", L"SealExitFxOwner", 0);
     g_sxfMs = IniInt(L"Spirit", L"SealExitFxMs", 150);
-    GetPrivateProfileStringW(L"Spirit", L"SealExitFxCore", L"5129B", b, 256, IniPath());
+    GetPrivateProfileStringW(L"Spirit", L"SealExitFxCore", L"5129B,A2ACB", b, 256, IniPath());
     g_sxcN = 0;
     for (wchar_t* q = b; *q && g_sxcN < 8;) {
         while (*q == L',' || *q == L' ') ++q;
@@ -3468,11 +3504,14 @@ void SealExitReplayLoad() {
     g_fxrCenter = IniInt(L"Spirit", L"SealExitSmokeCenter", 1);
     g_fxrCtrN = HexList(L"SealExitSmokeCenterIds", L"62557", g_fxrCtr, 12);
     g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 200);
-    g_fxrFwd = (float)IniInt(L"Spirit", L"SealExitSmokeFwd", 0);
+    g_fxrFwd = (float)IniInt(L"Spirit", L"SealExitSmokeFwd", 100);  // human #58200: 100 = the cloud's visual centre on the player
     g_fxrSide = (float)IniInt(L"Spirit", L"SealExitSmokeSide", 0);  // human #58117
     g_fxrRepeatMs = IniInt(L"Spirit", L"SealExitSmokeRepeatMs", 0);
     g_coverOn = IniInt(L"Spirit", L"SealCoverSmoke", 1);  // human #58146
-    g_sealShowMs = IniInt(L"Spirit", L"SealShowMs", 300);
+    g_sealShowMs = IniInt(L"Spirit", L"SealShowMs", 400);  // human #58205: after the player's fade-out
+    g_plOutAtMs = IniInt(L"Spirit", L"SealPlayerOutAtMs", 150);
+    g_plOutMs = IniInt(L"Spirit", L"SealPlayerOutMs", 250);
+    g_showFadeMs = IniInt(L"Spirit", L"SealShowFadeMs", 250);
     g_ghostHideMs = IniInt(L"Spirit", L"SealExitYokaiHideMs", 0);
     g_exitSmokeAtMs = IniInt(L"Spirit", L"SealExitSmokeAtMs", 1450);  // human #58173
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
@@ -3627,6 +3666,7 @@ void CoverStartSmoke(uint64_t player, double now) {
     g_coverT.store(now);
     if (g_coverOn.load() <= 0) return;
     g_sealShowAt.store(g_sealShowMs.load() > 0 ? now + g_sealShowMs.load() / 1000.0 : 0);
+    if (player && g_plOutMs.load() > 0) { g_plOutChr.store(player); g_plOutT0.store(now + g_plOutAtMs.load() / 1000.0); }  // human #58205
     float p[4] = {};
     FxRec r = {};
     if (!player || !Copy(p, player + 0x110, 16) || !CoverAt(r, p)) { Log("SealCover: press t=%.3f, no smoke template yet - the game's own smoke this time", now); return; }
@@ -3636,8 +3676,8 @@ void CoverStartSmoke(uint64_t player, double now) {
     g_coverMade.store(1);
     g_frzRec[0] = r; g_frzOk[0] = true;
     const float* m = (const float*)r.blk;
-    Log("SealCover: press t=%.3f start smoke %X at %.0f %.0f %.0f, player hidden in %d ms, yokai shown at %d ms", now, r.id, m[12], m[13], m[14],
-        g_fhDelayMs.load(), g_sealShowMs.load());
+    Log("SealCover: press t=%.3f start smoke %X at %.0f %.0f %.0f, player fades out at %d ms over %d, hidden at %d ms, yokai shown at %d ms over %d",
+        now, r.id, m[12], m[13], m[14], g_plOutAtMs.load(), g_plOutMs.load(), g_fhDelayMs.load(), g_sealShowMs.load(), g_showFadeMs.load());
 }
 void SealExitReplayTick() {  // game thread
     if (!g_fxPlayN) return;
@@ -4712,7 +4752,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
-    g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 150));  // human #58117; 150 = the player vanishes inside the cover smoke (#58146)
+    g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 400));  // human #58117; 400 = after the player's fade-out in the cover smoke (#58205)
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
     g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 1));
