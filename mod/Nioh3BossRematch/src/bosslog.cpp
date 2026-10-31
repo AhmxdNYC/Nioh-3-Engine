@@ -3046,6 +3046,7 @@ void FormHide4Tick(uint64_t player) {
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     bool spawnBegin = false;
+    static uint64_t spawnUsed = 0; static double spawnUsedT = -1;  // a spawn-hit seal begins one form only (the end resets 'attempted' to the FormSlot0 capture)
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
@@ -3155,7 +3156,7 @@ void FormHide4Tick(uint64_t player) {
                    spawnBegin = false;
                    if (!fresh && !edge) {  // human #58738/#58746: no FormSlot0 capture for some cores (30744) -> the seal spawn hit is the capture (every core, every slot)
                        const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
-                       if (sc && now >= st && now - st < 2.5 && (sc != attempted || st != attemptedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
+                       if (sc && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
                            cap = sc; capT = st; fresh = true; spawnBegin = true;
                        }
                    }
@@ -3166,7 +3167,7 @@ void FormHide4Tick(uint64_t player) {
                    const bool freshOk = fresh && sealActOk;
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
                    if ((edge || freshOk) && pendAt <= 0) {
-                       pendAt = now + g_fhDelayMs.load() / 1000.0; pendTrig = now; pendEdge = edge; pendPlayer = player;
+                       pendAt = now + (spawnBegin ? 0 : g_fhDelayMs.load() / 1000.0); pendTrig = now; pendEdge = edge; pendPlayer = player;  // the spawn-hit seal is already out: no press delay
                        { const int fs = g_styleFree.load(), sn = FbStyleNow(); g_fbPressArm.store(fs >= 0 ? fs : sn);  // human #58330
                          Log("FormStyle press: free %d A95C %d -> %d", fs, sn, g_fbPressArm.load()); }
                        if (padLeft) CoverStartSmoke(player, now);  // human #58146: smoke first, the player vanishes inside it
@@ -3184,7 +3185,7 @@ void FormHide4Tick(uint64_t player) {
             FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
-                if (spawnBegin) { g_fh4.fromSpawn = true; Log("FormHide=4 begin from the seal spawn hit (no FormSlot0 capture) seal=%llX desc=%X t=%.3f", (unsigned long long)cap, g_fkSealDesc.load(), now); }
+                if (spawnBegin) { g_fh4.fromSpawn = true; spawnUsed = cap; spawnUsedT = capT; Log("FormHide=4 begin from the seal spawn hit (no FormSlot0 capture) seal=%llX desc=%X t=%.3f", (unsigned long long)cap, g_fkSealDesc.load(), now); }
                 FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
             }
             if (!Fh4Apply(player)) { g_fh4Fault.store(true); Fh4Restore(player); }
