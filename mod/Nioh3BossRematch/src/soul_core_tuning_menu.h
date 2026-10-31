@@ -9,7 +9,7 @@ template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:"};
-const double kSctDefault[kSctN] = {350, 0, 0, 0, 0, 1.4, 4};
+const double kSctDefault[kSctN] = {350, 0, 0, 0, 150, 1.4, 4};
 void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 5 || w == 6) snprintf(b, n, "x%.1f", v);
     else if (w == 1 || w == 2) snprintf(b, n, "%+d", (int)v);
