@@ -2241,6 +2241,8 @@ bool FhIsSealAct(uint32_t id) {
 // human #58733: cores that summon a human ally (A9F39: action 0x28B6, no seal throw) spawn a live "seal" too; only a capture that follows
 // the seal throw (0x28FD family) within FormNeedSealActSec may begin a form, so those cores behave like the plain game. 0 = off.
 double g_sealEdgeT = -100;
+extern std::atomic<uint32_t> g_ftActs[4];
+extern std::atomic<int> g_ftN;
 std::atomic<int> g_formNeedSealActMs{4000};
 bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
     static uint32_t last = 0xFFFFFFFF;
@@ -2260,6 +2262,8 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
         ++hn;
         edge = FhIsSealAct(id);
         if (edge) g_sealEdgeT = now;
+        // human #58738: some yokai cores (30744, bottom slot) throw with 0x28FB only, never 0x28FD; any FastThrow throw id counts as the seal throw
+        else for (int i = 0, n = g_ftN.load(); i < n; ++i) if (g_ftActs[i].load() == id) { g_sealEdgeT = now; break; }
         if (g_fhActLog.load()) {
             if ((int64_t)now != sec) { sec = (int64_t)now; inSec = 0; }
             if (++inSec <= 20 || edge) Log("FormHide=3 player action 0x%X -> 0x%X%s t=%.3f", prev, id, edge ? " (seal action)" : "", now);
@@ -3041,6 +3045,7 @@ void FormHide4Tick(uint64_t player) {
     static double pendAt = 0, pendTrig = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
     static uint64_t attempted = 0;
     static double attemptedT = -1;
+    bool spawnBegin = false;
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
@@ -3145,8 +3150,15 @@ void FormHide4Tick(uint64_t player) {
             }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player && [&] {
-                   const bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
+                   bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
                                       FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
+                   spawnBegin = false;
+                   if (!fresh && !edge) {  // human #58738/#58746: no FormSlot0 capture for some cores (30744) -> the seal spawn hit is the capture (every core, every slot)
+                       const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
+                       if (sc && now >= st && now - st < 2.5 && (sc != attempted || st != attemptedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
+                           cap = sc; capT = st; fresh = true; spawnBegin = true;
+                       }
+                   }
                    const int needMs = g_formNeedSealActMs.load();
                    const bool sealActOk = needMs <= 0 || now - g_sealEdgeT <= needMs / 1000.0;
                    static uint64_t skipLogged = 0;
@@ -3172,6 +3184,7 @@ void FormHide4Tick(uint64_t player) {
             FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                if (spawnBegin) { g_fh4.fromSpawn = true; Log("FormHide=4 begin from the seal spawn hit (no FormSlot0 capture) seal=%llX desc=%X t=%.3f", (unsigned long long)cap, g_fkSealDesc.load(), now); }
                 FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
             }
             if (!Fh4Apply(player)) { g_fh4Fault.store(true); Fh4Restore(player); }
