@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <shellapi.h>
 #include <cstdio>
 #include <cstring>
@@ -41,8 +42,8 @@ Sample Read() {
  Reader rd;s=titlegate::Read((uintptr_t)base,rd);
  // Retain the independent system-message exclusion. Faults remain a hard denial.
  uintptr_t manager=0,messages=0,again=0;
- if(!s.readable || !Rd((uintptr_t)base+0x45BBF80,manager)||!manager||
-    !Rd(manager+0xC0,messages)||!Rd((uintptr_t)base+0x45BBF80,again)||again!=manager||
+ if(!s.readable || !Rd((uintptr_t)base+Grva(0x45BBF80),manager)||!manager||
+    !Rd(manager+0xC0,messages)||!Rd((uintptr_t)base+Grva(0x45BBF80),again)||again!=manager||
     !Rd(manager+0xC0,again)||again!=messages||messages){s.readable=false;}
  return s;
 }
@@ -106,7 +107,7 @@ void Configure(uint8_t* b,bool k,const wchar_t* ini,void (*log)(const char*,...)
  // Byte check the game's exact top-mode predicate; never invoke it or patch it.
  static const unsigned char bytes[]={0x48,0x8b,0x15,0xe9,0x41,0x68,0x04,0x33,0xc0,0x48,0x85,0xd2,0x74,0x1c,0x4c,0x8b,0x42,0x08,0x4c,0x39,0x02,0x74,0x13,0x49,0x8b,0x50,0xf8,0x48,0x85,0xd2,0x74,0x0a,0x48,0x8b,0x01,0x48,0x39,0x42,0x08,0x0f,0x94,0xc0,0xc3};
  unsigned char found[sizeof bytes]{};SIZE_T n=0;
- if(!known||!base||!ReadProcessMemory(GetCurrentProcess(),base+0x85960,found,sizeof found,&n)||n!=sizeof found||memcmp(found,bytes,sizeof bytes))known=false;
+ if(!known||!base||!ReadProcessMemory(GetCurrentProcess(),base+Grva(0x85960),found,sizeof found,&n)||n!=sizeof found||memcmp(found,bytes,sizeof bytes))known=false;
  allowed=false;gate={};polled=0;
  snprintf(note,sizeof note,"%s: choose a slot, then queue and quit normally.",realRoot?"Full-root backup required":"Copy-only test");
  if(logfn)logfn("SaveFiles: title candidate promoted; Enabled=%d RealRoot=%d; 1000ms stable + fresh action reads",enabled,realRoot);
@@ -130,9 +131,9 @@ void Poll(){
   // loaded slot index S+0x28, checksum-fail S+0x41, busy S+0x38, live save op, top mode.
   static uint32_t last[8]={~0u,~0u,~0u,~0u,~0u,~0u,~0u,~0u};uint32_t v[8]={~1u,~1u,~1u,~1u,~1u,~1u,~1u,~1u};
   uintptr_t holder=0,app=0,m=0,S=0,op=0;uint8_t b8=0;uint32_t u32=0;
-  if(Rd((uintptr_t)base+0x45B9E40,holder)&&Rd(holder,app)&&app){if(Rd(app+0x279A,b8))v[0]=b8;float f=0;if(Rd(app+0x279C,f))v[1]=(uint32_t)(f>0?f:0);}
-  if(Rd((uintptr_t)base+0x45C8480,m)&&m){if(Rd(m+0x10,u32))v[2]=u32;if(Rd(m,S)&&S){if(Rd(S+0x28,u32))v[3]=u32;if(Rd(S+0x41,b8))v[4]=b8;if(Rd(S+0x38,b8))v[5]=b8;}}
-  if(Rd((uintptr_t)base+0x45C6EC0,op))v[6]=op?1u:0u;
+  if(Rd((uintptr_t)base+Grva(0x45B9E40),holder)&&Rd(holder,app)&&app){if(Rd(app+0x279A,b8))v[0]=b8;float f=0;if(Rd(app+0x279C,f))v[1]=(uint32_t)(f>0?f:0);}
+  if(Rd((uintptr_t)base+Grva(0x45C8480),m)&&m){if(Rd(m+0x10,u32))v[2]=u32;if(Rd(m,S)&&S){if(Rd(S+0x28,u32))v[3]=u32;if(Rd(S+0x41,b8))v[4]=b8;if(Rd(S+0x38,b8))v[5]=b8;}}
+  if(Rd((uintptr_t)base+Grva(0x45C6EC0),op))v[6]=op?1u:0u;
   v[7]=(uint32_t)(s.top&0xFFFFFFFFu);
   if(memcmp(v,last,sizeof v)){logfn("LiveTitleWatch: reset279A=%u countdown=%u m+10=%u S+28(slot)=%d S+41(ckfail)=%u S+38(busy)=%u op=%u top=%p state=%u title=%d",v[0],v[1],v[2],(int)v[3],v[4],v[5],v[6],(void*)s.top,s.state,s.title);memcpy(last,v,sizeof v);}
  }
@@ -147,8 +148,8 @@ void Poll(){
   if(!allowed||!ActionAllowed("live-soft-reset"))return;
   liveResetArmed=false;
   uintptr_t holder=0,app=0;uint8_t pend=1;
-  if(!Rd((uintptr_t)base+0x45B9E40,holder)||!Rd(holder,app)||!app||!Rd(app+0x279A,pend)||pend!=0){snprintf(note,sizeof note,"Imported, reset refused (game busy). Choose Load Game.");return;}
-  __try{reinterpret_cast<void(*)(void*)>((uintptr_t)base+0x1C205A4)(reinterpret_cast<void*>(holder));snprintf(note,sizeof note,"Imported; title reloading with the newest save.");doneAt=GetTickCount64();if(logfn)logfn("SaveFiles: live soft reset requested (holder=%p app=%p)",(void*)holder,(void*)app);}
+  if(!Rd((uintptr_t)base+Grva(0x45B9E40),holder)||!Rd(holder,app)||!app||!Rd(app+0x279A,pend)||pend!=0){snprintf(note,sizeof note,"Imported, reset refused (game busy). Choose Load Game.");return;}
+  __try{reinterpret_cast<void(*)(void*)>((uintptr_t)base+Grva(0x1C205A4))(reinterpret_cast<void*>(holder));snprintf(note,sizeof note,"Imported; title reloading with the newest save.");doneAt=GetTickCount64();if(logfn)logfn("SaveFiles: live soft reset requested (holder=%p app=%p)",(void*)holder,(void*)app);}
   __except(EXCEPTION_EXECUTE_HANDLER){snprintf(note,sizeof note,"Soft reset faulted.");if(logfn)logfn("SaveFiles: soft reset FAULT");}
  }
 }

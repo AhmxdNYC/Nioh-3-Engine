@@ -320,6 +320,7 @@ int main() {
         CHECK(!has(kItPstBase + PS_BOSS_KI_DRAIN) && !has(kItPstBase + PS_DMG_TAKEN) && !has(kItPstBase + PS_BOSS_SPEED) && has(kItPstBase + PS_PLAYER_INF_KI) && has(kItPstBase + PS_DMG_DEALT));
         CHECK(!has(kItPstBase + PS_ONE_HIT_KI) && !has(kItPstBase + PS_HOLD_KI_BREAK) && at(kItPstBase + PS_KI_DEALT) == at(kItPstBase + PS_DMG_DEALT) + 1);  // user #22588
         CHECK(has(kItPstBase + PS_PLAYER_INF_NIN) && has(kItPstBase + PS_PLAYER_SPEED) && items[n - 1] == kItBack);
+        CHECK(at(kItPstBase + PS_PLAYER_INF_SOUL) == at(kItPstBase + PS_PLAYER_INF_NIN) + 1);  // pc #57367 Infinite soul cores right after Infinite ninjutsu
         CHECK(!has(kItPstBase + PS_PLAYER_METER) && !shown("Player frame meter:"));  // frame meter: Display Overlays only
         CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage I deal:", "x1.00"));
         g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);

@@ -1,6 +1,7 @@
 // asyncslots.cpp - AS: engine async-compute slots at boot + live producer switch (default off). See asyncslots.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 
 #include <cstdint>
@@ -170,7 +171,7 @@ bool FrozenWrite(Write* w, int n) {
     return true;
 }
 
-bool Same(uintptr_t base, uint32_t rva, const uint8_t* b, size_t n) { return memcmp((const void*)(base + rva), b, n) == 0; }
+bool Same(uintptr_t base, uint32_t rva, const uint8_t* b, size_t n) { return memcmp((const void*)(base + Grva(rva)), b, n) == 0; }
 
 // `call rel32` at site must reach `to`
 bool CallTargets(uintptr_t base, uint32_t site, uintptr_t to) {
@@ -259,17 +260,17 @@ bool BootWanted(const wchar_t* iniPath, BootCfg& b, void (*log)(const char*, ...
 bool BootTry(uintptr_t base, BootCfg& b, void (*log)(const char*, ...)) {
     if (!b.mode || !base) return false;
     // decrypted yet? the gate (74 or EB, AS0 may have run first), AsyncSlotGetCtx, and the static table's ids
-    const uint8_t* gate = (const uint8_t*)(base + kGate);
+    const uint8_t* gate = (const uint8_t*)(base + Grva(kGate));
     if (!Same(base, kGateCmp, kGateCmpBytes, sizeof(kGateCmpBytes)) || !(gate[0] == 0x74 || gate[0] == 0xEB) || gate[1] != 0x14) return true;
     if (!Same(base, kGetCtx, kGetCtxBytes, sizeof(kGetCtxBytes))) return true;
-    uint8_t* tab = (uint8_t*)(base + kTable);
+    uint8_t* tab = (uint8_t*)(base + Grva(kTable));
     for (int i = 0; i < kSlots; ++i) {
         uint32_t id;
         memcpy(&id, tab + 12 * i + 8, 4);
         if (id != (uint32_t)i || tab[12 * i] > 1) return true;
     }
     uint32_t liveId1;
-    memcpy(&liveId1, (const void*)(base + kLive + 12 * 1 + 8), 4);
+    memcpy(&liveId1, (const void*)(base + Grva(kLive) + 12 * 1 + 8), 4);
     if (liveId1 != 0) {
         if (log) log("AS: renderer already initialised (async slot table is live) - boot slots NOT added");
         return false;
@@ -279,10 +280,10 @@ bool BootTry(uintptr_t base, BootCfg& b, void (*log)(const char*, ...)) {
         bool ok = gate[0] == 0xEB;
         if (!ok) {
             DWORD old, t;
-            if (VirtualProtect((void*)(base + kGate), 2, PAGE_EXECUTE_READWRITE, &old)) {
-                memcpy((void*)(base + kGate), kGateNew, 2);
-                VirtualProtect((void*)(base + kGate), 2, old, &t);
-                FlushInstructionCache(GetCurrentProcess(), (void*)(base + kGate), 2);
+            if (VirtualProtect((void*)(base + Grva(kGate)), 2, PAGE_EXECUTE_READWRITE, &old)) {
+                memcpy((void*)(base + Grva(kGate)), kGateNew, 2);
+                VirtualProtect((void*)(base + Grva(kGate)), 2, old, &t);
+                FlushInstructionCache(GetCurrentProcess(), (void*)(base + Grva(kGate)), 2);
                 ok = true;
             }
         }
@@ -341,7 +342,7 @@ void StatusLine(char* buf, unsigned n, uintptr_t base) {
     prevT = now;
     char live[64] = " -";
     if (base) {
-        const uint8_t* tb = (const uint8_t*)(base + kLive);
+        const uint8_t* tb = (const uint8_t*)(base + Grva(kLive));
         uint32_t m = 0;
         for (int i = 0; i < kSlots; ++i) {
             uint32_t id;
@@ -386,7 +387,7 @@ void Start(const StartInfo& info) {
     void (*const caves[kNumSites])() = {&caveAs0, &caveAs1, &caveAs2, &caveAs3, &caveAs4, &caveAs5};
     for (int k = 0; k < kNumSites; ++k) Tramp(g_page + 0x10 * k, caves[k]);
     FlushInstructionCache(GetCurrentProcess(), g_page, 0x10 * kNumSites);
-    as_resume = b + kGetCtxResume;
+    as_resume = b + Grva(kGetCtxResume);
     as_and_on = ~g_boot.sync;
     as_and_off = ~g_boot.added;
     as_enable = g_boot.mode == 1 ? 1u : 0u;
@@ -402,12 +403,12 @@ void Start(const StartInfo& info) {
             g_log("AS: slot-0 join gates (RS+13ACh) differ from v2.02 - no live switch for slot 0 (it stays as created)");
             continue;
         }
-        if (!CallTargets(b, kSites[k].rva, b + kGetCtx)) {
+        if (!CallTargets(b, kSites[k].rva, b + Grva(kGetCtx))) {
             g_log("AS: producer site %X (%s, slot %d) is not `call 52BE1C` - not installed", kSites[k].rva, kSites[k].name, kSites[k].slot);
             ok = false;
             break;
         }
-        if (!CallBytes(w[n++], (uint8_t*)(b + kSites[k].rva), g_page + 0x10 * k)) { ok = false; break; }
+        if (!CallBytes(w[n++], (uint8_t*)(b + Grva(kSites[k].rva)), g_page + 0x10 * k)) { ok = false; break; }
         sites |= 1u << k;
     }
     if (!ok || !FrozenWrite(w, n)) {

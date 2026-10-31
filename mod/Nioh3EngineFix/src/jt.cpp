@@ -7,6 +7,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 #include <intrin.h>
 #include <algorithm>
@@ -98,7 +99,7 @@ thread_local WRec t_wait;
 uint32_t Tick() {
     if (!g_base) return 0;
     __try {
-        const uint8_t* G = *reinterpret_cast<uint8_t* const volatile*>(g_base + kRvaFrameMgrPtr);
+        const uint8_t* G = *reinterpret_cast<uint8_t* const volatile*>(g_base + Grva(kRvaFrameMgrPtr));
         return G ? *reinterpret_cast<const volatile uint32_t*>(G + kOffTick) : 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;

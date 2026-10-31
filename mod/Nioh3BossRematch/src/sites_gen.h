@@ -5,6 +5,9 @@ namespace sites {
 constexpr uint32_t kKnownTimestamp = 0x6AA7C106, kKnownSizeOfImage = 0x52FB000;
 enum Kind : uint8_t { kHook = 0, kFn = 1, kCall = 2, kGlobal = 3, kCheck = 4, kNative = 5 };  // kNative: hook resolved by script-native name
 struct Def { const char* name; const char* group; Kind kind; uint32_t rva; uint8_t head; const char* pattern; uint8_t offset; uint8_t dispOff; uint8_t insnLen; int32_t addend; uint32_t anchor; const char* native; };
+#ifndef BR_SOULCORE
+#define BR_SOULCORE 0  // soul-core sites (groups SC, ACANCEL) only in the dev line (addon.h)
+#endif
 static const Def kDefs[] = {
     {"PerFrameTickCall", "PUMP", kCall, 0x56529C, 0, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"BossBattleMode", "FIGHT", kNative, 0x23A2DCC, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Mission::BossBattleMode"},

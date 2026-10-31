@@ -98,7 +98,7 @@ static uint32_t g_rep_chain[MV_REP_MAX][MV_SEQ_MAX]; static int g_rep_nchain[MV_
 static int g_rep_phase[MV_REP_MAX];                  // sequence mode: 0 ended / gap, 1 head requested, 2 chain playing, 3 own follow-up
 static uint32_t g_rep_cur[MV_REP_MAX];               // last action seen while the sequence runs (log once per action)
 #ifndef MV_FORCE
-#define MV_FORCE(st, id) ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + 0x66C4A8))((st), (uint64_t)(id), 0, 0.0f)
+#define MV_FORCE(st, id) ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + Grva(0x66C4A8)))((st), (uint64_t)(id), 0, 0.0f)
 #endif
 // user #14546: runs right before the sequence head is forced (training.c: aggro.h AgSeqFace, a Stand-still boss with aggro ON turns to the player)
 #ifndef MV_PREFORCE
@@ -332,7 +332,7 @@ static void MvInstall(void) {
     if (g_mv_hooked) return;
     static const uint8_t selp[15] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC,0x30};
     static const uint8_t comp[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x18,0x48,0x89,0x78,0x20};
-    if (memcmp((void*)(B + 0x35EF04), selp, 15) || memcmp((void*)(B + 0x35BC68), comp, 15)) {
+    if (memcmp((void*)(B + Grva(0x35EF04)), selp, 15) || memcmp((void*)(B + Grva(0x35BC68)), comp, 15)) {
         Log("MoveToggle: prologue mismatch (35EF04/35BC68), not installed"); InterlockedExchange(&g_mv_hooked, -1); return;
     }
     o_mvsel = (MvSelFn)Hook(0x35EF04, 15, (void*)h_mvsel);

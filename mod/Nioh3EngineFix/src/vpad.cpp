@@ -5,6 +5,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <intrin.h>
 #include <xinput.h>
 
@@ -251,12 +252,12 @@ bool Patch(uint8_t* p, const uint8_t* bytes, size_t len) { return PatchAtomic(p,
 
 bool CodeOk(uint8_t* base) {
     __try {
-        if (memcmp(base + kIsActive, kIsActiveBytes, sizeof(kIsActiveBytes)) != 0) return false;
+        if (memcmp(base + Grva(kIsActive), kIsActiveBytes, sizeof(kIsActiveBytes)) != 0) return false;
         for (const Site& s : kSites) {
-            const uint8_t* p = base + s.rva;
+            const uint8_t* p = base + Grva(s.rva);
             int32_t rel = 0;
             memcpy(&rel, p + 1, 4);
-            if (p[0] != 0xE8 || p + 5 + rel != base + kIsActive || memcmp(p + 5, s.after, (size_t)s.nAfter) != 0) return false;
+            if (p[0] != 0xE8 || p + 5 + rel != base + Grva(kIsActive) || memcmp(p + 5, s.after, (size_t)s.nAfter) != 0) return false;
         }
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -323,7 +324,7 @@ void InstallUnfocused(uint8_t* base) {
         VLOG("KeepRunningUnfocused: not installed (no executable page within 2 GB of the image)");
         return;
     }
-    BuildThunk(t, (uint64_t)(base + kIsActive));
+    BuildThunk(t, (uint64_t)(base + Grva(kIsActive)));
     for (const Site& s : kSites) {
         uint8_t* site = base + s.rva;
         const intptr_t d = (intptr_t)t - (intptr_t)(site + 5);
@@ -353,14 +354,14 @@ GameState ReadGame() {
     GameState s = {};
     if (!g_info.base || !g_info.knownBuild) return s;
     __try {
-        const uint64_t g = *(const volatile uint64_t*)(g_info.base + kRvaGameMain);
+        const uint64_t g = *(const volatile uint64_t*)(g_info.base + Grva(kRvaGameMain));
         if (g < 0x10000) return s;
         const uint8_t* G = (const uint8_t*)(uintptr_t)g;
         s.frame = *(const volatile uint32_t*)(G + 0x610);
         for (int i = 0; i < 6; ++i) s.stop[i] = G[0x588 + i];
         s.active = G[0x1AB];
         s.ok = true;
-        const uint64_t pt = *(const volatile uint64_t*)(g_info.base + kRvaPlayerTab);
+        const uint64_t pt = *(const volatile uint64_t*)(g_info.base + Grva(kRvaPlayerTab));
         if (pt >= 0x10000) {
             const uint64_t pl = *(const volatile uint64_t*)(uintptr_t)(pt + 0xCD * 0x18);
             if (pl >= 0x10000) {

@@ -10,7 +10,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.22"
+#define ADDON_VERSION "1.4.23"
+// Dev-line code (soul-core forms) is compiled only with /DBR_SOULCORE=1; the public release builds with 0 and its source has none of it.
+#ifndef BR_SOULCORE
+#define BR_SOULCORE 0
+#endif
 
 namespace addon {
 
@@ -61,6 +65,7 @@ bool InstallGroup(const char* group, const char** why);
 bool InstallPump(void (*tick)(), const char** why);
 // retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
+bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why);
 
 // ---- features ----
 namespace bosslog {
@@ -115,6 +120,7 @@ bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
 void SetPumpLive(bool installed);  // Init publishes pump installation outcome
 void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
+bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
 // UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];

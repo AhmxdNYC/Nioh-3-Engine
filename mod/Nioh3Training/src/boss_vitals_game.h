@@ -24,7 +24,7 @@ static __attribute__((noinline)) int BvWriteHp(int s, uint64_t a, uint64_t st, u
     const int nf = BvNfSlot(a); const int64_t off = nf >= 0 ? g_nf_off[nf] : 0; int keep = 0;
     const uint64_t raw = BvHpRaw(target, max, off, &keep);
     uint64_t back = 0; int how = 1;
-    __try { ((void (*)(uint64_t, uint64_t))(B + 0x66C188))(st + 0x38, raw); back = *(volatile uint64_t*)(st + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = ~0ull; }
+    __try { ((void (*)(uint64_t, uint64_t))(B + Grva(0x66C188)))(st + 0x38, raw); back = *(volatile uint64_t*)(st + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = ~0ull; }
     if (back != raw) { how = 2; __try { *(volatile uint64_t*)(st + 0x58) = raw; back = *(volatile uint64_t*)(st + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = ~0ull; } }
     if (nf >= 0 && off > 0 && !keep) g_nf_off[nf] = 0;  // the hidden reserve did not fit under max: dropped (NfTick re-adds it at <= 20 %)
     BvLog("BOSSVITALS Boss %c %p: HP -> %llu / %llu (%s, %s%s)%s", 'A' + s, (void*)a, target, max, why, how == 1 ? "native HP set" : "direct field write",
@@ -39,7 +39,7 @@ static __attribute__((noinline)) int BvWriteKi(int s, uint64_t a, uint64_t st, f
     __try {
         volatile float* lp = (volatile float*)(st + 0x98 + 0x88); loss = *lp;
         if (BvKiCeilClear(v, max, loss)) { *lp = 0.0f; cleared = 1; }
-        ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, v); back = *(volatile float*)(st + 0xAC);
+        ((void (*)(uint64_t, float))(B + Grva(0x2F88D0)))(st + 0x98, v); back = *(volatile float*)(st + 0xAC);
     } __except (EXCEPTION_EXECUTE_HANDLER) { back = -1.0f; }
     const int ok = back > v - 0.5f && back < v + 0.5f;
     char cl[80] = ""; if (cleared) snprintf(cl, sizeof cl, ", Ki ceiling loss %.1f cleared", loss);
@@ -55,7 +55,7 @@ static __attribute__((noinline)) void BvSlotTick(int s, DWORD now) {
     __try {
         hm = *(volatile uint64_t*)(st + 0x50); hc = *(volatile uint64_t*)(st + 0x58); dead = *(volatile int32_t*)(st + 0x48) == 1;
         kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0);
-        broken = KbState(ai, 0x23) || ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) || kc <= 0.0f;
+        broken = KbState(ai, 0x23) || ((uint8_t (*)(uint64_t))(B + Grva(0x844FE4)))(st + 0x98) || kc <= 0.0f;
     } __except (EXCEPTION_EXECUTE_HANDLER) { g_bv_live[s].live = 0; return; }
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
     const int64_t off = nf >= 0 ? g_nf_off[nf] : 0;

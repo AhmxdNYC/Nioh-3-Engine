@@ -3,13 +3,19 @@
 // [Debug] BossLog / RematchLog / InvLog in Nioh3BossRematch.ini (all 0 by default). Every hook: the handler runs, then the
 // original instructions, with all argument registers and xmm0-5 intact (hooks.cpp). Sites resolve by pattern / native name.
 #include "addon.h"
+#include "gamerva.h"
 
 #include <intrin.h>
+#include <tlhelp32.h>
 
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <vector>
+#include <cmath>
+#include <algorithm>
 
 namespace addon {
 namespace fight {
@@ -825,7 +831,9 @@ void HkInvAdd(uint64_t save, uint64_t out, uint64_t desc, uint64_t r9, const uin
     (void)out;
 }
 
+
 }  // namespace
+
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
@@ -897,7 +905,9 @@ void Register(bool boss, bool rm, bool inv) {
         OnEntry("Player::NoGameOver", &HkEnd2<4>);
         OnEntry("BuildSaveFilePath", &HkSavePath);
     }
-    if (inv) OnEntry("InventoryAddItem", &HkInvAdd);
+    if (inv) {
+        OnEntry("InventoryAddItem", &HkInvAdd);
+    }
 }
 
 }  // namespace bosslog

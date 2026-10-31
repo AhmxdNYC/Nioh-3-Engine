@@ -38,7 +38,7 @@ int PstSet(int what, int value) {
 }
 template <class Add> void PstAddPlayerRows(Add&& add) {
     if (!PstAvailable()) return;
-    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
+    add(kItPstBase + PS_PLAYER_INF_KI); add(kItPstBase + PS_PLAYER_INF_NIN); add(kItPstBase + PS_PLAYER_INF_SOUL); add(kItPstBase + PS_DMG_DEALT); add(kItPstBase + PS_KI_DEALT); add(kItPstBase + PS_PLAYER_SPEED);  // Player frame meter: Display Overlays only
 }
 // Practice hub rows. The frame meter switch, frame rows and KEY entries live only in the EngineFix menu's
 // Display Overlays > Frame meter settings page (human request: frame meter settings out of Practice).
@@ -66,6 +66,7 @@ int PstMasterState(const int* set, int n) {
     return !off ? 1 : !on ? 0 : 2;
 }
 const char* PstLabel(int what) {
+    if (what == PS_PLAYER_INF_SOUL) return "Infinite soul cores:";  // pc #57367 (before the PS_KEY_STARTUP.. table: it is past that range)
     if (what == PS_FRAME_SIZE) return "Ring size:";
     if (what == PS_FRAME_STYLE) return "Frame meter style:";
     if (what == PS_FRAME_PROW) return "Player attack lane:";  // human #38180
@@ -122,7 +123,8 @@ bool PstChange(int item, int dir) {
     const int v = PstSet(what, want);
     char t[24]; PstValueText(what, v, t, sizeof t);
     Log("Rematch: menu Practice %s -> %d (#22389)", PstLabel(what), v);
-    if (what == PS_FRAME_PROW || what == PS_FRAME_IFR || what >= PS_KEY_STARTUP) snprintf(g_msg, sizeof g_msg, "%s %s. Saved.", PstLabel(what), t);
+    if (what == PS_PLAYER_INF_SOUL) snprintf(g_msg, sizeof g_msg, v ? "Infinite soul cores ON: soul-core uses are not used up, anywhere. Saved." : "Infinite soul cores OFF: normal uses. Saved.");
+    else if (what == PS_FRAME_PROW || what == PS_FRAME_IFR || what >= PS_KEY_STARTUP) snprintf(g_msg, sizeof g_msg, "%s %s. Saved.", PstLabel(what), t);
     else if (what == PS_PLAYER_METER) snprintf(g_msg, sizeof g_msg, v ? "Player frame meter ON: show player timing in the selected Row or Ring style. Close the menu to view. Saved." : "Player frame meter OFF. Saved.");
     else if (what == PS_FRAME_METER) snprintf(g_msg, sizeof g_msg, v ? "Frame meter ON: show the first spawned boss in the selected Row or Ring style. Close the menu to view. Saved." : "Frame meter OFF. Saved.");
     else if (what == PS_PLAYER_INF_KI) snprintf(g_msg, sizeof g_msg, v ? "Infinite Ki ON: keep your Ki full in Training and spawned Boss Matches. Saved." : "Infinite Ki OFF: normal Ki. Saved.");
@@ -196,6 +198,7 @@ const char* PstFooter(int item) {
     case PS_KI_FLOOR: return "All spawned bosses: negative Ki limit. 100% = normal depth; 0% = no negative Ki; larger values allow deeper breaks. Experimental. Saved for Training; not applied during Boss Matches.";
     case PS_NEG_KI_METER: return "Show negative Ki below spawned bosses' Ki bars. Appears only below zero; shows current Ki, reserve, and floor. Display only; OFF by default. Saved.";
     case PS_KI_LOG: return "Write spawned bosses' Ki-break details to Nioh3Training.log every 0.1 s and on hits. Diagnostic only; does not change the fight. Saved.";
+    case PS_PLAYER_INF_SOUL: return "Soul cores (d-pad) are not used up: each use is put back right after the throw. Works everywhere, for testing. Other items are not touched. Saved.";
     case PS_PLAYER_INF_NIN: return "Training / spawned Boss Matches: keep your ninjutsu gauges full. Does not apply to ordinary story fights. Saved.";
     case PS_PLAYER_SPEED: return "Training / spawned Boss Matches: your animation speed, including attacks and dodges. 100% = normal; range 10-300%. Applies from your next move. Saved.";
     case PS_PLAYER_METER: return "Show player attack timing in the frame meter. One cell = one game frame at 60 fps. Choose Row or Ring and individual lanes in Mod menu > Display Overlays. Saved.";

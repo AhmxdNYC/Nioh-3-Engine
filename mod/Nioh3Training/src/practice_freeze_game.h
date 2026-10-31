@@ -47,12 +47,12 @@ static void h_fzlatch(uint64_t flags) {
 static int FzLatchInstall(void) {
     if (g_fz_latch_hooked) return g_fz_latch_hooked == 1;
     g_fz_latch_hooked = 2;
-    uint8_t* site = (uint8_t*)(B + 0x5AD64A);
+    uint8_t* site = (uint8_t*)(B + Grva(0x5AD64A));
     static const uint8_t pre[7] = {0x48, 0x8D, 0x8F, 0x88, 0x05, 0x00, 0x00};  // lea rcx,[rdi+588h] at 5AD643
     static const uint8_t lat[10] = {0x48, 0x8D, 0x51, 0x08, 0x41, 0xB8, 0x06, 0x00, 0x00, 0x00};  // 89B6EC: lea rdx,[rcx+8] / mov r8d,6
     if (memcmp(site - 7, pre, 7) || site[0] != 0xE8) { Log("PRACTICE FREEZE: latch call 5AD64A bytes differ, frame step OFF (freeze still works)"); return 0; }
     const uintptr_t prev = (uintptr_t)(site + 5) + *(int32_t*)(site + 1);
-    if (prev == B + 0x89B6EC && memcmp((void*)prev, lat, 10)) { Log("PRACTICE FREEZE: latch 89B6EC bytes differ, frame step OFF"); return 0; }
+    if (prev == B + Grva(0x89B6EC) && memcmp((void*)prev, lat, 10)) { Log("PRACTICE FREEZE: latch 89B6EC bytes differ, frame step OFF"); return 0; }
     uint8_t* stub = 0;
     for (uintptr_t a = ((uintptr_t)site - 0x70000000) & ~0xFFFFull; a < (uintptr_t)site + 0x70000000 && !stub; a += 0x10000)
         stub = (uint8_t*)VirtualAlloc((void*)a, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
@@ -70,7 +70,7 @@ static int FzLatchInstall(void) {
 // Game time this tick (ms), the frame meter's formula (FpGameStep).
 static __attribute__((noinline)) double FzGameDt(float* tsOut, int* fpsOut) {
     uint64_t g = 0; double d = 0; *tsOut = -1; *fpsOut = 0;
-    if (!Rd64(B + 0x4759910, &g) || !g) return 0;
+    if (!Rd64(B + Grva(0x4759910), &g) || !g) return 0;
     __try {
         const uint32_t n = *(volatile uint32_t*)(g + 0x610); const int fps = *(volatile int32_t*)(g + 0x614); const float ts = *(volatile float*)(g + 0x624);
         uint32_t k = g_fz_610ok ? n - g_fz_610 : 1; g_fz_610 = n; g_fz_610ok = 1; if (k > 8) k = 8;

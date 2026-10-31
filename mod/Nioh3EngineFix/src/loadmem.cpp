@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <psapi.h>
 
 #include <atomic>
@@ -80,11 +81,11 @@ bool SafeCopy(void* dst, uintptr_t src, size_t n) {
 
 int DefLock(void* mtx) {
     using Fn = int (*)(void*);
-    return reinterpret_cast<Fn>(g_base + kRvaMtxLock)(mtx);
+    return reinterpret_cast<Fn>(g_base + Grva(kRvaMtxLock))(mtx);
 }
 int DefUnlock(void* mtx) {
     using Fn = int (*)(void*);
-    return reinterpret_cast<Fn>(g_base + kRvaMtxUnlock)(mtx);
+    return reinterpret_cast<Fn>(g_base + Grva(kRvaMtxUnlock))(mtx);
 }
 bool DefReset(uintptr_t a, size_t n) { return VirtualAlloc(reinterpret_cast<void*>(a), n, MEM_RESET, PAGE_READWRITE) != nullptr; }
 
@@ -219,7 +220,7 @@ namespace {
 size_t FindHeaps(uintptr_t arena, uintptr_t* out, size_t maxOut) {
     size_t n = 0;
     static uint8_t buf[4096];
-    const uint64_t v1 = g_base + kRvaVtHeap, v2 = g_base + kRvaVtHeap2;
+    const uint64_t v1 = g_base + Grva(kRvaVtHeap), v2 = g_base + Grva(kRvaVtHeap2);
     for (size_t off = 0; off < kArenaScan && n < maxOut; off += sizeof buf) {
         if (!SafeCopy(buf, arena + off, sizeof buf)) continue;
         for (size_t i = 0; i + 8 <= sizeof buf && n < maxOut; i += 8) {
@@ -262,8 +263,8 @@ bool SelfTest(char* msg, size_t msgN) {
 bool CodeLooksRight() {
     static const uint8_t lockHead[] = {0x33, 0xD2, 0xE9};                                   // xor edx,edx ; jmp
     static const uint8_t unlockHead[] = {0x48, 0x83, 0xEC, 0x28, 0x83, 0x69, 0x4C, 0x01};   // sub rsp,28h ; sub dword [rcx+4Ch],1
-    return !memcmp(reinterpret_cast<const void*>(g_base + kRvaMtxLock), lockHead, sizeof lockHead) &&
-           !memcmp(reinterpret_cast<const void*>(g_base + kRvaMtxUnlock), unlockHead, sizeof unlockHead);
+    return !memcmp(reinterpret_cast<const void*>(g_base + Grva(kRvaMtxLock)), lockHead, sizeof lockHead) &&
+           !memcmp(reinterpret_cast<const void*>(g_base + Grva(kRvaMtxUnlock)), unlockHead, sizeof unlockHead);
 }
 
 DWORD WINAPI SweeperMain(LPVOID) {
@@ -288,7 +289,7 @@ DWORD WINAPI SweeperMain(LPVOID) {
         if (g_state == 3) return 0;
         if (!arena) {
             uint64_t v = 0;
-            if (SafeRead64(g_base + kRvaArenaPtr, &v) && v >= g_base && v < g_base + 0x8000000) arena = (uintptr_t)v;
+            if (SafeRead64(g_base + Grva(kRvaArenaPtr), &v) && v >= g_base && v < g_base + 0x8000000) arena = (uintptr_t)v;
             else continue;
         }
         // look for heaps until found, then once a minute for late ones

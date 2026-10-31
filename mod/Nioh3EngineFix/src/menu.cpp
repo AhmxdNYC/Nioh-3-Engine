@@ -18,6 +18,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #include <xinput.h>
@@ -511,7 +512,7 @@ void** FindXInputSlotRaw(uint8_t* base, bool known) {
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
-    return known ? reinterpret_cast<void**>(base + kRvaXInputIat) : nullptr;
+    return known ? reinterpret_cast<void**>(base + Grva(kRvaXInputIat)) : nullptr;
 }
 
 bool InstallPadHook() {
@@ -644,7 +645,7 @@ void SyncFreezeLocked() {
     __try {
         if (want) {
             uint64_t gp = 0;
-            if (!Rd(g_host.base + kRvaFrameMgrPtr, gp) || gp < 0x10000) return;
+            if (!Rd(g_host.base + Grva(kRvaFrameMgrPtr), gp) || gp < 0x10000) return;
             volatile LONG* c = reinterpret_cast<volatile LONG*>((uintptr_t)gp + kOffFreezeCounter);
             if (*c < 0 || *c > 1000) return;  // not a sane counter: leave the game alone
             InterlockedIncrement(c);
@@ -674,7 +675,7 @@ void SyncFreeze() {
 
 bool BytesAt(uint32_t rva, const uint8_t* b, size_t n) {
     __try {
-        return memcmp(g_host.base + rva, b, n) == 0;
+        return memcmp(g_host.base + Grva(rva), b, n) == 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
     }
@@ -2427,7 +2428,7 @@ int g_menuLogged = -1, g_menuLogs = 0;
 // the game's own getters, called on the Present thread inside SEH (tiny virtual-call wrappers that only read UI state)
 bool CallGameBool(uint32_t rva) {
     __try {
-        return reinterpret_cast<unsigned char (*)()>(g_host.base + rva)() != 0;
+        return reinterpret_cast<unsigned char (*)()>(g_host.base + Grva(rva))() != 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         g_menuSigOk = false;
         return false;
@@ -2439,7 +2440,7 @@ void PauseDetect(ULONGLONG t) {
     uint64_t gp = 0;
     uint8_t flags = 0;
     bool haveFlags = false;
-    if (Rd(g_host.base + kRvaFrameMgrPtr, gp) && gp >= 0x10000) {
+    if (Rd(g_host.base + Grva(kRvaFrameMgrPtr), gp) && gp >= 0x10000) {
         const uint8_t* G = reinterpret_cast<const uint8_t*>((uintptr_t)gp);
         uint8_t b[6] = {};
         uint32_t fc = 0;

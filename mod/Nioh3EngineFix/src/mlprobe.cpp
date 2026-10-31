@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 #include <intrin.h>
 #include <algorithm>
@@ -472,7 +473,7 @@ bool Start(const StartInfo& info) {
     char bad[160] = "";
     size_t bl = 0;
     for (const Site& s : kSites) {
-        uint8_t* p = (uint8_t*)(g_base + s.rva);
+        uint8_t* p = (uint8_t*)(g_base + Grva(s.rva));
         if (memcmp(p, kProl, 5) != 0) {
             bl += (size_t)_snprintf_s(bad + bl, sizeof bad - bl, _TRUNCATE, " %X(%s)", s.rva, p[0] == 0xE9 ? "already hooked" : "bytes");
             continue;

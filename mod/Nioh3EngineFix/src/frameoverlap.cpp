@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
@@ -1013,10 +1014,10 @@ LONG CALLBACK ReplayFault(PEXCEPTION_POINTERS ep) {
     __try {
         if (!g_base || ep->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION) return EXCEPTION_CONTINUE_SEARCH;
         const uintptr_t ret = *reinterpret_cast<uintptr_t*>(c->Rsp);
-        bool atCall = ret == g_base + 0x1A7C467;
+        bool atCall = ret == g_base + Grva(0x1A7C467);
         if (!atCall && GetCurrentThreadId() != g_replayTid) return EXCEPTION_CONTINUE_SEARCH;
         uintptr_t dispRbp = atCall ? c->Rbp : 0;
-        if (!atCall && c->Rip >= g_base + 0x1A7C3E0 && c->Rip < g_base + 0x1A7C4C0) {  // in the dispatcher loop itself (e.g. the
+        if (!atCall && c->Rip >= g_base + Grva(0x1A7C3E0) && c->Rip < g_base + Grva(0x1A7C4C0)) {  // in the dispatcher loop itself (e.g. the
             dispRbp = c->Rbp;                                                            // table read of a garbage opcode)
             atCall = true;
         }
@@ -1025,7 +1026,7 @@ LONG CALLBACK ReplayFault(PEXCEPTION_POINTERS ep) {
             uintptr_t fr[40];
             for (int k = 0; k < 40; ++k) {
                 if (Unwind(&u, fr, 2) < 2) break;  // one step: fr[1] = the caller's rip, u = the caller's context
-                if (u.Rip == g_base + 0x1A7C467) {
+                if (u.Rip == g_base + Grva(0x1A7C467)) {
                     dispRbp = u.Rbp;
                     atCall = true;
                     break;
@@ -1468,7 +1469,7 @@ void Start(const StartInfo& info) {
     // ---- verify everything before touching anything ----
     bool ok = true;
     for (const Site& s : sites) {
-        const uint8_t* at = (const uint8_t*)(b + s.rva);
+        const uint8_t* at = (const uint8_t*)(b + Grva(s.rva));
         if (s.op == 0xFF) {
             static const uint8_t k[] = {0x48, 0x8B, 0x8B, 0x78, 0x42, 0x00, 0x00, 0x48, 0x8B, 0x01, 0xFF, 0x90, 0x20, 0x01, 0x00, 0x00, 0x8B, 0xC0};
             if (memcmp(at - 10, k, sizeof k) != 0) {
@@ -1479,27 +1480,27 @@ void Start(const StartInfo& info) {
         }
         int32_t rel = 0;
         memcpy(&rel, at + 1, 4);
-        if (at[0] != s.op || (uintptr_t)(at + 5 + rel) != b + s.target) {
+        if (at[0] != s.op || (uintptr_t)(at + 5 + rel) != b + Grva(s.target)) {
             FLOG("FO: site %X (%s) bytes differ", s.rva, s.name);
             ok = false;
         }
     }
     // HandleSlotIsNotFreed 58C434 / HandlePoolSlotIsLive 58B76C: test rdx,rdx; je; mov eax,[rcx+8]; mov r8,rdx; shr r8,3Ch
     static const uint8_t kNotFreed[] = {0x48, 0x85, 0xD2, 0x74, 0x32, 0x8B, 0x41, 0x08, 0x4C, 0x8B, 0xC2, 0x49, 0xC1, 0xE8, 0x3C};
-    if (memcmp((void*)(b + 0x58C434), kNotFreed, sizeof kNotFreed)) {
+    if (memcmp((void*)(b + Grva(0x58C434)), kNotFreed, sizeof kNotFreed)) {
         FLOG("FO: HandleSlotIsNotFreed 58C434 bytes differ");
         ok = false;
     }
-    const uintptr_t vt[2] = {b + 0x40D4A78 + 0x130, b + 0x3AAF600 + 0x130};
+    const uintptr_t vt[2] = {b + Grva(0x40D4A78) + 0x130, b + Grva(0x3AAF600) + 0x130};
     for (uintptr_t v : vt)
-        if (F<uintptr_t>(v) != b + 0x113150) {
+        if (F<uintptr_t>(v) != b + Grva(0x113150)) {
             FLOG("FO: Renderer vtable slot +130h at %llX is not 113150", (unsigned long long)(v - b));
             ok = false;
         }
-    const uintptr_t tab = b + 0x3C02220;
+    const uintptr_t tab = b + Grva(0x3C02220);
     static const uint32_t kPPRva[kNPP] = {0x9AFDF0, 0x9A62FC, 0x7F64B4, 0x2F0D750, 0x2F0D774, 0x891F24, 0x2F0D684};
     for (int i = 0; i < kNPP; ++i)
-        if (F<uintptr_t>(tab + kPPToks[i] * 8ull) != b + kPPRva[i]) {
+        if (F<uintptr_t>(tab + kPPToks[i] * 8ull) != b + Grva(kPPRva[i])) {
             FLOG("FO: token table entry %02X is not %X", kPPToks[i], kPPRva[i]);
             ok = false;
         }
@@ -1548,7 +1549,7 @@ void Start(const StartInfo& info) {
     }
     {
         Patch& pt = g_patch[g_nPatch++];
-        pt.at = (uint8_t*)(b + 0x58C434);
+        pt.at = (uint8_t*)(b + Grva(0x58C434));
         pt.n = 12;
         memcpy(pt.orig, pt.at, 12);
         uint8_t j[12] = {0x48, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xE0};  // mov rax, stub; jmp rax (rax is clobbered by the original)
@@ -1561,7 +1562,7 @@ void Start(const StartInfo& info) {
         g_ppOrig[i] = (Handler)(b + kPPRva[i]);
         g_ptr[g_nPtr++] = {tab + kPPToks[i] * 8ull, b + kPPRva[i], (uintptr_t)kPPWraps[i]};
     }
-    for (uintptr_t v : vt) g_ptr[g_nPtr++] = {v, b + 0x113150, (uintptr_t)&FoNode};
+    for (uintptr_t v : vt) g_ptr[g_nPtr++] = {v, b + Grva(0x113150), (uintptr_t)&FoNode};
     FlushInstructionCache(GetCurrentProcess(), g_relays, 4096);
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);

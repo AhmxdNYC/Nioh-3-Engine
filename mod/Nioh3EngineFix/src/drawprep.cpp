@@ -2,6 +2,7 @@
 // (RenderParamsAssign range copy), all default off. See drawprep.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 
 #include <cstdint>
@@ -169,7 +170,7 @@ bool FrozenWrite(Write* w, int n) {
     return true;
 }
 
-bool Same(uintptr_t base, uint32_t rva, const uint8_t* b, size_t n) { return memcmp((const void*)(base + rva), b, n) == 0; }
+bool Same(uintptr_t base, uint32_t rva, const uint8_t* b, size_t n) { return memcmp((const void*)(base + Grva(rva)), b, n) == 0; }
 
 // E9 rel32 from `site` to the trampoline at `tr`, padded to `len` with one multi-byte NOP.
 bool JmpBytes(Write& w, uint8_t* site, const uint8_t* tr, unsigned len) {
@@ -198,7 +199,7 @@ int Key(const wchar_t* sec, const wchar_t* k, int def, const wchar_t* ini) { ret
 
 uint32_t Fnv1a(uintptr_t base, uint32_t rva, uint32_t n) {
     uint32_t h = 0x811C9DC5u;
-    const uint8_t* p = (const uint8_t*)(base + rva);
+    const uint8_t* p = (const uint8_t*)(base + Grva(rva));
     for (uint32_t i = 0; i < n; ++i) h = (h ^ p[i]) * 0x01000193u;
     return h;
 }
@@ -268,11 +269,11 @@ void Start(const StartInfo& info) {
     Tramp(g_page + 0x20, &caveW1b);
     Tramp(g_page + 0x30, &caveRpa);
     FlushInstructionCache(GetCurrentProcess(), g_page, 0x40);
-    dp_dq_loop = b + kDqLoop;
-    dp_dq_exit = b + kDqExit;
-    dp_p1e7_resume = b + kPfResume;
-    dp_w1b_resume = b + kW1bResume;
-    dp_rpa_resume = b + kRpaResume;
+    dp_dq_loop = b + Grva(kDqLoop);
+    dp_dq_exit = b + Grva(kDqExit);
+    dp_p1e7_resume = b + Grva(kPfResume);
+    dp_w1b_resume = b + Grva(kW1bResume);
+    dp_rpa_resume = b + Grva(kRpaResume);
     dp_w1b_w1 = w1bW1;
     dp_dq_quantum = (float)us * 1e-6f;
     g_dqUs = us;
@@ -283,10 +284,10 @@ void Start(const StartInfo& info) {
     Write w[kMaxWrites];
     int n = 0;
     bool ok = true;
-    if (wantDq && !JmpBytes(w[n++], (uint8_t*)(b + kDqSite), g_page, 5)) ok = false;
-    if (wantPf && !JmpBytes(w[n++], (uint8_t*)(b + kPfSite), g_page + 0x10, 11)) ok = false;
-    if (wantW1b && !JmpBytes(w[n++], (uint8_t*)(b + kW1bSite), g_page + 0x20, 22)) ok = false;
-    if (wantRpa && !JmpBytes(w[n++], (uint8_t*)(b + kRpaSite), g_page + 0x30, 5)) ok = false;
+    if (wantDq && !JmpBytes(w[n++], (uint8_t*)(b + Grva(kDqSite)), g_page, 5)) ok = false;
+    if (wantPf && !JmpBytes(w[n++], (uint8_t*)(b + Grva(kPfSite)), g_page + 0x10, 11)) ok = false;
+    if (wantW1b && !JmpBytes(w[n++], (uint8_t*)(b + Grva(kW1bSite)), g_page + 0x20, 22)) ok = false;
+    if (wantRpa && !JmpBytes(w[n++], (uint8_t*)(b + Grva(kRpaSite)), g_page + 0x30, 5)) ok = false;
     if (!ok || !FrozenWrite(w, n)) {
         g_log("DQ/P1E7/W1B/RPA: site write failed (out of rel32 reach, or a thread kept sitting inside a site) - nothing installed");
         dp_dq_enable = dp_p1e7_enable = dp_w1b_enable = dp_rpa_enable = 0;

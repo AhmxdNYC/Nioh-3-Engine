@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 
 #include <cstdint>
@@ -182,10 +183,10 @@ void Start(const StartInfo& info) {
     if (!info.iniPath || !info.base) return;
     const int pm = (int)GetPrivateProfileIntW(L"Patches", L"PCM", 0, info.iniPath);
     if (pm != 1 && pm != 2) return;
-    uint8_t* site = (uint8_t*)(info.base + kSite);
+    uint8_t* site = (uint8_t*)(info.base + Grva(kSite));
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);
-    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != info.base + kCallee || memcmp(site - sizeof kBefore, kBefore, sizeof kBefore) != 0 ||
+    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != info.base + Grva(kCallee) || memcmp(site - sizeof kBefore, kBefore, sizeof kBefore) != 0 ||
         memcmp(site + 5, kAfter, sizeof kAfter) != 0) {
         PLOG("PCM: not installed (PsoGetOrCreateGfx call 1196BD bytes differ - another patch or build)");
         return;
@@ -198,7 +199,7 @@ void Start(const StartInfo& info) {
         PLOG("PCM: not installed (no memory for the table or no executable page within 2 GB of the image)");
         return;
     }
-    g_orig = (FindFn)(info.base + kCallee);
+    g_orig = (FindFn)(info.base + Grva(kCallee));
     // relay: mov rax, imm64 (PmFind); jmp rax  (rax is no argument; the callee returns in it)
     page[0] = 0x48;
     page[1] = 0xB8;

@@ -135,7 +135,7 @@ typedef struct { int n, off; uint32_t d4or, d4and, types; uint64_t m18or; char s
 static __attribute__((noinline)) int FmHurtScan(uint64_t actor, FmHurt* h) {
     uint64_t pool = 0; int o = 0;
     memset(h, 0, sizeof *h); h->d4and = 0xFFFFFFFFu;
-    if (!actor || !Rd64(B + 0x45C6F38, &pool) || !pool) return -1;
+    if (!actor || !Rd64(B + Grva(0x45C6F38), &pool) || !pool) return -1;
     __try {
         for (int i = 0; i < 0xFA0; ++i) {
             const uint64_t obj = *(volatile uint64_t*)(pool + 0x20 + (uint64_t)i * 8);
@@ -189,7 +189,7 @@ static __attribute__((noinline)) void FmCtInputs(uint64_t atk, uint64_t dmg, uin
             if (row) { r44 = *(volatile uint32_t*)(row + 0x44); r48 = *(volatile uint32_t*)(row + 0x48); r4c = *(volatile uint16_t*)(row + 0x4C); r21 = *(volatile int8_t*)(row + 0x21); r92 = *(volatile uint8_t*)(row + 0x92); }
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { snprintf(o, n, " read-fault"); return; }
-    if (ai && H) { __try { hist = ((FmHistFn)(B + 0x2B44C4))(ai, atk) & 0xFF; } __except (EXCEPTION_EXECUTE_HANDLER) { hist = 0xEE; } }
+    if (ai && H) { __try { hist = ((FmHistFn)(B + Grva(0x2B44C4)))(ai, atk) & 0xFF; } __except (EXCEPTION_EXECUTE_HANDLER) { hist = 0xEE; } }
     snprintf(o, n, " abc0 %u eb1 %u eb0 %u adb1 %u side %d/%d dtype %d d4 %X row %p r48 %X r44 %X r4c %X r21 %d r92 %u hcnt %d hist %u",
         abc0, eb1, eb0, adb1, side_d, side_a, dtype, d4, (void*)row, r48, r44, r4c, (int)r21, r92, hcnt, (unsigned)hist);
 }
@@ -198,7 +198,7 @@ __attribute__((used)) static void FmCtDetour(uint64_t atk, uint64_t dmg) {
     InterlockedIncrement(&g_fmct_calls);
     if (pl && atk && dmg) {
         __try { ao = *(volatile uint64_t*)(atk + 8); mine = *(volatile uint64_t*)(dmg + 8) == pl && ao != pl; } __except (EXCEPTION_EXECUTE_HANDLER) { mine = 0; }
-        if (mine && Rd64(B + 0x47452E0, &mgr) && mgr) { __try { q0 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { mgr = 0; } }
+        if (mine && Rd64(B + Grva(0x47452E0), &mgr) && mgr) { __try { q0 = *(volatile uint32_t*)(mgr + 0x5910); } __except (EXCEPTION_EXECUTE_HANDLER) { mgr = 0; } }
     }
     char in[400]; in[0] = 0;
     if (mine && g_fmct_lines < 1500) FmCtInputs(atk, dmg, pl, in, sizeof in);
@@ -214,7 +214,7 @@ __attribute__((used)) static void FmCtDetour(uint64_t atk, uint64_t dmg) {
 static void FmCtInstall(void) {
     static const uint8_t pro[16] = {0x4C, 0x8B, 0xDC, 0x55, 0x57, 0x41, 0x56, 0x41, 0x57, 0x49, 0x8D, 0xAB, 0x18, 0xFE, 0xFF, 0xFF};
     if (g_fmct_hooked) return;
-    if (memcmp((void*)(B + 0x117A6D0), pro, sizeof pro)) { g_fmct_hooked = 2; Log("IFRAMECT hook 117A6D0: bytes differ, probe off"); return; }
+    if (memcmp((void*)(B + Grva(0x117A6D0)), pro, sizeof pro)) { g_fmct_hooked = 2; Log("IFRAMECT hook 117A6D0: bytes differ, probe off"); return; }
     o_fmct = (FmCtFn)Hook(0x117A6D0, 16, (void*)FmCtDetour); g_fmct_hooked = 1;
     Log("IFRAMECT hook 117A6D0: on (log only, [Debug] IFrameProbe 1)");
 }
@@ -260,15 +260,15 @@ __attribute__((used)) static void FmDmDetour(uint64_t dmg) {
 static void FmDmInstall(void) {
     static const uint8_t pro[14] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8, 0x1A, 0x04, 0x00, 0x00};
     if (g_fmdm_hooked) return;
-    uint8_t* site = (uint8_t*)(B + 0x78A7F0);
+    uint8_t* site = (uint8_t*)(B + Grva(0x78A7F0));
     if (memcmp(site, pro, sizeof pro)) { g_fmdm_hooked = 2; Log("IFRAMEDM hook 78A7F0: bytes differ, probe off"); return; }
     uint8_t* tr = (uint8_t*)VirtualAlloc(0, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!tr) { g_fmdm_hooked = 2; return; }
     int k = 0;
     memcpy(tr, pro, 9); k = 9;                                                             // push rbx / sub rsp,20h / mov rbx,rcx
-    tr[k++] = 0x48; tr[k++] = 0xB8; *(uint64_t*)(tr + k) = (uint64_t)(B + 0x78AC18); k += 8; // mov rax, 78AC18
+    tr[k++] = 0x48; tr[k++] = 0xB8; *(uint64_t*)(tr + k) = (uint64_t)(B + Grva(0x78AC18)); k += 8; // mov rax, 78AC18
     tr[k++] = 0xFF; tr[k++] = 0xD0;                                                        // call rax
-    tr[k++] = 0xFF; tr[k++] = 0x25; *(uint32_t*)(tr + k) = 0; k += 4; *(uint64_t*)(tr + k) = (uint64_t)(B + 0x78A7FE); k += 8;  // jmp [rip] -> 78A7FE
+    tr[k++] = 0xFF; tr[k++] = 0x25; *(uint32_t*)(tr + k) = 0; k += 4; *(uint64_t*)(tr + k) = (uint64_t)(B + Grva(0x78A7FE)); k += 8;  // jmp [rip] -> 78A7FE
     o_fmdm = (FmDmFn)tr;
     DWORD old; VirtualProtect(site, 14, PAGE_EXECUTE_READWRITE, &old);
     uint8_t pt[14]; pt[0] = 0x48; pt[1] = 0xB8; *(uint64_t*)(pt + 2) = (uint64_t)(void*)FmDmDetour; pt[10] = 0xFF; pt[11] = 0xE0; pt[12] = 0x90; pt[13] = 0x90;
@@ -330,8 +330,8 @@ static int FmiCodeOk(void) {
     static const uint8_t k130[13] = {0x48, 0x8B, 0x81, 0xE0, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x90, 0xA0, 0x03, 0x00};
     static const uint8_t k764[13] = {0x48, 0x8B, 0x81, 0xE0, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x90, 0xA0, 0x03, 0x00};
     __try {
-        ok = !memcmp((void*)(B + 0x2A3264), k264, sizeof k264) && !memcmp((void*)(B + 0x481290), k290, sizeof k290) && !memcmp((void*)(B + 0x866490), k490, sizeof k490)
-            && !memcmp((void*)(B + 0x876130), k130, sizeof k130) && !memcmp((void*)(B + 0x2A3764), k764, sizeof k764);
+        ok = !memcmp((void*)(B + Grva(0x2A3264)), k264, sizeof k264) && !memcmp((void*)(B + Grva(0x481290)), k290, sizeof k290) && !memcmp((void*)(B + Grva(0x866490)), k490, sizeof k490)
+            && !memcmp((void*)(B + Grva(0x876130)), k130, sizeof k130) && !memcmp((void*)(B + Grva(0x2A3764)), k764, sizeof k764);
     } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     Log("IFRAMEPR predicate functions 2A3264/481290/866490/876130/2A3764: %s", ok ? "bytes match, called read-only" : "bytes differ, only the re-implemented bits are used");
     return ok;
@@ -509,7 +509,7 @@ static __attribute__((noinline)) void FmIFrameProbe(uint64_t actor, uint64_t ctr
         enum { NW = 0x100 / 4, NO = 4, PW = 0x40 / 4 };
         static uint32_t po[NO][NW], psh[NO][NW], ppt[NO][PW]; static uint64_t pobj[NO], pptr[NO]; static int obLines, perDodge; static uint32_t obAct;
         uint64_t pool = 0;
-        if (g_cfg_ifp >= 2 && act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + 0x45C6F38, &pool) && pool) {
+        if (g_cfg_ifp >= 2 && act >= 10000 && act < 10200 && obLines < 2500 && Rd64(B + Grva(0x45C6F38), &pool) && pool) {
             uint64_t objs[NO] = {0}, ptr[NO] = {0}; int no = 0;
             uint32_t co[NO][NW] = {{0}}, csh[NO][NW] = {{0}}, cpt[NO][PW] = {{0}}; int ok = 1;
             __try {
@@ -567,7 +567,7 @@ int FmKiPressOn(void) { return g_cfg_kipress; }
 static int FmPadRB(void) {
     typedef unsigned long (__stdcall *Fn)(unsigned long, void*);
     Fn fn = 0; uint64_t slot = 0;
-    if (Rd64(B + 0x38E2C50, &slot) && slot > 0x10000ull) fn = (Fn)slot;
+    if (Rd64(B + Grva(0x38E2C50), &slot) && slot > 0x10000ull) fn = (Fn)slot;
     if (!fn) {
         static Fn raw; static int tried;
         if (!tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); raw = x ? (Fn)GetProcAddress(x, "XInputGetState") : 0; }
@@ -585,7 +585,7 @@ static __attribute__((noinline)) void FmPadLog(double t) {
     if (lines >= 30000) return;
     if (!tried) { tried = 1; HMODULE x = LoadLibraryA("xinput1_4.dll"); if (!x) x = LoadLibraryA("xinput1_3.dll"); raw = x ? (Fn)GetProcAddress(x, "XInputGetState") : 0; }
     Fn fn = raw; uint64_t slot = 0;
-    if (Rd64(B + 0x38E2C50, &slot) && slot > 0x10000ull) fn = (Fn)slot;
+    if (Rd64(B + Grva(0x38E2C50), &slot) && slot > 0x10000ull) fn = (Fn)slot;
     if (!fn) return;
     uint8_t st[32]; memset(st, 0, sizeof st);
     __try { if (fn(0, st) != 0) return; } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
@@ -608,12 +608,12 @@ static int g_kp_fx_hooked;
 // Records R8D and the return RVA at 0x3EAB1C, then runs the original. The on-disk exe is packed, so the check is the bytes in the running image.
 static void FmFxInstall(void) {
     static const uint8_t pro[14] = {0x40,0x53,0x48,0x83,0xEC,0x40,0x48,0x8B,0x44,0x24,0x78,0x48,0x8B,0xDA};
-    uint8_t* site = (uint8_t*)(B + 0x3EAB1C);
+    uint8_t* site = (uint8_t*)(B + Grva(0x3EAB1C));
     int32_t rel; uint8_t* stub; uint8_t* tr; int at;
     if (g_kp_fx_hooked) return;
     if (memcmp(site, pro, sizeof pro)) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook 3EAB1C: bytes differ, effect id off"); return; }
     rel = *(int32_t*)(site + 0x24);
-    if (site[0x23] != 0xE8 || (uint32_t)(0x3EAB44 + rel) != 0x4CE90Cu) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook 3EAB1C: call is not 4CE90C, effect id off"); return; }
+    if (site[0x23] != 0xE8 || (uint32_t)(Grva(0x3EAB44) + rel) != Grva(0x4CE90C)) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook 3EAB1C: call is not 4CE90C, effect id off"); return; }
     stub = (uint8_t*)VirtualAlloc(0, 128, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!stub) { g_kp_fx_hooked = 2; Log("KIPRESS fx hook: no stub page"); return; }
     at = 0;
@@ -675,7 +675,7 @@ static void KiRowScale(float* m0, float* m1, float* m2, int* gate) {
     uint32_t nib;
     *m0 = *m1 = *m2 = 1.f;
     *gate = 0;
-    if (!Rd64(B + 0x45BA228, &ctx) || ctx < 0x10000) return;
+    if (!Rd64(B + Grva(0x45BA228), &ctx) || ctx < 0x10000) return;
     __try {
         nib = *(volatile uint32_t*)ctx & 0xFu;
         if (nib == 2 || nib == 6 || nib == 7) {
@@ -724,7 +724,7 @@ static void KiRowLog(uint64_t row) {
 }
 static void FmRowInstall(void) {
     static const uint8_t pro[12] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x10,0x48,0x89,0x78,0x18,0x55};
-    uint8_t* site = (uint8_t*)(B + 0x3EA2C8);
+    uint8_t* site = (uint8_t*)(B + Grva(0x3EA2C8));
     uint8_t* stub; int at; DWORD old;
     if (g_kirow_hooked) return;
     if (memcmp(site, pro, 12)) {
@@ -767,7 +767,7 @@ static int g_kp_buff_hooked;
 static int g_kp_tail;
 static void FmBuffInstall(void) {
     static const uint8_t pro[13] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x18,0x66,0x89,0x50,0x10,0x55,0x56};
-    uint8_t* site = (uint8_t*)(B + 0x3EFB90);
+    uint8_t* site = (uint8_t*)(B + Grva(0x3EFB90));
     uint8_t* stub; uint8_t* tr; int at;
     if (g_kp_buff_hooked) return;
     if (memcmp(site, pro, sizeof pro)) { g_kp_buff_hooked = 2; Log("KIPRESS buff hook 3EFB90: bytes differ, buff log off"); return; }
@@ -800,7 +800,7 @@ static void FmFlagInstall(void) {
     static const uint8_t pro[17] = {
         0x41,0xF7,0x86,0x3C,0x01,0x00,0x00,0x00,0x20,0x00,0x00,
         0x0F,0x84,0x4E,0x02,0x00,0x00};
-    uint8_t* site = (uint8_t*)(B + 0x2362ED7);
+    uint8_t* site = (uint8_t*)(B + Grva(0x2362ED7));
     uint8_t* stub; int at; DWORD old; int je_at, rel;
     if (g_kp_flag_hooked) return;
     if (memcmp(site, pro, sizeof pro)) {
@@ -828,7 +828,7 @@ static void FmFlagInstall(void) {
     rel = at - (je_at + 6);
     *(uint32_t*)(stub + je_at + 2) = (uint32_t)rel;
     stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
-    *(uint64_t*)(stub + at) = (uint64_t)(B + 0x2363136); at += 8;
+    *(uint64_t*)(stub + at) = (uint64_t)(B + Grva(0x2363136)); at += 8;
     VirtualProtect(site, 17, PAGE_EXECUTE_READWRITE, &old);
     site[0] = 0xFF; site[1] = 0x25; *(uint32_t*)(site + 2) = 0;
     *(uint64_t*)(site + 6) = (uint64_t)stub;
@@ -867,7 +867,7 @@ static void KiPickEnter(uint64_t rcx, uint64_t rdx) {
 static void FmR1Install(void) {
     static const uint8_t pro[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x48,0x89,0x78,0x18};
     if (g_kp_r1_hooked) return;
-    if (memcmp((void*)(B + 0x23644F0), pro, sizeof pro)) { g_kp_r1_hooked = 2; Log("KIR1 hook 23644F0: bytes differ"); return; }
+    if (memcmp((void*)(B + Grva(0x23644F0)), pro, sizeof pro)) { g_kp_r1_hooked = 2; Log("KIR1 hook 23644F0: bytes differ"); return; }
     o_kir1 = (void (*)(uint64_t, uint64_t))Hook(0x23644F0, 15, (void*)KiR1Enter);
     g_kp_r1_hooked = 1;
     Log("KIR1 hook 23644F0 on. Buff ids still come from the 3EFB90 log.");
@@ -875,7 +875,7 @@ static void FmR1Install(void) {
 static void FmPickInstall(void) {
     static const uint8_t pro[15] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC,0x40};
     if (g_kp_pick_hooked) return;
-    if (memcmp((void*)(B + 0x845148), pro, sizeof pro)) { g_kp_pick_hooked = 2; Log("KIPICK hook 845148: bytes differ"); return; }
+    if (memcmp((void*)(B + Grva(0x845148)), pro, sizeof pro)) { g_kp_pick_hooked = 2; Log("KIPICK hook 845148: bytes differ"); return; }
     o_kipick = (void (*)(uint64_t, uint64_t))Hook(0x845148, 15, (void*)KiPickEnter);
     g_kp_pick_hooked = 1;
     Log("KIPICK hook 845148 on. bit80 set picks A605B or 73E5A from the grade byte.");
@@ -963,8 +963,8 @@ static void KiDumpDef(uint32_t id) {
     raw[0] = 0;
     name[0] = 0;
     for (i = 0; i < 4; ++i) tags[i] = 0;
-    if (!Rd64(B + 0x45B9E30, &g) || g < 0x10000ull || !Rd64(g + 0x30, &table) || table < 0x10000ull) return;
-    __try { def = ((Fn)(B + 0x1613D8))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
+    if (!Rd64(B + Grva(0x45B9E30), &g) || g < 0x10000ull || !Rd64(g + 0x30, &table) || table < 0x10000ull) return;
+    __try { def = ((Fn)(B + Grva(0x1613D8)))(table, id); } __except (EXCEPTION_EXECUTE_HANDLER) { def = 0; }
     g_nm_row_done[slot] = 1;
     if (def > 0x10000ull) {
         __try {
@@ -1004,7 +1004,7 @@ static void KiObjLog(uint64_t obj, uint64_t idreg, uint64_t r8, uint64_t r9) {
     t74 = KiNowT74();
     r1 = FmPadRB();
     perfect = r1 && FmKiPerfect(t74);
-    __try { row = ((Fn)(B + 0x66101C))(id); } __except (EXCEPTION_EXECUTE_HANDLER) { row = 0; }
+    __try { row = ((Fn)(B + Grva(0x66101C)))(id); } __except (EXCEPTION_EXECUTE_HANDLER) { row = 0; }
     KiHex32(row, hex);
     if (lines >= 80) { if (!told) { told = 1; Log("KIOBJ cap 80"); } busy = 0; return; }
     lines++;
@@ -1066,7 +1066,7 @@ static void FmFxRingInstall(void) {
     static const uint8_t proD[29] = {0x48,0x8B,0xC4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8D,0xA8,0x88,0xFC,0xFF,0xFF,0x48,0x81,0xEC,0x38,0x04,0x00,0x00};
     uint8_t* site; uint8_t* stub; int at;
     if (g_kifx_hooked || !g_cfg_kipress) return;
-    site = (uint8_t*)(B + 0x4CE90C);
+    site = (uint8_t*)(B + Grva(0x4CE90C));
     if (memcmp(site, proD, 29)) { g_kifx_hooked = 2; Log("KIFX hook 4CE90C: bytes differ"); return; }
     if ((char*)&g_kifx.slot[0] - (char*)&g_kifx != 8 || sizeof(g_kifx.slot[0]) != 32) { g_kifx_hooked = 2; Log("KIFX hook: slot layout differs"); return; }
     if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_kifx_hooked = 2; Log("KIFX hook: no stub page"); return; }
@@ -1182,7 +1182,7 @@ static void FmNameInstall(void) {
     static const uint8_t proO[24] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xEC,0x30};
     uint8_t* site; uint8_t* stub; int at;
     if (!g_nm_start_hooked) {
-        site = (uint8_t*)(B + 0x3EC0F4);
+        site = (uint8_t*)(B + Grva(0x3EC0F4));
         if (memcmp(site, proS, 15)) { g_nm_start_hooked = 2; Log("KISTART hook 3EC0F4: bytes differ"); }
         else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_start_hooked = 2; Log("KISTART hook: no stub page"); }
         else {
@@ -1192,7 +1192,7 @@ static void FmNameInstall(void) {
         }
     }
     if (!g_nm_obj_hooked) {
-        site = (uint8_t*)(B + 0x660B98);
+        site = (uint8_t*)(B + Grva(0x660B98));
         if (memcmp(site, proO, 24)) { g_nm_obj_hooked = 2; Log("KIOBJ hook 660B98: bytes differ"); }
         else if (!(stub = (uint8_t*)VirtualAlloc(0, 512, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE))) { g_nm_obj_hooked = 2; Log("KIOBJ hook: no stub page"); }
         else {
@@ -1285,7 +1285,7 @@ static void FmKiPressTick(void) {
                 Log("KIPRESS buff id %u from %X rcx %llX r8 %llX a89c %X c13c %X a13c %X t74 %.2f %s",
                     id, ret, (unsigned long long)rcx, (unsigned long long)r8, a89c, c13c, a13c, bt,
                     !got ? "unread" : (bt > 0.05f && bt <= 4.f) ? "perfect" : (bt > 0.05f && bt <= 31.f) ? "normal" : "closed");
-                if (ret == 0x23645EA || ret == 0x2364652 || ret == 0x8448D0) {
+                if (ret == Grva(0x23645EA) || ret == Grva(0x2364652) || ret == Grva(0x8448D0)) {
                     int b19 = FmBit19();
                     if (lines < 160) {
                         lines++;
@@ -1351,7 +1351,7 @@ static void FmBuffTableDump(void) {
     uint32_t count = 0;
     int nent, n;
     if (done) return;
-    if (!Rd64(B + 0x45B9E30, &G) || G < 0x10000ull) return;
+    if (!Rd64(B + Grva(0x45B9E30), &G) || G < 0x10000ull) return;
     if (!Rd64(G + 0x7A8, &T) || T < 0x10000ull) return;
     __try {
         map = *(volatile uint64_t*)(T + 0x20);

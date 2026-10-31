@@ -7,4 +7,4 @@ cd "$(dirname "$0")"
 py -m ziglang cc -target x86_64-windows-gnu -shared -O2 -fms-extensions -Xclang -fasync-exceptions -Wall src/training.c -o Nioh3Training.asi -lgdi32 -lmsimg32
 
 # Package the generated archive table unchanged next to the ASI.
-if [ -f ../../data/boss-action-record.tsv ]; then cp ../../data/boss-action-record.tsv Nioh3Training_action_records.tsv; fi  # public repo: the committed table is used as is
+cp ../../data/boss-action-record.tsv Nioh3Training_action_records.tsv

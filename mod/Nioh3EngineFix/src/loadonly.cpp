@@ -1,6 +1,7 @@
 // loadonly.cpp - LO loads-only gating of GF / W6 / RWb on the 58A level-load window. See loadonly.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <intrin.h>
 
 #include <cstdint>
@@ -109,11 +110,11 @@ bool PatchAtomic(uint8_t* p, const uint8_t* bytes, size_t len) {
 
 // 0 ok, else a reason string index: 1 bytes differ, 2 no page, 3 not atomic.
 int InstallRwb(uint32_t rwbUser) {
-    uint8_t* p = (uint8_t*)(g_base + kRwbSite);
+    uint8_t* p = (uint8_t*)(g_base + Grva(kRwbSite));
     if (memcmp(p, kRwbOrig, sizeof(kRwbOrig)) != 0) return 1;
     int32_t rel;
     memcpy(&rel, p + 10, 4);
-    if ((uintptr_t)(p + 14 + rel) != g_base + kWakeFn) return 1;
+    if ((uintptr_t)(p + 14 + rel) != g_base + Grva(kWakeFn)) return 1;
     const uint8_t* s = p + 22;  // FF 15 [Sleep] at 1A31480 (the import itself is checked offline)
     if (s[0] != 0xFF || s[1] != 0x15) return 1;
     const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
@@ -121,7 +122,7 @@ int InstallRwb(uint32_t rwbUser) {
     uint8_t* c = AllocNear(g_base, g_base + nt->OptionalHeader.SizeOfImage);
     if (!c) return 2;
     memcpy(c, kRwbCave, sizeof(kRwbCave));
-    const uint64_t back = g_base + kRwbBack, skip = g_base + kRwbSkip;
+    const uint64_t back = g_base + Grva(kRwbBack), skip = g_base + Grva(kRwbSkip);
     memcpy(c + kBack1, &back, 8);
     memcpy(c + kBack2, &back, 8);
     memcpy(c + kSkipQ, &skip, 8);
@@ -150,7 +151,7 @@ DWORD WINAPI Gate(void*) {
         Sleep(10);
         uintptr_t gm = 0;
         uint8_t f = 0;
-        if (!SafeRead(g_base + kGameMainPtr, &gm, sizeof(gm)) || !gm || !SafeRead(gm + kGm58A, &f, 1)) continue;
+        if (!SafeRead(g_base + Grva(kGameMainPtr), &gm, sizeof(gm)) || !gm || !SafeRead(gm + kGm58A, &f, 1)) continue;
         if (f && !on) {
             on = true;
             ++n;

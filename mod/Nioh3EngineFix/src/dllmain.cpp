@@ -11,6 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 #include <intrin.h>
 
@@ -139,7 +140,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.7.87"
+#define MOD_VERSION "1.7.88"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1128,9 +1129,9 @@ static volatile long g_vrrOnlineState = 0;  // 0 offline/not watching, 1 suspend
 static bool OnlineNow(bool* fault) {
     *fault = false;
     __try {
-        const uint8_t* net = *reinterpret_cast<uint8_t* const*>(g_base + 0x45C84F8);
+        const uint8_t* net = *reinterpret_cast<uint8_t* const*>(g_base + Grva(0x45C84F8));
         if (net && net[0x1DC]) return true;
-        const uint8_t* pm = *reinterpret_cast<uint8_t* const*>(g_base + 0x4709B50);
+        const uint8_t* pm = *reinterpret_cast<uint8_t* const*>(g_base + Grva(0x4709B50));
         if (pm && *reinterpret_cast<const int32_t*>(pm + 0x34) != 0) return true;
         return false;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -1533,8 +1534,10 @@ DWORD WINAPI Worker(LPVOID) {
     const bool known = nt->FileHeader.TimeDateStamp == gen::kBuildTimestamp && nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage;
     Log("Nioh3.exe at %p: TimeDateStamp %08lX SizeOfImage %zX -> %s", g_base, nt->FileHeader.TimeDateStamp, g_imageSize,
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
+    // every fixed game address goes through Grva() (gamerva.h): identity here on v2.02, pattern lookup on another build
+    gamerva::Init((uintptr_t)g_base, known, &Log);
     if (!known)
-        Log("unknown build: each patch is installed only when its own bytes match; a raw address with no byte check stays off");
+        Log("unknown build: each patch is installed only when its own bytes match (fixed addresses found by byte pattern)");
 
     // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
     if (known) {
@@ -1651,7 +1654,7 @@ DWORD WINAPI Worker(LPVOID) {
     auto tryAS0 = [&]() {
         uint8_t* a = g_base + as0s->rva;
         if (memcmp(a, as0s->orig, as0s->len) != 0) return;  // still encrypted / not unpacked yet
-        if (*reinterpret_cast<volatile uint32_t*>(g_base + 0x45C0460 + 12 * 1 + 8) != 0) {
+        if (*reinterpret_cast<volatile uint32_t*>(g_base + Grva(0x45C0460) + 12 * 1 + 8) != 0) {
             Log("AS0: renderer already initialised (async slot table is live) - NOT applied");
             as0Pending = false; return;
         }
@@ -1706,6 +1709,7 @@ DWORD WINAPI Worker(LPVOID) {
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
     Log(ready ? "code is decrypted (%lu ms after start)" : "code did not reach the expected state within %lu ms - scanning anyway, each site is still verified",
         GetTickCount() - t0);
+    gamerva::Verify();  // log: every rvas.json entry at its v2.02 place (known build) / resolved by pattern (other build)
 
     // ---- resolve every site of the enabled groups
     std::vector<Range> ranges = ExecRanges();
@@ -1960,7 +1964,7 @@ DWORD WINAPI Worker(LPVOID) {
         auto wait = kb ? reinterpret_cast<meshletwait::WaitFn>(GetProcAddress(kb, "WaitOnAddress")) : nullptr;
         auto wake = kb ? reinterpret_cast<meshletwait::WakeFn>(GetProcAddress(kb, "WakeByAddressAll")) : nullptr;
         const bool installed = expGroup("RD", wait && wake, [&]() {
-            rd_resume = (uint64_t)(uintptr_t)(g_base + 0x1A7C3F5);
+            rd_resume = (uint64_t)(uintptr_t)(g_base + Grva(0x1A7C3F5));
             g_rd.wait=wait; g_rd.wake=wake; g_rd.enabled=true;
             return true;
         });
@@ -2041,7 +2045,7 @@ DWORD WINAPI Worker(LPVOID) {
                 fpc_rhi = fpc_rlo + sec->Misc.VirtualSize;
             }
         if (!fpc_rlo) { Log("FPC: no .rdata section - skipped"); return false; }
-        fpc_gaddr = (uint64_t)(uintptr_t)(g_base + kRvaGfxGlobal);
+        fpc_gaddr = (uint64_t)(uintptr_t)(g_base + Grva(kRvaGfxGlobal));
         fpc_orig = (uint64_t)(uintptr_t)(g_base + findItem("FPC")->s->expectRva);
         fpc_tid = 0;  // filled in by the stats thread once [App]Game exists and frames advance
         fpc_enable = 1;
@@ -2077,7 +2081,7 @@ DWORD WINAPI Worker(LPVOID) {
         uint8_t* slot = a + 6 + *(int32_t*)(a + 2);
         if (!InModule((uintptr_t)slot) || !*(void**)slot) { Log("X1: IAT slot looks wrong"); return false; }
         x1_iat = (uint64_t)(uintptr_t)slot;
-        x1_pmgr = (uint64_t)(uintptr_t)(g_base + kRvaPadMgr);
+        x1_pmgr = (uint64_t)(uintptr_t)(g_base + Grva(kRvaPadMgr));
         x1_enable = 1;
         return true;
     });
@@ -2108,7 +2112,7 @@ DWORD WINAPI Worker(LPVOID) {
             gl1_endA = (uint64_t)(uintptr_t)(a + 10 + *(int32_t*)(a + 6));
             gl1_resB = (uint64_t)(uintptr_t)(b + 5);
             gl1_endB = (uint64_t)(uintptr_t)(b + 5 + *(int8_t*)(b + 4));
-            if (gl1_endA != (uint64_t)(uintptr_t)(g_base + 0xE2686F) || gl1_endB != (uint64_t)(uintptr_t)(g_base + 0xE266A4)) {
+            if (gl1_endA != (uint64_t)(uintptr_t)(g_base + Grva(0xE2686F)) || gl1_endB != (uint64_t)(uintptr_t)(g_base + Grva(0xE266A4))) {
                 Log("GL1: loop exits are not where the cave expects them");
                 return false;
             }
@@ -2182,7 +2186,7 @@ DWORD WINAPI Worker(LPVOID) {
         lat_padWait1 = wait1;
         lat_padEvent = ev;
         lat_padWaitN = waitN;
-        lat_qpcNow = (uint64_t)(uintptr_t)(g_base + 0x205530);  // QpcNow (deps-checked)
+        lat_qpcNow = (uint64_t)(uintptr_t)(g_base + Grva(0x205530));  // QpcNow (deps-checked)
         lat_cap = (uint64_t)cfg.ikCapMs;
         lat_ik = cfg.ik ? 1u : 0u;
         return true;
@@ -2221,9 +2225,9 @@ DWORD WINAPI Worker(LPVOID) {
             if (slotOf(id) != se) { Log("WS: %s does not call the same SetEvent slot", id); return false; }
         ws_iatSetEvent = (uint64_t)(uintptr_t)se;
         ws_iatWait = (uint64_t)(uintptr_t)wt;
-        ws_ret[0] = (uint64_t)(uintptr_t)(g_base + 0x3FF5E);  // the 40800 calls in 3FE14 / 403A0 / 207200 (deps-checked)
-        ws_ret[1] = (uint64_t)(uintptr_t)(g_base + 0x403D7);
-        ws_ret[2] = (uint64_t)(uintptr_t)(g_base + 0x20723D);
+        ws_ret[0] = (uint64_t)(uintptr_t)(g_base + Grva(0x3FF5E));  // the 40800 calls in 3FE14 / 403A0 / 207200 (deps-checked)
+        ws_ret[1] = (uint64_t)(uintptr_t)(g_base + Grva(0x403D7));
+        ws_ret[2] = (uint64_t)(uintptr_t)(g_base + Grva(0x20723D));
         ws_enable = cfg.wakeStats ? 1u : 0u;  // installed only for WG: counting off (live switch in the menu)
         if (cfg.wg) {
             // rdtsc ticks per microsecond for WG_WindowUs (the window only ever makes the gate more stock-like)
@@ -2345,7 +2349,7 @@ DWORD WINAPI Worker(LPVOID) {
         Item* dl = findItem("DL");
         if (calleeOf(dl->addr) != (uintptr_t)(g_base + dl->s->expectRva)) { Log("DL: D83F4 does not call D8740"); return false; }
         dl_fn = (uint64_t)calleeOf(dl->addr);
-        dl_resume = (uint64_t)(uintptr_t)(g_base + 0xD8400);
+        dl_resume = (uint64_t)(uintptr_t)(g_base + Grva(0xD8400));
         dl_enable = cfg.dl == 1 ? 1u : 0u;
         dl_count = cfg.cpuStats ? 1u : 0u;
         return true;
@@ -2357,7 +2361,7 @@ DWORD WINAPI Worker(LPVOID) {
     exDone[menu::kExpSPF] = expGroup("SPF", cfg.spf != 0, [&]() {
         uint8_t* a = findItem("SPF")->addr;  // 48 8B 05 rel32: mov rax,[rip+rel] = g_CollisionWorld
         const uintptr_t gw = (uintptr_t)(a + 7 + *(int32_t*)(a + 3));
-        if (gw != (uintptr_t)(g_base + 0x45B9E58)) { Log("SPF: g_CollisionWorld reference differs"); return false; }
+        if (gw != (uintptr_t)(g_base + Grva(0x45B9E58))) { Log("SPF: g_CollisionWorld reference differs"); return false; }
         spf_gworld = gw;
         spf_resume = (uint64_t)(uintptr_t)(a + 7);  // DB8C6
         spf_enable = cfg.spf == 1 ? 1u : 0u;
@@ -2389,9 +2393,9 @@ DWORD WINAPI Worker(LPVOID) {
             uint8_t* c = findItem("MPCSc")->addr;
             if (a + 0x11 != b || c - b != 0x53C) { Log("MPCS: sites are not where the caves expect them"); return false; }
             mpcs_resB = (uint64_t)(uintptr_t)(b + 8);                // 530FEC: #28 PSO bind
-            mpcs_skipB = (uint64_t)(uintptr_t)(g_base + 0x5313C5);  // deps-checked: the #24 section
+            mpcs_skipB = (uint64_t)(uintptr_t)(g_base + Grva(0x5313C5));  // deps-checked: the #24 section
             mpcs_resC = (uint64_t)(uintptr_t)(c + 8);                // 531528: #26 PSO bind
-            mpcs_skipC = (uint64_t)(uintptr_t)(g_base + 0x5315C5);  // deps-checked: the #26 bind-failed path
+            mpcs_skipC = (uint64_t)(uintptr_t)(g_base + Grva(0x5315C5));  // deps-checked: the #26 bind-failed path
             mpcs_enable = cfg.mpcs == 1 ? 1u : 0u;
             return true;
         });
@@ -2412,7 +2416,7 @@ DWORD WINAPI Worker(LPVOID) {
                 Log("VSMA: call targets differ from v2.02");
                 return false;
             }
-            samelook::SetVsmaTargets(ta, tb, tc, (uintptr_t)(g_base + 0x8F041C));  // 8F041C deps-checked
+            samelook::SetVsmaTargets(ta, tb, tc, (uintptr_t)(g_base + Grva(0x8F041C)));  // 8F041C deps-checked
             return true;
         });
         if (!ok) Log("VSMA: NOT installed");
@@ -2460,7 +2464,7 @@ DWORD WINAPI Worker(LPVOID) {
             uint8_t* b = findItem("EPF2")->addr;
             void* sim = a + 8 + *(int32_t*)(a + 4);
             void* draw = b + 8 + *(int32_t*)(b + 4);
-            if (sim != (void*)(g_base + 0x4566008) || draw != (void*)(g_base + 0x4566000)) {
+            if (sim != (void*)(g_base + Grva(0x4566008)) || draw != (void*)(g_base + Grva(0x4566000))) {
                 Log("XPRT: fraction globals differ from v2.02");
                 return false;
             }
@@ -2478,17 +2482,17 @@ DWORD WINAPI Worker(LPVOID) {
         };
         uint8_t* sa = slotOf("PT1a");
         uint8_t* sr = slotOf("PT1r");
-        if (sa != g_base + 0x38E2628 || sr != g_base + 0x38E2630 || !*(void**)sa || !*(void**)sr) {
+        if (sa != g_base + Grva(0x38E2628) || sr != g_base + Grva(0x38E2630) || !*(void**)sa || !*(void**)sr) {
             Log("PT1: SRW lock IAT slots look wrong");
             return false;
         }
         pt1_pAcq = (uint64_t)(uintptr_t)*(void**)sa;
         pt1_pRel = (uint64_t)(uintptr_t)*(void**)sr;
-        pt1_ret = (uint64_t)(uintptr_t)(g_base + 0x1297FE);
-        pt1_resB = (uint64_t)(uintptr_t)(g_base + 0x129658);
-        pt1_resC = (uint64_t)(uintptr_t)(g_base + 0x129835);
-        pt1_resD = (uint64_t)(uintptr_t)(g_base + 0x1298BD);
-        pt1_jeD = (uint64_t)(uintptr_t)(g_base + 0x129943);
+        pt1_ret = (uint64_t)(uintptr_t)(g_base + Grva(0x1297FE));
+        pt1_resB = (uint64_t)(uintptr_t)(g_base + Grva(0x129658));
+        pt1_resC = (uint64_t)(uintptr_t)(g_base + Grva(0x129835));
+        pt1_resD = (uint64_t)(uintptr_t)(g_base + Grva(0x1298BD));
+        pt1_jeD = (uint64_t)(uintptr_t)(g_base + Grva(0x129943));
         pt1_enable = cfg.pt1 == 1 ? 1u : 0u;
         return true;
     });
@@ -2509,8 +2513,8 @@ DWORD WINAPI Worker(LPVOID) {
     if ((cfg.gpuProf || cfg.gpuMarkers) && known) {
         auto v = collect("GP");
         bool ok = allFound(v) && DepsOk("GP");
-        const uint64_t* tok = reinterpret_cast<const uint64_t*>(g_base + 0x3C02220);  // KtglTokenHandlerTable
-        if (ok && (tok[0xA5] != (uint64_t)(uintptr_t)(g_base + 0x114024) || tok[0xA6] != (uint64_t)(uintptr_t)(g_base + 0x113FC8))) {
+        const uint64_t* tok = reinterpret_cast<const uint64_t*>(g_base + Grva(0x3C02220));  // KtglTokenHandlerTable
+        if (ok && (tok[0xA5] != (uint64_t)(uintptr_t)(g_base + Grva(0x114024)) || tok[0xA6] != (uint64_t)(uintptr_t)(g_base + Grva(0x113FC8)))) {
             Log("GP: the marker token handlers (A5/A6) are not the engine's - GP off");
             ok = false;
         }
@@ -2657,7 +2661,7 @@ DWORD WINAPI Worker(LPVOID) {
                     pW = w; pT = tk;
                 }
                 if (s_asyncKnown && sec % 30 == 0) {  // async compute queues the engine created (live slot table, .bss 0x45C0460)
-                    const uint8_t* tb = g_base + 0x45C0460;
+                    const uint8_t* tb = g_base + Grva(0x45C0460);
                     int n = 0; char sl[64] = ""; size_t o = 0;
                     for (int i = 0; i < 13; ++i)
                         if (tb[12 * i] && *reinterpret_cast<const uint32_t*>(tb + 12 * i + 8) == (uint32_t)i) { ++n; o += snprintf(sl + o, sizeof sl - o, " %d", i); }
@@ -3492,7 +3496,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     if (g_dsTid != tid) {  // one thread only ([App]Game): the timer object is not shared
         if (g_dsTid || InterlockedCompareExchange(&g_dsTid, tid, 0) != 0) return TRUE;
     }
-    uint8_t* tm = *reinterpret_cast<uint8_t* volatile*>(g_base + kRvaEngineTimer);
+    uint8_t* tm = *reinterpret_cast<uint8_t* volatile*>(g_base + Grva(kRvaEngineTimer));
     if (!tm) return TRUE;
     const int64_t freq = *reinterpret_cast<volatile int64_t*>(tm + 0x18);  // the spin divides by this
     const int64_t elapsed = now->QuadPart - start;

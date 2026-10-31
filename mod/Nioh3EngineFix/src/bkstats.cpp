@@ -1,5 +1,6 @@
 // bkstats.cpp - BKS back-end census + KL kick-limit knob. See bkstats.h and notes\renderer\backend.md.
 #include "bkstats.h"
+#include "gamerva.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -114,7 +115,7 @@ bool RdStat(uintptr_t a, Stat& s) { return RdU64(a, s.tot) && RdU64(a + 8, s.max
 
 uintptr_t Gfx() {
     uint64_t g = 0;
-    return RdU64(g_base + kRvaGfx, g) ? (uintptr_t)g : 0;
+    return RdU64(g_base + Grva(kRvaGfx), g) ? (uintptr_t)g : 0;
 }
 
 // engine stat ticks -> ms (QPC when EngineClock::HasQpc, else clock() = ms)
@@ -122,7 +123,7 @@ double g_tickMs = 0.0;
 void InitClock() {
     uint64_t clk = 0, f = 0;
     uint8_t has = 0;
-    if (RdU64(g_base + kRvaClock, clk) && clk && RdU8(clk + 0x12, has) && has && RdU64(clk + 0x18, f) && f) {
+    if (RdU64(g_base + Grva(kRvaClock), clk) && clk && RdU8(clk + 0x12, has) && has && RdU64(clk + 0x18, f) && f) {
         g_tickMs = 1000.0 / (double)f;
     } else {
         LARGE_INTEGER q;
@@ -252,7 +253,7 @@ DWORD WINAPI CensusThread(LPVOID) {
         uint8_t drain = 0;
         uint32_t w = 0, r = 0, inf = 0, cap = 0, eInf = 0, eCap = 0;
         uint64_t lockWord = 0;
-        if (RdU8(g_base + kRvaDrainBusy, drain) && RdU32(g + kRingWrite, w) && RdU32(g + kRingRead, r) &&
+        if (RdU8(g_base + Grva(kRvaDrainBusy), drain) && RdU32(g + kRingWrite, w) && RdU32(g + kRingRead, r) &&
             RdU32(g + kRingInFlight, inf) && RdU32(g + kRingCap, cap)) {
             ++a.n;
             const bool starved = (w == r) && inf == 0;
@@ -365,8 +366,8 @@ bool HitchReady() {
     if (ok < 0 && g_known && g_base) {
         static const uint8_t kEcl[] = {0x4C, 0x8D, 0x81, 0xB0, 0x00, 0x00, 0x00};
         static const uint8_t kDrain[] = {0x48, 0x8D, 0x42, 0x28};
-        const bool same = !memcmp((void*)(g_base + 0x86F775), kEcl, sizeof kEcl) &&
-                          !memcmp((void*)(g_base + 0x418F46), kDrain, sizeof kDrain);
+        const bool same = !memcmp((void*)(g_base + Grva(0x86F775)), kEcl, sizeof kEcl) &&
+                          !memcmp((void*)(g_base + Grva(0x418F46)), kDrain, sizeof kDrain);
         if (same && g_tickMs <= 0) InitClock();
         ok = same ? 1 : 0;
     }
@@ -419,8 +420,8 @@ void Start(const StartInfo& info) {
     static const uint8_t kEcl[] = {0x4C, 0x8D, 0x81, 0xB0, 0x00, 0x00, 0x00};
     static const uint8_t kDrain[] = {0x48, 0x8D, 0x42, 0x28};
     static const uint8_t kBusy[] = {0x8B, 0x41, 0x28, 0x39, 0x41, 0x24, 0x74, 0x03, 0xB0, 0x01, 0xC3, 0x83, 0x79, 0x30, 0x00};
-    if (memcmp((void*)(g_base + 0x86F775), kEcl, sizeof kEcl) || memcmp((void*)(g_base + 0x418F46), kDrain, sizeof kDrain) ||
-        memcmp((void*)(g_base + 0x418F90), kBusy, sizeof kBusy)) {
+    if (memcmp((void*)(g_base + Grva(0x86F775)), kEcl, sizeof kEcl) || memcmp((void*)(g_base + Grva(0x418F46)), kDrain, sizeof kDrain) ||
+        memcmp((void*)(g_base + Grva(0x418F90)), kBusy, sizeof kBusy)) {
         g_log("BKS: layout check FAILED (86F775 / 418F46 / 418F90) - Backend census and KL off");
         return;
     }

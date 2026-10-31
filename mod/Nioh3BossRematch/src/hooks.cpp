@@ -294,7 +294,11 @@ bool InstallPump(void (*tick)(), const char** why) {
 
 // retarget an E8 rel32 call site (kind "call") to `fn` (same signature and ABI as the callee); *orig = the previous callee
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why) {
-    uint8_t* p = (uint8_t*)Site(site);
+    return InstallCallRetargetAt((uint8_t*)Site(site), site, fn, orig, why);
+}
+
+
+bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why) {
     uint8_t b[5];
     if (!p || !Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
         if (why) *why = "call site not resolved / not a call";
@@ -322,7 +326,7 @@ bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** w
     uint8_t nb[5] = {0xE8};
     const int32_t r2 = (int32_t)dd;
     memcpy(nb + 1, &r2, 4);
-    if (!Patch(p, nb, 5)) {
+    if (!Patch(p + 1, nb + 1, 4) && !Patch(p, nb, 5)) {  // pc #54384: rel32 at +F38AF straddles a 16-byte line; the 5-byte form can park the head
         if (why) *why = "atomic write failed";
         return false;
     }

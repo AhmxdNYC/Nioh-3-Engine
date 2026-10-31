@@ -24,6 +24,7 @@
 // Every game call and every write runs on the game thread (the per-frame pump); the UI / pipe only post a request word. No story
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
+#include "gamerva.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -452,8 +453,8 @@ int CallRequestById(uint16_t id, uint8_t slot, uint32_t start) {
 int CallLoadingScreenEnd() {
     if (!g_img.base) return 2;
     __try {
-        ((void (*)())(g_img.base + 0x3B1B6C))();
-        ((void (*)(uint32_t, float, float))(g_img.base + 0x345508))(0, 30.0f, 0.0f);
+        ((void (*)())(g_img.base + Grva(0x3B1B6C)))();
+        ((void (*)(uint32_t, float, float))(g_img.base + Grva(0x345508)))(0, 30.0f, 0.0f);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -462,7 +463,7 @@ int CallLoadingScreenEnd() {
 int StageWorld(int* stage) {  // StageMgr [45B9E58]: +0x500 current world, +0x889 streamer state (5 = ready), as Nioh3Training CurWorld/StageState
     uint64_t sm = 0;
     uint8_t w = 0, st = 0;
-    if (!g_img.base || !Rd(g_img.base + 0x45B9E58, sm) || !sm || !Rd(sm + 0x500, w) || !Rd(sm + 0x889, st)) { *stage = -1; return -1; }
+    if (!g_img.base || !Rd(g_img.base + Grva(0x45B9E58), sm) || !sm || !Rd(sm + 0x500, w) || !Rd(sm + 0x889, st)) { *stage = -1; return -1; }
     *stage = st;
     return w;
 }
@@ -1716,9 +1717,9 @@ bool CoverAnchors() {
         {0x2EA351,"\x41\x83\xE9\x32\x0F\x84\x10\x01\x00\x00\x45\x2B\xCE\x0F\x84\xFB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xE2\x00\x00\x00\x45\x2B\xCE\x0F\x84\xD1\x00\x00\x00",37},
         {0x2EB152,"\x41\x81\xE9\xAC\x00\x00\x00\x0F\x84\xEB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xCF\x00\x00\x00\x45\x2B\xCE\x0F\x84\x99\x00\x00\x00\x45\x2B\xCE\x74\x71\x45\x2B\xCE\x74\x50",41}};
     if(!g_img.base)return false;
-    for(const auto& a:lifeAnchors){char bytes[256];const uint64_t at=g_img.base+a.rva;
+    for(const auto& a:lifeAnchors){char bytes[256];const uint64_t at=g_img.base+Grva(a.rva);
         if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
-    for(const auto& a:anchors){char bytes[16];const uint64_t at=g_img.base+a.rva;
+    for(const auto& a:anchors){char bytes[16];const uint64_t at=g_img.base+Grva(a.rva);
         if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
     return true;
 }
@@ -3399,7 +3400,8 @@ const char* PageTitle(const char* movesTitle) {
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Yamagata mission replay"
-         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings - Training / Boss Matches" : p == uBossVitals ? BvTitle() : p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
+         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings - Training / Boss Matches" : p == uBossVitals ? BvTitle() :
+        p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
@@ -3480,7 +3482,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             lastGroup = grp;
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
-        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)) add(bvColor, sel, "%s", bvText);  // + #22389
+        if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+            ) add(bvColor, sel, "%s", bvText);  // + #22389, human #58117
         else if (IsBossOpenItem(it[i])) {  // user #14309: 'Boss C: Minamoto no Yoritomo   Stand still (idle)   A: open'
             const int sl = it[i] - kItBossOpenBase, stn = SlotStance(sl);
             add(sel ? cWhite : stn == 0 ? cGreen : stn >= 1 ? cYellow : cGray, sel, "%s Boss %c: %.40s   %s   A: open", mk, 'A' + sl, SlotBossName(SlotChr(sl)), StanceName(stn));
@@ -3889,6 +3892,7 @@ bool Toast(char* buf, size_t n, uint32_t& color) {
     return on;
 }
 
+
 // ---- pipe commands (remote.cpp thread) ----
 void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
@@ -3922,6 +3926,10 @@ void Command(const char* line, char* reply, size_t n) {
                  "placements=[%s] last=%s",
                  g_state.load(), g_activeRow.load() >= 0 ? g_rows[(size_t)g_activeRow.load()].id : "-", fight::g_fights, fight::g_active, s.emaki,
                  s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), g_sp.last, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
+        return;
+    }
+    if (!BR_SOULCORE && !strcmp(cmd, "spirit")) {
+        snprintf(reply, n, "error soul-core commands are not in this build");
         return;
     }
     if (!strcmp(cmd, "scan")) {
@@ -3994,6 +4002,8 @@ void Command(const char* line, char* reply, size_t n) {
     }
     snprintf(reply, n, "error unknown command (ping status scan row start fight shrine exit abort open scroll)");
 }
+
+bool PlayerExists() { return PlayerChar() != 0; }
 
 }  // namespace rematch
 }  // namespace addon

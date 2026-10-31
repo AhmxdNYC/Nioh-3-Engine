@@ -1,4 +1,5 @@
 #include <atomic>
+#include "gamerva.h"
 // osd.cpp - in-game overlay for Nioh3EngineFix (see osd.h and notes\osd-design.md).
 //
 // How it works
@@ -163,13 +164,13 @@ bool Rd(const void* p, T& out) {
 uint8_t* EngineG() {
     if (!g_info.known || !g_info.base) return nullptr;
     uint64_t g = 0;
-    if (!Rd(g_info.base + kRvaFrameMgrPtr, g) || g < 0x10000) return nullptr;
+    if (!Rd(g_info.base + Grva(kRvaFrameMgrPtr), g) || g < 0x10000) return nullptr;
     return reinterpret_cast<uint8_t*>((uintptr_t)g);
 }
 
 int ReadCfg(uint32_t rva) {
     int v = -1;
-    if (g_info.known && g_info.base) Rd(g_info.base + rva, v);
+    if (g_info.known && g_info.base) Rd(g_info.base + Grva(rva), v);
     return v;
 }
 

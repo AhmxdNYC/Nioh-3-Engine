@@ -4,6 +4,7 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <d3d12.h>
 #include <intrin.h>
 
@@ -645,23 +646,23 @@ double PairTicks() {  // TSC ticks of one rdtsc pair + an add (the probe's minim
 bool VerifyLayout() {
     const uintptr_t b = g_base;
     __try {
-        const uint8_t* p = (const uint8_t*)(b + kRvaLoopLea);
+        const uint8_t* p = (const uint8_t*)(b + Grva(kRvaLoopLea));
         static const uint8_t kTail[] = {0x48, 0x8D, 0x55, 0xD0, 0x48, 0x8B, 0xCF, 0x41, 0xFF, 0x14, 0xC0};
-        if (p[0] != 0x4C || p[1] != 0x8D || p[2] != 0x05 || Rel(b + kRvaLoopLea + 3, b + kRvaLoopLea + 7) != b + kRvaTable ||
-            memcmp(p + 7, kTail, sizeof kTail) != 0 || b + kRvaLoopLea + 7 + sizeof kTail != b + kRvaLoopRet) {
+        if (p[0] != 0x4C || p[1] != 0x8D || p[2] != 0x05 || Rel(b + Grva(kRvaLoopLea) + 3, b + Grva(kRvaLoopLea) + 7) != b + Grva(kRvaTable) ||
+            memcmp(p + 7, kTail, sizeof kTail) != 0 || b + Grva(kRvaLoopLea) + 7 + sizeof kTail != b + Grva(kRvaLoopRet)) {
             g_log("RPF: layout check FAILED (dispatcher loop 1A7C455)");
             return false;
         }
-        const uint8_t* q = (const uint8_t*)(b + kRvaSubLea);
-        const uint8_t* r = (const uint8_t*)(b + kRvaRepLea);
-        if (q[0] != 0x48 || q[1] != 0x8D || q[2] != 0x3D || Rel(b + kRvaSubLea + 3, b + kRvaSubLea + 7) != b + kRvaTable ||
-            r[0] != 0x4C || r[1] != 0x8D || r[2] != 0x05 || Rel(b + kRvaRepLea + 3, b + kRvaRepLea + 7) != b + kRvaTable) {
+        const uint8_t* q = (const uint8_t*)(b + Grva(kRvaSubLea));
+        const uint8_t* r = (const uint8_t*)(b + Grva(kRvaRepLea));
+        if (q[0] != 0x48 || q[1] != 0x8D || q[2] != 0x3D || Rel(b + Grva(kRvaSubLea) + 3, b + Grva(kRvaSubLea) + 7) != b + Grva(kRvaTable) ||
+            r[0] != 0x4C || r[1] != 0x8D || r[2] != 0x05 || Rel(b + Grva(kRvaRepLea) + 3, b + Grva(kRvaRepLea) + 7) != b + Grva(kRvaTable)) {
             g_log("RPF: layout check FAILED (sub-range replays 11575D / 495F26)");
             return false;
         }
-        const uint8_t* w = (const uint8_t*)(b + kRvaWaitCall);
+        const uint8_t* w = (const uint8_t*)(b + Grva(kRvaWaitCall));
         void** wfso = ImportSlotOf(b, "WaitForSingleObject");
-        if (w[0] != 0xFF || w[1] != 0x15 || !wfso || Rel(b + kRvaWaitCall + 2, b + kRvaWaitRet) != (uintptr_t)wfso) {
+        if (w[0] != 0xFF || w[1] != 0x15 || !wfso || Rel(b + Grva(kRvaWaitCall) + 2, b + Grva(kRvaWaitRet)) != (uintptr_t)wfso) {
             g_log("RPF: layout check FAILED (dispatcher wait 1A7C3FC is not call [WaitForSingleObject import])");
             return false;
         }
@@ -673,7 +674,7 @@ bool VerifyLayout() {
     int eng = 0, own = 0, bad = 0;
     for (int i = 0; i < kTokens; ++i) {
         uintptr_t v = 0;
-        RdPtr(b + kRvaTable + i * 8, v);
+        RdPtr(b + Grva(kRvaTable) + i * 8, v);
         if (v == b + kTokNames[i].rva) ++eng;
         else if (InSelf(v)) ++own;
         else if (!InText(v)) ++bad;
@@ -821,7 +822,7 @@ void HookD3D() {
     }
     // the engine's own objects (a Streamline proxy has its own vtable; the same class is skipped)
     uintptr_t g = 0, o = 0;
-    if (!RdPtr(g_base + kRvaGfx, g) || !g) {
+    if (!RdPtr(g_base + Grva(kRvaGfx), g) || !g) {
         g_log("RPF: no GfxDevice yet - engine objects not checked");
         return;
     }
@@ -845,13 +846,13 @@ DWORD WINAPI Thread(LPVOID) {
     // wait for the renderer (GfxDevice + the open command list), up to 10 minutes
     for (int i = 0; i < 600; ++i) {
         uintptr_t g = 0, l = 0;
-        if (GetModuleHandleW(L"d3d12.dll") && RdPtr(g_base + kRvaGfx, g) && g && RdPtr(g + kSynList, l) && l) break;
+        if (GetModuleHandleW(L"d3d12.dll") && RdPtr(g_base + Grva(kRvaGfx), g) && g && RdPtr(g + kSynList, l) && l) break;
         Sleep(1000);
     }
     if (!VerifyLayout()) return 0;
-    g_table = g_base + kRvaTable;
-    g_loopRet = g_base + kRvaLoopRet;
-    g_waitRet = g_base + kRvaWaitRet;
+    g_table = g_base + Grva(kRvaTable);
+    g_loopRet = g_base + Grva(kRvaLoopRet);
+    g_waitRet = g_base + Grva(kRvaWaitRet);
     for (Imp& m : g_imp) m.slot = ImportSlotOf(g_base, m.name);
     if (g_cfg.api) {
         EnterCriticalSection(&g_cs);

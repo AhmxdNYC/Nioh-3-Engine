@@ -2,6 +2,7 @@
 // bootnotice.h and notes\autosave-notice.md.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 
 #include <cstdint>
 #include <cstring>
@@ -140,7 +141,7 @@ DWORD WINAPI Watch(void* param) {
         if (st >= 7 && st <= 9) {
             uintptr_t sm = 0;
             int32_t v = 0;
-            if (ReadPtr(g_base + kSaveMgr, &sm) && sm && ReadI32(sm + 0x10, &v) && v != lastSm) {
+            if (ReadPtr(g_base + Grva(kSaveMgr), &sm) && sm && ReadI32(sm + 0x10, &v) && v != lastSm) {
                 g_log("BootNotice: save manager state [+10h] = %d (sequencer state %d waits for it)", v, st);
                 lastSm = v;
             }
@@ -175,17 +176,17 @@ void Start(const StartInfo& info) {
         if (strncmp(why, "default", 7) != 0) g_log("BootNotice: off (%s = 0) - the boot notices are stock", why);
         return;
     }
-    const uint8_t* seq = (const uint8_t*)(info.base + kSeqAt);
-    if (memcmp(seq, kSeqBytes, sizeof(kSeqBytes)) != 0 || memcmp((const void*)(info.base + kFree), kFreeBytes, sizeof(kFreeBytes)) != 0) {
+    const uint8_t* seq = (const uint8_t*)(info.base + Grva(kSeqAt));
+    if (memcmp(seq, kSeqBytes, sizeof(kSeqBytes)) != 0 || memcmp((const void*)(info.base + Grva(kFree)), kFreeBytes, sizeof(kFreeBytes)) != 0) {
         g_log("BootNotice: not installed (boot sequencer code bytes differ - another patch or build)");
         return;
     }
-    uint8_t* s1 = (uint8_t*)(info.base + kSite1);
-    uint8_t* s2 = (uint8_t*)(info.base + kSite2);
+    uint8_t* s1 = (uint8_t*)(info.base + Grva(kSite1));
+    uint8_t* s2 = (uint8_t*)(info.base + Grva(kSite2));
     int32_t r1 = 0, r2 = 0;
     memcpy(&r1, s1 + 1, 4);
     memcpy(&r2, s2 + 1, 4);
-    if ((uintptr_t)(s1 + 5 + r1) != info.base + kShow || (uintptr_t)(s2 + 5 + r2) != info.base + kCheck) {
+    if ((uintptr_t)(s1 + 5 + r1) != info.base + Grva(kShow) || (uintptr_t)(s2 + 5 + r2) != info.base + Grva(kCheck)) {
         g_log("BootNotice: not installed (call targets differ)");
         return;
     }
@@ -197,7 +198,7 @@ void Start(const StartInfo& info) {
         return;
     }
     uint8_t* p = g_page;
-    const uint64_t pFree = info.base + kFree, pShow = info.base + kShow, pCheck = info.base + kCheck;
+    const uint64_t pFree = info.base + Grva(kFree), pShow = info.base + Grva(kShow), pCheck = info.base + Grva(kCheck);
     memcpy(p + kPFree, &pFree, 8);
     memcpy(p + kPShow, &pShow, 8);
     memcpy(p + kPCheck, &pCheck, 8);

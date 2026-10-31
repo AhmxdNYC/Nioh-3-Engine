@@ -2,6 +2,7 @@
 // Ally data in notes\loading-ally-fixed.md 8.8.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 
 #include <atomic>
 #include <cstdint>
@@ -590,7 +591,7 @@ void CloseWindow() {
 
 bool ReadGm58A(bool& on) {
     uintptr_t gm = 0;
-    if (!SafeCopy(&gm, (const void*)(g_base + kGameMainPtr), 8) || gm < 0x10000) return false;
+    if (!SafeCopy(&gm, (const void*)(g_base + Grva(kGameMainPtr)), 8) || gm < 0x10000) return false;
     uint8_t b = 0;
     if (!SafeCopy(&b, (const void*)(gm + kGm58A), 1)) return false;
     on = b != 0;

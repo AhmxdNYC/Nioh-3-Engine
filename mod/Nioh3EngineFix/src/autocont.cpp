@@ -1,6 +1,7 @@
 // autocont.cpp - AutoContinueLoad ([General] AutoContinueLoad = 0 by default). See autocont.h and notes\auto-continue-load.md.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <intrin.h>
 
 #include <cstdint>
@@ -128,12 +129,12 @@ volatile uint8_t* Start(const StartInfo& info) {
     g_log = info.log;
     if (!g_log || !info.base || !info.iniPath) return nullptr;
     const int want = (int)GetPrivateProfileIntW(L"General", L"AutoContinueLoad", 0, info.iniPath);
-    uint8_t* site = (uint8_t*)(info.base + kSite);
+    uint8_t* site = (uint8_t*)(info.base + Grva(kSite));
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);
-    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != info.base + kCallee ||
-        memcmp((const void*)(info.base + kCheck), kCheckBytes, sizeof(kCheckBytes)) != 0 ||
-        memcmp((const void*)(info.base + kTick), kTickBytes, sizeof(kTickBytes)) != 0) {
+    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != info.base + Grva(kCallee) ||
+        memcmp((const void*)(info.base + Grva(kCheck)), kCheckBytes, sizeof(kCheckBytes)) != 0 ||
+        memcmp((const void*)(info.base + Grva(kTick)), kTickBytes, sizeof(kTickBytes)) != 0) {
         g_log("AutoContinue: not installed (tip page code bytes differ - another patch or build)");
         return nullptr;
     }
@@ -147,7 +148,7 @@ volatile uint8_t* Start(const StartInfo& info) {
     // Separate ephemeral cover permission never writes the persistent user switch.
     g_coverPermission = info.coverPermission;
     uint8_t* t = g_page;
-    const size_t thunkSize = autocont_thunk::Build(t, info.base + kCallee, reinterpret_cast<uintptr_t>(&CoverPermission));
+    const size_t thunkSize = autocont_thunk::Build(t, info.base + Grva(kCallee), reinterpret_cast<uintptr_t>(&CoverPermission));
     if (thunkSize >= autocont_thunk::kSwitch) return nullptr;
     // Real nonleaf thunk: register its fixed C8 stack allocation for unwinding.
     // Version1, prolog7, two unwind slots: UWOP_ALLOC_LARGE / C8 divided by8.

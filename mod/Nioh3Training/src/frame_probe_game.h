@@ -33,7 +33,7 @@ static double FpNow(void) { LARGE_INTEGER c; QueryPerformanceCounter(&c); return
 static double g_fp_gms, g_fp_gwall0, g_fp_gms0; static uint32_t g_fp_g610; static int g_fp_g610ok, g_fp_gfps, g_fp_gfb; static float g_fp_gts; static LONG g_fp_gticks;
 static __attribute__((noinline)) double FpGameStep(double wallDt) {
     uint64_t g = 0; double d = -1.0;
-    if (Rd64(B + 0x4759910, &g) && g) {
+    if (Rd64(B + Grva(0x4759910), &g) && g) {
         __try {
             const uint32_t n = *(volatile uint32_t*)(g + 0x610); const int fps = *(volatile int32_t*)(g + 0x614); const float ts = *(volatile float*)(g + 0x624);
             uint32_t k = g_fp_g610ok ? n - g_fp_g610 : 1; g_fp_g610 = n; g_fp_g610ok = 1;
@@ -75,7 +75,7 @@ static void FpObserve(int s, uint32_t id, double now, const char* by) {
     FpLog("FRAMEPROBE start chr %u boss %c act 0x%X pump %u (seen by %s)", g_fp[s].chr, FPB(s), id, g_fp_frame, by);
 }
 static __attribute__((noinline)) int FpPoolId(uint64_t obj) {
-    uint64_t pool = 0; if (!obj || !Rd64(B + 0x45C6F38, &pool) || !pool) return -1;
+    uint64_t pool = 0; if (!obj || !Rd64(B + Grva(0x45C6F38), &pool) || !pool) return -1;
     __try { for (int i = 0; i < 0xFA0; ++i) if (*(volatile uint64_t*)(pool + 0x20 + i * 8) == obj) return i; } __except (EXCEPTION_EXECUTE_HANDLER) { }
     return -1;
 }
@@ -100,7 +100,7 @@ static __attribute__((noinline)) void FpHit(uint64_t H, uint64_t atk, uint32_t r
         if (R) { pw = *(volatile uint16_t*)(R + 0x10); el = *(volatile uint16_t*)(R + 0x12); ty = *(volatile uint16_t*)(R + 0x14); r28 = *(volatile uint16_t*)(R + 0x28); flags4c = *(volatile uint16_t*)(R + 0x4C); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { if (g_cfg_fp && InterlockedIncrement(&g_fp_diag) <= 60) Log("FRAMEPROBE diag: boss call (match %d) read faulted, ctrl %p act %p H %p R %p", how, (void*)ctrl, (void*)act, (void*)H, (void*)R); return; }
     int own = 0; uint64_t hb = 0;
-    if (ra - B == 0x2B30E2 && obj && Rd64(obj + 0xB0, &hb) && hb == H) own = 1;
+    if (ra - B == Grva(0x2B30E2) && obj && Rd64(obj + 0xB0, &hb) && hb == H) own = 1;
     const int pid = own ? FpPoolId(obj) : -1;
     if (!FpLock()) return;
     const double now = FpNow();
@@ -133,7 +133,7 @@ static void FpInstall(void) {
     if (g_fp_hooked) return;
     LARGE_INTEGER f; QueryPerformanceFrequency(&f); g_fp_qpf = 1000.0 / (double)f.QuadPart;
     static const uint8_t pro[21] = {0x48, 0x85, 0xC9, 0x0F, 0x84, 0x80, 0x0F, 0x00, 0x00, 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x4C, 0x89, 0x48, 0x20, 0x55};
-    if (memcmp((void*)(B + 0x2B4A3C), pro, sizeof pro)) { g_fp_hooked = 2; Log("FRAMEPROBE hook 2B4A3C: bytes differ, probe off"); return; }
+    if (memcmp((void*)(B + Grva(0x2B4A3C)), pro, sizeof pro)) { g_fp_hooked = 2; Log("FRAMEPROBE hook 2B4A3C: bytes differ, probe off"); return; }
     o_fp = (FpFn)Hook(0x2B4A45, 12, (void*)FpEntry); g_fp_hooked = 1;
     Log("FRAMEPROBE hook 2B4A3C (+9 = 2B4A45): on, read only (%s)", g_cfg_fp ? "log on, [Debug] FrameProbe 1" : "frame meter only, no log lines");
 }
@@ -148,7 +148,7 @@ static void FpPlayerTick(double now, double gdt) {
     if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = g_fp[s].ai = g_fp[s].ctrl = 0; return; }
     if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = 0; }
     g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;
-    __try { id = ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { if (!bad++) Log("FRAME METER player: action id read faulted (ctrl %p)", (void*)ctrl); return; }
+    __try { id = ((uint32_t (*)(uint64_t))(B + Grva(0x358528)))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { if (!bad++) Log("FRAME METER player: action id read faulted (ctrl %p)", (void*)ctrl); return; }
     FpObserve(s, id, now, "pump");
     (void)gdt;
 }
@@ -173,14 +173,14 @@ static void FpTick(void) {
         if (g_fp[s].a != a) { if (g_fp[s].valid) FpRunEnd(s, 0xFFFFFFFF, now); g_fp[s].valid = 0; g_fp[s].a = a; g_fp[s].chr = g_slot_chr[s]; g_fp[s].nodmg = 0;
             InterlockedExchange(&g_fp_diag, 0); }  // new boss: fresh diag budget, so unmatched calls during this fight (projectiles, helpers) are logged too
         g_fp[s].ai = ai; g_fp[s].ctrl = ctrl;
-        __try { id = ((uint32_t (*)(uint64_t))(B + 0x358528))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        __try { id = ((uint32_t (*)(uint64_t))(B + Grva(0x358528)))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
         FpObserve(s, id, now, "pump");
         { uint64_t mo = 0; float sp = 1.0f;  // boss main motion play rate [a+0x40]+0x324 (0 = hit-stop, notes/boss-speed-lever-22389.md): counted, not removed
           if (Rd64(a + 0x40, &mo) && mo) { __try { sp = *(volatile float*)(mo + 0x324); } __except (EXCEPTION_EXECUTE_HANDLER) { sp = 1.0f; } }
           if (sp == 0.0f) g_fp[s].stopMs += gdt; }
     }
     FpPlayerTick(now, gdt);
-    uint64_t pool = 0; Rd64(B + 0x45C6F38, &pool);
+    uint64_t pool = 0; Rd64(B + Grva(0x45C6F38), &pool);
     for (int w = 0; w < FP_WIN; ++w) {
         if (!g_fpw[w].used) continue;
         uint64_t e = 0, hb = 0;
