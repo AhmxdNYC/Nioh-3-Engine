@@ -2,6 +2,7 @@
 // notes\loading.md. Measurement only: every hook calls the original with the original arguments and returns its result.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <intrin.h>
 
 #include <atomic>
@@ -196,7 +197,7 @@ void GateNote(int gi, uint64_t r) {
 using GateFn = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t);
 template <int G>
 uint64_t HkGate(uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
-    const uint64_t r = reinterpret_cast<GateFn>(g_base + kGates[G].callee)(a, b, c, d);
+    const uint64_t r = reinterpret_cast<GateFn>(g_base + Grva(kGates[G].callee))(a, b, c, d);
     GateNote(G, r);
     return r;
 }
@@ -211,7 +212,7 @@ uint64_t HkInflate(void* dst, uint32_t cap, uint64_t* outLen, const void* src, u
     NoteThread();
     AtomicMaxI(g_inflMax, g_inflNow.fetch_add(1, std::memory_order_relaxed) + 1);
     const uint64_t t0 = Qpc();
-    const uint64_t r = reinterpret_cast<InflFn>(g_base + kInflTargets[W])(dst, cap, outLen, src, csize);
+    const uint64_t r = reinterpret_cast<InflFn>(g_base + Grva(kInflTargets[W]))(dst, cap, outLen, src, csize);
     const uint64_t dt = Qpc() - t0;
     g_inflNow.fetch_sub(1, std::memory_order_relaxed);
     g_c.inflChunks.fetch_add(1, std::memory_order_relaxed);
@@ -229,7 +230,7 @@ using PsoFn = void* (*)(void*, void*, void*, void*);
 template <int K>  // 0 gfx runtime, 1 gfx preload, 2 compute runtime, 3 compute preload
 void* HkPso(void* a, void* b, void* c, void* d) {
     const uint64_t t0 = Qpc();
-    void* r = reinterpret_cast<PsoFn>(g_base + kPsoTargets[K / 2])(a, b, c, d);
+    void* r = reinterpret_cast<PsoFn>(g_base + Grva(kPsoTargets[K / 2]))(a, b, c, d);
     const uint64_t dt = Qpc() - t0;
     g_c.psoN[K].fetch_add(1, std::memory_order_relaxed);
     g_c.psoTicks[K].fetch_add(dt, std::memory_order_relaxed);
@@ -240,7 +241,7 @@ void* HkPso(void* a, void* b, void* c, void* d) {
 using ReadFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 template <int C>
 BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) {
-    const ReadFn real = *reinterpret_cast<ReadFn*>(g_base + kIatReadFile);
+    const ReadFn real = *reinterpret_cast<ReadFn*>(g_base + Grva(kIatReadFile));
     const uint64_t t0 = Qpc();
     const BOOL r = real(h, buf, n, got, ov);
     const uint64_t dt = Qpc() - t0;
@@ -255,7 +256,7 @@ BOOL WINAPI HkRead(HANDLE h, LPVOID buf, DWORD n, LPDWORD got, LPOVERLAPPED ov) 
 void MgrSleep(DWORD ms, void* mgr, uint32_t id) {
     g_mgr[id < 2 ? 0 : 1].store((uintptr_t)mgr, std::memory_order_relaxed);
     g_c.mgrSleep[id].fetch_add(1, std::memory_order_relaxed);
-    (*reinterpret_cast<decltype(&::Sleep)*>(g_base + kIatSleep))(ms);
+    (*reinterpret_cast<decltype(&::Sleep)*>(g_base + Grva(kIatSleep)))(ms);
 }
 
 // ---- patching ----
@@ -537,8 +538,8 @@ void OpenWindow(uintptr_t gm) {
     if (g_lg) {
         ResetGates();
         int ft = -1, wb = -1;
-        Rd(g_base + kFtSeq, ft);
-        Rd(g_base + kWarpSeqB, wb);
+        Rd(g_base + Grva(kFtSeq), ft);
+        Rd(g_base + Grva(kWarpSeqB), wb);
         g_log("LoadSeq #%d owner at set: %s (FT state %d, B state %d)", g_w.n,
               (ft >= 2 && ft <= 4) ? "FT FastTravelSeqTick" : (wb >= 1 && wb <= 2) ? "B WarpSeqBTick" : "script/other", ft, wb);
     }
@@ -649,29 +650,29 @@ void PollSeq(uint64_t now) {
     char when[40];
     snprintf(when, sizeof(when), open ? "+%.1f s" : "@%.1f s (no window)", t);
     int ft = -1, wb = -1;
-    Rd(g_base + kFtSeq, ft);
-    Rd(g_base + kWarpSeqB, wb);
+    Rd(g_base + Grva(kFtSeq), ft);
+    Rd(g_base + Grva(kWarpSeqB), wb);
     if (ft != g_sp.ft) {
         float tm = 0, wait = 0;
-        Rd(g_base + kFtSeq + 4, tm);
-        Rd(g_base + kFtSeq + 0x40, wait);
+        Rd(g_base + Grva(kFtSeq) + 4, tm);
+        Rd(g_base + Grva(kFtSeq) + 0x40, wait);
         if (g_sp.ft != -9) g_log("LoadSeq FT %d->%d %s (timer %.1f, popping wait %.1f)", g_sp.ft, ft, when, (double)tm, (double)wait);
         g_sp.ft = ft;
     }
     if (wb != g_sp.wb) {
         float tm = 0;
-        Rd(g_base + kWarpSeqB + 4, tm);
+        Rd(g_base + Grva(kWarpSeqB) + 4, tm);
         if (g_sp.wb != -9) g_log("LoadSeq B %d->%d %s (timer %.1f)", g_sp.wb, wb, when, (double)tm);
         g_sp.wb = wb;
     }
     uintptr_t p = 0;
     int blk = -1, widget = -1;
-    if (Rd(g_base + kBlkPtr, p) && p) {
+    if (Rd(g_base + Grva(kBlkPtr), p) && p) {
         uint32_t v = 0;
         if (Rd(p + kBlkOff, v)) blk = (int)v;
     }
     uintptr_t q = 0;
-    if (Rd(g_base + kWidgetPtr, p) && p && Rd(p + kWidgetOff, q)) widget = q != 0;
+    if (Rd(g_base + Grva(kWidgetPtr), p) && p && Rd(p + kWidgetOff, q)) widget = q != 0;
     if (blk != g_sp.blk) {
         if (g_sp.blk != -9) g_log("LoadSeq [[45B9E40]+58h] %d->%d %s", g_sp.blk, blk, when);
         g_sp.blk = blk;
@@ -687,7 +688,7 @@ DWORD WINAPI Sampler(void*) {
     for (;;) {
         Sleep(10);
         uintptr_t gm = 0;
-        if (!Rd(g_base + kGameMainPtr, gm) || !gm) continue;
+        if (!Rd(g_base + Grva(kGameMainPtr), gm) || !gm) continue;
         uint8_t f = 0;
         if (!Rd(gm + kGmStopFlag58A, f)) continue;
         const uint64_t nowQ = Qpc();
@@ -713,21 +714,21 @@ DWORD WINAPI Sampler(void*) {
         ++g_w.samples;
         uintptr_t st = 0;
         int ss = -1;
-        if (Rd(g_base + kStagePtr, st) && st) Rd(st + kStageState, ss);
+        if (Rd(g_base + Grva(kStagePtr), st) && st) Rd(st + kStageState, ss);
         if (!g_w.haveStage && ss == 3) {
             g_w.haveStage = true;
             g_w.tStage = t;
             g_w.sStage = TakeSnap(ReadFrames(gm));
         }
         float acc = 0;
-        if (Rd(g_base + kReadyWaitAcc, acc) && acc > 0.0f && acc < 1e6f) {
+        if (Rd(g_base + Grva(kReadyWaitAcc), acc) && acc > 0.0f && acc < 1e6f) {
             if (g_w.tReady0 < 0) g_w.tReady0 = t;
             g_w.tReady1 = t;
             if (acc > g_w.accMax) g_w.accMax = acc;
         }
         uintptr_t ev = 0;
         int evState = 0, evOn = 0;
-        if (Rd(g_base + kEventScenePtr, ev) && ev && Rd(ev, evState) && Rd(ev + 0x1C, evOn) && evOn &&
+        if (Rd(g_base + Grva(kEventScenePtr), ev) && ev && Rd(ev, evState) && Rd(ev + 0x1C, evOn) && evOn &&
             (evState == 8 || (unsigned)(evState - 11) <= 5))
             ++g_w.evSamples;
         SampleMgr(0, t);

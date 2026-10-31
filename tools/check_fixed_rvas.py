@@ -13,7 +13,9 @@ startup and are not reported. Kinds:
   helper    Helper(0xRVA): a function whose RVA parameter it adds to the base (BytesAt, CallGameBool, Ptr, ...)
   local aliases (uintptr_t b = g_base;) count as the base too
   bound     base + 0x... used only as a range limit (< / > compare, round value) - reported, never counted
-The allowlist (tools/fixed_rvas_allow.txt) holds `path:0xRVA` lines (line-number free, so edits do not break it).
+Grva(...) (EngineFix src/gamerva.h) marks a use as pattern-resolved: the wrapper is looked through, and the RVA must be in
+the mod's rvas.json (made by mod/<mod>/tools/gen_rvas.py), else it is reported UNLST.
+The allowlist (tools/fixed_rvas_allow.txt) holds `path:0xRVA` lines (line-number free, so edits do not break it) or `path:*`.
 Warn-only from the build scripts until the audit (notes/aob-audit.md) is worked off.
 """
 import json
@@ -24,7 +26,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ALLOW = ROOT / "tools" / "fixed_rvas_allow.txt"
 SIZE_OF_IMAGE = 0x52FB000  # Nioh3.exe 6AA7C106 (mod/Nioh3BossRematch/sites.json "build")
-MIN_RVA = 0x1000
+MIN_RVA = 0x1001  # 0x1000 = start of .text (a range bound, same on every build)
 
 BASE = r"(?<![\w.>])(?:[A-Za-z_]\w*(?:\.|->))?(?:g_|s_|m_)?(?:img\.|g_img\.)?(?:mod|image|img|exe|game)?_?[Bb]ase(?!\w)"
 RX_LIT = re.compile(BASE + r"\s*\+\s*(0x[0-9A-Fa-f]+)\b")
@@ -121,23 +123,51 @@ def call_args(text, pos):
     return out
 
 
+def unwrap(text):
+    """drop every Grva( ... ) wrapper (keep its argument) so the raw forms below still match; returns (text, lines with Grva)"""
+    marked = {text.count("\n", 0, m.start()) + 1 for m in re.finditer(r"\bGrva\s*\(", text)}
+    while True:
+        m = re.search(r"\bGrva\s*\(", text)
+        if not m:
+            return text, marked
+        depth, j = 1, m.end()
+        while j < len(text) and depth:
+            depth += {"(": 1, ")": -1}.get(text[j], 0)
+            j += 1
+        text = text[:m.start()] + text[m.end():j - 1] + text[j:]
+
+
+def mod_table(rel):
+    """RVAs of the mod's rvas.json (pattern table behind Grva), None if the mod has none"""
+    f = ROOT / "mod" / rel.split("/")[1] / "rvas.json"
+    if not f.exists():
+        return None
+    return {int(e["rva"], 16) for e in json.loads(f.read_text())["rvas"]}
+
+
 def scan(tests=False):
-    srcs = {f: strip(f.read_text(encoding="utf-8", errors="replace")) for f in files(tests)}
+    srcs, marks = {}, {}
+    for f in files(tests):
+        srcs[f], marks[f] = unwrap(strip(f.read_text(encoding="utf-8", errors="replace")))
     consts = {}
     for f, t in srcs.items():
         for rx in (RX_DEF, RX_DEFINE):
             for m in rx.finditer(t):
                 consts.setdefault(m.group(1), {})[f] = int(m.group(2), 16)
     # helpers taking an RVA parameter that they add to the image base: Name -> argument index
-    helpers = {}
+    helpers, wrapped_helpers = {}, set()
     for f, t in srcs.items():
         for m in RX_FUNC.finditer(t):
             params = [x.strip() for x in m.group(2).split(",")]
             body = t[m.end():m.end() + 1500]
+            bl = t.count("\n", 0, m.end()) + 1
             for i, prm in enumerate(params):
                 pm = RX_PARAM.search(prm)
-                if pm and re.search(BASE + r"\s*\+\s*" + pm.group(1) + r"\b", body):
+                g = re.search(BASE + r"\s*\+\s*" + pm.group(1) + r"\b", body) if pm else None
+                if g:
                     helpers[m.group(1)] = i
+                    if bl + body.count("\n", 0, g.start()) in marks[f]:
+                        wrapped_helpers.add(m.group(1))
     uses = []
 
     def add(rel, ln, kind, v, expr, **kw):
@@ -201,6 +231,17 @@ def scan(tests=False):
                         d = consts[args[i]]
                         add(rel, t.count("\n", 0, m.start()) + 1, "helper", d.get(f, next(iter(d.values()))),
                             "%s(%s)" % (m.group(1), args[i]), name=m.group(1))
+    # pattern-resolved: the use sits on a Grva( line (table: the use line; helper: the helper's own base + rva line)
+    tables = {}
+    for u in uses:
+        rel = u.get("used_at", "%s:%d" % (u["file"], u["line"]))
+        uf, ul = rel.rsplit(":", 1)
+        span = range(int(ul), int(ul) + 21) if "(for " in u["expr"] else (int(ul),)  # range-for: the loop body
+        wrapped = (u["kind"] == "helper" and u["name"] in wrapped_helpers) or any(k in marks.get(ROOT / uf, ()) for k in span)
+        if uf not in tables:
+            tables[uf] = mod_table(uf)
+        u["wrapped"] = wrapped
+        u["listed"] = tables[uf] is not None and u["rva"] in tables[uf]
     # one row per (file, line, rva)
     seen, out = set(), []
     for u in uses:
@@ -221,14 +262,20 @@ def main():
         allow = {l.split("#")[0].strip().lower() for l in ALLOW.read_text().splitlines() if l.split("#")[0].strip()}
     bad = []
     for u in uses:
-        u["allowed"] = ("%s:0x%x" % (u["file"], u["rva"])).lower() in allow
-        tag = "bound" if u["kind"] == "bound" else ("allow" if u["allowed"] else "RAW")
-        if tag == "RAW":
+        u["allowed"] = ("%s:0x%x" % (u["file"], u["rva"])).lower() in allow or ("%s:*" % u["file"]).lower() in allow
+        tag = ("bound" if u["kind"] == "bound" else "allow" if u["allowed"] else
+               ("grva" if u["listed"] else "UNLST") if u["wrapped"] else "RAW")
+        if tag in ("RAW", "UNLST"):
             bad.append(u)
         print("%s:%d: %-5s %-7s 0x%07X  %s%s" % (u["file"], u["line"], tag, u["kind"], u["rva"], u["expr"],
                                                "  (used at %s)" % u["used_at"] if "used_at" in u else ""))
     counted = [u for u in uses if u["kind"] != "bound"]
-    print("fixed-RVA uses: %d (%d unique RVAs) in %d files, %d not allowlisted, %d range bounds ignored"
+    for m in sorted({u["file"].split("/")[1] for u in counted}):
+        mu = [u for u in counted if u["file"].split("/")[1] == m]
+        print("  %-18s %4d uses: %4d RAW, %4d via Grva + pattern table, %d Grva but not in rvas.json, %d allowlisted" % (
+            m, len(mu), sum(1 for u in mu if not u["wrapped"] and not u["allowed"]), sum(1 for u in mu if u["wrapped"] and u["listed"]),
+            sum(1 for u in mu if u["wrapped"] and not u["listed"]), sum(1 for u in mu if u["allowed"])))
+    print("fixed-RVA uses: %d (%d unique RVAs) in %d files, %d RAW/unlisted, %d range bounds ignored"
           % (len(counted), len({u["rva"] for u in counted}), len({u["file"] for u in counted}), len(bad), len(uses) - len(counted)))
     if "--json" in a:
         pathlib.Path(a[a.index("--json") + 1]).write_text(json.dumps(uses, indent=1))

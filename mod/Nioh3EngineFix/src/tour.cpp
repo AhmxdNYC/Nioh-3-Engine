@@ -4,6 +4,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <psapi.h>
 #include <tlhelp32.h>
 #include <intrin.h>
@@ -182,7 +183,7 @@ bool PatchSpin(uint8_t* p, const uint8_t* bytes, size_t len) {
 bool Patch(uint8_t* p, const uint8_t* bytes, size_t len) { return PatchAtomic(p, bytes, len) || PatchSpin(p, bytes, len); }
 
 bool CallSiteOk(uint32_t site, uint32_t callee) {
-    const uint8_t* s = (const uint8_t*)(g_base + site);
+    const uint8_t* s = (const uint8_t*)(g_base + Grva(site));
     int32_t rel = 0;
     memcpy(&rel, s + 1, 4);
     return s[0] == 0xE8 && (uintptr_t)(s + 5 + rel) == g_base + callee;
@@ -204,7 +205,7 @@ bool ExecutableAt(uintptr_t a) {
 // E8 rel32 whose target is the stock callee, or (chained) another module's thunk in executable memory outside the image.
 // *target = where the call goes now; *chained = it is not the stock callee.
 bool CallSiteTarget(uint32_t site, uint32_t callee, uint64_t* target, bool* chained) {
-    const uint8_t* s = (const uint8_t*)(g_base + site);
+    const uint8_t* s = (const uint8_t*)(g_base + Grva(site));
     if (s[0] != 0xE8) return false;
     int32_t rel = 0;
     memcpy(&rel, s + 1, 4);
@@ -241,7 +242,7 @@ bool HeadOk(uint32_t rva, const uint8_t* want, size_t n, bool* hooked) {
     *hooked = true;
     return true;
 }bool Retarget(uint32_t site, const uint8_t* thunk) {
-    uint8_t* s = (uint8_t*)(g_base + site);
+    uint8_t* s = (uint8_t*)(g_base + Grva(site));
     const intptr_t d = (intptr_t)thunk - (intptr_t)(s + 5);
     if (d < INT32_MIN || d > INT32_MAX) return false;
     uint8_t nb[5] = {0xE8, 0, 0, 0, 0};
@@ -265,7 +266,7 @@ bool Rd(uintptr_t a, T& v) {
 }
 uintptr_t Ptr(uint32_t rva) {
     uintptr_t v = 0;
-    return Rd(g_base + rva, v) ? v : 0;
+    return Rd(g_base + Grva(rva), v) ? v : 0;
 }
 uintptr_t PtrPtr(uint32_t rva) {
     uintptr_t p = Ptr(rva), v = 0;
@@ -322,7 +323,7 @@ bool QueueEmpty() {
     for (int i = 0; i < 3; ++i) {
         uint32_t id = 1;
         uint8_t b = 1;
-        if (!Rd(g_base + kMissionQueue + i * 0x58 + 4, id) || !Rd(g_base + kMissionQueue + i * 0x58 + 8, b)) return false;
+        if (!Rd(g_base + Grva(kMissionQueue) + i * 0x58 + 4, id) || !Rd(g_base + Grva(kMissionQueue) + i * 0x58 + 8, b)) return false;
         if (id || b) return false;
     }
     return true;
@@ -354,7 +355,7 @@ uintptr_t MissionRecord(uint32_t key) {
 // ---- game calls (game thread; SEH: a fault disarms the tour) ------------------------------------------------------------
 bool CallFill(void* req, uint32_t id, bool& ok) {
     __try {
-        ok = (((FillWarpPoint_t)(g_base + kFillWarpPoint))(req, id) & 0xFF) != 0;
+        ok = (((FillWarpPoint_t)(g_base + Grva(kFillWarpPoint)))(req, id) & 0xFF) != 0;
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -362,7 +363,7 @@ bool CallFill(void* req, uint32_t id, bool& ok) {
 }
 bool CallFtPost(void* req) {
     __try {
-        ((FtPost_t)(g_base + kFtPost))(req);
+        ((FtPost_t)(g_base + Grva(kFtPost)))(req);
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -371,7 +372,7 @@ bool CallFtPost(void* req) {
 bool CallMissionReq(uint32_t key, uint32_t slot) {
     alignas(16) static const uint32_t params[6] = {0x101, 0x1000000, 0x10100, 0, 0, 0};  // = Mission Replay menu F1FD80
     __try {
-        ((MissionReqById_t)(g_base + kMissionReqById))(key, slot, 0, params);
+        ((MissionReqById_t)(g_base + Grva(kMissionReqById)))(key, slot, 0, params);
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -381,7 +382,7 @@ bool CallDbGet(uint32_t rva, uint32_t key, bool& v) {
     __try {
         const uintptr_t db = Ptr(kClearDbPtr);
         if (!db) return false;
-        v = (((DbGet_t)(g_base + rva))((void*)db, (int)key) & 0xFF) != 0;
+        v = (((DbGet_t)(g_base + Grva(rva)))((void*)db, (int)key) & 0xFF) != 0;
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -1253,7 +1254,7 @@ void Start(const StartInfo& info) {
         TLOG("Tour: not installed (no executable page within 2 GB of the image)");
         return;
     }
-    const Thunks th = BuildThunks(g_page, tickTarget, g_base + kSb1Callee, g_base + kSbBackupCallee, &TourTick);
+    const Thunks th = BuildThunks(g_page, tickTarget, g_base + Grva(kSb1Callee), g_base + Grva(kSbBackupCallee), &TourTick);
     uint8_t* t = th.tick;
     uint8_t* s1 = th.sb1;
     uint8_t* s2 = th.sb2;

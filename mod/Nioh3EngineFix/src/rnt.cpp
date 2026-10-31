@@ -13,6 +13,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -125,7 +126,7 @@ bool StoreStats(void* entry, Rec* rec) {
 
 void* LiveGraph() {
     uint8_t* O = nullptr;
-    if (!Load(g_base + kRvaGameMain, &O) || !O) return nullptr;
+    if (!Load(g_base + Grva(kRvaGameMain), &O) || !O) return nullptr;
     uint8_t* host = nullptr;
     if (!Load(O + 0x530, &host) || !host) return nullptr;
     void* graph = nullptr;
