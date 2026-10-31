@@ -2368,19 +2368,21 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         const ULONGLONG t0 = g_fbInjT0.load(), t = GetTickCount64();
         const int c = g_fbStyleQ.load();
         FbState* s = (FbState*)st;
-        if (t >= t0 + 300) {  // human #58307: the game often drops the replay (player not actionable yet) -> confirm via chr+A95C, retry
+        // human #58373: 800 ms between tries made the switch land 1-2 s after the form (felt like a late queued switch). Now a short
+        // pulse every 400 ms (RT 30..150, A 60..120), style checked from 150 ms on, so it lands on the first frame the game accepts it.
+        if (t >= t0 + 150) {  // human #58307: the game often drops the replay (player not actionable yet) -> confirm via chr+A95C, retry
             const int cur = FbStyleNow(), s0 = g_fbStyle0.load();
             if (s0 < 0 || cur < 0 || cur != s0) {
                 Log("FormStyleSwitch: %s after try %d (style %d -> %d) t=%.3f", s0 < 0 || cur < 0 ? "done, style unreadable" : "style changed", g_fbTries.load(), s0, cur, Now());
                 g_fbInjT0.store(0); g_fbStyleQ.store(0);
-            } else if (t >= t0 + 800) {
-                if (g_fbTries.load() < 5) { g_fbTries.fetch_add(1); g_fbInjT0.store(t); Log("FormStyleSwitch: style still %d, retry %d t=%.3f", cur, g_fbTries.load(), Now()); }
+            } else if (t >= t0 + 400) {
+                if (g_fbTries.load() < 8) { g_fbTries.fetch_add(1); g_fbInjT0.store(t); Log("FormStyleSwitch: style still %d, retry %d t=%.3f", cur, g_fbTries.load(), Now()); }
                 else { Log("FormStyleSwitch: style still %d after %d tries - gave up", cur, g_fbTries.load()); g_fbInjT0.store(0); g_fbStyleQ.store(0); }
             }
         }
-        else if (t >= t0 + 50 && t < t0 + 250) {     // RT held 50..250 ms after the form end
+        else if (t >= t0 + 30) {     // RT held 30..150 ms after the try starts
             s->pad.rt = 255;
-            if (c == 2 && t >= t0 + 110 && t < t0 + 200) s->pad.buttons |= 0x1000;  // + A while RT is held
+            if (c == 2 && t >= t0 + 60 && t < t0 + 120) s->pad.buttons |= 0x1000;  // + A while RT is held
         }
     }
     return r;
