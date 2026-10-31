@@ -2324,6 +2324,9 @@ std::atomic<int> g_fbStyleQ{0}, g_fbInjUser{0};  // queued chord: 0 none, 1 RT t
 struct FbUserSt { bool rt = false, chordA = false, other = false; ULONGLONG lastRt = 0; };
 FbUserSt g_fbUser[4];
 std::atomic<ULONGLONG> g_fbInjT0{0};
+std::atomic<int> g_fbStyle0{-1}, g_fbTries{0};  // human #58307: style (chr+A95C, 0 samurai / 1 ninja) at the form end, replay attempts
+uint64_t FkPlayer();
+int FbStyleNow() { const uint64_t pl = FkPlayer(); uint32_t v = 0; return pl && RdB(pl + 0xA95C, v) && v <= 1 ? (int)v : -1; }
 using FbXGet = DWORD(WINAPI*)(DWORD, void*);
 FbXGet g_fbPrev = nullptr;
 struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
@@ -2360,7 +2363,16 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         const ULONGLONG t0 = g_fbInjT0.load(), t = GetTickCount64();
         const int c = g_fbStyleQ.load();
         FbState* s = (FbState*)st;
-        if (t >= t0 + 300) { g_fbInjT0.store(0); g_fbStyleQ.store(0); }
+        if (t >= t0 + 300) {  // human #58307: the game often drops the replay (player not actionable yet) -> confirm via chr+A95C, retry
+            const int cur = FbStyleNow(), s0 = g_fbStyle0.load();
+            if (s0 < 0 || cur < 0 || cur != s0) {
+                Log("FormStyleSwitch: %s after try %d (style %d -> %d) t=%.3f", s0 < 0 || cur < 0 ? "done, style unreadable" : "style changed", g_fbTries.load(), s0, cur, Now());
+                g_fbInjT0.store(0); g_fbStyleQ.store(0);
+            } else if (t >= t0 + 800) {
+                if (g_fbTries.load() < 5) { g_fbTries.fetch_add(1); g_fbInjT0.store(t); Log("FormStyleSwitch: style still %d, retry %d t=%.3f", cur, g_fbTries.load(), Now()); }
+                else { Log("FormStyleSwitch: style still %d after %d tries - gave up", cur, g_fbTries.load()); g_fbInjT0.store(0); g_fbStyleQ.store(0); }
+            }
+        }
         else if (t >= t0 + 50 && t < t0 + 250) {     // RT held 50..250 ms after the form end
             s->pad.rt = 255;
             if (c == 2 && t >= t0 + 110 && t < t0 + 200) s->pad.buttons |= 0x1000;  // + A while RT is held
@@ -2411,8 +2423,9 @@ void FormBlockSet(bool on) {
     else {
         Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
         if (g_fbStyle.load() && g_fbStyleQ.load()) {  // ally #57627: replay the chord 50..250 ms after the form ends
+            g_fbStyle0.store(FbStyleNow()); g_fbTries.store(1);
             g_fbInjT0.store(GetTickCount64());
-            Log("FormStyleSwitch: replaying the style shift (%s, pad %d) at the form end t=%.3f", g_fbStyleQ.load() == 2 ? "RT+A" : "RT tap", g_fbInjUser.load(), Now());
+            Log("FormStyleSwitch: replaying the style shift (%s, pad %d, style %d) at the form end t=%.3f", g_fbStyleQ.load() == 2 ? "RT+A" : "RT tap", g_fbInjUser.load(), g_fbStyle0.load(), Now());
         }
     }
 }
