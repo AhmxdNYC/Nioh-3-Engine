@@ -112,7 +112,7 @@ void OnPresent();
 // appends the menu / pause hint / hold indicator quads through osd::DrawRect/DrawText. Returns the text scale the
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
-float PanelScale(unsigned W, unsigned H);  // #38102/#38167: shared by the right-side panel and the left FPS overlay
+float PanelScale(unsigned W, unsigned H);  // right-side menu panel only; the FPS counter uses osd::CounterScale
 bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
 bool IsOpen();
 cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);

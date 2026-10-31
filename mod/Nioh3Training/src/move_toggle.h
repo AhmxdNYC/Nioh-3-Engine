@@ -12,6 +12,10 @@ static uint32_t g_mv_fallback = 2;
 #define N3CAT_CAP N3_MOVE_COUNT  // tests: the generated table; training.c: the live catalogue capacity (move_catalog.h)
 #endif
 static volatile LONG g_mv_pref[N3CAT_CAP], g_mv_current_chr, g_mv_install_pending;
+// ally #59523: a Boss Match ignores the saved Training vetoes / repeats / stance timer (1dbbaeb5), but a change made from the menu DURING the
+// match applies to it. g_bm_gen counts Boss Match starts (BossMatchDefaults); a block / repeat / timer stamped with the current generation is live.
+static volatile LONG g_bm_gen, g_mv_bmpref[N3CAT_CAP], g_mv_bmgen[N3CAT_CAP];
+static int MvBossMatch(void) { return g_tr.active && !g_tr.practice; }
 typedef uint32_t (*MvSelFn)(uint64_t, uint64_t);
 typedef uint64_t (*MvComFn)(uint64_t, uint32_t, uint64_t, int, uint64_t);
 static MvSelFn o_mvsel;
@@ -19,9 +23,10 @@ static MvComFn o_mvcom;
 static uint32_t IhSelect(uint64_t st, uint32_t id);
 
 static int MvBlocked(uint32_t chr, uint32_t id) {
-    if (g_tr.active && !g_tr.practice) return 0; // saved Training vetoes do not alter Boss Matches
     if (N3MoveProtected(id) || id == g_mv_fallback) return 0;
     int index = N3MoveFind(chr, id);
+    if (MvBossMatch())  // saved Training vetoes do not alter Boss Matches; a block set during this match does (#59523)
+        return index >= 0 && g_mv_bmgen[index] == g_bm_gen && g_mv_bmpref[index] == 2;
     if (index >= 0) {
         LONG pref = InterlockedCompareExchange(&g_mv_pref[index], 0, 0);
         if (pref) return pref == 2;
@@ -53,7 +58,7 @@ static uint32_t MvBossChr(uint64_t st) {
 // the AI's own pick through until that many ms passed since the last repeat. Only ordinary catalogued attacks (id >= 0x4E20)
 // plus the idle pick (0x2) are replaced, so reactions, Ki break and status actions still play natively.
 #define MV_REP_MAX 8
-static volatile LONG g_rep_chr[MV_REP_MAX], g_rep_id[MV_REP_MAX], g_rep_count[MV_REP_MAX]; static DWORD g_rep_last[MV_REP_MAX], g_rep_end[MV_REP_MAX];
+static volatile LONG g_rep_chr[MV_REP_MAX], g_rep_id[MV_REP_MAX], g_rep_count[MV_REP_MAX], g_rep_bmgen[MV_REP_MAX]; static DWORD g_rep_last[MV_REP_MAX], g_rep_end[MV_REP_MAX];
 static volatile LONG g_rep_gaps; static uint64_t g_rep_st[MV_REP_MAX];
 // bridge 12958: delay between repeats (Training menu slider on the move page, [Training] RepeatGapMs, default 1000). Measured from the end of the
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
@@ -82,7 +87,8 @@ static int MvGapPut(uint32_t chr, int ms) {
 static volatile uint64_t g_mv_chase[MV_CHASE_MAX];
 static int MvChasing(uint64_t st) { for (int i = 0; st && i < MV_CHASE_MAX; ++i) if (g_mv_chase[i] == st) return 1; return 0; }
 static int MvRepFind(uint32_t chr) { for (int i = 0; i < MV_REP_MAX; ++i) if (chr && (uint32_t)g_rep_chr[i] == chr) return i; return -1; }
-static uint32_t MvRepeatId(uint32_t chr) { if (g_tr.active && !g_tr.practice) return 0; int i = MvRepFind(chr); return i >= 0 ? (uint32_t)g_rep_id[i] : 0; }
+static int MvRepLive(int i) { return !MvBossMatch() || g_rep_bmgen[i] == g_bm_gen; }  // #59523: in a Boss Match only a repeat armed during it
+static uint32_t MvRepeatId(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 && MvRepLive(i) ? (uint32_t)g_rep_id[i] : 0; }
 // user #14423: 'Sequences' repeat (Boss moves > Sequences). The old path repeated only the chain's first move: the select hook runs at the
 // boss's decision points (end of each action, many calls per frame in idle), so 'first pick after a repeat = the move finished' turned the
 // pick at the end of the head into the gap's idle 0x2 (live 22:17:46-22:18:33: 0x4E7B -> 0x2 instead of its link 0x4EA7) and once the gap
@@ -262,9 +268,8 @@ static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
     return (uint32_t)g_rep_id[i];
 }
 static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
-    if (g_tr.active && !g_tr.practice) return 0;
     if (id < 0x4E20 && id != 2) return 0;  // idle picks too: a calm / out-of-range boss only re-picks idle (live 19:10, every 6 s)
-    uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0) return 0;
+    uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0 || !MvRepLive(i)) return 0;
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
     if (g_rep_seq[i]) return MvSeqPick(i, st, chr, id);  // user #14423: chain repeat (also lets a started chain finish while chasing)
     DWORD now = GetTickCount(); int gap = MvGapFor(chr);
@@ -370,6 +375,7 @@ N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed,
     int index = N3MoveFind(chr, id);
     if (index < 0 || N3MoveProtected(id) || id == g_mv_fallback) return 0;
     InterlockedExchange(&g_mv_pref[index], allowed ? 1 : 2);
+    if (MvBossMatch()) { InterlockedExchange(&g_mv_bmpref[index], allowed ? 1 : 2); InterlockedExchange(&g_mv_bmgen[index], g_bm_gen); }  // #59523
     if (!allowed) InterlockedExchange(&g_mv_install_pending, 1);
     if (persist) {
         char ini[MAX_PATH], section[40], key[24];
@@ -390,7 +396,7 @@ N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on) { ret
 // user #14423: repeat the whole sequence that starts with id (Boss moves > Sequences). on = 0 stops that boss's repeat (move or sequence).
 N3T_API int Nioh3Training_SetMoveRepeatSeq(uint32_t chr, uint32_t id, int on) { return MvRepArm(chr, id, on, 1); }
 // 1 = this boss repeats a whole sequence, 0 = a single move / nothing
-N3T_API int Nioh3Training_GetMoveRepeatSeq(uint32_t chr) { if (g_tr.active && !g_tr.practice) return 0; int i = MvRepFind(chr); return i >= 0 && g_rep_id[i] && g_rep_seq[i]; }
+N3T_API int Nioh3Training_GetMoveRepeatSeq(uint32_t chr) { int i = MvRepFind(chr); return i >= 0 && MvRepLive(i) && g_rep_id[i] && g_rep_seq[i]; }
 static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
     int i = MvRepFind(chr);
     if (!on) {
@@ -408,7 +414,7 @@ static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
     g_rep_nchain[i] = seq ? MvSeqBuild(chr, id, g_rep_chain[i], MV_SEQ_MAX) : 0;
     g_rep_phase[i] = 0; g_rep_st[i] = 0; g_rep_kmax[i] = -1; MvRoundReset(i);
     InterlockedExchange(&g_rep_seq[i], seq ? 1 : 0);
-    InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; g_rep_end[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
+    InterlockedExchange(&g_rep_bmgen[i], MvBossMatch() ? g_bm_gen : 0); InterlockedExchange(&g_rep_id[i], (LONG)id); InterlockedExchange(&g_rep_count[i], 0); g_rep_last[i] = 0; g_rep_end[i] = 0; InterlockedExchange(&g_rep_chr[i], (LONG)chr);
     InterlockedExchange(&g_mv_install_pending, 1);
     for (int k = 0; k < g_nsp; ++k) { uint64_t a = g_sp_actor[k], ai = 0, ctrl = 0; if (a && g_sp_chr[k] == chr && Rd64(a + 0x3B0, &ai) && ai) Rd64(ai + 8, &ctrl); if (a && g_sp_chr[k] == chr) Log("REPEAT chr %u actor %p ai %p ctrl %p", chr, (void*)a, (void*)ai, (void*)ctrl); }
     if (seq) {
@@ -469,9 +475,9 @@ N3T_API int Nioh3Training_SetRepeatGapChr(uint32_t chr, int ms, int persist) {
 // 6.0 s measured), so when the gap has passed and the boss is still in idle 0x2 the repeated move is started with SetActionID's forced
 // transition 66C4A8(ctrl, id, 0, 0.0) (the KiBreakActFix path).
 static __attribute__((noinline)) void MvRepTick(void) {
-    if (g_tr.active && !g_tr.practice) return;
     DWORD now = GetTickCount();
     for (int i = 0; i < MV_REP_MAX; ++i) {
+        if (!MvRepLive(i)) continue;  // Boss Match: only a repeat armed during the match (#59523)
         uint32_t chr = (uint32_t)g_rep_chr[i], rep = (uint32_t)g_rep_id[i]; uint64_t st = g_rep_st[i];
         if (chr && rep && st && g_rep_seq[i]) {  // user #14423: sequence mode follows the real action every frame
             if (MvBossChr(st) != chr) { g_rep_st[i] = 0; g_rep_phase[i] = 0; continue; }

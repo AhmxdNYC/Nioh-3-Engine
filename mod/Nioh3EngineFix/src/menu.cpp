@@ -51,6 +51,8 @@
 #include "../../rematch_menu_bridge.h"
 
 namespace menu {
+// Tests set this to 0 or 1. The game leaves it at -1, which asks whether Nioh3CamKiProbe.asi is loaded.
+int g_camProbePresentForTest = -1;
 namespace {
 #include "menu_rematch_host.h"
 
@@ -1053,9 +1055,17 @@ void DoReport() {
     const bool ok = crashreport::Snapshot(path, sizeof(path));
     const bool clip = crashreport::CopyReportUrl();
     crashreport::OpenReportUrl();
-    crashreport::OpenReportFolder(ok ? path : nullptr);
-    if (ok) snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. Opened the folder and %s%s", path, crashreport::ReportUrl(), clip ? "." : " (clipboard failed).");
-    else snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). Opened the folder and %s.", crashreport::ReportUrl());
+    // Wine's Explorer covers the game. Same rule as the Update row: no folder window under Wine/Proton.
+    const bool wine = updatecheck::RunningUnderWine();
+    if (!wine) crashreport::OpenReportFolder(ok ? path : nullptr);
+    if (ok && wine)
+        snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. Opened %s. Folder skipped under Wine/Proton%s", path, crashreport::ReportUrl(), clip ? "." : " (clipboard failed).");
+    else if (ok)
+        snprintf(g_reportNote, sizeof(g_reportNote), "Saved %s. Opened the folder and %s%s", path, crashreport::ReportUrl(), clip ? "." : " (clipboard failed).");
+    else if (wine)
+        snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). Opened %s. Folder skipped under Wine/Proton.", crashreport::ReportUrl());
+    else
+        snprintf(g_reportNote, sizeof(g_reportNote), "Snapshot failed (crash reports off?). Opened the folder and %s.", crashreport::ReportUrl());
     MLOG("Report row: %s", g_reportNote);
 }
 
@@ -1795,6 +1805,10 @@ void ChangeConfig(int index, int dir) {
 }
 
 // Real camera offsets are applied by CamKiProbe 1.0.21; no stick simulation.
+bool CamProbeLoaded() {
+    if (g_camProbePresentForTest >= 0) return g_camProbePresentForTest != 0;
+    return GetModuleHandleW(L"Nioh3CamKiProbe.asi") != nullptr;
+}
 // Nonzero distance/lens settings use calibrated references, not live per-scene defaults.
 // Zero always removes the key, releasing the camera to the native game calculation.
 constexpr float kCamDistDefault = 585.f, kCamDistStep = 60.f, kCamDistMin = 50.f, kCamDistMax = 4000.f;
@@ -1917,7 +1931,14 @@ void Change(int id, int dir) {
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
-    if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) { ChangeCamera(id - kCamRowFirst, dir); return; }
+    if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
+        if (id != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
+            snprintf(g_camNote, sizeof(g_camNote), "Needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded, so this row does nothing.");
+            return;
+        }
+        ChangeCamera(id - kCamRowFirst, dir);
+        return;
+    }
     if (id == kFrameMeterRow) { ChangeFrameMeter(); return; }
     if (id == kFrameMeterStyleRow) { ChangeFrameMeterStyle(dir); return; }
     if (id == kFrameMeterSizeRow) { ChangeFrameMeterSize(dir); return; }
@@ -3214,6 +3235,11 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[96], text[40];
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
+            if (k != kCamReset && !CamProbeLoaded()) {
+                snprintf(text, sizeof(text), "needs CamKiProbe add-on");
+                put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
+                continue;
+            }
             bool on = false;
             if (k != kCamReset) {
                 const float value = CamValue(k);
@@ -3328,7 +3354,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
-        snprintf(effect, sizeof(effect), "Opens the report folder and the website. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
+        snprintf(effect, sizeof(effect), "Opens the website. On Windows it also opens the report folder. Under Wine/Proton the folder stays closed. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
@@ -3351,8 +3377,13 @@ float DrawImpl(unsigned W, unsigned H) {
             : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
-        snprintf(what, sizeof(what), "Left / Right adjusts the selected axis; A / Enter resets it. Zero uses the game camera. Return to default resets all four.");
-        snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Steps: position 20, distance 60, lens 5 degrees. Left = closer / narrower; right = farther / wider.");
+        if (g_sel != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
+            snprintf(what, sizeof(what), "This offset needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded.");
+            snprintf(effect, sizeof(effect), "needs CamKiProbe add-on");
+        } else {
+            snprintf(what, sizeof(what), "Left / Right adjusts the selected axis; A / Enter resets it. Zero uses the game camera. Return to default resets all four.");
+            snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Steps: position 20, distance 60, lens 5 degrees. Left = closer / narrower; right = farther / wider.");
+        }
     } else if (g_sel == kKiWindowRow) {
         snprintf(what, sizeof(what), "%s", g_kiWindowNote);
         snprintf(effect, sizeof(effect), "Off by default: only the perfect Ki Pulse frames (teal) show. On adds the rest of the window in dark blue. Training saves it.");
@@ -3600,7 +3631,7 @@ bool ParseHold(const wchar_t* s, uint32_t& mask, char* name, size_t nameLen) {
 
 }  // namespace
 
-// #38102/#38167: one scale for the right-side panel (every page) and the FPS overlay on the left, so both look the same size
+// Menu panel scale. The FPS counter uses osd::CounterScale ([Overlay] Scale), not this.
 float PanelScale(unsigned W, unsigned H) {
     return std::max(0.5f, std::min(AutoScale(H) * 0.75f, ((float)W * 0.46f - 16.f) / ((float)(58 + 3) * osd::kGlyphW)));
 }

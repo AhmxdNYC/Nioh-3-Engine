@@ -19,7 +19,7 @@ preamble=r'''
 static int g_cfg_loot,g_cfg_deathblow,g_cfg_cutscene,g_cfg_nofin;
 static int g_bmd_on,g_bmd_loot,g_bmd_nofin;
 static struct { int practice; } g_tr;
-static volatile LONG g_st_armed;
+static volatile LONG g_st_armed, g_bm_gen;
 static char g_dir[MAX_PATH]="test";
 static LPTHREAD_START_ROUTINE queued;static void* payload;static int written=-1;
 static HANDLE Queue(LPTHREAD_START_ROUTINE f,void* p){assert(!queued);queued=f;payload=p;return (HANDLE)1;}

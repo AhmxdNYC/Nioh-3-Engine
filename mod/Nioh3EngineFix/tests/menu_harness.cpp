@@ -373,6 +373,16 @@ int main() {
     }
     // Camera controls write the real probe keys, preserve the other axis, and reset both.
     {
+        g_camProbePresentForTest = 0;
+        Change(kCamRowFirst + kCamRight, -1);
+        CHECK(g_camRight == 0.f && strstr(g_camNote, "CamKiProbe"));
+        g_pages.Reset(); EnterPage(pCamera); g_sel = kCamRowFirst + kCamRight; g_open = 1;
+        osd::drawnTexts.clear();
+        CHECK(DrawImpl(1920, 1080) > 0);
+        bool need = false;
+        for (const auto& t : osd::drawnTexts) need |= t == "needs CamKiProbe add-on";
+        CHECK(need);
+        g_camProbePresentForTest = 1;
         wchar_t temp[MAX_PATH], folder[MAX_PATH];
         GetTempPathW(MAX_PATH, temp); GetTempFileNameW(temp, L"cam", 0, folder);
         DeleteFileW(folder); CHECK(CreateDirectoryW(folder, nullptr));
@@ -449,6 +459,11 @@ int main() {
     CHECK(crashreport::g_snapshots == 1 && crashreport::g_urlOpens == 1 && crashreport::g_folderOpens == 1
         && strstr(crashreport::g_folderPath, "stub-report.txt") && g_pages.page == pSettings
         && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
+    updatecheck::wine = true;
+    Change(kReportRow, 0);
+    CHECK(crashreport::g_snapshots == 2 && crashreport::g_urlOpens == 2 && crashreport::g_folderOpens == 1
+        && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "Wine"));
+    updatecheck::wine = false;
     Change(kModMenuRow, 0);  // #38077: Mod menu = the top-level page
     CHECK(g_pages.page == pRoot && g_sel == kPageRow + pDisplay);
     Change(kPageRow + pSettings, 0);
