@@ -3243,7 +3243,9 @@ double g_sehKidT[8] = {};
 void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNote), any chr near the player
     if (!g_sehMode.load() || !chr) return;
     static int n = 0;
-    for (int i = 0; i < 8; ++i) if (g_sehKid[i] == chr) return;
+    // pc2 #57781: a chr address the game reuses (LEFT's helper EE49E, from the 6th form on) gets its time refreshed; a stale time made
+    // the burst test skip its colliders, so burst 1 (28 colliders) was never counted and the ghost exit never fired
+    for (int i = 0; i < 8; ++i) if (g_sehKid[i] == chr) { g_sehKidT[i] = Now(); return; }
     g_sehKid[n % 8] = chr; g_sehKidT[n % 8] = Now(); ++n;
 }
 int SealHitsFor(uint32_t id) {
@@ -3315,8 +3317,165 @@ int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     }
     return made;
 }
+// pc2 #57781 (human #57731): [Spirit] SealExitReplay=1 - a SealExitFxCore core (LEFT 5129B) ends its ghost exit with the same big black
+// fog its transform starts with. That fog is not one of the seal's own appear effects on a player bone (#4297/#57334: those look like
+// sparks on the feet): the landing object of the seal orb places effect 62557 in WORLD space (2A06B4 -> 29EF38 -> EffectCreate 4CE90C with
+// r9 = a 4x4 world matrix and no P block), plus the seal's appear effects once the yokai spawns. So every EffectCreate of the form's start
+// (press .. seal bind + SealExitReplayTailMs, at most SealExitReplayMaxMs) is recorded with its exact arguments: world-matrix calls keep the
+// matrix (moved by how far the player is from where they stood then), bone-attached calls keep their P block and get their owner remapped
+// (player -> player, the seal -> the seal, anything else -> skipped). At the ghost exit they are replayed with the same spacing.
+// SealExitReplaySkip = hex ids never recorded (default 3E8, the per-hit spark), SealExitReplayIds = if set, only these ids are recorded.
+struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; };
+constexpr int kFxRecMax = 24;
+FxRec g_fxRec[kFxRecMax];
+int g_fxRecN = 0;
+SRWLOCK g_fxRecLock = SRWLOCK_INIT;
+std::atomic<int> g_fxrOn{0};
+std::atomic<double> g_fxrT0{0}, g_fxrUntil{0};
+int g_fxrTailMs = 300, g_fxrMaxMs = 2500;
+uint32_t g_fxrSkip[12] = {0x3E8}, g_fxrOnly[12] = {};
+int g_fxrSkipN = 1, g_fxrOnlyN = 0;
+thread_local bool t_fxReplaying = false;
+struct FxPlay { double at; FxRec r; };
+FxPlay g_fxPlay[kFxRecMax];
+int g_fxPlayN = 0;  // game thread only
+int HexList(const wchar_t* key, const wchar_t* def, uint32_t* out, int cap) {
+    wchar_t b[256] = {};
+    GetPrivateProfileStringW(L"Spirit", key, def, b, 256, IniPath());
+    int n = 0;
+    for (wchar_t* q = b; *q && n < cap;) {
+        while (*q == L',' || *q == L' ') ++q;
+        if (!*q) break;
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(q, &e, 16);
+        if (e == q) break;
+        if (v) out[n++] = (uint32_t)v;
+        q = e;
+    }
+    return n;
+}
+void SealExitReplayLoad() {
+    g_fxrOn.store(IniInt(L"Spirit", L"SealExitReplay", 1));
+    g_fxrTailMs = IniInt(L"Spirit", L"SealExitReplayTailMs", 300);
+    g_fxrMaxMs = IniInt(L"Spirit", L"SealExitReplayMaxMs", 2500);
+    g_fxrSkipN = HexList(L"SealExitReplaySkip", L"3E8", g_fxrSkip, 12);
+    g_fxrOnlyN = HexList(L"SealExitReplayIds", L"", g_fxrOnly, 12);
+}
+// EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
+void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
+    (void)a; (void)b;
+    if (t_fxReplaying || g_fxrOn.load(std::memory_order_relaxed) <= 0) return;
+    const double t0 = g_fxrT0.load(std::memory_order_relaxed);
+    if (t0 <= 0) return;
+    const double now = Now();
+    const double until = g_fxrUntil.load(std::memory_order_relaxed);
+    if (now - t0 > g_fxrMaxMs / 1000.0 || (until > 0 && now > until)) return;
+    const uint32_t id = (uint32_t)c;
+    for (int i = 0; i < g_fxrSkipN; ++i) if (g_fxrSkip[i] == id) return;
+    if (g_fxrOnlyN) {
+        bool ok = false;
+        for (int i = 0; i < g_fxrOnlyN && !ok; ++i) ok = g_fxrOnly[i] == id;
+        if (!ok) return;
+    }
+    FxRec r = {};
+    r.t = now; r.id = id; r.d = d;
+    const uint64_t P = StackArg(sp, 5);
+    r.owner = StackArg(sp, 6);
+    r.a7 = StackArg(sp, 7);
+    const uint64_t spv = (uint64_t)sp;
+    const bool dStack = d > spv - 0x10000 && d < spv + 0x10000;
+    if (!P && dStack) { r.world = 1; if (!Copy(r.blk, d, 0x40)) return; }
+    else if (P && !dStack) { r.world = 0; if (!Copy(r.blk, P, 0x60)) return; }
+    else return;  // a shape we have not seen: do not replay it
+    const uint64_t pl = g_fh4.owner;
+    if (pl) Copy(r.pl, pl + 0x110, 16);
+    int n;
+    AcquireSRWLockExclusive(&g_fxRecLock);
+    n = g_fxRecN;
+    if (g_fxRecN < kFxRecMax) g_fxRec[g_fxRecN++] = r;
+    ReleaseSRWLockExclusive(&g_fxRecLock);
+    if (n < kFxRecMax) {
+        const float* m = (const float*)r.blk;
+        if (r.world) Log("SealExitReplay rec #%d fx %X world +%.3f s pos %.0f %.0f %.0f (player %.0f %.0f %.0f) owner %llX", n, id, now - t0, m[12], m[13], m[14],
+            r.pl[0], r.pl[1], r.pl[2], (unsigned long long)r.owner);
+        else Log("SealExitReplay rec #%d fx %X bone %d +%.3f s owner %llX%s", n, id, *(const int32_t*)r.blk, now - t0, (unsigned long long)r.owner,
+            r.owner == pl ? " (player)" : "");
+    }
+}
+// game thread: a new form session starts (FormHide=4 owner set) / the seal got bound
+void SealExitReplayBegin(double t) {
+    AcquireSRWLockExclusive(&g_fxRecLock);
+    g_fxRecN = 0;
+    ReleaseSRWLockExclusive(&g_fxRecLock);
+    g_fxrUntil.store(0);
+    g_fxrT0.store(t);
+}
+void SealExitReplayBound(double t) { g_fxrUntil.store(t + g_fxrTailMs / 1000.0); }
+// game thread, at the ghost exit of a smoke core: schedule the recorded start effects from now on
+int SealExitReplayQueue(uint64_t seal, uint64_t player) {
+    g_fxrT0.store(0);
+    if (g_fxrOn.load() <= 0) return 0;
+    static FxRec rec[kFxRecMax];
+    int n;
+    AcquireSRWLockShared(&g_fxRecLock);
+    n = g_fxRecN;
+    memcpy(rec, g_fxRec, sizeof(FxRec) * n);
+    ReleaseSRWLockShared(&g_fxRecLock);
+    float pn[4] = {};
+    if (!n || !player || !Copy(pn, player + 0x110, 16)) return 0;
+    const double now = Now();
+    g_fxPlayN = 0;
+    for (int i = 0; i < n; ++i) {
+        FxRec r = rec[i];
+        if (r.world) {
+            float* m = (float*)r.blk;
+            const float dx = m[12] - r.pl[0], dy = m[13] - r.pl[1], dz = m[14] - r.pl[2];
+            if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
+            m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
+            r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
+        } else if (r.owner != player && r.owner != seal) {
+            Log("SealExitReplay: fx %X owner %llX is not the player or the seal - skipped", r.id, (unsigned long long)r.owner);
+            continue;
+        }
+        if (r.a7 > 0x10000) r.a7 = 0;
+        g_fxPlay[g_fxPlayN].at = now + (rec[i].t - rec[0].t);
+        g_fxPlay[g_fxPlayN].r = r;
+        ++g_fxPlayN;
+    }
+    return g_fxPlayN;
+}
+void SealExitReplayTick() {  // game thread
+    if (!g_fxPlayN) return;
+    static int bytesOk = -1;
+    if (bytesOk < 0) {
+        static const uint8_t w[] = {0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xA8, 0x88, 0xFC, 0xFF, 0xFF};
+        uint8_t b[sizeof(w)] = {};
+        bytesOk = Copy(b, g_base + 0x4CE90C, sizeof(b)) && !memcmp(b, w, sizeof(w));
+        if (!bytesOk) Log("SealExitReplay: 4CE90C bytes not found in this update - off");
+    }
+    uint64_t mgr = 0;
+    if (!bytesOk || !Rd(g_base + 0x45B9E38, mgr) || !mgr) { g_fxPlayN = 0; return; }
+    const double now = Now();
+    int k = 0;
+    for (int i = 0; i < g_fxPlayN; ++i) {
+        FxPlay& p = g_fxPlay[i];
+        if (now < p.at) { g_fxPlay[k++] = p; continue; }
+        alignas(16) uint8_t blk[0x60];
+        memcpy(blk, p.r.blk, sizeof(blk));
+        alignas(16) uint8_t out[0x20] = {};
+        t_fxReplaying = true;
+        __try {
+            ((void* (*)(uint64_t, void*, uint32_t, uint64_t, uint64_t, uint64_t, uint64_t))(g_base + 0x4CE90C))(
+                mgr, out, p.r.id, p.r.world ? (uint64_t)blk : p.r.d, p.r.world ? 0 : (uint64_t)blk, p.r.owner, p.r.a7);
+            Log("SealExitReplay: fx %X %s replayed owner %llX t=%.3f", p.r.id, p.r.world ? "world" : "bone", (unsigned long long)p.r.owner, now);
+        } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SealExitReplay: fx %X faulted", p.r.id); }
+        t_fxReplaying = false;
+    }
+    g_fxPlayN = k;
+}
 void SealEndOnHitTick() {
     if (!g_sehMode.load()) return;
+    SealExitReplayTick();
     static uint64_t sxfSeal = 0;
     static double sxfAt = 0;
     // Session = one FormHide=4 form (from the press, before the seal exists): A2ACB is bound from its spawn hit only ~0.3 s after it spawns and
@@ -3343,6 +3502,7 @@ void SealEndOnHitTick() {
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
         sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0;
+        if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
         const uint64_t sx = sxfSeal; sxfSeal = 0;
@@ -3354,6 +3514,7 @@ void SealEndOnHitTick() {
     if (!seal && g_fh4.seal) {
         seal = g_fh4.seal;
         uint32_t k = 0; Rd(seal, k); sid = k >> 4; want = SealHitsFor(sid);
+        SealExitReplayBound(now);
         Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
             bursts, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
     }
@@ -3393,6 +3554,8 @@ void SealEndOnHitTick() {
             g_ghostFadeSeal.store(seal);
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
+        const int replay = smoke ? SealExitReplayQueue(seal, FkPlayer()) : 0;
+        if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         g_ghostSeal.store(seal);
         GhostHideSeal(seal);
         g_ghostReq.store(seal);
@@ -4140,6 +4303,8 @@ bool FormKeyInstall() {
     G_PTAB = Site("g:PlayerTab");
     OnEntry("ScProbe_GSpiritWork", &HkFormKeySpawn);
     OnEntry("ScProbe_TenshinInput", &HkFormKeyInput);
+    SealExitReplayLoad();
+    if (g_fxrOn.load() > 0) OnEntry("EffectCreate", &HkFxRec);  // pc2 #57781: records the form-start effects (cheap outside a form start)
     if (g_slMode.load()) OnEntry("SealLife_2BFC90", &HkSealUnlink);
     if (g_sdMode.load()) {
         for (uint32_t rva : {0x681EB6u, 0xE462E1u}) {
@@ -4349,6 +4514,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
         g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
         SealExitFxLoad();
+        SealExitReplayLoad();
         g_ghostOn.store(IniInt(L"Spirit", L"SealGhostExit", 0));
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
