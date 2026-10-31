@@ -2591,9 +2591,11 @@ void CoverStartSmoke(uint64_t player, double now);  // SealExitReplay section, g
 // the instant 0, and SealExitFx=1 also spawns the SealExitFxId effects (on SealExitFxOwner) at the ghost exit.
 uint32_t g_sxcCore[8] = {0x5129B, 0xA2ACB};  // human #58208: DOWN (traveling) A2ACB gets the same exit
 int g_sxcN = 2, g_ghostFadeMs = 250;
+bool g_sxcAll = true;  // human #58710: SealExitFxCore=all (default) gives every soul core the exit smoke, no id list to keep up
 std::atomic<uint64_t> g_ghostFadeSeal{0};
 float g_ghostFade0 = 1.f;
 bool SealExitCore(uint32_t sid) {
+    if (g_sxcAll) return sid != 0;
     for (int i = 0; i < g_sxcN; ++i) if (g_sxcCore[i] == sid) return true;
     return false;
 }
@@ -3516,7 +3518,8 @@ void SealExitFxLoad() {
     g_sxfBone = IniInt(L"Spirit", L"SealExitFxBone", 0);
     g_sxfOwner = IniInt(L"Spirit", L"SealExitFxOwner", 0);
     g_sxfMs = IniInt(L"Spirit", L"SealExitFxMs", 150);
-    GetPrivateProfileStringW(L"Spirit", L"SealExitFxCore", L"5129B,A2ACB", b, 256, IniPath());
+    GetPrivateProfileStringW(L"Spirit", L"SealExitFxCore", L"all", b, 256, IniPath());
+    g_sxcAll = _wcsnicmp(b, L"all", 3) == 0;
     g_sxcN = 0;
     for (wchar_t* q = b; *q && g_sxcN < 8;) {
         while (*q == L',' || *q == L' ') ++q;
