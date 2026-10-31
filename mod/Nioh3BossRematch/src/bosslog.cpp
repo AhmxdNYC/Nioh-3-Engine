@@ -2243,7 +2243,8 @@ bool FhIsSealAct(uint32_t id) {
 double g_sealEdgeT = -100;
 extern std::atomic<uint32_t> g_ftActs[4];
 extern std::atomic<int> g_ftN;
-std::atomic<int> g_formNeedSealActMs{4000};
+std::atomic<int> g_formNeedSealActMs{0};  // human #58806: 0 = off - a running core use has no throw action, so the guard dropped real forms
+std::atomic<int> g_sealEndMinMs{1500};
 bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
     static uint32_t last = 0xFFFFFFFF;
     static uint64_t lastChr = 0;
@@ -3557,7 +3558,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 4000));
+    g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 1500));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
@@ -4023,6 +4024,8 @@ void SealEndOnHitTick() {
         Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
         fire = seal && want && bursts >= want;
     } else if (!n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+    // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
+    if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     static double capLogged = -1;  // human #58729: some cores (A9F39) keep their yokai out with an open burst - never hold the player past FormMaxSec
     if (!fire && seal && g_formMaxSec.load() > 0 && now - sess >= g_formMaxSec.load()) {
         fire = true;
