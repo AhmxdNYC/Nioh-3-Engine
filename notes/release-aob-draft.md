@@ -288,3 +288,19 @@ Also set these, even though they do not say 1.7.88:
 
 - Public `README.md` line 17 still says version 1.7.87. Set it to 1.7.89 in the export commit. `release/USER_GUIDE.md` has no version line.
 - Private `mod/Nioh3EngineFix/src/dllmain.cpp` already says `MOD_VERSION "1.7.89"`. Public `dllmain.cpp` still says 1.7.88 and is replaced by that export, not by a hand edit.
+
+## v1.7.90 packaging (not published)
+
+v1.7.87, v1.7.88, and v1.7.89 GitHub releases shipped `Nioh3-<version>-combined.zip` with only the three ASIs at the zip root, plus those ASIs and `stable.json` as assets. `Nioh3Updater.exe` was left out, so the in-game Update row opened the website and the game folder.
+
+For 1.7.90, build the exe, then build the asset folder. Do not publish from this note.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/updater/build-windows.ps1
+# writes tools/updater/dist/Nioh3Updater.exe from tools/updater/updater.py (PyInstaller 6.16.0)
+py -I tools/updater/pack_public_assets.py --version 1.7.90 --out <asset-dir> `
+  --engine Nioh3EngineFix.asi --training Nioh3Training.asi --boss Nioh3BossRematch.asi `
+  --updater tools/updater/dist/Nioh3Updater.exe --stable stable.json
+```
+
+The zip then has the three ASIs and `Nioh3Updater.exe` at its root. The same exe is copied next to the zip. `gh release create` uploads the printed list: the combined zip, the three ASIs, `stable.json`, and `Nioh3Updater.exe`. The exe stays out of `stable.json` (the updater is not allowed to replace itself). Source export stays `tools/export_public.py`; it still skips `*.exe` and only prints this pack command.

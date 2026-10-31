@@ -11,6 +11,9 @@ tools/updater (public has the GitHub fallback 388ba7c8) and everything else stay
 3. gates: exclusions (binaries / build output / personal paths), public-newer files, soul-core code, versions,
 4. commit locally in the temp worktree and print the stat + write the patch. Exit 1 if a gate fails.
 Pushing is a separate manual step (printed at the end), only after the human's go.
+The public zip is a different step: tools/updater/pack_public_assets.py puts
+Nioh3Updater.exe inside Nioh3-<version>-combined.zip and copies it as its own
+GitHub asset. This script still exports source only and still skips *.exe.
 """
 import argparse, fnmatch, os, re, subprocess, sys, tempfile
 
@@ -160,7 +163,13 @@ def main():
             fh.write(git('format-patch', '--stdout', '-1', 'HEAD', cwd=wt))
         print('patch:', patch)
         print('\n'.join('FAIL ' + f for f in fails) or 'GATES OK')
-        print(f'publish (manual, after go): git -C {wt} push public HEAD:main   # then gh release create --target main')
+        print(f'publish (manual, after go): git -C {wt} push public HEAD:main')
+        print('assets (manual, after go; this script does not build or upload them):')
+        print('  py -I tools/updater/pack_public_assets.py --version <ver> --out <dir> '
+              '--engine Nioh3EngineFix.asi --training Nioh3Training.asi --boss Nioh3BossRematch.asi '
+              '--updater Nioh3Updater.exe --stable stable.json')
+        print('  gh release create --target main with that folder\'s asset list: '
+              'the combined zip, the three ASIs, stable.json, and Nioh3Updater.exe')
     finally:
         if fails:
             git('worktree', 'remove', '--force', wt, cwd=repo, check=False)
