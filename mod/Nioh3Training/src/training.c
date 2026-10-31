@@ -2049,7 +2049,7 @@ static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void 
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
 static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
-static struct { volatile LONG want; int active, phase, arena; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
+static struct { volatile LONG want; int active, phase; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode) {  // mission state: +10 journey, +24 mode (XwStart), +28 running mission id (Boss Rematch Snap.ms28)
     uint64_t mm = 0, ms = 0; if (!Rd64(B + Grva(0x47514D0), &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
     __try { *journey = *(uint8_t*)(ms + 0x10); *mode = *(uint32_t*)(ms + 0x24); *mission = *(uint32_t*)(ms + 0x28); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -2617,7 +2617,7 @@ static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTi
 static void RhTick(void) {
     DWORD now = GetTickCount();
     if (InterlockedExchange(&g_rh.want, 0) && !g_rh.active) {
-        g_rh.active = 1; g_rh.phase = 1; g_rh.t0 = g_rh.tPh = now; g_rh.tStable = 0; g_rh.arena = g_tr.active && g_tr.arena;
+        g_rh.active = 1; g_rh.phase = 1; g_rh.t0 = g_rh.tPh = now; g_rh.tStable = 0;
         Log("RETURN requested (Boss Rematch menu, #6779): home world 0x%02X %.0f %.0f %.0f mission 0x%X; now world 0x%02X, swap %d (claimed %d), switch pending %d, session %d (round %d, beaten boss %d)",
             g_home.world, g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.mission, CurWorld(), g_xw.active, g_xw.claimed, g_fd.pend, g_tr.active, g_tr.round, g_tr.tWin != 0);
         g_fd.pend = 0; g_fd.phase = 0;  // a same-world switch still waiting for black is dropped
@@ -2647,7 +2647,6 @@ static void RhTick(void) {
         if (FdAlpha() < 255 && now - g_rh.tPh < (DWORD)g_cfg_fade_out + 400) return;  // black first (or the ramp + 400 ms when the overlay cannot draw)
         { uint64_t cm = CharMgr(), c0 = 0; if (cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA)) BossModeEnd("return to where I was: boss mode still on"); }
         uint32_t mis = 0, mode = 0; uint8_t jr = 0;
-        // ally #59523: inside a cross-world Fight now arena (no mission load) the mission reads 0: that is the arena, not a mission exit
         if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
         g_home.valid = 0;
         if (CurWorld() == g_home.world) {
