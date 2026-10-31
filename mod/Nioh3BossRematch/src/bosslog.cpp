@@ -2591,6 +2591,7 @@ void CoverStartSmoke(uint64_t player, double now);  // SealExitReplay section, g
 // the instant 0, and SealExitFx=1 also spawns the SealExitFxId effects (on SealExitFxOwner) at the ghost exit.
 uint32_t g_sxcCore[8] = {0x5129B, 0xA2ACB};  // human #58208: DOWN (traveling) A2ACB gets the same exit
 int g_sxcN = 2, g_ghostFadeMs = 250;
+std::atomic<int> g_formMaxSec{25};  // [Spirit] FormMaxSec (human #58729), 0 = off
 bool g_sxcAll = true;  // human #58710: SealExitFxCore=all (default) gives every soul core the exit smoke, no id list to keep up
 std::atomic<uint64_t> g_ghostFadeSeal{0};
 float g_ghostFade0 = 1.f;
@@ -3531,6 +3532,7 @@ void SealExitFxLoad() {
         q = e;
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
+    g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
@@ -3996,6 +3998,11 @@ void SealEndOnHitTick() {
         Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
         fire = seal && want && bursts >= want;
     } else if (!n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+    static double capLogged = -1;  // human #58729: some cores (A9F39) keep their yokai out with an open burst - never hold the player past FormMaxSec
+    if (!fire && seal && g_formMaxSec.load() > 0 && now - sess >= g_formMaxSec.load()) {
+        fire = true;
+        if (capLogged != sess) { capLogged = sess; Log("SealEndOnHit core %X: form cap %d s reached (burst %d %s, want %d) - ending the form", sid, g_formMaxSec.load(), bursts, open ? "open" : "closed", want); }
+    }
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
     if (earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
         ((open && bursts >= want) || fire || (g_exitSmokeAtMs.load() > 0 && now - sess >= g_exitSmokeAtMs.load() / 1000.0))) {
