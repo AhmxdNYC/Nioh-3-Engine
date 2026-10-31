@@ -1420,6 +1420,10 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
 static void PlayerRefill(uint64_t c, uint64_t m) {
     uint64_t me = PlayerChar(), h = 0; const DWORD now = GetTickCount();
+    if (c == 0) {  // field write does not undo a death the hit hook missed (Yamagata and the same class of hit)
+        if (now - g_cd_t >= 250) { g_cd_t = now; if (InterlockedIncrement(&g_ph_logs) <= 50) Log("TRAIN infinite health: player HP 0 / %llu -> RecoverFull", m); PlayerRecoverFull(); }
+        return;
+    }
     if (g_ph_wfail < 3 && me && Rd64(me + 0x3A0, &h) && h) {
         uint64_t back = 0;
         __try { *(volatile uint64_t*)(h + 0x58) = m; back = *(volatile uint64_t*)(h + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = 0; }
@@ -1537,13 +1541,12 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
-// user #22918 Infinite health in every session: Practice (g_tr), Boss Match (g_bm) and the arena swap (g_ar). Damage cut in NfHpDamage; Boss Match / arena refill here
-// (Practice keeps its own refill in TrainTick). Game thread, every pump frame.
-static int InfHpSession(void) { return g_tr.active || g_bm.active || g_ar.active; }
+// user #22918 Infinite health. The saved toggle (g_cfg_cantdie) is the gate. Return ends the session
+// (g_tr / g_bm / g_ar) but must not stop the heal or the hit cut. Game thread, every pump frame.
 static void InfHpTick(void) {
-    if (!g_cfg_cantdie || !InfHpSession()) return;
+    // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
+    if (!g_cfg_cantdie) return;
     HpDmgHookInstall("Infinite health (#22918)");
-    if (g_tr.active) return;
     uint64_t c = 0, m = 0;
     if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
 }
@@ -4276,11 +4279,11 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
     const int rawDmg = dmg;
     __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     const int scaledDmg = dmg;  // user #22389 (first: the NOFIN floor below sees the scaled hit)
-    if (g_cfg_cantdie && dmg > 0 && hp && InfHpSession()) {  // user #22918 Infinite health: the player takes no HP damage at all (a one-hit lethal hit never lands)
+    if (g_cfg_cantdie && dmg > 0 && hp) {  // user #22918: cut player HP damage whenever the toggle is ON, including after Return clears the session
         uint64_t me = PlayerChar(), pst = 0;
         if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
             static volatile LONG ncut; const int d0 = dmg; dmg = PhDamageCut(g_cfg_cantdie, 1, 1, dmg);
-            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (session %s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : "arena");
+            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (%s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : g_ar.active ? "arena" : "toggle still on");
         }
     }
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
