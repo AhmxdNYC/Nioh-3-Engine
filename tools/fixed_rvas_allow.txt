@@ -1,0 +1,2 @@
+# path:0xRVA entries that tools/check_fixed_rvas.py accepts (line-number free). Only for addresses that are deliberately
+# fixed (e.g. diagnostics that self-disable on a foreign build). Keep this list short; prefer a Site() pattern.

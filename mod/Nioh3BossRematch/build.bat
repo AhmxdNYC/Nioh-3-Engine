@@ -16,6 +16,11 @@ if exist "%VSWHERE%" (
 where cl >nul 2>nul || (echo ERROR: no MSVC toolchain found & exit /b 1)
 if not exist build mkdir build
 if not exist bin mkdir bin
+rem warn-only: hard-coded game addresses (base + fixed RVA) that are not found by byte pattern (tools\check_fixed_rvas.py)
+set "PYX=py -I"
+where py >nul 2>nul || set "PYX=python -I"
+%PYX% "%~dp0..\..\tools\check_fixed_rvas.py" > build\fixed_rvas.txt 2>&1
+if errorlevel 1 echo WARNING: fixed game RVAs not found by pattern - see build\fixed_rvas.txt and notes\aob-audit.md
 set CF=/nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE
 for %%f in (main sites hooks bosslog rematch training ui remote) do (
     cl %CF% /Fobuild\%%f.obj src\%%f.cpp || exit /b 1
