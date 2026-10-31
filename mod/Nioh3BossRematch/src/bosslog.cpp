@@ -2304,12 +2304,16 @@ std::atomic<int> g_fbMask{0xFF4F}, g_fbRT{1}, g_fbLS{1};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
 std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
-// ally #57627 (human #57621): [Spirit] FormStyleSwitch=1 - a samurai<->ninja style switch (RT, Type A) pressed during the form is
-// remembered (RT is still zeroed, the form is not disturbed) and replayed as one RT tap right after the form ends, so the player
-// comes back in the newly picked style. Each press during the form toggles the queue (two presses = no change). 0 = off.
+// ally #57627 (human #57621): [Spirit] FormStyleSwitch=1 - a samurai<->ninja style shift pressed during the form is remembered (the
+// pad stays masked, the form is not disturbed) and replayed right after the form ends, so the player comes back in the new style.
+// The chord is replayed as pressed: RT alone (Type A: RT tap) or RT held + A (Type E / Nioh 2 layout: RT+A). RT+B/X/Y (burst break,
+// guardian skills) are ignored. Each style press toggles the queue (two presses = no change). Tracked per XInput user (ally has the
+// built-in pad and the virtual pad, read in turn every frame). 0 = off.
 std::atomic<int> g_fbStyle{1};
-std::atomic<bool> g_fbStyleQ{false}, g_fbRtWas{false};
-std::atomic<ULONGLONG> g_fbInjFrom{0}, g_fbInjTo{0};
+std::atomic<int> g_fbStyleQ{0}, g_fbInjUser{0};  // queued chord: 0 none, 1 RT tap, 2 RT+A
+struct FbUserSt { bool rt = false, chordA = false, other = false; ULONGLONG lastRt = 0; };
+FbUserSt g_fbUser[4];
+std::atomic<ULONGLONG> g_fbInjT0{0};
 using FbXGet = DWORD(WINAPI*)(DWORD, void*);
 FbXGet g_fbPrev = nullptr;
 struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
@@ -2318,10 +2322,23 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
     if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
-        if (g_fbStyle.load(std::memory_order_relaxed)) {  // ally #57627: queue the style switch (RT edge, raw read before it is zeroed)
+        if (g_fbStyle.load(std::memory_order_relaxed) && user < 4) {  // ally #57627: watch for a style shift chord (raw, before masking)
+            FbUserSt& u = g_fbUser[user];
+            const ULONGLONG now = GetTickCount64();
             const bool rt = s->pad.rt > 128;
-            if (rt && !g_fbRtWas.exchange(true)) { const bool q = !g_fbStyleQ.load(); g_fbStyleQ.store(q); Log("FormStyleSwitch: RT during the form -> %s", q ? "queued" : "cancelled"); }
-            else if (!rt) g_fbRtWas.store(false);
+            if (rt) { if (!u.rt) { u.rt = true; u.chordA = false; u.other = false; } u.lastRt = now; }
+            if (u.rt) {
+                if (s->pad.buttons & 0x1000) u.chordA = true;   // XINPUT_GAMEPAD_A
+                if (s->pad.buttons & 0xE000) u.other = true;    // B / X / Y: burst break or guardian skill, not a style shift
+            }
+            if (!rt && u.rt && now - u.lastRt >= 60) {  // released for 60 ms: a read in between that misses RT is not a release
+                u.rt = false;
+                if (!u.other) {
+                    const int c = u.chordA ? 2 : 1, q = g_fbStyleQ.load() ? 0 : c;
+                    g_fbStyleQ.store(q); g_fbInjUser.store((int)user);
+                    Log("FormStyleSwitch: %s during the form (pad %u) -> %s", c == 2 ? "RT+A" : "RT tap", user, q ? "queued" : "cancelled");
+                }
+            }
         }
         const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
         const bool trig = g_fbRT.load(std::memory_order_relaxed), ls = g_fbLS.load(std::memory_order_relaxed);
@@ -2329,10 +2346,15 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
         if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
-    } else if (r == ERROR_SUCCESS && st && g_fbInjTo.load(std::memory_order_relaxed)) {  // ally #57627: replay the queued style switch
-        const ULONGLONG t = GetTickCount64();
-        if (t >= g_fbInjTo.load()) g_fbInjTo.store(0);
-        else if (t >= g_fbInjFrom.load()) ((FbState*)st)->pad.rt = 255;
+    } else if (r == ERROR_SUCCESS && st && g_fbInjT0.load(std::memory_order_relaxed) && (int)user == g_fbInjUser.load()) {  // ally #57627: replay
+        const ULONGLONG t0 = g_fbInjT0.load(), t = GetTickCount64();
+        const int c = g_fbStyleQ.load();
+        FbState* s = (FbState*)st;
+        if (t >= t0 + 300) { g_fbInjT0.store(0); g_fbStyleQ.store(0); }
+        else if (t >= t0 + 50 && t < t0 + 250) {     // RT held 50..250 ms after the form end
+            s->pad.rt = 255;
+            if (c == 2 && t >= t0 + 110 && t < t0 + 200) s->pad.buttons |= 0x1000;  // + A while RT is held
+        }
     }
     return r;
 }
@@ -2373,13 +2395,14 @@ void FormBlockSet(bool on) {
         Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
     if (!hooked || g_fbActive.exchange(on) == on) return;
-    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(false); g_fbRtWas.store(true); g_fbInjTo.store(0);  // a held RT at the press is not a switch
+    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(0); g_fbInjT0.store(0);
+        for (auto& u : g_fbUser) u.rt = true, u.chordA = false, u.other = true, u.lastRt = GetTickCount64();  // an RT held at the press is not a style shift
         Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
     else {
         Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
-        if (g_fbStyle.load() && g_fbStyleQ.exchange(false)) {  // ally #57627: one RT tap 50..200 ms after the form ends
-            const ULONGLONG t = GetTickCount64(); g_fbInjFrom.store(t + 50); g_fbInjTo.store(t + 200);
-            Log("FormStyleSwitch: replaying the style switch (RT tap) at the form end t=%.3f", Now());
+        if (g_fbStyle.load() && g_fbStyleQ.load()) {  // ally #57627: replay the chord 50..250 ms after the form ends
+            g_fbInjT0.store(GetTickCount64());
+            Log("FormStyleSwitch: replaying the style shift (%s, pad %d) at the form end t=%.3f", g_fbStyleQ.load() == 2 ? "RT+A" : "RT tap", g_fbInjUser.load(), Now());
         }
     }
 }
