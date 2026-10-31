@@ -2238,6 +2238,10 @@ bool FhIsSealAct(uint32_t id) {
     return false;
 }
 // Returns true on the frame the player's action changes to a seal-use id. Keeps a 16-entry start history for the learner.
+// human #58733: cores that summon a human ally (A9F39: action 0x28B6, no seal throw) spawn a live "seal" too; only a capture that follows
+// the seal throw (0x28FD family) within FormNeedSealActSec may begin a form, so those cores behave like the plain game. 0 = off.
+double g_sealEdgeT = -100;
+std::atomic<int> g_formNeedSealActMs{4000};
 bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
     static uint32_t last = 0xFFFFFFFF;
     static uint64_t lastChr = 0;
@@ -2255,6 +2259,7 @@ bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
         hist[hn % 16] = {id, now};
         ++hn;
         edge = FhIsSealAct(id);
+        if (edge) g_sealEdgeT = now;
         if (g_fhActLog.load()) {
             if ((int64_t)now != sec) { sec = (int64_t)now; inSec = 0; }
             if (++inSec <= 20 || edge) Log("FormHide=3 player action 0x%X -> 0x%X%s t=%.3f", prev, id, edge ? " (seal action)" : "", now);
@@ -3142,8 +3147,13 @@ void FormHide4Tick(uint64_t player) {
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player && [&] {
                    const bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
                                       FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
+                   const int needMs = g_formNeedSealActMs.load();
+                   const bool sealActOk = needMs <= 0 || now - g_sealEdgeT <= needMs / 1000.0;
+                   static uint64_t skipLogged = 0;
+                   if (fresh && !sealActOk && skipLogged != cap) { skipLogged = cap; Log("FormHide=4 skip: seal %llX captured without a seal throw in the last %d ms (summon-type core) - no form t=%.3f", (unsigned long long)cap, needMs, now); }
+                   const bool freshOk = fresh && sealActOk;
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
-                   if ((edge || fresh) && pendAt <= 0) {
+                   if ((edge || freshOk) && pendAt <= 0) {
                        pendAt = now + g_fhDelayMs.load() / 1000.0; pendTrig = now; pendEdge = edge; pendPlayer = player;
                        { const int fs = g_styleFree.load(), sn = FbStyleNow(); g_fbPressArm.store(fs >= 0 ? fs : sn);  // human #58330
                          Log("FormStyle press: free %d A95C %d -> %d", fs, sn, g_fbPressArm.load()); }
@@ -3152,9 +3162,9 @@ void FormHide4Tick(uint64_t player) {
                    if (pendAt <= 0) return false;
                    if (pendPlayer != player || now - pendAt > 2.5) { pendAt = 0; return false; }
                    if (now < pendAt) return false;
-                   edge = pendEdge && !(fresh && g_fhDelayMs.load() > 0);  // a capture that came in during the delay is adopted as a capture begin
+                   edge = pendEdge && !(freshOk && g_fhDelayMs.load() > 0);  // a capture that came in during the delay is adopted as a capture begin
                    pendAt = 0;
-                   return edge || fresh;
+                   return edge || freshOk;
                }()) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             // human #58208: started = the trigger, not the delayed begin: the DOWN seal's spawn hit lands inside the delay and was missed
@@ -3533,6 +3543,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
+    g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 4000));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
