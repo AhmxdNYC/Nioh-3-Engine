@@ -3341,6 +3341,14 @@ int g_fxrBone = 0;
 // human #58053: SealExitSmokeCenter=1 puts the big smoke (SealExitSmokeCenterIds, default 62557) on the player's x/z at the form start and
 // at the exit; SealExitRevealMs = how long after the exit smoke the player shows up (like the start: smoke first, then the yokai).
 int g_fxrCenter = 1, g_revealMs = 350;
+// human #58081 debug: SealExitSmokeFwd = units in front of the player (along the smoke matrix z row) for the centred smoke, start + exit;
+// SealExitSmokeRepeatMs > 0 = the exit smoke is spawned once more that long after the first (looks ~2x longer).
+float g_fxrFwd = 0.f; int g_fxrRepeatMs = 0;
+void FxFwd(float* m, float px, float pz) {
+    const float fx = m[8], fz = m[10], l = sqrtf(fx * fx + fz * fz);
+    m[12] = px; m[14] = pz;
+    if (g_fxrFwd != 0.f && l > 1e-3f && std::isfinite(l)) { m[12] += fx / l * g_fxrFwd; m[14] += fz / l * g_fxrFwd; }
+}
 uint32_t g_fxrCtr[12] = {};
 int g_fxrCtrN = 0;
 bool FxCenterId(uint32_t id) { for (int i = 0; i < g_fxrCtrN; ++i) if (g_fxrCtr[i] == id) return g_fxrCenter > 0; return false; }
@@ -3373,6 +3381,8 @@ void SealExitReplayLoad() {
     g_fxrCenter = IniInt(L"Spirit", L"SealExitSmokeCenter", 1);
     g_fxrCtrN = HexList(L"SealExitSmokeCenterIds", L"62557", g_fxrCtr, 12);
     g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 350);
+    g_fxrFwd = (float)IniInt(L"Spirit", L"SealExitSmokeFwd", 0);
+    g_fxrRepeatMs = IniInt(L"Spirit", L"SealExitSmokeRepeatMs", 0);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3386,7 +3396,7 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     const uint32_t id = (uint32_t)c;
     if (FxCenterId(id) && !StackArg(sp, 5) && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000 && g_fh4.owner) {
         float pc[4] = {};  // human #58053: the form-start smoke on the player's centre (x/z), height kept
-        if (Copy(pc, g_fh4.owner + 0x110, 16) && std::isfinite(pc[0]) && std::isfinite(pc[2])) { ((float*)d)[12] = pc[0]; ((float*)d)[14] = pc[2]; }
+        if (Copy(pc, g_fh4.owner + 0x110, 16) && std::isfinite(pc[0]) && std::isfinite(pc[2])) { FxFwd((float*)d, pc[0], pc[2]); const float* q = (const float*)d; Log("SmokeCenter start fx %X at %.0f %.0f %.0f rows x %.2f %.2f %.2f z %.2f %.2f %.2f", id, q[12], q[13], q[14], q[0], q[1], q[2], q[8], q[9], q[10]); }
     }
     for (int i = 0; i < g_fxrSkipN; ++i) if (g_fxrSkip[i] == id) return;
     if (g_fxrOnlyN) {
@@ -3449,7 +3459,7 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
             const float dx = m[12] - r.pl[0], dy = m[13] - r.pl[1], dz = m[14] - r.pl[2];
             if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
-            if (FxCenterId(r.id)) { m[12] = pn[0]; m[14] = pn[2]; }  // human #58053
+            if (FxCenterId(r.id)) FxFwd(m, pn[0], pn[2]);  // human #58053/#58081
             r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
         } else if (!g_fxrBone) {
             continue;  // pc #57943: bone-attached start fx are looping auras the form end normally kills; replayed they glow forever and stack
@@ -3465,6 +3475,8 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
     double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
     for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
     for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
+    for (int i = 0, n0 = g_fxPlayN; g_fxrRepeatMs > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
+        if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += g_fxrRepeatMs / 1000.0; }
     return g_fxPlayN;
 }
 void SealExitReplayTick() {  // game thread
