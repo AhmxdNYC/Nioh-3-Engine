@@ -3448,9 +3448,10 @@ void SealExitReplayTick() {  // game thread
     if (!g_fxPlayN) return;
     static int bytesOk = -1;
     if (bytesOk < 0) {
-        static const uint8_t w[] = {0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xA8, 0x88, 0xFC, 0xFF, 0xFF};
+        // from +5: the first 5 bytes are our own EffectCreate hook's jump (the call below goes through it, HkFxRec skips it via t_fxReplaying)
+        static const uint8_t w[] = {0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xA8, 0x88, 0xFC, 0xFF, 0xFF};
         uint8_t b[sizeof(w)] = {};
-        bytesOk = Copy(b, g_base + 0x4CE90C, sizeof(b)) && !memcmp(b, w, sizeof(w));
+        bytesOk = Copy(b, g_base + 0x4CE90C + 5, sizeof(b)) && !memcmp(b, w, sizeof(w));
         if (!bytesOk) Log("SealExitReplay: 4CE90C bytes not found in this update - off");
     }
     uint64_t mgr = 0;
