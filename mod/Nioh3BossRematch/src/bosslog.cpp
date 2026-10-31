@@ -3116,6 +3116,7 @@ void FormHide4Tick(uint64_t player) {
             // pc #57103: the FormSlot0 capture outlives the form (cleared only at 60 s). A spawn-hit form (DOWN A2ACB) never consumed it, so
             // the same tick re-began a form on the stale LEFT seal -> hidden + locked 20 s. Every end consumes whatever capture is current.
             attempted = g_fs0CapChr.load(); attemptedT = g_fs0CapT;
+            spawnUsed = g_fkSealChr.load(); spawnUsedT = g_fkSealT;  // pc #58825: the spawn hit of the seal that just ended never re-begins a form
         }
         else {
             if (g_fh4.seal && now >= g_fh4.nextSealPoll) {  // pc #56435: hooks read this cache instead of walking the actor table per call
