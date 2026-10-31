@@ -2630,7 +2630,7 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
         PstAddHubRows(add);  // Time of day / Weather / Freeze / Reset fight
-        SctAddHubRow(add);  // human #58117: Soul core tuning
+        if (BR_SOULCORE) SctAddHubRow(add);  // human #58117: Soul core tuning (not in the release build)
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
         add(kItBack);
@@ -4138,6 +4138,10 @@ void Command(const char* line, char* reply, size_t n) {
         }
         return;
     }
+    if (!BR_SOULCORE && !strcmp(cmd, "spirit")) {
+        snprintf(reply, n, "error soul-core commands are not in this build");
+        return;
+    }
     if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         char why[160];
@@ -4278,7 +4282,7 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (!strcmp(arg, "tick")) {  // from the input hook: move the spirit chr onto the player (position only; model/attacks untouched)
             uint64_t inst, chr, st;
             SpiritChr(mgr, inst, chr, st);
-            static const int iniBody = IniInt(L"Spirit", L"Body", 0);  // [Spirit] Body=1 arms the copy from boot
+            static const int iniBody = BR_SOULCORE ? IniInt(L"Spirit", L"Body", 0) : 0;  // [Spirit] Body=1 arms the copy from boot
             static bool armed = (iniBody && (g_spBody.store(1), true));
             (void)armed;
             if (g_spBody.load() && chr && st == 2) SpiritBodyApply(chr);

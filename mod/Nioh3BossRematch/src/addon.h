@@ -10,7 +10,12 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.4.22"
+#define ADDON_VERSION "1.4.23"
+// Soul-core forms ([Spirit] FormKey / Body: seal hooks, FormHide, FormSlot0, AttackCancel, the Soul core tuning page) are not in the
+// public release: 0 compiles every entry point out (the ini keys are ignored). Build with /DBR_SOULCORE=1 for the dev line.
+#ifndef BR_SOULCORE
+#define BR_SOULCORE 0
+#endif
 
 namespace addon {
 
