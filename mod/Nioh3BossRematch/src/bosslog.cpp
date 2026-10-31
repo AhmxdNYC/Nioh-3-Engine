@@ -2921,6 +2921,35 @@ void OrbSkipInstall() {
         Log("OrbSkip: orb effect hook failed (%s) - orb lands at once but its effect may flash", why ? why : "?");
     Log("OrbSkip: on (seal orb lands on its first tick, orb effect 0x6254D off)");
 }
+// pc #58429 [Spirit] AttackCancel=1: soul-core use (d-pad item whose itemdef+54 != 0 = yokai charId) cancels any attack.
+// Item gate 236361C (IsEnableItemAction) lets items through only in actions with data+18 bit24; its soul-core path (deny bits
+// data+0 b18 / +18 b33 / +110 b37 / +F8 b11, cond 2, next action too) is gated by HasSkill(0xEDC9) (vt+D0 = 28A88C).
+// `test al,al` after that call -> `or al,1` = skill treated as learned; every other check stays (notes/attack-cancel-re.md).
+// Found by AOB (site chk:AttackCancelGate, group ACANCEL), so it follows the code across game patches; no soul-core id lists.
+bool AcPatch2(uint64_t a, uint8_t b0, uint8_t b1) {  // 2 bytes inside one aligned qword: single CAS
+    const uint64_t w = a & ~7ull;
+    if (a + 2 > w + 8) return false;
+    DWORD old = 0;
+    if (!VirtualProtect((void*)w, 8, PAGE_EXECUTE_READWRITE, &old)) return false;
+    volatile LONG64* q = (volatile LONG64*)w;
+    const LONG64 cur = *q;
+    LONG64 nw = cur;
+    ((uint8_t*)&nw)[a - w] = b0; ((uint8_t*)&nw)[a - w + 1] = b1;
+    const bool ok = InterlockedCompareExchange64(q, nw, cur) == cur;
+    VirtualProtect((void*)w, 8, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), (void*)w, 8);
+    return ok;
+}
+void AttackCancelInstall() {
+    if (IniInt(L"Spirit", L"AttackCancel", 0) <= 0) return;
+    const uint64_t s = (uint64_t)Site("chk:AttackCancelGate");
+    uint8_t b[4] = {};
+    if (!s || !Copy(b, s + 20, 4)) { Log("AttackCancel: item gate pattern not found (game patch?) - off"); return; }
+    if (b[0] == 0x0C && b[1] == 0x01) { Log("AttackCancel: already on at +%llX", (unsigned long long)(s + 20 - g_base)); return; }
+    if (b[0] != 0x84 || b[1] != 0xC0 || b[2] != 0x0F || b[3] != 0x84) { Log("AttackCancel: +%llX is not 'test al,al; jz' - off", (unsigned long long)(s + 20 - g_base)); return; }
+    if (!AcPatch2(s + 20, 0x0C, 0x01)) { Log("AttackCancel: patch +%llX failed - off", (unsigned long long)(s + 20 - g_base)); return; }
+    Log("AttackCancel: on at +%llX (soul cores skip HasSkill(0xEDC9) in the item gate; deny bits kept)", (unsigned long long)(s + 20 - g_base));
+}
 // 0 = pin seal to player, 1 = follow the seal, 2 = neither (auto probe running). Runs under g_fh4Lock.
 int Fh4FollowDecide(double now) {
     const int m = g_fhFollow.load();
@@ -4797,6 +4826,7 @@ bool FormKeyInstall() {
     FormHide4Install();
     FastThrowInstall();
     OrbSkipInstall();
+    AttackCancelInstall();
     ok = grp && n > 0;
     return ok;
 }
