@@ -193,3 +193,57 @@ Ally/Proton recheck of these exact bits (captures/ally-59205): logs EngineFix 1.
 (EF 210, TR 218, BR 121); soul core LEFT = vanilla (yokai beside player), 0 form/seal/spirit lines in BR log; no Soul core tuning row;
 Frame meter master OFF -> Player frame meter + I-frame lane OFF, meter gone, ini saved FrameMeter/PlayerFrameMeter/FrameMeterIFrames=0;
 Fight Now Yamagata OK (arena swap, boss bar); return to title OK; no crash.
+
+## 1.7.89 (draft only, 10-31)
+
+Nothing here is published. Do not run the site deploy, `vercel`, or `gh release`. Source branch `pc/release-1789` at `26dda5b4`. Assets are bridge file #4522 (not unpacked in this prep).
+
+| file | sha256 prefix |
+|---|---|
+| Nioh3EngineFix.asi | 30f2f2f2 |
+| Nioh3Training.asi | 8b18ab03 |
+| Nioh3BossRematch.asi | 0afa302e (same prefix as the 1.7.88 final BossRematch; ship it again inside #4522) |
+
+Player notes for the GitHub release and `notes-1789.md`: `notes/release-1.7.89.md`.
+
+Publish order (only after the human says go): MSVC is already in #4522, do not rebuild for this note -> `tools/updater/stage_site.py --version 1.7.89 --payload ...` (immutable `/releases/1.7.89/` + `/updates/stable.json`) -> deploy site -> GitHub release v1.7.89 on Nioh-3-Engine (3 ASIs, stable.json, combined zip) -> public repo export with `--version 1.7.89` -> bump `/version.json` to 1.7.89 last.
+
+```powershell
+# DRAFT. Do not run until the human says go.
+# 0. unpack + verify
+$A = "$env:TEMP\rel1789"; mkdir $A -Force; py -m uo_bridge get 4522 --out $A\a.tgz; tar -xzf $A\a.tgz -C $A
+cd $A\v1.7.89; Get-Content SHA256SUMS.txt | % { $h,$f = $_ -split '  '; if ((Get-FileHash $f -A SHA256).Hash.ToLower() -eq $h) {"OK $f"} else {"BAD $f"} }
+# 1. site: immutable payload + updater manifest (NOT version.json yet)
+$S = "C:\Users\Ahmad Hamza\nioh3-mod-site\site"
+if (Test-Path "$S\releases\1.7.89") { throw "releases/1.7.89 exists - stop" }
+Copy-Item -Recurse site\releases\1.7.89 "$S\releases\1.7.89"
+Copy-Item site\updates\stable.json "$S\updates\stable.json" -Force
+cd $S; vercel --prod --yes
+# 1b. verify live files. version.json must still say 1.7.88 until step 3.
+curl.exe -s https://nioh3-mod-feedback.vercel.app/updates/stable.json
+foreach ($f in 'Nioh3EngineFix.asi','Nioh3Training.asi','Nioh3BossRematch.asi') { curl.exe -sLo "$env:TEMP\$f" "https://nioh3-mod-feedback.vercel.app/releases/1.7.89/$f"; (Get-FileHash "$env:TEMP\$f" -A SHA256).Hash }
+# 2. public source export from pc/release-1789 (soul core stays compiled out) -> Nioh-3-Engine main, tag v1.7.89
+#    py -I tools/export_public.py --ref pc/release-1789 --version 1.7.89
+cd $A\v1.7.89
+gh release create v1.7.89 --repo AhmxdNYC/Nioh-3-Engine --target main --latest `
+  --title "Nioh 3 Engine Fix 1.7.89" --notes-file notes/release-1.7.89.md `
+  Nioh3-1.7.89-combined.zip Nioh3EngineFix.asi Nioh3Training.asi Nioh3BossRematch.asi stable.json
+# 3. LAST: in-game notice (1.7.88 users see "Update 1.7.89 available" within an hour)
+Copy-Item $A\v1.7.89\site\version.json "$S\version.json" -Force; cd $S; vercel --prod --yes
+curl.exe -s https://nioh3-mod-feedback.vercel.app/version.json   # expect "1.7.89"
+```
+
+Rollback: put the 1.7.88 `updates/stable.json` back and redeploy; `gh release edit v1.7.88 --latest` then `gh release delete v1.7.89 --yes`. Never overwrite `/releases/1.7.88/` or `/releases/1.7.89/` with different bytes.
+
+### Files a publish must bump
+
+These still say 1.7.88. This prep does not change them.
+
+- `tools/export_public.py` line 91: `--version` default is `1.7.88`. Pass `--version 1.7.89` or the export gate looks for 1.7.88.
+- Live site `nioh3-mod-site/site/version.json`: `"version": "1.7.88"`. Bump this last.
+- Live site `nioh3-mod-site/site/updates/stable.json`: `"version": "1.7.88"`, the news line, and the three file URLs under `/releases/1.7.88/`.
+
+Also set these, even though they do not say 1.7.88:
+
+- Public `README.md` line 17 still says version 1.7.87. Set it to 1.7.89 in the export commit. `release/USER_GUIDE.md` has no version line.
+- Private `mod/Nioh3EngineFix/src/dllmain.cpp` already says `MOD_VERSION "1.7.89"`. Public `dllmain.cpp` still says 1.7.88 and is replaced by that export, not by a hand edit.
