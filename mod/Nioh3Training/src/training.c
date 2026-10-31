@@ -1420,6 +1420,10 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
 static void PlayerRefill(uint64_t c, uint64_t m) {
     uint64_t me = PlayerChar(), h = 0; const DWORD now = GetTickCount();
+    if (c == 0) {  // field write does not undo a death the hit hook missed (Yamagata and the same class of hit)
+        if (now - g_cd_t >= 250) { g_cd_t = now; if (InterlockedIncrement(&g_ph_logs) <= 50) Log("TRAIN infinite health: player HP 0 / %llu -> RecoverFull", m); PlayerRecoverFull(); }
+        return;
+    }
     if (g_ph_wfail < 3 && me && Rd64(me + 0x3A0, &h) && h) {
         uint64_t back = 0;
         __try { *(volatile uint64_t*)(h + 0x58) = m; back = *(volatile uint64_t*)(h + 0x58); } __except (EXCEPTION_EXECUTE_HANDLER) { back = 0; }
@@ -1537,13 +1541,12 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
 }
-// user #22918 Infinite health in every session: Practice (g_tr), Boss Match (g_bm) and the arena swap (g_ar). Damage cut in NfHpDamage; Boss Match / arena refill here
-// (Practice keeps its own refill in TrainTick). Game thread, every pump frame.
-static int InfHpSession(void) { return g_tr.active || g_bm.active || g_ar.active; }
+// user #22918 Infinite health. The saved toggle (g_cfg_cantdie) is the gate. Return ends the session
+// (g_tr / g_bm / g_ar) but must not stop the heal or the hit cut. Game thread, every pump frame.
 static void InfHpTick(void) {
-    if (!g_cfg_cantdie || !InfHpSession()) return;
+    // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
+    if (!g_cfg_cantdie) return;
     HpDmgHookInstall("Infinite health (#22918)");
-    if (g_tr.active) return;
     uint64_t c = 0, m = 0;
     if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
 }
@@ -1727,7 +1730,7 @@ static int g_cfg_xcells = 0;
 // stage state 5 (the main cell is then the only cell in the set, so state 4 passes without the surrounding world), restores it at state 5, or at the end.
 // Default 0 = off. The boss arena may need neighbour cells: that is what the test has to show.
 static int g_cfg_xblock = 0;
-static struct { int on, sawReset, lastSt, patched, lastSeq, lastG, target, aoSkips, blk, oldSkips; DWORD t0, t5, tAll, lastLog, tSeq, tAo, tAo4; uint8_t w0, last58A, blkOld; uint64_t lastN, lastR, lastF; char tag[24]; int lgs; } g_xs;
+static struct { int on, sawReset, lastSt, patched, lastSeq, lastG, target, aoSkips, blk, oldSkips; DWORD t0, t5, tAll, lastLog, tSeq, tAo, tAo4, maxMs; uint8_t w0, last58A, blkOld; uint64_t lastN, lastR, lastF; char tag[24]; int lgs; } g_xs;
 // bridge 6047b (state numbers corrected in 6047c: 1 223BDB0, 2 223B3A8, 3 223B3F8, 4 223B8F0 world switch, 5 MissionLoadStep): mission load sequencer (handlers via 5A29F0, state mirrored in u32 B+0x45BA21C): 5 MissionLoadStep 223AF50 waits 1FC6674(stage+0x500) AND LoadIsLoadEnd
 // 3B3424 BEFORE it consumes the request (the world switch); 8 223C4A8 waits LoadIsLoadEnd again; 0xB 223BE08 UiLoadingScreenEnd; 0xF 223C308 fixed 30/100 dt60 timer, then
 // StopFlagSet(2,0) = GAMESTATE[2] cleared. LoadIsLoadEnd gate G5 = ObjectListAnyNotReady([45B9E60]) = any character resource entry with +0x2C8 == 0, i.e. the
@@ -2034,7 +2037,7 @@ static void XsTick(void) {
     if (st == 5 && g_xs.sawReset && !g_xs.t5) { g_xs.t5 = now; Log("XSTREAM %s: stage state 5 at +%lu ms, %llu/%llu cells loaded", g_xs.tag, dt, r, n); if (g_xs.blk && g_cfg_xblock < 2) XsBlkRestore("state 5"); }
     g_xs.lastSt = st;
     if (g_xs.t5 && now - g_xs.t5 >= 500 && ok && n && r == n && g_xs.last58A == 0) { g_xs.tAll = now; XsEnd("new world streamed"); return; }
-    if (dt > 60000) XsEnd("60 s timeout");
+    if (dt > (g_xs.maxMs ? g_xs.maxMs : 60000)) XsEnd("window timeout");
 }
 // bridge 5276 (pc2 5116/5275): boss in ANOTHER world, no mission load. Only a world switch brings the other world's arena: World::WarpOtherWorld request (22399B8, mission 0, target world, start point)
 // switches in ~1 s and the stage is ready (state 5) ~5-11 s later; then the normal in-place arena swap (warp + live spawn) runs. ~10 s to a fightable boss vs ~29 s native. Any failure -> native MissionRequestById.
@@ -2043,13 +2046,15 @@ static int g_cfg_xworld = 1, g_cfg_xpre = 1, g_xw_busy, g_cfg_xearly;
 // likely target (ini CrossWorldPrewarmMission, else the last cross-world boss) before the player picks; Fight now for a boss of that world then just claims the running request (or is a plain same-world swap once landed).
 static int g_cfg_xabbm = 1, g_cfg_xhold = 30000, g_cfg_xsettle = 700, g_cfg_xprewarm, g_xw_last_mission; static uint32_t g_cfg_xprewarm_mission;
 static struct { int active, claimed, preDeferred, cancel, forced; ArenaRow* row; DWORD t0, tReady, tClaim, tCancel; uint8_t oWorld, oJourney; uint32_t oStart, oMode; float oPos[4]; } g_xw;  // bridge 6550: o* = where the prewarm started (cancel returns there)
-static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused; int watch, pauseLogged; } g_xr;
+static struct { int active; uint8_t world, journey; uint32_t start, mode; float pos[4]; DWORD t0, tSeen, tLast, run, paused, tSeq9, tCell; int watch, pauseLogged; uint32_t ev[9]; uint64_t lastR; } g_xr;
 static volatile LONG g_fz_hold; static int g_fz_vk_freeze; static int FzHoldSet(int on, const char* why);  // user #22589 Practice freeze (practice_freeze_game.h)
 static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void DbgFreeze(int on); static volatile LONG g_menu_frozen; static void MenuFreeze(int on, const char* why);  // F9 debug freeze (defined with the hotkeys below)  // bridge 6550: return trip after a cancelled prewarm
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
 static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
-static struct { volatile LONG want; int active, phase; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
+// home-mission-1790: after a WarpOtherWorld Return the mission state reads mission 0 (the trip starts a mission-less journey), so the next HomeCapture stored 'mission 0x0' and RhTick's "mission changed" guard (g_home.mission && ...) was skipped. g_homeKeep remembers the mission a Return went back to; HomeCapture reuses it while the state still reads 0 in that world.
+static struct { int valid; uint8_t world, journey; uint32_t mission, mode; } g_homeKeep;
+static struct { volatile LONG want; int active, phase, arena; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode) {  // mission state: +10 journey, +24 mode (XwStart), +28 running mission id (Boss Rematch Snap.ms28)
     uint64_t mm = 0, ms = 0; if (!Rd64(B + Grva(0x47514D0), &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
     __try { *journey = *(uint8_t*)(ms + 0x10); *mode = *(uint32_t*)(ms + 0x24); *mission = *(uint32_t*)(ms + 0x28); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
@@ -2071,6 +2076,8 @@ static void RecStart(const char* why) {
 static void HomeCapture(int world, const float* pos, const char* why) {
     RecStart(why);
     uint32_t mis = 0, mode = 0; uint8_t jr = 0; if (world < 0 || !MsRead(&mis, &jr, &mode)) return;
+    if (mis) g_homeKeep.valid = 0;
+    else if (g_homeKeep.valid && g_homeKeep.world == (uint8_t)world) { Log("RETURN home: mission state reads 0 after a world trip, keeping mission 0x%X journey %u mode %u", g_homeKeep.mission, g_homeKeep.journey, g_homeKeep.mode); mis = g_homeKeep.mission; jr = g_homeKeep.journey; mode = g_homeKeep.mode; }
     if (g_home.valid && g_tr.active && g_tr.hasStart && mis == g_home.mission) return;  // still in the session that started there
     g_home.valid = 1; g_home.world = (uint8_t)world; g_home.journey = jr; g_home.mode = mode; g_home.mission = mis; g_home.start = *(uint32_t*)(B + Grva(0x45BC42C)); memcpy(g_home.pos, pos, sizeof g_home.pos);
     Log("RETURN home stored (%s): world 0x%02X %.0f %.0f %.0f yaw %.1f, mission 0x%X journey %u mode %u", why, world, pos[0], pos[1], pos[2], pos[3], mis, jr, mode);
@@ -2209,10 +2216,41 @@ static DWORD XrRunMs(DWORD now) {
     else { g_xr.run += dt; if (g_xr.pauseLogged) { g_xr.pauseLogged = 0; Log("XWORLD return: game time runs again (%lu ms stopped so far)", g_xr.paused); } }
     return g_xr.run;
 }
+// xworld-return-1790 (ally): the event-scene manager [45CE800] has 9 slots (+0x40, stride 0x308, scene id at +0x4C). Mission-sequencer state 9 (223C684) waits
+// until 282B5C(0) finds no slot whose scene is flagged load-blocking. Scenes the arena left running (Yamagata: 0x21D1, 0xB20B, state 6) never end after the
+// world trip, so a cross-world Return sat in state 9 with no player/HUD/control for 3-6 min (ally #59714). Proven live (#59906): zeroing those two ids let
+// state 9 pass at once (9 -> 20, player + HUD + control back). EvSnap stores the ids before the WarpOtherWorld; XrTick clears only those ids, only while
+// the sequencer has sat in state 9 for 1 s in the target world. New scenes of the home world (other ids) are never touched.
+static __attribute__((noinline)) int EvSnap(uint32_t* ids) {
+    uint64_t o = 0; int n = 0; memset(ids, 0, 9 * sizeof *ids);
+    if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try { for (int i = 0; i < 9; ++i) if ((ids[i] = *(volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C))) ++n; } __except (EXCEPTION_EXECUTE_HANDLER) { memset(ids, 0, 9 * sizeof *ids); return 0; }
+    return n;
+}
+static __attribute__((noinline)) int EvClearStale(uint32_t* ids, const char* tag) {
+    uint64_t o = 0; int n = 0;
+    if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try {
+        for (int i = 0; i < 9; ++i) {
+            volatile uint32_t* p = (volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C); uint32_t id = *p; if (!id) continue;
+            for (int k = 0; k < 9; ++k) if (ids[k] == id) { Log("%s: event scene 0x%X (slot %d, state %u) left over from before the world trip holds the load (sequencer state 9): cleared", tag, id, i, *(volatile uint32_t*)(o + 0x40 + i * 0x308)); *p = 0; ids[k] = 0; ++n; break; }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return n; }
+    return n;
+}
+// Scenes that start after the request (the arena's scenes began during the fade in ally run #4) are added to the same list (union, max 9) every tick while still in another world.
+static __attribute__((noinline)) uint32_t EvAccum(uint32_t* ids) {
+    uint64_t o = 0; uint32_t added = 0; if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try { for (int i = 0; i < 9; ++i) { uint32_t id = *(volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C); if (!id) continue; int k, free_ = -1; for (k = 0; k < 9; ++k) { if (ids[k] == id) break; if (!ids[k] && free_ < 0) free_ = k; } if (k == 9 && free_ >= 0) { ids[free_] = id; added = id; } } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    return added;
+}
 static void XrTick(void) {
     if (!g_xr.active) return;
     DWORD now = GetTickCount(); const uint8_t* st = GameState(); if (!st) return;
     DWORD run = XrRunMs(now);
+    if (CurWorld() != g_xr.world) { uint32_t ea = EvAccum(g_xr.ev); if (ea) Log("XWORLD return: event scene 0x%X started after the Return request, tracked too", ea); }
+    if (CurWorld() == g_xr.world && SeqState() == 9) { if (!g_xr.tSeq9) g_xr.tSeq9 = now; else if (now - g_xr.tSeq9 >= 1000) { EvClearStale(g_xr.ev, "XWORLD return"); g_xr.tSeq9 = now; } }  // xworld-return-1790
+    else g_xr.tSeq9 = 0;
     if (g_xr.watch && (g_tr.active || (g_xw.active && g_xw.claimed))) { Log("XWORLD return watch: cancelled (a new Fight now / session started)"); g_xr.active = 0; return; }
     if (!g_xr.watch && run > 60000) {
         g_xr.watch = 1; g_xr.tSeen = 0;
@@ -2223,7 +2261,7 @@ static void XrTick(void) {
     if (CurWorld() != g_xr.world || !PlayerChar() || StageState() != 5 || st[2]) { g_xr.tSeen = 0; return; }
     if (!g_xr.tSeen) { g_xr.tSeen = now; Log("XWORLD return: home world 0x%02X reached (+%lu ms wall, %lu ms game time, %lu ms stopped)%s", g_xr.world, now - g_xr.t0, run, g_xr.paused, g_xr.watch ? " [watch]" : ""); }
     if (now - g_xr.tSeen < 700) return;
-    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - g_xr.tSeen < 25000) return; }  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
+    { uint64_t n, r, f, q, m; if (CellStats(&n, &r, &f, &q, &m) && n && r < n && now - g_xr.tSeen < 25000) { if (r != g_xr.lastR || !g_xr.tCell) { g_xr.lastR = r; g_xr.tCell = now; } if (now - g_xr.tCell < 4000) return; Log("XWORLD return: %llu/%llu cells loaded, no progress for 4 s: putting the player back now", (unsigned long long)r, (unsigned long long)n); } }  // xworld-return-1790: the far cells stalled (7/11 for minutes), the spot's cells are in  // bridge 6541: put the player back only once the old world's cells (collision) are loaded, not into a half-loaded world
     if (g_xr.watch) {
         float p[4]; if (PlayerPos(p)) { float dx = p[0] - g_xr.pos[0], dz = p[2] - g_xr.pos[2]; if (dx * dx + dz * dz < 500.0f * 500.0f) { Log("XWORLD return watch: player already at the spot (%.0f %.0f %.0f), done", p[0], p[1], p[2]); g_xr.active = 0; return; } }
     }
@@ -2247,9 +2285,10 @@ static void XwCancelTick(DWORD now) {
     __attribute__((aligned(16))) uint8_t prm[32] = {0};
     ((void (*)(void*))(B + Grva(0x1BF7D68)))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;
     ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3B28FC)))(2, 0, 0);
-    memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_xw.oWorld; g_xr.start = XwReturnStart(g_xw.oWorld, g_xw.oPos, g_xw.oStart); g_xr.t0 = now; memcpy(g_xr.pos, g_xw.oPos, sizeof g_xr.pos); g_xr.active = 1;
+    memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_xw.oWorld; g_xr.start = XwReturnStart(g_xw.oWorld, g_xw.oPos, g_xw.oStart); g_xr.t0 = now; memcpy(g_xr.pos, g_xw.oPos, sizeof g_xr.pos); g_xr.active = 1; { int ne = EvSnap(g_xr.ev); if (ne) Log("XWORLD cancel: %d event scene(s) running before the world trip (cleared if they hold the load)", ne); }
     Log("XWORLD cancel: prewarm landed in 0x%02X, returning to world 0x%02X start %u (WarpOtherWorld)", CurWorld(), g_xw.oWorld, g_xr.start);
     XwAbort("prewarm cancelled");
+    g_ps_row = 0; XsStart("XCANCEL", g_xr.world); g_xs.maxMs = 180000;  // xworld-return-1790
     ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + Grva(0x22399B8)))(g_xr.world, g_xw.oJourney, g_xr.start, g_xw.oMode, prm);
 }
 static void XwTick(void) {
@@ -2617,7 +2656,7 @@ static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTi
 static void RhTick(void) {
     DWORD now = GetTickCount();
     if (InterlockedExchange(&g_rh.want, 0) && !g_rh.active) {
-        g_rh.active = 1; g_rh.phase = 1; g_rh.t0 = g_rh.tPh = now; g_rh.tStable = 0;
+        g_rh.active = 1; g_rh.phase = 1; g_rh.t0 = g_rh.tPh = now; g_rh.tStable = 0; g_rh.arena = g_tr.active && g_tr.arena;  // phase 1 ends the session, so remember an arena session here
         Log("RETURN requested (Boss Rematch menu, #6779): home world 0x%02X %.0f %.0f %.0f mission 0x%X; now world 0x%02X, swap %d (claimed %d), switch pending %d, session %d (round %d, beaten boss %d)",
             g_home.world, g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.mission, CurWorld(), g_xw.active, g_xw.claimed, g_fd.pend, g_tr.active, g_tr.round, g_tr.tWin != 0);
         g_fd.pend = 0; g_fd.phase = 0;  // a same-world switch still waiting for black is dropped
@@ -2633,7 +2672,7 @@ static void RhTick(void) {
         if (g_home.valid) { FadeWant(1, "return to where I was"); RhLoadScreen(1); }
     }
     if (!g_rh.active) return;
-    if (now - g_rh.t0 > 90000) { Log("RETURN: not finished after 90 s (phase %d), giving up", g_rh.phase); RhDone("timeout"); return; }
+    if (now - g_rh.t0 > (g_rh.phase == 3 ? 200000u : 90000u)) { Log("RETURN: not finished after 90 s (phase %d), giving up", g_rh.phase); RhDone("timeout"); return; }
     if (g_rh.phase == 1) {
         if (g_xw.active) return;  // XwCancelTick: waits for the request to land, then sends the player back (g_xr)
         TrainStop("return to where I was"); g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0; g_ar.active = 0; g_en.active = 0;
@@ -2647,7 +2686,9 @@ static void RhTick(void) {
         if (FdAlpha() < 255 && now - g_rh.tPh < (DWORD)g_cfg_fade_out + 400) return;  // black first (or the ramp + 400 ms when the overlay cannot draw)
         { uint64_t cm = CharMgr(), c0 = 0; if (cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA)) BossModeEnd("return to where I was: boss mode still on"); }
         uint32_t mis = 0, mode = 0; uint8_t jr = 0;
-        if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
+        // xworld-return-1790: inside a cross-world Fight now arena (no mission load) the mission reads 0: that is the arena, not a mission exit
+        if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission && !(mis == 0 && g_rh.arena && CurWorld() != g_home.world)) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
+        if (g_home.mission && CurWorld() != g_home.world) { g_homeKeep.valid = 1; g_homeKeep.world = g_home.world; g_homeKeep.journey = g_home.journey; g_homeKeep.mode = g_home.mode; g_homeKeep.mission = g_home.mission; }
         g_home.valid = 0;
         if (CurWorld() == g_home.world) {
             int w = Warp(g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.pos[3], 1);
@@ -2658,13 +2699,14 @@ static void RhTick(void) {
         __attribute__((aligned(16))) uint8_t prm[32] = {0};
         ((void (*)(void*))(B + Grva(0x1BF7D68)))(prm); prm[7] = 0; prm[0xA] = 0; prm[0xE] = 1;  // as XwCancelTick
         ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3B28FC)))(2, 0, 0);
-        memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_home.world; g_xr.start = XwReturnStart(g_home.world, g_home.pos, g_home.start); g_xr.t0 = now; memcpy(g_xr.pos, g_home.pos, sizeof g_xr.pos); g_xr.active = 1;
+        memset(&g_xr, 0, sizeof g_xr); g_xr.world = g_home.world; g_xr.start = XwReturnStart(g_home.world, g_home.pos, g_home.start); g_xr.t0 = now; memcpy(g_xr.pos, g_home.pos, sizeof g_xr.pos); g_xr.active = 1; { int ne = EvSnap(g_xr.ev); if (ne) Log("RETURN: %d event scene(s) running before the world trip (cleared if they hold the load)", ne); }
         Log("RETURN: world 0x%02X -> home world 0x%02X start %u (WarpOtherWorld), put back on the spot once its cells are loaded", CurWorld(), g_home.world, g_xr.start);
+        g_ps_row = 0; XsStart("RETURN", g_home.world); g_xs.maxMs = 180000;  // xworld-return-1790: same streaming relief as Fight now (area-objects gate, cell cap); without it the home world needs minutes (load flag stays set)
         ((void (*)(uint8_t, uint8_t, uint32_t, uint32_t, void*))(B + Grva(0x22399B8)))(g_xr.world, g_home.journey, g_xr.start, g_home.mode, prm);
         g_rh.phase = 3; return;
     }
     if (g_rh.phase == 3) {
-        if (g_xr.active && !g_xr.watch) return;
+        if (g_xr.active && now - g_rh.tPh < 190000u) return;  // xworld-return-1790: keep black until the home world is in and the player is put back (was lifted at 60 s into a still-loading world)
         if (g_xr.active) Log("RETURN: position fix still pending after 60 s of game time: loading screen lifted, the put-back watch keeps running");
         g_rh.phase = 4; g_rh.tPh = now;
     }
@@ -4276,11 +4318,11 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
     const int rawDmg = dmg;
     __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     const int scaledDmg = dmg;  // user #22389 (first: the NOFIN floor below sees the scaled hit)
-    if (g_cfg_cantdie && dmg > 0 && hp && InfHpSession()) {  // user #22918 Infinite health: the player takes no HP damage at all (a one-hit lethal hit never lands)
+    if (g_cfg_cantdie && dmg > 0 && hp) {  // user #22918: cut player HP damage whenever the toggle is ON, including after Return clears the session
         uint64_t me = PlayerChar(), pst = 0;
         if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
             static volatile LONG ncut; const int d0 = dmg; dmg = PhDamageCut(g_cfg_cantdie, 1, 1, dmg);
-            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (session %s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : "arena");
+            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (%s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : g_ar.active ? "arena" : "toggle still on");
         }
     }
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {

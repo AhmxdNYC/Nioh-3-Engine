@@ -1978,6 +1978,20 @@
    ]
   },
   {
+   "rva": "0x45CE800",
+   "kind": "global",
+   "pattern": "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 10 F3 0F 10 88 AC 1F 00 00",
+   "offset": 0,
+   "anchor": "0x476B7",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "mov rax, qword ptr [rip + 0x4587142]",
+   "used_in": [
+    "training.c"
+   ]
+  },
+  {
    "rva": "0x47452E0",
    "kind": "global",
    "pattern": "48 8B 0D ?? ?? ?? ?? 45 33 C0 48 81 C1 48 59 00 00 48 8B D0 E8 ?? ?? ?? ?? 4C 8B F0",
