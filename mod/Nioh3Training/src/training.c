@@ -2648,7 +2648,7 @@ static void RhTick(void) {
         { uint64_t cm = CharMgr(), c0 = 0; if (cm && Rd64(cm, &c0) && c0 && *(uint8_t*)(c0 + 0x26AA)) BossModeEnd("return to where I was: boss mode still on"); }
         uint32_t mis = 0, mode = 0; uint8_t jr = 0;
         // ally #59523: inside a cross-world Fight now arena (no mission load) the mission reads 0: that is the arena, not a mission exit
-        if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission && !(mis == 0 && g_rh.arena && CurWorld() != g_home.world)) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
+        if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
         g_home.valid = 0;
         if (CurWorld() == g_home.world) {
             int w = Warp(g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.pos[3], 1);
