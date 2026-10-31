@@ -2052,6 +2052,8 @@ static volatile LONG g_dbg_frozen; static float DbgTimeScale(void); static void 
 // user #6779: 'Return to where I was' (Boss Rematch menu). g_home = where the player stood before the first Fight now of this arena session (world, spot,
 // running mission / journey / mode); chained Fight nows keep it, a Fight now with no arena session running (or after a mission change) takes a new one.
 static struct { int valid; uint8_t world, journey; uint32_t mission, mode, start; float pos[4]; } g_home;
+// home-mission-1790: after a WarpOtherWorld Return the mission state reads mission 0 (the trip starts a mission-less journey), so the next HomeCapture stored 'mission 0x0' and RhTick's "mission changed" guard (g_home.mission && ...) was skipped. g_homeKeep remembers the mission a Return went back to; HomeCapture reuses it while the state still reads 0 in that world.
+static struct { int valid; uint8_t world, journey; uint32_t mission, mode; } g_homeKeep;
 static struct { volatile LONG want; int active, phase, arena; DWORD t0, tPh, tStable; } g_rh;  // RhTick: 1 cancel a running swap, 2 move, 3 cross-world trip, 4 settle + fade in
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode) {  // mission state: +10 journey, +24 mode (XwStart), +28 running mission id (Boss Rematch Snap.ms28)
     uint64_t mm = 0, ms = 0; if (!Rd64(B + Grva(0x47514D0), &mm) || !mm || !Rd64(mm + 8, &ms) || !ms) return 0;
@@ -2074,6 +2076,8 @@ static void RecStart(const char* why) {
 static void HomeCapture(int world, const float* pos, const char* why) {
     RecStart(why);
     uint32_t mis = 0, mode = 0; uint8_t jr = 0; if (world < 0 || !MsRead(&mis, &jr, &mode)) return;
+    if (mis) g_homeKeep.valid = 0;
+    else if (g_homeKeep.valid && g_homeKeep.world == (uint8_t)world) { Log("RETURN home: mission state reads 0 after a world trip, keeping mission 0x%X journey %u mode %u", g_homeKeep.mission, g_homeKeep.journey, g_homeKeep.mode); mis = g_homeKeep.mission; jr = g_homeKeep.journey; mode = g_homeKeep.mode; }
     if (g_home.valid && g_tr.active && g_tr.hasStart && mis == g_home.mission) return;  // still in the session that started there
     g_home.valid = 1; g_home.world = (uint8_t)world; g_home.journey = jr; g_home.mode = mode; g_home.mission = mis; g_home.start = *(uint32_t*)(B + Grva(0x45BC42C)); memcpy(g_home.pos, pos, sizeof g_home.pos);
     Log("RETURN home stored (%s): world 0x%02X %.0f %.0f %.0f yaw %.1f, mission 0x%X journey %u mode %u", why, world, pos[0], pos[1], pos[2], pos[3], mis, jr, mode);
@@ -2677,6 +2681,7 @@ static void RhTick(void) {
         uint32_t mis = 0, mode = 0; uint8_t jr = 0;
         // xworld-return-1790: inside a cross-world Fight now arena (no mission load) the mission reads 0: that is the arena, not a mission exit
         if (g_home.mission && MsRead(&mis, &jr, &mode) && mis != g_home.mission && !(mis == 0 && g_rh.arena && CurWorld() != g_home.world)) { Log("RETURN: the mission changed 0x%X -> 0x%X since Fight now: not moved (the game's own mission exit applies)", g_home.mission, mis); g_home.valid = 0; RhDone("mission changed"); return; }
+        if (g_home.mission && CurWorld() != g_home.world) { g_homeKeep.valid = 1; g_homeKeep.world = g_home.world; g_homeKeep.journey = g_home.journey; g_homeKeep.mode = g_home.mode; g_homeKeep.mission = g_home.mission; }
         g_home.valid = 0;
         if (CurWorld() == g_home.world) {
             int w = Warp(g_home.pos[0], g_home.pos[1], g_home.pos[2], g_home.pos[3], 1);
