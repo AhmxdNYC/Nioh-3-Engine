@@ -2221,7 +2221,7 @@ std::atomic<int> g_fhPress{0}, g_fhExtra{1};
 // learned live: the action that started 0.6..2.0 s before a seal capture (nearest to the ~1.27 s press->capture gap). FormHideActLog=1 logs
 // every player action change (20/s cap) so the seal id shows in the log.
 std::atomic<uint32_t> g_fhActIds[4];
-std::atomic<int> g_fhActN{0}, g_fhActLog{1}, g_fhActLearn{1};
+std::atomic<int> g_fhActN{0}, g_fhActLog{1}, g_fhActLearn{0};
 std::atomic<uint32_t> g_fhActLearned{0};
 uint32_t PlayerActId(uint64_t pchr) {
     uint64_t ai = 0, ctrl = 0, p = 0;
@@ -2326,6 +2326,7 @@ FbUserSt g_fbUser[4];
 std::atomic<ULONGLONG> g_fbInjT0{0};
 std::atomic<int> g_fbStyle0{-1}, g_fbTries{0};  // human #58307: style (chr+A95C, 0 samurai / 1 ninja) at the form end, replay attempts
 uint64_t FkPlayer();
+std::atomic<int> g_styleFree{-1}, g_fbPressStyle{-1}, g_fbPressArm{-1};  // human #58330: style read outside forms (A95C is not the real style mid-form)
 int FbStyleNow() { const uint64_t pl = FkPlayer(); uint32_t v = 0; return pl && RdB(pl + 0xA95C, v) && v <= 1 ? (int)v : -1; }
 using FbXGet = DWORD(WINAPI*)(DWORD, void*);
 FbXGet g_fbPrev = nullptr;
@@ -2359,7 +2360,11 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
         if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
-    } else if (r == ERROR_SUCCESS && st && g_fbInjT0.load(std::memory_order_relaxed) && (int)user == g_fbInjUser.load()) {  // ally #57627: replay
+    } else if (r == ERROR_SUCCESS && user == 0 && !g_fbActive.load(std::memory_order_relaxed) && !g_fbInjT0.load(std::memory_order_relaxed)) {
+        static ULONGLONG nextRd = 0; const ULONGLONG t = GetTickCount64();
+        if (t >= nextRd) { nextRd = t + 50; const int v = FbStyleNow(); if (v >= 0) g_styleFree.store(v); }
+    }
+    if (r == ERROR_SUCCESS && st && !g_fbActive.load(std::memory_order_relaxed) && g_fbInjT0.load(std::memory_order_relaxed) && (int)user == g_fbInjUser.load()) {  // ally #57627: replay
         const ULONGLONG t0 = g_fbInjT0.load(), t = GetTickCount64();
         const int c = g_fbStyleQ.load();
         FbState* s = (FbState*)st;
@@ -2417,13 +2422,13 @@ void FormBlockSet(bool on) {
         Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
     if (!hooked || g_fbActive.exchange(on) == on) return;
-    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(0); g_fbInjT0.store(0);
+    if (on) { g_fbPressStyle.store(g_fbPressArm.load() >= 0 ? g_fbPressArm.load() : g_styleFree.load()); g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(0); g_fbInjT0.store(0);
         for (auto& u : g_fbUser) u.rt = true, u.chordA = false, u.other = true, u.lastRt = GetTickCount64();  // an RT held at the press is not a style shift
         Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
     else {
         Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
         if (g_fbStyle.load() && g_fbStyleQ.load()) {  // ally #57627: replay the chord 50..250 ms after the form ends
-            g_fbStyle0.store(FbStyleNow()); g_fbTries.store(1);
+            g_fbStyle0.store(g_fbPressStyle.load() >= 0 ? g_fbPressStyle.load() : FbStyleNow()); g_fbTries.store(1);
             g_fbInjT0.store(GetTickCount64());
             Log("FormStyleSwitch: replaying the style shift (%s, pad %d, style %d) at the form end t=%.3f", g_fbStyleQ.load() == 2 ? "RT+A" : "RT tap", g_fbInjUser.load(), g_fbStyle0.load(), Now());
         }
@@ -3017,8 +3022,10 @@ void FormHide4Tick(uint64_t player) {
                 const uint64_t gq = g_ghostReq.load();
                 // human #58318: only NINJA style (chr+A95C=1) keeps the airborne end; SAMURAI rides the seal down to the ground
                 static double styleAt = -1; static int heldStyle = -1;
-                if (gq && styleAt != g_ghostReqAt.load()) { styleAt = g_ghostReqAt.load(); heldStyle = FbStyleNow();
-                    Log("FormFollow end: style %d (%s) t=%.3f", heldStyle, heldStyle == 0 ? "samurai -> ground" : "ninja -> airborne", now); }
+                if (gq) {  // human #58330: style at the press, flipped by a switch queued during the form (re-read every tick)
+                    const int ps = g_fbPressStyle.load(), hs = ps >= 0 ? ps ^ (g_fbStyleQ.load() ? 1 : 0) : FbStyleNow();
+                    if (styleAt != g_ghostReqAt.load() || hs != heldStyle) { styleAt = g_ghostReqAt.load(); heldStyle = hs;
+                        Log("FormFollow end: style %d (press %d, switch %s, A95C %d) %s t=%.3f", hs, ps, g_fbStyleQ.load() ? "queued" : "none", FbStyleNow(), hs == 0 ? "samurai -> ground" : "ninja -> airborne", now); } }
                 if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load() && heldStyle != 0) {
                     static double heldAt = -1; static float hold[4] = {};
                     if (heldAt != g_ghostReqAt.load() && Copy(hold, player + 0x110, 16)) {
@@ -3037,6 +3044,8 @@ void FormHide4Tick(uint64_t player) {
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
                    if ((edge || fresh) && pendAt <= 0) {
                        pendAt = now + g_fhDelayMs.load() / 1000.0; pendTrig = now; pendEdge = edge; pendPlayer = player;
+                       { const int fs = g_styleFree.load(), sn = FbStyleNow(); g_fbPressArm.store(fs >= 0 ? fs : sn);  // human #58330
+                         Log("FormStyle press: free %d A95C %d -> %d", fs, sn, g_fbPressArm.load()); }
                        if (padLeft) CoverStartSmoke(player, now);  // human #58146: smoke first, the player vanishes inside it
                    }
                    if (pendAt <= 0) return false;
@@ -4782,7 +4791,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 400));  // human #58117; 400 = after the player's fade-out in the cover smoke (#58205)
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
-    g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 1));
+    g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 0));  // human #58330: ninja 1-frame throw -> learned 0x82A (run/walk) = fake forms
     {
         wchar_t ab[128] = {};
         // Ally #55835: 0x28FD preceded both seal captures; action-only press 2 applied the hide at +36 ms.
