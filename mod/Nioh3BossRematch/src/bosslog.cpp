@@ -3015,7 +3015,11 @@ void FormHide4Tick(uint64_t player) {
                 // human #58223: in the SealExitRevealMs wait after the last hit the player stays where the yokai was at that hit (the
                 // old instant ghost exit = the player left airborne), instead of riding it down for 200 ms
                 const uint64_t gq = g_ghostReq.load();
-                if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load()) {
+                // human #58318: only NINJA style (chr+A95C=1) keeps the airborne end; SAMURAI rides the seal down to the ground
+                static double styleAt = -1; static int heldStyle = -1;
+                if (gq && styleAt != g_ghostReqAt.load()) { styleAt = g_ghostReqAt.load(); heldStyle = FbStyleNow();
+                    Log("FormFollow end: style %d (%s) t=%.3f", heldStyle, heldStyle == 0 ? "samurai -> ground" : "ninja -> airborne", now); }
+                if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load() && heldStyle != 0) {
                     static double heldAt = -1; static float hold[4] = {};
                     if (heldAt != g_ghostReqAt.load() && Copy(hold, player + 0x110, 16)) {
                         heldAt = g_ghostReqAt.load();
