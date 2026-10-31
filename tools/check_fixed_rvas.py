@@ -69,7 +69,7 @@ def strip(src):
 
 
 def files(tests):
-    pats = ["mod/*/src/**/*.cpp", "mod/*/src/**/*.h", "mod/*.h", "mod/shared/**/*.h", "mod/shared/**/*.cpp"]
+    pats = ["mod/*/src/**/*.cpp", "mod/*/src/**/*.h", "mod/Nioh3Training/src/**/*.c", "mod/*.h", "mod/shared/**/*.h", "mod/shared/**/*.cpp"]
     if tests:
         pats += ["mod/*/tests/**/*.cpp", "mod/*/tests/**/*.h"]
     seen = set()
@@ -186,14 +186,16 @@ def scan(tests=False):
     for f, t in srcs.items():
         rel = f.relative_to(ROOT).as_posix()
         aliases = sorted({m.group(1) for m in RX_ALIAS.finditer(t)} - {"base"})
+        if rel.startswith("mod/Nioh3Training/"):
+            aliases = sorted(set(aliases) | {"B"})  # Training's image base is `static uintptr_t B` (training.c)
         base = "(?:%s)" % "|".join([BASE] + [r"(?<![\w.>])%s(?!\w)" % re.escape(x) for x in aliases])
-        rx_lit = re.compile(base + r"\s*\+\s*(0x[0-9A-Fa-f]+)\b")
+        rx_lit = re.compile(base + r"\s*\+\s*(0x[0-9A-Fa-f]+|\d{5,9}(?![\w.]))\b" if rel.startswith("mod/Nioh3Training/") else base + r"\s*\+\s*(0x[0-9A-Fa-f]+)\b")
         rx_const = re.compile(base + r"\s*\+\s*(k[A-Z]\w*)\b(?!\s*\[)")
         rx_table = re.compile(base + r"\s*\+\s*([A-Za-z_]\w*)\s*\[")
         lines = t.split("\n")
         for ln, line in enumerate(lines, 1):
             for m in rx_lit.finditer(line):
-                v = int(m.group(1), 16)
+                v = int(m.group(1), 0)
                 if v < MIN_RVA:
                     continue
                 before = line[:m.start()].rstrip()
