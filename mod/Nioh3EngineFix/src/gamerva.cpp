@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -101,7 +102,7 @@ const IMAGE_NT_HEADERS64* Nt() {
     return (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
 }
 
-uint32_t IatSlot(const char* name) {  // "KERNEL32.dll!ReadFile"
+uint32_t IatSlot(const char* name) {  // "KERNEL32.dll!ReadFile" or "XINPUT1_4.dll!#2"
     const char* bang = strchr(name, '!');
     if (!bang) return 0;
     const auto& dir = Nt()->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
@@ -110,7 +111,10 @@ uint32_t IatSlot(const char* name) {  // "KERNEL32.dll!ReadFile"
         if (_strnicmp((const char*)(g_base + d->Name), name, (size_t)(bang - name)) || ((const char*)(g_base + d->Name))[bang - name]) continue;
         auto ilt = (const IMAGE_THUNK_DATA64*)(g_base + (d->OriginalFirstThunk ? d->OriginalFirstThunk : d->FirstThunk));
         for (uint32_t k = 0; ilt[k].u1.AddressOfData; ++k) {
-            if (IMAGE_SNAP_BY_ORDINAL64(ilt[k].u1.Ordinal)) continue;
+            if (IMAGE_SNAP_BY_ORDINAL64(ilt[k].u1.Ordinal)) {  // "XINPUT1_4.dll!#2" = import by ordinal
+                if (bang[1] == '#' && IMAGE_ORDINAL64(ilt[k].u1.Ordinal) == strtoul(bang + 2, nullptr, 10)) return d->FirstThunk + 8 * k;
+                continue;
+            }
             auto ibn = (const IMAGE_IMPORT_BY_NAME*)(g_base + (uint32_t)ilt[k].u1.AddressOfData);
             if (!strcmp((const char*)ibn->Name, bang + 1)) return d->FirstThunk + 8 * k;
         }
