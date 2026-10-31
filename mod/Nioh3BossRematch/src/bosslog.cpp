@@ -2304,6 +2304,12 @@ std::atomic<int> g_fbMask{0xFF4F}, g_fbRT{1}, g_fbLS{1};
 std::atomic<bool> g_fbActive{false};
 std::atomic<long> g_fbDropped{0};
 std::atomic<ULONGLONG> g_fbSince{0};  // safety: never mask longer than 30 s even if the restore never runs
+// ally #57627 (human #57621): [Spirit] FormStyleSwitch=1 - a samurai<->ninja style switch (RT, Type A) pressed during the form is
+// remembered (RT is still zeroed, the form is not disturbed) and replayed as one RT tap right after the form ends, so the player
+// comes back in the newly picked style. Each press during the form toggles the queue (two presses = no change). 0 = off.
+std::atomic<int> g_fbStyle{1};
+std::atomic<bool> g_fbStyleQ{false}, g_fbRtWas{false};
+std::atomic<ULONGLONG> g_fbInjFrom{0}, g_fbInjTo{0};
 using FbXGet = DWORD(WINAPI*)(DWORD, void*);
 FbXGet g_fbPrev = nullptr;
 struct FbPad { WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; };
@@ -2312,12 +2318,21 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
     const DWORD r = g_fbPrev ? g_fbPrev(user, st) : ERROR_DEVICE_NOT_CONNECTED;
     if (r == ERROR_SUCCESS && st && g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000) {
         FbState* s = (FbState*)st;
+        if (g_fbStyle.load(std::memory_order_relaxed)) {  // ally #57627: queue the style switch (RT edge, raw read before it is zeroed)
+            const bool rt = s->pad.rt > 128;
+            if (rt && !g_fbRtWas.exchange(true)) { const bool q = !g_fbStyleQ.load(); g_fbStyleQ.store(q); Log("FormStyleSwitch: RT during the form -> %s", q ? "queued" : "cancelled"); }
+            else if (!rt) g_fbRtWas.store(false);
+        }
         const WORD m = (WORD)g_fbMask.load(std::memory_order_relaxed);
         const bool trig = g_fbRT.load(std::memory_order_relaxed), ls = g_fbLS.load(std::memory_order_relaxed);
         if ((s->pad.buttons & m) || (trig && (s->pad.rt || s->pad.lt)) || (ls && (s->pad.lx || s->pad.ly))) g_fbDropped.fetch_add(1, std::memory_order_relaxed);
         s->pad.buttons &= (WORD)~m;
         if (trig) { s->pad.rt = 0; s->pad.lt = 0; }
         if (ls) { s->pad.lx = 0; s->pad.ly = 0; }
+    } else if (r == ERROR_SUCCESS && st && g_fbInjTo.load(std::memory_order_relaxed)) {  // ally #57627: replay the queued style switch
+        const ULONGLONG t = GetTickCount64();
+        if (t >= g_fbInjTo.load()) g_fbInjTo.store(0);
+        else if (t >= g_fbInjFrom.load()) ((FbState*)st)->pad.rt = 255;
     }
     return r;
 }
@@ -2358,8 +2373,15 @@ void FormBlockSet(bool on) {
         Log("FormBlockPad: %s mask=%04X triggers=%d leftStick=%d", hooked ? "XInputGetState hooked (outermost)" : "no XInputGetState import - off", g_fbMask.load(), g_fbRT.load(), g_fbLS.load());
     }
     if (!hooked || g_fbActive.exchange(on) == on) return;
-    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
-    else Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
+    if (on) { g_fbDropped.store(0); g_fbSince.store(GetTickCount64()); g_fbStyleQ.store(false); g_fbRtWas.store(true); g_fbInjTo.store(0);  // a held RT at the press is not a switch
+        Log("FormBlockPad: all actions + walking blocked (camera free) t=%.3f", Now()); }
+    else {
+        Log("FormBlockPad: released, %ld blocked pad reads t=%.3f", g_fbDropped.load(), Now());
+        if (g_fbStyle.load() && g_fbStyleQ.exchange(false)) {  // ally #57627: one RT tap 50..200 ms after the form ends
+            const ULONGLONG t = GetTickCount64(); g_fbInjFrom.store(t + 50); g_fbInjTo.store(t + 200);
+            Log("FormStyleSwitch: replaying the style switch (RT tap) at the form end t=%.3f", Now());
+        }
+    }
 }
 // pc #56435: per-second cost counters (hook calls, real writes, QPC ticks inside our code, game ticks = frames)
 struct Fh4Perf { std::atomic<long> parts{0}, mult{0}, alpha{0}, writes{0}, ticks{0}; std::atomic<long long> qpc{0}; };
@@ -4198,6 +4220,7 @@ void Register(bool boss, bool rm, bool inv) {
     { wchar_t fb[32]; GetPrivateProfileStringW(L"Spirit", L"FormBlockPad", L"0xFF4F", fb, 32, IniPath()); g_fbMask.store((int)(wcstol(fb, nullptr, 0) & 0xFFFF)); }
     g_fbRT.store(IniInt(L"Spirit", L"FormBlockRT", 1));
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
+    g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
