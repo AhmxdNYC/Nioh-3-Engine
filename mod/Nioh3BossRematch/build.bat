@@ -22,11 +22,11 @@ where py >nul 2>nul || set "PYX=python -I"
 %PYX% "%~dp0..\..\tools\check_fixed_rvas.py" > build\fixed_rvas.txt 2>&1
 if errorlevel 1 echo WARNING: fixed game RVAs not found by pattern - see build\fixed_rvas.txt and notes\aob-audit.md
 set CF=/nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE
-for %%f in (main sites hooks bosslog rematch training ui remote) do (
+for %%f in (main sites hooks bosslog rematch training ui remote gamerva) do (
     cl %CF% /Fobuild\%%f.obj src\%%f.cpp || exit /b 1
 )
 link /nologo /DLL /OUT:bin\Nioh3BossRematch.asi /PDB:build\Nioh3BossRematch.pdb /DEBUG:FULL /OPT:REF /OPT:ICF /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\main.obj build\sites.obj build\hooks.obj build\bosslog.obj build\rematch.obj build\training.obj build\ui.obj build\remote.obj kernel32.lib user32.lib gdi32.lib || exit /b 1
+   build\main.obj build\sites.obj build\hooks.obj build\bosslog.obj build\rematch.obj build\training.obj build\ui.obj build\remote.obj build\gamerva.obj kernel32.lib user32.lib gdi32.lib || exit /b 1
 copy /y Nioh3BossRematch.ini bin\ >nul
 copy /y Nioh3BossRematch_bosses.tsv bin\ >nul
 echo built %~dp0bin\Nioh3BossRematch.asi
