@@ -2497,8 +2497,24 @@ std::atomic<double> g_ghostT{0};
 // human #58146: the smoke covers the swap. Start (LEFT press): our smoke at once (SealCoverSmoke=1), the player is hidden FormHideDelayMs
 // later and the yokai body is held invisible until SealShowMs after the press (then fades in over 150 ms). Exit: the smoke, the yokai
 // hidden SealExitYokaiHideMs later, the player back SealExitRevealMs after the smoke (never before the yokai is gone).
-std::atomic<int> g_coverOn{1}, g_sealShowMs{300}, g_ghostHideMs{150};
+std::atomic<int> g_coverOn{1}, g_sealShowMs{300}, g_ghostHideMs{0};
 std::atomic<double> g_coverT{0}, g_sealShowAt{0}, g_ghostHideAt{0};
+// human #58173: the exit smoke starts while the yokai still attacks (SealExitSmokeAtMs after the press, or when its last hit burst opens,
+// whichever first); at the last-hit close it fades out (SealGhostFadeMs) and the player's body fades in over SealPlayerFadeMs.
+std::atomic<int> g_exitSmokeAtMs{1450}, g_plFadeMs{250};
+std::atomic<double> g_plFadeT0{0};
+std::atomic<uint64_t> g_plFadeChr{0};
+uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
+void PlayerFadeIn(uint64_t chr) {  // multiplier hook, after the game's own write
+    const double t0 = g_plFadeT0.load(std::memory_order_relaxed);
+    if (t0 <= 0 || chr != g_plFadeChr.load(std::memory_order_relaxed)) return;
+    const double f = (Now() - t0) * 1000.0 / (g_plFadeMs.load() > 0 ? g_plFadeMs.load() : 1);
+    uint64_t root = 0;
+    if (f >= 1 || !Rd(chr + 0x20, root) || root != g_plFadeRoot) { g_plFadeT0.store(0); return; }
+    float k8 = 0, k6 = 0;
+    if (Rd(root + 0x3A8, k8) && k8 > g_plFadeK8 * f) { const float v = (float)(g_plFadeK8 * (f > 0 ? f : 0)); WrBytes(root + 0x3A8, &v, 4); }
+    if (Rd(root + 0x248, k6) && k6 > g_plFadeK6 * f) { const float v = (float)(g_plFadeK6 * (f > 0 ? f : 0)); WrBytes(root + 0x248, &v, 4); }
+}
 void CoverStartSmoke(uint64_t player, double now);  // SealExitReplay section, game thread
 // pc #57618 (human #57615): per-core exit smoke. Only cores listed in [Spirit] SealExitFxCore (hex list, default 5129B = Ibaraki LEFT) get it;
 // every other core (DOWN A2ACB) keeps the plain ghost exit. For a listed core: SealGhostFadeMs > 0 ramps the seal root fade [[seal+20]+248]
@@ -2574,6 +2590,7 @@ void SealShowHold(uint64_t chr, double at) {
 void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
     g_fh4Perf.mult.fetch_add(1);
+    PlayerFadeIn(chr);  // human #58173
     if (const double sa = g_sealShowAt.load(std::memory_order_relaxed); sa > 0) {
         SealShowHold(chr, sa);
         if (Now() < sa + 0.15 && chr && chr == g_fh4.seal && chr != g_fh4.owner) return;  // no FormSealKeep (fade 1) while held / fading in
@@ -2927,7 +2944,12 @@ void FormHide4Tick(uint64_t player) {
         } else if (cap != g_fh4.seal || capT != g_fh4.capT) reason = "capture-change";
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) {
-            Log("FormHide=4 end %s", reason); Fh4Restore(player);
+            Log("FormHide=4 end %s", reason);
+            if (!strcmp(reason, "ghost-exit") && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
+                g_plFadeRoot = g_fh4.root; g_plFadeK8 = g_fh4.multiplier; g_plFadeK6 = g_fh4.fade;
+                g_plFadeChr.store(player); g_plFadeT0.store(now);
+            }
+            Fh4Restore(player);
             // pc #57103: the FormSlot0 capture outlives the form (cleared only at 60 s). A spawn-hit form (DOWN A2ACB) never consumed it, so
             // the same tick re-began a form on the stale LEFT seal -> hidden + locked 20 s. Every end consumes whatever capture is current.
             attempted = g_fs0CapChr.load(); attemptedT = g_fs0CapT;
@@ -3449,7 +3471,9 @@ void SealExitReplayLoad() {
     g_fxrRepeatMs = IniInt(L"Spirit", L"SealExitSmokeRepeatMs", 0);
     g_coverOn = IniInt(L"Spirit", L"SealCoverSmoke", 1);  // human #58146
     g_sealShowMs = IniInt(L"Spirit", L"SealShowMs", 300);
-    g_ghostHideMs = IniInt(L"Spirit", L"SealExitYokaiHideMs", 150);
+    g_ghostHideMs = IniInt(L"Spirit", L"SealExitYokaiHideMs", 0);
+    g_exitSmokeAtMs = IniInt(L"Spirit", L"SealExitSmokeAtMs", 1450);  // human #58173
+    g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3688,6 +3712,13 @@ void SealEndOnHitTick() {
         Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
         fire = seal && want && bursts >= want;
     } else if (!n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+    static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
+    if (earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
+        ((open && bursts >= want) || fire || (g_exitSmokeAtMs.load() > 0 && now - sess >= g_exitSmokeAtMs.load() / 1000.0))) {
+        earlySess = sess;
+        earlyN = SealExitReplayQueue(seal, FkPlayer());
+        Log("SealCover: exit smoke early %.3f s after the press (burst %d/%d %s), %d effects", now - sess, bursts, want, open ? "open" : "closed", earlyN);
+    }
     if (!fire) return;
     fired = true;
     if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
@@ -3703,7 +3734,7 @@ void SealEndOnHitTick() {
             g_ghostFadeSeal.store(seal);
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
-        const int replay = smoke ? SealExitReplayQueue(seal, FkPlayer()) : 0;
+        const int replay = smoke ? (earlySess == sess ? earlyN : SealExitReplayQueue(seal, FkPlayer())) : 0;
         if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         const int hideMs = smoke && replay > 0 && g_coverOn.load() > 0 ? g_ghostHideMs.load() : 0;  // human #58146: smoke > yokai gone > player
         g_ghostHideAt.store(hideMs > 0 ? now + hideMs / 1000.0 : 0);
