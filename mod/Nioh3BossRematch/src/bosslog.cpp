@@ -2999,7 +2999,17 @@ void FormHide4Tick(uint64_t player) {
             if (g_fh4.seal) {
                 Fh4Timer tm;
                 const int fd = Fh4FollowDecide(now);
-                if (fd == 1) FormFollow(player, g_fh4.seal);
+                // human #58223: in the SealExitRevealMs wait after the last hit the player stays where the yokai was at that hit (the
+                // old instant ghost exit = the player left airborne), instead of riding it down for 200 ms
+                const uint64_t gq = g_ghostReq.load();
+                if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load()) {
+                    static double heldAt = -1; static float hold[4] = {};
+                    if (heldAt != g_ghostReqAt.load() && Copy(hold, player + 0x110, 16)) {
+                        heldAt = g_ghostReqAt.load();
+                        Log("FormFollow hold: player kept at the last-hit spot %.1f %.1f %.1f until the reveal t=%.3f", hold[0], hold[1], hold[2], now);
+                    }
+                    if (heldAt == g_ghostReqAt.load() && !(g_fhWarp.load() && FormPinWarpCall(player, hold))) WrBytes(player + 0x110, hold, 16);
+                } else if (fd == 1) FormFollow(player, g_fh4.seal);
                 else if (fd == 0) FormPin(player, g_fh4.seal);
                 Fh4KeepSeal();
             }  // timed: FH4perf ours= includes the pin + warp
