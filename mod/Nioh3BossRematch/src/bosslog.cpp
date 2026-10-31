@@ -3038,7 +3038,10 @@ void FormHide4Tick(uint64_t player) {
                 // human #58318: only NINJA style (chr+A95C=1) keeps the airborne end; SAMURAI rides the seal down to the ground
                 static double styleAt = -1; static int heldStyle = -1;
                 if (gq) {  // human #58330: style at the press, flipped by a switch queued during the form (re-read every tick)
-                    const int ps = g_fbPressStyle.load(), hs = ps >= 0 ? ps ^ (g_fbStyleQ.load() ? 1 : 0) : FbStyleNow();
+                    // human #58396: with FormStyleLive the game switches during the form, so chr+A95C is the real style (log 12:46 am:
+                    // A95C 1 with no queued chord -> player was ninja but got the samurai ground end)
+                    const int ps = g_fbPressStyle.load(), live = g_fbStyleLive.load() ? FbStyleNow() : -1;
+                    const int hs = live >= 0 ? live : ps >= 0 ? ps ^ (g_fbStyleQ.load() ? 1 : 0) : FbStyleNow();
                     if (styleAt != g_ghostReqAt.load() || hs != heldStyle) { styleAt = g_ghostReqAt.load(); heldStyle = hs;
                         Log("FormFollow end: style %d (press %d, switch %s, A95C %d) %s t=%.3f", hs, ps, g_fbStyleQ.load() ? "queued" : "none", FbStyleNow(), hs == 0 ? "samurai -> ground" : "ninja -> airborne", now); } }
                 if (fd == 1 && gq && gq == g_fh4.seal && now < g_ghostReqAt.load() && heldStyle != 0) {
