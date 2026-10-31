@@ -194,6 +194,46 @@ Ally/Proton recheck of these exact bits (captures/ally-59205): logs EngineFix 1.
 Frame meter master OFF -> Player frame meter + I-frame lane OFF, meter gone, ini saved FrameMeter/PlayerFrameMeter/FrameMeterIFrames=0;
 Fight Now Yamagata OK (arena swap, boss bar); return to title OK; no crash.
 
+## v1.7.89 (prep only, 10-31 8:35 am EST)
+
+Do not run the publish from this section. Same order as v1.7.88 above. Wait until both rechecks pass and the human says go.
+Source branch for the notes: pc/release-1789 26dda5b4. User-facing text: notes/release-1.7.89.md.
+Assets pc named for bridge #4522. Local copies in captures/rel1789 (not in git) hash to those same prefixes:
+
+| file | sha256 |
+|---|---|
+| Nioh3EngineFix.asi (MOD_VERSION already 1.7.89) | 30f2f2f23a149303a09c86333b9282c0a2b26917802d5fd8402169632a8b4c0e |
+| Nioh3Training.asi | 8b18ab03eaaf5df236154b17697e8cd14091a21792e707f239f1114bcba30679 |
+| Nioh3BossRematch.asi 1.4.23 (same bytes as the 1.7.88 final) | 0afa302e01b92eeddded2851c15d8ca962acb2c3f0b10d4adc3076020068a6aa |
+
+Publish order, unchanged from 1.7.88 except the version and the notes file:
+
+1. Unpack bridge #4522 and check the three hashes above. Build the site drop with
+   `tools/updater/stage_site.py --site <site folder> --version 1.7.89 --payload <each asi> --news` from notes/release-1.7.89.md.
+   That writes immutable `/releases/1.7.89/` plus `/updates/stable.json`. It must not be copied over `version.json` yet.
+2. Copy `releases/1.7.89/` and `updates/stable.json` into `C:\Users\Ahmad Hamza\nioh3-mod-site\site`, then `vercel --prod`.
+   Verify live `stable.json` and each ASI hash. Leave the live `version.json` on 1.7.88 for this step.
+3. Public export, soul core still compiled out: `tools/export_public.py --ref pc/release-1789 --version 1.7.89`.
+   The script's default `--version` is still `1.7.88`; pass `1.7.89` or the gate looks for the wrong string.
+   Then `gh release create v1.7.89 --repo AhmxdNYC/Nioh-3-Engine --target main --latest --title "Nioh 3 Engine Fix 1.7.89" --notes-file notes/release-1.7.89.md` with the combined zip, the three ASIs, and stable.json.
+4. LAST: copy the new `version.json` (`"version": "1.7.89"`) onto the live site and `vercel --prod` again.
+   Players on 1.7.88 then see the in-game notice. Check `https://nioh3-mod-feedback.vercel.app/version.json`.
+
+Files that still say 1.7.88 and that this publish has to bump:
+
+- `C:\Users\Ahmad Hamza\nioh3-mod-site\site\version.json` (live, `"version": "1.7.88"`). Bump this last.
+- `C:\Users\Ahmad Hamza\nioh3-mod-site\site\updates\stable.json` (live version 1.7.88, news line, and the three `/releases/1.7.88/` urls).
+- `tools/export_public.py` default `--version` is `1.7.88` (the gate requires that string next to a VERSION name). Pass `--version 1.7.89`.
+
+Already 1.7.89 in this repo, so a publish must not treat them as still on 1.7.88:
+
+- `site/version.json` (repo copy only; the live site file above is the one players read).
+- `mod/Nioh3EngineFix/src/dllmain.cpp` `MOD_VERSION` is `1.7.89`. BossRematch `ADDON_VERSION` stays `1.4.23`.
+
+Not 1.7.88, so they are not on this bump list. The public README (Nioh-3-Engine ffdd6bfe) still says version 1.7.87 on the EngineFix line. This repo's `README.md` and `release/USER_GUIDE.md` do not contain 1.7.88, and the 1.7.88 public tree has no USER_GUIDE version line. `staged-site/` in this repo is an old 1.7.85 drop, not the live site.
+
+Rollback, if a publish is undone: put the 1.7.88 `updates/stable.json` back and redeploy; `gh release edit v1.7.88 --latest`, then delete `v1.7.89`. Do not overwrite `/releases/1.7.89/`. Put live `version.json` back to 1.7.88 last.
+
 ## 1.7.89 (draft only, 10-31)
 
 Nothing here is published. Do not run the site deploy, `vercel`, or `gh release`. Source branch `pc/release-1789` at `26dda5b4`. Assets are bridge file #4522 (not unpacked in this prep).
