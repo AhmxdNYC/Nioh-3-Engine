@@ -150,7 +150,7 @@ static int GrVerify(void) {
         else {
             const uint8_t* at = (const uint8_t*)(g_gr_base + GrExpected(d));
             if (GrParse(d->pattern, &p) && GrMatchAt(at, &p, 0, 0)) good = 1;
-            else if (d->kind == GRV_CODE && GrParse(d->pattern, &p) && (at[d->offset] == 0xE9 || at[d->offset] == 0xCC) && GrMatchAt(at, &p, (size_t)d->offset, (size_t)d->offset + 16)) { good = 1; ++hooked; }  // a hook already sits on the site
+            else if (d->kind == GRV_CODE && GrParse(d->pattern, &p) && (at[d->offset] == 0xE9 || at[d->offset] == 0xCC || (at[d->offset] == 0xFF && at[d->offset + 1] == 0x25)) && GrMatchAt(at, &p, (size_t)d->offset, (size_t)d->offset + 16)) { good = 1; ++hooked; }  // a hook already sits on the site
         }
         if (good) ++ok;
         else { ++bad; size_t l = strlen(miss); if (l < sizeof miss - 12) snprintf(miss + l, sizeof miss - l, " %X", d->rva); }
