@@ -91,7 +91,7 @@ def main():
     p.add_argument('--public', default='public/main')
     p.add_argument('--base', default='1fb1de9d', help='public commit the private line last synced from (1.7.86)')
     p.add_argument('--out', default=None)
-    p.add_argument('--version', default='1.7.88')
+    p.add_argument('--version', default='1.7.90')
     p.add_argument('--allow-soulcore', action='store_true', help='accept dormant (compiled-out) soul-core source')
     a = p.parse_args()
     repo = git('rev-parse', '--show-toplevel').strip()

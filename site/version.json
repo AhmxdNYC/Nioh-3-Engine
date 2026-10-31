@@ -1,5 +1,5 @@
 {
-  "version": "1.7.89",
+  "version": "1.7.90",
   "url": "https://nioh3-mod-feedback.vercel.app",
-  "notes": "Menu fixes: Boss Match settings, camera rows, FPS corner/size, Linux Report."
+  "notes": "Return no longer soft-locks after Fight now, infinite health stays on, home spot kept after Return."
 }
