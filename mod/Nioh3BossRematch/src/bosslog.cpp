@@ -3584,6 +3584,9 @@ struct FxMuteE { uint64_t e; double t; };
 FxMuteE g_fxMute[16];
 int g_fxMuteN = 0;
 SRWLOCK g_fxMuteLock = SRWLOCK_INIT;
+std::atomic<uint64_t> g_fxMuteAll{0};
+std::atomic<LONG> g_fxMuteAllV{0};
+std::atomic<double> g_fxMuteAllT{0};
 bool FxMute(uint32_t id) {
     static int ok = -1;
     static uint64_t tblCell = 0, lookup = 0, allCell = 0;
@@ -3606,8 +3609,15 @@ bool FxMute(uint32_t id) {
         Log("FormStyleFx: effect mute %s (table %llX lookup %llX)", ok ? "ready" : "bytes not found in this update - falls back to detach", tblCell - g_base, lookup - g_base);
     }
     if (!ok) return false;
-    uint64_t t = 0; uint32_t all = 0;
-    if (!Rd(allCell, all) || all || !Rd(tblCell, t) || !t || !Rd(t + 0x30, t) || !t) return false;
+    uint64_t t = 0;
+    if (!Rd(tblCell, t) || !t || !Rd(t + 0x30, t) || !t) return false;
+    // d4608146 never muted: the retail game keeps this global at 1 (= skip the disabled check). Drop it to 0 for the same ~80 ms; the
+    // tick puts the game's value back (only effects the data marks disabled are affected meanwhile).
+    {
+        const LONG prev = InterlockedExchange((volatile LONG*)allCell, 0);
+        if (prev) { g_fxMuteAllV = prev; g_fxMuteAll = allCell; }
+        g_fxMuteAllT = Now();
+    }
     uint64_t e = 0;
     __try { e = ((uint64_t(*)(uint64_t, uint32_t))lookup)(t, id); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     if (!e) return false;
@@ -3620,8 +3630,11 @@ bool FxMute(uint32_t id) {
     return true;
 }
 void FxMuteTick() {  // game thread: give the effects back once this spawn is past
-    if (!g_fxMuteN) return;
     const double now = Now();
+    if (const uint64_t a = g_fxMuteAll.load(); a && now - g_fxMuteAllT.load() > 0.08) {
+        InterlockedExchange((volatile LONG*)a, g_fxMuteAllV.load()); g_fxMuteAll.store(0);
+    }
+    if (!g_fxMuteN) return;
     AcquireSRWLockExclusive(&g_fxMuteLock);
     int k = 0;
     for (int i = 0; i < g_fxMuteN; ++i)
@@ -3637,7 +3650,7 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     if (g_fbStyleFx.load(std::memory_order_relaxed) && g_fbActive.load(std::memory_order_relaxed) &&
         Now() - g_fbStyleT.load(std::memory_order_relaxed) < g_fbStyleFxMs.load(std::memory_order_relaxed) / 1000.0) {  // human #58422
         const uint64_t pl = FkPlayer();
-        if (pl && StackArg(sp, 6) == pl) {
+        if (pl && (StackArg(sp, 6) == pl || (uint32_t)c == 0x3E8)) {  // 3E8 = the style-switch flash, spawned on a weapon/sub-object too (#58494 log)
             const bool world = d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
             // human #58481: moving / detaching (78fe5da3) still showed the flash -> use the game's own "effect disabled" early-out
             // (EffectCreate: table entry flag 0x800000 -> *out = 0, nothing spawned). The flag is set just for this call, cleared ~80 ms later.
