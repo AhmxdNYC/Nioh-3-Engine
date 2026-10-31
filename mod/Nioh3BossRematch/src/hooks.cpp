@@ -297,6 +297,7 @@ bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** w
     return InstallCallRetargetAt((uint8_t*)Site(site), site, fn, orig, why);
 }
 
+#if BR_SOULCORE
 // E8 call site -> stub: if *cell != 0 { rax = *cell; *cell = 0; ++*hits; ret } else jump to the original callee with every register intact.
 // The armed path touches only rax, rcx and flags (all volatile; the callee is not called). Used by [Spirit] FormKey on 0x11793D0's callers.
 bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cell, volatile LONG* hits, const char** why) {
@@ -353,6 +354,7 @@ bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cel
         (unsigned long long)(orig - g_img.base));
     return true;
 }
+#endif  // BR_SOULCORE
 
 bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why) {
     uint8_t b[5];

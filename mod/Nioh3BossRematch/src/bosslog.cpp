@@ -831,6 +831,7 @@ void HkInvAdd(uint64_t save, uint64_t out, uint64_t desc, uint64_t r9, const uin
     (void)out;
 }
 
+#if BR_SOULCORE
 // SC probe (same [Debug] InvLog switch): who runs while a soul core / item is used. Logs the first 4 args and up to 4 return addresses
 // above the hook (a call chain; function starts via pdata) for EffectCreate (r8 = effect id), 1320F2C and 23CBF9C. 60 lines/s.
 std::atomic<int64_t> g_scSec{-1};
@@ -4731,9 +4732,11 @@ void HkFormKeyInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
         Log("FormKey: exception in the input hook (swap disarmed; the game continues)");
     }
 }
+#endif  // BR_SOULCORE
 
 }  // namespace
 
+#if BR_SOULCORE
 // human #58117: Soul core tuning menu page (rematch.cpp soul_core_tuning_menu.h). Each value is the live global the effect reads at use time,
 // so a change applies on the next LEFT soul core use; it is also written to [Spirit] of Nioh3BossRematch.ini. *live = false: the hooks it
 // needs are not installed this session (saved only, applies next launch).
@@ -4978,10 +4981,13 @@ void FormKeyCmd(const char* line, char* reply, size_t n) {
              (unsigned long long)g_fkMgr.load(), (unsigned long long)g_fkState.load(), (unsigned long long)g_fkPendKey.load(), g_fkHits, g_fs0Mode.load(),
              g_fs0Active.load(), g_fs0Id.load(), g_fs0Swaps, g_fs0Clears);
 }
+#endif  // BR_SOULCORE
 
 void Register(bool boss, bool rm, bool inv) {
     g_base = g_img.base;
+#if BR_SOULCORE
     g_scProbes.store(IniInt(L"Spirit", L"Probes", 0));
+#endif  // BR_SOULCORE
     g_imgEnd = g_img.end;
     LARGE_INTEGER fq;
     QueryPerformanceFrequency(&fq);
@@ -4997,6 +5003,7 @@ void Register(bool boss, bool rm, bool inv) {
     F_CLR1 = Site("MissionClearedGet_37AFC0");
     F_UNL = Site("MissionUnlockedGet");
     g_logOn = boss || rm;
+#if BR_SOULCORE
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(1); }
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload
@@ -5081,6 +5088,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fatMode.store(IniInt(L"Spirit", L"FormAttach", 0));  // pc #55111: forced commit + seal request copy + state 1 -> slow path 903088/2C5FBC attach
     g_fcMode.store(IniInt(L"Spirit", L"FormCommit", 0));  // pc #55034: 3FD37C walk log + forced 3FD37C(player,1,0) per frame for ~1 s after the kick
     g_fkModelMode.store(IniInt(L"Spirit", L"FormModel", 0));  // ally #54309: model-only override + real LA transform  // [Spirit] FormKey=1: log + one swap; main installs via FormKeyInstall
+#endif  // BR_SOULCORE
     // FIGHT: always (the rematch gates and verify_all read it)
     OnEntry("BossBattleMode", &HkBegin);
     OnEntry("BossBattleModeEnd", &HkEnd);
@@ -5136,6 +5144,7 @@ void Register(bool boss, bool rm, bool inv) {
     }
     if (inv) {
         OnEntry("InventoryAddItem", &HkInvAdd);
+#if BR_SOULCORE
         OnEntry("EffectCreate", &HkSc<0>);
         OnEntry("ScProbe_1320F2C", &HkSc<1>);
         OnEntry("ScProbe_23CBF9C", &HkSc<2>);
@@ -5158,6 +5167,7 @@ void Register(bool boss, bool rm, bool inv) {
             OnEntry("SealProbe_3203EC", &HkSeal<4>);
             OnEntry("SealProbe_3578E0", &HkChrCreated);
         }
+#endif  // BR_SOULCORE
     }
 }
 

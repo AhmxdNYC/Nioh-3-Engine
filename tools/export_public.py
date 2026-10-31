@@ -19,7 +19,7 @@ MODS = ['mod/Nioh3EngineFix', 'mod/Nioh3Training', 'mod/Nioh3BossRematch', 'mod/
 CODE = ('.c', '.cpp', '.h', '.hpp', '.inl', '.def', '.rc', '.json', '.py', '.bat', '.cmd', '.ps1', '.sh', '.ini',
         '.tsv', '.txt', '.hlsl', '.zig', '.cmake')
 SKIP = ['*/build/*', '*/bin/*', '*/.github/*', '*/plug/*', '*.obj', '*.lib', '*.pdb', '*.exp', '*.asi', '*.dll', '*.exe',
-        '*/build.log', '*.log', '*/tests/formhide4*',  # soul-core dev fixtures
+        '*/build.log', '*.log', '*/tests/formhide4*', '*/soul_core_tuning_menu.h',  # soul-core dev only
         ]
 # same scrub as the 1.7.86 export: the private checkout path becomes the neutral C:\nioh3-engine, home dirs become ~/
 SCRUB = [(re.compile(rb'C:(\\\\|\\|/)Users(?:\\\\|\\|/)Ahmad Hamza(?:\\\\|\\|/)nioh3-engine'), rb'C:\1nioh3-engine'),
@@ -32,6 +32,43 @@ PERSONAL = re.compile(r'Ahmad Hamza|/home/bazzite|/var/home/|C:\\\\Users\\\\|ahm
 # soul-core form code (dev line only; 1.7.87 public had 0 of these)
 SOUL = re.compile(r'FormKey|FormHide|FormSlot0|FormFollow|FormPin|SealEnd|SealExit|OrbSkip|FastThrow|AttackCancel|'
                   r'soul_core_tuning|TenshinSetForm|FkAppear|SctAddHubRow')
+
+
+def strip_soulcore(path, data):
+    """Drop `#if BR_SOULCORE` .. matching `#endif` blocks (C/C++) and the [Spirit] ini section: the release build compiles
+    them out (pc #59173: no soul-core code in the public source)."""
+    txt = data.decode('utf-8', 'surrogateescape')
+    nl = '\r\n' if '\r\n' in txt else '\n'
+    out, depth, cut = [], 0, 0
+    if path.endswith(('.c', '.cpp', '.h', '.hpp', '.inl')):
+        for line in txt.split(nl):
+            t = line.strip()
+            if cut:
+                if re.match(r'#\s*if', t):
+                    depth += 1
+                elif re.match(r'#\s*endif', t):
+                    depth -= 1
+                    if depth == 0:
+                        cut = 0
+                elif re.match(r'#\s*el', t) and depth == 1:
+                    sys.exit(f'{path}: #else/#elif inside #if BR_SOULCORE is not supported')
+                continue
+            if re.match(r'#\s*if\s+BR_SOULCORE\s*$', t):
+                cut, depth = 1, 1
+                continue
+            out.append(line)
+        if cut:
+            sys.exit(f'{path}: unterminated #if BR_SOULCORE')
+    elif path.endswith('.ini'):
+        for line in txt.split(nl):
+            t = line.strip()
+            if t.startswith('['):
+                cut = t.lower() == '[spirit]'
+            if not cut:
+                out.append(line)
+    else:
+        return data
+    return nl.join(out).encode('utf-8', 'surrogateescape')
 
 
 def git(*a, cwd=None, check=True):
@@ -79,6 +116,7 @@ def main():
         soul, personal, vers = {}, [], []
         for f in take:
             data = subprocess.run(['git', 'show', f'{a.ref}:{f}'], cwd=repo, capture_output=True).stdout
+            data = strip_soulcore(f, data)
             for rx, rep in SCRUB:
                 data = rx.sub(rep, data)
             if a.version in data.decode('utf-8', 'replace') and 'VERSION' in data.decode('utf-8', 'replace'):
