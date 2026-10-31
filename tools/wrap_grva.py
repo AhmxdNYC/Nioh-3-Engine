@@ -108,7 +108,8 @@ def main():
                 continue
             l0 = t.count("\n", 0, m.end()) + 1
             body = t[m.end():m.end() + 1500]
-            for g in re.finditer(base_any + r"\s*\+\s*" + pm.group(1) + r"\b", body):
+            hb = base_any + (r"|(?<![\w.>])B(?!\w)" if mod == "Nioh3Training" else "")
+            for g in re.finditer("(?:" + hb + r")\s*\+\s*" + pm.group(1) + r"\b", body):
                 want(rel, l0 + body.count("\n", 0, g.start()), re.escape(pm.group(1)))
     total = 0
     for rel, lines in sorted(edits.items()):
@@ -118,6 +119,8 @@ def main():
         L = src.split(nl)
         t = C.strip(src).split(nl if nl == "\n" else "\n")
         aliases = sorted({m.group(1) for m in C.RX_ALIAS.finditer(C.strip(src))} - {"base"})
+        if mod == "Nioh3Training":
+            aliases = sorted(set(aliases) | {"B"})  # Training's image base variable
         base = "(?:%s)" % "|".join([base_any] + [r"(?<![\w.>])%s(?!\w)" % re.escape(x) for x in aliases])
         n_file = 0
         for ln, ops in lines.items():

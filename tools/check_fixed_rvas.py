@@ -163,7 +163,8 @@ def scan(tests=False):
             bl = t.count("\n", 0, m.end()) + 1
             for i, prm in enumerate(params):
                 pm = RX_PARAM.search(prm)
-                g = re.search(BASE + r"\s*\+\s*" + pm.group(1) + r"\b", body) if pm else None
+                hb = BASE + r"|(?<![\w.>])B(?!\w)" if "/Nioh3Training/" in str(f).replace("\\", "/") else BASE
+                g = re.search("(?:" + hb + r")\s*\+\s*" + pm.group(1) + r"\b", body) if pm else None
                 if g:
                     helpers[m.group(1)] = i
                     if bl + body.count("\n", 0, g.start()) in marks[f]:
@@ -203,6 +204,14 @@ def scan(tests=False):
                 if v >= SIZE_OF_IMAGE or ((v & 0xFFFF) == 0 and re.search(r"(<=?|>=?)\s*\(?\s*$", before)):
                     kind = "bound"
                 uses.append({"file": rel, "line": ln, "kind": kind, "rva": v, "expr": m.group(0)})
+            if rel.startswith("mod/Nioh3Training/"):
+                for m in re.finditer(base + r"\s*\+\s*\(\s*[^?()]+\?\s*(0x[0-9A-Fa-f]+)\s*:\s*(0x[0-9A-Fa-f]+)\s*\)", line):
+                    for g in (m.group(1), m.group(2)):
+                        uses.append({"file": rel, "line": ln, "kind": "literal", "rva": int(g, 16), "expr": "B + (? %s : ...)" % g})
+                for m in re.finditer(r"(?<![\w.>])(\w+)\s*-\s*B\)?\s*(?:==|!=|<=?|>=?)\s*(0x[0-9A-Fa-f]{5,8})\b", line):
+                    v = int(m.group(2), 16)
+                    if MIN_RVA <= v < SIZE_OF_IMAGE:
+                        uses.append({"file": rel, "line": ln, "kind": "literal", "rva": v, "expr": m.group(0)})
             for m in rx_const.finditer(line):
                 d = consts.get(m.group(1))
                 if d:

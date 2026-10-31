@@ -75,11 +75,11 @@ static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
     __try {
         dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50);
         kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0);
-        broken = KbState(ai, 0x23) || ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) || kc <= 0.0f;
+        broken = KbState(ai, 0x23) || ((uint8_t (*)(uint64_t))(B + Grva(0x844FE4)))(st + 0x98) || kc <= 0.0f;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
     if (!PstKiDrain(g_pst.v[PS_BOSS_KI_DRAIN], dt, dead, window, broken, g_bv[s].infKi, kc, km, &t)) return;
-    __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, t); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    __try { ((void (*)(uint64_t, float))(B + Grva(0x2F88D0)))(st + 0x98, t); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     if (!g_pst_drainOn[s]) { g_pst_drainOn[s] = 1; PstLog("PRACTICE Ki drain Boss %c %p: %d Ki per second (Ki %.1f / %.1f -> %.1f)", 'A' + s, (void*)a, g_pst.v[PS_BOSS_KI_DRAIN], kc, km, t); }
 }
 // Boss speed (notes/boss-speed-lever-22389.md): entry hook on ComputeMotionSpeed 134E68(ctrl, dl layer, r8b flag) -> xmm0; [ctrl+0xE0] is the actor.
@@ -108,7 +108,7 @@ static void PstSpdHookInstall(void) {
     if (g_pst_spd_hooked) return;
     g_pst_spd_hooked = 2;
     // 134E68: mov rax,rsp | mov [rax+8],rbx | mov [rax+10h],rbp | mov [rax+18h],rsi | mov [rax+20h],rdi (19 bytes, no rip-relative operand)
-    if (memcmp((void*)(B + 0x134E68), "\x48\x8B\xC4\x48\x89\x58\x08\x48\x89\x68\x10\x48\x89\x70\x18\x48\x89\x78\x20", 19)) { Log("hook ComputeMotionSpeed 134E68: bytes differ, boss speed off"); return; }
+    if (memcmp((void*)(B + Grva(0x134E68)), "\x48\x8B\xC4\x48\x89\x58\x08\x48\x89\x68\x10\x48\x89\x70\x18\x48\x89\x78\x20", 19)) { Log("hook ComputeMotionSpeed 134E68: bytes differ, boss speed off"); return; }
     o_pstspd = (PstSpdFn)Hook(0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
     Log("hook ComputeMotionSpeed 134E68: on (boss speed #22389)");
 }
@@ -127,10 +127,10 @@ static struct { uint64_t a; int aiOff, nAi; DWORD tAi, t0; LONG nTop, nKi; float
 static volatile uint64_t g_kf_K[N3T_SLOTS];  // Ki struct K (= st + 0x98) of each Training boss, refreshed by PstTick at 20 Hz (compared, never dereferenced)
 static volatile LONG g_kf_hooked, g_kf_logs, g_kl_lines; static int g_kf_fnOk = -1;
 static __attribute__((noinline)) int KfFnOk(void) {  // KiFloor 2F89C8 is the function above (also guards the direct calls below)
-    if (g_kf_fnOk < 0) { __try { g_kf_fnOk = !memcmp((void*)(B + 0x2F89C8), "\x48\x83\xEC\x28\x48\x8B\x0D", 7) && !memcmp((void*)(B + 0x2F89D3), "\xBA\x3D\x7E\x00\x00\x48\x8B\x89\x30\x02\x00\x00\xE8", 13); } __except (EXCEPTION_EXECUTE_HANDLER) { g_kf_fnOk = 0; } }
+    if (g_kf_fnOk < 0) { __try { g_kf_fnOk = !memcmp((void*)(B + Grva(0x2F89C8)), "\x48\x83\xEC\x28\x48\x8B\x0D", 7) && !memcmp((void*)(B + Grva(0x2F89D3)), "\xBA\x3D\x7E\x00\x00\x48\x8B\x89\x30\x02\x00\x00\xE8", 13); } __except (EXCEPTION_EXECUTE_HANDLER) { g_kf_fnOk = 0; } }
     return g_kf_fnOk;
 }
-static __attribute__((noinline)) float KfStock(void) { float f = 0.0f; if (!KfFnOk()) return 0.0f; __try { f = ((float (*)(void))(B + 0x2F89C8))(); } __except (EXCEPTION_EXECUTE_HANDLER) { f = 0.0f; } return f; }
+static __attribute__((noinline)) float KfStock(void) { float f = 0.0f; if (!KfFnOk()) return 0.0f; __try { f = ((float (*)(void))(B + Grva(0x2F89C8)))(); } __except (EXCEPTION_EXECUTE_HANDLER) { f = 0.0f; } return f; }
 static int KfBossSlot(uint64_t K) { if (!K) return -1; for (int s = 0; s < N3T_SLOTS; ++s) if (g_kf_K[s] == K) return s; return -1; }
 static void KfRefresh(int live) {
     for (int s = 0; s < N3T_SLOTS; ++s) { uint64_t a = live ? BvActor(s) : 0, st = 0; g_kf_K[s] = a && Rd64(a + 0x3A0, &st) && st ? st + 0x98 : 0; }
@@ -143,7 +143,7 @@ static __attribute__((noinline)) float KfEffective(uint64_t K, float stock) {
     return PstKiFloor(stock, mx, pct, 1);
 }
 static float KfFloor(uint64_t K) {  // called by the stub instead of KiFloor 2F89C8, K = the caller's rbx
-    const float stock = ((float (*)(void))(B + 0x2F89C8))();
+    const float stock = ((float (*)(void))(B + Grva(0x2F89C8)))();
     if (PstBossMatchEffective(PS_KI_FLOOR, g_pst.v[PS_KI_FLOOR], PstBossMatchOn()) == 100 || !g_pst_live) return stock;
     const float r = KfEffective(K, stock);
     if (r != stock && InterlockedIncrement(&g_kf_logs) <= 10) Log("PRACTICE Ki floor depth %d %%: Training boss K %p floor %.1f -> %.1f", g_pst.v[PS_KI_FLOOR], (void*)K, stock, r);
@@ -172,19 +172,19 @@ static uint8_t* KfStub(uint8_t* site) {
 static void KfHookInstall(void) {
     if (g_kf_hooked) return;
     g_kf_hooked = 2;
-    uint8_t* s1 = (uint8_t*)(B + 0x2F8914); uint8_t* s2 = (uint8_t*)(B + 0x84464E);
+    uint8_t* s1 = (uint8_t*)(B + Grva(0x2F8914)); uint8_t* s2 = (uint8_t*)(B + Grva(0x84464E));
     int ok = 0;
     __try {
         ok = KfFnOk()
-            && !memcmp((void*)(B + 0x2F88F6), "\x48\x8B\xD9", 3) && !memcmp(s1 - 3, "\x0F\x28\xD4", 3) && !memcmp(s1 + 5, "\xF3\x0F\x5C\xC8", 4)       // KiSetCur: mov rbx,rcx .. call KiFloor; subss xmm1,xmm0
-            && !memcmp((void*)(B + 0x84460F), "\x48\x8B\xD9", 3) && !memcmp(s2 - 2, "\x76\xED", 2) && !memcmp(s2 + 5, "\xF3\x0F\x10\x53\x60", 5)   // KiDamage: mov rbx,rcx .. call KiFloor; movss xmm2,[rbx+60h]
-            && s1[0] == 0xE8 && (uintptr_t)(s1 + 5) + *(int32_t*)(s1 + 1) == B + 0x2F89C8 && s2[0] == 0xE8 && (uintptr_t)(s2 + 5) + *(int32_t*)(s2 + 1) == B + 0x2F89C8;
+            && !memcmp((void*)(B + Grva(0x2F88F6)), "\x48\x8B\xD9", 3) && !memcmp(s1 - 3, "\x0F\x28\xD4", 3) && !memcmp(s1 + 5, "\xF3\x0F\x5C\xC8", 4)       // KiSetCur: mov rbx,rcx .. call KiFloor; subss xmm1,xmm0
+            && !memcmp((void*)(B + Grva(0x84460F)), "\x48\x8B\xD9", 3) && !memcmp(s2 - 2, "\x76\xED", 2) && !memcmp(s2 + 5, "\xF3\x0F\x10\x53\x60", 5)   // KiDamage: mov rbx,rcx .. call KiFloor; movss xmm2,[rbx+60h]
+            && s1[0] == 0xE8 && (uintptr_t)(s1 + 5) + *(int32_t*)(s1 + 1) == B + Grva(0x2F89C8) && s2[0] == 0xE8 && (uintptr_t)(s2 + 5) + *(int32_t*)(s2 + 1) == B + Grva(0x2F89C8);
     } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     if (!ok) { Log("hook Ki floor 2F8914 / 84464E: bytes differ, Ki floor depth off"); return; }
     uint8_t* t1 = KfStub(s1); uint8_t* t2 = KfStub(s2);
     if (!t1 || !t2) { Log("hook Ki floor: no stub page, Ki floor depth off"); return; }
-    if (!NfPatchCall(s1, B + 0x2F89C8, t1, "Ki floor 2F8914")) return;
-    if (!NfPatchCall(s2, B + 0x2F89C8, t2, "Ki floor 84464E")) { NfPatchCall(s1, (uintptr_t)t1, (uint8_t*)(B + 0x2F89C8), "Ki floor 2F8914 undo"); return; }
+    if (!NfPatchCall(s1, B + Grva(0x2F89C8), t1, "Ki floor 2F8914")) return;
+    if (!NfPatchCall(s2, B + Grva(0x2F89C8), t2, "Ki floor 84464E")) { NfPatchCall(s1, (uintptr_t)t1, (uint8_t*)(B + Grva(0x2F89C8)), "Ki floor 2F8914 undo"); return; }
     g_kf_hooked = 1;
     Log("hook Ki floor 2F8914 (KiSetCur) + 84464E (KiDamage): on (user #23013: KiFloorDepth %d %%, stock floor %.1f)", g_pst.v[PS_KI_FLOOR], KfStock());
 }
@@ -207,7 +207,7 @@ static __attribute__((noinline)) void KlTick(int s) {
     uint64_t st = 0, ai = 0; float f[7]; uint8_t b[3]; int s23 = 0, exh = 0, dead = 0;
     if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai) return;
     const uint64_t K = st + 0x98;
-    __try { dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50); if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(K) != 0; } } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    __try { dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50); if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + Grva(0x844FE4)))(K) != 0; } } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     if (!KlRead(K, f, b)) return;
     g_kl[s].a = a;
     const int broken = !dead && (s23 || exh || (f[1] > 0.0f && f[1] <= 100000.0f && f[0] <= 0.0f));
@@ -243,7 +243,7 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
     const int kd = g_pst.v[PS_KI_DEALT], one = PstBossMatchEffective(PS_ONE_HIT_KI, g_pst.v[PS_ONE_HIT_KI], PstBossMatchOn()), dealt = g_pst.v[PS_DMG_DEALT], boss = g_pst.v[PS_DMG_TAKEN];
     if (!g_pst_live || (kd == 100 && !one && dealt == 100 && boss == 100) || !K || !hit || !g_pst_atk_ok) return amt;
     uint64_t me = PlayerChar(), pst = 0; if (me) Rd64(me + 0x3A0, &pst);
-    const uint64_t atk = ((uint64_t (*)(uint64_t))(B + 0x325F40))(hit);
+    const uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit);
     const int atkPlayer = me && atk == me, vicPlayer = pst && pst + 0x98 == K;
     // user #23924: a Training boss's hit on the player also scales the Ki damage (Damage boss deals); the boss's hit on anyone else is left alone
     if (!atkPlayer) {
@@ -260,7 +260,7 @@ static __attribute__((noinline)) float PstKiScale(uint64_t K, float amt, uint64_
     if (slot >= 0 && one) {
         uint64_t st = K - 0x98, ai = 0; const int nf = BvNfSlot(a);
         const int dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50);
-        blocked = dead || g_bv[slot].infKi || (nf >= 0 && g_nf[nf].win == 1) || ((uint8_t (*)(uint64_t))(B + 0x844FE4))(K) || (Rd64(a + 0x3B0, &ai) && ai && KbState(ai, 0x23));
+        blocked = dead || g_bv[slot].infKi || (nf >= 0 && g_nf[nf].win == 1) || ((uint8_t (*)(uint64_t))(B + Grva(0x844FE4)))(K) || (Rd64(a + 0x3B0, &ai) && ai && KbState(ai, 0x23));
     }
     const float r = PstKiDmg(atkPlayer, vicPlayer, slot >= 0, pct, one, blocked, cur, amt);
     if (r != amt && InterlockedIncrement(&g_pst_ki_logs) <= 30)
@@ -272,7 +272,7 @@ static uint8_t PstKiDamage(uint64_t K, float amt, uint64_t hit) {
     __try { amt = PstKiScale(K, amt, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     const int lg = g_pst.v[PS_KI_LOG] && g_pst_live && KfBossSlot(K) >= 0;  // user #23013 KiLog: one line per Ki-damage hit on a Training boss
     if (lg) { __try { c0 = *(volatile float*)(K + 0x14); s0 = *(volatile float*)(K + 0x60); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
-    const uint8_t r = ((PstKiFn)(B + 0x844604))(K, amt);
+    const uint8_t r = ((PstKiFn)(B + Grva(0x844604)))(K, amt);
     if (lg) { __try { KlHit(K, amt0, amt, c0, s0, r); } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     return r;
 }
@@ -280,15 +280,15 @@ static void PstKiHookInstall(void) {
     if (g_pst_ki_hooked) return;
     g_pst_ki_hooked = 2;
     // 325F40 (attacker of a hit, same check as HpDmgHookInstall): mov rcx,[rcx+198h] | jmp 325F4C
-    if (!g_pst_atk_ok) g_pst_atk_ok = !memcmp((void*)(B + 0x325F40), "\x48\x8B\x89\x98\x01\x00\x00\xE9\x00\x00\x00\x00", 12);
-    uint8_t* site = (uint8_t*)(B + 0x329E9D);
+    if (!g_pst_atk_ok) g_pst_atk_ok = !memcmp((void*)(B + Grva(0x325F40)), "\x48\x8B\x89\x98\x01\x00\x00\xE9\x00\x00\x00\x00", 12);
+    uint8_t* site = (uint8_t*)(B + Grva(0x329E9D));
     // site - 20: mov r14d,98h | movaps xmm1,xmm13 | mov rcx,[rax+3A0h] | add rcx,r14 (then call 844604)
     if (!g_pst_atk_ok || memcmp(site - 20, "\x41\xBE\x98\x00\x00\x00\x41\x0F\x28\xCD\x48\x8B\x88\xA0\x03\x00\x00\x49\x03\xCE", 20)) {
         Log("hook Ki damage 329E9D: bytes differ (attacker getter ok %d), Ki damage I deal / one-hit Ki break off", (int)g_pst_atk_ok); return; }
     uint8_t* s = NearPage(site); if (!s) { Log("hook Ki damage 329E9D: no stub page, off"); return; }
     uint8_t* p = s; *p++ = 0x4D; *p++ = 0x8B; *p++ = 0xC5;  // mov r8, r13 (the hit) = PstKiDamage's 3rd argument
     p = E_mov_rax(p, (uint64_t)PstKiDamage); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
-    if (NfPatchCall(site, B + 0x844604, s, "Ki damage 329E9D")) { g_pst_ki_hooked = 1;
+    if (NfPatchCall(site, B + Grva(0x844604), s, "Ki damage 329E9D")) { g_pst_ki_hooked = 1;
         Log("hook Ki damage 329E9D: on (user #22588: Ki damage I deal %d %%, one-hit Ki break %d)", g_pst.v[PS_KI_DEALT], g_pst.v[PS_ONE_HIT_KI]); }
 }
 static __attribute__((noinline)) void PstPlayerNin(void) {
@@ -405,10 +405,10 @@ static __attribute__((noinline)) void PstHbV2Restore(int s, int dead) {
     const uint64_t a = g_pst_hb[s].a; uint64_t st = 0;
     if (!a || !Rd64(a + 0x3A0, &st) || !st) return;
     const uint64_t K = st + 0x98; int clr = 0;
-    if (g_pst_kbc_ok < 0) g_pst_kbc_ok = !memcmp((void*)(B + 0x8455B4), "\x33\xC0\x48\x89\x41\x5C\x89\x41\x64", 9);
+    if (g_pst_kbc_ok < 0) g_pst_kbc_ok = !memcmp((void*)(B + Grva(0x8455B4)), "\x33\xC0\x48\x89\x41\x5C\x89\x41\x64", 9);
     __try {
         *(volatile uint8_t*)(K + 0x54) = g_pst_hb[s].sav54; *(volatile uint8_t*)(K + 0x85) = g_pst_hb[s].sav85;
-        if (!dead && g_pst_kbc_ok) { ((void (*)(uint64_t))(B + 0x8455B4))(K); clr = 1; }
+        if (!dead && g_pst_kbc_ok) { ((void (*)(uint64_t))(B + Grva(0x8455B4)))(K); clr = 1; }
     } __except (EXCEPTION_EXECUTE_HANDLER) { }
     PstLog("PRACTICE hold Ki break v2 Boss %c %p: Ki regen K+54 = %u, K+85 = %u restored, KiBreakClear %s (%ld pool writes)", 'A' + s, (void*)a, g_pst_hb[s].sav54, g_pst_hb[s].sav85, clr ? "called" : dead ? "skipped (dead)" : "skipped (bytes differ)", g_pst_hb[s].nV2);
 }
@@ -416,7 +416,7 @@ static __attribute__((noinline)) void PstHbRelease(int s, int dead, const char* 
     const uint64_t a = g_pst_hb[s].a; int ai = -1, back = 0;
     if (a && g_pst_hb[s].v2) PstHbV2Restore(s, dead);
     if (a && !dead) ai = BhAiOn(a);
-    if (a && PstHoldAiRestore(g_pst_hb[s].aiOff, ai, dead)) { __try { ((void (*)(uint64_t))(B + 0x66982C))(a); back = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { } }
+    if (a && PstHoldAiRestore(g_pst_hb[s].aiOff, ai, dead)) { __try { ((void (*)(uint64_t))(B + Grva(0x66982C)))(a); back = 1; } __except (EXCEPTION_EXECUTE_HANDLER) { } }
     if (a) PstLog("PRACTICE hold Ki break Boss %c %p: released (%s) after %lu ms, %ld timer top-ups, AI %s", 'A' + s, (void*)a, why, GetTickCount() - g_pst_hb[s].t0, g_pst_hb[s].nTop, back ? "back on" : g_pst_hb[s].aiOff ? "left (already on / dead)" : "untouched");
     memset(&g_pst_hb[s], 0, sizeof g_pst_hb[s]);
 }
@@ -428,7 +428,7 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
     if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) return;
     __try {
         dead = *(volatile int32_t*)(st + 0x48) == 1 || !*(volatile uint64_t*)(st + 0x50);
-        if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + 0x844FE4))(st + 0x98) != 0; kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0); }
+        if (!dead) { s23 = KbState(ai, 0x23); exh = ((uint8_t (*)(uint64_t))(B + Grva(0x844FE4)))(st + 0x98) != 0; kc = *(volatile float*)(st + 0xAC); km = *(volatile float*)(st + 0xB0); }
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
     const int nf = BvNfSlot(a), window = nf >= 0 && g_nf[nf].win == 1;
     const int v2 = g_pst.v[PS_HOLD_KI_V2] != 0;
@@ -450,7 +450,7 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
         __try {
             c = *(volatile float*)(K + 0x14); k60 = *(volatile float*)(K + 0x60); k58 = *(volatile float*)(K + 0x58); k5c = *(volatile float*)(K + 0x5C);
             m = KfFnOk() ? PstHoldV2Writes(c, k60, k58, k5c, floorv) : 0;
-            if (m & 1) ((void (*)(uint64_t, float))(B + 0x2F88D0))(K, floorv);
+            if (m & 1) ((void (*)(uint64_t, float))(B + Grva(0x2F88D0)))(K, floorv);
             if (m & 2) *(volatile float*)(K + 0x60) = floorv;
             if (m & 4) *(volatile float*)(K + 0x58) = 0.0f;
             if (m & 8) *(volatile float*)(K + 0x5C) = 0.0f;
@@ -467,14 +467,14 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
     // Ki-zero break (the one-hit break on an idle boss is only this): the native regen lifts Ki above 0 within ~0.3 s = 'recovered'; write it back (user #22918)
     if (kc < g_pst_hb[s].kiLow) g_pst_hb[s].kiLow = kc;
     { float want = 0; if (PstHoldKi(kc, g_pst_hb[s].kiLow, &want)) {
-        __try { ((void (*)(uint64_t, float))(B + 0x2F88D0))(st + 0x98, want); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+        __try { ((void (*)(uint64_t, float))(B + Grva(0x2F88D0)))(st + 0x98, want); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
         if (++g_pst_hb[s].nKi <= 3) PstLog("PRACTICE hold Ki break Boss %c %p: Ki regen %.1f put back to %.1f (#%ld)", 'A' + s, (void*)a, kc, want, g_pst_hb[s].nKi); } }
     }
     // boss does not act: AI off while held
     if (!g_pst_hb[s].aiOff || now - g_pst_hb[s].tAi >= 100) {
         g_pst_hb[s].tAi = now;
         if (BhAiOn(a) == 1) {
-            __try { ((void (*)(uint64_t))(B + 0x668D74))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+            __try { ((void (*)(uint64_t))(B + Grva(0x668D74)))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
             if (!g_pst_hb[s].aiOff) { g_pst_hb[s].aiOff = 1; PstLog("PRACTICE hold Ki break Boss %c %p: AI off while held", 'A' + s, (void*)a); }
             else if (++g_pst_hb[s].nAi <= 10) PstLog("PRACTICE hold Ki break Boss %c %p: AI switched back on by the game, off again (#%d)", 'A' + s, (void*)a, g_pst_hb[s].nAi);
         }
@@ -490,15 +490,15 @@ static __attribute__((noinline)) void PstHoldBreak(int s, int on) {
 // the game did not re-fill it itself (PstEnvRelease). Game thread, aligned 4-byte float stores.
 typedef void (*PstEnvFn)(uint64_t); static volatile LONG g_pst_env_hooked, g_pst_env_logs;  // 0 not tried, 1 on, 2 failed
 static int g_pst_env_evOk = -1; static uint64_t g_pst_env_S; static PstEnvField g_pst_env_tod, g_pst_env_wx[PS_EF_N];
-static __attribute__((noinline)) uint64_t PstEnvObj(void) { uint64_t g = 0, o = 0, S = 0; if (Rd64(B + 0x4751490, &g) && g && Rd64(g, &o) && o) Rd64(o + 0x28, &S); return S; }
+static __attribute__((noinline)) uint64_t PstEnvObj(void) { uint64_t g = 0, o = 0, S = 0; if (Rd64(B + Grva(0x4751490), &g) && g && Rd64(g, &o) && o) Rd64(o + 0x28, &S); return S; }
 static __attribute__((noinline)) int PstEnvEvent(void) {
     __try {
         if (g_pst_env_evOk < 0) {
-            g_pst_env_evOk = !memcmp((void*)(B + 0xDA7C0), "\x48\x8B\x0D\x39\x40\x4F\x04\x48\x85\xC9\x0F\x85", 12);  // mov rcx,[rip+..] | test rcx,rcx | jne
+            g_pst_env_evOk = !memcmp((void*)(B + Grva(0xDA7C0)), "\x48\x8B\x0D\x39\x40\x4F\x04\x48\x85\xC9\x0F\x85", 12);  // mov rcx,[rip+..] | test rcx,rcx | jne
             if (!g_pst_env_evOk) Log("DISPLAY env: event-scene signature differs; sky overrides disabled");
         }
         if (!g_pst_env_evOk) return 1;  // unknown event state is never permission to override a cutscene
-        return ((uint8_t (*)(void))(B + 0xDA7C0))() != 0;
+        return ((uint8_t (*)(void))(B + Grva(0xDA7C0)))() != 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 1; }
 }
 static __attribute__((noinline)) int PstEnvRdF(uint64_t a, float* v) { __try { *v = *(volatile float*)a; return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
@@ -508,7 +508,7 @@ static __attribute__((noinline)) void PstEnvLogState(const char* why) {
     static const uint32_t off[16] = {0xB0, 0xAC, 0x7C, 0x80, 0x84, 0x88, 0x8C, 0x90, 0x98, 0xB4, 0xB8, 0xC0, 0xC4, 0xCC, 0x15C8, 0x174};
     int ok = S != 0;
     for (int i = 0; i < 16 && ok; ++i) ok = PstEnvRdF(S + off[i], &f[i]);
-    if (Rd64(B + 0x4757710, &w) && w) PstEnvRdF(w + 0x2C, &storm);
+    if (Rd64(B + Grva(0x4757710), &w) && w) PstEnvRdF(w + 0x2C, &storm);
     if (!ok) { Log("PRACTICE env (#22942, %s): active RenderConfig S %p not readable (read-only, nothing written)", why, (void*)S); return; }
     const int m = f[0] >= 0.0f && f[0] < 1.0f ? (int)(f[0] * 1440.0f + 0.5f) : -1;
     int32_t step = 0; memcpy(&step, &f[15], 4);
@@ -554,18 +554,18 @@ static __attribute__((noinline)) void PstEnvApplyAll(uint64_t S) {
     for (int f = 0; f < PS_EF_N; ++f) { float v = 0; const int on = live && PstWeatherValue(wx, f, &v); if (on || g_pst_env_wx[f].wrote) PstEnvField1(S, PstEnvFieldOff(f), &g_pst_env_wx[f], on, v, nm[f]); }
 }
 static void PstEnvDetour(uint64_t S) {
-    ((PstEnvFn)(B + 0x39BEA4))(S);
+    ((PstEnvFn)(B + Grva(0x39BEA4)))(S);
     __try { PstEnvApplyAll(S); } __except (EXCEPTION_EXECUTE_HANDLER) { }
 }
 static void PstEnvHookInstall(void) {
     if (g_pst_env_hooked) return;
     g_pst_env_hooked = 2;
-    uint8_t* site = (uint8_t*)(B + 0x39B67D);
+    uint8_t* site = (uint8_t*)(B + Grva(0x39B67D));
     // site - 3: mov rcx,rsi (then call 39BEA4); 39BEA4: sub rsp,28h | mov rdx,rcx | mov rcx,[rip+..] (the storm lerp wrapper)
-    if (memcmp(site - 3, "\x48\x8B\xCE", 3) || memcmp((void*)(B + 0x39BEA4), "\x48\x83\xEC\x28\x48\x8B\xD1\x48\x8B\x0D", 10)) { Log("hook env 39B67D: bytes differ, time of day / weather off"); return; }
+    if (memcmp(site - 3, "\x48\x8B\xCE", 3) || memcmp((void*)(B + Grva(0x39BEA4)), "\x48\x83\xEC\x28\x48\x8B\xD1\x48\x8B\x0D", 10)) { Log("hook env 39B67D: bytes differ, time of day / weather off"); return; }
     uint8_t* s = NearPage(site); if (!s) { Log("hook env 39B67D: no stub page, off"); return; }
     uint8_t* p = E_mov_rax(s, (uint64_t)PstEnvDetour); *p++ = 0xFF; *p++ = 0xE0; FlushInstructionCache(GetCurrentProcess(), s, 16);
-    if (NfPatchCall(site, B + 0x39BEA4, s, "env 39B67D")) { g_pst_env_hooked = 1;
+    if (NfPatchCall(site, B + Grva(0x39BEA4), s, "env 39B67D")) { g_pst_env_hooked = 1;
         Log("hook env 39B67D: on (user #22942: TimeOfDayMin %d, Weather %s)", PstTodToIni(g_pst.v[PS_TIME_OF_DAY]), PstWeatherName(g_pst.v[PS_WEATHER])); }
 }
 static int g_pst_env_sess;

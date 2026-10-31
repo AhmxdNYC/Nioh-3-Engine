@@ -20,6 +20,7 @@ ROOT = MOD.parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import check_fixed_rvas  # noqa: E402
 
+MODNAME = MOD.name  # Nioh3EngineFix; mod/Nioh3Training/tools/gen_rvas.py reuses this module with MOD/JSON/HDR/MODNAME/render replaced
 JSON = MOD / "rvas.json"
 HDR = MOD / "src" / "rvas_gen.h"
 SKIP = ("replayprof_names.h",)
@@ -30,7 +31,7 @@ def wanted():
     out = {}
     for u in uses:
         where = u.get("used_at", "%s:%d" % (u["file"], u["line"]))
-        if u["kind"] == "bound" or not where.startswith("mod/Nioh3EngineFix/") or any(s in u["file"] for s in SKIP):
+        if u["kind"] == "bound" or not where.startswith("mod/%s/" % MODNAME) or any(s in u["file"] for s in SKIP):
             continue
         out.setdefault(u["rva"], set()).add(where.split("/", 3)[3].rsplit(":", 1)[0])
     return out
