@@ -175,3 +175,21 @@ Same path as v1.7.87 deb036c4: one new commit on `public/main` (curated history)
   dry run GATES OK, 82 files +8712/-633, 0 soul-core markers.
 - Training rebuilt with zig from f57ab0ec (frame-meter fix): bridge #4481 sha e58d4b16 (RC was 02fed4cc).
 - NEXT: pc MSVC-builds BossRematch from ally/release-aob 53bb84ee -> ally reissues assets (zip/stable.json) -> ally+pc2 recheck.
+
+## FINAL assets (10-31 5:45 am EST) - supersede #4477
+
+Bridge file #4484 `rel-1788-assets-final.tgz` (sha256 299bd6c82253...), same layout as #4477. Publish commands above: use 4484.
+
+| file | sha256 |
+|---|---|
+| Nioh3EngineFix.asi (unchanged, pc MSVC) | 45efd9609b48570a5ba3f5b0a08debb0ec170c05521aa997fd7f4c5a3a0d44c6 |
+| Nioh3Training.asi (zig, f57ab0ec frame-meter fix, #4481) | e58d4b16c8f5ad769f29b3af742ddadde6e4a49484fba1ceebce816627cadbb6 |
+| Nioh3BossRematch.asi 1.4.23 (pc MSVC from fad8466d, soul core compiled out, #4482) | 0afa302e01b92eeddded2851c15d8ca962acb2c3f0b10d4adc3076020068a6aa |
+| Nioh3-1.7.88-combined.zip | f89d78b12e8e9c952c547f2e052eccdf0d9573e7a1ac256be01ca022d8995f34 |
+| stable.json | 306e2bf9c3fe702bfa74dbe81642ae3c9280e4bf846a7b4e6c8c8059e0d1540c |
+| site/version.json (unchanged) | d0d3c6e63e305a95c8e47b64049a90ab622ebd6725a547c61e55459349041a1a |
+
+Ally/Proton recheck of these exact bits (captures/ally-59205): logs EngineFix 1.7.88 / BossRematch 1.4.23, game RVAs 0 missing x3
+(EF 210, TR 218, BR 121); soul core LEFT = vanilla (yokai beside player), 0 form/seal/spirit lines in BR log; no Soul core tuning row;
+Frame meter master OFF -> Player frame meter + I-frame lane OFF, meter gone, ini saved FrameMeter/PlayerFrameMeter/FrameMeterIFrames=0;
+Fight Now Yamagata OK (arena swap, boss bar); return to title OK; no crash.
