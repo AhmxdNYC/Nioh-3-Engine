@@ -194,9 +194,9 @@ int Verify() {
             const uint8_t* at = (const uint8_t*)(g_base + Expected(d));
             if (Parse(d.pattern, p) && MatchAt(at, p)) {
                 good = true;
-            } else if (d.kind == rvas::kCode && Parse(d.pattern, p) && (at[d.offset] == 0xE9 || at[d.offset] == 0xCC) &&
+            } else if (d.kind == rvas::kCode && Parse(d.pattern, p) && (at[d.offset] == 0xE9 || at[d.offset] == 0xCC || (at[d.offset] == 0xFF && at[d.offset + 1] == 0x25)) &&
                        MatchAt(at, p, d.offset, d.offset + 16)) {
-                good = true;  // a hook (ours or another module's) already sits on the site
+                good = true;  // a hook (ours or another module's: jmp rel32 / int3 / jmp [rip] abs64) already sits on the site
                 ++hooked;
             }
         }
