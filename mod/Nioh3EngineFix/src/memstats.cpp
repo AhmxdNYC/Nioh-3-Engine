@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <psapi.h>
 #include <tlhelp32.h>
 
@@ -63,7 +64,7 @@ constexpr double kMB = 1024.0 * 1024.0;
 // SEH only (no C++ objects here): the engine pointer chain is read while the game may be tearing the device down.
 bool ReadEnginePtr(uintptr_t base, void** out) {
     __try {
-        const uintptr_t g = *reinterpret_cast<volatile uintptr_t*>(base + kRvaGfxDevice);
+        const uintptr_t g = *reinterpret_cast<volatile uintptr_t*>(base + Grva(kRvaGfxDevice));
         if (!g) return false;
         *out = *reinterpret_cast<void* volatile*>(g + kOffD3D12Device);
         return *out != nullptr;
@@ -224,12 +225,12 @@ uint32_t U32(uintptr_t a) { return *reinterpret_cast<volatile uint32_t*>(a); }
 uintptr_t Ptr(uintptr_t a) { return *reinterpret_cast<volatile uintptr_t*>(a); }
 bool ReadPool(uintptr_t base, PoolRead* r) {
     __try {
-        uintptr_t a = Ptr(base + kRvaPoolRoot);
+        uintptr_t a = Ptr(base + Grva(kRvaPoolRoot));
         if (!a || !(a = Ptr(a + 0x530)) || !(a = Ptr(a + 0xF8))) return false;
         const uintptr_t p = Ptr(a + 0x70);
         if (!p) return false;
         r->p = p;
-        r->gdev = Ptr(base + kRvaGfxDevice);
+        r->gdev = Ptr(base + Grva(kRvaGfxDevice));
         r->sets = U32(p + 0x40EC); r->setsLo = U32(p + 0x40F0); r->ways = U32(p + 0x40CC); r->used = U32(p + 0x6CD0);
         r->r756c = U32(p + 0x756C); r->r7570 = U32(p + 0x7570); r->r7584 = U32(p + 0x7584);
         r->r757c = U32(p + 0x757C); r->r7578 = U32(p + 0x7578);
@@ -601,7 +602,7 @@ char g_iatMod[64] = "?";
 bool HookCreateDeviceIat() {
     if (g_iatDone) return true;
     if (!g_known || !g_base) return false;
-    void** slot = reinterpret_cast<void**>(g_base + kRvaIatCreateDevice);
+    void** slot = reinterpret_cast<void**>(g_base + Grva(kRvaIatCreateDevice));
     void* cur = nullptr;
     __try {
         cur = *slot;

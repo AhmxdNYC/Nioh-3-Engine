@@ -1,0 +1,4 @@
+# path:0xRVA entries that tools/check_fixed_rvas.py accepts (line-number free). Only for addresses that are deliberately
+# fixed (e.g. diagnostics that self-disable on a foreign build). Keep this list short; prefer a Site() pattern.
+# profiler label table (RVA -> function name for [Profiler] ReplayProf output); never read or written as an address
+mod/Nioh3EngineFix/src/replayprof_names.h:*
