@@ -2490,6 +2490,7 @@ std::atomic<int> g_fhSealKeep{1};
 // follow stop) while the seal lives on, invisible (its model root fade [[seal+20]+248] held at 0, the same fade it uses to vanish by itself,
 // ally #56223), at SealTailSpeed until its own despawn, so everything it already threw keeps flying and hitting.
 std::atomic<int> g_ghostOn{0};
+std::atomic<double> g_ghostReqAt{0};  // human #58053: smoke first, the player shows SealExitRevealMs later
 std::atomic<uint64_t> g_ghostReq{0};   // seal whose form should end now (set by SealEndOnHitTick, consumed by FormHide4Tick)
 std::atomic<uint64_t> g_ghostSeal{0};  // seal held invisible until it leaves the actor table
 std::atomic<double> g_ghostT{0};
@@ -2881,7 +2882,7 @@ void FormHide4Tick(uint64_t player) {
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner) {
         const char* reason = nullptr;
-        if (const uint64_t gr = g_ghostReq.load(); gr && gr == g_fh4.seal) { g_ghostReq.store(0); reason = "ghost-exit"; }
+        if (const uint64_t gr = g_ghostReq.load(); gr && gr == g_fh4.seal && now >= g_ghostReqAt.load()) { g_ghostReq.store(0); reason = "ghost-exit"; }
         else if (g_fhMode.load() != 4) reason = "mode-change";
         else if (player != g_fh4.owner) reason = "player-change";
         else if (g_fh4Fault.load()) reason = "apply-fault";
@@ -3337,6 +3338,12 @@ int g_fxrTailMs = 300, g_fxrMaxMs = 2500;
 uint32_t g_fxrSkip[12] = {0x3E8}, g_fxrOnly[12] = {};
 int g_fxrSkipN = 1, g_fxrOnlyN = 0;
 int g_fxrBone = 0;
+// human #58053: SealExitSmokeCenter=1 puts the big smoke (SealExitSmokeCenterIds, default 62557) on the player's x/z at the form start and
+// at the exit; SealExitRevealMs = how long after the exit smoke the player shows up (like the start: smoke first, then the yokai).
+int g_fxrCenter = 1, g_revealMs = 350;
+uint32_t g_fxrCtr[12] = {};
+int g_fxrCtrN = 0;
+bool FxCenterId(uint32_t id) { for (int i = 0; i < g_fxrCtrN; ++i) if (g_fxrCtr[i] == id) return g_fxrCenter > 0; return false; }
 thread_local bool t_fxReplaying = false;
 struct FxPlay { double at; FxRec r; };
 FxPlay g_fxPlay[kFxRecMax];
@@ -3363,6 +3370,9 @@ void SealExitReplayLoad() {
     g_fxrSkipN = HexList(L"SealExitReplaySkip", L"3E8", g_fxrSkip, 12);
     g_fxrOnlyN = HexList(L"SealExitReplayIds", L"", g_fxrOnly, 12);
     g_fxrBone = IniInt(L"Spirit", L"SealExitReplayBone", 0);
+    g_fxrCenter = IniInt(L"Spirit", L"SealExitSmokeCenter", 1);
+    g_fxrCtrN = HexList(L"SealExitSmokeCenterIds", L"62557", g_fxrCtr, 12);
+    g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 350);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3374,6 +3384,10 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     const double until = g_fxrUntil.load(std::memory_order_relaxed);
     if (now - t0 > g_fxrMaxMs / 1000.0 || (until > 0 && now > until)) return;
     const uint32_t id = (uint32_t)c;
+    if (FxCenterId(id) && !StackArg(sp, 5) && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000 && g_fh4.owner) {
+        float pc[4] = {};  // human #58053: the form-start smoke on the player's centre (x/z), height kept
+        if (Copy(pc, g_fh4.owner + 0x110, 16) && std::isfinite(pc[0]) && std::isfinite(pc[2])) { ((float*)d)[12] = pc[0]; ((float*)d)[14] = pc[2]; }
+    }
     for (int i = 0; i < g_fxrSkipN; ++i) if (g_fxrSkip[i] == id) return;
     if (g_fxrOnlyN) {
         bool ok = false;
@@ -3435,6 +3449,7 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
             const float dx = m[12] - r.pl[0], dy = m[13] - r.pl[1], dz = m[14] - r.pl[2];
             if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
+            if (FxCenterId(r.id)) { m[12] = pn[0]; m[14] = pn[2]; }  // human #58053
             r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
         } else if (!g_fxrBone) {
             continue;  // pc #57943: bone-attached start fx are looping auras the form end normally kills; replayed they glow forever and stack
@@ -3443,10 +3458,13 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
             continue;
         }
         if (r.a7 > 0x10000) r.a7 = 0;
-        g_fxPlay[g_fxPlayN].at = now + (rec[i].t - rec[0].t);
+        g_fxPlay[g_fxPlayN].at = rec[i].t;
         g_fxPlay[g_fxPlayN].r = r;
         ++g_fxPlayN;
     }
+    double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
+    for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
+    for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
     return g_fxPlayN;
 }
 void SealExitReplayTick() {  // game thread
@@ -3564,6 +3582,7 @@ void SealEndOnHitTick() {
         if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         g_ghostSeal.store(seal);
         GhostHideSeal(seal);
+        g_ghostReqAt.store(smoke && replay > 0 ? now + g_revealMs / 1000.0 : 0);
         g_ghostReq.store(seal);
         Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
             (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), smoke ? "ON" : "off (core not in SealExitFxCore)", smoke ? g_ghostFadeMs : 0,
