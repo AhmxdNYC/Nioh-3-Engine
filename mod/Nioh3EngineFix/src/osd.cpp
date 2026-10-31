@@ -553,8 +553,11 @@ float g_noticeSecs = 25.0f;
 volatile LONG g_noticeState = 0;   // 0 none, 1 pending (waits for the startup popup), 2 on screen, 3 done
 int64_t g_noticeStart = 0;
 
-float CounterScaleImpl(UINT W, UINT H) {  // #38167: same size as the mod menu panel (menu::PanelScale)
-    return menu::PanelScale(W, H);
+float CounterScaleImpl(UINT /*W*/, UINT H) {
+    // [Overlay] Scale is the size at 1080p (1.0 = 8x16). Multiply by height/1080 so 1.0 is
+    // twice as big at 4K, and 1.5 / 2.0 stay different at 1080p. Not the menu panel scale.
+    const float user = std::clamp(g_cfg.scale, 0.5f, 6.0f);
+    return user * ((float)H / 1080.0f);
 }
 
 // ---- screen fade (bridge 6519/6536): Nioh3EngineFix_Fade(on, ms) ramps a full-screen black quad (alpha 0..255) ----------------------
@@ -589,7 +592,8 @@ void BuildOverlay(UINT W, UINT H, int64_t now) {
     const float k1080 = (float)H / 1080.0f;
     const float margin = kCornerPx;  // #corners: flush with the screen corner (was 8 * sc)
     const float offX = (float)OffsetX() * k1080, offY = (float)OffsetY() * k1080;
-    const bool right = false, bottom = g_cfg.pos >= 2;  // #38167: the FPS overlay always sits on the left, opposite the right-side menu panel
+    const bool right = g_cfg.pos == 1 || g_cfg.pos == 3;  // TopRight / BottomRight anchor to the right edge
+    const bool bottom = g_cfg.pos >= 2;
 
     Line counter;
     if (g_cfg.fpsCounter) {
