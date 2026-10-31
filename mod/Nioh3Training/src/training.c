@@ -2239,15 +2239,16 @@ static __attribute__((noinline)) int EvClearStale(uint32_t* ids, const char* tag
     return n;
 }
 // Scenes that start after the request (the arena's scenes began during the fade in ally run #4) are added to the same list (union, max 9) every tick while still in another world.
-static __attribute__((noinline)) void EvAccum(uint32_t* ids) {
-    uint64_t o = 0; if (!Rd64(B + Grva(0x45CE800), &o) || !o) return;
-    __try { for (int i = 0; i < 9; ++i) { uint32_t id = *(volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C); if (!id) continue; int k, free_ = -1; for (k = 0; k < 9; ++k) { if (ids[k] == id) break; if (!ids[k] && free_ < 0) free_ = k; } if (k == 9 && free_ >= 0) ids[free_] = id; } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+static __attribute__((noinline)) uint32_t EvAccum(uint32_t* ids) {
+    uint64_t o = 0; uint32_t added = 0; if (!Rd64(B + Grva(0x45CE800), &o) || !o) return 0;
+    __try { for (int i = 0; i < 9; ++i) { uint32_t id = *(volatile uint32_t*)(o + 0x40 + i * 0x308 + 0x4C); if (!id) continue; int k, free_ = -1; for (k = 0; k < 9; ++k) { if (ids[k] == id) break; if (!ids[k] && free_ < 0) free_ = k; } if (k == 9 && free_ >= 0) { ids[free_] = id; added = id; } } } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    return added;
 }
 static void XrTick(void) {
     if (!g_xr.active) return;
     DWORD now = GetTickCount(); const uint8_t* st = GameState(); if (!st) return;
     DWORD run = XrRunMs(now);
-    if (CurWorld() != g_xr.world) EvAccum(g_xr.ev);
+    if (CurWorld() != g_xr.world) { uint32_t ea = EvAccum(g_xr.ev); if (ea) Log("XWORLD return: event scene 0x%X started after the Return request, tracked too", ea); }
     if (CurWorld() == g_xr.world && SeqState() == 9) { if (!g_xr.tSeq9) g_xr.tSeq9 = now; else if (now - g_xr.tSeq9 >= 1000) { EvClearStale(g_xr.ev, "XWORLD return"); g_xr.tSeq9 = now; } }  // xworld-return-1790
     else g_xr.tSeq9 = 0;
     if (g_xr.watch && (g_tr.active || (g_xw.active && g_xw.claimed))) { Log("XWORLD return watch: cancelled (a new Fight now / session started)"); g_xr.active = 0; return; }
