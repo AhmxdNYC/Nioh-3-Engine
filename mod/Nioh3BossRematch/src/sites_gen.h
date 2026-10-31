@@ -120,6 +120,7 @@ static const Def kDefs[] = {
     {"chk:PlayerPlace_Find", "SPAWN", kCheck, 0x1C0F363, 48, "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:CamFlag4_Retry14", "SPAWN", kCheck, 0x2239C49, 48, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:AttackCancelGate", "ACANCEL", kCheck, 0x23636A9, 0, "48 8B 03 BA C9 ED 00 00 45 33 C0 48 8B CB FF 90 D0 00 00 00 84 C0 0F 84 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},  // pc #58429 item gate 236361C soul-core HasSkill(0xEDC9) test (hand-added, derive_sites out of date)
+    {"fn:HasSkill", "ACANCEL", kFn, 0x28A88C, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 48 8B 99 E0 00 00 00 45 33 ED 0F B7 F2 4C 8B F9 48 85 DB", 0, 0, 0, 0, 0x0, nullptr},  // pc #58506 ctrl vt+D0 HasSkill(ctrl, id, 0) (hand-added)
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));
 }  // namespace sites

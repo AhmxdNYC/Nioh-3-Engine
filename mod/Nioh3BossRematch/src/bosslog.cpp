@@ -2940,6 +2940,50 @@ bool AcPatch2(uint64_t a, uint8_t b0, uint8_t b1) {  // 2 bytes inside one align
     FlushInstructionCache(GetCurrentProcess(), (void*)w, 8);
     return ok;
 }
+// pc #58506: the gate patch alone did not cancel (human #58502: item queued, the running attack ignored pad cmd 0x18). The attack's
+// action data checks the same skill, so answer HasSkill(0xEDC9) = yes at its source: the ctrl class's vt+D0 (28A88C, found by
+// AOB fn:HasSkill; its one .rdata vtable slot is found by scanning for the pointer). Only id 0xEDC9 is changed; logs which
+// callers ask (first 16 return addresses) so a test shows whether the action graph uses this path.
+using HasSkillFn = uint64_t (*)(uint64_t, uint32_t, uint32_t);
+HasSkillFn g_hasSkillOrig = nullptr;
+std::atomic<uint64_t> g_acCallers[16];
+std::atomic<uint32_t> g_acCalls{0};
+uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
+    const uint64_t r = g_hasSkillOrig(ctrl, id, p3);
+    if ((uint16_t)id != 0xEDC9) return r;
+    const uint64_t ra = (uint64_t)_ReturnAddress() - g_base;
+    for (auto& c : g_acCallers) {
+        uint64_t cur = c.load();
+        if (cur == ra) break;
+        if (!cur && c.compare_exchange_strong(cur, ra)) { Log("AttackCancel: HasSkill(0xEDC9) asked from +%llX (game says %d) -> 1", (unsigned long long)ra, (int)(r & 0xFF)); break; }
+    }
+    g_acCalls.fetch_add(1);
+    return (r & 0xFF) ? r : 1;
+}
+void AttackCancelSkillInstall() {
+    static const uint8_t want[] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,
+                                   0x48,0x83,0xEC,0x20,0x48,0x8B,0x99,0xE0,0x00,0x00,0x00,0x45,0x33,0xED,0x0F,0xB7,0xF2,0x4C,0x8B,0xF9,0x48,0x85,0xDB};
+    const uint64_t fn = (uint64_t)Site("fn:HasSkill");
+    uint8_t b[sizeof(want)] = {};
+    if (!fn || !Copy(b, fn, sizeof(b)) || memcmp(b, want, sizeof(want))) { Log("AttackCancel: HasSkill pattern not found - skill hook off"); return; }
+    const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
+    const auto* nt = (const IMAGE_NT_HEADERS64*)(g_base + dos->e_lfanew);
+    const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    uint64_t slot = 0; int hits = 0;
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++sec) {
+        if (memcmp(sec->Name, ".rdata", 6)) continue;
+        const uint64_t a0 = (g_base + sec->VirtualAddress + 7) & ~7ull, a1 = g_base + sec->VirtualAddress + sec->Misc.VirtualSize;
+        for (uint64_t a = a0; a + 8 <= a1; a += 8)
+            if (*(const uint64_t*)a == fn) { slot = a; ++hits; }
+    }
+    if (hits != 1) { Log("AttackCancel: HasSkill vtable slots=%d (want 1) - skill hook off", hits); return; }
+    DWORD old = 0;
+    if (!VirtualProtect((void*)slot, 8, PAGE_READWRITE, &old)) { Log("AttackCancel: vtable slot not writable - skill hook off"); return; }
+    g_hasSkillOrig = (HasSkillFn)fn;
+    InterlockedExchange64((volatile LONG64*)slot, (LONG64)(uint64_t)&HkHasSkill);
+    VirtualProtect((void*)slot, 8, old, &old);
+    Log("AttackCancel: skill hook on (vtable +%llX -> HasSkill +%llX, id 0xEDC9 answers yes)", (unsigned long long)(slot - g_base), (unsigned long long)(fn - g_base));
+}
 void AttackCancelInstall() {
     if (IniInt(L"Spirit", L"AttackCancel", 0) <= 0) return;
     const uint64_t s = (uint64_t)Site("chk:AttackCancelGate");
@@ -2949,6 +2993,7 @@ void AttackCancelInstall() {
     if (b[0] != 0x84 || b[1] != 0xC0 || b[2] != 0x0F || b[3] != 0x84) { Log("AttackCancel: +%llX is not 'test al,al; jz' - off", (unsigned long long)(s + 20 - g_base)); return; }
     if (!AcPatch2(s + 20, 0x0C, 0x01)) { Log("AttackCancel: patch +%llX failed - off", (unsigned long long)(s + 20 - g_base)); return; }
     Log("AttackCancel: on at +%llX (soul cores skip HasSkill(0xEDC9) in the item gate; deny bits kept)", (unsigned long long)(s + 20 - g_base));
+    AttackCancelSkillInstall();
 }
 // 0 = pin seal to player, 1 = follow the seal, 2 = neither (auto probe running). Runs under g_fh4Lock.
 int Fh4FollowDecide(double now) {
