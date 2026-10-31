@@ -1,6 +1,6 @@
 # Release draft: byte-pattern auto-detect for all mods, no soul-core forms (pc #59065, human #58436)
 
-DRAFT - nothing is published. Branch `ally/release-aob` (nioh3-engine).
+DRAFT - nothing is published. RC = bridge #4473 (pc MSVC build). Assets staged by ally #59139. Branch `ally/release-aob` (nioh3-engine).
 
 ## What the branch is
 
@@ -76,3 +76,64 @@ log shows 1.7.88 / 1.4.23 + `game RVAs ... 0 missing` for EngineFix, Training, B
 
 Checks done on ally: zig compile of BossRematch (9 units + link), Training (link), EngineFix (51/52 units; dllmain
 needs MSVC's _udiv128, same as main). MSVC build + in-game run still to do (pc / pc2).
+
+## RC results (10-31)
+
+- ally/Proton (#59136): clean install over the ally install, INIs kept: logs EngineFix 1.7.88 / BossRematch 1.4.23,
+  `game RVAs ... 0 missing` x3; Fight Now (Yamagata) OK; soul core LEFT x2 = vanilla; no "Soul core tuning" row; return to
+  title OK; no crash.
+- pc2 Windows updater test (#59106): pending - can point the updater at the staged manifest below.
+
+## Release assets (v1.7.88, same layout as v1.7.87)
+
+Bridge file #4477 `rel-1788-assets.tgz` (sha256 32104e3d2c06...). Built from #4473's binaries, nothing rebuilt.
+Local copy on ally: `release/dist/v1.7.88/` (gitignored).
+
+| file | sha256 |
+|---|---|
+| Nioh3EngineFix.asi | 45efd9609b48570a5ba3f5b0a08debb0ec170c05521aa997fd7f4c5a3a0d44c6 |
+| Nioh3Training.asi | 02fed4cc2ec3d9232ca3203d8626075da3ed1866284edc5f15a7151fb7ae1f1c |
+| Nioh3BossRematch.asi | 2aa508f5087fb01435e2d60ef31d3c427997bb1536b19f64ec9c39c05f7ff169 |
+| Nioh3-1.7.88-combined.zip (the 3 ASIs at zip root, like 1.7.87) | 7b1467401b82e75e6a7de7fcad519abb340870dbcfb488bda8dd3faf390d5791 |
+| stable.json (schema 1, site URLs /releases/1.7.88/<asi>; made by stage_site.py) | b24bbc1fe022e5537b37937ce040b20ee92c15a16c43cf55fc257ed9d5961d4e |
+| site/version.json (178 bytes, <512 limit) | d0d3c6e63e305a95c8e47b64049a90ab622ebd6725a547c61e55459349041a1a |
+
+Tarball layout: `v1.7.88/{3 ASIs, combined zip, stable.json, SHA256SUMS.txt}` +
+`v1.7.88/site/{releases/1.7.88/<3 ASIs>, updates/stable.json, version.json}` = drop-in for the site folder.
+
+## Publish commands (pc, only after the human says go and pc2's updater test passes)
+
+Site folder = `C:\Users\Ahmad Hamza\nioh3-mod-site\site` (vercel project, deployed by pc for 1.7.86/1.7.87).
+
+```powershell
+# 0. unpack + verify (expect 7 OK lines)
+$A = "$env:TEMP\rel1788"; mkdir $A -Force; py -m uo_bridge get 4477 --out $A\a.tgz; tar -xzf $A\a.tgz -C $A
+cd $A\v1.7.88; Get-Content SHA256SUMS.txt | % { $h,$f = $_ -split '  '; if ((Get-FileHash $f -A SHA256).Hash.ToLower() -eq $h) {"OK $f"} else {"BAD $f"} }
+# 1. site: immutable payload + updater manifest (NOT version.json yet)
+$S = "C:\Users\Ahmad Hamza\nioh3-mod-site\site"
+if (Test-Path "$S\releases\1.7.88") { throw "releases/1.7.88 exists - stop" }
+Copy-Item -Recurse site\releases\1.7.88 "$S\releases\1.7.88"
+Copy-Item site\updates\stable.json "$S\updates\stable.json" -Force
+cd $S; vercel --prod --yes
+# 1b. verify live: version 1.7.88 + each file's sha matches
+curl.exe -s https://nioh3-mod-feedback.vercel.app/updates/stable.json
+foreach ($f in 'Nioh3EngineFix.asi','Nioh3Training.asi','Nioh3BossRematch.asi') { curl.exe -sLo "$env:TEMP\$f" "https://nioh3-mod-feedback.vercel.app/releases/1.7.88/$f"; (Get-FileHash "$env:TEMP\$f" -A SHA256).Hash }
+# 2. public source export (release-aob tree, soul core compiled out) -> Nioh-3-Engine main, tag v1.7.88
+#    (same export path as v1.7.87 deb036c4; then:)
+cd $A\v1.7.88
+gh release create v1.7.88 --repo AhmxdNYC/Nioh-3-Engine --target main --latest `
+  --title "Nioh 3 Engine Fix 1.7.88" --notes-file $A\notes-1788.md `
+  Nioh3-1.7.88-combined.zip Nioh3EngineFix.asi Nioh3Training.asi Nioh3BossRematch.asi stable.json
+gh release view v1.7.88 --repo AhmxdNYC/Nioh-3-Engine --json assets --jq '.assets[].name'
+# 3. LAST: in-game notice (1.7.86/1.7.87 users see "Update 1.7.88 available" within an hour)
+Copy-Item $A\v1.7.88\site\version.json "$S\version.json" -Force; cd $S; vercel --prod --yes
+curl.exe -s https://nioh3-mod-feedback.vercel.app/version.json   # expect "1.7.88"
+```
+
+`notes-1788.md` = the "Draft release notes" quote above (without the `> `), plus one line:
+"Soul-core transformations are not in this release (still in development)." plus the v1.7.87 line
+"Download the three .asi files into the game folder, or let the in-game updater use the website."
+
+Rollback: site - restore previous `updates/stable.json` (1.7.87 content above in GitHub v1.7.87 asset) + redeploy;
+GitHub - `gh release edit v1.7.87 --latest` then `gh release delete v1.7.88 --yes`. Never overwrite /releases/1.7.88/ with
+different bytes (stage_site.py refuses).
