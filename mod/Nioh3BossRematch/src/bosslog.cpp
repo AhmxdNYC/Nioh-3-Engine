@@ -2483,11 +2483,29 @@ std::atomic<int> g_ghostOn{0};
 std::atomic<uint64_t> g_ghostReq{0};   // seal whose form should end now (set by SealEndOnHitTick, consumed by FormHide4Tick)
 std::atomic<uint64_t> g_ghostSeal{0};  // seal held invisible until it leaves the actor table
 std::atomic<double> g_ghostT{0};
+// pc #57618 (human #57615): per-core exit smoke. Only cores listed in [Spirit] SealExitFxCore (hex list, default 5129B = Ibaraki LEFT) get it;
+// every other core (DOWN A2ACB) keeps the plain ghost exit. For a listed core: SealGhostFadeMs > 0 ramps the seal root fade [[seal+20]+248]
+// from its value at the last hit down to 0 over that time (the same fade the seal dissolves in with at its spawn, run backwards) instead of
+// the instant 0, and SealExitFx=1 also spawns the SealExitFxId effects (on SealExitFxOwner) at the ghost exit.
+uint32_t g_sxcCore[8] = {0x5129B};
+int g_sxcN = 1, g_ghostFadeMs = 0;
+std::atomic<uint64_t> g_ghostFadeSeal{0};
+float g_ghostFade0 = 1.f;
+bool SealExitCore(uint32_t sid) {
+    for (int i = 0; i < g_sxcN; ++i) if (g_sxcCore[i] == sid) return true;
+    return false;
+}
 void GhostHideSeal(uint64_t seal) {
     uint64_t sr = 0; float k6 = 1;
     if (!seal || !Rd(seal + 0x20, sr) || !sr || !Rd(sr + 0x248, k6) || k6 == 0.f) return;
-    const float zero = 0.f;
-    WrBytes(sr + 0x248, &zero, 4);
+    float v = 0.f;
+    if (g_ghostFadeMs > 0 && g_ghostFadeSeal.load(std::memory_order_relaxed) == seal) {
+        const double f = 1.0 - (Now() - g_ghostT.load()) * 1000.0 / g_ghostFadeMs;
+        if (f > 0) v = (float)(g_ghostFade0 * f);
+        else g_ghostFadeSeal.store(0);
+        if (v >= k6) return;  // never push it back up
+    }
+    WrBytes(sr + 0x248, &v, 4);
 }
 void Fh4KeepSeal() {
     if (!g_fhSealKeep.load() || !g_fh4.owner || !g_fh4.seal) return;
@@ -3244,6 +3262,18 @@ void SealExitFxLoad() {
     g_sxfBone = IniInt(L"Spirit", L"SealExitFxBone", 0);
     g_sxfOwner = IniInt(L"Spirit", L"SealExitFxOwner", 0);
     g_sxfMs = IniInt(L"Spirit", L"SealExitFxMs", 150);
+    GetPrivateProfileStringW(L"Spirit", L"SealExitFxCore", L"5129B", b, 256, IniPath());
+    g_sxcN = 0;
+    for (wchar_t* q = b; *q && g_sxcN < 8;) {
+        while (*q == L',' || *q == L' ') ++q;
+        if (!*q) break;
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(q, &e, 16);
+        if (e == q) break;
+        if (v) g_sxcCore[g_sxcN++] = (uint32_t)v;
+        q = e;
+    }
+    g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 0);
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
@@ -3340,11 +3370,20 @@ void SealEndOnHitTick() {
         g_tailT0.store(now);
         if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
         g_ghostT.store(now);
+        const bool smoke = SealExitCore(sid);
+        int made = 0;
+        if (smoke && g_ghostFadeMs > 0) {
+            uint64_t sr = 0; float k6 = 1.f;
+            g_ghostFade0 = Rd(seal + 0x20, sr) && sr && Rd(sr + 0x248, k6) && std::isfinite(k6) && k6 > 0.f ? k6 : 1.f;
+            g_ghostFadeSeal.store(seal);
+        } else g_ghostFadeSeal.store(0);
+        if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
         g_ghostSeal.store(seal);
         GhostHideSeal(seal);
         g_ghostReq.store(seal);
-        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) t=%.3f",
-            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), now);
+        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
+            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), smoke ? "ON" : "off (core not in SealExitFxCore)", smoke ? g_ghostFadeMs : 0,
+            g_ghostFade0, made, smoke && g_sxfOn.load() > 0 ? g_sxfN : 0, now);
         return;
     }
     if (g_sxfOn.load() > 0 && g_sxfN > 0) {  // pc #57269: shadow exit instead of the tail
