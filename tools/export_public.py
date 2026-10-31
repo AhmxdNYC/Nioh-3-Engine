@@ -35,7 +35,7 @@ SOUL = re.compile(r'FormKey|FormHide|FormSlot0|FormFollow|FormPin|SealEnd|SealEx
 
 
 def strip_soulcore(path, data):
-    """Drop `#if BR_SOULCORE` .. matching `#endif` blocks (C/C++) and the [Spirit] ini section: the release build compiles
+    """Drop `#if BR_SOULCORE` .. matching `#endif` blocks (C/C++) and the [Spirit] / [SealHits] ini sections: the release build compiles
     them out (pc #59173: no soul-core code in the public source)."""
     txt = data.decode('utf-8', 'surrogateescape')
     nl = '\r\n' if '\r\n' in txt else '\n'
@@ -63,7 +63,7 @@ def strip_soulcore(path, data):
         for line in txt.split(nl):
             t = line.strip()
             if t.startswith('['):
-                cut = t.lower() == '[spirit]'
+                cut = t.lower() in ('[spirit]', '[sealhits]')
             if not cut:
                 out.append(line)
     else:

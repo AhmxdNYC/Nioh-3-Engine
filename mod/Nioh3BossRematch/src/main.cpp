@@ -68,8 +68,8 @@ bool WrRaw(uint64_t a, const void* src, size_t n) {
 }
 bool WrBytes(uint64_t a, const void* src, size_t n) {
     if (a < 0x10000) return false;
-    // pc #56435: try the plain write first. VirtualQuery on a large heap region walks its pages (~ms per call): FormPin's per-tick
-    // WrBytes calls cost ~0.8 s per second (seal hold 52 -> 16 fps). Only a faulting (read-only / code) target takes the slow path.
+    // pc #56435: try the plain write first. VirtualQuery on a large heap region walks its pages (~ms per call): frequent
+    // WrBytes calls cost ~0.8 s per second (52 -> 16 fps). Only a faulting (read-only / code) target takes the slow path.
     if (WrRaw(a, src, n)) return true;
     MEMORY_BASIC_INFORMATION mbi;
     const DWORD rw = PAGE_READWRITE | PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_WRITECOPY;
