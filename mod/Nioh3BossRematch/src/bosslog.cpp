@@ -1358,6 +1358,7 @@ std::atomic<int> g_fs0Mode{0};
 std::atomic<uint32_t> g_fs0Id{0};
 std::atomic<int> g_fs0Active{0}, g_fs0Restore{0};
 std::atomic<uint64_t> g_fs0CapChr{0}, g_fs0DoneChr{0};
+std::atomic<double> g_fs0FreshSec{1.0};  // FormSlot0 capture needs a seal spawn hit this recent (s)
 volatile LONG g_fs0Swaps = 0, g_fs0Clears = 0, g_fs0Lines = 0, g_fs0N = 0;
 double g_fs0CapT = 0;
 uint64_t g_fs0Slot[64];
@@ -1611,7 +1612,10 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
     if (const int m = g_fs0Mode.load(); m && chr) {
         uint32_t kind = 0xFFFFFFFF;
         Rd(slot, kind);
-        if (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load()) {
+        // human #58838: a dead seal's chr address is reused by other actors (A9F39 2.6 s after a 30744 ghost exit) - only a capture
+        // right after a seal spawn hit is a core use (every real capture lands <0.1 s after it); a stale one hid+locked the player 25 s
+        const bool fresh = g_fkSealT >= 0 && Now() - g_fkSealT < g_fs0FreshSec.load();
+        if (fresh && (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load())) {
             // ally #57758: a fresh LEFT spawn hit on a reused chr address is a new use - capture it again (once per spawn hit)
             const bool leftAgain = chr == g_fkLeftChr.load() && g_fkLeftT > g_fs0CapLeftT;
             if (kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {
@@ -3559,7 +3563,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 1500));
+    g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 1500));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
     static int bytesOk = -1;
