@@ -82,6 +82,9 @@ bool FormKeyInstall();                         // [Spirit] FormKey: spirit-spawn
 void FormKeyCmd(const char* line, char* reply, size_t n);  // `rm spirit formkey on [hex]|off|status`
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist);  // #54190: seal 65A8A8 spawn chr near the player
 void FormKeySealDesc(uint32_t id);  // #54190: desc[0] at the 65A8A8 entry
+// human #58117: Soul core tuning menu: which 0 SealExitRevealMs, 1 SealExitSmokeFwd, 2 SealExitSmokeSide, 3 SealExitSmokeRepeatMs, 4 FormHideDelayMs,
+// 5 SealSpeed, 6 SealTailSpeed. dir 0 = read, +-1 = one step (live + saved to [Spirit]); *live false = saved only, next launch.
+double SoulTune(int which, int dir, bool* live);
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)
 extern volatile LONG g_fights;          // BossBattleMode starts this session

@@ -2689,8 +2689,9 @@ std::atomic<float> g_sealMul{1.4f};
 std::atomic<float> g_tailRampMs{250.f};
 std::atomic<double> g_tailT0{0};
 std::atomic<uint64_t> g_tailSeal{0};
+std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, so a menu SealSpeed / SealTailSpeed change applies live
 float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
-    const float base = g_sealMul.load() > 1.f ? g_sealMul.load() : 1.f;
+    const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
     const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
     if (ts && a == ts) {
         const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
@@ -2770,6 +2771,7 @@ void FastThrowInstall() {
         sspeed ? "" : " (off)", g_tailMul.load(), tail ? "" : " (off)", g_tailRampMs.load());
     if (!sspeed) g_sealMul.store(0.f);
     if (k != 18) { g_tailMul.store(0.f); g_sealMul.store(0.f); }  // partial hook set: no tail speedup, SealEndOnHit falls back to the despawn
+    else g_ftHooked.store(true);
 }
 // pc #56515 [Spirit] OrbSkip=1: the seal item throws an orb object (322468 per-frame update, notes/soulcore-orb-56515.md) that shows
 // effect 0x6254D and flies until the ground test 6A3BB0 (call 322DD9) hits; only then does the landing object burst and spawn the yokai
@@ -2839,8 +2841,13 @@ int Fh4FollowDecide(double now) {
     Log("FormFollowSeal auto: seal moved %.0f cm in %.2f s -> %s", d, now - g_fh4.followT0, g_fh4.follow ? "FOLLOW (player rides the seal)" : "pin");
     return g_fh4.follow;
 }
+// human #58117: [Spirit] FormHideDelayMs (default 0 = unchanged) postpones the FormHide=4 begin (player hidden + input blocked) by this
+// long after its trigger (LEFT press edge or the fresh seal capture), so the player stays visible a little longer at the form start.
+// Read on every trigger; the Soul core tuning menu page writes it live. A pending begin is dropped if the mode/player changes meanwhile.
+std::atomic<int> g_fhDelayMs{0};
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
+    static double pendAt = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
@@ -2876,7 +2883,7 @@ void FormHide4Tick(uint64_t player) {
         }
     }
     const bool left = (PadButtons(nullptr, nullptr) & 4) != 0;
-    const bool edge = g_fhPress.load() &&
+    bool edge = g_fhPress.load() &&  // human #58117: not const, a delayed begin restores the edge it was armed with
         ((left && !leftWas && g_fhPress.load() != 2) || FhSealActTick(player, cap, capT, now));
     leftWas = left;
     AcquireSRWLockExclusive(&g_fh4Lock);
@@ -2915,9 +2922,18 @@ void FormHide4Tick(uint64_t player) {
                 Fh4KeepSeal();
             }  // timed: FH4perf ours= includes the pin + warp
         }
-    } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player &&
-               (edge || (cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
-                         FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0))) {  // pc #57103: only a fresh capture of a live seal begins a form
+    } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player && [&] {
+                   const bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
+                                      FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
+                   // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
+                   if ((edge || fresh) && pendAt <= 0) { pendAt = now + g_fhDelayMs.load() / 1000.0; pendEdge = edge; pendPlayer = player; }
+                   if (pendAt <= 0) return false;
+                   if (pendPlayer != player || now - pendAt > 2.5) { pendAt = 0; return false; }
+                   if (now < pendAt) return false;
+                   edge = pendEdge && !(fresh && g_fhDelayMs.load() > 0);  // a capture that came in during the delay is adopted as a capture begin
+                   pendAt = 0;
+                   return edge || fresh;
+               }()) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             g_fh4.owner = player; g_fh4.started = now; g_fh4Fault.store(false);
             FormBlockSet(true);
@@ -3340,14 +3356,16 @@ int g_fxrSkipN = 1, g_fxrOnlyN = 0;
 int g_fxrBone = 0;
 // human #58053: SealExitSmokeCenter=1 puts the big smoke (SealExitSmokeCenterIds, default 62557) on the player's x/z at the form start and
 // at the exit; SealExitRevealMs = how long after the exit smoke the player shows up (like the start: smoke first, then the yokai).
-int g_fxrCenter = 1, g_revealMs = 350;
+int g_fxrCenter = 1;
+std::atomic<int> g_revealMs{350};  // human #58117: atomics, the Soul core tuning menu page writes them live (UI thread)
 // human #58081 debug: SealExitSmokeFwd = units in front of the player (along the smoke matrix z row) for the centred smoke, start + exit;
 // SealExitSmokeRepeatMs > 0 = the exit smoke is spawned once more that long after the first (looks ~2x longer).
-float g_fxrFwd = 0.f; int g_fxrRepeatMs = 0;
+// human #58117: SealExitSmokeSide = units to the side (perpendicular to that z row, (fz,-fx)); all three live from the Soul core tuning page.
+std::atomic<float> g_fxrFwd{0.f}, g_fxrSide{0.f}; std::atomic<int> g_fxrRepeatMs{0};
 void FxFwd(float* m, float px, float pz) {
-    const float fx = m[8], fz = m[10], l = sqrtf(fx * fx + fz * fz);
+    const float fx = m[8], fz = m[10], l = sqrtf(fx * fx + fz * fz), fw = g_fxrFwd.load(), sd = g_fxrSide.load();
     m[12] = px; m[14] = pz;
-    if (g_fxrFwd != 0.f && l > 1e-3f && std::isfinite(l)) { m[12] += fx / l * g_fxrFwd; m[14] += fz / l * g_fxrFwd; }
+    if ((fw != 0.f || sd != 0.f) && l > 1e-3f && std::isfinite(l)) { m[12] += (fx * fw + fz * sd) / l; m[14] += (fz * fw - fx * sd) / l; }
 }
 uint32_t g_fxrCtr[12] = {};
 int g_fxrCtrN = 0;
@@ -3382,6 +3400,7 @@ void SealExitReplayLoad() {
     g_fxrCtrN = HexList(L"SealExitSmokeCenterIds", L"62557", g_fxrCtr, 12);
     g_revealMs = IniInt(L"Spirit", L"SealExitRevealMs", 350);
     g_fxrFwd = (float)IniInt(L"Spirit", L"SealExitSmokeFwd", 0);
+    g_fxrSide = (float)IniInt(L"Spirit", L"SealExitSmokeSide", 0);  // human #58117
     g_fxrRepeatMs = IniInt(L"Spirit", L"SealExitSmokeRepeatMs", 0);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
@@ -3475,8 +3494,9 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
     double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
     for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
     for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
-    for (int i = 0, n0 = g_fxPlayN; g_fxrRepeatMs > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
-        if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += g_fxrRepeatMs / 1000.0; }
+    const int rep = g_fxrRepeatMs.load();  // human #58117: one read per queue (menu writes it live)
+    for (int i = 0, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
+        if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += rep / 1000.0; }
     return g_fxPlayN;
 }
 void SealExitReplayTick() {  // game thread
@@ -3594,7 +3614,7 @@ void SealEndOnHitTick() {
         if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         g_ghostSeal.store(seal);
         GhostHideSeal(seal);
-        g_ghostReqAt.store(smoke && replay > 0 ? now + g_revealMs / 1000.0 : 0);
+        g_ghostReqAt.store(smoke && replay > 0 ? now + g_revealMs.load() / 1000.0 : 0);
         g_ghostReq.store(seal);
         Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
             (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), smoke ? "ON" : "off (core not in SealExitFxCore)", smoke ? g_ghostFadeMs : 0,
@@ -4261,6 +4281,42 @@ void HkFormKeyInput(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 }  // namespace
 
+// human #58117: Soul core tuning menu page (rematch.cpp soul_core_tuning_menu.h). Each value is the live global the effect reads at use time,
+// so a change applies on the next LEFT soul core use; it is also written to [Spirit] of Nioh3BossRematch.ini. *live = false: the hooks it
+// needs are not installed this session (saved only, applies next launch).
+double SoulTune(int which, int dir, bool* live) {
+    struct T { const wchar_t* key; double step, lo, hi; bool flt; };
+    static const T k[] = {{L"SealExitRevealMs", 50, 0, 2000, false}, {L"SealExitSmokeFwd", 10, -200, 200, false}, {L"SealExitSmokeSide", 10, -200, 200, false},
+                          {L"SealExitSmokeRepeatMs", 100, 0, 2000, false}, {L"FormHideDelayMs", 50, 0, 1000, false}, {L"SealSpeed", .1, .5, 3, true},
+                          {L"SealTailSpeed", .5, 1, 8, true}};
+    if (which < 0 || which >= (int)(sizeof k / sizeof *k)) return 0;
+    if (live) *live = which < 5 || g_ftHooked.load();
+    double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
+             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : g_tailMul.load();
+    if (which >= 5 && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
+        wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
+    }
+    if (!dir) return v;
+    const T& t = k[which];
+    v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
+    v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
+    if (t.flt) v = std::round(v * 10) / 10;
+    switch (which) {
+    case 0: g_revealMs.store((int)v); break;
+    case 1: g_fxrFwd.store((float)v); break;
+    case 2: g_fxrSide.store((float)v); break;
+    case 3: g_fxrRepeatMs.store((int)v); break;
+    case 4: g_fhDelayMs.store((int)v); break;
+    case 5: if (g_ftHooked.load()) g_sealMul.store((float)v); break;
+    default: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
+    }
+    wchar_t b[32];
+    if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
+    WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
+    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, which >= 5 && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
+    return v;
+}
+
 void TenshinReq() { g_tenReq.store(1); }  // next 0x2E6C34 call (game thread): fill gauge + fc1a20(state+0x1060, 0x4E, 1)
 void TenshinForm(uint32_t v) { g_tenForm.store(v); }
 void TenshinPreload(uint32_t id, bool request, char* out, size_t n) {
@@ -4503,6 +4559,7 @@ void Register(bool boss, bool rm, bool inv) {
     g_fbLS.store(IniInt(L"Spirit", L"FormBlockLS", 1));
     g_fbStyle.store(IniInt(L"Spirit", L"FormStyleSwitch", 1));  // ally #57627
     g_fhPress.store(IniInt(L"Spirit", L"FormHidePress", 0));  // pc #55704
+    g_fhDelayMs.store(IniInt(L"Spirit", L"FormHideDelayMs", 0));  // human #58117
     g_fhExtra.store(IniInt(L"Spirit", L"FormHideExtra", 1));
     g_fhActLog.store(IniInt(L"Spirit", L"FormHideActLog", 1));  // pc #55814
     g_fhActLearn.store(IniInt(L"Spirit", L"FormHideActLearn", 1));
