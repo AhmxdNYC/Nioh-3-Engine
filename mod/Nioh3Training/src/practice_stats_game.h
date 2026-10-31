@@ -307,7 +307,9 @@ static __attribute__((noinline)) void PstPlayerNin(void) {
 // Only counts that drop by exactly 1 while the player is in the seal throw (0x28FD / 0x28FB / 0x28AF, plus 2 s) are put back, so elixirs and
 // other consumables are not touched (that is board task #195).
 static uint64_t g_soul_glob; static int g_soul_scan; static uint32_t g_soul_prev[1200]; static uint8_t g_soul_have[1200]; static DWORD g_soul_until;
-static uint16_t g_soul_known[32]; static int g_soul_nknown;  // human #58313: item ids seen used in a seal throw
+static uint16_t g_soul_known[32]; static int g_soul_nknown;
+// human #58339: [Practice] SoulCoreMin = "FC9F:3,9C04:1" (hex item id : count) - a soul core below its floor is topped up (gives back a lost one)
+static char g_soul_min_str[128]; static uint16_t g_soul_min_id[8]; static uint32_t g_soul_min_n[8]; static int g_soul_nmin = -1;  // human #58313: item ids seen used in a seal throw
 static __attribute__((noinline)) uint64_t PstSoulFindGlob(void) {
     __try {
         const IMAGE_DOS_HEADER* dos = (const IMAGE_DOS_HEADER*)B; const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(B + dos->e_lfanew);
@@ -335,11 +337,22 @@ static __attribute__((noinline)) void PstPlayerSoul(void) {
     }
     const int seal = (int)(g_soul_until - now) > 0;
     uint8_t* arr = (uint8_t*)(inv + 0x1E0AD0);
+    if (g_soul_nmin < 0) {
+        g_soul_nmin = 0;
+        for (const char* q = g_soul_min_str; *q && g_soul_nmin < 8;) {
+            char* e; const unsigned long id = strtoul(q, &e, 16); if (e == q) { ++q; continue; }
+            q = e; if (*q != ':') continue; ++q; const unsigned long n = strtoul(q, &e, 10); if (e == q) continue; q = e;
+            if (id && n && n <= 99) { g_soul_min_id[g_soul_nmin] = (uint16_t)id; g_soul_min_n[g_soul_nmin++] = (uint32_t)n; }
+        }
+        Log("SOULCORE floor: %d item(s) from SoulCoreMin '%s'", g_soul_nmin, g_soul_min_str);
+    }
     __try {
         for (int i = 0; i < 1200; ++i) {
             const uint8_t* r = arr + (size_t)i * 0xE8; const uint16_t id = *(const uint16_t*)r;
             if (!id || id != *(const uint16_t*)(r + 2)) { g_soul_have[i] = 0; continue; }
             volatile uint32_t* cnt = (volatile uint32_t*)(r + 4); const uint32_t c = *cnt;
+            for (int k = 0; k < g_soul_nmin; ++k)
+                if (g_soul_min_id[k] == id && c < g_soul_min_n[k]) { *cnt = g_soul_min_n[k]; PstLog("PRACTICE soul core floor: item 0x%X slot %d count %u -> %u (SoulCoreMin)", id, i, c, g_soul_min_n[k]); }
             int known = 0;  // human #58313: in ninja style the throw act 0x28FD lasts one frame (-> 0x82A) and the poll misses it; an item
             for (int k = 0; k < g_soul_nknown; ++k) if (g_soul_known[k] == id) { known = 1; break; }  // already put back once is a soul core
             if ((seal || known) && g_soul_have[i] && g_soul_prev[i] == c + 1 && c + 1 <= 99) {
