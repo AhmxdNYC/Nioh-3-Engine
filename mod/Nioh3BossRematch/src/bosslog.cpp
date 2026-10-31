@@ -3578,6 +3578,58 @@ void SealExitReplayLoad() {
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
 }
+// human #58481: EffectCreate's own early-out: if ([g_fxTbl]+30 lookup(id))->flags & 0x800000 the game writes *out = 0 and spawns nothing.
+// Resolved from the EffectCreate body (bytes checked; off if the update changed them). Muted entries are unmuted by the tick ~80 ms later.
+struct FxMuteE { uint64_t e; double t; };
+FxMuteE g_fxMute[16];
+int g_fxMuteN = 0;
+SRWLOCK g_fxMuteLock = SRWLOCK_INIT;
+bool FxMute(uint32_t id) {
+    static int ok = -1;
+    static uint64_t tblCell = 0, lookup = 0, allCell = 0;
+    if (ok < 0) {
+        ok = 0;
+        const uint64_t f = Site("EffectCreate");
+        // +5D: cmp [rip+X], r13d ... +94: mov rcx,[rip+Y]; mov edx,ebx; mov rcx,[rcx+30]; call L; test rax,rax; je; test dword [rax+0C],800000
+        static const uint8_t w1[] = {0x8B, 0xD3, 0x48, 0x8B, 0x49, 0x30, 0xE8};
+        static const uint8_t w2[] = {0x48, 0x85, 0xC0, 0x74};
+        static const uint8_t w3[] = {0xF7, 0x40, 0x0C, 0x00, 0x00, 0x80, 0x00};
+        uint8_t b[0x40] = {};
+        if (f && Copy(b, f + 0x94, sizeof(b)) && b[0] == 0x48 && b[1] == 0x8B && b[2] == 0x0D && !memcmp(b + 7, w1, sizeof(w1)) &&
+            !memcmp(b + 18, w2, sizeof(w2)) && !memcmp(b + 23, w3, sizeof(w3))) {
+            int32_t r1 = 0, r2 = 0, r0 = 0;
+            memcpy(&r1, b + 3, 4); memcpy(&r2, b + 14, 4);
+            tblCell = f + 0x94 + 7 + r1; lookup = f + 0x94 + 18 + r2;
+            uint8_t c[7] = {};
+            if (Copy(c, f + 0x5D, 7) && c[0] == 0x44 && c[1] == 0x39 && c[2] == 0x2D) { memcpy(&r0, c + 3, 4); allCell = f + 0x5D + 7 + r0; ok = 1; }
+        }
+        Log("FormStyleFx: effect mute %s (table %llX lookup %llX)", ok ? "ready" : "bytes not found in this update - falls back to detach", tblCell - g_base, lookup - g_base);
+    }
+    if (!ok) return false;
+    uint64_t t = 0; uint32_t all = 0;
+    if (!Rd(allCell, all) || all || !Rd(tblCell, t) || !t || !Rd(t + 0x30, t) || !t) return false;
+    uint64_t e = 0;
+    __try { e = ((uint64_t(*)(uint64_t, uint32_t))lookup)(t, id); } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    if (!e) return false;
+    volatile LONG* fl = (volatile LONG*)(e + 0xC);
+    if (InterlockedOr(fl, 0x800000) & 0x800000) return true;  // already off (game or another of ours)
+    AcquireSRWLockExclusive(&g_fxMuteLock);
+    if (g_fxMuteN < 16) g_fxMute[g_fxMuteN++] = {e, Now()};
+    else InterlockedAnd(fl, ~0x800000);
+    ReleaseSRWLockExclusive(&g_fxMuteLock);
+    return true;
+}
+void FxMuteTick() {  // game thread: give the effects back once this spawn is past
+    if (!g_fxMuteN) return;
+    const double now = Now();
+    AcquireSRWLockExclusive(&g_fxMuteLock);
+    int k = 0;
+    for (int i = 0; i < g_fxMuteN; ++i)
+        if (now - g_fxMute[i].t > 0.08) InterlockedAnd((volatile LONG*)(g_fxMute[i].e + 0xC), ~0x800000);
+        else g_fxMute[k++] = g_fxMute[i];
+    g_fxMuteN = k;
+    ReleaseSRWLockExclusive(&g_fxMuteLock);
+}
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
     (void)a; (void)b;
@@ -3587,13 +3639,17 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
         const uint64_t pl = FkPlayer();
         if (pl && StackArg(sp, 6) == pl) {
             const bool world = d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
-            if (world) ((float*)d)[13] -= 100000.f;
-            // human #58445: the switch flash (3E8) is attached to the player via the P block (stack arg 5). Dropping the P block makes the
-            // game spawn it at r9's shared default matrix (world origin, far from any map spot) instead of on the hidden player.
-            else if (StackArg(sp, 5) && g_fbStyleFx.load() >= 1) ((uint64_t*)sp)[5] = 0;
-            Log("FormStyleFx: effect %X on the player during the form %s", (uint32_t)c, world ? "moved away" : "detached to the origin");
+            // human #58481: moving / detaching (78fe5da3) still showed the flash -> use the game's own "effect disabled" early-out
+            // (EffectCreate: table entry flag 0x800000 -> *out = 0, nothing spawned). The flag is set just for this call, cleared ~80 ms later.
+            const bool muted = FxMute((uint32_t)c);
+            if (!muted) {
+                if (world) ((float*)d)[13] -= 100000.f;
+                else if (StackArg(sp, 5)) ((uint64_t*)sp)[5] = 0;
+            }
+            Log("FormStyleFx: effect %X on the player during the form %s", (uint32_t)c, muted ? "not spawned (muted)" : world ? "moved away" : "detached to the origin");
             return;
         }
+        Log("FormStyleFx: effect %X in the switch window, owner %llX (not the player) - kept", (uint32_t)c, StackArg(sp, 6));
     }
     if (FxCenterId((uint32_t)c) && !StackArg(sp, 5) && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000) {
         // human #58146: every game-made big smoke is the template of our cover smoke (its matrix and height over the player)
@@ -3786,6 +3842,7 @@ void SealEndOnHitTick() {
     if (!g_sehMode.load()) return;
     SmokeFreezeTick();
     SealExitReplayTick();
+    FxMuteTick();
     static uint64_t sxfSeal = 0;
     static double sxfAt = 0;
     // Session = one FormHide=4 form (from the press, before the seal exists): A2ACB is bound from its spawn hit only ~0.3 s after it spawns and
