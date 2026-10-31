@@ -2430,6 +2430,20 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
 // then until the SealDefer deadline. [Spirit] FormSealKeep=1 (default) holds the seal root +248 at 1.0 while FormHide=4 owns a captured
 // seal that is still in the actor table, with its own root (never the player's).
 std::atomic<int> g_fhSealKeep{1};
+// pc #57569 (human #57567): [Spirit] SealGhostExit=1 (with SealEndOnHit): a despawn at the last hit also kills the yokai's projectiles / hit
+// effects. Instead, at the last-hit close the form ends (FormHide4Tick reason "ghost-exit": Fh4Restore = player visible + input back, pin and
+// follow stop) while the seal lives on, invisible (its model root fade [[seal+20]+248] held at 0, the same fade it uses to vanish by itself,
+// ally #56223), at SealTailSpeed until its own despawn, so everything it already threw keeps flying and hitting.
+std::atomic<int> g_ghostOn{0};
+std::atomic<uint64_t> g_ghostReq{0};   // seal whose form should end now (set by SealEndOnHitTick, consumed by FormHide4Tick)
+std::atomic<uint64_t> g_ghostSeal{0};  // seal held invisible until it leaves the actor table
+std::atomic<double> g_ghostT{0};
+void GhostHideSeal(uint64_t seal) {
+    uint64_t sr = 0; float k6 = 1;
+    if (!seal || !Rd(seal + 0x20, sr) || !sr || !Rd(sr + 0x248, k6) || k6 == 0.f) return;
+    const float zero = 0.f;
+    WrBytes(sr + 0x248, &zero, 4);
+}
 void Fh4KeepSeal() {
     if (!g_fhSealKeep.load() || !g_fh4.owner || !g_fh4.seal) return;
     if (FormHideSealPresent(g_fhEnd.actorGlobal, g_fh4.seal) != 1) return;
@@ -2468,6 +2482,7 @@ void HkFh4Parts(uint64_t chr) {
 void HkFh4Multiplier(uint64_t chr, uint64_t root) {
     ((void(*)(uint64_t, uint64_t))g_fh4MultiplierOrig)(chr, root);
     g_fh4Perf.mult.fetch_add(1);
+    if (const uint64_t gs = g_ghostSeal.load(std::memory_order_relaxed); gs && chr == gs) { GhostHideSeal(chr); return; }
     if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
     Fh4Timer tm;
     AcquireSRWLockExclusive(&g_fh4Lock);
@@ -2749,8 +2764,18 @@ void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static uint64_t attempted = 0;
     static double attemptedT = -1;
-    if (g_fhMode.load() != 4 && !g_fh4.owner) return;
+    if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
+    if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
+        const int pr = FormHideSealPresent(g_fhEnd.actorGlobal, gs);
+        if (pr == 0 || now - g_ghostT.load() > 20) {
+            g_ghostSeal.store(0);
+            if (g_tailSeal.load() == gs) g_tailSeal.store(0);
+            Log("SealGhostExit: seal %llX %s %.3f s after the last hit t=%.3f", (unsigned long long)gs, pr == 0 ? "despawned by itself" : "timeout (20 s)",
+                now - g_ghostT.load(), now);
+        } else if (pr == 1) GhostHideSeal(gs);
+    }
+    if (g_fhMode.load() != 4 && !g_fh4.owner) return;
     if (g_fh4.owner && g_fh4.fromSpawn) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
     else if (g_fhFollow.load() && g_fh4.owner && !g_fh4.seal) {  // pc #56910: no kind-0 capture for some cores (DOWN A2ACB) -> use the spawn hit
         const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
@@ -2778,7 +2803,8 @@ void FormHide4Tick(uint64_t player) {
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner) {
         const char* reason = nullptr;
-        if (g_fhMode.load() != 4) reason = "mode-change";
+        if (const uint64_t gr = g_ghostReq.load(); gr && gr == g_fh4.seal) { g_ghostReq.store(0); reason = "ghost-exit"; }
+        else if (g_fhMode.load() != 4) reason = "mode-change";
         else if (player != g_fh4.owner) reason = "player-change";
         else if (g_fh4Fault.load()) reason = "apply-fault";
         else if (!g_fh4.seal) {
@@ -3222,7 +3248,10 @@ void SealEndOnHitTick() {
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
             }
         }
-        if (const uint64_t ts = g_tailSeal.exchange(0)) Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
+        if (const uint64_t ts = g_tailSeal.load(); ts && ts != g_ghostSeal.load()) {
+            g_tailSeal.store(0);
+            Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
+        }
         sess = on ? Now() : 0; seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0;
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -3262,6 +3291,17 @@ void SealEndOnHitTick() {
     if (!fire) return;
     fired = true;
     if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (g_ghostOn.load() > 0) {  // pc #57569: end the form now, the seal runs on invisible (tail speed) until its own despawn
+        g_tailT0.store(now);
+        if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
+        g_ghostT.store(now);
+        g_ghostSeal.store(seal);
+        GhostHideSeal(seal);
+        g_ghostReq.store(seal);
+        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) t=%.3f",
+            (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), now);
+        return;
+    }
     if (g_sxfOn.load() > 0 && g_sxfN > 0) {  // pc #57269: shadow exit instead of the tail
         const uint64_t ow = g_sxfOwner == 1 ? seal : FkPlayer();
         const int made = SealExitFxSpawn(ow);
@@ -4207,6 +4247,7 @@ void Register(bool boss, bool rm, bool inv) {
         g_seoMode.store(IniInt(L"Spirit", L"SealEndOnIdle", 0));
         g_sehMode.store(IniInt(L"Spirit", L"SealEndOnHit", 0));
         SealExitFxLoad();
+        g_ghostOn.store(IniInt(L"Spirit", L"SealGhostExit", 0));
         g_slScanAt = IniInt(L"Spirit", L"SealLifeScanAtMs", 300) / 1000.0;
         GetPrivateProfileStringW(L"Spirit", L"SealLoopMotion", L"0", kb, 128, IniPath());
         g_slLoopMotion = (uint32_t)wcstoul(kb, nullptr, 16);
