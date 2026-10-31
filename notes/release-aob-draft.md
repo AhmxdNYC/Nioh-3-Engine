@@ -162,3 +162,16 @@ Same path as v1.7.87 deb036c4: one new commit on `public/main` (curated history)
   Restored in `practice_stats_game.h` (zig compile OK); Training must be rebuilt (MSVC) for the final assets.
 - rvas.json files carry short byte patterns (signatures), like the patterns already public in source.
 - Public README/USER_GUIDE still say 1.7.87; bump them in the same commit if wanted (not done by the script).
+
+## Soul-core code compiled out (pc #59173 option b, ally 10-31 5:30 am EST)
+
+- `#if BR_SOULCORE` around: bosslog.cpp form/seal/tenshin block + Register [Spirit] reads + SC probe hooks; rematch.cpp
+  tenshin/spirit pipe commands + Soul core tuning page rows; addon.h decls; hooks.cpp InstallCallKeyOverride; main.cpp
+  FormKey/SC install + [Spirit] InvLog trigger; sites_gen.h groups SC + ACANCEL (hand-added rows; derive_sites.py now emits
+  the guard, but regenerating drops the hand-added ACANCEL rows - known, pre-existing).
+- zig: BR_SOULCORE=0 1027072 B (was 1188352), 0 form strings; =1 builds (dev line unchanged). Exported public BR source
+  compiles to the same 1027072 B.
+- export_public.py strips `#if BR_SOULCORE` blocks, [Spirit]/[SealHits] ini sections, soul_core_tuning_menu.h, formhide4 tests:
+  dry run GATES OK, 82 files +8712/-633, 0 soul-core markers.
+- Training rebuilt with zig from f57ab0ec (frame-meter fix): bridge #4481 sha e58d4b16 (RC was 02fed4cc).
+- NEXT: pc MSVC-builds BossRematch from ally/release-aob 53bb84ee -> ally reissues assets (zip/stable.json) -> ally+pc2 recheck.
