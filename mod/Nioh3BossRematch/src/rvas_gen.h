@@ -128,7 +128,6 @@ constexpr Def kDefs[] = {
     {0x23C41FC, kCode, "E8 ?? ?? ?? ?? 41 BB 3D 00 00 00 49", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x2916C5C, kCode, "48 8B C4 48 89 58 10 48 89 70 18 44 89 48 20 57 48 81 EC 90", 0, 0x0, 0, 0, 0, ""},  // rematch.cpp
     {0x29667D8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 08 48 8B 80 10 5D 3F 00 C3", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
-    {0x45B3E30, kNone, "", 0, 0x0, 0, 0, 0, ""},  // bosslog.cpp
     {0x45B9E30, kGlobal, "48 8B 05 ?? ?? ?? ?? 48 8B 80 58 02 00 00 C3 CC 48 8B C1 C3", 0, 0x465AC, 3, 7, 0, ""},  // bosslog.cpp, rematch.cpp
     {0x45B9E38, kGlobal, "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 89 73 10 8B 53 14 85 D2", 0, 0x91313, 3, 7, 0, ""},  // bosslog.cpp
     {0x45B9E58, kGlobal, "4C 8B 3D ?? ?? ?? ?? 48 8B F9 0F 29", 0, 0x43D09, 3, 7, 0, ""},  // rematch.cpp

@@ -1027,14 +1027,6 @@
    ]
   },
   {
-   "rva": "0x45B3E30",
-   "kind": "none",
-   "why": "no rip-relative reference within 0x400 below",
-   "used_in": [
-    "bosslog.cpp"
-   ]
-  },
-  {
    "rva": "0x45B9E30",
    "kind": "global",
    "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 80 58 02 00 00 C3 CC 48 8B C1 C3",

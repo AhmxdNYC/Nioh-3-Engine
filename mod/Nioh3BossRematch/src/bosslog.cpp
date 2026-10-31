@@ -4812,7 +4812,7 @@ void TenshinSlots(uint64_t ext, char* out, size_t n) {
     size_t o = 0;
     auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
     __try {
-        uint8_t* tblp = (uint8_t*)(g_base + Grva(0x45B3E30));  // [rip+3E6DBB5] at 74C274
+        uint8_t* tblp = (uint8_t*)(g_base + Grva(0x45B9E30));  // [rip+3E6DBB5] at 74C274
         uint8_t* tbl = *(uint8_t**)(*(uint8_t**)tblp + 0x68);
         add("setidx=%d;", *(int32_t*)(ext + 0x590 + 0x1EE0));
         for (int s = 0; s < 0x11; ++s) {
