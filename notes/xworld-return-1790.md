@@ -32,3 +32,17 @@ Cross-world Fight now (R1CBC from home 0xB1/0x4B) -> Return: expect `XSTREAM RET
 `XWORLD return: home world 0xB1 reached` within ~10-20 s (like Fight now), `player put back`, then `RETURN done (back where the player was)`
 with player/HUD/control. If it is still slow, the XSTREAM lines will show which gate (0x..) holds; the 3B3A28 hook needs `CrossWorldAreaObjSkipMs 500` (ini default).
 Unproven: no in-game run; the gate attribution is inferred from the Fight now logs and the missing XSTREAM window, not seen directly.
+
+## ally/1 in-game result (2026-10-31, Linux/Proton ally, Lv136 save, Fight now Yamagata 0xB1 -> 0x4B, Return)
+- Patch above alone (TR ef492db7): still FAIL. The XSTREAM window helps (stage state 5 at +11.8 s, area-objects gate passed at +12.3 s) but the
+  mission sequencer then sits in **state 9 (223C684)** forever (log run1, 09:42:21 -> 3+ min, no player/HUD).
+- State 9 = `282B5C(0)`: any of the 9 event-scene slots of `[45CE800]` (+0x40, stride 0x308, scene id +0x4C, state +0x00) whose scene record
+  (`E51A84([45B9E30]+0x2F0, id)`, 0x4C-byte rows) has bit 0 of +0x24 (load-blocking) set. Live read: slot 0 id 0x21D1 and slot 1 id 0xB20B, both
+  state 6, present in the arena BEFORE the Return and still there after the world trip. They never end in the home world.
+- Proven live via /proc: zeroing the two ids -> sequencer 9 -> 11 -> 12 -> 15 -> 20 at once, home world loaded, put-back, HUD + control.
+- **Real fix (e419a2c3, TR 7e826f8a)**: EvSnap stores the slot ids right before the Return/cancel WarpOtherWorld; XrTick clears only those ids,
+  only after the sequencer has sat in state 9 for 1 s in the target world (normal state 9 lasts ~15 ms). Scenes of the new world are not touched.
+  Also: the put-back no longer waits the 25 s cap on far cells that stopped loading (7/11 for minutes): it goes when cells made no progress for 4 s.
+- Result: 2/2 PASS, Return done +39.6 s and +40.3 s (state 9 cleared at +28.3 s), player at the stored spot, HUD, moves; boss gone (DESPAWN + other world).
+- Known: after a WarpOtherWorld Return the home world's mission reads 0 (2nd Fight now stored 'mission 0x0'); pre-existing in the cancel path, not changed here.
+- Remaining time is native: seq state 5 holds ~13 s on gate G9 (0x100) after the area-objects skip, and seq 6-8 ~3 s.
