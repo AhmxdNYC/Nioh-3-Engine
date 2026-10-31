@@ -24,6 +24,7 @@
 // Every game call and every write runs on the game thread (the per-frame pump); the UI / pipe only post a request word. No story
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
+#include "gamerva.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -452,8 +453,8 @@ int CallRequestById(uint16_t id, uint8_t slot, uint32_t start) {
 int CallLoadingScreenEnd() {
     if (!g_img.base) return 2;
     __try {
-        ((void (*)())(g_img.base + 0x3B1B6C))();
-        ((void (*)(uint32_t, float, float))(g_img.base + 0x345508))(0, 30.0f, 0.0f);
+        ((void (*)())(g_img.base + Grva(0x3B1B6C)))();
+        ((void (*)(uint32_t, float, float))(g_img.base + Grva(0x345508)))(0, 30.0f, 0.0f);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -462,7 +463,7 @@ int CallLoadingScreenEnd() {
 int StageWorld(int* stage) {  // StageMgr [45B9E58]: +0x500 current world, +0x889 streamer state (5 = ready), as Nioh3Training CurWorld/StageState
     uint64_t sm = 0;
     uint8_t w = 0, st = 0;
-    if (!g_img.base || !Rd(g_img.base + 0x45B9E58, sm) || !sm || !Rd(sm + 0x500, w) || !Rd(sm + 0x889, st)) { *stage = -1; return -1; }
+    if (!g_img.base || !Rd(g_img.base + Grva(0x45B9E58), sm) || !sm || !Rd(sm + 0x500, w) || !Rd(sm + 0x889, st)) { *stage = -1; return -1; }
     *stage = st;
     return w;
 }
@@ -1716,9 +1717,9 @@ bool CoverAnchors() {
         {0x2EA351,"\x41\x83\xE9\x32\x0F\x84\x10\x01\x00\x00\x45\x2B\xCE\x0F\x84\xFB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xE2\x00\x00\x00\x45\x2B\xCE\x0F\x84\xD1\x00\x00\x00",37},
         {0x2EB152,"\x41\x81\xE9\xAC\x00\x00\x00\x0F\x84\xEB\x00\x00\x00\x45\x2B\xCE\x0F\x84\xCF\x00\x00\x00\x45\x2B\xCE\x0F\x84\x99\x00\x00\x00\x45\x2B\xCE\x74\x71\x45\x2B\xCE\x74\x50",41}};
     if(!g_img.base)return false;
-    for(const auto& a:lifeAnchors){char bytes[256];const uint64_t at=g_img.base+a.rva;
+    for(const auto& a:lifeAnchors){char bytes[256];const uint64_t at=g_img.base+Grva(a.rva);
         if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
-    for(const auto& a:anchors){char bytes[16];const uint64_t at=g_img.base+a.rva;
+    for(const auto& a:anchors){char bytes[16];const uint64_t at=g_img.base+Grva(a.rva);
         if(at<g_img.base||at+a.n>g_img.end||!Copy(bytes,at,a.n)||memcmp(bytes,a.bytes,a.n))return false;}
     return true;
 }
@@ -3900,10 +3901,10 @@ bool Toast(char* buf, size_t n, uint32_t& color) {
 int TCall(int which, uint64_t base, uint64_t a, uint64_t b) {
     __try {
         switch (which) {
-            case 1: ((void (*)(uint64_t))(base + 0x843010))(a); break;
-            case 2: ((void (*)(uint64_t))(base + 0x842A64))(a); break;
-            case 3: ((void (*)(uint64_t, int))(base + 0xA550E8))(a, (int)b); break;
-            case 4: ((void (*)(uint64_t, int, int))(base + 0x1AB4C5C))(a, 1, -1); break;
+            case 1: ((void (*)(uint64_t))(base + Grva(0x843010)))(a); break;
+            case 2: ((void (*)(uint64_t))(base + Grva(0x842A64)))(a); break;
+            case 3: ((void (*)(uint64_t, int))(base + Grva(0xA550E8)))(a, (int)b); break;
+            case 4: ((void (*)(uint64_t, int, int))(base + Grva(0x1AB4C5C)))(a, 1, -1); break;
         }
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -3979,7 +3980,7 @@ void SpiritSpawnNote(uint64_t state, uint32_t motion) {
 }
 int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
     __try {
-        ((void (*)(uint64_t, const float*, float, int, int))(base + 0x2916C5C))(mgr, pos, yaw, 0, 0);
+        ((void (*)(uint64_t, const float*, float, int, int))(base + Grva(0x2916C5C)))(mgr, pos, yaw, 0, 0);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -3988,14 +3989,14 @@ int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
 // ---- soul-core ids (ally #46829): DB=*(ctx+0x3F0); rec=fn 0x3748E0(DB,id), stride 0x100; yokai-summon cores have *(u32*)(rec+0x38)!=0 ----
 uint64_t SpiritRec(uint64_t base, uint64_t db, uint32_t id) {
     __try {
-        return ((uint64_t(*)(uint64_t, uint32_t))(base + 0x3748E0))(db, id);
+        return ((uint64_t(*)(uint64_t, uint32_t))(base + Grva(0x3748E0)))(db, id);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
 }
 int SpiritGaugeFill(uint64_t base, uint64_t G, float mx) {
     __try {
-        ((void (*)(uint64_t, float))(base + 0x916FAC))(G, mx);
+        ((void (*)(uint64_t, float))(base + Grva(0x916FAC)))(G, mx);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -4003,7 +4004,7 @@ int SpiritGaugeFill(uint64_t base, uint64_t G, float mx) {
 }
 uint64_t SpiritGaugeEntry(uint64_t base, uint64_t G) {
     __try {
-        return ((uint64_t(*)(uint64_t))(base + 0x377D30))(G);
+        return ((uint64_t(*)(uint64_t))(base + Grva(0x377D30)))(G);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
@@ -4018,7 +4019,7 @@ int SpiritRawCall(uint64_t fn, uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
 }
 int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
     __try {
-        ((void (*)(uint64_t, uint32_t))(base + 0x2153E7C))(pd, id);
+        ((void (*)(uint64_t, uint32_t))(base + Grva(0x2153E7C)))(pd, id);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -4026,7 +4027,7 @@ int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
 }
 int SpiritEquipCall(uint64_t base, uint64_t pd, uint32_t slot, uint32_t id) {
     __try {
-        ((void (*)(uint64_t, uint32_t, uint32_t))(base + 0x217D8B4))(pd, slot, id);
+        ((void (*)(uint64_t, uint32_t, uint32_t))(base + Grva(0x217D8B4)))(pd, slot, id);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -4044,7 +4045,7 @@ int SpiritSetPos(uint64_t chr, const float* pos) {
 // Falls back to the mgr captured by the 2916C5C hook (SpiritNoteMgr) when the chain is null.
 uint64_t SpiritMgr(uint64_t base, char* why, size_t n) {
     uint64_t G = 0, a = 0, holder = 0, mgr = 0;
-    Rd(base + 0x45BA228, G);
+    Rd(base + Grva(0x45BA228), G);
     if (G && Rd(G + 0x240, a) && a && Rd(a + 0x5E0, holder) && holder && Rd(holder + 8, mgr) && mgr) {
         snprintf(why, n, "G=%llX [G+240]=%llX holder=%llX mgr=%llX", (unsigned long long)G, (unsigned long long)a, (unsigned long long)holder, (unsigned long long)mgr);
         return mgr;
@@ -4106,7 +4107,7 @@ void Command(const char* line, char* reply, size_t n) {
         const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
         uint64_t pd = 0, in = 0, ctx = 0;
         uint32_t sel = 0;
-        if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in || !Rd(base + 0x4751530, ctx) || !ctx) {
+        if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in || !Rd(base + Grva(0x4751530), ctx) || !ctx) {
             snprintf(reply, n, "error player data not ready");
             return;
         }
@@ -4142,7 +4143,7 @@ void Command(const char* line, char* reply, size_t n) {
         char why[160];
         if (!strcmp(arg, "slots") || !strcmp(arg, "call")) {  // spirit slots : dwords [P]+0xF0..0x130 ; spirit call <rva> [a1..a4] (P=playerdata E=ext C=char, else hex): blind SEH call
             uint64_t pd = 0, in = 0;
-            if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in) {
+            if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in) {
                 snprintf(reply, n, "error player data not ready");
                 return;
             }
@@ -4199,7 +4200,7 @@ void Command(const char* line, char* reply, size_t n) {
         }
         if (!strcmp(arg, "scan") || !strcmp(arg, "equip") || !strcmp(arg, "add")) {  // spirit scan | spirit add <id> | spirit equip <id> [slot] (add first if not owned)
             uint64_t ctx = 0, db = 0, pd = 0, in = 0;
-            if (!Rd(base + 0x45B9E30, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
+            if (!Rd(base + Grva(0x45B9E30), ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
                 snprintf(reply, n, "error no ctx/DB (ctx=%llX db=%llX)", (unsigned long long)ctx, (unsigned long long)db);
                 return;
             }
@@ -4224,7 +4225,7 @@ void Command(const char* line, char* reply, size_t n) {
                 snprintf(reply, n, "error spirit add <id> | equip <id> [slot 0|1]");
                 return;
             }
-            if (!Rd(base + 0x4751860, pd) || !pd || !Rd(pd, in) || !in) {
+            if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in) {
                 snprintf(reply, n, "error player data not ready");
                 return;
             }
@@ -4324,7 +4325,7 @@ void Command(const char* line, char* reply, size_t n) {
         // the prologue of Begin (0x843010) must match the dump, else the RVA is wrong for this build
         static const uint8_t kBeginHead[8] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48};
         uint8_t head[8] = {};
-        if (!Copy(head, base + 0x843010, 8) || memcmp(head, kBeginHead, 8)) {
+        if (!Copy(head, base + Grva(0x843010), 8) || memcmp(head, kBeginHead, 8)) {
             snprintf(reply, n, "error Begin prologue mismatch %02X%02X%02X%02X", head[0], head[1], head[2], head[3]);
             return;
         }
@@ -4463,6 +4464,8 @@ void Command(const char* line, char* reply, size_t n) {
     }
     snprintf(reply, n, "error unknown command (ping status scan row start fight shrine exit abort open scroll)");
 }
+
+bool PlayerExists() { return PlayerChar() != 0; }
 
 }  // namespace rematch
 }  // namespace addon

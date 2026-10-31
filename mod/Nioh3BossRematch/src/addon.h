@@ -134,6 +134,7 @@ bool Prepare();  // reads [Rematch], loads catalogue/entry hooks; not pump-live
 void SetPumpLive(bool installed);  // Init publishes pump installation outcome
 void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
+bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
 // UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];

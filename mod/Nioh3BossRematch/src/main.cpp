@@ -3,6 +3,8 @@
 // (Nioh3EngineFix >= 1.7.41) hooks no boss site, and the only site both may touch (the per-frame call, used by its debug Tour) is
 // chained by hooks.cpp whichever loads first (the Tour refuses to install over us; logged by both).
 #include "addon.h"
+#include "gamerva.h"
+#include "rvas_gen.h"
 #include "sites_gen.h"
 
 #include <cstdarg>
@@ -122,6 +124,13 @@ bool StartRematchPump() {
     return rematch::Live();
 }
 
+// gamerva Verify (logs "game RVAs ...") once the player exists: code is decrypted and the globals are live by then.
+DWORD WINAPI VerifyRvas(void*) {
+    for (int i = 0; i < 600 && !rematch::PlayerExists(); ++i) Sleep(1000);
+    gamerva::Verify();
+    return 0;
+}
+
 DWORD WINAPI Init(void*) {
     const DWORD t0 = GetTickCount();
     const int waitSec = IniInt(L"General", L"DecryptWaitSeconds", 120);
@@ -147,6 +156,7 @@ DWORD WINAPI Init(void*) {
     if (inv) Feature("InvLog", "INV");
     if (inv) Feature("InvLog", "SC");
     if (IniInt(L"Spirit", L"FormKey", 0)) bosslog::FormKeyInstall();  // own switch: installs its SC hooks even with InvLog=0
+    if (HANDLE t = CreateThread(nullptr, 0, VerifyRvas, nullptr, 0, nullptr)) CloseHandle(t);
     ui::Start();  // settings remain reachable with Rematch disabled; no rematch hooks are added
     remote::Start();
     Log("ready (%lu ms): BossLog %d, RematchLog %d, InvLog %d, Rematch %s", GetTickCount() - t0, boss, rm, inv, live ? "live" : "off");
@@ -176,6 +186,8 @@ void Boot() {
     g_img.timestamp = nt->FileHeader.TimeDateStamp;
     g_img.sizeOfImage = nt->OptionalHeader.SizeOfImage;
     g_img.knownBuild = g_img.timestamp == sites::kKnownTimestamp && g_img.sizeOfImage == sites::kKnownSizeOfImage;
+    // Grva: identity on v2.02, byte-pattern lookup (rvas.json) on another build
+    gamerva::Init(g_img.base, g_img.timestamp == gamerva::rvas::kBuildTimestamp && g_img.sizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
     const HMODULE perf = GetModuleHandleW(L"Nioh3EngineFix.asi");
     Log("Nioh3BossRematch %s (separate add-on; boss logger + rematch). Game %ls, TimeDateStamp 0x%08X, SizeOfImage 0x%X: %s. Nioh3EngineFix.asi %s.",
         ADDON_VERSION, en, g_img.timestamp, g_img.sizeOfImage, g_img.knownBuild ? "known build v2.02 (fast path)" : "UNKNOWN build - every site by pattern scan",

@@ -3,6 +3,7 @@
 // [Debug] BossLog / RematchLog / InvLog in Nioh3BossRematch.ini (all 0 by default). Every hook: the handler runs, then the
 // original instructions, with all argument registers and xmm0-5 intact (hooks.cpp). Sites resolve by pattern / native name.
 #include "addon.h"
+#include "gamerva.h"
 
 #include <intrin.h>
 #include <tlhelp32.h>
@@ -1003,7 +1004,7 @@ WORD PadButtons(BYTE* lt, BYTE* rt) {
 }
 int TenshinReqCall(uint64_t bits) {
     __try {
-        ((void (*)(uint64_t, uint64_t, uint8_t))(g_base + 0xFC1A20))(bits, 0x4E, 1);
+        ((void (*)(uint64_t, uint64_t, uint8_t))(g_base + Grva(0xFC1A20)))(bits, 0x4E, 1);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -1022,7 +1023,7 @@ int TenshinSetFormCall(uint64_t st, uint32_t id, int which) {
 }
 int TenshinMoveCall(uint64_t st, uint32_t id) {
     __try {
-        ((void (*)(uint64_t, uint32_t, uint32_t, float))(g_base + 0x66C4A8))(st, id, 0, 0.0f);
+        ((void (*)(uint64_t, uint32_t, uint32_t, float))(g_base + Grva(0x66C4A8)))(st, id, 0, 0.0f);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -1525,10 +1526,10 @@ volatile LONG g_spBusy = 0;
 uint64_t SpLookup(uint32_t id, uint32_t* key0) {
     uint64_t g = 0, db = 0;
     *key0 = 0;
-    if (!Rd(g_base + 0x45B9E30, g) || !g || !Rd(g + 0x58, db) || !db) return 0;
+    if (!Rd(g_base + Grva(0x45B9E30), g) || !g || !Rd(g + 0x58, db) || !db) return 0;
     uint64_t r = 0;
     __try {
-        r = ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x406668))(db, id);
+        r = ((uint64_t(*)(uint64_t, uint32_t))(g_base + Grva(0x406668)))(db, id);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
     }
@@ -1726,7 +1727,7 @@ uint64_t HkPart47(uint64_t part, uint32_t id, uint64_t chr, uint64_t r9) {
 }
 bool FkRebuildParts(uint64_t chr) {
     __try {
-        ((void (*)(uint64_t, uint64_t))(g_base + 0xF3478))(chr + 0x9F0, 0);
+        ((void (*)(uint64_t, uint64_t))(g_base + Grva(0xF3478)))(chr + 0x9F0, 0);
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -1754,7 +1755,7 @@ std::atomic<int> g_foxMode{0};  // ally #55149 FormObjFix
 std::atomic<int> g_fzsMode{0};  // pc #55150 FormZeroSlot
 bool FaCall(uint64_t obj) {
     __try {
-        ((void (*)(uint64_t, uint32_t, uint32_t))(g_base + 0x2C4450))(obj, 0, 0xFFFFFFFFu);
+        ((void (*)(uint64_t, uint32_t, uint32_t))(g_base + Grva(0x2C4450)))(obj, 0, 0xFFFFFFFFu);
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -1831,11 +1832,11 @@ void FormCommitInstall() {
     int o = 0;
     skipped[0] = 0;
     for (uint32_t rva : kS) {
-        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t* p = (uint8_t*)(g_base + Grva(rva));
         uint8_t b[5] = {};
         int32_t rel = 0;
         if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
-        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x3FD37C) { if (o < 230) o += sprintf_s(skipped + o, sizeof(skipped) - o, " +%X(%02X)", rva, b[0]); continue; }
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + Grva(0x3FD37C)) { if (o < 230) o += sprintf_s(skipped + o, sizeof(skipped) - o, " +%X(%02X)", rva, b[0]); continue; }
         const char* w = nullptr;
         void* orig = nullptr;
         if (!InstallCallRetargetAt(p, "call:FormCommit3FD37C", (void*)&HkFc3FD37C, &orig, &w)) { Log("FormCommit: +%X failed: %s", rva, w ? w : "?"); continue; }
@@ -1852,7 +1853,7 @@ void FcRead(uint64_t s, FcSnap& x) {
 }
 bool FcCall(uint64_t chr) {
     __try {
-        ((uint64_t(*)(uint64_t, uint64_t, uint64_t))(g_base + 0x3FD37C))(chr, 1, 0);
+        ((uint64_t(*)(uint64_t, uint64_t, uint64_t))(g_base + Grva(0x3FD37C)))(chr, 1, 0);
         return true;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return false;
@@ -2034,7 +2035,7 @@ FormHideEndWatch g_fhEnd;
 
 bool FormHideCodeMatches(uint64_t rva, const uint8_t* want, size_t n) {
     uint8_t bytes[128] = {}; // shellWriter guard is 75 bytes (#56115: 64 made mode 4 never install)
-    return n <= sizeof(bytes) && Copy(bytes, g_base + rva, n) && memcmp(bytes, want, n) == 0;
+    return n <= sizeof(bytes) && Copy(bytes, g_base + Grva(rva), n) && memcmp(bytes, want, n) == 0;
 }
 // Unknown is -1, never 'absent'. Only a complete, bounded walk can establish absence.
 int FormHideSealPresent(uint64_t global, uint64_t seal) {
@@ -2068,7 +2069,7 @@ void FormHideEndBegin(uint64_t player, uint64_t seal) {
         0x48,0x85,0xC9,0x74,0x0C,0x48,0x81,0xC1,0x98,0x0B,0,0,0xE8,0x11,0,0,0};
     if (FormHideCodeMatches(0x2BF7E8, removeHead, sizeof(removeHead))) {
         int32_t rel = 0;
-        if (Rd(g_base + 0x2BF7F2, rel)) g_fhEnd.actorGlobal = g_base + 0x2BF7F6 + rel;
+        if (Rd(g_base + Grva(0x2BF7F2), rel)) g_fhEnd.actorGlobal = g_base + Grva(0x2BF7F6) + rel;
     }
     Log("FormHideUntilEnd begin player=%llX seal=%llX LAguard=%d actorTableGuard=%d (unobserved signals fall back to 20s)",
         (unsigned long long)player, (unsigned long long)seal, g_fhEnd.laGuard, g_fhEnd.actorGlobal != 0);
@@ -2117,13 +2118,13 @@ static bool FormPinWarpCall(uint64_t cap, const float* pos) {
     static int guard = -1;
     if (guard < 0) {
         uint8_t b[sizeof(want)] = {};
-        guard = Copy(b, g_base + 0x669AB8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
+        guard = Copy(b, g_base + Grva(0x669AB8), sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
         Log("FormPinWarp: 669AB8 guard %s", guard ? "ok" : "differs - falling back to the +110 write");
     }
     if (!guard) return false;
     alignas(16) float p[4] = {pos[0], pos[1], pos[2], 1.0f};  // 3578E0 / 669C40 use movaps
     __try {
-        ((void (*)(uint64_t, float*, uint8_t))(g_base + 0x669AB8))(cap, p, 0);
+        ((void (*)(uint64_t, float*, uint8_t))(g_base + Grva(0x669AB8)))(cap, p, 0);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         guard = 0;
         Log("FormPinWarp: 669AB8 faulted on chr %llX - disabled", (unsigned long long)cap);
@@ -2141,7 +2142,7 @@ bool FormPin(uint64_t pchr, uint64_t cap) {
     if (!ag) {  // FormHideUntilEnd off: same RIP-relative actor manager load as FormHideEndBegin, opcode-checked
         static const uint8_t mov[3] = {0x48, 0x8B, 0x0D};
         int32_t rel = 0;
-        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + 0x2BF7F2, rel)) ag = g_base + 0x2BF7F6 + rel;
+        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + Grva(0x2BF7F2), rel)) ag = g_base + Grva(0x2BF7F6) + rel;
     }
     const bool warped = g_fhWarp.load() && (g_fh4Mask.load() & 64) && FormHideSealPresent(ag, cap) == 1 && FormPinWarpCall(cap, pos);
     if (!warped && !WrBytes(cap + 0x110, pos, 16)) return false;
@@ -2179,7 +2180,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     if (!ag) {
         static const uint8_t mov[3] = {0x48, 0x8B, 0x0D};
         int32_t rel = 0;
-        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + 0x2BF7F2, rel)) ag = g_base + 0x2BF7F6 + rel;
+        if (FormHideCodeMatches(0x2BF7EF, mov, 3) && Rd(g_base + Grva(0x2BF7F2), rel)) ag = g_base + Grva(0x2BF7F6) + rel;
     }
     if (FormHideSealPresent(ag, cap) != 1) return false;
     float pos[4] = {};
@@ -2774,21 +2775,21 @@ void FormHide4Install() {
     for (uint32_t rva : calls) {
         const uint64_t target = rva == 0xF5CB0 ? 0xEFC30 : rva == 0x162200 ? 0x567568 : 0x40169C;
         uint8_t b[5] = {}; int32_t rel = 0;
-        if (!Copy(b, g_base + rva, 5)) return;
+        if (!Copy(b, g_base + Grva(rva), 5)) return;
         memcpy(&rel, b + 1, 4);
-        if (b[0] != 0xE8 || g_base + rva + 5 + rel != g_base + target) {
+        if (b[0] != 0xE8 || g_base + Grva(rva) + 5 + rel != g_base + target) {
             Log("FormHide=4 call guard +%X failed", rva); return;
         }
     }
     // Set originals before installing any live retarget; partial installation never arms writes.
-    g_fh4PartsOrig = (void*)(g_base + 0x40169C);
-    g_fh4MultiplierOrig = (void*)(g_base + 0x567568);
-    g_fh4AlphaOrig = (void*)(g_base + 0xEFC30);
+    g_fh4PartsOrig = (void*)(g_base + Grva(0x40169C));
+    g_fh4MultiplierOrig = (void*)(g_base + Grva(0x567568));
+    g_fh4AlphaOrig = (void*)(g_base + Grva(0xEFC30));
     unsigned n = 0;
     for (uint32_t rva : calls) {
         const bool mult = rva == 0x162200, alpha = rva == 0xF5CB0;
         const char* why = nullptr; void* original = nullptr;
-        if (!InstallCallRetargetAt((uint8_t*)(g_base + rva),
+        if (!InstallCallRetargetAt((uint8_t*)(g_base + Grva(rva)),
                 alpha ? "call:FormHide4ShellAlpha" : mult ? "call:FormHide4Multiplier" : "call:FormHide4Parts",
                 alpha ? (void*)&HkFh4Alpha : mult ? (void*)&HkFh4Multiplier : (void*)&HkFh4Parts, &original, &why)) {
             Log("FormHide=4 hook +%X failed (%s)", rva, why ? why : "unknown"); break;
@@ -2881,9 +2882,9 @@ void FastThrowInstall() {
         uint8_t b[5] = {}; int32_t rel = 0;
         if (!Copy(b, g_base + rva, 5)) { Log("FastThrow: +%X unreadable - off", rva); return; }
         memcpy(&rel, b + 1, 4);
-        if (b[0] != 0xE8 || g_base + rva + 5 + rel != g_base + 0x134E68) { Log("FastThrow: call guard +%X failed - off", rva); return; }
+        if (b[0] != 0xE8 || g_base + rva + 5 + rel != g_base + Grva(0x134E68)) { Log("FastThrow: call guard +%X failed - off", rva); return; }
     }
-    g_ftOrig = (void*)(g_base + 0x134E68);
+    g_ftOrig = (void*)(g_base + Grva(0x134E68));
     unsigned k = 0;
     for (uint32_t rva : calls) {
         const char* why = nullptr; void* original = nullptr;
@@ -2931,10 +2932,10 @@ void OrbSkipInstall() {
         Log("OrbSkip: 322468 call bytes differ (not this game build) - off"); return;
     }
     const char* why = nullptr;
-    if (!InstallCallRetargetAt((uint8_t*)(g_base + 0x322DD9), "call:OrbSkipGround", (void*)&HkOrbGround, &g_orbLandOrig, &why)) {
+    if (!InstallCallRetargetAt((uint8_t*)(g_base + Grva(0x322DD9)), "call:OrbSkipGround", (void*)&HkOrbGround, &g_orbLandOrig, &why)) {
         Log("OrbSkip: ground hook failed (%s) - off", why ? why : "?"); return;
     }
-    if (!InstallCallRetargetAt((uint8_t*)(g_base + 0x322958), "call:OrbSkipFx", (void*)&HkOrbFx, &g_orbFxOrig, &why))
+    if (!InstallCallRetargetAt((uint8_t*)(g_base + Grva(0x322958)), "call:OrbSkipFx", (void*)&HkOrbFx, &g_orbFxOrig, &why))
         Log("OrbSkip: orb effect hook failed (%s) - orb lands at once but its effect may flash", why ? why : "?");
     Log("OrbSkip: on (seal orb lands on its first tick, orb effect 0x6254D off)");
 }
@@ -3233,7 +3234,7 @@ void FormHideDirectTick(uint64_t pchr) {
     };
     auto guarded = [&]() {
         uint8_t b[sizeof(want)] = {};
-        return Copy(b, g_base + 0xA550E8, sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
+        return Copy(b, g_base + Grva(0xA550E8), sizeof(b)) && memcmp(b, want, sizeof(b)) == 0;
     };
     bool leftEdge = false, actEdge = false;
     if (g_fhPress.load() && mode == 3) {
@@ -3346,12 +3347,12 @@ void FormHideTick(uint64_t pchr) {
     auto call = [&](uint8_t h) {
         static const uint8_t want[16] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9, 0xD4, 0x09, 0x00, 0x00};
         uint8_t b[16] = {};
-        if (!Copy(b, g_base + 0xA550E8, 16) || memcmp(b, want, 16) != 0) { Log("FormHide: A550E8 bytes differ - skipped"); return false; }
+        if (!Copy(b, g_base + Grva(0xA550E8), 16) || memcmp(b, want, 16) != 0) { Log("FormHide: A550E8 bytes differ - skipped"); return false; }
         uint8_t before = 0xFF, after = 0xFF;
         Rd(pchr + 0xB440, before);
         bool ok = true;
         __try {
-            ((void (*)(uint64_t, uint8_t))(g_base + 0xA550E8))(pchr, h);
+            ((void (*)(uint64_t, uint8_t))(g_base + Grva(0xA550E8)))(pchr, h);
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             ok = false;
         }
@@ -3460,13 +3461,13 @@ int SealQueueDespawn(uint64_t cap) {
     if (bytesOk < 0) {
         static const uint8_t want[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xD1, 0x48, 0x8B, 0x0D};
         uint8_t b[sizeof(want)] = {};
-        bytesOk = Copy(b, g_base + 0x681E9C, sizeof(b)) && !memcmp(b, want, sizeof(want));
+        bytesOk = Copy(b, g_base + Grva(0x681E9C), sizeof(b)) && !memcmp(b, want, sizeof(want));
         if (!bytesOk) Log("SealEnd: 681E9C bytes not found in this update - off");
     }
     if (!bytesOk) return -1;
     int ok = 1;
     g_seoForce = cap;
-    __try { ((void (*)(uint64_t))(g_base + 0x681E9C))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    __try { ((void (*)(uint64_t))(g_base + Grva(0x681E9C)))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     g_seoForce = 0;
     return ok;
 }
@@ -3571,20 +3572,20 @@ int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
         static const uint8_t w1[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x40};
         static const uint8_t w2[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x83, 0x21, 0x00, 0x48, 0x8B};
         uint8_t b1[sizeof(w1)] = {}, b2[sizeof(w2)] = {};
-        bytesOk = Copy(b1, g_base + 0x2C6CE0, sizeof(b1)) && !memcmp(b1, w1, sizeof(w1)) && Copy(b2, g_base + 0x48E97C, sizeof(b2)) && !memcmp(b2, w2, sizeof(w2));
+        bytesOk = Copy(b1, g_base + Grva(0x2C6CE0), sizeof(b1)) && !memcmp(b1, w1, sizeof(w1)) && Copy(b2, g_base + Grva(0x48E97C), sizeof(b2)) && !memcmp(b2, w2, sizeof(w2));
         if (!bytesOk) Log("SealExitFx: 2C6CE0/48E97C bytes not found in this update - off");
     }
     if (!bytesOk || !owner) return 0;
     uint64_t mgr = 0;
-    if (!Rd(g_base + 0x45B9E38, mgr) || !mgr) return 0;
+    if (!Rd(g_base + Grva(0x45B9E38), mgr) || !mgr) return 0;
     int made = 0;
     for (int i = 0; i < g_sxfN; ++i) {
         alignas(16) uint8_t P[0x60] = {};
         alignas(16) uint8_t out[0x20] = {};
         __try {
-            ((void (*)(void*))(g_base + 0x48E97C))(P);
+            ((void (*)(void*))(g_base + Grva(0x48E97C)))(P);
             *(int32_t*)P = g_sxfBone;
-            ((void* (*)(uint64_t, void*, uint32_t, void*, uint64_t, uint64_t))(g_base + 0x2C6CE0))(mgr, out, g_sxfIds[i], P, owner, 0);
+            ((void* (*)(uint64_t, void*, uint32_t, void*, uint64_t, uint64_t))(g_base + Grva(0x2C6CE0)))(mgr, out, g_sxfIds[i], P, owner, 0);
             ++made;
         } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SealExitFx: effect %X faulted", g_sxfIds[i]); }
     }
@@ -3938,11 +3939,11 @@ void SealExitReplayTick() {  // game thread
         // from +5: the first 5 bytes are our own EffectCreate hook's jump (the call below goes through it, HkFxRec skips it via t_fxReplaying)
         static const uint8_t w[] = {0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xA8, 0x88, 0xFC, 0xFF, 0xFF};
         uint8_t b[sizeof(w)] = {};
-        bytesOk = Copy(b, g_base + 0x4CE90C + 5, sizeof(b)) && !memcmp(b, w, sizeof(w));
+        bytesOk = Copy(b, g_base + Grva(0x4CE90C) + 5, sizeof(b)) && !memcmp(b, w, sizeof(w));
         if (!bytesOk) Log("SealExitReplay: 4CE90C bytes not found in this update - off");
     }
     uint64_t mgr = 0;
-    if (!bytesOk || !Rd(g_base + 0x45B9E38, mgr) || !mgr) { g_fxPlayN = 0; return; }
+    if (!bytesOk || !Rd(g_base + Grva(0x45B9E38), mgr) || !mgr) { g_fxPlayN = 0; return; }
     const double now = Now();
     int k = 0;
     for (int i = 0; i < g_fxPlayN; ++i) {
@@ -3953,7 +3954,7 @@ void SealExitReplayTick() {  // game thread
         alignas(16) uint8_t out[0x20] = {};
         t_fxReplaying = true;
         __try {
-            ((void* (*)(uint64_t, void*, uint32_t, uint64_t, uint64_t, uint64_t, uint64_t))(g_base + 0x4CE90C))(
+            ((void* (*)(uint64_t, void*, uint32_t, uint64_t, uint64_t, uint64_t, uint64_t))(g_base + Grva(0x4CE90C)))(
                 mgr, out, p.r.id, p.r.world ? (uint64_t)blk : p.r.d, p.r.world ? 0 : (uint64_t)blk, p.r.owner, p.r.a7);
             Log("SealExitReplay: fx %X %s replayed owner %llX t=%.3f", p.r.id, p.r.world ? "world" : "bone", (unsigned long long)p.r.owner, now);
         } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SealExitReplay: fx %X faulted", p.r.id); }
@@ -4009,7 +4010,7 @@ void SealEndOnHitTick() {
             bursts, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
     }
     uint64_t pb = 0;
-    if (!Rd(g_base + 0x45C6F38, pb) || !pb) return;
+    if (!Rd(g_base + Grva(0x45C6F38), pb) || !pb) return;
     pool.resize(0xFA0);
     if (!Copy(pool.data(), pb + 0x20, 0xFA0 * 8)) return;
     int n = 0;
@@ -4261,9 +4262,9 @@ void FkSlot0Tick(uint64_t pchr) {  // game thread
 }
 uint64_t FkPack(uint64_t key) {
     uint64_t m = 0;
-    if (!Rd(g_base + 0x45B9E60, m) || !m) return 0;
+    if (!Rd(g_base + Grva(0x45B9E60), m) || !m) return 0;
     __try {
-        return ((uint64_t(*)(uint64_t, uint64_t))(g_base + 0x133440))(m, key);
+        return ((uint64_t(*)(uint64_t, uint64_t))(g_base + Grva(0x133440)))(m, key);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
@@ -4271,7 +4272,7 @@ uint64_t FkPack(uint64_t key) {
 uint64_t FkModel(uint64_t key, int& fault) {
     fault = 0;
     __try {
-        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x1175400))(key, 3);
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + Grva(0x1175400)))(key, 3);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         fault = 1;
         return 0;
@@ -4279,16 +4280,16 @@ uint64_t FkModel(uint64_t key, int& fault) {
 }
 uint64_t FkGameKey(uint32_t id) {  // 0x134314(-, id) = 0x300000000 + id with the game's optional remap (SetForm 74C675)
     __try {
-        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x134314))(0, id);
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + Grva(0x134314)))(0, id);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
 }
 uint64_t FkRec(uint32_t id) {
     uint64_t ctx = 0, db = 0;
-    if (!Rd(g_base + 0x45B9E30, ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) return 0;
+    if (!Rd(g_base + Grva(0x45B9E30), ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) return 0;
     __try {
-        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + 0x3748E0))(db, id);
+        return ((uint64_t(*)(uint64_t, uint32_t))(g_base + Grva(0x3748E0)))(db, id);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
@@ -4456,7 +4457,7 @@ void HkFormKeySpawn(uint64_t a, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 }
 int FkSetFormCall(uint64_t st, uint32_t x, int& ret) {
     __try {
-        ret = ((uint8_t(*)(uint64_t, uint32_t))(g_base + 0x74C2FC))(st, x);
+        ret = ((uint8_t(*)(uint64_t, uint32_t))(g_base + Grva(0x74C2FC)))(st, x);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -4779,10 +4780,10 @@ void TenshinPreload(uint32_t id, bool request, char* out, size_t n) {
     for (uint32_t f : kForms) {
         if (id && f != id) continue;
         __try {
-            const uint32_t key = ((uint32_t(*)(uint32_t))(g_base + 0x11793F0))(f);
-            if (request) ((void (*)(uint32_t, uint32_t))(g_base + 0x1A8B990))(key, 0);
-            void* tbl = *(void**)(g_base + 0x45B9E60);
-            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + 0x133440))(tbl, 0x600000000ull + key);
+            const uint32_t key = ((uint32_t(*)(uint32_t))(g_base + Grva(0x11793F0)))(f);
+            if (request) ((void (*)(uint32_t, uint32_t))(g_base + Grva(0x1A8B990)))(key, 0);
+            void* tbl = *(void**)(g_base + Grva(0x45B9E60));
+            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + Grva(0x133440)))(tbl, 0x600000000ull + key);
             add(" %X:key=%X,E=%p,2C8=%d,m20=%llX,a18=%llX,m28=%llX", f, key, (void*)e, e ? (int)e[0x2C8] : -1, e ? *(unsigned long long*)(e + 0x20) : 0ull, e ? *(unsigned long long*)(e + 0x18) : 0ull, e ? *(unsigned long long*)(e + 0x28) : 0ull);
         } __except (EXCEPTION_EXECUTE_HANDLER) { add(" %X:(fault)", f); }
     }
@@ -4797,11 +4798,11 @@ void TenshinLoad(uint32_t form, char* out, size_t n) {
     for (auto& k : kIdx) {
         if (form && k.f != form) continue;
         __try {
-            void* mgr = *(void**)(g_base + 0x45B9E60);
+            void* mgr = *(void**)(g_base + Grva(0x45B9E60));
             const uint64_t key = 0x600000000ull + k.idx;
-            void* ctx = ((void* (*)())(g_base + 0x29667D8))();
-            ((void (*)(void*, uint64_t, void*))(g_base + 0x3F9C10))(mgr, key, ctx);
-            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + 0x133440))(mgr, key);
+            void* ctx = ((void* (*)())(g_base + Grva(0x29667D8)))();
+            ((void (*)(void*, uint64_t, void*))(g_base + Grva(0x3F9C10)))(mgr, key, ctx);
+            uint8_t* e = ((uint8_t * (*)(void*, uint64_t)) (g_base + Grva(0x133440)))(mgr, key);
             add(" %X(idx %X):E=%s,2C8=%d", k.f, k.idx, e ? "y" : "n", e ? (int)e[0x2C8] : -1);
         } __except (EXCEPTION_EXECUTE_HANDLER) { add(" %X:(fault)", k.f); }
     }
@@ -4811,13 +4812,13 @@ void TenshinSlots(uint64_t ext, char* out, size_t n) {
     size_t o = 0;
     auto add = [&](const char* f, auto... a) { if (o < n) o += (size_t)snprintf(out + o, n - o, f, a...); };
     __try {
-        uint8_t* tblp = (uint8_t*)(g_base + 0x45B3E30);  // [rip+3E6DBB5] at 74C274
+        uint8_t* tblp = (uint8_t*)(g_base + Grva(0x45B3E30));  // [rip+3E6DBB5] at 74C274
         uint8_t* tbl = *(uint8_t**)(*(uint8_t**)tblp + 0x68);
         add("setidx=%d;", *(int32_t*)(ext + 0x590 + 0x1EE0));
         for (int s = 0; s < 0x11; ++s) {
-            uint16_t* w = ((uint16_t * (*)(uint64_t, int)) (g_base + 0xF65D8))(ext + 0x590, s);
+            uint16_t* w = ((uint16_t * (*)(uint64_t, int)) (g_base + Grva(0xF65D8)))(ext + 0x590, s);
             const uint32_t id = w ? *w : 0;
-            uint8_t* d = id ? ((uint8_t * (*)(void*, uint64_t)) (g_base + 0xF4DBC))(tbl, id) : nullptr;
+            uint8_t* d = id ? ((uint8_t * (*)(void*, uint64_t)) (g_base + Grva(0xF4DBC)))(tbl, id) : nullptr;
             add(" s%X=%X/%X", s, id, d ? *(uint32_t*)(d + 0x58) : 0xFFFFFFFFu);
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { add(" (fault)"); }
@@ -4858,7 +4859,7 @@ bool FormKeyInstall() {
             const char* w = nullptr;
             uint8_t b[5] = {};
             int32_t rel = 0;
-            if (!Copy(b, g_base + rva, 5) || b[0] != 0xE8 || (memcpy(&rel, b + 1, 4), g_base + rva + 5 + rel) != g_base + 0x681044) {
+            if (!Copy(b, g_base + rva, 5) || b[0] != 0xE8 || (memcpy(&rel, b + 1, 4), g_base + rva + 5 + rel) != g_base + Grva(0x681044)) {
                 Log("SealDefer: call %X does not target 681044 - skipped", rva);
                 continue;
             }
@@ -4875,11 +4876,11 @@ bool FormKeyInstall() {
     int n = 0;
     static const uint32_t kCalls[] = {0x74C698, 0x74C438};  // the only two callers of 0x11793D0 (SetForm / its online sibling)
     for (uint32_t rva : kCalls) {
-        uint8_t* p = (uint8_t*)(g_base + rva);
+        uint8_t* p = (uint8_t*)(g_base + Grva(rva));
         uint8_t b[5] = {};
         int32_t rel = 0;
         if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
-        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x11793D0) {
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + Grva(0x11793D0)) {
             Log("FormKey: call +%X is not 'call 11793D0' - key override not installed there", rva);
             continue;
         }
@@ -4889,22 +4890,22 @@ bool FormKeyInstall() {
     }
     Log("FormKey: key override on %d/2 call sites of 0x11793D0", n);
     {   // model mode: SetForm's model getter call (74C79D call 1175400 -> 74C7B1 write)
-        uint8_t* p = (uint8_t*)(g_base + 0x74C79D);
+        uint8_t* p = (uint8_t*)(g_base + Grva(0x74C79D));
         uint8_t b[5] = {};
         int32_t rel = 0;
         if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
         const char* w = nullptr;
-        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0x1175400) Log("FormKey: +74C79D is not 'call 1175400' - model override not installed");
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + Grva(0x1175400)) Log("FormKey: +74C79D is not 'call 1175400' - model override not installed");
         else if (InstallCallKeyOverride(p, "call:FormKeyModel1175400", &g_fkMCell, &g_fkMHits, &w)) Log("FormKey: model override on +74C79D (FormModel=%d)", g_fkModelMode.load());
         else Log("FormKey: model override at +74C79D failed: %s", w ? w : "?");
     }
     {   // pc #54384: part-47 loader call in F3478 (+F38AE call F3D78)
-        uint8_t* p = (uint8_t*)(g_base + 0xF38AE);
+        uint8_t* p = (uint8_t*)(g_base + Grva(0xF38AE));
         uint8_t b[5] = {};
         int32_t rel = 0;
         if (Copy(b, (uint64_t)p, 5)) memcpy(&rel, b + 1, 4);
         const char* w = nullptr;
-        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + 0xF3D78) Log("FormKey: +F38AE is not 'call F3D78' - part-47 hook not installed");
+        if (b[0] != 0xE8 || (uint64_t)(p + 5 + rel) != g_base + Grva(0xF3D78)) Log("FormKey: +F38AE is not 'call F3D78' - part-47 hook not installed");
         else if (InstallCallRetargetAt(p, "call:FormPart47F3D78", (void*)&HkPart47, &g_fkPartOrig, &w)) Log("FormKey: part-47 hook on +F38AE (FormPart=%d)", g_fkPartMode.load());
         else Log("FormKey: part-47 hook at +F38AE failed: %s", w ? w : "?");
     }
@@ -5145,7 +5146,7 @@ void Register(bool boss, bool rm, bool inv) {
         // pc #56435: the log-only probes cost FPS (~100 log lines/s); [Spirit] Probes=1 installs them, 0 (default) leaves them out entirely
         if (g_scProbes.load()) OnEntry("ScProbe_TenshinInput", &HkTenshinInput);
         if (g_scProbes.load()) OnEntry("ScProbe_786C84", &HkTenshinReq);
-        if (g_scProbes.load()) { void* o = nullptr; const char* w = nullptr; if (InstallCallRetargetAt((uint8_t*)(g_base + 0x74C27F), "call:RefreshFormItemDef", (void*)&HkItemDefForm, &o, &w)) g_itemDefOrig = (void* (*)(void*, uint64_t))o; else Log("TenshinForm: itemdef hook failed: %s", w ? w : "?"); }
+        if (g_scProbes.load()) { void* o = nullptr; const char* w = nullptr; if (InstallCallRetargetAt((uint8_t*)(g_base + Grva(0x74C27F)), "call:RefreshFormItemDef", (void*)&HkItemDefForm, &o, &w)) g_itemDefOrig = (void* (*)(void*, uint64_t))o; else Log("TenshinForm: itemdef hook failed: %s", w ? w : "?"); }
         if (g_scProbes.load()) OnEntry("ScProbe_SpiritActive", &HkSpiritActive);
         OnEntry("SealProbe_65A8A8", &HkSeal<0>);  // functional: desc[0] for FormKey; its log part is Probes-gated
         if (g_scProbes.load()) {
