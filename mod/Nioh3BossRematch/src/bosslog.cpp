@@ -3324,7 +3324,8 @@ int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
 // (press .. seal bind + SealExitReplayTailMs, at most SealExitReplayMaxMs) is recorded with its exact arguments: world-matrix calls keep the
 // matrix (moved by how far the player is from where they stood then), bone-attached calls keep their P block and get their owner remapped
 // (player -> player, the seal -> the seal, anything else -> skipped). At the ghost exit they are replayed with the same spacing.
-// SealExitReplaySkip = hex ids never recorded (default 3E8, the per-hit spark), SealExitReplayIds = if set, only these ids are recorded.
+// SealExitReplayBone=0 (default, pc #57943): only the world-space fx (62557 big smoke, one-shot) are replayed - the bone-attached ones
+// loop on the player and never end. SealExitReplaySkip = hex ids never recorded (default 3E8, the per-hit spark), SealExitReplayIds = if set, only these ids are recorded.
 struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; };
 constexpr int kFxRecMax = 24;
 FxRec g_fxRec[kFxRecMax];
@@ -3335,6 +3336,7 @@ std::atomic<double> g_fxrT0{0}, g_fxrUntil{0};
 int g_fxrTailMs = 300, g_fxrMaxMs = 2500;
 uint32_t g_fxrSkip[12] = {0x3E8}, g_fxrOnly[12] = {};
 int g_fxrSkipN = 1, g_fxrOnlyN = 0;
+int g_fxrBone = 0;
 thread_local bool t_fxReplaying = false;
 struct FxPlay { double at; FxRec r; };
 FxPlay g_fxPlay[kFxRecMax];
@@ -3360,6 +3362,7 @@ void SealExitReplayLoad() {
     g_fxrMaxMs = IniInt(L"Spirit", L"SealExitReplayMaxMs", 2500);
     g_fxrSkipN = HexList(L"SealExitReplaySkip", L"3E8", g_fxrSkip, 12);
     g_fxrOnlyN = HexList(L"SealExitReplayIds", L"", g_fxrOnly, 12);
+    g_fxrBone = IniInt(L"Spirit", L"SealExitReplayBone", 0);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3433,6 +3436,8 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
             if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
             r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
+        } else if (!g_fxrBone) {
+            continue;  // pc #57943: bone-attached start fx are looping auras the form end normally kills; replayed they glow forever and stack
         } else if (r.owner != player && r.owner != seal) {
             Log("SealExitReplay: fx %X owner %llX is not the player or the seal - skipped", r.id, (unsigned long long)r.owner);
             continue;
