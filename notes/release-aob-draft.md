@@ -195,20 +195,21 @@ Frame meter master OFF -> Player frame meter + I-frame lane OFF, meter gone, ini
 Fight Now Yamagata OK (arena swap, boss bar); return to title OK; no crash.
 
 ## v1.7.89 (prep only, 10-31 8:35 am EST)
+FINAL (9:20 am EST): bridge #4542 = EF 30f2f2f2 + TR 4a087379 (ally RC2, Return revert, ally #59800) + BR 0afa302e; source pc/release-1789 6604bfa0. Staged site drop: D:/nioh3-re/stage1789 (stable.json e2348db7).
 
 Do not run the publish from this section. Same order as v1.7.88 above. Wait until both rechecks pass and the human says go.
 Source branch for the notes: pc/release-1789 26dda5b4. User-facing text: notes/release-1.7.89.md.
-Assets pc named for bridge #4522. Local copies in captures/rel1789 (not in git) hash to those same prefixes:
+Assets pc named for bridge #4542. Local copies in captures/rel1789 (not in git) hash to those same prefixes:
 
 | file | sha256 |
 |---|---|
 | Nioh3EngineFix.asi (MOD_VERSION already 1.7.89) | 30f2f2f23a149303a09c86333b9282c0a2b26917802d5fd8402169632a8b4c0e |
-| Nioh3Training.asi | 8b18ab03eaaf5df236154b17697e8cd14091a21792e707f239f1114bcba30679 |
+| Nioh3Training.asi | 4a0873791c53b72d3f33d09df943ae35b61ac9a68517292fcde8038de8cc55ce |
 | Nioh3BossRematch.asi 1.4.23 (same bytes as the 1.7.88 final) | 0afa302e01b92eeddded2851c15d8ca962acb2c3f0b10d4adc3076020068a6aa |
 
 Publish order, unchanged from 1.7.88 except the version and the notes file:
 
-1. Unpack bridge #4522 and check the three hashes above. Build the site drop with
+1. Unpack bridge #4542 and check the three hashes above. Build the site drop with
    `tools/updater/stage_site.py --site <site folder> --version 1.7.89 --payload <each asi> --news` from notes/release-1.7.89.md.
    That writes immutable `/releases/1.7.89/` plus `/updates/stable.json`. It must not be copied over `version.json` yet.
 2. Copy `releases/1.7.89/` and `updates/stable.json` into `C:\Users\Ahmad Hamza\nioh3-mod-site\site`, then `vercel --prod`.
@@ -236,17 +237,17 @@ Rollback, if a publish is undone: put the 1.7.88 `updates/stable.json` back and 
 
 ## 1.7.89 (draft only, 10-31)
 
-Nothing here is published. Do not run the site deploy, `vercel`, or `gh release`. Source branch `pc/release-1789` at `26dda5b4`. Assets are bridge file #4522 (not unpacked in this prep).
+Nothing here is published. Do not run the site deploy, `vercel`, or `gh release`. Source branch `pc/release-1789` at `6604bfa0`. Assets are bridge file #4542 (not unpacked in this prep).
 
 | file | sha256 prefix |
 |---|---|
 | Nioh3EngineFix.asi | 30f2f2f2 |
-| Nioh3Training.asi | 8b18ab03 |
-| Nioh3BossRematch.asi | 0afa302e (same prefix as the 1.7.88 final BossRematch; ship it again inside #4522) |
+| Nioh3Training.asi | 4a087379 |
+| Nioh3BossRematch.asi | 0afa302e (same prefix as the 1.7.88 final BossRematch; ship it again inside #4542) |
 
 Player notes for the GitHub release and `notes-1789.md`: `notes/release-1.7.89.md`.
 
-Publish order (only after the human says go): MSVC is already in #4522, do not rebuild for this note -> `tools/updater/stage_site.py --version 1.7.89 --payload ...` (immutable `/releases/1.7.89/` + `/updates/stable.json`) -> deploy site -> GitHub release v1.7.89 on Nioh-3-Engine (3 ASIs, stable.json, combined zip) -> public repo export with `--version 1.7.89` -> bump `/version.json` to 1.7.89 last.
+Publish order (only after the human says go): MSVC is already in #4542, do not rebuild for this note -> `tools/updater/stage_site.py --version 1.7.89 --payload ...` (immutable `/releases/1.7.89/` + `/updates/stable.json`) -> deploy site -> GitHub release v1.7.89 on Nioh-3-Engine (3 ASIs, stable.json, combined zip) -> public repo export with `--version 1.7.89` -> bump `/version.json` to 1.7.89 last.
 
 ```powershell
 # DRAFT. Do not run until the human says go.
