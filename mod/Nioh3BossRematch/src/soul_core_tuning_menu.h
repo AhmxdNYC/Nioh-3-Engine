@@ -5,6 +5,9 @@
 constexpr int uSoulTune = 950;
 constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 9;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
+// human #61869: Player settings row 'Soul core transformations: ON/OFF' (bosslog::SoulCoreFormsSet, [Spirit] SoulCoreForms, default ON).
+// OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
+constexpr int kItScForms = 0xE0100;
 template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
@@ -19,6 +22,15 @@ void SctValueText(int w, double v, char* b, size_t n) {
 }
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool SctChange(int item, int dir) {
+    if (item == kItScForms) {  // human #61869: A flips, Left OFF, Right ON
+        bool up = false;
+        const bool v = bosslog::SoulCoreFormsSet(dir, &up);
+        Log("Rematch: menu Soul core transformations -> %s (human #61869)", v ? "ON" : "OFF");
+        snprintf(g_msg, sizeof g_msg, "%s", v ? "Soul core transformations ON: soul cores transform again from the next use. Saved."
+                 : up ? "Soul core transformations OFF: the form now up ends normally, then the game's own soul cores. Saved."
+                      : "Soul core transformations OFF: the game's own soul cores from the next use. Saved.");
+        return true;
+    }
     if (!IsSctItem(item)) return false;
     if (item == kItSctOpen) {
         if (dir) return true;  // the open row has no value
@@ -37,6 +49,13 @@ bool SctChange(int item, int dir) {
     return true;
 }
 bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (item == kItScForms) {  // human #61869
+        bool hooked = true;
+        const bool v = bosslog::SoulCoreForms(&hooked);
+        snprintf(buf, n, "%s Soul core transformations: %s   A / Left / Right%s", mk, v ? "ON" : "OFF", hooked ? "" : "  (FormKey off)");
+        *color = sel ? cWhite : !hooked ? cDim : v ? cGray : cYellow;
+        return true;
+    }
     if (!IsSctItem(item)) return false;
     if (item == kItSctOpen) { snprintf(buf, n, "%s Soul core tuning   A: open", mk); *color = sel ? cWhite : cGray; return true; }
     const int w = item - kItSctBase;
@@ -48,6 +67,8 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
+    if (item == kItScForms)  // human #61869
+        return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;
     switch (item - kItSctBase) {
     case 0: return "Exit: delay between the exit smoke and the player showing again. 50 ms steps, 0-2000. [Spirit] SealExitRevealMs. Live, saved.";

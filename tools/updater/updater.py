@@ -77,10 +77,27 @@ def game_running():
                                 capture_output=True, text=True)
         names = [r[0].lower() for r in csv.reader(io.StringIO(result.stdout)) if r]
         return any(n in ("nioh3.exe", "nioh3") for n in names)
-    # ps includes Wine/Proton Windows exe arguments; fail closed if ps fails.
-    output = subprocess.run(["ps", "-eo", "args="], check=True,
-                            capture_output=True, text=True).stdout
-    return bool(re.search(r"(?i)(?:^|[\s/\\])nioh3(?:\.exe)?(?:\s|$)", output))
+    return proc_game_running(Path("/proc"))
+
+
+def proc_game_running(proc):
+    # Match only a process argument whose basename is Nioh3.exe (Wine/Proton
+    # keeps the Windows path in argv). A bare "nioh3" word in another
+    # program's arguments (shell, editor, file manager) is not the game.
+    if not proc.is_dir():
+        raise RuntimeError("Cannot verify game is closed on this platform")
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            args = (entry / "cmdline").read_bytes().split(b"\0")
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # process exited
+        except PermissionError:
+            raise RuntimeError("Cannot inspect all processes; cannot verify game is closed")
+        if any(a.replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower() == b"nioh3.exe" for a in args):
+            return True
+    return False
 
 
 def ensure_stopped():

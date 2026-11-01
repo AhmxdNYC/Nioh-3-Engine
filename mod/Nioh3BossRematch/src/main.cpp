@@ -68,8 +68,8 @@ bool WrRaw(uint64_t a, const void* src, size_t n) {
 }
 bool WrBytes(uint64_t a, const void* src, size_t n) {
     if (a < 0x10000) return false;
-    // pc #56435: try the plain write first. VirtualQuery on a large heap region walks its pages (~ms per call): frequent
-    // WrBytes calls cost ~0.8 s per second (52 -> 16 fps). Only a faulting (read-only / code) target takes the slow path.
+    // pc #56435: try the plain write first. VirtualQuery on a large heap region walks its pages (~ms per call): FormPin's per-tick
+    // WrBytes calls cost ~0.8 s per second (seal hold 52 -> 16 fps). Only a faulting (read-only / code) target takes the slow path.
     if (WrRaw(a, src, n)) return true;
     MEMORY_BASIC_INFORMATION mbi;
     const DWORD rw = PAGE_READWRITE | PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_WRITECOPY;
@@ -144,11 +144,8 @@ DWORD WINAPI Init(void*) {
     Sleep(200);
     Log("code ready %lu ms after start", GetTickCount() - t0);
     ResolveAll();
-    const bool boss = IniInt(L"Debug", L"BossLog", 0) != 0, rm = IniInt(L"Debug", L"RematchLog", 0) != 0, inv = IniInt(L"Debug", L"InvLog", 0) != 0
-#if BR_SOULCORE
-                     || (IniInt(L"Spirit", L"Body", 0) != 0 || IniInt(L"Spirit", L"FormKey", 0) != 0)  // #54190: FormKey needs MotionReq + 65A8A8  // #54000: the body copy runs from the SC hooks (MotionReq, TenshinInput tick)
-#endif  // BR_SOULCORE
-        ;
+    const bool boss = IniInt(L"Debug", L"BossLog", 0) != 0, rm = IniInt(L"Debug", L"RematchLog", 0) != 0, inv = IniInt(L"Debug", L"InvLog", 0) != 0 ||
+                     IniInt(L"Spirit", L"Body", 0) != 0 || IniInt(L"Spirit", L"FormKey", 0) != 0;  // #54190: FormKey needs MotionReq + 65A8A8  // #54000: the body copy runs from the SC hooks (MotionReq, TenshinInput tick)
     bosslog::Register(boss, rm, inv);
     const bool live = StartRematchPump();
     if (boss || rm) {
@@ -157,10 +154,8 @@ DWORD WINAPI Init(void*) {
     }
     if (rm) Feature("RematchLog", "RLOG");
     if (inv) Feature("InvLog", "INV");
-#if BR_SOULCORE
     if (inv) Feature("InvLog", "SC");
     if (IniInt(L"Spirit", L"FormKey", 0)) bosslog::FormKeyInstall();  // own switch: installs its SC hooks even with InvLog=0
-#endif  // BR_SOULCORE
     if (HANDLE t = CreateThread(nullptr, 0, VerifyRvas, nullptr, 0, nullptr)) CloseHandle(t);
     ui::Start();  // settings remain reachable with Rematch disabled; no rematch hooks are added
     remote::Start();

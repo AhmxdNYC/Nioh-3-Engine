@@ -201,5 +201,24 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual((self.root / name).read_bytes(), old)
 
 
+class GameRunningLinuxTests(unittest.TestCase):
+    def check(self, *cmdlines):
+        with tempfile.TemporaryDirectory() as d:
+            for pid, cmd in enumerate(cmdlines, 100):
+                (Path(d) / str(pid)).mkdir()
+                (Path(d) / str(pid) / "cmdline").write_bytes(b"\0".join(cmd) + b"\0")
+            (Path(d) / "self").mkdir()
+            return u.proc_game_running(Path(d))
+
+    def test_other_programs_mentioning_nioh3_are_not_the_game(self):
+        self.assertFalse(self.check([b"py", b"-m", b"uo_bridge", b"send", b"nioh3"],
+                                    [b"vim", b"nioh3"],
+                                    [b"dolphin", b"/home/u/.steam/steamapps/common/Nioh3"]))
+
+    def test_proton_game_process_is_found(self):
+        self.assertTrue(self.check([rb"Z:\home\u\steamapps\common\Nioh3\Nioh3.exe"]))
+        self.assertTrue(self.check([b"/usr/bin/wine", b"/games/Nioh3/NIOH3.EXE"]))
+
+
 if __name__ == "__main__":
     unittest.main()

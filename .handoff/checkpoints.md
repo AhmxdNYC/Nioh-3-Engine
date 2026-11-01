@@ -72,3 +72,5 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 2026-10-30 12:18 PM EDT | ally/1 #56049: fixed part-46 shell opacity traced; guarded post-EFC30 clamp added on mode-4 base 6692713e.
 16 offline lifecycle/shell checks and 13 byte guards/8 call targets PASS; pixel identity and runtime hide unproven.
 Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhide-56049.md on ally/shellhide-56049; no game touched.
+
+2026-11-01 5:55 pm EST | cx-pc #61953: v1.8.0 RC assets built on cx-pc/release-180, not published. EF 1.8.0, BR 1.5.0 soul core in, Training from the dev line, fixed-RVA 0 RAW. Next: pc publishes only after the human says go. No game touched.
