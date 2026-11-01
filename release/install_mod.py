@@ -104,7 +104,8 @@ def current_hash(path):
     return None
 
 
-def install(package, game, saves, backups, running=game_running):
+def install(package, game, saves, backups, running=game_running, fresh_ok=False):
+    # fresh_ok: Nioh3-Setup.exe on a game never started yet (no saves to back up, #60944).
     package, game, saves, backups = map(lambda p: Path(p).absolute(), (package, game, saves, backups))
     for root in (package, game, saves):
         plain(root)
@@ -163,10 +164,11 @@ def install(package, game, saves, backups, running=game_running):
             f.write(str(receipt_path)); f.flush(); os.fsync(f.fileno())
         locked = True
         before = inventory(saves)
-        if not before:
+        if not before and not fresh_ok:
             raise RuntimeError("Save folder is empty; select the existing save root (no silent skip)")
         for name in before:
             exclusive_copy(saves / name, backup / "saves" / name)
+        (backup / "saves").mkdir(exist_ok=True)  # fresh_ok with no saves yet
         if inventory(saves) != before or inventory(backup / "saves") != before:
             raise RuntimeError("Saves changed during backup or backup verification failed")
         receipt["saves"] = before

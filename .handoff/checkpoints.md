@@ -74,3 +74,4 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhide-56049.md on ally/shellhide-56049; no game touched.
 
 2026-11-01 5:55 pm EST | cx-pc #61953: v1.8.0 RC assets built on cx-pc/release-180, not published. EF 1.8.0, BR 1.5.0 soul core in, Training from the dev line, fixed-RVA 0 RAW. Next: pc publishes only after the human says go. No game touched.
+2026-11-01 6:31 pm EST | cx-pc #62049: Setup.exe empty-save crash fixed (install fresh_ok). Fake game folder with an empty save dir finished, exit 0. ASIs unchanged. Next: pc2 retests Setup.exe. No game touched.
