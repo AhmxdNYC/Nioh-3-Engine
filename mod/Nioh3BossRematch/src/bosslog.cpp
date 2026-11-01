@@ -833,6 +833,9 @@ void HkInvAdd(uint64_t save, uint64_t out, uint64_t desc, uint64_t r9, const uin
 
 // SC probe (same [Debug] InvLog switch): who runs while a soul core / item is used. Logs the first 4 args and up to 4 return addresses
 // above the hook (a call chain; function starts via pdata) for EffectCreate (r8 = effect id), 1320F2C and 23CBF9C. 60 lines/s.
+// Declared here so the log gate below can see them (the rest of the SealIdle state stays with SealIdleEnd).
+std::atomic<int> g_scProbes{0};  // pc #56435 [Spirit] Probes: 0 = CoreProbe/SealProbe/TenshinInput/TenshinForm/ChrCreated not installed
+std::atomic<int> g_sieLog{1};    // [Spirit] SealIdleLog (default 1). Shipped ini sets 0. ScLog + FH4perf log only when this or Probes is on.
 std::atomic<int64_t> g_scSec{-1};
 std::atomic<int> g_scInSec{0};
 template <int N>
@@ -843,6 +846,9 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
         addon::rematch::Command(np, rp, sizeof(rp));
     }
     if (N == 6 && CallerRva(sp) == 0x65ADA6) addon::rematch::SpiritSpawnNote(a, (uint32_t)b);  // #54000: first motion of a 65A8A8 chr spawn
+    // EffectCreate (and the other ScLog names) fire about every frame once FormKey installs these hooks.
+    // Shipped ini has Probes=0 and SealIdleLog=0, so the log stays off. The notes above still run.
+    if (!g_scProbes.load() && !g_sieLog.load()) return;
     static const char* const kName[] = {"EffectCreate", "fn1320F2C", "fn23CBF9C", "GSpiritReq", "GSpiritWork", "AsyncLoad", "MotionReq"};
     const double t = Now();
     const int64_t sec = (int64_t)t;
@@ -861,7 +867,6 @@ void HkSc(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
           (unsigned long long)c, (unsigned)c, (unsigned long long)d, vl ? via : " -", t);
 }
 
-std::atomic<int> g_scProbes{0};  // pc #56435 [Spirit] Probes: 0 = CoreProbe/SealProbe/TenshinInput/TenshinForm/ChrCreated not installed
 // Core-form probe (pc #46959): B611BC / 29EF38 args + 0x40 bytes behind rcx/rdx/r8, so core 0xF vs 0x111 can be diffed in the log.
 template <int N>
 void HkCoreProbe(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
@@ -3583,7 +3588,7 @@ void FormHide4Tick(uint64_t player) {
         g_fh4Perf.ticks.fetch_add(1);
         if (now >= nextPerf) {
             LARGE_INTEGER fq; QueryPerformanceFrequency(&fq);
-            if (nextPerf > 0)
+            if (nextPerf > 0 && (g_scProbes.load() || g_sieLog.load()))
                 Log("FH4perf ticks=%ld parts=%ld mult=%ld alpha=%ld writes=%ld ours=%.0fus holding=%d mask=%X t=%.3f", g_fh4Perf.ticks.exchange(0),
                     g_fh4Perf.parts.exchange(0), g_fh4Perf.mult.exchange(0), g_fh4Perf.alpha.exchange(0), g_fh4Perf.writes.exchange(0),
                     g_fh4Perf.qpc.exchange(0) * 1e6 / (double)fq.QuadPart, g_fh4.owner != 0, g_fh4Mask.load(), now);
@@ -4083,7 +4088,7 @@ void SealEndOnIdleTick() {
 // whose idle edge is never seen ends on its own despawn). 2: hit rules stay as well, whichever is first. The old SealEndOnIdle despawn
 // is skipped while SealIdleEnd is on (the ghost exit lets the hidden yokai finish by itself). SealIdleLog=1 (default) logs every
 // action / motion change of the seal from the bind until it is gone ('SealMotion' lines), so one session shows the real signal.
-std::atomic<int> g_sieMode{0}, g_sieLog{1}, g_sieMinMs{300}, g_sieLoop{1}, g_sieHold{1}, g_sieHoldMs{100};
+std::atomic<int> g_sieMode{0}, g_sieMinMs{300}, g_sieLoop{1}, g_sieHold{1}, g_sieHoldMs{100};
 uint64_t g_sieFireSeal = 0;  // game thread: SealEndOnHitTick ends this seal's form
 const char* g_sieWhy = "";
 struct SieSample { uint32_t act = 0xFFFFFFFF; uint16_t mot = 0, fact = 0; float f = 0, e = 0, rate = 0; uint8_t loop = 0; bool moOk = false; };
