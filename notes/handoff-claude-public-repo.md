@@ -70,6 +70,11 @@ confirms a fix should apply it in `re/symbols/symbols.tsv` first, then sync to t
 3. Fix any ini comment that carries a retracted number (the 1.7.61 zip ini was cleaned for ReBAR, B, CBN/CBT, GF,
    MQ, PP and bridge ids).
 4. Tag in the public repo, `gh release create <tag> <zip> --notes-file ...`; mark untested builds `--prerelease`.
+5. **RULE (human #60918): every release carries a fresh-install zip.** Build `Nioh3-<ver>-full-install.zip` with
+   `py -I release/full_install_zip.py build --asi-dir <released ASIs> --loader-zip <zip with dinput8.dll> --out ...`
+   (run from the release branch worktree), attach it, put "New to the mod? download ...-full-install.zip" at the top
+   of the notes, then `py -I release/full_install_zip.py check-tag <tag>` must print PASS before anyone announces
+   the release. Update-only zips alone left new players without dinput8.dll in 1.7.87-1.7.90 (#60907).
 
 ## Open items
 
