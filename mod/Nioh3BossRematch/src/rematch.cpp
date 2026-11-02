@@ -2606,6 +2606,9 @@ void NoFinToggle(int dir) {
 }
 #include "boss_vitals_menu.h"  // user #14320: per-boss HP / Ki page (uBossVitals)
 #include "practice_stats_menu.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
+#if BR_SOULCORE
+#include "soul_core_tuning_menu.h"  // human #58117: live LEFT soul core reveal / smoke / speed values
+#endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
@@ -2629,6 +2632,9 @@ int Items(int* out, int cap) {
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
         PstAddHubRows(add);  // Time of day / Weather / Freeze / Reset fight
+#if BR_SOULCORE
+        SctAddHubRow(add);  // human #58117: Soul core tuning (not in the release build)
+#endif  // BR_SOULCORE
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
         add(kItBack);
@@ -2636,10 +2642,16 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uPlayer) {  // user #14267: player options (infinite health for now)
         if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItCantDie);
+#if BR_SOULCORE
+        add(kItScForms);  // human #61869: Soul core transformations ON / OFF
+#endif  // BR_SOULCORE
         PstAddPlayerRows(add);  // user #22389
         add(kItBack);
         return n;
     }
+#if BR_SOULCORE
+    if (g_uiPages.page == uSoulTune) { SctAddPage(add); add(kItBack); return n; }  // human #58117
+#endif  // BR_SOULCORE
     if (g_uiPages.page == uBossVitals) { BvAddPage(add); PstAddBossRows(add); add(kItBack); return n; }  // user #14320: Boss A / B health and Ki
     if (g_uiPages.page == uFightOpts) {  // user #13265: the Boss Rematch boss-fight toggles, also for Training
         AddBossFightItems(add);
@@ -3061,6 +3073,9 @@ void UiChange(int dir) {
     if (item == kItCantDie) { CantDieToggle(dir); return; }  // user #14150
     if (BvChange(item, dir)) return;  // user #14320
     if (PstChange(item, dir)) return;  // user #22389
+#if BR_SOULCORE
+    if (SctChange(item, dir)) return;  // human #58117
+#endif  // BR_SOULCORE
     if (item == kItShowTw) { g_showTwitch = dir == 0 ? !g_showTwitch : dir > 0; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return; }
     if (item == kItRepNow) { if (dir <= 0) RepeatStop("Left on Repeating move"); else RepeatArm(RepeatCandidate(), "Right on Repeating move"); return; }
     if (item == kItRepSel) { if (dir < 0) RepeatStop("Left on Repeat selected move"); else RepeatArm(RepeatCandidate(), "Repeat selected move"); return; }
@@ -3150,6 +3165,9 @@ bool UiAct() {
     if (item == kItCantDie) { CantDieToggle(0); return false; }  // user #14150
     if (BvAct(item)) return false;  // user #14320
     if (PstChange(item, 0)) return false;  // user #22389
+#if BR_SOULCORE
+    if (SctChange(item, 0)) return false;  // human #58117: opens the page / A = one step up
+#endif  // BR_SOULCORE
     if (item == kItShowTw) { g_showTwitch = !g_showTwitch; Log("Rematch: move list Show twitches %s (#13786)", g_showTwitch ? "ON" : "OFF"); return false; }
     if (item == kItResetPos) { ResetBossPos(); return false; }
     if (item == kItRepNow) { RepeatStop("A on Repeating move"); return false; }
@@ -3401,6 +3419,9 @@ const char* PageTitle(const char* movesTitle) {
          : p == uBoss ? movesTitle
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Yamagata mission replay"
          : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings - Training / Boss Matches" : p == uBossVitals ? BvTitle() :
+#if BR_SOULCORE
+        p == uSoulTune ? "Soul core tuning - LEFT form (live, saved)" :
+#endif  // BR_SOULCORE
         p == uMoves || p == uMoveCat ? movesTitle : "Mod menu";
 }
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
@@ -3411,7 +3432,11 @@ const char* ItemGroup(int item) {
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
-    if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" : nullptr;  // user #22389
+    if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
+#if BR_SOULCORE
+        item == kItScForms ? "Soul cores" :
+#endif  // BR_SOULCORE
+        nullptr;  // user #22389, human #61869
     if (p == uTools) return IsBossOpenItem(item) ? "Active bosses (Training / Boss Matches)" : item == kItSumAnother ? "Add a boss" : item == kItStanceTimer || item == kItDespawnAll ? "All bosses" : item == kItReturnHome ? "Leave" : nullptr;
     if (p == uBoss) return item == kItBossStance || item == kItBossAggro || item == kItBossGap || item == kItBossReset ? "This boss" : IsBvOpenItem(item) ? "Health and Ki"
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
@@ -3483,6 +3508,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
         if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+#if BR_SOULCORE
+            || SctRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
+#endif  // BR_SOULCORE
             ) add(bvColor, sel, "%s", bvText);  // + #22389, human #58117
         else if (IsBossOpenItem(it[i])) {  // user #14309: 'Boss C: Minamoto no Yoritomo   Stand still (idle)   A: open'
             const int sl = it[i] - kItBossOpenBase, stn = SlotStance(sl);
@@ -3744,6 +3772,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         const int item = g_sel < 0 ? kItClose : n ? it[g_sel] : kItOpen;
         if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
+#if BR_SOULCORE
+        else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
+#endif  // BR_SOULCORE
         else if (IsBossOpenItem(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training and spawned Boss Matches: behavior, repeat delay, moves, and health for this boss. Shared stat controls are labeled separately.");
         else if (item == kItSumAnother) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Add a boss beside you. During Training it waits; otherwise it fights normally. Change Behavior under Active bosses.");
         else if (item == kItStanceTimer) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training and spawned Boss Matches: switch all active bosses after 1-10 seconds. If any boss is waiting, all will fight; otherwise all will wait. A starts or cancels.");
@@ -3892,6 +3923,172 @@ bool Toast(char* buf, size_t n, uint32_t& color) {
     return on;
 }
 
+#if BR_SOULCORE
+// ---- Tenshin probe calls (SEH needs a function without C++ objects) ----
+int TCall(int which, uint64_t base, uint64_t a, uint64_t b) {
+    __try {
+        switch (which) {
+            case 1: ((void (*)(uint64_t))(base + Grva(0x843010)))(a); break;
+            case 2: ((void (*)(uint64_t))(base + Grva(0x842A64)))(a); break;
+            case 3: ((void (*)(uint64_t, int))(base + Grva(0xA550E8)))(a, (int)b); break;
+            case 4: ((void (*)(uint64_t, int, int))(base + Grva(0x1AB4C5C)))(a, 1, -1); break;
+        }
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+
+// ---- spirit probe: spawn chain 2916C5C(mgr,pos*,yaw,a4,a5); chr = *(*(mgr+0x128)+0x30), [inst]==2 when loaded (ally #46711) ----
+std::atomic<uint64_t> g_spMgr{0};
+std::atomic<int> g_spPin{0};
+std::atomic<int> g_spBody{0};          // ally #53727: 1 = put the summoned yokai's model on the player
+std::atomic<uint64_t> g_spBodyChr{0};    // spirit chr already copied (once per spawn)
+std::atomic<uint64_t> g_spBodyOld{0};    // player's model ptr before the copy (for undo)
+std::atomic<uint64_t> g_spBodySlot{0};   // address written: [chr+0x50]+8+idx*8, idx=[[chr+0x50]+0xA0]
+// model container M=[chr+0x50]; active index [M+0xA0] (0x4F3B20); slot ptr = M+8+idx*8 (SetForm writes idx 1 = M+0x10)
+uint64_t ModelSlot(uint64_t chr, uint64_t& M, uint32_t& idx) {
+    M = 0; idx = 0;
+    if (!chr || !Rd(chr + 0x50, M) || !M) return 0;
+    Rd(M + 0xA0, idx);
+    if (idx > 7) idx = 0;
+    return M + 8 + (uint64_t)idx * 8;
+}
+// copy the spirit's active model onto the player's active slot, once per spawned spirit chr; logs both pointers
+void SpiritBodyApply(uint64_t schr) {
+    if (g_spBodyChr.load() == schr) return;  // already copied for this spawn (no per-tick log spam)
+    const uint64_t pch = PlayerChar();
+    if (schr == pch) return;
+    static uint64_t lastLogged = 0;  // log a chr whose model is not loaded yet once, then retry silently each tick
+    uint64_t pM, sM, pm = 0, sm = 0;
+    uint32_t pi, si;
+    const uint64_t ps = ModelSlot(pch, pM, pi), ss = ModelSlot(schr, sM, si);
+    if (ps) Rd(ps, pm);
+    if (ss) Rd(ss, sm);
+    if (lastLogged != schr || sm)
+        Log("SpiritBody player chr=%llX M=%llX idx=%u model=%llX | spirit chr=%llX M=%llX idx=%u model=%llX", (unsigned long long)pch,
+            (unsigned long long)pM, pi, (unsigned long long)pm, (unsigned long long)schr, (unsigned long long)sM, si, (unsigned long long)sm);
+    lastLogged = schr;
+    if (!ps || !sm || sm == pm) return;
+    if (!g_spBodyOld.load()) { g_spBodyOld.store(pm); g_spBodySlot.store(ps); }
+    const bool ok = WrBytes(ps, &sm, 8);
+    g_spBodyChr.store(schr);
+    g_spPin.store(1);  // keep the separate spirit on the player (hidden inside the body)
+    Log("SpiritBody WRITE [%llX] %llX -> %llX ok=%d", (unsigned long long)ps, (unsigned long long)pm, (unsigned long long)sm, ok);
+}
+void SpiritBodyUndo() {
+    const uint64_t ps = g_spBodySlot.exchange(0), old = g_spBodyOld.exchange(0);
+    if (ps && old) WrBytes(ps, &old, 8);
+    g_spBodyChr.store(0);
+    Log("SpiritBody UNDO [%llX] <- %llX", (unsigned long long)ps, (unsigned long long)old);
+}
+// #54000: the Summoning Seal's yokai is NOT a 2916C5C guardian spirit (that path is mission-script only and never ran in the seal test, so
+// the old tick never had a chr). It is spawned by 65A8A8 like any chr: rbx = new chr, its first motion goes 66C4A8(state=[[chr+0x3B0]+8],
+// [desc+0x6C]) with return address 65ADA6. The MotionReq hook calls this for that caller; the nearest such spawn (< 15 m) while armed is the
+// target. [Spirit] BodyMotion=<hex> limits it to one first-motion id (0 = any).
+std::atomic<uint64_t> g_spSpawnChr{0};
+void SpiritSpawnNote(uint64_t state, uint32_t motion) {
+    static const int onlyMotion = IniInt(L"Spirit", L"BodyMotion", 0);
+    static std::atomic<int> logged{0};
+    uint64_t chr = 0, back = 0, s3b0 = 0;
+    if (!Rd(state + 0xE0, chr) || !chr || !Rd(chr + 0x3B0, s3b0) || !s3b0 || !Rd(s3b0 + 8, back) || back != state) return;
+    const uint64_t pch = PlayerChar();
+    if (!pch || chr == pch) return;
+    float pp[4] = {}, cp[4] = {};
+    const bool ok = Copy(pp, pch + 0x110, 16) && Copy(cp, chr + 0x110, 16);
+    const float dx = cp[0] - pp[0], dy = cp[1] - pp[1], dz = cp[2] - pp[2];
+    const float d = ok ? sqrtf(dx * dx + dy * dy + dz * dz) / 100.0f : -1.f;  // position is in cm
+    const bool take = g_spBody.load() && ok && d < 15.f && (!onlyMotion || (uint32_t)onlyMotion == motion);
+    if (take) g_spSpawnChr.store(chr);
+    if (ok) bosslog::FormKeySealNote(chr, motion, d);  // #54190: FormKey follows the same seal spawn
+    if (take || logged.fetch_add(1) < 40)
+        Log("SpiritBody spawn 65A8A8 chr=%llX state=%llX motion=%X dist=%.1f armed=%d take=%d", (unsigned long long)chr, (unsigned long long)state,
+            motion, d, g_spBody.load(), take);
+}
+int SpiritCall(uint64_t base, uint64_t mgr, const float* pos, float yaw) {
+    __try {
+        ((void (*)(uint64_t, const float*, float, int, int))(base + Grva(0x2916C5C)))(mgr, pos, yaw, 0, 0);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+// ---- soul-core ids (ally #46829): DB=*(ctx+0x3F0); rec=fn 0x3748E0(DB,id), stride 0x100; yokai-summon cores have *(u32*)(rec+0x38)!=0 ----
+uint64_t SpiritRec(uint64_t base, uint64_t db, uint32_t id) {
+    __try {
+        return ((uint64_t(*)(uint64_t, uint32_t))(base + Grva(0x3748E0)))(db, id);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+int SpiritGaugeFill(uint64_t base, uint64_t G, float mx) {
+    __try {
+        ((void (*)(uint64_t, float))(base + Grva(0x916FAC)))(G, mx);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+uint64_t SpiritGaugeEntry(uint64_t base, uint64_t G) {
+    __try {
+        return ((uint64_t(*)(uint64_t))(base + Grva(0x377D30)))(G);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+int SpiritRawCall(uint64_t fn, uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t& ret) {
+    __try {
+        ret = ((uint64_t(*)(uint64_t, uint64_t, uint64_t, uint64_t))fn)(a, b, c, d);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int SpiritAddCall(uint64_t base, uint64_t pd, uint32_t id) {
+    __try {
+        ((void (*)(uint64_t, uint32_t))(base + Grva(0x2153E7C)))(pd, id);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int SpiritEquipCall(uint64_t base, uint64_t pd, uint32_t slot, uint32_t id) {
+    __try {
+        ((void (*)(uint64_t, uint32_t, uint32_t))(base + Grva(0x217D8B4)))(pd, slot, id);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+int SpiritSetPos(uint64_t chr, const float* pos) {
+    __try {
+        ((void (*)(uint64_t, const float*, float))F_SETPOSYAW)(chr, pos, 0.f);
+        return 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 1;
+    }
+}
+// mgr: G=*(base+0x45BA228) (transient script context, stale outside script ticks); holder=*(*(G+0x240)+0x5E0); mgr=*(holder+8) (ally #46783).
+// Falls back to the mgr captured by the 2916C5C hook (SpiritNoteMgr) when the chain is null.
+uint64_t SpiritMgr(uint64_t base, char* why, size_t n) {
+    uint64_t G = 0, a = 0, holder = 0, mgr = 0;
+    Rd(base + Grva(0x45BA228), G);
+    if (G && Rd(G + 0x240, a) && a && Rd(a + 0x5E0, holder) && holder && Rd(holder + 8, mgr) && mgr) {
+        snprintf(why, n, "G=%llX [G+240]=%llX holder=%llX mgr=%llX", (unsigned long long)G, (unsigned long long)a, (unsigned long long)holder, (unsigned long long)mgr);
+        return mgr;
+    }
+    const uint64_t hk = g_spMgr.load();
+    snprintf(why, n, "chain null (G=%llX [G+240]=%llX) hookmgr=%llX", (unsigned long long)G, (unsigned long long)a, (unsigned long long)hk);
+    return hk;
+}
+void SpiritChr(uint64_t mgr, uint64_t& inst, uint64_t& chr, uint64_t& state) {
+    inst = chr = state = 0;
+    if (mgr && Rd(mgr + 0x128, inst) && inst) {
+        Rd(inst + 0x30, chr);
+        Rd(inst, state);
+    }
+}
+#endif  // BR_SOULCORE
 
 // ---- pipe commands (remote.cpp thread) ----
 void Command(const char* line, char* reply, size_t n) {
@@ -3928,10 +4125,311 @@ void Command(const char* line, char* reply, size_t n) {
                  s.st[2], s.player, s.ms14, s.ms28, FnName(g_fn.load()), g_warps, g_loadMs.load(), g_sp.last, pok ? pp[0] : 0.f, pok ? pp[1] : 0.f, pok ? pp[2] : 0.f, gate ? gate : "ok", pl, last);
         return;
     }
+#if BR_SOULCORE
+    if (!strcmp(cmd, "tenshin") && !strcmp(arg, "equip")) {  // tenshin equip <id> [slot] : write the equipped spirit id dword [[pd]+0x100+slot*4] (Equip 217D8B4 does the same store)
+        unsigned id = 0, slotArg = 9;
+        const char* p = strstr(line, "equip");
+        if (!p || sscanf_s(p + 5, "%i %u", &id, &slotArg) < 1) {
+            snprintf(reply, n, "error tenshin equip <id> [slot]");
+            return;
+        }
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        uint64_t pd = 0, in = 0, ctx = 0;
+        uint32_t sel = 0;
+        if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in || !Rd(base + Grva(0x4751530), ctx) || !ctx) {
+            snprintf(reply, n, "error player data not ready");
+            return;
+        }
+        Rd(ctx + 0x23B62C, sel);
+        const unsigned slot = slotArg < 2 ? slotArg : (sel ? 1u : 0u);
+        uint32_t old = 0, now = 0;
+        Rd(in + 0x100 + slot * 4, old);
+        WrU32(in + 0x100 + slot * 4, id);
+        Rd(in + 0x100 + slot * 4, now);
+        Log("Tenshin equip: pd=%llX inner=%llX slot=%u (sel=%u) id %u(0x%X)->%u(0x%X)", (unsigned long long)pd, (unsigned long long)in, slot, sel, old, old, now, now);
+        snprintf(reply, n, "ok equip slot=%u id %u->%u (sel=%u)", slot, old, now, sel);
+        return;
+    }
+    if (!strcmp(cmd, "peek")) {  // peek <hex> [qwords<=16] : read memory (an address >= 0x10000000 is absolute, a smaller value is base-relative)
+        unsigned long long addr = 0;
+        unsigned cnt = 4;
+        if (sscanf_s(line + 4, "%llx %u", &addr, &cnt) < 1) {
+            snprintf(reply, n, "error peek <hex addr|rva> [qwords]");
+            return;
+        }
+        if (cnt > 16) cnt = 16;
+        if (addr < 0x10000000ull) addr += (uint64_t)GetModuleHandleW(nullptr);
+        size_t k = (size_t)snprintf(reply, n, "ok peek %llX:", addr);
+        for (unsigned i = 0; i < cnt && k + 24 < n; ++i) {
+            uint64_t v = 0;
+            if (!Rd(addr + i * 8ull, v)) { k += (size_t)snprintf(reply + k, n - k, " ??"); break; }
+            k += (size_t)snprintf(reply + k, n - k, " %llX", (unsigned long long)v);
+        }
+        return;
+    }
+#endif  // BR_SOULCORE
     if (!BR_SOULCORE && !strcmp(cmd, "spirit")) {
         snprintf(reply, n, "error soul-core commands are not in this build");
         return;
     }
+#if BR_SOULCORE
+    if (!strcmp(cmd, "spirit")) {  // spirit status|spawn|pin|unpin|tick : the guardian-spirit chr (spawn chain 2916C5C), pinned to the player each input tick
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        char why[160];
+        if (!strcmp(arg, "slots") || !strcmp(arg, "call")) {  // spirit slots : dwords [P]+0xF0..0x130 ; spirit call <rva> [a1..a4] (P=playerdata E=ext C=char, else hex): blind SEH call
+            uint64_t pd = 0, in = 0;
+            if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in) {
+                snprintf(reply, n, "error player data not ready");
+                return;
+            }
+            if (!strcmp(arg, "slots")) {
+                size_t k = (size_t)snprintf(reply, n, "ok slots P=%llX in=%llX @F0:", (unsigned long long)pd, (unsigned long long)in);
+                for (unsigned o = 0xF0; o < 0x130 && k + 12 < n; o += 4) {
+                    uint32_t v = 0;
+                    Rd(in + o, v);
+                    k += (size_t)snprintf(reply + k, n - k, " %X", v);
+                }
+                return;
+            }
+            const uint64_t ch = PlayerChar();
+            uint64_t ext = 0;
+            if (ch) Rd(ch + 0x3A0, ext);
+            unsigned long long rva = 0;
+            char t[4][24] = {};
+            const char* p = strstr(line, "call");
+            const int got = p ? sscanf_s(p + 4, "%llx %23s %23s %23s %23s", &rva, t[0], 24u, t[1], 24u, t[2], 24u, t[3], 24u) : 0;
+            if (got < 1 || !rva) {
+                snprintf(reply, n, "error spirit call <rva> [a1..a4]");
+                return;
+            }
+            uint64_t a[4] = {};
+            for (int i = 0; i < 4; ++i) {
+                if (t[i][0] == 'P') a[i] = pd;
+                else if (t[i][0] == 'E') a[i] = ext;
+                else if (t[i][0] == 'C') a[i] = ch;
+                else if (t[i][0]) a[i] = strtoull(t[i], nullptr, 16);
+            }
+            uint64_t ret = 0;
+            const int rc = SpiritRawCall(base + rva, a[0], a[1], a[2], a[3], ret);
+            Log("Spirit call +%llX(%llX,%llX,%llX,%llX) rc=%d ret=%llX", rva, (unsigned long long)a[0], (unsigned long long)a[1], (unsigned long long)a[2], (unsigned long long)a[3], rc, (unsigned long long)ret);
+            snprintf(reply, n, "ok call rc=%d ret=%llX", rc, (unsigned long long)ret);
+            return;
+        }
+        if (!strcmp(arg, "gauge")) {  // spirit gauge [max] : ext=*(player+0x3A0), G=ext+0x1D8, max=*(float*)(ext+0x3AC); fill = 0x916FAC(G,max) (ally #46889)
+            const uint64_t ch = PlayerChar();
+            uint64_t ext = 0;
+            if (!ch || !Rd(ch + 0x3A0, ext) || !ext) {
+                snprintf(reply, n, "error no player");
+                return;
+            }
+            float mx = 0.f, cur0 = 0.f, cur1 = 0.f;
+            Rd(ext + 0x3AC, mx);
+            uint64_t ent = SpiritGaugeEntry(base, ext + 0x1D8);
+            if (ent) Rd(ent, cur0);
+            int rc = -1;
+            if (strstr(line, "max") && mx > 0.f) rc = SpiritGaugeFill(base, ext + 0x1D8, mx);
+            if (ent) Rd(ent, cur1);
+            Log("Spirit gauge ext=%llX ent=%llX max=%.1f cur %.1f->%.1f rc=%d", (unsigned long long)ext, (unsigned long long)ent, mx, cur0, cur1, rc);
+            snprintf(reply, n, "ok gauge ext=%llX ent=%llX max=%.1f cur %.1f->%.1f rc=%d", (unsigned long long)ext, (unsigned long long)ent, mx, cur0, cur1, rc);
+            return;
+        }
+        if (!strcmp(arg, "scan") || !strcmp(arg, "equip") || !strcmp(arg, "add")) {  // spirit scan | spirit add <id> | spirit equip <id> [slot] (add first if not owned)
+            uint64_t ctx = 0, db = 0, pd = 0, in = 0;
+            if (!Rd(base + Grva(0x45B9E30), ctx) || !ctx || !Rd(ctx + 0x3F0, db) || !db) {
+                snprintf(reply, n, "error no ctx/DB (ctx=%llX db=%llX)", (unsigned long long)ctx, (unsigned long long)db);
+                return;
+            }
+            if (!strcmp(arg, "scan")) {
+                size_t k = (size_t)snprintf(reply, n, "ok scan db=%llX ids(rec+0x38!=0):", (unsigned long long)db);
+                int cnt = 0;
+                for (uint32_t id = 1; id < 0x4000; ++id) {
+                    const uint64_t rec = SpiritRec(base, db, id);
+                    uint32_t v = 0;
+                    if (!rec || rec < 0x10000 || !Rd(rec + 0x38, v) || !v) continue;
+                    ++cnt;
+                    Log("SpiritScan id=%u(0x%X) rec=%llX +38=%u", id, id, (unsigned long long)rec, v);
+                    if (cnt <= 24 && k + 24 < n) k += (size_t)snprintf(reply + k, n - k, " %X:%u", id, v);
+                }
+                snprintf(reply + (k < n ? k : n - 1), k < n ? n - k : 1, " total=%d", cnt);
+                return;
+            }
+            unsigned id = 0, slot = 0;
+            const bool isAdd = !strcmp(arg, "add");
+            const char* p = strstr(line, isAdd ? "add" : "equip");
+            if (!p || sscanf_s(p + (isAdd ? 3 : 5), "%i %u", &id, &slot) < 1 || slot > 1) {
+                snprintf(reply, n, "error spirit add <id> | equip <id> [slot 0|1]");
+                return;
+            }
+            if (!Rd(base + Grva(0x4751860), pd) || !pd || !Rd(pd, in) || !in) {
+                snprintf(reply, n, "error player data not ready");
+                return;
+            }
+            uint32_t before = 0, after = 0;
+            Rd(in + 0x100 + slot * 4, before);
+            int rc;
+            if (isAdd) {
+                rc = SpiritAddCall(base, pd, id);
+                Log("Spirit add 2153E7C(P=%llX,id=%u) rc=%d", (unsigned long long)pd, id, rc);
+                snprintf(reply, n, "ok add rc=%d id=%u", rc, id);
+                return;
+            }
+            rc = SpiritEquipCall(base, pd, slot, id);
+            Rd(in + 0x100 + slot * 4, after);
+            Log("Spirit equip 217D8B4(P=%llX,slot=%u,id=%u) rc=%d %u->%u", (unsigned long long)pd, slot, id, rc, before, after);
+            snprintf(reply, n, "ok equip rc=%d slot=%u id %u->%u", rc, slot, before, after);
+            return;
+        }
+        uint64_t mgr = SpiritMgr(base, why, sizeof(why));
+        float pp[4] = {};
+        const bool pok = PlayerPos(pp);
+        if (!strcmp(arg, "note")) {  // from the 2916C5C hook: rcx = mgr
+            unsigned long long m = 0;
+            if (sscanf_s(line + 12, "%llx", &m) == 1 && m) g_spMgr.store(m);
+            snprintf(reply, n, "ok");
+            return;
+        }
+        if (!strcmp(arg, "formkey")) {  // spirit formkey on [hex X]|off|status : log the summon body key, then one SetForm with that key (pc/soulcore-formkey)
+            bosslog::FormKeyCmd(line, reply, n);
+            return;
+        }
+        if (!strcmp(arg, "body")) {  // spirit body on|off|log : ally #53727 copy the summoned yokai model onto the player (applied on the next tick once the spirit is loaded)
+            uint64_t inst, chr, st;
+            SpiritChr(mgr, inst, chr, st);
+            if (strstr(line, "off")) { g_spBody.store(0); SpiritBodyUndo(); }
+            else if (strstr(line, "on")) g_spBody.store(1);
+            if (chr) SpiritBodyApply(chr);  // with body off this only logs both pointers
+            snprintf(reply, n, "ok body=%d chr=%llX state=%llu copied=%llX", g_spBody.load(), (unsigned long long)chr, (unsigned long long)st,
+                     (unsigned long long)g_spBodyChr.load());
+            return;
+        }
+        if (!strcmp(arg, "spawn") && mgr && pok) {
+            alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+            const int rc = SpiritCall(base, mgr, pos, 0.f);
+            Log("Spirit spawn rc=%d mgr=%llX", rc, (unsigned long long)mgr);
+        } else if (!strcmp(arg, "pin")) {
+            g_spPin.store(1);
+        } else if (!strcmp(arg, "unpin")) {
+            g_spPin.store(0);
+        } else if (!strcmp(arg, "tick")) {  // from the input hook: move the spirit chr onto the player (position only; model/attacks untouched)
+            uint64_t inst, chr, st;
+            SpiritChr(mgr, inst, chr, st);
+            static const int iniBody = BR_SOULCORE ? IniInt(L"Spirit", L"Body", 0) : 0;  // [Spirit] Body=1 arms the copy from boot
+            static bool armed = (iniBody && (g_spBody.store(1), true));
+            (void)armed;
+            if (g_spBody.load() && chr && st == 2) SpiritBodyApply(chr);
+            const uint64_t sc = g_spSpawnChr.load();  // the seal's yokai from the 65A8A8 spawn (SpiritSpawnNote)
+            if (g_spBody.load() && sc) SpiritBodyApply(sc);
+            if (g_spPin.load() && pok && chr && st == 2) {
+                alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+                SpiritSetPos(chr, pos);
+            }
+            if (g_spPin.load() && pok && sc && g_spBodyChr.load() == sc) {
+                alignas(16) float pos[4] = {pp[0], pp[1], pp[2], 1.0f};
+                SpiritSetPos(sc, pos);
+            }
+            static double nextWait = 0;  // armed but nothing copied yet: say why every 5 s (the 22:07 run had 0 SpiritBody lines)
+            if (g_spBody.load() && !g_spBodyChr.load() && (Ms() / 1000.0) >= nextWait) {
+                static int waits = 0;
+                nextWait = (Ms() / 1000.0) + 5.0;
+                if (waits++ < 60)
+                    Log("SpiritBody armed, waiting: guardian mgr=%llX chr=%llX state=%llu | seal spawn chr=%llX", (unsigned long long)mgr,
+                        (unsigned long long)chr, (unsigned long long)st, (unsigned long long)sc);
+            }
+            snprintf(reply, n, "ok");
+            return;
+        }
+        uint64_t inst, chr, st;
+        SpiritChr(mgr, inst, chr, st);
+        uint32_t id = 0;
+        if (mgr) Rd(mgr + 0x10, id);
+        float sp[4] = {};
+        if (chr) Copy(sp, chr + 0x110, 16);
+        snprintf(reply, n, "ok spirit %s id=%u inst=%llX state=%llu chr=%llX pos=%.0f,%.0f,%.0f pin=%d", why, id, (unsigned long long)inst,
+                 (unsigned long long)st, (unsigned long long)chr, sp[0], sp[1], sp[2], g_spPin.load());
+        return;
+    }
+    if (!strcmp(cmd, "tenshin")) {  // tenshin status|ready|begin|aura|hide|show|end : Nioh Tenshin (player form) live probe, RVAs from notes/player-transform-nioh-tenshin.md
+        const uint64_t base = (uint64_t)GetModuleHandleW(nullptr);
+        const uint64_t ch = PlayerChar();
+        uint64_t ext = 0;
+        if (!ch || !Rd(ch + 0x3A0, ext) || !ext) {
+            snprintf(reply, n, "error no player");
+            return;
+        }
+        const uint64_t T = ext + 0x178;
+        // the prologue of Begin (0x843010) must match the dump, else the RVA is wrong for this build
+        static const uint8_t kBeginHead[8] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48};
+        uint8_t head[8] = {};
+        if (!Copy(head, base + Grva(0x843010), 8) || memcmp(head, kBeginHead, 8)) {
+            snprintf(reply, n, "error Begin prologue mismatch %02X%02X%02X%02X", head[0], head[1], head[2], head[3]);
+            return;
+        }
+        uint8_t fl = 0;
+        float g0 = 0, g1 = 0;
+        uint32_t ft = 0, f188 = 0, hide = 0;
+        Rd(T + 0x10, fl); Rd(T + 0x14, ft); Rd(T + 0x20, g0); Rd(T + 0x24, g1); Rd(ext + 0x188, f188); Rd(ch + 0xB440, hide);
+        int rc = 0;
+        if (!strcmp(arg, "ready")) {
+            fl |= 1;
+            WrBytes(T + 0x10, &fl, 1);
+        } else if (!strcmp(arg, "fill")) {  // gauge to max (and ready) so the real button path can fire
+            float mx = 0;
+            Rd(T + 0x24, mx);
+            WrBytes(T + 0x20, &mx, 4);
+            fl |= 1;
+            WrBytes(T + 0x10, &fl, 1);
+        } else if (!strcmp(arg, "go")) {  // the game's own input path: bit 0xE on the next 2E6C34 call (gauge must be full: use fill first)
+            bosslog::TenshinGo();
+        } else if (!strncmp(arg, "move", 4)) {  // move <hex>: play action id via 0x66C4A8 (after fill + go has begun the form)
+            { const char* fp = strstr(line, "move"); bosslog::TenshinMove(fp ? (uint32_t)strtoul(fp + 4, nullptr, 16) : 0); }
+        } else if (!strncmp(arg, "load", 4)) {  // load <hex|all>: ally #47612 pack load via 3F9C10; poll with `packs`/`load` again
+            const char* fp = strstr(line, "load") + 4;
+            char sb[900];
+            bosslog::TenshinLoad(strstr(fp, "all") ? 0 : (uint32_t)strtoul(fp, nullptr, 16), sb, sizeof(sb));
+            snprintf(reply, n, "ok%s", sb);
+            return;
+        } else if (!strncmp(arg, "preload", 7) || !strncmp(arg, "packs", 5)) {  // preload <hex|all> : request the body-pack load then report 2C8; packs <hex|all> : report only (ally #47587)
+            const bool req = arg[0] == 'p' && arg[1] == 'r';
+            const char* fp = strstr(line, req ? "preload" : "packs");
+            fp += req ? 7 : 5;
+            char sb[900];
+            bosslog::TenshinPreload(strstr(fp, "all") ? 0 : (uint32_t)strtoul(fp, nullptr, 16), req, sb, sizeof(sb));
+            snprintf(reply, n, "ok%s", sb);
+            return;
+        } else if (!strcmp(arg, "slots")) {  // slots: gear-slot ids + form[+58] (pc2 #47582), also written to the log
+            char sb[512];
+            bosslog::TenshinSlots(ext, sb, sizeof(sb));
+            snprintf(reply, n, "ok %s", sb);
+            return;
+        } else if (!strncmp(arg, "body", 4)) {  // body <0-3>: ally #52022 experiment on the hide-sphere slot
+            bosslog::TenshinBody(atoi(arg + 4));
+        } else if (!strncmp(arg, "setform", 7)) {
+            { const char* fp = strstr(line, "setform"); bosslog::TenshinSetForm(fp ? (uint32_t)strtoul(fp + 7, nullptr, 16) : 0); }
+        } else if (!strncmp(arg, "form", 4)) {  // form <hex>: [state+0xA68] value for the next go (0 clears)
+            { const char* fp = strstr(line, "form"); bosslog::TenshinForm(fp ? (uint32_t)strtoul(fp + 4, nullptr, 16) : 0); }
+        } else if (!strcmp(arg, "req")) {  // fill + the game's own request-bit setter fc1a20(state+0x1060, 0x4E, 1) on the game thread
+            bosslog::TenshinReq();
+        } else if (!strcmp(arg, "begin")) {
+            rc = TCall(1, base, T, 0);
+        } else if (!strcmp(arg, "aura")) {
+            rc = TCall(2, base, T, 0);
+        } else if (!strcmp(arg, "hide") || !strcmp(arg, "show")) {
+            const bool h = !strcmp(arg, "hide");
+            rc = TCall(3, base, ch, h ? 1 : 0);
+        } else if (!strcmp(arg, "end")) {
+            rc = TCall(4, base, T, 0);
+        } else if (strcmp(arg, "status")) {
+            snprintf(reply, n, "error tenshin status|ready|fill|go|req|begin|aura|hide|show|end");
+            return;
+        }
+        uint8_t fl2 = 0;
+        uint32_t f2 = 0, h2 = 0;
+        Rd(T + 0x10, fl2); Rd(ext + 0x188, f2); Rd(ch + 0xB440, h2);
+        Log("Tenshin %s rc=%d T=%llX flags %02X->%02X ext188 %X->%X hide %X->%X type=%u gauge=%.1f/%.1f", arg, rc, (unsigned long long)T, fl, fl2, f188, f2, hide, h2, ft, g0, g1);
+        snprintf(reply, n, "ok %s rc=%d flags %02X->%02X transformed %d->%d hide %X->%X type=%u gauge=%.1f/%.1f", arg, rc, fl, fl2, (f188 >> 1) & 1, (f2 >> 1) & 1, hide, h2, ft, g0, g1);
+        return;
+    }
+#endif  // BR_SOULCORE
     if (!strcmp(cmd, "scan")) {
         g_wantScan.store(true);
         snprintf(reply, n, "ok gen=%u", g_scanGen.load());

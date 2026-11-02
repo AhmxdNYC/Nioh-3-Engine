@@ -70,6 +70,27 @@ static const Def kDefs[] = {
     {"Player::NoGameOver", "RLOG", kNative, 0x23AAA64, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Player::NoGameOver"},
     {"BuildSaveFilePath", "RLOG", kHook, 0x1FD6DD0, 7, "48 83 EC 48 49 8B 11 49 83 C8 FF 48 8B 44 24 78", 0, 0, 0, 0, 0x0, nullptr},
     {"InventoryAddItem", "INV", kHook, 0x54D324, 5, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F8 FE FF FF 48 81 EC 08 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B E9", 0, 0, 0, 0, 0x0, nullptr},
+#if BR_SOULCORE
+    {"EffectCreate", "SC", kHook, 0x4CE90C, 5, "48 8B C4 55 53 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FC FF FF 48 81 EC 38 04 00 00 0F 29 70 A8 0F 29 78 98 44 0F 29", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_1320F2C", "SC", kHook, 0x1320F2C, 11, "48 83 EC 28 48 8B 81 28 01 00 00 48 85 C0 74 1F", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_23CBF9C", "SC", kHook, 0x23CBF9C, 5, "50 01 00 00 5F C3 CC CC 48 89 5C 24 10 57 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 40 01 00 00 48 8B D1 48 8D 4C 24 30 E8 ?? ?? ?? ?? 83 64 24 20", 8, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_GSpiritReq", "SC", kHook, 0x2916C34, 7, "48 83 EC 48 0F 28 02 48 8D 54 24 30 8B 44 24 70 48 8B 49 08 66 0F 7F 44 24 30 89 44 24 20 E8 05 00 00 00 48 83 C4 48 C3", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_GSpiritWork", "SC", kHook, 0x2916C5C, 7, "48 8B C4 48 89 58 10 48 89 70 18 44 89 48 20 57 48 81 EC 90 00 00 00 48 83 39 00 48 8B F2 0F 29 70 E8 48 8B F9 0F 28 F2 0F 84 52 01 00 00", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_AsyncLoad", "SC", kHook, 0x29138CC, 6, "40 53 48 83 EC 40 48 8B 84 24 80 00 00 00 48 8B D9 48 89 44 24 30 48 8B 44 24 78 48 89 44 24 28 48 8B 44 24 70 48 89 44 24 20 E8", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_MotionReq", "SC", kHook, 0x66C4A8, 10, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 40 48 8B 01 41 8B D8 0F 29 74 24 30 8B FA 0F 28 F3 48 8B F1 FF 90 00 01 00 00", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_SpiritActive", "SC", kHook, 0x842FB0, 10, "48 8B C4 48 89 58 08 89 50 10 57 48 83 EC 30 48", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_B611BC", "SC", kHook, 0xB611BC, 5, "48 89 5C 24 18 56 57 41 56 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 30 8B 01 4C 8B F2 0F BA F0 08 48 8B F1", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_29EF38", "SC", kHook, 0x29EF38, 7, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 A8 48 81 EC 58 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 83 79 08 00 45 8B F1 4C 8B BD C0 00 00 00 41 8B F8 4C 8B A5", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_65A8A8", "SC", kHook, 0x65A8A8, 7, "48 8B C4 48 89 58 18 48 89 48 08 55 56 57 41 54 41 55 41 56 41 57 48 8D", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_68157C", "SC", kHook, 0x68157C, 7, "48 83 EC 28 48 8B D1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 05 E8", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_5BA648", "SC", kHook, 0x5BA648, 7, "48 83 EC 28 4C 8B 01 4C 8B D2 4C 8B C9 49 8B 10 49 3B D0 74 29 41 8B 02", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_322468", "SC", kHook, 0x322468, 7, "48 8B C4 48 89 58 10 48 89 70 18 55 57 41 54 41 55 41 56 48 8D 68 A1 48", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_3203EC", "SC", kHook, 0x3203EC, 7, "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 68 FC FF", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealProbe_3578E0", "SC", kHook, 0x3578E0, 8, "48 83 EC 38 F3 0F 10 02 4C 8B CA F3 0F 10 0D", 0, 0, 0, 0, 0x0, nullptr},
+    {"SealLife_2BFC90", "SC", kHook, 0x2BFC90, 7, "48 83 EC 28 4C 8B C9 48 85 D2 74 39 4C 8D 82 E0 00 00 00 4D 39 00 74 2D 48 8B 01 4C 8B D1 48 85 C0 74 22 49 3B C0 74 08 4C 8B D0 48 8B 00 EB EE 49 8B 02 48 8B 08 49 89 0A 49 FF 49 08 4D 89 00 E8 0F FC FF FF", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_786C84", "SC", kHook, 0x786C84, 7, "48 8B C4 48 89 58 08 44 89 48 20 44 89 40 18 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A8 48 81", 0, 0, 0, 0, 0x0, nullptr},
+    {"ScProbe_TenshinInput", "SC", kHook, 0x2E6C34, 6, "40 53 48 83 EC 30 8B 81 68 10 00 00 48 8B D9 48 0F BA E0 0E 0F 83 AD 01 00 00 E8", 0, 0, 0, 0, 0x0, nullptr},
+#endif  // BR_SOULCORE
     {"fn:MissionClearedGetSlot", "CORE", kFn, 0x702B64, 0, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C", 0, 0, 0, 0, 0x0, nullptr},
     {"fn:MissionRequestById", "CORE", kFn, 0x2239600, 0, "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18 4C 89 60 20 55 41 56 41 57 48 8B EC 48 81 EC 80 00 00 00 45 33 E4 4D 8B F1", 0, 0, 0, 0, 0x0, nullptr},
     {"g:DataDb", "CORE", kGlobal, 0x45B9E30, 0, "48 8B 0D ?? ?? ?? ?? 8B D7 41 8A F4", 0, 3, 7, 0, 0x223963C, nullptr},
@@ -103,6 +124,10 @@ static const Def kDefs[] = {
     {"chk:PlayerPlace_Retry14", "SPAWN", kCheck, 0x1C0F2BD, 28, "48 8B 05 ?? ?? ?? ?? 48 8B 71 48 48 8B 48 08 0F B7 96 10 01 00 00 8B 49 14 66 85 D2", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:PlayerPlace_Find", "SPAWN", kCheck, 0x1C0F363, 48, "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:CamFlag4_Retry14", "SPAWN", kCheck, 0x2239C49, 48, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F", 0, 0, 0, 0, 0x0, nullptr},
+#if BR_SOULCORE
+    {"chk:AttackCancelGate", "ACANCEL", kCheck, 0x23636A9, 0, "48 8B 03 BA C9 ED 00 00 45 33 C0 48 8B CB FF 90 D0 00 00 00 84 C0 0F 84 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},  // pc #58429 item gate 236361C soul-core HasSkill(0xEDC9) test (hand-added, derive_sites out of date)
+    {"fn:HasSkill", "ACANCEL", kFn, 0x28A88C, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 48 8B 99 E0 00 00 00 45 33 ED 0F B7 F2 4C 8B F9 48 85 DB", 0, 0, 0, 0, 0x0, nullptr},  // pc #58506 ctrl vt+D0 HasSkill(ctrl, id, 0) (hand-added)
+#endif  // BR_SOULCORE
 };
 constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));
 }  // namespace sites

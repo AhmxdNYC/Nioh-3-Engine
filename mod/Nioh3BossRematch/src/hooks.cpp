@@ -297,6 +297,64 @@ bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** w
     return InstallCallRetargetAt((uint8_t*)Site(site), site, fn, orig, why);
 }
 
+#if BR_SOULCORE
+// E8 call site -> stub: if *cell != 0 { rax = *cell; *cell = 0; ++*hits; ret } else jump to the original callee with every register intact.
+// The armed path touches only rax, rcx and flags (all volatile; the callee is not called). Used by [Spirit] FormKey on 0x11793D0's callers.
+bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cell, volatile LONG* hits, const char** why) {
+    uint8_t b[5];
+    if (!p || !Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
+        if (why) *why = "call site not resolved / not a call";
+        return false;
+    }
+    int32_t rel = 0;
+    memcpy(&rel, b + 1, 4);
+    const uint64_t orig = (uint64_t)(p + 5 + rel);
+    if (!Thunks() || g_used + 80 > kPage) {
+        if (why) *why = "no thunk room";
+        return false;
+    }
+    uint8_t* t = g_thunks + g_used;
+    uint8_t* w = t;
+    auto put = [&](std::initializer_list<uint8_t> x) {
+        for (uint8_t c : x) *w++ = c;
+    };
+    auto put64 = [&](uint64_t v) {
+        memcpy(w, &v, 8);
+        w += 8;
+    };
+    put({0x48, 0xB8});
+    put64((uint64_t)cell);                            // mov rax, cell
+    put({0x48, 0x8B, 0x00});                          // mov rax, [rax]
+    put({0x48, 0x85, 0xC0});                          // test rax, rax
+    put({0x74, 0x1F});                                // jz orig (+31)
+    put({0x48, 0xB9});
+    put64((uint64_t)cell);                            // mov rcx, cell
+    put({0x48, 0xC7, 0x01, 0x00, 0x00, 0x00, 0x00});  // mov qword [rcx], 0
+    put({0x48, 0xB9});
+    put64((uint64_t)hits);                            // mov rcx, hits
+    put({0xF0, 0xFF, 0x01});                          // lock inc dword [rcx]
+    put({0xC3});                                      // ret (rax = key)
+    put({0xFF, 0x25, 0, 0, 0, 0});                    // orig: jmp [rip+0]
+    put64(orig);
+    FlushInstructionCache(GetCurrentProcess(), t, (size_t)(w - t));
+    g_used += ((size_t)(w - t) + 15) & ~size_t(15);
+    const intptr_t dd = (intptr_t)t - (intptr_t)(p + 5);
+    if (dd < INT32_MIN || dd > INT32_MAX) {
+        if (why) *why = "thunk out of rel32 range";
+        return false;
+    }
+    const int32_t r2 = (int32_t)dd;
+    uint8_t nb[4];
+    memcpy(nb, &r2, 4);
+    if (!Patch(p + 1, nb, 4)) {
+        if (why) *why = "atomic write failed";
+        return false;
+    }
+    Log("Hook: call +%llX (%s) now goes through the key override, else +%llX", (unsigned long long)((uintptr_t)p - g_img.base), site,
+        (unsigned long long)(orig - g_img.base));
+    return true;
+}
+#endif  // BR_SOULCORE
 
 bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why) {
     uint8_t b[5];

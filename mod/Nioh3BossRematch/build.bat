@@ -21,7 +21,8 @@ set "PYX=py -I"
 where py >nul 2>nul || set "PYX=python -I"
 %PYX% "%~dp0..\..\tools\check_fixed_rvas.py" > build\fixed_rvas.txt 2>&1
 if errorlevel 1 echo WARNING: fixed game RVAs not found by pattern - see build\fixed_rvas.txt and notes\aob-audit.md
-set CF=/nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE
+rem Public 1.8.0 ships soul-core forms (BR_SOULCORE=1). 1.7.90 compiled them out.
+set CF=/nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /DBR_SOULCORE=1
 for %%f in (main sites hooks bosslog rematch training ui remote gamerva) do (
     cl %CF% /Fobuild\%%f.obj src\%%f.cpp || exit /b 1
 )

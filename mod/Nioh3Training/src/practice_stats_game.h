@@ -308,6 +308,7 @@ static __attribute__((noinline)) void PstPlayerNin(void) {
 // other consumables are not touched (that is board task #195).
 static uint64_t g_soul_glob; static int g_soul_scan; static uint32_t g_soul_prev[1200]; static uint8_t g_soul_have[1200]; static DWORD g_soul_until;
 static uint16_t g_soul_known[32]; static int g_soul_nknown;
+static DWORD g_soul_drop[1200]; static uint32_t g_soul_dropc[1200];  // human #60993: last drop by 1 per slot (tick, new count)
 // human #58339: [Practice] SoulCoreMin = "FC9F:3,9C04:1" (hex item id : count) - a soul core below its floor is topped up (gives back a lost one)
 static char g_soul_min_str[128]; static uint16_t g_soul_min_id[8]; static uint32_t g_soul_min_n[8]; static int g_soul_nmin = -1;  // human #58313: item ids seen used in a seal throw
 static __attribute__((noinline)) uint64_t PstSoulFindGlob(void) {
@@ -335,6 +336,12 @@ static __attribute__((noinline)) void PstPlayerSoul(void) {
         const uint32_t act = ActIdOf(ctrl);
         if (act == 0x28FD || act == 0x28FB || act == 0x28AF) g_soul_until = now + 2000;
     }
+    {   // human #60993: a form started by Nioh3BossRematch (attack cancel / spawn hit / any core) counts as the seal throw too
+        static unsigned (*fu)(void); static int tried;
+        if (!fu && !tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); fu = rm ? (unsigned (*)(void))GetProcAddress(rm, "Nioh3BossRematch_FormUseTick") : 0; }
+        const unsigned t = fu ? fu() : 0;
+        if (t && now - t < 2000 && (int)(t + 2000 - g_soul_until) > 0) g_soul_until = t + 2000;
+    }
     const int seal = (int)(g_soul_until - now) > 0;
     uint8_t* arr = (uint8_t*)(inv + 0x1E0AD0);
     if (g_soul_nmin < 0) {
@@ -358,6 +365,11 @@ static __attribute__((noinline)) void PstPlayerSoul(void) {
             if ((seal || known) && g_soul_have[i] && g_soul_prev[i] == c + 1 && c + 1 <= 99) {
                 if (!known && g_soul_nknown < 32) g_soul_known[g_soul_nknown++] = id;
                 *cnt = g_soul_prev[i]; PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (%s, put back)", id, i, c, g_soul_prev[i], seal ? "used in the seal throw" : "known soul core"); continue; }
+            if (seal && g_soul_have[i] && g_soul_drop[i] && now - g_soul_drop[i] < 1500 && g_soul_dropc[i] == c && c + 1 <= 99) {
+                *cnt = c + 1; g_soul_drop[i] = 0; if (g_soul_nknown < 32 && !known) g_soul_known[g_soul_nknown++] = id;
+                PstLog("PRACTICE infinite soul core: item 0x%X slot %d count %u -> %u (used just before the form start, put back)", id, i, c, c + 1);
+                g_soul_prev[i] = c + 1; continue; }
+            if (g_soul_have[i] && g_soul_prev[i] == c + 1) { g_soul_drop[i] = now ? now : 1; g_soul_dropc[i] = c; }  // human #60993
             g_soul_prev[i] = c; g_soul_have[i] = 1;
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
