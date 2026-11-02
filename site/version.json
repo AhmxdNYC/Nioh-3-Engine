@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.8.1",
   "url": "https://nioh3-mod-feedback.vercel.app",
-  "notes": "Soul core transformations: d-pad left or down. Toggle in Player settings. One-click installer."
+  "notes": "Fixes Return, infinite health after Return, Boss Match settings, and the frame meter switch. Soul core transformations unchanged."
 }
