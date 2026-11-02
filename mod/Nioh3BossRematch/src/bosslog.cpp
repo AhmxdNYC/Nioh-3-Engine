@@ -46,6 +46,30 @@ std::atomic<uint64_t> g_t0{0};
 std::atomic<double> g_endAt{-1e9};
 std::atomic<int> g_flagCount{0};
 std::atomic<uint32_t> g_lastMission{0};
+std::atomic<int> g_logOwn{0};    // this BossBattleMode opened a Report row (a Training session did not)
+std::atomic<int> g_clearWin{0};  // SetMissionClearFlag while that fight was up = the boss died
+
+void MaybeStart(const char* placementName) {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    if (!tr) return;
+    auto act = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionActive");
+    if (act && (act() & 1)) return;  // Practice or Boss Match already opened the row
+    auto mark = (void (*)(int, int, const char*))GetProcAddress(tr, "Nioh3Training_FightMark");
+    if (!mark) return;
+    const char* n = rematch::FightLogName();
+    if (!n || !n[0]) n = placementName;
+    if (!n || !n[0]) n = "boss";
+    mark(rematch::FightLogMode(), 1, n);
+    g_clearWin.store(0);
+    g_logOwn.store(1);
+}
+void MaybeEnd() {
+    if (!g_logOwn.exchange(0)) return;
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto mark = tr ? (void (*)(int, int, const char*))GetProcAddress(tr, "Nioh3Training_FightMark") : nullptr;
+    if (!mark) return;
+    mark(rematch::FightLogMode(), g_clearWin.exchange(0) ? 2 : 4, "");
+}
 
 constexpr int kRing = 16;
 struct RingEnt {
@@ -89,6 +113,16 @@ void HkBegin(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     InterlockedExchange(&fight::g_active, 1);
     InterlockedIncrement(&fight::g_fights);
     if (g_logOn) Log("BossLog #%d: Character::Create placement ids in the last 60 s:%s", n, bl ? buf : " none");
+    uint32_t newest = 0;
+    double newestT = -1e9;
+    for (uint32_t i = rn > kRing ? rn - kRing : 0; i < rn; ++i) {
+        const RingEnt& e = g_ring[i % kRing];
+        const double age = t - e.t.load();
+        if (age < 0 || age > 60.0 || e.t.load() < newestT) continue;
+        newestT = e.t.load();
+        newest = e.id.load();
+    }
+    MaybeStart(rematch::NameForPlacement(newest));
 }
 
 void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
@@ -99,6 +133,7 @@ void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     g_endAt.store(t);
     g_active.store(false);
     InterlockedExchange(&fight::g_active, 0);
+    MaybeEnd();
 }
 
 void HkCreate(uint64_t placementId, uint64_t arg2, uint64_t arg3, uint64_t arg4, const uint64_t*) {
@@ -125,6 +160,7 @@ void HkGauge(uint64_t actorId, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 
 void HkClear(uint64_t missionId, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     g_lastMission.store((uint32_t)missionId);
+    if (g_active.load()) g_clearWin.store(1);  // mission cleared during the fight: the boss died
     Log("BossLog #%d: SetMissionClearFlag mission id %u t=%.3f s (%s)", g_fight.load(), (uint32_t)missionId, Now(),
           InFightOrGrace() ? "fight window" : "no fight window");
 }
@@ -6072,6 +6108,7 @@ void ForceEnd(const char* why) {
     bosslog::g_endAt.store(-1e9);  // no post-fight grace: there was no fight
     bosslog::g_active.store(false);
     InterlockedExchange(&g_active, 0);
+    bosslog::MaybeEnd();  // Leave arena / forced end: the open story fight is a quit unless it already ended
 }
 void LastFightPlacements(char* buf, size_t n) {
     AcquireSRWLockShared(&bosslog::g_lastLock);

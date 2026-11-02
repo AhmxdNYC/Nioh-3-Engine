@@ -4503,6 +4503,22 @@ void Command(const char* line, char* reply, size_t n) {
 
 bool PlayerExists() { return PlayerChar() != 0; }
 
+int FightLogMode() {
+    if (g_practiceOwned.load()) return 2;             // Practice
+    if (g_replayIn.load() || g_fight.load()) return 1;  // Boss Match
+    return 3;                                         // story / field boss
+}
+const char* FightLogName() {
+    const char* n = RowName(g_fightRow);
+    return n ? n : "";
+}
+const char* NameForPlacement(uint32_t id) {
+    if (!id) return "";
+    for (size_t i = 0; i < g_rows.size(); ++i)
+        if (g_rows[i].placement == id && g_rows[i].name[0]) return g_rows[i].name;
+    return "";
+}
+
 }  // namespace rematch
 }  // namespace addon
 

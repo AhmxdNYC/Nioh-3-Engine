@@ -243,6 +243,24 @@ DWORD WINAPI SpecsThread(LPVOID) {  // cache for crash reports (never enumerate 
     return 0;
 }
 
+// 0 = Training not loaded, 1 = no FightLog export (skip the section), 2 = written, -1 = the read faulted.
+// SEH stays in this function: plain C only, same rule as TrainingState.
+int ReadFightLog(char* buf, int cap) {
+    if (!buf || cap <= 0) return 0;
+    buf[0] = 0;
+    HMODULE trm = GetModuleHandleW(L"Nioh3Training.asi");
+    if (!trm) return 0;
+    auto flog = (int (*)(char*, int))GetProcAddress(trm, "Nioh3Training_FightLog");
+    if (!flog) return 1;
+    __try {
+        flog(buf, cap);
+        return 2;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        buf[0] = 0;
+        return -1;
+    }
+}
+
 // Training / Boss Rematch state through their exports. SEH-guarded: plain C types only in this function.
 void TrainingState(char* out, size_t cap) {
     out[0] = 0;
@@ -363,6 +381,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         TrainingState(tr, sizeof(tr));
         o.P("\r\n-- Training session / summoned bosses --\r\n");
         o.W(tr, strlen(tr));
+        char fights[4096];
+        const int fr = ReadFightLog(fights, (int)sizeof fights);
+        if (fr == 2 || fr == -1) {  // missing export (fr == 1) or no Training: skip the section
+            o.P("\r\n-- Fights --\r\n");
+            if (fr < 0) o.P("  (fight list read faulted)\r\n");
+            else if (fights[0]) o.W(fights, strlen(fights));
+            else o.P("  (no fights this session)\r\n");
+        }
     }
 
     if (er) {

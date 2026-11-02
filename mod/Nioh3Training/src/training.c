@@ -37,6 +37,7 @@
 // Trace hooks (log only): CreateDynamic native 1C0C5E0, Load::Character native A42A7C.
 #include <windows.h>
 #include "gamerva.h"
+#include "fightlog.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -1490,6 +1491,74 @@ static int DespawnAll(const char* why) {
     Log("DESPAWN ALL (%s): %d deleted, %d already gone, slots reset", why, removed, gone);
     return removed;
 }
+// Report "Fights": last 20 rounds. Practice / Boss Match start here. A story boss starts from Boss Rematch's BossBattleMode hook.
+static FlLog g_fl;
+static SRWLOCK g_flLock = SRWLOCK_INIT;
+static int g_flReady;
+static void FlEnsure(void) {
+    if (g_flReady) return;
+    FlInit(&g_fl);
+    g_flReady = 1;
+}
+static void FlNow(FlClock* c) {
+    SYSTEMTIME st; GetLocalTime(&st);
+    c->y = st.wYear; c->mo = st.wMonth; c->d = st.wDay; c->h = st.wHour; c->mi = st.wMinute; c->s = st.wSecond;
+}
+static void FightLabel(char* out, int cap, const char* tok, uint32_t chr) {
+    if (!out || cap <= 0) return;
+    out[0] = 0;
+    if (chr) {
+        for (int i = 0; i < g_nrows; ++i) if (g_rows[i].chr == chr) {
+            const char* n = g_rows[i].name; const char* p = strstr(n, " (");
+            snprintf(out, (size_t)cap, "%.*s", p ? (int)(p - n) : (int)strlen(n), n);
+            return;
+        }
+        for (int i = 0; i < g_nsum; ++i) if (g_sum[i].chr == chr) { snprintf(out, (size_t)cap, "%s", g_sum[i].name); return; }
+    }
+    snprintf(out, (size_t)cap, "%s", tok && tok[0] ? tok : "boss");
+}
+static void FightBegin(int mode, const char* name) {
+    FlEnsure();
+    FlClock c; FlNow(&c);
+    AcquireSRWLockExclusive(&g_flLock);
+    FlStart(&g_fl, mode, name, GetTickCount(), &c);
+    ReleaseSRWLockExclusive(&g_flLock);
+    Log("FIGHT start: %s | %s", name && name[0] ? name : "boss", FlModeName(mode));
+}
+static int FightFinish(int result) {
+    FlEnsure();
+    FlClock c; FlNow(&c);
+    char name[FL_NAME]; int mode = 0, ok = 0;
+    name[0] = 0;
+    AcquireSRWLockExclusive(&g_flLock);
+    if (g_fl.open >= 0) {
+        snprintf(name, sizeof name, "%s", g_fl.rec[g_fl.open].name);
+        mode = g_fl.rec[g_fl.open].mode;
+        ok = FlEnd(&g_fl, result, GetTickCount(), &c);
+    }
+    ReleaseSRWLockExclusive(&g_flLock);
+    if (ok) Log("FIGHT end: %s | %s | %s", name[0] ? name : "boss", FlModeName(mode), FlResultName(result));
+    return ok;
+}
+static int PlayerDeadNow(void) {
+    uint64_t c = 0, m = 0;
+    __try { return PlayerHp(&c, &m) && m && c == 0; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static void FightPlayerWatch(void) {
+    FlEnsure();
+    uint32_t t0 = 0; int open = 0;
+    AcquireSRWLockShared(&g_flLock);
+    if (g_fl.open >= 0) { open = 1; t0 = g_fl.rec[g_fl.open].t0; }
+    ReleaseSRWLockShared(&g_flLock);
+    if (!open || (GetTickCount() - t0) < 500) return;  // ignore the corpse from the round that just ended
+    if (PlayerDeadNow()) FightFinish(FL_LOSS);
+}
+static void FightBeginSession(void) {
+    char name[FL_NAME];
+    FightLabel(name, (int)sizeof name, g_tr.tok, g_tr.chr);
+    FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name);
+}
 static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
     TrainClear("train start");
@@ -1501,6 +1570,7 @@ static int TrainStart(const char* tok, float d) {
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.tRespawn = GetTickCount() + 300;  // the native delete of the previous boss is applied on a later frame: spawn shortly after
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN start %s dist %.0f (round 1)", tok, d); g_cfg_tr_dist = (int)d;
+    FightBeginSession();
     return 1;
 }
 static int g_cfg_tr_respawn = 2000;
@@ -1514,6 +1584,7 @@ static void TrainRetry(const char* why) {
     g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     IhDefault(0);
     Log("TRAIN retry (%s): round %d", why, g_tr.round);
+    FightBeginSession();
 }
 static volatile DWORD g_gate_maskUntil; static int g_cfg_gate_mask_hold = 2000;  // #9909 [Return] ReturnGateMaskHoldMs; mask forced on after a lost round's put-back
 static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone, no respawn, wait for the Return gate choice
@@ -1526,6 +1597,7 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
     Log("TRAIN round %d lost (AutoRetryOnDeath 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
 }
 static void TrainStop(const char* why) {
+    FightFinish(PlayerDeadNow() ? FL_LOSS : FL_QUIT);  // no-op when the round already ended as a win or a loss
     TrainClear(why); if (g_tr.nodeath || g_tr_nodeath_now) PlayerSetNoDeath(0);  // user #13197: also a summon's NoDeath (g_tr.nodeath is lost on the session memset)
     g_sum_nodeath = 0;
     g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
@@ -1540,6 +1612,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
     g_tr.practice = g_practice_next; g_practice_next = 0;  // user #13223
     if (TrNoDeath()) PlayerSetNoDeath(1);
     g_tr.active = 1; IhDefaultSession(); BossMatchDefaults(); Log("TRAIN arena session %s: round 1 pose player %.0f %.0f %.0f boss %.0f %.0f %.0f (retry stays in the arena)", r->id, pp[0], pp[1], pp[2], bp[0], bp[1], bp[2]);
+    FightBeginSession();
 }
 // user #22918 Infinite health. The saved toggle (g_cfg_cantdie) is the gate. Return ends the session
 // (g_tr / g_bm / g_ar) but must not stop the heal or the hit cut. Game thread, every pump frame.
@@ -1562,6 +1635,7 @@ static void TrainTick(void) {
     const int ph = PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
     if (ph == PH_REFILL) PlayerRefill(c, m);  // user #14267 Infinite health ON: never lose HP
     else if (ph == PH_BEATEN) {
+        if (!g_tr.beaten) FightFinish(FL_LOSS);
         g_tr.beaten = 1; g_tr.tBeat = now; Log("TRAIN round %d: player beaten (HP %llu / %llu), %s in %d ms", g_tr.round, c, m, g_tr.practice ? "resetting the round in place (Practice session)" : g_cfg_autoretry ? "resetting the round (AutoRetryOnDeath 1)" : "removing the boss for the Return gate (AutoRetryOnDeath 0)", g_cfg_beat_ms);
     }
     // AutoRetryOnDeath 1 = the 'dejavu' instant round reset (player + boss) 2 s after the player is beaten; 0 (default) = TrainLost: boss removed, player healed,
@@ -1576,7 +1650,7 @@ static void TrainTick(void) {
         if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
-        g_tr.tWin = now; { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
+        g_tr.tWin = now; FightFinish(FL_WIN); { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
     if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
     // user play-test 13:11 (corpse stays) + #6185: the body stays on the floor BodyFadeDelayMs after the kill (finisher / death animation untouched), then fades out like
@@ -1662,6 +1736,23 @@ static void PreloadTick(void) {
 //   int  Nioh3Training_Version(void)
 #define N3T_API __declspec(dllexport)
 // ally #89: boss name for a character id (arena table), for the menu's Boss A / B rows of bosses with no recorded move list. 1 = found.
+// Report (EngineFix GetProcAddress). Missing on an older Training build: the Fights section is skipped.
+// mode: 1 Boss Match, 2 Practice, 3 normal boss. phase: 1 start, 2 win (boss died), 3 loss (player died), 4 quit/left.
+N3T_API void Nioh3Training_FightMark(int mode, int phase, const char* name) {
+    if (phase == 1) { FightBegin(mode, name && name[0] ? name : "boss"); return; }
+    if (phase == 4 && PlayerDeadNow()) phase = 3;
+    if (phase == 2) FightFinish(FL_WIN);
+    else if (phase == 3) FightFinish(FL_LOSS);
+    else if (phase == 4) FightFinish(FL_QUIT);
+}
+N3T_API int Nioh3Training_FightLog(char* buf, int cap) {
+    if (!buf || cap <= 0) return 0;
+    FlEnsure();
+    AcquireSRWLockShared(&g_flLock);
+    int n = FlFormat(&g_fl, buf, cap);
+    ReleaseSRWLockShared(&g_flLock);
+    return n;
+}
 N3T_API int Nioh3Training_BossName(uint32_t chr, char* out, int cap) {
     if (!out || cap <= 0) return 0;
     out[0] = 0;
@@ -5024,6 +5115,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { InfHpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22918
+    __try { FightPlayerWatch(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FIGHT watch exception %08lX", GetExceptionCode()); }
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { BvTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSVITALS tick exception %08lX", GetExceptionCode()); }  // user #14320
     __try { PstTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRACTICE stats tick exception %08lX", GetExceptionCode()); }  // user #22389

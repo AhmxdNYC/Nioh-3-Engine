@@ -147,6 +147,10 @@ void SetPumpLive(bool installed);  // Init publishes pump installation outcome
 void Pump();  // shared dispatcher callback; no work until successfully prepared + live
 bool Live();
 bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
+// Report fight list. 1 Boss Match, 2 Practice, 3 a story boss. Name is the catalogue row, or "".
+int FightLogMode();
+const char* FightLogName();
+const char* NameForPlacement(uint32_t id);
 // UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {
     char text[112];

@@ -380,7 +380,7 @@ int main() {
         osd::drawnTexts.clear();
         CHECK(DrawImpl(1920, 1080) > 0);
         bool need = false;
-        for (const auto& t : osd::drawnTexts) need |= t == "needs CamKiProbe add-on";
+        for (const auto& t : osd::drawnTexts) need |= t.find("CamKiProbe.asi not loa") != std::string::npos;
         CHECK(need);
         g_camProbePresentForTest = 1;
         wchar_t temp[MAX_PATH], folder[MAX_PATH];
