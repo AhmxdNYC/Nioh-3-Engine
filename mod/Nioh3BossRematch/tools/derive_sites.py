@@ -346,13 +346,22 @@ def render_h(sites, ts, soi):
          "enum Kind : uint8_t { kHook = 0, kFn = 1, kCall = 2, kGlobal = 3, kCheck = 4, kNative = 5 };  // kNative: hook resolved by script-native name",
          "struct Def { const char* name; const char* group; Kind kind; uint32_t rva; uint8_t head; const char* pattern; uint8_t offset;"
          " uint8_t dispOff; uint8_t insnLen; int32_t addend; uint32_t anchor; const char* native; };",
+         "#ifndef BR_SOULCORE",
+         "#define BR_SOULCORE 0  // soul-core sites (groups SC, ACANCEL) only in the dev line (addon.h)",
+         "#endif",
          "static const Def kDefs[] = {"]
     kmap = {"hook": "kHook", "fn": "kFn", "call": "kCall", "global": "kGlobal", "check": "kCheck", "native": "kNative"}
+    sc = False
     for s in sites:
+        if (s["group"] in ("SC", "ACANCEL")) != sc:
+            sc = not sc
+            o.append("#if BR_SOULCORE" if sc else "#endif  // BR_SOULCORE")
         o.append('    {"%s", "%s", %s, 0x%X, %d, "%s", %d, %d, %d, %d, 0x%X},' % (
             s["name"], s["group"], kmap[s["kind"]], s["rva"], s["head"], s["pattern"], s["offset"], s.get("disp_off", 0),
             s.get("insn_len", 0), s.get("addend", 0), s.get("anchor", 0)) + "")
         o[-1] = o[-1][:-2] + ', %s},' % ('"%s"' % s["native"] if s.get("native") else "nullptr")
+    if sc:
+        o.append("#endif  // BR_SOULCORE")
     o += ["};", "constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));", "}  // namespace sites", ""]
     return "\r\n".join(o)
 

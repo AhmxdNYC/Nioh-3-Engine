@@ -10,7 +10,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.5.0"
+#define ADDON_VERSION "1.5.1"
+// Soul-core form code is compiled only with /DBR_SOULCORE=1. build.bat passes it (1.8.0 and later ship the forms); without it the code compiles out.
+#ifndef BR_SOULCORE
+#define BR_SOULCORE 0
+#endif
 
 namespace addon {
 
@@ -62,13 +66,16 @@ bool InstallPump(void (*tick)(), const char** why);
 // retarget an E8 call site (kind "call") to fn (same signature); *orig = the callee it had
 bool InstallCallRetarget(const char* site, void* fn, void** orig, const char** why);
 bool InstallCallRetargetAt(uint8_t* p, const char* site, void* fn, void** orig, const char** why);
+#if BR_SOULCORE
 // E8 call site: while *cell != 0 the call returns *cell (one shot: cell cleared, ++*hits) instead of calling the callee
 bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cell, volatile LONG* hits, const char** why);
+#endif  // BR_SOULCORE
 
 // ---- features ----
 namespace bosslog {
 void Register(bool boss, bool rm, bool inv);  // handlers; installed by main
 void FightBegin(uint64_t ctx);                 // also used by rematch
+#if BR_SOULCORE
 void TenshinReq();                             // game-thread request id 0x4E via fc1a20 (ally #47009)
 void TenshinMove(uint32_t v);                  // game 0x66C4A8(state, id, 0, 0.0f) once on the next input state
 void TenshinSetForm(uint32_t v);               // game SetForm 74C2FC+74C128 with this id before the go bit (0 = off)
@@ -89,6 +96,7 @@ double SoulTune(int which, int dir, bool* live);
 // patch / speed / orb / FormSlot0 / FormKey hooks pass through); a form already up ends normally. dir 0 flips, +-1 sets; saved.
 bool SoulCoreForms(bool* hooked);
 bool SoulCoreFormsSet(int dir, bool* formUp);
+#endif  // BR_SOULCORE
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)
 extern volatile LONG g_fights;          // BossBattleMode starts this session
@@ -165,7 +173,9 @@ void UiSettingsPrepare();  // overlay initialization only; no game hooks
 bool Toast(char* buf, size_t n, uint32_t& color);
 // pipe commands (remote.cpp): returns the reply text
 void Command(const char* line, char* reply, size_t n);
+#if BR_SOULCORE
 void SpiritSpawnNote(uint64_t state, uint32_t motion);  // #54000: MotionReq from 65ADA6 (chr spawn 65A8A8)
+#endif  // BR_SOULCORE
 }
 namespace ui {
 void HostedFightCommand(const char* row,char* reply,size_t n);

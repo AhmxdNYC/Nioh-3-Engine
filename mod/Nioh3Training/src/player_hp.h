@@ -8,12 +8,14 @@
 enum { PH_NONE = 0, PH_REFILL = 1, PH_BEATEN = 2 };
 static int PhFloor(uint64_t c, uint64_t m) { return m && (c <= 1 || c * 100 <= m); }
 static int PhDecide(int cantdie, int nodeath, int beaten, int lost, uint64_t c, uint64_t m) {
+    (void)nodeath;  // native NoDeath is a separate floor-at-1. Infinite health must not depend on it.
     if (!m || beaten || lost) return PH_NONE;
-    if (cantdie && nodeath) return c < m ? PH_REFILL : PH_NONE;
+    if (cantdie) return c < m ? PH_REFILL : PH_NONE;  // ON: any lost HP, including 0, is a refill. Never 'beaten'.
     return PhFloor(c, m) ? PH_BEATEN : PH_NONE;
 }
 // user #22918: the per-tick refill above only ran for a Practice (g_tr) session; in a Boss Match / arena fight (g_bm / g_ar) nothing healed the player (live 03:12 HB lines:
 // HP 1969 -> 1280 -> 591 -> 0 vs Yamagata, never refilled), and even in Practice one hit larger than the HP left kills before the next tick. So with Infinite health ON
 // the HP damage itself is cut to 0 when the victim is the player and any session is live (hook 787268 at 329890), and the Boss Match tick refills a hurt, living player.
 static int PhDamageCut(int cantdie, int session, int victimIsPlayer, int dmg) { return cantdie && session && victimIsPlayer && dmg > 0 ? 0 : dmg; }
-static int PhMatchRefill(int cantdie, int session, uint64_t c, uint64_t m) { return cantdie && session && m && c > 0 && c < m; }
+// c == 0 is included: a hit that missed the damage hook already emptied the bar, and the next tick has to bring it back.
+static int PhMatchRefill(int cantdie, int session, uint64_t c, uint64_t m) { return cantdie && session && m && c < m; }

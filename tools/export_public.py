@@ -30,7 +30,9 @@ SCRUB = [(re.compile(rb'C:(\\\\|\\|/)Users(?:\\\\|\\|/)Ahmad Hamza(?:\\\\|\\|/)n
          (re.compile(rb'/(?:var/)?home/bazzite/'), b'~/'),
          (re.compile(rb'7656119\d{10}'), b'76561190000000000')]  # Steam IDs (PUBLIC_EXCLUSIONS)
 # public lines intentionally reworded on the private line (checked by hand, 10-31 #59153)
-REWORDED = {'mod/Nioh3EngineFix/src/dllmain.cpp': ['unknown build: each patch is installed only when its own bytes match']}
+REWORDED = {'mod/Nioh3EngineFix/src/dllmain.cpp': ['unknown build: each patch is installed only when its own bytes match'],
+            # 1.8.1: forms ship (build.bat /DBR_SOULCORE=1), so the 1.7.90 'release builds with 0' comment was reworded
+            'mod/Nioh3BossRematch/src/addon.h': ['Dev-line code (soul-core forms) is compiled only with /DBR_SOULCORE=1']}
 PERSONAL = re.compile(r'Ahmad Hamza|/home/bazzite|/var/home/|C:\\\\Users\\\\|ahmadhamza', re.I)
 # soul-core form code (dev line only; 1.7.87 public had 0 of these)
 SOUL = re.compile(r'FormKey|FormHide|FormSlot0|FormFollow|FormPin|SealEnd|SealExit|OrbSkip|FastThrow|AttackCancel|'

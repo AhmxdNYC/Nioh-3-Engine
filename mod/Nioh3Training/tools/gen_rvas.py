@@ -6,7 +6,7 @@ r"""gen_rvas.py (Nioh3Training) - the pattern table behind Grva() (src/gamerva.h
     py -I tools/gen_rvas.py            # rvas.json -> src/rvas_gen.h only
 
 Same derivation as mod/Nioh3EngineFix/tools/gen_rvas.py (which this script runs with Training's paths and a C renderer);
-DUMP = decrypted image of the game (file offset == RVA), e.g. /home/bazzite/aob-dump/Nioh3.vanilla.bin.
+DUMP = decrypted image of the game (file offset == RVA), e.g. Nioh3.dump.bin.
 """
 import importlib.util
 import json
