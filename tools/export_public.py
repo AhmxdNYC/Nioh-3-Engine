@@ -22,8 +22,10 @@ MODS = ['mod/Nioh3EngineFix', 'mod/Nioh3Training', 'mod/Nioh3BossRematch', 'mod/
 CODE = ('.c', '.cpp', '.h', '.hpp', '.inl', '.def', '.rc', '.json', '.py', '.bat', '.cmd', '.ps1', '.sh', '.ini',
         '.tsv', '.txt', '.hlsl', '.zig', '.cmake')
 SKIP = ['*/build/*', '*/bin/*', '*/.github/*', '*/plug/*', '*.obj', '*.lib', '*.pdb', '*.exp', '*.asi', '*.dll', '*.exe',
-        '*/build.log', '*.log', '*/tests/formhide4*', '*/soul_core_tuning_menu.h',  # soul-core dev only
+        '*/build.log', '*.log', '*/tests/formhide4*',  # private form-hide probes, not the shipping mod
         ]
+# The tuning menu is part of the shipping form code. It stays out of exports that still compile the forms out.
+SKIP_UNLESS_SOULCORE = ['*/soul_core_tuning_menu.h']
 # same scrub as the 1.7.86 export: the private checkout path becomes the neutral C:\nioh3-engine, home dirs become ~/
 SCRUB = [(re.compile(rb'C:(\\\\|\\|/)Users(?:\\\\|\\|/)Ahmad Hamza(?:\\\\|\\|/)nioh3-engine'), rb'C:\1nioh3-engine'),
          (re.compile(rb'/home/bazzite/aob-dump/Nioh3\.vanilla\.bin'), b'Nioh3.dump.bin'),
@@ -40,8 +42,10 @@ SOUL = re.compile(r'FormKey|FormHide|FormSlot0|FormFollow|FormPin|SealEnd|SealEx
 
 
 def strip_soulcore(path, data):
-    """Drop `#if BR_SOULCORE` .. matching `#endif` blocks (C/C++) and the [Spirit] / [SealHits] ini sections: the release build compiles
-    them out (pc #59173: no soul-core code in the public source)."""
+    """Drop `#if BR_SOULCORE` .. matching `#endif` blocks (C/C++) and the [Spirit] / [SealHits] ini sections.
+
+    Used only when forms are compiled out. `--allow-soulcore` keeps this source, because 1.8.x builds with /DBR_SOULCORE=1
+    and a stripped tree cannot build that Boss Rematch."""
     txt = data.decode('utf-8', 'surrogateescape')
     nl = '\r\n' if '\r\n' in txt else '\n'
     out, depth, cut = [], 0, 0
@@ -94,8 +98,10 @@ def main():
     p.add_argument('--base', default='1fb1de9d', help='public commit the private line last synced from (1.7.86)')
     p.add_argument('--out', default=None)
     p.add_argument('--version', default='1.7.90')
-    p.add_argument('--allow-soulcore', action='store_true', help='accept dormant (compiled-out) soul-core source')
+    p.add_argument('--allow-soulcore', action='store_true',
+                   help='keep soul-core source (1.8.x ships the forms). Without it, those blocks and ini sections are removed')
     a = p.parse_args()
+    skip = list(SKIP) if a.allow_soulcore else SKIP + SKIP_UNLESS_SOULCORE
     repo = git('rev-parse', '--show-toplevel').strip()
     git('fetch', '-q', 'public', check=False, cwd=repo)
     out = a.out or tempfile.mkdtemp(prefix='pubexport-')
@@ -104,7 +110,7 @@ def main():
     fails = []
     try:
         pub, src = files(a.public, *MODS), files(a.ref, *MODS)
-        take = sorted(f for f in src if f.endswith(CODE) and not any(fnmatch.fnmatch(f, s) for s in SKIP))
+        take = sorted(f for f in src if f.endswith(CODE) and not any(fnmatch.fnmatch(f, s) for s in skip))
         take += [f for f in EXTRA if f in files(a.ref, f)]
         pub |= files(a.public, *EXTRA)
         skipped = sorted(src - set(take) - pub)
@@ -121,7 +127,8 @@ def main():
         soul, personal, vers = {}, [], []
         for f in take:
             data = subprocess.run(['git', 'show', f'{a.ref}:{f}'], cwd=repo, capture_output=True).stdout
-            data = strip_soulcore(f, data)
+            if not a.allow_soulcore:
+                data = strip_soulcore(f, data)
             for rx, rep in SCRUB:
                 data = rx.sub(rep, data)
             if a.version in data.decode('utf-8', 'replace') and 'VERSION' in data.decode('utf-8', 'replace'):
