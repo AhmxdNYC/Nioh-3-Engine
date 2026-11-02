@@ -57,6 +57,13 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def refuse_stale_boss_rematch(data):
+    """Same soul-core gate as tools/updater/updater.py publish_gate."""
+    sys.path.insert(0, str(ROOT / "tools" / "updater"))
+    from updater import boss_rematch_soul_cores
+    boss_rematch_soul_cores(data)
+
+
 def build(asi_dir, loader_zip, out):
     files = {}
     for name in ("Nioh3EngineFix.asi", "Nioh3Training.asi", "Nioh3BossRematch.asi", "Nioh3CamKiProbe.asi"):
@@ -64,6 +71,10 @@ def build(asi_dir, loader_zip, out):
         if not p.is_file():
             raise SystemExit(f"REFUSE package: missing {name}")
         files[name] = p.read_bytes()
+    try:
+        refuse_stale_boss_rematch(files["Nioh3BossRematch.asi"])
+    except ValueError as exc:
+        raise SystemExit("REFUSE package: " + str(exc)) from exc
     updater = asi_dir / "Nioh3Updater.exe"
     if updater.is_file():
         files[updater.name] = updater.read_bytes()
@@ -101,8 +112,17 @@ def check(path):
                 digest, name = line.split(maxsplit=1)
                 if name in names and sha(z.read(name)) != digest:
                     bad.append(name)
+        stale = None
+        if "Nioh3BossRematch.asi" in names:
+            try:
+                refuse_stale_boss_rematch(z.read("Nioh3BossRematch.asi"))
+            except ValueError as exc:
+                stale = str(exc)
     if missing or bad:
         print(f"FAIL {path}: missing {missing} checksum-mismatch {bad}")
+        return 1
+    if stale:
+        print(f"FAIL {path}: {stale}")
         return 1
     print(f"PASS {path}: fresh-install zip complete ({len(names)} files, loader + installer + settings), "
           f"sha256 {sha(pathlib.Path(path).read_bytes())[:8]}")

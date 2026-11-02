@@ -3,6 +3,8 @@
   py -I release\\check_release.py            quick: ini lint, src<->ini keys, profiles, version/copies
   py -I release\\check_release.py --full     + tests\\test_patterns.py and every tests\\run_*_harness.py
   py -I release\\check_release.py --strict   warnings also fail (use before a final release)
+  py -I release\\check_release.py --br PATH  only the Boss Rematch soul-core gate.
+        PATH is Nioh3BossRematch.asi, or a directory that contains it.
 
 Exit 0 = no ERROR (and no WARN with --strict). Prints one line per finding and a summary line.
 """
@@ -165,6 +167,37 @@ def check_version():
     return ver
 
 
+def br_asi_from(spec):
+    """An ASI path, or the Boss Rematch ASI inside a package directory."""
+    if spec.is_file():
+        return spec
+    for rel in (
+        "Nioh3BossRematch.asi",
+        "bin/Nioh3BossRematch.asi",
+        "mod/Nioh3BossRematch/bin/Nioh3BossRematch.asi",
+    ):
+        cand = spec / rel
+        if cand.is_file():
+            return cand
+    return spec / "Nioh3BossRematch.asi"
+
+
+def check_boss_rematch(spec):
+    """ERROR unless this Boss Rematch ASI contains SoulCoreForms (soul-core forms)."""
+    path = br_asi_from(spec)
+    if not path.is_file():
+        err(f"Boss Rematch ASI missing: {path}")
+        return
+    sys.path.insert(0, str(ROOT / "tools" / "updater"))
+    from updater import boss_rematch_soul_cores
+    try:
+        boss_rematch_soul_cores(path)
+    except ValueError as exc:
+        err(f"{exc} ({path})")
+        return
+    ok(f"Boss Rematch contains SoulCoreForms ({path.name}, {path.stat().st_size} bytes)")
+
+
 def run_tests():
     tests = MOD / "tests"
     cmds = [("test_patterns.py", r"ALL \d+ SITES OK")] + [(p.name, None) for p in sorted(tests.glob("run_*_harness.py"))]
@@ -187,12 +220,22 @@ def run_tests():
 
 
 def main(argv):
+    if "--br" in argv:
+        i = argv.index("--br")
+        if i + 1 >= len(argv):
+            err("--br needs the Boss Rematch ASI or the directory that contains it")
+        else:
+            check_boss_rematch(pathlib.Path(argv[i + 1]))
+        fail = bool(errors)
+        print(f"SUMMARY {'FAIL' if fail else 'PASS'}: {len(errors)} error(s), {len(warns)} warning(s)")
+        return 1 if fail else 0
     ini = parse_ini(BASE)
     n = {k: v for k, v in ini.items() if k != "_commented"}
     ok(f"base ini: {len(n)} sections, {sum(len(v) for v in n.values())} keys")
     check_keys(ini)
     check_profiles()
     check_version()
+    check_boss_rematch(ROOT / "mod" / "Nioh3BossRematch" / "bin" / "Nioh3BossRematch.asi")
     if "--full" in argv:
         run_tests()
     strict = "--strict" in argv

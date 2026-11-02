@@ -16,7 +16,7 @@ class PackPublicAssetsTests(unittest.TestCase):
             bodies = {
                 "Nioh3EngineFix.asi": b"engine",
                 "Nioh3Training.asi": b"training",
-                "Nioh3BossRematch.asi": b"boss",
+                "Nioh3BossRematch.asi": b"boss SoulCoreForms",
                 "Nioh3CamKiProbe.asi": b"camera",
                 "Nioh3CamKiProbe.ini": b"[CamKiProbe]\n",
                 "Nioh3Updater.exe": b"updater-bytes",
@@ -54,6 +54,35 @@ class PackPublicAssetsTests(unittest.TestCase):
             self.assertNotIn("Nioh3BossRematch.ini", listed)
             self.assertEqual(result["assets"][-1], "Nioh3Updater.exe")
             self.assertIn("Nioh3Training_arenas.tsv", result["assets"])
+
+    def test_refuses_boss_rematch_without_soul_cores(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "src"
+            src.mkdir()
+            bodies = {
+                "Nioh3EngineFix.asi": b"engine",
+                "Nioh3Training.asi": b"training",
+                "Nioh3BossRematch.asi": b"stale-boss",
+                "Nioh3CamKiProbe.asi": b"camera",
+                "Nioh3CamKiProbe.ini": b"[CamKiProbe]\n",
+                "Nioh3Updater.exe": b"updater-bytes",
+                "stable.json": b'{"schema":1,"version":"1.8.1","news":"Names","files":[]}\n',
+            }
+            for name in pack.TSVS:
+                bodies[name] = ("row " + name).encode()
+            for name, data in bodies.items():
+                (src / name).write_bytes(data)
+            with self.assertRaises(ValueError) as caught:
+                pack.pack("1.8.4", root / "out", {
+                    "Nioh3EngineFix.asi": src / "Nioh3EngineFix.asi",
+                    "Nioh3Training.asi": src / "Nioh3Training.asi",
+                    "Nioh3BossRematch.asi": src / "Nioh3BossRematch.asi",
+                    "Nioh3CamKiProbe.asi": src / "Nioh3CamKiProbe.asi",
+                }, src / "Nioh3Updater.exe", src / "stable.json",
+                   {name: src / name for name in pack.TSVS},
+                   {name: src / name for name in pack.INIS})
+            self.assertIn("SoulCoreForms", str(caught.exception))
 
     def test_rejects_a_bad_version(self):
         with self.assertRaises(ValueError):

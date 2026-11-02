@@ -42,10 +42,56 @@ REQUIRED_PUBLISH = (
 )
 
 
+# 1.8.2 and 1.8.3 shipped Boss Rematch a32e9ae4, built without soul-core forms.
+BR_ASI = "Nioh3BossRematch.asi"
+SOULCORE_MARKER = b"SoulCoreForms"
+
+
+def boss_rematch_soul_cores(data):
+    """Raise unless these Boss Rematch bytes include soul-core forms.
+
+    data is the ASI bytes, or a path whose file is the ASI.
+    """
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        blob = bytes(data)
+    else:
+        blob = Path(data).read_bytes()
+    if SOULCORE_MARKER not in blob:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi has no SoulCoreForms (stale build, soul cores missing)"
+        )
+
+
+def _payload_map(names):
+    if isinstance(names, dict):
+        return {str(name): payload for name, payload in names.items()}
+    present = {}
+    for item in names:
+        if isinstance(item, (bytes, bytearray)):
+            raise ValueError("package refused: release gate was given bytes without a file name")
+        if isinstance(item, Path):
+            present[item.name] = item
+        else:
+            present[str(item)] = None
+    return present
+
+
 def publish_gate(names):
-    missing = [name for name in REQUIRED_PUBLISH if name not in set(names)]
+    """Refuse a package that omits a required file or ships a stale Boss Rematch.
+
+    names is a dict of filename to bytes or path, or an iterable of paths.
+    A bare name, with no bytes, is refused: that is how 1.8.2 shipped without soul cores.
+    """
+    present = _payload_map(names)
+    missing = [name for name in REQUIRED_PUBLISH if name not in present]
     if missing:
         raise ValueError("package refused, missing: " + ", ".join(missing))
+    payload = present.get(BR_ASI)
+    if payload is None:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi bytes were not given to the release gate"
+        )
+    boss_rematch_soul_cores(payload)
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 
