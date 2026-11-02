@@ -48,6 +48,62 @@ class UpdaterTests(unittest.TestCase):
         self.assertGreater(u.version_tuple("1.10.0"), u.version_tuple("1.9.99"))
         self.assertLess(u.version_tuple("1.7.85"), u.version_tuple("2.0.0"))
 
+    def test_name_lists_replace_and_existing_ini_stays(self):
+        files = []
+        for name in u.NAME_LISTS:
+            body = ("names " + name).encode()
+            (self.root / name).write_bytes(b"old names")
+            files.append({"name": name, "sha256": u.digest(body), "url": "https://updates.example/" + name})
+            self.payloads = getattr(self, "payloads", {})
+            self.payloads[name] = body
+        ini = self.root / "Nioh3EngineFix.ini"
+        ini.write_bytes(b"player settings")
+        files.append({"name": ini.name, "sha256": u.digest(b"default ini"),
+                      "url": "https://updates.example/default.ini"})
+        self.payloads[ini.name] = b"default ini"
+        self.manifest["files"] = files
+        self.fixture.write_text(json.dumps(self.manifest))
+        original_fetch = self.fetch
+
+        def fetch(url, limit=u.MAX_FILE):
+            if url == self.url:
+                return self.fixture.read_bytes()
+            name = url.rsplit("/", 1)[-1]
+            return self.payloads[name]
+
+        self.net.side_effect = fetch
+        result = self.install()
+        self.assertEqual(result["changed"], len(u.NAME_LISTS))
+        for name in u.NAME_LISTS:
+            self.assertEqual((self.root / name).read_bytes(), self.payloads[name])
+        self.assertEqual(ini.read_bytes(), b"player settings")
+        original_fetch  # kept so the default fetch stays defined for other tests
+
+    def test_shipped_181_updater_refuses_the_new_name_lists_before_any_write(self):
+        # The updater.exe already in players' 1.8.1 folders uses SHIPPED_181_ALLOWED.
+        # action_records.tsv is on that list. The other four names are not, so validate()
+        # raises before download and the installed ASI is left untouched.
+        asi = self.root / "Nioh3EngineFix.asi"
+        asi.write_bytes(b"installed asi")
+        files = [{"name": "Nioh3EngineFix.asi", "sha256": u.digest(b"new asi"),
+                  "url": "https://updates.example/engine.asi"}]
+        for name in u.NAME_LISTS:
+            files.append({"name": name, "sha256": u.digest(b"names"), "url": "https://updates.example/" + name})
+        manifest = dict(self.manifest, files=files)
+        with patch.object(u, "ALLOWED", set(u.SHIPPED_181_ALLOWED)):
+            with self.assertRaisesRegex(ValueError, "Unapproved or duplicate filename"):
+                u.validate(manifest)
+            self.fixture.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "Unapproved or duplicate filename"):
+                self.install()
+        self.assertEqual(asi.read_bytes(), b"installed asi")
+        self.assertFalse((self.root / "Nioh3BossRematch_bosses.tsv").exists())
+        records_only = dict(self.manifest, files=[
+            {"name": "Nioh3Training_action_records.tsv", "sha256": u.digest(b"records"),
+             "url": "https://updates.example/records.tsv"}])
+        with patch.object(u, "ALLOWED", set(u.SHIPPED_181_ALLOWED)):
+            self.assertEqual(u.validate(records_only)["files"][0]["name"], "Nioh3Training_action_records.tsv")
+
     def test_action_records_ship_and_rollback(self):
         name="Nioh3Training_action_records.tsv"
         self.manifest["files"]=[{"name":name,"sha256":u.digest(self.payload),"url":"https://updates.example/records.tsv"}]

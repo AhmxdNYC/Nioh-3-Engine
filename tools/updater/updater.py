@@ -19,9 +19,21 @@ import urllib.request
 import uuid
 import time
 
-ALLOWED = {f"Nioh3{x}.{ext}" for x in
-           ("EngineFix", "BossRematch", "Training", "CamKiProbe")
-           for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+# Name lists the mods read at startup. They are data, not player settings, so an update may replace them.
+# .ini files stay out of that set on purpose: update() never overwrites an existing ini.
+NAME_LISTS = (
+    "Nioh3BossRematch_bosses.tsv",
+    "Nioh3Training_actionsets.tsv",
+    "Nioh3Training_action_records.tsv",
+    "Nioh3Training_arenas.tsv",
+    "Nioh3Training_bgm.tsv",
+)
+# Shipped 1.8.1 updater.exe allow-list. A manifest that names any other file makes that build
+# raise "Unapproved or duplicate filename" inside validate(), before it downloads or writes anything.
+SHIPPED_181_ALLOWED = {f"Nioh3{x}.{ext}" for x in
+                       ("EngineFix", "BossRematch", "Training", "CamKiProbe")
+                       for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+ALLOWED = SHIPPED_181_ALLOWED | set(NAME_LISTS)
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 
