@@ -40,6 +40,7 @@ class PackPublicAssetsTests(unittest.TestCase):
                 self.assertIn(b"camera", archive.read("Nioh3CamKiProbe.asi"))
                 self.assertEqual(archive.read("Nioh3BossRematch_bosses.tsv"), b"row Nioh3BossRematch_bosses.tsv")
             manifest = json.loads((out / "stable.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["version"], "1.8.1")
             listed = [entry["name"] for entry in manifest["files"]]
             self.assertEqual(listed[0], "Nioh3EngineFix.asi")
             self.assertIn("Nioh3CamKiProbe.asi", listed)

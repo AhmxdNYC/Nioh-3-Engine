@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -49,6 +50,7 @@ def manifest_with_name_lists(stable_bytes: bytes, version: str, extra_blobs: dic
     prefix = f"https://nioh3-mod-feedback.vercel.app/releases/{version}"
     if files and isinstance(files[0], dict) and isinstance(files[0].get("url"), str) and "/" in files[0]["url"]:
         prefix = files[0]["url"].rsplit("/", 1)[0]
+    manifest["version"] = version
     manifest["files"] = [{
         "name": name,
         "sha256": sha256(extra_blobs[name]),
@@ -87,10 +89,10 @@ def pack(version: str, out: Path, asis: dict, updater: Path, stable: Path, tsvs:
         raise ValueError("updater is empty")
     blobs[UPDATER] = exe
     stable_bytes = manifest_with_name_lists(Path(stable).read_bytes(), version, blobs)
-    try:
-        from updater import publish_gate
-    except ImportError:
-        from tools.updater.updater import publish_gate
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    from updater import publish_gate
     publish_gate(blobs)
     if not stable_bytes:
         raise ValueError("stable.json is empty")
