@@ -1824,7 +1824,8 @@ bool CamProbeLoaded() {
     if (g_camProbePresentForTest >= 0) return g_camProbePresentForTest != 0;
     return GetModuleHandleW(L"Nioh3CamKiProbe.asi") != nullptr;
 }
-// The add-on keeps its hooks off on Linux/Proton (they crash there); older add-ons have no export and count as on.
+// Linux/Proton: the add-on installs its hooks only once a player is in the world (1.8.4, pad-list crash at boot); 0 until then.
+// Older add-ons have no export and count as on.
 bool CamProbeProtonOff() {
     HMODULE m = GetModuleHandleW(L"Nioh3CamKiProbe.asi");
     auto active = m ? reinterpret_cast<int(__cdecl*)()>(GetProcAddress(m, "Nioh3CamKiProbeActive")) : nullptr;
@@ -1958,7 +1959,7 @@ void Change(int id, int dir) {
             return;
         }
         if (id != kCamRowFirst + kCamReset && CamProbeProtonOff()) {
-            snprintf(g_camNote, sizeof(g_camNote), "Off on Linux/Proton (the camera hooks crash the game there). Set OnProton=1 in Nioh3CamKiProbe.ini to try them.");
+            snprintf(g_camNote, sizeof(g_camNote), "Linux/Proton: the camera turns on once you are in the world (or OnProton=2 in Nioh3CamKiProbe.ini switched it off).");
             return;
         }
         ChangeCamera(id - kCamRowFirst, dir);
@@ -3266,7 +3267,7 @@ float DrawImpl(unsigned W, unsigned H) {
                 continue;
             }
             if (k != kCamReset && CamProbeProtonOff()) {
-                snprintf(text, sizeof(text), "off on Linux/Proton");
+                snprintf(text, sizeof(text), "starts in the world (Linux)");
                 put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
                 continue;
             }
