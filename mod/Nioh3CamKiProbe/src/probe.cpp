@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.22-camki-proton-off";
+static const char* kVer = "1.0.23-camki-proton-after-player";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -2194,6 +2194,7 @@ static void LogChain(uint64_t base) {
 }
 
 static int g_protonOff;
+static int g_protonDelay;
 static DWORD WINAPI Worker(LPVOID) {
     int was7 = 0, was8 = 0;
     uint32_t beat = 0, iniBeat = 0;
@@ -2207,8 +2208,23 @@ static DWORD WINAPI Worker(LPVOID) {
     Log("CamOffsetRight / CamOffsetUp (world units, same as CamDist, -400..400): move the eye and target together along the camera right and up vectors at 243ed0 (return 2afc59). 0 or missing = native camera.");
     Log("Writes happen at the entry of 9565e4 (before the eye offset reads +B0) and again at the entry of 2b0e4c.");
     if (g_protonOff) { Log("Linux/Proton: probe idle"); return 0; }
+    DWORD protonT0 = GetTickCount();
     while (g_run) {
         uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
+        if (g_protonDelay) {
+            uint64_t actor = 0;
+            float pos[4] = {0, 0, 0, 0};
+            /* Boot walks the pad entity list while its next link is still 0
+               (mov edx,[rbx+10h] at Nioh3.exe+0x430a3e). Patching the camera
+               functions in DllMain makes that walk crash on Proton. Wait until
+               the boot crash window has passed and a player exists. */
+            if ((GetTickCount() - protonT0) < 8000 || !base || !Player(base, &actor, pos)) {
+                Sleep(50);
+                continue;
+            }
+            Log("Linux/Proton: player is in the world, installing camera hooks");
+            g_protonDelay = 0;
+        }
         if (base) HookCtor(base);
         if (base) HookView(base);
         if (base) HookOrbit(base);
@@ -2276,20 +2292,31 @@ static DWORD WINAPI Worker(LPVOID) {
 
 extern "C" __declspec(dllexport) const char* Nioh3CamKiProbeVersion(void) { return kVer; }
 
-// Proton/Wine: the camera hooks crash Nioh3.exe at start (Ally #62930, read 0x10 at +430a3e), so they stay off
-// there unless [CamKiProbe] OnProton=1. The menu reads this to show the reason instead of dead rows.
-extern "C" __declspec(dllexport) int Nioh3CamKiProbeActive(void) { return g_protonOff ? 0 : 1; }
+// Menu: 0 while Proton hooks are still waiting or switched off, so rows do not look live yet.
+extern "C" __declspec(dllexport) int Nioh3CamKiProbeActive(void) {
+    return (g_protonOff || g_protonDelay) ? 0 : 1;
+}
 
-static bool ProtonBlocked() {
+/* Wine/Proton only. Windows returns 1 and patches in DllMain, same as before.
+   0 (default): worker patches after 8s and a live player. The boot crash is
+   mov edx,[rbx+10h] at +0x430a3e, the pad list's first link still 0 (Ally #62930).
+   1: patch in DllMain (the 1.8.2 path that crashed).
+   2: never patch. */
+static int ProtonMode(void) {
     HMODULE nt = GetModuleHandleW(L"ntdll.dll");
-    if (!nt || !GetProcAddress(nt, "wine_get_version")) return false;
+    int mode;
     wchar_t path[MAX_PATH];
-    DWORD n = GetModuleFileNameW(g_mod, path, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return true;
-    wchar_t* slash = wcsrchr(path, L'\\');
-    if (!slash) return true;
+    DWORD n;
+    wchar_t* slash;
+    if (!nt || !GetProcAddress(nt, "wine_get_version")) return 1;
+    n = GetModuleFileNameW(g_mod, path, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return 2;
+    slash = wcsrchr(path, L'\\');
+    if (!slash) return 2;
     wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"Nioh3CamKiProbe.ini");
-    return GetPrivateProfileIntW(L"CamKiProbe", L"OnProton", 0, path) == 0;
+    mode = GetPrivateProfileIntW(L"CamKiProbe", L"OnProton", 0, path);
+    if (mode == 1 || mode == 2) return mode;
+    return 0;
 }
 
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
@@ -2304,10 +2331,17 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
                 gamerva::Init((uintptr_t)base, nt->FileHeader.TimeDateStamp == gamerva::rvas::kBuildTimestamp &&
                                                    nt->OptionalHeader.SizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
             }
-            if (base && ProtonBlocked()) {
-                g_protonOff = 1;
-                Log("Linux/Proton: camera hooks off (set OnProton=1 in [CamKiProbe] to try them)");
-                base = 0;
+            {
+                int mode = ProtonMode();
+                if (mode == 2) {
+                    g_protonOff = 1;
+                    Log("Linux/Proton: camera hooks off (OnProton=2)");
+                    base = 0;
+                } else if (mode == 0) {
+                    g_protonDelay = 1;
+                    Log("Linux/Proton: camera hooks wait for a player (patching now crashes the pad list at +430a3e)");
+                    base = 0;
+                }
             }
             if (base) HookCtor(base);
             if (base) HookView(base);
