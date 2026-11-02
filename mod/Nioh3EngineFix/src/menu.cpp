@@ -1824,6 +1824,12 @@ bool CamProbeLoaded() {
     if (g_camProbePresentForTest >= 0) return g_camProbePresentForTest != 0;
     return GetModuleHandleW(L"Nioh3CamKiProbe.asi") != nullptr;
 }
+// The add-on keeps its hooks off on Linux/Proton (they crash there); older add-ons have no export and count as on.
+bool CamProbeProtonOff() {
+    HMODULE m = GetModuleHandleW(L"Nioh3CamKiProbe.asi");
+    auto active = m ? reinterpret_cast<int(__cdecl*)()>(GetProcAddress(m, "Nioh3CamKiProbeActive")) : nullptr;
+    return active && active() == 0;
+}
 // Nonzero distance/lens settings use calibrated references, not live per-scene defaults.
 // Zero always removes the key, releasing the camera to the native game calculation.
 constexpr float kCamDistDefault = 585.f, kCamDistStep = 60.f, kCamDistMin = 50.f, kCamDistMax = 4000.f;
@@ -1949,6 +1955,10 @@ void Change(int id, int dir) {
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
         if (id != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
             snprintf(g_camNote, sizeof(g_camNote), "Needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded, so this row does nothing.");
+            return;
+        }
+        if (id != kCamRowFirst + kCamReset && CamProbeProtonOff()) {
+            snprintf(g_camNote, sizeof(g_camNote), "Off on Linux/Proton (the camera hooks crash the game there). Set OnProton=1 in Nioh3CamKiProbe.ini to try them.");
             return;
         }
         ChangeCamera(id - kCamRowFirst, dir);
@@ -3252,6 +3262,11 @@ float DrawImpl(unsigned W, unsigned H) {
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
             if (k != kCamReset && !CamProbeLoaded()) {
                 snprintf(text, sizeof(text), "CamKiProbe.asi not loaded");
+                put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
+                continue;
+            }
+            if (k != kCamReset && CamProbeProtonOff()) {
+                snprintf(text, sizeof(text), "off on Linux/Proton");
                 put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
                 continue;
             }

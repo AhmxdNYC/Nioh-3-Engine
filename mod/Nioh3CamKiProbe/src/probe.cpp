@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.21-camki-offset";
+static const char* kVer = "1.0.22-camki-proton-off";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -2193,6 +2193,7 @@ static void LogChain(uint64_t base) {
         c344, b340, b341, b324, b610, f238, f23c, f364, i36c, b231);
 }
 
+static int g_protonOff;
 static DWORD WINAPI Worker(LPVOID) {
     int was7 = 0, was8 = 0;
     uint32_t beat = 0, iniBeat = 0;
@@ -2205,6 +2206,7 @@ static DWORD WINAPI Worker(LPVOID) {
     Log("CamYawDeg and CamPitchDeg are ignored in this build. +290/+294 are stick deltas, not angles.");
     Log("CamOffsetRight / CamOffsetUp (world units, same as CamDist, -400..400): move the eye and target together along the camera right and up vectors at 243ed0 (return 2afc59). 0 or missing = native camera.");
     Log("Writes happen at the entry of 9565e4 (before the eye offset reads +B0) and again at the entry of 2b0e4c.");
+    if (g_protonOff) { Log("Linux/Proton: probe idle"); return 0; }
     while (g_run) {
         uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
         if (base) HookCtor(base);
@@ -2274,6 +2276,22 @@ static DWORD WINAPI Worker(LPVOID) {
 
 extern "C" __declspec(dllexport) const char* Nioh3CamKiProbeVersion(void) { return kVer; }
 
+// Proton/Wine: the camera hooks crash Nioh3.exe at start (Ally #62930, read 0x10 at +430a3e), so they stay off
+// there unless [CamKiProbe] OnProton=1. The menu reads this to show the reason instead of dead rows.
+extern "C" __declspec(dllexport) int Nioh3CamKiProbeActive(void) { return g_protonOff ? 0 : 1; }
+
+static bool ProtonBlocked() {
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    if (!nt || !GetProcAddress(nt, "wine_get_version")) return false;
+    wchar_t path[MAX_PATH];
+    DWORD n = GetModuleFileNameW(g_mod, path, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return true;
+    wchar_t* slash = wcsrchr(path, L'\\');
+    if (!slash) return true;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"Nioh3CamKiProbe.ini");
+    return GetPrivateProfileIntW(L"CamKiProbe", L"OnProton", 0, path) == 0;
+}
+
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         g_mod = (HMODULE)h;
@@ -2285,6 +2303,11 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
                 const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
                 gamerva::Init((uintptr_t)base, nt->FileHeader.TimeDateStamp == gamerva::rvas::kBuildTimestamp &&
                                                    nt->OptionalHeader.SizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
+            }
+            if (base && ProtonBlocked()) {
+                g_protonOff = 1;
+                Log("Linux/Proton: camera hooks off (set OnProton=1 in [CamKiProbe] to try them)");
+                base = 0;
             }
             if (base) HookCtor(base);
             if (base) HookView(base);
