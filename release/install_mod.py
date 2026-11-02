@@ -19,6 +19,7 @@ FILES = ("dinput8.dll", "Nioh3EngineFix.asi", "Nioh3EngineFix.ini",
          "Nioh3BossRematch.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch_bosses.tsv",
          "Nioh3Training.asi", "Nioh3Training.ini", "Nioh3Training_action_records.tsv",
          "Nioh3Training_actionsets.tsv", "Nioh3Training_arenas.tsv", "Nioh3Training_bgm.tsv",
+         "Nioh3CamKiProbe.asi", "Nioh3CamKiProbe.ini",
          "Nioh3 Mod Website.url", "Nioh3Updater.exe", "SaveSlots-after-exit.pyz",
          "Restore Vanilla Game.cmd", "Put the mod back.cmd", "restore-vanilla.sh", "put-mod-back.sh")
 

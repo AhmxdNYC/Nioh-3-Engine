@@ -571,7 +571,7 @@ Details by group (older description):
 * **Experimental CPU power:** W6, B, PP, FPC, AABB, M1, X1, E1 (live when installed; when not installed, toggling sets the
   ini key for the next launch, `* restart`), M2, J1, S1 (next launch). An `Exp/s` stats line shows W6 waits and
   average wait, PP skips, FPC hit rate, M1 refreshes, X1 and E1 skips.
-  A fix that isn't installed this session shows `not installed` or `off (Proton)`, with the reason.
+  A fix that is not live this session shows the reason (`off on Linux/Proton`, `this game version is not supported`, `GPU hook failed - see the log`, or `hook was not found - see the log`).
 * **1.6.0 - OPT-IN:** WG, TG (shows `ticks <= N` while it governs, `REFUSED: L1 off` without L1), DS, CP, SPF, MQ, PT1, DL live;
   LK next launch. Items installed with the switch off are saved as 2 (stay installed).
 * **Overlay:** Show FPS counter, frame time, game speed, *Move FPS counter* (corner), *Nudge counter right / down*, text size. `[Overlay] OffsetX / OffsetY` are pixels at 1080p (scaled with the screen height) measured from the chosen corner's edges; with no offset keys the TopLeft counter starts **160 px down** so it sits below the game's health / ki bars (other corners 0). The first nudge in the menu takes over the current values; A resets a value. Save to ini writes the keys. With frame generation running the counter shows `FPS: 60 FG | FG FPS: 120`.

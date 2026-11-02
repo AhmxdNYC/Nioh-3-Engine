@@ -1311,9 +1311,21 @@ constexpr uint32_t cWhite = 0xFFFFFFFF, cGray = 0xFFB4B4B4, cDim = 0xFF8C8C8C, c
                    cHighlight = 0xE0703818, cRule = 0xC05AC8F0;
 
 const char* NaText(int id) {
-    if (id == kL1 && g_host.l1 == FixState::WineSkipped) return "off (Proton)";
-    if (id == kF1 && g_host.f1 == FixState::WineSkipped) return "off (Proton)";
-    return "not installed";
+    if ((id == kL1 && g_host.l1 == FixState::WineSkipped) || (id == kF1 && g_host.f1 == FixState::WineSkipped))
+        return "off on Linux/Proton";
+    if (id == kW3Mode && !g_host.wine) return "Windows uses the normal wait";
+    if (id == kFg) return g_host.knownBuild ? "frame generation is changed in the game's Options" : "this game version is not supported";
+    if (id == kGpu || id == kGR2a || id == kGR2b || id == kGR1) {
+        if (!g_host.wine && id != kGpu) return "off on Windows";
+        const gpuopt::State s = gpuopt::GetState();
+        if (s == gpuopt::State::Waiting) return "waiting for the renderer";
+        if (s == gpuopt::State::Failed) return "GPU hook failed - see the log";
+        return "GPU hook is off in the settings file";
+    }
+    if (id == kEpPre || IsEp(id)) return "extra-performance hook was not found - see the log";
+    if (id == kAutoCont) return "tip-page hook was not found - see the log";
+    if (!g_host.knownBuild) return "this game version is not supported";
+    return "hook was not found - see the log";
 }
 
 bool LiveBool(int id) {
@@ -1545,7 +1557,10 @@ void StartSave() {
     if (Available(kVrr)) add(L"Patches", L"VRR", b(LiveBool(kVrr)));
     if (Available(kW3)) add(L"Patches", L"W3", b(LiveBool(kW3)));
     if (Visible(kW3Mode) && Available(kW3Mode)) add(L"Patches", L"W3WineSleep", b(LiveBool(kW3Mode)));
-    if (Available(kR1)) add(L"Tuning", L"R1_TimeoutMs", std::to_wstring(*g_host.r1Timeout));
+    if (Available(kR1)) {
+        add(L"Tuning", L"R1_TimeoutMs", std::to_wstring(*g_host.r1Timeout));
+        add(L"Patches", L"R1", *g_host.r1Timeout ? L"1" : L"0");  // 0 still installs the hook next launch
+    }
     if (Available(kL1)) add(L"Patches", L"L1", b(LiveBool(kL1)));
     if (Available(kF1)) add(L"Patches", L"FG", b(LiveBool(kF1)));
     if (Available(kWk)) add(L"Patches", L"WK", b(LiveBool(kWk)));
@@ -2251,7 +2266,7 @@ void RunRemote(RemoteReq& q) {
     int cur = 0;
     if (!Visible(id) || ReadOnly(id) || !Available(id) || !RemoteValue(id, cur)) {
         snprintf(q.reply, sizeof(q.reply), "'%s' (%s) is %s", q.key, kItems[id].plain,
-                 !Visible(id) || !Available(id) ? "not installed / not shown this session" : "not settable remotely");
+                 !Available(id) ? NaText(id) : !Visible(id) ? "not shown this session" : "not settable remotely");
         return;
     }
     if (q.set) {
@@ -3236,7 +3251,7 @@ float DrawImpl(unsigned W, unsigned H) {
             const int k = id - kCamRowFirst;
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kCamLabels[k]);
             if (k != kCamReset && !CamProbeLoaded()) {
-                snprintf(text, sizeof(text), "needs CamKiProbe add-on");
+                snprintf(text, sizeof(text), "CamKiProbe.asi not loaded");
                 put(body, nb, 128, lab, "", text, cDim, cDim, id == g_sel, false);
                 continue;
             }
@@ -3378,8 +3393,8 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
         if (g_sel != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
-            snprintf(what, sizeof(what), "This offset needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded.");
-            snprintf(effect, sizeof(effect), "needs CamKiProbe add-on");
+            snprintf(what, sizeof(what), "Nioh3CamKiProbe.asi is not loaded, so this camera row cannot move the camera.");
+            snprintf(effect, sizeof(effect), "The mod package should include Nioh3CamKiProbe.asi next to Nioh3.exe.");
         } else {
             snprintf(what, sizeof(what), "Left / Right adjusts the selected axis; A / Enter resets it. Zero uses the game camera. Return to default resets all four.");
             snprintf(effect, sizeof(effect), "%s", g_camNote[0] ? g_camNote : "Steps: position 20, distance 60, lens 5 degrees. Left = closer / narrower; right = farther / wider.");
@@ -3411,11 +3426,9 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     if (g_sel < kCount && !Available(g_sel)) {
         if ((g_sel == kL1 && g_host.l1 == FixState::WineSkipped) || (g_sel == kF1 && g_host.f1 == FixState::WineSkipped))
-            snprintf(what, sizeof(what), "Skipped under Proton - turn on '%s on Proton' below, save, restart.", g_sel == kL1 ? "L1" : "F1");
-        else if (g_sel == kFg)
-            snprintf(what, sizeof(what), "Status only: change frame generation in the game's Options.");
+            snprintf(what, sizeof(what), "Off on Linux/Proton. Turn on '%s on Proton' below, save, and restart.", g_sel == kL1 ? "L1" : "F1");
         else
-            snprintf(what, sizeof(what), "Not installed this session (off in the ini or a site was not found - see the log).");
+            snprintf(what, sizeof(what), "%s", NaText(g_sel));
         effect[0] = 0;
     }
     addT("", cWhite, true);

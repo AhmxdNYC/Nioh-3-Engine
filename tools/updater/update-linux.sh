@@ -1,5 +1,6 @@
 #!/bin/sh
 # Use the game's existing Proton prefix without running Proton's prefix setup.
+# The updater then installs every mod the menu needs, including Nioh3CamKiProbe.asi.
 set -eu
 fail() { printf '%s\n' "Update stopped: $*" >&2; exit 1; }
 usage() {

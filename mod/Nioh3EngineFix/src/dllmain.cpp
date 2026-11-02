@@ -140,7 +140,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.1"
+#define MOD_VERSION "1.8.2"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -1717,13 +1717,15 @@ DWORD WINAPI Worker(LPVOID) {
     auto groupOn = [&](const char* g) {
         if (!strcmp(g, "W1")) return cfg.w1 != 0;
         if (!strcmp(g, "W2")) return cfg.w2 != 0;
-        if (!strcmp(g, "VRR")) return cfg.vrr != 0;
+        // 1.8.2: the ini value is the live switch. Resolving these groups even when the switch is 0 keeps the menu row live.
+        // L1 and FG stay unresolved under Proton unless the OnWine key is 1 (the menu says why).
+        if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
-        if (!strcmp(g, "W3")) return cfg.w3 != 0;
-        if (!strcmp(g, "R1")) return cfg.r1 != 0;
-        if (!strcmp(g, "L1")) return cfg.l1 != 0;
-        if (!strcmp(g, "FG")) return cfg.fg != 0;
-        if (!strcmp(g, "WK")) return cfg.wk != 0 || (cfg.wakeStats != 0 && known);  // WakeStats splits the checks here
+        if (!strcmp(g, "W3")) return true;
+        if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
+        if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
+        if (!strcmp(g, "FG")) return !(g_wineEarly && !cfg.fgOnWine);
+        if (!strcmp(g, "WK")) return true;
         // experimental: a group installs only when its own bytes match (DepsOk). knownBuild is not required.
         if (!strcmp(g, "B")) return cfg.b != 0;
         if (!strcmp(g, "PP")) return cfg.pp != 0;
@@ -1827,16 +1829,19 @@ DWORD WINAPI Worker(LPVOID) {
             std::vector<Item*> one{it};
             run(it->s->id, one, it->found);
         }
-    // VRR: all-or-nothing
+    // VRR: all-or-nothing. Always installed; cfg.vrr 0 leaves the stock timing path (the cave checks vrr_enable).
     bool vrrDone = false;
-    if (cfg.vrr) {
+    {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
-        if (ok) ConfigureVrr(cfg);
+        if (ok) {
+            ConfigureVrr(cfg);
+            vrr_enable = cfg.vrr ? 1u : 0u;
+        }
         // keep the scripts' safe order: data-only users first, P1 (activation) last; written together anyway
         vrrDone = run("VRR", v, ok);
-        if (vrrDone && cfg.menuQuantize) {
+        if (vrrDone && cfg.vrr && cfg.menuQuantize) {
             auto m = collect("VRRMENU");
             bool mok = allFound(m);
             if (mok) {
@@ -1848,9 +1853,9 @@ DWORD WINAPI Worker(LPVOID) {
             run("VRR menu quantize (P7)", m, mok);
         }
     }
-    // W3: message pump
+    // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).
     bool w3Done = false, r1Done = false, wkDone = false;
-    if (cfg.w3) {
+    {
         auto v = collect("W3");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1860,16 +1865,16 @@ DWORD WINAPI Worker(LPVOID) {
             if (ok) {
                 g_peekSlot = slot;
                 g_w3Ms = (DWORD)cfg.w3Ms;
-                g_w3Enable = 1;
+                g_w3Enable = cfg.w3 ? 1 : 0;
             } else Log("W3: IAT slot looks wrong - skipped");
         }
         w3Done = run("W3", v, ok);
     }
-    // R1: render-begin wait (two sites)
-    if (cfg.r1) {
+    // R1: render-begin wait (two sites). R1=0 still installs the hook with timeout 0 (stock poll) so the menu row is live.
+    {
         auto v = collect("R1");
         bool ok = allFound(v) && g_near;
-        if (ok) reinterpret_cast<NearData*>(g_near)->r1Timeout = (uint32_t)cfg.r1Ms;
+        if (ok) reinterpret_cast<NearData*>(g_near)->r1Timeout = cfg.r1 ? (uint32_t)cfg.r1Ms : 0;
         r1Done = run("R1", v, ok);
     }
     // L1: frame limiter. Under Wine/Proton the high-resolution timer flag may be accepted but not honoured, which
@@ -1883,8 +1888,8 @@ DWORD WINAPI Worker(LPVOID) {
         Log("W3: Wine/Proton -> empty-queue wait is Sleep(%lu ms) (Wine returns from MsgWaitForMultipleObjectsEx at once)",
             g_w3Ms ? g_w3Ms : 1);
     }
-    if (cfg.l1 && wine && !cfg.l1OnWine) { Log("L1: skipped under Wine/Proton (set [Patches] L1OnWine=1 to try it)"); l1State = osd::State::WineSkipped; }
-    if (cfg.l1 && (!wine || cfg.l1OnWine)) {
+    if (wine && !cfg.l1OnWine) { Log("L1: skipped under Wine/Proton (set [Patches] L1OnWine=1 to try it)"); l1State = osd::State::WineSkipped; }
+    else {
         auto v = collect("L1");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1902,15 +1907,15 @@ DWORD WINAPI Worker(LPVOID) {
                 l1_callee = callee;
                 g_l1MarginUs = (uint64_t)cfg.l1MarginUs;
                 g_l1MinUs = (uint64_t)cfg.l1MinUs;
-                g_l1Enable = 1;
+                g_l1Enable = cfg.l1 ? 1 : 0;
             }
         }
         l1State = run("L1", v, ok) ? osd::State::On : osd::State::Failed;
     }
     // F1: FSR frame-generation presenter pacing wait (only runs with FSR frame generation on). Same timer caveat
-    // under Wine/Proton as L1.
-    if (cfg.fg && wine && !cfg.fgOnWine) { Log("F1: skipped under Wine/Proton (set [Patches] FGOnWine=1 to try it)"); f1State = osd::State::WineSkipped; }
-    if (cfg.fg && (!wine || cfg.fgOnWine)) {
+    // under Wine/Proton as L1. The hook stays in when FG=0; g_fgEnable is the switch.
+    if (wine && !cfg.fgOnWine) { Log("F1: skipped under Wine/Proton (set [Patches] FGOnWine=1 to try it)"); f1State = osd::State::WineSkipped; }
+    else {
         auto v = collect("FG");
         bool ok = allFound(v) && g_near;
         if (ok) {
@@ -1930,16 +1935,16 @@ DWORD WINAPI Worker(LPVOID) {
             } else {
                 g_fgMarginTicks = (int64_t)cfg.l1MarginUs * g_qpcFreq / 1000000;
                 g_fgThreshTicks = (int64_t)(cfg.l1MarginUs + cfg.l1MinUs) * g_qpcFreq / 1000000;
-                g_fgEnable = 1;
+                g_fgEnable = cfg.fg ? 1 : 0;
             }
         }
         f1State = run("F1", v, ok) ? osd::State::On : osd::State::Failed;
     }
     // WK: job-system wake gate (skip the futile "wake one more worker" when no queue of the pool holds work)
-    if (cfg.wk || (cfg.wakeStats && known)) {
+    {  // WK=0 still installs the gate so the menu can turn it on; wk_enable 0 is the stock wake
         auto v = collect("WK");
         bool ok = allFound(v) && g_near;
-        if (ok) wk_enable = cfg.wk ? 1u : 0u;  // installed only for WakeStats: the gate stays off (stock)
+        if (ok) wk_enable = cfg.wk ? 1u : 0u;
         wkDone = run("WK", v, ok);
     }
 

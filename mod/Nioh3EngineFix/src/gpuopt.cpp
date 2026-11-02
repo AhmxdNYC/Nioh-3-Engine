@@ -929,6 +929,7 @@ void Start(const StartInfo& info) {
     g_skipFx = info.skipFx;
     g_shaderHot = info.shaderHot;
     if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
+    if (g_cfg.barriers == 0) g_cfg.barriers = 2;  // 1.8.2: OFF still installs the hook; 1 = batching on, 2 = hooked and off
     if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_skipFx && !g_shaderHot && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
         g_state = (LONG)State::Off;
         return;

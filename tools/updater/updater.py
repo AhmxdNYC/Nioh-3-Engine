@@ -34,6 +34,18 @@ SHIPPED_181_ALLOWED = {f"Nioh3{x}.{ext}" for x in
                        ("EngineFix", "BossRematch", "Training", "CamKiProbe")
                        for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
 ALLOWED = SHIPPED_181_ALLOWED | set(NAME_LISTS)
+# A 1.8.2 package is refused unless every menu ASI and the new camera ini are named.
+# The three player settings files are not required here: the update zip must not replace them.
+REQUIRED_PUBLISH = (
+    "Nioh3EngineFix.asi", "Nioh3Training.asi", "Nioh3BossRematch.asi", "Nioh3CamKiProbe.asi",
+    "Nioh3CamKiProbe.ini",
+)
+
+
+def publish_gate(names):
+    missing = [name for name in REQUIRED_PUBLISH if name not in set(names)]
+    if missing:
+        raise ValueError("package refused, missing: " + ", ".join(missing))
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 
