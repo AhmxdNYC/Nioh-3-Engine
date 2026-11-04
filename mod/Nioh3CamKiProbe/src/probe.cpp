@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.25-camki-menu-camera-nullsafe";
+static const char* kVer = "1.0.26-camki-shrine-menu";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -24,6 +24,9 @@ static const uintptr_t kFovFn = 0x8dad94;
 static const uintptr_t kBlendFn = 0x9565e4;
 static const uintptr_t kMenuOpenA = 0x5A37D4;  /* UI screen open: [0x45C84A8+0x170] vfunc 0x100 && vfunc 0x48 */
 static const uintptr_t kMenuOpenB = 0xD63C0;   /* UI screen open: vfunc 8 of [0x4758BA0] */
+/* #65765: the shrine (Pray) menu's factory: mov r14,[menu manager] ... alloc 0x480 ... mov edx,<menu id> ; call menu ctor.
+   The menu manager keeps every menu at [mgr + id*8]; the id and the manager global are read from this code at run time. */
+static const uintptr_t kMenuShrineMake = 0x1125DB0;
 
 enum { kCap = 1600, kBlob = 160, kBlobBytes = 0x180, kRing = 900, kTop = 70 };
 
@@ -104,6 +107,21 @@ static int MatTrans(const float* m, float* out, const float* player, float* dist
     return 0;
 }
 
+/* Menu objects (base ctor 22beb6c): +0x10 id, +0x18 state (vfunc 0x100: state == 2), +0x2C (vfunc 0x48: != 0). Both true = on screen,
+   the same two tests the pause-screen getter 5A37D4 makes on [mgr+0x170]. */
+static int MenuShown(uint32_t state, uint32_t v2c) { return state == 2 && v2c != 0; }
+/* the shrine factory bytes: 48 8B 35 (rsi) at +0x13, 4C 8B 35 (r14 = manager) at +0x1C, BA <id> at +0x60. 0 = not recognised. */
+static int ShrineIdFromCode(const uint8_t* b, uint64_t at, uint64_t* mgrGlobal, uint32_t* id) {
+    int32_t disp = 0;
+    if (b[0x13] != 0x48 || b[0x14] != 0x8B || b[0x15] != 0x35) return 0;
+    if (b[0x1C] != 0x4C || b[0x1D] != 0x8B || b[0x1E] != 0x35) return 0;
+    if (b[0x5A] != 0x0F || b[0x5B] != 0x84 || b[0x60] != 0xBA) return 0;
+    memcpy(&disp, b + 0x1F, 4);
+    *mgrGlobal = at + 0x23 + (int64_t)disp;
+    memcpy(id, b + 0x61, 4);
+    return *id > 0 && *id < 0xED;
+}
+
 /* 1 = write the player's distance/lens. screenOpen means a game menu, the equipment appearance screen, or photo mode:
    the game's own camera stays in charge until that screen closes. */
 static int CamApply(int iniOn, int screenOpen) { return iniOn && !screenOpen; }
@@ -127,6 +145,21 @@ int main(void) {
     if (!IsUnit(eye)) return 6;
     if (CamApply(1, 0) != 1 || CamApply(1, 1) != 0 || CamApply(0, 0) != 0 || CamApply(0, 1) != 0) return 7;
     if (OffWant(120.f, 0) != 120.f || OffWant(-40.f, 1) != 0.f) return 8;
+    if (!MenuShown(2, 1) || MenuShown(1, 1) || MenuShown(2, 0)) return 9;
+    {
+        static const uint8_t fac[0x66] = {0x48,0x89,0x6c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x40,0x48,0x8b,0x35,0x7e,0xa5,0xa2,0x03,0x33,0xed,
+            0x4c,0x8b,0x35,0xd5,0x26,0x4a,0x03,0x48,0x85,0xf6,0x74,0x09,0x48,0x8b,0xb6,0x40,0x5d,0x3f,0x00,0xeb,0x03,0x48,0x8b,0xf5,0x48,0x8b,0x06,0x4c,0x8d,0x44,0x24,0x20,
+            0xba,0x80,0x04,0x00,0x00,0xc7,0x44,0x24,0x20,0x35,0x00,0x00,0x00,0x48,0x8b,0xce,0x48,0x89,0x6c,0x24,0x28,0xff,0x50,0x28,0x48,0x8b,0xf8,0x48,0x85,0xc0,0x0f,0x84,
+            0xd7,0x01,0x00,0x00,0xba,0x86,0x00,0x00,0x00};
+        uint64_t g = 0;
+        uint32_t id = 0;
+        uint8_t bad[0x66];
+        /* v2.02 dump: factory at 1125DB0 -> manager global 45C84A8, shrine menu id 0x86 */
+        if (!ShrineIdFromCode(fac, 0x1125DB0, &g, &id) || g != 0x45C84A8 || id != 0x86) return 10;
+        memcpy(bad, fac, sizeof bad);
+        bad[0x60] = 0xB9;
+        if (ShrineIdFromCode(bad, 0x1125DB0, &g, &id)) return 11;
+    }
     printf("probe_test ok\n");
     return 0;
 }
@@ -1601,6 +1634,54 @@ static int CallGameBool(uint64_t fn) {
 
 /* 5A37D4 reads [G]+0x170 without a null check on G. G is still 0 just after the player appears (pc2 #65316),
    so read G and the screen object first and only call the getter when both exist. */
+/* #65765 shrine menu: resolved once from the factory code; must use the same manager global as 5A37D4. */
+static int g_shrineSt = -1;  /* -1 not tried, 0 off, 1 ready */
+static uint64_t g_menuMgrG = 0;
+static uint32_t g_shrineId = 0;
+static uint8_t g_openSet[0xED];
+static int g_openLogs = 0;
+static void ShrineInit(uint64_t base, uint64_t fa) {
+    uint8_t b[0x66];
+    int32_t disp = 0;
+    uint64_t g = 0, ga = 0;
+    uint32_t id = 0;
+    const uint64_t f = base + Grva(kMenuShrineMake);
+    g_shrineSt = 0;
+    if (!Rd((uintptr_t)f, b, sizeof b) || !ShrineIdFromCode(b, f, &g, &id)) { Log("shrine menu signal: factory code not recognised, shrine keeps the camera offsets"); return; }
+    if (!Rd((uintptr_t)(fa + 9), &disp, sizeof disp)) return;
+    ga = fa + 13 + (int64_t)disp;
+    if (g != ga) { Log("shrine menu signal: menu manager differs (+%llX vs +%llX), off", (unsigned long long)(g - base), (unsigned long long)(ga - base)); return; }
+    g_menuMgrG = g;
+    g_shrineId = id;
+    g_shrineSt = 1;
+    Log("shrine menu signal ready: menu id 0x%X at manager +0x%X", id, id * 8);
+}
+static int MenuIdShown(uint64_t mgr, uint32_t id) {
+    uint64_t obj = 0;
+    uint32_t st = 0, v = 0;
+    if (!Rd64(mgr + (uint64_t)id * 8, &obj) || obj < 0x10000) return 0;
+    if (!Rd((uintptr_t)(obj + 0x18), &st, 4) || !Rd((uintptr_t)(obj + 0x2C), &v, 4)) return 0;
+    return MenuShown(st, v);
+}
+/* 1 = shrine menu on screen. Also logs every change of the set of shown menu ids (diagnostic for sub-screens, capped). */
+static int ShrineOpen(void) {
+    uint64_t mgr = 0;
+    int i, changed = 0, o = 0;
+    char line[0xED * 4 + 8];
+    if (g_shrineSt != 1 || !Rd64(g_menuMgrG, &mgr) || mgr < 0x10000) return 0;
+    for (i = 1; i < 0xED; ++i) {
+        const uint8_t on = (uint8_t)MenuIdShown(mgr, (uint32_t)i);
+        if (on != g_openSet[i]) { g_openSet[i] = on; changed = 1; }
+    }
+    if (changed && g_openLogs < 400) {
+        ++g_openLogs;
+        for (i = 1; i < 0xED && o < (int)sizeof line - 6; ++i) if (g_openSet[i]) o += snprintf(line + o, sizeof line - o, " %X", i);
+        line[o] = 0;
+        Log("menus shown:%s", o ? line : " none");
+    }
+    return g_openSet[g_shrineId];
+}
+
 static int ScreenOpenA(uint64_t fa) {
     int32_t disp = 0;
     uint64_t g = 0, scr = 0;
@@ -1639,6 +1720,9 @@ static void PollScreen(uint64_t base) {
     {
         const int ra = ScreenOpenA(fa);
         const int rb = ra > 0 ? 0 : CallGameBool(fb);
+        int rs;
+        if (g_shrineSt < 0) ShrineInit(base, fa);
+        rs = ShrineOpen();
         if (ra < 0 || rb < 0) {
             if (g_screenBad) {
                 Log("game screen signal faulted %d times in a row, camera stays on in menus", kScreenFaultMax);
@@ -1647,7 +1731,7 @@ static void PollScreen(uint64_t base) {
             return;  /* keep the last state for this poll */
         }
         g_screenFaults = 0;
-        raw = ra > 0 || rb > 0;
+        raw = ra > 0 || rb > 0 || rs > 0;
     }
     if (raw) {
         if (!g_screenSince) g_screenSince = t ? t : 1;
@@ -1658,7 +1742,7 @@ static void PollScreen(uint64_t base) {
     hold = (g_screenSince && (DWORD)(t - g_screenSince) >= 120) || (g_holdCam && g_screenLast && (DWORD)(t - g_screenLast) < 150);
     if (hold != g_holdCam) {
         g_holdCam = hold;
-        Log("camera offsets %s", hold ? "released (menu / appearance / photo)" : "back");
+        Log("camera offsets %s", hold ? (g_shrineSt == 1 && g_openSet[g_shrineId] ? "released (shrine menu)" : "released (menu / appearance / photo)") : "back");
     }
 }
 
