@@ -12,6 +12,7 @@
 // Ini ([Debug]): CrashReport = 1 (default; 0 = off, nothing installed), CrashDump = 0 (1 = also write a MiniDump .dmp beside the
 // report), CrashTest = 0 (forced-crash hook for pc: 1 access violation, 2 stack overflow, 3 abort(), 4 fatal-error popup,
 // 5 terminate (unhandled C++ exception), 6 invalid CRT parameter), CrashTestDelaySec = 30 (seconds after Start).
+// ForceCrashTest = 1 is the same as CrashTest = 1. Every crash is also uploaded as JSON (crashupload.h, #64881).
 #pragma once
 #include <cstdint>
 
@@ -23,6 +24,7 @@ struct StartInfo {
     void* selfModule = nullptr;  // HMODULE of this .asi (report folder + sha of the sibling .asi files)
     uintptr_t base = 0;          // Nioh3.exe image base
     bool knownBuild = false;
+    const char* modVersion = "";  // EngineFix version (crash upload record)
 };
 
 void Start(const StartInfo& info);

@@ -3189,6 +3189,7 @@ DWORD WINAPI Worker(LPVOID) {
             cri.selfModule = g_self;
             cri.base = reinterpret_cast<uintptr_t>(g_base);
             cri.knownBuild = known;
+            cri.modVersion = MOD_VERSION;
             crashreport::Start(cri);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
