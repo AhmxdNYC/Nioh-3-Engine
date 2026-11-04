@@ -8,6 +8,7 @@
 #include "addon.h"
 
 #include <cstdint>
+#include <cstring>
 
 namespace {
 
@@ -103,24 +104,79 @@ struct Fns {
     bool ok = false;
 };
 
+// Call sites of `target` in the game's code, each preceded by `mov rcx, [rip+disp]` (48 8B 0D rel32): stores the
+// global each one loads into rcx. The drop manager's own remove is always called on the drop manager's global.
+int RcxGlobalsBeforeCall(const uint8_t* target, uint64_t* out, int cap) {
+    const HMODULE game = GetModuleHandleW(L"Nioh3.exe");
+    if (!game || cap <= 0) return 0;
+    const auto* dos = (const IMAGE_DOS_HEADER*)game;
+    const auto* nt = (const IMAGE_NT_HEADERS64*)((const uint8_t*)game + dos->e_lfanew);
+    const auto* sh = IMAGE_FIRST_SECTION(nt);
+    int n = 0;
+    for (int i = 0; i < nt->FileHeader.NumberOfSections && n < cap; ++i) {
+        if (!(sh[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        const auto* lo = (const uint8_t*)game + sh[i].VirtualAddress;
+        const auto* hi = lo + sh[i].Misc.VirtualSize;
+        for (const uint8_t* cur = lo + 7; cur + 5 <= hi && n < cap;) {
+            const void* f = memchr(cur, 0xE8, (size_t)(hi - cur) - 4);
+            if (!f) break;
+            cur = (const uint8_t*)f;
+            int32_t rel;
+            memcpy(&rel, cur + 1, 4);
+            if (cur + 5 + rel == target && cur[-7] == 0x48 && cur[-6] == 0x8B && cur[-5] == 0x0D) {
+                int32_t d;
+                memcpy(&d, cur - 4, 4);
+                out[n++] = (uint64_t)cur + d;  // rip after the 7-byte mov = cur
+            }
+            ++cur;
+        }
+    }
+    return n;
+}
+
 Fns Resolve() {
     Fns f;
     const uint8_t* hit[8] = {};
-    const Pat get{kGetB, kGetM, sizeof kGetB};
-    const int ng = Scan(get, hit, 8);
-    if (ng != 1) {
-        addon::Log("Rematch loot: drop-list pattern matched %d times (want 1) - clear off", ng);
+
+    // The remove is unique; it decides which drop-list head is the drop manager's (pc #65944: the head shape
+    // matches twice in the 11-04 game, 0x320000 and 0x725CA4; only the second one's manager is ever passed to remove).
+    const Pat kill{kKillB, kKillM, sizeof kKillB};
+    const int nk = Scan(kill, hit, 8);
+    if (nk != 1) {
+        addon::Log("Rematch loot: remove pattern matched %d times (want 1) - clear off", nk);
         return f;
     }
-    int32_t disp = 0;
-    if (!addon::Rd((uint64_t)(hit[0] + 10), disp)) return f;
-    f.mgrSlot = (uint64_t)(hit[0] + 14) + disp;
-    f.get = (GetFn)hit[0];
+    f.kill = (KillFn)hit[0];
+    uint64_t killMgr[32] = {};
+    const int nkm = RcxGlobalsBeforeCall(hit[0], killMgr, 32);
 
+    const Pat get{kGetB, kGetM, sizeof kGetB};
+    const int ng = Scan(get, hit, 8);
+    if (ng < 1) {
+        addon::Log("Rematch loot: drop-list pattern matched 0 times - clear off");
+        return f;
+    }
+    int pick = -1, picks = 0;
+    for (int i = 0; i < ng; ++i) {
+        int32_t disp = 0;
+        if (!addon::Rd((uint64_t)(hit[i] + 10), disp)) continue;
+        const uint64_t slot = (uint64_t)(hit[i] + 14) + disp;
+        int uses = 0;
+        for (int k = 0; k < nkm; ++k) uses += killMgr[k] == slot;
+        if (uses > 0) { pick = i; ++picks; f.mgrSlot = slot; }
+    }
+    if (picks != 1) {
+        addon::Log("Rematch loot: drop-list pattern matched %d times, %d of them are the remove's manager (want 1) - clear off", ng, picks);
+        f.mgrSlot = 0;
+        return f;
+    }
+    f.get = (GetFn)hit[pick];
+
+    // The bind and next leaves are fully fixed bytes ending in ret; the game has identical copies, any one is the same code.
     const Pat bind{kBindB, kBindM, sizeof kBindB};
     const int nb = Scan(bind, hit, 8);
-    if (nb != 1) {
-        addon::Log("Rematch loot: iterator bind pattern matched %d times (want 1) - clear off", nb);
+    if (nb < 1) {
+        addon::Log("Rematch loot: iterator bind pattern matched 0 times - clear off");
         return f;
     }
     f.bind = (BindFn)hit[0];
@@ -132,16 +188,9 @@ Fns Resolve() {
         return f;
     }
     f.next = (NextFn)hit[0];
-
-    const Pat kill{kKillB, kKillM, sizeof kKillB};
-    const int nk = Scan(kill, hit, 8);
-    if (nk != 1) {
-        addon::Log("Rematch loot: remove pattern matched %d times (want 1) - clear off", nk);
-        return f;
-    }
-    f.kill = (KillFn)hit[0];
     f.ok = true;
-    addon::Log("Rematch loot: clear ready (next pattern has %d identical copies)", nn);
+    addon::Log("Rematch loot: clear ready (drop-list head %d of %d picked by the remove's manager, %d remove calls on it; bind x%d, next x%d identical copies)",
+               pick + 1, ng, nkm, nb, nn);
     return f;
 }
 
