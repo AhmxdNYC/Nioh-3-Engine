@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.24-camki-menu-camera";
+static const char* kVer = "1.0.25-camki-menu-camera-nullsafe";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -1585,13 +1585,29 @@ static volatile int g_holdCam = 0;
 static DWORD g_screenSince = 0;
 static DWORD g_screenLast = 0;
 
+static int g_screenFaults = 0;   /* faults in a row; the signal turns off only after kScreenFaultMax */
+static int g_screenFaultLogs = 0;
+enum { kScreenFaultMax = 40 };
+
 static int CallGameBool(uint64_t fn) {
     __try {
         return reinterpret_cast<unsigned char (*)()>(fn)() != 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        g_screenBad = 1;
-        return 0;
+        if (g_screenFaultLogs < 5) { ++g_screenFaultLogs; Log("game screen signal call faulted %08lX at +%llX (retrying)", GetExceptionCode(), (unsigned long long)fn); }
+        if (++g_screenFaults >= kScreenFaultMax) g_screenBad = 1;
+        return -1;
     }
+}
+
+/* 5A37D4 reads [G]+0x170 without a null check on G. G is still 0 just after the player appears (pc2 #65316),
+   so read G and the screen object first and only call the getter when both exist. */
+static int ScreenOpenA(uint64_t fa) {
+    int32_t disp = 0;
+    uint64_t g = 0, scr = 0;
+    if (!Rd((uintptr_t)(fa + 9), &disp, sizeof disp)) return 0;
+    if (!Rd64(fa + 13 + (int64_t)disp, &g) || g < 0x10000) return 0;
+    if (!Rd64(g + 0x170, &scr) || scr < 0x10000) return 0;
+    return CallGameBool(fa);
 }
 
 static void PollScreen(uint64_t base) {
@@ -1620,11 +1636,18 @@ static void PollScreen(uint64_t base) {
     t = GetTickCount();
     fa = base + Grva(kMenuOpenA);
     fb = base + Grva(kMenuOpenB);
-    raw = CallGameBool(fa) || (!g_screenBad && CallGameBool(fb));
-    if (g_screenBad) {
-        Log("game screen signal faulted, camera stays on in menus");
-        g_holdCam = 0;
-        return;
+    {
+        const int ra = ScreenOpenA(fa);
+        const int rb = ra > 0 ? 0 : CallGameBool(fb);
+        if (ra < 0 || rb < 0) {
+            if (g_screenBad) {
+                Log("game screen signal faulted %d times in a row, camera stays on in menus", kScreenFaultMax);
+                g_holdCam = 0;
+            }
+            return;  /* keep the last state for this poll */
+        }
+        g_screenFaults = 0;
+        raw = ra > 0 || rb > 0;
     }
     if (raw) {
         if (!g_screenSince) g_screenSince = t ? t : 1;
