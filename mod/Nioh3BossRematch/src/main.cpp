@@ -106,6 +106,7 @@ void Feature(const char* name, const char* group) {
 
 // One installer and dispatcher for both independently enabled modules.
 void SharedPump() {
+    keepgear::Tick();
     training::Pump();
     if (rematch::Live()) rematch::Pump();
 }
@@ -167,6 +168,7 @@ DWORD WINAPI Init(void*) {
     if (inv) Feature("InvLog", "SC");
     if (IniInt(L"Spirit", L"FormKey", 0)) bosslog::FormKeyInstall();  // own switch: installs its SC hooks even with InvLog=0
 #endif  // BR_SOULCORE
+    keepgear::Install();  // site report #7: after every OnEntry group, so a shared slot keeps its handlers
     if (HANDLE t = CreateThread(nullptr, 0, VerifyRvas, nullptr, 0, nullptr)) CloseHandle(t);
     ui::Start();  // settings remain reachable with Rematch disabled; no rematch hooks are added
     remote::Start();

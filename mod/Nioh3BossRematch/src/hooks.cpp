@@ -22,19 +22,23 @@ bool SiteHookedByOther(int i);
 
 namespace {
 
-constexpr int kMaxSites = 96, kMaxHandlers = 4;
+constexpr int kMaxSites = 112, kMaxHandlers = 4;
 struct Slot {
     int site = -1;
     Handler h[kMaxHandlers] = {};
     int nh = 0;
     bool installed = false;
+    // Script-native veto (site report #7): when veto() returns true the original native body is skipped; SkipNative runs the
+    // binding's own argument reader (ctor) and result writer (fin) instead, so the script VM stack stays balanced.
+    volatile Veto veto = nullptr;
+    uint64_t ctor = 0, fin = 0;
 };
 Slot g_slots[kMaxSites];
 int g_nslots = 0;
 
 uint8_t* g_thunks = nullptr;
 size_t g_used = 0;
-constexpr size_t kPage = 64 * 1024, kThunk = 192;
+constexpr size_t kPage = 64 * 1024, kThunk = 224;
 
 uint8_t* AllocIn(uintptr_t from, uintptr_t to) {
     SYSTEM_INFO si;
@@ -111,8 +115,22 @@ bool PatchSpin(uint8_t* p, const uint8_t* bytes, size_t len) {  // straddles 16 
 }
 bool Patch(uint8_t* p, const uint8_t* bytes, size_t len) { return PatchAtomic(p, bytes, len) || PatchSpin(p, bytes, len); }
 
-void Dispatch(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp, Slot* s) {
+uint64_t Dispatch(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp, Slot* s) {
     for (int i = 0; i < s->nh; ++i) s->h[i](a, b, c, d, sp);
+    const Veto v = s->veto;
+    return v && s->ctor && s->fin && v(s->site) ? 1 : 0;
+}
+
+// Runs in place of a vetoed script native (jumped to from the thunk with the native's own entry stack: rcx = VM arg, rdx = slot).
+// Every Nioh 3 script binding wrapper is ctor(ctx, rcx) ... r = u16 ctx+0x10C; fin(ctx+0x110); return r (see ParseNative).
+uint64_t SkipNative(uint64_t vmArg, Slot* s) {
+    alignas(16) uint8_t ctx[0x400];
+    memset(ctx, 0, sizeof(ctx));
+    ((void (*)(void*, uint64_t))s->ctor)(ctx, vmArg);
+    uint16_t r = 0;
+    memcpy(&r, ctx + 0x10C, 2);
+    ((void (*)(void*))s->fin)(ctx + 0x110);
+    return r;
 }
 
 // 0 ok, else a reason
@@ -154,6 +172,12 @@ const char* InstallSlot(Slot& s) {
     for (uint8_t i = 0; i < 6; ++i) put({0xF3, 0x0F, 0x6F, (uint8_t)(0x44 | (i << 3)), 0x24, (uint8_t)(0x30 + 0x10 * i)});
     put({0x48, 0x81, 0xC4, 0x98, 0x00, 0x00, 0x00});                    // add rsp,98h
     put({0x41, 0x5B, 0x41, 0x5A, 0x41, 0x59, 0x41, 0x58, 0x5A, 0x59});  // pop r11, r10, r9, r8, rdx, rcx
+    put({0x85, 0xC0, 0x74, 0x16});  // test eax,eax ; jz +22 (Dispatch 0 = run the original)
+    put({0x48, 0xBA});              // mov rdx, slot
+    put64((uint64_t)&s);
+    put({0x48, 0xB8});  // mov rax, SkipNative ; jmp rax (entry stack unchanged: SkipNative returns to the native's caller)
+    put64((uint64_t)&SkipNative);
+    put({0xFF, 0xE0});
     uint64_t back = prev;
     if (!chained) {
         memcpy(w, head, d.head);  // relocated head (derive_sites.py proved: whole instructions, no rip-relative / branch)
@@ -216,6 +240,90 @@ void OnEntry(const char* site, Handler h) {
     Slot& s = g_slots[g_nslots++];
     s.site = i;
     s.h[s.nh++] = h;
+}
+
+// Script binding wrapper layout (all 1072 wrappers of the native table share it, see notes/arena-keep-gear-65470.md):
+//   mov rdx,rcx ; lea rcx,[ctx] ; call ctor            (argument reader 0x139938 on v2.02)
+//   ... movzx ebx,word [ctx+0x10C] ; lea rcx,[ctx+0x110] ; call fin   (result writer 0x1181730 / 0x11803D0)
+// Found by these instruction shapes, not by address, so a game patch that moves the code keeps working; a mismatch = no veto.
+namespace {
+int LeaRcx(const uint8_t* b, int32_t* disp) {  // lea rcx,[rsp/rbp + disp8/disp32] -> length, 0 = not one
+    if (b[0] != 0x48 || b[1] != 0x8D) return 0;
+    const uint8_t m = b[2];
+    if ((m & 0x38) != 0x08) return 0;
+    const int mod = m >> 6, rm = m & 7, sib = rm == 4;
+    if (sib && b[3] != 0x24) return 0;
+    if (!sib && rm != 5) return 0;  // rsp (via SIB) or rbp
+    const int o = 3 + sib;
+    if (mod == 1) { *disp = (int8_t)b[o]; return o + 1; }
+    if (mod == 2) { memcpy(disp, b + o, 4); return o + 4; }
+    return 0;
+}
+int MovzxEbxW(const uint8_t* b, int32_t* disp) {  // movzx ebx,word [rsp/rbp + disp]
+    if (b[0] != 0x0F || b[1] != 0xB7) return 0;
+    const uint8_t m = b[2];
+    if ((m & 0x38) != 0x18) return 0;
+    const int mod = m >> 6, rm = m & 7, sib = rm == 4;
+    if (sib && b[3] != 0x24) return 0;
+    if (!sib && rm != 5) return 0;
+    const int o = 3 + sib;
+    if (mod == 1) { *disp = (int8_t)b[o]; return o + 1; }
+    if (mod == 2) { memcpy(disp, b + o, 4); return o + 4; }
+    return 0;
+}
+uint64_t CallTarget(const uint8_t* b, uint64_t at) {  // E8 rel32 at `at`
+    if (b[0] != 0xE8) return 0;
+    int32_t rel = 0;
+    memcpy(&rel, b + 1, 4);
+    const uint64_t t = at + 5 + (int64_t)rel;
+    return t >= g_img.base + 0x1000 && t < g_img.end ? t : 0;
+}
+}  // namespace
+
+bool ParseNative(uint64_t fn, uint64_t* ctor, uint64_t* fin) {
+    uint8_t b[0x500];
+    if (!Copy(b, fn, sizeof(b))) return false;
+    *ctor = *fin = 0;
+    for (int i = 0; i + 16 < 0xA0 && !*ctor; ++i) {
+        if (b[i] != 0x48 || b[i + 1] != 0x8B || b[i + 2] != 0xD1) continue;  // mov rdx,rcx
+        int32_t d = 0;
+        const int n = LeaRcx(b + i + 3, &d);
+        if (n) *ctor = CallTarget(b + i + 3 + n, fn + i + 3 + n);
+    }
+    for (int i = 0; i + 24 < (int)sizeof(b) && *ctor && !*fin; ++i) {
+        int32_t dw = 0, dl = 0;
+        const int n = MovzxEbxW(b + i, &dw);
+        if (!n) continue;
+        const int k = LeaRcx(b + i + n, &dl);
+        if (!k || dl != dw + 4 || ((b[i + 2] & 7) == 4) != ((b[i + n + 2] & 7) == 4)) continue;  // same base, ctx+0x10C -> ctx+0x110
+        *fin = CallTarget(b + i + n + k, fn + i + n + k);
+    }
+    return *ctor && *fin;
+}
+
+bool InstallVeto(const char* site, Veto v, const char** why) {
+    const int i = SiteIndex(site);
+    if (i < 0) { if (why) *why = "no such site"; return false; }
+    const uint64_t p = (uint64_t)Site(site);
+    if (!p) { if (why) *why = "unresolved"; return false; }
+    uint64_t ctor = 0, fin = 0;
+    if (!ParseNative(p, &ctor, &fin)) { if (why) *why = "binding layout not recognised (ctor/fin)"; return false; }
+    Slot* s = nullptr;
+    for (int k = 0; k < g_nslots && !s; ++k)
+        if (g_slots[k].site == i) s = &g_slots[k];
+    if (!s) {
+        if (g_nslots >= kMaxSites) { if (why) *why = "no free hook slot"; return false; }
+        s = &g_slots[g_nslots++];
+        s->site = i;
+    }
+    s->ctor = ctor;
+    s->fin = fin;
+    MemoryBarrier();
+    s->veto = v;
+    if (!s->installed)
+        if (const char* r = InstallSlot(*s)) { s->veto = nullptr; if (why) *why = r; return false; }
+    Log("KeepGear: veto on %s (ctor +%llX, fin +%llX)", site, (unsigned long long)(ctor - g_img.base), (unsigned long long)(fin - g_img.base));
+    return true;
 }
 
 bool InstallGroup(const char* group, const char** why) {
