@@ -6,6 +6,15 @@
  },
  "rvas": [
   {
+   "rva": "0xD63C0",
+   "kind": "code",
+   "pattern": "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 07 48 8B 01 48 FF 60 08 32 C0 C3 CC CC 48 8B 0D ??",
+   "offset": 0,
+   "used_in": [
+    "probe.cpp"
+   ]
+  },
+  {
    "rva": "0x243ED0",
    "kind": "code",
    "pattern": "48 89 5C 24 08 57 48 83 EC 20 32 C0",
@@ -36,6 +45,15 @@
    "rva": "0x3B4288",
    "kind": "code",
    "pattern": "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 81 EC A0 00 00 00 33 ED 0F 29 70 E8 48 8D",
+   "offset": 0,
+   "used_in": [
+    "probe.cpp"
+   ]
+  },
+  {
+   "rva": "0x5A37D4",
+   "kind": "code",
+   "pattern": "40 53 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 48 8B 98 70 01 00 00 48 85 DB 74 1D 48 8B 03 48 8B CB FF 90 00 01 00 00 84 C0 74 0D 48 8B 03",
    "offset": 0,
    "used_in": [
     "probe.cpp"
