@@ -79,6 +79,22 @@ bool CopyReportUrl() { return true; }
 void OpenReportUrl() { ++g_urlOpens; }
 void OpenReportFolder(const char* path) { ++g_folderOpens; snprintf(g_folderPath, sizeof g_folderPath, "%s", path ? path : ""); }
 }
+namespace reportsend {  // #64882: the Report box hands its text here
+int g_sends = 0;
+std::string g_lastText, g_lastVia;
+State g_st = State::Idle;
+bool Send(const char* t, const char* via, char* msg, size_t cap) {
+    if (!t || !*t) { snprintf(msg, cap, "Type what went wrong first."); return false; }
+    ++g_sends; g_lastText = t; g_lastVia = via ? via : ""; g_st = State::Sent; return true;
+}
+State Status(char* m, size_t c) { if (m && c) snprintf(m, c, "%s", g_st == State::Sent ? "Sent. Thank you!" : ""); return g_st; }
+void ClearStatus() { g_st = State::Idle; }
+const char* Endpoint() { return "https://example.invalid/api/report"; }
+void NoteInput(const char*, const char*) {}
+bool SteamEnabled() { return false; }
+bool SteamShow(const char*, unsigned) { return false; }
+int SteamPoll(char*, size_t) { return 0; }
+}
 namespace extraperf {
 bool Available(int) { return false; }
 bool AnyAvailable() { return false; }
@@ -455,12 +471,75 @@ int main() {
     Move(-1);
     CHECK(g_sel == kBackRow);
     Move(1);
-    Change(kReportRow, 0);  // #38437: Report row writes one snapshot and keeps the page
+    {   // #64882: the Report row opens the text box. Keyboard: WM_CHAR text, Backspace, Down to Send, Enter sends.
+        const bool wasOpen = g_open != 0; const bool wasCfg = g_configured; g_configured = true;
+        g_open = 1;
+        g_okFromPad = false;
+        Change(kReportRow, 0);
+        CHECK(rbox::g_on && g_rbOn && rbox::g_focus == rbox::fText && !strcmp(rbox::g_via, "keyboard"));
+        auto msgOf = [](UINT m, WPARAM w) { tagMSG x{}; x.message = m; x.wParam = w; return x; };
+        for (const char* c = "hi!"; *c; ++c) { tagMSG x = msgOf(WM_CHAR, (WPARAM)*c); CHECK(SwallowMessage(&x)); }
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_BACK); CHECK(SwallowMessage(&x)); }
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_RETURN); CHECK(SwallowMessage(&x)); }  // Enter in the box = new line
+        { tagMSG x = msgOf(WM_CHAR, (WPARAM)'x'); CHECK(SwallowMessage(&x)); }
+        CHECK(!strcmp(rbox::g_text, "hi\nx"));
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_DOWN); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(rbox::g_focus == rbox::fSend);
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_RETURN); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(reportsend::g_sends == 1 && reportsend::g_lastText == "hi\nx" && reportsend::g_lastVia == "keyboard");
+        rbox::Handle(0, 0, 0, Now());  // the Sent state clears the box
+        CHECK(rbox::g_len == 0 && rbox::g_on);
+        { tagMSG x = msgOf(WM_KEYDOWN, VK_ESCAPE); CHECK(SwallowMessage(&x)); }
+        rbox::Handle(0, 0, 0, Now());
+        CHECK(!rbox::g_on);
+        // controller: A on the box opens the key grid (no Steam here); D-pad + A types, X space, RB done, A sends
+        g_rbOn = 0;
+        g_okFromPad = true;
+        Change(kReportRow, 0);
+        CHECK(rbox::g_on && !strcmp(rbox::g_via, "pad"));
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(rbox::g_grid && rbox::g_focus == rbox::fGrid);
+        rbox::Handle(N_DOWN, N_DOWN, 0, Now());   // row 1: q w e ...
+        rbox::Handle(N_OK, N_OK, 0, Now());       // q
+        rbox::Handle(N_RIGHT, N_RIGHT, 0, Now());
+        rbox::Handle(N_OK, N_OK, 0, Now());       // w
+        rbox::Handle(N_X, N_X, 0, Now());         // space
+        rbox::Handle(N_CLOSE, N_CLOSE, 0, Now()); // Y: caps
+        rbox::Handle(N_OK, N_OK, 0, Now());       // W
+        rbox::Handle(N_BACK, N_BACK, 0, Now());   // B: delete
+        rbox::Handle(N_OK, N_OK, 0, Now());       // W
+        CHECK(!strcmp(rbox::g_text, "qw W"));
+        rbox::Handle(N_TAB_NEXT, N_TAB_NEXT, 0, Now());
+        CHECK(!rbox::g_grid && rbox::g_focus == rbox::fSend);
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(reportsend::g_sends == 2 && reportsend::g_lastText == "qw W" && reportsend::g_lastVia == "pad");
+        rbox::Handle(N_BACK, N_BACK, 0, Now());   // B on a row: cancel
+        CHECK(!rbox::g_on);
+        // empty text: Send refuses with a hint, nothing sent
+        Change(kReportRow, 0);
+        rbox::g_focus = rbox::fSend;
+        rbox::Handle(N_OK, N_OK, 0, Now());
+        CHECK(reportsend::g_sends == 2 && strstr(rbox::g_hint, "Type what"));
+        rbox::CloseBox("harness");
+        g_rbOn = 0;
+        g_open = wasOpen ? 1 : 0; g_configured = wasCfg;
+    }
+    auto reportWebsite = [&]() -> int {  // the box's last row is the old Report row action
+        Change(kReportRow, 0);
+        rbox::g_focus = rbox::fWeb;
+        rbox::Handle(N_OK, 0, 0, Now());
+        CHECK(!rbox::g_on);
+        g_rbOn = 0;
+        return 0;
+    };
+    if (reportWebsite()) return 1;  // #38437: writes one snapshot and keeps the page
     CHECK(crashreport::g_snapshots == 1 && crashreport::g_urlOpens == 1 && crashreport::g_folderOpens == 1
         && strstr(crashreport::g_folderPath, "stub-report.txt") && g_pages.page == pSettings
         && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "example.invalid"));
     updatecheck::wine = true;
-    Change(kReportRow, 0);
+    if (reportWebsite()) return 1;
     CHECK(crashreport::g_snapshots == 2 && crashreport::g_urlOpens == 2 && crashreport::g_folderOpens == 1
         && strstr(g_reportNote, "stub-report.txt") && strstr(g_reportNote, "Wine"));
     updatecheck::wine = false;

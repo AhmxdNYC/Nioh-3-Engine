@@ -743,7 +743,7 @@ void Start(const StartInfo& info) {
         g_delayMs = (int)GetPrivateProfileIntW(L"Report", L"CrashSendDelayMs", (UINT)info.startDelayMs, info.iniPath);
         if (g_delayMs < 0) g_delayMs = 0;
     }
-    LoadInstallId(info.iniPath);
+    EnsureInstallId(info.iniPath);
     {  // redaction table, longest first
         struct { const wchar_t* env; const char* to; } src[3] = {{L"USERPROFILE", "<user>"}, {L"USERNAME", "<user>"}, {L"COMPUTERNAME", "<pc>"}};
         g_redN = 0;
@@ -788,5 +788,12 @@ int PendingCount() { return CountPending(false); }
 void ScrubForTest(const char* in, char* out, unsigned cap) { Scrub(in, out, cap); }
 const wchar_t* PendingDir() { return g_pendDir; }
 const char* InstallId() { return g_id; }
+const char* EnsureInstallId(const wchar_t* iniPath) {
+    static SRWLOCK lock = SRWLOCK_INIT;
+    AcquireSRWLockExclusive(&lock);
+    if (!g_id[0]) LoadInstallId(iniPath);
+    ReleaseSRWLockExclusive(&lock);
+    return g_id;
+}
 
 }  // namespace crashupload

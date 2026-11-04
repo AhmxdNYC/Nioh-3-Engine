@@ -49,6 +49,7 @@
 #include "autocont.h"
 #include "bootnotice.h"
 #include "crashreport.h"
+#include "reportsend.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
@@ -3191,6 +3192,14 @@ DWORD WINAPI Worker(LPVOID) {
             cri.knownBuild = known;
             cri.modVersion = MOD_VERSION;
             crashreport::Start(cri);
+        }
+        {  // #64882 menu Report box sender: reads [Report] ReportUrl / ReportBypass / InstallId; sends only when the player presses Send
+            reportsend::StartInfo rsi;
+            rsi.log = &Log;
+            rsi.iniPath = iniPath.c_str();
+            rsi.selfModule = g_self;
+            rsi.modVersion = MOD_VERSION;
+            reportsend::Start(rsi);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state

@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/report.py": {
+      "includeFiles": "feedback-api/report_api.py"
+    },
+    "api/crash.py": {
+      "maxDuration": 30
+    }
+  }
+}

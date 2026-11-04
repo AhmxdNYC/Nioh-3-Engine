@@ -54,5 +54,7 @@ int PendingCount();
 void ScrubForTest(const char* in, char* out, unsigned cap);
 const wchar_t* PendingDir();
 const char* InstallId();
+// Shared report/crash identity. Creates [Report] InstallId once; no uploader thread.
+const char* EnsureInstallId(const wchar_t* iniPath);
 
 }  // namespace crashupload
