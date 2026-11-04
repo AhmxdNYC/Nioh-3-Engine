@@ -521,6 +521,12 @@ int Exec(const char* line, char* r, size_t n) {
         }
         case Op::MenuGet:
         case Op::MenuSet: {
+            if (IEq(c.key, "HideHudIds")) {
+                if (!g_info.hudIdsRemote) return Reply(r, n, 1, "live HUD IDs not available");
+                char mr[200] = {};
+                const int rc = g_info.hudIdsRemote(c.op == Op::MenuSet ? c.text : nullptr, mr, sizeof(mr), 3000);
+                return Reply(r, n, rc < 0 ? 1 : 0, "%s", mr);
+            }
             if (!g_info.menuRemote) return Reply(r, n, 1, "mod menu not available");
             char mr[200] = {};
             const int rc = g_info.menuRemote(c.key, c.op == Op::MenuSet, c.value, mr, sizeof(mr), 3000);

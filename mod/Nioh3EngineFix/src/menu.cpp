@@ -2199,6 +2199,7 @@ void SwitchTab(int dir) {
 // One request at a time: the caller posts it (state 1), the Present thread takes it (2), runs it and marks it done (3).
 struct RemoteReq {
     char key[48];
+    char text[200];
     int set, value, rc;
     char reply[200];
 };
@@ -2275,6 +2276,26 @@ void LogItem(int id) {
 }
 void RunRemote(RemoteReq& q) {
     q.rc = -1;
+    if (!_stricmp(q.key, "HideHudIds")) {
+        if (q.set) {
+            char numeric[24];
+            snprintf(numeric, sizeof(numeric), "%d", q.value);
+            const char* ids = q.text[0] ? q.text : numeric;
+            if (!hudhide::SetIdsLive(ids)) {
+                snprintf(q.reply, sizeof(q.reply), "invalid HUD IDs: use comma-separated 0..255 or none; previous mask preserved");
+                return;
+            }
+            hudhide::SyncIds(); // apply before acknowledging; this runs on Present
+            if (g_log) g_log("HUD raw IDs -> %s (redirected=%d unavailable=%d)", ids,
+                hudhide::g_redirected, hudhide::g_idsBad);
+        }
+        const auto* m = hudhide::g_extra;
+        snprintf(q.reply, sizeof(q.reply), "HideHudIds mask=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X (%s; named toggles unchanged)",
+            m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7],
+            hudhide::g_idsBad ? "unavailable" : hudhide::g_redirected ? "redirected" : "off");
+        q.rc = hudhide::g_idsBad ? -1 : 0;
+        return;
+    }
     for (int i = 0; i < kConfigN; ++i) {  // catalog Choice rows live-applied by the menu (e.g. HideGameHud, HideHud*): 'menu set <key> 0|1'
         const auto& d = kConfigSettings[i];
         if (_stricmp(d.key, q.key) || d.apply != setting_ui::Apply::MenuLive || d.kind != setting_ui::Kind::Choice) continue;
@@ -3929,12 +3950,17 @@ void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state
 
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
 
-int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) {
+int RemoteImpl(const char* key, int set, int value, const char* text, char* reply, size_t n, unsigned timeoutMs) {
     if (!Enabled()) {
         snprintf(reply, n, "mod menu off ([Menu] Enabled = 0 or disabled this session)");
         return -1;
     }
+    if (text && strlen(text) >= sizeof(g_rem.text)) {
+        snprintf(reply, n, "HUD ID list too long; previous mask preserved");
+        return -1;
+    }
     AcquireSRWLockExclusive(&g_remLock);
+    snprintf(g_rem.text, sizeof(g_rem.text), "%s", text ? text : "");
     snprintf(g_rem.key, sizeof(g_rem.key), "%s", key ? key : "");
     g_rem.set = set;
     g_rem.value = value;
@@ -3960,6 +3986,12 @@ int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned 
     }
     ReleaseSRWLockExclusive(&g_remLock);
     return rc;
+}
+int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) {
+    return RemoteImpl(key, set, value, nullptr, reply, n, timeoutMs);
+}
+int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs) {
+    return RemoteImpl("HideHudIds", ids != nullptr, 0, ids, reply, n, timeoutMs);
 }
 const char* OpenHint() {
     static char buf[96];

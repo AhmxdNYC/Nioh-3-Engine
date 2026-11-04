@@ -3158,6 +3158,7 @@ DWORD WINAPI Worker(LPVOID) {
             vi.knownBuild = known;
             vi.version = MOD_VERSION;
             vi.menuRemote = &menu::Remote;
+            vi.hudIdsRemote = &menu::RemoteHudIds;
             vi.pauseReason = &menu::GamePauseReason;
             vpad::Start(vi);
             if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);

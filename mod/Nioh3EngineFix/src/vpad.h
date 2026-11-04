@@ -29,6 +29,7 @@ struct StartInfo {
     int (*menuRemote)(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs) = nullptr;
     int (*pauseReason)() = nullptr;  // menu::GamePauseReason (0 none, 1 game menu, 2 stopped, 3 loading)
     const wchar_t* pipeName = nullptr;  // tests only (default \\.\pipe\nioh3vpad)
+    int (*hudIdsRemote)(const char* ids, char* reply, size_t n, unsigned timeoutMs) = nullptr;
 };
 
 // dllmain worker, before padlat::Start / osd::Start (our IAT hook then sits innermost: the mod menu and PadLatency see the

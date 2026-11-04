@@ -40,6 +40,18 @@ void CheckMaskRestoration() {
     g_elemOn[weapons] = 1;
     SyncIds();
     assert(!ElementAvailable(weapons) && !g_redirected && Mask()[0] == 0);
+    assert(SetIdsLive("7")); SyncIds();
+    assert(Mask()[0] == (1u << 7) && g_redirected);
+    assert(SetIdsLive("14,255,14")); SyncIds();
+    assert(Mask()[0] == (1u << 14) && Mask()[7] == (1u << 31));
+    for (const char* bad : {"-1", "256", "7,", "7,,8", "7,x", "999999999999999999999", ""}) {
+        assert(!SetIdsLive(bad)); SyncIds();
+        assert(Mask()[0] == (1u << 14) && Mask()[7] == (1u << 31));
+    }
+    assert(SetIdsLive("none")); SyncIds();
+    memcpy(&restored, g_call + 1, 4);
+    assert(!g_redirected && restored == g_callOrig && Mask()[0] == 0 && Mask()[7] == 0);
+    puts("PASS: live raw list replaces mask, duplicate IDs, invalid input atomicity, clear restores call");
     VirtualFree(page, 0, MEM_RELEASE);
     g_page = g_call = nullptr;
     puts("PASS: both HUD masks independently/combined, OFF restoration, missing widget safe");
