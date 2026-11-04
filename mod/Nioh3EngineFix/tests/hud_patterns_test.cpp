@@ -25,10 +25,11 @@ void CheckMaskRestoration() {
         g_elemOn[weapons] = arm & 1;
         g_elemOn[cores] = (arm >> 1) & 1;
         SyncIds();
-        const uint32_t expected = ((arm & 1) ? 1u << 22 : 0) | ((arm & 2) ? 1u << 19 : 0);
+        const uint32_t expected = kWeaponCoreRowsOff ? 0u : ((arm & 1) ? 1u << 22 : 0) | ((arm & 2) ? 1u << 19 : 0);
         assert(Mask()[0] == expected);
         for (int i = 1; i < 8; ++i) assert(Mask()[i] == 0);
-        assert(g_redirected == (arm != 0));
+        assert(g_redirected == (!kWeaponCoreRowsOff && arm != 0));
+        if (kWeaponCoreRowsOff) assert(!ElementAvailable(weapons) && !ElementAvailable(cores));
     }
     g_elemOn[weapons] = g_elemOn[cores] = 0;
     SyncIds();

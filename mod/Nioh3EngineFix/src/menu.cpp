@@ -1215,7 +1215,8 @@ int PageRowsBody(int* out, bool selectable) {
         if (pg == pOvHud) {  // master 'Hide game HUD' on top, then the per-element rows (#44877, hudhide::kElems, catalog order)
             if (HideHudSettingRow() >= 0) add(HideHudSettingRow());
             for (int i = 0; i < kConfigN; ++i)
-                if (hudhide::ElemIndex(kConfigSettings[i].key) >= 0) add(kSettingRow + i);
+                if (const int e = hudhide::ElemIndex(kConfigSettings[i].key); e >= 0 &&
+                    (!hudhide::kWeaponCoreRowsOff || e < hudhide::kElemN - 2)) add(kSettingRow + i);
             add(kBackRow);
             return n;
         }

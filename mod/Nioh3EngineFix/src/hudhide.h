@@ -130,10 +130,13 @@ inline Elem kElems[] = {
     {"HideHudWeapons", {0}},    {"HideHudSoulCores", {0}}, // filled from validated constructors
 };
 constexpr int kElemN = (int)(sizeof(kElems) / sizeof(kElems[0]));
+// 1.8.5: the constructor-derived weapon (22) / soul-core (19) ids hide the wrong widgets in game (#65638 FAIL); both rows stay
+// hidden and inert until the live id sweep (board #200) names the right ids.
+constexpr bool kWeaponCoreRowsOff = true;
 inline bool ElementAvailable(int i) {
     Resolve();
-    if (i == kElemN - 2) return g_weaponsId != 0;
-    if (i == kElemN - 1) return g_soulCoresId != 0;
+    if (i == kElemN - 2) return !kWeaponCoreRowsOff && g_weaponsId != 0;
+    if (i == kElemN - 1) return !kWeaponCoreRowsOff && g_soulCoresId != 0;
     return i >= 0 && i < kElemN;
 }
 inline int ElemIndex(const char* key) {
@@ -235,8 +238,8 @@ inline bool Redirect(bool on) {
 // Call once per frame (present). Writes the wanted mask into the thunk page and redirects / restores the call.
 inline void SyncIds() {
     Resolve();
-    kElems[kElemN - 2].ids[0] = g_weaponsId;
-    kElems[kElemN - 1].ids[0] = g_soulCoresId;
+    kElems[kElemN - 2].ids[0] = kWeaponCoreRowsOff ? 0 : g_weaponsId;
+    kElems[kElemN - 1].ids[0] = kWeaponCoreRowsOff ? 0 : g_soulCoresId;
     uint32_t want[8];
     memcpy(want, g_extra, sizeof(want));
     bool any = false;
