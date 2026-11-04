@@ -16,6 +16,7 @@
 
 #include "reportsend.h"
 #include "crashupload.h"
+#include "inputlog.h"
 #ifndef REPORTSEND_NO_CRASHREPORT
 #include "crashreport.h"
 #endif
@@ -248,7 +249,15 @@ DWORD WINAPI SendThread(LPVOID p) {
     std::string evAll, inAll;
     for (size_t i = 0; i < events.size(); ++i) evAll += (i ? "," : "") + events[i];
     for (size_t i = 0; i < input.size(); ++i) inAll += (i ? "," : "") + input[i];
-    std::string full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), Scrub(snapshot), evAll, (int)events.size(), inAll, (int)input.size(), kBodyCap);
+    // #64888: prefer the full input ring (pad edges, hotkeys, menu choices); last 400, oldest first
+    int inN = (int)input.size();
+    {
+        static char ring[160 * 1024];
+        const int bytes = inputlog::WriteTail(ring, (int)sizeof ring, 400);
+        const int n = inputlog::Count() < 400 ? inputlog::Count() : 400;
+        if (bytes > 0 && n > 0) { inAll = ring; inN = n; }
+    }
+    std::string full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), Scrub(snapshot), evAll, (int)events.size(), inAll, inN, kBodyCap);
     int drop = 0;
     while (full.empty() && !events.empty()) {  // still over the cap with an empty snapshot: drop the oldest events
         const size_t n = std::max<size_t>(1, events.size() / 4);
@@ -256,7 +265,7 @@ DWORD WINAPI SendThread(LPVOID p) {
         drop += (int)n;
         evAll.clear();
         for (size_t i = 0; i < events.size(); ++i) evAll += (i ? "," : "") + events[i];
-        full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), "", evAll, (int)events.size(), inAll, (int)input.size(), kBodyCap);
+        full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), "", evAll, (int)events.size(), inAll, inN, kBodyCap);
     }
     // 3. local copy (every report, sent or not)
     std::wstring dir = std::wstring(g_dir) + L"Nioh3Reports\\";
