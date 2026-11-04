@@ -16,6 +16,8 @@ typedef struct FlClock {
 typedef struct FlRec {
     int mode, result;
     char name[FL_NAME];
+    char boss_id[32];
+    uint32_t character_id;
     uint32_t t0, t1;
     FlClock start, end;
 } FlRec;
@@ -65,6 +67,15 @@ static inline void FlStart(FlLog* L, int mode, const char* name, uint32_t now, c
     if (L->count < FL_CAP) L->count++;
 }
 
+// Identity is captured at start, never read from the currently selected menu row later.
+static inline void FlIdentify(FlLog* L, const char* id, uint32_t character_id) {
+    if (!L || L->open < 0) return;
+    FlRec* r = &L->rec[L->open];
+    snprintf(r->boss_id, sizeof r->boss_id, "%s", id && id[0] ? id : "unknown");
+    for (char* p = r->boss_id; *p; ++p) if ((unsigned char)*p < 32 || *p == '|') *p = '_';
+    r->character_id = character_id;
+}
+
 static inline int FlEnd(FlLog* L, int result, uint32_t now, const FlClock* end) {
     if (!L || L->open < 0) return 0;
     FlClose(L, result, now, end);
@@ -108,12 +119,14 @@ static inline int FlFormat(const FlLog* L, char* buf, int cap) {
         else FlDur(r->t0, r->t1, dur, (int)sizeof dur);
         if (r->result == FL_OPEN || r->end.y == 0) snprintf(endb, sizeof endb, "-");
         else snprintf(endb, sizeof endb, "%04d-%02d-%02d %02d:%02d:%02d", r->end.y, r->end.mo, r->end.d, r->end.h, r->end.mi, r->end.s);
-        int n = snprintf(buf + used, (size_t)(cap - used),
-            "  %d. %s | %s | start %04d-%02d-%02d %02d:%02d:%02d | end %s | %s | %s\r\n",
-            i + 1, r->name, FlModeName(r->mode),
+        char row[384];
+        int n = snprintf(row, sizeof row,
+            "  %d. %s | %s | boss_id %s | character_id %u | start %04d-%02d-%02d %02d:%02d:%02d | end %s | %s | %s\r\n",
+            i + 1, r->name, FlModeName(r->mode), r->boss_id[0] ? r->boss_id : "unknown", r->character_id,
             r->start.y, r->start.mo, r->start.d, r->start.h, r->start.mi, r->start.s,
             endb, dur, FlResultName(r->result));
-        if (n < 0 || used + n >= cap) break;
+        if (n < 0 || n >= (int)sizeof row || used + n >= cap) break;
+        memcpy(buf + used, row, (size_t)n + 1);
         used += n;
     }
     return used;

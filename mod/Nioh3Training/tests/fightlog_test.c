@@ -11,18 +11,20 @@ static FlClock C(int h, int mi, int s) {
 
 int main(void) {
     FlLog L; FlInit(&L);
-    char buf[2048];
+    char buf[8192];
     assert(FlFormat(&L, buf, (int)sizeof buf) > 0);
     assert(strstr(buf, "no fights"));
     assert(FlEnd(&L, FL_WIN, 1000, 0) == 0);
 
     FlClock a = C(12, 1, 0), b = C(12, 2, 9);
     FlStart(&L, FL_PRACTICE, "Imagawa Yoshimoto (Edo)", 1000, &a);
+    FlIdentify(&L, "boss-example", 123);
     assert(L.open >= 0 && FlFormat(&L, buf, (int)sizeof buf) && strstr(buf, "in progress") && strstr(buf, "Imagawa Yoshimoto"));
     assert(!strstr(buf, "(Edo)"));
     assert(FlEnd(&L, FL_WIN, 1000 + 69000, &b) == 1);
     assert(FlEnd(&L, FL_WIN, 2000, &b) == 0);
     FlFormat(&L, buf, (int)sizeof buf);
+    assert(strstr(buf, "boss_id boss-example") && strstr(buf, "character_id 123"));
     assert(strstr(buf, "Practice") && strstr(buf, "win") && strstr(buf, "1m 9s"));
     assert(strstr(buf, "start 2026-11-02 12:01:00") && strstr(buf, "end 2026-11-02 12:02:09"));
 
@@ -47,6 +49,9 @@ int main(void) {
     assert(!strstr(buf, "B0 |"));
     assert(strstr(buf, "B1 |") && strstr(buf, "B20 |"));
     assert(strstr(buf, "  1. B1 |") && strstr(buf, "  20. B20 |"));
+    char small[32]; memset(small, 'X', sizeof small);
+    assert(FlFormat(&L, small, sizeof small) == 0 && small[0] == 0); // never a misleading partial row
+    assert(FlFormat(&L, small, 1) == 0 && small[0] == 0);
     printf("fightlog_test ok\n");
     return 0;
 }

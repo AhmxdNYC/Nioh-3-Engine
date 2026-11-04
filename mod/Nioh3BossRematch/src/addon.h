@@ -160,6 +160,7 @@ bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify 
 // Report fight list. 1 Boss Match, 2 Practice, 3 a story boss. Name is the catalogue row, or "".
 int FightLogMode();
 const char* FightLogName();
+const char* FightLogId();
 const char* NameForPlacement(uint32_t id);
 // UI model: one UI worker only. The in-game renderer uses the snapshot/action ABI.
 struct UiRow {

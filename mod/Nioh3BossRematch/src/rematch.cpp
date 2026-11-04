@@ -4534,6 +4534,10 @@ int FightLogMode() {
     if (g_replayIn.load() || g_fight.load()) return 1;  // Boss Match
     return 3;                                         // story / field boss
 }
+const char* FightLogId() {
+    if (FightLogMode() == 3 || g_fightRow < 0 || (size_t)g_fightRow >= g_rows.size()) return "";
+    return g_rows[(size_t)g_fightRow].id;
+}
 const char* FightLogName() {
     const char* n = RowName(g_fightRow);
     return n ? n : "";

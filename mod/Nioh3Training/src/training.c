@@ -1593,13 +1593,14 @@ static void FightLabel(char* out, int cap, const char* tok, uint32_t chr) {
     }
     snprintf(out, (size_t)cap, "%s", tok && tok[0] ? tok : "boss");
 }
-static void FightBegin(int mode, const char* name) {
+static void FightBegin(int mode, const char* name, const char* id, uint32_t chr) {
     FlEnsure();
     FlClock c; FlNow(&c);
     AcquireSRWLockExclusive(&g_flLock);
     FlStart(&g_fl, mode, name, GetTickCount(), &c);
+    FlIdentify(&g_fl, id, chr);
     ReleaseSRWLockExclusive(&g_flLock);
-    Log("FIGHT start: %s | %s", name && name[0] ? name : "boss", FlModeName(mode));
+    Log("FIGHT start: %s | %s | boss_id=%s character_id=%u", name && name[0] ? name : "boss", FlModeName(mode), id && id[0] ? id : "unknown", chr);
 }
 static int FightFinish(int result) {
     FlEnsure();
@@ -1633,7 +1634,7 @@ static void FightPlayerWatch(void) {
 static void FightBeginSession(void) {
     char name[FL_NAME];
     FightLabel(name, (int)sizeof name, g_tr.tok, g_tr.chr);
-    FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name);
+    FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name, g_tr.tok, g_tr.chr);
 }
 static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
@@ -1822,11 +1823,16 @@ static void PreloadTick(void) {
 // Report (EngineFix GetProcAddress). Missing on an older Training build: the Fights section is skipped.
 // mode: 1 Boss Match, 2 Practice, 3 normal boss. phase: 1 start, 2 win (boss died), 3 loss (player died), 4 quit/left.
 N3T_API void Nioh3Training_FightMark(int mode, int phase, const char* name) {
-    if (phase == 1) { FightBegin(mode, name && name[0] ? name : "boss"); return; }
+    if (phase == 1) { FightBegin(mode, name && name[0] ? name : "boss", 0, 0); return; }
     if (phase == 4 && PlayerDeadNow()) phase = 3;
     if (phase == 2) FightFinish(FL_WIN);
     else if (phase == 3) FightFinish(FL_LOSS);
     else if (phase == 4) FightFinish(FL_QUIT);
+}
+// Extended start API; old callers/exports remain compatible.
+N3T_API void Nioh3Training_FightMarkEx(int mode, int phase, const char* name, const char* id) {
+    if (phase == 1) FightBegin(mode, name && name[0] ? name : "boss", id, 0);
+    else Nioh3Training_FightMark(mode, phase, name);
 }
 N3T_API int Nioh3Training_FightLog(char* buf, int cap) {
     if (!buf || cap <= 0) return 0;

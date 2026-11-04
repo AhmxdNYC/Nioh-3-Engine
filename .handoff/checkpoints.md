@@ -76,3 +76,6 @@ Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhi
 2026-11-01 5:55 pm EST | cx-pc #61953: v1.8.0 RC assets built on cx-pc/release-180, not published. EF 1.8.0, BR 1.5.0 soul core in, Training from the dev line, fixed-RVA 0 RAW. Next: pc publishes only after the human says go. No game touched.
 2026-11-01 6:31 pm EST | cx-pc #62049: Setup.exe empty-save crash fixed (install fresh_ok). Fake game folder with an empty save dir finished, exit 0. ASIs unchanged. Next: pc2 retests Setup.exe. No game touched.
 2026-11-01 6:58 pm EST | cx-pc #62169: v1.8.0 RC3. A BossRematch.ini with no SoulCoreForms key is upgraded once to FormKey=1, AttackCancel=1, FormHide=4, SealIdleLog=0, SoulCoreForms=1. SoulCoreForms=0 is left as-is. ScLog and FH4perf log only when Probes or SealIdleLog is on. Public 1.7.90 ini self-test passed; empty-save Setup.exe exit 0. Not published. No game. Next: pc2 retests an old ini. BR fb3fd892. Files spirit_upgrade.h, main.cpp, bosslog.cpp.
+
+2026-11-04 6:15 PM EST | #66364 existing released timeline extended with boss IDs and complete-row formatting; 4 recorded fights replayed correctly (2 wins/2 quits).
+Production state tests cover loss/Practice/retry/ring rollover/tiny buffers; new live test unproven. Next build Training, BossRematch, EngineFix and bridge artifacts. notes/fight-timeline-66364.md.
