@@ -3108,7 +3108,9 @@ float DrawImpl(unsigned W, unsigned H) {
         const float offset=travel*(cycle<=1.0f?cycle:2.0f-cycle);
         osd::DrawRect(x,y+52.0f,width,8.0f,0xFF3A3A3A);
         osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
-        if(stage[0])osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        // #65319: the font shader sizes every stroke with the one scale this function returns. A 1.0 line under a
+        // 2.0 title draws the lower half of each glyph outside its quad, so descenders (g, y, p) are cut off.
+        if(stage[0])osd::DrawText(x,y+64.0f,stage,0xFFBBBBBB,scale);
         return scale;
     }
     if(!g_coverToken.load() && Now()<g_coverNoticeUntil && !g_open) {
@@ -3129,7 +3131,7 @@ float DrawImpl(unsigned W, unsigned H) {
         osd::DrawRect(x+offset,y+52.0f,width*0.22f,8.0f,0xFFE6E6E6);
         const char* stage=g_rematchView.coverPhase==1?"Preparing...":
             (g_rematchView.coverPhase==2?"Starting boss match...":"Entering boss arena...");
-        osd::DrawText(x,y+78.0f,stage,0xFFBBBBBB,1.0f);
+        osd::DrawText(x,y+64.0f,stage,0xFFBBBBBB,scale);  // #65319: same scale as the title, or descenders are clipped
         osd::DrawText(x,(float)H-50.0f,"B / Escape: show game",0xFFBBBBBB,1.0f);
         g_coverDrawnToken=g_coverToken.load();return scale;
     }
