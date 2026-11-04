@@ -1840,7 +1840,7 @@ void ChangeConfig(int index, int dir) {
         } else if (hudhide::ElemIndex(d.key) >= 0) {  // #44877
             const int on = atoi(v.c_str()) ? 1 : 0;
             hudhide::g_elemOn[hudhide::ElemIndex(d.key)] = on;
-            snprintf(g_configReply, sizeof(g_configReply), hudhide::g_idsBad ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
+            snprintf(g_configReply, sizeof(g_configReply), (hudhide::g_idsBad || !hudhide::ElementAvailable(hudhide::ElemIndex(d.key))) ? "Per-element HUD hide is not available on this game version." : on ? "%s hidden. Save to keep it." : "%s shown. Save to keep it.", d.label + (strncmp(d.label, "Hide ", 5) ? 0 : 5));
         } else if (!strcmp(d.key, "ControllerDisplayOpacity")) {
             padviz::g_opacity100 = std::clamp((int)std::lround(atof(v.c_str()) * 100.0), 20, 100);
             snprintf(g_configReply, sizeof(g_configReply), "Controller display opacity applies now. Save to keep it.");
@@ -2655,6 +2655,13 @@ void NoteSelection() {
 void OnPresentImpl() {
     hudhide::Sync();
     hudhide::SyncIds();
+    static bool hudLogged = false;
+    if (!hudLogged) {
+        hudLogged = true;
+        if (g_log) g_log("HUD patterns: master=%p call=%p target=%p weaponsId=%u soulCoresId=%u",
+            hudhide::g_master, hudhide::g_call, hudhide::g_target,
+            (unsigned)hudhide::g_weaponsId, (unsigned)hudhide::g_soulCoresId);
+    }
     savefiles::Poll();
     if(savefiles::TakeMenuCloseRequest()&&g_open)Close("live title reset");
     if((g_pages.page==pSaveFiles||g_pages.page==pSaveActions)&&!savefiles::Pending()&&!savefiles::Allowed()){g_pages.Reset();g_sel=kPageRow+pSettings;g_saveConfirm=0;}

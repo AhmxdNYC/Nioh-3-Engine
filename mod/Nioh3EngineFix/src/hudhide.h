@@ -12,30 +12,93 @@
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
+#include "hud_patterns.h"
 
 namespace hudhide {
 inline int g_want = 0;     // 1 = hide (menu / ini)
 inline int g_applied = 0;  // what is in the game code now
 inline int g_bad = 0;      // bytes did not match: never patch
-constexpr uintptr_t kRva = 0xF0228;
-constexpr uint8_t kOrig[23] = {0x48, 0x8B, 0x05, 0x79, 0x82, 0x4D, 0x04, 0x48, 0x8B, 0x48, 0x18, 0x48,
-                               0x85, 0xC9, 0x74, 0x07, 0x8A, 0x81, 0xC0, 0x03, 0x00, 0x00, 0xC3};
+// Resolved once from executable sections, including on the known game build.
+inline uint8_t* g_master = nullptr;
+inline uint8_t* g_call = nullptr;
+inline uint8_t* g_target = nullptr;
+inline uint8_t g_masterOrig[8] = {};
+inline int32_t g_callOrig = 0;
+inline bool g_scanned = false;
+inline uint8_t g_weaponsId = 0, g_soulCoresId = 0;
+inline bool Executable(const uint8_t* p, size_t n) {
+    const auto* b = (const uint8_t*)GetModuleHandleW(nullptr);
+    const auto* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    const auto* sec = IMAGE_FIRST_SECTION(nt);
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+        if (!(sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        const uintptr_t lo = (uintptr_t)b + sec[i].VirtualAddress, hi = lo + sec[i].Misc.VirtualSize;
+        if ((uintptr_t)p >= lo && (uintptr_t)p <= hi && n <= hi - (uintptr_t)p) return true;
+    }
+    return false;
+}
+inline uint8_t* Unique(const char* pattern) {
+    const auto* b = (const uint8_t*)GetModuleHandleW(nullptr);
+    const auto* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
+    const auto* sec = IMAGE_FIRST_SECTION(nt);
+    unsigned count = 0;
+    const uint8_t* found = nullptr;
+    for (unsigned i = 0; i < nt->FileHeader.NumberOfSections && count < 2; ++i) {
+        if (!(sec[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)) continue;
+        auto* hit = patterns::Find(b + sec[i].VirtualAddress, sec[i].Misc.VirtualSize, pattern, count);
+        if (hit) found = hit;
+    }
+    return count == 1 ? const_cast<uint8_t*>(found) : nullptr;
+}
+inline void Resolve() {
+    if (g_scanned) return;
+    g_scanned = true;
+    __try {
+        g_master = Unique(patterns::kMaster);
+        // The existing patch uses one aligned atomic 64-bit exchange.
+        if (g_master && ((uintptr_t)g_master & 7)) g_master = nullptr;
+        if (g_master) memcpy(g_masterOrig, g_master, sizeof(g_masterOrig));
+        auto* weapons = Unique(patterns::kWeapons);
+        auto* cores = Unique(patterns::kSoulCores);
+        // Constructor argument: xor r8d,r8d; lea edx,[r8 + widgetId].
+        // Never fall back to a guessed widget if its constructor does not match.
+        if (weapons && weapons[19] > 0 && weapons[19] < 128) g_weaponsId = weapons[19];
+        if (cores && cores[19] > 0 && cores[19] < 128) g_soulCoresId = cores[19];
+        auto* site = Unique(patterns::kVisibility);
+        if (site) {
+            auto* call = site + patterns::kCallOffset;
+            int32_t disp;
+            memcpy(&disp, call + 1, sizeof(disp));
+            auto* target = call + 5 + disp;
+            // Validate the original layer filter too; never redirect an unrelated call.
+            if (!((uintptr_t)(call + 1) & 3) && Executable(target, 13) &&
+                patterns::Match(target, "8B 81 ?? ?? ?? ?? 83 F8 FF 75 03 B0 01")) {
+                g_call = call; g_target = target; g_callOrig = disp;
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_master = g_call = g_target = nullptr;
+        g_weaponsId = g_soulCoresId = 0;
+    }
+}
 
 // Call once per frame (present): applies g_want when it differs from what is installed. Returns false if the build does not match.
 inline bool Sync() {
     if (g_bad || g_want == g_applied) return !g_bad;
-    uint8_t* p = (uint8_t*)GetModuleHandleW(nullptr) + kRva;
+    Resolve();
+    uint8_t* p = g_master;
+    if (!p) { g_bad = 1; return false; }
     __try {
-        if (memcmp(p + 3, kOrig + 3, sizeof(kOrig) - 3) != 0 || (memcmp(p, kOrig, 3) != 0 && !(p[0] == 0x31 && p[1] == 0xC0 && p[2] == 0xC3))) {
-            g_bad = 1;
-            return false;
-        }
+        uint8_t expected[8];
+        memcpy(expected, g_masterOrig, sizeof(expected));
+        if (g_applied) { expected[0] = 0x31; expected[1] = 0xC0; expected[2] = 0xC3; }
+        if (memcmp(p, expected, sizeof(expected)) != 0) { g_bad = 1; return false; }
         uint64_t v;
         memcpy(&v, p, 8);
         uint8_t nb[8];
         memcpy(nb, &v, 8);
         if (g_want) { nb[0] = 0x31; nb[1] = 0xC0; nb[2] = 0xC3; }
-        else memcpy(nb, kOrig, 3);
+        else memcpy(nb, g_masterOrig, 3);
         uint64_t nv;
         memcpy(&nv, nb, 8);
         DWORD old = 0, t = 0;
@@ -60,12 +123,19 @@ inline bool Sync() {
 // 11 item shortcut, 13 guardian spirit, 17 amrita, 18 money, 21 boss gauge, 25 minimap; found by hiding ids one at a time
 // in game (pc2 #44877): 6 enemy health bars over enemies, 12 lock-on marker. Damage numbers / interact prompt ids not found yet.
 struct Elem { const char* key; uint8_t ids[4]; };
-inline const Elem kElems[] = {
+inline Elem kElems[] = {
     {"HideHudPlayerBars", {5}},  {"HideHudStyle", {4}},  {"HideHudStance", {10}},   {"HideHudItems", {11}},
     {"HideHudGuardian", {13}},   {"HideHudAmrita", {17}}, {"HideHudMoney", {18}},   {"HideHudBossBar", {21}},
     {"HideHudMinimap", {25}},    {"HideHudEnemyBars", {6}}, {"HideHudLockOn", {12}},
+    {"HideHudWeapons", {0}},    {"HideHudSoulCores", {0}}, // filled from validated constructors
 };
 constexpr int kElemN = (int)(sizeof(kElems) / sizeof(kElems[0]));
+inline bool ElementAvailable(int i) {
+    Resolve();
+    if (i == kElemN - 2) return g_weaponsId != 0;
+    if (i == kElemN - 1) return g_soulCoresId != 0;
+    return i >= 0 && i < kElemN;
+}
 inline int ElemIndex(const char* key) {
     for (int i = 0; i < kElemN; ++i) if (key && !strcmp(kElems[i].key, key)) return i;
     return -1;
@@ -75,9 +145,6 @@ inline uint32_t g_extra[8] = {};      // [Menu] HideHudIds = "7, 22": raw widget
 inline uint8_t* g_page = nullptr;     // thunk page; mask = 8 dwords at g_page + 0x100
 inline int g_idsBad = 0;
 inline int g_redirected = 0;
-constexpr uintptr_t kCallRva = 0xF2DCB, kTargetRva = 0xF3444;
-constexpr uint8_t kCallSite[12] = {0x8B, 0xD0, 0x48, 0x8B, 0xCF, 0xE8, 0x74, 0x06, 0x00, 0x00, 0xEB, 0x02};  // at 0xF2DC6
-constexpr uint8_t kTarget[9] = {0x8B, 0x81, 0xD0, 0x07, 0x00, 0x00, 0x83, 0xF8, 0xFF};
 inline uint32_t* Mask() { return g_page ? (uint32_t*)(g_page + 0x100) : nullptr; }
 
 inline void ParseIds(const char* s) {
@@ -115,18 +182,18 @@ inline bool BuildThunk() {
     if (g_page) return true;
     if (g_idsBad) return false;
     uint8_t* b = (uint8_t*)GetModuleHandleW(nullptr);
-    __try {
-        if (memcmp(b + kCallRva - 5, kCallSite, sizeof(kCallSite)) != 0 || memcmp(b + kTargetRva, kTarget, sizeof(kTarget)) != 0) {
-            g_idsBad = 1;
-            return false;
-        }
-    } __except (EXCEPTION_EXECUTE_HANDLER) { g_idsBad = 1; return false; }
+    Resolve();
+    if (!g_call || !g_target) { g_idsBad = 1; return false; }
     const auto* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
     const uintptr_t lo = (uintptr_t)b, hi = lo + nt->OptionalHeader.SizeOfImage, reach = 0x7FF00000ull - (hi - lo);
     uint8_t* p = AllocIn(hi, hi + reach);
     if (!p) p = AllocIn(lo > reach + 0x10000 ? lo - reach : 0x10000, lo);
     if (!p) { g_idsBad = 1; return false; }
-    const uint64_t mask = (uint64_t)(p + 0x100), target = (uint64_t)(b + kTargetRva);
+    const intptr_t delta = (intptr_t)p - (intptr_t)(g_call + 5);
+    if (delta < INT32_MIN || delta > INT32_MAX) {
+        VirtualFree(p, 0, MEM_RELEASE); g_idsBad = 1; return false;
+    }
+    const uint64_t mask = (uint64_t)(p + 0x100), target = (uint64_t)g_target;
     uint8_t c[64] = {
         0x81, 0xFA, 0xFF, 0x00, 0x00, 0x00,  // cmp edx, 255
         0x77, 0x12,                          // ja pass
@@ -147,12 +214,15 @@ inline bool BuildThunk() {
     return true;
 }
 
-// Rewrites only the call's rel32 (RVA 0xF2DCC, 4-aligned): one interlocked 32-bit store, never a torn instruction.
+// Rewrites only the pattern-resolved call's aligned rel32 with one interlocked store.
 inline bool Redirect(bool on) {
-    uint8_t* b = (uint8_t*)GetModuleHandleW(nullptr);
-    uint8_t* r = b + kCallRva + 1;
-    const int32_t orig = (int32_t)(kTargetRva - (kCallRva + 5));
-    const int32_t thunk = (int32_t)((intptr_t)g_page - (intptr_t)(b + kCallRva + 5));
+    if (!g_call || !g_page) return false;
+    uint8_t* r = g_call + 1;
+    const int32_t orig = g_callOrig;
+    const int32_t thunk = (int32_t)((intptr_t)g_page - (intptr_t)(g_call + 5));
+    int32_t current;
+    memcpy(&current, r, sizeof(current));
+    if (g_call[0] != 0xE8 || current != (g_redirected ? thunk : orig)) { g_idsBad = 1; return false; }
     DWORD old = 0, t = 0;
     if (!VirtualProtect(r, 4, PAGE_EXECUTE_READWRITE, &old)) return false;
     InterlockedExchange((volatile LONG*)r, on ? thunk : orig);
@@ -164,6 +234,9 @@ inline bool Redirect(bool on) {
 
 // Call once per frame (present). Writes the wanted mask into the thunk page and redirects / restores the call.
 inline void SyncIds() {
+    Resolve();
+    kElems[kElemN - 2].ids[0] = g_weaponsId;
+    kElems[kElemN - 1].ids[0] = g_soulCoresId;
     uint32_t want[8];
     memcpy(want, g_extra, sizeof(want));
     bool any = false;

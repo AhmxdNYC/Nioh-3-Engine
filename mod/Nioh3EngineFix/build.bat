@@ -32,6 +32,14 @@ if errorlevel 1 echo WARNING: raw fixed game RVAs left - see build\fixed_rvas.tx
 if not exist build mkdir build
 if not exist bin mkdir bin
 
+rem HUD lookup checks use the same scanner as runtime. CI can supply a decrypted image.
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\hud_patterns_test.exe /Fobuild\hud_patterns_test.obj tests\hud_patterns_test.cpp || exit /b 1
+if defined NIOH3_HUD_DUMP (
+    build\hud_patterns_test.exe "%NIOH3_HUD_DUMP%" || exit /b 1
+) else (
+    build\hud_patterns_test.exe || exit /b 1
+)
+
 ml64 /nologo /c /W3 /Fobuild\caves.obj src\caves.asm || exit /b 1
 rem GPU barrier batching (gpuopt.cpp): per-slot command-list thunks
 ml64 /nologo /c /W3 /Fobuild\gpuopt_thunks.obj src\gpuopt_thunks.asm || exit /b 1
