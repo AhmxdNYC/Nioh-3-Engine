@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.24-camki-menu-camera";
+static const char* kVer = "1.0.25-camki-menu-retry";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -22,8 +22,8 @@ static const uintptr_t kCamMgr = 0x4751490;
 static const uintptr_t kOrbitFn = 0x2b0e4c;
 static const uintptr_t kFovFn = 0x8dad94;
 static const uintptr_t kBlendFn = 0x9565e4;
-static const uintptr_t kMenuOpenA = 0x5A37D4;  /* UI screen open: [0x45C84A8+0x170] vfunc 0x100 && vfunc 0x48 */
-static const uintptr_t kMenuOpenB = 0xD63C0;   /* UI screen open: vfunc 8 of [0x4758BA0] */
+static const uintptr_t kMenuOpenA = 0x5A37D4;  /* mov rax,[rip]; mov rbx,[rax+0x170]. A null rax faults. */
+static const uintptr_t kMenuOpenB = 0xD63C0;   /* mov rcx,[rip]; null rcx returns 0. vfunc 8 otherwise. */
 
 enum { kCap = 1600, kBlob = 160, kBlobBytes = 0x180, kRing = 900, kTop = 70 };
 
@@ -109,6 +109,28 @@ static int MatTrans(const float* m, float* out, const float* player, float* dist
 static int CamApply(int iniOn, int screenOpen) { return iniOn && !screenOpen; }
 static float OffWant(float set, int screenOpen) { return screenOpen ? 0.f : set; }
 
+/* insnEnd is the RVA or address of the instruction after the rip-relative load. */
+static uint64_t RipAbs(uint64_t insnEnd, int32_t disp) { return insnEnd + (int64_t)disp; }
+
+/* 1 = pointer is live, the getter may be called. 0 = null, treat as closed. -1 = the read faulted. */
+static int ScreenGate(int readOk, uint64_t ptr) {
+    if (!readOk) return -1;
+    if (!ptr) return 0;
+    return 1;
+}
+
+/* 1 once `streak` faults have happened in a row (20). A clean frame clears the streak. */
+static int FaultStreak(int* streak, int* latched, int faulted) {
+    if (*latched) return 1;
+    if (!faulted) {
+        *streak = 0;
+        return 0;
+    }
+    *streak += 1;
+    if (*streak >= 20) *latched = 1;
+    return *latched;
+}
+
 #ifdef PROBE_TEST
 int main(void) {
     float p[3] = {10.f, 20.f, 30.f};
@@ -127,6 +149,18 @@ int main(void) {
     if (!IsUnit(eye)) return 6;
     if (CamApply(1, 0) != 1 || CamApply(1, 1) != 0 || CamApply(0, 0) != 0 || CamApply(0, 1) != 0) return 7;
     if (OffWant(120.f, 0) != 120.f || OffWant(-40.f, 1) != 0.f) return 8;
+    if (RipAbs(0x5A37E1ull, 0x04024CC7) != 0x45C84A8ull) return 9;
+    if (RipAbs(0xD63C7ull, 0x046827D9) != 0x4758BA0ull) return 10;
+    if (ScreenGate(0, 0) != -1 || ScreenGate(1, 0) != 0 || ScreenGate(1, 0x1000) != 1) return 11;
+    {
+        int streak = 0, latched = 0, i;
+        for (i = 0; i < 19; i++) if (FaultStreak(&streak, &latched, 1)) return 12;
+        if (latched || streak != 19) return 13;
+        if (!FaultStreak(&streak, &latched, 1) || !latched || streak != 20) return 14;
+        streak = 5;
+        latched = 0;
+        if (FaultStreak(&streak, &latched, 0) || streak != 0 || latched) return 15;
+    }
     printf("probe_test ok\n");
     return 0;
 }
@@ -1581,23 +1615,44 @@ static const uint8_t kMenuBBytes[] = {0x48, 0x8B, 0x0D, 0xD9, 0x27, 0x68, 0x04, 
                                       0x48, 0x8B, 0x01, 0x48, 0xFF, 0x60, 0x08, 0x32, 0xC0, 0xC3};
 static int g_menuBytesOk = -1;
 static int g_screenBad = 0;
+static int g_faultStreak = 0;
+static unsigned g_faultSeen[4];
+static int g_faultSeenN = 0;
+static int g_nullLogged = 0;
 static volatile int g_holdCam = 0;
 static DWORD g_screenSince = 0;
 static DWORD g_screenLast = 0;
 
-static int CallGameBool(uint64_t fn) {
+static void LogFaultOnce(unsigned code) {
+    int i;
+    for (i = 0; i < g_faultSeenN; i++) if (g_faultSeen[i] == code) return;
+    if (g_faultSeenN < 4) g_faultSeen[g_faultSeenN++] = code;
+    Log("game screen signal fault code %08X (streak %d)", code, g_faultStreak);
+}
+
+/* code is 0 on success. A null global is not a call and not a fault. */
+static int CallGameBool(uint64_t fn, unsigned* code) {
+    *code = 0;
     __try {
         return reinterpret_cast<unsigned char (*)()>(fn)() != 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        g_screenBad = 1;
+        *code = GetExceptionCode();
+        if (!*code) *code = 0xE0000001;
         return 0;
     }
 }
 
+static uint64_t SlotFromFn(uint64_t fn, int dispAt, int insnEnd) {
+    int32_t disp = 0;
+    if (!fn || !Rd((uintptr_t)(fn + dispAt), &disp, 4)) return 0;
+    return RipAbs(fn + (uint64_t)insnEnd, disp);
+}
+
 static void PollScreen(uint64_t base) {
     DWORD t;
-    int raw, hold;
-    uint64_t fa, fb;
+    int raw, hold, gate, aOpen, bOpen, faulted;
+    uint64_t fa, fb, slotA, slotB, gA, obj, gB;
+    unsigned code;
     if (!base || g_screenBad) return;
     if (g_menuBytesOk < 0) {
         uint8_t a[sizeof kMenuABytes], b[sizeof kMenuBBytes];
@@ -1620,12 +1675,54 @@ static void PollScreen(uint64_t base) {
     t = GetTickCount();
     fa = base + Grva(kMenuOpenA);
     fb = base + Grva(kMenuOpenB);
-    raw = CallGameBool(fa) || (!g_screenBad && CallGameBool(fb));
-    if (g_screenBad) {
+    /* A faults on a null global: mov rbx,[rax+0x170] has no null check. Read it and skip. */
+    slotA = SlotFromFn(fa, 9, 13);
+    slotB = SlotFromFn(fb, 3, 7);
+    gA = 0;
+    obj = 0;
+    gB = 0;
+    aOpen = 0;
+    bOpen = 0;
+    faulted = 0;
+    code = 0;
+    gate = ScreenGate(slotA && Rd64(slotA, &gA), gA);
+    if (gate < 0) faulted = 1;
+    else if (gate == 0) {
+        if (!g_nullLogged) {
+            g_nullLogged = 1;
+            Log("game screen global still null, waiting");
+        }
+    } else {
+        gate = ScreenGate(Rd64((uintptr_t)(gA + 0x170), &obj), obj);
+        if (gate < 0) faulted = 1;
+        else if (gate == 1) {
+            aOpen = CallGameBool(fa, &code);
+            if (code) faulted = 1;
+        }
+    }
+    if (!faulted) {
+        unsigned codeB = 0;
+        gate = ScreenGate(slotB && Rd64(slotB, &gB), gB);
+        if (gate < 0) faulted = 1;
+        else if (gate == 1) {
+            bOpen = CallGameBool(fb, &codeB);
+            if (codeB) {
+                faulted = 1;
+                code = codeB;
+            }
+        }
+    }
+    if (FaultStreak(&g_faultStreak, &g_screenBad, faulted)) {
+        if (faulted) LogFaultOnce(code ? code : 0xE0000099);
         Log("game screen signal faulted, camera stays on in menus");
         g_holdCam = 0;
         return;
     }
+    if (faulted) {
+        LogFaultOnce(code ? code : 0xE0000099);
+        return;
+    }
+    raw = aOpen || bOpen;
     if (raw) {
         if (!g_screenSince) g_screenSince = t ? t : 1;
         g_screenLast = t;
