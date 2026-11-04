@@ -1339,16 +1339,9 @@ static void LoadTable(void) {
     }
     if (f) fclose(f);
     { char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir); g_cfg_autoarena = GetPrivateProfileIntA("ArenaSwap", "AutoArena", 1, ini); }
-    { // Safety scan also runs with AutoArena=0: an old TSV cannot bypass inventory protection.
+    if (g_cfg_autoarena) {
         DWORD t0 = GetTickCount(); int added = 0, n = AsScan(g_dir, AsAddRow, &added);
-        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena %d): %d rows from the game data, %d not in the TSV added (%lu ms)", g_cfg_autoarena, n, added, GetTickCount() - t0);
-    }
-    for (int i = 0; i < g_nrows; ) {
-        ArenaRow* r = &g_rows[i];
-        if (!AsUnsafeMission(r->mission) && !as_unsafe_worlds[r->world]) { ++i; continue; }
-        AddSummonRow(r->mission, r->chr, r->id, r->name);
-        Log("ARENA SAFETY %s: inventory sandbox world, summon here only", r->id);
-        memmove(r, r + 1, (size_t)(--g_nrows - i) * sizeof *r);
+        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena 1): %d rows from the game data, %d not in the TSV added (%lu ms)", n, added, GetTickCount() - t0);
     }
     if (!g_nrows) { Log("arena table empty: Fight now keeps the native load"); return; }
 
@@ -2676,19 +2669,19 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
     g_pick = r; Log("FIGHTNOW chr %u -> %s (%s) kind %s, mission 0x%X world 0x%02X", chr, r->id, r->name, r->kind, r->mission, r->world);
     return FightNowEntry(r->mission);
 }
-static int GuardInventoryArena(uint32_t mission) {
-    int only = AsUnsafeMission(mission);
-    // An explicit summon-only cache row stays safe even if the archive scan
-    // fails, or AutoArena/arena swapping is disabled in the user's ini.
-    if (!FindRow(mission)) for (int i = 0; i < g_nsum; ++i)
-        if (mission && g_sum[i].mission == mission) only = 1;
-    if (!only) return 0;
-    int ok = SummonTok(mission) ? Nioh3Training_Summon(mission) : 0;
-    Log("ARENA SAFETY mission 0x%X: summon-only destination, summon here %s", mission, ok ? "started" : "unavailable");
-    return 1; // consumed even on failure: 0 would allow a native mission load
+// Site report #7 (human #65467): sandbox missions (tutorial / dojo) run Item::ReserveAllItem* / ClearEquipment / AddEquipment* on load, so a
+// Fight now trip there took the player's own items and gear. The trip stays a real arena trip; Nioh3BossRematch skips those script natives
+// while Nioh3Training_KeepGear() is 1. Set by every Fight now, cleared by Return, and 0 once the player is in a different mission than the trip's.
+static struct { uint32_t mission; DWORD t; } g_kg;
+static int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
+N3T_API int Nioh3Training_KeepGear(void) {
+    if (!g_kg.mission) return 0;
+    if (g_xw.active || g_fd.pend || GetTickCount() - g_kg.t < 60000) return 1;  // switch still loading: the mission state can lag
+    uint32_t mis = 0, mode = 0; uint8_t jr = 0;
+    return MsRead(&mis, &jr, &mode) && mis == g_kg.mission;
 }
 static int FightNowEntry(uint32_t mission) {
-    if (GuardInventoryArena(mission)) return 1;
+    g_kg.mission = mission; g_kg.t = GetTickCount(); Log("KEEPGEAR trip 0x%X: script item/gear changes are skipped while in it", mission);
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
@@ -2808,7 +2801,7 @@ N3T_API void Nioh3Training_SetInstantRespawn(int on, int persist) { Nioh3Trainin
 // with no boss or mid-swap. A running cross-world swap / prewarm is cancelled through the bridge 6541/6550 abort path (XwCancel -> XwCancelTick WarpOtherWorld back
 // -> XrTick puts the player on the spot), aimed at g_home; another world without a swap running uses the same WarpOtherWorld trip; the same world is a plain warp.
 // Fade to black around it like Fight now. Game thread (pump); the export only queues.
-static void RhDone(const char* why) { Log("RETURN done (%s) +%lu ms", why, GetTickCount() - g_rh.t0); g_rh.active = 0; g_rh.phase = 0; RhLoadScreen(0); FadeWant(0, "return to where I was"); }
+static void RhDone(const char* why) { g_kg.mission = 0; Log("RETURN done (%s) +%lu ms", why, GetTickCount() - g_rh.t0); g_rh.active = 0; g_rh.phase = 0; RhLoadScreen(0); FadeWant(0, "return to where I was"); }
 static void RhTick(void) {
     DWORD now = GetTickCount();
     if (InterlockedExchange(&g_rh.want, 0) && !g_rh.active) {

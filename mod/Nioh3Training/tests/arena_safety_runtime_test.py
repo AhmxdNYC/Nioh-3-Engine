@@ -1,4 +1,4 @@
-"""Compile the actual runtime guards against mocked game state, without launching a game."""
+"""Compile the actual runtime guards (roster dedupe, Ibaraki native duplicate) against mocked game state, without launching a game."""
 from pathlib import Path
 import subprocess
 import sys
@@ -26,11 +26,7 @@ typedef uint32_t DWORD;
 #define MAXROWS 16
 #define Log(...) ((void)0)
 static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[MAXROWS];
-static int g_nsum, g_nroster, unsafe, hasrow, token=1, summon_result=1, summons;
-static int AsUnsafeMission(uint32_t m) { return m && unsafe; }
-static void* FindRow(uint32_t m) { return m && hasrow ? (void*)1 : 0; }
-static const char* SummonTok(uint32_t m) { return m && token ? "R1234" : 0; }
-static int Nioh3Training_Summon(uint32_t m) { assert(m); ++summons; return summon_result; }
+static int g_nsum, g_nroster;
 static struct { uint32_t placement, chr; int world; } g_ar;
 static uint64_t wrapper[4], actor=123, player=456, owned, B;
 static uint32_t record[2];
@@ -48,7 +44,6 @@ static uint64_t Grva(uint32_t r) { assert(r==0x2BF7E8); return (uint64_t)&Delete
 '''
 for signature in (
     "static void AddSummonRow(uint32_t mission, uint32_t chr, const char* id, const char* name)",
-    "static int GuardInventoryArena(uint32_t mission)",
     "static int ArenaNativeDuplicate(void)",
 ):
     fixture += function(signature) + "\n"
@@ -58,12 +53,6 @@ int main(void) {
     assert(g_nsum==1 && g_nroster==1);
     AddSummonRow(1234, 91, "R1234", "Boss");
     assert(g_nsum==2 && g_nroster==1); // mission alias retained, roster deduplicated
-    assert(!GuardInventoryArena(999) && !summons);
-    unsafe=1; assert(GuardInventoryArena(999) && summons==1);
-    summon_result=0; assert(GuardInventoryArena(999) && summons==2); // no native fallback on failure
-    token=0; assert(GuardInventoryArena(999) && summons==2); // absent boss still consumes unsafe request
-    unsafe=0; token=1; assert(GuardInventoryArena(1234) && summons==3); // scan failure, cached summon-only row
-    hasrow=1; assert(!GuardInventoryArena(1234)); // normal arena wins over a summon alias
     g_ar.placement=record[0]=51; g_ar.chr=record[1]=61; g_ar.world=7;
     wrapper[0]=actor; wrapper[3]=(uint64_t)record;
     assert(ArenaNativeDuplicate() && deletes==1); // native already present before dynamic spawn
@@ -75,7 +64,7 @@ int main(void) {
     world=7; record[1]=62; assert(!ArenaNativeDuplicate()); // other character untouched
     record[1]=61; player=actor; assert(!ArenaNativeDuplicate()); // player untouched
     player=456; g_ar.placement=0; assert(!ArenaNativeDuplicate()); // raw/summon-here has no placement
-    puts("PASS: roster dedupe, unsafe fallback, pre-spawn/late native duplicates, explicit slots/world/player guards");
+    puts("PASS: roster dedupe, pre-spawn/late native duplicates, explicit slots/world/player guards");
 }
 '''
 with tempfile.TemporaryDirectory() as d:

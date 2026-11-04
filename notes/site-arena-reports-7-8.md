@@ -2,30 +2,33 @@
 
 Task: bridge #65065, base `gxl-pc/release-185`. Offline candidate only; pc/3 owns game verification. No install, game control, or publish performed by cx-pc.
 
-## Report 7: inventory disappears
+## Report 7: inventory disappears (REDONE by pc/1, bridge #65470 / human #65467)
 
-The generated RC1D9 row sent Tokugawa Kunimatsu to world DF, the tutorial. Its actual mission script imports `Item::ReserveAllItemAll`, `Item::ReserveAllItemEdo`, and `Item::ClearEquipment`. The generator previously accepted every shipped mission with a world and enemy records, without checking inventory-changing scripts. Nine dojo rows use that same world and also import inventory-reservation functionality.
+cx-pc's first fix (1f92c3ae: the 10 sandbox rows became summon-here, no arena trip) was REJECTED: players want to fight those bosses
+in their own arena with their own gear. Those 10 rows (RC1D9 Kunimatsu tutorial, 9 Yagyu/Hanzo/Fuku dojo rows) are real arena trips
+again (TSV, arena_scan.h, auto_arena.py back to the base; Training's GuardInventoryArena removed).
 
-Python generation and the startup C scanner now classify inventory sandbox scripts by those API capabilities, without boss IDs, mission IDs, or localized name lists. All missions in such a world are unsafe destinations. Their primary boss rows become summon-only: mission and character identity stay intact, while world, start, placement and coordinates are zeroed. The boss can be summoned where the player stands; the mod does not enter that tutorial/dojo arena.
+Cause: the sandbox mission scripts call `Item::ReserveAllItemAll/Dojo/Edo` (the game stashes every item: `if !IsReserved(inv) Reserve(inv, mode 1/2/3)`),
+`Item::ClearEquipment` (`215F8F4(equip, a, b, 1)`), then give their own kit (`AddEquipment`, `AddEquipmentBySlot`, `AddEquipmentPreset`,
+`AddFixItem`, `AddItemNoNotice`, `AddMagicItem`, `SetShortCut`, `Player::EquipNinjutsu`, `Player::AddSkill(Dojo)`). The mission's own
+`Item::ResetReserveItem` (restore) only runs at the tutorial's normal end, which a mod trip never reaches.
 
-Runtime also sanitizes older cached TSV rows, even with AutoArena disabled. Fight now consumes unsafe requests before fade/config/native fallback handling. A failed summon cannot fall through into a native mission load. Explicit cached summon-only mission rows retain that protection if scanning fails.
+Fix (pc/arena-keep-gear):
+- Training: `Nioh3Training_KeepGear()` = 1 from a Fight now until Return (RhDone), and only while the player is still in that trip's
+  mission (or the switch is still loading, 60 s grace). Log `KEEPGEAR trip 0x....`.
+- BossRematch `keepgear.cpp` + `hooks.cpp InstallVeto`: the entry thunk can now skip a script native. Strip natives (Reserve*, ClearEquipment)
+  are skipped during any trip; the first one marks the trip a sandbox trip, after which the kit natives are skipped too (a normal boss
+  mission's own script rewards stay untouched). Skipping runs the binding's own argument reader (ctor 0x139938) and result writer
+  (fin 0x1181730 / 0x11803D0) and returns its u16 result, so the script VM stack stays balanced. ctor/fin are found per wrapper by
+  instruction shape (`mov rdx,rcx; lea rcx,[ctx]; call` / `movzx ebx,word [ctx+0x10C]; lea rcx,[ctx+0x110]; call`), verified on all
+  16 wrappers from the v2.02 dump. Sites resolve by script-native name (survives game patches); unknown layout = not guarded (logged).
+- Safety net (BR pump): if the game's reserve flag went 0 -> 1 during a trip anyway, the game's own restore (`21796A8([4751860])`, parsed
+  from `Item::ResetReserveItem`) runs when the trip ends. Log `KeepGear: SAFETY NET`.
+- `[Rematch] KeepGearInArenas = 1` (default; 0 = game behaviour). Generic: decided by what the script calls; no boss/mission lists.
+- Not touched: `Player::SetStoryProgress`, `SetRetryPointIDAndSave` in the tutorial script (not gear; watch in the test).
 
-Exactly these 10 committed rows changed:
-
-| Row | Boss |
-|---|---|
-| RC1D9 | Tokugawa Kunimatsu |
-| RF5E5 | Yagyu Munenori (Novice) |
-| R6E65 | Yagyu Munenori (Adept) |
-| R1A5E | Yagyu Munenori (Veteran) |
-| RD759 | Hattori Hanzo (Novice) |
-| RE18C | Hattori Hanzo (Adept) |
-| R9BE4 | Hattori Hanzo (Veteran) |
-| R26F3 | Saito Fuku (Novice) |
-| RA0A1 | Saito Fuku (Adept) |
-| R2826 | Saito Fuku (Veteran) |
-
-The Light of Hope and Ghosts at Hirakawa Gate Kunimatsu arena rows remain intact. The existing TSV retains its other rows and tested cell whitelists. Full regeneration also adds unrelated roster placements that predate this change; they are outside this patch.
+Offline: `mod/Nioh3BossRematch/tests/run_keepgear_veto.cmd` PASS (real thunk: pass-through, skip keeps ctor/fin/return word, shared
+entry handler, non-wrapper refused); Training `tests/arena_safety_test.py` (10 rows are trips, one Ibaraki row) + runtime test PASS.
 
 ## Report 8: two Ibaraki Doji
 

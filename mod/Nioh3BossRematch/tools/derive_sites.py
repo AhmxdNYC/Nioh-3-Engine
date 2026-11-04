@@ -63,6 +63,14 @@ SPEC = [
     ("Mission::GetGameClearRewardNormal", "BOSSLOG", H, 0x23A444C, 9),
     ("Mission::GetGameClearRewardHard", "BOSSLOG", H, 0x23A43EC, 9),
     ("GameClearRewardGrant", "BOSSLOG", H, 0x2280FA0, 7),
+    # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
+    ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
+    ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),
+    ("Item::ReserveAllItemEdo", "KEEPGEAR", H, 0x23A1F04, 9),
+    ("Item::ResetReserveItem", "KEEPGEAR", H, 0x23A1F78, 5),
+    ("Item::ClearEquipment", "KEEPGEAR", H, 0x23A0E7C, 9),
+    ("Item::SetShortCut", "KEEPGEAR", H, 0x23A210C, 5),
+    ("Player::EquipNinjutsu", "KEEPGEAR", H, 0x23A80D8, 9),
     # RLOG (RematchLog, Phase 0 logger)
     ("MissionLoadStep", "RLOG", H, 0x223AF50, 10),
     ("EmakiMissionRequest", "RLOG", H, 0x10DBED0, 5),

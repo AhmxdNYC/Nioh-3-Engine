@@ -58,6 +58,10 @@ bool CodeReady();  // the code is decrypted (sentinel patterns match)
 using Handler = void (*)(uint64_t rcx, uint64_t rdx, uint64_t r8, uint64_t r9, const uint64_t* sp);
 // register a handler on a hook / native site (several handlers per site are fine: one thunk calls them in order)
 void OnEntry(const char* site, Handler h);
+// script-native veto (site report #7): v(siteIndex) true = skip that native's body (its own arg reader + result writer still run).
+// Installs the site's hook now (independent of its group). false + *why when the site or the binding layout is not recognised.
+using Veto = bool (*)(int site);
+bool InstallVeto(const char* site, Veto v, const char** why);
 // install every registered entry hook of `group` (all or nothing per group: a failure leaves the group's installed hooks as
 // pass-through and returns false with *why set)
 bool InstallGroup(const char* group, const char** why);
@@ -72,6 +76,10 @@ bool InstallCallKeyOverride(uint8_t* p, const char* site, volatile uint64_t* cel
 #endif  // BR_SOULCORE
 
 // ---- features ----
+namespace keepgear {
+void Install();  // veto the inventory-strip script natives during a mod arena trip ([Rematch] KeepGearInArenas, default 1)
+void Tick();     // per frame: trip bookkeeping + reserve safety net
+}  // namespace keepgear
 namespace bosslog {
 void Register(bool boss, bool rm, bool inv);  // handlers; installed by main
 void FightBegin(uint64_t ctx);                 // also used by rematch

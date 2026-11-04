@@ -278,19 +278,7 @@ static int AsMissionsOk(const uint8_t* d, size_t n, const AsIdTab* E) {
 
 // ---------------------------------------------------------------- per mission data (auto_arena.mission_data)
 typedef struct { double pos[3], yaw, ext[3]; uint32_t id, flags, sub, pid, chr; uint8_t fl; char name[128]; } AsPt;
-typedef struct { uint32_t mid, flags, nameId; uint8_t kind, world, shipped, inventory; AsPt *en, *st, *box, *trig; int nen, nst, nbox, ntrig; } AsMis;
-// Site #7: never enter a world whose scripts reserve/reset the player's inventory.
-// Keep the mission's boss summonable here; IDs and localized names are not policy.
-static uint8_t as_unsafe_missions[65536], as_unsafe_worlds[256];
-static int AsUnsafeMission(uint32_t mission) { return mission < 65536 && as_unsafe_missions[mission]; }
-static int AsInventoryScript(const uint8_t* d, size_t n) {
-    static const char* const symbols[] = {"Item::ReserveAllItem", "Item::ClearEquipment"};
-    for (unsigned k = 0; k < sizeof symbols / sizeof symbols[0]; ++k) {
-        size_t len = strlen(symbols[k]);
-        for (size_t i = 0; i + len <= n; ++i) if (!memcmp(d + i, symbols[k], len)) return 1;
-    }
-    return 0;
-}
+typedef struct { uint32_t mid, flags, nameId; uint8_t kind, world, shipped; AsPt *en, *st, *box, *trig; int nen, nst, nbox, ntrig; } AsMis;
 static double AsR0(double v) { char b[64]; snprintf(b, sizeof b, "%.0f", v); return strtod(b, 0); }   // the Python f0 / f1 rounding
 static double AsR1(double v) { char b[64]; snprintf(b, sizeof b, "%.1f", v); return strtod(b, 0); }
 static void AsName(char* dst, const uint8_t* src, size_t max) {   // rematch_catalog.ascii_(latin1)[:60]: non-ASCII -> '?', stripped
@@ -391,7 +379,7 @@ static void AsMission(AsLfm* L, const AsIdTab* E, const uint8_t* r, AsMis* m) {
     }
     free(d);
     int64_t* trig = 0; int ntrig = 0;
-    d = AsGet(L, sp, &n); if (d) { m->inventory = AsInventoryScript(d, n); ntrig = AsScriptTrig(d, n, &trig); free(d); }
+    d = AsGet(L, sp, &n); if (d) { ntrig = AsScriptTrig(d, n, &trig); free(d); }
     d = AsGet(L, AsIdPath(E, ids[3]), &n);
     uint32_t c = AsTab(d, n, AS_BREC);
     size_t pool = 8 + (size_t)c * AS_BREC;
@@ -503,11 +491,7 @@ static void AsEmit(const AsMis* m, const AsPt* e, const char* id, AsChrSet* have
     int hasF = AsPickStart(m, bp, &f);
     if (hasF && f.kind != 0 && AsPickArena(m, bp, &f, ar)) hasF = 2;
     r.mission = m->mid; r.world = m->world; r.chr = e->chr; r.placement = e->pid; memcpy(r.b, e->pos, sizeof r.b); snprintf(r.id, sizeof r.id, "%s", id);
-    if (AsUnsafeMission(m->mid)) {
-        r.world = 0; r.start = 0; r.placement = 0;
-        memset(r.p, 0, sizeof r.p); memset(r.b, 0, sizeof r.b);
-        snprintf(r.kind, sizeof r.kind, "summon");
-    } else if (m->kind == 2 || !hasF) {   // open-field region / no start point: 8 m in front of the boss along its facing, facing it
+    if (m->kind == 2 || !hasF) {   // open-field region / no start point: 8 m in front of the boss along its facing, facing it
         double a = e->yaw * 3.14159265358979323846 / 180.0, x = e->pos[0] + 800 * sin(a), z = e->pos[2] + 800 * cos(a);
         r.p[0] = x; r.p[1] = e->pos[1] + 100; r.p[2] = z; r.p[3] = atan2(e->pos[0] - x, e->pos[2] - z) * 180.0 / 3.14159265358979323846;
         snprintf(r.kind, sizeof r.kind, "field"); r.start = AsNearestStart(m, e->pos);
@@ -551,10 +535,6 @@ static int AsScan(const char* gameDir, AsRowFn cb, void* ctx) {
     uint32_t nm = AsTab(md, mn, AS_MREC);
     AsMis* ms = (AsMis*)calloc(nm, sizeof(AsMis));
     for (uint32_t i = 0; i < nm; ++i) AsMission(&L, &E, md + 8 + (size_t)i * AS_MREC, &ms[i]);
-    memset(as_unsafe_missions, 0, sizeof as_unsafe_missions);
-    memset(as_unsafe_worlds, 0, sizeof as_unsafe_worlds);
-    for (uint32_t i = 0; i < nm; ++i) if (ms[i].inventory) as_unsafe_worlds[ms[i].world] = 1;
-    for (uint32_t i = 0; i < nm; ++i) if (as_unsafe_worlds[ms[i].world]) as_unsafe_missions[ms[i].mid] = 1;
     AsChrSet have = {0, 0}; int rows = 0;
     struct { AsRowFn cb; void* ctx; int* n; } cnt = {cb, ctx, &rows};
     (void)cnt;
@@ -572,7 +552,7 @@ static int AsScan(const char* gameDir, AsRowFn cb, void* ctx) {
     }
     for (int pass = 0; pass < 2; ++pass)   // 2. every further boss character: missions, then open-field regions (id S<chr>)
         for (uint32_t i = 0; i < nm; ++i) {
-            AsMis* m = &ms[i]; if (!AS_USABLE(m) || AsUnsafeMission(m->mid) || (m->kind == 2) != (pass == 1)) continue;
+            AsMis* m = &ms[i]; if (!AS_USABLE(m) || (m->kind == 2) != (pass == 1)) continue;
             for (int k = 0; k < m->nen; ++k) {
                 const AsPt* e = &m->en[k]; char id[16];
                 if (!AsIsBoss(e) || !(e->fl & 4) || AsChrHas(&have, e->chr)) continue;

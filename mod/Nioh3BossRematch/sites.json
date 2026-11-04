@@ -311,6 +311,76 @@
    "offset": 0
   },
   {
+   "name": "Item::ReserveAllItemAll",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37363140,
+   "head": 9,
+   "native": "Item::ReserveAllItemAll",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Item::ReserveAllItemDojo",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37363256,
+   "head": 5,
+   "native": "Item::ReserveAllItemDojo",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::ReserveAllItemEdo",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37363460,
+   "head": 9,
+   "native": "Item::ReserveAllItemEdo",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Item::ResetReserveItem",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37363576,
+   "head": 5,
+   "native": "Item::ResetReserveItem",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Item::ClearEquipment",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37359228,
+   "head": 9,
+   "native": "Item::ClearEquipment",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Item::SetShortCut",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37363980,
+   "head": 5,
+   "native": "Item::SetShortCut",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Player::EquipNinjutsu",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37388504,
+   "head": 9,
+   "native": "Player::EquipNinjutsu",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
    "name": "MissionLoadStep",
    "group": "RLOG",
    "kind": "hook",
