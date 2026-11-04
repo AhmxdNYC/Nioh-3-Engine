@@ -3,6 +3,7 @@
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "version.lib")
 #include "crashupload.h"
+#include "inputlog.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -496,7 +497,13 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
         if (w++) j.raw(",");
         j.raw(sc);
     }
-    j.raw("],\"input\":[]");
+    j.raw("],\"input\":[");
+    {
+        static char tail[20 * 1024];
+        inputlog::WriteTail(tail, (int)sizeof tail, inputlog::kCrashTail);
+        if (tail[0]) j.raw(tail);
+    }
+    j.raw("]");
     j.raw(",\"log\":{\"EngineFix\":[");
     for (int i = 0; i < efN; ++i) { if (i) j.raw(","); j.str(g_ef[i], 200); }
     j.raw("]");

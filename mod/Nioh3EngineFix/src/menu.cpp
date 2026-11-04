@@ -36,6 +36,7 @@
 
 #include "extraperf.h"
 #include "gpuopt.h"
+#include "inputlog.h"
 #include "menu.h"
 #include "menu_mode.h"
 #include "updatecheck.h"
@@ -229,6 +230,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
     padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
+    inputlog::ObservePad((int)idx, g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
     const uint32_t prev = s.prev;
     uint32_t raw = g.wButtons;
     if (g.sThumbLY > ((prev & B_SU) ? 12000 : 20000)) raw |= B_SU;  // hysteresis: no edge flicker at the threshold
@@ -353,7 +355,23 @@ void KeyFeed(uint8_t* keys, bool own) {
     for (const NavKey& k : kNavKeys)
         if (keys[k.dik] & 0x80) raw |= k.bit;
     const uint32_t pressed = raw & ~g_keyPrev;
+    const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
+    {
+        const bool nav = g_open != 0;
+        struct Hk { uint32_t bit; const char* name; int allow; };
+        const Hk keys[] = {
+            {K_TOGGLE, g_cfg.keyName[0] ? g_cfg.keyName : "menu", 1},
+            {K_ESC, "esc", 1},
+            {K_UP, "up", nav}, {K_DOWN, "down", nav}, {K_LEFT, "left", nav}, {K_RIGHT, "right", nav},
+            {K_ENTER, "enter", nav}, {K_NPENTER, "enter", nav}, {K_BACKSP, "back", nav},
+        };
+        for (const Hk& k : keys) {
+            if (!k.allow) continue;
+            if (pressed & k.bit) inputlog::ObserveKey(k.name, 1, 1);
+            if (released & k.bit) inputlog::ObserveKey(k.name, 0, 1);
+        }
+    }
     g_keyHeld = (LONG)raw;
     g_keyHeldAt = (LONG64)t;
     if(g_coverToken.load()) {
@@ -1279,6 +1297,7 @@ int TopLevelSel() { return g_cfg.layout ? kPageRow + pSettings : (g_rematchSessi
 
 void EnterPage(int page) {
     if (!g_pages.Enter(page, g_sel)) return;
+    inputlog::NoteMenu("page", PageName(page), "", "", "");
     int rows[kMenuRowCap];
     const int n = PageRows(rows, true);
     g_sel = page == pAll ? kClose : FirstOwnRow(rows, n);
@@ -1645,6 +1664,7 @@ void Open(const char* how) {
     g_sel = g_cfg.layout ? kPageRow + pSettings : (g_rematchSession.load() ? kRematchRow : kPageRow + pDisplay);
     for (auto& repeat : g_rep) repeat = 0;
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
+    inputlog::NoteMenu("open", PageName(g_pages.page), "", "", "");
 }
 
 void Close(const char* how) {
@@ -1656,6 +1676,7 @@ void Close(const char* how) {
     MessageBeep(MB_ICONASTERISK);
     const bool autoSave = g_dirty && !g_ini.empty();
     MLOG("closed (%s)%s", how, autoSave ? " - auto-saving the changed settings to the ini" : "");
+    inputlog::NoteMenu("close", "", "", "", "");
     if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
 }
 
@@ -2573,6 +2594,46 @@ bool TryPadClose(uint32_t pressed, ULONGLONG now) {
     Close("Y / Triangle");return true;
 }
 
+void RowLabel(int id, char* out, int cap) {
+    if (!out || cap < 1) return;
+    if (id >= 0 && id < kCount) snprintf(out, (size_t)cap, "%s", kItems[id].plain);
+    else if (id == kBackRow) snprintf(out, (size_t)cap, "Back");
+    else if (id == kModMenuRow) snprintf(out, (size_t)cap, "Mod menu");
+    else if (id == kCloseTopRow) snprintf(out, (size_t)cap, "Close");
+    else if (id == kReportRow) snprintf(out, (size_t)cap, "Report");
+    else if (id == kRematchRow) snprintf(out, (size_t)cap, "Boss Matches");
+    else if (id == kPracticeRow) snprintf(out, (size_t)cap, "Training");
+    else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
+    else snprintf(out, (size_t)cap, "row");
+}
+
+void ChangeLogged(int id, int dir) {
+    char oldv[48], newv[48], lab[64];
+    uint32_t vc = 0;
+    Value(id, oldv, sizeof oldv, vc);
+    Change(id, dir);
+    Value(id, newv, sizeof newv, vc);
+    if (strcmp(oldv, newv) == 0) return;
+    RowLabel(id, lab, (int)sizeof lab);
+    inputlog::NoteMenu("value", PageName(g_pages.page), lab, oldv, newv);
+}
+
+void NoteSelection() {
+    static int prev = -99999;
+    static int host = 0;
+    const int nowHost = g_rematchPage ? (g_hostTab == kPracticeRow ? 2 : 1) : 0;
+    if (nowHost != host) {
+        host = nowHost;
+        if (nowHost) inputlog::NoteMenu("page", nowHost == 2 ? "Practice" : "Boss Matches", "", "", "");
+    }
+    if (!g_open) { prev = -99999; return; }
+    if (g_sel == prev) return;
+    prev = g_sel;
+    char lab[64];
+    RowLabel(g_sel, lab, (int)sizeof lab);
+    inputlog::NoteMenu("row", PageName(g_pages.page), lab, "", "");
+}
+
 void OnPresentImpl() {
     hudhide::Sync();
     hudhide::SyncIds();
@@ -2621,6 +2682,7 @@ void OnPresentImpl() {
         else { Open(SrcName(src)); OpenModePage(rematchReady); }
     }
     if (!g_open) {
+        NoteSelection();
         InterlockedExchange(&g_pressed, 0);
         g_rep[0] = g_rep[1] = g_rep[2] = g_rep[3] = 0;
         return;
@@ -2699,9 +2761,10 @@ void OnPresentImpl() {
         if (!act) continue;
         if (d == 0) Move(-1);
         else if (d == 1) Move(+1);
-        else Change(g_sel, d == 2 ? -1 : +1);
+        else ChangeLogged(g_sel, d == 2 ? -1 : +1);
     }
-    if (pressed & N_OK) Change(g_sel, 0);
+    if (pressed & N_OK) ChangeLogged(g_sel, 0);
+    NoteSelection();
 }
 
 // ---- drawing --------------------------------------------------------------------------------------------------------------
