@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/submit.py": {
+      "includeFiles": "server.py"
+    },
+    "api/report.py": {
+      "includeFiles": "{report_api.py,server.py,detect.py}"
+    }
+  }
+}
