@@ -1,3 +1,7 @@
+## 2026-11-04 - 1.8.5
+
+Report button with a text box (sent to the site API) and automatic crash upload; the log records fights (boss, mode, start/end, result), pad edges and mod-menu choices. Arena/dojo trips from the mod keep the player's items and gear (strip and kit script natives vetoed until Return); the item-add watch ignores ids the player already owns. Rematch clears ground loot. Camera offsets are released in Equipment, pause and shrine menus. Loading-screen stage line drawn at title scale. Hide HUD: Weapons now hides the weapon slots (widget 10) and Soul cores hides the held cores + guardian circle (widget 13), found by a live id sweep.
+
 ## 2026-11-02 - 1.8.2 release candidate (not published)
 
 Nioh3CamKiProbe.asi and its default ini are in the combined zip, the fresh-install zip, and stable.json. The publish gate refuses a package that leaves one of them out. Menu rows that cannot run say the real reason instead of a bare "not installed". VRR, the message pump, the render timeout, frame generation, wake, and the GPU barrier hook stay installed when their switch is off. Proton-only frame and limiter skips stay off and say "off on Linux/Proton". Not launched and not published.

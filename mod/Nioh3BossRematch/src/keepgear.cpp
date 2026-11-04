@@ -29,6 +29,34 @@ std::atomic<int> g_sandbox{0}, g_skipped{0}, g_wasTrip{0}, g_reservedAtStart{-1}
 // #65732 safety net: every inventory add during a trip (InventoryAddItem, where all script / engine adds end), logged with its id at the trip end
 std::atomic<int> g_added{0};
 uint16_t g_addedIds[16];
+// #66083: ids the player already owns are not new items. Every add seen outside a trip, and every id in a world-load
+// inventory re-sync burst (>= kBurst adds within 0.5 s), is marked owned; later adds of an owned id are ignored.
+constexpr int kBurst = 8, kPendCap = 256;
+uint8_t g_owned[65536 / 8];
+uint16_t g_pend[kPendCap];
+std::atomic<int> g_pendN{0}, g_resync{0};
+std::atomic<DWORD> g_pendLast{0};
+bool Owned(uint16_t id) { return (g_owned[id >> 3] >> (id & 7)) & 1; }
+void Own(uint16_t id) { g_owned[id >> 3] |= (uint8_t)(1u << (id & 7)); }
+void Flush(bool force) {  // game thread (pump): classify the pending adds once they have settled
+    const int n = g_pendN.load();
+    if (!n || (!force && GetTickCount() - g_pendLast.load() < 500)) return;
+    const int m = n < kPendCap ? n : kPendCap;
+    if (n >= kBurst) {
+        for (int i = 0; i < m; ++i) Own(g_pend[i]);
+        g_resync.fetch_add(n);
+    } else {
+        for (int i = 0; i < m; ++i) {
+            const uint16_t id = g_pend[i];
+            if (Owned(id)) continue;
+            Own(id);
+            const int k = g_added.fetch_add(1);
+            if (k < 16) g_addedIds[k] = id;
+            Log("KeepGear: WARNING a new item (id %u) was added to your inventory during the trip (not a vetoed script call)", id);
+        }
+    }
+    g_pendN.store(0);
+}
 int (*g_trip)() = nullptr;
 
 // game reserve flag + restore, parsed from Item::ResetReserveItem (mov rcx,[g1]; call IsReserved; test ax,ax; jz; ... mov rcx,[g2]; call Restore)
@@ -103,12 +131,16 @@ int Reserved() {  // 1 / 0, -1 = unknown
 }
 
 void HkAdd(uint64_t, uint64_t, uint64_t desc, uint64_t, const uint64_t*) {
-    if (!Trip()) return;
     uint16_t id = 0;
-    Copy(&id, desc, 2);
-    const int n = g_added.fetch_add(1);
-    if (n < 16) g_addedIds[n] = id;
-    Log("KeepGear: WARNING an item (id %u) is being added to your inventory during the trip (not a vetoed script call)", id);
+    if (!Copy(&id, desc, 2)) return;
+    if (!Trip()) {  // outside a trip every add is the player's own item
+        Own(id);
+        return;
+    }
+    if (Owned(id)) return;  // already owned (#66083: the inventory re-sync on every world load re-adds the same ids)
+    const int n = g_pendN.fetch_add(1);
+    if (n < kPendCap) g_pend[n] = id;
+    g_pendLast.store(GetTickCount());
 }
 
 }  // namespace
@@ -145,6 +177,7 @@ void Tick() {
     const DWORD now = GetTickCount();
     if (now - last < 250) return;
     last = now;
+    Flush(false);
     const int trip = Trip() ? 1 : 0;
     const int was = g_wasTrip.exchange(trip);
     if (trip && !was) {
@@ -164,6 +197,8 @@ void Tick() {
                 }
             }
         }
+        Flush(true);
+        if (const int rs = g_resync.exchange(0)) Log("KeepGear: %d inventory re-sync add(s) of items you already own ignored this trip", rs);
         if (const int a = g_added.load()) {
             char ids[16 * 7 + 1] = "";
             for (int k = 0, o = 0; k < a && k < 16; ++k) o += snprintf(ids + o, sizeof(ids) - o, "%s%u", k ? "," : "", g_addedIds[k]);
