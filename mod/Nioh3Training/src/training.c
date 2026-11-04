@@ -1578,6 +1578,11 @@ static int g_cfg_tr_respawn = 2000;
 // removed (boss mode / BGM / bar ended), player healed and put back on the round-1 spot, NO respawn: the Return gate appears. 1 = instant round reset (TrainRetry).
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
+    // #65174: an in-place rematch does not reload the area, so the last round's ground pickups stay.
+    // Boss Rematch frees type-0x10 drop objects through the game's own remove. Missing export = leave them.
+    { static int (*clr)(void); static int tried;
+      if (!tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); clr = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_ClearDroppedLoot") : 0; }
+      if (clr) { int n = clr(); Log("TRAIN retry: cleared dropped loot -> %d", n); } }
     TrainClear(why); PlayerRecoverFull(); if (TrNoDeath() && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
