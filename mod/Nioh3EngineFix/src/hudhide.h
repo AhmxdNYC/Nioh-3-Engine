@@ -25,6 +25,7 @@ inline uint8_t* g_target = nullptr;
 inline uint8_t g_masterOrig[8] = {};
 inline int32_t g_callOrig = 0;
 inline bool g_scanned = false;
+inline uint8_t g_weaponsId = 0, g_soulCoresId = 0;
 inline bool Executable(const uint8_t* p, size_t n) {
     const auto* b = (const uint8_t*)GetModuleHandleW(nullptr);
     const auto* nt = (const IMAGE_NT_HEADERS*)(b + ((const IMAGE_DOS_HEADER*)b)->e_lfanew);
@@ -57,6 +58,12 @@ inline void Resolve() {
         // The existing patch uses one aligned atomic 64-bit exchange.
         if (g_master && ((uintptr_t)g_master & 7)) g_master = nullptr;
         if (g_master) memcpy(g_masterOrig, g_master, sizeof(g_masterOrig));
+        auto* weapons = Unique(patterns::kWeapons);
+        auto* cores = Unique(patterns::kSoulCores);
+        // Constructor argument: xor r8d,r8d; lea edx,[r8 + widgetId].
+        // Never fall back to a guessed widget if its constructor does not match.
+        if (weapons && weapons[19] > 0 && weapons[19] < 128) g_weaponsId = weapons[19];
+        if (cores && cores[19] > 0 && cores[19] < 128) g_soulCoresId = cores[19];
         auto* site = Unique(patterns::kVisibility);
         if (site) {
             auto* call = site + patterns::kCallOffset;
@@ -71,6 +78,7 @@ inline void Resolve() {
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         g_master = g_call = g_target = nullptr;
+        g_weaponsId = g_soulCoresId = 0;
     }
 }
 
@@ -115,12 +123,19 @@ inline bool Sync() {
 // 11 item shortcut, 13 guardian spirit, 17 amrita, 18 money, 21 boss gauge, 25 minimap; found by hiding ids one at a time
 // in game (pc2 #44877): 6 enemy health bars over enemies, 12 lock-on marker. Damage numbers / interact prompt ids not found yet.
 struct Elem { const char* key; uint8_t ids[4]; };
-inline const Elem kElems[] = {
+inline Elem kElems[] = {
     {"HideHudPlayerBars", {5}},  {"HideHudStyle", {4}},  {"HideHudStance", {10}},   {"HideHudItems", {11}},
     {"HideHudGuardian", {13}},   {"HideHudAmrita", {17}}, {"HideHudMoney", {18}},   {"HideHudBossBar", {21}},
     {"HideHudMinimap", {25}},    {"HideHudEnemyBars", {6}}, {"HideHudLockOn", {12}},
+    {"HideHudWeapons", {0}},    {"HideHudSoulCores", {0}}, // filled from validated constructors
 };
 constexpr int kElemN = (int)(sizeof(kElems) / sizeof(kElems[0]));
+inline bool ElementAvailable(int i) {
+    Resolve();
+    if (i == kElemN - 2) return g_weaponsId != 0;
+    if (i == kElemN - 1) return g_soulCoresId != 0;
+    return i >= 0 && i < kElemN;
+}
 inline int ElemIndex(const char* key) {
     for (int i = 0; i < kElemN; ++i) if (key && !strcmp(kElems[i].key, key)) return i;
     return -1;
@@ -219,6 +234,9 @@ inline bool Redirect(bool on) {
 
 // Call once per frame (present). Writes the wanted mask into the thunk page and redirects / restores the call.
 inline void SyncIds() {
+    Resolve();
+    kElems[kElemN - 2].ids[0] = g_weaponsId;
+    kElems[kElemN - 1].ids[0] = g_soulCoresId;
     uint32_t want[8];
     memcpy(want, g_extra, sizeof(want));
     bool any = false;
