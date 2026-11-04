@@ -25,3 +25,5 @@ Offline validation:
 - The wrapper's unrelated IsAppActive clobber subcheck cannot find its old hardcoded re/scripts_re/../Nioh3.dump.exe path; its other image/wiring checks pass. No game touched.
 
 Next: Claude installs this diagnostic EF and sweeps IDs 1-3, 7-9, 14-16, 20, 22-31 individually in the same run; restore with `none` after each comparison. Capture the two intended HUD elements and report the correct IDs before adjusting the named toggle mapping.
+
+Build result: build.bat exit 0, existing dllmain C4456 warning only. ASI SHA256 d9faf353454c426bd066a66cce401186d663339f6f0aa6ccb2d3f4fcee410a91, bridge file #4799. Implementation commit 46a69f87. Build-time native mask/parser/pattern tests pass. Build log D:/nioh3-re/hud-65330/build-live.log. Main PC installed baseline per task remains public v1.8.4 EF 85a3f50a / BR 449db1aa / Cam 537d19ac / TR c2b54f19; Claude tested candidate EF 86dc3279. cx-pc did not inspect or alter the live game.
