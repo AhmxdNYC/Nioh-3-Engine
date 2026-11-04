@@ -580,6 +580,7 @@ static uint64_t ResEntry(uint32_t id) {
     uint64_t rm = 0; if (!Rd64(B + Grva(0x45B9E60), &rm) || !rm) return 0;
     return ((uint64_t (*)(uint64_t, uint64_t))(B + Grva(0x133440)))(rm, key);
 }
+static uint32_t g_arena_placement; // never use the arena native duplicate as a dynamic-spawn owner
 static uint32_t g_force_owner;  // debug (bridge 4878): ForceOwner / 'forceowner N' makes PickOwner return N (1 = reproduce the no-live-owner case on any save)
 static uint32_t PickOwner(void) {  // a registered placement with a live actor (not the player): enemy records first, then any live registered actor; 1 = the player (team fix below keeps the boss hostile)
     if (g_force_owner) return g_force_owner;
@@ -587,7 +588,7 @@ static uint32_t PickOwner(void) {  // a registered placement with a live actor (
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1], me = PlayerChar(), any = 0;
     for (uint64_t i = 0; i < cnt; ++i) {
         uint32_t id = *(uint32_t*)(arr + i * 16); uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0, rec = 0;
-        if (id <= 1 || id >= 0x10000000 || !w) continue;
+        if (id <= 1 || id >= 0x10000000 || !w || id == g_arena_placement) continue;
         Rd64(w, &live); Rd64(w + 0x18, &rec);
         if (!live || live == me) continue;
         if (rec) return id;
@@ -1111,7 +1112,7 @@ static int DoorCtl(uint32_t id, uint32_t mode) {
     Log("DOOR SetDoorControl(%u, mode %u) posted to registry %p", id, mode, (void*)reg);
     return 1;
 }
-static struct { int active, spawned, released, cross, xHeld, lsend; uint32_t chr; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
+static struct { int active, spawned, released, cross, xHeld, lsend; uint32_t chr, placement; int world; float p[4], yaw, b[4], byaw; DWORD t0, tReady, tSpawn, lastLog, tOwn, lastAct; int lastState, lastCell, nact, actIdx; } g_ar;
 // ally #618/pc 05:48: cross-world swaps spawned the boss and released the player while the arena cells were still streaming and the game's own load cover
 // (GAMESTATE[2]) was up: ~11 s live fight on a black scene (Shingen, Ally). [Fade] AreaWaitCrossMs (default 15000, 0 = off): for CROSS-world arenas only, hold the
 // player at the arena and the boss unspawned until no cell is blocking and GAMESTATE[2] is 0, at most this long after 'ready'; the fade-in then waits for the
@@ -1144,7 +1145,7 @@ static int OwnerActivateOne(void) {  // next registered placement with an enemy 
     uint64_t* reg = *(uint64_t**)(c0 + 0x48); uint64_t arr = reg[0], cnt = reg[1];
     for (; (uint64_t)g_ar.actIdx < cnt; ++g_ar.actIdx) {
         uint64_t i = g_ar.actIdx; uint32_t id = *(uint32_t*)(arr + i * 16); uint64_t w = *(uint64_t*)(arr + i * 16 + 8), live = 0, rec = 0;
-        if (id <= 1 || id >= 0x10000000 || !w) continue;
+        if (id <= 1 || id >= 0x10000000 || !w || id == g_arena_placement) continue;
         Rd64(w, &live); Rd64(w + 0x18, &rec);
         if (live || !rec) continue;
         ++g_ar.actIdx; ++g_ar.nact;
@@ -1153,7 +1154,30 @@ static int OwnerActivateOne(void) {  // next registered placement with an enemy 
     }
     return 0;
 }
+// Site #8: the arena trigger can create its native placement as well as our
+// dynamic boss. Remove ONLY that exact placement, never other roster slots or
+// arbitrary actors with the same character/handle (dynamic handles are shared).
+static int CurWorld(void);
+static int ArenaNativeDuplicate(void) {
+    if (!g_ar.placement || CurWorld() != g_ar.world) return 0;
+    uint64_t w = FindWrapper(g_ar.placement), actor = 0, rec = 0;
+    if (!w || !Rd64(w, &actor) || !actor || actor == PlayerChar() || InSp(actor) ||
+        !Rd64(w + 0x18, &rec) || !rec || *(uint32_t*)(rec + 4) != g_ar.chr) return 0;
+    uint64_t cur[1024]; int n = Actors(cur, 1024), live = 0;
+    for (int i = 0; i < n; ++i) if (cur[i] == actor) live = 1;
+    if (!live) return 0;
+    static uint64_t last; static DWORD at;
+    DWORD now = GetTickCount();
+    if (actor != last || now - at >= 500) {
+        last = actor; at = now;
+        ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(actor);
+        Log("ARENA dedupe: native placement %u chr %u actor %p removed (no kill/rewards)", g_ar.placement, g_ar.chr, (void*)actor);
+    }
+    return 1; // deletion is deferred; do not create the dynamic boss until gone
+}
 static void ArenaTick(void) {
+    int duplicate = 0;
+    if (g_ar.active || (g_tr.active && g_tr.arena)) duplicate = ArenaNativeDuplicate();
     if (!g_ar.active) return;
     DWORD now = GetTickCount(), dt = now - g_ar.t0;
     uint64_t s = StageMgr(); int st = StageState(), cell = s ? *(int32_t*)(s + 0x504) : -2;
@@ -1186,6 +1210,7 @@ static void ArenaTick(void) {
                 else if (!g_ar.xHeld) { g_ar.xHeld = 2; Log("ARENA +%lu ms cross-world: arena already clear at ready, no hold", dt); }
             }
             if (!g_ar.spawned) {
+                if (duplicate) goto owner_wait;
                 __attribute__((aligned(16))) float b[4] = {g_ar.b[0], g_ar.b[1], g_ar.b[2], 1.0f};
                 uint32_t owner = PickOwner();
                 if (owner <= 1 && (g_cfg_ownwait > 0 || g_cfg_ownact)) {
@@ -1215,10 +1240,11 @@ static void ArenaTick(void) {
 }
 
 static int g_cfg_enable = 1, g_cfg_preload = 1, g_cfg_preload_max = 3, g_cfg_hook = 0, g_cfg_ambient = 0, g_cfg_bossdist = 900, g_cfg_anchor = 1;
-static int StartArena(uint32_t chr, const float* p, const float* b, float byaw) {
+static int StartArena(uint32_t chr, const float* p, const float* b, float byaw, uint32_t placement) {
     BgmStop("new swap");
     for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) Despawn(i);  // one swapped-in boss at a time
     memset(&g_ar, 0, sizeof g_ar);
+    g_ar.placement = g_arena_placement = placement; g_ar.world = CurWorld();
     g_ar.chr = chr; memcpy(g_ar.p, p, 3 * sizeof(float)); g_ar.yaw = p[3]; memcpy(g_ar.b, b, 3 * sizeof(float)); g_ar.byaw = byaw;
     g_ar.t0 = GetTickCount(); g_ar.lastState = -9; g_ar.lastCell = -9; g_ar.cross = g_xw_busy;
     StageLog("ARENA before");
@@ -1247,8 +1273,26 @@ static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[MAXROWS]; 
 static int g_cfg_autoarena = 1;
 #define AS_LOG(...) Log(__VA_ARGS__)
 #include "arena_scan.h"
+static void AddSummonRow(uint32_t mission, uint32_t chr, const char* id, const char* name) {
+    // Cache + automatic scan may describe the same roster entry. Deliberate A/B
+    // summons remain independent; this deduplicates menu data only.
+    for (int i = 0; i < g_nsum; ++i) if (g_sum[i].mission == mission && g_sum[i].chr == chr) return;
+    if (!chr || g_nsum >= MAXROWS) return;
+    g_sum[g_nsum].mission = mission; g_sum[g_nsum].chr = chr;
+    snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", id);
+    snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", name);
+    ++g_nsum; g_nroster += !mission;
+}
 static void AsAddRow(const AsRow* s, void* ctx) {
     int* added = (int*)ctx;
+    if (!strcmp(s->kind, "summon")) {
+        const char* name = 0; char fallback[64];
+        for (int i = 0; i < g_nrows && !name; ++i) if (g_rows[i].mission == s->mission) name = g_rows[i].name;
+        snprintf(fallback, sizeof fallback, "Boss %u", s->chr);
+        AddSummonRow(s->mission, s->chr, s->id, name ? name : fallback);
+        return;
+    }
+    if (!g_cfg_autoarena) return;
     for (int i = 0; i < g_nrows; ++i) {
         if (s->id[0] != 'S' && g_rows[i].id[0] != 'S' && g_rows[i].mission == s->mission) return;  // the TSV has this mission
         if (g_rows[i].chr == s->chr && (s->id[0] == 'S' || !_stricmp(g_rows[i].id, s->id))) return;  // or this boss character
@@ -1288,16 +1332,23 @@ static void LoadTable(void) {
         r->ncells = 0;  // optional col 16: comma list of arena cell ids (CrossWorldCellSkip whitelist)
         if (n > 15) for (const char* q = col[15]; *q && r->ncells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->cells[r->ncells++] = (uint32_t)v; q = e; }
         if (!strcmp(r->kind, "summon")) {
-            if (r->chr && g_nsum < MAXROWS) { g_sum[g_nsum].mission = r->mission; g_sum[g_nsum].chr = r->chr; snprintf(g_sum[g_nsum].id, sizeof g_sum[0].id, "%s", r->id); snprintf(g_sum[g_nsum].name, sizeof g_sum[0].name, "%s", r->name); g_nroster += !r->mission; ++g_nsum; }
+            AddSummonRow(r->mission, r->chr, r->id, r->name);
             continue;
         }
         if (r->mission && r->chr) ++g_nrows;
     }
     if (f) fclose(f);
     { char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir); g_cfg_autoarena = GetPrivateProfileIntA("ArenaSwap", "AutoArena", 1, ini); }
-    if (g_cfg_autoarena) {
+    { // Safety scan also runs with AutoArena=0: an old TSV cannot bypass inventory protection.
         DWORD t0 = GetTickCount(); int added = 0, n = AsScan(g_dir, AsAddRow, &added);
         Log("ARENASCAN (#23451, [ArenaSwap] AutoArena 1): %d rows from the game data, %d not in the TSV added (%lu ms)", n, added, GetTickCount() - t0);
+    }
+    for (int i = 0; i < g_nrows; ) {
+        ArenaRow* r = &g_rows[i];
+        if (!AsUnsafeMission(r->mission) && !as_unsafe_worlds[r->world]) { ++i; continue; }
+        AddSummonRow(r->mission, r->chr, r->id, r->name);
+        Log("ARENA SAFETY %s: inventory sandbox world, summon here only", r->id);
+        memmove(r, r + 1, (size_t)(--g_nrows - i) * sizeof *r);
     }
     if (!g_nrows) { Log("arena table empty: Fight now keeps the native load"); return; }
 
@@ -1562,6 +1613,7 @@ static void FightBeginSession(void) {
 static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
     TrainClear("train start");
+    g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
     // user #14546 (live 23:39 'IDLEHOLD adopted the load hold: chr 0'): only the arena path set g_tr.chr, so in a 'Training here' session the
     // Idle hold, the drill, MvBossChr and aggro saw boss character 0: no drill, Stand-still picks unfiltered, aggro skipped the held boss.
@@ -1600,6 +1652,7 @@ static void TrainStop(const char* why) {
     FightFinish(PlayerDeadNow() ? FL_LOSS : FL_QUIT);  // no-op when the round already ended as a win or a loss
     TrainClear(why); if (g_tr.nodeath || g_tr_nodeath_now) PlayerSetNoDeath(0);  // user #13197: also a summon's NoDeath (g_tr.nodeath is lost on the session memset)
     g_sum_nodeath = 0;
+    g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
 }
 // bridge 5338: Fight now in the boss's own arena (in-place ARENA swap, no load) becomes a retry-able session: round 1 pose = arena player start / boss spawn, so 'player beaten' and 'retry'
@@ -2448,7 +2501,7 @@ static int FightNowImpl(uint32_t mission) {
         pp[3] = atan2f(dx, dz) * 57.2957795f;
         Log("FIGHTNOW %s: boss anchored at its own position %.0f %.0f %.0f, player placed %d units away at %.0f %.0f %.0f yaw %.1f", r->id, b[0], b[1], b[2], g_cfg_bossdist, pp[0], pp[1], pp[2], pp[3]);
         g_ar_bgm = r->bgm;
-        int ok = StartArena(r->chr, pp, b, pp[3] + 180.0f);
+        int ok = StartArena(r->chr, pp, b, pp[3] + 180.0f, r->placement);
         if (ok && g_cfg_fn_arena) TrainAttachArena(r, pp, b, pp[3] + 180.0f);
         return ok;
     }
@@ -2457,7 +2510,7 @@ static int FightNowImpl(uint32_t mission) {
         b[0] = r->p[0] + dx * k; b[1] = r->p[1] + (b[1] - r->p[1]) * k; b[2] = r->p[2] + dz * k;
     }
     g_ar_bgm = r->bgm;
-    int ok = StartArena(r->chr, r->p, b, r->p[3] + 180.0f);
+    int ok = StartArena(r->chr, r->p, b, r->p[3] + 180.0f, r->placement);
     if (ok && g_cfg_fn_arena) TrainAttachArena(r, r->p, b, r->p[3] + 180.0f);
     return ok;
 }
@@ -2624,6 +2677,13 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
     return FightNowEntry(r->mission);
 }
 static int FightNowEntry(uint32_t mission) {
+    if (AsUnsafeMission(mission)) {
+        // Return handled even on summon failure: 0 asks Boss Rematch to load the
+        // dangerous mission natively. Never let config/fade/fallback bypass this.
+        int ok = SummonTok(mission) ? Nioh3Training_Summon(mission) : 0;
+        Log("ARENA SAFETY mission 0x%X: inventory sandbox refused, summon here %s", mission, ok ? "started" : "unavailable");
+        return 1;
+    }
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
@@ -3805,7 +3865,7 @@ static __attribute__((noinline)) void Exec(char* line) {
             float v[9] = {0}; unsigned chr = 0;
             int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &chr, &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7]);
             if (k < 8) { Log("CMD arena: need charId x y z yaw bx by bz [bossYaw]"); return; }
-            StartArena(chr, v, v + 4, k < 9 ? v[3] + 180.0f : v[7]);
+            StartArena(chr, v, v + 4, k < 9 ? v[3] + 180.0f : v[7], 0);
         } else if (!strcmp(op, "nativelist")) { char v[200] = {0}; sscanf(line, "%*s %199s", v); snprintf(g_native_list, sizeof g_native_list, "%s", v); Log("CMD nativelist %s", g_native_list);
         } else if (!strcmp(op, "nativeenter")) { g_cfg_native = (int)a[0]; Log("CMD nativeenter %d", g_cfg_native);
         } else if (!strcmp(op, "enter")) {  // enter <mission>: warp into the table arena of a mission that is already loaded (the script starts the fight)

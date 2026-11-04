@@ -261,6 +261,15 @@ def enemy_records(et):
     return out
 
 
+def inventory_script(script):
+    """Inventory sandbox scripts are unsafe destinations (tutorial/prologue/dojo).
+
+    Inspect capabilities, not localized titles or boss/mission identifiers.
+    """
+    return bool(script and any(symbol in script for symbol in
+                               (b"Item::ReserveAllItem", b"Item::ClearEquipment")))
+
+
 def mission_data(L, t, log):
     E, md = t["E"], t["missions"]
 
@@ -284,6 +293,7 @@ def mission_data(L, t, log):
             m["start"].append({"id": struct.unpack_from("<I", s, 0)[0], "flags": "0x%X" % struct.unpack_from("<I", s, 8)[0],
                                "sub": str(struct.unpack_from("<I", s, 0xC)[0]), "pos": (f0(x), f0(y), f0(z)), "yawf": f1(yaw), "name": "#%d" % j})
         sc = L.get(m["script"]) if m["script"] else None
+        m["inventory_script"] = inventory_script(sc)
         trig = rc._script_box_calls(sc) if sc else {}
         for fn, g, kind, cr in trig.pop(None, []):
             m["gate"].append({"id": g, "flags": kind, "sub": " ".join(str(c) for c in cr[:12]), "name": rc.ascii_(fn)[:60]})
@@ -366,9 +376,17 @@ def build_rows(ms, old, log):
         if c[0] not in ("0", "") and not rid.startswith("S"):
             oldp[int(c[0], 16)] = (rid, int(c[4] or 0), int(c[3] or 0))
     rows, have, src = [], set(), {}
+    unsafe_worlds = {m["world"] for m in ms if m.get("inventory_script")}
 
     def emit(m, e, rid, how):
         mid = m["mid"]
+        if m["world"] in unsafe_worlds:
+            rows.append({"mission": mid, "start": 0, "world": 0, "chr": e["chr"], "pid": 0,
+                         "p": (0, 0, 0, 0), "b": (0, 0, 0), "kind": "summon", "id": rid,
+                         "how": "inventory sandbox: summon here only", "conf": "unsafe destination refused",
+                         "mname": m["name_id"], "region": False})
+            have.add(e["chr"])
+            return
         f = rc.pick_fight_start(fi, mid, e["pid"])
         ar = rc.pick_arena(fi, mid, e["pid"], f) if f and f["kind"] != "mission start" else None
         if m["kind"] == 2 or not f:          # open-field region (or no usable start point): stand in front of the boss
@@ -391,7 +409,7 @@ def build_rows(ms, old, log):
         bs = [e for e in m["enemies"] if is_boss(e)]
         op = oldp.get(m["mid"])
         if op:   # carried: the committed row's boss (it may be a non-boss record, e.g. the dojo duels)
-            e = next((e for e in m["enemies"] if e["pid"] == op[1]), None) or next((e for e in m["enemies"] if e["chr"] == op[2]), None)
+            e = next((e for e in m["enemies"] if op[1] and e["pid"] == op[1] and valid(e)), None) or next((e for e in m["enemies"] if e["chr"] == op[2] and valid(e)), None)
             if e:
                 emit(m, e, op[0], "mission (boss kept from the committed row)")
                 continue
@@ -406,7 +424,7 @@ def build_rows(ms, old, log):
     # 2. every further boss character of a startable mission, then of an open-field region (one row per character, id S<chr>)
     for want_kind in ("mission", "region"):
         for m in usable:
-            if (m["kind"] == 2) != (want_kind == "region"):
+            if m["world"] in unsafe_worlds or (m["kind"] == 2) != (want_kind == "region"):
                 continue
             for e in m["enemies"]:
                 if is_boss(e) and e["fl"] & 0x04 and e["chr"] not in have:
@@ -418,7 +436,7 @@ def build_rows(ms, old, log):
         chr_ = int(c[3])
         if chr_ in have:
             continue
-        cand = [(m["kind"] != 2, m["mid"], m, e) for m in usable for e in m["enemies"] if e["chr"] == chr_ and valid(e)]
+        cand = [(m["kind"] != 2, m["mid"], m, e) for m in usable if m["world"] not in unsafe_worlds for e in m["enemies"] if e["chr"] == chr_ and valid(e)]
         if cand:
             _, _, m, e = min(cand, key=lambda t: t[:2])
             emit(m, e, "S%d" % chr_, "regular placement (no boss record)")
