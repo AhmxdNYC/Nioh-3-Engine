@@ -1162,7 +1162,7 @@ static int ArenaNativeDuplicate(void) {
     if (!g_ar.placement || CurWorld() != g_ar.world) return 0;
     uint64_t w = FindWrapper(g_ar.placement), actor = 0, rec = 0;
     if (!w || !Rd64(w, &actor) || !actor || actor == PlayerChar() || InSp(actor) ||
-        !Rd64(w + 0x18, &rec) || !rec || *(uint32_t*)(rec + 4) != g_ar.chr) return 0;
+        !Rd64(w + 0x18, &rec) || !rec || *(uint32_t*)rec != g_ar.placement || *(uint32_t*)(rec + 4) != g_ar.chr) return 0;
     uint64_t cur[1024]; int n = Actors(cur, 1024), live = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == actor) live = 1;
     if (!live) return 0;
@@ -2676,14 +2676,19 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
     g_pick = r; Log("FIGHTNOW chr %u -> %s (%s) kind %s, mission 0x%X world 0x%02X", chr, r->id, r->name, r->kind, r->mission, r->world);
     return FightNowEntry(r->mission);
 }
+static int GuardInventoryArena(uint32_t mission) {
+    int only = AsUnsafeMission(mission);
+    // An explicit summon-only cache row stays safe even if the archive scan
+    // fails, or AutoArena/arena swapping is disabled in the user's ini.
+    if (!FindRow(mission)) for (int i = 0; i < g_nsum; ++i)
+        if (mission && g_sum[i].mission == mission) only = 1;
+    if (!only) return 0;
+    int ok = SummonTok(mission) ? Nioh3Training_Summon(mission) : 0;
+    Log("ARENA SAFETY mission 0x%X: summon-only destination, summon here %s", mission, ok ? "started" : "unavailable");
+    return 1; // consumed even on failure: 0 would allow a native mission load
+}
 static int FightNowEntry(uint32_t mission) {
-    if (AsUnsafeMission(mission)) {
-        // Return handled even on summon failure: 0 asks Boss Rematch to load the
-        // dangerous mission natively. Never let config/fade/fallback bypass this.
-        int ok = SummonTok(mission) ? Nioh3Training_Summon(mission) : 0;
-        Log("ARENA SAFETY mission 0x%X: inventory sandbox refused, summon here %s", mission, ok ? "started" : "unavailable");
-        return 1;
-    }
+    if (GuardInventoryArena(mission)) return 1;
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
