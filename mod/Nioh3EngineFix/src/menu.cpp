@@ -44,6 +44,7 @@
 #include "../../menu_navigation.h"
 #include "osd.h"
 #include "crashreport.h"
+#include "reportsend.h"
 #include "menu_style.h"
 #include "padviz.h"
 #include "inputhist.h"
@@ -120,7 +121,7 @@ volatile LONG g_disabled = 0;
 
 // ---- shared input state (input thread <-> Present thread) -------------------------------------------------------------
 enum : uint32_t { N_UP = 1, N_DOWN = 2, N_LEFT = 4, N_RIGHT = 8, N_OK = 16, N_BACK = 32, N_PAGEUP = 64, N_PAGEDOWN = 128, N_CLOSE = 256, N_HOME = 512,
-                  N_TAB_PREV = 1024, N_TAB_NEXT = 2048 };  // #44232: pad bumpers switch tabs; keyboard PgUp / PgDn still jump rows
+                  N_TAB_PREV = 1024, N_TAB_NEXT = 2048, N_X = 4096 };  // N_X: pad X, only the Report box key grid reads it  // #44232: pad bumpers switch tabs; keyboard PgUp / PgDn still jump rows
 // pad raw bits: wButtons | stick directions | triggers
 constexpr uint32_t B_SU = 1u << 16, B_SD = 1u << 17, B_SL = 1u << 18, B_SR = 1u << 19, B_LT = 1u << 20,
                    B_RT = 1u << 21, B_STICKS = B_SU | B_SD | B_SL | B_SR;
@@ -140,6 +141,10 @@ const NavKey kNavKeys[] = {{K_UP, VK_UP, 0xC8},       {K_DOWN, VK_DOWN, 0xD0},  
 volatile LONG g_open = 0;
 void SyncFreeze();  // holds / releases the 58B stop request so it follows g_open (defined with the engine reads)
 volatile LONG g_pressed = 0;          // N_* edges collected while open, consumed by OnPresent
+volatile LONG g_padPressed = 0;       // the controller part of g_pressed (Report box: pad -> key grid / Steam keyboard)
+volatile LONG g_rbOn = 0;             // mirror of rbox::g_on for the input feeds (defined before the box code)
+volatile LONG g_rbKeyMsg = 0;         // a key message reached SwallowMessage this session (keyboard text works)
+bool g_okFromPad = false;             // the A / Enter being handled now came from a controller
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
 volatile LONG g_toggleSrc = 0;        // 1 key, 2 pad
@@ -194,6 +199,7 @@ uint32_t PadNav(uint32_t raw) {
     if (raw & XINPUT_GAMEPAD_BACK) n |= N_HOME;  // user #44181: View / Create returns to the first page; Start no longer does
     if (raw & XINPUT_GAMEPAD_LEFT_SHOULDER) n |= N_TAB_PREV;
     if (raw & XINPUT_GAMEPAD_RIGHT_SHOULDER) n |= N_TAB_NEXT;
+    if (raw & XINPUT_GAMEPAD_X) n |= N_X;
     return n;
 }
 uint32_t KeyNav(uint32_t k) {
@@ -312,7 +318,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         }
     }
     if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
-    if (g_open) InterlockedOr(&g_pressed, (LONG)PadNav(pressed));
+    if (g_open) { InterlockedOr(&g_pressed, (LONG)PadNav(pressed)); InterlockedOr(&g_padPressed, (LONG)PadNav(pressed)); }
     if (own) return;
     if (tapModified) st->dwPacketNumber += 0x40000000u;
     {   // #9324 lease; #9909: a masked button held when the lease ends stays hidden until released (unmasking a held A = a fresh press for the game)
@@ -366,7 +372,13 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_disabled) return;
     ForceCloseIfDead(t);
     if ((pressed & K_TOGGLE) && Alive(t, 1000)) Request(t, 1);
-    if (g_open) InterlockedOr(&g_pressed, (LONG)KeyNav(pressed));
+    if (g_open) {
+        // Report box: typed keys come as window messages (SwallowMessage). The DirectInput edges only drive the box when this
+        // session never delivered a key message (fallback), and Backspace there is never "back".
+        uint32_t kp = pressed;
+        if (g_rbOn) kp = g_rbKeyMsg ? 0u : (kp & ~(uint32_t)K_BACKSP);
+        InterlockedOr(&g_pressed, (LONG)KeyNav(kp));
+    }
     InterlockedAnd(&g_keyLatch, (LONG)raw);  // released keys leave the latch
     // Escape x3 opens the menu. The first presses are held back from the game for TapGapMs; a lone press (or two) is replayed
     // to it afterwards as one short press; a press that is still held after the gap is a real hold and passes at once.
@@ -412,6 +424,7 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (escHide) keys[g_cfg.escDik] = 0;
     else if (escSynth) keys[g_cfg.escDik] = 0x80;
     if (g_cfg.dik) keys[g_cfg.dik] = 0;  // the menu key belongs to the mod
+    if (g_open && g_rbOn) { memset(keys, 0, 256); return; }  // the Report box owns the whole keyboard while it is open
     const uint32_t hide = (g_open ? K_NAV : 0u) | (uint32_t)g_keyLatch;
     if (hide)
         for (const NavKey& k : kNavKeys)
@@ -1647,6 +1660,7 @@ void Open(const char* how) {
     MLOG("opened (%s) - game pad%s input is held neutral while open", how, g_keyHooked ? " and navigation-key" : "");
 }
 
+void CloseReportBoxOnMenuClose();
 void Close(const char* how) {
     CloseRematchHostPage();
     for (PadSlot& s : g_pad) s.latch = true;
@@ -1657,7 +1671,11 @@ void Close(const char* how) {
     const bool autoSave = g_dirty && !g_ini.empty();
     MLOG("closed (%s)%s", how, autoSave ? " - auto-saving the changed settings to the ini" : "");
     if (autoSave) StartSave();  // user #13197/#13223: no Save row on the first page; every change is kept when the menu closes
+    CloseReportBoxOnMenuClose();
 }
+
+#include "menu_reportbox.h"
+void CloseReportBoxOnMenuClose() { rbox::CloseBox("menu closed"); g_rbOn = 0; }
 
 void LaunchUpdatePage() {
     if (updatecheck::RunningUnderWine()) {
@@ -1949,7 +1967,7 @@ void Change(int id, int dir) {
     if (id == kCloseTopRow) { if (dir == 0) Close("Close row"); return; }
     if (id == kUpdatePageRow) { if (dir == 0) LaunchUpdatePage(); return; }
     if (id == kReverseModsRow) { if (dir == 0) DoReverseMods(Now()); return; }
-    if (id == kReportRow) { if (dir == 0) DoReport(); return; }
+    if (id == kReportRow) { if (dir == 0) { rbox::OpenBox(g_okFromPad); g_rbOn = 1; } return; }  // #64882: the text box; its last row is the old DoReport
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
@@ -2622,10 +2640,29 @@ void OnPresentImpl() {
     }
     if (!g_open) {
         InterlockedExchange(&g_pressed, 0);
+        InterlockedExchange(&g_padPressed, 0);
         g_rep[0] = g_rep[1] = g_rep[2] = g_rep[3] = 0;
         return;
     }
     const uint32_t pressed = (uint32_t)InterlockedExchange(&g_pressed, 0);
+    const uint32_t padPressed = (uint32_t)InterlockedExchange(&g_padPressed, 0) & pressed;
+    g_okFromPad = (padPressed & N_OK) != 0;
+    if (rbox::g_on) {  // #64882 Report box: owns every edge while open (nothing typed goes to the input ring)
+        uint32_t heldNow = 0;
+        for (int i = 0; i < 4; ++i)
+            if (t - (ULONGLONG)g_padHeldAt[i] < 300) heldNow |= PadNav((uint32_t)g_padHeld[i]);
+        if (!g_rbKeyMsg && t - (ULONGLONG)g_keyHeldAt < 300) heldNow |= KeyNav((uint32_t)g_keyHeld);
+        rbox::Handle(pressed, padPressed, heldNow, t);
+        g_rbOn = rbox::g_on;
+        return;
+    }
+    if (pressed) {  // menu navigation edges for the report input ring (design notes/auto-report.md "Input ring")
+        static const struct { uint32_t bit; const char* name; } kNames[] = {{N_UP, "up"}, {N_DOWN, "down"}, {N_LEFT, "left"}, {N_RIGHT, "right"},
+            {N_OK, "ok"}, {N_BACK, "back"}, {N_PAGEUP, "pgup"}, {N_PAGEDOWN, "pgdn"}, {N_CLOSE, "close"}, {N_HOME, "home"},
+            {N_TAB_PREV, "tab_prev"}, {N_TAB_NEXT, "tab_next"}, {N_X, "x"}};
+        for (const auto& k : kNames)
+            if (pressed & k.bit) reportsend::NoteInput((padPressed & k.bit) ? "pad" : "key", k.name);
+    }
     if (TryPadHome(pressed)) return;
     if (TryPadClose(pressed,t)) return;
     if (g_rematchPage) {
@@ -3153,6 +3190,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
 
     if (g_rematchPage) return DrawRematchHost(W, H);
+    if (rbox::g_on) return DrawReportBox(W, H);  // #64882
     // ---- the menu panel: title, a scrolling body (section headers + items in kOrder), then the explanation of the selected
     // row, the diagnostics lines and the footer. Rows are filled by put(); kValueCol keeps the values in one column.
     Row head;
@@ -3366,7 +3404,7 @@ float DrawImpl(unsigned W, unsigned H) {
     }
     // explanation of the selected item: what it does, then picture / timing, when it applies and the measured effect
     char what[200], effect[200];
-    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: saves a snapshot, opens its folder, and opens the report website." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
+    snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
     if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: replay cleared bosses in their arena or from their shrine. Death and loot rules are shared with Training.");
@@ -3385,7 +3423,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "Same as 'Restore Vanilla Game'. Mod stays on until you quit.");
     } else if (g_sel == kReportRow) {
         snprintf(what, sizeof(what), "%s", g_reportNote);
-        snprintf(effect, sizeof(effect), "Opens the website. On Windows it also opens the report folder. Under Wine/Proton the folder stays closed. File: Nioh3EngineFix-report-latest.txt beside the mod (system, settings, bosses, log).");
+        snprintf(effect, sizeof(effect), "A / Enter opens a text box (keyboard, controller key grid or Steam keyboard). A copy stays in Nioh3Reports beside the mod.");
     } else if (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN) {
         snprintf(what, sizeof(what), "%s", g_psNote[0] ? g_psNote : kPsToggles[g_sel - kPsRowFirst].note);
         snprintf(effect, sizeof(effect), "Frame meter switch; needs Nioh3Training. Training saves it.");
@@ -3925,6 +3963,9 @@ const char* OpenHint() {
 bool SwallowMessage(const tagMSG* m) {
     if (!g_configured || !g_cfg.enabled || g_disabled || !m) return false;
     const UINT msg = m->message;
+    if (msg >= WM_KEYDOWN && msg <= WM_SYSKEYUP) g_rbKeyMsg = 1;
+    if (g_open && rbox::g_on && !g_coverToken.load() && !(g_cfg.vk && (UINT)m->wParam == g_cfg.vk && msg != WM_CHAR))
+        return rbox::OnMessage(m);  // #64882: typed text for the Report box (WM_CHAR included); the game sees no key
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
     const UINT vk = (UINT)m->wParam;
     if(g_coverToken.load()) {
