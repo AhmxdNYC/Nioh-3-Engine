@@ -18,14 +18,14 @@ void CheckMaskRestoration() {
     g_callOrig = 64;
     g_call[0] = 0xE8;
     memcpy(g_call + 1, &g_callOrig, 4);
-    g_weaponsId = 22; g_soulCoresId = 19;
+    g_weaponsId = 10; g_soulCoresId = 13;
     const int weapons = ElemIndex("HideHudWeapons"), cores = ElemIndex("HideHudSoulCores");
     assert(weapons >= 0 && cores >= 0);
     for (int arm = 0; arm < 4; ++arm) {
         g_elemOn[weapons] = arm & 1;
         g_elemOn[cores] = (arm >> 1) & 1;
         SyncIds();
-        const uint32_t expected = ((arm & 1) ? 1u << 22 : 0) | ((arm & 2) ? 1u << 19 : 0);
+        const uint32_t expected = ((arm & 1) ? 1u << 10 : 0) | ((arm & 2) ? 1u << 13 : 0);
         assert(Mask()[0] == expected);
         for (int i = 1; i < 8; ++i) assert(Mask()[i] == 0);
         assert(g_redirected == (arm != 0));
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
         assert(count == 1);
         printf("pattern %d: one match at %llX\n", p, (unsigned long long)(hits[p] - image.data()));
     }
-    assert(hits[2][19] == 22 && hits[3][19] == 19);
+    assert(hits[2][19] == 10 && hits[3][19] == 13);
     assert((hits[0] - image.data()) % 8 == 0);
     const uint8_t* call = hits[1] + kCallOffset;
     assert(call[0] == 0xE8 && (call + 1 - image.data()) % 4 == 0);
