@@ -326,6 +326,27 @@ bool InstallVeto(const char* site, Veto v, const char** why) {
     return true;
 }
 
+bool InstallEntry(const char* site, Handler h, const char** why) {
+    const int i = SiteIndex(site);
+    if (i < 0) { if (why) *why = "no such site"; return false; }
+    if (!Site(site)) { if (why) *why = "unresolved"; return false; }
+    Slot* s = nullptr;
+    for (int k = 0; k < g_nslots && !s; ++k)
+        if (g_slots[k].site == i) s = &g_slots[k];
+    if (!s) {
+        if (g_nslots >= kMaxSites) { if (why) *why = "no free hook slot"; return false; }
+        s = &g_slots[g_nslots++];
+        s->site = i;
+    }
+    if (s->nh >= kMaxHandlers) { if (why) *why = "no free handler"; return false; }
+    s->h[s->nh] = h;
+    MemoryBarrier();
+    ++s->nh;
+    if (!s->installed)
+        if (const char* r = InstallSlot(*s)) { if (why) *why = r; return false; }
+    return true;
+}
+
 bool InstallGroup(const char* group, const char** why) {
     if (!GroupOk(group, why)) return false;
     for (int k = 0; k < g_nslots; ++k) {

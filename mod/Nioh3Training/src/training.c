@@ -2723,17 +2723,39 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
 }
 // Site report #7 (human #65467): sandbox missions (tutorial / dojo) run Item::ReserveAllItem* / ClearEquipment / AddEquipment* on load, so a
 // Fight now trip there took the player's own items and gear. The trip stays a real arena trip; Nioh3BossRematch skips those script natives
-// while Nioh3Training_KeepGear() is 1. Set by every Fight now, cleared by Return, and 0 once the player is in a different mission than the trip's.
-static struct { uint32_t mission; DWORD t; } g_kg;
-static int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
+// while Nioh3Training_KeepGear() is non-zero. Set by every Fight now and kept for the whole trip (pc2 #65720: a 60 s timer + mission id check
+// dropped it before the arena script ran). It ends on Return (RhDone), or once the player was in the trip's world and is then in another world
+// (left by the map / a shrine / death to a hub); never by a timer while in the arena. 2 = the trip's world has item/gear scripts (game data scan).
+static struct { uint32_t mission; int world, arrived; DWORD t; } g_kg;
 N3T_API int Nioh3Training_KeepGear(void) {
     if (!g_kg.mission) return 0;
-    if (g_xw.active || g_fd.pend || GetTickCount() - g_kg.t < 60000) return 1;  // switch still loading: the mission state can lag
-    uint32_t mis = 0, mode = 0; uint8_t jr = 0;
-    return MsRead(&mis, &jr, &mode) && mis == g_kg.mission;
+    const int lvl = g_kg.world >= 0 && g_kg.world < 256 && as_kg_worlds[g_kg.world] ? 2 : 1;
+    if (g_kg.world < 0 || g_xw.active || g_fd.pend || g_rh.active) return lvl;  // no known world / switch or return still running
+    const int w = CurWorld();
+    if (w == g_kg.world) { if (!g_kg.arrived) { g_kg.arrived = 1; Log("KEEPGEAR trip 0x%X: arrived in world 0x%02X (level %d)", g_kg.mission, w, lvl); } return lvl; }
+    if (w < 0) return lvl;  // loading
+    if (g_kg.arrived || GetTickCount() - g_kg.t > 180000) {
+        Log("KEEPGEAR trip 0x%X ended: player in world 0x%02X, trip world 0x%02X (%s)", g_kg.mission, w, g_kg.world, g_kg.arrived ? "left the arena" : "never arrived");
+        g_kg.mission = 0; return 0;
+    }
+    return lvl;
+}
+// #65732 bug 3: the Fight-now start point of a mission from this game-data table, for Boss Rematch rows whose catalogue has none.
+// p4 = player x y z yaw, b3 = boss x y z; 0 = no usable row.
+N3T_API uint32_t Nioh3Training_ArenaStart(uint32_t mission, float* p4, float* b3) {
+    for (int i = 0; i < g_nrows; ++i) {
+        const ArenaRow* r = &g_rows[i];
+        if (r->mission != mission || r->id[0] == 'S' || !r->start || !strcmp(r->kind, "summon")) continue;
+        if (p4) memcpy(p4, r->p, sizeof r->p);
+        if (b3) memcpy(b3, r->b, sizeof r->b);
+        return r->start;
+    }
+    return 0;
 }
 static int FightNowEntry(uint32_t mission) {
-    g_kg.mission = mission; g_kg.t = GetTickCount(); Log("KEEPGEAR trip 0x%X: script item/gear changes are skipped while in it", mission);
+    { const ArenaRow* kr = g_pick && g_pick->mission == mission ? g_pick : FindRow(mission);
+      g_kg.mission = mission; g_kg.world = kr && kr->world ? kr->world : -1; g_kg.arrived = 0; g_kg.t = GetTickCount();
+      Log("KEEPGEAR trip 0x%X world 0x%02X%s: script item/gear changes are skipped until Return", mission, g_kg.world & 0xFF, g_kg.world >= 0 && as_kg_worlds[g_kg.world] ? " (item/gear scripts in that world)" : ""); }
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     ArenaRow* r = FindRow(mission);

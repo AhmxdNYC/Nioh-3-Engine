@@ -62,6 +62,8 @@ void OnEntry(const char* site, Handler h);
 // Installs the site's hook now (independent of its group). false + *why when the site or the binding layout is not recognised.
 using Veto = bool (*)(int site);
 bool InstallVeto(const char* site, Veto v, const char** why);
+// add one entry handler to a site and install its hook now (independent of its group); false + *why on failure
+bool InstallEntry(const char* site, Handler h, const char** why);
 // install every registered entry hook of `group` (all or nothing per group: a failure leaves the group's installed hooks as
 // pass-through and returns false with *why set)
 bool InstallGroup(const char* group, const char** why);

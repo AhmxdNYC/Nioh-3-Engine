@@ -37,6 +37,7 @@ struct Row {
     // Fight now v2 (in the arena): a point just inside the arena trigger box (catalogue arena_x..arena_yaw) or a captured position
     bool arenaOk = false;      // arena[] valid: warp there after the load
     bool atFight = false;      // the mission already starts at the fight (one start point <= 30 m): no warp needed
+    bool trFillTried = false;  // #65732: start point looked up in Nioh3Training's arena table once
     float arena[4] = {};
     uint32_t arenaBox = 0;
     char arenaConf[12] = "";   // high / medium / low / captured
