@@ -147,6 +147,29 @@ inline int g_idsBad = 0;
 inline int g_redirected = 0;
 inline uint32_t* Mask() { return g_page ? (uint32_t*)(g_page + 0x100) : nullptr; }
 
+// Strict live command parser. Invalid input preserves the previous mask.
+// "none" clears the raw mask; numeric 0 means widget zero, not clear.
+inline bool SetIdsLive(const char* s) {
+    uint32_t next[8] = {};
+    if (!s || !*s) return false;
+    if (strcmp(s, "none") && strcmp(s, "clear") && strcmp(s, "off")) {
+        const char* p = s;
+        for (;;) {
+            if (*p < '0' || *p > '9') return false;
+            unsigned id = 0;
+            do {
+                id = id * 10 + (unsigned)(*p++ - '0');
+                if (id > 255) return false;
+            } while (*p >= '0' && *p <= '9');
+            next[id >> 5] |= 1u << (id & 31);
+            if (!*p) break;
+            if (*p++ != ',') return false;
+        }
+    }
+    memcpy(g_extra, next, sizeof(next));
+    return true;
+}
+
 inline void ParseIds(const char* s) {
     memset(g_extra, 0, sizeof(g_extra));
     for (const char* p = s; p && *p;) {
@@ -251,6 +274,6 @@ inline void SyncIds() {
     uint32_t* m = Mask();
     for (int i = 0; i < 8; ++i) InterlockedExchange((volatile LONG*)&m[i], (LONG)want[i]);
     memcpy(s_last, want, sizeof(want));
-    if (any != (g_redirected != 0)) Redirect(any);
+    if (any != (g_redirected != 0) && !Redirect(any)) g_idsBad = 1;
 }
 }  // namespace hudhide

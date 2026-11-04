@@ -130,6 +130,8 @@ const char* OpenHint();
 // item (WakeStats), or FPS / FrameTime / Speed. Bool items take 0/1, R1 0-16, maxlatency 0-3, PauseHint 0-2. Frame generation
 // and Save are not remote. Returns 0 ok (reply = "<label> = <value>"), < 0 error (reply says why).
 int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs);
+// Raw HUD widget mask on Present thread: comma-separated 0..255, "none" to clear, nullptr to query.
+int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs);
 // vpad.cpp: filter for the game's 256-byte DirectInput keyboard reads, called before the menu looks at them (true = report
 // success to the game). Set before osd::Start.
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk));

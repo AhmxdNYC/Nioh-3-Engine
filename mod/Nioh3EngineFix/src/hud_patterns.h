@@ -8,8 +8,11 @@
 namespace hudhide::patterns {
 inline constexpr char kMaster[] = "48 8B 05 ?? ?? ?? ?? 48 8B 48 18 48 85 C9 74 07 8A 81 C0 03 00 00 C3";
 inline constexpr char kVisibility[] = "48 8B 03 48 8B CB FF 90 28 01 00 00 8B D0 48 8B CF E8 ?? ?? ?? ?? EB 02 32 C0 48 8B 5C 24 30 48 83 C4 20 5F C3";
-inline constexpr char kWeapons[] = "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B F9 41 8D 50 ?? E8 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 33 D2 48 8D 9F 40 01 00 00 48 89 07 48 8B CB 41 B8 80 02 00 00 E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 33 C0 48 83 8F C8 03 00 00 FF 89 87 C0 03 00 00 89 87 D0 03 00 00";
-inline constexpr char kSoulCores[] = "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B F9 41 8D 50 13 E8 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 33 D2 48 8D 9F 40 01 00 00 48 89 07 48 8B CB 41 B8 80 02 00 00 E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 48 8B 5C 24 30 33 C0 48 89 87 C0 03 00 00 48 89 87 C8 03 00 00 48 89 87 D0 03 00 00 48 8B C7 C6 87 D8 03 00 00 01 48 83 C4 20 5F C3";
+// Weapon-slot widget (id 10 on v2.02, live sweep #66108): bottom-right weapon silhouettes + stance.
+inline constexpr char kWeapons[] = "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B F9 41 8D 50 ?? E8 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 33 D2 48 8D 9F 40 01 00 00 48 89 07 48 8B CB 41 B8 80 02 00 00 E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 33 D2 83 C9 FF 89 8F C0 03 00 00 33 C0 88 97 C4 03 00 00 89 97 C8 03 00 00 88 97 CC 03 00 00 48 89 97 D0 03 00 00 48 89 87 D8 03 00 00 89 87 E0 03 00 00 8D 41 06 89 87 F0 03 00 00";
+// Guardian-spirit widget (id 13 on v2.02, live sweep #66108): green spirit circle + the two held soul-core circles;
+// the game has no separate cores-only widget (ids 0-255 swept).
+inline constexpr char kSoulCores[] = "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B F9 41 8D 50 ?? E8 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 33 D2 48 8D 9F 40 01 00 00 48 89 07 48 8B CB 41 B8 80 02 00 00 E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 33 C9 B8 01 00 00 00 89 87 C0 03 00 00 48 89 87 C4 03 00 00 88 87 DA 03 00 00 48 8B C7 48 89 8F CC 03 00 00 89 8F D4 03 00 00 66 89 8F D8 03 00 00";
 inline constexpr size_t kCallOffset = 17;
 inline unsigned Hex(char c) { return c <= '9' ? c - '0' : c - 'A' + 10; }
 inline bool Match(const uint8_t* p, const char* pattern) {
