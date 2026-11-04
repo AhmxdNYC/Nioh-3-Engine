@@ -1129,6 +1129,7 @@ static int g_cfg_bossgrace = 1500, g_cfg_bosshold_max = 60000;
 // only, N ms after 'ready' call UiLoadingScreenEnd once per swap on the game thread (GAMESTATE[2] is left alone; CoverReleaseMs is independent).
 static int g_cfg_lsend = -1;
 static void FadeWant(int on, const char* why);
+static void EntryLs(int on, const char* why);
 static void BhStart(uint32_t handle);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
@@ -1165,6 +1166,7 @@ static void ArenaTick(void) {
         // BlackFadeIn(0, 30.0f, 0.0f)). Issue the same fade-in now and drop our own overlay; seq 0x12 re-issues both later (no-ops).
         ((void (*)(uint32_t, float, float))(B + Grva(0x345508)))(0, 30.0f, 0.0f);
         FadeWant(0, "lsend");
+        EntryLs(0, "lsend");
         Log("LSEND +%lu ms: UiLoadingScreenEnd + BlackFadeIn(0, 30, 0) + overlay off, %lu ms after ready (LoadingScreenEndMs %d)", dt, now - g_ar.tReady, g_cfg_lsend);
     }
     float pos[4] = {0}; PlayerPos(pos);
@@ -2480,6 +2482,31 @@ static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 static int (*p_osdMask)(int, int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
 static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
 static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
+// #64994: Fight now / Boss Match used to show the hosted transition cover. ac0f933f (2026-10-15) stopped that whenever
+// Nioh3Training_FightNow is present, because the cover waits for a native mission load the in-place swap never does.
+// [ArenaSwap] EntryLoadScreen = 1 (default) shows the same EngineFix screen as Return (title + moving bar + stage) until
+// the player can move: Return's end (FadeSettled for StableMs) after the swap has actually started. 0 = black fade only.
+static int g_cfg_entry_ls = 1, g_el_miss;
+static struct { int on, left; DWORD t0, tSwap, tStable; char stage[96]; } g_el;
+static void EntryLs(int on, const char* why) {
+    if (!on && !g_el.on) return;
+    if (on && (g_rh.active || g_rh_ls_on)) return;
+    if (!on && g_rh_ls_on) { g_el.on = 0; g_el.left = 0; return; }  // Return owns the overlay now
+    if (!g_cfg_entry_ls || !p_osdLoad) { if (on && !g_el_miss) { g_el_miss = 1; Log("ENTRY loading screen skipped (%s)", !g_cfg_entry_ls ? "[ArenaSwap] EntryLoadScreen 0" : "EngineFix export missing"); } g_el.on = 0; return; }
+    if (on == g_el.on) return;
+    g_el.on = on; if (!on) g_el.left = 0;
+    const char* stage = g_el.stage[0] ? g_el.stage : "Entering the arena...";
+    int r = p_osdLoad(on, "Loading boss match", stage);
+    Log("ENTRY loading screen %s (%s) stage '%s' (EngineFix overlay %s)", on ? "on" : "off", why ? why : "", stage, r ? "drawing" : "menu off: black only");
+}
+static void EntryLsBegin(ArenaRow* r) {
+    if (!g_cfg_entry_ls || g_rh.active) return;
+    g_el.stage[0] = 0;
+    if (r && r->name[0]) snprintf(g_el.stage, sizeof g_el.stage, "%s", r->name);
+    else snprintf(g_el.stage, sizeof g_el.stage, "Entering the arena...");
+    g_el.t0 = GetTickCount(); g_el.tSwap = 0; g_el.tStable = 0; g_el.left = 0; g_el.on = 0;
+    EntryLs(1, "fight start");
+}
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
 static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
     DWORD pid; GetWindowThreadProcessId(h, &pid); if (pid != GetCurrentProcessId() || !IsWindowVisible(h) || h == g_fd_wnd) return TRUE;
@@ -2591,12 +2618,12 @@ static void FadeTick(void) {
         uint32_t m = g_fd.mission; g_fd.pend = 0; g_fd.inside = 1;
         Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", FdAlpha(), now - g_fd.tPend, m);
         int ok = FightNowImpl(m); g_fd.inside = 0;
-        if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + Grva(0x2239600))))(m, 1, 0, p); return; }
+        if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); EntryLs(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + Grva(0x2239600))))(m, 1, 0, p); return; }
         g_fd.tBase = 0; g_fd.areaSkip = 0; g_fd.phase = 2; g_fd.tSwap = now; g_fd.tStable = 0; return;
     }
     if (g_fd.phase != 2) return;
-    if (now - g_fd.tSwap > (DWORD)g_cfg_fade_max) { Log("FADE: not settled after %lu ms, releasing", now - g_fd.tSwap); g_fd.phase = 0; FadeWant(0, "max hold"); return; }
-    if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
+    if (now - g_fd.tSwap > (DWORD)g_cfg_fade_max) { Log("FADE: not settled after %lu ms, releasing", now - g_fd.tSwap); g_fd.phase = 0; FadeWant(0, "max hold"); EntryLs(0, "max hold"); return; }
+    if (g_xw.active) { g_fd.tStable = 0; if (!g_xw.claimed) { g_fd.phase = 0; FadeWant(0, "prewarm only"); EntryLs(0, "prewarm only"); } return; }  // cross-world still switching / waiting for the stage
     if (!FadeBaseReady()) { g_fd.tStable = 0; g_fd.tBase = 0; return; }  // boss spawned, player released, stage ready
     if (!g_fd.tBase) g_fd.tBase = now;
     int xw = g_fd.cross && g_cfg_fade_areawait_x > 0 && !g_ar.cross, xb = 0, xp = 0;  // pc 06:12: when the arena already held the spawn until clear, the boss spawn re-opens cells for ~2 s: use the AreaWaitMs rule then (boss was live 2.6 s under black)
@@ -2611,7 +2638,27 @@ static void FadeTick(void) {
     if (!g_fd.tStable) g_fd.tStable = now;
     if (now - g_fd.tStable < (DWORD)g_cfg_fade_stable || now - g_fd.tSwap < (DWORD)g_cfg_fade_min) return;
     Log("FADE: arena settled %lu ms after the swap (stable %lu ms, ready +%lu ms%s)", now - g_fd.tSwap, now - g_fd.tStable, g_fd.tBase - g_fd.tSwap, g_fd.areaSkip ? ", area streaming skipped" : "");
-    g_fd.phase = 0; g_fd.areaSkip = 0; g_fd.tBase = 0; FadeWant(0, "settled");
+    g_fd.phase = 0; g_fd.areaSkip = 0; g_fd.tBase = 0; FadeWant(0, "settled"); EntryLs(0, "settled");
+}
+// Same end as Return phase 4 (FadeSettled held for StableMs), but only after the swap has left the old spot.
+// Ending in the arena the player is still standing in would flash the screen off before Fight now runs.
+static void EntryLsTick(void) {
+    if (!g_el.on) return;
+    DWORD now = GetTickCount();
+    if (g_rh.active || g_rh_ls_on) { EntryLs(0, "return"); return; }
+    if (now - g_el.t0 > (DWORD)(g_cfg_fade_max > 0 ? g_cfg_fade_max : 60000)) { EntryLs(0, "max hold"); return; }
+    if (g_fd.pend || g_fd.phase == 2) { g_el.left = 1; g_el.tStable = 0; return; }  // fade still covering the swap; it drops this screen when it settles
+    if (!g_el.tSwap) g_el.tSwap = now;
+    if (g_xw.active || (g_ar.active && !g_ar.released)) g_el.left = 1;
+    if (!g_el.left) {
+        if (!FadeSettled()) g_el.left = 1;
+        else if (now - g_el.tSwap > 1500) { EntryLs(0, "no transition"); return; }
+        else return;
+    }
+    if (g_xw.active || (g_ar.active && !g_ar.released)) { g_el.tStable = 0; return; }
+    if (!FadeSettled()) { g_el.tStable = 0; return; }
+    if (!g_el.tStable) g_el.tStable = now;
+    if (now - g_el.tStable >= (DWORD)g_cfg_fade_stable) EntryLs(0, "player can move");
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission) { g_pick = 0; return FightNowEntry(mission); }
 // #23451: Fight now for a boss character (roster / Boss A-B menus): its mission row, else its S<chr> arena / field row. 1 = handled (in-place swap,
@@ -2626,15 +2673,20 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
 static int FightNowEntry(uint32_t mission) {
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
-    if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) return FightNowImpl(mission);
     ArenaRow* r = FindRow(mission);
-    if (g_fd.pend) return 1;  // a switch is already waiting for black
+    if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) {
+        EntryLsBegin(r); int ok = FightNowImpl(mission); if (!ok) EntryLs(0, "refused"); else g_el.tSwap = GetTickCount(); return ok;
+    }
+    if (g_fd.pend) return 1;  // a switch is already waiting for black; its entry screen stays up
     if (r && g_cfg_xworld && CurWorld() >= 0 && (CurWorld() != r->world || g_xw.active)) {  // cross-world (or claiming a prewarm)
+        EntryLsBegin(r);
         int ok = FightNowImpl(mission);
         if (ok && g_xw.active) { FadeWant(1, "cross-world switch"); g_fd.cross = 1; g_fd.tBase = 0; g_fd.areaSkip = 0; g_fd.phase = 2; g_fd.tSwap = GetTickCount(); g_fd.tStable = 0; }
+        if (!ok) EntryLs(0, "refused"); else g_el.tSwap = GetTickCount();
         return ok;
     }
-    if (!FadeInPlaceOk(mission, r)) return FightNowImpl(mission);
+    if (!FadeInPlaceOk(mission, r)) { EntryLsBegin(r); int ok = FightNowImpl(mission); if (!ok) EntryLs(0, "refused"); else g_el.tSwap = GetTickCount(); return ok; }
+    EntryLsBegin(r);
     g_fd.pend = 1; g_fd.cross = 0; g_fd.mission = mission; g_fd.tPend = GetTickCount(); g_fd.phase = 0; FadeWant(1, "same-world switch");
     return 1;
 }
@@ -5099,7 +5151,8 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }
     __try { XwTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XWORLD tick exception %08lX", GetExceptionCode()); g_xw.active = 0; g_xw_busy = 0; InterlockedExchange(&g_xw_skip, 0); }
     __try { PsFarTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PSKIP far tick exception %08lX", GetExceptionCode()); PsClose("exception"); }
-    __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; }
+    __try { FadeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FADE tick exception %08lX", GetExceptionCode()); g_fd.pend = 0; g_fd.phase = 0; g_fd.inside = 0; g_fd_want = 0; EntryLs(0, "fade exception"); }
+    __try { EntryLsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTRY loading screen tick exception %08lX", GetExceptionCode()); EntryLs(0, "tick exception"); }
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
@@ -5214,7 +5267,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         g_cfg_fade = GetPrivateProfileIntA("Fade", "Enable", 1, ini); g_cfg_fade_out = GetPrivateProfileIntA("Fade", "OutMs", 250, ini); g_cfg_fade_in = GetPrivateProfileIntA("Fade", "InMs", 400, ini);
         g_cfg_fade_min = GetPrivateProfileIntA("Fade", "MinHoldMs", 800, ini); g_cfg_fade_stable = GetPrivateProfileIntA("Fade", "StableMs", 500, ini); g_cfg_fade_max = GetPrivateProfileIntA("Fade", "MaxHoldMs", 60000, ini); g_cfg_fade_areawait = GetPrivateProfileIntA("Fade", "AreaWaitMs", 500, ini); g_cfg_fade_areawait_x = GetPrivateProfileIntA("Fade", "AreaWaitCrossMs", 15000, ini);
         g_cfg_fade_pwait = GetPrivateProfileIntA("Fade", "PlaceableWaitMs", -1, ini); Log("fade (pc2 #6801): PlaceableWaitMs %d", g_cfg_fade_pwait);
-        g_cfg_coverrel = GetPrivateProfileIntA("ArenaSwap", "CoverReleaseMs", -1, ini); Log("cover release (pc2 #8619): CoverReleaseMs %d", g_cfg_coverrel); g_cfg_lsend = GetPrivateProfileIntA("ArenaSwap", "LoadingScreenEndMs", -1, ini); Log("loading screen end (#9182): LoadingScreenEndMs %d", g_cfg_lsend); Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
+        g_cfg_coverrel = GetPrivateProfileIntA("ArenaSwap", "CoverReleaseMs", -1, ini); Log("cover release (pc2 #8619): CoverReleaseMs %d", g_cfg_coverrel); g_cfg_lsend = GetPrivateProfileIntA("ArenaSwap", "LoadingScreenEndMs", -1, ini); Log("loading screen end (#9182): LoadingScreenEndMs %d", g_cfg_lsend); g_cfg_entry_ls = GetPrivateProfileIntA("ArenaSwap", "EntryLoadScreen", 1, ini); Log("entry loading screen (#64994): [ArenaSwap] EntryLoadScreen %d", g_cfg_entry_ls); Log("fade (bridge 6519): Enable %d, OutMs %d, InMs %d, MinHoldMs %d, StableMs %d, MaxHoldMs %d, AreaWaitMs %d, AreaWaitCrossMs %d", g_cfg_fade, g_cfg_fade_out, g_cfg_fade_in, g_cfg_fade_min, g_cfg_fade_stable, g_cfg_fade_max, g_cfg_fade_areawait, g_cfg_fade_areawait_x);
         if (g_cfg_fade) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
