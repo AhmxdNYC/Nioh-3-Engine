@@ -32,6 +32,7 @@ int g_test = 0;
 uintptr_t g_base = 0;
 DWORD g_startTick = 0;
 volatile LONG g_started = 0, g_sending = 0;
+DWORD g_lastExcTick = 0;  // tick of the last record that had an exception (0 = none)
 
 // redaction table (UTF-8), longest first; filled at Start
 struct Redact { char from[300]; const char* to; size_t len; };
@@ -670,6 +671,12 @@ DWORD WINAPI SenderThread(LPVOID) {
 }
 
 void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, const char* const* ring, int ringN, unsigned budget) {
+    // The engine's own "Fatal error" popup (or abort) right after an exception we already recorded is the same crash: one record.
+    if (!er && g_lastExcTick && GetTickCount() - g_lastExcTick < 120000) {
+        Logf("CRASHUPLOAD: follow-up (%.60s) of the recorded crash, no second record", reason ? reason : "");
+        return;
+    }
+    if (er) g_lastExcTick = GetTickCount() | 1;
     int efN = 0;
     for (int i = 0; ring && i < ringN && efN < 48; ++i) {
         if (!ring[i] || !ring[i][0]) continue;

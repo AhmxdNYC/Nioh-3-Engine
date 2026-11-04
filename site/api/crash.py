@@ -211,7 +211,10 @@ def validate(rec) -> dict:
 
 def signature(rec: dict) -> str:
     f = rec["fields"]
-    key = "|".join([f.get("module", ""), f.get("offset", ""), f.get("code", ""), rec.get("ver", "")]).lower()
+    parts = [f.get("module", ""), f.get("offset", ""), f.get("code", ""), rec.get("ver", "")]
+    if not f.get("module"):  # popup / abort without an exception: the reason text is the signature
+        parts.append(re.sub(r"0x[0-9a-fA-F]+|\d+", "#", f.get("reason", ""))[:80])
+    key = "|".join(parts).lower()
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
@@ -260,7 +263,8 @@ def _gh(method: str, url: str, token: str, payload: dict | None = None) -> dict:
 def _issue_text(rec: dict, sig: str) -> tuple[str, str]:
     f = rec["fields"]
     test = rec.get("test") or 0
-    title = f"Crash{' (test)' if test else ''}: {f['module']}+{f['offset']} {f['code']} EngineFix {rec.get('ver', '?')} [{sig}]"
+    where = f"{f['module']}+{f['offset']} {f['code']}" if f["module"] else (f.get("reason") or "no exception record")[:90]
+    title = f"Crash{' (test)' if test else ''}: {where} EngineFix {rec.get('ver', '?')} [{sig}]"
     mods = ", ".join(f"{m.get('name')} {m.get('sha', '')} {m.get('ver', '')}".strip() for m in rec.get("mods", []))
     game = rec.get("game", {})
     lines = [
