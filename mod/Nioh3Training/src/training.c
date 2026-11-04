@@ -1171,7 +1171,7 @@ static int ArenaNativeDuplicate(void) {
     if (actor != last || now - at >= 500) {
         last = actor; at = now;
         ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(actor);
-        Log("ARENA dedupe: native placement %u chr %u actor %p removed (no kill/rewards)", g_ar.placement, g_ar.chr, (void*)actor);
+        Log("ARENA dedupe: native placement %u chr %u actor %p removed (delete, not force-kill)", g_ar.placement, g_ar.chr, (void*)actor);
     }
     return 1; // deletion is deferred; do not create the dynamic boss until gone
 }
@@ -1269,7 +1269,7 @@ static struct { uint32_t mission, chr; char id[16], name[64]; } g_sum[MAXROWS]; 
 // #23436/#23447/#23451/#23479: rows derived in-process from the game's own data files (arena_scan.h, the C port of tools/auto_arena.py, no game
 // addresses). [ArenaSwap] AutoArena = 1 (default): after the TSV (= cache + override) every scanned row whose mission (R/D rows) or boss character
 // (S rows) the TSV does not have is added, so a game patch / DLC boss gets its arena with no table update; new characters also join the summon
-// roster (named 'Boss <chr>' until the TSV names them). 0 = TSV only.
+// roster (named 'Boss <chr>' until the TSV names them). 0 = TSV only; inventory safety scanning still runs.
 static int g_cfg_autoarena = 1;
 #define AS_LOG(...) Log(__VA_ARGS__)
 #include "arena_scan.h"
@@ -1341,7 +1341,7 @@ static void LoadTable(void) {
     { char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir); g_cfg_autoarena = GetPrivateProfileIntA("ArenaSwap", "AutoArena", 1, ini); }
     { // Safety scan also runs with AutoArena=0: an old TSV cannot bypass inventory protection.
         DWORD t0 = GetTickCount(); int added = 0, n = AsScan(g_dir, AsAddRow, &added);
-        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena 1): %d rows from the game data, %d not in the TSV added (%lu ms)", n, added, GetTickCount() - t0);
+        Log("ARENASCAN (#23451, [ArenaSwap] AutoArena %d): %d rows from the game data, %d not in the TSV added (%lu ms)", g_cfg_autoarena, n, added, GetTickCount() - t0);
     }
     for (int i = 0; i < g_nrows; ) {
         ArenaRow* r = &g_rows[i];
