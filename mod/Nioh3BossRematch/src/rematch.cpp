@@ -962,10 +962,12 @@ void TrainingPreload() {
     if (fn && now - last > 15000) { last = now; fn(); }
 }
 
+void FillStartFromTraining(Row& r);  // below (#65732)
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
+    if (fight) FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
     const char* why = nullptr;
     const uint32_t start = fight ? r.fightStart : 0;
@@ -2103,8 +2105,32 @@ const char* CanStart(int row, uint32_t& kind) {
     kind = kReqOpen;
     return nullptr;
 }
+// #65732 bug 3: a catalogue row without a start point (dojo Novice rows) takes it from Nioh3Training's arena table, which is generated
+// from the game data (tools/auto_arena.py / the live archive scan). Generic: any mission Training has a start row for. The trip itself is
+// Training's in-place swap, so the row is treated like a mission that starts at the fight (no second warp by this add-on).
+void FillStartFromTraining(Row& r) {
+    if (r.fightStart || r.trFillTried || !r.missionId) return;
+    using Fn = uint32_t (*)(uint32_t, float*, float*);
+    const auto f = (Fn)TrainingExport("Nioh3Training_ArenaStart");
+    if (!f) return;  // Training not loaded yet: try again next time
+    r.trFillTried = true;
+    float p[4] = {}, b[3] = {};
+    const uint32_t st = f(r.missionId, p, b);
+    if (!st) return;
+    r.fightStart = st;
+    for (int k = 0; k < 4; ++k) r.warp[k] = p[k];
+    const float dx = b[0] - p[0], dz = b[2] - p[2];
+    r.fightDist = (int)(sqrtf(dx * dx + dz * dz) / 100.0f);
+    snprintf(r.fightKind, sizeof(r.fightKind), "training start");
+    snprintf(r.fightConf, sizeof(r.fightConf), "medium");
+    if (!r.atFight && !r.arenaOk && !r.gateId) r.atFight = true;
+    if (!r.bossOk && (b[0] || b[2])) { r.boss[0] = b[0]; r.boss[1] = b[1]; r.boss[2] = b[2]; r.bossOk = true; }
+    Log("Rematch: %s had no start point in the catalogue; using Nioh3Training's game-data start %u (spawn %.0f %.0f %.0f, %d m from the boss)",
+        r.id, st, p[0], p[1], p[2], r.fightDist);
+}
 // Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate
 const char* CanFight(int row) {
+    FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
     if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
     if (!g_fnowOk) return g_fnowWhy;

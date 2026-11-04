@@ -11,6 +11,7 @@
 #include "sites_gen.h"
 
 #include <atomic>
+#include <cstdio>
 #include <cstring>
 
 namespace addon {
@@ -25,19 +26,23 @@ const char* const kKit[] = {"Item::AddEquipment", "Item::AddEquipmentBySlot", "I
 constexpr int kNStrip = sizeof(kStrip) / sizeof(kStrip[0]), kNKit = sizeof(kKit) / sizeof(kKit[0]);
 
 std::atomic<int> g_sandbox{0}, g_skipped{0}, g_wasTrip{0}, g_reservedAtStart{-1};
+// #65732 safety net: every inventory add during a trip (InventoryAddItem, where all script / engine adds end), logged with its id at the trip end
+std::atomic<int> g_added{0};
+uint16_t g_addedIds[16];
 int (*g_trip)() = nullptr;
 
 // game reserve flag + restore, parsed from Item::ResetReserveItem (mov rcx,[g1]; call IsReserved; test ax,ax; jz; ... mov rcx,[g2]; call Restore)
 uint64_t g_isRes = 0, g_isResArg = 0, g_restore = 0, g_restoreArg = 0;
 
-bool Trip() {
+int TripLevel() {  // 0 no trip, 1 mod Fight-now trip, 2 trip into a world whose scripts strip items / gear (Training's game-data scan)
     if (!g_trip) {
         HMODULE m = GetModuleHandleW(L"Nioh3Training.asi");
         if (m) g_trip = (int (*)())GetProcAddress(m, "Nioh3Training_KeepGear");
-        if (!g_trip) return false;
+        if (!g_trip) return 0;
     }
-    return g_trip() != 0;
+    return g_trip();
 }
+bool Trip() { return TripLevel() != 0; }
 const char* Name(int site) { return site >= 0 && site < sites::kCount ? sites::kDefs[site].name : "?"; }
 
 bool VetoStrip(int site) {
@@ -48,7 +53,8 @@ bool VetoStrip(int site) {
     return true;
 }
 bool VetoKit(int site) {
-    if (!g_sandbox.load() || !Trip()) return false;
+    const int lvl = TripLevel();
+    if (!lvl || (!g_sandbox.load() && lvl < 2)) return false;  // #65732: a sandbox world vetoes the kit from the first call (kit can come before the strip)
     g_skipped.fetch_add(1);
     Log("KeepGear: skipped script %s (sandbox kit not given)", Name(site));
     return true;
@@ -96,6 +102,15 @@ int Reserved() {  // 1 / 0, -1 = unknown
     }
 }
 
+void HkAdd(uint64_t, uint64_t, uint64_t desc, uint64_t, const uint64_t*) {
+    if (!Trip()) return;
+    uint16_t id = 0;
+    Copy(&id, desc, 2);
+    const int n = g_added.fetch_add(1);
+    if (n < 16) g_addedIds[n] = id;
+    Log("KeepGear: WARNING an item (id %u) is being added to your inventory during the trip (not a vetoed script call)", id);
+}
+
 }  // namespace
 
 void Install() {
@@ -117,6 +132,10 @@ void Install() {
         else Log("KeepGear: %s not protected - %s", kKit[i], why ? why : "?");
     }
     ParseRestore();
+    {
+        const char* why = nullptr;
+        if (!InstallEntry("InventoryAddItem", &HkAdd, &why)) Log("KeepGear: item-add watch off - %s", why ? why : "?");
+    }
     Log("KeepGear: %d/%d script natives guarded during mod arena trips; reserve safety net %s", ok, n, g_isRes ? "on" : "OFF (ResetReserveItem layout not recognised)");
 }
 
@@ -145,6 +164,12 @@ void Tick() {
                 }
             }
         }
+        if (const int a = g_added.load()) {
+            char ids[16 * 7 + 1] = "";
+            for (int k = 0, o = 0; k < a && k < 16; ++k) o += snprintf(ids + o, sizeof(ids) - o, "%s%u", k ? "," : "", g_addedIds[k]);
+            Log("KeepGear: SAFETY NET - %d item(s) were added during the trip (ids %s); they stay in the inventory (no removal yet)", a, ids);
+        }
+        g_added.store(0);
         g_sandbox.store(0);
         g_skipped.store(0);
     }
