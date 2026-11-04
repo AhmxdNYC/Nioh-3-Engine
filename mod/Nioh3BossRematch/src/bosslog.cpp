@@ -2224,6 +2224,44 @@ int FormHideSealPresent(uint64_t global, uint64_t seal) {
     }
     return 0;
 }
+// report #19 v2 (#66107): a form may only bind to an actor that was NOT alive when this soul core was pressed. Test C (#66091): DOWN uses
+// 2/3 began on a C17E3 actor at the same address as use 1's. One rule for every core (#61094/#61123): at each press the whole actor
+// table (same 16-bucket walk as FormHideSealPresent) is snapshot; any seal found in it is rejected. Resolved on its own (g_fhEnd.actorGlobal
+// is only set once a form began with FormHideUntilEnd on).
+uint64_t ActorTableGlobal() {
+    static uint64_t g = 0; static bool tried = false;
+    if (tried) return g;
+    tried = true;
+    static const uint8_t removeHead[] = {0x48,0x83,0xEC,0x28,0x48,0x8B,0xD1,0x48,0x8B,0x0D,0x52,0x5B,0x48,0x04,
+        0x48,0x85,0xC9,0x74,0x0C,0x48,0x81,0xC1,0x98,0x0B,0,0,0xE8,0x11,0,0,0};
+    int32_t rel = 0;
+    if (FormHideCodeMatches(0x2BF7E8, removeHead, sizeof(removeHead)) && Rd(g_base + Grva(0x2BF7F2), rel)) g = g_base + Grva(0x2BF7F6) + rel;
+    return g;
+}
+struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; };
+PressSnap g_pressSnap;
+bool PressSnapTake(double now) {  // false = table unreadable (then nothing is rejected by it; the other guards still apply)
+    g_pressSnap.nodes.clear(); g_pressSnap.t = now; g_pressSnap.ok = false;
+    uint64_t mgr = 0, buckets = 0; const uint64_t global = ActorTableGlobal();
+    if (!global || !Rd(global, mgr) || !mgr || !Rd(mgr + 0xBA0, buckets) || !buckets) return false;
+    unsigned budget = 4096;
+    for (unsigned i = 0; i < 16; ++i) {
+        uint64_t node = 0, count = 0;
+        if (!Rd(buckets + i * 16, node) || !Rd(buckets + i * 16 + 8, count) || count > budget) return false;
+        budget -= (unsigned)count;
+        for (uint64_t n = 0; n < count; ++n) {
+            if (!node) return false;
+            g_pressSnap.nodes.push_back(node);
+            if (!Rd(node, node)) return false;
+        }
+    }
+    std::sort(g_pressSnap.nodes.begin(), g_pressSnap.nodes.end());
+    g_pressSnap.ok = true;
+    return true;
+}
+bool AliveAtPress(uint64_t chr) {  // chr was in the actor table when the current press was snapshot
+    return chr && g_pressSnap.ok && std::binary_search(g_pressSnap.nodes.begin(), g_pressSnap.nodes.end(), chr + 0xE0);
+}
 void FormHideEndBegin(uint64_t player, uint64_t seal) {
     g_fhEnd = {};
     if (!g_fhUntilEnd.load()) return;
@@ -2580,7 +2618,7 @@ double g_sealEdgeT = -100;
 extern std::atomic<uint32_t> g_ftActs[4];
 extern std::atomic<int> g_ftN;
 std::atomic<int> g_formNeedSealActMs{0};
-std::atomic<int> g_formNeedUseMs{1500};  // report #19, see FormNeedUseMs  // human #58806: 0 = off - a running core use has no throw action, so the guard dropped real forms
+std::atomic<int> g_formNeedUseMs{2200};  // report #19, see FormNeedUseMs  // human #58806: 0 = off - a running core use has no throw action, so the guard dropped real forms
 std::atomic<int> g_sealEndMinMs{1500};
 std::atomic<int> g_sealCancelEndMs{600};  // pc2 #59480: 0 = off (>0 = on)
 double g_throwCutT = -100; uint32_t g_throwCutAct = 0;
@@ -2685,6 +2723,7 @@ struct Fh4State {
     uint64_t sealRoot = 0;  // pc #56435: seal's model root, refreshed by the tick at 10 Hz (hooks used to walk the actor table per call)
     double nextSealPoll = 0;
     bool fromSpawn = false;  // pc #56910: seal bound from the spawn hit, not a FormSlot0 capture
+    bool keepSeal = false;  // #66107: the begin kept its first armed seal over a later capture -> a newer capture is not a capture-change
     int follow = -1;  // pc #56910 FormFollowSeal: -1 undecided (auto probe), 0 pin seal to player, 1 player follows seal
     float sealP0[4] = {};
     double followT0 = 0;
@@ -3213,6 +3252,7 @@ std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
 std::atomic<int> g_ftLayerLog{0};
 std::atomic<double> g_rtT0{-100};
+std::atomic<double> g_rtAcceptT{-100};  // #66107: time of the last accept; unlike g_rtT0 never reset when the x8 window closes
 std::atomic<int> g_rtMaxMs{1200};  // [Spirit] RunThrowMaxMs (0 = off)
 // report #19: an accept the game did not follow with a throw (0x6310 -> attack 0x6224) ran the player's attacks at x8 for 1.2 s. The window
 // closes as soon as the player enters an action that is neither the one at the accept nor in the throw category.
@@ -3332,6 +3372,10 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
     }
     const float m = g_scForms.load(std::memory_order_relaxed) ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
     bool rtOn = m > 1.f && g_rtMaxMs.load() > 0 && a == FkPlayer() && !g_fh4.owner && (Now() - g_rtT0.load()) * 1000.0 < g_rtMaxMs.load();
+    if (rtOn && g_throwDoneT > g_rtT0.load()) {  // #66107: the throw of this accept is over (player left the throw actions) -> no more x8
+        rtOn = false;
+        if (g_rtT0.exchange(-100) > -50) Log("RunThrow: closed - the throw ended %.2f s ago, normal speed t=%.3f", Now() - g_throwDoneT, Now());
+    }
     if (rtOn) {
         const uint32_t cur = PlayerActId(a), at = g_rtAct.load();
         if (cur != at && cur != 0xFFFF && cur != 0xFFFFFFFF && !UseCategoryAct(cur)) {
@@ -3538,7 +3582,7 @@ uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
         const uint32_t curAct = PlayerActId(a);
         if (curAct == g_rtClosedAct.load() && now - g_rtClosedT.load() < 2.0) return (r & 0xFF) ? r : 1;  // same non-throw action that closed it: no re-arm
         if ((now - g_rtT0.load()) * 1000.0 >= g_rtMaxMs.load()) g_rtAct.store(curAct);
-        g_rtT0.store(now);
+        g_rtT0.store(now); g_rtAcceptT.store(now);
         if (const float v = PlayerGroundSpeed(); g_runFadeMs.load() > 0 && v >= (float)g_runFadeSpeed.load() && now - g_runFadeAt.load() > 1.0) {
             g_runFadeAt.store(now);
             Log("RunFade: moving %.0f cm/s at the soul-core accept - body fades out over %d ms from now t=%.3f", v, g_runFadeMs.load(), now);
@@ -3628,6 +3672,8 @@ std::atomic<int> g_fhDelayMs{400};
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static double pendAt = 0, pendTrig = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
+    static uint64_t pendCap = 0; static double pendCapT = -1; static bool pendSpawn = false;  // #66107: the actor a fresh begin was armed with
+    bool keepArmed = false;
     static uint64_t attempted = 0;
     static double attemptedT = -1;
     bool spawnBegin = false;
@@ -3644,10 +3690,10 @@ void FormHide4Tick(uint64_t player) {
         } else if (pr == 1) GhostHideSeal(gs);
     }
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
-    if (g_fh4.owner && g_fh4.fromSpawn) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
+    if (g_fh4.owner && (g_fh4.fromSpawn || g_fh4.keepSeal)) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
     else if (g_fhFollow.load() && g_fh4.owner && !g_fh4.seal) {  // pc #56910: no kind-0 capture for some cores (DOWN A2ACB) -> use the spawn hit
         const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
-        if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3) {
+        if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3 && !AliveAtPress(sc)) {
             Log("FormHide=4 seal from spawn hit (no FormSlot0 capture) chr=%llX desc=%X t=%.3f", (unsigned long long)sc, g_fkSealDesc.load(), now);
             cap = sc; capT = st; g_fh4.fromSpawn = true;
         }
@@ -3677,6 +3723,18 @@ void FormHide4Tick(uint64_t player) {
     downWas = down;
     const bool padLeft = now - leftT < 1.0;
     leftWas = left;
+    {   // #66107: the first soul-core use signal of a press (d-pad edge, the game's accept, the seal/throw action) snapshots the live actors
+        static double lastSig = -100;
+        const double rt = g_rtAcceptT.load(), sig = (std::max)((std::max)(rt, g_sealEdgeT), leftT);
+        if (sig > lastSig + 1e-6) {
+            lastSig = sig;
+            if (sig - g_pressSnap.t > 2.5 && now - sig < 0.25) {
+                const bool ok = PressSnapTake(now);
+                Log("FormHide=4 press snapshot: %zu live actors%s (a form binds only an actor spawned after this) t=%.3f",
+                    g_pressSnap.nodes.size(), ok ? "" : " - actor table unreadable, no snapshot", now);
+            }
+        }
+    }
     AcquireSRWLockExclusive(&g_fh4Lock);
     if (g_fh4.owner) {
         const char* reason = nullptr;
@@ -3689,7 +3747,12 @@ void FormHide4Tick(uint64_t player) {
         else if (player != g_fh4.owner) reason = "player-change";
         else if (g_fh4Fault.load()) reason = "apply-fault";
         else if (!g_fh4.seal) {
-            if (cap && capT >= g_fh4.started - .05) {
+            if (cap && capT >= g_fh4.started - .05 && AliveAtPress(cap)) {
+                static uint64_t rejLogged = 0;
+                if (rejLogged != cap) { rejLogged = cap; Log("FormHide=4 skip: seal %llX was already alive at the press (%.2f s ago) - not spawned by it, no form t=%.3f", (unsigned long long)cap, now - g_pressSnap.t, now); }
+                attempted = cap; attemptedT = capT;
+            }
+            if (cap && capT >= g_fh4.started - .05 && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 g_fh4.started = now; FormHideEndBegin(player, cap);
                 FormHideEndReason(player, cap, now);
@@ -3787,17 +3850,28 @@ void FormHide4Tick(uint64_t player) {
                    // teleported the player. A seal begins a form only within [Spirit] FormNeedUseMs of a soul-core use (the game's accept
                    // HasSkill(0xEDC9), a seal/throw action start, or a d-pad LEFT/DOWN press). Universal, 0 = off.
                    const int useMs = g_formNeedUseMs.load();
-                   const double useT = (std::max)((std::max)(g_rtT0.load(), g_sealEdgeT), leftT);
+                   const double useT = (std::max)((std::max)(g_rtAcceptT.load(), g_sealEdgeT), leftT);
                    const bool useOk = useMs <= 0 || capT - useT <= useMs / 1000.0;
                    static uint64_t useSkipLogged = 0;
                    if (fresh && !useOk) {
                        if (useSkipLogged != cap) { useSkipLogged = cap; Log("FormHide=4 skip: seal %llX came out %.2f s after the last soul-core use (> %d ms) - not this press, no form t=%.3f", (unsigned long long)cap, capT - useT, useMs, now); }
                        if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; }
                    }
-                   const bool freshOk = fresh && sealActOk && useOk;
+                   // #66107: an actor that was already in the actor table at the press was not spawned by it (DOWN uses 2/3 began a 9 s form on
+                   // such a C17E3 and dragged the player 10 m). Rejected for every core, no list.
+                   const bool bornOk = !AliveAtPress(cap);
+                   static uint64_t bornSkipLogged = 0;
+                   if (fresh && useOk && !bornOk) {
+                       if (bornSkipLogged != cap) { bornSkipLogged = cap; Log("FormHide=4 skip: seal %llX was already alive at the press (%.2f s ago) - not spawned by it, no form t=%.3f", (unsigned long long)cap, now - g_pressSnap.t, now); }
+                       if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; }
+                   }
+                   bool freshOk = fresh && sealActOk && useOk && bornOk;
                    // human #58117: the trigger arms pendAt; the begin runs once it is due (delay 0 = same tick, exactly as before)
                    if ((edge || freshOk) && pendAt <= 0) {
                        pendAt = now + (spawnBegin ? 0 : g_fhDelayMs.load() / 1000.0); pendTrig = now; pendEdge = edge; pendPlayer = player;  // the spawn-hit seal is already out: no press delay
+                       // #66107: the first fresh actor after the press is the one the form binds. In test C a 2nd actor (C17E3) captured during
+                       // the 400 ms delay replaced the first (16127) and its 9 s life dragged the player. Remember the armed actor.
+                       pendCap = freshOk ? cap : 0; pendCapT = capT; pendSpawn = spawnBegin;
                        { const int fs = g_styleFree.load(), sn = FbStyleNow(); g_fbPressArm.store(fs >= 0 ? fs : sn);  // human #58330
                          Log("FormStyle press: free %d A95C %d -> %d", fs, sn, g_fbPressArm.load()); }
                        if (padLeft) CoverStartSmoke(player, now);  // human #58146: smoke first, the player vanishes inside it
@@ -3805,6 +3879,14 @@ void FormHide4Tick(uint64_t player) {
                    if (pendAt <= 0) return false;
                    if (pendPlayer != player || now - pendAt > 2.5) { pendAt = 0; return false; }
                    if (now < pendAt) return false;
+                   if (pendCap && (pendCap != cap || pendCapT != capT) && FormHideSealPresent(g_fhEnd.actorGlobal, pendCap) != 0) {
+                       Log("FormHide=4 begin keeps the first fresh seal %llX (armed %.2f s ago); later actor %llX is not adopted t=%.3f",
+                           (unsigned long long)pendCap, now - pendTrig, (unsigned long long)cap, now);
+                       if (fresh && !spawnBegin) { attempted = cap; attemptedT = capT; }  // the later capture never begins its own form
+                       if (const uint64_t sc = g_fkSealChr.load(); sc && sc != pendCap) { spawnUsed = sc; spawnUsedT = g_fkSealT; }
+                       cap = pendCap; capT = pendCapT; spawnBegin = pendSpawn; freshOk = true; keepArmed = true;
+                   }
+                   pendCap = 0;
                    edge = pendEdge && !(freshOk && g_fhDelayMs.load() > 0);  // a capture that came in during the delay is adopted as a capture begin
                    pendAt = 0;
                    return edge || freshOk;
@@ -3813,9 +3895,13 @@ void FormHide4Tick(uint64_t player) {
             // human #58208: started = the trigger, not the delayed begin: the DOWN seal's spawn hit lands inside the delay and was missed
             g_fh4.owner = player; g_fh4.started = pendTrig > 0 && pendTrig <= now ? pendTrig : now; g_fh4Fault.store(false);
             g_formUseTick.store(GetTickCount());  // human #60993: Training's infinite soul core keys off any form start
+            // #66107: the x8 RunThrow window belongs to this accept only up to the hide. Test C: after a no-seal press hide ended at 0.58 s the
+            // window (1.2 s) came back -> a 2nd 'rate 1.000 -> 8.000' on the idle player. Close it here so no end can re-open it.
+            if (g_rtT0.exchange(-100) > -50) Log("RunThrow: closed at the form/hide begin - normal speed after it t=%.3f", now);
             FormBlockSet(true);
             if (!edge) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
+                if (keepArmed && !spawnBegin) g_fh4.keepSeal = true;
                 if (spawnBegin) { g_fh4.fromSpawn = true; spawnUsed = cap; spawnUsedT = capT; Log("FormHide=4 begin from the seal spawn hit (no FormSlot0 capture) seal=%llX desc=%X t=%.3f", (unsigned long long)cap, g_fkSealDesc.load(), now); }
                 FormHideEndBegin(player, cap); FormHideEndReason(player, cap, now);
             }
@@ -4349,7 +4435,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
 int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
