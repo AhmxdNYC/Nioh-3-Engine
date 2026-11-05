@@ -1721,7 +1721,7 @@ static void TrainTick(void) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
     }
     uint64_t c = 0, m = 0;
-    const int ph = PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
+    const int ph = !g_ph_native_death_actor && PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
     if (ph == PH_REFILL) PlayerRefill(c, m);  // user #14267 Infinite health ON: never lose HP
     else if (ph == PH_BEATEN) {
         if (!g_tr.beaten) FightFinish(FL_LOSS);
