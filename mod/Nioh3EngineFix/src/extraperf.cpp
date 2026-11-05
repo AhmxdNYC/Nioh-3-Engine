@@ -63,10 +63,12 @@ const int kPresetLv[kNumPresets][kNumOpts] = {
     // #66661 Risky (max speed, the picture may change): every option at its strongest level - fog off, GI x0.25, LOD x3, terrain
     // x0.2, particles x0.25, AO off, blur / DOF / bloom off. With Preset = 3 in the ini, [ExtraPerf] XHALF defaults to 2 (skipfx.cpp:
     // GI gathers, volumetric clouds and fog scatter computed every 2nd frame; needs a restart, it installs at start).
-    {3, 3, 4, 3, 2, 3, 3, 3, 1, 2, 0, 0},
+    // #67915: XFOG 2 (48x16 cells) instead of 3 (fog off): fog off zeroes the froxel scatter the sky / atmosphere is lit through,
+    // which drew the sky brown (human #67829 / #67854). The sky-light step is never skipped in any preset.
+    {3, 2, 4, 3, 2, 3, 3, 3, 1, 2, 0, 0},
     // #67206 Extreme (human #67200: >= +20 %): Risky + XRES 3 = the internal render size x0.7 through the engine's own
     // dynamic-resolution viewport path (Ally REN_RAT 50 -> 35 %; model ~ -4.4 ms of 28.7, notesig-wins-gx-27597.md).
-    {3, 3, 4, 3, 2, 3, 3, 3, 1, 2, 0, 0},
+    {3, 2, 4, 3, 2, 3, 3, 3, 1, 2, 0, 0},  // #67915: XFOG 2, see Risky
     // #67772 Extreme HQ (human #67772: Extreme's gain at a near-1:1 picture): native render size, geometry / textures / UI / post
     // untouched; only the low-frequency passes run cheaper, each through the engine's own reduced-resolution path and upsample:
     // GI + reflection probe gathers x0.35 (sub-resolution gather + the engine's bilateral GI composite; PC look = noise, +3.6 %),

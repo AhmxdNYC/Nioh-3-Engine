@@ -463,9 +463,12 @@ int HalfLevel(const wchar_t* ini) {
 }
 
 int HalfMask(const wchar_t* ini, int level) {
+    // #67915: clouds (4) and fog scatter (8) are never half-run any more. They are the sky / atmosphere light: reusing an old
+    // or ping-pong-swapped result drew the sky brown and strobed (pc 13587 luma 118 / 44). Only the GI + reflection gathers
+    // (bits 1 / 2, stale-but-valid) stay half-rate, at every level and for any XHALF_Mask in the ini.
     const int m = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Mask", -1, ini);
-    if (m >= 0) return m & 15;
-    return level >= 2 ? 15 : level == 1 ? 3 : 0;
+    if (m >= 0) return m & 3;
+    return level >= 1 ? 3 : 0;
 }
 
 }  // namespace

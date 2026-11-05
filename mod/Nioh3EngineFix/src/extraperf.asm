@@ -84,17 +84,44 @@ caveFxDraw PROC
 caveFxDraw ENDP
 
 ; #67206 XRES: XRS1-4 `call RenderDimsGet 5AC428` (rcx = out {u32 w, u32 h}, returns rax = out). Calls the original, then
-; ExtraPerfResC(out) scales w / h by ep_resMul (1.0 = untouched). rbx is saved; rax = out on return like the original.
+; ExtraPerfResC(out) scales w / h by ep_resMul (1.0 = untouched).
 caveRenderDims PROC
-    push    rbx                         ; entry 8 mod 16 -> 0 mod 16
-    sub     rsp, 20h
+    ; #67915: the game keeps live values in volatile registers across this call (FsrConfigApply 2998D48 keeps its config
+    ; pointer in r10 and writes [r10+20B8] right after; RenderDimsGet itself only touches rax/rcx/rdx/r8/r9). ExtraPerfResC
+    ; is C code and clobbers r10/r11/xmm, which crashed Preset 4 at boot (write to 0x20F8 = r10 0x40 + 20B8). So every
+    ; volatile register except rax is saved around the whole cave; rax = out on return like the original.
+    push    rcx
+    push    rdx
+    push    r8
+    push    r9
+    push    r10
+    push    r11                         ; entry 8 mod 16 - 48 -> 8 mod 16
+    sub     rsp, 98h                    ; -> 0 mod 16: 20h shadow + 6 xmm (60h) + rax slot (80h) + pad
+    movups  xmmword ptr [rsp+20h], xmm0
+    movups  xmmword ptr [rsp+30h], xmm1
+    movups  xmmword ptr [rsp+40h], xmm2
+    movups  xmmword ptr [rsp+50h], xmm3
+    movups  xmmword ptr [rsp+60h], xmm4
+    movups  xmmword ptr [rsp+70h], xmm5
+    mov     rcx, qword ptr [rsp+98h+28h] ; the caller's rcx (out), untouched so far - reload for clarity
     call    qword ptr [ep_resOrig]
-    mov     rbx, rax
+    mov     qword ptr [rsp+80h], rax
     mov     rcx, rax
     call    ExtraPerfResC
-    mov     rax, rbx
-    add     rsp, 20h
-    pop     rbx
+    movups  xmm0, xmmword ptr [rsp+20h]
+    movups  xmm1, xmmword ptr [rsp+30h]
+    movups  xmm2, xmmword ptr [rsp+40h]
+    movups  xmm3, xmmword ptr [rsp+50h]
+    movups  xmm4, xmmword ptr [rsp+60h]
+    movups  xmm5, xmmword ptr [rsp+70h]
+    mov     rax, qword ptr [rsp+80h]
+    add     rsp, 98h
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rdx
+    pop     rcx
     ret
 caveRenderDims ENDP
 
