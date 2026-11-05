@@ -63,6 +63,8 @@ SPEC = [
     ("Mission::GetGameClearRewardNormal", "BOSSLOG", H, 0x23A444C, 9),
     ("Mission::GetGameClearRewardHard", "BOSSLOG", H, 0x23A43EC, 9),
     ("GameClearRewardGrant", "BOSSLOG", H, 0x2280FA0, 7),
+    # UNBEATEN (#256: skip the clear of a Boss Match into a mission this save has not cleared)
+    ("Mission::SetMissionClearFlag", "UNBEATEN", H, 0x23A582C, 9),
     # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
     ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
     ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),
