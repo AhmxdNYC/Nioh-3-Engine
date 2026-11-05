@@ -84,3 +84,10 @@ Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhi
 - 2026-11-05 2:01 pm EST | cx-pc/0 #69802 / #69771: shared player HP entry guard built; 15 offline harnesses pass, actual hook/trampoline tested. Removed ineffective boss death guard; repeat gap fix retained. Live caller and game survival unproven. Next: pc2 grab/OFF/boss-kill retest; branch cx-pc/yoritomo-v2, notes/yoritomo-v2-69771.md, TR 11e796c0.
 - 2026-11-05 2:02 pm EST | cx-pc/0 #69802 DONE offline: source 9e1a0e72 pushed on cx-pc/yoritomo-v2; TR 11e796c0 bridge #5200, notes #5201 (notes/yoritomo-v2-69771.md). Build exit0 +15 harnesses PASS. Next lead pc2 retest #69771: confirm INFHP ENTRY then grab survival, OFF and real boss kill; game survival unproven, no install/game access.
 - 2026-11-05 5:19 pm EST | cx-pc/1 #70761 | Base integrations on cx-pc/rc-187 complete through 7bef9599; repeat61d07b05 already contained. Only three handoff conflicts, both histories kept. Next isolate native3647a5a9 (also ancestor190a33b3 clear protection), then four ASI builds and offline tests; no game/version/publish.
+2026-11-04 6:15 PM EST | #66364 existing released timeline extended with boss IDs and complete-row formatting; 4 recorded fights replayed correctly (2 wins/2 quits).
+Production state tests cover loss/Practice/retry/ring rollover/tiny buffers; new live test unproven. Next build Training, BossRematch, EngineFix and bridge artifacts. notes/fight-timeline-66364.md.
+
+- 2026-11-05 3:01 am EST cx-pc | #68543 fight timeline rebased on 1.8.6: cx-pc/fight-timeline-186 source 930a5127. Shrine guard + crash last[] preserved, builds EF/BR/TR exit0, unit/replay pass.
+- Artifacts EF #5059 138c9232, BR #5060 0219c009, TR #5061 a66e7f6d; no install/game. Next: lead integration/validation, notes/fight-timeline-66364.md.
+
+- 2026-11-05 6:04 pm EST | cx-pc/0 #70987/#70960 required parent: timeline eb97e527 merged with save protection190a33b3 and short VRS label; native3647a5a9 and sidebugs43603969 excluded. Only handoff conflicts; production auto-merged. Next optional native merge last, four builds/offline suites; cx-pc/rc-187-timeline.

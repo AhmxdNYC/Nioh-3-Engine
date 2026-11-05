@@ -60,7 +60,9 @@ void MaybeStart(const char* placementName) {
     const char* n = rematch::FightLogName();
     if (!n || !n[0]) n = placementName;
     if (!n || !n[0]) n = "boss";
-    mark(rematch::FightLogMode(), 1, n);
+    auto markEx = (void (*)(int, int, const char*, const char*))GetProcAddress(tr, "Nioh3Training_FightMarkEx");
+    if (markEx) markEx(rematch::FightLogMode(), 1, n, rematch::FightLogId());
+    else mark(rematch::FightLogMode(), 1, n);
     g_clearWin.store(0);
     g_logOwn.store(1);
 }

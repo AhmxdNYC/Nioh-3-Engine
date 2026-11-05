@@ -382,10 +382,10 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         TrainingState(tr, sizeof(tr));
         o.P("\r\n-- Training session / summoned bosses --\r\n");
         o.W(tr, strlen(tr));
-        char fights[4096];
+        char fights[8192];
         const int fr = ReadFightLog(fights, (int)sizeof fights);
         if (fr == 2 || fr == -1) {  // missing export (fr == 1) or no Training: skip the section
-            o.P("\r\n-- Fights --\r\n");
+            o.P("\r\n-- Fights (last 20 this session; local clock time) --\r\n");
             if (fr < 0) o.P("  (fight list read faulted)\r\n");
             else if (fights[0]) o.W(fights, strlen(fights));
             else o.P("  (no fights this session)\r\n");
