@@ -7,6 +7,7 @@ struct VrsSignature {
     vrsselect::Meta meta; volatile LONG64 coarse=0, fine=0; volatile LONG reasons=0;
 };
 VrsSignature g_vrsSig[256]; unsigned g_vrsSigN=0; SRWLOCK g_vrsSigLock=SRWLOCK_INIT;
+volatile LONG64 g_vrsObserved=0, g_vrsTagged=0;
 int VrsSignatureIndex(const vrsselect::Meta& m) {
     AcquireSRWLockExclusive(&g_vrsSigLock);
     int found=-1;
@@ -17,12 +18,16 @@ int VrsSignatureIndex(const vrsselect::Meta& m) {
 }
 void VrsReportSignatures() {
     if (!VrsSelectiveTracking()) return;
+    const LONG64 total=InterlockedCompareExchange64(&g_vrsObserved,0,0);
+    const LONG64 tagged=InterlockedCompareExchange64(&g_vrsTagged,0,0);
+    LOG("VRS coverage mode=%d motion1x1=%d tagged_calls=%lld total_calls=%lld (cumulative draw API calls, not expanded indirect draws)",g_vrsMode,g_vrsMotionGuard,tagged,total);
     AcquireSRWLockShared(&g_vrsSigLock);
     for (unsigned i=0;i<g_vrsSigN;++i) {
         const auto& q=g_vrsSig[i]; if (!q.coarse && !q.fine) continue;
         const auto& m=q.meta;
-        LOG("VRS signature n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u tagged2x2=%lld fine1x1=%lld rejectOR=0x%lX",
-            m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],q.coarse,q.fine,q.reasons);
+        const LONG64 coarse=InterlockedCompareExchange64(&g_vrsSig[i].coarse,0,0), fine=InterlockedCompareExchange64(&g_vrsSig[i].fine,0,0);
+        LOG("VRS signature n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u tagged2x2=%lld total=%lld fine1x1=%lld rejectOR=0x%lX",
+            m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],coarse,coarse+fine,fine,q.reasons);
     }
     ReleaseSRWLockShared(&g_vrsSigLock);
 }
@@ -82,6 +87,7 @@ void VrsTrack(void* self, int set, int slot, uintptr_t a1) {
 void VrsApply(void* self, int set, bool reset, bool indirect = false) {
     if (!g_vrsMode || t_vrsBusy) return;
     t_vrsBusy = true;
+    if (VrsSelectiveTracking() && !reset) InterlockedIncrement64(&g_vrsObserved);
     auto& e = VrsCaps(self, set, reset);
     if (e.supported) {
         const D3D12_SHADING_RATE_COMBINER pass[2] = {
@@ -104,6 +110,7 @@ void VrsApply(void* self, int set, bool reset, bool indirect = false) {
             }
         }
         reinterpret_cast<RateFn>((set ? gpuopt_orig1 : gpuopt_orig0)[77])(self, rate, pass);
+        if (VrsSelectiveTracking() && !reset && rate!=D3D12_SHADING_RATE_1X1) InterlockedIncrement64(&g_vrsTagged);
         if (reset || rate != D3D12_SHADING_RATE_1X1) InterlockedIncrement64(reset ? &g_vrsLists : indirect ? &g_vrsIndirect : &g_vrsDraws);
     } else InterlockedIncrement64(&g_vrsMiss);
     t_vrsBusy = false;

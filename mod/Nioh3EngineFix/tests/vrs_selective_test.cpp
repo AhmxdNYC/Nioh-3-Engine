@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "../src/vrs_selective.h"
+#include "../src/vrs_dxc.h"
 #define CHECK(x) do { if(!(x)) { printf("FAIL line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 bool CompileAndCheckShader(const char* source) {
     ID3DBlob *b=nullptr,*e=nullptr,*t=nullptr;
@@ -14,6 +15,18 @@ bool CompileAndCheckShader(const char* source) {
     if (FAILED(hr)||!t) abort();
     bool safe=vrsselect::PixelTextSafe((const char*)t->GetBufferPointer()); t->Release(); return safe;
 }
+bool CompileDxil(vrsdxc::Compiler* c,const char* source) {
+    vrsdxc::Buffer input{source,strlen(source),65001};
+    const wchar_t* args[]={L"-E",L"main",L"-T",L"ps_6_0",L"-O3",L"-Vd"};
+    vrsdxc::Result* r=nullptr;
+    HRESULT hr=c->Compile(&input,args,(UINT)(sizeof args/sizeof args[0]),nullptr,vrsdxc::resultIid,reinterpret_cast<void**>(&r));
+    if (FAILED(hr) || !r) abort();
+    HRESULT status=E_FAIL; ID3DBlob* b=nullptr;
+    r->Status(&status); if (FAILED(status) || FAILED(r->Output(&b)) || !b) abort();
+    std::string text; bool ok=vrsdxc::Text(c,b->GetBufferPointer(),b->GetBufferSize(),text);
+    b->Release(); r->Release(); if (!ok) abort();
+    return vrsselect::PixelDxilTextSafe(text.c_str());
+}
 int main() {
     using namespace vrsselect;
     CHECK(CompileAndCheckShader("float4 main(float4 p:SV_Position):SV_Target {return p*0.01;}"));
@@ -21,6 +34,19 @@ int main() {
     CHECK(!CompileAndCheckShader("float main(float4 p:SV_Position):SV_Depth {return p.z;}"));
     CHECK(!PixelTextSafe(nullptr)); CHECK(!PixelTextSafe("ps_6_0"));
     CHECK(!PixelTextSafe("ps_5_0\ndcl_uav_typed u0"));
+    wchar_t dll[32768];
+    if (GetEnvironmentVariableW(L"N3_VRS_TEST_DXC",dll,32768)) {
+        HMODULE module=vrsdxc::Load(dll); auto* c=vrsdxc::New(module); CHECK(c);
+        CHECK(CompileDxil(c,"float4 main(float4 p:SV_Position):SV_Target {return p*0.01;}"));
+        CHECK(!CompileDxil(c,"float4 main(float4 p:SV_Position):SV_Target {clip(p.x-1);return p;}"));
+        CHECK(!CompileDxil(c,"float main(float4 p:SV_Position):SV_Depth {return p.z;}"));
+        CHECK(!CompileDxil(c,"float4 main(float4 p:SV_Position,uint s:SV_SampleIndex):SV_Target {return p+s;}"));
+        CHECK(!CompileDxil(c,"RWBuffer<uint> u:register(u0); float4 main(float4 p:SV_Position):SV_Target {u[0]=(uint)p.x;return p;}"));
+        std::string junk; CHECK(!vrsdxc::Text(c,"bad",3,junk));
+        c->Release(); FreeLibrary(module);
+        puts("DXIL: actual DXC compile/disassemble opaque PASS; discard/depth/sample/UAV and invalid blob rejected");
+    } else puts("SKIP DXIL compiler integration: set N3_VRS_TEST_DXC to dxcompiler.dll");
+    CHECK(!PixelDxilTextSafe(nullptr)); CHECK(!PixelDxilTextSafe(""));
     D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
     d.NumRenderTargets=7; d.PS={(void*)1,1}; d.SampleDesc.Count=1;
     d.DSVFormat=DXGI_FORMAT_D32_FLOAT_S8X24_UINT; d.DepthStencilState.DepthEnable=TRUE;
@@ -45,6 +71,24 @@ int main() {
     d.DepthStencilState.DepthEnable=TRUE; d.NumRenderTargets=1; CHECK(Describe(d,true).reject&NonGBuffer);
     d.NumRenderTargets=0; CHECK(Describe(d,true).reject&DepthOnly);
     CHECK(Meta{}.reject==Unknown);
+    d={}; d.NumRenderTargets=8; d.PS={(void*)1,1}; d.SampleDesc.Count=1;
+    d.DSVFormat=DXGI_FORMAT_D32_FLOAT_S8X24_UINT; d.DepthStencilState.DepthEnable=TRUE;
+    d.RasterizerState.CullMode=D3D12_CULL_MODE_BACK;
+    const unsigned captured[8]={91,11,87,87,26,26,87,34};
+    for (unsigned i=0;i<8;++i) d.RTVFormats[i]=(DXGI_FORMAT)captured[i];
+    CHECK(CapturedGBuffer8(d)); m=Describe(d,true);
+    CHECK(m.reject==0 && m.motion && RejectDraw(m,true,8,false)==0);
+    CHECK(RejectDraw(m,true,8,true)==Motion);
+    CHECK(RejectDraw(m,true,7,false)==Binding);
+    CHECK(Describe(d,false).reject==Shader); // shape NEVER bypasses shader safety
+    for (unsigned i=0;i<8;++i) { auto copy=d; copy.RTVFormats[i]=DXGI_FORMAT_R8_UNORM;
+        CHECK(!CapturedGBuffer8(copy) && (Describe(copy,true).reject&NonGBuffer)); }
+    d.BlendState.IndependentBlendEnable=TRUE;
+    for (unsigned i=0;i<8;++i) { auto copy=d; copy.BlendState.RenderTarget[i].BlendEnable=TRUE; CHECK(Describe(copy,true).reject&Blend); }
+    auto copy=d; copy.DepthStencilState.DepthEnable=FALSE; CHECK(Describe(copy,true).reject&NonGBuffer);
+    copy=d; copy.RasterizerState.CullMode=D3D12_CULL_MODE_NONE; CHECK(Describe(copy,true).reject&NonGBuffer);
+    copy=d; copy.NumRenderTargets=1; CHECK(Describe(copy,true).reject&NonGBuffer);
+    puts("Captured 8RT admission PASS; every changed format, blended target, unknown shader and motion guard rejected");
     puts("VRS selective: real compiled alpha-discard/depth shaders excluded; RT/blend/motion/history-shape/unknown gates PASS");
 }
 

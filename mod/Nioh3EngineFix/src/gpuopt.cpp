@@ -943,8 +943,8 @@ void Start(const StartInfo& info) {
     g_shaderHot = info.shaderHot;
     g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
     if (g_vrsMode < 0 || g_vrsMode > 3) g_vrsMode = 0;
-    g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", g_vrsMode==3 ? 1 : 0, g_iniPath.c_str()) != 0;
-    LOG("VRS selective=%d GBufferMotion1x1=%d (unknown/HDR/cutout/blend/depth/UI/history candidates remain 1x1)",g_vrsMode==3,g_vrsMotionGuard);
+    g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, g_iniPath.c_str()) != 0;
+    LOG("VRS selective=%d GBufferMotion1x1=%d (exact 8RT or normalized 7RT; unknown/cutout/blend/depth/UI/post remain 1x1; guard1 excludes entire motion MRT draw)",g_vrsMode==3,g_vrsMotionGuard);
     if (VrsSelectiveTracking()) for (int i : {2,9,11,25,46,68,69,75}) gpuopt_vrs[i]=1;
     LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective2x2)", g_vrsMode);
     if (g_vrsMode) {

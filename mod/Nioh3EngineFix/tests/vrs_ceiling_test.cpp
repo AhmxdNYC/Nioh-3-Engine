@@ -66,6 +66,23 @@ int main() {
     VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
     VrsTrack(cl,0,11,0); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
     VrsTrack(cl,0,9,0); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
+    d.NumRenderTargets=8; d.PS={(void*)1,1}; d.SampleDesc.Count=1;
+    d.DSVFormat=DXGI_FORMAT_D32_FLOAT_S8X24_UINT; d.DepthStencilState.DepthEnable=TRUE;
+    d.RasterizerState.CullMode=D3D12_CULL_MODE_BACK;
+    const unsigned rt[8]={91,11,87,87,26,26,87,34};
+    for(unsigned i=0;i<8;++i) d.RTVFormats[i]=(DXGI_FORMAT)rt[i];
+    testMeta=vrsselect::Describe(d,true);
+    VrsReset<0>(cl,nullptr,(ID3D12PipelineState*)&pso); VrsTrack(cl,0,46,8);
+    LONG64 tagged=g_vrsTagged, total=g_vrsObserved;
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    CHECK(g_vrsTagged==tagged+1 && g_vrsObserved==total+1);
+    g_vrsMotionGuard=true; VrsApply(cl,0,false);
+    CHECK(lastRate==D3D12_SHADING_RATE_1X1 && g_vrsTagged==tagged+1 && g_vrsObserved==total+2);
+    g_vrsMotionGuard=false; testMeta.reject=vrsselect::Blend; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    CHECK(g_vrsObserved==total+3 && g_vrsTagged==tagged+1);
+    VrsReportSignatures();
     puts("VRS selective state: coarse -> excluded fine, OM unknown, motion guard, bundles, ClearState, Close PASS");
     puts("VRS ceiling: capability fallback, off, failed reset HRESULT, interface gate, counters PASS");
 }

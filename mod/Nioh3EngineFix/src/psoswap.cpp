@@ -27,6 +27,7 @@
 
 #include "psoswap.h"
 #include "vrs_selective.h"
+#include "vrs_dxc.h"
 #include <d3dcompiler.h>
 
 namespace psoswap {
@@ -917,23 +918,26 @@ void HotTwinLib(ID3D12PipelineLibrary* lib, const DescT* d, void** pp, const GUI
 }
 
 bool g_vrsCapture = false;
-// Only creation-time work. Unknown streams/DXIL remain fine-shaded until reviewed.
+// Only creation-time work, cached by digest. Unsupported streams remain fine.
 bool VrsPixelSafe(const D3D12_SHADER_BYTECODE& ps) {
     using Disasm = HRESULT(WINAPI*)(LPCVOID, SIZE_T, UINT, LPCSTR, ID3DBlob**);
     static const Disasm disasm = []() -> Disasm {
         HMODULE m=LoadLibraryExW(L"d3dcompiler_47.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
         return m ? reinterpret_cast<Disasm>(GetProcAddress(m,"D3DDisassemble")) : nullptr;
     }();
-    if (!disasm || !ps.pShaderBytecode || !ps.BytecodeLength || ps.BytecodeLength > (16u<<20)) return false;
+    if (!ps.pShaderBytecode || !ps.BytecodeLength || ps.BytecodeLength > (16u<<20)) return false;
     // Cache by the validated shader container digest, using the existing key parser.
-    BlobInfo bi{}; if (!SafeReadBlob(ps.pShaderBytecode, ps.BytecodeLength, &bi) || bi.dxil) return false;
+    BlobInfo bi{}; if (!SafeReadBlob(ps.pShaderBytecode, ps.BytecodeLength, &bi)) return false;
     static SRWLOCK lock=SRWLOCK_INIT;
     static std::unordered_map<Key,bool,KeyHash> cache;
     AcquireSRWLockShared(&lock); auto it=cache.find(bi.key);
     if (it!=cache.end()) { bool ok=it->second; ReleaseSRWLockShared(&lock); return ok; }
     ReleaseSRWLockShared(&lock);
     ID3DBlob* text=nullptr; bool ok=false;
-    if (SUCCEEDED(disasm(ps.pShaderBytecode, ps.BytecodeLength, 0, nullptr, &text)) && text) {
+    if (bi.dxil) {
+        std::string dxil;
+        ok=vrsdxc::Text(ps.pShaderBytecode,ps.BytecodeLength,dxil) && vrsselect::PixelDxilTextSafe(dxil.c_str());
+    } else if (disasm && SUCCEEDED(disasm(ps.pShaderBytecode, ps.BytecodeLength, 0, nullptr, &text)) && text) {
         ok=vrsselect::PixelTextSafe(static_cast<const char*>(text->GetBufferPointer())); text->Release();
     }
     AcquireSRWLockExclusive(&lock); cache.emplace(bi.key,ok); ReleaseSRWLockExclusive(&lock);
@@ -943,7 +947,11 @@ void VrsObserve(HRESULT hr, void** pp, const D3D12_GRAPHICS_PIPELINE_STATE_DESC*
     if (!g_vrsCapture || FAILED(hr) || !pp || !*pp) return;
     vrsselect::Meta m;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC copy{};
-    if (d && SafeCopy(&copy,d,sizeof copy)) m=vrsselect::Describe(copy, VrsPixelSafe(copy.PS));
+    if (d && SafeCopy(&copy,d,sizeof copy)) {
+        m=vrsselect::Describe(copy,false);
+        // Don't disassemble excluded post/UI/blend pipelines merely for VRS.
+        if (!(m.reject & ~vrsselect::Shader) && VrsPixelSafe(copy.PS)) m.reject &= ~vrsselect::Shader;
+    }
     // If shader replacement is active the original description is not authoritative.
     if (g_cfg.enabled || g_cfg.hot) m.reject |= vrsselect::Unknown;
     static_cast<ID3D12PipelineState*>(*pp)->SetPrivateData(vrsselect::kMeta,sizeof m,&m);
