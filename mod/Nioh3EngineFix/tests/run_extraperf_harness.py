@@ -100,23 +100,24 @@ dm = (src / "dllmain.cpp").read_text(encoding="utf-8")
 for s in ('extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO', '"GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")',
           "extraperf::Configure(ep)", "extraperf::SetGiInstalled", "extraperf::SetLodInstalled", "extraperf::SetFxInstalled",
           "extraperf::SetRcoInstalled", "extraperf::StatusLine", "gen::Target::caveFxDraw: return",
-          "kLastTarget = (int)gen::Target::caveRDWake"):
+          "kLastTarget = (int)gen::Target::caveRDWake", "extraperf::SetRdDraw"):
     check(s in dm, "dllmain.cpp lacks: " + s)
 check("extraperf::ApplyS(S)" in (src / "samelook.cpp").read_text(encoding="utf-8"), "samelook RcoApplyC does not call ApplyS")
 mc = (src / "menu.cpp").read_text(encoding="utf-8")
 for s in ('"(XPRE)"', '"(XCLD)"', '"(XFOG)"', '"(XGI)"', '"(XSHD)"', '"(XSHF)"', '"(XLOD)"', '"(XTER)"', '"(XPRT)"', '"(XAO)"', '"(XPOST)"',
           "kEp9 - kEp0 + 1 == extraperf::kNumOpts", 'add(L"ExtraPerf", k,', "extraperf::SetLevel(id - kEp0, q.value)",
-          '"Extra performance (changes the look)"'):
+          '"Extra performance (changes the look)"', '"(RenderDistance)"'):
     check(s in mc, "menu.cpp lacks: " + s)
 bb = (ROOT / "build.bat").read_text(encoding="utf-8")
 check("src\\extraperf.cpp" in bb and "src\\extraperf.asm" in bb and "build\\extraperf_caves.obj" in bb, "build.bat")
 check("src/extraperf.cpp src/extraperf.asm" in (ROOT / "CMakeLists.txt").read_text(encoding="utf-8"), "CMakeLists.txt")
 ini = (ROOT / "Nioh3EngineFix.ini").read_text(encoding="utf-8", errors="replace")
 for k in ("[ExtraPerf]", "Enabled = 1", "Preset = 0", "XCLD = 0", "XFOG = 0", "XGI = 0", "XSHD = 0", "XSHF = 0", "XLOD = 0",
-          "XTER = 0", "XPRT = 0", "XAO = 0", "XPOST = 0"):
+          "XTER = 0", "XPRT = 0", "XAO = 0", "XPOST = 0", "RenderDistance = 1.00"):
     check(k in ini, "ini lacks " + k)
 lk = (REPO / "tools" / "testmatrix" / "live_keys.py").read_text(encoding="utf-8")
 check('"XCLD": "ExtraPerf.XCLD"' in lk and '"XPRE": "ExtraPerf.Preset"' in lk, "live_keys.py does not list the Extra performance rows as live")
+check('"RENDERDISTANCE": "ExtraPerf.RenderDistance"' in lk, "live_keys.py does not list RenderDistance")
 
 print("\n".join("FAIL: " + f for f in fails) if fails else "ALL PASSED")
 sys.exit(1 if fails else 0)

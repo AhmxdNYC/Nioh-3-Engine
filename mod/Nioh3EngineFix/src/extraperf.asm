@@ -24,7 +24,14 @@ EXTERN ep_giMin:DWORD
 EXTERN ep_fxMul:DWORD
 EXTERN ep_giLastIn:DWORD
 EXTERN ep_giLastOut:DWORD
+EXTERN ep_drawOrig:QWORD
+EXTERN ep_placeOrig:QWORD
+EXTERN ep_rdMul:DWORD
+EXTERN ep_charFall:QWORD
+EXTERN ep_charTake:QWORD
+EXTERN ExtraPerfPropC:PROC
 PUBLIC caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims
+PUBLIC caveDrawLimit, cavePlaceDist, caveCharLod, cavePropDist
 
 .code
 caveGiScale PROC
@@ -90,5 +97,45 @@ caveRenderDims PROC
     pop     rbx
     ret
 caveRenderDims ENDP
+
+; #67225 RenderDistance. Both call caves return the original xmm0 multiplied by ep_rdMul (1.0 = stock).
+; Callers of GetDrawDistanceLimit / GetPlaceableDrawDistance consume xmm0 as a distance and keep nothing else.
+caveDrawLimit PROC
+    sub     rsp, 28h
+    call    qword ptr [ep_drawOrig]
+    mulss   xmm0, dword ptr [ep_rdMul]
+    add     rsp, 28h
+    ret
+caveDrawLimit ENDP
+
+cavePlaceDist PROC
+    sub     rsp, 28h
+    call    qword ptr [ep_placeOrig]
+    mulss   xmm0, dword ptr [ep_rdMul]
+    add     rsp, 28h
+    ret
+cavePlaceDist ENDP
+
+; Replaces `comiss xmm6, xmm8; ja rel8` (6 bytes). xmm8 is the character draw-distance limit; xmm6 is the camera
+; distance. Scale the limit, then take the original branch. Continuations are absolute so another build's rel8 still
+; lands on the right instruction. jmp does not clobber the comiss flags.
+caveCharLod PROC
+    mulss   xmm8, dword ptr [ep_rdMul]
+    comiss  xmm6, xmm8
+    ja      rdCharTake
+    jmp     qword ptr [ep_charFall]
+rdCharTake:
+    jmp     qword ptr [ep_charTake]
+caveCharLod ENDP
+
+; Replaces the property-record memcpy inside PropTableReadParamsBatch16. rcx/rdx/r8 are the memcpy args; [rsi] is the
+; property hash (the site's cmp [rsi], eax). ExtraPerfPropC copies, then scales the destination for the distance keys.
+cavePropDist PROC
+    sub     rsp, 28h
+    mov     r9d, dword ptr [rsi]
+    call    ExtraPerfPropC
+    add     rsp, 28h
+    ret
+cavePropDist ENDP
 
 END

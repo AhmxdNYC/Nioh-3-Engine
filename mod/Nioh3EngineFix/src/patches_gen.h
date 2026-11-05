@@ -5,7 +5,7 @@
 namespace gen {
 
 enum class Kind : uint8_t { Bytes, Call, RipLoad, Jmp, VPtr, Check };  // Check: verified, never written
-enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco, caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims, caveMW, caveMWWake, caveRDWait, caveRDWake };
+enum class Target : uint8_t { none, caveFps, caveScale, caveLim, caveTier, caveMenu, hookPeek, caveL1, fgWait, caveWakeGate, caveGallop, cavePP, caveFPC, caveAabb, caveM1, caveX1, caveE1A, caveE1B, caveW6, caveW6Wake, caveIkKick, caveIkPadWait, caveTsL, caveTsW, caveTsB, caveTsP, caveWs0, caveWs1, caveWs2, caveWs3, caveWs4, caveWs5, caveWsSleep, caveEdKick, caveEdJoin, caveGf1, caveGf2, caveWL, caveDs, caveCP, caveSPF, caveSprG, caveSprU, caveDL, caveMQ, capPt1Acq, capPt1Rel, cavePt1B, cavePt1C, cavePt1D, caveGl1A, caveGl1B, caveLdWait, caveLdSig, caveBpoQA, caveBpoQB, caveBpoL1, caveBpoL2, caveBpoV, caveJtJob, caveJtWait, caveJtWake1, caveJtWakeAll, caveFgcSrc, caveFgcDst, caveFgp, caveSiW, caveSiS, caveMpcsA, caveMpcsB, caveMpcsC, caveVsmaEntry, caveVsmaBudget, caveVsmaBind, caveRco, caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims, caveMW, caveMWWake, caveRDWait, caveDrawLimit, cavePlaceDist, caveCharLod, cavePropDist, caveRDWake };
 enum class Data : uint8_t { none, ticks120, ticks60, r1Timeout };
 enum class Reads : uint8_t { None, IatDisp32At2, CalleeRel32At1, CalleeRel32At6 };
 
@@ -374,6 +374,23 @@ static const uint8_t orig_RDR[] = { 0xE8, 0x28, 0x00, 0x00, 0x00 };
 static const uint8_t orig_RDW[] = { 0xF0, 0xFF, 0x4B, 0x30, 0xE9, 0x3D, 0xFF, 0xFF, 0xFF };
 static const uint8_t orig_M2S0[] = { 0xF0, 0x45, 0x0F, 0xB1, 0x29 };
 static const uint8_t repl_M2S0[] = { 0x41, 0x8B, 0x01, 0x66, 0x90 };
+static const uint8_t orig_RDD1[] = { 0xE8, 0xB9, 0x8D, 0x09, 0x00 };
+static const uint8_t orig_RDD2[] = { 0xE8, 0x40, 0x02, 0x00, 0x00 };
+static const uint8_t orig_RDD3[] = { 0xE8, 0x20, 0xFE, 0xFF, 0xFF };
+static const uint8_t orig_RDD4[] = { 0xE8, 0xB3, 0x5A, 0xFF, 0xFF };
+static const uint8_t orig_RDD5[] = { 0xE8, 0x9E, 0x5A, 0xFF, 0xFF };
+static const uint8_t orig_RDP1[] = { 0xE8, 0x9F, 0x12, 0x00, 0x00 };
+static const uint8_t orig_RDP2[] = { 0xE8, 0x73, 0x12, 0x00, 0x00 };
+static const uint8_t orig_RDP3[] = { 0xE8, 0x44, 0xFF, 0xFF, 0xFF };
+static const uint8_t orig_RDP4[] = { 0xE8, 0xF1, 0x90, 0xFF, 0xFF };
+static const uint8_t orig_RDP5[] = { 0xE8, 0xEE, 0x83, 0xFF, 0xFF };
+static const uint8_t orig_RDP6[] = { 0xE8, 0x09, 0x76, 0xFF, 0xFF };
+static const uint8_t orig_RDP7[] = { 0xE8, 0x59, 0x68, 0xEA, 0xFF };
+static const uint8_t orig_RDP8[] = { 0xE8, 0x0A, 0x0C, 0xBA, 0xFF };
+static const uint8_t orig_RDP9[] = { 0xE8, 0x37, 0xB5, 0x23, 0xFE };
+static const uint8_t orig_RDP10[] = { 0xE8, 0x95, 0xB4, 0x23, 0xFE };
+static const uint8_t orig_RDC1[] = { 0x41, 0x0F, 0x2F, 0xF0, 0x77, 0x1C };
+static const uint8_t orig_RDF1[] = { 0xE8, 0x04, 0x04, 0x8A, 0x00 };
 
 static const Site kSites[] = {
     { "W1", "W1", 0x61BAC, 22, orig_W1, "33 C9 41 0F B6 06 41 03 C7 03 C1 FF C1 83 24 83 00 41 3B CF 72 EC", 0, Kind::Bytes, repl_W1, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
@@ -640,6 +657,23 @@ static const Site kSites[] = {
     { "RDR", "RD", 0x418f63, 5, orig_RDR, "48 8B CB E8 28 00 00 00 88 05 32", 3, Kind::Call, nullptr, Target::caveRDWait, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "RDW", "RD", 0x1a7c4af, 9, orig_RDW, "6C A1 FE F0 FF 4B 30 E9 3D FF FF FF 48 8B 5C", 3, Kind::Jmp, nullptr, Target::caveRDWake, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "M2S0", "M2S", 0x49412, 5, orig_M2S0, "45 33 ED 44 89 28 33 C0 F0 45 0F B1 29 66 0F 1F 84 00 00 00 00 00", 8, Kind::Bytes, repl_M2S0, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RDD1", "RDD", 0xDE4B6, 5, orig_RDD1, "10 B5 C0 00 00 00 E8 ?? ?? ?? ?? 0F 2F F0 48", 6, Kind::Call, nullptr, Target::caveDrawLimit, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x177274 },
+    { "RDD2", "RDD", 0x17702F, 5, orig_RDD2, "87 D8 00 00 00 00 E8 ?? ?? ?? ?? 0F 2F F0 76", 6, Kind::Call, nullptr, Target::caveDrawLimit, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x177274 },
+    { "RDD3", "RDD", 0x17744F, 5, orig_RDD3, "88 A7 D8 00 00 00 E8 ?? ?? ?? ?? 0F 2F F0 76", 6, Kind::Call, nullptr, Target::caveDrawLimit, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x177274 },
+    { "RDD4", "RDD", 0x1817BC, 5, orig_RDD4, "D3 48 8B CF 76 15 E8 ?? ?? ?? ?? 0F 2F F0 72", 6, Kind::Call, nullptr, Target::caveDrawLimit, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x177274 },
+    { "RDD5", "RDD", 0x1817D1, 5, orig_RDD5, "00 01 32 C0 EB 0C E8 ?? ?? ?? ?? 0F 2F F0 77", 6, Kind::Call, nullptr, Target::caveDrawLimit, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x177274 },
+    { "RDP1", "RDP", 0x208C0C, 5, orig_RDP1, "88 87 B1 02 00 00 E8 ?? ?? ?? ?? 41 0F 2F C5", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP2", "RDP", 0x208C38, 5, orig_RDP2, "FF 02 00 00 48 8B CF E8 ?? ?? ?? ?? F3 0F 10 1D", 7, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP3", "RDP", 0x209F67, 5, orig_RDP3, "01 00 00 49 8B C8 E8 ?? ?? ?? ?? F3 44 0F 10", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP4", "RDP", 0x210DBA, 5, orig_RDP4, "88 A8 38 09 00 00 E8 ?? ?? ?? ?? 0F 28 D0 E8", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP5", "RDP", 0x211ABD, 5, orig_RDP5, "8B 99 C4 02 00 00 E8 ?? ?? ?? ?? 48 8D 8E 20", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP6", "RDP", 0x2128A2, 5, orig_RDP6, "65 80 44 88 60 7E E8 ?? ?? ?? ?? 41 0F 2F C4", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP7", "RDP", 0x363652, 5, orig_RDP7, "C0 75 38 49 8B CF E8 ?? ?? ?? ?? 44 0F 2F E8", 6, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP8", "RDP", 0x6692A1, 5, orig_RDP8, "D4 00 00 00 48 8B CD E8 ?? ?? ?? ?? 8A 87 BD AD", 7, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP9", "RDP", 0x1FCE974, 5, orig_RDP9, "5C 63 34 F3 0F 5C 53 38 E8 ?? ?? ?? ?? F3 0F 59 E4 0F 28 F0 F3 0F 59 DB F3 0F 59 D2 F3 0F 58 E3 F3 0F 58 E2 0F 28 C4 E8 E0", 8, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDP10", "RDP", 0x1FCEA16, 5, orig_RDP10, "5C 63 34 F3 0F 5C 53 38 E8 ?? ?? ?? ?? F3 0F 59 E4 0F 28 F0 F3 0F 59 DB F3 0F 59 D2 F3 0F 58 E3 F3 0F 58 E2 0F 28 C4 E8 3E", 8, Kind::Call, nullptr, Target::cavePlaceDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x209EB0 },
+    { "RDC1", "RDC", 0x133FAF, 6, orig_RDC1, "0F 85 0E 01 00 00 41 0F 2F F0 77 ?? F3 0F 10 8B", 6, Kind::Jmp, nullptr, Target::caveCharLod, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "RDF1", "RDF", 0x2F3E47, 5, orig_RDF1, "8B 42 04 39 06 75 EF 48 85 D2 74 11 48 8B 52 18 4D 8B C1 49 8B CA E8 ?? ?? ?? ?? FF C3 41 FF C6 48", 22, Kind::Call, nullptr, Target::cavePropDist, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xB94250 },
 };
 constexpr int kNumSites = sizeof(kSites) / sizeof(kSites[0]);
 

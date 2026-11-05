@@ -847,6 +847,10 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveFxSim: return (void*)&caveFxSim;
         case gen::Target::caveFxDraw: return (void*)&caveFxDraw;
         case gen::Target::caveRenderDims: return (void*)&caveRenderDims;  // #67206 XRES (extraperf.asm)
+        case gen::Target::caveDrawLimit: return (void*)&caveDrawLimit;  // #67225 RenderDistance
+        case gen::Target::cavePlaceDist: return (void*)&cavePlaceDist;
+        case gen::Target::caveCharLod: return (void*)&caveCharLod;
+        case gen::Target::cavePropDist: return (void*)&cavePropDist;
         default: return nullptr;
     }
 }
@@ -1764,6 +1768,8 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "VSMA")) return samelook::VsmaIni() != 0;  // 1.7.49 same-look package
         if (!strcmp(g, "RCO")) return samelook::RcoIni() != 0 || extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO
         if (!strcmp(g, "GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")) return extraperf::Wanted();  // 1.7.59 XGI / XLOD / XPRT
+        if (!strcmp(g, "XRS")) return extraperf::Wanted() && extraperf::ResLevel() > 0;  // #67206: was missing, so XRES never resolved
+        if (!strcmp(g, "RDD") || !strcmp(g, "RDP") || !strcmp(g, "RDC") || !strcmp(g, "RDF")) return extraperf::Wanted();  // #67225 RenderDistance, including 1.00
         if (!strcmp(g, "MLP")) return false;  // MeshletProbe recorder entry sites: verified offline (test_patterns), hooked by mlprobe.cpp
         if (!strcmp(g, "GL1")) return cfg.gl1 != 0;
         if (!strcmp(g, "LC")) return cfg.lc != 0;
@@ -2495,6 +2501,96 @@ DWORD WINAPI Worker(LPVOID) {
             });
             if (!rs) Log("XRES: render size scale NOT installed");
         }
+        // #67225 Render distance. Not a preset. Hooks stay in at 1.00 so the slider can move live.
+        // No patches.json deps (those pin v2.02 RVAs). A known build also requires the v2.02 callee;
+        // any other build is accepted when every site shares one in-module callee whose prologue matches.
+        auto prefixOk = [](uintptr_t a, const uint8_t* sig, size_t n) -> bool {
+            if (!InModule(a) || !sig || !n) return false;
+            return memcmp(reinterpret_cast<const void*>(a), sig, n) == 0;
+        };
+        auto sharedCallee = [&](const char* tag, const char* const* ids, int n, uintptr_t& out) -> bool {
+            out = 0;
+            for (int i = 0; i < n; ++i) {
+                Item* it = findItem(ids[i]);
+                if (!it || !it->found) return false;
+                const uintptr_t c = calleeOf(it->addr);
+                if (!out) out = c;
+                else if (c != out) {
+                    Log("%s: %s callee is not the shared one", tag, ids[i]);
+                    return false;
+                }
+                if (known && c != (uintptr_t)(g_base + it->s->expectRva)) {
+                    Log("%s: %s callee differs from v2.02", tag, ids[i]);
+                    return false;
+                }
+            }
+            return out != 0 && InModule(out);
+        };
+        static const char* kDrawIds[] = {"RDD1", "RDD2", "RDD3", "RDD4", "RDD5"};
+        static const char* kPlaceIds[] = {"RDP1", "RDP2", "RDP3", "RDP4", "RDP5", "RDP6", "RDP7", "RDP8", "RDP9", "RDP10"};
+        static const uint8_t kPlacePro[] = {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x80, 0xB9, 0x08, 0x03, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xD9};
+        const bool rdDraw = expGroup("RDD", true, [&]() {
+            uintptr_t cal = 0;
+            if (!sharedCallee("RDD", kDrawIds, 5, cal)) return false;
+            const uint8_t* p = reinterpret_cast<const uint8_t*>(cal);
+            // test rdx, rdx / je rel8 / movss xmm0, [rdx+118h]. The je displacement is the wildcard.
+            const bool pro = p[0] == 0x48 && p[1] == 0x85 && p[2] == 0xD2 && p[3] == 0x74 && p[5] == 0xF3 && p[6] == 0x0F &&
+                             p[7] == 0x10 && p[8] == 0x82 && p[9] == 0x18 && p[10] == 0x01 && p[11] == 0x00 && p[12] == 0x00;
+            if (!pro) {
+                Log("RDD: draw-distance prologue mismatch");
+                return false;
+            }
+            extraperf::SetRdDraw(cal);
+            return true;
+        });
+        const bool rdPlace = expGroup("RDP", true, [&]() {
+            uintptr_t cal = 0;
+            if (!sharedCallee("RDP", kPlaceIds, 10, cal)) return false;
+            if (!prefixOk(cal, kPlacePro, sizeof kPlacePro)) {
+                Log("RDP: placeable prologue mismatch");
+                return false;
+            }
+            extraperf::SetRdPlace(cal);
+            return true;
+        });
+        const bool rdChar = expGroup("RDC", true, [&]() {
+            Item* it = findItem("RDC1");
+            if (!it || !it->found) return false;
+            uint8_t* s = it->addr;
+            if (s[0] != 0x41 || s[1] != 0x0F || s[2] != 0x2F || s[3] != 0xF0 || s[4] != 0x77) return false;
+            const uintptr_t fall = (uintptr_t)(s + 6);
+            const uintptr_t take = (uintptr_t)(s + 6 + (int8_t)s[5]);
+            if (!InModule(fall) || !InModule(take)) {
+                Log("RDC: character LOD branch leaves the module");
+                return false;
+            }
+            extraperf::SetRdChar(fall, take);
+            return true;
+        });
+        const bool rdProp = expGroup("RDF", true, [&]() {
+            Item* it = findItem("RDF1");
+            if (!it || !it->found) return false;
+            uint8_t* s = it->addr;
+            if (!InModule((uintptr_t)(s - 19)) || s[-19] != 0x39 || s[-18] != 0x06) {
+                Log("RDF: property hash compare is not in front of the copy");
+                return false;
+            }
+            const uintptr_t c = calleeOf(s);
+            static const uint8_t kCopyPro[] = {0x48, 0x8B, 0xC1};  // mov rax, rcx
+            if (!prefixOk(c, kCopyPro, sizeof kCopyPro)) {
+                Log("RDF: property-copy prologue mismatch");
+                return false;
+            }
+            if (known && c != (uintptr_t)(g_base + it->s->expectRva)) {
+                Log("RDF: callee differs from v2.02");
+                return false;
+            }
+            extraperf::SetRdProp(c);
+            return true;
+        });
+        Log("RenderDistance: entities %s, placeables %s, characters %s, foliage %s (x%.2f)",
+            rdDraw ? "on" : "off", rdPlace ? "on" : "off", rdChar ? "on" : "off", rdProp ? "on" : "off",
+            (double)extraperf::RdMul());
     }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.

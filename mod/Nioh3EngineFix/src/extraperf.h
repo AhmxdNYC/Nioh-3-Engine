@@ -35,6 +35,12 @@
 //                                       path renders a smaller viewport of the fixed-size targets and the upscaler fills the output.
 //                                       Ini key / preset only (no menu row).
 //   XPRE   preset                       0 game (all 0), 1 Performance, 2 Potato, 3 Risky, 4 Extreme (= Risky + XRES 3)
+//   RenderDistance (#67213)            NOT a preset level. 0.50..1.00 (default 1.00 = stock), step 0.05, live. Scales the
+//                                       return of GetDrawDistanceLimit 177274 and GetPlaceableDrawDistance 209EB0, the
+//                                       character LOD limit in UpdateCharacterLodDistance 133D18 (xmm8 before comiss xmm6),
+//                                       and foliage ViewDistance / ModelViewDistanceArray / LODDistanceArray /
+//                                       ShadowAbsolutelyRenderDistanceH when the property table copies them. Presets do
+//                                       not change it. Hooks install with ExtraPerf even at 1.00 (multiply by 1).
 //
 // RenderConfig writes happen in samelook's RCO cave (RCO1 39B7CA, right after ApplyGraphicsSettings, before the renderer reads
 // S). Per field: when the engine re-filled it since our last write the new engine value is the base; when it did not (env
@@ -67,6 +73,17 @@ int ResLevel();
 bool ResAvailable();
 void SetResLevel(int lvl);           // live; logs
 
+// #67225 Render distance. Percent 50..100 (100 = stock). Presets do not read or write it.
+int RdPct();
+float RdMul();
+void SetRdPct(int pct);              // clamps and snaps to 5 (0.05). 50 = half distance
+void StepRd(int dir);                // -1 / +1 step, 0 = back to 100
+bool RdAvailable();
+void SetRdDraw(uintptr_t getDrawDistanceLimit);
+void SetRdPlace(uintptr_t getPlaceableDrawDistance);
+void SetRdChar(uintptr_t fallThrough, uintptr_t taken);
+void SetRdProp(uintptr_t propMemcpy);
+
 // ---- menu / remote (any thread; values are plain ints) ----
 int Count();                         // kNumOpts
 const char* Key(int opt);            // "XCLD" ... (menu tech id, ini key, LiveCtl key)
@@ -97,6 +114,13 @@ void caveRenderDims();  // XRS1-4: call RenderDimsGet(rcx = out), then ExtraPerf
 void ExtraPerfResC(uint32_t* dims);
 extern uintptr_t ep_resOrig;
 extern float ep_resMul;
+void caveDrawLimit();   // RDD1-5: xmm0 = GetDrawDistanceLimit() * ep_rdMul
+void cavePlaceDist();   // RDP1-10: xmm0 = GetPlaceableDrawDistance() * ep_rdMul
+void caveCharLod();     // RDC1: jmp cave, scales xmm8 then repeats comiss/ja
+void cavePropDist();    // RDF1: property memcpy, then scale the distance keys in the destination
+void* ExtraPerfPropC(void* dst, const void* src, size_t n, uint32_t key);
+extern uintptr_t ep_drawOrig, ep_placeOrig, ep_propOrig, ep_charFall, ep_charTake;
+extern float ep_rdMul;
 void ExtraPerfLodC(uint8_t* obj);
 extern uintptr_t ep_giOrig, ep_lodOrig, ep_pSimFrac, ep_pDrawFrac;
 extern float ep_giMul, ep_giMin, ep_fxMul;

@@ -12,6 +12,9 @@
 
 extern "C" float fxSimProbe(float v);   // extraperf_harness.asm
 extern "C" float fxDrawProbe(float v);
+extern "C" int charLodProbe(float limit, float cam);  // xmm0 limit, xmm1 camera; returns 1 visible, 2 culled
+extern "C" float charLodScaled;
+extern "C" void* propProbe(void* dst, const void* src, size_t n, uint32_t key);
 
 static int g_fail = 0;
 #define CHECK(c, ...)                                  \
@@ -67,6 +70,11 @@ extern "C" uint64_t* fakeRenderDims(uint64_t* out) {
     *out = ((uint64_t)g_dimH << 32) | g_dimW;
     return out;
 }
+extern "C" float fakeRdDist() { return 200.0f; }
+extern "C" void* fakePropCopy(void* dst, const void* src, size_t n) {
+    memcpy(dst, src, n);
+    return dst;
+}
 
 int main() {
     using namespace extraperf;
@@ -75,6 +83,7 @@ int main() {
     GetTempPathW(MAX_PATH, dir);
     GetTempFileNameW(dir, L"xp", 0, ini);
     WritePrivateProfileStringW(L"ExtraPerf", L"Enabled", L"1", ini);
+    WritePrivateProfileStringW(L"ExtraPerf", L"RenderDistance", L"0.70", ini);
     WritePrivateProfileStringW(L"ExtraPerf", L"XCLD", L"9", ini);  // out of range -> 0
     WritePrivateProfileStringW(L"ExtraPerf", L"XGI", L"2", ini);
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, ini);
@@ -88,6 +97,7 @@ int main() {
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, ini);
     Configure(si);
     CHECK(MatchPreset() == kPresetPotato, "ini Preset = 2 did not load Potato (%d)", MatchPreset());
+    CHECK(RdPct() == 70, "Preset = 2 clobbered RenderDistance (%d)", RdPct());
     DeleteFileW(ini);
     for (int o = 0; o < Count(); ++o) {
         CHECK(Key(o)[0] == 'X', "key %d", o);
@@ -206,6 +216,7 @@ int main() {
     g_dimH = 540;
     ApplyPreset(kPresetExtreme);
     CHECK(ResLevel() == 3 && MatchPreset() == kPresetExtreme, "Extreme preset = XRES 3 (%d / match %d)", ResLevel(), MatchPreset());
+    CHECK(RdPct() == 70, "Extreme preset changed RenderDistance to %d", RdPct());
     ApplyPreset(kPresetRisky);
     CHECK(ResLevel() == 0 && MatchPreset() == kPresetRisky, "Risky preset = XRES 0 (%d / match %d)", ResLevel(), MatchPreset());
     ApplyPreset(kPresetGame);
@@ -265,6 +276,63 @@ int main() {
     char line[1024];
     StatusLine(line, sizeof line);
     CHECK(strstr(line, "EXTRA") != nullptr, "status line: %s", line);
+
+    // ---- #67225 Render distance caves (presets do not own this slider)
+    ep_drawOrig = (uintptr_t)&fakeRdDist;
+    ep_placeOrig = (uintptr_t)&fakeRdDist;
+    SetRdDraw(ep_drawOrig);
+    SetRdPlace(ep_placeOrig);
+    auto rdDrawFn = reinterpret_cast<float (*)()>(&caveDrawLimit);
+    auto rdPlaceFn = reinterpret_cast<float (*)()>(&cavePlaceDist);
+    SetRdPct(100);
+    CHECK(rdDrawFn() == 200.0f && rdPlaceFn() == 200.0f, "distance x1.00 changed the return");
+    SetRdPct(50);
+    CHECK(approx(rdDrawFn(), 100.0f) && approx(rdPlaceFn(), 100.0f), "distance x0.50: draw %f place %f", rdDrawFn(), rdPlaceFn());
+    SetRdPct(100);
+    CHECK(charLodProbe(100.0f, 40.0f) == 1 && approx(charLodScaled, 100.0f), "char visible x1 scaled %f", charLodScaled);
+    CHECK(charLodProbe(100.0f, 150.0f) == 2, "char culled x1");
+    CHECK(charLodProbe(100.0f, 100.0f) == 1, "cam == limit is still visible");
+    SetRdPct(50);
+    CHECK(charLodProbe(100.0f, 60.0f) == 2 && approx(charLodScaled, 50.0f), "char culled x0.50 scaled %f", charLodScaled);
+    CHECK(charLodProbe(100.0f, 40.0f) == 1 && approx(charLodScaled, 50.0f), "char visible x0.50 scaled %f", charLodScaled);
+    ep_propOrig = (uintptr_t)&fakePropCopy;
+    SetRdProp(ep_propOrig);
+    auto prop = [&](uint32_t key, const void* src, size_t n, int pct, void* out) {
+        std::vector<unsigned char> keep((const unsigned char*)src, (const unsigned char*)src + n);
+        SetRdPct(pct);
+        void* r = propProbe(out, const_cast<void*>(src), n, key);
+        CHECK(r == out, "prop cave did not return dest");
+        CHECK(memcmp(src, keep.data(), n) == 0, "prop cave wrote the source");
+    };
+    uint32_t cm = 60000;
+    uint32_t got = 0;
+    prop(0xA3DAE7DAu, &cm, 4, 50, &got);
+    CHECK(got == 30000, "ViewDistance cm 60000 x0.50 -> %u", got);
+    uint32_t bits = 0x476A6000u;  // 60000.0f, above 500000 as a u32 so it takes the float path
+    uint32_t fbits = 0;
+    prop(0xA3DAE7DAu, &bits, 4, 50, &fbits);
+    float fv;
+    memcpy(&fv, &fbits, 4);
+    CHECK(approx(fv, 30000.0f), "ViewDistance float x0.50 -> %f", fv);
+    float arr[4] = {100.0f, -1.0f, 0.0f, 5000.0f};
+    float arrOut[4] = {};
+    prop(0x1A767A36u, arr, sizeof arr, 50, arrOut);
+    CHECK(approx(arrOut[0], 50.0f) && arrOut[1] == -1.0f && arrOut[2] == 0.0f && approx(arrOut[3], 2500.0f),
+          "ModelViewDistanceArray x0.50: %f %f %f %f", arrOut[0], arrOut[1], arrOut[2], arrOut[3]);
+    uint32_t other = 60000;
+    uint32_t otherOut = 0;
+    prop(0x11111111u, &other, 4, 50, &otherOut);
+    CHECK(otherOut == 60000, "unrelated hash was scaled to %u", otherOut);
+    std::vector<unsigned char> oversized(1028, 1), bigOut(1028, 0);
+    prop(0xA3DAE7DAu, oversized.data(), oversized.size(), 50, bigOut.data());
+    CHECK(bigOut[0] == 1 && bigOut[1027] == 1, "n > 1024 was scaled");
+    prop(0xA3DAE7DAu, &cm, 4, 100, &got);
+    CHECK(got == 60000, "x1.00 scaled ViewDistance to %u", got);
+    const int pct = RdPct();
+    ApplyPreset(kPresetExtreme);
+    CHECK(RdPct() == pct && ResLevel() == 3, "ApplyPreset Extreme moved RenderDistance to %d", RdPct());
+    ApplyPreset(kPresetGame);
+    SetRdPct(100);
 
     printf(g_fail ? "%d FAILED\n" : "ALL PASSED\n", g_fail);
     return g_fail ? 1 : 0;

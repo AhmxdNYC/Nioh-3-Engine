@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 // asm cave data (extraperf.asm reads these RIP-relatively)
@@ -18,6 +19,10 @@ uintptr_t ep_resOrig = 0;
 float ep_resMul = 1.0f;
 volatile uint32_t ep_resInW = 0, ep_resInH = 0, ep_resOutW = 0, ep_resOutH = 0;
 volatile uint64_t ep_resCalls = 0;
+// #67225 RenderDistance (caves in extraperf.asm). 1.0 = stock. Presets never write this.
+float ep_rdMul = 1.0f;
+uintptr_t ep_drawOrig = 0, ep_placeOrig = 0, ep_propOrig = 0, ep_charFall = 0, ep_charTake = 0;
+volatile uint64_t ep_propCalls = 0;
 }
 
 namespace extraperf {
@@ -66,6 +71,8 @@ const int kPresetRes[kNumPresets] = {0, 0, 0, 0, 3};
 const float kResMul[kResLevels] = {1.0f, 0.9f, 0.8f, 0.7f, 0.6f};
 volatile LONG g_res = 0;
 bool g_resInst = false;
+volatile LONG g_rdPct = 100;  // #67225: 50..100, step 5. 100 = the game's distance. Not part of any preset.
+bool g_rdDraw = false, g_rdPlace = false, g_rdChar = false, g_rdProp = false;
 // #43269: the Optimizations preset row. Custom is not a level row; PresetName returns it when the XCLD-style levels match none of these.
 const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized", "Risky (max speed)",
                                               "Extreme (lower render res)"};
@@ -185,6 +192,19 @@ void UpdateCaveData() {
     ep_fxMul = kFxMul[fx];
     const int r = g_res;
     ep_resMul = kResMul[r >= 0 && r < kResLevels ? r : 0];
+    int pct = (int)g_rdPct;
+    if (pct < 50) pct = 50;
+    if (pct > 100) pct = 100;
+    ep_rdMul = (float)pct / 100.0f;
+}
+
+int SnapRd(int pct) {
+    if (pct < 50) pct = 50;
+    if (pct > 100) pct = 100;
+    pct = ((pct + 2) / 5) * 5;
+    if (pct < 50) pct = 50;
+    if (pct > 100) pct = 100;
+    return pct;
 }
 
 }  // namespace
@@ -207,6 +227,14 @@ void Configure(const StartInfo& si) {
         for (int o = 0; o < kNumOpts; ++o) g_level[o] = kPresetLv[preset][o];
         g_res = kPresetRes[preset];
     }
+    // RenderDistance is not a preset field. Read it after the preset so Extreme cannot overwrite the slider.
+    wchar_t rdBuf[32];
+    GetPrivateProfileStringW(L"ExtraPerf", L"RenderDistance", L"1.00", rdBuf, 32, ini);
+    wchar_t* rdEnd = nullptr;
+    const double rd = wcstod(rdBuf, &rdEnd);
+    int pct = 100;
+    if (rdEnd != rdBuf && rd == rd) pct = (int)(rd * 100.0 + (rd >= 0 ? 0.5 : -0.5));
+    g_rdPct = SnapRd(pct);
     UpdateCaveData();
 }
 
@@ -242,6 +270,40 @@ void SetResLevel(int l) {
     const LONG old = InterlockedExchange(&g_res, l);
     UpdateCaveData();
     if (old != l) XLOG("EXTRA: XRES -> %d (render size x%.2f)%s", l, (double)kResMul[l], g_resInst ? "" : " - not installed");
+}
+int RdPct() { return (int)g_rdPct; }
+float RdMul() { return ep_rdMul; }
+void SetRdPct(int pct) {
+    pct = SnapRd(pct);
+    const LONG old = InterlockedExchange(&g_rdPct, pct);
+    UpdateCaveData();
+    if (old != pct) XLOG("EXTRA: RenderDistance -> %.2f%s", (double)ep_rdMul, RdAvailable() ? "" : " - not installed");
+}
+void StepRd(int dir) {
+    if (dir == 0) SetRdPct(100);
+    else SetRdPct((int)g_rdPct + (dir > 0 ? 5 : -5));
+}
+bool RdAvailable() { return g_rdDraw || g_rdPlace || g_rdChar || g_rdProp; }
+void SetRdDraw(uintptr_t orig) {
+    ep_drawOrig = orig;
+    g_rdDraw = orig != 0;
+    XLOG("EXTRA: entity draw distance installed (x%.2f, GetDrawDistanceLimit %p)", (double)ep_rdMul, (void*)orig);
+}
+void SetRdPlace(uintptr_t orig) {
+    ep_placeOrig = orig;
+    g_rdPlace = orig != 0;
+    XLOG("EXTRA: placeable draw distance installed (x%.2f, GetPlaceableDrawDistance %p)", (double)ep_rdMul, (void*)orig);
+}
+void SetRdChar(uintptr_t fallThrough, uintptr_t taken) {
+    ep_charFall = fallThrough;
+    ep_charTake = taken;
+    g_rdChar = fallThrough != 0 && taken != 0;
+    XLOG("EXTRA: character LOD distance installed (x%.2f, fall %p take %p)", (double)ep_rdMul, (void*)fallThrough, (void*)taken);
+}
+void SetRdProp(uintptr_t orig) {
+    ep_propOrig = orig;
+    g_rdProp = orig != 0;
+    XLOG("EXTRA: foliage view distance installed (x%.2f, property copy %p)", (double)ep_rdMul, (void*)orig);
 }
 void SetFxInstalled(void* sim, void* draw) {
     ep_pSimFrac = (uintptr_t)sim;
@@ -364,7 +426,7 @@ void ApplyS(uint8_t* S) {
 
 void StatusLine(char* buf, unsigned n) {
     buf[0] = 0;
-    if (!n || !AnyAvailable()) return;
+    if (!n || (!AnyAvailable() && !RdAvailable())) return;
     static uint64_t pr = 0, pl = 0;
     const uint64_t r = c_rcoTicks, l = c_lodTicks;
     int k = snprintf(buf, n, "stats/30s EXTRA: levels");
@@ -389,6 +451,10 @@ void StatusLine(char* buf, unsigned n) {
         k += snprintf(buf + k, n - k, "; XRES %d x%.2f render size %ux%u -> %ux%u (%llu calls)", (int)g_res, (double)ep_resMul,
                       (unsigned)ep_resInW, (unsigned)ep_resInH, (unsigned)ep_resOutW, (unsigned)ep_resOutH,
                       (unsigned long long)ep_resCalls);
+    if (k > 0 && (unsigned)k < n && RdAvailable())
+        k += snprintf(buf + k, n - k, "; render distance x%.2f (draw %d place %d char %d foliage %d, %llu foliage copies)",
+                      (double)ep_rdMul, g_rdDraw ? 1 : 0, g_rdPlace ? 1 : 0, g_rdChar ? 1 : 0, g_rdProp ? 1 : 0,
+                      (unsigned long long)ep_propCalls);
     if (k > 0 && (unsigned)k < n && g_lod && g_lodState.wrote)
         k += snprintf(buf + k, n - k, "; meshlet LOD scale[0] engine %.3f -> %.3f", (double)g_lodState.base[0], (double)g_lodState.last[0]);
     pr = r;
@@ -443,4 +509,44 @@ extern "C" void ExtraPerfLodC(uint8_t* obj) {
     }
     s.wrote = true;
     ++s.ticks;
+}
+
+// RDF1: memcpy the property, then scale the destination only (the source stays the authored value, so it does not
+// compound the next time this record is copied). ViewDistance and ShadowAbsolutelyRenderDistanceH are 4 bytes, stored
+// either as an integer centimetre count or as a float. The two distance arrays are floats; values <= 1 (0 and the
+// unlimited -1) are left alone.
+extern "C" void* ExtraPerfPropC(void* dst, const void* src, size_t n, uint32_t key) {
+    using Fn = void* (*)(void*, const void*, size_t);
+    void* r = ep_propOrig ? reinterpret_cast<Fn>(ep_propOrig)(dst, src, n) : dst;
+    const float m = ep_rdMul;
+    if (m == 1.0f || !dst || n == 0 || n > 1024) return r;
+    auto scaleFloat = [&](void* p) {
+        float v;
+        memcpy(&v, p, 4);
+        if (v > 1.0f && v < 1.0e7f) {
+            v *= m;
+            memcpy(p, &v, 4);
+        }
+    };
+    if (key == 0xA3DAE7DAu || key == 0x8FBEBC27u) {  // ViewDistance, ShadowAbsolutelyRenderDistanceH
+        if (n != 4) return r;
+        ep_propCalls = ep_propCalls + 1;
+        uint32_t u;
+        memcpy(&u, dst, 4);
+        if (u >= 1000 && u <= 500000) {
+            uint32_t s = (uint32_t)((double)u * (double)m);
+            if (s < 1) s = 1;
+            memcpy(dst, &s, 4);
+            return r;
+        }
+        scaleFloat(dst);
+        return r;
+    }
+    if (key == 0x1A767A36u || key == 0x0FD0F003u) {  // ModelViewDistanceArray, LODDistanceArray
+        if (n % 4) return r;
+        ep_propCalls = ep_propCalls + 1;
+        auto* p = static_cast<unsigned char*>(dst);
+        for (size_t i = 0; i < n; i += 4) scaleFloat(p + i);
+    }
+    return r;
 }

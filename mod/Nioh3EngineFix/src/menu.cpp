@@ -721,6 +721,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
+          kRd,  // #67225 Render distance. Not an extraperf::Opt (presets must not move it).
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
           kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kCount };
 #include "settings_catalog.h"
@@ -831,6 +832,8 @@ const ItemDef kItems[kCount] = {
      "Flatter contact shadows. Applies now. PC +1.8 %."},
     {"Camera effects off", "(XPOST)", "1 = motion blur + depth of field off, 2 = also bloom off (the game's own OFF values).",
      "No blur / no glow around lights. Applies now. PC GPU -2.8 % (fps noisy)."},
+    {"Render distance", "(RenderDistance)", "How far entities, characters and grass are drawn (1.00 = the game). Lower hides distant detail.",
+     "Pop-in closer to the camera. Applies now. Separate from the presets. Estimate 0.3-1 ms on the Ally, not measured in game yet."},
     {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
     {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
@@ -865,7 +868,7 @@ const OrderEnt kOrder[] = {
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
     {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
-    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
+    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr}, {kRd, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -914,7 +917,7 @@ bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
 
 // Page 2 is only the rows whose text says the picture can change. Everything else stays on page 1.
 bool LookChanging(int id) {
-    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
+    return id == kEpPre || IsEp(id) || id == kRd || id == kFg || id == kFgState || id == kUpscaler ||
            id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
 }
 bool OnPage(int id) {
@@ -1166,6 +1169,7 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
+    if (id == kRd) return pSGpu;  // #67225: with the other look rows, not on the camera page
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
     const int sp = SettingsPage(id);
@@ -1328,6 +1332,7 @@ bool Available(int id) {
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
         case kEpPre: return extraperf::AnyAvailable();
+        case kRd: return extraperf::RdAvailable();
         case kFg: return g_host.knownBuild && g_host.base;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1354,6 +1359,7 @@ const char* NaText(int id) {
         if (s == gpuopt::State::Failed) return "GPU hook failed - see the log";
         return "GPU hook is off in the settings file";
     }
+    if (id == kRd) return "render-distance hook was not found - see the log";
     if (id == kEpPre || IsEp(id)) return "extra-performance hook was not found - see the log";
     if (id == kAutoCont) return "tip-page hook was not found - see the log";
     if (!g_host.knownBuild) return "this game version is not supported";
@@ -1485,6 +1491,11 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
         return;
     }
+    if (id == kRd) {
+        snprintf(buf, n, "%.2f", extraperf::RdMul());
+        color = extraperf::RdPct() >= 100 ? cGray : cCyan;
+        return;
+    }
     osd::OverlaySettings& o = osd::Overlay();
     auto onoff = [&](bool v) {
         snprintf(buf, n, "%s", v ? "ON" : "OFF");
@@ -1607,13 +1618,18 @@ void StartSave() {
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
     }
-    if (extraperf::AnyAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
-        for (int e = 0; e < extraperf::kNumOpts; ++e) {
-            wchar_t k[16];
-            swprintf(k, 16, L"%hs", extraperf::Key(e));
-            add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+    if (extraperf::AnyAvailable() || extraperf::RdAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
+        if (extraperf::AnyAvailable()) {
+            for (int e = 0; e < extraperf::kNumOpts; ++e) {
+                wchar_t k[16];
+                swprintf(k, 16, L"%hs", extraperf::Key(e));
+                add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+            }
+            add(L"ExtraPerf", L"Preset", L"0");
         }
-        add(L"ExtraPerf", L"Preset", L"0");
+        wchar_t rd[16];
+        swprintf(rd, 16, L"%.2f", (double)extraperf::RdMul());
+        add(L"ExtraPerf", L"RenderDistance", rd);
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -2046,6 +2062,8 @@ void Change(int id, int dir) {
         int m = extraperf::MatchPreset();
         if (m < 0) m = 0;
         extraperf::ApplyPreset((m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets);
+    } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.
+        extraperf::StepRd(dir);
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
     } else if (id == kGR2a || id == kGR2b || id == kGR1) {
@@ -2270,6 +2288,10 @@ bool RemoteValue(int id, int& v) {
         v = extraperf::MatchPreset();  // -1 = custom
         return true;
     }
+    if (id == kRd) {
+        v = extraperf::RdPct();  // 50..100; 50 is distance 0.50
+        return true;
+    }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
         case kR1: v = (int)*g_host.r1Timeout; return true;
@@ -2370,6 +2392,11 @@ void RunRemote(RemoteReq& q) {
                 break;
             case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato
                 extraperf::ApplyPreset(std::clamp(q.value, 0, extraperf::kNumPresets - 1));
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kRd:  // 50..100 percent. 50 = half distance. Snapped to 5.
+                extraperf::SetRdPct(q.value);
                 g_dirty = true;
                 LogItem(id);
                 break;
