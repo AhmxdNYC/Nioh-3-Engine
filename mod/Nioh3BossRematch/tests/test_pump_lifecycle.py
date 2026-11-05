@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import os
 
 ROOT = Path(__file__).resolve().parent.parent
 main = (ROOT / "src/main.cpp").read_text()
@@ -19,7 +20,7 @@ def function(text, signature):
 
 prepare = function(rematch, "bool Prepare()")
 assert "InstallPump(" not in prepare and "g_live = true" not in prepare
-assert prepare.index('L"Enable", 0') < prepare.index('L"SelfTest"')
+assert prepare.index('L"Enable", 1') < prepare.index('L"SelfTest"')
 assert prepare.index('return false;') < prepare.index('g_cfg.hiddenDuels')
 assert 'g_prepared = true;' in prepare
 assert main.count('InstallPump(') == 1
@@ -34,7 +35,7 @@ config=configparser.ConfigParser()
 config.read(ROOT / "Nioh3BossRematch.ini")
 assert config.getint('Training','Observe') == 0
 assert config.getint('Training','Enable') == 0
-assert config.getint('Rematch','Enable') == 0
+assert config.getint('Rematch','Enable') == 1
 training = (ROOT / "src/training.cpp").read_text()
 assert not any(x in training for x in ('Copy(', 'Wr', 'rematch::', 'sp['))
 code = r"""
@@ -69,6 +70,7 @@ bool InstallGroup(const char*,const char** why) {
     for(int i=0;i<nh;++i) handlers[i](0,0,0,0,nullptr);
     return fightSuccess;
 }
+namespace keepgear { void Tick() {} }  // shared pump dependency; no game state in this fixture
 namespace rematch {
 bool Prepare() { ++prepares; const char* why=nullptr; g_prepared=prepareSuccess && InstallGroup("FIGHT",&why); return g_prepared; }
 @EXPORTS@
@@ -135,7 +137,7 @@ int main() {
 code = code.replace("@EXPORTS@", "\n".join(function(rematch, s) for s in ("bool Live()", "void SetPumpLive(", "void Pump()")))
 code = code.replace("@TRAINING@", training.replace('#include "addon.h"', ''))
 code = code.replace("@STARTUP@", "\n".join(function(main, s) for s in ("void SharedPump()", "bool StartRematchPump()")))
-setup = Path(r"C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat")
+setup = Path(os.environ.get("N3_MSVC_SETUP", r"C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat"))
 with tempfile.TemporaryDirectory(prefix="nioh3-pump-") as tmp:
     directory=Path(tmp)
     source=directory / "lifecycle.cpp"

@@ -91,3 +91,5 @@ Production state tests cover loss/Practice/retry/ring rollover/tiny buffers; new
 - Artifacts EF #5059 138c9232, BR #5060 0219c009, TR #5061 a66e7f6d; no install/game. Next: lead integration/validation, notes/fight-timeline-66364.md.
 
 - 2026-11-05 6:04 pm EST | cx-pc/0 #70987/#70960 required parent: timeline eb97e527 merged with save protection190a33b3 and short VRS label; native3647a5a9 and sidebugs43603969 excluded. Only handoff conflicts; production auto-merged. Next optional native merge last, four builds/offline suites; cx-pc/rc-187-timeline.
+
+- 2026-11-05 6:07 pm EST | cx-pc/0 #70987/#70960: four ASIs build0, timeline unit+4-record replay PASS,15 Training harnesses PASS with known fixture skips; extra/skipfx/rematch/native/arena gates PASS. Inherited pump harness updated for existing Enable1 default+keepgear stub+toolchain override,143 checks PASS. Next final optional merge last + graph/source equivalence, upload builds; cx-pc/rc-187-timeline.
