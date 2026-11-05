@@ -423,6 +423,38 @@ int g_otherN[3];
 char g_events[32][208];
 int g_eventsN = 0;
 
+// GitHub #23: "last" read only Nioh3ModEvents.jsonl, a shared event log that no mod writes (1.8.5), so every crash record had
+// "last": [] even when the mod logs were full. Fallback when the jsonl gives nothing: the newest timestamped lines of the logs this
+// record already collected (EngineFix ring, BossRematch and Training tails), merged by their [HH:MM:SS.mmm] stamp, oldest first, in
+// the player report's event shape {"mod","event":"log","fields":{"line"}}. Static data only (crash path).
+static bool Stamped(const char* s) { return s[0] == '[' && s[3] == ':' && s[6] == ':' && s[9] == '.' && s[13] == ']'; }
+static int LastFromLogs(J& j, int efN, int maxN) {
+    static const char* kSrc[3] = {"EngineFix", "BossRematch", "Training"};
+    const char* line[64];
+    int src[64], n = 0, idx[3] = {efN, g_otherN[0], g_otherN[1]};
+    auto at = [](int s, int i) -> const char* { return s == 0 ? g_ef[i] : g_other[s - 1][i]; };
+    if (maxN > 64) maxN = 64;
+    while (n < maxN) {
+        int best = -1;
+        for (int s = 0; s < 3; ++s) {
+            while (idx[s] > 0 && !Stamped(at(s, idx[s] - 1))) --idx[s];
+            if (idx[s] > 0 && (best < 0 || memcmp(at(s, idx[s] - 1) + 1, at(best, idx[best] - 1) + 1, 12) > 0)) best = s;
+        }
+        if (best < 0) break;
+        line[n] = at(best, --idx[best]);
+        src[n++] = best;
+    }
+    for (int k = n - 1; k >= 0; --k) {
+        if (k != n - 1) j.raw(",");
+        j.raw("{\"mod\":\"");
+        j.raw(kSrc[src[k]]);
+        j.raw("\",\"event\":\"log\",\"fields\":{\"line\":");
+        j.str(line[k], 200);
+        j.raw("}}");
+    }
+    return n;
+}
+
 size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, int efN, int otherLines) {
     J j{g_rec, 0, sizeof g_rec};
     SYSTEMTIME st;
@@ -490,13 +522,15 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     j.raw(info && g_osJson[0] ? g_osJson : "\"\"");
     j.f(",\"uptime_s\":%lu,\"test\":%d", (unsigned long)((GetTickCount() - g_startTick) / 1000), g_test);
     j.raw(",\"last\":[");
-    for (int i = 0, w = 0; i < g_eventsN; ++i) {
+    int lastW = 0;
+    for (int i = 0; i < g_eventsN; ++i) {
         static char sc[260];
         Scrub(g_events[i], sc, sizeof sc);
         if (!SaneJsonObject(sc)) continue;
-        if (w++) j.raw(",");
+        if (lastW++) j.raw(",");
         j.raw(sc);
     }
+    if (!lastW) LastFromLogs(j, efN, otherLines < 32 ? otherLines : 32);  // #23: no jsonl events -> newest mod log lines
     j.raw("],\"input\":[");
     {
         static char tail[20 * 1024];

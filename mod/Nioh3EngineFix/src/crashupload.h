@@ -11,7 +11,7 @@
 // Record (design "crash" event + context): t, mod, ver, event "crash", id, fields {code, module, offset, game_stamp,
 // game_size, reason}, stack (module+offset), game (exe name, stamp, image/file size, version), mods (every .asi: name, size,
 // sha256 prefix, exported version), loaders (proxy DLLs present), os, uptime_s, test, last (Nioh3ModEvents.jsonl tail when
-// that shared log exists), input (last 150 controller, hotkey, and mod-menu edges), log (EngineFix ring + tails of the other mod logs).
+// that shared log exists, else the newest 32 timestamped EngineFix/BossRematch/Training log lines, #23), input (last 150 controller, hotkey, and mod-menu edges), log (EngineFix ring + tails of the other mod logs).
 // Capped at 64 KB (log tails shrink first). No personal data: install id is 16 random bytes ([Report] InstallId, written once);
 // USERPROFILE / any X:\Users\<name>, \home\<name>, /home/<name>, /Users/<name> -> <user>, USERNAME -> <user>,
 // COMPUTERNAME -> <pc>, the game folder -> <game>, 17-digit Steam ids -> <steamid>, before the record touches the disk.

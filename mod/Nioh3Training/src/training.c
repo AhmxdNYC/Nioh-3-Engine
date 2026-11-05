@@ -628,7 +628,35 @@ typedef uint64_t (*FwFn)(uint64_t, uint32_t);
 static FwFn o_fw; static uint64_t g_fwbuf[64]; static volatile uint64_t g_fakew;
 // bridge 5437: every show uses a fresh fake id (FAKE_GAUGE_ID + n) so no HUD state left by an earlier bar can match it; hide uses the id that was shown
 static volatile uint32_t g_fakeid = FAKE_GAUGE_ID, g_fakeid_shown = FAKE_GAUGE_ID;
-static uint64_t h_fw(uint64_t cm, uint32_t id) { if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) return g_fakew; return o_fw(cm, id); }
+// GitHub #23 (crash Nioh3.exe+0x4893FB, 2026-11-04): BossGaugeRowsUpdate 1D21EF8 calls FindWrapper every frame and dereferences wrapper[0]
+// (actor+0x3B0 -> +8 -> vfunc +0xC0, condition 0x23). A native wrapper's [0] is cleared when its actor dies; our fake wrapper kept the raw actor
+// pointer, and the boss-mode tick only hides the bar 1.5 s after the actor leaves the table (player death / shrine rest / area reset). In that
+// window the HUD read a freed, reused actor (R14 = the Training boss, ctrl = an image address, vfunc slot garbage). Validate here, in the HUD's
+// own call: the actor must still be in the actor table with the same handle and the same +0x3B0 component; else clear wrapper[0] (the row loop
+// skips a null actor, as for a dead native boss) and let GaugeTick hide the bar outside the HUD loop.
+static uint32_t g_fw_h; static uint64_t g_fw_comp; static volatile LONG g_fw_gone;
+static __attribute__((noinline)) int FakeActorLive(uint64_t a) {
+    uint64_t mgr = 0, bk = 0, comp = 0; int found = 0;
+    if (!Rd64(B + Grva(0x4745348), &mgr) || !mgr || !Rd64(mgr + 0xB98 + 8, &bk) || !bk) return 1;  // no table readable: keep the old behaviour
+    __try {
+        for (int i = 0; i < 16 && !found; ++i) {
+            uint64_t node = *(uint64_t*)(bk + i * 16);
+            for (int guard = 0; node && guard < 4096; ++guard, node = *(uint64_t*)node) if (node - 0xE0 == a) { found = 1; break; }
+        }
+        if (!found) return 0;
+        if (g_fw_h && *(volatile uint32_t*)(a + 4) != g_fw_h) return 0;  // pooled address reused by another actor
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    if (g_fw_comp && (!Rd64(a + 0x3B0, &comp) || comp != g_fw_comp)) return 0;
+    return 1;
+}
+static uint64_t h_fw(uint64_t cm, uint32_t id) {
+    if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) {
+        uint64_t a = g_fwbuf[0];
+        if (a && !FakeActorLive(a)) { g_fwbuf[0] = 0; InterlockedExchange(&g_fw_gone, 1); }
+        return g_fakew;
+    }
+    return o_fw(cm, id);
+}
 static uint64_t ActorByHandle(uint32_t h);
 static struct { int pending, shown; uint32_t handle, owner, seq; int bindNew; uint64_t actor; DWORD t0, tHide, tVis; int waitLog; } g_gg;
 // user #9685: the boss bar showed at spawn +16 ms while the Fight now screen was still black (fade overlay / load cover; log 01:29:29.67 vs screen
@@ -698,6 +726,7 @@ static void GaugeHideOnKill(uint64_t a, const char* why) {
 }
 static __attribute__((noinline)) void GaugeTick(void) {
     { uint64_t ka = g_killHideAct; if (ka) { g_killHideAct = 0; BossKilledNow(ka, "lethal hit, death-blow revive skipped"); } }
+    if (InterlockedExchange(&g_fw_gone, 0)) { Log("GAUGE guard (#23): the bar's boss left the actor table or was replaced, row actor cleared; hiding the bar now"); FakeGaugeHide("boss gone (gauge guard)"); }
     if (g_forceHideAt && (int)(GetTickCount() - g_forceHideAt) >= 0) { g_forceHideAt = 0; GaugeForceHide("delayed"); }
     if (g_gg.tHide && GetTickCount() - g_gg.tHide > 3000) FakeGaugeDrop();
     if (g_elemShowAt && (int)(GetTickCount() - g_elemShowAt) >= 0) { g_elemShowAt = 0; if (g_gg.shown) { GaugeElemVis(1, 0, 1); g_elemsHidden = 0; } }
@@ -716,7 +745,8 @@ static __attribute__((noinline)) void GaugeTick(void) {
     if (g_gg.owner > 1 && cm) tmpl = o_fw(cm, g_gg.owner);
     memset(g_fwbuf, 0, sizeof g_fwbuf);
     if (tmpl) { __try { memcpy(g_fwbuf, (void*)tmpl, sizeof g_fwbuf); } __except (EXCEPTION_EXECUTE_HANDLER) { memset(g_fwbuf, 0, sizeof g_fwbuf); } }
-    g_fwbuf[0] = a; *(uint32_t*)((uint8_t*)g_fwbuf + 0xD4) = 0;  // name text id from the actor's charParam
+    g_fwbuf[0] = a; *(uint32_t*)((uint8_t*)g_fwbuf + 0xD4) = 0;
+    g_fw_h = g_gg.handle; g_fw_comp = 0; Rd64(a + 0x3B0, &g_fw_comp); InterlockedExchange(&g_fw_gone, 0);  // #23 guard identity  // name text id from the actor's charParam
     g_fakew = (uint64_t)g_fwbuf;
     if (g_hudHidden) {  // bridge 4942: GaugeForceHide hid the gauge HUD (1CEC2E0(hud,0)): show it again before the new bar, else rounds 2+ have no boss bar
         uint64_t root = 0, hud = 0; Rd64(B + Grva(0x45C84A8), &root);
