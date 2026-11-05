@@ -39,6 +39,7 @@ extern "C" bool RpForwardsNone(const void*, const void*) { return false; }
 #include "gpuprof.h"
 #include "skipfx.h"
 #include "psoswap.h"
+#include "vrs_ceiling.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -53,6 +54,7 @@ extern volatile uint8_t gpuopt_hook[96];  // GP profiler (gpuprof.cpp): slots th
 extern volatile uint8_t gpuopt_hook2[96];  // 1.7.29 gimerge.cpp: slots that always take the slow path
 extern void* volatile gpuopt_hold;         // 1.7.29 gimerge.cpp: list with a held Dispatch (all its calls: slow path)
 extern volatile uint8_t gpuopt_hook3[96];  // skipfx.cpp ([Debug] SkipFx diagnostic): slots that always take the slow path
+extern volatile uint8_t gpuopt_vrs[96];
 extern volatile uint8_t gpuopt_hook4[96];  // psoswap ShaderHot (fast-testing): SetPipelineState / Reset / ClearState rebind
 extern void* gpuopt_thunks0[96];
 extern void* gpuopt_thunks1[96];
@@ -169,6 +171,8 @@ void LOG(const char* fmt, ...) {
     va_end(ap);
     g_log("GPUOPT: %s", b);
 }
+
+#include "vrs_ceiling.inl"
 
 std::string ModuleOf(const void* p) {
     HMODULE m = nullptr;
@@ -763,6 +767,7 @@ bool PatchVtable(void** vt, int slots, int S) {
         return false;
     }
     for (int i = 0; i < slots; ++i) orig[i] = vt[i];
+    vrsceiling::Chain(orig, S); // thunks still run observers, then typed post-Reset/ClearState hooks
     g_origRB[S] = reinterpret_cast<RBFn>(vt[kSlotResourceBarrier]);
     MemoryBarrier();
     int n = 0;
@@ -770,7 +775,8 @@ bool PatchVtable(void** vt, int slots, int S) {
     for (int i = 0; i < slots; ++i) {
         const Kind k = kSlotInfo[i].kind;
         if (k != kFlush && k != kBind) continue;
-        InterlockedExchangePointer(&vt[i], thunks[i]);
+        InterlockedExchangePointer(&vt[i], g_vrsMode && i == 10 ?
+            (S ? (void*)&VrsReset<1> : (void*)&VrsReset<0>) : thunks[i]);
         ++n;
     }
     void* rb = S ? (void*)&HkResourceBarrier<1> : (void*)&HkResourceBarrier<0>;
@@ -834,9 +840,13 @@ bool DoInstall() {
 }
 
 DWORD WINAPI WatchThread(LPVOID) {
+    unsigned vrsTicks = 0;
     // someone restoring a slot we patched would let a deferred barrier slip past a flush point: stop deferring then
     for (;;) {
         Sleep(2000);
+        if (++vrsTicks % 5 == 0) vrsceiling::Report();
+        if (g_vrsMode) LOG("VRS ceiling mode=%d list_resets_tagged=%lld direct_draw_calls_tagged=%lld indirect_or_bundle_calls_tagged=%lld unsupported_calls=%lld",
+            g_vrsMode, g_vrsLists, g_vrsDraws, g_vrsIndirect, g_vrsMiss);
         if (!g_slLo) ResolveStreamline();
         for (int s = 0; s < 2; ++s) {
             if (!g_vt[s]) continue;
@@ -844,6 +854,7 @@ DWORD WINAPI WatchThread(LPVOID) {
             for (int i = 0; i < g_vtSlots[s]; ++i) {
                 const Kind k = kSlotInfo[i].kind;
                 const void* want = k == kBarrier ? (s ? (void*)&HkResourceBarrier<1> : (void*)&HkResourceBarrier<0>)
+                                   : (g_vrsMode && i == 10) ? (s ? (void*)&VrsReset<1> : (void*)&VrsReset<0>)
                                    : (k == kFlush || k == kBind) ? thunks[i]
                                                                  : nullptr;
                 if (want && g_vt[s][i] != want && !RpForwards(g_vt[s][i], want) && g_batching) {
@@ -901,6 +912,9 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
             if (n != a2) regs[1] = n;
         }
     }
+    if (g_vrsMode && !skip && (slot == 12 || slot == 13 || slot == 27 || slot == 59 || slot == 79))
+        VrsApply(self, set, false, slot == 27 || slot == 59);
+    if (!skip) vrsceiling::BeforeWork(self, slot);
     return skip ? 1 : 0;
 }
 
@@ -909,6 +923,10 @@ namespace gpuopt {
 void Start(const StartInfo& info) {
     g_log = info.log;
     g_iniPath = info.iniPath ? info.iniPath : L"";
+    vrsceiling::log = info.log;
+    const UINT vrsMode = GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
+    vrsceiling::mode = vrsMode <= 2 ? (int)vrsMode : 0;
+    LOG("VRSCEILING mode=%d (restart to change; 2 requires tier2 + additional rates for 4x4)", vrsceiling::mode);
     g_wine = info.wine ? info.wine : "";
     g_cfg.barriers = IniInt(L"Barriers", 0, 0, 2);
     g_cfg.mergeAcrossBinds = IniInt(L"MergeAcrossBinds", 1, 0, 1);
@@ -928,6 +946,12 @@ void Start(const StartInfo& info) {
     g_giHooks = info.giMerge;
     g_skipFx = info.skipFx;
     g_shaderHot = info.shaderHot;
+    g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
+    if (g_vrsMode < 0 || g_vrsMode > 2) g_vrsMode = 0;
+    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2)", g_vrsMode);
+    if (g_vrsMode) {
+        gpuopt_vrs[12] = gpuopt_vrs[13] = gpuopt_vrs[27] = gpuopt_vrs[59] = gpuopt_vrs[79] = 1;
+    }
     if (!info.wine) g_cfg.r2a = g_cfg.r2b = g_cfg.r1 = 0;  // the rewrites are designed for vkd3d-proton only
     if (g_cfg.barriers == 0) g_cfg.barriers = 2;  // 1.8.2: OFF still installs the hook; 1 = batching on, 2 = hooked and off
     if (!g_cfg.barriers && !g_cfg.traceRecords && !g_gpuProf && !g_giHooks && !g_skipFx && !g_shaderHot && !g_cfg.r2a && !g_cfg.r2b && !g_cfg.r1) {
@@ -977,6 +1001,10 @@ bool InstallNow() {
                 gpuopt_hook4[10] = gpuopt_hook4[11] = gpuopt_hook4[25] = 1;
                 LOG("ShaderHot: PSO-bind slots (SetPipelineState, Reset, ClearState) routed to the twin map");
             }
+            // Real slow-path registration, also OFF for comparable draw counting overhead.
+            // ShaderHot owns this mask but ignores these four non-bind slots.
+            gpuopt_hook4[12] = gpuopt_hook4[13] = gpuopt_hook4[59] = gpuopt_hook4[79] = 1;
+            LOG("VRSCEILING: registered Draw/DrawIndexed/ExecuteIndirect/DispatchMesh hooks + post-reset chain");
             g_state = (LONG)(g_batching ? State::Active : State::Paused);
             LOG("installed - batching %s", g_batching ? "ON" : "off (counters only)");
         } else {

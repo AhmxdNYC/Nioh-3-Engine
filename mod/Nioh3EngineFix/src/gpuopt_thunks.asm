@@ -21,7 +21,7 @@ OPTION CASEMAP:NONE
 
 EXTERN GpuOptSlow:PROC
 
-PUBLIC gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hook3, gpuopt_hook4, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
+PUBLIC gpuopt_vrs, gpuopt_pend, gpuopt_flush, gpuopt_hook, gpuopt_hook2, gpuopt_hook3, gpuopt_hook4, gpuopt_hold, gpuopt_trace, gpuopt_orig0, gpuopt_orig1, gpuopt_thunks0, gpuopt_thunks1
 
 GPUOPT_SLOTS EQU 96
 
@@ -31,6 +31,7 @@ gpuopt_pend   dq 4 dup(0)                 ; lists that currently hold deferred b
 gpuopt_orig0  dq GPUOPT_SLOTS dup(0)      ; original methods, vtable set 0
 gpuopt_orig1  dq GPUOPT_SLOTS dup(0)      ; original methods, vtable set 1
 gpuopt_flush  db GPUOPT_SLOTS dup(0)      ; 1 = this method must see the deferred barriers first (work / sync / unwrap)
+gpuopt_vrs    db GPUOPT_SLOTS dup(0)      ; ceiling draw routing
 gpuopt_trace  db 0                        ; 1 = every hooked call goes to GpuOptSlow (trace mode)
 gpuopt_hook   db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (GP profiler: Begin/EndEvent, Close, Reset)
 gpuopt_hook2  db GPUOPT_SLOTS dup(0)      ; 1 = this method always goes to GpuOptSlow (gimerge: Dispatch, PSO, compute roots, ...)
@@ -105,6 +106,8 @@ gpuopt_t&S&_&I LABEL PROC
     cmp     byte ptr [gpuopt_hook3 + I], 0
     jne     slow
     cmp     byte ptr [gpuopt_hook4 + I], 0
+    jne     slow
+    cmp     byte ptr [gpuopt_vrs + I], 0
     jne     slow
     cmp     rcx, qword ptr [gpuopt_hold]
     je      slow
