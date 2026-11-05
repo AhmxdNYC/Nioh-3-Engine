@@ -123,6 +123,7 @@ static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp
 // stance (g_slot_fight: 0 = idle, the default; 1 = Fight normally / CPU), aggro (g_slot_aggro) and HP / Ki page (boss_vitals_game.h).
 #include "boss_vitals.h"
 #define N3T_SLOTS BV_SLOTS
+static void HgNew(int s);
 static uint64_t g_slot_act[N3T_SLOTS]; static uint32_t g_slot_chr[N3T_SLOTS];
 static volatile LONG g_slot_fight[N3T_SLOTS], g_slot_rehold[N3T_SLOTS], g_slot_aggro[N3T_SLOTS];
 static int g_slot_ih[N3T_SLOTS];  // 1 = this slot is the Training session boss whose stance is still the Idle hold (idle_hold.h), not the slot hold
@@ -5289,9 +5290,11 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
 #include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
+#include "hazard_guard_game.h"
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
+    HgNew(s);
     InterlockedExchange(&g_slot_fight[s], 0); InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     g_slot_ih[s] = 0; BvInit(); BvDefaults(&g_bv[s]); g_bv_live[s].live = 0;
 }
@@ -5329,6 +5332,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
+    __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }

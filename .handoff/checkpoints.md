@@ -88,3 +88,5 @@ Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhi
 - 2026-11-05 5:20 pm EST | cx-pc/0 #70720 trace checkpoint | Native hazard/recovery and camera-reset paths identified; full log5287 recovered, boss death attribution unresolved. Next implement verified recovery and finish reward-boundary analysis; notes/yoritomo-sidebugs-70720.md.
 
 - 2026-11-05 5:31 pm EST | cx-pc/0 #70720 recovery checkpoint: player hazard recovery + camera reset build exit0 and 16 harnesses PASS (existing fixtures skipped). Boss reward guard pending, live behavior unproven. Next merge rc-187 and finish reward attribution; src/player_recovery_game.h, player_recovery_tick.h, notes/yoritomo-sidebugs-70720.md.
+
+- 2026-11-05 5:37 pm EST | cx-pc/0 #70720 native-hazard candidate builds, 17 harnesses pass, static 4 call targets/2 signatures verified. Prevents native world death before rewards; recovery generation/timeout tested. Next final review then bridge ASI and pc2 live retest; cx-pc/yoritomo-sidebugs-rc, hazard_guard*.h, hazard_recovery_tick.h.
