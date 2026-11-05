@@ -44,13 +44,13 @@ MAX_BODY = 64 * 1024
 MAX_STR = 400
 TOP_KEYS = {
     "schema", "t", "mod", "ver", "event", "id", "fields", "exc_name", "access", "stack", "game", "mods",
-    "loaders", "os", "uptime_s", "test", "last", "input", "log",
+    "loaders", "os", "uptime_s", "test", "last", "input", "log", "modules", "modules_truncated", "modules_available",
 }
 FIELD_KEYS = {"code", "module", "offset", "game_stamp", "game_size", "reason"}
 GAME_KEYS = {"exe", "stamp", "image_size", "file_size", "known", "version"}
 MOD_KEYS = {"name", "size", "sha", "loaded", "ver"}
 LOG_KEYS = {"EngineFix", "BossRematch", "Training", "CamKiProbe", "Updater"}
-CAPS = {"stack": 40, "mods": 32, "loaders": 16, "last": 32, "input": 150}
+CAPS = {"stack": 40, "mods": 32, "loaders": 16, "last": 32, "input": 150, "modules": 64}
 LOG_GROUP_CAP = 60
 LOG_TOTAL_CAP = 220
 
@@ -168,6 +168,13 @@ def validate(rec) -> dict:
         for i, x in enumerate(v):
             if k in ("stack", "loaders"):
                 _str(x, f"{k}[{i}]", 200)
+            elif k == "modules":
+                if not isinstance(x, dict) or set(x) != {"name", "image_size"}:
+                    raise Reject(400, f"modules[{i}] must hold name and image_size")
+                _str(x["name"], f"modules[{i}].name", 96, empty=False)
+                if re.search(r"[\\/]", x["name"]):
+                    raise Reject(400, "modules name must be a file name, not a path")
+                _num(x["image_size"], f"modules[{i}].image_size")
             elif k == "mods":
                 if not isinstance(x, dict) or set(x) - MOD_KEYS:
                     raise Reject(400, f"mods[{i}] has unknown fields")
@@ -181,6 +188,9 @@ def validate(rec) -> dict:
                         _str(mv, f"mods[{i}].{mk}", 96)
             else:
                 _flat_event(x, f"{k}[{i}]")
+    for flag in ("modules_truncated", "modules_available"):
+        if flag in rec and not isinstance(rec[flag], bool):
+            raise Reject(400, f"{flag} must be true/false")
     if "game" in rec:
         g = rec["game"]
         if not isinstance(g, dict) or set(g) - GAME_KEYS:
@@ -266,6 +276,7 @@ def _issue_text(rec: dict, sig: str) -> tuple[str, str]:
     where = f"{f['module']}+{f['offset']} {f['code']}" if f["module"] else (f.get("reason") or "no exception record")[:90]
     title = f"Crash{' (test)' if test else ''}: {where} EngineFix {rec.get('ver', '?')} [{sig}]"
     mods = ", ".join(f"{m.get('name')} {m.get('sha', '')} {m.get('ver', '')}".strip() for m in rec.get("mods", []))
+    modules = ", ".join(f"{m['name']} ({m['image_size']} image bytes)" for m in rec.get("modules", []))
     game = rec.get("game", {})
     lines = [
         "### Automatic crash report",
@@ -275,6 +286,7 @@ def _issue_text(rec: dict, sig: str) -> tuple[str, str]:
         f"- Reason: {f.get('reason', '')}",
         f"- Game: {game.get('exe', '?')} stamp `{f.get('game_stamp', game.get('stamp', '?'))}` size {f.get('game_size', game.get('image_size', '?'))} version {game.get('version', '?')} known {game.get('known', '?')}",
         f"- Mods: {mods or '(none listed)'}",
+        f"- Loaded modules at crash (excluding System32, WinSxS and Steam overlay): {modules or '(none listed)'}; available={rec.get('modules_available', 'unknown')}, truncated={rec.get('modules_truncated', 'unknown')}",
         f"- OS: {rec.get('os', '?')}",
         f"- Install id: `{rec['id'][:8]}...`  uptime {rec.get('uptime_s', '?')} s  test {test}",
         f"- Mod time: {rec.get('t', '?')}",

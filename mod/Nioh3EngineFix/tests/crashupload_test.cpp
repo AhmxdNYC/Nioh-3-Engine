@@ -51,6 +51,15 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
     Sleep(3500);  // info thread (os / game / mods)
+    CHECK(LoadLibraryW(L"gameoverlayrenderer64.dll") != nullptr);
+    CHECK(LoadLibraryW(L"System32\\excluded-system.dll") != nullptr);
+    CHECK(LoadLibraryW(L"WinSxS\\excluded-sxs.dll") != nullptr);
+    // DLLs loaded after the info snapshot must appear; enough to exercise truncation.
+    for (int i = 0; i < 70; ++i) {
+        wchar_t dll[64];
+        swprintf(dll, 64, L"inventory-%02d.dll", i);
+        CHECK(LoadLibraryW(dll) != nullptr);
+    }
     char prof[300] = {}, user[100] = {}, pc[100] = {};
     GetEnvironmentVariableA("USERPROFILE", prof, sizeof prof);
     GetEnvironmentVariableA("USERNAME", user, sizeof user);

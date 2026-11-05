@@ -6,6 +6,7 @@
 #include "inputlog.h"
 
 #include <windows.h>
+#include <psapi.h>
 #include <bcrypt.h>
 #include <winhttp.h>
 #include <cstdarg>
@@ -329,6 +330,55 @@ void BuildMods() {
 }
 
 // ---- install id -----------------------------------------------------------------------------------------------------------
+// Crash-time snapshot catches late-loaded DLL mods. Never serialize directory paths.
+char g_modulesJson[8192];
+bool g_modulesTruncated = false, g_modulesAvailable = false;
+bool IncludeModule(const wchar_t* path) {
+    wchar_t lower[1024];
+    if (wcslen(path) >= _countof(lower)) return false;
+    wcscpy_s(lower, path);
+    for (wchar_t* p = lower; *p; ++p) {
+        if (*p == L'/') *p = L'\\';
+        if (*p >= L'A' && *p <= L'Z') *p += L'a' - L'A';
+    }
+    const wchar_t* name = wcsrchr(lower, L'\\');
+    name = name ? name + 1 : lower;
+    return !wcsstr(lower, L"\\system32\\") && !wcsstr(lower, L"\\winsxs\\") &&
+           wcscmp(name, L"gameoverlayrenderer64.dll") && wcscmp(name, L"gameoverlayrenderer.dll");
+}
+void BuildModules() {
+    HMODULE modules[512];
+    DWORD needed = 0;
+    g_modulesAvailable = K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &needed) != FALSE;
+    g_modulesTruncated = g_modulesAvailable && needed > sizeof modules;
+    J j{g_modulesJson, 0, sizeof g_modulesJson};
+    j.raw("[");
+    unsigned count = 0;
+    const DWORD total = g_modulesAvailable ? (needed / sizeof(HMODULE) < 512 ? needed / sizeof(HMODULE) : 512) : 0;
+    for (DWORD i = 0; i < total; ++i) {
+        wchar_t path[1024];
+        DWORD n = GetModuleFileNameW(modules[i], path, _countof(path));
+        if (!n || n >= _countof(path)) { g_modulesTruncated = true; continue; }
+        if (!IncludeModule(path)) continue;
+        char utf8[3072], entry[768];
+        ToUtf8(path, utf8, sizeof utf8);
+        MODULEINFO mi{};
+        if (!K32GetModuleInformation(GetCurrentProcess(), modules[i], &mi, sizeof mi)) {
+            g_modulesTruncated = true;
+            continue;
+        }
+        J e{entry, 0, sizeof entry};
+        e.raw("{\"name\":");
+        e.str(BaseName(utf8), 96);
+        e.f(",\"image_size\":%lu}", mi.SizeOfImage);
+        // Reserve comma, closing bracket and NUL before appending a whole entry.
+        if (count >= 64 || e.over || j.n + e.n + 3 > j.cap) { g_modulesTruncated = true; continue; }
+        if (count++) j.raw(",");
+        j.raw(entry);
+    }
+    j.raw("]");
+}
+
 bool IsHex32(const char* s) {
     int n = 0;
     for (; s[n]; ++n) if (!((s[n] >= '0' && s[n] <= '9') || (s[n] >= 'a' && s[n] <= 'f'))) return false;
@@ -518,6 +568,9 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     j.raw(info && g_modsJson[0] ? g_modsJson : "[]");
     j.raw(",\"loaders\":");
     j.raw(info && g_loadersJson[0] ? g_loadersJson : "[]");
+    j.raw(",\"modules\":");
+    j.raw(g_modulesJson[0] ? g_modulesJson : "[]");
+    j.f(",\"modules_truncated\":%s,\"modules_available\":%s", g_modulesTruncated ? "true" : "false", g_modulesAvailable ? "true" : "false");
     j.raw(",\"os\":");
     j.raw(info && g_osJson[0] ? g_osJson : "\"\"");
     j.f(",\"uptime_s\":%lu,\"test\":%d", (unsigned long)((GetTickCount() - g_startTick) / 1000), g_test);
@@ -729,6 +782,7 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     static const wchar_t* kLogs[3] = {L"Nioh3BossRematch.log", L"Nioh3Training.log", L"Nioh3CamKiProbe.log"};
     for (int m = 0; m < 3; ++m) g_otherN[m] = TailLines(kLogs[m], g_other[m], kOtherLogLines);
     g_eventsN = TailLines(L"Nioh3ModEvents.jsonl", g_events, 32);
+    BuildModules();
     size_t n = 0;
     static const int kTry[3] = {kOtherLogLines, 15, 0};
     for (int lines : kTry) {

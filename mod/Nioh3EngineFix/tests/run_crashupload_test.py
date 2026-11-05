@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import shutil
 from http.server import ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +27,13 @@ def run(args, **kwargs):
 
 with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
     temp = Path(folder)
+    dll_source = temp / "inventory.cpp"
+    dll_source.write_text('extern "C" __declspec(dllexport) int InventoryProbe() { return 1; }')
+    run(["cl", "/nologo", "/LD", "/MT", str(dll_source), f"/Fe{temp / 'inventory.dll'}"], cwd=temp)
+    for name in [f"inventory-{i:02d}.dll" for i in range(70)] + ["gameoverlayrenderer64.dll", "System32/excluded-system.dll", "WinSxS/excluded-sxs.dll"]:
+        target = temp / name
+        target.parent.mkdir(exist_ok=True)
+        shutil.copyfile(temp / "inventory.dll", target)
     exe = temp / "crashupload_test.exe"
     run(["cl", "/nologo", "/O2", "/MT", "/EHsc", "/std:c++17", "/DUNICODE", "/D_UNICODE",
          str(MOD / "tests/crashupload_test.cpp"), str(MOD / "src/crashupload.cpp"), str(MOD / "src/inputlog.cpp"),
@@ -49,6 +57,20 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         assert len(pending) == 1
         record = json.loads(pending[0].read_text())
         assert record["id"] in ini.read_text()
+        assert record["modules_available"] is True
+        assert record["modules_truncated"] is True
+        assert 1 <= len(record["modules"]) <= 64
+        names = [m["name"] for m in record["modules"]]
+        assert "inventory-00.dll" in names, names
+        assert all("/" not in n and "\\" not in n for n in names)
+        assert not any(n.lower() in ("gameoverlayrenderer64.dll", "excluded-system.dll", "excluded-sxs.dll", "kernel32.dll") for n in names)
+        assert all(m["image_size"] > 0 for m in record["modules"])
+        _, summary = api._issue_text(record, api.signature(record))
+        assert "inventory-00.dll" in summary and "image bytes" in summary
+        for bad in ([{"name": "C:/Users/person/mod.dll", "image_size": 1}], [record["modules"][0]] * 65):
+            malformed = dict(record, modules=bad)
+            code, _ = api.handle(json.dumps(malformed).encode(), "127.0.0.2")
+            assert code == 400, code
         # Validate the exact C++ payload through the supplied API regression suite.
         output = run([sys.executable, str(ROOT / "site/tests/crash_api_test.py"), str(pending[0])], cwd=ROOT / "site")
         assert "ALL PASSED" in output, output
