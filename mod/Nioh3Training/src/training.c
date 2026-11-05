@@ -1482,6 +1482,7 @@ static int PlayerSetNoDeath(int on) {  // Character::SetNoDeath (VM 239711C): ms
 }
 static int TrNoDeath(void) { return g_cfg_tr_nodeath || g_cfg_session_nodeath; }  // user #14147
 #include "player_hp.h"  // user #14267: Infinite health decision (PhDecide)
+static int PhDamageEntryInstall(void); // #69771: common pre-death entry, defined after image bounds
 static int PlayerHp(uint64_t* cur, uint64_t* max) {  // Character::GetHpRate (323BB4): [[actor+0x3A0]+0x58] / [+0x50]
     uint64_t me = PlayerChar(), h = 0; if (!me || !Rd64(me + 0x3A0, &h) || !h) return 0;
     return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max);
@@ -1702,6 +1703,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
 static void InfHpTick(void) {
     // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
     if (!g_cfg_cantdie) return;
+    PhDamageEntryInstall();
     HpDmgHookInstall("Infinite health (#22918)");
     uint64_t c = 0, m = 0;
     if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
@@ -1758,6 +1760,7 @@ typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
 __declspec(dllexport) int Nioh3Training_FightNow(uint32_t mission);
 static ReqFn o_req;
 static uint32_t g_imgSize;
+#include "player_hp_entry.h"
 static int g_cfg_xearly, g_xw_busy;
 static const char* SwapGate(const ArenaRow* r) {
     const uint8_t* st = GameState();
@@ -4196,7 +4199,8 @@ static __attribute__((noinline)) int IhEligible(uint64_t actor, uint64_t ctrl) {
 static void DrForceNative(uint64_t ctrl, uint32_t id) { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + Grva(0x66C4A8)))(ctrl, (uint64_t)id, 0, 0.0f); }  // SetActionID forced transition (MvRepTick)
 static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + aggro: the boss turns to the player before each forced move
 #define DR_PREFORCE(a) AgDrillFace(a)
-#define DR_GAP(chr) MvGapFor(chr)  // user #14309: per-boss gap
+#define DR_GAP(chr) MvGapEffChr(chr)  // user #14309: per-boss gap (human #68578: none between members of a Last 2 / 3 cycle)
+#define DR_NEXT(chr, id) MvRepNextChr(chr, id)  // human #68578
 #define DR_SEQ(chr) Nioh3Training_GetMoveRepeatSeq(chr)  // user #14546: a sequence repeat is forced by MvRepTick, not the drill
 #include "drill.h"  // user #13529: move drill in the Stand still stance
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
