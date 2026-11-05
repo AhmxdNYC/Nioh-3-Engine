@@ -90,6 +90,19 @@ check(struct.unpack_from("<f", img, 0x1995D5E + 0x223E476)[0] == 0.0, "LIGHTEST 
 check(bytes.fromhex("C7818C18000001000000") in img[0x39B4A4:0x39B545] and bytes.fromhex("83A18C18000000") in img[0x39B4A4:0x39B545],
       "ApplyMotionBlurQuality S+188C writes changed")
 check(struct.pack("<I", 0x12F4) in img[0x39B20C:0x39B330], "ApplyAmbientOcclusion S+12F4")
+# #67772 XSSR: ApplySsrQuality 39B0E8 (called every tick from ApplyGraphicsSettings at 39A6F6) looks the RLR object up with
+# 2386FC([[4759910]+530], EF3D849D), writes its +B8 half-size flag and scales S+107C; XSHARP: FsrConfigApply 2998B4C stores the
+# float sharpness to S+1F58 and enableSharpening 1 to S+1F54, and ApplyGraphicsSettings calls it through [[app+608]]+10h (39AEFB)
+check(call_target(0x39A6F6) == 0x39B0E8, "39A6F6 is not ApplySsrQuality")
+check(img[0x39B0F7:0x39B0FA] == bytes.fromhex("488B0D") and i32(0x39B0FA) + 0x39B0FE == 0x4759910, "SSR manager global moved")
+check(img[0x39B0FE:0x39B10A] == bytes.fromhex("BA9D843DEF488B8930050000") and call_target(0x39B10A) == 0x2386FC, "SSR lookup call changed")
+check(img[0x2386FC:0x238707] == bytes.fromhex("48895C24104889742420 57".replace(" ", "")), "2386FC prologue changed")
+ssr = img[0x39B0E8:0x39B20A]
+check(bytes.fromhex("41C782B800000001000000") in ssr and bytes.fromhex("C780B800000001000000") in ssr and bytes.fromhex("458982B8000000") in ssr, "ApplySsrQuality +B8 flag writes changed")
+check(struct.pack("<I", 0x107C) in ssr, "ApplySsrQuality S+107C")
+fsr = img[0x2998B4C:0x2998CE4]
+check(bytes.fromhex("F30F118258 1F0000".replace(" ", "")) in fsr and bytes.fromhex("C682541F000001") in fsr, "FsrConfigApply S+1F58 / 1F54 writes changed")
+check(img[0x39AEEC:0x39AEFE] == bytes.fromhex("488B8908060000 4885C9 7406 488B01 FF5010".replace(" ", "")), "upscaler config vcall changed")
 # RenderConfig ctor defaults (types)
 ctor = img[0x6C1ED4:0x6C1ED4 + 19000]
 check(bytes.fromhex("C7800C04000020000000") in ctor and bytes.fromhex("C7801004000000010000") in ctor, "ctor cloud ray samples 32 / 256 (int)")
@@ -100,12 +113,12 @@ dm = (src / "dllmain.cpp").read_text(encoding="utf-8")
 for s in ('extraperf::Wanted();  // 1.7.59: Extra performance rides on RCO', '"GIS") || !strcmp(g, "EPL") || !strcmp(g, "EPF")',
           "extraperf::Configure(ep)", "extraperf::SetGiInstalled", "extraperf::SetLodInstalled", "extraperf::SetFxInstalled",
           "extraperf::SetRcoInstalled", "extraperf::StatusLine", "gen::Target::caveFxDraw: return",
-          "kLastTarget = (int)gen::Target::caveRDWake", "extraperf::SetRdDraw"):
+          "kLastTarget = (int)gen::Target::caveRDWake", "extraperf::SetRdDraw", "extraperf::SetSsrInstalled"):
     check(s in dm, "dllmain.cpp lacks: " + s)
 check("extraperf::ApplyS(S)" in (src / "samelook.cpp").read_text(encoding="utf-8"), "samelook RcoApplyC does not call ApplyS")
 mc = (src / "menu.cpp").read_text(encoding="utf-8")
 for s in ('"(XPRE)"', '"(XCLD)"', '"(XFOG)"', '"(XGI)"', '"(XSHD)"', '"(XSHF)"', '"(XLOD)"', '"(XTER)"', '"(XPRT)"', '"(XAO)"', '"(XPOST)"',
-          "kEp9 - kEp0 + 1 == extraperf::kNumOpts", 'add(L"ExtraPerf", k,', "extraperf::SetLevel(id - kEp0, q.value)",
+          "kEp11 - kEp0 + 1 == extraperf::kNumOpts", '"(XFOGS)"', '"(XSSR)"', '"(XSHARP)"', 'L"XSHARP"', 'add(L"ExtraPerf", k,', "extraperf::SetLevel(id - kEp0, q.value)",
           '"Extra performance (changes the look)"', '"(RenderDistance)"'):
     check(s in mc, "menu.cpp lacks: " + s)
 bb = (ROOT / "build.bat").read_text(encoding="utf-8")
@@ -113,11 +126,12 @@ check("src\\extraperf.cpp" in bb and "src\\extraperf.asm" in bb and "build\\extr
 check("src/extraperf.cpp src/extraperf.asm" in (ROOT / "CMakeLists.txt").read_text(encoding="utf-8"), "CMakeLists.txt")
 ini = (ROOT / "Nioh3EngineFix.ini").read_text(encoding="utf-8", errors="replace")
 for k in ("[ExtraPerf]", "Enabled = 1", "Preset = 0", "XCLD = 0", "XFOG = 0", "XGI = 0", "XSHD = 0", "XSHF = 0", "XLOD = 0",
-          "XTER = 0", "XPRT = 0", "XAO = 0", "XPOST = 0", "RenderDistance = 1.00"):
+          "XTER = 0", "XPRT = 0", "XAO = 0", "XPOST = 0", "RenderDistance = 1.00", "XFOGS = 0", "XSSR = 0", "XSHARP = 0", "5 = Extreme HQ"):
     check(k in ini, "ini lacks " + k)
 lk = (REPO / "tools" / "testmatrix" / "live_keys.py").read_text(encoding="utf-8")
 check('"XCLD": "ExtraPerf.XCLD"' in lk and '"XPRE": "ExtraPerf.Preset"' in lk, "live_keys.py does not list the Extra performance rows as live")
 check('"RENDERDISTANCE": "ExtraPerf.RenderDistance"' in lk, "live_keys.py does not list RenderDistance")
+check('"XSHARP": "ExtraPerf.XSHARP"' in lk and '"XFOGS": "ExtraPerf.XFOGS"' in lk and '"XSSR": "ExtraPerf.XSSR"' in lk, "live_keys.py lacks #67772 keys")
 
 print("\n".join("FAIL: " + f for f in fails) if fails else "ALL PASSED")
 sys.exit(1 if fails else 0)

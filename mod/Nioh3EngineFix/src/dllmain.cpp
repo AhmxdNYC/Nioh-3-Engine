@@ -2439,7 +2439,27 @@ DWORD WINAPI Worker(LPVOID) {
         const bool ok = expGroup("RCO", true, [&]() { return true; });
         if (ok) {
             if (samelook::RcoIni()) samelook::SetRcoInstalled();
-            if (extraperf::Wanted()) extraperf::SetRcoInstalled();
+            if (extraperf::Wanted()) {
+                extraperf::SetRcoInstalled();
+                // #67772 XSSR: ApplySsrQuality 39B0E8 finds the RLR parameter object with 2386FC([[4759910]+530], 0xEF3D849D)
+                // and writes its +B8 half-size flag every tick; XSSR repeats that lookup in the RCO cave. Byte-checked here
+                // (mov rcx,[rip+g] / mov edx,EF3D849D / mov rcx,[rcx+530h] / call 2386FC + the callee prologue); a mismatch
+                // only drops the half-size flag (XSSR 2 still scales the ray steps).
+                static const uint8_t kSsrSig[] = {0xBA, 0x9D, 0x84, 0x3D, 0xEF, 0x48, 0x8B, 0x89, 0x30, 0x05, 0x00, 0x00, 0xE8};
+                static const uint8_t kLookSig[] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57};
+                const uintptr_t site = (uintptr_t)(g_base + Grva(0x39B0F7));
+                bool ssrOk = false;
+                if (InModule(site) && InModule(site + 32) && memcmp((const void*)site, "\x48\x8B\x0D", 3) == 0 &&
+                    memcmp((const void*)(site + 7), kSsrSig, sizeof kSsrSig) == 0) {
+                    const uintptr_t glob = site + 7 + *(const int32_t*)(site + 3);
+                    const uintptr_t look = site + 24 + *(const int32_t*)(site + 20);
+                    if (InModule(glob) && InModule(look) && memcmp((const void*)look, kLookSig, sizeof kLookSig) == 0) {
+                        extraperf::SetSsrInstalled(reinterpret_cast<void* const*>(glob), look);
+                        ssrOk = true;
+                    }
+                }
+                if (!ssrOk) Log("XSSR: ApplySsrQuality bytes differ from v2.02 - SSR half-size flag NOT installed (ray-step scale only)");
+            }
         } else {
             Log("RCO: render-config overrides NOT installed (update-rate knobs / Extra performance render-config options)");
         }

@@ -42,9 +42,10 @@ static void refill() {
     setF(0x1970, 2000.0f); setF(0x1978, 0.5f);
     setI(0x12F4, 7); setI(0x12F8, 2); setF(0x12D8, 1.75f);
     setI(0x188C, 1); setI(0x1700, 1); setF(0x30, 1.0f);
+    setI(0x107C, 24); setF(0x1F58, 0.8f);  // #67772 RLR ray steps (ApplySsrQuality scales it every tick), FSR sharpness
 }
 static const uint32_t kFields[] = {0x410, 0x40C, 0x13DC, 0x13E0, 0x1398, 0xAF4, 0xAF8, 0xB44, 0x1970, 0x1978,
-                                   0x12F4, 0x12F8, 0x12D8, 0x188C, 0x1700, 0x30};
+                                   0x12F4, 0x12F8, 0x12D8, 0x188C, 0x1700, 0x30, 0x107C, 0x1F58};
 static bool isField(uint32_t o) {
     for (uint32_t f : kFields)
         if (o >= f && o < f + 4) return true;
@@ -71,6 +72,17 @@ extern "C" uint64_t* fakeRenderDims(uint64_t* out) {
     return out;
 }
 extern "C" float fakeRdDist() { return 200.0f; }
+// #67772 fake RLR parameter-object lookup 2386FC(table, key) and the manager global ([g]+0x530 = table)
+static uint8_t g_rlrObj[0x100];
+static uint8_t g_mgr[0x600];
+static void* g_mgrPtr = g_mgr;
+static uint32_t g_lastKey = 0;
+static void* g_lastTable = nullptr;
+extern "C" void* fakeSsrLookup(void* table, uint32_t key) {
+    g_lastKey = key;
+    g_lastTable = table;
+    return key == 0xEF3D849Du ? g_rlrObj : nullptr;
+}
 extern "C" void* fakePropCopy(void* dst, const void* src, size_t n) {
     memcpy(dst, src, n);
     return dst;
@@ -98,6 +110,30 @@ int main() {
     Configure(si);
     CHECK(MatchPreset() == kPresetPotato, "ini Preset = 2 did not load Potato (%d)", MatchPreset());
     CHECK(RdPct() == 70, "Preset = 2 clobbered RenderDistance (%d)", RdPct());
+    // #67772: Preset = 5 loads Extreme HQ (no XRES); XSHARP is read after the preset (Extreme + sharpen arm); XFOGS / XSSR keys
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"5", ini);
+    WritePrivateProfileStringW(L"ExtraPerf", L"XSHARP", L"4", ini);
+    WritePrivateProfileStringW(nullptr, nullptr, nullptr, ini);
+    Configure(si);
+    CHECK(MatchPreset() == kPresetExtremeHQ && ResLevel() == 0, "ini Preset = 5: match %d XRES %d", MatchPreset(), ResLevel());
+    CHECK(Level(kGi) == 3 && Level(kClouds) == 2 && Level(kShadowFilter) == 1 && Level(kFogScale) == 1 && Level(kSsr) == 1 &&
+              Level(kFog) == 0 && Level(kAO) == 0 && Level(kPost) == 0 && Level(kGeometry) == 0 && Level(kParticles) == 0,
+          "Extreme HQ levels");
+    CHECK(SharpLevel() == 4, "XSHARP = 4 with Preset = 5 -> %d", SharpLevel());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"4", ini);
+    WritePrivateProfileStringW(nullptr, nullptr, nullptr, ini);
+    Configure(si);
+    CHECK(MatchPreset() == kPresetExtreme && ResLevel() == 3 && SharpLevel() == 4, "Preset = 4 + XSHARP = 4: match %d XRES %d sharp %d",
+          MatchPreset(), ResLevel(), SharpLevel());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"0", ini);
+    WritePrivateProfileStringW(L"ExtraPerf", L"XSHARP", L"9", ini);  // out of range -> 0
+    WritePrivateProfileStringW(L"ExtraPerf", L"XFOGS", L"2", ini);
+    WritePrivateProfileStringW(L"ExtraPerf", L"XSSR", L"2", ini);
+    WritePrivateProfileStringW(nullptr, nullptr, nullptr, ini);
+    Configure(si);
+    CHECK(SharpLevel() == 0 && Level(kFogScale) == 2 && Level(kSsr) == 2, "ini XSHARP 9 / XFOGS 2 / XSSR 2: %d %d %d", SharpLevel(),
+          Level(kFogScale), Level(kSsr));
+    CHECK(strcmp(PresetName(kPresetExtremeHQ), "Extreme HQ (native res)") == 0, "preset 5 name");
     DeleteFileW(ini);
     for (int o = 0; o < Count(); ++o) {
         CHECK(Key(o)[0] == 'X', "key %d", o);
@@ -168,6 +204,62 @@ int main() {
     refill();
     ApplyS(S.data());
     CHECK(getI(0x188C) == 0 && getI(0x1700) == 0 && getF(0x30) == 1.0f, "XPOST 1 keeps bloom");
+    // #67772 XFOGS: proportional grid, XFOG wins, never raised, 0 stays 0, restore
+    SetLevel(kFogScale, 1);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x13DC) == 120 && getI(0x13E0) == 48, "XFOGS 1 160x64 -> %dx%d", getI(0x13DC), getI(0x13E0));
+    ApplyS(S.data());  // no refill: no compounding
+    CHECK(getI(0x13DC) == 120 && getI(0x13E0) == 48, "XFOGS 1 compounded: %dx%d", getI(0x13DC), getI(0x13E0));
+    SetLevel(kFogScale, 2);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x13DC) == 80 && getI(0x13E0) == 32 && getF(0x1398) == 1.0f, "XFOGS 2: %dx%d", getI(0x13DC), getI(0x13E0));
+    setI(0x13DC, 20); setI(0x13E0, 10);  // tiny grid: floor 16 x 8
+    ApplyS(S.data());
+    CHECK(getI(0x13DC) == 16 && getI(0x13E0) == 8, "XFOGS floor: %dx%d", getI(0x13DC), getI(0x13E0));
+    setI(0x13DC, 0); setI(0x13E0, 0);  // LIGHTEST (fog off) stays off
+    ApplyS(S.data());
+    CHECK(getI(0x13DC) == 0 && getI(0x13E0) == 0, "XFOGS raised fog-off to %dx%d", getI(0x13DC), getI(0x13E0));
+    SetLevel(kFog, 1);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x13DC) == 64 && getI(0x13E0) == 24, "XFOG must win over XFOGS: %dx%d", getI(0x13DC), getI(0x13E0));
+    SetLevel(kFog, 0);
+    SetLevel(kFogScale, 0);
+    ApplyS(S.data());  // no refill: engine value back
+    CHECK(getI(0x13DC) == 160 && getI(0x13E0) == 64, "XFOGS off did not restore: %dx%d", getI(0x13DC), getI(0x13E0));
+    // #67772 XSSR without the lookup: level 1 changes no S field, level 2 halves the ray steps
+    SetLevel(kSsr, 1);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x107C) == 24, "XSSR 1 touched the ray steps: %d", getI(0x107C));
+    SetLevel(kSsr, 2);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x107C) == 12, "XSSR 2 steps 24 -> %d", getI(0x107C));
+    SetLevel(kSsr, 0);
+    ApplyS(S.data());
+    CHECK(getI(0x107C) == 24, "XSSR off did not restore the steps: %d", getI(0x107C));
+    // #67772 XSHARP: constant sharpness, game value back at 0, engine refill (FsrConfigApply) becomes the base
+    for (int l = 0; l < kSharpLevels; ++l) CHECK(SharpName(l)[0] != '?', "XSHARP level %d has no name", l);
+    SetSharpLevel(5);
+    refill();
+    ApplyS(S.data());
+    CHECK(getF(0x1F58) == 1.0f, "XSHARP 5 -> %f", getF(0x1F58));
+    SetSharpLevel(1);
+    ApplyS(S.data());
+    CHECK(getF(0x1F58) == 0.0f, "XSHARP 1 -> %f", getF(0x1F58));
+    SetSharpLevel(3);
+    ApplyS(S.data());
+    CHECK(getF(0x1F58) == 0.5f, "XSHARP 3 -> %f", getF(0x1F58));
+    SetSharpLevel(0);
+    ApplyS(S.data());
+    CHECK(getF(0x1F58) == 0.8f, "XSHARP 0 did not give back the game's 0.8: %f", getF(0x1F58));
+    SetSharpLevel(99);
+    CHECK(SharpLevel() == kSharpLevels - 1, "XSHARP clamp");
+    SetSharpLevel(0);
+    ApplyS(S.data());
     for (uint32_t o = 0; o < S.size(); ++o)
         if (!isField(o) && S[o] != 0xCD) {
             CHECK(false, "byte S+%X outside the fields was written", o);
@@ -178,6 +270,41 @@ int main() {
     std::vector<uint8_t> want = S;
     refill();
     CHECK(S == want, "game preset without refill did not restore every field");
+
+    // ---- #67772 XSSR half-size flag through the (fake) engine lookup
+    *reinterpret_cast<void**>(g_mgr + 0x530) = &g_mgr[0x10];
+    SetSsrInstalled(&g_mgrPtr, (uintptr_t)&fakeSsrLookup);
+    CHECK(SsrFlagAvailable(), "SSR flag not available after SetSsrInstalled");
+    memset(g_rlrObj, 0xAB, sizeof g_rlrObj);
+    *reinterpret_cast<uint32_t*>(g_rlrObj + 0xB8) = 0;  // the game at SSR HIGH: full size
+    SetLevel(kSsr, 1);
+    refill();
+    ApplyS(S.data());
+    CHECK(*reinterpret_cast<uint32_t*>(g_rlrObj + 0xB8) == 1u, "XSSR 1 did not set the half-size flag");
+    CHECK(g_lastKey == 0xEF3D849Du && g_lastTable == &g_mgr[0x10], "XSSR lookup args: key %08X table %p", g_lastKey, g_lastTable);
+    CHECK(g_rlrObj[0xB7] == 0xAB && g_rlrObj[0xBC] == 0xAB, "XSSR wrote outside +B8");
+    CHECK(getI(0x107C) == 24, "XSSR 1 steps");
+    *reinterpret_cast<uint32_t*>(g_rlrObj + 0xB8) = 0;  // the engine rewrites it each tick
+    SetLevel(kSsr, 0);
+    ApplyS(S.data());
+    CHECK(*reinterpret_cast<uint32_t*>(g_rlrObj + 0xB8) == 0u, "XSSR 0 still writes the flag");
+    g_mgrPtr = nullptr;  // manager not created yet: no lookup, no crash
+    SetLevel(kSsr, 1);
+    ApplyS(S.data());
+    g_mgrPtr = g_mgr;
+    SetLevel(kSsr, 0);
+    ApplyS(S.data());
+    // Extreme HQ through ApplyS: native-res pieces only
+    ApplyPreset(kPresetExtremeHQ);
+    refill();
+    ApplyS(S.data());
+    CHECK(getI(0x410) == 64 && getI(0x13DC) == 120 && getI(0x13E0) == 48 && getI(0xB44) == 2 && getI(0x12F4) == 7 &&
+              getI(0x188C) == 1 && getF(0x30) == 1.0f && approx(getF(0xAF4), 50000.0f) && getF(0x1398) == 1.0f,
+          "Extreme HQ fields: clouds %d fog %dx%d taps %d ao %d mb %d", getI(0x410), getI(0x13DC), getI(0x13E0), getI(0xB44),
+          getI(0x12F4), getI(0x188C));
+    CHECK(*reinterpret_cast<uint32_t*>(g_rlrObj + 0xB8) == 1u, "Extreme HQ: SSR half-size flag");
+    ApplyPreset(kPresetGame);
+    ApplyS(S.data());
 
     // ---- GI cave
     ep_giOrig = (uintptr_t)&fakeGiLookup;
@@ -331,6 +458,12 @@ int main() {
     const int pct = RdPct();
     ApplyPreset(kPresetExtreme);
     CHECK(RdPct() == pct && ResLevel() == 3, "ApplyPreset Extreme moved RenderDistance to %d", RdPct());
+    SetSharpLevel(2);
+    ApplyPreset(kPresetExtremeHQ);
+    CHECK(SharpLevel() == 2 && ResLevel() == 0 && RdPct() == pct, "ApplyPreset Extreme HQ: sharp %d XRES %d", SharpLevel(), ResLevel());
+    ApplyPreset(kPresetExtreme);
+    CHECK(SharpLevel() == 2 && MatchPreset() == kPresetExtreme, "XSHARP must not affect the preset match");
+    SetSharpLevel(0);
     ApplyPreset(kPresetGame);
     SetRdPct(100);
 

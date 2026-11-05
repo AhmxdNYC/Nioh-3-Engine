@@ -30,7 +30,8 @@ OTHER_LIVE = {   # rows after the experimental block (menu.cpp kItems), LiveCtl 
     # 1.7.59 Extra performance level rows (extraperf.cpp; LiveCtl 'XCLD = 2', fastab 'XCLD=0/3'; XPRE = preset 0/1/2)
     "XPRE": "ExtraPerf.Preset", "XCLD": "ExtraPerf.XCLD", "XFOG": "ExtraPerf.XFOG", "XGI": "ExtraPerf.XGI", "XSHD": "ExtraPerf.XSHD",
     "XSHF": "ExtraPerf.XSHF", "XLOD": "ExtraPerf.XLOD", "XTER": "ExtraPerf.XTER", "XPRT": "ExtraPerf.XPRT", "XAO": "ExtraPerf.XAO",
-    "XPOST": "ExtraPerf.XPOST", "RENDERDISTANCE": "ExtraPerf.RenderDistance",
+    "XPOST": "ExtraPerf.XPOST", "XFOGS": "ExtraPerf.XFOGS", "XSSR": "ExtraPerf.XSSR",  # #67772
+    "RENDERDISTANCE": "ExtraPerf.RenderDistance", "XSHARP": "ExtraPerf.XSHARP",
 }
 NEXT_LAUNCH_ROWS = {"WORKERCAP": "Patches.WorkerCap", "P12": "Patches.P12"}
 LIVE_TUNING = {   # read at use time by the installed code (dllmain LiveTuning / samelook::SetTuning)

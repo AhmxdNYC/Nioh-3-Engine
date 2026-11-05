@@ -34,7 +34,19 @@
 //                                       config, AO, 28A7B50) x 0.9 | 0.8 | 0.7 | 0.6: the engine's own dynamic-resolution viewport
 //                                       path renders a smaller viewport of the fixed-size targets and the upscaler fills the output.
 //                                       Ini key / preset only (no menu row).
-//   XPRE   preset                       0 game (all 0), 1 Performance, 2 Potato, 3 Risky, 4 Extreme (= Risky + XRES 3)
+//   XFOGS  fog grid scale (#67772)      S+0x13DC / S+0x13E0 x 0.75 | 0.5 (proportional, never raised, floor 16 x 8; ignored while
+//                                       XFOG is set): the same froxel volume at fewer cells, sampled by the engine's own trilinear
+//                                       froxel lookup (a smooth upsample of a low-frequency term)
+//   XSSR   SSR at half size (#67772)    the RLR parameter object (lookup 2386FC([[4759910]+530], 0xEF3D849D)) +0xB8 = 1, the flag
+//                                       ApplySsrQuality 39B0E8 sets for SSR LIGHTEST..STANDARD (the engine's own half-size trace);
+//                                       2: + S+0x107C ray steps x 0.5. Written after ApplyGraphicsSettings every tick (RCO cave)
+//   XPRE   preset                       0 game (all 0), 1 Performance, 2 Potato, 3 Risky, 4 Extreme (= Risky + XRES 3),
+//                                       5 Extreme HQ (#67772: native render size; only the low-frequency passes cut: GI x0.35,
+//                                       clouds 64 steps, 2 shadow taps, fog grid x0.75, SSR half size)
+//   XSHARP FSR sharpness (#67772)       NOT a preset level. S+0x1F58, the float sharpness FsrConfigApply 2998B4C passes to the
+//                                       FSR 3.1 upscale dispatch (RCAS strength; enableSharpening S+0x1F54 is always 1 there):
+//                                       0 game (FSR_SHARPNESS), 1..5 = 0.0 / 0.25 / 0.5 / 0.75 / 1.0. Only the game's FSR3 path
+//                                       reads it (XeSS / DLSS / OptiScaler FSR4 ignore it). Usable with XRES.
 //   RenderDistance (#67213)            NOT a preset level. 0.50..1.00 (default 1.00 = stock), step 0.05, live. Scales the
 //                                       return of GetDrawDistanceLimit 177274 and GetPlaceableDrawDistance 209EB0, the
 //                                       character LOD limit in UpdateCharacterLodDistance 133D18 (xmm8 before comiss xmm6),
@@ -52,8 +64,9 @@
 
 namespace extraperf {
 
-enum Opt { kClouds, kFog, kGi, kShadowDist, kShadowFilter, kGeometry, kTerrain, kParticles, kAO, kPost, kNumOpts };
-enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kPresetRisky, kPresetExtreme, kNumPresets };
+// #67772: kFogScale (XFOGS) and kSsr (XSSR) appended so the ini keys / menu rows of the first ten keep their order
+enum Opt { kClouds, kFog, kGi, kShadowDist, kShadowFilter, kGeometry, kTerrain, kParticles, kAO, kPost, kFogScale, kSsr, kNumOpts };
+enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kPresetRisky, kPresetExtreme, kPresetExtremeHQ, kNumPresets };
 constexpr int kResLevels = 5;   // #67206 XRES: 0 game, 1 = x0.9, 2 = x0.8, 3 = x0.7, 4 = x0.6 of the render size
 
 struct StartInfo {
@@ -83,6 +96,17 @@ void SetRdDraw(uintptr_t getDrawDistanceLimit);
 void SetRdPlace(uintptr_t getPlaceableDrawDistance);
 void SetRdChar(uintptr_t fallThrough, uintptr_t taken);
 void SetRdProp(uintptr_t propMemcpy);
+
+// #67772 XSSR: the RLR parameter-object lookup ApplySsrQuality uses (2386FC(table, key)) and the global whose +0x530 is the
+// table (4759910). Both null = XSSR level 1/2 only scales the ray steps (level 2) and the half-size flag is not written.
+void SetSsrInstalled(void* const* mgrGlobal, uintptr_t lookup);
+bool SsrFlagAvailable();
+// #67772 XSHARP: FSR sharpness override. Not a preset field (read after the preset; ApplyPreset never touches it).
+constexpr int kSharpLevels = 6;      // 0 game, 1..5 = 0.0 / 0.25 / 0.5 / 0.75 / 1.0
+int SharpLevel();
+void SetSharpLevel(int lvl);         // clamps; logs
+const char* SharpName(int lvl);
+bool SharpAvailable();               // = the RCO cave is installed
 
 // ---- menu / remote (any thread; values are plain ints) ----
 int Count();                         // kNumOpts
