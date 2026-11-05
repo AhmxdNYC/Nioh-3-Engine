@@ -40,3 +40,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-10-28 7:20 AM EDT | cxl-pc2 Start-home43409 complete offline; no-boss pause remains assigned per43626; no game lease.
 2026-10-28 7:25 AM EDT | cxl-pc2 no-boss pause implementation done, compiler validation pending; cxl-pc integrates all3 behavior fixes, pc runtime owner. No game lease.
 2026-10-28 7:43 AM Eastern cxl-pc: #43548 merge/build complete, pc owns installation and runtime acceptance of3299. No cxl-pc game ownership; source branch cxl-pc/no-relaunch-43116 fa006a97.
+
+- 2026-11-05 11:28 am EST | cx-pc/0 #69187 | Repeat-last safety guards and actual-code regressions PASS (5061 entries/4998 toggle cases). Native leap death root remains unproven; safe captured moves only, death/recovery picks cannot advance cycle. Next build TR+BR and hand off to pc2; notes/repeat-last-move-fix-69187.md.

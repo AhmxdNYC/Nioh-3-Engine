@@ -428,30 +428,62 @@ int main(void) {
         Nioh3Training_SetMoveRepeat(16102u, 0, 0); MvGapPut(16102u, 500);
         uint32_t ids[3] = {0};
         assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 0 && Nioh3Training_SetRepeatLast(16102u, 1) == 0 && Nioh3Training_GetMoveRepeat(16102u) == 0);
-        const uint32_t seq[] = {2, 0x4E7B, 0xFFFF, 0x4EA7, 2, 0x4E5C, 0x4E60, 2, 0x4E30, 0x100, 2};
+        const uint32_t seq[] = {2, 0x4E6C, 0xFFFF, 0x4EA7, 2, 0x4E5C, 0x4E60, 2, 0x4E30, 0x100, 2};
         fake_now = 300000;
         for (unsigned k = 0; k < sizeof seq / sizeof seq[0]; ++k) { cur_act = seq[k]; fake_now += 20; MvLastTick(); }
-        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E5C && ids[1] == 0x4E7B);
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E5C && ids[1] == 0x4E6C);
         assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E5C && Nioh3Training_GetRepeatLast(16102u) == 1);
         cur_act = 0x4E21; fake_now += 20; MvLastTick(); cur_act = 2; fake_now += 20; MvLastTick();  // frozen while it repeats
         assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E5C);
         assert(Nioh3Training_SetRepeatLast(16102u, 3) == 2 && Nioh3Training_GetRepeatLast(16102u) == 2);  // only 2 captured
         const int ri = MvRepFind(16102u);
-        cur_act = 2; fake_now = 400000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);      // oldest first
-        cur_act = 0x4E7B; fake_now = 400050; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        cur_act = 2; fake_now = 400000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);      // oldest first
+        cur_act = 0x4E6C; fake_now = 400050; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
         cur_act = 2; fake_now = 401600; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);      // next member, no gap inside the cycle
         assert(g_rep_li[ri] == 0);
         cur_act = 0x4E5C; fake_now = 401650; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);
         cur_act = 2; fake_now = 403000; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);           // cycle done: the boss's gap
         fake_now = 403400; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 2);
-        fake_now = 403600; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E7B);                   // and again from the first
-        assert(h_mvcom(0x3000, 0x4E7B, 0, 0, 0) == 1);
+        fake_now = 403600; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E6C);                   // and again from the first
+        assert(h_mvcom(0x3000, 0x4E6C, 0, 0, 0) == 1);
         // a move row replaces it (single repeat, no cycle)
         assert(Nioh3Training_SetMoveRepeat(16102u, 0x4E21, 1) == 1 && Nioh3Training_GetRepeatLast(16102u) == 0 && g_rep_nlist[MvRepFind(16102u)] == 0);
         assert(Nioh3Training_SetRepeatLast(16102u, 1) == 1 && Nioh3Training_GetMoveRepeat(16102u) == 0x4E5C);
         assert(Nioh3Training_SetRepeatLast(16102u, 0) == -1 && Nioh3Training_GetMoveRepeat(16102u) == 0 && Nioh3Training_GetRepeatLast(16102u) == 0);
         cur_act = 0xFFFFFFFFu; g_cfg_rep_gap = 0;
         puts("PASS: repeat last move (#68578): attack starts recorded (no links / next pieces / twitches / reactions), Last 1, Last 2 cycle in order without inner gap, gap after the cycle, frozen while repeating, OFF");
+    }
+    // #69187: real repeat implementation, known hazardous captured family, stale
+    // history sanitation, and the two-picks-at-one-timestamp death regression.
+    {
+        g_tr.active = g_tr.practice = g_bm.active = 1; g_tr.chr = 16102u;
+        Nioh3Training_SetMoveRepeat(16102u, 0, 0); memset(g_ml, 0, sizeof g_ml);
+        fake_now = 500000;
+        const uint32_t observed[] = {2, 0x4E7B, 0x4EA7, 0x4E7C, 2, 0x4E6C, 2, 0x4E55, 2};
+        for (unsigned k = 0; k < sizeof observed / sizeof observed[0]; ++k) MlNote(16102u, observed[k], ++fake_now);
+        uint32_t ids[3] = {0};
+        assert(Nioh3Training_GetLastMoves(16102u, ids, 3) == 2 && ids[0] == 0x4E55 && ids[1] == 0x4E6C);
+        assert(!MvLastUnsafe(42450u, 0x4E7B));  // same numeric ID on another boss remains usable
+        assert(MvContinues(16102u, 0x4E7B, 0x4EA7) && MvContinues(16102u, 0x4EA7, 0x4E7C));
+        // An unsafe non-head member must also be filtered when arming old history.
+        g_ml[0].ids[0] = 0x4E7B; g_ml[0].ids[1] = 0x4E6C; g_ml[0].n = 2;
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 1 && MvRepeatId(16102u) == 0x4E6C);
+        Nioh3Training_SetRepeatLast(16102u, 0);
+        g_ml[0].ids[0] = 0x4E7B; g_ml[0].n = 1;
+        assert(Nioh3Training_SetRepeatLast(16102u, 1) == 0 && MvRepeatId(16102u) == 0);
+        g_ml[0].ids[0] = 0x4E55; g_ml[0].ids[1] = 0x4E6C; g_ml[0].n = 2;
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        int ri = MvRepFind(16102u); cur_act = 2; fake_now += 1000;
+        Pick(0x4E55); assert(h_mvsel(0x3000, 0) == 0x4E6C);
+        cur_act = 0x4E6C; ++fake_now; Pick(0x4E55); assert(h_mvsel(0x3000, 0) == MV_KEEP);
+        cur_act = 0x18D1; ++fake_now; Pick(0x4E55);
+        int li = g_rep_li[ri]; LONG count = g_rep_count[ri];
+        assert(h_mvsel(0x3000, 0) == 0x4E55 && g_rep_li[ri] == li && g_rep_count[ri] == count);
+        Pick(0x4E3B); assert(h_mvsel(0x3000, 0) == 0x4E3B && MvRepeatId(16102u) == 0);
+        assert(h_mvsel(0x3000, 0) == 0x4E3B && g_rep_li[ri] == 0);
+        uint32_t before = forced_n; MvRepTick(); assert(forced_n == before);
+        assert(Nioh3Training_GetRepeatLast(16102u) == 0);
+        puts("PASS: unsafe Last replay skipped, all-unsafe stops, safe order retained, native landing preserved, death/recovery cannot advance cycle");
     }
     // A saved block and repeat must resume after a match without being overwritten.
     g_tr.active=1;g_tr.practice=1;g_tr.chr=16102u;g_mv_hooked=1;
