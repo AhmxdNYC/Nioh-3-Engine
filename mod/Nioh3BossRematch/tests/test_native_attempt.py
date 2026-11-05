@@ -35,7 +35,7 @@ Snap ReadSnap() { return fixtureSnap; }
 @GATES@
 @EXEC_GLOBALS@
 std::vector<Row> g_rows(1);
-struct Config { bool hiddenDuels=false,fightNow=true,fightWarp=true,fightSpawn=true; } g_cfg;
+struct Config { bool hiddenDuels=false,fightNow=true,fightWarp=true,fightSpawn=true; int fightSettleMs=1000,fightNudgeMs=1000; } g_cfg;
 struct Spawn { int st=0,reapplied=0; uint32_t point=0; bool landCheck=false; ULONGLONG nextCheck=0; char last[16]="-"; } g_sp;
 std::atomic<uint32_t> g_gateWant{0},g_gateChecks{0};
 std::atomic<int> g_gateSlot{-1};
