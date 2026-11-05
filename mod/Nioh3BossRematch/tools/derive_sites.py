@@ -346,6 +346,21 @@ def build(img):
                     raise SystemExit("%s: not an E8 call" % name)
                 e["callee"] = rva + 5 + struct.unpack_from("<i", img, rva + 1)[0]
         sites.append(e)
+    # These reviewed signatures were previously maintained only in sites_gen.h.
+    # Preserve their runtime order and bytes; validate literal bytes against the input dump.
+    extra = json.loads((ROOT / "tools" / "sites_soulcore.json").read_text())
+    names = {s["name"] for s in sites}
+    for e in extra:
+        if e["name"] in names:
+            raise ValueError("duplicate supplemental site: " + e["name"])
+        names.add(e["name"])
+        start = e["rva"] - e["offset"]
+        for i, token in enumerate(e["pattern"].split()):
+            if token != "??" and img[start + i] != int(token, 16):
+                raise ValueError("supplemental signature mismatch: " + e["name"])
+    at = next(i for i, e in enumerate(sites) if e["name"] == "ScProbe_23CBF9C") + 1
+    sites[at:at] = [e for e in extra if e["group"] == "SC"]
+    sites.extend(e for e in extra if e["group"] == "ACANCEL")
     return sites
 
 

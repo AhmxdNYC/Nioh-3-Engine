@@ -1,8 +1,8 @@
 """Actual transition policy/readers and presentation-ticket tests, offline only."""
 from pathlib import Path
-import subprocess,tempfile,re
+import subprocess,tempfile,re,os
 ROOT=Path(__file__).resolve().parents[3]
-SETUP=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
+SETUP=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-cover-') as temp:
     out=Path(temp)
     for src in (ROOT/'mod/Nioh3BossRematch/tests/transition_cover_dojo_test.cpp',ROOT/'mod/Nioh3BossRematch/tests/transition_cover_branch_test.cpp',ROOT/'mod/Nioh3BossRematch/tests/transition_cover_test.cpp',ROOT/'mod/Nioh3BossRematch/tests/transition_native_read_test.cpp',ROOT/'mod/Nioh3EngineFix/tests/cover_present_test.cpp',ROOT/'mod/Nioh3EngineFix/tests/autocont_thunk_test.cpp'):

@@ -693,6 +693,150 @@
    "offset": 8
   },
   {
+   "name": "ScProbe_GSpiritReq",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 43084852,
+   "head": 7,
+   "pattern": "48 83 EC 48 0F 28 02 48 8D 54 24 30 8B 44 24 70 48 8B 49 08 66 0F 7F 44 24 30 89 44 24 20 E8 05 00 00 00 48 83 C4 48 C3",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_GSpiritWork",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 43084892,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 10 48 89 70 18 44 89 48 20 57 48 81 EC 90 00 00 00 48 83 39 00 48 8B F2 0F 29 70 E8 48 8B F9 0F 28 F2 0F 84 52 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_AsyncLoad",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 43071692,
+   "head": 6,
+   "pattern": "40 53 48 83 EC 40 48 8B 84 24 80 00 00 00 48 8B D9 48 89 44 24 30 48 8B 44 24 78 48 89 44 24 28 48 8B 44 24 70 48 89 44 24 20 E8",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_MotionReq",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 6735016,
+   "head": 10,
+   "pattern": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 40 48 8B 01 41 8B D8 0F 29 74 24 30 8B FA 0F 28 F3 48 8B F1 FF 90 00 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_SpiritActive",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 8662960,
+   "head": 10,
+   "pattern": "48 8B C4 48 89 58 08 89 50 10 57 48 83 EC 30 48",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_B611BC",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 11932092,
+   "head": 5,
+   "pattern": "48 89 5C 24 18 56 57 41 56 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 30 8B 01 4C 8B F2 0F BA F0 08 48 8B F1",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_29EF38",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 2748216,
+   "head": 7,
+   "pattern": "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D 6C 24 A8 48 81 EC 58 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 83 79 08 00 45 8B F1 4C 8B BD C0 00 00 00 41 8B F8 4C 8B A5",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_65A8A8",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 6662312,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 18 48 89 48 08 55 56 57 41 54 41 55 41 56 41 57 48 8D",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_68157C",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 6821244,
+   "head": 7,
+   "pattern": "48 83 EC 28 48 8B D1 48 8B 0D ?? ?? ?? ?? 48 85 C9 74 05 E8",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_5BA648",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 6006344,
+   "head": 7,
+   "pattern": "48 83 EC 28 4C 8B 01 4C 8B D2 4C 8B C9 49 8B 10 49 3B D0 74 29 41 8B 02",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_322468",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 3286120,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 10 48 89 70 18 55 57 41 54 41 55 41 56 48 8D 68 A1 48",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_3203EC",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 3277804,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 68 FC FF",
+   "offset": 0
+  },
+  {
+   "name": "SealProbe_3578E0",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 3504352,
+   "head": 8,
+   "pattern": "48 83 EC 38 F3 0F 10 02 4C 8B CA F3 0F 10 0D",
+   "offset": 0
+  },
+  {
+   "name": "SealLife_2BFC90",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 2882704,
+   "head": 7,
+   "pattern": "48 83 EC 28 4C 8B C9 48 85 D2 74 39 4C 8D 82 E0 00 00 00 4D 39 00 74 2D 48 8B 01 4C 8B D1 48 85 C0 74 22 49 3B C0 74 08 4C 8B D0 48 8B 00 EB EE 49 8B 02 48 8B 08 49 89 0A 49 FF 49 08 4D 89 00 E8 0F FC FF FF",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_786C84",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 7892100,
+   "head": 7,
+   "pattern": "48 8B C4 48 89 58 08 44 89 48 20 44 89 40 18 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 A8 48 81",
+   "offset": 0
+  },
+  {
+   "name": "ScProbe_TenshinInput",
+   "group": "SC",
+   "kind": "hook",
+   "rva": 3042356,
+   "head": 6,
+   "pattern": "40 53 48 83 EC 30 8B 81 68 10 00 00 48 8B D9 48 0F BA E0 0E 0F 83 AD 01 00 00 E8",
+   "offset": 0
+  },
+  {
    "name": "fn:MissionClearedGetSlot",
    "group": "CORE",
    "kind": "fn",
@@ -1054,6 +1198,24 @@
    "rva": 35888201,
    "head": 48,
    "pattern": "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F",
+   "offset": 0
+  },
+  {
+   "name": "chk:AttackCancelGate",
+   "group": "ACANCEL",
+   "kind": "check",
+   "rva": 37107369,
+   "head": 0,
+   "pattern": "48 8B 03 BA C9 ED 00 00 45 33 C0 48 8B CB FF 90 D0 00 00 00 84 C0 0F 84 ?? ?? ?? ??",
+   "offset": 0
+  },
+  {
+   "name": "fn:HasSkill",
+   "group": "ACANCEL",
+   "kind": "fn",
+   "rva": 2664588,
+   "head": 0,
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 48 8B 99 E0 00 00 00 45 33 ED 0F B7 F2 4C 8B F9 48 85 DB",
    "offset": 0
   }
  ]

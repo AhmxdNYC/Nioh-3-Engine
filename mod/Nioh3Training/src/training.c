@@ -1865,36 +1865,75 @@ N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist);
 N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
-static int g_cfg_native = 1; static char g_native_list[256] = "0x1CBC";
-static int NativeListed(uint32_t m) {  // [ArenaSwap] NativeMissions = comma list of mission ids (or *): bosses whose script trigger is verified to start from the table arena point
-    if (strchr(g_native_list, '*')) return 1;
-    for (const char* c = g_native_list; *c; ) { char* e; unsigned long v = strtoul(c, &e, 0); if (e != c && v == m) return 1; c = e != c ? e : c + 1; while (*c == ',' || *c == ' ') ++c; }
-    return 0;
+// All mission rows need their native placement/script database. No mission allowlist.
+// Explicit roster/field summons retain their separate API; fallback is synchronous and scoped.
+static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r) {
+    uint64_t actor = ActorByHandle(r->placement), hp = 0, ctrl = 0, algo = 0;
+    if (!actor || !Rd64(actor + 0x3A0, &hp) || !hp || !Rd64(actor + 0x3B0, &ctrl) || !ctrl || !Rd64(ctrl + 0x50, &algo) || !algo) return 0;
+    __try {
+        if (*(int32_t*)(hp + 0x48) == 1 || !*(uint64_t*)(hp + 0x58) || !*(uint64_t*)(hp + 0x50) || !*(uint32_t*)(algo + 0x1574)) return 0;
+        Log("ENTER %s: native actor %p alive/AI active, Ki %.3f/%.3f (read only)", r->id, (void*)actor, *(float*)(hp + 0xAC), *(float*)(hp + 0xB0));
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
-static struct { int active, sawLoad, warped, fellBack; ArenaRow* row; DWORD t0, tReady, tWarp; } g_en;
+static int g_native_fallback, g_native_roster;
+static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id[0] != 'S' && !g_native_roster; }
+static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
+static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
+static int FightNowImpl(uint32_t mission);
+static struct { int active, confirmed, sawLoad, warped, fellBack; ArenaRow* row; DWORD t0, tReady, tWarp; } g_en;
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
+N3T_API void Nioh3Training_NativeEntryResult(uint32_t mission, int accepted) {
+    if (!g_en.active || !g_en.row || g_en.row->mission != mission) return;
+    if (accepted) g_en.confirmed = 1;
+    else { Log("ENTER %s: native request not admitted; auto-enter cancelled", g_en.row->id); g_en.active = 0; }
+}
 static void EnterTick(void) {
-    if (!g_en.active) return;
+    if (!g_en.active || !g_en.confirmed) return;
     DWORD now = GetTickCount();
     const uint8_t* st = GameState(); if (!st) return;
-    if (now - g_en.t0 > 300000) { Log("ENTER %s: timeout, giving up", g_en.row->id); g_en.active = 0; return; }
     ArenaRow* r = g_en.row;
+    if (now - g_en.t0 > 300000) { Log("ENTER %s: timeout, giving up", r->id); g_en.active = 0; return; }
+    if (st[2]) {
+        if (!g_en.sawLoad) Log("ENTER %s: load started (+%lu ms)", r->id, now - g_en.t0);
+        g_en.sawLoad = 1; g_en.tReady = 0;
+        // An intro/load is not boss-spawn proof. Resume the fallback window after it settles.
+        if (g_en.warped) g_en.tWarp = now;
+        return;
+    }
+    if (!g_en.sawLoad) return;
+    uint32_t mission = 0, mode = 0; uint8_t journey = 0;
+    if (!MsRead(&mission, &journey, &mode) || !PlayerChar() || StageState() != 5 || CurWorld() != r->world) {
+        g_en.tReady = 0; if (g_en.warped) g_en.tWarp = now; return;
+    }
+    if (mission != r->mission) {
+        if (g_en.warped) { Log("ENTER %s: mission changed; fallback cancelled", r->id); g_en.active = 0; }
+        return;
+    }
     if (g_en.warped) {
-        if (ActorByHandle(r->placement)) { Log("ENTER %s: native fight started (boss placement %u live, +%lu ms after the warp): intro, gate, BGM and rewards are the mission script's", r->id, r->placement, now - g_en.tWarp); g_en.active = 0; return; }
-        if (now - g_en.tWarp > 2000 && st[2]) { Log("ENTER %s: the mission script started a load/cutscene %lu ms after the warp: native fight (intro first)", r->id, now - g_en.tWarp); g_en.active = 0; return; }  // Yamagata: ~10 s after the warp
-        if (now - g_en.tWarp > 30000) {  // the script trigger did not fire from the table's arena point: fall back to the in-place swap (no fog/intro for this boss)
-            Log("ENTER %s: no native boss/intro 30 s after the warp, falling back to the in-place swap", r->id); g_en.active = 0;
-            int keep = g_cfg_native; g_cfg_native = 0; g_pick = r; FightNowEntry(r->mission); g_cfg_native = keep;
+        if (NativeBossReady(r)) {
+            Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
+            g_en.active = 0; return;
+        }
+        if (now - g_en.tWarp >= 30000) {
+            // Same loaded mission/world, no boss, not loading: one synchronous arena fallback.
+            // Bypass legacy summon/cross-world routes without re-arming entry or overwriting home.
+            Log("ENTER %s: no native boss after 30 s ready; one in-mission arena fallback", r->id);
+            g_en.active = 0; g_en.fellBack = 1;
+            int sf = g_cfg_fn_summon; g_cfg_fn_summon = 0;
+            g_native_fallback = 1; g_pick = r;
+            int ok = FightNowImpl(r->mission);
+            g_native_fallback = 0; g_cfg_fn_summon = sf;
+            Log("ENTER %s: fallback accepted %d, request-to-fallback %lu ms", r->id, ok, now - g_en.t0);
         }
         return;
     }
-    if (st[2]) { if (!g_en.sawLoad) Log("ENTER %s: load started (+%lu ms)", r->id, now - g_en.t0); g_en.sawLoad = 1; g_en.tReady = 0; return; }
-    if (!g_en.sawLoad) return;
-    if (!PlayerChar() || StageState() != 5 || CurWorld() != r->world) { g_en.tReady = 0; return; }
-    if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: landed in world 0x%02X, settling", r->id, r->world); }
+    if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: native mission ready, settling", r->id); }
     if (now - g_en.tReady < 3000) return;
-    int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); g_en.warped = 1; g_en.tWarp = now;
-    Log("ENTER %s (%s): warped into the arena %.0f %.0f %.0f yaw %.1f -> %d (+%lu ms after the request); waiting for the mission script to spawn the boss", r->id, r->name, r->p[0], r->p[1], r->p[2], r->p[3], w, now - g_en.t0);
+    int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1);
+    if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; return; }
+    g_en.warped = 1; g_en.tWarp = now;
+    Log("ENTER %s: native arena warp succeeded (+%lu ms); waiting up to 30 ready seconds for boss", r->id, now - g_en.t0);
 }
 // bridge 6047: stage cell streaming after a world switch. Per-cell update 31DFB8 (called for every cell of the set stage+0x500+0x40 by 31D480,
 // from the per-frame stage update 39FBF4 -> 31D28C) only STARTS a cell load (type 0 cells, record +0xD5 == 0) while
@@ -2347,9 +2386,8 @@ static void CellSkipClose(const char* why) {
 }
 static void XwNative(const char* why) {
     ArenaRow* r = g_xw.row; g_xw.active = 0; if (g_xs.on) XsEnd("native fallback"); if (!r) return;
-    __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};
-    Log("XWORLD %s: %s, native mission request 0x%X start %u", r->id, why, r->mission, r->start);
-    ((ReqFn)(o_req ? (void*)o_req : (void*)(B + Grva(0x2239600))))(r->mission, 1, r->start, p);
+    Log("XWORLD %s: %s; stopped without an unguarded native request", r->id, why);
+    FadeWant(0, "cross-world refused"); EntryLs(0, "cross-world refused");
 }
 static int XwStart(ArenaRow* r, int claimed) {
     const uint8_t* st = GameState();
@@ -2492,20 +2530,28 @@ static void XwTick(void) {
     if (!g_xw.claimed) return;  // prewarm landed: keep the state (GAMESTATE[2] may stay 1 on Ally) until Fight now claims it; dropped by the timeout below
     if (now - g_xw.tReady < (DWORD)g_cfg_xsettle) return;
     g_xw.active = 0; CellSkipClose("arena swap");
-    int sf = g_cfg_fn_summon, sn = g_cfg_native; g_cfg_fn_summon = 0; g_cfg_native = 0; g_xw_busy = 1;
-    g_pick = r; int ok = FightNowEntry(r->mission);  // #23451: this exact row (an S<chr> row shares its mission id)
-    g_xw_busy = 0; g_cfg_fn_summon = sf; g_cfg_native = sn;
+    int sf = g_cfg_fn_summon; g_cfg_fn_summon = 0; g_xw_busy = 1;
+    g_native_roster = 1; // only explicit roster/field trips still use the cross-world swap
+    g_pick = r; int ok = FightNowEntry(r->mission); g_native_roster = 0;  // #23451: this exact row (an S<chr> row shares its mission id)
+    g_xw_busy = 0; g_cfg_fn_summon = sf;
     Log("XWORLD %s: arena swap in the new world -> %d (+%lu ms after the request, +%lu ms after Fight now claimed it)", r->id, ok, now - g_xw.t0, now - g_xw.tClaim);
     XsBlkRestore("arena swap fired");
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
 static int FightNowImpl(uint32_t mission) {
-    if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && g_xw.active && !g_xw.claimed) {  // a prewarm request is running: claim it when the boss is in that world
+    ArenaRow* nativeRow = FindRow(mission);
+    if (NativeFirst(nativeRow)) {
+        memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
+        g_en.t0 = GetTickCount(); g_en.active = 1;
+        Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
+        return 0; // BossRematch owns admission, clear guard and the actual native request.
+    }
+    if (!g_native_fallback && g_cfg_enable && g_cfg_xworld && !g_xw_busy && g_xw.active && !g_xw.claimed) {  // a prewarm request is running: claim it when the boss is in that world
         ArenaRow* xr = FindRow(mission);
         if (xr && xr->world == g_xw.row->world) { g_xw.row = xr; g_xw.claimed = 1; g_xw.cancel = 0; g_xw.tClaim = GetTickCount(); Log("XWORLD %s: Fight now claimed the prewarm request (running %lu ms already)", xr->id, g_xw.tClaim - g_xw.t0); return 1; }
         if (xr) { Log("XWORLD %s: boss is in another world than the prewarm, prewarm cancelled", xr->id); XwCancel("other world picked"); return 0; }
     }
-    if (g_cfg_enable && g_cfg_xworld && !g_xw_busy && !g_xw.active) {
+    if (!g_native_fallback && g_cfg_enable && g_cfg_xworld && !g_xw_busy && !g_xw.active) {
         ArenaRow* xr = FindRow(mission);
         if (xr && CurWorld() != xr->world && CurWorld() >= 0) {
             if (XwStart(xr, 1)) return 1;
@@ -2517,11 +2563,6 @@ static int FightNowImpl(uint32_t mission) {
     int arenaFirst = g_cfg_fn_summon && g_cfg_fn_arena && r && !SwapGate(r);  // bridge 5338: the boss's own arena when we stand in its world
     if (g_cfg_fn_summon && !arenaFirst) { Log("FIGHTNOW mission 0x%X: no-load summon here (FightNowSummon=1, bridge 4942)", mission); return Nioh3Training_Summon(mission); }
     if (!r) return 0;
-    if (!arenaFirst && g_cfg_native && NativeListed(mission)) {
-        memset(&g_en, 0, sizeof g_en); g_en.row = r; g_en.t0 = GetTickCount(); g_en.active = 1;
-        Log("FIGHTNOW %s (%s) mission 0x%X: native load + auto-enter (NativeEnter=1, listed)", r->id, r->name, mission);
-        return 0;
-    }
     const char* why = SwapGate(r);
     if (why) { Log("FIGHTNOW %s mission 0x%X: native load (%s)", r->id, mission, why); return 0; }
     Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
@@ -2641,8 +2682,9 @@ static int FadeSettled(void) {
 }
 static int FadeInPlaceOk(uint32_t mission, ArenaRow* r) {  // same logic as FightNowImpl: will it swap here without a native load?
     if (!r) return 0;
+    if (NativeFirst(r)) return 0;
     if (g_cfg_fn_summon) return 1;
-    return !(g_cfg_native && NativeListed(mission)) && !SwapGate(r);
+    return !SwapGate(r);
 }
 // NearArenaOnly window end: the swap has fired, the player is released and the fade-in is not pending any more (then the held placeables stream normally)
 static void PsFarTick(void) {
@@ -2702,7 +2744,7 @@ static void FadeTick(void) {
         uint32_t m = g_fd.mission; g_fd.pend = 0; g_fd.inside = 1;
         Log("FADE black (alpha %ld, %lu ms): swapping mission 0x%X", FdAlpha(), now - g_fd.tPend, m);
         int ok = FightNowImpl(m); g_fd.inside = 0;
-        if (!ok) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("FADE: swap refused, native request"); FadeWant(0, "swap refused"); EntryLs(0, "swap refused"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + Grva(0x2239600))))(m, 1, 0, p); return; }
+        if (!ok) { g_en.active = 0; Log("FADE: swap refused; no unguarded native request"); FadeWant(0, "swap refused"); EntryLs(0, "swap refused"); return; }
         g_fd.tBase = 0; g_fd.areaSkip = 0; g_fd.phase = 2; g_fd.tSwap = now; g_fd.tStable = 0; return;
     }
     if (g_fd.phase != 2) return;
@@ -2752,7 +2794,8 @@ N3T_API int Nioh3Training_FightNowChr(uint32_t chr) {
     ArenaRow* r = FindRowChr(chr);
     if (!r) { Log("FIGHTNOW chr %u: no arena row", chr); return 0; }
     g_pick = r; Log("FIGHTNOW chr %u -> %s (%s) kind %s, mission 0x%X world 0x%02X", chr, r->id, r->name, r->kind, r->mission, r->world);
-    return FightNowEntry(r->mission);
+    int inside = g_fd.inside; g_fd.inside = 1; // explicit roster API has no native caller; keep its legacy swap synchronous
+    g_native_roster = 1; int ok = FightNowEntry(r->mission); g_native_roster = 0; g_fd.inside = inside; return ok;
 }
 // Site report #7 (human #65467): sandbox missions (tutorial / dojo) run Item::ReserveAllItem* / ClearEquipment / AddEquipment* on load, so a
 // Fight now trip there took the player's own items and gear. The trip stays a real arena trip; Nioh3BossRematch skips those script natives
@@ -2786,12 +2829,14 @@ N3T_API uint32_t Nioh3Training_ArenaStart(uint32_t mission, float* p4, float* b3
     return 0;
 }
 static int FightNowEntry(uint32_t mission) {
+    g_en.active = 0; // a new pick supersedes any pending warp/fallback
     { const ArenaRow* kr = g_pick && g_pick->mission == mission ? g_pick : FindRow(mission);
       g_kg.mission = mission; g_kg.world = kr && kr->world ? kr->world : -1; g_kg.arrived = 0; g_kg.t = GetTickCount();
       Log("KEEPGEAR trip 0x%X world 0x%02X%s: script item/gear changes are skipped until Return", mission, g_kg.world & 0xFF, g_kg.world >= 0 && as_kg_worlds[g_kg.world] ? " (item/gear scripts in that world)" : ""); }
     if (g_xr.active && g_xr.watch) { g_xr.active = 0; Log("XWORLD return watch: cancelled by Fight now (the late put-back no longer applies)"); }  // #9920
     if (!g_xw_busy && !g_fd.inside && !g_xw.active && !g_xr.active && !g_rh.active) { float p[4] = {0}; if (PlayerPos(p)) HomeCapture(CurWorld(), p, "Fight now"); }  // #6779
     ArenaRow* r = FindRow(mission);
+    if (NativeFirst(r)) return FightNowImpl(mission);
     if (!g_cfg_fade || !g_fd_ok || g_xw_busy || g_fd.inside || !g_cfg_enable) {
         EntryLsBegin(r); int ok = FightNowImpl(mission); if (!ok) EntryLs(0, "refused"); else g_el.tSwap = GetTickCount(); return ok;
     }
@@ -2813,7 +2858,7 @@ static int XwPrewarm(uint32_t mission, const char* tag) {
     if (!mission) mission = g_cfg_xprewarm_mission ? g_cfg_xprewarm_mission : (uint32_t)g_xw_last_mission;
     ArenaRow* xr = mission ? FindRow(mission) : 0;
     if (!xr || CurWorld() < 0 || CurWorld() == xr->world) { Log("XWORLD prewarm (%s): nothing to do (mission 0x%X row %p world 0x%02X)", tag, mission, (void*)xr, CurWorld()); return 0; }
-    if (g_cfg_xprewarm < 2) { XwPreload(xr, "(menu opened, resources only: CrossWorldPrewarm 1 never switches the world, bridge 6550)"); return 0; }
+    if (NativeMissionRow(xr) || g_cfg_xprewarm < 2) { XwPreload(xr, "(menu opened, resources only: CrossWorldPrewarm 1 never switches the world, bridge 6550)"); return 0; }
     int ok = XwStart(xr, 0); Log("XWORLD prewarm (%s) %s -> %d", tag, xr->id, ok); return ok;
 }
 // bridge 6473: 1 while a prewarm world request is running or landed and not claimed yet (GAMESTATE[2] is 1 then, Boss Rematch must not refuse 'loading')
@@ -3976,8 +4021,8 @@ static __attribute__((noinline)) void Exec(char* line) {
             int k = sscanf(line, "%*s %u %f %f %f %f %f %f %f %f", &chr, &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7]);
             if (k < 8) { Log("CMD arena: need charId x y z yaw bx by bz [bossYaw]"); return; }
             StartArena(chr, v, v + 4, k < 9 ? v[3] + 180.0f : v[7], 0);
-        } else if (!strcmp(op, "nativelist")) { char v[200] = {0}; sscanf(line, "%*s %199s", v); snprintf(g_native_list, sizeof g_native_list, "%s", v); Log("CMD nativelist %s", g_native_list);
-        } else if (!strcmp(op, "nativeenter")) { g_cfg_native = (int)a[0]; Log("CMD nativeenter %d", g_cfg_native);
+        } else if (!strcmp(op, "nativelist")) { Log("CMD nativelist ignored: all mission rows use native entry");
+        } else if (!strcmp(op, "nativeenter")) { Log("CMD nativeenter ignored: all mission rows use native entry");
         } else if (!strcmp(op, "enter")) {  // enter <mission>: warp into the table arena of a mission that is already loaded (the script starts the fight)
             ArenaRow* r = FindRow((uint32_t)a[0]); if (!r) { Log("CMD enter: mission 0x%llX not in the table", a[0]); return; }
             int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1); Log("CMD enter %s -> warp %d", r->id, w);
@@ -3993,8 +4038,7 @@ static __attribute__((noinline)) void Exec(char* line) {
         } else if (!strcmp(op, "fnow")) {  // Fight now through the hooked MissionRequestById (as an add-on caller): swaps in place when the row is eligible, else the native load
             Log("CMD fnow mission 0x%llX", a[0]);
             int r = Nioh3Training_FightNow((uint32_t)a[0]);
-            if (!r && GameState() && GameState()[2]) Log("CMD fnow: a load is running, nothing requested");
-            else if (!r) { __attribute__((aligned(16))) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0}; Log("CMD fnow: not handled, native request"); ((ReqFn)(o_req ? (void*)o_req : (void*)(B + Grva(0x2239600))))((uint32_t)a[0], 1, (uint32_t)a[1], p); }
+            if (!r) { Nioh3Training_NativeEntryResult((uint32_t)a[0], 0); Log("CMD fnow: native mission entry requires BossRematch Fight now (progress guard), no raw request sent"); }
         } else if (!strcmp(op, "rm")) {  // bridge 6473 test aid: send the rest of the line to the Boss Rematch pipe (from inside the game process: no second wine process) and log the reply
             const char* t = line + 2; while (*t == ' ') ++t; char* dup = _strdup(t); if (dup) { char* e = dup + strlen(dup); while (e > dup && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0; CloseHandle(CreateThread(0, 0, RmPipeThread, dup, 0, 0)); }
         } else if (!strcmp(op, "fade")) { FadeWant((int)a[0], "CMD fade");
@@ -5378,7 +5422,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             if (!memcmp((void*)(B + Grva(0x3A0534)), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
             else Log("hook stage cell request 3A0534: prologue mismatch, CrossWorldCellSkip disabled");
         }
-        GetPrivateProfileStringA("Practice", "SoulCoreMin", "", g_soul_min_str, sizeof g_soul_min_str, ini); g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); g_cfg_native = GetPrivateProfileIntA("ArenaSwap", "NativeEnter", 1, ini); GetPrivateProfileStringA("ArenaSwap", "NativeMissions", "0x1CBC", g_native_list, sizeof g_native_list, ini);
+        GetPrivateProfileStringA("Practice", "SoulCoreMin", "", g_soul_min_str, sizeof g_soul_min_str, ini); g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); Log("Arena entry: all mission rows native-first; NativeEnter/NativeMissions legacy keys ignored");
         g_cfg_notify = GetPrivateProfileIntA("ArenaSwap", "BossModeNotify", 1, ini);
         g_cfg_ownwait = GetPrivateProfileIntA("ArenaSwap", "OwnerWaitMs", 0, ini); g_cfg_ownact = GetPrivateProfileIntA("ArenaSwap", "OwnerActivate", 0, ini);
         g_cfg_freshid = GetPrivateProfileIntA("ArenaSwap", "GaugeFreshId", 1, ini); g_cfg_gaugereset = GetPrivateProfileIntA("ArenaSwap", "GaugeStateReset", 1, ini); g_cfg_sidefix = GetPrivateProfileIntA("ArenaSwap", "SideFix", 1, ini); g_cfg_pool = GetPrivateProfileIntA("Summon", "PoolMax", 3, ini); g_cfg_awarefix = GetPrivateProfileIntA("ArenaSwap", "AwareFix", 0, ini); g_cfg_percfix = GetPrivateProfileIntA("Summon", "PerceptionFix", 0, ini); g_cfg_percdiag = GetPrivateProfileIntA("Summon", "PerceptionDiag", 1, ini); Log("perception (bridge 5201): PerceptionFix %d, PerceptionDiag %d", g_cfg_percfix, g_cfg_percdiag); g_cfg_teamfix = GetPrivateProfileIntA("ArenaSwap", "TeamFix", 1, ini); g_cfg_enemyteam = GetPrivateProfileIntA("ArenaSwap", "EnemyTeam", -1, ini); g_force_owner = (uint32_t)GetPrivateProfileIntA("ArenaSwap", "ForceOwner", 0, ini);

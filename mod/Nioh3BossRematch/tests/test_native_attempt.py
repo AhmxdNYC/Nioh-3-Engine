@@ -82,6 +82,11 @@ rcore::MapPatch g_map;
 rcore::ETrack g_et;
 int g_eRow=-1; uint8_t g_eByteSeen=0;
 
+uint16_t g_bypassId=0; int guarded=0, admission=-1;
+void UnbeatenArm(uint16_t id,const char*) { guarded=id; }
+void UnbeatenTick(const Snap&,ULONGLONG) {}
+void FillStartFromTraining(Row&) {}
+void NativeEntryResult(uint32_t,int accepted) { admission=accepted; }
 bool ClearedNow(uint16_t,const char** why) { if(!canClear) *why="uncleared"; return canClear; }
 void enqueue(uint32_t mission,uint32_t start) {
     if(outcome==6) return;
@@ -92,6 +97,7 @@ void enqueue(uint32_t mission,uint32_t start) {
 }
 int CallRequestById(uint16_t id,uint8_t,uint32_t start) {
     ++requests;
+    if(g_bypassId && guarded!=id) abort();
     if(g_attemptPhase!=aAwaitLoad || !g_attempt.callAttempted || g_attempt.evidence!=aPossible) abort();
     enqueue(id,start?start:67064); return outcome==1?1:0;
 }
@@ -126,6 +132,7 @@ void fresh() {
     g_gateWant=0; g_gateReq=false; g_warpPending=false; g_fn=kFnIdle;
     g_loadSeen=false; g_replayMs=0; g_loadDoneAt=0; g_exitSince=0; g_wasLoading=false;
     g_qHash=0; g_qChangedAt=0; g_lastTick=20000;
+    g_bypassId=0;guarded=0;admission=-1;
     requests=returns=opens=scrolls=warps=rights=writes=restores=reads=0;
     outcome=0; canClear=restoreOk=mapWriteOk=mapReadOk=true; g_map=rcore::MapPatch{}; mapLie=mapReplaced=false; memset(liveMap,0,8); liveMap[0]=1; refused=nullptr; memset(queue,0,sizeof(queue));
     fixtureSnap=Snap{}; fixtureSnap.gm=fixtureSnap.player=fixtureSnap.msOk=fixtureSnap.queueOk=fixtureSnap.emakiOk=fixtureSnap.onlineOk=fixtureSnap.guestOk=true;
@@ -143,6 +150,13 @@ int main(int argc,char** argv) {
     int checks=0;
     auto check=[&](bool ok) { ++checks; if(!ok) printf("FAIL %d phase=%d calls=%d state=%d\n",checks,g_attemptPhase.load(),requests,g_state.load()); return ok; };
     const int scenario=argc>1?atoi(argv[1]):0;
+    if(scenario==4) {
+        fresh(); g_bypassId=0x1CBC; start(); if(!check(requests==1 && guarded==0x1CBC && admission==1)) return 1;
+        fresh(); g_bypassId=0x1CBC; outcome=1; start(); if(!check(requests==1 && guarded==0x1CBC && admission==0)) return 1;
+        fresh(); outcome=3; start(); if(!check(requests==1 && admission==0)) return 1;
+        fresh(); canClear=false; start(); if(!check(!requests && admission==0)) return 1;
+        printf("%d Training admission / guard-before-request checks PASS\n",checks); return 0;
+    }
     if(scenario==1) {
         fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456); step(28001,false,0x2222,456);
         if(!check(g_attemptPhase==aNone && !AttemptStartGate())) return 1;
@@ -337,16 +351,16 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='void* TrainingExport(const char*) { return nullptr; }\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
-setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
+setup=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'; source.write_text(code)
     command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /I"{ROOT / "src"}" /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
-    for scenario in ('1','2','3','0'):
+    for scenario in ('4','1','2','3','0'):
         result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
         print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
     assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)
