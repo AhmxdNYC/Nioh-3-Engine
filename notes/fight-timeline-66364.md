@@ -25,3 +25,12 @@ not claimed as a new recorded live test. No game accessed.
 
 Changes span Training (state/format/export), BossRematch (optional ID bridge), and
 EngineFix (Report buffer/label); install all three candidate ASIs for validation.
+
+
+### 1.8.6 integration (#68543)
+
+Rebased tested 179e925f onto f60c56f9 as 930a5127 on cx-pc/fight-timeline-186. The merge was conflict-free; the rebased tree matches the reviewed merge tree. Shrine #23 actor guard retained byte-for-byte; crashupload.cpp (last[] log fallback and 120-char cap) unchanged from 1.8.6. Only timeline/report formatting and identity changes added.
+
+EF build.bat exit 0; BR build.bat exit 0; Training build.sh compiler command (Zig O2, async exceptions) exit 0. fightlog_test and recorded replay both exit 0. No install/launch or new in-game result claimed; earlier pc2 pass is #68539 on the old base.
+
+Artifacts: EF #5059 sha256 138c92326190e03b82945f956de5473f3643b8aa928157ff86ac0530ce505273; BR #5060 sha256 0219c009765a187baadddfe1775b04ebcdc5c8ab6036961e23cfa2266fcc1cbe; TR #5061 sha256 a66e7f6d50cd0c528b6585b14d638c3dcc2bb9fd5d2376fb92c9ad158fc8fbdf. Local copies D:/nioh3-re/fight186-artifacts. Build logs D:/nioh3-re/fight186-{ef,br,tr}-build.log. Next: lead integration/validation.

@@ -79,3 +79,6 @@ Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhi
 
 2026-11-04 6:15 PM EST | #66364 existing released timeline extended with boss IDs and complete-row formatting; 4 recorded fights replayed correctly (2 wins/2 quits).
 Production state tests cover loss/Practice/retry/ring rollover/tiny buffers; new live test unproven. Next build Training, BossRematch, EngineFix and bridge artifacts. notes/fight-timeline-66364.md.
+
+- 2026-11-05 3:01 am EST cx-pc | #68543 fight timeline rebased on 1.8.6: cx-pc/fight-timeline-186 source 930a5127. Shrine guard + crash last[] preserved, builds EF/BR/TR exit0, unit/replay pass.
+- Artifacts EF #5059 138c9232, BR #5060 0219c009, TR #5061 a66e7f6d; no install/game. Next: lead integration/validation, notes/fight-timeline-66364.md.
