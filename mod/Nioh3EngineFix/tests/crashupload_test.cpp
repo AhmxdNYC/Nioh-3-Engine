@@ -43,6 +43,26 @@ int wmain(int argc, wchar_t** argv) {
     si.base = (uintptr_t)GetModuleHandleW(nullptr);
     si.modVersion = "test";
     si.testMode = 1;
+    // Fixtures live beside this isolated test executable, never in the game directory.
+    wchar_t root[MAX_PATH]; GetModuleFileNameW(nullptr, root, MAX_PATH);
+    wchar_t* slash = wcsrchr(root, L'\\'); if (slash) slash[1] = 0;
+    auto fixture = [&](const wchar_t* name, const std::string& data) {
+        std::wstring path = std::wstring(root) + name;
+        FILE* out = _wfopen(path.c_str(), L"wb"); CHECK(out != nullptr);
+        if (out) { fwrite(data.data(), 1, data.size(), out); fclose(out); }
+    };
+    fixture(L"Nioh3Training.ini", "[Summon]\nKiBreakLog=1\nKiBreakNoFinisher=0\nKiBreakActFix=1\nMoveBlock=0x123,0x456\nPrivateName=DO_NOT_UPLOAD\n[Moves.1234]\n0xABCD=0\nRepeatGapMs=500\n[Training]\nBossAggro=1\n");
+    fixture(L"Nioh3BossRematch.ini", "[Spirit]\nSoulCoreForms=1\nUserName=DO_NOT_UPLOAD\n");
+    const bool stress = wcscmp(argv[2], L"stress") == 0;
+    const bool utf16 = wcscmp(argv[2], L"utf16") == 0;
+    if (utf16) {
+        std::string encoded("\xff\xfe", 2);
+        for (char c : std::string("[Spirit]\nSoulCoreForms=1\n")) { encoded += c; encoded += '\0'; }
+        fixture(L"Nioh3BossRematch.ini", encoded);
+    }
+    std::string training;
+    for (int i=0; i<25; ++i) training += "[12:00:10.000] EVENT" + std::to_string(i) + " " + std::string(stress ? 1900 : 600, stress ? '\t' : 'z') + " HP=125176/194938 END_EVENT\n";
+    fixture(L"Nioh3Training.log", training);
     crashupload::Start(si);
     CHECK(strlen(crashupload::InstallId()) == 32);
     if (wcscmp(argv[2], L"send") == 0) {
@@ -51,6 +71,15 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
     Sleep(3500);  // info thread (os / game / mods)
+    CHECK(LoadLibraryW(L"gameoverlayrenderer64.dll") != nullptr);
+    CHECK(LoadLibraryW(L"System32\\excluded-system.dll") != nullptr);
+    CHECK(LoadLibraryW(L"WinSxS\\excluded-sxs.dll") != nullptr);
+    // DLLs loaded after the info snapshot must appear; enough to exercise truncation.
+    for (int i = 0; i < 70; ++i) {
+        wchar_t dll[64];
+        swprintf(dll, 64, L"inventory-%02d.dll", i);
+        CHECK(LoadLibraryW(dll) != nullptr);
+    }
     char prof[300] = {}, user[100] = {}, pc[100] = {};
     GetEnvironmentVariableA("USERPROFILE", prof, sizeof prof);
     GetEnvironmentVariableA("USERNAME", user, sizeof user);
@@ -64,7 +93,11 @@ int wmain(int argc, wchar_t** argv) {
     const int before = crashupload::PendingCount();
     Fault();
     CHECK(g_er.ExceptionCode == 0xC0000005);
-    crashupload::OnCrash("unhandled exception 0xC0000005 ACCESS_VIOLATION", &g_er, &g_ctx, ring, 5, 0);
+    g_ctx.Rdx = 0x123456789abcdef0ull;
+    const bool nullContext = wcscmp(argv[2], L"null") == 0;
+    const bool badStack = wcscmp(argv[2], L"badstack") == 0;
+    if (badStack) { g_ctx.Rip = 0; g_ctx.Rsp = 1; }
+    crashupload::OnCrash("unhandled exception 0xC0000005 ACCESS_VIOLATION", &g_er, nullContext ? nullptr : &g_ctx, ring, 5, 0);
     CHECK(crashupload::PendingCount() == before + 1);
     // newest record
     wchar_t pat[MAX_PATH * 2];
@@ -85,12 +118,22 @@ int wmain(int argc, wchar_t** argv) {
     for (const char* need : {"\"event\":\"crash\"", "\"code\":\"0xC0000005\"", "\"module\":\"crashupload_test.exe\"", "ACCESS_VIOLATION",
                              "\"access\":\"write 0x0\"", "\"mods\":[", "\"os\":\"", "\"test\":1", "<user>\\\\AppData", "<steamid>", "<pc>",
                              "other path <user>\\\\x.txt", "and <user>/.steam", "\\\"", "\\u0009","bad utf8 ?? end"})
-        if (t.find(need) == std::string::npos) { ++fails; fprintf(stderr, "missing: %s\n", need); }
+        if (!stress && t.find(need) == std::string::npos) { ++fails; fprintf(stderr, "missing: %s\n", need); }
     CHECK(t.find("/home/deck") == std::string::npos);
     CHECK(t.find("Someone Else") == std::string::npos);
     CHECK(t.find("76561198012345678") == std::string::npos);
     if (strlen(user) >= 3) CHECK(t.find(user) == std::string::npos);
     if (strlen(pc) >= 3) CHECK(t.find(pc) == std::string::npos);
+    CHECK(t.find("DO_NOT_UPLOAD") == std::string::npos);
+    CHECK(t.find("HP=125176/194938 END_EVENT") != std::string::npos);
+
+    if (!stress) CHECK(t.find("EVENT5 ") != std::string::npos);
+    CHECK(t.find("SoulCoreForms") != std::string::npos);
+    CHECK(t.find("MoveBlock") != std::string::npos);
+    CHECK(t.find("0xABCD") != std::string::npos);
+    if (nullContext) CHECK(t.find("\"registers\":null") != std::string::npos);
+    else CHECK(t.find("0x123456789abcdef0") != std::string::npos);
+    if (badStack) CHECK(t.find("\"stack_top\":[null,null") != std::string::npos);
     CHECK(t.size() <= 64 * 1024);
     printf("%s\n", fails ? "FAILED" : "ALL PASSED");
     return fails ? 1 : 0;

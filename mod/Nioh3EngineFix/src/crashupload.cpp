@@ -6,6 +6,7 @@
 #include "inputlog.h"
 
 #include <windows.h>
+#include <psapi.h>
 #include <bcrypt.h>
 #include <winhttp.h>
 #include <cstdarg>
@@ -329,6 +330,55 @@ void BuildMods() {
 }
 
 // ---- install id -----------------------------------------------------------------------------------------------------------
+// Crash-time snapshot catches late-loaded DLL mods. Never serialize directory paths.
+char g_modulesJson[8192];
+bool g_modulesTruncated = false, g_modulesAvailable = false;
+bool IncludeModule(const wchar_t* path) {
+    wchar_t lower[1024];
+    if (wcslen(path) >= _countof(lower)) return false;
+    wcscpy_s(lower, path);
+    for (wchar_t* p = lower; *p; ++p) {
+        if (*p == L'/') *p = L'\\';
+        if (*p >= L'A' && *p <= L'Z') *p += L'a' - L'A';
+    }
+    const wchar_t* name = wcsrchr(lower, L'\\');
+    name = name ? name + 1 : lower;
+    return !wcsstr(lower, L"\\system32\\") && !wcsstr(lower, L"\\winsxs\\") &&
+           wcscmp(name, L"gameoverlayrenderer64.dll") && wcscmp(name, L"gameoverlayrenderer.dll");
+}
+void BuildModules() {
+    HMODULE modules[512];
+    DWORD needed = 0;
+    g_modulesAvailable = K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &needed) != FALSE;
+    g_modulesTruncated = g_modulesAvailable && needed > sizeof modules;
+    J j{g_modulesJson, 0, sizeof g_modulesJson};
+    j.raw("[");
+    unsigned count = 0;
+    const DWORD total = g_modulesAvailable ? (needed / sizeof(HMODULE) < 512 ? needed / sizeof(HMODULE) : 512) : 0;
+    for (DWORD i = 0; i < total; ++i) {
+        wchar_t path[1024];
+        DWORD n = GetModuleFileNameW(modules[i], path, _countof(path));
+        if (!n || n >= _countof(path)) { g_modulesTruncated = true; continue; }
+        if (!IncludeModule(path)) continue;
+        char utf8[3072], entry[768];
+        ToUtf8(path, utf8, sizeof utf8);
+        MODULEINFO mi{};
+        if (!K32GetModuleInformation(GetCurrentProcess(), modules[i], &mi, sizeof mi)) {
+            g_modulesTruncated = true;
+            continue;
+        }
+        J e{entry, 0, sizeof entry};
+        e.raw("{\"name\":");
+        e.str(BaseName(utf8), 96);
+        e.f(",\"image_size\":%lu}", mi.SizeOfImage);
+        // Reserve comma, closing bracket and NUL before appending a whole entry.
+        if (count >= 64 || e.over || j.n + e.n + 3 > j.cap) { g_modulesTruncated = true; continue; }
+        if (count++) j.raw(",");
+        j.raw(entry);
+    }
+    j.raw("]");
+}
+
 bool IsHex32(const char* s) {
     int n = 0;
     for (; s[n]; ++n) if (!((s[n] >= '0' && s[n] <= '9') || (s[n] >= 'a' && s[n] <= 'f'))) return false;
@@ -357,19 +407,20 @@ void LoadInstallId(const wchar_t* ini) {
 
 // ---- reading log tails (crash path: fixed buffers) -------------------------------------------------------------------------
 // Fills lines[] (each NUL-terminated, max 200 chars) with the last maxLines lines of dir+name. Returns the count.
-int TailLines(const wchar_t* name, char (*lines)[208], int maxLines) {
+template<size_t Width>
+int TailLines(const wchar_t* name, char (*lines)[Width], int maxLines) {
     wchar_t p[MAX_PATH * 2];
     swprintf(p, MAX_PATH * 2, L"%s%s", g_dir, name);
     HANDLE f = CreateFileW(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
     if (f == INVALID_HANDLE_VALUE) return 0;
-    static char buf[16384 + 1];
+    static char buf[65536 + 1];
     LARGE_INTEGER sz{};
     GetFileSizeEx(f, &sz);
     LARGE_INTEGER pos;
-    pos.QuadPart = sz.QuadPart > 16384 ? sz.QuadPart - 16384 : 0;
+    pos.QuadPart = sz.QuadPart > 65536 ? sz.QuadPart - 65536 : 0;
     SetFilePointerEx(f, pos, nullptr, FILE_BEGIN);
     DWORD got = 0;
-    ReadFile(f, buf, 16384, &got, nullptr);
+    ReadFile(f, buf, 65536, &got, nullptr);
     CloseHandle(f);
     buf[got] = 0;
     // walk backwards collecting lines
@@ -387,7 +438,7 @@ int TailLines(const wchar_t* name, char (*lines)[208], int maxLines) {
     }
     for (int i = 0; i < count; ++i) {  // oldest first
         int k = count - 1 - i;
-        int l = lens[k] < 200 ? lens[k] : 200;
+        int l = lens[k] < (int)Width - 1 ? lens[k] : (int)Width - 1;
         memcpy(lines[i], buf + starts[k], (size_t)l);
         lines[i][l] = 0;
     }
@@ -413,6 +464,110 @@ bool SaneJsonObject(const char* s) {
         else if (c == '}' || c == ']') { if (--depth < 0) return false; }
     }
     return depth == 0 && !inStr;
+}
+
+
+// Crash-only diagnostics: fixed storage, no STL/heap and no locks/profile API.
+// Read the on-disk INIs once per crash; only allowlisted numeric fields escape.
+char g_settings[16384];
+char g_training[20][2048];
+int g_trainingN = 0;
+bool ReadWord(uintptr_t addr, unsigned long long* out) {
+    __try { *out = *(const unsigned long long*)addr; return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+void ContextJson(J& j, const CONTEXT* c) {
+    j.raw(",\"registers\":");
+    if (!c) { j.raw("null,\"stack_top\":[]"); return; }
+    j.raw("{");
+#define REG(name) j.f("\"" #name "\":\"0x%016llx\",", c->name)
+    REG(Rip); REG(Rsp); REG(Rbp); REG(Rax); REG(Rbx); REG(Rcx); REG(Rdx);
+    REG(Rsi); REG(Rdi); REG(R8); REG(R9); REG(R10); REG(R11); REG(R12); REG(R13); REG(R14);
+#undef REG
+    j.f("\"R15\":\"0x%016llx\",\"EFlags\":\"0x%08lx\"}", c->R15, c->EFlags);
+    j.raw(",\"stack_top\":[");
+    for (unsigned i = 0; i < 16; ++i) {
+        if (i) j.raw(",");
+        unsigned long long word = 0;
+        if (c->Rsp && c->Rsp <= UINTPTR_MAX - i * 8 && ReadWord((uintptr_t)c->Rsp + i * 8, &word)) j.f("\"0x%016llx\"", word);
+        else j.raw("null");
+    }
+    j.raw("]");
+}
+bool Numeric(const char* s) {
+    if (!*s) return true; // explicit empty move-block list
+    for (; *s; ++s) if (!strchr("0123456789abcdefABCDEFxX,+-. \t", *s)) return false;
+    return true;
+}
+bool SettingAllowed(int file, const char* sec, const char* key) {
+    if (file == 1) return !_stricmp(sec, "Spirit") && !_stricmp(key, "SoulCoreForms");
+    if (!_stricmp(sec, "Summon")) {
+        static const char* keys[] = {"KiBreakLog", "KiBreakNoFinisher", "KiBreakActFix", "KiBreakActFixMode", "KiBreakActBadIds", "KiBreakActGoodId", "MoveBlock", "MoveBlockFallback", "PlayerNoDeath", "SessionNoDeath", "PlayerCantDie"};
+        for (auto k : keys) if (!_stricmp(key, k)) return true;
+    }
+    if (!_stricmp(sec, "Training")) {
+        static const char* keys[] = {"RepeatGapMs", "BossAggro", "AggroFace", "AggroRangeCm", "AggroWalkTimeoutMs"};
+        for (auto k : keys) if (!_stricmp(key, k)) return true;
+    }
+    if (StartsI(sec, "Moves.") && sec[6] && strspn(sec + 6, "0123456789") == strlen(sec + 6))
+        return !_stricmp(key, "RepeatGapMs") || (StartsI(key, "0x") && key[2] && strspn(key + 2, "0123456789abcdefABCDEF") == strlen(key + 2));
+    return false;
+}
+char* Trim(char* s) {
+    while (*s == ' ' || *s == '\t' || *s == '\r') ++s;
+    size_t n = strlen(s);
+    while (n && (s[n-1] == ' ' || s[n-1] == '\t' || s[n-1] == '\r')) s[--n] = 0;
+    return s;
+}
+void CaptureSettings() {
+    J j{g_settings, 0, sizeof g_settings};
+    j.raw("{\"source\":\"ini_at_crash_not_live_state\",\"values\":[");
+    int count = 0; bool truncated = false;
+    static char buf[65537];
+    static const wchar_t* names[] = {L"Nioh3Training.ini", L"Nioh3BossRematch.ini"};
+    for (int m = 0; m < 2; ++m) {
+        wchar_t path[MAX_PATH * 2]; swprintf(path, MAX_PATH * 2, L"%s%s", g_dir, names[m]);
+        HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (f == INVALID_HANDLE_VALUE) continue;
+        DWORD got = 0; ReadFile(f, buf, 65536, &got, nullptr); CloseHandle(f); buf[got] = 0;
+        if (got == 65536) truncated = true;
+        if (got >= 2 && (unsigned char)buf[0] == 0xff && (unsigned char)buf[1] == 0xfe) {
+            DWORD out = 0;
+            for (DWORD in = 2; in + 1 < got; in += 2) buf[out++] = buf[in + 1] || (unsigned char)buf[in] >= 128 ? '?' : buf[in];
+            buf[out] = 0;
+        }
+        char sec[48] = {};
+        char* line = buf;
+        if (got >= 3 && !memcmp(line, "\xef\xbb\xbf", 3)) line += 3;
+        while (*line) {
+            char* end = strchr(line, '\n'); if (end) *end = 0;
+            // Do not parse an incomplete final line of a capped file.
+            if (!end && got == 65536) break;
+            char* text = Trim(line);
+            if (*text == '[') {
+                char* close = strchr(text, ']'); sec[0] = 0;
+                if (close && close - text < (int)sizeof sec) { *close = 0; strcpy_s(sec, text + 1); }
+            } else if (*text && *text != ';' && *text != '#') {
+                char* eq = strchr(text, '=');
+                if (eq) {
+                    *eq = 0; char* key = Trim(text); char* val = Trim(eq + 1);
+                    if (char* comment = strchr(val, ';')) *comment = 0;
+                    val = Trim(val);
+                    if (strlen(key) < 48 && SettingAllowed(m, sec, key) && Numeric(val)) {
+                        if (count >= 64 || strlen(val) > 512 || j.n + 700 >= j.cap) truncated = true;
+                        else {
+                            if (count++) j.raw(",");
+                            j.raw("{\"mod\":"); j.str(m ? "BossRematch" : "Training");
+                            j.raw(",\"section\":"); j.str(sec); j.raw(",\"key\":"); j.str(key);
+                            j.raw(",\"value\":"); j.str(val, 512); j.raw("}");
+                        }
+                    }
+                }
+            }
+            if (!end) break; line = end + 1;
+        }
+    }
+    j.f("],\"truncated\":%s}", truncated ? "true" : "false");
 }
 
 // ---- record ---------------------------------------------------------------------------------------------------------------
@@ -455,7 +610,7 @@ static int LastFromLogs(J& j, int efN, int maxN) {
     return n;
 }
 
-size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, int efN, int otherLines) {
+size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* ctx, int efN, int otherLines, int trainingLines = 20) {
     J j{g_rec, 0, sizeof g_rec};
     SYSTEMTIME st;
     GetLocalTime(&st);
@@ -485,6 +640,9 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
         const char* k = er->ExceptionInformation[0] == 0 ? "read" : er->ExceptionInformation[0] == 1 ? "write" : "execute";
         j.f(",\"access\":\"%s 0x%llx\"", k, (unsigned long long)er->ExceptionInformation[1]);
     }
+    ContextJson(j, ctx);
+    j.raw(",\"settings\":"); j.raw(g_settings);
+    j.f(",\"training_tail\":{\"captured\":%d,\"included\":%d,\"line_cap\":2047}", g_trainingN, g_trainingN < trainingLines ? g_trainingN : trainingLines);
     j.raw(",\"stack\":[");
     if (ctx) {
         CONTEXT c = *ctx;
@@ -518,6 +676,9 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     j.raw(info && g_modsJson[0] ? g_modsJson : "[]");
     j.raw(",\"loaders\":");
     j.raw(info && g_loadersJson[0] ? g_loadersJson : "[]");
+    j.raw(",\"modules\":");
+    j.raw(g_modulesJson[0] ? g_modulesJson : "[]");
+    j.f(",\"modules_truncated\":%s,\"modules_available\":%s", g_modulesTruncated ? "true" : "false", g_modulesAvailable ? "true" : "false");
     j.raw(",\"os\":");
     j.raw(info && g_osJson[0] ? g_osJson : "\"\"");
     j.f(",\"uptime_s\":%lu,\"test\":%d", (unsigned long)((GetTickCount() - g_startTick) / 1000), g_test);
@@ -543,6 +704,12 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     j.raw("]");
     static const char* kNames[3] = {"BossRematch", "Training", "CamKiProbe"};
     for (int m = 0; m < 3; ++m) {
+        if (m == 1) {
+            j.raw(",\"Training\":[");
+            const int first = g_trainingN > trainingLines ? g_trainingN - trainingLines : 0;
+            for (int i = first; i < g_trainingN; ++i) { if (i > first) j.raw(","); j.str(g_training[i], 2047); }
+            j.raw("]"); continue;
+        }
         if (!g_otherN[m]) continue;
         j.f(",\"%s\":[", kNames[m]);
         int n = g_otherN[m], first = n > otherLines ? n - otherLines : 0;
@@ -729,13 +896,17 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     static const wchar_t* kLogs[3] = {L"Nioh3BossRematch.log", L"Nioh3Training.log", L"Nioh3CamKiProbe.log"};
     for (int m = 0; m < 3; ++m) g_otherN[m] = TailLines(kLogs[m], g_other[m], kOtherLogLines);
     g_eventsN = TailLines(L"Nioh3ModEvents.jsonl", g_events, 32);
+    BuildModules();
+    g_trainingN = TailLines(L"Nioh3Training.log", g_training, 20);
+    CaptureSettings();
     size_t n = 0;
     static const int kTry[3] = {kOtherLogLines, 15, 0};
     for (int lines : kTry) {
         n = BuildRecord(reason, er, ctx, efN, lines);
         if (n) break;
     }
-    if (!n) n = BuildRecord(reason, er, ctx, 0, 0);
+    // Keep as many complete newest Training lines as the wire budget permits.
+    for (int keep = 20; !n && keep >= 0; --keep) n = BuildRecord(reason, er, ctx, 0, 0, keep);
     if (!n) return;
     EnsureDirs();
     SYSTEMTIME st;
