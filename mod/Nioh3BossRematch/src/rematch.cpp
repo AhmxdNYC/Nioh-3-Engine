@@ -983,7 +983,8 @@ void UnbeatenTick(const Snap& s, ULONGLONG t) {
         return;
     }
     const bool left = g_unbeatenSeen.load() && s.msOk && s.ms28 != m;
-    const bool never = !g_unbeatenSeen.load() && t - g_unbeatenAt > 180000;  // the load never came
+    const bool never = !g_unbeatenSeen.load() && t - g_unbeatenAt > 180000 &&
+        s.msOk && s.queueOk && !s.st[2] && g_attemptPhase.load() == aNone;  // never expire protection during an owned/uncertain native load
     if (!left && !never) return;
     const uint8_t c = ClearByte((uint16_t)m);
     g_unbeaten.store(0);
@@ -1041,12 +1042,23 @@ void TrainingPreload() {
 }
 
 void FillStartFromTraining(Row& r);  // below (#65732)
+// Cancel Training's pending auto-enter on every refusal/uncertain queue result.
+// Older Training builds have no callback and preserve their existing behavior.
+struct TrainingEntryAdmission {
+    uint32_t mission; bool accepted = false;
+    ~TrainingEntryAdmission() {
+        using Fn = void (*)(uint32_t, int);
+        const auto fn = (Fn)TrainingExport("Nioh3Training_NativeEntryResult");
+        if (fn) fn(mission, accepted ? 1 : 0);
+    }
+};
 void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (fight) FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
+    TrainingEntryAdmission entryAdmission{r.missionId};
     const char* why = nullptr;
     const uint32_t start = fight ? r.fightStart : 0;
     if (fight) {
@@ -1087,6 +1099,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
             "spawn %.0f %.0f %.0f yaw %.0f, confidence %s; queue slot %d free",
             r.id, r.missionId, slot, start, r.fightKind, r.fightDist, r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.fightConf, freeSlot);
     AttemptBegin(r.missionId, start, slot, row, freeSlot, t, s, before);
+    // Arm before the request can execute any native script, including an uncertain admission.
+    if (fight && g_bypassId == r.missionId) UnbeatenArm(r.missionId, r.id);
     const int callResult = CallRequestById(r.missionId, slot, start);
     if (callResult != 0) {
         AttemptMatch(nullptr, false, false);
@@ -1111,7 +1125,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         uint32_t sp = 0;
         memcpy(&sp, q + 0xC, 4);
         Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
-        if (g_bypassId == r.missionId) UnbeatenArm(r.missionId, r.id);
+        entryAdmission.accepted = true;
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
