@@ -196,6 +196,30 @@ int main() {
     WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", L"0", ini2.c_str());
     Check(!skipfx::IniWants(ini2.c_str()), "Preset 3 + XHALF = 0: off (explicit 0 wins)");
     WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", nullptr, ini2.c_str());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"4", ini2.c_str());
+    Check(skipfx::IniWants(ini2.c_str()), "#67206 Preset 4 (Extreme) without XHALF: half-rate wanted");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Mask", L"0", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "#67206 XHALF_Mask = 0: nothing to skip, off");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Mask", nullptr, ini2.c_str());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"3", ini2.c_str());
+    Check(skipfx::HalfList(15) == "cs=4b4c3cbe,cs=6ae59bd0,cs=b76874bb,cs=641524ee" && skipfx::HalfList(8) == "cs=641524ee" &&
+              skipfx::HalfList(5) == "cs=4b4c3cbe,cs=b76874bb" && skipfx::HalfList(0).empty(),
+          "#67206 XHALF_Mask -> per-pass PSO list");
+    {
+        int pd = 0, rn = 0;
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 4 && rn == 2, "#67206 default rate: Period 4, Run 2 (both frame parities written each cycle)");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", L"2", ini2.c_str());
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 2 && rn == 1, "Period 2 without Run: Run 1 (the old 1-in-2)");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", L"3", ini2.c_str());
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Run", L"5", ini2.c_str());
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 3 && rn == 2, "Run >= Period is clamped to Period - 1");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", nullptr, ini2.c_str());
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Run", nullptr, ini2.c_str());
+    }
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", nullptr, ini2.c_str());
     WritePrivateProfileStringW(L"ExtraPerf", L"Enabled", L"0", ini2.c_str());
     Check(!skipfx::IniWants(ini2.c_str()), "Preset 3 but [ExtraPerf] Enabled = 0: off");
     WritePrivateProfileStringW(L"ExtraPerf", L"Enabled", nullptr, ini2.c_str());
@@ -209,11 +233,15 @@ int main() {
     void* const L2 = (void*)0x7100;
     skipfx::OnListCall(L2, 0, 10, 0, 0x5000, 0);   // Reset with the GI gather PSO as the initial state
     g_frames = 20;
-    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather 4b4c3cbe, even frame: runs");
+    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather 4b4c3cbe, frame 0 of 4: runs");
     g_frames = 21;
-    Check(skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather, odd frame: skipped");
+    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "#67206 frame 1 of 4: runs too (the other ping-pong parity)");
+    g_frames = 22;
+    Check(skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "frame 2 of 4: skipped");
+    g_frames = 23;
+    Check(skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather, frame 3 of 4: skipped");
     skipfx::OnListCall(L2, 0, 25, 0x1000, 0, 0);
-    Check(skipfx::OnListCall(L2, 0, 14, 1, 1, 1), "XHALF 2: volumetric clouds b76874bb, odd frame: skipped");
+    Check(skipfx::OnListCall(L2, 0, 14, 1, 1, 1), "XHALF 2: volumetric clouds b76874bb, frame 3 of 4: skipped");
     skipfx::OnListCall(L2, 0, 25, 0x3000, 0, 0);
     Check(!skipfx::OnListCall(L2, 0, 14, 1, 1, 1), "XHALF: any other compute PSO always runs");
     g_frames = 0;

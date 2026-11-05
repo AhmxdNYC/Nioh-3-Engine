@@ -36,7 +36,11 @@ struct Cfg {   // immutable once published (counters aside); never freed (a few 
     std::vector<std::string> pso;    // lower-case hex fragments, optionally "xs=" stage-qualified
     std::vector<std::string> mk;     // lower-case marker names, trailing '*' = prefix
     int clearMode = 0;
-    int period = 1;   // #66661 half-rate: >= 2 = a matched draw / dispatch runs on 1 frame in `period` (game presents), skipped otherwise
+    int period = 1;   // #66661 half-rate: >= 2 = a matched draw / dispatch runs on `run` frames in `period` (game presents), skipped otherwise
+    // #67206 run frames per period (consecutive). Period 2 / run 1 strobed on the Ally (#216): the engine ping-pongs some of these
+    // outputs by frame parity, so a 1-in-2 rate always wrote the same buffer and the other one stayed frozen from the loading screen
+    // (luma 98 / 15 alternating, brown sky). Run 2 of 4 writes both parities every cycle: each buffer is at most 3 frames old.
+    int run = 1;
     float clear[4] = {0, 0, 0, 0};
     bool any = false;
     unsigned long long tApplyUnixMs = 0, tApplyTick = 0;
@@ -239,7 +243,7 @@ bool Impl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a
             }
             skip = s->psoSkip != 0;
         }
-        if (skip && c->period > 1 && osd::GameFrames() % c->period == 0) skip = false;   // half-rate: this is a "run" frame
+        if (skip && c->period > 1 && osd::GameFrames() % c->period < c->run) skip = false;   // half-rate: this is a "run" frame
     }
     if (!skip) {
         if (slot != kSlotDispatch) s->bindingUsed = 1;
@@ -299,7 +303,7 @@ std::string ReadStr(const wchar_t* sec, const wchar_t* key, const std::wstring& 
 }
 
 Cfg* Build(const std::string& tag, const std::string& psoList, const std::string& mkList, int clearMode, const std::string& clear,
-           int period = 1) {
+           int period = 1, int run = 1) {
     Cfg* c = new (std::nothrow) Cfg();
     if (!c) return nullptr;
     strncpy_s(c->tag, tag.empty() ? "-" : tag.c_str(), _TRUNCATE);
@@ -325,6 +329,7 @@ Cfg* Build(const std::string& tag, const std::string& psoList, const std::string
     }
     c->clearMode = clearMode == 1 ? 1 : 0;
     c->period = period < 1 ? 1 : period > 8 ? 8 : period;
+    c->run = run < 1 ? 1 : run >= c->period ? (c->period > 1 ? c->period - 1 : 1) : run;
     const std::vector<std::string> cv = Split(clear, ", ;");
     for (size_t i = 0; i < 4 && i < cv.size(); ++i) c->clear[i] = (float)atof(cv[i].c_str());
     c->any = !c->pso.empty() || !c->mk.empty();
@@ -366,9 +371,9 @@ void Apply(Cfg* c) {
     std::string p, m;
     for (const auto& t : c->pso) p += (p.empty() ? "" : ",") + t;
     for (const auto& t : c->mk) m += (m.empty() ? "" : ",") + t;
-    SLOG("apply '%s' gen %u: PSO [%s] marker [%s] ClearMode %d (%.2f %.2f %.2f %.2f) Period %d%s", c->tag, c->gen, p.c_str(), m.c_str(),
-         c->clearMode, c->clear[0], c->clear[1], c->clear[2], c->clear[3], c->period,
-         !c->any ? " - nothing skipped (baseline)" : c->period > 1 ? " (half-rate: matched work runs 1 frame in Period)" : "");
+    SLOG("apply '%s' gen %u: PSO [%s] marker [%s] ClearMode %d (%.2f %.2f %.2f %.2f) Period %d Run %d%s", c->tag, c->gen, p.c_str(),
+         m.c_str(), c->clearMode, c->clear[0], c->clear[1], c->clear[2], c->clear[3], c->period, c->run,
+         !c->any ? " - nothing skipped (baseline)" : c->period > 1 ? " (half-rate: matched work runs Run frames in Period)" : "");
 }
 
 void WriteAck() {
@@ -395,7 +400,7 @@ Cfg* LoadControl() {
     const std::wstring& f = g_ctlPath;
     return Build(ReadStr(L"SkipFx", L"Tag", f), ReadStr(L"SkipFx", L"PSO", f), ReadStr(L"SkipFx", L"Marker", f),
                  (int)GetPrivateProfileIntW(L"SkipFx", L"ClearMode", 0, f.c_str()), ReadStr(L"SkipFx", L"Clear", f),
-                 (int)GetPrivateProfileIntW(L"SkipFx", L"Period", 1, f.c_str()));
+                 (int)GetPrivateProfileIntW(L"SkipFx", L"Period", 1, f.c_str()), (int)GetPrivateProfileIntW(L"SkipFx", L"Run", 1, f.c_str()));
 }
 
 DWORD WINAPI CtlThread(void*) {
@@ -443,30 +448,62 @@ std::wstring DirOf(const std::wstring& p) {
 // #66661 XHALF: the compute passes the cost-vs-looks skips showed to keep their last result (stale, not garbage) when skipped
 // (notes\cost-vs-looks.md: RefProbe GI "stale, static view ~same", VCLOUD "clouds frozen", VFSCAT "fog volume frozen").
 // 1 = GI / reflection probe gathers; 2 = + volumetric clouds + froxel fog scatter. All compute dispatches (no draws, no markers).
-const char* const kHalfPso[3] = {"", "cs=4b4c3cbe,cs=6ae59bd0", "cs=4b4c3cbe,cs=6ae59bd0,cs=b76874bb,cs=641524ee"};
+// #67206 XHALF_Mask picks the passes one by one (bits): 1 = GI diffuse gather 4b4c3cbe, 2 = reflection gather 6ae59bd0,
+// 4 = volumetric clouds b76874bb, 8 = froxel fog scatter 641524ee. Level 1 = mask 3, level 2 = mask 15.
+const char* const kHalfCs[4] = {"cs=4b4c3cbe", "cs=6ae59bd0", "cs=b76874bb", "cs=641524ee"};
 
 int HalfLevel(const wchar_t* ini) {
     int v = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", -1, ini);
-    if (v < 0) {   // not in the ini: on with the Risky preset only
+    if (v < 0) {   // not in the ini: on with the Risky / Extreme presets only
         const bool on = GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, ini) == 1;
-        v = on && GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, ini) == 3 ? 2 : 0;
+        const int pr = (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, ini);
+        v = on && (pr == 3 || pr == 4) ? 2 : 0;
     }
     return v < 0 ? 0 : v > 2 ? 2 : v;
+}
+
+int HalfMask(const wchar_t* ini, int level) {
+    const int m = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Mask", -1, ini);
+    if (m >= 0) return m & 15;
+    return level >= 2 ? 15 : level == 1 ? 3 : 0;
 }
 
 }  // namespace
 
 bool IniWants(const wchar_t* ini) {
     if (!ini) return false;
-    return GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini) == 1 || HalfLevel(ini) > 0;
+    const int lv = HalfLevel(ini);
+    return GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini) == 1 || (lv > 0 && HalfMask(ini, lv) != 0);
+}
+
+std::string HalfList(int mask) {
+    std::string p;
+    for (int i = 0; i < 4; ++i)
+        if (mask & (1 << i)) p += (p.empty() ? "" : ",") + std::string(kHalfCs[i]);
+    return p;
+}
+
+void HalfRate(const wchar_t* ini, int* period, int* run) {
+    int pd = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Period", 4, ini);
+    if (pd < 2) pd = 2;
+    if (pd > 8) pd = 8;
+    int r = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Run", -1, ini);
+    if (r < 0) r = pd / 2;   // default: half the period, consecutive (2 of 4) - both frame parities get written each cycle
+    if (r < 1) r = 1;
+    if (r >= pd) r = pd - 1;
+    *period = pd;
+    *run = r;
 }
 
 namespace {
 void StartHalf() {
-    const int period = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Period", 2, g_iniPath.c_str());
-    Apply(Build(g_half == 1 ? "XHALF1" : "XHALF2", kHalfPso[g_half], "", 0, "", period < 2 ? 2 : period));
-    SLOG("HALF-RATE XHALF %d (#66661, changes the look): GI gathers%s computed 1 frame in %d, the other frames reuse the last result",
-         g_half, g_half >= 2 ? " + volumetric clouds + fog scatter" : "", g_cur ? g_cur->period : 2);
+    int period = 4, run = 2;
+    HalfRate(g_iniPath.c_str(), &period, &run);
+    const int mask = HalfMask(g_iniPath.c_str(), g_half);
+    Apply(Build(g_half == 1 ? "XHALF1" : "XHALF2", HalfList(mask), "", 0, "", period, run));
+    SLOG("HALF-RATE XHALF %d mask %d (#66661/#67206, changes the look): %s%s%s%s computed %d frame(s) in %d, the other frames reuse the last result",
+         g_half, mask, mask & 1 ? "GI " : "", mask & 2 ? "reflections " : "", mask & 4 ? "clouds " : "", mask & 8 ? "fog " : "",
+         g_cur ? g_cur->run : run, g_cur ? g_cur->period : period);
 }
 }  // namespace
 
@@ -475,7 +512,7 @@ void Start(const StartInfo& info) {
     g_iniPath = info.iniPath ? info.iniPath : L"";
     g_enabled = (int)GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, g_iniPath.c_str()) == 1 ? 1 : 0;
     g_half = HalfLevel(g_iniPath.c_str());
-    if (!g_enabled && g_half > 0) {   // shipped half-rate path: built-in list, no control file, lean hooks
+    if (!g_enabled && g_half > 0 && HalfMask(g_iniPath.c_str(), g_half) != 0) {   // shipped half-rate path: built-in list, no control file, lean hooks
         g_enabled = 2;
         g_lean = true;
         StartHalf();

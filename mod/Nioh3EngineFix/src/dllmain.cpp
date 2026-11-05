@@ -846,6 +846,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveMeshLod: return (void*)&caveMeshLod;
         case gen::Target::caveFxSim: return (void*)&caveFxSim;
         case gen::Target::caveFxDraw: return (void*)&caveFxDraw;
+        case gen::Target::caveRenderDims: return (void*)&caveRenderDims;  // #67206 XRES (extraperf.asm)
         default: return nullptr;
     }
 }
@@ -2478,6 +2479,22 @@ DWORD WINAPI Worker(LPVOID) {
             return true;
         });
         if (!fx) Log("XPRT: GPU particle share NOT installed");
+        // #67206 XRES (Extreme preset / [ExtraPerf] XRES >= 1 at start only: level 0 users get no hook at all)
+        if (extraperf::ResLevel() > 0) {
+            const bool rs = expGroup("XRS", true, [&]() {
+                const char* ids[4] = {"XRS1", "XRS2", "XRS3", "XRS4"};
+                for (const char* id : ids) {
+                    Item* it = findItem(id);
+                    if (calleeOf(it->addr) != (uintptr_t)(g_base + it->s->expectRva)) {
+                        Log("XRES: %s callee differs from v2.02", id);
+                        return false;
+                    }
+                }
+                extraperf::SetResInstalled(calleeOf(findItem("XRS1")->addr));
+                return true;
+            });
+            if (!rs) Log("XRES: render size scale NOT installed");
+        }
     }
     // PT1 (1.7.12): TextureStreamRequestTiles holds the pool lock once per texture. A live switch only gates new
     // textures (the bytes are never restored mid-loop), so switching off is always safe.

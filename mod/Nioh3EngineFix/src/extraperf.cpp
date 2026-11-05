@@ -13,6 +13,11 @@ extern "C" {
 uintptr_t ep_giOrig = 0, ep_lodOrig = 0, ep_pSimFrac = 0, ep_pDrawFrac = 0;
 float ep_giMul = 1.0f, ep_giMin = 0.0f, ep_fxMul = 1.0f;
 float ep_giLastIn = 0.0f, ep_giLastOut = 0.0f;  // caveGiScale: the last GiScaleLookup result and what the cave returned (stats read-back)
+// #67206 XRES (caveRenderDims): RenderDimsGet 5AC428 original, the render-size multiplier, last dims in / out (stats read-back)
+uintptr_t ep_resOrig = 0;
+float ep_resMul = 1.0f;
+volatile uint32_t ep_resInW = 0, ep_resInH = 0, ep_resOutW = 0, ep_resOutH = 0;
+volatile uint64_t ep_resCalls = 0;
 }
 
 namespace extraperf {
@@ -52,9 +57,18 @@ const int kPresetLv[kNumPresets][kNumOpts] = {
     // x0.2, particles x0.25, AO off, blur / DOF / bloom off. With Preset = 3 in the ini, [ExtraPerf] XHALF defaults to 2 (skipfx.cpp:
     // GI gathers, volumetric clouds and fog scatter computed every 2nd frame; needs a restart, it installs at start).
     {3, 3, 4, 3, 2, 3, 3, 3, 1, 2},
+    // #67206 Extreme (human #67200: >= +20 %): Risky + XRES 3 = the internal render size x0.7 through the engine's own
+    // dynamic-resolution viewport path (Ally REN_RAT 50 -> 35 %; model ~ -4.4 ms of 28.7, notesig-wins-gx-27597.md).
+    {3, 3, 4, 3, 2, 3, 3, 3, 1, 2},
 };
+// #67206 XRES level per preset (not a menu row; [ExtraPerf] XRES in the ini, a preset wins)
+const int kPresetRes[kNumPresets] = {0, 0, 0, 0, 3};
+const float kResMul[kResLevels] = {1.0f, 0.9f, 0.8f, 0.7f, 0.6f};
+volatile LONG g_res = 0;
+bool g_resInst = false;
 // #43269: the Optimizations preset row. Custom is not a level row; PresetName returns it when the XCLD-style levels match none of these.
-const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized", "Risky (max speed)"};
+const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized", "Risky (max speed)",
+                                              "Extreme (lower render res)"};
 
 bool g_wanted = false;
 volatile LONG g_level[kNumOpts] = {};
@@ -169,6 +183,8 @@ void UpdateCaveData() {
     ep_giMul = kGiMul[gi];
     ep_giMin = gi ? 0.1f : 0.0f;
     ep_fxMul = kFxMul[fx];
+    const int r = g_res;
+    ep_resMul = kResMul[r >= 0 && r < kResLevels ? r : 0];
 }
 
 }  // namespace
@@ -185,8 +201,12 @@ void Configure(const StartInfo& si) {
         if (v < 0 || v >= kOpt[o].levels) v = 0;
         g_level[o] = v;
     }
-    if (preset > 0 && preset < kNumPresets)  // a preset in the ini wins over the per-option keys
+    int res = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XRES", 0, ini);
+    g_res = res < 0 || res >= kResLevels ? 0 : res;
+    if (preset > 0 && preset < kNumPresets) {  // a preset in the ini wins over the per-option keys
         for (int o = 0; o < kNumOpts; ++o) g_level[o] = kPresetLv[preset][o];
+        g_res = kPresetRes[preset];
+    }
     UpdateCaveData();
 }
 
@@ -207,6 +227,21 @@ void SetLodInstalled(uintptr_t orig) {
     ep_lodOrig = orig;
     g_lod = orig != 0;
     XLOG("EXTRA: meshlet LOD scale installed (XLOD %d = x%.1f)", (int)g_level[kGeometry], (double)kLodMul[g_level[kGeometry]]);
+}
+void SetResInstalled(uintptr_t orig) {
+    ep_resOrig = orig;
+    g_resInst = orig != 0;
+    XLOG("EXTRA: render size scale installed (XRES %d = x%.2f; RenderDimsGet %p, the engine's dynamic-resolution viewport path)",
+         (int)g_res, (double)ep_resMul, (void*)orig);
+}
+int ResLevel() { return (int)g_res; }
+bool ResAvailable() { return g_resInst; }
+void SetResLevel(int l) {
+    if (l < 0) l = 0;
+    if (l >= kResLevels) l = kResLevels - 1;
+    const LONG old = InterlockedExchange(&g_res, l);
+    UpdateCaveData();
+    if (old != l) XLOG("EXTRA: XRES -> %d (render size x%.2f)%s", l, (double)kResMul[l], g_resInst ? "" : " - not installed");
 }
 void SetFxInstalled(void* sim, void* draw) {
     ep_pSimFrac = (uintptr_t)sim;
@@ -231,7 +266,7 @@ bool Available(int o) {
         default: return g_rco && o >= 0 && o < kNumOpts;
     }
 }
-bool AnyAvailable() { return g_rco || g_gi || g_lod || g_fx; }
+bool AnyAvailable() { return g_rco || g_gi || g_lod || g_fx || g_resInst; }
 int Level(int o) { return o >= 0 && o < kNumOpts ? (int)g_level[o] : 0; }
 void SetLevel(int o, int l) {
     if (o < 0 || o >= kNumOpts) return;
@@ -245,12 +280,13 @@ const char* PresetName(int p) { return p >= 0 && p < kNumPresets ? kPresetName[p
 void ApplyPreset(int p) {
     if (p < 0 || p >= kNumPresets) return;
     for (int o = 0; o < kNumOpts; ++o) InterlockedExchange(&g_level[o], kPresetLv[p][o]);
+    InterlockedExchange(&g_res, kPresetRes[p]);
     UpdateCaveData();
     XLOG("EXTRA: preset %s", kPresetName[p]);
 }
 int MatchPreset() {
     for (int p = 0; p < kNumPresets; ++p) {
-        bool eq = true;
+        bool eq = g_res == kPresetRes[p];
         for (int o = 0; o < kNumOpts && eq; ++o) eq = g_level[o] == kPresetLv[p][o];
         if (eq) return p;
     }
@@ -349,6 +385,10 @@ void StatusLine(char* buf, unsigned n) {
     if (k > 0 && (unsigned)k < n && g_fx && ep_pSimFrac && ep_pDrawFrac)
         k += snprintf(buf + k, n - k, "; GPU particle fractions sim %.3f draw %.3f", (double)*reinterpret_cast<float*>(ep_pSimFrac),
                       (double)*reinterpret_cast<float*>(ep_pDrawFrac));
+    if (k > 0 && (unsigned)k < n && g_resInst)
+        k += snprintf(buf + k, n - k, "; XRES %d x%.2f render size %ux%u -> %ux%u (%llu calls)", (int)g_res, (double)ep_resMul,
+                      (unsigned)ep_resInW, (unsigned)ep_resInH, (unsigned)ep_resOutW, (unsigned)ep_resOutH,
+                      (unsigned long long)ep_resCalls);
     if (k > 0 && (unsigned)k < n && g_lod && g_lodState.wrote)
         k += snprintf(buf + k, n - k, "; meshlet LOD scale[0] engine %.3f -> %.3f", (double)g_lodState.base[0], (double)g_lodState.last[0]);
     pr = r;
@@ -358,6 +398,25 @@ void StatusLine(char* buf, unsigned n) {
 }  // namespace extraperf
 
 using namespace extraperf;
+
+// XRS1-4 (caveRenderDims): after RenderDimsGet 5AC428 wrote {w, h} (render thread / settings apply). x ep_resMul, even, >= 64.
+extern "C" void ExtraPerfResC(uint32_t* d) {
+    if (!d) return;
+    ep_resCalls = ep_resCalls + 1;
+    const float m = ep_resMul;
+    const uint32_t w = d[0], h = d[1];
+    ep_resInW = w;
+    ep_resInH = h;
+    if (m < 1.0f && m > 0.2f && w >= 128 && h >= 128 && w <= 16384 && h <= 16384) {
+        uint32_t nw = (uint32_t)((float)w * m) & ~1u, nh = (uint32_t)((float)h * m) & ~1u;
+        if (nw < 64) nw = 64;
+        if (nh < 64) nh = 64;
+        d[0] = nw;
+        d[1] = nh;
+    }
+    ep_resOutW = d[0];
+    ep_resOutH = d[1];
+}
 
 // EPL1: after ApplyMeshletLodScales wrote the 8 category scales at obj+0xA108 (game-tick thread)
 extern "C" void ExtraPerfLodC(uint8_t* obj) {

@@ -30,7 +30,11 @@
 //                                       AMBIENT_OCCLUSION OFF values, ApplyAmbientOcclusion 39B20C)
 //   XPOST  camera effects off           1: S+0x188C LensSimulationMotionBlur2Enable = 0 (MOTION_BLUR OFF, 39B4A4) + S+0x1700
 //                                       LensSimulationDOFFlag = 0 (DEPTH_OF_FIELD OFF); 2: + S+0x30 BloomWeight = 0 (BLOOM OFF)
-//   XPRE   preset                       0 game (all 0), 1 Performance, 2 Potato (sets the rows above; any change -> "custom")
+//   XRES   render size (#67206)         RenderDimsGet 5AC428 results at its 4 callers (XRS1-4: RenderResScaleApply 5AB9CC, XeSS
+//                                       config, AO, 28A7B50) x 0.9 | 0.8 | 0.7 | 0.6: the engine's own dynamic-resolution viewport
+//                                       path renders a smaller viewport of the fixed-size targets and the upscaler fills the output.
+//                                       Ini key / preset only (no menu row).
+//   XPRE   preset                       0 game (all 0), 1 Performance, 2 Potato, 3 Risky, 4 Extreme (= Risky + XRES 3)
 //
 // RenderConfig writes happen in samelook's RCO cave (RCO1 39B7CA, right after ApplyGraphicsSettings, before the renderer reads
 // S). Per field: when the engine re-filled it since our last write the new engine value is the base; when it did not (env
@@ -43,7 +47,8 @@
 namespace extraperf {
 
 enum Opt { kClouds, kFog, kGi, kShadowDist, kShadowFilter, kGeometry, kTerrain, kParticles, kAO, kPost, kNumOpts };
-enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kPresetRisky, kNumPresets };
+enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kPresetRisky, kPresetExtreme, kNumPresets };
+constexpr int kResLevels = 5;   // #67206 XRES: 0 game, 1 = x0.9, 2 = x0.8, 3 = x0.7, 4 = x0.6 of the render size
 
 struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;
@@ -57,6 +62,10 @@ void SetRcoInstalled();
 void SetGiInstalled(uintptr_t giScaleLookup);           // original callee of the 4 GIS sites (187A50)
 void SetLodInstalled(uintptr_t applyMeshletLodScales);  // original callee of EPL1 (2353C0)
 void SetFxInstalled(void* simFraction, void* drawFraction);  // the two globals the EPF1 / EPF2 stores write
+void SetResInstalled(uintptr_t renderDimsGet);           // #67206 original callee of the 4 XRS sites (5AC428)
+int ResLevel();
+bool ResAvailable();
+void SetResLevel(int lvl);           // live; logs
 
 // ---- menu / remote (any thread; values are plain ints) ----
 int Count();                         // kNumOpts
@@ -84,6 +93,10 @@ void caveGiScale();   // GIS1-4: call GiScaleLookup, xmm0 = max(xmm0 * ep_giMul,
 void caveMeshLod();   // EPL1: call ApplyMeshletLodScales(rcx, rdx), then ExtraPerfLodC(rcx)
 void caveFxSim();     // EPF1: replaces movss [g_ViewGpuEffectSimFraction], xmm1  (stores xmm1 * ep_fxMul)
 void caveFxDraw();    // EPF2: replaces movss [g_ViewGpuEffectDrawFraction], xmm2 (stores xmm2 * ep_fxMul)
+void caveRenderDims();  // XRS1-4: call RenderDimsGet(rcx = out), then ExtraPerfResC(out): {w, h} x ep_resMul
+void ExtraPerfResC(uint32_t* dims);
+extern uintptr_t ep_resOrig;
+extern float ep_resMul;
 void ExtraPerfLodC(uint8_t* obj);
 extern uintptr_t ep_giOrig, ep_lodOrig, ep_pSimFrac, ep_pDrawFrac;
 extern float ep_giMul, ep_giMin, ep_fxMul;

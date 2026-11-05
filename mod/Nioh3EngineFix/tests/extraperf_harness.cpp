@@ -61,6 +61,13 @@ extern "C" void fakeApplyLod(uint8_t* obj, void* ctx) {
     memcpy(obj + 0xA108, v, sizeof v);
 }
 
+// #67206 fake RenderDimsGet 5AC428: writes {w, h}, returns the out pointer (as the original)
+static uint32_t g_dimW = 960, g_dimH = 540;
+extern "C" uint64_t* fakeRenderDims(uint64_t* out) {
+    *out = ((uint64_t)g_dimH << 32) | g_dimW;
+    return out;
+}
+
 int main() {
     using namespace extraperf;
     // ---- configure from a temp ini
@@ -175,6 +182,35 @@ int main() {
     g_giOverride = -1.0f;
     SetLevel(kGi, 0);
     CHECK(gi(1) == kGiTable[1], "XGI back to 0");
+
+    // ---- #67206 XRES cave (render size)
+    ep_resOrig = (uintptr_t)&fakeRenderDims;
+    SetResInstalled(ep_resOrig);
+    auto rd = reinterpret_cast<uint64_t* (*)(uint64_t*)>(&caveRenderDims);
+    uint64_t dims = 0;
+    SetResLevel(0);
+    CHECK(rd(&dims) == &dims && dims == ((540ull << 32) | 960), "XRES 0 changed the dims or the return value");
+    SetResLevel(3);
+    CHECK(rd(&dims) == &dims, "caveRenderDims must return the out pointer");
+    CHECK((uint32_t)dims == 672 && (uint32_t)(dims >> 32) == 378, "XRES 3 (x0.7) 960x540 -> %ux%u", (uint32_t)dims, (uint32_t)(dims >> 32));
+    g_dimW = 1281;
+    g_dimH = 721;
+    SetResLevel(4);
+    rd(&dims);
+    CHECK((uint32_t)dims == 768 && (uint32_t)(dims >> 32) == 432, "XRES 4 (x0.6) odd size -> even %ux%u", (uint32_t)dims, (uint32_t)(dims >> 32));
+    g_dimW = 100;   // tiny targets are left alone
+    g_dimH = 100;
+    rd(&dims);
+    CHECK((uint32_t)dims == 100, "XRES must not shrink a < 128 px size");
+    g_dimW = 960;
+    g_dimH = 540;
+    ApplyPreset(kPresetExtreme);
+    CHECK(ResLevel() == 3 && MatchPreset() == kPresetExtreme, "Extreme preset = XRES 3 (%d / match %d)", ResLevel(), MatchPreset());
+    ApplyPreset(kPresetRisky);
+    CHECK(ResLevel() == 0 && MatchPreset() == kPresetRisky, "Risky preset = XRES 0 (%d / match %d)", ResLevel(), MatchPreset());
+    ApplyPreset(kPresetGame);
+    rd(&dims);
+    CHECK(dims == ((540ull << 32) | 960), "game preset: dims untouched");
 
     // ---- meshlet LOD cave
     std::vector<uint8_t> obj(0xA200, 0);

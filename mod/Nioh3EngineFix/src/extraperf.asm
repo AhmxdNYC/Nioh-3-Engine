@@ -13,6 +13,8 @@
 OPTION CASEMAP:NONE
 
 EXTERN ExtraPerfLodC:PROC
+EXTERN ExtraPerfResC:PROC
+EXTERN ep_resOrig:QWORD
 EXTERN ep_giOrig:QWORD
 EXTERN ep_lodOrig:QWORD
 EXTERN ep_pSimFrac:QWORD
@@ -22,7 +24,7 @@ EXTERN ep_giMin:DWORD
 EXTERN ep_fxMul:DWORD
 EXTERN ep_giLastIn:DWORD
 EXTERN ep_giLastOut:DWORD
-PUBLIC caveGiScale, caveMeshLod, caveFxSim, caveFxDraw
+PUBLIC caveGiScale, caveMeshLod, caveFxSim, caveFxDraw, caveRenderDims
 
 .code
 caveGiScale PROC
@@ -73,5 +75,20 @@ caveFxDraw PROC
     lea     rsp, [rsp+28h]
     ret
 caveFxDraw ENDP
+
+; #67206 XRES: XRS1-4 `call RenderDimsGet 5AC428` (rcx = out {u32 w, u32 h}, returns rax = out). Calls the original, then
+; ExtraPerfResC(out) scales w / h by ep_resMul (1.0 = untouched). rbx is saved; rax = out on return like the original.
+caveRenderDims PROC
+    push    rbx                         ; entry 8 mod 16 -> 0 mod 16
+    sub     rsp, 20h
+    call    qword ptr [ep_resOrig]
+    mov     rbx, rax
+    mov     rcx, rax
+    call    ExtraPerfResC
+    mov     rax, rbx
+    add     rsp, 20h
+    pop     rbx
+    ret
+caveRenderDims ENDP
 
 END
