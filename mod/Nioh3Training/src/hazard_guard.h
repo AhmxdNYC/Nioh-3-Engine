@@ -23,20 +23,27 @@ static void HgMark(int s,uint64_t a) {
     r->actor=a;r->stats=st;r->generation=g_hg_generation[s];r->last=now;r->pending=1;
     Log("HAZARD boss slot %d actor %p: native world-death prevented before rewards",s,(void*)a);
 }
+#define HG_LATCH_UNSET 0x7F // nonzero like the "prior latch" AF910 tests; native writes only 0/1
 typedef uint64_t (*HgUpdateFn)(uint64_t,uint64_t);
 typedef uint64_t (*HgKillFn)(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t);
 static HgUpdateFn g_hg_update;
 static HgKillFn g_hg_kill;
 static __attribute__((noinline)) uint64_t HgUpdate(uint64_t a,uint64_t context) {
-    int s=HgSlot(a);
+    int s=HgSlot(a); uint8_t prior=0;
     if(s>=0) {
         // AF910's hazard branch and kill-volume branch both test the prior latch.
         // It recalculates this latch from native world data before returning.
         if(*(uint8_t*)(a+0x89B)) HgMark(s,a);
-        *(uint8_t*)(a+0x89A)=1;
+        prior=*(uint8_t*)(a+0x89A);
+        *(uint8_t*)(a+0x89A)=HG_LATCH_UNSET;
     }
     uint64_t result=g_hg_update(a,context);
-    if(s>=0 && HgSlot(a)==s && *(uint8_t*)(a+0x89A)) HgMark(s,a);
+    if(s>=0) {
+        // AF910 returns early on a just-spawned actor (+852 set, 4032C4) without touching the latch.
+        // An unchanged sentinel means "not recalculated", not a hazard (#300 Ally: boss removed every 2 s).
+        if(*(uint8_t*)(a+0x89A)==HG_LATCH_UNSET) *(uint8_t*)(a+0x89A)=prior;
+        else if(HgSlot(a)==s && *(uint8_t*)(a+0x89A)) HgMark(s,a);
+    }
     return result;
 }
 static __attribute__((noinline)) uint64_t HgMovementKill(uint64_t c,uint64_t p2,uint64_t p3,uint64_t p4,

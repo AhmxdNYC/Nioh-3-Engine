@@ -19,8 +19,10 @@ static DWORD GetTickCount(void){return now;}
 #define Log(...) ((void)0)
 #include "../src/hazard_guard.h"
 static int native_calls,rewards,deaths;static uint64_t args[9];
+static int native_early;
 static uint64_t NativeUpdate(uint64_t a,uint64_t context){
  assert(context==77);++native_calls;
+ if(native_early) return 123; // 4032C4 true: returns before the latch is recalculated
  // Native AF910: reward/death happen independently of a blocked HP subtraction.
  if(*(uint8_t*)(a+0x89B) && !*(uint8_t*)(a+0x89A)){++deaths;++rewards;}
  *(uint8_t*)(a+0x89A)=*(uint8_t*)(a+0x89B);return 123;
@@ -44,6 +46,9 @@ static int BossPlace(uint64_t a,const float* p,float yaw,const char* why){(void)
 int main(void){
  uint64_t a=(uint64_t)actor,c=a; *(uint64_t*)(actor+0x3A0)=(uint64_t)stats;
  g_slot_act[0]=a;g_hg_update=NativeUpdate;g_hg_kill=NativeKill;
+ // Early exit on a just-spawned actor: no hazard, prior latch kept (#300 Ally spawn loop).
+ native_early=1;assert(HgUpdate(a,77)==123 && !g_hg[0].pending && !actor[0x89A]);
+ actor[0x89A]=1;HgUpdate(a,77);assert(!g_hg[0].pending && actor[0x89A]==1);actor[0x89A]=0;native_early=0;native_calls=0;
  actor[0x89B]=1;assert(HgUpdate(a,77)==123);assert(native_calls==1 && !deaths && !rewards && g_hg[0].pending);
  DWORD first=g_hg[0].since;now=100;HgUpdate(a,77);assert(g_hg[0].since==first); // repeated hazard cannot extend timeout
  assert(HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8)==0 && !deaths);
