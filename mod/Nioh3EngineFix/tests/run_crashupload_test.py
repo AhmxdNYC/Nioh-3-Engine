@@ -56,6 +56,14 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         pending = list((temp / "Nioh3CrashReports/pending").glob("*.json"))
         assert len(pending) == 1
         record = json.loads(pending[0].read_text())
+        artifacts = os.environ.get("CRASH_TEST_ARTIFACTS")
+        if artifacts:
+            Path(artifacts).mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(pending[0], Path(artifacts) / "combined-record.json")
+        print("normal bytes", pending[0].stat().st_size, "modules", len(record["modules"]), "Training", record["training_tail"])
+        assert record["registers"]["Rdx"] == "0x123456789abcdef0"
+        assert len(record["stack_top"]) == 16
+        assert record["training_tail"]["included"] == 20
         assert record["id"] in ini.read_text()
         assert record["modules_available"] is True
         assert record["modules_truncated"] is True
@@ -78,7 +86,23 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         output = run([str(exe), str(ini), "send"], cwd=temp)
         assert "sent 1 pending 0" in output, output
         assert not list((temp / "Nioh3CrashReports/pending").glob("*.json"))
-        print("ALL PASSED: crash recording, ini ID persistence, crash API, localhost upload and pending removal")
+        for mode in ("badstack", "null", "utf16", "stress"):
+            output = run([str(exe), str(ini), mode], cwd=temp)
+            assert "ALL PASSED" in output, output
+            sample = max((temp / "Nioh3CrashReports/pending").glob("*.json"), key=lambda p: p.stat().st_mtime_ns)
+            variant = json.loads(sample.read_text())
+            api.validate(variant)
+            assert sample.stat().st_size <= api.MAX_BODY
+            assert variant["modules_truncated"] and len(variant["modules"]) <= 64
+            if mode == "stress":
+                assert 0 < variant["training_tail"]["included"] < 20
+                assert "EVENT24" in variant["log"]["Training"][-1]
+            else:
+                assert variant["training_tail"]["included"] == 20
+            if artifacts:
+                shutil.copyfile(sample, Path(artifacts) / ("combined-" + mode + ".json"))
+            print(mode, "bytes", sample.stat().st_size, "modules", len(variant["modules"]), "Training", variant["training_tail"])
+        print("ALL PASSED: five context modes with 70 DLLs, privacy/caps, API, localhost upload and pending removal")
     finally:
         server.shutdown()
         server.server_close()

@@ -44,7 +44,8 @@ MAX_BODY = 64 * 1024
 MAX_STR = 400
 TOP_KEYS = {
     "schema", "t", "mod", "ver", "event", "id", "fields", "exc_name", "access", "stack", "game", "mods",
-    "loaders", "os", "uptime_s", "test", "last", "input", "log", "modules", "modules_truncated", "modules_available",
+    "loaders", "os", "uptime_s", "test", "last", "input", "log",
+    "modules", "modules_truncated", "modules_available", "registers", "stack_top", "settings", "training_tail",
 }
 FIELD_KEYS = {"code", "module", "offset", "game_stamp", "game_size", "reason"}
 GAME_KEYS = {"exe", "stamp", "image_size", "file_size", "known", "version"}
@@ -203,6 +204,41 @@ def validate(rec) -> dict:
                 _num(gv, f"game.{gk}")
             else:
                 _str(gv, f"game.{gk}", 96)
+    if "registers" in rec and rec["registers"] is not None:
+        regs = rec["registers"]
+        names = {"Rip", "Rsp", "Rbp", "Rax", "Rbx", "Rcx", "Rdx", "Rsi", "Rdi", "EFlags"} | {f"R{i}" for i in range(8, 16)}
+        if not isinstance(regs, dict) or set(regs) != names:
+            raise Reject(400, "registers must contain the x64 context")
+        for value in regs.values():
+            if not isinstance(value, str) or not re.fullmatch(r"0x[0-9a-fA-F]{1,16}", value):
+                raise Reject(400, "registers must be hexadecimal words")
+    if "stack_top" in rec:
+        words = rec["stack_top"]
+        if not isinstance(words, list) or len(words) > 16 or any(x is not None and (not isinstance(x, str) or not re.fullmatch(r"0x[0-9a-fA-F]{16}", x)) for x in words):
+            raise Reject(400, "stack_top must contain at most 16 hexadecimal words or null")
+    if "settings" in rec:
+        settings = rec["settings"]
+        if not isinstance(settings, dict) or set(settings) != {"source", "values", "truncated"} or settings["source"] != "ini_at_crash_not_live_state" or not isinstance(settings["truncated"], bool):
+            raise Reject(400, "invalid settings snapshot")
+        values = settings["values"]
+        if not isinstance(values, list) or len(values) > 64:
+            raise Reject(400, "settings has too many values")
+        summon = {"kibreaklog", "kibreaknofinisher", "kibreakactfix", "kibreakactfixmode", "kibreakactbadids", "kibreakactgoodid", "moveblock", "moveblockfallback", "playernodeath", "sessionnodeath", "playercantdie"}
+        training = {"repeatgapms", "bossaggro", "aggroface", "aggrorangecm", "aggrowalktimeoutms"}
+        for value in values:
+            if not isinstance(value, dict) or set(value) != {"mod", "section", "key", "value"}:
+                raise Reject(400, "invalid setting")
+            for key in value:
+                _str(value[key], "setting." + key, 512 if key == "value" else 48)
+            mod, sec, key = value["mod"], value["section"].lower(), value["key"].lower()
+            allowed = mod == "BossRematch" and sec == "spirit" and key == "soulcoreforms"
+            allowed |= mod == "Training" and ((sec == "summon" and key in summon) or (sec == "training" and key in training) or (bool(re.fullmatch(r"moves\.[0-9]+", sec)) and (key == "repeatgapms" or bool(re.fullmatch(r"0x[0-9a-f]+", key)))))
+            if not allowed or not re.fullmatch(r"[0-9a-fA-FxX,+. \t-]*", value["value"]):
+                raise Reject(400, "setting is not an allowlisted numeric override")
+    if "training_tail" in rec:
+        tail = rec["training_tail"]
+        if not isinstance(tail, dict) or set(tail) != {"captured", "included", "line_cap"} or any(type(v) is not int for v in tail.values()) or not 0 <= tail["included"] <= tail["captured"] <= 20 or tail["line_cap"] != 2047:
+            raise Reject(400, "invalid training_tail bounds")
     if "log" in rec:
         lg = rec["log"]
         if not isinstance(lg, dict) or set(lg) - LOG_KEYS:
@@ -213,7 +249,7 @@ def validate(rec) -> dict:
                 raise Reject(400, f"log.{gk} must be a list of at most {LOG_GROUP_CAP}")
             total += len(lines)
             for i, line in enumerate(lines):
-                _str(line, f"log.{gk}[{i}]", 240)
+                _str(line, f"log.{gk}[{i}]", 2047 if gk == "Training" else 240)
         if total > LOG_TOTAL_CAP:
             raise Reject(400, f"log has more than {LOG_TOTAL_CAP} lines")
     return _scrub_tree(rec)
