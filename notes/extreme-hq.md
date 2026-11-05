@@ -96,3 +96,42 @@ measured past 15 %. If the bench confirms this, there are two picture-close opti
 - `tools/gen_rvas.py --check`: 211 / 211.
 - testhub offline 5/5.
 - `tools/bench/imgdiff.py selftest` (PSNR / SSIM).
+
+## 6. Bench recipe (board tasks pc / pc2 / ally; held until Extreme is benched on all 3 and the human has tried it, #67786)
+
+Build: EF bridge #4997, sha256 d95ccf25 (pc/extreme-hq 32bc8ffa). Keep BR / TR / Cam = public. One ASI for every arm, and
+a separate launch per arm (XRES installs at start).
+- ini `[ExtraPerf]`: `Enabled=1`, `RenderDistance=1.00`. Delete every XHALF* / XRES / XSHARP / XFOGS / XSSR key except
+  the ones an arm lists.
+- Arms:
+  - **A** `Preset=2` (native reference).
+  - **B** `Preset=4` (Extreme).
+  - **C** `Preset=5` (Extreme HQ).
+  - **D** (optional) `Preset=4` + `XSHARP=5`. Only on devices whose config.xml FSR_SHARPNESS is < 1.0 and that run the
+    game's FSR3. pc (OptiScaler FSR4) and the Ally (FSR_SHARPNESS 1.0) skip it.
+  - **E** (optional, if C is under +10 %) `Preset=0`, `XCLD=2`, `XGI=3`, `XSHF=1`, `XFOGS=1`, `XSSR=1`, `XRES=1`,
+    `XSHARP=5` (or `XSHARP=0` where FSR_SHARPNESS is already 1.0).
+- Valid only if the log shows:
+  - C: `render-config options installed (... XFOGS 1, XSSR 1`, `SSR half-size flag installed`, and the 30 s line
+    `preset Extreme HQ (native res)` with `SSR half-size flag writes N` rising. No `render size scale installed` and no
+    `HALF-RATE`.
+  - B: as #219 / #224.
+  - D: `S+1F58 FsrSharpness: engine x -> written 1`.
+- Stages 7356 + 13587, open world, FG OFF, 4 x 20 s windows per arm. Record fps avg, 1 % low, GPU busy ms and CPU %.
+  Gameplay gate as usual.
+- Screenshots:
+  - Per arm per stage: 1 shot at the identical pose right after spawn (camera untouched, HUD hidden if possible), plus
+    >= 3 more with mean luma.
+  - Take a second A launch (A2) for the noise floor.
+  - Run `py -I tools\bench\imgdiff.py A_<st>.png B=B_<st>.png C=C_<st>.png [D=..] [E=..] --noise A2_<st>.png
+    --json imgdiff_<st>.json` (PIL + numpy).
+  - For C, add a wet / shiny surface shot (XSSR check) and a foggy / sky shot.
+- Ally: same ASI under Proton. Linux screenshots via the usual `--shot-cmd`. fogpar is already installed as the game file,
+  so it is constant across arms (`ally_shaders.sh status fog*` must stay the same in every arm). No clicker on the Ally.
+- DONE = a RESULT with, per device and stage:
+  - fps / 1 % low / GPU ms per arm, and delta % of B, C (D, E) vs A;
+  - PSNR / SSIM per arm vs A plus the noise floor;
+  - look notes (strobe, sky colour, softness, reflections);
+  - crash yes / no.
+
+  Then restore the public EF, the inis and the saves.
