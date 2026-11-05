@@ -950,7 +950,9 @@ void VrsObserve(HRESULT hr, void** pp, const D3D12_GRAPHICS_PIPELINE_STATE_DESC*
     if (d && SafeCopy(&copy,d,sizeof copy)) {
         m=vrsselect::Describe(copy,false);
         // Don't disassemble excluded post/UI/blend pipelines merely for VRS.
-        if (!(m.reject & ~vrsselect::Shader) && VrsPixelSafe(copy.PS)) m.reject &= ~vrsselect::Shader;
+        if ((m.reject & vrsselect::Shader) && !(m.reject & ~vrsselect::Shader) && VrsPixelSafe(copy.PS)) {
+            m.reject &= ~vrsselect::Shader; m.shaderPolicy=1;
+        }
     }
     // If shader replacement is active the original description is not authoritative.
     if (g_cfg.enabled || g_cfg.hot) m.reject |= vrsselect::Unknown;

@@ -8,7 +8,8 @@
 #include <cstdlib>
 void* gpuopt_orig0[96]{}, *gpuopt_orig1[96]{}, *gpuopt_thunks0[96]{}, *gpuopt_thunks1[96]{};
 int g_vtSlots[2]{79,79};
-void LOG(const char*, ...) {}
+int sampleLogs=0;
+void LOG(const char* fmt, ...) { if (strstr(fmt,"VRS draw frame=")) ++sampleLogs; }
 #include "../src/vrs_ceiling.inl"
 struct Fake { void** vt; };
 void* dv[14]{}, *lv[79]{};
@@ -83,6 +84,16 @@ int main() {
     VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
     CHECK(g_vrsObserved==total+3 && g_vrsTagged==tagged+1);
     VrsReportSignatures();
+    InterlockedExchange(&g_vrsSampleState,3); VrsDiagFrame();
+    for(int i=0;i<250;++i) VrsDiagDraw(testMeta,vrsselect::Blend,8,true,false);
+    CHECK(g_vrsSampleCount==250 && sampleLogs==0);
+    VrsDiagFrame(); CHECK(g_vrsSampleState==2);
+    VrsDiagDraw(testMeta,0,8,true,false); CHECK(g_vrsSampleCount==250);
+    VrsReportDraws(); CHECK(sampleLogs==200 && g_vrsSampleState==3);
+    VrsReportDraws(); CHECK(sampleLogs==200); // report does not replay old samples
+    VrsDiagFrame(); CHECK(g_vrsSampleCount==0); VrsDiagFrame(); VrsReportDraws();
+    CHECK(sampleLogs==200 && g_vrsSampleState==3);
+    puts("VRS diagnostic: first200 calls from one Present interval, log only on report thread, no duplicate frames PASS");
     puts("VRS selective state: coarse -> excluded fine, OM unknown, motion guard, bundles, ClearState, Close PASS");
     puts("VRS ceiling: capability fallback, off, failed reset HRESULT, interface gate, counters PASS");
 }

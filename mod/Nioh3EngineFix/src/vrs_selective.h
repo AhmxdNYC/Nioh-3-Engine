@@ -5,7 +5,9 @@
 namespace vrsselect {
 inline const GUID kMeta = {0xeaa17a30,0x6068,0x4f33,{0x91,0x36,0x4d,0xb1,0x82,0x3a,0xc8,0x09}};
 enum Reject : unsigned { Unknown=1, DepthOnly=2, Blend=4, Shader=8, Hdr=16, Motion=32, NonGBuffer=64, Samples=128, Binding=256 };
-struct Meta { unsigned version=1, count=0, formats[8]{}, reject=Unknown; bool motion=false; };
+enum LegacyShape : unsigned { RtLayout=1, Dsv=2, DepthDisabled=4, CullNone=8, Geometry=16 };
+struct Meta { unsigned version=2, count=0, formats[8]{}, reject=Unknown; bool motion=false;
+    unsigned legacyShape=0, dsv=0, depth=0, cull=0, geometry=0, blendMask=0, shaderPolicy=0; };
 inline bool MotionFormat(unsigned f) {
     return f == DXGI_FORMAT_R16G16_FLOAT || f == DXGI_FORMAT_R16G16_SNORM ||
            f == DXGI_FORMAT_R32G32_FLOAT || f == DXGI_FORMAT_R16G16_UNORM;
@@ -23,23 +25,36 @@ inline bool CapturedGBuffer8(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& d) {
     for (unsigned i=0;i<8;++i) if ((unsigned)d.RTVFormats[i] != formats[i]) return false;
     return true;
 }
+inline bool CapturedGBuffer(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& d) {
+    if (CapturedGBuffer8(d)) return true;
+    const unsigned rt7[7]={91,11,87,26,87,26,34}, rt6[6]={91,11,87,26,87,34};
+    const unsigned* rt=d.NumRenderTargets==7 ? rt7 : d.NumRenderTargets==6 ? rt6 : nullptr;
+    if (!rt) return false;
+    for(unsigned i=0;i<d.NumRenderTargets;++i) if ((unsigned)d.RTVFormats[i]!=rt[i]) return false;
+    return true;
+}
 inline Meta Describe(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& d, bool pixelVerified) {
     Meta m; m.reject=0; m.count=d.NumRenderTargets;
     if (m.count > 8) { m.reject=Unknown; return m; }
     if (!d.NumRenderTargets || !d.PS.pShaderBytecode || !d.PS.BytecodeLength) m.reject |= DepthOnly;
-    if (!pixelVerified) m.reject |= Shader;
+    const bool captured=CapturedGBuffer(d);
+    // v3: known opaque surface layouts are admitted by PSO blend state, not
+    // speculative depth/culling conventions or a shader disassembly allowlist.
+    // Separate emissive/particle/post layouts and alpha blending stay excluded.
+    if (!pixelVerified && !captured) m.reject |= Shader;
+    m.shaderPolicy=captured ? 2u : pixelVerified ? 1u : 0u; // 2=shape policy, 1=verified, 0=not verified
     if (d.SampleDesc.Count != 1 || d.RasterizerState.ForcedSampleCount || d.BlendState.AlphaToCoverageEnable) m.reject |= Samples;
-    const bool captured8=CapturedGBuffer8(d);
-    // Retain the v1 normalized 7RT path and admit the captured 8RT tuple. Single-target
-    // post/history/lighting/UI and GBufferEdit read/modify/write are not admitted.
-    if ((!captured8 && m.count != 7) || d.DSVFormat != DXGI_FORMAT_D32_FLOAT_S8X24_UINT || !d.DepthStencilState.DepthEnable ||
-        d.RasterizerState.CullMode == D3D12_CULL_MODE_NONE || d.GS.BytecodeLength) m.reject |= NonGBuffer;
+    m.dsv=d.DSVFormat; m.depth=d.DepthStencilState.DepthEnable; m.cull=d.RasterizerState.CullMode; m.geometry=d.GS.BytecodeLength!=0;
+    m.legacyShape= ((!CapturedGBuffer8(d) && m.count!=7) ? RtLayout : 0) |
+        (d.DSVFormat!=DXGI_FORMAT_D32_FLOAT_S8X24_UINT ? Dsv : 0) |
+        (!m.depth ? DepthDisabled : 0) | (m.cull==D3D12_CULL_MODE_NONE ? CullNone : 0) | (m.geometry ? Geometry : 0);
+    if (!captured && m.legacyShape) m.reject |= NonGBuffer;
     for (unsigned i=0;i<m.count;++i) {
         m.formats[i]=d.RTVFormats[i];
         const auto& b=d.BlendState.RenderTarget[d.BlendState.IndependentBlendEnable ? i : 0];
-        if (b.BlendEnable || b.LogicOpEnable) m.reject |= Blend;
+        if (b.BlendEnable || b.LogicOpEnable) { m.reject |= Blend; m.blendMask |= 1u<<i; }
         if (MotionFormat(m.formats[i])) m.motion=true;
-        else if (!captured8 && !MaterialFormat(m.formats[i])) m.reject |= Hdr;
+        else if (!captured && !MaterialFormat(m.formats[i])) m.reject |= Hdr;
     }
     return m;
 }

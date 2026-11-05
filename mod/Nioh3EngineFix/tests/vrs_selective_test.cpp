@@ -80,15 +80,15 @@ int main() {
     CHECK(m.reject==0 && m.motion && RejectDraw(m,true,8,false)==0);
     CHECK(RejectDraw(m,true,8,true)==Motion);
     CHECK(RejectDraw(m,true,7,false)==Binding);
-    CHECK(Describe(d,false).reject==Shader); // shape NEVER bypasses shader safety
+    CHECK(Describe(d,false).reject==0 && Describe(d,false).shaderPolicy==2); // requested v3 shape policy
     for (unsigned i=0;i<8;++i) { auto copy=d; copy.RTVFormats[i]=DXGI_FORMAT_R8_UNORM;
         CHECK(!CapturedGBuffer8(copy) && (Describe(copy,true).reject&NonGBuffer)); }
     d.BlendState.IndependentBlendEnable=TRUE;
     for (unsigned i=0;i<8;++i) { auto copy=d; copy.BlendState.RenderTarget[i].BlendEnable=TRUE; CHECK(Describe(copy,true).reject&Blend); }
-    auto copy=d; copy.DepthStencilState.DepthEnable=FALSE; CHECK(Describe(copy,true).reject&NonGBuffer);
-    copy=d; copy.RasterizerState.CullMode=D3D12_CULL_MODE_NONE; CHECK(Describe(copy,true).reject&NonGBuffer);
+    auto copy=d; copy.DepthStencilState.DepthEnable=FALSE; CHECK(Describe(copy,false).reject==0 && (Describe(copy,false).legacyShape&DepthDisabled));
+    copy=d; copy.RasterizerState.CullMode=D3D12_CULL_MODE_NONE; CHECK(Describe(copy,false).reject==0 && (Describe(copy,false).legacyShape&CullNone));
     copy=d; copy.NumRenderTargets=1; CHECK(Describe(copy,true).reject&NonGBuffer);
-    puts("Captured 8RT admission PASS; every changed format, blended target, unknown shader and motion guard rejected");
+    puts("Captured surface-layout admission PASS; changed formats, blended outputs and motion guard excluded; old depth/cull checks diagnostic only");
     puts("VRS selective: real compiled alpha-discard/depth shaders excluded; RT/blend/motion/history-shape/unknown gates PASS");
 }
 
