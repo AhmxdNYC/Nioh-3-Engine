@@ -865,7 +865,7 @@ const ItemDef kItems[kCount] = {
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
-    {"World shading optimization", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
+    {"World shading", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
