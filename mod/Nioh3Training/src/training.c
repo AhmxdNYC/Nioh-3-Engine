@@ -1482,6 +1482,7 @@ static int PlayerSetNoDeath(int on) {  // Character::SetNoDeath (VM 239711C): ms
 }
 static int TrNoDeath(void) { return g_cfg_tr_nodeath || g_cfg_session_nodeath; }  // user #14147
 #include "player_hp.h"  // user #14267: Infinite health decision (PhDecide)
+static int PhDamageEntryInstall(void); // #69771: common pre-death entry, defined after image bounds
 static int PlayerHp(uint64_t* cur, uint64_t* max) {  // Character::GetHpRate (323BB4): [[actor+0x3A0]+0x58] / [+0x50]
     uint64_t me = PlayerChar(), h = 0; if (!me || !Rd64(me + 0x3A0, &h) || !h) return 0;
     return Rd64(h + 0x58, cur) && Rd64(h + 0x50, max);
@@ -1702,6 +1703,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
 static void InfHpTick(void) {
     // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
     if (!g_cfg_cantdie) return;
+    PhDamageEntryInstall();
     HpDmgHookInstall("Infinite health (#22918)");
     uint64_t c = 0, m = 0;
     if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
@@ -1758,6 +1760,7 @@ typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
 __declspec(dllexport) int Nioh3Training_FightNow(uint32_t mission);
 static ReqFn o_req;
 static uint32_t g_imgSize;
+#include "player_hp_entry.h"
 static int g_cfg_xearly, g_xw_busy;
 static const char* SwapGate(const ArenaRow* r) {
     const uint8_t* st = GameState();

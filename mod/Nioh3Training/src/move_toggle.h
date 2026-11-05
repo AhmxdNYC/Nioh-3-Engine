@@ -53,27 +53,6 @@ static uint32_t MvBossChr(uint64_t st) {
         !Rd64(ai + 8, &ctrl) || ctrl != st) return 0;
     return g_tr.chr;
 }
-// #69414: a summoned Yoritomo can choose his mission death reaction from
-// idle at full HP even with Repeat OFF. The catalogue's unsafe flag previously
-// protected only forced repeats, not native selection/commit. Do not revive or
-// edit HP: reject this one living-idle transition before its action starts.
-static volatile LONG g_mv_death_guards;
-static int MvLivingDeathPick(uint64_t st, uint32_t chr, uint32_t id) {
-    if (!st || chr != 16102u || !N3MoveUnsafe(chr, id) || ActIdOf(st) != 0x3F1) return 0;
-    uint64_t me = PlayerChar();
-    for (int i = 0; i < g_nsp; ++i) {
-        uint64_t a = g_sp_actor[i], ai = 0, ctrl = 0, hp = 0, max = 0;
-        int dead = 0;
-        if (!a || a == me || a == g_kill_act || g_sp_chr[i] != chr ||
-            !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || ctrl != st) continue;
-        if (!ActorHp(a, &hp, &max) || !max || hp <= 1 || hp > max) return 0;
-        if (ActorDeadNow(a, &dead, &hp, &max) || dead || !max || hp <= 1 || hp > max) return 0;
-        LONG n = InterlockedIncrement(&g_mv_death_guards);
-        if (n <= 20 || n % 100 == 0) Log("SELFKILL guard #%ld chr %u actor %p: idle 0x3F1 -> 0x%X rejected at HP %llu/%llu", n, chr, (void*)a, id, hp, max);
-        return 1;
-    }
-    return 0;
-}
 // bridge 12953: Repeat move (SF6-style). Per boss character one repeated action: every time that boss's AI picks its next catalogued
 // move, the pick becomes the repeated one (overrides Idle stance and OFF switches for that one id). RepeatGapMs (ini [Training]) > 0 lets
 // the AI's own pick through until that many ms passed since the last repeat. Only ordinary catalogued attacks (id >= 0x4E20)
@@ -375,7 +354,6 @@ static int MvRepAllows(uint32_t chr, uint32_t id) {
 }
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
     uint32_t raw = o_mvsel(st, tr);
-    if (MvLivingDeathPick(st, MvBossChr(st), raw)) return 2;
     uint32_t rep = MvRepeatPick(st, raw);
     if (rep) return rep;
     uint32_t id = IhSelect(st, raw);
@@ -383,7 +361,6 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
     if (!chr || !MvBlocked(chr, id)) return id;
     for (int i = 0; i < 8; ++i) {
         uint32_t r = o_mvsel(st, tr);
-        if (MvLivingDeathPick(st, chr, r)) return 2;
         if (!MvBlocked(chr, r)) {
             InterlockedIncrement(&g_mv_rerolls);
             if (g_mv_rerolls < 200) Log("MOVETOG reroll chr %u 0x%X -> 0x%X (state %p)", chr, id, r, (void*)st);
@@ -397,7 +374,6 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
 }
 static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
     uint32_t vchr = MvBossChr(st);
-    if (MvLivingDeathPick(st, vchr, id)) id = 0xFFFF;
     if (vchr && MvBlocked(vchr, id) && !MvRepAllows(vchr, id)) {
         InterlockedIncrement(&g_mv_vetoes);
         if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", vchr, id, (void*)st);
@@ -687,10 +663,6 @@ static void MvLoadPrefs(const char* ini) {
     }
 }
 static void MvTick(void) {
-    // Safety must also run when no repeat, saved veto or Idle stance is enabled.
-    if (!g_mv_hooked) for (int i = 0; i < g_nsp; ++i) {
-        if (g_sp_actor[i] && g_sp_chr[i] == 16102u) { MvInstall(); break; }
-    }
     LONG cur = g_tr.active ? (LONG)g_tr.chr : 0;
     if (!cur) for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i] && g_sp_chr[i]) { cur = (LONG)g_sp_chr[i]; break; }  // bridge 12666: summoned (no session) boss
     InterlockedExchange(&g_mv_current_chr, cur);
