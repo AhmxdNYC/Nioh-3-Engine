@@ -449,7 +449,7 @@ static int LastFromLogs(J& j, int efN, int maxN) {
         j.raw("{\"mod\":\"");
         j.raw(kSrc[src[k]]);
         j.raw("\",\"event\":\"log\",\"fields\":{\"line\":");
-        j.str(line[k], 200);
+        j.str(line[k], 120);  // server rejects last[].fields.line > 120 chars (HTTP 400, Ally #67268)
         j.raw("}}");
     }
     return n;
