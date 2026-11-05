@@ -15,6 +15,7 @@ typedef struct FlClock {
 
 typedef struct FlRec {
     int mode, result;
+    uint64_t token;
     char name[FL_NAME];
     char boss_id[32];
     uint32_t character_id;
@@ -25,6 +26,7 @@ typedef struct FlRec {
 typedef struct FlLog {
     FlRec rec[FL_CAP];
     int count;  // 0..FL_CAP, how many slots hold a fight
+    uint64_t serial;
     int next;   // next slot to write; also the oldest slot once full
     int open;   // slot of the fight that has not ended, or -1
 } FlLog;
@@ -57,6 +59,7 @@ static inline void FlStart(FlLog* L, int mode, const char* name, uint32_t now, c
     if (L->open >= 0) FlClose(L, FL_QUIT, now, st);
     FlRec* r = &L->rec[L->next];
     memset(r, 0, sizeof *r);
+    r->token = ++L->serial;
     r->mode = mode;
     r->result = FL_OPEN;
     r->t0 = now;
@@ -79,6 +82,16 @@ static inline void FlIdentify(FlLog* L, const char* id, uint32_t character_id) {
 static inline int FlEnd(FlLog* L, int result, uint32_t now, const FlClock* end) {
     if (!L || L->open < 0) return 0;
     FlClose(L, result, now, end);
+    return 1;
+}
+
+// A late native clear can correct only the exact most-recent attempt, never a loss or newer round.
+static inline int FlConfirmWin(FlLog* L, uint64_t token, uint32_t now, const FlClock* end) {
+    if (!L || !L->count || !token) return 0;
+    FlRec* r = &L->rec[(L->next + FL_CAP - 1) % FL_CAP];
+    if (r->token != token || (r->result != FL_OPEN && r->result != FL_QUIT)) return 0;
+    if (r->result == FL_OPEN) FlClose(L, FL_WIN, now, end);
+    else r->result = FL_WIN; // retain the original boss-mode end time
     return 1;
 }
 

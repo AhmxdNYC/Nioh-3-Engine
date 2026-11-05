@@ -50,7 +50,17 @@ std::atomic<uint32_t> g_lastMission{0};
 std::atomic<int> g_logOwn{0};    // this BossBattleMode opened a Report row (a Training session did not)
 std::atomic<int> g_clearWin{0};  // SetMissionClearFlag while that fight was up = the boss died
 
+std::atomic<uint64_t> g_logToken{0};
+std::atomic<uint32_t> g_logMission{0};
+uint32_t RunningLogMission() {
+    __try {
+        const uint64_t mgr = G_MS ? *(const uint64_t*)G_MS : 0;
+        const uint64_t state = mgr ? *(const uint64_t*)(mgr + 8) : 0;
+        return state ? *(const uint32_t*)(state + 0x28) : 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
 void MaybeStart(const char* placementName) {
+    g_logToken.store(0); g_logMission.store(0);
     HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
     if (!tr) return;
     auto act = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionActive");
@@ -65,6 +75,9 @@ void MaybeStart(const char* placementName) {
     else mark(rematch::FightLogMode(), 1, n);
     g_clearWin.store(0);
     g_logOwn.store(1);
+    auto token = (uint64_t (*)())GetProcAddress(tr, "Nioh3Training_FightToken");
+    g_logToken.store(token ? token() : 0);
+    g_logMission.store(RunningLogMission());
 }
 void MaybeEnd() {
     if (!g_logOwn.exchange(0)) return;
@@ -6291,10 +6304,22 @@ namespace fight {
 // 'Leave arena' (user 20261018): the native boss mode was ended outside the script's BossBattleModeEnd: clear the fight state as HkEnd does
 void ForceEnd(const char* why) {
     if (bosslog::g_logOn) Log("BossLog: fight state cleared (%s)", why);
+    bosslog::g_logToken.store(0); bosslog::g_logMission.store(0);
     bosslog::g_endAt.store(-1e9);  // no post-fight grace: there was no fight
     bosslog::g_active.store(false);
     InterlockedExchange(&g_active, 0);
     bosslog::MaybeEnd();  // Leave arena / forced end: the open story fight is a quit unless it already ended
+}
+// Called before the save-protection veto: observe victory without performing a save write.
+void ConfirmNativeWin(uint32_t mission) {
+    if (!mission || mission != bosslog::g_logMission.load()) return;
+    if (!bosslog::g_active.load() && Now() - bosslog::g_endAt.load() >= 20.0) return;
+    const uint64_t token = bosslog::g_logToken.exchange(0);
+    if (!token) return;
+    bosslog::g_clearWin.store(1);
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto confirm = tr ? (void (*)(uint64_t))GetProcAddress(tr, "Nioh3Training_FightConfirmWin") : nullptr;
+    if (confirm) confirm(token);
 }
 void LastFightPlacements(char* buf, size_t n) {
     AcquireSRWLockShared(&bosslog::g_lastLock);

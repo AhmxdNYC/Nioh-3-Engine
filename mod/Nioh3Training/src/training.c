@@ -1837,6 +1837,22 @@ N3T_API void Nioh3Training_FightMarkEx(int mode, int phase, const char* name, co
     if (phase == 1) FightBegin(mode, name && name[0] ? name : "boss", id, 0);
     else Nioh3Training_FightMark(mode, phase, name);
 }
+// Attempt token prevents delayed native clear from changing a newer Practice / Boss Match row.
+N3T_API uint64_t Nioh3Training_FightToken(void) {
+    FlEnsure(); AcquireSRWLockShared(&g_flLock);
+    uint64_t token = g_fl.open >= 0 ? g_fl.rec[g_fl.open].token : 0;
+    ReleaseSRWLockShared(&g_flLock); return token;
+}
+N3T_API void Nioh3Training_FightConfirmWin(uint64_t token) {
+    FlEnsure(); FlClock c; FlNow(&c);
+    AcquireSRWLockExclusive(&g_flLock);
+    FlRec prior = {0};
+    if (g_fl.count) prior = g_fl.rec[(g_fl.next + FL_CAP - 1) % FL_CAP];
+    int ok = FlConfirmWin(&g_fl, token, GetTickCount(), &c);
+    ReleaseSRWLockExclusive(&g_flLock);
+    if (ok) Log("FIGHT %s: %s | %s | win (native mission clear, attempt %llu)",
+        prior.result == FL_OPEN ? "end" : "corrected", prior.name, FlModeName(prior.mode), (unsigned long long)token);
+}
 N3T_API int Nioh3Training_FightLog(char* buf, int cap) {
     if (!buf || cap <= 0) return 0;
     FlEnsure();

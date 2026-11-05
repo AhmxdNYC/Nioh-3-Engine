@@ -115,6 +115,7 @@ extern volatile LONG g_active;          // inside BossBattleMode .. End
 void LastFightPlacements(char* buf, size_t n);
 bool PlacementSeenRecently(uint32_t id, double withinSec);
 void ForceEnd(const char* why);
+void ConfirmNativeWin(uint32_t mission);
 double Now();
 }
 namespace training {

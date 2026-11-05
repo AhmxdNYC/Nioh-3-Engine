@@ -952,11 +952,11 @@ uint8_t ClearByte(uint16_t id) {
 }
 bool VetoClear(int) {  // script thread: Mission::SetMissionClearFlag (no args; clears the RUNNING mission)
     const uint32_t m = g_unbeaten.load();
-    if (!m) return false;
     uint64_t g = 0, ms = 0;
     uint32_t run = 0;
     if (!Rd(G_MS, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + 0x28, run)) run = g_runningMission;
-    if (run != m) return false;
+    fight::ConfirmNativeWin(run);  // outcome observation precedes (and never disables) save protection
+    if (!m || run != m) return false;
     g_unbeatenVetoes.fetch_add(1);
     Log("Rematch: UNBEATEN 0x%04X: the game's mission-clear call was SKIPPED (boss beaten in a Boss Match of a mission this save has not cleared; no clear/unlock/story write) (#256)", m);
     return true;
