@@ -944,9 +944,13 @@ void Start(const StartInfo& info) {
     g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
     if (g_vrsMode < 0 || g_vrsMode > 3) g_vrsMode = 0;
     g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, g_iniPath.c_str()) != 0;
+    g_vrsLayouts=vrsselect::LayoutMask((int)GetPrivateProfileIntW(L"Perf",L"VrsLayouts",7,g_iniPath.c_str()));
+    g_vrsRate=vrsselect::RateOption((int)GetPrivateProfileIntW(L"Perf",L"VrsRate",0,g_iniPath.c_str()));
+    g_vrsSkipSkinned=GetPrivateProfileIntW(L"Perf",L"VrsSkipSkinned",1,g_iniPath.c_str())!=0;
+    LOG("VRS v4 layouts=%u rate=%s skipSkinned=%d (mode3 only; skin bits weight1 indices2; reject bits layout512 skinned1024; unknown/generic skin identity not inferred)",g_vrsLayouts,vrsselect::RateName(vrsselect::SelectiveRate(g_vrsRate)),g_vrsSkipSkinned);
     LOG("VRS selective=%d GBufferMotion1x1=%d (captured 6/7/8RT surface layouts use blend-only material policy; other layouts/alpha-blend/particles/post/UI remain 1x1; guard1 excludes whole motion MRT draw)",g_vrsMode==3,g_vrsMotionGuard);
     if (VrsSelectiveTracking()) for (int i : {2,9,11,25,46,68,69,75}) gpuopt_vrs[i]=1;
-    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective2x2)", g_vrsMode);
+    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective VrsRate)", g_vrsMode);
     if (g_vrsMode) {
         gpuopt_vrs[12] = gpuopt_vrs[13] = gpuopt_vrs[27] = gpuopt_vrs[59] = gpuopt_vrs[79] = 1;
     }

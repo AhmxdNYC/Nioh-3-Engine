@@ -4,10 +4,42 @@
 #include <cstring>
 namespace vrsselect {
 inline const GUID kMeta = {0xeaa17a30,0x6068,0x4f33,{0x91,0x36,0x4d,0xb1,0x82,0x3a,0xc8,0x09}};
-enum Reject : unsigned { Unknown=1, DepthOnly=2, Blend=4, Shader=8, Hdr=16, Motion=32, NonGBuffer=64, Samples=128, Binding=256 };
+enum Reject : unsigned { Unknown=1, DepthOnly=2, Blend=4, Shader=8, Hdr=16, Motion=32, NonGBuffer=64, Samples=128, Binding=256, Layout=512, Skinned=1024 };
 enum LegacyShape : unsigned { RtLayout=1, Dsv=2, DepthDisabled=4, CullNone=8, Geometry=16 };
-struct Meta { unsigned version=2, count=0, formats[8]{}, reject=Unknown; bool motion=false;
-    unsigned legacyShape=0, dsv=0, depth=0, cull=0, geometry=0, blendMask=0, shaderPolicy=0; };
+struct Meta { unsigned version=3, count=0, formats[8]{}, reject=Unknown; bool motion=false;
+    unsigned legacyShape=0, dsv=0, depth=0, cull=0, geometry=0, blendMask=0, shaderPolicy=0;
+    unsigned skin=0, inputCount=0, inputKnown=0, vsHash[4]{}; };
+inline unsigned LayoutBit(unsigned count) { return count>=6 && count<=8 ? 1u<<(count-6) : 0; }
+inline unsigned LayoutMask(int value) { return value>=0 && value<=7 ? (unsigned)value : 7u; }
+inline int RateOption(int value) { return value>=0 && value<=2 ? value : 0; }
+inline D3D12_SHADING_RATE SelectiveRate(int value) {
+    return value==1 ? D3D12_SHADING_RATE_1X2 : value==2 ? D3D12_SHADING_RATE_2X1 : D3D12_SHADING_RATE_2X2;
+}
+inline const char* RateName(D3D12_SHADING_RATE rate) {
+    return rate==D3D12_SHADING_RATE_1X2 ? "1x2" : rate==D3D12_SHADING_RATE_2X1 ? "2x1" :
+           rate==D3D12_SHADING_RATE_4X4 ? "4x4" : rate==D3D12_SHADING_RATE_2X2 ? "2x2" : "1x1";
+}
+// Creation-time only, guarded reader supplied by PSO capture. Explicit skin
+// semantics are positive evidence; TEXCOORD/empty layouts are NOT proof of static geometry.
+template<class Read> inline void DescribeInput(Meta& m,const D3D12_INPUT_LAYOUT_DESC& input,Read read) {
+    m.inputCount=input.NumElements; m.skin=0; m.inputKnown=0;
+    if(input.NumElements>32 || (input.NumElements && !input.pInputElementDescs)) return;
+    for(unsigned i=0;i<input.NumElements;++i) {
+        D3D12_INPUT_ELEMENT_DESC e{};
+        if(!read(&e,input.pInputElementDescs+i,sizeof e) || !e.SemanticName) return;
+        char name[64]{}; bool ended=false;
+        for(unsigned j=0;j<sizeof name;++j) {
+            if(!read(name+j,e.SemanticName+j,1)) return;
+            if(!name[j]) { ended=true; break; }
+            if(name[j]>='a' && name[j]<='z') name[j]-='a'-'A';
+        }
+        if(!ended) return;
+        if(e.InputSlotClass!=D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA) continue;
+        if(!strcmp(name,"BLENDWEIGHT") || !strcmp(name,"BLENDWEIGHTS")) m.skin|=1;
+        if(!strcmp(name,"BLENDINDICES")) m.skin|=2;
+    }
+    m.inputKnown=1;
+}
 inline bool MotionFormat(unsigned f) {
     return f == DXGI_FORMAT_R16G16_FLOAT || f == DXGI_FORMAT_R16G16_SNORM ||
            f == DXGI_FORMAT_R32G32_FLOAT || f == DXGI_FORMAT_R16G16_UNORM;
@@ -58,8 +90,10 @@ inline Meta Describe(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& d, bool pixelVeri
     }
     return m;
 }
-inline unsigned RejectDraw(const Meta& m, bool bindingKnown, unsigned boundCount, bool guardMotion) {
-    return m.reject | ((!bindingKnown || boundCount != m.count) ? Binding : 0) | ((guardMotion && m.motion) ? Motion : 0);
+inline unsigned RejectDraw(const Meta& m, bool bindingKnown, unsigned boundCount, bool guardMotion,
+                           unsigned layouts=7, bool skipSkinned=true) {
+    return m.reject | ((!bindingKnown || boundCount != m.count) ? Binding : 0) | ((guardMotion && m.motion) ? Motion : 0) |
+        ((layouts & LayoutBit(m.count)) ? 0 : Layout) | ((skipSkinned && m.skin) ? Skinned : 0);
 }
 // D3DDisassemble text: no discard/alpha test, pixel UAV effects, depth/coverage
 // output or sample-frequency inputs. Missing/unsupported bytecode fails closed.

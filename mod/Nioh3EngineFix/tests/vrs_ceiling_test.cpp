@@ -83,17 +83,37 @@ int main() {
     g_vrsMotionGuard=false; testMeta.reject=vrsselect::Blend; VrsTrack(cl,0,25,(uintptr_t)&pso);
     VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
     CHECK(g_vrsObserved==total+3 && g_vrsTagged==tagged+1);
+    testMeta.reject=0; testMeta.skin=3; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    g_vrsSkipSkinned=false; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    g_vrsSkipSkinned=true; testMeta.skin=0; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    for(int rate=0;rate<3;++rate) {
+        g_vrsRate=rate;
+        VrsReset<0>(cl,nullptr,(ID3D12PipelineState*)&pso); VrsTrack(cl,0,46,8);
+        for(unsigned mask=0;mask<8;++mask) {
+            g_vrsLayouts=mask; VrsApply(cl,0,false);
+            CHECK(lastRate==((mask&4) ? vrsselect::SelectiveRate(rate) : D3D12_SHADING_RATE_1X1));
+        }
+        testMeta.reject=vrsselect::Blend; VrsTrack(cl,0,25,(uintptr_t)&pso);
+        VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+        testMeta.reject=0;
+    }
+    g_vrsLayouts=7; g_vrsRate=0;
+    g_vrsMode=1; g_vrsRate=1; VrsApply(cl,0,true); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    g_vrsMode=2; g_vrsRate=2; VrsApply(cl,0,true); CHECK(lastRate==D3D12_SHADING_RATE_4X4);
+    g_vrsMode=3; g_vrsRate=0;
+    puts("V4 live hook harness: layouts/rates, skin toggle, fine reset/excluded blend, unchanged ceiling modes PASS");
     VrsReportSignatures();
     InterlockedExchange(&g_vrsSampleState,3); VrsDiagFrame();
     for(int i=0;i<250;++i) VrsDiagDraw(testMeta,vrsselect::Blend,8,true,false);
     CHECK(g_vrsSampleCount==250 && sampleLogs==0);
     VrsDiagFrame(); CHECK(g_vrsSampleState==2);
     VrsDiagDraw(testMeta,0,8,true,false); CHECK(g_vrsSampleCount==250);
-    VrsReportDraws(); CHECK(sampleLogs==200 && g_vrsSampleState==3);
-    VrsReportDraws(); CHECK(sampleLogs==200); // report does not replay old samples
+    VrsReportDraws(); CHECK(sampleLogs==216 && g_vrsSampleState==3);
+    VrsReportDraws(); CHECK(sampleLogs==216); // report does not replay old samples
     VrsDiagFrame(); CHECK(g_vrsSampleCount==0); VrsDiagFrame(); VrsReportDraws();
-    CHECK(sampleLogs==200 && g_vrsSampleState==3);
-    puts("VRS diagnostic: first200 calls from one Present interval, log only on report thread, no duplicate frames PASS");
+    CHECK(sampleLogs==216 && g_vrsSampleState==3);
+    puts("VRS diagnostic: first200 calls plus16 surface samples from one Present interval, log only on report thread, no duplicate frames PASS");
     puts("VRS selective state: coarse -> excluded fine, OM unknown, motion guard, bundles, ClearState, Close PASS");
     puts("VRS ceiling: capability fallback, off, failed reset HRESULT, interface gate, counters PASS");
 }

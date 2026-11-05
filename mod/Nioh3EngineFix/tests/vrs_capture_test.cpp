@@ -6,7 +6,7 @@
 #define CHECK(x) do { if(!(x)) {printf("FAIL %d: %s\n",__LINE__,#x); return 1;} } while(0)
 int main() {
     FILE* file=nullptr; CHECK(fopen_s(&file,"tests/vrs_capture_5174.tsv","r")==0);
-    char line[512]; unsigned long long total=0,tagged=0,eight=0; unsigned rows=0;
+    char line[512]; unsigned long long total=0,tagged=0,eight=0; unsigned rows=0; unsigned long long byMask[8]{};
     while(fgets(line,sizeof line,file)) {
         if(line[0]=='#') continue;
         unsigned n,rt[8],old; unsigned long long calls;
@@ -30,11 +30,20 @@ int main() {
             if(!depth && cull==1 && !gs && !fmt) admitted=pass;
             CHECK(admitted==pass);
         }
+        for(unsigned mask=0;mask<8;++mask) {
+            auto m=vrsselect::Describe(d,false); if(old&vrsselect::Unknown) m.reject|=vrsselect::Unknown;
+            if(!vrsselect::RejectDraw(m,!(old&vrsselect::Binding),n,false,mask)) byMask[mask]+=calls;
+        }
         total+=calls; if(admitted) {tagged+=calls; if(n==8) eight+=calls;}
         ++rows;
     }
     fclose(file);
     CHECK(rows==27 && total==13297664 && tagged==5406166 && eight==1274599);
     printf("CAPTURE REPLAY: %llu / %llu calls admitted (%llu%%); eight-target %llu. Policy replay of captured histogram, NOT measured live tagging or speed.\n",tagged,total,tagged*100/total,eight);
+    CHECK(byMask[0]==0 && byMask[1]==2808226 && byMask[2]==1323341 && byMask[4]==1274599 && byMask[7]==tagged);
+    for(unsigned mask=0;mask<8;++mask) {
+        CHECK(byMask[mask]==((mask&1 ? byMask[1] : 0)+(mask&2 ? byMask[2] : 0)+(mask&4 ? byMask[4] : 0)));
+        printf("MASK %u: %llu / %llu captured calls eligible (skin metadata unavailable)\n",mask,byMask[mask],total);
+    }
     return 0;
 }

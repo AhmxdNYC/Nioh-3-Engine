@@ -88,6 +88,40 @@ int main() {
     auto copy=d; copy.DepthStencilState.DepthEnable=FALSE; CHECK(Describe(copy,false).reject==0 && (Describe(copy,false).legacyShape&DepthDisabled));
     copy=d; copy.RasterizerState.CullMode=D3D12_CULL_MODE_NONE; CHECK(Describe(copy,false).reject==0 && (Describe(copy,false).legacyShape&CullNone));
     copy=d; copy.NumRenderTargets=1; CHECK(Describe(copy,true).reject&NonGBuffer);
+    CHECK(LayoutMask(-1)==7 && LayoutMask(8)==7 && LayoutMask(0)==0);
+    CHECK(RateOption(-1)==0 && RateOption(3)==0 && RateOption(2)==2);
+    CHECK(SelectiveRate(0)==D3D12_SHADING_RATE_2X2 && SelectiveRate(1)==D3D12_SHADING_RATE_1X2 && SelectiveRate(2)==D3D12_SHADING_RATE_2X1);
+    auto reader=[](void* dst,const void* src,size_t size) { memcpy(dst,src,size); return true; };
+    D3D12_INPUT_ELEMENT_DESC input[2]{};
+    input[0].SemanticName="blendweights"; input[0].SemanticIndex=1;
+    input[1].SemanticName="BLENDINDICES";
+    Meta skin=Describe(d,false); DescribeInput(skin,{input,2},reader);
+    CHECK(skin.skin==3 && skin.inputKnown && skin.inputCount==2);
+    CHECK(RejectDraw(skin,true,8,false,7,true)==Skinned);
+    CHECK(RejectDraw(skin,true,8,false,7,false)==0);
+    input[0].SemanticName="TEXCOORD"; input[1].InputSlotClass=D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
+    DescribeInput(skin,{input,2},reader); CHECK(skin.skin==0 && skin.inputKnown);
+    input[1].InputSlotClass=D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+    input[1].SemanticName="BLENDINDICES_SUFFIX";
+    DescribeInput(skin,{input,2},reader); CHECK(skin.skin==0 && skin.inputKnown);
+    input[1].SemanticName="blendweight";
+    DescribeInput(skin,{input,2},reader); CHECK(skin.skin==1 && skin.inputKnown);
+    DescribeInput(skin,{nullptr,2},reader); CHECK(!skin.inputKnown && !skin.skin);
+    DescribeInput(skin,{nullptr,0},reader); CHECK(skin.inputKnown && !skin.skin);
+    DescribeInput(skin,{input,33},reader); CHECK(!skin.inputKnown);
+    DescribeInput(skin,{input,2},[](void*,const void*,size_t) { return false; }); CHECK(!skin.inputKnown);
+    const unsigned layouts[3][8]={{91,11,87,26,87,34},{91,11,87,26,87,26,34},{91,11,87,87,26,26,87,34}};
+    for(unsigned n=6;n<=8;++n) {
+        d.NumRenderTargets=n;
+        for(unsigned i=0;i<8;++i) d.RTVFormats[i]=(DXGI_FORMAT)layouts[n-6][i];
+        m=Describe(d,false); CHECK(m.reject==0);
+        for(unsigned mask=0;mask<8;++mask) {
+            CHECK((RejectDraw(m,true,n,false,mask)==0)==((mask&LayoutBit(n))!=0));
+            auto blend=m; blend.reject|=Blend;
+            CHECK(RejectDraw(blend,true,n,false,mask)&Blend);
+        }
+    }
+    puts("V4: 8 layout masks x 3 captured layouts; 3 rate mappings; explicit skin semantics, generic/instance inputs and guarded reads PASS");
     puts("Captured surface-layout admission PASS; changed formats, blended outputs and motion guard excluded; old depth/cull checks diagnostic only");
     puts("VRS selective: real compiled alpha-discard/depth shaders excluded; RT/blend/motion/history-shape/unknown gates PASS");
 }

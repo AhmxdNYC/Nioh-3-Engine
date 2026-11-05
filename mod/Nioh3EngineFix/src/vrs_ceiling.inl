@@ -2,16 +2,18 @@
 // reset refreshes it from the actual list device, never the dummy install device.
 int g_vrsMode = 0;
 bool g_vrsMotionGuard = false;
+unsigned g_vrsLayouts=7; int g_vrsRate=0; bool g_vrsSkipSkinned=true;
 bool VrsSelectiveTracking() { return g_vrsMode == 3 || (g_vrsMode && g_vrsMotionGuard); }
 struct VrsSignature {
-    vrsselect::Meta meta; volatile LONG64 coarse=0, fine=0; volatile LONG reasons=0, legacyReasons=0;
+    vrsselect::Meta meta; volatile LONG64 coarse=0, fine=0, skinEvidence=0, skinRejected=0; volatile LONG reasons=0, legacyReasons=0;
 };
 VrsSignature g_vrsSig[256]; unsigned g_vrsSigN=0; SRWLOCK g_vrsSigLock=SRWLOCK_INIT;
 volatile LONG64 g_vrsObserved=0, g_vrsTagged=0;
 // Capture the first 200 intercepted draw calls between two Present boundaries,
 // once per report interval. Render threads copy scalars; the watch thread logs.
 struct VrsDrawSample { vrsselect::Meta meta; unsigned reason=0, bound=0; bool known=false, indirect=false; };
-VrsDrawSample g_vrsSamples[200];
+VrsDrawSample g_vrsSamples[248];
+volatile LONG g_vrsSurfaceCount=0, g_vrsSurfaceLayouts[3]{};
 SRWLOCK g_vrsSampleLock=SRWLOCK_INIT;
 volatile LONG g_vrsSampleState=3, g_vrsSampleCount=0; // 3=arm, 1=record, 2=ready
 unsigned long long g_vrsFrame=0, g_vrsSampleFrame=0;
@@ -22,6 +24,7 @@ void VrsDiagFrame() {
     if (g_vrsSampleState==1) InterlockedExchange(&g_vrsSampleState,2);
     else if (g_vrsSampleState==3) {
         g_vrsSampleFrame=g_vrsFrame; InterlockedExchange(&g_vrsSampleCount,0);
+        g_vrsSurfaceCount=0; for(auto& n:g_vrsSurfaceLayouts) n=0;
         InterlockedExchange(&g_vrsSampleState,1);
     }
     ReleaseSRWLockExclusive(&g_vrsSampleLock);
@@ -32,25 +35,33 @@ void VrsDiagDraw(const vrsselect::Meta& m,unsigned reason,unsigned bound,bool kn
     if (g_vrsSampleState==1) {
         LONG n=InterlockedIncrement(&g_vrsSampleCount)-1;
         if (n<200) g_vrsSamples[n]={m,reason,bound,known,indirect};
+        // Reserve 16 records per surface layout so shadow passes cannot starve
+        // character diagnostics. These are additional samples, not extra draws.
+        if(m.shaderPolicy==2 && m.count>=6 && m.count<=8 &&
+           InterlockedIncrement(&g_vrsSurfaceLayouts[m.count-6])<=16) {
+            LONG surface=InterlockedIncrement(&g_vrsSurfaceCount)-1;
+            g_vrsSamples[200+surface]={m,reason,bound,known,indirect};
+        }
     }
     ReleaseSRWLockShared(&g_vrsSampleLock);
 }
 void VrsReportDraws() {
-    VrsDrawSample copy[200]; LONG count=0; unsigned long long frame=0;
+    VrsDrawSample copy[248]; LONG count=0, surfaces=0; unsigned long long frame=0;
     AcquireSRWLockExclusive(&g_vrsSampleLock);
     if (g_vrsSampleState==2) {
         count=g_vrsSampleCount<200 ? g_vrsSampleCount : 200; frame=g_vrsSampleFrame;
         memcpy(copy,g_vrsSamples,count*sizeof copy[0]);
+        surfaces=g_vrsSurfaceCount; memcpy(copy+count,g_vrsSamples+200,surfaces*sizeof copy[0]);
         InterlockedExchange(&g_vrsSampleState,3);
     }
     ReleaseSRWLockExclusive(&g_vrsSampleLock);
-    if (!count) return;
-    LOG("VRS draw capture frame=%llu calls=%ld cap=200; legacyShape bits: layout1 dsv2 depthOff4 cullNone8 GS16; shaderPolicy 0=unverified 1=verified 2=captured-layout",frame,count);
-    for(LONG i=0;i<count;++i) {
+    if (!count && !surfaces) return;
+    LOG("VRS draw capture frame=%llu calls=%ld cap=200 surfaceSamples=%ld cap=16-per-layout; legacyShape bits: layout1 dsv2 depthOff4 cullNone8 GS16; shaderPolicy 0=unverified 1=verified 2=captured-layout",frame,count,surfaces);
+    for(LONG i=0;i<count+surfaces;++i) {
         const auto& s=copy[i]; const auto& m=s.meta;
-        LOG("VRS draw frame=%llu i=%ld reject=0x%X legacyShape=0x%X shaderPolicy=%u n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u dsv=%u depth=%u cull=%u gs=%u blendMask=0x%X bind=%u/%u indirect=%u",
-            frame,i,s.reason,m.legacyShape,m.shaderPolicy,m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],
-            m.dsv,m.depth,m.cull,m.geometry,m.blendMask,s.known,s.bound,s.indirect);
+        LOG("VRS draw frame=%llu i=%ld surfaceSample=%u reject=0x%X legacyShape=0x%X shaderPolicy=%u n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u dsv=%u depth=%u cull=%u gs=%u blendMask=0x%X bind=%u/%u indirect=%u skin=0x%X input=%u/%u vs=%08X%08X%08X%08X",
+            frame,i,(unsigned)(i>=count),s.reason,m.legacyShape,m.shaderPolicy,m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],
+            m.dsv,m.depth,m.cull,m.geometry,m.blendMask,s.known,s.bound,s.indirect,m.skin,m.inputKnown,m.inputCount,m.vsHash[0],m.vsHash[1],m.vsHash[2],m.vsHash[3]);
     }
 }
 int VrsSignatureIndex(const vrsselect::Meta& m) {
@@ -66,14 +77,14 @@ void VrsReportSignatures() {
     VrsReportDraws();
     const LONG64 total=InterlockedCompareExchange64(&g_vrsObserved,0,0);
     const LONG64 tagged=InterlockedCompareExchange64(&g_vrsTagged,0,0);
-    LOG("VRS coverage mode=%d motion1x1=%d tagged_calls=%lld total_calls=%lld (cumulative draw API calls, not expanded indirect draws)",g_vrsMode,g_vrsMotionGuard,tagged,total);
+    LOG("VRS coverage mode=%d motion1x1=%d layouts=%u rate=%s skipSkinned=%d tagged_calls=%lld total_calls=%lld (cumulative draw API calls, not expanded indirect draws)",g_vrsMode,g_vrsMotionGuard,g_vrsLayouts,vrsselect::RateName(vrsselect::SelectiveRate(g_vrsRate)),g_vrsSkipSkinned,tagged,total);
     AcquireSRWLockShared(&g_vrsSigLock);
     for (unsigned i=0;i<g_vrsSigN;++i) {
         const auto& q=g_vrsSig[i]; if (!q.coarse && !q.fine) continue;
         const auto& m=q.meta;
         const LONG64 coarse=InterlockedCompareExchange64(&g_vrsSig[i].coarse,0,0), fine=InterlockedCompareExchange64(&g_vrsSig[i].fine,0,0);
-        LOG("VRS signature n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u tagged2x2=%lld total=%lld fine1x1=%lld rejectOR=0x%lX legacyShapeOR=0x%lX firstDSV=%u firstDepth=%u firstCull=%u firstGS=%u",
-            m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],coarse,coarse+fine,fine,q.reasons,q.legacyReasons,m.dsv,m.depth,m.cull,m.geometry);
+        LOG("VRS signature n=%u rt=%u,%u,%u,%u,%u,%u,%u,%u taggedCoarse=%lld total=%lld fine1x1=%lld rejectOR=0x%lX legacyShapeOR=0x%lX firstDSV=%u firstDepth=%u firstCull=%u firstGS=%u skinCalls=%lld skinRejected=%lld",
+            m.count,m.formats[0],m.formats[1],m.formats[2],m.formats[3],m.formats[4],m.formats[5],m.formats[6],m.formats[7],coarse,coarse+fine,fine,q.reasons,q.legacyReasons,m.dsv,m.depth,m.cull,m.geometry,InterlockedCompareExchange64(&g_vrsSig[i].skinEvidence,0,0),InterlockedCompareExchange64(&g_vrsSig[i].skinRejected,0,0));
     }
     ReleaseSRWLockShared(&g_vrsSigLock);
 }
@@ -97,13 +108,13 @@ VrsEntry& VrsCaps(void* self, int set, bool refresh) {
         dev->Release();
     } else hr = E_NOINTERFACE;
     e.supported = SUCCEEDED(hr) && opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_1;
-    e.rate = g_vrsMode == 2 && opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2 &&
+    e.rate = g_vrsMode == 3 ? vrsselect::SelectiveRate(g_vrsRate) : g_vrsMode == 2 && opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2 &&
         opt.AdditionalShadingRatesSupported ? D3D12_SHADING_RATE_4X4 : D3D12_SHADING_RATE_2X2;
     static volatile LONG reports = 0;
     if (InterlockedIncrement(&reports) <= 8)
         LOG("VRS ceiling actual-list=%p OPTIONS6=%08lX tier=%d additional=%d mode=%d rate=%s supported=%d",
             self, (unsigned long)hr, (int)opt.VariableShadingRateTier, (int)opt.AdditionalShadingRatesSupported,
-            g_vrsMode, e.rate == D3D12_SHADING_RATE_4X4 ? "4x4" : "2x2", e.supported);
+            g_vrsMode, vrsselect::RateName(e.rate), e.supported);
     return e;
 }
 void VrsBindPso(VrsEntry& e, uintptr_t pso) {
@@ -112,7 +123,7 @@ void VrsBindPso(VrsEntry& e, uintptr_t pso) {
     if (pso) {
         UINT bytes=sizeof e.meta;
         if (FAILED(reinterpret_cast<ID3D12PipelineState*>(pso)->GetPrivateData(vrsselect::kMeta,&bytes,&e.meta)) ||
-            bytes!=sizeof e.meta || e.meta.version!=2 || e.meta.count>8) e.meta={};
+            bytes!=sizeof e.meta || e.meta.version!=3 || e.meta.count>8) e.meta={};
     }
     if (previousSignature>=0 && previous.count==e.meta.count &&
         !memcmp(previous.formats,e.meta.formats,sizeof previous.formats)) e.signature=previousSignature;
@@ -143,7 +154,7 @@ void VrsApply(void* self, int set, bool reset, bool indirect = false) {
         if (VrsSelectiveTracking()) {
             if (reset) rate=D3D12_SHADING_RATE_1X1;
             else {
-                why = g_vrsMode==3 ? vrsselect::RejectDraw(e.meta,e.bindingKnown,e.boundCount,g_vrsMotionGuard) :
+                why = g_vrsMode==3 ? vrsselect::RejectDraw(e.meta,e.bindingKnown,e.boundCount,g_vrsMotionGuard,g_vrsLayouts,g_vrsSkipSkinned) :
                     ((e.meta.reject & vrsselect::Unknown) || !e.bindingKnown ? vrsselect::Unknown :
                      (e.meta.count>=3 && e.meta.motion ? vrsselect::Motion : 0));
                 rate=why ? D3D12_SHADING_RATE_1X1 : e.rate;
@@ -152,6 +163,8 @@ void VrsApply(void* self, int set, bool reset, bool indirect = false) {
                 if (e.signature>=0) {
                     auto& q=g_vrsSig[e.signature];
                     InterlockedIncrement64(why ? &q.fine : &q.coarse);
+                    if(e.meta.skin) InterlockedIncrement64(&q.skinEvidence);
+                    if(why & vrsselect::Skinned) InterlockedIncrement64(&q.skinRejected);
                     InterlockedOr(&q.reasons,(LONG)why);
                     InterlockedOr(&q.legacyReasons,(LONG)e.meta.legacyShape);
                 }
