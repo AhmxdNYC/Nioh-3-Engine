@@ -191,6 +191,11 @@ static ID3D12PipelineState* MakeCs(Gpu& g, const std::vector<uint8_t>& cs) {
     return p;
 }
 
+// #66661: psoswap::Start asks skipfx whether the PSO -> shader map is needed (SkipFx / XHALF).
+namespace skipfx {
+bool IniWants(const wchar_t* ini) { return GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini) == 1; }
+}  // namespace skipfx
+
 int main(int argc, char** argv) {
     wchar_t tmp[MAX_PATH];
     GetTempPathW(MAX_PATH, tmp);

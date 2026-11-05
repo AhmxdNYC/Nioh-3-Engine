@@ -36,6 +36,8 @@
 
 #include "extraperf.h"
 #include "gpuopt.h"
+#include "vrs_menu.h"
+#include "extraperf_menu.h"
 #include "inputlog.h"
 #include "menu.h"
 #include "menu_mode.h"
@@ -721,16 +723,19 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kXVSMA, kXLPVR, kXSKYR, kXFOGT, kXCLDR, kXRTP, kXPCM,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
+          kEp10, kEp11,  // #67772 XFOGS / XSSR (extraperf kFogScale / kSsr)
+          kRd,  // #67225 Render distance. Not an extraperf::Opt (presets must not move it).
+          kSharp,  // #67772 FSR sharpness (XSHARP). Not an extraperf::Opt either (Extreme + sharpen).
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
-          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kCount };
+          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kVrs, kCount };
 #include "settings_catalog.h"
 #include "menu_pages.h"
 menu_nav::Trail<> g_pages;
 ULONGLONG g_rep[4] = {};  // repeats never carry into a different page
 static_assert(kXPCM - kXW6 + 1 == kNumExp, "experimental items must match menu::ExpId");
-static_assert(kEp9 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
+static_assert(kEp11 - kEp0 + 1 == extraperf::kNumOpts, "Extra performance rows must match extraperf::Opt");
 bool IsExp(int id) { return id >= kXW6 && id <= kXPCM; }
-bool IsEp(int id) { return id >= kEp0 && id <= kEp9; }  // one Extra performance option each (level row)
+bool IsEp(int id) { return id >= kEp0 && id <= kEp11; }  // one Extra performance option each (level row)
 const wchar_t* const kExpIniKey[kNumExp] = {L"W6", L"B", L"PP", L"FPC", L"AABB", L"M1", L"X1", L"E1", L"M2", L"J1", L"S1", L"IK", L"TS", L"WakeStats", L"ED", L"GF", L"WL",
                                              L"WG", L"TG", L"DS", L"LK", L"CP", L"SPF", L"MQ", L"PT1", L"DL",
                                              L"DQ", L"P1E7", L"MA", L"BPO", L"W1B", L"RPA", L"AS", L"PJH", L"TR",
@@ -809,8 +814,8 @@ const ItemDef kItems[kCount] = {
     {"Cheaper barriers B (Proton)", "(R2b)", "EXPERIMENT. Same for UAV buffers. May flicker or show stale data.", "Judge with screenshots. Applies now."},
     {"Drop read->read barriers", "(R1 gpu)", "EXPERIMENT. Drops read->read superset barriers. Needs an image compare.", "Judge with screenshots. Applies now."},
     // 1.7.59 Extra performance (changes the look): extraperf.h; gains = notes\extra-performance-settings.md (pc2 RX 6650 XT 1080p / Ally)
-    {"Preset", "(XPRE)", "Off = every look row at the game value. Optimized with effect visuals = clouds, GI, shadow distance and detail only. Optimized = those plus coarser fog, ambient occlusion off and blur off. Custom = the XCLD-style rows were set by hand.",
-     "Changes the look. Applies now. Left/Right picks the next preset. The CPU / GPU / Game groups stay under this row."},
+    {"Preset", "(XPRE)", "Off = every look row at the game value. Optimized with effect visuals = clouds, GI, shadow distance and detail only. Optimized = those plus coarser fog, ambient occlusion off and blur off. Extreme = lower picture quality for more fps (lower render size). Works with VRS; VRS changes need a restart. Extreme HQ = full render size, only GI / fog / clouds / reflections / shadow filtering cheaper. Custom = rows set by hand.",
+     "Changes the look. Restart after changing presets for full effect (render scale and half-rate passes). Left/Right picks the next preset. The CPU / GPU / Game groups stay under this row."},
     {"Cloud quality", "(XCLD)", "Fewer ray-march steps for the volumetric clouds (game: up to 256 per pixel).",
      "Blockier / noisier cloud edges. Applies now. PC RX 9070 (GPU-bound): no gain; Ally: untested."},
     {"Volumetric fog detail", "(XFOG)", "Coarser fog light grid than the game's lowest (LIGHT = 80x32); 'off' = VOLUMETRIC LIGHTEST.",
@@ -831,6 +836,14 @@ const ItemDef kItems[kCount] = {
      "Flatter contact shadows. Applies now. PC +1.8 %."},
     {"Camera effects off", "(XPOST)", "1 = motion blur + depth of field off, 2 = also bloom off (the game's own OFF values).",
      "No blur / no glow around lights. Applies now. PC GPU -2.8 % (fps noisy)."},
+    {"Volumetric fog grid scale", "(XFOGS)", "The fog light grid at 75 % / 50 % of the game's cells per axis (not used while XFOG is set).",
+     "Slightly softer fog shafts and glow. Applies now. Part of Extreme HQ. Not measured yet."},
+    {"Reflections at half size", "(XSSR)", "Screen-space reflections traced at half size (the game's SSR STANDARD path); 2 also halves the ray steps.",
+     "Softer reflections on wet / shiny surfaces. Applies now. Part of Extreme HQ. Not measured yet."},
+    {"Render distance", "(RenderDistance)", "How far entities, characters and grass are drawn (1.00 = the game). Lower hides distant detail.",
+     "Pop-in closer to the camera. Applies now. Separate from the presets. Estimate 0.3-1 ms on the Ally, not measured in game yet."},
+    {"Upscaler sharpening", "(XSHARP)", "FSR 3 sharpening strength (RCAS), overriding the game's FSR sharpness. Game = your FSR setting.",
+     "Crisper image, more shimmer at high values. Applies now. Only with the game's FSR upscaler. Separate from the presets (use with Extreme)."},
     {"Show FPS counter", "", "Real fps (the game's frames) and, with frame gen, the displayed fps incl. generated frames.", "Overlay only. Applies now."},
     {"Show frame time", "", "Adds the real frame time (ms) to the counter.", "Overlay only. Applies now."},
     {"Show game speed", "", "Adds the game speed: 1.00x = real time, below 1 = the game runs slow.", "Overlay only. Applies now."},
@@ -852,6 +865,7 @@ const ItemDef kItems[kCount] = {
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
+    {"World shading optimization", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
@@ -864,8 +878,9 @@ const OrderEnt kOrder[] = {
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
-    {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
-    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
+    {kVrs, "Extra performance (changes the look)"}, {kEpPre, nullptr}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
+    {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr}, {kEp10, nullptr},
+    {kEp11, nullptr}, {kRd, nullptr}, {kSharp, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
     {kXW6, "Experimental (CPU, A/B live)"}, {kXGF, nullptr}, {kXIK, nullptr}, {kXED, nullptr}, {kXWL, nullptr}, {kXB, nullptr}, {kXPP, nullptr}, {kXFPC, nullptr}, {kXAABB, nullptr}, {kXM1, nullptr},
@@ -890,6 +905,8 @@ int OrderPos(int id) {
 int g_sel = kPage;  // two-page menu (Layout=0) opens on the page switcher; grouped opens reset this
 int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
+bool g_bootVrs = false, g_vrsEdited = false;
+int g_selectedEpPreset = -1;  // Only explicit preset picks change the startup half-rate choice.
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
 bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
@@ -914,7 +931,7 @@ bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
 
 // Page 2 is only the rows whose text says the picture can change. Everything else stays on page 1.
 bool LookChanging(int id) {
-    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
+    return id == kVrs || id == kEpPre || IsEp(id) || id == kRd || id == kSharp || id == kFg || id == kFgState || id == kUpscaler ||
            id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
 }
 bool OnPage(int id) {
@@ -1166,6 +1183,7 @@ bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "Control
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
+    if (id == kRd || id == kSharp) return pSGpu;  // #67225 / #67772: with the other look rows, not on the camera page
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
     if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
     const int sp = SettingsPage(id);
@@ -1318,6 +1336,7 @@ void EnterPage(int page) {
 }
 
 bool Available(int id) {
+    if (id == kVrs) return gpuopt::VrsSupport() == 1;
     switch (id) {
         case kVrr: return g_host.vrrEnable != nullptr;
         case kW3: return g_host.w3Enable != nullptr;
@@ -1328,6 +1347,8 @@ bool Available(int id) {
         case kWk: return g_host.wkEnable != nullptr;
         case kAutoCont: return g_host.autoContinue != nullptr;
         case kEpPre: return extraperf::AnyAvailable();
+        case kRd: return extraperf::RdAvailable();
+        case kSharp: return extraperf::SharpAvailable();
         case kFg: return g_host.knownBuild && g_host.base;
         case kGpu:
         case kGR2a: case kGR2b: case kGR1:
@@ -1343,6 +1364,7 @@ constexpr uint32_t cWhite = 0xFFFFFFFF, cGray = 0xFFB4B4B4, cDim = 0xFF8C8C8C, c
                    cHighlight = 0xE0703818, cRule = 0xC05AC8F0;
 
 const char* NaText(int id) {
+    if (id == kVrs) return gpuopt::VrsSupport() == 0 ? "unavailable: waiting for renderer" : "unavailable: hardware VRS unsupported";
     if ((id == kL1 && g_host.l1 == FixState::WineSkipped) || (id == kF1 && g_host.f1 == FixState::WineSkipped))
         return "off on Linux/Proton";
     if (id == kW3Mode && !g_host.wine) return "Windows uses the normal wait";
@@ -1354,7 +1376,8 @@ const char* NaText(int id) {
         if (s == gpuopt::State::Failed) return "GPU hook failed - see the log";
         return "GPU hook is off in the settings file";
     }
-    if (id == kEpPre || IsEp(id)) return "extra-performance hook was not found - see the log";
+    if (id == kRd) return "render-distance hook was not found - see the log";
+    if (id == kEpPre || IsEp(id) || id == kSharp) return "extra-performance hook was not found - see the log";
     if (id == kAutoCont) return "tip-page hook was not found - see the log";
     if (!g_host.knownBuild) return "this game version is not supported";
     return "hook was not found - see the log";
@@ -1473,6 +1496,11 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         color = cDim;
         return;
     }
+    if (id == kVrs) {
+        snprintf(buf, n, "%s (next launch)", g_bootVrs ? "ON" : "OFF");
+        color = g_bootVrs ? cGreen : cGray;
+        return;
+    }
     if (IsEp(id)) {  // 1.7.59 Extra performance level rows
         const int e = id - kEp0, l = extraperf::Level(e);
         snprintf(buf, n, "%s", extraperf::LevelName(e, l));
@@ -1483,6 +1511,17 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         const int m = extraperf::MatchPreset();
         snprintf(buf, n, "%s", extraperf::PresetName(m));
         color = m == 0 ? cGray : m > 0 ? cGreen : cCyan;
+        return;
+    }
+    if (id == kRd) {
+        snprintf(buf, n, "%.2f", extraperf::RdMul());
+        color = extraperf::RdPct() >= 100 ? cGray : cCyan;
+        return;
+    }
+    if (id == kSharp) {
+        const int l = extraperf::SharpLevel();
+        snprintf(buf, n, "%s", extraperf::SharpName(l));
+        color = l ? cCyan : cGray;
         return;
     }
     osd::OverlaySettings& o = osd::Overlay();
@@ -1607,13 +1646,25 @@ void StartSave() {
             v = 2;
         add(L"Patches", kExpIniKey[e], g_expAuto[e] && v == g_expIni0[e] ? std::wstring(L"-1") : std::to_wstring(v));  // unchanged auto stays auto
     }
-    if (extraperf::AnyAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
-        for (int e = 0; e < extraperf::kNumOpts; ++e) {
-            wchar_t k[16];
-            swprintf(k, 16, L"%hs", extraperf::Key(e));
-            add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+    if (extraperf::AnyAvailable() || extraperf::RdAvailable()) {  // 1.7.59 Extra performance: every level explicitly; Preset 0 so the levels are what loads
+        if (extraperf::AnyAvailable()) {
+            for (int e = 0; e < extraperf::kNumOpts; ++e) {
+                wchar_t k[16];
+                swprintf(k, 16, L"%hs", extraperf::Key(e));
+                add(L"ExtraPerf", k, std::to_wstring(extraperf::Level(e)));
+            }
+            const int half = epmenu::HalfForSave(g_selectedEpPreset,
+                (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", -1, g_ini.c_str()),
+                (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, g_ini.c_str()),
+                GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, g_ini.c_str()) == 1);
+            add(L"ExtraPerf", L"XHALF", std::to_wstring(half));
+            add(L"ExtraPerf", L"XRES", std::to_wstring(extraperf::ResLevel()));
+            add(L"ExtraPerf", L"Preset", L"0");
         }
-        add(L"ExtraPerf", L"Preset", L"0");
+        wchar_t rd[16];
+        swprintf(rd, 16, L"%.2f", (double)extraperf::RdMul());
+        add(L"ExtraPerf", L"RenderDistance", rd);
+        if (extraperf::AnyAvailable()) add(L"ExtraPerf", L"XSHARP", std::to_wstring(extraperf::SharpLevel()));  // #67772
     }
     if (Available(kGpu))  // hooks installed only for the GP profiler (Barriers 0 at launch) stay 0 unless switched on here
         add(L"GpuOpt", L"Barriers", gpuopt::Batching() ? L"1" : gpuopt::BarriersIni() ? L"2" : L"0");
@@ -1623,6 +1674,7 @@ void StartSave() {
         add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
     }
     add(L"Latency", L"MaxFrameLatency", osd::Overlay().maxLatencyAuto && osd::Overlay().maxLatency == g_latBoot ? std::wstring(L"-1") : std::to_wstring(osd::Overlay().maxLatency));
+    if (g_vrsEdited) vrsmenu::Save(g_bootVrs, add);
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
     if (g_host.wine) {
@@ -2045,7 +2097,15 @@ void Change(int id, int dir) {
     } else if (id == kEpPre) {  // next / previous preset, applied at once
         int m = extraperf::MatchPreset();
         if (m < 0) m = 0;
-        extraperf::ApplyPreset((m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets);
+        g_selectedEpPreset = (m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets;
+        extraperf::ApplyPreset(g_selectedEpPreset);
+    } else if (id == kVrs) {
+        g_bootVrs = !g_bootVrs; g_vrsEdited = true;
+    } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.
+        extraperf::StepRd(dir);
+    } else if (id == kSharp) {  // #67772: Left/Right step, A cycles (wraps to the game's value)
+        const int l = extraperf::SharpLevel(), nl = extraperf::kSharpLevels;
+        extraperf::SetSharpLevel(dir == 0 ? (l + 1) % nl : std::clamp(l + dir, 0, nl - 1));
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
     } else if (id == kGR2a || id == kGR2b || id == kGR1) {
@@ -2270,6 +2330,14 @@ bool RemoteValue(int id, int& v) {
         v = extraperf::MatchPreset();  // -1 = custom
         return true;
     }
+    if (id == kRd) {
+        v = extraperf::RdPct();  // 50..100; 50 is distance 0.50
+        return true;
+    }
+    if (id == kSharp) {
+        v = extraperf::SharpLevel();  // 0 game, 1..5 = 0.0 .. 1.0
+        return true;
+    }
     switch (id) {
         case kVrr: case kW3: case kW3Mode: case kL1: case kF1: case kWk: v = LiveBool(id) ? 1 : 0; return true;
         case kR1: v = (int)*g_host.r1Timeout; return true;
@@ -2282,6 +2350,7 @@ bool RemoteValue(int id, int& v) {
         case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
         case kHint: v = g_cfg.pauseHint; return true;
         case kFreeze: v = g_cfg.freezeGame; return true;
+        case kVrs: v = g_bootVrs ? 1 : 0; return true;
         case kWorkerCap: v = g_bootWorkerCap; return true;
         case kP12: v = g_bootP12; return true;
         case kL1Wine: v = g_bootL1Wine; return true;
@@ -2368,8 +2437,19 @@ void RunRemote(RemoteReq& q) {
                 g_dirty = true;
                 LogItem(id);
                 break;
-            case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato
-                extraperf::ApplyPreset(std::clamp(q.value, 0, extraperf::kNumPresets - 1));
+            case kEpPre:  // 1.7.59: 0 game, 1 Performance, 2 Potato, 3 Risky, 4 Extreme, 5 Extreme HQ (#67772)
+                g_selectedEpPreset = std::clamp(q.value, 0, extraperf::kNumPresets - 1);
+                extraperf::ApplyPreset(g_selectedEpPreset);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kRd:  // 50..100 percent. 50 = half distance. Snapped to 5.
+                extraperf::SetRdPct(q.value);
+                g_dirty = true;
+                LogItem(id);
+                break;
+            case kSharp:  // #67772: 0 game, 1..5 = FSR sharpness 0.0 / 0.25 / 0.5 / 0.75 / 1.0
+                extraperf::SetSharpLevel(q.value);
                 g_dirty = true;
                 LogItem(id);
                 break;
@@ -3803,6 +3883,9 @@ void Configure(const Host& h) {
     g_ini = h.iniPath ? h.iniPath : L"";
     savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
+    g_bootVrs = GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_ini.c_str()) != 0;
+    g_vrsEdited = false;
+    g_selectedEpPreset = -1;
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;

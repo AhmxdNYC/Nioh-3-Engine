@@ -438,6 +438,15 @@
    ]
   },
   {
+   "rva": "0x39B0F7",
+   "kind": "code",
+   "pattern": "48 8B 0D ?? ?? ?? ?? BA 9D 84 3D EF",
+   "offset": 0,
+   "used_in": [
+    "dllmain.cpp"
+   ]
+  },
+  {
    "rva": "0x3B2528",
    "kind": "code",
    "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 48 8B F1 44",

@@ -974,6 +974,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         return false;
     }
     CHECK(c.q->GetDevice(IID_PPV_ARGS(&c.dev)), "ID3D12CommandQueue::GetDevice");
+    gpuopt::ObserveVrsDevice(c.dev);  // capability probe also runs with VRS off
     DXGI_SWAP_CHAIN_DESC sd{};
     sc->GetDesc(&sd);
     OLOG("swapchain %p: %ux%u fmt %d, %u buffers, swap effect %d, flags %X; queue %p (%s), device %p", (void*)sc,
@@ -1748,6 +1749,15 @@ OverlaySettings& Overlay() { return g_cfg; }
 void SetRateSink(void (*fn)(double rendered, double ticks)) { g_rateSink = fn; }
 
 unsigned long GamePresentTid() { return g_gamePresentTid; }
+
+int64_t GameFrames() {
+    const int64_t g = g_nGame;
+    if (g) return g;
+    int64_t n = 0;
+    for (const ScCount& e : g_sc)
+        if (e.sc) n += e.n;
+    return n;
+}
 
 int64_t LastPresentQpc() {
     int64_t last = 0;

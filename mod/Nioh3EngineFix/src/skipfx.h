@@ -24,6 +24,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace skipfx {
 
@@ -33,6 +34,13 @@ struct StartInfo {
 };
 
 void Start(const StartInfo& info);  // reads [Debug] SkipFx...; starts the control-file thread when on
+// #66661: [Debug] SkipFx = 1 or the [ExtraPerf] XHALF half-rate list is on (XHALF = 1/2, or Preset = 3 without an XHALF key).
+// psoswap reads it to turn its PSO -> shader map on. Stateless, any time.
+bool IniWants(const wchar_t* ini);
+// #67206 XHALF helpers (exposed for the harness): the PSO list for an XHALF_Mask (1 GI, 2 reflections, 4 clouds, 8 fog) and the
+// ini's Period / Run (defaults 4 / 2, run frames consecutive).
+std::string HalfList(int mask);
+void HalfRate(const wchar_t* ini, int* period, int* run);
 bool WantsHooks();                  // SkipFx = 1: gpuopt must install its command-list thunks
 // gpuopt, after its vtables are patched: the slots to route to OnListCall, and the original methods (ClearRenderTargetView,
 // GetDevice). orig1 may be null (one vtable).
