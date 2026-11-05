@@ -103,6 +103,18 @@ struct Cfg {
          ignoreProgress = false;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
 } g_cfg;
 
+// #256 Boss Match without save progress: an unbeaten mission started by IgnoreProgress is fought with the game's
+// Mission::SetMissionClearFlag script call skipped (hooks.cpp InstallVeto), so no clear / unlock / first-clear reward is written.
+// Armed when the request is queued; active only while the running mission (ms28) is that id; disarmed once the player
+// has been in it and then is anywhere else. The clear byte is read at arm and at disarm and logged (must stay 0).
+bool g_clearGuardOk = false;
+uint16_t g_bypassId = 0;              // set by ClearedNow when it let an uncleared id through (game thread)
+std::atomic<uint32_t> g_unbeaten{0};  // mission id of the running unbeaten trip, 0 = none
+std::atomic<int> g_unbeatenSeen{0}, g_unbeatenVetoes{0};
+ULONGLONG g_unbeatenAt = 0;
+uint8_t g_unbeatenClear0 = 0xFF;
+uint32_t g_runningMission = 0;        // ms28, refreshed every Tick (the veto runs on the script thread)
+
 std::vector<Row> g_rows;
 constexpr int kMaxRows = 512;
 std::atomic<uint8_t> g_status[kMaxRows];  // 0 unknown, 1 not beaten, 2 beaten, 3 getter failed
@@ -930,6 +942,56 @@ void ExecOpen(int row, const Snap& s) {
     ToastF(cGreen, 8000, row >= 0 ? "Boss Matches: pick '%s' in the replay list" : "Boss Matches: replay menu opened", row >= 0 ? g_rows[(size_t)row].mission : "");
 }
 
+// ---- #256 unbeaten trip guard ----
+uint8_t ClearByte(uint16_t id) {
+    uint64_t db = 0;
+    uint8_t c = 0xFF;
+    if (!Rd(G_CLEAR, db) || !db || !CallCleared(db, id, c)) return 0xFF;
+    return c;
+}
+bool VetoClear(int) {  // script thread: Mission::SetMissionClearFlag (no args; clears the RUNNING mission)
+    const uint32_t m = g_unbeaten.load();
+    if (!m) return false;
+    uint64_t g = 0, ms = 0;
+    uint32_t run = 0;
+    if (!Rd(G_MS, g) || !g || !Rd(g + 8, ms) || !ms || !Rd(ms + 0x28, run)) run = g_runningMission;
+    if (run != m) return false;
+    g_unbeatenVetoes.fetch_add(1);
+    Log("Rematch: UNBEATEN 0x%04X: the game's mission-clear call was SKIPPED (boss beaten in a Boss Match of a mission this save has not cleared; no clear/unlock/story write) (#256)", m);
+    return true;
+}
+void InstallClearGuard() {
+    const char* why = nullptr;
+    g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
+    Log("Rematch: IgnoreProgress %s; clear guard %s%s%s", g_cfg.ignoreProgress ? "ON (unbeaten bosses can be fought)" : "off",
+        g_clearGuardOk ? "installed" : "NOT installed - ", g_clearGuardOk ? "" : (why ? why : "?"), g_clearGuardOk ? "" : " (unbeaten rows stay refused)");
+}
+void UnbeatenArm(uint16_t id, const char* row) {
+    g_unbeatenClear0 = ClearByte(id);
+    g_unbeatenSeen.store(0);
+    g_unbeatenVetoes.store(0);
+    g_unbeatenAt = Ms();
+    g_unbeaten.store(id);
+    Log("Rematch: UNBEATEN 0x%04X (%s) armed: clear byte now 0x%02X; the game's clear call is skipped while this mission runs", id, row, g_unbeatenClear0);
+}
+void UnbeatenTick(const Snap& s, ULONGLONG t) {
+    if (s.msOk) g_runningMission = s.ms28;
+    const uint32_t m = g_unbeaten.load();
+    if (!m) return;
+    if (s.msOk && s.ms28 == m) {
+        if (!g_unbeatenSeen.exchange(1)) Log("Rematch: UNBEATEN 0x%04X: the mission is running (guard active)", m);
+        return;
+    }
+    const bool left = g_unbeatenSeen.load() && s.msOk && s.ms28 != m;
+    const bool never = !g_unbeatenSeen.load() && t - g_unbeatenAt > 180000;  // the load never came
+    if (!left && !never) return;
+    const uint8_t c = ClearByte((uint16_t)m);
+    g_unbeaten.store(0);
+    Log("Rematch: UNBEATEN 0x%04X disarmed (%s): %d clear call(s) skipped; clear byte before 0x%02X after 0x%02X -> %s", m,
+        left ? "left the mission" : "mission never loaded", g_unbeatenVetoes.load(), g_unbeatenClear0, c,
+        c == 0xFF ? "unreadable" : (c & 1) == (g_unbeatenClear0 & 1) ? "save progress unchanged" : "WARNING the clear changed");
+}
+
 bool ClearedNow(uint16_t id, const char** why) {
     uint64_t db = 0;
     uint8_t c = 0;
@@ -937,9 +999,20 @@ bool ClearedNow(uint16_t id, const char** why) {
         *why = "clear db not readable";
         return false;
     }
+    g_bypassId = 0;
     if (!(c & 1)) {
         if (g_cfg.ignoreProgress) {
-            Log("Rematch: mission 0x%04X not cleared on this journey - [Dev] IgnoreProgress = 1, starting it anyway (no clear/story write)", id);
+            if (!g_clearGuardOk) {
+                *why = "IgnoreProgress is on but the clear guard (Mission::SetMissionClearFlag veto) is not installed - refused so the save cannot change";
+                return false;
+            }
+            const Snap s = ReadSnap();
+            if (s.msOk && s.ms28 == id) {
+                *why = "you are playing this unbeaten mission right now - beat it normally first";
+                return false;
+            }
+            Log("Rematch: mission 0x%04X not cleared on this journey - IgnoreProgress = 1, starting it anyway; the game's clear call is skipped for this trip (#256)", id);
+            g_bypassId = id;
             return true;
         }
         *why = "mission not cleared on this journey (the game's replay only offers cleared missions)";
@@ -1038,6 +1111,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         uint32_t sp = 0;
         memcpy(&sp, q + 0xC, 4);
         Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
+        if (g_bypassId == r.missionId) UnbeatenArm(r.missionId, r.id);
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
@@ -1887,6 +1961,7 @@ void Tick() {
     g_lastTick.store(t);
     { static ULONGLONG nx; if (t >= nx) { nx = t + 1000; AutoMovesTick(); } }
     Snap s = ReadSnap();
+    UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
     if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("standalone return observed", true);
@@ -2925,7 +3000,8 @@ bool Prepare() {
     g_cfg.directStart = IniInt(L"Rematch", L"DirectStart", 0) != 0;
     g_cfg.showAll = IniInt(L"Rematch", L"ShowAll", 1) != 0;
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
-    g_cfg.ignoreProgress = IniInt(L"Dev", L"IgnoreProgress", 0) != 0;
+    g_cfg.ignoreProgress = IniInt(L"Rematch", L"IgnoreProgress", IniInt(L"Dev", L"IgnoreProgress", 0)) != 0;  // #256 ([Dev] = old #255 name)
+    InstallClearGuard();
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
