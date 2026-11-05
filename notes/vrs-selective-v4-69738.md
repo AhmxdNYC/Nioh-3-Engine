@@ -35,3 +35,6 @@ Build.bat includes HUD, real DXBC/DXIL shader-policy fixtures, production select
 Lead owns installation, screenshots and game testing. Use masks 1/2/4 to isolate cloth/glow damage, then select a gentler rate as needed. Confirm settings, skinRejected and surface VS records in the log. Compare OFF VrsCeiling=0 against each chosen ON arm; preserve other settings. No game process was accessed and no ASI installed by this worker.
 
 Latest supplied main-PC installed snapshot: EF 85ebffdc / TR 0e30328a / BR 4c219306 / Cam 7482c03d. Public remains v1.8.6 (EF 1f8d71b6, TR 04781485); this candidate is not a release.
+
+## Final artifact and validation
+Source 64fd44ff; EF SHA256 1bddf2565cbed4b952fffe22187ef74410633e9beda4f12236f4c169c8654236; bridge ASI #5216, build log #5217. Full build.bat exit 0; four executables (HUD, policy with actual DXBC/DXIL, production state hooks, captured histogram replay) PASS. The DXC invalid-bitcode stderr is an intentional rejected-input fixture. No in-game validation.
