@@ -11,3 +11,4 @@ Availability is queried on the actual presenting queue's D3D12 device during ove
 Validation: build.bat includes vrs_menu_test (query failure, unsupported tier, Tier1/Tier2, exact six-key enable preset, enabled-to-off and fresh-off persistence), plus existing shader classification, command-list state, captured-draw replay and HUD suites. Full production compilation validates menu integration. See build log uploaded with artifact for final outcome.
 
 Live checks belong to the lead: capture the new row, toggle on, close/save and restart, verify all six keys and runtime mode 3; toggle off/restart and verify mode 0. Confirm unsupported hardware displays unavailable. This worker did not launch the game or produce an in-game screenshot. No new FPS claim is made.
+`nFinal: build.bat exited 0. All included offline suites passed. Source f5157ec1; ASI SHA256 7fa28197c92315a0b081bd8818edae96cd557ebe50da7242cfba00cbb37714b9, bridge #5272; build/test log #5273.
