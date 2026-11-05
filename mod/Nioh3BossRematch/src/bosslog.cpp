@@ -4,6 +4,7 @@
 // original instructions, with all argument registers and xmm0-5 intact (hooks.cpp). Sites resolve by pattern / native name.
 #include "addon.h"
 #include "gamerva.h"
+#include "seal_use_gate.h"
 
 #include <intrin.h>
 #include <tlhelp32.h>
@@ -3263,6 +3264,9 @@ std::atomic<uint32_t> g_ftActs[4];
 std::atomic<int> g_ftN{0};
 std::atomic<int> g_ftLayerLog{0};
 std::atomic<double> g_rtT0{-100};
+// #29: HasSkill is an item query, not proof that a soul core was used.
+std::atomic<double> g_rtPendingT{-100};
+std::atomic<uint32_t> g_rtPendingAct{0xFFFFFFFF};
 std::atomic<double> g_rtAcceptT{-100};  // #66107: time of the last accept; unlike g_rtT0 never reset when the x8 window closes
 std::atomic<int> g_rtMaxMs{1200};  // [Spirit] RunThrowMaxMs (0 = off)
 // report #19: an accept the game did not follow with a throw (0x6310 -> attack 0x6224) ran the player's attacks at x8 for 1.2 s. The window
@@ -3387,6 +3391,37 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
         return r * sm;
     }
     const float m = g_scForms.load(std::memory_order_relaxed) ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
+    if (a == FkPlayer()) {
+        const double now = Now(), pending = g_rtPendingT.load();
+        const uint32_t cur = PlayerActId(a);
+        if (!g_scForms.load() || g_fh4.owner) g_rtPendingT.store(-100);
+        else if (pending >= 0) {
+            const int configured = g_rtConfirmMs.load();
+            const int timeout = configured > 0 ? (std::min)(configured, 200) : 200;
+            const auto decision = sealuse::Check(now, pending, g_rtPendingAct.load(), cur, timeout);
+            if (decision == sealuse::Decision::Confirm) {
+                double expected = pending;
+                if (g_rtPendingT.compare_exchange_strong(expected, -100)) {
+                    g_rtAct.store(cur); g_rtFirstT.store(now);
+                    g_rtAcceptT.store(now); g_rtT0.store(now);
+                    Log("RunThrow: confirmed seal action 0x%X after pending item query t=%.3f", cur, now);
+                    const float speed = PlayerGroundSpeed();
+                    if (g_runFadeMs.load() > 0 && speed >= (float)g_runFadeSpeed.load()) {
+                        g_runFadeAt.store(now);
+                        Log("RunFade: confirmed moving seal %.0f cm/s t=%.3f", speed, now);
+                    }
+                }
+            } else if (decision == sealuse::Decision::Cancel) {
+                g_rtPendingT.store(-100);
+            }
+        }
+        // The multiplier is returned, never written into persistent game rate state.
+        // Leaving the verified throw immediately returns the game's original rate and disables drag/fade.
+        if (!sealuse::ThrowAction(cur) || !g_scForms.load()) {
+            g_rtT0.store(-100);
+            g_runFadeAt.store(0);
+        }
+    }
     bool rtOn = m > 1.f && g_rtMaxMs.load() > 0 && a == FkPlayer() && !g_fh4.owner && (Now() - g_rtT0.load()) * 1000.0 < g_rtMaxMs.load();
     if (rtOn && g_throwDoneT > g_rtT0.load()) {  // #66107: the throw of this accept is over (player left the throw actions) -> no more x8
         rtOn = false;
@@ -3602,19 +3637,12 @@ uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
         }
     }
     if (uint64_t a = 0; Rd(ctrl + 0xE0, a) && a && a == FkPlayer() && !g_fh4.owner) {
-        // human #61224/#61234: a soul core used while running plays the player's throw (gold orb in hand) for ~0.75 s on top of the run
-        // before the yokai spawns; FastThrow only knew the standing throw ids. This ask = the game accepting the soul-core use from any
-        // action, so from here until the seal spawns (max RunThrowMaxMs) every player motion layer runs at FastThrow speed.
+        // #29: every d-pad item reaches this query. Arm only; no rate, drag, fade,
+        // or accepted-use timestamp changes until HkMotionSpeed observes a seal action.
         const double now = Now();
-        if (now - g_rtT0.load() > 1.0) { float dy = 0, bend = 0; PlayerInAir(&dy, &bend); Log("AirBlock check at accept: height range %.0f cm, bend %.0f cm/s (ground) t=%.3f", dy, bend, now); }
-        if (now - g_rtT0.load() > 1.0) Log("RunThrow: soul-core use accepted from act 0x%X - player layers x FastThrow until the seal spawns t=%.3f", PlayerActId(a), now);
-        const uint32_t curAct = PlayerActId(a);
-        if (curAct == g_rtClosedAct.load() && now - g_rtClosedT.load() < 2.0) return (r & 0xFF) ? r : 1;  // same non-throw action that closed it: no re-arm
-        if ((now - g_rtT0.load()) * 1000.0 >= g_rtMaxMs.load()) { g_rtAct.store(curAct); g_rtFirstT.store(now); }
-        g_rtT0.store(now); g_rtAcceptT.store(now);
-        if (const float v = PlayerGroundSpeed(); g_runFadeMs.load() > 0 && v >= (float)g_runFadeSpeed.load() && now - g_runFadeAt.load() > 1.0) {
-            g_runFadeAt.store(now);
-            Log("RunFade: moving %.0f cm/s at the soul-core accept - body fades out over %d ms from now t=%.3f", v, g_runFadeMs.load(), now);
+        if (now - g_rtPendingT.load() > 0.2 && now - g_rtT0.load() > 0.2) {
+            g_rtPendingAct.store(PlayerActId(a));
+            g_rtPendingT.store(now);
         }
     }
     return (r & 0xFF) ? r : 1;
