@@ -35,6 +35,7 @@ int main() {
     dv[2]=(void*)&Release; dv[13]=(void*)&Feature; lv[7]=(void*)&Device; lv[8]=(void*)&Type;
     gpuopt_orig0[77]=(void*)&Rate; gpuopt_thunks0[10]=(void*)&Reset;
     auto* cl=(ID3D12GraphicsCommandList*)&list;
+    g_vrsKeepCharacters=false; // legacy controls tested independently below
     g_vrsMode=0; VrsApply(cl,0,true); CHECK(writes==0);
     g_vrsMode=1; caps.VariableShadingRateTier=D3D12_VARIABLE_SHADING_RATE_TIER_NOT_SUPPORTED;
     VrsApply(cl,0,true); CHECK(writes==0);
@@ -103,6 +104,20 @@ int main() {
     g_vrsMode=2; g_vrsRate=2; VrsApply(cl,0,true); CHECK(lastRate==D3D12_SHADING_RATE_4X4);
     g_vrsMode=3; g_vrsRate=0;
     puts("V4 live hook harness: layouts/rates, skin toggle, fine reset/excluded blend, unchanged ceiling modes PASS");
+    g_vrsKeepCharacters=true; testMeta.reject=0; testMeta.skin=0; testMeta.worldVs=1; testMeta.inputKnown=1; testMeta.inputCount=0;
+    VrsReset<0>(cl,nullptr,(ID3D12PipelineState*)&pso); VrsTrack(cl,0,46,8);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // direct draws protected even with world VS
+    VrsApply(cl,0,false,vrsselect::IsExecuteIndirect(27)); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // bundle cannot inherit coarse outer PSO
+    VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    testMeta.worldVs=0; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // unknown pulling/compute-skinned family
+    testMeta.worldVs=1; testMeta.inputCount=3; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // compute-skinned ordinary VB
+    testMeta.inputCount=0; testMeta.skin=3; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    g_vrsSkipSkinned=false; VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    g_vrsKeepCharacters=false; VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    g_vrsSkipSkinned=true; testMeta.skin=0;
+    puts("KeepCharacters: direct, IA/compute-skinned, explicit skin and unknown VS fine; audited indirect world coarse; OFF restores eligibility PASS");
     VrsReportSignatures();
     InterlockedExchange(&g_vrsSampleState,3); VrsDiagFrame();
     for(int i=0;i<250;++i) VrsDiagDraw(testMeta,vrsselect::Blend,8,true,false);

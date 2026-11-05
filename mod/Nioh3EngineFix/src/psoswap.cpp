@@ -954,6 +954,7 @@ void VrsObserve(HRESULT hr, void** pp, const D3D12_GRAPHICS_PIPELINE_STATE_DESC*
         if(copy.VS.pShaderBytecode && copy.VS.BytecodeLength && copy.VS.BytecodeLength<=(16u<<20) &&
            SafeReadBlob(copy.VS.pShaderBytecode,copy.VS.BytecodeLength,&vs)) {
             memcpy(m.vsHash,&vs.key.a,8); memcpy(m.vsHash+2,&vs.key.b,8);
+            m.worldVs=!vs.key.fnv && vrsselect::KnownWorldVs(m.vsHash);
         }
         // Don't disassemble excluded post/UI/blend pipelines merely for VRS.
         if ((m.reject & vrsselect::Shader) && !(m.reject & ~vrsselect::Shader) && VrsPixelSafe(copy.PS)) {

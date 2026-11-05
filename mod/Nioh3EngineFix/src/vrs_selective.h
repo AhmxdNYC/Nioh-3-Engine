@@ -4,11 +4,11 @@
 #include <cstring>
 namespace vrsselect {
 inline const GUID kMeta = {0xeaa17a30,0x6068,0x4f33,{0x91,0x36,0x4d,0xb1,0x82,0x3a,0xc8,0x09}};
-enum Reject : unsigned { Unknown=1, DepthOnly=2, Blend=4, Shader=8, Hdr=16, Motion=32, NonGBuffer=64, Samples=128, Binding=256, Layout=512, Skinned=1024 };
+enum Reject : unsigned { Unknown=1, DepthOnly=2, Blend=4, Shader=8, Hdr=16, Motion=32, NonGBuffer=64, Samples=128, Binding=256, Layout=512, Skinned=1024, Character=2048 };
 enum LegacyShape : unsigned { RtLayout=1, Dsv=2, DepthDisabled=4, CullNone=8, Geometry=16 };
-struct Meta { unsigned version=3, count=0, formats[8]{}, reject=Unknown; bool motion=false;
+struct Meta { unsigned version=4, count=0, formats[8]{}, reject=Unknown; bool motion=false;
     unsigned legacyShape=0, dsv=0, depth=0, cull=0, geometry=0, blendMask=0, shaderPolicy=0;
-    unsigned skin=0, inputCount=0, inputKnown=0, vsHash[4]{}; };
+    unsigned skin=0, inputCount=0, inputKnown=0, vsHash[4]{}, worldVs=0; };
 inline unsigned LayoutBit(unsigned count) { return count>=6 && count<=8 ? 1u<<(count-6) : 0; }
 inline unsigned LayoutMask(int value) { return value>=0 && value<=7 ? (unsigned)value : 7u; }
 inline int RateOption(int value) { return value>=0 && value<=2 ? value : 0; }
@@ -39,6 +39,23 @@ template<class Read> inline void DescribeInput(Meta& m,const D3D12_INPUT_LAYOUT_
         if(!strcmp(name,"BLENDINDICES")) m.skin|=2;
     }
     m.inputKnown=1;
+}
+// Narrow audited meshlet VS family, original container digests only. Evidence:
+// notes/asset-audit.md, notes/material-pb2-next-opportunities.md and
+// gpu-shaders/meshvs/out/msv_build_hot.csv. Unknown families stay full rate.
+// Require empty, readable IA layout AND an indirect draw at the call site too.
+inline bool KnownWorldVs(const unsigned hash[4]) {
+    static const unsigned char keys[3][16]={
+        {0x15,0x59,0x71,0x4c,0xa4,0x96,0xff,0xfe,0x6d,0xdd,0x3c,0x82,0x7e,0x1d,0x96,0x2e},
+        {0x70,0xd0,0xee,0x9f,0xee,0xe5,0x90,0xf9,0xc4,0x8c,0x40,0xb8,0x08,0x85,0x8e,0x27},
+        {0xf3,0x11,0xc8,0xe2,0x9e,0x98,0x22,0xee,0x8c,0x34,0xd3,0x8a,0xba,0x8b,0x59,0x66}
+    };
+    for(const auto& key:keys) if(!memcmp(hash,key,16)) return true;
+    return false;
+}
+inline bool IsExecuteIndirect(unsigned slot) { return slot==59; } // ExecuteBundle(27) is not a draw with the outer PSO
+inline bool KeepCharacterFine(const Meta& m,bool indirect) {
+    return m.skin || !m.inputKnown || m.inputCount || !m.worldVs || !indirect;
 }
 inline bool MotionFormat(unsigned f) {
     return f == DXGI_FORMAT_R16G16_FLOAT || f == DXGI_FORMAT_R16G16_SNORM ||
@@ -91,9 +108,10 @@ inline Meta Describe(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& d, bool pixelVeri
     return m;
 }
 inline unsigned RejectDraw(const Meta& m, bool bindingKnown, unsigned boundCount, bool guardMotion,
-                           unsigned layouts=7, bool skipSkinned=true) {
+                           unsigned layouts=7, bool skipSkinned=true, bool keepCharacters=false, bool indirect=false) {
     return m.reject | ((!bindingKnown || boundCount != m.count) ? Binding : 0) | ((guardMotion && m.motion) ? Motion : 0) |
-        ((layouts & LayoutBit(m.count)) ? 0 : Layout) | ((skipSkinned && m.skin) ? Skinned : 0);
+        ((layouts & LayoutBit(m.count)) ? 0 : Layout) | ((skipSkinned && m.skin) ? Skinned : 0) |
+        ((keepCharacters && KeepCharacterFine(m,indirect)) ? Character : 0);
 }
 // D3DDisassemble text: no discard/alpha test, pixel UAV effects, depth/coverage
 // output or sample-frequency inputs. Missing/unsupported bytecode fails closed.

@@ -121,6 +121,16 @@ int main() {
             CHECK(RejectDraw(blend,true,n,false,mask)&Blend);
         }
     }
+    CHECK(IsExecuteIndirect(59) && !IsExecuteIndirect(27) && !IsExecuteIndirect(12) && !IsExecuteIndirect(13));
+    unsigned worldKey[4]{}; const unsigned char bytes[16]={0x15,0x59,0x71,0x4c,0xa4,0x96,0xff,0xfe,0x6d,0xdd,0x3c,0x82,0x7e,0x1d,0x96,0x2e};
+    memcpy(worldKey,bytes,16); CHECK(KnownWorldVs(worldKey));
+    const unsigned char skinVs[16]={0xe3,0xd0,0x6c,0x93,0x3a,0xdc,0x6a,0x26,0x55,0x62,0x87,0xed,0x3e,0xdb,0x7a,0x62}; unsigned skinKey[4]{}; memcpy(skinKey,skinVs,16); CHECK(!KnownWorldVs(skinKey)); // captured meshlet variant with bSkin
+    worldKey[3]^=1; CHECK(!KnownWorldVs(worldKey)); // full digest, never prefix match
+    m=Describe(d,false); m.worldVs=1; m.inputKnown=1;
+    CHECK(RejectDraw(m,true,8,false,7,true,true,true)==0);
+    CHECK(RejectDraw(m,true,8,false,7,true,true,false)==Character);
+    m.inputKnown=0; CHECK(RejectDraw(m,true,8,false,7,true,true,true)==Character);
+    m.inputKnown=1; m.worldVs=0; CHECK(RejectDraw(m,true,8,false,7,true,true,true)==Character);
     puts("V4: 8 layout masks x 3 captured layouts; 3 rate mappings; explicit skin semantics, generic/instance inputs and guarded reads PASS");
     puts("Captured surface-layout admission PASS; changed formats, blended outputs and motion guard excluded; old depth/cull checks diagnostic only");
     puts("VRS selective: real compiled alpha-discard/depth shaders excluded; RT/blend/motion/history-shape/unknown gates PASS");

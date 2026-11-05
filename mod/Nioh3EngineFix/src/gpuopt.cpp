@@ -913,7 +913,7 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
     }
     VrsTrack(self, set, slot, a1);
     if (g_vrsMode && !skip && (slot == 12 || slot == 13 || slot == 27 || slot == 59 || slot == 79))
-        VrsApply(self, set, false, slot == 27 || slot == 59);
+        VrsApply(self, set, false, vrsselect::IsExecuteIndirect(slot));
     return skip ? 1 : 0;
 }
 
@@ -947,6 +947,8 @@ void Start(const StartInfo& info) {
     g_vrsLayouts=vrsselect::LayoutMask((int)GetPrivateProfileIntW(L"Perf",L"VrsLayouts",7,g_iniPath.c_str()));
     g_vrsRate=vrsselect::RateOption((int)GetPrivateProfileIntW(L"Perf",L"VrsRate",0,g_iniPath.c_str()));
     g_vrsSkipSkinned=GetPrivateProfileIntW(L"Perf",L"VrsSkipSkinned",1,g_iniPath.c_str())!=0;
+    g_vrsKeepCharacters=GetPrivateProfileIntW(L"Perf",L"VrsKeepCharacters",1,g_iniPath.c_str())!=0;
+    LOG("VRS KeepCharacters=%d (mode3; conservative: only audited world VS + empty readable input layout + indirect calls can be coarse; direct/IA/unknown stay1x1; reject2048)",g_vrsKeepCharacters);
     LOG("VRS v4 layouts=%u rate=%s skipSkinned=%d (mode3 only; skin bits weight1 indices2; reject bits layout512 skinned1024; unknown/generic skin identity not inferred)",g_vrsLayouts,vrsselect::RateName(vrsselect::SelectiveRate(g_vrsRate)),g_vrsSkipSkinned);
     LOG("VRS selective=%d GBufferMotion1x1=%d (captured 6/7/8RT surface layouts use blend-only material policy; other layouts/alpha-blend/particles/post/UI remain 1x1; guard1 excludes whole motion MRT draw)",g_vrsMode==3,g_vrsMotionGuard);
     if (VrsSelectiveTracking()) for (int i : {2,9,11,25,46,68,69,75}) gpuopt_vrs[i]=1;
