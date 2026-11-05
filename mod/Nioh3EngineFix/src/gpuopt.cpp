@@ -39,7 +39,6 @@ extern "C" bool RpForwardsNone(const void*, const void*) { return false; }
 #include "gpuprof.h"
 #include "skipfx.h"
 #include "psoswap.h"
-#include "vrs_ceiling.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -767,7 +766,6 @@ bool PatchVtable(void** vt, int slots, int S) {
         return false;
     }
     for (int i = 0; i < slots; ++i) orig[i] = vt[i];
-    vrsceiling::Chain(orig, S); // thunks still run observers, then typed post-Reset/ClearState hooks
     g_origRB[S] = reinterpret_cast<RBFn>(vt[kSlotResourceBarrier]);
     MemoryBarrier();
     int n = 0;
@@ -840,11 +838,9 @@ bool DoInstall() {
 }
 
 DWORD WINAPI WatchThread(LPVOID) {
-    unsigned vrsTicks = 0;
     // someone restoring a slot we patched would let a deferred barrier slip past a flush point: stop deferring then
     for (;;) {
         Sleep(2000);
-        if (++vrsTicks % 5 == 0) vrsceiling::Report();
         if (g_vrsMode) LOG("VRS ceiling mode=%d list_resets_tagged=%lld direct_draw_calls_tagged=%lld indirect_or_bundle_calls_tagged=%lld unsupported_calls=%lld",
             g_vrsMode, g_vrsLists, g_vrsDraws, g_vrsIndirect, g_vrsMiss);
         if (!g_slLo) ResolveStreamline();
@@ -914,7 +910,6 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
     }
     if (g_vrsMode && !skip && (slot == 12 || slot == 13 || slot == 27 || slot == 59 || slot == 79))
         VrsApply(self, set, false, slot == 27 || slot == 59);
-    if (!skip) vrsceiling::BeforeWork(self, slot);
     return skip ? 1 : 0;
 }
 
@@ -923,10 +918,6 @@ namespace gpuopt {
 void Start(const StartInfo& info) {
     g_log = info.log;
     g_iniPath = info.iniPath ? info.iniPath : L"";
-    vrsceiling::log = info.log;
-    const UINT vrsMode = GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
-    vrsceiling::mode = vrsMode <= 2 ? (int)vrsMode : 0;
-    LOG("VRSCEILING mode=%d (restart to change; 2 requires tier2 + additional rates for 4x4)", vrsceiling::mode);
     g_wine = info.wine ? info.wine : "";
     g_cfg.barriers = IniInt(L"Barriers", 0, 0, 2);
     g_cfg.mergeAcrossBinds = IniInt(L"MergeAcrossBinds", 1, 0, 1);
@@ -1001,10 +992,6 @@ bool InstallNow() {
                 gpuopt_hook4[10] = gpuopt_hook4[11] = gpuopt_hook4[25] = 1;
                 LOG("ShaderHot: PSO-bind slots (SetPipelineState, Reset, ClearState) routed to the twin map");
             }
-            // Real slow-path registration, also OFF for comparable draw counting overhead.
-            // ShaderHot owns this mask but ignores these four non-bind slots.
-            gpuopt_hook4[12] = gpuopt_hook4[13] = gpuopt_hook4[59] = gpuopt_hook4[79] = 1;
-            LOG("VRSCEILING: registered Draw/DrawIndexed/ExecuteIndirect/DispatchMesh hooks + post-reset chain");
             g_state = (LONG)(g_batching ? State::Active : State::Paused);
             LOG("installed - batching %s", g_batching ? "ON" : "off (counters only)");
         } else {
