@@ -39,6 +39,8 @@
 #include <cstddef>
 #include <cstdint>
 
+struct ID3D12Device;
+
 namespace gpuopt {
 
 struct StartInfo {
@@ -93,6 +95,9 @@ void Start(const StartInfo& info);
 // install thread once the engine renders). Returns true when the hooks are in place.
 bool InstallNow();
 
+// Actual presenting device only; no dummy/default-adapter inference.
+void ObserveVrsDevice(ID3D12Device* device);
+int VrsSupport(); // 0 unknown, 1 supported, -1 unavailable
 State GetState();
 const char* StateName(State s);
 void SetBatching(bool on);          // live; off = pass-through (pending batches still get emitted at their next flush)

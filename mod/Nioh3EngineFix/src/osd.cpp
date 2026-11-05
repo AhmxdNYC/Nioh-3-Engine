@@ -974,6 +974,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         return false;
     }
     CHECK(c.q->GetDevice(IID_PPV_ARGS(&c.dev)), "ID3D12CommandQueue::GetDevice");
+    gpuopt::ObserveVrsDevice(c.dev);  // capability probe also runs with VRS off
     DXGI_SWAP_CHAIN_DESC sd{};
     sc->GetDesc(&sd);
     OLOG("swapchain %p: %ux%u fmt %d, %u buffers, swap effect %d, flags %X; queue %p (%s), device %p", (void*)sc,

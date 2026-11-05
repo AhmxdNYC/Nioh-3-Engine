@@ -36,6 +36,7 @@
 
 #include "extraperf.h"
 #include "gpuopt.h"
+#include "vrs_menu.h"
 #include "inputlog.h"
 #include "menu.h"
 #include "menu_mode.h"
@@ -722,7 +723,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kGpu, kGR2a, kGR2b, kGR1,
           kEpPre, kEp0, kEp1, kEp2, kEp3, kEp4, kEp5, kEp6, kEp7, kEp8, kEp9,  // 1.7.59 Extra performance (extraperf.h order)
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
-          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kCount };
+          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kVrs, kCount };
 #include "settings_catalog.h"
 #include "menu_pages.h"
 menu_nav::Trail<> g_pages;
@@ -852,6 +853,7 @@ const ItemDef kItems[kCount] = {
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
+    {"World shading optimization", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
 };
 
 struct OrderEnt {
@@ -864,7 +866,7 @@ const OrderEnt kOrder[] = {
     {kScale, nullptr}, {kHint, nullptr}, {kPerfNote, nullptr},
     {kFgState, "Frame generation"}, {kFg, nullptr}, {kUpscaler, nullptr},
     {kAutoCont, "Gameplay"},
-    {kEpPre, "Extra performance (changes the look)"}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
+    {kVrs, "Extra performance (changes the look)"}, {kEpPre, nullptr}, {kEp0, nullptr}, {kEp1, nullptr}, {kEp2, nullptr}, {kEp3, nullptr},
     {kEp4, nullptr}, {kEp5, nullptr}, {kEp6, nullptr}, {kEp7, nullptr}, {kEp8, nullptr}, {kEp9, nullptr},
     {kVrr, "Performance fixes (safe)"}, {kW3, nullptr}, {kW3Mode, nullptr}, {kR1, nullptr}, {kL1, nullptr}, {kF1, nullptr}, {kWk, nullptr},
     {kLat, nullptr}, {kFreeze, nullptr}, {kGpu, nullptr},
@@ -890,6 +892,7 @@ int OrderPos(int id) {
 int g_sel = kPage;  // two-page menu (Layout=0) opens on the page switcher; grouped opens reset this
 int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
+bool g_bootVrs = false, g_vrsEdited = false;
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
 bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
@@ -914,7 +917,7 @@ bool ReadOnly(int id) { return id == kFg || id == kFgState || id == kUpscaler; }
 
 // Page 2 is only the rows whose text says the picture can change. Everything else stays on page 1.
 bool LookChanging(int id) {
-    return id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
+    return id == kVrs || id == kEpPre || IsEp(id) || id == kFg || id == kFgState || id == kUpscaler ||
            id == kXLPVR || id == kXSKYR || id == kXFOGT || id == kXCLDR || id == kGR2b || id == kGR1;
 }
 bool OnPage(int id) {
@@ -1318,6 +1321,7 @@ void EnterPage(int page) {
 }
 
 bool Available(int id) {
+    if (id == kVrs) return gpuopt::VrsSupport() == 1;
     switch (id) {
         case kVrr: return g_host.vrrEnable != nullptr;
         case kW3: return g_host.w3Enable != nullptr;
@@ -1343,6 +1347,7 @@ constexpr uint32_t cWhite = 0xFFFFFFFF, cGray = 0xFFB4B4B4, cDim = 0xFF8C8C8C, c
                    cHighlight = 0xE0703818, cRule = 0xC05AC8F0;
 
 const char* NaText(int id) {
+    if (id == kVrs) return gpuopt::VrsSupport() == 0 ? "unavailable: waiting for renderer" : "unavailable: hardware VRS unsupported";
     if ((id == kL1 && g_host.l1 == FixState::WineSkipped) || (id == kF1 && g_host.f1 == FixState::WineSkipped))
         return "off on Linux/Proton";
     if (id == kW3Mode && !g_host.wine) return "Windows uses the normal wait";
@@ -1471,6 +1476,11 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
     if (!Available(id)) {
         snprintf(buf, n, "%s", NaText(id));
         color = cDim;
+        return;
+    }
+    if (id == kVrs) {
+        snprintf(buf, n, "%s (next launch)", g_bootVrs ? "ON" : "OFF");
+        color = g_bootVrs ? cGreen : cGray;
         return;
     }
     if (IsEp(id)) {  // 1.7.59 Extra performance level rows
@@ -1623,6 +1633,7 @@ void StartSave() {
         add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
     }
     add(L"Latency", L"MaxFrameLatency", osd::Overlay().maxLatencyAuto && osd::Overlay().maxLatency == g_latBoot ? std::wstring(L"-1") : std::to_wstring(osd::Overlay().maxLatency));
+    if (g_vrsEdited) vrsmenu::Save(g_bootVrs, add);
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
     if (g_host.wine) {
@@ -2046,6 +2057,8 @@ void Change(int id, int dir) {
         int m = extraperf::MatchPreset();
         if (m < 0) m = 0;
         extraperf::ApplyPreset((m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets);
+    } else if (id == kVrs) {
+        g_bootVrs = !g_bootVrs; g_vrsEdited = true;
     } else if (id == kGpu) {
         gpuopt::SetBatching(!gpuopt::Batching());
     } else if (id == kGR2a || id == kGR2b || id == kGR1) {
@@ -2282,6 +2295,7 @@ bool RemoteValue(int id, int& v) {
         case kAutoCont: v = *g_host.autoContinue ? 1 : 0; return true;
         case kHint: v = g_cfg.pauseHint; return true;
         case kFreeze: v = g_cfg.freezeGame; return true;
+        case kVrs: v = g_bootVrs ? 1 : 0; return true;
         case kWorkerCap: v = g_bootWorkerCap; return true;
         case kP12: v = g_bootP12; return true;
         case kL1Wine: v = g_bootL1Wine; return true;
@@ -3803,6 +3817,8 @@ void Configure(const Host& h) {
     g_ini = h.iniPath ? h.iniPath : L"";
     savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
+    g_bootVrs = GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_ini.c_str()) != 0;
+    g_vrsEdited = false;
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;

@@ -41,6 +41,8 @@ if defined NIOH3_HUD_DUMP (
 )
 
 rem VRS classification and command-list state regression tests (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
+build\vrs_menu_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_selective_test.obj tests\vrs_selective_test.cpp d3dcompiler.lib || exit /b 1
 build\vrs_selective_test.exe || exit /b 1
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1

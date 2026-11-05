@@ -30,6 +30,7 @@
 #include <string>
 
 #include "gpuopt.h"
+#include "vrs_menu.h"
 // 1.7.59-rpf1: RPF (replayprof.cpp) may chain its timing thunk in front of ours; RpForwards(slot, want) says the slot still
 // reaches `want`. Resolves to a 'false' stub when replayprof.cpp is not linked (harnesses).
 extern "C" bool RpForwards(const void* slotValue, const void* want);
@@ -63,6 +64,16 @@ int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t a2, uintptr
 }
 
 namespace gpuopt {
+static volatile LONG g_vrsMenuSupport = 0;
+void ObserveVrsDevice(ID3D12Device* device) {
+    D3D12_FEATURE_DATA_D3D12_OPTIONS6 options{};
+    const bool ok = device && SUCCEEDED(device->CheckFeatureSupport(
+        D3D12_FEATURE_D3D12_OPTIONS6, &options, sizeof options));
+    InterlockedExchange(&g_vrsMenuSupport,
+        vrsmenu::Supported(ok, (unsigned)options.VariableShadingRateTier) ? 1 : -1);
+}
+int VrsSupport() { return (int)InterlockedCompareExchange(&g_vrsMenuSupport, 0, 0); }
+
 namespace {
 
 constexpr int kSlots = 96;
