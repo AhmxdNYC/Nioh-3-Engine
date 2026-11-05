@@ -16,6 +16,8 @@ static int Rd64(uintptr_t address,uint64_t* out) {
 }
 static uintptr_t Grva(uintptr_t rva) { return rva; }
 static void Log(const char* fmt,...) { (void)fmt; }
+static int hazard_notes;
+static void PhNoteHazard(uint64_t a) { (void)a; ++hazard_notes; }
 #include "../src/player_hp.h"
 #include "../src/player_hp_entry.h"
 static int last_damage, calls; static uint8_t last_keep,last_p4;
@@ -53,7 +55,7 @@ int main(void) {
         assert(result==0x1122334455667701ull && *(uint64_t*)(state+0x58)==2658 && *(uint32_t*)(state+0x48)==0);
         assert(last_damage==0 && last_keep==0 && last_p4==path);
     }
-    assert(g_ph_entry_cuts==4);
+    assert(g_ph_entry_cuts==4 && hazard_notes==4);
     entry((uint64_t)enemy+0x38,70000,0,0); assert(*(uint64_t*)(enemy+0x58)==0 && *(uint32_t*)(enemy+0x48)==1 && last_p4==0);
     g_cfg_cantdie=0; entry(hp,5000,0,0); assert(*(uint64_t*)(state+0x58)==0 && *(uint32_t*)(state+0x48)==1);
     g_cfg_cantdie=1; assert(entry(hp,5000,0,0)==0 && *(uint32_t*)(state+0x48)==1); // no resurrection

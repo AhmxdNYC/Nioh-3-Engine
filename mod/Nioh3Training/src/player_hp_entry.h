@@ -12,6 +12,7 @@ static __attribute__((noinline)) uint64_t PhDamageEntry(uint64_t hp,int dmg,uint
     if (g_cfg_cantdie && hp && dmg>0) {
         uint64_t player=PlayerChar(), stats=0;
         if (player && Rd64(player+0x3A0,&stats) && stats && stats+0x38==hp) {
+            PhNoteHazard(player); // recover on the pump, never teleport inside native damage
             const int before=dmg;
             dmg=PhDamageCut(g_cfg_cantdie,1,1,dmg);
             if (dmg!=before) {

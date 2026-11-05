@@ -13,3 +13,7 @@ Static dump trace (tools/n3dis.py, re/Nioh3.dump.exe):
 - Native death/drop1FFFEDC(comp,type,drop) gates loot54C9E4 and amritaA1AFA8 on drop; 786C84 calls it at787061 only after native death checks. Its prologue has three whole stack-store instructions (15 bytes), no relative operand. Changing a death animation is too late to prevent these rewards.
 
 Remaining: establish non-player cause at the reward boundary without conflating poison, player-owned projectiles or a valid finisher with a self-death. Actor hazard flags can identify environmental death; proximity cannot. No executable change or gameplay fix claimed at this checkpoint.
+
+## Recovery implementation checkpoint
+Player native hazard intent queues recovery through the game recovery-position getter (verified 9-byte prologue), RecoverFull, existing physics/stream Warp and Camera::Reset. Manual Reset fight, retry and loss warps reset the camera too. Failed warp retains intent for retry; OFF/loading/player replacement clear intent; dead players are not resurrected. Native point preferred; active round start is fallback. No guessed altitude or boss/move list.
+Build exit0; 16 available harnesses PASS including recovery native/fallback/failure/OFF/loading/dead/stale cases. Existing missing arena generator and 3 raw-action fixture skips remain. No live efficacy claim. Boss self-death changes not yet implemented; incomplete earlier draft excluded.
