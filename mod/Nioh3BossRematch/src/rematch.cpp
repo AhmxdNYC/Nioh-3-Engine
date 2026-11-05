@@ -100,7 +100,8 @@ const char* g_spawnWhy = "";
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
          fightSpawn = true, anyBoss = true,
-         ignoreProgress = false;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
+         ignoreProgress = false;
+    int fightSettleMs = 1000, fightNudgeMs = 1000;  // #70586; anyBoss (#38216): unbeaten bosses open as a Practice boss right here; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
 } g_cfg;
 
 // #256 Boss Match without save progress: an unbeaten mission started by IgnoreProgress is fought with the game's
@@ -1391,7 +1392,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         Result("fight now FAIL %s: no fight in time (warps=%d)", r.id, g_warps);
         return;
     }
-    if (s.ms14 == g_fightStart && !g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > 10000 && !fight::g_active) {
+    if (s.ms14 == g_fightStart && !g_fightWarp && !g_gateReq && r.atFight && r.bossOk && !g_warps && t - g_fnFirst > (ULONGLONG)g_cfg.fightNudgeMs && !fight::g_active) {  // #70586: was a fixed 10 s, most of a real load's 20 s
         float p[4] = {};
         if (PlayerPos(p)) {
             float dx = p[0] - r.boss[0], dz = p[2] - r.boss[2];
@@ -1403,7 +1404,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
                 const float yaw = atan2f(r.boss[0] - x, r.boss[2] - z) * 57.2957795f;
                 const int rc = g_warpOk ? CallWarp(x, y, z, yaw) : 9;
                 ++g_warps;
-                Log("Rematch: F %s: no fight 10 s after the landing at %.1f m from the boss (a duel starts inside 8 m) - %s to 4 m in front of it", r.id,
+                Log("Rematch: F %s: no fight %.1f s after the landing at %.1f m from the boss (a duel starts inside 8 m) - %s to 4 m in front of it", r.id, (double)(t - g_fnFirst) / 1000.0,
                     d / 100.0f, rc == 0 ? "warped" : "warp FAILED");
             }
         }
@@ -1535,7 +1536,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             g_loadDoneAt = 0;
         } else if (g_loadSeen && s.gm && s.player && s.msOk && !s.st[3] && !s.st[4]) {
             if (!g_loadDoneAt) g_loadDoneAt = t;
-            else if (t - g_loadDoneAt > (g_tf.on ? 1000u : 3000u)) {  // #12444 teleport: 1 s settle instead of 3 s
+            else if (t - g_loadDoneAt > (g_fight.load() ? (ULONGLONG)g_cfg.fightSettleMs : g_tf.on ? 1000u : 3000u)) {  // #12444 teleport: 1 s settle instead of 3 s; #70586 every Fight now: FightSettleMs
                 g_replayMs = s.ms14;
                 g_replayIn.store(true);
                 Log("Rematch: IN replay mission (stage %u) %.1f s after the start (the load itself ended %.1f s after it)", s.ms14,
@@ -3023,6 +3024,8 @@ bool Prepare() {
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
     g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
+    g_cfg.fightSettleMs = IniInt(L"Rematch", L"FightSettleMs", 1000);  // #70586: load end -> "landed" for Fight now (was 3000)
+    g_cfg.fightNudgeMs = IniInt(L"Rematch", L"FightNudgeMs", 1000);  // #70586: landed -> warp beside the boss when no fight began and it is out of duel range (was 10000)
     wchar_t stw[512] = {};
     GetPrivateProfileStringW(L"Rematch", L"SelfTest", L"", stw, 512, ini);
     const char* why = nullptr;
