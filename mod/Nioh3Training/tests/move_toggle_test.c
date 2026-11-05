@@ -23,6 +23,14 @@ static int standing;  // drill.h MvRepStanding stand-in
 
 static int read_ok = 1, hook_calls;
 static uint64_t player = 0x4000, actor = 0x1000;
+static uint64_t g_kill_act, test_hp = 63402, test_max = 63402;
+static int test_dead, hp_read_ok = 1;
+static int ActorHp(uint64_t a, uint64_t* hp, uint64_t* max) {
+    (void)a; *hp = test_hp; *max = hp_read_ok ? test_max : 0; return hp_read_ok;
+}
+static int ActorDeadNow(uint64_t a, int* dead, uint64_t* hp, uint64_t* max) {
+    ActorHp(a, hp, max); *dead = test_dead; return *dead || (*max && !*hp);
+}
 static uint64_t ActorByHandle(uint32_t id) { return id == 7 ? actor : 0; }
 static uint64_t PlayerChar(void) { return player; }
 static int Rd64(uintptr_t address, uint64_t* out) {
@@ -513,6 +521,44 @@ int main(void) {
     g_tr.practice=1;
     assert(MvBlocked(16102u,0x4E22) && MvRepeatId(16102u)==0x4E22);
     puts("PASS: block / repeat set during a Boss Match apply to that match, not the next one (#59523)");
+    // Regression #69414: no repeat required; protect only the owned, living
+    // Yoritomo idle -> death transition. The real kill/reaction paths pass.
+    MvRepArm(16102u, 0, 0, 0);
+    g_nsp = 1; g_sp_actor[0] = actor; g_sp_chr[0] = 16102u;
+    g_tr.chr = 16102u; cur_act = 0x3F1;
+    for (uint32_t id = 0x4E3B; id <= 0x4E3C; ++id) {
+        Pick(id); assert(h_mvsel(0x3000, 0) == 2 && selection_calls == 1);
+        assert(!h_mvcom(0x3000, id, 0, 0, 0) && committed == 0xFFFF);
+        assert(test_hp == 63402 && test_max == 63402);
+        test_hp = 500; assert(MvLivingDeathPick(0x3000, 16102u, id));
+        for (test_hp = 0; test_hp <= 1; ++test_hp) {
+            Pick(id); assert(h_mvsel(0x3000, 0) == id);
+            assert(h_mvcom(0x3000, id, 0, 0, 0) && committed == id);
+        }
+        test_hp = 63402; test_dead = 1;
+        assert(!MvLivingDeathPick(0x3000, 16102u, id)); test_dead = 0;
+        hp_read_ok = 0; assert(!MvLivingDeathPick(0x3000, 16102u, id)); hp_read_ok = 1;
+        g_kill_act = actor; assert(!MvLivingDeathPick(0x3000, 16102u, id)); g_kill_act = 0;
+        cur_act = 0x308; assert(!MvLivingDeathPick(0x3000, 16102u, id)); cur_act = 0x3F1;
+        player = actor; assert(!MvLivingDeathPick(0x3000, 16102u, id)); player = 0x4000;
+        assert(!MvLivingDeathPick(0x5000, 16102u, id));
+        assert(!MvLivingDeathPick(0x3000, 42450u, id));
+        g_nsp = 0; assert(!MvLivingDeathPick(0x3000, 16102u, id)); g_nsp = 1;
+    }
+    assert(!MvLivingDeathPick(0x3000, 16102u, 0x4E7B));
+    // Actual MvTick tries safety installation even with no pending menu change.
+    g_mv_hooked = 0; g_mv_install_pending = 0;
+    unsigned char image[64] = {0}; B = (uintptr_t)image - Grva(0x35EF04);
+    MvTick(); assert(g_mv_hooked == -1); // deliberate prologue mismatch, no native patch
+    B = 0; g_nsp = 0; g_mv_hooked = 1;
+    LONG gaps = g_rep_gaps; g_rep_end[0] = 1234; g_rep_gap_logged[0] = 0;
+    for (int j = 0; j < 495; ++j) assert(!MvGapLog(0, 2));
+    assert(g_rep_gaps == gaps);
+    g_rep_gaps = 0; assert(MvGapLog(0, 0x4E53));
+    for (int j = 0; j < 495; ++j) assert(!MvGapLog(0, 0x4E55));
+    assert(g_rep_gaps == 1);
+    ++g_rep_end[0]; assert(MvGapLog(0, 0x4E53) && g_rep_gaps == 2);
+    puts("PASS: living idle self-kill guard; real deaths, reactions, cleanup and foreign actors pass; hooks requested without repeat; 495 idle gaps produce zero logs");
     printf("PASS: %d catalogue entries; %d toggle/veto cases; %d protected; Yoritomo %d; ownership, reroll, commit, persistence, deferred install, mismatch\n", N3_MOVE_COUNT, tested, protected_count, yoritomo);
     return 0;
 }

@@ -50,3 +50,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-05 11:28 am EST | cx-pc/0 #69187 | Repeat-last safety guards and actual-code regressions PASS (5061 entries/4998 toggle cases). Native leap death root remains unproven; safe captured moves only, death/recovery picks cannot advance cycle. Next build TR+BR and hand off to pc2; notes/repeat-last-move-fix-69187.md.
 - 2026-11-05 11:30 am EST | cx-pc/0 #69187 DONE | pc/repeat-last-move-fix 62455940; TR e8ba9b52 file #5119, BR a7857346 file #5120 (BR source unchanged). Both build.bat exit 0; move_toggle, boss_vitals and drill tests PASS. NEXT pc lead posts pc2 Fight/Stand-still retest; live HP safety unproven. No install/game touch; installed EF 85ebffdc BR 4c219306 TR 0e30328a Cam 7482c03d unchanged.
+
+- 2026-11-05 12:28 pm EST | cx-pc/0 #69414: built TR 2de742cd on cx-pc/yoritomo-selfkill; 14 offline harnesses pass. Native living-idle death-pick guard + gap-log dedupe; public 1.8.6 shares exposure. Live interception unproven; NEXT lead pc2 plain Fight and real-kill retest. notes/yoritomo-selfkill-69414.md.

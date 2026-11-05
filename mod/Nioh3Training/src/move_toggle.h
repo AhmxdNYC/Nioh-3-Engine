@@ -53,6 +53,27 @@ static uint32_t MvBossChr(uint64_t st) {
         !Rd64(ai + 8, &ctrl) || ctrl != st) return 0;
     return g_tr.chr;
 }
+// #69414: a summoned Yoritomo can choose his mission death reaction from
+// idle at full HP even with Repeat OFF. The catalogue's unsafe flag previously
+// protected only forced repeats, not native selection/commit. Do not revive or
+// edit HP: reject this one living-idle transition before its action starts.
+static volatile LONG g_mv_death_guards;
+static int MvLivingDeathPick(uint64_t st, uint32_t chr, uint32_t id) {
+    if (!st || chr != 16102u || !N3MoveUnsafe(chr, id) || ActIdOf(st) != 0x3F1) return 0;
+    uint64_t me = PlayerChar();
+    for (int i = 0; i < g_nsp; ++i) {
+        uint64_t a = g_sp_actor[i], ai = 0, ctrl = 0, hp = 0, max = 0;
+        int dead = 0;
+        if (!a || a == me || a == g_kill_act || g_sp_chr[i] != chr ||
+            !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || ctrl != st) continue;
+        if (!ActorHp(a, &hp, &max) || !max || hp <= 1 || hp > max) return 0;
+        if (ActorDeadNow(a, &dead, &hp, &max) || dead || !max || hp <= 1 || hp > max) return 0;
+        LONG n = InterlockedIncrement(&g_mv_death_guards);
+        if (n <= 20 || n % 100 == 0) Log("SELFKILL guard #%ld chr %u actor %p: idle 0x3F1 -> 0x%X rejected at HP %llu/%llu", n, chr, (void*)a, id, hp, max);
+        return 1;
+    }
+    return 0;
+}
 // bridge 12953: Repeat move (SF6-style). Per boss character one repeated action: every time that boss's AI picks its next catalogued
 // move, the pick becomes the repeated one (overrides Idle stance and OFF switches for that one id). RepeatGapMs (ini [Training]) > 0 lets
 // the AI's own pick through until that many ms passed since the last repeat. Only ordinary catalogued attacks (id >= 0x4E20)
@@ -60,6 +81,13 @@ static uint32_t MvBossChr(uint64_t st) {
 #define MV_REP_MAX 8
 static volatile LONG g_rep_chr[MV_REP_MAX], g_rep_id[MV_REP_MAX], g_rep_count[MV_REP_MAX], g_rep_bmgen[MV_REP_MAX]; static DWORD g_rep_last[MV_REP_MAX], g_rep_end[MV_REP_MAX];
 static volatile LONG g_rep_gaps; static uint64_t g_rep_st[MV_REP_MAX];
+static DWORD g_rep_gap_logged[MV_REP_MAX];
+static int MvGapLog(int i, uint32_t pick) {
+    // Idle -> idle changes nothing. Log at most one actual veto per gap.
+    if (pick == 2 || g_rep_gap_logged[i] == g_rep_end[i]) return 0;
+    g_rep_gap_logged[i] = g_rep_end[i];
+    return InterlockedIncrement(&g_rep_gaps) <= 500;
+}
 // bridge 12958: delay between repeats (Training menu slider on the move page, [Training] RepeatGapMs, default 1000). Measured from the end of the
 // repeated move (the boss's first new pick after it); until it has passed the boss is given its idle (0x2) instead of the AI's own attack.
 static volatile int g_cfg_rep_gap = 1000;
@@ -288,8 +316,7 @@ static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
     if (g_rep_lastn[i] && act != 2) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up, no attacks
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
-        LONG g = InterlockedIncrement(&g_rep_gaps);
-        if (g <= 500) Log("REPEAT chr %u sequence gap hold pick 0x%X -> idle (%lu/%d ms since the sequence ended)", chr, id, now - g_rep_end[i], gap);
+        if (MvGapLog(i, id)) Log("REPEAT chr %u sequence gap hold pick 0x%X -> idle (%lu/%d ms since the sequence ended)", chr, id, now - g_rep_end[i], gap);
         return MvIdleOr0(chr, id);
     }
     LONG n = InterlockedIncrement(&g_rep_count[i]);
@@ -329,8 +356,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (g_rep_lastn[i] && act != 2) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up (no attacks), the repeat waits
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
-        LONG g = InterlockedIncrement(&g_rep_gaps);
-        if (g <= 500) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
+        if (MvGapLog(i, id)) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
         g_rep_st[i] = st;  // MvRepTick ends the idle once the gap has passed (the native idle lasts ~6 s, live 19:35)
         return id == 2 ? 0 : (N3MoveFind(chr, 2) >= 0 ? 2 : 0);
     }
@@ -348,13 +374,16 @@ static int MvRepAllows(uint32_t chr, uint32_t id) {
     return (uint32_t)g_rep_id[i] == id || (g_rep_seq[i] && MvSeqIndex(i, id) >= 0) || MvPassed(i, id);  // + the game's own next pieces (#14710)
 }
 static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
-    uint32_t raw = o_mvsel(st, tr), rep = MvRepeatPick(st, raw);
+    uint32_t raw = o_mvsel(st, tr);
+    if (MvLivingDeathPick(st, MvBossChr(st), raw)) return 2;
+    uint32_t rep = MvRepeatPick(st, raw);
     if (rep) return rep;
     uint32_t id = IhSelect(st, raw);
     uint32_t chr = MvBossChr(st);
     if (!chr || !MvBlocked(chr, id)) return id;
     for (int i = 0; i < 8; ++i) {
         uint32_t r = o_mvsel(st, tr);
+        if (MvLivingDeathPick(st, chr, r)) return 2;
         if (!MvBlocked(chr, r)) {
             InterlockedIncrement(&g_mv_rerolls);
             if (g_mv_rerolls < 200) Log("MOVETOG reroll chr %u 0x%X -> 0x%X (state %p)", chr, id, r, (void*)st);
@@ -368,6 +397,7 @@ static uint32_t h_mvsel(uint64_t st, uint64_t tr) {
 }
 static uint64_t h_mvcom(uint64_t st, uint32_t id, uint64_t tbl, int layer, uint64_t slot) {
     uint32_t vchr = MvBossChr(st);
+    if (MvLivingDeathPick(st, vchr, id)) id = 0xFFFF;
     if (vchr && MvBlocked(vchr, id) && !MvRepAllows(vchr, id)) {
         InterlockedIncrement(&g_mv_vetoes);
         if (g_mv_vetoes < 200) Log("MOVETOG commit veto chr %u 0x%X (state %p)", vchr, id, (void*)st);
@@ -657,6 +687,10 @@ static void MvLoadPrefs(const char* ini) {
     }
 }
 static void MvTick(void) {
+    // Safety must also run when no repeat, saved veto or Idle stance is enabled.
+    if (!g_mv_hooked) for (int i = 0; i < g_nsp; ++i) {
+        if (g_sp_actor[i] && g_sp_chr[i] == 16102u) { MvInstall(); break; }
+    }
     LONG cur = g_tr.active ? (LONG)g_tr.chr : 0;
     if (!cur) for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i] && g_sp_chr[i]) { cur = (LONG)g_sp_chr[i]; break; }  // bridge 12666: summoned (no session) boss
     InterlockedExchange(&g_mv_current_chr, cur);

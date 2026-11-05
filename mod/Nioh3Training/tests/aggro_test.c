@@ -26,6 +26,9 @@ static int SlotOf(uint64_t a) { for (int s = 0; a && s < N3T_SLOTS; ++s) if (g_s
 static int SlotAlive(int s) { return s >= 0 && s < N3T_SLOTS && g_slot_act[s] != 0; }
 static uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }
 static const uint64_t actor = 0x1000, player = 0x4000, CTRL = 0x3000;
+static uint64_t g_kill_act;
+static int ActorHp(uint64_t a, uint64_t* hp, uint64_t* max) { (void)a; *hp = *max = 100; return 1; }
+static int ActorDeadNow(uint64_t a, int* dead, uint64_t* hp, uint64_t* max) { ActorHp(a, hp, max); *dead = 0; return 0; }
 static uint32_t act = 2;  // the boss's live action (ActIdOf / IhReadAction)
 static float bpos[4] = {0, 0, 1000, 1}, ppos[4] = {0, 0, 0, 1};
 static int ai_on, forced_n, faces, aware_calls; static uint32_t forced_id;
