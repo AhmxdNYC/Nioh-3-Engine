@@ -39,6 +39,7 @@ extern "C" bool RpForwardsNone(const void*, const void*) { return false; }
 #include "gpuprof.h"
 #include "skipfx.h"
 #include "psoswap.h"
+#include "vrs_selective.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -838,9 +839,11 @@ bool DoInstall() {
 }
 
 DWORD WINAPI WatchThread(LPVOID) {
+    unsigned vrsTicks=0;
     // someone restoring a slot we patched would let a deferred barrier slip past a flush point: stop deferring then
     for (;;) {
         Sleep(2000);
+        if (++vrsTicks % 5 == 0) VrsReportSignatures();
         if (g_vrsMode) LOG("VRS ceiling mode=%d list_resets_tagged=%lld direct_draw_calls_tagged=%lld indirect_or_bundle_calls_tagged=%lld unsupported_calls=%lld",
             g_vrsMode, g_vrsLists, g_vrsDraws, g_vrsIndirect, g_vrsMiss);
         if (!g_slLo) ResolveStreamline();
@@ -908,6 +911,7 @@ extern "C" int GpuOptSlow(void* self, uint32_t setSlot, uintptr_t a1, uintptr_t 
             if (n != a2) regs[1] = n;
         }
     }
+    VrsTrack(self, set, slot, a1);
     if (g_vrsMode && !skip && (slot == 12 || slot == 13 || slot == 27 || slot == 59 || slot == 79))
         VrsApply(self, set, false, slot == 27 || slot == 59);
     return skip ? 1 : 0;
@@ -938,8 +942,11 @@ void Start(const StartInfo& info) {
     g_skipFx = info.skipFx;
     g_shaderHot = info.shaderHot;
     g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
-    if (g_vrsMode < 0 || g_vrsMode > 2) g_vrsMode = 0;
-    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2)", g_vrsMode);
+    if (g_vrsMode < 0 || g_vrsMode > 3) g_vrsMode = 0;
+    g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", g_vrsMode==3 ? 1 : 0, g_iniPath.c_str()) != 0;
+    LOG("VRS selective=%d GBufferMotion1x1=%d (unknown/HDR/cutout/blend/depth/UI/history candidates remain 1x1)",g_vrsMode==3,g_vrsMotionGuard);
+    if (VrsSelectiveTracking()) for (int i : {2,9,11,25,46,68,69,75}) gpuopt_vrs[i]=1;
+    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective2x2)", g_vrsMode);
     if (g_vrsMode) {
         gpuopt_vrs[12] = gpuopt_vrs[13] = gpuopt_vrs[27] = gpuopt_vrs[59] = gpuopt_vrs[79] = 1;
     }

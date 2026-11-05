@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3d12.h>
+#include "../src/vrs_selective.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -15,6 +16,9 @@ Fake device{dv}, list{lv};
 D3D12_FEATURE_DATA_D3D12_OPTIONS6 caps{};
 HRESULT queryResult=S_OK, resetResult=S_OK;
 int writes=0, resets=0;
+vrsselect::Meta testMeta;
+HRESULT STDMETHODCALLTYPE Private(void*, REFGUID, UINT* n, void* out) { if (*n!=sizeof testMeta) return E_FAIL; memcpy(out,&testMeta,*n); return S_OK; }
+void* pv[4]{}; Fake pso{pv};
 D3D12_SHADING_RATE lastRate{};
 ULONG STDMETHODCALLTYPE Release(void*) { return 1; }
 HRESULT STDMETHODCALLTYPE Feature(void*, D3D12_FEATURE, void* out, UINT) { *(D3D12_FEATURE_DATA_D3D12_OPTIONS6*)out=caps; return queryResult; }
@@ -44,5 +48,24 @@ int main() {
     queryResult=S_OK; g_vtSlots[0]=60; VrsApply(cl,0,true); CHECK(writes==before);
     g_vtSlots[0]=79; VrsApply(cl,0,true); VrsApply(cl,0,false); VrsApply(cl,0,false,true);
     CHECK(g_vrsDraws==1 && g_vrsIndirect==1);
+    pv[3]=(void*)&Private;
+    g_vrsMode=3; g_vrsMotionGuard=true; queryResult=S_OK;
+    testMeta={}; testMeta.reject=0; testMeta.count=7;
+    for (auto& f:testMeta.formats) f=DXGI_FORMAT_R8G8B8A8_UNORM;
+    resetResult=S_OK; VrsReset<0>(cl,nullptr,(ID3D12PipelineState*)&pso);
+    CHECK(lastRate==D3D12_SHADING_RATE_1X1); // Reset is never coarse in selective mode
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // missing OM bind
+    VrsTrack(cl,0,46,7); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    testMeta.reject=vrsselect::Blend; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // coarse cannot leak to particles
+    testMeta.reject=0; testMeta.motion=true; VrsTrack(cl,0,25,(uintptr_t)&pso);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    g_vrsMotionGuard=false; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    VrsTrack(cl,0,27,0); VrsApply(cl,0,false,true); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // bundles invalidate
+    VrsTrack(cl,0,25,(uintptr_t)&pso); VrsTrack(cl,0,46,7);
+    VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+    VrsTrack(cl,0,11,0); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    VrsTrack(cl,0,9,0); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+    puts("VRS selective state: coarse -> excluded fine, OM unknown, motion guard, bundles, ClearState, Close PASS");
     puts("VRS ceiling: capability fallback, off, failed reset HRESULT, interface gate, counters PASS");
 }

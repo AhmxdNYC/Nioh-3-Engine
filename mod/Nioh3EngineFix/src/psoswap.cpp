@@ -26,6 +26,8 @@
 #include <unordered_set>
 
 #include "psoswap.h"
+#include "vrs_selective.h"
+#include <d3dcompiler.h>
 
 namespace psoswap {
 namespace {
@@ -234,6 +236,7 @@ bool SafeCopy(void* dst, const void* src, size_t n) {
         return false;
     }
 }
+
 
 // ---- replacements ----------------------------------------------------------------------------------------------------------
 struct Repl {
@@ -913,6 +916,44 @@ void HotTwinLib(ID3D12PipelineLibrary* lib, const DescT* d, void** pp, const GUI
     static_cast<IUnknown*>(dev)->Release();
 }
 
+bool g_vrsCapture = false;
+// Only creation-time work. Unknown streams/DXIL remain fine-shaded until reviewed.
+bool VrsPixelSafe(const D3D12_SHADER_BYTECODE& ps) {
+    using Disasm = HRESULT(WINAPI*)(LPCVOID, SIZE_T, UINT, LPCSTR, ID3DBlob**);
+    static const Disasm disasm = []() -> Disasm {
+        HMODULE m=LoadLibraryExW(L"d3dcompiler_47.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        return m ? reinterpret_cast<Disasm>(GetProcAddress(m,"D3DDisassemble")) : nullptr;
+    }();
+    if (!disasm || !ps.pShaderBytecode || !ps.BytecodeLength || ps.BytecodeLength > (16u<<20)) return false;
+    // Cache by the validated shader container digest, using the existing key parser.
+    BlobInfo bi{}; if (!SafeReadBlob(ps.pShaderBytecode, ps.BytecodeLength, &bi) || bi.dxil) return false;
+    static SRWLOCK lock=SRWLOCK_INIT;
+    static std::unordered_map<Key,bool,KeyHash> cache;
+    AcquireSRWLockShared(&lock); auto it=cache.find(bi.key);
+    if (it!=cache.end()) { bool ok=it->second; ReleaseSRWLockShared(&lock); return ok; }
+    ReleaseSRWLockShared(&lock);
+    ID3DBlob* text=nullptr; bool ok=false;
+    if (SUCCEEDED(disasm(ps.pShaderBytecode, ps.BytecodeLength, 0, nullptr, &text)) && text) {
+        ok=vrsselect::PixelTextSafe(static_cast<const char*>(text->GetBufferPointer())); text->Release();
+    }
+    AcquireSRWLockExclusive(&lock); cache.emplace(bi.key,ok); ReleaseSRWLockExclusive(&lock);
+    return ok;
+}
+void VrsObserve(HRESULT hr, void** pp, const D3D12_GRAPHICS_PIPELINE_STATE_DESC* d) {
+    if (!g_vrsCapture || FAILED(hr) || !pp || !*pp) return;
+    vrsselect::Meta m;
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC copy{};
+    if (d && SafeCopy(&copy,d,sizeof copy)) m=vrsselect::Describe(copy, VrsPixelSafe(copy.PS));
+    // If shader replacement is active the original description is not authoritative.
+    if (g_cfg.enabled || g_cfg.hot) m.reject |= vrsselect::Unknown;
+    static_cast<ID3D12PipelineState*>(*pp)->SetPrivateData(vrsselect::kMeta,sizeof m,&m);
+}
+void VrsObserve(HRESULT hr, void** pp, const D3D12_COMPUTE_PIPELINE_STATE_DESC*) {
+    VrsObserve(hr, pp, static_cast<const D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(nullptr));
+}
+void VrsObserve(HRESULT hr, void** pp, const D3D12_PIPELINE_STATE_STREAM_DESC*) {
+    VrsObserve(hr, pp, static_cast<const D3D12_GRAPHICS_PIPELINE_STATE_DESC*>(nullptr));
+}
 void HookLibraryObject(IUnknown* lib);
 
 template <int S>
@@ -920,6 +961,7 @@ HRESULT STDMETHODCALLTYPE HkGfx(ID3D12Device* self, const D3D12_GRAPHICS_PIPELIN
     TrkBegin();
     const HRESULT hr = DoGfx(g_dev[S].gfx, self, d, riid, pp);
     TrkCommit(hr, pp);
+    VrsObserve(hr, pp, d);
     return hr;
 }
 template <int S>
@@ -927,6 +969,7 @@ HRESULT STDMETHODCALLTYPE HkCs(ID3D12Device* self, const D3D12_COMPUTE_PIPELINE_
     TrkBegin();
     const HRESULT hr = DoCs(g_dev[S].cs, self, d, riid, pp);
     TrkCommit(hr, pp);
+    VrsObserve(hr, pp, d);
     return hr;
 }
 template <int S>
@@ -934,6 +977,7 @@ HRESULT STDMETHODCALLTYPE HkStream(ID3D12Device* self, const D3D12_PIPELINE_STAT
     TrkBegin();
     const HRESULT hr = DoStream(g_dev[S].stream, self, d, riid, pp);
     TrkCommit(hr, pp);
+    VrsObserve(hr, pp, d);
     return hr;
 }
 template <int S>
@@ -1058,7 +1102,7 @@ void HotLibStream(void* dev, const D3D12_PIPELINE_STATE_STREAM_DESC* d, void** p
         const bool top = !t_depth;                                                                                     \
         TrkBegin();                                                                                                    \
         const HRESULT hr = NAME##I<S>(self, name, d, riid, pp);                                                        \
-        TrkCommit(hr, pp);                                                                                             \
+        TrkCommit(hr, pp); VrsObserve(hr, pp, d);                                                                       \
         if (top && g_hotN && d && SUCCEEDED(hr)) HotTwinLib(self, d, pp, DEVIID, HOT);                                 \
         return hr;                                                                                                     \
     }
@@ -1387,6 +1431,9 @@ void Start(const StartInfo& info) {
     g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
                    GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1 ||
                    GetPrivateProfileIntW(L"Profiler", L"FrameCap", 0, ini.c_str()) != 0) ? 1 : 0;   // GP2 / SkipFx / FC need the PSO -> shader map
+    const int vm = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, ini.c_str());
+    g_vrsCapture = vm == 3 || ((vm == 1 || vm == 2) && GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, ini.c_str()));
+    if (g_vrsCapture) { g_cfg.track = 1; LOG("VRS selective PSO metadata enabled; unsupported shaders/streams stay 1x1"); }
     g_onDevice = info.onDevice;
     g_cfg.hot = GetPrivateProfileIntW(L"ShaderHot", L"Enabled", 0, ini.c_str()) == 1 ? 1 : 0;
     if (g_cfg.hot) {
