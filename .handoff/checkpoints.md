@@ -84,3 +84,5 @@ Next pc MSVC build and one owner-run gated capture; source/tests + notes/shellhi
 - 2026-11-05 12:14 pm EST | cx-pc/0 #69321 DONE | Selective VRS ASI 1ea659f0 bridge #5136, source81835266 cx-pc/vrs-selective; build.bat exit0 + shader/state/HUD tests PASS. Mode3 with VrsGBufferMotion1x1=1; mode1 guard0/1 isolates motion candidate MRTs. Coverage and visuals unproven; NEXT lead PC/PC2 retest checks tagged2x2 counters before perf, sends both-arm images. No game access by cx-pc.
 
 - 2026-11-05 1:01 pm EST | cx-pc/0 #69517 | Exact8RT selective VRS + DXIL safety inspection and coverage counters implemented; real DXIL/DXBC fixtures and shape/state tests pass. Full build running; NEXT publish ASI then lead C=mode3/guard0 pc/pc2/ally visual/perf gates. notes/vrs-selective-v2-69517.md.
+
+- 2026-11-05 1:03 pm EST | cx-pc/0 #69517 DONE offline | source09bf7db4 cx-pc/vrs-selective-v2 pushed; EF a3c9bf7f ASI#5162, notes#5163. build.bat exit0; DXIL/DXBC policy, exact8RT/state/counters, HUD tests PASS. NEXT lead pc/pc2/ally A=0 B=1 C=3 all motionguard0; require nonzero tags and no-glitter images. No install/game; live gains unproven.

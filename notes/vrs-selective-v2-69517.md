@@ -25,3 +25,5 @@ No v2 live speed/visual claim. Pass-format classification cannot prove all seman
 
 ## Offline validation
 Actual D3DCompile opaque/clip/depth fixtures; actual game-folder DXC compile+disassemble SM6 opaque accepted, clip/depth/sample/UAV rejected, malformed bitcode rejected. Exact captured8RT accepted with guard0 and rejected with guard1; every single format mutation, every blended output and unknown shader excluded. Actual command-list hooks exercise captured8RT2x2 -> blend1x1, missing binding, motion guard, bundles, Close/ClearState, failed Reset and capability fallback; tagged/total counts checked. Full build includes both VRS executables and existing HUD tests.
+
+Final build: build.bat exit0; source09bf7db4, ASI#5162 SHA256 a3c9bf7fe6f8c34a7a28ca5b54ae943e8b250125ba2a694722eba48b07221b11. Notes upload#5163. Full shader/state/HUD executables passed. Main PC supplied installed snapshot remains EF1ea659f0/TR0e30328a/BR4c219306/Cam7482c03d (not changed by this worker).
