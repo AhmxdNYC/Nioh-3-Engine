@@ -16,6 +16,8 @@ static int Rd64(uintptr_t address,uint64_t* out) {
 }
 static uintptr_t Grva(uintptr_t rva) { return rva; }
 static void Log(const char* fmt,...) { (void)fmt; }
+static int allow_native_death;
+static int PhCanBlock(uint64_t a) { (void)a; return !allow_native_death; }
 static int hazard_notes;
 static void PhNoteHazard(uint64_t a) { (void)a; ++hazard_notes; }
 #include "../src/player_hp.h"
@@ -66,6 +68,7 @@ int main(void) {
     stats=(uint64_t)enemy; Reset(enemy,2000);
     entry(hp,50,0,0); assert(*(uint64_t*)(state+0x58)==1050); // old actor unprotected after load
     entry(stats+0x38,5000,0,0); assert(*(uint64_t*)(enemy+0x58)==2000);
+    allow_native_death=1;entry(stats+0x38,5000,0,0);assert(*(uint64_t*)(enemy+0x58)==0 && last_damage==5000);
     VirtualFree((void*)g_ph_damage_original,0,MEM_RELEASE); g_ph_damage_original=0;
     memset(site,0xCC,17); g_ph_entry_state=0;
     assert(!PhDamageEntryInstall() && g_ph_entry_state==-1 && site[0]==0xCC);

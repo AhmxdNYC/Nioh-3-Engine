@@ -4,10 +4,10 @@ static void HgInstall(void) {
     if(g_hg_installed) return;
     g_hg_installed=-1;
     // These are engine integration sites, not actor/caller classification lists:
-    // AF910's only call, and all three native movement world-kill branches.
-    const uintptr_t rv[4]={0xB084B,0x40446F,0x4044F6,0x404540};
-    uint8_t* sites[4];
-    for(int i=0;i<4;i++) {
+    // AF910's only call, and both native movement world-kill branches targeting the moving actor.
+    const uintptr_t rv[3]={0xB084B,0x4044F6,0x404540};
+    uint8_t* sites[3];
+    for(int i=0;i<3;i++) {
         uintptr_t r=Grva(rv[i]),target=Grva(i ? 0x786C84 : 0xAF910);
         if(!r || !target) {Log("HAZARD guard unavailable: unresolved native site");return;}
         sites[i]=(uint8_t*)(B+r);
@@ -22,14 +22,14 @@ static void HgInstall(void) {
     g_hg_update=(HgUpdateFn)(B+Grva(0xAF910));g_hg_kill=(HgKillFn)(B+Grva(0x786C84));
     MemoryBarrier();
     int mask=0;
-    for(int i=0;i<4;i++) {
+    for(int i=0;i<3;i++) {
         DWORD old; if(!VirtualProtect(sites[i],5,PAGE_EXECUTE_READWRITE,&old)) continue;
         int32_t rel=(int32_t)((intptr_t)(stub+(i ? 16 : 0))-(intptr_t)(sites[i]+5));
         InterlockedExchange((volatile LONG*)(sites[i]+1),rel);
         VirtualProtect(sites[i],5,old,&old);FlushInstructionCache(GetCurrentProcess(),sites[i],5);mask|=1<<i;
     }
-    g_hg_installed=mask==15 ? 1 : -1;
-    Log("HAZARD guard native world-death sites mask %X / F (combat damage untouched)",mask);
+    g_hg_installed=mask==7 ? 1 : -1;
+    Log("HAZARD guard native world-death sites mask %X / 7 (combat damage untouched)",mask);
 }
 static void HgNew(int s) {
     ++g_hg_generation[s];memset(&g_hg[s],0,sizeof g_hg[s]);HgInstall();

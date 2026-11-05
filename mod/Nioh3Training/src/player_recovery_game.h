@@ -1,5 +1,15 @@
 // #70720: native hazard intent, not a map-height or move-ID heuristic.
 static volatile uint64_t g_ph_hazard_actor;
+static uint64_t g_ph_native_death_actor,g_ph_recovery_player;
+static DWORD g_ph_recovery_last;
+static int g_ph_recovery_attempts;
+static int PhCanBlock(uint64_t a) {return a!=g_ph_native_death_actor;}
+static void PlayerAllowNativeHazardDeath(uint64_t a) {
+    g_ph_native_death_actor=a;
+    if(g_tr_nodeath_now) PlayerSetNoDeath(0);
+    __try { *(uint8_t*)(a+0x89A)=0; } __except(EXCEPTION_EXECUTE_HANDLER) {}
+    Log("INFHP RECOVERY exhausted: native hazard death/respawn allowed for actor %p",(void*)a);
+}
 static int PlayerNativeHazard(uint64_t a) {
     if (!a) return 0;
     __try { return *(uint8_t*)(a + 0x89B) != 0; }

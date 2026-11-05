@@ -8,7 +8,7 @@
 typedef uint32_t DWORD;
 #define N3T_SLOTS 2
 static uint8_t actor[0xB000], other[0xB000];
-static uint64_t stats[16],g_slot_act[2],g_kill_act,player;
+static uint64_t stats[16],g_slot_act[2],g_kill_act,g_fin_live,player;
 static int owned=1,dead,readable=1;
 static DWORD now=10;
 static uint64_t PlayerChar(void){return player;}
@@ -50,7 +50,7 @@ int main(void){
  ++g_hg_generation[0];HgMark(0,a);assert(g_hg[0].since==100 && g_hg[0].generation==1);
  g_kill_act=a;assert(HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8)==456 && deaths==1);
  for(int i=1;i<9;i++) assert(args[i]==(uint64_t)i);
- g_kill_act=0;dead=1;HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8);assert(deaths==2);dead=0;
+ g_fin_live=a;g_kill_act=0;assert(HgSlot(a)==-1);g_fin_live=0;dead=1;HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8);assert(deaths==2);dead=0;
  player=a;HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8);assert(deaths==3);player=0;
  owned=0;actor[0x89A]=0;HgUpdate(a,77);assert(deaths==4);owned=1;
  c=(uint64_t)other;HgMovementKill((uint64_t)&c,1,2,3,4,5,6,7,8);assert(deaths==5);
@@ -61,6 +61,10 @@ int main(void){
  g_tr.active=0;HgMark(0,a);now+=2001;HgTick();assert(despawn==1);
  HgMark(0,a);++g_hg_generation[0];HgTick();assert(!g_hg[0].pending && placed==2);
  HgMark(0,a);gs[2]=1;HgTick();assert(!g_hg[0].pending);gs[2]=0;
+ // A successful teleport into the same hazard is bounded too.
+ place_ok=1;memset(g_hg,0,sizeof g_hg);int before=despawn;
+ for(int i=0;i<5;i++){HgMark(0,a);HgTick();}
+ assert(despawn==before+1);
  HgMark(0,a);dead=1;HgTick();assert(!g_hg[0].pending && retry==1);dead=0;
  puts("hazard wrappers and recovery PASS: native reward bypass prevented, native return/9 arguments preserved, player/foreign/dead/cleanup pass through, generation and bounded pending");
 }

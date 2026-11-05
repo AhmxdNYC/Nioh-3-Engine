@@ -1704,6 +1704,7 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
 // (g_tr / g_bm / g_ar) but must not stop the heal or the hit cut. Game thread, every pump frame.
 static void InfHpTick(void) {
     PlayerHazardRecoverTick();
+    if(g_ph_native_death_actor && g_ph_native_death_actor==PlayerChar()) return;
     // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
     if (!g_cfg_cantdie) return;
     PhDamageEntryInstall();
@@ -1716,7 +1717,7 @@ static void TrainTick(void) {
     DWORD now = GetTickCount();
     if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; SummonStart(g_tr.tok, (float)g_cfg_tr_dist); }
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
-    if (TrNoDeath() && (!g_tr_nodeath_now || g_nd_char != PlayerChar()) && PlayerChar() && now - g_nd_try >= 1000 && !(GameState() && GameState()[2])) {
+    if (!g_ph_native_death_actor && TrNoDeath() && (!g_tr_nodeath_now || g_nd_char != PlayerChar()) && PlayerChar() && now - g_nd_try >= 1000 && !(GameState() && GameState()[2])) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
     }
     uint64_t c = 0, m = 0;

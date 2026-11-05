@@ -1,10 +1,10 @@
 // #70720: intercept native world hazards before HP/death/reward side effects.
 // No boss/move/map lists. Ownership and native death state decide protection.
-typedef struct { uint64_t actor,stats; unsigned generation; DWORD since; int pending; } HgRecord;
+typedef struct { uint64_t actor,stats; unsigned generation; DWORD since,last; int pending,attempts; } HgRecord;
 static HgRecord g_hg[N3T_SLOTS];
 static unsigned g_hg_generation[N3T_SLOTS];
 static int HgSlot(uint64_t a) {
-    if(!a || a==PlayerChar() || a==g_kill_act || !InSp(a)) return -1;
+    if(!a || a==PlayerChar() || a==g_kill_act || a==g_fin_live || !InSp(a)) return -1;
     for(int s=0;s<N3T_SLOTS;s++) if(g_slot_act[s]==a) {
         uint64_t st=0,hp=0,mx=0; int dead=0;
         if(!Rd64(a+0x3A0,&st) || !st || ActorDeadNow(a,&dead,&hp,&mx) || !hp || !mx) return -1;
@@ -16,7 +16,11 @@ static void HgMark(int s,uint64_t a) {
     uint64_t st=0; if(!Rd64(a+0x3A0,&st) || !st) return;
     HgRecord* r=&g_hg[s];
     if(r->pending && r->actor==a && r->stats==st && r->generation==g_hg_generation[s]) return;
-    r->actor=a;r->stats=st;r->generation=g_hg_generation[s];r->since=GetTickCount();r->pending=1;
+    DWORD now=GetTickCount();
+    if(r->actor!=a || r->stats!=st || r->generation!=g_hg_generation[s] || now-r->last>2000) {
+        r->since=now;r->attempts=0;
+    }
+    r->actor=a;r->stats=st;r->generation=g_hg_generation[s];r->last=now;r->pending=1;
     Log("HAZARD boss slot %d actor %p: native world-death prevented before rewards",s,(void*)a);
 }
 typedef uint64_t (*HgUpdateFn)(uint64_t,uint64_t);
