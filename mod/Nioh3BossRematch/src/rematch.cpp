@@ -99,7 +99,8 @@ const char* g_spawnWhy = "";
 
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
-         fightSpawn = true, anyBoss = true;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here
+         fightSpawn = true, anyBoss = true,
+         ignoreProgress = false;  // anyBoss (#38216): unbeaten bosses open as a Practice boss right here; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
 } g_cfg;
 
 std::vector<Row> g_rows;
@@ -937,6 +938,10 @@ bool ClearedNow(uint16_t id, const char** why) {
         return false;
     }
     if (!(c & 1)) {
+        if (g_cfg.ignoreProgress) {
+            Log("Rematch: mission 0x%04X not cleared on this journey - [Dev] IgnoreProgress = 1, starting it anyway (no clear/story write)", id);
+            return true;
+        }
         *why = "mission not cleared on this journey (the game's replay only offers cleared missions)";
         return false;
     }
@@ -2920,6 +2925,7 @@ bool Prepare() {
     g_cfg.directStart = IniInt(L"Rematch", L"DirectStart", 0) != 0;
     g_cfg.showAll = IniInt(L"Rematch", L"ShowAll", 1) != 0;
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
+    g_cfg.ignoreProgress = IniInt(L"Dev", L"IgnoreProgress", 0) != 0;
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
