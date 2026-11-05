@@ -40,6 +40,10 @@ if defined NIOH3_HUD_DUMP (
     build\hud_patterns_test.exe || exit /b 1
 )
 
+rem Preset startup persistence and VRS independence (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extraperf_menu_test.obj tests\extraperf_menu_test.cpp || exit /b 1
+build\extraperf_menu_test.exe || exit /b 1
+
 rem VRS classification and command-list state regression tests (no game/device).
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
 build\vrs_menu_test.exe || exit /b 1

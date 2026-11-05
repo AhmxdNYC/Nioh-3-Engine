@@ -61,7 +61,7 @@ inline const char* PageName(int page) {
 }
 inline int SettingsPage(int id) {
     if (id == kPage) return pDisplay;  // grouped mode hides it (Visible); the two-page menu does not use this
-    if (id == kVrs || (id >= kEpPre && id <= kEp9)) return pExtra;
+    if (id == kVrs || id == kRd || id == kSharp || (id >= kEpPre && id <= kEp11)) return pExtra;
     if (id == kXTS || id == kXWS) return pDisplay;  // #37433: timing / wake diagnostics are on-screen readouts, not a fix
     if (id == kXRTP || id == kXPCM) return pScheduling;
     if (id == kXAS || id == kXPJH || (id >= kXVSMA && id <= kXCLDR)) return pGpu;

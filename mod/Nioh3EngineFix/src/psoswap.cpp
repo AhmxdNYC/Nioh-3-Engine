@@ -29,6 +29,7 @@
 #include "vrs_selective.h"
 #include "vrs_dxc.h"
 #include <d3dcompiler.h>
+#include "skipfx.h"
 
 namespace psoswap {
 namespace {
@@ -1446,7 +1447,8 @@ void Start(const StartInfo& info) {
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
     g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
-                   GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1 ||
+                   skipfx::IniWants(ini.c_str()) ||   // [Debug] SkipFx or [ExtraPerf] XHALF (#66661)
+
                    GetPrivateProfileIntW(L"Profiler", L"FrameCap", 0, ini.c_str()) != 0) ? 1 : 0;   // GP2 / SkipFx / FC need the PSO -> shader map
     const int vm = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, ini.c_str());
     g_vrsCapture = vm == 3 || ((vm == 1 || vm == 2) && GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, ini.c_str()));

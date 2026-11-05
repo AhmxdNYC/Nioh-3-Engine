@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 
+#include "../src/osd.h"
 #include "../src/psoswap.h"
 #include "../src/skipfx.h"
 
@@ -20,6 +21,7 @@ uint32_t PsoSetId(const void* p) {
         case 0x1000: return 1;
         case 0x2000: return 2;
         case 0x3000: return 3;
+        case 0x5000: return 4;
         default: return 0;
     }
 }
@@ -27,12 +29,19 @@ int DescribeSet(uint32_t id, char* b, size_t n) {
     const char* s = id == 1   ? "cs=b76874bb17bdfc10a0739b74191c68a9"
                     : id == 2 ? "vs=e5190e82a274aaa5bfc24b14ca77567a ps=c4656a8d23602c5bacff59efa7950ab0"
                     : id == 3 ? "vs=c4656a8d00000000000000000000aaaa ps=1111111111111111111111111111bbbb"
+                    : id == 4 ? "cs=4b4c3cbe0000000000000000000000cc"
                               : "";
     strncpy_s(b, n, s, _TRUNCATE);
     return (int)strlen(b);
 }
-uint32_t SetCount() { return 3; }
+uint32_t SetCount() { return 4; }
 }  // namespace psoswap
+
+// ---- fake osd frame counter (#66661 half-rate) ----
+static int64_t g_frames = 0;
+namespace osd {
+int64_t GameFrames() { return g_frames; }
+}  // namespace osd
 
 static int g_fail = 0, g_clears = 0;
 static void Check(bool ok, const char* what) {
@@ -163,7 +172,83 @@ int main() {
     Call(58);
     a = ReadAll(ack);
     Check(a.find("tag=base") != std::string::npos, "ack follows the baseline tag");
+    // 6. #66661 Period = 2 from the control file: matched work runs on even frames, skipped on odd ones
+    WriteCtl(ctl, "[SkipFx]\r\nTag=half\r\nPSO=cs=b76874bb\r\nPeriod=2\r\n");
+    Call(25, 0x1000);
+    g_frames = 10;
+    Check(!Call(14, 1, 1, 1), "Period 2, even frame: dispatch runs");
+    g_frames = 11;
+    Check(Call(14, 1, 1, 1), "Period 2, odd frame: dispatch skipped (last result reused)");
+    Call(25, 0x2000);
+    Check(!Call(12, 3, 1), "Period 2: unmatched draw always recorded");
+
     char st[256];
+    printf("status: %s\n", skipfx::StatusLine(st, sizeof st));
+
+    // 7. #66661 XHALF via the Risky preset (no [Debug] SkipFx): built-in compute list, lean hook mask, Period 2
+    const std::wstring ini2 = dir + L"\\half.ini";
+    DeleteFileW(ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "empty ini: no SkipFx / half-rate");
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"2", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "Preset 2: no half-rate");
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"3", ini2.c_str());
+    Check(skipfx::IniWants(ini2.c_str()), "Preset 3 without XHALF: half-rate wanted");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", L"0", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "Preset 3 + XHALF = 0: off (explicit 0 wins)");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", nullptr, ini2.c_str());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"4", ini2.c_str());
+    Check(skipfx::IniWants(ini2.c_str()), "#67206 Preset 4 (Extreme) without XHALF: half-rate wanted");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Mask", L"0", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "#67206 XHALF_Mask = 0: nothing to skip, off");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Mask", L"12", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "#67915 cloud + fog only mask cannot enable half-rate");
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Mask", nullptr, ini2.c_str());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Preset", L"3", ini2.c_str());
+    Check(skipfx::HalfList(15) == "cs=4b4c3cbe,cs=6ae59bd0,cs=b76874bb,cs=641524ee" && skipfx::HalfList(8) == "cs=641524ee" &&
+              skipfx::HalfList(5) == "cs=4b4c3cbe,cs=b76874bb" && skipfx::HalfList(0).empty(),
+          "#67206 XHALF_Mask -> per-pass PSO list");
+    {
+        int pd = 0, rn = 0;
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 4 && rn == 2, "#67206 default rate: Period 4, Run 2 (both frame parities written each cycle)");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", L"2", ini2.c_str());
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 2 && rn == 1, "Period 2 without Run: Run 1 (the old 1-in-2)");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", L"3", ini2.c_str());
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Run", L"5", ini2.c_str());
+        skipfx::HalfRate(ini2.c_str(), &pd, &rn);
+        Check(pd == 3 && rn == 2, "Run >= Period is clamped to Period - 1");
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Period", nullptr, ini2.c_str());
+        WritePrivateProfileStringW(L"ExtraPerf", L"XHALF_Run", nullptr, ini2.c_str());
+    }
+    WritePrivateProfileStringW(L"ExtraPerf", L"XHALF", nullptr, ini2.c_str());
+    WritePrivateProfileStringW(L"ExtraPerf", L"Enabled", L"0", ini2.c_str());
+    Check(!skipfx::IniWants(ini2.c_str()), "Preset 3 but [ExtraPerf] Enabled = 0: off");
+    WritePrivateProfileStringW(L"ExtraPerf", L"Enabled", nullptr, ini2.c_str());
+    si.iniPath = ini2.c_str();
+    skipfx::Start(si);
+    Check(skipfx::WantsHooks(), "XHALF: wants the hooks");
+    uint8_t m2[96] = {};
+    skipfx::EnableHooks(m2, 96, g_orig, nullptr);
+    Check(m2[10] && m2[11] && m2[25] && m2[14] && m2[59] && !m2[12] && !m2[13] && !m2[57] && !m2[58] && !m2[46] && !m2[79],
+          "XHALF lean mask: PSO binds + Dispatch / ExecuteIndirect only (draws, markers, RT binds untouched)");
+    void* const L2 = (void*)0x7100;
+    skipfx::OnListCall(L2, 0, 10, 0, 0x5000, 0);   // Reset with the GI gather PSO as the initial state
+    g_frames = 20;
+    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather 4b4c3cbe, frame 0 of 4: runs");
+    g_frames = 21;
+    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "#67206 frame 1 of 4: runs too (the other ping-pong parity)");
+    g_frames = 22;
+    Check(skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "frame 2 of 4: skipped");
+    g_frames = 23;
+    Check(skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "XHALF GI gather, frame 3 of 4: skipped");
+    skipfx::OnListCall(L2, 0, 25, 0x1000, 0, 0);
+    Check(!skipfx::OnListCall(L2, 0, 14, 1, 1, 1), "#67915 XHALF 2: volumetric clouds always run (brown-sky guard)");
+    skipfx::OnListCall(L2, 0, 25, 0x3000, 0, 0);
+    Check(!skipfx::OnListCall(L2, 0, 14, 1, 1, 1), "XHALF: any other compute PSO always runs");
+    g_frames = 0;
+    skipfx::OnListCall(L2, 0, 25, 0x5000, 0, 0);
+    Check(!skipfx::OnListCall(L2, 0, 14, 8, 8, 1), "no presents counted yet (frame 0): nothing skipped");
     printf("status: %s\n", skipfx::StatusLine(st, sizeof st));
     printf(g_fail ? "SKIPFX HARNESS: %d FAILED\n" : "SKIPFX HARNESS: ALL OK\n", g_fail);
     return g_fail ? 1 : 0;

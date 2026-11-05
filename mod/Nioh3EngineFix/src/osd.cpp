@@ -1750,6 +1750,15 @@ void SetRateSink(void (*fn)(double rendered, double ticks)) { g_rateSink = fn; }
 
 unsigned long GamePresentTid() { return g_gamePresentTid; }
 
+int64_t GameFrames() {
+    const int64_t g = g_nGame;
+    if (g) return g;
+    int64_t n = 0;
+    for (const ScCount& e : g_sc)
+        if (e.sc) n += e.n;
+    return n;
+}
+
 int64_t LastPresentQpc() {
     int64_t last = 0;
     for (const ScCount& e : g_sc) {
