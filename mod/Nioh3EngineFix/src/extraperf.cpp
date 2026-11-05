@@ -32,7 +32,7 @@ struct OptDef {
 const OptDef kOpt[kNumOpts] = {
     {"XCLD", 4, {"game", "128 steps", "64 steps", "32 steps"}},
     {"XFOG", 4, {"game", "64x24 cells", "48x16 cells", "off"}},
-    {"XGI", 4, {"game", "75 %", "50 %", "35 %"}},
+    {"XGI", 5, {"game", "75 %", "50 %", "35 %", "25 %"}},
     {"XSHD", 4, {"game", "60 %", "35 %", "20 %"}},
     {"XSHF", 3, {"game", "2 taps", "1 tap"}},
     {"XLOD", 4, {"game", "x1.5 coarser", "x2 coarser", "x3 coarser"}},
@@ -48,9 +48,13 @@ const int kPresetLv[kNumPresets][kNumOpts] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  // game
     {2, 0, 2, 1, 0, 1, 0, 0, 0, 0},  // Optimized with effect visuals: clouds, GI, shadow distance, LOD only; fog, particles, AO and camera effects stay
     {3, 2, 3, 3, 2, 2, 0, 0, 1, 1},  // Optimized: + coarser fog grid (glow kept: fog off was a big look change for +1.3 %), AO off, 1-tap shadows, blur / DOF off
+    // #66661 Risky (max speed, the picture may change): every option at its strongest level - fog off, GI x0.25, LOD x3, terrain
+    // x0.2, particles x0.25, AO off, blur / DOF / bloom off. With Preset = 3 in the ini, [ExtraPerf] XHALF defaults to 2 (skipfx.cpp:
+    // GI gathers, volumetric clouds and fog scatter computed every 2nd frame; needs a restart, it installs at start).
+    {3, 3, 4, 3, 2, 3, 3, 3, 1, 2},
 };
 // #43269: the Optimizations preset row. Custom is not a level row; PresetName returns it when the XCLD-style levels match none of these.
-const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized"};
+const char* const kPresetName[kNumPresets] = {"game (all off)", "Optimized with effect visuals", "Optimized", "Risky (max speed)"};
 
 bool g_wanted = false;
 volatile LONG g_level[kNumOpts] = {};
@@ -59,7 +63,7 @@ bool g_rco = false, g_gi = false, g_lod = false, g_fx = false;
 // level -> value tables
 const int kCloudMax[4] = {0, 128, 64, 32}, kCloudMin[4] = {0, 24, 16, 8};
 const int kFogX[4] = {0, 64, 48, 0}, kFogZ[4] = {0, 24, 16, 0};
-const float kGiMul[4] = {1.0f, 0.75f, 0.5f, 0.35f};
+const float kGiMul[5] = {1.0f, 0.75f, 0.5f, 0.35f, 0.25f};
 const float kShdMul[4] = {1.0f, 0.6f, 0.35f, 0.2f};
 const int kShf[3] = {0, 2, 1};
 const float kLodMul[4] = {1.0f, 1.5f, 2.0f, 3.0f};

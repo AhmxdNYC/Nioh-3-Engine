@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "osd.h"
 #include "psoswap.h"
 #include "skipfx.h"
 
@@ -35,6 +36,7 @@ struct Cfg {   // immutable once published (counters aside); never freed (a few 
     std::vector<std::string> pso;    // lower-case hex fragments, optionally "xs=" stage-qualified
     std::vector<std::string> mk;     // lower-case marker names, trailing '*' = prefix
     int clearMode = 0;
+    int period = 1;   // #66661 half-rate: >= 2 = a matched draw / dispatch runs on 1 frame in `period` (game presents), skipped otherwise
     float clear[4] = {0, 0, 0, 0};
     bool any = false;
     unsigned long long tApplyUnixMs = 0, tApplyTick = 0;
@@ -46,6 +48,8 @@ Cfg* volatile g_cur = nullptr;
 volatile LONG g_gen = 0;
 volatile LONG g_on = 0;       // hooks active (cleared on an exception)
 int g_enabled = 0;
+int g_half = 0;   // #66661 [ExtraPerf] XHALF level (0 = the [Debug] diagnostic only)
+bool g_lean = false;   // half-rate without markers: only the PSO-bind + Dispatch / ExecuteIndirect slots are routed
 std::wstring g_iniPath, g_ctlPath, g_ackPath;
 void* const* g_orig0 = nullptr;
 void* const* g_orig1 = nullptr;
@@ -235,6 +239,7 @@ bool Impl(void* list, int set, int slot, uintptr_t a1, uintptr_t a2, uintptr_t a
             }
             skip = s->psoSkip != 0;
         }
+        if (skip && c->period > 1 && osd::GameFrames() % c->period == 0) skip = false;   // half-rate: this is a "run" frame
     }
     if (!skip) {
         if (slot != kSlotDispatch) s->bindingUsed = 1;
@@ -293,7 +298,8 @@ std::string ReadStr(const wchar_t* sec, const wchar_t* key, const std::wstring& 
     return Narrow(b.data());
 }
 
-Cfg* Build(const std::string& tag, const std::string& psoList, const std::string& mkList, int clearMode, const std::string& clear) {
+Cfg* Build(const std::string& tag, const std::string& psoList, const std::string& mkList, int clearMode, const std::string& clear,
+           int period = 1) {
     Cfg* c = new (std::nothrow) Cfg();
     if (!c) return nullptr;
     strncpy_s(c->tag, tag.empty() ? "-" : tag.c_str(), _TRUNCATE);
@@ -318,6 +324,7 @@ Cfg* Build(const std::string& tag, const std::string& psoList, const std::string
         c->mk.push_back(b);
     }
     c->clearMode = clearMode == 1 ? 1 : 0;
+    c->period = period < 1 ? 1 : period > 8 ? 8 : period;
     const std::vector<std::string> cv = Split(clear, ", ;");
     for (size_t i = 0; i < 4 && i < cv.size(); ++i) c->clear[i] = (float)atof(cv[i].c_str());
     c->any = !c->pso.empty() || !c->mk.empty();
@@ -359,8 +366,9 @@ void Apply(Cfg* c) {
     std::string p, m;
     for (const auto& t : c->pso) p += (p.empty() ? "" : ",") + t;
     for (const auto& t : c->mk) m += (m.empty() ? "" : ",") + t;
-    SLOG("apply '%s' gen %u: PSO [%s] marker [%s] ClearMode %d (%.2f %.2f %.2f %.2f)%s", c->tag, c->gen, p.c_str(), m.c_str(), c->clearMode,
-         c->clear[0], c->clear[1], c->clear[2], c->clear[3], c->any ? "" : " - nothing skipped (baseline)");
+    SLOG("apply '%s' gen %u: PSO [%s] marker [%s] ClearMode %d (%.2f %.2f %.2f %.2f) Period %d%s", c->tag, c->gen, p.c_str(), m.c_str(),
+         c->clearMode, c->clear[0], c->clear[1], c->clear[2], c->clear[3], c->period,
+         !c->any ? " - nothing skipped (baseline)" : c->period > 1 ? " (half-rate: matched work runs 1 frame in Period)" : "");
 }
 
 void WriteAck() {
@@ -386,7 +394,8 @@ void WriteAck() {
 Cfg* LoadControl() {
     const std::wstring& f = g_ctlPath;
     return Build(ReadStr(L"SkipFx", L"Tag", f), ReadStr(L"SkipFx", L"PSO", f), ReadStr(L"SkipFx", L"Marker", f),
-                 (int)GetPrivateProfileIntW(L"SkipFx", L"ClearMode", 0, f.c_str()), ReadStr(L"SkipFx", L"Clear", f));
+                 (int)GetPrivateProfileIntW(L"SkipFx", L"ClearMode", 0, f.c_str()), ReadStr(L"SkipFx", L"Clear", f),
+                 (int)GetPrivateProfileIntW(L"SkipFx", L"Period", 1, f.c_str()));
 }
 
 DWORD WINAPI CtlThread(void*) {
@@ -431,12 +440,47 @@ std::wstring DirOf(const std::wstring& p) {
     return k == std::wstring::npos ? L"." : p.substr(0, k);
 }
 
+// #66661 XHALF: the compute passes the cost-vs-looks skips showed to keep their last result (stale, not garbage) when skipped
+// (notes\cost-vs-looks.md: RefProbe GI "stale, static view ~same", VCLOUD "clouds frozen", VFSCAT "fog volume frozen").
+// 1 = GI / reflection probe gathers; 2 = + volumetric clouds + froxel fog scatter. All compute dispatches (no draws, no markers).
+const char* const kHalfPso[3] = {"", "cs=4b4c3cbe,cs=6ae59bd0", "cs=4b4c3cbe,cs=6ae59bd0,cs=b76874bb,cs=641524ee"};
+
+int HalfLevel(const wchar_t* ini) {
+    int v = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", -1, ini);
+    if (v < 0) {   // not in the ini: on with the Risky preset only
+        const bool on = GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, ini) == 1;
+        v = on && GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, ini) == 3 ? 2 : 0;
+    }
+    return v < 0 ? 0 : v > 2 ? 2 : v;
+}
+
+}  // namespace
+
+bool IniWants(const wchar_t* ini) {
+    if (!ini) return false;
+    return GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini) == 1 || HalfLevel(ini) > 0;
+}
+
+namespace {
+void StartHalf() {
+    const int period = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Period", 2, g_iniPath.c_str());
+    Apply(Build(g_half == 1 ? "XHALF1" : "XHALF2", kHalfPso[g_half], "", 0, "", period < 2 ? 2 : period));
+    SLOG("HALF-RATE XHALF %d (#66661, changes the look): GI gathers%s computed 1 frame in %d, the other frames reuse the last result",
+         g_half, g_half >= 2 ? " + volumetric clouds + fog scatter" : "", g_cur ? g_cur->period : 2);
+}
 }  // namespace
 
 void Start(const StartInfo& info) {
     g_log = info.log;
     g_iniPath = info.iniPath ? info.iniPath : L"";
     g_enabled = (int)GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, g_iniPath.c_str()) == 1 ? 1 : 0;
+    g_half = HalfLevel(g_iniPath.c_str());
+    if (!g_enabled && g_half > 0) {   // shipped half-rate path: built-in list, no control file, lean hooks
+        g_enabled = 2;
+        g_lean = true;
+        StartHalf();
+        return;
+    }
     if (!g_enabled) return;
     wchar_t f[MAX_PATH] = {};
     GetPrivateProfileStringW(L"Debug", L"SkipFxFile", L"Nioh3EngineFix_skip.ini", f, MAX_PATH, g_iniPath.c_str());
@@ -461,6 +505,12 @@ void EnableHooks(volatile uint8_t* mask, int slots, void* const* orig0, void* co
     g_orig0 = orig0;
     g_orig1 = orig1;
     InterlockedExchange(&g_on, 1);
+    if (g_lean) {   // compute-only PSO list: bind tracking + Dispatch / ExecuteIndirect; draws, markers and RT binds stay on the fast path
+        for (int v : {kSlotReset, kSlotClearState, kSlotSetPso, kSlotDispatch, kSlotExecIndirect}) mask[v] = 1;
+        SLOG("half-rate hooks on (SetPipelineState, Reset, ClearState, Dispatch, ExecuteIndirect); PSO map %s",
+             psoswap::Tracking() ? "from psoswap" : "NOT available - nothing can match");
+        return;
+    }
     for (int v : kHookSlots) mask[v] = 1;
     SLOG("command-list hooks on (SetPipelineState, Reset, ClearState, OMSetRenderTargets, Begin/EndEvent, Draw*, Dispatch, "
          "ExecuteIndirect, DispatchMesh); PSO map %s",

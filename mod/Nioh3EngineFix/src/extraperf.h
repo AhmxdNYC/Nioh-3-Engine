@@ -43,7 +43,7 @@
 namespace extraperf {
 
 enum Opt { kClouds, kFog, kGi, kShadowDist, kShadowFilter, kGeometry, kTerrain, kParticles, kAO, kPost, kNumOpts };
-enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kNumPresets };
+enum Preset { kPresetGame, kPresetPerformance, kPresetPotato, kPresetRisky, kNumPresets };
 
 struct StartInfo {
     void (*log)(const char* fmt, ...) = nullptr;

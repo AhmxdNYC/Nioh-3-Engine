@@ -33,6 +33,9 @@ struct StartInfo {
 };
 
 void Start(const StartInfo& info);  // reads [Debug] SkipFx...; starts the control-file thread when on
+// #66661: [Debug] SkipFx = 1 or the [ExtraPerf] XHALF half-rate list is on (XHALF = 1/2, or Preset = 3 without an XHALF key).
+// psoswap reads it to turn its PSO -> shader map on. Stateless, any time.
+bool IniWants(const wchar_t* ini);
 bool WantsHooks();                  // SkipFx = 1: gpuopt must install its command-list thunks
 // gpuopt, after its vtables are patched: the slots to route to OnListCall, and the original methods (ClearRenderTargetView,
 // GetDevice). orig1 may be null (one vtable).

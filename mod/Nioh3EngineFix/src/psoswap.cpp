@@ -26,6 +26,7 @@
 #include <unordered_set>
 
 #include "psoswap.h"
+#include "skipfx.h"
 
 namespace psoswap {
 namespace {
@@ -1385,7 +1386,8 @@ void Start(const StartInfo& info) {
     g_cfg.dumpMode = IniInt(L"DumpMode", 0, 0, 2, ini);
     g_cfg.logAll = IniInt(L"LogAll", 0, 0, 1, ini);
     g_cfg.track = (GetPrivateProfileIntW(L"Profiler", L"GPUProf", 0, ini.c_str()) >= 2 ||
-                   GetPrivateProfileIntW(L"Debug", L"SkipFx", 0, ini.c_str()) == 1 ||
+                   skipfx::IniWants(ini.c_str()) ||   // [Debug] SkipFx or [ExtraPerf] XHALF (#66661)
+                  
                    GetPrivateProfileIntW(L"Profiler", L"FrameCap", 0, ini.c_str()) != 0) ? 1 : 0;   // GP2 / SkipFx / FC need the PSO -> shader map
     g_onDevice = info.onDevice;
     g_cfg.hot = GetPrivateProfileIntW(L"ShaderHot", L"Enabled", 0, ini.c_str()) == 1 ? 1 : 0;
