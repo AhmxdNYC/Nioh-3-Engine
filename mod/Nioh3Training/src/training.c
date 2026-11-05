@@ -4196,7 +4196,8 @@ static __attribute__((noinline)) int IhEligible(uint64_t actor, uint64_t ctrl) {
 static void DrForceNative(uint64_t ctrl, uint32_t id) { ((void (*)(uint64_t, uint64_t, uint64_t, float))(B + Grva(0x66C4A8)))(ctrl, (uint64_t)id, 0, 0.0f); }  // SetActionID forced transition (MvRepTick)
 static void AgDrillFace(uint64_t a);  // aggro.h, user #14147: Stand still + aggro: the boss turns to the player before each forced move
 #define DR_PREFORCE(a) AgDrillFace(a)
-#define DR_GAP(chr) MvGapFor(chr)  // user #14309: per-boss gap
+#define DR_GAP(chr) MvGapEffChr(chr)  // user #14309: per-boss gap (human #68578: none between members of a Last 2 / 3 cycle)
+#define DR_NEXT(chr, id) MvRepNextChr(chr, id)  // human #68578
 #define DR_SEQ(chr) Nioh3Training_GetMoveRepeatSeq(chr)  // user #14546: a sequence repeat is forced by MvRepTick, not the drill
 #include "drill.h"  // user #13529: move drill in the Stand still stance
 #include "aggro.h"  // user #13787: Boss aggro on me / Reset boss position
