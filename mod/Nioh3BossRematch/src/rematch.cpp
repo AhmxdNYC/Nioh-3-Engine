@@ -1299,6 +1299,35 @@ void ExecPractice(int row, const Snap& s, ULONGLONG t) {
     if (g_attempt.sequence != previous && g_attemptPhase.load() != aNone) g_practiceOwned.store(true);
 }
 
+// #75963 DEV control for the Picture Scroll wave. Off unless the pipe command scrollctl sets it; not for release.
+std::atomic<int> g_scNoRedirect{0}, g_scLevel{0}, g_scB0f{0};
+std::atomic<bool> g_scGive{false};
+std::atomic<uint32_t> g_scGiveId{0x1E82}, g_scGiveSeed{0}, g_scGiveLevel{0}, g_scGiveB0f{0};
+// The game's own add path: 54CCD0 builds the 0xE8 record, 54D324 adds it (same calls as Item::AddItemNoNotice 23A0C64).
+void ExecScrollGive() {
+    alignas(16) uint8_t desc[0x200] = {}, out[0x200] = {};
+    uint64_t inv = 0;
+    const uint16_t id = (uint16_t)g_scGiveId.load();
+    if (!g_img.base || !Rd(G_INV, inv) || !inv) { Log("Rematch: scrollctl give: inventory not ready"); return; }
+    const int before = CountScrollItems();
+    const uint32_t seed = g_scGiveSeed.load();
+    const uint16_t lv = (uint16_t)g_scGiveLevel.load();
+    const uint8_t b0f = (uint8_t)g_scGiveB0f.load();
+    int rc = 0;
+    __try {
+        ((void* (*)(void*, uint32_t, uint32_t))(g_img.base + Grva(0x54CCD0)))(desc, id, 1);
+        memcpy(desc + 0x20, &seed, 4);
+        memcpy(desc + 0x12, &lv, 2);
+        desc[0x0F] = b0f;
+        ((void* (*)(uint64_t, void*, void*, uint64_t, uint64_t))(g_img.base + Grva(0x54D324)))(inv, out, desc, 0, 1);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        rc = 1;
+    }
+    Scroll sc;
+    const bool found = FindScroll(sc);
+    Log("Rematch: scrollctl give id %04X seed %u level %u b0f %u: rc %d, scroll items %d -> %d, found %d idx %d ref %016llX", id, seed, lv, b0f, rc, before,
+        CountScrollItems(), found ? 1 : 0, found ? sc.idx : -1, found ? (unsigned long long)sc.ref : 0ULL);
+}
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
@@ -1320,6 +1349,9 @@ void ExecEmaki(int row, ULONGLONG t) {
         sc.key[0] = 1;
         sc.key[7] = 1;
         sc.key[8] = 0;
+        const uint16_t ctlLevel = (uint16_t)g_scLevel.load();
+        memcpy(sc.key + 4, &ctlLevel, 2);
+        sc.key[6] = (uint8_t)g_scB0f.load();
         g_q6Count = CountScrollItems();
         Log("Rematch: Q6 scroll-item count %d at request (mode 0, no item index)", g_q6Count);
     }
@@ -1337,7 +1369,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     const Snap current = ReadSnap();
     if (const char* why = NativeGate(current)) return Refuse(why);
     uint32_t start = 0;
-    if (row >= 0) {
+    if (row >= 0 && !g_scNoRedirect.load()) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
         if (!ReadEmakiStart(tab, (uint32_t)r.emakiIndex, start)) return Refuse("this scroll record has no start point");
@@ -1769,6 +1801,82 @@ void LogEmakiWave() {
     for (uint32_t i = 0; i < waves && i < 8; ++i) {
         uint64_t eb = 0, ee = 0;
         if (Rd(vb + i * 0x28, eb) && Rd(vb + i * 0x28 + 8, ee) && ee >= eb) enemies += (uint32_t)((ee - eb) / 0x14);
+    }
+    // #75963: why the listed enemies do not appear. Manager: +2 wave no, +0x10 state (1 wait, 2 wake, 3 fight), +0x14 timer, +0x28 pause, members +0x38 (12 B: id, delay, wave, woken, dead).
+    {
+        static ULONGLONG lastFull = 0;
+        static uint64_t lastSig = 0;
+        const ULONGLONG now = GetTickCount64();
+        uint8_t waveNo = 0, pause = 0, ready = 0;
+        int32_t st = 0;
+        float timer = 0;
+        uint64_t mb = 0, me = 0, etab = 0, arr = 0, cnt = 0;
+        if (mgrOk) { Rd(mgr + 2, waveNo); Rd(mgr + 0x10, st); Rd(mgr + 0x14, timer); Rd(mgr + 0x28, pause); Rd(mgr + 0x38, mb); Rd(mgr + 0x40, me); }
+        Rd(ch + 0x2679, ready);
+        Rd(ch + 0x48, etab);
+        if (etab) { Rd(etab, arr); Rd(etab + 8, cnt); }
+        const uint32_t members = me >= mb && mb ? (uint32_t)((me - mb) / 0xC) : 0;
+        uint64_t sig = ((uint64_t)st << 40) ^ ((uint64_t)waveNo << 32) ^ ((uint64_t)pause << 24) ^ ((uint64_t)members << 8) ^ ready ^ ((uint64_t)active << 48);
+        char ents[8][200] = {};
+        for (uint32_t i = 0; i < members && i < 8; ++i) {
+            uint32_t id = 0, delay = 0;
+            uint8_t wn = 0, woke = 0, dead = 0;
+            const uint64_t m = mb + i * 0xC;
+            Rd(m, id); Rd(m + 4, delay); Rd(m + 8, wn); Rd(m + 9, woke); Rd(m + 10, dead);
+            uint64_t e = 0;
+            for (uint64_t k = 0; arr && k < cnt && k < 4096; ++k) {
+                uint32_t kid = 0;
+                if (Rd(arr + k * 0x10, kid) && kid == id) { Rd(arr + k * 0x10 + 8, e); break; }
+            }
+            int32_t eSt = 0, eMis = 0, e80 = 0, e88 = 0;
+            uint8_t da = 0, db = 0, e0 = 0, ee = 0, f0 = 0, f4 = 0, f8 = 0;
+            uint64_t actor = 0, d18 = 0, d70 = 0;
+            if (e) { Rd(e, actor); Rd(e + 0x18, d18); Rd(e + 0x24, eMis); Rd(e + 0x50, eSt); Rd(e + 0x70, d70); Rd(e + 0x80, e80); Rd(e + 0x88, e88); Rd(e + 0xDA, da); Rd(e + 0xDB, db); Rd(e + 0xE0, e0); Rd(e + 0xEE, ee); Rd(e + 0xF0, f0); Rd(e + 0xF4, f4); Rd(e + 0xF8, f8); }
+            sig ^= ((uint64_t)eSt << (i * 3)) ^ ((uint64_t)woke << (i + 16)) ^ ((uint64_t)(actor != 0) << (i + 24)) ^ ((uint64_t)da << (i + 32)) ^ ((uint64_t)dead << (i + 40));
+            snprintf(ents[i], sizeof(ents[i]), "id %u delay %u wave %u woke %u dead %u entry %d actor %d st %d mis %X e80 %d e88 %d da %u db %u e0 %u ee %u f0 %u f4 %u f8 %u d18 %d d70 %d", id, delay, wn, woke, dead, e ? 1 : 0, actor ? 1 : 0, eSt, eMis, e80, e88, da, db, e0, ee, f0, f4, f8, d18 ? 1 : 0, d70 ? 1 : 0);
+        }
+        if (sig != lastSig || now - lastFull > 10000) {
+            lastSig = sig;
+            lastFull = now;
+            uint32_t lvA = 0, lvB = 0;
+            uint64_t ms = 0;
+            int32_t curm[3] = {};
+            Rd(ch + 0x2BF8, lvA); Rd(ch + 0x2BFC, lvB);
+            if (Rd(g_img.base + Grva(0x4751848) + 8, ms) && ms) { Rd(ms, curm[0]); Rd(ms + 4, curm[1]); Rd(ms + 8, curm[2]); }
+            Log("Rematch: wave probe: state %d wave %u timer %.1f pause %u ready %u members %u, level %u/%u, current %X %X %X", st, waveNo, timer, pause, ready, members, lvA, lvB, curm[0], curm[1], curm[2]);
+            for (uint32_t i = 0; i < members && i < 8; ++i) Log("Rematch: wave member %u: %s", i, ents[i]);
+            static uint32_t listSig = 0;
+            if (listSig != (uint32_t)(vb ^ waves)) {
+                listSig = (uint32_t)(vb ^ waves);
+                {
+                    EmakiTab et;
+                    int rec = -1;
+                    if (ReadEmakiTab(et)) for (int k = 0; k < et.n; ++k) {
+                        uint8_t kb = 0; uint32_t ki = 0;
+                        if (Rd(et.vb + (uint64_t)k * 8, kb) && kb == byte && Rd(et.vb + (uint64_t)k * 8 + 4, ki)) { rec = (int)ki; break; }
+                    }
+                    if (rec >= 0 && (uint32_t)rec < et.count) {
+                        const uint64_t R = et.B + 8 + (uint64_t)rec * 0x34;
+                        uint32_t st0 = 0, gad = 0, box = 0; float wp[4] = {};
+                        Rd(R + 0xC, st0); Rd(R + 0x10, gad); Rd(R + 0x14, box); Copy(wp, R + 0x1C, sizeof(wp));
+                        Log("Rematch: wave record %d (byte %02X): start %u gadget %u box %u warp %.0f %.0f %.0f", rec, byte, st0, gad, box, wp[0], wp[1], wp[2]);
+                    }
+                }
+                for (uint32_t i = 0; i < waves && i < 8; ++i) {
+                    uint64_t eb = 0, ee2 = 0;
+                    float w18 = 0, w1c = 0;
+                    int32_t w20 = 0;
+                    if (!Rd(vb + i * 0x28, eb) || !Rd(vb + i * 0x28 + 8, ee2)) break;
+                    Rd(vb + i * 0x28 + 0x18, w18); Rd(vb + i * 0x28 + 0x1C, w1c); Rd(vb + i * 0x28 + 0x20, w20);
+                    Log("Rematch: wave list %u: t18 %.1f t1c %.1f d20 %d", i, w18, w1c, w20);
+                    for (uint64_t q = eb; q < ee2 && q < eb + 0x14 * 8; q += 0x14) {
+                        uint32_t r[5] = {};
+                        Copy(r, q, sizeof(r));
+                        Log("Rematch:   enemy %u %X %X %X %X", r[0], r[1], r[2], r[3], r[4]);
+                    }
+                }
+            }
+        }
     }
     static uint64_t last = 0;
     const uint64_t cur = ((uint64_t)waves << 48) ^ ((uint64_t)enemies << 32) ^ ((uint64_t)active << 16) ^ ((uint64_t)noItem << 8) ^ (mgrOk ? 1 : 0);
@@ -2317,6 +2425,7 @@ void Tick() {
     TfTick(s, t);
     SelfTestTick(s, t);
     if (g_state.load() == kEmaki) LogEmakiWave();
+    if (g_scGive.exchange(false)) ExecScrollGive();
     TrackEmaki(s, t);
     NativeGateRetryTick(s, t);
     CoverTick(s,t);
@@ -4636,6 +4745,27 @@ void SpiritChr(uint64_t mgr, uint64_t& inst, uint64_t& chr, uint64_t& state) {
 void Command(const char* line, char* reply, size_t n) {
     char cmd[32] = "", arg[64] = "";
     sscanf_s(line, "%31s %63s", cmd, (unsigned)sizeof(cmd), arg, (unsigned)sizeof(arg));
+    if (!strcmp(cmd, "scrollctl")) {  // #75963 DEV: scrollctl give <hexid> <seed> <level> <b0f> | item | level <n> | b0f <n> | redirect <0|1> | state
+        char a[32] = {};
+        unsigned v1 = 0, v2 = 0, v3 = 0, v4 = 0;
+        const int na = arg ? sscanf(arg, "%31s %x %u %u %u", a, &v1, &v2, &v3, &v4) : 0;
+        if (na >= 1 && !strcmp(a, "give")) {
+            if (na >= 2) g_scGiveId.store(v1);
+            g_scGiveSeed.store(na >= 3 ? v2 : 1);
+            g_scGiveLevel.store(na >= 4 ? v3 : 0);
+            g_scGiveB0f.store(na >= 5 ? v4 : 0);
+            g_scGive.store(true);
+        } else if (na >= 1 && !strcmp(a, "item")) Post(kReqScroll, -1, "scrollctl");
+        else if (na >= 1 && (!strcmp(a, "level") || !strcmp(a, "b0f") || !strcmp(a, "redirect"))) {
+            unsigned d = 0;
+            sscanf(arg, "%*s %u", &d);
+            if (!strcmp(a, "level")) g_scLevel.store((int)d);
+            else if (!strcmp(a, "b0f")) g_scB0f.store((int)d);
+            else g_scNoRedirect.store(d ? 0 : 1);
+        }
+        snprintf(reply, n, "scrollctl level %d b0f %d redirect %d items %d", g_scLevel.load(), g_scB0f.load(), g_scNoRedirect.load() ? 0 : 1, CountScrollItems());
+        return;
+    }
     if (!strcmp(cmd, "ping")) {
         snprintf(reply, n, "pong Nioh3BossRematch %s live=%d", ADDON_VERSION, g_live.load());
         return;
