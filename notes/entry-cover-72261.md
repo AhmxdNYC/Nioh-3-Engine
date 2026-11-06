@@ -35,16 +35,25 @@ are fixed until that run. Intro frames occurring before the existing FIGHT
 callback remain covered; event IDs cannot safely identify them. Verify the boss
 intro in the live run and use a verified cinematic signal if it is obscured.
 
-## Follow-up #73087: the 90 s cap fired during a live load
-R3513 on TR 1b8b6345 ended the cover at +90 s while GAMESTATE[2] (stop flag 58A)
-was still set. LoadStats #4 was 93.3 s. The 90 s cap now yields while that flag
-is set, the mission-load sequencer is in state 1..15, or Fight now route is still
-1 or 3. A 180 s safety cap always releases. Cancel, failure and Return still
-release on the same tick. No row list. The cover still does not write the load flag.
+## Follow-up #73087 / #73112: the cover was blocking the post-load tip
+Do not extend the 90 s cap. R3513 and R0C12 both kept stop flag 58A until about
+3.8 s after that cap (93.3 s and 93.4 s). Loaders had finished at +9.3 s.
 
-The 84 s idle after loaders finished at +9.3 s is not a cover hold. EngineFix
-LoadScreen only sets a draw flag (menu.cpp Nioh3EngineFix_LoadScreen). LoadGates
-HkGate returns the original result (loadstats.cpp). XwPreload can keep LoadIsLoadEnd
-gate G5 false until character +0x2C8 is set (training.c XwPreload), and that request
-is not started or extended by the cover. Loaders had already finished, so that gate
-does not explain the rest of the wait. Not proven: what kept 58A set for those 84 s.
+The cover does not write 58A. EntryLs (training.c) refuses to turn the overlay off
+while the cover is up, BhScreenVisible reports the screen hidden (boss AI only),
+and EntryLsTick returns early. None of those call the load sequencer. EngineFix
+LoadScreen is a draw flag. LoadGates returns the original gate result.
+
+What does block the load end: while the cover is up, Training masks every pad
+button (MaskGameButtons 0xFFFF). After LoadIsLoadEnd passes, sequencer state 0xB
+sets the tip page's load-done byte and waits for ConfirmPressed before
+UiLoadingScreenEnd. AutoContinueLoad defaults to 0. CoverTipAllowed was only the
+rematch present-cover lease, which this entry screen does not start, so the tip
+never got a press until the 90 s cap lifted the mask. The same tail on two
+missions is that confirm plus the sequencer, not a second 90 s timer.
+
+The 90 s cap stays. While this cover is up, Nioh3EngineFix_EntryTip answers that
+one check. Buttons stay hidden and the overlay stays up. A missing export leaves
+the old wait. Harness loads that finished in about 21 s are not proven here;
+a machine whose tip is already answered (AutoContinueLoad 1, or the rematch
+lease) would not wait for the mask.

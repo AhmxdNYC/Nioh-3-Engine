@@ -751,6 +751,7 @@ int main() {
     g_coverArmedAt=armedBefore;g_disabled=1;CoverPresented(ticket,1,0);CHECK(!hf::coveredToken && !g_coverPresented);g_disabled=0;
     CoverPresented(ticket,1,0);CHECK(hf::coveredToken==42 && CoverCaptures(Now()));
     CHECK(!menu::CoverTipAllowed()); // AwaitPresent is never load-tip permission
+    menu::g_entryTip=1;CHECK(menu::CoverTipAllowed());menu::g_entryTip=0;CHECK(!menu::CoverTipAllowed()); // Training entry screen, no rematch lease
     hf::view.coverPhase=3;hf::view.workerTickMs=Now();OnPresentImpl();
     CHECK(!menu::CoverTipAllowed()); // require covered successful Present of Loading
     CoverPresented(ticket,1,0);CHECK(menu::CoverTipAllowed());

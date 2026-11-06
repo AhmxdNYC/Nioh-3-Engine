@@ -4078,7 +4078,9 @@ void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int3
     const auto present=g_rematchApi.PresentCover;
     if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
 }
+volatile long g_entryTip = 0;
 bool CoverTipAllowed() {
+    if (g_entryTip && Enabled()) return true; // Training's entry screen, not the saved AutoContinue switch
     if(!Enabled() || !TryAcquireSRWLockShared(&g_coverTipLock))return false;
     const auto lease=g_coverTipLease;
     ReleaseSRWLockShared(&g_coverTipLock);
@@ -4187,6 +4189,10 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuOpen() { return menu::g_
 extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuClose(const char* why) {
     if (why) { char b[96]; snprintf(b, sizeof b, "%s", why); if (menu::g_log) menu::g_log("MENU: close requested by an add-on: %s", b); }
     InterlockedExchange(&menu::g_extCloseReq, 1); return menu::g_open ? 1 : 0;
+}
+extern "C" __declspec(dllexport) int Nioh3EngineFix_EntryTip(int on) {
+    InterlockedExchange(&menu::g_entryTip, on ? 1 : 0);
+    return menu::Enabled() ? 1 : 0;
 }
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
     AcquireSRWLockExclusive(&menu::g_lsLock);

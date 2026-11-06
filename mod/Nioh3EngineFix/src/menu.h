@@ -114,6 +114,7 @@ void OnPresent();
 float Draw(unsigned W, unsigned H);
 float PanelScale(unsigned W, unsigned H);  // right-side menu panel only; the FPS counter uses osd::CounterScale
 bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
+extern volatile long g_entryTip; // Training entry cover: answer the post-load tip while that screen is up
 bool IsOpen();
 cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
 void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);
