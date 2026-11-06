@@ -2106,6 +2106,7 @@ static int NativeAnchorPoint(const ArenaRow* r, float pp[4]) {
 }
 static int NativeFightRecoverPos(float p[4]) {
     uint32_t mission = 0, mode = 0; uint8_t journey = 0;
+    if (g_ph_anchor_dead) return 0; // the stand already dropped the player; do not warp back to it
     if (!g_en.anchored || !g_en.row || g_en.fellBack) return 0;
     if (!MsRead(&mission, &journey, &mode) || mission != g_en.row->mission) return 0;
     memcpy(p, g_en.anchor, sizeof g_en.anchor);
@@ -3031,6 +3032,7 @@ static int FightNowImpl(uint32_t mission) {
             snprintf(g_fb.name, sizeof g_fb.name, "%s", nativeRow->name);
         }
         memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
+        g_ph_giveup = 0; g_ph_anchor_dead = 0; // a new mission may stand somewhere that does have a floor
         g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
         return 0; // BossRematch owns admission, clear guard and the actual native request.
@@ -3126,7 +3128,7 @@ static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 // instead of a plain black screen. [Return] LoadScreen = 1 (default), 0 = black only. Missing export (older EngineFix) = black only.
 static int (*p_osdMask)(int, int); static int (*p_entryTip)(int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
 static int (*p_lessonNote)(void); static int g_lessonNoteTried;
-static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
+static int (*p_osdLoad)(int, const char*, const char*); static int (*p_osdNote)(const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
 static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
 // #64994: Fight now / Boss Match used to show the hosted transition cover. ac0f933f (2026-10-15) stopped that whenever
 // Nioh3Training_FightNow is present, because the cover waits for a native mission load the in-place swap never does.
@@ -3207,7 +3209,25 @@ static void EntryCoverBegin(ArenaRow* r) {
     const int tip = p_entryTip ? p_entryTip(1) : 0; // answer the press-to-continue tip; 0 if the menu overlay is off
     Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms, tip confirm %s", r ? r->mission : 0, tip ? "armed" : "NOT armed");
 }
+static void EntryFloorNote(void) {
+    const char* msg = "Fight from where the mission put you, or leave.";
+    if (!p_osdNote) {
+        HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi");
+        if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
+        p_osdNote = ef ? (int (*)(const char*))GetProcAddress(ef, "Nioh3EngineFix_Note") : 0;
+    }
+    int r = p_osdNote ? p_osdNote(msg) : 0;
+    Log("ENTRY COVER note: %s (%s)", msg, r ? "on screen" : "EngineFix note missing");
+}
 static void EntryCoverTick(void) {
+    if (g_ph_giveup) {
+        g_ph_giveup = 0;
+        if (g_entryCover.active) {
+            EntryFloorNote();
+            EntryCoverEnd("recovery exhausted"); // never leave the black loading cover up for the 90 s cap
+            return;
+        }
+    }
     if (!g_entryCover.active) return;
     // Event-scene IDs include mission/door scripts, not only visible cinematics.
     // #72442: the old heuristic exposed the door walk-up for 3782 ms.
@@ -6140,6 +6160,7 @@ static DWORD WINAPI Worker(LPVOID x) {
             HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi"); if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
             p_osdLoad = ef ? (int (*)(int, const char*, const char*))GetProcAddress(ef, "Nioh3EngineFix_LoadScreen") : 0;
+            p_osdNote = ef ? (int (*)(const char*))GetProcAddress(ef, "Nioh3EngineFix_Note") : 0;
             p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0;
             p_entryTip = ef ? (int (*)(int))GetProcAddress(ef, "Nioh3EngineFix_EntryTip") : 0;
             Log("ENTRY tip confirm: EngineFix export %s", p_entryTip ? "found" : "MISSING: the post-load prompt can wait out the cover");

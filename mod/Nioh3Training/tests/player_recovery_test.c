@@ -31,7 +31,7 @@ static int NativeFightRecoverPos(float p[4]){(void)p;return 0;}
 static void Reset(void){
  g_cfg_cantdie=1;hazard=0;native_ok=hp_ok=warp_ok=1;recovers=warps=0;
  player=1;hp=10;mx=100;g_ph_hazard_actor=g_ph_native_death_actor=g_ph_recovery_player=0;
- g_ph_recovery_attempts=0;g_ph_recovery_last=0;now=10;memset(gs,0,sizeof gs);memset(&g_tr,0,sizeof g_tr);
+ g_ph_recovery_attempts=0;g_ph_recovery_last=0;g_ph_giveup=0;g_ph_anchor_dead=0;now=10;memset(gs,0,sizeof gs);memset(&g_tr,0,sizeof g_tr);
 }
 int main(void){
  Reset();PlayerHazardRecoverTick();assert(!warps);
@@ -52,7 +52,7 @@ int main(void){
  Reset();g_tr.active=g_tr.hasStart=1;g_tr.pp[1]=22;
  // Even successful warps cannot loop forever if their destination is hazardous.
  for(int i=0;i<5;i++){hazard=1;PlayerHazardRecoverTick();}
- assert(warps==4 && actual[1]==22 && g_ph_native_death_actor==1);
+ assert(warps==4 && actual[1]==22 && g_ph_native_death_actor==1 && g_ph_giveup==1 && g_ph_anchor_dead==1);
  PlayerHazardRecoverTick();assert(warps==4);
  gs[2]=1;PlayerHazardRecoverTick();assert(!g_ph_native_death_actor && !g_ph_recovery_attempts);
  puts("player recovery PASS: native point, fallback, bounded attempts, native respawn escape, OFF/loading/dead/stale guards");

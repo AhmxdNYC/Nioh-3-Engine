@@ -4091,6 +4091,12 @@ void CoverPresented(const cover_present::Ticket& ticket,uint64_t generation,int3
     if(present)present(ticket.id.session,ticket.id.token); // try-only; no native or worker UI call
 }
 volatile long g_entryTip = 0;
+// The notice buffer lives in the anonymous namespace above. This setter is the one the export can call.
+void SetCoverNotice(const char* text) {
+    if (!text || !text[0]) { g_coverNotice[0] = 0; g_coverNoticeUntil = 0; return; }
+    snprintf(g_coverNotice, sizeof g_coverNotice, "%s", text);
+    g_coverNoticeUntil = GetTickCount64() + 8000;
+}
 bool CoverTipAllowed() {
     if (g_entryTip && Enabled()) return true; // Training's entry screen, not the saved AutoContinue switch
     if(!Enabled() || !TryAcquireSRWLockShared(&g_coverTipLock))return false;
@@ -4204,6 +4210,12 @@ extern "C" __declspec(dllexport) int Nioh3EngineFix_MenuClose(const char* why) {
 }
 extern "C" __declspec(dllexport) int Nioh3EngineFix_EntryTip(int on) {
     InterlockedExchange(&menu::g_entryTip, on ? 1 : 0);
+    return menu::Enabled() ? 1 : 0;
+}
+// One line on the game view, no black rectangle. Training calls this when a Fight now rescue gives up
+// so the loading cover can come down and the player can still read what to do. Any thread. 8 seconds.
+extern "C" __declspec(dllexport) int Nioh3EngineFix_Note(const char* text) {
+    menu::SetCoverNotice(text);
     return menu::Enabled() ? 1 : 0;
 }
 extern "C" __declspec(dllexport) int Nioh3EngineFix_LoadScreen(int on, const char* title, const char* stage) {
