@@ -44,20 +44,20 @@ static void RunR0F7F(int killFirst){
  if(killFirst){assert(!g_np.active&&g_np.pendingAt==10000);tick=2000;NativePhaseEvent(2);assert(g_np.pendingAt==10000);}
  else assert(!g_np.active&&g_np.pendingAt==10000);
  NativePhaseTick(2000);assert(!finishes);
- NativeRosterTick(9999);assert(!g_tr.active&&spawns==0&&!finishes);
- NativeRosterTick(10000);
- assert(g_tr.active&&g_tr.chr==g_fb.row->chr[1]&&g_tr.tCmd==10000&&g_tr.tRespawn==10001&&spawns==0&&(g_fb.owned&2));
- NativeRosterTick(10100);assert(g_tr.tCmd==10000&&spawns==0);
- tick=10001;FallbackSpawn();g_tr.tRespawn=0;assert(spawns==1);
+ NativeRosterTick(3999);assert(!g_tr.active&&spawns==0&&!finishes);
+ NativeRosterTick(4000);
+ assert(g_tr.active&&g_tr.chr==g_fb.row->chr[1]&&g_tr.tCmd==4000&&g_tr.tRespawn==4001&&spawns==0&&(g_fb.owned&2));
+ NativeRosterTick(4100);assert(g_tr.tCmd==4000&&spawns==0);
+ tick=4001;FallbackSpawn();g_tr.tRespawn=0;assert(spawns==1);
  const DWORD killAt[3]={18000,34000,50000};
- const DWORD reqAt[2]={26000,42000};
+ const DWORD reqAt[2]={20000,36000};
  for(int n=0;n<3;n++){
   FallbackTracked(100u+(unsigned)n,g_tr.chr);g_dead_id=100u+(unsigned)n;tick=killAt[n];
   int more=FallbackNext(killAt[n]);
   NativeRosterTick(killAt[n]);NativePhaseTick(killAt[n]);
   if(n<2){
    assert(more&&!g_fb.complete&&!finishes&&spawns==n+1);
-   NativeRosterTick(reqAt[n]-1);assert(g_tr.tCmd==(n==0?10000u:reqAt[0])&&spawns==n+1&&!finishes);
+   NativeRosterTick(reqAt[n]-1);assert(g_tr.tCmd==(n==0?4000u:reqAt[0])&&spawns==n+1&&!finishes);
    NativeRosterTick(reqAt[n]);
    assert(g_tr.chr==g_fb.row->chr[n+2]&&g_tr.tCmd==reqAt[n]&&g_tr.tRespawn==reqAt[n]+1&&spawns==n+1);
    NativeRosterTick(reqAt[n]+50);assert(g_tr.tCmd==reqAt[n]&&spawns==n+1);
@@ -72,12 +72,12 @@ int main(void){
  // Native starts with the SECOND catalogue member: identity, not position. A shown bar means it is in the fight.
  reset("R0034");present[1]=1;barOn[1]=1;NativeRosterTick(100);assert(g_fb.seen==2&&g_fb.pose&&!wakeCalls);
  deadFlags[1]=1;health[1]=0;NativeRosterTick(200);assert(g_fb.killed==2&&!finishes&&!g_fb.complete);
- NativeRosterTick(8199);assert(!g_tr.active);NativeRosterTick(8200);
+ NativeRosterTick(2199);assert(!g_tr.active);NativeRosterTick(2200);
  assert(g_fb.index==0&&g_tr.chr==g_fb.row->chr[0]&&g_tr.bp[0]==101&&g_tr.bp[1]==202);
  FallbackSpawn();assert(spawns==1&&spawned==g_fb.row->chr[0]);
  FallbackTracked(99,g_tr.chr);g_dead_id=99;assert(!FallbackNext(9000)&&g_fb.complete);
  assert(FightFinish(FL_WIN)&&finishes==1);assert(!FightFinish(FL_WIN)&&finishes==1);
- // Native next phase arrives inside grace: no dynamic summon and one final win.
+ // Native body is already up when the poll runs, including after the 2 s wait: no dynamic summon, one final win.
  reset("R0034");present[1]=1;barOn[1]=1;NativeRosterTick(100);deadFlags[1]=1;NativeRosterTick(200);
  present[0]=1;barOn[0]=1;NativeRosterTick(5000);NativeRosterTick(10000);assert(!g_tr.active&&!spawns&&!wakeCalls);
  deadFlags[0]=1;NativeRosterTick(11000);assert(g_fb.complete&&finishes==1);
@@ -105,11 +105,11 @@ int main(void){
  // Before the first kill, an unmarked body is the intro. Do nothing, even long after entry.
  reset("R0034");present[0]=1;NativeRosterTick(100);NativeRosterTick(100000);
  assert(wakeCalls==0&&!g_fb.seen&&!g_fb.woke&&!g_tr.active&&!spawns&&!finishes);
- // Inside the 8 s after a kill, do not wake. Once it passes, one wake, no second copy, no second wake.
+ // Inside the 2 s after a kill, do not wake. Once it passes, one wake, no second copy, no second wake.
  reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;NativeRosterTick(100);
- deadFlags[0]=1;health[0]=0;NativeRosterTick(200);assert(g_fb.killed==1&&g_fb.nextAt==8200);
- NativeRosterTick(8199);assert(wakeCalls==0&&!(g_fb.seen&2)&&!g_tr.active&&!spawns);
- NativeRosterTick(8200);
+ deadFlags[0]=1;health[0]=0;NativeRosterTick(200);assert(g_fb.killed==1&&g_fb.nextAt==2200);
+ NativeRosterTick(2199);assert(wakeCalls==0&&!(g_fb.seen&2)&&!g_tr.active&&!spawns);
+ NativeRosterTick(2200);
  assert(wakeCalls==1&&(g_fb.seen&2)&&(g_fb.woke&2)&&!(g_fb.owned&2)&&g_fb.pose&&!g_tr.active&&!spawns&&!finishes);
  NativeRosterTick(8300);assert(wakeCalls==1&&!g_tr.active&&!finishes);
  // A script phase clears nextAt. No wake while it runs; one wake once it ends.
@@ -134,20 +134,34 @@ int main(void){
  health[0]=0;NativeRosterTick(200);NativeRosterTick(4699);
  assert(!g_fb.killed&&wakeCalls==0&&!g_tr.active);
  NativeRosterTick(4700);assert(g_fb.killed==1&&wakeCalls==0&&!g_tr.active);
- NativeRosterTick(12699);assert(wakeCalls==0);NativeRosterTick(12700);assert(wakeCalls==1&&!g_tr.active&&!spawns);
+ NativeRosterTick(6699);assert(wakeCalls==0);NativeRosterTick(6700);assert(wakeCalls==1&&!g_tr.active&&!spawns);
  // A script phase owns the next body. A missing earlier member can still be requested; a later unmarked body cannot block that.
  reset("R0034");present[0]=1;g_np.active=1;NativeRosterTick(100);assert(wakeCalls==0&&!g_fb.seen&&!g_tr.active);
  reset("R0034");present[1]=1;g_fb.nextAt=100;NativeRosterTick(100);
  assert(wakeCalls==0&&g_tr.active&&(g_fb.owned&1)&&g_tr.chr==g_fb.row->chr[0]&&spawns==0);
- // Script phase stays up after a real kill when the next body is not in the world. Same 8 s, no win.
+ // Script phase stays up after a real kill when the next body is not in the world. Request at 2 s, win grace stays 8 s, no win.
  reset("R0B0B");g_np.armed=1;g_np.active=1;g_np.killedAtArm=0x7;g_fb.killed=0x7;
  present[3]=1;barOn[3]=1;NativeRosterTick(1000);assert(g_np.active&&!g_np.pendingAt&&!g_tr.active);
  deadFlags[3]=1;health[3]=0;NativeRosterTick(2000);
- assert(!g_np.active&&g_np.pendingAt==10000&&g_fb.nextAt==10000&&(g_fb.killed&8)&&!g_tr.active&&!finishes);
- NativeRosterTick(9999);assert(!g_tr.active&&!finishes);
+ assert(!g_np.active&&g_np.pendingAt==10000&&g_fb.nextAt==4000&&(g_fb.killed&8)&&!g_tr.active&&!finishes);
+ NativeRosterTick(3999);assert(!g_tr.active&&!finishes);
+ NativeRosterTick(4000);assert(g_tr.active&&g_tr.chr==598115u&&!finishes);
+ NativePhaseTick(4000);assert(!finishes);
  NativePhaseTick(10000);assert(!finishes);
- NativeRosterTick(10000);assert(g_tr.active&&g_tr.chr==598115u&&!finishes);
  assert(!FightFinish(FL_WIN)&&!finishes);
+ // A phase 1.3 s after the confirm owns the next member. No request at 2 s and no early win.
+ reset("R0034");g_np.armed=1;present[1]=1;barOn[1]=1;NativeRosterTick(100);
+ deadFlags[1]=1;health[1]=0;NativeRosterTick(200);assert(g_fb.nextAt==2200&&!g_tr.active&&!finishes);
+ tick=1500;NativePhaseEvent(1);assert(g_np.active&&g_fb.nextAt==0);
+ NativeRosterTick(2200);NativePhaseTick(2200);assert(!g_tr.active&&!spawns&&!wakeCalls&&!finishes);
+ g_np.active=0;present[0]=1;barOn[0]=1;NativeRosterTick(2300);
+ assert(!g_tr.active&&!spawns&&(g_fb.seen&1)&&!wakeCalls&&!finishes);
+ // The request already went out. A native body of that identity on a later tick is not a second request.
+ reset("R0034");present[1]=1;barOn[1]=1;NativeRosterTick(100);
+ deadFlags[1]=1;health[1]=0;NativeRosterTick(200);NativeRosterTick(2200);
+ assert(g_tr.active&&g_tr.chr==g_fb.row->chr[0]&&spawns==0);
+ present[0]=1;barOn[0]=1;NativeRosterTick(3000);assert(g_tr.tCmd==2200&&spawns==0&&!finishes);
+ duplicates=1;tick=3000;FallbackSpawn();assert(spawns==0&&dedupeCalls>=1);
  // Previous kills alone do not drop a phase that has not seen a new death. A body already here keeps the phase.
  reset("R0B0B");g_np.armed=1;g_np.active=1;g_np.killedAtArm=0x7;g_fb.killed=0x7;NativeRosterTick(5000);
  assert(g_np.active&&!g_np.pendingAt&&!g_tr.active);

@@ -1323,7 +1323,9 @@ static int RosterDefeat(unsigned i, DWORD now) {
     if (!FallbackMulti() || g_fb.ended || i >= g_fb.row->count || (g_fb.killed & (1u << i))) return 0;
     g_fb.killed |= 1u << i;
     g_fb.complete = g_fb.killed == ((1u << g_fb.row->count) - 1u);
-    g_fb.nextAt = now + 8000;
+    // 2 s, not the 8 s win grace in pendingAt. The next script phase was measured at 1.3 s.
+    // Logged multi-boss gaps never had a native member inside the old 8 s. HP 0 still waits its own 4.5 s first.
+    g_fb.nextAt = now + 2000;
     Log("ROSTER %s: confirmed chr %u defeated, mask %X/%X%s", g_fb.row->id,
         g_fb.row->chr[i], g_fb.killed, (1u << g_fb.row->count) - 1u, g_fb.complete ? " FINAL" : "; wait for native phase");
     return 1;
@@ -2209,18 +2211,20 @@ static void NativeRosterTick(DWORD now) {
     if (g_fb.complete) { FightFinish(FL_WIN); if (g_tr.active) g_tr.tWin = now; return; }
     // A spawned boss's death never reaches the script End hook, so boss mode stays active and the
     // request below never runs. A kill recorded after this phase armed, with no remaining body in
-    // the world, is the same as End: drop the hold and keep the 8 s window. Do not finish the fight.
+    // the world, is the same as End: drop the hold. nextAt (2 s) is the member request. pendingAt
+    // stays the 8 s win grace and must not block that request. Do not finish the fight.
     if (g_np.active && (g_fb.killed & ~g_np.killedAtArm) && !alive && !g_sp.active && !g_fb.handle) {
         int left = 0;
         for (unsigned j = 0; j < g_fb.row->count; ++j) if (!(g_fb.killed & (1u << j)) && dormantAt[j]) left = 1;
         if (!left) {
             g_np.active = 0;
             if (!g_np.pendingAt) g_np.pendingAt = now + 8000;
-            Log("ROSTER %s: kill with nothing live in this boss mode; next request waits 8 s", g_fb.row->id);
+            Log("ROSTER %s: kill with nothing live in this boss mode; next request waits 2 s", g_fb.row->id);
         }
     }
-    // An engaged member, an unresolved finisher, the 8 s window, or a script phase still owns the next request.
-    if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || g_sp.active || g_fb.handle) return;
+    // An engaged member, an unresolved finisher, or a script phase still owns the next request.
+    // pendingAt is the win grace only. A roster with another member does not wait it out.
+    if (g_np.active || alive || g_sp.active || g_fb.handle) return;
     int next = RosterNextIndex();
     // No kill yet: a door walk-up or intro has no bar, and forcing one would start the boss early.
     // After a kill, wait out nextAt so a script phase can bring the next body. nextAt 0 is allowed:
@@ -2247,7 +2251,7 @@ static void NativeRosterTick(DWORD now) {
     g_ar.placement = g_arena_placement = g_fb.row->placement[next];
     g_dead_at = 0; g_dead_id = 0; g_tr.tCmd = now; g_tr.tRespawn = now + 1;
     g_tr.tReport = g_tr.tWin = g_tr.tFade = g_tr.tFadeAt = 0; g_tr.bodyGone = 0;
-    Log("ROSTER %s: no native next member after 8 s; request chr %u at saved arena spot", g_fb.row->id, g_tr.chr);
+    Log("ROSTER %s: no native next member after 2 s; request chr %u at saved arena spot", g_fb.row->id, g_tr.chr);
 }
 static int NativeNamedActorLive(uint32_t placement, uint32_t chr) {
     uint64_t w = FindWrapper(placement), a = 0, rec = 0, hp = 1, mx = 0; int dead = 0;
