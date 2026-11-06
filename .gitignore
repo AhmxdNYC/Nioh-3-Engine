@@ -28,6 +28,9 @@ mod/*/build/
 *.exe
 
 # --- large captures / screenshots ---
+# Whole local trees. Files already tracked stay tracked.
+Temp/
+captures/
 captures/rgp/
 captures/sweep/*.png
 captures/checks/
