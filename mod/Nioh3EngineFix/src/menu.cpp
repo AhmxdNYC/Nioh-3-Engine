@@ -368,13 +368,13 @@ void KeyFeed(uint8_t* keys, bool own) {
     {
         const bool nav = g_open != 0;
         struct Hk { uint32_t bit; const char* name; int allow; };
-        const Hk keys[] = {
+        const Hk hks[] = {
             {K_TOGGLE, g_cfg.keyName[0] ? g_cfg.keyName : "menu", 1},
             {K_ESC, "esc", 1},
             {K_UP, "up", nav}, {K_DOWN, "down", nav}, {K_LEFT, "left", nav}, {K_RIGHT, "right", nav},
             {K_ENTER, "enter", nav}, {K_NPENTER, "enter", nav}, {K_BACKSP, "back", nav},
         };
-        for (const Hk& k : keys) {
+        for (const Hk& k : hks) {
             if (!k.allow) continue;
             if (pressed & k.bit) inputlog::ObserveKey(k.name, 1, 1);
             if (released & k.bit) inputlog::ObserveKey(k.name, 0, 1);
@@ -2572,7 +2572,8 @@ bool ForegroundIsGame() {
 
 void OwnPolling(ULONGLONG t) {
     // controller: only when the game's own XInputGetState calls are not reaching us
-    if (g_xiOwn && t - (ULONGLONG)g_lastPadFeed > 500 && t - g_lastOwnPad >= 16) {
+    // open menu: take over after 100 ms, not 500 - g_padHeld goes stale after 300 ms, before the 400 ms first repeat, so a held pad never repeated while the game was not polling
+    if (g_xiOwn && t - (ULONGLONG)g_lastPadFeed > (g_open ? 100u : 500u) && t - g_lastOwnPad >= 16) {
         if (!g_loggedPadFallback) {
             g_loggedPadFallback = true;
             MLOG("controller: %s - polling XInput ourselves (the game will also see menu button presses)",
@@ -2753,6 +2754,29 @@ void NoteSelection() {
     inputlog::NoteMenu("row", PageName(g_pages.page), lab, "", "");
 }
 
+// Up/Down/Left/Right: the edge, then (held pad / key) the first repeat after 400 ms and every 90 ms. Shared by the mod menu and the
+// hosted Boss Match pages. Returns the directions to act on now.
+static const uint32_t kNavDirs[4] = {N_UP, N_DOWN, N_LEFT, N_RIGHT};
+uint32_t NavRepeat(uint32_t pressed, ULONGLONG t) {
+    uint32_t held = 0;
+    for (int i = 0; i < 4; ++i)
+        if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
+    if (t - (ULONGLONG)g_keyHeldAt < 300) held |= KeyNav((uint32_t)g_keyHeld);
+    uint32_t acts = 0;
+    for (int d = 0; d < 4; ++d) {
+        if (pressed & kNavDirs[d]) {
+            acts |= kNavDirs[d];
+            g_rep[d] = t + 400;  // first repeat after 400 ms, then every 90 ms
+        } else if ((held & kNavDirs[d]) && g_rep[d] && t >= g_rep[d]) {
+            acts |= kNavDirs[d];
+            g_rep[d] = t + 90;
+        } else if (!(held & kNavDirs[d])) {
+            g_rep[d] = 0;
+        }
+    }
+    return acts;
+}
+
 void OnPresentImpl() {
     hudhide::Sync();
     hudhide::SyncIds();
@@ -2860,15 +2884,16 @@ void OnPresentImpl() {
         // One normalized edge per frame; Back wins, then paging/navigation.
         // The addon worker rechecks the displayed generation before dispatch.
         // #44232: bumpers switch tabs, except inside a value editor and on the Return object's own page (that page is the whole menu).
+        const uint32_t acts = NavRepeat(pressed, t);  // held pad/key repeats here too (400 ms, then 90 ms)
         const uint32_t tab = pressed & (N_TAB_PREV | N_TAB_NEXT);
         if (pressed & N_BACK) PostRematchAction(rmb::Back);
         else if (tab) { if (tab != (N_TAB_PREV | N_TAB_NEXT) && !g_rematchFromAddon && !(g_rematchView.flags & rmb::Editing)) SwitchTab(tab == N_TAB_NEXT ? 1 : -1); }
         else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
         else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
-        else if (pressed & N_UP) PostRematchAction(rmb::Up);
-        else if (pressed & N_DOWN) PostRematchAction(rmb::Down);
-        else if (pressed & N_LEFT) PostRematchAction(rmb::Left);
-        else if (pressed & N_RIGHT) PostRematchAction(rmb::Right);
+        else if (acts & N_UP) PostRematchAction(rmb::Up);
+        else if (acts & N_DOWN) PostRematchAction(rmb::Down);
+        else if (acts & N_LEFT) PostRematchAction(rmb::Left);
+        else if (acts & N_RIGHT) PostRematchAction(rmb::Right);
         else if (pressed & N_OK) PostRematchAction(rmb::Accept);
         return;
     }
@@ -2887,23 +2912,9 @@ void OnPresentImpl() {
         else if ((pressed & (N_PAGEUP | N_PAGEDOWN)) == N_PAGEDOWN) MovePage(1);
         return;
     }
-    uint32_t held = 0;
-    for (int i = 0; i < 4; ++i)
-        if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
-    if (t - (ULONGLONG)g_keyHeldAt < 300) held |= KeyNav((uint32_t)g_keyHeld);
-    static const uint32_t dirs[4] = {N_UP, N_DOWN, N_LEFT, N_RIGHT};
+    const uint32_t acts = NavRepeat(pressed, t);
     for (int d = 0; d < 4; ++d) {
-        bool act = false;
-        if (pressed & dirs[d]) {
-            act = true;
-            g_rep[d] = t + 400;  // first repeat after 400 ms, then every 90 ms
-        } else if ((held & dirs[d]) && g_rep[d] && t >= g_rep[d]) {
-            act = true;
-            g_rep[d] = t + 90;
-        } else if (!(held & dirs[d])) {
-            g_rep[d] = 0;
-        }
-        if (!act) continue;
+        if (!(acts & kNavDirs[d])) continue;
         if (d == 0) Move(-1);
         else if (d == 1) Move(+1);
         else ChangeLogged(g_sel, d == 2 ? -1 : +1);
