@@ -145,6 +145,32 @@ int main() {
     g_sel=2; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqShrine); g_req=0;
     g_cfg.fightWarp=true; g_warpOk=true; practice.arenaOk=true; g_confirm=-9; g_sel=0;
     CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
+    // Picture Scroll row: Fight now posts that record. Train here and shrine do not.
+    {
+        const Row saved = practice;
+        const bool emakiWas = g_emakiOk;
+        practice.route = rcore::kE;
+        practice.emakiIndex = 3;
+        practice.missionId = 0xCC96;
+        g_emakiOk = true;
+        g_cfg.fightNow = true;
+        g_req = 0; g_confirm = -9; g_msg[0] = 0;
+        UiOpen(); g_sel = 1; UiAct(); UiAct();
+        CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight && it[1] == kItBossTrainHere && it[2] == kItShrine && it[3] == kItBack);
+        CHECK(shown("Fight now (this scroll's waves)"));
+        CHECK(shown("Train here does not pick this scroll"));
+        CHECK(shown("a Picture Scroll has no shrine"));
+        g_sel = 1; CHECK(!UiAct() && !g_req && strstr(g_msg, "no shrine and no Train here"));
+        g_sel = 2; g_msg[0] = 0; CHECK(!UiAct() && !g_req && strstr(g_msg, "no shrine and no Train here"));
+        g_sel = 0; g_msg[0] = 0; g_confirm = -9;
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "no item used"));
+        CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmaki && (g_req.load() >> 8) == 1);
+        practice = saved;
+        g_emakiOk = emakiWas;
+        g_req = 0; g_confirm = -9; g_msg[0] = 0;
+        UiOpen(); g_sel = 1; UiAct(); UiAct();
+        g_sel = 0;
+    }
     // Actual hosted confirmation stages only; no request before exact presentation ACK.
     const Row originalPractice=practice;
     practice.missionId=0x1A5E;practice.fightStart=5021112;practice.placement=5027806;
