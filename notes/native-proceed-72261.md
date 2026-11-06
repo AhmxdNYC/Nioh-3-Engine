@@ -27,3 +27,8 @@ Production hook executable:16 cases (native no dynamic session/no gate, both tex
 
 ## Live proof still required
 On one device: R3513 ordinary kill, use Proceed both during and after held-win window; only mod page, no native box/dead prompt, B closes and interaction re-arms. Return completes with one win; Fight again returns then loads same real fight. Check an unbeaten save stays unchanged and Practice Return still works. Verify capture of actual hook line/text/subid and send screenshot of page. No live screenshot fabricated; offline task explicitly forbids this PC game access.
+
+## Regression attribution (#72310)
+Compared public1.8.6 source f60c56f9 (TR04781485/BRfe7ec45d) against the failing native-entry branch. Exact behavioral bypass was introduced by 9bd72fbe45a5413d5bc1456ca4929eef60dd0b31, "Give native Fight now one destination owner and pass through mission exit", Nov5 7:09 pm EST.
+`git log -S 'if (g_en.confirmed) return; // native mission trips'` and `git log -S '!g_en.confirmed && g_cfg_gate'` both identify that commit. Its diff adds the GateTick native early return, excludes native entry from h_cw2/h_endconf/PmDecideSwallow/h_dlgopen, and passes native MissionRequestReturn through after cleanup. Public1.8.6 has none of those exclusions. Verified ancestor of bcdad8fa (source of human TR99600c91/BR65d31658).
+This is source-level causal attribution, not a live binary bisect. Public worked through the synthetic Return gate; simply reverting the exclusion is insufficient for the new true-native route because it has no g_tr.active/g_gate.up. Fix72d5b0d1 explicitly handles the owned native clear gadget and preserves safe native return transactions.
