@@ -33,6 +33,7 @@ ULONGLONG now=20000;
 ULONGLONG Ms() { return now; }
 Snap ReadSnap() { return fixtureSnap; }
 @ATTEMPT@
+bool ScrollLoadStuck(const Snap& s);
 @GATES@
 @EXEC_GLOBALS@
 std::vector<Row> g_rows(1);
@@ -120,9 +121,11 @@ bool g_clearGuardOk=true;
 bool ReadEmakiTab(EmakiTab& t) { t.vb=reinterpret_cast<uint64_t>(liveMap)+(mapReplaced?8:0); t.n=1; return true; }
 bool WrGuard(void* dst,const void* src,size_t n) { ++writes; if(!mapWriteOk) return false; if(!mapLie) memcpy(dst,src,n); return true; }
 @MAP_RESTORE@
-int CallEmakiRequest(uint64_t ref,const uint8_t* key) {
+bool ScrollLoadStuck(const Snap&) { return false; }
+bool ReadEmakiStart(const EmakiTab&, uint32_t, uint32_t& start) { start = 17005481; return true; }
+int CallEmakiRequest(uint64_t ref,const uint8_t* key, uint32_t start) {
     ++scrolls; if(g_attemptPhase!=aAwaitLoad || !g_attempt.callAttempted) abort();
-    enqueue(0xCC96,12345); memcpy(queue+0x30,&ref,8); memcpy(queue+0x20,key,12);
+    enqueue(0xCC96,start?start:12345); memcpy(queue+0x30,&ref,8); memcpy(queue+0x20,key,12);
     if(outcome==7) queue[0x30]^=1;
     if(outcome==8) queue[0x20]^=1;
     return outcome==1?1:0;
