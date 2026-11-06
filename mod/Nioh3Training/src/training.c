@@ -1544,6 +1544,7 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
     if (p) ((void (*)(uint64_t))(B + Grva(0x204E038)))(p);
     uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
 }
+static int NativeFightRecoverPos(float p[4]);
 #include "player_recovery_game.h"
 // user #14267 Infinite health ON: HP below max -> set back to max at once. Direct write of the HP field PlayerHp reads ([[actor+0x3A0]+0x58]);
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
@@ -2058,9 +2059,29 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops, gated; DWORD tGate; float safe[4], target[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops, gated, anchored; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
+// BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
+// on the boss's floor. Native-first was warping to the mission start instead, so a live boss stayed off camera
+// (D95FA: 5694 units, and a fall respawned at that start). Same distance rule, no per-row list.
+static int NativeAnchorPoint(const ArenaRow* r, float pp[4]) {
+    if (!r || !g_cfg_anchor || g_cfg_bossdist <= 0 || strcmp(r->kind, "start")) return 0;
+    float dx = r->b[0] - r->p[0], dz = r->b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
+    if (!(d > (float)g_cfg_bossdist)) return 0;
+    float k = (float)g_cfg_bossdist / d;
+    pp[0] = r->b[0] - dx * k; pp[1] = r->b[1] + 50.0f; pp[2] = r->b[2] - dz * k;
+    pp[3] = atan2f(dx, dz) * 57.2957795f;
+    for (int i = 0; i < 4; ++i) if (!isfinite(pp[i])) return 0;
+    return 1;
+}
+static int NativeFightRecoverPos(float p[4]) {
+    uint32_t mission = 0, mode = 0; uint8_t journey = 0;
+    if (!g_en.anchored || !g_en.row || g_en.fellBack) return 0;
+    if (!MsRead(&mission, &journey, &mode) || mission != g_en.row->mission) return 0;
+    memcpy(p, g_en.anchor, sizeof g_en.anchor);
+    return 1;
+}
 static int EnterFalling(float targetY, float y, int drops) { return y < targetY - 300.0f && drops >= 2; }  // 3 m under the target and two 250 ms samples in a row dropping >= 4 m/s: a script teleport or a walk downhill is not a fall
 static const char* NativeRouteTag(void) { return g_en.confirmed ? (g_en.fellBack ? "fallback" : "native") : 0; }
 // 0 unowned/ended, 1 native pending, 2 native alive, 3 fallback pending, 4 fallback alive, 5 failed.
@@ -2216,6 +2237,12 @@ static void EnterTick(void) {
         }
         uint32_t nativePlacement = NativeEntryPlacement(r);
         if (nativePlacement && NativeBossReady(r, nativePlacement)) {
+            if (!g_en.anchored && !NativeEntryBoxFor(r) && NativeAnchorPoint(r, g_en.anchor) &&
+                Warp(g_en.anchor[0], g_en.anchor[1], g_en.anchor[2], g_en.anchor[3], 1)) {
+                g_en.anchored = 1; g_en.nudged = 1; g_en.moved = 1; g_en.tWarp = now; EnterTarget(g_en.anchor, g_en.anchor[3]);
+                Log("ENTER %s: boss live far from the mission start; stood %d units from placement %u at %.0f %.0f %.0f", r->id, g_cfg_bossdist, nativePlacement, g_en.anchor[0], g_en.anchor[1], g_en.anchor[2]);
+                return;
+            }
             Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             g_en.active = 0; g_en.route = 2; return;
         }

@@ -25,6 +25,7 @@ static int PlayerHp(uint64_t* c,uint64_t* m){*c=hp;*m=mx;return hp_ok;}
 static int PlayerNativeRecoveryPos(float* p){memcpy(p,native_p,sizeof native_p);return native_ok;}
 static void PlayerRecoverFull(void){++recovers;hazard=0;}
 static int PlayerRecoveryWarp(const float* p){++warps;memcpy(actual,p,sizeof actual);return warp_ok;}
+static int NativeFightRecoverPos(float p[4]){(void)p;return 0;}
 #define Log(...) ((void)0)
 #include "../src/player_recovery_tick.h"
 static void Reset(void){
