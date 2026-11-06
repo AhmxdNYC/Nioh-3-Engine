@@ -25,7 +25,7 @@ verify = function(br, "void FnVerify(")
 assert verify.index("if (g_trainingDestination)") < verify.index("fight::g_fights >")
 assert "!g_trainingDestination && warp" in br
 assert "g_trainingDestination = false; g_trainingRoute = -1;" in function(br, "void ToIdle(")
-assert "now - g_en.tWarp >= 30000" in tr
+assert "now - g_en.tWarp >= (g_en.moved ? 15000u : 30000u)" in tr
 assert "dx * dx + dy * dy + dz * dz" in function(tr, "static __attribute__((noinline)) void MonTick(")
 assert "if (g_en.confirmed) return;" in function(tr, "static void GateTick(")
 

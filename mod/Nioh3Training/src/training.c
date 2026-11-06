@@ -1911,7 +1911,10 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops; float safe[4], target[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+// #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
+static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
+static int EnterFalling(float targetY, float y, int drops) { return y < targetY - 300.0f && drops >= 2; }  // 3 m under the target and two 250 ms samples in a row dropping >= 4 m/s: a script teleport or a walk downhill is not a fall
 static const char* NativeRouteTag(void) { return g_en.confirmed ? (g_en.fellBack ? "fallback" : "native") : 0; }
 // 0 unowned/ended, 1 native pending, 2 native alive, 3 fallback pending, 4 fallback alive, 5 failed.
 // Pending ownership is visible before BR's admission callback, and survives entry completion.
@@ -1961,9 +1964,28 @@ static void EnterTick(void) {
     }
     if (!g_en.active) return;
     if (g_en.warped) {
+        float cur[4];
+        if (g_en.active && now - g_en.tFall >= 250 && PlayerPos(cur)) {
+            g_en.drops = g_en.tFall && g_en.prevY - cur[1] >= 100.0f ? g_en.drops + 1 : 0; g_en.prevY = cur[1]; g_en.tFall = now;
+            if (EnterFalling(g_en.target[1], cur[1], g_en.drops) && g_en.safeOk) {
+                Log("ENTER %s: player falling at %.0f %.0f %.0f (target y %.0f); back to last solid spot %.0f %.0f %.0f", r->id, cur[0], cur[1], cur[2], g_en.target[1], g_en.safe[0], g_en.safe[1], g_en.safe[2]);
+                g_en.fell = 1;
+                if (Warp(g_en.safe[0], g_en.safe[1], g_en.safe[2], g_en.safe[3], 1)) { EnterTarget(g_en.safe, g_en.safe[3]); g_en.tWarp = now; }
+                return;
+            }
+            if (!g_en.tStable || fabsf(cur[1] - g_en.stableY) > 20.0f) { g_en.tStable = now; g_en.stableY = cur[1]; }
+            else if (now - g_en.tStable >= 1000) { memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1; }
+        }
         if (NativeBossReady(r)) {
             Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
             g_en.active = 0; g_en.route = 2; return;
+        }
+        // #71861: the script already placed this boss but keeps it dormant (dojo teacher: lesson enemies come first, box at the row's start). Moving away leaves the
+        // script's box, and the fallback's dedupe would delete the teacher and then wait forever. The script owns this fight: never move, never replace.
+        if (!g_en.dormant && ActorByHandle(r->placement)) {
+            g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
+            Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, r->placement);
+            return;
         }
         // #71644: some placements only spawn once the player is near them (Otoroshi appeared 0.6-1.1 s after the
         // fallback moved the player 9 m from it, twice). Try that before creating a replacement. Position comes from the row's own data.
@@ -1972,7 +1994,7 @@ static void EnterTick(void) {
             float dx = r->b[0] - r->p[0], dz = r->b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
             if (g_cfg_bossdist > 0 && d > g_cfg_bossdist) {
                 float k = g_cfg_bossdist / d, pp[4]; pp[0] = r->b[0] - dx * k; pp[1] = r->b[1] + 50.0f; pp[2] = r->b[2] - dz * k; pp[3] = atan2f(dx, dz) * 57.2957795f;
-                if (Warp(pp[0], pp[1], pp[2], pp[3], 1)) { g_en.moved = 1; g_en.tWarp = now; Log("ENTER %s: no boss after 10 s; moved %d units from placement %u, waiting 15 s", r->id, g_cfg_bossdist, r->placement); }
+                if (Warp(pp[0], pp[1], pp[2], pp[3], 1)) { g_en.moved = 1; g_en.tWarp = now; EnterTarget(pp, pp[3]); Log("ENTER %s: no boss after 10 s; moved %d units from placement %u, waiting 15 s", r->id, g_cfg_bossdist, r->placement); }
                 else Log("ENTER %s: near-boss move failed", r->id);
             } else Log("ENTER %s: already within %d units of the boss, no move", r->id, g_cfg_bossdist);
             return;
@@ -1994,9 +2016,10 @@ static void EnterTick(void) {
     }
     if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: native mission ready, settling", r->id); }
     if (now - g_en.tReady < 3000) return;
+    if (PlayerPos(g_en.safe)) { g_en.safe[3] = r->p[3]; g_en.safeOk = 1; }  // the mission's own spawn: solid by definition
     int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1);
     if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; g_en.route = 5; return; }
-    g_en.warped = 1; g_en.tWarp = now;
+    g_en.warped = 1; g_en.tWarp = now; EnterTarget(r->p, r->p[3]);
     Log("ENTER %s: native arena warp succeeded (+%lu ms); waiting up to 30 ready seconds for boss", r->id, now - g_en.t0);
 }
 // bridge 6047: stage cell streaming after a world switch. Per-cell update 31DFB8 (called for every cell of the set stage+0x500+0x40 by 31D480,
@@ -2632,6 +2655,22 @@ static int FightNowImpl(uint32_t mission) {
     Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
     float b[3] = {r->b[0], r->b[1], r->b[2]};
     float dx = b[0] - r->p[0], dz = b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
+    if (g_native_fallback && g_en.fell && g_en.safeOk) {
+        // #71861: this row has a warp target with no floor. Fight from the last spot the player stood on; keep the boss on its own floor only if it is within reach of that spot.
+        float pp[4]; memcpy(pp, g_en.safe, sizeof pp);
+        float sx = b[0] - pp[0], sz = b[2] - pp[2], sd = sqrtf(sx * sx + sz * sz);
+        if (sd > 0.0f) pp[3] = atan2f(sx, sz) * 57.2957795f;
+        int reach = g_cfg_bossdist > 0 && sd <= g_cfg_bossdist * 3.0f && fabsf(b[1] - pp[1]) < 300.0f;
+        if (!reach && g_cfg_bossdist > 0) {
+            float yr = pp[3] / 57.2957795f;
+            b[0] = pp[0] + sinf(yr) * g_cfg_bossdist; b[1] = pp[1] + 20.0f; b[2] = pp[2] + cosf(yr) * g_cfg_bossdist;
+        }
+        Log("FIGHTNOW %s: floor-safe placement after a fall: player %.0f %.0f %.0f, boss %.0f %.0f %.0f (%s)", r->id, pp[0], pp[1], pp[2], b[0], b[1], b[2], reach ? "boss's own spot" : "boss brought to the player");
+        g_ar_bgm = r->bgm;
+        int ok = StartArena(r->chr, pp, b, pp[3] + 180.0f, r->placement);
+        if (ok && g_cfg_fn_arena) TrainAttachArena(r, pp, b, pp[3] + 180.0f);
+        return ok;
+    }
     if (g_cfg_anchor && g_cfg_bossdist > 0 && d > g_cfg_bossdist && !strcmp(r->kind, "start")) {
         // bridge 4852: a 'start' row's boss is far from the mission start point, usually on another level. Pulling the boss in along the line puts it on the wrong floor or off a ledge (Okita fell 4 m below the player, Nuribotoke stood still: passive).
         // Keep the boss on its own catalogue floor and put the player BossDistance away from it, towards the start point, facing it (verified Ally: Okita and Nuribotoke attack within 10 s).

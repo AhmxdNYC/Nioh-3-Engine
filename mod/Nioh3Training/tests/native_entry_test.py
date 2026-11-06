@@ -20,14 +20,17 @@ static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cf
 static ArenaRow* g_pick;
 static int g_nsp; static uint64_t g_sp_actor[1];
 static int ActorHp(uint64_t a,uint64_t* hp,uint64_t* maxhp){*hp=*maxhp=0;return 0;}
-static uint64_t ActorByHandle(uint32_t h){return 0;}
+static int placed;static float pos[3]={7,100,7};
+static uint64_t ActorByHandle(uint32_t h){return placed;}
+static int PlayerPos(float o[4]){o[0]=pos[0];o[1]=pos[1];o[2]=pos[2];o[3]=0;return 1;}
 static DWORD GetTickCount(void){return tick;}
 static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
 static int StageState(void){return ready;}
 static int CurWorld(void){return world;}
 static int NativeBossReady(const ArenaRow* r){return actor;}
-static int Warp(float x,float y,float z,float yaw,int full){++warps;return warpOk;}
+static float lastWarp[3];
+static int Warp(float x,float y,float z,float yaw,int full){++warps;lastWarp[0]=x;lastWarp[1]=y;lastWarp[2]=z;if(warpOk){pos[0]=x;pos[1]=y;pos[2]=z;}return warpOk;}
 """
 main=r"""
 static int MsRead(uint32_t* m,uint8_t* j,uint32_t* mode){*m=running;return readable;}
@@ -35,7 +38,7 @@ static int FightNowImpl(uint32_t m){assert(g_native_fallback && !g_cfg_fn_summon
 static ArenaRow row={123,456,9,"R123",{1,2,3,4},{5000,2,3}};
 static void Reset(void){memset(&g_en,0,sizeof g_en);g_en.active=1;g_en.row=&row;g_en.t0=100;
  tick=100;memset(state,0,sizeof state);ready=5;world=9;player=readable=warpOk=1;running=123;
- actor=warps=fallbacks=0;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;}
+ actor=warps=fallbacks=placed=0;pos[0]=7;pos[1]=100;pos[2]=7;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;}
 static void Land(void){Nioh3Training_NativeEntryResult(123,1);state[2]=1;EnterTick();state[2]=0;tick=1000;EnterTick();tick=4000;EnterTick();}
 int main(void){
  Reset();assert(NativeFirst(&row));g_native_fallback=1;assert(!NativeFirst(&row));g_native_fallback=0;
@@ -56,6 +59,11 @@ int main(void){
  Reset();Land();tick=14000;EnterTick();actor=1;tick=20000;EnterTick();assert(!fallbacks&&!g_en.active&&g_en.route==2); // boss appears after the near move: native, no fallback
  Reset();Land();warpOk=0;tick=14000;EnterTick();assert(!g_en.moved&&!fallbacks);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // failed move keeps the 30 s wait
  row.b[0]=100;Reset();Land();tick=14000;EnterTick();assert(warps==1&&!g_en.moved);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1);row.b[0]=5000; // already close: no move
+ Reset();Land();placed=1;tick=4300;EnterTick();assert(!g_en.active&&g_en.route==2&&g_en.dormant&&warps==1);tick=40000;EnterTick();assert(warps==1&&!fallbacks); // dormant teacher: no move, no fallback, no delete
+ Reset();Land();assert(warps==1);tick=4300;EnterTick();pos[1]=-400;tick=4600;EnterTick();assert(warps==1&&!g_en.fell);tick=4900;EnterTick();assert(warps==1&&!g_en.fell); // script teleport lower: one drop is not a fall
+ Reset();Land();tick=4300;EnterTick();pos[1]=-400;tick=4600;EnterTick();pos[1]=-800;tick=4900;EnterTick();assert(g_en.fell&&warps==2&&lastWarp[1]==100);assert(g_en.active&&!fallbacks); // fall from the row's spot returns to the mission spawn
+ Reset();Land();tick=4300;EnterTick();tick=4600;EnterTick();tick=5600;EnterTick();assert(g_en.safe[1]==2); // 1 s standing on the warp target makes it the solid spot
+ pos[1]=-500;tick=5900;EnterTick();pos[1]=-900;tick=6200;EnterTick();assert(g_en.fell&&lastWarp[1]==2);
  puts("PASS native-entry: near-boss move, routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
 }
 """
