@@ -53,3 +53,13 @@ static __attribute__((noinline)) uint64_t HgMovementKill(uint64_t c,uint64_t p2,
     if(s>=0) { HgMark(s,a);return 0; }
     return g_hg_kill(c,p2,p3,p4,p5,p6,p7,p8,p9);
 }
+// Native fall damage (#300, Ally): after a long fall the landing action applies a stored self damage
+// through 678636 (mode 3), outside AF910 and the movement kills. Only a lethal hit counts as a world death:
+// falls the boss survives and combat hits (329890) keep their native result.
+static __attribute__((noinline)) uint64_t HgFallDamage(uint64_t c,uint64_t p2,uint64_t p3,uint64_t p4,
+    uint64_t p5,uint64_t p6,uint64_t p7,uint64_t p8,uint64_t p9) {
+    uint64_t a=0,st=0,hp=0;int s=-1;
+    if(Rd64(c,&a)) s=HgSlot(a);
+    if(s>=0 && Rd64(a+0x3A0,&st) && st && Rd64(st+0x58,&hp) && (int64_t)(int32_t)p2>=(int64_t)hp) { HgMark(s,a);return 0; }
+    return g_hg_kill(c,p2,p3,p4,p5,p6,p7,p8,p9);
+}

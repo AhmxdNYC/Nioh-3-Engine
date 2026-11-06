@@ -66,6 +66,11 @@ int main(void){
  g_tr.active=0;HgMark(0,a);now+=2001;HgTick();assert(despawn==1);
  HgMark(0,a);++g_hg_generation[0];HgTick();assert(!g_hg[0].pending && placed==2);
  HgMark(0,a);gs[2]=1;HgTick();assert(!g_hg[0].pending);gs[2]=0;
+ // Fall damage: lethal is a world death, a survivable fall or an unowned actor keeps native damage.
+ {memset(g_hg,0,sizeof g_hg);uint64_t cc=a;int d0=deaths;stats[(0x58)/8]=100;
+  assert(HgFallDamage((uint64_t)&cc,100,3,0,1,0,0,0,1)==0 && deaths==d0 && g_hg[0].pending);
+  memset(g_hg,0,sizeof g_hg);assert(HgFallDamage((uint64_t)&cc,99,3,0,1,0,0,0,1)==456 && deaths==d0+1 && !g_hg[0].pending);
+  owned=0;assert(HgFallDamage((uint64_t)&cc,100,3,0,1,0,0,0,1)==456 && deaths==d0+2);owned=1;}
  // A successful teleport into the same hazard is bounded too.
  place_ok=1;memset(g_hg,0,sizeof g_hg);int before=despawn;
  for(int i=0;i<5;i++){HgMark(0,a);HgTick();}
