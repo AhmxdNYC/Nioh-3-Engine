@@ -4,6 +4,5 @@
 typedef struct { const char* id; uint32_t mission, placement; } NativeNoBossMode;
 static const NativeNoBossMode g_native_no_boss_mode[] = {
     {"R3B58", 15192u, 2159368u},
-    {"RBAB8", 47800u, 3025509u},
     {"RD617", 54807u, 2145000u},
 };
