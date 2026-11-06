@@ -57,3 +57,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-05 5:42 pm EST | cx-pc/0 #70720 DONE offline: cx-pc/yoritomo-sidebugs-rc on rc-187 da476db0; TR e7f52f08 bridge#5306 (supersedes5305), build0 and17 harnesses PASS with existing fixture skips. Native player recovery/camera reset, owned boss world-death prevention, bounded retries/native respawn escape. Live unproven; next lead pc2 one cliff/no-reward + normal1000%kill/OFF retest; notes/yoritomo-sidebugs-70720.md. No install/game access.
 
 - 2026-11-05 07:15 PM EST | cx-pc/0 #71385: merged Ally 8e8a33d6 into Fight now 62070822 (base34912c12); zero training.c conflicts, only three handoff files combined. All17 assert-enabled Yoritomo harnesses PASS, native entry + ownership/return/dedupe PASS; TR build0 c0a77053 #5374 paired with unchanged BR dd0e5e17 #5368. No install/game. Next Claude paired live gate; native late-arrival/real cliff behavior remains unproven.
+
+- #71385 merge checkpoint pushed: origin/cx-pc/no-fight-fix-71350 1238b6ea; BR dd0e5e17 #5368 + TR c0a77053 #5374. Next Claude live pair checks.
