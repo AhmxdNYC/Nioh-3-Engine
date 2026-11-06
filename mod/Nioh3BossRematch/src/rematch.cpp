@@ -1301,6 +1301,8 @@ void ExecPractice(int row, const Snap& s, ULONGLONG t) {
 
 // #75963 DEV control for the Picture Scroll wave. Off unless the pipe command scrollctl sets it; not for release.
 std::atomic<int> g_scNoRedirect{0}, g_scLevel{0}, g_scB0f{0};
+std::atomic<int> g_scStart0{0};  // #76364 DEV: request the redirected record with start 0, as the game does
+std::atomic<int> g_scUseItem{0};  // #76364 DEV: a chosen record starts from the held scroll instead of ref -1
 std::atomic<bool> g_scGive{false};
 std::atomic<uint32_t> g_scGiveId{0x1E82}, g_scGiveSeed{0}, g_scGiveLevel{0}, g_scGiveB0f{0};
 // The game's own add path: 54CCD0 builds the 0xE8 record, 54D324 adds it (same calls as Item::AddItemNoNotice 23A0C64).
@@ -1336,7 +1338,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     // A chosen record must not touch the save. The clear guard skips SetMissionClearFlag of the running 0xCC96 only.
     if (row >= 0 && !g_clearGuardOk) return Refuse("Picture Scroll needs the clear guard so the save cannot change");
     Scroll sc;
-    if (row < 0) {
+    if (row < 0 || g_scUseItem.load()) {
         if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
     } else {
         // No inventory item. Ref -1 is the game's own no-item path: MissionLoadStep 223B180 then keeps the key itself (+0x344 = 1), and
@@ -1378,6 +1380,7 @@ void ExecEmaki(int row, ULONGLONG t) {
         Log("Rematch: E1 %s: %d map entries -> record %d start %u (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, start,
             rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
     }
+    if (g_scStart0.load()) start = 0;
     char kb[40];
     Hex(kb, sizeof(kb), (uint64_t)sc.key, 12);
     AttemptBegin(0xCC96, start, 0, row, freeSlot, t, current, before, true);
@@ -4757,6 +4760,10 @@ void Command(const char* line, char* reply, size_t n) {
             g_scGiveB0f.store(na >= 5 ? v4 : 0);
             g_scGive.store(true);
         } else if (na >= 1 && !strcmp(a, "item")) Post(kReqScroll, -1, "scrollctl");
+        else if (na >= 1 && !strcmp(a, "useitem")) g_scUseItem.store(1);
+        else if (na >= 1 && !strcmp(a, "noitem")) g_scUseItem.store(0);
+        else if (na >= 1 && !strcmp(a, "start0")) g_scStart0.store(1);
+        else if (na >= 1 && !strcmp(a, "startrow")) g_scStart0.store(0);
         else if (na >= 1 && (!strcmp(a, "level") || !strcmp(a, "b0f") || !strcmp(a, "redirect"))) {
             unsigned d = 0;
             sscanf(rest, "%*s %u", &d);
