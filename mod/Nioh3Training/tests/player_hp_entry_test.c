@@ -21,6 +21,8 @@ static int PhCanBlock(uint64_t a) { (void)a; return !allow_native_death; }
 static int hazard_notes;
 static void PhNoteHazard(uint64_t a) { (void)a; ++hazard_notes; }
 #include "../src/player_hp.h"
+static int cover_protection;
+#define PH_EXTRA_PROTECTION() cover_protection
 #include "../src/player_hp_entry.h"
 static int last_damage, calls; static uint8_t last_keep,last_p4;
 static uint64_t Native(uint64_t hp,int damage,uint8_t keep,uint8_t p4) {
@@ -58,6 +60,11 @@ int main(void) {
         assert(last_damage==0 && last_keep==0 && last_p4==path);
     }
     assert(g_ph_entry_cuts==4 && hazard_notes==4);
+    g_cfg_cantdie=0; cover_protection=1;
+    entry(hp,5000,0,0); assert(*(uint64_t*)(state+0x58)==2658 && last_damage==0);
+    cover_protection=0; entry(hp,100,0,0); assert(*(uint64_t*)(state+0x58)==2558 && last_damage==100);
+    assert(g_cfg_cantdie==0); // lease never changes the user's preference
+    Reset(state,2658); g_cfg_cantdie=1;
     entry((uint64_t)enemy+0x38,70000,0,0); assert(*(uint64_t*)(enemy+0x58)==0 && *(uint32_t*)(enemy+0x48)==1 && last_p4==0);
     g_cfg_cantdie=0; entry(hp,5000,0,0); assert(*(uint64_t*)(state+0x58)==0 && *(uint32_t*)(state+0x48)==1);
     g_cfg_cantdie=1; assert(entry(hp,5000,0,0)==0 && *(uint32_t*)(state+0x48)==1); // no resurrection

@@ -23,6 +23,8 @@ static const NativeEntryBox* NativeEntryBoxFor(const ArenaRow*r){return boxEntry
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
 static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900;
 static ArenaRow* g_pick;
+static void EntryCoverBegin(ArenaRow* r) { (void)r; }
+static void EntryCoverEnd(const char* why) { (void)why; }
 static int g_nsp; static uint64_t g_sp_actor[1];
 static int ActorHp(uint64_t a,uint64_t* hp,uint64_t* maxhp){*hp=*maxhp=0;return 0;}
 static int placed;static float pos[3]={7,100,7};

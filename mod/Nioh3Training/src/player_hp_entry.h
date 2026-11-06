@@ -2,6 +2,9 @@
 // Native 787268 writes death at hp+10 and zero at hp+20 before tick refills.
 // Uses the current player identity on EVERY call; no cached actor survives load.
 typedef uint64_t (*PhDamageFn)(uint64_t, int, uint8_t, uint8_t);
+#ifndef PH_EXTRA_PROTECTION
+#define PH_EXTRA_PROTECTION() 0
+#endif
 static PhDamageFn g_ph_damage_original;
 static volatile LONG g_ph_entry_state, g_ph_entry_cuts;
 static const uint8_t kPhDamagePrologue[17]={
@@ -9,12 +12,13 @@ static const uint8_t kPhDamagePrologue[17]={
     0x83,0x79,0x10,0x01,0x48,0x8B,0xD9
 }; // five whole instructions; no RIP-relative data or branch
 static __attribute__((noinline)) uint64_t PhDamageEntry(uint64_t hp,int dmg,uint8_t keep,uint8_t p4) {
-    if (g_cfg_cantdie && hp && dmg>0) {
+    const int protected_player = g_cfg_cantdie || PH_EXTRA_PROTECTION();
+    if (protected_player && hp && dmg>0) {
         uint64_t player=PlayerChar(), stats=0;
         if (player && PhCanBlock(player) && Rd64(player+0x3A0,&stats) && stats && stats+0x38==hp) {
             PhNoteHazard(player); // recover on the pump, never teleport inside native damage
             const int before=dmg;
-            dmg=PhDamageCut(g_cfg_cantdie,1,1,dmg);
+            dmg=PhDamageCut(protected_player,1,1,dmg);
             if (dmg!=before) {
                 LONG n=InterlockedIncrement(&g_ph_entry_cuts);
                 uintptr_t caller=(uintptr_t)__builtin_return_address(0);
