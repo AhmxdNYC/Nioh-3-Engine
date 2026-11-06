@@ -2841,9 +2841,14 @@ void NoFinToggle(int dir) {
 #endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
-constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
-constexpr int kItBossTrainHere = 0x30000;  // explicit secondary action, independent of clear status
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
+constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
+// Free gap above the live catalogue [kItMoveBase, kItMoveBase+N3CAT_CAP) and below Teleport.
+// 0x30000 == kItMoveBase, so this row was move 0 ("Idle / initialization").
+constexpr int kItBossTrainHere = 0x38000;
+static_assert(N3CAT_CAP <= kItBossTrainHere - kItMoveBase, "Train here overlaps the move catalogue cap");
+static_assert(kItBossTrainHere + kMaxRows <= kItTeleport, "Train here rows reach Teleport");
+static_assert(kItBossTrainHere > kItShrine + kMaxRows, "Train here overlaps Shrine");
 
 int Items(int* out, int cap) {
     int n = 0;
@@ -3378,7 +3383,7 @@ bool ActBossRoute(int item) {
     if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
     static bool confirmedTrain = false;
     const bool tele = item >= kItTeleport;
-    const bool train = !tele && item >= kItBossTrainHere;
+    const bool train = item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows;
     const bool arena = item < kItShrine || tele;
     const int row = item - (tele ? kItTeleport : train ? kItBossTrainHere : arena ? kItFight : kItShrine);
     if (row < 0 || (size_t)row >= g_rows.size()) return false;
@@ -4010,7 +4015,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s Train here (arena unavailable)", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s Arena unavailable: %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s Train in arena: %s", mk, g_rows[(size_t)row].name);
-        } else if (it[i] >= kItBossTrainHere) {
+        } else if (it[i] >= kItBossTrainHere && it[i] < kItBossTrainHere + kMaxRows) {
             add(sel ? cWhite : TrainHereOk(it[i] - kItBossTrainHere) ? cGreen : cDim, sel, "%s    Train here", mk);
         } else if (it[i] >= kItShrine) {
             const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
@@ -4157,7 +4162,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanMatchArena(row);
             if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here / B: back." : "%s. B: back.", why);
             else snprintf(footer, nf, "Train in this boss arena, including unbeaten bosses. Solo and progress guards apply. A: start / B: back.");
-        } else if (item >= kItBossTrainHere) {
+        } else if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) {
             snprintf(footer, nf, TrainHereOk(item - kItBossTrainHere) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];

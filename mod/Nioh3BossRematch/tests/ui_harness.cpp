@@ -22,6 +22,7 @@ uintptr_t Site(const char*) { return 0; }
 bool GroupOk(const char*, const char**) { return false; }
 void OnEntry(const char*, Handler) {}
 bool InstallGroup(const char*, const char**) { return false; }
+bool InstallVeto(const char*, bool (*)(int), const char**) { return false; }
 bool InstallPump(void (*)(), const char**) { return false; }
 bool InstallCallRetarget(const char*, void*, void**, const char**) { return false; }
 namespace fight {
@@ -30,6 +31,7 @@ void LastFightPlacements(char* b, size_t n) { if (n) b[0] = 0; }
 bool PlacementSeenRecently(uint32_t, double) { return false; }
 double Now() { return 0; }
 void ForceEnd(const char*) {}  // f7fed86 LeaveArena (stub so the harness links again)
+void ConfirmNativeWin(uint32_t) {}
 }
 namespace bosslog { void FightBegin(uint64_t) {} }
 }
@@ -69,7 +71,7 @@ int main() {
     CHECK(g_sel == 10);
     CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10);
     int it[kMaxRows + 4];
-    CHECK(Items(it, kMaxRows + 4) == 3 && it[0] == kItFight + 10 && it[1] == kItShrine + 10 && it[2] == kItBack);
+    CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight + 10 && it[1] == kItBossTrainHere + 10 && it[2] == kItShrine + 10 && it[3] == kItBack);
     g_confirm = 10;
     CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uActions);
     CHECK(!UiBack() && g_uiPages.page == uRematch && g_sel == 10);
@@ -83,7 +85,7 @@ int main() {
     CHECK(UiAct());  // explicit Close at root
     UiOpen(); g_sel = 1; UiAct(); UiAct();
     g_cfg.fightNow = true; g_fnowOk = true;
-    CHECK(Items(it, kMaxRows + 4) == 3 && it[0] == kItFight && it[1] == kItShrine && it[2] == kItBack);
+    CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight && it[1] == kItBossTrainHere && it[2] == kItShrine && it[3] == kItBack);
     UiRow rows[24]; char footer[240];
     CHECK(UiFill(rows, 24, footer, sizeof(footer)) > 0);
     CHECK(strstr(rows[0].text, "Boss actions") != nullptr);
@@ -108,25 +110,39 @@ int main() {
         for (int i=0;i<count;++i) if (strstr(rows[i].text,text)) return true;
         return false;
     };
-    CHECK(Items(it,kMaxRows+4)==3 && it[0]==kItFight && it[1]==kItShrine && it[2]==kItBack);
+    CHECK(Items(it,kMaxRows+4)==4 && it[0]==kItFight && it[1]==kItBossTrainHere && it[2]==kItShrine && it[3]==kItBack);
     CHECK(!shown("Replay mission:"));
+    // Catalogue full: the old 0x30000 row was move 0. These rows must stay outside that span.
+    const int savedMoves = g_n3cat_n;
+    g_n3cat_n = N3CAT_CAP;
+    {
+        const int nAct = Items(it, kMaxRows + 4);
+        for (int i = 0; i < nAct; ++i) CHECK(!IsMoveItem(it[i]));
+    }
+    CHECK(shown("Train here") && !shown("Idle"));
+    g_repPick = -1; g_confirm = -9; g_msg[0] = 0; g_sel = 1;
+    CHECK(!UiAct() && g_repPick == -1 && strstr(g_msg, "Training is unavailable"));
+    g_msg[0] = 0; UiChange(1); CHECK(g_repPick == -1 && !strstr(g_msg, "Idle"));
+    g_msg[0] = 0; UiChange(-1); CHECK(g_repPick == -1 && !strstr(g_msg, "Idle"));
+    g_n3cat_n = savedMoves;
+    g_sel = 0; g_msg[0] = 0; g_confirm = -9;
     g_cfg.fightNow=false;
     CHECK(shown("Fight now") && shown("Shrine before the boss") && shown("FightNow = 1"));
     g_sel=0; CHECK(!UiAct() && !g_req && strstr(g_msg,"Fight now is off"));
-    g_sel=1; CHECK(!UiAct() && !g_req && strstr(g_msg,"Fight now is off"));
+    g_sel=2; CHECK(!UiAct() && !g_req && strstr(g_msg,"Fight now is off"));
     g_cfg.fightNow=true; practice.atFight=true; g_confirm=-9;
-    CHECK(Items(it,kMaxRows+4)==3 && shown("no separate shrine"));
+    CHECK(Items(it,kMaxRows+4)==4 && shown("no separate shrine"));
     CHECK(!UiAct() && !g_req && strstr(g_msg,"no separate shrine"));
     g_sel=0; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
     practice.atFight=false; practice.fightStart=0; g_confirm=-9;
     CHECK(shown("no start point"));
-    g_sel=0; CHECK(!UiAct() && !g_req); g_sel=1; CHECK(!UiAct() && !g_req);
+    g_sel=0; CHECK(!UiAct() && !g_req); g_sel=2; CHECK(!UiAct() && !g_req);
     practice.fightStart=67064; practice.route=rcore::kX;
-    CHECK(Items(it,kMaxRows+4)==3 && shown("replayable missions only"));
+    CHECK(Items(it,kMaxRows+4)==4 && shown("replayable missions only"));
     CHECK(!UiAct() && !g_req); g_sel=0; CHECK(!UiAct() && !g_req);
     practice.route=rcore::kR; g_cfg.fightWarp=false;
     CHECK(shown("arena warp off")); CHECK(!UiAct() && !g_req);
-    g_sel=1; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqShrine); g_req=0;
+    g_sel=2; CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqShrine); g_req=0;
     g_cfg.fightWarp=true; g_warpOk=true; practice.arenaOk=true; g_confirm=-9; g_sel=0;
     CHECK(!UiAct() && UiAct() && (g_req.load()&0xFF)==kReqFight); g_req=0;
     // Actual hosted confirmation stages only; no request before exact presentation ACK.
