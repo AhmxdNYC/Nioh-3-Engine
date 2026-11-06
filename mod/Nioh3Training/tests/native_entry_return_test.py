@@ -41,6 +41,8 @@ stub = r"""
 static uintptr_t B;
 struct Row { uint32_t mission; const char* id; } row{123, "test"};
 struct { int active, confirmed, route; Row* row; } g_en;
+static void EntryCoverBegin(Row* r) { (void)r; }
+static void EntryCoverEnd(const char* why) { (void)why; }
 struct { int active; } g_sp, g_tr;
 struct { int active, respawnAt; } g_vf;
 struct { int up, session, tried; } g_gate;

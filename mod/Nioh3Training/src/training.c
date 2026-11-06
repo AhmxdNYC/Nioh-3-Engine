@@ -1164,6 +1164,9 @@ static int g_cfg_bossgrace = 1500, g_cfg_bosshold_max = 60000;
 static int g_cfg_lsend = -1;
 static void FadeWant(int on, const char* why);
 static void EntryLs(int on, const char* why);
+static void EntryCoverEnd(const char* why);
+static void EntryCoverFight(void);
+static int EntryCoverProtect(void);
 static void BhStart(uint32_t handle);
 // pc 2026-10-16 (fnowvis3): on pc the arena 'ready' waited 9.3 s for sequencer state 5 (1912 open-world placeable loads); with
 // CrossWorldAreaObjSkipMs > 0 the game lifts its load cover while placeables still stream, so the hold/fade only wait for GAMESTATE[2] = 0.
@@ -1647,6 +1650,7 @@ static void FightLabel(char* out, int cap, const char* tok, uint32_t chr) {
 }
 static const char* NativeRouteTag(void);
 static void FightBegin(int mode, const char* name, const char* id, uint32_t chr) {
+    if (mode == FL_BOSSMATCH) EntryCoverFight();
     char routed[FL_NAME];
     const char* route = mode == FL_BOSSMATCH ? NativeRouteTag() : 0;
     if (route) { snprintf(routed, sizeof routed, "[%s] %s", route, name && name[0] ? name : "boss"); name = routed; }
@@ -1877,6 +1881,7 @@ typedef uint64_t (*ReqFn)(uint32_t, uint8_t, uint32_t, void*);
 __declspec(dllexport) int Nioh3Training_FightNow(uint32_t mission);
 static ReqFn o_req;
 static uint32_t g_imgSize;
+#define PH_EXTRA_PROTECTION() EntryCoverProtect()
 #include "player_hp_entry.h"
 static int g_cfg_xearly, g_xw_busy;
 static const char* SwapGate(const ArenaRow* r) {
@@ -2075,10 +2080,11 @@ N3T_API void Nioh3Training_NativeGateOpened(uint32_t mission) {
     g_en.gated = 1; g_en.tGate = GetTickCount();
     Log("ENTER %s: boss door opened by BR; waiting for the script's own boss", g_en.row->id);
 }
+static void EntryCoverBegin(ArenaRow* r);
 N3T_API void Nioh3Training_NativeEntryResult(uint32_t mission, int accepted) {
     if (!g_en.active || !g_en.row || g_en.row->mission != mission) return;
-    if (accepted) g_en.confirmed = 1;
-    else { Log("ENTER %s: native request not admitted; auto-enter cancelled", g_en.row->id); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
+    if (accepted) { g_en.confirmed = 1; EntryCoverBegin(g_en.row); }
+    else { EntryCoverEnd("native request refused"); Log("ENTER %s: native request not admitted; auto-enter cancelled", g_en.row->id); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
 }
 // Exact placement and spawn-key identity; no arbitrary same-character scan or story writes.
 static int NativePhaseMatches(void) {
@@ -2987,10 +2993,15 @@ static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_
 // the player can move: Return's end (FadeSettled for StableMs) after the swap has actually started. 0 = black fade only.
 static int g_cfg_entry_ls = 1, g_el_miss;
 static struct { int on, left; DWORD t0, tSwap, tStable; char stage[96]; } g_el;
+#include "entry_cover.h"
+static EntryCover g_entryCover;
+static DWORD g_entryProtectUntil;
+static uint32_t g_entryScenes[9];
 static void EntryLs(int on, const char* why) {
     if (!on && !g_el.on) return;
     if (on && (g_rh.active || g_rh_ls_on)) return;
     if (!on && g_rh_ls_on) { g_el.on = 0; g_el.left = 0; return; }  // Return owns the overlay now
+    if (!on && g_entryCover.active && g_entryCover.covered) return; // generic fade settling cannot end this lease
     if (!g_cfg_entry_ls || !p_osdLoad) { if (on && !g_el_miss) { g_el_miss = 1; Log("ENTRY loading screen skipped (%s)", !g_cfg_entry_ls ? "[ArenaSwap] EntryLoadScreen 0" : "EngineFix export missing"); } g_el.on = 0; return; }
     if (on == g_el.on) return;
     g_el.on = on; if (!on) g_el.left = 0;
@@ -3005,6 +3016,63 @@ static void EntryLsBegin(ArenaRow* r) {
     else snprintf(g_el.stage, sizeof g_el.stage, "Entering the arena...");
     g_el.t0 = GetTickCount(); g_el.tSwap = 0; g_el.tStable = 0; g_el.left = 0; g_el.on = 0;
     EntryLs(1, "fight start");
+}
+static int EntryCoverProtect(void) {
+    return g_entryProtectUntil && (int32_t)(g_entryProtectUntil-GetTickCount()) > 0;
+}
+static void EntryCoverEnd(const char* why) {
+    if (!g_entryCover.active) return;
+    g_entryCover.active = g_entryCover.covered = 0;
+    EntryLs(0, why);
+    if (p_osdMask) p_osdMask(0, 0);
+    // Brief finite grace lets the next Present reveal gameplay before damage resumes.
+    g_entryProtectUntil = GetTickCount()+500;
+    Log("ENTRY COVER end: %s (+%lu ms); damage grace 500 ms", why, GetTickCount()-g_entryCover.started);
+}
+static void EntryCoverFight(void) {
+    // Fallback TrainAttachArena opens a history row before CreateDynamic runs.
+    // That bookkeeping event is not a live fight; wait for its live actor instead.
+    if (g_en.fellBack && g_en.route != 4) return;
+    EntryCoverEnd("FIGHT start");
+}
+static void EntryCoverBegin(ArenaRow* r) {
+    EntryCoverEnd("replaced entry");
+    if (!g_cfg_entry_ls || !p_osdLoad || !PhDamageEntryInstall()) {
+        Log("ENTRY COVER unavailable: screen disabled/export missing or damage guard unavailable; no hidden gameplay");
+        return;
+    }
+    EvSnap(g_entryScenes);
+    EcBegin(&g_entryCover, GetTickCount());
+    g_entryCover.covered=1;
+    g_entryProtectUntil=GetTickCount()+500;
+    EntryLsBegin(r);
+    if (!g_el.on) { EntryCoverEnd("screen not acquired"); return; }
+    if (p_osdMask) p_osdMask(0xFFFF, 300);
+    Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms", r ? r->mission : 0);
+}
+static void EntryCoverTick(void) {
+    if (!g_entryCover.active) return;
+    const uint8_t* gs=GameState();
+    uint32_t ids[9]; int intro=0;
+    // New native event scenes belong to the destination; reveal, never skip or clear them.
+    if (gs && !gs[2] && g_en.warped && EvSnap(ids)) {
+        for (int i=0;i<9;++i) if (ids[i]) {
+            int old=0; for(int k=0;k<9;++k) if(ids[i]==g_entryScenes[k]) old=1;
+            if(!old) intro=1;
+        }
+    }
+    const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
+    const int ready=g_en.fellBack && g_en.route==4;
+    EntryCover prior=g_entryCover;
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,intro);
+    if(action==EC_END || action==EC_TIMEOUT) {
+        g_entryCover=prior;
+        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : "cancel/return/failed");
+        return;
+    }
+    if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }
+    if(action==EC_SHOW) EntryLs(1,"waiting for FIGHT start");
+    if(g_entryCover.covered) { g_entryProtectUntil=GetTickCount()+500; if(p_osdMask) p_osdMask(0xFFFF,300); }
 }
 static long FdAlpha(void) { if (p_osdAlpha) { int a = p_osdAlpha(); return a < 0 ? 0 : a; } return g_fd_alpha; }
 static BOOL CALLBACK FdFind(HWND h, LPARAM lp) { (void)lp;
@@ -3077,6 +3145,7 @@ static void BhStart(uint32_t handle) {
 }
 static __attribute__((noinline)) int BhAiOn(uint64_t a) { uint64_t c = 0, ai = 0; uint32_t f = 0; if (!Rd64(a + 0x3B0, &c) || !c || !Rd64(c + 0x50, &ai) || !ai) return -1; __try { f = *(volatile uint32_t*)(ai + 0x1574); } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; } return f != 0; }
 static int BhScreenVisible(int* why) {  // 1 = no load cover (GAMESTATE[2]), no native mission-load sequencer state, our fade overlay clear
+    if (g_entryCover.active && g_entryCover.covered) { *why=4; return 0; }
     const uint8_t* gs = GameState(); uint32_t q = SeqState();
     if (!gs || gs[2]) { *why = 1; return 0; }
     if (q >= 1 && q <= 15) { *why = 2; return 0; }
@@ -3143,6 +3212,7 @@ static void FadeTick(void) {
 // Same end as Return phase 4 (FadeSettled held for StableMs), but only after the swap has left the old spot.
 // Ending in the arena the player is still standing in would flash the screen off before Fight now runs.
 static void EntryLsTick(void) {
+    if (g_entryCover.active) { EntryCoverTick(); return; }
     if (!g_el.on) return;
     DWORD now = GetTickCount();
     if (g_rh.active || g_rh_ls_on) { EntryLs(0, "return"); return; }
