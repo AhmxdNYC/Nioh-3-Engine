@@ -34,12 +34,30 @@ def paths(script, placement, wave_id=0):
                 result.append(dict(box=wait[0],wait=wait[1],gather=gather[1],pose=gather[0],create=i.off,function=fn,wave=wave_id,wait_boxes=wait_boxes,kind='host-box-wave'))
     return result
 
+def requested_wave_group(script, k, names=None):
+    """Group id of RequestID or RequestIDWithWhoWarpSetting. The warp form is
+    RequestIDWithWhoWarpSetting(group, true, true, true, true): the group push
+    sits behind the four bools, not in the slot immediately before the call."""
+    if names is None:
+        names={ident:script.names[n] for n,ident,kind in script.syms}
+    ins=script.insns or []
+    i=ins[k]
+    if i.op!=0x1b or names.get(i.args[0]) not in ('WaveBattle::RequestID','WaveBattle::RequestIDWithWhoWarpSetting'):
+        return None
+    j=k-1
+    while j>=0 and ins[j].op in (0x15,0x16):
+        j-=1
+    if j>=0 and ins[j].op==0x29:
+        return ins[j].args[0]
+    return None
+
 def wave_members(script, enemy_data, placement):
     names={ident:script.names[n] for n,ident,kind in script.syms}
     requested=set()
-    for k,i in enumerate(script.insns or []):
-        if i.op==0x1b and names.get(i.args[0])=='WaveBattle::RequestID' and k and script.insns[k-1].op==0x29:
-            requested.add(script.insns[k-1].args[0])
+    for k in range(len(script.insns or [])):
+        group=requested_wave_group(script, k, names)
+        if group is not None:
+            requested.add(group)
     n=struct.unpack_from('<I',enemy_data,4)[0]
     if 8+n*0x138>len(enemy_data):return []
     records=[enemy_data[8+j*0x138:8+(j+1)*0x138] for j in range(n)]

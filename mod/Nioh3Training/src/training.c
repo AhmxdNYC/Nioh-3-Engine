@@ -2088,7 +2088,7 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops, gated, anchored; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 // BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
@@ -2352,7 +2352,7 @@ static void EnterTick(void) {
         uint32_t wavePlacement = NativeEntryWaveLive(r);
         if (wavePlacement) {
             Log("ENTER %s: native wave member placement %u live; request-to-wave %lu ms; script owns remaining waves, no fallback", r->id, wavePlacement, now - g_en.t0);
-            g_en.active = 0; g_en.route = 2; return;
+            g_en.waveOwned = 1; g_en.active = 0; g_en.route = 2; return;
         }
         uint32_t nativePlacement = NativeEntryPlacement(r);
         if (nativePlacement && NativeBossReady(r, nativePlacement)) {
@@ -3198,18 +3198,21 @@ static void EntryCoverTick(void) {
     // #72442: the old heuristic exposed the door walk-up for 3782 ms.
     // Normal rows stay covered until FIGHT, a live fallback actor, or the 90 s deadline.
     // A lesson teacher is script-dormant and never starts FIGHT: drop once the player is in the mission.
+    // A wave row's named-boss FIGHT start can be a later wave. Once any script-requested wave body is
+    // live, the player is already in that fight, so the cover does not keep the 90 s black screen.
     // A real hit on the player drops it too, if that happens first. The tip confirm stays armed until then.
     const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
     const int ready=g_en.fellBack && g_en.route==4;
     const uint8_t* st = GameState();
     const int inMission = g_en.confirmed && g_en.warped && PlayerChar() && st && !st[2];
     const int lesson = g_en.dormant && g_en.route==2 && inMission;
+    const int wave = g_en.waveOwned && inMission;
     const int hit = g_entryPlayerHit;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready || lesson || hit,0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready || lesson || wave || hit,0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
-        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : lesson ? "script-dormant teacher, player in the mission" : hit ? "player hit" : "cancel/return/failed");
+        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : hit ? "player hit" : "cancel/return/failed");
         return;
     }
     if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }

@@ -22,7 +22,7 @@ static void Log(const char* f,...){(void)f;}
 static struct {int active;} g_rh;
 static int g_rh_ls_on,g_cfg_entry_ls=1,installed=1;
 static struct {int on;} g_el;
-static struct {int confirmed,route,warped,fellBack,dormant;} g_en;
+static struct {int confirmed,route,warped,fellBack,dormant,waveOwned;} g_en;
 static int g_entryPlayerHit;
 static uint64_t playerChar=1;
 static uint64_t PlayerChar(void){return playerChar;}
@@ -79,7 +79,10 @@ int main(void){
  gs[2]=0;EntryCoverTick();assert(!screen&&!g_entryCover.active); // load clear, then drop
  g_en.dormant=0;g_en.route=1;g_entryPlayerHit=1;EntryCoverBegin(&row);assert(screen); // begin clears a stale hit
  g_entryPlayerHit=1;EntryCoverTick();assert(!screen&&!g_entryCover.active); // a real hit drops it before FIGHT
- g_entryPlayerHit=0;g_en.dormant=0;g_en.route=2;g_en.warped=1;EntryCoverBegin(&row);EntryCoverTick();assert(screen&&g_entryCover.active); // normal boss stays covered
+ g_entryPlayerHit=0;g_en.dormant=0;g_en.waveOwned=0;g_en.route=2;g_en.warped=1;EntryCoverBegin(&row);EntryCoverTick();assert(screen&&g_entryCover.active); // normal boss stays covered
+ g_en.waveOwned=1;EntryCoverTick();assert(!screen&&!mask&&!g_entryCover.active); // live wave body: do not keep the 90 s screen
+ g_en.waveOwned=1;gs[2]=1;EntryCoverBegin(&row);EntryCoverTick();assert(screen&&g_entryCover.active); // still loading, keep it
+ gs[2]=0;EntryCoverTick();assert(!screen&&!g_entryCover.active);g_en.waveOwned=0;
  now=60000;EntryCoverFight();assert(!screen&&!g_entryCover.active);
  puts("PASS actual entry cover: native timeline, mission-event false intro regression, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry, lesson dormant and player hit");
 }

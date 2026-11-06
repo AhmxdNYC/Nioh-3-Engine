@@ -2210,27 +2210,31 @@ void Tick() {
         const uint32_t kind = g_pend & 0xFF;
         const int row = (int)(g_pend >> 8) - 1;
         if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {
-            g_pend = 0;
+            const char* why = nullptr;
             if (kind == kReqNativeAgain && (row < 0 || (size_t)row >= g_rows.size() ||
                 g_attemptPhase.load() != aActive || g_attempt.row != row ||
                 g_attempt.mission != s.ms28 || g_rows[(size_t)row].missionId != NativeGateMission()))
-                Refuse("native gate no longer owns this fight");
-            else if (!g_exitOk) Refuse(g_exitWhy);
-            else if (kind == kReqPracticeExit && PracticeReturnGate(s)) Refuse(PracticeReturnGate(s));
-            else if (const char* why = ExitGate(s)) Refuse(why);
-            else if (const char* attemptWhy = AttemptReturnGate()) {
-                // The scroll load never settles, so the usual "wait until the load ends" return gate would trap the player.
-                if (!(ScrollLoadStuck(s) && !strcmp(attemptWhy, "native replay has not settled"))) Refuse(attemptWhy);
-                else {
-                    AttemptReturning(s);
-                    const int rc = CallReturn();
-                    g_attempt.returnCompleted = rc == 0;
-                    if (rc) AttemptQuarantine("return call exception");
-                    Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14,
-                        rc ? "EXCEPTION" : "requested");
-                    Result(rc ? "exit failed" : "exit requested");
+                why = "native gate no longer owns this fight";
+            else if (!g_exitOk) why = g_exitWhy;
+            else if (kind == kReqPracticeExit) why = PracticeReturnGate(s);
+            else if (const char* exitWhy = ExitGate(s)) why = exitWhy;
+            else why = AttemptReturnGate();
+            // A stuck scroll load never settles. Send the return now. Any other "loading" or
+            // "not settled" exit stays queued: the pipe already said queued, and dropping it
+            // left the next row "still pending" after a 0.6-11 s boss-intro load.
+            const bool scrollStuck = why && ScrollLoadStuck(s) && !strcmp(why, "native replay has not settled");
+            const bool hold = why && !scrollStuck && (!strcmp(why, "loading") || !strcmp(why, "native replay has not settled"));
+            if (hold && t - g_pendAt < 20000) {
+                static ULONGLONG holdLog = 0;
+                if (!holdLog || t - holdLog >= 2000) {
+                    holdLog = t;
+                    Log("Rematch: exit held (%s); it stays queued until the mission can leave", why);
                 }
+            } else if (why && !scrollStuck) {
+                g_pend = 0;
+                Refuse(hold ? "exit stayed queued 20 s and the mission was still loading or not settled" : why);
             } else {
+                g_pend = 0;
                 AttemptReturning(s);
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
@@ -2240,6 +2244,7 @@ void Tick() {
                     g_nativeAgainSequence = g_attemptSequence; g_nativeAgainEpoch = g_requestEpoch.load();
                     Log("Rematch: native gate retry waits for return cleanup (%s)", g_rows[(size_t)row].id);
                 }
+                if (scrollStuck) Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Result(rc ? "exit failed" : "exit requested");
             }

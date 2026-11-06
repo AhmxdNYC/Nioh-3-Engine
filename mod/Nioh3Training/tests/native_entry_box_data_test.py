@@ -37,6 +37,11 @@ class WavePaths(unittest.TestCase):
   r=g.wave_members(self.script(),self.enemy(),99);self.assertEqual([m['placement'] for m in r],[99,98]);self.assertEqual([m['ordinal'] for m in r],[3,1])
  def test_wave_link_rejects_wrong_selected_or_request(self):
   self.assertFalse(g.wave_members(self.script(),self.enemy(),97));self.assertFalse(g.wave_members(self.script(),self.enemy(),96));self.assertFalse(g.wave_members(self.script(43),self.enemy(),99))
+ def test_warp_setting_request_uses_the_group_behind_the_bools(self):
+  s=self.script();s.names=list(s.names)+['WaveBattle::RequestIDWithWhoWarpSetting'];s.syms=list(s.syms)+[(4,14,0)]
+  s.insns=s.insns[:-1]+[g.dis.Insn(61,0x15,()),g.dis.Insn(62,0x15,()),g.dis.Insn(63,0x15,()),g.dis.Insn(64,0x15,()),g.dis.Insn(70,0x1b,(14,))]
+  r=g.wave_members(s,self.enemy(),99);self.assertEqual([m['placement'] for m in r],[99,98])
+  s.insns[-6]=g.dis.Insn(60,0x29,(43,));self.assertFalse(g.wave_members(s,self.enemy(),99))
  def test_wave_path_does_not_cross_function(self):
   s=self.script();s.insns.insert(-2,I(55,0x3b,(10,)));self.assertFalse(g.paths(s,99,42))
  def test_new_wait_invalidates_old_gather(self):

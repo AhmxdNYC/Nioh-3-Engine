@@ -221,6 +221,28 @@ int main(int argc,char** argv) {
         if(!check(g_attemptPhase==aQuarantined&&AttemptStartGate()))return 1;
         printf("%d exit/re-entry recovery checks PASS\n",checks);return 0;
     }
+    if(scenario==7) {
+        // Queued during the boss-intro load: keep it, then send the return once loading clears.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        fixtureSnap.st[2]=1;post(kReqExit);
+        if(!check(returns==0 && g_attemptPhase==aActive && g_pend)) return 1;
+        step(27000,true,0x1CBC,67064);
+        if(!check(returns==0 && g_attemptPhase==aActive && g_pend)) return 1;
+        step(28000,false,0x1CBC,67064);
+        if(!check(returns==1 && g_attemptPhase==aReturning && !g_pend)) return 1;
+        // Still loading 20 s later: refuse in words and do not pretend the return was sent.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        fixtureSnap.st[2]=1;post(kReqExit);
+        step(46002,true,0x1CBC,67064);
+        if(!check(returns==0 && !g_pend && g_attemptPhase==aActive && AttemptStartGate())) return 1;
+        // Not settled yet: hold, then send on the tick that becomes active.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);
+        post(kReqExit);
+        if(!check(returns==0 && g_attemptPhase==aAwaitLoad && g_pend)) return 1;
+        step(26001,false,0x1CBC,67064);
+        if(!check(returns==1 && g_attemptPhase==aReturning)) return 1;
+        printf("%d held exit checks PASS\n",checks);return 0;
+    }
     if(scenario==2) {
         fresh(); start(false); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
         step(27000,false,0x1111,123); fixtureSnap.gm=false; step(37000,false,0x1111,123);
@@ -413,7 +435,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
-    for scenario in ('6','5','4','1','2','3','0'):
+    for scenario in ('7','6','5','4','1','2','3','0'):
         result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
         print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
     assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)
