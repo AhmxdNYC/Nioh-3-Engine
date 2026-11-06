@@ -22,7 +22,10 @@ static void Log(const char* f,...){(void)f;}
 static struct {int active;} g_rh;
 static int g_rh_ls_on,g_cfg_entry_ls=1,installed=1;
 static struct {int on;} g_el;
-static struct {int confirmed,route,warped,fellBack;} g_en;
+static struct {int confirmed,route,warped,fellBack,dormant;} g_en;
+static int g_entryPlayerHit;
+static uint64_t playerChar=1;
+static uint64_t PlayerChar(void){return playerChar;}
 static int mask,screen,shows,hides;
 static int Mask(int m,int ms){mask=ms?m:0;return 1;}
 static int Load(int on,const char*t,const char*p){return 1;}
@@ -70,7 +73,15 @@ int main(void){
  p_entryTip=Tip;tipOn=-1;EntryCoverBegin(&row);assert(tipOn==1&&screen);
  EntryCoverEnd("tip");assert(tipOn==0&&!g_entryCover.active);p_entryTip=0;
  EntryCoverEnd("test");now=0xfffffff0u;EcBegin(&g_entryCover,now);assert(EcStep(&g_entryCover,now+90000u,0,0,0)==EC_TIMEOUT);
- puts("PASS actual entry cover: native timeline, mission-event false intro regression, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry");
+ g_en.confirmed=1;g_en.route=2;g_en.warped=1;g_en.dormant=1;g_en.fellBack=0;playerChar=1;gs[2]=0;g_entryPlayerHit=0;
+ now=50000;EntryCoverBegin(&row);EntryCoverTick();assert(!screen&&!mask&&!g_entryCover.active); // lesson: in the mission, teacher dormant
+ gs[2]=1;g_en.dormant=1;EntryCoverBegin(&row);EntryCoverTick();assert(screen&&g_entryCover.active); // still loading, keep the cover
+ gs[2]=0;EntryCoverTick();assert(!screen&&!g_entryCover.active); // load clear, then drop
+ g_en.dormant=0;g_en.route=1;g_entryPlayerHit=1;EntryCoverBegin(&row);assert(screen); // begin clears a stale hit
+ g_entryPlayerHit=1;EntryCoverTick();assert(!screen&&!g_entryCover.active); // a real hit drops it before FIGHT
+ g_entryPlayerHit=0;g_en.dormant=0;g_en.route=2;g_en.warped=1;EntryCoverBegin(&row);EntryCoverTick();assert(screen&&g_entryCover.active); // normal boss stays covered
+ now=60000;EntryCoverFight();assert(!screen&&!g_entryCover.active);
+ puts("PASS actual entry cover: native timeline, mission-event false intro regression, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry, lesson dormant and player hit");
 }
 """
 with tempfile.TemporaryDirectory() as d:

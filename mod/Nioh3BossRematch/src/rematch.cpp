@@ -2259,6 +2259,45 @@ std::wstring Beside(const wchar_t* key, const wchar_t* def) {
 
 std::wstring ArenaPath() { return Beside(L"Arenas", L"Nioh3BossRematch_arenas.tsv"); }
 
+// Script-native args, same layout as bosslog ReadVmArgs. POD only: this runs before the original, and it does not change the game.
+int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn) {
+    __try {
+        const uint64_t vm = *(const uint64_t*)(ctx + 8);
+        const uint64_t x = *(const uint64_t*)(vm + 8);
+        const int nargs = *(const uint16_t*)(x + 0xA6);
+        const uint64_t stk = *(const uint64_t*)(vm + 0x20);
+        const int top = *(const uint16_t*)stk;
+        const uint64_t arr = *(const uint64_t*)(vm + 0x18);
+        if (nargs > 32 || top < nargs) return -1;
+        const int base = top - nargs;
+        for (int i = 0; i < nargs && i < maxn; ++i) {
+            val[i] = *(const uint32_t*)(arr + (uint64_t)(base + i) * 8);
+            ty[i] = *(const uint16_t*)(arr + (uint64_t)(base + i) * 8 + 4);
+        }
+        return nargs;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+
+// Lesson dojos (novice, and Fuku adept): the mission script keeps the teacher dormant until Character::IsDeathGroupEnemy
+// is true for the current lesson group. This only logs that group id, once per Fight now attempt. It does not kill, warp, or write temp/mission state.
+void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (!g_fight.load() || fight::g_active) return;
+    uint32_t val[1] = {};
+    uint16_t ty[1] = {};
+    if (LessonVmArgs(ctx, val, ty, 1) < 1) return;
+    static uint32_t seen[8];
+    static int nseen = 0;
+    static ULONGLONG attempt = 0;
+    if (g_fnFirst != attempt) { attempt = g_fnFirst; nseen = 0; }
+    for (int i = 0; i < nseen; ++i) if (seen[i] == val[0]) return;
+    if (nseen < 8) seen[nseen++] = val[0];
+    const int fr = g_fightRow;
+    const char* id = (fr >= 0 && (size_t)fr < g_rows.size()) ? g_rows[(size_t)fr].id : "";
+    Log("Rematch: lesson group %u checked, teacher fight not started%s%s", val[0], id[0] ? " - Fight now row " : "", id);
+}
+
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     { CoverLock lock; if(lock.held){const Snap s=ReadSnap();if(s.msOk&&s.ms14==g_cover.start)g_cover.Entry(g_attempt.sequence,s.ms28,0,true);} }
@@ -3274,6 +3313,7 @@ bool Prepare() {
     Log("Startup: registering Rematch FIGHT callbacks");
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
+    OnEntry("IsDeathGroupEnemy", &HkLesson);  // log-only: which lesson group the script is still waiting on
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
         char st8[512] = {};
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);

@@ -34,6 +34,8 @@ SPEC = [
     # FIGHT: fight window + placement ring (rematch gates, verify, BossLog)
     ("BossBattleMode", "FIGHT", H, 0x23A2DCC, 5),
     ("BossBattleModeEnd", "FIGHT", H, 0x23A2F70, 9),
+    # Lesson dojos: the script polls this until the lesson group is dead, then it starts BossBattleMode on the teacher.
+    ("IsDeathGroupEnemy", "FIGHT", H, 0x2BC8C4, 9),
     ("Character::Create", "FIGHT", H, 0x1180740, 5),
     # BOSSLOG
     ("SetMissionFlag", "BOSSLOG", H, 0x70275C, 5),
