@@ -46,6 +46,8 @@ static int SummonSlot(int slot, unsigned mission) { ++summonCalls; summonSlot = 
 static int trainHereCalls; static unsigned trainHereMission;
 static int TrainHere(unsigned mission) { ++trainHereCalls; trainHereMission = mission; return 1; }
 static int sessionMode = 0, sessionActive = 0, fightAgainCalls;
+static unsigned nativeMission = 0;
+static unsigned NativeGateMissionX() { return nativeMission; }
 static int SessionMode() { return sessionMode; }
 static int SessionActive() { return sessionActive; }
 static int GateFightAgain() { ++fightAgainCalls; return 1; }
@@ -78,6 +80,7 @@ static FARPROC TestProc(HMODULE, const char* name) {
     EXPORT("StanceTimer", StanceTimer); EXPORT("GetStanceTimer", GetStanceTimer);
     EXPORT("SummonSlot", SummonSlot); EXPORT("TrainHere", TrainHere);
     EXPORT("SessionMode", SessionMode); EXPORT("SessionActive", SessionActive); EXPORT("GateFightAgain", GateFightAgain);
+    EXPORT("NativeGateMission", NativeGateMissionX);
     EXPORT("BossVitalsGet", BvGetX); EXPORT("BossVitalsSet", BvSetX);
     EXPORT("ResetFight", ResetFightX); EXPORT("PracticeStatGet", PstGetX); EXPORT("PracticeStatSet", PstSetX);
 #undef EXPORT
@@ -331,6 +334,12 @@ int main() {
     sessionMode = 2; list();
     CHECK(n == 5 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItReturnHome && items[3] == kItBack && items[4] == kItClose);
     CHECK(shown("Return - Training") && shown("-- Active bosses --") && shown("Reset round"));
+    sessionMode = 1; list(); g_sel = 0;
+    CHECK(shown("Fight again (same boss, this arena)") && strstr(footer, "no load") && !strstr(footer, "reloads the mission"));
+    nativeMission = 0x34; list(); g_sel = 0;
+    CHECK(shown("reloads the mission, same fight") && !shown("this arena"));
+    CHECK(strstr(footer, "Leaves and reloads the mission") && strstr(footer, "starts the same fight") && !strstr(footer, "no load"));
+    nativeMission = 0; sessionMode = 2; list();
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uGate);
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
     UiGatePage(); CHECK(UiBack());

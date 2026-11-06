@@ -4061,7 +4061,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : v < 0 || *why ? cDim : cGreen, sel, "%s %-24s %-7s   Left / Right%s", mk,
                 it[i] == kItFinT ? "Final-blow timeout:" : "Zero-HP combo timeout:", val, why);
         }
-        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk, GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
+        else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk,
+            NativeGateMission() ? "Fight again (reloads the mission, same fight)" :
+            GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
         else if (it[i] == kItFightOpts) add(sel ? cWhite : cGray, sel, "%s Death and loot rules   A: open", mk);  // user #13265
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Boss moves and hit counts   A: open", mk);
         else if (it[i] == kItMovesA || it[i] == kItMovesB) {
@@ -4318,6 +4320,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
         else if (item == kItFinT) snprintf(footer, nf, "Death animation / Boss loot: kill when the first final-blow animation ends, or after this timeout. Left / Right: 0.5 s. Saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "With No grapple ON, a zero-HP boss dies after this long without a hit. Left / Right: 0.1 s. Shared by Training and spawned Boss Matches. Saved.");
+        else if (item == kItFightAgain && NativeGateMission()) snprintf(footer, nf, "Leaves and reloads the mission, then starts the same fight. B / Close keeps you at the gate.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close the mod menu and return to the game.");
         else if (item >= kItTeleport) {
