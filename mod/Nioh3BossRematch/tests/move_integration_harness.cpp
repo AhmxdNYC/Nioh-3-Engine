@@ -120,8 +120,8 @@ int main() {
     list(); CHECK(n == 7 && items[0] == kItTrainHereOpen && items[1] == kItArenas && items[2] == kItRootTools && items[3] == kItPstResetFight && items[4] == kItBossSumm && items[5] == kItRootRematch && items[6] == kItBack);
     CHECK(!has(kItPstBase + PS_TIME_OF_DAY) && !has(kItPstBase + PS_WEATHER));  // global sky controls live in Display only
     CHECK(!has(kItPstBase + PS_FRAME_METER) && !has(kItPstAllRows) && !has(kItPstAllKeys) && !shown("Frame meter:"));  // frame meter: Display Overlays only
-    CHECK(shown("Reset fight")); g_sel = 3; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your Practice start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
-    CHECK(shown("Training Bosses (1 boss)") && !shown("Training mods"));
+    CHECK(shown("Reset fight")); g_sel = 3; UiChange(1); CHECK(resetFightCalls == 0); CHECK(!UiAct() && resetFightCalls == 1 && strstr(g_msg, "Fight reset") && strstr(g_msg, "back at your session start")); g_sel = 0;  // #22592 one press, Left / Right do nothing
+    CHECK(shown("Active bosses (1 boss)") && !shown("Training mods"));
     sessionActive = 1; list();  // #14333: already in a Training arena: no Train here / Train in a boss arena
     CHECK(n == 5 && !has(kItTrainHereOpen) && !has(kItArenas) && items[0] == kItRootTools && items[1] == kItPstResetFight);
     sessionActive = 0; list();
@@ -131,7 +131,7 @@ int main() {
     CHECK(n == 5 && items[0] == kItBossOpenBase && items[1] == kItSumAnother && items[2] == kItStanceTimer && items[3] == kItDespawnAll && items[4] == kItBack);
     for (int i = 0; i < n; ++i) CHECK(items[i] != kItMoves && items[i] != kItMovesA && items[i] != kItMovesB && items[i] != kItRepGap && items[i] != kItIdleHold &&
                                       items[i] != kItFightOpts && !IsBvOpenItem(items[i]) && items[i] != kItAggro && items[i] != kItRepNow);
-    CHECK(shown("Practice - Training Bosses") && shown("Boss A: Minamoto no Yoritomo", "Stand still (idle)") && shown("it will be Boss B"));
+    CHECK(shown("Training - Active bosses") && shown("Boss A: Minamoto no Yoritomo", "Stand still") && shown("Add a boss (slot B)"));
     CHECK(shown("Remove all summoned bosses (A: Minamoto no Yoritomo)") && !shown("B: empty"));
     // timer slider 1..10 s; A arms it for every boss (A stands still -> all fight), closes the menu
     g_sel = 2; for (int i = 0; i < 20; ++i) UiChange(1);
@@ -143,39 +143,23 @@ int main() {
     g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss && g_bossSlot == 0 && MoveBoss() == 16102u);
     list();
     CHECK(items[0] == kItBossStance && items[1] == kItBossAggro && items[2] == kItBossGap && items[3] == kItBossReset && items[4] == kItBvOpenBase + 0);
-    {   // user #22349: Yoritomo's groups from the game data: 1 / 2 / 3 hits, Unblockable, Other attacks (hits unknown), then twitches, Sequences
-        const int want[] = {kMcHit1, kMcHit1 + 1, kMcHit1 + 2, kMcGreat, kMcHitUnknown, kMcTwitch, kMcSeq};
-        const int nw = (int)(sizeof want / sizeof want[0]);
-        for (int c = 0; c < nw; ++c) CHECK(items[5 + c] == kItMoveCatBase - want[c] && IsMoveCatItem(items[5 + c]));
-        CHECK(items[5 + nw] == kItBossRemove && items[6 + nw] == kItBack && n == 7 + nw);
-        CHECK(!MoveCatCount(16102u, kMcAttack) && !MoveCatCount(16102u, kMcUnnamedAtk));  // every attack is sorted by the data now
-        auto cat = [](uint32_t chr, uint32_t id) { const int i = N3MoveFind(chr, id); return i < 0 ? -9 : N3MoveCat(&kN3Moves[i]); };
-        CHECK(cat(16102u, 0x4E6E) == kMcGreat && cat(16102u, 0x4E6C) == kMcHit1 + 1 && cat(16102u, 0x4E68) == kMcHit1 + 2 && cat(16102u, 0x4E55) == kMcHit1);
-        CHECK(cat(16102u, 0x4E74) == kMcHitUnknown && cat(16102u, 0x4EA5) == kMcHitUnknown && cat(16102u, 0x4E6F) == kMcGreat);  // unknown hits: not guessed
-        CHECK(cat(16102u, 0x4E3B) == -1 && cat(16102u, 0x4E3C) == -1 && cat(16102u, 0x4E24) == kMcTwitch && cat(16102u, 0x2) == kMcTwitch);  // #14655 / twitches
-        char tb[40];
-        CHECK(!strcmp(N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6E)], tb, sizeof tb), "2 hits, unblockable"));
-        CHECK(!strcmp(N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6F)], tb, sizeof tb), "unblockable, hits unknown"));
-        CHECK(!*N3MoveHitTag(&kN3Moves[N3MoveFind(16102u, 0x4E6C)], tb, sizeof tb));
-        CHECK(!strcmp(CatName(kMcHit1), "1 hit") && !strcmp(CatName(kMcHit1 + 2), "3 hits") && !strcmp(CatName(kMcGreat), "Unblockable"));
-        // user #22709: every bound boss has game-data facts (same algorithm as Yoritomo); a boss without facts keeps the old groups
-        const uint32_t kBound[] = {482895u, 257162u, 478320u, 451004u, 269750u, 109203u, 268880u, 835773u, 42450u, 83953u, 307259u, 352684u, 371449u, 392871u, 405836u, 778951u, 816820u};
-        for (uint32_t b : kBound) {
-            int hitMoves = 0, great = 0;
-            CHECK(N3MoveFactsBoss(b));
-            for (int i = 0; i < N3_MOVE_COUNT; ++i) if (kN3Moves[i].chr == b) {
-                const int c = N3MoveCat(&kN3Moves[i]);
-                hitMoves += N3MoveHitCat(c); great += c == kMcGreat;
-                CHECK(c != kMcAttack && c != kMcUnnamedAtk);  // an attack is sorted by the data, never left in the old groups
-            }
-            CHECK(hitMoves > 0 || b == 835773u);  // Himiko: every attack spawns projectiles (hits unknown, not guessed)
-            (void)great;
+    {   // Offline: N3CatInit copies hand moves and does not seed hit facts, so attacks stay in Attacks until a live read.
+        int idx = 5;
+        for (int c : kMcOrder) {
+            if (!MoveCatCount(16102u, c)) continue;
+            CHECK(items[idx] == kItMoveCatBase - c && IsMoveCatItem(items[idx]));
+            ++idx;
         }
-        CHECK(!N3MoveFactsBoss(894462u));  // Ibaraki Doji: no bound action file, old groups
-        CHECK(cat(83953u, 0x4E67) == kMcHit1 + 2 && cat(83953u, 0x4E66) == kMcHit1 + 1);  // Hino-enma: 3 hits / 2 hits from the game data
+        CHECK(SeqCount(16102u) > 0 && items[idx] == kItMoveCatBase - kMcSeq);
+        ++idx;
+        CHECK(items[idx] == kItBossRemove && items[idx + 1] == kItBack && n == idx + 2);
+        CHECK(MoveCatCount(16102u, kMcAttack) > 2 && !MoveCatCount(16102u, kMcHit1) && !MoveCatCount(16102u, kMcGreat) && !N3MoveFactsBoss(16102u));
+        auto cat = [](uint32_t chr, uint32_t id) { const int i = N3MoveFind(chr, id); return i < 0 ? -9 : N3MoveCat(&kN3Moves[i]); };
+        CHECK(cat(16102u, 0x4E3B) == -1 && cat(16102u, 0x4E3C) == -1 && cat(16102u, 0x2) == kMcTwitch && N3MoveProtected(2));
+        CHECK(!strcmp(CatName(kMcHit1), "1 hit") && !strcmp(CatName(kMcGreat), "Unblockable") && !strcmp(CatName(kMcAttack), "Attacks"));
     }
-    CHECK(shown("Boss A - Minamoto no Yoritomo") && shown("Stance: Stand still (idle)") && shown("Gap between repeats: 1.00 s") && shown("Sequences", "sequences"));
-    g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 0 && lastStanceIdle == 0 && stance[0] == 0 && shown("Stance: Fight normally (CPU)"));
+    CHECK(shown("Boss A - Minamoto no Yoritomo") && shown("Behavior: Stand still") && shown("Repeat delay:", "1.00 s") && shown("Move chains", "sequences"));
+    g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 0 && lastStanceIdle == 0 && stance[0] == 0 && shown("Behavior: Fight normally"));
     UiChange(1); CHECK(lastStanceIdle == 1 && stance[0] == 2);
     g_sel = 1; CHECK(!UiAct() && aggro[0] == 1); UiChange(-1); CHECK(aggro[0] == 0);
     g_sel = 2; UiChange(1); CHECK(gapMs == 1250); UiChange(-1); UiChange(-1); CHECK(gapMs == 750);
@@ -184,18 +168,18 @@ int main() {
         CHECK(!UiBack() && g_uiPages.page == uTools && shown("Boss A: Minamoto no Yoritomo", "Stand still"));
         g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uBoss);
     }
-    // '2 hits' group (#22349): A = Repeat this move ON / OFF, Left / Right = used
-    const int kTwo = kMcHit1 + 1, twoN = MoveCatCount(16102u, kMcHit1 + 1);
-    g_sel = 6; CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kTwo && g_sel == 0);
-    list(); CHECK(n == twoN + 1 && n > 3 && items[n - 1] == kItBack);
-    for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == kTwo);
+    // Attacks group (offline, no hit facts yet): A repeats, Left / Right allow, and the row stays that move.
+    const int atkN = MoveCatCount(16102u, kMcAttack);
+    list(); const int atkRow = at(kItMoveCatBase - kMcAttack);
+    g_sel = atkRow; CHECK(atkRow >= 5 && !UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcAttack && g_sel == 0);
+    list(); CHECK(n == atkN + 1 && n > 3 && items[n - 1] == kItBack);
+    for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && N3MoveCat(&kN3Moves[items[i] - kItMoveBase]) == kMcAttack && !N3MoveProtected(kN3Moves[items[i] - kItMoveBase].id));
     {
         const N3Move& m0 = kN3Moves[items[0] - kItMoveBase];
         const N3Move& m1 = kN3Moves[items[1] - kItMoveBase];
         g_sel = 0; CHECK(!UiAct() && RepGet(16102) == m0.id && repArms == 1);
-        char want[48]; snprintf(want, sizeof want, "0x%04X", m0.id);
-        char title[64]; snprintf(title, sizeof title, "Boss A - Minamoto no Yoritomo - 2 hits (%d)", twoN);
-        CHECK(shown(want, "Repeat ON") && shown(title) && !shown("RPT") && !shown("REPEAT"));
+        char title[80]; snprintf(title, sizeof title, "Boss A - Minamoto no Yoritomo - Attacks (%d)", atkN);
+        CHECK(shown("[REPEAT]") && shown(title) && !shown("RPT") && !shown("Repeat ON") && !shown("Idle / initialization"));
         g_sel = 1; CHECK(!UiAct() && RepGet(16102) == m1.id && repArms == 2);   // one repeat per boss: moves to the other move
         CHECK(!UiAct() && !RepGet(16102) && repStops == 1);                    // A again: stops
         g_sel = 0; UiChange(-1); CHECK(moveOff[m0.id] && moveCalls == 1);      // Left: used OFF
@@ -207,15 +191,9 @@ int main() {
         CHECK(strstr(footer, "Repeat") || strstr(footer, "repeat"));
     }
     {
-        char cnt[24]; snprintf(cnt, sizeof cnt, "%d moves", twoN);
-        CHECK(!UiBack() && g_uiPages.page == uBoss && g_sel == 6 && shown("2 hits", cnt));
+        char cnt[24]; snprintf(cnt, sizeof cnt, "%d moves", atkN);
+        CHECK(!UiBack() && g_uiPages.page == uBoss && g_sel == atkRow && shown("Attacks", cnt));
     }
-    // Unblockable group (#22349): only great moves, each row says its hit count
-    list(); g_sel = at(kItMoveCatBase - kMcGreat); CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcGreat);
-    list(); CHECK(n == MoveCatCount(16102u, kMcGreat) + 1 && n == 20);  // 19 GreatAttack moves (notes/yoritomo-hit-source-22305.md)
-    CHECK(shown("0x4E6E", "[2 hits, unblockable]") && shown("0x4E72", "[unblockable, hits unknown]") && shown("[2 hits, unblockable]", "Used ON") &&
-          shown("[unblockable, hits unknown]", "Used ON"));  // the tag never pushes the controls off the row
-    CHECK(!UiBack() && g_uiPages.page == uBoss);
     // Sequences (#14317): chains from the next-action links, A repeats the whole sequence (its first move)
     list(); g_sel = at(kItMoveCatBase - kMcSeq); CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcSeq);
     list(); CHECK(n == SeqCount(16102u) + 1 && n > 3);  // 6 Yoritomo sequences since the #14665 / #14702 filters (was > 10 before them)
@@ -227,7 +205,7 @@ int main() {
         uint32_t c5[8]; bool l5 = false; CHECK(SeqChain(16102u, 0x4E5C, c5, 8, &l5) == 3 && c5[1] == 0x4E60 && c5[2] == 0x4E61 && l5);
         CHECK(SeqHead(16102u, 0x4E5C) && !SeqHead(16102u, 0x4E60) && !SeqHead(16102u, 0x2));
         g_sel = 0; CHECK(!UiAct() && RepGet(16102) == h.id && RepGetSeq(16102) && repSeqArms == 1);  // #14423: armed as a whole sequence
-        CHECK(shown(" > ", "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Sequences"));
+        CHECK(shown(" > ", "Repeat ON") && shown("Boss A - Minamoto no Yoritomo - Move chains"));
         CHECK(!UiAct() && !RepGet(16102));
         // a single-move repeat of the head is not shown as the sequence repeating; A on the row arms the sequence instead of stopping
         RepSetOne(16102u, h.id, 1); list(); CHECK(shown(" > ", "Repeat OFF"));
@@ -235,6 +213,48 @@ int main() {
         CHECK(!UiAct() && !RepGet(16102));
     }
     CHECK(!UiBack() && g_uiPages.page == uBoss);
+    // Idle / initialization stays allowed and is not a row, with show-twitch on or off.
+    {
+        const int idle0 = N3MoveFind(16102u, 0), idle2 = N3MoveFind(16102u, 2);
+        CHECK(idle0 >= 0 && idle2 >= 0 && N3MoveProtected(0) && N3MoveProtected(2) && N3MoveCat(&kN3Moves[idle2]) == kMcTwitch);
+        g_showTwitch = false;
+        CHECK(!MoveListed(kN3Moves[idle0]) && !MoveListed(kN3Moves[idle2]));
+        g_showTwitch = true;
+        CHECK(!MoveListed(kN3Moves[idle0]) && !MoveListed(kN3Moves[idle2]));
+        int visible = 0;
+        for (int i = 0; i < N3_MOVE_COUNT; ++i)
+            if (kN3Moves[i].chr == 16102u && N3MoveCat(&kN3Moves[i]) == kMcTwitch && !N3MoveProtected(kN3Moves[i].id)) ++visible;
+        CHECK(visible > 2 && MoveCatCount(16102u, kMcTwitch) == visible);
+        list(); g_sel = at(kItMoveCatBase - kMcTwitch);
+        CHECK(!UiAct() && g_uiPages.page == uMoveCat && g_moveCat == kMcTwitch);
+        list(); CHECK(n == visible + 1 && items[n - 1] == kItBack && !shown("Idle / initialization"));
+        for (int i = 0; i < n - 1; ++i) CHECK(IsMoveItem(items[i]) && !N3MoveProtected(kN3Moves[items[i] - kItMoveBase].id));
+        UiRow catRows[40];
+        const int filled = UiFill(catRows, 40, footer, sizeof footer);
+        CHECK(filled > 3);
+        int expect = 1, anims = 0;
+        for (int i = 0; i < filled; ++i) {
+            const char* t = catRows[i].text;
+            while (*t == ' ' || *t == '>') ++t;
+            if (*t < '0' || *t > '9') continue;
+            int num = 0;
+            while (*t >= '0' && *t <= '9') { num = num * 10 + (*t - '0'); ++t; }
+            CHECK(num == expect && !strncmp(t, " : Anim", 7));
+            ++expect; ++anims;
+        }
+        CHECK(anims > 2);
+        const N3Move& a = kN3Moves[items[0] - kItMoveBase];
+        const N3Move& b = kN3Moves[items[1] - kItMoveBase];
+        const int calls = moveCalls;
+        g_sel = 0; UiChange(-1); CHECK(moveOff[a.id] && !moveOff[0] && !moveOff[2] && moveCalls == calls + 1);
+        UiChange(1); CHECK(!moveOff[a.id]);
+        g_sel = 1; UiChange(-1); CHECK(moveOff[b.id] && a.id != b.id && moveCalls == calls + 3);
+        UiChange(1); CHECK(!moveOff[b.id]);
+        g_msg[0] = 0; MoveToggle(kItMoveBase + idle2, -1);
+        CHECK(strstr(g_msg, "stay ON") && !moveOff[2] && moveCalls == calls + 4);
+        CHECK(!UiBack() && g_uiPages.page == uBoss);
+        g_showTwitch = false;
+    }
     // Health and Ki from the Boss A page
     g_sel = 4; CHECK(!UiAct() && g_uiPages.page == uBossVitals && g_bvSlot == 0 && g_sel == 1);
     CHECK(shown("Boss A health and Ki") && shown("HP 25856 / 51712 (50 %)"));
@@ -254,27 +274,27 @@ int main() {
             UiChange(1); CHECK(pst[11] == 1); UiChange(-1); CHECK(pst[11] == 0);
         }
         {   // user #23013: Hold Ki break v2 / Ki break log toggles (default OFF, saved), Ki floor depth slider x0 .. x10 (default x1.00 = stock)
-            CHECK(shown("Hold Ki break v2:", "OFF") && shown("Ki break log:", "OFF") && shown("Ki floor depth:", "x1.00"));
+            CHECK(shown("Hold with negative Ki:", "OFF") && shown("Log Ki breaks:", "OFF") && shown("Negative Ki depth:", "100 %"));
             const int p1 = pstPersist;
-            g_sel = at(kItPstBase + PS_HOLD_KI_V2); CHECK(!UiAct() && pst[15] == 1 && shown("Hold Ki break v2:", "ON") && pstPersist == p1 + 1); CHECK(!UiAct() && pst[15] == 0);
-            g_sel = at(kItPstBase + PS_KI_LOG); CHECK(!UiAct() && pst[14] == 1 && shown("Ki break log:", "ON")); UiChange(-1); CHECK(pst[14] == 0 && shown("Ki break log:", "OFF"));
-            g_sel = at(kItPstBase + PS_KI_FLOOR); UiChange(1); CHECK(pst[16] == 150 && shown("Ki floor depth:", "x1.50")); UiChange(1); UiChange(1); CHECK(pst[16] == 300 && shown("Ki floor depth:", "x3.00"));
+            g_sel = at(kItPstBase + PS_HOLD_KI_V2); CHECK(!UiAct() && pst[15] == 1 && shown("Hold with negative Ki:", "ON") && pstPersist == p1 + 1); CHECK(!UiAct() && pst[15] == 0);
+            g_sel = at(kItPstBase + PS_KI_LOG); CHECK(!UiAct() && pst[14] == 1 && shown("Log Ki breaks:", "ON")); UiChange(-1); CHECK(pst[14] == 0 && shown("Log Ki breaks:", "OFF"));
+            g_sel = at(kItPstBase + PS_KI_FLOOR); UiChange(1); CHECK(pst[16] == 150 && shown("Negative Ki depth:", "150 %")); UiChange(1); UiChange(1); CHECK(pst[16] == 300 && shown("Negative Ki depth:", "300 %"));
             for (int i = 0; i < 20; ++i) UiChange(1);
-            CHECK(pst[16] == 1000 && shown("Ki floor depth:", "x10.00")); for (int i = 0; i < 20; ++i) UiChange(-1);
-            CHECK(pst[16] == 0 && shown("Ki floor depth:", "x0.00")); pst[16] = 100;
+            CHECK(pst[16] == 1000 && shown("Negative Ki depth:", "1000 %")); for (int i = 0; i < 20; ++i) UiChange(-1);
+            CHECK(pst[16] == 0 && shown("Negative Ki depth:", "0 %")); pst[16] = 100;
         }
         {   // user #23400 Negative Ki meter: toggle right after Ki break log, default ON, saved
             CHECK(shown("Negative Ki meter:", "ON")); const int p1 = pstPersist;
             g_sel = at(kItPstBase + PS_NEG_KI_METER); CHECK(!UiAct() && pst[17] == 0 && shown("Negative Ki meter:", "OFF") && pstPersist == p1 + 1);
             UiChange(1); CHECK(pst[17] == 1 && shown("Negative Ki meter:", "ON"));
         }
-        CHECK(shown("Boss Ki drain:", "OFF") && shown("Damage boss deals:", "x1.00") && shown("-- All Training bosses (saved) --"));
+        CHECK(shown("Boss Ki drain:", "OFF") && shown("Boss damage:", "100 %") && shown("-- Boss settings (see each setting for mode) --"));
         const int p0 = pstPersist;
         g_sel = d; UiChange(1); UiChange(1); CHECK(pst[3] == 10 && shown("Boss Ki drain:", "10 Ki / s") && pstPersist == p0 + 2);
         UiChange(-1); UiChange(-1); UiChange(-1); CHECK(pst[3] == 0 && shown("Boss Ki drain:", "OFF"));
         g_sel = t; for (int i = 0; i < 20; ++i) UiChange(-1);
-        CHECK(pst[2] == 0 && shown("Damage boss deals:", "x0.00")); for (int i = 0; i < 20; ++i) UiChange(1);
-        CHECK(pst[2] == 1000 && shown("Damage boss deals:", "x10.00")); pst[2] = 100;
+        CHECK(pst[2] == 0 && shown("Boss damage:", "0 %")); for (int i = 0; i < 20; ++i) UiChange(1);
+        CHECK(pst[2] == 1000 && shown("Boss damage:", "1000 %")); pst[2] = 100;
     }
     CHECK(!UiBack() && g_uiPages.page == uBoss);
     // Remove this boss -> back to Training Bosses
@@ -282,13 +302,13 @@ int main() {
     // Summon another boss: boss list only (no slot picker / wait slider), next free letter = B
     list(); g_sel = at(kItSumAnother); CHECK(!UiAct() && g_uiPages.page == uSummon);
     list(); CHECK(n == 2 && items[0] == kItSummonA && items[1] == kItBack);
-    CHECK(shown("Practice - Summon another boss") && !shown("Wait before attacking") && !shown("Summon into"));
+    CHECK(shown("Training - Add a boss") && !shown("Wait before attacking") && !shown("Summon into"));
     g_sel = 0; CHECK(UiAct() && summonCalls == 1 && summonSlot == 1 && summonMission == 0x1CBC);
     // more bosses: every spawned letter gets a row (C here), the free one is offered next
     slotChr[1] = 16102u; slotChr[2] = 16102u; stance[1] = 0; stance[2] = 2;
     UiOpenAt(2); g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uTools);
     list(); CHECK(items[0] == kItBossOpenBase && items[1] == kItBossOpenBase + 1 && items[2] == kItBossOpenBase + 2 && items[3] == kItSumAnother);
-    CHECK(shown("Boss C: Minamoto no Yoritomo") && shown("Boss B:", "Fight normally") && shown("it will be Boss D") && shown("Remove all summoned bosses (A:", "C:"));
+    CHECK(shown("Boss C: Minamoto no Yoritomo") && shown("Boss B:", "Fight normally") && shown("Add a boss (slot D)") && shown("Remove all summoned bosses (A:", "C:"));
     g_sel = 2; CHECK(!UiAct() && g_bossSlot == 2); g_sel = 0; CHECK(!UiAct() && lastStanceSlot == 2 && stance[2] == 0 && stance[0] == 2 && stance[1] == 0);  // independent
     CHECK(!UiBack() && g_uiPages.page == uTools);
     list(); g_sel = at(kItDespawnAll); CHECK(!UiAct() && despawnAll == 1);
@@ -310,7 +330,7 @@ int main() {
     CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
     sessionMode = 2; list();
     CHECK(n == 5 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItReturnHome && items[3] == kItBack && items[4] == kItClose);
-    CHECK(shown("Practice") && shown("-- Training Bosses --") && shown("Reset round"));
+    CHECK(shown("Return - Training") && shown("-- Active bosses --") && shown("Reset round"));
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uGate);
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
     UiGatePage(); CHECK(UiBack());
@@ -322,16 +342,16 @@ int main() {
         CHECK(has(kItPstBase + PS_PLAYER_INF_NIN) && has(kItPstBase + PS_PLAYER_SPEED) && items[n - 1] == kItBack);
         CHECK(at(kItPstBase + PS_PLAYER_INF_SOUL) == at(kItPstBase + PS_PLAYER_INF_NIN) + 1);  // pc #57367 Infinite soul cores right after Infinite ninjutsu
         CHECK(!has(kItPstBase + PS_PLAYER_METER) && !shown("Player frame meter:"));  // frame meter: Display Overlays only
-        CHECK(shown("Infinite Ki (stamina):", "OFF") && shown("Damage I deal:", "x1.00"));
-        g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki (stamina):", "ON")); CHECK(!UiAct() && pst[0] == 0);
+        CHECK(shown("Infinite Ki:", "OFF") && shown("Player damage:", "100 %"));
+        g_sel = at(kItPstBase + PS_PLAYER_INF_KI); CHECK(!UiAct() && pst[0] == 1 && shown("Infinite Ki:", "ON")); CHECK(!UiAct() && pst[0] == 0);
         g_sel = at(kItPstBase + PS_DMG_DEALT); for (int i = 0; i < 20; ++i) UiChange(1);
-        CHECK(pst[1] == 1000 && shown("Damage I deal:", "x10.00")); for (int i = 0; i < 20; ++i) UiChange(-1);
-        CHECK(pst[1] == 10 && shown("Damage I deal:", "x0.10"));
+        CHECK(pst[1] == 1000 && shown("Player damage:", "1000 %")); for (int i = 0; i < 20; ++i) UiChange(-1);
+        CHECK(pst[1] == 10 && shown("Player damage:", "10 %"));
         pst[1] = 100;
         {   // user #22588 Ki damage I deal: x0 .. x10, default x1.00
-            CHECK(shown("Ki damage I deal:", "x1.00")); g_sel = at(kItPstBase + PS_KI_DEALT);
-            for (int i = 0; i < 20; ++i) UiChange(1); CHECK(pst[8] == 1000 && shown("Ki damage I deal:", "x10.00"));
-            for (int i = 0; i < 20; ++i) UiChange(-1); CHECK(pst[8] == 0 && shown("Ki damage I deal:", "x0.00")); pst[8] = 100;
+            CHECK(shown("Player Ki damage:", "100 %")); g_sel = at(kItPstBase + PS_KI_DEALT);
+            for (int i = 0; i < 20; ++i) UiChange(1); CHECK(pst[8] == 1000 && shown("Player Ki damage:", "1000 %"));
+            for (int i = 0; i < 20; ++i) UiChange(-1); CHECK(pst[8] == 0 && shown("Player Ki damage:", "0 %")); pst[8] = 100;
         }
         CHECK(!UiBack());
     }
