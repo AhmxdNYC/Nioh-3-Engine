@@ -105,6 +105,23 @@ int main(int argc, char** argv) {
     CHECK(eidx, "E rows have record indexes 0..19");
     CHECK(mid, "R/H/D rows have mission ids");
     {
+        int lessons = 0;
+        bool rf5e5 = false, rd759 = false, r26f3 = false, ra0a1 = false, r2826 = false, rbab8 = false;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "R2826")) r2826 = r.lesson;
+            if (!strcmp(r.id, "RBAB8")) rbab8 = r.lesson;
+            if (!r.lesson) continue;
+            ++lessons;
+            if (!strcmp(r.id, "RF5E5")) rf5e5 = true;
+            if (!strcmp(r.id, "RD759")) rd759 = true;
+            if (!strcmp(r.id, "R26F3")) r26f3 = true;
+            if (!strcmp(r.id, "RA0A1")) ra0a1 = true;
+        }
+        printf("lessons: %d\n", lessons);
+        CHECK(lessons == 4 && rf5e5 && rd759 && r26f3 && ra0a1, "lesson column marks RF5E5 RD759 R26F3 RA0A1");
+        CHECK(!r2826 && !rbab8, "R2826 and RBAB8 are not lessons");
+    }
+    {
         rcore::ListCycle cycle;
         rcore::BuildListCycle(rows, cycle);
         printf("list filter: %d stops", cycle.Stops());
