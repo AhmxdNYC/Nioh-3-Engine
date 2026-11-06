@@ -166,6 +166,74 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
     return (int)rows.size();
 }
 
+// Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
+// Stops: All, Multi, one per distinct region (catalogue order), Scrolls.
+// A scroll stays in its era as well as under Scrolls. An empty region is not an era.
+struct ListCycle {
+    static constexpr int kMaxEra = 32;
+    char era[kMaxEra][24]{};
+    int nEra = 0;
+    int Stops() const { return 3 + nEra; }
+    int Kind(int stop) const {
+        if (stop <= 0) return 0;
+        if (stop == 1) return 1;
+        if (stop >= 2 && stop < 2 + nEra) return 2;
+        return 3;
+    }
+    const char* Label(int stop) const {
+        const int k = Kind(stop);
+        if (k == 0) return "All";
+        if (k == 1) return "Multi";
+        if (k == 2) return era[stop - 2];
+        return "Scrolls";
+    }
+    void AddEra(const char* name) {
+        if (!name || !name[0] || nEra >= kMaxEra) return;
+        for (int i = 0; i < nEra; ++i)
+            if (strcmp(era[i], name) == 0) return;
+        snprintf(era[nEra], sizeof era[0], "%s", name);
+        ++nEra;
+    }
+};
+
+inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c) {
+    c = ListCycle{};
+    for (const auto& r : rows) c.AddEra(r.region);
+}
+
+// canSummon: 1 = one boss, 0 = multi, <0 or null = cannot derive (the row is not listed under Multi).
+inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, int (*canSummon)(uint32_t)) {
+    const int k = c.Kind(stop);
+    if (k == 0) return true;
+    if (k == 3) return r.route == kE;
+    if (k == 2) {
+        const int ei = stop - 2;
+        if (ei < 0 || ei >= c.nEra || !r.region[0]) return false;
+        return strcmp(r.region, c.era[ei]) == 0;
+    }
+    if (!r.missionId || r.route == kE) return false;
+    if (!canSummon) return false;
+    return canSummon(r.missionId) == 0;
+}
+
+// Keep the cursor on anchorItem when that row is still listed. A hidden boss lands on the first boss still shown.
+inline int KeepVisibleSel(const int* items, int n, int sel, int anchorItem) {
+    if (n <= 0) return 0;
+    for (int i = 0; i < n; ++i)
+        if (items[i] == anchorItem) return i;
+    if (anchorItem >= 0 && anchorItem < 0x10000) {
+        for (int i = 0; i < n; ++i)
+            if (items[i] >= 0 && items[i] < 0x10000) return i;
+        return 0;
+    }
+    if (sel < -2) return -2;
+    if (sel < 0) return sel;
+    if (sel >= n) return n - 1;
+    return sel;
+}
+
+inline int FightNowItemId(int catalogueIndex) { return 0x10000 + catalogueIndex; }
+
 // Captured arena positions (Nioh3BossRematch_arenas.tsv, written at BossBattleMode start with [Rematch] ArenaCapture = 1):
 // "mission<TAB>placements<TAB>x<TAB>y<TAB>z<TAB>when<TAB>src" (mission hex/dec, placements space separated, src before-load /
 // fight-start). A capture overrides the catalogue arena point of every R / H / D row of that mission whose boss placement was

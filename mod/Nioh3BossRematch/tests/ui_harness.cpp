@@ -67,23 +67,83 @@ int main() {
     UiOpen();
     CHECK(g_uiPages.page == uRoot); g_sel = 1; CHECK(!UiAct());  // user #13223: root = Settings / Boss Rematch / Practice / Close
     CHECK(g_uiPages.page == uRematch);
-    UiMove(10);
-    CHECK(g_sel == 10);
-    CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10);
     int it[kMaxRows + 4];
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        CHECK(fn == 28 && it[0] == kItListFilter);  // filter + 25 bosses + Practice + Back
+        for (int i = 0; i < 25; ++i) CHECK(it[i + 1] == i);
+        CHECK(it[26] == kItPractice && it[27] == kItBack);
+        CHECK(g_listStop == 0);
+    }
+    g_sel = 11;  // filter occupies row 0; catalogue row 10 is still item 10
+    CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10);
     CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight + 10 && it[1] == kItBossTrainHere + 10 && it[2] == kItShrine + 10 && it[3] == kItBack);
     g_confirm = 10;
     CHECK(!UiBack() && g_confirm == -9 && g_uiPages.page == uActions);
-    CHECK(!UiBack() && g_uiPages.page == uRematch && g_sel == 10);
+    CHECK(!UiBack() && g_uiPages.page == uRematch && g_sel == 11);
     UiMove(10);
     UiMove(10);
-    CHECK(g_sel == 26);  // 25 bosses, Practice, final Back row (Settings moved to the root, #13197): paging clamps instead of wrapping
+    CHECK(g_sel == 27);  // filter + 25 bosses + Practice + Back: paging clamps on Back
+    snprintf(g_rows[3].region, sizeof g_rows[3].region, "Sengoku");
+    snprintf(g_rows[4].region, sizeof g_rows[4].region, "Heian");
+    g_rows[5].route = rcore::kE;
+    snprintf(g_rows[5].region, sizeof g_rows[5].region, "Sengoku");
+    g_rows[5].emakiIndex = 1;
+    g_rows[10].missionId = 99;
+    g_sel = 0;
+    CHECK(!UiAct() && g_uiPages.page == uRematch && g_listStop == 1 && g_sel == 0);  // A cycles; Multi needs Training, so no boss row
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
+        CHECK(strstr(ListFilterLabel(), "needs Training") != nullptr);
+    }
+    UiChange(1);  // Sengoku, including the scroll of that era
+    CHECK(g_listStop == 2 && g_sel == 0);
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        int bosses = 0;
+        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 3 || it[i] == 5); ++bosses; }
+        CHECK(bosses == 2);
+    }
+    UiChange(1);  // Heian
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        int bosses = 0;
+        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 4); ++bosses; }
+        CHECK(bosses == 1);
+    }
+    UiChange(1);  // Scrolls: the scroll's item id is still 5, so Fight now is kItFight + 5
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        int bosses = 0;
+        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 5); ++bosses; }
+        CHECK(bosses == 1 && it[1] == 5);
+        g_sel = 1;
+        CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 5);
+        CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight + 5);
+        CHECK(!UiBack() && g_uiPages.page == uRematch);
+    }
+    g_sel = 0;
+    UiChange(1);  // back to All
+    CHECK(g_listStop == 0);
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        CHECK(fn == 28 && it[1] == 0 && it[11] == 10);
+    }
+    g_rows[3].region[0] = 0;
+    g_rows[4].region[0] = 0;
+    g_rows[5].route = rcore::kR;
+    g_rows[5].region[0] = 0;
+    g_rows[5].emakiIndex = -1;
+    g_rows[10].missionId = 0;
+    g_listStop = 0;
+    g_sel = 27;
     CHECK(!UiAct() && g_uiPages.page == uRoot);
     CHECK(UiBack());
     UiOpen();
     UiMove(-1);
     CHECK(UiAct());  // explicit Close at root
-    UiOpen(); g_sel = 1; UiAct(); UiAct();
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 1; UiAct();  // row 0 is the list filter; catalogue boss 0 is row 1
     g_cfg.fightNow = true; g_fnowOk = true;
     CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItFight && it[1] == kItBossTrainHere && it[2] == kItShrine && it[3] == kItBack);
     UiRow rows[24]; char footer[240];
@@ -104,7 +164,7 @@ int main() {
     G_CH=(uint64_t)&ach; G_PM=(uint64_t)&ppm; G_NET=(uint64_t)&pnet;
     addon::uiReads=true; g_lastTick=Ms(); g_qChangedAt=Ms()-10001;
     // Every boss has exactly two stable choices, including unavailable routes.
-    UiOpen(); g_sel = 1; UiAct(); UiAct();
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 1; UiAct();  // catalogue boss 0 is the row after the list filter
     auto shown = [&](const char* text) {
         const int count = UiFill(rows,24,footer,sizeof(footer));
         for (int i=0;i<count;++i) if (strstr(rows[i].text,text)) return true;
@@ -225,7 +285,7 @@ int main() {
     g_cfg.fightWarp=true; CHECK(!UiAct() && !g_req && strstr(g_msg,"no arena position"));
     g_cfg.fightWarp=false;
     practice.gateId=0; g_gateOk=false; g_confirm=-9;
-    UiOpen(); g_sel = 1; UiAct(); g_sel = 25; CHECK(!UiAct() && g_uiPages.page == uPractice);
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 26; CHECK(!UiAct() && g_uiPages.page == uPractice);
     CHECK(UiFill(rows,24,footer,sizeof(footer)) > 0 && strstr(footer,"Normal rewards, drops and progression apply"));
     CHECK(strstr(rows[0].text,"Yamagata mission replay"));
     g_status[0]=1; CHECK(!UiAct() && !g_req);
@@ -234,7 +294,7 @@ int main() {
     CHECK(!UiAct() && UiAct() && (g_req.load() & 0xFF) == kReqPractice);
     g_req=0; g_practiceOwned=true; g_activeRow=0; g_attemptPhase=aActive;
     g_state=kInReplay; g_exitOk=true; mission=0x1CBC; memcpy(ms+0x28,&mission,4);
-    UiOpen(); g_sel = 1; UiAct(); g_sel = 25; CHECK(!UiAct()); UiMove(1);
+    UiOpen(); g_sel = 1; UiAct(); g_sel = 26; CHECK(!UiAct()); UiMove(1);
     CHECK(!UiAct() && g_confirm == kItPracticeReturn && !g_req);
     CHECK(UiAct() && (g_req.load() & 0xFF) == kReqPracticeExit);
     g_req=0; g_attemptPhase=aQuarantined;

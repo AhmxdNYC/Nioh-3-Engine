@@ -104,6 +104,81 @@ int main(int argc, char** argv) {
     CHECK(reasons, "every X row has a reason");
     CHECK(eidx, "E rows have record indexes 0..19");
     CHECK(mid, "R/H/D rows have mission ids");
+    {
+        rcore::ListCycle cycle;
+        rcore::BuildListCycle(rows, cycle);
+        printf("list filter: %d stops", cycle.Stops());
+        for (int i = 0; i < cycle.Stops(); ++i) printf(" | %s", cycle.Label(i));
+        printf("\n");
+        CHECK(cycle.Stops() >= 4, "All, Multi, at least one era, Scrolls");
+        CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
+        CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
+        CHECK(strcmp(cycle.Label(cycle.Stops() - 1), "Scrolls") == 0, "last stop is Scrolls");
+        int sengoku = -1;
+        for (int i = 0; i < cycle.nEra; ++i)
+            if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
+        CHECK(sengoku >= 0, "Sengoku comes from the region column");
+        auto canOne = [](uint32_t id) { return (id & 1) ? 1 : 0; };
+        auto cannot = [](uint32_t) { return -1; };
+        int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, eraMiss = 0, allMiss = 0;
+        char blankIds[240] = {};
+        size_t bo = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const rcore::Row& r = rows[i];
+            if (!rcore::RowInListStop(r, cycle, 0, canOne)) ++allMiss;
+            CHECK(rcore::FightNowItemId((int)i) == 0x10000 + (int)i, "Fight now id stays catalogue index plus 0x10000");
+            if (!r.region[0]) {
+                ++blank;
+                if (bo + 16 < sizeof blankIds) bo += (size_t)snprintf(blankIds + bo, sizeof blankIds - bo, "%s%s", bo ? "," : "", r.id);
+            }
+            if (r.route == rcore::kE) {
+                ++scrolls;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1, canOne)) ++scrollMiss;
+                if (sengoku >= 0 && strcmp(r.region, "Sengoku") == 0 && !rcore::RowInListStop(r, cycle, 2 + sengoku, canOne)) ++eraMiss;
+                if (rcore::RowInListStop(r, cycle, 1, canOne)) ++multiLeak;
+            }
+            if (rcore::RowInListStop(r, cycle, 1, canOne)) {
+                ++multi;
+                if (!r.missionId || (r.missionId & 1) || r.route == rcore::kE) ++multiLeak;
+            } else if (r.missionId && r.route != rcore::kE && (r.missionId & 1) == 0 && !rcore::RowInListStop(r, cycle, 1, canOne)) {
+                ++multiLeak;
+            }
+            if (rcore::RowInListStop(r, cycle, 1, cannot)) ++multiLeak;
+        }
+        printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
+        CHECK(allMiss == 0, "All shows every loaded row");
+        CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
+        CHECK(eraMiss == 0, "a Sengoku scroll stays under Sengoku");
+        CHECK(multi > 0 && multiLeak == 0, "Multi is mission rows whose summon check is 0, never scrolls");
+        const int shown[] = {-68, 3, 5, -5};
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 5) == 2, "a boss that is still listed keeps its row");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 4) == 1, "a hidden boss moves to the first boss still listed");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, -68) == 0, "the filter row stays put");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 99, -5) == 3, "Back stays put");
+        int collapsed = 0;
+        const auto ls = rcore::Lines(cat);
+        const auto hdr = rcore::SplitTab(ls.empty() ? std::string() : ls[0]);
+        int cReg = -1;
+        for (size_t i = 0; i < hdr.size(); ++i)
+            if (hdr[i] == "region") cReg = (int)i;
+        std::vector<std::string> fulls, cuts;
+        for (size_t li = 1; li < ls.size(); ++li) {
+            const auto f = rcore::SplitTab(ls[li]);
+            if (cReg < 0 || (size_t)cReg >= f.size()) continue;
+            std::string v = f[(size_t)cReg];
+            if (v.empty() || v == "-") continue;
+            char cut[24];
+            rcore::Ascii(cut, sizeof cut, v);
+            for (size_t k = 0; k < cuts.size(); ++k) {
+                if (cuts[k] == cut && fulls[k] != v) ++collapsed;
+            }
+            bool seen = false;
+            for (size_t k = 0; k < cuts.size(); ++k)
+                if (cuts[k] == cut && fulls[k] == v) seen = true;
+            if (!seen) { cuts.push_back(cut); fulls.push_back(v); }
+        }
+        CHECK(cReg >= 0 && collapsed == 0, "distinct era names stay distinct after the 23-character cap");
+    }
     const rcore::Row* r52 = nullptr;
     for (auto& r : rows)
         if (r.missionId == 0x34) r52 = &r;

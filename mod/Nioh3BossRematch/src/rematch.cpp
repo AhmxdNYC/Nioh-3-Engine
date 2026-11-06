@@ -2363,10 +2363,13 @@ enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
 int g_uiBoss = -1;
+int g_listStop = 0;  // human #73240: 0 = All. Session only; reopening the menu starts at All.
+rcore::ListCycle g_listCycle;
 uint32_t g_pageGen0 = 0;
 char g_msg[160] = "";
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
+constexpr int kItListFilter = -68;  // human #73240: All / Multi / era / Scrolls. Not a catalogue index, not a Fight now id.
 constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
 constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
 // user #6618: summoned-boss death toggles at the top of the root page (Nioh3Training [Summon] keys, live + saved to its ini)
@@ -2853,10 +2856,46 @@ constexpr int kItBossTrainHere = 0x38000;
 static_assert(N3CAT_CAP <= kItBossTrainHere - kItMoveBase, "Train here overlaps the move catalogue cap");
 static_assert(kItBossTrainHere + kMaxRows <= kItTeleport, "Train here rows reach Teleport");
 static_assert(kItBossTrainHere > kItShrine + kMaxRows, "Train here overlaps Shrine");
+static_assert(kItFight == 0x10000, "Fight now id base matches FightNowItemId");
+
+// 1 = Training resolves this mission to one boss, 0 = multi, <0 = Training is not loaded (Multi cannot be derived).
+int ListCanSummon(uint32_t mission) {
+    using CanFn = int (*)(uint32_t);
+    const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
+    if (!can) return -1;
+    return can(mission) ? 1 : 0;
+}
+void EnsureListCycle() {
+    rcore::BuildListCycle(g_rows, g_listCycle);
+    const int n = g_listCycle.Stops();
+    if (g_listStop < 0 || g_listStop >= n) g_listStop = 0;
+}
+const char* ListFilterLabel() {
+    EnsureListCycle();
+    if (g_listCycle.Kind(g_listStop) == 1 && !TrainingExport("Nioh3Training_CanSummon")) return "Multi (needs Training)";
+    return g_listCycle.Label(g_listStop);
+}
 
 int Items(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
+    // Same order the Boss Match list already used. The filter hides rows; it does not renumber them.
+    auto addBossList = [&]() {
+        EnsureListCycle();
+        add(kItListFilter);
+        for (int pass = 0; pass < 3; ++pass)
+            for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+                const Row& r = g_rows[i];
+                const uint8_t st = g_status[i].load();
+                const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
+                if (grp != pass) continue;
+                if (grp == 1 && !g_cfg.showAll) continue;
+                if (grp == 2 && !g_cfg.showAll) continue;
+                if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
+                if (!rcore::RowInListStop(r, g_listCycle, g_listStop, ListCanSummon)) continue;
+                add((int)i);
+            }
+    };
     if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
         add(kItRootRematch);
@@ -2961,18 +3000,7 @@ int Items(int* out, int cap) {
         AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
-        if (g_live.load())
-            for (int pass = 0; pass < 3; ++pass)
-                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
-                    const Row& r = g_rows[i];
-                    const uint8_t st = g_status[i].load();
-                    const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
-                    if (grp != pass) continue;
-                    if (grp == 1 && !g_cfg.showAll) continue;
-                    if (grp == 2 && !g_cfg.showAll) continue;
-                    if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-                    add((int)i);
-                }
+        if (g_live.load()) addBossList();
         // #14336 item 10: legacy / developer rows only with [Rematch] ShowUnverified = 1
         if (g_cfg.showUnverified) {
             if (g_live.load()) add(kItPractice);
@@ -3053,18 +3081,8 @@ int Items(int* out, int cap) {
         add(kItBack);
         return n;
     }
-    // beaten / startable first, then the rest, then X
-    for (int pass = 0; pass < 3; ++pass)
-        for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
-            const Row& r = g_rows[i];
-            const uint8_t st = g_status[i].load();
-            const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
-            if (grp != pass) continue;
-            if (grp == 1 && !g_cfg.showAll) continue;
-            if (grp == 2 && !g_cfg.showAll) continue;
-            if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-            add((int)i);
-        }
+    // beaten / startable first, then the rest, then X (Boss Matches browse page)
+    addBossList();
     add(kItBack);
     return n;
 }
@@ -3299,12 +3317,30 @@ void SaveUiSettings() {
         g_configSaveError.store(GetLastError()); g_configSaveState.store(3); delete job;
     }
 }
+void CycleListFilter(int dir) {
+    static int before[kMaxRows + 4];
+    const int n0 = Items(before, kMaxRows + 4);
+    int anchor = kItListFilter;
+    if (g_sel >= 0 && g_sel < n0) anchor = before[g_sel];
+    EnsureListCycle();
+    const int nstop = g_listCycle.Stops();
+    if (nstop < 1) return;
+    g_listStop += dir < 0 ? -1 : 1;
+    if (g_listStop >= nstop) g_listStop = 0;
+    if (g_listStop < 0) g_listStop = nstop - 1;
+    const int n1 = Items(before, kMaxRows + 4);
+    g_sel = rcore::KeepVisibleSel(before, n1, g_sel, anchor);
+    g_confirm = -9;
+    g_msg[0] = 0;
+    Log("Rematch: boss list filter -> %s", ListFilterLabel());
+}
 void UiChange(int dir) {
     static int items[kMaxRows + 4];
     const int n = Items(items, kMaxRows + 4);
     if (!n || g_sel < 0) return;  // #38077: the two top rows (Mod menu / Close) have no Left / Right
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
+    if (item == kItListFilter) { CycleListFilter(dir); return; }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
@@ -3348,6 +3384,7 @@ void UiOpen() {
     g_uiPages.Reset();
     g_uiBoss = -1;
     g_bossSlot = -1;
+    g_listStop = 0;  // human #73240: the list opens on All
     g_sel = 0;
     g_confirm = -9;
     g_msg[0] = 0;
@@ -3598,6 +3635,7 @@ bool UiAct() {
         g_sel = 0; g_confirm = -9; g_msg[0] = 0;
         return false;
     }
+    if (item == kItListFilter) { CycleListFilter(0); return false; }
     if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
@@ -4004,6 +4042,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : v < 0 ? cDim : cYellow, sel, "%s Repeat delay: %-7s   Left / Right", mk, val);
         }
         else if (it[i] == kItSettings) add(sel ? cWhite : cGray, sel, "%s Startup settings   A: open", mk);
+        else if (it[i] == kItListFilter) add(sel ? cWhite : cGray, sel, "%s List: %s   A / Left / Right", mk, ListFilterLabel());
         else if (it[i] == kItBrowse) add(sel ? cWhite : cGray, sel, "%s Boss Matches: browse bosses   A / Enter opens", mk);
         else if (it[i] == kItPractice) add(sel ? cWhite : cGray, sel, "%s Yamagata mission replay   A: open", mk);
         else if (it[i] == kItPracticeStart) add(sel ? cWhite : cGray, sel, "%s Replay from the boss shrine", mk);
@@ -4148,6 +4187,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item <= kItGroupBase) snprintf(footer, nf, "Startup preferences. Every change is saved at once and applies after a game restart.");
+        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, and Scrolls. Fight now still uses the same boss number.", ListFilterLabel());
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss: Fight now in its arena, or Train here. Beaten and unbeaten bosses use the same guarded route.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
