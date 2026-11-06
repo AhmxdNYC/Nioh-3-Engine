@@ -118,14 +118,12 @@ int main(int argc, char** argv) {
         for (int i = 0; i < cycle.nEra; ++i)
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
         CHECK(sengoku >= 0, "Sengoku comes from the region column");
-        auto canOne = [](uint32_t id) { return (id & 1) ? 1 : 0; };
-        auto cannot = [](uint32_t) { return -1; };
         int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, eraMiss = 0, allMiss = 0;
         char blankIds[240] = {};
         size_t bo = 0;
         for (size_t i = 0; i < rows.size(); ++i) {
             const rcore::Row& r = rows[i];
-            if (!rcore::RowInListStop(r, cycle, 0, canOne)) ++allMiss;
+            if (!rcore::RowInListStop(r, cycle, 0)) ++allMiss;
             CHECK(rcore::FightNowItemId((int)i) == 0x10000 + (int)i, "Fight now id stays catalogue index plus 0x10000");
             if (!r.region[0]) {
                 ++blank;
@@ -133,23 +131,28 @@ int main(int argc, char** argv) {
             }
             if (r.route == rcore::kE) {
                 ++scrolls;
-                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1, canOne)) ++scrollMiss;
-                if (sengoku >= 0 && strcmp(r.region, "Sengoku") == 0 && !rcore::RowInListStop(r, cycle, 2 + sengoku, canOne)) ++eraMiss;
-                if (rcore::RowInListStop(r, cycle, 1, canOne)) ++multiLeak;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1)) ++scrollMiss;
+                if (sengoku >= 0 && strcmp(r.region, "Sengoku") == 0 && !rcore::RowInListStop(r, cycle, 2 + sengoku)) ++eraMiss;
+                if (rcore::RowInListStop(r, cycle, 1)) ++multiLeak;
             }
-            if (rcore::RowInListStop(r, cycle, 1, canOne)) {
-                ++multi;
-                if (!r.missionId || (r.missionId & 1) || r.route == rcore::kE) ++multiLeak;
-            } else if (r.missionId && r.route != rcore::kE && (r.missionId & 1) == 0 && !rcore::RowInListStop(r, cycle, 1, canOne)) {
-                ++multiLeak;
-            }
-            if (rcore::RowInListStop(r, cycle, 1, cannot)) ++multiLeak;
+            const bool isMulti = r.missionId && r.route != rcore::kE && rcore::RosterMembers(r.id) > 1;
+            if (rcore::RowInListStop(r, cycle, 1) != isMulti) ++multiLeak;
+            if (isMulti) ++multi;
         }
         printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
         CHECK(allMiss == 0, "All shows every loaded row");
         CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
         CHECK(eraMiss == 0, "a Sengoku scroll stays under Sengoku");
-        CHECK(multi > 0 && multiLeak == 0, "Multi is mission rows whose summon check is 0, never scrolls");
+        CHECK(multi == 23 && multiLeak == 0, "Multi is the 23 catalogue rows whose roster has more than one member");
+        int warring = 0, dlc = 0, paren = 0, longLabel = 0;
+        for (int i = 0; i < cycle.Stops(); ++i) {
+            const char* lab = cycle.Label(i);
+            if (strchr(lab, '(')) ++paren;
+            if (strlen(lab) > 16) ++longLabel;
+            if (strcmp(lab, "Warring States") == 0) ++warring;
+            if (strcmp(lab, "DLC1 Edo") == 0) ++dlc;
+        }
+        CHECK(warring == 1 && dlc == 1 && paren == 0 && longLabel == 0, "cut era names collapse to Warring States and DLC1 Edo");
         const int shown[] = {-68, 3, 5, -5};
         CHECK(rcore::KeepVisibleSel(shown, 4, 9, 5) == 2, "a boss that is still listed keeps its row");
         CHECK(rcore::KeepVisibleSel(shown, 4, 9, 4) == 1, "a hidden boss moves to the first boss still listed");

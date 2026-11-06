@@ -91,11 +91,11 @@ int main() {
     g_rows[5].emakiIndex = 1;
     g_rows[10].missionId = 99;
     g_sel = 0;
-    CHECK(!UiAct() && g_uiPages.page == uRematch && g_listStop == 1 && g_sel == 0);  // A cycles; Multi needs Training, so no boss row
+    CHECK(!UiAct() && g_uiPages.page == uRematch && g_listStop == 1 && g_sel == 0);  // A cycles; these test rows are not multi-boss rosters
     {
         const int fn = Items(it, kMaxRows + 4);
         for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
-        CHECK(strstr(ListFilterLabel(), "needs Training") != nullptr);
+        CHECK(strcmp(ListFilterLabel(), "Multi") == 0);
     }
     UiChange(1);  // Sengoku, including the scroll of that era
     CHECK(g_listStop == 2 && g_sel == 0);
@@ -129,6 +129,23 @@ int main() {
     {
         const int fn = Items(it, kMaxRows + 4);
         CHECK(fn == 28 && it[1] == 0 && it[11] == 10);
+    }
+    g_listStop = 4;
+    UiOpenAt(2);
+    CHECK(g_listStop == 4 && g_uiPages.page == uPracticeHub);  // leaving the Boss tab keeps the filter
+    UiOpenAt(1);
+    CHECK(g_listStop == 4 && g_uiPages.page == uRematch);
+    UiOpen();
+    CHECK(g_listStop == 0);
+    g_uiPages.Enter(uRematch, 1);  // the checks above reopen at the root; the next press still leaves Boss Matches
+    g_listStop = 0;
+    g_sel = 1;
+    {
+        UiRow rows[8]; char footer[240];
+        CHECK(UiFill(rows, 8, footer, sizeof footer) > 0);
+        CHECK(strstr(footer, "PgUp/PgDn skips ten rows") != nullptr);
+        CHECK(strstr(footer, "LB/RB switches tab") != nullptr);
+        CHECK(strstr(footer, "LB/RB or PgUp") == nullptr);
     }
     g_rows[3].region[0] = 0;
     g_rows[4].region[0] = 0;

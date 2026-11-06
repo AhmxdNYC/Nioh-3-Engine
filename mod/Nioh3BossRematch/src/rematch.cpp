@@ -2441,7 +2441,7 @@ enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
 int g_uiBoss = -1;
-int g_listStop = 0;  // human #73240: 0 = All. Session only; reopening the menu starts at All.
+int g_listStop = 0;  // human #73240: 0 = All. A new menu open starts at All. Switching away and back keeps the stop.
 rcore::ListCycle g_listCycle;
 uint32_t g_pageGen0 = 0;
 char g_msg[160] = "";
@@ -2936,13 +2936,6 @@ static_assert(kItBossTrainHere + kMaxRows <= kItTeleport, "Train here rows reach
 static_assert(kItBossTrainHere > kItShrine + kMaxRows, "Train here overlaps Shrine");
 static_assert(kItFight == 0x10000, "Fight now id base matches FightNowItemId");
 
-// 1 = Training resolves this mission to one boss, 0 = multi, <0 = Training is not loaded (Multi cannot be derived).
-int ListCanSummon(uint32_t mission) {
-    using CanFn = int (*)(uint32_t);
-    const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
-    if (!can) return -1;
-    return can(mission) ? 1 : 0;
-}
 void EnsureListCycle() {
     rcore::BuildListCycle(g_rows, g_listCycle);
     const int n = g_listCycle.Stops();
@@ -2950,7 +2943,6 @@ void EnsureListCycle() {
 }
 const char* ListFilterLabel() {
     EnsureListCycle();
-    if (g_listCycle.Kind(g_listStop) == 1 && !TrainingExport("Nioh3Training_CanSummon")) return "Multi (needs Training)";
     return g_listCycle.Label(g_listStop);
 }
 
@@ -2970,7 +2962,7 @@ int Items(int* out, int cap) {
                 if (grp == 1 && !g_cfg.showAll) continue;
                 if (grp == 2 && !g_cfg.showAll) continue;
                 if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-                if (!rcore::RowInListStop(r, g_listCycle, g_listStop, ListCanSummon)) continue;
+                if (!rcore::RowInListStop(r, g_listCycle, g_listStop)) continue;
                 add((int)i);
             }
     };
@@ -3476,7 +3468,10 @@ void UiGatePage() {  // user #13529: the gate page is a base page (no add-on roo
     g_sel = 0;
 }
 void UiOpenAt(int which) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
+    const int keep = g_listStop;
+    const int page = g_uiPages.page;
     UiOpen();
+    if (page != 0) g_listStop = keep;  // leaving and returning to the Boss tab keeps All / Multi / era / Scrolls
     g_uiPages.page = which == 1 ? uRematch : uPracticeHub;
 }
 void UiMove(int dir) {
@@ -4354,7 +4349,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
+            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab.", r.name, g_sel + 1, n - 1);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");

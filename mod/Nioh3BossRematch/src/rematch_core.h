@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "../../Nioh3Training/src/fallback_rosters_gen.h"
 
 namespace rcore {
 
@@ -166,12 +167,54 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
     return (int)rows.size();
 }
 
+// Roster member count for this catalogue id. 0 = no generated roster (a single boss, a scroll, or an unresolved row).
+inline int RosterMembers(const char* id) {
+    const FallbackRoster* row = FallbackRosterFind(id);
+    return row ? (int)row->count : 0;
+}
+
+// Short era label from the region text already on the row. Cut at '(', drop a standalone year,
+// so "Warring States (Toka" and "1572 Warring States" share one label. No boss-name list.
+inline void EraKey(const char* in, char* out, int cap) {
+    if (!out || cap <= 0) return;
+    out[0] = 0;
+    if (!in || !in[0]) return;
+    char tmp[96];
+    int n = 0;
+    for (const char* p = in; *p && *p != '(' && n < (int)sizeof(tmp) - 1; ++p) {
+        if (*p == '\r' || *p == '\n') break;
+        tmp[n++] = *p;
+    }
+    while (n > 0 && (tmp[n - 1] == ' ' || tmp[n - 1] == '\t')) --n;
+    tmp[n] = 0;
+    char* w = out;
+    int left = cap - 1;
+    for (char* tok = tmp; *tok && left > 0;) {
+        while (*tok == ' ' || *tok == '\t') ++tok;
+        if (!*tok) break;
+        char* end = tok;
+        while (*end && *end != ' ' && *end != '\t') ++end;
+        const int len = (int)(end - tok);
+        bool year = len == 4;
+        for (int i = 0; year && i < 4; ++i) year = tok[i] >= '0' && tok[i] <= '9';
+        if (!year) {
+            if (w != out && left > 0) { *w++ = ' '; --left; }
+            const int copy = len < left ? len : left;
+            memcpy(w, tok, (size_t)copy);
+            w += copy;
+            left -= copy;
+        }
+        tok = end;
+    }
+    *w = 0;
+}
+
 // Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
-// Stops: All, Multi, one per distinct region (catalogue order), Scrolls.
+// Stops: All, Multi, one per distinct era (catalogue order), Scrolls.
 // A scroll stays in its era as well as under Scrolls. An empty region is not an era.
 struct ListCycle {
     static constexpr int kMaxEra = 32;
-    char era[kMaxEra][24]{};
+    char era[kMaxEra][40]{};
     int nEra = 0;
     int Stops() const { return 3 + nEra; }
     int Kind(int stop) const {
@@ -198,22 +241,27 @@ struct ListCycle {
 
 inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c) {
     c = ListCycle{};
-    for (const auto& r : rows) c.AddEra(r.region);
+    char key[40];
+    for (const auto& r : rows) {
+        EraKey(r.region, key, (int)sizeof key);
+        c.AddEra(key);
+    }
 }
 
-// canSummon: 1 = one boss, 0 = multi, <0 or null = cannot derive (the row is not listed under Multi).
-inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, int (*canSummon)(uint32_t)) {
+// Multi is a catalogue row whose generated roster has more than one member. A count of 0 is not multi.
+inline bool RowInListStop(const Row& r, const ListCycle& c, int stop) {
     const int k = c.Kind(stop);
     if (k == 0) return true;
     if (k == 3) return r.route == kE;
     if (k == 2) {
         const int ei = stop - 2;
         if (ei < 0 || ei >= c.nEra || !r.region[0]) return false;
-        return strcmp(r.region, c.era[ei]) == 0;
+        char key[40];
+        EraKey(r.region, key, (int)sizeof key);
+        return key[0] && strcmp(key, c.era[ei]) == 0;
     }
     if (!r.missionId || r.route == kE) return false;
-    if (!canSummon) return false;
-    return canSummon(r.missionId) == 0;
+    return RosterMembers(r.id) > 1;
 }
 
 // Keep the cursor on anchorItem when that row is still listed. A hidden boss lands on the first boss still shown.
