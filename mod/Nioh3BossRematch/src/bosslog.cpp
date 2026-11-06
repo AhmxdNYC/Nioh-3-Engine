@@ -3766,12 +3766,13 @@ extern "C" __declspec(dllexport) unsigned Nioh3BossRematch_FormUseTick() { retur
 // long after its trigger (LEFT press edge or the fresh seal capture), so the player stays visible a little longer at the form start.
 // Read on every trigger; the Soul core tuning menu page writes it live. A pending begin is dropped if the mode/player changes meanwhile.
 std::atomic<int> g_fhDelayMs{400};
-// #72299: while a form is live, a later spawn replaces the seal only when it is a new seal for this press.
+// #72299 / #72586 / #72621: while a form is live, a later spawn replaces the seal only when it is a new seal.
 // The game's own spawn note carries that: a real seal has a motion, or it appears away from the player.
-// motion 0 and dist 0.0 is the extra character the same seal call emits on top of the real one. No id list.
+// A motion-0 spawn under 1 m is the extra body of the same call. On the main pc that body landed at
+// 0.0, 0.2, and 0.7 m. The moving seal in the same call was 1.5 m and had a motion. No id list.
 static bool LaterSpawnReplacesLiveSeal(uint32_t motion, float dist) {
     if (motion != 0) return true;
-    if (!(dist >= 0.f) || dist >= 0.05f) return true;
+    if (!(dist >= 0.f) || dist >= 1.f) return true;
     return false;
 }
 void FormHide4Tick(uint64_t player) {
@@ -3887,9 +3888,9 @@ void FormHide4Tick(uint64_t player) {
                 reason = "throw-cancelled"; Log("FormHide=4 throw cut by action 0x%X %.2f s before the hide", g_throwCutAct, g_fh4.started - g_throwCutT);
             }
         } else if (cap != g_fh4.seal || capT != g_fh4.capT) {
-            // #72299: 11:19 pm and 11:26 pm, core 16127 was bound, then a motion-0 dist-0 spawn was captured
-            // 8-35 ms later. That ended the form and released the pad (0 blocked reads), so the human body
-            // stayed controllable. Keep the seal. A spawn with a motion, or one that landed away, is a new seal.
+            // #72299 / #72586 / #72621: a later motion-0 spawn under 1 m is the extra body of this press, not a new seal.
+            // The 12:01 am press ended in 42 ms because that body was 0.2 m away and the old gate was 0.05 m.
+            // Keep the seal. A spawn with a motion, or one that landed 1 m or more away, is a new seal.
             if (g_fkSealChr.load() == cap && g_fkSealT >= g_fh4.started - .05 &&
                 !LaterSpawnReplacesLiveSeal(g_fkSealMotion.load(), g_fkSealDist)) {
                 static uint64_t emptyLogged = 0;

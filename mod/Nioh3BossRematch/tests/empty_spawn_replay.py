@@ -2,7 +2,7 @@
 """Replay the 11:19-11:26 pm soul-core orders from Temp/h72299.
 
 A later spawn replaces a live seal only when LaterSpawnReplacesLiveSeal says it is a new seal:
-a motion, or a distance of 0.05 m or more. motion 0 and dist 0.0 does not end the form.
+a motion, or a distance of 1 m or more. motion 0 under 1 m does not end the form.
 Never touches the game.
 """
 import re
@@ -24,7 +24,7 @@ def check(ok, what):
 def replaces(motion, dist):
     if motion != 0:
         return True
-    if dist < 0 or dist >= 0.05:
+    if dist < 0 or dist >= 1.0:
         return True
     return False
 
@@ -35,9 +35,13 @@ check(fn > 0 and use > fn and 0 < cap_end - use < 900,
       "an empty later spawn is rejected before capture-change")
 check("g_fkSealDist = dist;" in src, "spawn distance is kept with the motion")
 
+check("dist >= 1.f" in src, "the live gate keeps a motion-0 spawn under 1 m")
 check(not replaces(0, 0.0), "motion 0 dist 0.0 does not replace the live seal")
-check(replaces(0xC52, 1.6), "a spawn with a motion is a new seal")
-check(replaces(0, 0.6), "motion 0 but away from the player is a new seal")
+check(not replaces(0, 0.2), "motion 0 dist 0.2 does not replace the live seal")
+check(not replaces(0, 0.7), "motion 0 dist 0.7 does not replace the live seal")
+check(replaces(0xC52, 0.0), "a spawn with a motion is a new seal even at dist 0")
+check(replaces(0, 1.0), "motion 0 at 1 m is away and is a new seal")
+check(replaces(0, 1.5), "motion 0 at 1.5 m is a new seal")
 check(replaces(0, -1.0), "a missing distance still counts as a new seal")
 
 if not log.exists():
