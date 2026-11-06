@@ -869,6 +869,8 @@ bool g_fightByMission = false;                   // exit detection on mission st
 bool g_fightLoading = false;
 int g_fightLoads = 0;
 bool g_fightWarp = false;        // "Fight now (in the arena)": warp after the load
+bool g_trainingDestination = false; // sticky for this attempt, even after Training finishes entry
+int g_trainingRoute = -1;
 bool g_warpPending = false;      // a warp is due once the mission is idle (load done, player, no fight)
 ULONGLONG g_warpDue = 0;
 int g_warps = 0, g_fightRow = -1;
@@ -909,6 +911,7 @@ void ToIdle(const char* why, bool normalExit = false) {
     g_fightByMission = g_fightLoading = false;
     g_fightLoads = 0;
     g_fightWarp = g_warpPending = false;
+    g_trainingDestination = false; g_trainingRoute = -1;
     g_warps = 0;
     g_fightRow = -1;
     if (g_fn.load() == kFnArmed || g_fn.load() == kFnWarped) g_fn.store(kFnIdle);
@@ -1127,19 +1130,23 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         memcpy(&sp, q + 0xC, 4);
         Log("Rematch: F %s: queued - slot %d +4 mission 0x%04X, +0xC start point %u, +0x14 mode 2", r.id, freeSlot, r.missionId, sp);
         entryAdmission.accepted = true;
+        const auto owns = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        g_trainingDestination = warp && owns && owns(r.missionId) != 0;
+        g_trainingRoute = -1;
+        if (g_trainingDestination) Log("Rematch: F %s: destination owner=Training; BR spawn override, warp, rewarp, nudge and gate injection disabled", r.id);
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
         g_fightByMission = g_fightLoading = false;
         g_fightLoads = 0;
         g_fightRow = row;
-        g_fightWarp = warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
+        g_fightWarp = !g_trainingDestination && warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
         g_gateSeen.store(false);
         g_gateSlot.store(-1);
         g_gateChecks.store(0);
         g_gateReq = false;
         g_gateDue = 0;
-        g_gateWant.store(warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
+        g_gateWant.store(!g_trainingDestination && warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
         if (g_gateWant.load())
             Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, r.gateId, r.gateKind);
         g_warpPending = false;
@@ -1279,6 +1286,7 @@ void ExecEmaki(int row, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
 void DoWarp(const Snap& s, ULONGLONG t) {
+    if (g_trainingDestination) return;
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (s.ms28 != g_fightMission) return;  // a different mission cannot supply fight/position evidence
     if (g_fightRow < 0) return;
@@ -1364,6 +1372,20 @@ void DoWarp(const Snap& s, ULONGLONG t) {
 void FnVerify(const Snap& s, ULONGLONG t) {
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     if (s.ms28 != g_fightMission) return;  // replay exit settles later; never act on the destination mission
+    if (g_trainingDestination) {
+        const auto routeFn = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        const int route = routeFn ? routeFn(g_fightMission) : 0;
+        if (route != g_trainingRoute) {
+            g_trainingRoute = route;
+            const char* label = route == 1 ? "native pending" : route == 2 ? "native" : route == 3 ? "fallback pending" : route == 4 ? "fallback" : route == 5 ? "failed" : "ended";
+            const char* id = g_fightRow >= 0 ? g_rows[(size_t)g_fightRow].id : "?";
+            Log("Rematch: F %s: route=%s (Training owns destination; BR warps=%d)", id, label, g_warps);
+            Result("fight now %s: route=%s", id, label);
+            if (route == 2 || route == 4) g_fn.store(kFnPass);
+            else if (route == 5 || route == 0) g_fn.store(kFnFail);
+        }
+        return; // never fall through to global fight-count PASS or BR rewarp/nudge
+    }
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
@@ -1428,6 +1450,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: open the boss gate the way the game does (door / StartWarp), once
 void GateTick(const Snap& s, ULONGLONG t) {
+    if (g_trainingDestination) return;
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     const uint32_t want = g_gateWant.load();
     if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
@@ -1742,6 +1765,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
 
 // game thread, every tick while a spawn override is armed / applied
 void SpawnTick(const Snap& s, ULONGLONG t, bool loadEnded) {
+    if (g_trainingDestination) return;
     if (!AttemptEffectsAllowed()) return;
     if (g_sp.st >= 3) return;  // no automatic mutation/reapply during recovery
     if (!g_sp.st || g_fightRow < 0 || !g_fight.load()) return;

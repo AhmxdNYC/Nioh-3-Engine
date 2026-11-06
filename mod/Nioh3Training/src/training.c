@@ -242,7 +242,7 @@ static __attribute__((noinline)) void MonTick(void) {
     float b[4] = {0}, p[4] = {0};
     if (!found || !PlayerPos(p)) { Log("BOSSMON +%lu ms boss actor gone", now - g_mon.t0); g_mon.a = 0; return; }
     memcpy(b, (void*)(g_mon.a + 0x110), 16);
-    float dx = b[0] - p[0], dz = b[2] - p[2], d = sqrtf(dx * dx + dz * dz) / 100.0f; if (d < g_mon.minD) g_mon.minD = d;
+    float dx = b[0] - p[0], dy = b[1] - p[1], dz = b[2] - p[2], d = sqrtf(dx * dx + dy * dy + dz * dz) / 100.0f; if (d < g_mon.minD) g_mon.minD = d;
     if (now - g_mon.t0 < 6000) AwareApply();
     if (g_cfg_percfix && now - g_mon.t0 >= 600 && now - g_mon.t0 < 8000) {  // bridge 5201: re-inject while the player is missing (the native update may evict it)
         uint64_t perc = PercOf(g_mon.a, 0, 0);
@@ -1594,7 +1594,11 @@ static void FightLabel(char* out, int cap, const char* tok, uint32_t chr) {
     }
     snprintf(out, (size_t)cap, "%s", tok && tok[0] ? tok : "boss");
 }
+static const char* NativeRouteTag(void);
 static void FightBegin(int mode, const char* name, const char* id, uint32_t chr) {
+    char routed[FL_NAME];
+    const char* route = mode == FL_BOSSMATCH ? NativeRouteTag() : 0;
+    if (route) { snprintf(routed, sizeof routed, "[%s] %s", route, name && name[0] ? name : "boss"); name = routed; }
     FlEnsure();
     FlClock c; FlNow(&c);
     AcquireSRWLockExclusive(&g_flLock);
@@ -1903,19 +1907,25 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack; ArenaRow* row; DWORD t0, tReady, tWarp; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch; } g_en;
+static const char* NativeRouteTag(void) { return g_en.confirmed ? (g_en.fellBack ? "fallback" : "native") : 0; }
+// 0 unowned/ended, 1 native pending, 2 native alive, 3 fallback pending, 4 fallback alive, 5 failed.
+// Pending ownership is visible before BR's admission callback, and survives entry completion.
+N3T_API int Nioh3Training_NativeEntryRoute(uint32_t mission) {
+    return g_en.row && g_en.row->mission == mission ? g_en.route : 0;
+}
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
 N3T_API void Nioh3Training_NativeEntryResult(uint32_t mission, int accepted) {
     if (!g_en.active || !g_en.row || g_en.row->mission != mission) return;
     if (accepted) g_en.confirmed = 1;
-    else { Log("ENTER %s: native request not admitted; auto-enter cancelled", g_en.row->id); g_en.active = 0; }
+    else { Log("ENTER %s: native request not admitted; auto-enter cancelled", g_en.row->id); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
 }
 static void EnterTick(void) {
-    if (!g_en.active || !g_en.confirmed) return;
+    if (!g_en.confirmed) return;
     DWORD now = GetTickCount();
     const uint8_t* st = GameState(); if (!st) return;
     ArenaRow* r = g_en.row;
-    if (now - g_en.t0 > 300000) { Log("ENTER %s: timeout, giving up", r->id); g_en.active = 0; return; }
+    if (g_en.active && now - g_en.t0 > 300000) { Log("ENTER %s: timeout, giving up", r->id); g_en.active = 0; g_en.route = 5; return; }
     if (st[2]) {
         if (!g_en.sawLoad) Log("ENTER %s: load started (+%lu ms)", r->id, now - g_en.t0);
         g_en.sawLoad = 1; g_en.tReady = 0;
@@ -1929,23 +1939,39 @@ static void EnterTick(void) {
         g_en.tReady = 0; if (g_en.warped) g_en.tWarp = now; return;
     }
     if (mission != r->mission) {
-        if (g_en.warped) { Log("ENTER %s: mission changed; fallback cancelled", r->id); g_en.active = 0; }
+        if (g_en.warped) { Log("ENTER %s: mission changed; fallback cancelled", r->id); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
         return;
     }
+    if (g_en.fellBack && now - g_en.tWatch >= 500) {
+        g_en.tWatch = now;
+        uint64_t spawned = g_nsp > 0 ? g_sp_actor[g_nsp - 1] : 0, hp = 0, maxhp = 0;
+        if (g_en.route == 3 && spawned && ActorHp(spawned, &hp, &maxhp) && hp && maxhp) {
+            g_en.route = 4;
+            Log("ENTER %s: route=fallback live actor=%p; native actor uniqueness UNPROVEN, verify live", r->id, (void*)spawned);
+        }
+        uint64_t nativeActor = ActorByHandle(r->placement);
+        if (nativeActor && nativeActor != spawned && !g_en.lateWarn) {
+            g_en.lateWarn = 1;
+            Log("ENTER %s: LATE NATIVE candidate=%p placement=%u fallback=%p; duplicate risk UNPROVEN; exact-placement dedupe owns deletion, observer deletes nothing", r->id, (void*)nativeActor, r->placement, (void*)spawned);
+        }
+    }
+    if (!g_en.active) return;
     if (g_en.warped) {
         if (NativeBossReady(r)) {
             Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
-            g_en.active = 0; return;
+            g_en.active = 0; g_en.route = 2; return;
         }
         if (now - g_en.tWarp >= 30000) {
             // Same loaded mission/world, no boss, not loading: one synchronous arena fallback.
             // Bypass legacy summon/cross-world routes without re-arming entry or overwriting home.
             Log("ENTER %s: no native boss after 30 s ready; one in-mission arena fallback", r->id);
-            g_en.active = 0; g_en.fellBack = 1;
+            g_en.active = 0; g_en.fellBack = 1; g_en.route = 3;
+            Log("ENTER %s: route=fallback pending; late-native uniqueness requires live validation; exact-placement dedupe active", r->id);
             int sf = g_cfg_fn_summon; g_cfg_fn_summon = 0;
             g_native_fallback = 1; g_pick = r;
             int ok = FightNowImpl(r->mission);
             g_native_fallback = 0; g_cfg_fn_summon = sf;
+            if (!ok) g_en.route = 5;
             Log("ENTER %s: fallback accepted %d, request-to-fallback %lu ms", r->id, ok, now - g_en.t0);
         }
         return;
@@ -1953,7 +1979,7 @@ static void EnterTick(void) {
     if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: native mission ready, settling", r->id); }
     if (now - g_en.tReady < 3000) return;
     int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1);
-    if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; return; }
+    if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; g_en.route = 5; return; }
     g_en.warped = 1; g_en.tWarp = now;
     Log("ENTER %s: native arena warp succeeded (+%lu ms); waiting up to 30 ready seconds for boss", r->id, now - g_en.t0);
 }
@@ -2564,7 +2590,7 @@ static int FightNowImpl(uint32_t mission) {
     ArenaRow* nativeRow = FindRow(mission);
     if (NativeFirst(nativeRow)) {
         memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
-        g_en.t0 = GetTickCount(); g_en.active = 1;
+        g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
         return 0; // BossRematch owns admission, clear guard and the actual native request.
     }
@@ -3354,6 +3380,7 @@ N3T_API int Nioh3Training_SetSummonPassive(int ms, int persist) {
 }
 N3T_API int Nioh3Training_GateFightAgain(void) { if (!g_tr.active || g_rh.active) return 0; InterlockedExchange(&g_gate_again, 1); return 1; }
 static void GateTick(void) {
+    if (g_en.confirmed) return; // native mission trips use the real exit, including fallback fights
     if (InterlockedExchange(&g_gate_again, 0) && g_tr.active && !g_rh.active) { Log("GATE: Fight again (Boss Rematch gate page)"); TrainRetry("gate: fight again"); }
     if (!g_cfg_gate) return;
     static DWORD tBossSeen;  // #13255: when the boss was first seen alive this session (0 = not alive)
@@ -3460,7 +3487,19 @@ static void GateTick(void) {
 }
 static void h_reqret(const uint32_t* p, uint8_t f) {
     void* ra = __builtin_return_address(0);
-    if (g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+    if (g_en.confirmed) {
+        Log("ENTER native exit: mission=0x%X route=%d; clean Training session and pass through MissionRequestReturn", g_en.row ? g_en.row->mission : 0, g_en.route);
+        g_en.active = 0; g_en.confirmed = 0; g_en.route = 0;
+        g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
+        if (g_tr.active) TrainStop("native mission exit");
+        else FightFinish(PlayerDeadNow() ? FL_LOSS : FL_QUIT);
+        g_gate.up = g_gate.session = g_gate.tried = 0;
+        g_gate_again = 0; g_rh.want = 0; g_home.valid = 0;
+        if (p_osdMask) p_osdMask(0, 0);
+        o_reqret(p, f);
+        return;
+    }
+    if (!g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         if (GateBossAlive() && !g_cfg_gate_always) { Log("GATE: MissionRequestReturn from %p while the boss is alive: ignored (gate is inactive during a fight)", (void*)((uintptr_t)ra - B)); return; }        int r = GateUse(); Log("GATE: MissionRequestReturn (caller +%llX) diverted to the gate choice -> %d", (unsigned long long)((uintptr_t)ra - B), r); return;
     }
     o_reqret(p, f);
@@ -3477,8 +3516,8 @@ typedef uint64_t (*EndConfFn)(void*, int);
 static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
 static uint64_t h_endconf(void* ctx, int action) {
     int nearGate = 0;  // #9983: the box opened by itself near the gate with no 0x2613 call logged -> the gate record's own action id differs; any action while the player is at the gate counts
-    if (action != 0x2613 && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) { float q[4]; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearGate = sqrtf(mx * mx + mz * mz) < 600.0f; } }
-    if ((action == 0x2613 || nearGate) && g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+    if (action != 0x2613 && g_cfg_gate_block && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) { float q[4]; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearGate = sqrtf(mx * mx + mz * mz) < 600.0f; } }
+    if ((action == 0x2613 || nearGate) && g_cfg_gate_block && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         void* ra = __builtin_return_address(0); LONG n = InterlockedIncrement(&g_endconf_n);
         int boss = GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), r = -1;  // #13255: with ReturnGateAlways a fight does not block our page
         if (!boss && !page) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
@@ -3500,7 +3539,7 @@ static uint64_t h_endconf(void* ctx, int action) {
 typedef void (*PmDecideFn)(void*);
 static PmDecideFn o_pmdec1, o_pmdec2; static volatile LONG g_pmdec_n;
 static __attribute__((noinline)) int PmDecideSwallow(void* m, int viaVfunc, void* ra, const char* which) {
-    if (!(g_cfg_gate_block && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active)) return 0;
+    if (!(g_cfg_gate_block && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active)) return 0;
     float q[4], d; if (!PlayerPos(q)) return 0;
     { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); } if (d >= 600.0f) return 0;
     int id = -1;
@@ -3538,7 +3577,7 @@ static int WsHasA(const wchar_t* s, const char* a) {  // ASCII case-insensitive 
     return 0;
 }
 static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3, void* a4, void* a5, int a6, uint8_t a7) {
-    if (g_cfg_gate_dlg && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active && text) {
+    if (g_cfg_gate_dlg && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active && text) {
         const wchar_t* s = 0; int endm = 0;
         __try { s = WsData((const uint8_t*)text);
             static const uint32_t ids[3] = {0x3E0C230, 0x3C96C71, 0x26AC231};
@@ -3589,7 +3628,7 @@ static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
-    if (g_cfg_gate_cw2 && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+    if (g_cfg_gate_cw2 && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
         uint32_t text = 0, sub = 0xFFFFFFFFu; uint64_t cur = 0; uint16_t nret = 0;
         if (Cw2Peek(ctx, &text, &sub, &cur, &nret) && (text == 0x3E0C230 || text == 0x3E8D85E)) {
             float q[4], d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
