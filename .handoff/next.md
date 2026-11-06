@@ -49,3 +49,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 2026-10-28 7:43 AM Eastern cxl-pc #43548/#43701 | combined code fa006a97 pushed; final bundle3299 verified17 payloads; EF b8bb6912 BR2d177b1b Trainingd2af3939 | menu/ring/save/move/pause regressions PASS; settings64 and release31 PASS; runtime UNTESTED | next pc install3299 and run acceptance; preserve INIs, fresh defaults separately; no game lease held.
 - 2026-11-05 2:58 am EST pc2/0 | #211 PASS (fight timeline report, 3 complete rows). #237 not run (dup of #236). pc2 on public 1.8.6 (EF 1f8d71b6 BR fe7ec45d TR 04781485).
 - 2026-11-05 3:31 am EST pc2/0 | #239 done: P2+XRES1 +7% on pc2 (50->53 fps), RESULT re #68530. pc2 idle on public 1.8.6.
+- 2026-11-05 pc2 #71880 done on TR 8d38e9e6: RD759 + RA0A1 teacher kept, result sent re #71861; lesson-kill wake test not run.
