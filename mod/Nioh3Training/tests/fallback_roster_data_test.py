@@ -24,6 +24,15 @@ class RosterDataTest(unittest.TestCase):
             for member in row['members']:
                 self.assertTrue(any(int(c['key64']) == member['chr'] and int(c['placement_id']) == member['placement'] for c in member['candidates']))
 
+    def test_native_watch_includes_all_ambiguous_variants(self):
+        outputs, rows = g.generate(ROOT)
+        header = outputs['mod/Nioh3Training/src/fallback_rosters_gen.h']
+        for row in rows:
+            for member in row['members']:
+                for c in member['candidates']:
+                    self.assertIn('{"%s", %du, %du}' % (row['id'], int(c['key64']), int(c['placement_id'])), header)
+        self.assertTrue(any(r['errors'] for r in rows))
+
     def fixture(self):
         catalogue = [{'id':'RTEST','boss':'First;Second','replay_mission_id':'0x123','placement_id':'40'}]
         names = [{'english_name':'First','char_id':'11'}, {'english_name':'Second','char_id':'12'}]

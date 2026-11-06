@@ -76,7 +76,15 @@ def render_header(results):
               '    unsigned i; if (!id) return 0;',
               '    for (i = 0; i < sizeof g_fallback_rosters / sizeof g_fallback_rosters[0]; ++i)',
               '        if (!strcmp(id, g_fallback_rosters[i].id)) return &g_fallback_rosters[i];',
-              '    return 0;', '}', '#endif', '']
+              '    return 0;', '}']
+    # Observation may cover ambiguous variants without choosing one to spawn.
+    lines += ['typedef struct { const char* id; uint32_t chr, placement; } NativeRosterCandidate;',
+              'static const NativeRosterCandidate g_native_roster_candidates[] = {']
+    for row in results:
+        candidates = sorted({(int(c['key64']), int(c['placement_id'])) for m in row['members'] for c in m['candidates']})
+        for chr_id, placement in candidates:
+            lines.append('    {"%s", %du, %du},' % (row['id'], chr_id, placement))
+    lines += ['};', '#endif', '']
     return '\n'.join(lines)
 
 

@@ -8,6 +8,10 @@ def fn(sig):
  while depth:
   depth+=(s[e]=='{')-(s[e]=='}');e+=1
  return s[a:e]
+# Verify notifications cannot be bypassed by the ownership guard, and preserve ordering.
+begin=fn('void HkBegin('); end=fn('void HkEnd(')
+assert begin.count('NativePhase(1);')==1 and begin.index('NativePhase(1);')<begin.index('MaybeStart(')
+assert end.count('NativePhase(2);')==1 and end.index('NativePhase(2);')<end.index('g_clearWin.store(1)')<end.index('MaybeEnd()')
 code=r'''
 #include <atomic>
 #include <cstdint>
@@ -15,17 +19,21 @@ code=r'''
 #include <cassert>
 #include <cstdio>
 using HMODULE=void*; using FARPROC=void(*)();
-static bool pending, module=true, available=true;
+static bool pending, module=true, available=true, phaseAvailable=true;
+static int phaseCalls,lastNativePhase;
 static int starts,ends,phase,confirms,session;
 static uint64_t token=123;
+static uint32_t runningMission=77;
 int Pending(){return pending;}
 int Active(){return session;}
-void Mark(int,int p,const char*){if(p==1)++starts;else{++ends;phase=p;}}
+void Phase(int p){++phaseCalls;lastNativePhase=p;pending=p==2;}
+void Mark(int,int p,const char*){if(p==1){++starts;if(!token)token=124;}else{++ends;phase=p;}}
 void MarkEx(int m,int p,const char*n,const char*){Mark(m,p,n);}
 uint64_t Token(){return token;}
 void Confirm(uint64_t t){assert(t==token);++confirms;}
 HMODULE GetModuleHandleW(const wchar_t*){return module?(void*)1:nullptr;}
 FARPROC GetProcAddress(HMODULE,const char*n){
+ if(!strcmp(n,"Nioh3Training_NativePhase"))return phaseAvailable?(FARPROC)Phase:nullptr;
  if(!strcmp(n,"Nioh3Training_RosterPending"))return available?(FARPROC)Pending:nullptr;
  if(!strcmp(n,"Nioh3Training_SessionActive"))return (FARPROC)Active;
  if(!strcmp(n,"Nioh3Training_FightMark"))return (FARPROC)Mark;
@@ -38,22 +46,35 @@ namespace rematch {const char* FightLogName(){return "multi";}int FightLogMode()
 namespace bosslog {
 std::atomic<int> g_logOwn{0},g_clearWin{0};std::atomic<uint64_t>g_logToken{0};std::atomic<uint32_t>g_logMission{0};
 std::atomic<bool>g_active{true};std::atomic<double>g_endAt{0};
-uint32_t RunningLogMission(){return 77;}
+uint32_t RunningLogMission(){return runningMission;}
 @PENDING@
+@PHASE@
 @START@
 @END@
 }
 namespace fight {double Now(){return 1;}
 @CONFIRM@
 }
-void reset(){pending=false;module=available=true;starts=ends=confirms=session=0;bosslog::g_logOwn=0;bosslog::g_logToken=0;bosslog::g_logMission=0;}
+void reset(){token=123;runningMission=77;pending=false;module=available=true;starts=ends=confirms=session=0;bosslog::g_logOwn=0;bosslog::g_logToken=0;bosslog::g_logMission=0;}
 int main(){
+ reset();bosslog::NativePhase(2);assert(phaseCalls==1&&lastNativePhase==2&&bosslog::RosterPending());
+ bosslog::NativePhase(1);assert(phaseCalls==2&&lastNativePhase==1&&!bosslog::RosterPending());
+ phaseAvailable=false;bosslog::NativePhase(2);assert(phaseCalls==2);phaseAvailable=true;
+ module=false;bosslog::NativePhase(2);assert(phaseCalls==2);
+
  reset();pending=true;bosslog::MaybeStart("boss");assert(starts==1&&bosslog::g_logToken==123);
  bosslog::MaybeStart("second phase");assert(starts==1&&bosslog::g_logToken==123&&bosslog::g_logMission==77);
  bosslog::g_clearWin=1;bosslog::MaybeEnd();assert(!ends&&bosslog::g_logOwn==1&&bosslog::g_clearWin==1);
  fight::ConfirmNativeWin(77);assert(!confirms&&bosslog::g_logToken==123);
  pending=false;bosslog::MaybeEnd();assert(ends==1&&phase==2&&bosslog::g_logOwn==0);
  bosslog::MaybeEnd();assert(ends==1);fight::ConfirmNativeWin(77);assert(confirms==1);fight::ConfirmNativeWin(77);assert(confirms==1);
+ reset();pending=true;bosslog::MaybeStart("first");token=0; // Training completed prior report; BR still owns it
+ bosslog::MaybeStart("retry same mission");assert(starts==2&&bosslog::g_logToken==124&&bosslog::g_logMission==77);
+ bosslog::MaybeStart("retry next phase");assert(starts==2);
+ reset();pending=true;bosslog::MaybeStart("first");runningMission=88;
+ bosslog::MaybeStart("different mission");assert(starts==2&&bosslog::g_logMission==88);
+ reset();pending=true;bosslog::MaybeStart("first");token=999;
+ bosslog::MaybeStart("different attempt");assert(starts==2&&bosslog::g_logToken==999);
  reset();bosslog::MaybeStart("single");bosslog::g_clearWin=1;bosslog::MaybeEnd();assert(starts==1&&ends==1&&phase==2);
  reset();bosslog::MaybeStart("single");bosslog::MaybeEnd();assert(ends==1&&phase==4);
  reset();pending=true;bosslog::MaybeStart("multi");pending=false;bosslog::MaybeEnd();assert(ends==1&&phase==4); // owner cancelled/loss is managed by Training
@@ -63,7 +84,7 @@ int main(){
  puts("PASS BR roster ownership: first/repeated phase, suppressed end/clear, one final result, single, quit, Training owner, missing export/module");
 }
 '''
-for key,sig in [('PENDING','bool RosterPending('),('START','void MaybeStart('),('END','void MaybeEnd('),('CONFIRM','void ConfirmNativeWin(')]:code=code.replace('@'+key+'@',fn(sig))
+for key,sig in [('PHASE','void NativePhase('),('PENDING','bool RosterPending('),('START','void MaybeStart('),('END','void MaybeEnd('),('CONFIRM','void ConfirmNativeWin(')]:code=code.replace('@'+key+'@',fn(sig))
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);src=p/'test.cpp';exe=p/'test.exe';src.write_text(code)
  subprocess.run([sys.executable,'-m','ziglang','c++','-std=c++17','-O2','-UNDEBUG',str(src),'-o',str(exe)],check=True)

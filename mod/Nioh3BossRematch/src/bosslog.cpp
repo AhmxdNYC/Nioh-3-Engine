@@ -66,10 +66,21 @@ bool RosterPending() {
     auto pending = tr ? (int (*)())GetProcAddress(tr, "Nioh3Training_RosterPending") : nullptr;
     return pending && pending() != 0;
 }
-void MaybeStart(const char* placementName) {
-    if (g_logOwn.load() && RosterPending()) return; // another native wave, same Report attempt
-    g_logToken.store(0); g_logMission.store(0);
+// Phase notifications always reach Training, even while its grace window owns the report.
+void NativePhase(int phase) {
     HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto notify = tr ? (void (*)(int))GetProcAddress(tr, "Nioh3Training_NativePhase") : nullptr;
+    if (notify) notify(phase);
+}
+void MaybeStart(const char* placementName) {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto token = tr ? (uint64_t (*)())GetProcAddress(tr, "Nioh3Training_FightToken") : nullptr;
+    const uint64_t currentToken = token ? token() : 0;
+    if (g_logOwn.load() && currentToken && currentToken == g_logToken.load() &&
+        g_logMission.load() == RunningLogMission() && RosterPending()) return;
+    // Training may already have closed the preceding attempt during its phase grace.
+    // A stale owner (even in the same mission) must never swallow the next start.
+    g_logOwn.store(0); g_logToken.store(0); g_logMission.store(0);
     if (!tr) return;
     auto act = (int (*)())GetProcAddress(tr, "Nioh3Training_SessionActive");
     if (act && (act() & 1)) return;  // Practice or Boss Match already opened the row
@@ -83,7 +94,6 @@ void MaybeStart(const char* placementName) {
     else mark(rematch::FightLogMode(), 1, n);
     g_clearWin.store(0);
     g_logOwn.store(1);
-    auto token = (uint64_t (*)())GetProcAddress(tr, "Nioh3Training_FightToken");
     g_logToken.store(token ? token() : 0);
     g_logMission.store(RunningLogMission());
 }
@@ -147,6 +157,7 @@ void HkBegin(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
         newestT = e.t.load();
         newest = e.id.load();
     }
+    NativePhase(1);
     MaybeStart(rematch::NameForPlacement(newest));
 }
 
@@ -160,6 +171,7 @@ void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     InterlockedExchange(&fight::g_active, 0);
     // Only the mission script ends boss mode this way: quitting, leaving and dying never reach this hook (#302: Ito, Sawamura).
     // The clear call can come much later or need the player's input, so it cannot decide the win.
+    NativePhase(2);
     g_clearWin.store(1);
     MaybeEnd();
 }

@@ -12,9 +12,10 @@ preamble=r"""
 #include <string.h>
 #include <assert.h>
 #include <math.h>
-typedef uint32_t DWORD;
+typedef unsigned long DWORD;
 #define N3T_API
-#define Log(...) ((void)0)
+static char lastLog[512];
+#define Log(...) snprintf(lastLog,sizeof lastLog,__VA_ARGS__)
 typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];float b[3];} ArenaRow;
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
 static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900;
@@ -25,6 +26,8 @@ static int placed;static float pos[3]={7,100,7};
 static uint64_t ActorByHandle(uint32_t h){return placed;}
 static int PlayerPos(float o[4]){o[0]=pos[0];o[1]=pos[1];o[2]=pos[2];o[3]=0;return 1;}
 static void NativeRosterTick(DWORD now) {}
+static void NativePhaseTick(DWORD now) {}
+static struct {int started;} g_np;
 static DWORD GetTickCount(void){return tick;}
 static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
@@ -66,6 +69,8 @@ int main(void){
  Reset();Land();tick=4300;EnterTick();pos[1]=-400;tick=4600;EnterTick();pos[1]=-800;tick=4900;EnterTick();assert(g_en.fell&&warps==2&&lastWarp[1]==100);assert(g_en.active&&!fallbacks); // fall from the row's spot returns to the mission spawn
  Reset();Land();tick=4300;EnterTick();tick=4600;EnterTick();tick=5600;EnterTick();assert(g_en.safe[1]==2); // 1 s standing on the warp target makes it the solid spot
  pos[1]=-500;tick=5900;EnterTick();pos[1]=-900;tick=6200;EnterTick();assert(g_en.fell&&lastWarp[1]==2);
+ Reset();g_np.started=1;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"native boss placement")&&strstr(lastLog,"request-to-boss")&&!strstr(lastLog,"script-dormant"));
+ Reset();g_np.started=0;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"script-dormant"));
  puts("PASS native-entry: near-boss move, routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
 }
 """
