@@ -28,6 +28,9 @@ static int Mask(int m,int ms){mask=ms?m:0;return 1;}
 static int Load(int on,const char*t,const char*p){return 1;}
 static int (*p_osdMask)(int,int)=Mask;
 static int (*p_osdLoad)(int,const char*,const char*)=Load;
+static int (*p_entryTip)(int);
+static int tipOn=-1;
+static int Tip(int on){tipOn=on;return 1;}
 static void EntryLs(int on,const char* why){g_el.on=screen=on;if(on)++shows;else ++hides;}
 static void EntryLsBegin(ArenaRow*r){EntryLs(1,"begin");}
 static int PhDamageEntryInstall(void){return installed;}
@@ -64,6 +67,8 @@ int main(void){
  installed=0;EntryCoverBegin(&row);assert(!g_entryCover.active&&!screen);installed=1;
  g_cfg_entry_ls=0;EntryCoverBegin(&row);assert(!g_entryCover.active);g_cfg_entry_ls=1;
  scenes[0]=42;EntryCoverBegin(&row);EntryCoverTick();assert(screen); // old scene not an intro
+ p_entryTip=Tip;tipOn=-1;EntryCoverBegin(&row);assert(tipOn==1&&screen);
+ EntryCoverEnd("tip");assert(tipOn==0&&!g_entryCover.active);p_entryTip=0;
  EntryCoverEnd("test");now=0xfffffff0u;EcBegin(&g_entryCover,now);assert(EcStep(&g_entryCover,now+90000u,0,0,0)==EC_TIMEOUT);
  puts("PASS actual entry cover: native timeline, mission-event false intro regression, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry");
 }

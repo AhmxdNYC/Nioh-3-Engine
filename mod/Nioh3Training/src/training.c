@@ -3114,7 +3114,7 @@ static int g_fd_ok;  // overlay available: Nioh3EngineFix.asi export (D3D, drawn
 static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 // #8902/#9133 Return to where I was shows the Boss Rematch loading screen look (EngineFix export Nioh3EngineFix_LoadScreen) with the title 'Return'
 // instead of a plain black screen. [Return] LoadScreen = 1 (default), 0 = black only. Missing export (older EngineFix) = black only.
-static int (*p_osdMask)(int, int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
+static int (*p_osdMask)(int, int); static int (*p_entryTip)(int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
 static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
 static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
 // #64994: Fight now / Boss Match used to show the hosted transition cover. ac0f933f (2026-10-15) stopped that whenever
@@ -3150,6 +3150,7 @@ static int EntryCoverProtect(void) {
     return g_entryProtectUntil && (int32_t)(g_entryProtectUntil-GetTickCount()) > 0;
 }
 static void EntryCoverEnd(const char* why) {
+    if (p_entryTip) p_entryTip(0); // the post-load tip confirm is only for this cover
     if (!g_entryCover.active) return;
     g_entryCover.active = g_entryCover.covered = 0;
     EntryLs(0, why);
@@ -3176,7 +3177,8 @@ static void EntryCoverBegin(ArenaRow* r) {
     EntryLsBegin(r);
     if (!g_el.on) { EntryCoverEnd("screen not acquired"); return; }
     if (p_osdMask) p_osdMask(0xFFFF, 300);
-    Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms", r ? r->mission : 0);
+    const int tip = p_entryTip ? p_entryTip(1) : 0; // answer the press-to-continue tip; 0 if the menu overlay is off
+    Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms, tip confirm %s", r ? r->mission : 0, tip ? "armed" : "NOT armed");
 }
 static void EntryCoverTick(void) {
     if (!g_entryCover.active) return;
@@ -6082,6 +6084,8 @@ static DWORD WINAPI Worker(LPVOID x) {
             p_osdFade = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_Fade") : 0; p_osdAlpha = ef ? (int (*)(void))GetProcAddress(ef, "Nioh3EngineFix_FadeAlpha") : 0;
             p_osdLoad = ef ? (int (*)(int, const char*, const char*))GetProcAddress(ef, "Nioh3EngineFix_LoadScreen") : 0;
             p_osdMask = ef ? (int (*)(int, int))GetProcAddress(ef, "Nioh3EngineFix_MaskGameButtons") : 0;
+            p_entryTip = ef ? (int (*)(int))GetProcAddress(ef, "Nioh3EngineFix_EntryTip") : 0;
+            Log("ENTRY tip confirm: EngineFix export %s", p_entryTip ? "found" : "MISSING: the post-load prompt can wait out the cover");
             g_cfg_gate_mask_r = GetPrivateProfileIntA("Return", "ReturnGateMaskRadius", 400, ini); g_cfg_gate_mask_btn = GetPrivateProfileIntA("Return", "ReturnGateMaskButtons", 0xF000, ini);
             g_cfg_gate_mask_hold = GetPrivateProfileIntA("Return", "ReturnGateMaskHoldMs", 2000, ini); if (g_cfg_gate_mask_hold < 0) g_cfg_gate_mask_hold = 0; Log("RETURN gate (#9909): ReturnGateMaskHoldMs %d (mask kept after leaving the gate radius)", g_cfg_gate_mask_hold);
             Log("RETURN gate (#9324): native interact hidden within %d cm of the gate (buttons 0x%X), EngineFix export %s", g_cfg_gate_mask_r, g_cfg_gate_mask_btn, p_osdMask ? "found" : "MISSING: the native end-mission prompt can open");
