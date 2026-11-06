@@ -3125,6 +3125,7 @@ static int (*p_osdFade)(int, int), (*p_osdAlpha)(void);
 // #8902/#9133 Return to where I was shows the Boss Rematch loading screen look (EngineFix export Nioh3EngineFix_LoadScreen) with the title 'Return'
 // instead of a plain black screen. [Return] LoadScreen = 1 (default), 0 = black only. Missing export (older EngineFix) = black only.
 static int (*p_osdMask)(int, int); static int (*p_entryTip)(int); static int g_cfg_gate_mask_r = 400, g_cfg_gate_mask_btn = 0xF000;  // #9324 [Return] ReturnGateMaskRadius / ReturnGateMaskButtons
+static int (*p_lessonNote)(void); static int g_lessonNoteTried;
 static int (*p_osdLoad)(int, const char*, const char*); static int g_cfg_rh_ls = 1, g_rh_ls_on;
 static void RhLoadScreen(int on) { if (!p_osdLoad || !g_cfg_rh_ls || on == g_rh_ls_on) return; g_rh_ls_on = on; int r = p_osdLoad(on, "Return", "Returning to where you were..."); Log("RETURN loading screen %s (EngineFix overlay %s)", on ? "on" : "off", r ? "drawing" : "menu off: black only"); }
 // #64994: Fight now / Boss Match used to show the hosted transition cover. ac0f933f (2026-10-15) stopped that whenever
@@ -3160,6 +3161,17 @@ static void EntryLsBegin(ArenaRow* r) {
 static int EntryCoverProtect(void) {
     return g_entryProtectUntil && (int32_t)(g_entryProtectUntil-GetTickCount()) > 0;
 }
+static int LessonNote(void) {
+    if (!p_lessonNote && !g_lessonNoteTried) {
+        HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi");
+        if (!rm) rm = GetModuleHandleA("Nioh3BossRematch.dll");
+        if (rm) {
+            p_lessonNote = (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_LessonNote");
+            g_lessonNoteTried = 1;
+        }
+    }
+    return p_lessonNote ? p_lessonNote() : 0;
+}
 static void EntryCoverEnd(const char* why) {
     g_entryPlayerHit = 0;
     if (p_entryTip) p_entryTip(0); // the post-load tip confirm is only for this cover
@@ -3170,6 +3182,9 @@ static void EntryCoverEnd(const char* why) {
     // Brief finite grace lets the next Present reveal gameplay before damage resumes.
     g_entryProtectUntil = GetTickCount()+500;
     Log("ENTRY COVER end: %s (+%lu ms); damage grace 500 ms", why, GetTickCount()-g_entryCover.started);
+    // A replaced cover and a screen that never came up are not "the cover ended on this row".
+    if (why && strcmp(why, "replaced entry") != 0 && strcmp(why, "screen not acquired") != 0 && LessonNote())
+        Log("ENTRY lesson note shown");
 }
 static void EntryCoverFight(void) {
     // Fallback TrainAttachArena opens a history row before CreateDynamic runs.

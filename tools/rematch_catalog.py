@@ -77,7 +77,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -760,6 +760,153 @@ def build():
     return allrows, out
 
 
+_LESSON_IDS = None
+TSV_DEFAULT = ROOT / "mod" / "Nioh3BossRematch" / "Nioh3BossRematch_bosses.tsv"
+
+
+def _game_data_root():
+    """Worktree first, then the main checkout. A sparse worktree has no LFM extract."""
+    for base in (ROOT, pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine")):
+        if (base / "data" / "extract" / "lfm").joinpath(*IDTAB).is_file() and (base / "data" / "lfm_list.tsv").is_file():
+            return base
+    return None
+
+
+def _lfm_paths(base):
+    """file id -> script path, same id table boss_map_all.py uses."""
+    lfm_root = base / "data" / "extract" / "lfm"
+    d = lfm_root.joinpath(*IDTAB).read_bytes()
+    n = struct.unpack_from("<I", d, 4)[0]
+    rel = {}
+    for i in range(n):
+        e = 8 + i * 8
+        k, o = struct.unpack_from("<Ii", d, e)
+        rel[k] = d[e + o:d.index(b"\0", e + o)].decode("latin1")
+    arch = {}
+    for line in (base / "data" / "lfm_list.tsv").read_text(encoding="utf-8", errors="replace").splitlines():
+        p = line.split("\t")
+        if len(p) > 5:
+            arch[p[5].strip("/")] = p[0]
+    out = {}
+    for k, v in rel.items():
+        a = arch.get(v)
+        if a is None:
+            continue
+        path = lfm_root / ("archive_" + a) / pathlib.Path(*v.split("/"))
+        if path.is_file():
+            out[k] = path
+    return out
+
+
+def _script_is_lesson(path):
+    """Entry function reaches Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
+
+    CALL_NATIVE is 1-based; CALL_FN and FN_ENTRY are 0-based (lfm_disasm.insn_name). Shared library
+    functions that contain those natives do not count unless the entry actually calls them.
+    BossBattleModeEnd is a different native and does not make a duel.
+    """
+    here = ROOT / "re" / "scripts_re"
+    if not (here / "lfm_disasm.py").is_file():
+        here = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\re\scripts_re")
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import lfm_disasm
+    s = lfm_disasm.load(str(path))
+    if not s.insns:
+        return False
+    fn_at = {}
+    entry = None
+    for i, ins in enumerate(s.insns):
+        if ins.op == 0x3B:
+            fn_at[ins.args[0]] = i
+            entry = ins.args[0]
+    if entry is None:
+        return False
+    seen, stack = set(), [entry]
+    death = boss = False
+    while stack:
+        sym = stack.pop()
+        if sym in seen or sym not in fn_at:
+            continue
+        seen.add(sym)
+        for ins in s.insns[fn_at[sym] + 1:]:
+            if ins.op == 0x3B:
+                break
+            if ins.op == 0x1B:
+                name = lfm_disasm.insn_name(s, ins)
+                if name == "Character::IsDeathGroupEnemy":
+                    death = True
+                elif name == "Mission::BossBattleMode":
+                    boss = True
+            elif ins.op == 0x1F:
+                stack.append(ins.args[0])
+    return death and not boss
+
+
+def lesson_mission_ids():
+    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+
+    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
+    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
+    scan"; the caller keeps the column already in the catalogue.
+    """
+    global _LESSON_IDS
+    if _LESSON_IDS is not None:
+        return _LESSON_IDS
+    base = _game_data_root()
+    if base is None:
+        return None
+    files = _lfm_paths(base)
+    md = (base / "data" / "extract" / "lfm").joinpath(*MISSIONDB).read_bytes()
+    n = struct.unpack_from("<I", md, 4)[0]
+    judged = {}
+    found = set()
+    for i in range(n):
+        b = 8 + i * 0x198
+        if b + 0x15A > len(md):
+            break
+        fid = struct.unpack_from("<I", md, b + 0x50)[0]
+        mid = struct.unpack_from("<H", md, b + 0x158)[0]
+        path = files.get(fid)
+        if path is None:
+            continue
+        key = str(path)
+        if key not in judged:
+            judged[key] = _script_is_lesson(path)
+        if judged[key]:
+            found.add(mid)
+    _LESSON_IDS = found
+    return _LESSON_IDS
+
+
+def _preserved_lesson_ids(path=TSV_DEFAULT):
+    """Lesson mission ids already in the catalogue. Used only when this machine has no LFM extract."""
+    if not path.is_file():
+        return set()
+    header = None
+    found = set()
+    for line in path.read_text(encoding="ascii", errors="replace").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if header is None:
+            header = parts
+            continue
+        if "lesson" not in header or "replay_mission_id" not in header:
+            return set()
+        j, k = header.index("lesson"), header.index("replay_mission_id")
+        if j < len(parts) and parts[j] == "1" and k < len(parts) and parts[k].startswith("0x"):
+            found.add(int(parts[k], 16))
+    return found
+
+
+def _lesson_flag(mid):
+    ids = lesson_mission_ids()
+    if ids is None:
+        ids = _preserved_lesson_ids()
+    return "1" if mid in ids else "0"
+
+
 def blank():
     return {k: "-" for k in COLS}
 
@@ -804,6 +951,7 @@ def mrow(rt, mid, b, lst, ma, fi):
                 o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
                           "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
                           "arena_boxgeo": ar["geo"]})
+    o["lesson"] = _lesson_flag(mid)
     return o
 
 
@@ -816,7 +964,8 @@ def erow(e):
               "region": REGION_BYTE_ERA.get(int(e["region_byte"], 16), "?"), "route": "E0", "hidden": "0", "story_mission": "0xCC96",
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],
               "stage_mission": e["start_point_0c"], "warp_x": x, "warp_y": y, "warp_z": z, "warp_yaw": yaw, "box_id": e["wave_box_14"],
-              "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i)})
+              "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i),
+              "lesson": "0"})
     return o
 
 
@@ -824,7 +973,7 @@ def xrow(name, region, reason):
     o = blank()
     o.update({"id": "X" + re.sub(r"[^A-Za-z0-9]", "", ascii_(name))[:14], "name": ascii_(name),
               "region": region_of(region) if region else "-", "route": "X", "hidden": "0", "verified": "0", "boss": ascii_(name),
-              "reason": ascii_(reason)[:240]})
+              "reason": ascii_(reason)[:240], "lesson": "0"})
     return o
 
 

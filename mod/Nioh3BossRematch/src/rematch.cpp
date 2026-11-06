@@ -2977,6 +2977,9 @@ void NoFinToggle(int dir) {
 #endif  // BR_SOULCORE
 #include "training_bosses_menu.h"  // user #14309 / #14313 / #14317 / #14336: Training Bosses, Boss X pages, timer, Sequences
 constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)" under that boss row
+// One sentence for the list footer, the Fight now footer, and the post-cover toast. The catalogue lesson column
+// is the script scan (IsDeathGroupEnemy reached, BossBattleMode never called). The list draws before that script runs.
+static const char kLessonLine[] = "Lesson: defeat the waves, then follow the white dot and hold RB";
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 // Free gap above the live catalogue [kItMoveBase, kItMoveBase+N3CAT_CAP) and below Teleport.
@@ -4243,12 +4246,13 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* why = CanMatchArena(row);
             if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s    Train here (arena unavailable)", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Fight now - %s", mk, why);
-            else add(sel ? cWhite : cGreen, sel, "%s    Fight now (boss arena)", mk);
+            else add(sel ? cWhite : cGreen, sel, "%s    %s", mk,
+                     (size_t)row < g_rows.size() && g_rows[(size_t)row].lesson ? "Fight now (lesson)" : "Fight now (boss arena)");
             }
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const char* routeWhy = CanMatchArena(it[i]);
-            const char* status = r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
+            const char* status = r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
             const uint32_t c = !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
             if (g_uiPages.page == uActions) add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
             else
@@ -4397,12 +4401,15 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 else snprintf(footer, nf, "This scroll's own waves. No Picture Scroll item is used. A: start / B: back.");
             } else {
             const char* why = CanMatchArena(row);
-            if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here, or choose Train here below. B: back." : "%s. B: back.", why);
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].lesson)
+                snprintf(footer, nf, "%s. A: start / B: back.", kLessonLine);
+            else if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here, or choose Train here below. B: back." : "%s. B: back.", why);
             else snprintf(footer, nf, "Fight this boss in its arena, beaten or unbeaten. Solo and progress guards apply. Train here is a separate Practice option. A: start / B: back.");
             }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab.", r.name, g_sel + 1, n - 1);
+            if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.lesson) snprintf(footer, nf, "%s", kLessonLine);
+            else if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab.", r.name, g_sel + 1, n - 1);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");
@@ -5036,4 +5043,13 @@ const char* NameForPlacement(uint32_t id) {
 extern "C" __declspec(dllexport) int Nioh3BossRematch_InMatch() {
     namespace r = addon::rematch;
     return r::g_replayIn.load() || r::g_fight.load() || r::g_practiceOwned.load() ? 1 : 0;
+}
+
+// Training calls this once the Fight now cover has actually ended. 1 only for a lesson row: one closed-menu toast.
+extern "C" __declspec(dllexport) int Nioh3BossRematch_LessonNote() {
+    namespace r = addon::rematch;
+    if (r::g_fightRow < 0 || (size_t)r::g_fightRow >= r::g_rows.size() || !r::g_rows[(size_t)r::g_fightRow].lesson)
+        return 0;
+    r::ToastF(r::cWhite, 8000, "%s", r::kLessonLine);
+    return 1;
 }
