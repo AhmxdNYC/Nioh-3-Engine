@@ -114,6 +114,9 @@ uintptr_t F_RIGHTSREQ=reinterpret_cast<uintptr_t>(&NativeRights);
 struct Scroll { uint64_t ref=123; uint8_t key[12]{}; uint16_t itemId=1; int idx=0; };
 struct EmakiTab { uint64_t vb=0; int n=0; uint8_t emptyKey=0; uint32_t count=1; };
 bool FindScroll(Scroll&) { return true; }
+int g_q6Count=-1;
+int CountScrollItems(){return 7;}
+bool g_clearGuardOk=true;
 bool ReadEmakiTab(EmakiTab& t) { t.vb=reinterpret_cast<uint64_t>(liveMap)+(mapReplaced?8:0); t.n=1; return true; }
 bool WrGuard(void* dst,const void* src,size_t n) { ++writes; if(!mapWriteOk) return false; if(!mapLie) memcpy(dst,src,n); return true; }
 @MAP_RESTORE@
