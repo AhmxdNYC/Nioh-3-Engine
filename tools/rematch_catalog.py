@@ -516,6 +516,58 @@ def mtitle(b, rn=""):
     return t
 
 
+def is_placeholder_title(title):
+    """Resolved game text. The mission-name string Dummy (text id 33397680) is the placeholder. Not a list of mission ids."""
+    return mission_title(title or "") in ("", "Dummy")
+
+
+def display_mission_name(game_title, boss_name, other_titles):
+    """Menu label only. other_titles is one resolved title per other mission that places this same boss character.
+    Exactly one real name -> that name. Zero or several -> the boss's own name.
+    A real game title is returned unchanged. This is a display choice, not a claim that a title field links the missions.
+    """
+    t = mission_title(game_title or "")
+    if not is_placeholder_title(t):
+        return t
+    named = [mission_title(x) for x in other_titles if not is_placeholder_title(x)]
+    if len(named) == 1:
+        return named[0]
+    return ascii_(boss_name or "") or t
+
+
+def apply_placeholder_labels(out, bs, idx):
+    """Replace mission_name when the game title is placeholder text. Route, replay id, placement and the started mission stay put."""
+    title_of = {mid: r["name"] for mid, r in bs.items()}
+    key_at = {}
+    keys_on = collections.defaultdict(set)
+    missions_of = collections.defaultdict(set)
+    for h in idx:
+        m = int(h["mission_id"], 16)
+        k = int(h["key64"])
+        missions_of[k].add(m)
+        if int(h["flags9c"], 16) & 4:
+            key_at[(m, str(h["placement_id"]))] = k
+            keys_on[m].add(k)
+    for o in out:
+        mid_s = str(o.get("replay_mission_id") or "")
+        if not mid_s.startswith("0x"):
+            continue
+        mid = int(mid_s, 16)
+        game = title_of.get(mid, "")
+        if not is_placeholder_title(game):
+            continue
+        k = key_at.get((mid, str(o.get("placement_id") or "")))
+        keys = [k] if k else sorted(keys_on.get(mid, ()))
+        seen, other = set(), []
+        for key in keys:
+            for om in sorted(missions_of.get(key, ())):
+                if om == mid or om in seen:
+                    continue
+                seen.add(om)
+                other.append(title_of.get(om, ""))
+        o["mission_name"] = display_mission_name(game, o.get("name") or "", other)
+
+
 def classify(mid, bs, mi, ma):
     """-> (route letter or None, reason) for one mission id."""
     b = bs.get(mid)
@@ -696,6 +748,7 @@ def build():
     for e in em:
         out.append(erow(e))
     out.extend(xtsv)
+    apply_placeholder_labels(out, bs, idx)
     cnt = collections.Counter(o["name"] for o in out)
     for o in out:
         if cnt[o["name"]] > 1 and o["route"] != "X":
