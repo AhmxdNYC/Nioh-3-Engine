@@ -167,7 +167,12 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 std::atomic<bool> g_swappedInPlace{false};
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12 };
+// Native gate retry returns through the owned transaction, then starts a fresh guarded request.
+int g_nativeAgainRow = -1;
+ULONGLONG g_nativeAgainAt = 0;
+uint64_t g_nativeAgainSequence = 0, g_nativeAgainEpoch = 0;
+std::atomic<uint64_t> g_requestEpoch{0};
 bool g_noSwap = false;  // game thread: kReqTeleport = Fight now through the NORMAL mission load (never Nioh3Training's in-place swap)
 // #12444: the teleport's mission load is not plain: once the target world's stage is ready inside a load, end the loading screen early (lsfade) and
 // request the boss gate sooner. [Rematch] TeleportFastLoad (1), TeleportLoadingScreenEndMs (-2 = Nioh3Training.ini [ArenaSwap] LoadingScreenEndMs, the
@@ -191,9 +196,10 @@ uint64_t g_qHash = 0;
 const char* RowName(int row) { return row >= 0 && (size_t)row < g_rows.size() ? g_rows[(size_t)row].name : ""; }
 
 void Post(uint32_t kind, int row, const char* via) {
+    g_requestEpoch.fetch_add(1);
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)"};
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)", "return and fight the same native boss again"};
     Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
 }
 
@@ -2010,6 +2016,30 @@ void TfTick(const Snap& s, ULONGLONG t) {
     }
 }
 
+uint32_t NativeGateMission() {
+    using Fn = uint32_t (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_NativeGateMission");
+    return f ? f() : 0;
+}
+int NativeGateRow() {
+    const uint32_t mission = NativeGateMission();
+    if (!mission) return -1;
+    const int row = g_activeRow.load();
+    return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission ? row : -1;
+}
+void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
+    if (g_nativeAgainRow < 0) return;
+    if (g_requestEpoch.load() != g_nativeAgainEpoch || g_attemptSequence != g_nativeAgainSequence ||
+        g_attemptPhase.load() == aQuarantined || t - g_nativeAgainAt > 120000 || SessionGate(s)) {
+        Log("Rematch: native gate retry cancelled (new action, changed attempt, session loss or timeout)");
+        g_nativeAgainRow = -1; return;
+    }
+    // Never overlap the old return, restored placement transaction, or any new request.
+    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) return;
+    const int row = g_nativeAgainRow; g_nativeAgainRow = -1;
+    Post(kReqFight, row, "native gate after completed return");
+}
+
 void AutoMovesTick();  // pc2 #23907, end of file
 void Tick() {
     const ULONGLONG t = Ms();
@@ -2091,9 +2121,13 @@ void Tick() {
     if (g_pend) {
         const uint32_t kind = g_pend & 0xFF;
         const int row = (int)(g_pend >> 8) - 1;
-        if (kind == kReqExit || kind == kReqPracticeExit) {
+        if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {
             g_pend = 0;
-            if (!g_exitOk) Refuse(g_exitWhy);
+            if (kind == kReqNativeAgain && (row < 0 || (size_t)row >= g_rows.size() ||
+                g_attemptPhase.load() != aActive || g_attempt.row != row ||
+                g_attempt.mission != s.ms28 || g_rows[(size_t)row].missionId != NativeGateMission()))
+                Refuse("native gate no longer owns this fight");
+            else if (!g_exitOk) Refuse(g_exitWhy);
             else if (kind == kReqPracticeExit && PracticeReturnGate(s)) Refuse(PracticeReturnGate(s));
             else if (const char* why = ExitGate(s)) Refuse(why);
             else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
@@ -2102,6 +2136,11 @@ void Tick() {
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
                 if (rc) AttemptQuarantine("return call exception");
+                if (!rc && kind == kReqNativeAgain) {
+                    g_nativeAgainRow = row; g_nativeAgainAt = t;
+                    g_nativeAgainSequence = g_attemptSequence; g_nativeAgainEpoch = g_requestEpoch.load();
+                    Log("Rematch: native gate retry waits for return cleanup (%s)", g_rows[(size_t)row].id);
+                }
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Result(rc ? "exit failed" : "exit requested");
             }
@@ -2135,6 +2174,7 @@ void Tick() {
     TfTick(s, t);
     SelfTestTick(s, t);
     TrackEmaki(s, t);
+    NativeGateRetryTick(s, t);
     CoverTick(s,t);
 }
 
@@ -2383,6 +2423,7 @@ bool BossFightItemsAvailable() {
 }
 int GateMode() {  // 0 = unknown / no session (old 2-option page), 1 = Boss Rematch fight, 2 = Training
     using Fn = int (*)();
+    if (NativeGateMission()) return 1;
     const auto f = (Fn)TrainingExport("Nioh3Training_SessionMode");
     return f ? f() : 0;
 }
@@ -3415,6 +3456,15 @@ bool UiAct() {
         ToastF(cWhite, 6000, "Boss Matches: boss mode ended. Open the map and travel to a shrine.");
         return true;
     }
+    if (item == kItReturnHome && NativeGateMission()) {
+        const Snap s = ReadSnap();
+        const char* why = !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+        Post(kReqExit, -1, "native Proceed gate");
+        ToastF(cWhite, 5000, "Boss Matches: leaving the mission...");
+        return true;
+    }
     if (item == kItReturnHome) {  // not behind the rematch gates: it is the way out of a running swap / arena session
         using Fn = int (*)();
         const auto ret = (Fn)TrainingExport("Nioh3Training_ReturnHome");
@@ -3423,6 +3473,16 @@ bool UiAct() {
         if (rc == -1) { snprintf(g_msg, sizeof(g_msg), "Already returning..."); return false; }
         if (rc == 0) { snprintf(g_msg, sizeof(g_msg), "Nothing to return from: no Fight now arena swap since the game started (or you are already back)."); return false; }
         ToastF(cWhite, 5000, rc == 1 ? "Boss Matches: back to where you were..." : "Boss Matches: arena session ended (no stored spot to return to).");
+        return true;
+    }
+    if (item == kItFightAgain && NativeGateMission()) {
+        const int row = NativeGateRow();
+        const Snap s = ReadSnap();
+        const char* why = row < 0 ? "native boss row is no longer owned" : !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+        Post(kReqNativeAgain, row, "native Proceed gate");
+        ToastF(cWhite, 5000, "Boss Matches: returning, then starting the same fight...");
         return true;
     }
     if (item == kItFightAgain) {
@@ -3775,6 +3835,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : !ok || *why ? cDim : cGray, sel, "%s %-24s %s   A / Left / Right%s", mk,
                 it[i] == kItDeathCut ? "Boss death animation:" : it[i] == kItDeathBlow ? "Require final blow:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF", why);
         }
+        else if (it[i] == kItReturnHome && NativeGateMission()) {
+            add(sel ? cWhite : cGreen, sel, "%s Leave Boss Match", mk);
+        }
         else if (it[i] == kItReturnHome) {
             const int f = ReturnInfo();
             const bool can = f > 0 && (f & (1 | 8)) != 0;
@@ -4051,6 +4114,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
         else if (item == kItDeathBlow) snprintf(footer, nf, "Training / spawned Boss Matches: ON requires a final blow at zero HP; OFF kills at zero HP. No grapple overrides this rule. Saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "Training / spawned Boss Matches: drop boss loot and Amrita, with one final blow. No first-clear rewards. Boss Matches start this OFF; you can enable it during the match.");
+        else if (item == kItReturnHome && NativeGateMission()) snprintf(footer, nf, "Return to where you entered this Boss Match.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the arena session (boss removed) and puts you back where you stood before it started, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItAutoRetry) snprintf(footer, nf, "Training and arena Boss Matches retry in place after defeat. Auto retry is always enabled.");
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
