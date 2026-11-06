@@ -3174,6 +3174,18 @@ static int LessonNote(void) {
     }
     return p_lessonNote ? p_lessonNote() : 0;
 }
+// One on-screen line through EngineFix. The Boss Rematch toast only fills the menu text, so a lesson
+// line has to use this same path as the floorless-stand note. No boss-row list: the caller already decided.
+static void EntryScreenNote(const char* msg) {
+    if (!msg || !msg[0]) return;
+    if (!p_osdNote) {
+        HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi");
+        if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
+        p_osdNote = ef ? (int (*)(const char*))GetProcAddress(ef, "Nioh3EngineFix_Note") : 0;
+    }
+    int r = p_osdNote ? p_osdNote(msg) : 0;
+    Log("ENTRY COVER note: %s (%s)", msg, r ? "on screen" : "EngineFix note missing");
+}
 static void EntryCoverEnd(const char* why) {
     g_entryPlayerHit = 0;
     if (p_entryTip) p_entryTip(0); // the post-load tip confirm is only for this cover
@@ -3185,8 +3197,11 @@ static void EntryCoverEnd(const char* why) {
     g_entryProtectUntil = GetTickCount()+500;
     Log("ENTRY COVER end: %s (+%lu ms); damage grace 500 ms", why, GetTickCount()-g_entryCover.started);
     // A replaced cover and a screen that never came up are not "the cover ended on this row".
-    if (why && strcmp(why, "replaced entry") != 0 && strcmp(why, "screen not acquired") != 0 && LessonNote())
+    // Same sentence as Boss Rematch kLessonLine. ToastF does not reach the play screen.
+    if (why && strcmp(why, "replaced entry") != 0 && strcmp(why, "screen not acquired") != 0 && LessonNote()) {
+        EntryScreenNote("Lesson: defeat the waves, then follow the white dot and hold RB");
         Log("ENTRY lesson note shown");
+    }
 }
 static void EntryCoverFight(void) {
     // Fallback TrainAttachArena opens a history row before CreateDynamic runs.
@@ -3210,14 +3225,7 @@ static void EntryCoverBegin(ArenaRow* r) {
     Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms, tip confirm %s", r ? r->mission : 0, tip ? "armed" : "NOT armed");
 }
 static void EntryFloorNote(void) {
-    const char* msg = "Fight from where the mission put you, or leave.";
-    if (!p_osdNote) {
-        HMODULE ef = GetModuleHandleA("Nioh3EngineFix.asi");
-        if (!ef) ef = GetModuleHandleA("Nioh3EngineFix.dll");
-        p_osdNote = ef ? (int (*)(const char*))GetProcAddress(ef, "Nioh3EngineFix_Note") : 0;
-    }
-    int r = p_osdNote ? p_osdNote(msg) : 0;
-    Log("ENTRY COVER note: %s (%s)", msg, r ? "on screen" : "EngineFix note missing");
+    EntryScreenNote("Fight from where the mission put you, or leave.");
 }
 static void EntryCoverTick(void) {
     if (g_ph_giveup) {
