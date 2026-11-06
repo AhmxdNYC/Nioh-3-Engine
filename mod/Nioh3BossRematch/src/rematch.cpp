@@ -267,6 +267,8 @@ struct NativeAttempt {
     bool scroll = false, callAttempted = false, callCompleted = false;
     bool afterValid = false, loadSeen = false, loadDown = false;
     bool returnAttempted = false, returnCompleted = false, standaloneReturn = false, standaloneDone = false;
+    bool returnLoadSeen = false, returnDeparted = false;
+    uint32_t exitMission = 0, exitRetry = 0;
     ULONGLONG requestedAt = 0, settledAt = 0;
     uint8_t before[3 * 0x58] = {}, after[3 * 0x58] = {};
     const char* reason = nullptr;
@@ -355,16 +357,18 @@ void AttemptObserve(const Snap& s, ULONGLONG t) {
     const int phase = g_attemptPhase.load();
     if (phase == aNone || phase == aQuarantined) return;
     if (SessionGate(s)) { AttemptQuarantine("session lost or connected during native attempt"); return; }
-    if (phase == aReturning && g_attempt.standaloneReturn) {
-        if (!s.gm) { g_attempt.settledAt = 0; return; }
-        if (s.st[2]) { g_attempt.loadSeen = true; g_attempt.settledAt = 0; return; }
-        if (!g_attempt.loadSeen || !s.msOk || !s.player || s.st[3] || s.st[4] ||
-            !s.ms28 || s.ms28 == g_attempt.sourceMission) { g_attempt.settledAt = 0; return; }
-        if (!g_attempt.settledAt || s.ms28 != g_attempt.returnMission || s.ms14 != g_attempt.returnRetry) {
-            g_attempt.returnMission = s.ms28;
-            g_attempt.returnRetry = s.ms14;
-            g_attempt.settledAt = t;
-        } else if (t - g_attempt.settledAt > 5000) g_attempt.standaloneDone = true;
+    if (phase == aReturning) {
+        // A completed return owns only its transition, not a later real mission.
+        // Latch departure across UI pauses/another load; never confuse the same
+        // mission entered at its ordinary start with the old Boss Match.
+        if (!g_attempt.returnCompleted || !s.gm) return;
+        if (s.st[2]) { g_attempt.returnLoadSeen = true; return; }
+        if (!g_attempt.returnLoadSeen || !s.msOk) return;
+        if (s.ms28 != g_attempt.exitMission || s.ms14 != g_attempt.exitRetry)
+            g_attempt.returnDeparted = true;
+        if (!s.player || s.st[3] || s.st[4] || !g_attempt.returnDeparted) return;
+        g_attempt.returnMission = s.ms28; g_attempt.returnRetry = s.ms14;
+        g_attempt.standaloneDone = true; // all explicit returns; restore via ToIdle
         return;
     }
     if (phase != aAwaitLoad) return;
@@ -398,6 +402,8 @@ void AttemptReturning(const Snap& s) {
         g_attempt.sourceMission = s.ms28;
         g_attempt.sourceRetry = s.ms14;
     }
+    g_attempt.exitMission = s.ms28; g_attempt.exitRetry = s.ms14;
+    g_attempt.returnLoadSeen = g_attempt.returnDeparted = g_attempt.standaloneDone = false;
     g_attempt.returnAttempted = true;
     g_attemptPhase.store(aReturning);
 }
@@ -2071,7 +2077,7 @@ void Tick() {
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
-    if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("standalone return observed", true);
+    if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("native return landing observed", true);
     if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
     if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
         memcpy(g_posAtLoad, g_posLive, sizeof(g_posAtLoad));

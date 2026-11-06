@@ -17,6 +17,7 @@ code=r"""
 #include <cstring>
 #include <cstdio>
 #include "rematch_core.h"
+#include "native_entry_gates_gen.h"
 using Row=rcore::Row;
 @GLOBALS@
 @SNAP@
@@ -89,7 +90,7 @@ void FillStartFromTraining(Row&) {}
 uint32_t nativeMission=0;
 uint32_t NativeMissionFixture(){return nativeMission;}
 void NativeEntryResult(uint32_t,int accepted) { admission=accepted; }
-bool ClearedNow(uint16_t,const char** why) { if(!canClear) *why="uncleared"; return canClear; }
+bool ClearedNow(uint16_t,const char** why,bool=false) { if(!canClear) *why="uncleared"; return canClear; }
 void enqueue(uint32_t mission,uint32_t start) {
     if(outcome==6) return;
     if(outcome==3) ++start;
@@ -157,7 +158,7 @@ int main(int argc,char** argv) {
         fresh(); start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
         nativeMission=0x1CBC;
         Post(kReqNativeAgain,0,"fixture");Tick();if(!check(returns==1 && g_attemptPhase==aReturning && g_nativeAgainRow==0))return 1;
-        step(27000,true,0x1CBC,67064);step(28000,false,0x1111,123);step(34001,false,0x1111,123);
+        step(27000,true,0x1CBC,67064);step(28000,false,0x1111,123);
         if(!check(g_attemptPhase==aNone && g_nativeAgainRow==-1 && g_req==((1u<<8)|kReqFight)))return 1;
         memset(queue,0,sizeof(queue));step(35000,false,0x1111,123);if(!check(requests==2 && g_attemptPhase==aAwaitLoad))return 1;
         fresh(); start(); step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
@@ -173,15 +174,46 @@ int main(int argc,char** argv) {
         printf("%d Training admission / guard-before-request checks PASS\n",checks); return 0;
     }
     if(scenario==1) {
-        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456); step(28001,false,0x2222,456);
+        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456);
         if(!check(g_attemptPhase==aNone && !AttemptStartGate())) return 1;
-        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0x2222,456); step(28001,false,0x3333,789);
-        if(!check(g_attemptPhase==aReturning && g_attempt.settledAt==28001)) return 1;
-        fixtureSnap.gm=false; step(38001,false,0x3333,789); fixtureSnap.gm=true; step(38002,false,0x3333,789);
-        if(!check(g_attemptPhase==aReturning && g_attempt.settledAt==38002)) return 1;
-        step(44003,false,0x3333,789);
-        if(!check(g_attemptPhase==aNone)) return 1;
-        printf("%d standalone return regression checks PASS\n",checks); return 0;
+        fresh(); post(kReqExit); step(21000,true,0x1111,123); step(22000,false,0,456);
+        if(!check(g_attemptPhase==aNone && !AttemptReturnGate())) return 1; // hub zero valid
+        fresh();post(kReqExit);fixtureSnap.gm=false;step(21000,true,0,456);
+        fixtureSnap.gm=true;step(22000,false,0,456);
+        if(!check(g_attemptPhase==aReturning))return 1; // no observed return load
+        step(23000,true,0,456);fixtureSnap.player=false;step(24000,false,0,456);
+        if(!check(g_attemptPhase==aReturning))return 1;
+        fixtureSnap.player=true;step(24001,false,0,456);
+        if(!check(g_attemptPhase==aNone))return 1;
+        printf("%d standalone return landing checks PASS\n",checks); return 0;
+    }
+    if(scenario==6) {
+        // Ally: hub arrives then ordinary SAME mission starts before old 5s delay.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        post(kReqExit);step(27000,true,0x1CBC,67064);step(28000,false,0,123);
+        if(!check(g_attemptPhase==aNone && g_state==kIdle))return 1;
+        step(31000,true,0x1CBC,999);step(61000,false,0x1CBC,999);
+        if(!check(!AttemptStartGate()&&!AttemptReturnGate()&&g_state==kIdle))return 1;
+        memset(queue,0,sizeof(queue));post(kReqFight);
+        if(!check(requests==2&&g_attemptPhase==aAwaitLoad))return 1; // actual new admission
+        // Hub UI still paused: retain departure, finish after the second load.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        post(kReqExit);step(27000,true,0x1CBC,67064);fixtureSnap.st[3]=1;step(28000,false,0,123);
+        if(!check(g_attemptPhase==aReturning&&g_attempt.returnDeparted))return 1;
+        step(31000,true,0x1CBC,67064);fixtureSnap.st[3]=0;step(61000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aNone&&g_state==kIdle))return 1; // even identical ID/retry after observed hub
+        // Direct non-hub landing, same mission but ordinary retry point.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        post(kReqExit);step(27000,true,0x1CBC,67064);step(61000,false,0x1CBC,999);
+        if(!check(g_attemptPhase==aNone))return 1;
+        // No departure evidence: an unchanged landing cannot release ownership.
+        fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        post(kReqExit);step(27000,true,0x1CBC,67064);step(61000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aReturning))return 1;
+        // Restore conflict must quarantine rather than unlock a new request.
+        fixtureSnap.ms28=0;restoreOk=false;Tick();
+        if(!check(g_attemptPhase==aQuarantined&&AttemptStartGate()))return 1;
+        printf("%d exit/re-entry recovery checks PASS\n",checks);return 0;
     }
     if(scenario==2) {
         fresh(); start(false); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
@@ -366,7 +398,7 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
@@ -375,7 +407,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
-    for scenario in ('5','4','1','2','3','0'):
+    for scenario in ('6','5','4','1','2','3','0'):
         result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
         print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
     assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)
