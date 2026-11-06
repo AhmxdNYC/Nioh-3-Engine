@@ -1310,11 +1310,13 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (row < 0) {
         if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
     } else {
-        // No inventory index. key[8]=0 is not the item-menu consume mode. Whether the game accepts this key is unproven (Q1/Q6).
+        // No inventory item. Ref -1 is the game's own no-item path: MissionLoadStep 223B180 then keeps the key itself (+0x344 = 1), and
+        // the unique-enemy flag readers E537A0 / E5D8E0 skip the inventory. Any other ref is treated as an item: 107B060 inserts an
+        // unknown ref into the inventory's ref map with index 0, so ref 0 tied the scroll to whatever sits in inventory slot 0.
         memset(sc.key, 0, sizeof(sc.key));
         sc.idx = -1;
         sc.itemId = 0;
-        sc.ref = 0;
+        sc.ref = ~0ULL;
         sc.key[0] = 1;
         sc.key[7] = 1;
         sc.key[8] = 0;
@@ -1745,6 +1747,35 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         Result("exited %s", RowName(g_activeRow.load()));
         ToIdle("replay mission exit", true);
     }
+}
+
+// Diagnostic for the Picture Scroll wave (#75727). Logs only when a value changes. The wave manager global 45BAC40 has no site of its own,
+// so it is taken relative to the mission queue, same image. Word 0 is the active wave id (90EABC), 0xFFFF = the scroll's wave.
+void LogEmakiWave() {
+    uint64_t a = 0, ch = 0, vb = 0, ve = 0, mgr = 0, ref = 0;
+    if (!G_QUEUE || !Rd(G_CH, a) || !a || !Rd(a, ch) || !ch) return;
+    Rd(ch + 0x2BD0, vb);
+    Rd(ch + 0x2BD8, ve);
+    Rd(ch + 0x2AA8, ref);
+    uint8_t tier = 0, byte = 0, mode = 0, noItem = 0;
+    Rd(ch + 0x2BEE, tier);
+    Rd(ch + 0x2BEF, byte);
+    Rd(ch + 0x2BF4, mode);
+    Rd(ch + 0x2BA4, noItem);
+    uint16_t active = 0;
+    const bool mgrOk = Rd(G_QUEUE - 0x17E0, mgr) && mgr && Rd(mgr, active);
+    const uint32_t waves = ve >= vb ? (uint32_t)((ve - vb) / 0x28) : 0;
+    uint32_t enemies = 0;
+    for (uint32_t i = 0; i < waves && i < 8; ++i) {
+        uint64_t eb = 0, ee = 0;
+        if (Rd(vb + i * 0x28, eb) && Rd(vb + i * 0x28 + 8, ee) && ee >= eb) enemies += (uint32_t)((ee - eb) / 0x14);
+    }
+    static uint64_t last = 0;
+    const uint64_t cur = ((uint64_t)waves << 48) ^ ((uint64_t)enemies << 32) ^ ((uint64_t)active << 16) ^ ((uint64_t)noItem << 8) ^ (mgrOk ? 1 : 0);
+    if (cur == last) return;
+    last = cur;
+    Log("Rematch: scroll wave: list %u waves %u enemies, active wave %04X (manager %s), tier %02X byte %02X, mode %u, no-item %u, ref %016llX",
+        waves, enemies, active, mgrOk ? "ok" : "none", tier, byte, mode, noItem, (unsigned long long)ref);
 }
 
 void TrackEmaki(const Snap& s, ULONGLONG t) {
@@ -2285,6 +2316,7 @@ void Tick() {
     TrackReplay(s, t);
     TfTick(s, t);
     SelfTestTick(s, t);
+    if (g_state.load() == kEmaki) LogEmakiWave();
     TrackEmaki(s, t);
     NativeGateRetryTick(s, t);
     CoverTick(s,t);
