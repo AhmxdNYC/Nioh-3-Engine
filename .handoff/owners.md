@@ -63,3 +63,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-05 7:21 PM EST | cx-pc/1 #71494 | Corrected live-pass baseline: 31-52 s exit timing is 8 duel rows only; RA0CB/Yamagata unknown. Compare R9A25 against duels. No code/build/test changes; next lead evaluates live results using corrected scope.
 - CURRENT 2026-11-05 10:38 pm EST: cxl-pc #72056 offline builder finished cxl-pc/multiboss-door 00f4d210 (BR 65d31658 TR 99600c91), no install/game/lock. pc owns R0034 live validation. Build worktree D:/nioh3-wt/multiboss-door.
 - CURRENT 2026-11-05 10:48 pm EST: cxl-pc #72084 offline builder done, cxl-pc/multiboss-door 168cb8cc BR e3822ef1 TR 0e0bea32; no game/lock/install. pc tests native resolved and unresolved phase continuation next.
+- CURRENT 2026-11-05 11:00 PM EST: cxl-pc #72150 offline builder done, TR 570f9c87 BR e3822ef1, branch cxl-pc/multiboss-door. No lock/game/install. pc owns unresolved phase and early-exit live tests.

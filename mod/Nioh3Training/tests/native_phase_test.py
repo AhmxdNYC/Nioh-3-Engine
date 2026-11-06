@@ -3,7 +3,7 @@ from pathlib import Path
 import runpy, subprocess,sys,tempfile
 b=runpy.run_path(str(Path(__file__).with_name('fallback_sequence_test.py')))
 fn=b['fn'];s=b['s'];pre=b['preamble']
-pre=pre.replace('static struct {int armed,active,ended,releasing;DWORD pendingAt;} g_np;','').replace('static void NativePhaseEvent(int phase) {}','')
+pre=pre.replace('static struct {int armed,active,ended,releasing;DWORD pendingAt;} g_np;','').replace('static void NativePhaseEvent(int phase) {}','').replace('static int NativeNamedLive(void){return 0;}','')
 pre=pre.replace('int bodyGone;} g_tr;', 'int bodyGone,active;} g_tr;')
 pre+=r'''
 #define N3T_API
@@ -35,18 +35,26 @@ int main(void){
   NativePhaseTick(10000);assert(!finishes);
   tick=11000;NativePhaseEvent(2);NativePhaseTick(18999);assert(!finishes);
   live=1;NativePhaseTick(19000);assert(!finishes); // named boss still alive at timeout
-  live=0;NativePhaseTick(19001);assert(finishes==1&&result==FL_WIN&&g_np.ended);
+  g_tr.active=1;g_tr.tWin=11000;live=0;NativePhaseTick(19001);assert(finishes==1&&result==FL_WIN&&g_np.ended&&g_tr.tWin==11000); // grace never shifts an existing retry/menu timer
   NativePhaseTick(30000);assert(finishes==1);
  }
  reset("R0C12");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");tick=1000;NativePhaseEvent(2);
- assert(FightFinish(FL_QUIT)&&finishes==1&&result==FL_QUIT);NativePhaseTick(20000);assert(finishes==1);
+ assert(FightFinish(FL_QUIT)&&finishes==1&&result==FL_WIN);NativePhaseTick(20000);assert(finishes==1); // real kill + Return before timeout
+ reset("R0C12");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");tick=1000;NativePhaseEvent(2);
+ live=1;assert(FightFinish(FL_QUIT)&&result==FL_QUIT); // another named boss lives
+ reset("R0C12");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");tick=1000;NativePhaseEvent(2);tick=2300;NativePhaseEvent(1);
+ assert(FightFinish(FL_QUIT)&&result==FL_QUIT); // quit during resumed phase
+ reset("R0034");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");tick=1000;NativePhaseEvent(2);
+ assert(FightFinish(FL_QUIT)&&result==FL_QUIT); // roster has another named member
+ reset("single-row");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");
+ assert(FightFinish(FL_QUIT)&&result==FL_QUIT); // no confirmed phase end
  reset("R945F");NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");tick=1000;NativePhaseEvent(2);
  playerDead=1;NativePhaseTick(10000);assert(finishes==1&&result==FL_LOSS);
  reset("R0034");g_fb.native=1;NativePhaseEvent(1);Nioh3Training_FightMark(1,1,"boss");
  tick=1000;NativePhaseEvent(2);NativePhaseTick(10000);assert(!finishes); // resolved roster incomplete
  g_fb.complete=1;NativePhaseTick(10001);assert(finishes==1);
  reset("single-row");g_np.armed=0;g_fl.open=0;assert(FightFinish(FL_WIN)&&finishes==1); // ordinary nonnative path unchanged
- puts("PASS native phase: unresolved 1.3s restart keeps one record, full 8s grace, live boss veto, final once, quit/loss, resolved incomplete, nonnative pass-through");
+ puts("PASS native phase: unresolved 1.3s restart keeps one record, full 8s grace, live boss veto, final once, early-exit win, live/incomplete/resumed quits, loss, immediate retry timer, nonnative pass-through");
 }
 '''
 # Production dispatch and reset assertions supplement the executable transitions.
@@ -55,6 +63,9 @@ assert 'mission == g_np.row->mission' in fn('static int NativePhaseMatches(void)
 assert 'token == Nioh3Training_FightToken()' in fn('N3T_API void Nioh3Training_FightConfirmWin(')
 assert 'memset(&g_np, 0, sizeof g_np)' in fn('static void TrainRetry(')
 assert 'g_np.ended = 1' in fn('static int FightFinish(')
+assert fn('static void TrainRetry(').index('FightFinish(PlayerDeadNow()') < fn('static void TrainRetry(').index('memset(&g_np')
+assert 'if (g_np.armed && !g_np.ended) { FightFinish(FL_WIN); return; }' not in fn('static void TrainTick(')
+assert 'if (g_tr.active) g_tr.tWin = now' in fn('static void NativeRosterTick(')
 assert 'NativePhaseTick(now)' in fn('static void EnterTick(')
 with tempfile.TemporaryDirectory() as folder:
  p=Path(folder);src=p/'phase.c';exe=p/'phase.exe'

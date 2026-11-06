@@ -37,6 +37,7 @@ static DWORD tick=100;
 static DWORD GetTickCount(void){return tick;}
 static struct {int armed,active,ended,releasing;DWORD pendingAt;} g_np;
 static void NativePhaseEvent(int phase) {}
+static int NativeNamedLive(void){return 0;}
 static struct {uint32_t chr,placement;int active;} g_ar;
 static uint32_t g_arena_placement,g_dead_id;
 static DWORD g_dead_at;

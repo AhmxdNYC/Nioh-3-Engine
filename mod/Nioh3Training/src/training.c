@@ -1657,9 +1657,15 @@ static void FightBegin(int mode, const char* name, const char* id, uint32_t chr)
     ReleaseSRWLockExclusive(&g_flLock);
     Log("FIGHT start: %s | %s | boss_id=%s character_id=%u", name && name[0] ? name : "boss", FlModeName(mode), id && id[0] ? id : "unknown", chr);
 }
+static int NativeNamedLive(void);
 static int FightFinish(int result) {
     if (g_np.armed) {
-        if (result == FL_WIN && !g_np.releasing) { NativePhaseEvent(2); return 0; }
+        // Leaving after a completed native kill commits the held result now; a
+        // resumed phase, living named actor or unfinished roster is still a quit.
+        int exitWin = result == FL_QUIT && !g_np.ended && !g_np.active && g_np.pendingAt &&
+            (!FallbackMulti() || g_fb.complete) && !NativeNamedLive();
+        if (exitWin) { result = FL_WIN; g_np.ended = 1; g_np.pendingAt = 0; }
+        if (result == FL_WIN && !g_np.releasing && !exitWin) { NativePhaseEvent(2); return 0; }
         if (result == FL_LOSS || result == FL_QUIT) { g_np.ended = 1; g_np.active = 0; g_np.pendingAt = 0; }
     }
     if (FallbackMulti()) {
@@ -1722,6 +1728,7 @@ static int g_cfg_tr_respawn = 2000;
 // removed (boss mode / BGM / bar ended), player healed and put back on the round-1 spot, NO respawn: the Return gate appears. 1 = instant round reset (TrainRetry).
 static void TrainRetry(const char* why) {
     if (!g_tr.active) { Log("TRAIN retry (%s): no session", why); return; }
+    if (g_np.armed) FightFinish(PlayerDeadNow() ? FL_LOSS : FL_QUIT); // commit held kill before replacing the attempt
     // #65174: an in-place rematch does not reload the area, so the last round's ground pickups stay.
     // Boss Rematch frees type-0x10 drop objects through the game's own remove. Missing export = leave them.
     { static int (*clr)(void); static int tried;
@@ -1844,7 +1851,6 @@ static void TrainTick(void) {
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
         if (FallbackNext(now)) return;
-        if (g_np.armed && !g_np.ended) { FightFinish(FL_WIN); return; }
         g_tr.tWin = now; FightFinish(FL_WIN); { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
     if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
@@ -2082,7 +2088,7 @@ static void NativeRosterTick(DWORD now) {
             else alive |= 1u << i; // unresolved death/finisher: never duplicate it
         }
     }
-    if (g_fb.complete) { FightFinish(FL_WIN); if (g_tr.active && !g_np.armed) g_tr.tWin = now; return; }
+    if (g_fb.complete) { FightFinish(FL_WIN); if (g_tr.active) g_tr.tWin = now; return; }
     if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || !g_fb.nextAt || (int)(now - g_fb.nextAt) < 0 || g_sp.active || g_fb.handle) return;
     int next = RosterNextIndex(); if (next < 0) return;
     // Attach only for the missing dynamic member; native actors remain script-owned.
@@ -2126,7 +2132,7 @@ static void NativePhaseTick(DWORD now) {
     if (NativeNamedLive()) return;
     if (FallbackMulti() && !g_fb.complete) return; // confirmed remaining identity belongs to NativeRosterTick
     g_np.releasing = 1; FightFinish(FL_WIN); g_np.releasing = 0;
-    if (g_tr.active) g_tr.tWin = now;
+    if (g_tr.active && !g_tr.tWin) g_tr.tWin = now;
     g_np.ended = 1; g_np.pendingAt = 0;
 }
 static void EnterTick(void) {
