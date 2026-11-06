@@ -3125,6 +3125,7 @@ static int g_cfg_entry_ls = 1, g_el_miss;
 static struct { int on, left; DWORD t0, tSwap, tStable; char stage[96]; } g_el;
 #include "entry_cover.h"
 static EntryCover g_entryCover;
+static int g_entryPlayerHit; // a real hit on the player while this cover is up
 static DWORD g_entryProtectUntil;
 static void EntryLs(int on, const char* why) {
     if (!on && !g_el.on) return;
@@ -3150,6 +3151,7 @@ static int EntryCoverProtect(void) {
     return g_entryProtectUntil && (int32_t)(g_entryProtectUntil-GetTickCount()) > 0;
 }
 static void EntryCoverEnd(const char* why) {
+    g_entryPlayerHit = 0;
     if (p_entryTip) p_entryTip(0); // the post-load tip confirm is only for this cover
     if (!g_entryCover.active) return;
     g_entryCover.active = g_entryCover.covered = 0;
@@ -3184,14 +3186,20 @@ static void EntryCoverTick(void) {
     if (!g_entryCover.active) return;
     // Event-scene IDs include mission/door scripts, not only visible cinematics.
     // #72442: the old heuristic exposed the door walk-up for 3782 ms.
-    // Retain presentation ownership until FIGHT, fallback readiness or the deadline.
+    // Normal rows stay covered until FIGHT, a live fallback actor, or the 90 s deadline.
+    // A lesson teacher is script-dormant and never starts FIGHT: drop once the player is in the mission.
+    // A real hit on the player drops it too, if that happens first. The tip confirm stays armed until then.
     const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
     const int ready=g_en.fellBack && g_en.route==4;
+    const uint8_t* st = GameState();
+    const int inMission = g_en.confirmed && g_en.warped && PlayerChar() && st && !st[2];
+    const int lesson = g_en.dormant && g_en.route==2 && inMission;
+    const int hit = g_entryPlayerHit;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready || lesson || hit,0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
-        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : "cancel/return/failed");
+        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : lesson ? "script-dormant teacher, player in the mission" : hit ? "player hit" : "cancel/return/failed");
         return;
     }
     if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }
@@ -5253,6 +5261,10 @@ static void FmIfHpLog(uint64_t hp, int raw, int scaled, int applied, uint64_t hi
 static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8_t keep, uint64_t hit) {
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
     const int rawDmg = dmg;
+    if (rawDmg > 0 && hp && g_entryCover.active) { // lesson enemies can hit before any FIGHT line
+        uint64_t me = PlayerChar(), pst = 0;
+        if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) g_entryPlayerHit = 1;
+    }
     __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     if (rawDmg > 0 && hp && hit && g_pst_atk_ok) { // a real hit on the player, even when infinite health is off
         uint64_t me = PlayerChar(), pst = 0;
