@@ -5,6 +5,9 @@ base=runpy.run_path(str(Path(__file__).with_name('fallback_sequence_test.py')))
 fn=base['fn']; state=base['state']; header=base['header']
 pre=base['preamble'].replace('int active;} g_ar;', 'int active,world;} g_ar;')
 pre=pre.replace('int bodyGone;} g_tr;', 'int bodyGone,active,arena,hasStart,round;float pp[4],bp[3],face;} g_tr;')
+pre=pre.replace('static void NativePhaseEvent(int phase) {}','')
+pre=pre.replace('int armed,active,ended,releasing;DWORD pendingAt;uint32_t killedAtArm;} g_np;',
+ 'int armed,started,active,ended,releasing;DWORD pendingAt;uint32_t killedAtArm;} g_np;')
 pre+=r'''
 typedef struct {char id[16];float p[4],b[3];int world;} ArenaRow;
 static ArenaRow row={"R0034",{1,2,3,4},{5,6,7},8};
@@ -27,6 +30,43 @@ static void reset(const char*id){
  memset(present,0,sizeof present);memset(deadFlags,0,sizeof deadFlags);memset(barOn,0,sizeof barOn);
  for(int i=0;i<16;i++){health[i]=100;float p[3]={101,202,303};memcpy(actors[i]+0x110,p,sizeof p);}
  g_fb.row=FallbackRosterFind(id);g_fb.native=1;g_fl.open=0;finishes=spawns=duplicates=dedupeCalls=playerDead=wakeCalls=barCalls=0;g_dead_id=0;g_en.warped=1;
+}
+static void RunR0F7F(int killFirst){
+ reset("R0F7F");
+ assert(g_fb.row&&g_fb.row->count==4&&g_fb.row->chr[0]==274906u);
+ g_np.armed=1;
+ present[0]=1;barOn[0]=1;
+ tick=1000;NativePhaseEvent(1);NativeRosterTick(1000);
+ assert(g_np.started&&g_np.active&&(g_fb.seen&1)&&!g_tr.active&&!finishes&&spawns==0);
+ if(!killFirst){tick=2000;NativePhaseEvent(2);assert(!g_np.active&&g_np.pendingAt==10000);}
+ deadFlags[0]=1;health[0]=0;NativeRosterTick(2000);
+ assert(g_fb.killed==1&&!g_fb.complete&&!finishes&&!g_tr.active&&spawns==0);
+ if(killFirst){assert(!g_np.active&&g_np.pendingAt==10000);tick=2000;NativePhaseEvent(2);assert(g_np.pendingAt==10000);}
+ else assert(!g_np.active&&g_np.pendingAt==10000);
+ NativePhaseTick(2000);assert(!finishes);
+ NativeRosterTick(9999);assert(!g_tr.active&&spawns==0&&!finishes);
+ NativeRosterTick(10000);
+ assert(g_tr.active&&g_tr.chr==g_fb.row->chr[1]&&g_tr.tCmd==10000&&g_tr.tRespawn==10001&&spawns==0&&(g_fb.owned&2));
+ NativeRosterTick(10100);assert(g_tr.tCmd==10000&&spawns==0);
+ tick=10001;FallbackSpawn();g_tr.tRespawn=0;assert(spawns==1);
+ const DWORD killAt[3]={18000,34000,50000};
+ const DWORD reqAt[2]={26000,42000};
+ for(int n=0;n<3;n++){
+  FallbackTracked(100u+(unsigned)n,g_tr.chr);g_dead_id=100u+(unsigned)n;tick=killAt[n];
+  int more=FallbackNext(killAt[n]);
+  NativeRosterTick(killAt[n]);NativePhaseTick(killAt[n]);
+  if(n<2){
+   assert(more&&!g_fb.complete&&!finishes&&spawns==n+1);
+   NativeRosterTick(reqAt[n]-1);assert(g_tr.tCmd==(n==0?10000u:reqAt[0])&&spawns==n+1&&!finishes);
+   NativeRosterTick(reqAt[n]);
+   assert(g_tr.chr==g_fb.row->chr[n+2]&&g_tr.tCmd==reqAt[n]&&g_tr.tRespawn==reqAt[n]+1&&spawns==n+1);
+   NativeRosterTick(reqAt[n]+50);assert(g_tr.tCmd==reqAt[n]&&spawns==n+1);
+   tick=reqAt[n]+1;FallbackSpawn();g_tr.tRespawn=0;assert(spawns==n+2);
+  }else{
+   assert(!more&&g_fb.complete&&g_fb.killed==0xF&&finishes==1&&result==FL_WIN&&g_np.ended&&spawns==3&&g_np.started==1);
+   NativePhaseTick(killAt[n]+25000);NativeRosterTick(killAt[n]+25000);assert(finishes==1&&spawns==3);
+  }
+ }
 }
 int main(void){
  // Native starts with the SECOND catalogue member: identity, not position. A shown bar means it is in the fight.
@@ -117,11 +157,12 @@ int main(void){
  reset("R0B0B");g_np.active=1;present[1]=1;NativeRosterTick(100);assert(!barCalls&&wakeCalls==0&&!(g_fb.seen&2));
  g_fb.struck|=2;NativeRosterTick(200);assert(barCalls==1&&(g_fb.barAsked&2)&&(g_fb.seen&2)&&wakeCalls==0&&!g_tr.active&&!finishes);
  NativeRosterTick(300);assert(barCalls==1&&wakeCalls==0);
- puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode, fighting body gets one bar");
+ RunR0F7F(1);RunR0F7F(0);
+ puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode, fighting body gets one bar, R0F7F one mode");
 }
 '''
 with tempfile.TemporaryDirectory() as folder:
  p=Path(folder);src=p/'native.c';exe=p/'native.exe'
- src.write_text(pre+header+state+'\n'+''.join(fn(x) for x in ['static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int RosterDefeat(', 'static int RosterNextIndex(', 'static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn(', 'static void RosterCapturePose(', 'static void NativeRosterTick(', 'static void NativePhaseTick('])+main)
+ src.write_text(pre+header+state+'\n'+''.join(fn(x) for x in ['static void NativePhaseEvent(', 'static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int RosterDefeat(', 'static int RosterNextIndex(', 'static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn(', 'static void RosterCapturePose(', 'static void NativeRosterTick(', 'static void NativePhaseTick('])+main)
  subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(src),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)
