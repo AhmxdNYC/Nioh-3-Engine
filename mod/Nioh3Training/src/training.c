@@ -1297,6 +1297,7 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw, 
 typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
 // #72056: generated identity roster for native door fights and timeout fallback.
 #include "fallback_rosters_gen.h"
+#include "native_entry_boxes_gen.h"
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; } g_np;
@@ -2017,6 +2018,13 @@ N3T_API int Nioh3Training_SetIdleHold(int on);
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
 // All mission rows need their native placement/script database. No mission allowlist.
 // Explicit roster/field summons retain their separate API; fallback is synchronous and scoped.
+static const NativeEntryBox* NativeEntryBoxFor(const ArenaRow* r) {
+    for (unsigned i = 0; i < sizeof g_native_entry_boxes / sizeof *g_native_entry_boxes; ++i) {
+        const NativeEntryBox* b = &g_native_entry_boxes[i];
+        if (!strcmp(b->id, r->id) && b->placement == r->placement) return b;
+    }
+    return 0;
+}
 // Resolve only game-data roster placements in this mission, with exact wrapper identity.
 // A catalogue's first placement need not be the branch the native script creates.
 static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, uint32_t chr) {
@@ -2254,9 +2262,12 @@ static void EnterTick(void) {
     if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: native mission ready, settling", r->id); }
     if (now - g_en.tReady < 3000) return;
     if (PlayerPos(g_en.safe)) { g_en.safe[3] = r->p[3]; g_en.safeOk = 1; }  // the mission's own spawn: solid by definition
-    int w = Warp(r->p[0], r->p[1], r->p[2], r->p[3], 1);
+    const NativeEntryBox* box = NativeEntryBoxFor(r);
+    const float* target = box ? box->target : r->p;
+    int w = Warp(target[0], target[1], target[2], target[3], 1);
     if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; g_en.route = 5; return; }
-    g_en.warped = 1; g_en.tWarp = now; EnterTarget(r->p, r->p[3]);
+    g_en.warped = 1; g_en.tWarp = now; EnterTarget(target, target[3]);
+    if (box) { g_en.nudged = 1; Log("ENTER %s: script entry box %u reached; native GatherWarp/temp guard unchanged", r->id, box->box); }
     Log("ENTER %s: native arena warp succeeded (+%lu ms); waiting up to 30 ready seconds for boss", r->id, now - g_en.t0);
 }
 // bridge 6047: stage cell streaming after a world switch. Per-cell update 31DFB8 (called for every cell of the set stage+0x500+0x40 by 31D480,

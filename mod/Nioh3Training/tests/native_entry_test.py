@@ -17,6 +17,9 @@ typedef unsigned long DWORD;
 static char lastLog[512];
 #define Log(...) snprintf(lastLog,sizeof lastLog,__VA_ARGS__)
 typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];float b[3];} ArenaRow;
+typedef struct {uint32_t box;float target[4];} NativeEntryBox;
+static NativeEntryBox testBox={111,{20,30,40,50}};static int boxEntry;
+static const NativeEntryBox* NativeEntryBoxFor(const ArenaRow*r){return boxEntry?&testBox:0;}
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
 static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900;
 static ArenaRow* g_pick;
@@ -44,7 +47,7 @@ static int FightNowImpl(uint32_t m){assert(g_native_fallback && !g_cfg_fn_summon
 static ArenaRow row={123,456,9,"R123",{1,2,3,4},{5000,2,3}};
 static void Reset(void){memset(&g_en,0,sizeof g_en);g_en.active=1;g_en.row=&row;g_en.t0=100;
  tick=100;memset(state,0,sizeof state);ready=5;world=9;player=readable=warpOk=1;running=123;
- actor=warps=fallbacks=placed=0;pos[0]=7;pos[1]=100;pos[2]=7;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;}
+ boxEntry=0;actor=warps=fallbacks=placed=0;pos[0]=7;pos[1]=100;pos[2]=7;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;}
 static void Land(void){Nioh3Training_NativeEntryResult(123,1);state[2]=1;EnterTick();state[2]=0;tick=1000;EnterTick();tick=4000;EnterTick();}
 int main(void){
  Reset();assert(NativeFirst(&row));g_native_fallback=1;assert(!NativeFirst(&row));g_native_fallback=0;
@@ -72,6 +75,7 @@ int main(void){
  pos[1]=-500;tick=5900;EnterTick();pos[1]=-900;tick=6200;EnterTick();assert(g_en.fell&&lastWarp[1]==2);
  Reset();g_np.started=1;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"native boss placement")&&strstr(lastLog,"request-to-boss")&&!strstr(lastLog,"script-dormant"));
  Reset();g_np.started=0;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"script-dormant"));
+ Reset();boxEntry=1;Land();assert(warps==1&&lastWarp[0]==20&&lastWarp[1]==30&&g_en.nudged);tick=14000;EnterTick();assert(warps==1&&!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // leave GatherWarp and temp guard to script; no near-boss move
  puts("PASS native-entry: near-boss move, routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
 }
 """
