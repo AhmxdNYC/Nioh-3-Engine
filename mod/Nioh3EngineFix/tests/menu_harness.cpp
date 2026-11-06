@@ -143,11 +143,12 @@ uint32_t posted = 999;
 int postedDown = 0;
 uint64_t coveredToken=0;
 int Covered(uint64_t,uint64_t token){coveredToken=token;return mb::Accepted;}
-bool closeBusy = false;
+bool closeBusy = false; int busyPosts = 0;
 int Attach(uint64_t, uint64_t*) { return mb::Accepted; }
 int Detach(uint64_t) { return mb::Accepted; }
 int Post(uint64_t, uint64_t, uint32_t action) {
     if (closeBusy && action == mb::CloseMenu) return mb::Busy;
+    if (busyPosts > 0 && action != mb::CloseMenu) { --busyPosts; return mb::Busy; }  // worker mid-tick holds the bridge lock
     if (action == mb::Down) ++postedDown;
     posted = action; return mb::Accepted;
 }
@@ -766,6 +767,21 @@ int main() {
         hs.Gamepad.wButtons = 0; PadFeed(2, &hs, false);
         hf::Complete(false); g_rematchAwait = false; OnPresentImpl();
         if (g_open) Close("held pad rematch");
+        g_rematchPage = false; g_rematchOpened = false;
+    }
+    {   // a press the worker refused (lock held mid-tick -> Busy) is sent again on the next frames instead of being lost
+        Open("busy retry"); Change(kRematchRow,0); hf::Complete(true); g_pressed=0; OnPresentImpl();
+        CHECK(g_rematchOpened && !g_rematchAwait);
+        hf::posted = 999; hf::busyPosts = 2; hf::view.workerTickMs = Now();
+        g_pressed = N_DOWN; OnPresentImpl(); g_pressed = 0;
+        CHECK(hf::posted == 999 && !g_rematchAwait);
+        hf::view.workerTickMs = Now(); OnPresentImpl(); hf::view.workerTickMs = Now(); OnPresentImpl();
+        CHECK(hf::posted == rmb::Down && g_rematchAwait && hf::busyPosts == 0);
+        hf::Complete(true); OnPresentImpl(); hf::posted = 999;
+        hf::busyPosts = 100; g_pressed = N_DOWN; OnPresentImpl(); g_pressed = 0; Sleep(450); hf::view.workerTickMs = Now(); OnPresentImpl();
+        hf::busyPosts = 0; hf::view.workerTickMs = Now(); OnPresentImpl(); CHECK(hf::posted == 999);  // expired after 400 ms: no late ghost press
+        hf::Complete(false); g_rematchAwait = false; OnPresentImpl();
+        if (g_open) Close("busy retry");
         g_rematchPage = false; g_rematchOpened = false;
     }
     Open("frozen worker"); Change(kRematchRow,0); hf::Complete(true); OnPresentImpl();

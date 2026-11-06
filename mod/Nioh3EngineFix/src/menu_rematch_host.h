@@ -59,16 +59,36 @@ bool RefreshRematchHost(ULONGLONG) {
     return g_rematchFreshAt && now >= g_rematchFreshAt && now - g_rematchFreshAt < 1500 &&
         (!g_rematchAwait || now - g_rematchAwaitAt < 1500) && (g_rematchView.flags & rmb::HostedReady);
 }
+// Post result of the last call (rmb::Accepted etc). The worker holds the bridge lock for a whole tick, so Post can answer Busy (or StaleGeneration when
+// the page rows changed since the last snapshot copy) while the player's press is already consumed; PostRematchNav keeps such a press and sends it again.
+int g_rematchPostResult = rmb::Accepted;
+uint32_t g_rematchRetryAction = 0; ULONGLONG g_rematchRetryUntil = 0;
 bool PostRematchAction(uint32_t action) {
     const uint64_t session = g_rematchSession.load(std::memory_order_acquire);
     if (!session) return false;
     if (action != rmb::CloseMenu && (g_rematchClosePending || g_rematchAwait || !(g_rematchView.flags & rmb::HostedReady))) return false;
     const int result = g_rematchApi.Post(session, g_rematchView.generation, action);
+    g_rematchPostResult = result;
     if (result != rmb::Accepted) return false;
     g_rematchLastAction = action; g_rematchSentGeneration = g_rematchView.generation;
     g_rematchAwait = true;
     g_rematchAwaitAt = GetTickCount64();
+    g_rematchRetryAction = 0;
     return true;
+}
+// Player input on the hosted page: a press the worker refused as Busy/StaleGeneration (or one that came while the previous action was still awaited)
+// is kept for 400 ms and sent again with the fresh generation on later frames, instead of being lost. Newest press wins.
+bool PostRematchNav(uint32_t action) {
+    if (PostRematchAction(action)) return true;
+    if (g_rematchAwait || g_rematchPostResult == rmb::Busy || g_rematchPostResult == rmb::StaleGeneration) { g_rematchRetryAction = action; g_rematchRetryUntil = GetTickCount64() + 400; }
+    return false;
+}
+void RetryRematchNav() {
+    if (!g_rematchRetryAction) return;
+    if (GetTickCount64() >= g_rematchRetryUntil) { g_rematchRetryAction = 0; return; }
+    if (g_rematchAwait) return;
+    const uint32_t action = g_rematchRetryAction;
+    PostRematchAction(action);
 }
 void CloseRematchHostPage() {
     g_rematchNoAutoOpenUntil = GetTickCount64() + 1500;

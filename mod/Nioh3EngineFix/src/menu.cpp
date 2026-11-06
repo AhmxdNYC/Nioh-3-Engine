@@ -2888,13 +2888,14 @@ void OnPresentImpl() {
         const uint32_t tab = pressed & (N_TAB_PREV | N_TAB_NEXT);
         if (pressed & N_BACK) PostRematchAction(rmb::Back);
         else if (tab) { if (tab != (N_TAB_PREV | N_TAB_NEXT) && !g_rematchFromAddon && !(g_rematchView.flags & rmb::Editing)) SwitchTab(tab == N_TAB_NEXT ? 1 : -1); }
-        else if (pressed & N_PAGEUP) PostRematchAction(rmb::PageUp);
-        else if (pressed & N_PAGEDOWN) PostRematchAction(rmb::PageDown);
-        else if (acts & N_UP) PostRematchAction(rmb::Up);
-        else if (acts & N_DOWN) PostRematchAction(rmb::Down);
-        else if (acts & N_LEFT) PostRematchAction(rmb::Left);
-        else if (acts & N_RIGHT) PostRematchAction(rmb::Right);
-        else if (pressed & N_OK) PostRematchAction(rmb::Accept);
+        else if (pressed & N_PAGEUP) PostRematchNav(rmb::PageUp);
+        else if (pressed & N_PAGEDOWN) PostRematchNav(rmb::PageDown);
+        else if (acts & N_UP) PostRematchNav(rmb::Up);
+        else if (acts & N_DOWN) PostRematchNav(rmb::Down);
+        else if (acts & N_LEFT) PostRematchNav(rmb::Left);
+        else if (acts & N_RIGHT) PostRematchNav(rmb::Right);
+        else if (pressed & N_OK) PostRematchNav(rmb::Accept);
+        else RetryRematchNav();
         return;
     }
     // Back owns a mixed input frame: cancelling a confirmation/page must never
