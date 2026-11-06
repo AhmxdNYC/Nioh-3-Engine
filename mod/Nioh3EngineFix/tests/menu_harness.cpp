@@ -68,6 +68,7 @@ int BarriersIni() { return 0; }
 bool Rewrite(int) { return false; }
 void SetBatching(bool) {}
 void SetRewrite(int, bool) {}
+int VrsSupport() { return 0; }
 }
 namespace crashreport {  // #38437 / #43461: the Report row opens the folder and the website
 int g_snapshots = 0, g_urlOpens = 0, g_folderOpens = 0;
@@ -106,6 +107,20 @@ void SetLevel(int, int) {}
 const char* PresetName(int) { return "OFF"; }
 void ApplyPreset(int) {}
 int MatchPreset() { return 0; }
+int RdPct() { return 0; }
+float RdMul() { return 1.f; }
+void SetRdPct(int) {}
+void StepRd(int) {}
+bool RdAvailable() { return false; }
+int SharpLevel() { return 0; }
+void SetSharpLevel(int) {}
+const char* SharpName(int) { return "OFF"; }
+bool SharpAvailable() { return false; }
+}
+namespace inputlog {  // input ring: not under test here
+void ObservePad(int, unsigned, int, int, int, int, int, int) {}
+void ObserveKey(const char*, int, int) {}
+void NoteMenu(const char*, const char*, const char*, const char*, const char*) {}
 }
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); return 1; } } while (0)
@@ -125,6 +140,7 @@ namespace host_fixture {
 namespace mb = rematch_menu_bridge;
 mb::Snapshot view{};
 uint32_t posted = 999;
+int postedDown = 0;
 uint64_t coveredToken=0;
 int Covered(uint64_t,uint64_t token){coveredToken=token;return mb::Accepted;}
 bool closeBusy = false;
@@ -132,6 +148,7 @@ int Attach(uint64_t, uint64_t*) { return mb::Accepted; }
 int Detach(uint64_t) { return mb::Accepted; }
 int Post(uint64_t, uint64_t, uint32_t action) {
     if (closeBusy && action == mb::CloseMenu) return mb::Busy;
+    if (action == mb::Down) ++postedDown;
     posted = action; return mb::Accepted;
 }
 int Copy(uint64_t, mb::Snapshot* out, uint32_t) { *out = view; return mb::Accepted; }
@@ -628,6 +645,24 @@ int main() {
     st.Gamepad.wButtons = XINPUT_GAMEPAD_A;
     PadFeed(2, &st, false);
     CHECK(st.Gamepad.wButtons == XINPUT_GAMEPAD_A);
+    {   // held D-pad Down in the mod menu: edge, then repeats (400 ms, then 90 ms) - 1.1 s must move the selection several times
+        Open("held pad");
+        XINPUT_STATE hs = {};
+        PadFeed(2, &hs, false);  // release the opening latch
+        int moves = 0, last = g_sel;
+        const ULONGLONG t0 = Now();
+        while (Now() - t0 < 1100) {
+            hs.Gamepad.wButtons = XINPUT_GAMEPAD_DPAD_DOWN;
+            PadFeed(2, &hs, false);
+            OnPresentImpl();
+            if (g_sel != last) { ++moves; last = g_sel; }
+            Sleep(15);
+        }
+        CHECK(moves >= 6 && moves <= 12);  // 1 edge + ~7 repeats
+        hs.Gamepad.wButtons = 0; PadFeed(2, &hs, false); OnPresentImpl();
+        const int atRelease = g_sel; Sleep(300); OnPresentImpl(); CHECK(g_sel == atRelease);  // release stops it
+        Close("held pad");
+    }
     // All catalog keys are reachable exactly once through their section pages.
     int seen[kConfigN] = {};
     for (int i = 0; i < kConfigN; ++i) g_configValues.values[(size_t)i] = {kConfigSettings[i].initial, false};
@@ -712,6 +747,27 @@ int main() {
     hf::Complete(false); hf::closeBusy=true; OnPresentImpl();
     CHECK(!g_open && !g_rematchPage && g_rematchClosePending);
     hf::closeBusy=false; OnPresentImpl(); CHECK(!g_rematchClosePending && hf::posted==rmb::CloseMenu);
+    {   // held D-pad Down on the hosted Boss Match page repeats the Down action (it used to post one per press)
+        Open("held pad rematch"); Change(kRematchRow,0); hf::Complete(true); g_pressed=0; OnPresentImpl();
+        CHECK(g_rematchOpened && !g_rematchAwait);
+        XINPUT_STATE hs = {};
+        PadFeed(2, &hs, false);
+        hf::postedDown = 0;
+        const ULONGLONG t0 = Now();
+        while (Now() - t0 < 1100) {
+            hs.Gamepad.wButtons = XINPUT_GAMEPAD_DPAD_DOWN;
+            PadFeed(2, &hs, false);
+            hf::view.workerTickMs = Now();
+            if (g_rematchAwait) { hf::Complete(true); g_rematchAwait = false; }  // the worker answers each action
+            OnPresentImpl();
+            Sleep(15);
+        }
+        CHECK(hf::postedDown >= 6 && hf::postedDown <= 12);
+        hs.Gamepad.wButtons = 0; PadFeed(2, &hs, false);
+        hf::Complete(false); g_rematchAwait = false; OnPresentImpl();
+        if (g_open) Close("held pad rematch");
+        g_rematchPage = false; g_rematchOpened = false;
+    }
     Open("frozen worker"); Change(kRematchRow,0); hf::Complete(true); OnPresentImpl();
     hf::view.workerTickMs=Now()-2000; OnPresentImpl(); CHECK(!g_open && !g_rematchPage);
     hf::Complete(false); Open("pending timeout"); Change(kRematchRow,0);
