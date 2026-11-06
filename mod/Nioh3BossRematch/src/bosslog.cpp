@@ -3888,20 +3888,33 @@ void FormHide4Tick(uint64_t player) {
                 reason = "throw-cancelled"; Log("FormHide=4 throw cut by action 0x%X %.2f s before the hide", g_throwCutAct, g_fh4.started - g_throwCutT);
             }
         } else if (cap != g_fh4.seal || capT != g_fh4.capT) {
-            // #72299 / #72586 / #72621: a later motion-0 spawn under 1 m is the extra body of this press, not a new seal.
+            // #72299 / #72586 / #72621 / #72747: a later motion-0 spawn under 1 m is the extra body of this press, not a new seal.
             // The 12:01 am press ended in 42 ms because that body was 0.2 m away and the old gate was 0.05 m.
             // Keep the seal. A spawn with a motion, or one that landed 1 m or more away, is a new seal.
-            if (g_fkSealChr.load() == cap && g_fkSealT >= g_fh4.started - .05 &&
-                !LaterSpawnReplacesLiveSeal(g_fkSealMotion.load(), g_fkSealDist)) {
-                static uint64_t emptyLogged = 0;
-                if (emptyLogged != cap) {
-                    emptyLogged = cap;
-                    Log("FormHide=4 later spawn %llX motion=%X dist=%.1f is not a new seal - form keeps %llX t=%.3f",
-                        (unsigned long long)cap, g_fkSealMotion.load(), g_fkSealDist, (unsigned long long)g_fh4.seal, now);
+            // Both choices log that distance, so the next miss shows its number on this line.
+            {
+                const uint64_t noteChr = g_fkSealChr.load();
+                const uint32_t noteMot = g_fkSealMotion.load();
+                const float noteDist = g_fkSealDist;
+                const bool noted = noteChr == cap && g_fkSealT >= g_fh4.started - .05f;
+                const uint32_t shownMot = noted ? noteMot : 0;
+                const float shownDist = noted ? noteDist : -1.f;
+                if (noted && !LaterSpawnReplacesLiveSeal(noteMot, noteDist)) {
+                    static uint64_t emptyLogged = 0;
+                    if (emptyLogged != cap) {
+                        emptyLogged = cap;
+                        Log("FormHide=4 later spawn %llX motion=%X dist=%.2f keep (gate 1 m) seal %llX t=%.3f",
+                            (unsigned long long)cap, shownMot, shownDist, (unsigned long long)g_fh4.seal, now);
+                    }
+                    cap = g_fh4.seal; capT = g_fh4.capT;
+                    reason = FormHideEndReason(player, cap, g_fh4.started);
+                } else {
+                    Log("FormHide=4 later spawn %llX motion=%X dist=%.2f new seal (gate 1 m%s) was %llX t=%.3f",
+                        (unsigned long long)cap, shownMot, shownDist, noted ? "" : ", no spawn note",
+                        (unsigned long long)g_fh4.seal, now);
+                    reason = "capture-change";
                 }
-                cap = g_fh4.seal; capT = g_fh4.capT;
-                reason = FormHideEndReason(player, cap, g_fh4.started);
-            } else reason = "capture-change";
+            }
         }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) {

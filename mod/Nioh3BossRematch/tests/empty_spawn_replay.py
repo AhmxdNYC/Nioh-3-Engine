@@ -29,13 +29,15 @@ def replaces(motion, dist):
     return False
 
 fn = src.find("static bool LaterSpawnReplacesLiveSeal")
-use = src.find("!LaterSpawnReplacesLiveSeal(g_fkSealMotion.load(), g_fkSealDist)")
+use = src.find("!LaterSpawnReplacesLiveSeal(noteMot, noteDist)")
 cap_end = src.find('reason = "capture-change"', use if use >= 0 else 0)
 check(fn > 0 and use > fn and 0 < cap_end - use < 900,
       "an empty later spawn is rejected before capture-change")
 check("g_fkSealDist = dist;" in src, "spawn distance is kept with the motion")
 
 check("dist >= 1.f" in src, "the live gate keeps a motion-0 spawn under 1 m")
+check("dist=%.2f keep" in src and "dist=%.2f new seal" in src,
+      "the keep-or-new decision logs the extra body's distance")
 check(not replaces(0, 0.0), "motion 0 dist 0.0 does not replace the live seal")
 check(not replaces(0, 0.2), "motion 0 dist 0.2 does not replace the live seal")
 check(not replaces(0, 0.7), "motion 0 dist 0.7 does not replace the live seal")
