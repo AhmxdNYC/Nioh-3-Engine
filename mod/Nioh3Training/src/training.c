@@ -4717,23 +4717,25 @@ static __attribute__((noinline)) void Exec(char* line) {
 // boss-mode actor, log: Ki-break start/end, finisher (grapple) state on/off and every HP hit during a break or a finisher state, with the raw bits for in-game RE.
 static int g_cfg_kibreak_log = 1; static volatile LONG g_kb_lines;
 #define KB_MAX 4
-static struct { uint64_t a; int broken, fin, valid; uint64_t hp, hm; DWORD tBreak, tFin, tLastWin, seen; uint64_t dmgBreak; int hitsBreak, finInBreak, nBreaks; } g_kb[KB_MAX];
+#include "kb_slot.h"
+static struct { uint64_t a; uint32_t who; int broken, fin, valid; uint64_t hp, hm; DWORD tBreak, tFin, tLastWin, seen; uint64_t dmgBreak; int hitsBreak, finInBreak, nBreaks; } g_kb[KB_MAX];
+static struct { uint64_t a; DWORD t0; int step, n; uint32_t act0, last; } g_kbx[KB_MAX];
 static int KbState(uint64_t ai, uint32_t id) { return ((uint8_t (*)(uint64_t, uint32_t))(B + Grva(0x4893B8)))(ai, id) ? 1 : 0; }
 static void KbLog(const char* fmt, ...) {
     if (InterlockedIncrement(&g_kb_lines) > 400) return;
     char m[600]; va_list ap; va_start(ap, fmt); vsnprintf(m, sizeof m, fmt, ap); va_end(ap); Log("%s", m);
 }
-static __attribute__((noinline)) int KbCollect(uint64_t* out, int max) {
+static __attribute__((noinline)) int KbCollect(uint64_t* out, int max, uint32_t* who) {
     int n = 0; uint64_t root = 0, hud = 0, r0 = 0, r1 = 0;
     if (Rd64(B + Grva(0x45C84A8), &root) && root && Rd64(root + 0xA8, &hud) && hud && Rd64(hud + 0x3C0, &r0) && Rd64(hud + 0x3C8, &r1) && r0 && r1 > r0 && (r1 - r0) / 0x60 <= 8) {
         for (uint64_t r = r0; r < r1 && n < max; r += 0x60) {
             uint32_t slot = 0, id = 0; __try { slot = *(uint32_t*)r; id = *(uint32_t*)(r + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
             if (slot >= 3 || !id) continue;
             uint64_t w = FindWrapper(id), a = 0; if (!w || !Rd64(w, &a) || !a) continue;
-            int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (!dup) out[n++] = a;
+            int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (!dup) { if (who) who[n] = id; out[n++] = a; }
         }
     }
-    if (g_bm.active && n < max) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (a && !dup) out[n++] = a; }
+    if (g_bm.active && n < max) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (out[i] == a) dup = 1; if (a && !dup) { if (who) who[n] = g_bm.id; out[n++] = a; } }
     return n;
 }
 static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8);
@@ -4759,7 +4761,7 @@ static void KbSet236(uint64_t ctrl, float s) { KbSetLog("236DF4C action event", 
 static int g_cfg_actlog = 1;
 #define AL_MAX 768
 static struct { uint32_t chr, id; uint32_t entries, samples; DWORD ms; } g_al[AL_MAX]; static int g_al_n;
-static struct { uint64_t a; uint32_t id; DWORD t, seen; int valid; } g_alw[KB_MAX];
+static struct { uint64_t a; uint32_t who, id; DWORD t, seen; int valid; } g_alw[KB_MAX];
 static DWORD g_al_lastDump, g_al_lastTick; static int g_al_dirty; static volatile LONG g_al_lines;
 static int AlSlot(uint32_t chr, uint32_t id) { for (int i = 0; i < g_al_n; ++i) if (g_al[i].chr == chr && g_al[i].id == id) return i; if (g_al_n >= AL_MAX) return -1; g_al[g_al_n].chr = chr; g_al[g_al_n].id = id; return g_al_n++; }
 static void AlDump(void) {
@@ -4789,13 +4791,17 @@ static void MoveDoneLog(uint32_t chr, uint32_t id, uint32_t next, DWORD ran) {
 static __attribute__((noinline)) void ActLogTick(void) {
     if (!g_cfg_actlog) return;
     DWORD now = GetTickCount(); if (now - g_al_lastTick < 40) return; g_al_lastTick = now;
-    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX);
+    uint64_t act[KB_MAX]; uint32_t who[KB_MAX] = {0}; int n = KbCollect(act, KB_MAX, who);
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], ai = 0, ctrl = 0; uint32_t id = 0xFFFFFFFF;
         if (!Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) continue;
         __try { id = ((uint32_t (*)(uint64_t))(B + Grva(0x358528)))(ctrl); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
-        int s = -1; for (int i = 0; i < KB_MAX; ++i) if (g_alw[i].a == a) s = i;
-        if (s < 0) { for (int i = 0; i < KB_MAX; ++i) if (!g_alw[i].a || now - g_alw[i].seen > 10000) { s = i; break; } if (s < 0) continue; memset(&g_alw[s], 0, sizeof g_alw[s]); g_alw[s].a = a; }
+        uint64_t addrs[KB_MAX]; uint32_t whos[KB_MAX], seens[KB_MAX];
+        for (int i = 0; i < KB_MAX; ++i) { addrs[i] = g_alw[i].a; whos[i] = g_alw[i].who; seens[i] = g_alw[i].seen; }
+        int reset = 0, s = KbPickSlot(addrs, whos, seens, KB_MAX, a, who[k], now, 10000, &reset);
+        if (s < 0) continue;
+        if (reset) { memset(&g_alw[s], 0, sizeof g_alw[s]); g_alw[s].a = a; g_alw[s].who = who[k]; }
+        else if (!g_alw[s].who && who[k]) g_alw[s].who = who[k];
         uint32_t chr = g_ar.chr;
         if (g_alw[s].valid) {
             int b = AlSlot(chr, g_alw[s].id); if (b >= 0) { g_al[b].samples++; g_al[b].ms += now - g_alw[s].seen; }
@@ -4934,7 +4940,7 @@ static void StanceTimerTick(void) {
     Log("STANCE timer fired: %d boss(es) -> %s", n, idle ? "Stand still" : "Fight normally");
 }
 static int MvForce(uint32_t id) {
-    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
+    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX, 0); if (n < 1) { Log("MOVEFORCE: no boss"); return 0; }
     uint64_t ai = 0, st = 0; if (!Rd64(act[0] + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &st) || !st) { Log("MOVEFORCE: no state"); return 0; }
     uint32_t pend = *(uint32_t*)(st + 0x15C4); int32_t busy = *(int32_t*)(st + 0x788), cur = ((uint32_t (*)(uint64_t))(B + Grva(0x358528)))(st);
     if (pend != 0xFFFF || busy != -1) { Log("MOVEFORCE 0x%X refused: pending 0x%X, +788 %d, current 0x%X", id, pend, busy, cur); return 0; }
@@ -4946,13 +4952,17 @@ static __attribute__((noinline)) void KiBreakTick(void) {
     {   static int once; if (!once) { once = 1;
             if (!memcmp((void*)(B + Grva(0xA4F098)), "\x40\x53\x48\x83\xEC\x20\x48\x8B\xD9\x48\xB8", 11)) { o_kbA4F = (void (*)(uint64_t))Hook(0xA4F098, 19, (void*)KbSetA4F); Log("KIBRK SET hook A4F098: on"); } else Log("KIBRK SET hook A4F098: bytes differ, off");
             if (!memcmp((void*)(B + Grva(0x236DF4C)), "\x40\x53\x48\x83\xEC\x30\x0F\x29\x74\x24\x20\x48\x8B\xD9", 14)) { o_kb236 = (void (*)(uint64_t, float))Hook(0x236DF4C, 14, (void*)KbSet236); Log("KIBRK SET hook 236DF4C: on"); } else Log("KIBRK SET hook 236DF4C: bytes differ, off"); } }
-    uint64_t act[KB_MAX]; int n = KbCollect(act, KB_MAX); DWORD now = GetTickCount();
+    uint64_t act[KB_MAX]; uint32_t who[KB_MAX] = {0}; int n = KbCollect(act, KB_MAX, who); DWORD now = GetTickCount();
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
         if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) continue;
         if (!ActorHp(a, &hc, &hm) || !hm) continue;
-        int s = -1; for (int i = 0; i < KB_MAX; ++i) if (g_kb[i].a == a) s = i;
-        if (s < 0) { for (int i = 0; i < KB_MAX; ++i) if (!g_kb[i].a || now - g_kb[i].seen > 10000) { s = i; break; } if (s < 0) continue; memset(&g_kb[s], 0, sizeof g_kb[s]); g_kb[s].a = a; }
+        uint64_t addrs[KB_MAX]; uint32_t whos[KB_MAX], seens[KB_MAX];
+        for (int i = 0; i < KB_MAX; ++i) { addrs[i] = g_kb[i].a; whos[i] = g_kb[i].who; seens[i] = g_kb[i].seen; }
+        int reset = 0, s = KbPickSlot(addrs, whos, seens, KB_MAX, a, who[k], now, 10000, &reset);
+        if (s < 0) continue;
+        if (reset) { memset(&g_kb[s], 0, sizeof g_kb[s]); memset(&g_kbx[s], 0, sizeof g_kbx[s]); g_kb[s].a = a; g_kb[s].who = who[k]; }
+        else if (!g_kb[s].who && who[k]) g_kb[s].who = who[k];
         float kc = 0, km = 0, x5c = 0, x74 = 0, x7c = 0; uint8_t x83 = 0; uint64_t w0 = 0, w1 = 0, wA8 = 0; int s23 = 0, s35 = 0, sB0 = 0, s2C = 0, dead = 0;
         __try {
             kc = *(float*)(st + 0xAC); km = *(float*)(st + 0xB0); x5c = *(float*)(st + 0x98 + 0x5C); x74 = *(float*)(st + 0x98 + 0x74); x7c = *(float*)(st + 0x98 + 0x7C); x83 = *(uint8_t*)(st + 0x98 + 0x83);
@@ -4962,7 +4972,7 @@ static __attribute__((noinline)) void KiBreakTick(void) {
         int exh = x5c > 0 || x74 > 0 || x7c > 0 || x83, broken = s23 || exh, fin = s35 | (sB0 << 1) | (s2C << 2);
         if (dead) { g_kb[s].seen = now; g_kb[s].hp = hc; g_kb[s].broken = broken; g_kb[s].fin = fin; continue; }
         if (!g_kb[s].valid) { g_kb[s].valid = 1; g_kb[s].hp = hc; g_kb[s].hm = hm; g_kb[s].broken = broken; g_kb[s].fin = fin; g_kb[s].seen = now;
-            KbLog("KIBREAK watch boss %p HP %llu/%llu Ki %.0f/%.0f (broken %d, fin %d)", (void*)a, hc, hm, kc, km, broken, fin); continue; }
+            KbLog("KIBREAK watch boss %p id %u HP %llu/%llu Ki %.0f/%.0f (broken %d, fin %d)", (void*)a, g_kb[s].who, hc, hm, kc, km, broken, fin); continue; }
         g_kb[s].seen = now;
         if (broken && !g_kb[s].broken) {
             g_kb[s].tBreak = now; g_kb[s].dmgBreak = 0; g_kb[s].hitsBreak = 0; g_kb[s].finInBreak = 0; g_kb[s].nBreaks++;
@@ -5125,7 +5135,6 @@ static void MotOf(uint64_t a, uint32_t* id, DWORD* age) {
     *id = 0; *age = 0; DWORD now = GetTickCount();
     for (int i = 0; i < 4; ++i) if (a && g_nf[i].a == a) { *id = g_mot_id[i]; *age = g_mot_t[i] ? now - g_mot_t[i] : 0; return; }
 }
-static struct { uint64_t a; DWORD t0; int step, n; uint32_t act0, last; } g_kbx[KB_MAX];
 static void KbxStart(int s, uint64_t a, uint64_t ai, uint64_t ctrl, int nBreak, float kc, uint64_t hc, uint64_t hm, int s23, int exh, uint64_t w0, uint64_t wA8) {
     (void)ai; uint32_t act = ActIdOf(ctrl), mid = 0; DWORD mage = 0; MotOf(a, &mid, &mage);
     g_kbx[s].a = a; g_kbx[s].t0 = GetTickCount(); g_kbx[s].step = 0; g_kbx[s].n = nBreak; g_kbx[s].act0 = act; g_kbx[s].last = act;
@@ -5516,13 +5525,15 @@ static __attribute__((noinline)) void NfTick(void) {
             }
         if (g_bm.active && n < NF_N) { uint64_t a = ActorByHandle(g_bm.id); int dup = 0; for (int i = 0; i < n; ++i) if (act[i] == a) dup = 1; if (a && !dup) { ids[n] = 0; act[n++] = a; } }
     }
-    for (int s = 0; s < NF_N; ++s) if (g_nf[s].a) { int here = 0; for (int k = 0; k < n; ++k) if (act[k] == g_nf[s].a) here = 1; if (!here && now - g_nf[s].seen > 3000) NfClear(s); }
+    static int nf_prev23[NF_N];
+    for (int s = 0; s < NF_N; ++s) if (g_nf[s].a) { int here = 0; for (int k = 0; k < n; ++k) if (act[k] == g_nf[s].a && !KbIdChanged(g_nf[s].id, ids[k])) here = 1; if (!here && now - g_nf[s].seen > 3000) NfClear(s); }
     int gold = 0; float fadeW = 0.0f;
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
         if (!Rd64(a + 0x3A0, &st) || !st || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl || !ActorHp(a, &hc, &hm) || !hm) continue;
         int s = -1; for (int i = 0; i < NF_N; ++i) if (g_nf[i].a == a) s = i;
-        if (s < 0) { for (int i = 0; i < NF_N; ++i) if (!g_nf[i].a) { s = i; break; } if (s < 0) continue; NfClear(s); g_nf[s].a = a; g_nf[s].hits0 = g_nf_hits[s];
+        if (s >= 0 && KbIdChanged(g_nf[s].id, ids[k])) { NfClear(s); nf_prev23[s] = 0; s = -1; }
+        if (s < 0) { for (int i = 0; i < NF_N; ++i) if (!g_nf[i].a) { s = i; break; } if (s < 0) continue; NfClear(s); nf_prev23[s] = 0; g_nf[s].a = a; g_nf[s].hits0 = g_nf_hits[s];
             NfLog("NOFIN watch boss %p (row id %u) HP %llu/%llu: grapple blocked, gold Ki while broken, HP-0 window %d ms", (void*)a, ids[k], hc, hm, g_cfg_nofin_ms); }
         g_nf[s].seen = now; if (ids[k]) g_nf[s].id = ids[k];
         if (g_nf_nonlethal && g_nf_reserve && g_nf_hprow_ok && !g_nf_off[s] && g_nf[s].win == 0 && hc > 0 && hc <= hm / 5 && g_nf[s].id) {  // #9319 hidden HP reserve
@@ -5541,13 +5552,13 @@ static __attribute__((noinline)) void NfTick(void) {
         if (g_nf[s].win >= 2 && !dead && hc > NF_FLOOR) { g_nf[s].win = 0; g_nf[s].tries = 0; g_nf[s].aiHeld = 0; NfLog("NOFIN boss %p alive again (HP %llu, actor reused after despawn/summon): window re-armed", (void*)a, hc); }
         if (dead) { g_nf_off[s] = 0; if (g_nf[s].win == 1) NfLog("NOFIN boss %p died during the HP-0 window", (void*)a); g_nf_act[s] = 0; g_nf_ai[s] = 0; g_nf_ctrl[s] = 0; g_nf_drain[s].on = 0; g_nf_goldact[s] = 0; g_nf_goldctrl[s] = 0; g_nf[s].win = 3; continue; }
         g_nf_act[s] = a; g_nf_ai[s] = ai; g_nf_ctrl[s] = ctrl; g_nf_chr[s] = st;
-        {   static int prev23[NF_N]; if (s23 && !prev23[s] && ((g_nf[s].win == 0 && hc > 1) || g_nf[s].win == 1)) {  // #9987: the HP-0 window's break too (death-like crouch FA6/4E3E seen while comboing)  // native Ki break started: learn its stagger motion id (#9297)
+        {   if (s23 && !nf_prev23[s] && ((g_nf[s].win == 0 && hc > 1) || g_nf[s].win == 1)) {  // #9987: the HP-0 window's break too (death-like crouch FA6/4E3E seen while comboing)  // native Ki break started: learn its stagger motion id (#9297)
                 uint32_t mid = g_mot_id[s]; DWORD mt = g_mot_t[s];
                 if (mid && mid != 0x308 && now - mt < 400) { if (g_nf_brk_id != mid) NfLog("NOFIN boss %p Ki-break stagger motion learned: 0x%X (requested %lu ms before the break was seen)", (void*)a, mid, now - mt); g_nf_brk_id = mid; }
                 else NfLog("NOFIN boss %p Ki break started, no motion request in the last 400 ms (last 0x%X %lu ms ago)", (void*)a, mid, mt ? now - mt : 0);
                 g_nf[s].brkAct = ActIdOf(ctrl); g_nf[s].tBrk = now ? now : 1; g_nf[s].tSwap = 0; g_nf[s].tFixLast = 0; g_nf[s].nFix = 0; }  // #9895 break start action (log); #9937 fix state reset
             if (!s23) g_nf[s].tBrk = 0;
-            prev23[s] = s23; }
+            nf_prev23[s] = s23; }
         // #9946/#10014/#10069 learn the boss's good Ki-break action = the action it holds >= 300 ms inside its own REAL Ki-break stagger (state 0x23 with the
         // stagger action's runtime bits 62/45/33 next to the break bit 0x3A; Yoritomo: 0x4E4C, bits 4400200200003000). First one per boss wins (= the stagger
         // start action), never overwritten, saved per boss in Nioh3Training_learned.ini so the next session has it before its first break.
@@ -5834,7 +5845,7 @@ static int MenuPauseActorPresent(uint64_t a) {
 static int MenuPauseBossPresent(void) {
     for (int s = 0; s < N3T_SLOTS; ++s)
         if (SlotAlive(s) && MenuPauseActorPresent(g_slot_act[s])) return 1;
-    uint64_t actors[8]; const int n = KbCollect(actors, 8);
+    uint64_t actors[8]; const int n = KbCollect(actors, 8, 0);
     for (int i = 0; i < n; ++i) if (MenuPauseActorPresent(actors[i])) return 1;
     return 0;
 }
