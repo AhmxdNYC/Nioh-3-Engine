@@ -47,8 +47,10 @@ int main(void){
  now=12000;EntryCoverTick();assert(screen); // native load ends, still covered
  now=15000;g_en.warped=1;EntryCoverTick();assert(screen); // arena warp is not a fight
  now=18000;g_en.route=2;EntryCoverTick();assert(screen); // alive actor alone is not FIGHT start
- scenes[0]=99;EntryCoverTick();assert(!screen&&!mask&&g_entryCover.active); // show intro
- scenes[0]=0;EntryCoverTick();assert(screen&&mask); // intro finishes before fight
+ scenes[0]=99;EntryCoverTick();assert(screen&&mask&&g_entryCover.active); // mission event is NOT visual intro proof
+ now=17360;EntryCoverTick();assert(screen&&mask); // door opens, still covered
+ now=18123;gs[2]=1;EntryCoverTick();assert(screen&&mask); // native transition after door
+ scenes[0]=0;gs[2]=0;EntryCoverTick();assert(screen&&mask);
  now=19300;EntryCoverFight();assert(!screen&&!mask&&!g_entryCover.active&&EntryCoverProtect());
  now+=501;assert(!EntryCoverProtect());
  g_en.fellBack=1;g_en.route=3;EntryCoverBegin(&row);EntryCoverFight();assert(screen); // history-open before actor
@@ -63,7 +65,7 @@ int main(void){
  g_cfg_entry_ls=0;EntryCoverBegin(&row);assert(!g_entryCover.active);g_cfg_entry_ls=1;
  scenes[0]=42;EntryCoverBegin(&row);EntryCoverTick();assert(screen); // old scene not an intro
  EntryCoverEnd("test");now=0xfffffff0u;EcBegin(&g_entryCover,now);assert(EcStep(&g_entryCover,now+90000u,0,0,0)==EC_TIMEOUT);
- puts("PASS actual entry cover: native timeline, intro reveal/recover, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry");
+ puts("PASS actual entry cover: native timeline, mission-event false intro regression, fallback actor gate, timeout/wrap, refusal/failure/return, unavailable guard, protection expiry");
 }
 """
 with tempfile.TemporaryDirectory() as d:

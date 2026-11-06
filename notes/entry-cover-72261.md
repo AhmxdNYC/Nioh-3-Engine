@@ -15,3 +15,22 @@ Offline evidence:
 - Training build passes. No install, game process, save or game lock touched.
 
 Live gate owned by Claude: on R3513 verify the screen remains continuous from native load through warp/door setup, the actual intro is visible, gameplay appears at FIGHT start, and the player suffers no hidden HP loss or hit/grab reaction (test Infinite health OFF too). Check a fallback row: history-open must not release early, then live actor releases with boss grace. A no-fight case must release by 90 s without stuck input; native return must still work. Capture clip/screenshots and send via the standard Discord media tool. Event-scene identity versus visible cinematic timing, render-frame continuity, and hidden hit reactions remain unproven until that run.
+
+## Follow-up #72442: false intro release
+The full PC Training log contains an explicit off line at 23:48:14.341
+(`native intro visible`), after warp at 23:48:14.339, then on at 23:48:18.123.
+The gap is 3782 ms. Door opening at 23:48:17.360 occurs inside it. The provided
+sheet shows ordinary player-at-door gameplay. This disproves the proposed
+EngineFix load-end expiry: its LoadScreen flag persists until an off call.
+Mission event-scene IDs are not proof of a visible boss cinematic.
+
+The adapter no longer releases on event IDs. It retains the cover until FIGHT,
+fallback actor readiness, cancellation/failure/Return, or the original 90-second
+deadline. No per-boss data or EngineFix/BR change. HP lease and button mask stay.
+Regression exercises a new event ID, door opening, and native load-state change
+without allowing the screen to drop. Cover, native entry, native return and 17
+Training harnesses pass; build exits 0. Real action fixtures remain unavailable.
+Live gate: repeat the same R3513 video and R25E4 fallback. No claim that visuals
+are fixed until that run. Intro frames occurring before the existing FIGHT
+callback remain covered; event IDs cannot safely identify them. Verify the boss
+intro in the live run and use a verified cinematic signal if it is obscured.
