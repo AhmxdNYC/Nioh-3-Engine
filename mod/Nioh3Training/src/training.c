@@ -2154,6 +2154,7 @@ static void RosterNotePlayerHit(uint64_t attacker) {
 static int RosterBarOn(uint64_t actor);
 static void RosterWakeMember(unsigned i, uint64_t a);
 static void RosterRequestBar(unsigned i);
+static long long RosterBarRows(void);
 static void RosterCapturePose(uint64_t a) {
     if (g_fb.pose || !a || !PlayerPos(g_fb.pp)) return;
     memcpy(g_fb.bp, (const void*)(a + 0x110), sizeof g_fb.bp);
