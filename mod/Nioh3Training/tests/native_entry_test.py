@@ -10,12 +10,13 @@ preamble=r"""
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 typedef uint32_t DWORD;
 #define N3T_API
 #define Log(...) ((void)0)
-typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];} ArenaRow;
+typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];float b[3];} ArenaRow;
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
-static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1;
+static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900;
 static ArenaRow* g_pick;
 static int g_nsp; static uint64_t g_sp_actor[1];
 static int ActorHp(uint64_t a,uint64_t* hp,uint64_t* maxhp){*hp=*maxhp=0;return 0;}
@@ -31,7 +32,7 @@ static int Warp(float x,float y,float z,float yaw,int full){++warps;return warpO
 main=r"""
 static int MsRead(uint32_t* m,uint8_t* j,uint32_t* mode){*m=running;return readable;}
 static int FightNowImpl(uint32_t m){assert(g_native_fallback && !g_cfg_fn_summon);assert(g_pick->mission==m);++fallbacks;return 1;}
-static ArenaRow row={123,456,9,"R123",{1,2,3,4}};
+static ArenaRow row={123,456,9,"R123",{1,2,3,4},{5000,2,3}};
 static void Reset(void){memset(&g_en,0,sizeof g_en);g_en.active=1;g_en.row=&row;g_en.t0=100;
  tick=100;memset(state,0,sizeof state);ready=5;world=9;player=readable=warpOk=1;running=123;
  actor=warps=fallbacks=0;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;}
@@ -42,9 +43,9 @@ int main(void){
  Reset();state[2]=1;EnterTick();assert(!g_en.sawLoad); // unadmitted cannot adopt a load
  Nioh3Training_NativeEntryResult(999,1);assert(!g_en.confirmed);Nioh3Training_NativeEntryResult(123,0);assert(!g_en.active);
  Reset();Nioh3Training_NativeEntryResult(123,1);tick=50000;EnterTick();assert(!warps&&!fallbacks); // no observed load
- Reset();Land();assert(warps==1&&g_en.warped);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1&&!g_en.active&&g_en.fellBack);EnterTick();assert(fallbacks==1&&g_cfg_fn_summon==1&&!g_native_fallback);
+ Reset();Land();assert(warps==1&&g_en.warped);tick=13999;EnterTick();assert(warps==1);tick=14000;EnterTick();assert(warps==2&&g_en.moved&&!fallbacks);tick=28999;EnterTick();assert(!fallbacks);tick=29000;EnterTick();assert(fallbacks==1&&!g_en.active&&g_en.fellBack);EnterTick();assert(fallbacks==1&&g_cfg_fn_summon==1&&!g_native_fallback);
  Reset();Land();actor=1;tick=34000;EnterTick();assert(!fallbacks&&!g_en.active); // boss beats timeout
- Reset();Land();state[2]=1;tick=40000;EnterTick();assert(g_en.active&&!fallbacks);state[2]=0;tick=40001;EnterTick();tick=70000;EnterTick();assert(fallbacks==1); // intro doesn't cancel watch or fall back while loading
+ Reset();Land();state[2]=1;tick=40000;EnterTick();assert(g_en.active&&!fallbacks);state[2]=0;tick=40001;EnterTick();assert(!fallbacks);tick=50000;EnterTick();assert(warps==2&&!fallbacks);tick=65000;EnterTick();assert(fallbacks==1); // intro doesn't cancel watch or fall back while loading
  Reset();Land();ready=4;tick=40000;EnterTick();assert(!fallbacks);ready=5;tick=40001;EnterTick();assert(!fallbacks);
  Reset();Land();player=0;tick=40000;EnterTick();assert(!fallbacks);
  Reset();Land();world=8;tick=40000;EnterTick();assert(!fallbacks);
@@ -52,7 +53,10 @@ int main(void){
  Reset();Land();running=999;tick=40000;EnterTick();assert(!fallbacks&&!g_en.active);
  Reset();warpOk=0;Land();assert(warps==1&&!g_en.active&&!fallbacks);
  Reset();Nioh3Training_NativeEntryResult(123,1);tick=300101;EnterTick();assert(!g_en.active&&!fallbacks);
- puts("PASS native-entry: routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
+ Reset();Land();tick=14000;EnterTick();actor=1;tick=20000;EnterTick();assert(!fallbacks&&!g_en.active&&g_en.route==2); // boss appears after the near move: native, no fallback
+ Reset();Land();warpOk=0;tick=14000;EnterTick();assert(!g_en.moved&&!fallbacks);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // failed move keeps the 30 s wait
+ row.b[0]=100;Reset();Land();tick=14000;EnterTick();assert(warps==1&&!g_en.moved);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1);row.b[0]=5000; // already close: no move
+ puts("PASS native-entry: near-boss move, routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
 }
 """
 # Integration guards: real caller must choose native before deferred fade/cross-world routes.
