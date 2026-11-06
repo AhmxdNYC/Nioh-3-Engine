@@ -93,6 +93,18 @@ int main(int argc, char** argv) {
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
     CHECK(n > 100, "catalogue parsed");
     CHECK(c[rcore::kE] == 20, "20 Picture Scroll rows");
+    {
+        int scrolls = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            if (rows[i].route != rcore::kE) continue;
+            ++scrolls;
+            CHECK(rows[i].storyMission == 0xCC96, "scroll story mission is the old literal");
+            CHECK(rows[i].missionId == 0, "scroll replay id stays empty");
+            CHECK(rcore::ScrollMission(rows, (int)i) == 0xCC96, "chosen scroll uses its story mission");
+        }
+        CHECK(scrolls == 20, "20 story missions read");
+        CHECK(rcore::ScrollMission(rows, -1) == 0xCC96, "game pick uses the shared scroll mission");
+    }
     CHECK(c[rcore::kH] == 3, "3 hidden duels");
     CHECK(c[rcore::kX] > 0, "X rows kept with a reason");
     bool reasons = true, eidx = true, mid = true;

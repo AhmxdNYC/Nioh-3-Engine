@@ -23,6 +23,7 @@ struct Row {
     char id[24] = "", name[64] = "", mission[64] = "", region[24] = "", reason[200] = "";
     Route route = kX;
     uint16_t missionId = 0;
+    uint32_t storyMission = 0; // catalogue story_mission. Scroll rows name the scroll mission here; replay_mission_id stays empty.
     int emakiIndex = -1;       // E rows: Emaki record index (0..19)
     uint32_t placement = 0;    // expected boss placement (BossLog Create id) or 0
     int world = -1;            // catalogue region_byte: the world the boss stands in (-1 = unknown)
@@ -109,7 +110,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson");
+              cLesson = ci("lesson"), cStory = ci("story_mission");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -127,6 +128,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         Ascii(r.region, sizeof(r.region), col(cReg));
         Ascii(r.reason, sizeof(r.reason), col(cWhy));
         r.missionId = (uint16_t)strtoul(col(cMid).c_str(), nullptr, 0);
+        r.storyMission = (uint32_t)strtoul(col(cStory).c_str(), nullptr, 0);
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
@@ -170,6 +172,22 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         rows.push_back(r);
     }
     return (int)rows.size();
+}
+
+// Picture Scroll mission. A chosen scroll row uses its own story_mission.
+// The game's pick (row < 0) uses that value only when every scroll row names the same one.
+inline uint32_t ScrollMission(const std::vector<Row>& rows, int row) {
+    if (row >= 0 && (size_t)row < rows.size()) {
+        const Row& r = rows[(size_t)row];
+        if (r.route == kE && r.storyMission) return r.storyMission;
+    }
+    uint32_t shared = 0;
+    for (const Row& r : rows) {
+        if (r.route != kE || !r.storyMission) continue;
+        if (!shared) shared = r.storyMission;
+        else if (shared != r.storyMission) return 0;
+    }
+    return shared;
 }
 
 // Roster member count for this catalogue id. 0 = no generated roster (a single boss, a scroll, or an unresolved row).

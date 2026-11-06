@@ -22,6 +22,7 @@ namespace addon {
 namespace fight {
 volatile LONG g_fights = 0, g_active = 0;
 }
+namespace rematch { uint32_t RematchScrollMission(); }
 namespace bosslog {
 namespace {
 bool g_logOn = false;  // [Debug] BossLog or RematchLog: write BossLog lines (the fight state is tracked either way)
@@ -663,7 +664,7 @@ void HkEmaki(uint64_t ref, uint64_t key, uint64_t mission, uint64_t params, cons
     Log("RematchLog L2: EmakiMissionRequest caller=+%llX ref=%016llX key[12]=%s missionArg=%u params[24]=%s %s %s t=%.3f", (unsigned long long)CallerRva(sp),
           (unsigned long long)ref, kb, (uint32_t)mission, pb, on, cb, Now());
     FindScrollItem(keyId);
-    NoteRequest(0xCC96, true, "EmakiMissionRequest");
+    NoteRequest(rematch::RematchScrollMission(), true, "EmakiMissionRequest");
     g_pendReq.store(true);
 }
 // L3: MissionSetupEmaki(rcx charMgr** , rdx list*, r8d mission). Reads before the original runs; the "after" state is logged by the next tick.
