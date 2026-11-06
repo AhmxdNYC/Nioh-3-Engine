@@ -20,6 +20,8 @@ static int PlayerPos(float*p){for(int i=0;i<4;i++)p[i]=10+i;return 1;}
 static uint64_t RosterNativeActor(unsigned i){return present[i]?(uint64_t)actors[i]:0;}
 static int ActorDeadNow(uint64_t a,int*d,uint64_t*h,uint64_t*m){unsigned i=(unsigned)((unsigned char*)a-&actors[0][0])/512;*d=deadFlags[i];*h=health[i];*m=100;return *d||!*h;}
 static int barOn[16], wakeCalls, barCalls;
+static int barRows;
+static long long RosterBarRows(void){return barRows;}
 static void RosterRequestBar(unsigned i){(void)i;barCalls++;}
 static int RosterBarOn(uint64_t a){unsigned i=(unsigned)((unsigned char*)a-&actors[0][0])/512;return i<16?barOn[i]:0;}
 static void RosterWakeMember(unsigned i, uint64_t a){(void)i;(void)a;wakeCalls++;}
@@ -171,6 +173,16 @@ int main(void){
  reset("R0B0B");g_np.active=1;present[1]=1;NativeRosterTick(100);assert(!barCalls&&wakeCalls==0&&!(g_fb.seen&2));
  g_fb.struck|=2;NativeRosterTick(200);assert(barCalls==1&&(g_fb.barAsked&2)&&(g_fb.seen&2)&&wakeCalls==0&&!g_tr.active&&!finishes);
  NativeRosterTick(300);assert(barCalls==1&&wakeCalls==0);
+ // Refused request: ask again after 1.5 s while no bar shows; with no other bar up at most 5 counted tries; a shown bar stops it.
+ barRows=0;NativeRosterTick(1600);assert(barCalls==1);NativeRosterTick(1700);assert(barCalls==2&&g_fb.barTries[1]==2);
+ barOn[1]=1;NativeRosterTick(3500);assert(barCalls==2);barOn[1]=0;
+ for(DWORD t=5000;t<20000;t+=1600)NativeRosterTick(t);assert(barCalls==5&&g_fb.barTries[1]==5);
+ // Failing timeline (pc2 #73428): another boss's bar row is up for 99 s, then it dies (rows 0); the body gets its counted tries after that.
+ reset("R0B0B");g_np.active=1;present[1]=1;NativeRosterTick(100);g_fb.struck|=2;barRows=1;NativeRosterTick(200);assert(barCalls==1&&g_fb.barTries[1]==1);
+ for(DWORD t=1800;t<99200;t+=1600)NativeRosterTick(t);assert(barCalls==4&&g_fb.barTries[1]==1&&g_fb.barBusy[1]==3);
+ barRows=0;NativeRosterTick(100000);assert(barCalls==5&&g_fb.barTries[1]==2);
+ barRows=1;NativeRosterTick(101700);assert(barCalls==5);barRows=0;
+ for(DWORD t=103400;t<120000;t+=1600)NativeRosterTick(t);assert(barCalls==8&&g_fb.barTries[1]==5);
  RunR0F7F(1);RunR0F7F(0);
  puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode, fighting body gets one bar, R0F7F one mode");
 }
