@@ -50,3 +50,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-05 2:58 am EST pc2/0 | #211 PASS (fight timeline report, 3 complete rows). #237 not run (dup of #236). pc2 on public 1.8.6 (EF 1f8d71b6 BR fe7ec45d TR 04781485).
 - 2026-11-05 3:31 am EST pc2/0 | #239 done: P2+XRES1 +7% on pc2 (50->53 fps), RESULT re #68530. pc2 idle on public 1.8.6.
 - 2026-11-05 pc2 #71880 done on TR 8d38e9e6: RD759 + RA0A1 teacher kept, result sent re #71861; lesson-kill wake test not run.
+- 2026-11-05 pc2 #72012 done on BR 670dd3e3 / TR 12c645a7: 8 rows native boss, result sent re #72012.

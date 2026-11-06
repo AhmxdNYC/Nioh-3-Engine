@@ -73,3 +73,6 @@ Final AA checker PASS; PC1080p changing OFF Row66.872ms vs ON Ring10.745ms CPU d
 2026-11-05 6:35 pm EST | pc2 #71880: dojo teacher fix TR 8d38e9e6 tested on RD759 + RA0A1 (one pass, no kill).
 Proven: dormant line seen, teacher alive, 0 ARENA dedupe, lesson enemies attack, no crash, exits 69/44 s. Unproven: teacher waking after lesson kills (no boss bar in 120 s).
 Next: pc decides on the kill test; pc runs RF5E5/R26F3 itself. Files: bridge #5415 shots, #5416 logs, C:/nioh3-re/t71880 (drive.ps1). Public mods restored.
+2026-11-05 7:40 pm EST | pc2 #72012: door pair BR 670dd3e3 + TR 12c645a7 on 8 more rows: all reach the boss 23-39 s, forced kill = win, no crash.
+Proven: door opened on all 8, right bar names. Unproven: real hit wins, partner bosses, unbeaten clear byte, R0C12 FIGHT start again after kill; 3 rows log false script-dormant.
+Next: pc decides. Files: bridge #5425 table, #5426-5428 shots, #5429 logs; C:/nioh3-re/t72012 (run.ps1, patched harness). Public mods restored.
