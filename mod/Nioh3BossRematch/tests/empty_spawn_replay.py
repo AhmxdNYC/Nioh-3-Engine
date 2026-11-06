@@ -3,6 +3,8 @@
 
 A later spawn replaces a live seal only when LaterSpawnReplacesLiveSeal says it is a new seal:
 a motion, or a distance of 1 m or more. motion 0 under 1 m does not end the form.
+A missing distance is not far. A body already kept for this seal stays kept.
+A capture of a different body still ends the form.
 Never touches the game.
 """
 import re
@@ -24,16 +26,26 @@ def check(ok, what):
 def replaces(motion, dist):
     if motion != 0:
         return True
-    if dist < 0 or dist >= 1.0:
+    if dist >= 1.0:
+        return True
+    return False
+
+def keep_capture(noted, motion, dist, already):
+    if already:
+        return True
+    if noted and not replaces(motion, dist):
         return True
     return False
 
 fn = src.find("static bool LaterSpawnReplacesLiveSeal")
 use = src.find("!LaterSpawnReplacesLiveSeal(noteMot, noteDist)")
 cap_end = src.find('reason = "capture-change"', use if use >= 0 else 0)
-check(fn > 0 and use > fn and 0 < cap_end - use < 900,
+check(fn > 0 and use > fn and 0 < cap_end - use < 2200,
       "an empty later spawn is rejected before capture-change")
 check("g_fkSealDist = dist;" in src, "spawn distance is kept with the motion")
+check("KeptExtra(" in src and "already kept" in src,
+      "a body already kept for this seal stays kept when the note is gone")
+check("ClearKeptExtras" in src, "kept bodies are forgotten when the form ends")
 
 check("dist >= 1.f" in src, "the live gate keeps a motion-0 spawn under 1 m")
 check("dist=%.2f keep" in src and "dist=%.2f new seal" in src,
@@ -44,7 +56,12 @@ check(not replaces(0, 0.7), "motion 0 dist 0.7 does not replace the live seal")
 check(replaces(0xC52, 0.0), "a spawn with a motion is a new seal even at dist 0")
 check(replaces(0, 1.0), "motion 0 at 1 m is away and is a new seal")
 check(replaces(0, 1.5), "motion 0 at 1.5 m is a new seal")
-check(replaces(0, -1.0), "a missing distance still counts as a new seal")
+check(not replaces(0, -1.0), "a missing distance does not count as far")
+check(keep_capture(True, 0, 0.0, False), "first look at a motion-0 body under 1 m is kept")
+check(keep_capture(False, 0, -1.0, True), "the same body stays kept after the note is gone")
+check(keep_capture(True, 0, -1.0, False), "a noted body with no distance is kept")
+check(not keep_capture(False, 0, -1.0, False), "a different body with no note still ends the form")
+check(not keep_capture(True, 0x4F4D, 1.9, False), "a different capture with a motion still ends the form")
 
 if not log.exists():
     print(f"missing {log}")
@@ -114,6 +131,27 @@ if full:
     check(len(before) >= 2 and end[2] == "seal-despawn",
           "both captures before the bind still finish as seal-despawn")
     check(not after(spawns, t, end[0]), "that full form has no later spawn to reject")
+
+# #73244: the same body was kept, then cut when a later world spawn replaced the one note.
+live = root / "Temp" / "h73203" / "Nioh3BossRematch.log"
+check(live.exists(), "h73203 log is present")
+if live.exists():
+    dec = re.compile(
+        r"FormHide=4 later spawn ([0-9A-F]+) motion=([0-9A-F]+) dist=([-0-9.]+) (keep|new seal)"
+    )
+    rows = []
+    for line in live.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = dec.search(line)
+        if m:
+            rows.append(m.groups())
+    pairs = [(a, b) for a, b in zip(rows, rows[1:])
+             if a[0] == b[0] and a[3] == "keep" and b[3] == "new seal" and float(b[2]) < 0]
+    print(f"h73203 same-body cuts after a keep: {len(pairs)}")
+    for a, b in pairs:
+        print(f"  {a[0]} dist {a[2]} keep, then dist {b[2]} {b[3]}")
+    check(len(pairs) == 2, "two forms kept a body and then cut that same body")
+    check(all(keep_capture(False, 0, float(b[2]), True) for _, b in pairs),
+          "each of those second looks stays kept")
 
 print("\nFAIL: %d" % len(fails) if fails else "\nALL OK")
 sys.exit(1 if fails else 0)

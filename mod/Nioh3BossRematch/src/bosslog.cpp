@@ -3770,10 +3770,31 @@ std::atomic<int> g_fhDelayMs{400};
 // The game's own spawn note carries that: a real seal has a motion, or it appears away from the player.
 // A motion-0 spawn under 1 m is the extra body of the same call. On the main pc that body landed at
 // 0.0, 0.2, and 0.7 m. The moving seal in the same call was 1.5 m and had a motion. No id list.
+// #73244: a missing distance is not far. The note slot holds one spawn, and the next spawn in the world
+// replaces it. That must not turn a body we already kept into a new seal.
 static bool LaterSpawnReplacesLiveSeal(uint32_t motion, float dist) {
     if (motion != 0) return true;
-    if (!(dist >= 0.f) || dist >= 1.f) return true;
+    if (dist >= 1.f) return true;
     return false;
+}
+static uint64_t g_keptFor = 0;
+static uint64_t g_keptChr[4] = {};
+static float g_keptDist[4] = {};
+static void ClearKeptExtras() {
+    g_keptFor = 0;
+    for (int i = 0; i < 4; ++i) { g_keptChr[i] = 0; g_keptDist[i] = 0.f; }
+}
+static bool KeptExtra(uint64_t seal, uint64_t chr, float* distOut) {
+    if (!seal || !chr || g_keptFor != seal) return false;
+    for (int i = 0; i < 4; ++i) if (g_keptChr[i] == chr) { if (distOut) *distOut = g_keptDist[i]; return true; }
+    return false;
+}
+static void RememberKeptExtra(uint64_t seal, uint64_t chr, float dist) {
+    if (!seal || !chr) return;
+    if (g_keptFor != seal) { ClearKeptExtras(); g_keptFor = seal; }
+    float ignored = 0.f;
+    if (KeptExtra(seal, chr, &ignored)) return;
+    for (int i = 0; i < 4; ++i) if (!g_keptChr[i]) { g_keptChr[i] = chr; g_keptDist[i] = dist; return; }
 }
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
@@ -3888,20 +3909,31 @@ void FormHide4Tick(uint64_t player) {
                 reason = "throw-cancelled"; Log("FormHide=4 throw cut by action 0x%X %.2f s before the hide", g_throwCutAct, g_fh4.started - g_throwCutT);
             }
         } else if (cap != g_fh4.seal || capT != g_fh4.capT) {
-            // #72299 / #72586 / #72621 / #72747: a later motion-0 spawn under 1 m is the extra body of this press, not a new seal.
+            // #72299 / #72586 / #72621 / #72747 / #73244: a later motion-0 spawn under 1 m is the extra body of this press.
             // The 12:01 am press ended in 42 ms because that body was 0.2 m away and the old gate was 0.05 m.
-            // Keep the seal. A spawn with a motion, or one that landed 1 m or more away, is a new seal.
-            // Both choices log that distance, so the next miss shows its number on this line.
+            // At 1:49 am the same body was kept, then cut 1.8 s later: another spawn replaced the one note,
+            // FormSlot0 still showed the kept body, and the missing note was treated as a new seal.
+            // A body already kept for this seal stays kept. A missing distance is not far.
+            // A capture of a different body still ends the form. No id list.
             {
                 const uint64_t noteChr = g_fkSealChr.load();
                 const uint32_t noteMot = g_fkSealMotion.load();
                 const float noteDist = g_fkSealDist;
                 const bool noted = noteChr == cap && g_fkSealT >= g_fh4.started - .05f;
-                const uint32_t shownMot = noted ? noteMot : 0;
-                const float shownDist = noted ? noteDist : -1.f;
-                if (noted && !LaterSpawnReplacesLiveSeal(noteMot, noteDist)) {
+                float remembered = -1.f;
+                const bool already = KeptExtra(g_fh4.seal, cap, &remembered);
+                const bool keep = already || (noted && !LaterSpawnReplacesLiveSeal(noteMot, noteDist));
+                if (keep) {
+                    const float shownDist = noted ? noteDist : remembered;
+                    const uint32_t shownMot = noted ? noteMot : 0;
+                    if (!already) RememberKeptExtra(g_fh4.seal, cap, shownDist);
                     static uint64_t emptyLogged = 0;
-                    if (emptyLogged != cap) {
+                    static uint64_t alreadyLogged = 0;
+                    if (already && alreadyLogged != cap) {
+                        alreadyLogged = cap;
+                        Log("FormHide=4 later spawn %llX motion=%X dist=%.2f keep (gate 1 m, already kept) seal %llX t=%.3f",
+                            (unsigned long long)cap, shownMot, shownDist, (unsigned long long)g_fh4.seal, now);
+                    } else if (!already && emptyLogged != cap) {
                         emptyLogged = cap;
                         Log("FormHide=4 later spawn %llX motion=%X dist=%.2f keep (gate 1 m) seal %llX t=%.3f",
                             (unsigned long long)cap, shownMot, shownDist, (unsigned long long)g_fh4.seal, now);
@@ -3909,6 +3941,8 @@ void FormHide4Tick(uint64_t player) {
                     cap = g_fh4.seal; capT = g_fh4.capT;
                     reason = FormHideEndReason(player, cap, g_fh4.started);
                 } else {
+                    const uint32_t shownMot = noted ? noteMot : 0;
+                    const float shownDist = noted ? noteDist : -1.f;
                     Log("FormHide=4 later spawn %llX motion=%X dist=%.2f new seal (gate 1 m%s) was %llX t=%.3f",
                         (unsigned long long)cap, shownMot, shownDist, noted ? "" : ", no spawn note",
                         (unsigned long long)g_fh4.seal, now);
@@ -3918,6 +3952,7 @@ void FormHide4Tick(uint64_t player) {
         }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) {
+            ClearKeptExtras();
             Log("FormHide=4 end %s", reason);
             g_fh4EndWhy = reason;
             if (!strcmp(reason, "ghost-exit") && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
