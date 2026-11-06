@@ -1911,7 +1911,7 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch; } g_en;
 static const char* NativeRouteTag(void) { return g_en.confirmed ? (g_en.fellBack ? "fallback" : "native") : 0; }
 // 0 unowned/ended, 1 native pending, 2 native alive, 3 fallback pending, 4 fallback alive, 5 failed.
 // Pending ownership is visible before BR's admission callback, and survives entry completion.
@@ -1965,10 +1965,22 @@ static void EnterTick(void) {
             Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
             g_en.active = 0; g_en.route = 2; return;
         }
-        if (now - g_en.tWarp >= 30000) {
+        // #71644: some placements only spawn once the player is near them (Otoroshi appeared 0.6-1.1 s after the
+        // fallback moved the player 9 m from it, twice). Try that before creating a replacement. Position comes from the row's own data.
+        if (!g_en.nudged && now - g_en.tWarp >= 10000) {
+            g_en.nudged = 1;
+            float dx = r->b[0] - r->p[0], dz = r->b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
+            if (g_cfg_bossdist > 0 && d > g_cfg_bossdist) {
+                float k = g_cfg_bossdist / d, pp[4]; pp[0] = r->b[0] - dx * k; pp[1] = r->b[1] + 50.0f; pp[2] = r->b[2] - dz * k; pp[3] = atan2f(dx, dz) * 57.2957795f;
+                if (Warp(pp[0], pp[1], pp[2], pp[3], 1)) { g_en.moved = 1; g_en.tWarp = now; Log("ENTER %s: no boss after 10 s; moved %d units from placement %u, waiting 15 s", r->id, g_cfg_bossdist, r->placement); }
+                else Log("ENTER %s: near-boss move failed", r->id);
+            } else Log("ENTER %s: already within %d units of the boss, no move", r->id, g_cfg_bossdist);
+            return;
+        }
+        if (now - g_en.tWarp >= (g_en.moved ? 15000u : 30000u)) {
             // Same loaded mission/world, no boss, not loading: one synchronous arena fallback.
             // Bypass legacy summon/cross-world routes without re-arming entry or overwriting home.
-            Log("ENTER %s: no native boss after 30 s ready; one in-mission arena fallback", r->id);
+            Log("ENTER %s: no native boss after waiting; one in-mission arena fallback", r->id);
             g_en.active = 0; g_en.fellBack = 1; g_en.route = 3;
             Log("ENTER %s: route=fallback pending; late-native uniqueness requires live validation; exact-placement dedupe active", r->id);
             int sf = g_cfg_fn_summon; g_cfg_fn_summon = 0;
