@@ -18,7 +18,9 @@ def function(src, signature):
     return src[start:end]
 
 # Mutation entry points must all stop for the sticky Training owner.
-for name in ("DoWarp", "GateTick", "SpawnTick"):
+# #71926: GateTick is the exception: the door right moves nothing, and only runs while Training is still waiting (route 1).
+assert "routeFn(g_fightMission) != 1" in function(br, "void GateTick(")
+for name in ("DoWarp", "SpawnTick"):
     body = function(br, f"void {name}(")
     assert body.split("{", 1)[1].lstrip().startswith("if (g_trainingDestination) return;"), name
 verify = function(br, "void FnVerify(")

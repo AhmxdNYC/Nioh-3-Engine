@@ -859,6 +859,7 @@ bool g_menuSeen = false, g_loadSeen = false;
 uint32_t g_msAtOpen = 0, g_replayMs = 0;
 uint32_t g_fightMission = 0, g_fightStart = 0;  // Fight now: requested mission + start point
 bool g_gateReq = false;      // the gate right was requested for this start
+bool g_trGateArmed = false;  // #71926: Training owns the destination, the door right is timed from the landing here
 ULONGLONG g_gateDue = 0;     // when to request it (landing + 1 s, after the arena warp when there is one)
 // player position on the last frame before the latest load began (the game's boss intro can load + move the player after the
 // arena trigger: Yamagata 2026-10-09 trigger at ~337700 -> load -> BossBattleMode at 334650), for the arena capture
@@ -1133,7 +1134,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         const auto owns = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
         g_trainingDestination = warp && owns && owns(r.missionId) != 0;
         g_trainingRoute = -1;
-        if (g_trainingDestination) Log("Rematch: F %s: destination owner=Training; BR spawn override, warp, rewarp, nudge and gate injection disabled", r.id);
+        if (g_trainingDestination) Log("Rematch: F %s: destination owner=Training; BR spawn override, warp, rewarp and nudge disabled", r.id);
         g_fight.store(true);
         g_fightMission = r.missionId;
         g_fightStart = start;
@@ -1146,7 +1147,9 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_gateChecks.store(0);
         g_gateReq = false;
         g_gateDue = 0;
-        g_gateWant.store(!g_trainingDestination && warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
+        g_trGateArmed = false;
+        // #71926: door-waiting boss scripts (WaitWarpStart) never create the boss without this right, and it moves nothing, so it stays on when Training owns the destination.
+        g_gateWant.store(warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
         if (g_gateWant.load())
             Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, r.gateId, r.gateKind);
         g_warpPending = false;
@@ -1450,9 +1453,17 @@ void FnVerify(const Snap& s, ULONGLONG t) {
 
 // game thread, inside the Fight now mission: open the boss gate the way the game does (door / StartWarp), once
 void GateTick(const Snap& s, ULONGLONG t) {
-    if (g_trainingDestination) return;
     if (NativeGate(s) || !AttemptEffectsAllowed()) return;  // unknown/quarantined requests cannot authorize mutation
     const uint32_t want = g_gateWant.load();
+    if (g_trainingDestination && want) {
+        const auto routeFn = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
+        if (!routeFn || routeFn(g_fightMission) != 1) { g_gateWant.store(0); return; }  // Training found the boss or already fell back: the door stays shut
+        if (!g_trGateArmed) {
+            if (s.st[2] || s.st[3] || s.st[4] || !s.player || s.ms28 != g_fightMission) return;
+            g_trGateArmed = true;
+            g_gateDue = t + 5000;  // after Training's own move (3 s settle)
+        }
+    }
     if (!want || g_gateReq || !g_gateDue || t < g_gateDue || g_fightRow < 0) return;
     if (s.st[2] || s.st[3] || s.st[4] || !s.player || fight::g_active) {
         static ULONGLONG last = 0;
@@ -1470,7 +1481,7 @@ void GateTick(const Snap& s, ULONGLONG t) {
             g_gateWant.store(0);
             Log("Rematch: F %s: the boss start never waited for gate %u in 30 s of play (%u exclusive-right checks seen) - not requesting", r.id, want,
                 g_gateChecks.load());
-            if (g_fn.load() == kFnArmed || (g_fn.load() == kFnWarped && !g_fightWarp)) {
+            if (!g_trainingDestination && (g_fn.load() == kFnArmed || (g_fn.load() == kFnWarped && !g_fightWarp))) {
                 g_fn.store(kFnFail);
                 Result("fight now FAIL %s: boss start not waiting for gate %u", r.id, want);
             }
@@ -1491,6 +1502,11 @@ void GateTick(const Snap& s, ULONGLONG t) {
     }
     Log("Rematch: F %s: requested the boss gate's exclusive right (slot %d, key %s) as the %s would -> %s", r.id, slot, hb,
         r.GateDoor() ? "boss door" : "arena box", rc ? "EXCEPTION" : "ok");
+    if (g_trainingDestination) {
+        const auto opened = (void (*)(uint32_t))TrainingExport("Nioh3Training_NativeGateOpened");
+        if (!rc && opened) opened(g_fightMission);
+        return;
+    }
     if (g_fn.load() == kFnArmed) {
         g_fn.store(kFnWarped);
         g_fnFirst = g_fnLastT = t;

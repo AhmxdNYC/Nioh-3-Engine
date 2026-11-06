@@ -1911,7 +1911,7 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops; float safe[4], target[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, drops, gated; DWORD tGate; float safe[4], target[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 static int EnterFalling(float targetY, float y, int drops) { return y < targetY - 300.0f && drops >= 2; }  // 3 m under the target and two 250 ms samples in a row dropping >= 4 m/s: a script teleport or a walk downhill is not a fall
@@ -1922,6 +1922,12 @@ N3T_API int Nioh3Training_NativeEntryRoute(uint32_t mission) {
     return g_en.row && g_en.row->mission == mission ? g_en.route : 0;
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
+// #71926: BR opened the door this mission's boss script waits for; its intro and CreateAndWait run now, so hold the near-boss move and the fallback.
+N3T_API void Nioh3Training_NativeGateOpened(uint32_t mission) {
+    if (!g_en.active || !g_en.row || g_en.row->mission != mission || g_en.gated) return;
+    g_en.gated = 1; g_en.tGate = GetTickCount();
+    Log("ENTER %s: boss door opened by BR; waiting for the script's own boss", g_en.row->id);
+}
 N3T_API void Nioh3Training_NativeEntryResult(uint32_t mission, int accepted) {
     if (!g_en.active || !g_en.row || g_en.row->mission != mission) return;
     if (accepted) g_en.confirmed = 1;
@@ -1986,6 +1992,11 @@ static void EnterTick(void) {
             g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
             Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, r->placement);
             return;
+        }
+        if (g_en.gated) {
+            if (now - g_en.tGate < 120000) return;
+            g_en.gated = 0; g_en.nudged = 1; g_en.tWarp = now - 30000;
+            Log("ENTER %s: no boss 120 s after the door opened", r->id);
         }
         // #71644: some placements only spawn once the player is near them (Otoroshi appeared 0.6-1.1 s after the
         // fallback moved the player 9 m from it, twice). Try that before creating a replacement. Position comes from the row's own data.
