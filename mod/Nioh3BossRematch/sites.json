@@ -35,6 +35,16 @@
    "offset": 0
   },
   {
+   "name": "IsDeathGroupEnemy",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 2869444,
+   "head": 9,
+   "native": "Character::IsDeathGroupEnemy",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
    "name": "Character::Create",
    "group": "FIGHT",
    "kind": "hook",
