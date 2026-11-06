@@ -34,3 +34,17 @@ Live gate: repeat the same R3513 video and R25E4 fallback. No claim that visuals
 are fixed until that run. Intro frames occurring before the existing FIGHT
 callback remain covered; event IDs cannot safely identify them. Verify the boss
 intro in the live run and use a verified cinematic signal if it is obscured.
+
+## Follow-up #73087: the 90 s cap fired during a live load
+R3513 on TR 1b8b6345 ended the cover at +90 s while GAMESTATE[2] (stop flag 58A)
+was still set. LoadStats #4 was 93.3 s. The 90 s cap now yields while that flag
+is set, the mission-load sequencer is in state 1..15, or Fight now route is still
+1 or 3. A 180 s safety cap always releases. Cancel, failure and Return still
+release on the same tick. No row list. The cover still does not write the load flag.
+
+The 84 s idle after loaders finished at +9.3 s is not a cover hold. EngineFix
+LoadScreen only sets a draw flag (menu.cpp Nioh3EngineFix_LoadScreen). LoadGates
+HkGate returns the original result (loadstats.cpp). XwPreload can keep LoadIsLoadEnd
+gate G5 false until character +0x2C8 is set (training.c XwPreload), and that request
+is not started or extended by the cover. Loaders had already finished, so that gate
+does not explain the rest of the wait. Not proven: what kept 58A set for those 84 s.

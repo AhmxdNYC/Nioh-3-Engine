@@ -3153,7 +3153,15 @@ static void EntryCoverBegin(ArenaRow* r) {
     EntryLsBegin(r);
     if (!g_el.on) { EntryCoverEnd("screen not acquired"); return; }
     if (p_osdMask) p_osdMask(0xFFFF, 300);
-    Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms", r ? r->mission : 0);
+    Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit %u ms, safety %u ms while loading or entry pending", r ? r->mission : 0, EC_HARD_MS, EC_SAFETY_MS);
+}
+// Game state only. Route 1/3 are the Fight now entry still in progress (training.c EnterTick). GAMESTATE[2] is the 58A load flag. Seq 1..15 is the mission-load sequencer.
+static int EntryCoverHold(void) {
+    const uint8_t* gs = GameState();
+    const uint32_t q = SeqState();
+    const int loading = (gs && gs[2]) || (q >= 1 && q <= 15);
+    const int pending = g_en.route == 1 || g_en.route == 3;
+    return loading || pending;
 }
 static void EntryCoverTick(void) {
     if (!g_entryCover.active) return;
@@ -3162,11 +3170,17 @@ static void EntryCoverTick(void) {
     // Retain presentation ownership until FIGHT, fallback readiness or the deadline.
     const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
     const int ready=g_en.fellBack && g_en.route==4;
+    const int hold=EntryCoverHold();
+    const uint32_t age=GetTickCount()-g_entryCover.started;
+    if (hold && !cancel && !ready && age >= EC_HARD_MS && age < EC_SAFETY_MS && !g_entryCover.extended) {
+        g_entryCover.extended = 1;
+        Log("ENTRY COVER: 90 s passed and the game is still loading or Fight now is still pending; holding, safety limit %u ms", EC_SAFETY_MS);
+    }
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,0,hold);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
-        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : "cancel/return/failed");
+        EntryCoverEnd(action==EC_TIMEOUT ? (hold ? "safety timeout (still loading or entry pending)" : "hard timeout (fight unproven)") : ready ? "fallback actor live" : "cancel/return/failed");
         return;
     }
     if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }
