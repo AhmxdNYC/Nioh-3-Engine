@@ -35,3 +35,5 @@ If a fallback occurs, keep the actor identity log through the exit and inspect e
 - R25E4 box-point floor: derive safe ground/3D landing from game collision/placement data and correlate it with the mission trigger; this change does not repair the floor.
 - Multi-boss rows: derive wave/order and setup preconditions from the mission script and verify the intended opponent sequence, not only a global BossBattleMode signal.
 - Tutorial rows: derive tutorial/input/script prerequisites and expected opponent from mission data; proximity alone does not establish a started encounter.
+
+Exit timing baseline correction (pc #71494 / pc2 #71455): 31-52 seconds covers only the 8 duel rows. RA0CB and Yamagata exit timings are unknown. Compare R9A25 exit timing against those duels; do not count this as a 10-row timing baseline.
