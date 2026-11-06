@@ -1302,7 +1302,7 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
 #include "native_entry_sequences_gen.h"
-static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; uint8_t barTries[FALLBACK_ROSTER_MAX]; DWORD nextAt, barAskAt[FALLBACK_ROSTER_MAX], zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
+static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; uint8_t barTries[FALLBACK_ROSTER_MAX], barBusy[FALLBACK_ROSTER_MAX]; DWORD nextAt, barAskAt[FALLBACK_ROSTER_MAX], zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
 static void NativePhaseEvent(int phase) {
@@ -2201,8 +2201,13 @@ static void NativeRosterTick(DWORD now) {
                     { g_fb.barAsked |= 1u << i; g_fb.barAskAt[i] = now; g_fb.barTries[i] = 1; RosterRequestBar(i); }
                 // The request can be refused (another boss's bar up, HUD still opening). While this body is still alive and engaged with no bar, ask again every 1.5 s, at most 5 times;
                 // by then the earlier owner's bar has closed and the HUD is idle.
-                else if ((g_fb.barAsked & (1u << i)) && !RosterBarOn(a) && g_fb.barTries[i] < 5 && (int)(now - g_fb.barAskAt[i]) >= 1500)
-                    { g_fb.barAskAt[i] = now; g_fb.barTries[i]++; RosterRequestBar(i); }
+                else if ((g_fb.barAsked & (1u << i)) && !RosterBarOn(a) && (int)(now - g_fb.barAskAt[i]) >= 1500) {
+                    // Another boss's bar row up (the earlier owner is still alive): the call can be refused, so a try does not count against the cap of 5;
+                    // at most 3 such probes, then wait. When the rows drop to 0 (that boss died) the counted tries start, still 1.5 s apart.
+                    long long rows = RosterBarRows();
+                    if (rows > 0) { if (g_fb.barBusy[i] < 3) { g_fb.barBusy[i]++; g_fb.barAskAt[i] = now; RosterRequestBar(i); } }
+                    else if (g_fb.barTries[i] < 5) { g_fb.barAskAt[i] = now; g_fb.barTries[i]++; RosterRequestBar(i); }
+                }
             } else dormantAt[i] = a; // present, but no bar, no HP change, no hit: not holding the fight
         }
         else if (g_fb.seen & (1u << i)) {
@@ -3272,6 +3277,12 @@ static void BhStart(uint32_t handle) {
     Log("BOSSHOLD boss 0x%X: AI held until the screen is visible + %d ms (BossGraceAfterCoverMs, max %d ms)", handle, g_cfg_bossgrace, g_cfg_bosshold_max);
 }
 static __attribute__((noinline)) int BhAiOn(uint64_t a) { uint64_t c = 0, ai = 0; uint32_t f = 0; if (!Rd64(a + 0x3B0, &c) || !c || !Rd64(c + 0x50, &ai) || !ai) return -1; __try { f = *(volatile uint32_t*)(ai + 0x1574); } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; } return f != 0; }
+// Number of boss bar rows on screen (-1 unknown).
+static long long RosterBarRows(void) {
+    uint64_t root = 0, hud = 0, r0 = 0, r1 = 0;
+    if (!Rd64(B + Grva(0x45C84A8), &root) || !root || !Rd64(root + 0xA8, &hud) || !hud || !Rd64(hud + 0x3C0, &r0) || !Rd64(hud + 0x3C8, &r1)) return -1;
+    return r0 && r1 > r0 ? (long long)((r1 - r0) / 0x60) : 0;
+}
 // Boss gauge rows, same walk NfTick uses. A shown bar is proof this body is the current fight.
 static int RosterBarOn(uint64_t actor) {
     if (!actor) return 0;
