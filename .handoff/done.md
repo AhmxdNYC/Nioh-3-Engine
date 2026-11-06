@@ -1,1 +1,2 @@
 - 2026-10-28 | Combined final candidate | Combine approved menu, ring and Boss Match fixes | 3 ASIs built; bundle3299; offline regressions pass incl64 settings cases and31 release tests; live acceptance remains pc-owned.
+- 2026-11-05 | Native multi-boss sequence offline build | Real-boss rows logged a win after only one named boss | Track deaths by identity, wait for native next phase then fill missing boss; all 23 resolved rosters pass offline, live gate assigned to pc.
