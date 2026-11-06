@@ -2,7 +2,7 @@
 from pathlib import Path
 import subprocess,sys,tempfile
 root=Path(__file__).resolve().parents[1];s=(root/'src/training.c').read_text()
-a=s.index('static uint32_t NativeEntryWaveLive(');b=s.index('static int g_native_fallback,',a);code=s[a:b]
+a=s.index('static uint32_t NativeEntryWaveLive(');b=s.index('// Literal post-gate creator dependencies',a);code=s[a:b]
 pre=r'''
 #include <stdint.h>
 #include <stdio.h>

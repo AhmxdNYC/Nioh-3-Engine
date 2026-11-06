@@ -19,3 +19,11 @@ The generator emits23 mission/placement/gate entries with full provenance in `no
 ## Offline validation
 
 Six tests pass in `mod/Nioh3BossRematch/tests/test_native_entry_gates.py`: selected direct create/wrong actor, rejecting a create before the wait, CALL_FN and Script::Create linkage, exact enemy-wave match/wrong wave, multiple-gate ambiguity, and compiled production runtime selection for all23 generated rows plus legacy/no-warp/no-site cases. Generator --check reproduces output from original files. BR build belongs to parent; no independent commit made in the shared worktree.
+
+## Literal prerequisite sequence guard
+
+The same gate collector now emits `native_entry_sequences_gen.h`: all literal Character::Create/CreateAndWait calls reachable after an accepted unique WaitWarpStart, joined by exact placement to a unique enemy record in that mission (+0 placement, +4 spawn key). Proof function/offset and joined identity are retained in native-entry-gates-72263.json. Runtime must observe these only after the gate has been granted and require the exact placement/key with active AI; parent owns that integration.
+
+RFCCB first offline onryo creations are 1086380 at 0xF80A and 1087603 at 0xF822, both spawn key491486 (online equivalents0xF0FC/0xF114). Their native sequence can outlast a fixed timeout before selected1088859 appears at0xFE0C. Parameter/variable creation arguments are deliberately not propagated; the two initial literal actors suffice to recognize entry into this controller, then runtime retains the native route across gaps. Seven offline tests pass, including exclusion of pre-wait, absent, duplicate and unrelated same-character placements; generated files reproduce with --check.
+
+R9A25 correction: 39461 is 0x9A25, the selected mission itself. The pre-gate clear predicate is an own-mission-clear early-return condition, not a different prerequisite mission. No predicate spoof or story writes are introduced; its runtime effect still needs live proof.

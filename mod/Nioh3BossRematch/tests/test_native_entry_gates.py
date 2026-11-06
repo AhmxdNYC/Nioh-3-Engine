@@ -1,6 +1,6 @@
 ﻿"""Offline regression: generated literal gate dependencies and runtime admission."""
 from pathlib import Path
-import importlib.util,types,unittest,subprocess,sys,tempfile,json
+import importlib.util,types,unittest,subprocess,sys,tempfile,json,struct
 ROOT=Path(__file__).resolve().parents[3]
 spec=importlib.util.spec_from_file_location('gates',ROOT/'tools/gen_native_entry_gates.py');g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)
 I=g.dis.Insn
@@ -32,9 +32,24 @@ class GateTests(unittest.TestCase):
     def test_ambiguous_is_visible_for_rejection(self):
         s=script([entry(0,10),lit(4,90),call(10,20),lit(14,100),call(20,30),entry(30,40),lit(34,91),call(40,20),lit(44,100),call(50,30)])
         self.assertEqual({p['gate'] for p in g.gate_paths(s,100,pool=[])},{90,91})
+    def test_prerequisites_exact_postgate_mission_join(self):
+        s=script([entry(0,10),lit(4,200),call(10,30),lit(14,90),call(20,20),
+                  lit(24,201),call(30,30),lit(34,202),call(40,30),lit(44,203),call(50,30),
+                  lit(54,100),call(60,30)])
+        paths=g.gate_paths(s,100,pool=[])
+        def enemy(pid,chr):
+            b=bytearray(0x138);struct.pack_into('<II',b,0,pid,chr);return bytes(b)
+        members=g.sequence_members(paths,[enemy(200,1),enemy(201,2),enemy(202,3),enemy(202,4),enemy(100,9),enemy(999,2)])
+        self.assertEqual([(m['placement'],m['chr']) for m in members],[(100,9),(201,2)])
+        # Before-wait, absent, duplicate and same-character unrelated placements excluded.
+
     def test_real_provenance_and_runtime_selection(self):
         data=json.loads((ROOT/'notes/native-entry-gates-72263.json').read_text())
-        rows=data['rows'];self.assertEqual((ROOT/'mod/Nioh3BossRematch/src/native_entry_gates_gen.h').read_text(),g.render(rows))
+        rows=data['rows'];self.assertEqual((ROOT/'mod/Nioh3Training/src/native_entry_sequences_gen.h').read_text(),g.render_sequences(rows))
+        rf=next(r for r in rows if r['id']=='RFCCB');members={m['placement']:m['chr'] for m in rf['members']}
+        self.assertEqual(members[1086380],491486);self.assertEqual(members[1087603],491486)
+        self.assertNotIn(1080072,members) # parameter-based Create intentionally not inferred
+        self.assertEqual((ROOT/'mod/Nioh3BossRematch/src/native_entry_gates_gen.h').read_text(),g.render(rows))
         expected={'R25E4':1047905,'RB24D':573194,'RFCCB':1089694,'R2068':1072821,'R9A25':262638326}
         self.assertEqual({r['id']:r['gate'] for r in rows if r['id'] in expected},expected)
         s=(ROOT/'mod/Nioh3BossRematch/src/rematch.cpp').read_text();a=s.index('static uint32_t EntryGateChoice(');b=s.index('\nbool g_exitOk',a)

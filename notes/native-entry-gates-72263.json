@@ -20,6 +20,28 @@
               "offset": 63114,
               "placement": 76781
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 63114,
+              "placement": 76781
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 76781,
+          "chr": 947280,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 63114,
+              "placement": 76781
+            }
           ]
         }
       ]
@@ -37,6 +59,64 @@
           "gate": 4143562104,
           "wait": 62900,
           "function": "sub_event_boss_battle_start",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 63138,
+              "placement": 84220
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 63138,
+              "placement": 84220
+            },
+            {
+              "kind": "create",
+              "function": "talk_event_hanzou",
+              "offset": 63740,
+              "placement": 81278
+            },
+            {
+              "kind": "create",
+              "function": "talk_event_hanzou",
+              "offset": 64122,
+              "placement": 55344
+            },
+            {
+              "kind": "create",
+              "function": "talk_event_hanzou",
+              "offset": 63740,
+              "placement": 81278
+            },
+            {
+              "kind": "create",
+              "function": "talk_event_hanzou",
+              "offset": 64122,
+              "placement": 55344
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 81278,
+          "chr": 22946,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "talk_event_hanzou",
+              "offset": 63740,
+              "placement": 81278
+            }
+          ]
+        },
+        {
+          "placement": 84220,
+          "chr": 482895,
           "proof": [
             {
               "kind": "create",
@@ -68,6 +148,46 @@
               "offset": 73156,
               "placement": 94568
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_masakage_battle_start",
+              "offset": 73156,
+              "placement": 94568
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_wait_defeat_masakage",
+              "offset": 73670,
+              "placement": 99003
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 94568,
+          "chr": 598115,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_masakage_battle_start",
+              "offset": 73156,
+              "placement": 94568
+            }
+          ]
+        },
+        {
+          "placement": 99003,
+          "chr": 970926,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_wait_defeat_masakage",
+              "offset": 73670,
+              "placement": 99003
+            }
           ]
         }
       ]
@@ -93,9 +213,11 @@
               "wave": 57187,
               "placement": 1071509
             }
-          ]
+          ],
+          "creates": []
         }
-      ]
+      ],
+      "members": []
     },
     {
       "id": "R25E4",
@@ -118,9 +240,11 @@
               "wave": 6134,
               "placement": 1047415
             }
-          ]
+          ],
+          "creates": []
         }
-      ]
+      ],
+      "members": []
     },
     {
       "id": "R04DF",
@@ -135,6 +259,28 @@
           "gate": 1051105,
           "wait": 54736,
           "function": "sub_event_boss_wave_control",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_wave_control",
+              "offset": 54792,
+              "placement": 1055821
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_wave_control",
+              "offset": 54792,
+              "placement": 1055821
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 1055821,
+          "chr": 445093,
           "proof": [
             {
               "kind": "create",
@@ -172,6 +318,538 @@
               "offset": 65036,
               "placement": 1088859
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 61692,
+              "placement": 1086380
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 61716,
+              "placement": 1087603
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62046,
+              "placement": 1086284
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62090,
+              "placement": 1087060
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62350,
+              "placement": 1081297
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62394,
+              "placement": 1083835
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62438,
+              "placement": 1087178
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62482,
+              "placement": 1081048
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62526,
+              "placement": 1081555
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62758,
+              "placement": 1084670
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62802,
+              "placement": 1081138
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62846,
+              "placement": 1080219
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62890,
+              "placement": 1085277
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62934,
+              "placement": 1081211
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62978,
+              "placement": 1083110
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63022,
+              "placement": 1086452
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63066,
+              "placement": 1089994
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63106,
+              "placement": 1085301
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_kamaitachi_battle",
+              "offset": 65036,
+              "placement": 1088859
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63498,
+              "placement": 1086380
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63522,
+              "placement": 1087603
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63864,
+              "placement": 1087060
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64106,
+              "placement": 1081297
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64150,
+              "placement": 1083835
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64194,
+              "placement": 1087178
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64238,
+              "placement": 1081048
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64452,
+              "placement": 1081555
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64496,
+              "placement": 1084670
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64540,
+              "placement": 1081138
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64584,
+              "placement": 1080219
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64628,
+              "placement": 1085277
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64672,
+              "placement": 1081211
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64716,
+              "placement": 1083110
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64756,
+              "placement": 1086452
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_kamaitachi_battle",
+              "offset": 65036,
+              "placement": 1088859
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 1080219,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62846,
+              "placement": 1080219
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64584,
+              "placement": 1080219
+            }
+          ]
+        },
+        {
+          "placement": 1081048,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62482,
+              "placement": 1081048
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64238,
+              "placement": 1081048
+            }
+          ]
+        },
+        {
+          "placement": 1081138,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62802,
+              "placement": 1081138
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64540,
+              "placement": 1081138
+            }
+          ]
+        },
+        {
+          "placement": 1081211,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62934,
+              "placement": 1081211
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64672,
+              "placement": 1081211
+            }
+          ]
+        },
+        {
+          "placement": 1081297,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62350,
+              "placement": 1081297
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64106,
+              "placement": 1081297
+            }
+          ]
+        },
+        {
+          "placement": 1081555,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62526,
+              "placement": 1081555
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64452,
+              "placement": 1081555
+            }
+          ]
+        },
+        {
+          "placement": 1083110,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62978,
+              "placement": 1083110
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64716,
+              "placement": 1083110
+            }
+          ]
+        },
+        {
+          "placement": 1083835,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62394,
+              "placement": 1083835
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64150,
+              "placement": 1083835
+            }
+          ]
+        },
+        {
+          "placement": 1084670,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62758,
+              "placement": 1084670
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64496,
+              "placement": 1084670
+            }
+          ]
+        },
+        {
+          "placement": 1085277,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62890,
+              "placement": 1085277
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64628,
+              "placement": 1085277
+            }
+          ]
+        },
+        {
+          "placement": 1085301,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63106,
+              "placement": 1085301
+            }
+          ]
+        },
+        {
+          "placement": 1086284,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62046,
+              "placement": 1086284
+            }
+          ]
+        },
+        {
+          "placement": 1086380,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 61692,
+              "placement": 1086380
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63498,
+              "placement": 1086380
+            }
+          ]
+        },
+        {
+          "placement": 1086452,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63022,
+              "placement": 1086452
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64756,
+              "placement": 1086452
+            }
+          ]
+        },
+        {
+          "placement": 1087060,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62090,
+              "placement": 1087060
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63864,
+              "placement": 1087060
+            }
+          ]
+        },
+        {
+          "placement": 1087178,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 62438,
+              "placement": 1087178
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 64194,
+              "placement": 1087178
+            }
+          ]
+        },
+        {
+          "placement": 1087603,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 61716,
+              "placement": 1087603
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control",
+              "offset": 63522,
+              "placement": 1087603
+            }
+          ]
+        },
+        {
+          "placement": 1088859,
+          "chr": 816820,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_kamaitachi_battle",
+              "offset": 65036,
+              "placement": 1088859
+            }
+          ]
+        },
+        {
+          "placement": 1089994,
+          "chr": 491486,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_onryo_control_online",
+              "offset": 63066,
+              "placement": 1089994
+            }
           ]
         }
       ]
@@ -189,6 +867,28 @@
           "gate": 348369,
           "wait": 65252,
           "function": "sub_event_boss_battle_initialize",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 65370,
+              "placement": 340693
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 65370,
+              "placement": 340693
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 340693,
+          "chr": 371449,
           "proof": [
             {
               "kind": "create",
@@ -220,6 +920,28 @@
               "offset": 62244,
               "placement": 353508
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 62244,
+              "placement": 353508
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 353508,
+          "chr": 724394,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 62244,
+              "placement": 353508
+            }
           ]
         }
       ]
@@ -237,6 +959,28 @@
           "gate": 368649,
           "wait": 60070,
           "function": "sub_event_boss_battle_initialize",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 60316,
+              "placement": 364374
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_initialize",
+              "offset": 60316,
+              "placement": 364374
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 364374,
+          "chr": 894462,
           "proof": [
             {
               "kind": "create",
@@ -268,6 +1012,28 @@
               "offset": 71924,
               "placement": 375545
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 71924,
+              "placement": 375545
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 375545,
+          "chr": 16102,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 71924,
+              "placement": 375545
+            }
           ]
         }
       ]
@@ -292,6 +1058,46 @@
               "offset": 62964,
               "placement": 580015
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 62964,
+              "placement": 580015
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 62976,
+              "placement": 587213
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 580015,
+          "chr": 656503,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 62964,
+              "placement": 580015
+            }
+          ]
+        },
+        {
+          "placement": 587213,
+          "chr": 759257,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 62976,
+              "placement": 587213
+            }
           ]
         }
       ]
@@ -309,6 +1115,46 @@
           "gate": 3263903048,
           "wait": 68264,
           "function": "BOSS_BATTLE",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "BOSS_BATTLE",
+              "offset": 68480,
+              "placement": 597242
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "BOSS_BATTLE",
+              "offset": 68480,
+              "placement": 597242
+            },
+            {
+              "kind": "create",
+              "function": "BOSS_BATTLE",
+              "offset": 68998,
+              "placement": 594637
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 594637,
+          "chr": 306399,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "BOSS_BATTLE",
+              "offset": 68998,
+              "placement": 594637
+            }
+          ]
+        },
+        {
+          "placement": 597242,
+          "chr": 745563,
           "proof": [
             {
               "kind": "create",
@@ -340,6 +1186,100 @@
               "offset": 81362,
               "placement": 573339
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81362,
+              "placement": 573339
+            },
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81374,
+              "placement": 572719
+            },
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81386,
+              "placement": 577980
+            },
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81398,
+              "placement": 570909
+            },
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81410,
+              "placement": 576527
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 570909,
+          "chr": 916970,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81398,
+              "placement": 570909
+            }
+          ]
+        },
+        {
+          "placement": 572719,
+          "chr": 916970,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81374,
+              "placement": 572719
+            }
+          ]
+        },
+        {
+          "placement": 573339,
+          "chr": 720656,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81362,
+              "placement": 573339
+            }
+          ]
+        },
+        {
+          "placement": 576527,
+          "chr": 545076,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81410,
+              "placement": 576527
+            }
+          ]
+        },
+        {
+          "placement": 577980,
+          "chr": 545076,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "soranaki_battle_start",
+              "offset": 81386,
+              "placement": 577980
+            }
           ]
         }
       ]
@@ -357,6 +1297,28 @@
           "gate": 3715625741,
           "wait": 58602,
           "function": "sub_event_boss_battle_start",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 58810,
+              "placement": 4056771
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 58810,
+              "placement": 4056771
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4056771,
+          "chr": 778951,
           "proof": [
             {
               "kind": "create",
@@ -388,6 +1350,28 @@
               "offset": 59060,
               "placement": 4067651
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 59060,
+              "placement": 4067651
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4067651,
+          "chr": 829576,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 59060,
+              "placement": 4067651
+            }
           ]
         }
       ]
@@ -405,6 +1389,28 @@
           "gate": 4070877,
           "wait": 57002,
           "function": "check_boss_battle_start",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "check_boss_battle_start",
+              "offset": 57120,
+              "placement": 4075848
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "check_boss_battle_start",
+              "offset": 57120,
+              "placement": 4075848
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4075848,
+          "chr": 799359,
           "proof": [
             {
               "kind": "create",
@@ -436,6 +1442,28 @@
               "offset": 57058,
               "placement": 4087191
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_nuribotoke_battle",
+              "offset": 57058,
+              "placement": 4087191
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4087191,
+          "chr": 392871,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_nuribotoke_battle",
+              "offset": 57058,
+              "placement": 4087191
+            }
           ]
         }
       ]
@@ -459,6 +1487,46 @@
               "function": "sub_event_boss_battle_start_souji",
               "offset": 64546,
               "placement": 4092708
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start_souji",
+              "offset": 64546,
+              "placement": 4092708
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start_youshinobu",
+              "offset": 65206,
+              "placement": 4097963
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4092708,
+          "chr": 889237,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start_souji",
+              "offset": 64546,
+              "placement": 4092708
+            }
+          ]
+        },
+        {
+          "placement": 4097963,
+          "chr": 268880,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start_youshinobu",
+              "offset": 65206,
+              "placement": 4097963
             }
           ]
         }
@@ -484,6 +1552,46 @@
               "offset": 56810,
               "placement": 4105770
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 56756,
+              "placement": 4108934
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 56810,
+              "placement": 4105770
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 4105770,
+          "chr": 889237,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 56810,
+              "placement": 4105770
+            }
+          ]
+        },
+        {
+          "placement": 4108934,
+          "chr": 170729,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 56756,
+              "placement": 4108934
+            }
           ]
         }
       ]
@@ -501,6 +1609,58 @@
           "gate": 2854124563,
           "wait": 67942,
           "function": "sub_event_boss_battle_start",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 68700,
+              "placement": 8043173
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 68700,
+              "placement": 8043173
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_clear_check",
+              "offset": 71136,
+              "placement": 8037917
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_clear_check",
+              "offset": 71180,
+              "placement": 8039659
+            },
+            {
+              "kind": "create",
+              "function": "sub_event_boss_clear_check",
+              "offset": 71240,
+              "placement": 8042786
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 8042786,
+          "chr": 450193,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_clear_check",
+              "offset": 71240,
+              "placement": 8042786
+            }
+          ]
+        },
+        {
+          "placement": 8043173,
+          "chr": 412493,
           "proof": [
             {
               "kind": "create",
@@ -532,6 +1692,28 @@
               "offset": 66118,
               "placement": 8054890
             }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 66118,
+              "placement": 8054890
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 8054890,
+          "chr": 96759,
+          "proof": [
+            {
+              "kind": "create",
+              "function": "sub_event_boss_battle_start",
+              "offset": 66118,
+              "placement": 8054890
+            }
           ]
         }
       ]
@@ -549,6 +1731,28 @@
           "gate": 657319613,
           "wait": 64456,
           "function": "kitan_37_boss_battle_start",
+          "proof": [
+            {
+              "kind": "create",
+              "function": "kitan_37_boss_battle_start",
+              "offset": 64716,
+              "placement": 8073284
+            }
+          ],
+          "creates": [
+            {
+              "kind": "create",
+              "function": "kitan_37_boss_battle_start",
+              "offset": 64716,
+              "placement": 8073284
+            }
+          ]
+        }
+      ],
+      "members": [
+        {
+          "placement": 8073284,
+          "chr": 210803,
           "proof": [
             {
               "kind": "create",
