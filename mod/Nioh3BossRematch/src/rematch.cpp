@@ -965,6 +965,16 @@ bool VetoClear(int) {  // script thread: Mission::SetMissionClearFlag (no args; 
     Log("Rematch: UNBEATEN 0x%04X: the game's mission-clear call was SKIPPED (boss beaten in a Boss Match of a mission this save has not cleared; no clear/unlock/story write) (#256)", m);
     return true;
 }
+// The mission script can finish its native actor while a generated roster still
+// has a missing member. Do not put that remaining fight into clear-gadget wait
+// mode. The native is resolved by its registered name; no mission/boss/address list.
+bool VetoRosterClearWait(int) {
+    using Pending = int (*)();
+    const auto pending = (Pending)TrainingExport("Nioh3Training_NativeRosterPending");
+    if (!pending || !pending()) return false;
+    Log("Rematch: roster still pending; ClearGadgetAccessWaitMode SKIPPED (keep remaining boss in combat)");
+    return true;
+}
 void InstallClearGuard() {
     const char* why = nullptr;
     g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
@@ -3061,6 +3071,11 @@ bool Prepare() {
     g_cfg.showUnverified = IniInt(L"Rematch", L"ShowUnverified", 0) != 0;
     g_cfg.ignoreProgress = IniInt(L"Rematch", L"IgnoreProgress", IniInt(L"Dev", L"IgnoreProgress", 0)) != 0;  // #256 ([Dev] = old #255 name)
     InstallClearGuard();
+    {
+        const char* why = nullptr;
+        const bool ok = InstallVeto("Mission::ClearGadgetAccessWaitMode", &VetoRosterClearWait, &why);
+        Log("Rematch: remaining-roster combat guard %s%s", ok ? "installed" : "NOT installed: ", ok ? "" : (why ? why : "?"));
+    }
     g_cfg.fightNow = IniInt(L"Rematch", L"FightNow", 1) != 0;
     g_cfg.fightWarp = IniInt(L"Rematch", L"FightNowWarp", 1) != 0;
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;

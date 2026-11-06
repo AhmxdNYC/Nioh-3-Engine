@@ -2092,6 +2092,22 @@ static uint64_t RosterNativeActor(unsigned i) {
         *(uint32_t*)rec != g_fb.row->placement[i] || *(uint32_t*)(rec + 4) != g_fb.row->chr[i]) return 0;
     return ActorByHandle(g_fb.row->placement[i]) == a ? a : 0;
 }
+// Called on the script/game thread before native mission-clear wait mode starts.
+// A native member can die before the frame poll records it, so inspect exact roster
+// identities as well as the confirmed mask. Never treat a missing actor as dead.
+N3T_API int Nioh3Training_NativeRosterPending(void) {
+    if (!NativePhaseMatches() || g_np.ended || !FallbackMulti() || !g_fb.native || g_fb.ended || g_fb.complete) return 0;
+    for (unsigned i = 0; i < g_fb.row->count; ++i) {
+        if (g_fb.killed & (1u << i)) continue;
+        uint64_t a = 0, hp = 1, mx = 0; int dead = 0;
+        if (g_fb.owned & (1u << i)) {
+            if (i == g_fb.index && g_fb.handle) a = ActorByHandle(g_fb.handle);
+        } else a = RosterNativeActor(i);
+        if (a) ActorDeadNow(a, &dead, &hp, &mx);
+        if (!a || !dead) return 1; // HP zero alone can be an unfinished finisher.
+    }
+    return 0;
+}
 static void NativeRosterTick(DWORD now) {
     if (!FallbackMulti() || !g_fb.native || g_fb.ended || g_fb.complete || !g_en.warped) return;
     if (PlayerDeadNow()) { FightFinish(FL_LOSS); return; }
@@ -5014,8 +5030,13 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
     if (g_cfg_cantdie && dmg > 0 && hp) {  // user #22918: cut player HP damage whenever the toggle is ON, including after Return clears the session
         uint64_t me = PlayerChar(), pst = 0;
         if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
-            static volatile LONG ncut; const int d0 = dmg; dmg = PhDamageCut(g_cfg_cantdie, 1, 1, dmg);
-            if (InterlockedIncrement(&ncut) <= 20) Log("TRAIN infinite health: hit of %d on the player cut to %d (%s)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : g_ar.active ? "arena" : "toggle still on");
+            static volatile LONG ncut; static DWORD lastHitLog; const int d0 = dmg; dmg = PhDamageCut(g_cfg_cantdie, 1, 1, dmg);
+            const LONG hitNo = InterlockedIncrement(&ncut);
+            const DWORD hitAt = GetTickCount();
+            if (hitNo <= 20 || hitAt - lastHitLog >= 1000) {
+                lastHitLog = hitAt;
+                Log("TRAIN infinite health: hit of %d on the player cut to %d (%s; total=%ld)", d0, dmg, g_tr.active ? "Practice" : g_bm.active ? "Boss Match" : g_ar.active ? "arena" : "toggle still on", hitNo);
+            }
         }
     }
     if (g_cfg_nofin && g_nf_nonlethal && hp && !keep) for (int i = 0; i < NF_N; ++i) if (g_nf_chr[i] && g_nf_chr[i] + 0x38 == hp && g_nf_act[i] && g_nf_act[i] != g_kill_act) {
