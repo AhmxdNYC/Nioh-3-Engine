@@ -149,6 +149,9 @@ void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     g_endAt.store(t);
     g_active.store(false);
     InterlockedExchange(&fight::g_active, 0);
+    // Only the mission script ends boss mode this way: quitting, leaving and dying never reach this hook (#302: Ito, Sawamura).
+    // The clear call can come much later or need the player's input, so it cannot decide the win.
+    g_clearWin.store(1);
     MaybeEnd();
 }
 

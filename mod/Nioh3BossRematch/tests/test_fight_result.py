@@ -7,6 +7,8 @@ def function(path, sig):
  while depth:
   depth+=(s[e]=='{')-(s[e]=='}'); e+=1
  return s[a:e]
+hk=function('mod/Nioh3BossRematch/src/bosslog.cpp','void HkEnd(')
+assert hk.index('g_clearWin.store(1)')<hk.index('MaybeEnd()'),'script boss-mode end must record a win before the fight is closed'
 code=r'''#include <windows.h>
 #include <atomic>
 #include <cassert>
