@@ -23,3 +23,5 @@ Ally log: native active actor at 22:41:09, killid at 22:41:34, DEATHBLOW skip ex
 Training build passes (existing unused g_noForceHide/AbFree warnings). Native-entry mock, exact actor identity (8 cases), native phase grace, all 23 resolved native roster sequences, fallback sequences and 6 roster-data tests pass. The entry-box generator reproduces checked-in output from original extracted records. Separate generator tests cover serialized-ID mapping, wrong actor, mismatched box, different function and door exclusion. No live success claim.
 
 The branch changes Training and its offline generators/tests only. Keep the base BR ec8cb3b4; no BR gameplay changes required. Installed PC build remains supplied EF 1de96af5 / BR 65d31658 / TR 99600c91 / Cam 7482c03d; public remains 1.8.6.
+
+Final artifact: Training SHA256 4964090e69d226e7c89c23dc29e23e194388f01fef154c4b862e0c14ef1862da (bridge #5449). Return/ownership/dedupe regression also passes under Zig C++ (MSVC cl was absent from PATH). Five box-path selection tests pass. Source 8f6581c6 before this evidence/checkpoint append.
