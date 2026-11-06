@@ -4764,6 +4764,12 @@ void Command(const char* line, char* reply, size_t n) {
         else if (na >= 1 && !strcmp(a, "noitem")) g_scUseItem.store(0);
         else if (na >= 1 && !strcmp(a, "start0")) g_scStart0.store(1);
         else if (na >= 1 && !strcmp(a, "startrow")) g_scStart0.store(0);
+        else if (na >= 2 && !strcmp(a, "keybyte")) {  // #77334 DEV: write the record's real key to charMgr +0x2BEF, redirect stays on
+            uint64_t kbA = 0, kbC = 0;
+            uint8_t kbOld = 0, kbNew = (uint8_t)v1;
+            const bool kbOk = Rd(G_CH, kbA) && kbA && Rd(kbA, kbC) && kbC && Rd(kbC + 0x2BEF, kbOld) && WrBytes(kbC + 0x2BEF, &kbNew, 1);
+            Log("Rematch: scrollctl keybyte %02X -> %02X: %s", kbOld, kbNew, kbOk ? "written" : "FAILED");
+        }
         else if (na >= 1 && (!strcmp(a, "level") || !strcmp(a, "b0f") || !strcmp(a, "redirect"))) {
             unsigned d = 0;
             sscanf(rest, "%*s %u", &d);
