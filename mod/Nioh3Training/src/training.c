@@ -1302,7 +1302,7 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
 #include "native_entry_sequences_gen.h"
-static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
+static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; } g_np;
 static void NativePhaseEvent(int phase) {
@@ -1744,7 +1744,7 @@ static void TrainRetry(const char* why) {
     if (FallbackMulti()) {
         g_fb.index = 0; g_fb.ended = g_fb.complete = 0; g_fb.handle = 0; g_sp.active = 0;
         memset(&g_np, 0, sizeof g_np);
-        g_fb.native = 0; g_fb.killed = g_fb.seen = 0; g_fb.owned = 1; g_fb.nextAt = 0; memset(g_fb.zeroAt, 0, sizeof g_fb.zeroAt);
+        g_fb.native = 0; g_fb.killed = g_fb.seen = g_fb.woke = g_fb.hpSeen = g_fb.struck = 0; g_fb.owned = 1; g_fb.nextAt = 0; memset(g_fb.zeroAt, 0, sizeof g_fb.zeroAt); memset(g_fb.hp0, 0, sizeof g_fb.hp0);
         g_tr.chr = g_fb.row->chr[0]; g_ar.chr = g_tr.chr;
         g_ar.placement = g_arena_placement = g_fb.row->placement[0];
         g_ar.active = 0;
@@ -2141,6 +2141,21 @@ static uint64_t RosterNativeActor(unsigned i) {
         *(uint32_t*)rec != g_fb.row->placement[i] || *(uint32_t*)(rec + 4) != g_fb.row->chr[i]) return 0;
     return ActorByHandle(g_fb.row->placement[i]) == a ? a : 0;
 }
+// A boss that hit the player is in the fight even with no bar yet. Bar and HP change are the other proofs.
+static void RosterNotePlayerHit(uint64_t attacker) {
+    if (!FallbackMulti() || !g_fb.native || g_fb.ended || !attacker) return;
+    for (unsigned i = 0; i < g_fb.row->count; ++i) {
+        if ((g_fb.killed | g_fb.owned) & (1u << i)) continue;
+        if (RosterNativeActor(i) == attacker) { g_fb.struck |= 1u << i; return; }
+    }
+}
+static int RosterBarOn(uint64_t actor);
+static void RosterWakeMember(unsigned i, uint64_t a);
+static void RosterCapturePose(uint64_t a) {
+    if (g_fb.pose || !a || !PlayerPos(g_fb.pp)) return;
+    memcpy(g_fb.bp, (const void*)(a + 0x110), sizeof g_fb.bp);
+    g_fb.face = g_fb.pp[3] + 180.0f; g_fb.pose = 1;
+}
 // Called on the script/game thread before native mission-clear wait mode starts.
 // A native member can die before the frame poll records it, so inspect exact roster
 // identities as well as the confirmed mask. Never treat a missing actor as dead.
@@ -2161,17 +2176,21 @@ static void NativeRosterTick(DWORD now) {
     if (!FallbackMulti() || !g_fb.native || g_fb.ended || g_fb.complete || !g_en.warped) return;
     if (PlayerDeadNow()) { FightFinish(FL_LOSS); return; }
     unsigned alive = 0;
+    uint64_t dormantAt[FALLBACK_ROSTER_MAX];
+    memset(dormantAt, 0, sizeof dormantAt);
     for (unsigned i = 0; i < g_fb.row->count; ++i) {
         if ((g_fb.killed | g_fb.owned) & (1u << i)) continue;
         uint64_t a = RosterNativeActor(i), hp = 1, maxhp = 0; int dead = 0;
         if (!a) { g_fb.zeroAt[i] = 0; continue; } // disappearance is not proof of a kill
         ActorDeadNow(a, &dead, &hp, &maxhp);
         if (!dead && maxhp && hp) {
-            g_fb.seen |= 1u << i; g_fb.zeroAt[i] = 0; alive |= 1u << i;
-            if (!g_fb.pose && PlayerPos(g_fb.pp)) {
-                memcpy(g_fb.bp, (const void*)(a + 0x110), sizeof g_fb.bp);
-                g_fb.face = g_fb.pp[3] + 180.0f; g_fb.pose = 1;
-            }
+            // The first sample is the baseline. A later difference means this body is in the fight.
+            if (!(g_fb.hpSeen & (1u << i))) { g_fb.hpSeen |= 1u << i; g_fb.hp0[i] = hp; }
+            int engaged = (g_fb.woke & (1u << i)) || (g_fb.struck & (1u << i)) || g_fb.hp0[i] != hp || RosterBarOn(a);
+            if (engaged) {
+                g_fb.seen |= 1u << i; g_fb.zeroAt[i] = 0; alive |= 1u << i;
+                RosterCapturePose(a);
+            } else dormantAt[i] = a; // present, but no bar, no HP change, no hit: not holding the fight
         }
         else if (g_fb.seen & (1u << i)) {
             if (!dead && maxhp && !hp) { if (!g_fb.zeroAt[i]) g_fb.zeroAt[i] = now; }
@@ -2181,8 +2200,17 @@ static void NativeRosterTick(DWORD now) {
         }
     }
     if (g_fb.complete) { FightFinish(FL_WIN); if (g_tr.active) g_tr.tWin = now; return; }
-    if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || !g_fb.nextAt || (int)(now - g_fb.nextAt) < 0 || g_sp.active || g_fb.handle) return;
-    int next = RosterNextIndex(); if (next < 0) return;
+    // An engaged member, an unresolved finisher, or a script phase still owns the next request.
+    if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || g_sp.active || g_fb.handle) return;
+    int next = RosterNextIndex();
+    if (next >= 0 && dormantAt[next]) {
+        // Wake the existing body. SummonStart would put a second copy on the arena spot.
+        RosterWakeMember((unsigned)next, dormantAt[next]);
+        g_fb.woke |= 1u << next; g_fb.seen |= 1u << next; g_fb.zeroAt[next] = 0;
+        RosterCapturePose(dormantAt[next]);
+        return;
+    }
+    if (!g_fb.nextAt || (int)(now - g_fb.nextAt) < 0 || next < 0) return;
     // Attach only for the missing dynamic member; native actors remain script-owned.
     if (!g_tr.active) {
         memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", g_en.row->id);
@@ -3211,6 +3239,28 @@ static void BhStart(uint32_t handle) {
     Log("BOSSHOLD boss 0x%X: AI held until the screen is visible + %d ms (BossGraceAfterCoverMs, max %d ms)", handle, g_cfg_bossgrace, g_cfg_bosshold_max);
 }
 static __attribute__((noinline)) int BhAiOn(uint64_t a) { uint64_t c = 0, ai = 0; uint32_t f = 0; if (!Rd64(a + 0x3B0, &c) || !c || !Rd64(c + 0x50, &ai) || !ai) return -1; __try { f = *(volatile uint32_t*)(ai + 0x1574); } __except (EXCEPTION_EXECUTE_HANDLER) { return -1; } return f != 0; }
+// Boss gauge rows, same walk NfTick uses. A shown bar is proof this body is the current fight.
+static int RosterBarOn(uint64_t actor) {
+    if (!actor) return 0;
+    uint64_t root = 0, hud = 0, r0 = 0, r1 = 0;
+    if (!Rd64(B + Grva(0x45C84A8), &root) || !root || !Rd64(root + 0xA8, &hud) || !hud ||
+        !Rd64(hud + 0x3C0, &r0) || !Rd64(hud + 0x3C8, &r1) || !r0 || r1 <= r0 || (r1 - r0) / 0x60 > 8) return 0;
+    for (uint64_t r = r0; r < r1; r += 0x60) {
+        uint32_t slot = 0, id = 0;
+        __try { slot = *(uint32_t*)r; id = *(uint32_t*)(r + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { continue; }
+        if (slot >= 3 || !id) continue;
+        uint64_t w = FindWrapper(id), a = 0;
+        if (w && Rd64(w, &a) && a == actor) return 1;
+    }
+    return 0;
+}
+// There is no boss-move call (Warp is the player only). Turn AI and the bar on where the script already put the body.
+static void RosterWakeMember(unsigned i, uint64_t a) {
+    if (!g_fb.row || i >= g_fb.row->count || !a) return;
+    if (BhAiOn(a) == 0) { __try { ((void (*)(uint64_t))(B + Grva(0x66982C)))(a); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ROSTER %s: AI on faulted for chr %u", g_fb.row->id, g_fb.row->chr[i]); } }
+    __try { ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x1D115D4)))(g_fb.row->placement[i], 0, 0); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ROSTER %s: boss bar faulted for chr %u", g_fb.row->id, g_fb.row->chr[i]); }
+    Log("ROSTER %s: chr %u had no bar, no HP change and no hit; AI and bar requested, body left in place, no second spawn", g_fb.row->id, g_fb.row->chr[i]);
+}
 static int BhScreenVisible(int* why) {  // 1 = no load cover (GAMESTATE[2]), no native mission-load sequencer state, our fade overlay clear
     if (g_entryCover.active && g_entryCover.covered) { *why=4; return 0; }
     const uint8_t* gs = GameState(); uint32_t q = SeqState();
@@ -5159,6 +5209,13 @@ static __attribute__((noinline)) uint64_t NfHpDamage(uint64_t hp, int dmg, uint8
     const uint8_t p4 = 0;  // 329890 does xor r9d, r9d before the call; the stub puts the hit in r9 instead
     const int rawDmg = dmg;
     __try { dmg = PstDmgScale(hp, dmg, hit); } __except (EXCEPTION_EXECUTE_HANDLER) { }
+    if (rawDmg > 0 && hp && hit && g_pst_atk_ok) { // a real hit on the player, even when infinite health is off
+        uint64_t me = PlayerChar(), pst = 0;
+        if (me && Rd64(me + 0x3A0, &pst) && pst && pst + 0x38 == hp) {
+            __try { uint64_t atk = ((uint64_t (*)(uint64_t))(B + Grva(0x325F40)))(hit); if (atk && atk != me) RosterNotePlayerHit(atk); }
+            __except (EXCEPTION_EXECUTE_HANDLER) { }
+        }
+    }
     const int scaledDmg = dmg;  // user #22389 (first: the NOFIN floor below sees the scaled hit)
     if (g_cfg_cantdie && dmg > 0 && hp) {  // user #22918: cut player HP damage whenever the toggle is ON, including after Return clears the session
         uint64_t me = PlayerChar(), pst = 0;
