@@ -1,5 +1,35 @@
 [
   {
+    "id": "R8FF1",
+    "mission": 36849,
+    "placement": 1065308,
+    "script": "archive_09\\FB\\41EED3E797657A57D635424F42220C06880730AA27108F2FA57A87D1637672",
+    "box_table": "archive_03\\49\\47D3F74F26EDEEE8AF1F93FF0DABBEAF5D002FAE2814D7508DF74A1DFBA1F1",
+    "target": [
+      205000.0,
+      4240.0,
+      302620.0,
+      120.0
+    ],
+    "box": 1061507,
+    "wait": 53872,
+    "gather": 53950,
+    "pose": [
+      205000.0,
+      4190.0,
+      302620.0,
+      120.0
+    ],
+    "create": 53962,
+    "function": "wave_battle_start",
+    "wave": 61753,
+    "wait_boxes": [
+      1061507,
+      1061921
+    ],
+    "kind": "host-box-wave"
+  },
+  {
     "id": "RB3FE",
     "mission": 46078,
     "placement": 8066787,

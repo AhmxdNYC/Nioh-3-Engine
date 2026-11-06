@@ -25,6 +25,7 @@
 // flag is ever written. Solo / offline only (gates re-checked on the game thread right before every call).
 #include "addon.h"
 #include "gamerva.h"
+#include "native_entry_gates_gen.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -86,6 +87,17 @@ uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
         g_gateChecks.fetch_add(1, std::memory_order_relaxed);
     }
     return g_rightsCheckOrig(slot, key, mode);
+}
+static uint32_t EntryGateChoice(uint32_t mission, uint32_t placement, uint32_t legacyGate,
+                                bool door, bool atFight, bool training, bool warp, bool available) {
+    if (!warp || !available) return 0;
+    // Training moves the player; only request an observed script right. Generated
+    // WaitWarpStart dependencies include box gates and indirect/wave creators.
+    if (training) {
+        const uint32_t generated = NativeEntryGateFind(mission, placement);
+        if (generated) return generated;
+    }
+    return !atFight && door ? legacyGate : 0;
 }
 bool g_exitOk = false;
 const char* g_exitWhy = "";
@@ -1149,9 +1161,9 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_gateDue = 0;
         g_trGateArmed = false;
         // #71926: door-waiting boss scripts (WaitWarpStart) never create the boss without this right, and it moves nothing, so it stays on when Training owns the destination.
-        g_gateWant.store(warp && !r.atFight && r.GateDoor() && g_gateOk ? r.gateId : 0);
+        g_gateWant.store(EntryGateChoice(r.missionId, r.placement, r.gateId, r.GateDoor(), r.atFight, g_trainingDestination, warp, g_gateOk));
         if (g_gateWant.load())
-            Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, r.gateId, r.gateKind);
+            Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, g_gateWant.load(), g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement) ? "script WaitWarpStart" : r.gateKind);
         g_warpPending = false;
         g_warps = 0;
         g_fn.store(warp ? kFnArmed : kFnIdle);

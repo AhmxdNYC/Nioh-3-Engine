@@ -1301,6 +1301,7 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 // #72056: generated identity roster for native door fights and timeout fallback.
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
+#include "native_entry_sequences_gen.h"
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; } g_np;
@@ -2058,6 +2059,27 @@ static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r, uint32_t
         return 1;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
+// A selected boss may be the last native wave. Earlier enemies from that same
+// script-requested group prove entry succeeded; never replace a running wave.
+static uint32_t NativeEntryWaveLive(const ArenaRow* r) {
+    for (unsigned i = 0; i < sizeof g_native_entry_wave_members / sizeof *g_native_entry_wave_members; ++i) {
+        const NativeEntryWaveMember* m = &g_native_entry_wave_members[i];
+        if (strcmp(m->id, r->id)) continue;
+        uint64_t a = NativeEntryActor(m->placement, m->chr);
+        if (a && NativeBossReady(r, m->placement)) return m->placement; // active AI, not a dormant pre-created placeholder
+    }
+    return 0;
+}
+// Literal post-gate creator dependencies may be ordinary prerequisite enemies.
+// Caller requires an acknowledged gate before these can finish entry ownership.
+static uint32_t NativeEntrySequenceLive(const ArenaRow* r) {
+    for (unsigned i = 0; i < sizeof g_native_entry_sequence_members / sizeof *g_native_entry_sequence_members; ++i) {
+        const NativeEntrySequenceMember* m = &g_native_entry_sequence_members[i];
+        if (m->mission != r->mission || m->boss != r->placement) continue;
+        if (NativeEntryActor(m->placement, m->chr) && NativeBossReady(r, m->placement)) return m->placement;
+    }
+    return 0;
+}
 static int g_native_fallback, g_native_roster;
 static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id[0] != 'S' && !g_native_roster; }
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
@@ -2219,6 +2241,16 @@ static void EnterTick(void) {
             }
             if (!g_en.tStable || fabsf(cur[1] - g_en.stableY) > 20.0f) { g_en.tStable = now; g_en.stableY = cur[1]; }
             else if (now - g_en.tStable >= 1000) { memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1; }
+        }
+        uint32_t sequencePlacement = g_en.gated ? NativeEntrySequenceLive(r) : 0;
+        if (sequencePlacement) {
+            Log("ENTER %s: native script prerequisite placement %u live after gate; request-to-sequence %lu ms; script owns remaining enemies, no fallback", r->id, sequencePlacement, now - g_en.t0);
+            g_en.active = 0; g_en.route = 2; return;
+        }
+        uint32_t wavePlacement = NativeEntryWaveLive(r);
+        if (wavePlacement) {
+            Log("ENTER %s: native wave member placement %u live; request-to-wave %lu ms; script owns remaining waves, no fallback", r->id, wavePlacement, now - g_en.t0);
+            g_en.active = 0; g_en.route = 2; return;
         }
         uint32_t nativePlacement = NativeEntryPlacement(r);
         if (nativePlacement && NativeBossReady(r, nativePlacement)) {

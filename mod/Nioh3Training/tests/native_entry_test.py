@@ -38,6 +38,10 @@ static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
 static int StageState(void){return ready;}
 static int CurWorld(void){return world;}
+static uint32_t sequencePlacement;
+static uint32_t NativeEntrySequenceLive(const ArenaRow*r){return sequencePlacement;}
+static uint32_t wavePlacement;
+static uint32_t NativeEntryWaveLive(const ArenaRow*r){return wavePlacement;}
 static uint32_t NativeEntryPlacement(const ArenaRow* r){return (actor || placed) ? 789 : 0;}
 static int NativeBossReady(const ArenaRow* r,uint32_t p){assert(p==789);return actor;}
 static float lastWarp[3];
@@ -78,6 +82,11 @@ int main(void){
  Reset();g_np.started=1;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"native boss placement")&&strstr(lastLog,"request-to-boss")&&!strstr(lastLog,"script-dormant"));
  Reset();g_np.started=0;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"script-dormant"));
  Reset();boxEntry=1;Land();assert(warps==1&&lastWarp[0]==20&&lastWarp[1]==30&&g_en.nudged);tick=14000;EnterTick();assert(warps==1&&!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // leave GatherWarp and temp guard to script; no near-boss move
+ Reset();Land();wavePlacement=321;tick=4300;EnterTick();assert(!g_en.active&&g_en.route==2&&!fallbacks&&strstr(lastLog,"native wave member"));
+ wavePlacement=0;tick=200000;EnterTick();assert(!fallbacks); // scripted gap after wave1 never causes replacement
+ Reset();Land();sequencePlacement=456;tick=4300;EnterTick();assert(g_en.active); // can't end entry before grant
+ g_en.gated=1;g_en.tGate=tick;tick=4600;EnterTick();assert(!g_en.active&&g_en.route==2&&strstr(lastLog,"native script prerequisite"));
+ sequencePlacement=0;tick=200000;EnterTick();assert(!fallbacks); // ordinary-enemy sequence retains native ownership
  puts("PASS native-entry: near-boss move, routing, admission, ready timer, native boss, intro, wrong mission, load/player/world/read failures, warp failure, timeout, one-shot synchronous fallback");
 }
 """
