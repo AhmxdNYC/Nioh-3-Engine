@@ -2203,7 +2203,11 @@ static void NativeRosterTick(DWORD now) {
     // An engaged member, an unresolved finisher, or a script phase still owns the next request.
     if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || g_sp.active || g_fb.handle) return;
     int next = RosterNextIndex();
-    if (next >= 0 && dormantAt[next]) {
+    // No kill yet: a door walk-up or intro has no bar, and forcing one would start the boss early.
+    // After a kill, wait out nextAt so a script phase can bring the next body. nextAt 0 is allowed:
+    // NativePhaseEvent clears it when that phase has started, and the phase-active check above already returned.
+    int wakeDue = g_fb.killed && (!g_fb.nextAt || (int)(now - g_fb.nextAt) >= 0);
+    if (next >= 0 && dormantAt[next] && wakeDue) {
         // Wake the existing body. SummonStart would put a second copy on the arena spot.
         RosterWakeMember((unsigned)next, dormantAt[next]);
         g_fb.woke |= 1u << next; g_fb.seen |= 1u << next; g_fb.zeroAt[next] = 0;

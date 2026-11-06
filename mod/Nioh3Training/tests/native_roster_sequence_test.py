@@ -61,16 +61,26 @@ int main(void){
  reset("R945F");NativeRosterTick(10000);assert(!FallbackMulti()&&!g_tr.active);
  // Dedupe only owns the dynamically replaced identity; preserve future native members.
  reset("R0034");g_fb.owned=1;FallbackDedupe();assert(dedupeCalls==1);
- // Dormant next member: one wake, it counts, no spawn, no win, no second wake.
- reset("R0034");present[0]=1;NativeRosterTick(100);
- assert(wakeCalls==1&&(g_fb.seen&1)&&(g_fb.woke&1)&&!(g_fb.owned&1)&&g_fb.pose&&!g_tr.active&&!spawns&&!finishes);
- NativeRosterTick(200);assert(wakeCalls==1&&!g_tr.active&&!finishes);
+ // Before the first kill, an unmarked body is the intro. Do nothing, even long after entry.
+ reset("R0034");present[0]=1;NativeRosterTick(100);NativeRosterTick(100000);
+ assert(wakeCalls==0&&!g_fb.seen&&!g_fb.woke&&!g_tr.active&&!spawns&&!finishes);
+ // Inside the 8 s after a kill, do not wake. Once it passes, one wake, no second copy, no second wake.
+ reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;NativeRosterTick(100);
+ deadFlags[0]=1;health[0]=0;NativeRosterTick(200);assert(g_fb.killed==1&&g_fb.nextAt==8200);
+ NativeRosterTick(8199);assert(wakeCalls==0&&!(g_fb.seen&2)&&!g_tr.active&&!spawns);
+ NativeRosterTick(8200);
+ assert(wakeCalls==1&&(g_fb.seen&2)&&(g_fb.woke&2)&&!(g_fb.owned&2)&&g_fb.pose&&!g_tr.active&&!spawns&&!finishes);
+ NativeRosterTick(8300);assert(wakeCalls==1&&!g_tr.active&&!finishes);
+ // A script phase clears nextAt. No wake while it runs; one wake once it ends.
+ reset("R0034");present[0]=1;barOn[0]=1;NativeRosterTick(100);
+ deadFlags[0]=1;health[0]=0;NativeRosterTick(200);present[1]=1;
+ g_np.active=1;g_fb.nextAt=0;NativeRosterTick(300);assert(wakeCalls==0&&!g_tr.active);
+ g_np.active=0;NativeRosterTick(400);
+ assert(wakeCalls==1&&(g_fb.woke&2)&&!(g_fb.owned&2)&&!g_tr.active&&!spawns&&!finishes);
+ NativeRosterTick(500);assert(wakeCalls==1);
  // A shown bar holds the fight. A later unmarked body is left for the script.
  reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;NativeRosterTick(100);NativeRosterTick(20100);
  assert(wakeCalls==0&&g_fb.seen==1&&!g_tr.active&&!spawns);
- // After that fight ends, the unmarked next body is woken, not summoned again.
- deadFlags[0]=1;health[0]=0;NativeRosterTick(20200);
- assert(g_fb.killed==1&&wakeCalls==1&&(g_fb.seen&2)&&(g_fb.woke&2)&&!(g_fb.owned&2)&&!g_tr.active&&!spawns&&!finishes);
  // HP change is a real fight: no wake. The first sample was taken while another boss held the slot.
  reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;health[1]=100;NativeRosterTick(100);
  deadFlags[0]=1;health[0]=0;health[1]=90;NativeRosterTick(200);
@@ -82,7 +92,8 @@ int main(void){
  reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;NativeRosterTick(100);
  health[0]=0;NativeRosterTick(200);NativeRosterTick(4699);
  assert(!g_fb.killed&&wakeCalls==0&&!g_tr.active);
- NativeRosterTick(4700);assert(g_fb.killed==1&&wakeCalls==1&&!g_tr.active&&!spawns);
+ NativeRosterTick(4700);assert(g_fb.killed==1&&wakeCalls==0&&!g_tr.active);
+ NativeRosterTick(12699);assert(wakeCalls==0);NativeRosterTick(12700);assert(wakeCalls==1&&!g_tr.active&&!spawns);
  // A script phase owns the next body. A missing earlier member can still be requested; a later unmarked body cannot block that.
  reset("R0034");present[0]=1;g_np.active=1;NativeRosterTick(100);assert(wakeCalls==0&&!g_fb.seen&&!g_tr.active);
  reset("R0034");present[1]=1;g_fb.nextAt=100;NativeRosterTick(100);
