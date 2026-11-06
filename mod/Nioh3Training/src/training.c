@@ -3028,7 +3028,6 @@ static struct { int on, left; DWORD t0, tSwap, tStable; char stage[96]; } g_el;
 #include "entry_cover.h"
 static EntryCover g_entryCover;
 static DWORD g_entryProtectUntil;
-static uint32_t g_entryScenes[9];
 static void EntryLs(int on, const char* why) {
     if (!on && !g_el.on) return;
     if (on && (g_rh.active || g_rh_ls_on)) return;
@@ -3073,7 +3072,6 @@ static void EntryCoverBegin(ArenaRow* r) {
         Log("ENTRY COVER unavailable: screen disabled/export missing or damage guard unavailable; no hidden gameplay");
         return;
     }
-    EvSnap(g_entryScenes);
     EcBegin(&g_entryCover, GetTickCount());
     g_entryCover.covered=1;
     g_entryProtectUntil=GetTickCount()+500;
@@ -3084,19 +3082,13 @@ static void EntryCoverBegin(ArenaRow* r) {
 }
 static void EntryCoverTick(void) {
     if (!g_entryCover.active) return;
-    const uint8_t* gs=GameState();
-    uint32_t ids[9]; int intro=0;
-    // New native event scenes belong to the destination; reveal, never skip or clear them.
-    if (gs && !gs[2] && g_en.warped && EvSnap(ids)) {
-        for (int i=0;i<9;++i) if (ids[i]) {
-            int old=0; for(int k=0;k<9;++k) if(ids[i]==g_entryScenes[k]) old=1;
-            if(!old) intro=1;
-        }
-    }
+    // Event-scene IDs include mission/door scripts, not only visible cinematics.
+    // #72442: the old heuristic exposed the door walk-up for 3782 ms.
+    // Retain presentation ownership until FIGHT, fallback readiness or the deadline.
     const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
     const int ready=g_en.fellBack && g_en.route==4;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,intro);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready,0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
         EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : "cancel/return/failed");

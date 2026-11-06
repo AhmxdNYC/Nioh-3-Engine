@@ -67,3 +67,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - CURRENT 2026-11-05 11:18 pm EST: cx-pc #72188 offline work complete; no game lease/install. Source cx-pc/door-3rows 8f6581c6, TR 4964090e #5449. Installed PC hashes verified unchanged EF1de96af5 BR65d31658 TR99600c91 Cam7482c03d. Lead pc owns live validation.
 - 2026-11-05 11:33 PM EST | cx-pc/1 #72261: entry cover source 87847504 on cx-pc/entry-cover-72261, base 71ea9f0b; TR 8a5f170a ASI #5464. Offline build exit 0; 17 Training harnesses + cover/native-entry/native-return pass (real action fixtures unavailable). No install/game.
+- 2026-11-05 11:52 PM EST | cx-pc/1 #72442 DONE offline: source b01ae4e7 branch cx-pc/entry-cover-gap-72442; TR 387c7708 file #5488. Proven 3782ms gap was explicit false intro off, not EngineFix expiry; removed event-ID release.
+- Build exit 0, cover/native-entry/native-return + 17 Training harnesses pass; next main pc same R3513/R25E4 video and intro check. Intro before FIGHT remains covered (tech debt); no game/install touched. notes/entry-cover-72261.md.
