@@ -3530,6 +3530,12 @@ N3T_API int Nioh3Training_ReturnInfo(void) {
     if (g_rh.active || g_rh.want) f |= 16;
     return f;
 }
+// Native Proceed is owned without a dynamic actor or synthetic Return gadget.
+N3T_API uint32_t Nioh3Training_NativeGateMission(void) {
+    const uint8_t* st = GameState();
+    if (!st || st[2] || g_rh.active || g_rh.want || !g_en.warped || !NativePhaseMatches()) return 0;
+    return g_en.row->mission;
+}
 // user #6789/#6798: 'Return to where I was' as a PHYSICAL object in the arena = the game's own mission clear gadget (the one the mission script spawns at the boss
 // after the kill: Function::CreateClearGadgetBossPosition(10|11|13, x, y, z) -> Gadget::CreatePlacementGadgetPosition -> 1C1F07C -> GadgetCreateFromRecord 7D39E8;
 // clear gadget = placement record of type 0x353 (851), record 0x6C B: +8 type). Record lookup 7D4480(id) (set, default set for unknown ids) + 7D41E0(set, id).
@@ -3943,6 +3949,11 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 typedef uint64_t (*EndConfFn)(void*, int);
 static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
 static uint64_t h_endconf(void* ctx, int action) {
+    if (action == 0x2613 && g_cfg_gate_block && g_cfg_gate && Nioh3Training_NativeGateMission()) {
+        if (!GateMenuOpen() && (!g_gate_tUse || GetTickCount() - g_gate_tUse >= 1500)) GateUse();
+        Log("GATE: native Boss Match end-mission action replaced by our gate page");
+        return 0;
+    }
     int nearGate = 0;  // #9983: the box opened by itself near the gate with no 0x2613 call logged -> the gate record's own action id differs; any action while the player is at the gate counts
     if (action != 0x2613 && g_cfg_gate_block && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) { float q[4]; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; nearGate = sqrtf(mx * mx + mz * mz) < 600.0f; } }
     if ((action == 0x2613 || nearGate) && g_cfg_gate_block && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
@@ -4056,15 +4067,16 @@ static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
-    if (g_cfg_gate_cw2 && !g_en.confirmed && g_cfg_gate && g_gate.up && g_tr.active && !g_rh.active) {
+    const int native = Nioh3Training_NativeGateMission() != 0;
+    if (g_cfg_gate_cw2 && g_cfg_gate && !g_rh.active && (native || (!g_en.confirmed && g_gate.up && g_tr.active))) {
         uint32_t text = 0, sub = 0xFFFFFFFFu; uint64_t cur = 0; uint16_t nret = 0;
         if (Cw2Peek(ctx, &text, &sub, &cur, &nret) && (text == 0x3E0C230 || text == 0x3E8D85E)) {
             float q[4], d = -1.0f; if (PlayerPos(q)) { float mx = q[0] - g_gate.pos[0], mz = q[2] - g_gate.pos[2]; d = sqrtf(mx * mx + mz * mz); }
-            int ours = sub == g_gate.id || (d >= 0.0f && d < 600.0f);
+            int ours = (native && cur && sub != 0xFFFFFFFFu) || (!native && (sub == g_gate.id || (d >= 0.0f && d < 600.0f)));
             LONG n = InterlockedIncrement(&g_cw2_n);
             if (ours) {
                 DWORD now = GetTickCount();
-                int boss = GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), recent = g_gate_tUse && now - g_gate_tUse < 1500, r = -1;
+                int boss = !native && GateBossAlive() && !g_cfg_gate_always, page = GateMenuOpen(), recent = g_gate_tUse && now - g_gate_tUse < 1500, r = -1;
                 if (!boss && !page && !recent) { g_gate.tIn = 0; g_gate.left = 0; r = GateUse(); }
                 *(volatile int32_t*)(B + Grva(0x44BAE44)) = -1;  // GetButtonNumLastCommonWindow: no button -> the script re-arms its interaction
                 if (n <= 60) Log("GATE: script end-mission box (OpenCommonWindowTwoButton 23F8CC0, text 0x%X, gadget %p sub %u, gate id %u, player %.0f u) BLOCKED #%ld: %s", text,
