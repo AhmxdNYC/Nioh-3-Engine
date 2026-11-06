@@ -3662,7 +3662,6 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     // #38077: every page starts with 'Mod menu' (jump to the top-level page) and 'Close' (close the menu)
     add(g_sel == -2 ? cWhite : cGray, g_sel == -2, "%s Mod menu   A: open", g_sel == -2 ? ">" : " ");
     add(g_sel == -1 ? cWhite : cGray, g_sel == -1, "%s Close   A: close the mod menu", g_sel == -1 ? ">" : " ");
-    const bool scanned = g_scanGen.load() != g_pageGen0;
     const bool grouped = ItemGroup(it[0]) != nullptr || (n > 1 && ItemGroup(it[1]) != nullptr);
     // user #13529: every page shows its Back row. A long list (arenas, boss moves) scrolled the last row (Back) off the panel, so the Back row is
     // pinned below the scrolled window; the list window covers the other rows. Up from the top row still wraps to it.
