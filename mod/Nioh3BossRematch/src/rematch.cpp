@@ -1784,9 +1784,10 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
     }
 }
 
-// #76949: one line per record at charMgr+0x2BD0. Enemy id is the first dword of each 0x14 slot
-// (MissionSetupEmaki 0x1C2794C passes that dword to the placement lookup). A catalogue hit is "id:name*".
-// w/d are the live member flags when that id is already in the wave manager. The line stays under 120 characters.
+// #77250: one line per record at charMgr+0x2BD0. Word 0 of each 0x14 slot is a generated placement
+// (3900 and up), the key the wave manager uses for woke/dead. The enemy id is slot+4. The catalogue
+// star and name match that id. Kind byte +0x1A stays off this line: DataDb+0xA88 is the emaki table,
+// and this log does not walk an uncounted 0x1C def array. The line stays under 120 characters.
 static void LogEmakiRecords(uint64_t vb, uint32_t waves, uint64_t mb, uint64_t me) {
     if (!vb || !waves) return;
     const uint32_t nRec = waves > 8 ? 8u : waves;
@@ -1811,12 +1812,12 @@ static void LogEmakiRecords(uint64_t vb, uint32_t waves, uint64_t mb, uint64_t m
         uint32_t shown = 0;
         const uint32_t cap = nEn > 12 ? 12u : nEn;
         for (uint32_t q = 0; q < cap; ++q) {
-            uint32_t id = 0;
-            if (!Rd(eb + (uint64_t)q * 0x14, id)) break;
+            uint32_t place = 0, eid = 0;
+            if (!Rd(eb + (uint64_t)q * 0x14, place) || !Rd(eb + (uint64_t)q * 0x14 + 4, eid)) break;
             const char* name = nullptr;
             bool boss = false;
             for (size_t r = 0; r < g_rows.size(); ++r) {
-                if (!g_rows[r].placement || g_rows[r].placement != id) continue;
+                if (!g_rows[r].placement || g_rows[r].placement != eid) continue;
                 boss = true;
                 if (g_rows[r].name[0]) name = g_rows[r].name;
                 break;
@@ -1826,24 +1827,24 @@ static void LogEmakiRecords(uint64_t vb, uint32_t waves, uint64_t mb, uint64_t m
             for (uint32_t m = 0; m < mCap; ++m) {
                 uint32_t mid = 0;
                 uint8_t w = 0, d = 0;
-                if (!Rd(mb + (uint64_t)m * 0xC, mid) || mid != id) continue;
+                if (!Rd(mb + (uint64_t)m * 0xC, mid) || mid != place) continue;
                 Rd(mb + (uint64_t)m * 0xC + 9, w);
                 Rd(mb + (uint64_t)m * 0xC + 10, d);
                 woke = w;
                 dead = d;
                 break;
             }
-            char nm[13] = "";
+            char nm[9] = "";
             if (name) {
                 size_t k = 0;
-                for (; name[k] && k < 12; ++k) nm[k] = (name[k] >= 0x20 && name[k] < 0x7F && name[k] != '%') ? name[k] : '?';
+                for (; name[k] && k < 8; ++k) nm[k] = (name[k] >= 0x20 && name[k] < 0x7F && name[k] != '%') ? name[k] : '?';
                 nm[k] = 0;
             }
             char piece[48];
-            if (nm[0] && woke >= 0) snprintf(piece, sizeof(piece), " %u:%s%s w%dd%d", id, nm, boss ? "*" : "", woke, dead);
-            else if (nm[0]) snprintf(piece, sizeof(piece), " %u:%s%s", id, nm, boss ? "*" : "");
-            else if (woke >= 0) snprintf(piece, sizeof(piece), " %u%s w%dd%d", id, boss ? "*" : "", woke, dead);
-            else snprintf(piece, sizeof(piece), " %u%s", id, boss ? "*" : "");
+            if (nm[0] && woke >= 0) snprintf(piece, sizeof(piece), " %u:%s%s p%u w%dd%d", eid, nm, boss ? "*" : "", place, woke, dead);
+            else if (nm[0]) snprintf(piece, sizeof(piece), " %u:%s%s p%u", eid, nm, boss ? "*" : "", place);
+            else if (woke >= 0) snprintf(piece, sizeof(piece), " %u p%u w%dd%d", eid, place, woke, dead);
+            else snprintf(piece, sizeof(piece), " %u p%u", eid, place);
             if (n + (int)strlen(piece) >= (int)sizeof(line) - 8) break;
             n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", piece);
             ++shown;
