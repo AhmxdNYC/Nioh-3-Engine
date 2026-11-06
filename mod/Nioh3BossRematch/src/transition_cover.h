@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "native_branch_entrances_gen.h"
 // Presentation state only. Never owns native requests, recovery records or saves.
 namespace transition_cover {
 enum Phase : uint32_t { Off, AwaitPresent, AwaitNative, Loading, Ready, Failed, Cancelled };
@@ -33,12 +34,13 @@ struct Model {
         issued=true;attempt=sequence;return true;
     }
     void Cancel(uint64_t id){if(id==token&&Active())End(Cancelled,"Transition cover cancelled; native request is not cancelled");}
-    bool BranchRoute() const { return mission==0x1DEA && start==4095000 && placement==4092708; }
+    bool BranchRoute() const { return NativeBranchAlt(mission, start, placement) != 0; }
     bool PreplacedRoute() const { return mission==0x1A5E && start==5021112 && placement==5027806; }
     bool AllowsPlacement(uint32_t p) const {
-        // D38178C9B28E: mission flag187 / parallel mission chooses the shipped
-        // Souji or Yoshinobu-only entrance. This is not a general multi-boss list.
-        return p==placement || (BranchRoute() && p==4097963);
+        // The alternate is the other BossBattleMode placement on the one script
+        // whose script_main tests mission flag 187. Not a general multi-boss list.
+        const uint32_t alt = NativeBranchAlt(mission, start, placement);
+        return p==placement || (alt && p==alt);
     }
     uint32_t ActorPlacement() const { return observedPlacement?observedPlacement:placement; }
     void PlayerState(uint64_t sequence,bool exact,bool known,bool notDead) {
