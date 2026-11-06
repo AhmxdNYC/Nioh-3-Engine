@@ -1302,7 +1302,7 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
 #include "native_entry_sequences_gen.h"
-static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
+static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
 static void NativePhaseEvent(int phase) {
@@ -2151,6 +2151,7 @@ static void RosterNotePlayerHit(uint64_t attacker) {
 }
 static int RosterBarOn(uint64_t actor);
 static void RosterWakeMember(unsigned i, uint64_t a);
+static void RosterRequestBar(unsigned i);
 static void RosterCapturePose(uint64_t a) {
     if (g_fb.pose || !a || !PlayerPos(g_fb.pp)) return;
     memcpy(g_fb.bp, (const void*)(a + 0x110), sizeof g_fb.bp);
@@ -2190,6 +2191,12 @@ static void NativeRosterTick(DWORD now) {
             if (engaged) {
                 g_fb.seen |= 1u << i; g_fb.zeroAt[i] = 0; alive |= 1u << i;
                 RosterCapturePose(a);
+                // The script can start a roster body that already fights (it hit the player or lost HP)
+                // without ever calling ShowBossGauge. Ask once, and only after this boss mode is up or a
+                // roster kill has happened, so a door intro is not given a bar. No AI write and no second spawn.
+                if ((g_np.active || g_fb.killed) && !RosterBarOn(a) && !(g_fb.woke & (1u << i)) && !(g_fb.barAsked & (1u << i)) &&
+                    ((g_fb.struck & (1u << i)) || g_fb.hp0[i] != hp))
+                    { g_fb.barAsked |= 1u << i; RosterRequestBar(i); }
             } else dormantAt[i] = a; // present, but no bar, no HP change, no hit: not holding the fight
         }
         else if (g_fb.seen & (1u << i)) {
@@ -3269,6 +3276,13 @@ static int RosterBarOn(uint64_t actor) {
         if (w && Rd64(w, &a) && a == actor) return 1;
     }
     return 0;
+}
+// UI::ShowBossGauge for this roster placement. The actor was already matched to that placement.
+static void RosterRequestBar(unsigned i) {
+    if (!g_fb.row || i >= g_fb.row->count) return;
+    __try { ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x1D115D4)))(g_fb.row->placement[i], 0, 0); }
+    __except (EXCEPTION_EXECUTE_HANDLER) { Log("ROSTER %s: boss bar faulted for chr %u", g_fb.row->id, g_fb.row->chr[i]); return; }
+    Log("ROSTER %s: chr %u is in the fight with no bar; boss bar requested", g_fb.row->id, g_fb.row->chr[i]);
 }
 // There is no boss-move call (Warp is the player only). Turn AI and the bar on where the script already put the body.
 static void RosterWakeMember(unsigned i, uint64_t a) {

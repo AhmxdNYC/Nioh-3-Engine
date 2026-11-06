@@ -16,7 +16,8 @@ static int PlayerDeadNow(void){return playerDead;}
 static int PlayerPos(float*p){for(int i=0;i<4;i++)p[i]=10+i;return 1;}
 static uint64_t RosterNativeActor(unsigned i){return present[i]?(uint64_t)actors[i]:0;}
 static int ActorDeadNow(uint64_t a,int*d,uint64_t*h,uint64_t*m){unsigned i=(unsigned)((unsigned char*)a-&actors[0][0])/512;*d=deadFlags[i];*h=health[i];*m=100;return *d||!*h;}
-static int barOn[16], wakeCalls;
+static int barOn[16], wakeCalls, barCalls;
+static void RosterRequestBar(unsigned i){(void)i;barCalls++;}
 static int RosterBarOn(uint64_t a){unsigned i=(unsigned)((unsigned char*)a-&actors[0][0])/512;return i<16?barOn[i]:0;}
 static void RosterWakeMember(unsigned i, uint64_t a){(void)i;(void)a;wakeCalls++;}
 '''
@@ -25,7 +26,7 @@ static void reset(const char*id){
  memset(&g_fb,0,sizeof g_fb);memset(&g_tr,0,sizeof g_tr);memset(&g_sp,0,sizeof g_sp);memset(&g_np,0,sizeof g_np);
  memset(present,0,sizeof present);memset(deadFlags,0,sizeof deadFlags);memset(barOn,0,sizeof barOn);
  for(int i=0;i<16;i++){health[i]=100;float p[3]={101,202,303};memcpy(actors[i]+0x110,p,sizeof p);}
- g_fb.row=FallbackRosterFind(id);g_fb.native=1;g_fl.open=0;finishes=spawns=duplicates=dedupeCalls=playerDead=wakeCalls=0;g_dead_id=0;g_en.warped=1;
+ g_fb.row=FallbackRosterFind(id);g_fb.native=1;g_fl.open=0;finishes=spawns=duplicates=dedupeCalls=playerDead=wakeCalls=barCalls=0;g_dead_id=0;g_en.warped=1;
 }
 int main(void){
  // Native starts with the SECOND catalogue member: identity, not position. A shown bar means it is in the fight.
@@ -87,7 +88,7 @@ int main(void){
  assert(wakeCalls==0&&(g_fb.seen&2)&&!g_tr.active&&!spawns);
  // A hit on the player is a real fight even with no bar.
  reset("R0034");present[0]=1;g_fb.struck=1;NativeRosterTick(100);
- assert(wakeCalls==0&&g_fb.seen==1&&!g_tr.active&&!spawns);
+ assert(wakeCalls==0&&g_fb.seen==1&&!g_tr.active&&!spawns&&!barCalls);
  // An unresolved finisher still holds. The next unmarked body waits.
  reset("R0034");present[0]=1;barOn[0]=1;present[1]=1;NativeRosterTick(100);
  health[0]=0;NativeRosterTick(200);NativeRosterTick(4699);
@@ -111,7 +112,12 @@ int main(void){
  reset("R0B0B");g_np.armed=1;g_np.active=1;g_np.killedAtArm=0x7;g_fb.killed=0x7;NativeRosterTick(5000);
  assert(g_np.active&&!g_np.pendingAt&&!g_tr.active);
  present[4]=1;g_fb.killed=0xF;NativeRosterTick(5100);assert(g_np.active&&wakeCalls==0&&!g_tr.active);
- puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode");
+ // A script-started body can fight with no bar. One gauge request, no AI wake, no second spawn.
+ // Before the phase and before any kill, the same hit does not get a bar (asserted above).
+ reset("R0B0B");g_np.active=1;present[1]=1;NativeRosterTick(100);assert(!barCalls&&wakeCalls==0&&!(g_fb.seen&2));
+ g_fb.struck|=2;NativeRosterTick(200);assert(barCalls==1&&(g_fb.barAsked&2)&&(g_fb.seen&2)&&wakeCalls==0&&!g_tr.active&&!finishes);
+ NativeRosterTick(300);assert(barCalls==1&&wakeCalls==0);
+ puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode, fighting body gets one bar");
 }
 '''
 with tempfile.TemporaryDirectory() as folder:
