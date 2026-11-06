@@ -57,6 +57,7 @@ void Log(const char*,...);
 @ATTEMPT@
 bool XwPending() { return false; }  // Nioh3Training absent
 void CoverTick(const Snap&, ULONGLONG) {}
+void UnbeatenTick(const Snap&, ULONGLONG) {} // save veto tested by test_fight_result.py
 @FUNCTIONS@
 void ToIdle(const char*,bool=false) {}
 bool g_wasLoading=false,g_posAtLoadOk=false,g_posLiveOk=true;
@@ -146,7 +147,7 @@ int main() {
 }
 """.replace('@SNAPSHOT@',snapshot).replace('@FUNCTIONS@','\n'.join(function(sig) for sig in (
     'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
-setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
+setup=Path(os.environ.get('N3_MSVC_SETUP', r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
     source.write_text(code)
@@ -157,7 +158,11 @@ with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     print(result.stdout.strip()); assert result.returncode==0,result.stderr
 for name in ('DoWarp','FnVerify','GateTick'):
     body=function('void '+name+'(')
-    assert body[body.index('{')+1:].lstrip().startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name
+    prefix=body[body.index('{')+1:].lstrip()
+    if name in ('DoWarp','GateTick'):
+        assert prefix.startswith('if (g_trainingDestination) return;'),name
+        prefix=prefix.split('\n',1)[1].lstrip()
+    assert prefix.startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name
 spawn=function('void SpawnTick(')
 assert spawn.index('if (NativeGate(s)) return;') < spawn.index('SpawnApply(')
 assert spawn.index('SpawnRestore("online")') < spawn.index('if (NativeGate(s)) return;')
