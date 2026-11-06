@@ -91,6 +91,10 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    CHECK(rcore::CloseScrollListWhenEmpty(0, 1), "empty bag closes the scroll list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(1, 1), "one scroll keeps the list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0, 0), "flag already clear stays clear");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0xFFFFFFFFu, 1), "unreadable count leaves the list");
     CHECK(n > 100, "catalogue parsed");
     CHECK(c[rcore::kE] == 20, "20 Picture Scroll rows");
     CHECK(c[rcore::kH] == 3, "3 hidden duels");

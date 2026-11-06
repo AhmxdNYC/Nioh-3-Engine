@@ -88,6 +88,45 @@ uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
     }
     return g_rightsCheckOrig(slot, key, mode);
 }
+
+// BAG: the call at 1E0C0BD leaves rcx as the shrine menu. 22D2454 ignores that rcx. When it returns ready and the
+// reopen flag is set, ask the list's own item query (6E43B0, item 1E82). Count 0 clears the flag before the cmp at
+// 1E0C0CA, so the else opens a menu that takes buttons. Any other count leaves the flag, and the game opens its list.
+static uint32_t QueryScrollItem(uintptr_t fn) {
+    struct Out {
+        uint32_t n;
+        int32_t label;
+    } o{};
+    using Fn = Out* (*)(Out*, uint32_t);
+    __try {
+        if (!fn) return 0xFFFFFFFFu;
+        ((Fn)fn)(&o, 0x1E82u);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0xFFFFFFFFu;
+    }
+    return o.n;
+}
+using ScrollReadyFn = uint8_t (*)(uint64_t);
+ScrollReadyFn g_scrollReadyOrig = nullptr;
+uintptr_t F_SCROLLCOUNT = 0;
+uint8_t ScrollReturnReadyHook(uint64_t menu) {
+    const uint8_t ready = g_scrollReadyOrig ? g_scrollReadyOrig(menu) : 0;
+    if (!ready || menu < 0x10000) return ready;
+    uint8_t flag = 0;
+    if (!Rd(menu + 0x430, flag) || flag == 0) return ready;
+    const uint32_t count = QueryScrollItem(F_SCROLLCOUNT);
+    if (count == 0xFFFFFFFFu) {
+        Log("Scroll return: picture-scroll count unreadable, list stays");
+        return ready;
+    }
+    Log("Scroll return: picture-scroll count %u, %s", count, count == 0 ? "shrine menu" : "list stays");
+    if (rcore::CloseScrollListWhenEmpty(count, flag)) {
+        const uint8_t zero = 0;
+        WrBytes(menu + 0x430, &zero, 1);
+    }
+    return ready;
+}
+
 static uint32_t EntryGateChoice(uint32_t mission, uint32_t placement, uint32_t legacyGate,
                                 bool door, bool atFight, bool training, bool warp, bool available) {
     if (!warp || !available) return 0;
@@ -3687,6 +3726,16 @@ bool Prepare() {
         void* orig = nullptr;
         if (!InstallCallRetarget("call:RightsCheck", (void*)&RightsCheckHook, &orig, &g_gateWhy)) g_gateOk = false;
         else g_rightsCheckOrig = (RightsCheckFn)orig;
+    }
+    {
+        const char* bagWhy = nullptr;
+        if (!GroupOk("BAG", &bagWhy)) {
+            Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
+        } else {
+            F_SCROLLCOUNT = Site("fn:ScrollItemCount");
+            if (!InstallCallRetarget("call:ScrollReturnReady", (void*)&ScrollReturnReadyHook, (void**)&g_scrollReadyOrig, &bagWhy))
+                Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
+        }
     }
     if (g_exitOk) F_REQRETURN = Site("fn:MissionRequestReturn");
     if (g_emakiOk) {

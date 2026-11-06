@@ -165,6 +165,14 @@ SPEC = [
     ("chk:PlayerPlace_Retry14", "SPAWN", "check", 0x1C0F2BD, 28),
     ("chk:PlayerPlace_Find", "SPAWN", "check", 0x1C0F363, 48),
     ("chk:CamFlag4_Retry14", "SPAWN", "check", 0x2239C49, 48),
+    # BAG: after a Picture Scroll Return the shrine menu sets byte [menu+0x430] and, once 22D2454 says ready,
+    # opens the Picture Scroll list. The list adds no rows when ScrollItemCount's first dword is 0 (item 0x1E82,
+    # the same query at 1E2C311), then state 7 reads no buttons. This group clears that byte only in that case,
+    # so the existing else opens the shrine top or the replay menu. A nonzero count leaves the byte alone.
+    ("call:ScrollReturnReady", "BAG", "call", 0x1E0C0BD, 0),
+    ("fn:ScrollItemCount", "BAG", "fn", 0x6E43B0, 0),
+    ("chk:ScrollReopenFlag", "BAG", "check", 0x1E0C0CA, 32),
+    ("chk:ScrollItem1E82", "BAG", "check", 0x1E2C2C7, 16),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}
