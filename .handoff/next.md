@@ -51,3 +51,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-05 3:31 am EST pc2/0 | #239 done: P2+XRES1 +7% on pc2 (50->53 fps), RESULT re #68530. pc2 idle on public 1.8.6.
 - 2026-11-05 pc2 #71880 done on TR 8d38e9e6: RD759 + RA0A1 teacher kept, result sent re #71861; lesson-kill wake test not run.
 - 2026-11-05 pc2 #72012 done on BR 670dd3e3 / TR 12c645a7: 8 rows native boss, result sent re #72012.
+2026-11-05 7:40 pm EST | pc2 session end: on #72012 (door pair 8 rows). Done: RESULT #72077 + correction #72080 sent. Half-done: nothing, no game running, public mods restored. Next: wait for pc's next TASK; open questions with pc are R0C12 FIGHT start after kill and false script-dormant on R0F7F/R3513/R0C12. Files: #5425-#5429, C:/nioh3-re/t72012.

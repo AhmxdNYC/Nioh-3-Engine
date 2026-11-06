@@ -76,3 +76,4 @@ Next: pc decides on the kill test; pc runs RF5E5/R26F3 itself. Files: bridge #54
 2026-11-05 7:40 pm EST | pc2 #72012: door pair BR 670dd3e3 + TR 12c645a7 on 8 more rows: all reach the boss 23-39 s, forced kill = win, no crash.
 Proven: door opened on all 8, right bar names. Unproven: real hit wins, partner bosses, unbeaten clear byte, R0C12 FIGHT start again after kill; 3 rows log false script-dormant.
 Next: pc decides. Files: bridge #5425 table, #5426-5428 shots, #5429 logs; C:/nioh3-re/t72012 (run.ps1, patched harness). Public mods restored.
+2026-11-05 7:40 pm EST | pc2 session end: on #72012 (door pair 8 rows). Done: RESULT #72077 + correction #72080 sent. Half-done: nothing, no game running, public mods restored. Next: wait for pc's next TASK; open questions with pc are R0C12 FIGHT start after kill and false script-dormant on R0F7F/R3513/R0C12. Files: #5425-#5429, C:/nioh3-re/t72012.
