@@ -2017,8 +2017,27 @@ N3T_API int Nioh3Training_SetIdleHold(int on);
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
 // All mission rows need their native placement/script database. No mission allowlist.
 // Explicit roster/field summons retain their separate API; fallback is synchronous and scoped.
-static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r) {
-    uint64_t actor = ActorByHandle(r->placement), hp = 0, ctrl = 0, algo = 0;
+// Resolve only game-data roster placements in this mission, with exact wrapper identity.
+// A catalogue's first placement need not be the branch the native script creates.
+static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, uint32_t chr) {
+    uint64_t w = FindWrapper(placement), a = 0, rec = 0;
+    __try {
+        if (!w || !Rd64(w, &a) || !a || a == PlayerChar() || InSp(a) ||
+            !Rd64(w + 0x18, &rec) || !rec || *(uint32_t*)rec != placement ||
+            *(uint32_t*)(rec + 4) != chr || ActorByHandle(placement) != a) return 0;
+        return a;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static uint32_t NativeEntryPlacement(const ArenaRow* r) {
+    if (NativeEntryActor(r->placement, r->chr)) return r->placement;
+    for (unsigned i = 0; i < sizeof g_native_roster_candidates / sizeof *g_native_roster_candidates; ++i) {
+        const NativeRosterCandidate* c = &g_native_roster_candidates[i];
+        if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr)) return c->placement;
+    }
+    return 0;
+}
+static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r, uint32_t placement) {
+    uint64_t actor = ActorByHandle(placement), hp = 0, ctrl = 0, algo = 0;
     if (!actor || !Rd64(actor + 0x3A0, &hp) || !hp || !Rd64(actor + 0x3B0, &ctrl) || !ctrl || !Rd64(ctrl + 0x50, &algo) || !algo) return 0;
     __try {
         if (*(int32_t*)(hp + 0x48) == 1 || !*(uint64_t*)(hp + 0x58) || !*(uint64_t*)(hp + 0x50) || !*(uint32_t*)(algo + 0x1574)) return 0;
@@ -2166,10 +2185,11 @@ static void EnterTick(void) {
             g_en.route = 4;
             Log("ENTER %s: route=fallback live actor=%p; native actor uniqueness UNPROVEN, verify live", r->id, (void*)spawned);
         }
-        uint64_t nativeActor = ActorByHandle(r->placement);
+        uint32_t nativePlacement = NativeEntryPlacement(r);
+        uint64_t nativeActor = nativePlacement ? ActorByHandle(nativePlacement) : 0;
         if (nativeActor && nativeActor != spawned && !g_en.lateWarn) {
             g_en.lateWarn = 1;
-            Log("ENTER %s: LATE NATIVE candidate=%p placement=%u fallback=%p; duplicate risk UNPROVEN; exact-placement dedupe owns deletion, observer deletes nothing", r->id, (void*)nativeActor, r->placement, (void*)spawned);
+            Log("ENTER %s: LATE NATIVE candidate=%p placement=%u fallback=%p; duplicate risk UNPROVEN; exact-placement dedupe owns deletion, observer deletes nothing", r->id, (void*)nativeActor, nativePlacement, (void*)spawned);
         }
     }
     if (!g_en.active) return;
@@ -2186,16 +2206,17 @@ static void EnterTick(void) {
             if (!g_en.tStable || fabsf(cur[1] - g_en.stableY) > 20.0f) { g_en.tStable = now; g_en.stableY = cur[1]; }
             else if (now - g_en.tStable >= 1000) { memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1; }
         }
-        if (NativeBossReady(r)) {
-            Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
+        uint32_t nativePlacement = NativeEntryPlacement(r);
+        if (nativePlacement && NativeBossReady(r, nativePlacement)) {
+            Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             g_en.active = 0; g_en.route = 2; return;
         }
         // #71861: the script already placed this boss but keeps it dormant (dojo teacher: lesson enemies come first, box at the row's start). Moving away leaves the
         // script's box, and the fallback's dedupe would delete the teacher and then wait forever. The script owns this fight: never move, never replace.
-        if (!g_en.dormant && ActorByHandle(r->placement)) {
+        if (!g_en.dormant && nativePlacement) {
             g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
-            if (g_np.started) Log("ENTER %s: native boss placement %u live (fight started); request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, r->placement, now - g_en.t0, now - g_en.tWarp);
-            else Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, r->placement);
+            if (g_np.started) Log("ENTER %s: native boss placement %u live (fight started); request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
+            else Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, nativePlacement);
             return;
         }
         if (g_en.gated) {

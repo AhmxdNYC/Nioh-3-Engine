@@ -33,7 +33,8 @@ static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
 static int StageState(void){return ready;}
 static int CurWorld(void){return world;}
-static int NativeBossReady(const ArenaRow* r){return actor;}
+static uint32_t NativeEntryPlacement(const ArenaRow* r){return (actor || placed) ? 789 : 0;}
+static int NativeBossReady(const ArenaRow* r,uint32_t p){assert(p==789);return actor;}
 static float lastWarp[3];
 static int Warp(float x,float y,float z,float yaw,int full){++warps;lastWarp[0]=x;lastWarp[1]=y;lastWarp[2]=z;if(warpOk){pos[0]=x;pos[1]=y;pos[2]=z;}return warpOk;}
 """
