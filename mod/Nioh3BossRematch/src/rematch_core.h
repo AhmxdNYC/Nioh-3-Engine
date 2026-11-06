@@ -417,13 +417,17 @@ inline bool MapRedirect(MapPatch& mp, uint8_t* entries, int n, uint8_t emptyKey,
     if (mp.active || !entries || n <= 0 || n > MapPatch::kMax || target >= count) return false;
     if (!MapReadBytes(mp.snap, entries, (size_t)n * 8, rd)) return false;
     std::vector<uint8_t> nw(mp.snap, mp.snap + (size_t)n * 8);
-    int valid = 0;
+    int firstValid = -1;
     for (int i = 0; i < n; ++i) {
-        if (nw[(size_t)i * 8] == emptyKey) continue;
+        if (firstValid < 0 && nw[(size_t)i * 8] != emptyKey) firstValid = i;
         memcpy(&nw[(size_t)i * 8 + 4], &target, 4);
-        ++valid;
     }
-    if (!valid) return false;
+    if (firstValid < 0) return false;
+    // The game turns a key into a byte by picking a record index from the key, then scanning this map for that index (102B840). When
+    // nothing matches it returns the byte of slot 0. With every index on the target, that is every key except the one that happens to
+    // pick the target. Slot 0 is empty in the shipped map, so those keys got the empty byte: the lookup missed, the request lost its
+    // region and the load never ended. Slot 0 now holds a real key. Empty slots carry the target too, so the scan cannot stop on one.
+    if (nw[0] == emptyKey) nw[0] = nw[(size_t)firstValid * 8];
     mp.entries = entries;
     mp.n = n;
     mp.target = target;
@@ -451,14 +455,14 @@ inline int MapRestore(MapPatch& mp, WriteFn wr, ReadFn rd = nullptr) {
 
 // ---- E lifecycle (one call per pump tick) ----
 // Idle -> Armed (request made) -> InMission (charMgr +0x2C18 == 1 seen) -> exit (+0x2C18 == 0 for 5 s, not loading) -> restore.
-// Armed with no InMission within kArmTimeoutMs -> restore + refuse, including while the load flag stays on.
+// Armed with no InMission within kArmTimeoutMs (kArmLoadTimeoutMs while the load flag is on) -> restore + refuse.
 // A missed record lookup leaves the player on the mission's default start, and that load never ends.
 // A retry inside the scroll keeps +0x2C18 = 1 (patch stays live). The in-mission exit still waits out a reload.
 enum EState : int { kEIdle = 0, kEArmed = 1, kEIn = 2 };
 struct ETrack {
     EState st = kEIdle;
     uint64_t armedAt = 0, zeroSince = 0;
-    static constexpr uint64_t kArmTimeoutMs = 30000, kExitMs = 5000;
+    static constexpr uint64_t kArmTimeoutMs = 30000, kArmLoadTimeoutMs = 180000, kExitMs = 5000;
 };
 // returns: 0 nothing, 1 entered the mission, 2 exited (restore now), 3 armed timeout (restore now, refuse)
 inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
@@ -470,7 +474,8 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
                 t.zeroSince = 0;
                 return 1;
             }
-            if (now - t.armedAt > ETrack::kArmTimeoutMs) {  // also while loading: a missed lookup never clears that flag
+            // A slow load is not a stuck one: a return queued now would run right after it and throw the player out.
+            if (now - t.armedAt > (loading ? ETrack::kArmLoadTimeoutMs : ETrack::kArmTimeoutMs)) {
                 t.st = kEIdle;
                 return 3;
             }

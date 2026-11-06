@@ -6,8 +6,9 @@
 //   D  unlisted shipped record (master duels): R-b direct, cleared-on-this-journey only.
 //   E  one of the 20 Picture Scroll records: an owned Picture Scroll is the carrier; every entry of the Emaki byte->record map is
 //      pointed at the chosen record (snapshot + CRC). Fight now passes that record's live +0x0C as the start, so a missed lookup
-//      does not fall through to the mission default. The map is restored when the scroll ends, or 30 s after a request that never
-//      set the scroll flag, including while the load flag is still on. Leave can request the return during that stuck load.
+//      does not fall through to the mission default. Slot 0 of the map also gets a real key (rcore::MapRedirect). The map is restored
+//      when the scroll ends, or after a request that never set the scroll flag (30 s, 180 s while the load flag is on). Leave can queue
+//      the return during a stuck load, but the game reads the queue only after the load ends (MissionLoadStep), so it cannot break one.
 //      "Use an owned Picture Scroll (game's pick)" = the same call without the redirect.
 //   X  no route: listed greyed with the reason.
 //   F  "Fight now (straight to the boss)" = route E1 of the build note, for R / H / D rows ([Rematch] FightNow = 1): the same R-b call
@@ -1354,6 +1355,11 @@ void ExecEmaki(int row, ULONGLONG t) {
         MapRestoreNow("uncertain scroll request");
         return Refuse("native scroll request outcome uncertain; restart game");
     }
+    const uint8_t queuedRegion = after[freeSlot * 0x58 + 8];
+    uint32_t queuedStart = 0;
+    memcpy(&queuedStart, after + freeSlot * 0x58 + 0xC, 4);
+    Log("Rematch: E queue slot %d: region %02X start %u%s", freeSlot, queuedRegion, queuedStart,
+        queuedRegion ? "" : " - WARNING: region 00 means the record lookup missed");
     if (row >= 0) UnbeatenArm(0xCC96, g_rows[(size_t)row].id);
     g_state.store(kEmaki);
     g_activeRow.store(row);
@@ -1768,7 +1774,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         ToIdle("picture scroll exit", true);
     } else if (ev == 3) {
         const bool leave = s.st[2] && s.ms28 && g_attemptPhase.load() != aQuarantined && g_attemptPhase.load() != aReturning;
-        Log("Rematch: the Picture Scroll never loaded within 30 s%s", leave ? " - leaving the loading screen" : " - restored");
+        Log("Rematch: the Picture Scroll never loaded in time%s", leave ? " - return queued, the game reads it only after the load ends" : " - restored");
         if (leave) {
             AttemptReturning(s);
             const int rc = CallReturn();
@@ -1779,7 +1785,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         } else {
             ToIdle("armed timeout");
         }
-        Refuse("the Picture Scroll did not start (timeout, restored)");
+        Refuse("the Picture Scroll did not start (timeout, restored). If the loading screen stays, restart the game");
     }
 }
 
@@ -4969,11 +4975,13 @@ void Command(const char* line, char* reply, size_t n) {
         const bool arena = !strcmp(cmd, "fight");
         for (size_t i = 0; i < g_rows.size(); ++i)
             if (!strcmp(g_rows[i].id, arg)) {
-                if (const char* w = arena ? CanArena((int)i) : CanFight((int)i)) {
+                // A scroll has no arena: its Fight now is the record start, same as the menu (ActScrollFight).
+                const bool scroll = arena && g_rows[i].route == rcore::kE;
+                if (const char* w = arena && !scroll ? CanArena((int)i) : CanFight((int)i)) {
                     snprintf(reply, n, "refused %s", w);
                     return;
                 }
-                Post(arena ? kReqFight : kReqShrine, (int)i, "pipe");
+                Post(scroll ? kReqEmaki : arena ? kReqFight : kReqShrine, (int)i, "pipe");
                 snprintf(reply, n, "queued %s %s start=%u", g_rows[i].id, cmd, g_rows[i].fightStart);
                 return;
             }

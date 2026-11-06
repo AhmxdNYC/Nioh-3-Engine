@@ -308,7 +308,8 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 41; ++i) map[i * 8] = empty;
         const uint8_t bytes[20] = {0xD4, 0x8E, 0xA3, 0xD1, 0x0B, 0x79, 0x2D, 0x37, 0x57, 0x2C, 0xD8, 0x74, 0xEE, 0x63, 0x08, 0xB9, 0x40, 0x45, 0x64, 0xFB};
         for (uint32_t i = 0; i < 20; ++i) {
-            const int slot = (int)((bytes[i] * 7u) % 41);
+            const uint32_t home = bytes[i] * 9u;
+            const int slot = (int)((((home >> 11) ^ home) * 0x8001u) % 41u);
             int s = slot;
             while (map[s * 8] != empty) s = (s + 1) % 41;
             map[s * 8] = bytes[i];
@@ -321,16 +322,32 @@ int main(int argc, char** argv) {
         bool all = true;
         int valid = 0;
         for (int i = 0; i < 41; ++i) {
-            if (map[i * 8] == empty) {
-                all &= !memcmp(&map[i * 8], &orig[i * 8], 8);
-                continue;
-            }
-            ++valid;
             uint32_t idx = 0;
             memcpy(&idx, &map[i * 8 + 4], 4);
-            all &= idx == 7 && map[i * 8] == orig[i * 8];
+            all &= idx == 7;
+            if (i && map[i * 8] != orig[i * 8]) all = false;
+            valid += orig[i * 8] != empty;
         }
-        CHECK(all && valid == 20, "every valid entry -> record 7, keys and empty slots untouched");
+        CHECK(all && valid == 20, "every slot -> record 7, keys kept except an empty slot 0");
+        CHECK(map[0] != empty, "slot 0 holds a real key");
+        // The game's key -> byte step (102B840): first slot whose index is the picked one, else slot 0. Then the byte -> record lookup.
+        for (uint32_t picked = 0; picked < 20; ++picked) {
+            int hit = 0;
+            for (int i = 0; i < 41; ++i) {
+                uint32_t idx = 0;
+                memcpy(&idx, &map[i * 8 + 4], 4);
+                if (idx == picked) { hit = i; break; }
+            }
+            const uint8_t byte = map[hit * 8];
+            const uint32_t h = byte * 9u;
+            int pos = (int)((((h >> 11) ^ h) * 0x8001u) % 41u);
+            uint32_t rec = 0xFFFFFFFFu;
+            for (int probe = 0; probe < 41; ++probe, pos = (pos + 1) % 41) {
+                if (map[pos * 8] == byte) { memcpy(&rec, &map[pos * 8 + 4], 4); break; }
+                if (map[pos * 8] == empty) break;
+            }
+            CHECK(byte != empty && rec == 7, "any key resolves to a real byte and the chosen record");
+        }
         CHECK(!rcore::MapRedirect(mp, map, 41, empty, 3, 20, &WrPlain), "no second redirect while active");
         CHECK(rcore::MapRestore(mp, &WrPlain) == 0 && !memcmp(map, orig, sizeof(map)), "restore: CRC ok, bytes identical");
         CHECK(rcore::MapRestore(mp, &WrPlain) == -1, "restore twice = nothing active");
@@ -346,7 +363,8 @@ int main(int argc, char** argv) {
         t.armedAt = 1000;
         CHECK(rcore::ETick(t, 2000, false, false) == 0, "armed, waiting");
         CHECK(rcore::ETick(t, 20000, false, true) == 0, "a load under 30 s does not time out");
-        CHECK(rcore::ETick(t, 31001, false, true) == 3 && t.st == rcore::kEIdle, "stuck load at 30 s times out");
+        CHECK(rcore::ETick(t, 31001, false, true) == 0, "a slow load at 30 s keeps waiting");
+        CHECK(rcore::ETick(t, 181001, false, true) == 3 && t.st == rcore::kEIdle, "stuck load at 180 s times out");
         t.st = rcore::kEArmed;
         t.armedAt = 1000;
         CHECK(rcore::ETick(t, 2000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
