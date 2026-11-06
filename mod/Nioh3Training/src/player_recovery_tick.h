@@ -16,7 +16,8 @@ static void PlayerHazardRecoverTick(void) {
     g_ph_recovery_last=now;
     if(g_ph_recovery_attempts>=4) {PlayerAllowNativeHazardDeath(player);return;}
     float p[4]; int native=g_ph_recovery_attempts<2 && PlayerNativeRecoveryPos(p);
-    if (!native) {
+    if (NativeFightRecoverPos(p)) native = 2; // far start row: stay at the boss, not the mission respawn
+    else if (!native) {
         if (!g_tr.active || !g_tr.hasStart) {PlayerAllowNativeHazardDeath(player);return;}
         memcpy(p,g_tr.pp,sizeof p);
         for(int i=0;i<4;i++) if(!isfinite(p[i])) {PlayerAllowNativeHazardDeath(player);return;}
@@ -29,5 +30,5 @@ static void PlayerHazardRecoverTick(void) {
     int ok=PlayerRecoveryWarp(p);
     if(ok>0) g_ph_hazard_actor=0;
     Log("INFHP RECOVERY native-hazard actor %p source %s pos %.0f %.0f %.0f warp %d",(void*)player,
-        native ? "game recovery position" : "round start",p[0],p[1],p[2],ok);
+        native==2 ? "fight anchor" : native ? "game recovery position" : "round start",p[0],p[1],p[2],ok);
 }
