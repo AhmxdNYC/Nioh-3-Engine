@@ -1304,11 +1304,11 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 #include "native_entry_sequences_gen.h"
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck; DWORD nextAt, zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
-static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; } g_np;
+static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
 static void NativePhaseEvent(int phase) {
     if (!g_np.armed || g_np.ended) return;
     if (phase == 1) {
-        g_np.started = g_np.active = 1; g_np.pendingAt = 0;
+        g_np.started = g_np.active = 1; g_np.pendingAt = 0; g_np.killedAtArm = g_fb.killed;
         if (g_fb.native) g_fb.nextAt = 0; // a new script phase owns the next member
     } else if (phase == 2) {
         g_np.active = 0;
@@ -2200,7 +2200,19 @@ static void NativeRosterTick(DWORD now) {
         }
     }
     if (g_fb.complete) { FightFinish(FL_WIN); if (g_tr.active) g_tr.tWin = now; return; }
-    // An engaged member, an unresolved finisher, or a script phase still owns the next request.
+    // A spawned boss's death never reaches the script End hook, so boss mode stays active and the
+    // request below never runs. A kill recorded after this phase armed, with no remaining body in
+    // the world, is the same as End: drop the hold and keep the 8 s window. Do not finish the fight.
+    if (g_np.active && (g_fb.killed & ~g_np.killedAtArm) && !alive && !g_sp.active && !g_fb.handle) {
+        int left = 0;
+        for (unsigned j = 0; j < g_fb.row->count; ++j) if (!(g_fb.killed & (1u << j)) && dormantAt[j]) left = 1;
+        if (!left) {
+            g_np.active = 0;
+            if (!g_np.pendingAt) g_np.pendingAt = now + 8000;
+            Log("ROSTER %s: kill with nothing live in this boss mode; next request waits 8 s", g_fb.row->id);
+        }
+    }
+    // An engaged member, an unresolved finisher, the 8 s window, or a script phase still owns the next request.
     if (g_np.active || (g_np.pendingAt && (int)(now - g_np.pendingAt) < 0) || alive || g_sp.active || g_fb.handle) return;
     int next = RosterNextIndex();
     // No kill yet: a door walk-up or intro has no bar, and forcing one would start the boss early.

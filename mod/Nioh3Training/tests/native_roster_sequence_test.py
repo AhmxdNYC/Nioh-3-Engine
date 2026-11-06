@@ -98,11 +98,24 @@ int main(void){
  reset("R0034");present[0]=1;g_np.active=1;NativeRosterTick(100);assert(wakeCalls==0&&!g_fb.seen&&!g_tr.active);
  reset("R0034");present[1]=1;g_fb.nextAt=100;NativeRosterTick(100);
  assert(wakeCalls==0&&g_tr.active&&(g_fb.owned&1)&&g_tr.chr==g_fb.row->chr[0]&&spawns==0);
- puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake");
+ // Script phase stays up after a real kill when the next body is not in the world. Same 8 s, no win.
+ reset("R0B0B");g_np.armed=1;g_np.active=1;g_np.killedAtArm=0x7;g_fb.killed=0x7;
+ present[3]=1;barOn[3]=1;NativeRosterTick(1000);assert(g_np.active&&!g_np.pendingAt&&!g_tr.active);
+ deadFlags[3]=1;health[3]=0;NativeRosterTick(2000);
+ assert(!g_np.active&&g_np.pendingAt==10000&&g_fb.nextAt==10000&&(g_fb.killed&8)&&!g_tr.active&&!finishes);
+ NativeRosterTick(9999);assert(!g_tr.active&&!finishes);
+ NativePhaseTick(10000);assert(!finishes);
+ NativeRosterTick(10000);assert(g_tr.active&&g_tr.chr==598115u&&!finishes);
+ assert(!FightFinish(FL_WIN)&&!finishes);
+ // Previous kills alone do not drop a phase that has not seen a new death. A body already here keeps the phase.
+ reset("R0B0B");g_np.armed=1;g_np.active=1;g_np.killedAtArm=0x7;g_fb.killed=0x7;NativeRosterTick(5000);
+ assert(g_np.active&&!g_np.pendingAt&&!g_tr.active);
+ present[4]=1;g_fb.killed=0xF;NativeRosterTick(5100);assert(g_np.active&&wakeCalls==0&&!g_tr.active);
+ puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode");
 }
 '''
 with tempfile.TemporaryDirectory() as folder:
  p=Path(folder);src=p/'native.c';exe=p/'native.exe'
- src.write_text(pre+header+state+'\n'+''.join(fn(x) for x in ['static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int RosterDefeat(', 'static int RosterNextIndex(', 'static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn(', 'static void RosterCapturePose(', 'static void NativeRosterTick('])+main)
+ src.write_text(pre+header+state+'\n'+''.join(fn(x) for x in ['static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int RosterDefeat(', 'static int RosterNextIndex(', 'static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn(', 'static void RosterCapturePose(', 'static void NativeRosterTick(', 'static void NativePhaseTick('])+main)
  subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(src),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

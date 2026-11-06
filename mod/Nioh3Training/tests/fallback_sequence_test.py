@@ -35,7 +35,7 @@ static const char* FlModeName(int m){return "";}
 static const char* FlResultName(int m){return "";}
 static DWORD tick=100;
 static DWORD GetTickCount(void){return tick;}
-static struct {int armed,active,ended,releasing;DWORD pendingAt;} g_np;
+static struct {int armed,active,ended,releasing;DWORD pendingAt;uint32_t killedAtArm;} g_np;
 static void NativePhaseEvent(int phase) {}
 static int NativeNamedLive(void){return 0;}
 static struct {uint32_t chr,placement;int active;} g_ar;

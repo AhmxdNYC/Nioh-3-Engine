@@ -3,7 +3,7 @@ from pathlib import Path
 import runpy, subprocess,sys,tempfile
 b=runpy.run_path(str(Path(__file__).with_name('fallback_sequence_test.py')))
 fn=b['fn'];s=b['s'];pre=b['preamble']
-pre=pre.replace('static struct {int armed,active,ended,releasing;DWORD pendingAt;} g_np;','').replace('static void NativePhaseEvent(int phase) {}','').replace('static int NativeNamedLive(void){return 0;}','')
+pre=pre.replace('static struct {int armed,active,ended,releasing;DWORD pendingAt;uint32_t killedAtArm;} g_np;','').replace('static void NativePhaseEvent(int phase) {}','').replace('static int NativeNamedLive(void){return 0;}','')
 pre=pre.replace('int bodyGone;} g_tr;', 'int bodyGone,active;} g_tr;')
 pre+=r'''
 #define N3T_API
