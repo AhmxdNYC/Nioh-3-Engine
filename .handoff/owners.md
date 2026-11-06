@@ -66,3 +66,7 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - CURRENT 2026-11-05 11:00 PM EST: cxl-pc #72150 offline builder done, TR 570f9c87 BR e3822ef1, branch cxl-pc/multiboss-door. No lock/game/install. pc owns unresolved phase and early-exit live tests.
 
 - CURRENT 2026-11-05 11:18 pm EST: cx-pc #72188 offline work complete; no game lease/install. Source cx-pc/door-3rows 8f6581c6, TR 4964090e #5449. Installed PC hashes verified unchanged EF1de96af5 BR65d31658 TR99600c91 Cam7482c03d. Lead pc owns live validation.
+
+- 2026-11-05 11:57 PM EST | cx-pc #72389: candidate clear-wait guard builds TR bdcb0c07 BR 4e50e541; 14 cases + real binding ABI + roster/phase/menu pass.
+- Cause candidate = native clear-wait before remaining roster spawn; live damage/Return unproven. Next pc: R0034 menu kill/60s idle/Return, both DLLs. cx-pc/next-member-attacks; notes/next-member-attacks-72389.md.
+- #72389 implementation eb28ca22; candidate TR #5495 bdcb0c07 / BR #5496 4e50e541; evidence #5497. Both DLLs required, not installed. pc owns live R0034 damage + Return gate.

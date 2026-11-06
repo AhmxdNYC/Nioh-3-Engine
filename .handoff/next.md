@@ -73,3 +73,7 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-05 11:00 PM EST cxl-pc | #72150 offline done: latest TR 570f9c87 + BR e3822ef1 (#5438), cxl-pc/multiboss-door. Includes #72084 generic 8 s phase grace and active-label fix plus early Return win and immediate Training retry/menu timer. pc owns R0C12 live gate; no game/install here.
 
 - 2026-11-05 11:18 pm EST cx-pc | #72188 offline candidate ready: origin/cx-pc/door-3rows 8f6581c6, TR 4964090e #5449, audit #5450. Exact roster identity prevents wrong-entry timeout; only RB3FE gains script-derived entry-box target. RC1D9 waits scenario flag43, no gameplay patch justified by forced kill. Lead owns live validation; Enenra/R0C12 sequence and BR door logic unchanged.
+
+- 2026-11-05 11:57 PM EST | cx-pc #72389: candidate clear-wait guard builds TR bdcb0c07 BR 4e50e541; 14 cases + real binding ABI + roster/phase/menu pass.
+- Cause candidate = native clear-wait before remaining roster spawn; live damage/Return unproven. Next pc: R0034 menu kill/60s idle/Return, both DLLs. cx-pc/next-member-attacks; notes/next-member-attacks-72389.md.
+- #72389 implementation eb28ca22; candidate TR #5495 bdcb0c07 / BR #5496 4e50e541; evidence #5497. Both DLLs required, not installed. pc owns live R0034 damage + Return gate.
