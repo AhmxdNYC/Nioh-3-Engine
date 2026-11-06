@@ -2610,7 +2610,11 @@ const char* MoveName(const N3Move& m) {
            m.kind == 'M' ? "Step / turn" : "Unlabelled action";
 }
 bool g_showTwitch = false;  // user #13786: session only, default hidden
-bool MoveListed(const N3Move& m) { return g_showTwitch || N3MoveProtected(m.id) || !N3MoveTwitch(&m) || MoveAllowed(m) == 0 || MoveRepeating(m); }
+// Display only. Idle / initialization (ids 0 and 2) stays allowed; it is not a row, even with show-twitch on.
+bool MoveListed(const N3Move& m) {
+    if (N3MoveProtected(m.id)) return false;
+    return g_showTwitch || !N3MoveTwitch(&m) || MoveAllowed(m) == 0 || MoveRepeating(m);
+}
 // user #14291: moves of boss chr in group c; off = how many are OFF, rpt = the repeating move if it is in this group
 int MoveCatCount(uint32_t chr, int c, int* off = nullptr, const N3Move** rpt = nullptr) {
     int n = 0;
@@ -2618,7 +2622,7 @@ int MoveCatCount(uint32_t chr, int c, int* off = nullptr, const N3Move** rpt = n
     if (rpt) *rpt = nullptr;
     for (int i = 0; i < N3_MOVE_COUNT; ++i) {
         const N3Move& m = kN3Moves[i];
-        if (m.chr != chr || N3MoveCat(&m) != c) continue;
+        if (m.chr != chr || N3MoveCat(&m) != c || N3MoveProtected(m.id)) continue;  // hidden idle row is not a listed move
         ++n;
         if (off && MoveAllowed(m) == 0) ++*off;
         if (rpt && MoveRepeating(m)) *rpt = &m;
@@ -3000,7 +3004,7 @@ int Items(int* out, int cap) {
         for (int pass = 0; pass < 2; ++pass)
             for (int i = 0; i < N3_MOVE_COUNT; ++i) {
                 const N3Move& m = kN3Moves[i];
-                if (m.chr != chr || N3MoveCat(&m) != g_moveCat) continue;
+                if (m.chr != chr || N3MoveCat(&m) != g_moveCat || N3MoveProtected(m.id)) continue;
                 if ((N3KiNote(m.chr, m.id) ? 0 : 1) != pass) continue;
                 add(kItMoveBase + i);
             }
