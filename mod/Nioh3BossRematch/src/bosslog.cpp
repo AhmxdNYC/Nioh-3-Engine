@@ -1278,6 +1278,7 @@ std::atomic<uint32_t> g_fkSealDesc{0}, g_fkSealMotion{0};
 std::atomic<uint64_t> g_fkLeftChr{0};
 double g_fkLeftT = -1, g_fs0CapLeftT = -1;
 double g_fkSealT = -1;  // pc #56910: time of the last seal spawn hit (FormHide=4 falls back to it when FormSlot0 never captures, e.g. DOWN core A2ACB)
+float g_fkSealDist = -1.f;  // #72299: distance of that spawn. 0 with motion 0 is the extra character, not a new seal.
 // ally #54309: a type-3 chr pack has no kind-3 model (1175400 = 0), but the seal chr carries its own model in slot 1 ([[chr+50]+10]).
 // [Spirit] FormModel=1: keep the form's own key; only the model getter call 74C79D (call 1175400 in SetForm, result -> [[chr+50]+8+i*8]
 // at 74C7B1) returns that seal model once, then the game's own Living Artifact request (0x4E, as Y+B) runs the transform.
@@ -3765,6 +3766,14 @@ extern "C" __declspec(dllexport) unsigned Nioh3BossRematch_FormUseTick() { retur
 // long after its trigger (LEFT press edge or the fresh seal capture), so the player stays visible a little longer at the form start.
 // Read on every trigger; the Soul core tuning menu page writes it live. A pending begin is dropped if the mode/player changes meanwhile.
 std::atomic<int> g_fhDelayMs{400};
+// #72299: while a form is live, a later spawn replaces the seal only when it is a new seal for this press.
+// The game's own spawn note carries that: a real seal has a motion, or it appears away from the player.
+// motion 0 and dist 0.0 is the extra character the same seal call emits on top of the real one. No id list.
+static bool LaterSpawnReplacesLiveSeal(uint32_t motion, float dist) {
+    if (motion != 0) return true;
+    if (!(dist >= 0.f) || dist >= 0.05f) return true;
+    return false;
+}
 void FormHide4Tick(uint64_t player) {
     static bool leftWas = false;
     static double pendAt = 0, pendTrig = 0; static bool pendEdge = false; static uint64_t pendPlayer = 0;  // human #58117
@@ -3877,7 +3886,22 @@ void FormHide4Tick(uint64_t player) {
                 // FhSealActTick marks a seal action that went straight to a non-throw action; the hide begins ~0.3 s after that.
                 reason = "throw-cancelled"; Log("FormHide=4 throw cut by action 0x%X %.2f s before the hide", g_throwCutAct, g_fh4.started - g_throwCutT);
             }
-        } else if (cap != g_fh4.seal || capT != g_fh4.capT) reason = "capture-change";
+        } else if (cap != g_fh4.seal || capT != g_fh4.capT) {
+            // #72299: 11:19 pm and 11:26 pm, core 16127 was bound, then a motion-0 dist-0 spawn was captured
+            // 8-35 ms later. That ended the form and released the pad (0 blocked reads), so the human body
+            // stayed controllable. Keep the seal. A spawn with a motion, or one that landed away, is a new seal.
+            if (g_fkSealChr.load() == cap && g_fkSealT >= g_fh4.started - .05 &&
+                !LaterSpawnReplacesLiveSeal(g_fkSealMotion.load(), g_fkSealDist)) {
+                static uint64_t emptyLogged = 0;
+                if (emptyLogged != cap) {
+                    emptyLogged = cap;
+                    Log("FormHide=4 later spawn %llX motion=%X dist=%.1f is not a new seal - form keeps %llX t=%.3f",
+                        (unsigned long long)cap, g_fkSealMotion.load(), g_fkSealDist, (unsigned long long)g_fh4.seal, now);
+                }
+                cap = g_fh4.seal; capT = g_fh4.capT;
+                reason = FormHideEndReason(player, cap, g_fh4.started);
+            } else reason = "capture-change";
+        }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) {
             Log("FormHide=4 end %s", reason);
@@ -5971,6 +5995,7 @@ void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
     if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || (g_fkSealChr.load() == chr && Now() - g_fkSealT < 1.0)) return;
     g_fkSealMotion.store(motion);
+    g_fkSealDist = dist;
     g_fkSealT = Now();
     g_fkSealChr.store(chr);
     if (g_fkSealDesc.load() == 0x5129B) { g_fkLeftT = g_fkSealT; g_fkLeftChr.store(chr); }
