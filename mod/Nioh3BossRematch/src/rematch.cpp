@@ -2481,7 +2481,7 @@ enum UiPage { uRoot, uBosses, uActions, uSettings, uPractice, uSettingFirst };
 #include "settings_catalog.h"
 menu_nav::Trail<> g_uiPages;
 int g_uiBoss = -1;
-int g_listStop = 0;  // human #73240: 0 = All. A new menu open starts at All. Switching away and back keeps the stop.
+int g_listStop = 0;  // 0 = All. Stays until the game restarts (pc2 #74482). Closing the menu does not put it back on All.
 rcore::ListCycle g_listCycle;
 uint32_t g_pageGen0 = 0;
 char g_msg[160] = "";
@@ -3495,8 +3495,7 @@ void UiOpen() {
     g_uiPages.Reset();
     g_uiBoss = -1;
     g_bossSlot = -1;
-    g_listStop = 0;  // human #73240: the list opens on All
-    g_sel = 0;
+    g_sel = 0;  // pc2 #74482: g_listStop stays across a close. It is 0 only when the game starts.
     g_confirm = -9;
     g_msg[0] = 0;
     g_pageGen0 = g_scanGen.load();

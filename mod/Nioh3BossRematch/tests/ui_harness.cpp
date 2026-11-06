@@ -136,7 +136,7 @@ int main() {
     UiOpenAt(1);
     CHECK(g_listStop == 4 && g_uiPages.page == uRematch);
     UiOpen();
-    CHECK(g_listStop == 0);
+    CHECK(g_listStop == 4);  // closing and reopening keeps the filter; a game restart is what puts it back on All
     g_uiPages.Enter(uRematch, 1);  // the checks above reopen at the root; the next press still leaves Boss Matches
     g_listStop = 0;
     g_sel = 1;
