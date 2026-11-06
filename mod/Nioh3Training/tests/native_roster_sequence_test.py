@@ -171,6 +171,10 @@ int main(void){
  reset("R0B0B");g_np.active=1;present[1]=1;NativeRosterTick(100);assert(!barCalls&&wakeCalls==0&&!(g_fb.seen&2));
  g_fb.struck|=2;NativeRosterTick(200);assert(barCalls==1&&(g_fb.barAsked&2)&&(g_fb.seen&2)&&wakeCalls==0&&!g_tr.active&&!finishes);
  NativeRosterTick(300);assert(barCalls==1&&wakeCalls==0);
+ // Refused request (another bar up): ask again after 1.5 s while no bar shows, at most 5 in total; a shown bar stops it.
+ NativeRosterTick(1600);assert(barCalls==1);NativeRosterTick(1700);assert(barCalls==2&&g_fb.barTries[1]==2);
+ barOn[1]=1;NativeRosterTick(3500);assert(barCalls==2);barOn[1]=0;
+ for(DWORD t=5000;t<20000;t+=1600)NativeRosterTick(t);assert(barCalls==5&&g_fb.barTries[1]==5);
  RunR0F7F(1);RunR0F7F(0);
  puts("PASS native roster: reverse identity order on 23 rosters, native grace, no duplicate next phase, final-only win, loss/quit, saved pose, stable death, phase pass-through, dormant wake, kill releases an empty boss mode, fighting body gets one bar, R0F7F one mode");
 }
