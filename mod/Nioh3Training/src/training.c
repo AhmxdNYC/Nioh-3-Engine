@@ -118,6 +118,7 @@ static __attribute__((noinline)) int Actors(uint64_t* out, int max) {
 static void PoolAdd(uint32_t chr);
 static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
 // bridge 12666: per-actor identity for multi-boss Training. g_sp_chr[i] = character id of g_sp_actor[i]; slots A/B = the menu's two summon slots
+static void FallbackTracked(uint32_t handle, uint32_t chr);
 static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1, g_watch_session; static int SlotAlive(int s);
 // user #14306 / #14309: unlimited Training bosses A, B, C ... (N3T_SLOTS letters; tracking still capped by MAXSP live actors). Each boss has its own
 // stance (g_slot_fight: 0 = idle, the default; 1 = Fight normally / CPU), aggro (g_slot_aggro) and HP / Ki page (boss_vitals_game.h).
@@ -289,6 +290,7 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
     for (int i = 0; i < n; ++i) if (!InSnap(cur[i]) && !InSp(cur[i]) && *(uint32_t*)(cur[i] + 4) == g_watch_id && g_nsp < MAXSP) {
         float xyz[4] = {0}; memcpy(xyz, (void*)(cur[i] + 0x110), 16);
         g_sp_chr[g_nsp] = g_watch_chr;
+        if (g_watch_session) FallbackTracked(g_watch_id, g_watch_chr);
         // ally #89: the Training session boss (arena boss / round respawn) is Boss A when slot A is free, so Boss A moves / Summon into A see it.
         // No SummonPassiveMs hold for it: BOSSHOLD / Idle stance own its AI.
         // user #14309: the first free letter when A is taken (summons made before the session)
@@ -1207,9 +1209,10 @@ static int ArenaNativeDuplicate(void) {
     }
     return 1; // deletion is deferred; do not create the dynamic boss until gone
 }
+static int FallbackDedupe(void);
 static void ArenaTick(void) {
     int duplicate = 0;
-    if (g_ar.active || (g_tr.active && g_tr.arena)) duplicate = ArenaNativeDuplicate();
+    if (g_ar.active || (g_tr.active && g_tr.arena)) duplicate = FallbackDedupe();
     if (!g_ar.active) return;
     DWORD now = GetTickCount(), dt = now - g_ar.t0;
     uint64_t s = StageMgr(); int st = StageState(), cell = s ? *(int32_t*)(s + 0x504) : -2;
@@ -1292,6 +1295,24 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw, 
 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
 typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
+// #71960: generated mission roster, only armed for native-timeout fallback.
+#include "fallback_rosters_gen.h"
+static struct { const FallbackRoster* row; unsigned index; int ended, complete; uint32_t handle; char name[64]; } g_fb;
+static int FallbackMulti(void) { return g_fb.row && g_fb.row->count > 1; }
+static void FallbackTracked(uint32_t handle, uint32_t chr) {
+    if (FallbackMulti() && !g_fb.ended && chr == g_fb.row->chr[g_fb.index]) g_fb.handle = handle;
+}
+static int FallbackDedupe(void) {
+    if (!FallbackMulti()) return ArenaNativeDuplicate();
+    // Reuse all existing world/record/player/tracked/live checks, for this roster only.
+    uint32_t placement = g_ar.placement, chr = g_ar.chr; int duplicate = 0;
+    for (unsigned i = 0; i < g_fb.row->count; ++i) {
+        g_ar.placement = g_fb.row->placement[i]; g_ar.chr = g_fb.row->chr[i];
+        duplicate |= ArenaNativeDuplicate();
+    }
+    g_ar.placement = placement; g_ar.chr = chr;
+    return duplicate;
+}
 // #23451: the table is generated from the game data by tools/auto_arena.py (every boss incl. DLC: one R/D row per mission, then S<chr> rows for every
 // further boss character, kind 'field' = an open-field placement with no arena trigger). MAXROWS leaves room for future DLC.
 #define MAXROWS 512
@@ -1610,6 +1631,10 @@ static void FightBegin(int mode, const char* name, const char* id, uint32_t chr)
     Log("FIGHT start: %s | %s | boss_id=%s character_id=%u", name && name[0] ? name : "boss", FlModeName(mode), id && id[0] ? id : "unknown", chr);
 }
 static int FightFinish(int result) {
+    if (FallbackMulti()) {
+        if (result == FL_WIN && !g_fb.complete) return 0; // native clear/first death cannot finish the roster
+        if (result == FL_LOSS || result == FL_QUIT) g_fb.ended = 1;
+    }
     FlEnsure();
     FlClock c; FlNow(&c);
     char name[FL_NAME]; int mode = 0, ok = 0;
@@ -1640,11 +1665,13 @@ static void FightPlayerWatch(void) {
 }
 static void FightBeginSession(void) {
     char name[FL_NAME];
-    FightLabel(name, (int)sizeof name, g_tr.tok, g_tr.chr);
+    if (FallbackMulti()) snprintf(name, sizeof name, "%s", g_fb.name);
+    else FightLabel(name, (int)sizeof name, g_tr.tok, g_tr.chr);
     FightBegin(g_tr.practice ? FL_PRACTICE : FL_BOSSMATCH, name, g_tr.tok, g_tr.chr);
 }
 static int TrainStart(const char* tok, float d) {
     if (GameState() && GameState()[2]) { Log("TRAIN %s: a load is running, refused", tok); return 0; }
+    memset(&g_fb, 0, sizeof g_fb);
     TrainClear("train start");
     g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     memset(&g_tr, 0, sizeof g_tr); snprintf(g_tr.tok, sizeof g_tr.tok, "%s", tok); g_tr.tCmd = GetTickCount(); g_tr.round = 1;
@@ -1668,6 +1695,12 @@ static void TrainRetry(const char* why) {
     { static int (*clr)(void); static int tried;
       if (!tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); clr = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_ClearDroppedLoot") : 0; }
       if (clr) { int n = clr(); Log("TRAIN retry: cleared dropped loot -> %d", n); } }
+    if (FallbackMulti()) {
+        g_fb.index = 0; g_fb.ended = g_fb.complete = 0; g_fb.handle = 0; g_sp.active = 0;
+        g_tr.chr = g_fb.row->chr[0]; g_ar.chr = g_tr.chr;
+        g_ar.placement = g_arena_placement = g_fb.row->placement[0];
+        g_ar.active = 0;
+    }
     TrainClear(why); PlayerRecoverFull(); if (TrNoDeath() && !g_tr.nodeath) PlayerSetNoDeath(1);
     if (g_tr.hasStart) { int w = PlayerRecoveryWarp(g_tr.pp); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
@@ -1688,7 +1721,9 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
 }
 static void TrainStop(const char* why) {
     FightFinish(PlayerDeadNow() ? FL_LOSS : FL_QUIT);  // no-op when the round already ended as a win or a loss
+    if (FallbackMulti()) g_sp.active = 0; // quitting during next-boss resource loading must cancel it
     TrainClear(why); if (g_tr.nodeath || g_tr_nodeath_now) PlayerSetNoDeath(0);  // user #13197: also a summon's NoDeath (g_tr.nodeath is lost on the session memset)
+    memset(&g_fb, 0, sizeof g_fb);
     g_sum_nodeath = 0;
     g_ar.active = 0; g_ar.placement = g_arena_placement = 0;
     g_tr.active = 0; BossMatchRestore(why); Log("TRAIN stop (%s)", why);
@@ -1717,10 +1752,33 @@ static void InfHpTick(void) {
     uint64_t c = 0, m = 0;
     if (PlayerHp(&c, &m) && PhMatchRefill(g_cfg_cantdie, 1, c, m)) PlayerRefill(c, m);
 }
+// Returns 1 when this confirmed kill is consumed by the roster rather than a final win.
+static int FallbackNext(DWORD now) {
+    if (!FallbackMulti()) return 0;
+    if (g_fb.ended || !g_fb.handle || g_dead_id != g_fb.handle) return 1;
+    if (g_fb.index + 1 == g_fb.row->count) { g_fb.complete = 1; return 0; }
+    Log("FALLBACK sequence %s: defeated %u/%u chr %u; next chr %u", g_tr.tok,
+        g_fb.index + 1, g_fb.row->count, g_tr.chr, g_fb.row->chr[g_fb.index + 1]);
+    TrainClear("fallback next boss");
+    ++g_fb.index; g_fb.handle = 0; g_tr.chr = g_fb.row->chr[g_fb.index];
+    g_ar.active = 0; g_ar.chr = g_tr.chr;
+    g_ar.placement = g_arena_placement = g_fb.row->placement[g_fb.index];
+    g_dead_at = 0; g_dead_id = 0;
+    g_tr.tCmd = now; g_tr.tRespawn = now + 1000; g_tr.tReport = 0;
+    g_tr.tWin = g_tr.tFade = g_tr.tFadeAt = 0; g_tr.bodyGone = 0;
+    return 1; // retain one fight-history entry, same round/arena pose; do not heal/warp player
+}
+static void FallbackSpawn(void) {
+    if (!FallbackMulti()) { SummonStart(g_tr.tok, (float)g_cfg_tr_dist); return; }
+    if (g_fb.ended) { g_tr.tReport = 0; return; }
+    if (FallbackDedupe()) { g_tr.tRespawn = GetTickCount() + 100; return; }
+    char tok[32]; snprintf(tok, sizeof tok, "%u", g_tr.chr);
+    SummonStart(tok, (float)g_cfg_tr_dist); // SpawnTick uses g_tr.bp / face unchanged
+}
 static void TrainTick(void) {
     if (!g_tr.active) return;
     DWORD now = GetTickCount();
-    if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; SummonStart(g_tr.tok, (float)g_cfg_tr_dist); }
+    if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; FallbackSpawn(); }
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
     if (!g_ph_native_death_actor && TrNoDeath() && (!g_tr_nodeath_now || g_nd_char != PlayerChar()) && PlayerChar() && now - g_nd_try >= 1000 && !(GameState() && GameState()[2])) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
@@ -1744,6 +1802,7 @@ static void TrainTick(void) {
         if (g_cfg_autoretry || !g_cfg_gate) TrainRetry(g_cfg_autoretry ? "player beaten" : "player beaten, ReturnGate 0"); else TrainLost(); }
     KillFadeDue();
     if (!g_tr.tWin && !g_tr.tRespawn && !g_sp.active && g_nsp > 0 && !g_bm.active && g_tr.tReport == 0 && now - g_tr.tCmd > 3000 && g_dead_at && g_dead_at >= g_tr.tCmd && g_dead_id) {
+        if (FallbackNext(now)) return;
         g_tr.tWin = now; FightFinish(FL_WIN); { uint64_t hc = 0, hm = 0; ActorHp(g_sp_actor[g_nsp - 1], &hc, &hm); Log("TRAIN round %d: boss defeated%s (death seen for handle 0x%X at +%lu ms, boss HP %llu / %llu, nsp %d)", g_tr.round, g_cfg_tr_win > 0 ? ", respawning" : " ('retry' for another round)", g_dead_id, now - g_tr.tCmd, hc, hm, g_nsp); }
     }
     if (g_tr.tWin && g_cfg_tr_win > 0 && now - g_tr.tWin >= (DWORD)g_cfg_tr_win) TrainRetry("respawn on win");
@@ -2639,6 +2698,7 @@ static void XwTick(void) {
 static int FightNowImpl(uint32_t mission) {
     ArenaRow* nativeRow = FindRow(mission);
     if (NativeFirst(nativeRow)) {
+        memset(&g_fb, 0, sizeof g_fb);
         memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
         g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
@@ -2663,6 +2723,20 @@ static int FightNowImpl(uint32_t mission) {
     if (!r) return 0;
     const char* why = SwapGate(r);
     if (why) { Log("FIGHTNOW %s mission 0x%X: native load (%s)", r->id, mission, why); return 0; }
+    ArenaRow sequenceRow;
+    memset(&g_fb, 0, sizeof g_fb);
+    if (g_native_fallback) {
+        const FallbackRoster* roster = FallbackRosterFind(r->id);
+        if (roster && roster->count < 2) {
+            Log("FIGHTNOW %s: multi-boss fallback refused: generated roster unresolved", r->id); return 0;
+        }
+        if (roster) {
+            g_fb.row = roster; g_dead_at = 0; g_dead_id = 0;
+            snprintf(g_fb.name, sizeof g_fb.name, "%s", r->name);
+            sequenceRow = *r; sequenceRow.chr = roster->chr[0]; sequenceRow.placement = roster->placement[0]; r = &sequenceRow;
+            Log("FALLBACK sequence %s: %u bosses, catalogue order, first chr %u (mission wave ordering unproven)", r->id, roster->count, r->chr);
+        }
+    }
     Log("FIGHTNOW %s (%s) mission 0x%X: arena swap in place (no mission load), world 0x%02X", r->id, r->name, mission, r->world);
     float b[3] = {r->b[0], r->b[1], r->b[2]};
     float dx = b[0] - r->p[0], dz = b[2] - r->p[2], d = sqrtf(dx * dx + dz * dz);
