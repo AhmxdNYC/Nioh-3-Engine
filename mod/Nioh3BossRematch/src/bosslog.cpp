@@ -59,7 +59,15 @@ uint32_t RunningLogMission() {
         return state ? *(const uint32_t*)(state + 0x28) : 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
+// Training owns a generated multi-boss roster across native script phases.
+// This observes ownership only: it never changes native boss mode or mission flags.
+bool RosterPending() {
+    HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
+    auto pending = tr ? (int (*)())GetProcAddress(tr, "Nioh3Training_RosterPending") : nullptr;
+    return pending && pending() != 0;
+}
 void MaybeStart(const char* placementName) {
+    if (g_logOwn.load() && RosterPending()) return; // another native wave, same Report attempt
     g_logToken.store(0); g_logMission.store(0);
     HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
     if (!tr) return;
@@ -80,6 +88,7 @@ void MaybeStart(const char* placementName) {
     g_logMission.store(RunningLogMission());
 }
 void MaybeEnd() {
+    if (RosterPending()) return; // an intermediate boss-mode end is not the roster result
     if (!g_logOwn.exchange(0)) return;
     HMODULE tr = GetModuleHandleW(L"Nioh3Training.asi");
     auto mark = tr ? (void (*)(int, int, const char*))GetProcAddress(tr, "Nioh3Training_FightMark") : nullptr;
@@ -6315,6 +6324,7 @@ void ForceEnd(const char* why) {
 }
 // Called before the save-protection veto: observe victory without performing a save write.
 void ConfirmNativeWin(uint32_t mission) {
+    if (bosslog::RosterPending()) return; // preserve token; Training validates every named kill
     if (!mission || mission != bosslog::g_logMission.load()) return;
     if (!bosslog::g_active.load() && Now() - bosslog::g_endAt.load() >= 20.0) return;
     const uint64_t token = bosslog::g_logToken.exchange(0);

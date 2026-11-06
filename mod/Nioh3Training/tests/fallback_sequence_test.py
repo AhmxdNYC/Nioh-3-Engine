@@ -39,6 +39,7 @@ static struct {uint32_t chr,placement;int active;} g_ar;
 static uint32_t g_arena_placement,g_dead_id;
 static DWORD g_dead_at;
 static struct {char tok[32];uint32_t chr;DWORD tCmd,tRespawn,tReport,tWin,tFade,tFadeAt;int bodyGone;} g_tr;
+static struct {int active;} g_sp;
 static int clears,spawns,duplicates,dedupeCalls;
 static uint32_t spawned;
 static float g_cfg_tr_dist=100;
@@ -85,6 +86,6 @@ assert 'sequenceRow.chr = roster->chr[0]' in fn('static int FightNowImpl(uint32_
 assert 'if (roster && roster->count < 2)' in fn('static int FightNowImpl(uint32_t mission) {')
 with tempfile.TemporaryDirectory() as folder:
  p=Path(folder);src=p/'sequence.c';exe=p/'sequence.exe'
- src.write_text(preamble+header+state+'\n'+''.join(fn(x) for x in ['static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn('])+main)
+ src.write_text(preamble+header+state+'\n'+''.join(fn(x) for x in ['static int FallbackMulti(', 'static void FallbackTracked(uint32_t handle, uint32_t chr) {','static int RosterDefeat(', 'static int RosterNextIndex(', 'static int FallbackDedupe(void) {','static int FightFinish(', 'static int FallbackNext(', 'static void FallbackSpawn('])+main)
  subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(src),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

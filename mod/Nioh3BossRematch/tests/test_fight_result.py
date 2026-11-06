@@ -17,6 +17,7 @@ code=r'''#include <windows.h>
 #include "fightlog.h"
 FlLog logbook; double clockNow=1; uint32_t running=123; int nativeWrites=0;
 namespace bosslog {
+bool RosterPending() { return false; }
 std::atomic<uint64_t> g_logToken{0}; std::atomic<uint32_t> g_logMission{0};
 std::atomic<bool> g_active{true}; std::atomic<double> g_endAt{0}; std::atomic<int> g_clearWin{0};
 }

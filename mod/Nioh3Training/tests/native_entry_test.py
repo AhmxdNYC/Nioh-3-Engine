@@ -4,7 +4,8 @@ import subprocess, sys, tempfile
 root=Path(__file__).resolve().parents[1]
 s=(root/'src/training.c').read_text()
 a=s.index('static int g_native_fallback,');b=s.index('// bridge 6047: stage cell',a)
-production=s[a:b].replace('__attribute__((noinline)) ', '')
+production=s[a:s.index('// Exact placement and spawn-key identity;',a)]+s[s.index('static void EnterTick(void) {',a):b]
+production=production.replace('__attribute__((noinline)) ', '')
 preamble=r"""
 #include <stdint.h>
 #include <stdio.h>
@@ -23,6 +24,7 @@ static int ActorHp(uint64_t a,uint64_t* hp,uint64_t* maxhp){*hp=*maxhp=0;return 
 static int placed;static float pos[3]={7,100,7};
 static uint64_t ActorByHandle(uint32_t h){return placed;}
 static int PlayerPos(float o[4]){o[0]=pos[0];o[1]=pos[1];o[2]=pos[2];o[3]=0;return 1;}
+static void NativeRosterTick(DWORD now) {}
 static DWORD GetTickCount(void){return tick;}
 static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
