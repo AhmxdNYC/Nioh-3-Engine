@@ -17,6 +17,9 @@ typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];} Ar
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
 static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1;
 static ArenaRow* g_pick;
+static int g_nsp; static uint64_t g_sp_actor[1];
+static int ActorHp(uint64_t a,uint64_t* hp,uint64_t* maxhp){*hp=*maxhp=0;return 0;}
+static uint64_t ActorByHandle(uint32_t h){return 0;}
 static DWORD GetTickCount(void){return tick;}
 static const uint8_t* GameState(void){return state;}
 static int PlayerChar(void){return player;}
@@ -66,5 +69,5 @@ assert execbody.index('entryAdmission.accepted = true')>execbody.index('if (!Att
 assert 's.msOk && s.queueOk && !s.st[2] && g_attemptPhase.load() == aNone' in br
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);(p/'entry.c').write_text(preamble+production+main)
- subprocess.run([sys.executable,'-m','ziglang','cc','-O2',str(p/'entry.c'),'-o',str(p/'entry.exe')],check=True)
+ subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(p/'entry.c'),'-o',str(p/'entry.exe')],check=True)
  subprocess.run([str(p/'entry.exe')],check=True)

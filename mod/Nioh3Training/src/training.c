@@ -123,6 +123,7 @@ static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp
 // stance (g_slot_fight: 0 = idle, the default; 1 = Fight normally / CPU), aggro (g_slot_aggro) and HP / Ki page (boss_vitals_game.h).
 #include "boss_vitals.h"
 #define N3T_SLOTS BV_SLOTS
+static void HgNew(int s);
 static uint64_t g_slot_act[N3T_SLOTS]; static uint32_t g_slot_chr[N3T_SLOTS];
 static volatile LONG g_slot_fight[N3T_SLOTS], g_slot_rehold[N3T_SLOTS], g_slot_aggro[N3T_SLOTS];
 static int g_slot_ih[N3T_SLOTS];  // 1 = this slot is the Training session boss whose stance is still the Idle hold (idle_hold.h), not the slot hold
@@ -1494,6 +1495,7 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
     if (p) ((void (*)(uint64_t))(B + Grva(0x204E038)))(p);
     uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
 }
+#include "player_recovery_game.h"
 // user #14267 Infinite health ON: HP below max -> set back to max at once. Direct write of the HP field PlayerHp reads ([[actor+0x3A0]+0x58]);
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
 static void PlayerRefill(uint64_t c, uint64_t m) {
@@ -1667,7 +1669,7 @@ static void TrainRetry(const char* why) {
       if (!tried) { tried = 1; HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); clr = rm ? (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_ClearDroppedLoot") : 0; }
       if (clr) { int n = clr(); Log("TRAIN retry: cleared dropped loot -> %d", n); } }
     TrainClear(why); PlayerRecoverFull(); if (TrNoDeath() && !g_tr.nodeath) PlayerSetNoDeath(1);
-    if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
+    if (g_tr.hasStart) { int w = PlayerRecoveryWarp(g_tr.pp); Log("TRAIN retry: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
     g_tr.round++; g_tr.beaten = 0; g_tr.lost = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.tBeat = 0; g_tr.tCmd = GetTickCount(); g_tr.tRespawn = GetTickCount() + g_cfg_tr_respawn;  // bridge 6566: 300 ms after the delete the new boss kept ai+1AA8 = -1 (passive, only jumps)
     IhDefault(0);
@@ -1679,7 +1681,7 @@ static void TrainLost(void) {  // AutoRetryOnDeath 0: player beaten -> boss gone
     g_gate_maskUntil = GetTickCount() + 2500; if (!g_gate_maskUntil) g_gate_maskUntil = 1;  // #9909: the put-back lands next to the gate: no unmasked frames while the position settles
     TrainClear("player beaten"); PlayerRecoverFull(); if (TrNoDeath() && !g_tr.nodeath) PlayerSetNoDeath(1);
     g_sp.active = 0; g_vf.active = 0; g_vf.respawnAt = 0;
-    if (g_tr.hasStart) { int w = Warp(g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], g_tr.pp[3], 1); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
+    if (g_tr.hasStart) { int w = PlayerRecoveryWarp(g_tr.pp); Log("TRAIN lost: player back to the round-1 position %.0f %.0f %.0f -> %d", g_tr.pp[0], g_tr.pp[1], g_tr.pp[2], w); }
     g_dead_at = 0; g_dead_id = 0;
     g_tr.beaten = 0; g_tr.tBeat = 0; g_tr.tRespawn = 0; g_tr.tReport = 0; g_tr.tWin = 0; g_tr.bodyGone = 0; g_tr.tFade = 0; g_tr.tFadeAt = 0; g_tr.lost = 1;
     Log("TRAIN round %d lost (AutoRetryOnDeath 0): boss removed, no respawn; Return gate: Return to where I was / Fight again", g_tr.round);
@@ -1706,6 +1708,8 @@ static void TrainAttachArena(const ArenaRow* r, const float* pp, const float* bp
 // user #22918 Infinite health. The saved toggle (g_cfg_cantdie) is the gate. Return ends the session
 // (g_tr / g_bm / g_ar) but must not stop the heal or the hit cut. Game thread, every pump frame.
 static void InfHpTick(void) {
+    PlayerHazardRecoverTick();
+    if(g_ph_native_death_actor && g_ph_native_death_actor==PlayerChar()) return;
     // Return (TrainStop) clears g_tr / g_ar and the saved toggle was left ON, so the heal must not require a live session.
     if (!g_cfg_cantdie) return;
     PhDamageEntryInstall();
@@ -1718,11 +1722,11 @@ static void TrainTick(void) {
     DWORD now = GetTickCount();
     if (g_tr.tRespawn && (int)(now - g_tr.tRespawn) >= 0) { g_tr.tRespawn = 0; g_tr.tReport = 1; SummonStart(g_tr.tok, (float)g_cfg_tr_dist); }
     if (g_tr.tReport && g_nsp > 0 && g_sp_actor[g_nsp - 1]) { Log("TRAIN round %d: boss in the world %lu ms after the command", g_tr.round, now - g_tr.tCmd); g_tr.tReport = 0; }
-    if (TrNoDeath() && (!g_tr_nodeath_now || g_nd_char != PlayerChar()) && PlayerChar() && now - g_nd_try >= 1000 && !(GameState() && GameState()[2])) {
+    if (!g_ph_native_death_actor && TrNoDeath() && (!g_tr_nodeath_now || g_nd_char != PlayerChar()) && PlayerChar() && now - g_nd_try >= 1000 && !(GameState() && GameState()[2])) {
         g_nd_try = now; Log("TRAIN NoDeath re-apply (user #14147): %s", !g_tr_nodeath_now ? "was off" : "player character changed"); PlayerSetNoDeath(1);
     }
     uint64_t c = 0, m = 0;
-    const int ph = PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
+    const int ph = !g_ph_native_death_actor && PlayerHp(&c, &m) ? PhDecide(g_cfg_cantdie, TrNoDeath(), g_tr.beaten, g_tr.lost, c, m) : PH_NONE;  // player_hp.h
     if (ph == PH_REFILL) PlayerRefill(c, m);  // user #14267 Infinite health ON: never lose HP
     else if (ph == PH_BEATEN) {
         if (!g_tr.beaten) FightFinish(FL_LOSS);
@@ -5348,9 +5352,11 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
 #include "negki_meter_game.h"  // user #23400 negative Ki meter ([Practice] NegKiMeter, default 1)
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
+#include "hazard_guard_game.h"
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
+    HgNew(s);
     InterlockedExchange(&g_slot_fight[s], 0); InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     g_slot_ih[s] = 0; BvInit(); BvDefaults(&g_bv[s]); g_bv_live[s].live = 0;
 }
@@ -5388,6 +5394,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { FzTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { FzFail(); }  // user #22589 Practice freeze + frame advance (after the meter clock)
     __try { NfTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("NOFIN tick exception %08lX", GetExceptionCode()); }  // #7465 KiBreakNoFinisher, before BossTick
     __try { BhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSHOLD tick exception %08lX", GetExceptionCode()); g_bh.phase = 0; }  // #9133
+    __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
