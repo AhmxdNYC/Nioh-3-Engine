@@ -5,8 +5,9 @@
 //   H  hidden duel: R-b direct (no patch needed), or R-a with the reverted un-hide ([Rematch] HiddenDuels = 1).
 //   D  unlisted shipped record (master duels): R-b direct, cleared-on-this-journey only.
 //   E  one of the 20 Picture Scroll records: an owned Picture Scroll is the carrier; every entry of the Emaki byte->record map is
-//      pointed at the chosen record (snapshot + CRC), EmakiMissionRequest(item+28h, key, 0, params) as the item menu does; the map
-//      is restored when the scroll mission ends (charMgr +0x2C18 back to 0 for 5 s) or 30 s after a request that never loaded.
+//      pointed at the chosen record (snapshot + CRC). Fight now passes that record's live +0x0C as the start, so a missed lookup
+//      does not fall through to the mission default. The map is restored when the scroll ends, or 30 s after a request that never
+//      set the scroll flag, including while the load flag is still on. Leave can request the return during that stuck load.
 //      "Use an owned Picture Scroll (game's pick)" = the same call without the redirect.
 //   X  no route: listed greyed with the reason.
 //   F  "Fight now (straight to the boss)" = route E1 of the build note, for R / H / D rows ([Rematch] FightNow = 1): the same R-b call
@@ -347,9 +348,11 @@ const char* NativeGate(const Snap& s) {
     if (!s.msOk) return "mission state unreadable";
     return nullptr;
 }
+// Defined with the scroll state. True only before the scroll flag is set, while the load flag is on.
+bool ScrollLoadStuck(const Snap& s);
 const char* ExitGate(const Snap& s) {
     if (const char* why = NativeGate(s)) return why;
-    if (s.st[2]) return "loading";
+    if (s.st[2] && !ScrollLoadStuck(s)) return "loading";
     if (!s.ms28) return "not in a mission";
     return nullptr;
 }
@@ -505,12 +508,14 @@ int StageWorld(int* stage) {  // StageMgr [45B9E58]: +0x500 current world, +0x88
     *stage = st;
     return w;
 }
-int CallEmakiRequest(uint64_t ref, const uint8_t* key12) {
+// start 0 lets EmakiMissionRequest use the record it resolved, or the mission default (17000009) when the lookup misses.
+// A nonzero start is kept even when the lookup misses (0x10DBED0: param_3 == 0 is the only path that substitutes the default).
+int CallEmakiRequest(uint64_t ref, const uint8_t* key12, uint32_t start) {
     alignas(16) uint32_t p[8] = {0x101, 0x1000000, 0x10100, 0, 0, 0, 0, 0};  // movaps [params] (10DC0CD): 16-byte aligned
     alignas(16) uint8_t k[16] = {};
     memcpy(k, key12, 12);
     __try {
-        ((void (*)(uint64_t, const uint8_t*, uint32_t, const uint32_t*))F_EMAKIREQ)(ref, k, 0, p);
+        ((void (*)(uint64_t, const uint8_t*, uint32_t, const uint32_t*))F_EMAKIREQ)(ref, k, start, p);
         return 0;
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         return 1;
@@ -846,8 +851,17 @@ bool ReadEmakiTab(EmakiTab& t) {
     t.n = (int)((ve - vb) / 8);
     return true;
 }
+// Live record +0x0C. No row list: this is the start the game copies into the queue when the lookup hits.
+bool ReadEmakiStart(const EmakiTab& t, uint32_t index, uint32_t& start) {
+    start = 0;
+    if (index >= t.count || !t.B) return false;
+    return Rd(t.B + 8 + (uint64_t)index * 0x34 + 0x0C, start) && start != 0;
+}
 rcore::MapPatch g_map;
 rcore::ETrack g_et;
+bool ScrollLoadStuck(const Snap& s) {
+    return g_state.load() == kEmaki && g_et.st == rcore::kEArmed && !s.emaki && s.st[2];
+}
 bool WrGuard(void* dst, const void* src, size_t n) { return WrBytes((uint64_t)dst, src, n); }
 int g_eRow = -1;
 uint8_t g_eByteSeen = 0;
@@ -1319,17 +1333,20 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (freeSlot < 0) return Refuse("mission queue full");
     const Snap current = ReadSnap();
     if (const char* why = NativeGate(current)) return Refuse(why);
+    uint32_t start = 0;
     if (row >= 0) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
+        if (!ReadEmakiStart(tab, (uint32_t)r.emakiIndex, start)) return Refuse("this scroll record has no start point");
         if (!rcore::MapRedirect(g_map, (uint8_t*)tab.vb, tab.n, tab.emptyKey, (uint32_t)r.emakiIndex, tab.count, &WrGuard, &MapReadGuard))
             return Refuse("could not redirect the scroll map");
-        Log("Rematch: E1 %s: %d map entries -> record %d (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
+        Log("Rematch: E1 %s: %d map entries -> record %d start %u (snapshot CRC %08X)", r.id, tab.n, r.emakiIndex, start,
+            rcore::Crc32(g_map.snap, (size_t)tab.n * 8));
     }
     char kb[40];
     Hex(kb, sizeof(kb), (uint64_t)sc.key, 12);
-    AttemptBegin(0xCC96, 0, 0, row, freeSlot, t, current, before, true);
-    const int rc = CallEmakiRequest(sc.ref, sc.key);
+    AttemptBegin(0xCC96, start, 0, row, freeSlot, t, current, before, true);
+    const int rc = CallEmakiRequest(sc.ref, sc.key, start);
     uint8_t after[3 * 0x58] = {};
     const bool readable = rc == 0 && Copy(after, G_QUEUE, sizeof(after));
     const bool matched = AttemptMatch(after, readable, rc == 0, sc.ref, sc.key);
@@ -1344,8 +1361,8 @@ void ExecEmaki(int row, ULONGLONG t) {
     g_eByteSeen = 0;
     g_et.st = rcore::kEArmed;
     g_et.armedAt = t;
-    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], 0, params) queued 0xCC96", row >= 0 ? g_rows[(size_t)row].id : "(game's pick)",
-        (unsigned long long)sc.ref, kb, sc.itemId, sc.idx);
+    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
+        row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
     Result("started %s (picture scroll)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
     ToastF(cGreen, 8000, "Boss Matches: Picture Scroll %s", row >= 0 ? g_rows[(size_t)row].name : "(game's pick)");
 }
@@ -1750,8 +1767,18 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         Result("exited %s", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick");
         ToIdle("picture scroll exit", true);
     } else if (ev == 3) {
-        Log("Rematch: the Picture Scroll never loaded within 30 s - restored");
-        ToIdle("armed timeout");
+        const bool leave = s.st[2] && s.ms28 && g_attemptPhase.load() != aQuarantined && g_attemptPhase.load() != aReturning;
+        Log("Rematch: the Picture Scroll never loaded within 30 s%s", leave ? " - leaving the loading screen" : " - restored");
+        if (leave) {
+            AttemptReturning(s);
+            const int rc = CallReturn();
+            g_attempt.returnCompleted = rc == 0;
+            Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14,
+                rc ? "EXCEPTION" : "requested");
+            ToIdle(rc ? "armed timeout return failed" : "armed timeout", rc == 0);
+        } else {
+            ToIdle("armed timeout");
+        }
         Refuse("the Picture Scroll did not start (timeout, restored)");
     }
 }
@@ -2191,8 +2218,19 @@ void Tick() {
             else if (!g_exitOk) Refuse(g_exitWhy);
             else if (kind == kReqPracticeExit && PracticeReturnGate(s)) Refuse(PracticeReturnGate(s));
             else if (const char* why = ExitGate(s)) Refuse(why);
-            else if (const char* attemptWhy = AttemptReturnGate()) Refuse(attemptWhy);
-            else {
+            else if (const char* attemptWhy = AttemptReturnGate()) {
+                // The scroll load never settles, so the usual "wait until the load ends" return gate would trap the player.
+                if (!(ScrollLoadStuck(s) && !strcmp(attemptWhy, "native replay has not settled"))) Refuse(attemptWhy);
+                else {
+                    AttemptReturning(s);
+                    const int rc = CallReturn();
+                    g_attempt.returnCompleted = rc == 0;
+                    if (rc) AttemptQuarantine("return call exception");
+                    Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14,
+                        rc ? "EXCEPTION" : "requested");
+                    Result(rc ? "exit failed" : "exit requested");
+                }
+            } else {
                 AttemptReturning(s);
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
@@ -2215,7 +2253,9 @@ void Tick() {
                 ToIdle("abort");
             }
         } else if (const char* why = Gates(s, false)) {
-            if (t - g_pendAt > 5000) {
+            // The queue stays busy for 10 s after a return. Five seconds is not enough to start the next scroll.
+            const ULONGLONG limit = !strcmp(why, "mission queue busy") ? 12000 : 5000;
+            if (t - g_pendAt > limit) {
                 g_pend = 0;
                 Refuse(why);
             }

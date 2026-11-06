@@ -345,8 +345,11 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 1000;
         CHECK(rcore::ETick(t, 2000, false, false) == 0, "armed, waiting");
-        CHECK(rcore::ETick(t, 60000, false, true) == 0, "no timeout while loading");
-        CHECK(rcore::ETick(t, 61000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
+        CHECK(rcore::ETick(t, 20000, false, true) == 0, "a load under 30 s does not time out");
+        CHECK(rcore::ETick(t, 31001, false, true) == 3 && t.st == rcore::kEIdle, "stuck load at 30 s times out");
+        t.st = rcore::kEArmed;
+        t.armedAt = 1000;
+        CHECK(rcore::ETick(t, 2000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
         CHECK(rcore::ETick(t, 62000, false, true) == 0, "retry reload (loading, flag 0) keeps the patch");
         CHECK(rcore::ETick(t, 63000, true, false) == 0, "back in after the retry");
         CHECK(rcore::ETick(t, 64000, false, false) == 0 && rcore::ETick(t, 66000, false, false) == 0, "exit pending (< 5 s)");

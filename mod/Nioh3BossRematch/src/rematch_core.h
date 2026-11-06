@@ -451,7 +451,9 @@ inline int MapRestore(MapPatch& mp, WriteFn wr, ReadFn rd = nullptr) {
 
 // ---- E lifecycle (one call per pump tick) ----
 // Idle -> Armed (request made) -> InMission (charMgr +0x2C18 == 1 seen) -> exit (+0x2C18 == 0 for 5 s, not loading) -> restore.
-// Armed with no InMission within kArmTimeoutMs -> restore + refuse. A retry inside the scroll keeps +0x2C18 = 1 (patch stays live).
+// Armed with no InMission within kArmTimeoutMs -> restore + refuse, including while the load flag stays on.
+// A missed record lookup leaves the player on the mission's default start, and that load never ends.
+// A retry inside the scroll keeps +0x2C18 = 1 (patch stays live). The in-mission exit still waits out a reload.
 enum EState : int { kEIdle = 0, kEArmed = 1, kEIn = 2 };
 struct ETrack {
     EState st = kEIdle;
@@ -468,7 +470,7 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
                 t.zeroSince = 0;
                 return 1;
             }
-            if (now - t.armedAt > ETrack::kArmTimeoutMs && !loading) {
+            if (now - t.armedAt > ETrack::kArmTimeoutMs) {  // also while loading: a missed lookup never clears that flag
                 t.st = kEIdle;
                 return 3;
             }
