@@ -16,12 +16,12 @@ typedef unsigned long DWORD;
 #define N3T_API
 static char lastLog[512];
 #define Log(...) snprintf(lastLog,sizeof lastLog,__VA_ARGS__)
-typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];float b[3];} ArenaRow;
+typedef struct {uint32_t mission,placement;int world;char id[16];float p[4];float b[3];char kind[16];} ArenaRow;
 typedef struct {uint32_t box;float target[4];} NativeEntryBox;
 static NativeEntryBox testBox={111,{20,30,40,50}};static int boxEntry;
 static const NativeEntryBox* NativeEntryBoxFor(const ArenaRow*r){return boxEntry?&testBox:0;}
 static DWORD tick;static uint8_t state[3];static int ready=5,world=9,player=1,readable=1,warpOk=1;
-static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900;
+static uint32_t running=123;static int actor,warps,fallbacks,g_cfg_enable=1,g_cfg_fn_summon=1,g_cfg_bossdist=900,g_cfg_anchor=1;
 static ArenaRow* g_pick;
 static void EntryCoverBegin(ArenaRow* r) { (void)r; }
 static void EntryCoverEnd(const char* why) { (void)why; }
