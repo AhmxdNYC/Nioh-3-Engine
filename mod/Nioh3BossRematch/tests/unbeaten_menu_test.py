@@ -26,7 +26,8 @@ static bool readable=true,cleared=false,g_clearGuardOk=true,available=true,train
 static bool g_hostedUiAction=false;
 static int g_confirm=-9,posts,requests,trains,practice=-1;
 static char g_msg[160];
-constexpr int kItFight=0x10000,kItShrine=0x20000,kItBossTrainHere=0x30000,kItTeleport=0x40000;
+constexpr int kMaxRows=512;
+constexpr int kItFight=0x10000,kItShrine=0x20000,kItBossTrainHere=0x38000,kItTeleport=0x40000;
 constexpr int kReqFight=1,kReqShrine=2,cGreen=1,cWhite=2;
 static uint16_t g_bypassId;
 static std::atomic<unsigned> g_unbeaten,g_unbeatenSeen,g_unbeatenVetoes;
