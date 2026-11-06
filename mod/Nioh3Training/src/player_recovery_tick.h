@@ -1,3 +1,6 @@
+// Set when the void stand has been tried enough times. A later load clears the attempt
+// counter, so this stays set until the next Fight now or the player is yanked back into the air.
+static int g_ph_giveup, g_ph_anchor_dead;
 static void PlayerHazardRecoverTick(void) {
     uint64_t player=PlayerChar(), hp=0, max=0;
     const uint8_t* gs=GameState();
@@ -14,7 +17,10 @@ static void PlayerHazardRecoverTick(void) {
     DWORD now=GetTickCount();
     if(now-g_ph_recovery_last>2000) g_ph_recovery_attempts=0;
     g_ph_recovery_last=now;
-    if(g_ph_recovery_attempts>=4) {PlayerAllowNativeHazardDeath(player);return;}
+    if(g_ph_recovery_attempts>=4) {
+        g_ph_giveup = 1; g_ph_anchor_dead = 1; // stop returning to a floorless stand; the cover reads g_ph_giveup
+        PlayerAllowNativeHazardDeath(player); return;
+    }
     float p[4]; int native=g_ph_recovery_attempts<2 && PlayerNativeRecoveryPos(p);
     if (NativeFightRecoverPos(p)) native = 2; // far start row: stay at the boss, not the mission respawn
     else if (!native) {
