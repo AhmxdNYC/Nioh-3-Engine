@@ -4748,7 +4748,8 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "scrollctl")) {  // #75963 DEV: scrollctl give <hexid> <seed> <level> <b0f> | item | level <n> | b0f <n> | redirect <0|1> | state
         char a[32] = {};
         unsigned v1 = 0, v2 = 0, v3 = 0, v4 = 0;
-        const int na = arg ? sscanf(arg, "%31s %x %u %u %u", a, &v1, &v2, &v3, &v4) : 0;
+        const char* rest = strstr(line, "scrollctl") + 9;  // the whole line: arg holds only the first word
+        const int na = sscanf(rest, "%31s %x %u %u %u", a, &v1, &v2, &v3, &v4);
         if (na >= 1 && !strcmp(a, "give")) {
             if (na >= 2) g_scGiveId.store(v1);
             g_scGiveSeed.store(na >= 3 ? v2 : 1);
@@ -4758,7 +4759,7 @@ void Command(const char* line, char* reply, size_t n) {
         } else if (na >= 1 && !strcmp(a, "item")) Post(kReqScroll, -1, "scrollctl");
         else if (na >= 1 && (!strcmp(a, "level") || !strcmp(a, "b0f") || !strcmp(a, "redirect"))) {
             unsigned d = 0;
-            sscanf(arg, "%*s %u", &d);
+            sscanf(rest, "%*s %u", &d);
             if (!strcmp(a, "level")) g_scLevel.store((int)d);
             else if (!strcmp(a, "b0f")) g_scB0f.store((int)d);
             else g_scNoRedirect.store(d ? 0 : 1);
