@@ -286,6 +286,60 @@ void AttemptQuarantine(const char* why) {
     if (!g_attempt.reason) g_attempt.reason = why;
     g_attemptPhase.store(aQuarantined);
 }
+// #75648: while a trip we requested is the resume mission, the game's save writer is told it succeeded
+// and the file is left untouched. Story flags are not written or cleared. The hold ends when that resume
+// mission is no longer the trip, and the game's own AutosaveRequest then writes home.
+struct ResumeHoldState {
+    std::atomic<int> armed{0}, inPlace{0}, session{0}, entered{0}, skipped{0}, deferMap{0};
+    std::atomic<uint32_t> trip{0}, source{0};
+    ULONGLONG armedAt = 0, homeSince = 0, deferAt = 0;
+} g_resume;
+using SaveWriteFn = uint8_t (*)(void*, void*, void*, uint32_t, uint32_t*);
+using BackupWriteFn = uint8_t (*)(void*, void*, void*, uint32_t);
+using AutosaveFn = void (*)();
+SaveWriteFn g_saveWrite = nullptr;
+BackupWriteFn g_backupWrite = nullptr;
+AutosaveFn g_autoSave = nullptr;
+bool ReadLiveMission(uint32_t& live) {
+    uint64_t g = 0, ms = 0;
+    live = 0;
+    return Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x28, live);
+}
+bool ResumeSkipNow() {
+    if (!g_resume.armed.load()) return false;
+    uint32_t live = 0;
+    const bool ok = ReadLiveMission(live);
+    return rcore::ResumeBlocksWrite(true, g_resume.trip.load(), g_resume.source.load(), live, ok, g_resume.session.load() != 0);
+}
+uint8_t ResumeSaveWrite(void* dir, void* name, void* buf, uint32_t size, uint32_t* err) {
+    if (ResumeSkipNow()) {
+        if (err) *err = 0;
+        g_resume.skipped.fetch_add(1);
+        g_resume.entered.store(1);
+        return 1;
+    }
+    return g_saveWrite(dir, name, buf, size, err);
+}
+uint8_t ResumeBackupWrite(void* a, void* b, void* c, uint32_t n) {
+    if (ResumeSkipNow()) {
+        g_resume.skipped.fetch_add(1);
+        g_resume.entered.store(1);
+        return 1;
+    }
+    return g_backupWrite(a, b, c, n);
+}
+void ResumeArm(uint32_t trip, uint32_t source, ULONGLONG t, bool inPlace) {
+    g_resume.trip.store(trip);
+    g_resume.source.store(source);
+    g_resume.inPlace.store(inPlace ? 1 : 0);
+    g_resume.session.store(0);
+    g_resume.entered.store(0);
+    g_resume.skipped.store(0);
+    g_resume.homeSince = 0;
+    g_resume.armedAt = t;
+    g_resume.armed.store(1);
+    Log("Rematch: resume hold armed. Trip mission 0x%X, resume mission was 0x%X%s", trip, source, inPlace ? " (same mission)" : "");
+}
 void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, int slot,
                   ULONGLONG t, const Snap& s, const uint8_t* before, bool scroll = false) {
     g_attempt = NativeAttempt{};
@@ -295,6 +349,7 @@ void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, in
     g_attempt.journey = journey;
     g_attempt.sourceMission = s.ms28;
     g_attempt.sourceRetry = s.ms14;
+    ResumeArm(mission, s.ms28, t, mission == s.ms28);
     g_attempt.row = row;
     g_attempt.queueSlot = slot;
     g_attempt.scroll = scroll;
@@ -948,7 +1003,16 @@ void ToIdle(const char* why, bool normalExit = false) {
     if (!normalExit) AttemptQuarantine(why);
     UnhideRestore(why);
     const bool restored = SpawnRestore(why);
-    const bool mapRestored = MapRestoreNow(why);
+    uint32_t liveMission = 0;
+    const bool liveOk = ReadLiveMission(liveMission);
+    const bool deferMap = g_map.active && rcore::ResumeBlocksWrite(g_resume.armed.load() != 0, g_resume.trip.load(), g_resume.source.load(),
+                                                                    liveMission, liveOk, g_resume.session.load() != 0);
+    const bool mapRestored = deferMap ? true : MapRestoreNow(why);
+    if (deferMap) {
+        g_resume.deferMap.store(1);
+        g_resume.deferAt = Ms();
+        Log("Rematch: map restore deferred (%s) until the resume mission leaves the trip", why);
+    }
     const int phase = g_attemptPhase.load();
     if (normalExit && restored && mapRestored && (phase == aActive || phase == aReturning)) {
         g_attempt = NativeAttempt{};
@@ -1143,6 +1207,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
         if (swap && swap(r.missionId)) {
             Log("Rematch: F %s: arena swap in place by Nioh3Training (no mission load)", r.id);
+            ResumeArm(s.ms28, s.ms28, t, true);
             g_swappedInPlace.store(true);
             Result("started %s (fight now, in place)", r.id);
             ToastF(cGreen, 6000, "Boss Matches: into the fight with %s...", r.name);
@@ -2143,6 +2208,42 @@ void Tick() {
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
+    if (g_resume.armed.load()) {
+        const bool sess = g_resume.inPlace.load() && (TrainingOwnsFight() || fight::g_active || g_fight.load() || g_swappedInPlace.load());
+        g_resume.session.store(sess ? 1 : 0);
+        uint32_t live = 0;
+        const bool ok = ReadLiveMission(live);
+        const int act = rcore::ResumeHold(true, g_resume.trip.load(), g_resume.source.load(), live, ok, s.st[2] != 0, sess,
+                                           g_resume.entered.load() != 0);
+        if (act == 1) {
+            g_resume.entered.store(1);
+            g_resume.homeSince = 0;
+        } else if (act == 2 && s.player && !s.st[3] && !s.st[4]) {
+            if (!g_resume.homeSince) g_resume.homeSince = t;
+            else if (t - g_resume.homeSince >= 1000) {
+                const int held = g_resume.skipped.exchange(0);
+                const uint32_t trip = g_resume.trip.load();
+                g_resume.armed.store(0);
+                g_resume.session.store(0);
+                Log("Rematch: resume home. Held %d save(s) for trip 0x%X; native autosave now (mission 0x%X)", held, trip, live);
+                if (g_autoSave) g_autoSave();
+                else Log("Rematch: resume home autosave was not installed");
+            }
+        } else if (act == 0 && !g_resume.entered.load() && g_resume.armedAt && t - g_resume.armedAt > 20000) {
+            g_resume.armed.store(0);
+            Log("Rematch: resume hold dropped. The trip never became the resume mission");
+        }
+    }
+    if (g_resume.deferMap.load()) {
+        uint32_t live = 0;
+        const bool ok = ReadLiveMission(live);
+        const bool still = g_resume.armed.load() && rcore::ResumeBlocksWrite(true, g_resume.trip.load(), g_resume.source.load(), live, ok,
+                                                                              g_resume.session.load() != 0);
+        if (!still || (g_resume.deferAt && t - g_resume.deferAt > 8000)) {
+            MapRestoreNow(still ? "resume hold 8 s" : "resume mission left the trip");
+            g_resume.deferMap.store(0);
+        }
+    }
     if (g_attemptPhase.load() == aReturning && g_attempt.standaloneDone) ToIdle("native return landing observed", true);
     if (g_attemptPhase.load() == aQuarantined && g_state.load() != kIdle) ToIdle("native attempt quarantined");
     if (s.gm && s.st[2] && !g_wasLoading) {  // a load begins: keep where the player stood on the frame before
@@ -3331,6 +3432,42 @@ bool Prepare() {
         else g_rightsCheckOrig = (RightsCheckFn)orig;
     }
     if (g_exitOk) F_REQRETURN = Site("fn:MissionRequestReturn");
+    {
+        auto installWrite = [&](uint32_t rva, uint32_t callee, void* fn, void** orig, const char* name) {
+            uint8_t* p = (uint8_t*)(g_img.base + rva);
+            uint8_t b[5] = {};
+            if (!Copy(b, (uint64_t)p, 5) || b[0] != 0xE8) {
+                Log("Rematch: resume hold did not install %s (call site +%X is not a call)", name, rva);
+                return;
+            }
+            int32_t rel = 0;
+            memcpy(&rel, b + 1, 4);
+            const uintptr_t dest = (uintptr_t)(p + 5 + rel);
+            if (dest != g_img.base + callee) {
+                Log("Rematch: resume hold did not install %s (call +%X target is +%llX)", name, rva,
+                    (unsigned long long)(dest - g_img.base));
+                return;
+            }
+            const char* why = nullptr;
+            if (!InstallCallRetargetAt(p, name, fn, orig, &why))
+                Log("Rematch: resume hold did not install %s (%s)", name, why ? why : "?");
+        };
+        void* saveOrig = nullptr;
+        void* backupOrig = nullptr;
+        installWrite(0x5B6F37, 0x5B7BB4, (void*)&ResumeSaveWrite, &saveOrig, "SaveFileWriteAtomic");
+        installWrite(0x1FDF2D0, 0x1FD9A48, (void*)&ResumeBackupWrite, &backupOrig, "BackupBinWrite");
+        void* backupOrig2 = nullptr;
+        installWrite(0x1FDF62A, 0x1FD9A48, (void*)&ResumeBackupWrite, &backupOrig2, "BackupBinWrite2");
+        g_saveWrite = (SaveWriteFn)saveOrig;
+        g_backupWrite = (BackupWriteFn)(backupOrig ? backupOrig : backupOrig2);
+        uint8_t head[4] = {};
+        uint8_t* autosave = (uint8_t*)(g_img.base + 0x5B635C);
+        if (Copy(head, (uint64_t)autosave, 4) && head[0] == 0x48 && head[1] == 0x83 && head[2] == 0xEC && head[3] == 0x28)
+            g_autoSave = (AutosaveFn)autosave;
+        else Log("Rematch: resume hold has no autosave (prologue mismatch at +5B635C)");
+        if (!g_saveWrite || !g_backupWrite) Log("Rematch: resume hold is incomplete (a save writer was not hooked)");
+        else Log("Rematch: resume hold on. A trip save waits until the resume mission is home");
+    }
     if (g_emakiOk) {
         F_EMAKIREQ = Site("fn:EmakiMissionRequest");
         G_INV = Site("g:Inventory");

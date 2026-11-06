@@ -516,4 +516,24 @@ inline bool StaleFight(bool active, bool riseNearLoad, bool msOk, uint32_t missi
 // dropped when a load begins, unless a rematch flow or a Nioh3Training session owns that load (they handle their own fight state).
 inline bool ClearFightOnLoad(bool active, bool idle, bool trainingOwns) { return active && idle && !trainingOwns; }
 
+// Resume hold (#75648). MissionStartFromSave reloads [MissionMgr+8]+28h (0xCC96 -> EmakiMissionRequest,
+// any other nonzero id -> MissionRequestById) and the start at +14h. A mission load autosaves those fields
+// while the trip is current. MissionRequestReturn uses +1Ch, so Return can walk home in memory while the
+// file still says the trip. The trip id is the one this request just passed, not a mission list.
+// ResumeBlocksWrite is the disk decision. ResumeHold adds the game-thread result:
+// 0 = not holding, 1 = keep holding, 2 = the trip is over, so the game's own autosave may run.
+inline bool ResumeBlocksWrite(bool armed, uint32_t trip, uint32_t source, uint32_t live, bool liveOk, bool session) {
+    if (!armed) return false;
+    if (session) return true;
+    if (!liveOk) return true;
+    return trip != source && trip != 0 && live == trip;
+}
+inline int ResumeHold(bool armed, uint32_t trip, uint32_t source, uint32_t live, bool liveOk,
+                      bool loading, bool session, bool entered) {
+    if (!armed) return 0;
+    if (ResumeBlocksWrite(armed, trip, source, live, liveOk, session) || loading) return 1;
+    if (!entered) return 0;
+    return 2;
+}
+
 }  // namespace rcore
