@@ -817,6 +817,19 @@ bool FindScroll(Scroll& s) {  // the item-menu path 0 of EmakiItemUse_MenuHandle
     }
     return false;
 }
+int g_q6Count = -1;  // last Picture Scroll item count seen at a chosen-record request; -1 = inventory unreadable
+int CountScrollItems() {
+    uint64_t a = 0, inv = 0;
+    if (!Rd(G_INV, a) || !a || !Rd(a, inv) || !inv) return -1;
+    int n = 0;
+    for (int i = 0; i < 4096; ++i) {
+        const uint64_t it = inv + 0x224A60 + (uint64_t)i * 0xE8;
+        uint16_t id = 0;
+        if (!Rd(it, id)) break;
+        if (IsScroll(id)) ++n;
+    }
+    return n;
+}
 struct EmakiTab {
     uint64_t B = 0, M = 0;
     uint32_t count = 0;
@@ -1276,8 +1289,23 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_emakiOk) return Refuse(g_emakiWhy);
+    // A chosen record must not touch the save. The clear guard skips SetMissionClearFlag of the running 0xCC96 only.
+    if (row >= 0 && !g_clearGuardOk) return Refuse("Picture Scroll needs the clear guard so the save cannot change");
     Scroll sc;
-    if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
+    if (row < 0) {
+        if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
+    } else {
+        // No inventory index. key[8]=0 is not the item-menu consume mode. Whether the game accepts this key is unproven (Q1/Q6).
+        memset(sc.key, 0, sizeof(sc.key));
+        sc.idx = -1;
+        sc.itemId = 0;
+        sc.ref = 0;
+        sc.key[0] = 1;
+        sc.key[7] = 1;
+        sc.key[8] = 0;
+        g_q6Count = CountScrollItems();
+        Log("Rematch: Q6 scroll-item count %d at request (mode 0, no item index)", g_q6Count);
+    }
     EmakiTab tab;
     if (!ReadEmakiTab(tab)) return Refuse("Picture Scroll table not readable");
     uint8_t before[3 * 0x58];
@@ -1309,6 +1337,7 @@ void ExecEmaki(int row, ULONGLONG t) {
         MapRestoreNow("uncertain scroll request");
         return Refuse("native scroll request outcome uncertain; restart game");
     }
+    if (row >= 0) UnbeatenArm(0xCC96, g_rows[(size_t)row].id);
     g_state.store(kEmaki);
     g_activeRow.store(row);
     g_eRow = row;
@@ -1713,6 +1742,10 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         Log("Rematch: IN Picture Scroll mission (emaki byte %02X)%s", g_eByteSeen, g_map.active ? " - redirect live until the mission ends" : "");
         Result("in mission %s (emaki byte %02X)", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick", g_eByteSeen);
     } else if (ev == 2) {
+        if (g_eRow >= 0) {
+            const int after = CountScrollItems();
+            Log("Rematch: Q6 scroll-item count %d after exit (was %d at request)", after, g_q6Count);
+        }
         Log("Rematch: Picture Scroll mission ended");
         Result("exited %s", g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "game's pick");
         ToIdle("picture scroll exit", true);
@@ -2337,11 +2370,17 @@ const char* CanFight(int row) {
     const Row& r = g_rows[(size_t)row];
     if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
     if (!g_fnowOk) return g_fnowWhy;
+    if (r.route == rcore::kE) {
+        if (!g_emakiOk) return g_emakiWhy;
+        if (r.emakiIndex < 0) return "this scroll row has no record";
+        return nullptr;
+    }
     if (r.route != rcore::kR && r.route != rcore::kH && r.route != rcore::kD) return "Fight now is for replayable missions only";
     if (!r.fightStart) return "no start point next to this boss in the catalogue (use the replay)";
     return nullptr;
 }
 const char* CanShrine(int row) {
+    if (g_rows[(size_t)row].route == rcore::kE) return "a Picture Scroll has no shrine; Fight now starts this record";
     if (const char* w = CanFight(row)) return w;
     if (g_rows[(size_t)row].atFight) return "no separate shrine: this mission starts at the fight";
     return nullptr;
@@ -3463,6 +3502,31 @@ bool ActBossRoute(int item) {
     ToastF(cWhite, 6000, arena ? "Boss Matches: into the fight with %s..." : "Boss Matches: to the shrine before %s...", g_rows[(size_t)row].name);
     return true;
 }
+bool ScrollRowItem(int item, int& row, int& kind) {
+    if (item >= kItFight && item < kItFight + kMaxRows) { row = item - kItFight; kind = 0; return true; }
+    if (item >= kItShrine && item < kItShrine + kMaxRows) { row = item - kItShrine; kind = 1; return true; }
+    if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) { row = item - kItBossTrainHere; kind = 2; return true; }
+    return false;
+}
+bool ActScrollFight(int item) {
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    int row = -1, kind = 0;
+    if (!ScrollRowItem(item, row, kind) || row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (kind != 0) {
+        snprintf(g_msg, sizeof(g_msg), "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
+        return false;
+    }
+    if (const char* why = CanFight(row)) { snprintf(g_msg, sizeof(g_msg), "%s", why); return false; }
+    if (g_confirm != item) {
+        g_confirm = item;
+        snprintf(g_msg, sizeof(g_msg), "Fight %s now? This scroll's own waves, no item used. A confirm / B back.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    Post(kReqEmaki, row, "the menu");
+    ToastF(cWhite, 6000, "Boss Matches: Picture Scroll %s...", g_rows[(size_t)row].name);
+    return true;
+}
 bool UiAct() {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -3697,6 +3761,11 @@ bool UiAct() {
         }
         Post(kReqScroll, -1, "the menu");
         return true;
+    }
+    {
+        int srow = -1, skind = 0;
+        if (ScrollRowItem(item, srow, skind) && srow >= 0 && (size_t)srow < g_rows.size() && g_rows[(size_t)srow].route == rcore::kE)
+            return ActScrollFight(item);
     }
     if (item >= kItFight) return ActBossRoute(item);
     uint32_t kind = 0;
@@ -4059,21 +4128,36 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else if (why) add(sel ? cWhite : cDim, sel, "%s Arena unavailable: %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s Train in arena: %s", mk, g_rows[(size_t)row].name);
         } else if (it[i] >= kItBossTrainHere && it[i] < kItBossTrainHere + kMaxRows) {
-            add(sel ? cWhite : TrainHereOk(it[i] - kItBossTrainHere) ? cGreen : cDim, sel, "%s    Train here", mk);
+            const int row = it[i] - kItBossTrainHere;
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
+                add(sel ? cWhite : cDim, sel, "%s    Train here does not pick this scroll", mk);
+            else add(sel ? cWhite : TrainHereOk(row) ? cGreen : cDim, sel, "%s    Train here", mk);
         } else if (it[i] >= kItShrine) {
-            const Row& r = g_rows[(size_t)(it[i] - kItShrine)];
-            const uint8_t stt = g_status[(size_t)(it[i] - kItShrine)].load();
-            const char* why = CanShrine(it[i] - kItShrine);
+            const int srow = it[i] - kItShrine;
+            const Row& r = g_rows[(size_t)srow];
+            if (r.route == rcore::kE) {
+                const char* why = CanShrine(srow);
+                add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - %s", mk, why ? why : "a Picture Scroll has no shrine");
+            } else {
+            const uint8_t stt = g_status[(size_t)srow].load();
+            const char* why = CanShrine(srow);
             const uint32_t c = stt == 2 && !why ? (!strcmp(r.fightConf, "high") ? cGreen : !strcmp(r.fightConf, "medium") ? cYellow : cOrange) : cDim;
             if (stt != 2) add(sel ? cWhite : cDim, sel, "%s    Shrine before the boss   - not beaten on this journey", mk);
             else if (why) add(sel ? cWhite : c, sel, "%s    Shrine before the boss   - %s", mk, why);
             else add(sel ? cWhite : c, sel, "%s    Shrine before the boss   %s, %d m   [%s]", mk, r.fightKind, r.fightDist, r.fightConf);
+            }
         } else if (it[i] >= kItFight) {
             const int row = it[i] - kItFight;
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE) {
+                const char* why = CanFight(row);
+                if (why) add(sel ? cWhite : cDim, sel, "%s    Fight now - %s", mk, why);
+                else add(sel ? cWhite : cGreen, sel, "%s    Fight now (this scroll's waves)", mk);
+            } else {
             const char* why = CanMatchArena(row);
             if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s    Train here (arena unavailable)", mk);
             else if (why) add(sel ? cWhite : cDim, sel, "%s    Fight now - %s", mk, why);
             else add(sel ? cWhite : cGreen, sel, "%s    Fight now (boss arena)", mk);
+            }
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const char* routeWhy = CanMatchArena(it[i]);
@@ -4207,7 +4291,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here / B: back." : "%s. B: back.", why);
             else snprintf(footer, nf, "Train in this boss arena, including unbeaten bosses. Solo and progress guards apply. A: start / B: back.");
         } else if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) {
-            snprintf(footer, nf, TrainHereOk(item - kItBossTrainHere) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
+            const int row = item - kItBossTrainHere;
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
+                snprintf(footer, nf, "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
+            else snprintf(footer, nf, TrainHereOk(row) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);
@@ -4216,9 +4303,15 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                      r.mission[0] ? r.mission : r.name, r.fightStart, r.fightKind, r.fightDist, r.fightConf);
         } else if (item >= kItFight) {
             const int row = item - kItFight;
+            if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE) {
+                const char* why = CanFight(row);
+                if (why) snprintf(footer, nf, "%s. B: back.", why);
+                else snprintf(footer, nf, "This scroll's own waves. No Picture Scroll item is used. A: start / B: back.");
+            } else {
             const char* why = CanMatchArena(row);
             if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here, or choose Train here below. B: back." : "%s. B: back.", why);
             else snprintf(footer, nf, "Fight this boss in its arena, beaten or unbeaten. Solo and progress guards apply. Train here is a separate Practice option. A: start / B: back.");
+            }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
             if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d; LB/RB or PgUp/PgDn skips ten rows.", r.name, g_sel + 1, n - 1);
