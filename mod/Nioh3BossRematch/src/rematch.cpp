@@ -365,6 +365,9 @@ void ResumeArm(uint32_t trip, uint32_t source, ULONGLONG t, bool inPlace) {
     // v3 (#80182): a trip started from the gate of a retired attempt (we are still in the old trip's mission) keeps the ORIGINAL home
     // and the saves already held for it. The current mission is a boss mission, never a home.
     const bool chained = g_resume.armed.load() && g_resume.source.load() && g_resume.trip.load() == source && g_resume.source.load() != source;
+    // Log text only: the mission the player really returns to. A trip armed from the gate of an earlier trip returns to that trip's home
+    // (possibly 0 = hub), not to the boss mission we stand in.
+    const uint32_t logHome = (g_resume.armed.load() && g_resume.trip.load() == source) ? g_resume.source.load() : source;
     if (chained) {
         Log("Rematch: resume hold kept for the first trip: home stays 0x%X (not 0x%X)", g_resume.source.load(), source);
         source = g_resume.source.load();
@@ -378,7 +381,7 @@ void ResumeArm(uint32_t trip, uint32_t source, ULONGLONG t, bool inPlace) {
     g_resume.homeSince = 0;
     g_resume.armedAt = t;
     g_resume.armed.store(1);
-    Log("Rematch: resume hold armed. Trip mission 0x%X, resume mission was 0x%X%s", trip, source, inPlace ? " (same mission)" : "");
+    Log("Rematch: resume hold armed. Trip mission 0x%X, resume mission was 0x%X%s", trip, logHome, inPlace ? " (same mission)" : "");
 }
 void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, int slot,
                   ULONGLONG t, const Snap& s, const uint8_t* before, bool scroll = false) {

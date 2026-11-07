@@ -50,7 +50,7 @@ bool g_live=true,g_exitOk=true;
 const char* g_exitWhy="exit unavailable";
 constexpr int kIdle=0;
 std::atomic<int> g_state{kIdle};
-namespace fight { bool g_active=false; void ForceEnd(const char*) { g_active=false; } }
+namespace fight { bool g_active=false; void ForceEnd(const char*) { g_active=false; } } void* TrainingExport(const char*) { return nullptr; }
 void AutoMovesTick() {}
 bool TrainingOwnsFight() { return false; }
 std::atomic<bool> g_staleBbm{false};
@@ -161,7 +161,7 @@ int main() {
     printf("%d actual-source admission checks PASS (%zu snapshot reads faulted)\n",checks,addresses.size());
 }
 """.replace('@SNAPSHOT@',snapshot).replace('@FUNCTIONS@','\n'.join(function(sig) for sig in (
-    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
+    'Snap ReadSnap()', 'const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(', 'const char* Gates('))).replace('@EXIT@',exit_dispatch).replace('@TICK_OBSERVATION@',tick_observation).replace('@ATTEMPT@',attempt)
 setup=Path(os.environ.get('N3_MSVC_SETUP', r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'
