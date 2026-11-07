@@ -207,7 +207,7 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 std::atomic<bool> g_swappedInPlace{false};
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12, kReqEmakiTrain = 13 };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12, kReqEmakiTrain = 13, kReqCount };
 // Native gate retry returns through the owned transaction, then starts a fresh guarded request.
 int g_nativeAgainRow = -1;
 ULONGLONG g_nativeAgainAt = 0;
@@ -239,8 +239,10 @@ void Post(uint32_t kind, int row, const char* via) {
     g_requestEpoch.fetch_add(1);
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
-                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)", "return and fight the same native boss again"};
-    Log("Rematch: request %s%s%s queued from %s", kn[kind], row >= 0 ? " for " : "", RowName(row), via);
+                                     "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)", "return and fight the same native boss again",
+                                     "Training at a Picture Scroll (no waves)"};
+    static_assert(sizeof(kn) / sizeof(kn[0]) == kReqCount, "every ReqKind needs a name: #79507 crashed reading past this table");
+    Log("Rematch: request %s%s%s queued from %s", kind < kReqCount ? kn[kind] : "unknown", row >= 0 ? " for " : "", RowName(row), via);
 }
 
 // ---- snapshot (memory reads only; any thread) ----
