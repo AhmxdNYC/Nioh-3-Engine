@@ -3145,6 +3145,7 @@ static struct { int on, left; DWORD t0, tSwap, tStable; char stage[96]; } g_el;
 #include "entry_cover.h"
 static EntryCover g_entryCover;
 static int g_entryPlayerHit; // a real hit on the player while this cover is up
+static int g_entry_scroll; static char g_entry_scroll_name[120]; // #78735: Boss Rematch's Picture Scroll trip, no g_en session behind it
 static DWORD g_entryProtectUntil;
 static void EntryLs(int on, const char* why) {
     if (!on && !g_el.on) return;
@@ -3155,13 +3156,14 @@ static void EntryLs(int on, const char* why) {
     if (on == g_el.on) return;
     g_el.on = on; if (!on) g_el.left = 0;
     const char* stage = g_el.stage[0] ? g_el.stage : "Entering the arena...";
-    int r = p_osdLoad(on, "Loading boss match", stage);
+    int r = p_osdLoad(on, g_entry_scroll ? "Loading Picture Scroll" : "Loading boss match", stage);
     Log("ENTRY loading screen %s (%s) stage '%s' (EngineFix overlay %s)", on ? "on" : "off", why ? why : "", stage, r ? "drawing" : "menu off: black only");
 }
 static void EntryLsBegin(ArenaRow* r) {
     if (!g_cfg_entry_ls || g_rh.active) return;
     g_el.stage[0] = 0;
-    if (r && r->name[0]) snprintf(g_el.stage, sizeof g_el.stage, "%s", r->name);
+    if (g_entry_scroll && g_entry_scroll_name[0]) snprintf(g_el.stage, sizeof g_el.stage, "%s", g_entry_scroll_name);
+    else if (r && r->name[0]) snprintf(g_el.stage, sizeof g_el.stage, "%s", r->name);
     else snprintf(g_el.stage, sizeof g_el.stage, "Entering the arena...");
     g_el.t0 = GetTickCount(); g_el.tSwap = 0; g_el.tStable = 0; g_el.left = 0; g_el.on = 0;
     EntryLs(1, "fight start");
@@ -3198,6 +3200,7 @@ static void EntryCoverEnd(const char* why) {
     if (!g_entryCover.active) return;
     g_entryCover.active = g_entryCover.covered = 0;
     EntryLs(0, why);
+    g_entry_scroll = 0;
     if (p_osdMask) p_osdMask(0, 0);
     // Brief finite grace lets the next Present reveal gameplay before damage resumes.
     g_entryProtectUntil = GetTickCount()+500;
@@ -3230,6 +3233,16 @@ static void EntryCoverBegin(ArenaRow* r) {
     const int tip = p_entryTip ? p_entryTip(1) : 0; // answer the press-to-continue tip; 0 if the menu overlay is off
     Log("ENTRY COVER begin: mission 0x%X, native/fallback wait, hard limit 90000 ms, tip confirm %s", r ? r->mission : 0, tip ? "armed" : "NOT armed");
 }
+// #78735: Boss Rematch calls this on the game thread, like Nioh3Training_NativeEntryResult.
+N3T_API int Nioh3Training_ScrollCover(const char* name, int on) {
+    if (!on) { if (g_entry_scroll) EntryCoverEnd("scroll trip ready"); return 1; }
+    EntryCoverEnd("replaced entry");
+    snprintf(g_entry_scroll_name, sizeof g_entry_scroll_name, "%s", name ? name : "");
+    g_entry_scroll = 1;
+    EntryCoverBegin(0);
+    if (!g_entryCover.active) { g_entry_scroll = 0; return 0; }
+    return 1;
+}
 static void EntryFloorNote(void) {
     EntryScreenNote("Fight from where the mission put you, or leave.");
 }
@@ -3250,7 +3263,7 @@ static void EntryCoverTick(void) {
     // A wave row's named-boss FIGHT start can be a later wave. Once any script-requested wave body is
     // live, the player is already in that fight, so the cover does not keep the 90 s black screen.
     // A real hit on the player drops it too, if that happens first. The tip confirm stays armed until then.
-    const int cancel=!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on;
+    const int cancel=g_entry_scroll ? (g_rh.active || g_rh_ls_on) : (!g_en.confirmed || g_en.route==0 || g_en.route==5 || g_rh.active || g_rh_ls_on);
     const int ready=g_en.fellBack && g_en.route==4;
     const uint8_t* st = GameState();
     const int inMission = g_en.confirmed && g_en.warped && PlayerChar() && st && !st[2];
@@ -3258,7 +3271,7 @@ static void EntryCoverTick(void) {
     const int wave = g_en.waveOwned && inMission;
     const int hit = g_entryPlayerHit;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,ready || lesson || wave || hit,0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,g_entry_scroll ? hit : (ready || lesson || wave || hit),0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
         EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : hit ? "player hit" : "cancel/return/failed");
@@ -4156,8 +4169,14 @@ static void h_reqret(const uint32_t* p, uint8_t f) {
 // 0x604E) are untouched; the pause menu's own end-mission entries (1DAE4E0 / 1DB58B0) are handled by #10020 below.
 typedef uint64_t (*EndConfFn)(void*, int);
 static EndConfFn o_endconf; static int g_cfg_gate_block = 1; static volatile LONG g_endconf_n;
+// #78735: a live Waves row owns the scroll's end object, the same box a Boss Match row owns.
+static int ScrollGateLive(void) {
+    static int (*f)(void); static int tried;
+    if (!tried) { HMODULE rm = GetModuleHandleA("Nioh3BossRematch.asi"); if (rm) { f = (int (*)(void))GetProcAddress(rm, "Nioh3BossRematch_WavesGate"); tried = 1; } }
+    return f ? f() : 0;
+}
 static uint64_t h_endconf(void* ctx, int action) {
-    if (action == 0x2613 && g_cfg_gate_block && g_cfg_gate && Nioh3Training_NativeGateMission()) {
+    if (action == 0x2613 && g_cfg_gate_block && g_cfg_gate && (Nioh3Training_NativeGateMission() || ScrollGateLive())) {
         if (!GateMenuOpen() && (!g_gate_tUse || GetTickCount() - g_gate_tUse >= 1500)) GateUse();
         Log("GATE: native Boss Match end-mission action replaced by our gate page");
         return 0;
@@ -4275,7 +4294,9 @@ static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
-    const int native = Nioh3Training_NativeGateMission() != 0;
+    const int scroll = ScrollGateLive();
+    const int native = Nioh3Training_NativeGateMission() != 0 || scroll;
+    if (scroll) { uint32_t tx = 0, sb = 0; uint64_t cu = 0; uint16_t nr = 0; static LONG nd; if (Cw2Peek(ctx, &tx, &sb, &cu, &nr) && tx != 0x3E0C230 && tx != 0x3E8D85E && InterlockedIncrement(&nd) <= 20) Log("GATE diag: scroll box text 0x%X not caught (gadget %p sub %u)", tx, (void*)cu, sb); }
     if (g_cfg_gate_cw2 && g_cfg_gate && !g_rh.active && (native || (!g_en.confirmed && g_gate.up && g_tr.active))) {
         uint32_t text = 0, sub = 0xFFFFFFFFu; uint64_t cur = 0; uint16_t nret = 0;
         if (Cw2Peek(ctx, &text, &sub, &cur, &nret) && (text == 0x3E0C230 || text == 0x3E8D85E)) {

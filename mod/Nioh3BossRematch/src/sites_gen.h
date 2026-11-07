@@ -135,7 +135,6 @@ static const Def kDefs[] = {
     {"chk:PlayerPlace_Find", "SPAWN", kCheck, 0x1C0F363, 48, "E8 ?? ?? ?? ?? 48 8B F8 48 85 C0 74 26 44 8B C3 48 8D 54 24 20 48 8B C8 E8 ?? ?? ?? ?? 8B D3 48 8B CF 0F 28 00 66 0F 7F 44 24 30 E8 ?? ?? ?? ??", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:CamFlag4_Retry14", "SPAWN", kCheck, 0x2239C49, 48, "48 8B 05 ?? ?? ?? ?? 48 8B 48 08 8B 49 14 E8 ?? ?? ?? ?? 48 85 C0 74 2B F6 40 08 04 74 25 F3 0F 10 88 80 00 00 00 41 B0 01 F3 0F 10 40 7C F3 0F", 0, 0, 0, 0, 0x0, nullptr},
     {"call:ScrollReturnReady", "BAG", kCall, 0x1E0C0BD, 0, "E8 ?? ?? ?? ?? 84 C0 0F 84 ?? ?? ?? ?? 40 38 B7 30 04 00 00", 0, 0, 0, 0, 0x0, nullptr},
-    {"fn:ScrollItemCount", "BAG", kFn, 0x6E43B0, 0, "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 56 48 83 EC 20 48 8B 05 ?? ?? ?? ?? 48 8B F9 0F B7 EA 83 CB", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:ScrollReopenFlag", "BAG", kCheck, 0x1E0C0CA, 32, "40 38 B7 30 04 00 00 74 17 8B 97 24 04 00 00 48 8B CF E8 ?? ?? ?? ?? 40 88 B7 30 04 00 00 EB 48", 0, 0, 0, 0, 0x0, nullptr},
     {"chk:ScrollItem1E82", "BAG", kCheck, 0x1E2C2C7, 16, "41 B8 82 1E 00 00 E8 ?? ?? ?? ?? 83 E8 01 74 32", 0, 0, 0, 0, 0x0, nullptr},
 #if BR_SOULCORE

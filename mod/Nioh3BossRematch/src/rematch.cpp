@@ -90,31 +90,19 @@ uint8_t RightsCheckHook(uint32_t slot, const uint8_t* key, uint8_t mode) {
 }
 
 // BAG: the call at 1E0C0BD leaves rcx as the shrine menu. 22D2454 ignores that rcx. When it returns ready and the
-// reopen flag is set, ask the list's own item query (6E43B0, item 1E82). Count 0 clears the flag before the cmp at
-// 1E0C0CA, so the else opens a menu that takes buttons. Any other count leaves the flag, and the game opens its list.
-static uint32_t QueryScrollItem(uintptr_t fn) {
-    struct Out {
-        uint32_t n;
-        int32_t label;
-    } o{};
-    using Fn = Out* (*)(Out*, uint32_t);
-    __try {
-        if (!fn) return 0xFFFFFFFFu;
-        ((Fn)fn)(&o, 0x1E82u);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        return 0xFFFFFFFFu;
-    }
-    return o.n;
-}
+// reopen flag is set, count item 1E82 in the bag: the list builds its rows from that item. Count 0 clears the flag
+// before the cmp at 1E0C0CA, so the else opens a menu that takes buttons. Any other count leaves the game's list.
+// #78739: the 6E43B0 call read a garbage count (2730937083, board #332), so the bag is read directly.
+int CountBagItem(uint16_t want);
 using ScrollReadyFn = uint8_t (*)(uint64_t);
 ScrollReadyFn g_scrollReadyOrig = nullptr;
-uintptr_t F_SCROLLCOUNT = 0;
 uint8_t ScrollReturnReadyHook(uint64_t menu) {
     const uint8_t ready = g_scrollReadyOrig ? g_scrollReadyOrig(menu) : 0;
     if (!ready || menu < 0x10000) return ready;
     uint8_t flag = 0;
     if (!Rd(menu + 0x430, flag) || flag == 0) return ready;
-    const uint32_t count = QueryScrollItem(F_SCROLLCOUNT);
+    const int bag = CountBagItem(0x1E82);
+    const uint32_t count = bag < 0 ? 0xFFFFFFFFu : (uint32_t)bag;
     if (count == 0xFFFFFFFFu) {
         Log("Scroll return: picture-scroll count unreadable, list stays");
         return ready;
@@ -873,6 +861,17 @@ int CountScrollItems() {
     }
     return n;
 }
+int CountBagItem(uint16_t want) {
+    uint64_t a = 0, inv = 0;
+    if (!Rd(G_INV, a) || !a || !Rd(a, inv) || !inv) return -1;
+    int n = 0;
+    for (int i = 0; i < 4096; ++i) {
+        uint16_t id = 0;
+        if (!Rd(inv + 0x224A60 + (uint64_t)i * 0xE8, id)) break;
+        if (id == want) ++n;
+    }
+    return n;
+}
 struct EmakiTab {
     uint64_t B = 0, M = 0;
     uint32_t count = 0;
@@ -1406,6 +1405,17 @@ void ScrollSeedScan() {
     Log("Rematch: seed scan: %d different bytes, seed 1 -> %d, %d failed, %llu ms", hits, ScrollDrawByte(1), bad, GetTickCount64() - t0);
 }
 
+// #78735: a scroll row is Boss Rematch's own trip, so it asks Training for the same loading screen as a boss row.
+bool g_scrollCover = false;
+ULONGLONG g_scrollCoverAt = 0, g_scrollCoverIn = 0;
+void ScrollCoverSet(const char* name, int on) {
+    using Fn = int (*)(const char*, int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_ScrollCover")) f(name, on);
+}
+void ScrollCoverOn(const char* name, ULONGLONG t) {
+    g_scrollCover = true; g_scrollCoverAt = t; g_scrollCoverIn = 0;
+    ScrollCoverSet(name, 1);
+}
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
@@ -1501,6 +1511,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     g_et.st = rcore::kEArmed;
     g_et.armedAt = t;
     g_wavePlace = {};
+    if (row >= 0) ScrollCoverOn(g_rows[(size_t)row].name, t);
     Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
         row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
     Result("started %s (waves)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
@@ -2506,11 +2517,31 @@ uint32_t NativeGateMission() {
     const auto f = (Fn)TrainingExport("Nioh3Training_NativeGateMission");
     return f ? f() : 0;
 }
+// #78735: the scroll's end object asks the same 'end the mission' box. While our Waves row runs, our gate owns it.
+bool WavesGateNow() {
+    const int row = g_activeRow.load();
+    if (g_state.load() != kEmaki || g_et.st != rcore::kEIn || row < 0 || (size_t)row >= g_rows.size() || !rcore::WavesRow(g_rows[(size_t)row])) return false;
+    const Snap s = ReadSnap();
+    return s.msOk && s.ms28 == 0xCC96;
+}
 int NativeGateRow() {
+    if (WavesGateNow()) return g_activeRow.load();
     const uint32_t mission = NativeGateMission();
     if (!mission) return -1;
     const int row = g_activeRow.load();
     return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].missionId == mission ? row : -1;
+}
+void ScrollCoverTick(const Snap& s, ULONGLONG t) {
+    if (!g_scrollCover) return;
+    const bool in = g_et.st == rcore::kEIn && !s.st[2] && s.player;
+    if (!in) g_scrollCoverIn = 0;
+    else if (!g_scrollCoverIn) g_scrollCoverIn = t;
+    const int done = rcore::ScrollCoverDone(g_state.load() == kEmaki, in, g_wavePlace.seenFight != 0, g_scrollCoverIn ? t - g_scrollCoverIn : 0);
+    if (!done) return;
+    g_scrollCover = false;
+    ScrollCoverSet(nullptr, 0);
+    Log("Rematch: scroll cover off (+%llu ms, %s)", (unsigned long long)(t - g_scrollCoverAt),
+        done == 1 ? "trip ended" : done == 2 ? "waves running" : "8 s in the mission");
 }
 void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     if (g_nativeAgainRow < 0) return;
@@ -2522,7 +2553,7 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     // Never overlap the old return, restored placement transaction, or any new request.
     if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) return;
     const int row = g_nativeAgainRow; g_nativeAgainRow = -1;
-    Post(kReqFight, row, "native gate after completed return");
+    Post(rcore::WavesRow(g_rows[(size_t)row]) ? kReqEmaki : kReqFight, row, "native gate after completed return");
 }
 
 void AutoMovesTick();  // pc2 #23907, end of file
@@ -2610,7 +2641,7 @@ void Tick() {
             const char* why = nullptr;
             if (kind == kReqNativeAgain && (row < 0 || (size_t)row >= g_rows.size() ||
                 g_attemptPhase.load() != aActive || g_attempt.row != row ||
-                g_attempt.mission != s.ms28 || g_rows[(size_t)row].missionId != NativeGateMission()))
+                g_attempt.mission != s.ms28 || (!WavesGateNow() && g_rows[(size_t)row].missionId != NativeGateMission())))
                 why = "native gate no longer owns this fight";
             else if (!g_exitOk) why = g_exitWhy;
             else if (kind == kReqPracticeExit) why = PracticeReturnGate(s);
@@ -2676,6 +2707,7 @@ void Tick() {
     TrackReplay(s, t);
     TfTick(s, t);
     SelfTestTick(s, t);
+    ScrollCoverTick(s, t);
     if (g_state.load() == kEmaki) LogEmakiWave();
     if (g_scGive.exchange(false)) ExecScrollGive();
     TrackEmaki(s, t);
@@ -2976,7 +3008,7 @@ bool BossFightItemsAvailable() {
 }
 int GateMode() {  // 0 = unknown / no session (old 2-option page), 1 = Boss Rematch fight, 2 = Training
     using Fn = int (*)();
-    if (NativeGateMission()) return 1;
+    if (NativeGateMission() || WavesGateNow()) return 1;
     const auto f = (Fn)TrainingExport("Nioh3Training_SessionMode");
     return f ? f() : 0;
 }
@@ -3561,6 +3593,10 @@ int Items(int* out, int cap) {
         return n;
     }
     if (g_uiPages.page == uGate) {
+        if (WavesGateNow()) {  // a scroll has no boss rules: same fight, or leave
+            add(kItFightAgain); add(kItReturnHome); add(kItBack); add(kItClose);
+            return n;
+        }
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
         if (mode == 2) {  // Training (#14336 item 11): short list, everything else is one level down in Training Bosses
@@ -3732,7 +3768,6 @@ bool Prepare() {
         if (!GroupOk("BAG", &bagWhy)) {
             Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
         } else {
-            F_SCROLLCOUNT = Site("fn:ScrollItemCount");
             if (!InstallCallRetarget("call:ScrollReturnReady", (void*)&ScrollReturnReadyHook, (void**)&g_scrollReadyOrig, &bagWhy))
                 Log("Scroll return: empty-bag unlock OFF - %s", bagWhy ? bagWhy : "?");
         }
@@ -3922,6 +3957,7 @@ void UiOpen() {
     g_pageGen0 = g_scanGen.load();
     if (g_live.load()) g_wantScan.store(true);
 }
+bool WavesGateLive() { return WavesGateNow(); }
 void UiGatePage() {  // user #13529: the gate page is a base page (no add-on root behind it): Back returns to the host's first page
     UiOpen();
     g_uiPages.page = uGate;
@@ -4162,7 +4198,7 @@ bool UiAct() {
         ToastF(cWhite, 6000, "Boss Matches: boss mode ended. Open the map and travel to a shrine.");
         return true;
     }
-    if (item == kItReturnHome && NativeGateMission()) {
+    if (item == kItReturnHome && (NativeGateMission() || WavesGateNow())) {
         const Snap s = ReadSnap();
         const char* why = !g_exitOk ? g_exitWhy : ExitGate(s);
         if (!why) why = AttemptReturnGate();
@@ -4181,7 +4217,7 @@ bool UiAct() {
         ToastF(cWhite, 5000, rc == 1 ? "Boss Matches: back to where you were..." : "Boss Matches: arena session ended (no stored spot to return to).");
         return true;
     }
-    if (item == kItFightAgain && NativeGateMission()) {
+    if (item == kItFightAgain && (NativeGateMission() || WavesGateNow())) {
         const int row = NativeGateRow();
         const Snap s = ReadSnap();
         const char* why = row < 0 ? "native boss row is no longer owned" : !g_exitOk ? g_exitWhy : ExitGate(s);
@@ -4502,6 +4538,9 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             add(sel ? cWhite : !ok || *why ? cDim : cGray, sel, "%s %-24s %s   A / Left / Right%s", mk,
                 it[i] == kItDeathCut ? "Boss death animation:" : it[i] == kItDeathBlow ? "Require final blow:" : "Boss loot:", !ok ? "?" : v ? "ON" : "OFF", why);
         }
+        else if (it[i] == kItReturnHome && WavesGateNow()) {
+            add(sel ? cWhite : cGreen, sel, "%s Leave Picture Scroll", mk);
+        }
         else if (it[i] == kItReturnHome && NativeGateMission()) {
             add(sel ? cWhite : cGreen, sel, "%s Leave Boss Match", mk);
         }
@@ -4540,7 +4579,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 it[i] == kItFinT ? "Final-blow timeout:" : "Zero-HP combo timeout:", val, why);
         }
         else if (it[i] == kItFightAgain) add(sel ? cWhite : cGreen, sel, "%s %s", mk,
-            NativeGateMission() ? "Fight again (reloads the mission, same fight)" :
+            (NativeGateMission() || WavesGateNow()) ? "Fight again (reloads the mission, same fight)" :
             GateMode() == 2 ? "Fight again / Reset round (same boss)" : "Fight again (same boss, this arena)");
         else if (it[i] == kItFightOpts) add(sel ? cWhite : cGray, sel, "%s Death and loot rules   A: open", mk);  // user #13265
         else if (it[i] == kItMoves) add(sel ? cWhite : cGray, sel, "%s Boss moves and hit counts   A: open", mk);
@@ -4804,13 +4843,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
         else if (item == kItDeathBlow) snprintf(footer, nf, "Training / spawned Boss Matches: ON requires a final blow at zero HP; OFF kills at zero HP. No grapple overrides this rule. Saved.");
         else if (item == kItDeathLoot) snprintf(footer, nf, "Training / spawned Boss Matches: drop boss loot and Amrita, with one final blow. No first-clear rewards. Boss Matches start this OFF; you can enable it during the match.");
+        else if (item == kItReturnHome && WavesGateNow()) snprintf(footer, nf, "Leaves the Picture Scroll for the shrine.");
         else if (item == kItReturnHome && NativeGateMission()) snprintf(footer, nf, "Return to where you entered this Boss Match.");
         else if (item == kItReturnHome) snprintf(footer, nf, "Ends the arena session (boss removed) and puts you back where you stood before it started, in that world. Works after a kill, with no boss, or mid-switch.");
         else if (item == kItAutoRetry) snprintf(footer, nf, "Training and arena Boss Matches retry in place after defeat. Auto retry is always enabled.");
         else if (item == kItNoFin) snprintf(footer, nf, "Training / spawned Boss Matches: block grapples during Ki break. At zero HP, keep attacking until the combo timeout expires. Boss Matches start this OFF.");
         else if (item == kItFinT) snprintf(footer, nf, "Death animation / Boss loot: kill when the first final-blow animation ends, or after this timeout. Left / Right: 0.5 s. Saved.");
         else if (item == kItHp0W) snprintf(footer, nf, "With No grapple ON, a zero-HP boss dies after this long without a hit. Left / Right: 0.1 s. Shared by Training and spawned Boss Matches. Saved.");
-        else if (item == kItFightAgain && NativeGateMission()) snprintf(footer, nf, "Leaves and reloads the mission, then starts the same fight. B / Close keeps you at the gate.");
+        else if (item == kItFightAgain && (NativeGateMission() || WavesGateNow())) snprintf(footer, nf, "Leaves and reloads the mission, then starts the same fight. B / Close keeps you at the gate.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close the mod menu and return to the game.");
         else if (item >= kItTeleport) {

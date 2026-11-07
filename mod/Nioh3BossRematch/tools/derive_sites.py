@@ -170,7 +170,6 @@ SPEC = [
     # the same query at 1E2C311), then state 7 reads no buttons. This group clears that byte only in that case,
     # so the existing else opens the shrine top or the replay menu. A nonzero count leaves the byte alone.
     ("call:ScrollReturnReady", "BAG", "call", 0x1E0C0BD, 0),
-    ("fn:ScrollItemCount", "BAG", "fn", 0x6E43B0, 0),
     ("chk:ScrollReopenFlag", "BAG", "check", 0x1E0C0CA, 32),
     ("chk:ScrollItem1E82", "BAG", "check", 0x1E2C2C7, 16),
 ]

@@ -582,4 +582,13 @@ inline bool CloseScrollListWhenEmpty(uint32_t count, uint8_t reopenFlag) {
     return reopenFlag != 0 && count == 0;
 }
 
+// #78735 scroll row loading screen: 1 = the trip ended, 2 = waves started, 3 = 8 s in the mission with no wave yet
+// (E07 waits about 80 s for a walk, so the screen cannot wait for it). 0 = keep it up.
+inline int ScrollCoverDone(bool tripLive, bool inMission, bool waves, uint64_t inMs) {
+    if (!tripLive) return 1;
+    if (!inMission) return 0;
+    if (waves) return 2;
+    return inMs >= 8000 ? 3 : 0;
+}
+
 }  // namespace rcore

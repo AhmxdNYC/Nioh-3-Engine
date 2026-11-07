@@ -383,6 +383,7 @@ bool Start() {
 }  // namespace addon
 
 // user #6789: Nioh3Training's arena Return gate asks for the 2-option page (1 = the menu worker will open it, 0 = no menu: caller returns directly)
+extern "C" __declspec(dllexport) int Nioh3BossRematch_WavesGate() { return addon::rematch::WavesGateLive() ? 1 : 0; }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_GateChoice() { return addon::ui::GateChoiceRequest() ? 1 : 0; }
 
 extern "C" __declspec(dllexport) int Nioh3RematchMenuGetApi(uint32_t version, uint32_t bytes, rematch_menu_bridge::Api* out) {

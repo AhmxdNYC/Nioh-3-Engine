@@ -91,6 +91,11 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    CHECK(rcore::ScrollCoverDone(false, false, false, 0) == 1, "scroll cover ends when the trip ends");
+    CHECK(rcore::ScrollCoverDone(true, false, true, 9000) == 0, "scroll cover stays while loading");
+    CHECK(rcore::ScrollCoverDone(true, true, true, 0) == 2, "scroll cover ends at the first wave");
+    CHECK(rcore::ScrollCoverDone(true, true, false, 7999) == 0, "scroll cover waits under 8 s");
+    CHECK(rcore::ScrollCoverDone(true, true, false, 8000) == 3, "scroll cover gives up at 8 s");
     CHECK(rcore::CloseScrollListWhenEmpty(0, 1), "empty bag closes the scroll list");
     CHECK(!rcore::CloseScrollListWhenEmpty(1, 1), "one scroll keeps the list");
     CHECK(!rcore::CloseScrollListWhenEmpty(0, 0), "flag already clear stays clear");
