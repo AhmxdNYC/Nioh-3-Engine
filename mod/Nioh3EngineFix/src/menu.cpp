@@ -2237,7 +2237,7 @@ int TabRows(int* out) {
     g_pages.page = page;
     int k = 0;
     for (int i = 0; i < n; ++i)
-        if (IsTabRow(rows[i])) out[k++] = rows[i];
+        if (IsTabRow(rows[i]) && (rows[i] != kSaveFilesRow || savefiles::Pending() || savefiles::Allowed())) out[k++] = rows[i];  // #79548: Saves is on the strip only while its page can stay open (the page is closed again while save actions are locked: fight, home)
     return k;
 }
 // the tab the player is in: the hosted page's tab, else the first-page row the page trail started from (0 = on the first page)

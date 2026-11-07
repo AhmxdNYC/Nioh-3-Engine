@@ -31,9 +31,11 @@ int main() {
  CHECK(PadNav(XINPUT_GAMEPAD_START)==0 && PadNav(XINPUT_GAMEPAD_BACK)==N_HOME);
  CHECK(KeyNav(K_PAGEUP|K_PAGEDOWN)==(N_PAGEUP|N_PAGEDOWN));
  g_cfg.layout=0;g_rematchSession=0;g_rematchPage=false;g_rematchAwait=false;g_rematchView.flags=0;
- Open("tabs");CHECK(g_pages.page==pRoot);
+ savefiles::testAllowed=true;Open("tabs");CHECK(g_pages.page==pRoot);
  int tabs[kMenuRowCap];const int nt=TabRows(tabs);
  CHECK(nt==4 && tabs[0]==kPageRow+pDisplay && tabs[1]==kPageRow+pCamera && tabs[2]==kPageRow+pSettings && tabs[3]==kSaveFilesRow);
+ savefiles::testAllowed=false;{int t2[kMenuRowCap];CHECK(TabRows(t2)==3);}  // #79548: Saves leaves the strip while save actions are locked
+ savefiles::testAllowed=true;
  CHECK(CurrentTab()==0);
  g_pressed=N_TAB_NEXT;OnPresentImpl();CHECK(g_pages.page==pDisplay && g_pages.depth==1); // first page: RB -> first tab
  EnterPage(pOvFrameMeter);CHECK(CurrentTab()==kPageRow+pDisplay);   // nested page keeps its tab
