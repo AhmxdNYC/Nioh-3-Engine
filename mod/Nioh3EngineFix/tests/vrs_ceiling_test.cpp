@@ -130,5 +130,35 @@ int main() {
     CHECK(sampleLogs==216 && g_vrsSampleState==3);
     puts("VRS diagnostic: first200 calls plus16 surface samples from one Present interval, log only on report thread, no duplicate frames PASS");
     puts("VRS selective state: coarse -> excluded fine, OM unknown, motion guard, bundles, ClearState, Close PASS");
+    // #79098 live menu values: the next draw sees them, no Reset and no rebuild in between.
+    {
+        queryResult=S_OK; resetResult=S_OK; caps.VariableShadingRateTier=D3D12_VARIABLE_SHADING_RATE_TIER_2; caps.AdditionalShadingRatesSupported=TRUE;
+        g_vrsBootMode=3; g_vrsBootTracking=true; g_vrsMode=3; g_vrsMotionGuard=false; g_vrsLayouts=7; g_vrsRate=0; g_vrsSkipSkinned=true; g_vrsKeepCharacters=false;
+        testMeta={}; testMeta.reject=0; testMeta.count=7;
+        for (auto& f:testMeta.formats) f=DXGI_FORMAT_R8G8B8A8_UNORM;
+        VrsReset<0>(cl,nullptr,(ID3D12PipelineState*)&pso);
+        VrsTrack(cl,0,46,7); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+        g_vrsRate=1; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X2);
+        g_vrsRate=2; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X1);
+        g_vrsRate=0; g_vrsLayouts=1; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1); // 7 targets switched off
+        g_vrsLayouts=2; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+        g_vrsKeepCharacters=true; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+        g_vrsKeepCharacters=false; testMeta.skin=1; VrsTrack(cl,0,25,(uintptr_t)&pso); VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+        g_vrsSkipSkinned=false; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+        g_vrsSkipSkinned=true; testMeta.skin=0;
+        // Whole frame live, then Off live: a draw writes nothing, Reset writes 1x1.
+        g_vrsMode=2; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_4X4);
+        g_vrsMode=1; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+        g_vrsMode=0; int w=writes; VrsApply(cl,0,false); CHECK(writes==w);
+        VrsApply(cl,0,true); CHECK(writes==w+1 && lastRate==D3D12_SHADING_RATE_1X1);
+        // Off still tracks, so Selective returns with the true PSO and targets, not a stale one.
+        testMeta.reject=vrsselect::Blend; VrsTrack(cl,0,25,(uintptr_t)&pso);
+        g_vrsMode=3; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_1X1);
+        testMeta.reject=0; g_vrsMode=0; VrsTrack(cl,0,25,(uintptr_t)&pso); VrsTrack(cl,0,46,7);
+        g_vrsMode=3; g_vrsLayouts=7; VrsApply(cl,0,false); CHECK(lastRate==D3D12_SHADING_RATE_2X2);
+        // A game started with VRS off has no hook, and the code stays silent even if called.
+        g_vrsBootMode=0; g_vrsBootTracking=false; g_vrsMode=0; w=writes; VrsApply(cl,0,true); VrsApply(cl,0,false); CHECK(writes==w);
+        puts("VRS live values: rate, layouts, skin, characters, whole frame, off and back to Selective on the next draw PASS");
+    }
     puts("VRS ceiling: capability fallback, off, failed reset HRESULT, interface gate, counters PASS");
 }

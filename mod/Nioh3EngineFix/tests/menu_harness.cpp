@@ -68,7 +68,11 @@ int BarriersIni() { return 0; }
 bool Rewrite(int) { return false; }
 void SetBatching(bool) {}
 void SetRewrite(int, bool) {}
-int VrsSupport() { return 0; }
+int g_vrsSupportStub = 0, g_vrsBootStub = 0, g_vrsLiveCalls = 0; bool g_vrsTrackStub = false; vrsmenu::Values g_vrsLiveStub;
+int VrsSupport() { return g_vrsSupportStub; }
+int VrsBootMode() { return g_vrsBootStub; }
+bool VrsBootTracking() { return g_vrsTrackStub; }
+void VrsSetLive(const vrsmenu::Values& v) { ++g_vrsLiveCalls; g_vrsLiveStub = v; }
 }
 namespace crashreport {  // #38437 / #43461: the Report row opens the folder and the website
 int g_snapshots = 0, g_urlOpens = 0, g_folderOpens = 0;
@@ -316,6 +320,35 @@ int main() {
     Change(kFrameMeterSizeRow,1);CHECK(g_psv[34]==2);
     Change(kFrameMeterSizeRow,0);CHECK(g_psv[34]==0);
     Change(kFrameMeterSizeRow,-1);CHECK(g_psv[34]==0);
+    // #79098 Variable rate shading page: reachable, one row per value, nothing moves until a row is touched, reset works.
+    {
+        const int savedPage = g_pages.page, savedDepth = g_pages.depth, savedSel = g_sel;
+        const bool dirtyWas = g_dirty, editedWas = g_vrsEdited;
+        CHECK(has(pSGpu, kVrs) && has(pSGpu, kVrsPageRow) && !has(pDisplay, kVrsPageRow));
+        CHECK(std::string(PageName(pVrsTune)) == "Variable rate shading");
+        g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
+        gpuopt::g_vrsSupportStub = -1; Change(kVrsPageRow, 0); CHECK(g_pages.page != pVrsTune);  // no hardware VRS: page stays shut
+        gpuopt::g_vrsSupportStub = 1; g_dirty = false;
+        Change(kVrsPageRow, 0); CHECK(g_pages.page == pVrsTune);
+        CHECK(!g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // opening the page changes nothing
+        int r[kMenuRowCap]; const int rn = PageRows(r, true);
+        CHECK(rn == 3 + vrsmenu::kRowN + 1 && r[3] == kVrsRowFirst && r[3 + vrsmenu::kRowReset] == kVrsRowFirst + vrsmenu::kRowReset && r[rn - 1] == kBackRow);
+        CHECK(g_sel == kVrsRowFirst);
+        Change(kVrsRowFirst + vrsmenu::kRowReset, 1); CHECK(!g_vrsEdited && gpuopt::g_vrsLiveCalls == 0);  // reset takes A only
+        Change(kVrsRowFirst + vrsmenu::kRowMode, -1); CHECK(g_vrsVals.mode == 0 && !g_vrsEdited);  // already at the end: no change, no save
+        Change(kVrsRowFirst + vrsmenu::kRowRate, 1);
+        CHECK(g_vrsVals.rate == 1 && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1);
+        Change(kVrsRowFirst + vrsmenu::kRowMode, 1); CHECK(g_vrsVals.mode == 1 && g_bootVrs && gpuopt::g_vrsLiveStub.mode == 1);
+        Change(kVrsRowFirst + vrsmenu::kRowSkip, 1); CHECK(!g_vrsVals.skip && !gpuopt::g_vrsLiveStub.skip);
+        Change(kVrsRowFirst + vrsmenu::kRowReset, 0);
+        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
+        Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 3 && gpuopt::g_vrsLiveStub.mode == 3);  // the old ON row is the same value
+        Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
+        Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);
+        g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsPresetOn = false; g_vrsEdited = editedWas; g_dirty = dirtyWas;
+        gpuopt::g_vrsSupportStub = 0; gpuopt::g_vrsLiveCalls = 0;
+        g_pages.page = savedPage; g_pages.depth = savedDepth; g_sel = savedSel;
+    }
     // Style is persistent, directional, append-only, and unavailable on an older Training module.
     CHECK(has(pOvFrameMeter,kFrameMeterStyleRow) && !has(pDisplay,kFrameMeterStyleRow));
     CHECK(kFrameMeterStyleWhat==33 && g_psv[33]==0);
