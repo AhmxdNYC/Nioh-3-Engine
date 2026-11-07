@@ -516,12 +516,14 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
 // 600 cm steps from Temp/s77376 and Temp/s77377 (those tries used y = warp y + 100). 1500 is the same
 // four directions when 600 never reaches wave state 3. No per-row point.
 struct WaveNudge { float dx, dz, dy; };
-inline constexpr int kWaveNudges = 9;
+inline constexpr int kWaveNudges = 13;
 inline WaveNudge WaveNudgeAt(int step) {
     static const WaveNudge k[kWaveNudges] = {
         {0.f, 0.f, 0.f},
         {600.f, 0.f, 100.f}, {-600.f, 0.f, 100.f}, {0.f, 600.f, 100.f}, {0.f, -600.f, 100.f},
         {1500.f, 0.f, 100.f}, {-1500.f, 0.f, 100.f}, {0.f, 1500.f, 100.f}, {0.f, -1500.f, 100.f},
+        // E07 woke only at z-1200 (pc2 #77817), between the 600 and 1500 steps; main PC + pc2 walked past it.
+        {0.f, -1200.f, 100.f}, {0.f, 1200.f, 100.f}, {1200.f, 0.f, 100.f}, {-1200.f, 0.f, 100.f},
     };
     if (step < 0 || step >= kWaveNudges) return {0.f, 0.f, 0.f};
     return k[step];

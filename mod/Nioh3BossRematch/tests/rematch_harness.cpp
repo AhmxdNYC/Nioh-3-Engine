@@ -206,13 +206,13 @@ int main(int argc, char** argv) {
             CHECK(otherN == 18 && otherStay == 18, "the other 18 scroll rows stay in Waves");
         }
         const rcore::WaveNudge origin = rcore::WaveNudgeAt(0);
-        CHECK(rcore::kWaveNudges == 9 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
+        CHECK(rcore::kWaveNudges == 13 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
         CHECK(rcore::WaveNudgeAt(1).dx == 600.f && rcore::WaveNudgeAt(2).dx == -600.f && rcore::WaveNudgeAt(3).dz == 600.f && rcore::WaveNudgeAt(4).dz == -600.f,
               "600 cm offsets are x+ x- z+ z-");
         CHECK(rcore::WaveNudgeAt(1).dy == 100.f && rcore::WaveNudgeAt(5).dx == 1500.f && rcore::WaveNudgeAt(8).dz == -1500.f, "1500 follows 600, offset tries raise y");
         CHECK(rcore::WaveNudgeDecide(-1, 1, false) == 1, "the record warp happens as soon as the mission is in");
         CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
-        CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 3, "state 3 stops the walk and the list ends");
+        CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 1 && rcore::WaveNudgeDecide(12, 1, true) == 3 && rcore::WaveNudgeAt(9).dz == -1200.f, "state 3 stops the walk and the list ends");
         CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
         CHECK(multi == 23 && multiLeak == 0, "Multi is the 23 catalogue rows whose roster has more than one member");
         int warring = 0, dlc = 0, paren = 0, longLabel = 0;
