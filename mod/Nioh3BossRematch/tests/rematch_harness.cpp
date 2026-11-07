@@ -102,6 +102,18 @@ int main(int argc, char** argv) {
     CHECK(!rcore::CloseScrollListWhenEmpty(0xFFFFFFFFu, 1), "unreadable count leaves the list");
     CHECK(n > 100, "catalogue parsed");
     CHECK(c[rcore::kE] == 20, "20 Picture Scroll rows");
+    {
+        int scrolls = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            if (rows[i].route != rcore::kE) continue;
+            ++scrolls;
+            CHECK(rows[i].storyMission == 0xCC96, "scroll story mission is the old literal");
+            CHECK(rows[i].missionId == 0, "scroll replay id stays empty");
+            CHECK(rcore::ScrollMission(rows, (int)i) == 0xCC96, "chosen scroll uses its story mission");
+        }
+        CHECK(scrolls == 20, "20 story missions read");
+        CHECK(rcore::ScrollMission(rows, -1) == 0xCC96, "game pick uses the shared scroll mission");
+    }
     CHECK(c[rcore::kH] == 3, "3 hidden duels");
     CHECK(c[rcore::kX] > 0, "X rows kept with a reason");
     bool reasons = true, eidx = true, mid = true;
@@ -223,7 +235,7 @@ int main(int argc, char** argv) {
         CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
         CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 1 && rcore::WaveNudgeDecide(12, 1, true) == 3 && rcore::WaveNudgeAt(9).dz == -1200.f, "state 3 stops the walk and the list ends");
         CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
-        CHECK(multi == 23 && multiLeak == 0, "Multi is the 23 catalogue rows whose roster has more than one member");
+        CHECK(multi == 22 && multiLeak == 0, "Multi is the 22 catalogue rows whose roster has more than one member (RBAB8 refused, f2e80b34)");
         int warring = 0, dlc = 0, paren = 0, longLabel = 0;
         for (int i = 0; i < cycle.Stops(); ++i) {
             const char* lab = cycle.Label(i);

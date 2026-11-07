@@ -2261,64 +2261,29 @@
     },
     {
       "id": "RBAB8",
-      "mission": 47800,
+      "mission": 0,
       "members": [
         {
           "name": "Anazawa Morihide",
-          "candidates": [
-            {
-              "mission_id": "0xBAB8",
-              "set_slot": "1",
-              "table": "C1/53CAEAB14",
-              "placement_id": "3025509",
-              "key64": "38227",
-              "char_id": "25052",
-              "flags9c": "0x0C",
-              "record_name": "DUEL_QUEST_40_MORIHIDE"
-            }
-          ],
-          "chr": 38227,
-          "placement": 3025509,
-          "name_char_id": 25052
+          "candidates": [],
+          "error": "no same-mission match"
         },
         {
           "name": "Mori Gentatsu",
-          "candidates": [
-            {
-              "mission_id": "0xBAB8",
-              "set_slot": "1",
-              "table": "C1/53CAEAB14",
-              "placement_id": "3026327",
-              "key64": "626327",
-              "char_id": "25113",
-              "flags9c": "0x0C",
-              "record_name": "DUEL_QUEST_40_GENTATSU"
-            }
-          ],
-          "chr": 626327,
-          "placement": 3026327,
-          "name_char_id": 25113
+          "candidates": [],
+          "error": "no same-mission match"
         },
         {
           "name": "Yamada Shinryuken",
-          "candidates": [
-            {
-              "mission_id": "0xBAB8",
-              "set_slot": "1",
-              "table": "C1/53CAEAB14",
-              "placement_id": "3022777",
-              "key64": "613533",
-              "char_id": "25081",
-              "flags9c": "0x0C",
-              "record_name": "DUEL_QUEST_40_SHINRYUKEN"
-            }
-          ],
-          "chr": 613533,
-          "placement": 3022777,
-          "name_char_id": 25081
+          "candidates": [],
+          "error": "no same-mission match"
         }
       ],
-      "errors": []
+      "errors": [
+        "Anazawa Morihide: no same-mission match",
+        "Mori Gentatsu: no same-mission match",
+        "Yamada Shinryuken: no same-mission match"
+      ]
     }
   ]
 }

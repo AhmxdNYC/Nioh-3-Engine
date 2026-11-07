@@ -32,7 +32,7 @@ static const FallbackRoster g_fallback_rosters[] = {
     {"R19EA", 3, {665148u, 96759u, 381593u}, {8058277u, 8054890u, 8053276u}},
     {"RD617", 4, {865761u, 671570u, 969076u, 776661u}, {2140881u, 2140062u, 2145000u, 2146560u}},
     {"RD84E", 4, {96759u, 602366u, 485999u, 381593u}, {2161177u, 2161257u, 2163067u, 2167800u}},
-    {"RBAB8", 3, {38227u, 626327u, 613533u}, {3025509u, 3026327u, 3022777u}},
+    {"RBAB8", 0, {0}, {0}}, // unresolved: Anazawa Morihide: no same-mission match; Mori Gentatsu: no same-mission match; Yamada Shinryuken: no same-mission match
 };
 static const FallbackRoster* FallbackRosterFind(const char* id) {
     unsigned i; if (!id) return 0;
@@ -176,8 +176,5 @@ static const NativeRosterCandidate g_native_roster_candidates[] = {
     {"RD84E", 381593u, 2167800u},
     {"RD84E", 485999u, 2163067u},
     {"RD84E", 602366u, 2161257u},
-    {"RBAB8", 38227u, 3025509u},
-    {"RBAB8", 613533u, 3022777u},
-    {"RBAB8", 626327u, 3026327u},
 };
 #endif

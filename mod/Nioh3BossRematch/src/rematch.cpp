@@ -1481,13 +1481,18 @@ void ScrollCoverOn(const char* name, ULONGLONG t) {
     g_scrollCover = true; g_scrollCoverAt = t; g_scrollCoverIn = 0;
     ScrollCoverSet(name, 1);
 }
+int g_emakiNoteRow = -1;
+
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
     if (!g_emakiOk) return Refuse(g_emakiWhy);
-    // A chosen record must not touch the save. The clear guard skips SetMissionClearFlag of the running 0xCC96 only.
+    // A chosen record must not touch the save. The clear guard vetoes SetMissionClearFlag of the
+    // mission that is running. That veto takes no mission id.
     if (row >= 0 && !g_clearGuardOk) return Refuse("Picture Scroll needs the clear guard so the save cannot change");
+    const uint32_t scrollMission = rcore::ScrollMission(g_rows, row);
+    if (!scrollMission) return Refuse("scroll catalogue has no story mission");
     Scroll sc;
     if (row < 0 || g_scUseItem.load()) {
         if (!FindScroll(sc)) return Refuse("no Picture Scroll in the inventory (the carrier item)");
@@ -1554,8 +1559,10 @@ void ExecEmaki(int row, ULONGLONG t) {
     if (g_scStart0.load()) start = 0;
     char kb[40];
     Hex(kb, sizeof(kb), (uint64_t)sc.key, 12);
-    AttemptBegin(0xCC96, start, 0, row, freeSlot, t, current, before, true);
+    AttemptBegin(scrollMission, start, 0, row, freeSlot, t, current, before, true);
+    g_emakiNoteRow = row;
     const int rc = CallEmakiRequest(sc.ref, sc.key, start);
+    g_emakiNoteRow = -1;
     uint8_t after[3 * 0x58] = {};
     const bool readable = rc == 0 && Copy(after, G_QUEUE, sizeof(after));
     const bool matched = AttemptMatch(after, readable, rc == 0, sc.ref, sc.key);
@@ -1568,7 +1575,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     memcpy(&queuedStart, after + freeSlot * 0x58 + 0xC, 4);
     Log("Rematch: E queue slot %d: region %02X start %u%s", freeSlot, queuedRegion, queuedStart,
         queuedRegion ? "" : " - WARNING: region 00 means the record lookup missed");
-    if (row >= 0) UnbeatenArm(0xCC96, g_rows[(size_t)row].id);
+    if (row >= 0) UnbeatenArm((uint16_t)scrollMission, g_rows[(size_t)row].id);
     g_state.store(kEmaki);
     g_activeRow.store(row);
     g_eRow = row;
@@ -1577,8 +1584,8 @@ void ExecEmaki(int row, ULONGLONG t) {
     g_et.armedAt = t;
     g_wavePlace = {};
     if (row >= 0) ScrollCoverOn(g_rows[(size_t)row].name, t);
-    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
-        row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
+    Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0x%X",
+        row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start, scrollMission);
     Result("started %s (waves)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
     ToastF(cGreen, 8000, "%s", row >= 0 ? g_rows[(size_t)row].name : "Picture Scroll: the game's pick");
 }
@@ -3761,6 +3768,8 @@ void AutoMovesTick() {
 }
 
 }  // namespace
+
+uint32_t RematchScrollMission() { return rcore::ScrollMission(g_rows, g_emakiNoteRow); }
 
 bool CoverSnapshot(CoverInfo& out) {
     CoverLock lock;if(!lock.held)return false;

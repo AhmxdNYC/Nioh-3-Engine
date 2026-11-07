@@ -750,6 +750,10 @@ def build():
     for e in em:
         out.append(erow(e))
     out.extend(xtsv)
+    # f2e80b34 refused this row by editing the TSV only; keep the refusal when the catalogue is regenerated.
+    for o in out:
+        if o["id"] == "RBAB8":
+            o.update({"route": "X", "replay_mission_id": "-", "verified": "0", "reason": 'script leaves Mori Gentatsu and Yamada Shinryuken frozen (AI off, invincible); only Anazawa Morihide can be hit, and his death does not end the mission'})
     apply_placeholder_labels(out, bs, idx)
     cnt = collections.Counter(o["name"] for o in out)
     for o in out:

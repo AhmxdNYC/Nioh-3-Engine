@@ -1308,6 +1308,7 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
 #include "native_entry_sequences_gen.h"
+#include "native_no_boss_mode_gen.h"
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; uint8_t barTries[FALLBACK_ROSTER_MAX], barBusy[FALLBACK_ROSTER_MAX]; DWORD nextAt, barAskAt[FALLBACK_ROSTER_MAX], zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
@@ -2040,6 +2041,13 @@ static const NativeEntryBox* NativeEntryBoxFor(const ArenaRow* r) {
     }
     return 0;
 }
+static int NativeEntryNoBossMode(uint32_t mission, uint32_t placement) {
+    for (unsigned i = 0; i < sizeof g_native_no_boss_mode / sizeof *g_native_no_boss_mode; ++i) {
+        const NativeNoBossMode* e = &g_native_no_boss_mode[i];
+        if (e->mission && e->mission == mission && e->placement == placement) return 1;
+    }
+    return 0;
+}
 // Resolve only game-data roster placements in this mission, with exact wrapper identity.
 // A catalogue's first placement need not be the branch the native script creates.
 static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, uint32_t chr) {
@@ -2094,7 +2102,7 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 // BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
@@ -2118,7 +2126,13 @@ static int NativeFightRecoverPos(float p[4]) {
     memcpy(p, g_en.anchor, sizeof g_en.anchor);
     return 1;
 }
-static int EnterFalling(float targetY, float y, int drops) { return y < targetY - 300.0f && drops >= 2; }  // 3 m under the target and two 250 ms samples in a row dropping >= 4 m/s: a script teleport or a walk downhill is not a fall
+// Two 250 ms samples dropping >= 1 m. A near-boss stand is 0.5 m above the boss, so 3 m under it is a void
+// (the floorless stand). A catalogue warp is often a few meters above the real floor: the measured landing
+// is 325 units (3.25 m) and must settle. Only a fall still going at 10 m under that warp is a void.
+static int EnterFalling(float targetY, float y, int drops, int anchored) {
+    if (drops < 2 || !(y < targetY - 300.0f)) return 0;
+    return anchored || y < targetY - 1000.0f;
+}
 static const char* NativeRouteTag(void) { return g_en.confirmed ? (g_en.fellBack ? "fallback" : "native") : 0; }
 // 0 unowned/ended, 1 native pending, 2 native alive, 3 fallback pending, 4 fallback alive, 5 failed.
 // Pending ownership is visible before BR's admission callback, and survives entry completion.
@@ -2342,9 +2356,10 @@ static void EnterTick(void) {
         float cur[4];
         if (g_en.active && now - g_en.tFall >= 250 && PlayerPos(cur)) {
             g_en.drops = g_en.tFall && g_en.prevY - cur[1] >= 100.0f ? g_en.drops + 1 : 0; g_en.prevY = cur[1]; g_en.tFall = now;
-            if (EnterFalling(g_en.target[1], cur[1], g_en.drops) && g_en.safeOk) {
+            if (EnterFalling(g_en.target[1], cur[1], g_en.drops, g_en.anchored) && g_en.safeOk) {
                 Log("ENTER %s: player falling at %.0f %.0f %.0f (target y %.0f); back to last solid spot %.0f %.0f %.0f", r->id, cur[0], cur[1], cur[2], g_en.target[1], g_en.safe[0], g_en.safe[1], g_en.safe[2]);
                 g_en.fell = 1;
+                if (g_en.anchored) g_en.anchored = 0; // hazard recovery must not warp back onto this stand
                 if (Warp(g_en.safe[0], g_en.safe[1], g_en.safe[2], g_en.safe[3], 1)) { EnterTarget(g_en.safe, g_en.safe[3]); g_en.tWarp = now; }
                 return;
             }
@@ -2369,12 +2384,20 @@ static void EnterTick(void) {
                 Log("ENTER %s: boss live far from the mission start; stood %d units from placement %u at %.0f %.0f %.0f", r->id, g_cfg_bossdist, nativePlacement, g_en.anchor[0], g_en.anchor[1], g_en.anchor[2]);
                 return;
             }
+            // A far stand can be the void. Ending entry on this tick skips the fall sampler, and hazard
+            // recovery then warps back to the same point. Wait until the player has stood still for 1 s
+            // (or 4 s, so a real void still trips) before calling the boss live.
+            if (g_en.anchored && !g_en.fell) {
+                int stood = g_en.tStable && now - g_en.tStable >= 1000;
+                if (!stood && now - g_en.tWarp < 4000) return;
+            }
+            if (!g_en.gated && NativeEntryNoBossMode(r->mission, nativePlacement)) g_en.noBossMode = 1;
             Log("ENTER %s: native boss placement %u live; request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             g_en.active = 0; g_en.route = 2; return;
         }
         // #71861: the script already placed this boss but keeps it dormant (dojo teacher: lesson enemies come first, box at the row's start). Moving away leaves the
         // script's box, and the fallback's dedupe would delete the teacher and then wait forever. The script owns this fight: never move, never replace.
-        if (!g_en.dormant && nativePlacement) {
+        if (!g_en.dormant && nativePlacement && !g_en.fell) {
             g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
             if (g_np.started) Log("ENTER %s: native boss placement %u live (fight started); request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             else Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, nativePlacement);
@@ -3270,11 +3293,14 @@ static void EntryCoverTick(void) {
     const int lesson = g_en.dormant && g_en.route==2 && inMission;
     const int wave = g_en.waveOwned && inMission;
     const int hit = g_entryPlayerHit;
+    // The placement is already live and its script path does not reach boss mode. A door (gate still
+    // open, or a row that does reach WaitWarpStart / BossBattleMode) stays covered until FIGHT start.
+    const int openPlacement = g_en.noBossMode && !g_en.gated && g_en.route==2 && inMission;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,g_entry_scroll ? hit : (ready || lesson || wave || hit),0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,g_entry_scroll ? hit : (ready || lesson || wave || hit || openPlacement),0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
-        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : hit ? "player hit" : "cancel/return/failed");
+        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : openPlacement ? "native placement live, no boss mode" : hit ? "player hit" : "cancel/return/failed");
         return;
     }
     if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }
