@@ -1465,7 +1465,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
         row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
     Result("started %s (waves)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
-    ToastF(cGreen, 8000, "Picture Scroll: %s", row >= 0 ? g_rows[(size_t)row].name : "the game's pick");
+    ToastF(cGreen, 8000, "%s", row >= 0 ? g_rows[(size_t)row].name : "Picture Scroll: the game's pick");
 }
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
@@ -3913,12 +3913,12 @@ bool StartScrollRecord(int row, int item) {
     if (const char* why = CanFight(row)) { snprintf(g_msg, sizeof(g_msg), "%s", why); return false; }
     if (g_confirm != item) {
         g_confirm = item;
-        snprintf(g_msg, sizeof(g_msg), "Start Picture Scroll %s? No item used. A confirm / B back.", g_rows[(size_t)row].name);
+        snprintf(g_msg, sizeof(g_msg), "Start %s? No item used. A confirm / B back.", g_rows[(size_t)row].name);
         return false;
     }
     g_confirm = -9;
     Post(kReqEmaki, row, "the menu");
-    ToastF(cWhite, 6000, "Picture Scroll: %s...", g_rows[(size_t)row].name);
+    ToastF(cWhite, 6000, "%s...", g_rows[(size_t)row].name);
     return true;
 }
 bool ActBossRoute(int item) {

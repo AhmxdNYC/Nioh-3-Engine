@@ -987,7 +987,7 @@ def erow(e):
     area = scroll_area(e["box_name"])
     w = scroll_waves()[i]
     region = SCROLL_REGION.get(i, "Waves")
-    name = ("%s: %s waves, %s" % (area, w["waves"], w["toughest"])) if region == "Waves" else area
+    name = ("Picture Scroll - %s: %s waves, %s" % (area, w["waves"], w["toughest"])) if region == "Waves" else area
     o.update({"id": "E%02d" % i, "name": name, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
               "region": region, "route": "E0", "hidden": "0", "story_mission": "0xCC96",
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],
