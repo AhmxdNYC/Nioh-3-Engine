@@ -75,11 +75,14 @@ JUNK = {"10 yokai)": "parse fragment of the online row 'Gaki Chief (... 10 yokai
         "": "boss-master script rows with no boss name: tutorials / training / unnamed or unshipped stages (missions in mission_id)"}
 ALIAS = {"hino-enma": "Hino-enma"}
 EXTRA = ["Marubashi Chuya"]      # second boss of the Yagyu Principles duel (0xFB96) and Keian Dreams (0xD84E)
+# wake_step (E rows): the WaveNudgeAt offset that woke each Picture Scroll record in the test runs, so the first warp under the loading
+# screen lands on it. 0 = the record warp itself / not measured (the plain walk). Sources: pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389.
+WAKE_STEP = {0: 4, 1: 1, 4: 2, 7: 9, 8: 1, 9: 3, 10: 2, 17: 1, 18: 1}
 SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement) -> (session, defeat flag); session-2026-10-08-gamedata.md
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -997,7 +1000,7 @@ def erow(e):
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],
               "stage_mission": e["start_point_0c"], "warp_x": x, "warp_y": y, "warp_z": z, "warp_yaw": yaw, "box_id": e["wave_box_14"],
               "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i),
-              "lesson": "0"})
+              "lesson": "0", "wake_step": str(WAKE_STEP.get(i, 0))})
     return o
 
 

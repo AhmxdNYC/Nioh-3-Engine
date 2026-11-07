@@ -1152,7 +1152,8 @@ bool ScrollTrainingNow() {
     if (!g_scrollNoWaves.load() || g_state.load() != kEmaki) return false;
     uint64_t g = 0, ms = 0;
     uint32_t run = 0;
-    return Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x28, run) && run == 0xCC96;
+    const uint32_t scroll = rcore::ScrollMission(g_rows, g_activeRow.load());  // the running row's catalogue story_mission (was 0xCC96)
+    return scroll && Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x28, run) && run == scroll;
 }
 bool VetoWaveRequest(int) {  // script thread
     if (!ScrollTrainingNow()) return false;
@@ -2209,7 +2210,7 @@ void WavePlaceTick(const Snap& s, ULONGLONG t) {
         return;
     }
     // #78985: under the loading screen the known offset goes first and the walk is quick; a menu row never moves the player once the screen is gone.
-    const int wakeStep = g_eRow >= 0 ? rcore::WaveWakeStep(g_rows[(size_t)g_eRow].id) : 0;
+    const int wakeStep = g_eRow >= 0 ? rcore::WaveWakeStep(g_rows[(size_t)g_eRow]) : 0;
     const uint64_t dwellMs = g_eRow >= 0 ? rcore::kWaveDwellCoverMs : rcore::kWaveDwellMs;
     const bool dwell = g_wavePlace.step >= 0 && t >= g_wavePlace.at && t - g_wavePlace.at >= dwellMs;
     const bool training = g_scrollNoWaves.load();
@@ -2640,7 +2641,8 @@ bool WavesGateNow() {
     const int row = g_activeRow.load();
     if (g_state.load() != kEmaki || g_et.st != rcore::kEIn || row < 0 || (size_t)row >= g_rows.size() || !rcore::WavesRow(g_rows[(size_t)row])) return false;
     const Snap s = ReadSnap();
-    return s.msOk && s.ms28 == 0xCC96;
+    const uint32_t scroll = rcore::ScrollMission(g_rows, row);  // the row's catalogue story_mission (was 0xCC96)
+    return s.msOk && scroll && s.ms28 == scroll;
 }
 int NativeGateRow() {
     if (WavesGateNow()) return g_activeRow.load();

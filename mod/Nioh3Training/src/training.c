@@ -1303,7 +1303,7 @@ static int StartArena(uint32_t chr, const float* p, const float* b, float byaw, 
 }
 
 // ---- arena table (Nioh3Training_arenas.tsv, tools/gen_arena_table.py): mission, start, world, char, placement, player x y z yaw, boss x y z, kind, id, name
-typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32]; int ncells; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
+typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; float p[4], b[3]; char kind[8], id[16], name[64]; uint32_t cells[32], wcells[32]; int ncells, nwcells, wlOwn; } ArenaRow;  // cells: optional 16th tsv column (comma list) = CrossWorldCellSkip whitelist
 // #72056: generated identity roster for native door fights and timeout fallback.
 #include "fallback_rosters_gen.h"
 #include "native_entry_boxes_gen.h"
@@ -1397,6 +1397,7 @@ static void AsAddRow(const AsRow* s, void* ctx) {
     r->mission = s->mission; r->start = s->start; r->world = s->world; r->chr = s->chr; r->placement = s->placement;
     for (int i = 0; i < 4; ++i) r->p[i] = (float)s->p[i];
     for (int i = 0; i < 3; ++i) r->b[i] = (float)s->b[i];
+    for (int i = 0; i < g_nrows - 1 && !r->nwcells; ++i) if (g_rows[i].wlOwn && g_rows[i].world == r->world) { memcpy(r->wcells, g_rows[i].wcells, sizeof r->wcells); r->nwcells = g_rows[i].nwcells; }  // was kCellsB1 for world 0xB1
     snprintf(r->kind, sizeof r->kind, "%s", s->kind); snprintf(r->id, sizeof r->id, "%s", s->id);
     const char* nm = 0; for (int i = 0; i < g_nsum && !nm; ++i) if (g_sum[i].chr == s->chr) nm = g_sum[i].name;
     for (int i = 0; i < g_nrows - 1 && !nm; ++i) if (g_rows[i].chr == s->chr) nm = g_rows[i].name;
@@ -1414,8 +1415,8 @@ static void LoadTable(void) {
     if (!f) Log("arena table %s not found", path);
     while (f && fgets(line, sizeof line, f) && g_nrows < MAXROWS) {
         if (line[0] == '#' || line[0] == '\n') continue;
-        char* col[16]; int n = 0; char* c = line;
-        while (n < 16) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
+        char* col[17]; int n = 0; char* c = line;
+        while (n < 17) { col[n++] = c; char* t = strchr(c, '\t'); if (!t) break; *t = 0; c = t + 1; }
         if (n < 15) continue;
         char* nl = strpbrk(col[n - 1], "\r\n"); if (nl) *nl = 0;
         ArenaRow* r = &g_rows[g_nrows];
@@ -1424,8 +1425,11 @@ static void LoadTable(void) {
         for (int i = 0; i < 4; ++i) r->p[i] = (float)atof(col[5 + i]);
         for (int i = 0; i < 3; ++i) r->b[i] = (float)atof(col[9 + i]);
         snprintf(r->kind, sizeof r->kind, "%s", col[12]); snprintf(r->id, sizeof r->id, "%s", col[13]); snprintf(r->name, sizeof r->name, "%s", col[14]);
-        r->ncells = 0;  // optional col 16: comma list of arena cell ids (CrossWorldCellSkip whitelist)
+        r->ncells = 0; r->nwcells = 0; r->wlOwn = 0;  // optional col 17 = wl_cells: whitelist for CrossWorldCellSkip / PlaceableSkip when it differs from col 16 (empty = col 16). Col 16, optional: comma list of arena cell ids (CrossWorldCellSkip whitelist)
         if (n > 15) for (const char* q = col[15]; *q && r->ncells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->cells[r->ncells++] = (uint32_t)v; q = e; }
+        if (n > 16) for (const char* q = col[16]; *q && r->nwcells < 32; ) { char* e; unsigned long v = strtoul(q, &e, 0); if (e == q) { ++q; continue; } r->wcells[r->nwcells++] = (uint32_t)v; q = e; }
+        r->wlOwn = r->nwcells > 0;  // the row names a whitelist itself: scan-added rows of the same world copy it (AddScanRow)
+        if (!r->nwcells) { memcpy(r->wcells, r->cells, sizeof r->wcells); r->nwcells = r->ncells; }
         if (!strcmp(r->kind, "summon")) {
             AddSummonRow(r->mission, r->chr, r->id, r->name);
             continue;
@@ -2566,7 +2570,7 @@ static __attribute__((noinline)) int LoaderGatePatch(int on) {
     return ok;
 }
 // pc2 placeable-skip: [ArenaSwap] CrossWorldPlaceableSkip = 1 (default 0 = no patch at all, byte-identical): while a cross-world switch runs, placeables
-// of the OLD world, and of the NEW world outside the row's arena cells (tsv col 16 / kCellsB1), are not queued on the loader.
+// of the OLD world, and of the NEW world outside the row's arena cells (tsv col 17 wl_cells, else col 16), are not queued on the loader.
 // Static facts (Nioh3.exe .text from the fl-bin memory dump, capstone): PlaceableCollisionUpdate D8E00(o = cell object list, ctx) walks the placeables
 // of o (+0x180, 16-byte entries); placeable state +0x10D: 0 = not loaded, 3 = load in flight, 5 = loaded. D90B6 movzx eax,[r13+10D]; D90BE test al,al;
 // D90C0 je D91FA (0F 84 rel32) is the ONLY entry into the state-0 load block D91FA..D9EF2 (no other jmp/jcc in .text targets that range).
@@ -2578,7 +2582,6 @@ static __attribute__((noinline)) int LoaderGatePatch(int on) {
 // Patch: the rel32 of D90C0 is retargeted (one locked 4-byte write) to a near stub that calls PsFilter(o, placeable) and jumps to D91FA or D9EF2.
 // Window: from XsStart (world request) until the target world is current with stage 5, mission seq state not 4/5/8 and GAMESTATE[2] == 0, XsEnd,
 // or CrossWorldPlaceableSkipMaxMs (default 20000). Loads queued BEFORE the window are not cancelled.
-static const uint32_t kCellsB1[] = {67253, 221265, 285287, 301780, 320919, 329181, 364049, 500328, 525291, 584691, 625536, 780040, 820705, 833442, 889691, 974198, 983784};  // 0xB1 Yoritomo (pc2 5116, all runs)
 static int g_cfg_pskip = 0, g_cfg_pskip_max = 20000;
 // pc #8552 (user: "skip them all except what the arena needs"; branch pc/near-arena-only): [ArenaSwap] NearArenaOnly = 1 uses the same D90C0 hook as
 // CrossWorldPlaceableSkip, but decides by DISTANCE instead of by cell: during a cross-world Fight now a NEW-world placeable (inside the arena cells too) is
@@ -2700,8 +2703,7 @@ static void PsOpen(const char* tag, int target, uint8_t w0) {
     if (g_cfg_far && r && r->world == (uint8_t)target) { g_ps_c[0] = r->p[0]; g_ps_c[1] = r->p[1]; g_ps_c[2] = r->p[2]; memcpy(g_ps_c2, r->b, sizeof g_ps_c2); if (!g_ps_c2[0] && !g_ps_c2[1] && !g_ps_c2[2]) memcpy(g_ps_c2, g_ps_c, sizeof g_ps_c2); g_ps_far = 1; }
     g_ps_near = g_ps_farn = g_ps_nlog = g_ps_flog = 0;
     if (r && r->world == (uint8_t)target && !g_ps_far) {
-        for (int i = 0; i < r->ncells && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = r->cells[i];
-        if (!g_ps.nwl && r->world == 0xB1) for (unsigned i = 0; i < sizeof kCellsB1 / sizeof *kCellsB1 && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = kCellsB1[i];
+        for (int i = 0; i < r->nwcells && g_ps.nwl < 32; ++i) g_ps.wl[g_ps.nwl++] = r->wcells[i];
     }
     if (target < 0 || (uint8_t)target == w0) return;
     g_ps.w0 = w0; g_ps.target = (uint8_t)target; g_ps.t0 = GetTickCount(); snprintf(g_ps.tag, sizeof g_ps.tag, "%s", tag);
@@ -2809,11 +2811,7 @@ static void HomeCapture(int world, const float* pos, const char* why) {
     g_home.valid = 1; g_home.world = (uint8_t)world; g_home.journey = jr; g_home.mode = mode; g_home.mission = mis; g_home.start = *(uint32_t*)(B + Grva(0x45BC42C)); memcpy(g_home.pos, pos, sizeof g_home.pos);
     Log("RETURN home stored (%s): world 0x%02X %.0f %.0f %.0f yaw %.1f, mission 0x%X journey %u mode %u", why, world, pos[0], pos[1], pos[2], pos[3], mis, jr, mode);
 }
-// CrossWorldForceCells: arena cells per row = tsv column 16 if given, else these (pc 10:33 OFF logs: cells that arrived only at stage 4->5 / after the swap)
-static const struct { uint32_t mission, cells[8]; } kForceCells[] = {
-    {0x15FF, {193960, 439542, 633740}},                                // Takeda Shingen 0x96 (pc2 #8222)
-    {0x2EE9, {364049, 484693, 525291, 67253, 584691, 820705}},          // Otoroshi 0xB1
-};
+// CrossWorldForceCells: arena cells per row = tsv column 16 (Takeda Shingen R15FF, Otoroshi R2EE9: cells that arrived only at stage 4->5 / after the swap, pc 10:33 OFF logs)
 static __attribute__((noinline)) void XwCentre(ArenaRow* r, int stream) {  // stream centre -> the arena's player point (as Warp(full) does); stream = also run the native centre update 3A083C
     uint64_t s = StageMgr(); if (!s) return;
     __try {
@@ -2830,7 +2828,6 @@ static __attribute__((noinline)) void XwForceCells(ArenaRow* r, DWORD now) {  //
     uint64_t s = StageMgr(); if (!s) return;
     uint64_t sub = s + 0x500; uint32_t ids[32]; int n = 0;
     for (int i = 0; i < r->ncells && n < 32; ++i) ids[n++] = r->cells[i];
-    if (!n) for (unsigned k = 0; k < sizeof kForceCells / sizeof *kForceCells; ++k) if (kForceCells[k].mission == r->mission) for (int i = 0; i < 8 && kForceCells[k].cells[i]; ++i) ids[n++] = kForceCells[k].cells[i];
     XwCentre(r, 1);
     char buf[400]; int k = 0, ok = 0;
     __try {
@@ -2880,8 +2877,7 @@ static __attribute__((noinline)) uint8_t h_cellreq(uint64_t sub, uint32_t id, ui
 static void CellSkipOpen(const ArenaRow* r) {
     if (!o_cellreq) return;
     g_cs_nwl = 0;
-    for (int i = 0; i < r->ncells && g_cs_nwl < 32; ++i) g_cs_wl[g_cs_nwl++] = r->cells[i];
-    if (!g_cs_nwl && r->world == 0xB1) for (unsigned i = 0; i < sizeof kCellsB1 / sizeof *kCellsB1; ++i) g_cs_wl[g_cs_nwl++] = kCellsB1[i];
+    for (int i = 0; i < r->nwcells && g_cs_nwl < 32; ++i) g_cs_wl[g_cs_nwl++] = r->wcells[i];
     g_cs_world = r->world; g_cs_allow = g_cs_skip = g_cs_other = 0;
     for (int k = 0; k < 8; ++k) { g_cs_ret[k] = 0; g_cs_retn[k] = 0; }
     Log("CELLSKIP %s: window open, mode %d (%s), world 0x%02X whitelist %d cells%s", r->id, g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip" : "log only", r->world, g_cs_nwl, g_cs_nwl ? "" : " (unknown world: nothing skipped)");

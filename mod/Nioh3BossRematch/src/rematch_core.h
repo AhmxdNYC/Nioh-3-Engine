@@ -26,6 +26,7 @@ struct Row {
     uint16_t missionId = 0;
     uint32_t storyMission = 0; // catalogue story_mission. Scroll rows name the scroll mission here; replay_mission_id stays empty.
     int emakiIndex = -1;       // E rows: Emaki record index (0..19)
+    int wakeStep = 0;          // E rows: catalogue wake_step = the WaveNudgeAt offset that woke the record in the test runs (0 = record warp / unmeasured)
     uint32_t placement = 0;    // expected boss placement (BossLog Create id) or 0
     int world = -1;            // catalogue region_byte: the world the boss stands in (-1 = unknown)
     bool hidden = false;
@@ -111,7 +112,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -131,6 +132,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.missionId = (uint16_t)strtoul(col(cMid).c_str(), nullptr, 0);
         r.storyMission = (uint32_t)strtoul(col(cStory).c_str(), nullptr, 0);
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
+        r.wakeStep = col(cWake).empty() ? 0 : atoi(col(cWake).c_str());  // out of range is clamped where it is used (WaveNudgeAt)
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
         if (!col(cRb).empty()) r.world = (int)strtol(col(cRb).c_str(), nullptr, 0);  // #12444: the boss's world (teleport fast-load ready check)
@@ -557,13 +559,10 @@ inline int WaveNudgeDecide(int step, int state, bool dwellDone, int count = kWav
     if (step + 1 >= count) return 3;
     return 1;
 }
-// #78985: the offset that woke each record in the test runs, so the first warp under the loading screen lands on it.
-// Index = record = the number in row id E00..E19. Sources: pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389.
-inline constexpr int kWaveWakeSteps[20] = {4, 1, 0, 0, 2, 0, 0, 9, 1, 3, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0};
-inline int WaveWakeStep(const char* id) {
-    if (!id || id[0] != 'E' || id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' || id[3]) return 0;
-    const int record = (id[1] - '0') * 10 + (id[2] - '0');
-    return record < 20 ? kWaveWakeSteps[record] : 0;
+// #78985: the offset that woke each record in the test runs, so the first warp under the loading screen lands on it. The numbers live in
+// the catalogue column wake_step (tools/rematch_catalog.py WAKE_STEP; sources pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389).
+inline int WaveWakeStep(const Row& r) {
+    return r.route == kE && r.wakeStep > 0 && r.wakeStep < kWaveNudges ? r.wakeStep : 0;
 }
 // The known offset first, then the whole old walk: a first warp that came too early gets its offset again in the walk.
 inline int WaveWalkCount(int wakeStep) { return wakeStep > 0 ? kWaveNudges + 1 : kWaveNudges; }

@@ -266,7 +266,7 @@ int main() {
         const int stateWas = g_state.load();
         for (int i = 0; i < 25; ++i) if (i) snprintf(g_rows[(size_t)i].id, sizeof g_rows[(size_t)i].id, "T%02d", i);
         Row& sc = g_rows[7];
-        sc.route = rcore::kE; sc.emakiIndex = 2; sc.missionId = 0xCC96;
+        sc.route = rcore::kE; sc.emakiIndex = 2; sc.missionId = 0xCC96; sc.storyMission = 0xCC96;  // the catalogue story_mission of every scroll row
         snprintf(sc.region, sizeof sc.region, "Waves");
         snprintf(sc.name, sizeof sc.name, "Scroll Seven");
         g_rows[8].missionId = 0x2222; snprintf(g_rows[8].region, sizeof g_rows[8].region, "Sengoku");
