@@ -535,6 +535,9 @@ inline int WaveNudgeDecide(int step, int state, bool dwellDone) {
     return 1;
 }
 
+// Wave state 1 also means "waiting for the next wave" (wave 2+, members still listed). The run is over only at wave 0 with no members (#75963 log, BR fd4eca18).
+inline bool WaveRunOver(int state, unsigned waveNo, unsigned members) { return state == 1 && waveNo == 0 && members == 0; }
+
 // ---- stale fight flag (user 20261018) ----
 // A save made inside an arena reloads with no mission (0) and the area script runs BossBattleMode with no boss; BossBattleModeEnd never
 // comes, so fight::g_active blocked every Boss Match / Practice start ("in a boss fight") for the rest of the session.

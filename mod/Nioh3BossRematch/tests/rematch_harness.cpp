@@ -213,6 +213,7 @@ int main(int argc, char** argv) {
         CHECK(rcore::WaveNudgeDecide(-1, 1, false) == 1, "the record warp happens as soon as the mission is in");
         CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
         CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 3, "state 3 stops the walk and the list ends");
+        CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
         CHECK(multi == 23 && multiLeak == 0, "Multi is the 23 catalogue rows whose roster has more than one member");
         int warring = 0, dlc = 0, paren = 0, longLabel = 0;
         for (int i = 0; i < cycle.Stops(); ++i) {

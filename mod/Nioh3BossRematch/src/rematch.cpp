@@ -2013,6 +2013,14 @@ bool WaveManagerState(int32_t* st) {
     if (!G_QUEUE || !st || !Rd(G_QUEUE - 0x17E0, mgr) || !mgr) return false;
     return Rd(mgr + 0x10, *st);
 }
+bool WaveRunIsOver(int32_t st) {
+    uint64_t mgr = 0, mb = 0, me = 0;
+    uint8_t waveNo = 0;
+    if (!G_QUEUE || !Rd(G_QUEUE - 0x17E0, mgr) || !mgr) return false;
+    if (!Rd(mgr + 2, waveNo) || !Rd(mgr + 0x38, mb) || !Rd(mgr + 0x40, me)) return false;
+    const uint32_t members = me >= mb && mb ? (uint32_t)((me - mb) / 0xC) : 0;
+    return rcore::WaveRunOver(st, waveNo, members);
+}
 bool LiveRecordWarp(float wp[4]) {
     uint64_t a = 0, ch = 0;
     if (!Rd(G_CH, a) || !a || !Rd(a, ch) || !ch) return false;
@@ -2037,7 +2045,7 @@ void WavePlaceTick(const Snap& s, ULONGLONG t) {
     const bool ok = WaveManagerState(&st);
     const char* id = g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "waves";
     if (g_wavePlace.seenFight) {
-        if (ok && st == 1) {
+        if (ok && WaveRunIsOver(st)) {
             g_wavePlace.cleared = 1;
             Log("Rematch: waves clear %s: state back to 1, fight ended (no boss bar)", id);
             Result("waves clear %s (state 1)", id);
