@@ -362,12 +362,19 @@ uint8_t ResumeBackupWrite(void* a, void* b, void* c, uint32_t n) {
     return g_backupWrite(a, b, c, n);
 }
 void ResumeArm(uint32_t trip, uint32_t source, ULONGLONG t, bool inPlace) {
+    // v3 (#80182): a trip started from the gate of a retired attempt (we are still in the old trip's mission) keeps the ORIGINAL home
+    // and the saves already held for it. The current mission is a boss mission, never a home.
+    const bool chained = g_resume.armed.load() && g_resume.source.load() && g_resume.trip.load() == source && g_resume.source.load() != source;
+    if (chained) {
+        Log("Rematch: resume hold kept for the first trip: home stays 0x%X (not 0x%X)", g_resume.source.load(), source);
+        source = g_resume.source.load();
+    }
     g_resume.trip.store(trip);
     g_resume.source.store(source);
     g_resume.inPlace.store(inPlace ? 1 : 0);
     g_resume.session.store(0);
     g_resume.entered.store(0);
-    g_resume.skipped.store(0);
+    if (!chained) g_resume.skipped.store(0);
     g_resume.homeSince = 0;
     g_resume.armedAt = t;
     g_resume.armed.store(1);
@@ -3959,7 +3966,8 @@ void TitleWatchdog() {
     nextAt = t + 250;
     if (g_state.load() == kIdle) { w.since = 0; return; }
     const Snap s = ReadSnap();
-    if (w.Step(true, s.player, s.gm && s.st[2] != 0, s.msOk ? s.ms28 : 0, t)) {
+    // v3 (#80182): the mission field is stale at the title (still the last mission), so it is not used; an unreadable game state counts as loading
+    if (w.StepSnap(true, s.player, s.gm != 0, s.st[2] != 0, t)) {
         Log("Rematch: no player, no load and no mission for 20 s (Return to Title) - idle");
         Result("exited %s (title)", RowName(g_activeRow.load()));
         ToIdle("returned to title", true);  // normal exit: restores run, a clean active/returning phase clears (a quarantine here would block every later attempt)

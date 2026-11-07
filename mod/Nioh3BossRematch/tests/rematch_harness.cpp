@@ -106,6 +106,18 @@ int main(int argc, char** argv) {
         bool bad = false;
         for (uint64_t t = 1000; t < 100000; t += 500) bad |= g.Step(true, false, false, 0xF7F, t);
         CHECK(!bad, "title exit: a nonzero mission id blocks it");
+        rcore::TitleWatch st;  // v3 (#80182): stale mission at the title (mission field ignored): idle in 20-25 s; load / unreadable never
+        uint64_t f2 = 0;
+        for (uint64_t t = 1000; t <= 40000 && !f2; t += 500)
+            if (st.StepSnap(true, false, true, false, t)) f2 = t - 1000;
+        CHECK(f2 >= 20000 && f2 <= 25000, "title exit: stale mission at the title still idles in 20-25 s");
+        rcore::TitleWatch ld; bool early2 = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early2 |= ld.StepSnap(true, false, true, true, t);
+        for (uint64_t t = 74700; t < 100000; t += 500) early2 |= ld.StepSnap(true, true, true, false, t);
+        CHECK(!early2, "title exit: a 73 s load never idles (mission field not needed)");
+        rcore::TitleWatch un; bool bad2 = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad2 |= un.StepSnap(true, false, false, false, t);
+        CHECK(!bad2, "title exit: unreadable game state never idles");
         rcore::TitleWatch i;
         CHECK(!i.Step(false, false, false, 0, 1000) && !i.Step(false, false, false, 0, 99000), "title exit: nothing to do while idle");
     }

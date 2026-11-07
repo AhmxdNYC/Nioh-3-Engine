@@ -676,6 +676,10 @@ struct TitleWatch {
         since = 0;
         return true;
     }
+    // Title test without the mission id: it keeps its last value at the title. Unreadable game state = may be loading, never idle.
+    bool StepSnap(bool stateActive, bool player, bool gmReadable, bool loading, uint64_t t) {
+        return Step(stateActive, player, loading || !gmReadable, 0, t);
+    }
 };
 
 }  // namespace rcore

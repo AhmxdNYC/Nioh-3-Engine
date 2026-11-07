@@ -273,6 +273,17 @@ int main(int argc,char** argv) {
         if(!check(g_attemptPhase==aActive))return 1;
         fight::g_active=0; NoteNativeWin(); g_rosterPending=0; step(29000,false,0x1CBC,67064);
         if(!check(g_attemptPhase==aNone))return 1;
+        // v3 (#80182): chain gate -> second boss keeps the ORIGINAL home and the held saves
+        fresh(); g_rosterPending=0; fixtureSnap.ms28=0x1111; fixtureSnap.ms14=123; start();
+        if(!check(g_resume.armed && g_resume.source==0x1111))return 1;
+        step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        g_resume.skipped=3; NoteNativeWin(); step(27000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aNone && g_resume.armed && g_resume.source==0x1111))return 1;
+        memset(queue,0,sizeof(queue)); post(kReqFight);
+        if(!check(requests==2 && g_attemptPhase==aAwaitLoad && g_resume.source==0x1111 && g_resume.trip==0x1CBC && g_resume.skipped==3))return 1;
+        // an ordinary first trip from a real home still records that home, and clears old held counts
+        fresh(); fixtureSnap.ms28=0x2222; g_resume.armed=0; g_resume.skipped=5; start();
+        if(!check(g_resume.source==0x2222 && g_resume.skipped==0))return 1;
         printf("%d won-attempt gate checks PASS\n",checks);return 0;
     }
     if(scenario==7) {
