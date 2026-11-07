@@ -18,8 +18,8 @@ Routes (notes/rematch-all-bosses.md s.1)
   H   one of the 3 data-hidden duels (+0x40 bit 0x4000): R plus the reverted un-hide.
   D   a shipped mission record the replay list never shows (master-duel "hidden-wave" stages, other unlisted records with a
       boss record): R-b direct start of that record id. Refused unless the mission reads cleared on this journey.
-  E0  one of the 20 Hundred Demon Realms Picture Scroll records (the Emaki table, mission 0xCC96), started with an owned
-      Picture Scroll item; E1 = the same with the carrier's map entry redirected to the chosen record (reverted).
+  E0  one of the 20 Waves rows (Picture Scroll records, mission 0xCC96). The name is "Waves: <area>" and the
+      region is Waves, so the list groups them together and they are not story-era boss rows.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
 
 Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
@@ -756,7 +756,13 @@ def build():
             o["name"] = "%s (%s)" % (o["name"], mt.split(": ", 1)[1] if ": " in mt else mt)
     order = {v: i for i, (_, v) in enumerate(ERA)}
     rorder = {"R": 0, "H": 1, "D": 2, "E0": 3, "X": 4}
-    out.sort(key=lambda o: (rorder[o["route"]], order.get(o["region"], 99)))
+
+    def sort_key(o):
+        idx = int(o["emaki_index"]) if o.get("route") == "E0" and str(o.get("emaki_index", "")).isdigit() else 0
+        era = 0 if o.get("route") == "E0" else order.get(o["region"], 99)
+        return (rorder[o["route"]], era, idx)
+
+    out.sort(key=sort_key)
     return allrows, out
 
 
@@ -960,8 +966,8 @@ def erow(e):
     x, y, z, yaw = e["warp"].split(",")
     i = int(e["index"])
     area = e["box_name"].replace("HYAKKI_WB_START_", "").replace("_", " ").title()
-    o.update({"id": "E%02d" % i, "name": "Hundred Demon Realms: %s" % area, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
-              "region": REGION_BYTE_ERA.get(int(e["region_byte"], 16), "?"), "route": "E0", "hidden": "0", "story_mission": "0xCC96",
+    o.update({"id": "E%02d" % i, "name": "Waves: %s" % area, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
+              "region": "Waves", "route": "E0", "hidden": "0", "story_mission": "0xCC96",
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],
               "stage_mission": e["start_point_0c"], "warp_x": x, "warp_y": y, "warp_z": z, "warp_yaw": yaw, "box_id": e["wave_box_14"],
               "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i),

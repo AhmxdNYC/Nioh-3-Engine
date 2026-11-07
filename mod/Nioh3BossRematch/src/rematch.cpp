@@ -4,12 +4,10 @@
 //      slot byte, 0, params) = the shrine replay confirm (session 2026-10-08). R-b only for a mission cleared on this journey.
 //   H  hidden duel: R-b direct (no patch needed), or R-a with the reverted un-hide ([Rematch] HiddenDuels = 1).
 //   D  unlisted shipped record (master duels): R-b direct, cleared-on-this-journey only.
-//   E  one of the 20 Picture Scroll records: an owned Picture Scroll is the carrier; every entry of the Emaki byte->record map is
-//      pointed at the chosen record (snapshot + CRC). Fight now passes that record's live +0x0C as the start, so a missed lookup
-//      does not fall through to the mission default. Slot 0 of the map also gets a real key (rcore::MapRedirect). The map is restored
-//      when the scroll ends, or after a request that never set the scroll flag (30 s, 180 s while the load flag is on). Leave can queue
-//      the return during a stuck load, but the game reads the queue only after the load ends (MissionLoadStep), so it cannot break one.
-//      "Use an owned Picture Scroll (game's pick)" = the same call without the redirect.
+//   E  one of the 20 Waves rows (Picture Scroll records, mission 0xCC96). DEV default searches a key seed and does not
+//      rewrite the emaki map (scrollctl noseedpick turns that rewrite back on). After the load, one shared warp walks the
+//      live record point, then x±600, z±600, then those four directions at 1500, until wave state is 3. State 1 after that
+//      ends the wave fight. These rows are not boss fights and do not arm a boss bar. Training arenas do not pick them.
 //   X  no route: listed greyed with the reason.
 //   F  "Fight now (straight to the boss)" = route E1 of the build note, for R / H / D rows ([Rematch] FightNow = 1): the same R-b call
 //      with the boss's start point as the third argument, MissionRequestById(id, slot byte, startPoint, params). The argument is
@@ -860,6 +858,16 @@ bool ReadEmakiStart(const EmakiTab& t, uint32_t index, uint32_t& start) {
 }
 rcore::MapPatch g_map;
 rcore::ETrack g_et;
+struct WavePlace {
+    int step = -1;
+    int seenFight = 0;
+    int cleared = 0;
+    int exhausted = 0;
+    int loggedWait = 0;
+    ULONGLONG at = 0;
+    float base[4] = {};
+    bool have = false;
+} g_wavePlace;
 bool ScrollLoadStuck(const Snap& s) {
     return g_state.load() == kEmaki && g_et.st == rcore::kEArmed && !s.emaki && s.st[2];
 }
@@ -956,6 +964,7 @@ void ToIdle(const char* why, bool normalExit = false) {
         g_practiceOwned.store(false);
     } else if (phase != aNone) AttemptQuarantine(why);
     g_et.st = rcore::kEIdle;
+    g_wavePlace = {};
     g_state.store(kIdle);
     g_replayIn.store(false);
     g_activeRow.store(-1);
@@ -1302,7 +1311,7 @@ void ExecPractice(int row, const Snap& s, ULONGLONG t) {
 // #75963 DEV control for the Picture Scroll wave. Off unless the pipe command scrollctl sets it; not for release.
 std::atomic<int> g_scNoRedirect{0}, g_scLevel{0}, g_scB0f{0};
 std::atomic<int> g_scStart0{0};  // #76364 DEV: request the redirected record with start 0, as the game does
-std::atomic<int> g_scSeedPick{0};  // #77374 DEV: no map rewrite; search the key seed whose native draw lands on the chosen record
+std::atomic<int> g_scSeedPick{1};  // #77650 DEV default: E rows seed-pick and skip the map rewrite. noseedpick stores 0.
 std::atomic<int> g_scUseItem{0};  // #76364 DEV: a chosen record starts from the held scroll instead of ref -1
 std::atomic<bool> g_scGive{false};
 std::atomic<uint32_t> g_scGiveId{0x1E82}, g_scGiveSeed{0}, g_scGiveLevel{0}, g_scGiveB0f{0};
@@ -1452,10 +1461,11 @@ void ExecEmaki(int row, ULONGLONG t) {
     g_eByteSeen = 0;
     g_et.st = rcore::kEArmed;
     g_et.armedAt = t;
+    g_wavePlace = {};
     Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
         row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
-    Result("started %s (picture scroll)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
-    ToastF(cGreen, 8000, "Boss Matches: Picture Scroll %s", row >= 0 ? g_rows[(size_t)row].name : "(game's pick)");
+    Result("started %s (waves)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
+    ToastF(cGreen, 8000, "Boss Matches: Waves %s", row >= 0 ? g_rows[(size_t)row].name : "(game's pick)");
 }
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
@@ -1998,6 +2008,88 @@ void LogEmakiWave() {
         waves, enemies, active, mgrOk ? "ok" : "none", tier, byte, mode, noItem, (unsigned long long)ref);
 }
 
+bool WaveManagerState(int32_t* st) {
+    uint64_t mgr = 0;
+    if (!G_QUEUE || !st || !Rd(G_QUEUE - 0x17E0, mgr) || !mgr) return false;
+    return Rd(mgr + 0x10, *st);
+}
+bool LiveRecordWarp(float wp[4]) {
+    uint64_t a = 0, ch = 0;
+    if (!Rd(G_CH, a) || !a || !Rd(a, ch) || !ch) return false;
+    uint8_t byte = 0;
+    if (!Rd(ch + 0x2BEF, byte)) return false;
+    EmakiTab et;
+    if (!ReadEmakiTab(et)) return false;
+    int rec = -1;
+    for (int k = 0; k < et.n; ++k) {
+        uint8_t kb = 0;
+        uint32_t ki = 0;
+        if (Rd(et.vb + (uint64_t)k * 8, kb) && kb == byte && Rd(et.vb + (uint64_t)k * 8 + 4, ki)) { rec = (int)ki; break; }
+    }
+    if (rec < 0 || (uint32_t)rec >= et.count) return false;
+    return Copy(wp, et.B + 8 + (uint64_t)rec * 0x34 + 0x1C, 16);
+}
+// After the scroll mission is in: warp to the live record point, then the shared offsets, until wave state is 3.
+// A later return to state 1 is the clear. This does not arm BossBattleMode or a boss bar.
+void WavePlaceTick(const Snap& s, ULONGLONG t) {
+    if (s.st[2] || !s.player || g_wavePlace.cleared) return;
+    int32_t st = 0;
+    const bool ok = WaveManagerState(&st);
+    const char* id = g_eRow >= 0 ? g_rows[(size_t)g_eRow].id : "waves";
+    if (g_wavePlace.seenFight) {
+        if (ok && st == 1) {
+            g_wavePlace.cleared = 1;
+            Log("Rematch: waves clear %s: state back to 1, fight ended (no boss bar)", id);
+            Result("waves clear %s (state 1)", id);
+        }
+        return;
+    }
+    if (ok && st == 3) {
+        g_wavePlace.seenFight = 1;
+        Log("Rematch: waves fight %s: state 3 at step %d (no boss bar)", id, g_wavePlace.step);
+        Result("waves fighting %s (state 3, step %d)", id, g_wavePlace.step);
+        return;
+    }
+    const bool dwell = g_wavePlace.step >= 0 && t >= g_wavePlace.at && t - g_wavePlace.at >= 9000;
+    const int dec = rcore::WaveNudgeDecide(g_wavePlace.step, ok ? st : 0, dwell);
+    if (dec == 0 || dec == 2) return;
+    if (dec == 3) {
+        if (!g_wavePlace.exhausted) {
+            g_wavePlace.exhausted = 1;
+            Log("Rematch: waves %s: state stayed %d after the shared offsets", id, ok ? st : -1);
+            Result("waves not started %s (state %d)", id, ok ? st : -1);
+        }
+        return;
+    }
+    if (!g_wavePlace.have) {
+        float live[4] = {};
+        if (LiveRecordWarp(live)) {
+            memcpy(g_wavePlace.base, live, sizeof live);
+            g_wavePlace.have = true;
+            Log("Rematch: waves %s: record warp %.0f %.0f %.0f", id, live[0], live[1], live[2]);
+        } else if (g_eRow >= 0 && (g_rows[(size_t)g_eRow].warp[0] != 0.f || g_rows[(size_t)g_eRow].warp[2] != 0.f)) {
+            memcpy(g_wavePlace.base, g_rows[(size_t)g_eRow].warp, sizeof g_wavePlace.base);
+            g_wavePlace.have = true;
+            Log("Rematch: waves %s: catalogue warp %.0f %.0f %.0f", id, g_wavePlace.base[0], g_wavePlace.base[1], g_wavePlace.base[2]);
+        } else {
+            if (!g_wavePlace.loggedWait) {
+                g_wavePlace.loggedWait = 1;
+                Log("Rematch: waves %s: record warp not readable yet", id);
+            }
+            return;
+        }
+    }
+    const int next = g_wavePlace.step + 1;
+    const rcore::WaveNudge n = rcore::WaveNudgeAt(next);
+    const float x = g_wavePlace.base[0] + n.dx;
+    const float y = g_wavePlace.base[1] + n.dy;
+    const float z = g_wavePlace.base[2] + n.dz;
+    const int rc = CallWarp(x, y, z, g_wavePlace.base[3]);
+    g_wavePlace.step = next;
+    g_wavePlace.at = t;
+    Log("Rematch: waves %s: warp step %d -> %.0f %.0f %.0f (%s)", id, next, x, y, z, rc == 0 ? "ok" : rc == 1 ? "no player" : "exception");
+}
+
 void TrackEmaki(const Snap& s, ULONGLONG t) {
     if (g_state.load() != kEmaki) return;
     if (!s.gm || !s.msOk || !s.emakiOk || s.st[3] || s.st[4]) { g_et.zeroSince = 0; return; }
@@ -2038,6 +2130,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
         }
         Refuse("the Picture Scroll did not start (timeout, restored). If the loading screen stays, restart the game");
     }
+    if (g_state.load() == kEmaki && g_et.st == rcore::kEIn) WavePlaceTick(s, t);
 }
 
 // ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
@@ -2709,7 +2802,7 @@ void FillStartFromTraining(Row& r) {
 }
 // Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate
 const char* CanFight(int row) {
-    FillStartFromTraining(g_rows[(size_t)row]);
+    if (g_rows[(size_t)row].route != rcore::kE) FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
     if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
     if (!g_fnowOk) return g_fnowWhy;
@@ -3317,7 +3410,7 @@ int Items(int* out, int cap) {
     if (g_uiPages.page == uTrainHere) {  // user #13223: every boss with a mission id, beaten first
         for (int pass = 0; pass < 2; ++pass)
             for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && (g_status[i].load() == 2 ? 0 : 1) == pass) add(kItTrainHere + (int)i);
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) add(kItTrainHere + (int)i);
         add(kItBack);
         return n;
     }
@@ -3353,7 +3446,7 @@ int Items(int* out, int cap) {
             for (int pass = 0; pass < 2; ++pass)
                 for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
                     const Row& r = g_rows[i];
-                    if (r.route == rcore::kX || !r.fightStart) continue;
+                    if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
                     if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
                     add(kItTeleport + (int)i);
                 }
@@ -3366,7 +3459,7 @@ int Items(int* out, int cap) {
             using CanFn = int (*)(uint32_t);
             const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
             for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
             const int nr = RosterCount();
             for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster && n < cap; ++i) add(kItSummonRoster + i);
         }
@@ -3808,6 +3901,10 @@ bool ActBossRoute(int item) {
     const bool arena = item < kItShrine || tele;
     const int row = item - (tele ? kItTeleport : train ? kItBossTrainHere : arena ? kItFight : kItShrine);
     if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (g_rows[(size_t)row].route == rcore::kE) {
+        snprintf(g_msg, sizeof(g_msg), "A Waves row is not a boss arena.");
+        return false;
+    }
     const char* unavailable = train ? nullptr : arena ? CanMatchArena(row) : CanShrine(row);
     const bool trainFallback = arena && unavailable && TrainHereOk(row);
     if (train || trainFallback) {
@@ -3928,7 +4025,10 @@ bool UiAct() {
     }
     if (item >= kItTrainHere && item < kItTrainHereEnd) {  // user #13223: Practice > Training here
         const int row = item - kItTrainHere;
-        if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].missionId) { snprintf(g_msg, sizeof g_msg, "No boss mission id for this row."); return false; }
+        if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].missionId || g_rows[(size_t)row].route == rcore::kE) {
+            snprintf(g_msg, sizeof g_msg, "A Waves row is not a Training arena.");
+            return false;
+        }
         using Fn = int (*)(uint32_t);
         const auto f = (Fn)TrainingExport("Nioh3Training_TrainHere");
         const int rc = f ? f(g_rows[(size_t)row].missionId) : 0;
@@ -4204,7 +4304,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
     }
     add(cCyan, false, "%s (" ADDON_VERSION ") - %s", PageTitle(movesTitle), st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
-                                                                                  : st == kEmaki ? "active: picture scroll" : gate ? gate : "ready");
+                                                                                  : st == kEmaki ? "active: waves" : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
     if (g_sel >= n) g_sel = n ? n - 1 : 0;
@@ -4662,6 +4762,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
             if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.lesson) snprintf(footer, nf, "%s", kLessonLine);
+            else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.route == rcore::kE)
+                snprintf(footer, nf, "%s: A opens the wave fight. Not a boss. PgUp/PgDn skips ten rows. LB/RB switches tab.", r.name);
             else if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab.", r.name, g_sel + 1, n - 1);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),

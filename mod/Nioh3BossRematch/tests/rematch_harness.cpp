@@ -131,11 +131,14 @@ int main(int argc, char** argv) {
         CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
         CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
         CHECK(strcmp(cycle.Label(cycle.Stops() - 1), "Scrolls") == 0, "last stop is Scrolls");
-        int sengoku = -1;
-        for (int i = 0; i < cycle.nEra; ++i)
+        int sengoku = -1, wavesEra = -1;
+        for (int i = 0; i < cycle.nEra; ++i) {
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
+            if (strcmp(cycle.era[i], "Waves") == 0) wavesEra = i;
+        }
         CHECK(sengoku >= 0, "Sengoku comes from the region column");
-        int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, eraMiss = 0, allMiss = 0;
+        CHECK(wavesEra >= 0, "Waves comes from the region column");
+        int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, waveMiss = 0, nameMiss = 0, allMiss = 0;
         char blankIds[240] = {};
         size_t bo = 0;
         for (size_t i = 0; i < rows.size(); ++i) {
@@ -149,7 +152,9 @@ int main(int argc, char** argv) {
             if (r.route == rcore::kE) {
                 ++scrolls;
                 if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1)) ++scrollMiss;
-                if (sengoku >= 0 && strcmp(r.region, "Sengoku") == 0 && !rcore::RowInListStop(r, cycle, 2 + sengoku)) ++eraMiss;
+                if (wavesEra < 0 || strcmp(r.region, "Waves") != 0 || !rcore::RowInListStop(r, cycle, 2 + wavesEra)) ++waveMiss;
+                if (sengoku >= 0 && rcore::RowInListStop(r, cycle, 2 + sengoku)) ++waveMiss;
+                if (strncmp(r.name, "Waves: ", 7) != 0 || strstr(r.name, "Hundred Demon")) ++nameMiss;
                 if (rcore::RowInListStop(r, cycle, 1)) ++multiLeak;
             }
             const bool isMulti = r.missionId && r.route != rcore::kE && rcore::RosterMembers(r.id) > 1;
@@ -159,7 +164,15 @@ int main(int argc, char** argv) {
         printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
         CHECK(allMiss == 0, "All shows every loaded row");
         CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
-        CHECK(eraMiss == 0, "a Sengoku scroll stays under Sengoku");
+        CHECK(waveMiss == 0 && nameMiss == 0, "every Waves row is named Waves and stays in the Waves group");
+        const rcore::WaveNudge origin = rcore::WaveNudgeAt(0);
+        CHECK(rcore::kWaveNudges == 9 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
+        CHECK(rcore::WaveNudgeAt(1).dx == 600.f && rcore::WaveNudgeAt(2).dx == -600.f && rcore::WaveNudgeAt(3).dz == 600.f && rcore::WaveNudgeAt(4).dz == -600.f,
+              "600 cm offsets are x+ x- z+ z-");
+        CHECK(rcore::WaveNudgeAt(1).dy == 100.f && rcore::WaveNudgeAt(5).dx == 1500.f && rcore::WaveNudgeAt(8).dz == -1500.f, "1500 follows 600, offset tries raise y");
+        CHECK(rcore::WaveNudgeDecide(-1, 1, false) == 1, "the record warp happens as soon as the mission is in");
+        CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
+        CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 3, "state 3 stops the walk and the list ends");
         CHECK(multi == 23 && multiLeak == 0, "Multi is the 23 catalogue rows whose roster has more than one member");
         int warring = 0, dlc = 0, paren = 0, longLabel = 0;
         for (int i = 0; i < cycle.Stops(); ++i) {
@@ -392,6 +405,10 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 100000;
         CHECK(rcore::ETick(t, 131000, false, false) == 3 && t.st == rcore::kEIdle, "armed 30 s without a load -> timeout restore");
+        const rcore::Row* e00 = nullptr;
+        for (auto& r : rows)
+            if (!strcmp(r.id, "E00")) e00 = &r;
+        CHECK(e00 && (int)e00->warp[0] == 204649 && (int)e00->warp[1] == 12392 && (int)e00->warp[2] == 238099, "E00 keeps the record warp");
     }
     // ---------------- hooks.cpp: entry thunk ----------------
     {

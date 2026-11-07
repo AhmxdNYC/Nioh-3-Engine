@@ -15,7 +15,7 @@ namespace rcore {
 
 enum Route : uint8_t { kR = 0, kH = 1, kD = 2, kE = 3, kX = 4 };
 inline const char* RouteName(Route r) {
-    static const char* const n[] = {"replay", "hidden duel", "direct", "picture scroll", "no route"};
+    static const char* const n[] = {"replay", "hidden duel", "direct", "waves", "no route"};
     return n[r];
 }
 
@@ -165,6 +165,10 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                     if (ch == '_') ch = ' ';
                 r.boxOk = sscanf_s(g.c_str(), "%f %f %f %f %f %f %f", &r.box[0], &r.box[1], &r.box[2], &r.box[3], &r.box[4], &r.box[5], &r.box[6]) == 7;
             }
+        }
+        if (r.route == kE) {
+            const int wc[4] = {cWx, cWy, cWz, cWyaw};
+            for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
         }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
@@ -498,6 +502,29 @@ inline int ETick(ETrack& t, uint64_t now, bool isEmaki, bool loading) {
             return 0;
     }
     return 0;
+}
+
+// One offset list for every Waves row (#77650). Step 0 is the live record warp. The next four are the
+// 600 cm steps from Temp/s77376 and Temp/s77377 (those tries used y = warp y + 100). 1500 is the same
+// four directions when 600 never reaches wave state 3. No per-row point.
+struct WaveNudge { float dx, dz, dy; };
+inline constexpr int kWaveNudges = 9;
+inline WaveNudge WaveNudgeAt(int step) {
+    static const WaveNudge k[kWaveNudges] = {
+        {0.f, 0.f, 0.f},
+        {600.f, 0.f, 100.f}, {-600.f, 0.f, 100.f}, {0.f, 600.f, 100.f}, {0.f, -600.f, 100.f},
+        {1500.f, 0.f, 100.f}, {-1500.f, 0.f, 100.f}, {0.f, 1500.f, 100.f}, {0.f, -1500.f, 100.f},
+    };
+    if (step < 0 || step >= kWaveNudges) return {0.f, 0.f, 0.f};
+    return k[step];
+}
+// 0 wait, 1 take the next offset, 2 stop because wave state is 3, 3 the list is finished
+inline int WaveNudgeDecide(int step, int state, bool dwellDone) {
+    if (state == 3) return 2;
+    if (step < 0) return 1;
+    if (!dwellDone) return 0;
+    if (step + 1 >= kWaveNudges) return 3;
+    return 1;
 }
 
 // ---- stale fight flag (user 20261018) ----
