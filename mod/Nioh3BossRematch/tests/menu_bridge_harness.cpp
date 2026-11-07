@@ -32,7 +32,7 @@ bool UiTestFight(const char*,uint64_t& token,char* reason,size_t n){
 bool UiBack() { return true; }
 bool UiTakeHostMenu() { return false; }
 void UiClearHostMenu() {}
-void UiOpenAt(int) {}  // user #13223 first-page direct opens (OpenRematch / OpenPractice); the fixture model has no pages
+void UiOpenAt(int, bool = false) {}  // user #13223 first-page direct opens (OpenRematch / OpenPractice); the fixture model has no pages
 int UiFill(UiRow* rows, int, char* footer, size_t size) {
     snprintf(rows[0].text, sizeof(rows[0].text), "model %d", model);
     rows[0].color = 123; rows[0].sel = true; snprintf(footer, size, "native rewards"); return 1;

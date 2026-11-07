@@ -26,8 +26,23 @@ int main() {
  g_pressed=N_TAB_NEXT;OnPresentImpl();CHECK(g_pages.page==pDisplay);
  osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Display]")&&Find(" Home ")>=0&&Find("[Home]")<0);
  EnterPage(pOvFrameMeter);osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1280,720);CHECK(CurrentIs("[Display]"));  // nested page keeps its tab
- savefiles::testAllowed=true;g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==kSaveFilesRow);  // Display -LB-> wraps to the last tab
+ savefiles::testAllowed=true;g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==0&&g_pages.page==pRoot);  // #79226: Display -LB-> Home (Home is part of the loop)
+ g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==kSaveFilesRow);  // Home -LB-> wraps to the last tab
  osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Saves]"));
+ g_pressed=N_TAB_NEXT;OnPresentImpl();CHECK(CurrentTab()==0&&g_pages.page==pRoot);  // Saves -RB-> Home, not skipped
+ osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Home]"));
+ // the loop in both directions visits every tab once and returns; the lit tab is always the tab shown
+ {int seen=0,lap[2]={0,0};for(int dirn=0;dirn<2;++dirn){CHECK(CurrentTab()==0);int steps=0;do{g_pressed=dirn?N_TAB_PREV:N_TAB_NEXT;OnPresentImpl();++steps;
+    osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);
+    char want[40];snprintf(want,sizeof want,"[%s]",TabShort(CurrentTab()));CHECK(CurrentIs(want));}while(CurrentTab()!=0&&steps<20);
+ 
+  seen+=steps;lap[dirn]=steps;}
+  CHECK(lap[0]==lap[1]&&lap[0]>=5&&lap[0]<12);}
+ // a tab that cannot open is skipped (never lit while Home shows): save files locked, a full lap each way never lands on Saves
+ savefiles::testAllowed=false;g_pages.Reset();g_sel=TopLevelSel();CHECK(CurrentTab()==0);
+ for(int dirn=0;dirn<2;++dirn)for(int i=0;i<9;++i){g_pressed=dirn?N_TAB_PREV:N_TAB_NEXT;OnPresentImpl();CHECK(CurrentTab()!=kSaveFilesRow);
+  char want[40];snprintf(want,sizeof want,"[%s]",TabShort(CurrentTab()));osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs(want));}
+ savefiles::testAllowed=true;
  Close("tabbar");
  // hosted Boss Matches / Practice pages show the same row with their tab current
  namespace hf = host_fixture;
