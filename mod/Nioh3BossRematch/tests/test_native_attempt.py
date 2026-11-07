@@ -31,6 +31,7 @@ template<class T> bool Rd(uint64_t address,T& out) {
 }
 void Log(const char*,...) {}
 namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } }
+int g_rosterPending=0; void* TrainingExport(const char* name);
 std::atomic<bool> g_scrollNoWaves{false},g_scGive{false};
 bool g_waveVetoOk=true;
 std::atomic<int> g_scUseItem{0},g_scSeedPick{0},g_scNoRedirect{0},g_scLevel{0},g_scB0f{0},g_scStart0{0};
@@ -237,7 +238,7 @@ int main(int argc,char** argv) {
     }
     if(scenario==8) {
         // #80065: a won native Fight now settles at the Proceed gate and a new Fight now is accepted.
-        auto active=[&]{ fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064); };
+        auto active=[&]{ g_rosterPending=0; fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064); };
         active(); if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
         step(27000,false,0x1CBC,67064);   // no win seen: still pending
         if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
@@ -261,6 +262,17 @@ int main(int argc,char** argv) {
         active(); NoteNativeWin(); step(28000,false,0x1CBC,67064); memset(queue,0,sizeof(queue)); post(kReqFight);
         NoteNativeWin(); fight::g_active=0; step(29000,true,0,0); step(30000,false,0x1CBC,67064);
         if(!check(g_attempt.sequence>=2))return 1;
+        // v2 (#80140): multi-placement roster (R3513): HkEnd fires while Training still owns the roster, the roster finishes later
+        active(); g_rosterPending=1; NoteNativeWin(); step(27000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
+        step(80000,false,0x1CBC,67064); if(!check(g_attemptPhase==aActive))return 1;
+        g_rosterPending=0; step(80100,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aNone && !AttemptStartGate()))return 1;
+        memset(queue,0,sizeof(queue)); post(kReqFight); if(!check(requests==2 && g_attemptPhase==aAwaitLoad))return 1;
+        active(); g_rosterPending=1; NoteNativeWin(); fight::g_active=1; step(27000,false,0x1CBC,67064); step(28000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aActive))return 1;
+        fight::g_active=0; NoteNativeWin(); g_rosterPending=0; step(29000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aNone))return 1;
         printf("%d won-attempt gate checks PASS\n",checks);return 0;
     }
     if(scenario==7) {
@@ -465,10 +477,10 @@ head=segment('enum ReqKind','const char* RowName(')
 # Post is preceded by small unrelated data? All remain scalar request globals.
 code=code.replace('@GLOBALS@',head).replace('@SNAP@',segment('struct Snap {','Snap ReadSnap()'))
 code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session reads'))
-gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(','void NoteNativeWin('))
+gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(','void NoteNativeWin('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'int RosterPendingFixture(){return g_rosterPending;} void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_RosterPending") ? reinterpret_cast<void*>(&RosterPendingFixture) :  !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:

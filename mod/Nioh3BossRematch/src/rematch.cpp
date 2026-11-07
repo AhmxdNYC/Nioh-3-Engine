@@ -447,6 +447,12 @@ const char* ExitGate(const Snap& s) {
     if (!s.ms28) return "not in a mission";
     return nullptr;
 }
+// Training still owns a multi-boss roster (an intermediate boss-mode end, or the roster result not final yet).
+bool RosterStillPending() {
+    using Fn = int (*)();
+    const auto f = (Fn)TrainingExport("Nioh3Training_RosterPending");
+    return f && f() != 0;
+}
 void AttemptObserve(const Snap& s, ULONGLONG t) {
     const int phase = g_attemptPhase.load();
     if (phase == aNone || phase == aQuarantined) return;
@@ -467,8 +473,10 @@ void AttemptObserve(const Snap& s, ULONGLONG t) {
     }
     if (phase == aActive) {
         if (g_attempt.sequence && g_attemptWonSeq.load() == g_attempt.sequence && !fight::g_active && s.gm && s.msOk && s.player &&
-            !s.st[2] && !s.st[3] && !s.st[4])
-            g_attemptWonDone.store(true);
+            !s.st[2] && !s.st[3] && !s.st[4]) {
+            if (!RosterStillPending()) g_attemptWonDone.store(true);
+            else { static ULONGLONG nx; if (t >= nx) { nx = t + 10000; Log("Rematch: native win seen at the gate, waiting for Training's roster to finish"); } }
+        }
         return;
     }
     if (phase != aAwaitLoad) return;

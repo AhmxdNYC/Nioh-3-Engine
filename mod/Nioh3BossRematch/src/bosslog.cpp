@@ -174,7 +174,7 @@ void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     // The clear call can come much later or need the player's input, so it cannot decide the win.
     NativePhase(2);
     g_clearWin.store(1);
-    if (!RosterPending()) rematch::NoteNativeWin();
+    rematch::NoteNativeWin();  // always; a roster still pending is checked where the attempt retires (v2, #80140)
     MaybeEnd();
 }
 
