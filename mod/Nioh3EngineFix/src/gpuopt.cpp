@@ -30,7 +30,6 @@
 #include <string>
 
 #include "gpuopt.h"
-#include "vrs_menu.h"
 // 1.7.59-rpf1: RPF (replayprof.cpp) may chain its timing thunk in front of ours; RpForwards(slot, want) says the slot still
 // reaches `want`. Resolves to a 'false' stub when replayprof.cpp is not linked (harnesses).
 extern "C" bool RpForwards(const void* slotValue, const void* want);
@@ -785,7 +784,7 @@ bool PatchVtable(void** vt, int slots, int S) {
     for (int i = 0; i < slots; ++i) {
         const Kind k = kSlotInfo[i].kind;
         if (k != kFlush && k != kBind) continue;
-        InterlockedExchangePointer(&vt[i], g_vrsMode && i == 10 ?
+        InterlockedExchangePointer(&vt[i], g_vrsBootMode && i == 10 ?
             (S ? (void*)&VrsReset<1> : (void*)&VrsReset<0>) : thunks[i]);
         ++n;
     }
@@ -864,7 +863,7 @@ DWORD WINAPI WatchThread(LPVOID) {
             for (int i = 0; i < g_vtSlots[s]; ++i) {
                 const Kind k = kSlotInfo[i].kind;
                 const void* want = k == kBarrier ? (s ? (void*)&HkResourceBarrier<1> : (void*)&HkResourceBarrier<0>)
-                                   : (g_vrsMode && i == 10) ? (s ? (void*)&VrsReset<1> : (void*)&VrsReset<0>)
+                                   : (g_vrsBootMode && i == 10) ? (s ? (void*)&VrsReset<1> : (void*)&VrsReset<0>)
                                    : (k == kFlush || k == kBind) ? thunks[i]
                                                                  : nullptr;
                 if (want && g_vt[s][i] != want && !RpForwards(g_vt[s][i], want) && g_batching) {
@@ -962,8 +961,9 @@ void Start(const StartInfo& info) {
     LOG("VRS KeepCharacters=%d (mode3; conservative: only audited world VS + empty readable input layout + indirect calls can be coarse; direct/IA/unknown stay1x1; reject2048)",g_vrsKeepCharacters);
     LOG("VRS v4 layouts=%u rate=%s skipSkinned=%d (mode3 only; skin bits weight1 indices2; reject bits layout512 skinned1024; unknown/generic skin identity not inferred)",g_vrsLayouts,vrsselect::RateName(vrsselect::SelectiveRate(g_vrsRate)),g_vrsSkipSkinned);
     LOG("VRS selective=%d GBufferMotion1x1=%d (captured 6/7/8RT surface layouts use blend-only material policy; other layouts/alpha-blend/particles/post/UI remain 1x1; guard1 excludes whole motion MRT draw)",g_vrsMode==3,g_vrsMotionGuard);
+    g_vrsBootMode = g_vrsMode; g_vrsBootTracking = VrsSelectiveTracking();
     if (VrsSelectiveTracking()) for (int i : {2,9,11,25,46,68,69,75}) gpuopt_vrs[i]=1;
-    LOG("VRS ceiling mode=%d (restart to change; 0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective VrsRate)", g_vrsMode);
+    LOG("VRS ceiling mode=%d (0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective VrsRate; started off = restart to turn on, started on = menu changes it live)", g_vrsMode);
     if (g_vrsMode) {
         gpuopt_vrs[12] = gpuopt_vrs[13] = gpuopt_vrs[27] = gpuopt_vrs[59] = gpuopt_vrs[79] = 1;
     }
@@ -1132,4 +1132,15 @@ const char* StatusLine(char* buf, size_t n) {
     return buf;
 }
 
+// #79098: called by the menu on the Present thread. Plain value writes only, nothing is hooked or rebuilt here.
+int VrsBootMode() { return g_vrsBootMode; }
+bool VrsBootTracking() { return g_vrsBootTracking; }
+void VrsSetLive(const vrsmenu::Values& raw) {
+    if (!g_vrsBootMode) return;
+    const vrsmenu::Values v = vrsmenu::Clamped(raw);
+    g_vrsLayouts = (unsigned)v.layouts; g_vrsRate = v.rate;
+    g_vrsSkipSkinned = v.skip; g_vrsKeepCharacters = v.keep;
+    g_vrsMode = vrsmenu::LiveMode(v.mode, g_vrsMode, g_vrsBootMode, g_vrsBootTracking);
+    LOG("VRS live: mode=%d (asked %d) layouts=%d rate=%s skipSkinned=%d keepCharacters=%d", g_vrsMode, v.mode, v.layouts, vrsmenu::RateName(v.rate), v.skip, v.keep);
+}
 }  // namespace gpuopt

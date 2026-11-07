@@ -1,8 +1,11 @@
+#define _CRT_SECURE_NO_WARNINGS  // rematch.cpp uses sscanf; this file builds it at /W4
 // Test the real rematch UI model and the hook's input decision helper without game calls.
 #include "../src/rematch.cpp"
 #include "../src/ui_input.h"
 
 namespace addon {
+// Test stub: the rematch.cpp call site needs it to link; the harness never installs a retarget.
+bool InstallCallRetargetAt(uint8_t*, const char*, void*, void**, const char**) { return false; }
 Image g_img = {};
 void Log(const char*, ...) {}
 wchar_t testIni[MAX_PATH]{};

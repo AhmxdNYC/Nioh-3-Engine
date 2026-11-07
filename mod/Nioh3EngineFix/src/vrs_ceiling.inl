@@ -1,8 +1,12 @@
 // Ceiling experiment: no pass/UI exclusions. Cache only scalar capability data;
 // reset refreshes it from the actual list device, never the dummy install device.
-int g_vrsMode = 0;
+// #79098: the five tuning values are read on every draw, so a menu change reaches the next draw. One aligned write each;
+// a frame that sees old and new values mixed is legal, RSSetShadingRate may change between any two draws.
+volatile int g_vrsMode = 0;
 bool g_vrsMotionGuard = false;
-unsigned g_vrsLayouts=7; int g_vrsRate=0; bool g_vrsSkipSkinned=true, g_vrsKeepCharacters=true;
+volatile unsigned g_vrsLayouts=7; volatile int g_vrsRate=0; volatile bool g_vrsSkipSkinned=true, g_vrsKeepCharacters=true;
+// Fixed at startup: which draw hooks exist and whether tracking slots are routed. A later Off must not unhook anything.
+int g_vrsBootMode = 0; bool g_vrsBootTracking = false;
 bool VrsSelectiveTracking() { return g_vrsMode == 3 || (g_vrsMode && g_vrsMotionGuard); }
 struct VrsSignature {
     vrsselect::Meta meta; volatile LONG64 coarse=0, fine=0, skinEvidence=0, skinRejected=0, characterRejected=0; volatile LONG reasons=0, legacyReasons=0;
@@ -89,7 +93,7 @@ void VrsReportSignatures() {
     ReleaseSRWLockShared(&g_vrsSigLock);
 }
 volatile LONG64 g_vrsLists = 0, g_vrsDraws = 0, g_vrsIndirect = 0, g_vrsMiss = 0;
-struct VrsEntry { void* list = nullptr; D3D12_SHADING_RATE rate = D3D12_SHADING_RATE_1X1; bool supported = false;
+struct VrsEntry { void* list = nullptr; bool fourByFour = false; bool supported = false;
     vrsselect::Meta meta; unsigned boundCount=0; bool bindingKnown=false; int signature=-1;
 };
 thread_local VrsEntry t_vrs[16];
@@ -108,14 +112,18 @@ VrsEntry& VrsCaps(void* self, int set, bool refresh) {
         dev->Release();
     } else hr = E_NOINTERFACE;
     e.supported = SUCCEEDED(hr) && opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_1;
-    e.rate = g_vrsMode == 3 ? vrsselect::SelectiveRate(g_vrsRate) : g_vrsMode == 2 && opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2 &&
-        opt.AdditionalShadingRatesSupported ? D3D12_SHADING_RATE_4X4 : D3D12_SHADING_RATE_2X2;
+    e.fourByFour = opt.VariableShadingRateTier >= D3D12_VARIABLE_SHADING_RATE_TIER_2 && opt.AdditionalShadingRatesSupported;
     static volatile LONG reports = 0;
     if (InterlockedIncrement(&reports) <= 8)
-        LOG("VRS ceiling actual-list=%p OPTIONS6=%08lX tier=%d additional=%d mode=%d rate=%s supported=%d",
+        LOG("VRS ceiling actual-list=%p OPTIONS6=%08lX tier=%d additional=%d mode=%d fourByFour=%d supported=%d",
             self, (unsigned long)hr, (int)opt.VariableShadingRateTier, (int)opt.AdditionalShadingRatesSupported,
-            g_vrsMode, vrsselect::RateName(e.rate), e.supported);
+            g_vrsMode, e.fourByFour, e.supported);
     return e;
+}
+inline D3D12_SHADING_RATE VrsRateNow(const VrsEntry& e) {
+    const int mode = g_vrsMode;
+    return mode == 3 ? vrsselect::SelectiveRate(g_vrsRate) : mode == 2 && e.fourByFour ? D3D12_SHADING_RATE_4X4 :
+        mode ? D3D12_SHADING_RATE_2X2 : D3D12_SHADING_RATE_1X1;
 }
 void VrsBindPso(VrsEntry& e, uintptr_t pso) {
     const auto previous=e.meta; const int previousSignature=e.signature;
@@ -130,7 +138,8 @@ void VrsBindPso(VrsEntry& e, uintptr_t pso) {
     else e.signature=VrsSignatureIndex(e.meta);
 }
 void VrsTrack(void* self, int set, int slot, uintptr_t a1) {
-    if (!VrsSelectiveTracking() || t_vrsBusy) return;
+    // Keeps running through a live Off or whole-frame mode, so Selective comes back with the true PSO and targets.
+    if ((!g_vrsBootTracking && !VrsSelectiveTracking()) || t_vrsBusy) return;
     if (slot==2 || slot==9) {
         auto& e=t_vrs[((uintptr_t)self>>4)&15]; if (e.list==self) e={}; return;
     }
@@ -142,7 +151,8 @@ void VrsTrack(void* self, int set, int slot, uintptr_t a1) {
     else { e.bindingKnown=false; e.meta={}; e.signature=VrsSignatureIndex(e.meta); }
 }
 void VrsApply(void* self, int set, bool reset, bool indirect = false) {
-    if (!g_vrsMode || t_vrsBusy) return;
+    // A live Off still answers Reset with an explicit 1x1, so the next recording cannot keep a coarse rate.
+    if ((!g_vrsMode && !(reset && g_vrsBootMode)) || t_vrsBusy) return;
     t_vrsBusy = true;
     if (VrsSelectiveTracking() && !reset) InterlockedIncrement64(&g_vrsObserved);
     auto& e = VrsCaps(self, set, reset);
@@ -150,14 +160,14 @@ void VrsApply(void* self, int set, bool reset, bool indirect = false) {
         const D3D12_SHADING_RATE_COMBINER pass[2] = {
             D3D12_SHADING_RATE_COMBINER_PASSTHROUGH, D3D12_SHADING_RATE_COMBINER_PASSTHROUGH};
         using RateFn = void(STDMETHODCALLTYPE*)(void*, D3D12_SHADING_RATE, const D3D12_SHADING_RATE_COMBINER*);
-        D3D12_SHADING_RATE rate=e.rate; unsigned why=0;
+        const D3D12_SHADING_RATE coarse=VrsRateNow(e); D3D12_SHADING_RATE rate=coarse; unsigned why=0;
         if (VrsSelectiveTracking()) {
             if (reset) rate=D3D12_SHADING_RATE_1X1;
             else {
                 why = g_vrsMode==3 ? vrsselect::RejectDraw(e.meta,e.bindingKnown,e.boundCount,g_vrsMotionGuard,g_vrsLayouts,g_vrsSkipSkinned,g_vrsKeepCharacters,indirect) :
                     ((e.meta.reject & vrsselect::Unknown) || !e.bindingKnown ? vrsselect::Unknown :
                      (e.meta.count>=3 && e.meta.motion ? vrsselect::Motion : 0));
-                rate=why ? D3D12_SHADING_RATE_1X1 : e.rate;
+                rate=why ? D3D12_SHADING_RATE_1X1 : coarse;
                 VrsDiagDraw(e.meta,why,e.boundCount,e.bindingKnown,indirect);
                 if (e.signature<0) e.signature=VrsSignatureIndex(e.meta);
                 if (e.signature>=0) {
@@ -187,7 +197,7 @@ template<int S> HRESULT STDMETHODCALLTYPE VrsReset(ID3D12GraphicsCommandList* li
     HRESULT hr = reinterpret_cast<Fn>((S ? gpuopt_thunks1 : gpuopt_thunks0)[10])(list, allocator, pso);
     if (SUCCEEDED(hr)) {
         VrsApply(list, S, true);
-        if (VrsSelectiveTracking()) VrsBindPso(VrsCaps(list,S,false),reinterpret_cast<uintptr_t>(pso));
+        if (g_vrsBootTracking || VrsSelectiveTracking()) VrsBindPso(VrsCaps(list,S,false),reinterpret_cast<uintptr_t>(pso));
     }
     return hr;
 }

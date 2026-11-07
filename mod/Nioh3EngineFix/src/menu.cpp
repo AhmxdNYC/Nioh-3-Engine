@@ -906,6 +906,8 @@ int g_sel = kPage;  // two-page menu (Layout=0) opens on the page switcher; grou
 int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
 bool g_bootVrs = false, g_vrsEdited = false;
+vrsmenu::Values g_vrsVals;   // #79098: what the page shows and Save writes
+bool g_vrsPresetOn = false;  // the ON row's preset is the last edit, so Save also writes its motion key
 int g_selectedEpPreset = -1;  // Only explicit preset picks change the startup half-rate choice.
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
@@ -1196,6 +1198,11 @@ std::string g_saveName;int g_saveConfirm=0;uint64_t g_saveConfirmAt=0;
 int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
+    if (g_pages.page == pVrsTune) {
+        for (int i = 0; i < vrsmenu::kRowN; ++i) add(kVrsRowFirst + i);
+        add(kBackRow);
+        return n;
+    }
     if(g_pages.page==pSaveFiles||g_pages.page==pSaveActions){
         if(savefiles::Pending())add(kSaveCancelRow);
         else if(savefiles::Allowed()){
@@ -1218,7 +1225,10 @@ int PageRowsBody(int* out, bool selectable) {
         }
         if (pg == pSCpu || pg == pSGpu || pg == pSGame || pg == pFrameGen) {
             for (const auto& row : kOrder)
-                if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+                if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
+                    add(row.id);
+                    if (row.id == kVrs) add(kVrsPageRow);
+                }
             add(kBackRow);
             return n;
         }
@@ -1304,7 +1314,10 @@ int PageRowsBody(int* out, bool selectable) {
         add(kSave);
     }
     for (const auto& row : kOrder)
-        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) add(row.id);
+        if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
+            add(row.id);
+            if (row.id == kVrs && page == pExtra) add(kVrsPageRow);
+        }
     if (page == pDisplay) { add(kTimeOfDayRow); add(kWeatherRow); }
     // All settings deliberately has exactly the original traversal order, so
     // keyed test sequences can enter it without acquiring an extra Back row.
@@ -1497,7 +1510,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         return;
     }
     if (id == kVrs) {
-        snprintf(buf, n, "%s (next launch)", g_bootVrs ? "ON" : "OFF");
+        snprintf(buf, n, "%s (%s)", g_bootVrs ? "ON" : "OFF", vrsmenu::RowEffect(vrsmenu::kRowMode, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking()) == vrsmenu::kLive ? "live" : "next launch");
         color = g_bootVrs ? cGreen : cGray;
         return;
     }
@@ -1674,7 +1687,7 @@ void StartSave() {
         add(L"GpuOpt", L"R1", gpuopt::Rewrite(2) ? L"1" : L"0");
     }
     add(L"Latency", L"MaxFrameLatency", osd::Overlay().maxLatencyAuto && osd::Overlay().maxLatency == g_latBoot ? std::wstring(L"-1") : std::to_wstring(osd::Overlay().maxLatency));
-    if (g_vrsEdited) vrsmenu::Save(g_bootVrs, add);
+    if (g_vrsEdited) { if (g_vrsPresetOn) vrsmenu::Save(true, add); else vrsmenu::SaveValues(g_vrsVals, add); }
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
     if (g_host.wine) {
@@ -1992,6 +2005,13 @@ void ChangeCamera(int which, int dir) {
     CamWriteIni();
 }
 
+// #79098: value writes only, safe on this thread. The file write waits for the menu's normal background save.
+void VrsValuesChanged() {
+    g_bootVrs = g_vrsVals.mode != 0;
+    g_vrsEdited = true;
+    g_dirty = true;
+    gpuopt::VrsSetLive(g_vrsVals);
+}
 // dir: -1 left, +1 right, 0 = A / Enter
 void Change(int id, int dir) {
     if(id==kSaveFilesRow){
@@ -2044,6 +2064,11 @@ void Change(int id, int dir) {
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
+    if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) EnterPage(pVrsTune); return; }
+    if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
+        if (vrsmenu::Step(g_vrsVals, id - kVrsRowFirst, dir)) { g_vrsPresetOn = false; VrsValuesChanged(); }
+        return;
+    }
     if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
         if (id != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
             snprintf(g_camNote, sizeof(g_camNote), "Needs the CamKiProbe add-on. Nioh3CamKiProbe.asi is not loaded, so this row does nothing.");
@@ -2100,7 +2125,10 @@ void Change(int id, int dir) {
         g_selectedEpPreset = (m + (dir < 0 ? extraperf::kNumPresets - 1 : 1)) % extraperf::kNumPresets;
         extraperf::ApplyPreset(g_selectedEpPreset);
     } else if (id == kVrs) {
-        g_bootVrs = !g_bootVrs; g_vrsEdited = true;
+        g_vrsPresetOn = !g_bootVrs;
+        if (g_vrsPresetOn) { g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; }
+        else g_vrsVals.mode = 0;
+        VrsValuesChanged();
     } else if (id == kRd) {  // left/right steps 0.05; A returns to 1.00. Falls through so the ini is marked dirty.
         extraperf::StepRd(dir);
     } else if (id == kSharp) {  // #67772: Left/Right step, A cycles (wraps to the game's value)
@@ -3477,6 +3505,28 @@ float DrawImpl(unsigned W, unsigned H) {
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, value > 0 ? cYellow : cGray, id == g_sel, false);
             continue;
         }
+        if (id == kVrsPageRow) {
+            if (id == g_sel) selRow = nb;
+            const bool ok = gpuopt::VrsSupport() >= 0;
+            put(body, nb, 128, id == g_sel ? "> Variable rate shading values" : "  Variable rate shading values", "", ok ? "open >" : "not supported",
+                id == g_sel ? cWhite : cGray, ok ? cGray : cDim, id == g_sel, false);
+            continue;
+        }
+        if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
+            if (id == g_sel) selRow = nb;
+            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Reset to defaults"};
+            const int k = id - kVrsRowFirst;
+            char lab[96], text[64];
+            snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kVrsLabels[k]);
+            const vrsmenu::Effect fx = vrsmenu::RowEffect(k, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking());
+            const char* note = fx == vrsmenu::kLive ? "live" : fx == vrsmenu::kNextLaunch ? "next launch" : "Selective only";
+            const char* value = k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
+                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : g_vrsVals.keep ? "On" : "Off";
+            if (k == vrsmenu::kRowReset) snprintf(text, sizeof(text), "A: reset (%s)", note);
+            else snprintf(text, sizeof(text), "< %s > %s", value, note);
+            put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, fx == vrsmenu::kLive ? cGreen : fx == vrsmenu::kNextLaunch ? cYellow : cDim, id == g_sel, false);
+            continue;
+        }
         if (id >= kCamRowFirst && id < kCamRowFirst + kCamRowN) {
             CamReadIni();
             if (id == g_sel) selRow = nb;
@@ -3630,6 +3680,22 @@ float DrawImpl(unsigned W, unsigned H) {
             ? "Set the sky time in 30-minute steps. Stock follows the area's own time."
             : "Choose the sky weather. Stock follows the area's own weather; indoor changes may be subtle.");
         snprintf(effect, sizeof(effect), "Left / Right changes; A / Enter restores Stock. Applies during gameplay, outside loads and cutscenes. Saved.");
+    } else if (g_sel == kVrsPageRow) {
+        snprintf(what, sizeof(what), "Adjust each Variable Rate Shading value. Each row says if it works now or at the next launch.");
+        snprintf(effect, sizeof(effect), "%s", gpuopt::VrsSupport() < 0 ? "This graphics card or driver has no hardware VRS." : "Changes the look. Off by default.");
+    } else if (g_sel >= kVrsRowFirst && g_sel < kVrsRowFirst + vrsmenu::kRowN) {
+        static const char* const kVrsWhat[vrsmenu::kRowN] = {
+            "Off, the whole frame coarse (also menus and effects), or Selective: only safe world surfaces.",
+            "Selective: which surface shapes may go coarse, by render target count.",
+            "Selective: how coarse. 2x2 saves the most. 1x2 and 2x1 keep one direction sharp.",
+            "Selective: full rate for models that declare skinning in their vertex data.",
+            "Selective: only known world shaders may go coarse. Off lets characters go coarse too.",
+            "Off, all surfaces, 2x2, both protections on. Saved when the menu closes."};
+        snprintf(what, sizeof(what), "%s", kVrsWhat[g_sel - kVrsRowFirst]);
+        snprintf(effect, sizeof(effect), "%s", !gpuopt::VrsBootMode()
+            ? "The game started with this off: it is saved now and needs one restart. After that all rows work live."
+            : gpuopt::VrsBootTracking() ? "Applies on the next draw, no restart. Saved when the menu closes."
+            : "The game started in Whole frame: Selective and its rows need one restart. Off and Whole frame work live.");
     } else if (g_sel >= kCamRowFirst && g_sel < kCamRowFirst + kCamRowN) {
         if (g_sel != kCamRowFirst + kCamReset && !CamProbeLoaded()) {
             snprintf(what, sizeof(what), "Nioh3CamKiProbe.asi is not loaded, so this camera row cannot move the camera.");
@@ -3895,8 +3961,18 @@ void Configure(const Host& h) {
     g_ini = h.iniPath ? h.iniPath : L"";
     savefiles::Configure(h.base,h.knownBuild,g_ini.c_str(),h.log);
     g_host.iniPath = nullptr;  // not kept (g_ini owns the copy)
-    g_bootVrs = GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_ini.c_str()) != 0;
+    {
+        vrsmenu::Values v;
+        v.mode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_ini.c_str());
+        v.layouts = (int)GetPrivateProfileIntW(L"Perf", L"VrsLayouts", 7, g_ini.c_str());
+        v.rate = (int)GetPrivateProfileIntW(L"Perf", L"VrsRate", 0, g_ini.c_str());
+        v.skip = GetPrivateProfileIntW(L"Perf", L"VrsSkipSkinned", 1, g_ini.c_str()) != 0;
+        v.keep = GetPrivateProfileIntW(L"Perf", L"VrsKeepCharacters", 1, g_ini.c_str()) != 0;
+        g_vrsVals = vrsmenu::Clamped(v);
+    }
+    g_bootVrs = g_vrsVals.mode != 0;
     g_vrsEdited = false;
+    g_vrsPresetOn = false;
     g_selectedEpPreset = -1;
     g_bootWorkerCap = h.workerCap;
     g_bootP12 = h.p12;
