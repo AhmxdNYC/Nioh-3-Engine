@@ -453,12 +453,11 @@ std::wstring DirOf(const std::wstring& p) {
 const char* const kHalfCs[4] = {"cs=4b4c3cbe", "cs=6ae59bd0", "cs=b76874bb", "cs=641524ee"};
 
 int HalfLevel(const wchar_t* ini) {
-    int v = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", -1, ini);
-    if (v < 0) {   // not in the ini: on with the Risky / Extreme presets only
-        const bool on = GetPrivateProfileIntW(L"ExtraPerf", L"Enabled", 1, ini) == 1;
-        const int pr = (int)GetPrivateProfileIntW(L"ExtraPerf", L"Preset", 0, ini);
-        v = on && (pr == 3 || pr == 4) ? 2 : 0;
-    }
+    // #80829: XHALF reused the GI / reflection result on half the frames and made the light flicker on every device
+    // (Ally bisect #80801, main PC #80790). No preset turns it on any more, and an XHALF left in the ini by an older
+    // Extreme / Risky menu save is ignored: it runs only with XHALF_Force = 1 (benchmark opt-in).
+    if (GetPrivateProfileIntW(L"ExtraPerf", L"XHALF_Force", 0, ini) != 1) return 0;
+    int v = (int)GetPrivateProfileIntW(L"ExtraPerf", L"XHALF", 0, ini);
     return v < 0 ? 0 : v > 2 ? 2 : v;
 }
 
