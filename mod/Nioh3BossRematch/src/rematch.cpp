@@ -2598,6 +2598,8 @@ int NativeGateRow() {
 }
 void ScrollCoverTick(const Snap& s, ULONGLONG t) {
     if (!g_scrollCover) return;
+    // Fight again (pc2 #78852): the screen stays up for the trip home, then ExecEmaki restarts it for the trip back.
+    if (g_nativeAgainRow >= 0 || g_req.load()) { g_scrollCoverIn = 0; return; }
     const bool in = g_et.st == rcore::kEIn && !s.st[2] && s.player;
     if (!in) g_scrollCoverIn = 0;
     else if (!g_scrollCoverIn) g_scrollCoverIn = t;
@@ -2771,6 +2773,7 @@ void Tick() {
                 if (!rc && kind == kReqNativeAgain) {
                     g_nativeAgainRow = row; g_nativeAgainAt = t;
                     g_nativeAgainSequence = g_attemptSequence; g_nativeAgainEpoch = g_requestEpoch.load();
+                    if (rcore::WavesRow(g_rows[(size_t)row])) ScrollCoverOn(g_rows[(size_t)row].name, t);
                     Log("Rematch: native gate retry waits for return cleanup (%s)", g_rows[(size_t)row].id);
                 }
                 if (scrollStuck) Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
