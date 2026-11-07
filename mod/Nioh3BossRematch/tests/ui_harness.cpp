@@ -29,7 +29,6 @@ bool InstallGroup(const char*, const char**) { return false; }
 bool InstallVeto(const char*, bool (*)(int), const char**) { return false; }
 bool InstallPump(void (*)(), const char**) { return false; }
 bool InstallCallRetarget(const char*, void*, void**, const char**) { return false; }
-bool InstallCallRetargetAt(unsigned char*, const char*, void*, void**, const char**) { return false; }
 namespace fight {
 volatile LONG g_fights = 0, g_active = 0;
 void LastFightPlacements(char* b, size_t n) { if (n) b[0] = 0; }
