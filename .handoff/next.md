@@ -63,3 +63,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - pc2 #80240: Proceed-gate fix v3 BR 7079c605 PASS all 4 checks (title/continue home, return home, no false idle, refusal). Game back on public 1.8.8.
 - pc2 #80263 RESULT: 1.8.9 RC (cx-pc/release-189-prep a20583be) install gate PASS 4/4; game back on public 1.8.8.
 - 11-07 3:31 pm EST pc/6: human #80801 'no flicker now on ally' after XHALF=0 note to ally (#80788 thread). Waiting on ally RESULT confirming its ini/log had XHALF=0; if confirmed -> make XHALF default 0 + gated by master switches in EF, build, test pc/pc2/ally.
+- 11-07 4:00 pm EST pc/6: FLICKER FIX built: EF d1c6d7a8 (bridge #6264, branch pc6/xhalf-off 8e2aa374, from release-189-prep) - XHALF only with XHALF_Force=1, presets/menu never set it. Tests: board tasks pc2 + ally (bench,test,on:*), PC arm TASK #80845 to pc/0 (holds game since 3:20). Verdict needs 3/3 RESULTs (--reply-to 80829); then ship as 1.8.10 hotfix.
