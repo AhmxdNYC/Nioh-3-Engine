@@ -1,2 +1,3 @@
 - 2026-10-28 | Combined final candidate | Combine approved menu, ring and Boss Match fixes | 3 ASIs built; bundle3299; offline regressions pass incl64 settings cases and31 release tests; live acceptance remains pc-owned.
 - 2026-11-07 | Flicker before/after video | human wanted to see the flicker fix on the main PC | 2 clips (Ally save, snow shrine, Extreme): no-fix 9bfe7189 vs fix d1c6d7a8 sent to Discord; no-fix clip 20 MB vs 4 MB = ~5x more frame-to-frame change
+- 2026-11-07 | Yin/yang soul core research | Human asked if the mod can tell Yin vs Yang cores | Offline: Yin/Yang is the Onmyo Box SLOT, not the core (game text); detect by slot or seal spawn; notes/soulcore-yinyang.md (cx-pc/yinyang-81076 f633f0ae), in-game check pending
