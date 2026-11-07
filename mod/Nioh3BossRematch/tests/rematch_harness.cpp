@@ -100,13 +100,15 @@ int main(int argc, char** argv) {
     CHECK(rcore::ScrollCoverDone(true, true, false, true, 100) == 3, "scroll cover ends when the walk found no wave");
     CHECK(rcore::ScrollCoverDone(true, true, true, true, 100) == 2, "a wave beats the finished walk");
     {
+        auto wakeOf = [&](const char* id) { for (const rcore::Row& r : rows) if (!strcmp(r.id, id)) return rcore::WaveWakeStep(r); return -1; };  // the catalogue column wake_step
         const char* known[] = {"E00", "E01", "E04", "E07", "E08", "E09", "E10", "E17", "E18"};
         const int steps[] = {4, 1, 2, 9, 1, 3, 2, 1, 1};
-        for (int i = 0; i < 9; ++i) CHECK(rcore::WaveWakeStep(known[i]) == steps[i], "row wake step from the test runs");
+        for (int i = 0; i < 9; ++i) CHECK(wakeOf(known[i]) == steps[i], "row wake step from the test runs");
         const char* still[] = {"E02", "E03", "E05", "E06", "E11", "E12", "E13", "E14", "E15", "E16", "E19"};
-        for (const char* id : still) CHECK(rcore::WaveWakeStep(id) == 0, "row wakes at the record warp");
-        CHECK(rcore::WaveWakeStep(nullptr) == 0 && rcore::WaveWakeStep("R0C12") == 0 && rcore::WaveWakeStep("E20") == 0 && rcore::WaveWakeStep("E071") == 0 && rcore::WaveWakeStep("E") == 0, "other ids take the plain walk");
-        CHECK(rcore::WaveNudgeAt(rcore::WaveWakeStep("E07")).dz == -1200.f && rcore::WaveNudgeAt(rcore::WaveWakeStep("E00")).dz == -600.f, "E07 and E00 keep the offsets that woke them");
+        for (const char* id : still) CHECK(wakeOf(id) == 0, "row wakes at the record warp");
+        rcore::Row junk{}; junk.route = rcore::kR; junk.wakeStep = 4; rcore::Row big{}; big.route = rcore::kE; big.wakeStep = 99;
+        CHECK(rcore::WaveWakeStep(junk) == 0 && rcore::WaveWakeStep(big) == 0 && wakeOf("E20") == -1 && wakeOf("R0C12") == 0, "non-scroll rows and out-of-range steps take the plain walk");
+        CHECK(rcore::WaveNudgeAt(wakeOf("E07")).dz == -1200.f && rcore::WaveNudgeAt(wakeOf("E00")).dz == -600.f, "E07 and E00 keep the offsets that woke them");
         CHECK(rcore::WaveWalkCount(0) == rcore::kWaveNudges && rcore::WaveWalkOffset(0, 0) == 0 && rcore::WaveWalkOffset(0, 12) == 12, "step 0 rows keep the old order");
         CHECK(rcore::WaveWalkCount(9) == rcore::kWaveNudges + 1 && rcore::WaveWalkOffset(9, 0) == 9, "the known offset goes first");
         bool all = true;

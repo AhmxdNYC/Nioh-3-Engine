@@ -15,7 +15,9 @@ pre=r'''
 #include <cstring>
 #include <cassert>
 using ULONGLONG=unsigned long long;
-struct Row {uint16_t missionId;const char* name;};
+struct Row {uint16_t missionId;const char* name;int route=0;};
+namespace rcore {constexpr int kE=4; inline bool WavesRow(const Row&){return false;}}  // ActBossRoute now sends scroll rows to StartScrollRecord; this fixture has none
+static bool StartScrollRecord(int,int,bool){assert(false);return false;}
 std::vector<Row> g_rows={{123,"test boss"}};
 std::atomic<int> g_status[1];
 struct {bool ignoreProgress=false;} g_cfg;

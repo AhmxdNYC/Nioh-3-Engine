@@ -108,5 +108,10 @@ with tempfile.TemporaryDirectory(prefix='nioh3-spawn-repro-') as tmp:
 
 for name in ('ExecOpen','ExecDirect','ExecEmaki'):
     body=function('void '+name+'(')
-    assert body[body.index('{')+1:].lstrip().startswith('if (!SpawnRestore('), name
+    inner=body[body.index('{')+1:].lstrip()
+    if name=='ExecEmaki':  # two statements may come first because they admit nothing: the no-waves flag reset and the Training wave-guard refusal
+        for allowed in ('g_scrollNoWaves.store(false);','if (noWaves && !g_waveVetoOk) return Refuse('):
+            assert inner.startswith(allowed),(name,allowed)
+            inner=inner[inner.index(chr(10)):].lstrip()
+    assert inner.startswith('if (!SpawnRestore('), name
 print('3 native admission entry guards PASS')

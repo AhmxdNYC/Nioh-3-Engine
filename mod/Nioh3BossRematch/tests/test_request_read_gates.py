@@ -16,7 +16,9 @@ def function(signature):
     return text[begin:end]
 attempt = text[text.index('enum AttemptPhase'):text.index('// Unknown session reads')]
 snapshot = text[text.index('struct Snap {'):text.index('Snap ReadSnap()')]
-exit_dispatch = text[text.index('            if (!g_exitOk) Refuse(g_exitWhy);'):text.index('        } else if (kind == kReqAbort)')]
+exit_start = text.index('        if (kind == kReqExit || kind == kReqPracticeExit || kind == kReqNativeAgain) {'+chr(10))
+exit_start = text.index(chr(10), exit_start) + 1  # the production return dispatch: gate choice, 20 s hold, Refuse or the guarded return call
+exit_dispatch = text[exit_start:text.index('        } else if (kind == kReqAbort)', exit_start)]
 tick_observation = function('void Tick()').split('    SpawnTick(s, t, loadEnded);')[0].replace('void Tick()', 'bool ObserveTick()') + '\n    return loadEnded;\n}'
 code = r"""
 #include <atomic>
@@ -56,6 +58,11 @@ void Log(const char*,...);
 @SNAPSHOT@
 @ATTEMPT@
 bool XwPending() { return false; }  // Nioh3Training absent
+// Newer production state the slices below read: no scroll trip, no in-place swap, no map to restore in this fixture.
+bool ScrollLoadStuck(const Snap&) { return false; }
+bool MapRestoreNow(const char*) { return true; }
+std::atomic<bool> g_fight{false},g_swappedInPlace{false};
+constexpr uint32_t kReqNativeAgain=12;
 void CoverTick(const Snap&, ULONGLONG) {}
 void UnbeatenTick(const Snap&, ULONGLONG) {} // save veto tested by test_fight_result.py
 @FUNCTIONS@
@@ -75,8 +82,16 @@ void Result(const char*,...) {}
 // ownership paths are executed by test_native_attempt.py.
 constexpr uint32_t kReqPracticeExit=10;
 uint32_t kind=8;
+uint32_t g_pend=0; ULONGLONG g_pendAt=0, exitNow=40000;  // exitNow - g_pendAt >= 20 s: a 'loading' hold has run out and refuses (the old gate refused at once)
+std::vector<rcore::Row> g_rows;
+bool WavesGateNow() { return false; }
+uint32_t NativeGateMission() { return 0; }
+void ScrollCoverOn(const char*,ULONGLONG) {}
+std::atomic<uint64_t> g_requestEpoch{0};
+uint64_t g_nativeAgainSequence=0,g_nativeAgainEpoch=0; int g_nativeAgainRow=-1; ULONGLONG g_nativeAgainAt=0;
 const char* PracticeReturnGate(const Snap&) { return "not a practice fixture"; }
 void ExitDispatch(const Snap& s) {
+    const ULONGLONG t=exitNow; const int row=-1;
 @EXIT@
 }
 void seed() {
@@ -159,7 +174,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-read-gates-') as tmp:
 for name in ('DoWarp','FnVerify','GateTick'):
     body=function('void '+name+'(')
     prefix=body[body.index('{')+1:].lstrip()
-    if name in ('DoWarp','GateTick'):
+    if name=='DoWarp':  # GateTick handles the Training destination itself (after the guard, inside its want branch)
         assert prefix.startswith('if (g_trainingDestination) return;'),name
         prefix=prefix.split('\n',1)[1].lstrip()
     assert prefix.startswith('if (NativeGate(s) || !AttemptEffectsAllowed()) return;'),name

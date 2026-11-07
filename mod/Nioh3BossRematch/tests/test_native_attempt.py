@@ -19,6 +19,26 @@ code=r"""
 #include "rematch_core.h"
 #include "native_entry_gates_gen.h"
 using Row=rcore::Row;
+// Fixtures the production slices below call before the main fixture block: memory reads, the log, and the Picture Scroll controls
+// (DEV switches and wave guard, all off here: no scenario runs a scroll trip).
+constexpr uint64_t G_MS=1;
+template<class T> bool Rd(uint64_t address,T& out) {
+    if(address==G_MS) out=100;
+    else if(address==108) out=200;
+    else if(address==216) out=1;
+    else return false;
+    return true;
+}
+void Log(const char*,...) {}
+std::atomic<bool> g_scrollNoWaves{false},g_scGive{false};
+bool g_waveVetoOk=true;
+std::atomic<int> g_scUseItem{0},g_scSeedPick{0},g_scNoRedirect{0},g_scLevel{0},g_scB0f{0},g_scStart0{0};
+int32_t g_scSeedOf[256];
+int g_emakiNoteRow=-1;
+void ScrollSeedScan() {}
+void ExecScrollGive() {}
+bool WavesGateNow() { return false; }
+void ScrollCoverOn(const char*,ULONGLONG) {}
 @GLOBALS@
 @SNAP@
 Snap fixtureSnap;
@@ -53,7 +73,7 @@ int outcome=0,g_warpStep=0;
 bool canClear=true,restoreOk=true,mapWriteOk=true,mapReadOk=true,mapLie=false,mapReplaced=false;
 uint8_t liveMap[8]{};
 const char* refused=nullptr;
-constexpr uint64_t G_MS=1,G_QUEUE=2,G_CH=3;
+constexpr uint64_t G_QUEUE=2,G_CH=3;
 uint8_t queue[3*0x58]{};
 int reads=0;
 bool Copy(void* out,uint64_t address,size_t n) {
@@ -61,14 +81,6 @@ bool Copy(void* out,uint64_t address,size_t n) {
     if(address==G_QUEUE) { ++reads; if(outcome==2 && requests+scrolls) return false; memcpy(out,queue,n); return true; }
     return false;
 }
-template<class T> bool Rd(uint64_t address,T& out) {
-    if(address==G_MS) out=100;
-    else if(address==108) out=200;
-    else if(address==216) out=1;
-    else return false;
-    return true;
-}
-void Log(const char*,...) {}
 void Result(const char*,...) {}
 void ToastF(int,int,const char*,...) {}
 void Hex(char* out,size_t,uint64_t,size_t) { out[0]=0; }
@@ -151,6 +163,7 @@ void fresh() {
     g_rows.resize(1); g_rows[0]=Row{}; g_rows[0].missionId=0x1CBC; g_rows[0].fightStart=67064; g_rows[0].placement=65092;
     g_rows[0].arenaOk=true; g_rows[0].route=rcore::kR;
     strcpy_s(g_rows[0].id,"R1CBC");
+    g_rows.push_back(Row{}); g_rows[1].route=rcore::kE; g_rows[1].storyMission=0xCC96;  // a scroll row: ExecEmaki reads the scroll mission from the catalogue
 }
 void start(bool fight=true) { ExecDirect(0,fixtureSnap,now,fight,true); }
 void step(ULONGLONG t,bool loading,uint32_t mission,uint32_t retry) {
@@ -427,11 +440,12 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     directory=Path(tmp); source=directory/'test.cpp'; exe=directory/'test.exe'; source.write_text(code)
+    if os.environ.get('N3_TEST_KEEP'): Path(os.environ['N3_TEST_KEEP']).write_text(code)  # debugging aid: keep the generated translation unit
     command=f'call "{setup}" >nul && cl /nologo /std:c++17 /EHsc /W4 /WX /I"{ROOT / "src"}" /Fo"{directory / "test.obj"}" /Fe"{exe}" "{source}"'
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
