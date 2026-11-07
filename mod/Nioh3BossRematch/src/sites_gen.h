@@ -43,6 +43,7 @@ static const Def kDefs[] = {
     {"GameClearRewardGrant", "BOSSLOG", kHook, 0x2280FA0, 7, "48 83 EC 28 80 F9 01 75 0C BA 6F CD 00 00 B9 72", 0, 0, 0, 0, 0x0, nullptr},
     {"Mission::SetMissionClearFlag", "UNBEATEN", kNative, 0x23A582C, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::SetMissionClearFlag"},
     {"Mission::ClearGadgetAccessWaitMode", "ROSTER", kNative, 0x23A3260, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::ClearGadgetAccessWaitMode"},
+    {"Emaki::RequestWaveBattle", "SCROLLTRAIN", kNative, 0x239A630, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Emaki::RequestWaveBattle"},
     {"Item::ReserveAllItemAll", "KEEPGEAR", kNative, 0x23A1DC4, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemAll"},
     {"Item::ReserveAllItemDojo", "KEEPGEAR", kNative, 0x23A1E38, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemDojo"},
     {"Item::ReserveAllItemEdo", "KEEPGEAR", kNative, 0x23A1F04, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Item::ReserveAllItemEdo"},

@@ -68,6 +68,8 @@ SPEC = [
     # UNBEATEN (#256: skip the clear of a Boss Match into a mission this save has not cleared)
     ("Mission::SetMissionClearFlag", "UNBEATEN", H, 0x23A582C, 9),
     ("Mission::ClearGadgetAccessWaitMode", "ROSTER", H, 0x23A3260, 9),
+    # SCROLLTRAIN (#79069: Training at a Picture Scroll arena, the script's wave request is skipped for that trip only)
+    ("Emaki::RequestWaveBattle", "SCROLLTRAIN", H, 0x239A630, 5),
     # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
     ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
     ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),

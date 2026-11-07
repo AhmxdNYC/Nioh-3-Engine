@@ -341,6 +341,16 @@
    "offset": 0
   },
   {
+   "name": "Emaki::RequestWaveBattle",
+   "group": "SCROLLTRAIN",
+   "kind": "native",
+   "rva": 37332528,
+   "head": 5,
+   "native": "Emaki::RequestWaveBattle",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
    "name": "Item::ReserveAllItemAll",
    "group": "KEEPGEAR",
    "kind": "native",

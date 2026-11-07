@@ -7,7 +7,8 @@ Image g_img = {};
 void Log(const char*, ...) {}
 wchar_t testIni[MAX_PATH]{};
 const wchar_t* IniPath() { return testIni; }
-const wchar_t* ModDir() { return L""; }
+wchar_t testDir[MAX_PATH]{};
+const wchar_t* ModDir() { return testDir; }
 int IniInt(const wchar_t* section, const wchar_t* key, int def) { return testIni[0] ? (int)GetPrivateProfileIntW(section,key,def,testIni) : def; }
 bool uiReads = false;
 bool Copy(void* out, uint64_t address, size_t n) {
@@ -25,6 +26,7 @@ bool InstallGroup(const char*, const char**) { return false; }
 bool InstallVeto(const char*, bool (*)(int), const char**) { return false; }
 bool InstallPump(void (*)(), const char**) { return false; }
 bool InstallCallRetarget(const char*, void*, void**, const char**) { return false; }
+bool InstallCallRetargetAt(unsigned char*, const char*, void*, void**, const char**) { return false; }
 namespace fight {
 volatile LONG g_fights = 0, g_active = 0;
 void LastFightPlacements(char* b, size_t n) { if (n) b[0] = 0; }
@@ -42,6 +44,7 @@ int main() {
     CHECK(g_cfg.fightNow && g_cfg.fightWarp && g_cfg.fightSpawn);
     wchar_t tempPath[MAX_PATH]{};
     CHECK(GetTempPathW(MAX_PATH,tempPath) && GetTempFileNameW(tempPath,L"n3d",0,addon::testIni));
+    wcscpy_s(addon::testDir, tempPath);
     // Actual Prepare reads a private temporary INI; explicit off stays off, missing Enable defaults on.
     CHECK(WritePrivateProfileStringW(L"Rematch",L"Enable",L"0",addon::testIni));
     g_cfg.fightNow=false; g_cfg.fightWarp=false;
@@ -124,6 +127,12 @@ int main() {
         CHECK(!UiBack() && g_uiPages.page == uRematch);
     }
     g_sel = 0;
+    UiChange(1);  // Favorites, none marked yet: only the filter row and the rows below the list
+    CHECK(strcmp(ListFilterLabel(), "Favorites") == 0);
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
+    }
     UiChange(1);  // back to All
     CHECK(g_listStop == 0);
     {
@@ -240,10 +249,197 @@ int main() {
         g_sel = 1; CHECK(!UiAct() && !g_req && strstr(g_msg, "no shrine and no Train here"));
         g_sel = 2; g_msg[0] = 0; CHECK(!UiAct() && !g_req && strstr(g_msg, "no shrine and no Train here"));
         g_sel = 0; g_msg[0] = 0; g_confirm = -9;
-        CHECK(!UiAct() && !g_req && strstr(g_msg, "no item used"));
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "No item used"));
         CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmaki && (g_req.load() >> 8) == 1);
         practice = saved;
         g_emakiOk = emakiWas;
+        g_req = 0; g_confirm = -9; g_msg[0] = 0;
+        UiOpen(); g_sel = 1; UiAct(); g_sel = 1; UiAct();
+        g_sel = 0;
+    }
+    // #79069 Training at a Picture Scroll arena, the Training filters, favorites. Real menu calls; rows restored at the end.
+    {
+        const std::vector<Row> savedRows = g_rows;
+        const bool emakiWas = g_emakiOk, vetoWas = g_waveVetoOk;
+        const int stateWas = g_state.load();
+        for (int i = 0; i < 25; ++i) if (i) snprintf(g_rows[(size_t)i].id, sizeof g_rows[(size_t)i].id, "T%02d", i);
+        Row& sc = g_rows[7];
+        sc.route = rcore::kE; sc.emakiIndex = 2; sc.missionId = 0xCC96;
+        snprintf(sc.region, sizeof sc.region, "Waves");
+        snprintf(sc.name, sizeof sc.name, "Scroll Seven");
+        g_rows[8].missionId = 0x2222; snprintf(g_rows[8].region, sizeof g_rows[8].region, "Sengoku");
+        g_rows[9].missionId = 0x3333;
+        g_emakiOk = true; g_req = 0; g_confirm = -9; g_msg[0] = 0;
+        g_listStop = 0; g_trainStop = 0;
+        auto indexOf = [&](int item) { const int c = Items(it, kMaxRows + 4); for (int i = 0; i < c; ++i) if (it[i] == item) return i; return -1; };
+        auto rowsOn = [&](int base) { int k = 0; const int c = Items(it, kMaxRows + 4); for (int i = 0; i < c; ++i) if (it[i] >= base && it[i] < base + kMaxRows) ++k; return k; };
+
+        // 3: both Training lists start with the Boss Matches filter row; the stops are the same and the two filters stay separate.
+        UiOpen(); g_uiPages.page = uTrainHere; g_sel = 0;
+        CHECK(Items(it, kMaxRows + 4) > 2 && it[0] == kItListFilter && rowsOn(kItTrainHere) >= 3);
+        CHECK(strcmp(ListFilterLabel(), "All") == 0);
+        CHECK(!UiAct() && g_uiPages.page == uTrainHere && g_trainStop == 1 && g_listStop == 0 && g_sel == 0);  // A cycles, starts nothing
+        CHECK(!g_req);
+        CHECK(shown("List: Multi"));
+        g_trainStop = 2;
+        const char* era = ListFilterLabel();
+        const int eraStops = g_listCycle.nEra;
+        CHECK(eraStops == 2 && !strcmp(era, "Waves"));
+        CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 7) == 1);
+        g_trainStop = 3;
+        CHECK(!strcmp(ListFilterLabel(), "Sengoku") && rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 8) == 1);
+        g_trainStop = 4;
+        CHECK(!strcmp(ListFilterLabel(), "Scrolls") && rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 7) == 1);
+        g_trainStop = 5;
+        CHECK(!strcmp(ListFilterLabel(), "Favorites") && rowsOn(kItTrainHere) == 0);
+        g_sel = 0; UiChange(1);
+        CHECK(g_trainStop == 0 && strcmp(ListFilterLabel(), "All") == 0);  // wraps
+        g_uiPages.page = uTraining; g_sel = 0;
+        CHECK(Items(it, kMaxRows + 4) > 2 && it[0] == kItListFilter && rowsOn(kItTeleport) == 25);
+        g_trainStop = 3;  // the same filter on the arena list
+        CHECK(rowsOn(kItTeleport) == 1 && indexOf(kItTeleport + 8) == 1);
+        g_trainStop = 4;
+        CHECK(rowsOn(kItTeleport) == 1 && indexOf(kItTeleport + 7) == 1);
+        g_trainStop = 0;
+
+        // 4: Right marks, Left unmarks, by row id. Boss Matches and Training have separate lists. Saved in our file and read back.
+        const std::wstring favFile = std::wstring(addon::testDir) + L"Nioh3BossRematch_favorites.txt";
+        DeleteFileW(favFile.c_str());
+        g_favs.clear(); g_favLoaded = false;
+        g_uiPages.page = uTrainHere;
+        g_sel = indexOf(kItTrainHere + 8); CHECK(g_sel > 0);
+        UiChange(1);
+        CHECK(FavHas(kFavTrain, "T08") && !FavHas(kFavBoss, "T08") && strstr(g_msg, "favorite"));
+        CHECK(shown("* Boss 8"));
+        CHECK(GetFileAttributesW(favFile.c_str()) != INVALID_FILE_ATTRIBUTES);
+        g_trainStop = 5;  // Favorites
+        CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 8) == 1);
+        // The same id is found after the catalogue moves: rows 8 and 9 swap places.
+        std::swap(g_rows[8], g_rows[9]);
+        CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 9) == 1);
+        std::swap(g_rows[8], g_rows[9]);
+        // Survives a restart: forget everything in memory, read the file again.
+        g_favs.clear(); g_favLoaded = false;
+        CHECK(FavHas(kFavTrain, "T08"));
+        CHECK(rowsOn(kItTrainHere) == 1);
+        // The arena list shares Training's favorites; a Left there removes it from Favorites at once.
+        g_uiPages.page = uTraining;
+        CHECK(rowsOn(kItTeleport) == 1);
+        g_sel = indexOf(kItTeleport + 8); CHECK(g_sel == 1);
+        UiChange(-1);
+        CHECK(!FavHas(kFavTrain, "T08") && rowsOn(kItTeleport) == 0);
+        g_favs.clear(); g_favLoaded = false;
+        CHECK(!FavHas(kFavTrain, "T08"));
+        g_trainStop = 0;
+        // Boss Matches: its own list, its own stop. A still opens the boss, Left / Right never start anything.
+        UiOpen(); g_uiPages.page = uRematch;
+        g_sel = indexOf(10); CHECK(g_sel > 0);
+        UiChange(1);
+        CHECK(FavHas(kFavBoss, "T10") && !FavHas(kFavTrain, "T10") && !g_req && g_uiPages.page == uRematch);
+        CHECK(shown("* Boss 10"));
+        UiChange(1);  // already marked: stays marked
+        CHECK(FavHas(kFavBoss, "T10"));
+        EnsureListCycle();
+        g_listStop = g_listCycle.Stops() - 1;
+        CHECK(!strcmp(ListFilterLabel(), "Favorites"));
+        CHECK(indexOf(10) == 1 && Items(it, kMaxRows + 4) >= 3 && it[2] < 0);
+        g_sel = 1;
+        CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 10 && !g_req);
+        CHECK(!UiBack() && g_uiPages.page == uRematch);
+        g_sel = 1; UiChange(-1);
+        CHECK(!FavHas(kFavBoss, "T10") && indexOf(10) == -1);
+        g_listStop = 0;
+        {   // a row without an id cannot be marked
+            char keep[sizeof g_rows[10].id]; memcpy(keep, g_rows[10].id, sizeof keep);
+            g_rows[10].id[0] = 0;
+            g_sel = indexOf(10); UiChange(1);
+            CHECK(strstr(g_msg, "no id") && g_favs.empty());
+            memcpy(g_rows[10].id, keep, sizeof keep);
+        }
+        {   // a damaged file loses the bad lines only
+            std::set<std::string> f;
+            rcore::FavParse("B R1CBC\r\njunk\nT a b\nX E00\nT E00\nB \n", f);
+            CHECK(f.size() == 2 && f.count("B R1CBC") && f.count("T E00"));
+            CHECK(rcore::FavText(f) == "B R1CBC\r\nT E00\r\n");
+            CHECK(!rcore::FavIdOk("") && !rcore::FavIdOk("a b") && !rcore::FavIdOk(nullptr) && rcore::FavIdOk("R1CBC"));
+        }
+        DeleteFileW(favFile.c_str());
+        g_favs.clear(); g_favLoaded = false;
+
+        // 1: every Training path posts the no-wave request, Fight now posts the normal one, and no guard means no start.
+        UiOpen(); g_uiPages.page = uTrainHere; g_sel = indexOf(kItTrainHere + 7); g_req = 0; g_confirm = -9; g_msg[0] = 0;
+        g_waveVetoOk = false;
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "wave guard"));
+        g_waveVetoOk = true; g_msg[0] = 0;
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "No waves"));
+        CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmakiTrain && (g_req.load() >> 8) == 8);
+        g_req = 0; g_confirm = -9;
+        UiOpen(); g_uiPages.page = uTraining; g_sel = indexOf(kItTeleport + 7);
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "No waves"));
+        CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmakiTrain);
+        g_req = 0; g_confirm = -9;
+        UiOpen(); g_uiPages.page = uRematch; g_sel = indexOf(7); CHECK(!UiAct() && g_uiPages.page == uActions && g_uiBoss == 7);
+        CHECK(shown("Train here (no waves)"));
+        g_sel = indexOf(kItBossTrainHere + 7);
+        CHECK(!UiAct() && !g_req && strstr(g_msg, "No waves"));
+        CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmakiTrain);
+        g_req = 0; g_confirm = -9;
+        g_sel = indexOf(kItFight + 7);
+        CHECK(!UiAct() && !g_req);
+        CHECK(UiAct() && (g_req.load() & 0xFF) == kReqEmaki);  // Fight now keeps its waves
+        g_req = 0; g_confirm = -9; g_msg[0] = 0;
+
+        // The script's wave call is skipped only on a live Training trip inside 0xCC96.
+        const uint32_t missionWas = mission;
+        mission = 0xCC96; memcpy(ms + 0x28, &mission, 4);
+        g_scrollNoWaves.store(false); g_state.store(kEmaki);
+        CHECK(!VetoWaveRequest(0));  // Fight now: waves run
+        g_scrollNoWaves.store(true);
+        CHECK(VetoWaveRequest(0));
+        g_state.store(kIdle);
+        CHECK(!VetoWaveRequest(0));  // stale flag, no trip
+        g_state.store(kEmaki);
+        mission = 0x1111; memcpy(ms + 0x28, &mission, 4);
+        CHECK(!VetoWaveRequest(0));  // stale flag, other mission
+        mission = 0xCC96; memcpy(ms + 0x28, &mission, 4);
+
+        // Training hub is the way out; the gate has no Fight again on a no-wave trip, keeps it on a normal one.
+        g_et.st = rcore::kEIn; g_activeRow.store(7);
+        CHECK(WavesGateNow());
+        UiOpen(); g_uiPages.page = uPracticeHub;
+        CHECK(indexOf(kItReturnHome) > 0 && indexOf(kItArenas) == -1);
+        CHECK(shown("Leave Picture Scroll"));
+        UiGatePage();
+        CHECK(indexOf(kItFightAgain) == -1 && indexOf(kItReturnHome) >= 0);
+        g_scrollNoWaves.store(false);
+        UiGatePage();
+        CHECK(indexOf(kItFightAgain) == 0 && indexOf(kItReturnHome) >= 1 && shown("Leave Picture Scroll"));
+        UiOpen(); g_uiPages.page = uPracticeHub;
+        CHECK(indexOf(kItReturnHome) == -1 && indexOf(kItArenas) >= 0);  // a normal hub, unchanged
+
+        // No leak: every ExecEmaki starts from off, a refused Training request leaves it off, ToIdle clears it.
+        g_scrollNoWaves.store(true);
+        g_state.store(kIdle); g_et = {}; g_activeRow.store(-1);
+        g_waveVetoOk = false;
+        ExecEmaki(7, Ms(), true);
+        CHECK(!g_scrollNoWaves.load() && g_state.load() == kIdle);
+        g_scrollNoWaves.store(true);
+        ExecEmaki(-1, Ms());
+        CHECK(!g_scrollNoWaves.load());
+        g_scrollNoWaves.store(true);
+        ToIdle("harness", true);
+        CHECK(!g_scrollNoWaves.load());
+        // The arrival: two warps to the wake spot, never the walk.
+        CHECK(rcore::WaveTryCount(true, 4) == 2 && rcore::WaveTryOffset(true, 4, 0) == 4 && rcore::WaveTryOffset(true, 4, 1) == 4);
+        CHECK(rcore::WaveTryCount(true, 0) == 2 && rcore::WaveTryOffset(true, 0, 1) == 0);
+        CHECK(rcore::WaveNudgeDecide(-1, 1, false, 2) == 1 && rcore::WaveNudgeDecide(0, 1, true, 2) == 1 && rcore::WaveNudgeDecide(1, 1, true, 2) == 3);
+        CHECK(rcore::WaveTryCount(false, 4) == rcore::WaveWalkCount(4) && rcore::WaveTryOffset(false, 4, 1) == rcore::WaveWalkOffset(4, 1));
+
+        mission = missionWas; memcpy(ms + 0x28, &mission, 4);
+        g_state.store(stateWas);
+        g_rows = savedRows;
+        g_emakiOk = emakiWas; g_waveVetoOk = vetoWas;
+        g_listStop = 0; g_trainStop = 0;
         g_req = 0; g_confirm = -9; g_msg[0] = 0;
         UiOpen(); g_sel = 1; UiAct(); g_sel = 1; UiAct();
         g_sel = 0;

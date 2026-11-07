@@ -319,8 +319,8 @@ int main() {
     list(); CHECK(n == 2 && items[0] == kItSumAnother && items[1] == kItBack);  // nothing spawned: no boss rows, no timer, no Remove all
     // Training here
     UiOpenAt(2); g_sel = 0; CHECK(!UiAct() && g_uiPages.page == uTrainHere);
-    list(); CHECK(n == 2 && items[0] == kItTrainHere && items[1] == kItBack);
-    g_sel = 0; CHECK(UiAct() && trainHereCalls == 1 && trainHereMission == 0x1CBC);
+    list(); CHECK(n == 3 && items[0] == kItListFilter && items[1] == kItTrainHere && items[2] == kItBack);  // #79069: the same filter row as Boss Matches
+    g_sel = 1; CHECK(UiAct() && trainHereCalls == 1 && trainHereMission == 0x1CBC);
     UiOpenAt(2); CHECK(g_uiPages.page == uPracticeHub && UiBack());
     UiOpenAt(1); CHECK(g_uiPages.page == uRematch && UiBack());
     // Settings: no second Training door (#14336 item 8)
@@ -332,7 +332,7 @@ int main() {
     sessionMode = 1; list();
     CHECK(items[0] == kItFightAgain && has(kItFinT) && has(kItHp0W) && !has(kItIdleHold) && !has(kItMoves) && !has(kItFightOpts) && items[n - 3] == kItReturnHome && items[n - 2] == kItBack && items[n - 1] == kItClose);
     sessionMode = 2; list();
-    CHECK(n == 5 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItReturnHome && items[3] == kItBack && items[4] == kItClose);
+    CHECK(n == 6 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItBossSumm && items[3] == kItReturnHome && items[4] == kItBack && items[5] == kItClose);
     CHECK(shown("Return - Training") && shown("-- Active bosses --") && shown("Reset round"));
     sessionMode = 1; list(); g_sel = 0;
     CHECK(shown("Fight again (same boss, this arena)") && strstr(footer, "no load") && !strstr(footer, "reloads the mission"));
@@ -343,6 +343,30 @@ int main() {
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTools && !UiBack() && g_uiPages.page == uGate);
     g_sel = 0; CHECK(UiAct() && fightAgainCalls == 1);
     UiGatePage(); CHECK(UiBack());
+    // #79069 Picture Scroll end gate: Fight again + Leave stay, the Training rows are the Training gate's own (AddGateTrainingRows).
+    {
+        Row scroll = {}; strcpy_s(scroll.name, "Scroll Gate"); strcpy_s(scroll.id, "E08"); strcpy_s(scroll.region, "Waves"); scroll.route = rcore::kE; scroll.missionId = 0xCC96;
+        g_rows.push_back(scroll);
+        uint8_t ms[0x40]{}, mgr[16]{};
+        uint64_t pms = (uint64_t)ms, pmgr = (uint64_t)mgr;
+        memcpy(mgr + 8, &pms, 8);
+        const uint32_t cc96 = 0xCC96; memcpy(ms + 0x28, &cc96, 4);
+        const uint64_t msWas = G_MS; G_MS = (uint64_t)&pmgr; addon::uiReads = true;
+        g_state.store(kEmaki); g_et.st = rcore::kEIn; g_activeRow.store((int)g_rows.size() - 1);
+        CHECK(WavesGateNow());
+        UiGatePage(); list();
+        CHECK(n == 6 && items[0] == kItFightAgain && items[1] == kItRootTools && items[2] == kItBossSumm && items[3] == kItReturnHome && items[4] == kItBack && items[5] == kItClose);
+        CHECK(shown("Return - Boss Match") && shown("Leave Picture Scroll") && shown("Summon a boss here") && shown("Active bosses"));
+        g_sel = 2; CHECK(!UiAct() && g_uiPages.page == uSummon); CHECK(!UiBack() && g_uiPages.page == uGate && g_sel == 2);
+        g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uTools); CHECK(!UiBack() && g_uiPages.page == uGate);
+        g_scrollNoWaves.store(true); UiGatePage(); list();  // no-wave Training trip: there is no fight to run again
+        CHECK(!has(kItFightAgain) && items[0] == kItRootTools && has(kItBossSumm) && has(kItReturnHome));
+        UiOpenAt(2); list();  // the Training hub keeps summon and leaves by the scroll's own exit
+        CHECK(at(kItReturnHome) > 0 && has(kItBossSumm) && has(kItRootTools) && !has(kItArenas) && !has(kItTrainHereOpen));
+        g_scrollNoWaves.store(false);
+        g_state.store(kIdle); g_et = {}; g_activeRow.store(-1); G_MS = msWas; addon::uiReads = false;
+        g_rows.pop_back();
+    }
     sessionMode = 0;
     {   // user #22389 Practice > Player page: Infinite health, then Infinite Ki / Damage I deal / Infinite ninjutsu / Player speed (defaults OFF / x1.00)
         UiOpenAt(2); g_uiPages.Enter(uPlayer, g_sel); g_sel = 0; list();

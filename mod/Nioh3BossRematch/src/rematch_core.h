@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <set>
 #include <string>
 #include <vector>
 #include "../../Nioh3Training/src/fallback_rosters_gen.h"
@@ -243,19 +244,19 @@ struct ListCycle {
     static constexpr int kMaxEra = 32;
     char era[kMaxEra][40]{};
     int nEra = 0;
-    int Stops() const { return 3 + nEra; }
+    int Stops() const { return 4 + nEra; }
     int Kind(int stop) const {
         if (stop <= 0) return 0;
         if (stop == 1) return 1;
         if (stop >= 2 && stop < 2 + nEra) return 2;
-        return 3;
+        return stop == 2 + nEra ? 3 : 4;
     }
     const char* Label(int stop) const {
         const int k = Kind(stop);
         if (k == 0) return "All";
         if (k == 1) return "Multi";
         if (k == 2) return era[stop - 2];
-        return "Scrolls";
+        return k == 3 ? "Scrolls" : "Favorites";
     }
     void AddEra(const char* name) {
         if (!name || !name[0] || nEra >= kMaxEra) return;
@@ -284,9 +285,11 @@ inline bool WavesRow(const Row& r) {
 }
 
 // Multi is a catalogue row whose generated roster has more than one member. A count of 0 is not multi.
-inline bool RowInListStop(const Row& r, const ListCycle& c, int stop) {
+// isFavorite belongs to the list being drawn: Boss Matches and Training keep separate favorites (#79069).
+inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFavorite = false) {
     const int k = c.Kind(stop);
     if (k == 0) return true;
+    if (k == 4) return isFavorite;
     if (k == 3) return r.route == kE;
     if (k == 2) {
         const int ei = stop - 2;
@@ -570,6 +573,12 @@ inline int WaveWalkOffset(int wakeStep, int tryNo) {
 }
 inline constexpr uint64_t kWaveDwellCoverMs = 4000, kWaveDwellMs = 9000;
 
+// #79069 Training at a scroll arena: the same spot the waves wake at, twice, because a first warp can land before the mission
+// takes it. Then the player keeps control. The wave request itself is skipped by VetoWaveRequest, so these warps wake nothing.
+inline constexpr int kWaveTrainWarps = 2;
+inline int WaveTryOffset(bool training, int wakeStep, int tryNo) { return training ? wakeStep : WaveWalkOffset(wakeStep, tryNo); }
+inline int WaveTryCount(bool training, int wakeStep) { return training ? kWaveTrainWarps : WaveWalkCount(wakeStep); }
+
 // Wave state 1 also means "waiting for the next wave" (wave 2+, members still listed). The run is over only at wave 0 with no members (#75963 log, BR fd4eca18).
 inline bool WaveRunOver(int state, unsigned waveNo, unsigned members) { return state == 1 && waveNo == 0 && members == 0; }
 
@@ -607,6 +616,35 @@ inline int ResumeHold(bool armed, uint32_t trip, uint32_t source, uint32_t live,
     if (ResumeBlocksWrite(armed, trip, source, live, liveOk, session) || loading) return 1;
     if (!entered) return 0;
     return 2;
+}
+
+// #79069 favorites file, one row a line: "B <row id>" Boss Matches, "T <row id>" Training. Row ids, never list positions: the
+// catalogue can reorder. A line this build cannot read is dropped, so a damaged file loses that line and nothing else.
+inline bool FavIdOk(const char* id) {
+    if (!id || !id[0]) return false;
+    int n = 0;
+    for (; id[n]; ++n) {
+        const char c = id[n];
+        if (n >= 31 || !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || c == '-')) return false;
+    }
+    return true;
+}
+inline std::string FavKey(char list, const char* id) { return std::string(1, list) + " " + id; }
+inline void FavParse(const std::string& text, std::set<std::string>& out) {
+    size_t at = 0;
+    while (at < text.size()) {
+        size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        at = end + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.size() > 2 && (line[0] == 'B' || line[0] == 'T') && line[1] == ' ' && FavIdOk(line.c_str() + 2)) out.insert(line);
+    }
+}
+inline std::string FavText(const std::set<std::string>& favs) {
+    std::string text;
+    for (const auto& f : favs) { text += f; text += "\r\n"; }
+    return text;
 }
 
 // Empty Picture Scroll bag: the shrine return still asks to reopen the list. Close that request
