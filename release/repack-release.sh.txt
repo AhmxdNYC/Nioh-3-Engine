@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Package 1.8.8 like 1.8.7. Updater = staged-site/downloads (75c7251d build of tools/updater); Cam ini = 1.8.7 file.
+set -e
+W=${W:-"$PWD"}  # set W to the release worktree
+S=D:/nioh3-re/rc188/v1.8.8
+P=D:/nioh3-re/rc187/v1.8.7
+cd $S
+rm -f Nioh3*
+cp "$W/staged-site/downloads/Nioh3Updater.exe" $P/Nioh3CamKiProbe.ini .   # updater comes from the repo (rebuilt from tools/updater), never from the previous release folder
+cp "$W/mod/Nioh3EngineFix/bin/Nioh3EngineFix.asi" "$W/mod/Nioh3BossRematch/bin/Nioh3BossRematch.asi" "$W/mod/Nioh3BossRematch/bin/Nioh3BossRematch_bosses.tsv" "$W/mod/Nioh3CamKiProbe/bin/Nioh3CamKiProbe.asi" "$W/mod/Nioh3Training/Nioh3Training.asi" .
+cp "$W/mod/Nioh3Training/Nioh3Training_action_records.tsv" "$W/mod/Nioh3Training/Nioh3Training_actionsets.tsv" "$W/mod/Nioh3Training/Nioh3Training_arenas.tsv" "$W/mod/Nioh3Training/Nioh3Training_bgm.tsv" .
+py -I -c "
+import zipfile
+n='Nioh3EngineFix.asi Nioh3Training.asi Nioh3BossRematch.asi Nioh3CamKiProbe.asi Nioh3CamKiProbe.ini Nioh3BossRematch_bosses.tsv Nioh3Training_actionsets.tsv Nioh3Training_action_records.tsv Nioh3Training_arenas.tsv Nioh3Training_bgm.tsv Nioh3Updater.exe'.split()
+with zipfile.ZipFile('Nioh3-1.8.8-combined.zip','w',zipfile.ZIP_DEFLATED) as z:
+    [z.write(f) for f in n]
+"
+rm -rf ../asidir && mkdir -p ../asidir && cp Nioh3*.asi Nioh3Updater.exe ../asidir/
+cd "$W"
+py -I release/full_install_zip.py build --asi-dir D:/nioh3-re/rc188/asidir --loader-zip $P/Nioh3-1.8.7-full-install.zip --out $S/Nioh3-1.8.8-full-install.zip
+rm -rf D:/nioh3-re/rc188/asidir
+py -I tools/setup/build_linux.py $S/Nioh3-1.8.8-full-install.zip $S/Nioh3-Setup-Linux.pyz
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/setup/build-setup.ps1 -Zip $S/Nioh3-1.8.8-full-install.zip -Python D:/nioh3-wt/release-182/tools/setup/.venv-build/Scripts/python.exe > D:/nioh3-re/rc188/setup-build.log 2>&1
+cp tools/setup/dist/Nioh3-Setup.exe $S/
+cd $S && sha256sum Nioh3* > SHA256SUMS.txt && cut -c1-8,65- SHA256SUMS.txt
