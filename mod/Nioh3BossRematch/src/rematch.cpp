@@ -1832,6 +1832,79 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
     }
 }
 
+// #77250: one line per record at charMgr+0x2BD0. Word 0 of each 0x14 slot is a generated placement
+// (3900 and up), the key the wave manager uses for woke/dead. The enemy id is slot+4. The catalogue
+// star and name match that id. Kind byte +0x1A stays off this line: DataDb+0xA88 is the emaki table,
+// and this log does not walk an uncounted 0x1C def array. The line stays under 120 characters.
+static void LogEmakiRecords(uint64_t vb, uint32_t waves, uint64_t mb, uint64_t me) {
+    if (!vb || !waves) return;
+    const uint32_t nRec = waves > 8 ? 8u : waves;
+    const uint32_t members = (me >= mb && mb) ? (uint32_t)((me - mb) / 0xC) : 0;
+    for (uint32_t i = 0; i < nRec; ++i) {
+        uint64_t eb = 0, ee = 0;
+        int32_t d20 = 0;
+        char line[120];
+        if (!Rd(vb + (uint64_t)i * 0x28, eb) || !Rd(vb + (uint64_t)i * 0x28 + 8, ee) || ee < eb) {
+            Log("Rematch: rec %u unreadable", i);
+            continue;
+        }
+        const uint32_t nEn = (uint32_t)((ee - eb) / 0x14);
+        int n = snprintf(line, sizeof(line), "Rematch: rec %u n=%u", i, nEn);
+        if (n < 0) continue;
+        if (n >= (int)sizeof(line)) n = (int)sizeof(line) - 1;
+        if (Rd(vb + (uint64_t)i * 0x28 + 0x20, d20)) {
+            char bit[24];
+            snprintf(bit, sizeof(bit), " d20=%d", d20);
+            if (n + (int)strlen(bit) < (int)sizeof(line) - 1) n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", bit);
+        }
+        uint32_t shown = 0;
+        const uint32_t cap = nEn > 12 ? 12u : nEn;
+        for (uint32_t q = 0; q < cap; ++q) {
+            uint32_t place = 0, eid = 0;
+            if (!Rd(eb + (uint64_t)q * 0x14, place) || !Rd(eb + (uint64_t)q * 0x14 + 4, eid)) break;
+            const char* name = nullptr;
+            bool boss = false;
+            for (size_t r = 0; r < g_rows.size(); ++r) {
+                if (!g_rows[r].placement || g_rows[r].placement != eid) continue;
+                boss = true;
+                if (g_rows[r].name[0]) name = g_rows[r].name;
+                break;
+            }
+            int woke = -1, dead = -1;
+            const uint32_t mCap = members > 16 ? 16u : members;
+            for (uint32_t m = 0; m < mCap; ++m) {
+                uint32_t mid = 0;
+                uint8_t w = 0, d = 0;
+                if (!Rd(mb + (uint64_t)m * 0xC, mid) || mid != place) continue;
+                Rd(mb + (uint64_t)m * 0xC + 9, w);
+                Rd(mb + (uint64_t)m * 0xC + 10, d);
+                woke = w;
+                dead = d;
+                break;
+            }
+            char nm[9] = "";
+            if (name) {
+                size_t k = 0;
+                for (; name[k] && k < 8; ++k) nm[k] = (name[k] >= 0x20 && name[k] < 0x7F && name[k] != '%') ? name[k] : '?';
+                nm[k] = 0;
+            }
+            char piece[48];
+            if (nm[0] && woke >= 0) snprintf(piece, sizeof(piece), " %u:%s%s p%u w%dd%d", eid, nm, boss ? "*" : "", place, woke, dead);
+            else if (nm[0]) snprintf(piece, sizeof(piece), " %u:%s%s p%u", eid, nm, boss ? "*" : "", place);
+            else if (woke >= 0) snprintf(piece, sizeof(piece), " %u p%u w%dd%d", eid, place, woke, dead);
+            else snprintf(piece, sizeof(piece), " %u p%u", eid, place);
+            if (n + (int)strlen(piece) >= (int)sizeof(line) - 8) break;
+            n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", piece);
+            ++shown;
+        }
+        const uint32_t left = nEn > shown ? nEn - shown : 0;
+        if (left && n < (int)sizeof(line) - 6) n += snprintf(line + n, sizeof(line) - (size_t)n, " +%u", left);
+        if (waves > nRec && i + 1 == nRec && n < (int)sizeof(line) - 6)
+            snprintf(line + n, sizeof(line) - (size_t)n, " +rec");
+        Log("%s", line);
+    }
+}
+
 // Diagnostic for the Picture Scroll wave (#75727). Logs only when a value changes. The wave manager global 45BAC40 has no site of its own,
 // so it is taken relative to the mission queue, same image. Word 0 is the active wave id (90EABC), 0xFFFF = the scroll's wave.
 void LogEmakiWave() {
@@ -1913,19 +1986,7 @@ void LogEmakiWave() {
                         Log("Rematch: wave record %d (byte %02X): start %u gadget %u box %u warp %.0f %.0f %.0f", rec, byte, st0, gad, box, wp[0], wp[1], wp[2]);
                     }
                 }
-                for (uint32_t i = 0; i < waves && i < 8; ++i) {
-                    uint64_t eb = 0, ee2 = 0;
-                    float w18 = 0, w1c = 0;
-                    int32_t w20 = 0;
-                    if (!Rd(vb + i * 0x28, eb) || !Rd(vb + i * 0x28 + 8, ee2)) break;
-                    Rd(vb + i * 0x28 + 0x18, w18); Rd(vb + i * 0x28 + 0x1C, w1c); Rd(vb + i * 0x28 + 0x20, w20);
-                    Log("Rematch: wave list %u: t18 %.1f t1c %.1f d20 %d", i, w18, w1c, w20);
-                    for (uint64_t q = eb; q < ee2 && q < eb + 0x14 * 8; q += 0x14) {
-                        uint32_t r[5] = {};
-                        Copy(r, q, sizeof(r));
-                        Log("Rematch:   enemy %u %X %X %X %X", r[0], r[1], r[2], r[3], r[4]);
-                    }
-                }
+                LogEmakiRecords(vb, waves, mb, me);
             }
         }
     }
