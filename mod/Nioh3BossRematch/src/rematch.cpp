@@ -957,6 +957,8 @@ struct WavePlace {
     int cleared = 0;
     int exhausted = 0;
     int loggedWait = 0;
+    int loggedStop = 0;
+    int offset = -1;
     ULONGLONG at = 0;
     float base[4] = {};
     bool have = false;
@@ -2176,13 +2178,23 @@ void WavePlaceTick(const Snap& s, ULONGLONG t) {
     }
     if (ok && st == 3) {
         g_wavePlace.seenFight = 1;
-        Log("Rematch: waves fight %s: state 3 at step %d (no boss bar)", id, g_wavePlace.step);
-        Result("waves fighting %s (state 3, step %d)", id, g_wavePlace.step);
+        Log("Rematch: waves fight %s: state 3 at step %d (no boss bar)", id, g_wavePlace.offset);
+        Result("waves fighting %s (state 3, step %d)", id, g_wavePlace.offset);
         return;
     }
-    const bool dwell = g_wavePlace.step >= 0 && t >= g_wavePlace.at && t - g_wavePlace.at >= 9000;
-    const int dec = rcore::WaveNudgeDecide(g_wavePlace.step, ok ? st : 0, dwell);
+    // #78985: under the loading screen the known offset goes first and the walk is quick; a menu row never moves the player once the screen is gone.
+    const int wakeStep = g_eRow >= 0 ? rcore::WaveWakeStep(g_rows[(size_t)g_eRow].id) : 0;
+    const uint64_t dwellMs = g_eRow >= 0 ? rcore::kWaveDwellCoverMs : rcore::kWaveDwellMs;
+    const bool dwell = g_wavePlace.step >= 0 && t >= g_wavePlace.at && t - g_wavePlace.at >= dwellMs;
+    const int dec = rcore::WaveNudgeDecide(g_wavePlace.step, ok ? st : 0, dwell, rcore::WaveWalkCount(wakeStep));
     if (dec == 0 || dec == 2) return;
+    if (dec == 1 && g_eRow >= 0 && !g_scrollCover && g_wavePlace.step >= 0) {
+        if (!g_wavePlace.loggedStop) {
+            g_wavePlace.loggedStop = 1;
+            Log("Rematch: waves %s: loading screen is gone with no wave, walk stopped at try %d, the player keeps control", id, g_wavePlace.step);
+        }
+        return;
+    }
     if (dec == 3) {
         if (!g_wavePlace.exhausted) {
             g_wavePlace.exhausted = 1;
@@ -2210,14 +2222,16 @@ void WavePlaceTick(const Snap& s, ULONGLONG t) {
         }
     }
     const int next = g_wavePlace.step + 1;
-    const rcore::WaveNudge n = rcore::WaveNudgeAt(next);
+    const int offset = rcore::WaveWalkOffset(wakeStep, next);
+    const rcore::WaveNudge n = rcore::WaveNudgeAt(offset);
     const float x = g_wavePlace.base[0] + n.dx;
     const float y = g_wavePlace.base[1] + n.dy;
     const float z = g_wavePlace.base[2] + n.dz;
     const int rc = CallWarp(x, y, z, g_wavePlace.base[3]);
     g_wavePlace.step = next;
+    g_wavePlace.offset = offset;
     g_wavePlace.at = t;
-    Log("Rematch: waves %s: warp step %d -> %.0f %.0f %.0f (%s)", id, next, x, y, z, rc == 0 ? "ok" : rc == 1 ? "no player" : "exception");
+    Log("Rematch: waves %s: warp step %d -> %.0f %.0f %.0f (%s, try %d, known step %d)", id, offset, x, y, z, rc == 0 ? "ok" : rc == 1 ? "no player" : "exception", next, wakeStep);
 }
 
 void TrackEmaki(const Snap& s, ULONGLONG t) {
@@ -2610,12 +2624,12 @@ void ScrollCoverTick(const Snap& s, ULONGLONG t) {
     const bool in = g_et.st == rcore::kEIn && !s.st[2] && s.player;
     if (!in) g_scrollCoverIn = 0;
     else if (!g_scrollCoverIn) g_scrollCoverIn = t;
-    const int done = rcore::ScrollCoverDone(g_state.load() == kEmaki, in, g_wavePlace.seenFight != 0, g_scrollCoverIn ? t - g_scrollCoverIn : 0);
+    const int done = rcore::ScrollCoverDone(g_state.load() == kEmaki, in, g_wavePlace.seenFight != 0, g_wavePlace.exhausted != 0, g_scrollCoverIn ? t - g_scrollCoverIn : 0);
     if (!done) return;
     g_scrollCover = false;
     ScrollCoverSet(nullptr, 0);
     Log("Rematch: scroll cover off (+%llu ms, %s)", (unsigned long long)(t - g_scrollCoverAt),
-        done == 1 ? "trip ended" : done == 2 ? "waves running" : "8 s in the mission");
+        done == 1 ? "trip ended" : done == 2 ? "waves running" : done == 3 ? "walk found no wave" : "safety timeout, no wave");
 }
 void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     if (g_nativeAgainRow < 0) return;

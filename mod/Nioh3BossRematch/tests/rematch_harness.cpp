@@ -91,11 +91,30 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
-    CHECK(rcore::ScrollCoverDone(false, false, false, 0) == 1, "scroll cover ends when the trip ends");
-    CHECK(rcore::ScrollCoverDone(true, false, true, 9000) == 0, "scroll cover stays while loading");
-    CHECK(rcore::ScrollCoverDone(true, true, true, 0) == 2, "scroll cover ends at the first wave");
-    CHECK(rcore::ScrollCoverDone(true, true, false, 7999) == 0, "scroll cover waits under 8 s");
-    CHECK(rcore::ScrollCoverDone(true, true, false, 8000) == 3, "scroll cover gives up at 8 s");
+    CHECK(rcore::ScrollCoverDone(false, false, false, false, 0) == 1, "scroll cover ends when the trip ends");
+    CHECK(rcore::ScrollCoverDone(true, false, true, false, 90000) == 0, "scroll cover stays while loading");
+    CHECK(rcore::ScrollCoverDone(true, true, true, false, 0) == 2, "scroll cover ends at the first wave");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, 8000) == 0, "scroll cover no longer gives up at 8 s (E04 showed 12 s of empty field)");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs - 1) == 0, "scroll cover waits up to the safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs) == 4, "scroll cover safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, true, 100) == 3, "scroll cover ends when the walk found no wave");
+    CHECK(rcore::ScrollCoverDone(true, true, true, true, 100) == 2, "a wave beats the finished walk");
+    {
+        const char* known[] = {"E00", "E01", "E04", "E07", "E08", "E09", "E10", "E17", "E18"};
+        const int steps[] = {4, 1, 2, 9, 1, 3, 2, 1, 1};
+        for (int i = 0; i < 9; ++i) CHECK(rcore::WaveWakeStep(known[i]) == steps[i], "row wake step from the test runs");
+        const char* still[] = {"E02", "E03", "E05", "E06", "E11", "E12", "E13", "E14", "E15", "E16", "E19"};
+        for (const char* id : still) CHECK(rcore::WaveWakeStep(id) == 0, "row wakes at the record warp");
+        CHECK(rcore::WaveWakeStep(nullptr) == 0 && rcore::WaveWakeStep("R0C12") == 0 && rcore::WaveWakeStep("E20") == 0 && rcore::WaveWakeStep("E071") == 0 && rcore::WaveWakeStep("E") == 0, "other ids take the plain walk");
+        CHECK(rcore::WaveNudgeAt(rcore::WaveWakeStep("E07")).dz == -1200.f && rcore::WaveNudgeAt(rcore::WaveWakeStep("E00")).dz == -600.f, "E07 and E00 keep the offsets that woke them");
+        CHECK(rcore::WaveWalkCount(0) == rcore::kWaveNudges && rcore::WaveWalkOffset(0, 0) == 0 && rcore::WaveWalkOffset(0, 12) == 12, "step 0 rows keep the old order");
+        CHECK(rcore::WaveWalkCount(9) == rcore::kWaveNudges + 1 && rcore::WaveWalkOffset(9, 0) == 9, "the known offset goes first");
+        bool all = true;
+        for (int i = 0; i < rcore::kWaveNudges; ++i) all = all && rcore::WaveWalkOffset(9, i + 1) == i;
+        CHECK(all, "after a miss the whole old walk still runs");
+        CHECK(rcore::WaveNudgeDecide(12, 1, true, 14) == 1 && rcore::WaveNudgeDecide(13, 1, true, 14) == 3 && rcore::WaveNudgeDecide(13, 3, true, 14) == 2, "the longer walk ends on its own count");
+        CHECK(rcore::WaveWalkCount(9) * rcore::kWaveDwellCoverMs + 8000 < rcore::kScrollCoverSafetyMs, "the whole walk fits inside the safety timeout");
+    }
     CHECK(rcore::CloseScrollListWhenEmpty(0, 1), "empty bag closes the scroll list");
     CHECK(!rcore::CloseScrollListWhenEmpty(1, 1), "one scroll keeps the list");
     CHECK(!rcore::CloseScrollListWhenEmpty(0, 0), "flag already clear stays clear");

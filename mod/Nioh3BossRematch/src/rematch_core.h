@@ -547,13 +547,28 @@ inline WaveNudge WaveNudgeAt(int step) {
     return k[step];
 }
 // 0 wait, 1 take the next offset, 2 stop because wave state is 3, 3 the list is finished
-inline int WaveNudgeDecide(int step, int state, bool dwellDone) {
+inline int WaveNudgeDecide(int step, int state, bool dwellDone, int count = kWaveNudges) {
     if (state == 3) return 2;
     if (step < 0) return 1;
     if (!dwellDone) return 0;
-    if (step + 1 >= kWaveNudges) return 3;
+    if (step + 1 >= count) return 3;
     return 1;
 }
+// #78985: the offset that woke each record in the test runs, so the first warp under the loading screen lands on it.
+// Index = record = the number in row id E00..E19. Sources: pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389.
+inline constexpr int kWaveWakeSteps[20] = {4, 1, 0, 0, 2, 0, 0, 9, 1, 3, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0};
+inline int WaveWakeStep(const char* id) {
+    if (!id || id[0] != 'E' || id[1] < '0' || id[1] > '9' || id[2] < '0' || id[2] > '9' || id[3]) return 0;
+    const int record = (id[1] - '0') * 10 + (id[2] - '0');
+    return record < 20 ? kWaveWakeSteps[record] : 0;
+}
+// The known offset first, then the whole old walk: a first warp that came too early gets its offset again in the walk.
+inline int WaveWalkCount(int wakeStep) { return wakeStep > 0 ? kWaveNudges + 1 : kWaveNudges; }
+inline int WaveWalkOffset(int wakeStep, int tryNo) {
+    if (wakeStep <= 0) return tryNo;
+    return tryNo == 0 ? wakeStep : tryNo - 1;
+}
+inline constexpr uint64_t kWaveDwellCoverMs = 4000, kWaveDwellMs = 9000;
 
 // Wave state 1 also means "waiting for the next wave" (wave 2+, members still listed). The run is over only at wave 0 with no members (#75963 log, BR fd4eca18).
 inline bool WaveRunOver(int state, unsigned waveNo, unsigned members) { return state == 1 && waveNo == 0 && members == 0; }
@@ -600,13 +615,15 @@ inline bool CloseScrollListWhenEmpty(uint32_t count, uint8_t reopenFlag) {
     return reopenFlag != 0 && count == 0;
 }
 
-// #78735 scroll row loading screen: 1 = the trip ended, 2 = waves started, 3 = 8 s in the mission with no wave yet
-// (E07 waits about 80 s for a walk, so the screen cannot wait for it). 0 = keep it up.
-inline int ScrollCoverDone(bool tripLive, bool inMission, bool waves, uint64_t inMs) {
+// #78735 + #78985 scroll row loading screen: 1 = the trip ended, 2 = waves started (first enemy about 0.3 s later, E07 log),
+// 3 = the walk tried every offset, 4 = safety timeout. 0 = keep it up. The whole walk is under 60 s after landing.
+inline constexpr uint64_t kScrollCoverSafetyMs = 75000;
+inline int ScrollCoverDone(bool tripLive, bool inMission, bool waves, bool walkOver, uint64_t inMs) {
     if (!tripLive) return 1;
     if (!inMission) return 0;
     if (waves) return 2;
-    return inMs >= 8000 ? 3 : 0;
+    if (walkOver) return 3;
+    return inMs >= kScrollCoverSafetyMs ? 4 : 0;
 }
 
 }  // namespace rcore
