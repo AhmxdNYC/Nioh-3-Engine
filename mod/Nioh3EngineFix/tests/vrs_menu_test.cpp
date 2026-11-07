@@ -92,10 +92,10 @@ int main() {
         }
         Values def; def.mode = 3;  // the old ON row's preset is Medium
         assert(LevelOf(def) == kLevelMedium);
-        assert(LevelValues(kLevelLow).rate == 1 && LevelValues(kLevelMedium).rate == 0);
+        assert(LevelValues(kLevelMedium).rate == 0 && LevelValues(kLevelHigh).rate == 0 && LevelValues(kLevelMedium).layouts == 7 && LevelValues(kLevelHigh).layouts == 7);  // #79445 always max
+        Values half; half.mode = 3; half.rate = 1; assert(LevelOf(half) == kLevelCustom);  // an old Low tune reads as Custom
         assert(!LevelValues(kLevelHigh).keep && !LevelValues(kLevelHigh).skip && LevelValues(kLevelMedium).keep && LevelValues(kLevelMedium).skip);
         Values v;
-        assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelLow);
         assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelMedium);
         assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelHigh);
         assert(!Step(v, kRowLevel, 1) && LevelOf(v) == kLevelHigh);    // right stops at High

@@ -333,7 +333,7 @@ int main() {
         CHECK(!g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // opening the page changes nothing
         int r[kMenuRowCap]; int rn = PageRows(r, true);
         CHECK(!g_vrsAdvanced && rn == 3 + 2 + 1 && r[3] == kVrsRowFirst + vrsmenu::kRowLevel && r[4] == kVrsRowFirst + vrsmenu::kRowAdvanced && r[rn - 1] == kBackRow);  // #79382 simple page: level + advanced only
-        Change(kVrsRowFirst + vrsmenu::kRowLevel, 1); CHECK(vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelLow && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1 && g_bootVrs);
+        Change(kVrsRowFirst + vrsmenu::kRowLevel, 1); CHECK(vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelMedium && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 0 && gpuopt::g_vrsLiveStub.layouts == 7 && g_bootVrs);
         Change(kVrsRowFirst + vrsmenu::kRowLevel, -1); CHECK(g_vrsVals.mode == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
         g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
         Change(kVrsRowFirst + vrsmenu::kRowAdvanced, 0); CHECK(g_vrsAdvanced && !g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // showing rows is not an edit

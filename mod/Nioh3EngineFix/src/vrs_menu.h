@@ -7,7 +7,8 @@ struct Values { int mode = 0, layouts = 7, rate = 0; bool skip = true, keep = tr
 enum Row { kRowLevel, kRowAdvanced, kRowMode, kRowLayouts, kRowRate, kRowSkip, kRowKeep, kRowReset, kRowN };
 // #79382 the one setting most players need: higher = more fps, softer picture. All levels stay in Selective,
 // because the whole-frame modes also coarsen menus and effects and sparkle.
-enum Level { kLevelCustom = -1, kLevelOff, kLevelLow, kLevelMedium, kLevelHigh, kLevelTop = kLevelHigh };
+// #79445 surface layouts and coarse rate always at their max (All, 2x2): the human saw no difference, so no level trades them away.
+enum Level { kLevelCustom = -1, kLevelOff, kLevelMedium, kLevelHigh, kLevelTop = kLevelHigh };
 // Same out-of-range answers as gpuopt's ini read: an unknown mode is off, unknown layouts are all, unknown rate is 2x2.
 inline Values Clamped(Values v) {
     if (v.mode < 0 || v.mode > 3) v.mode = 0;
@@ -17,22 +18,21 @@ inline Values Clamped(Values v) {
 }
 inline Values LevelValues(int level) {
     Values v;  // Off, and the defaults every level starts from: all surfaces, 2x2, both protections on
-    if (level >= kLevelLow && level <= kLevelHigh) v.mode = 3;
-    if (level == kLevelLow) v.rate = 1;
+    if (level >= kLevelMedium && level <= kLevelHigh) v.mode = 3;
     if (level == kLevelHigh) v.skip = v.keep = false;
     return v;
 }
 // Any mode 0 is Off whatever the other values are; anything else that is not exactly a level is Custom.
 inline int LevelOf(const Values& v) {
     if (v.mode == 0) return kLevelOff;
-    for (int level = kLevelLow; level <= kLevelTop; ++level) {
+    for (int level = kLevelMedium; level <= kLevelTop; ++level) {
         const Values l = LevelValues(level);
         if (v.mode == l.mode && v.layouts == l.layouts && v.rate == l.rate && v.skip == l.skip && v.keep == l.keep) return level;
     }
     return kLevelCustom;
 }
 inline const char* LevelName(int level) {
-    return level == kLevelOff ? "Off" : level == kLevelLow ? "Low" : level == kLevelMedium ? "Medium" : level == kLevelHigh ? "High" : "Custom";
+    return level == kLevelOff ? "Off" : level == kLevelMedium ? "Medium" : level == kLevelHigh ? "High" : "Custom";
 }
 inline int StepInt(int v, int dir, int top) {
     if (dir == 0) return v >= top ? 0 : v + 1;  // A / Enter wraps, left / right stop at the ends

@@ -3709,7 +3709,7 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "%s", gpuopt::VrsSupport() < 0 ? "This graphics card or driver has no hardware VRS." : "Changes the look. Off by default.");
     } else if (g_sel >= kVrsRowFirst && g_sel < kVrsRowFirst + vrsmenu::kRowN) {
         static const char* const kVrsWhat[vrsmenu::kRowN] = {
-            "Higher = more fps, softer picture. Low: smallest gain, sharpest. Medium: balanced. High: most gain, characters soften too.",
+            "Higher = more fps, softer picture. Medium: world surfaces coarse, characters sharp. High: most fps, characters soften too.",
             "The raw values behind the level. Most players never need these. Changing one can show the level as Custom.",
             "Off, the whole frame coarse (also menus and effects), or Selective: only safe world surfaces.",
             "Selective: which surface shapes may go coarse, by render target count.",
