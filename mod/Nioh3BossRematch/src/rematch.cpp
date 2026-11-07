@@ -4636,6 +4636,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             const char* routeWhy = CanMatchArena(it[i]);
             const char* status = r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
             const uint32_t c = !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
+            // human #78402: a scroll row is its own full label; the boss columns cut the enemy name and add 'Waves unverified'.
+            if (g_uiPages.page != uActions && rcore::WavesRow(r)) { add(sel ? cWhite : cGreen, sel, "%s %s", mk, r.name); continue; }
             if (g_uiPages.page == uActions) add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
             else
                 add(sel ? cWhite : c, sel, "%s %-40.40s %-10.10s %-10.10s %-14.14s %s", mk, r.name, r.region, status, rcore::RouteName(r.route),
