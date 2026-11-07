@@ -1865,6 +1865,19 @@ int CallReturn() {
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
+    {   // #79802: Return to Title never reaches the exit branches below (they need a player), so 'rematch active' outlived the title. No player and no load for 20 s = back to idle.
+        static ULONGLONG titleSince = 0;
+        if (g_state.load() != kIdle && s.gm && !s.player && !s.st[2]) {
+            if (!titleSince) titleSince = t;
+            else if (t - titleSince > 20000) {
+                titleSince = 0;
+                Log("Rematch: no player and no load for 20 s (Return to Title) - idle");
+                Result("exited %s (title)", RowName(g_activeRow.load()));
+                ToIdle("returned to title");
+                return;
+            }
+        } else titleSince = 0;
+    }
     if (!s.gm) { g_loadDoneAt = 0; g_exitSince = 0; return; }  // an unreadable stop block is not a load-down edge
     const int st = g_state.load();
     if (st == kMenuOpen) {
