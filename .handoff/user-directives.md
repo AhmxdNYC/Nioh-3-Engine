@@ -72,3 +72,4 @@
 - #29157 (2026-10-24): the "everything" (visual-affecting) version should end up BETTER than the safe/no-visual-change one in performance; it doesn't need to feel unsafe.
 - #29158 (2026-10-24): benches must include hitches/stutter; full graphs with real data.
 - #29069/#29078/#29093 (2026-10-24): after all done, have agents update decompilation status/graphs and RE notes; keep work board current; utilize Grok helpers.
+- #80963: the XHALF flicker fix's ~2 fps (3%, pc2 68->66; Ally 0) cost is acceptable (not human-noticeable) but must be noted (release notes 1.8.10 + records).
