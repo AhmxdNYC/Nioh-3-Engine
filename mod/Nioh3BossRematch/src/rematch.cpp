@@ -1302,6 +1302,7 @@ void ExecPractice(int row, const Snap& s, ULONGLONG t) {
 // #75963 DEV control for the Picture Scroll wave. Off unless the pipe command scrollctl sets it; not for release.
 std::atomic<int> g_scNoRedirect{0}, g_scLevel{0}, g_scB0f{0};
 std::atomic<int> g_scStart0{0};  // #76364 DEV: request the redirected record with start 0, as the game does
+std::atomic<int> g_scSeedPick{0};  // #77374 DEV: no map rewrite; search the key seed whose native draw lands on the chosen record
 std::atomic<int> g_scUseItem{0};  // #76364 DEV: a chosen record starts from the held scroll instead of ref -1
 std::atomic<bool> g_scGive{false};
 std::atomic<uint32_t> g_scGiveId{0x1E82}, g_scGiveSeed{0}, g_scGiveLevel{0}, g_scGiveB0f{0};
@@ -1330,6 +1331,33 @@ void ExecScrollGive() {
     Log("Rematch: scrollctl give id %04X seed %u level %u b0f %u: rc %d, scroll items %d -> %d, found %d idx %d ref %016llX", id, seed, lv, b0f, rc, before,
         CountScrollItems(), found ? 1 : 0, found ? sc.idx : -1, found ? (unsigned long long)sc.ref : 0ULL);
 }
+// #77374 DEV: the game's own key -> byte draw (10DBED0 calls these two with the key's first dword). No patch involved.
+int ScrollDrawByte(uint32_t seed) {
+    if (!F_EMAKIREQ || F_EMAKIREQ - g_img.base != 0x10DBED0) return -2;  // only on the build these RVAs were read from
+    __try {
+        const uint8_t tier = ((uint8_t (*)(uint64_t, uint32_t))(g_img.base + 0x102BB60))(0, seed);
+        return ((uint8_t (*)(uint64_t, uint32_t, uint32_t))(g_img.base + 0x102B840))(0, seed, tier);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+// first seed for every byte, one scan per process; logged so the reachable records are on record
+int32_t g_scSeedOf[256];
+bool g_scSeedScanned = false;
+void ScrollSeedScan() {
+    if (g_scSeedScanned) return;
+    g_scSeedScanned = true;
+    memset(g_scSeedOf, 0xFF, sizeof(g_scSeedOf));
+    const ULONGLONG t0 = GetTickCount64();
+    int hits = 0, bad = 0;
+    for (uint32_t seed = 1; seed <= 20000 && GetTickCount64() - t0 < 1500; ++seed) {
+        const int b = ScrollDrawByte(seed);
+        if (b < 0) { ++bad; break; }
+        if (g_scSeedOf[b] < 0) { g_scSeedOf[b] = (int32_t)seed; ++hits; Log("Rematch: seed %u draws byte %02X", seed, b); }
+    }
+    Log("Rematch: seed scan: %d different bytes, seed 1 -> %d, %d failed, %llu ms", hits, ScrollDrawByte(1), bad, GetTickCount64() - t0);
+}
+
 void ExecEmaki(int row, ULONGLONG t) {
     if (!SpawnRestore("before scroll request")) return Refuse("spawn recovery unresolved; no new scroll admitted");
     if (!MapRestoreNow("before scroll request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
@@ -1371,7 +1399,27 @@ void ExecEmaki(int row, ULONGLONG t) {
     const Snap current = ReadSnap();
     if (const char* why = NativeGate(current)) return Refuse(why);
     uint32_t start = 0;
-    if (row >= 0 && !g_scNoRedirect.load()) {
+    const bool seedPick = row >= 0 && g_scSeedPick.load() != 0;
+    if (seedPick) {
+        ScrollSeedScan();
+        const uint32_t want = (uint32_t)g_rows[(size_t)row].emakiIndex;
+        int key = -1;
+        for (int i = 0; i < tab.n && key < 0; ++i) {
+            uint8_t e[8] = {};
+            if (Copy(e, tab.vb + (uint64_t)i * 8, 8) && e[0] != tab.emptyKey) {
+                uint32_t idx = 0;
+                memcpy(&idx, e + 4, 4);
+                if (idx == want) key = e[0];
+            }
+        }
+        if (key < 0 || g_scSeedOf[key] < 0) {
+            Log("Rematch: seed pick %s: record %u key %d has no seed", g_rows[(size_t)row].id, want, key);
+            return Refuse("no key seed reaches this scroll record");
+        }
+        memcpy(sc.key, &g_scSeedOf[key], 4);
+        Log("Rematch: seed pick %s: record %u key %02X seed %d", g_rows[(size_t)row].id, want, key, g_scSeedOf[key]);
+    }
+    if (row >= 0 && !seedPick && !g_scNoRedirect.load()) {
         const Row& r = g_rows[(size_t)row];
         if ((uint32_t)r.emakiIndex >= tab.count) return Refuse("record index out of range");
         if (!ReadEmakiStart(tab, (uint32_t)r.emakiIndex, start)) return Refuse("this scroll record has no start point");
@@ -4764,6 +4812,8 @@ void Command(const char* line, char* reply, size_t n) {
         else if (na >= 1 && !strcmp(a, "noitem")) g_scUseItem.store(0);
         else if (na >= 1 && !strcmp(a, "start0")) g_scStart0.store(1);
         else if (na >= 1 && !strcmp(a, "startrow")) g_scStart0.store(0);
+        else if (na >= 1 && !strcmp(a, "seedpick")) g_scSeedPick.store(1);
+        else if (na >= 1 && !strcmp(a, "noseedpick")) g_scSeedPick.store(0);
         else if (na >= 2 && !strcmp(a, "keybyte")) {  // #77334 DEV: write the record's real key to charMgr +0x2BEF, redirect stays on
             uint64_t kbA = 0, kbC = 0;
             uint8_t kbOld = 0, kbNew = (uint8_t)v1;
