@@ -1,8 +1,8 @@
-# 1.8.7 release notes (draft, not published)
+# 1.8.7 release notes (release candidate, not published)
 
-Compared public 1.8.6 source `pc/release-186` `f60c56f9` with the merged candidate `origin/pc/final-187-79191` `ecbd9d4d` (the first 160 commits up to `551d4663` as before, plus 40 newer ones, 34 not merges). This file is notes only. No version bump, no installer, no Linux package, nothing published.
+Compared public 1.8.6 source `pc/release-186` `f60c56f9` with branch `cx-pc/release-187-prep` (= `origin/pc/final-187-79191` `43a7cc7f` + one version-string commit). Nothing is published: no GitHub release, no site change, no stable.json.
 
-EngineFix still says `MOD_VERSION "1.8.6"` (checked on `ecbd9d4d`) (`mod/Nioh3EngineFix/src/dllmain.cpp`).
+EngineFix now says `MOD_VERSION "1.8.7"` (`mod/Nioh3EngineFix/src/dllmain.cpp`).
 
 ## What players get
 
@@ -36,6 +36,8 @@ Fight now and native missions
 - A fighting roster body gets a boss bar when the script never showed one. If another boss's bar is up, the new request does not burn the 5-try cap (3 probes, then wait). A refused bar is retried every 1.5 seconds.
 - The Death Veil entry cover from the Ally pass is in this line.
 - Rules that were written into the program (arena cells, wave wake step, scroll mission) now come from the catalogue and arena tables. This should change nothing for players; it was compared on 234 arena rows with no differences.
+- Training at a Picture Scroll no longer crashes. The log line for that request read past the name table (crash #79507 on the main PC). Fixed offline; unproven in the game.
+- The Saves tab is only on the mod menu tab strip where its page can stay open, so the bumpers no longer land on a page that closes. Unproven in the game.
 - Training no longer risks a crash about 40 seconds after start when a game thread ran a hook before it was ready (a hook set up in the wrong order). Unproven in the game.
 
 Picture Scrolls (new since the first draft; offline only, nothing here has run in the game)
@@ -64,31 +66,32 @@ Graphics (optional; public 1.8.6 shipped none of this)
 - Default preset is still 0. Nothing here turns itself on.
 - Render distance slider 0.50 to 1.00, separate from presets. 1.00 is the game. A lower value hides distant characters, entities, and grass.
 - Extreme (preset 4) no longer crashes on boot and no longer leaves a brown sky or strobe. Extreme HQ (preset 5) adds the sharper fog, SSR, and sharpen options. Half-rate GI, cloud, and fog (XHALF) and the render-size cut (XRES) are the speed options behind presets 3 and 4.
-- Variable rate shading has a live page in the mod menu (Optimizations > GPU > Variable rate shading): one row per value plus Reset. Each row says live, next launch, or Selective only. A change in Whole frame mode reaches the next draw; Selective needs a restart. It also has a next-launch menu choice and a device check. The ini ships it off (`VrsCeiling = 0`, `VrsRate = 0`). Characters and unknown draws stay full rate when the audited world-only gate is used. Treat this as experimental. Do not turn it on in the public default.
+- Shading is one On/Off switch in the mod menu (Optimizations > GPU). On is the preset: whole-surface layouts, the coarse rate, and both character protections on. There are no other levels or value rows for players. It ships Off. Measured at +4 to +12% fps by the lead (device-specific); the picture check in game is still open.
 
-## Candidate build (not a release package)
+## Release candidate build (not published)
 
-Built offline from `ecbd9d4d` (version still 1.8.6, no bump). None of this has run in the game. Bridge files: EF #6119, BR #6120, TR #6121, CamKiProbe #6122, catalogue #6123, arenas table #6124. Camera has no source change from public 1.8.6; its hash differs from the installed `7482c03d` only because the build is not byte-for-byte repeatable.
+Built offline from `cx-pc/release-187-prep` (`43a7cc7f` + version commit `face24af`). Nothing has run in the game. Packages sit in `D:/nioh3-re/rc187/v1.8.7` (script `D:/nioh3-re/rc187/repack.sh`, same shape as 1.8.6). Updater and the camera ini are the 1.8.6 files (their source is unchanged).
 
-- Boss Rematch `fc95796d` (public 1.8.6 was `fe7ec45d`)
-- Training `138e448c` (public 1.8.6 was `04781485`)
-- EngineFix `9f09e937` (public 1.8.6 was `1f8d71b6`)
-- CamKiProbe `6f8dc5b8` (public 1.8.6 was `7482c03d`)
-- Catalogue `2156cc6a`, arenas table `bb7b1125`
+| File | 1.8.7 candidate | public 1.8.6 | bridge |
+|---|---|---|---|
+| EngineFix | `77bfd278` | `1f8d71b6` | #6150 |
+| Boss Rematch | `f391f3b2` | `fe7ec45d` | #6151 |
+| Training | `3622a1b3` | `04781485` | #6152 |
+| CamKiProbe | `455cd2f7` | `7482c03d` | #6153 |
+| Setup.exe | `d4e8accb` | `fc2efec2` | #6154 |
+| Linux pyz | `f2f84880` | `6806b4c0` | #6155 |
+| full-install | `37dee7ae` | `ee7bf920` | #6156 |
+| combined | `a9317070` | `83053563` | #6157 |
 
-Offline checks: rematch harness 350 checks, 0 failed; mod menu harness passed (settings pages, Boss UI, both controller menus); transition cover tests passed; catalogue `--check` in sync; Boss Rematch python tests 11 of 12 pass. `test_sites.py` fails the same way on the earlier base `63465f6d` (probe sites match 2 to 3 times) and was not touched. `test_verify_identity.py` was stale and is fixed on `cx-pc/final-187-tests-79308`.
+Also: Updater `61474cd1` (unchanged), catalogue `2156cc6a`, arenas table `bb7b1125`. Camera has no source change; its hash differs only because the build is not byte-for-byte repeatable. The full-install check printed PASS (28 files).
 
-Not named, and not produced for 1.8.7: Updater, Setup.exe, full-install, combined zip, Linux pyz. Public 1.8.6 still has Updater `61474cd1`, Setup.exe `fc2efec2`, full-install `ee7bf920`, combined `83053563`, Linux pyz `6806b4c0`.
+Offline checks: rematch harness all passed; mod menu harness all passed; catalogue `--check` in sync; Boss Rematch python tests 11 of 12 pass. `test_sites.py` fails the same way on earlier bases (probe sites match 2 to 3 times) and was not changed.
 
 ## Still needed before anyone can publish
 
-Copied from the 1.8.6 ship log. None of these were done here.
-
-1. Version bump. Set EngineFix `MOD_VERSION` from 1.8.6 to 1.8.7, then rebuild. The hashes above are the pre-bump candidate, so a bump makes new hashes.
-2. Installer and repack, same shape as `D:/nioh3-re/rc186/repack.sh`: full-install, combined zip, Setup.exe, and `stable.json` with the 6 names (1.8.1 updater compatible).
-3. Linux pyz, built and checked. Public 1.8.6 published while Ally pyz check #67424 had not been run. Do not skip that check again unless the lead says so.
-4. Gates. 1.8.6 used a pc fresh install plus an update over the human's ini files, and an Ally boot. 1.8.7 has no gate yet.
-5. Publish. GitHub tag and the site `stable.json` / `version.json`. Not done.
+1. Gates: a pc fresh install and an update over the human's ini files with Setup.exe, and an Ally boot of the Linux pyz (do not skip it again). Not run.
+2. The lead's condition: the crash fix is in the human's game and the pc2 retest passes.
+3. `stable.json` (6 names) with the 1.8.7 news line, then GitHub tag and site `stable.json` / `version.json`. Not done, not touched here.
 
 ## Do not ship as player features
 
@@ -108,12 +111,21 @@ Debug or test only. Leave them out of the player changelog and do not flip their
 
 None. All 160 commits are one of: a player change in the lists above, a merge of two of those commits, an internal checkpoint, a test or harness edit, or a compiled blob.
 
+## Not done in 1.8.7
+
+- Dojo support is not in this build.
+- Yin/yang soul cores are not done.
+- Four rare crash reports with unknown cause (#30, #31, #33, #34) are not explained.
+- Leave from a Picture Scroll abandons the mission.
+- A queued exit during a load is untested.
+- Shading ships off by default.
+
+## Unproven in game at the time of writing
+
+Everything new since 1.8.6 was tested offline only from this build: Picture Scroll fights straight into the waves, the Fight again loading screen, Training at a scroll and its crash fix, empty-bag Return, favorites, the mod menu bumpers and Saves tab, the shading switch, the render distance slider, and the catalogue and arena data moves. Re-check this list before publishing.
+
 ## Known issues
 
-- Nothing new since 1.8.6 has been proven in the game from this commit. Picture Scroll straight-into-waves, the Fight again screen, Training at scrolls, favorites, bumpers, and the live shading page are all offline-tested only.
-- The Dojo work is not in this build.
-- This draft is not 1.8.7 until the version bump, the pack, and the gates exist.
-- Soul cores and the speed presets were kept out of public 1.8.6. They are in this source. The lead still chooses whether both go out in 1.8.7.
-- Variable rate shading is off. Turning it on changes how the world is shaded and still needs a picture check.
+- Soul cores and the speed presets were kept out of public 1.8.6. They are in this build.
 - A lower render distance changes how far the world draws. The default stays 1.00.
 - The Ally Linux package check was not run for 1.8.6, and nothing in this draft replaces it.
