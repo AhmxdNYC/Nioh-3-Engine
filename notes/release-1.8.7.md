@@ -1,8 +1,8 @@
 # 1.8.7 release notes (draft, not published)
 
-Compared public 1.8.6 source `pc/release-186` `f60c56f9` with `origin/pc/final-next` `551d4663` (160 commits, f60c56f9 is an ancestor). This file is notes only. No version bump, no installer, no Linux package, nothing published.
+Compared public 1.8.6 source `pc/release-186` `f60c56f9` with the merged candidate `origin/pc/final-187-79191` `ecbd9d4d` (the first 160 commits up to `551d4663` as before, plus 40 newer ones, 34 not merges). This file is notes only. No version bump, no installer, no Linux package, nothing published.
 
-EngineFix still says `MOD_VERSION "1.8.6"` (`mod/Nioh3EngineFix/src/dllmain.cpp`).
+EngineFix still says `MOD_VERSION "1.8.6"` (checked on `ecbd9d4d`) (`mod/Nioh3EngineFix/src/dllmain.cpp`).
 
 ## What players get
 
@@ -15,6 +15,11 @@ Boss Match list
 - A duel row whose mission title is Dummy shows the real boss name.
 - Four dojo lessons are marked in the list, and the lesson line is drawn on the play screen. The lesson cover drops if the teacher stays dormant or the player is hit.
 - Picture Scroll Fight now starts that scroll's own record. A redirected map no longer sends every key to an empty byte. A load that never finishes can be left.
+- Picture Scroll rows read "Picture Scroll - <place>" on the left, with the full label, so the 20 rows can be told apart. The Picture Scroll rows no longer show "Waves unverified" or grey out.
+- Favorites: Right marks a row and Left unmarks it. Marks are kept by row id in `Nioh3BossRematch_favorites.txt`.
+- The Training lists have the same list filter.
+- Mod menu bumpers: LB mirrors RB around Home, the lit tab is the tab shown, hosted tabs keep their page, row and filter, and the Unavailable column fits.
+- The Keian Noble Bouts row (RBAB8) is refused with the usual reason, because only one of its three fighters can be hit and the mission would not end.
 
 Fight now and native missions
 
@@ -30,6 +35,16 @@ Fight now and native missions
 - After a real kill, with nothing left alive, a stuck boss mode is released. The 8 second window and the "no early win" rule stay.
 - A fighting roster body gets a boss bar when the script never showed one. If another boss's bar is up, the new request does not burn the 5-try cap (3 probes, then wait). A refused bar is retried every 1.5 seconds.
 - The Death Veil entry cover from the Ally pass is in this line.
+- Rules that were written into the program (arena cells, wave wake step, scroll mission) now come from the catalogue and arena tables. This should change nothing for players; it was compared on 234 arena rows with no differences.
+- Training no longer risks a crash about 40 seconds after start when a game thread ran a hook before it was ready (a hook set up in the wrong order). Unproven in the game.
+
+Picture Scrolls (new since the first draft; offline only, nothing here has run in the game)
+
+- Fight now on a scroll goes straight from the loading screen into the waves. The old 8 second fallback is gone. The screen ends when the first wave starts, when the search for the start finds nothing, or at a 75 second safety limit, and the log says which. All 20 rows have a recorded wake spot; the old walk with a 4 second dwell is the fallback.
+- Fight again keeps the mod's loading screen during the trip home (it showed the game's tip screen for about 72 seconds before). The scroll's end object opens the mod's own page (Fight again / Leave).
+- Training works at a scroll without starting its waves, and the end menu has Training rows. The scroll's waves are skipped for that trip only.
+- An empty scroll bag no longer locks the shrine return. The trip save waits until the resume mission is home, so a restart does not reload the trip.
+- A scroll run no longer binds to inventory slot 0; it uses the game's no-item path.
 
 Soul cores (left out of public 1.8.6 on purpose; in this line)
 
@@ -49,17 +64,19 @@ Graphics (optional; public 1.8.6 shipped none of this)
 - Default preset is still 0. Nothing here turns itself on.
 - Render distance slider 0.50 to 1.00, separate from presets. 1.00 is the game. A lower value hides distant characters, entities, and grass.
 - Extreme (preset 4) no longer crashes on boot and no longer leaves a brown sky or strobe. Extreme HQ (preset 5) adds the sharper fog, SSR, and sharpen options. Half-rate GI, cloud, and fog (XHALF) and the render-size cut (XRES) are the speed options behind presets 3 and 4.
-- Variable rate shading has a next-launch menu choice and a device check. The ini ships it off (`VrsCeiling = 0`, `VrsRate = 0`). Characters and unknown draws stay full rate when the audited world-only gate is used. Treat this as experimental. Do not turn it on in the public default.
+- Variable rate shading has a live page in the mod menu (Optimizations > GPU > Variable rate shading): one row per value plus Reset. Each row says live, next launch, or Selective only. A change in Whole frame mode reaches the next draw; Selective needs a restart. It also has a next-launch menu choice and a device check. The ini ships it off (`VrsCeiling = 0`, `VrsRate = 0`). Characters and unknown draws stay full rate when the audited world-only gate is used. Treat this as experimental. Do not turn it on in the public default.
 
 ## Candidate build (not a release package)
 
-These are the hashes named for this draft. Camera is the same file as public 1.8.6.
+Built offline from `ecbd9d4d` (version still 1.8.6, no bump). None of this has run in the game. Bridge files: EF #6119, BR #6120, TR #6121, CamKiProbe #6122, catalogue #6123, arenas table #6124. Camera has no source change from public 1.8.6; its hash differs from the installed `7482c03d` only because the build is not byte-for-byte repeatable.
 
-- Boss Rematch `04194151` (public 1.8.6 was `fe7ec45d`)
-- Training `2a22b522` (public 1.8.6 was `04781485`)
-- EngineFix `bd6bd92b` (public 1.8.6 was `1f8d71b6`)
-- CamKiProbe `7482c03d` (unchanged)
-- Settings catalogue `da86d65d`
+- Boss Rematch `fc95796d` (public 1.8.6 was `fe7ec45d`)
+- Training `138e448c` (public 1.8.6 was `04781485`)
+- EngineFix `9f09e937` (public 1.8.6 was `1f8d71b6`)
+- CamKiProbe `6f8dc5b8` (public 1.8.6 was `7482c03d`)
+- Catalogue `2156cc6a`, arenas table `bb7b1125`
+
+Offline checks: rematch harness 350 checks, 0 failed; mod menu harness passed (settings pages, Boss UI, both controller menus); transition cover tests passed; catalogue `--check` in sync; Boss Rematch python tests 11 of 12 pass. `test_sites.py` fails the same way on the earlier base `63465f6d` (probe sites match 2 to 3 times) and was not touched. `test_verify_identity.py` was stale and is fixed on `cx-pc/final-187-tests-79308`.
 
 Not named, and not produced for 1.8.7: Updater, Setup.exe, full-install, combined zip, Linux pyz. Public 1.8.6 still has Updater `61474cd1`, Setup.exe `fc2efec2`, full-install `ee7bf920`, combined `83053563`, Linux pyz `6806b4c0`.
 
@@ -93,6 +110,8 @@ None. All 160 commits are one of: a player change in the lists above, a merge of
 
 ## Known issues
 
+- Nothing new since 1.8.6 has been proven in the game from this commit. Picture Scroll straight-into-waves, the Fight again screen, Training at scrolls, favorites, bumpers, and the live shading page are all offline-tested only.
+- The Dojo work is not in this build.
 - This draft is not 1.8.7 until the version bump, the pack, and the gates exist.
 - Soul cores and the speed presets were kept out of public 1.8.6. They are in this source. The lead still chooses whether both go out in 1.8.7.
 - Variable rate shading is off. Turning it on changes how the world is shaded and still needs a picture check.
