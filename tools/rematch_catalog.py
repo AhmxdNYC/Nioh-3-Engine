@@ -18,8 +18,9 @@ Routes (notes/rematch-all-bosses.md s.1)
   H   one of the 3 data-hidden duels (+0x40 bit 0x4000): R plus the reverted un-hide.
   D   a shipped mission record the replay list never shows (master-duel "hidden-wave" stages, other unlisted records with a
       boss record): R-b direct start of that record id. Refused unless the mission reads cleared on this journey.
-  E0  one of the 20 Picture Scroll records (mission 0xCC96). The default region is Waves and the
-      name is "Waves: <area>". SCROLL_REGION overrides one record index, so a row can leave Waves
+  E0  one of the 20 Picture Scroll records (mission 0xCC96). The default region is Waves and the name is
+      "<area>: <n> waves, <toughest enemy>" from notes/rematch-scroll-waves.csv (the menu shows the part after
+      the colon in its right column). SCROLL_REGION overrides one record index, so a row can leave Waves
       without a code change.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
 
@@ -964,15 +965,29 @@ def mrow(rt, mid, b, lst, ma, fi):
 
 # Record index -> region. Missing means Waves. A boss-era value drops that one row out of Waves.
 SCROLL_REGION = {}
+# Area names the map box id spells differently from the place. Every other area is the box id in title case.
+SCROLL_AREA = {"EDOJO": "Edo Castle"}
+
+
+def scroll_area(box):
+    key = box.replace("HYAKKI_WB_START_", "")
+    if key.endswith("_SMALL"):  # the map's box size, not part of the place name
+        key = key[:-len("_SMALL")]
+    return SCROLL_AREA.get(key, key.replace("_", " ").title())
+
+
+def scroll_waves():
+    return {int(r["index"]): r for r in rd("rematch-scroll-waves.csv")}
 
 
 def erow(e):
     o = blank()
     x, y, z, yaw = e["warp"].split(",")
     i = int(e["index"])
-    area = e["box_name"].replace("HYAKKI_WB_START_", "").replace("_", " ").title()
+    area = scroll_area(e["box_name"])
+    w = scroll_waves()[i]
     region = SCROLL_REGION.get(i, "Waves")
-    name = ("Waves: %s" % area) if region == "Waves" else area
+    name = ("%s: %s waves, %s" % (area, w["waves"], w["toughest"])) if region == "Waves" else area
     o.update({"id": "E%02d" % i, "name": name, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
               "region": region, "route": "E0", "hidden": "0", "story_mission": "0xCC96",
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],

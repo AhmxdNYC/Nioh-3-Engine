@@ -154,7 +154,7 @@ int main(int argc, char** argv) {
                 if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1)) ++scrollMiss;
                 if (wavesEra < 0 || strcmp(r.region, "Waves") != 0 || !rcore::RowInListStop(r, cycle, 2 + wavesEra)) ++waveMiss;
                 if (sengoku >= 0 && rcore::RowInListStop(r, cycle, 2 + sengoku)) ++waveMiss;
-                if (strncmp(r.name, "Waves: ", 7) != 0 || strstr(r.name, "Hundred Demon")) ++nameMiss;
+                if (!strstr(r.name, " waves, ") || strncmp(r.name, "Waves", 5) == 0 || strstr(r.name, "Small") || strstr(r.name, "Hundred Demon")) ++nameMiss;
                 if (rcore::RowInListStop(r, cycle, 1)) ++multiLeak;
             }
             const bool isMulti = r.missionId && r.route != rcore::kE && rcore::RosterMembers(r.id) > 1;

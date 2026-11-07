@@ -1465,7 +1465,7 @@ void ExecEmaki(int row, ULONGLONG t) {
     Log("Rematch: E %s: EmakiMissionRequest(ref %016llX, key %s [item %04X idx %d], start %u, params) queued 0xCC96",
         row >= 0 ? g_rows[(size_t)row].id : "(game's pick)", (unsigned long long)sc.ref, kb, sc.itemId, sc.idx, start);
     Result("started %s (waves)", row >= 0 ? g_rows[(size_t)row].id : "game's pick");
-    ToastF(cGreen, 8000, "Boss Matches: Waves %s", row >= 0 ? g_rows[(size_t)row].name : "(game's pick)");
+    ToastF(cGreen, 8000, "Picture Scroll: %s", row >= 0 ? g_rows[(size_t)row].name : "the game's pick");
 }
 
 // game thread, inside the Fight now mission: warp into the arena trigger once the mission is idle
@@ -3905,12 +3905,12 @@ bool StartScrollRecord(int row, int item) {
     if (const char* why = CanFight(row)) { snprintf(g_msg, sizeof(g_msg), "%s", why); return false; }
     if (g_confirm != item) {
         g_confirm = item;
-        snprintf(g_msg, sizeof(g_msg), "Fight %s now? This scroll's own waves, no item used. A confirm / B back.", g_rows[(size_t)row].name);
+        snprintf(g_msg, sizeof(g_msg), "Start Picture Scroll %s? No item used. A confirm / B back.", g_rows[(size_t)row].name);
         return false;
     }
     g_confirm = -9;
     Post(kReqEmaki, row, "the menu");
-    ToastF(cWhite, 6000, "Boss Matches: Picture Scroll %s...", g_rows[(size_t)row].name);
+    ToastF(cWhite, 6000, "Picture Scroll: %s...", g_rows[(size_t)row].name);
     return true;
 }
 bool ActBossRoute(int item) {
@@ -3923,7 +3923,7 @@ bool ActBossRoute(int item) {
     if (row < 0 || (size_t)row >= g_rows.size()) return false;
     if (g_rows[(size_t)row].route == rcore::kE) {
         if ((tele || train) && rcore::WavesRow(g_rows[(size_t)row])) return StartScrollRecord(row, item);
-        snprintf(g_msg, sizeof(g_msg), "A Waves row is not a boss arena.");
+        snprintf(g_msg, sizeof(g_msg), "A Picture Scroll has no boss arena.");
         return false;
     }
     const char* unavailable = train ? nullptr : arena ? CanMatchArena(row) : CanShrine(row);
@@ -4041,7 +4041,7 @@ bool UiAct() {
         if (row < 0 || (size_t)row >= g_rows.size()) return false;
         if (rcore::WavesRow(g_rows[(size_t)row])) return StartScrollRecord(row, item);
         if (!g_rows[(size_t)row].missionId || g_rows[(size_t)row].route == rcore::kE) {
-            snprintf(g_msg, sizeof g_msg, "A Waves row is not a Training arena.");
+            snprintf(g_msg, sizeof g_msg, "A Picture Scroll has no Training arena.");
             return false;
         }
         using Fn = int (*)(uint32_t);
@@ -4516,7 +4516,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
-            add(sel ? cWhite : g_status[(size_t)row].load() == 2 ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
+            add(sel ? cWhite : (g_status[(size_t)row].load() == 2 || rcore::WavesRow(g_rows[(size_t)row])) ? cGreen : cGray, sel, "%s %s", mk, g_rows[(size_t)row].name);
         }
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
         else if (it[i] == kItRootTools) { const int nb = SpawnedCount(); add(sel ? cWhite : nb ? cGreen : cGray, sel, "%s Active bosses (%d boss%s)   A: open", mk, nb, nb == 1 ? "" : "es"); }
@@ -4582,7 +4582,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] >= kItTeleport) {
             const int row = it[i] - kItTeleport;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
-                add(sel ? cWhite : cGreen, sel, "%s Start waves: %s", mk, g_rows[(size_t)row].name);
+                add(sel ? cWhite : cGreen, sel, "%s %s", mk, g_rows[(size_t)row].name);
             } else {
             const char* why = CanMatchArena(row);
             if (why && TrainHereOk(row)) add(sel ? cWhite : cGreen, sel, "%s Train here (arena unavailable)", mk);
@@ -4592,7 +4592,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (it[i] >= kItBossTrainHere && it[i] < kItBossTrainHere + kMaxRows) {
             const int row = it[i] - kItBossTrainHere;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
-                add(sel ? cWhite : cGreen, sel, "%s    Start waves", mk);
+                add(sel ? cWhite : cGreen, sel, "%s    Start this Picture Scroll", mk);
             else if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
                 add(sel ? cWhite : cDim, sel, "%s    Train here does not pick this scroll", mk);
             else add(sel ? cWhite : TrainHereOk(row) ? cGreen : cDim, sel, "%s    Train here", mk);
@@ -4714,7 +4714,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item >= kItTrainHere && item < kItTrainHereEnd) {
             const int row = item - kItTrainHere;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
-                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Loads this scroll. Training cannot summon it here: the row has no boss mission id. A: start / B: back.");
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll: waves of enemies in this area. Loads the area. A: start / B: back.");
             else snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Training only: start with this boss here. Active bosses controls behavior and repeats. Return to where I was ends the session.");
         } else if (item == kItRootTools) {
             snprintf(footer, nf, "Active bosses in Training and spawned Boss Matches. Open a boss to change its behavior, health, Ki, or moves. Add or remove bosses here.");
@@ -4757,7 +4757,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item >= kItTeleport) {
             const int row = item - kItTeleport;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
-                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Loads this scroll's waves. Training cannot summon it in place. A: start / B: back.");
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll: waves of enemies in this area. Loads the area. A: start / B: back.");
             } else {
             const char* why = CanMatchArena(row);
             if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here / B: back." : "%s. B: back.", why);
@@ -4766,7 +4766,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (item >= kItBossTrainHere && item < kItBossTrainHere + kMaxRows) {
             const int row = item - kItBossTrainHere;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row]))
-                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Loads this scroll. Training cannot summon it here: the row has no boss mission id. A: start / B: back.");
+                snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll: waves of enemies in this area. Loads the area. A: start / B: back.");
             else if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
                 snprintf(footer, nf, "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
             else snprintf(footer, nf, TrainHereOk(row) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
