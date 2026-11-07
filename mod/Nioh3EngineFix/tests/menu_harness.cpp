@@ -331,7 +331,13 @@ int main() {
         gpuopt::g_vrsSupportStub = 1; g_dirty = false;
         Change(kVrsPageRow, 0); CHECK(g_pages.page == pVrsTune);
         CHECK(!g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // opening the page changes nothing
-        int r[kMenuRowCap]; const int rn = PageRows(r, true);
+        int r[kMenuRowCap]; int rn = PageRows(r, true);
+        CHECK(!g_vrsAdvanced && rn == 3 + 2 + 1 && r[3] == kVrsRowFirst + vrsmenu::kRowLevel && r[4] == kVrsRowFirst + vrsmenu::kRowAdvanced && r[rn - 1] == kBackRow);  // #79382 simple page: level + advanced only
+        Change(kVrsRowFirst + vrsmenu::kRowLevel, 1); CHECK(vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelLow && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1 && g_bootVrs);
+        Change(kVrsRowFirst + vrsmenu::kRowLevel, -1); CHECK(g_vrsVals.mode == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
+        g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
+        Change(kVrsRowFirst + vrsmenu::kRowAdvanced, 0); CHECK(g_vrsAdvanced && !g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // showing rows is not an edit
+        rn = PageRows(r, true);
         CHECK(rn == 3 + vrsmenu::kRowN + 1 && r[3] == kVrsRowFirst && r[3 + vrsmenu::kRowReset] == kVrsRowFirst + vrsmenu::kRowReset && r[rn - 1] == kBackRow);
         CHECK(g_sel == kVrsRowFirst);
         Change(kVrsRowFirst + vrsmenu::kRowReset, 1); CHECK(!g_vrsEdited && gpuopt::g_vrsLiveCalls == 0);  // reset takes A only
@@ -345,6 +351,8 @@ int main() {
         Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 3 && gpuopt::g_vrsLiveStub.mode == 3);  // the old ON row is the same value
         Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
         Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);
+        g_vrsVals = vrsmenu::Values{}; g_vrsVals.mode = 3; g_vrsVals.layouts = 5; g_pages.page = savedPage; Change(kVrsPageRow, 0); CHECK(g_vrsAdvanced);  // saved Custom values open with their rows showing
+        g_vrsAdvanced = false;
         g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsPresetOn = false; g_vrsEdited = editedWas; g_dirty = dirtyWas;
         gpuopt::g_vrsSupportStub = 0; gpuopt::g_vrsLiveCalls = 0;
         g_pages.page = savedPage; g_pages.depth = savedDepth; g_sel = savedSel;

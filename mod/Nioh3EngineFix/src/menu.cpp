@@ -907,6 +907,7 @@ int g_page = 0;       // 0 = same picture, 1 = may change the look
 bool g_dirty = false;
 bool g_bootVrs = false, g_vrsEdited = false;
 vrsmenu::Values g_vrsVals;   // #79098: what the page shows and Save writes
+bool g_vrsAdvanced = false;  // #79382 the raw rows stay hidden unless asked for, or the saved values are not a level
 bool g_vrsPresetOn = false;  // the ON row's preset is the last edit, so Save also writes its motion key
 int g_selectedEpPreset = -1;  // Only explicit preset picks change the startup half-rate choice.
 int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
@@ -1199,7 +1200,9 @@ int PageRowsBody(int* out, bool selectable) {
     int n = 0;
     auto add = [&](int id) { out[n++] = id; };
     if (g_pages.page == pVrsTune) {
-        for (int i = 0; i < vrsmenu::kRowN; ++i) add(kVrsRowFirst + i);
+        add(kVrsRowFirst + vrsmenu::kRowLevel);
+        add(kVrsRowFirst + vrsmenu::kRowAdvanced);
+        if (g_vrsAdvanced) for (int i = vrsmenu::kRowAdvanced + 1; i < vrsmenu::kRowN; ++i) add(kVrsRowFirst + i);
         add(kBackRow);
         return n;
     }
@@ -2066,8 +2069,9 @@ void Change(int id, int dir) {
     if (id >= kPsRowFirst && id < kPsRowFirst + kPsToggleN) { ChangePs(id - kPsRowFirst); return; }
     if (id == kPsAllRowsRow || id == kPsAllKeysRow) { ChangePsMaster(id == kPsAllKeysRow, dir); return; }
     if (id == kTimeOfDayRow || id == kWeatherRow) { ChangeSky(id, dir); return; }
-    if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) EnterPage(pVrsTune); return; }
+    if (id == kVrsPageRow) { if (dir >= 0 && gpuopt::VrsSupport() >= 0) { g_vrsAdvanced = vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelCustom; EnterPage(pVrsTune); } return; }
     if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
+        if (id == kVrsRowFirst + vrsmenu::kRowAdvanced) { g_vrsAdvanced = !g_vrsAdvanced; return; }
         if (vrsmenu::Step(g_vrsVals, id - kVrsRowFirst, dir)) { g_vrsPresetOn = false; VrsValuesChanged(); }
         return;
     }
@@ -3533,15 +3537,16 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
             if (id == g_sel) selRow = nb;
-            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Reset to defaults"};
+            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Reset to defaults"};
             const int k = id - kVrsRowFirst;
             char lab[96], text[64];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kVrsLabels[k]);
             const vrsmenu::Effect fx = vrsmenu::RowEffect(k, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking());
             const char* note = fx == vrsmenu::kLive ? "live" : fx == vrsmenu::kNextLaunch ? "next launch" : "Selective only";
-            const char* value = k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
+            const char* value = k == vrsmenu::kRowLevel ? vrsmenu::LevelName(vrsmenu::LevelOf(g_vrsVals)) : k == vrsmenu::kRowAdvanced ? (g_vrsAdvanced ? "Shown" : "Hidden") : k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
                 k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : g_vrsVals.keep ? "On" : "Off";
             if (k == vrsmenu::kRowReset) snprintf(text, sizeof(text), "A: reset (%s)", note);
+            else if (k == vrsmenu::kRowAdvanced) snprintf(text, sizeof(text), "A: %s", value);
             else snprintf(text, sizeof(text), "< %s > %s", value, note);
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray, fx == vrsmenu::kLive ? cGreen : fx == vrsmenu::kNextLaunch ? cYellow : cDim, id == g_sel, false);
             continue;
@@ -3704,6 +3709,8 @@ float DrawImpl(unsigned W, unsigned H) {
         snprintf(effect, sizeof(effect), "%s", gpuopt::VrsSupport() < 0 ? "This graphics card or driver has no hardware VRS." : "Changes the look. Off by default.");
     } else if (g_sel >= kVrsRowFirst && g_sel < kVrsRowFirst + vrsmenu::kRowN) {
         static const char* const kVrsWhat[vrsmenu::kRowN] = {
+            "Higher = more fps, softer picture. Low: smallest gain, sharpest. Medium: balanced. High: most gain, characters soften too.",
+            "The raw values behind the level. Most players never need these. Changing one can show the level as Custom.",
             "Off, the whole frame coarse (also menus and effects), or Selective: only safe world surfaces.",
             "Selective: which surface shapes may go coarse, by render target count.",
             "Selective: how coarse. 2x2 saves the most. 1x2 and 2x1 keep one direction sharp.",

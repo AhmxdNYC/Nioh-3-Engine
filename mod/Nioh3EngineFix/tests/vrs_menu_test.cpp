@@ -81,6 +81,35 @@ int main() {
         assert(LiveMode(3, 1, 1, false) == 1 && LiveMode(0, 1, 1, false) == 0 && LiveMode(2, 1, 1, false) == 2);
         assert(LiveMode(3, 0, 3, true) == 3 && LiveMode(1, 3, 3, true) == 1 && LiveMode(0, 3, 3, true) == 0);
     }
+    // #79382 the level row: one scale, in order, never a whole-frame mode, and it reads back from what was saved.
+    {
+        assert(LevelOf(Values{}) == kLevelOff && LevelOf(LevelValues(kLevelCustom)) == kLevelOff);
+        for (int level = kLevelOff; level <= kLevelTop; ++level) {
+            const Values v = LevelValues(level);
+            assert(LevelOf(v) == level);
+            assert(v.mode == (level == kLevelOff ? 0 : 3));
+            assert(RowEffect(kRowLevel, v, 3, true) == kLive && RowEffect(kRowLevel, v, 0, false) == kNextLaunch);
+        }
+        Values def; def.mode = 3;  // the old ON row's preset is Medium
+        assert(LevelOf(def) == kLevelMedium);
+        assert(LevelValues(kLevelLow).rate == 1 && LevelValues(kLevelMedium).rate == 0);
+        assert(!LevelValues(kLevelHigh).keep && !LevelValues(kLevelHigh).skip && LevelValues(kLevelMedium).keep && LevelValues(kLevelMedium).skip);
+        Values v;
+        assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelLow);
+        assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelMedium);
+        assert(Step(v, kRowLevel, 1) && LevelOf(v) == kLevelHigh);
+        assert(!Step(v, kRowLevel, 1) && LevelOf(v) == kLevelHigh);    // right stops at High
+        assert(Step(v, kRowLevel, 0) && LevelOf(v) == kLevelOff);      // A wraps
+        assert(!Step(v, kRowLevel, -1) && LevelOf(v) == kLevelOff);    // left stops at Off
+        Values custom; custom.mode = 3; custom.layouts = 5;
+        assert(LevelOf(custom) == kLevelCustom && Step(custom, kRowLevel, -1) && LevelOf(custom) == kLevelMedium);
+        Values whole; whole.mode = 1;
+        assert(LevelOf(whole) == kLevelCustom);
+        Values held; held.layouts = 5;  // Off holding custom values: a press at the end leaves them alone
+        assert(LevelOf(held) == kLevelOff && !Step(held, kRowLevel, -1) && held.layouts == 5);
+        Values adv; assert(!Step(adv, kRowAdvanced, 0) && !Step(adv, kRowAdvanced, 1));  // showing rows is not an edit
+        assert(std::string(LevelName(kLevelCustom)) == "Custom" && std::string(LevelName(kLevelHigh)) == "High");
+    }
     assert(std::string(ModeName(0)) == "Off" && std::string(ModeName(3)) == "Selective" && std::string(RateName(2)) == "2x1" && std::string(LayoutsName(7)) == "All" && std::string(LayoutsName(0)) == "None");
     puts("VRS menu: capability failures, Tier1/2, exact six-key ON preset, ON->OFF and fresh OFF, value range, stepping, persist, row effect PASS");
 }

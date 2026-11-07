@@ -4,13 +4,35 @@ namespace vrsmenu {
 inline bool Supported(bool queryOk, unsigned tier) { return queryOk && tier >= 1; }
 // #79098 live tuning page. No Windows or D3D here: range, stepping, what each row can do this session, and persistence.
 struct Values { int mode = 0, layouts = 7, rate = 0; bool skip = true, keep = true; };
-enum Row { kRowMode, kRowLayouts, kRowRate, kRowSkip, kRowKeep, kRowReset, kRowN };
+enum Row { kRowLevel, kRowAdvanced, kRowMode, kRowLayouts, kRowRate, kRowSkip, kRowKeep, kRowReset, kRowN };
+// #79382 the one setting most players need: higher = more fps, softer picture. All levels stay in Selective,
+// because the whole-frame modes also coarsen menus and effects and sparkle.
+enum Level { kLevelCustom = -1, kLevelOff, kLevelLow, kLevelMedium, kLevelHigh, kLevelTop = kLevelHigh };
 // Same out-of-range answers as gpuopt's ini read: an unknown mode is off, unknown layouts are all, unknown rate is 2x2.
 inline Values Clamped(Values v) {
     if (v.mode < 0 || v.mode > 3) v.mode = 0;
     if (v.layouts < 0 || v.layouts > 7) v.layouts = 7;
     if (v.rate < 0 || v.rate > 2) v.rate = 0;
     return v;
+}
+inline Values LevelValues(int level) {
+    Values v;  // Off, and the defaults every level starts from: all surfaces, 2x2, both protections on
+    if (level >= kLevelLow && level <= kLevelHigh) v.mode = 3;
+    if (level == kLevelLow) v.rate = 1;
+    if (level == kLevelHigh) v.skip = v.keep = false;
+    return v;
+}
+// Any mode 0 is Off whatever the other values are; anything else that is not exactly a level is Custom.
+inline int LevelOf(const Values& v) {
+    if (v.mode == 0) return kLevelOff;
+    for (int level = kLevelLow; level <= kLevelTop; ++level) {
+        const Values l = LevelValues(level);
+        if (v.mode == l.mode && v.layouts == l.layouts && v.rate == l.rate && v.skip == l.skip && v.keep == l.keep) return level;
+    }
+    return kLevelCustom;
+}
+inline const char* LevelName(int level) {
+    return level == kLevelOff ? "Off" : level == kLevelLow ? "Low" : level == kLevelMedium ? "Medium" : level == kLevelHigh ? "High" : "Custom";
 }
 inline int StepInt(int v, int dir, int top) {
     if (dir == 0) return v >= top ? 0 : v + 1;  // A / Enter wraps, left / right stop at the ends
@@ -21,6 +43,12 @@ inline int StepInt(int v, int dir, int top) {
 inline bool Step(Values& v, int row, int dir) {
     const Values was = v;
     switch (row) {
+        case kRowLevel: {
+            const int level = LevelOf(v);  // Custom has no place on the scale: any press lands on Medium
+            v = LevelValues(level == kLevelCustom ? kLevelMedium : StepInt(level, dir, kLevelTop));
+            if (level == kLevelOff && LevelOf(v) == kLevelOff) v = was;  // already at the end: keep what Off is holding
+            break;
+        }
         case kRowMode: v.mode = StepInt(v.mode, dir, 3); break;
         case kRowLayouts: v.layouts = StepInt(v.layouts, dir, 7); break;
         case kRowRate: v.rate = StepInt(v.rate, dir, 2); break;
@@ -35,8 +63,8 @@ enum Effect { kLive, kNextLaunch, kSelectiveOnly };
 // bootMode / bootTracking are what the game started with: the draw hooks and the shader data cannot be added later.
 inline Effect RowEffect(int row, const Values& v, int bootMode, bool bootTracking) {
     if (!bootMode) return kNextLaunch;
-    if (row == kRowReset) return kLive;
-    if (row == kRowMode) return v.mode == 3 && !bootTracking ? kNextLaunch : kLive;
+    if (row == kRowReset || row == kRowAdvanced) return kLive;
+    if (row == kRowMode || row == kRowLevel) return v.mode == 3 && !bootTracking ? kNextLaunch : kLive;
     if (!bootTracking) return kNextLaunch;
     return v.mode == 3 ? kLive : kSelectiveOnly;
 }
