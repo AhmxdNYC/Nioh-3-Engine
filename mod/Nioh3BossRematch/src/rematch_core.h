@@ -257,6 +257,14 @@ inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c) {
     }
 }
 
+// The Waves label is this row's region, not "every Picture Scroll". E17 and E09 leave the
+// Waves group when their region column is a boss era. They stay under Scrolls because route is E0.
+inline bool WavesRow(const Row& r) {
+    char key[40];
+    EraKey(r.region, key, (int)sizeof key);
+    return strcmp(key, "Waves") == 0;
+}
+
 // Multi is a catalogue row whose generated roster has more than one member. A count of 0 is not multi.
 inline bool RowInListStop(const Row& r, const ListCycle& c, int stop) {
     const int k = c.Kind(stop);

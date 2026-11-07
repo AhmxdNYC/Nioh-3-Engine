@@ -164,7 +164,47 @@ int main(int argc, char** argv) {
         printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
         CHECK(allMiss == 0, "All shows every loaded row");
         CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
-        CHECK(waveMiss == 0 && nameMiss == 0, "every Waves row is named Waves and stays in the Waves group");
+        CHECK(waveMiss == 0 && nameMiss == 0, "today every Picture Scroll region is Waves, so all 20 stay in that group");
+        {
+            std::vector<rcore::Row> flipped = rows;
+            int nFlip = 0;
+            for (auto& r : flipped) {
+                if (strcmp(r.id, "E09") && strcmp(r.id, "E17")) continue;
+                snprintf(r.region, sizeof r.region, "Sengoku");
+                if (strncmp(r.name, "Waves: ", 7) == 0) {
+                    char bare[64];
+                    snprintf(bare, sizeof bare, "%s", r.name + 7);
+                    snprintf(r.name, sizeof r.name, "%s", bare);
+                }
+                ++nFlip;
+            }
+            rcore::ListCycle fc;
+            rcore::BuildListCycle(flipped, fc);
+            int wavesStop = -1, sengokuStop = -1;
+            for (int i = 0; i < fc.nEra; ++i) {
+                if (strcmp(fc.era[i], "Waves") == 0) wavesStop = 2 + i;
+                if (strcmp(fc.era[i], "Sengoku") == 0) sengokuStop = 2 + i;
+            }
+            int leftWaves = 0, inSengoku = 0, stillScroll = 0, prefixGone = 0;
+            int otherN = 0, otherStay = 0;
+            for (const auto& r : flipped) {
+                if (r.route != rcore::kE) continue;
+                const bool target = !strcmp(r.id, "E09") || !strcmp(r.id, "E17");
+                if (target) {
+                    if (!rcore::WavesRow(r) && wavesStop >= 0 && !rcore::RowInListStop(r, fc, wavesStop)) ++leftWaves;
+                    if (sengokuStop >= 0 && rcore::RowInListStop(r, fc, sengokuStop)) ++inSengoku;
+                    if (rcore::RowInListStop(r, fc, fc.Stops() - 1)) ++stillScroll;
+                    if (strncmp(r.name, "Waves: ", 7) != 0) ++prefixGone;
+                } else {
+                    ++otherN;
+                    if (rcore::WavesRow(r) && wavesStop >= 0 && rcore::RowInListStop(r, fc, wavesStop) &&
+                        rcore::RowInListStop(r, fc, fc.Stops() - 1)) ++otherStay;
+                }
+            }
+            CHECK(nFlip == 2 && leftWaves == 2 && inSengoku == 2 && stillScroll == 2 && prefixGone == 2,
+                  "E09 and E17 leave Waves and stay under Scrolls when their region is Sengoku");
+            CHECK(otherN == 18 && otherStay == 18, "the other 18 scroll rows stay in Waves");
+        }
         const rcore::WaveNudge origin = rcore::WaveNudgeAt(0);
         CHECK(rcore::kWaveNudges == 9 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
         CHECK(rcore::WaveNudgeAt(1).dx == 600.f && rcore::WaveNudgeAt(2).dx == -600.f && rcore::WaveNudgeAt(3).dz == 600.f && rcore::WaveNudgeAt(4).dz == -600.f,
