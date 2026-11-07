@@ -388,8 +388,8 @@ static void MvInstall(void) {
     if (memcmp((void*)(B + Grva(0x35EF04)), selp, 15) || memcmp((void*)(B + Grva(0x35BC68)), comp, 15)) {
         Log("MoveToggle: prologue mismatch (35EF04/35BC68), not installed"); InterlockedExchange(&g_mv_hooked, -1); return;
     }
-    o_mvsel = (MvSelFn)Hook(0x35EF04, 15, (void*)h_mvsel);
-    o_mvcom = (MvComFn)Hook(0x35BC68, 15, (void*)h_mvcom);
+    HOOK_SET(o_mvsel, 0x35EF04, 15, (void*)h_mvsel);
+    HOOK_SET(o_mvcom, 0x35BC68, 15, (void*)h_mvcom);
     InterlockedExchange(&g_mv_hooked, o_mvsel && o_mvcom ? 1 : -1);
     Log("MoveToggle hooks %s (35EF04 select, 35BC68 commit)", g_mv_hooked == 1 ? "installed" : "FAILED");
 }

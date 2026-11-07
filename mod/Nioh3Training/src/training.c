@@ -63,20 +63,26 @@ static void Log(const char* fmt, ...) {
 }
 
 // ---- inline hooks: 12-byte movabs rax / jmp rax at entry (rax is scratch at entry), trampoline = copied bytes + jmp back
-static void* Hook(uintptr_t rva, int ncopy, void* detour) {
-    uint8_t* site = (uint8_t*)(B + Grva(rva));
+// Crash 2026-11-06 (#78416, reports 21:26:50 and 22:05:50): o_x = Hook(...) stored the trampoline only after the live patch, so a game
+// thread entering the detour in that gap jumped to 0 (seen on FindWrapper 135B78). Build and publish the trampoline first: HOOK_SET.
+static uint8_t* HookTr(uintptr_t rva, int ncopy) {
+    uint8_t* site = (uint8_t*)(B + rva);
     uint8_t* tr = (uint8_t*)VirtualAlloc(0, 64, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     memcpy(tr, site, ncopy);
     uint8_t* j = tr + ncopy;
     j[0] = 0xFF; j[1] = 0x25; *(uint32_t*)(j + 2) = 0; *(uint64_t*)(j + 6) = (uint64_t)(site + ncopy);  // jmp [rip+0]
+    return tr;
+}
+static __attribute__((noinline)) void HookPatch(uintptr_t rva, int ncopy, void* detour) {
+    uint8_t* site = (uint8_t*)(B + rva);
     DWORD old; VirtualProtect(site, ncopy, PAGE_EXECUTE_READWRITE, &old);
     uint8_t p[32]; memset(p, 0x90, sizeof p);
     p[0] = 0x48; p[1] = 0xB8; *(uint64_t*)(p + 2) = (uint64_t)detour; p[10] = 0xFF; p[11] = 0xE0;
     memcpy(site, p, ncopy);
     VirtualProtect(site, ncopy, old, &old);
     FlushInstructionCache(GetCurrentProcess(), site, ncopy);
-    return tr;
 }
+#define HOOK_SET(slot, rva, ncopy, detour) do { (slot) = (__typeof__(slot))HookTr((rva), (ncopy)); __sync_synchronize(); HookPatch((rva), (ncopy), (void*)(detour)); } while (0)
 
 static __attribute__((noinline)) int Rd64(uintptr_t a, uint64_t* out) { __try { *out = *(volatile uint64_t*)a; return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 
@@ -5063,8 +5069,8 @@ static int MvForce(uint32_t id) {
 static __attribute__((noinline)) void KiBreakTick(void) {
     if (!g_cfg_kibreak_log) return;
     {   static int once; if (!once) { once = 1;
-            if (!memcmp((void*)(B + Grva(0xA4F098)), "\x40\x53\x48\x83\xEC\x20\x48\x8B\xD9\x48\xB8", 11)) { o_kbA4F = (void (*)(uint64_t))Hook(0xA4F098, 19, (void*)KbSetA4F); Log("KIBRK SET hook A4F098: on"); } else Log("KIBRK SET hook A4F098: bytes differ, off");
-            if (!memcmp((void*)(B + Grva(0x236DF4C)), "\x40\x53\x48\x83\xEC\x30\x0F\x29\x74\x24\x20\x48\x8B\xD9", 14)) { o_kb236 = (void (*)(uint64_t, float))Hook(0x236DF4C, 14, (void*)KbSet236); Log("KIBRK SET hook 236DF4C: on"); } else Log("KIBRK SET hook 236DF4C: bytes differ, off"); } }
+            if (!memcmp((void*)(B + Grva(0xA4F098)), "\x40\x53\x48\x83\xEC\x20\x48\x8B\xD9\x48\xB8", 11)) { HOOK_SET(o_kbA4F, 0xA4F098, 19, (void*)KbSetA4F); Log("KIBRK SET hook A4F098: on"); } else Log("KIBRK SET hook A4F098: bytes differ, off");
+            if (!memcmp((void*)(B + Grva(0x236DF4C)), "\x40\x53\x48\x83\xEC\x30\x0F\x29\x74\x24\x20\x48\x8B\xD9", 14)) { HOOK_SET(o_kb236, 0x236DF4C, 14, (void*)KbSet236); Log("KIBRK SET hook 236DF4C: on"); } else Log("KIBRK SET hook 236DF4C: bytes differ, off"); } }
     uint64_t act[KB_MAX]; uint32_t who[KB_MAX] = {0}; int n = KbCollect(act, KB_MAX, who); DWORD now = GetTickCount();
     for (int k = 0; k < n; ++k) {
         uint64_t a = act[k], st = 0, ai = 0, ctrl = 0, hc = 0, hm = 0;
@@ -5525,16 +5531,16 @@ static void NfInstallHooks(void) {
     }
     {   static const uint8_t mp[15] = {0x48,0x89,0x5C,0x24,0x08, 0x48,0x89,0x6C,0x24,0x10, 0x48,0x89,0x74,0x24,0x18};
         if (g_mot_orig) { } else if (memcmp((void*)(B + Grva(0x3F21A4)), mp, 15)) Log("NOFIN motion hook 3F21A4: prologue differs, OFF (HP floor keeps the native pose)");
-        else { g_mot_orig = (NfMotFn)Hook(0x3F21A4, 15, (void*)NfMotDetour); Log("NOFIN motion hook 3F21A4: on (HP-floor motion 0x308 -> Ki-break stagger id %d (0 = learned), #9297)", g_cfg_stag_id); }
+        else { HOOK_SET(g_mot_orig, 0x3F21A4, 15, (void*)NfMotDetour); Log("NOFIN motion hook 3F21A4: on (HP-floor motion 0x308 -> Ki-break stagger id %d (0 = learned), #9297)", g_cfg_stag_id); }
     }
     if (g_nf_nonlethal && !o_aioff) { static const uint8_t pro[13] = {0x40,0x53, 0x48,0x83,0xEC,0x20, 0x48,0x8B,0x99,0xB0,0x03,0x00,0x00};
         if (memcmp((void*)(B + Grva(0x668D74)), pro, 13)) Log("NOFIN kneel block 668D74: prologue differs, OFF");
-        else { o_aioff = (void (*)(uint64_t))Hook(0x668D74, 13, (void*)NfAiOffDetour); Log("NOFIN kneel block 668D74: on (HP-0 window: no native HP-floor kneel / AI off, #9319)"); } }
+        else { HOOK_SET(o_aioff, 0x668D74, 13, (void*)NfAiOffDetour); Log("NOFIN kneel block 668D74: on (HP-0 window: no native HP-floor kneel / AI off, #9319)"); } }
     if (g_nf_st27) {  // #9135 (b): StateTest default impl 2E9948 detour (shared with the nofintrace aid)
         static const uint8_t pro[15] = {0x48,0x8B,0xC4, 0x48,0x89,0x58,0x08, 0x48,0x89,0x70,0x10, 0x48,0x89,0x78,0x20};
         if (g_tr_orig) Log("NOFIN death-blow test 2E9948: on (detour already in)");
         else if (memcmp((void*)(B + Grva(0x2E9948)), pro, 15)) Log("NOFIN death-blow test 2E9948: prologue differs, OFF");
-        else { g_tr_orig = (NfStFn)Hook(0x2E9948, 15, (void*)NfStDetour); Log("NOFIN death-blow test 2E9948: on (StateTest 0x27 false for a gold boss, #9135)"); }
+        else { HOOK_SET(g_tr_orig, 0x2E9948, 15, (void*)NfStDetour); Log("NOFIN death-blow test 2E9948: on (StateTest 0x27 false for a gold boss, #9135)"); }
     }
     Log("NOFIN hooks (KiBreakNoFinisher %d, window %d ms): CanGrapple %s, grab box %s, bit-31 box %s, bit-28 box %s (off by design), lethal cond %s, Ki row drain %s, grapple target %s, hit probe %s", g_cfg_nofin, g_cfg_nofin_ms,
         ok & 1 ? "on" : "OFF", ok & 2 ? "on" : "OFF", ok & 4 ? "on" : "OFF", ok & 8 ? "on" : "OFF", ok & 16 ? "on" : "OFF", ok & 32 ? "on" : "OFF", ok & 64 ? "on" : "OFF", ok & 128 ? "on" : "OFF");
@@ -5578,7 +5584,7 @@ static void NfTraceStart(DWORD ms) {
     if (!a || !Rd64(a + 0x3B0, &ai) || !ai || !Rd64(ai + 8, &ctrl) || !ctrl) { Log("CMD nofintrace: no boss"); return; }
     if (!g_tr_orig) { static const uint8_t pro[15] = {0x48,0x8B,0xC4, 0x48,0x89,0x58,0x08, 0x48,0x89,0x70,0x10, 0x48,0x89,0x78,0x20};
         if (memcmp((void*)(B + Grva(0x2E9948)), pro, 15)) { Log("CMD nofintrace: 2E9948 prologue differs"); return; }
-        g_tr_orig = (NfStFn)Hook(0x2E9948, 15, (void*)NfStDetour); }
+        HOOK_SET(g_tr_orig, 0x2E9948, 15, (void*)NfStDetour); }
     memset((void*)g_ntr, 0, sizeof g_ntr); g_tr_ctrl = ctrl; g_tr_t0 = GetTickCount(); g_tr_until = g_tr_t0 + ms; g_tr_dumped = 0; g_tr_on = 1;
     Log("CMD nofintrace: boss %p ctrl %p, %lu ms", (void*)a, (void*)ctrl, ms);
 }
@@ -6107,13 +6113,13 @@ static DWORD WINAPI Worker(LPVOID x) {
     const uint8_t dynp[] = {0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57};
     const uint8_t lchp[] = {0x89, 0x54, 0x24, 0x10, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x8B, 0xC2, 0x45, 0x33, 0xC0};
     { static const uint8_t fwp[12] = {0x48, 0x8B, 0x09, 0x45, 0x33, 0xC0, 0x44, 0x8B, 0xDA, 0x48, 0x85, 0xC9};
-      if (!memcmp((void*)(B + Grva(0x135B78)), fwp, 12)) { o_fw = (FwFn)Hook(0x135B78, 12, h_fw); Log("hook FindWrapper ok (boss gauge for dynamic bosses)"); } else Log("hook FindWrapper: prologue mismatch, boss gauge falls back to the legacy call"); }
-    if (!memcmp((void*)(B + Grva(0x1C0C5E0)), dynp, 13)) { o_dyn = (DynFn)Hook(0x1C0C5E0, 13, h_dyn); Log("hook CreateDynamic ok"); }
+      if (!memcmp((void*)(B + Grva(0x135B78)), fwp, 12)) { HOOK_SET(o_fw, 0x135B78, 12, h_fw); Log("hook FindWrapper ok (boss gauge for dynamic bosses)"); } else Log("hook FindWrapper: prologue mismatch, boss gauge falls back to the legacy call"); }
+    if (!memcmp((void*)(B + Grva(0x1C0C5E0)), dynp, 13)) { HOOK_SET(o_dyn, 0x1C0C5E0, 13, h_dyn); Log("hook CreateDynamic ok"); }
     else Log("hook CreateDynamic: prologue mismatch");
-    if (!memcmp((void*)(B + Grva(0xA42A7C)), lchp, 14)) { o_lchr = (LoadChrFn)Hook(0xA42A7C, 14, h_lchr); Log("hook Load::Character ok"); }
+    if (!memcmp((void*)(B + Grva(0xA42A7C)), lchp, 14)) { HOOK_SET(o_lchr, 0xA42A7C, 14, h_lchr); Log("hook Load::Character ok"); }
     else Log("hook Load::Character: prologue mismatch");
     { const uint8_t postp[] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20};
-      if (!memcmp((void*)(B + Grva(0x60BE48)), postp, 15)) { o_post = (PostFn)Hook(0x60BE48, 15, h_post); Log("hook registry Post ok"); } else Log("hook registry Post: prologue mismatch"); }
+      if (!memcmp((void*)(B + Grva(0x60BE48)), postp, 15)) { HOOK_SET(o_post, 0x60BE48, 15, h_post); Log("hook registry Post ok"); } else Log("hook registry Post: prologue mismatch"); }
     {   // arena swap: config, table, MissionRequestById hook
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
@@ -6152,7 +6158,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         if (g_cfg_pskip || g_cfg_far) PsHook();
         if (g_cfg_cellskip) {  // 3A0534 prologue: mov [rsp+8],rbx; mov [rsp+10h],rsi; mov [rsp+18h],rdi (15 bytes, no rip-relative)
             static const uint8_t csp[15] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18};
-            if (!memcmp((void*)(B + Grva(0x3A0534)), csp, 15)) { o_cellreq = (CellReqFn)Hook(0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
+            if (!memcmp((void*)(B + Grva(0x3A0534)), csp, 15)) { HOOK_SET(o_cellreq, 0x3A0534, 15, h_cellreq); Log("hook stage cell request 3A0534 ok: CrossWorldCellSkip %d (%s)", g_cfg_cellskip, g_cfg_cellskip >= 2 ? "skip non-arena cells during cross-world Fight now" : "log only"); }
             else Log("hook stage cell request 3A0534: prologue mismatch, CrossWorldCellSkip disabled");
         }
         GetPrivateProfileStringA("Practice", "SoulCoreMin", "", g_soul_min_str, sizeof g_soul_min_str, ini); g_cfg_bossmode = GetPrivateProfileIntA("ArenaSwap", "BossMode", 1,ini); g_cfg_bgm = GetPrivateProfileIntA("ArenaSwap", "BossBgm", 1, ini); Log("Arena entry: all mission rows native-first; NativeEnter/NativeMissions legacy keys ignored");
@@ -6186,12 +6192,12 @@ static DWORD WINAPI Worker(LPVOID x) {
         LoadTable();
         const uint8_t reqp[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x10, 0x48, 0x89, 0x78, 0x18, 0x4C, 0x89, 0x60, 0x20};
         if (!g_cfg_hook) Log("arena swap: Enable %d, Preload %d (max %d, ambient %d); API Nioh3Training_FightNow / _Preload for Boss Rematch; MissionRequestById hook off (HookFightNow = 0)", g_cfg_enable, g_cfg_preload, g_cfg_preload_max, g_cfg_ambient);
-        else if (!memcmp((void*)(B + Grva(0x2239600)), reqp, sizeof reqp)) { o_req = (ReqFn)Hook(0x2239600, 19, h_req); Log("hook MissionRequestById ok; arena swap on Fight now %s, preload %s (max %d), image 0x%X", g_cfg_enable ? "ON" : "off", g_cfg_preload ? "on" : "off", g_cfg_preload_max, g_imgSize); }
+        else if (!memcmp((void*)(B + Grva(0x2239600)), reqp, sizeof reqp)) { HOOK_SET(o_req, 0x2239600, 19, h_req); Log("hook MissionRequestById ok; arena swap on Fight now %s, preload %s (max %d), image 0x%X", g_cfg_enable ? "ON" : "off", g_cfg_preload ? "on" : "off", g_cfg_preload_max, g_imgSize); }
         else Log("hook MissionRequestById: prologue mismatch (hooked by another add-on?): Fight now keeps the native load");
     }
     if (g_cfg_xaoskip > 0 || g_cfg_xforce) {  // bridge 6047c
         static const uint8_t aorp[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18};
-        if (!memcmp((void*)(B + Grva(0x3B3A28)), aorp, sizeof aorp)) { o_aor = (AorFn)Hook(0x3B3A28, 15, h_aor); Log("hook StageAreasObjectsReady 3B3A28 ok (CrossWorldAreaObjSkipMs %d)", g_cfg_xaoskip); }
+        if (!memcmp((void*)(B + Grva(0x3B3A28)), aorp, sizeof aorp)) { HOOK_SET(o_aor, 0x3B3A28, 15, h_aor); Log("hook StageAreasObjectsReady 3B3A28 ok (CrossWorldAreaObjSkipMs %d)", g_cfg_xaoskip); }
         else { g_cfg_xaoskip = 0; g_cfg_xforce = 0; Log("hook StageAreasObjectsReady 3B3A28: prologue mismatch, CrossWorldAreaObjSkipMs + CrossWorldForceCells off"); }
     }
     {   // user #6789 return gate + #6781 gold Ki bar
@@ -6250,27 +6256,27 @@ static DWORD WINAPI Worker(LPVOID x) {
         { HANDLE t = CreateThread(0, 0, MenuPauseThread, 0, 0, 0); if (t) CloseHandle(t); }
         if (!g_cfg_menupause) Log("MENU PAUSE off ([Training] MenuPause 0); boss-presence sampling remains available to EngineFix");
         static const uint8_t rrp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x10, 0x48, 0x89, 0x70, 0x18};
-        if (g_cfg_gate) { if (!memcmp((void*)(B + Grva(0x22396D8)), rrp, 15)) { o_reqret = (ReqRetFn)Hook(0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
+        if (g_cfg_gate) { if (!memcmp((void*)(B + Grva(0x22396D8)), rrp, 15)) { HOOK_SET(o_reqret, 0x22396D8, 15, h_reqret); Log("hook MissionRequestReturn 22396D8 ok (return gate)"); } else Log("hook MissionRequestReturn: prologue mismatch, gate works by touch only"); }
         g_cfg_gate_block = GetPrivateProfileIntA("Return", "ReturnGateBlockNativePrompt", 1, ini);
         {   static const uint8_t ecp[15] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18, 0x48, 0x89, 0x78, 0x20};  // 12A1F80 v2.02
-            if (g_cfg_gate && g_cfg_gate_block) { if (!memcmp((void*)(B + Grva(0x12A1F80)), ecp, 15)) { o_endconf = (EndConfFn)Hook(0x12A1F80, 15, h_endconf); Log("hook EndMissionConfirmOpen 12A1F80 ok (#9909: the native 'This will end the mission' box never opens while our Return gate is up)"); }
+            if (g_cfg_gate && g_cfg_gate_block) { if (!memcmp((void*)(B + Grva(0x12A1F80)), ecp, 15)) { HOOK_SET(o_endconf, 0x12A1F80, 15, h_endconf); Log("hook EndMissionConfirmOpen 12A1F80 ok (#9909: the native 'This will end the mission' box never opens while our Return gate is up)"); }
                 else Log("hook EndMissionConfirmOpen 12A1F80: prologue mismatch, native end-mission prompt NOT blocked (input mask only)");
                 // #10020: pause menu decide handlers, same 14-byte prologue (mov [rsp+10],rbx; push rbp; lea rbp,[rsp-120]), no rip-relative bytes
                 static const uint8_t pmp[14] = {0x48, 0x89, 0x5C, 0x24, 0x10, 0x55, 0x48, 0x8D, 0xAC, 0x24, 0xE0, 0xFE, 0xFF, 0xFF};
-                if (!memcmp((void*)(B + Grva(0x1DAE4E0)), pmp, 14)) { o_pmdec1 = (PmDecideFn)Hook(0x1DAE4E0, 14, h_pmdec1); Log("hook PauseMenuDecide 1DAE4E0 ok (#10020: pause-menu 'end mission' near our gate opens our gate page)"); }
+                if (!memcmp((void*)(B + Grva(0x1DAE4E0)), pmp, 14)) { HOOK_SET(o_pmdec1, 0x1DAE4E0, 14, h_pmdec1); Log("hook PauseMenuDecide 1DAE4E0 ok (#10020: pause-menu 'end mission' near our gate opens our gate page)"); }
                 else Log("hook PauseMenuDecide 1DAE4E0: prologue mismatch, not hooked");
-                if (!memcmp((void*)(B + Grva(0x1DB58B0)), pmp, 14)) { o_pmdec2 = (PmDecideFn)Hook(0x1DB58B0, 14, h_pmdec2); Log("hook PauseMenuDecide 1DB58B0 ok (#10020)"); }
+                if (!memcmp((void*)(B + Grva(0x1DB58B0)), pmp, 14)) { HOOK_SET(o_pmdec2, 0x1DB58B0, 14, h_pmdec2); Log("hook PauseMenuDecide 1DB58B0 ok (#10020)"); }
                 else Log("hook PauseMenuDecide 1DB58B0: prologue mismatch, not hooked");
                 // #10022: DialogOpen 348274, 16-byte prologue (push rbp/rbx/rsi/rdi/r12/r14/r15; lea rbp,[rsp-70h]), no rip-relative bytes
                 g_cfg_gate_dlg = GetPrivateProfileIntA("Return", "ReturnGateBlockDialog", 1, ini);
                 static const uint8_t dop[16] = {0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0x6C, 0x24, 0x90};
                 if (!g_cfg_gate_dlg) Log("ReturnGateBlockDialog 0: DialogOpen 348274 not hooked");
-                else if (!memcmp((void*)(B + Grva(0x348274)), dop, 16)) { o_dlgopen = (DlgOpenFn)Hook(0x348274, 16, h_dlgopen); Log("hook DialogOpen 348274 ok (#10022: any Yes/No box with the end-mission text is dropped near our gate; every box while the gate is up is logged with its stack)"); }
+                else if (!memcmp((void*)(B + Grva(0x348274)), dop, 16)) { HOOK_SET(o_dlgopen, 0x348274, 16, h_dlgopen); Log("hook DialogOpen 348274 ok (#10022: any Yes/No box with the end-mission text is dropped near our gate; every box while the gate is up is logged with its stack)"); }
                 else Log("hook DialogOpen 348274: prologue mismatch, not hooked");
                 // gadget-script native UI::OpenCommonWindowTwoButton 23F8CC0: same 15-byte prologue as 12A1F80 (mov rax,rsp; 3 saves), no rip-relative bytes
                 g_cfg_gate_cw2 = GetPrivateProfileIntA("Return", "ReturnGateHookScriptBox", 1, ini);
                 if (!g_cfg_gate_cw2) Log("ReturnGateHookScriptBox 0: OpenCommonWindowTwoButton 23F8CC0 not hooked");
-                else if (!memcmp((void*)(B + Grva(0x23F8CC0)), ecp, 15)) { o_cw2 = (Cw2Fn)Hook(0x23F8CC0, 15, h_cw2); Log("hook OpenCommonWindowTwoButton 23F8CC0 ok (clear gadget script's 'This will end the mission' box -> our gate page)"); }
+                else if (!memcmp((void*)(B + Grva(0x23F8CC0)), ecp, 15)) { HOOK_SET(o_cw2, 0x23F8CC0, 15, h_cw2); Log("hook OpenCommonWindowTwoButton 23F8CC0 ok (clear gadget script's 'This will end the mission' box -> our gate page)"); }
                 else Log("hook OpenCommonWindowTwoButton 23F8CC0: prologue mismatch, not hooked"); }
             else Log("ReturnGateBlockNativePrompt %d: native end-mission prompt not blocked", g_cfg_gate_block); }
         g_cfg_goldki_dump = GetPrivateProfileIntA("Summon", "GoldKiDump", 0, ini); g_cfg_goldki_learn = GetPrivateProfileIntA("Summon", "GoldKiLearn", 1, ini);

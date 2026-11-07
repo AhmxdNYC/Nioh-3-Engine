@@ -109,7 +109,7 @@ static void PstSpdHookInstall(void) {
     g_pst_spd_hooked = 2;
     // 134E68: mov rax,rsp | mov [rax+8],rbx | mov [rax+10h],rbp | mov [rax+18h],rsi | mov [rax+20h],rdi (19 bytes, no rip-relative operand)
     if (memcmp((void*)(B + Grva(0x134E68)), "\x48\x8B\xC4\x48\x89\x58\x08\x48\x89\x68\x10\x48\x89\x70\x18\x48\x89\x78\x20", 19)) { Log("hook ComputeMotionSpeed 134E68: bytes differ, boss speed off"); return; }
-    o_pstspd = (PstSpdFn)Hook(0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
+    HOOK_SET(o_pstspd, 0x134E68, 19, (void*)PstSpdDetour); g_pst_spd_hooked = 1;
     Log("hook ComputeMotionSpeed 134E68: on (boss speed #22389)");
 }
 // user #23013 (Kagetoki / Jubei 'negative Ki'), notes/human-boss-negative-ki-23013.md. Static RE re-checked on re/Nioh3.dump.exe (decomp.cmd, 2026-10-22):

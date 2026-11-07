@@ -134,7 +134,7 @@ static void FpInstall(void) {
     LARGE_INTEGER f; QueryPerformanceFrequency(&f); g_fp_qpf = 1000.0 / (double)f.QuadPart;
     static const uint8_t pro[21] = {0x48, 0x85, 0xC9, 0x0F, 0x84, 0x80, 0x0F, 0x00, 0x00, 0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x4C, 0x89, 0x48, 0x20, 0x55};
     if (memcmp((void*)(B + Grva(0x2B4A3C)), pro, sizeof pro)) { g_fp_hooked = 2; Log("FRAMEPROBE hook 2B4A3C: bytes differ, probe off"); return; }
-    o_fp = (FpFn)Hook(0x2B4A45, 12, (void*)FpEntry); g_fp_hooked = 1;
+    HOOK_SET(o_fp, 0x2B4A45, 12, (void*)FpEntry); g_fp_hooked = 1;
     Log("FRAMEPROBE hook 2B4A3C (+9 = 2B4A45): on, read only (%s)", g_cfg_fp ? "log on, [Debug] FrameProbe 1" : "frame meter only, no log lines");
 }
 // user #22796: the player's action run, same bookkeeping as a boss slot (actor = PlayerChar(), ctrl = [[actor+0x3B0]+8], id = 358528(ctrl)).

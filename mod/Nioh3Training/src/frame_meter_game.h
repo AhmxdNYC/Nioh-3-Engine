@@ -215,7 +215,7 @@ static void FmCtInstall(void) {
     static const uint8_t pro[16] = {0x4C, 0x8B, 0xDC, 0x55, 0x57, 0x41, 0x56, 0x41, 0x57, 0x49, 0x8D, 0xAB, 0x18, 0xFE, 0xFF, 0xFF};
     if (g_fmct_hooked) return;
     if (memcmp((void*)(B + Grva(0x117A6D0)), pro, sizeof pro)) { g_fmct_hooked = 2; Log("IFRAMECT hook 117A6D0: bytes differ, probe off"); return; }
-    o_fmct = (FmCtFn)Hook(0x117A6D0, 16, (void*)FmCtDetour); g_fmct_hooked = 1;
+    HOOK_SET(o_fmct, 0x117A6D0, 16, (void*)FmCtDetour); g_fmct_hooked = 1;
     Log("IFRAMECT hook 117A6D0: on (log only, [Debug] IFrameProbe 1)");
 }
 // #35176 damage-pipeline probe (log only, IFrameProbe 1). 78A7F0(dmg) = evaluate a queued hit: 78AC18 (can be damaged) + dmg+0x14C, then 326C94
@@ -629,8 +629,9 @@ static void FmFxInstall(void) {
     stub[at++] = 0x47; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x9A; stub[at++] = 0x10; // mov [r10+r11*4+16], r8d
     stub[at++] = 0x43; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x9A; stub[at++] = 0x50; // mov [r10+r11*4+80], eax
     stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;                   // jmp qword [rip]
-    tr = (uint8_t*)Hook(0x3EAB1C, 14, stub);
+    tr = HookTr(0x3EAB1C, 14);
     *(uint64_t*)(stub + at) = (uint64_t)tr;
+    __sync_synchronize(); HookPatch(0x3EAB1C, 14, stub);
     g_kp_fx_hooked = 1;
     Log("KIPRESS fx hook 3EAB1C: bytes match, effect id is R8D, caller is the return RVA, calls 4CE90C");
 }
@@ -788,8 +789,9 @@ static void FmBuffInstall(void) {
     stub[at++] = 0x4B; stub[at++] = 0x89; stub[at++] = 0x4C; stub[at++] = 0x1A; stub[at++] = 0x08;
     stub[at++] = 0x4F; stub[at++] = 0x89; stub[at++] = 0x44; stub[at++] = 0x1A; stub[at++] = 0x10;
     stub[at++] = 0xFF; stub[at++] = 0x25; *(uint32_t*)(stub + at) = 0; at += 4;
-    tr = (uint8_t*)Hook(0x3EFB90, 13, stub);
+    tr = HookTr(0x3EFB90, 13);
     *(uint64_t*)(stub + at) = (uint64_t)tr;
+    __sync_synchronize(); HookPatch(0x3EFB90, 13, stub);
     g_kp_buff_hooked = 1;
     Log("KIPRESS buff hook 3EFB90: bytes match, DX is the id, R8 is the actor candidate");
 }
@@ -868,7 +870,7 @@ static void FmR1Install(void) {
     static const uint8_t pro[15] = {0x48,0x8B,0xC4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x48,0x89,0x78,0x18};
     if (g_kp_r1_hooked) return;
     if (memcmp((void*)(B + Grva(0x23644F0)), pro, sizeof pro)) { g_kp_r1_hooked = 2; Log("KIR1 hook 23644F0: bytes differ"); return; }
-    o_kir1 = (void (*)(uint64_t, uint64_t))Hook(0x23644F0, 15, (void*)KiR1Enter);
+    HOOK_SET(o_kir1, 0x23644F0, 15, (void*)KiR1Enter);
     g_kp_r1_hooked = 1;
     Log("KIR1 hook 23644F0 on. Buff ids still come from the 3EFB90 log.");
 }
@@ -876,7 +878,7 @@ static void FmPickInstall(void) {
     static const uint8_t pro[15] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC,0x40};
     if (g_kp_pick_hooked) return;
     if (memcmp((void*)(B + Grva(0x845148)), pro, sizeof pro)) { g_kp_pick_hooked = 2; Log("KIPICK hook 845148: bytes differ"); return; }
-    o_kipick = (void (*)(uint64_t, uint64_t))Hook(0x845148, 15, (void*)KiPickEnter);
+    HOOK_SET(o_kipick, 0x845148, 15, (void*)KiPickEnter);
     g_kp_pick_hooked = 1;
     Log("KIPICK hook 845148 on. bit80 set picks A605B or 73E5A from the grade byte.");
 }
