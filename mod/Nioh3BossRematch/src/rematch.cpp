@@ -4726,7 +4726,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
     }
     add(cCyan, false, "%s (" ADDON_VERSION ") - %s", PageTitle(movesTitle), st == kMenuOpen ? "active: replay menu" : st == kInReplay ? (g_practiceOwned.load() ? "active: native practice" : g_fight.load() ? "active: fight now" : "active: replay")
-                                                                                  : st == kEmaki ? "active: waves" : gate ? gate : "ready");
+                                                                                  : st == kEmaki ? (g_scrollNoWaves.load() ? "active: training (no waves)" : "active: waves") : gate ? gate : "ready");
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
     if (g_sel >= n) g_sel = n ? n - 1 : 0;
