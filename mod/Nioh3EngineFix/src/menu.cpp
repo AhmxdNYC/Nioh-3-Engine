@@ -2013,6 +2013,7 @@ void VrsValuesChanged() {
     gpuopt::VrsSetLive(g_vrsVals);
 }
 // dir: -1 left, +1 right, 0 = A / Enter
+bool g_resumeHosted = false;  // #79226: set by SwitchTab while it opens a hosted tab
 void Change(int id, int dir) {
     if(id==kSaveFilesRow){
         if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){
@@ -2046,7 +2047,8 @@ void Change(int id, int dir) {
     if (id == kRematchRow || id == kPracticeRow) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
-            (PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
+            ((g_resumeHosted && PostRematchAction(id == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice)) ||
+             PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
             g_rematchPage = true; g_rematchOpened = false; g_hostTab = id;
             g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
             for (auto& repeat : g_rep) repeat = 0;
@@ -2278,30 +2280,47 @@ void DrawTabBar(float x, float y, int cols, float cw, float lineH, float sc, flo
     }
     if (moreR) osd::DrawText(x + (float)(cols - 1) * cw, y, ">", ms::Fade(cDim, a), sc);
 }
+// #79226: LB / RB walk one loop: Home, then the tab row's tabs, then Home again (LB the same loop backwards). A tab that cannot open
+// right now (add-on busy, save files locked) is skipped in the same direction, so the tab lit is always the tab shown.
 void SwitchTab(int dir) {
-    int tabs[kMenuRowCap];
-    const int n = TabRows(tabs);
-    if (!n) return;
+    int tabs[kMenuRowCap + 1];
+    tabs[0] = 0;
+    const int n = 1 + TabRows(tabs + 1);
+    if (n <= 1) return;
     const int cur = CurrentTab();
-    int pos = -1;
+    int pos = 0;
     for (int i = 0; i < n; ++i) if (tabs[i] == cur) pos = i;
-    const int next = tabs[pos < 0 ? (dir > 0 ? 0 : n - 1) : menu_nav::Wrap(pos, dir, n)];
-    if (next == cur) return;
-    for (auto& repeat : g_rep) repeat = 0;
-    const bool hosted = next == kRematchRow || next == kPracticeRow;
-    if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
-        if (PostRematchAction(next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice)) {
+    for (int step = 0; step < n - 1; ++step) {
+        pos = menu_nav::Wrap(pos, dir, n);
+        const int next = tabs[pos];
+        if (next == CurrentTab()) return;
+        const bool hosted = next == kRematchRow || next == kPracticeRow;
+        if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
+            const bool ok = PostRematchAction(next == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice) ||
+                            PostRematchAction(next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice);
+            if (!ok) continue;
+            for (auto& repeat : g_rep) repeat = 0;
             g_rematchOpened = false; g_hostTab = next;
             g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
             MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
+            return;
         }
+        if (g_rematchPage) CloseRematchHostPage();
+        g_pages.Reset();
+        for (auto& repeat : g_rep) repeat = 0;
+        if (!next) {
+            g_sel = TopLevelSel();
+            MLOG("tab %s: Home", dir > 0 ? "RB" : "LB");
+            return;
+        }
+        g_sel = next;
+        g_resumeHosted = true;  // returning to a hosted tab restores its page, row and filter
+        Change(next, 0);
+        g_resumeHosted = false;
+        if (CurrentTab() != next) { g_sel = TopLevelSel(); continue; }  // did not open: try the next tab
+        MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
         return;
     }
-    if (g_rematchPage) CloseRematchHostPage();
-    g_pages.Reset();
-    g_sel = next;  // stays on the first page with this tab selected when the tab cannot open (add-on busy, save files locked)
-    Change(next, 0);
-    MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
 }
 
 // ---- remote control (vpad pipe -> Present thread) ---------------------------------------------------------------------------

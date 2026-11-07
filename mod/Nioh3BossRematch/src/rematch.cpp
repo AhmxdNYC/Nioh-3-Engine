@@ -4234,7 +4234,23 @@ void UiChange(int dir) {
     }
 }
 
+// #79226: what each hosted tab (1 = Boss Matches, 2 = Practice) looked like when it was left, so LB / RB back to it restores the
+// page trail, the row, the boss and the list filters. Saved at the top of every UiOpen (the previous session's state is still intact).
+struct TabMemo { bool valid = false; menu_nav::Trail<> pages; int sel = 0, uiBoss = -1, bossSlot = -1, listStop = 0, trainStop = 0; };
+TabMemo g_tabMemo[3];
+int TabOfPages(const menu_nav::Trail<>& t) {
+    const int base = t.depth ? t.pages[0] : t.page;
+    return base == uRematch ? 1 : base == uPracticeHub ? 2 : 0;
+}
+void RememberTab() {
+    const int tab = TabOfPages(g_uiPages);
+    if (!tab) return;
+    TabMemo& m = g_tabMemo[tab];
+    m.valid = true; m.pages = g_uiPages; m.sel = g_sel; m.uiBoss = g_uiBoss; m.bossSlot = g_bossSlot;
+    m.listStop = g_listStop; m.trainStop = g_trainStop;
+}
 void UiOpen() {
+    RememberTab();
     g_hostMenuReq = false;
     g_uiPages.Reset();
     g_uiBoss = -1;
@@ -4251,12 +4267,17 @@ void UiGatePage() {  // user #13529: the gate page is a base page (no add-on roo
     g_uiPages.page = uGate;
     g_sel = 0;
 }
-void UiOpenAt(int which) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
+void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
     const int keep = g_listStop;
     const int page = g_uiPages.page;
     UiOpen();
     if (page != 0) g_listStop = keep;  // leaving and returning to the Boss tab keeps All / Multi / era / Scrolls
     g_uiPages.page = which == 1 ? uRematch : uPracticeHub;
+    if (resume && which >= 1 && which <= 2 && g_tabMemo[which].valid) {
+        const TabMemo& m = g_tabMemo[which];
+        g_uiPages = m.pages; g_sel = m.sel; g_uiBoss = m.uiBoss; g_bossSlot = m.bossSlot;
+        g_listStop = m.listStop; g_trainStop = m.trainStop;
+    }
 }
 void UiMove(int dir) {
     static int it[kMaxRows + 4];
@@ -5017,7 +5038,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (g_uiPages.page != uActions && rcore::WavesRow(r)) { add(sel ? cWhite : cGreen, sel, "%s %s%s", mk, FavMark(it[i]), r.name); continue; }
             if (g_uiPages.page == uActions) add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
             else
-                add(sel ? cWhite : c, sel, "%s %s%-40.40s %-10.10s %-10.10s %-14.14s %s", mk, FavMark(it[i]), r.name, r.region, status, rcore::RouteName(r.route),
+                add(sel ? cWhite : c, sel, "%s %s%-40.40s %-10.10s %-11.11s %-14.14s %s", mk, FavMark(it[i]), r.name, r.region, status, rcore::RouteName(r.route),
                     r.route == rcore::kX ? "" : r.Verified() ? "" : "unverified");
         }
     }

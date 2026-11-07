@@ -146,6 +146,19 @@ int main() {
     CHECK(g_listStop == 4 && g_uiPages.page == uPracticeHub);  // leaving the Boss tab keeps the filter
     UiOpenAt(1);
     CHECK(g_listStop == 4 && g_uiPages.page == uRematch);
+    {  // #79226: LB / RB back to a hosted tab restores its page, row, boss and filter; the plain open still starts at the root
+        UiOpenAt(1); g_uiPages.Enter(uActions, 8); g_sel = 3; g_uiBoss = 5; g_listStop = 2;
+        UiOpenAt(2); g_listStop = 0;
+        UiOpenAt(1, true);
+        CHECK(g_uiPages.page == uActions && g_uiPages.depth == 1 && g_sel == 3 && g_uiBoss == 5 && g_listStop == 2);
+        UiOpenAt(2); g_uiPages.Enter(uTrainHere, 1); g_sel = 4; g_trainStop = 3;
+        UiOpenAt(1); CHECK(g_uiPages.page == uRematch && g_uiPages.depth == 0);  // plain open = root
+        UiOpenAt(2, true);
+        CHECK(g_uiPages.page == uTrainHere && g_sel == 4 && g_trainStop == 3);
+        UiOpenAt(1, true);
+        CHECK(g_uiPages.page == uRematch);  // the Boss tab was left at its root by the plain open
+        g_trainStop = 0; g_listStop = 4;
+    }
     UiOpen();
     CHECK(g_listStop == 4);  // closing and reopening keeps the filter; a game restart is what puts it back on All
     g_uiPages.Enter(uRematch, 1);  // the checks above reopen at the root; the next press still leaves Boss Matches
