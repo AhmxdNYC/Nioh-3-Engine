@@ -52,3 +52,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-05 pc2 #71880 done on TR 8d38e9e6: RD759 + RA0A1 teacher kept, result sent re #71861; lesson-kill wake test not run.
 - 2026-11-05 pc2 #72012 done on BR 670dd3e3 / TR 12c645a7: 8 rows native boss, result sent re #72012.
 2026-11-05 7:40 pm EST | pc2 session end: on #72012 (door pair 8 rows). Done: RESULT #72077 + correction #72080 sent. Half-done: nothing, no game running, public mods restored. Next: wait for pc's next TASK; open questions with pc are R0C12 FIGHT start after kill and false script-dormant on R0F7F/R3513/R0C12. Files: #5425-#5429, C:/nioh3-re/t72012.
+2026-11-07 7:25 am EST pc2/0 | #79813 BR 6635f7ea RESULT #79883: rematch-active fix FAIL at title (state 2 kept), header PASS, silent game exit near Proceed gate (unexplained). Do not re-task the same build.
