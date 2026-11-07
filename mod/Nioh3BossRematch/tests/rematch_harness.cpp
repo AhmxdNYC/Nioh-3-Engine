@@ -91,6 +91,24 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    {   // #79955 pc2 poll: state active, player=0 loading=0 mission=0, every 500 ms, pending native phase irrelevant: idle within 25 s
+        rcore::TitleWatch w;
+        uint64_t fired = 0;
+        for (uint64_t t = 1000; t <= 40000 && !fired; t += 500)
+            if (w.Step(true, false, false, 0, t)) fired = t - 1000;
+        CHECK(fired >= 20000 && fired <= 25000, "title exit: no player, no load, mission 0 reaches idle in 20-25 s");
+        rcore::TitleWatch l;  // a 73.7 s load: loading flag up, then player 0 with a mission id, then in game
+        bool early = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early |= l.Step(true, false, t < 70000, t < 70000 ? 0 : 0xF7F, t);
+        for (uint64_t t = 74700; t < 90000; t += 500) early |= l.Step(true, true, false, 0xF7F, t);
+        CHECK(!early, "title exit: a long load and the mission after it never go idle");
+        rcore::TitleWatch g;  // the load flag unreadable for a while but a mission id set: no exit
+        bool bad = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad |= g.Step(true, false, false, 0xF7F, t);
+        CHECK(!bad, "title exit: a nonzero mission id blocks it");
+        rcore::TitleWatch i;
+        CHECK(!i.Step(false, false, false, 0, 1000) && !i.Step(false, false, false, 0, 99000), "title exit: nothing to do while idle");
+    }
     CHECK(rcore::ScrollCoverDone(false, false, false, false, 0) == 1, "scroll cover ends when the trip ends");
     CHECK(rcore::ScrollCoverDone(true, false, true, false, 90000) == 0, "scroll cover stays while loading");
     CHECK(rcore::ScrollCoverDone(true, true, true, false, 0) == 2, "scroll cover ends at the first wave");

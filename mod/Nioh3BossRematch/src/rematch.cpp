@@ -1875,7 +1875,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                 titleSince = 0;
                 Log("Rematch: no player and no load for %u s (Return to Title) - idle", s.gm ? 20u : 90u);
                 Result("exited %s (title)", RowName(g_activeRow.load()));
-                ToIdle("returned to title");
+                ToIdle("returned to title", true);  // normal exit: restores run, a clean active/returning phase clears (a quarantine here would block every later attempt)
                 return;
             }
         } else titleSince = 0;
@@ -3924,6 +3924,22 @@ void AutoMovesTick() {
 }
 
 }  // namespace
+
+// #79955: called by the UI worker every ~33 ms, outside the game's frame pump (which may not run at the title).
+void TitleWatchdog() {
+    static rcore::TitleWatch w;
+    static ULONGLONG nextAt = 0;
+    const ULONGLONG t = Ms();
+    if (t < nextAt) return;
+    nextAt = t + 250;
+    if (g_state.load() == kIdle) { w.since = 0; return; }
+    const Snap s = ReadSnap();
+    if (w.Step(true, s.player, s.gm && s.st[2] != 0, s.msOk ? s.ms28 : 0, t)) {
+        Log("Rematch: no player, no load and no mission for 20 s (Return to Title) - idle");
+        Result("exited %s (title)", RowName(g_activeRow.load()));
+        ToIdle("returned to title", true);  // normal exit: restores run, a clean active/returning phase clears (a quarantine here would block every later attempt)
+    }
+}
 
 uint32_t RematchScrollMission() { return rcore::ScrollMission(g_rows, g_emakiNoteRow); }
 

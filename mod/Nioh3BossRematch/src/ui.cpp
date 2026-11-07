@@ -233,6 +233,7 @@ void Toggle(bool open) {
 }
 
 void GateReqTick() {  // UI worker only. user #6789: Return gate used in the arena -> 2-option page
+    rematch::TitleWatchdog();
     if (!g_gateReq.exchange(false)) return;
     if (!g_open.load()) { g_owner.store(-1); Toggle(true); }
     rematch::UiGatePage();

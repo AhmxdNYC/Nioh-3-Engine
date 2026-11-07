@@ -663,4 +663,19 @@ inline int ScrollCoverDone(bool tripLive, bool inMission, bool waves, bool walkO
     return inMs >= kScrollCoverSafetyMs ? 4 : 0;
 }
 
+// #79955 title exit: Return to Title leaves the rematch state set, and the game's per-frame pump may not run at the title, so the Tick-side
+// check never saw it. The UI worker polls this: state not idle + no player + no load + mission 0 for kTitleIdleMs in a row = at the title.
+// A load (loading flag, or a mission id, or a player) restarts the count. Returns true once, when it is time to go idle.
+inline constexpr uint64_t kTitleIdleMs = 20000;
+struct TitleWatch {
+    uint64_t since = 0;
+    bool Step(bool stateActive, bool player, bool loading, uint32_t mission, uint64_t t) {
+        if (!stateActive || player || loading || mission != 0) { since = 0; return false; }
+        if (!since) { since = t; return false; }
+        if (t - since < kTitleIdleMs) return false;
+        since = 0;
+        return true;
+    }
+};
+
 }  // namespace rcore
