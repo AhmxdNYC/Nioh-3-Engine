@@ -1865,13 +1865,15 @@ int CallReturn() {
 }
 
 void TrackReplay(const Snap& s, ULONGLONG t) {
-    {   // #79802: Return to Title never reaches the exit branches below (they need a player), so 'rematch active' outlived the title. No player and no load for 20 s = back to idle.
+    {   // #79802/#79884: Return to Title never reaches the exit branches below (they need a player), so 'rematch active' outlived the title.
+        // At the title the game manager pointer is null (pc2: state held 2.5 min with player=0 loading=0), so gm is not required.
+        // gm readable: no player and no load for 20 s. gm null (load flag unreadable): 90 s, longer than any load seen (73.7 s).
         static ULONGLONG titleSince = 0;
-        if (g_state.load() != kIdle && s.gm && !s.player && !s.st[2]) {
+        if (g_state.load() != kIdle && !s.player && !s.st[2]) {
             if (!titleSince) titleSince = t;
-            else if (t - titleSince > 20000) {
+            else if (t - titleSince > (s.gm ? 20000u : 90000u)) {
                 titleSince = 0;
-                Log("Rematch: no player and no load for 20 s (Return to Title) - idle");
+                Log("Rematch: no player and no load for %u s (Return to Title) - idle", s.gm ? 20u : 90u);
                 Result("exited %s (title)", RowName(g_activeRow.load()));
                 ToIdle("returned to title");
                 return;
