@@ -68,3 +68,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 11-07 4:39 pm EST pc/6: human #80949 asks to keep fps gain without flicker. TASK #80955 to pc2 (after its 1.8.10 gate): XHALF_Force=1 with Mask=1 (GI only) vs Mask=2 (reflections only) vs off; if one mask is steady, consider shipping it as Extreme default in a later build. Fix cost so far ~2 fps pc2 (68->66), 0 Ally.
 - 11-07 4:45 pm EST pc/6: #80963 human OK with flicker fix fps cost; put 'Extreme: half-rate lighting off (stopped flicker), ~2 fps / 3% on pc2, 0 on Ally' in 1.8.10 release notes (pc/0 owns release).
 - 11-07 4:52 pm EST pc/6: #80969 videos sent (Temp/rec80969 on pc). PC restored: EF 9bfe7189, own save, no game running.
+- 11-07 4:54 pm EST pc/6: human #81017 says the flicker looks fixed in the PC clips; wants clips in the Ally's red arena -> TASK #81022 to ally (no-fix 9bfe7189 vs fix d1c6d7a8, send to Discord). Relay its RESULT to the human.
