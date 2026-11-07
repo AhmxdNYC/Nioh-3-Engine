@@ -305,6 +305,11 @@ struct NativeAttempt {
 } g_attempt;
 uint64_t g_attemptSequence = 0;
 std::atomic<int> g_attemptPhase{aNone};
+// 1.8.9 (#80065): a native Fight now win leaves the attempt in aActive while the player stands at the Proceed gate, which refused every new
+// start until the mission was left. The win is the script's boss-mode end / mission-clear (rematch::NoteNativeWin). Once the boss is dead,
+// the player is in the world, not loading or paused, the attempt is settled: the pump retires it with a normal exit (ToIdle normalExit).
+std::atomic<uint64_t> g_attemptWonSeq{0};  // attempt sequence a win was seen for
+std::atomic<bool> g_attemptWonDone{false};  // set by AttemptObserve (game thread) when that win is settled at the gate
 const char* AttemptStartGate() {
     const int phase = g_attemptPhase.load();
     return phase == aNone ? nullptr : phase == aQuarantined ? "native request uncertain; restart game before another replay" : "native replay/return still pending";
@@ -383,6 +388,8 @@ void AttemptBegin(uint32_t mission, uint32_t start, uint8_t journey, int row, in
     g_attempt.scroll = scroll;
     g_attempt.requestedAt = t;
     memcpy(g_attempt.before, before, sizeof(g_attempt.before));
+    g_attemptWonSeq.store(0);
+    g_attemptWonDone.store(false);
     g_attempt.evidence = aPossible;
     g_attempt.callAttempted = true;
     g_attemptPhase.store(aAwaitLoad);  // before a native call can enqueue then throw
@@ -456,6 +463,12 @@ void AttemptObserve(const Snap& s, ULONGLONG t) {
         if (!s.player || s.st[3] || s.st[4] || !g_attempt.returnDeparted) return;
         g_attempt.returnMission = s.ms28; g_attempt.returnRetry = s.ms14;
         g_attempt.standaloneDone = true; // all explicit returns; restore via ToIdle
+        return;
+    }
+    if (phase == aActive) {
+        if (g_attempt.sequence && g_attemptWonSeq.load() == g_attempt.sequence && !fight::g_active && s.gm && s.msOk && s.player &&
+            !s.st[2] && !s.st[3] && !s.st[4])
+            g_attemptWonDone.store(true);
         return;
     }
     if (phase != aAwaitLoad) return;
@@ -2704,6 +2717,10 @@ void Tick() {
     UnbeatenTick(s, t);
     CoverTick(s,t);
     AttemptObserve(s, t);
+    if (g_attemptWonDone.exchange(false) && g_attemptPhase.load() == aActive) {
+        Log("Rematch: native attempt won and settled at the gate; retired so a new Fight now is accepted");
+        ToIdle("won native attempt settled at the gate", true);
+    }
     if (g_resume.armed.load()) {
         const bool sess = g_resume.inPlace.load() && (TrainingOwnsFight() || fight::g_active || g_fight.load() || g_swappedInPlace.load());
         g_resume.session.store(sess ? 1 : 0);
@@ -5890,6 +5907,9 @@ void Command(const char* line, char* reply, size_t n) {
 }
 
 bool PlayerExists() { return PlayerChar() != 0; }
+void NoteNativeWin() {  // any thread; the boss-mode end or mission clear of the running fight
+    if (g_attemptPhase.load() == aActive) g_attemptWonSeq.store(g_attempt.sequence);
+}
 
 int FightLogMode() {
     if (g_practiceOwned.load()) return 2;             // Practice

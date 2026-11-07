@@ -30,6 +30,7 @@ template<class T> bool Rd(uint64_t address,T& out) {
     return true;
 }
 void Log(const char*,...) {}
+namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } }
 std::atomic<bool> g_scrollNoWaves{false},g_scGive{false};
 bool g_waveVetoOk=true;
 std::atomic<int> g_scUseItem{0},g_scSeedPick{0},g_scNoRedirect{0},g_scLevel{0},g_scB0f{0},g_scStart0{0};
@@ -65,7 +66,6 @@ std::atomic<bool> g_gateSeen{false};
 uint8_t g_gateKey[16]{};
 bool g_live=true,g_raOk=true,g_fnowOk=true,g_warpOk=true,g_gateOk=true,g_spawnOk=true,g_exitOk=true,g_emakiOk=true;
 const char* g_raWhy="ra",*g_fnowWhy="fight",*g_warpWhy="warp",*g_spawnWhy="spawn",*g_exitWhy="exit",*g_emakiWhy="emaki";
-namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } }
 std::atomic<bool> g_wantScan{false};
 constexpr int cOrange=0,cGreen=1,cRed=2;
 int requests=0,returns=0,opens=0,scrolls=0,warps=0,rights=0,writes=0,restores=0;
@@ -234,6 +234,34 @@ int main(int argc,char** argv) {
         fixtureSnap.ms28=0;restoreOk=false;Tick();
         if(!check(g_attemptPhase==aQuarantined&&AttemptStartGate()))return 1;
         printf("%d exit/re-entry recovery checks PASS\n",checks);return 0;
+    }
+    if(scenario==8) {
+        // #80065: a won native Fight now settles at the Proceed gate and a new Fight now is accepted.
+        auto active=[&]{ fresh();start();step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064); };
+        active(); if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
+        step(27000,false,0x1CBC,67064);   // no win seen: still pending
+        if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
+        NoteNativeWin(); step(28000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aNone && !AttemptStartGate() && g_state==kIdle))return 1;
+        memset(queue,0,sizeof(queue)); post(kReqFight);
+        if(!check(requests==2 && g_attemptPhase==aAwaitLoad && !refused))return 1;   // new Fight now accepted
+        // mid-fight (boss mode still up): refused
+        active(); fight::g_active=1; NoteNativeWin(); step(27000,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aActive && AttemptStartGate()))return 1;
+        refused=nullptr; ExecDirect(0,fixtureSnap,now,true,true); if(!check(requests==1 && refused && !strcmp(refused,AttemptStartGate())))return 1;
+        fight::g_active=0;
+        // win seen but loading / paused / no player: hold until settled at the gate
+        fixtureSnap.st[3]=1; step(28000,false,0x1CBC,67064); if(!check(g_attemptPhase==aActive))return 1;
+        fixtureSnap.st[3]=0; fixtureSnap.player=false; step(29000,false,0x1CBC,67064); if(!check(g_attemptPhase==aActive))return 1;
+        fixtureSnap.player=true; step(30000,true,0x1CBC,67064); if(!check(g_attemptPhase==aActive))return 1;
+        step(31000,false,0x1CBC,67064); if(!check(g_attemptPhase==aNone))return 1;
+        // a win seen before the attempt settled, or for an older attempt, does not retire a new one
+        fresh();start(); NoteNativeWin(); step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
+        step(27000,false,0x1CBC,67064); if(!check(g_attemptPhase==aActive))return 1;
+        active(); NoteNativeWin(); step(28000,false,0x1CBC,67064); memset(queue,0,sizeof(queue)); post(kReqFight);
+        NoteNativeWin(); fight::g_active=0; step(29000,true,0,0); step(30000,false,0x1CBC,67064);
+        if(!check(g_attempt.sequence>=2))return 1;
+        printf("%d won-attempt gate checks PASS\n",checks);return 0;
     }
     if(scenario==7) {
         // Queued during the boss-intro load: keep it, then send the return once loading clears.
@@ -437,7 +465,7 @@ head=segment('enum ReqKind','const char* RowName(')
 # Post is preceded by small unrelated data? All remain scalar request globals.
 code=code.replace('@GLOBALS@',head).replace('@SNAP@',segment('struct Snap {','Snap ReadSnap()'))
 code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session reads'))
-gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning('))
+gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(','void NoteNativeWin('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
 bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
@@ -450,7 +478,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
-    for scenario in ('7','6','5','4','1','2','3','0'):
+    for scenario in ('8','7','6','5','4','1','2','3','0'):
         result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
         print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
     assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)
