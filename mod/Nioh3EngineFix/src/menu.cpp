@@ -1230,7 +1230,7 @@ int PageRowsBody(int* out, bool selectable) {
             for (const auto& row : kOrder)
                 if (SetGroup(row.id) == pg && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
                     add(row.id);
-                    if (row.id == kVrs) add(kVrsPageRow);
+                    // #79450 no values page: the switch alone, On = All + 2x2 with characters and skinned models sharp
                 }
             add(kBackRow);
             return n;
@@ -1319,7 +1319,7 @@ int PageRowsBody(int* out, bool selectable) {
     for (const auto& row : kOrder)
         if (PageContains(page, row.id) && Visible(row.id) && (!selectable || !ReadOnly(row.id))) {
             add(row.id);
-            if (row.id == kVrs && page == pExtra) add(kVrsPageRow);
+            // #79450 the shading values page is no longer listed; its code stays for ini-tuned dev runs
         }
     if (page == pDisplay) { add(kTimeOfDayRow); add(kWeatherRow); }
     // All settings deliberately has exactly the original traversal order, so

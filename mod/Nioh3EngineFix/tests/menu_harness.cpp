@@ -324,7 +324,7 @@ int main() {
     {
         const int savedPage = g_pages.page, savedDepth = g_pages.depth, savedSel = g_sel;
         const bool dirtyWas = g_dirty, editedWas = g_vrsEdited;
-        CHECK(has(pSGpu, kVrs) && has(pSGpu, kVrsPageRow) && !has(pDisplay, kVrsPageRow));
+        CHECK(has(pSGpu, kVrs) && !has(pSGpu, kVrsPageRow) && !has(pExtra, kVrsPageRow) && !has(pDisplay, kVrsPageRow));  // #79450 one switch, no values page
         CHECK(std::string(PageName(pVrsTune)) == "Variable rate shading");
         g_vrsVals = vrsmenu::Values{}; g_bootVrs = false; g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
         gpuopt::g_vrsSupportStub = -1; Change(kVrsPageRow, 0); CHECK(g_pages.page != pVrsTune);  // no hardware VRS: page stays shut
