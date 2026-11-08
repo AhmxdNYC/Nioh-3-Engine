@@ -4977,6 +4977,7 @@ bool CoverAt(FxRec& r, const float* p, uint32_t sid = 0) {
     return true;
 }
 thread_local bool t_fxReplaying = false;
+thread_local bool t_coldCover = false;  // native first-use smoke: observe, but never learn the player's scale as a core template
 struct FxPlay { double at; FxRec r; };
 FxPlay g_fxPlay[kFxRecMax];
 int g_fxPlayN = 0;  // game thread only
@@ -5089,6 +5090,23 @@ void FxMuteTick() {  // game thread: give the effects back once this spawn is pa
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
     (void)a; (void)b;
+    if (t_coldCover && (uint32_t)c == 0x62557) {
+        const uint64_t p = StackArg(sp, 5);
+        const bool world = !p && d > (uint64_t)sp - 0x10000 && d < (uint64_t)sp + 0x10000;
+        float m[16] = {};
+        const bool read = world && Copy(m, d, sizeof(m));
+        if (read) {
+            Log("FormCore first-press native-fx id=%X shape=world scale=%.4f,%.4f,%.4f pos=%.1f,%.1f,%.1f owner=%llX",
+                (uint32_t)c, sqrtf(m[0]*m[0]+m[1]*m[1]+m[2]*m[2]),
+                sqrtf(m[4]*m[4]+m[5]*m[5]+m[6]*m[6]), sqrtf(m[8]*m[8]+m[9]*m[9]+m[10]*m[10]),
+                m[12], m[13], m[14], (unsigned long long)StackArg(sp, 6));
+        } else {
+            int32_t bone = -1;
+            const bool boneRead = p && Copy(&bone, p, sizeof(bone));
+            Log("FormCore first-press native-fx id=%X shape=%s bone=%d boneRead=%d scale=unavailable native-descriptor-scale=1 owner=%llX",
+                (uint32_t)c, p ? "bone" : "unknown", bone, boneRead ? 1 : 0, (unsigned long long)StackArg(sp, 6));
+        }
+    }
     if (t_fxReplaying || g_fxrOn.load(std::memory_order_relaxed) <= 0) return;
     if (g_fbStyleFx.load(std::memory_order_relaxed) && g_fbActive.load(std::memory_order_relaxed) &&
         Now() - g_fbStyleT.load(std::memory_order_relaxed) < g_fbStyleFxMs.load(std::memory_order_relaxed) / 1000.0) {  // human #58422
@@ -5246,8 +5264,35 @@ void SmokeFreezeTick() {
         g_frzNext[i] = now + g_frzMs / 1000.0;
     }
 }
-// human #58146: LEFT press -> our big smoke on the player right now (from the template = the last game-made one; the first use of a
-// session has none yet and keeps the game's own smoke). The yokai is held invisible until SealShowMs after the press.
+// #81598, pc2 RE a678c375: general native play-effect-on-actor API, called only on the game thread.
+bool CoverNativeSmoke(uint64_t player) {
+    if (!player) return false;
+    static const uint8_t getHead[] = {0x48,0x83,0xEC,0x28,0x48,0x85,0xC9,0x74,0x2D,0xE8,0xCE,0x0E,0x00,0x00,0x48,0x85,0xC0,0x74,0x05,0x48,0x83,0xC4,0x28,0xC3,0xE8,0xC3,0x8B,0x74,0x00,0x48,0x85,0xC0};
+    static const uint8_t playHead[] = {0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x48,0x89,0x7C,0x24,0x18,0x41,0x56,0x48,0x81,0xEC,0xF0,0x00,0x00,0x00,0x48,0x83,0x79,0x10,0x00,0x41,0x8B,0xF9};
+    if (!FormHideCodeMatches(0x2C7E90, getHead, sizeof(getHead)) ||
+        !FormHideCodeMatches(0x2A10B4, playHead, sizeof(playHead))) {
+        Log("FormCore first-press native-smoke guard failed; keeping game smoke");
+        return false;
+    }
+    const bool wasReplay = t_fxReplaying, wasCold = t_coldCover;
+    uint64_t comp = 0;
+    int handle = -1;
+    bool called = false, fault = false;
+    t_fxReplaying = true; t_coldCover = true;
+    __try {
+        comp = ((uint64_t(*)(uint64_t))(g_base + Grva(0x2C7E90)))(player);
+        if (comp) {
+            ((void(*)(uint64_t,int*,uint32_t,int,uint8_t))(g_base + Grva(0x2A10B4)))(comp, &handle, 0x62557, 0, 0);
+            called = true;
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) { fault = true; }
+    t_fxReplaying = wasReplay; t_coldCover = wasCold;
+    Log("FormCore first-press native-smoke called=%d fault=%d component=%llX handle=%d t=%.3f",
+        called ? 1 : 0, fault ? 1 : 0, (unsigned long long)comp, handle, Now());
+    return called && handle != -1;  // unchanged/invalid output must not hide the game's fallback smoke
+}
+// Start smoke uses the learned slot template, or the native actor effect API on a cold slot.
+// The yokai is held invisible until SealShowMs after the press.
 void CoverStartSmoke(uint64_t player, double now) {
     g_coverMade.store(0);
     g_coverT.store(now);
@@ -5271,6 +5316,11 @@ void CoverStartSmoke(uint64_t player, double now) {
             ScOn() ? 1 : 0, coverReady ? 1 : 0, coverReady ? "slot-template" : "native-smoke", now);
     }
     if (!coverReady) {
+        if (CoverNativeSmoke(player)) {
+            g_coverMade.store(1);  // suppress the later seal smoke only after our native call completed
+            Log("SealCover: press t=%.3f native start smoke 62557 for cold d-pad slot %d", now, sl);
+            return;
+        }
         Log("SealCover: press t=%.3f, no smoke template for d-pad slot %d yet - the game's own smoke this time", now, sl); return; }
     if (g_fxPlayN >= kFxRecMax) g_fxPlayN = 0;
     g_fxPlay[g_fxPlayN].at = now;
