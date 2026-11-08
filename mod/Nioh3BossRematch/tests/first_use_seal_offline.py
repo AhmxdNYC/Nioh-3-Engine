@@ -12,6 +12,7 @@ bind = src[start:end]
 helper = src[src.index('double KnownTransformWaitUntil('):src.index('bool UseFamilyAct(')]
 start = src.index('                   const int useMs = g_formNeedUseMs.load();')
 gate = src[start:src.index('                   static uint64_t useSkipLogged', start)]
+cleanup=src[src.index('            // #82145/#82155:'):src.index('            ClearKeptExtras();',src.index('            // #82145/#82155:'))]
 pre = r'''
 #include <atomic>
 #include <algorithm>
@@ -34,6 +35,11 @@ void Log(const char*,...){}
 void FormHideEndBegin(uint64_t,uint64_t){++binds;}
 void FormHideEndReason(uint64_t,uint64_t,double){}
 uint64_t attempted=0;double attemptedT=-1;
+double pendAt=1,pendTrig=2,pendCapT=3;bool pendEdge=true,pendSpawn=true;uint64_t pendPlayer=4,pendCap=5;
+void cleanupFailed(const char* reason){
+'''+cleanup+r'''
+}
+
 void check(bool b){++checks;assert(b);}
 void reset(double t){g_fh4={};g_fh4.started=t;g_fkSealChr=0;g_fkSealT=-100;g_orbT=-100;g_sealEdgeT=t;
  g_throwDoneT=t+.2;g_throwCutT=-100;alive=false;binds=0;attempted=0;attemptedT=-1;g_orbSpawnMs=1800;g_formNeedUseMs=2200;
@@ -67,7 +73,7 @@ int main(){
  reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
  check(!tick(12.59));check(!tick(13.87,789,13.87));check(g_fh4.seal==789&&binds==1);
  reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
- check(!tick(14.49));check(!strcmp(tick(14.51),"throw-done-no-seal"));
+ check(!tick(17.99));check(!strcmp(tick(18.01),"throw-done-no-seal"));
  // No FormSlot0 capture: spawn-hit route binds before timeout after its 0.3-second observation delay.
  reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;g_fkSealChr=456;g_fkSealT=13.87;
  check(!tick(14.18));check(g_fh4.seal==456&&binds==1);
@@ -77,9 +83,28 @@ int main(){
  reset(10);g_pickT=8;g_pickCore=0x5129B;check(KnownTransformWaitUntil(10)<0);
  // Delayed-begin gate agrees with the same absolute deadline; unknown/refused/OFF remain strict.
  reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
- check(canStart(13.87,10));check(!canStart(14.51,10));
+ check(canStart(13.87,10));check(!canStart(18.01,10));
  g_pickCore=0;check(!canStart(13.87,10));g_pickCore=0x5129B;transforms=false;check(!canStart(13.87,10));
  transforms=true;g_orbT=-100;g_sealEdgeT=-100;check(!canStart(13.87,10));
+ for(const char* why : {"throw-done-no-seal","press-no-seal","throw-cancelled"}) {
+  pendAt=1;pendTrig=2;pendCapT=3;pendEdge=pendSpawn=true;pendPlayer=4;pendCap=5;
+  cleanupFailed(why);check(!pendAt&&!pendTrig&&!pendEdge&&!pendSpawn&&!pendPlayer&&!pendCap&&pendCapT==-1);
+ }
+ pendAt=1;cleanupFailed("ghost-exit");check(pendAt==1);
+ // #82145: 5.49-second launch capture and matching late admission; 17.2 seconds remains refused.
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.1;
+ check(!tick(15.48));check(canStart(15.49,10));check(!tick(15.49,789,15.49));check(g_fh4.seal==789&&binds==1);
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.1;g_fkSealChr=456;g_fkSealT=15.49;
+ check(!tick(15.8));check(g_fh4.seal==456&&binds==1);
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.1;check(!canStart(27.2,10));
+ check(tick(18.01,789,18.01)!=nullptr&&g_fh4.seal==0); // capture cannot outrun expired wait
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.1;
+ check(canStart(18.0,10));check(!tick(18.0,789,18.0));check(g_fh4.seal==789);
+ // Later DOWN press has a fresh deadline; a game-refused press never gets this extension.
+ reset(30);g_pickT=30;g_pickCore=0x60B86;g_orbT=30.1;
+ check(!tick(35.49,999,35.49));check(g_fh4.seal==999);
+ reset(40);g_pickT=40;g_pickCore=0x60B86;g_orbT=-100;g_sealEdgeT=-100;
+ check(!canStart(45.49,40));check(tick(42.6)!=nullptr);
  printf("first-use seal binding/timeouts: %d checks PASS (actual source branches; offline)\n",checks);
 }
 '''

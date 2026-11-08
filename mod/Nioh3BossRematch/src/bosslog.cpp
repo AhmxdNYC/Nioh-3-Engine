@@ -1378,7 +1378,7 @@ void PickPoll() {
 void PickLearn(uint32_t id) {
     if (!id) return;
     const double age = Now() - g_pickT.load();
-    const int dir = (age >= 0 && (age < 3.0 || (age <= 4.5 && id == g_pickCore.load() && ScOn()))) ? g_pickDir.load() : 0;
+    const int dir = (age >= 0 && (age < 3.0 || (age <= 8.0 && id == g_pickCore.load() && ScOn()))) ? g_pickDir.load() : 0;
     // #81314: every chr spawn reaches here (HkSeal N=0); one with no recent d-pad press (ambient 4735) is not a core: never listed / learned.
     if (!dir) return;
     // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
@@ -2913,12 +2913,12 @@ const char* g_fh4EndWhy = "";  // reason of the last FormHide=4 end (game thread
 bool UseConfirmedSince(double t) {  // the game threw the seal orb, or the player entered a seal action, since t
     return (g_orbHooked.load() && g_orbT.load() >= t - 0.05) || g_sealEdgeT >= t - 0.05;
 }
-// #82000: cold-load known cores can spawn at +3.87 s. Only a confirmed transform press gets extra time.
+// #82145: cold-load known cores can spawn at +5.49 s; allow up to eight seconds. Only a confirmed transform press gets extra time.
 // Use an absolute press deadline so repeated ticks / late orb events cannot extend it indefinitely.
 double KnownTransformWaitUntil(double start) {
     const double press = g_pickT.load();
     return g_pickCore.load() && ScOn() && press >= start - 1.5 && press <= start + .05 && UseConfirmedSince(press)
-        ? press + 4.5 : -100.0;
+        ? press + 8.0 : -100.0;
 }
 bool UseFamilyAct(uint32_t id) {  // a seal-use action (learned/configured) or a FastThrow throw id
     if (FhIsSealAct(id)) return true;
@@ -4152,12 +4152,12 @@ void FormHide4Tick(uint64_t player) {
                 static double loggedPress = -100;
                 if (loggedPress != g_pickT.load()) {
                     loggedPress = g_pickT.load();
-                    Log("FormCore cold-wait core=%X confirmed=1 deadline=%.3f press=%.3f (4500 ms)", g_pickCore.load(), coldUntil, loggedPress);
+                    Log("FormCore cold-wait core=%X confirmed=1 deadline=%.3f press=%.3f (8000 ms)", g_pickCore.load(), coldUntil, loggedPress);
                 }
             }
             const double noSpawnAt = (std::max)(normalNoSpawnAt, coldUntil);
             const double pressTimeoutAt = (std::max)(coldUntil, orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5);
-            if (cap && capT >= g_fh4.started - .05 && !(cap == attempted && capT == attemptedT)) {
+            if (cap && capT >= g_fh4.started - .05 && (coldUntil < 0 || capT <= noSpawnAt) && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 // report #22: the first fresh actor after the press is this form's seal (same rule as the delayed begin, #66107): a later capture
                 // (C17E3 0.26 s after 16127, 20:02:16.38) must not end the form as a capture-change
@@ -4221,6 +4221,10 @@ void FormHide4Tick(uint64_t player) {
         }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
         if (reason) {
+            // #82145/#82155: retire only pending begin metadata on a failed press. Existing restore owns pad/player cleanup.
+            if (!strcmp(reason, "throw-done-no-seal") || !strcmp(reason, "press-no-seal") || !strcmp(reason, "throw-cancelled")) {
+                pendAt = pendTrig = 0; pendEdge = pendSpawn = false; pendPlayer = pendCap = 0; pendCapT = -1;
+            }
             ClearKeptExtras();
             Log("FormHide=4 end %s", reason);
             g_fh4EndWhy = reason;

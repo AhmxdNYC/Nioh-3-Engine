@@ -145,7 +145,8 @@ int main(){
  g_slotCore[1]=0x5129B;g_equippedCore[0]=0x5B402;press(1);check(g_pickCore==0x5B402&&ScOn());
  clockNow+=3.87;PickLearn(0x5B402);check(g_slotCore[1]==0x5B402&&g_pickLearned);
  press(2);clockNow+=3.87;PickLearn(0x999);check(!g_pickLearned); // late unrelated spawn cannot learn
- press(2);clockNow+=4.51;PickLearn(0xA2ACB);check(!g_pickLearned);
+ press(2);clockNow+=8.01;PickLearn(0xA2ACB);check(!g_pickLearned);
+ press(2);clockNow+=5.49;PickLearn(0xA2ACB);check(g_pickLearned);
  g_equippedCore[0]=0;press(1);check(g_pickCore==0); // ready empty slot does not reuse stale learned ID
  g_equippedReady=false;press(1);check(g_pickCore==0x5B402); // unavailable equipment keeps learned fallback
  // Exact labels from production menu code, retained for the clearly marked offline visual preview.
