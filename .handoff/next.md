@@ -213,3 +213,6 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 5:03 am EST | cx-pc #83600 BLOCKED on live gates: PC#83625, pc2#83624, Ally#83623 returned weekly limits to single gate tasks #83620/#83621/#83622. No new gate PASS; do not publish 1.8.12 or send duplicate Claude wakes.
   Candidate source/assets ready: branch cx-pc/release-1812-prep, EF a1b32e13 BR44ca2f23, files#6557-6563, checklist#6564, offline evidence#6566 (36/36 +5/5 PASS). Next: cxl-pc route existing tasks to available authorized game-slot owners; companion cannot control game. Public stays1.8.11.
+
+- 2026-11-08 5:07 am EST | cx-pc #83690: all three Codex game-owner routes verified (PC83674, pc2 83672, Ally83671). Resumed original gates83620/83621/83622 via83705/83706/83707; no duplicate tasks. Candidate1.8.12 EF a1b32e13 BR44ca2f23; live0/3, publication held.
+  Routing blocker resolved; game results unproven. Next: collect full feature/install verdicts; companions do not control game.

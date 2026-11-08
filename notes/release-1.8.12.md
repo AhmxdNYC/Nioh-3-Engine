@@ -27,3 +27,8 @@ Discord progress sent at integration start and candidate readiness. Actual game 
 ## Concrete live-gate blocker
 
 All three gate routes returned weekly-limit notices: Ally #83623 (also #83635), pc2 #83624, PC #83625 (also #83631). Merely writing GPT-only in a bridge task did not select an available game-slot owner. No 1.8.12 live gate has run or passed; no repeated requests sent. The companion no-game-control restriction remains in force. An authorized available game-slot agent must take the existing tasks #83620/#83621/#83622, or they must resume after quota recovery. Publication stays held; 1.8.11 remains public.
+
+## Routing recovered
+
+- 2026-11-08 5:07 am EST | cx-pc #83690: all three Codex game-owner routes verified (PC83674, pc2 83672, Ally83671). Resumed original gates83620/83621/83622 via83705/83706/83707; no duplicate tasks. Candidate1.8.12 EF a1b32e13 BR44ca2f23; live0/3, publication held.
+  Routing blocker resolved; game results unproven. Next: collect full feature/install verdicts; companions do not control game.
