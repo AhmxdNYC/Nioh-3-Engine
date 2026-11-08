@@ -49,3 +49,5 @@ All three gate routes returned weekly-limit notices: Ally #83623 (also #83635), 
   Old BR44ca2f23 rejected. Fresh live gates0/3; next: same device owners test exact r2 packages, keeping PC presence83747 hold. Public stays1.8.11. Evidence release/validation-1812r2; packages release/dist-1812r2.
 
 Tests: queue snapshot14, queue12, first-use52, ghost243, last-hit346, cold23, picker134, equipment29 PASS. Full-install payload checked and BR byte equality verified. Setup embeds rebuilt full payload. No live recovery claim.
+
+- 2026-11-08 5:34 am EST | cx-pc/0 r2 BRc117129f dispatch recorded: Ally83989 on83622; PC2 83990 on83621 AFTER original active run restoration; PC83991 on83620 only AFTER presence83747 resolved. Do not duplicate these retests. Next: collect all3 full live verdicts; publication held.

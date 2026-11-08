@@ -225,3 +225,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 5:33 am EST | cx-pc/0 integrated fix97000f47 as6f71c28b; independently reran8 suites853/853 PASS and Release BR build. Scrubbed only PDB paths, executable bytes identical. Fresh1.8.12 r2 EF a1b32e13 BR c117129f (#6592), Setup145f8a7f (#6593), pyz e00ff4d8 (#6594), full90f7d745 (#6595), combined f2f12ca9 (#6596), sums6597.
   Old BR44ca2f23 rejected. Fresh live gates0/3; next: same device owners test exact r2 packages, keeping PC presence83747 hold. Public stays1.8.11. Evidence release/validation-1812r2; packages release/dist-1812r2.
+
+- 2026-11-08 5:34 am EST | cx-pc/0 r2 BRc117129f dispatch recorded: Ally83989 on83622; PC2 83990 on83621 AFTER original active run restoration; PC83991 on83620 only AFTER presence83747 resolved. Do not duplicate these retests. Next: collect all3 full live verdicts; publication held.
