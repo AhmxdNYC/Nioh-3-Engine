@@ -152,3 +152,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 5:07 am EST | cx-pc #83690: all three Codex game-owner routes verified (PC83674, pc2 83672, Ally83671). Resumed original gates83620/83621/83622 via83705/83706/83707; no duplicate tasks. Candidate1.8.12 EF a1b32e13 BR44ca2f23; live0/3, publication held.
   Routing blocker resolved; game results unproven. Next: collect full feature/install verdicts; companions do not control game.
+
+- 2026-11-08 5:11 am EST | cx-pc/0 records PC RESULT83758 for gate83620: BLOCKED by ambiguous player activity; 0 live feature checks, candidate hashes4/4 match, baseline files18/18 unchanged.
+  Existing presence question83747 and needs-player entry remain with pc; no duplicate question/retry. Evidence6569/6570; next PC owner resolves presence and resumes original gate. All3 feature passes still required before publication.
