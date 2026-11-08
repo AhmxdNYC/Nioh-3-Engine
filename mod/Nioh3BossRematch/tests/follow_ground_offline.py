@@ -14,6 +14,8 @@ pre=r'''
 #include <cstdio>
 #include <cstring>
 #include <limits>
+struct {uint64_t player=0;double t=-100;float groundY=0;} g_pressSnap;
+double Now(){return 10;}
 float playerPos[4]={10,13674,20,1},sealPos[4]={30,13951,40,1};
 bool readable=true,warpOk=true,writeOk=true,blocked=true;int warps=0,writes=0,present=1;
 uint64_t currentPlayer=123,g_base=0;std::atomic<int> g_fhWarp{1};
@@ -32,12 +34,12 @@ template<class T>bool Fh4Set(uint64_t,T){return true;}
 '''
 post=r'''
 int checks=0;void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);exit(1);}}
-void reset(){playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
+void reset(){g_pressSnap={};playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
 int main(){
  reset();check(FormFollow(123,456));check(playerPos[1]==13674&&playerPos[0]==30&&playerPos[2]==40);check(sealPos[1]==13951);
  for(float y:{13674.f,13750.f,13951.f,14252.f}){sealPos[1]=y;check(FormFollow(123,456)&&playerPos[1]==13674);}
  Fh4Restore(123);check(!g_fh4.owner&&!g_followGround.owner&&!blocked&&playerPos[1]==13674);
- reset();sealPos[1]=13600;check(FormFollow(123,456)&&playerPos[1]==13600);Fh4Restore(123);check(playerPos[1]==13600); // downward remains allowed
+ reset();sealPos[1]=13600;check(FormFollow(123,456)&&playerPos[1]==13600);Fh4Restore(123);check(playerPos[1]==13674); // following can descend; exit returns to saved height
  reset();g_fhWarp=0;check(FormFollow(123,456)&&warps==0&&writes==1&&playerPos[1]==13674);
  reset();warpOk=false;check(FormFollow(123,456)&&warps==1&&writes==1&&playerPos[1]==13674);
  reset();warpOk=writeOk=false;check(!FormFollow(123,456)&&!g_followGround.used&&playerPos[1]==13674);
@@ -52,6 +54,12 @@ int main(){
  reset();present=0;check(!FormFollow(123,456)&&warps==0&&writes==0);
  reset();float hold[4]={55,14252,77,1};check(FormFollowGroundTarget(123,hold)&&hold[1]==13674&&hold[0]==55&&hold[2]==77);
  check(!FormFollowGroundTarget(999,hold));
+ reset();playerPos[1]=21792;FormFollowGroundBegin(123);g_followGround.used=true;playerPos[1]=21784;Fh4Restore(123);
+ check(playerPos[1]==21792&&!g_fh4.owner);FormFollowGroundBegin(123);check(g_followGround.y==21792);
+ reset();g_pressSnap.player=123;g_pressSnap.t=9;g_pressSnap.groundY=21792;playerPos[1]=21784.4f;FormFollowGroundBegin(123);
+ check(g_followGround.y==21792);g_followGround.used=true;Fh4Restore(123);check(playerPos[1]==21792);
+ reset();g_pressSnap.player=999;g_pressSnap.t=9;g_pressSnap.groundY=1;FormFollowGroundBegin(123);check(g_followGround.y==13674);
+ reset();g_pressSnap.player=123;g_pressSnap.t=.5;g_pressSnap.groundY=1;FormFollowGroundBegin(123);check(g_followGround.y==13674);
  printf("FormFollow ground ceiling and actual restore: %d checks PASS (offline)\n",checks);
 }
 '''

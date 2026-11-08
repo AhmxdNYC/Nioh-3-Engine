@@ -2514,10 +2514,15 @@ uint64_t ActorTableGlobal() {
     if (FormHideCodeMatches(0x2BF7E8, removeHead, sizeof(removeHead)) && Rd(g_base + Grva(0x2BF7F2), rel)) g = g_base + Grva(0x2BF7F6) + rel;
     return g;
 }
-struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; };
+struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; uint64_t player = 0; float groundY = 0; };
 PressSnap g_pressSnap;
 bool PressSnapTake(double now) {  // false = table unreadable (then nothing is rejected by it; the other guards still apply)
     g_pressSnap.nodes.clear(); g_pressSnap.t = now; g_pressSnap.ok = false;
+    g_pressSnap.player = 0;
+    const uint64_t player = FkPlayer(); float pos[4] = {};
+    if (player && Copy(pos, player + 0x110, sizeof(pos)) && std::isfinite(pos[1])) {
+        g_pressSnap.player = player; g_pressSnap.groundY = pos[1];
+    }
     uint64_t mgr = 0, buckets = 0; const uint64_t global = ActorTableGlobal();
     if (!global || !Rd(global, mgr) || !mgr || !Rd(mgr + 0xBA0, buckets) || !buckets) return false;
     unsigned budget = 4096;
@@ -2759,7 +2764,9 @@ void FormFollowGroundBegin(uint64_t player) {
     g_followGround = {};
     float p[4] = {};
     if (Copy(p, player + 0x110, sizeof(p)) && std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]))
-        g_followGround = {player, p[1], false};
+        g_followGround = {player,
+            g_pressSnap.player == player && g_pressSnap.t > 0 && Now() >= g_pressSnap.t && Now() - g_pressSnap.t <= 8.5
+                ? g_pressSnap.groundY : p[1], false};
 }
 bool FormFollowGroundTarget(uint64_t player, float* pos) {
     if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
@@ -2771,7 +2778,8 @@ bool FormFollowGroundRestore(uint64_t player) {
     float pos[4] = {};
     if (!Copy(pos, player + 0x110, sizeof(pos))) return false;
     const float before = pos[1];
-    if (!FormFollowGroundTarget(player, pos)) return false;
+    if (!std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
     const bool changed = pos[1] != before;
     const bool ok = !changed || (g_fhWarp.load() && FormPinWarpCall(player, pos)) || WrBytes(player + 0x110, pos, sizeof(pos));
     Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
@@ -4966,7 +4974,7 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
 // with the old rule are kept apart: [SealHitsA] / [SealLastHitA] are learned fresh (first use of each core plays in full once).
 std::atomic<int> g_sehAtk{1};
 // #82127: old aggregate/appearance counts must never seed the corrected observer.
-const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA3" : L"SealHits3"; }
+const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA4" : L"SealHits4"; }
 int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
     return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
@@ -5595,7 +5603,7 @@ void SealTailHitTick() {
         w.previous.swap(current);
         if (newCluster) {
             ++w.bursts;
-            const wchar_t* section = w.atkOnly ? L"SealHitsA3" : L"SealHits3";
+            const wchar_t* section = w.atkOnly ? L"SealHitsA4" : L"SealHits4";
             wchar_t key[16], value[16]; swprintf_s(key, L"%X", w.sid);
             const int had = (int)GetPrivateProfileIntW(section, key, 0, IniPath());
             if (w.bursts > w.atExit && w.bursts > had) {
@@ -5740,6 +5748,13 @@ void SealEndOnHitTick() {
     if (poolOk) for (auto& entry : appearance) entry.second.seen = false;
     const bool bindWindow = !seal || now <= boundAt + 0.200;
     const bool atkOnly = g_sehAtk.load() > 0;
+    // A2ACB can open an appearance collider at +.274 after spawn, beyond bind's .2s window.
+    double born = -100;
+    if (g_hitSourceSnapshot == sourceSince) for (const auto& entry : g_pressHitSources)
+        if (entry.at >= sourceSince && (born < 0 || entry.at < born)) born = entry.at;
+    for (int k = 0; k < 8; ++k)
+        if (g_sehKid[k] && g_sehKidT[k] >= sourceSince && (born < 0 || g_sehKidT[k] < born)) born = g_sehKidT[k];
+    const bool spawnWindow = born >= sourceSince && now <= born + 0.400;
     for (int i = 0; poolOk && i < 0xFA0; ++i) {
         const uint64_t o = pool[i];
         if (!o) continue;
@@ -5750,7 +5765,7 @@ void SealEndOnHitTick() {
         bool mine = seal && own == seal;
         if (!mine) mine = std::find(sources.begin(), sources.end(), own) != sources.end();
         if (mine) ++actorRaw[own];
-        if (mine && bindWindow && excluded == appearance.end())
+        if (mine && (bindWindow || spawnWindow) && excluded == appearance.end())
             excluded = appearance.emplace(o, AppearCollider{own, true}).first;
         if (mine && atkOnly) {  // body collider (no attack data, no attack id) = not a hit
             uint64_t ad = 0; uint32_t aid = 0;

@@ -28,7 +28,7 @@ int IniInt(const wchar_t*,const wchar_t* key,int d){auto i=ini.find(key);return 
 const wchar_t* IniPath(){return L"memory-only";}
 #define GetPrivateProfileIntW FakeReadProfile
 UINT FakeReadProfile(const wchar_t* section,const wchar_t* key,int d,const wchar_t*){
- auto& data=(!wcscmp(section,L"SealHits")||!wcscmp(section,L"SealHitsA")||!wcscmp(section,L"SealHitsA2")||!wcscmp(section,L"SealHits2"))?legacyIni:ini;
+ auto& data=(!wcscmp(section,L"SealHits")||!wcscmp(section,L"SealHitsA")||!wcscmp(section,L"SealHitsA3")||!wcscmp(section,L"SealHits3")||!wcscmp(section,L"SealHitsA2")||!wcscmp(section,L"SealHits2"))?legacyIni:ini;
  auto i=data.find(key);return i==data.end()?d:std::stoi(i->second);
 }
 void Log(const char*,...){}
@@ -96,7 +96,8 @@ struct {void Enter(int,int){}} g_uiPages;
 #include "soul_core_tuning_menu.h"
 using namespace bosslog;
 int checks=0;double base=0;
-void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);fflush(stdout);exit(1);}}
+void checkAt(bool b,int line){++checks;if(!b){printf("FAIL %d line %d\n",checks,line);fflush(stdout);exit(1);}}
+#define check(b) checkAt((b),__LINE__)
 void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
  g_tailHitWatches.clear();tailPresent=1;g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
  g_pickCore=0;g_pressSnap.t=-100;g_hitSourceSnapshot=-100;g_pressHitSources.clear();clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
@@ -124,7 +125,7 @@ int main(){
  start(2,-500);first();check(!smokes);step(1.5,true);check(smokes==1&&!despawns);
  start(2,-9999);first();step(1.5,true);check(!smokes);step(1.7,false);check(!g_ghostReq);step(1.74,false);check(!g_ghostReq);step(1.751,false);check(g_ghostReq==456);
  start(0);first();step(1.5,true);step(1.7,false);check(!smokes&&!g_ghostReq);g_sieFireSeal=456;step(2,false);check(smokes==1&&g_ghostReq==456);
- start(1);step(.201,true);check(!smokes);step(.71,true);check(smokes==1); // min guard still applies
+ start(1);step(.401,true);check(!smokes);step(.71,true);check(smokes==1); // min guard still applies
  start(2,0,false);first();step(1.5,true);check(!smokes);g_fh4.seal=456;step(1.6,true);check(!smokes); // late bind cannot classify earlier bursts as attacks
  manualAction=true;action=0x4E5A;step(1.7,true);check(!smokes);step(1.8,false);step(2,true);step(2.1,false);step(2.3,true);check(smokes==1);
  start(1);bodyOnly=true;step(1,true);check(!smokes);bodyOnly=false;step(1.1,true);check(smokes==1);
@@ -135,7 +136,7 @@ int main(){
  start(1);g_sehMode=1;step(1,true);check(smokes==1&&!despawns); // explicit mode uses ghost too
  // #81956: unknown core learns at completed idle exit, then arms on the next use.
  ini.clear();start(-1);first();step(1.5,true);step(1.667,false);check(!ini.count(L"5129B"));
- g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA3");
+ g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA4");
  start(-1);first();step(1.5,true);check(g_ghostReq==456&&smokes==1);check(ini[L"5129B"]==L"2");
  // Max only: a shorter completed attack cannot overwrite a higher known count.
  ini[L"5129B"]=L"3";start(-1);first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"3");
@@ -178,11 +179,11 @@ int main(){
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);
  g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"60B86"]==L"1");g_fh4EndWhy="test-end";
  // #82033: inclusive 100-ms boundary, and no action gate even when action is unreadable.
- for(double dt : {0.0,0.05,0.1,0.2}) {
+ for(double dt : {0.0,0.05,0.1,0.2,0.274,0.4}) {
   ini.clear();start(1);manualAction=true;step(dt,true);step(.71,true);check(!smokes);
   step(.8,false);step(1.1,true);check(smokes==1);
  }
- start(1);manualAction=true;action=0xFFFFFFFF;step(.201,true);step(.71,true);check(smokes==1);
+ start(1);manualAction=true;action=0xFFFFFFFF;step(.401,true);step(.71,true);check(smokes==1);
  // Live regression timings: both Ibaraki bursts in the unchanged bind action C53.
  start(2);manualAction=true;action=0xC53;step(1.351,true);step(1.45,false);check(!smokes);
  step(1.634,true);check(smokes==1&&g_ghostReq==456);
@@ -214,7 +215,7 @@ int main(){
  ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;
  extraAttack=true;step(.533,false);step(.7,false);check(smokes==1&&g_tailHitWatches.size()==1);
  g_fh4.owner=0;extraAttack=false;step(.9,false);check(ini[L"60B86"]==L"1");
- extraAttack=true;step(1.3,false);check(ini[L"60B86"]==L"2"&&smokes==1&&writtenSection==L"SealHitsA3");
+ extraAttack=true;step(1.3,false);check(ini[L"60B86"]==L"2"&&smokes==1&&writtenSection==L"SealHitsA4");
  extraAttack=false;step(1.6,false);extraAttack=true;step(2.1,false);check(ini[L"60B86"]==L"3"&&smokes==1);
  tailPresent=0;step(3.15,false);check(g_tailHitWatches.empty());
  // No extra burst: never teach a count solely because our own last-hit rule fired.
@@ -230,7 +231,7 @@ int main(){
  ini[L"60B86"]=L"5";g_fh4.owner=0;extraAttack=false;step(.9,false);extraAttack=true;step(1.2,false);check(ini[L"60B86"]==L"5");
  tailPresent=-1;extraAttack=false;step(1.4,false);tailPresent=1;extraAttack=true;step(1.6,false);check(ini[L"60B86"]==L"5");
  extraAttack=false;step(1.8,false);ini[L"60B86"]=L"2";g_sehAtk=0;extraAttack=true;step(2.1,false);
- check(ini[L"60B86"]==L"3"&&writtenSection==L"SealHitsA3");g_sehAtk=1;
+ check(ini[L"60B86"]==L"3"&&writtenSection==L"SealHitsA4");g_sehAtk=1;
  step(31.0,false);check(g_tailHitWatches.empty());
  // Doji known corrected count still exits on the second live opening at 1.517 s.
  ini.clear();ini[L"5129B"]=L"2";start(-1);first();step(1.517,true);
@@ -303,6 +304,15 @@ int main(){
   replay(!learnGap,true); // learn with one sampling phase, exit with the other
   replay(learnGap,true);  // current A3 max=3 is reachable in both variants
  }
+ // #82344 A2ACB: .274 appearance must not teach a second hit; repeat exits on one real hit.
+ ini.clear();start(-1,0,true,true,0xA2ACB);censusMode=true;census={{0x20000,456},{0x21000,456}};
+ step(.1,false);census[0x22000]=456;step(.274,false);check(!smokes);
+ census.clear();step(.574,false);census[0x23000]=456;step(1.665,false);census.clear();step(1.734,false);
+ g_sieFireSeal=456;step(3,false);check(ini[L"A2ACB"]==L"1");
+ start(-1,0,true,false,0xA2ACB);step(1.493,true);check(smokes==1&&g_ghostReq==456);
+ // The boundary is spawn-relative even when the spawn is delayed after the press.
+ start(1,0,false,false,0xA2ACB);g_sehKidT[0]=base+1;g_fh4.seal=456;step(1,false);
+ step(1.274,true);check(!smokes);step(1.574,false);step(2.665,true);check(smokes==1);
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
