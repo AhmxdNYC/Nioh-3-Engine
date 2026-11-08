@@ -77,3 +77,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-11-07 10:15 PM EST | cx-pc #81879 offline fix complete; no game or lock owned. pc owns live acceptance of combined candidate.
 - 2026-11-07 10:52 PM EST | cx-pc/1 #82000 implementation complete bd973675 / #6362; pc owns pc2 live task. Bug2 owner finished prerequisite 01547872 before merge. No game/lock/install by seat 1.
 2026-11-07 10:48 PM EST | cx-pc #82001 offline replay complete, no game owned; pc owns #6358 live acceptance.
+
+- cx-pc #82280 complete offline: burst replays on cx-pc/burst-replay-82280; no game ownership; production unchanged.

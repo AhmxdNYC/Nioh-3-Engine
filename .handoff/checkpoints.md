@@ -148,3 +148,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-07 11:35 pm EST | #82179 identity lifetime exclusion + 200ms bind window + 100ms new-object clusters and A3 count migration built; 712 checks + sc22 PASS | live pending, 60B86 replay repeat exit1.276 and Doji1.517/1.668 preserved | next pc install first/repeat both cores | notes/hit-clusters-82179.md
 2026-11-07 11:39 pm EST | #82179 live PASS reported by pc/6 #82238: 60B86 count2 exit1.300/1.783/1.750; Doji count3 exit1.517, BR2bae7371 | next lead acceptance/release decision | notes/hit-clusters-82179.md; production fb1ff8ae
 2026-11-07 11:44 pm EST | #82256 form-start Y ceiling + reveal/exit restore built; 23 new +712 prior checks=735 PASS, sc22 PASS | live terrain/air-block validation pending | next pc60B86 leap/exit/repeat +Doji | notes/follow-ground-82256.md
+
+2026-11-07 7:56 pm EST | #82280 offline replay complete: 217 checks PASS, 78 added | both gap phases learn 3 and exit final with synthetic new identities; live identity reuse unproven | next lead tests current BR | notes/burst-replay-82280.md; branch cx-pc/burst-replay-82280

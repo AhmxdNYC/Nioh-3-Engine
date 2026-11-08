@@ -244,6 +244,33 @@ int main(){
  // Corrected tail observer also counts new-object clusters while the old attack remains open.
  ini.clear();start(1);censusMode=true;census={{0x22000,456}};step(.7,false);g_fh4.owner=0;step(.8,false);
  census[0x23000]=456;step(1.2,false);check(ini[L"5129B"]==L"2");census[0x24000]=456;step(1.25,false);check(ini[L"5129B"]==L"2");
+
+ // #82280 / #6393: opening intervals, not the 13-32 ms empty gap, define clusters.
+ // Log L3: 5.762,5.879,6.050; L2: 5.910,6.046,6.209. Addresses are synthetic:
+ // the source log supplies counts/owners but no object identities. Model new helper objects.
+ for(double second : {1.117,1.136}) for(bool learnGap : {false,true}) {
+  const double final=second==1.117?1.288:1.299;
+  auto replay=[&](bool gap,bool known){
+   start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+   for(int i=0;i<28;++i)census[0x40000+i*0x1000]=789;
+   step(1.0,false);check(!smokes);
+   if(gap){census.clear();step(1.104,false);check(!smokes);}
+   census.clear();for(int i=0;i<4;++i)census[0x70000+i*0x1000]=789;
+   step(second,false);check(!smokes); // missed gap still sees new identities
+   census.clear();step(second+.106,false);check(!smokes);
+   for(int i=0;i<4;++i)census[0x80000+i*0x1000]=456;
+   step(final,false);
+   check(smokes==(known?1:0));
+   if(known){check(g_ghostReq==456&&std::abs(g_ghostReqAt.load()-(base+final+.1))<.00001);}
+   census.clear();step(final+.12,false);
+   g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+   check(ini[L"5129B"]==L"3");
+  };
+  ini.clear();legacyIni[L"5129B"]=L"3";check(ReadLearnedHits(0x5129B)==0);
+  replay(learnGap,false); // old A2 max=3 cannot seed the A3 learner
+  replay(!learnGap,true); // learn with one sampling phase, exit with the other
+  replay(learnGap,true);  // current A3 max=3 is reachable in both variants
+ }
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
