@@ -74,3 +74,4 @@
 - #29069/#29078/#29093 (2026-10-24): after all done, have agents update decompilation status/graphs and RE notes; keep work board current; utilize Grok helpers.
 - #80963: the XHALF flicker fix's ~2 fps (3%, pc2 68->66; Ally 0) cost is acceptable (not human-noticeable) but must be noted (release notes 1.8.10 + records).
 - #80692 (11-07 2:52 pm EST): human: flicker comes from the Extreme preset / VRS or other recent additions, not the old mod features. Bisect only those.
+- #80692 (11-07 2:52 pm EST): human: flicker comes from the Extreme preset / VRS or other recent additions, not the old mod features. Bisect only those.
