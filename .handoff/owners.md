@@ -70,3 +70,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-05 11:52 PM EST | cx-pc/1 #72442 DONE offline: source b01ae4e7 branch cx-pc/entry-cover-gap-72442; TR 387c7708 file #5488. Proven 3782ms gap was explicit false intro off, not EngineFix expiry; removed event-ID release.
 - Build exit 0, cover/native-entry/native-return + 17 Training harnesses pass; next main pc same R3513/R25E4 video and intro check. Intro before FIGHT remains covered (tech debt); no game/install touched. notes/entry-cover-72261.md.
 - 2026-11-07 9:04 pm EST | cx-pc/0 owns #81516 offline picker changes in Temp/wt-eq81516; pc owns game tests. Opus CLI handles mapping research only.
+- 2026-11-07 9:21 pm EST | cx-pc/0 #81516 offline implementation complete, BR 7f244882 #6329. pc owns install/game validation. Opus static review complete; no background worker/game test left by cx-pc.

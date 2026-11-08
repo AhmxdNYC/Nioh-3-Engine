@@ -1,80 +1,45 @@
-# Per-core soul transformation pick (human #81220, cx-pc, offline build, not tested in game)
+﻿# Per-core soul transformation picker (#81220, #81514 / #81516)
 
-## #81516 / #81514: pre-use picker fallback (offline checkpoint)
+Base for #81516: cx-pc/formcore-pick-81220 367033fc (BR 9253773e). Offline implementation only; pc owns installation and live testing.
 
-The candidate implements task approach 3 while the direct equipment mapping is investigated.
-Two selectable rows are present immediately: `LEFT seal (not used yet)` and `DOWN seal (not used yet)`.
-Left selects game summon, Right selects transform, A toggles. An explicit choice is saved as
-`[Spirit] FormCorePendingLeft` / `FormCorePendingDown` (0 summon, 1 transform, absent = no override).
-It controls the first press before the spawn. On the first accepted spawn ID it becomes an ordinary
-`FormCoresOff` preference and the pending direction key is deleted. Later cores do not inherit that
-direction preference. Duplicate IDs merge into one row, including a core learned on both directions.
+## Equipped cores before any seal press: approach 1
 
-Cached `FormCoreLeft/Down` IDs still help the existing press-time path, but no longer populate the menu
-as though they were the current equipment. Each session starts with placeholders; a learned row says
-`last used`, not `equipped`. Historical learned IDs remain selectable. This is **not** a verified read
-of Yang position 1/2, and does not claim to detect loadout/shortcut changes without a use.
+Training > Player lists the currently equipped Yang cores as `Core <hex ID> (Yang 1)` and `(Yang 2)` after the save/player becomes ready. No seal press is needed to discover those IDs. A flips, Left selects game summon, Right selects transform. Choices remain keyed by the seal character ID in `[Spirit] FormCoresOff`, never by Yang position or direction. Identical IDs merge into one row; historical learned IDs are merged without duplicates. Names are not resolved; IDs are the same namespace as seal-spawn `desc[0]`.
 
-Static evidence recovered: `SaveUserReadEquipSection` 0x1047F30 and its writer 0x105EC60 store ten u32
-indices at `data + 0x23B6B8` under AB0E9943 / 36BFE4B6. `data` there is `*(*serializer + 0x10)`.
-The general runtime inventory getter 0x553038 returns `*inventory + 0x10 + index*0xF0` when the index
-is below the u64 count at `*inventory + 0x927D0`. These facts alone do **not** prove the active Onmyo
-equipment pointer or map a 16-bit inventory item ID to the seal's character `desc[0]`. No speculative
-game read, function call, scan, hook or hardcoded core mapping has been added.
+A player animation tick checks readiness and equipment every 250 ms. The first ready tick schedules one worker to copy the two bounded game tables and build an item-to-character map. No process-wide scan, VirtualQuery, new hook or game function call is added. The worker publishes its copied map under a lock; the menu only reads already-published IDs. A changed table source invalidates the map and schedules a rebuild (failed attempts are limited to once per five seconds). Unknown executable builds use the fallback because the structure offsets are verified for the supported build only.
 
-Validation: Release ASI builds. `py -I tests/form_core_pick_offline.py` compiles the actual picker and
-menu code with an in-memory INI and fake pad; 93 checks pass for initial rows, first-use OFF/ON,
-pending persistence, migration to ID, independent directions, duplicate merging, cached/changed IDs,
-secondary/ambient spawn rejection, global OFF, expiry, invalid directions and bounded history.
-No game/installation/lock was touched. Direct mapping research remains open at this checkpoint.
+Successful equipment reads log:
 
-Live acceptance for pc/pc2: fresh launch, load save without pressing a seal, open Player settings and
-verify two selectable rows; choose LEFT game summon and DOWN transform before first use; close menu
-and use each; verify no LEFT transformation from its first press, DOWN still transforms, both IDs
-replace placeholders, and the choices follow IDs when their shortcuts change. Restart before first
-use to check pending choices survive. Capture the real menu; offline tests cannot establish visuals
-or first-use effects in game. Keyboard detection remains the earlier limitation described below.
+`FormCore equipped: Y1=<id> Y2=<id> src=OnmyoBox+23B6B8/item+180/yang+18/seal+54`
 
-Base: cx-pc/release-1810-prep 87dcdc89 (public 1.8.10). Branch cx-pc/formcore-pick-81220. Only Nioh3BossRematch changes.
+The worker separately logs mapped-item count and elapsed milliseconds. Empty slots are 0. Unreadable pointers, invalid counts/indices, ambiguous table keys or an unmappable equipped core retain the learned/placeholder fallback instead of inventing an ID.
 
-## What it does
-Each Yang core can be set to **transform** (today's mod form: hide/follow/pad block/invuln/smoke/x8 throw/OrbSkip/SealSpeed) or
-**game summon** (the game's own yokai throw, exactly like the global `SoulCoreForms=0`). Default = all transform.
+## Static evidence and exact read chain
 
-## Ini / menu
-- `[Spirit] FormCoresOff = 5B402,30744` (hex core ids = desc[0] of the seal spawn hit, as in the log). Empty = all transform. Max 16.
-- `[Spirit] FormCoreLeft / FormCoreDown` (written by the mod): last core id seen on each d-pad direction, so the next session knows
-  the core at press time.
-- Menu: Training > Player (same page as 'Soul core transformations'): one row per core seen ('Core 5129B (LEFT): transforms / game summon'),
-  A flips, Left = game summon... (Left OFF, Right ON). Saved at once. Before any core was seen: one placeholder row. The global
-  'Soul core transformations' OFF still overrides everything.
-- Names: the mod has no name for a core (desc[0] is the yokai chr key, not an item id); rows show id + direction.
+- `SaveUserReadEquipSection` 0x1047F30 and writer 0x105EC60 serialize ten u32 core inventory indices at data+0x23B6B8 (AB0E9943 / 36BFE4B6).
+- Preset copy 0x10872F0, lines 550-624 of the existing decompile, independently reads eight core slots from `inv = **g:Inventory` (global RVA 0x4751530), indices `inv+0x23B6B8+slot*4`, and copies each item from `inv+0x10+index*0xF0`. The u64 count is at **inv+0x927D0**, not item-array-base+0x927D0. Getter 0x553038 corroborates this. The new reader bounds count to 2500 and double-reads count/indices before publishing.
+- Core-slot copy 0x553194 passes `slot > 1` to 0x55285C: slots 0/1 select core-parameter +0x18 (Yang); remaining slots select +0x1C (Yin).
+- Getter 0x5549AC: resolve the item's u16 ID in DataDB+0x68 (item master, stride 0x1A0), then resolve item+0x180 in DataDB+0x118 (core parameters, stride 0x54). 0x554BE0 confirms the latter stride. Item IDs are u16 at row+0x152; core-parameter keys are u32 at row+0x0C.
+- 0x55285C returns the Yang spell item ID from core-parameter+0x18. Resolve that ID in the item master; its u32 +0x54 is the summoned character ID. Item categories/types and nonempty IDs are checked at every step.
+- Offline production mapper over extracted files maps **117 of 119** core item rows. Two rows lack a summon/parameter mapping and are excluded. Verified examples: Ibaraki EB60 -> parameter 59C4 -> seal 9C04 -> **5129B**; Maelstrom BD34 -> D619 -> FC9F -> **A2ACB**; Yasha DFFB -> D51A -> C09D -> **5B402**. These match observed spawn IDs in Ally #81149. No such ID table exists in production code.
+- Extracted item table: archive_03/2E/D4E1DB3B... (3362 x 416 B). Core-parameter table: archive_03/23/DAC95BA0146EC13EC2F5D25530800A24F092D403B890FE53419274CEACCBAF (84 x 84 B). Both have an eight-byte header with row count at +4. Local Opus static review independently found the same three-table join; runtime table slot/getter evidence was completed by this worker.
 
-## How an OFF core is vanilla
-All form / press-time gates (`g_scForms.load()` in 16 places: FormHide begins, FormSlot0 capture, FastThrow/RunThrow, OrbSkip, AirBlock,
-HasSkill hook, attack-cancel gate patch via AirGateTick, SealSpeed, FormKey swap/appear) now read `ScOn()` = SoulCoreForms && !pickOff.
-`PickPoll()` runs at the d-pad edge (HkHasSkill 0xEDC9 = the accept, and every AirGateTick frame): d-pad LEFT=slot 1, DOWN=slot 2 ->
-last core seen on that slot (`g_slotCore`) -> if in FormCoresOff, `pickOff` = true for that use (cleared on the next L/D press, or 10 s
-after the last press). A form already up always ends normally.
-Log per press: `FormCore <id> dir=<L/D> transform=<0/1> reason=...`. Menu change: `FormCore <id>: menu -> transform=<0/1>`.
+## Learned / pre-use fallback
 
-## Limits (known, by design)
-1. Press-time knowledge is the direction -> last core seen. The **first use of a newly equipped core** on a direction has no known core:
-   it starts as a form (press-time smoke / x8 throw run). At the spawn hit the core is learned; if it is OFF, `pickOff` turns on from there
-   (form suppressed; log 'first seen at the spawn hit'). Next uses are vanilla from the press.
-2. Same press: the attack-cancel gate patch is flipped by AirGateTick, so a press on an OFF core during an attack may still cancel once.
-3. Swapping cores in the Onmyo Box between sessions: the first use of the new core falls back as in 1.
-4. RIGHT d-pad (talismans) never changes the pick. Human-ally summons (A9F39) are also recorded as 'the core of the last pressed dir'.
-5. `tests/formhide4_offline.py` could not run here (missing toolchain path); sc22_replay.py ALL OK, hosted-input harness 95 checks pass.
+If equipment is not yet available, two selectable rows exist immediately: `LEFT seal (not used yet)` and `DOWN seal (not used yet)`. A pending choice is saved in `[Spirit] FormCorePendingLeft/Down` (0 summon, 1 transform; absent = no override). It applies before the first spawn, moves into the ordinary per-ID preference at the first accepted spawn, and is deleted from the direction key. It never stays attached to a direction for subsequent cores. Pending rows remain visible if the equipment map becomes ready before their first use.
 
-## In-game test (pc)
-1. `FormCoresOff` empty: LEFT + DOWN each once -> `FormCore <id> dir=L transform=1 reason=core unknown...`; then `FormCoreLeft/Down` in the ini.
-2. Menu Training > Player: rows list both cores; set the LEFT core OFF. LEFT press -> `FormCore 5129B dir=L transform=0`, game's own throw, no
-   `FormHide=4 begin`, no `SealCover`/`OrbSkip`/`RunThrow` lines, no smoke. DOWN core still transforms.
-3. Set it back ON -> transforms again from the next use. Restart the game: setting kept (ini).
-4. Equip a different core on LEFT while it is OFF-listed by id: first use may transform briefly or be suppressed at the spawn hit (limit 1).
+`FormCoreLeft/Down` retain last-used IDs for press-time behavior, but cached IDs do not masquerade as currently equipped in the menu. Learned fallback rows explicitly say `last used`. The OFF list retains its existing capacity of 16; a full list reports rejection instead of silently retaining a permanent direction override.
 
-## Known limit: keyboard-only presses (#81425)
-The pick reads the d-pad from the pad only (game's XInputGetState import, fallback xinput export). A seal pressed from the keyboard
-shortcut is not seen, so no direction is learned/applied and the core always transforms. No cheap fix: the game's keyboard binding for
-the seal shortcut is not hooked anywhere in BR (no key-state read found); needs RE of the seal-use key path first.
+## Scope and remaining behavior
+
+- `[Spirit] SoulCoreForms=0` still overrides all per-core choices; an existing form ends normally.
+- Press-time gating still uses the last-seen direction-to-core cache. The equipped reader deliberately does not equate Yang 1/2 with LEFT/DOWN: shortcuts are assignable. A newly assigned core may run press-time effects before its spawn supplies the definitive ID. The new equipment menu fixes discovery, not this older shortcut-identification limitation.
+- Keyboard-only shortcut presses are not detected by the existing pad-based learning path. This remains the #81425 limitation.
+- Learning keeps the previous safeguards: no recent LEFT/DOWN press means no learned row; only the first spawn after a press may learn, so secondary spawn IDs do not replace the core. This is inherited behavior, not a new proof that every first spawn is a seal.
+- Structural reads and table copying fail closed, but only live testing can establish readiness timing, real save/load transitions and visible game behavior.
+
+## Validation and live acceptance
+
+Release ASI builds. `tests/form_core_pick_offline.py`: **103 checks**, compiling actual picker and menu with fake pad/in-memory INI; delayed map fallback, two equipped rows without pressing, ID toggles, pending persistence, migration, swaps, duplicates, capacity failure, bounded history and global OFF pass. `tests/form_core_equipment_offline.py --game-data <existing data/extract/lfm>`: **36 checks** of the production mapper/index reader, including corrupt/ambiguous tables, invalid indices, empty slots and torn reads; all 117 extracted mappings and three observed IDs verified. Existing rematch harness: **357 checks, 0 failed**; sc22 replay passes. None is a game test or a performance measurement.
+
+pc/pc2 acceptance: fresh launch and load save; do not press any seal. Open Training > Player and confirm both equipped Yang rows (Ally example 5129B/A2ACB), plus the matching `FormCore equipped` log. Toggle one core, use both, and check independent behavior. Change the Onmyo Box at a shrine and confirm rows update without seal use; exchange positions and ensure preferences follow the ID. Restart and verify preferences; check fallback with unreadable/unsupported data only in a controlled test. Capture the actual menu. Source and artifact are for pc's live validation; cx-pc did not install, launch, stop or otherwise touch the game.

@@ -35,6 +35,7 @@ double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
 WORD PickPadButtons(){return buttons;}
+void PickEquipmentTick(){} // live reads are tested independently; model delayed worker completion here
 '''
 ui = r'''
 bool SoulCoreForms(bool* hooked){if(hooked)*hooked=true;return g_scForms.load();}
@@ -57,6 +58,7 @@ void reset(bool clearIni=true) {
  for(auto& v:g_offIds)v=0;
  for(auto& v:g_slotCore)v=0;
  for(auto& v:g_slotSeen)v=false;
+ g_equippedReady=false;for(auto& v:g_equippedCore)v=0;
  for(auto& v:g_pendingPick)v=-1;
  for(auto& v:g_seen){v.id=0;v.dir=0;}
  CoreOffLoad();
@@ -120,6 +122,29 @@ int main(){
  reset();for(uint32_t id=1;id<20;++id){press(id%2?1:2);PickLearn(id);}
  int n=FormCoreSeen(ids,dirs,10);check(n<=10&&ids[0]==19&&ids[1]==18);
  for(int i=0;i<n;++i)for(int j=i+1;j<n;++j)check(!ids[i]||ids[i]!=ids[j]);
+ // Capacity failure never leaves a direction permanently overriding subsequently learned core IDs.
+ reset();for(uint32_t id=1;id<=16;++id)FormCoreToggle(id);
+ SctChange(kItScCore,-1);check(g_pendingPick[1]==-1&&std::string(g_msg).find("full")!=std::string::npos);
+ ini[L"FormCorePendingLeft"]=L"0";reset(false);press(1);PickLearn(99);
+ check(g_pendingPick[1]==-1&&g_offN==16&&FormCoreTransforms(99));
+ // Publishing equipment requires no press. IDs dedupe with learned history and settings remain by core ID.
+ reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
+ check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0x5129B&&dirs[0]==4&&ids[1]==0xA2ACB&&dirs[1]==8);
+ check(row(0).find("Yang 1")!=std::string::npos&&row(1).find("Yang 2")!=std::string::npos);
+ SctChange(kItScCore,-1);check(!FormCoreTransforms(0x5129B)&&FormCoreTransforms(0xA2ACB));
+ press(1);PickLearn(0x5129B);check(FormCoreSeen(ids,dirs,10)==2);
+ g_equippedCore[1]=0x5129B;check(FormCoreSeen(ids,dirs,10)==1&&dirs[0]==12);
+ g_equippedCore[0]=0x5B402;check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0x5B402);
+ g_equippedCore[0]=0;g_equippedCore[1]=0;check(FormCoreSeen(ids,dirs,10)==1&&ids[0]==0x5129B&&dirs[0]==0);
+ reset();FormCorePendingSet(1,false);g_equippedCore[0]=0x5129B;g_equippedReady=true;
+ check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0x5129B&&ids[1]==0&&dirs[1]==1);
+ // Exact labels from production menu code, retained for the clearly marked offline visual preview.
+ reset();printf("PREVIEW|Before any seal use|%s|%s\n",row(0).c_str(),row(1).c_str());
+ SctChange(kItScCore,-1);printf("PREVIEW|LEFT game summon selected before first use|%s|%s\n",row(0).c_str(),row(1).c_str());
+ press(1);PickLearn(0x5129B);press(2);PickLearn(0xA2ACB);
+ printf("PREVIEW|After each seal is identified (simulated)|%s|%s\n",row(0).c_str(),row(1).c_str());
+ reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
+ printf("PREVIEW|Equipped rows after save load (simulated, no seal press)|%s|%s\n",row(0).c_str(),row(1).c_str());
  printf("form-core picker + menu: %d checks PASS (offline; no game)\n",checks);
 }
 '''
@@ -134,4 +159,6 @@ result = subprocess.run('cmd /s /c "' + cmd + '"', capture_output=True, text=Tru
 print(result.stdout, end='')
 print(result.stderr, end='')
 result.check_returncode()
-subprocess.run([str(exe)], check=True, timeout=30)
+result = subprocess.run([str(exe)], check=True, timeout=30, capture_output=True, text=True)
+print(result.stdout, end='')
+(out / 'menu-preview.txt').write_text('\n'.join(line for line in result.stdout.splitlines() if line.startswith('PREVIEW|')), encoding='utf-8')

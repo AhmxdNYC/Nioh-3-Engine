@@ -5,6 +5,7 @@
 #include "addon.h"
 #include "gamerva.h"
 #include "seal_use_gate.h"
+#include "form_core_equipment.h"
 
 #include <intrin.h>
 #include <tlhelp32.h>
@@ -17,6 +18,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <new>
 
 namespace addon {
 namespace fight {
@@ -1272,6 +1274,8 @@ std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id s
 // #81516 fallback: cached directions are not evidence of the current loadout. Until this session learns a direction,
 // show a selectable placeholder. Its one-shot preference moves to the learned core ID, never stays attached to the pad.
 std::atomic<bool> g_slotSeen[3];
+std::atomic<bool> g_equippedReady{false};
+std::atomic<uint32_t> g_equippedCore[2];
 std::atomic<int> g_pendingPick[3]{{-1}, {-1}, {-1}};  // -1 unset, 0 game summon, 1 transform
 SRWLOCK g_coreEditLock = SRWLOCK_INIT;
 constexpr int kOffMax = 16;
@@ -1344,7 +1348,9 @@ void CoreSeen(uint32_t id, int dir) {
 }
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
 WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
+void PickEquipmentTick();
 void PickPoll() {
+    PickEquipmentTick();
     static int heldPrev = 0;
     const WORD bt = PickPadButtons();
     const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
@@ -1374,12 +1380,10 @@ void PickLearn(uint32_t id) {
     const int pending = g_pendingPick[dir].load();
     if (pending >= 0) {
         const bool actual = CoreSetTransformsLocked(id, pending != 0);
-        if (actual == (pending != 0)) {
-            g_pendingPick[dir].store(-1);
-            PendingPickSave(dir);
-        }
+        g_pendingPick[dir].store(-1);
+        PendingPickSave(dir);
         Log("FormCore %X dir=%c: pending transform=%d %s", id, dir == 1 ? 'L' : 'D', pending,
-            actual == (pending != 0) ? "saved by core ID; direction preference cleared" : "OFF list full; pending preference retained");
+            actual == (pending != 0) ? "saved by core ID; direction preference cleared" : "OFF list full; preference rejected (no direction override retained)");
     }
     if (dir) {
         if (g_slotCore[dir].exchange(id) != id)
@@ -1387,7 +1391,7 @@ void PickLearn(uint32_t id) {
     }
     CoreSeen(id, dir);
     g_slotSeen[dir].store(true);
-    const bool off = pending >= 0 ? pending == 0 : CoreIsOff(id);
+    const bool off = CoreIsOff(id);
     ReleaseSRWLockExclusive(&g_coreEditLock);
     if (off && !g_pickOff.load()) {
         g_pickOff.store(true); g_pickT.store(Now());
@@ -1397,6 +1401,90 @@ void PickLearn(uint32_t id) {
     else if (!off) g_pickOff.store(false);  // a newly learned ON core must not inherit the old direction's OFF window
 }
 std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
+// #81516: build a copied item->summon map on one worker after player/save readiness. Menu reads only published IDs.
+struct CoreTableSource {
+    uint64_t db = 0, items = 0, params = 0;
+    bool operator==(const CoreTableSource& b) const { return db == b.db && items == b.items && params == b.params; }
+};
+SRWLOCK g_coreMapLock = SRWLOCK_INIT;
+std::vector<formcore::Entry> g_coreMap;
+CoreTableSource g_coreMapSource;
+std::atomic<bool> g_coreMapBusy{false};
+std::atomic_flag g_coreEquipTick = ATOMIC_FLAG_INIT;
+uint64_t FkPlayer();
+bool ReadCoreTableSource(CoreTableSource& s) {
+    uint64_t items = 0, params = 0;
+    return Rd(G_DATA, s.db) && Plaus(s.db) && Rd(s.db + 0x68, items) && Plaus(items) &&
+        Rd(s.db + 0x118, params) && Plaus(params) && Rd(items, s.items) && Plaus(s.items) &&
+        Rd(params, s.params) && Plaus(s.params);
+}
+bool CopyCoreTable(uint64_t base, size_t stride, uint32_t max, std::vector<uint8_t>& rows) {
+    uint32_t count = 0, after = 0;
+    if (!Rd(base + 4, count) || !count || count > max) return false;
+    rows.resize(size_t(count) * stride);
+    return CopySafe(rows.data(), base + 8, rows.size()) && Rd(base + 4, after) && after == count;
+}
+DWORD WINAPI CoreMapWorker(void* arg) {
+    const CoreTableSource source = *static_cast<CoreTableSource*>(arg);
+    delete static_cast<CoreTableSource*>(arg);
+    const double start = Now();
+    try {
+        std::vector<uint8_t> items, params;
+        if (CopyCoreTable(source.items, formcore::kItemStride, 16384, items) &&
+            CopyCoreTable(source.params, formcore::kParamStride, 2048, params)) {
+            auto map = formcore::BuildMap(items, params);
+            CoreTableSource after;
+            if (!map.empty() && ReadCoreTableSource(after) && after == source) {
+                const size_t count = map.size();
+                AcquireSRWLockExclusive(&g_coreMapLock);
+                g_coreMap.swap(map); g_coreMapSource = source;
+                ReleaseSRWLockExclusive(&g_coreMapLock);
+                Log("FormCore table map: %zu core items resolved in %.3f ms (copied tables, worker)", count, (Now() - start) * 1000.0);
+            }
+        }
+    } catch (...) { Log("FormCore table map: allocation failed; learned/placeholder fallback retained"); }
+    g_coreMapBusy.store(false);
+    return 0;
+}
+void PublishEquippedCores(bool ready, uint32_t y1 = 0, uint32_t y2 = 0) {
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const bool changed = g_equippedReady.load() != ready || g_equippedCore[0].load() != y1 || g_equippedCore[1].load() != y2;
+    g_equippedCore[0].store(y1); g_equippedCore[1].store(y2); g_equippedReady.store(ready);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    if (changed && ready) Log("FormCore equipped: Y1=%X Y2=%X src=OnmyoBox+23B6B8/item+180/yang+18/seal+54", y1, y2);
+}
+void PickEquipmentTick() {
+    if (g_coreEquipTick.test_and_set()) return;
+    struct Clear { ~Clear() { g_coreEquipTick.clear(); } } clear;
+    static double last = -100, nextBuild = -100;
+    const double now = Now();
+    if (now - last < 0.25) return;
+    last = now;
+    if (!gamerva::g_known) { PublishEquippedCores(false); return; }  // structure offsets verified for the supported build only
+    CoreTableSource source;
+    const uint64_t inv = InvBase();
+    uint16_t items[2] = {};
+    if (!FkPlayer() || !ReadCoreTableSource(source) ||
+        !formcore::EquippedItems(inv, [](uint64_t a, auto& v) { return Rd(a, v); }, items)) {
+        PublishEquippedCores(false); return;
+    }
+    uint32_t cores[2] = {};
+    AcquireSRWLockShared(&g_coreMapLock);
+    const bool mapped = source == g_coreMapSource && !g_coreMap.empty();
+    if (mapped) for (int i = 0; i < 2; ++i) cores[i] = formcore::Lookup(g_coreMap, items[i]);
+    ReleaseSRWLockShared(&g_coreMapLock);
+    if (mapped) {
+        PublishEquippedCores((!items[0] || cores[0]) && (!items[1] || cores[1]), cores[0], cores[1]);
+        return;
+    }
+    PublishEquippedCores(false);
+    if (now < nextBuild || g_coreMapBusy.exchange(true)) return;
+    nextBuild = now + 5.0;
+    auto* request = new (std::nothrow) CoreTableSource(source);
+    HANDLE thread = request ? CreateThread(nullptr, 0, &CoreMapWorker, request, 0, nullptr) : nullptr;
+    if (thread) CloseHandle(thread);
+    else { delete request; g_coreMapBusy.store(false); }
+}
 std::atomic<uint32_t> g_fkX{0};        // form id for 74C2FC (0 = auto: old [state+A68] after clearing A68, else 0x6E73)
 std::atomic<uint64_t> g_fkMgr{0};      // spirit mgr seen at the 2916C5C entry
 std::atomic<uint32_t> g_fkMgrId{0xFFFFFFFF};
@@ -6124,11 +6212,23 @@ double SoulTune(int which, int dir, bool* live) {
 // human #81220: menu API for the per-core transformation picks.
 int FormCoreSeen(uint32_t* ids, int* dirs, int max) {
     if (!ids || !dirs || max <= 0) return 0;
+    AcquireSRWLockShared(&g_coreEditLock);
     int n = 0;
+    if (g_equippedReady.load()) {
+        for (int y = 0; y < 2 && n < max; ++y) {
+            const uint32_t id = g_equippedCore[y].load();
+            if (!id) continue;
+            if (n && ids[0] == id) { dirs[0] |= 4 << y; continue; }
+            ids[n] = id; dirs[n++] = 4 << y;  // Yang position flags, independent of d-pad directions
+        }
+    }
     // Current-session directions first; id 0 is a real, selectable placeholder. Duplicate IDs are a single core row.
     for (int d = 1; d <= 2 && n < max; ++d) {
+        if (g_equippedReady.load() && g_pendingPick[d].load() < 0) continue;
         const uint32_t id = g_slotSeen[d].load() ? g_slotCore[d].load() : 0;
-        if (id && n && ids[0] == id) { dirs[0] = 3; continue; }
+        bool present = false;
+        for (int i = 0; i < n; ++i) if (id && ids[i] == id) { dirs[i] |= d; present = true; break; }
+        if (present) continue;
         ids[n] = id; dirs[n++] = d;
     }
     for (auto& s : g_seen) if (const uint32_t id = s.id.load(); id && n < max) {
@@ -6136,6 +6236,7 @@ int FormCoreSeen(uint32_t* ids, int* dirs, int max) {
         for (int i = 0; i < n; ++i) if (ids[i] == id) present = true;
         if (!present) { ids[n] = id; dirs[n++] = 0; }
     }
+    ReleaseSRWLockShared(&g_coreEditLock);
     return n;
 }
 bool FormCoreTransforms(uint32_t id) { return !CoreIsOff(id); }
@@ -6150,6 +6251,9 @@ bool FormCorePendingSet(int dir, bool transforms) {
     // A spawn may have replaced the placeholder between the UI snapshot and this click.
     bool actual = transforms;
     if (g_slotSeen[dir].load()) actual = CoreSetTransformsLocked(g_slotCore[dir].load(), transforms);
+    else if (!transforms && g_offN.load() >= kOffMax) {  // cannot promise to save another unknown OFF ID
+        actual = true; g_pendingPick[dir].store(-1); PendingPickSave(dir);
+    }
     else { g_pendingPick[dir].store(transforms ? 1 : 0); PendingPickSave(dir); }
     ReleaseSRWLockExclusive(&g_coreEditLock);
     Log("FormCore pending dir=%c: menu -> transform=%d", dir == 1 ? 'L' : 'D', actual ? 1 : 0);

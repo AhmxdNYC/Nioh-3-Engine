@@ -11,7 +11,7 @@ constexpr int kItScForms = 0xE0100;
 template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
 // human #81220: per-core 'Soul transformation' rows (cores seen so far, id + d-pad direction): A / Left / Right flips transform ON / OFF
 // (OFF = the game's own summon for that core). [Spirit] FormCoresOff.
-constexpr int kItScCore = 0xE0200, kScCoreN = 10;  // eight learned IDs plus two unidentified seals
+constexpr int kItScCore = 0xE0200, kScCoreN = 12;  // two equipped + eight learned IDs + two pending unknown seals
 bool IsScCoreItem(int item) { return item >= kItScCore && item < kItScCore + kScCoreN; }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
 // Two selectable seal placeholders exist immediately; learning replaces them with rows keyed by core ID.
@@ -47,6 +47,7 @@ bool SctChange(int item, int dir) {
             const bool want = dir ? dir > 0 : !cur;
             // Save explicit Left/Right even when it matches the displayed default: the next core may differ from the cached one.
             const bool v = bosslog::FormCorePendingSet(d, want);
+            if (v != want) { snprintf(g_msg, sizeof g_msg, "The saved core list is full. Enable another core before disabling this seal."); return true; }
             snprintf(g_msg, sizeof g_msg, "%s seal: %s on the next use. Saved; follows the core once identified.",
                 d == 1 ? "LEFT" : "DOWN", v ? "transform" : "game summon");
             return true;
@@ -95,7 +96,9 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
             return true;
         }
         const bool v = bosslog::FormCoreTransforms(id);
-        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, d == 1 ? "(LEFT last used)" : d == 2 ? "(DOWN last used)" : d == 3 ? "(LEFT/DOWN last used)" : "", v ? "transforms" : "game summon");
+        const char* label = (d & 12) == 12 ? "(Yang 1 + 2)" : (d & 4) ? "(Yang 1)" : (d & 8) ? "(Yang 2)" :
+            d == 1 ? "(LEFT last used)" : d == 2 ? "(DOWN last used)" : d == 3 ? "(LEFT/DOWN last used)" : "";
+        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, label, v ? "transforms" : "game summon");
         *color = sel ? cWhite : v ? cGray : cYellow;
         return true;
     }
@@ -117,7 +120,7 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
-    if (IsScCoreItem(item)) return "Choose before using a seal. An unidentified seal's choice applies on its next use, then follows that core. Known rows show last-used cores; they refresh when used. Saved.";
+    if (IsScCoreItem(item)) return "Yang rows show equipped cores. Choices follow the core. If equipment cannot be read, choose an unidentified seal's next use; its choice follows the core once identified. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;

@@ -106,7 +106,7 @@ double SoulTune(int which, int dir, bool* live);
 // patch / speed / orb / FormSlot0 / FormKey hooks pass through); a form already up ends normally. dir 0 flips, +-1 sets; saved.
 bool SoulCoreForms(bool* hooked);
 bool SoulCoreFormsSet(int dir, bool* formUp);
-int FormCoreSeen(uint32_t* ids, int* dirs, int max);  // id 0 = selectable unknown seal; dir 1 L / 2 D / 3 both / 0 history
+int FormCoreSeen(uint32_t* ids, int* dirs, int max);  // id 0 unknown seal; flags 1 L / 2 D / 4 Yang1 / 8 Yang2; 0 history
 bool FormCoreTransforms(uint32_t id);
 bool FormCoreToggle(uint32_t id);
 bool FormCorePendingTransforms(int dir);
