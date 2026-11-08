@@ -236,3 +236,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.
 
 2026-11-07 11:55 pm EST | #82280 offline replay complete: 217 checks PASS, 78 added | both gap phases learn 3 and exit final with synthetic new identities; live identity reuse unproven | next lead tests current BR | notes/burst-replay-82280.md; branch cx-pc/burst-replay-82280
+
+- 2026-11-08 04:23 AM EST | cx-pc #83344: release-1811-prep 964ca82a includes fbec06ad, f81af1c9, hit-clusters, burst-replay, multi-source and 35fb8235; A4 replay retained. Version bumped to 1.8.11.
+  Source pushed; builds and offline suites running in Temp/wt-r1811/release/validation-1811. Next: finish validation, package and send three device gates; no publication until all pass.

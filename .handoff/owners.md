@@ -112,3 +112,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.
 
 - cx-pc #82280 complete offline: burst replays on cx-pc/burst-replay-82280; no game ownership; production unchanged.
+
+- 2026-11-08 04:23 AM EST | cx-pc #83344: release-1811-prep 964ca82a includes fbec06ad, f81af1c9, hit-clusters, burst-replay, multi-source and 35fb8235; A4 replay retained. Version bumped to 1.8.11.
+  Source pushed; builds and offline suites running in Temp/wt-r1811/release/validation-1811. Next: finish validation, package and send three device gates; no publication until all pass.
