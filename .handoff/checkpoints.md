@@ -152,3 +152,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 752 offline checks + Release + available sc22 PASS. Press-snapshot actor set, pressed-core learning, separate bound identity, per-actor zero census/burst logs. Live 16127 pool ownership unproven; next pc first/repeat Blood Edge plus Doji/60B86/A2ACB and float gate. No game touched; notes/multi-source-82289.md.
 
 2026-11-08 12:08 am EST | #82327 primary prefers pressed ID, all-source ghost/fade/x2 tail and append smoke implemented | 229 last-hit + 24 primary/ghost/smoke checks PASS; live unproven | next Release rebuild and regression suites | cx-pc/primary-82327
+
+2026-11-08 12:10 am EST | #82327 Release BR fbfd93d4 bridge #6403, source c24591f5 | 849 offline checks + sc22 PASS, live visuals unproven | next pc test primary 16127, group exit, Doji/60B86 + float | cx-pc/primary-82327, notes/primary-82327.md

@@ -88,3 +88,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 2026-11-07 10:48 PM EST | cx-pc #82001 exact added evidence validated offline, 79 targeted PASS; #6358 unchanged and remains install candidate. pc owns live gate.
 - 2026-11-07 11:59 PM EST | cx-pc/1 #82289 offline DONE: BR c3e0207f file #6396; b659838f pushed on cx-pc/multi-source-82289 atop 3d72e837 (39483dda float + 8s cold wait).
 - 752 offline checks + Release + available sc22 PASS. Press-snapshot actor set, pressed-core learning, separate bound identity, per-actor zero census/burst logs. Live 16127 pool ownership unproven; next pc first/repeat Blood Edge plus Doji/60B86/A2ACB and float gate. No game touched; notes/multi-source-82289.md.
+
+- #82327 ready: BR fbfd93d4 #6403, source c24591f5 on cx-pc/primary-82327; 849 offline PASS. Primary actor + all-source ghost/x2/smoke. Next lead live test; no companion game access.
