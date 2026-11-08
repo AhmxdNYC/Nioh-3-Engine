@@ -11,19 +11,19 @@ constexpr int kItScForms = 0xE0100;
 template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
 // human #81220: per-core 'Soul transformation' rows (cores seen so far, id + d-pad direction): A / Left / Right flips transform ON / OFF
 // (OFF = the game's own summon for that core). [Spirit] FormCoresOff.
-constexpr int kItScCore = 0xE0200, kScCoreN = 8;
+constexpr int kItScCore = 0xE0200, kScCoreN = 10;  // eight learned IDs plus two unidentified seals
 bool IsScCoreItem(int item) { return item >= kItScCore && item < kItScCore + kScCoreN; }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
-// Player settings rows: one per core seen this session / last session, or one placeholder row when none.
+// Two selectable seal placeholders exist immediately; learning replaces them with rows keyed by core ID.
 template <class Add> void SctAddCoreRows(Add&& add) {
     uint32_t ids[kScCoreN]; int dirs[kScCoreN];
     const int n = bosslog::FormCoreSeen(ids, dirs, kScCoreN);
-    for (int i = 0; i < (n ? n : 1); ++i) add(kItScCore + i);
+    for (int i = 0; i < n; ++i) add(kItScCore + i);
 }
 int ScCoreAt(int slot, uint32_t* id, int* dir) {
     uint32_t ids[kScCoreN]; int dirs[kScCoreN];
     const int n = bosslog::FormCoreSeen(ids, dirs, kScCoreN);
-    if (slot >= n) return 0;
+    if (slot < 0 || slot >= n) return 0;
     *id = ids[slot]; *dir = dirs[slot];
     return 1;
 }
@@ -41,7 +41,16 @@ void SctValueText(int w, double v, char* b, size_t n) {
 bool SctChange(int item, int dir) {
     if (IsScCoreItem(item)) {  // human #81220
         uint32_t id = 0; int d = 0;
-        if (!ScCoreAt(item - kItScCore, &id, &d)) { snprintf(g_msg, sizeof g_msg, "No soul core seen yet: use a Yang soul core (d-pad LEFT / DOWN) once, it is listed here after."); return true; }
+        if (!ScCoreAt(item - kItScCore, &id, &d)) return true;
+        if (!id) {
+            const bool cur = bosslog::FormCorePendingTransforms(d);
+            const bool want = dir ? dir > 0 : !cur;
+            // Save explicit Left/Right even when it matches the displayed default: the next core may differ from the cached one.
+            const bool v = bosslog::FormCorePendingSet(d, want);
+            snprintf(g_msg, sizeof g_msg, "%s seal: %s on the next use. Saved; follows the core once identified.",
+                d == 1 ? "LEFT" : "DOWN", v ? "transform" : "game summon");
+            return true;
+        }
         const bool cur = bosslog::FormCoreTransforms(id);
         const bool want = dir ? dir > 0 : !cur;
         const bool v = want == cur ? cur : bosslog::FormCoreToggle(id);
@@ -78,9 +87,15 @@ bool SctChange(int item, int dir) {
 bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
     if (IsScCoreItem(item)) {  // human #81220
         uint32_t id = 0; int d = 0;
-        if (!ScCoreAt(item - kItScCore, &id, &d)) { snprintf(buf, n, "%s Soul transformation: (no core seen yet)", mk); *color = sel ? cWhite : cDim; return true; }
+        if (!ScCoreAt(item - kItScCore, &id, &d)) { buf[0] = 0; *color = cDim; return true; }
+        if (!id) {
+            const bool v = bosslog::FormCorePendingTransforms(d);
+            snprintf(buf, n, "%s %s seal (not used yet): %s   A / Left / Right", mk, d == 1 ? "LEFT" : "DOWN", v ? "transforms" : "game summon");
+            *color = sel ? cWhite : v ? cGray : cYellow;
+            return true;
+        }
         const bool v = bosslog::FormCoreTransforms(id);
-        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, d == 1 ? "(LEFT)" : d == 2 ? "(DOWN)" : "", v ? "transforms" : "game summon");
+        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, d == 1 ? "(LEFT last used)" : d == 2 ? "(DOWN last used)" : d == 3 ? "(LEFT/DOWN last used)" : "", v ? "transforms" : "game summon");
         *color = sel ? cWhite : v ? cGray : cYellow;
         return true;
     }
@@ -102,7 +117,7 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
-    if (IsScCoreItem(item)) return "Per soul core: transforms = the mod form (you become the yokai). Game summon = the game's own yokai summon, no form. A new core starts as a form on its first use. [Spirit] FormCoresOff. Saved.";
+    if (IsScCoreItem(item)) return "Choose before using a seal. An unidentified seal's choice applies on its next use, then follows that core. Known rows show last-used cores; they refresh when used. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;

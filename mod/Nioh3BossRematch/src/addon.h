@@ -106,9 +106,11 @@ double SoulTune(int which, int dir, bool* live);
 // patch / speed / orb / FormSlot0 / FormKey hooks pass through); a form already up ends normally. dir 0 flips, +-1 sets; saved.
 bool SoulCoreForms(bool* hooked);
 bool SoulCoreFormsSet(int dir, bool* formUp);
-int FormCoreSeen(uint32_t* ids, int* dirs, int max);  // human #81220: cores seen (id + d-pad dir 1 L / 2 D / 0 unknown)
+int FormCoreSeen(uint32_t* ids, int* dirs, int max);  // id 0 = selectable unknown seal; dir 1 L / 2 D / 3 both / 0 history
 bool FormCoreTransforms(uint32_t id);
 bool FormCoreToggle(uint32_t id);
+bool FormCorePendingTransforms(int dir);
+bool FormCorePendingSet(int dir, bool transforms);
 #endif  // BR_SOULCORE
 }
 namespace fight {  // FIGHT group state (always registered when any feature needs it)

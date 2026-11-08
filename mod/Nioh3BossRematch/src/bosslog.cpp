@@ -1269,6 +1269,11 @@ std::atomic<int> g_pickDir{0};
 std::atomic<double> g_pickT{-100};
 std::atomic<bool> g_pickLearned{false};  // #81275: only the FIRST spawn hit after a d-pad press learns the core / suppresses
 std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
+// #81516 fallback: cached directions are not evidence of the current loadout. Until this session learns a direction,
+// show a selectable placeholder. Its one-shot preference moves to the learned core ID, never stays attached to the pad.
+std::atomic<bool> g_slotSeen[3];
+std::atomic<int> g_pendingPick[3]{{-1}, {-1}, {-1}};  // -1 unset, 0 game summon, 1 transform
+SRWLOCK g_coreEditLock = SRWLOCK_INIT;
 constexpr int kOffMax = 16;
 std::atomic<uint32_t> g_offIds[kOffMax];
 std::atomic<int> g_offN{0};
@@ -1289,6 +1294,28 @@ void CoreOffSave() {
     for (int i = 0; i < n && i < kOffMax; ++i) o += (size_t)swprintf(b + o, 200 - o, L"%ls%X", i ? L"," : L"", g_offIds[i].load());
     WritePrivateProfileStringW(L"Spirit", L"FormCoresOff", b, IniPath());
 }
+// Caller holds g_coreEditLock. Return the actual state (an OFF list at capacity cannot accept a new ID).
+bool CoreSetTransformsLocked(uint32_t id, bool transforms) {
+    if (!id) return true;
+    const bool wasOff = CoreIsOff(id);
+    if (transforms && wasOff) {
+        const int n = g_offN.load();
+        int j = 0;
+        for (int i = 0; i < n; ++i) if (const uint32_t keep = g_offIds[i].load(); keep != id) g_offIds[j++].store(keep);
+        g_offN.store(j);
+    } else if (!transforms && !wasOff && g_offN.load() < kOffMax) {
+        const int n = g_offN.load();
+        g_offIds[n].store(id);
+        g_offN.store(n + 1);
+    }
+    CoreOffSave();
+    return !CoreIsOff(id);
+}
+const wchar_t* PendingPickKey(int dir) { return dir == 1 ? L"FormCorePendingLeft" : L"FormCorePendingDown"; }
+void PendingPickSave(int dir) {
+    const int v = g_pendingPick[dir].load();
+    WritePrivateProfileStringW(L"Spirit", PendingPickKey(dir), v < 0 ? nullptr : v ? L"1" : L"0", IniPath());
+}
 void CoreOffLoad() {
     wchar_t b[200] = L"";
     GetPrivateProfileStringW(L"Spirit", L"FormCoresOff", L"", b, 200, IniPath());
@@ -1303,7 +1330,11 @@ void CoreOffLoad() {
     g_offN.store(n);
     g_slotCore[1].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreLeft", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
     g_slotCore[2].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreDown", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
-    for (int d = 1; d <= 2; ++d) if (const uint32_t c = g_slotCore[d].load()) { g_seen[d - 1].id.store(c); g_seen[d - 1].dir.store(d); }
+    for (int d = 1; d <= 2; ++d) {
+        const int v = IniInt(L"Spirit", PendingPickKey(d), -1);
+        g_pendingPick[d].store(v == 0 || v == 1 ? v : -1);
+        g_slotSeen[d].store(false);
+    }
     Log("FormCoresOff: %d core(s) use the game's own summon; last core LEFT=%X DOWN=%X", n, g_slotCore[1].load(), g_slotCore[2].load());
 }
 void CoreSeen(uint32_t id, int dir) {
@@ -1320,9 +1351,11 @@ void PickPoll() {
     const double now = Now();
     if (held && held != heldPrev) {
         const uint32_t core = g_slotCore[held].load();
-        const bool off = CoreIsOff(core);
+        const int pending = g_pendingPick[held].load();
+        const bool off = pending >= 0 ? pending == 0 : CoreIsOff(core);
         g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
         Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
+            pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
             !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
     } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
         g_pickOff.store(false);  // the vanilla window is over: gates back for the next press
@@ -1337,16 +1370,31 @@ void PickLearn(uint32_t id) {
     if (!dir) return;
     // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
     if (dir && g_pickLearned.exchange(true)) { Log("FormCore %X dir=%c: later spawn hit in the same press ignored (core not changed)", id, dir == 1 ? 'L' : 'D'); return; }
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const int pending = g_pendingPick[dir].load();
+    if (pending >= 0) {
+        const bool actual = CoreSetTransformsLocked(id, pending != 0);
+        if (actual == (pending != 0)) {
+            g_pendingPick[dir].store(-1);
+            PendingPickSave(dir);
+        }
+        Log("FormCore %X dir=%c: pending transform=%d %s", id, dir == 1 ? 'L' : 'D', pending,
+            actual == (pending != 0) ? "saved by core ID; direction preference cleared" : "OFF list full; pending preference retained");
+    }
     if (dir) {
         if (g_slotCore[dir].exchange(id) != id)
             WritePrivateProfileStringW(L"Spirit", dir == 1 ? L"FormCoreLeft" : L"FormCoreDown", [&] { static wchar_t t[16]; swprintf(t, 16, L"%X", id); return t; }(), IniPath());
     }
     CoreSeen(id, dir);
-    if (CoreIsOff(id) && !g_pickOff.load()) {
+    g_slotSeen[dir].store(true);
+    const bool off = pending >= 0 ? pending == 0 : CoreIsOff(id);
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    if (off && !g_pickOff.load()) {
         g_pickOff.store(true); g_pickT.store(Now());
         Log("FormCore %X dir=%c transform=0 reason=core in FormCoresOff, first seen at the spawn hit: form suppressed from here (press-time steps already ran) t=%.3f",
             id, dir == 1 ? 'L' : dir == 2 ? 'D' : '?', Now());
     }
+    else if (!off) g_pickOff.store(false);  // a newly learned ON core must not inherit the old direction's OFF window
 }
 std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
 std::atomic<uint32_t> g_fkX{0};        // form id for 74C2FC (0 = auto: old [state+A68] after clearing A68, else 0x6E73)
@@ -6075,27 +6123,45 @@ double SoulTune(int which, int dir, bool* live) {
 // *formUp = a form (or its ghost exit) is still running and ends normally; *hooked = FormKey hooks are in this session.
 // human #81220: menu API for the per-core transformation picks.
 int FormCoreSeen(uint32_t* ids, int* dirs, int max) {
+    if (!ids || !dirs || max <= 0) return 0;
     int n = 0;
-    for (auto& s : g_seen) if (const uint32_t id = s.id.load(); id && n < max) { ids[n] = id; dirs[n] = s.dir.load(); ++n; }
+    // Current-session directions first; id 0 is a real, selectable placeholder. Duplicate IDs are a single core row.
+    for (int d = 1; d <= 2 && n < max; ++d) {
+        const uint32_t id = g_slotSeen[d].load() ? g_slotCore[d].load() : 0;
+        if (id && n && ids[0] == id) { dirs[0] = 3; continue; }
+        ids[n] = id; dirs[n++] = d;
+    }
+    for (auto& s : g_seen) if (const uint32_t id = s.id.load(); id && n < max) {
+        bool present = false;
+        for (int i = 0; i < n; ++i) if (ids[i] == id) present = true;
+        if (!present) { ids[n] = id; dirs[n++] = 0; }
+    }
     return n;
 }
 bool FormCoreTransforms(uint32_t id) { return !CoreIsOff(id); }
+bool FormCorePendingTransforms(int dir) {
+    if (dir < 1 || dir > 2) return true;
+    const int pending = g_pendingPick[dir].load();
+    return pending >= 0 ? pending != 0 : !CoreIsOff(g_slotCore[dir].load());
+}
+bool FormCorePendingSet(int dir, bool transforms) {
+    if (dir < 1 || dir > 2) return true;
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    // A spawn may have replaced the placeholder between the UI snapshot and this click.
+    bool actual = transforms;
+    if (g_slotSeen[dir].load()) actual = CoreSetTransformsLocked(g_slotCore[dir].load(), transforms);
+    else { g_pendingPick[dir].store(transforms ? 1 : 0); PendingPickSave(dir); }
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCore pending dir=%c: menu -> transform=%d", dir == 1 ? 'L' : 'D', actual ? 1 : 0);
+    return actual;
+}
 // flips one core; returns the new transform state (true = transforms).
 bool FormCoreToggle(uint32_t id) {
-    const bool wasOff = CoreIsOff(id);
-    if (wasOff) {
-        int n = g_offN.load(), j = 0;
-        uint32_t keep[kOffMax];
-        for (int i = 0; i < n; ++i) if (g_offIds[i].load() != id) keep[j++] = g_offIds[i].load();
-        for (int i = 0; i < j; ++i) g_offIds[i].store(keep[i]);
-        g_offN.store(j);
-    } else if (g_offN.load() < kOffMax) {
-        g_offIds[g_offN.load()].store(id);
-        g_offN.fetch_add(1);
-    }
-    CoreOffSave();
-    Log("FormCore %X: menu -> transform=%d (FormCoresOff saved)", id, CoreIsOff(id) ? 0 : 1);
-    return !CoreIsOff(id);
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    const bool actual = CoreSetTransformsLocked(id, CoreIsOff(id));
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    Log("FormCore %X: menu -> transform=%d (FormCoresOff saved)", id, actual ? 1 : 0);
+    return actual;
 }
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {

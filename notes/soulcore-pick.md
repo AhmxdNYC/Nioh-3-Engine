@@ -1,5 +1,40 @@
 # Per-core soul transformation pick (human #81220, cx-pc, offline build, not tested in game)
 
+## #81516 / #81514: pre-use picker fallback (offline checkpoint)
+
+The candidate implements task approach 3 while the direct equipment mapping is investigated.
+Two selectable rows are present immediately: `LEFT seal (not used yet)` and `DOWN seal (not used yet)`.
+Left selects game summon, Right selects transform, A toggles. An explicit choice is saved as
+`[Spirit] FormCorePendingLeft` / `FormCorePendingDown` (0 summon, 1 transform, absent = no override).
+It controls the first press before the spawn. On the first accepted spawn ID it becomes an ordinary
+`FormCoresOff` preference and the pending direction key is deleted. Later cores do not inherit that
+direction preference. Duplicate IDs merge into one row, including a core learned on both directions.
+
+Cached `FormCoreLeft/Down` IDs still help the existing press-time path, but no longer populate the menu
+as though they were the current equipment. Each session starts with placeholders; a learned row says
+`last used`, not `equipped`. Historical learned IDs remain selectable. This is **not** a verified read
+of Yang position 1/2, and does not claim to detect loadout/shortcut changes without a use.
+
+Static evidence recovered: `SaveUserReadEquipSection` 0x1047F30 and its writer 0x105EC60 store ten u32
+indices at `data + 0x23B6B8` under AB0E9943 / 36BFE4B6. `data` there is `*(*serializer + 0x10)`.
+The general runtime inventory getter 0x553038 returns `*inventory + 0x10 + index*0xF0` when the index
+is below the u64 count at `*inventory + 0x927D0`. These facts alone do **not** prove the active Onmyo
+equipment pointer or map a 16-bit inventory item ID to the seal's character `desc[0]`. No speculative
+game read, function call, scan, hook or hardcoded core mapping has been added.
+
+Validation: Release ASI builds. `py -I tests/form_core_pick_offline.py` compiles the actual picker and
+menu code with an in-memory INI and fake pad; 93 checks pass for initial rows, first-use OFF/ON,
+pending persistence, migration to ID, independent directions, duplicate merging, cached/changed IDs,
+secondary/ambient spawn rejection, global OFF, expiry, invalid directions and bounded history.
+No game/installation/lock was touched. Direct mapping research remains open at this checkpoint.
+
+Live acceptance for pc/pc2: fresh launch, load save without pressing a seal, open Player settings and
+verify two selectable rows; choose LEFT game summon and DOWN transform before first use; close menu
+and use each; verify no LEFT transformation from its first press, DOWN still transforms, both IDs
+replace placeholders, and the choices follow IDs when their shortcuts change. Restart before first
+use to check pending choices survive. Capture the real menu; offline tests cannot establish visuals
+or first-use effects in game. Keyboard detection remains the earlier limitation described below.
+
 Base: cx-pc/release-1810-prep 87dcdc89 (public 1.8.10). Branch cx-pc/formcore-pick-81220. Only Nioh3BossRematch changes.
 
 ## What it does
