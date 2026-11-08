@@ -133,3 +133,5 @@ Live last-hit damage/visuals unproven. Next: upload ASI, pc live acceptance. Bra
 Next: pc live unknown-count first/second use; all transition timing/look unchanged. Branch cx-pc/idle-hit-learn-81956, notes/last-hit-exit-81898.md.
 2026-11-07 10:46 PM EST | cx-pc #81988 appearance-burst gate built on 5a71803b; BR 2d88dda3, 72 targeted + 357 rematch checks PASS, sc22 PASS. 60B86-style initial collider cannot trigger at .70 s; filtered idle learn and non-circular learning proven offline.
 No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi. Source branch cx-pc/appear-hit-gate-81988; notes/last-hit-exit-81898.md.
+2026-11-07 10:15 PM EST | cx-pc #81879: combined equipped-core + smoke fix builds, 537 offline checks pass; BR bb7995a8. Zero handle fallback, follow-OFF spawn binding, accepted-use wait implemented.
+Live timing/visuals unproven; pc owns fresh LEFT/DOWN acceptance. Source: notes/smoke-fix-81879.md, branch cx-pc/smoke-fix-81879. Next: upload candidate and report to pc.
