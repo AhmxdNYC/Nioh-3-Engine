@@ -34,6 +34,8 @@ template<class... T> void Log(const char*,T...){}
 bool UseCategoryAct(uint32_t a){return (a>>8)==0x28;}
 bool UseConfirmedSince(double){return false;}
 std::atomic<bool> g_scForms{true},g_orbHooked{true};
+// Equipment polling is tested separately; expose the current forms toggle here.
+void PickPoll(){} bool ScOn(){return g_scForms.load();}
 std::atomic<float> g_ftMul{8},g_tailMul{4};
 std::atomic<int> g_rtMaxMs{1200},g_rtConfirmMs{200},g_runFadeMs{100},g_runFadeSpeed{200},g_ftLayerLog{0},g_ftN{0};
 std::atomic<double> g_rtT0{-100},g_rtAcceptT{-100},g_rtPendingT{-100},g_rtFirstT{-100},g_runFadeAt{0},g_rtClosedT{-100};
