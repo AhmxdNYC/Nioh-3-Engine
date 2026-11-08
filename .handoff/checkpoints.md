@@ -234,3 +234,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 4:03 am EST | cx-pc/1 #83188 build PASS, 3006 offline checks PASS; BR fffd2e10 bridge #6510, CamKi stays 617d93cd | native list writer removed, live repro untested | next: Claude 80D5F rapid swaps + facing check | f81af1c9 cx-pc/face-list-crash-83188
 
 2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.
+
+2026-11-07 11:55 pm EST | #82280 offline replay complete: 217 checks PASS, 78 added | both gap phases learn 3 and exit final with synthetic new identities; live identity reuse unproven | next lead tests current BR | notes/burst-replay-82280.md; branch cx-pc/burst-replay-82280

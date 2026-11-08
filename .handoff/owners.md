@@ -110,3 +110,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - cx-pc/1 #83188 DONE build/offline; fffd2e10 #6510 handed to pc; Claude live gate remains.
 
 2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.
+
+- cx-pc #82280 complete offline: burst replays on cx-pc/burst-replay-82280; no game ownership; production unchanged.

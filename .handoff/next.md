@@ -172,3 +172,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-08 4:03 am EST | cx-pc/1 #83188 build PASS, 3006 offline checks PASS; BR fffd2e10 bridge #6510, CamKi stays 617d93cd | native list writer removed, live repro untested | next: Claude 80D5F rapid swaps + facing check | f81af1c9 cx-pc/face-list-crash-83188
 
 2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.
+
+- #82280 cx-pc: follow-ground production unchanged; 217 last-hit checks PASS (78 added), missed/seen gap both count3 and final-open exit. See notes/burst-replay-82280.md on branch cx-pc/burst-replay-82280. No live test queued; lead owns game.
