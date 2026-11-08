@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.29-soul-blend";
+static const char* kVer = "1.0.30-soul-smoother";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;

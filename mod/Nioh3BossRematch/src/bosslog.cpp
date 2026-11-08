@@ -6213,8 +6213,25 @@ void SoulCameraVerticalTick(uint64_t player) {
     static soulcamera::Target target;
     float sp[4]={},pp[4]={};
     const uint64_t seal=g_fh4.seal;
-    const bool valid=g_cameraFollowVertical.load()!=0 && player && g_fh4.owner==player && seal &&
-        FormHideSealPresent(g_fhEnd.actorGlobal,seal)==1 && Copy(sp,seal+0x110,16) && Copy(pp,player+0x110,16);
+    // All reads go through SEH Copy. Membership precedes actor reads; stable
+    // key/root checks bracket the position copy to reject a recycled identity.
+    static uint64_t boundSeal=0,boundRoot=0;static uint32_t boundKey=0;
+    static double boundCap=-1;static bool rejected=false;
+    if(boundCap!=g_fh4.capT || boundSeal!=seal) {
+        boundCap=g_fh4.capT;boundSeal=seal;boundRoot=0;boundKey=0;rejected=false;
+    }
+    uint64_t rootBefore=0,rootAfter=0;uint32_t keyBefore=0,keyAfter=0;
+    bool valid=g_cameraFollowVertical.load()!=0 && player && g_fh4.owner==player && seal && !rejected &&
+        FormHideSealPresent(g_fhEnd.actorGlobal,seal)==1 &&
+        Copy(&keyBefore,seal,4) && keyBefore && Copy(&rootBefore,seal+0x20,8) && rootBefore;
+    if(valid) {
+        if(!boundRoot){boundRoot=rootBefore;boundKey=keyBefore;}
+        valid=rootBefore==boundRoot && keyBefore==boundKey &&
+            Copy(sp,seal+0x110,16) && Copy(pp,player+0x110,16) &&
+            Copy(&keyAfter,seal,4) && Copy(&rootAfter,seal+0x20,8) &&
+            keyAfter==boundKey && rootAfter==boundRoot;
+        if(!valid)rejected=true; // never adopt recycled storage within this capture
+    }
     static uint64_t serial=0; static double cap=-1; static float maxY=0;
     const bool active=valid && std::isfinite(sp[1]) && std::isfinite(pp[1]);
     if(g_cameraVerticalSession.load() && (!active || cap!=g_fh4.capT)) {

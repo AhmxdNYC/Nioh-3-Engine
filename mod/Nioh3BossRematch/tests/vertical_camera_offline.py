@@ -19,13 +19,15 @@ ULONGLONG ms=100;ULONGLONG TestMs(){return ms;}
 std::atomic<int> g_cameraFollowVertical{1};
 struct {uint64_t owner=123,seal=456;double capT=1;}g_fh4;
 struct {uint64_t actorGlobal=1;}g_fhEnd;
-float player[4]={10,100,20,1},seal[4]={30,100,40,1};bool valid=true;int writes=0;
+float player[4]={10,100,20,1},seal[4]={30,100,40,1};bool valid=true;int writes=0,reads=0;uint32_t actorKey=0x12340;uint64_t actorRoot=0x123456;bool failPosition=false;
 int FormHideSealPresent(uint64_t,uint64_t){return valid?1:0;}
-bool Copy(void* out,uint64_t a,size_t n){if(a==123+0x110)memcpy(out,player,n);else if(a==456+0x110)memcpy(out,seal,n);else return false;return true;}
+bool Copy(void* out,uint64_t a,size_t n){++reads;if(a==456){memcpy(out,&actorKey,n);return true;}if(a==456+0x20){memcpy(out,&actorRoot,n);return true;}if(failPosition && a==456+0x110)return false;if(a==123+0x110)memcpy(out,player,n);else if(a==456+0x110)memcpy(out,seal,n);else return false;return true;}
 bool Rd(uintptr_t a,void* p,size_t n){memcpy(p,(void*)a,n);return true;}
 bool Wr(uintptr_t a,const void* p,size_t n){++writes;memcpy((void*)a,p,n);return true;}
 bool Fin3(const float* p){return std::isfinite(p[0])&&std::isfinite(p[1])&&std::isfinite(p[2]);}
 '''
+main=(root/'src/main.cpp').read_text()
+safe=main[main.index('bool Copy('):main.index('bool WrU32(')].replace('bool Copy(', 'bool SafeCopy(')
 post=r'''
 int checks=0;void check(bool v){++checks;if(!v){printf("FAIL %d\n",checks);exit(1);}}
 int main(){
@@ -58,29 +60,47 @@ int main(){
  // Full initial height, tall rise and steady unity gain (no 400 cap).
  g_fh4.owner=123;g_fh4.capT=3;player[1]=100;seal[1]=2100;SoulCameraVerticalTick(123);
  check(Nioh3BossRematch_CameraVerticalTarget()==2000);
- soulcamera::Spring tall;for(int i=0;i<30;++i)tall.Step(2000,1.f/60);
+ soulcamera::Spring tall;for(int i=0;i<60;++i)tall.Step(2000,1.f/60);
  check(std::fabs(tall.y-2000)<100);
- for(int i=0;i<26;++i)tall.Step(0,1.f/60,false);
+ for(int i=0;i<44;++i)tall.Step(0,1.f/60,false);
  check(std::fabs(tall.y)<.01f);
 
- // 0.4 s handovers: first frame continuous, <=6.5% of 2000-unit travel per 60Hz frame.
+ // 0.7 s handovers: first frame continuous, <=6.5% of 2000-unit travel per 60Hz frame.
  soulcamera::Spring blend;float last=0,peak=0;
  for(int i=0;i<60;++i){float y=blend.Step(2000,1.f/60,true,7);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
- printf("enter max step %.3f / 2000 at 60Hz\n",peak);check(peak<130);check(std::fabs(last-2000)<.01f);
+ printf("enter max step %.3f / 2000 at 60Hz\n",peak);check(peak<90);check(std::fabs(last-2000)<.01f);
  const float held=blend.filtered;peak=0;
- for(int i=0;i<26;++i){float y=blend.Step(0,1.f/60,false,0);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
- printf("exit max step %.3f / 2000 at 60Hz\n",peak);check(last==0&&peak<130);check(std::fabs(blend.filtered-held)<.01f);
+ for(int i=0;i<44;++i){float y=blend.Step(0,1.f/60,false,0);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
+ printf("exit max step %.3f / 2000 at 60Hz\n",peak);check(last==0&&peak<90);check(std::fabs(blend.filtered-held)<.01f);
  blend.Step(-1500,1.f/60,true,8);for(int i=0;i<10;++i)blend.Step(-1500,1.f/60,true,8);
  last=blend.y;blend.Step(0,1.f/60,false);check(blend.y==last);
  for(int i=0;i<6;++i)blend.Step(0,1.f/60,false);
  last=blend.y;blend.Step(1200,1.f/60,true,9);check(blend.y==last);
  // Same-active session replacement also begins from current applied offset.
  last=blend.y;blend.Step(3000,1.f/60,true,10);check(blend.y==last);
+
+ // Actor disappears mid-enter: producer does not dereference absent storage;
+ // consumer finishes its exit using numeric state only.
+ g_fh4.capT=20;g_fh4.owner=123;valid=true;seal[1]=1500;SoulCameraVerticalTick(123);
+ soulcamera::Spring freed;for(int i=0;i<10;++i)freed.Step(Nioh3BossRematch_CameraVerticalTarget(),1.f/60,true,20);
+ valid=false;int savedReads=reads;SoulCameraVerticalTick(123);check(reads==savedReads);
+ float atExit=freed.y;freed.Step(0,1.f/60,false);check(freed.y==atExit);
+ for(int i=0;i<44;++i){SoulCameraVerticalTick(123);freed.Step(0,1.f/60,false);}
+ check(reads==savedReads&&freed.y==0);
+ // Present-but-recycled identity must never supply a position to this session.
+ valid=true;g_fh4.capT=21;SoulCameraVerticalTick(123);actorKey+=16;SoulCameraVerticalTick(123);
+ check(Nioh3BossRematch_CameraVerticalTarget()==0);savedReads=reads;SoulCameraVerticalTick(123);check(reads==savedReads);
+ g_fh4.capT=22;failPosition=true;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
+
+ // Exercise the production SEH copier on actually released storage.
+ void* page=VirtualAlloc(nullptr,4096,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);check(page!=nullptr);
+ float copy=0;*(float*)page=123;check(SafeCopy(&copy,(uint64_t)page,4)&&copy==123);
+ check(VirtualFree(page,0,MEM_RELEASE)!=0);check(!SafeCopy(&copy,(uint64_t)page,4));
  printf("vertical camera target/export/spring/output: %d checks PASS\n",checks);
 }
 '''
 out=root/'build/vertical-camera-test';out.mkdir(parents=True,exist_ok=True)
-unit=out/'test.cpp';unit.write_text(pre+pub+apply+post)
+unit=out/'test.cpp';unit.write_text(pre+safe+pub+apply+post)
 setup=Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat');exe=out/'test.exe'
 cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /Fo"{out / "test.obj"}" /Fe"{exe}" "{unit}"'
 r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()

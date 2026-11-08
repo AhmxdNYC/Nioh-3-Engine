@@ -35,7 +35,7 @@ struct Spring {
             // interrupting an unfinished exit. Subsequent frames ease toward the
             // moving yokai target (enter) or player anchor (exit).
             if(!started)elapsed+=dt;
-            float t=(std::min)(elapsed/.4f,1.f),w=t*t*(3-2*t);
+            float t=(std::min)(elapsed/.7f,1.f),w=t*t*t*(t*(6*t-15)+10);
             y=blendStart+((active?filtered:0)-blendStart)*w;
             if(t==1){blending=false;finished=true;}
         } else y=active?filtered:0;
