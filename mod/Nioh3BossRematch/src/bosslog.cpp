@@ -2751,6 +2751,33 @@ static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
     if (Rd(cap + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf) { uint32_t fl = 0; if (Rd(xf + 0xD8, fl)) { fl |= 0x11; WrBytes(xf + 0xD8, &fl, 4); } }
     return true;
 }
+// #82256: form-start player height is a conservative ceiling, never the leaping seal's height.
+// No terrain query is inferred: horizontal following and downward movement remain native.
+struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; };
+FormFollowGroundState g_followGround;
+void FormFollowGroundBegin(uint64_t player) {
+    g_followGround = {};
+    float p[4] = {};
+    if (Copy(p, player + 0x110, sizeof(p)) && std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]))
+        g_followGround = {player, p[1], false};
+}
+bool FormFollowGroundTarget(uint64_t player, float* pos) {
+    if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
+    pos[1] = (std::min)(pos[1], g_followGround.y);
+    return true;
+}
+bool FormFollowGroundRestore(uint64_t player) {
+    if (player != g_followGround.owner || !g_followGround.used) return true;
+    float pos[4] = {};
+    if (!Copy(pos, player + 0x110, sizeof(pos))) return false;
+    const float before = pos[1];
+    if (!FormFollowGroundTarget(player, pos)) return false;
+    const bool changed = pos[1] != before;
+    const bool ok = !changed || (g_fhWarp.load() && FormPinWarpCall(player, pos)) || WrBytes(player + 0x110, pos, sizeof(pos));
+    Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
+        before, pos[1], g_followGround.y, changed, ok);
+    return ok;
+}
 bool FormFollow(uint64_t pchr, uint64_t cap) {
     uint64_t ag = g_fhEnd.actorGlobal;  // never read a removed seal (same actor-table lookup as FormPin)
     if (!ag) {
@@ -2761,8 +2788,11 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     if (FormHideSealPresent(ag, cap) != 1) return false;
     float pos[4] = {};
     if (!Copy(pos, cap + 0x110, 16) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
-    const bool warped = g_fhWarp.load() && FormPinWarpCall(pchr, pos);
-    if (!warped && !WrBytes(pchr + 0x110, pos, 16)) return false;
+    float followPos[4]; memcpy(followPos, pos, sizeof(followPos));
+    if (!FormFollowGroundTarget(pchr, followPos)) return false;
+    const bool warped = g_fhWarp.load() && FormPinWarpCall(pchr, followPos);
+    if (!warped && !WrBytes(pchr + 0x110, followPos, 16)) return false;
+    g_followGround.used = true;
     float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
     bool rot = false;
@@ -2854,7 +2884,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     const double now = Now();
     if (loggedCap != cap || now >= nextLog) {
         Log("FormFollow %s: player %llX -> seal %llX pos=%.1f %.1f %.1f warp=%d rot=%d t=%.3f", loggedCap != cap ? "first" : "at",
-            (unsigned long long)pchr, (unsigned long long)cap, pos[0], pos[1], pos[2], warped, rot, now);
+            (unsigned long long)pchr, (unsigned long long)cap, followPos[0], followPos[1], followPos[2], warped, rot, now);
         loggedCap = cap; nextLog = now + 1;
     }
     return true;
@@ -3210,6 +3240,7 @@ void Fh4Restore(uint64_t player) {
     FormBlockSet(false);  // input comes back even when the hide restore below has to retry
     bool ok = true;
     if (player == g_fh4.owner && player == FkPlayer()) {
+        if (!FormFollowGroundRestore(player)) ok = false;
         uint64_t root = 0; float current = 0; uint8_t h = 0;
         if (!Rd(player + 0x20, root)) ok = false;
         else if (root && root == g_fh4.root) {
@@ -3226,7 +3257,7 @@ void Fh4Restore(uint64_t player) {
     Log("FormHide=4 restore owner=%llX current=%llX root=%llX ok=%d",
         (unsigned long long)g_fh4.owner, (unsigned long long)player, (unsigned long long)g_fh4.root, ok);
     if (!ok) { g_fh4Fault.store(true); return; } // retain backup for retry
-    g_fh4 = {}; g_fhEnd.active = false;
+    g_fh4 = {}; g_fhEnd.active = false; g_followGround = {};
 }
 bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
     uint64_t actual = 0;
@@ -4267,7 +4298,9 @@ void FormHide4Tick(uint64_t player) {
                         heldAt = g_ghostReqAt.load();
                         Log("FormFollow hold: player kept at the last-hit spot %.1f %.1f %.1f until the reveal t=%.3f", hold[0], hold[1], hold[2], now);
                     }
-                    if (heldAt == g_ghostReqAt.load() && !(g_fhWarp.load() && FormPinWarpCall(player, hold))) WrBytes(player + 0x110, hold, 16);
+                    if (heldAt == g_ghostReqAt.load() && FormFollowGroundTarget(player, hold)) {
+                        if ((g_fhWarp.load() && FormPinWarpCall(player, hold)) || WrBytes(player + 0x110, hold, 16)) g_followGround.used = true;
+                    }
                 } else if (fd == 1) FormFollow(player, g_fh4.seal);
                 else if (fd == 0) FormPin(player, g_fh4.seal);
                 Fh4KeepSeal();
@@ -4358,6 +4391,7 @@ void FormHide4Tick(uint64_t player) {
                }()) {
         if (Rd(player + 0xB440, g_fh4.hide) && Rd(player + 0xB444, g_fh4.blend) && std::isfinite(g_fh4.blend)) {
             // human #58208: started = the trigger, not the delayed begin: the DOWN seal's spawn hit lands inside the delay and was missed
+            FormFollowGroundBegin(player);
             g_fh4.owner = player; g_fh4.started = pendTrig > 0 && pendTrig <= now ? pendTrig : now; g_fh4Fault.store(false);
             g_formUseTick.store(GetTickCount());  // human #60993: Training's infinite soul core keys off any form start
             // #66107: the x8 RunThrow window belongs to this accept only up to the hide. Test C: after a no-seal press hide ended at 0.58 s the
