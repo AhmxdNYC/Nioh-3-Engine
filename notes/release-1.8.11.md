@@ -1,4 +1,4 @@
-# 1.8.11 candidate (not published)
+# 1.8.11 release
 
 Source: cx-pc/release-1811-prep, source/version commit 964ca82a; merged main with fbec06ad and burst-replay-82280. All requested ancestors verified: 87dcdc89, f81af1c9, hit-clusters-82179, burst-replay-82280, multi-source-82289, 35fb8235. Burst replay A3 assertions are superseded by the existing A4 regression cases; those were retained.
 
@@ -23,6 +23,6 @@ Gate list sent to pc in #83408, replying to #83344. Required: PC install/soul-co
 ## Device gate progress
 
 - Ally PASS #83484, forwarded by pc #83510: Linux pyz 6ae37c19 installed exact candidate ASIs; v1.8.11 shown; 5/5 soul-core uses, Fight now, no crash. Baseline and saves restored.
-- PC task #83413: pending.
-- pc2 Setup task #83414: pending.
-- Publication remains held until all three pass.
+- PC PASS #83413 (pc/1 checkpoint, verified by lead #83559): Continue 2/2, soul cores 10/10, Fight now, zero crashes.
+- pc2 PASS #83556: Setup 5aac8621 installs, 5/5 soul cores, Fight now, zero crashes.
+- All three gates passed; lead #83559 authorized publication.

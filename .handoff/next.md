@@ -190,3 +190,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 4:37 am EST | cx-pc #83344 / #83510: Ally gate 1/3 PASS verified in #83484 (pyz 6ae37c19, exact candidate ASIs, 5/5 soul-core uses, Fight now, no crash; baseline and saves restored).
   PC #83413 and pc2 #83414 still running. Next: wait for lead to forward both PASS, then merge/publish/verify. Do not launch duplicate tests or publish yet. Candidate assets and hashes remain #6526-6535.
+- 11-08 4:20 am EST pc/6: human #83340 -> release 1.8.11 TASK #83344 to cx-pc (merge fbec06ad + soul-core lines, build all assets, gates pc/pc2/ally, publish). Next lead: when files post, TASK pc slot (non-Claude) install+smoke, pc2 Setup.exe, ally pyz.
+- 11-08 4:31 am EST pc/6: 1.8.12 = favorites-on-top + Player settings tab, cxl-pc #83430 on cx-pc/fav-top-83427 (from 1.8.11 src 78685099). After 1.8.11 publishes, pc/0 gates + publishes 1.8.12 via GPT workers. Human #83450: Claude silent, installs only.
