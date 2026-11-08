@@ -47,6 +47,7 @@ uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]=
 const char* g_sieWhy="idle",*g_fh4EndWhy="test-end";
 int g_ghostFadeMs=0,g_sxfN=0,g_sxfOwner=0,g_sxfBone=0,g_sxfMs=0;
 float g_ghostFade0=0;double clockNow=10;int hits=2,smokes=0,despawns=0,hidden=0,releases=0;
+bool g_nativeExitPending=false;
 bool censusMode=false,censusBodies=false;std::map<uint64_t,uint64_t> census;
 bool persistent=false,extraAttack=false;uint64_t extraOwner=456;
 bool attack=false,poolReadable=true,bodyOnly=false,manualAction=false;
@@ -138,8 +139,8 @@ int main(){
  ini.clear();start(-1);first();step(1.5,true);step(1.667,false);check(!ini.count(L"5129B"));
  g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA4");
  start(-1);first();step(1.5,true);check(g_ghostReq==456&&smokes==1);check(ini[L"5129B"]==L"2");
- // Max only: a shorter completed attack cannot overwrite a higher known count.
- ini[L"5129B"]=L"3";start(-1);first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"3");
+ // Latest complete run replaces a stale high count.
+ ini[L"5129B"]=L"3";start(-1);first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2");
  // Idle signal while colliders are open, unreadable pool, no bursts, cap, and cut exits are not completion evidence.
  ini.clear();start(-1);first();g_sieFireSeal=456;step(1.5,true);check(!ini.count(L"5129B"));
  ini.clear();start(-1);first();poolReadable=false;g_sieFireSeal=456;step(3.33,false);check(!ini.count(L"5129B"));
@@ -278,7 +279,7 @@ int main(){
  clockNow=base+.4;g_fh4.owner=123;g_fh4.seal=456;SealEndOnHitTick();
  censusMode=true;census={{0x22000,789}};step(1.0,false);check(!smokes);
  census[0x23000]=1011;step(1.3,false);check(smokes==1);
- // #82280 / #6393: opening intervals, not the 13-32 ms empty gap, define clusters.
+ // #82280 / #6393 / #82379: 150-ms clustering merges the two helper openings.
  // Log L3: 5.762,5.879,6.050; L2: 5.910,6.046,6.209. Addresses are synthetic:
  // the source log supplies counts/owners but no object identities. Model new helper objects.
  for(double second : {1.117,1.136}) for(bool learnGap : {false,true}) {
@@ -297,12 +298,12 @@ int main(){
    if(known){check(g_ghostReq==456&&std::abs(g_ghostReqAt.load()-(base+final+.1))<.00001);}
    census.clear();step(final+.12,false);
    g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
-   check(ini[L"5129B"]==L"3");
+   check(ini[L"5129B"]==L"2");
   };
   ini.clear();legacyIni[L"5129B"]=L"3";check(ReadLearnedHits(0x5129B)==0);
-  replay(learnGap,false); // old A2 max=3 cannot seed the A3 learner
+  replay(learnGap,false); // old A2 max=3 cannot seed the A4 learner
   replay(!learnGap,true); // learn with one sampling phase, exit with the other
-  replay(learnGap,true);  // current A3 max=3 is reachable in both variants
+  replay(learnGap,true);  // current A4 count=2 is reachable in both variants
  }
  // #82344 A2ACB: .274 appearance must not teach a second hit; repeat exits on one real hit.
  ini.clear();start(-1,0,true,true,0xA2ACB);censusMode=true;census={{0x20000,456},{0x21000,456}};
@@ -313,6 +314,32 @@ int main(){
  // The boundary is spawn-relative even when the spawn is delayed after the press.
  start(1,0,false,false,0xA2ACB);g_sehKidT[0]=base+1;g_fh4.seal=456;step(1,false);
  step(1.274,true);check(!smokes);step(1.574,false);step(2.665,true);check(smokes==1);
+
+ // #82379: stale 11, ten complete observed bursts, natural despawn transition and relearn.
+ for(bool idle : {false,true}) {
+  ini.clear();ini[L"5129B"]=L"11";start(-1);
+  for(int i=0;i<10;++i){step(.8+i*.3,true);step(.95+i*.3,false);}
+  check(!smokes&&ini[L"5129B"]==L"11");
+  if(idle){g_sieFireSeal=456;step(4.0,false);check(smokes==1);}
+  else {
+   clockNow=base+4;const int before=smokes;
+   check(!NativeSealExitReady(456,base,123)&&smokes==before+1&&g_nativeExitPending);
+   check(!NativeSealExitReady(456,base,123)&&smokes==before+1);
+   step(4.05,false);check(smokes==before+1); // no competing idle/last-hit transition during reveal
+   clockNow=base+4.101;check(NativeSealExitReady(456,base,123)&&!g_nativeExitPending);
+   g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+  }
+  check(ini[L"5129B"]==L"10");
+  start(-1);for(int i=0;i<9;++i){step(.8+i*.3,true);step(.95+i*.3,false);}
+  check(!smokes);step(3.5,true);check(smokes==1&&g_ghostReq==456); // next use exits on tenth opening
+ }
+ // A missing sample anywhere prevents lowering, even if the terminal pool is readable.
+ ini.clear();ini[L"5129B"]=L"11";start(-1);first();poolReadable=false;step(1.1,false);poolReadable=true;
+ step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"11");
+ ini.clear();ini[L"5129B"]=L"11";start(-1);first();poolReadable=false;step(1.1,false);poolReadable=true;
+ step(1.5,true);step(1.7,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";check(ini[L"5129B"]==L"11");
+ // A cut form never lowers a high count.
+ ini.clear();ini[L"5129B"]=L"11";start(-1);first();g_fh4EndWhy="capture-change";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";check(ini[L"5129B"]==L"11");
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);

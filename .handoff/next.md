@@ -92,3 +92,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - #82327 ready: BR fbfd93d4 #6403, source c24591f5 on cx-pc/primary-82327; 849 offline PASS. Primary actor + all-source ghost/x2/smoke. Next lead live test; no companion game access.
 - 2026-11-08 12:14 AM EST | cx-pc/1 #82344 DONE offline: BR abac6e93 file #6407 (replaces #6406), code 6c5d4eed pushed cx-pc/early-ground-82344 atop primary/all-actor 90436690.
 - Release +871 checks + available sc22 PASS. A2ACB .274s excluded, real hit retained, A4 count relearn; exact press-Y restore fixes 21784->21792. Next pc2 first/repeat DOWN plus primary/Doji/60B86 and slope/Y video/log gate. No game touched; notes/early-ground-82344.md.
+
+- #82379 completed: BR d4d14a8f, 880 offline PASS, latest-complete downward learning +150ms clusters +native despawn smoke/reveal. Based on early-ground ec977c22. Next pc live test; no game touched.

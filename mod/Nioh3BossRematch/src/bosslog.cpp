@@ -3298,6 +3298,8 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
 // seal that is still in the actor table, with its own root (never the player's).
 std::atomic<int> g_fhSealKeep{1};
 uint64_t PressPrimarySeal(double* at);
+bool NativeSealExitReady(uint64_t seal, double captureAt, uint64_t player);
+bool g_nativeExitPending = false;
 
 // pc #57569 (human #57567): [Spirit] SealGhostExit=1 (with SealEndOnHit): a despawn at the last hit also kills the yokai's projectiles / hit
 // effects. Instead, at the last-hit close the form ends (FormHide4Tick reason "ghost-exit": Fh4Restore = player visible + input back, pin and
@@ -4312,6 +4314,8 @@ void FormHide4Tick(uint64_t player) {
             }
         }
         else reason = FormHideEndReason(player, cap, g_fh4.started);
+        if (reason && !strcmp(reason, "seal-despawn") &&
+            !NativeSealExitReady(g_fh4.seal, g_fh4.capT, player)) reason = nullptr;
         if (reason) {
             // #82145/#82155: retire only pending begin metadata on a failed press. Existing restore owns pad/player cleanup.
             if (!strcmp(reason, "throw-done-no-seal") || !strcmp(reason, "press-no-seal") || !strcmp(reason, "throw-cancelled")) {
@@ -4319,8 +4323,8 @@ void FormHide4Tick(uint64_t player) {
             }
             ClearKeptExtras();
             Log("FormHide=4 end %s", reason);
-            g_fh4EndWhy = reason;
-            if (!strcmp(reason, "ghost-exit") && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
+            g_fh4EndWhy = reason; g_nativeExitPending = false;
+            if ((!strcmp(reason, "ghost-exit") || !strcmp(reason, "seal-despawn")) && g_plFadeMs.load() > 0 && g_fh4.root) {  // human #58173: the body fades in, no pop
                 g_plFadeRoot = g_fh4.root; g_plFadeK8 = g_fh4.multiplier; g_plFadeK6 = g_fh4.fade;
                 g_plFadeChr.store(player); g_plFadeT0.store(now);
             }
@@ -5598,7 +5602,7 @@ void SealTailHitTick() {
             if (!w.previous.count(o)) ++fresh;
         }
         w.appearance.swap(remaining);
-        const bool newCluster = fresh && now >= w.lastNew + 0.100;
+        const bool newCluster = fresh && now >= w.lastNew + 0.150;
         if (fresh) w.lastNew = now;
         w.previous.swap(current);
         if (newCluster) {
@@ -5635,6 +5639,7 @@ void SealEndOnHitTick() {
     static bool open = false, fired = false, countedOpen = false;
     static std::set<uint64_t> previous;
     static double lastNew = -100;
+    static bool censusComplete = true;
     static double boundAt = 0;  // #82033: classify only by time since bind, never by action
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
@@ -5648,25 +5653,19 @@ void SealEndOnHitTick() {
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
     static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
+    if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
         // report #22: learn only from a form the seal itself finished (it despawned). 20:02:04.48 a form cut by a capture-change after 1.7 s
         // wrote [SealDur] 16127=1717 (was 2140, also from a cut form) and the next use smoked its exit 1.5 s in, mid-attack. Stored per-core
         // timings ([SealDur], [SealLastHit]) are no longer written or used (human #61089/#61094: no learned timings); the end comes from
-        // THIS form's live hit bursts. The hit count is still learned, but only from complete forms (a max, so a cut form can not lower it).
+        // THIS form's live hit bursts. The hit count is still learned, but only from fully observed complete forms (latest complete count; cut forms cannot lower it).
         const bool complete = !on && !strcmp(g_fh4EndWhy, "seal-despawn");
         if (!on && seal && sid && !fired && !complete)
             Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
                 Now() - sess, bursts);
-        if (natural && !on && seal && sid && !fired) {
-            if (earlySess != sess && SealExitCore(sid)) {  // first use of this core: smoke at the despawn
-                earlySess = sess;
-                earlyN = SealExitReplayQueue(seal, FkPlayer());
-                Log("SealCover: exit smoke at the despawn %.3f s after the press (hit count not known yet), %d effects", Now() - sess, earlyN);
-            }
-        }
-        if (seal && sid && !fired && bursts > 0 && complete) {  // the seal finished the form by itself: learn this core's burst count
+        if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
-            if (bursts > had) {
+            if (bursts != had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
@@ -5678,7 +5677,7 @@ void SealEndOnHitTick() {
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
-        sources.clear(); sourceCensus.clear(); boundId = 0;
+        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         pressedId = on ? g_pickCore.load() : 0;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
         // Use the accepted press snapshot, not observer/bind time, for source admission.
@@ -5739,6 +5738,7 @@ void SealEndOnHitTick() {
     uint64_t pb = 0;
     bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb;
     if (poolOk) { pool.resize(0xFA0); poolOk = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
+    if (!poolOk) censusComplete = false;
     if (!poolOk && !idleFire) return;
     int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0, fresh = 0;
     std::set<uint64_t> current;
@@ -5799,8 +5799,8 @@ void SealEndOnHitTick() {
         sourceCensus = actorRaw;
     }
     // #82179: new eligible objects start a cluster even while earlier attacks remain open.
-    // All opens within 100 ms of the preceding new open belong to that same cluster.
-    const bool newCluster = poolOk && fresh && now >= lastNew + 0.100;
+    // All opens within 150 ms of the preceding new open belong to that same cluster.
+    const bool newCluster = poolOk && fresh && now >= lastNew + 0.150;
     if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
     if (newCluster) {
         ++bursts; lastOpen = now - sess;
@@ -5838,9 +5838,9 @@ void SealEndOnHitTick() {
     if (idleFire && !fire) {
         // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
         // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
-        if (poolOk && !n && !open && sid && bursts > 0 && lastClose > 0) {
+        if (poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0) {
             const int had = SealHitsFor(sid);
-            if (bursts > had) {
+            if (bursts != had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
@@ -5932,6 +5932,32 @@ void SealEndOnHitTick() {
     const int ok = SealQueueDespawn(seal);
     Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: despawn queued via 681E9C ok=%d t=%.3f", (unsigned long long)seal, sid,
         bursts, now - sess, ok, now);
+}
+// #82379: natural despawn uses the same smoke/hide/reveal order before player restore.
+// Keep the terminal reason seal-despawn so the complete-run learner can correct a stale high count.
+bool NativeSealExitReady(uint64_t seal, double captureAt, uint64_t player) {
+    static uint64_t doneSeal = 0; static double doneCapture = -100, revealAt = 0;
+    if (!seal || !player) return true;
+    if (doneSeal == seal && doneCapture == captureAt) { g_nativeExitPending = Now() < revealAt; return !g_nativeExitPending; }
+    doneSeal = seal; doneCapture = captureAt;
+    const double now = Now();
+    const uint32_t sid = g_formSid.load();
+    const bool smoke = SealExitCore(sid);
+    int replay = smoke ? SealExitReplayQueue(seal,player) : 0;
+    std::vector<uint64_t> actors{seal};
+    if (g_hitSourceSnapshot == g_pressSnap.t) for (const auto& entry : g_pressHitSources)
+        if (entry.at >= g_pressSnap.t && std::find(actors.begin(),actors.end(),entry.actor)==actors.end()) actors.push_back(entry.actor);
+    if (smoke) for (uint64_t actor : actors) {
+        if (actor != seal) replay += SealExitReplayQueue(actor,actor,true);
+        if (g_sxfOn.load()>0 && g_sxfN>0) SealExitFxSpawn(actor==seal && g_sxfOwner!=1 ? player : actor);
+    }
+    const int hideMs = smoke && replay>0 && g_coverOn.load()>0 ? g_ghostHideMs.load() : 0;
+    g_ghostHideAt.store(hideMs>0 ? now+hideMs/1000.0 : 0);
+    PressGhostBegin(actors,smoke);
+    revealAt = smoke && replay>0 ? now+(std::max)(hideMs,g_revealMs.load())/1000.0 : now;
+    Log("SealCover: native despawn transition core=%X actors=%zu smoke=%d reveal=%dms",sid,actors.size(),replay,(int)((revealAt-now)*1000));
+    g_nativeExitPending = now < revealAt;
+    return !g_nativeExitPending;
 }
 struct SlSnap { std::vector<uint8_t> b; std::vector<uint8_t> ok; };
 void SlRead(SlSnap& s, uint64_t base, size_t n) {
