@@ -172,3 +172,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 1:08 am EST | #82594 per-press height fix ready: BR a79e8aa4 bridge #6443, source a7d46a32, cx-pc/press-y-82594 | Release +615 offline PASS; no live test | next Claude checks consecutive presses at distinct terrain heights. Conditional generation/count work dropped.
 - 2026-11-08 1:34 am EST | #82679 tail diagnostic-only, min complete learner, default terminal fallback implemented | 288 last-hit/motion checks PASS | next full suites and Release build | cx-pc/variable-82679
+
+- 2026-11-08 1:35 am EST | #82679 BR fb10abe0 file #6455, source b7e8d7e1, cx-pc/variable-82679 | Release +1155 offline checks +available sc22 PASS | next Claude live short-count/motion fallback check; no game touched | notes/variable-82679.md

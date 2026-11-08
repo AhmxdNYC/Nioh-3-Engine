@@ -104,3 +104,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - Release +1137 checks +available sc22 PASS. Only unique world smoke replays, never bone effects; record/exit history reset per press; 100-press replay bounded. Next Claude pc restart/install when human says, repeated exits/video gate. No game touched. notes/exit-smoke-82536.md.
 
 - 2026-11-08 1:08 am EST | #82594 per-press height fix ready: BR a79e8aa4 bridge #6443, source a7d46a32, cx-pc/press-y-82594 | Release +615 offline PASS; no live test | next Claude checks consecutive presses at distinct terrain heights. Conditional generation/count work dropped.
+
+- 2026-11-08 1:35 am EST | #82679 BR fb10abe0 file #6455, source b7e8d7e1, cx-pc/variable-82679 | Release +1155 offline checks +available sc22 PASS | next Claude live short-count/motion fallback check; no game touched | notes/variable-82679.md
