@@ -5,6 +5,7 @@
 #include "addon.h"
 #include "gamerva.h"
 #include "seal_use_gate.h"
+#include "press_queue.h"
 #include "form_core_equipment.h"
 #include "../../shared/soul_camera_vertical.h"
 
@@ -1273,6 +1274,8 @@ std::atomic<bool> g_pickOff{false};
 std::atomic<int> g_pickDir{0};
 std::atomic<double> g_pickT{-100};
 std::atomic<uint32_t> g_pickCore{0};  // core selected for this press, including a never-used equipped core
+pressq::State g_pressQ;  // #83466: a press made during the old seal's ghost exit, replayed when it is gone
+bool PickGhostAlive();
 std::atomic<bool> g_pickLearned{false};  // #81275: only the FIRST spawn hit after a d-pad press learns the core / suppresses
 std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
 // #81516 fallback: cached directions are not evidence of the current loadout. Until this session learns a direction,
@@ -1363,6 +1366,10 @@ void PickPoll() {
     if (held && held != heldPrev) {
         if (g_pickDir.load() && held != g_pickDir.load() &&
             (PickFormActive() || (now >= g_pickT.load() && now - g_pickT.load() < .300))) {
+            if (PickGhostAlive()) {  // #83466: the old form already ended (ghost exit): queue this press, replay it when the seal is gone
+                pressq::Queue(g_pressQ, held, GetTickCount64());
+                Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now);
+            } else
             Log("FormCore direction edge ignored during current press: dir=%c kept=%c t=%.3f",
                 held == 1 ? 'L' : 'D', g_pickDir.load() == 1 ? 'L' : 'D', now);
             heldPrev = held; return;
@@ -1375,6 +1382,8 @@ void PickPoll() {
         const int pending = g_pendingPick[held].load();
         const bool off = pending >= 0 ? pending == 0 : CoreIsOff(core);
         g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
+        if (PickGhostAlive()) { pressq::Queue(g_pressQ, held, GetTickCount64()); Log("FormCore press queued during the old seal's ghost exit: dir=%c t=%.3f", held == 1 ? 'L' : 'D', now); }
+        else pressq::Clear(g_pressQ);
         Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
             pending >= 0 ? "unidentified seal: pending pick applies before first spawn" :
             !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
@@ -3136,6 +3145,9 @@ DWORD WINAPI HkFormBlockPad(DWORD user, void* st) {
             if (c == 2 && t >= t0 + 60 && t < t0 + 120) s->pad.buttons |= 0x1000;  // + A while RT is held
         }
     }
+    if (r == ERROR_SUCCESS && st) {  // #83466: replay of a press that was queued during the old seal's ghost exit
+        if (const WORD b = pressq::Buttons(g_pressQ, GetTickCount64())) ((FbState*)st)->pad.buttons |= b;
+    }
     return r;
 }
 void** FbXInputSlot() {
@@ -3290,6 +3302,7 @@ std::atomic<int> g_ghostOn{0};
 std::atomic<double> g_ghostReqAt{0};  // human #58053: smoke first, the player shows SealExitRevealMs later
 std::atomic<uint64_t> g_ghostReq{0};   // seal whose form should end now (set by SealEndOnHitTick, consumed by FormHide4Tick)
 std::atomic<uint64_t> g_ghostSeal{0};  // seal held invisible until it leaves the actor table
+bool PickGhostAlive() { return g_ghostSeal.load() != 0; }
 std::atomic<double> g_ghostT{0};
 // pc #59670 (pc2 #59665): seal whose form must end now whatever the end settings are (FormCapTick at FormMaxSec, SealEndOnIdle when the
 // queued despawn did not take). Consumed by FormHide4Tick: the form ends, the seal is held invisible (g_ghostSeal) until it really leaves.
@@ -4121,6 +4134,16 @@ void FormHide4Tick(uint64_t player) {
     bool spawnBegin = false;
     static uint64_t spawnUsed = 0; static double spawnUsedT = -1;  // a spawn-hit seal begins one form only (the end resets 'attempted' to the FormSlot0 capture)
     PressGhostTick();
+    switch (pressq::Tick(g_pressQ, GetTickCount64(), g_ghostSeal.load() != 0, g_fh4.owner != 0 || g_fbActive.load(), g_pickLearned.load())) {
+    case pressq::Step::Pulse:
+        g_pickT.store(Now()); g_pickLearned.store(false);  // the replayed press is the one PickLearn matches the next spawn hit to
+        Log("FormCore queued press fired: dir=%c try %d t=%.3f", g_pressQ.dir.load() == 1 ? 'L' : 'D', g_pressQ.tries.load(), Now());
+        break;
+    case pressq::Step::Done: Log("FormCore queued press: new seal spawned t=%.3f", Now()); break;
+    case pressq::Step::Expired: Log("FormCore queued press: dropped after %d ms t=%.3f", (int)pressq::kWindowMs, Now()); break;
+    case pressq::Step::GaveUp: Log("FormCore queued press: no seal after %d tries, gave up t=%.3f", pressq::kMaxTries, Now()); break;
+    default: break;
+    }
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)

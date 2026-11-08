@@ -1,5 +1,5 @@
 {
-  "version": "1.8.11",
+  "version": "1.8.12",
   "url": "https://nioh3-mod-feedback.vercel.app",
-  "notes": "Improved soul-core transformations, exit timing and camera motion; fixed a camera-related crash."
+  "notes": "Favorites sort first without losing selection; dedicated Player settings tab, page resets to shipped defaults, and reliable queued soul-core presses."
 }

@@ -261,3 +261,7 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 4:51 am EST | cx-pc #83559: v1.8.11 PUBLIC and verified, GitHub Latest 16 assets; site dpl_Edx7E4Q5t8vtqczJh3UKdUsszPB6 READY; both manifests 1.8.11, all 15 live payload hashes + updater download match. Three gates PASS: PC #83413, pc2 #83556, Ally #83484.
   Source merged to main; final sums #6551, payloads #6526-6534. LATEST BUILD updated. Next release starts from main; canonical deployment D:/nioh3-wt/site-prod-api now synchronized. Evidence notes/release-1.8.11-live.json; no game touched by cx-pc.
+- 2026-11-08 cx-pc2 #83466: queued soul-core press (press_queue.h) replays a d-pad pulse when old ghost seal is gone; offline 12 checks PASS, BR 04d18d7f; live untested. Branch cx-pc2/seal-queue-83466.
+
+- 2026-11-08 4:57 am EST | cx-pc #83600 owns 1.8.12 integration/publication after task-board ownership check (no claimed jobs); cxl-pc delegated while Claude limited. Clean worktree Temp/wt-r1812 from main 82ae5287.
+  Merged Player/defaults 749e00c8 (includes favorites b4c5ab4c) and seal queue e7c373ec; only handoff conflict, code merged cleanly. Next: offline affected suites, EF/BR builds, package 1.8.12, one gate each PC/pc2/Ally. No game control by cx-pc.
