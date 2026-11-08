@@ -4842,6 +4842,8 @@ void SealEndOnIdleTick() {
 // is skipped while SealIdleEnd is on (the ghost exit lets the hidden yokai finish by itself). SealIdleLog=1 (default) logs every
 // action / motion change of the seal from the bind until it is gone ('SealMotion' lines), so one session shows the real signal.
 std::atomic<int> g_sieMode{0}, g_sieMinMs{300}, g_sieLoop{1}, g_sieHold{1}, g_sieHoldMs{100};
+uint64_t g_sieBoundarySeal = 0;
+double g_sieBoundaryAt = -100;
 uint64_t g_sieFireSeal = 0;  // game thread: SealEndOnHitTick ends this seal's form
 const char* g_sieWhy = "";
 struct SieSample { uint32_t act = 0xFFFFFFFF; uint16_t mot = 0, fact = 0; float f = 0, e = 0, rate = 0; uint8_t loop = 0; bool moOk = false; };
@@ -4889,7 +4891,7 @@ void SealIdleEndTick() {
     wasOn = on;
     if (cur && cur != seal) {
         if (seal) over("new seal");
-        seal = cur; g_sieFireSeal = 0; t0 = now; segT = now; holdT = 0; nextPresent = now + 0.1;
+        seal = cur; g_sieFireSeal = 0; g_sieBoundarySeal = 0; g_sieBoundaryAt = -100; t0 = now; segT = now; holdT = 0; nextPresent = now + 0.1;
         uint32_t k = 0; Rd(seal, k); sid = k >> 4;
         seenAtk = fired = segEnded = prevSegEnded = oddLogged = false; lastDf = 0; lines = 0; segs = 1;
         SieRead(seal, prev);
@@ -4933,6 +4935,12 @@ void SealIdleEndTick() {
         }
         if (atEnd && fabsf(df) < 1e-4f && s.rate > 0.f) { if (!holdT) holdT = now; }
         else holdT = 0;
+    }
+    // Publish an actual action boundary, not a guessed elapsed duration.
+    // Hit observer accepts it only beside a closed attack window with a short count.
+    if (formOn && seenAtk && s.act != prev.act && prev.act != 1 && prev.act != 0 &&
+        prev.act != 0xFFFF && prev.act != 0xFFFFFFFF && s.act != 0 && s.act != 0xFFFFFFFF) {
+        g_sieBoundarySeal = seal; g_sieBoundaryAt = now;
     }
     const uint32_t pa = prev.act;
     const SieSample was = prev;
@@ -5717,7 +5725,7 @@ void SealEndOnHitTick() {
     static std::set<uint64_t> previous;
     static double lastNew = -100;
     static std::set<uint64_t> clusterOwners;
-    static bool censusComplete = true, lowerEligible = false;
+    static bool censusComplete = true;
     static double boundAt = 0;  // #82033: classify only by time since bind, never by action
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
@@ -5736,15 +5744,14 @@ void SealEndOnHitTick() {
         // report #22: learn only from a form the seal itself finished (it despawned). 20:02:04.48 a form cut by a capture-change after 1.7 s
         // wrote [SealDur] 16127=1717 (was 2140, also from a cut form) and the next use smoked its exit 1.5 s in, mid-attack. Stored per-core
         // timings ([SealDur], [SealLastHit]) are no longer written or used (human #61089/#61094: no learned timings); the end comes from
-        // THIS form's live hit bursts. The hit count is still learned, but only from fully observed complete forms (latest complete count; cut forms cannot lower it).
+        // THIS form's live hit bursts. Learn a minimum only at natural/terminal completion with readable samples; cut forms cannot lower it.
         const bool complete = !on && !strcmp(g_fh4EndWhy, "seal-despawn");
         if (!on && seal && sid && !fired && !complete)
             Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
                 Now() - sess, bursts);
         if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
-            if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
-            if (!had || (bursts < had && lowerEligible)) {
+            if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
@@ -5756,7 +5763,7 @@ void SealEndOnHitTick() {
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
-        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true; lowerEligible = false;
+        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         pressedId = on ? g_pickCore.load() : 0;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
         // Use the accepted press snapshot, not observer/bind time, for source admission.
@@ -5773,7 +5780,6 @@ void SealEndOnHitTick() {
     const double now = Now();
     if (!seal && g_fh4.seal) {
         seal = g_fh4.seal; boundAt = now;
-        lowerEligible = bursts == 0 && now - sess <= 0.400 && now - sourceSince <= 0.400;
         uint32_t k = 0; Rd(seal, k); boundId = k >> 4; sid = pressedId ? pressedId : boundId; want = SealHitsFor(sid);
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
@@ -5924,13 +5930,18 @@ void SealEndOnHitTick() {
     // An idle edge alone can precede a helper attack; never truncate active attack windows.
     const bool terminalFallback = g_sieMode.load() > 0 ||
         (g_ghostOn.load() > 0 && g_coverOn.load() > 0 && poolOk && bursts > 0 && !n && !open && lastClose > 0);
-    if (idleFire && !fire && terminalFallback) {
+    // #82745: recovery can be a non-idle action (C56->C57), with no idle edge before despawn.
+    // Pair the edge with the final observed pool close within one ~105ms sample (+margin).
+    const bool recoveryFire = !idleOnly && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want > bursts && bursts > 0 && poolOk && !n && !open &&
+        lastClose > 0 && g_sieBoundarySeal == seal && now - g_sieBoundaryAt >= 0 && now - g_sieBoundaryAt <= .150 &&
+        std::fabs((sess + lastClose) - g_sieBoundaryAt) <= .150 && lastNew <= g_sieBoundaryAt &&
+        now - sess >= g_sealEndMinMs.load() / 1000.0;
+    if (((idleFire && terminalFallback) || recoveryFire) && !fire) {
         // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
         // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
         if (poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0) {
             const int had = SealHitsFor(sid);
-            if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
-            if (!had || (bursts < had && lowerEligible)) {
+            if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
@@ -5939,7 +5950,7 @@ void SealEndOnHitTick() {
         }
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
-            g_sieWhy, now - sess, bursts);
+            recoveryFire ? "attack boundary with closed pool" : g_sieWhy, now - sess, bursts);
     }
     static double capLogged = -1;  // human #58729: some cores (A9F39) keep their yokai out with an open burst - never hold the player past FormMaxSec
     if (!fire && seal && g_formMaxSec.load() > 0 && now - sess >= g_formMaxSec.load()) {

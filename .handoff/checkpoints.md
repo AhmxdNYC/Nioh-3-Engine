@@ -174,3 +174,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 1:34 am EST | #82679 tail diagnostic-only, min complete learner, default terminal fallback implemented | 288 last-hit/motion checks PASS | next full suites and Release build | cx-pc/variable-82679
 
 - 2026-11-08 1:35 am EST | #82679 BR fb10abe0 file #6455, source b7e8d7e1, cx-pc/variable-82679 | Release +1155 offline checks +available sc22 PASS | next Claude live short-count/motion fallback check; no game touched | notes/variable-82679.md
+- 2026-11-08 1:47 am EST | #82745 completed-use minimum and close-adjacent action-boundary fallback implemented | 294 hit/motion checks PASS; 1.383 open/1.433 close learns2->1 and exits1.433 | next Release and regressions | cx-pc/recovery-82745
