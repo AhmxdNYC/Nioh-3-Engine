@@ -5,7 +5,7 @@ root=Path(__file__).resolve().parents[1]
 s=(root/'src/rematch.cpp').read_text()
 def section(a,b): return s[s.index(a):s.index(b,s.index(a))]
 maprow=section('int FavRowOfItem(', 'const char* FavMark(')
-header=section('int Items(int* out, int cap)', '    if (g_uiPages.page == uRoot)')
+header=section('int ItemsBase(int* out, int cap)', '    if (g_uiPages.page == uRoot)').replace('int ItemsBase(', 'int Items(')
 train=section('    if (g_uiPages.page == uTrainHere) {','    if (g_uiPages.page == uTools) {')
 arena=section('    if (g_uiPages.page == uTraining) {','    if (g_uiPages.page == uSummon) {')
 change=section('void UiChange(int dir)', '    if (item == kItDeathCut')+'}\n'
@@ -15,7 +15,7 @@ pre=r'''#include "rematch_core.h"
 #include <cstdio>
 using rcore::Row;
 constexpr int uRematch=1,uBosses=2,uTrainHere=3,uTraining=4;
-constexpr int kItFight=0x10000,kItTrainHere=0x50000,kItTeleport=0x40000,kMaxRows=100,kItListFilter=-68,kItBack=-5;
+constexpr int kItFight=0x10000,kItTrainHere=0x50000,kItTeleport=0x40000,kMaxRows=100,kItListFilter=-68,kItBack=-5,kItPageDefaults=-69;
 struct {int page=uRematch;} g_uiPages;
 struct {bool showAll=true,hiddenDuels=true,directStart=true;} g_cfg;
 std::vector<Row> g_rows(4);std::atomic<uint8_t> g_status[4];std::atomic<bool> g_live{true};

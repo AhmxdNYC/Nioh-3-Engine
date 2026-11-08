@@ -163,6 +163,13 @@ int main(){
  printf("PREVIEW|After each seal is identified (simulated)|%s|%s\n",row(0).c_str(),row(1).c_str());
  reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
  printf("PREVIEW|Equipped rows after save load (simulated, no seal press)|%s|%s\n",row(0).c_str(),row(1).c_str());
+ reset();for(uint32_t id=1;id<=16;++id)FormCoreToggle(id);
+ g_pendingPick[1]=0;g_pendingPick[2]=0;PendingPickSave(1);PendingPickSave(2);
+ g_slotCore[1]=0x5129B;g_slotSeen[1]=true;g_pickOff=true;
+ FormCoreReset();check(g_offN==0&&ini[L"FormCoresOff"].empty());
+ for(uint32_t id=1;id<=16;++id)check(FormCoreTransforms(id));
+ check(g_pendingPick[1]==-1&&g_pendingPick[2]==-1&&!ini.count(L"FormCorePendingLeft")&&!ini.count(L"FormCorePendingDown"));
+ check(g_slotCore[1]==0x5129B&&g_slotSeen[1]&&g_pickOff); // learned identity and ongoing press retained
  printf("form-core picker + menu: %d checks PASS (offline; no game)\n",checks);
 }
 '''

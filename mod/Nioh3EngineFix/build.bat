@@ -22,6 +22,8 @@ where cl >nul 2>nul || (echo ERROR: no MSVC toolchain found & exit /b 1)
 rem regenerate the patch table header from patches.json when Python is available (it is checked in anyway)
 where py >nul 2>nul && py -I tools\gen_header.py
 if errorlevel 1 (echo ERROR: gen_header.py failed & exit /b 1)
+where py >nul 2>nul && py -I tools\generate_menu_defaults.py --check
+if errorlevel 1 (echo ERROR: packaged menu defaults stale & exit /b 1)
 rem fixed game RVAs: rvas.json -> src\rvas_gen.h must be current; warn about any raw base + RVA left (tools\check_fixed_rvas.py)
 where py >nul 2>nul && py -I tools\gen_rvas.py --check
 if errorlevel 1 echo WARNING: rvas.json / rvas_gen.h out of date - run tools\gen_rvas.py with a decrypted dump

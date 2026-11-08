@@ -729,6 +729,8 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
           kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kVrs, kCount };
 #include "settings_catalog.h"
+#include "menu_shipped_defaults.h"
+#include "../../Nioh3Training/src/practice_stats.h"
 #include "menu_pages.h"
 menu_nav::Trail<> g_pages;
 ULONGLONG g_rep[4] = {};  // repeats never carry into a different page
@@ -1202,7 +1204,8 @@ int PageRowsBody(int* out, bool selectable) {
     if (g_pages.page == pVrsTune) {
         add(kVrsRowFirst + vrsmenu::kRowLevel);
         add(kVrsRowFirst + vrsmenu::kRowAdvanced);
-        if (g_vrsAdvanced) for (int i = vrsmenu::kRowAdvanced + 1; i < vrsmenu::kRowN; ++i) add(kVrsRowFirst + i);
+        if (g_vrsAdvanced) for (int i = vrsmenu::kRowAdvanced + 1; i < vrsmenu::kRowReset; ++i) add(kVrsRowFirst + i);
+        add(kVrsRowFirst + vrsmenu::kRowReset);
         add(kBackRow);
         return n;
     }
@@ -1284,7 +1287,7 @@ int PageRowsBody(int* out, bool selectable) {
             add(kBackRow);
             return n;
         }
-        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); add(kPlayerRow); }
         add(kPageRow + pDisplay);
         add(kPageRow + pCamera);
         add(kPageRow + pSettings);
@@ -1294,7 +1297,7 @@ int PageRowsBody(int* out, bool selectable) {
     const int page = g_pages.page;
     if (page == pRoot) {
         add(kPageRow + pSettings);  // user #13223: Settings / Boss Rematch / Practice (+ Close)
-        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); }
+        if (g_rematchSession.load()) { add(kRematchRow); add(kPracticeRow); add(kPlayerRow); }
     }
     else if (page == pSettings) {
         for (int p : {pDisplay, pFrameGen, pGameplay, pSafe, pExtra, pExperimental, pDiagnostics, pBoot, pAll, pConfig}) {
@@ -1329,11 +1332,23 @@ int PageRowsBody(int* out, bool selectable) {
 }
 
 // #38077/#38437: every page starts with 'Mod menu' (top-level page), 'Close' (close the menu) and 'Report', then its own rows.
+bool ResettableRow(int id);
+void ResetCurrentPage();
 int PageRows(int* out, bool selectable) {
     out[0] = kModMenuRow;
     out[1] = kCloseTopRow;
     out[2] = kReportRow;  // #38437
     int n = 3 + PageRowsBody(out + 3, selectable);
+    bool reset = false, ownReset = false;
+    for (int i = 3; i < n; ++i) {
+        reset |= ResettableRow(out[i]);
+        ownReset |= out[i] == kCamRowFirst + kCamReset || out[i] == kVrsRowFirst + vrsmenu::kRowReset;
+    }
+    if (g_pages.page != pRoot && reset && !ownReset) {
+        const bool back = n > 3 && (out[n - 1] == kBackRow || out[n - 1] == kClose);
+        if (back) out[n] = out[n - 1];
+        out[back ? n - 1 : n] = kResetPageRow; ++n;
+    }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kSaveFilesRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kUpdatePageRow; ++n; }
     if (g_pages.page == pRoot) { out[n] = out[n-1]; out[n-1] = kReverseModsRow; ++n; }
@@ -1862,10 +1877,9 @@ void SyncConfigFromLive(int id) {
 }
 char g_configReply[256] = "";
 int g_configReplyRow = -1;
-void ChangeConfig(int index, int dir) {
+void ApplyConfigValue(int index) {
     if (index < 0 || index >= kConfigN) return;
     const auto& d = kConfigSettings[index];
-    if (!g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
     const auto& v = g_configValues.values[(size_t)index].text;
     g_configReplyRow = index;
     snprintf(g_configReply, sizeof(g_configReply), "Next launch: save to ini, then restart the game.");
@@ -1924,6 +1938,11 @@ void ChangeConfig(int index, int dir) {
     }
     g_dirty = true;
     MLOG("[%s] %s requested %s - %s", d.section, d.key, v.c_str(), g_configReply);
+}
+
+void ChangeConfig(int index, int dir) {
+    if (index < 0 || index >= kConfigN || !g_configValues.Change(kConfigSettings, (size_t)index, dir)) return;
+    ApplyConfigValue(index);
 }
 
 // Real camera offsets are applied by CamKiProbe 1.0.21; no stick simulation.
@@ -2015,9 +2034,12 @@ void VrsValuesChanged() {
     g_dirty = true;
     gpuopt::VrsSetLive(g_vrsVals);
 }
+#include "menu_defaults_impl.h"
+
 // dir: -1 left, +1 right, 0 = A / Enter
 bool g_resumeHosted = false;  // #79226: set by SwitchTab while it opens a hosted tab
 void Change(int id, int dir) {
+    if (id == kResetPageRow || id == kCamRowFirst + kCamReset) { if (!dir) ResetCurrentPage(); return; }
     if(id==kSaveFilesRow){
         if(!dir&&(savefiles::Pending()||savefiles::ActionAllowed("open-menu"))){
             g_saveConfirm=0;g_saveName.clear();if(!savefiles::Pending())savefiles::RefreshSlots();EnterPage(pSaveFiles);
@@ -2047,13 +2069,13 @@ void Change(int id, int dir) {
         }else{g_saveConfirm=id;g_saveConfirmAt=now;}
         return;
     }
-    if (id == kRematchRow || id == kPracticeRow) {
+    if (id == kRematchRow || id == kPracticeRow || id == kPlayerRow) {
         // user #13223: open the add-on directly on its Boss Rematch / Practice page; an older add-on refuses the action -> its own root
         if (dir == 0 && RefreshRematchHost(Now()) &&
-            ((g_resumeHosted && PostRematchAction(id == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice)) ||
-             PostRematchAction(id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
+            ((g_resumeHosted && PostRematchAction(id == kPlayerRow ? rmb::ResumePlayer : id == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice)) ||
+             PostRematchAction(id == kPlayerRow ? rmb::OpenPlayer : id == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice) || PostRematchAction(rmb::OpenMenu))) {
             g_rematchPage = true; g_rematchOpened = false; g_hostTab = id;
-            g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
+            if (id != kPlayerRow) g_modeSelection.Choose(id == kRematchRow ? 1 : 2, TrainingMode());
             for (auto& repeat : g_rep) repeat = 0;
         }
         return;
@@ -2228,7 +2250,7 @@ void MovePage(int dir) {
 // user #44232: while the menu is open LB / RB step through the first page's destinations ("tabs"), in the order that page lists
 // them (Boss Matches, Practice, Display Overlays, Camera settings, Settings, Save files - whatever is shown this session). From the
 // first page itself RB goes to the first tab and LB to the last; the ends wrap. View / Create returns to the first page (TryPadHome).
-bool IsTabRow(int id) { return id == kRematchRow || id == kPracticeRow || id == kSaveFilesRow || (id >= kPageRow && id < kBackRow); }
+bool IsTabRow(int id) { return id == kRematchRow || id == kPracticeRow || id == kPlayerRow || id == kSaveFilesRow || (id >= kPageRow && id < kBackRow); }
 int TabRows(int* out) {
     const int page = g_pages.page;
     g_pages.page = pRoot;  // PageRows describes the current page; borrow the first page's list (Present thread only)
@@ -2248,12 +2270,13 @@ int CurrentTab() {
     return top == pSaveFiles || top == pSaveActions ? kSaveFilesRow : kPageRow + top;
 }
 const char* TabName(int id) {
-    return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Practice" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
+    return id == kRematchRow ? "Boss Matches" : id == kPracticeRow ? "Training" : id == kPlayerRow ? "Player" : id == kSaveFilesRow ? "Save files" : PageName(id - kPageRow);
 }
 // #44353: the tab bar row at the top of every page: Home (the first page) then the LB / RB order, short names
 const char* TabShort(int id) {
     if (!id) return "Home";
     if (id == kRematchRow) return "Boss";
+    if (id == kPlayerRow) return "Player";
     if (id == kPracticeRow) return "Training";  // the first page names this row Training
     if (id == kSaveFilesRow) return "Saves";
     const int pg = id - kPageRow;
@@ -2298,14 +2321,14 @@ void SwitchTab(int dir) {
         pos = menu_nav::Wrap(pos, dir, n);
         const int next = tabs[pos];
         if (next == CurrentTab()) return;
-        const bool hosted = next == kRematchRow || next == kPracticeRow;
+        const bool hosted = next == kRematchRow || next == kPracticeRow || next == kPlayerRow;
         if (hosted && g_rematchPage) {  // Boss Matches <-> Practice: the add-on switches its page in place (its OpenRematch / OpenPractice)
-            const bool ok = PostRematchAction(next == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice) ||
-                            PostRematchAction(next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice);
+            const bool ok = PostRematchAction(next == kPlayerRow ? rmb::ResumePlayer : next == kRematchRow ? rmb::ResumeRematch : rmb::ResumePractice) ||
+                            PostRematchAction(next == kPlayerRow ? rmb::OpenPlayer : next == kRematchRow ? rmb::OpenRematch : rmb::OpenPractice);
             if (!ok) continue;
             for (auto& repeat : g_rep) repeat = 0;
             g_rematchOpened = false; g_hostTab = next;
-            g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
+            if (next != kPlayerRow) g_modeSelection.Choose(next == kRematchRow ? 1 : 2, TrainingMode());
             MLOG("tab %s: %s", dir > 0 ? "RB" : "LB", TabName(next));
             return;
         }
@@ -2774,6 +2797,8 @@ void RowLabel(int id, char* out, int cap) {
     else if (id == kReportRow) snprintf(out, (size_t)cap, "Report");
     else if (id == kRematchRow) snprintf(out, (size_t)cap, "Boss Matches");
     else if (id == kPracticeRow) snprintf(out, (size_t)cap, "Training");
+    else if (id == kPlayerRow) snprintf(out, (size_t)cap, "Player");
+    else if (id == kResetPageRow) snprintf(out, (size_t)cap, "Reset to defaults");
     else if (id >= kPageRow && id < kPageRow + pCount) snprintf(out, (size_t)cap, "%s", PageName(id - kPageRow));
     else snprintf(out, (size_t)cap, "row");
 }
@@ -2792,10 +2817,10 @@ void ChangeLogged(int id, int dir) {
 void NoteSelection() {
     static int prev = -99999;
     static int host = 0;
-    const int nowHost = g_rematchPage ? (g_hostTab == kPracticeRow ? 2 : 1) : 0;
+    const int nowHost = g_rematchPage ? (g_hostTab == kPlayerRow ? 3 : g_hostTab == kPracticeRow ? 2 : 1) : 0;
     if (nowHost != host) {
         host = nowHost;
-        if (nowHost) inputlog::NoteMenu("page", nowHost == 2 ? "Practice" : "Boss Matches", "", "", "");
+        if (nowHost) inputlog::NoteMenu("page", nowHost == 3 ? "Player" : nowHost == 2 ? "Training" : "Boss Matches", "", "", "");
     }
     if (!g_open) { prev = -99999; return; }
     if (g_sel == prev) return;
@@ -3459,9 +3484,14 @@ float DrawImpl(unsigned W, unsigned H) {
     const int pageN = PageRows(pageRows, false);
     for (int oi = 0; oi < pageN; ++oi) {
         const int id = pageRows[oi];
-        if (id == kRematchRow || id == kPracticeRow) {
+        if (id == kResetPageRow) {
             if (id == g_sel) selRow = nb;
-            const char* label = id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
+            put(body, nb, 128, id == g_sel ? "> Reset to defaults" : "  Reset to defaults", "", "A: reset page", cWhite, cCyan, id == g_sel, false);
+            continue;
+        }
+        if (id == kRematchRow || id == kPracticeRow || id == kPlayerRow) {
+            if (id == g_sel) selRow = nb;
+            const char* label = id == kPlayerRow ? (id == g_sel ? "> Player" : "  Player") : id == kRematchRow ? (id == g_sel ? "> Boss Matches" : "  Boss Matches") : (id == g_sel ? "> Training" : "  Training");
             put(body, nb, 128, label, "", "A: open", cWhite, cCyan, id == g_sel, false);
             continue;
         }
@@ -3665,9 +3695,15 @@ float DrawImpl(unsigned W, unsigned H) {
     char what[200], effect[200];
     snprintf(what, sizeof(what), "%s", g_sel >= kCount ? (g_sel == kModMenuRow ? "Jump to the first page of the mod menu." : g_sel == kCloseTopRow ? "Close the mod menu." : g_sel == kReportRow ? "Report a problem: type what went wrong, then Send. The mod report and recent logs go with it." : g_sel == kBackRow ? "Return to the parent menu." : "A / Enter opens this settings group.") : kItems[g_sel].what);
     snprintf(effect, sizeof(effect), "%s", g_sel >= kCount ? (g_sel >= kPsRowFirst && g_sel < kPsRowFirst + kPsToggleN ? "Training saves it. A / Left / Right flips it." : "Settings keep their current values when you change pages.") : kItems[g_sel].effect);
-    if (g_sel == kRematchRow) {
+    if (g_sel == kResetPageRow) {
+        snprintf(what, sizeof(what), "Restore this page's editable settings to the values shipped with the mod.");
+        snprintf(effect, sizeof(effect), "%s", g_defaultsNote);
+    } else if (g_sel == kRematchRow) {
         snprintf(what, sizeof(what), "Boss Matches: replay cleared bosses in their arena or from their shrine. Death and loot rules are shared with Training.");
         snprintf(effect, sizeof(effect), "Arena matches use your death and loot rules. Mission replays keep normal rewards. Solo and cleared-boss checks still apply.");
+    } else if (g_sel == kPlayerRow) {
+        snprintf(what, sizeof(what), "Player settings: health, player stats and soul-core options.");
+        snprintf(effect, sizeof(effect), "Opens independently of Training. Each option states where it applies.");
     } else if (g_sel == kPracticeRow) {
         snprintf(what, sizeof(what), "Training: choose a location, add bosses, and control their moves. Shared player and boss stats also affect spawned Boss Matches.");
         snprintf(effect, sizeof(effect), "Training retries in place when you die. Return to where I was ends the session. Frame meter: Display Overlays. Save manager: Mod menu at title.");
