@@ -125,3 +125,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 4:35 am EST | cx-pc #83344: candidate release preparation done; 85/103 offline runners PASS, 18 baseline failures/unavailable checks verified against 87dcdc89 (lead #83369 accepts); testhub 5/5, rematch 357/357, updater self-test/package integrity PASS. No game control.
   Assets #6526-6535 and BUILD #83408 sent to pc. Final notes: notes/release-1.8.11.md and notes/release-1.8.11-validation.md. Next: obtain PC/pc2/Ally PASS for these hashes, then merge release branch to main and publish GitHub/site. No release/site publication yet.
+
+- 2026-11-08 4:37 am EST | cx-pc #83344 / #83510: Ally gate 1/3 PASS verified in #83484 (pyz 6ae37c19, exact candidate ASIs, 5/5 soul-core uses, Fight now, no crash; baseline and saves restored).
+  PC #83413 and pc2 #83414 still running. Next: wait for lead to forward both PASS, then merge/publish/verify. Do not launch duplicate tests or publish yet. Candidate assets and hashes remain #6526-6535.
