@@ -120,3 +120,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
   Four ASIs + Updater/Setup/pyz/full/combined built; rematch 357/357, new camera/exit suites PASS, legacy offline failures being triaged. Next: collect 3 device PASS + resolve offline gate before publish; notes/release-1.8.11.md and Temp/wt-r1811/release/validation-1811.
 
 - 2026-11-08 4:31 am EST | cx-pc #83344: item29 fixture now stubs new equipment-poll/toggle dependencies and passes actual hook replay; runtime source and uploaded assets unchanged. Six legacy suites reproduce on 87dcdc89; lead #83369 permits identical baseline failures. Next: finish remaining baseline comparisons and collect device gates.
+
+- 2026-11-08 4:32 am EST | cx-pc #83344: prepared site/version.json for 1.8.11; updatecheck 126 assertions + manifest match PASS. Uploaded binaries unchanged. Next: finish baseline debt evidence, collect PC/pc2/Ally gates, then publish; no live site change yet.
