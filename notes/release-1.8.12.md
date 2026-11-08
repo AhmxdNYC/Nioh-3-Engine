@@ -42,3 +42,10 @@ All three gate routes returned weekly-limit notices: Ally #83623 (also #83635), 
 
 - 2026-11-08 5:25 am EST | cx-pc/0 records Ally gate83622 FAIL83907: queue fired5/5 but attach4/5; first queued DOWN reused old actor address, rejected as already alive, then seal=0 timeout. Other installer/menu/reset/Fight-now checks passed; zero crashes.
   Evidence report6583 ZIP6584 logs6579 rows6580; restoration87/87 files +9 saves +16/16 targets reported. Candidate EF a1b32e13 BR44ca2f23 is NOT releasable. Next: offline queued actor-snapshot lifetime fix with reuse regression, rebuild/package fresh candidate and device-owner retest.
+
+## Current candidate: r2 (supersedes original assets)
+
+- 2026-11-08 5:33 am EST | cx-pc/0 integrated fix97000f47 as6f71c28b; independently reran8 suites853/853 PASS and Release BR build. Scrubbed only PDB paths, executable bytes identical. Fresh1.8.12 r2 EF a1b32e13 BR c117129f (#6592), Setup145f8a7f (#6593), pyz e00ff4d8 (#6594), full90f7d745 (#6595), combined f2f12ca9 (#6596), sums6597.
+  Old BR44ca2f23 rejected. Fresh live gates0/3; next: same device owners test exact r2 packages, keeping PC presence83747 hold. Public stays1.8.11. Evidence release/validation-1812r2; packages release/dist-1812r2.
+
+Tests: queue snapshot14, queue12, first-use52, ghost243, last-hit346, cold23, picker134, equipment29 PASS. Full-install payload checked and BR byte equality verified. Setup embeds rebuilt full payload. No live recovery claim.
