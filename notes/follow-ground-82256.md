@@ -1,0 +1,9 @@
+# FormFollow height ceiling (#82256)
+
+Base 3616de83 (live-confirmed collider-cluster build). Capture finite player position before the first follow write at form start. Follow uses the seal's X/Z but caps Y at this original player height; downward seal motion remains allowed. Rotation/face code still receives the original seal position, so optional seal yaw setters cannot accidentally move the seal to the capped player position.
+
+The reveal hold applies the same cap. Fh4Restore, shared by ghost and other exits, corrects any elevated residual for a player actually followed, preserving current X/Z. It uses the existing warp setter/fallback and logs FormFollow restore Y with before/restored/start/changed/ok. Failure retains the backup and existing retry behavior. Non-follow forms (Doji), replacement players and unreadable/nonfinite positions are not warped. No gravity, air-block, action or collision flags are changed, and no new persistent freeze state is introduced.
+
+Validation: 23 actual follow-prefix/helper/restore checks PASS, including supplied starting Y13674 -> seal13951/+2.77m and578cm spike, repeated frames, downward motion, native setter failure/fallback, restore retry, every-exit common restore, non-follow Doji, replacement player, missing seal, invalid input and reveal hold. Existing712 checks +sc22 available replay PASS; total735. Release build passes. No game touched.
+
+This is a form-start-height ceiling, not a terrain query. Uphill travel may put the horizontal target below the new terrain; downhill paths depend on seal Y/native collision handling. pc must validate slopes and the reported airborne exit; existing AirBlock sampling is unchanged. The patch prevents new follow-induced elevation; it does not infer ground for an already-floating player at form start. Next: pc60B86 leap/exit/repeat and Doji regression.

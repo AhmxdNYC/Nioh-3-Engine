@@ -1,0 +1,15 @@
+# Unbeaten Boss Match menu #72262
+
+Base: origin/cx-pc/door-3rows 71ea9f0b. Branch: cx-pc/unbeaten-menu. Offline only; no game, install, save or lock access.
+
+The menu used cached clear status to replace Fight now with Practice. It now offers Fight now and a separate Train here row, in that order, for all clear statuses. Runtime arena readiness and the clear-guard availability decide whether the first action can enter the arena; if not, it is visibly labeled Train here (arena unavailable). Switching between native entry and that fallback while a confirmation is open requires a fresh confirmation. Shrine replay retains its prior cleared-mission requirement. Existing Practice-page actions are separate and unchanged.
+
+The menu posts the existing kReqFight path. ExecDirect explicitly authorizes protected unbeaten entry for fight && warp, without requiring AnyBoss or IgnoreProgress. It still reads the actual clear DB on the game thread, refuses unreadable state, requires the installed Mission::SetMissionClearFlag veto for an uncleared mission, and refuses entry into the same active unbeaten story mission. AttemptStartGate, restore/admission/queue checks, UnbeatenArm before CallRequestById, native-entry admission callback, clear veto and return cleanup remain on that path. No per-row exceptions or story/clear writes were added. The general ClearedNow default remains restrictive for ordinary replay calls.
+
+Validation: production-function menu regression executes cached statuses 0/1/2, native Fight now, explicit Train here, unavailable route fallback, busy/solo/loading refusal, unreadable clear DB, missing protection, stale status 2 with actually uncleared data, active story refusal, shrine refusal, missing Training export, clear veto only for the owned running mission, and changed-action confirmation. Integration assertions bind the helper to UiAct, action order in Items and guard ordering in ExecDirect. The request/actor observations are mocked; this is not an in-game win/save test. Existing native return regression also passes under MSVC, including exact-placement dedupe, all five owned-route exits, cleanup and ordinary Training return.
+
+MSVC release BR build passes. Existing bosslog warnings and fixed-RVA audit warning remain; no new rematch warning. BR SHA256 38c6f6071325f887c1ac79491591ba15ed4244193197b27f773165da59e14ed9. Training source is unchanged from the base: reuse TR 4964090e69d226e7c89c23dc29e23e194388f01fef154c4b862e0c14ef1862da, bridge #5449. Do not substitute the installed PC TR.
+
+Only live validation can establish real menu navigation/layout on the host, the actual Giant Toad/native spawn and combat, finish/exit behavior, and that all save/story fields stay unchanged across the trip (the clear-veto mock is not proof of every possible native script side effect). Lead owns that test. The offline label schematic was sent to Discord, explicitly marked as not a game screenshot.
+
+Installed PC build unchanged from task: EF 1de96af5 / BR 65d31658 / TR 99600c91 / Cam 7482c03d. Public remains 1.8.6. This is a candidate, not a release.

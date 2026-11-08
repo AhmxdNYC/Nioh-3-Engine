@@ -1,4 +1,13 @@
 #include "../src/savefiles.cpp"
+// The menu gate is what this harness checks. These stand-ins satisfy the link
+// without running savelib's real save I/O. A refused start returns no thread.
+namespace savelib {
+const char* LastResult() { return ""; }
+void* StartBootstrap(const std::wstring&, const std::wstring&) { return nullptr; }
+void* StartLiveImport(const std::wstring&, const std::wstring&, const std::string&, const std::wstring&, bool, GateFn) { return nullptr; }
+void* StartBackup(const std::wstring&, const std::wstring&, const std::string&, const std::wstring&, GateFn) { return nullptr; }
+void RequestCancel() {}
+}
 #include <cstdlib>
 #include <cstdarg>
 #include <initializer_list>

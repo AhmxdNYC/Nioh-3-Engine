@@ -35,6 +35,8 @@ void Start(const StartupInfo& info);
 void SetRateSink(void (*fn)(double rendered, double ticks));
 // QPC of the newest hooked Present on any swapchain (0 = none yet); any thread.
 int64_t LastPresentQpc();
+// #66661: frames the game itself presented (render thread, FG / FSR presenter excluded; falls back to all hooked presents). Any thread.
+int64_t GameFrames();
 // 1.7.57: thread id that presents the game's real frames (not the FSR presenter); 0 = none seen yet. Any thread.
 unsigned long GamePresentTid();
 // 1.7.56 one-time notice toast (rebar.cpp): up to 4 lines (first orange, second white, rest grey), shown once the startup
@@ -70,7 +72,7 @@ int OffsetX();
 int OffsetY();
 constexpr float kCornerPx = 2.0f;  // gap between the FPS counter / mod-menu hint and the screen edge
 int DefaultOffsetY(int pos);  // TopLeft 160 (below the game's health / ki HUD, ~15 % of 1080), others 0
-// FPS-counter text scale for a back buffer of height H (Scale x auto factor), as used by the counter itself
+// FPS-counter text scale for a back buffer of height H: [Overlay] Scale times height/1080
 float CounterScale(unsigned H);
 
 // ---- frame generation (FG): the game's setting plus what the Present hook measures (v2.02 config slots, see

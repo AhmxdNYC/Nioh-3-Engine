@@ -71,6 +71,11 @@ static void TestParser() {
     CHECK(c.op == Op::MenuSet && !strcmp(c.key, "GF") && c.value == 1, "menu set on");
     c = Parse("menu set R1 4");
     CHECK(c.op == Op::MenuSet && c.value == 4, "menu set int");
+    c = Parse("menu set HideHudIds 7,8,255");
+    CHECK(c.op == Op::MenuSet && !strcmp(c.text, "7,8,255"), "HUD ID list preserved");
+    c = Parse("menu set HideHudIds none");
+    CHECK(c.op == Op::MenuSet && !strcmp(c.text, "none"), "HUD clear preserved");
+    CHECK(Parse("menu set HideHudIds 7 8").op == Op::Bad, "HUD list must be comma-separated");
     c = Parse("menu get MQ");
     CHECK(c.op == Op::MenuGet && !strcmp(c.key, "MQ"), "menu get");
     c = Parse("  log   hello  world \r");
@@ -204,7 +209,13 @@ static void GameThread() {  // 60 Hz: 5 pad reads per frame (like PadMgrUpdate) 
     }
 }
 
-static int FakeMenu(const char* key, int set, int value, char* reply, size_t n, unsigned) {
+static std::string g_hudList;
+int FakeHudIds(const char* ids, char* reply, size_t n, unsigned) {
+    if (ids) g_hudList = ids;
+    snprintf(reply, n, "raw=%s", g_hudList.c_str());
+    return 0;
+}
+int FakeMenu(const char* key, int set, int value, char* reply, size_t n, unsigned) {
     if (_stricmp(key, "GF") != 0) {
         snprintf(reply, n, "no menu item '%s'", key);
         return -1;
@@ -225,6 +236,7 @@ static void TestHookExclusive() {
     si.log = &Log;
     si.version = "test";
     si.menuRemote = &FakeMenu;
+    si.hudIdsRemote = &FakeHudIds;
     si.pauseReason = &FakePause;
     TestSetHost(si);
     CHECK(TestHookSlot(&g_slotA, (uint8_t*)1, 1), "hook not installed on the fake slot");
@@ -259,6 +271,12 @@ static void TestHookExclusive() {
     CHECK(g_framesRealW == 0, "real key W reached the game while it is not foreground (%d frames)", g_framesRealW.load());
     r = Exec("menu set GF 1");
     CHECK(r == "ok GPU wait fix (GF) = ON (value 1)", "menu set: %s", r.c_str());
+    r = Exec("menu set HideHudIds 7,8,255");
+    CHECK(r == "ok raw=7,8,255", "HUD list transport: %s", r.c_str());
+    r = Exec("menu get HideHudIds");
+    CHECK(r == "ok raw=7,8,255", "HUD get transport: %s", r.c_str());
+    r = Exec("menu set HideHudIds none");
+    CHECK(r == "ok raw=none", "HUD clear transport: %s", r.c_str());
     r = Exec("menu get NOPE");
     CHECK(r.rfind("err no menu item", 0) == 0, "menu get unknown: %s", r.c_str());
     r = Exec("state");

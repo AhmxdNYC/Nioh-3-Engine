@@ -27,6 +27,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include "gamerva.h"
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <cstddef>
@@ -1660,7 +1661,7 @@ bool TitleIdle() {
     if (!g_cfg.known || !g_cfg.base) return true;
     uintptr_t gm = 0;
     uint8_t f = 1;
-    return SafeCopy(&gm, reinterpret_cast<const void*>(g_cfg.base + kGameMainPtr), sizeof gm) && gm &&
+    return SafeCopy(&gm, reinterpret_cast<const void*>(g_cfg.base + Grva(kGameMainPtr)), sizeof gm) && gm &&
            SafeCopy(&f, reinterpret_cast<const void*>(gm + kGm58A), 1) && f == 0;
 }
 

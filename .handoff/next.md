@@ -95,3 +95,80 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 11-07 9:27 pm EST pc2/0: #82360 BR fbfd93d4 (#6403) 2 launches: LEFT last-hit 6/6 (ghost exit hides primary+EE49E), DOWN 0/2 (fake early burst learned -> 2), Y drift up to +23 / down -8. pc2 needs ExtraIni SealGhostExit=1 for ghost exit. RESULT re #82360, clip #6414, logs #6415. Restored 8aeb68a2.
 - 11-07 9:43 pm EST pc2/0: #82418 BR d4d14a8f (#6412) 2 launches: DOWN last-hit 4/4 (learned 1, no fake burst), LEFT 4/6 (counts 2 bursts now; late-bound use relearned 2->1, tail raised back), restore Y == press Y but press Y climbs to +16..23. RESULT re #82418, clip #6423, logs #6424. Restored 8aeb68a2.
 - 11-07 9:46 pm EST pc2/0 session end: tasks #82178/#82281/#82360/#82418 (soul core live tests) all DONE, RESULTs sent (last: d4d14a8f DOWN 4/4, LEFT 4/6, correction sent). Nothing half-done; pc2 on BR 8aeb68a2, saves restored, lock released, no test-active marker. Next: wait for pc's next TASK; test kit C:/nioh3-re/t82418 (drive.sh NAME VP REC, OWNER/EXTRA env; per.py LOG; seq.vp). pc2 ExtraIni needs Spirit.SealEndOnHit=1,FormFollowSeal=1,SealGhostExit=1.
+
+- 2026-11-05 11:28 am EST | cx-pc/0 #69187 | Repeat-last safety guards and actual-code regressions PASS (5061 entries/4998 toggle cases). Native leap death root remains unproven; safe captured moves only, death/recovery picks cannot advance cycle. Next build TR+BR and hand off to pc2; notes/repeat-last-move-fix-69187.md.
+- 2026-11-05 11:30 am EST | cx-pc/0 #69187 DONE | pc/repeat-last-move-fix 62455940; TR e8ba9b52 file #5119, BR a7857346 file #5120 (BR source unchanged). Both build.bat exit 0; move_toggle, boss_vitals and drill tests PASS. NEXT pc lead posts pc2 Fight/Stand-still retest; live HP safety unproven. No install/game touch; installed EF 85ebffdc BR 4c219306 TR 0e30328a Cam 7482c03d unchanged.
+
+- 2026-11-05 12:28 pm EST | cx-pc/0 #69414: built TR 2de742cd on cx-pc/yoritomo-selfkill; 14 offline harnesses pass. Native living-idle death-pick guard + gap-log dedupe; public 1.8.6 shares exposure. Live interception unproven; NEXT lead pc2 plain Fight and real-kill retest. notes/yoritomo-selfkill-69414.md.
+- 2026-11-05 2:01 pm EST | cx-pc/0 #69802 / #69771: shared player HP entry guard built; 15 offline harnesses pass, actual hook/trampoline tested. Removed ineffective boss death guard; repeat gap fix retained. Live caller and game survival unproven. Next: pc2 grab/OFF/boss-kill retest; branch cx-pc/yoritomo-v2, notes/yoritomo-v2-69771.md, TR 11e796c0.
+- 2026-11-05 2:02 pm EST | cx-pc/0 #69802 DONE offline: source 9e1a0e72 pushed on cx-pc/yoritomo-v2; TR 11e796c0 bridge #5200, notes #5201 (notes/yoritomo-v2-69771.md). Build exit0 +15 harnesses PASS. Next lead pc2 retest #69771: confirm INFHP ENTRY then grab survival, OFF and real boss kill; game survival unproven, no install/game access.
+- 2026-11-05 3:01 am EST cx-pc | #68543 fight timeline rebased on 1.8.6: cx-pc/fight-timeline-186 source 930a5127. Shrine guard + crash last[] preserved, builds EF/BR/TR exit0, unit/replay pass.
+- Artifacts EF #5059 138c9232, BR #5060 0219c009, TR #5061 a66e7f6d; no install/game. Next: lead integration/validation, notes/fight-timeline-66364.md.
+
+- 2026-11-05 6:08 pm EST | cx-pc/0 #70987/#70960 DONE offline: replacement cx-pc/rc-187-timeline; required parent3d09e4b9 includes timelineeb97e527+save protection190a33b3, optional native3647a5a9 final merge only, sidebugs43603969 excluded. Four builds0 +offline suites PASS (known fixture skips); EFbccc59e8#5328 BR817518bb#5326 TR1534df8b#5329 Came636b5cf#5327. Next lead live gates; notes/rc-187-timeline-70987.md.
+- 2026-11-05 7:10 PM EST | cx-pc/1 #71350 DONE | source 9bd72fbe on origin/cx-pc/no-fight-fix-71350, base rc-187-final 34912c12. One destination owner, real native return, route labels, XYZ BOSSMON. BR dd0e5e17 #5368 + TR a6d99e1e #5369 are a required pair; both build exit 0, offline handshake/exit/dedupe tests PASS. No game/install. Next: lead one five-row live pass per notes/no-fight-fix-71350.md (#5370).
+- 2026-11-05 5:23 pm EST | cx-pc/1 #70761 | Candidate final native merge validated: all4 build.bat exit0; EF/BR/TR/Cam offline suites PASS with documented missing-fixture skips. ASIs EF e3e61c04 #5290, BR e1b51409 #5293, TR f68a77d1 #5291, Cam9486be68 #5292. Pre-arena baseline99ba2481; next lead live/release gates, notes/rc-187-70761.md; no game/version/publish.
+
+- 2026-11-05 5:42 pm EST | cx-pc/0 #70720 DONE offline: cx-pc/yoritomo-sidebugs-rc on rc-187 da476db0; TR e7f52f08 bridge#5306 (supersedes5305), build0 and17 harnesses PASS with existing fixture skips. Native player recovery/camera reset, owned boss world-death prevention, bounded retries/native respawn escape. Live unproven; next lead pc2 one cliff/no-reward + normal1000%kill/OFF retest; notes/yoritomo-sidebugs-70720.md. No install/game access.
+
+- 2026-11-05 07:15 PM EST | cx-pc/0 #71385: merged Ally 8e8a33d6 into Fight now 62070822 (base34912c12); zero training.c conflicts, only three handoff files combined. All17 assert-enabled Yoritomo harnesses PASS, native entry + ownership/return/dedupe PASS; TR build0 c0a77053 #5374 paired with unchanged BR dd0e5e17 #5368. No install/game. Next Claude paired live gate; native late-arrival/real cliff behavior remains unproven.
+
+- #71385 merge checkpoint pushed: origin/cx-pc/no-fight-fix-71350 1238b6ea; BR dd0e5e17 #5368 + TR c0a77053 #5374. Next Claude live pair checks.
+- 2026-11-05 7:17 PM EST | cx-pc/1 #71428 DONE | reused merge 1238b6ea (62070822 + 8e8a33d6), fixture fixes cbdef651 on cx-pc/no-fight-fix-71350. Zero training.c conflicts; 17 assert-enabled Yoritomo harnesses + 6 Fight now suites PASS. Fresh BR 28f309ac #5376 + TR c0a77053 #5377, builds exit0. Earlier #5368/#5369 unchanged. Next lead live pair gate; no game/install.
+- 2026-11-05 7:21 PM EST | cx-pc/1 #71494 | Corrected live-pass baseline: 31-52 s exit timing is 8 duel rows only; RA0CB/Yamagata unknown. Compare R9A25 against duels. No code/build/test changes; next lead evaluates live results using corrected scope.
+- 2026-11-05 10:38 pm EST cxl-pc | #72056 offline done: cxl-pc/multiboss-door 00f4d210, BR 65d31658 + TR 99600c91. pc owns live R0034 gate; 23 native reverse-order roster tests pass. Door code untouched, 8 s next-native grace, identity masks. Do not duplicate pc live gate.
+- 2026-11-05 10:48 pm EST cxl-pc | #72084 supersedes #72093 artifacts: cxl-pc/multiboss-door 168cb8cc, BR e3822ef1 TR 0e0bea32. 8 s native phase grace now covers unresolved R0C12/R945F; pc owns live gate; no game/install here. Evidence notes/native-phase-grace-72084.md.
+- 2026-11-05 11:00 PM EST cxl-pc | #72150 offline done: latest TR 570f9c87 + BR e3822ef1 (#5438), cxl-pc/multiboss-door. Includes #72084 generic 8 s phase grace and active-label fix plus early Return win and immediate Training retry/menu timer. pc owns R0C12 live gate; no game/install here.
+
+- 2026-11-05 11:18 pm EST cx-pc | #72188 offline candidate ready: origin/cx-pc/door-3rows 8f6581c6, TR 4964090e #5449, audit #5450. Exact roster identity prevents wrong-entry timeout; only RB3FE gains script-derived entry-box target. RC1D9 waits scenario flag43, no gameplay patch justified by forced kill. Lead owns live validation; Enenra/R0C12 sequence and BR door logic unchanged.
+- 2026-11-05 11:33 PM EST | cx-pc/1 #72261: entry cover source 87847504 on cx-pc/entry-cover-72261, base 71ea9f0b; TR 8a5f170a ASI #5464. Offline build exit 0; 17 Training harnesses + cover/native-entry/native-return pass (real action fixtures unavailable). No install/game.
+- Next: Claude live gate native + fallback, intro visibility, no hidden HP loss/grab reactions with Infinite health OFF, and 90s timeout; EF 1de96af5 BR 65d31658 compatible unchanged. notes/entry-cover-72261.md.
+- 2026-11-05 11:52 PM EST | cx-pc/1 #72442 DONE offline: source b01ae4e7 branch cx-pc/entry-cover-gap-72442; TR 387c7708 file #5488. Proven 3782ms gap was explicit false intro off, not EngineFix expiry; removed event-ID release.
+- Build exit 0, cover/native-entry/native-return + 17 Training harnesses pass; next main pc same R3513/R25E4 video and intro check. Intro before FIGHT remains covered (tech debt); no game/install touched. notes/entry-cover-72261.md.
+2026-11-07 9:04 pm EST | cx-pc #81516: approach-3 candidate builds; actual picker/menu 93 offline checks PASS. Direct equipped-core mapping still under Opus review; no game/install. Next: finish static mapping review and ship tested candidate. Source worktree Temp/wt-eq81516, destination cx-pc/formcore-pick-81220.
+2026-11-07 9:21 pm EST | cx-pc #81516/#81514 DONE offline: approach 1 reads Yang slots via copied item/core-parameter tables; no hardcoded ID map. BR 7f24488265137d8ba923c6e507ba4bdfc33db1225bf8a0b02379a85360a45743, bridge #6329; offline label preview sent Discord. Next pc: live acceptance in notes/soulcore-pick.md; no duplicate test TASK issued. Requested remote branch cx-pc/formcore-pick-81220, isolated source Temp/wt-eq81516.
+2026-11-07 10:24 PM EST | cx-pc #81898 ready offline: BR 3f861c20, 544 checks PASS; base #6329 only, excludes #6344. pc owns live acceptance; notes/last-hit-exit-81898.md.
+2026-11-07 10:34 PM EST | cx-pc #81956 offline learning fix ready, 417 checks PASS + sc22. pc owns first/second-use live acceptance; base be081da2.
+2026-11-07 10:46 PM EST | cx-pc #81988 appearance gate candidate ready offline: 429 checks + sc22 PASS, BR 2d88dda3; pc owns live acceptance. Includes #81956 learning fix.
+2026-11-07 10:15 PM EST | cx-pc #81879 combined candidate BR bb7995a8 built on 1e4d2ce7; 537 offline checks pass, pc owns live gate. See notes/smoke-fix-81879.md.
+- 2026-11-07 10:52 PM EST | cx-pc/1 #82000 DONE offline: combined BR 335d11b5 bridge #6362; code bd973675 on cx-pc/coldwait-82000 pushed. Contains smoke 8549a20f + learning 5a71803b + bug2 01547872 (merge 4fbb0d41).
+- Release build + 625 offline checks and available sc22 replay PASS. +3.87s cold spawn binds; known confirmed transform press gets absolute +4.5s deadline, first press uses equipped ID. Next pc2 fresh LEFT/DOWN, OFF-before-use, 60B86 attack-hit gate and video/log check; live unproven, no local game/install. notes/coldwait-82000.md.
+2026-11-07 10:48 PM EST | cx-pc #82001 exact added evidence validated offline, 79 targeted PASS; #6358 unchanged and remains install candidate. pc owns live gate.
+- 2026-11-07 11:59 PM EST | cx-pc/1 #82289 offline DONE: BR c3e0207f file #6396; b659838f pushed on cx-pc/multi-source-82289 atop 3d72e837 (39483dda float + 8s cold wait).
+- 752 offline checks + Release + available sc22 PASS. Press-snapshot actor set, pressed-core learning, separate bound identity, per-actor zero census/burst logs. Live 16127 pool ownership unproven; next pc first/repeat Blood Edge plus Doji/60B86/A2ACB and float gate. No game touched; notes/multi-source-82289.md.
+
+- #82327 ready: BR fbfd93d4 #6403, source c24591f5 on cx-pc/primary-82327; 849 offline PASS. Primary actor + all-source ghost/x2/smoke. Next lead live test; no companion game access.
+- 2026-11-08 12:14 AM EST | cx-pc/1 #82344 DONE offline: BR abac6e93 file #6407 (replaces #6406), code 6c5d4eed pushed cx-pc/early-ground-82344 atop primary/all-actor 90436690.
+- Release +871 checks + available sc22 PASS. A2ACB .274s excluded, real hit retained, A4 count relearn; exact press-Y restore fixes 21784->21792. Next pc2 first/repeat DOWN plus primary/Doji/60B86 and slope/Y video/log gate. No game touched; notes/early-ground-82344.md.
+
+- #82379 completed: BR d4d14a8f, 880 offline PASS, latest-complete downward learning +150ms clusters +native despawn smoke/reveal. Based on early-ground ec977c22. Next pc live test; no game touched.
+
+- #82379 artifact uploaded: bridge #6412, BR d4d14a8f, source ffe86f5e pushed. Lead install/relaunch owns live verdict.
+
+- #82436 ready: BR63be4fe6 bridge #6421, source e8b5ca40 on cx-pc/exit-82436; 894 offline PASS. Exit FX tracks player/travel, bone replay on player, ended actors cannot rebind. Next pc live test; no game touched.
+
+- #82480 ready: BR22345f1c #6427, source d667b24f on cx-pc/observe-82480 atop63be4fe6. 925 offline PASS; late-bind downward guard, source-separated final hit, native warp clamp/local repeated-height anchor. Lead owns live tests.
+- 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c).
+- Release +1137 checks +available sc22 PASS. Only unique world smoke replays, never bone effects; record/exit history reset per press; 100-press replay bounded. Next Claude pc restart/install when human says, repeated exits/video gate. No game touched. notes/exit-smoke-82536.md.
+
+- 2026-11-08 1:08 am EST | #82594 per-press height fix ready: BR a79e8aa4 bridge #6443, source a7d46a32, cx-pc/press-y-82594 | Release +615 offline PASS; no live test | next Claude checks consecutive presses at distinct terrain heights. Conditional generation/count work dropped.
+
+- 2026-11-08 1:35 am EST | #82679 BR fb10abe0 file #6455, source b7e8d7e1, cx-pc/variable-82679 | Release +1155 offline checks +available sc22 PASS | next Claude live short-count/motion fallback check; no game touched | notes/variable-82679.md
+
+- 2026-11-08 01:46 AM EST | #82745 BR bdd651af file #6461, source1c6796f7 cx-pc/recovery-82745 | Release +1161 offline +available sc22 PASS; exact1.433 close replay | next Claude A2ACB and attack-chain live regression | notes/recovery-82745.md
+
+- 2026-11-08 01:57 AM EST | #82808 BR0da8fb1b file#6468 source8f738b29 cx-pc/native-learn-82808 | Release +1190 offline +available sc22 PASS; 10-burst multi-segment and stale2->native1 replay | next Claude restore16127=10/install/live test | notes/native-learn-82808.md
+
+- 2026-11-08 02:10 AM EST | #82875 BR99ef0ca6 file#6477 source19a8f3db cx-pc/core-identity-82875 | Release +1204 offline +available sc22 PASS; alternating reused-address counts4/1 | next Claude clear corrupted5B402/A65A1 entries and live switch test | notes/core-identity-82875.md
+
+- 2026-11-08 02:55 AM EST | #82971 paired BR42df32d0 #6488 + CamKi fab68802 #6489, source802b7ee1 cx-pc/vertical-camera-82971 | Release pair +1522 offline +probe_test +available sc22 PASS | next Claude paired install/live vertical camera+clip check; no game touched | notes/vertical-camera-82971.md
+
+- 2026-11-08 3:36 am EST | cx-pc #83104 full seal-player Y camera, 20 ms follow / 0.2 s return; BR 26f37616 (#6496) + CamKi 5ccab1c6 (#6497), source b00849e4; 372 checks and both builds PASS; next: Claude pc install pair and verify live peaks/visuals. Branch cx-pc/yokai-camera-83104.
+
+- 2026-11-08 03:46 AM EST | cx-pc #83125: 0.4 s camera handovers with persistent 20 ms follow; BR c3571950 / CamKi 5938a5ad; 467 checks + builds PASS; live gate remains Claude pc. Branch cx-pc/camera-blend-83125.
+
+- 2026-11-08 03:56 AM EST | cx-pc #83151 native TimedLerpAdvance null-list-node crash localized; upstream cause unproven. Camera 0.7s smootherstep + identity guards, 495 checks/builds PASS. BR c7315ca3 / CamKi 617d93cd; next Claude pc live gate and native-list diagnosis; cx-pc/camera-crash-83151.
+- 2026-11-08 4:03 am EST | cx-pc/1 #83188 removed heuristic quaternion writes that hit native list +450/+458 | 3006 offline checks PASS; Release build pending; live untested | next: finish build, bridge to Claude | notes/face-list-crash-83188.md, cx-pc/face-list-crash-83188
+- 2026-11-08 4:03 am EST | cx-pc/1 #83188 build PASS, 3006 offline checks PASS; BR fffd2e10 bridge #6510, CamKi stays 617d93cd | native list writer removed, live repro untested | next: Claude 80D5F rapid swaps + facing check | f81af1c9 cx-pc/face-list-crash-83188
+
+2026-11-08 4:06 am EST | cx-pc/2 #83216: continuous 0.25s camera spring + 80-unit single-frame spike hold built; 691 offline checks and both builds PASS. | Live feel unproven; Claude owner tests next. | cx-pc/camera-spring-83216; notes/camera-spring-83216.md; BR 7084366e / CamKi a92e520b.

@@ -2,6 +2,7 @@
 // CbvRecord. See cbvupload.h and notes\renderer\cbv-upload.md.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 #include <tlhelp32.h>
 #include <emmintrin.h>
 
@@ -459,10 +460,10 @@ uint32_t Fnv(uintptr_t base, const Region& r) {
 
 // E8 rel32 at `site` that targets `callee`?
 bool CallsTo(uintptr_t base, uint32_t site, uint32_t callee) {
-    const uint8_t* p = (const uint8_t*)(base + site);
+    const uint8_t* p = (const uint8_t*)(base + Grva(site));
     int32_t rel;
     memcpy(&rel, p + 1, 4);
-    return p[0] == 0xE8 && base + site + 5 + (intptr_t)rel == base + callee;
+    return p[0] == 0xE8 && base + Grva(site) + 5 + (intptr_t)rel == base + callee;
 }
 
 // relay `mov rax, imm64; jmp rax` at `at` (rax: no argument, return value only), then E8 rel32 site -> relay
@@ -474,7 +475,7 @@ bool Retarget(uintptr_t base, uint32_t site, uint8_t* at, const void* fn) {
     at[10] = 0xFF;
     at[11] = 0xE0;
     FlushInstructionCache(GetCurrentProcess(), at, 16);
-    uint8_t* s = (uint8_t*)(base + site);
+    uint8_t* s = (uint8_t*)(base + Grva(site));
     const intptr_t d = (intptr_t)at - (intptr_t)(s + 5);
     if (d < INT32_MIN || d > INT32_MAX) return false;
     uint8_t nb[5] = {0xE8, 0, 0, 0, 0};
@@ -634,10 +635,6 @@ void Start(const StartInfo& info) {
     const int cbs = Key(L"Patches", L"CBS", 0, ini), cbn = Key(L"Patches", L"CBN", 0, ini), cbt = Key(L"Patches", L"CBT", 0, ini);
     const int stats = Key(L"Profiler", L"CbvStats", 0, ini), rec = Key(L"Profiler", L"CbvRecord", 0, ini);
     if (!cbs && !cbn && !cbt && !stats && rec <= 0 && !Key(L"Patches", L"CBF", 0, ini)) return;
-    if (!info.knownBuild) {
-        g_log("CBU: v2.02 only - not installed");
-        return;
-    }
     const uintptr_t b = info.base;
     bool wantCbs = cbs == 1 || cbs == 2, wantCbn = cbn == 1 || cbn == 2, wantCbt = cbt == 1 || cbt == 2;
     const bool fnOk = Fnv(b, kFlushFn) == kFlushFn.fnv && Fnv(b, kUploadFn) == kUploadFn.fnv && Fnv(b, kDescFn) == kDescFn.fnv &&
@@ -671,7 +668,7 @@ void Start(const StartInfo& info) {
         g_log("CBU: no executable page within 2 GB of the image - not installed");
         return;
     }
-    g_orig = (UploadFn)(b + kUpload);
+    g_orig = (UploadFn)(b + Grva(kUpload));
     g_statsSec = Key(L"Profiler", L"CbvStatsSec", 10, ini) < 2 ? 2 : Key(L"Profiler", L"CbvStatsSec", 10, ini);
     g_cbsFence = Key(L"Tuning", L"CBS_Fence", 1, ini) ? 1u : 0u;
     if (rec > 0) {

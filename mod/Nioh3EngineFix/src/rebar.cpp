@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <d3d12.h>
 #include <dxgi1_4.h>
 
@@ -38,7 +39,7 @@ constexpr uintptr_t kRvaGfxDevice = 0x45BA588, kOffD3D12Device = 0x4268;   // v2
 
 bool ReadEngineDevice(void** out) {
     __try {
-        const uintptr_t g = *reinterpret_cast<volatile uintptr_t*>(g_base + kRvaGfxDevice);
+        const uintptr_t g = *reinterpret_cast<volatile uintptr_t*>(g_base + Grva(kRvaGfxDevice));
         if (!g) return false;
         *out = *reinterpret_cast<void* volatile*>(g + kOffD3D12Device);
         return *out != nullptr;

@@ -1,0 +1,976 @@
+[
+  {
+    "id": "R0B0B",
+    "mission": 2827,
+    "script": "archive_09\\EA\\F269FE4AD196879955167C7B3BFAD9AE6FE9B3A961CA6AB0D87CEBC6360825",
+    "enemy_table": "archive_03\\3F\\03E881006D9AC602EF408F792CD786021BA15A587078DF53F10A91FD6EF4BE",
+    "members": [
+      {
+        "placement": 1038159,
+        "chr": 502003,
+        "wave": 32639,
+        "ordinal": 1
+      },
+      {
+        "placement": 1033534,
+        "chr": 274906,
+        "wave": 32639,
+        "ordinal": 2
+      },
+      {
+        "placement": 1037353,
+        "chr": 482895,
+        "wave": 32639,
+        "ordinal": 3
+      },
+      {
+        "placement": 1030798,
+        "chr": 598115,
+        "wave": 32639,
+        "ordinal": 4
+      },
+      {
+        "placement": 1035190,
+        "chr": 42450,
+        "wave": 32639,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "R2068",
+    "mission": 8296,
+    "script": "archive_09\\3A\\F02A826143C9473B073E8BFD49F7197E0C6E2397F7D59262B69DB9914BC238",
+    "enemy_table": "archive_03\\17\\164A63FAE7278BDEFA050AFC03C3D9125A061BC5541D31C3F8FCD242A1055C",
+    "members": [
+      {
+        "placement": 1074681,
+        "chr": 328716,
+        "wave": 57187,
+        "ordinal": 1
+      },
+      {
+        "placement": 1079882,
+        "chr": 773211,
+        "wave": 57187,
+        "ordinal": 1
+      },
+      {
+        "placement": 1076811,
+        "chr": 164356,
+        "wave": 57187,
+        "ordinal": 1
+      },
+      {
+        "placement": 1074002,
+        "chr": 875240,
+        "wave": 57187,
+        "ordinal": 2
+      },
+      {
+        "placement": 1075440,
+        "chr": 875240,
+        "wave": 57187,
+        "ordinal": 2
+      },
+      {
+        "placement": 1071509,
+        "chr": 132808,
+        "wave": 57187,
+        "ordinal": 3
+      },
+      {
+        "placement": 1072492,
+        "chr": 911307,
+        "wave": 57187,
+        "ordinal": 1
+      },
+      {
+        "placement": 1073458,
+        "chr": 697167,
+        "wave": 57187,
+        "ordinal": 2
+      },
+      {
+        "placement": 1079872,
+        "chr": 875240,
+        "wave": 57187,
+        "ordinal": 3
+      }
+    ]
+  },
+  {
+    "id": "R25E4",
+    "mission": 9700,
+    "script": "archive_09\\D2\\0B43EF696A5EE4FDED301E8BA9A652B1D1B791A1DBF1A52CC889EF6FAB95FE",
+    "enemy_table": "archive_03\\75\\F6261B32722F7A70B851C2E6E5B49E12D98D5441FB27E84A19591FC1B6B874",
+    "members": [
+      {
+        "placement": 1047415,
+        "chr": 352684,
+        "wave": 6134,
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "id": "R8FF1",
+    "mission": 36849,
+    "script": "archive_09\\FB\\41EED3E797657A57D635424F42220C06880730AA27108F2FA57A87D1637672",
+    "enemy_table": "archive_03\\AE\\11C638D48EEBE433D12218E99472B1983CC66D4349157EE8D1AF3A23C814D1",
+    "members": [
+      {
+        "placement": 1065308,
+        "chr": 847229,
+        "wave": 61753,
+        "ordinal": 3
+      },
+      {
+        "placement": 1064709,
+        "chr": 112396,
+        "wave": 61753,
+        "ordinal": 1
+      },
+      {
+        "placement": 1068142,
+        "chr": 112396,
+        "wave": 61753,
+        "ordinal": 1
+      },
+      {
+        "placement": 1060356,
+        "chr": 52104,
+        "wave": 61753,
+        "ordinal": 2
+      },
+      {
+        "placement": 1060107,
+        "chr": 6837,
+        "wave": 61753,
+        "ordinal": 2
+      }
+    ]
+  },
+  {
+    "id": "RCB9B",
+    "mission": 52123,
+    "script": "archive_09\\CB\\5DD0CAD1494A9CD5E5991EC307A4E5CB2D54E3CE1148E6E598457FDD2112CE",
+    "enemy_table": "archive_03\\8C\\1377DC7D34116A46F070A0EA0F63623DCE5E516BA4D41099844E3C65B3F318",
+    "members": [
+      {
+        "placement": 1097646,
+        "chr": 83158,
+        "wave": 901,
+        "ordinal": 1
+      },
+      {
+        "placement": 1095474,
+        "chr": 183574,
+        "wave": 901,
+        "ordinal": 1
+      },
+      {
+        "placement": 1092021,
+        "chr": 183574,
+        "wave": 901,
+        "ordinal": 1
+      },
+      {
+        "placement": 1098236,
+        "chr": 871539,
+        "wave": 901,
+        "ordinal": 2
+      },
+      {
+        "placement": 1099454,
+        "chr": 618667,
+        "wave": 901,
+        "ordinal": 2
+      },
+      {
+        "placement": 1095464,
+        "chr": 618667,
+        "wave": 901,
+        "ordinal": 2
+      },
+      {
+        "placement": 1095242,
+        "chr": 482715,
+        "wave": 901,
+        "ordinal": 2
+      },
+      {
+        "placement": 1096187,
+        "chr": 451004,
+        "wave": 901,
+        "ordinal": 3
+      }
+    ]
+  },
+  {
+    "id": "RCB08",
+    "mission": 51976,
+    "script": "archive_09\\76\\F5C49D3F2BD214802679F40F7354D5E8059D03C0E1E0FDBB496F544DB5084E",
+    "enemy_table": "archive_03\\4B\\E3D21976AF644C13AD3DD061B653944477F747583A0619768142844A78CC99",
+    "members": [
+      {
+        "placement": 1116015,
+        "chr": 586715,
+        "wave": 10232,
+        "ordinal": 1
+      },
+      {
+        "placement": 1115531,
+        "chr": 236383,
+        "wave": 10232,
+        "ordinal": 2
+      },
+      {
+        "placement": 1114358,
+        "chr": 724394,
+        "wave": 10232,
+        "ordinal": 3
+      },
+      {
+        "placement": 1110441,
+        "chr": 478320,
+        "wave": 10232,
+        "ordinal": 4
+      }
+    ]
+  },
+  {
+    "id": "RA0CB",
+    "mission": 41163,
+    "script": "archive_09\\8A\\35A880867F1EF62539E17FBE7FF409D18C050937D00971063FDC33EB39B4FE",
+    "enemy_table": "archive_03\\6B\\86274DD9339FCC390549B4496CF02CF8B32A11EEEEBD86B0E1999578DE83FC",
+    "members": [
+      {
+        "placement": 1161567,
+        "chr": 810814,
+        "wave": 17668,
+        "ordinal": 1
+      },
+      {
+        "placement": 1162241,
+        "chr": 765992,
+        "wave": 17668,
+        "ordinal": 2
+      },
+      {
+        "placement": 1160051,
+        "chr": 510357,
+        "wave": 17668,
+        "ordinal": 3
+      }
+    ]
+  },
+  {
+    "id": "R61A2",
+    "mission": 24994,
+    "script": "archive_09\\DB\\24A263DA159297BF75E4E9D737C62FBE6D17F2D304AD62CE35B3A3098F6666",
+    "enemy_table": "archive_03\\F5\\DA5121DAFBC36D358A1F1F1A47F15D0FC450ED33E597ADB8239AE931F56FCD",
+    "members": [
+      {
+        "placement": 1257306,
+        "chr": 328716,
+        "wave": 6743,
+        "ordinal": 1
+      },
+      {
+        "placement": 1259866,
+        "chr": 328716,
+        "wave": 6743,
+        "ordinal": 1
+      },
+      {
+        "placement": 1254358,
+        "chr": 831642,
+        "wave": 6743,
+        "ordinal": 1
+      },
+      {
+        "placement": 1259864,
+        "chr": 164356,
+        "wave": 6743,
+        "ordinal": 1
+      },
+      {
+        "placement": 1251335,
+        "chr": 164356,
+        "wave": 6743,
+        "ordinal": 1
+      },
+      {
+        "placement": 1253499,
+        "chr": 999088,
+        "wave": 6743,
+        "ordinal": 2
+      },
+      {
+        "placement": 1259413,
+        "chr": 188508,
+        "wave": 6743,
+        "ordinal": 2
+      },
+      {
+        "placement": 1255999,
+        "chr": 357327,
+        "wave": 6743,
+        "ordinal": 2
+      },
+      {
+        "placement": 1253094,
+        "chr": 970966,
+        "wave": 6743,
+        "ordinal": 3
+      },
+      {
+        "placement": 1254211,
+        "chr": 663148,
+        "wave": 6743,
+        "ordinal": 3
+      },
+      {
+        "placement": 1253857,
+        "chr": 482715,
+        "wave": 6743,
+        "ordinal": 4
+      },
+      {
+        "placement": 1259880,
+        "chr": 871539,
+        "wave": 6743,
+        "ordinal": 4
+      },
+      {
+        "placement": 1250925,
+        "chr": 528612,
+        "wave": 6743,
+        "ordinal": 4
+      },
+      {
+        "placement": 1252929,
+        "chr": 528612,
+        "wave": 6743,
+        "ordinal": 5
+      },
+      {
+        "placement": 1252866,
+        "chr": 528612,
+        "wave": 6743,
+        "ordinal": 5
+      },
+      {
+        "placement": 1259657,
+        "chr": 264763,
+        "wave": 6743,
+        "ordinal": 5
+      },
+      {
+        "placement": 1251943,
+        "chr": 986563,
+        "wave": 6743,
+        "ordinal": 6
+      },
+      {
+        "placement": 1254470,
+        "chr": 3842,
+        "wave": 6743,
+        "ordinal": 6
+      },
+      {
+        "placement": 1253228,
+        "chr": 3842,
+        "wave": 6743,
+        "ordinal": 6
+      },
+      {
+        "placement": 1252079,
+        "chr": 109203,
+        "wave": 6743,
+        "ordinal": 7
+      },
+      {
+        "placement": 1254089,
+        "chr": 27859,
+        "wave": 6743,
+        "ordinal": 7
+      },
+      {
+        "placement": 1256640,
+        "chr": 352684,
+        "wave": 6743,
+        "ordinal": 7
+      },
+      {
+        "placement": 1259308,
+        "chr": 443136,
+        "wave": 6743,
+        "ordinal": 8
+      },
+      {
+        "placement": 1255451,
+        "chr": 433499,
+        "wave": 6743,
+        "ordinal": 8
+      },
+      {
+        "placement": 1250618,
+        "chr": 443136,
+        "wave": 6743,
+        "ordinal": 8
+      },
+      {
+        "placement": 1258353,
+        "chr": 429222,
+        "wave": 6743,
+        "ordinal": 9
+      },
+      {
+        "placement": 1259575,
+        "chr": 863061,
+        "wave": 6743,
+        "ordinal": 9
+      },
+      {
+        "placement": 1259971,
+        "chr": 863061,
+        "wave": 6743,
+        "ordinal": 9
+      },
+      {
+        "placement": 1256771,
+        "chr": 488671,
+        "wave": 6743,
+        "ordinal": 10
+      },
+      {
+        "placement": 1251328,
+        "chr": 939474,
+        "wave": 6743,
+        "ordinal": 10
+      },
+      {
+        "placement": 1250469,
+        "chr": 939474,
+        "wave": 6743,
+        "ordinal": 10
+      },
+      {
+        "placement": 1254309,
+        "chr": 924346,
+        "wave": 6743,
+        "ordinal": 11
+      },
+      {
+        "placement": 1250534,
+        "chr": 386349,
+        "wave": 6743,
+        "ordinal": 11
+      },
+      {
+        "placement": 1251523,
+        "chr": 107238,
+        "wave": 6743,
+        "ordinal": 11
+      },
+      {
+        "placement": 1258246,
+        "chr": 912932,
+        "wave": 6743,
+        "ordinal": 12
+      },
+      {
+        "placement": 1259177,
+        "chr": 912932,
+        "wave": 6743,
+        "ordinal": 12
+      },
+      {
+        "placement": 1254833,
+        "chr": 912932,
+        "wave": 6743,
+        "ordinal": 12
+      },
+      {
+        "placement": 1259191,
+        "chr": 707465,
+        "wave": 6743,
+        "ordinal": 13
+      },
+      {
+        "placement": 1253692,
+        "chr": 257993,
+        "wave": 6743,
+        "ordinal": 13
+      },
+      {
+        "placement": 1257582,
+        "chr": 629059,
+        "wave": 6743,
+        "ordinal": 13
+      },
+      {
+        "placement": 1258772,
+        "chr": 410613,
+        "wave": 6743,
+        "ordinal": 14
+      },
+      {
+        "placement": 1252194,
+        "chr": 368726,
+        "wave": 6743,
+        "ordinal": 14
+      },
+      {
+        "placement": 1259130,
+        "chr": 14625,
+        "wave": 6743,
+        "ordinal": 15
+      }
+    ]
+  },
+  {
+    "id": "R1D60",
+    "mission": 7520,
+    "script": "archive_09\\40\\C6DA46D668EC5A358435308C20A16A5039FDCBAC22889D14AC997994BB368D",
+    "enemy_table": "archive_03\\E9\\C7BBAA71443787FB2E565E5609FFED276B416FFEE4801370A5AA0079D24B19",
+    "members": [
+      {
+        "placement": 1268863,
+        "chr": 776661,
+        "wave": 46014,
+        "ordinal": 1
+      },
+      {
+        "placement": 1268341,
+        "chr": 671570,
+        "wave": 46014,
+        "ordinal": 1
+      },
+      {
+        "placement": 1269826,
+        "chr": 983905,
+        "wave": 46014,
+        "ordinal": 2
+      },
+      {
+        "placement": 1268566,
+        "chr": 759257,
+        "wave": 46014,
+        "ordinal": 4
+      },
+      {
+        "placement": 1264386,
+        "chr": 656503,
+        "wave": 46014,
+        "ordinal": 4
+      },
+      {
+        "placement": 1264363,
+        "chr": 478320,
+        "wave": 46014,
+        "ordinal": 3
+      },
+      {
+        "placement": 1265215,
+        "chr": 778951,
+        "wave": 46014,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "R523B",
+    "mission": 21051,
+    "script": "archive_09\\EC\\845492A9A27A83D0C4D829D725AEBE4F40A1B2DD6359DDA2B8C90B65D6E01C",
+    "enemy_table": "archive_03\\71\\63548A9C2352994232B62247D8F0C384E662F256193F69C2467341EBBB49D9",
+    "members": [
+      {
+        "placement": 1277308,
+        "chr": 792745,
+        "wave": 36578,
+        "ordinal": 1
+      },
+      {
+        "placement": 1273860,
+        "chr": 875240,
+        "wave": 36578,
+        "ordinal": 1
+      },
+      {
+        "placement": 1279605,
+        "chr": 792745,
+        "wave": 36578,
+        "ordinal": 1
+      },
+      {
+        "placement": 1270848,
+        "chr": 560912,
+        "wave": 36578,
+        "ordinal": 2
+      },
+      {
+        "placement": 1273291,
+        "chr": 521334,
+        "wave": 36578,
+        "ordinal": 2
+      },
+      {
+        "placement": 1270950,
+        "chr": 521334,
+        "wave": 36578,
+        "ordinal": 2
+      },
+      {
+        "placement": 1278948,
+        "chr": 83953,
+        "wave": 36578,
+        "ordinal": 3
+      },
+      {
+        "placement": 1278459,
+        "chr": 829576,
+        "wave": 36578,
+        "ordinal": 4
+      },
+      {
+        "placement": 1275921,
+        "chr": 894462,
+        "wave": 36578,
+        "ordinal": 6
+      },
+      {
+        "placement": 1276276,
+        "chr": 947280,
+        "wave": 36578,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "R945F",
+    "mission": 37983,
+    "script": "archive_09\\95\\6F565110C48290890CFD0F38C3900D7DE234EF35576A2C271B0AD5D8797CC4",
+    "enemy_table": "archive_03\\BD\\6A340B67D8872A9C937328D24A046F3E73D833044B0245803BED9827354AFE",
+    "members": [
+      {
+        "placement": 1292577,
+        "chr": 42450,
+        "wave": 26930,
+        "ordinal": 1
+      },
+      {
+        "placement": 1299728,
+        "chr": 16102,
+        "wave": 26930,
+        "ordinal": 2
+      },
+      {
+        "placement": 1299909,
+        "chr": 268880,
+        "wave": 26930,
+        "ordinal": 3
+      },
+      {
+        "placement": 1299059,
+        "chr": 606073,
+        "wave": 26930,
+        "ordinal": 4
+      },
+      {
+        "placement": 1291484,
+        "chr": 989823,
+        "wave": 26930,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "RF60A",
+    "mission": 62986,
+    "script": "archive_09\\34\\B2074F87F0F2BF160E94BC3425A5C1A59FE7072E8C4C89A62CA4844306EE71",
+    "enemy_table": "archive_03\\7B\\043A99648A580B525D7CA61656492E1006581A585C6250B76886AD448F32C8",
+    "members": [
+      {
+        "placement": 1135010,
+        "chr": 560912,
+        "wave": 23358,
+        "ordinal": 1
+      },
+      {
+        "placement": 1138241,
+        "chr": 663148,
+        "wave": 23358,
+        "ordinal": 1
+      },
+      {
+        "placement": 1139225,
+        "chr": 429222,
+        "wave": 23358,
+        "ordinal": 2
+      },
+      {
+        "placement": 1130219,
+        "chr": 663148,
+        "wave": 23358,
+        "ordinal": 2
+      },
+      {
+        "placement": 1139399,
+        "chr": 83953,
+        "wave": 23358,
+        "ordinal": 3
+      },
+      {
+        "placement": 1139905,
+        "chr": 96976,
+        "wave": 23358,
+        "ordinal": 4
+      },
+      {
+        "placement": 1137173,
+        "chr": 829576,
+        "wave": 23358,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "R6351",
+    "mission": 25425,
+    "script": "archive_09\\AB\\8C931009FD0E1F92C1A35491FD15E9DE5D627308B0114E404737AACDE9679D",
+    "enemy_table": "archive_03\\FC\\FD423364B1978DC6963C01F7343F40E9DEE9388ABCDB7B3072551C19DA331B",
+    "members": [
+      {
+        "placement": 1149981,
+        "chr": 771222,
+        "wave": 52864,
+        "ordinal": 1
+      },
+      {
+        "placement": 1148816,
+        "chr": 945986,
+        "wave": 52864,
+        "ordinal": 1
+      },
+      {
+        "placement": 1140125,
+        "chr": 249725,
+        "wave": 52864,
+        "ordinal": 1
+      },
+      {
+        "placement": 1149581,
+        "chr": 270192,
+        "wave": 52864,
+        "ordinal": 2
+      },
+      {
+        "placement": 1145191,
+        "chr": 343233,
+        "wave": 52864,
+        "ordinal": 2
+      },
+      {
+        "placement": 1148183,
+        "chr": 879999,
+        "wave": 52864,
+        "ordinal": 2
+      },
+      {
+        "placement": 1146110,
+        "chr": 863061,
+        "wave": 52864,
+        "ordinal": 3
+      },
+      {
+        "placement": 1148198,
+        "chr": 977294,
+        "wave": 52864,
+        "ordinal": 3
+      },
+      {
+        "placement": 1142718,
+        "chr": 141706,
+        "wave": 52864,
+        "ordinal": 4
+      },
+      {
+        "placement": 1144515,
+        "chr": 665148,
+        "wave": 52864,
+        "ordinal": 5
+      },
+      {
+        "placement": 1148748,
+        "chr": 665148,
+        "wave": 52864,
+        "ordinal": 5
+      },
+      {
+        "placement": 1146056,
+        "chr": 492278,
+        "wave": 52864,
+        "ordinal": 5
+      },
+      {
+        "placement": 1147024,
+        "chr": 491486,
+        "wave": 52864,
+        "ordinal": 5
+      },
+      {
+        "placement": 1142696,
+        "chr": 491486,
+        "wave": 52864,
+        "ordinal": 5
+      },
+      {
+        "placement": 1149112,
+        "chr": 264763,
+        "wave": 52864,
+        "ordinal": 6
+      },
+      {
+        "placement": 1145253,
+        "chr": 491486,
+        "wave": 52864,
+        "ordinal": 6
+      },
+      {
+        "placement": 1144610,
+        "chr": 491486,
+        "wave": 52864,
+        "ordinal": 6
+      }
+    ]
+  },
+  {
+    "id": "R3B19",
+    "mission": 15129,
+    "script": "archive_09\\3E\\5F2E0518FFC8A4AC5DDD66E0C409ADCEFA4CD80A16C1B6BBAF50389E27C3D3",
+    "enemy_table": "archive_03\\19\\3F718F9602A20A8E15B4823438987255CD42EF34246CDDE8DC89C01F6126C6",
+    "members": [
+      {
+        "placement": 1222017,
+        "chr": 83158,
+        "wave": 52697,
+        "ordinal": 1
+      },
+      {
+        "placement": 1221641,
+        "chr": 107238,
+        "wave": 52697,
+        "ordinal": 1
+      },
+      {
+        "placement": 1227524,
+        "chr": 357327,
+        "wave": 52697,
+        "ordinal": 1
+      },
+      {
+        "placement": 1225031,
+        "chr": 109203,
+        "wave": 52697,
+        "ordinal": 2
+      },
+      {
+        "placement": 1227190,
+        "chr": 183574,
+        "wave": 52697,
+        "ordinal": 2
+      },
+      {
+        "placement": 1224244,
+        "chr": 853881,
+        "wave": 52697,
+        "ordinal": 2
+      },
+      {
+        "placement": 1223672,
+        "chr": 405836,
+        "wave": 52697,
+        "ordinal": 3
+      }
+    ]
+  },
+  {
+    "id": "R7C85",
+    "mission": 31877,
+    "script": "archive_09\\0B\\1EADF481BCCADA450286A819298ECF1DF3DCA55D0286E88F6075CFF0D83E7E",
+    "enemy_table": "archive_03\\4B\\D1E53E988582AC7BC837A357F105F95C08AD5B7CB22417715392E15C280A28",
+    "members": [
+      {
+        "placement": 1249440,
+        "chr": 614441,
+        "wave": 38006,
+        "ordinal": 1
+      },
+      {
+        "placement": 1248546,
+        "chr": 745986,
+        "wave": 38006,
+        "ordinal": 2
+      },
+      {
+        "placement": 1244872,
+        "chr": 223221,
+        "wave": 38006,
+        "ordinal": 3
+      },
+      {
+        "placement": 1243320,
+        "chr": 128741,
+        "wave": 38006,
+        "ordinal": 4
+      },
+      {
+        "placement": 1242447,
+        "chr": 889237,
+        "wave": 38006,
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "id": "RD84E",
+    "mission": 55374,
+    "script": "archive_09\\3D\\94B9A85DF3C6020C6804620B676D4CDA10488826B9849655529CA4159A5EB9",
+    "enemy_table": "archive_03\\70\\A0E169282B54425473774373A5A8B5D65D352E149BE8A57953032D22C07D81",
+    "members": [
+      {
+        "placement": 2161257,
+        "chr": 602366,
+        "wave": 35426,
+        "ordinal": 1
+      },
+      {
+        "placement": 2163067,
+        "chr": 485999,
+        "wave": 35426,
+        "ordinal": 2
+      },
+      {
+        "placement": 2167800,
+        "chr": 381593,
+        "wave": 35426,
+        "ordinal": 3
+      },
+      {
+        "placement": 2161177,
+        "chr": 96759,
+        "wave": 35426,
+        "ordinal": 4
+      },
+      {
+        "placement": 2162272,
+        "chr": 428785,
+        "wave": 35426,
+        "ordinal": 5
+      }
+    ]
+  }
+]

@@ -34,6 +34,8 @@ SPEC = [
     # FIGHT: fight window + placement ring (rematch gates, verify, BossLog)
     ("BossBattleMode", "FIGHT", H, 0x23A2DCC, 5),
     ("BossBattleModeEnd", "FIGHT", H, 0x23A2F70, 9),
+    # Lesson dojos: the script polls this until the lesson group is dead, then it starts BossBattleMode on the teacher.
+    ("IsDeathGroupEnemy", "FIGHT", H, 0x2BC8C4, 9),
     ("Character::Create", "FIGHT", H, 0x1180740, 5),
     # BOSSLOG
     ("SetMissionFlag", "BOSSLOG", H, 0x70275C, 5),
@@ -63,6 +65,19 @@ SPEC = [
     ("Mission::GetGameClearRewardNormal", "BOSSLOG", H, 0x23A444C, 9),
     ("Mission::GetGameClearRewardHard", "BOSSLOG", H, 0x23A43EC, 9),
     ("GameClearRewardGrant", "BOSSLOG", H, 0x2280FA0, 7),
+    # UNBEATEN (#256: skip the clear of a Boss Match into a mission this save has not cleared)
+    ("Mission::SetMissionClearFlag", "UNBEATEN", H, 0x23A582C, 9),
+    ("Mission::ClearGadgetAccessWaitMode", "ROSTER", H, 0x23A3260, 9),
+    # SCROLLTRAIN (#79069: Training at a Picture Scroll arena, the script's wave request is skipped for that trip only)
+    ("Emaki::RequestWaveBattle", "SCROLLTRAIN", H, 0x239A630, 5),
+    # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
+    ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
+    ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),
+    ("Item::ReserveAllItemEdo", "KEEPGEAR", H, 0x23A1F04, 9),
+    ("Item::ResetReserveItem", "KEEPGEAR", H, 0x23A1F78, 5),
+    ("Item::ClearEquipment", "KEEPGEAR", H, 0x23A0E7C, 9),
+    ("Item::SetShortCut", "KEEPGEAR", H, 0x23A210C, 5),
+    ("Player::EquipNinjutsu", "KEEPGEAR", H, 0x23A80D8, 9),
     # RLOG (RematchLog, Phase 0 logger)
     ("MissionLoadStep", "RLOG", H, 0x223AF50, 10),
     ("EmakiMissionRequest", "RLOG", H, 0x10DBED0, 5),
@@ -95,6 +110,10 @@ SPEC = [
     ("BuildSaveFilePath", "RLOG", H, 0x1FD6DD0, 7),
     # INV
     ("InventoryAddItem", "INV", H, 0x54D324, 5),
+    # SC (soul-core / effect / action probe, [Debug] InvLog = 1; log only)
+    ("EffectCreate", "SC", H, 0x4CE90C, 5),
+    ("ScProbe_1320F2C", "SC", H, 0x1320F2C, 11),
+    ("ScProbe_23CBF9C", "SC", H, 0x23CBF9C, 5),
     # CORE (every rematch route)
     ("fn:MissionClearedGetSlot", "CORE", "fn", 0x702B64, 0),
     ("fn:MissionRequestById", "CORE", "fn", 0x2239600, 0),
@@ -148,6 +167,13 @@ SPEC = [
     ("chk:PlayerPlace_Retry14", "SPAWN", "check", 0x1C0F2BD, 28),
     ("chk:PlayerPlace_Find", "SPAWN", "check", 0x1C0F363, 48),
     ("chk:CamFlag4_Retry14", "SPAWN", "check", 0x2239C49, 48),
+    # BAG: after a Picture Scroll Return the shrine menu sets byte [menu+0x430] and, once 22D2454 says ready,
+    # opens the Picture Scroll list. The list adds no rows when ScrollItemCount's first dword is 0 (item 0x1E82,
+    # the same query at 1E2C311), then state 7 reads no buttons. This group clears that byte only in that case,
+    # so the existing else opens the shrine top or the replay menu. A nonzero count leaves the byte alone.
+    ("call:ScrollReturnReady", "BAG", "call", 0x1E0C0BD, 0),
+    ("chk:ScrollReopenFlag", "BAG", "check", 0x1E0C0CA, 32),
+    ("chk:ScrollItem1E82", "BAG", "check", 0x1E2C2C7, 16),
 ]
 # preferred functions to anchor a global's reference in (first hit there wins; else any unique hit in .text)
 PREFER = {"g:DataDb": 0x223963C, "g:ClearDb": 0x378C93, "g:MissionQueue": 0x10DC07A, "g:MenuMgr": 0x1DE28EC}
@@ -332,6 +358,21 @@ def build(img):
                     raise SystemExit("%s: not an E8 call" % name)
                 e["callee"] = rva + 5 + struct.unpack_from("<i", img, rva + 1)[0]
         sites.append(e)
+    # These reviewed signatures were previously maintained only in sites_gen.h.
+    # Preserve their runtime order and bytes; validate literal bytes against the input dump.
+    extra = json.loads((ROOT / "tools" / "sites_soulcore.json").read_text())
+    names = {s["name"] for s in sites}
+    for e in extra:
+        if e["name"] in names:
+            raise ValueError("duplicate supplemental site: " + e["name"])
+        names.add(e["name"])
+        start = e["rva"] - e["offset"]
+        for i, token in enumerate(e["pattern"].split()):
+            if token != "??" and img[start + i] != int(token, 16):
+                raise ValueError("supplemental signature mismatch: " + e["name"])
+    at = next(i for i, e in enumerate(sites) if e["name"] == "ScProbe_23CBF9C") + 1
+    sites[at:at] = [e for e in extra if e["group"] == "SC"]
+    sites.extend(e for e in extra if e["group"] == "ACANCEL")
     return sites
 
 
@@ -342,13 +383,22 @@ def render_h(sites, ts, soi):
          "enum Kind : uint8_t { kHook = 0, kFn = 1, kCall = 2, kGlobal = 3, kCheck = 4, kNative = 5 };  // kNative: hook resolved by script-native name",
          "struct Def { const char* name; const char* group; Kind kind; uint32_t rva; uint8_t head; const char* pattern; uint8_t offset;"
          " uint8_t dispOff; uint8_t insnLen; int32_t addend; uint32_t anchor; const char* native; };",
+         "#ifndef BR_SOULCORE",
+         "#define BR_SOULCORE 0  // soul-core sites (groups SC, ACANCEL) only in the dev line (addon.h)",
+         "#endif",
          "static const Def kDefs[] = {"]
     kmap = {"hook": "kHook", "fn": "kFn", "call": "kCall", "global": "kGlobal", "check": "kCheck", "native": "kNative"}
+    sc = False
     for s in sites:
+        if (s["group"] in ("SC", "ACANCEL")) != sc:
+            sc = not sc
+            o.append("#if BR_SOULCORE" if sc else "#endif  // BR_SOULCORE")
         o.append('    {"%s", "%s", %s, 0x%X, %d, "%s", %d, %d, %d, %d, 0x%X},' % (
             s["name"], s["group"], kmap[s["kind"]], s["rva"], s["head"], s["pattern"], s["offset"], s.get("disp_off", 0),
             s.get("insn_len", 0), s.get("addend", 0), s.get("anchor", 0)) + "")
         o[-1] = o[-1][:-2] + ', %s},' % ('"%s"' % s["native"] if s.get("native") else "nullptr")
+    if sc:
+        o.append("#endif  // BR_SOULCORE")
     o += ["};", "constexpr int kCount = (int)(sizeof(kDefs) / sizeof(kDefs[0]));", "}  // namespace sites", ""]
     return "\r\n".join(o)
 

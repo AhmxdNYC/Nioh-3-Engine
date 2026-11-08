@@ -2,6 +2,7 @@
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "advapi32.lib")
 #include "crashreport.h"
+#include "crashupload.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -243,6 +244,24 @@ DWORD WINAPI SpecsThread(LPVOID) {  // cache for crash reports (never enumerate 
     return 0;
 }
 
+// 0 = Training not loaded, 1 = no FightLog export (skip the section), 2 = written, -1 = the read faulted.
+// SEH stays in this function: plain C only, same rule as TrainingState.
+int ReadFightLog(char* buf, int cap) {
+    if (!buf || cap <= 0) return 0;
+    buf[0] = 0;
+    HMODULE trm = GetModuleHandleW(L"Nioh3Training.asi");
+    if (!trm) return 0;
+    auto flog = (int (*)(char*, int))GetProcAddress(trm, "Nioh3Training_FightLog");
+    if (!flog) return 1;
+    __try {
+        flog(buf, cap);
+        return 2;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        buf[0] = 0;
+        return -1;
+    }
+}
+
 // Training / Boss Rematch state through their exports. SEH-guarded: plain C types only in this function.
 void TrainingState(char* out, size_t cap) {
     out[0] = 0;
@@ -363,6 +382,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         TrainingState(tr, sizeof(tr));
         o.P("\r\n-- Training session / summoned bosses --\r\n");
         o.W(tr, strlen(tr));
+        char fights[8192];
+        const int fr = ReadFightLog(fights, (int)sizeof fights);
+        if (fr == 2 || fr == -1) {  // missing export (fr == 1) or no Training: skip the section
+            o.P("\r\n-- Fights (last 20 this session; local clock time) --\r\n");
+            if (fr < 0) o.P("  (fight list read faulted)\r\n");
+            else if (fights[0]) o.W(fights, strlen(fights));
+            else o.P("  (no fights this session)\r\n");
+        }
     }
 
     if (er) {
@@ -476,6 +503,12 @@ DWORD WINAPI Writer(LPVOID) {  // fresh stack: survives a stack overflow in the 
     for (;;) {
         if (WaitForSingleObject(g_evGo, INFINITE) != WAIT_OBJECT_0) return 0;
         WriteReport(g_req.reason, g_req.hasEp ? &g_req.erCopy : nullptr, g_req.hasEp ? &g_req.ctxCopy : nullptr, g_req.tid, g_req.snapshot);
+        if (!g_req.snapshot) {  // automatic crash upload (crashupload.cpp, #64881): JSON record to pending\, then one short send
+            const char* ring[kLogLines];
+            const LONG head = g_logHead;
+            for (int i = 0; i < kLogLines; ++i) ring[i] = g_logRing[(head + i) % kLogLines];
+            crashupload::OnCrash(g_req.reason, g_req.hasEp ? &g_req.erCopy : nullptr, g_req.hasEp ? &g_req.ctxCopy : nullptr, ring, kLogLines, 4000);
+        }
         InterlockedExchange(&g_written, 1);
         SetEvent(g_evDone);
     }
@@ -685,6 +718,18 @@ void Start(const StartInfo& info) {
     g_known = info.knownBuild;
     int on = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashReport", 1, info.iniPath) : 1;
     int test = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashTest", 0, info.iniPath) : 0;
+    if (!test && info.iniPath && GetPrivateProfileIntW(L"Debug", L"ForceCrashTest", 0, info.iniPath) != 0) test = 1;  // #64881 alias
+    {  // automatic crash upload (#64881): pending records from an earlier crash are sent even when CrashReport = 0
+        crashupload::StartInfo cu;
+        cu.log = info.log;
+        cu.iniPath = info.iniPath;
+        cu.selfModule = info.selfModule;
+        cu.base = info.base;
+        cu.knownBuild = info.knownBuild;
+        cu.modVersion = info.modVersion ? info.modVersion : "";
+        cu.testMode = test;
+        crashupload::Start(cu);
+    }
     int delay = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashTestDelaySec", 30, info.iniPath) : 30;
     g_dump = info.iniPath && GetPrivateProfileIntW(L"Debug", L"CrashDump", 0, info.iniPath) != 0;
     if (info.iniPath) {

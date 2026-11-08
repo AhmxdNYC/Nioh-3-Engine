@@ -118,6 +118,10 @@ int main(){
  CHECK(!ParseManifest(R"({"version":"1.8.0","notes":"x","notes":"y"})",v));
  CHECK(!ParseManifest(R"({"version":"1.8.0","notes":42})",v));
  CHECK(!ParseManifest(R"({"version":"1.8.0","extra":"x"})",v));
+ // The in-game check reads version.json only. A stable.json file list is an unknown key, so it is ignored:
+ // no notice, no download, and no installed file changes. Bodies over 512 bytes fail the same closed way.
+ CHECK(!ParseManifest(R"({"version":"1.8.1","files":[{"name":"Nioh3BossRematch_bosses.tsv"}]})",v));
+ CHECK(!Available(R"({"version":"1.8.1","files":[{"name":"Nioh3Training_arenas.tsv"}]})","1.8.1",v));
  CHECK(SetEndpoint(L"https://example.com:8443/check/version.json?q=1"));
  CHECK(g_host==L"example.com" && g_port==8443 && g_path==L"/check/version.json?q=1");
  CHECK(!SetEndpoint(L"http://example.com/version.json"));

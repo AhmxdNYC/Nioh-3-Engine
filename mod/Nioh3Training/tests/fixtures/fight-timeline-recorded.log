@@ -1,0 +1,14 @@
+# Recorded on PC 2026-11-04. Verbatim selected lines from Temp/t65913 and Temp/t66029/logsA Nioh3Training.log.
+[15:06:17.620] TRAIN start R1CBC dist 400 (round 1)
+[15:06:17.620] FIGHT start: Yamagata Masakage | Boss Match
+[15:07:06.423] FIGHT end: Yamagata Masakage | Boss Match | win
+[15:08:03.385] FIGHT start: Yamagata Masakage | Boss Match
+[15:09:06.157] FIGHT end: Yamagata Masakage | Boss Match | win
+[15:42:16.797] ARENA start chr 803396 player -> 74950 1312 40253 yaw 148.1 boss -> 75426 1262 39489: warp 1 (+0 ms), resources preloaded
+[15:42:16.799] TRAIN arena session RC1D9: round 1 pose player 74950 1312 40253 boss 75426 1262 39489 (retry stays in the arena)
+[15:42:16.799] FIGHT start: Tokugawa Kunimatsu | Boss Match
+[15:46:20.304] FIGHT end: Tokugawa Kunimatsu | Boss Match | quit
+[15:49:05.679] ARENA start chr 696121 player -> 76200 3735 55807 yaw -156.4 boss -> 75839 3685 54982: warp 1 (+0 ms), resources preloaded
+[15:49:05.679] TRAIN arena session RF5E5: round 1 pose player 76200 3735 55807 boss 75839 3685 54982 (retry stays in the arena)
+[15:49:05.681] FIGHT start: Yagyu Munenori | Boss Match
+[15:50:47.584] FIGHT end: Yagyu Munenori | Boss Match | quit

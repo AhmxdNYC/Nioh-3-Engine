@@ -1,0 +1,56 @@
+[
+  {
+    "id": "R8FF1",
+    "mission": 36849,
+    "placement": 1065308,
+    "script": "archive_09\\FB\\41EED3E797657A57D635424F42220C06880730AA27108F2FA57A87D1637672",
+    "box_table": "archive_03\\49\\47D3F74F26EDEEE8AF1F93FF0DABBEAF5D002FAE2814D7508DF74A1DFBA1F1",
+    "target": [
+      205000.0,
+      4240.0,
+      302620.0,
+      120.0
+    ],
+    "box": 1061507,
+    "wait": 53872,
+    "gather": 53950,
+    "pose": [
+      205000.0,
+      4190.0,
+      302620.0,
+      120.0
+    ],
+    "create": 53962,
+    "function": "wave_battle_start",
+    "wave": 61753,
+    "wait_boxes": [
+      1061507,
+      1061921
+    ],
+    "kind": "host-box-wave"
+  },
+  {
+    "id": "RB3FE",
+    "mission": 46078,
+    "placement": 8066787,
+    "script": "archive_09\\BE\\45C15A1FFB1A67382B07FE56C6A16CB7454D796C0160D856909D11258BE0C3",
+    "box_table": "archive_03\\90\\8B8339CD8E3AB4A714915608660DFB2337BA73832715479E66B08F61E22074",
+    "target": [
+      242678.21875,
+      14006.099609375,
+      114789.5703125,
+      -140.0
+    ],
+    "box": 8060204,
+    "wait": 74666,
+    "gather": 74712,
+    "pose": [
+      242858.703125,
+      13956.099609375,
+      115116.0,
+      -140.0
+    ],
+    "create": 74814,
+    "function": "sub_event_kumagai_battle_start"
+  }
+]

@@ -8,6 +8,9 @@
 //   PS_BOSS_SPEED     BossSpeedPct        10..300 Training/Rematch boss animation speed (ComputeMotionSpeed 134E68 hook, notes/boss-speed-lever-22389.md)
 //   PS_PLAYER_SPEED   PlayerSpeedPct      10..300 player animation speed (same 134E68 hook, [ctrl+0xE0] == the player)
 //   PS_PLAYER_INF_NIN PlayerInfiniteNinjutsu 0/1  player ninjutsu gauges (st+0x36AC+k*0x30 cur / +0x36B0 max, k=0..2) kept full
+//   PS_PLAYER_INF_SOUL PlayerInfiniteSoulCore 0/1 (pc #57367) soul-core uses are not used up: a soul core is an inventory item (count u32 at
+//                                         record +4, records inv+0x1E0AD0+i*0xE8); a count that drops by 1 during the seal throw (player action
+//                                         0x28FD/0x28FB/0x28AF + 2 s) is put back. Works everywhere (not only in Practice), other items untouched.
 //   PS_FRAME_METER    FrameMeter          0/1    on-screen boss frame meter (frame_meter.h / frame_meter_game.h; read-only, uses the FRAMEPROBE hook)
 //   PS_PLAYER_METER   PlayerFrameMeter    0/1    second bar under the boss meter for the PLAYER's own attacks (user #22796, notes/player-frame-meter-22796.md)
 //   PS_KI_DEALT       KiDamageDealtPct    0..1000 Ki damage of hits whose attacker is the player (x0 .. x10) x pct / 100 (user #22588; KiDamage 844604 at 329E9D)
@@ -34,8 +37,8 @@
 enum { PS_PLAYER_INF_KI = 0, PS_DMG_DEALT = 1, PS_DMG_TAKEN = 2, PS_BOSS_KI_DRAIN = 3, PS_BOSS_SPEED = 4, PS_PLAYER_INF_NIN = 5, PS_PLAYER_SPEED = 6, PS_FRAME_METER = 7, PS_KI_DEALT = 8, PS_ONE_HIT_KI = 9, PS_PLAYER_METER = 10, PS_HOLD_KI_BREAK = 11, PS_TIME_OF_DAY = 12, PS_WEATHER = 13, PS_KI_LOG = 14, PS_HOLD_KI_V2 = 15, PS_KI_FLOOR = 16, PS_NEG_KI_METER = 17, PS_FRAME_LEGEND = 18, PS_FRAME_READOUT = 19, PS_FRAME_KI = 20, PS_KI_WINDOW = 21, PS_FRAME_IFR = 22,
        // human #38180 frame-meter visibility: PLAYER row + one key (legend) entry group each, all default ON
        PS_FRAME_PROW = 23, PS_KEY_STARTUP = 24, PS_KEY_ACTIVE = 25, PS_KEY_RECOVERY = 26, PS_KEY_UNBLOCK = 27, PS_KEY_GRAB = 28, PS_KEY_OTHER = 29, PS_KEY_TIMING = 30, PS_KEY_KI = 31, PS_KEY_IFR = 32,
-       PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_N = 35 }; // append-only ABI: 0 Row (default), 1 Ring
-static inline int PstIsToggle(int what) { return (what >= PS_FRAME_PROW && what <= PS_FRAME_STYLE) || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
+       PS_FRAME_STYLE = 33, PS_FRAME_SIZE = 34, PS_PLAYER_INF_SOUL = 35, PS_N = 36 }; // append-only ABI: 0 Row (default), 1 Ring
+static inline int PstIsToggle(int what) { return (what >= PS_FRAME_PROW && what <= PS_FRAME_STYLE) || what == PS_PLAYER_INF_KI || what == PS_PLAYER_INF_NIN || what == PS_PLAYER_INF_SOUL || what == PS_FRAME_METER || what == PS_ONE_HIT_KI || what == PS_PLAYER_METER || what == PS_HOLD_KI_BREAK || what == PS_KI_LOG || what == PS_HOLD_KI_V2 || what == PS_NEG_KI_METER || what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_KI_WINDOW || what == PS_FRAME_IFR; }
 typedef struct { int v[PS_N]; } PstCfg;
 static inline int PstDefault(int what) { return what == PS_DMG_DEALT || what == PS_DMG_TAKEN || what == PS_KI_DEALT || what == PS_BOSS_SPEED || what == PS_PLAYER_SPEED || what == PS_KI_FLOOR ? 100 : what == PS_FRAME_LEGEND || what == PS_FRAME_KI || what == PS_FRAME_READOUT || what == PS_FRAME_IFR || (what >= PS_FRAME_PROW && what <= PS_KEY_IFR) ? 1 : 0; }  // #38077: NegKiMeter + KiWindow overlays default OFF; style defaults Row
 static inline void PstDefaults(PstCfg* c) { for (int i = 0; i < PS_N; ++i) c->v[i] = PstDefault(i); }

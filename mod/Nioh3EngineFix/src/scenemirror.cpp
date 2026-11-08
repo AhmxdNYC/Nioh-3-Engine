@@ -3,6 +3,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "gamerva.h"
 #include <d3d12.h>
 #include <intrin.h>
 
@@ -616,15 +617,10 @@ bool Start(const StartInfo& info) {
     Configure(info.iniPath, info.log);
     g_base = info.base;
     if (!Wanted() || !g_base) return false;
-    if (!info.knownBuild) {
-        SLOG("SBM: not installed (unknown build; MeshletSys offsets and the 5D417 site are v2.02)");
-        g_mode = g_probe = 0;
-        return false;
-    }
-    uint8_t* site = (uint8_t*)(g_base + kSite);
+    uint8_t* site = (uint8_t*)(g_base + Grva(kSite));
     int32_t rel = 0;
     memcpy(&rel, site + 1, 4);
-    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != g_base + kCallee || memcmp(site - sizeof kBefore, kBefore, sizeof kBefore) != 0 ||
+    if (site[0] != 0xE8 || (uintptr_t)(site + 5 + rel) != g_base + Grva(kCallee) || memcmp(site - sizeof kBefore, kBefore, sizeof kBefore) != 0 ||
         memcmp(site + 5, kAfter, sizeof kAfter) != 0) {
         SLOG("SBM: not installed (MeshletFrameBegin call 5D417 bytes differ - another patch or build)");
         g_mode = g_probe = 0;
@@ -638,7 +634,7 @@ bool Start(const StartInfo& info) {
         g_mode = g_probe = 0;
         return false;
     }
-    g_orig = (UpdateFn)(g_base + kCallee);
+    g_orig = (UpdateFn)(g_base + Grva(kCallee));
     // relay: mov rax, imm64 (HkUpdate); jmp rax  (rax is not an argument; the callee clobbers it anyway)
     page[0] = 0x48;
     page[1] = 0xB8;

@@ -233,6 +233,7 @@ void Toggle(bool open) {
 }
 
 void GateReqTick() {  // UI worker only. user #6789: Return gate used in the arena -> 2-option page
+    rematch::TitleWatchdog();
     if (!g_gateReq.exchange(false)) return;
     if (!g_open.load()) { g_owner.store(-1); Toggle(true); }
     rematch::UiGatePage();
@@ -383,6 +384,7 @@ bool Start() {
 }  // namespace addon
 
 // user #6789: Nioh3Training's arena Return gate asks for the 2-option page (1 = the menu worker will open it, 0 = no menu: caller returns directly)
+extern "C" __declspec(dllexport) int Nioh3BossRematch_WavesGate() { return addon::rematch::WavesGateLive() ? 1 : 0; }
 extern "C" __declspec(dllexport) int Nioh3BossRematch_GateChoice() { return addon::ui::GateChoiceRequest() ? 1 : 0; }
 
 extern "C" __declspec(dllexport) int Nioh3RematchMenuGetApi(uint32_t version, uint32_t bytes, rematch_menu_bridge::Api* out) {

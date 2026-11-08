@@ -18,8 +18,10 @@ Routes (notes/rematch-all-bosses.md s.1)
   H   one of the 3 data-hidden duels (+0x40 bit 0x4000): R plus the reverted un-hide.
   D   a shipped mission record the replay list never shows (master-duel "hidden-wave" stages, other unlisted records with a
       boss record): R-b direct start of that record id. Refused unless the mission reads cleared on this journey.
-  E0  one of the 20 Hundred Demon Realms Picture Scroll records (the Emaki table, mission 0xCC96), started with an owned
-      Picture Scroll item; E1 = the same with the carrier's map entry redirected to the chosen record (reverted).
+  E0  one of the 20 Picture Scroll records (mission 0xCC96). The default region is Waves and the name is
+      "<area>: <n> waves, <toughest enemy>" from notes/rematch-scroll-waves.csv (the menu shows the part after
+      the colon in its right column). SCROLL_REGION overrides one record index, so a row can leave Waves
+      without a code change.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
 
 Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
@@ -73,11 +75,14 @@ JUNK = {"10 yokai)": "parse fragment of the online row 'Gaki Chief (... 10 yokai
         "": "boss-master script rows with no boss name: tutorials / training / unnamed or unshipped stages (missions in mission_id)"}
 ALIAS = {"hino-enma": "Hino-enma"}
 EXTRA = ["Marubashi Chuya"]      # second boss of the Yagyu Principles duel (0xFB96) and Keian Dreams (0xD84E)
+# wake_step (E rows): the WaveNudgeAt offset that woke each Picture Scroll record in the test runs, so the first warp under the loading
+# screen lands on it. 0 = the record warp itself / not measured (the plain walk). Sources: pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389.
+WAKE_STEP = {0: 4, 1: 1, 4: 2, 7: 9, 8: 1, 9: 3, 10: 2, 17: 1, 18: 1}
 SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement) -> (session, defeat flag); session-2026-10-08-gamedata.md
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -516,6 +521,58 @@ def mtitle(b, rn=""):
     return t
 
 
+def is_placeholder_title(title):
+    """Resolved game text. The mission-name string Dummy (text id 33397680) is the placeholder. Not a list of mission ids."""
+    return mission_title(title or "") in ("", "Dummy")
+
+
+def display_mission_name(game_title, boss_name, other_titles):
+    """Menu label only. other_titles is one resolved title per other mission that places this same boss character.
+    Exactly one real name -> that name. Zero or several -> the boss's own name.
+    A real game title is returned unchanged. This is a display choice, not a claim that a title field links the missions.
+    """
+    t = mission_title(game_title or "")
+    if not is_placeholder_title(t):
+        return t
+    named = [mission_title(x) for x in other_titles if not is_placeholder_title(x)]
+    if len(named) == 1:
+        return named[0]
+    return ascii_(boss_name or "") or t
+
+
+def apply_placeholder_labels(out, bs, idx):
+    """Replace mission_name when the game title is placeholder text. Route, replay id, placement and the started mission stay put."""
+    title_of = {mid: r["name"] for mid, r in bs.items()}
+    key_at = {}
+    keys_on = collections.defaultdict(set)
+    missions_of = collections.defaultdict(set)
+    for h in idx:
+        m = int(h["mission_id"], 16)
+        k = int(h["key64"])
+        missions_of[k].add(m)
+        if int(h["flags9c"], 16) & 4:
+            key_at[(m, str(h["placement_id"]))] = k
+            keys_on[m].add(k)
+    for o in out:
+        mid_s = str(o.get("replay_mission_id") or "")
+        if not mid_s.startswith("0x"):
+            continue
+        mid = int(mid_s, 16)
+        game = title_of.get(mid, "")
+        if not is_placeholder_title(game):
+            continue
+        k = key_at.get((mid, str(o.get("placement_id") or "")))
+        keys = [k] if k else sorted(keys_on.get(mid, ()))
+        seen, other = set(), []
+        for key in keys:
+            for om in sorted(missions_of.get(key, ())):
+                if om == mid or om in seen:
+                    continue
+                seen.add(om)
+                other.append(title_of.get(om, ""))
+        o["mission_name"] = display_mission_name(game, o.get("name") or "", other)
+
+
 def classify(mid, bs, mi, ma):
     """-> (route letter or None, reason) for one mission id."""
     b = bs.get(mid)
@@ -696,6 +753,11 @@ def build():
     for e in em:
         out.append(erow(e))
     out.extend(xtsv)
+    # f2e80b34 refused this row by editing the TSV only; keep the refusal when the catalogue is regenerated.
+    for o in out:
+        if o["id"] == "RBAB8":
+            o.update({"route": "X", "replay_mission_id": "-", "verified": "0", "reason": 'script leaves Mori Gentatsu and Yamada Shinryuken frozen (AI off, invincible); only Anazawa Morihide can be hit, and his death does not end the mission'})
+    apply_placeholder_labels(out, bs, idx)
     cnt = collections.Counter(o["name"] for o in out)
     for o in out:
         if cnt[o["name"]] > 1 and o["route"] != "X":
@@ -703,8 +765,161 @@ def build():
             o["name"] = "%s (%s)" % (o["name"], mt.split(": ", 1)[1] if ": " in mt else mt)
     order = {v: i for i, (_, v) in enumerate(ERA)}
     rorder = {"R": 0, "H": 1, "D": 2, "E0": 3, "X": 4}
-    out.sort(key=lambda o: (rorder[o["route"]], order.get(o["region"], 99)))
+
+    def sort_key(o):
+        idx = int(o["emaki_index"]) if o.get("route") == "E0" and str(o.get("emaki_index", "")).isdigit() else 0
+        era = 0 if o.get("route") == "E0" else order.get(o["region"], 99)
+        return (rorder[o["route"]], era, idx)
+
+    out.sort(key=sort_key)
     return allrows, out
+
+
+_LESSON_IDS = None
+TSV_DEFAULT = ROOT / "mod" / "Nioh3BossRematch" / "Nioh3BossRematch_bosses.tsv"
+
+
+def _game_data_root():
+    """Worktree first, then the main checkout. A sparse worktree has no LFM extract."""
+    for base in (ROOT, pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine")):
+        if (base / "data" / "extract" / "lfm").joinpath(*IDTAB).is_file() and (base / "data" / "lfm_list.tsv").is_file():
+            return base
+    return None
+
+
+def _lfm_paths(base):
+    """file id -> script path, same id table boss_map_all.py uses."""
+    lfm_root = base / "data" / "extract" / "lfm"
+    d = lfm_root.joinpath(*IDTAB).read_bytes()
+    n = struct.unpack_from("<I", d, 4)[0]
+    rel = {}
+    for i in range(n):
+        e = 8 + i * 8
+        k, o = struct.unpack_from("<Ii", d, e)
+        rel[k] = d[e + o:d.index(b"\0", e + o)].decode("latin1")
+    arch = {}
+    for line in (base / "data" / "lfm_list.tsv").read_text(encoding="utf-8", errors="replace").splitlines():
+        p = line.split("\t")
+        if len(p) > 5:
+            arch[p[5].strip("/")] = p[0]
+    out = {}
+    for k, v in rel.items():
+        a = arch.get(v)
+        if a is None:
+            continue
+        path = lfm_root / ("archive_" + a) / pathlib.Path(*v.split("/"))
+        if path.is_file():
+            out[k] = path
+    return out
+
+
+def _script_is_lesson(path):
+    """Entry function reaches Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
+
+    CALL_NATIVE is 1-based; CALL_FN and FN_ENTRY are 0-based (lfm_disasm.insn_name). Shared library
+    functions that contain those natives do not count unless the entry actually calls them.
+    BossBattleModeEnd is a different native and does not make a duel.
+    """
+    here = ROOT / "re" / "scripts_re"
+    if not (here / "lfm_disasm.py").is_file():
+        here = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\re\scripts_re")
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import lfm_disasm
+    s = lfm_disasm.load(str(path))
+    if not s.insns:
+        return False
+    fn_at = {}
+    entry = None
+    for i, ins in enumerate(s.insns):
+        if ins.op == 0x3B:
+            fn_at[ins.args[0]] = i
+            entry = ins.args[0]
+    if entry is None:
+        return False
+    seen, stack = set(), [entry]
+    death = boss = False
+    while stack:
+        sym = stack.pop()
+        if sym in seen or sym not in fn_at:
+            continue
+        seen.add(sym)
+        for ins in s.insns[fn_at[sym] + 1:]:
+            if ins.op == 0x3B:
+                break
+            if ins.op == 0x1B:
+                name = lfm_disasm.insn_name(s, ins)
+                if name == "Character::IsDeathGroupEnemy":
+                    death = True
+                elif name == "Mission::BossBattleMode":
+                    boss = True
+            elif ins.op == 0x1F:
+                stack.append(ins.args[0])
+    return death and not boss
+
+
+def lesson_mission_ids():
+    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+
+    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
+    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
+    scan"; the caller keeps the column already in the catalogue.
+    """
+    global _LESSON_IDS
+    if _LESSON_IDS is not None:
+        return _LESSON_IDS
+    base = _game_data_root()
+    if base is None:
+        return None
+    files = _lfm_paths(base)
+    md = (base / "data" / "extract" / "lfm").joinpath(*MISSIONDB).read_bytes()
+    n = struct.unpack_from("<I", md, 4)[0]
+    judged = {}
+    found = set()
+    for i in range(n):
+        b = 8 + i * 0x198
+        if b + 0x15A > len(md):
+            break
+        fid = struct.unpack_from("<I", md, b + 0x50)[0]
+        mid = struct.unpack_from("<H", md, b + 0x158)[0]
+        path = files.get(fid)
+        if path is None:
+            continue
+        key = str(path)
+        if key not in judged:
+            judged[key] = _script_is_lesson(path)
+        if judged[key]:
+            found.add(mid)
+    _LESSON_IDS = found
+    return _LESSON_IDS
+
+
+def _preserved_lesson_ids(path=TSV_DEFAULT):
+    """Lesson mission ids already in the catalogue. Used only when this machine has no LFM extract."""
+    if not path.is_file():
+        return set()
+    header = None
+    found = set()
+    for line in path.read_text(encoding="ascii", errors="replace").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if header is None:
+            header = parts
+            continue
+        if "lesson" not in header or "replay_mission_id" not in header:
+            return set()
+        j, k = header.index("lesson"), header.index("replay_mission_id")
+        if j < len(parts) and parts[j] == "1" and k < len(parts) and parts[k].startswith("0x"):
+            found.add(int(parts[k], 16))
+    return found
+
+
+def _lesson_flag(mid):
+    ids = lesson_mission_ids()
+    if ids is None:
+        ids = _preserved_lesson_ids()
+    return "1" if mid in ids else "0"
 
 
 def blank():
@@ -751,19 +966,41 @@ def mrow(rt, mid, b, lst, ma, fi):
                 o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
                           "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
                           "arena_boxgeo": ar["geo"]})
+    o["lesson"] = _lesson_flag(mid)
     return o
+
+
+# Record index -> region. Missing means Waves. A boss-era value drops that one row out of Waves.
+SCROLL_REGION = {}
+# Area names the map box id spells differently from the place. Every other area is the box id in title case.
+SCROLL_AREA = {"EDOJO": "Edo Castle"}
+
+
+def scroll_area(box):
+    key = box.replace("HYAKKI_WB_START_", "")
+    if key.endswith("_SMALL"):  # the map's box size, not part of the place name
+        key = key[:-len("_SMALL")]
+    return SCROLL_AREA.get(key, key.replace("_", " ").title())
+
+
+def scroll_waves():
+    return {int(r["index"]): r for r in rd("rematch-scroll-waves.csv")}
 
 
 def erow(e):
     o = blank()
     x, y, z, yaw = e["warp"].split(",")
     i = int(e["index"])
-    area = e["box_name"].replace("HYAKKI_WB_START_", "").replace("_", " ").title()
-    o.update({"id": "E%02d" % i, "name": "Hundred Demon Realms: %s" % area, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
-              "region": REGION_BYTE_ERA.get(int(e["region_byte"], 16), "?"), "route": "E0", "hidden": "0", "story_mission": "0xCC96",
+    area = scroll_area(e["box_name"])
+    w = scroll_waves()[i]
+    region = SCROLL_REGION.get(i, "Waves")
+    name = ("Picture Scroll - %s: %s waves, %s" % (area, w["waves"], w["toughest"])) if region == "Waves" else area
+    o.update({"id": "E%02d" % i, "name": name, "mission_name": "Picture Scroll 0xCC96 record %d" % i,
+              "region": region, "route": "E0", "hidden": "0", "story_mission": "0xCC96",
               "defeat_kind": "scroll", "defeat_id": "0xFFFF", "emaki_byte": e["emaki_byte"], "placement_id": e["gadget_10"],
               "stage_mission": e["start_point_0c"], "warp_x": x, "warp_y": y, "warp_z": z, "warp_yaw": yaw, "box_id": e["wave_box_14"],
-              "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i)})
+              "hell_id": str(e["hell_id"]), "region_byte": e["region_byte"], "verified": "0", "emaki_index": str(i),
+              "lesson": "0", "wake_step": str(WAKE_STEP.get(i, 0))})
     return o
 
 
@@ -771,7 +1008,7 @@ def xrow(name, region, reason):
     o = blank()
     o.update({"id": "X" + re.sub(r"[^A-Za-z0-9]", "", ascii_(name))[:14], "name": ascii_(name),
               "region": region_of(region) if region else "-", "route": "X", "hidden": "0", "verified": "0", "boss": ascii_(name),
-              "reason": ascii_(reason)[:240]})
+              "reason": ascii_(reason)[:240], "lesson": "0"})
     return o
 
 

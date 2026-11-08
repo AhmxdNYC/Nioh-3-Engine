@@ -1,0 +1,59 @@
+SOUL press=1 enter blend start offset=0.000
+SOUL press=1 exit blend start offset=1.135
+SOUL press=1 max seal dY=21.60 max applied cam dY=1.13
+SOUL press=1 exit blend end offset=0.000 max frame step=0.355 blend max step=0.054
+SOUL press=2 enter blend start offset=0.000
+SOUL press=2 enter blend end offset=214.538 max frame step=91.934 blend max step=91.934
+SOUL press=2 exit blend start offset=259.062
+SOUL press=2 max seal dY=391.19 max applied cam dY=354.94
+SOUL press=2 exit blend end offset=0.000 max frame step=91.934 blend max step=12.113
+SOUL press=3 enter blend start offset=0.000
+SOUL press=3 enter blend end offset=215.077 max frame step=87.881 blend max step=87.881
+SOUL press=3 exit blend start offset=257.089
+SOUL press=3 max seal dY=390.52 max applied cam dY=354.76
+SOUL press=3 exit blend end offset=0.000 max frame step=87.881 blend max step=11.790
+SOUL press=4 enter blend start offset=0.000
+SOUL press=4 enter blend end offset=269.632 max frame step=89.792 blend max step=89.792
+SOUL press=4 exit blend start offset=294.642
+SOUL press=4 max seal dY=427.68 max applied cam dY=391.78
+SOUL press=4 exit blend end offset=0.000 max frame step=89.792 blend max step=13.455
+SOUL press=5 enter blend start offset=0.000
+SOUL press=5 enter blend end offset=218.913 max frame step=81.910 blend max step=81.910
+SOUL press=5 exit blend start offset=243.874
+SOUL press=5 max seal dY=377.33 max applied cam dY=340.99
+SOUL press=5 exit blend end offset=0.000 max frame step=82.705 blend max step=10.998
+SOUL press=6 enter blend start offset=0.000
+SOUL press=6 enter blend end offset=234.009 max frame step=87.280 blend max step=87.280
+SOUL press=6 exit blend start offset=252.792
+SOUL press=6 max seal dY=385.58 max applied cam dY=347.74
+SOUL press=6 exit blend end offset=0.000 max frame step=87.280 blend max step=12.306
+SOUL press=7 enter blend start offset=0.000
+SOUL press=7 enter blend end offset=213.902 max frame step=89.297 blend max step=89.297
+SOUL press=7 exit blend start offset=227.942
+SOUL press=7 max seal dY=361.85 max applied cam dY=325.70
+SOUL press=7 exit blend end offset=0.000 max frame step=89.297 blend max step=10.663
+SOUL press=8 enter blend start offset=0.000
+SOUL press=8 enter blend end offset=218.364 max frame step=88.726 blend max step=88.726
+SOUL press=8 exit blend start offset=197.785
+SOUL press=8 max seal dY=377.40 max applied cam dY=341.75
+SOUL press=8 exit blend end offset=0.000 max frame step=88.726 blend max step=9.366
+SOUL press=9 enter blend start offset=0.000
+SOUL press=9 enter blend end offset=257.485 max frame step=88.927 blend max step=88.927
+SOUL press=9 exit blend start offset=254.051
+SOUL press=9 max seal dY=433.46 max applied cam dY=396.98
+SOUL press=9 exit blend end offset=0.000 max frame step=88.927 blend max step=11.414
+SOUL press=10 enter blend start offset=0.000
+SOUL press=10 enter blend end offset=79.723 max frame step=4.846 blend max step=4.846
+SOUL press=10 exit blend start offset=207.772
+SOUL press=10 max seal dY=387.67 max applied cam dY=352.16
+SOUL press=10 exit blend end offset=0.000 max frame step=91.156 blend max step=9.232
+[04:00:47.404] SoulCamera press=1 max seal dY=114.12 (absolute seal-player Y)
+[04:00:53.190] SoulCamera press=2 max seal dY=391.19 (absolute seal-player Y)
+[04:00:58.176] SoulCamera press=3 max seal dY=390.52 (absolute seal-player Y)
+[04:01:01.376] SoulCamera press=4 max seal dY=427.68 (absolute seal-player Y)
+[04:01:04.676] SoulCamera press=5 max seal dY=377.33 (absolute seal-player Y)
+[04:01:07.876] SoulCamera press=6 max seal dY=385.58 (absolute seal-player Y)
+[04:01:11.277] SoulCamera press=7 max seal dY=361.85 (absolute seal-player Y)
+[04:01:14.495] SoulCamera press=8 max seal dY=377.40 (absolute seal-player Y)
+[04:01:17.762] SoulCamera press=9 max seal dY=433.46 (absolute seal-player Y)
+[04:01:20.832] SoulCamera press=10 max seal dY=387.67 (absolute seal-player Y)

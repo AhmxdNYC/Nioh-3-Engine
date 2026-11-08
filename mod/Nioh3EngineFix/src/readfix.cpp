@@ -2,6 +2,7 @@
 // off; contract and safety argument in readfix.h, design in notes\loading-ally-fixed.md 8.3 / 8.7.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
 
 #include <atomic>
 #include <cstdint>
@@ -59,7 +60,7 @@ std::atomic<bool> g_rcActive{false};  // RC serves (mode 2: always; mode 1: insi
 std::atomic<bool> g_aqActive{false};  // AQ queues (same rule)
 std::atomic<bool> g_srActive{false};  // SR serves (same rule)
 
-inline ReadFn RealRead() { return *reinterpret_cast<ReadFn*>(g_base + kIatReadFile); }
+inline ReadFn RealRead() { return *reinterpret_cast<ReadFn*>(g_base + Grva(kIatReadFile)); }
 
 uint64_t Qpc() {
     LARGE_INTEGER q;
@@ -515,7 +516,7 @@ DWORD WINAPI AqWorker(LPVOID) {
 
 // ---- open / close hooks (through readprobe's save thunks) ----
 HANDLE WINAPI HkCreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags, HANDLE tmpl) {
-    const HANDLE h = (*reinterpret_cast<CreateFileWFn*>(g_base + kIatCreateFileW))(name, acc, share, sa, disp, flags, tmpl);
+    const HANDLE h = (*reinterpret_cast<CreateFileWFn*>(g_base + Grva(kIatCreateFileW)))(name, acc, share, sa, disp, flags, tmpl);
     if (h && h != INVALID_HANDLE_VALUE) {
         const DWORD le = GetLastError();
         ResetHandle(h, true, acc == GENERIC_READ && !(share & (FILE_SHARE_WRITE | FILE_SHARE_DELETE)));
@@ -525,13 +526,13 @@ HANDLE WINAPI HkCreateFileW(LPCWSTR name, DWORD acc, DWORD share, LPSECURITY_ATT
 }
 BOOL WINAPI HkCloseHandle(HANDLE h) {
     ResetHandle(h, false, false);
-    return (*reinterpret_cast<CloseFn*>(g_base + kIatCloseHandle))(h);
+    return (*reinterpret_cast<CloseFn*>(g_base + Grva(kIatCloseHandle)))(h);
 }
 
 // ---- gate: load windows (G+58Ah), RC commit / decommit, per-window log ----
 bool ReadGm58A(bool& on) {
     uintptr_t gm = 0;
-    if (!SafeCopy(&gm, (const void*)(g_base + kGameMainPtr), 8) || gm < 0x10000) return false;
+    if (!SafeCopy(&gm, (const void*)(g_base + Grva(kGameMainPtr)), 8) || gm < 0x10000) return false;
     uint8_t b = 0;
     if (!SafeCopy(&b, (const void*)(gm + kGm58A), 1)) return false;
     on = b != 0;
@@ -690,8 +691,8 @@ int IniInt(const wchar_t* ini, const wchar_t* key, int def, int lo, int hi) {
 // ---- TSY / SH (boot) ----
 int g_tsyWanted = 0;
 DWORD WINAPI TsyReport(LPVOID) {
-    volatile uint8_t* cnt = (volatile uint8_t*)(g_base + kPoolCount);
-    volatile uint8_t* base = (volatile uint8_t*)(g_base + kPoolBase);
+    volatile uint8_t* cnt = (volatile uint8_t*)(g_base + Grva(kPoolCount));
+    volatile uint8_t* base = (volatile uint8_t*)(g_base + Grva(kPoolBase));
     const uint8_t base0 = *base;
     for (int i = 0; i < 1200; ++i) {  // up to 300 s
         if (*cnt != 3 || (base0 == 0 && *base != 0)) break;
@@ -855,7 +856,7 @@ bool BootTry(uintptr_t base, BootCfg& cfg, int wcCap, unsigned long logicalCpus,
         }
     }
     if (cfg.sh) {
-        uint8_t* p = (uint8_t*)(base + kShSite);
+        uint8_t* p = (uint8_t*)(base + Grva(kShSite));
         if (memcmp(p, kShOrig, sizeof(kShOrig)) == 0) {
             DWORD old, t;
             if (VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &old)) {
@@ -870,8 +871,8 @@ bool BootTry(uintptr_t base, BootCfg& cfg, int wcCap, unsigned long logicalCpus,
         }
     }
     if (cfg.tsy) {
-        volatile uint32_t* cnt = (volatile uint32_t*)(base + kPoolCount);
-        volatile int32_t* w = (volatile int32_t*)(base + kPoolWeight);
+        volatile uint32_t* cnt = (volatile uint32_t*)(base + Grva(kPoolCount));
+        volatile int32_t* w = (volatile int32_t*)(base + Grva(kPoolWeight));
         uint32_t c = 0;
         int32_t wv = 0;
         if (SafeCopy(&c, (const void*)cnt, 4) && SafeCopy(&wv, (const void*)w, 4) && wv == 4 && (c & 0xFF) == 3) {
@@ -883,7 +884,7 @@ bool BootTry(uintptr_t base, BootCfg& cfg, int wcCap, unsigned long logicalCpus,
             const int bi = bse < 12 ? bse : 12;
             int wt = 4;
             while (wt < 64 && (int)((float)bi / 13.0f * (float)wt) < cfg.tsy) ++wt;
-            const uint8_t sized = *(volatile uint8_t*)(base + kPoolBase);
+            const uint8_t sized = *(volatile uint8_t*)(base + Grva(kPoolBase));
             *w = wt;
             g_tsyWanted = (int)((float)bi / 13.0f * (float)wt);
             log("TSY: TrySync pool weight 4 -> %d (pool base %d: %d threads, stock 3)%s", wt, bi, g_tsyWanted,

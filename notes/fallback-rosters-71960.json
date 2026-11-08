@@ -1,0 +1,2289 @@
+{
+  "sources": [
+    "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+    "notes/boss-names.csv",
+    "notes/rematch-enemy-index.csv"
+  ],
+  "policy": "sequential catalogue order; same-mission name match; prefer boss flag0x4; reject distinct remaining key64 variants; equivalent placements prefer catalogue selected then lowest placement ID",
+  "script_schedule_recovered": false,
+  "rows": [
+    {
+      "id": "R0034",
+      "mission": 52,
+      "members": [
+        {
+          "name": "Enenra",
+          "candidates": [
+            {
+              "mission_id": "0x0034",
+              "set_slot": "1",
+              "table": "A4/D49657E25",
+              "placement_id": "74751",
+              "key64": "488671",
+              "char_id": "21705",
+              "flags9c": "0x04",
+              "record_name": "CH02_MAIN02_HAMAMATSU_ENEMY0064_H"
+            }
+          ],
+          "chr": 488671,
+          "placement": 74751,
+          "name_char_id": 21705
+        },
+        {
+          "name": "Jakotsu-baba",
+          "candidates": [
+            {
+              "mission_id": "0x0034",
+              "set_slot": "1",
+              "table": "A4/D49657E25",
+              "placement_id": "76781",
+              "key64": "947280",
+              "char_id": "20833",
+              "flags9c": "0x14",
+              "record_name": "CH02_MAIN02_HAMAMATSU_BOSS0001"
+            }
+          ],
+          "chr": 947280,
+          "placement": 76781,
+          "name_char_id": 20833
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R1C7C",
+      "mission": 7292,
+      "members": [
+        {
+          "name": "Anayama Nobutada",
+          "candidates": [
+            {
+              "mission_id": "0x1C7C",
+              "set_slot": "1",
+              "table": "F5/9F48549DB",
+              "placement_id": "89386",
+              "key64": "982853",
+              "char_id": "24046",
+              "flags9c": "0x04",
+              "record_name": "CH02_MAIN03_FUTAMATA_ENEMY0039"
+            }
+          ],
+          "chr": 982853,
+          "placement": 89386,
+          "name_char_id": 24046
+        },
+        {
+          "name": "Baba Nobuharu",
+          "candidates": [
+            {
+              "mission_id": "0x1C7C",
+              "set_slot": "1",
+              "table": "F5/9F48549DB",
+              "placement_id": "84220",
+              "key64": "482895",
+              "char_id": "20843",
+              "flags9c": "0x14",
+              "record_name": "CH02_MAIN03_FUTAMATA_BOSS0001"
+            }
+          ],
+          "chr": 482895,
+          "placement": 84220,
+          "name_char_id": 20843
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R0F7F",
+      "mission": 3967,
+      "members": [
+        {
+          "name": "Kosaka Masanobu",
+          "candidates": [
+            {
+              "mission_id": "0x0F7F",
+              "set_slot": "1",
+              "table": "CB/B9C303C20",
+              "placement_id": "95891",
+              "key64": "274906",
+              "char_id": "24107",
+              "flags9c": "0x04",
+              "record_name": "S01_MAIN04_MIKATA_MASANOBU"
+            }
+          ],
+          "chr": 274906,
+          "placement": 95891,
+          "name_char_id": 24107
+        },
+        {
+          "name": "Naito Masatoyo",
+          "candidates": [
+            {
+              "mission_id": "0x0F7F",
+              "set_slot": "1",
+              "table": "CB/B9C303C20",
+              "placement_id": "95955",
+              "key64": "502003",
+              "char_id": "24094",
+              "flags9c": "0x04",
+              "record_name": "S01_MAIN04_MIKATA_MASATOYO"
+            }
+          ],
+          "chr": 502003,
+          "placement": 95955,
+          "name_char_id": 24094
+        },
+        {
+          "name": "Takeda Shingen",
+          "candidates": [
+            {
+              "mission_id": "0x0F7F",
+              "set_slot": "1",
+              "table": "CB/B9C303C20",
+              "placement_id": "96416",
+              "key64": "466641",
+              "char_id": "22199",
+              "flags9c": "0x34",
+              "record_name": "S01_MAIN04_MIKATA_SHINGEN"
+            }
+          ],
+          "chr": 466641,
+          "placement": 96416,
+          "name_char_id": 22199
+        },
+        {
+          "name": "Yamagata Masakage",
+          "candidates": [
+            {
+              "mission_id": "0x0F7F",
+              "set_slot": "1",
+              "table": "CB/B9C303C20",
+              "placement_id": "94568",
+              "key64": "598115",
+              "char_id": "20878",
+              "flags9c": "0x34",
+              "record_name": "S01_MAIN04_MIKATA_MASAKAGE"
+            }
+          ],
+          "chr": 598115,
+          "placement": 94568,
+          "name_char_id": 20878
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R0B0B",
+      "mission": 2827,
+      "members": [
+        {
+          "name": "Baba Nobuharu",
+          "candidates": [
+            {
+              "mission_id": "0x0B0B",
+              "set_slot": "1",
+              "table": "3F/03E881006",
+              "placement_id": "1037353",
+              "key64": "482895",
+              "char_id": "20843",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_100_ENEMY_BOSS_NOBUHARU"
+            }
+          ],
+          "chr": 482895,
+          "placement": 1037353,
+          "name_char_id": 20843
+        },
+        {
+          "name": "Kosaka Masanobu",
+          "candidates": [
+            {
+              "mission_id": "0x0B0B",
+              "set_slot": "1",
+              "table": "3F/03E881006",
+              "placement_id": "1033534",
+              "key64": "274906",
+              "char_id": "24107",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_100_ENEMY_BOSS_MASANOBU"
+            }
+          ],
+          "chr": 274906,
+          "placement": 1033534,
+          "name_char_id": 24107
+        },
+        {
+          "name": "Naito Masatoyo",
+          "candidates": [
+            {
+              "mission_id": "0x0B0B",
+              "set_slot": "1",
+              "table": "3F/03E881006",
+              "placement_id": "1038159",
+              "key64": "502003",
+              "char_id": "24094",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_100_ENEMY_BOSS_MASATOMO"
+            }
+          ],
+          "chr": 502003,
+          "placement": 1038159,
+          "name_char_id": 24094
+        },
+        {
+          "name": "Takeda Shingen",
+          "candidates": [
+            {
+              "mission_id": "0x0B0B",
+              "set_slot": "1",
+              "table": "3F/03E881006",
+              "placement_id": "1035190",
+              "key64": "42450",
+              "char_id": "20899",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_100_ENEMY_BOSS_SHINGEN"
+            }
+          ],
+          "chr": 42450,
+          "placement": 1035190,
+          "name_char_id": 20899
+        },
+        {
+          "name": "Yamagata Masakage",
+          "candidates": [
+            {
+              "mission_id": "0x0B0B",
+              "set_slot": "1",
+              "table": "3F/03E881006",
+              "placement_id": "1030798",
+              "key64": "598115",
+              "char_id": "20878",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_100_ENEMY_BOSS_MASAKAGE"
+            }
+          ],
+          "chr": 598115,
+          "placement": 1030798,
+          "name_char_id": 20878
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RC72E",
+      "mission": 50990,
+      "members": [
+        {
+          "name": "Enenra",
+          "candidates": [
+            {
+              "mission_id": "0xC72E",
+              "set_slot": "1",
+              "table": "7B/1F7687339",
+              "placement_id": "333141",
+              "key64": "488671",
+              "char_id": "21705",
+              "flags9c": "0x14",
+              "record_name": "HEI_KITAN_15_BOSS"
+            }
+          ],
+          "chr": 488671,
+          "placement": 333141,
+          "name_char_id": 21705
+        },
+        {
+          "name": "Great Tengu",
+          "candidates": [
+            {
+              "mission_id": "0xC72E",
+              "set_slot": "1",
+              "table": "7B/1F7687339",
+              "placement_id": "331018",
+              "key64": "269750",
+              "char_id": "20920",
+              "flags9c": "0x00",
+              "record_name": "CH03_KURAMA_START_TENGU"
+            },
+            {
+              "mission_id": "0xC72E",
+              "set_slot": "1",
+              "table": "7B/1F7687339",
+              "placement_id": "333550",
+              "key64": "269750",
+              "char_id": "20920",
+              "flags9c": "0x14",
+              "record_name": "CH03_KURAMA_BOSS_TENGU"
+            }
+          ],
+          "chr": 269750,
+          "placement": 333550,
+          "name_char_id": 20920
+        },
+        {
+          "name": "Jakotsu-baba",
+          "candidates": [
+            {
+              "mission_id": "0xC72E",
+              "set_slot": "1",
+              "table": "7B/1F7687339",
+              "placement_id": "335093",
+              "key64": "947280",
+              "char_id": "20833",
+              "flags9c": "0x14",
+              "record_name": "HEI_KITAN_15_IGN_BOSS"
+            }
+          ],
+          "chr": 947280,
+          "placement": 335093,
+          "name_char_id": 20833
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R9A25",
+      "mission": 39461,
+      "members": [
+        {
+          "name": "Kajiwara Kagetoki",
+          "candidates": [
+            {
+              "mission_id": "0x9A25",
+              "set_slot": "1",
+              "table": "EF/AEAB830DD",
+              "placement_id": "353508",
+              "key64": "724394",
+              "char_id": "22248",
+              "flags9c": "0x14",
+              "record_name": "CH03_MAIN03_BOSS"
+            }
+          ],
+          "chr": 724394,
+          "placement": 353508,
+          "name_char_id": 22248
+        },
+        {
+          "name": "Ryomen Sukuna",
+          "candidates": [
+            {
+              "mission_id": "0x9A25",
+              "set_slot": "1",
+              "table": "EF/AEAB830DD",
+              "placement_id": "353219",
+              "key64": "451004",
+              "char_id": "21715",
+              "flags9c": "0x1C",
+              "record_name": "KITAN_31_ONMYOZI_BOSS"
+            }
+          ],
+          "chr": 451004,
+          "placement": 353219,
+          "name_char_id": 21715
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RCB08",
+      "mission": 51976,
+      "members": [
+        {
+          "name": "Kajiwara Kagetoki",
+          "candidates": [
+            {
+              "mission_id": "0xCB08",
+              "set_slot": "1",
+              "table": "4B/E3D21976A",
+              "placement_id": "1114358",
+              "key64": "724394",
+              "char_id": "22248",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_111_ENEMY03"
+            }
+          ],
+          "chr": 724394,
+          "placement": 1114358,
+          "name_char_id": 22248
+        },
+        {
+          "name": "Minamoto no Yoshitsune",
+          "candidates": [
+            {
+              "mission_id": "0xCB08",
+              "set_slot": "1",
+              "table": "4B/E3D21976A",
+              "placement_id": "1110441",
+              "key64": "478320",
+              "char_id": "22046",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_111_ENEMY04"
+            }
+          ],
+          "chr": 478320,
+          "placement": 1110441,
+          "name_char_id": 22046
+        },
+        {
+          "name": "Nasu no Yoichi",
+          "candidates": [
+            {
+              "mission_id": "0xCB08",
+              "set_slot": "1",
+              "table": "4B/E3D21976A",
+              "placement_id": "1115531",
+              "key64": "236383",
+              "char_id": "24242",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_111_ENEMY02"
+            }
+          ],
+          "chr": 236383,
+          "placement": 1115531,
+          "name_char_id": 24242
+        },
+        {
+          "name": "Tomoe Gozen",
+          "candidates": [
+            {
+              "mission_id": "0xCB08",
+              "set_slot": "1",
+              "table": "4B/E3D21976A",
+              "placement_id": "1116015",
+              "key64": "586715",
+              "char_id": "24200",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_111_ENEMY01"
+            }
+          ],
+          "chr": 586715,
+          "placement": 1116015,
+          "name_char_id": 24200
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R0C12",
+      "mission": 3090,
+      "members": [
+        {
+          "name": "Hiruko",
+          "candidates": [
+            {
+              "mission_id": "0x0C12",
+              "set_slot": "1",
+              "table": "40/C5374BEDB",
+              "placement_id": "594637",
+              "key64": "306399",
+              "char_id": "21134",
+              "flags9c": "0x1C",
+              "record_name": "REIJU_ENEMY_HIRUKO_HANYO"
+            },
+            {
+              "mission_id": "0x0C12",
+              "set_slot": "1",
+              "table": "40/C5374BEDB",
+              "placement_id": "597242",
+              "key64": "745563",
+              "char_id": "22510",
+              "flags9c": "0x0C",
+              "record_name": "REIJU_ENEMY_001"
+            }
+          ],
+          "error": "ambiguous same-mission boss variants"
+        },
+        {
+          "name": "Onryoki",
+          "candidates": [
+            {
+              "mission_id": "0x0C12",
+              "set_slot": "1",
+              "table": "40/C5374BEDB",
+              "placement_id": "595179",
+              "key64": "264763",
+              "char_id": "22026",
+              "flags9c": "0x04",
+              "record_name": "REIJU_ENEMY_020_H"
+            }
+          ],
+          "chr": 264763,
+          "placement": 595179,
+          "name_char_id": 22026
+        }
+      ],
+      "errors": [
+        "Hiruko: ambiguous same-mission boss variants"
+      ]
+    },
+    {
+      "id": "RA4B4",
+      "mission": 42164,
+      "members": [
+        {
+          "name": "Gozuki",
+          "candidates": [
+            {
+              "mission_id": "0xA4B4",
+              "set_slot": "1",
+              "table": "2C/93E9E4B34",
+              "placement_id": "562968",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x14",
+              "record_name": "CH05_MAIN01_EDO_ENEMY0020"
+            },
+            {
+              "mission_id": "0xA4B4",
+              "set_slot": "1",
+              "table": "2C/93E9E4B34",
+              "placement_id": "568139",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x00",
+              "record_name": "CH05_MAIN01_EDO_ENEMY0022"
+            }
+          ],
+          "chr": 665148,
+          "placement": 562968,
+          "name_char_id": 21584
+        },
+        {
+          "name": "Tokugawa Kunimatsu",
+          "candidates": [
+            {
+              "mission_id": "0xA4B4",
+              "set_slot": "1",
+              "table": "2C/93E9E4B34",
+              "placement_id": "561907",
+              "key64": "667837",
+              "char_id": "23110",
+              "flags9c": "0x20",
+              "record_name": "CH05_MAIN01_EDO_COOP0001"
+            },
+            {
+              "mission_id": "0xA4B4",
+              "set_slot": "1",
+              "table": "2C/93E9E4B34",
+              "placement_id": "563857",
+              "key64": "989823",
+              "char_id": "22529",
+              "flags9c": "0x14",
+              "record_name": "CH05_MAIN01_EDO_BOSS0001"
+            },
+            {
+              "mission_id": "0xA4B4",
+              "set_slot": "1",
+              "table": "2C/93E9E4B34",
+              "placement_id": "569944",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x20",
+              "record_name": "CH05_MAIN01_EDO_NPC0005"
+            }
+          ],
+          "chr": 989823,
+          "placement": 563857,
+          "name_char_id": 22529
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RB24D",
+      "mission": 45645,
+      "members": [
+        {
+          "name": "Death Veil",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "570909",
+              "key64": "916970",
+              "char_id": "48792",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_ARM_03"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "571811",
+              "key64": "702304",
+              "char_id": "48717",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "572719",
+              "key64": "916970",
+              "char_id": "48792",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_ARM_01"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "573339",
+              "key64": "720656",
+              "char_id": "48739",
+              "flags9c": "0x14",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_BOSS"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "574946",
+              "key64": "720656",
+              "char_id": "48739",
+              "flags9c": "0x14",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_DOWN"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "576527",
+              "key64": "545076",
+              "char_id": "48808",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_ARM_04"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "577980",
+              "key64": "545076",
+              "char_id": "48808",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_SORANAKI_ARM_02"
+            }
+          ],
+          "chr": 720656,
+          "placement": 573339,
+          "name_char_id": 48739
+        },
+        {
+          "name": "Enenra",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "575072",
+              "key64": "488671",
+              "char_id": "21705",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_HARD_14"
+            }
+          ],
+          "chr": 488671,
+          "placement": 575072,
+          "name_char_id": 21705
+        },
+        {
+          "name": "Gozuki",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "571435",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x00",
+              "record_name": "CH07_MAIN01_EDO_BEFORE_GATE"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "574917",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_HARD_04"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "575535",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_EDO_GATE_WB_5"
+            }
+          ],
+          "chr": 665148,
+          "placement": 574917,
+          "name_char_id": 21584
+        },
+        {
+          "name": "Hiruko",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "572110",
+              "key64": "606073",
+              "char_id": "21153",
+              "flags9c": "0x3C",
+              "record_name": "CH07_MAIN01_EDO_HIRUKO"
+            }
+          ],
+          "chr": 606073,
+          "placement": 572110,
+          "name_char_id": 21153
+        },
+        {
+          "name": "Jakotsu-baba",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "572806",
+              "key64": "947280",
+              "char_id": "20833",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_SORANAKI_FIRE_6_01"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "575149",
+              "key64": "947280",
+              "char_id": "20833",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_SORANAKI_HARD_FIRE_6_01"
+            }
+          ],
+          "chr": 947280,
+          "placement": 572806,
+          "name_char_id": 20833
+        },
+        {
+          "name": "Joro-gumo",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "577977",
+              "key64": "96976",
+              "char_id": "21796",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_SORANAKI_HARD_ICE_5_01"
+            }
+          ],
+          "chr": 96976,
+          "placement": 577977,
+          "name_char_id": 21796
+        },
+        {
+          "name": "Kamaitachi",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "577003",
+              "key64": "816820",
+              "char_id": "21672",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_SORANAKI_HARD_NEEDLE_4_01"
+            }
+          ],
+          "chr": 816820,
+          "placement": 577003,
+          "name_char_id": 21672
+        },
+        {
+          "name": "Kasha",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "576933",
+              "key64": "829576",
+              "char_id": "21809",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_EDO_BOSS_JAKOTSUBA"
+            }
+          ],
+          "chr": 829576,
+          "placement": 576933,
+          "name_char_id": 21809
+        },
+        {
+          "name": "Mezuki",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "571339",
+              "key64": "492278",
+              "char_id": "21429",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_HARD_05"
+            },
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "577097",
+              "key64": "492278",
+              "char_id": "21429",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_EDO_GATE_WB_6"
+            }
+          ],
+          "chr": 492278,
+          "placement": 571339,
+          "name_char_id": 21429
+        },
+        {
+          "name": "Nuribotoke",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "579330",
+              "key64": "27230",
+              "char_id": "21027",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_EDO_BOSS_NURIBOTOKE"
+            }
+          ],
+          "chr": 27230,
+          "placement": 579330,
+          "name_char_id": 21027
+        },
+        {
+          "name": "Onryoki",
+          "candidates": [
+            {
+              "mission_id": "0xB24D",
+              "set_slot": "1",
+              "table": "C9/DA78180EF",
+              "placement_id": "574585",
+              "key64": "264763",
+              "char_id": "22026",
+              "flags9c": "0x04",
+              "record_name": "CH07_MAIN01_HARD_15"
+            }
+          ],
+          "chr": 264763,
+          "placement": 574585,
+          "name_char_id": 22026
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RA0CB",
+      "mission": 41163,
+      "members": [
+        {
+          "name": "Demon of Envy",
+          "candidates": [
+            {
+              "mission_id": "0xA0CB",
+              "set_slot": "1",
+              "table": "6B/86274DD93",
+              "placement_id": "1162241",
+              "key64": "765992",
+              "char_id": "21254",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_116_ENEMY_WB2_01"
+            }
+          ],
+          "chr": 765992,
+          "placement": 1162241,
+          "name_char_id": 21254
+        },
+        {
+          "name": "Demon of Obsession",
+          "candidates": [
+            {
+              "mission_id": "0xA0CB",
+              "set_slot": "1",
+              "table": "6B/86274DD93",
+              "placement_id": "1160051",
+              "key64": "510357",
+              "char_id": "21334",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_116_ENEMY_WB3_01"
+            }
+          ],
+          "chr": 510357,
+          "placement": 1160051,
+          "name_char_id": 21334
+        },
+        {
+          "name": "Demon of Pride",
+          "candidates": [
+            {
+              "mission_id": "0xA0CB",
+              "set_slot": "1",
+              "table": "6B/86274DD93",
+              "placement_id": "1161567",
+              "key64": "810814",
+              "char_id": "21232",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_116_ENEMY_WB1_01"
+            }
+          ],
+          "chr": 810814,
+          "placement": 1161567,
+          "name_char_id": 21232
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R61A2",
+      "mission": 24994,
+      "members": [
+        {
+          "name": "Bloodedge Demon",
+          "candidates": [
+            {
+              "mission_id": "0x61A2",
+              "set_slot": "1",
+              "table": "F5/DA5121DAF",
+              "placement_id": "1259130",
+              "key64": "14625",
+              "char_id": "30831",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_125_BOSS_LAST"
+            }
+          ],
+          "chr": 14625,
+          "placement": 1259130,
+          "name_char_id": 30831
+        },
+        {
+          "name": "Enenra",
+          "candidates": [
+            {
+              "mission_id": "0x61A2",
+              "set_slot": "1",
+              "table": "F5/DA5121DAF",
+              "placement_id": "1256771",
+              "key64": "488671",
+              "char_id": "21705",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_125_BOSS_SECOND"
+            }
+          ],
+          "chr": 488671,
+          "placement": 1256771,
+          "name_char_id": 21705
+        },
+        {
+          "name": "Onryoki",
+          "candidates": [
+            {
+              "mission_id": "0x61A2",
+              "set_slot": "1",
+              "table": "F5/DA5121DAF",
+              "placement_id": "1259657",
+              "key64": "264763",
+              "char_id": "22026",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_125_BOSS_FIRST"
+            }
+          ],
+          "chr": 264763,
+          "placement": 1259657,
+          "name_char_id": 22026
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R1D60",
+      "mission": 7520,
+      "members": [
+        {
+          "name": "Hattori Hanzo",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1267916",
+              "key64": "865761",
+              "char_id": "22836",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_126_BOSS_004"
+            }
+          ],
+          "chr": 865761,
+          "placement": 1267916,
+          "name_char_id": 22836
+        },
+        {
+          "name": "Honda Tadakatsu",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1269826",
+              "key64": "983905",
+              "char_id": "22616",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_126_BOSS_003"
+            }
+          ],
+          "chr": 983905,
+          "placement": 1269826,
+          "name_char_id": 22616
+        },
+        {
+          "name": "Kusanagi",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1264386",
+              "key64": "656503",
+              "char_id": "22389",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_126_BOSS_006"
+            }
+          ],
+          "chr": 656503,
+          "placement": 1264386,
+          "name_char_id": 22389
+        },
+        {
+          "name": "Minamoto no Yoshitsune",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1264363",
+              "key64": "478320",
+              "char_id": "22046",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_126_BOSS_007"
+            }
+          ],
+          "chr": 478320,
+          "placement": 1264363,
+          "name_char_id": 22046
+        },
+        {
+          "name": "Saito Fuku",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1268341",
+              "key64": "671570",
+              "char_id": "22910",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_126_BOSS_002"
+            }
+          ],
+          "chr": 671570,
+          "placement": 1268341,
+          "name_char_id": 22910
+        },
+        {
+          "name": "Takasugi Shinsaku",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1265215",
+              "key64": "778951",
+              "char_id": "22307",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_126_BOSS_008"
+            }
+          ],
+          "chr": 778951,
+          "placement": 1265215,
+          "name_char_id": 22307
+        },
+        {
+          "name": "Yagyu Munenori",
+          "candidates": [
+            {
+              "mission_id": "0x1D60",
+              "set_slot": "1",
+              "table": "E9/C7BBAA714",
+              "placement_id": "1268863",
+              "key64": "776661",
+              "char_id": "22700",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_126_BOSS_001"
+            }
+          ],
+          "chr": 776661,
+          "placement": 1268863,
+          "name_char_id": 22700
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R523B",
+      "mission": 21051,
+      "members": [
+        {
+          "name": "Demon of Envy",
+          "candidates": [
+            {
+              "mission_id": "0x523B",
+              "set_slot": "1",
+              "table": "71/63548A9C2",
+              "placement_id": "1273702",
+              "key64": "765992",
+              "char_id": "21254",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_127_ENEMY_06"
+            }
+          ],
+          "chr": 765992,
+          "placement": 1273702,
+          "name_char_id": 21254
+        },
+        {
+          "name": "Hino-enma",
+          "candidates": [
+            {
+              "mission_id": "0x523B",
+              "set_slot": "1",
+              "table": "71/63548A9C2",
+              "placement_id": "1278948",
+              "key64": "83953",
+              "char_id": "21695",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_127_ENEMY_03"
+            }
+          ],
+          "chr": 83953,
+          "placement": 1278948,
+          "name_char_id": 21695
+        },
+        {
+          "name": "Ibaraki Doji",
+          "candidates": [
+            {
+              "mission_id": "0x523B",
+              "set_slot": "1",
+              "table": "71/63548A9C2",
+              "placement_id": "1275921",
+              "key64": "894462",
+              "char_id": "21175",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_127_ENEMY_05"
+            }
+          ],
+          "chr": 894462,
+          "placement": 1275921,
+          "name_char_id": 21175
+        },
+        {
+          "name": "Jakotsu-baba",
+          "candidates": [
+            {
+              "mission_id": "0x523B",
+              "set_slot": "1",
+              "table": "71/63548A9C2",
+              "placement_id": "1276276",
+              "key64": "947280",
+              "char_id": "20833",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_127_ENEMY_07"
+            }
+          ],
+          "chr": 947280,
+          "placement": 1276276,
+          "name_char_id": 20833
+        },
+        {
+          "name": "Kasha",
+          "candidates": [
+            {
+              "mission_id": "0x523B",
+              "set_slot": "1",
+              "table": "71/63548A9C2",
+              "placement_id": "1278459",
+              "key64": "829576",
+              "char_id": "21809",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_127_ENEMY_04"
+            }
+          ],
+          "chr": 829576,
+          "placement": 1278459,
+          "name_char_id": 21809
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RAC1F",
+      "mission": 44063,
+      "members": [
+        {
+          "name": "Demon of Obsession",
+          "candidates": [
+            {
+              "mission_id": "0xAC1F",
+              "set_slot": "1",
+              "table": "EF/EFB955896",
+              "placement_id": "1282396",
+              "key64": "510357",
+              "char_id": "21334",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_128_ENEMY_08"
+            }
+          ],
+          "chr": 510357,
+          "placement": 1282396,
+          "name_char_id": 21334
+        },
+        {
+          "name": "Gozuki",
+          "candidates": [
+            {
+              "mission_id": "0xAC1F",
+              "set_slot": "1",
+              "table": "EF/EFB955896",
+              "placement_id": "1282314",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_128_ENEMY_06"
+            }
+          ],
+          "chr": 665148,
+          "placement": 1282314,
+          "name_char_id": 21584
+        },
+        {
+          "name": "Joro-gumo",
+          "candidates": [
+            {
+              "mission_id": "0xAC1F",
+              "set_slot": "1",
+              "table": "EF/EFB955896",
+              "placement_id": "1288358",
+              "key64": "96976",
+              "char_id": "21796",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_128_ENEMY_04"
+            }
+          ],
+          "chr": 96976,
+          "placement": 1288358,
+          "name_char_id": 21796
+        },
+        {
+          "name": "Mezuki",
+          "candidates": [
+            {
+              "mission_id": "0xAC1F",
+              "set_slot": "1",
+              "table": "EF/EFB955896",
+              "placement_id": "1283121",
+              "key64": "492278",
+              "char_id": "21429",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_128_ENEMY_05"
+            }
+          ],
+          "chr": 492278,
+          "placement": 1283121,
+          "name_char_id": 21429
+        },
+        {
+          "name": "Otoroshi",
+          "candidates": [
+            {
+              "mission_id": "0xAC1F",
+              "set_slot": "1",
+              "table": "EF/EFB955896",
+              "placement_id": "1284876",
+              "key64": "371449",
+              "char_id": "20995",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_128_ENEMY_07"
+            }
+          ],
+          "chr": 371449,
+          "placement": 1284876,
+          "name_char_id": 20995
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R945F",
+      "mission": 37983,
+      "members": [
+        {
+          "name": "Hiruko",
+          "candidates": [
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1298773",
+              "key64": "306399",
+              "char_id": "21134",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_04"
+            },
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1299059",
+              "key64": "606073",
+              "char_id": "21153",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_05"
+            }
+          ],
+          "error": "ambiguous same-mission boss variants"
+        },
+        {
+          "name": "Minamoto no Yoritomo",
+          "candidates": [
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1299728",
+              "key64": "16102",
+              "char_id": "20973",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_02"
+            }
+          ],
+          "chr": 16102,
+          "placement": 1299728,
+          "name_char_id": 20973
+        },
+        {
+          "name": "Takeda Shingen",
+          "candidates": [
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1292577",
+              "key64": "42450",
+              "char_id": "20899",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_01"
+            }
+          ],
+          "chr": 42450,
+          "placement": 1292577,
+          "name_char_id": 20899
+        },
+        {
+          "name": "Tokugawa Kunimatsu",
+          "candidates": [
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1291484",
+              "key64": "989823",
+              "char_id": "22529",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_06"
+            }
+          ],
+          "chr": 989823,
+          "placement": 1291484,
+          "name_char_id": 22529
+        },
+        {
+          "name": "Tokugawa Yoshinobu",
+          "candidates": [
+            {
+              "mission_id": "0x945F",
+              "set_slot": "1",
+              "table": "BD/6A340B67D",
+              "placement_id": "1299909",
+              "key64": "268880",
+              "char_id": "21113",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_129_ENEMY_03"
+            }
+          ],
+          "chr": 268880,
+          "placement": 1299909,
+          "name_char_id": 21113
+        }
+      ],
+      "errors": [
+        "Hiruko: ambiguous same-mission boss variants"
+      ]
+    },
+    {
+      "id": "RE7BD",
+      "mission": 59325,
+      "members": [
+        {
+          "name": "Hijikata Toshizo",
+          "candidates": [
+            {
+              "mission_id": "0xE7BD",
+              "set_slot": "1",
+              "table": "19/1825E0E0B",
+              "placement_id": "4071605",
+              "key64": "51699",
+              "char_id": "24400",
+              "flags9c": "0x0C",
+              "record_name": "CH06_MAIN03_KIYOMIZU_ENEMY_060"
+            }
+          ],
+          "chr": 51699,
+          "placement": 4071605,
+          "name_char_id": 24400
+        },
+        {
+          "name": "Kondo Isami",
+          "candidates": [
+            {
+              "mission_id": "0xE7BD",
+              "set_slot": "1",
+              "table": "19/1825E0E0B",
+              "placement_id": "4079148",
+              "key64": "308102",
+              "char_id": "24350",
+              "flags9c": "0x0C",
+              "record_name": "CH06_MAIN03_KIYOMIZU_ENEMY_059"
+            }
+          ],
+          "chr": 308102,
+          "placement": 4079148,
+          "name_char_id": 24350
+        },
+        {
+          "name": "Onmoraki",
+          "candidates": [
+            {
+              "mission_id": "0xE7BD",
+              "set_slot": "1",
+              "table": "19/1825E0E0B",
+              "placement_id": "4075848",
+              "key64": "799359",
+              "char_id": "22013",
+              "flags9c": "0x14",
+              "record_name": "CH06_MAIN03_KIYOMIZU_ENEMY_BOSS"
+            }
+          ],
+          "chr": 799359,
+          "placement": 4075848,
+          "name_char_id": 22013
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R1DEA",
+      "mission": 7658,
+      "members": [
+        {
+          "name": "Okita Soji",
+          "candidates": [
+            {
+              "mission_id": "0x1DEA",
+              "set_slot": "1",
+              "table": "C7/D1C83FDFC",
+              "placement_id": "4092708",
+              "key64": "889237",
+              "char_id": "22348",
+              "flags9c": "0x34",
+              "record_name": "CH06_MAIN05_GOSHO_BOSS_01"
+            }
+          ],
+          "chr": 889237,
+          "placement": 4092708,
+          "name_char_id": 22348
+        },
+        {
+          "name": "Onryoki",
+          "candidates": [
+            {
+              "mission_id": "0x1DEA",
+              "set_slot": "1",
+              "table": "C7/D1C83FDFC",
+              "placement_id": "4096649",
+              "key64": "264763",
+              "char_id": "22026",
+              "flags9c": "0x04",
+              "record_name": "CH06_MAIN05_GOSHO_BOSS_ANOTHER"
+            }
+          ],
+          "chr": 264763,
+          "placement": 4096649,
+          "name_char_id": 22026
+        },
+        {
+          "name": "Tokugawa Yoshinobu",
+          "candidates": [
+            {
+              "mission_id": "0x1DEA",
+              "set_slot": "1",
+              "table": "C7/D1C83FDFC",
+              "placement_id": "4097963",
+              "key64": "268880",
+              "char_id": "21113",
+              "flags9c": "0x3C",
+              "record_name": "CH06_MAIN05_GOSHO_BOSS_02"
+            }
+          ],
+          "chr": 268880,
+          "placement": 4097963,
+          "name_char_id": 21113
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RF60A",
+      "mission": 62986,
+      "members": [
+        {
+          "name": "Hino-enma",
+          "candidates": [
+            {
+              "mission_id": "0xF60A",
+              "set_slot": "1",
+              "table": "7B/043A99648",
+              "placement_id": "1139399",
+              "key64": "83953",
+              "char_id": "21695",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_113_BOSS_WAVE_03_001"
+            }
+          ],
+          "chr": 83953,
+          "placement": 1139399,
+          "name_char_id": 21695
+        },
+        {
+          "name": "Joro-gumo",
+          "candidates": [
+            {
+              "mission_id": "0xF60A",
+              "set_slot": "1",
+              "table": "7B/043A99648",
+              "placement_id": "1139905",
+              "key64": "96976",
+              "char_id": "21796",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_113_BOSS_WAVE_04_001"
+            }
+          ],
+          "chr": 96976,
+          "placement": 1139905,
+          "name_char_id": 21796
+        },
+        {
+          "name": "Kasha",
+          "candidates": [
+            {
+              "mission_id": "0xF60A",
+              "set_slot": "1",
+              "table": "7B/043A99648",
+              "placement_id": "1137173",
+              "key64": "829576",
+              "char_id": "21809",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_113_BOSS_MAIN"
+            }
+          ],
+          "chr": 829576,
+          "placement": 1137173,
+          "name_char_id": 21809
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R6351",
+      "mission": 25425,
+      "members": [
+        {
+          "name": "Gozuki",
+          "candidates": [
+            {
+              "mission_id": "0x6351",
+              "set_slot": "1",
+              "table": "FC/FD423364B",
+              "placement_id": "1144515",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x44",
+              "record_name": "PARALLEL_114_ENEMY_WB5_01"
+            },
+            {
+              "mission_id": "0x6351",
+              "set_slot": "1",
+              "table": "FC/FD423364B",
+              "placement_id": "1148748",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x44",
+              "record_name": "PARALLEL_114_ENEMY_WB5_01_DOUKOU"
+            }
+          ],
+          "chr": 665148,
+          "placement": 1144515,
+          "name_char_id": 21584
+        },
+        {
+          "name": "Mezuki",
+          "candidates": [
+            {
+              "mission_id": "0x6351",
+              "set_slot": "1",
+              "table": "FC/FD423364B",
+              "placement_id": "1146056",
+              "key64": "492278",
+              "char_id": "21429",
+              "flags9c": "0x44",
+              "record_name": "PARALLEL_114_ENEMY_WB5_02_DOUKOU"
+            }
+          ],
+          "chr": 492278,
+          "placement": 1146056,
+          "name_char_id": 21429
+        },
+        {
+          "name": "Onryoki",
+          "candidates": [
+            {
+              "mission_id": "0x6351",
+              "set_slot": "1",
+              "table": "FC/FD423364B",
+              "placement_id": "1149112",
+              "key64": "264763",
+              "char_id": "22026",
+              "flags9c": "0x44",
+              "record_name": "PARALLEL_114_ENEMY_WB6_01"
+            }
+          ],
+          "chr": 264763,
+          "placement": 1149112,
+          "name_char_id": 22026
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R7C85",
+      "mission": 31877,
+      "members": [
+        {
+          "name": "Hijikata Toshizo",
+          "candidates": [
+            {
+              "mission_id": "0x7C85",
+              "set_slot": "1",
+              "table": "4B/D1E53E988",
+              "placement_id": "1244872",
+              "key64": "223221",
+              "char_id": "24375",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_124_BOSS_003"
+            }
+          ],
+          "chr": 223221,
+          "placement": 1244872,
+          "name_char_id": 24375
+        },
+        {
+          "name": "Kondo Isami",
+          "candidates": [
+            {
+              "mission_id": "0x7C85",
+              "set_slot": "1",
+              "table": "4B/D1E53E988",
+              "placement_id": "1243320",
+              "key64": "128741",
+              "char_id": "24328",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_124_BOSS_004"
+            }
+          ],
+          "chr": 128741,
+          "placement": 1243320,
+          "name_char_id": 24328
+        },
+        {
+          "name": "Nagakura Shinpachi",
+          "candidates": [
+            {
+              "mission_id": "0x7C85",
+              "set_slot": "1",
+              "table": "4B/D1E53E988",
+              "placement_id": "1249440",
+              "key64": "614441",
+              "char_id": "24268",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_124_BOSS_001"
+            }
+          ],
+          "chr": 614441,
+          "placement": 1249440,
+          "name_char_id": 24268
+        },
+        {
+          "name": "Okita Soji",
+          "candidates": [
+            {
+              "mission_id": "0x7C85",
+              "set_slot": "1",
+              "table": "4B/D1E53E988",
+              "placement_id": "1242447",
+              "key64": "889237",
+              "char_id": "22348",
+              "flags9c": "0x14",
+              "record_name": "PARALLEL_124_BOSS_005"
+            }
+          ],
+          "chr": 889237,
+          "placement": 1242447,
+          "name_char_id": 22348
+        },
+        {
+          "name": "Saito Hajime",
+          "candidates": [
+            {
+              "mission_id": "0x7C85",
+              "set_slot": "1",
+              "table": "4B/D1E53E988",
+              "placement_id": "1248546",
+              "key64": "745986",
+              "char_id": "24281",
+              "flags9c": "0x04",
+              "record_name": "PARALLEL_124_BOSS_002"
+            }
+          ],
+          "chr": 745986,
+          "placement": 1248546,
+          "name_char_id": 24281
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "R19EA",
+      "mission": 6634,
+      "members": [
+        {
+          "name": "Gozuki",
+          "candidates": [
+            {
+              "mission_id": "0x19EA",
+              "set_slot": "1",
+              "table": "F0/E33546BF2",
+              "placement_id": "8058277",
+              "key64": "665148",
+              "char_id": "21584",
+              "flags9c": "0x04",
+              "record_name": "CH08_MAIN02_CHOKODO_ENEMY_YOKAI009"
+            }
+          ],
+          "chr": 665148,
+          "placement": 8058277,
+          "name_char_id": 21584
+        },
+        {
+          "name": "Kanai Hanbei",
+          "candidates": [
+            {
+              "mission_id": "0x19EA",
+              "set_slot": "1",
+              "table": "F0/E33546BF2",
+              "placement_id": "8054890",
+              "key64": "96759",
+              "char_id": "21356",
+              "flags9c": "0x14",
+              "record_name": "CH08_MAIN02_CHOKODO_HANBE"
+            }
+          ],
+          "chr": 96759,
+          "placement": 8054890,
+          "name_char_id": 21356
+        },
+        {
+          "name": "Marubashi Chuya",
+          "candidates": [
+            {
+              "mission_id": "0x19EA",
+              "set_slot": "1",
+              "table": "F0/E33546BF2",
+              "placement_id": "8053276",
+              "key64": "381593",
+              "char_id": "24853",
+              "flags9c": "0x04",
+              "record_name": "CH08_MAIN02_CHOKODO_CHUYA"
+            }
+          ],
+          "chr": 381593,
+          "placement": 8053276,
+          "name_char_id": 24853
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RD617",
+      "mission": 54807,
+      "members": [
+        {
+          "name": "Hattori Hanzo",
+          "candidates": [
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2140560",
+              "key64": "653618",
+              "char_id": "22873",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_DOOR_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2140881",
+              "key64": "865761",
+              "char_id": "22836",
+              "flags9c": "0x0C",
+              "record_name": "PARALLEL200_BOSS1_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2144096",
+              "key64": "653618",
+              "char_id": "22873",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS2_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2144688",
+              "key64": "865761",
+              "char_id": "22836",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_LAST_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2145072",
+              "key64": "653618",
+              "char_id": "22873",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS1_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2148328",
+              "key64": "865761",
+              "char_id": "22836",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS3_HANZO"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2149115",
+              "key64": "865761",
+              "char_id": "22836",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS2_HANZO"
+            }
+          ],
+          "chr": 865761,
+          "placement": 2140881,
+          "name_char_id": 22836
+        },
+        {
+          "name": "Saito Fuku",
+          "candidates": [
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2140062",
+              "key64": "671570",
+              "char_id": "22910",
+              "flags9c": "0x0C",
+              "record_name": "PARALLEL200_BOSS1_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2141275",
+              "key64": "427897",
+              "char_id": "22935",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS1_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2141776",
+              "key64": "427897",
+              "char_id": "22935",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_DOOR_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2142169",
+              "key64": "671570",
+              "char_id": "22910",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS3_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2145036",
+              "key64": "631242",
+              "char_id": "23419",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_LAST_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2146630",
+              "key64": "671570",
+              "char_id": "22910",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS2_OFUKU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2147918",
+              "key64": "427897",
+              "char_id": "22935",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS2_OFUKU"
+            }
+          ],
+          "chr": 671570,
+          "placement": 2140062,
+          "name_char_id": 22910
+        },
+        {
+          "name": "Tokugawa Kunimatsu",
+          "candidates": [
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2140057",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS1_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2144889",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS2_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2145000",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x0C",
+              "record_name": "PARALLEL200_BOSS1_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2147787",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_DOOR_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2147825",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS2_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2149793",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS3_KUNIMATSU"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2149832",
+              "key64": "969076",
+              "char_id": "22550",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_LAST_KUNIMATSU"
+            }
+          ],
+          "chr": 969076,
+          "placement": 2145000,
+          "name_char_id": 22550
+        },
+        {
+          "name": "Yagyu Munenori",
+          "candidates": [
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2146304",
+              "key64": "549572",
+              "char_id": "22731",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_DOOR_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2146560",
+              "key64": "776661",
+              "char_id": "22700",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS3_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2146962",
+              "key64": "549572",
+              "char_id": "22731",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS1_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2148195",
+              "key64": "549572",
+              "char_id": "22731",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_LAST_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2148292",
+              "key64": "776661",
+              "char_id": "22700",
+              "flags9c": "0x0C",
+              "record_name": "PARALLEL200_BOSS1_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2148601",
+              "key64": "549572",
+              "char_id": "22731",
+              "flags9c": "0x00",
+              "record_name": "PARALLEL200_BEFORE_BOSS2_MUNENORI"
+            },
+            {
+              "mission_id": "0xD617",
+              "set_slot": "1",
+              "table": "B7/D67CB0212",
+              "placement_id": "2148874",
+              "key64": "776661",
+              "char_id": "22700",
+              "flags9c": "0x1C",
+              "record_name": "PARALLEL200_BOSS2_MUNENORI"
+            }
+          ],
+          "chr": 776661,
+          "placement": 2146560,
+          "name_char_id": 22700
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RD84E",
+      "mission": 55374,
+      "members": [
+        {
+          "name": "Kanai Hanbei",
+          "candidates": [
+            {
+              "mission_id": "0xD84E",
+              "set_slot": "1",
+              "table": "70/A0E169282",
+              "placement_id": "2161177",
+              "key64": "96759",
+              "char_id": "21356",
+              "flags9c": "0x34",
+              "record_name": "PARALLEL_202_ENEMY_BOSS_HANBE"
+            }
+          ],
+          "chr": 96759,
+          "placement": 2161177,
+          "name_char_id": 21356
+        },
+        {
+          "name": "Kawara Jurobei",
+          "candidates": [
+            {
+              "mission_id": "0xD84E",
+              "set_slot": "1",
+              "table": "70/A0E169282",
+              "placement_id": "2161257",
+              "key64": "602366",
+              "char_id": "24913",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_202_ENEMY_BOSS_JUUROUBE"
+            }
+          ],
+          "chr": 602366,
+          "placement": 2161257,
+          "name_char_id": 24913
+        },
+        {
+          "name": "Kumagai Naoyoshi",
+          "candidates": [
+            {
+              "mission_id": "0xD84E",
+              "set_slot": "1",
+              "table": "70/A0E169282",
+              "placement_id": "2163067",
+              "key64": "485999",
+              "char_id": "24958",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_202_ENEMY_BOSS_NAOYOSHI"
+            }
+          ],
+          "chr": 485999,
+          "placement": 2163067,
+          "name_char_id": 24958
+        },
+        {
+          "name": "Marubashi Chuya",
+          "candidates": [
+            {
+              "mission_id": "0xD84E",
+              "set_slot": "1",
+              "table": "70/A0E169282",
+              "placement_id": "2167800",
+              "key64": "381593",
+              "char_id": "24853",
+              "flags9c": "0x24",
+              "record_name": "PARALLEL_202_ENEMY_BOSS_CHUYA"
+            }
+          ],
+          "chr": 381593,
+          "placement": 2167800,
+          "name_char_id": 24853
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "RBAB8",
+      "mission": 0,
+      "members": [
+        {
+          "name": "Anazawa Morihide",
+          "candidates": [],
+          "error": "no same-mission match"
+        },
+        {
+          "name": "Mori Gentatsu",
+          "candidates": [],
+          "error": "no same-mission match"
+        },
+        {
+          "name": "Yamada Shinryuken",
+          "candidates": [],
+          "error": "no same-mission match"
+        }
+      ],
+      "errors": [
+        "Anazawa Morihide: no same-mission match",
+        "Mori Gentatsu: no same-mission match",
+        "Yamada Shinryuken: no same-mission match"
+      ]
+    }
+  ]
+}

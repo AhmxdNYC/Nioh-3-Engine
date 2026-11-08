@@ -29,6 +29,7 @@ Publish `/updates/stable.json` on the Vercel site over HTTPS. Publish immutable 
 Run `powershell -ExecutionPolicy Bypass -File tools/updater/build-windows.ps1`.
 The script creates `.venv-build`, installs pinned PyInstaller 6.16.0, and builds
 `tools/updater/dist/Nioh3Updater.exe` (console enabled). Python is only needed to build.
+The public 1.7.90 asset folder is `py -I tools/updater/pack_public_assets.py` (zip plus the exe as its own file). It does not publish.
 Double-click that executable. It discovers Steam and additional libraries via
 `libraryfolders.vdf`; missing/ambiguous installations prompt for the folder containing
 `Nioh3.exe`. It waits for the game to close, downloads from the default manifest
@@ -139,3 +140,7 @@ or `FrameMeterStyle=0` for Row. `[Training]` does not read this setting.
 On Wine/Linux the in-game action launches no external app: it shows the website URL and game folder in a non-modal 20-second notice. Open the website from the desktop after leaving the game. Windows behavior is unchanged.
 The updater reads the installed EngineFix binary version and refuses a public
 stable downgrade; explicit backup rollback remains available.
+
+## Release packaging (1.8.9+)
+
+Release scripts must take `Nioh3Updater.exe` from `staged-site/downloads/Nioh3Updater.exe` in the release worktree (tracked, rebuilt from `tools/updater` with PyInstaller 6.16.0), never copy it from the previous release folder: that chain kept the stale Oct 27 build (61474cd1) in 1.8.4 to 1.8.8 packages. Current build: 75c7251d (from 02b671be source). Template: `release/repack-release.sh.txt`.

@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse
 import subprocess
 import tempfile
+import os
 
 p=argparse.ArgumentParser()
 p.add_argument('source',type=Path,nargs='?',default=Path(__file__).resolve().parents[1]/'src/rematch.cpp')
@@ -95,7 +96,7 @@ int main() {
     printf("%d actual-source restoration checks PASS\n",checks);
 }
 '''.replace('@SPAWN@',spawn).replace('@WRITE@',function('bool SpawnWrite(')).replace('@RESTORE@',function('bool SpawnRestore(const char* why) {')).replace('@APPLY@',function('void SpawnApply('))
-setup=Path(r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat')
+setup=Path(os.environ.get('N3_MSVC_SETUP', r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-spawn-repro-') as tmp:
     directory=Path(tmp); source=directory/'repro.cpp'; exe=directory/'repro.exe'
     source.write_text(code)
@@ -107,5 +108,10 @@ with tempfile.TemporaryDirectory(prefix='nioh3-spawn-repro-') as tmp:
 
 for name in ('ExecOpen','ExecDirect','ExecEmaki'):
     body=function('void '+name+'(')
-    assert body[body.index('{')+1:].lstrip().startswith('if (!SpawnRestore('), name
+    inner=body[body.index('{')+1:].lstrip()
+    if name=='ExecEmaki':  # two statements may come first because they admit nothing: the no-waves flag reset and the Training wave-guard refusal
+        for allowed in ('g_scrollNoWaves.store(false);','if (noWaves && !g_waveVetoOk) return Refuse('):
+            assert inner.startswith(allowed),(name,allowed)
+            inner=inner[inner.index(chr(10)):].lstrip()
+    assert inner.startswith('if (!SpawnRestore('), name
 print('3 native admission entry guards PASS')

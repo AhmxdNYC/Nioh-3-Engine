@@ -50,7 +50,7 @@ KNOWN = {"idtab": "/AE/50B70535D0EDD19523951019C533295915AE7D4F65FE37E351E09D385
 MREC, EREC, BREC, SREC, CREC = 0x198, 0x138, 0xA0, 0xA4, 0x398
 HEADER = ("# Nioh3Training arena table (tools/auto_arena.py, generated from the game data; do not edit). mission, start point, world, "
           "boss char id, boss placement id, player x y z yaw, boss x y z, kind (arena = inside the trigger; start = the Fight-now start "
-          "point; summon = roster only), id, name[, CrossWorldCellSkip cells]")
+          "point; summon = roster only), id, name[, cells (arena cells admitted by CrossWorldForceCells, and the CellSkip whitelist unless wl_cells), wl_cells (CellSkip / PlaceableSkip whitelist)]; the two cell columns are carried over by id")
 STEAM = ["~/.local/share/Steam/steamapps/common/Nioh3", "~/.steam/steam/steamapps/common/Nioh3",
          "C:/Program Files (x86)/Steam/steamapps/common/Nioh3", "C:/Program Files/Steam/steamapps/common/Nioh3",
          "D:/SteamLibrary/steamapps/common/Nioh3"]
@@ -452,7 +452,7 @@ def main(argv=None):
     text = english_text(L, set(tid.values()) | {r["mname"] for r in rows if r["mname"]})
     cname = {c: rc.ascii_(text[i]) for c, i in tid.items() if i in text}
     oldn = {rid: c[14] for (rid, s), c in old.items()}
-    oldcells = {rid: c[15] for (rid, s), c in old.items() if len(c) > 15 and c[15]}
+    oldcells = {rid: (c[15], c[16] if len(c) > 16 else "") for (rid, s), c in old.items() if len(c) > 15 and (c[15] or (len(c) > 16 and c[16]))}   # cells + wl_cells are hand-kept columns
     out = [HEADER, "# game data fingerprint %s (archive sizes + times): rerun tools/auto_arena.py when it changes" % L.fingerprint()]
     rep = []
     arena_chr = set()
@@ -470,7 +470,9 @@ def main(argv=None):
              "%.0f" % r["p"][0], "%.0f" % r["p"][1], "%.0f" % r["p"][2], "%.1f" % r["p"][3], "%.0f" % r["b"][0], "%.0f" % r["b"][1],
              "%.0f" % r["b"][2], r["kind"], r["id"], nm.replace("\t", " ")[:63]]
         if r["id"] in oldcells:
-            c.append(oldcells[r["id"]])
+            c.append(oldcells[r["id"]][0])
+            if oldcells[r["id"]][1]:
+                c.append(oldcells[r["id"]][1])
         out.append("\t".join(c))
         arena_chr.add(r["chr"])
         rep.append({"id": r["id"], "name": nm, "chr": r["chr"], "kind": r["kind"], "mission": "0x%04X" % r["mission"],

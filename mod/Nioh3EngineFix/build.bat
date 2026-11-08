@@ -22,9 +22,37 @@ where cl >nul 2>nul || (echo ERROR: no MSVC toolchain found & exit /b 1)
 rem regenerate the patch table header from patches.json when Python is available (it is checked in anyway)
 where py >nul 2>nul && py -I tools\gen_header.py
 if errorlevel 1 (echo ERROR: gen_header.py failed & exit /b 1)
+rem fixed game RVAs: rvas.json -> src\rvas_gen.h must be current; warn about any raw base + RVA left (tools\check_fixed_rvas.py)
+where py >nul 2>nul && py -I tools\gen_rvas.py --check
+if errorlevel 1 echo WARNING: rvas.json / rvas_gen.h out of date - run tools\gen_rvas.py with a decrypted dump
+if not exist build mkdir build
+where py >nul 2>nul && py -I ..\..\tools\check_fixed_rvas.py > build\fixed_rvas.txt 2>&1
+if errorlevel 1 echo WARNING: raw fixed game RVAs left - see build\fixed_rvas.txt
 
 if not exist build mkdir build
 if not exist bin mkdir bin
+
+rem HUD lookup checks use the same scanner as runtime. CI can supply a decrypted image.
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\hud_patterns_test.exe /Fobuild\hud_patterns_test.obj tests\hud_patterns_test.cpp || exit /b 1
+if defined NIOH3_HUD_DUMP (
+    build\hud_patterns_test.exe "%NIOH3_HUD_DUMP%" || exit /b 1
+) else (
+    build\hud_patterns_test.exe || exit /b 1
+)
+
+rem Preset startup persistence and VRS independence (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extraperf_menu_test.obj tests\extraperf_menu_test.cpp || exit /b 1
+build\extraperf_menu_test.exe || exit /b 1
+
+rem VRS classification and command-list state regression tests (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
+build\vrs_menu_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_selective_test.exe /Fobuild\vrs_selective_test.obj tests\vrs_selective_test.cpp d3dcompiler.lib || exit /b 1
+build\vrs_selective_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_ceiling_test.exe /Fobuild\vrs_ceiling_test.obj tests\vrs_ceiling_test.cpp || exit /b 1
+build\vrs_ceiling_test.exe || exit /b 1
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_capture_test.exe /Fobuild\vrs_capture_test.obj tests\vrs_capture_test.cpp || exit /b 1
+build\vrs_capture_test.exe || exit /b 1
 
 ml64 /nologo /c /W3 /Fobuild\caves.obj src\caves.asm || exit /b 1
 rem GPU barrier batching (gpuopt.cpp): per-slot command-list thunks
@@ -46,6 +74,8 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\dllmain.obj src\dllmain.cpp || exit /b 1
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\updatecheck.obj src\updatecheck.cpp || exit /b 1
+rem Grva() pattern table for fixed game RVAs (gamerva.h / rvas.json; tools\gen_rvas.py)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\gamerva.obj src\gamerva.cpp || exit /b 1
 
 rem in-game overlay (d3d12.dll / dxgi.dll are loaded at run time - no import dependency)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
@@ -183,9 +213,17 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 ml64 /nologo /c /W3 /Fobuild\extraperf_caves.obj src\extraperf.asm || exit /b 1
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\crashreport.obj src\crashreport.cpp || exit /b 1
+rem #64882 menu Report box sender (reportsend.cpp: POST /api/report, scrub, local copy in Nioh3Reports)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE /Fobuild\reportsend.obj src\reportsend.cpp || exit /b 1
+rem automatic crash upload (crashupload.cpp; [Report] CrashUpload = 1, CrashUrl; bridge #64881)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\crashupload.obj src\crashupload.cpp || exit /b 1
+rem input ring (inputlog.cpp; controller edges, hotkeys, mod-menu selections; #64888)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\inputlog.obj src\inputlog.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\updatecheck.obj build\crashreport.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib || exit /b 1
+   build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashupload.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 rem Ship the Python helpers (only used with [SaveFiles] Native = 0; the default native path needs no Python).
 py ..\..\tools\saves\build_package.py || exit /b 1

@@ -19,9 +19,79 @@ import urllib.request
 import uuid
 import time
 
-ALLOWED = {f"Nioh3{x}.{ext}" for x in
-           ("EngineFix", "BossRematch", "Training", "CamKiProbe")
-           for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+# Name lists the mods read at startup. They are data, not player settings, so an update may replace them.
+# .ini files stay out of that set on purpose: update() never overwrites an existing ini.
+NAME_LISTS = (
+    "Nioh3BossRematch_bosses.tsv",
+    "Nioh3Training_actionsets.tsv",
+    "Nioh3Training_action_records.tsv",
+    "Nioh3Training_arenas.tsv",
+    "Nioh3Training_bgm.tsv",
+)
+# Shipped 1.8.1 updater.exe allow-list. A manifest that names any other file makes that build
+# raise "Unapproved or duplicate filename" inside validate(), before it downloads or writes anything.
+SHIPPED_181_ALLOWED = {f"Nioh3{x}.{ext}" for x in
+                       ("EngineFix", "BossRematch", "Training", "CamKiProbe")
+                       for ext in ("asi", "ini")} | {"Nioh3 Mod Website.url", "Nioh3Training_action_records.tsv"}
+ALLOWED = SHIPPED_181_ALLOWED | set(NAME_LISTS)
+# A 1.8.2 package is refused unless every menu ASI and the new camera ini are named.
+# The three player settings files are not required here: the update zip must not replace them.
+REQUIRED_PUBLISH = (
+    "Nioh3EngineFix.asi", "Nioh3Training.asi", "Nioh3BossRematch.asi", "Nioh3CamKiProbe.asi",
+    "Nioh3CamKiProbe.ini",
+)
+
+
+# 1.8.2 and 1.8.3 shipped Boss Rematch a32e9ae4, built without soul-core forms.
+BR_ASI = "Nioh3BossRematch.asi"
+SOULCORE_MARKER = b"SoulCoreForms"
+
+
+def boss_rematch_soul_cores(data):
+    """Raise unless these Boss Rematch bytes include soul-core forms.
+
+    data is the ASI bytes, or a path whose file is the ASI.
+    """
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        blob = bytes(data)
+    else:
+        blob = Path(data).read_bytes()
+    if SOULCORE_MARKER not in blob:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi has no SoulCoreForms (stale build, soul cores missing)"
+        )
+
+
+def _payload_map(names):
+    if isinstance(names, dict):
+        return {str(name): payload for name, payload in names.items()}
+    present = {}
+    for item in names:
+        if isinstance(item, (bytes, bytearray)):
+            raise ValueError("package refused: release gate was given bytes without a file name")
+        if isinstance(item, Path):
+            present[item.name] = item
+        else:
+            present[str(item)] = None
+    return present
+
+
+def publish_gate(names):
+    """Refuse a package that omits a required file or ships a stale Boss Rematch.
+
+    names is a dict of filename to bytes or path, or an iterable of paths.
+    A bare name, with no bytes, is refused: that is how 1.8.2 shipped without soul cores.
+    """
+    present = _payload_map(names)
+    missing = [name for name in REQUIRED_PUBLISH if name not in present]
+    if missing:
+        raise ValueError("package refused, missing: " + ", ".join(missing))
+    payload = present.get(BR_ASI)
+    if payload is None:
+        raise ValueError(
+            "package refused: Nioh3BossRematch.asi bytes were not given to the release gate"
+        )
+    boss_rematch_soul_cores(payload)
 MANIFEST_URL = "https://nioh3-mod-feedback.vercel.app/updates/stable.json"
 MAX_FILE = 128 * 1024 * 1024
 
@@ -77,10 +147,27 @@ def game_running():
                                 capture_output=True, text=True)
         names = [r[0].lower() for r in csv.reader(io.StringIO(result.stdout)) if r]
         return any(n in ("nioh3.exe", "nioh3") for n in names)
-    # ps includes Wine/Proton Windows exe arguments; fail closed if ps fails.
-    output = subprocess.run(["ps", "-eo", "args="], check=True,
-                            capture_output=True, text=True).stdout
-    return bool(re.search(r"(?i)(?:^|[\s/\\])nioh3(?:\.exe)?(?:\s|$)", output))
+    return proc_game_running(Path("/proc"))
+
+
+def proc_game_running(proc):
+    # Match only a process argument whose basename is Nioh3.exe (Wine/Proton
+    # keeps the Windows path in argv). A bare "nioh3" word in another
+    # program's arguments (shell, editor, file manager) is not the game.
+    if not proc.is_dir():
+        raise RuntimeError("Cannot verify game is closed on this platform")
+    for entry in proc.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            args = (entry / "cmdline").read_bytes().split(b"\0")
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # process exited
+        except PermissionError:
+            raise RuntimeError("Cannot inspect all processes; cannot verify game is closed")
+        if any(a.replace(b"\\", b"/").rsplit(b"/", 1)[-1].lower() == b"nioh3.exe" for a in args):
+            return True
+    return False
 
 
 def ensure_stopped():

@@ -15,7 +15,7 @@ int main() {
    CHECK(k>=1&&has&&l==(s[0].tab>0)&&r==(s[k-1].tab<4));
    if(k>1||lens[cur]+2+(l?2:0)+(r?2:0)<=cols)CHECK(s[k-1].col+s[k-1].len+(r?2:0)<=cols);}
   CHECK(menu_nav::TabBar(lens,5,4,20,s,l,r)>=1&&l&&!r);}
- g_disabled=0;g_rematchSession=0;g_cfg.layout=0;g_rematchPage=false;
+ savefiles::testAllowed=true;g_disabled=0;g_rematchSession=0;g_cfg.layout=0;g_rematchPage=false;
  Open("tabbar");CHECK(g_pages.page==pRoot);
  osd::drawnTexts.clear();osd::drawnTextColor.clear();CHECK(DrawImpl(1920,1080)>0);
  CHECK(CurrentIs("[Home]")&&Find(" Display ")>=0&&Find(" Camera ")>=0&&Find(" Optimize ")>=0&&Find(" Saves ")>=0);
@@ -26,8 +26,27 @@ int main() {
  g_pressed=N_TAB_NEXT;OnPresentImpl();CHECK(g_pages.page==pDisplay);
  osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Display]")&&Find(" Home ")>=0&&Find("[Home]")<0);
  EnterPage(pOvFrameMeter);osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1280,720);CHECK(CurrentIs("[Display]"));  // nested page keeps its tab
- savefiles::testAllowed=true;g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==kSaveFilesRow);  // Display -LB-> wraps to the last tab
+ savefiles::testAllowed=true;g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==0&&g_pages.page==pRoot);  // #79226: Display -LB-> Home (Home is part of the loop)
+ g_pressed=N_TAB_PREV;OnPresentImpl();CHECK(CurrentTab()==kSaveFilesRow);  // Home -LB-> wraps to the last tab
  osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Saves]"));
+ g_pressed=N_TAB_NEXT;OnPresentImpl();CHECK(CurrentTab()==0&&g_pages.page==pRoot);  // Saves -RB-> Home, not skipped
+ osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs("[Home]"));
+ // the loop in both directions visits every tab once and returns; the lit tab is always the tab shown
+ {int seen=0,lap[2]={0,0};for(int dirn=0;dirn<2;++dirn){CHECK(CurrentTab()==0);int steps=0;do{g_pressed=dirn?N_TAB_PREV:N_TAB_NEXT;OnPresentImpl();++steps;
+    osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);
+    char want[40];snprintf(want,sizeof want,"[%s]",TabShort(CurrentTab()));CHECK(CurrentIs(want));}while(CurrentTab()!=0&&steps<20);
+ 
+  seen+=steps;lap[dirn]=steps;}
+  CHECK(lap[0]==lap[1]&&lap[0]>=5&&lap[0]<12);}
+ // #79548: Saves is reached even while save actions are locked (fight / home): every visible tab is visited once per lap, both ways
+ for(int allowed=0;allowed<2;++allowed){savefiles::testAllowed=allowed!=0;g_pages.Reset();g_sel=TopLevelSel();CHECK(CurrentTab()==0);
+  int tabs[kMenuRowCap+1];tabs[0]=0;const int n=1+TabRows(tabs+1);CHECK(n>=4);bool hasSaves=false;for(int i=0;i<n;++i)hasSaves|=tabs[i]==kSaveFilesRow;CHECK(hasSaves==(allowed!=0));
+  for(int dirn=0;dirn<2;++dirn){int visited[kMenuRowCap+1]={};
+   for(int i=0;i<n;++i){g_pressed=dirn?N_TAB_PREV:N_TAB_NEXT;OnPresentImpl();const int ct=CurrentTab();
+    int idx=-1;for(int j=0;j<n;++j)if(tabs[j]==ct)idx=j;CHECK(idx>=0);if(idx>=0)++visited[idx];if(idx!=(dirn?(n-1-i)%n:(i+1)%n))printf("allowed=%d dir=%d i=%d idx=%d ct=%d n=%d\n",allowed,dirn,i,idx,ct,n);CHECK(idx==(dirn?(n-1-i)%n:(i+1)%n));  // same order as the strip
+    char want[40];snprintf(want,sizeof want,"[%s]",TabShort(ct));osd::drawnTexts.clear();osd::drawnTextColor.clear();DrawImpl(1920,1080);CHECK(CurrentIs(want));}
+   for(int j=0;j<n;++j)CHECK(visited[j]==1);CHECK(CurrentTab()==0);}}
+ savefiles::testAllowed=true;
  Close("tabbar");
  // hosted Boss Matches / Practice pages show the same row with their tab current
  namespace hf = host_fixture;

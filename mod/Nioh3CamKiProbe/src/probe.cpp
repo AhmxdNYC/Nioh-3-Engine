@@ -4,13 +4,16 @@
 // Log: Nioh3CamKiProbe.log next to this ASI.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "gamerva.h"
+#include "rvas_gen.h"
+#include "../../shared/soul_camera_vertical.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.21-camki-offset";
+static const char* kVer = "1.0.30-soul-smoother";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -20,6 +23,11 @@ static const uintptr_t kCamMgr = 0x4751490;
 static const uintptr_t kOrbitFn = 0x2b0e4c;
 static const uintptr_t kFovFn = 0x8dad94;
 static const uintptr_t kBlendFn = 0x9565e4;
+static const uintptr_t kMenuOpenA = 0x5A37D4;  /* UI screen open: [0x45C84A8+0x170] vfunc 0x100 && vfunc 0x48 */
+static const uintptr_t kMenuOpenB = 0xD63C0;   /* UI screen open: vfunc 8 of [0x4758BA0] */
+/* #65765: the shrine (Pray) menu's factory: mov r14,[menu manager] ... alloc 0x480 ... mov edx,<menu id> ; call menu ctor.
+   The menu manager keeps every menu at [mgr + id*8]; the id and the manager global are read from this code at run time. */
+static const uintptr_t kMenuShrineMake = 0x1125DB0;
 
 enum { kCap = 1600, kBlob = 160, kBlobBytes = 0x180, kRing = 900, kTop = 70 };
 
@@ -100,6 +108,26 @@ static int MatTrans(const float* m, float* out, const float* player, float* dist
     return 0;
 }
 
+/* Menu objects (base ctor 22beb6c): +0x10 id, +0x18 state (vfunc 0x100: state == 2), +0x2C (vfunc 0x48: != 0). Both true = on screen,
+   the same two tests the pause-screen getter 5A37D4 makes on [mgr+0x170]. */
+static int MenuShown(uint32_t state, uint32_t v2c) { return state == 2 && v2c != 0; }
+/* the shrine factory bytes: 48 8B 35 (rsi) at +0x13, 4C 8B 35 (r14 = manager) at +0x1C, BA <id> at +0x60. 0 = not recognised. */
+static int ShrineIdFromCode(const uint8_t* b, uint64_t at, uint64_t* mgrGlobal, uint32_t* id) {
+    int32_t disp = 0;
+    if (b[0x13] != 0x48 || b[0x14] != 0x8B || b[0x15] != 0x35) return 0;
+    if (b[0x1C] != 0x4C || b[0x1D] != 0x8B || b[0x1E] != 0x35) return 0;
+    if (b[0x5A] != 0x0F || b[0x5B] != 0x84 || b[0x60] != 0xBA) return 0;
+    memcpy(&disp, b + 0x1F, 4);
+    *mgrGlobal = at + 0x23 + (int64_t)disp;
+    memcpy(id, b + 0x61, 4);
+    return *id > 0 && *id < 0xED;
+}
+
+/* 1 = write the player's distance/lens. screenOpen means a game menu, the equipment appearance screen, or photo mode:
+   the game's own camera stays in charge until that screen closes. */
+static int CamApply(int iniOn, int screenOpen) { return iniOn && !screenOpen; }
+static float OffWant(float set, int screenOpen) { return screenOpen ? 0.f : set; }
+
 #ifdef PROBE_TEST
 int main(void) {
     float p[3] = {10.f, 20.f, 30.f};
@@ -116,6 +144,23 @@ int main(void) {
     if (MatTrans(ident, tr, p, &dist)) return 5;
     eye[0] = 0.f; eye[1] = 1.f; eye[2] = 0.f;
     if (!IsUnit(eye)) return 6;
+    if (CamApply(1, 0) != 1 || CamApply(1, 1) != 0 || CamApply(0, 0) != 0 || CamApply(0, 1) != 0) return 7;
+    if (OffWant(120.f, 0) != 120.f || OffWant(-40.f, 1) != 0.f) return 8;
+    if (!MenuShown(2, 1) || MenuShown(1, 1) || MenuShown(2, 0)) return 9;
+    {
+        static const uint8_t fac[0x66] = {0x48,0x89,0x6c,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,0x41,0x56,0x41,0x57,0x48,0x83,0xec,0x40,0x48,0x8b,0x35,0x7e,0xa5,0xa2,0x03,0x33,0xed,
+            0x4c,0x8b,0x35,0xd5,0x26,0x4a,0x03,0x48,0x85,0xf6,0x74,0x09,0x48,0x8b,0xb6,0x40,0x5d,0x3f,0x00,0xeb,0x03,0x48,0x8b,0xf5,0x48,0x8b,0x06,0x4c,0x8d,0x44,0x24,0x20,
+            0xba,0x80,0x04,0x00,0x00,0xc7,0x44,0x24,0x20,0x35,0x00,0x00,0x00,0x48,0x8b,0xce,0x48,0x89,0x6c,0x24,0x28,0xff,0x50,0x28,0x48,0x8b,0xf8,0x48,0x85,0xc0,0x0f,0x84,
+            0xd7,0x01,0x00,0x00,0xba,0x86,0x00,0x00,0x00};
+        uint64_t g = 0;
+        uint32_t id = 0;
+        uint8_t bad[0x66];
+        /* v2.02 dump: factory at 1125DB0 -> manager global 45C84A8, shrine menu id 0x86 */
+        if (!ShrineIdFromCode(fac, 0x1125DB0, &g, &id) || g != 0x45C84A8 || id != 0x86) return 10;
+        memcpy(bad, fac, sizeof bad);
+        bad[0x60] = 0xB9;
+        if (ShrineIdFromCode(bad, 0x1125DB0, &g, &id)) return 11;
+    }
     printf("probe_test ok\n");
     return 0;
 }
@@ -434,7 +479,7 @@ static size_t ScanHeap(const float* player, uint64_t skipPos, DWORD wantType) {
 static int Player(uint64_t base, uint64_t* actor, float pos[4]) {
     uint64_t tab = 0, pl = 0;
     *actor = 0;
-    if (!base || !Rd64(base + kPlayerTab, &tab) || !tab) return 0;
+    if (!base || !Rd64(base + Grva(kPlayerTab), &tab) || !tab) return 0;
     if (!Rd64(tab + (uint64_t)0xCD * 0x18, &pl) || !pl) return 0;
     if (!Rd(pl + 0x110, pos, 16)) return 0;
     *actor = pl;
@@ -488,7 +533,7 @@ static int CamOk(uint64_t base) {
     uint64_t vt = 0, tag = 0;
     if (!g_cam || !base) return 0;
     if (!Rd(g_cam, &vt, 8) || !Rd(g_cam + 0x58, &tag, 8)) { g_cam = 0; return 0; }
-    if (vt != base + kCamVt || tag != base + kCamTag) { g_cam = 0; return 0; }
+    if (vt != base + Grva(kCamVt) || tag != base + Grva(kCamTag)) { g_cam = 0; return 0; }
     return 1;
 }
 
@@ -521,23 +566,23 @@ static void NoteGame(uint64_t addr) {
 
 static void NoteCamQword(uint64_t addr, uint64_t q, uint64_t base) {
     uint64_t other = 0;
-    if (q == base + kGameVt) {
+    if (q == base + Grva(kGameVt)) {
         g_gameHits++;
         Rd(addr + 0x58, &other, 8);
-        if (other == base + kGameTag) g_gameTagHits++;
+        if (other == base + Grva(kGameTag)) g_gameTagHits++;
         NoteGame(addr);
         if (g_gameHits <= 3)
             Log("GAME vtable addr=%llx tag-rva=%llx", (unsigned long long)addr,
                 (unsigned long long)(base && other >= base ? other - base : 0));
-    } else if (q == base + kCamVt) {
+    } else if (q == base + Grva(kCamVt)) {
         g_vtHits++;
         Rd(addr + 0x58, &other, 8);
-        if (other == base + kCamTag) g_cam = addr;
+        if (other == base + Grva(kCamTag)) g_cam = addr;
         else if (g_vtHits <= 3)
             Log("CAM vtable-only addr=%llx tag=%llx", (unsigned long long)addr, (unsigned long long)other);
-    } else if (q == base + 0x38ef258 || q == base + 0x38ef2a8) {
+    } else if (q == base + Grva(0x38ef258) || q == base + Grva(0x38ef2a8)) {
         g_otherHits++;
-        if (q == base + 0x38ef2a8 && g_sibN < 8) {
+        if (q == base + Grva(0x38ef2a8) && g_sibN < 8) {
             int k, dup = 0;
             for (k = 0; k < g_sibN; k++) if (g_sib[k] == addr) dup = 1;
             if (!dup) g_sib[g_sibN++] = addr;
@@ -545,11 +590,11 @@ static void NoteCamQword(uint64_t addr, uint64_t q, uint64_t base) {
         if (g_otherHits <= 3)
             Log("CAM other-vtable addr=%llx rva=%llx", (unsigned long long)addr,
                 (unsigned long long)(q - base));
-    } else if (q == base + kCamTag && addr > 0x80) {
+    } else if (q == base + Grva(kCamTag) && addr > 0x80) {
         uint64_t obj = addr - 0x58;
         g_tagHits++;
         Rd(obj, &other, 8);
-        if (other == base + kCamVt) g_cam = obj;
+        if (other == base + Grva(kCamVt)) g_cam = obj;
         else if (g_tagHits <= 3)
             Log("CAM tag-only obj=%llx vt=%llx", (unsigned long long)obj, (unsigned long long)other);
     }
@@ -592,7 +637,7 @@ static void ScanCamSlice(uint64_t base, size_t step) {
         g_gameHits = 0;
         g_gameTagHits = 0;
         g_gameN = 0;
-        Rd(base + kCamVt, &slot0, 8);
+        Rd(base + Grva(kCamVt), &slot0, 8);
         Log("CAM module slot0=%llx", (unsigned long long)slot0);
         g_scanStarted = 1;
         g_scanAt = 0;
@@ -1215,7 +1260,7 @@ static void MgrDiff(void) {
 static void LogOrbit(uint64_t base) {
     uint64_t mgr = 0, begin = 0, end = 0, cam = 0, tag = 0;
     float yaw = 0.f, pitch = 0.f, dist = 0.f, eye[3] = {0.f, 0.f, 0.f};
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("ORBIT mgr null");
         return;
     }
@@ -1243,7 +1288,7 @@ static void MgrShot(uint64_t base, int phase, const float* player) {
     memset(g_mgrSnap[phase], 0, 0x800);
     memset(g_mgrPlayer[phase], 0, sizeof g_mgrPlayer[phase]);
     if (player) memcpy(g_mgrPlayer[phase], player, 12);
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("MGR null");
         return;
     }
@@ -1388,7 +1433,7 @@ static int HookCtor(uint64_t base) {
     uint64_t stubAddr;
     if (!base || g_ctorStub || g_ctorTries) return 0;
     g_ctorTries = 1;
-    site = (uint8_t*)(base + 0x3b4288);
+    site = (uint8_t*)(base + Grva(0x3b4288));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("CAM ctor bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1413,7 +1458,7 @@ static int HookCtor(uint64_t base) {
     stub[n++] = 0;
     stub[n++] = 0;
     stub[n++] = 0;
-    back = base + 0x3b4288 + 15;
+    back = base + Grva(0x3b4288) + 15;
     memcpy(stub + n, &back, 8);
     n += 8;
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
@@ -1459,7 +1504,7 @@ static int HookView(uint64_t base) {
     uint64_t stubAddr;
     if (!base || g_viewStub || g_viewTries) return 0;
     g_viewTries = 1;
-    site = (uint8_t*)(base + 0x9fd530);
+    site = (uint8_t*)(base + Grva(0x9fd530));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("VIEW bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1499,7 +1544,7 @@ static int HookView(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + 0x9fd530 + 15;
+    back = base + Grva(0x9fd530) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("VIEW protect failed %lu", GetLastError());
@@ -1555,10 +1600,156 @@ static volatile int g_copyFovSt;
  *   2b0e4c (the hooked entry) reads neither field and writes neither, so a store at its entry is what the eye and the
  *   lens use this frame. +2F8 is a timer (2aeaa8 adds dt up to 1000; 900.5 in the 1.0.16 log was 900 + dt), and
  *   +290/+294 are one-shot stick deltas that force 2b0e4c's early exit, so none of them is written any more.
+ *
+ * While a game screen is open (equipment appearance, other menus, photo mode) the writes stop.
+ * The two getters are the same ones EngineFix uses for "a game menu is open". The right/up offset
+ * eases back to 0 and eases out again after the screen closes. Distance and lens are not stored
+ * while it is open, so the blend at 9565e4 keeps the game's own values.
  */
+static const uint8_t kMenuABytes[] = {
+    0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x05, 0xC7, 0x4C, 0x02, 0x04, 0x48, 0x8B, 0x98, 0x70, 0x01,
+    0x00, 0x00, 0x48, 0x85, 0xDB, 0x74, 0x1D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x90, 0x00, 0x01, 0x00,
+    0x00, 0x84, 0xC0, 0x74, 0x0D, 0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x48, 0x84, 0xC0, 0x75, 0x08,
+    0x32, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x5B, 0xC3, 0xB0, 0x01, 0xEB, 0xF6};
+static const uint8_t kMenuBBytes[] = {0x48, 0x8B, 0x0D, 0xD9, 0x27, 0x68, 0x04, 0x48, 0x85, 0xC9, 0x74, 0x07,
+                                      0x48, 0x8B, 0x01, 0x48, 0xFF, 0x60, 0x08, 0x32, 0xC0, 0xC3};
+static int g_menuBytesOk = -1;
+static int g_screenBad = 0;
+static volatile int g_holdCam = 0;
+static DWORD g_screenSince = 0;
+static DWORD g_screenLast = 0;
+
+static int g_screenFaults = 0;   /* faults in a row; the signal turns off only after kScreenFaultMax */
+static int g_screenFaultLogs = 0;
+enum { kScreenFaultMax = 40 };
+
+static int CallGameBool(uint64_t fn) {
+    __try {
+        return reinterpret_cast<unsigned char (*)()>(fn)() != 0;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        if (g_screenFaultLogs < 5) { ++g_screenFaultLogs; Log("game screen signal call faulted %08lX at +%llX (retrying)", GetExceptionCode(), (unsigned long long)fn); }
+        if (++g_screenFaults >= kScreenFaultMax) g_screenBad = 1;
+        return -1;
+    }
+}
+
+/* 5A37D4 reads [G]+0x170 without a null check on G. G is still 0 just after the player appears (pc2 #65316),
+   so read G and the screen object first and only call the getter when both exist. */
+/* #65765 shrine menu: resolved once from the factory code; must use the same manager global as 5A37D4. */
+static int g_shrineSt = -1;  /* -1 not tried, 0 off, 1 ready */
+static uint64_t g_menuMgrG = 0;
+static uint32_t g_shrineId = 0;
+static uint8_t g_openSet[0xED];
+static int g_openLogs = 0;
+static void ShrineInit(uint64_t base, uint64_t fa) {
+    uint8_t b[0x66];
+    int32_t disp = 0;
+    uint64_t g = 0, ga = 0;
+    uint32_t id = 0;
+    const uint64_t f = base + Grva(kMenuShrineMake);
+    g_shrineSt = 0;
+    if (!Rd((uintptr_t)f, b, sizeof b) || !ShrineIdFromCode(b, f, &g, &id)) { Log("shrine menu signal: factory code not recognised, shrine keeps the camera offsets"); return; }
+    if (!Rd((uintptr_t)(fa + 9), &disp, sizeof disp)) return;
+    ga = fa + 13 + (int64_t)disp;
+    if (g != ga) { Log("shrine menu signal: menu manager differs (+%llX vs +%llX), off", (unsigned long long)(g - base), (unsigned long long)(ga - base)); return; }
+    g_menuMgrG = g;
+    g_shrineId = id;
+    g_shrineSt = 1;
+    Log("shrine menu signal ready: menu id 0x%X at manager +0x%X", id, id * 8);
+}
+static int MenuIdShown(uint64_t mgr, uint32_t id) {
+    uint64_t obj = 0;
+    uint32_t st = 0, v = 0;
+    if (!Rd64(mgr + (uint64_t)id * 8, &obj) || obj < 0x10000) return 0;
+    if (!Rd((uintptr_t)(obj + 0x18), &st, 4) || !Rd((uintptr_t)(obj + 0x2C), &v, 4)) return 0;
+    return MenuShown(st, v);
+}
+/* 1 = shrine menu on screen. Also logs every change of the set of shown menu ids (diagnostic for sub-screens, capped). */
+static int ShrineOpen(void) {
+    uint64_t mgr = 0;
+    int i, changed = 0, o = 0;
+    char line[0xED * 4 + 8];
+    if (g_shrineSt != 1 || !Rd64(g_menuMgrG, &mgr) || mgr < 0x10000) return 0;
+    for (i = 1; i < 0xED; ++i) {
+        const uint8_t on = (uint8_t)MenuIdShown(mgr, (uint32_t)i);
+        if (on != g_openSet[i]) { g_openSet[i] = on; changed = 1; }
+    }
+    if (changed && g_openLogs < 400) {
+        ++g_openLogs;
+        for (i = 1; i < 0xED && o < (int)sizeof line - 6; ++i) if (g_openSet[i]) o += snprintf(line + o, sizeof line - o, " %X", i);
+        line[o] = 0;
+        Log("menus shown:%s", o ? line : " none");
+    }
+    return g_openSet[g_shrineId];
+}
+
+static int ScreenOpenA(uint64_t fa) {
+    int32_t disp = 0;
+    uint64_t g = 0, scr = 0;
+    if (!Rd((uintptr_t)(fa + 9), &disp, sizeof disp)) return 0;
+    if (!Rd64(fa + 13 + (int64_t)disp, &g) || g < 0x10000) return 0;
+    if (!Rd64(g + 0x170, &scr) || scr < 0x10000) return 0;
+    return CallGameBool(fa);
+}
+
+static void PollScreen(uint64_t base) {
+    DWORD t;
+    int raw, hold;
+    uint64_t fa, fb;
+    if (!base || g_screenBad) return;
+    if (g_menuBytesOk < 0) {
+        uint8_t a[sizeof kMenuABytes], b[sizeof kMenuBBytes];
+        uint64_t actor = 0;
+        float pos[4] = {0, 0, 0, 0};
+        fa = base + Grva(kMenuOpenA);
+        fb = base + Grva(kMenuOpenB);
+        if (Rd((uintptr_t)fa, a, sizeof a) && Rd((uintptr_t)fb, b, sizeof b)
+            && memcmp(a, kMenuABytes, sizeof a) == 0 && memcmp(b, kMenuBBytes, sizeof b) == 0) {
+            g_menuBytesOk = 1;
+            Log("game screen signal ready (menus release the camera)");
+        } else if (Player(base, &actor, pos)) {
+            g_menuBytesOk = 0;
+            Log("game screen signal bytes differ, camera stays on in menus");
+        } else {
+            return;
+        }
+    }
+    if (!g_menuBytesOk) return;
+    t = GetTickCount();
+    fa = base + Grva(kMenuOpenA);
+    fb = base + Grva(kMenuOpenB);
+    {
+        const int ra = ScreenOpenA(fa);
+        const int rb = ra > 0 ? 0 : CallGameBool(fb);
+        int rs;
+        if (g_shrineSt < 0) ShrineInit(base, fa);
+        rs = ShrineOpen();
+        if (ra < 0 || rb < 0) {
+            if (g_screenBad) {
+                Log("game screen signal faulted %d times in a row, camera stays on in menus", kScreenFaultMax);
+                g_holdCam = 0;
+            }
+            return;  /* keep the last state for this poll */
+        }
+        g_screenFaults = 0;
+        raw = ra > 0 || rb > 0 || rs > 0;
+    }
+    if (raw) {
+        if (!g_screenSince) g_screenSince = t ? t : 1;
+        g_screenLast = t;
+    } else {
+        g_screenSince = 0;
+    }
+    hold = (g_screenSince && (DWORD)(t - g_screenSince) >= 120) || (g_holdCam && g_screenLast && (DWORD)(t - g_screenLast) < 150);
+    if (hold != g_holdCam) {
+        g_holdCam = hold;
+        Log("camera offsets %s", hold ? (g_shrineSt == 1 && g_openSet[g_shrineId] ? "released (shrine menu)" : "released (menu / appearance / photo)") : "back");
+    }
+}
+
 static int ApplyOrbit(uint8_t* cam, float* b0, float* fov40, int* bs, int* fs) {
-    *bs = TouchFloat(cam, 0x0b0, g_distOn, 50.f, 4000.f, g_distSet, b0);
-    *fs = TouchFloat(cam, 0x40, g_fovOn, 0.3f, 1.6f, g_fovDeg * 0.017453292f, fov40);
+    *bs = TouchFloat(cam, 0x0b0, CamApply(g_distOn, g_holdCam), 50.f, 4000.f, g_distSet, b0);
+    *fs = TouchFloat(cam, 0x40, CamApply(g_fovOn, g_holdCam), 0.3f, 1.6f, g_fovDeg * 0.017453292f, fov40);
     return *bs == 3 || *fs == 3;
 }
 
@@ -1606,7 +1797,7 @@ static int HookOrbit(uint64_t base) {
     uint64_t fn;
     if (!base || g_orbitStub || g_orbitTries) return 0;
     g_orbitTries = 1;
-    site = (uint8_t*)(base + kOrbitFn);
+    site = (uint8_t*)(base + Grva(kOrbitFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("ORBIT bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1655,7 +1846,7 @@ static int HookOrbit(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kOrbitFn + 15;
+    back = base + Grva(kOrbitFn) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("ORBIT protect failed %lu", GetLastError());
@@ -1692,8 +1883,8 @@ static void BlendTouch(uint8_t* cam, uint64_t* retSlot) {
     int bs, fs;
     LONG n;
     (void)retSlot;
-    bs = TouchFloat(cam, 0x0b0, g_distOn, 50.f, 4000.f, g_distSet, &b0);
-    fs = TouchFloat(cam, 0x40, g_fovOn, 0.3f, 1.6f, g_fovDeg * 0.017453292f, &fov40);
+    bs = TouchFloat(cam, 0x0b0, CamApply(g_distOn, g_holdCam), 50.f, 4000.f, g_distSet, &b0);
+    fs = TouchFloat(cam, 0x40, CamApply(g_fovOn, g_holdCam), 0.3f, 1.6f, g_fovDeg * 0.017453292f, &fov40);
     if (bs == 3 || fs == 3) InterlockedIncrement(&g_blendWrites);
     n = InterlockedIncrement(&g_blendCalls);
     g_blendB0Seen = b0;
@@ -1717,7 +1908,7 @@ static int HookBlend(uint64_t base) {
     uint64_t fn;
     if (!base || g_blendStub || g_blendTries) return 0;
     g_blendTries = 1;
-    site = (uint8_t*)(base + kBlendFn);
+    site = (uint8_t*)(base + Grva(kBlendFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("BLEND bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1766,7 +1957,7 @@ static int HookBlend(uint64_t base) {
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25;
     stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kBlendFn + 15;
+    back = base + Grva(kBlendFn) + 15;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("BLEND protect failed %lu", GetLastError());
@@ -1817,7 +2008,7 @@ static int HookFov(uint64_t base) {
     uint64_t back, stubAddr, fn;
     if (!base || g_fovStub || g_fovTries) return 0;
     g_fovTries = 1;
-    site = (uint8_t*)(base + kFovFn);
+    site = (uint8_t*)(base + Grva(kFovFn));
     memset(have, 0, sizeof have);
     if (!Rd((uintptr_t)site, have, 14) || memcmp(have, kHead, 14) != 0) {
         Log("FOV bytes differ. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
@@ -1856,7 +2047,7 @@ static int HookFov(uint64_t base) {
     memcpy(stub + n, kHead, 14);
     n += 14;
     stub[n++] = 0xFF; stub[n++] = 0x25; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kFovFn + 14;
+    back = base + Grva(kFovFn) + 14;
     memcpy(stub + n, &back, 8);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("FOV protect failed %lu", GetLastError());
@@ -1905,13 +2096,61 @@ static float Ease(float cur, float want) {
     return cur + d * 0.2f;
 }
 
+static uint64_t g_soulSession=0;
+static float g_soulTarget=0;
+static float SoulVerticalOffset() {
+    using ReadTarget = float (*)();
+    static ReadTarget readTarget=nullptr;
+    using ReadSession=uint64_t (*)(); static ReadSession readSession=nullptr;
+    static ULONGLONG retryAt=0;
+    const ULONGLONG now=GetTickCount64();
+    if(!readTarget && now>=retryAt) {
+        retryAt=now+1000;
+        HMODULE m=GetModuleHandleW(L"Nioh3BossRematch.asi");
+        if(m){readTarget=(ReadTarget)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalTarget");readSession=(ReadSession)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalSession");}
+    }
+    static soulcamera::Spring spring;
+    static LARGE_INTEGER prior={},freq={};LARGE_INTEGER tick;QueryPerformanceCounter(&tick);
+    if(!freq.QuadPart)QueryPerformanceFrequency(&freq);
+    const float dt=prior.QuadPart && freq.QuadPart ? (float)((double)(tick.QuadPart-prior.QuadPart)/freq.QuadPart) : 0;
+    prior=tick;
+    g_soulSession=!g_holdCam && readSession ? readSession() : 0;
+    g_soulTarget=g_soulSession && readTarget ? readTarget() : 0;
+    static uint64_t press=0;static float pressMaxStep=0,rawMaxStep=0,priorTarget=0;const float before=spring.y;
+    const float result=spring.Step(g_soulTarget,dt,g_soulSession!=0,g_soulSession);
+    if(spring.started) {
+        if(g_soulSession){press=g_soulSession;pressMaxStep=0;rawMaxStep=0;priorTarget=g_soulTarget;}
+        Log("SOUL press=%llu %s blend start offset=%.3f",press,g_soulSession?"enter":"exit",before);
+    }
+    if(g_soulSession){rawMaxStep=(std::max)(rawMaxStep,std::fabs(g_soulTarget-priorTarget));priorTarget=g_soulTarget;}
+    pressMaxStep=(std::max)(pressMaxStep,std::fabs(result-before));
+    if(spring.finished)Log("SOUL press=%llu %s blend end offset=%.3f max frame step=%.3f blend max step=%.3f raw max step=%.3f held spikes=%u",
+        press,g_soulSession?"enter":"exit",result,pressMaxStep,spring.maxStep,rawMaxStep,spring.rejectedSpikes);
+    return result;
+}
+static bool ApplySoulVertical(uint8_t* out,float y) {
+    if(!std::isfinite(y)||y==0)return false;
+    float eye[4],target[4];
+    if(!Rd((uintptr_t)(out+0x10),eye,16)||!Rd((uintptr_t)(out+0x20),target,16)||!Fin3(eye)||!Fin3(target))return false;
+    eye[1]+=y;target[1]+=y;
+    return Wr((uintptr_t)(out+0x14),&eye[1],4) && Wr((uintptr_t)(out+0x24),&target[1],4);
+}
+
 static void OutTouch(uint8_t* out, uint64_t* retSlot) {
     float eye[4], tgt[4], f[3], r[3], u[3], len, d[3];
     LONG n;
     if (!retSlot || !g_outRetAbs || *retSlot != g_outRetAbs) return;
     InterlockedIncrement(&g_outCalls);
-    g_offRight = Ease(g_offRight, g_offRightSet);
-    g_offUp = Ease(g_offUp, g_offUpSet);
+    const float soulY=SoulVerticalOffset();
+    const bool soulApplied=ApplySoulVertical(out,soulY);
+    static uint64_t measured=0;static float maxSeal=0,maxApplied=0;
+    if(measured!=g_soulSession) {
+        if(measured)Log("SOUL press=%llu max seal dY=%.2f max applied cam dY=%.2f",measured,maxSeal,maxApplied);
+        measured=g_soulSession;maxSeal=maxApplied=0;
+    }
+    if(measured){maxSeal=(std::max)(maxSeal,std::fabs(g_soulTarget));if(soulApplied)maxApplied=(std::max)(maxApplied,std::fabs(soulY));}
+    g_offRight = Ease(g_offRight, OffWant(g_offRightSet, g_holdCam));
+    g_offUp = Ease(g_offUp, OffWant(g_offUpSet, g_holdCam));
     g_offRightSeen = g_offRight;
     g_offUpSeen = g_offUp;
     if (g_offRight == 0.f && g_offUp == 0.f) return;
@@ -1962,14 +2201,14 @@ static int HookOut(uint64_t base) {
     uint64_t back, stubAddr, fn;
     if (!base || g_outStub || g_outTries) return 0;
     g_outTries = 1;
-    site = (uint8_t*)(base + kOutFn);
+    site = (uint8_t*)(base + Grva(kOutFn));
     memset(have, 0, sizeof have);
     memset(call, 0, sizeof call);
     if (!Rd((uintptr_t)site, have, 15) || memcmp(have, kHead, 15) != 0) {
         Log("OFFSET bytes differ at 243ed0. first=%02X%02X%02X%02X hook skipped", have[0], have[1], have[2], have[3]);
         return 0;
     }
-    if (!Rd((uintptr_t)(base + kOutRet - 5), call, 5) || memcmp(call, kCall, 5) != 0) {
+    if (!Rd((uintptr_t)(base + Grva(kOutRet) - 5), call, 5) || memcmp(call, kCall, 5) != 0) {
         Log("OFFSET call site 2afc54 differs. %02X%02X%02X%02X%02X hook skipped", call[0], call[1], call[2], call[3], call[4]);
         return 0;
     }
@@ -2006,9 +2245,9 @@ static int HookOut(uint64_t base) {
     memcpy(stub + n, kHead, 15);
     n += 15;
     stub[n++] = 0xFF; stub[n++] = 0x25; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0; stub[n++] = 0;
-    back = base + kOutFn + 15;
+    back = base + Grva(kOutFn) + 15;
     memcpy(stub + n, &back, 8);
-    g_outRetAbs = base + kOutRet;
+    g_outRetAbs = base + Grva(kOutRet);
     if (!VirtualProtect(site, 16, PAGE_EXECUTE_READWRITE, &old)) {
         Log("OFFSET protect failed %lu", GetLastError());
         return 0;
@@ -2118,7 +2357,7 @@ static void LogBoom(uint64_t base) {
         Log("BOOM no player");
         return;
     }
-    if (!Rd(base + kCamMgr, &mgr, 8) || mgr < 0x10000) {
+    if (!Rd(base + Grva(kCamMgr), &mgr, 8) || mgr < 0x10000) {
         Log("BOOM no manager");
         return;
     }
@@ -2181,7 +2420,7 @@ static void LogChain(uint64_t base) {
     Rd((uintptr_t)(c + 0x341), &b341, 1);
     Rd((uintptr_t)(c + 0x231), &b231, 1);
     Rd((uintptr_t)(c + 0x610), &b610, 1);
-    if (Rd(base + kCamMgr, &mgr, 8) && mgr > 0x10000) {
+    if (Rd(base + Grva(kCamMgr), &mgr, 8) && mgr > 0x10000) {
         Rd((uintptr_t)(mgr + 0x40), me, 12);
         Rd((uintptr_t)(mgr + 0x50), mt, 12);
     }
@@ -2191,6 +2430,8 @@ static void LogChain(uint64_t base) {
         c344, b340, b341, b324, b610, f238, f23c, f364, i36c, b231);
 }
 
+static int g_protonOff;
+static int g_protonDelay;
 static DWORD WINAPI Worker(LPVOID) {
     int was7 = 0, was8 = 0;
     uint32_t beat = 0, iniBeat = 0;
@@ -2203,8 +2444,26 @@ static DWORD WINAPI Worker(LPVOID) {
     Log("CamYawDeg and CamPitchDeg are ignored in this build. +290/+294 are stick deltas, not angles.");
     Log("CamOffsetRight / CamOffsetUp (world units, same as CamDist, -400..400): move the eye and target together along the camera right and up vectors at 243ed0 (return 2afc59). 0 or missing = native camera.");
     Log("Writes happen at the entry of 9565e4 (before the eye offset reads +B0) and again at the entry of 2b0e4c.");
+    Log("A game menu, the equipment appearance screen, or photo mode releases those writes until the screen closes.");
+    if (g_protonOff) { Log("Linux/Proton: probe idle"); return 0; }
+    DWORD protonT0 = GetTickCount();
     while (g_run) {
         uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
+        if (g_protonDelay) {
+            uint64_t actor = 0;
+            float pos[4] = {0, 0, 0, 0};
+            /* Boot walks the pad entity list while its next link is still 0
+               (mov edx,[rbx+10h] at Nioh3.exe+0x430a3e). Patching the camera
+               functions in DllMain makes that walk crash on Proton. Wait until
+               the boot crash window has passed and a player exists. */
+            if ((GetTickCount() - protonT0) < 8000 || !base || !Player(base, &actor, pos)) {
+                Sleep(50);
+                continue;
+            }
+            Log("Linux/Proton: player is in the world, installing camera hooks");
+            g_protonDelay = 0;
+        }
+        if (base && !g_protonDelay) PollScreen(base);
         if (base) HookCtor(base);
         if (base) HookView(base);
         if (base) HookOrbit(base);
@@ -2219,7 +2478,11 @@ static DWORD WINAPI Worker(LPVOID) {
         if (base) {
             uint64_t actor = 0;
             float pos[4] = {0, 0, 0, 0};
-            if (Player(base, &actor, pos)) ScanCamSlice(base, (size_t)128 << 20);
+            if (Player(base, &actor, pos)) {
+                static int verified;
+                if (!verified) verified = 1, gamerva::Verify();  // code is decrypted once the player exists
+                ScanCamSlice(base, (size_t)128 << 20);
+            }
         }
         int f7 = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
         int f8 = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
@@ -2268,6 +2531,33 @@ static DWORD WINAPI Worker(LPVOID) {
 
 extern "C" __declspec(dllexport) const char* Nioh3CamKiProbeVersion(void) { return kVer; }
 
+// Menu: 0 while Proton hooks are still waiting or switched off, so rows do not look live yet.
+extern "C" __declspec(dllexport) int Nioh3CamKiProbeActive(void) {
+    return (g_protonOff || g_protonDelay) ? 0 : 1;
+}
+
+/* Wine/Proton only. Windows returns 1 and patches in DllMain, same as before.
+   0 (default): worker patches after 8s and a live player. The boot crash is
+   mov edx,[rbx+10h] at +0x430a3e, the pad list's first link still 0 (Ally #62930).
+   1: patch in DllMain (the 1.8.2 path that crashed).
+   2: never patch. */
+static int ProtonMode(void) {
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    int mode;
+    wchar_t path[MAX_PATH];
+    DWORD n;
+    wchar_t* slash;
+    if (!nt || !GetProcAddress(nt, "wine_get_version")) return 1;
+    n = GetModuleFileNameW(g_mod, path, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return 2;
+    slash = wcsrchr(path, L'\\');
+    if (!slash) return 2;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"Nioh3CamKiProbe.ini");
+    mode = GetPrivateProfileIntW(L"CamKiProbe", L"OnProton", 0, path);
+    if (mode == 1 || mode == 2) return mode;
+    return 0;
+}
+
 BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         g_mod = (HMODULE)h;
@@ -2275,6 +2565,23 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
         OpenLog();
         {
             uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
+            if (base) {  // Grva: identity on v2.02, byte-pattern lookup (rvas.json) on another build
+                const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
+                gamerva::Init((uintptr_t)base, nt->FileHeader.TimeDateStamp == gamerva::rvas::kBuildTimestamp &&
+                                                   nt->OptionalHeader.SizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
+            }
+            {
+                int mode = ProtonMode();
+                if (mode == 2) {
+                    g_protonOff = 1;
+                    Log("Linux/Proton: camera hooks off (OnProton=2)");
+                    base = 0;
+                } else if (mode == 0) {
+                    g_protonDelay = 1;
+                    Log("Linux/Proton: camera hooks wait for a player (patching now crashes the pad list at +430a3e)");
+                    base = 0;
+                }
+            }
             if (base) HookCtor(base);
             if (base) HookView(base);
             if (base) HookOrbit(base);

@@ -19,6 +19,7 @@ FILES = ("dinput8.dll", "Nioh3EngineFix.asi", "Nioh3EngineFix.ini",
          "Nioh3BossRematch.asi", "Nioh3BossRematch.ini", "Nioh3BossRematch_bosses.tsv",
          "Nioh3Training.asi", "Nioh3Training.ini", "Nioh3Training_action_records.tsv",
          "Nioh3Training_actionsets.tsv", "Nioh3Training_arenas.tsv", "Nioh3Training_bgm.tsv",
+         "Nioh3CamKiProbe.asi", "Nioh3CamKiProbe.ini",
          "Nioh3 Mod Website.url", "Nioh3Updater.exe", "SaveSlots-after-exit.pyz",
          "Restore Vanilla Game.cmd", "Put the mod back.cmd", "restore-vanilla.sh", "put-mod-back.sh")
 
@@ -104,7 +105,8 @@ def current_hash(path):
     return None
 
 
-def install(package, game, saves, backups, running=game_running):
+def install(package, game, saves, backups, running=game_running, fresh_ok=False):
+    # fresh_ok: Nioh3-Setup.exe on a game never started yet (no saves to back up, #60944).
     package, game, saves, backups = map(lambda p: Path(p).absolute(), (package, game, saves, backups))
     for root in (package, game, saves):
         plain(root)
@@ -163,10 +165,11 @@ def install(package, game, saves, backups, running=game_running):
             f.write(str(receipt_path)); f.flush(); os.fsync(f.fileno())
         locked = True
         before = inventory(saves)
-        if not before:
+        if not before and not fresh_ok:
             raise RuntimeError("Save folder is empty; select the existing save root (no silent skip)")
         for name in before:
             exclusive_copy(saves / name, backup / "saves" / name)
+        (backup / "saves").mkdir(exist_ok=True)  # fresh_ok with no saves yet
         if inventory(saves) != before or inventory(backup / "saves") != before:
             raise RuntimeError("Saves changed during backup or backup verification failed")
         receipt["saves"] = before

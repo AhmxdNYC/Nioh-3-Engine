@@ -11,7 +11,7 @@ py mod/Nioh3EngineFix/tests/run_menu_harness.py
 if errorlevel 1 exit /b 1
 py mod/Nioh3EngineFix/tests/run_titlegate_test.py
 if errorlevel 1 exit /b 1
-cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE mod\Nioh3EngineFix\tests\savefiles_harness.cpp /Fotemp\savefiles.obj /Fetemp\savefiles.exe /link kernel32.lib user32.lib
+cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /DUNICODE /D_UNICODE mod\Nioh3EngineFix\tests\savefiles_harness.cpp /Fotemp\savefiles.obj /Fetemp\savefiles.exe /link kernel32.lib user32.lib shell32.lib
 if errorlevel 1 exit /b 1
 temp\savefiles.exe
 if errorlevel 1 exit /b 1

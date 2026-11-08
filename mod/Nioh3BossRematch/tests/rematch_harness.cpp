@@ -91,8 +91,80 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    {   // #79955 pc2 poll: state active, player=0 loading=0 mission=0, every 500 ms, pending native phase irrelevant: idle within 25 s
+        rcore::TitleWatch w;
+        uint64_t fired = 0;
+        for (uint64_t t = 1000; t <= 40000 && !fired; t += 500)
+            if (w.Step(true, false, false, 0, t)) fired = t - 1000;
+        CHECK(fired >= 20000 && fired <= 25000, "title exit: no player, no load, mission 0 reaches idle in 20-25 s");
+        rcore::TitleWatch l;  // a 73.7 s load: loading flag up, then player 0 with a mission id, then in game
+        bool early = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early |= l.Step(true, false, t < 70000, t < 70000 ? 0 : 0xF7F, t);
+        for (uint64_t t = 74700; t < 90000; t += 500) early |= l.Step(true, true, false, 0xF7F, t);
+        CHECK(!early, "title exit: a long load and the mission after it never go idle");
+        rcore::TitleWatch g;  // the load flag unreadable for a while but a mission id set: no exit
+        bool bad = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad |= g.Step(true, false, false, 0xF7F, t);
+        CHECK(!bad, "title exit: a nonzero mission id blocks it");
+        rcore::TitleWatch st;  // v3 (#80182): stale mission at the title (mission field ignored): idle in 20-25 s; load / unreadable never
+        uint64_t f2 = 0;
+        for (uint64_t t = 1000; t <= 40000 && !f2; t += 500)
+            if (st.StepSnap(true, false, true, false, t)) f2 = t - 1000;
+        CHECK(f2 >= 20000 && f2 <= 25000, "title exit: stale mission at the title still idles in 20-25 s");
+        rcore::TitleWatch ld; bool early2 = false;
+        for (uint64_t t = 1000; t < 74700; t += 500) early2 |= ld.StepSnap(true, false, true, true, t);
+        for (uint64_t t = 74700; t < 100000; t += 500) early2 |= ld.StepSnap(true, true, true, false, t);
+        CHECK(!early2, "title exit: a 73 s load never idles (mission field not needed)");
+        rcore::TitleWatch un; bool bad2 = false;
+        for (uint64_t t = 1000; t < 100000; t += 500) bad2 |= un.StepSnap(true, false, false, false, t);
+        CHECK(!bad2, "title exit: unreadable game state never idles");
+        rcore::TitleWatch i;
+        CHECK(!i.Step(false, false, false, 0, 1000) && !i.Step(false, false, false, 0, 99000), "title exit: nothing to do while idle");
+    }
+    CHECK(rcore::ScrollCoverDone(false, false, false, false, 0) == 1, "scroll cover ends when the trip ends");
+    CHECK(rcore::ScrollCoverDone(true, false, true, false, 90000) == 0, "scroll cover stays while loading");
+    CHECK(rcore::ScrollCoverDone(true, true, true, false, 0) == 2, "scroll cover ends at the first wave");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, 8000) == 0, "scroll cover no longer gives up at 8 s (E04 showed 12 s of empty field)");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs - 1) == 0, "scroll cover waits up to the safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, false, rcore::kScrollCoverSafetyMs) == 4, "scroll cover safety timeout");
+    CHECK(rcore::ScrollCoverDone(true, true, false, true, 100) == 3, "scroll cover ends when the walk found no wave");
+    CHECK(rcore::ScrollCoverDone(true, true, true, true, 100) == 2, "a wave beats the finished walk");
+    {
+        auto wakeOf = [&](const char* id) { for (const rcore::Row& r : rows) if (!strcmp(r.id, id)) return rcore::WaveWakeStep(r); return -1; };  // the catalogue column wake_step
+        const char* known[] = {"E00", "E01", "E04", "E07", "E08", "E09", "E10", "E17", "E18"};
+        const int steps[] = {4, 1, 2, 9, 1, 3, 2, 1, 1};
+        for (int i = 0; i < 9; ++i) CHECK(wakeOf(known[i]) == steps[i], "row wake step from the test runs");
+        const char* still[] = {"E02", "E03", "E05", "E06", "E11", "E12", "E13", "E14", "E15", "E16", "E19"};
+        for (const char* id : still) CHECK(wakeOf(id) == 0, "row wakes at the record warp");
+        rcore::Row junk{}; junk.route = rcore::kR; junk.wakeStep = 4; rcore::Row big{}; big.route = rcore::kE; big.wakeStep = 99;
+        CHECK(rcore::WaveWakeStep(junk) == 0 && rcore::WaveWakeStep(big) == 0 && wakeOf("E20") == -1 && wakeOf("R0C12") == 0, "non-scroll rows and out-of-range steps take the plain walk");
+        CHECK(rcore::WaveNudgeAt(wakeOf("E07")).dz == -1200.f && rcore::WaveNudgeAt(wakeOf("E00")).dz == -600.f, "E07 and E00 keep the offsets that woke them");
+        CHECK(rcore::WaveWalkCount(0) == rcore::kWaveNudges && rcore::WaveWalkOffset(0, 0) == 0 && rcore::WaveWalkOffset(0, 12) == 12, "step 0 rows keep the old order");
+        CHECK(rcore::WaveWalkCount(9) == rcore::kWaveNudges + 1 && rcore::WaveWalkOffset(9, 0) == 9, "the known offset goes first");
+        bool all = true;
+        for (int i = 0; i < rcore::kWaveNudges; ++i) all = all && rcore::WaveWalkOffset(9, i + 1) == i;
+        CHECK(all, "after a miss the whole old walk still runs");
+        CHECK(rcore::WaveNudgeDecide(12, 1, true, 14) == 1 && rcore::WaveNudgeDecide(13, 1, true, 14) == 3 && rcore::WaveNudgeDecide(13, 3, true, 14) == 2, "the longer walk ends on its own count");
+        CHECK(rcore::WaveWalkCount(9) * rcore::kWaveDwellCoverMs + 8000 < rcore::kScrollCoverSafetyMs, "the whole walk fits inside the safety timeout");
+    }
+    CHECK(rcore::CloseScrollListWhenEmpty(0, 1), "empty bag closes the scroll list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(1, 1), "one scroll keeps the list");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0, 0), "flag already clear stays clear");
+    CHECK(!rcore::CloseScrollListWhenEmpty(0xFFFFFFFFu, 1), "unreadable count leaves the list");
     CHECK(n > 100, "catalogue parsed");
     CHECK(c[rcore::kE] == 20, "20 Picture Scroll rows");
+    {
+        int scrolls = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            if (rows[i].route != rcore::kE) continue;
+            ++scrolls;
+            CHECK(rows[i].storyMission == 0xCC96, "scroll story mission is the old literal");
+            CHECK(rows[i].missionId == 0, "scroll replay id stays empty");
+            CHECK(rcore::ScrollMission(rows, (int)i) == 0xCC96, "chosen scroll uses its story mission");
+        }
+        CHECK(scrolls == 20, "20 story missions read");
+        CHECK(rcore::ScrollMission(rows, -1) == 0xCC96, "game pick uses the shared scroll mission");
+    }
     CHECK(c[rcore::kH] == 3, "3 hidden duels");
     CHECK(c[rcore::kX] > 0, "X rows kept with a reason");
     bool reasons = true, eidx = true, mid = true;
@@ -104,6 +176,155 @@ int main(int argc, char** argv) {
     CHECK(reasons, "every X row has a reason");
     CHECK(eidx, "E rows have record indexes 0..19");
     CHECK(mid, "R/H/D rows have mission ids");
+    {
+        int lessons = 0;
+        bool rf5e5 = false, rd759 = false, r26f3 = false, ra0a1 = false, r2826 = false, rbab8 = false;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "R2826")) r2826 = r.lesson;
+            if (!strcmp(r.id, "RBAB8")) rbab8 = r.lesson;
+            if (!r.lesson) continue;
+            ++lessons;
+            if (!strcmp(r.id, "RF5E5")) rf5e5 = true;
+            if (!strcmp(r.id, "RD759")) rd759 = true;
+            if (!strcmp(r.id, "R26F3")) r26f3 = true;
+            if (!strcmp(r.id, "RA0A1")) ra0a1 = true;
+        }
+        printf("lessons: %d\n", lessons);
+        CHECK(lessons == 4 && rf5e5 && rd759 && r26f3 && ra0a1, "lesson column marks RF5E5 RD759 R26F3 RA0A1");
+        CHECK(!r2826 && !rbab8, "R2826 and RBAB8 are not lessons");
+    }
+    {
+        rcore::ListCycle cycle;
+        rcore::BuildListCycle(rows, cycle);
+        printf("list filter: %d stops", cycle.Stops());
+        for (int i = 0; i < cycle.Stops(); ++i) printf(" | %s", cycle.Label(i));
+        printf("\n");
+        CHECK(cycle.Stops() >= 4, "All, Multi, at least one era, Scrolls");
+        CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
+        CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
+        CHECK(strcmp(cycle.Label(cycle.Stops() - 2), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Favorites") == 0, "last stops are Scrolls, Favorites");
+        int sengoku = -1, wavesEra = -1;
+        for (int i = 0; i < cycle.nEra; ++i) {
+            if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
+            if (strcmp(cycle.era[i], "Waves") == 0) wavesEra = i;
+        }
+        CHECK(sengoku >= 0, "Sengoku comes from the region column");
+        CHECK(wavesEra >= 0, "Waves comes from the region column");
+        int blank = 0, scrolls = 0, multi = 0, multiLeak = 0, scrollMiss = 0, waveMiss = 0, nameMiss = 0, allMiss = 0;
+        char blankIds[240] = {};
+        size_t bo = 0;
+        for (size_t i = 0; i < rows.size(); ++i) {
+            const rcore::Row& r = rows[i];
+            if (!rcore::RowInListStop(r, cycle, 0)) ++allMiss;
+            CHECK(rcore::FightNowItemId((int)i) == 0x10000 + (int)i, "Fight now id stays catalogue index plus 0x10000");
+            if (!r.region[0]) {
+                ++blank;
+                if (bo + 16 < sizeof blankIds) bo += (size_t)snprintf(blankIds + bo, sizeof blankIds - bo, "%s%s", bo ? "," : "", r.id);
+            }
+            if (r.route == rcore::kE) {
+                ++scrolls;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 2)) ++scrollMiss;
+                if (wavesEra < 0 || strcmp(r.region, "Waves") != 0 || !rcore::RowInListStop(r, cycle, 2 + wavesEra)) ++waveMiss;
+                if (sengoku >= 0 && rcore::RowInListStop(r, cycle, 2 + sengoku)) ++waveMiss;
+                if (!strstr(r.name, " waves, ") || strncmp(r.name, "Waves", 5) == 0 || strstr(r.name, "Small") || strstr(r.name, "Hundred Demon")) ++nameMiss;
+                if (rcore::RowInListStop(r, cycle, 1)) ++multiLeak;
+            }
+            const bool isMulti = r.missionId && r.route != rcore::kE && rcore::RosterMembers(r.id) > 1;
+            if (rcore::RowInListStop(r, cycle, 1) != isMulti) ++multiLeak;
+            if (isMulti) ++multi;
+        }
+        printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
+        CHECK(allMiss == 0, "All shows every loaded row");
+        CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
+        CHECK(waveMiss == 0 && nameMiss == 0, "today every Picture Scroll region is Waves, so all 20 stay in that group");
+        {
+            std::vector<rcore::Row> flipped = rows;
+            int nFlip = 0;
+            for (auto& r : flipped) {
+                if (strcmp(r.id, "E09") && strcmp(r.id, "E17")) continue;
+                snprintf(r.region, sizeof r.region, "Sengoku");
+                if (strncmp(r.name, "Waves: ", 7) == 0) {
+                    char bare[64];
+                    snprintf(bare, sizeof bare, "%s", r.name + 7);
+                    snprintf(r.name, sizeof r.name, "%s", bare);
+                }
+                ++nFlip;
+            }
+            rcore::ListCycle fc;
+            rcore::BuildListCycle(flipped, fc);
+            int wavesStop = -1, sengokuStop = -1;
+            for (int i = 0; i < fc.nEra; ++i) {
+                if (strcmp(fc.era[i], "Waves") == 0) wavesStop = 2 + i;
+                if (strcmp(fc.era[i], "Sengoku") == 0) sengokuStop = 2 + i;
+            }
+            int leftWaves = 0, inSengoku = 0, stillScroll = 0, prefixGone = 0;
+            int otherN = 0, otherStay = 0;
+            for (const auto& r : flipped) {
+                if (r.route != rcore::kE) continue;
+                const bool target = !strcmp(r.id, "E09") || !strcmp(r.id, "E17");
+                if (target) {
+                    if (!rcore::WavesRow(r) && wavesStop >= 0 && !rcore::RowInListStop(r, fc, wavesStop)) ++leftWaves;
+                    if (sengokuStop >= 0 && rcore::RowInListStop(r, fc, sengokuStop)) ++inSengoku;
+                    if (rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++stillScroll;
+                    if (strncmp(r.name, "Waves: ", 7) != 0) ++prefixGone;
+                } else {
+                    ++otherN;
+                    if (rcore::WavesRow(r) && wavesStop >= 0 && rcore::RowInListStop(r, fc, wavesStop) &&
+                        rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++otherStay;
+                }
+            }
+            CHECK(nFlip == 2 && leftWaves == 2 && inSengoku == 2 && stillScroll == 2 && prefixGone == 2,
+                  "E09 and E17 leave Waves and stay under Scrolls when their region is Sengoku");
+            CHECK(otherN == 18 && otherStay == 18, "the other 18 scroll rows stay in Waves");
+        }
+        const rcore::WaveNudge origin = rcore::WaveNudgeAt(0);
+        CHECK(rcore::kWaveNudges == 13 && origin.dx == 0.f && origin.dz == 0.f && origin.dy == 0.f, "step 0 is the record warp");
+        CHECK(rcore::WaveNudgeAt(1).dx == 600.f && rcore::WaveNudgeAt(2).dx == -600.f && rcore::WaveNudgeAt(3).dz == 600.f && rcore::WaveNudgeAt(4).dz == -600.f,
+              "600 cm offsets are x+ x- z+ z-");
+        CHECK(rcore::WaveNudgeAt(1).dy == 100.f && rcore::WaveNudgeAt(5).dx == 1500.f && rcore::WaveNudgeAt(8).dz == -1500.f, "1500 follows 600, offset tries raise y");
+        CHECK(rcore::WaveNudgeDecide(-1, 1, false) == 1, "the record warp happens as soon as the mission is in");
+        CHECK(rcore::WaveNudgeDecide(0, 1, false) == 0 && rcore::WaveNudgeDecide(0, 1, true) == 1, "the next offset waits out the dwell");
+        CHECK(rcore::WaveNudgeDecide(4, 3, false) == 2 && rcore::WaveNudgeDecide(8, 1, true) == 1 && rcore::WaveNudgeDecide(12, 1, true) == 3 && rcore::WaveNudgeAt(9).dz == -1200.f, "state 3 stops the walk and the list ends");
+        CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
+        CHECK(multi == 22 && multiLeak == 0, "Multi is the 22 catalogue rows whose roster has more than one member (RBAB8 refused, f2e80b34)");
+        int warring = 0, dlc = 0, paren = 0, longLabel = 0;
+        for (int i = 0; i < cycle.Stops(); ++i) {
+            const char* lab = cycle.Label(i);
+            if (strchr(lab, '(')) ++paren;
+            if (strlen(lab) > 16) ++longLabel;
+            if (strcmp(lab, "Warring States") == 0) ++warring;
+            if (strcmp(lab, "DLC1 Edo") == 0) ++dlc;
+        }
+        CHECK(warring == 1 && dlc == 1 && paren == 0 && longLabel == 0, "cut era names collapse to Warring States and DLC1 Edo");
+        const int shown[] = {-68, 3, 5, -5};
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 5) == 2, "a boss that is still listed keeps its row");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, 4) == 1, "a hidden boss moves to the first boss still listed");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 9, -68) == 0, "the filter row stays put");
+        CHECK(rcore::KeepVisibleSel(shown, 4, 99, -5) == 3, "Back stays put");
+        int collapsed = 0;
+        const auto ls = rcore::Lines(cat);
+        const auto hdr = rcore::SplitTab(ls.empty() ? std::string() : ls[0]);
+        int cReg = -1;
+        for (size_t i = 0; i < hdr.size(); ++i)
+            if (hdr[i] == "region") cReg = (int)i;
+        std::vector<std::string> fulls, cuts;
+        for (size_t li = 1; li < ls.size(); ++li) {
+            const auto f = rcore::SplitTab(ls[li]);
+            if (cReg < 0 || (size_t)cReg >= f.size()) continue;
+            std::string v = f[(size_t)cReg];
+            if (v.empty() || v == "-") continue;
+            char cut[24];
+            rcore::Ascii(cut, sizeof cut, v);
+            for (size_t k = 0; k < cuts.size(); ++k) {
+                if (cuts[k] == cut && fulls[k] != v) ++collapsed;
+            }
+            bool seen = false;
+            for (size_t k = 0; k < cuts.size(); ++k)
+                if (cuts[k] == cut && fulls[k] == v) seen = true;
+            if (!seen) { cuts.push_back(cut); fulls.push_back(v); }
+        }
+        CHECK(cReg >= 0 && collapsed == 0, "distinct era names stay distinct after the 23-character cap");
+    }
     const rcore::Row* r52 = nullptr;
     for (auto& r : rows)
         if (r.missionId == 0x34) r52 = &r;
@@ -230,7 +451,8 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 41; ++i) map[i * 8] = empty;
         const uint8_t bytes[20] = {0xD4, 0x8E, 0xA3, 0xD1, 0x0B, 0x79, 0x2D, 0x37, 0x57, 0x2C, 0xD8, 0x74, 0xEE, 0x63, 0x08, 0xB9, 0x40, 0x45, 0x64, 0xFB};
         for (uint32_t i = 0; i < 20; ++i) {
-            const int slot = (int)((bytes[i] * 7u) % 41);
+            const uint32_t home = bytes[i] * 9u;
+            const int slot = (int)((((home >> 11) ^ home) * 0x8001u) % 41u);
             int s = slot;
             while (map[s * 8] != empty) s = (s + 1) % 41;
             map[s * 8] = bytes[i];
@@ -243,16 +465,32 @@ int main(int argc, char** argv) {
         bool all = true;
         int valid = 0;
         for (int i = 0; i < 41; ++i) {
-            if (map[i * 8] == empty) {
-                all &= !memcmp(&map[i * 8], &orig[i * 8], 8);
-                continue;
-            }
-            ++valid;
             uint32_t idx = 0;
             memcpy(&idx, &map[i * 8 + 4], 4);
-            all &= idx == 7 && map[i * 8] == orig[i * 8];
+            all &= idx == 7;
+            if (i && map[i * 8] != orig[i * 8]) all = false;
+            valid += orig[i * 8] != empty;
         }
-        CHECK(all && valid == 20, "every valid entry -> record 7, keys and empty slots untouched");
+        CHECK(all && valid == 20, "every slot -> record 7, keys kept except an empty slot 0");
+        CHECK(map[0] != empty, "slot 0 holds a real key");
+        // The game's key -> byte step (102B840): first slot whose index is the picked one, else slot 0. Then the byte -> record lookup.
+        for (uint32_t picked = 0; picked < 20; ++picked) {
+            int hit = 0;
+            for (int i = 0; i < 41; ++i) {
+                uint32_t idx = 0;
+                memcpy(&idx, &map[i * 8 + 4], 4);
+                if (idx == picked) { hit = i; break; }
+            }
+            const uint8_t byte = map[hit * 8];
+            const uint32_t h = byte * 9u;
+            int pos = (int)((((h >> 11) ^ h) * 0x8001u) % 41u);
+            uint32_t rec = 0xFFFFFFFFu;
+            for (int probe = 0; probe < 41; ++probe, pos = (pos + 1) % 41) {
+                if (map[pos * 8] == byte) { memcpy(&rec, &map[pos * 8 + 4], 4); break; }
+                if (map[pos * 8] == empty) break;
+            }
+            CHECK(byte != empty && rec == 7, "any key resolves to a real byte and the chosen record");
+        }
         CHECK(!rcore::MapRedirect(mp, map, 41, empty, 3, 20, &WrPlain), "no second redirect while active");
         CHECK(rcore::MapRestore(mp, &WrPlain) == 0 && !memcmp(map, orig, sizeof(map)), "restore: CRC ok, bytes identical");
         CHECK(rcore::MapRestore(mp, &WrPlain) == -1, "restore twice = nothing active");
@@ -267,8 +505,12 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 1000;
         CHECK(rcore::ETick(t, 2000, false, false) == 0, "armed, waiting");
-        CHECK(rcore::ETick(t, 60000, false, true) == 0, "no timeout while loading");
-        CHECK(rcore::ETick(t, 61000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
+        CHECK(rcore::ETick(t, 20000, false, true) == 0, "a load under 30 s does not time out");
+        CHECK(rcore::ETick(t, 31001, false, true) == 0, "a slow load at 30 s keeps waiting");
+        CHECK(rcore::ETick(t, 181001, false, true) == 3 && t.st == rcore::kEIdle, "stuck load at 180 s times out");
+        t.st = rcore::kEArmed;
+        t.armedAt = 1000;
+        CHECK(rcore::ETick(t, 2000, true, true) == 1 && t.st == rcore::kEIn, "in mission");
         CHECK(rcore::ETick(t, 62000, false, true) == 0, "retry reload (loading, flag 0) keeps the patch");
         CHECK(rcore::ETick(t, 63000, true, false) == 0, "back in after the retry");
         CHECK(rcore::ETick(t, 64000, false, false) == 0 && rcore::ETick(t, 66000, false, false) == 0, "exit pending (< 5 s)");
@@ -276,6 +518,10 @@ int main(int argc, char** argv) {
         t.st = rcore::kEArmed;
         t.armedAt = 100000;
         CHECK(rcore::ETick(t, 131000, false, false) == 3 && t.st == rcore::kEIdle, "armed 30 s without a load -> timeout restore");
+        const rcore::Row* e00 = nullptr;
+        for (auto& r : rows)
+            if (!strcmp(r.id, "E00")) e00 = &r;
+        CHECK(e00 && (int)e00->warp[0] == 204649 && (int)e00->warp[1] == 12392 && (int)e00->warp[2] == 238099, "E00 keeps the record warp");
     }
     // ---------------- hooks.cpp: entry thunk ----------------
     {

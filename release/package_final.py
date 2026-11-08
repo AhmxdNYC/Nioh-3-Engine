@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,15 +21,27 @@ def main():
         files[module+'.ini'] = base/(module+'.ini')
         for p in base.glob('*.tsv'):
             files[p.name] = p
+    updater = ROOT/'updater-dist/Nioh3Updater.exe'
+    if not updater.is_file():
+        updater = ROOT/'staged-site/downloads/Nioh3Updater.exe'
     files.update({
         'dinput8.dll': args.loader,
-        'Nioh3Updater.exe': ROOT/'updater-dist/Nioh3Updater.exe',
-        'SaveSlots-after-exit.pyz': ROOT/'tools/saves/dist/SaveSlots-after-exit.pyz',
+        'Nioh3Updater.exe': updater,
         'SAVE-MANAGER.md': ROOT/'tools/saves/README-41493.md',
         'FINAL-BUILD.md': ROOT/'notes/final-build.md',
-        'diagnostics/Nioh3CamKiProbe.asi': ROOT/'mod/Nioh3CamKiProbe/bin/Nioh3CamKiProbe.asi',
+        'Nioh3CamKiProbe.asi': ROOT/'mod/Nioh3CamKiProbe/bin/Nioh3CamKiProbe.asi',
+        'Nioh3CamKiProbe.ini': ROOT/'mod/Nioh3CamKiProbe/Nioh3CamKiProbe.ini',
         'update-linux.sh': ROOT/'tools/updater/update-linux.sh',
     })
+    slots = ROOT/'tools/saves/dist/SaveSlots-after-exit.pyz'
+    if slots.is_file():
+        files['SaveSlots-after-exit.pyz'] = slots
+    missing = [name for name, path in files.items() if not path.is_file()]
+    if missing:
+        raise SystemExit('REFUSE package: missing ' + ', '.join(missing))
+    sys.path.insert(0, str(ROOT/'tools'/'updater'))
+    from updater import publish_gate
+    publish_gate(files)
     for name in ('Nioh3 Mod Website.url','install_mod.py','Install-Mod.cmd','install-mod.sh','USER_GUIDE.md',
                  'Restore Vanilla Game.cmd','Put the mod back.cmd','restore-vanilla.sh','put-mod-back.sh'):
         files[name] = ROOT/'release'/name

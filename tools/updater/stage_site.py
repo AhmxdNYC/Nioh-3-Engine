@@ -19,6 +19,7 @@ def main():
     for source in a.payload:
         files.append({'name': source.name, 'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
                       'url': 'https://nioh3-mod-feedback.vercel.app/releases/' + a.version + '/' + quote(source.name)})
+    updater.publish_gate({source.name: source for source in a.payload})
     m = updater.validate({'schema': 1, 'version': a.version, 'news': a.news, 'files': files})
     target = a.site / 'releases' / a.version
     target.mkdir(parents=True, exist_ok=True)

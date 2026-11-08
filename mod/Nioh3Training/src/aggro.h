@@ -39,15 +39,15 @@ static int AgBosses(uint64_t* out, uint64_t* session) {
 }
 static __attribute__((noinline)) int AgTarget(uint64_t a, uint64_t comp, uint64_t perc, uint64_t me, int slow) {
     __try {
-        if (slow) ((void (*)(uint64_t, uint8_t, uint32_t))(B + 0x1FF1FA0))(comp, 1, 0);
+        if (slow) ((void (*)(uint64_t, uint8_t, uint32_t))(B + Grva(0x1FF1FA0)))(comp, 1, 0);
         int idx = PercFind(perc, me);
         if (idx >= 0 && *(int32_t*)(perc + 0x2D0) != idx) {
             int was = *(int32_t*)(perc + 0x2D0);
-            ((void (*)(uint64_t, int))(B + 0x2BE2E8))(perc, idx);
+            ((void (*)(uint64_t, int))(B + Grva(0x2BE2E8)))(perc, idx);
             if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO boss %p: current target %d -> player (entry %d)", (void*)a, was, idx);
         }
         uint64_t aiP = 0;
-        if (slow && Rd64(me + 0x3B0, &aiP) && aiP) ((void (*)(uint64_t, uint64_t, float))(B + 0x1FF23C8))(comp, aiP, 500.0f);
+        if (slow && Rd64(me + 0x3B0, &aiP) && aiP) ((void (*)(uint64_t, uint64_t, float))(B + Grva(0x1FF23C8)))(comp, aiP, 500.0f);
         return idx;
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO boss %p: native call faulted %08lX, aggro off for this game session", (void*)a, GetExceptionCode()); g_ag_off = 1; return -2; }
 }
@@ -86,7 +86,7 @@ static void AgDrillFace(uint64_t a) {
     if (yaw > 1e8f) return;
     __attribute__((aligned(16))) float m[16];
     __try {
-        ((void* (*)(float*, float))(B + 0x5ECE50))(m, yaw * 0.0174532925f);
+        ((void* (*)(float*, float))(B + Grva(0x5ECE50)))(m, yaw * 0.0174532925f);
         memcpy((void*)(a + 0x120), m, sizeof m);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("AGGRO face: native yaw matrix faulted %08lX, AggroFace off", GetExceptionCode()); g_cfg_aggro_face = 0; return; }
     if (InterlockedIncrement(&g_ag_logs) <= 200) Log("AGGRO drill: boss %p turned to the player (yaw %.1f) before the forced move", (void*)a, yaw);
@@ -265,10 +265,10 @@ static __attribute__((noinline)) int BossPlace(uint64_t a, const float* p3, floa
     float was[4] = {0};
     __try {
         memcpy(was, (void*)(a + 0x110), 16);
-        ((void (*)(uint64_t, const float*, int))(B + 0x669AB8))(a, p, 0);
-        ((void* (*)(float*, float))(B + 0x5ECE50))(m, yawDeg * 0.0174532925f);
+        ((void (*)(uint64_t, const float*, int))(B + Grva(0x669AB8)))(a, p, 0);
+        ((void* (*)(float*, float))(B + Grva(0x5ECE50)))(m, yawDeg * 0.0174532925f);
         memcpy((void*)(a + 0x120), m, sizeof m);
-        ((void (*)(uint64_t, int))(B + 0x66C330))(st, 0);
+        ((void (*)(uint64_t, int))(B + Grva(0x66C330)))(st, 0);
     } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RESETPOS %s %p: native call faulted %08lX", who, (void*)a, GetExceptionCode()); return 0; }
     Log("RESETPOS %s %p: %.0f %.0f %.0f -> %.0f %.0f %.0f yaw %.1f", who, (void*)a, was[0], was[1], was[2], p[0], p[1], p[2], yawDeg);
     return 1;

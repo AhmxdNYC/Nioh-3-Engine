@@ -1,0 +1,13 @@
+# Report 29: ordinary d-pad items must keep native speed
+
+Task #70067, result thread #70066. Base `pc/soulcore-22` ca9d19d9 so report #22's orb confirmation, late-spawn handling and learning fixes remain included. No game access or installation by this worker.
+
+pc2 reproduced the issue on public BR fe7ec45d, EF 1f8d71b6, TR 04781485: forms ON, FastThrow=8, FormHidePress=2, right talisman action 0x2718 lasted 0.20 s versus OFF 1.15 s standing / 0.62 s moving. The HasSkill(0xEDC9) hook treated any item query, including empty UP, as a successful seal use and immediately enabled the all-layer multiplier, movement correction and moving-body fade.
+
+The hook now only arms a pending check. It does not change the active throw timestamp, accepted-use timestamp or fade. The real motion-rate hook confirms only the shared player seal animation IDs 28FD/28FB/28B6 and historically documented running throw 28B2; these are animation IDs, not per-core or per-slot lists. A whole 28xx category is not accepted. Confirmation must occur within RunThrowConfirmMs, capped at 200 ms; a disabled/invalid confirmation timeout still uses a safe 200 ms pending limit. Repeated queries do not refresh a still-pending window.
+
+Only confirmed actions activate RunThrow and RunFade. An ordinary action immediately clears both active rate and run-fade state; the next layer-0 callback resets drag. Rate is returned from HkMotionSpeed rather than written into persistent game state, so the original game's rate resumes without guessing a restore value. Existing configured FastThrow action handling remains intact. The airborne refusal and original HasSkill answer when forms are OFF are unchanged.
+
+Offline validation: `tests/item29_hooks.py` extracts and compiles the actual HkHasSkill and HkMotionSpeed bodies, then drives fake game state through moving talisman queries both before/inside action 2718, repeated empty UP, all four seal animations, immediate cancellation, unrelated 28xx actions, timeout, forms OFF and AirBlock. This tests native 1.1 versus boosted 8.8 callback rates; it does not measure in-game action duration. `tests/sc22_replay.py` also passes against the historical #22 capture (its printed 200 ms cancellation description models the older rule; #29 now avoids the pre-confirmation boost entirely).
+
+pc2 next: same save/settings, forms OFF vs ON. Talisman must retain native duration (about 1.1 s standing in the evidence), no moving fade/drag, empty UP must not accelerate. LEFT standing and running seals must still throw quickly; human-ally 28B6 and airborne refusal need regression coverage. Exact runtime moving-seal action sequence and duration remain unproven until that retest. No ini changes required.

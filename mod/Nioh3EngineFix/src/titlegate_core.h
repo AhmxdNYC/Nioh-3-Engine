@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "gamerva.h"
 namespace titlegate {
 struct Sample {
     bool readable=false, title=false, queueEmpty=false, loading=true;
@@ -43,17 +44,17 @@ struct Gate {
 template<class Reader> Sample Read(uintptr_t base,Reader& rd) {
     Sample s;uintptr_t m=0,b=0,e=0,t=0,id=0,q0=0,q1=0,gm=0;
     uint8_t loading=1;
-    if(!rd(base+0x4709B50,m)||!m||!rd(m,b)||!rd(m+8,e)||!b||e<=b||e-b>512||((e-b)&7)||
+    if(!rd(base+Grva(0x4709B50),m)||!m||!rd(m,b)||!rd(m+8,e)||!b||e<=b||e-b>512||((e-b)&7)||
        !rd(e-8,t)||!t||!rd(t+8,id)||!rd(t+0x10,s.state)||
-       !rd(m+0x18,q0)||!rd(m+0x20,q1)||!rd(base+0x4759910,gm)||!gm||!rd(gm+0x58A,loading))return s;
-    s.title=id==base+0x44C91D0;
+       !rd(m+0x18,q0)||!rd(m+0x20,q1)||!rd(base+Grva(0x4759910),gm)||!gm||!rd(gm+0x58A,loading))return s;
+    s.title=id==base+Grva(0x44C91D0);
     if(s.title && (!rd(t+0x30,s.p30)||!rd(t+0x38,s.p38)||!rd(t+0x40,s.p40)||!rd(t+0x58,s.p58)))return s;
     uintptr_t a=0;uint32_t st=0;uint8_t lb=1;
     // Recheck every predicate-bearing value, not just the object address.
-    if(!rd(base+0x4709B50,a)||a!=m||!rd(m,a)||a!=b||!rd(m+8,a)||a!=e||
+    if(!rd(base+Grva(0x4709B50),a)||a!=m||!rd(m,a)||a!=b||!rd(m+8,a)||a!=e||
        !rd(e-8,a)||a!=t||!rd(t+8,a)||a!=id||!rd(t+0x10,st)||st!=s.state||
        !rd(m+0x18,a)||a!=q0||!rd(m+0x20,a)||a!=q1||
-       !rd(base+0x4759910,a)||a!=gm||!rd(gm+0x58A,lb)||lb!=loading)return s;
+       !rd(base+Grva(0x4759910),a)||a!=gm||!rd(gm+0x58A,lb)||lb!=loading)return s;
     if(s.title && (!rd(t+0x30,a)||a!=s.p30||!rd(t+0x38,a)||a!=s.p38||
                   !rd(t+0x40,a)||a!=s.p40||!rd(t+0x58,a)||a!=s.p58))return s;
     s.readable=true;s.manager=m;s.top=t;s.queueEmpty=q0==q1;s.loading=loading!=0;

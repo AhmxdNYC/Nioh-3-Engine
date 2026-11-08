@@ -53,6 +53,20 @@ class InstallTests(unittest.TestCase):
         self.run_install()
         self.assertEqual((self.game/"Nioh3Training_action_records.tsv").read_bytes(),b"combined payload")
         self.assertEqual((self.game/"Nioh3Training.ini").read_bytes(),b"USER TRAINING SETTINGS")
+
+    def test_update_replaces_all_five_name_lists_and_keeps_ini(self):
+        lists = ("Nioh3BossRematch_bosses.tsv", "Nioh3Training_actionsets.tsv",
+                 "Nioh3Training_action_records.tsv", "Nioh3Training_arenas.tsv", "Nioh3Training_bgm.tsv")
+        for name in lists + ("Nioh3Training.ini", "Nioh3BossRematch.ini"):
+            (self.package / name).write_bytes(b"new " + name.encode())
+            (self.game / name).write_bytes(b"old " + name.encode())
+        (self.package / "SHA256SUMS.txt").write_text(
+            "\n".join(m.sha(self.package / n) + "  " + n for n in m.FILES if (self.package / n).exists()))
+        self.run_install()
+        for name in lists:
+            self.assertEqual((self.game / name).read_bytes(), b"new " + name.encode())
+        self.assertEqual((self.game / "Nioh3Training.ini").read_bytes(), b"old Nioh3Training.ini")
+        self.assertEqual((self.game / "Nioh3BossRematch.ini").read_bytes(), b"old Nioh3BossRematch.ini")
         self.assertEqual((self.saves/"account/SAVEDATA.BIN").read_bytes(),b"CURRENT SAVE")
 
     def test_running_game_refused_before_backup(self):

@@ -42,7 +42,10 @@ constexpr int kSaveLiveRow = kSaveRefreshRow + 1;
 constexpr int kSaveOpenRow = kSaveLiveRow + 1;
 constexpr int kSaveNamedFirst = kSaveOpenRow + 1;
 constexpr int kReverseModsRow = kSaveNamedFirst + savefiles::kMaxSlots;  // human #45507: first page, after 'Update + Page'
-constexpr int kMenuRowCap = kReverseModsRow + 1;
+constexpr int pVrsTune = -4;  // #79098 private subpage, same reason as pSaveFiles
+constexpr int kVrsPageRow = kReverseModsRow + 1;
+constexpr int kVrsRowFirst = kVrsPageRow + 1;  // vrsmenu::Row order
+constexpr int kMenuRowCap = kVrsRowFirst + vrsmenu::kRowN;
 static_assert(kFrameMeterStyleRow < kMenuRowCap, "frame meter style must fit the menu id cap");
 static_assert(kWeatherRow < kMenuRowCap, "Display sky rows must fit the menu id cap");
 static_assert(kPsAllKeysRow < kMenuRowCap, "frame meter master rows must fit the menu id cap");
@@ -57,11 +60,12 @@ const char* const kPageNames[] = {"Mod menu", "Optimizations", "Display Overlays
 inline const char* PageName(int page) {
     if (page == pSaveFiles) return "Save files";
     if (page == pSaveActions) return "Selected save";
+    if (page == pVrsTune) return "Variable rate shading";
     return page >= pCfgFirst && page < pCount ? kConfigGroupLabels[page - pCfgFirst] : kPageNames[page];  // user #13296: plain group names
 }
 inline int SettingsPage(int id) {
     if (id == kPage) return pDisplay;  // grouped mode hides it (Visible); the two-page menu does not use this
-    if (id >= kEpPre && id <= kEp9) return pExtra;
+    if (id == kVrs || id == kRd || id == kSharp || (id >= kEpPre && id <= kEp11)) return pExtra;
     if (id == kXTS || id == kXWS) return pDisplay;  // #37433: timing / wake diagnostics are on-screen readouts, not a fix
     if (id == kXRTP || id == kXPCM) return pScheduling;
     if (id == kXAS || id == kXPJH || (id >= kXVSMA && id <= kXCLDR)) return pGpu;

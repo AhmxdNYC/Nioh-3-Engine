@@ -250,6 +250,11 @@ inline Cmd Parse(const char* line) {
         if (n == 4 && IEq(tok[1], "set")) {
             c.op = Op::MenuSet;
             snprintf(c.key, sizeof(c.key), "%s", tok[2]);
+            if (IEq(tok[2], "HideHudIds")) {
+                if (strlen(tok[3]) >= sizeof(c.text)) return Bad("HUD ID list too long");
+                snprintf(c.text, sizeof(c.text), "%s", tok[3]);
+                return c;
+            }
             if (IEq(tok[3], "on") || IEq(tok[3], "true")) c.value = 1;
             else if (IEq(tok[3], "off") || IEq(tok[3], "false")) c.value = 0;
             else if (!ParseInt(tok[3], c.value)) return Bad("menu set value must be an integer or on/off");
@@ -263,7 +268,7 @@ inline Cmd Parse(const char* line) {
 inline const char* HelpText() {
     return "commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | "
            "stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | "
-           "wait <ms> | log <text> | realpads on|off";
+           "menu set HideHudIds <id,id,...|none> | wait <ms> | log <text> | realpads on|off";
 }
 
 // ---- composer ------------------------------------------------------------------------------------------------------------

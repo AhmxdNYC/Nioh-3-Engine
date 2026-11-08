@@ -112,8 +112,9 @@ void OnPresent();
 // appends the menu / pause hint / hold indicator quads through osd::DrawRect/DrawText. Returns the text scale the
 // quads were laid out for (0 = nothing drawn); osd draws them with that scale.
 float Draw(unsigned W, unsigned H);
-float PanelScale(unsigned W, unsigned H);  // #38102/#38167: shared by the right-side panel and the left FPS overlay
+float PanelScale(unsigned W, unsigned H);  // right-side menu panel only; the FPS counter uses osd::CounterScale
 bool CoverTipAllowed(); // bounded covered-Fight-only tip confirmation, no preference change
+extern volatile long g_entryTip; // Training entry cover: answer the post-load tip while that screen is up
 bool IsOpen();
 cover_present::Identity CoverDrawn(uint64_t swapchain,uint64_t contextGeneration);
 void CoverPresented(const cover_present::Ticket& ticket,uint64_t currentGeneration,int32_t result);
@@ -130,6 +131,8 @@ const char* OpenHint();
 // item (WakeStats), or FPS / FrameTime / Speed. Bool items take 0/1, R1 0-16, maxlatency 0-3, PauseHint 0-2. Frame generation
 // and Save are not remote. Returns 0 ok (reply = "<label> = <value>"), < 0 error (reply says why).
 int Remote(const char* key, int set, int value, char* reply, size_t n, unsigned timeoutMs);
+// Raw HUD widget mask on Present thread: comma-separated 0..255, "none" to clear, nullptr to query.
+int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs);
 // vpad.cpp: filter for the game's 256-byte DirectInput keyboard reads, called before the menu looks at them (true = report
 // success to the game). Set before osd::Start.
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk));

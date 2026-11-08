@@ -142,6 +142,9 @@ void HostedTick() {
         else if (action.action == mb::OpenRematch || action.action == mb::OpenPractice) {  // user #13223
             rematch::UiClearHostMenu(); g_bridgeHostMenu = false; Toggle(true); rematch::UiOpenAt(action.action == mb::OpenRematch ? 1 : 2);
         }
+        else if (action.action == mb::ResumeRematch || action.action == mb::ResumePractice) {  // #79226: LB / RB back to the page it was left on
+            rematch::UiClearHostMenu(); g_bridgeHostMenu = false; Toggle(true); rematch::UiOpenAt(action.action == mb::ResumeRematch ? 1 : 2, true);
+        }
         else if (g_open.load()) {
             switch (action.action) {
                 case mb::Up: rematch::UiMove(-1); break;
