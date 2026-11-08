@@ -154,3 +154,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-08 12:08 am EST | #82327 primary prefers pressed ID, all-source ghost/fade/x2 tail and append smoke implemented | 229 last-hit + 24 primary/ghost/smoke checks PASS; live unproven | next Release rebuild and regression suites | cx-pc/primary-82327
 
 2026-11-08 12:10 am EST | #82327 Release BR fbfd93d4 bridge #6403, source c24591f5 | 849 offline checks + sc22 PASS, live visuals unproven | next pc test primary 16127, group exit, Doji/60B86 + float | cx-pc/primary-82327, notes/primary-82327.md
+- 2026-11-08 12:14 AM EST | cx-pc/1 #82344 DONE offline: BR abac6e93 file #6407 (replaces #6406), code 6c5d4eed pushed cx-pc/early-ground-82344 atop primary/all-actor 90436690.
+- Release +871 checks + available sc22 PASS. A2ACB .274s excluded, real hit retained, A4 count relearn; exact press-Y restore fixes 21784->21792. Next pc2 first/repeat DOWN plus primary/Doji/60B86 and slope/Y video/log gate. No game touched; notes/early-ground-82344.md.
