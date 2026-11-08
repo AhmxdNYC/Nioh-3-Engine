@@ -135,3 +135,5 @@ Next: pc live unknown-count first/second use; all transition timing/look unchang
 No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi. Source branch cx-pc/appear-hit-gate-81988; notes/last-hit-exit-81898.md.
 2026-11-07 10:48 PM EST | cx-pc #82001 follow-up to #81988: 79 targeted checks PASS including whole-form 60B86 collider to 3.119 s (unknown and stale count=1), no circular/despawn relearn; Ibaraki exits at 1.55 open, not 1.67 close.
 Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acceptance. Files tests/last_hit_exit_offline.py and notes/last-hit-exit-81898.md.
+
+2026-11-07 10:56 pm EST | #82033 bind-window regression fix built; 445 offline checks + sc22 pass | live validation pending pc | next: pc install ASI and retest Ibaraki/60B86 | cx-pc/bind-window-82033
