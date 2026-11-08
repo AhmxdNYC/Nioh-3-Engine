@@ -1267,6 +1267,7 @@ std::atomic<bool> g_scForms{true};
 std::atomic<bool> g_pickOff{false};
 std::atomic<int> g_pickDir{0};
 std::atomic<double> g_pickT{-100};
+std::atomic<bool> g_pickLearned{false};  // #81275: only the FIRST spawn hit after a d-pad press learns the core / suppresses
 std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
 constexpr int kOffMax = 16;
 std::atomic<uint32_t> g_offIds[kOffMax];
@@ -1319,7 +1320,7 @@ void PickPoll() {
     if (held && held != heldPrev) {
         const uint32_t core = g_slotCore[held].load();
         const bool off = CoreIsOff(core);
-        g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off);
+        g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
         Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
             !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
     } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
@@ -1331,6 +1332,8 @@ void PickPoll() {
 void PickLearn(uint32_t id) {
     if (!id) return;
     const int dir = (Now() - g_pickT.load() < 3.0) ? g_pickDir.load() : 0;
+    // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
+    if (dir && g_pickLearned.exchange(true)) { Log("FormCore %X dir=%c: later spawn hit in the same press ignored (core not changed)", id, dir == 1 ? 'L' : 'D'); return; }
     if (dir) {
         if (g_slotCore[dir].exchange(id) != id)
             WritePrivateProfileStringW(L"Spirit", dir == 1 ? L"FormCoreLeft" : L"FormCoreDown", [&] { static wchar_t t[16]; swprintf(t, 16, L"%X", id); return t; }(), IniPath());
@@ -4110,7 +4113,9 @@ void FormHide4Tick(uint64_t player) {
                            cap = sc; capT = st; fresh = true; spawnBegin = true;
                        }
                    }
-                   if (!ScOn() && pendAt <= 0) {  // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
+                   if (!ScOn() && (pendAt <= 0 || g_pickOff.load())) {  // #81275: a pick-OFF core cancels an already armed begin too
+                       pendAt = 0;
+                       // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
                        if (fresh) { if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; } }
                        return false;
                    }
