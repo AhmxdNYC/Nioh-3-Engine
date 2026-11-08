@@ -128,3 +128,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 4:37 am EST | cx-pc #83344 / #83510: Ally gate 1/3 PASS verified in #83484 (pyz 6ae37c19, exact candidate ASIs, 5/5 soul-core uses, Fight now, no crash; baseline and saves restored).
   PC #83413 and pc2 #83414 still running. Next: wait for lead to forward both PASS, then merge/publish/verify. Do not launch duplicate tests or publish yet. Candidate assets and hashes remain #6526-6535.
+
+- 2026-11-08 4:50 am EST | cx-pc #83559: all three gates verified (PC #83413, pc2 #83556, Ally #83484); source merged/pushed to main ca394dc8. No new offline failure remains; 18 baseline exceptions documented.
+  Publication prepared in D:/nioh3-wt/site-release-1811; tested payloads unchanged. Next: GitHub v1.8.11 assets, Vercel deployment, live hash verification, latest-build update.

@@ -192,3 +192,6 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
   PC #83413 and pc2 #83414 still running. Next: wait for lead to forward both PASS, then merge/publish/verify. Do not launch duplicate tests or publish yet. Candidate assets and hashes remain #6526-6535.
 - 11-08 4:20 am EST pc/6: human #83340 -> release 1.8.11 TASK #83344 to cx-pc (merge fbec06ad + soul-core lines, build all assets, gates pc/pc2/ally, publish). Next lead: when files post, TASK pc slot (non-Claude) install+smoke, pc2 Setup.exe, ally pyz.
 - 11-08 4:31 am EST pc/6: 1.8.12 = favorites-on-top + Player settings tab, cxl-pc #83430 on cx-pc/fav-top-83427 (from 1.8.11 src 78685099). After 1.8.11 publishes, pc/0 gates + publishes 1.8.12 via GPT workers. Human #83450: Claude silent, installs only.
+
+- 2026-11-08 4:50 am EST | cx-pc #83559: all three gates verified (PC #83413, pc2 #83556, Ally #83484); source merged/pushed to main ca394dc8. No new offline failure remains; 18 baseline exceptions documented.
+  Publication prepared in D:/nioh3-wt/site-release-1811; tested payloads unchanged. Next: GitHub v1.8.11 assets, Vercel deployment, live hash verification, latest-build update.
