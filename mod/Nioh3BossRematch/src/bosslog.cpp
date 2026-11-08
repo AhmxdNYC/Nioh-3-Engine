@@ -1312,9 +1312,10 @@ void CoreSeen(uint32_t id, int dir) {
     for (auto& s : g_seen) { uint32_t z = 0; if (s.id.compare_exchange_strong(z, id)) { s.dir.store(dir); return; } }
 }
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
+WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
 void PickPoll() {
     static int heldPrev = 0;
-    const WORD bt = PadButtons(nullptr, nullptr);
+    const WORD bt = PickPadButtons();
     const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
     const double now = Now();
     if (held && held != heldPrev) {
@@ -2987,6 +2988,16 @@ void** FbXInputSlot() {
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {}
     return nullptr;
+}
+// #81339: PadButtons() asks xinput's export, which the pipe pad (game IAT patch) never reaches; the pick reads the game's import
+// instead (the one below any FormBlockPad hook: no masking / style injection), falling back to PadButtons().
+WORD PickPadButtons() {
+    static void** slot = FbXInputSlot();
+    FbXGet f = g_fbPrev ? g_fbPrev : (slot ? (FbXGet)*slot : nullptr);
+    if (!f || f == (FbXGet)&HkFormBlockPad) return PadButtons(nullptr, nullptr);
+    struct { DWORD pkt; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } st = {};
+    for (DWORD u = 0; u < 4; ++u) if (f(u, &st) == 0) return st.buttons;
+    return 0;
 }
 void FormBlockSet(bool on) {
     if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
