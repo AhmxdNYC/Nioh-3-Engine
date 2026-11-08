@@ -2762,8 +2762,9 @@ struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = fals
 FormFollowGroundState g_followGround;
 struct FollowGroundAnchor { uint64_t owner=0; float x=0,y=0,z=0; double at=-100; };
 FollowGroundAnchor g_followAnchor;
-bool FormFollowWrite(uint64_t player, const float* target) {
+bool FormFollowWrite(uint64_t player, const float* target, bool* didWarp = nullptr) {
     const bool warped = g_fhWarp.load() && FormPinWarpCall(player,target);
+    if (didWarp) *didWarp=warped;
     if (!warped) return WrBytes(player+0x110,target,16);
     float actual[4]={};
     if (!Copy(actual,player+0x110,16) || !std::isfinite(actual[0]) || !std::isfinite(actual[1]) || !std::isfinite(actual[2])) return false;
@@ -2813,7 +2814,8 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     if (!Copy(pos, cap + 0x110, 16) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
     float followPos[4]; memcpy(followPos, pos, sizeof(followPos));
     if (!FormFollowGroundTarget(pchr, followPos)) return false;
-    if (!FormFollowWrite(pchr,followPos)) return false;
+    bool warped=false;
+    if (!FormFollowWrite(pchr,followPos,&warped)) return false;
     g_followGround.used = true;
     float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
