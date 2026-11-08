@@ -4864,7 +4864,8 @@ void SieRead(uint64_t chr, SieSample& s) {
 }
 void SealIdleEndTick() {
     const int mode = g_sieMode.load(), lg = g_sieLog.load();
-    if (mode <= 0 && lg <= 0) return;
+    const bool hitFallback = g_ghostOn.load() > 0 && g_coverOn.load() > 0;
+    if (mode <= 0 && lg <= 0 && !hitFallback) return;
     static uint64_t seal = 0;
     static uint32_t sid = 0;
     static double t0 = 0, segT = 0, holdT = 0, nextPresent = 0;
@@ -4937,7 +4938,11 @@ void SealIdleEndTick() {
     const SieSample was = prev;
     prev = s;
     if (s.act != 1 && s.act != 0 && s.act != 0xFFFF && s.act != 0xFFFFFFFF) seenAtk = true;
-    if (fired || !formOn || mode <= 0 || !seenAtk || ms < g_sieMinMs.load()) return;
+    // A resumed attack invalidates a latched terminal edge while a helper was still active.
+    if (fired && change && s.act != 1 && s.act != 0 && s.act != 0xFFFF && s.act != 0xFFFFFFFF) {
+        fired = false; g_sieFireSeal = 0;
+    }
+    if (fired || !formOn || (mode <= 0 && !hitFallback) || !seenAtk || ms < g_sieMinMs.load()) return;
     const char* why = nullptr;
     if (s.act == 1 && pa != 1) why = "act->idle 0x1";
     else if (g_sieLoop.load() > 0 && change && both && s.loop && !was.loop && prevSegEnded) why = "looping motion after the attack motion ended";
@@ -5686,15 +5691,8 @@ void SealTailHitTick() {
         w.previous.swap(current);
         if (newCluster) {
             ++w.bursts;
-            const wchar_t* section = w.atkOnly ? L"SealHitsA4" : L"SealHits4";
-            wchar_t key[16], value[16]; swprintf_s(key, L"%X", w.sid);
-            const int had = (int)GetPrivateProfileIntW(section, key, 0, IniPath());
-            if (w.bursts > w.atExit && w.bursts > had) {
-                swprintf_s(value, L"%d", w.bursts);
-                WritePrivateProfileStringW(section, key, value, IniPath());
-                Log("SealTailHits core %X: post-exit burst %d at +%.3f, raise %d -> %d in [%ls]", w.sid,
-                    w.bursts, now - w.sess, had, w.bursts, section);
-            }
+            // Post-exit effects/actor reuse are diagnostic only, never training data.
+            Log("SealTailHits core %X: post-exit burst %d at +%.3f (diagnostic only)",w.sid,w.bursts,now-w.sess);
         }
         w.open = n > 0;
         ++it;
@@ -5746,7 +5744,7 @@ void SealEndOnHitTick() {
         if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
             if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
-            if (bursts > had || (bursts < had && lowerEligible)) {
+            if (!had || (bursts < had && lowerEligible)) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
@@ -5805,7 +5803,7 @@ void SealEndOnHitTick() {
     const int exitAtLastHitMs = g_exitAtLastHitMs.load();
     // Opening a hit must never route to despawn: only enable this early rule with ghost exit available.
     const bool atOpen = exitAtLastHitMs != -9999 && g_ghostOn.load() > 0;
-    const bool idleFire = g_sieMode.load() > 0 && seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want);
+    const bool idleFire = seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want);
     if (natural && !idleOnly && !atOpen) {
         // human #61113/#61119: with a known hit count the smoke starts at THIS form's real last close, never from a learned time
         const bool lastDone = want && bursts >= want && !open && lastClose > 0;
@@ -5922,13 +5920,17 @@ void SealEndOnHitTick() {
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
     if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
-    if (idleFire && !fire) {
+    // Default hit fallback needs a real observed hit and a readable, empty attack pool.
+    // An idle edge alone can precede a helper attack; never truncate active attack windows.
+    const bool terminalFallback = g_sieMode.load() > 0 ||
+        (g_ghostOn.load() > 0 && g_coverOn.load() > 0 && poolOk && bursts > 0 && !n && !open && lastClose > 0);
+    if (idleFire && !fire && terminalFallback) {
         // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
         // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
         if (poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0) {
             const int had = SealHitsFor(sid);
             if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
-            if (bursts > had || (bursts < had && lowerEligible)) {
+            if (!had || (bursts < had && lowerEligible)) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",

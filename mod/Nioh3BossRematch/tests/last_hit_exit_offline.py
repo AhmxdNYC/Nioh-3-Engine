@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 root=Path(__file__).resolve().parent.parent
 src=(root/'src/bosslog.cpp').read_text(encoding='utf-8')
+motion=src[src.index('void SealIdleEndTick()'):src.index('// SealEndOnHit=1 (pc #57014')]
 tick=src[src.index('struct SealTailHitWatch'):src.index('struct SlSnap')]
 tune=src[src.index('double SoulTune('):src.index('// human #61869: Player settings')]
 load=src[src.index('    const int lastHitMs = IniInt'):src.index('    g_plFadeMs = IniInt')]
@@ -52,7 +53,9 @@ bool censusMode=false,censusBodies=false;std::map<uint64_t,uint64_t> census;
 bool persistent=false,extraAttack=false;uint64_t extraOwner=456;
 bool attack=false,poolReadable=true,bodyOnly=false,manualAction=false;
 uint32_t action=0x4E57,coreId=0x5129B;
-struct SieSample {uint32_t act=0xFFFFFFFF;};
+struct SieSample {uint32_t act=0xFFFFFFFF;uint16_t mot=0,fact=0;float f=0,e=0,rate=0;uint8_t loop=0;bool moOk=false;};
+std::atomic<int> g_sieLog{0},g_sieMinMs{300},g_sieLoop{1},g_sieHold{1},g_sieHoldMs{100};
+struct {uint64_t actorGlobal=1;} g_fhEnd;
 void SieRead(uint64_t,SieSample& s){s.act=action;}
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
@@ -212,12 +215,12 @@ int main(){
  ini.clear();legacyIni[L"60B86"]=L"1";legacyIni[L"5129B"]=L"2";
  g_sehAtk=1;check(ReadLearnedHits(0x60B86)==0&&ReadLearnedHits(0x5129B)==0);
  g_sehAtk=0;check(ReadLearnedHits(0x60B86)==0&&ReadLearnedHits(0x5129B)==0);g_sehAtk=1;
- // An early current-generation count can raise itself from additional observed tail bursts.
+ // Post-exit bursts stay diagnostic and cannot poison the next use.
  ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;
  extraAttack=true;step(.533,false);step(.7,false);check(smokes==1&&g_tailHitWatches.size()==1);
  g_fh4.owner=0;extraAttack=false;step(.9,false);check(ini[L"60B86"]==L"1");
- extraAttack=true;step(1.3,false);check(ini[L"60B86"]==L"2"&&smokes==1&&writtenSection==L"SealHitsA4");
- extraAttack=false;step(1.6,false);extraAttack=true;step(2.1,false);check(ini[L"60B86"]==L"3"&&smokes==1);
+ extraAttack=true;step(1.3,false);check(ini[L"60B86"]==L"1"&&smokes==1);
+ extraAttack=false;step(1.6,false);extraAttack=true;step(2.1,false);check(ini[L"60B86"]==L"1"&&smokes==1);
  tailPresent=0;step(3.15,false);check(g_tailHitWatches.empty());
  // No extra burst: never teach a count solely because our own last-hit rule fired.
  ini.clear();start(1);step(.533,true);step(.7,true);g_fh4.owner=0;step(.9,false);tailPresent=0;step(3.15,false);
@@ -226,13 +229,13 @@ int main(){
  ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;extraAttack=true;step(.533,false);step(.7,false);
  poolReadable=false;step(.9,false);poolReadable=true;step(1.1,false);check(ini[L"60B86"]==L"1");
  g_fh4.owner=0;extraAttack=false;step(1.2,false);g_fh4.owner=123;g_fh4.seal=777;extraAttack=true;step(1.4,false);
- check(ini[L"60B86"]==L"2"&&smokes==1);
+ check(ini[L"60B86"]==L"1"&&smokes==1);
  // Max-only and stored section survive live mode changes; unknown liveness cannot invent edges.
  ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;extraAttack=true;step(.533,false);step(.7,false);
  ini[L"60B86"]=L"5";g_fh4.owner=0;extraAttack=false;step(.9,false);extraAttack=true;step(1.2,false);check(ini[L"60B86"]==L"5");
  tailPresent=-1;extraAttack=false;step(1.4,false);tailPresent=1;extraAttack=true;step(1.6,false);check(ini[L"60B86"]==L"5");
  extraAttack=false;step(1.8,false);ini[L"60B86"]=L"2";g_sehAtk=0;extraAttack=true;step(2.1,false);
- check(ini[L"60B86"]==L"3"&&writtenSection==L"SealHitsA4");g_sehAtk=1;
+ check(ini[L"60B86"]==L"2");g_sehAtk=1;
  step(31.0,false);check(g_tailHitWatches.empty());
  // Doji known corrected count still exits on the second live opening at 1.517 s.
  ini.clear();ini[L"5129B"]=L"2";start(-1);first();step(1.517,true);
@@ -257,7 +260,7 @@ int main(){
  census[0x24000]=456;step(1.517,false);check(smokes==1&&std::abs(g_ghostReqAt.load()-(base+1.617))<.00001);
  // Corrected tail observer also counts new-object clusters while the old attack remains open.
  ini.clear();start(1);censusMode=true;census={{0x22000,456}};step(.7,false);g_fh4.owner=0;step(.8,false);
- census[0x23000]=456;step(1.2,false);check(ini[L"5129B"]==L"2");census[0x24000]=456;step(1.25,false);check(ini[L"5129B"]==L"2");
+ census[0x23000]=456;step(1.2,false);check(!ini.count(L"5129B"));census[0x24000]=456;step(1.25,false);check(!ini.count(L"5129B"));
  // #82289: first actor precedes observer start; second actor is the visible bound seal.
  ini.clear();start(-1,0,false,false,0xC17E3);
  g_fh4.owner=0;SealEndOnHitTick();clockNow=base+.4;g_pressSnap.t=base;g_pickCore=0x16127;
@@ -271,7 +274,7 @@ int main(){
  check(extraSmokes>0);
  // Tail identity is bound actor C17E3, while learning stays under pressed 16127.
  g_fh4.owner=0;step(2.1,false);census[0x23000]=789;step(2.4,false);
- check(ini[L"16127"]==L"2"&&!g_tailHitWatches.empty());
+ check(ini[L"16127"]==L"1"&&!g_tailHitWatches.empty());
  // A stale actor from before the snapshot cannot supply a hit; >8 sources remain eligible.
  start(1,0,false);g_fh4.owner=0;SealEndOnHitTick();g_pressSnap.t=base;g_pickCore=0x16127;
  g_sehKid[0]=789;g_sehKidT[0]=base-.1;g_sehKid[1]=0;g_hitSourceSnapshot=base;
@@ -363,11 +366,35 @@ int main(){
   start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;census={{0x40000,789}};step(1,false);
   census={{0x70000,789}};step(1.118,false);check(!smokes);census={{0x80000,456}};step(final,false);check(smokes==1);
  }
- // A stale low count is raised by the identical source-boundary rule in the invisible tail.
+ // Invisible tail source-boundary observations never change the learned count.
  ini.clear();ini[L"5129B"]=L"1";start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
  census={{0x40000,789}};step(1,false);check(smokes==1);g_fh4.owner=0;
  census={{0x70000,789}};step(1.118,false);check(ini[L"5129B"]==L"1");
- census={{0x80000,456}};step(1.235,false);check(ini[L"5129B"]==L"2");
+ census={{0x80000,456}};step(1.235,false);check(ini[L"5129B"]==L"1");
+ // #82679 u6 -> u8: exit at1, two tail bursts, next use still exits at1.
+ ini.clear();ini[L"A2ACB"]=L"1";start(-1,0,true,false,0xA2ACB);g_sieMode=0;
+ step(.8,true);check(smokes==1);g_fh4.owner=0;step(1,false);
+ step(1.3,true);step(1.5,false);step(2,true);check(ini[L"A2ACB"]==L"1");
+ start(-1,0,true,false,0xA2ACB);g_sieMode=0;step(.8,true);check(smokes==1&&g_ghostReq==456);
+ // Already poisoned count3, and LEFT expected2/observed1: default terminal fallback.
+ for(int expected:{2,3}){
+  start(expected);g_sieMode=0;step(.8,true);check(!smokes);g_sieFireSeal=456;
+  step(1.1,true);check(!smokes); // terminal edge cannot suppress an active helper/hit
+  step(1.3,false);check(smokes==1&&g_ghostReq==456);
+ }
+ start(2);g_sieMode=0;g_sieFireSeal=456;step(1,false);check(!smokes); // no real hit
+ start(2);g_sieMode=0;first();g_sieFireSeal=456;poolReadable=false;step(1.5,false);check(!smokes);
+ poolReadable=true;step(1.6,false);check(smokes==1); // recover readable pool
+ // Actual motion watcher, default mode/log both0: C53 -> idle drives the short-count exit.
+ for(int expected:{2,3}){
+  g_fh4.owner=0;SealIdleEndTick();start(expected);g_sieMode=0;manualAction=true;action=0xC53;
+  SealIdleEndTick();step(.8,true);SealIdleEndTick();step(1,false);check(!smokes);
+  clockNow=base+1.2;action=1;SealIdleEndTick();check(g_sieFireSeal==456);
+  SealEndOnHitTick();check(smokes==1&&g_ghostReq==456);
+ }
+ // Complete longer observation cannot raise a previously learned minimum.
+ ini.clear();ini[L"5129B"]=L"1";start(-1);g_sieMode=1;first();step(1.5,true);step(1.7,false);
+ g_sieFireSeal=456;step(2,false);check(ini[L"5129B"]==L"1");
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
@@ -382,8 +409,10 @@ int main(){
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }
 '''
-out=root/'build/last-hit-test';out.mkdir(parents=True,exist_ok=True);unit=out/'last-hit.cpp';unit.write_text(pre+tick+tune+ui,encoding='utf-8')
+out=root/'build/last-hit-test';out.mkdir(parents=True,exist_ok=True);unit=out/'last-hit.cpp';unit.write_text(pre+motion+tick+tune+ui,encoding='utf-8')
 setup=Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat');exe=out/'last-hit.exe'
 cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /I"{root / "src"}" /Fo"{out / "last-hit.obj"}" /Fe"{exe}" "{unit}"'
 r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()
 subprocess.run([str(exe)],check=True,timeout=30)
+
+
