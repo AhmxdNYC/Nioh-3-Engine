@@ -2838,6 +2838,14 @@ uint32_t NavRepeat(uint32_t pressed, ULONGLONG t) {
     for (int i = 0; i < 4; ++i)
         if (t - (ULONGLONG)g_padHeldAt[i] < 300) held |= PadNav((uint32_t)g_padHeld[i]);
     if (t - (ULONGLONG)g_keyHeldAt < 300) held |= KeyNav((uint32_t)g_keyHeld);
+    // Scrolling owns the vertical axis for the whole hold, not just its repeat frames.
+    // Staggered diagonal holds otherwise interleave Left/Right edits between Up/Down
+    // repeats (e.g. marking every boss passed). Clear those repeat timers below too,
+    // so releasing vertical does not turn the remaining horizontal hold into an edit.
+    if ((pressed | held) & (N_UP | N_DOWN)) {
+        pressed &= ~(N_LEFT | N_RIGHT);
+        held &= ~(N_LEFT | N_RIGHT);
+    }
     uint32_t acts = 0;
     for (int d = 0; d < 4; ++d) {
         if (pressed & kNavDirs[d]) {
