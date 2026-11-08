@@ -35,6 +35,7 @@ double Now(){return clockNow;}
 void Log(const char*,...){}
 namespace addon { namespace bosslog {
 WORD PickPadButtons(){return buttons;}
+bool formActive=false;bool PickFormActive(){return formActive;}
 void PickEquipmentTick(){} // live reads are tested independently; model delayed worker completion here
 '''
 ui = r'''
@@ -52,7 +53,7 @@ using namespace addon::rematch;
 int checks=0;
 void check(bool v){++checks;if(!v){printf("FAIL check %d\n",checks);abort();}}
 void reset(bool clearIni=true) {
- buttons=0;clockNow+=20;PickPoll();
+ formActive=false;buttons=0;clockNow+=20;PickPoll();
  if(clearIni)ini.clear();
  g_scForms=true;g_pickOff=false;g_pickDir=0;g_pickT=-100;g_pickCore=0;g_pickLearned=false;g_offN=0;
  for(auto& v:g_offIds)v=0;
@@ -63,9 +64,15 @@ void reset(bool clearIni=true) {
  for(auto& v:g_seen){v.id=0;v.dir=0;}
  CoreOffLoad();
 }
-void press(int dir){buttons=0;PickPoll();clockNow+=.1;buttons=dir==1?4:2;PickPoll();}
+void press(int dir){buttons=0;PickPoll();clockNow+=.5;buttons=dir==1?4:2;PickPoll();}
 std::string row(int slot){char b[512];uint32_t c=0;SctRowText(kItScCore+slot,false,"",b,sizeof b,&c);return b;}
 int main(){
+ reset();g_slotCore[1]=0x5B402;g_slotCore[2]=0xA65A1;press(2);
+ const double accepted=g_pickT.load();clockNow+=.133;buttons=4;PickPoll();
+ check(g_pickCore==0xA65A1&&g_pickDir==2&&g_pickT==accepted);
+ formActive=true;clockNow+=1;buttons=0;PickPoll();buttons=4;PickPoll();
+ check(g_pickCore==0xA65A1&&g_pickDir==2&&g_pickT==accepted);
+ formActive=false;press(1);check(g_pickCore==0x5B402&&g_pickDir==1);
  uint32_t ids[10];int dirs[10];
  reset();check(FormCoreSeen(ids,dirs,10)==2);check(ids[0]==0&&ids[1]==0&&dirs[0]==1&&dirs[1]==2);
  std::vector<int> rows;SctAddCoreRows([&](int r){rows.push_back(r);});check(rows.size()==2);

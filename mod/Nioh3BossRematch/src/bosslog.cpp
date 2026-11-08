@@ -1352,6 +1352,7 @@ void CoreSeen(uint32_t id, int dir) {
 // d-pad edge: decide for this press (game thread: tick, HkHasSkill).
 WORD PickPadButtons();  // #81339: d-pad through the game's own XInputGetState import (sees pc2's pipe pad)
 void PickEquipmentTick();
+bool PickFormActive();
 void PickPoll() {
     PickEquipmentTick();
     static int heldPrev = 0;
@@ -1359,6 +1360,12 @@ void PickPoll() {
     const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
     const double now = Now();
     if (held && held != heldPrev) {
+        if (g_pickDir.load() && held != g_pickDir.load() &&
+            (PickFormActive() || (now >= g_pickT.load() && now - g_pickT.load() < .300))) {
+            Log("FormCore direction edge ignored during current press: dir=%c kept=%c t=%.3f",
+                held == 1 ? 'L' : 'D', g_pickDir.load() == 1 ? 'L' : 'D', now);
+            heldPrev = held; return;
+        }
         AcquireSRWLockShared(&g_coreEditLock);
         const bool equipped = g_equippedReady.load();
         const uint32_t core = equipped ? g_equippedCore[held - 1].load() : g_slotCore[held].load();
@@ -3078,6 +3085,7 @@ struct Fh4State {
     double followT0 = 0;
 };
 Fh4State g_fh4;
+bool PickFormActive() { return g_fh4.owner != 0; }
 bool FormSealContinuation(uint64_t actor) { return actor && g_fh4.owner && actor == g_fh4.seal; }
 // pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
 // button mask dropped from the game's XInputGetState for that window (default 0xFF4F = every button except Start, Back and R3: attacks,
@@ -5628,6 +5636,10 @@ void PressGhostTick() {
         else GhostHideSeal(g.actor);
     }
 }
+bool SealTimingIdentityMatches(uint64_t seal, uint32_t sid) {
+    uint32_t key = 0;
+    return sid && Rd(seal, key) && (key >> 4) == sid;
+}
 struct SealTailHitWatch {
     uint64_t seal = 0, player = 0;
     uint32_t sid = 0, boundId = 0;
@@ -5724,7 +5736,7 @@ void SealEndOnHitTick() {
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
     static int prevRaw = -1, prevMasked = -1, censusLines = 0;
-    static uint32_t sid = 0, pressedId = 0, boundId = 0;
+    static uint32_t sid = 0, boundId = 0;
     static double sourceSince = 0;
     static std::vector<uint64_t> sources;
     static std::map<uint64_t, int> sourceCensus;
@@ -5743,7 +5755,7 @@ void SealEndOnHitTick() {
         if (!on && seal && sid && !fired && !complete)
             Log("SealEndOnHit core %X: form ended by %s after %.3f s with %d bursts - not a complete form, nothing learned", sid, g_fh4EndWhy,
                 Now() - sess, bursts);
-        if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
+        if (seal && sid && !fired && bursts > 0 && complete && censusComplete && SealTimingIdentityMatches(seal, sid)) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
             if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
@@ -5758,7 +5770,6 @@ void SealEndOnHitTick() {
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
-        pressedId = on ? g_pickCore.load() : 0;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
         // Use the accepted press snapshot, not observer/bind time, for source admission.
         sourceSince = on && g_pressSnap.t > 0 && g_pressSnap.t <= sess && sess - g_pressSnap.t <= 8.5
@@ -5774,12 +5785,18 @@ void SealEndOnHitTick() {
     const double now = Now();
     if (!seal && g_fh4.seal) {
         seal = g_fh4.seal; boundAt = now;
-        uint32_t k = 0; Rd(seal, k); boundId = k >> 4; sid = pressedId ? pressedId : boundId; want = SealHitsFor(sid);
+        uint32_t k = 0;
+        if (!Rd(seal, k) || !(k >> 4)) { seal = 0; censusComplete = false; return; }
+        boundId = k >> 4; sid = boundId; want = SealHitsFor(sid); // spawned actor is authoritative, never the latest pad event
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
         CoreTplBind(sid, sess);
         Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
             bursts, want, want ? " - live last-burst exit timing" : " - no future burst count in live collision pool; idle fallback");
+    }
+    if (seal && (g_fh4.seal != seal || !SealTimingIdentityMatches(seal, sid))) {
+        censusComplete = false;
+        return; // reused/promoted actor cannot donate bursts or learning to this session
     }
     // Retain every noted actor from this press, including actors preceding the bound seal.
     for (int k = 0; k < 8; ++k) {
@@ -5927,7 +5944,7 @@ void SealEndOnHitTick() {
     if (idleFire && terminalFallback && !fire) {
         // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
         // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
-        if (g_sieNativeEnd && poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0) {
+        if (g_sieNativeEnd && poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0 && SealTimingIdentityMatches(seal, sid)) {
             const int had = SealHitsFor(sid);
             if (!had || bursts < had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);

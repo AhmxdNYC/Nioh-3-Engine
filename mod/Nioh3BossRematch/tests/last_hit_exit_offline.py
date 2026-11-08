@@ -4,7 +4,7 @@ import subprocess
 root=Path(__file__).resolve().parent.parent
 src=(root/'src/bosslog.cpp').read_text(encoding='utf-8')
 motion=src[src.index('void SealIdleEndTick()'):src.index('// SealEndOnHit=1 (pc #57014')]
-tick=src[src.index('struct SealTailHitWatch'):src.index('struct SlSnap')]
+tick=src[src.index('bool SealTimingIdentityMatches('):src.index('struct SlSnap')]
 tune=src[src.index('double SoulTune('):src.index('// human #61869: Player settings')]
 load=src[src.index('    const int lastHitMs = IniInt'):src.index('    g_plFadeMs = IniInt')]
 counts=src[src.index('const wchar_t* SecHits()'):src.index('// pc #57269',src.index('const wchar_t* SecHits()'))].replace('SealHitsFor(', 'ReadLearnedHits(')
@@ -263,8 +263,8 @@ int main(){
  ini.clear();start(1);censusMode=true;census={{0x22000,456}};step(.7,false);g_fh4.owner=0;step(.8,false);
  census[0x23000]=456;step(1.2,false);check(!ini.count(L"5129B"));census[0x24000]=456;step(1.25,false);check(!ini.count(L"5129B"));
  // #82289: first actor precedes observer start; second actor is the visible bound seal.
- ini.clear();start(-1,0,false,false,0xC17E3);
- g_fh4.owner=0;SealEndOnHitTick();clockNow=base+.4;g_pressSnap.t=base;g_pickCore=0x16127;
+ ini.clear();start(-1,0,false,false,0x16127);
+ g_fh4.owner=0;SealEndOnHitTick();clockNow=base+.4;g_pressSnap.t=base;g_pickCore=0x5B402;
  g_sehKid[0]=789;g_sehKidT[0]=base+.27;g_sehKid[1]=456;g_sehKidT[1]=base+.38;
  g_hitSourceSnapshot=base;g_pressHitSources={{789,base+.27},{456,base+.38}};
  g_fh4.owner=123;g_fh4.seal=456;censusMode=true;census={{0x20000,789}};SealEndOnHitTick();
@@ -273,7 +273,7 @@ int main(){
  check(ini[L"16127"]==L"1"&&!ini.count(L"C17E3")&&g_ghostReq==456);
  check(std::find(ghostActors.begin(),ghostActors.end(),789)!=ghostActors.end()&&std::find(ghostActors.begin(),ghostActors.end(),456)!=ghostActors.end());
  check(extraSmokes>0);
- // Tail identity is bound actor C17E3, while learning stays under pressed 16127.
+ // Tail and learner use the same bound actor descriptor16127 despite the wrong latest selection.
  g_fh4.owner=0;step(2.1,false);census[0x23000]=789;step(2.4,false);
  check(ini[L"16127"]==L"1"&&!g_tailHitWatches.empty());
  // A stale actor from before the snapshot cannot supply a hit; >8 sources remain eligible.
@@ -417,6 +417,25 @@ int main(){
  // A predicted hold/loop fallback may exit but must never lower a learned count.
  ini.clear();ini[L"5129B"]=L"3";start(-1);first();g_sieNativeEnd=false;g_sieFireSeal=456;
  step(2,false);check(smokes==1&&ini[L"5129B"]==L"3");
+ // #82875 alternate directions, same actor address, wrong/changed pad-event ID.
+ ini.clear();
+ for(uint32_t id:{0x5B402u,0xA65A1u,0x5B402u,0xA65A1u}){
+  const int count=id==0x5B402?4:1;start(-1,0,false,false,id);g_pickCore=id==0x5B402?0xA65A1:0x5B402;
+  g_fh4.seal=456;step(.01,false);
+  for(int i=0;i<count;++i){step(.8+i*.3,true);step(.95+i*.3,false);}
+  if(ini.count(id==0x5B402?L"5B402":L"A65A1"))check(smokes==1);
+  g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+  check(ini[id==0x5B402?L"5B402":L"A65A1"]==std::to_wstring(count));
+ }
+ check(ini[L"5B402"]==L"4"&&ini[L"A65A1"]==L"1");
+ // Reused address changes desc during a form: reject the foreign burst and both learning routes.
+ for(bool native:{false,true}){
+  ini.clear();ini[L"5B402"]=L"4";start(-1,0,true,false,0x5B402);first();coreId=0xA65A1;
+  g_sieFireSeal=456;step(1.4,true);check(!smokes);
+  if(native){g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";}
+  else step(1.6,false);
+  check(ini[L"5B402"]==L"4"&&!ini.count(L"A65A1"));
+ }
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
