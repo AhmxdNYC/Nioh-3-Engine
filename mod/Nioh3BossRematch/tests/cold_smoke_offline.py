@@ -37,6 +37,7 @@ std::atomic<int> g_coverMade{0},g_coverOn{1},g_sealShowMs{400},g_plOutMs{250},g_
 std::atomic<double> g_coverT{0},g_sealShowAt{0},g_plOutT0{0};
 std::atomic<uint64_t> g_plOutChr{0};
 std::atomic<uint32_t> g_slotCore[3]{};
+std::atomic<uint32_t> g_pickCore{0};
 bool ScOn(){return true;}
 bool Copy(void* dst,uint64_t,size_t n){if(copyOk)memset(dst,0,n);return copyOk;}
 bool CoverAt(FxRec&,const float*,uint32_t){return warm;}

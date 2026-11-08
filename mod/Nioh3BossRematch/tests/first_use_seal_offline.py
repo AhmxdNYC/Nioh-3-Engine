@@ -9,6 +9,9 @@ adopt = src[start:end]
 start = src.index('            if (cap && capT >= g_fh4.started - .05 && AliveAtPress(cap))')
 end = src.index('        } else if (cap != g_fh4.seal', start)
 bind = src[start:end]
+helper = src[src.index('double KnownTransformWaitUntil('):src.index('bool UseFamilyAct(')]
+start = src.index('                   const int useMs = g_formNeedUseMs.load();')
+gate = src[start:src.index('                   static uint64_t useSkipLogged', start)]
 pre = r'''
 #include <atomic>
 #include <algorithm>
@@ -20,6 +23,10 @@ struct State {uint64_t owner=123,seal=0;double started=0,capT=0;bool fromSpawn=f
 std::atomic<int> g_fhFollow{0},g_orbHooked{1},g_orbSpawnMs{1800},g_noSpawnEndMs{400},g_formNeedUseMs{2200},g_sealCancelEndMs{100};
 std::atomic<uint64_t> g_fkSealChr{0};std::atomic<uint32_t> g_fkSealDesc{0};
 std::atomic<double> g_orbT{-100};double g_fkSealT=-100,g_sealEdgeT=-100,g_throwDoneT=-100,g_throwCutT=-100;
+std::atomic<double> g_pickT{-100},g_rtAcceptT{-100};std::atomic<uint32_t> g_pickCore{0};bool transforms=true;
+bool ScOn(){return transforms;}
+bool UseConfirmedSince(double t){return (g_orbHooked&&g_orbT>=t-.05)||g_sealEdgeT>=t-.05;}
+double KnownTransformWaitUntil(double);
 uint32_t g_throwCutAct=0;struct {double t=0;} g_pressSnap;
 bool alive=false;int checks=0,binds=0;
 bool AliveAtPress(uint64_t){return alive;}
@@ -29,7 +36,8 @@ void FormHideEndReason(uint64_t,uint64_t,double){}
 uint64_t attempted=0;double attemptedT=-1;
 void check(bool b){++checks;assert(b);}
 void reset(double t){g_fh4={};g_fh4.started=t;g_fkSealChr=0;g_fkSealT=-100;g_orbT=-100;g_sealEdgeT=t;
- g_throwDoneT=t+.2;g_throwCutT=-100;alive=false;binds=0;attempted=0;attemptedT=-1;g_orbSpawnMs=1800;g_formNeedUseMs=2200;}
+ g_throwDoneT=t+.2;g_throwCutT=-100;alive=false;binds=0;attempted=0;attemptedT=-1;g_orbSpawnMs=1800;g_formNeedUseMs=2200;
+ g_pickT=-100;g_pickCore=0;transforms=true;}
 const char* tick(double now,uint64_t cap=0,double capT=-100){uint64_t player=123;const char* reason=nullptr;
 '''
 post = r'''
@@ -55,11 +63,31 @@ int main(){
  reset(10);g_fkSealChr=456;g_fkSealT=10.1;check(!tick(10.45,789,10.2));check(g_fh4.seal==789&&!g_fh4.fromSpawn);
  // Longer configured orb wait must not be cut by the independent 2.5 s watchdog.
  reset(10);g_orbT=10.1;g_orbSpawnMs=4000;check(!tick(12.6));check(!strcmp(tick(14.11),"throw-done-no-seal"));
+ // pc2 #81993: confirmed equipped LEFT first spawn at +3.87 s survives old +2.59 s exit.
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
+ check(!tick(12.59));check(!tick(13.87,789,13.87));check(g_fh4.seal==789&&binds==1);
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
+ check(!tick(14.49));check(!strcmp(tick(14.51),"throw-done-no-seal"));
+ // No FormSlot0 capture: spawn-hit route binds before timeout after its 0.3-second observation delay.
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;g_fkSealChr=456;g_fkSealT=13.87;
+ check(!tick(14.18));check(g_fh4.seal==456&&binds==1);
+ // Confirmed only: known ID plus refused press does not extend the short release.
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_sealEdgeT=-100;check(KnownTransformWaitUntil(10)<0);
+ reset(10);g_pickT=10;g_pickCore=0x5129B;transforms=false;check(KnownTransformWaitUntil(10)<0);
+ reset(10);g_pickT=8;g_pickCore=0x5129B;check(KnownTransformWaitUntil(10)<0);
+ // Delayed-begin gate agrees with the same absolute deadline; unknown/refused/OFF remain strict.
+ reset(10);g_pickT=10;g_pickCore=0x5129B;g_orbT=10.38;
+ check(canStart(13.87,10));check(!canStart(14.51,10));
+ g_pickCore=0;check(!canStart(13.87,10));g_pickCore=0x5129B;transforms=false;check(!canStart(13.87,10));
+ transforms=true;g_orbT=-100;g_sealEdgeT=-100;check(!canStart(13.87,10));
  printf("first-use seal binding/timeouts: %d checks PASS (actual source branches; offline)\n",checks);
 }
 '''
 out=root/'build/first-use-test';out.mkdir(parents=True,exist_ok=True)
-unit=out/'first-use.cpp';unit.write_text(pre+adopt+'\nif (!g_fh4.seal) {\n'+bind+'\n}\n'+post)
+unit=out/'first-use.cpp'
+# Insert helper and gate before tick, while retaining the real production expressions.
+prefix, tick_start = pre.split('const char* tick(', 1)
+unit.write_text(prefix+helper+'\nbool canStart(double capT,double leftT){\n'+gate+'\nreturn useOk;}\nconst char* tick('+tick_start+adopt+'\nif (!g_fh4.seal) {\n'+bind+'\n}\n'+post)
 setup=Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat');exe=out/'first-use.exe'
 cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /Fo"{out / "first-use.obj"}" /Fe"{exe}" "{unit}"'
 r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()

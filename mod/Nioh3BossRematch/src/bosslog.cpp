@@ -1269,6 +1269,7 @@ std::atomic<bool> g_scForms{true};
 std::atomic<bool> g_pickOff{false};
 std::atomic<int> g_pickDir{0};
 std::atomic<double> g_pickT{-100};
+std::atomic<uint32_t> g_pickCore{0};  // core selected for this press, including a never-used equipped core
 std::atomic<bool> g_pickLearned{false};  // #81275: only the FIRST spawn hit after a d-pad press learns the core / suppresses
 std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
 // #81516 fallback: cached directions are not evidence of the current loadout. Until this session learns a direction,
@@ -1356,7 +1357,11 @@ void PickPoll() {
     const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
     const double now = Now();
     if (held && held != heldPrev) {
-        const uint32_t core = g_slotCore[held].load();
+        AcquireSRWLockShared(&g_coreEditLock);
+        const bool equipped = g_equippedReady.load();
+        const uint32_t core = equipped ? g_equippedCore[held - 1].load() : g_slotCore[held].load();
+        ReleaseSRWLockShared(&g_coreEditLock);
+        g_pickCore.store(core);
         const int pending = g_pendingPick[held].load();
         const bool off = pending >= 0 ? pending == 0 : CoreIsOff(core);
         g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off); g_pickLearned.store(false);
@@ -1371,7 +1376,8 @@ void PickPoll() {
 // seal spawn hit: learn which core the last pressed direction holds; an OFF core seen first here has the rest of its form suppressed.
 void PickLearn(uint32_t id) {
     if (!id) return;
-    const int dir = (Now() - g_pickT.load() < 3.0) ? g_pickDir.load() : 0;
+    const double age = Now() - g_pickT.load();
+    const int dir = (age >= 0 && (age < 3.0 || (age <= 4.5 && id == g_pickCore.load() && ScOn()))) ? g_pickDir.load() : 0;
     // #81314: every chr spawn reaches here (HkSeal N=0); one with no recent d-pad press (ambient 4735) is not a core: never listed / learned.
     if (!dir) return;
     // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
@@ -2906,6 +2912,13 @@ const char* g_fh4EndWhy = "";  // reason of the last FormHide=4 end (game thread
 bool UseConfirmedSince(double t) {  // the game threw the seal orb, or the player entered a seal action, since t
     return (g_orbHooked.load() && g_orbT.load() >= t - 0.05) || g_sealEdgeT >= t - 0.05;
 }
+// #82000: cold-load known cores can spawn at +3.87 s. Only a confirmed transform press gets extra time.
+// Use an absolute press deadline so repeated ticks / late orb events cannot extend it indefinitely.
+double KnownTransformWaitUntil(double start) {
+    const double press = g_pickT.load();
+    return g_pickCore.load() && ScOn() && press >= start - 1.5 && press <= start + .05 && UseConfirmedSince(press)
+        ? press + 4.5 : -100.0;
+}
 bool UseFamilyAct(uint32_t id) {  // a seal-use action (learned/configured) or a FastThrow throw id
     if (FhIsSealAct(id)) return true;
     for (int i = 0, n = g_ftN.load(); i < n; ++i) if (g_ftActs[i].load() == id) return true;
@@ -4130,10 +4143,19 @@ void FormHide4Tick(uint64_t player) {
             // #81879: a cold LEFT spawn arrived 1.97 s after its orb, inside the accepted use window but after
             // the old 1.8 s end. Keep one hide alive for the entire window in which this use can still bind a seal.
             const double useT = (std::max)(g_orbT.load(), g_sealEdgeT);
-            const double noSpawnAt = orbOut ? (std::max)(g_orbT.load() + g_orbSpawnMs.load() / 1000.0,
+            const double normalNoSpawnAt = orbOut ? (std::max)(g_orbT.load() + g_orbSpawnMs.load() / 1000.0,
                                                         useT + (std::max)(0, g_formNeedUseMs.load()) / 1000.0)
                                            : g_throwDoneT + g_noSpawnEndMs.load() / 1000.0;
-            const double pressTimeoutAt = orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5;
+            const double coldUntil = KnownTransformWaitUntil(g_fh4.started);
+            if (coldUntil > normalNoSpawnAt) {
+                static double loggedPress = -100;
+                if (loggedPress != g_pickT.load()) {
+                    loggedPress = g_pickT.load();
+                    Log("FormCore cold-wait core=%X confirmed=1 deadline=%.3f press=%.3f (4500 ms)", g_pickCore.load(), coldUntil, loggedPress);
+                }
+            }
+            const double noSpawnAt = (std::max)(normalNoSpawnAt, coldUntil);
+            const double pressTimeoutAt = (std::max)(coldUntil, orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5);
             if (cap && capT >= g_fh4.started - .05 && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 // report #22: the first fresh actor after the press is this form's seal (same rule as the delayed begin, #66107): a later capture
@@ -4288,7 +4310,7 @@ void FormHide4Tick(uint64_t player) {
                    // no throw, no item used) and v2 rejected it only by 0.17 s.
                    const double useT = g_orbHooked.load() ? (std::max)(g_orbT.load(), g_sealEdgeT)
                                                           : (std::max)((std::max)(g_rtAcceptT.load(), g_sealEdgeT), leftT);
-                   const bool useOk = useMs <= 0 || capT - useT <= useMs / 1000.0;
+                   const bool useOk = useMs <= 0 || capT - useT <= useMs / 1000.0 || capT <= KnownTransformWaitUntil(useT);
                    static uint64_t useSkipLogged = 0;
                    if (fresh && !useOk) {
                        if (useSkipLogged != cap) { useSkipLogged = cap; Log("FormHide=4 skip: seal %llX came out %.2f s after the last soul-core use (> %d ms) - not this press, no form t=%.3f", (unsigned long long)cap, capT - useT, useMs, now); }
@@ -5321,7 +5343,7 @@ void CoverStartSmoke(uint64_t player, double now) {
     if (!(observedSlots & bit)) {
         observedSlots |= bit;
         Log("FormCore first-press scope=process dir=%c core=%X transform=%d smokeReady=%d source=%s t=%.3f",
-            sl == 1 ? 'L' : sl == 2 ? 'D' : '?', sl >= 1 && sl <= 2 ? g_slotCore[sl].load() : 0,
+            sl == 1 ? 'L' : sl == 2 ? 'D' : '?', g_pickCore.load(),
             ScOn() ? 1 : 0, coverReady ? 1 : 0, coverReady ? "slot-template" : "native-smoke", now);
     }
     if (!coverReady) {

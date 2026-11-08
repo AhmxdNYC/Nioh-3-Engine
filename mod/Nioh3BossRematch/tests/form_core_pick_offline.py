@@ -54,7 +54,7 @@ void check(bool v){++checks;if(!v){printf("FAIL check %d\n",checks);abort();}}
 void reset(bool clearIni=true) {
  buttons=0;clockNow+=20;PickPoll();
  if(clearIni)ini.clear();
- g_scForms=true;g_pickOff=false;g_pickDir=0;g_pickT=-100;g_pickLearned=false;g_offN=0;
+ g_scForms=true;g_pickOff=false;g_pickDir=0;g_pickT=-100;g_pickCore=0;g_pickLearned=false;g_offN=0;
  for(auto& v:g_offIds)v=0;
  for(auto& v:g_slotCore)v=0;
  for(auto& v:g_slotSeen)v=false;
@@ -138,6 +138,16 @@ int main(){
  g_equippedCore[0]=0;g_equippedCore[1]=0;check(FormCoreSeen(ids,dirs,10)==1&&ids[0]==0x5129B&&dirs[0]==0);
  reset();FormCorePendingSet(1,false);g_equippedCore[0]=0x5129B;g_equippedReady=true;
  check(FormCoreSeen(ids,dirs,10)==2&&ids[0]==0x5129B&&ids[1]==0&&dirs[1]==1);
+ // First press uses current equipped ID, including OFF, without learning a seal first.
+ reset();g_equippedCore[0]=0x5129B;g_equippedCore[1]=0xA2ACB;g_equippedReady=true;
+ FormCoreToggle(0x5129B);press(1);check(g_pickCore==0x5129B&&!ScOn()&&g_slotCore[1]==0);
+ press(2);check(g_pickCore==0xA2ACB&&ScOn());
+ g_slotCore[1]=0x5129B;g_equippedCore[0]=0x5B402;press(1);check(g_pickCore==0x5B402&&ScOn());
+ clockNow+=3.87;PickLearn(0x5B402);check(g_slotCore[1]==0x5B402&&g_pickLearned);
+ press(2);clockNow+=3.87;PickLearn(0x999);check(!g_pickLearned); // late unrelated spawn cannot learn
+ press(2);clockNow+=4.51;PickLearn(0xA2ACB);check(!g_pickLearned);
+ g_equippedCore[0]=0;press(1);check(g_pickCore==0); // ready empty slot does not reuse stale learned ID
+ g_equippedReady=false;press(1);check(g_pickCore==0x5B402); // unavailable equipment keeps learned fallback
  // Exact labels from production menu code, retained for the clearly marked offline visual preview.
  reset();printf("PREVIEW|Before any seal use|%s|%s\n",row(0).c_str(),row(1).c_str());
  SctChange(kItScCore,-1);printf("PREVIEW|LEFT game summon selected before first use|%s|%s\n",row(0).c_str(),row(1).c_str());
