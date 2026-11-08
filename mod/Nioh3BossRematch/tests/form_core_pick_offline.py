@@ -8,6 +8,7 @@ state = src[src.index('std::atomic<bool> g_scForms{true};'):src.index('std::atom
 api = src[src.index('int FormCoreSeen('):src.index('bool SoulCoreForms(bool*')]
 pre = r'''
 #include <windows.h>
+#include "press_queue.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -36,6 +37,7 @@ void Log(const char*,...){}
 namespace addon { namespace bosslog {
 WORD PickPadButtons(){return buttons;}
 bool formActive=false;bool PickFormActive(){return formActive;}
+bool ghostAlive=false;bool PickGhostAlive(){return ghostAlive;}
 void PickEquipmentTick(){} // live reads are tested independently; model delayed worker completion here
 '''
 ui = r'''
@@ -53,7 +55,7 @@ using namespace addon::rematch;
 int checks=0;
 void check(bool v){++checks;if(!v){printf("FAIL check %d\n",checks);abort();}}
 void reset(bool clearIni=true) {
- formActive=false;buttons=0;clockNow+=20;PickPoll();
+ formActive=false;ghostAlive=false;pressq::Clear(g_pressQ);buttons=0;clockNow+=20;PickPoll();
  if(clearIni)ini.clear();
  g_scForms=true;g_pickOff=false;g_pickDir=0;g_pickT=-100;g_pickCore=0;g_pickLearned=false;g_offN=0;
  for(auto& v:g_offIds)v=0;

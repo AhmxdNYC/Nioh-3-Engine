@@ -265,3 +265,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 4:57 am EST | cx-pc #83600 owns 1.8.12 integration/publication after task-board ownership check (no claimed jobs); cxl-pc delegated while Claude limited. Clean worktree Temp/wt-r1812 from main 82ae5287.
   Merged Player/defaults 749e00c8 (includes favorites b4c5ab4c) and seal queue e7c373ec; only handoff conflict, code merged cleanly. Next: offline affected suites, EF/BR builds, package 1.8.12, one gate each PC/pc2/Ally. No game control by cx-pc.
+
+- 2026-11-08 4:59 am EST | cx-pc #83600: integrated EF/BR 1.8.12 build succeeds; picker fixture updated to include queue state/ghost stub. Picker134 and queue12 checks PASS after toolchain setup; full affected runner results in Temp/wt-r1812/release/validation-1812.
+  Unchanged TR/CamKi/Updater reuse exact public 1.8.11 bytes. Next: package, send one gate task per device, collect exact feature acceptance; no game touched.
