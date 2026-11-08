@@ -82,3 +82,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 11-07 8:50 pm EST pc2/0: #81430 merged pick BR #6308 9253773e PASS steps 1-4 on pc2 (RESULT reply-to 81220). pc2 back on BR 8aeb68a2.
 - 11-07 8:53 pm EST pc/6: human #81514 pick menu only showed DOWN (rows appear only after seal use). Told human use LEFT once (#81515). TASK cx-pc #81516: list both equipped Yang cores at load (base cx-pc/formcore-pick-81220 367033fc). NEXT: RESULT -> test on pc2 (Ally is the human's, HELD; GO only when human done). Do not task twice.
 - 11-07 8:58 pm EST pc/6: human #81535 first transformation must be right -> added to cx-pc #81516 (msg reply-to 81516). Test on pc2: fresh load, first press each seal.
+- 11-07 8:55 pm EST pc2/0 session end: nothing in flight; next = lead's 1.8.11 call (RESULT #81484).
