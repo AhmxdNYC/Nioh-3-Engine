@@ -4850,12 +4850,11 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
 // so its burst never closed and the form ran into the idle pose; its real hits are one extra collider at 0.64 / 0.97 / 1.69 s. Counts learned
 // with the old rule are kept apart: [SealHitsA] / [SealLastHitA] are learned fresh (first use of each core plays in full once).
 std::atomic<int> g_sehAtk{1};
-const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA" : L"SealHits"; }
+// #82127: old aggregate/appearance counts must never seed the corrected observer.
+const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA2" : L"SealHits2"; }
 int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
-    const int n = (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
-    if (g_sehAtk.load() > 0) return n;
-    return n ? n : id == 0x5129B ? 2 : id == 0xA2ACB ? 2 : 0;  // built-in seeds (ally trace #57014) when the ini has no [SealHits] line
+    return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
 }
 // pc #57269 (human #57262): [Spirit] SealExitFx=1 - exit transition instead of the sped-up tail: at the last-hit close the dark appear
 // effects the seal yokai shows when it first spawns (Ibaraki 5129B spawn hit: 63056 63047 6304A 6304D 63050 63053 6307E 63027, from its motion
@@ -5397,7 +5396,72 @@ void SealExitReplayTick() {  // game thread
 // report #22: the learned per-core timings [SealDur] / [SealLastHit] (#60302/#60327) are gone (human #61089: no stored timings); natural mode
 // #81898: default exit is THIS form's last live burst OPEN + SealExitAtLastHitMs, with the yokai finishing invisibly.
 // -9999 restores the close+grace rule. Unknown counts keep the idle/despawn fallback; no predicted hit timetable.
+struct SealTailHitWatch {
+    uint64_t seal = 0, player = 0;
+    uint32_t sid = 0;
+    double sess = 0, started = 0;
+    int bursts = 0, atExit = 0;
+    bool open = false, atkOnly = true;
+    std::vector<uint64_t> kids;
+    std::map<uint64_t, uint64_t> appearance;
+};
+std::vector<SealTailHitWatch> g_tailHitWatches;
+void SealTailHitTick() {
+    if (g_tailHitWatches.empty()) return;
+    const double now = Now();
+    uint64_t pb = 0;
+    static std::vector<uint64_t> objects(0xFA0);
+    const bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb && Copy(objects.data(), pb + 0x20, objects.size() * 8);
+    for (auto it = g_tailHitWatches.begin(); it != g_tailHitWatches.end();) {
+        auto& w = *it;
+        const int present = FormHideSealPresent(ActorTableGlobal(), w.seal);
+        uint32_t id = 0;
+        if (present == 0 || now - w.started > 30.0 || (present > 0 && Rd(w.seal, id) && (id >> 4) != w.sid)) {
+            Log("SealTailHits core %X finished: %d bursts (exit at %d), %s", w.sid, w.bursts, w.atExit,
+                present == 0 ? "despawn" : "identity/30s guard");
+            it = g_tailHitWatches.erase(it); continue;
+        }
+        if (present < 0 || !poolOk) { ++it; continue; }
+        // Only add fresh helper candidates while this original form still owns the player.
+        // A later form cannot donate its helpers to an older invisible seal.
+        if (g_fh4.owner == w.player && g_fh4.seal == w.seal) {
+            for (int k = 0; k < 8; ++k)
+                if (g_sehKid[k] && g_sehKidT[k] >= w.sess - 0.05 &&
+                    std::find(w.kids.begin(), w.kids.end(), g_sehKid[k]) == w.kids.end()) w.kids.push_back(g_sehKid[k]);
+        }
+        std::map<uint64_t, uint64_t> remaining;
+        int n = 0;
+        for (uint64_t o : objects) {
+            uint64_t owner = 0;
+            if (!o || !Rd(o + 8, owner) || !owner || owner == w.player) continue;
+            if (owner != w.seal && std::find(w.kids.begin(), w.kids.end(), owner) == w.kids.end()) continue;
+            if (w.atkOnly) {
+                uint64_t ad = 0; uint32_t aid = 0;
+                if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;
+            }
+            const auto a = w.appearance.find(o);
+            if (a != w.appearance.end() && a->second == owner) remaining.emplace(o, owner);
+            else ++n;
+        }
+        w.appearance.swap(remaining);
+        if (n && !w.open) {
+            ++w.bursts;
+            const wchar_t* section = w.atkOnly ? L"SealHitsA2" : L"SealHits2";
+            wchar_t key[16], value[16]; swprintf_s(key, L"%X", w.sid);
+            const int had = (int)GetPrivateProfileIntW(section, key, 0, IniPath());
+            if (w.bursts > w.atExit && w.bursts > had) {
+                swprintf_s(value, L"%d", w.bursts);
+                WritePrivateProfileStringW(section, key, value, IniPath());
+                Log("SealTailHits core %X: post-exit burst %d at +%.3f, raise %d -> %d in [%ls]", w.sid,
+                    w.bursts, now - w.sess, had, w.bursts, section);
+            }
+        }
+        w.open = n > 0;
+        ++it;
+    }
+}
 void SealEndOnHitTick() {
+    SealTailHitTick();  // independent of the visible form, including subsequent forms
     const bool natural = !g_sehMode.load();
     if (natural && (g_ghostOn.load() <= 0 || g_coverOn.load() <= 0)) return;
     SmokeFreezeTick();
@@ -5443,7 +5507,7 @@ void SealEndOnHitTick() {
             if (bursts > had) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
-                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [SealHits]", sid, bursts, had);
+                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
             }
         }
         if (const uint64_t ts = g_tailSeal.load(); ts && ts != g_ghostSeal.load()) {
@@ -5594,6 +5658,18 @@ void SealEndOnHitTick() {
         sid, bursts, want, exitOpen, exitAtLastHitMs, now - sess, g_sealEndMinMs.load());
     if (g_sdHeld == seal && !openDue) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
     if (g_ghostOn.load() > 0) {  // pc #57569: end the form now, the seal runs on invisible (tail speed) until its own despawn
+        // Copy the already-filtered state before the visible form resets; never replay exit effects.
+        if (g_tailHitWatches.size() >= 8) {
+            Log("SealTailHits: observer capacity reached; discard oldest without learning a terminal count");
+            g_tailHitWatches.erase(g_tailHitWatches.begin());
+        }
+        SealTailHitWatch watch;
+        watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.sess = sess;
+        watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
+        for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
+        for (int k = 0; k < 8; ++k) if (g_sehKid[k] && g_sehKidT[k] >= sess - 0.05) watch.kids.push_back(g_sehKid[k]);
+        g_tailHitWatches.push_back(watch);
+        Log("SealTailHits core %X: watching after ghost exit from burst %d until despawn", sid, bursts);
         g_tailT0.store(now);
         if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
         g_ghostT.store(now);

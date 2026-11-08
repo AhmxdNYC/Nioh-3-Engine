@@ -3,9 +3,10 @@ from pathlib import Path
 import subprocess
 root=Path(__file__).resolve().parent.parent
 src=(root/'src/bosslog.cpp').read_text(encoding='utf-8')
-tick=src[src.index('void SealEndOnHitTick()'):src.index('struct SlSnap')]
+tick=src[src.index('struct SealTailHitWatch'):src.index('struct SlSnap')]
 tune=src[src.index('double SoulTune('):src.index('// human #61869: Player settings')]
 load=src[src.index('    const int lastHitMs = IniInt'):src.index('    g_plFadeMs = IniInt')]
+counts=src[src.index('const wchar_t* SecHits()'):src.index('// pc #57269',src.index('const wchar_t* SecHits()'))].replace('SealHitsFor(', 'ReadLearnedHits(')
 pre=r'''
 #include <windows.h>
 #include <atomic>
@@ -19,11 +20,16 @@ pre=r'''
 #include <string>
 #include <map>
 #include <cassert>
-std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;
+std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;std::map<std::wstring,std::wstring> legacyIni;
 BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){writtenSection=section;ini[key]=value;return TRUE;}
 #define WritePrivateProfileStringW FakeWrite
 int IniInt(const wchar_t*,const wchar_t* key,int d){auto i=ini.find(key);return i==ini.end()?d:std::stoi(i->second);}
 const wchar_t* IniPath(){return L"memory-only";}
+#define GetPrivateProfileIntW FakeReadProfile
+UINT FakeReadProfile(const wchar_t* section,const wchar_t* key,int d,const wchar_t*){
+ auto& data=(!wcscmp(section,L"SealHits")||!wcscmp(section,L"SealHitsA"))?legacyIni:ini;
+ auto i=data.find(key);return i==data.end()?d:std::stoi(i->second);
+}
 void Log(const char*,...){}
 namespace bosslog {
 struct {uint64_t owner=0,seal=0;} g_fh4;
@@ -45,7 +51,9 @@ void SieRead(uint64_t,SieSample& s){s.act=action;}
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
 bool SealExitCore(uint32_t){return true;}int SealExitReplayQueue(uint64_t,uint64_t){++smokes;return 1;}
-int SealHitsFor(uint32_t id){wchar_t key[16];swprintf_s(key,L"%X",id);return hits<0?IniInt(L"SealHitsA",key,0):hits;}const wchar_t* SecHits(){return L"SealHitsA";}
+'''+counts+r'''
+int SealHitsFor(uint32_t id){return hits<0?ReadLearnedHits(id):hits;}
+int tailPresent=1;uint64_t ActorTableGlobal(){return 1;}int FormHideSealPresent(uint64_t,uint64_t){return tailPresent;}
 void SealExitReplayBegin(double){}void SealExitReplayBound(double){}void CoreTplBind(uint32_t,double){}
 int SealQueueDespawn(uint64_t){++despawns;return 1;}void SealDeferRelease(const char*){++releases;}
 int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
@@ -76,7 +84,7 @@ using namespace bosslog;
 int checks=0;double base=0;
 void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);fflush(stdout);exit(1);}}
 void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
- g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
+ g_tailHitWatches.clear();tailPresent=1;g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
  clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
  persistent=false;extraAttack=false;extraOwner=456;g_sehKid[1]=0;g_sehKidT[1]=0;g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
  g_ghostReq=0;g_ghostSeal=0;g_sealEndMinMs=700;smokes=despawns=hidden=releases=0;SealEndOnHitTick();
@@ -108,7 +116,7 @@ int main(){
  start(1);g_sehMode=1;step(1,true);check(smokes==1&&!despawns); // explicit mode uses ghost too
  // #81956: unknown core learns at completed idle exit, then arms on the next use.
  ini.clear();start(-1);first();step(1.5,true);step(1.667,false);check(!ini.count(L"5129B"));
- g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA");
+ g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA2");
  start(-1);first();step(1.5,true);check(g_ghostReq==456&&smokes==1);check(ini[L"5129B"]==L"2");
  // Max only: a shorter completed attack cannot overwrite a higher known count.
  ini[L"5129B"]=L"3";start(-1);first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"3");
@@ -179,6 +187,35 @@ int main(){
  // Live Doji final opening stays at 1.668 seconds.
  start(2);manualAction=true;action=0xC53;step(1.351,true);step(1.45,false);step(1.668,true);
  check(smokes==1&&std::abs(g_ghostReqAt.load()-(base+1.768))<.00001);
+ // #82127: legacy low counts are ignored in both modes, including old built-in seeds.
+ ini.clear();legacyIni[L"60B86"]=L"1";legacyIni[L"5129B"]=L"2";
+ g_sehAtk=1;check(ReadLearnedHits(0x60B86)==0&&ReadLearnedHits(0x5129B)==0);
+ g_sehAtk=0;check(ReadLearnedHits(0x60B86)==0&&ReadLearnedHits(0x5129B)==0);g_sehAtk=1;
+ // An early current-generation count can raise itself from additional observed tail bursts.
+ ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;
+ extraAttack=true;step(.533,false);step(.7,false);check(smokes==1&&g_tailHitWatches.size()==1);
+ g_fh4.owner=0;extraAttack=false;step(.9,false);check(ini[L"60B86"]==L"1");
+ extraAttack=true;step(1.3,false);check(ini[L"60B86"]==L"2"&&smokes==1&&writtenSection==L"SealHitsA2");
+ extraAttack=false;step(1.6,false);extraAttack=true;step(2.1,false);check(ini[L"60B86"]==L"3"&&smokes==1);
+ tailPresent=0;step(3.15,false);check(g_tailHitWatches.empty());
+ // No extra burst: never teach a count solely because our own last-hit rule fired.
+ ini.clear();start(1);step(.533,true);step(.7,true);g_fh4.owner=0;step(.9,false);tailPresent=0;step(3.15,false);
+ check(!ini.count(L"5129B")&&smokes==1);
+ // Unreadable pool/liveness never manufactures a close/reopen; separate observers survive a new form.
+ ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;extraAttack=true;step(.533,false);step(.7,false);
+ poolReadable=false;step(.9,false);poolReadable=true;step(1.1,false);check(ini[L"60B86"]==L"1");
+ g_fh4.owner=0;extraAttack=false;step(1.2,false);g_fh4.owner=123;g_fh4.seal=777;extraAttack=true;step(1.4,false);
+ check(ini[L"60B86"]==L"2"&&smokes==1);
+ // Max-only and stored section survive live mode changes; unknown liveness cannot invent edges.
+ ini.clear();ini[L"60B86"]=L"1";start(-1,0,true,true,0x60B86);persistent=true;extraAttack=true;step(.533,false);step(.7,false);
+ ini[L"60B86"]=L"5";g_fh4.owner=0;extraAttack=false;step(.9,false);extraAttack=true;step(1.2,false);check(ini[L"60B86"]==L"5");
+ tailPresent=-1;extraAttack=false;step(1.4,false);tailPresent=1;extraAttack=true;step(1.6,false);check(ini[L"60B86"]==L"5");
+ extraAttack=false;step(1.8,false);ini[L"60B86"]=L"2";g_sehAtk=0;extraAttack=true;step(2.1,false);
+ check(ini[L"60B86"]==L"3"&&writtenSection==L"SealHitsA2");g_sehAtk=1;
+ step(31.0,false);check(g_tailHitWatches.empty());
+ // Doji known corrected count still exits on the second live opening at 1.517 s.
+ ini.clear();ini[L"5129B"]=L"2";start(-1);first();step(1.517,true);
+ check(smokes==1&&std::abs(g_ghostReqAt.load()-(base+1.617))<.00001);
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
