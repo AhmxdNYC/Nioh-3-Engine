@@ -83,3 +83,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 2026-11-07 10:34 PM EST | cx-pc #81956 offline learning fix ready, 417 checks PASS + sc22. pc owns first/second-use live acceptance; base be081da2.
 2026-11-07 10:46 PM EST | cx-pc #81988 appearance gate candidate ready offline: 429 checks + sc22 PASS, BR 2d88dda3; pc owns live acceptance. Includes #81956 learning fix.
 2026-11-07 10:15 PM EST | cx-pc #81879 combined candidate BR bb7995a8 built on 1e4d2ce7; 537 offline checks pass, pc owns live gate. See notes/smoke-fix-81879.md.
+- 2026-11-07 10:52 PM EST | cx-pc/1 #82000 DONE offline: combined BR 335d11b5 bridge #6362; code bd973675 on cx-pc/coldwait-82000 pushed. Contains smoke 8549a20f + learning 5a71803b + bug2 01547872 (merge 4fbb0d41).
+- Release build + 625 offline checks and available sc22 replay PASS. +3.87s cold spawn binds; known confirmed transform press gets absolute +4.5s deadline, first press uses equipped ID. Next pc2 fresh LEFT/DOWN, OFF-before-use, 60B86 attack-hit gate and video/log check; live unproven, no local game/install. notes/coldwait-82000.md.

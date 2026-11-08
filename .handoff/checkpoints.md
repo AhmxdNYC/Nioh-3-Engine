@@ -135,3 +135,5 @@ Next: pc live unknown-count first/second use; all transition timing/look unchang
 No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi. Source branch cx-pc/appear-hit-gate-81988; notes/last-hit-exit-81898.md.
 2026-11-07 10:15 PM EST | cx-pc #81879: combined equipped-core + smoke fix builds, 537 offline checks pass; BR bb7995a8. Zero handle fallback, follow-OFF spawn binding, accepted-use wait implemented.
 Live timing/visuals unproven; pc owns fresh LEFT/DOWN acceptance. Source: notes/smoke-fix-81879.md, branch cx-pc/smoke-fix-81879. Next: upload candidate and report to pc.
+- 2026-11-07 10:52 PM EST | cx-pc/1 #82000 DONE offline: combined BR 335d11b5 bridge #6362; code bd973675 on cx-pc/coldwait-82000 pushed. Contains smoke 8549a20f + learning 5a71803b + bug2 01547872 (merge 4fbb0d41).
+- Release build + 625 offline checks and available sc22 replay PASS. +3.87s cold spawn binds; known confirmed transform press gets absolute +4.5s deadline, first press uses equipped ID. Next pc2 fresh LEFT/DOWN, OFF-before-use, 60B86 attack-hit gate and video/log check; live unproven, no local game/install. notes/coldwait-82000.md.
