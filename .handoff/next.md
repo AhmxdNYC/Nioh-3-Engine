@@ -177,3 +177,6 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 04:23 AM EST | cx-pc #83344: release-1811-prep 964ca82a includes fbec06ad, f81af1c9, hit-clusters, burst-replay, multi-source and 35fb8235; A4 replay retained. Version bumped to 1.8.11.
   Source pushed; builds and offline suites running in Temp/wt-r1811/release/validation-1811. Next: finish validation, package and send three device gates; no publication until all pass.
+
+- 2026-11-08 4:28 am EST | cx-pc #83344: 1.8.11 candidate assets #6526-6535 uploaded, gate list BUILD #83408 to pc. Source/version 964ca82a on cx-pc/release-1811-prep.
+  Four ASIs + Updater/Setup/pyz/full/combined built; rematch 357/357, new camera/exit suites PASS, legacy offline failures being triaged. Next: collect 3 device PASS + resolve offline gate before publish; notes/release-1.8.11.md and Temp/wt-r1811/release/validation-1811.
