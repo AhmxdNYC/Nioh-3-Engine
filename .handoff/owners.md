@@ -107,3 +107,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 03:56 AM EST | cx-pc #83151 native TimedLerpAdvance null-list-node crash localized; upstream cause unproven. Camera 0.7s smootherstep + identity guards, 495 checks/builds PASS. BR c7315ca3 / CamKi 617d93cd; next Claude pc live gate and native-list diagnosis; cx-pc/camera-crash-83151.
 - cx-pc/1 #83188 owns face-list corruption fix; offline verified, build pending; Claude owns game.
+- cx-pc/1 #83188 DONE build/offline; fffd2e10 #6510 handed to pc; Claude live gate remains.
