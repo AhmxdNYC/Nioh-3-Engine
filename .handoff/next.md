@@ -233,3 +233,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 5:42 am EST | cx-pc/0 r3 integrates early-fix e462fc19 as0d027650 atop snapshot6f71c28b. Independently8 suites865/865 PASS; Release BR build PASS. EF a1b32e13 unchanged; BR613b4d2f #6605, Setup769c558b #6606, Linux32214d9d #6607, full32596613 #6608, combined437dfae9 #6609, sums6610.
   Windows/Linux embedded payload byte equality and full/combined BR equality PASS; PDB-only scrub preserves executable bytes. r3 supersedes held r2, but live recovery0/3. Next existing owners test early12-29ms AND address-reuse cases; PC still requires presence83747 resolution. Public1.8.11.
+
+- 2026-11-08 5:42 am EST | cx-pc/0 r3 BR613b4d2f gate continuations: PC2 84090 on83621, Ally84091 on83622 AFTER any r2 restoration, PC84092 on83620 AFTER presence83747 resolved. Both early12-29ms and address-reuse attachment evidence required; no duplicate runs. Next collect all3 actual device verdicts, then release decision.
