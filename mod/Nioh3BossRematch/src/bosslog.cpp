@@ -4057,7 +4057,7 @@ void FormHide4Tick(uint64_t player) {
     }
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
     if (g_fh4.owner && (g_fh4.fromSpawn || g_fh4.keepSeal)) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
-    else if (g_fhFollow.load() && g_fh4.owner && !g_fh4.seal) {  // pc #56910: no kind-0 capture for some cores (DOWN A2ACB) -> use the spawn hit
+    else if (g_fh4.owner && !g_fh4.seal) {  // #81879: binding is required even when follow is OFF (pin mode).
         const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
         if (sc && st >= g_fh4.started - .05 && !(cap && capT >= g_fh4.started - .05) && now - st >= 0.3 && !AliveAtPress(sc)) {
             Log("FormHide=4 seal from spawn hit (no FormSlot0 capture) chr=%llX desc=%X t=%.3f", (unsigned long long)sc, g_fkSealDesc.load(), now);
@@ -4126,7 +4126,13 @@ void FormHide4Tick(uint64_t player) {
             // after the orb, i.e. after the throw ended). v2 gave the player back 0.4 s after the throw, so every DOWN use popped the samurai
             // back and hid it again 0.5-1.3 s later. Then wait SealOrbSpawnMs from the orb; with no orb, the throw-end rule stays.
             const bool orbOut = g_orbHooked.load() && g_orbT.load() >= g_fh4.started - .05 && g_orbSpawnMs.load() > 0;
-            const double noSpawnAt = orbOut ? g_orbT.load() + g_orbSpawnMs.load() / 1000.0 : g_throwDoneT + g_noSpawnEndMs.load() / 1000.0;
+            // #81879: a cold LEFT spawn arrived 1.97 s after its orb, inside the accepted use window but after
+            // the old 1.8 s end. Keep one hide alive for the entire window in which this use can still bind a seal.
+            const double useT = (std::max)(g_orbT.load(), g_sealEdgeT);
+            const double noSpawnAt = orbOut ? (std::max)(g_orbT.load() + g_orbSpawnMs.load() / 1000.0,
+                                                        useT + (std::max)(0, g_formNeedUseMs.load()) / 1000.0)
+                                           : g_throwDoneT + g_noSpawnEndMs.load() / 1000.0;
+            const double pressTimeoutAt = orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5;
             if (cap && capT >= g_fh4.started - .05 && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 // report #22: the first fresh actor after the press is this form's seal (same rule as the delayed begin, #66107): a later capture
@@ -4141,7 +4147,7 @@ void FormHide4Tick(uint64_t player) {
                 reason = "throw-done-no-seal";  // report #19: throw over, no yokai came out -> give the player back now, not after 2.5 s
                 if (orbOut) Log("FormHide=4 seal orb landed %.2f s ago and no seal spawned (%.2f s after the press)", now - g_orbT.load(), now - g_fh4.started);
                 else Log("FormHide=4 throw ended %.2f s ago with no seal orb and no seal spawn (%.2f s after the press)", now - g_throwDoneT, now - g_fh4.started);
-            } else if (now - g_fh4.started > 2.5) reason = "press-no-seal";
+            } else if (now > pressTimeoutAt) reason = "press-no-seal";
             else if (g_sealCancelEndMs.load() > 0 && g_throwCutT >= g_fh4.started - 1.5) {
                 // pc2 #59480/#59533: a hit (0x271F) cut the throw before the yokai spawned -> player hidden 2.1 s with no yokai.
                 // FhSealActTick marks a seal action that went straight to a non-throw action; the hide begins ~0.3 s after that.
@@ -5289,7 +5295,7 @@ bool CoverNativeSmoke(uint64_t player) {
     t_fxReplaying = wasReplay; t_coldCover = wasCold;
     Log("FormCore first-press native-smoke called=%d fault=%d component=%llX handle=%d t=%.3f",
         called ? 1 : 0, fault ? 1 : 0, (unsigned long long)comp, handle, Now());
-    return called && handle != -1;  // unchanged/invalid output must not hide the game's fallback smoke
+    return called && !fault && handle != -1 && handle != 0;  // #81879: zero is failure too; keep the game's fallback smoke
 }
 // Start smoke uses the learned slot template, or the native actor effect API on a cold slot.
 // The yokai is held invisible until SealShowMs after the press.
@@ -5317,7 +5323,7 @@ void CoverStartSmoke(uint64_t player, double now) {
     }
     if (!coverReady) {
         if (CoverNativeSmoke(player)) {
-            g_coverMade.store(1);  // suppress the later seal smoke only after our native call completed
+            g_coverMade.store(1);  // suppress later seal smoke only after a nonzero, non-sentinel native handle
             Log("SealCover: press t=%.3f native start smoke 62557 for cold d-pad slot %d", now, sl);
             return;
         }

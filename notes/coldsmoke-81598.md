@@ -11,3 +11,5 @@ Offline validation: release build via build.bat; 16 native dispatch/cover checks
 pc2 live gate: fresh process -> load save -> first LEFT and first DOWN -> repeat each, record video; restart and reverse the direction order. Compare first/later smoke placement, size, throw hiding and fade timing, exactly one form begin/end, and restored input. Repeat with per-core OFF. Inspect `FormCore first-press native-fx`, `native-smoke`, and `SealCover` lines. First-use player-scale appearance is unproven until this gate; offline tests do not validate the engine API or visuals.
 
 This candidate uses the authorized pre-use placeholders from d73e3ee9; it does not claim an equipped-core item-to-spawn mapping. Original audit notes/first-press-81537.md describes the pre-fix investigation; this document supersedes its diagnostic-only status for this branch.
+
+Superseded for #81879: see notes/smoke-fix-81879.md. Zero native handles now fail, and this branch includes equipped-core build 1e4d2ce7. The earlier non--1 success assumption and placeholder-only scope above describe the original candidate, not this combined build.

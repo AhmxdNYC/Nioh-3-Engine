@@ -118,7 +118,9 @@ def release(t_press):
     done = after(ev, t_press, "throwdone", 1.0)
     spawn = [e for e in ev if e[1] == "spawn" and t_press < e[0] < t_press + 2.5]
     v2_at = done[0][0] + NOSPAWN_MS / 1000 if done else None
-    new_at = orb[0][0] + ORB_SPAWN_MS / 1000 if orb else v2_at
+    use = after(ev, t_press, "sealact", 1.0)
+    use_t = max(orb[0][0], use[-1][0] if use else 0) if orb else 0
+    new_at = max(orb[0][0] + ORB_SPAWN_MS / 1000, use_t + NEED_USE_MS / 1000) if orb else v2_at
     return orb, spawn, v2_at, new_at
 for t in real[1:]:
     orb, spawn, v2_at, new_at = release(t)

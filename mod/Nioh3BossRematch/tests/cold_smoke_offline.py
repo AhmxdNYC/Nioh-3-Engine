@@ -5,6 +5,9 @@ import subprocess
 root = Path(__file__).resolve().parent.parent
 source = (root / 'src/bosslog.cpp').read_text(encoding='utf-8')
 body = source[source.index('bool CoverNativeSmoke('):source.index('void SealExitReplayTick()')]
+mute_start = source.index('        const double ct = g_coverT.load(std::memory_order_relaxed);', source.index('void HkFxRec('))
+mute_end = source.index('\n    }\n    const double t0', mute_start)
+body += '\nvoid GameSmoke(uint64_t d, uint64_t c) {\n' + source[mute_start:mute_end] + '\n}\n'
 pre = r'''
 #include <windows.h>
 #include <atomic>
@@ -12,7 +15,7 @@ pre = r'''
 #include <cstdio>
 #include <cassert>
 #include <cstring>
-bool guardGet=true,guardPlay=true,component=true,throwGet=false,throwPlay=false,warm=false,copyOk=true,invalidHandle=false;
+bool guardGet=true,guardPlay=true,component=true,throwGet=false,throwPlay=false,warm=false,copyOk=true,invalidHandle=false,zeroHandle=false;
 int gets=0,plays=0,checks=0;
 bool t_fxReplaying=false,t_coldCover=false;
 uint64_t g_base=0;
@@ -23,7 +26,7 @@ uint64_t FakeGet(uint64_t player){assert(player==123);assert(t_fxReplaying&&t_co
  if(throwGet)RaiseException(0xE0000001,0,0,nullptr);return component?456:0;}
 void FakePlay(uint64_t comp,int* h,uint32_t key,int bone,uint8_t flag){
  assert(comp==456&&key==0x62557&&bone==0&&flag==0);assert(t_fxReplaying&&t_coldCover);++plays;
- if(throwPlay)RaiseException(0xE0000002,0,0,nullptr);*h=invalidHandle?-1:42;}
+ if(throwPlay)RaiseException(0xE0000002,0,0,nullptr);*h=invalidHandle?-1:zeroHandle?0:42;}
 uint64_t Grva(uint64_t rva){return rva==0x2C7E90?(uint64_t)&FakeGet:(uint64_t)&FakePlay;}
 struct FxRec {uint32_t id=0x62557;uint8_t blk[0x60]={};};
 struct FxPlay {double at;FxRec r;};
@@ -39,7 +42,7 @@ bool Copy(void* dst,uint64_t,size_t n){if(copyOk)memset(dst,0,n);return copyOk;}
 bool CoverAt(FxRec&,const float*,uint32_t){return warm;}
 void check(bool condition){++checks;assert(condition);}
 void reset(){guardGet=guardPlay=component=copyOk=true;throwGet=throwPlay=warm=invalidHandle=false;
- gets=plays=0;t_fxReplaying=t_coldCover=false;g_coverMade=0;g_fxPlayN=0;g_coverOn=1;g_frzOk[0]=false;}
+ gets=plays=0;t_fxReplaying=t_coldCover=false;zeroHandle=false;g_coverMade=0;g_fxPlayN=0;g_coverOn=1;g_frzOk[0]=false;}
 '''
 post = r'''
 int main(){
@@ -50,6 +53,14 @@ int main(){
  reset();guardPlay=false;CoverStartSmoke(123,10);check(gets==0&&plays==0&&g_coverMade==0);
  reset();component=false;CoverStartSmoke(123,10);check(gets==1&&plays==0&&g_coverMade==0);
  reset();invalidHandle=true;CoverStartSmoke(123,10);check(plays==1&&g_coverMade==0);
+ reset();zeroHandle=true;CoverStartSmoke(123,10);check(plays==1&&g_coverMade==0&&g_fxPlayN==0);
+ check(!t_fxReplaying&&!t_coldCover);
+ float matrix[16]={};matrix[13]=123;GameSmoke((uint64_t)matrix,0x62557);check(matrix[13]==123);
+ reset();CoverStartSmoke(123,10);GameSmoke((uint64_t)matrix,0x62557);check(matrix[13]==123-100000.f);
+ // A failed new press must clear a previous successful press, for both cold slots and repeats.
+ reset();CoverStartSmoke(123,10);check(g_coverMade==1);zeroHandle=true;
+ CoverStartSmoke(123,11);check(g_coverMade==0);g_pressSlot=2;
+ CoverStartSmoke(123,12);check(g_coverMade==0&&plays==3);
  reset();throwGet=true;CoverStartSmoke(123,10);check(g_coverMade==0&&!t_fxReplaying&&!t_coldCover);
  reset();throwPlay=true;CoverStartSmoke(123,10);check(g_coverMade==0&&!t_fxReplaying&&!t_coldCover);
  reset();CoverStartSmoke(0,10);check(gets==0&&plays==0&&g_coverMade==0);
