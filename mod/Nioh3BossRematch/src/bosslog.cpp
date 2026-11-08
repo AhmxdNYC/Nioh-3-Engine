@@ -5257,7 +5257,20 @@ void CoverStartSmoke(uint64_t player, double now) {
     float p[4] = {};
     FxRec r = {};
     const int sl = g_pressSlot.load();
-    if (!player || !Copy(p, player + 0x110, 16) || !CoverAt(r, p, 0xFFFFFFF0u + (uint32_t)(sl >= 1 && sl <= 2 ? sl : 0))) {
+    const bool coverReady = player && Copy(p, player + 0x110, 16) &&
+        CoverAt(r, p, 0xFFFFFFF0u + (uint32_t)(sl >= 1 && sl <= 2 ? sl : 0));
+    // #81537: distinguish the per-core pick from the independently cold smoke cache.
+    // This describes the first observed cover request per direction in this process,
+    // not a claimed save-load boundary (the game can load another save without exiting).
+    static unsigned observedSlots = 0;
+    const unsigned bit = 1u << (sl >= 1 && sl <= 2 ? sl : 0);
+    if (!(observedSlots & bit)) {
+        observedSlots |= bit;
+        Log("FormCore first-press scope=process dir=%c core=%X transform=%d smokeReady=%d source=%s t=%.3f",
+            sl == 1 ? 'L' : sl == 2 ? 'D' : '?', sl >= 1 && sl <= 2 ? g_slotCore[sl].load() : 0,
+            ScOn() ? 1 : 0, coverReady ? 1 : 0, coverReady ? "slot-template" : "native-smoke", now);
+    }
+    if (!coverReady) {
         Log("SealCover: press t=%.3f, no smoke template for d-pad slot %d yet - the game's own smoke this time", now, sl); return; }
     if (g_fxPlayN >= kFxRecMax) g_fxPlayN = 0;
     g_fxPlay[g_fxPlayN].at = now;
