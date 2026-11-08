@@ -60,8 +60,22 @@ int main(){
  check(Nioh3BossRematch_CameraVerticalTarget()==2000);
  soulcamera::Spring tall;for(int i=0;i<30;++i)tall.Step(2000,1.f/60);
  check(std::fabs(tall.y-2000)<100);
- for(int i=0;i<12;++i)tall.Step(0,1.f/60,false);
+ for(int i=0;i<26;++i)tall.Step(0,1.f/60,false);
  check(std::fabs(tall.y)<.01f);
+
+ // 0.4 s handovers: first frame continuous, <=6.5% of 2000-unit travel per 60Hz frame.
+ soulcamera::Spring blend;float last=0,peak=0;
+ for(int i=0;i<60;++i){float y=blend.Step(2000,1.f/60,true,7);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
+ printf("enter max step %.3f / 2000 at 60Hz\n",peak);check(peak<130);check(std::fabs(last-2000)<.01f);
+ const float held=blend.filtered;peak=0;
+ for(int i=0;i<26;++i){float y=blend.Step(0,1.f/60,false,0);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
+ printf("exit max step %.3f / 2000 at 60Hz\n",peak);check(last==0&&peak<130);check(std::fabs(blend.filtered-held)<.01f);
+ blend.Step(-1500,1.f/60,true,8);for(int i=0;i<10;++i)blend.Step(-1500,1.f/60,true,8);
+ last=blend.y;blend.Step(0,1.f/60,false);check(blend.y==last);
+ for(int i=0;i<6;++i)blend.Step(0,1.f/60,false);
+ last=blend.y;blend.Step(1200,1.f/60,true,9);check(blend.y==last);
+ // Same-active session replacement also begins from current applied offset.
+ last=blend.y;blend.Step(3000,1.f/60,true,10);check(blend.y==last);
  printf("vertical camera target/export/spring/output: %d checks PASS\n",checks);
 }
 '''
