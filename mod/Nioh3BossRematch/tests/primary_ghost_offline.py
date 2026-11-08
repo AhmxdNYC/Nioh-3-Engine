@@ -25,6 +25,7 @@ void Log(const char*,...){}
 struct {double t=10;} g_pressSnap;std::atomic<double> g_pickT{10};std::atomic<uint32_t> g_pickCore{0x16127};
 std::set<uint64_t> oldActors,dead;bool AliveAtPress(uint64_t a){return oldActors.count(a)!=0;}
 uint64_t ActorTableGlobal(){return 1;}int FormHideSealPresent(uint64_t,uint64_t a){return dead.count(a)?0:1;}
+SRWLOCK g_fh4Lock=SRWLOCK_INIT;
 struct {uint64_t owner=123,seal=0;double capT=0;bool keepSeal=false;} g_fh4;
 std::atomic<uint64_t> g_ghostReq{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_tailSeal{0};
 std::atomic<double> g_ghostHideAt{0},g_ghostT{0},g_tailT0{0};

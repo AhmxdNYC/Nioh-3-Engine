@@ -4146,12 +4146,14 @@ void FormHide4Tick(uint64_t player) {
     const uint64_t primary = PressPrimarySeal(&primaryAt);
     if (primary) {
         cap = primary; capT = primaryAt;
+        AcquireSRWLockExclusive(&g_fh4Lock);
         if (g_fh4.owner && g_fh4.seal && g_fh4.seal != primary && !g_ghostReq.load()) {
             Log("FormPrimary: promote %llX -> %llX for pressed core %X", (unsigned long long)g_fh4.seal,
                 (unsigned long long)primary, g_pickCore.load());
             g_fh4.seal = primary; g_fh4.capT = primaryAt; g_fh4.keepSeal = true;
             FormHideEndBegin(player, primary);
         }
+        ReleaseSRWLockExclusive(&g_fh4Lock);
     }
     if (g_fh4.owner && (g_fh4.fromSpawn || g_fh4.keepSeal)) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
     else if (g_fh4.owner && !g_fh4.seal) {  // #81879: binding is required even when follow is OFF (pin mode).
