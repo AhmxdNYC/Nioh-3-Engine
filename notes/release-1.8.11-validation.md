@@ -28,4 +28,4 @@ Remaining checks:
 - run_thrsched_harness.py: Not run: harness refuses while game is running on both releases; companion does not control game.
 - run_timerres_harness.py: Native checks pass; old SkipDebugString ini documentation assertion fails on both releases.
 
-W1B wrapper limit was 90 seconds; direct built-native rerun exit 0. No game touched. PC, pc2 and Ally live gates are pending.
+W1B wrapper limit was 90 seconds; direct built-native rerun exit 0. No game touched. PC #83413, pc2 #83556 and Ally #83484 live gates all PASS. No newly introduced offline failure remains after the item29 fixture and version-manifest corrections; lead #83559 authorized publication.
