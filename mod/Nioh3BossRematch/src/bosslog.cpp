@@ -4876,8 +4876,19 @@ void SealIdleEndTick() {
 std::atomic<int> g_sehMode{0};
 uint64_t g_sehKid[8] = {};
 double g_sehKidT[8] = {};
+struct PressHitSource { uint64_t actor; double at; };
+std::vector<PressHitSource> g_pressHitSources;
+double g_hitSourceSnapshot = -100;
 void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNote), any chr near the player
     if (!chr) return;  // human #60327: natural mode counts bursts too
+    if (g_hitSourceSnapshot != g_pressSnap.t) {
+        g_pressHitSources.clear(); g_hitSourceSnapshot = g_pressSnap.t;
+    }
+    if (g_pressSnap.t > 0 && Now() >= g_pressSnap.t) {
+        auto found = std::find_if(g_pressHitSources.begin(), g_pressHitSources.end(),
+            [chr](const PressHitSource& s) { return s.actor == chr; });
+        if (found == g_pressHitSources.end()) g_pressHitSources.push_back({chr, Now()});
+    }
     static int n = 0;
     // pc2 #57781: a chr address the game reuses (LEFT's helper EE49E, from the 6th form on) gets its time refreshed; a stale time made
     // the burst test skip its colliders, so burst 1 (28 colliders) was never counted and the ghost exit never fired
@@ -5437,8 +5448,8 @@ void SealExitReplayTick() {  // game thread
 // -9999 restores the close+grace rule. Unknown counts keep the idle/despawn fallback; no predicted hit timetable.
 struct SealTailHitWatch {
     uint64_t seal = 0, player = 0;
-    uint32_t sid = 0;
-    double sess = 0, started = 0;
+    uint32_t sid = 0, boundId = 0;
+    double sess = 0, started = 0, sourceSince = 0;
     int bursts = 0, atExit = 0;
     bool open = false, atkOnly = true;
     std::vector<uint64_t> kids;
@@ -5457,7 +5468,7 @@ void SealTailHitTick() {
         auto& w = *it;
         const int present = FormHideSealPresent(ActorTableGlobal(), w.seal);
         uint32_t id = 0;
-        if (present == 0 || now - w.started > 30.0 || (present > 0 && Rd(w.seal, id) && (id >> 4) != w.sid)) {
+        if (present == 0 || now - w.started > 30.0 || (present > 0 && Rd(w.seal, id) && (id >> 4) != w.boundId)) {
             Log("SealTailHits core %X finished: %d bursts (exit at %d), %s", w.sid, w.bursts, w.atExit,
                 present == 0 ? "despawn" : "identity/30s guard");
             it = g_tailHitWatches.erase(it); continue;
@@ -5466,8 +5477,11 @@ void SealTailHitTick() {
         // Only add fresh helper candidates while this original form still owns the player.
         // A later form cannot donate its helpers to an older invisible seal.
         if (g_fh4.owner == w.player && g_fh4.seal == w.seal) {
+            if (g_hitSourceSnapshot == w.sourceSince) for (const auto& entry : g_pressHitSources)
+                if (entry.at >= w.sourceSince && std::find(w.kids.begin(), w.kids.end(), entry.actor) == w.kids.end())
+                    w.kids.push_back(entry.actor);
             for (int k = 0; k < 8; ++k)
-                if (g_sehKid[k] && g_sehKidT[k] >= w.sess - 0.05 &&
+                if (g_sehKid[k] && g_sehKidT[k] >= w.sourceSince &&
                     std::find(w.kids.begin(), w.kids.end(), g_sehKid[k]) == w.kids.end()) w.kids.push_back(g_sehKid[k]);
         }
         std::map<uint64_t, uint64_t> remaining;
@@ -5528,7 +5542,10 @@ void SealEndOnHitTick() {
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
     static int prevRaw = -1, prevMasked = -1, censusLines = 0;
-    static uint32_t sid = 0;
+    static uint32_t sid = 0, pressedId = 0, boundId = 0;
+    static double sourceSince = 0;
+    static std::vector<uint64_t> sources;
+    static std::map<uint64_t, int> sourceCensus;
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
@@ -5564,6 +5581,12 @@ void SealEndOnHitTick() {
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
+        sources.clear(); sourceCensus.clear(); boundId = 0;
+        pressedId = on ? g_pickCore.load() : 0;
+        // Spawn callbacks can precede the first observer tick (and the bound actor).
+        // Use the accepted press snapshot, not observer/bind time, for source admission.
+        sourceSince = on && g_pressSnap.t > 0 && g_pressSnap.t <= sess && sess - g_pressSnap.t <= 8.5
+            ? g_pressSnap.t : sess;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -5575,12 +5598,30 @@ void SealEndOnHitTick() {
     const double now = Now();
     if (!seal && g_fh4.seal) {
         seal = g_fh4.seal; boundAt = now;
-        uint32_t k = 0; Rd(seal, k); sid = k >> 4; want = SealHitsFor(sid);
+        uint32_t k = 0; Rd(seal, k); boundId = k >> 4; sid = pressedId ? pressedId : boundId; want = SealHitsFor(sid);
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
         CoreTplBind(sid, sess);
         Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
             bursts, want, want ? " - live last-burst exit timing" : " - no future burst count in live collision pool; idle fallback");
+    }
+    // Retain every noted actor from this press, including actors preceding the bound seal.
+    for (int k = 0; k < 8; ++k) {
+        const uint64_t actor = g_sehKid[k];
+        if (!actor || actor == g_fh4.owner || g_sehKidT[k] < sourceSince || g_sehKidT[k] > now) continue;
+        if (std::find(sources.begin(), sources.end(), actor) == sources.end()) {
+            sources.push_back(actor);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
+                (unsigned long long)actor, g_sehKidT[k], sourceSince, (unsigned long long)seal);
+        }
+    }
+    if (g_hitSourceSnapshot == sourceSince) for (const auto& entry : g_pressHitSources) {
+        if (entry.at < sourceSince || entry.at > now || entry.actor == g_fh4.owner) continue;
+        if (std::find(sources.begin(), sources.end(), entry.actor) == sources.end()) {
+            sources.push_back(entry.actor);
+            Log("SealHitSource core %X actor=%llX spawn=%.3f snapshot=%.3f bound=%llX", sid,
+                (unsigned long long)entry.actor, entry.at, sourceSince, (unsigned long long)seal);
+        }
     }
     const bool idleOnly = g_sieMode.load() == 1;  // human #61026: SealIdleEnd=1 - the idle edge is the only end rule (no hit timings)
     const int exitAtLastHitMs = g_exitAtLastHitMs.load();
@@ -5604,6 +5645,9 @@ void SealEndOnHitTick() {
     if (!poolOk && !idleFire) return;
     int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0, fresh = 0;
     std::set<uint64_t> current;
+    std::map<uint64_t, int> actorRaw, freshActors;
+    for (uint64_t actor : sources) actorRaw[actor] = 0;
+    if (seal) actorRaw[seal] = 0;
     if (poolOk) for (auto& entry : appearance) entry.second.seen = false;
     const bool bindWindow = !seal || now <= boundAt + 0.200;
     const bool atkOnly = g_sehAtk.load() > 0;
@@ -5615,7 +5659,8 @@ void SealEndOnHitTick() {
         uint64_t own = 0;
         if (!Rd(o + 8, own) || !own || own == g_fh4.owner) continue;
         bool mine = seal && own == seal;
-        for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && g_sehKidT[k] >= sess - 0.05;
+        if (!mine) mine = std::find(sources.begin(), sources.end(), own) != sources.end();
+        if (mine) ++actorRaw[own];
         if (mine && bindWindow && excluded == appearance.end())
             excluded = appearance.emplace(o, AppearCollider{own, true}).first;
         if (mine && atkOnly) {  // body collider (no attack data, no attack id) = not a hit
@@ -5627,7 +5672,7 @@ void SealEndOnHitTick() {
             if (excluded != appearance.end()) { ++masked; }
             else {
                 ++n; if (own == seal) ++direct; else ++helper;
-                current.insert(o); if (!previous.count(o)) ++fresh;
+                current.insert(o); if (!previous.count(o)) { ++fresh; ++freshActors[own]; }
             }
         }
     }
@@ -5641,6 +5686,13 @@ void SealEndOnHitTick() {
             ++censusLines;
         }
         prevRaw = raw; prevMasked = masked;
+        for (const auto& a : actorRaw) {
+            auto prior = sourceCensus.find(a.first);
+            if (prior == sourceCensus.end() || prior->second != a.second)
+                Log("SealHitSource census core %X actor=%llX +%.3f raw=%d", sid,
+                    (unsigned long long)a.first, now - sourceSince, a.second);
+        }
+        sourceCensus = actorRaw;
     }
     // #82179: new eligible objects start a cluster even while earlier attacks remain open.
     // All opens within 100 ms of the preceding new open belong to that same cluster.
@@ -5648,6 +5700,8 @@ void SealEndOnHitTick() {
     if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
     if (newCluster) {
         ++bursts; lastOpen = now - sess;
+        for (const auto& a : freshActors) Log("SealHitSource core %X burst %d actor=%llX new=%d +%.3f", sid,
+            bursts, (unsigned long long)a.first, a.second, now - sourceSince);
         Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
             bursts, fresh, n, masked, now - sess);
     }
@@ -5716,11 +5770,11 @@ void SealEndOnHitTick() {
             g_tailHitWatches.erase(g_tailHitWatches.begin());
         }
         SealTailHitWatch watch;
-        watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.sess = sess;
+        watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.boundId = boundId; watch.sess = sess; watch.sourceSince = sourceSince;
         watch.previous = previous; watch.lastNew = lastNew;
         watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
         for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
-        for (int k = 0; k < 8; ++k) if (g_sehKid[k] && g_sehKidT[k] >= sess - 0.05) watch.kids.push_back(g_sehKid[k]);
+        watch.kids = sources;
         g_tailHitWatches.push_back(watch);
         Log("SealTailHits core %X: watching after ghost exit from burst %d until despawn", sid, bursts);
         g_tailT0.store(now);

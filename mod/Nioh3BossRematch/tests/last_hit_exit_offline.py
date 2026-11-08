@@ -34,6 +34,9 @@ UINT FakeReadProfile(const wchar_t* section,const wchar_t* key,int d,const wchar
 void Log(const char*,...){}
 namespace bosslog {
 struct {uint64_t owner=0,seal=0;} g_fh4;
+struct {double t=-100;} g_pressSnap;
+std::atomic<uint32_t> g_pickCore{0};
+
 std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400};
 std::atomic<int> g_frz[2];std::atomic<int> g_fxrRepeatMs{0};
 std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
@@ -77,6 +80,7 @@ template<class T>bool Rd(uint64_t a,T& v){
 }
 bool Copy(void* dst,uint64_t a,size_t n){if(a!=0x10020||!poolReadable)return false;memset(dst,0,n);if(censusMode){int i=0;for(const auto& c:census)((uint64_t*)dst)[i++]=c.first;return true;}if(attack||persistent)((uint64_t*)dst)[0]=0x20000;if(extraAttack)((uint64_t*)dst)[1]=0x21000;return true;}
 '''
+pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.index('struct PressHitSource'))]
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
 bool FormCorePendingSet(int,bool b){return b;}bool FormCoreTransforms(uint32_t){return true;}bool FormCoreToggle(uint32_t){return false;}
@@ -92,13 +96,18 @@ int checks=0;double base=0;
 void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);fflush(stdout);exit(1);}}
 void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
  g_tailHitWatches.clear();tailPresent=1;g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
- clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
+ g_pickCore=0;g_pressSnap.t=-100;g_hitSourceSnapshot=-100;g_pressHitSources.clear();clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
  censusMode=false;censusBodies=false;census.clear();persistent=false;extraAttack=false;extraOwner=456;g_sehKid[1]=0;g_sehKidT[1]=0;g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
  g_ghostReq=0;g_ghostSeal=0;g_sealEndMinMs=700;smokes=despawns=hidden=releases=0;SealEndOnHitTick();
 }
 void step(double dt,bool active){clockNow=base+dt;attack=active;if(!manualAction)action=0x4E59;SealEndOnHitTick();}
 void first(){step(.8,true);step(1.0,false);}
 int main(){
+ g_pressSnap.t=1;clockNow=1.27;SealEndOnHitNoteSpawn(789);clockNow=1.38;SealEndOnHitNoteSpawn(456);
+ check(g_pressHitSources.size()==2);SealEndOnHitNoteSpawn(789);check(g_pressHitSources.size()==2&&g_pressHitSources[0].at==1.27);
+ for(int i=0;i<12;++i)SealEndOnHitNoteSpawn(1000+i);check(g_pressHitSources.size()==14);
+ g_pressSnap.t=2;clockNow=2.1;SealEndOnHitNoteSpawn(789);check(g_pressHitSources.size()==1&&g_pressHitSources[0].at==2.1);
+ for(int i=0;i<8;++i){g_sehKid[i]=0;g_sehKidT[i]=0;}
  ini.clear();LoadExitSetting();check(g_exitAtLastHitMs==0);
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
@@ -244,6 +253,25 @@ int main(){
  // Corrected tail observer also counts new-object clusters while the old attack remains open.
  ini.clear();start(1);censusMode=true;census={{0x22000,456}};step(.7,false);g_fh4.owner=0;step(.8,false);
  census[0x23000]=456;step(1.2,false);check(ini[L"5129B"]==L"2");census[0x24000]=456;step(1.25,false);check(ini[L"5129B"]==L"2");
+ // #82289: first actor precedes observer start; second actor is the visible bound seal.
+ ini.clear();start(-1,0,false,false,0xC17E3);
+ g_fh4.owner=0;SealEndOnHitTick();clockNow=base+.4;g_pressSnap.t=base;g_pickCore=0x16127;
+ g_sehKid[0]=789;g_sehKidT[0]=base+.27;g_sehKid[1]=456;g_sehKidT[1]=base+.38;
+ g_hitSourceSnapshot=base;g_pressHitSources={{789,base+.27},{456,base+.38}};
+ g_fh4.owner=123;g_fh4.seal=456;censusMode=true;census={{0x20000,789}};SealEndOnHitTick();
+ step(.61,false);check(!smokes);census[0x22000]=789;step(1.28,false);check(!smokes);
+ census.clear();step(1.5,false);g_sieFireSeal=456;step(2,false);
+ check(ini[L"16127"]==L"1"&&!ini.count(L"C17E3")&&g_ghostReq==456);
+ // Tail identity is bound actor C17E3, while learning stays under pressed 16127.
+ g_fh4.owner=0;step(2.1,false);census[0x23000]=789;step(2.4,false);
+ check(ini[L"16127"]==L"2"&&!g_tailHitWatches.empty());
+ // A stale actor from before the snapshot cannot supply a hit; >8 sources remain eligible.
+ start(1,0,false);g_fh4.owner=0;SealEndOnHitTick();g_pressSnap.t=base;g_pickCore=0x16127;
+ g_sehKid[0]=789;g_sehKidT[0]=base-.1;g_sehKid[1]=0;g_hitSourceSnapshot=base;
+ for(int i=0;i<12;++i)g_pressHitSources.push_back({1000u+(uint64_t)i,base+.1});
+ clockNow=base+.4;g_fh4.owner=123;g_fh4.seal=456;SealEndOnHitTick();
+ censusMode=true;census={{0x22000,789}};step(1.0,false);check(!smokes);
+ census[0x23000]=1011;step(1.3,false);check(smokes==1);
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
