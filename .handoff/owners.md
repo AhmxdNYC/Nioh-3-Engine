@@ -166,3 +166,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 5:35 am EST | cx-pc/0 PC2 FAIL84004 reconciled: old BR44ca2f23 early12-29ms0/5, later207ms2/2. Separate stale g_pickLearned Done-before-Pulse path remains in r2; cx-pc2 owns repair83904/83992.
   Hold new r2 starts via PC2 84016, Ally84017, PC84018; active owner may finish bounded evidence/restore, no duplicate run. Await pushed combined fix before fresh packaging. PC2 restored28/28 paths6/6 saves; report6598 logs6585/6586. Player/favorite images6577/6578 resent successfully to Discord by cx-pc. Public1.8.11, no r2 live PASS.
+
+- 2026-11-08 5:42 am EST | cx-pc/0 r3 integrates early-fix e462fc19 as0d027650 atop snapshot6f71c28b. Independently8 suites865/865 PASS; Release BR build PASS. EF a1b32e13 unchanged; BR613b4d2f #6605, Setup769c558b #6606, Linux32214d9d #6607, full32596613 #6608, combined437dfae9 #6609, sums6610.
+  Windows/Linux embedded payload byte equality and full/combined BR equality PASS; PDB-only scrub preserves executable bytes. r3 supersedes held r2, but live recovery0/3. Next existing owners test early12-29ms AND address-reuse cases; PC still requires presence83747 resolution. Public1.8.11.
