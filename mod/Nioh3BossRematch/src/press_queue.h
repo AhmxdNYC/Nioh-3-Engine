@@ -22,7 +22,8 @@ inline void Queue(State& s, int dir, ULONGLONG now) {
 }
 inline void Clear(State& s) { s.dir.store(0); s.pulseAt.store(0); }
 // game thread, every tick. thrown = the new seal's spawn hit was seen (g_pickLearned after the press).
-inline Step Tick(State& s, ULONGLONG now, bool oldSealAlive, bool blocked, bool thrown) {
+template<class BeforePulse>
+inline Step Tick(State& s, ULONGLONG now, bool oldSealAlive, bool blocked, bool thrown, BeforePulse beforePulse) {
     if (!s.dir.load()) return Step::Idle;
     if (thrown) { Clear(s); return Step::Done; }
     if (now - s.queuedAt.load() > kWindowMs) { Clear(s); return Step::Expired; }
@@ -33,8 +34,12 @@ inline Step Tick(State& s, ULONGLONG now, bool oldSealAlive, bool blocked, bool 
         s.pulseAt.store(0);  // no spawn after the last pulse: pulse again below
     }
     if (oldSealAlive || blocked) return Step::Wait;
+    beforePulse(s.tries.load() == 0);  // prepare the logical press BEFORE the hook can expose its input
     s.tries.fetch_add(1); s.pulseAt.store(now);
     return Step::Pulse;
+}
+inline Step Tick(State& s, ULONGLONG now, bool oldSealAlive, bool blocked, bool thrown) {
+    return Tick(s, now, oldSealAlive, blocked, thrown, [](bool) {});
 }
 // XInput hook thread: d-pad bit to OR into the pad state right now (0 = none).
 inline WORD Buttons(const State& s, ULONGLONG now) {

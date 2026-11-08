@@ -4134,9 +4134,19 @@ void FormHide4Tick(uint64_t player) {
     bool spawnBegin = false;
     static uint64_t spawnUsed = 0; static double spawnUsedT = -1;  // a spawn-hit seal begins one form only (the end resets 'attempted' to the FormSlot0 capture)
     PressGhostTick();
-    switch (pressq::Tick(g_pressQ, GetTickCount64(), g_ghostSeal.load() != 0, g_fh4.owner != 0 || g_fbActive.load(), g_pickLearned.load())) {
+    switch (pressq::Tick(g_pressQ, GetTickCount64(), g_ghostSeal.load() != 0, g_fh4.owner != 0 || g_fbActive.load(), g_pickLearned.load(), [](bool first) {
+        const double now = Now();
+        // The physical press can snapshot the dying old seal. Once it unlinks, its pooled address
+        // may be reused by this replay's new seal. Capture actors still alive BEFORE publishing input.
+        // Retries are the same logical press: recapturing could blacklist its delayed new spawn.
+        if (first) {
+            const bool ok = PressSnapTake(now);
+            Log("FormCore queued press snapshot: %zu live actors%s t=%.3f", g_pressSnap.nodes.size(),
+                ok ? "" : " - actor table unreadable, no snapshot", now);
+        }
+        g_pickT.store(now); g_pickLearned.store(false);
+    })) {
     case pressq::Step::Pulse:
-        g_pickT.store(Now()); g_pickLearned.store(false);  // the replayed press is the one PickLearn matches the next spawn hit to
         Log("FormCore queued press fired: dir=%c try %d t=%.3f", g_pressQ.dir.load() == 1 ? 'L' : 'D', g_pressQ.tries.load(), Now());
         break;
     case pressq::Step::Done: Log("FormCore queued press: new seal spawned t=%.3f", Now()); break;
