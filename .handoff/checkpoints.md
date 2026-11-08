@@ -320,3 +320,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 06:54 AM EST | cx-ops84297/evidence6642: synchronized30s observation reports28876 gamepad notifications from Flydigi HID37D7:2401 IG01,0 mouse/keyboard events,277 idle samples0-16ms; session1 matched console, registrations/hooks succeeded. Report source identified, idle-refresh cause and human absence NOT established.
   Desktop-name import incorrectly used ANSI for Unicode, so interval desktop validation is invalid; post-run Default/Default does not repair it. XInput/GameInput-only coverage and process attribution unproven. Next suggested step remains import correction and scoped payload-free attribution review by existing owners, no additional capture authorized here. PC gate84092 held; release2/3, public/installed1.8.11 unchanged; no game/runtime changes.
+
+- 2026-11-08 12:24 pm EST | Task84557/human84555 authorizes existing r3 publication with main-PC gate waived; PC2+Ally2/3 PASS.16 package checksums and full-install loader verified; GitHub draft16/16 digests match.
+  Next publish GitHub draft, deploy D:/nioh3-wt/site-release-1812, verify live payloads, task Ally download-only. Notes notes/release-1.8.12.md; no rebuild/game action.
