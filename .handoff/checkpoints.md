@@ -166,3 +166,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-08 12:47 am EST | #82480 three fixes implemented | 269 last-hit +45 ground checks PASS | next Release rebuild and remaining regressions | cx-pc/observe-82480, notes/observe82480.md
 
 2026-11-08 12:48 am EST | #82480 BR22345f1c bridge #6427, source d667b24f | 925 offline + sc22 PASS, live unproven | next pc/pc2 check late bind, direct final hit and repeat Y | cx-pc/observe-82480 notes/observe82480.md
+- 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c).
+- Release +1137 checks +available sc22 PASS. Only unique world smoke replays, never bone effects; record/exit history reset per press; 100-press replay bounded. Next Claude pc restart/install when human says, repeated exits/video gate. No game touched. notes/exit-smoke-82536.md.

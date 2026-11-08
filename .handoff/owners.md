@@ -87,3 +87,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - cx-pc/0 #82436 done offline; BR63be4fe6 #6421. pc owns installation and live acceptance.
 
 - cx-pc/0 #82480 complete offline; BR22345f1c #6427, pc owns install/live validation. No game touched.
+- 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c). pc/6 owns install/live gate.

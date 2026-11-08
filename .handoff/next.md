@@ -100,3 +100,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - #82436 ready: BR63be4fe6 bridge #6421, source e8b5ca40 on cx-pc/exit-82436; 894 offline PASS. Exit FX tracks player/travel, bone replay on player, ended actors cannot rebind. Next pc live test; no game touched.
 
 - #82480 ready: BR22345f1c #6427, source d667b24f on cx-pc/observe-82480 atop63be4fe6. 925 offline PASS; late-bind downward guard, source-separated final hit, native warp clamp/local repeated-height anchor. Lead owns live tests.
+- 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c).
+- Release +1137 checks +available sc22 PASS. Only unique world smoke replays, never bone effects; record/exit history reset per press; 100-press replay bounded. Next Claude pc restart/install when human says, repeated exits/video gate. No game touched. notes/exit-smoke-82536.md.
