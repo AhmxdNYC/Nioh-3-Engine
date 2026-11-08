@@ -2707,56 +2707,12 @@ static void FormRotYaw(float* r, float a) {
 }
 // write the turned rows to the seal at ro and to its mirror copy at +0x210 (Temp/yawfind out4: same layout, same yaw) when the
 // mirror really holds the same facing; mark the transform dirty like the player copy does
-// human #61199: rows held at 0 deg off but the yokai still DRAWS turned -> the drawn facing comes from another copy. At bind, find every
-// pure-yaw quaternion (x,z ~ 0) near the seal whose angle equals the seal's spawn yaw (Temp/yawfind out4: [chr+F0]+4F4/554/5B4 matched),
-// and turn those together with the rows every frame. sign: +1 yaw = 2*atan2(y,w), -1 yaw = -2*atan2(y,w).
-struct FaceQ { uint64_t a; int sign; };
-static FaceQ g_faceQ[12];
-static int g_faceQn = 0;
-static int FormFaceFindQuats(uint64_t cap, float yawS, char* desc, size_t dn) {
-    g_faceQn = 0; desc[0] = 0;
-    struct R { const char* nm; uint64_t base; uint32_t n; } rs[8] = {};
-    int nr = 0;
-    rs[nr++] = {"chr", cap, 0x3000};
-    static const struct { const char* nm; uint32_t off; uint32_t n; } ptrs[] = {{"[F0]", 0xF0, 0x1000}, {"[10]", 0x10, 0x800}, {"[20]", 0x20, 0x800},
-                                                                                {"[E8]", 0xE8, 0x800}, {"[3A0]", 0x3A0, 0x800}, {"[40]", 0x40, 0x800}};
-    for (const auto& p : ptrs) { uint64_t v = 0; if (Rd(cap + p.off, v) && v > 0x10000 && v != cap && (v & 7) == 0) rs[nr++] = {p.nm, v, p.n}; }
-    uint64_t comp = 0, xf = 0;
-    if (Rd(cap + 0x3B0, comp) && comp && Rd(comp + 8, xf) && xf > 0x10000) rs[nr++] = {"xf", xf, 0x400};
-    static float buf[0x3000 / 4];
-    size_t used = 0;
-    for (int i = 0; i < nr; ++i) {
-        if (!Copy(buf, rs[i].base, rs[i].n)) continue;
-        for (uint32_t o = 0; o + 16 <= rs[i].n; o += 4) {
-            const float* q = buf + o / 4;
-            if (!std::isfinite(q[0]) || !std::isfinite(q[1]) || !std::isfinite(q[2]) || !std::isfinite(q[3])) continue;
-            if (std::fabs(q[0]) > 0.02f || std::fabs(q[2]) > 0.02f || std::fabs(q[1]) < 0.05f || std::fabs(q[3]) < 0.02f) continue;
-            if (std::fabs(q[1] * q[1] + q[3] * q[3] - 1.f) > 0.01f) continue;
-            const float y = 2.f * std::atan2(q[1], q[3]) * 57.29578f;
-            for (int sg = 1; sg >= -1; sg -= 2) {
-                float dd = sg * y - yawS; while (dd > 180.f) dd -= 360.f; while (dd < -180.f) dd += 360.f;
-                if (std::fabs(dd) < 0.7f && g_faceQn < 12) {
-                    g_faceQ[g_faceQn++] = {rs[i].base + o, sg};
-                    if (used + 24 < dn) used += snprintf(desc + used, dn - used, " %s+%X(%c)", rs[i].nm, o, sg > 0 ? '+' : '-');
-                    break;
-                }
-            }
-        }
-    }
-    return g_faceQn;
-}
-static void FormFaceWriteQuats(float yawDeg) {
-    for (int i = 0; i < g_faceQn; ++i) {
-        const float h = g_faceQ[i].sign * yawDeg * 0.5f * 0.01745329f;
-        float yw[2] = {std::sin(h), std::cos(h)}, q[4] = {};
-        if (!Copy(q, g_faceQ[i].a, 16)) continue;
-        if (std::fabs(q[0]) > 0.05f || std::fabs(q[2]) > 0.05f || std::fabs(q[1] * q[1] + q[3] * q[3] - 1.f) > 0.02f) continue;  // reused, not ours
-        WrBytes(g_faceQ[i].a + 4, &yw[0], 4); WrBytes(g_faceQ[i].a + 12, &yw[1], 4);
-    }
-}
+// #83188: never infer writable quaternions from float-shaped heap bytes.
+// The old scan selected [seal+20]+44C and wrote +450/+458, which are
+// native timed-lerp list metadata (27E92C), causing the 468FC null-node crash.
+// Facing uses the known movement yaw fields and transform rows below only.
 static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
     if (!WrBytes(cap + ro, r, 48)) return false;
-    FormFaceWriteQuats(std::atan2(r[8], r[10]) * 57.29578f);
     float mr[12] = {};
     if (ro == 0x120 && Copy(mr, cap + 0x210, sizeof(mr)) && std::isfinite(mr[8]) && std::isfinite(mr[10])) {
         const float n = mr[8] * mr[8] + mr[10] * mr[10];
@@ -2842,9 +2798,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
         g_faceHold = {};
         if (setter) faced = true;
         else if (g_fhFaceOnSpawn.load() > 0 && unit && std::fabs(d) > 2.f) {
-            char qd[320];
-            const int nq = FormFaceFindQuats(cap, yawS, qd, sizeof(qd));
-            Log("FormFace: %d yaw quaternion(s) at the seal's spawn yaw:%s", nq, qd);
+            Log("FormFace: typed yaw/rows only; heuristic quaternion writes disabled (83188)");
             YwArm(cap);
             // human #61219/#61241 (probe 78649ff8): the game rebuilds rows +120 every frame from the seal's movement component
             // comp=[[seal+3B0]+30] (vt+2A0 builds the matrix from the euler at comp+A0, yaw radians at +A4; +200 holds the same yaw).
@@ -2883,7 +2837,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
                 FormRotYaw(sm, -g_faceHold.d);
                 if (FormFaceWrite(cap, ro, sm)) ++g_faceHold.fixes;
                 g_faceHold.last = std::atan2(sm[8], sm[10]) * 57.29578f;
-            } else { g_faceHold.last = yS; ++g_faceHold.kept; FormFaceWriteQuats(yS); }
+            } else { g_faceHold.last = yS; ++g_faceHold.kept; }
         }
         if (g_faceChk.cap == cap && g_faceChk.n < 3) {
             static const double at[3] = {0.1, 0.5, 1.0};

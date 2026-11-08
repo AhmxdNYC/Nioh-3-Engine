@@ -120,3 +120,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-08 03:46 AM EST | cx-pc #83125: 0.4 s camera handovers with persistent 20 ms follow; BR c3571950 / CamKi 5938a5ad; 467 checks + builds PASS; live gate remains Claude pc. Branch cx-pc/camera-blend-83125.
 
 - 2026-11-08 03:56 AM EST | cx-pc #83151 native TimedLerpAdvance null-list-node crash localized; upstream cause unproven. Camera 0.7s smootherstep + identity guards, 495 checks/builds PASS. BR c7315ca3 / CamKi 617d93cd; next Claude pc live gate and native-list diagnosis; cx-pc/camera-crash-83151.
+- 2026-11-08 4:03 am EST | cx-pc/1 #83188 removed heuristic quaternion writes that hit native list +450/+458 | 3006 offline checks PASS; Release build pending; live untested | next: finish build, bridge to Claude | notes/face-list-crash-83188.md, cx-pc/face-list-crash-83188

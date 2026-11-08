@@ -106,3 +106,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-08 03:46 AM EST | cx-pc #83125: 0.4 s camera handovers with persistent 20 ms follow; BR c3571950 / CamKi 5938a5ad; 467 checks + builds PASS; live gate remains Claude pc. Branch cx-pc/camera-blend-83125.
 
 - 2026-11-08 03:56 AM EST | cx-pc #83151 native TimedLerpAdvance null-list-node crash localized; upstream cause unproven. Camera 0.7s smootherstep + identity guards, 495 checks/builds PASS. BR c7315ca3 / CamKi 617d93cd; next Claude pc live gate and native-list diagnosis; cx-pc/camera-crash-83151.
+- cx-pc/1 #83188 owns face-list corruption fix; offline verified, build pending; Claude owns game.
