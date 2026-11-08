@@ -3691,7 +3691,7 @@ bool RowInCurrentList(const Row& r) {
 // The catalogue row of a list item on the current page, -1 for anything else.
 int FavRowOfItem(int item) {
     const int p = g_uiPages.page;
-    const int row = p == uRematch && item >= 0 && item < kItFight ? item
+    const int row = (p == uRematch || p == uBosses) && item >= 0 && item < kItFight ? item
                   : p == uTrainHere && item >= kItTrainHere && item < kItTrainHere + kMaxRows ? item - kItTrainHere
                   : p == uTraining && item >= kItTeleport && item < kItTeleport + kMaxRows ? item - kItTeleport : -1;
     return row >= 0 && (size_t)row < g_rows.size() ? row : -1;
@@ -3720,12 +3720,21 @@ template <class Add> void AddGateTrainingRows(Add&& add) {
 int Items(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
+    // Collect all eligible rows before capacity truncation, then keep original order within each favorite group.
+    auto addFavoritesFirst = [&](std::vector<int>& items) {
+        rcore::FavoritesFirst(items, [&](int item) {
+            const int row = FavRowOfItem(item);
+            return row >= 0 && FavHas(ListFavKind(), g_rows[(size_t)row].id);
+        });
+        for (int item : items) add(item);
+    };
     // Same order the Boss Match list already used. The filter hides rows; it does not renumber them.
     auto addBossList = [&]() {
         EnsureListCycle();
         add(kItListFilter);
+        std::vector<int> rows;
         for (int pass = 0; pass < 3; ++pass)
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+            for (size_t i = 0; i < g_rows.size(); ++i) {
                 const Row& r = g_rows[i];
                 const uint8_t st = g_status[i].load();
                 const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
@@ -3734,8 +3743,9 @@ int Items(int* out, int cap) {
                 if (grp == 2 && !g_cfg.showAll) continue;
                 if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
                 if (!RowInCurrentList(r)) continue;
-                add((int)i);
+                rows.push_back((int)i);
             }
+        addFavoritesFirst(rows);
     };
     if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
@@ -3783,14 +3793,16 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uTrainHere) {  // user #13223: every boss with a mission id, beaten first. Waves rows have no mission id.
         EnsureListCycle();
+        std::vector<int> rows;
         add(kItListFilter);  // #79069
         for (int pass = 0; pass < 2; ++pass)
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+            for (size_t i = 0; i < g_rows.size(); ++i) {
                 if (!RowInCurrentList(g_rows[i])) continue;
                 const bool waves = rcore::WavesRow(g_rows[i]);
-                if (waves) { if (pass == 0) add(kItTrainHere + (int)i); continue; }
-                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) add(kItTrainHere + (int)i);
+                if (waves) { if (pass == 0) rows.push_back(kItTrainHere + (int)i); continue; }
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) rows.push_back(kItTrainHere + (int)i);
             }
+        addFavoritesFirst(rows);
         add(kItBack);
         return n;
     }
@@ -3824,16 +3836,18 @@ int Items(int* out, int cap) {
         // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (fast load)
         if (g_live.load()) {
             EnsureListCycle();
+            std::vector<int> rows;
             add(kItListFilter);  // #79069
             for (int pass = 0; pass < 2; ++pass)
-                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+                for (size_t i = 0; i < g_rows.size(); ++i) {
                     const Row& r = g_rows[i];
                     if (!RowInCurrentList(r)) continue;
-                    if (rcore::WavesRow(r)) { if (pass == 0) add(kItTeleport + (int)i); continue; }
+                    if (rcore::WavesRow(r)) { if (pass == 0) rows.push_back(kItTeleport + (int)i); continue; }
                     if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
                     if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
-                    add(kItTeleport + (int)i);
+                    rows.push_back(kItTeleport + (int)i);
                 }
+            addFavoritesFirst(rows);
         }
         add(kItBack);
         return n;
@@ -4267,7 +4281,11 @@ void UiChange(int dir) {
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItListFilter) { CycleListFilter(dir); return; }
-    if (FavChange(item, dir)) return;  // #79069
+    if (FavChange(item, dir)) {
+        const int count = Items(items, kMaxRows + 4);
+        g_sel = rcore::KeepVisibleSel(items, count, g_sel, item); // follow the same row after promotion/demotion
+        return;
+    }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
