@@ -3289,6 +3289,8 @@ bool Fh4ClampRoot(uint64_t chr, uint64_t root, bool nativeFresh) {
 // then until the SealDefer deadline. [Spirit] FormSealKeep=1 (default) holds the seal root +248 at 1.0 while FormHide=4 owns a captured
 // seal that is still in the actor table, with its own root (never the player's).
 std::atomic<int> g_fhSealKeep{1};
+uint64_t PressPrimarySeal(double* at);
+
 // pc #57569 (human #57567): [Spirit] SealGhostExit=1 (with SealEndOnHit): a despawn at the last hit also kills the yokai's projectiles / hit
 // effects. Instead, at the last-hit close the form ends (FormHide4Tick reason "ghost-exit": Fh4Restore = player visible + input back, pin and
 // follow stop) while the seal lives on, invisible (its model root fade [[seal+20]+248] held at 0, the same fade it uses to vanish by itself,
@@ -3370,9 +3372,38 @@ bool SealExitCore(uint32_t sid) {
     for (int i = 0; i < g_sxcN; ++i) if (g_sxcCore[i] == sid) return true;
     return false;
 }
+// #82327: every actor of the exiting press retains its own fade and tail lifetime.
+struct PressGhost { uint64_t actor=0, root=0; uint32_t key=0; double at=0, hideAt=0; float fade=1, tail=2, base=1, ramp=0; int fadeMs=0; };
+SRWLOCK g_pressGhostLock = SRWLOCK_INIT;
+std::vector<PressGhost> g_pressGhosts;
+bool PressGhostGet(uint64_t actor, PressGhost& out) {
+    bool found = false;
+    AcquireSRWLockShared(&g_pressGhostLock);
+    for (const auto& g : g_pressGhosts) if (g.actor == actor) { out = g; found = true; break; }
+    ReleaseSRWLockShared(&g_pressGhostLock);
+    if (!found || Now() - out.at > 20) return false;
+    uint32_t key=0; uint64_t root=0;
+    return Rd(actor,key) && key==out.key && Rd(actor+0x20,root) && root==out.root;
+}
+void PressGhostForget(uint64_t actor) {
+    AcquireSRWLockExclusive(&g_pressGhostLock);
+    g_pressGhosts.erase(std::remove_if(g_pressGhosts.begin(),g_pressGhosts.end(),
+        [actor](const PressGhost& g){return g.actor==actor;}),g_pressGhosts.end());
+    ReleaseSRWLockExclusive(&g_pressGhostLock);
+}
+void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke);
+void PressGhostTick();
 void GhostHideSeal(uint64_t seal) {
     uint64_t sr = 0; float k6 = 1;
     if (!seal || !Rd(seal + 0x20, sr) || !sr || !Rd(sr + 0x248, k6) || k6 == 0.f) return;
+    PressGhost ghost;
+    if (PressGhostGet(seal, ghost)) {
+        if (Now() < ghost.hideAt) return;
+        const double f = ghost.fadeMs > 0 ? 1.0 - (Now()-ghost.at)*1000.0/ghost.fadeMs : 0;
+        const float v = f > 0 ? (float)(ghost.fade*f) : 0.f;
+        if (v < k6) WrBytes(sr+0x248,&v,4);
+        return;
+    }
     if (Now() < g_ghostHideAt.load(std::memory_order_relaxed)) return;  // human #58146: the yokai stays a moment inside the exit smoke
     float v = 0.f;
     if (g_ghostFadeMs > 0 && g_ghostFadeSeal.load(std::memory_order_relaxed) == seal) {
@@ -3438,6 +3469,8 @@ void HkFh4Multiplier(uint64_t chr, uint64_t root) {
         SealShowHold(chr, sa);
         if (Now() < sa + g_showFadeMs.load() / 1000.0 && chr && chr == g_fh4.seal && chr != g_fh4.owner) return;  // no FormSealKeep (fade 1) while held / fading in
     }
+    PressGhost pg;
+    if (PressGhostGet(chr, pg)) { GhostHideSeal(chr); return; }
     if (const uint64_t gs = g_ghostSeal.load(std::memory_order_relaxed); gs && chr == gs) { GhostHideSeal(chr); return; }
     if (!g_fh4.owner || (chr != g_fh4.owner && chr != g_fh4.seal)) return;  // the seal call feeds FormSealKeep
     Fh4Timer tm;
@@ -3574,6 +3607,11 @@ std::atomic<uint64_t> g_tailSeal{0};
 std::atomic<bool> g_ftHooked{false};  // human #58117: all 18 134E68 hooks in, so a menu SealSpeed / SealTailSpeed change applies live
 float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
+    PressGhost ghost;
+    if (PressGhostGet(a, ghost)) {
+        const double e = ghost.ramp > 0 ? (Now()-ghost.at)*1000.0/ghost.ramp : 1;
+        return e >= 1 ? ghost.tail : e <= 0 ? ghost.base : ghost.base+(ghost.tail-ghost.base)*(float)e;
+    }
     const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
     // human #61869: forms OFF - only the form still up / its ghost tail keeps its speed (a stale tail seal address may be a vanilla yokai now)
     if (!ScOn() && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
@@ -4091,6 +4129,7 @@ void FormHide4Tick(uint64_t player) {
     static double attemptedT = -1;
     bool spawnBegin = false;
     static uint64_t spawnUsed = 0; static double spawnUsedT = -1;  // a spawn-hit seal begins one form only (the end resets 'attempted' to the FormSlot0 capture)
+    PressGhostTick();
     if (g_fhMode.load() != 4 && !g_fh4.owner && !g_ghostSeal.load()) return;
     uint64_t cap = g_fs0CapChr.load(); double capT = g_fs0CapT; const double now = Now();
     if (const uint64_t gs = g_ghostSeal.load()) {  // pc #57569: keep the ghost seal hidden; drop it once it is gone (or after 20 s)
@@ -4103,6 +4142,17 @@ void FormHide4Tick(uint64_t player) {
         } else if (pr == 1) GhostHideSeal(gs);
     }
     if (g_fhMode.load() != 4 && !g_fh4.owner) return;
+    double primaryAt = 0;
+    const uint64_t primary = PressPrimarySeal(&primaryAt);
+    if (primary) {
+        cap = primary; capT = primaryAt;
+        if (g_fh4.owner && g_fh4.seal && g_fh4.seal != primary && !g_ghostReq.load()) {
+            Log("FormPrimary: promote %llX -> %llX for pressed core %X", (unsigned long long)g_fh4.seal,
+                (unsigned long long)primary, g_pickCore.load());
+            g_fh4.seal = primary; g_fh4.capT = primaryAt; g_fh4.keepSeal = true;
+            FormHideEndBegin(player, primary);
+        }
+    }
     if (g_fh4.owner && (g_fh4.fromSpawn || g_fh4.keepSeal)) { cap = g_fh4.seal; capT = g_fh4.capT; }  // keep the spawn-hit seal (FormSlot0 never captures it)
     else if (g_fh4.owner && !g_fh4.seal) {  // #81879: binding is required even when follow is OFF (pin mode).
         const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
@@ -4879,6 +4929,19 @@ double g_sehKidT[8] = {};
 struct PressHitSource { uint64_t actor; double at; };
 std::vector<PressHitSource> g_pressHitSources;
 double g_hitSourceSnapshot = -100;
+uint64_t PressPrimarySeal(double* at) {
+    if (g_hitSourceSnapshot != g_pressSnap.t || g_pressSnap.t <= 0) return 0;
+    const uint32_t wanted = g_pickT.load() >= g_pressSnap.t - 1.5 ? g_pickCore.load() : 0;
+    const PressHitSource* first = nullptr;
+    for (const auto& entry : g_pressHitSources) {
+        if (entry.at < g_pressSnap.t || AliveAtPress(entry.actor)) continue;
+        if (!first) first = &entry;
+        uint32_t key = 0;
+        if (wanted && Rd(entry.actor, key) && (key >> 4) == wanted) { *at = entry.at; return entry.actor; }
+    }
+    if (first) { *at = first->at; return first->actor; }
+    return 0;
+}
 void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNote), any chr near the player
     if (!chr) return;  // human #60327: natural mode counts bursts too
     if (g_hitSourceSnapshot != g_pressSnap.t) {
@@ -4887,7 +4950,7 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
     if (g_pressSnap.t > 0 && Now() >= g_pressSnap.t) {
         auto found = std::find_if(g_pressHitSources.begin(), g_pressHitSources.end(),
             [chr](const PressHitSource& s) { return s.actor == chr; });
-        if (found == g_pressHitSources.end()) g_pressHitSources.push_back({chr, Now()});
+        if (found == g_pressHitSources.end()) { PressGhostForget(chr); g_pressHitSources.push_back({chr, Now()}); }
     }
     static int n = 0;
     // pc2 #57781: a chr address the game reuses (LEFT's helper EE49E, from the 6th form on) gets its time refreshed; a stale time made
@@ -5272,7 +5335,7 @@ void SealExitReplayBegin(double t) {
 }
 void SealExitReplayBound(double t) { g_fxrUntil.store(t + g_fxrTailMs / 1000.0); }
 // game thread, at the ghost exit of a smoke core: schedule the recorded start effects from now on
-int SealExitReplayQueue(uint64_t seal, uint64_t player) {
+int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
     g_fxrT0.store(0);
     if (g_fxrOn.load() <= 0) return 0;
     static FxRec rec[kFxRecMax];
@@ -5297,8 +5360,9 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
     }
     if (!n) return 0;
     const double now = Now();
-    g_fxPlayN = 0;
-    for (int i = 0; i < n; ++i) {
+    if (!append) g_fxPlayN = 0;
+    const int begin = g_fxPlayN;
+    for (int i = 0; i < n && g_fxPlayN < kFxRecMax; ++i) {
         FxRec r = rec[i];
         if (r.world) {
             float* m = (float*)r.blk;
@@ -5319,13 +5383,13 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
         ++g_fxPlayN;
     }
     double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
-    for (int i = 0; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
-    for (int i = 0; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
+    for (int i = begin; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
+    for (int i = begin; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
     const int rep = g_fxrRepeatMs.load();  // human #58117: one read per queue (menu writes it live)
-    for (int i = 0; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
-    for (int i = 0, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
+    for (int i = begin; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
+    for (int i = begin, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
         if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += rep / 1000.0; }
-    return g_fxPlayN;
+    return g_fxPlayN - begin;
 }
 // human #58146: freeze switches (Soul core tuning): 0 = start smoke, 1 = end smoke. ON = that smoke is spawned again every SmokeFreezeMs
 // at the spot it last appeared, so it stays up until switched off.
@@ -5446,6 +5510,29 @@ void SealExitReplayTick() {  // game thread
 // report #22: the learned per-core timings [SealDur] / [SealLastHit] (#60302/#60327) are gone (human #61089: no stored timings); natural mode
 // #81898: default exit is THIS form's last live burst OPEN + SealExitAtLastHitMs, with the yokai finishing invisibly.
 // -9999 restores the close+grace rule. Unknown counts keep the idle/despawn fallback; no predicted hit timetable.
+void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
+    std::set<uint64_t> unique(actors.begin(), actors.end());
+    for (uint64_t actor : unique) {
+        PressGhost g; g.actor=actor; g.at=Now(); g.hideAt=g_ghostHideAt.load();
+        if (!actor || actor==FkPlayer() || !Rd(actor,g.key) || !Rd(actor+0x20,g.root) || !g.root) continue;
+        float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
+        g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
+        g.base=g_sealMul.load()>0?g_sealMul.load():1.f; g.ramp=g_tailRampMs.load();
+        PressGhostForget(actor);
+        AcquireSRWLockExclusive(&g_pressGhostLock); g_pressGhosts.push_back(g); ReleaseSRWLockExclusive(&g_pressGhostLock);
+        GhostHideSeal(actor);
+        Log("PressGhost: actor=%llX desc=%X tail=x2 hide/fade=%d/%d", (unsigned long long)actor,g.key>>4,g_ghostHideMs.load(),g.fadeMs);
+    }
+}
+void PressGhostTick() {
+    std::vector<PressGhost> snapshot;
+    AcquireSRWLockShared(&g_pressGhostLock); snapshot=g_pressGhosts; ReleaseSRWLockShared(&g_pressGhostLock);
+    for (const auto& g : snapshot) {
+        PressGhost valid;
+        if (!PressGhostGet(g.actor,valid) || FormHideSealPresent(ActorTableGlobal(),g.actor)==0) PressGhostForget(g.actor);
+        else GhostHideSeal(g.actor);
+    }
+}
 struct SealTailHitWatch {
     uint64_t seal = 0, player = 0;
     uint32_t sid = 0, boundId = 0;
@@ -5788,11 +5875,18 @@ void SealEndOnHitTick() {
             g_ghostFadeSeal.store(seal);
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
-        const int replay = smoke ? (earlySess == sess ? earlyN : SealExitReplayQueue(seal, FkPlayer())) : 0;
+        int replay = smoke ? (earlySess == sess ? earlyN : SealExitReplayQueue(seal, FkPlayer())) : 0;
+        if (smoke) for (uint64_t actor : sources) if (actor && actor != seal) {
+            replay += SealExitReplayQueue(actor, actor, true);
+            if (g_sxfOn.load()>0 && g_sxfN>0) made += SealExitFxSpawn(actor);
+        }
         if (smoke) Log("SealExitReplay: %d start effects queued for the exit of core %X", replay, sid);
         const int hideMs = smoke && replay > 0 && g_coverOn.load() > 0 ? g_ghostHideMs.load() : 0;  // human #58146: smoke > yokai gone > player
         g_ghostHideAt.store(hideMs > 0 ? now + hideMs / 1000.0 : 0);
         g_ghostSeal.store(seal);
+        std::vector<uint64_t> ghosts = sources;
+        if (std::find(ghosts.begin(),ghosts.end(),seal)==ghosts.end()) ghosts.push_back(seal);
+        PressGhostBegin(ghosts,smoke);
         GhostHideSeal(seal);
         const int revMs = g_revealMs.load() > hideMs ? g_revealMs.load() : hideMs;
         g_ghostReqAt.store(smoke && replay > 0 ? now + revMs / 1000.0 : 0);
@@ -6683,6 +6777,13 @@ void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
     if (!g_fkOn.load() || !chr || dist < 0 || dist >= 15.f || (g_fkSealChr.load() == chr && Now() - g_fkSealT < 1.0)) return;
+    double primaryAt = 0;
+    const uint64_t primary = PressPrimarySeal(&primaryAt);
+    if (primary && primary != chr) {
+        Log("FormPrimary: keep %llX; secondary spawn %llX desc=%X", (unsigned long long)primary,
+            (unsigned long long)chr, g_fkSealDesc.load());
+        return;
+    }
     g_fkSealMotion.store(motion);
     g_fkSealDist = dist;
     g_fkSealT = Now();

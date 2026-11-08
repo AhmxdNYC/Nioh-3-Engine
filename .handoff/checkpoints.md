@@ -150,3 +150,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-07 11:44 pm EST | #82256 form-start Y ceiling + reveal/exit restore built; 23 new +712 prior checks=735 PASS, sc22 PASS | live terrain/air-block validation pending | next pc60B86 leap/exit/repeat +Doji | notes/follow-ground-82256.md
 - 2026-11-07 11:59 PM EST | cx-pc/1 #82289 offline DONE: BR c3e0207f file #6396; b659838f pushed on cx-pc/multi-source-82289 atop 3d72e837 (39483dda float + 8s cold wait).
 - 752 offline checks + Release + available sc22 PASS. Press-snapshot actor set, pressed-core learning, separate bound identity, per-actor zero census/burst logs. Live 16127 pool ownership unproven; next pc first/repeat Blood Edge plus Doji/60B86/A2ACB and float gate. No game touched; notes/multi-source-82289.md.
+
+2026-11-08 12:08 am EST | #82327 primary prefers pressed ID, all-source ghost/fade/x2 tail and append smoke implemented | 229 last-hit + 24 primary/ghost/smoke checks PASS; live unproven | next Release rebuild and regression suites | cx-pc/primary-82327

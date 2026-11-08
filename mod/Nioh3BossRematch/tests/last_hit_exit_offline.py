@@ -55,13 +55,15 @@ struct SieSample {uint32_t act=0xFFFFFFFF;};
 void SieRead(uint64_t,SieSample& s){s.act=action;}
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
-bool SealExitCore(uint32_t){return true;}int SealExitReplayQueue(uint64_t,uint64_t){++smokes;return 1;}
+bool SealExitCore(uint32_t){return true;}int extraSmokes=0;int SealExitReplayQueue(uint64_t,uint64_t,bool append=false){if(append)++extraSmokes;else ++smokes;return 1;}
 '''+counts+r'''
 int SealHitsFor(uint32_t id){return hits<0?ReadLearnedHits(id):hits;}
 int tailPresent=1;uint64_t ActorTableGlobal(){return 1;}int FormHideSealPresent(uint64_t,uint64_t){return tailPresent;}
 void SealExitReplayBegin(double){}void SealExitReplayBound(double){}void CoreTplBind(uint32_t,double){}
 int SealQueueDespawn(uint64_t){++despawns;return 1;}void SealDeferRelease(const char*){++releases;}
 int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
+std::vector<uint64_t> ghostActors;
+void PressGhostBegin(const std::vector<uint64_t>& a,bool){ghostActors=a;}
 template<class T>bool Rd(uint64_t a,T& v){
  if(censusMode) for(const auto& c:census){
   if(a==c.first+8){v=(T)c.second;return true;}
@@ -80,6 +82,7 @@ template<class T>bool Rd(uint64_t a,T& v){
 }
 bool Copy(void* dst,uint64_t a,size_t n){if(a!=0x10020||!poolReadable)return false;memset(dst,0,n);if(censusMode){int i=0;for(const auto& c:census)((uint64_t*)dst)[i++]=c.first;return true;}if(attack||persistent)((uint64_t*)dst)[0]=0x20000;if(extraAttack)((uint64_t*)dst)[1]=0x21000;return true;}
 '''
+pre += 'std::atomic<double> g_pickT{0};bool AliveAtPress(uint64_t){return false;}void PressGhostForget(uint64_t){}\n'
 pre += src[src.index('struct PressHitSource'):src.index('// human #61056',src.index('struct PressHitSource'))]
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
@@ -262,6 +265,8 @@ int main(){
  step(.61,false);check(!smokes);census[0x22000]=789;step(1.28,false);check(!smokes);
  census.clear();step(1.5,false);g_sieFireSeal=456;step(2,false);
  check(ini[L"16127"]==L"1"&&!ini.count(L"C17E3")&&g_ghostReq==456);
+ check(std::find(ghostActors.begin(),ghostActors.end(),789)!=ghostActors.end()&&std::find(ghostActors.begin(),ghostActors.end(),456)!=ghostActors.end());
+ check(extraSmokes>0);
  // Tail identity is bound actor C17E3, while learning stays under pressed 16127.
  g_fh4.owner=0;step(2.1,false);census[0x23000]=789;step(2.4,false);
  check(ini[L"16127"]==L"2"&&!g_tailHitWatches.empty());
@@ -272,6 +277,32 @@ int main(){
  clockNow=base+.4;g_fh4.owner=123;g_fh4.seal=456;SealEndOnHitTick();
  censusMode=true;census={{0x22000,789}};step(1.0,false);check(!smokes);
  census[0x23000]=1011;step(1.3,false);check(smokes==1);
+ // #82280 / #6393: opening intervals, not the 13-32 ms empty gap, define clusters.
+ // Log L3: 5.762,5.879,6.050; L2: 5.910,6.046,6.209. Addresses are synthetic:
+ // the source log supplies counts/owners but no object identities. Model new helper objects.
+ for(double second : {1.117,1.136}) for(bool learnGap : {false,true}) {
+  const double final=second==1.117?1.288:1.299;
+  auto replay=[&](bool gap,bool known){
+   start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+   for(int i=0;i<28;++i)census[0x40000+i*0x1000]=789;
+   step(1.0,false);check(!smokes);
+   if(gap){census.clear();step(1.104,false);check(!smokes);}
+   census.clear();for(int i=0;i<4;++i)census[0x70000+i*0x1000]=789;
+   step(second,false);check(!smokes); // missed gap still sees new identities
+   census.clear();step(second+.106,false);check(!smokes);
+   for(int i=0;i<4;++i)census[0x80000+i*0x1000]=456;
+   step(final,false);
+   check(smokes==(known?1:0));
+   if(known){check(g_ghostReq==456&&std::abs(g_ghostReqAt.load()-(base+final+.1))<.00001);}
+   census.clear();step(final+.12,false);
+   g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+   check(ini[L"5129B"]==L"3");
+  };
+  ini.clear();legacyIni[L"5129B"]=L"3";check(ReadLearnedHits(0x5129B)==0);
+  replay(learnGap,false); // old A2 max=3 cannot seed the A3 learner
+  replay(!learnGap,true); // learn with one sampling phase, exit with the other
+  replay(learnGap,true);  // current A3 max=3 is reachable in both variants
+ }
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
