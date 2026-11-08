@@ -1332,6 +1332,8 @@ void PickPoll() {
 void PickLearn(uint32_t id) {
     if (!id) return;
     const int dir = (Now() - g_pickT.load() < 3.0) ? g_pickDir.load() : 0;
+    // #81314: every chr spawn reaches here (HkSeal N=0); one with no recent d-pad press (ambient 4735) is not a core: never listed / learned.
+    if (!dir) return;
     // #81275: a core's yokai makes later spawn hits of its own (Ibaraki 5129B -> EE49E +0.4 s): only the first hit after the press counts.
     if (dir && g_pickLearned.exchange(true)) { Log("FormCore %X dir=%c: later spawn hit in the same press ignored (core not changed)", id, dir == 1 ? 'L' : 'D'); return; }
     if (dir) {
