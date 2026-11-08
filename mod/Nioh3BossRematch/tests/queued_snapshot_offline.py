@@ -38,14 +38,14 @@ int main(){
  const uint64_t old=(uint64_t)oldNode-0xE0,existing=(uint64_t)existingNode-0xE0;
  buckets[0]=(uint64_t)oldNode;buckets[1]=2;oldNode[0]=(uint64_t)existingNode;
  check(PressSnapTake(tm)); check(AliveAtPress(old)&&AliveAtPress(existing));
- pressq::Queue(g_pressQ,2,FakeTicks());g_ghostSeal=old;
+ pressq::Queue(g_pressQ,2,FakeTicks());g_ghostSeal=old;g_pickLearned=true; // old seal's stale completion
  tm=344.600;tick();check(resets==1&&pressq::Buttons(g_pressQ,FakeTicks())==0);
  // Old seal unlinks naturally. Replay arrives only 167 ms after physical press snapshot.
  buckets[0]=(uint64_t)existingNode;buckets[1]=1;g_ghostSeal=0;
  tm=344.653;tick();check(pressq::Buttons(g_pressQ,FakeTicks())==2);
  check(!AliveAtPress(old)); // pooled address can now represent the NEW spawn
  check(AliveAtPress(existing)); // genuinely preexisting actors remain forbidden
- check(g_pressSnap.t==tm&&resets==2);
+ check(g_pressSnap.t==tm&&resets==2&&!g_pickLearned); // production callback resets completion before pulse
  // New spawn reuses the old address after replay, before the next tick.
  buckets[0]=(uint64_t)oldNode;buckets[1]=2;tm=344.975;g_pickLearned=true;tick();
  check(!AliveAtPress(old)&&AliveAtPress(existing));check(g_pressQ.dir==0&&resets==2);

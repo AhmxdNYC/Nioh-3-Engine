@@ -25,7 +25,9 @@ inline void Clear(State& s) { s.dir.store(0); s.pulseAt.store(0); }
 template<class BeforePulse>
 inline Step Tick(State& s, ULONGLONG now, bool oldSealAlive, bool blocked, bool thrown, BeforePulse beforePulse) {
     if (!s.dir.load()) return Step::Idle;
-    if (thrown) { Clear(s); return Step::Done; }
+    // Before our first pulse, thrown can still describe the OLD seal (an early ghost-exit press).
+    // The production beforePulse callback clears that flag before publishing replay input.
+    if (thrown && s.tries.load() > 0) { Clear(s); return Step::Done; }
     if (now - s.queuedAt.load() > kWindowMs) { Clear(s); return Step::Expired; }
     const ULONGLONG p = s.pulseAt.load();
     if (p) {

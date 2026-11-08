@@ -23,6 +23,29 @@ static void run(Sim& m,int ms,ULONGLONG ghostGoneAt,ULONGLONG blockEnd,ULONGLONG
   }
 }
 int main(){
+  { // PC2 #83967: a press 12-29 ms into ghost exit inherits the old seal's learned flag.
+    State s; bool learned=true; int prepared=0;
+    auto prepare=[&](bool first){check(first);++prepared;learned=false;};
+    Queue(s,2,1012);
+    check(Tick(s,1013,true,true,learned,prepare)==Step::Wait);
+    check(s.dir==2 && s.tries==0 && prepared==0 && Buttons(s,1013)==0);
+    check(Tick(s,1467,false,true,learned,prepare)==Step::Wait); // form block also gates replay
+    check(Tick(s,1483,false,false,learned,prepare)==Step::Pulse);
+    check(prepared==1 && !learned && s.tries==1 && Buttons(s,1483)==2);
+    check(Tick(s,1499,false,false,learned,prepare)==Step::Wait);
+    learned=true; // only the new replay's spawn completes it
+    check(Tick(s,1805,false,false,learned,prepare)==Step::Done && s.dir==0);
+  }
+  { // Old learned flag cannot turn an expired, never-fired press into a success.
+    State s; Queue(s,1,1000);
+    check(Tick(s,4001,true,false,true)==Step::Expired && s.dir==0);
+  }
+  { // Replacement resets replay ownership even when the replaced press already fired.
+    State s; Queue(s,1,1000);check(Tick(s,1000,false,false,false)==Step::Pulse);
+    Queue(s,2,1100);
+    check(Tick(s,1101,true,false,true)==Step::Wait && s.tries==0 && s.dir==2);
+    check(Tick(s,1200,false,false,true)==Step::Pulse && s.tries==1);
+  }
   { // queued press waits for the old seal (gone at +1200 ms), then fires within one tick, 120 ms pulse
     Sim m; Queue(m.s,2,m.t); run(m,1100,1000+1200,0,0);
     check(m.firstBit<0 && m.pulses==0);      // old seal alive: nothing injected (no early throw)
