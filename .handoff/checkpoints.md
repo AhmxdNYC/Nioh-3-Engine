@@ -133,3 +133,5 @@ Live last-hit damage/visuals unproven. Next: upload ASI, pc live acceptance. Bra
 Next: pc live unknown-count first/second use; all transition timing/look unchanged. Branch cx-pc/idle-hit-learn-81956, notes/last-hit-exit-81898.md.
 2026-11-07 10:46 PM EST | cx-pc #81988 appearance-burst gate built on 5a71803b; BR 2d88dda3, 72 targeted + 357 rematch checks PASS, sc22 PASS. 60B86-style initial collider cannot trigger at .70 s; filtered idle learn and non-circular learning proven offline.
 No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi. Source branch cx-pc/appear-hit-gate-81988; notes/last-hit-exit-81898.md.
+2026-11-07 10:48 PM EST | cx-pc #82001 follow-up to #81988: 79 targeted checks PASS including whole-form 60B86 collider to 3.119 s (unknown and stale count=1), no circular/despawn relearn; Ibaraki exits at 1.55 open, not 1.67 close.
+Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acceptance. Files tests/last_hit_exit_offline.py and notes/last-hit-exit-81898.md.

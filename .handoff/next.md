@@ -82,3 +82,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 2026-11-07 10:24 PM EST | cx-pc #81898 ready offline: BR 3f861c20, 544 checks PASS; base #6329 only, excludes #6344. pc owns live acceptance; notes/last-hit-exit-81898.md.
 2026-11-07 10:34 PM EST | cx-pc #81956 offline learning fix ready, 417 checks PASS + sc22. pc owns first/second-use live acceptance; base be081da2.
 2026-11-07 10:46 PM EST | cx-pc #81988 appearance gate candidate ready offline: 429 checks + sc22 PASS, BR 2d88dda3; pc owns live acceptance. Includes #81956 learning fix.
+2026-11-07 10:48 PM EST | cx-pc #82001 exact added evidence validated offline, 79 targeted PASS; #6358 unchanged and remains install candidate. pc owns live gate.

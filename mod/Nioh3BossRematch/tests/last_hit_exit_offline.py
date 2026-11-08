@@ -132,6 +132,17 @@ int main(){
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=1;step(.53,true);action=0xFFFFFFFF;step(.7,true);step(.9,false);
  g_sieFireSeal=456;step(2,false);check(!ini.count(L"60B86"));
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"60B86"));g_fh4EndWhy="test-end";
+ // #82001 exact whole-form interval: 4E57 -> 4E59 .53 -> 4E5A 1.27 -> FFFF 3.119.
+ for(int count : {-1,1}) {
+  ini.clear();start(count,0,true,true,0x60B86);manualAction=true;
+  action=0x4E59;step(.53,true);step(.7,true);action=0x4E5A;step(1.27,true);step(3.118,true);
+  check(!smokes&&!g_ghostReq&&!ini.count(L"60B86"));
+  action=0xFFFF;step(3.119,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();
+  check(!ini.count(L"60B86"));g_fh4EndWhy="test-end";
+ }
+ // Ibaraki's two ordinary attack bursts still exit at final OPEN 1.55, not CLOSE 1.67.
+ ini.clear();start(2);first();step(1.55,true);check(smokes==1&&g_ghostReq==456);
+ check(std::abs(g_ghostReqAt.load()-(base+1.65))<.00001);step(1.67,false);check(smokes==1);
  // A complete natural despawn learns the filtered count (not the appearance burst).
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);
  g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"60B86"]==L"1");g_fh4EndWhy="test-end";
