@@ -44,7 +44,7 @@ std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
 std::atomic<uint64_t> g_tailSeal{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_ghostReq{0};
 std::atomic<double> g_tailT0{0},g_ghostT{0},g_ghostHideAt{0},g_ghostReqAt{0},g_fxrT0{0};
 std::atomic<float> g_tailMul{4},g_sealMul{1.4f},g_tailRampMs{100},g_fxrFwd{0},g_fxrSide{0};
-uint64_t g_sieBoundarySeal=0;double g_sieBoundaryAt=-100;
+bool g_sieNativeEnd=true;
 uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]={};
 const char* g_sieWhy="idle",*g_fh4EndWhy="test-end";
 int g_ghostFadeMs=0,g_sxfN=0,g_sxfOwner=0,g_sxfBone=0,g_sxfMs=0;
@@ -106,7 +106,7 @@ void checkAt(bool b,int line){++checks;if(!b){printf("FAIL %d line %d\n",checks,
 void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
  g_tailHitWatches.clear();tailPresent=1;g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
  g_pickCore=0;g_pressSnap.t=-100;g_hitSourceSnapshot=-100;g_pressHitSources.clear();clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
- censusMode=false;censusBodies=false;census.clear();persistent=false;extraAttack=false;extraOwner=456;g_sehKid[1]=0;g_sehKidT[1]=0;g_sieMode=2;g_sieFireSeal=0;g_sieBoundarySeal=0;g_sieBoundaryAt=-100;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
+ censusMode=false;censusBodies=false;census.clear();persistent=false;extraAttack=false;extraOwner=456;g_sehKid[1]=0;g_sehKidT[1]=0;g_sieMode=2;g_sieFireSeal=0;g_sieNativeEnd=true;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
  g_ghostReq=0;g_ghostSeal=0;g_sealEndMinMs=700;smokes=despawns=hidden=releases=0;SealEndOnHitTick();
 }
 void step(double dt,bool active){clockNow=base+dt;attack=active;if(!manualAction)action=0x4E59;SealEndOnHitTick();}
@@ -396,18 +396,27 @@ int main(){
  // Complete longer observation cannot raise a previously learned minimum.
  ini.clear();ini[L"5129B"]=L"1";start(-1);g_sieMode=1;first();step(1.5,true);step(1.7,false);
  g_sieFireSeal=456;step(2,false);check(ini[L"5129B"]==L"1");
- // #82745 exact timing: stale2, real1 closes1.433 alongside C56->C57 recovery.
+ // #82808: Blood Edge Demon has10 bursts across C80/C81/C82, not7.
+ g_fh4.owner=0;SealIdleEndTick();ini.clear();ini[L"16127"]=L"10";
+ start(-1,0,true,false,0x16127);g_sieMode=0;manualAction=true;action=0xC80;SealIdleEndTick();
+ for(int i=0;i<10;++i){
+  double t=.9+i*.4;step(t,true);SealIdleEndTick();
+  check(smokes==(i==9?1:0));check(ini[L"16127"]==L"10");
+  clockNow=base+t+.05;if(i==3)action=0xC81;if(i==6)action=0xC82;
+  SealIdleEndTick();step(t+.05,false);check(smokes==(i==9?1:0));
+ }
+ check(std::abs(g_ghostReqAt.load()-(base+4.6))<.00001); // final open4.5 + reveal0.1
+ // LEFT stale2: recovery C56->C57 is not terminal; native despawn learns1, next use exits at1.383.
  g_fh4.owner=0;SealIdleEndTick();ini.clear();ini[L"A2ACB"]=L"2";
  start(-1,0,true,false,0xA2ACB);g_sieMode=0;manualAction=true;action=0xC56;SealIdleEndTick();
- step(1.383,true);SealIdleEndTick();check(!smokes);
- clockNow=base+1.433;action=0xC57;SealIdleEndTick();step(1.433,false);
- check(smokes==1&&g_ghostReq==456&&ini[L"A2ACB"]==L"1");
- check(std::abs(g_ghostReqAt.load()-(base+1.533))<.00001);
- // Boundary while another eligible attack is active never triggers recovery fallback.
- start(3);g_sieMode=0;step(.8,true);g_sieBoundarySeal=456;g_sieBoundaryAt=base+1;
- step(1,true);check(!smokes);step(1.3,false);check(!smokes); // stale edge expires
- // No edge: a long empty interval alone cannot cut a later hit.
- start(2);g_sieMode=0;first();step(2.5,false);check(!smokes);
+ step(1.383,true);SealIdleEndTick();clockNow=base+1.433;action=0xC57;SealIdleEndTick();step(1.433,false);
+ check(!smokes&&ini[L"A2ACB"]==L"2");
+ clockNow=base+2.68;g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+ check(ini[L"A2ACB"]==L"1");start(-1,0,true,false,0xA2ACB);step(1.383,true);
+ check(smokes==1&&g_ghostReq==456&&std::abs(g_ghostReqAt.load()-(base+1.483))<.00001);
+ // A predicted hold/loop fallback may exit but must never lower a learned count.
+ ini.clear();ini[L"5129B"]=L"3";start(-1);first();g_sieNativeEnd=false;g_sieFireSeal=456;
+ step(2,false);check(smokes==1&&ini[L"5129B"]==L"3");
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
