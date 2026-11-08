@@ -5432,6 +5432,17 @@ void SealEndOnHitTick() {
     if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
     if (idleFire && !fire) {
+        // #81956: a verified idle/end-frame edge after all observed hit windows closed also completes the attack.
+        // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
+        if (poolOk && !n && !open && sid && bursts > 0 && lastClose > 0) {
+            const int had = SealHitsFor(sid);
+            if (bursts > had) {
+                wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
+                WritePrivateProfileStringW(SecHits(), k, v, IniPath());
+                Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
+                    sid, bursts, had, SecHits(), g_sieWhy);
+            }
+        }
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
             g_sieWhy, now - sess, bursts);

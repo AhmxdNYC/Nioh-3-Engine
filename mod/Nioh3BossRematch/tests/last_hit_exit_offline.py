@@ -19,8 +19,8 @@ pre=r'''
 #include <string>
 #include <map>
 #include <cassert>
-std::map<std::wstring,std::wstring> ini;
-BOOL FakeWrite(const wchar_t*,const wchar_t* key,const wchar_t* value,const wchar_t*){ini[key]=value;return TRUE;}
+std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;
+BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){writtenSection=section;ini[key]=value;return TRUE;}
 #define WritePrivateProfileStringW FakeWrite
 int IniInt(const wchar_t*,const wchar_t* key,int d){auto i=ini.find(key);return i==ini.end()?d:std::stoi(i->second);}
 const wchar_t* IniPath(){return L"memory-only";}
@@ -41,7 +41,7 @@ bool attack=false,poolReadable=true,bodyOnly=false;
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
 bool SealExitCore(uint32_t){return true;}int SealExitReplayQueue(uint64_t,uint64_t){++smokes;return 1;}
-int SealHitsFor(uint32_t){return hits;}const wchar_t* SecHits(){return L"SealHitsA";}
+int SealHitsFor(uint32_t){return hits<0?IniInt(L"SealHitsA",L"5129B",0):hits;}const wchar_t* SecHits(){return L"SealHitsA";}
 void SealExitReplayBegin(double){}void SealExitReplayBound(double){}void CoreTplBind(uint32_t,double){}
 int SealQueueDespawn(uint64_t){++despawns;return 1;}void SealDeferRelease(const char*){++releases;}
 int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
@@ -98,6 +98,21 @@ int main(){
  start();g_ghostOn=0;first();step(1.5,true);check(!smokes&&!despawns); // natural ghost-off remains off
  start();poolReadable=false;step(1.5,true);check(!smokes);poolReadable=true;step(1.6,true);check(!smokes); // no invented final burst
  start(1);g_sehMode=1;step(1,true);check(smokes==1&&!despawns); // explicit mode uses ghost too
+ // #81956: unknown core learns at completed idle exit, then arms on the next use.
+ ini.clear();start(-1);first();step(1.5,true);step(1.667,false);check(!ini.count(L"5129B"));
+ g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2"&&g_ghostReq==456&&writtenSection==L"SealHitsA");
+ start(-1);first();step(1.5,true);check(g_ghostReq==456&&smokes==1);check(ini[L"5129B"]==L"2");
+ // Max only: a shorter completed attack cannot overwrite a higher known count.
+ ini[L"5129B"]=L"3";start(-1);first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"3");
+ // Idle signal while colliders are open, unreadable pool, no bursts, cap, and cut exits are not completion evidence.
+ ini.clear();start(-1);first();g_sieFireSeal=456;step(1.5,true);check(!ini.count(L"5129B"));
+ ini.clear();start(-1);first();poolReadable=false;g_sieFireSeal=456;step(3.33,false);check(!ini.count(L"5129B"));
+ ini.clear();start(-1);g_sieFireSeal=456;step(3.33,false);check(!ini.count(L"5129B"));
+ ini.clear();start(-1);first();step(21,false);check(!ini.count(L"5129B"));
+ ini.clear();start(-1);first();g_fh4EndWhy="capture-change";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"5129B"));
+ // Natural despawn completion and idle-only mode still learn, using the active attack-only section.
+ ini.clear();start(-1);first();g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"5129B"]==L"1");g_fh4EndWhy="test-end";
+ ini.clear();start(-1);g_sieMode=1;first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2");
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);
