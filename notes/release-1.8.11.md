@@ -26,3 +26,9 @@ Gate list sent to pc in #83408, replying to #83344. Required: PC install/soul-co
 - PC PASS #83413 (pc/1 checkpoint, verified by lead #83559): Continue 2/2, soul cores 10/10, Fight now, zero crashes.
 - pc2 PASS #83556: Setup 5aac8621 installs, 5/5 soul cores, Fight now, zero crashes.
 - All three gates passed; lead #83559 authorized publication.
+
+## Published and verified
+
+GitHub: https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.11 (Latest, 16 assets; all asset digests verified).
+Site: https://nioh3-mod-feedback.vercel.app; deployment dpl_Edx7E4Q5t8vtqczJh3UKdUsszPB6 READY. Both manifests 1.8.11; 15/15 release payload SHA256s and downloads/Nioh3Updater.exe match. Deployment tree D:/nioh3-wt/site-release-1811; canonical site-prod-api synchronized for future releases.
+Final public checksum list bridge #6551 supersedes #6535: 15 payloads, manifest deployed separately. Tested payload bytes unchanged. Publication evidence: release/validation-1811/live-publication.json.

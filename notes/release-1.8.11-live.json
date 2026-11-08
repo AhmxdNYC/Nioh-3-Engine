@@ -1,0 +1,84 @@
+{
+  "version": {
+    "version": "1.8.11",
+    "url": "https://nioh3-mod-feedback.vercel.app",
+    "notes": "Improved soul-core transformations, exit timing and camera motion; fixed a camera-related crash."
+  },
+  "stable": {
+    "schema": 1,
+    "version": "1.8.11",
+    "news": "Improved soul-core transformations, exit timing and camera motion; fixed a camera-related crash.",
+    "files": [
+      {
+        "name": "Nioh3EngineFix.asi",
+        "sha256": "0c0612a8b88648328fc1f4fbcdc14f7d5872919015a2abf37bc887ae838d6676",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3EngineFix.asi"
+      },
+      {
+        "name": "Nioh3Training.asi",
+        "sha256": "a7c351094722d10441d2eb4c15a6d561aebd964519ac1f6726dda5fe4123758a",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3Training.asi"
+      },
+      {
+        "name": "Nioh3BossRematch.asi",
+        "sha256": "d6272b7d127e0e1e1510a348be5b502420331fb0f086d824bd9ba0286d5ee09b",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3BossRematch.asi"
+      },
+      {
+        "name": "Nioh3CamKiProbe.asi",
+        "sha256": "a2f3e418a0b777c61b165a241953f3f3d1141911b8e2cd647bb2f2b26726fd01",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3CamKiProbe.asi"
+      },
+      {
+        "name": "Nioh3CamKiProbe.ini",
+        "sha256": "e708e2c693ceb75bf7ac35589a629d4f6e33af5792f7c9b12557bd5fb4b74b81",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3CamKiProbe.ini"
+      },
+      {
+        "name": "Nioh3BossRematch_bosses.tsv",
+        "sha256": "2156cc6a1f4b1e12b64962a1062f26e74efbdd388893b2fe10f376a24bae5999",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3BossRematch_bosses.tsv"
+      },
+      {
+        "name": "Nioh3Training_actionsets.tsv",
+        "sha256": "1516f64346aeeccf008d658eb324c14969bba019569c5bb48fa2022f59f6700d",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3Training_actionsets.tsv"
+      },
+      {
+        "name": "Nioh3Training_action_records.tsv",
+        "sha256": "e772852f067d318840d4a92450f7b8fb9111826a5cd0fcb2b52697ce3728a502",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3Training_action_records.tsv"
+      },
+      {
+        "name": "Nioh3Training_arenas.tsv",
+        "sha256": "bb7b1125ea0594cf5a8d6b4180bf4d5cb99a96a617a2476b70c8ec1903888df9",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3Training_arenas.tsv"
+      },
+      {
+        "name": "Nioh3Training_bgm.tsv",
+        "sha256": "850ec6c7e3d46a2ffc960939c1dd4c7439f184e1507918f5df688902addb03b0",
+        "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.11/Nioh3Training_bgm.tsv"
+      }
+    ]
+  },
+  "live_payload_hashes": {
+    "Nioh3-1.8.11-combined.zip": "7b15be95150de08924deb9bc2d5fcc66f037eeb97eb8655cf39938f552f3d058",
+    "Nioh3-1.8.11-full-install.zip": "c62d4452d72426209f92a970cb9f7d8430ee7ee7332531cb140a84d26199a922",
+    "Nioh3-Setup-Linux.pyz": "6ae37c19c3ab5efab59f294d52e1149605a216b8833e2b7cc2424c00b8ef9eca",
+    "Nioh3-Setup.exe": "5aac862140b9c57fd21d9505f35e50c816e44dac7fa933d3e3323376416b33c2",
+    "Nioh3BossRematch.asi": "d6272b7d127e0e1e1510a348be5b502420331fb0f086d824bd9ba0286d5ee09b",
+    "Nioh3BossRematch_bosses.tsv": "2156cc6a1f4b1e12b64962a1062f26e74efbdd388893b2fe10f376a24bae5999",
+    "Nioh3CamKiProbe.asi": "a2f3e418a0b777c61b165a241953f3f3d1141911b8e2cd647bb2f2b26726fd01",
+    "Nioh3CamKiProbe.ini": "e708e2c693ceb75bf7ac35589a629d4f6e33af5792f7c9b12557bd5fb4b74b81",
+    "Nioh3EngineFix.asi": "0c0612a8b88648328fc1f4fbcdc14f7d5872919015a2abf37bc887ae838d6676",
+    "Nioh3Training.asi": "a7c351094722d10441d2eb4c15a6d561aebd964519ac1f6726dda5fe4123758a",
+    "Nioh3Training_actionsets.tsv": "1516f64346aeeccf008d658eb324c14969bba019569c5bb48fa2022f59f6700d",
+    "Nioh3Training_action_records.tsv": "e772852f067d318840d4a92450f7b8fb9111826a5cd0fcb2b52697ce3728a502",
+    "Nioh3Training_arenas.tsv": "bb7b1125ea0594cf5a8d6b4180bf4d5cb99a96a617a2476b70c8ec1903888df9",
+    "Nioh3Training_bgm.tsv": "850ec6c7e3d46a2ffc960939c1dd4c7439f184e1507918f5df688902addb03b0",
+    "Nioh3Updater.exe": "e20d46325694288f21b7d2812b75ebb6efc27e11c0d0c157429e5fccb1b78212"
+  },
+  "updater_download_sha256": "e20d46325694288f21b7d2812b75ebb6efc27e11c0d0c157429e5fccb1b78212",
+  "github_latest": "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.11",
+  "github_assets": 16
+}

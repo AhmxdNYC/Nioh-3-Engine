@@ -134,3 +134,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 4:50 am EST | cx-pc #83559: source main 31f9426a; GitHub v1.8.11 published Latest after draft verification of all 16 asset SHA256 digests. Tested payload hashes unchanged; public checksum list #6551 replaces #6535 (stable manifest is site-only).
   Site deployment D:/nioh3-wt/site-release-1811 in progress; next live manifest/payload verification and LATEST BUILD update. Release: https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.11.
+
+- 2026-11-08 4:51 am EST | cx-pc #83559: v1.8.11 PUBLIC and verified, GitHub Latest 16 assets; site dpl_Edx7E4Q5t8vtqczJh3UKdUsszPB6 READY; both manifests 1.8.11, all 15 live payload hashes + updater download match. Three gates PASS: PC #83413, pc2 #83556, Ally #83484.
+  Source merged to main; final sums #6551, payloads #6526-6534. LATEST BUILD updated. Next release starts from main; canonical deployment D:/nioh3-wt/site-prod-api now synchronized. Evidence notes/release-1.8.11-live.json; no game touched by cx-pc.
