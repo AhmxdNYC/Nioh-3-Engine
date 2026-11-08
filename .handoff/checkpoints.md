@@ -183,3 +183,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 2:10 am EST | #82875 descriptor-owned timing/learning and conflicting-direction guard implemented | 334 hit +115 picker checks PASS, alternating reused-address identities | next Release and remaining suites | cx-pc/core-identity-82875
 
 - 2026-11-08 02:10 AM EST | #82875 BR99ef0ca6 file#6477 source19a8f3db cx-pc/core-identity-82875 | Release +1204 offline +available sc22 PASS; alternating reused-address counts4/1 | next Claude clear corrupted5B402/A65A1 entries and live switch test | notes/core-identity-82875.md
+- 2026-11-08 2:55 am EST | #82971 camera-only BR target export + existing CamKi output hook extension | 318 offline target/spring/output checks PASS; no game | next paired Release builds and regression suites | cx-pc/vertical-camera-82971

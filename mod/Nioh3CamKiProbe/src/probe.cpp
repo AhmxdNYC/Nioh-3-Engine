@@ -6,13 +6,14 @@
 #include <windows.h>
 #include "gamerva.h"
 #include "rvas_gen.h"
+#include "../../shared/soul_camera_vertical.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.26-camki-shrine-menu";
+static const char* kVer = "1.0.27-soul-vertical";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -2095,11 +2096,41 @@ static float Ease(float cur, float want) {
     return cur + d * 0.2f;
 }
 
+static float SoulVerticalOffset() {
+    using ReadTarget = float (*)();
+    static ReadTarget readTarget=nullptr;
+    static ULONGLONG retryAt=0;
+    const ULONGLONG now=GetTickCount64();
+    if(!readTarget && now>=retryAt) {
+        retryAt=now+1000;
+        HMODULE m=GetModuleHandleW(L"Nioh3BossRematch.asi");
+        if(m)readTarget=(ReadTarget)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalTarget");
+    }
+    static soulcamera::Spring spring;
+    static LARGE_INTEGER prior={},freq={};LARGE_INTEGER tick;QueryPerformanceCounter(&tick);
+    if(!freq.QuadPart)QueryPerformanceFrequency(&freq);
+    const float dt=prior.QuadPart && freq.QuadPart ? (float)((double)(tick.QuadPart-prior.QuadPart)/freq.QuadPart) : 0;
+    prior=tick;
+    return spring.Step(!g_holdCam && readTarget ? readTarget() : 0,dt);
+}
+static bool ApplySoulVertical(uint8_t* out,float y) {
+    if(!std::isfinite(y)||y==0)return false;
+    float eye[4],target[4];
+    if(!Rd((uintptr_t)(out+0x10),eye,16)||!Rd((uintptr_t)(out+0x20),target,16)||!Fin3(eye)||!Fin3(target))return false;
+    eye[1]+=y;target[1]+=y;
+    return Wr((uintptr_t)(out+0x14),&eye[1],4) && Wr((uintptr_t)(out+0x24),&target[1],4);
+}
+
 static void OutTouch(uint8_t* out, uint64_t* retSlot) {
     float eye[4], tgt[4], f[3], r[3], u[3], len, d[3];
     LONG n;
     if (!retSlot || !g_outRetAbs || *retSlot != g_outRetAbs) return;
     InterlockedIncrement(&g_outCalls);
+    const float soulY=SoulVerticalOffset();
+    if(ApplySoulVertical(out,soulY)) {
+        static int shown=0;
+        if(shown++<3)Log("SOUL vertical camera output offset=%.2f (world Y, eye+target)",soulY);
+    }
     g_offRight = Ease(g_offRight, OffWant(g_offRightSet, g_holdCam));
     g_offUp = Ease(g_offUp, OffWant(g_offUpSet, g_holdCam));
     g_offRightSeen = g_offRight;
