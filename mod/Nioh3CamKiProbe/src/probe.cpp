@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.27-soul-vertical";
+static const char* kVer = "1.0.28-soul-anchor";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -2096,22 +2096,27 @@ static float Ease(float cur, float want) {
     return cur + d * 0.2f;
 }
 
+static uint64_t g_soulSession=0;
+static float g_soulTarget=0;
 static float SoulVerticalOffset() {
     using ReadTarget = float (*)();
     static ReadTarget readTarget=nullptr;
+    using ReadSession=uint64_t (*)(); static ReadSession readSession=nullptr;
     static ULONGLONG retryAt=0;
     const ULONGLONG now=GetTickCount64();
     if(!readTarget && now>=retryAt) {
         retryAt=now+1000;
         HMODULE m=GetModuleHandleW(L"Nioh3BossRematch.asi");
-        if(m)readTarget=(ReadTarget)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalTarget");
+        if(m){readTarget=(ReadTarget)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalTarget");readSession=(ReadSession)GetProcAddress(m,"Nioh3BossRematch_CameraVerticalSession");}
     }
     static soulcamera::Spring spring;
     static LARGE_INTEGER prior={},freq={};LARGE_INTEGER tick;QueryPerformanceCounter(&tick);
     if(!freq.QuadPart)QueryPerformanceFrequency(&freq);
     const float dt=prior.QuadPart && freq.QuadPart ? (float)((double)(tick.QuadPart-prior.QuadPart)/freq.QuadPart) : 0;
     prior=tick;
-    return spring.Step(!g_holdCam && readTarget ? readTarget() : 0,dt);
+    g_soulSession=!g_holdCam && readSession ? readSession() : 0;
+    g_soulTarget=g_soulSession && readTarget ? readTarget() : 0;
+    return spring.Step(g_soulTarget,dt,g_soulSession!=0);
 }
 static bool ApplySoulVertical(uint8_t* out,float y) {
     if(!std::isfinite(y)||y==0)return false;
@@ -2127,10 +2132,13 @@ static void OutTouch(uint8_t* out, uint64_t* retSlot) {
     if (!retSlot || !g_outRetAbs || *retSlot != g_outRetAbs) return;
     InterlockedIncrement(&g_outCalls);
     const float soulY=SoulVerticalOffset();
-    if(ApplySoulVertical(out,soulY)) {
-        static int shown=0;
-        if(shown++<3)Log("SOUL vertical camera output offset=%.2f (world Y, eye+target)",soulY);
+    const bool soulApplied=ApplySoulVertical(out,soulY);
+    static uint64_t measured=0;static float maxSeal=0,maxApplied=0;
+    if(measured!=g_soulSession) {
+        if(measured)Log("SOUL press=%llu max seal dY=%.2f max applied cam dY=%.2f",measured,maxSeal,maxApplied);
+        measured=g_soulSession;maxSeal=maxApplied=0;
     }
+    if(measured){maxSeal=(std::max)(maxSeal,std::fabs(g_soulTarget));if(soulApplied)maxApplied=(std::max)(maxApplied,std::fabs(soulY));}
     g_offRight = Ease(g_offRight, OffWant(g_offRightSet, g_holdCam));
     g_offUp = Ease(g_offUp, OffWant(g_offUpSet, g_holdCam));
     g_offRightSeen = g_offRight;

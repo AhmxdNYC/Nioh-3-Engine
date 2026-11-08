@@ -6208,18 +6208,33 @@ void SealLifeTick() {
 // Camera-only publication; CamKiProbe applies it to freshly built third-person output.
 std::atomic<float> g_cameraVerticalTarget{0};
 std::atomic<ULONGLONG> g_cameraVerticalStamp{0};
+std::atomic<uint64_t> g_cameraVerticalSession{0};
 void SoulCameraVerticalTick(uint64_t player) {
     static soulcamera::Target target;
     float sp[4]={},pp[4]={};
     const uint64_t seal=g_fh4.seal;
     const bool valid=g_cameraFollowVertical.load()!=0 && player && g_fh4.owner==player && seal &&
         FormHideSealPresent(g_fhEnd.actorGlobal,seal)==1 && Copy(sp,seal+0x110,16) && Copy(pp,player+0x110,16);
-    const float y=target.Sample(player,seal,g_fh4.capT,sp[1],pp[1],valid);
+    static uint64_t serial=0; static double cap=-1; static float maxY=0;
+    const bool active=valid && std::isfinite(sp[1]) && std::isfinite(pp[1]);
+    if(g_cameraVerticalSession.load() && (!active || cap!=g_fh4.capT)) {
+        Log("SoulCamera press=%llu max seal dY=%.2f (absolute seal-player Y)",serial,maxY);
+        g_cameraVerticalSession.store(0);
+    }
+    if(active && !g_cameraVerticalSession.load()) {
+        cap=g_fh4.capT;maxY=0;g_cameraVerticalSession.store(++serial);
+    }
+    const float y=target.Sample(player,seal,g_fh4.capT,sp[1],pp[1],active);
+    maxY=(std::max)(maxY,std::fabs(y));
     g_cameraVerticalTarget.store(y);g_cameraVerticalStamp.store(GetTickCount64());
 }
 extern "C" __declspec(dllexport) float Nioh3BossRematch_CameraVerticalTarget() {
     if(!g_cameraFollowVertical.load() || GetTickCount64()-g_cameraVerticalStamp.load()>250)return 0;
     return g_cameraVerticalTarget.load();
+}
+extern "C" __declspec(dllexport) uint64_t Nioh3BossRematch_CameraVerticalSession() {
+    if(!g_cameraFollowVertical.load() || GetTickCount64()-g_cameraVerticalStamp.load()>250)return 0;
+    return g_cameraVerticalSession.load();
 }
 void FkSlot0Tick(uint64_t pchr) {  // game thread
     SealLifeTick();

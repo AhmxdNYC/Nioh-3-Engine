@@ -13,6 +13,7 @@ pre=r'''
 #include <cstring>
 #include <limits>
 #include "../../../shared/soul_camera_vertical.h"
+void Log(const char*,...){}
 ULONGLONG ms=100;ULONGLONG TestMs(){return ms;}
 #define GetTickCount64 TestMs
 std::atomic<int> g_cameraFollowVertical{1};
@@ -41,19 +42,26 @@ int main(){
  int before=writes;check(!ApplySoulVertical(out,0)&&writes==before);
  // Exit returns smoothly and exactly to zero; no player or seal write occurred.
  g_fh4.owner=0;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
- prev=s.y;for(int i=0;i<120;++i){float y=s.Step(0,1.f/60);check(y<=prev&&y>=0);prev=y;}check(s.y==0&&player[1]==100&&seal[1]==300);
+ prev=s.y;for(int i=0;i<120;++i){float y=s.Step(0,1.f/60,false);check(y<=prev&&y>=0);prev=y;}check(s.y==0&&player[1]==100&&seal[1]==300);
  // New session at a different height rebases; grounded travel down a slope adds no double movement.
  g_fh4.owner=123;g_fh4.capT=2;player[1]=seal[1]=500;SoulCameraVerticalTick(123);
  player[1]=seal[1]=450;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  seal[1]=350;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==-100);
- seal[1]=10000;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==400);
- seal[1]=-10000;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==-400);
+ seal[1]=10000;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==9550);
+ seal[1]=-10000;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==-10450);
  ms+=251;check(Nioh3BossRematch_CameraVerticalTarget()==0);
  g_cameraFollowVertical=0;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  g_cameraFollowVertical=1;valid=false;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  valid=true;seal[1]=std::numeric_limits<float>::quiet_NaN();SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  soulcamera::Spring a,b;for(int i=0;i<60;++i)a.Step(200,1.f/60);for(int i=0;i<30;++i)b.Step(200,1.f/30);
  check(std::fabs(a.y-b.y)<.001f);check(std::isfinite(a.Step(NAN,.016f)));
+ // Full initial height, tall rise and steady unity gain (no 400 cap).
+ g_fh4.owner=123;g_fh4.capT=3;player[1]=100;seal[1]=2100;SoulCameraVerticalTick(123);
+ check(Nioh3BossRematch_CameraVerticalTarget()==2000);
+ soulcamera::Spring tall;for(int i=0;i<30;++i)tall.Step(2000,1.f/60);
+ check(std::fabs(tall.y-2000)<100);
+ for(int i=0;i<12;++i)tall.Step(0,1.f/60,false);
+ check(std::fabs(tall.y)<.01f);
  printf("vertical camera target/export/spring/output: %d checks PASS\n",checks);
 }
 '''

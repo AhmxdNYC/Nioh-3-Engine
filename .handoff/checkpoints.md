@@ -186,3 +186,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 2:55 am EST | #82971 camera-only BR target export + existing CamKi output hook extension | 318 offline target/spring/output checks PASS; no game | next paired Release builds and regression suites | cx-pc/vertical-camera-82971
 
 - 2026-11-08 02:55 AM EST | #82971 paired BR42df32d0 #6488 + CamKi fab68802 #6489, source802b7ee1 cx-pc/vertical-camera-82971 | Release pair +1522 offline +probe_test +available sc22 PASS | next Claude paired install/live vertical camera+clip check; no game touched | notes/vertical-camera-82971.md
+
+- 2026-11-08 3:38 am EST | cx-pc #83104 full seal-player Y camera, 20 ms follow / 0.2 s return; BR 26f37616 + CamKi 5ccab1c6; 372 checks and both builds PASS; next: Claude pc install pair and verify live peaks/visuals. Branch cx-pc/yokai-camera-83104.
