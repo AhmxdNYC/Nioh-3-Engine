@@ -178,3 +178,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 01:46 AM EST | #82745 BR bdd651af file #6461, source1c6796f7 cx-pc/recovery-82745 | Release +1161 offline +available sc22 PASS; exact1.433 close replay | next Claude A2ACB and attack-chain live regression | notes/recovery-82745.md
 - 2026-11-08 1:57 am EST | #82808 removed action-boundary fallback; learning restricted to native idle/despawn | 323 hit/motion checks PASS: 10 bursts/3 segments and stale2->native1->next exit | next Release/full regression | cx-pc/native-learn-82808
+
+- 2026-11-08 01:57 AM EST | #82808 BR0da8fb1b file#6468 source8f738b29 cx-pc/native-learn-82808 | Release +1190 offline +available sc22 PASS; 10-burst multi-segment and stale2->native1 replay | next Claude restore16127=10/install/live test | notes/native-learn-82808.md
