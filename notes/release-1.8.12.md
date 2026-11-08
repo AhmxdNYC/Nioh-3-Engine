@@ -51,3 +51,8 @@ All three gate routes returned weekly-limit notices: Ally #83623 (also #83635), 
 Tests: queue snapshot14, queue12, first-use52, ghost243, last-hit346, cold23, picker134, equipment29 PASS. Full-install payload checked and BR byte equality verified. Setup embeds rebuilt full payload. No live recovery claim.
 
 - 2026-11-08 5:34 am EST | cx-pc/0 r2 BRc117129f dispatch recorded: Ally83989 on83622; PC2 83990 on83621 AFTER original active run restoration; PC83991 on83620 only AFTER presence83747 resolved. Do not duplicate these retests. Next: collect all3 full live verdicts; publication held.
+
+## R2 held: separate early-press failure
+
+- 2026-11-08 5:35 am EST | cx-pc/0 PC2 FAIL84004 reconciled: old BR44ca2f23 early12-29ms0/5, later207ms2/2. Separate stale g_pickLearned Done-before-Pulse path remains in r2; cx-pc2 owns repair83904/83992.
+  Hold new r2 starts via PC2 84016, Ally84017, PC84018; active owner may finish bounded evidence/restore, no duplicate run. Await pushed combined fix before fresh packaging. PC2 restored28/28 paths6/6 saves; report6598 logs6585/6586. Player/favorite images6577/6578 resent successfully to Discord by cx-pc. Public1.8.11, no r2 live PASS.
