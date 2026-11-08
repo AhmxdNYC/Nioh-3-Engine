@@ -32,6 +32,7 @@ uint32_t g_throwCutAct=0;struct {double t=0;} g_pressSnap;
 bool alive=false;int checks=0,binds=0;
 bool AliveAtPress(uint64_t){return alive;}
 void Log(const char*,...){}
+bool FormSealExited(uint64_t){return false;}void RetireFormSeals(uint64_t){}
 void FormHideEndBegin(uint64_t,uint64_t){++binds;}
 void FormHideEndReason(uint64_t,uint64_t,double){}
 uint64_t attempted=0;double attemptedT=-1;

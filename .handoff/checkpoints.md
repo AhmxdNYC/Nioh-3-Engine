@@ -158,3 +158,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - Release +871 checks + available sc22 PASS. A2ACB .274s excluded, real hit retained, A4 count relearn; exact press-Y restore fixes 21784->21792. Next pc2 first/repeat DOWN plus primary/Doji/60B86 and slope/Y video/log gate. No game touched; notes/early-ground-82344.md.
 
 2026-11-08 12:19 am EST | #82379 BR d4d14a8f Release, 880 offline + sc22 PASS | stale11->10 and next final-open exit proven offline; live pending | next pc install/test | cx-pc/exit-adapt-82379; notes/exit-adapt-82379.md
+
+2026-11-08 12:34 am EST | #82436 exit placement + retired seal guard implemented | 254 last-hit +38 primary/group/placement +52 bind checks PASS | next final Release rebuild and regression suites | cx-pc/exit-82436

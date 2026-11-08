@@ -36,7 +36,7 @@ bool enabled=true;bool ScOn(){return enabled;}int binds=0;void FormHideEndBegin(
 code=pre+between('struct PressHitSource','void SealEndOnHitNoteSpawn')+between('struct PressGhost','void Fh4KeepSeal')+between('float SealRateMul(','std::atomic<uint32_t> g_ftActs')+between('void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {','struct SealTailHitWatch')
 code+='void adopt(uint64_t& cap,double& capT){uint64_t player=123;'+between('    double primaryAt = 0;\n    const uint64_t primary = PressPrimarySeal(&primaryAt);','    if (g_fh4.owner && (g_fh4.fromSpawn')+'}\n'
 code+=r"""
-struct FxRec {bool world=true;uint32_t id=1;double t=0;float blk[16]={},pl[4]={};uint64_t owner=0,a7=0;};
+struct FxRec {bool world=true;uint32_t id=1;double t=0;float blk[16]={},pl[4]={};uint64_t owner=0,a7=0,replayTarget=0;};
 struct FxPlay {double at;FxRec r;};
 constexpr int kFxRecMax=4;FxRec g_fxRec[kFxRecMax],g_frzRec[2];int g_fxRecN=1,g_fxPlayN=0;
 FxPlay g_fxPlay[kFxRecMax];bool g_frzOk[2]={};SRWLOCK g_fxRecLock=SRWLOCK_INIT;
@@ -46,6 +46,9 @@ bool Copy(void* out,uint64_t a,size_t n){if(n!=16)return false;float pos[4]={(fl
 bool FxCenterId(uint32_t){return true;}bool CoverAt(FxRec&,float*,uint32_t){return false;}void FxFwd(float*,float,float){}
 """
 code+=between('int SealExitReplayQueue(', '// human #58146: freeze switches')
+code+=between('void RelocateExitReplay(', 'void SealExitReplayTick()')
+code+=between('bool FormSealContinuation(uint64_t actor) {', '\n')+'\n'
+code+='bool entryAllowed(uint64_t cap){'+between('                   if (FormSealExited(cap)) return false;', '                   bool fresh =')+'return true;}\n'
 code+=r"""
 int checks=0;void check(bool v){++checks;if(!v){printf("FAIL %d\n",checks);exit(1);}}
 void actor(uint64_t a,uint32_t id,uint64_t root,float fade=1){put(a,id<<4);put(a+0x20,root);put(root+0x248,fade);}
@@ -78,6 +81,20 @@ int main(){
  check(g_fxPlay[1].r.blk[12]!=firstX);
  check(SealExitReplayQueue(789,789,true)==1&&SealExitReplayQueue(789,789,true)==1);
  check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==kFxRecMax);
+
+ // Queue applies exit-minus-record displacement, playback follows further travel.
+ g_fxRecN=2;g_fxRec[0]={};g_fxRec[0].world=true;g_fxRec[0].pl[0]=223182;g_fxRec[0].blk[12]=223210;
+ g_fxRec[1]={};g_fxRec[1].world=false;g_fxRec[1].owner=789;g_fxrBone=false;
+ check(SealExitReplayQueue(456,123)==2);check(g_fxPlay[0].r.blk[12]==123+0x110+28);
+ check(g_fxPlay[1].r.owner==123); // bone replay enabled for exit and remapped to player
+ auto& moved=g_fxPlay[0].r;moved.replayTarget=1123;RelocateExitReplay(moved);
+ check(moved.blk[12]==1123+0x110+28);RelocateExitReplay(moved);check(moved.blk[12]==1123+0x110+28);
+ // Repeated capture timestamps and tail action changes never make an exited actor eligible.
+ actor(456,0x16127,10000);actor(789,0xC17E3,20000);g_hitSourceSnapshot=g_pressSnap.t;
+ g_pressHitSources={{456,10.3},{789,10.42}};RetireFormSeals(456);
+ check(FormSealExited(456)&&FormSealExited(789));check(!entryAllowed(456));g_fh4.owner=123;g_fh4.seal=456;check(FormSealContinuation(456));g_fh4.owner=0;check(!FormSealContinuation(456));clockNow+=100;check(FormSealExited(456));
+ check(PressPrimarySeal(&at)==0);dead.insert(456);check(!FormSealExited(456));dead.clear();check(entryAllowed(456));
+ put(789,uint32_t(0x5129B<<4));check(!FormSealExited(789));
  printf("primary selection, capture promotion, multi-actor ghost/rate: %d checks PASS\n",checks);
 }
 """

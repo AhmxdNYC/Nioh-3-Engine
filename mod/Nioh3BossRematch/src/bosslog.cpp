@@ -2928,6 +2928,9 @@ bool FhIsSealAct(uint32_t id) {
 // Returns true on the frame the player's action changes to a seal-use id. Keeps a 16-entry start history for the learner.
 // human #58733: cores that summon a human ally (A9F39: action 0x28B6, no seal throw) spawn a live "seal" too; only a capture that follows
 // the seal throw (0x28FD family) within FormNeedSealActSec may begin a form, so those cores behave like the plain game. 0 = off.
+bool FormSealExited(uint64_t actor);
+bool FormSealContinuation(uint64_t actor);
+void RetireFormSeals(uint64_t seal);
 double g_sealEdgeT = -100;
 extern std::atomic<uint32_t> g_ftActs[4];
 extern std::atomic<int> g_ftN;
@@ -2975,6 +2978,7 @@ bool UseCategoryAct(uint32_t id) {  // same action category (high byte) as the c
 std::atomic<int> g_dbgForceCut{0}, g_dbgForceCutMs{150};
 double g_dbgCutSuppress = -1;  // until then a new seal / seal action begins no form (the faked cut's leftover seal)
 bool FhSealActTick(uint64_t pchr, uint64_t cap, double capT, double now) {
+    if (FormSealExited(cap) || FormSealContinuation(cap)) return false;
     static double dbgCutAt = 0;
     static int dbgThrows = 0;
     if (dbgCutAt > 0 && now >= dbgCutAt) {
@@ -3061,6 +3065,7 @@ struct Fh4State {
     double followT0 = 0;
 };
 Fh4State g_fh4;
+bool FormSealContinuation(uint64_t actor) { return actor && g_fh4.owner && actor == g_fh4.seal; }
 // pc #56938 (human #56933): no attacks or items while FormHide=4 owns the player (press/capture -> restore). [Spirit] FormBlockPad = XInput
 // button mask dropped from the game's XInputGetState for that window (default 0xFF4F = every button except Start, Back and R3: attacks,
 // items, dodge/sprint, d-pad, guard), FormBlockRT=1 zeroes both triggers, FormBlockLS=1 zeroes the left stick (no walking; pc #56964 /
@@ -4251,7 +4256,7 @@ void FormHide4Tick(uint64_t player) {
             }
             const double noSpawnAt = (std::max)(normalNoSpawnAt, coldUntil);
             const double pressTimeoutAt = (std::max)(coldUntil, orbOut ? (std::max)(g_fh4.started + 2.5, noSpawnAt) : g_fh4.started + 2.5);
-            if (cap && capT >= g_fh4.started - .05 && (coldUntil < 0 || capT <= noSpawnAt) && !(cap == attempted && capT == attemptedT)) {
+            if (cap && !FormSealExited(cap) && capT >= g_fh4.started - .05 && (coldUntil < 0 || capT <= noSpawnAt) && !(cap == attempted && capT == attemptedT)) {
                 g_fh4.seal = attempted = cap; g_fh4.capT = attemptedT = capT;
                 // report #22: the first fresh actor after the press is this form's seal (same rule as the delayed begin, #66107): a later capture
                 // (C17E3 0.26 s after 16127, 20:02:16.38) must not end the form as a capture-change
@@ -4321,6 +4326,7 @@ void FormHide4Tick(uint64_t player) {
             if (!strcmp(reason, "throw-done-no-seal") || !strcmp(reason, "press-no-seal") || !strcmp(reason, "throw-cancelled")) {
                 pendAt = pendTrig = 0; pendEdge = pendSpawn = false; pendPlayer = pendCap = 0; pendCapT = -1;
             }
+            RetireFormSeals(g_fh4.seal);
             ClearKeptExtras();
             Log("FormHide=4 end %s", reason);
             g_fh4EndWhy = reason; g_nativeExitPending = false;
@@ -4371,6 +4377,7 @@ void FormHide4Tick(uint64_t player) {
             }  // timed: FH4perf ours= includes the pin + warp
         }
     } else if (g_fhMode.load() == 4 && g_fh4Ready.load() && player && [&] {
+                   if (FormSealExited(cap)) return false;
                    bool fresh = cap && now >= capT && now - capT < 2.5 && (cap != attempted || capT != attemptedT) &&
                                       FormHideSealPresent(g_fhEnd.actorGlobal, cap) != 0;  // pc #57103: only a fresh capture of a live seal begins a form
                    spawnBegin = false;
@@ -4390,7 +4397,7 @@ void FormHide4Tick(uint64_t player) {
                    }
                    if (!fresh && !edge) {  // human #58738/#58746: no FormSlot0 capture for some cores (30744) -> the seal spawn hit is the capture (every core, every slot)
                        const uint64_t sc = g_fkSealChr.load(); const double st = g_fkSealT;
-                       if (sc && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
+                       if (sc && !FormSealExited(sc) && now >= st && now - st < 2.5 && (sc != spawnUsed || st != spawnUsedT) && FormHideSealPresent(g_fhEnd.actorGlobal, sc) != 0) {
                            cap = sc; capT = st; fresh = true; spawnBegin = true;
                        }
                    }
@@ -4943,12 +4950,34 @@ double g_sehKidT[8] = {};
 struct PressHitSource { uint64_t actor; double at; };
 std::vector<PressHitSource> g_pressHitSources;
 double g_hitSourceSnapshot = -100;
+struct RetiredFormSeal { uint64_t actor, root; uint32_t key; };
+std::vector<RetiredFormSeal> g_retiredFormSeals;
+bool FormSealExited(uint64_t actor) {
+    if (!actor) return false;
+    for (auto it=g_retiredFormSeals.begin();it!=g_retiredFormSeals.end();) {
+        uint32_t key=0; uint64_t root=0;
+        const int present=FormHideSealPresent(ActorTableGlobal(),it->actor);
+        const bool reused=(Rd(it->actor,key) && key!=it->key) || (Rd(it->actor+0x20,root) && root!=it->root);
+        if (present==0 || reused) it=g_retiredFormSeals.erase(it);
+        else { if(it->actor==actor)return true; ++it; }
+    }
+    return false;
+}
+void RetireFormSeals(uint64_t seal) {
+    std::vector<uint64_t> actors{seal};
+    if(g_hitSourceSnapshot==g_pressSnap.t) for(const auto& entry:g_pressHitSources) actors.push_back(entry.actor);
+    for(uint64_t actor:actors) {
+        if(!actor || actor==FkPlayer() || FormSealExited(actor))continue;
+        uint32_t key=0;uint64_t root=0;
+        if(Rd(actor,key)&&Rd(actor+0x20,root))g_retiredFormSeals.push_back({actor,root,key});
+    }
+}
 uint64_t PressPrimarySeal(double* at) {
     if (g_hitSourceSnapshot != g_pressSnap.t || g_pressSnap.t <= 0) return 0;
     const uint32_t wanted = g_pickT.load() >= g_pressSnap.t - 1.5 ? g_pickCore.load() : 0;
     const PressHitSource* first = nullptr;
     for (const auto& entry : g_pressHitSources) {
-        if (entry.at < g_pressSnap.t || AliveAtPress(entry.actor)) continue;
+        if (entry.at < g_pressSnap.t || AliveAtPress(entry.actor) || FormSealExited(entry.actor)) continue;
         if (!first) first = &entry;
         uint32_t key = 0;
         if (wanted && Rd(entry.actor, key) && (key >> 4) == wanted) { *at = entry.at; return entry.actor; }
@@ -4964,7 +4993,10 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
     if (g_pressSnap.t > 0 && Now() >= g_pressSnap.t) {
         auto found = std::find_if(g_pressHitSources.begin(), g_pressHitSources.end(),
             [chr](const PressHitSource& s) { return s.actor == chr; });
-        if (found == g_pressHitSources.end()) { PressGhostForget(chr); g_pressHitSources.push_back({chr, Now()}); }
+        if (found == g_pressHitSources.end()) {
+            g_retiredFormSeals.erase(std::remove_if(g_retiredFormSeals.begin(),g_retiredFormSeals.end(),
+                [chr](const RetiredFormSeal& r){return r.actor==chr;}),g_retiredFormSeals.end());
+            PressGhostForget(chr); g_pressHitSources.push_back({chr, Now()}); }
     }
     static int n = 0;
     // pc2 #57781: a chr address the game reuses (LEFT's helper EE49E, from the 6th form on) gets its time refreshed; a stale time made
@@ -5061,7 +5093,7 @@ int SealExitFxSpawn(uint64_t owner) {  // game thread; returns effects created
 // (player -> player, the seal -> the seal, anything else -> skipped). At the ghost exit they are replayed with the same spacing.
 // SealExitReplayBone=0 (default, pc #57943): only the world-space fx (62557 big smoke, one-shot) are replayed - the bone-attached ones
 // loop on the player and never end. SealExitReplaySkip = hex ids never recorded (default 3E8, the per-hit spark), SealExitReplayIds = if set, only these ids are recorded.
-struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; };
+struct FxRec { double t; uint32_t id; uint8_t world; uint64_t d, owner, a7; float pl[4]; alignas(16) uint8_t blk[0x60]; uint64_t replayTarget = 0; };
 constexpr int kFxRecMax = 24;
 FxRec g_fxRec[kFxRecMax];
 int g_fxRecN = 0;
@@ -5324,8 +5356,8 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     if (!P && dStack) { r.world = 1; if (!Copy(r.blk, d, 0x40)) return; }
     else if (P && !dStack) { r.world = 0; if (!Copy(r.blk, P, 0x60)) return; }
     else return;  // a shape we have not seen: do not replay it
-    const uint64_t pl = g_fh4.owner;
-    if (pl) Copy(r.pl, pl + 0x110, 16);
+    const uint64_t pl = g_fh4.owner ? g_fh4.owner : FkPlayer();
+    if (!pl || !Copy(r.pl, pl + 0x110, 16)) return;
     int n;
     AcquireSRWLockExclusive(&g_fxRecLock);
     n = g_fxRecN;
@@ -5385,12 +5417,12 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
             if (FxCenterId(r.id)) FxFwd(m, pn[0], pn[2]);  // human #58053/#58081
             r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
-        } else if (!g_fxrBone) {
-            continue;  // pc #57943: bone-attached start fx are looping auras the form end normally kills; replayed they glow forever and stack
-        } else if (r.owner != player && r.owner != seal) {
-            Log("SealExitReplay: fx %X owner %llX is not the player or the seal - skipped", r.id, (unsigned long long)r.owner);
-            continue;
+        } else {
+            r.owner = FkPlayer();  // exit bone effects follow the restored player, never the old summon
+            if (!r.owner) continue;
         }
+        r.replayTarget = player;
+        memcpy(r.pl,pn,sizeof(pn));  // queued world origin; playback follows any further travel
         if (r.a7 > 0x10000) r.a7 = 0;
         g_fxPlay[g_fxPlayN].at = rec[i].t;
         g_fxPlay[g_fxPlayN].r = r;
@@ -5490,6 +5522,17 @@ void CoverStartSmoke(uint64_t player, double now) {
     Log("SealCover: press t=%.3f start smoke %X at %.0f %.0f %.0f, player fades out at %d ms over %d, hidden at %d ms, yokai shown at %d ms over %d",
         now, r.id, m[12], m[13], m[14], g_plOutAtMs.load(), g_plOutMs.load(), g_fhDelayMs.load(), g_sealShowMs.load(), g_showFadeMs.load());
 }
+void RelocateExitReplay(FxRec& r) {
+    if (!r.replayTarget) return;
+    if (!r.world) { r.owner=FkPlayer(); return; }
+    float now[4]={};
+    if(!Copy(now,r.replayTarget+0x110,16))return;
+    float* m=(float*)r.blk;
+    for(int i=0;i<3;++i) m[12+i]+=now[i]-r.pl[i];
+    memcpy(r.pl,now,sizeof(now));
+    Log("SealExitReplay placement: fx=%X target=%llX world=%.1f/%.1f/%.1f",r.id,
+        (unsigned long long)r.replayTarget,m[12],m[13],m[14]);
+}
 void SealExitReplayTick() {  // game thread
     if (!g_fxPlayN) return;
     static int bytesOk = -1;
@@ -5507,6 +5550,7 @@ void SealExitReplayTick() {  // game thread
     for (int i = 0; i < g_fxPlayN; ++i) {
         FxPlay& p = g_fxPlay[i];
         if (now < p.at) { g_fxPlay[k++] = p; continue; }
+        RelocateExitReplay(p.r);
         alignas(16) uint8_t blk[0x60];
         memcpy(blk, p.r.blk, sizeof(blk));
         alignas(16) uint8_t out[0x20] = {};
@@ -5892,7 +5936,7 @@ void SealEndOnHitTick() {
             g_ghostFadeSeal.store(seal);
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
-        int replay = smoke ? (earlySess == sess ? earlyN : SealExitReplayQueue(seal, FkPlayer())) : 0;
+        int replay = smoke ? SealExitReplayQueue(seal, FkPlayer()) : 0;
         if (smoke) for (uint64_t actor : sources) if (actor && actor != seal) {
             replay += SealExitReplayQueue(actor, actor, true);
             if (g_sxfOn.load()>0 && g_sxfN>0) made += SealExitFxSpawn(actor);
