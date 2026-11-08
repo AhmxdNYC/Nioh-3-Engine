@@ -195,3 +195,6 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 4:50 am EST | cx-pc #83559: all three gates verified (PC #83413, pc2 #83556, Ally #83484); source merged/pushed to main ca394dc8. No new offline failure remains; 18 baseline exceptions documented.
   Publication prepared in D:/nioh3-wt/site-release-1811; tested payloads unchanged. Next: GitHub v1.8.11 assets, Vercel deployment, live hash verification, latest-build update.
+
+- 2026-11-08 4:50 am EST | cx-pc #83559: source main 31f9426a; GitHub v1.8.11 published Latest after draft verification of all 16 asset SHA256 digests. Tested payload hashes unchanged; public checksum list #6551 replaces #6535 (stable manifest is site-only).
+  Site deployment D:/nioh3-wt/site-release-1811 in progress; next live manifest/payload verification and LATEST BUILD update. Release: https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.11.
