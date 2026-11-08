@@ -3265,6 +3265,7 @@ std::atomic<double> g_coverT{0}, g_sealShowAt{0}, g_ghostHideAt{0};
 // human #58173: the exit smoke starts while the yokai still attacks (SealExitSmokeAtMs after the press, or when its last hit burst opens,
 // whichever first); at the last-hit close it fades out (SealGhostFadeMs) and the player's body fades in over SealPlayerFadeMs.
 std::atomic<int> g_exitSmokeAtMs{1450}, g_plFadeMs{250}, g_exitLeadMs{600}, g_lastHitGraceMs{150};  // lead: human #60302 natural-end exit smoke
+std::atomic<int> g_exitAtLastHitMs{0};  // #81898: last burst OPEN + offset; -9999 restores close-based exit
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -5017,6 +5018,8 @@ void SealExitReplayLoad() {
     g_exitSmokeAtMs = IniInt(L"Spirit", L"SealExitSmokeAtMs", 1450);  // human #58173
     g_exitLeadMs = IniInt(L"Spirit", L"SealExitLeadMs", 600);  // human #60302
     g_lastHitGraceMs = IniInt(L"Spirit", L"SealLastHitGraceMs", 50);  // human #60327, #60522 150->50
+    const int lastHitMs = IniInt(L"Spirit", L"SealExitAtLastHitMs", 0);
+    g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -5300,7 +5303,8 @@ void SealExitReplayTick() {  // game thread
 }
 // human #60302: SealEndOnHit=0 forms end on the seal's own despawn and skipped the whole exit smoke (pc log: 18/18 forms, 0 exit smoke).
 // report #22: the learned per-core timings [SealDur] / [SealLastHit] (#60302/#60327) are gone (human #61089: no stored timings); natural mode
-// ends at THIS form's last live hit close + SealLastHitGraceMs once the core's hit count is known, else at the seal's own despawn.
+// #81898: default exit is THIS form's last live burst OPEN + SealExitAtLastHitMs, with the yokai finishing invisibly.
+// -9999 restores the close+grace rule. Unknown counts keep the idle/despawn fallback; no predicted hit timetable.
 void SealEndOnHitTick() {
     const bool natural = !g_sehMode.load();
     if (natural && (g_ghostOn.load() <= 0 || g_coverOn.load() <= 0)) return;
@@ -5320,6 +5324,7 @@ void SealEndOnHitTick() {
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
+    static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
     if (on != (sess > 0)) {
         // report #22: learn only from a form the seal itself finished (it despawned). 20:02:04.48 a form cut by a capture-change after 1.7 s
@@ -5349,7 +5354,7 @@ void SealEndOnHitTick() {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0;
+        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -5366,11 +5371,14 @@ void SealEndOnHitTick() {
         g_fhFaceReq.store(true);
         CoreTplBind(sid, sess);
         Log("SealEndOnHit seal=%llX core %X bound %.3f s after the press, %d bursts seen so far: %d hit bursts known%s", (unsigned long long)seal, sid, now - sess,
-            bursts, want, want ? " - ends when the last one closes" : " - learning (idle fallback)");
+            bursts, want, want ? " - live last-burst exit timing" : " - no future burst count in live collision pool; idle fallback");
     }
     const bool idleOnly = g_sieMode.load() == 1;  // human #61026: SealIdleEnd=1 - the idle edge is the only end rule (no hit timings)
-    const bool idleFire = g_sieMode.load() > 0 && seal && g_sieFireSeal == seal;
-    if (natural && !idleOnly) {
+    const int exitAtLastHitMs = g_exitAtLastHitMs.load();
+    // Opening a hit must never route to despawn: only enable this early rule with ghost exit available.
+    const bool atOpen = exitAtLastHitMs != -9999 && g_ghostOn.load() > 0;
+    const bool idleFire = g_sieMode.load() > 0 && seal && g_sieFireSeal == seal && (!atOpen || !want || idleOnly || bursts < want);
+    if (natural && !idleOnly && !atOpen) {
         // human #61113/#61119: with a known hit count the smoke starts at THIS form's real last close, never from a learned time
         const bool lastDone = want && bursts >= want && !open && lastClose > 0;
         const int endMs = lastDone ? (int)(lastClose * 1000.0) + g_lastHitGraceMs.load() : 0;
@@ -5400,21 +5408,26 @@ void SealEndOnHitTick() {
         }
         if (mine) ++n;
     }
-    if (n && !open) { open = true; ++bursts; Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess); }
+    if (n && !open) { open = true; ++bursts; lastOpen = now - sess; Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess); }
     bool fire = false;
     if (!n && open) {
         open = false;
         Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
         lastClose = now - sess;
-        fire = !natural && seal && want && bursts >= want;
-    } else if (!natural && !n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
+        fire = !atOpen && !natural && seal && want && bursts >= want;
+    } else if (!atOpen && !natural && !n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
     // human #61113/#61119/#61124: one rule for every core - end a fixed SealLastHitGraceMs after THIS form's real last hit close
     // (last = the core's hit count, counted live per form); the learned [SealLastHit] time is only used before the count is known
-    if (natural && !idleOnly && !n && !open && want && bursts >= want && lastClose > 0 && (now - sess) >= lastClose + g_lastHitGraceMs.load() / 1000.0) {
+    if (!atOpen && natural && !idleOnly && !n && !open && want && bursts >= want && lastClose > 0 && (now - sess) >= lastClose + g_lastHitGraceMs.load() / 1000.0) {
         fire = true;
         static double overLogged2 = -1;
         if (overLogged2 != sess) { overLogged2 = sess; Log("SealCover: core %X last hit over (hit %d/%d closed at %.3f s) - ending the form %.3f s after the press (+%d ms)", sid, bursts, want, lastClose, now - sess, (int)((now - sess - lastClose) * 1000.0)); }
     }
+    // Negative offsets cannot predict a future live open: their deadline is already due when it is first observed.
+    if (atOpen && seal && want > 0 && bursts >= want && exitOpen < 0) exitOpen = lastOpen;
+    const bool openDue = atOpen && seal && want > 0 && bursts >= want && exitOpen >= 0 &&
+                         now - sess >= exitOpen + exitAtLastHitMs / 1000.0;
+    if (openDue) fire = true;
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
     if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
@@ -5428,7 +5441,7 @@ void SealEndOnHitTick() {
         fire = true;
         if (capLogged != sess) { capLogged = sess; Log("SealEndOnHit core %X: form cap %d s reached (burst %d %s, want %d) - ending the form", sid, g_formMaxSec.load(), bursts, open ? "open" : "closed", want); }
     }
-    if (!natural && !idleOnly && earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
+    if (!atOpen && !natural && !idleOnly && earlySess != sess && g_ghostOn.load() > 0 && g_coverOn.load() > 0 && seal && want && SealExitCore(sid) &&
         ((open && bursts >= want) || fire || (g_exitSmokeAtMs.load() > 0 && now - sess >= g_exitSmokeAtMs.load() / 1000.0))) {
         earlySess = sess;
         earlyN = SealExitReplayQueue(seal, FkPlayer());
@@ -5436,7 +5449,9 @@ void SealEndOnHitTick() {
     }
     if (!fire) return;
     fired = true;
-    if (g_sdHeld == seal) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
+    if (openDue && !idleOnly) Log("SealCover: core %X last burst %d/%d opened %.3f s after press, exit +%d ms (observed %.3f s, minimum %d ms)",
+        sid, bursts, want, exitOpen, exitAtLastHitMs, now - sess, g_sealEndMinMs.load());
+    if (g_sdHeld == seal && !openDue) { Log("SealEndOnHit: releasing held SealDefer request"); SealDeferRelease("last-hit"); return; }
     if (g_ghostOn.load() > 0) {  // pc #57569: end the form now, the seal runs on invisible (tail speed) until its own despawn
         g_tailT0.store(now);
         if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
@@ -5459,7 +5474,7 @@ void SealEndOnHitTick() {
         g_ghostReqAt.store(smoke && replay > 0 ? now + revMs / 1000.0 : 0);
         if (smoke) Log("SealCover: exit smoke now, yokai hidden in %d ms, player back in %d ms", hideMs, smoke && replay > 0 ? revMs : 0);
         g_ghostReq.store(seal);
-        Log("SealEndOnHit seal=%llX core %X last hit burst %d closed %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
+        Log("SealEndOnHit seal=%llX core %X hit burst %d exit %.3f s after the press: ghost exit (seal hidden, form ends, tail x%.2f) exit smoke %s fade %d ms from %.3f fx %d/%d t=%.3f",
             (unsigned long long)seal, sid, bursts, now - sess, g_tailMul.load(), smoke ? "ON" : "off (core not in SealExitFxCore)", smoke ? g_ghostFadeMs : 0,
             g_ghostFade0, made, smoke && g_sxfOn.load() > 0 ? g_sxfN : 0, now);
         return;
@@ -6177,16 +6192,17 @@ double SoulTune(int which, int dir, bool* live) {
     struct T { const wchar_t* key; double step, lo, hi; bool flt; };
     static const T k[] = {{L"SealExitRevealMs", 50, 0, 2000, false}, {L"SealExitSmokeFwd", 10, -200, 200, false}, {L"SealExitSmokeSide", 10, -200, 200, false},
                           {L"SealExitSmokeRepeatMs", 100, 0, 2000, false}, {L"FormHideDelayMs", 50, 0, 1000, false}, {L"SealSpeed", .1, .5, 3, true},
-                          {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}};
+                          {L"SealTailSpeed", .5, 1, 8, true}, {L"SmokeFreezeStart", 1, 0, 1, false}, {L"SmokeFreezeEnd", 1, 0, 1, false}, {L"SealExitAtLastHitMs", 50, -500, 1000, false}};
     if (which < 0 || which >= (int)(sizeof k / sizeof *k)) return 0;
     if (live) *live = which < 5 || which >= 7 || g_ftHooked.load();
     double v = which == 0 ? g_revealMs.load() : which == 1 ? g_fxrFwd.load() : which == 2 ? g_fxrSide.load() : which == 3 ? g_fxrRepeatMs.load()
-             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : g_frz[which - 7].load();
+             : which == 4 ? g_fhDelayMs.load() : which == 5 ? g_sealMul.load() : which == 6 ? g_tailMul.load() : which == 9 ? g_exitAtLastHitMs.load() : g_frz[which - 7].load();
     if ((which == 5 || which == 6) && v <= 0) {  // 0 = off this session (FormHide != 4 / partial hooks): step from the ini value
         wchar_t tb[32]; GetPrivateProfileStringW(L"Spirit", k[which].key, which == 5 ? L"1.4" : L"4", tb, 32, IniPath()); v = wcstod(tb, nullptr);
     }
     if (!dir) return v;
     const T& t = k[which];
+    if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
     v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
     if (t.flt) v = std::round(v * 10) / 10;
@@ -6198,12 +6214,13 @@ double SoulTune(int which, int dir, bool* live) {
     case 4: g_fhDelayMs.store((int)v); break;
     case 5: if (g_ftHooked.load()) g_sealMul.store((float)v); break;
     case 6: if (g_ftHooked.load()) g_tailMul.store((float)v); break;
+    case 9: g_exitAtLastHitMs.store((int)v); break;
     default: g_frz[which - 7].store((int)v); break;  // human #58146 freeze switches
     }
     wchar_t b[32];
     if (t.flt) swprintf(b, 32, L"%.1f", v); else swprintf(b, 32, L"%d", (int)v);
     WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
-    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, which >= 5 && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
+    Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
     return v;
 }
 

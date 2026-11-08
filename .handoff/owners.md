@@ -71,3 +71,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - Build exit 0, cover/native-entry/native-return + 17 Training harnesses pass; next main pc same R3513/R25E4 video and intro check. Intro before FIGHT remains covered (tech debt); no game/install touched. notes/entry-cover-72261.md.
 - 2026-11-07 9:04 pm EST | cx-pc/0 owns #81516 offline picker changes in Temp/wt-eq81516; pc owns game tests. Opus CLI handles mapping research only.
 - 2026-11-07 9:21 pm EST | cx-pc/0 #81516 offline implementation complete, BR 7f244882 #6329. pc owns install/game validation. Opus static review complete; no background worker/game test left by cx-pc.
+2026-11-07 10:24 PM EST | cx-pc #81898 code/build complete offline; no game/lock owned; pc owns acceptance.

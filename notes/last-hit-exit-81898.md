@@ -1,0 +1,17 @@
+﻿# Last-hit-start exit timing (#81898 / human #81894)
+
+Base: 1e4d2ce7, equipped-core toggle build #6329. This branch deliberately follows the requested base; it does not include the separate first-press smoke candidate #6344 (8549a20f).
+
+`[Spirit] SealExitAtLastHitMs` defaults to 0 even when absent. Values clamp to -500..1000, except -9999 which restores the prior close-based path (natural mode: last close + SealLastHitGraceMs). Soul core tuning row 9, `Exit after last hit starts:`, changes it in 50 ms steps and saves it live. The sentinel displays as `Legacy close`; changing it resumes stepping from zero. Existing row indexes remain unchanged.
+
+The existing collision pool is sampled and its attack bursts counted as before. Once the known target count is reached, the observed burst opening is latched for this form. Smoke and ghost exit occur at that opening + offset, subject to SealEndMinMs (700 ms in the supplied setup). Later bursts cannot shift the deadline. Player reveal retains the separate SealExitRevealMs delay. Negative offsets are already due when the opening is observed, so they fire at that observation, not predictively. Idle-only mode remains idle-only; unknown or missing expected bursts retain idle fallback. Positive scheduled exits are not shortened by an idle event after the target burst. FormMaxSec remains a backstop.
+
+The new opening-based path requires ghost exit enabled and never queues a despawn or releases a deferred despawn on that opening. It uses the existing ghost fade/reveal path, which only changes render visibility and leaves the yokai alive with its attack collisions. Existing tail-speed behavior remains. Live acceptance must verify final damage actually lands; offline checks cannot prove engine visuals or collision outcomes.
+
+First-use count audit: the available bounded reader (`Game+0x45C6F38`, 4000 collision entries) contains currently active collision objects, owner at +8, attack-data pointer +0xB0 and attack id +0x1E8. The existing motion reader exposes current action/frame/segment end; neither validated interface supplies the total future disjoint bursts across motion transitions and spawned child actors. No cheap, verified future-count reader was found. `SealHitsFor==0` therefore keeps the permitted idle/despawn fallback. No table or timing was guessed, and no new process-wide scan or native call was added.
+
+Validation: 48 checks compile and execute actual SealEndOnHitTick, SoulTune, load/clamp lines and tuning menu against fake collision memory and INI. They cover final opening vs closing, +200/+500 ms, negative offsets, frozen deadline across a later burst, legacy -9999, unknown/missing counts, minimum time, late binding, body filtering, held-despawn safety, idle-only, ghost-off, pool failure, explicit mode, range clamps, row rendering and live persistence. Picker 103, equipment 36 (117 mappings), rematch 357: total 544 PASS. Existing sc22 replay PASS (two optional historical fixtures absent). Release build PASS.
+
+Artifact SHA256: 3f861c20ca8185cc9dd91b5fed8bdf30e8bf667db7a2206be6ec728be8a73f91. Offline menu preview is labeled as a preview, not a game capture. cx-pc did not touch the game.
+
+Next: pc owns live acceptance using known hit counts: compare 0 / +200 / -9999, inspect opening-to-exit logs, verify the last attack still damages, reveal remains +100 ms, and movement returns. Also check unknown-count idle fallback and row save/reload. Merge with #6344 separately if both fixes are desired in one candidate.
