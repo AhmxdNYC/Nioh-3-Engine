@@ -2516,7 +2516,9 @@ uint64_t ActorTableGlobal() {
 }
 struct PressSnap { std::vector<uint64_t> nodes; double t = -100; bool ok = false; uint64_t player = 0; float groundY = 0; };
 PressSnap g_pressSnap;
+void SealExitReplayPressReset();
 bool PressSnapTake(double now) {  // false = table unreadable (then nothing is rejected by it; the other guards still apply)
+    SealExitReplayPressReset();
     g_pressSnap.nodes.clear(); g_pressSnap.t = now; g_pressSnap.ok = false;
     g_pressSnap.player = 0;
     const uint64_t player = FkPlayer(); float pos[4] = {};
@@ -5294,6 +5296,7 @@ void FxMuteTick() {  // game thread: give the effects back once this spawn is pa
     ReleaseSRWLockExclusive(&g_fxMuteLock);
 }
 // EffectCreate 4CE90C(mgr, out, id, r9 = world matrix | shared default, P block, owner, p7); any thread
+bool ExitSmokeId(uint32_t id);
 void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp) {
     (void)a; (void)b;
     if (t_coldCover && (uint32_t)c == 0x62557) {
@@ -5374,8 +5377,12 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     else return;  // a shape we have not seen: do not replay it
     const uint64_t pl = g_fh4.owner ? g_fh4.owner : FkPlayer();
     if (!pl || !Copy(r.pl, pl + 0x110, 16)) return;
+    if (!r.world || !ExitSmokeId(r.id)) return;
     int n;
     AcquireSRWLockExclusive(&g_fxRecLock);
+    for (int i = 0; i < g_fxRecN; ++i) if (g_fxRec[i].id == r.id) {
+        ReleaseSRWLockExclusive(&g_fxRecLock); return;
+    }
     n = g_fxRecN;
     if (g_fxRecN < kFxRecMax) g_fxRec[g_fxRecN++] = r;
     ReleaseSRWLockExclusive(&g_fxRecLock);
@@ -5388,16 +5395,32 @@ void HkFxRec(uint64_t a, uint64_t b, uint64_t c, uint64_t d, const uint64_t* sp)
     }
 }
 // game thread: a new form session starts (FormHide=4 owner set) / the seal got bound
-void SealExitReplayBegin(double t) {
+bool ExitSmokeId(uint32_t id) {
+    if (id == 0x62557 || id == 0x62DF5) return true;
+    for (int i = 0; i < g_fxrCtrN; ++i) if (g_fxrCtr[i] == id) return true;
+    return false;
+}
+std::set<uint32_t> g_exitReplayIds;
+void SealExitReplayPressReset() {
     AcquireSRWLockExclusive(&g_fxRecLock);
     g_fxRecN = 0;
     ReleaseSRWLockExclusive(&g_fxRecLock);
+    g_exitReplayIds.clear();
+    g_fxrT0.store(0); g_fxrUntil.store(0);
+    // Drop only old EXIT entries; an already queued start-cover must survive Begin.
+    int kept = 0;
+    for (int i = 0; i < g_fxPlayN; ++i) if (!g_fxPlay[i].r.replayTarget) g_fxPlay[kept++] = g_fxPlay[i];
+    g_fxPlayN = kept; g_frzOk[1] = false;
+}
+void SealExitReplayBegin(double t) {
+    SealExitReplayPressReset();
     g_fxrUntil.store(0);
     g_fxrT0.store(t);
 }
 void SealExitReplayBound(double t) { g_fxrUntil.store(t + g_fxrTailMs / 1000.0); }
 // game thread, at the ghost exit of a smoke core: schedule the recorded start effects from now on
 int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
+    (void)seal;
     g_fxrT0.store(0);
     if (g_fxrOn.load() <= 0) return 0;
     static FxRec rec[kFxRecMax];
@@ -5422,24 +5445,23 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
     }
     if (!n) return 0;
     const double now = Now();
-    if (!append) g_fxPlayN = 0;
+    if (!append && g_exitReplayIds.empty()) g_fxPlayN = 0;
     const int begin = g_fxPlayN;
     for (int i = 0; i < n && g_fxPlayN < kFxRecMax; ++i) {
         FxRec r = rec[i];
+        if (!r.world || !ExitSmokeId(r.id) || g_exitReplayIds.count(r.id)) continue;
         if (r.world) {
             float* m = (float*)r.blk;
             const float dx = m[12] - r.pl[0], dy = m[13] - r.pl[1], dz = m[14] - r.pl[2];
             if (dx * dx + dy * dy + dz * dz > 800.f * 800.f) { Log("SealExitReplay: fx %X too far from the player at its start - skipped", r.id); continue; }
             m[12] = pn[0] + dx; m[13] = pn[1] + dy; m[14] = pn[2] + dz;
             if (FxCenterId(r.id)) FxFwd(m, pn[0], pn[2]);  // human #58053/#58081
-            r.owner = r.owner == player || r.owner == seal ? r.owner : 0;
-        } else {
-            r.owner = FkPlayer();  // exit bone effects follow the restored player, never the old summon
-            if (!r.owner) continue;
+            r.owner = 0; r.d = 0; r.a7 = 0; // one-shot world smoke has no bone owner
         }
         r.replayTarget = player;
         memcpy(r.pl,pn,sizeof(pn));  // queued world origin; playback follows any further travel
         if (r.a7 > 0x10000) r.a7 = 0;
+        g_exitReplayIds.insert(r.id);
         g_fxPlay[g_fxPlayN].at = rec[i].t;
         g_fxPlay[g_fxPlayN].r = r;
         ++g_fxPlayN;
@@ -5447,10 +5469,7 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player, bool append = false) {
     double t0 = 1e300;  // the first replayed fx (the smoke) plays right now, the rest keep their spacing
     for (int i = begin; i < g_fxPlayN; ++i) t0 = g_fxPlay[i].at < t0 ? g_fxPlay[i].at : t0;
     for (int i = begin; i < g_fxPlayN; ++i) g_fxPlay[i].at = now + (g_fxPlay[i].at - t0);
-    const int rep = g_fxrRepeatMs.load();  // human #58117: one read per queue (menu writes it live)
     for (int i = begin; i < g_fxPlayN; ++i) if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_frzRec[1] = g_fxPlay[i].r; memcpy(g_frzRec[1].pl, pn, sizeof(pn)); g_frzOk[1] = true; break; }
-    for (int i = begin, n0 = g_fxPlayN; rep > 0 && i < n0 && g_fxPlayN < kFxRecMax; ++i)
-        if (g_fxPlay[i].r.world && FxCenterId(g_fxPlay[i].r.id)) { g_fxPlay[g_fxPlayN] = g_fxPlay[i]; g_fxPlay[g_fxPlayN++].at += rep / 1000.0; }
     return g_fxPlayN - begin;
 }
 // human #58146: freeze switches (Soul core tuning): 0 = start smoke, 1 = end smoke. ON = that smoke is spawned again every SmokeFreezeMs

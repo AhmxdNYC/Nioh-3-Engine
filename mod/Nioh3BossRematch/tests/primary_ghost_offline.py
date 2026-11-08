@@ -36,16 +36,17 @@ bool enabled=true;bool ScOn(){return enabled;}int binds=0;void FormHideEndBegin(
 code=pre+between('struct PressHitSource','void SealEndOnHitNoteSpawn')+between('struct PressGhost','void Fh4KeepSeal')+between('float SealRateMul(','std::atomic<uint32_t> g_ftActs')+between('void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {','struct SealTailHitWatch')
 code+='void adopt(uint64_t& cap,double& capT){uint64_t player=123;'+between('    double primaryAt = 0;\n    const uint64_t primary = PressPrimarySeal(&primaryAt);','    if (g_fh4.owner && (g_fh4.fromSpawn')+'}\n'
 code+=r"""
-struct FxRec {bool world=true;uint32_t id=1;double t=0;float blk[16]={},pl[4]={};uint64_t owner=0,a7=0,replayTarget=0;};
+struct FxRec {bool world=true;uint32_t id=0x62DF5;double t=0;float blk[16]={},pl[4]={};uint64_t owner=0,a7=0,replayTarget=0,d=0;};
 struct FxPlay {double at;FxRec r;};
-constexpr int kFxRecMax=4;FxRec g_fxRec[kFxRecMax],g_frzRec[2];int g_fxRecN=1,g_fxPlayN=0;
+constexpr int kFxRecMax=64;FxRec g_fxRec[kFxRecMax],g_frzRec[2];int g_fxRecN=1,g_fxPlayN=0;
 FxPlay g_fxPlay[kFxRecMax];bool g_frzOk[2]={};SRWLOCK g_fxRecLock=SRWLOCK_INIT;
-std::atomic<int> g_fxrOn{1},g_fxrRepeatMs{0},g_formSid{0};std::atomic<double> g_fxrT0{0};
+std::atomic<int> g_fxrOn{1},g_fxrRepeatMs{0},g_formSid{0};std::atomic<double> g_fxrT0{0},g_fxrUntil{0}; int g_fxrTailMs=100; uint32_t g_fxrCtr[12]={};
 int g_fxrCtrN=0;bool g_fxrBone=false;
 bool Copy(void* out,uint64_t a,size_t n){if(n!=16)return false;float pos[4]={(float)a,0,0,0};memcpy(out,pos,16);return true;}
 bool FxCenterId(uint32_t){return true;}bool CoverAt(FxRec&,float*,uint32_t){return false;}void FxFwd(float*,float,float){}
 """
-code+=between('int SealExitReplayQueue(', '// human #58146: freeze switches')
+code+=between('bool ExitSmokeId(uint32_t id) {', '// human #58146: freeze switches')
+code+='void record(FxRec r){'+between('    if (!r.world || !ExitSmokeId(r.id)) return;', '    if (n < kFxRecMax) {')+'}\n'
 code+=between('void RelocateExitReplay(', 'void SealExitReplayTick()')
 code+=between('bool FormSealContinuation(uint64_t actor) {', '\n')+'\n'
 code+='bool entryAllowed(uint64_t cap){'+between('                   if (FormSealExited(cap)) return false;', '                   bool fresh =')+'return true;}\n'
@@ -76,17 +77,26 @@ int main(){
  PressGhostForget(456);check(g_pressGhosts.empty());
  actor(456,0x16127,10000);PressGhostBegin({456},true);clockNow=33;PressGhostTick();check(g_pressGhosts.empty());
  clockNow=40;check(SealExitReplayQueue(456,123)==1);const double firstAt=g_fxPlay[0].at;const float firstX=g_fxPlay[0].r.blk[12];
- clockNow=40.1;check(SealExitReplayQueue(789,789,true)==1&&g_fxPlayN==2);
- check(g_fxPlay[0].at==firstAt&&g_fxPlay[0].r.blk[12]==firstX&&g_fxPlay[1].at==40.1);
- check(g_fxPlay[1].r.blk[12]!=firstX);
- check(SealExitReplayQueue(789,789,true)==1&&SealExitReplayQueue(789,789,true)==1);
- check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==kFxRecMax);
-
- // Queue applies exit-minus-record displacement, playback follows further travel.
- g_fxRecN=2;g_fxRec[0]={};g_fxRec[0].world=true;g_fxRec[0].pl[0]=223182;g_fxRec[0].blk[12]=223210;
- g_fxRec[1]={};g_fxRec[1].world=false;g_fxRec[1].owner=789;g_fxrBone=false;
- check(SealExitReplayQueue(456,123)==2);check(g_fxPlay[0].r.blk[12]==123+0x110+28);
- check(g_fxPlay[1].r.owner==123); // bone replay enabled for exit and remapped to player
+ clockNow=40.1;check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==1);
+ check(g_fxPlay[0].at==firstAt&&g_fxPlay[0].r.blk[12]==firstX);
+ check(SealExitReplayQueue(789,789)==0&&g_fxPlayN==1); // a second exit callback must not erase pending smoke
+ SealExitReplayPressReset();check(g_fxRecN==0&&g_fxPlayN==0&&g_exitReplayIds.empty());
+ // Exact shape of the report: repeated bone auras plus duplicate world smoke.
+ for(int i=0;i<24;++i){FxRec r;r.world=false;r.id=i<14?0x1394F:i<18?0x62DF6:i<20?0x2BFD:0x916;record(r);}
+ check(g_fxRecN==0);
+ FxRec smoke;for(int i=0;i<24;++i)record(smoke);check(g_fxRecN==1);
+ g_fxrRepeatMs=500;check(SealExitReplayQueue(456,123)==1&&g_fxPlayN==1&&g_fxPlay[0].r.owner==0);
+ for(int press=0;press<100;++press){SealExitReplayBegin(press+1);check(g_fxRecN==0&&g_fxPlayN==0);record(smoke);record(smoke);check(g_fxRecN==1&&SealExitReplayQueue(456,123)==1);}
+ SealExitReplayPressReset();g_fxPlayN=1;g_fxPlay[0].r={};g_fxPlay[0].r.replayTarget=0;
+ SealExitReplayBegin(140);check(g_fxPlayN==1); // preserve queued START cover
+ record(smoke);FxRec other;other.id=0x62557;record(other);check(SealExitReplayQueue(456,123)==2);
+ check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==2); // once per id across all sources
+ // Reject bone records even if legacy capture supplied them, and retain endpoint travel.
+ SealExitReplayPressReset();g_fxRecN=4;g_fxRec[0]={};g_fxRec[0].world=true;g_fxRec[0].pl[0]=223182;g_fxRec[0].blk[12]=223210;
+ g_fxRec[1]={};g_fxRec[1].world=false;g_fxRec[1].owner=789;g_fxRec[1].id=0x1394F;g_fxrBone=true;
+ g_fxRec[2]=g_fxRec[0];g_fxRec[3]={};g_fxRec[3].id=0x916; // non-smoke world effect rejected too
+ check(SealExitReplayQueue(456,123)==1);check(g_fxPlay[0].r.blk[12]==123+0x110+28);
+ check(g_fxPlay[0].r.owner==0&&g_fxPlay[0].r.world);
  auto& moved=g_fxPlay[0].r;moved.replayTarget=1123;RelocateExitReplay(moved);
  check(moved.blk[12]==1123+0x110+28);RelocateExitReplay(moved);check(moved.blk[12]==1123+0x110+28);
  // Repeated capture timestamps and tail action changes never make an exited actor eligible.
