@@ -89,3 +89,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 11-07 7:12 pm EST pc2/0: board #357 smoke test BR #6320 7ad21a59 RESULT reply-to 81535: NOT PASS - native smoke called every press, handle=0, no visible smoke, 1 of 4 first presses broke the form (DOWN-first launch); per-core OFF PASS. Needs a test-only poke on pc2 (BR PadButtons uses the xinput export, vpad can't reach it). Videos #6340/#6341, logs #6342. pc2 back on BR 8aeb68a2.
 - 11-07 7:15 pm EST pc2/0 session end: nothing in flight. Next pc2 job = retest cx-pc smoke fix/toggle build (needs vpad poke poke2.py, see memory recipe).
 2026-11-07 7:45 pm EST pc2/0: #81891 BR bb7995a8 tested on pc2 -> near pass, 1/3 cold first LEFT cut short (RESULT re #81535, bridge #6352-6356).
+2026-11-07 8:16 pm EST pc2/0: #82037 BR 335d11b5 -> 3/4 pass, cold first LEFT smoke-only 1/2 (seal 5.49 s > 4.5 s). RESULT re #82037.
