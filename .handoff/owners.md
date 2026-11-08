@@ -85,3 +85,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - cx-pc/0 #82379 offline complete on cx-pc/exit-adapt-82379; BR d4d14a8f. pc owns install/live acceptance.
 
 - cx-pc/0 #82436 done offline; BR63be4fe6 #6421. pc owns installation and live acceptance.
+
+- cx-pc/0 #82480 complete offline; BR22345f1c #6427, pc owns install/live validation. No game touched.

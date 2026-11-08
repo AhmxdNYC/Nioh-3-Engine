@@ -98,3 +98,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - #82379 artifact uploaded: bridge #6412, BR d4d14a8f, source ffe86f5e pushed. Lead install/relaunch owns live verdict.
 
 - #82436 ready: BR63be4fe6 bridge #6421, source e8b5ca40 on cx-pc/exit-82436; 894 offline PASS. Exit FX tracks player/travel, bone replay on player, ended actors cannot rebind. Next pc live test; no game touched.
+
+- #82480 ready: BR22345f1c #6427, source d667b24f on cx-pc/observe-82480 atop63be4fe6. 925 offline PASS; late-bind downward guard, source-separated final hit, native warp clamp/local repeated-height anchor. Lead owns live tests.
