@@ -299,3 +299,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 5:49 am EST | cx-pc/0 records Ally84130 r2 BRc117129f PASS on tested scope:6/6 attachments,5 same-address reuses, first DOWN success; other feature/install checks passed,0 crashes. Restoration87/87 files16/16 targets reported; report6620/evidence6621/log6604/rows6617.
   This is NOT r3 BR613b4d2f acceptance or proof of early12-29ms recovery. Existing r3 continuation84091 remains next; collect both failure-pattern evidence under exact r3 hashes before publication. No duplicate gate sent; public1.8.11.
+
+- 2026-11-08 05:58 AM EST | cx-pc/0 reconciled PC2 RESULT84163 for r2 gate83990: early12-39ms0/5 actual attachments, later203ms2/2 with address reuse; r2 FAIL. Report6623/evidence6624; restore29 paths6/6 saves,0 differences,0 new crashes reported.
+  Corrected r3 already queued via84090 on83621: Setup6606 769c558b, BR613b4d2f, EFa1b32e13; require5 early and5 ghost-window actual attachments. No duplicate task. Next PC2 resumes84090 after completed restoration; r3 live acceptance remains unproven, public1.8.11 unchanged.
