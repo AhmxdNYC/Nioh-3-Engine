@@ -1259,6 +1259,89 @@ std::atomic<int> g_fkOn{0};            // ini [Spirit] FormKey=1 or `rm spirit f
 // begins + start smoke, FormSlot0 capture / swap, FormKey swap / model / appear), attack-cancel gate patch put back + HasSkill hook passes
 // through (no AirBlock / RunThrow / RunFade), no FastThrow, no OrbSkip, no smoke freeze. Live: a form already up runs to its normal end.
 std::atomic<bool> g_scForms{true};
+// human #81220: per-core soul transformation. [Spirit] FormCoresOff = hex core ids (desc[0] of the seal spawn hit) that use the game's own
+// summon (vanilla, same as SoulCoreForms=0 for that use). ScOn() = every form / press-time gate. The d-pad direction at the press (L=1, D=2)
+// maps to the last core seen on that direction (kept in [Spirit] FormCoreLeft / FormCoreDown, so it holds across sessions): known core OFF =
+// the whole use is vanilla from the press edge. A core never seen on that direction (new equip) starts as a form; its spawn hit then learns it
+// and, if OFF, suppresses the form from there (press-time smoke / x8 throw of that first use already ran).
+std::atomic<bool> g_pickOff{false};
+std::atomic<int> g_pickDir{0};
+std::atomic<double> g_pickT{-100};
+std::atomic<uint32_t> g_slotCore[3];       // [1] LEFT, [2] DOWN: last core id seen
+constexpr int kOffMax = 16;
+std::atomic<uint32_t> g_offIds[kOffMax];
+std::atomic<int> g_offN{0};
+constexpr int kSeenMax = 8;
+struct SeenCore { std::atomic<uint32_t> id{0}; std::atomic<int> dir{0}; };
+SeenCore g_seen[kSeenMax];
+inline bool ScOn() { return g_scForms.load(std::memory_order_relaxed) && !g_pickOff.load(std::memory_order_relaxed); }
+bool CoreIsOff(uint32_t id) {
+    if (!id) return false;
+    const int n = g_offN.load();
+    for (int i = 0; i < n && i < kOffMax; ++i) if (g_offIds[i].load() == id) return true;
+    return false;
+}
+void CoreOffSave() {
+    wchar_t b[200] = L"";
+    size_t o = 0;
+    const int n = g_offN.load();
+    for (int i = 0; i < n && i < kOffMax; ++i) o += (size_t)swprintf(b + o, 200 - o, L"%ls%X", i ? L"," : L"", g_offIds[i].load());
+    WritePrivateProfileStringW(L"Spirit", L"FormCoresOff", b, IniPath());
+}
+void CoreOffLoad() {
+    wchar_t b[200] = L"";
+    GetPrivateProfileStringW(L"Spirit", L"FormCoresOff", L"", b, 200, IniPath());
+    int n = 0;
+    for (wchar_t* p = b; *p && n < kOffMax;) {
+        wchar_t* e = nullptr;
+        const unsigned long v = wcstoul(p, &e, 16);
+        if (e == p) { ++p; continue; }
+        if (v) g_offIds[n++].store((uint32_t)v);
+        p = e;
+    }
+    g_offN.store(n);
+    g_slotCore[1].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreLeft", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
+    g_slotCore[2].store((uint32_t)wcstoul([&] { static wchar_t t[16]; GetPrivateProfileStringW(L"Spirit", L"FormCoreDown", L"0", t, 16, IniPath()); return t; }(), nullptr, 16));
+    for (int d = 1; d <= 2; ++d) if (const uint32_t c = g_slotCore[d].load()) { g_seen[d - 1].id.store(c); g_seen[d - 1].dir.store(d); }
+    Log("FormCoresOff: %d core(s) use the game's own summon; last core LEFT=%X DOWN=%X", n, g_slotCore[1].load(), g_slotCore[2].load());
+}
+void CoreSeen(uint32_t id, int dir) {
+    if (!id) return;
+    for (auto& s : g_seen) if (s.id.load() == id) { if (dir) s.dir.store(dir); return; }
+    for (auto& s : g_seen) { uint32_t z = 0; if (s.id.compare_exchange_strong(z, id)) { s.dir.store(dir); return; } }
+}
+// d-pad edge: decide for this press (game thread: tick, HkHasSkill).
+void PickPoll() {
+    static int heldPrev = 0;
+    const WORD bt = PadButtons(nullptr, nullptr);
+    const int held = (bt & 4) ? 1 : (bt & 2) ? 2 : 0;
+    const double now = Now();
+    if (held && held != heldPrev) {
+        const uint32_t core = g_slotCore[held].load();
+        const bool off = CoreIsOff(core);
+        g_pickDir.store(held); g_pickT.store(now); g_pickOff.store(off);
+        Log("FormCore %X dir=%c transform=%d reason=%s t=%.3f", core, held == 1 ? 'L' : 'D', off ? 0 : 1,
+            !core ? "core unknown on this direction yet (form; spawn hit learns it)" : off ? "core in FormCoresOff: the game's own summon" : "core transforms", now);
+    } else if (!held && g_pickOff.load() && now - g_pickT.load() > 10.0) {
+        g_pickOff.store(false);  // the vanilla window is over: gates back for the next press
+    }
+    heldPrev = held;
+}
+// seal spawn hit: learn which core the last pressed direction holds; an OFF core seen first here has the rest of its form suppressed.
+void PickLearn(uint32_t id) {
+    if (!id) return;
+    const int dir = (Now() - g_pickT.load() < 3.0) ? g_pickDir.load() : 0;
+    if (dir) {
+        if (g_slotCore[dir].exchange(id) != id)
+            WritePrivateProfileStringW(L"Spirit", dir == 1 ? L"FormCoreLeft" : L"FormCoreDown", [&] { static wchar_t t[16]; swprintf(t, 16, L"%X", id); return t; }(), IniPath());
+    }
+    CoreSeen(id, dir);
+    if (CoreIsOff(id) && !g_pickOff.load()) {
+        g_pickOff.store(true); g_pickT.store(Now());
+        Log("FormCore %X dir=%c transform=0 reason=core in FormCoresOff, first seen at the spawn hit: form suppressed from here (press-time steps already ran) t=%.3f",
+            id, dir == 1 ? 'L' : dir == 2 ? 'D' : '?', Now());
+    }
+}
 std::atomic<int> g_fkSwap{0};          // 1 = one swap armed (cleared after one use)
 std::atomic<uint32_t> g_fkX{0};        // form id for 74C2FC (0 = auto: old [state+A68] after clearing A68, else 0x6E73)
 std::atomic<uint64_t> g_fkMgr{0};      // spirit mgr seen at the 2916C5C entry
@@ -1831,7 +1914,7 @@ uint64_t HkPpF3D78(uint64_t slot, uint32_t id, uint64_t chr, uint64_t r9) {
         if (fresh && (chr == g_fkSealChr.load() || chr == g_fkAppSeal.load())) {
             // ally #57758: a fresh LEFT spawn hit on a reused chr address is a new use - capture it again (once per spawn hit)
             const bool leftAgain = chr == g_fkLeftChr.load() && g_fkLeftT > g_fs0CapLeftT;
-            if (g_scForms.load() && kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {  // human #61869: forms OFF = no capture
+            if (ScOn() && kind == 0 && id != 0xFFFFFFFF && ((chr != g_fs0DoneChr.load() && g_fs0CapChr.exchange(chr) != chr) || leftAgain)) {  // human #61869: forms OFF = no capture
                 if (leftAgain) {
                     g_fs0CapLeftT = g_fkLeftT;
                     g_fs0CapChr.store(chr);
@@ -3294,7 +3377,7 @@ float SealRateMul(uint64_t a) {  // 1 = leave the rate alone
     const float sm0 = g_sealMul.load(), base = sm0 > 0.f ? sm0 : 1.f;  // human #58117: 0 = off; the menu may also slow it (0.5..1)
     const uint64_t ts = g_tailSeal.load(std::memory_order_relaxed);
     // human #61869: forms OFF - only the form still up / its ghost tail keeps its speed (a stale tail seal address may be a vanilla yokai now)
-    if (!g_scForms.load(std::memory_order_relaxed) && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
+    if (!ScOn() && !g_fh4.owner && !(ts && ts == g_ghostSeal.load(std::memory_order_relaxed))) return 1.f;
     if (ts && a == ts) {
         const float t = g_tailMul.load() > 1.f ? g_tailMul.load() : base, ms = g_tailRampMs.load();
         const double e = ms > 0.f ? (Now() - g_tailT0.load()) * 1000.0 / ms : 1.0;
@@ -3432,11 +3515,11 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
         }
         return r * sm;
     }
-    const float m = g_scForms.load(std::memory_order_relaxed) ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
+    const float m = ScOn() ? g_ftMul.load() : 0.f;  // human #61869: forms OFF = no FastThrow / RunThrow
     if (a == FkPlayer()) {
         const double now = Now(), pending = g_rtPendingT.load();
         const uint32_t cur = PlayerActId(a);
-        if (!g_scForms.load() || g_fh4.owner) g_rtPendingT.store(-100);
+        if (!ScOn() || g_fh4.owner) g_rtPendingT.store(-100);
         else if (pending >= 0) {
             const int configured = g_rtConfirmMs.load();
             const int timeout = configured > 0 ? (std::min)(configured, 200) : 200;
@@ -3459,7 +3542,7 @@ float HkMotionSpeed(uint64_t ctrl, uint8_t layer, uint8_t flag) {
         }
         // The multiplier is returned, never written into persistent game rate state.
         // Leaving the verified throw immediately returns the game's original rate and disables drag/fade.
-        if (!sealuse::ThrowAction(cur) || !g_scForms.load()) {
+        if (!sealuse::ThrowAction(cur) || !ScOn()) {
             g_rtT0.store(-100);
             g_runFadeAt.store(0);
         }
@@ -3571,7 +3654,7 @@ void* g_orbFxOrig = nullptr;
 std::atomic<uint32_t> g_orbHits{0};
 uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
     uint32_t fx = 0;
-    if (g_scForms.load(std::memory_order_relaxed) && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869
+    if (ScOn() && o > 0x10000 && Rd(o + 0x644, fx) && fx == 0x6254D) {  // human #61869
         g_orbT.store(Now());
         if (g_orbHits.fetch_add(1) < 4) Log("OrbSkip: seal orb %llX lands on its first tick t=%.3f", (unsigned long long)o, Now());
         return 1;
@@ -3579,7 +3662,7 @@ uint64_t HkOrbGround(uint64_t o, uint64_t edx, uint64_t r8, uint64_t r9) {
     return ((uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t))g_orbLandOrig)(o, edx, r8, r9);
 }
 uint64_t HkOrbFx(uint64_t ctrl, uint64_t out, uint64_t fx, uint64_t r9, uint64_t s5, uint64_t s6, uint64_t s7, uint64_t s8) {
-    if ((uint32_t)fx == 0x6254D && out > 0x10000 && g_scForms.load(std::memory_order_relaxed)) {  // human #61869
+    if ((uint32_t)fx == 0x6254D && out > 0x10000 && ScOn()) {  // human #61869
         *(volatile uint32_t*)out = 0;
         g_orbT.store(Now());
         Log("OrbSkip: orb effect 0x6254D skipped (ctrl %llX) t=%.3f", (unsigned long long)ctrl, Now());
@@ -3608,8 +3691,9 @@ void OrbSkipInstall() {
 std::atomic<uint64_t> g_acGate{0};
 int AcGateSet(bool want);
 void AirGateTick() {
+    PickPoll();  // human #81220: per-core pick at the d-pad edge
     if (!g_acGate.load()) return;
-    const bool air = PlayerInAir(nullptr), off = !g_scForms.load(std::memory_order_relaxed);  // human #61869: forms OFF = game's check too
+    const bool air = PlayerInAir(nullptr), off = !ScOn();  // human #61869: forms OFF = game's check too
     const bool want = !air && !off;
     if (AcGateSet(want) == 1) {
         static int n = 0;
@@ -3661,7 +3745,8 @@ std::atomic<uint64_t> g_acCallers[16];
 std::atomic<uint32_t> g_acCalls{0};
 uint64_t HkHasSkill(uint64_t ctrl, uint32_t id, uint32_t p3) {
     const uint64_t r = g_hasSkillOrig(ctrl, id, p3);
-    if (!g_scForms.load(std::memory_order_relaxed)) return r;  // human #61869: forms OFF = the game's own answer (no AirBlock / RunThrow / RunFade)
+    if ((uint16_t)id == 0xEDC9) PickPoll();  // human #81220: the accept is the press: decide before any gate below
+    if (!ScOn()) return r;  // human #61869: forms OFF = the game's own answer (no AirBlock / RunThrow / RunFade)
     if ((uint16_t)id != 0xEDC9) return r;
     const uint64_t ra = (uint64_t)_ReturnAddress() - g_base;
     for (auto& c : g_acCallers) {
@@ -4025,7 +4110,7 @@ void FormHide4Tick(uint64_t player) {
                            cap = sc; capT = st; fresh = true; spawnBegin = true;
                        }
                    }
-                   if (!g_scForms.load() && pendAt <= 0) {  // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
+                   if (!ScOn() && pendAt <= 0) {  // human #61869: forms OFF - the game's own use; mark it so ON later never begins on it
                        if (fresh) { if (spawnBegin) { spawnUsed = cap; spawnUsedT = capT; } else { attempted = cap; attemptedT = capT; } }
                        return false;
                    }
@@ -4208,7 +4293,7 @@ void FormHideDirectTick(uint64_t pchr) {
     const bool press = (leftEdge || actEdge) && pchr;
     if (!press && (mode != 3 || !pchr || !cap || now < capT || (attempted == cap && attemptedT == capT))) return;
     if (!press) { attempted = cap; attemptedT = capT; }
-    if (!g_scForms.load()) return;  // human #61869: forms OFF = no new mode-3 hide
+    if (!ScOn()) return;  // human #61869: forms OFF = no new mode-3 hide
     if (!guarded()) { Log("FormHide=3: full 29-byte A550E8 guard differs - skipped"); return; }
     uint8_t before = 0xFF, after = 0xFF;
     if (!Rd(pchr + 0xB440, before)) { Log("FormHide=3: hide-byte read failed - skipped"); return; }
@@ -4240,7 +4325,7 @@ void FormHideTick(uint64_t pchr) {
     static int pins = 0;
     const uint64_t cap = g_fs0CapChr.load();
     if (!pchr || !cap) return;
-    if (!g_scForms.load() && done != cap) { done = undone = cap; return; }  // human #61869: forms OFF = no new native hide
+    if (!ScOn() && done != cap) { done = undone = cap; return; }  // human #61869: forms OFF = no new native hide
     if (g_fhUntilEnd.load() && g_fhEnd.active && g_fhEnd.player != pchr) {
         Log("FormHideUntilEnd abandon: native player changed; no unhide on replacement player");
         g_fhEnd.active = false;
@@ -4992,7 +5077,7 @@ int SealExitReplayQueue(uint64_t seal, uint64_t player) {
 // human #58146: freeze switches (Soul core tuning): 0 = start smoke, 1 = end smoke. ON = that smoke is spawned again every SmokeFreezeMs
 // at the spot it last appeared, so it stays up until switched off.
 void SmokeFreezeTick() {
-    if (!g_scForms.load(std::memory_order_relaxed) && !g_fh4.owner) return;  // human #61869
+    if (!ScOn() && !g_fh4.owner) return;  // human #61869
     const double now = Now();
     for (int i = 0; i < 2; ++i) {
         if (!g_frz[i].load(std::memory_order_relaxed) || !g_frzOk[i] || now < g_frzNext[i] || g_fxPlayN >= kFxRecMax) continue;
@@ -5804,7 +5889,7 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("PartProbe: budget reset at first seal chr (so far F3D78 %ld, 2C4450 %ld calls)", g_ppF3Hits, g_ppC4Hits);
             InterlockedExchange(&g_ppLines, 0);
         }
-        if (seal && g_fkAppearMode.load() && g_scForms.load()) FkAppearApply(pchr, schr);  // human #61869
+        if (seal && g_fkAppearMode.load() && ScOn()) FkAppearApply(pchr, schr);  // human #61869
         // ally #54204: the seal figures shared the player's model pointer. If the chr key is the player's own, use desc[0] as the body id.
         uint64_t dkey = 0, dpack = 0;
         uint8_t dl = 0;
@@ -5818,7 +5903,7 @@ void HkFormKeyInputBody(uint64_t a) {
             Log("FormKey seal desc key=%llX pack=%llX loaded=%u model=1175400(key,3)=%llX fault=%d sameAsPlayerKey=%d", (unsigned long long)dkey,
                 (unsigned long long)dpack, dl, (unsigned long long)dm, f, (s.gkey ? s.gkey : s.key) == (p.gkey ? p.gkey : p.key));
         }
-        if (seal && g_fkModelMode.load() && g_fkSwap.load() && g_scForms.load()) {  // human #61869: forms OFF = no model / key swap
+        if (seal && g_fkModelMode.load() && g_fkSwap.load() && ScOn()) {  // human #61869: forms OFF = no model / key swap
             if (s.m10 && s.m10 != p.m8 && s.m10 != p.m10) {
                 g_fkSwap.store(0);
                 g_fkMHits = 0;
@@ -5838,7 +5923,7 @@ void HkFormKeyInputBody(uint64_t a) {
                 g_fkLogged.store(0);  // look at the next seal spawn (the 2nd figure)
                 Log("FormKey MODEL: seal chr has no own slot-1 model (M+10=%llX) - waiting for the next spawn", (unsigned long long)s.m10);
             }
-        } else if (!g_fkAppearMode.load() && g_scForms.load() && g_fkSwap.exchange(0)) {  // FormAppear replaces the key swap
+        } else if (!g_fkAppearMode.load() && ScOn() && g_fkSwap.exchange(0)) {  // FormAppear replaces the key swap
             uint64_t key = s.gkey ? s.gkey : s.key;
             if (dkey && (key == (p.gkey ? p.gkey : p.key) || !s.w0)) key = dkey;
             g_fkPendKey.store(key);
@@ -5970,6 +6055,30 @@ double SoulTune(int which, int dir, bool* live) {
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
 // *formUp = a form (or its ghost exit) is still running and ends normally; *hooked = FormKey hooks are in this session.
+// human #81220: menu API for the per-core transformation picks.
+int FormCoreSeen(uint32_t* ids, int* dirs, int max) {
+    int n = 0;
+    for (auto& s : g_seen) if (const uint32_t id = s.id.load(); id && n < max) { ids[n] = id; dirs[n] = s.dir.load(); ++n; }
+    return n;
+}
+bool FormCoreTransforms(uint32_t id) { return !CoreIsOff(id); }
+// flips one core; returns the new transform state (true = transforms).
+bool FormCoreToggle(uint32_t id) {
+    const bool wasOff = CoreIsOff(id);
+    if (wasOff) {
+        int n = g_offN.load(), j = 0;
+        uint32_t keep[kOffMax];
+        for (int i = 0; i < n; ++i) if (g_offIds[i].load() != id) keep[j++] = g_offIds[i].load();
+        for (int i = 0; i < j; ++i) g_offIds[i].store(keep[i]);
+        g_offN.store(j);
+    } else if (g_offN.load() < kOffMax) {
+        g_offIds[g_offN.load()].store(id);
+        g_offN.fetch_add(1);
+    }
+    CoreOffSave();
+    Log("FormCore %X: menu -> transform=%d (FormCoresOff saved)", id, CoreIsOff(id) ? 0 : 1);
+    return !CoreIsOff(id);
+}
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {
     const bool v = dir ? dir > 0 : !g_scForms.load();
@@ -6039,7 +6148,7 @@ void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
-void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); }
+void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); PickLearn(id); }
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
@@ -6218,6 +6327,7 @@ void Register(bool boss, bool rm, bool inv) {
     // on the first use of each session. Research only now: [Spirit] FormKeySwap=1 (default 0) or the 'formkey on' pipe command.
     if (IniInt(L"Spirit", L"FormKey", 0)) { g_fkOn.store(1); g_fkSwap.store(IniInt(L"Spirit", L"FormKeySwap", 0) > 0 ? 1 : 0); }
     g_scForms.store(IniInt(L"Spirit", L"SoulCoreForms", 1) != 0);  // human #61869 (read before FormKeyInstall applies the gate patch)
+    CoreOffLoad();  // human #81220
     Log("SoulCoreForms=%d (FormKey=%d)", g_scForms.load() ? 1 : 0, g_fkOn.load());
     g_fkPartMode.store(IniInt(L"Spirit", L"FormPart", 0));  // pc #54384: part-47 body id swap while FormModel is armed
     g_fkAppearMode.store(IniInt(L"Spirit", L"FormAppear", 0));  // pc #54368: seal body id -> player appearance [blk+4] + reload

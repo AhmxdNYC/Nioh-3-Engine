@@ -9,7 +9,24 @@ bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && i
 // OFF = the game's own soul cores, as if the form code were not there; live from the next use (a form already up ends normally).
 constexpr int kItScForms = 0xE0100;
 template <class Add> void SctAddHubRow(Add&& add) { add(kItSctOpen); }
+// human #81220: per-core 'Soul transformation' rows (cores seen so far, id + d-pad direction): A / Left / Right flips transform ON / OFF
+// (OFF = the game's own summon for that core). [Spirit] FormCoresOff.
+constexpr int kItScCore = 0xE0200, kScCoreN = 8;
+bool IsScCoreItem(int item) { return item >= kItScCore && item < kItScCore + kScCoreN; }
 template <class Add> void SctAddPage(Add&& add) { for (int i = 0; i < kSctN; ++i) add(kItSctBase + i); }
+// Player settings rows: one per core seen this session / last session, or one placeholder row when none.
+template <class Add> void SctAddCoreRows(Add&& add) {
+    uint32_t ids[kScCoreN]; int dirs[kScCoreN];
+    const int n = bosslog::FormCoreSeen(ids, dirs, kScCoreN);
+    for (int i = 0; i < (n ? n : 1); ++i) add(kItScCore + i);
+}
+int ScCoreAt(int slot, uint32_t* id, int* dir) {
+    uint32_t ids[kScCoreN]; int dirs[kScCoreN];
+    const int n = bosslog::FormCoreSeen(ids, dirs, kScCoreN);
+    if (slot >= n) return 0;
+    *id = ids[slot]; *dir = dirs[slot];
+    return 1;
+}
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:"};
 const double kSctDefault[kSctN] = {200, 0, 0, 0, 150, 1.4, 4, 0, 0};
@@ -22,6 +39,16 @@ void SctValueText(int w, double v, char* b, size_t n) {
 }
 // A (dir 0) / Left (-1) / Right (+1). Returns true when the item was ours.
 bool SctChange(int item, int dir) {
+    if (IsScCoreItem(item)) {  // human #81220
+        uint32_t id = 0; int d = 0;
+        if (!ScCoreAt(item - kItScCore, &id, &d)) { snprintf(g_msg, sizeof g_msg, "No soul core seen yet: use a Yang soul core (d-pad LEFT / DOWN) once, it is listed here after."); return true; }
+        const bool cur = bosslog::FormCoreTransforms(id);
+        const bool want = dir ? dir > 0 : !cur;
+        const bool v = want == cur ? cur : bosslog::FormCoreToggle(id);
+        Log("Rematch: menu soul core %X transformation -> %s (human #81220)", id, v ? "ON" : "OFF");
+        snprintf(g_msg, sizeof g_msg, "Core %X: %s from the next use. Saved.", id, v ? "transforms you into the yokai" : "the game's own summon");
+        return true;
+    }
     if (item == kItScForms) {  // human #61869: A flips, Left OFF, Right ON
         bool up = false;
         const bool v = bosslog::SoulCoreFormsSet(dir, &up);
@@ -49,6 +76,14 @@ bool SctChange(int item, int dir) {
     return true;
 }
 bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_t* color) {
+    if (IsScCoreItem(item)) {  // human #81220
+        uint32_t id = 0; int d = 0;
+        if (!ScCoreAt(item - kItScCore, &id, &d)) { snprintf(buf, n, "%s Soul transformation: (no core seen yet)", mk); *color = sel ? cWhite : cDim; return true; }
+        const bool v = bosslog::FormCoreTransforms(id);
+        snprintf(buf, n, "%s Core %X %s: %s   A / Left / Right", mk, id, d == 1 ? "(LEFT)" : d == 2 ? "(DOWN)" : "", v ? "transforms" : "game summon");
+        *color = sel ? cWhite : v ? cGray : cYellow;
+        return true;
+    }
     if (item == kItScForms) {  // human #61869
         bool hooked = true;
         const bool v = bosslog::SoulCoreForms(&hooked);
@@ -67,6 +102,7 @@ bool SctRowText(int item, bool sel, const char* mk, char* buf, size_t n, uint32_
     return true;
 }
 const char* SctFooter(int item) {
+    if (IsScCoreItem(item)) return "Per soul core: transforms = the mod form (you become the yokai). Game summon = the game's own yokai summon, no form. A new core starts as a form on its first use. [Spirit] FormCoresOff. Saved.";
     if (item == kItScForms)  // human #61869
         return "ON: soul cores transform you into the yokai (mod forms). OFF: the game's original soul cores. Live from the next use. [Spirit] SoulCoreForms. Saved.";
     if (!IsSctItem(item)) return nullptr;
