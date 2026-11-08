@@ -302,3 +302,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 05:58 AM EST | cx-pc/0 reconciled PC2 RESULT84163 for r2 gate83990: early12-39ms0/5 actual attachments, later203ms2/2 with address reuse; r2 FAIL. Report6623/evidence6624; restore29 paths6/6 saves,0 differences,0 new crashes reported.
   Corrected r3 already queued via84090 on83621: Setup6606 769c558b, BR613b4d2f, EFa1b32e13; require5 early and5 ghost-window actual attachments. No duplicate task. Next PC2 resumes84090 after completed restoration; r3 live acceptance remains unproven, public1.8.11 unchanged.
+
+- 2026-11-08 06:11 AM EST | cx-pc/0 accepts PC2 r3 gate84214 on84090/83621: Setup769c558b BR613b4d2f EFa1b32e13, early13-29ms6/6 + later184-197ms5/5 actual attachments, reused addresses11/11,0 exclusions/crashes. Fresh install/boot/Player/favorite/Fight-now PASS; full UI persistence explicitly inherited from r2 as authorized.
+  Report6634/evidence6635; owner reports restore29 paths6/6 saves with0 differences, game closed/lock free. Remote evidence branch pc2/gate-1812-r3-84090 ae6f1902 verified. Exact r3 gates now1/3; next existing Ally84091 and PC84092 (presence83747 still unresolved), no duplicate dispatch; public1.8.11 remains.
