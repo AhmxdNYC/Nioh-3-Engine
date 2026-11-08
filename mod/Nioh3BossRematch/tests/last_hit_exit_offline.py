@@ -37,6 +37,7 @@ uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]=
 const char* g_sieWhy="idle",*g_fh4EndWhy="test-end";
 int g_ghostFadeMs=0,g_sxfN=0,g_sxfOwner=0,g_sxfBone=0,g_sxfMs=0;
 float g_ghostFade0=0;double clockNow=10;int hits=2,smokes=0,despawns=0,hidden=0,releases=0;
+bool persistent=false,extraAttack=false;uint64_t extraOwner=456;
 bool attack=false,poolReadable=true,bodyOnly=false,manualAction=false;
 uint32_t action=0x4E57,coreId=0x5129B;
 struct SieSample {uint32_t act=0xFFFFFFFF;};
@@ -51,12 +52,15 @@ int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
 template<class T>bool Rd(uint64_t a,T& v){
  if(a==0x45C6F38){v=(T)0x10000;return poolReadable;}
  if(a==456){v=(T)(coreId<<4);return true;}
+ if(a==0x21008){v=(T)extraOwner;return true;}
+ if(a==0x210B0){v=(T)0x30000;return true;}
+ if(a==0x211E8){v=(T)0xFFFFFFFF;return true;}
  if(a==0x20008){v=(T)456;return true;}
  if(a==0x200B0){v=(T)(bodyOnly?0:0x30000);return true;}
  if(a==0x201E8){v=(T)0xFFFFFFFF;return true;}
  return false;
 }
-bool Copy(void* dst,uint64_t a,size_t n){if(a!=0x10020||!poolReadable)return false;memset(dst,0,n);if(attack)((uint64_t*)dst)[0]=0x20000;return true;}
+bool Copy(void* dst,uint64_t a,size_t n){if(a!=0x10020||!poolReadable)return false;memset(dst,0,n);if(attack||persistent)((uint64_t*)dst)[0]=0x20000;if(extraAttack)((uint64_t*)dst)[1]=0x21000;return true;}
 '''
 ui=r'''
 int FormCoreSeen(uint32_t*,int*,int){return 0;}bool FormCorePendingTransforms(int){return true;}
@@ -74,7 +78,7 @@ void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);fflush(stdout);exi
 void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
  g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
  clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
- g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
+ persistent=false;extraAttack=false;extraOwner=456;g_sehKid[1]=0;g_sehKidT[1]=0;g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
  g_ghostReq=0;g_ghostSeal=0;g_sealEndMinMs=700;smokes=despawns=hidden=releases=0;SealEndOnHitTick();
 }
 void step(double dt,bool active){clockNow=base+dt;attack=active;if(!manualAction)action=0x4E59;SealEndOnHitTick();}
@@ -155,6 +159,26 @@ int main(){
  // Live regression timings: both Ibaraki bursts in the unchanged bind action C53.
  start(2);manualAction=true;action=0xC53;step(1.351,true);step(1.45,false);check(!smokes);
  step(1.634,true);check(smokes==1&&g_ghostReq==456);
+ // #82077: persistent appearance must not mask later direct or already-tracked helper hit windows.
+ for(uint64_t owner : {uint64_t(456),uint64_t(789)}) {
+  ini.clear();start(-1,0,true,true,0x60B86);persistent=true;extraOwner=owner;
+  if(owner!=456){g_sehKid[1]=owner;g_sehKidT[1]=base+.3;}
+  extraAttack=true;step(.6,false);extraAttack=false;step(.9,false);
+  extraAttack=true;step(1.3,false);extraAttack=false;step(1.5,false);check(!smokes);
+  g_sieFireSeal=456;step(3.15,false);check(ini[L"60B86"]==L"2");
+  start(-1,0,true,true,0x60B86);persistent=true;extraOwner=owner;
+  if(owner!=456){g_sehKid[1]=owner;g_sehKidT[1]=base+.3;}
+  extraAttack=true;step(.6,false);extraAttack=false;step(.9,false);check(!smokes);
+  extraAttack=true;step(1.3,false);check(smokes==1&&g_ghostReq==456);
+ }
+ // A foreign collider is never promoted to owned merely by appearing near the form.
+ ini.clear();start(-1,0,true,true,0x60B86);persistent=true;extraOwner=999;extraAttack=true;step(.6,false);
+ extraAttack=false;step(.9,false);g_sieFireSeal=456;step(3.15,false);check(!ini.count(L"60B86"));
+ // Once an excluded object disappears, its address can become a new attack window.
+ start(1,0,true,true);step(.4,false);step(.8,true);check(smokes==1);
+ // Live Doji final opening stays at 1.668 seconds.
+ start(2);manualAction=true;action=0xC53;step(1.351,true);step(1.45,false);step(1.668,true);
+ check(smokes==1&&std::abs(g_ghostReqAt.load()-(base+1.768))<.00001);
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);

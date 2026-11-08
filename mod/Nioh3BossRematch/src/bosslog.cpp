@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <map>
 #include <cmath>
 #include <algorithm>
 #include <new>
@@ -5412,6 +5413,9 @@ void SealEndOnHitTick() {
     static int bursts = 0, want = 0;
     static bool open = false, fired = false, countedOpen = false;
     static double boundAt = 0;  // #82033: classify only by time since bind, never by action
+    struct AppearCollider { uint64_t owner; bool seen; };
+    static std::map<uint64_t, AppearCollider> appearance;
+    static int prevRaw = -1, prevMasked = -1, censusLines = 0;
     static uint32_t sid = 0;
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
@@ -5447,7 +5451,7 @@ void SealEndOnHitTick() {
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
-        countedOpen = false; boundAt = 0;
+        countedOpen = false; boundAt = 0; appearance.clear(); prevRaw = prevMasked = -1; censusLines = 0;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -5486,7 +5490,9 @@ void SealEndOnHitTick() {
     bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb;
     if (poolOk) { pool.resize(0xFA0); poolOk = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
     if (!poolOk && !idleFire) return;
-    int n = 0, body = 0;
+    int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0;
+    if (poolOk) for (auto& entry : appearance) entry.second.seen = false;
+    const bool bindWindow = !seal || now <= boundAt + 0.100;
     const bool atkOnly = g_sehAtk.load() > 0;
     for (int i = 0; poolOk && i < 0xFA0; ++i) {
         const uint64_t o = pool[i];
@@ -5499,8 +5505,28 @@ void SealEndOnHitTick() {
             uint64_t ad = 0; uint32_t aid = 0;
             if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) { ++body; mine = false; }
         }
-        if (mine) ++n;
+        if (mine) {
+            ++raw;
+            auto a = appearance.find(o);
+            if (a != appearance.end() && a->second.owner != own) { appearance.erase(a); a = appearance.end(); }
+            if (bindWindow && a == appearance.end()) a = appearance.emplace(o, AppearCollider{own, true}).first;
+            if (a != appearance.end()) { a->second.seen = true; ++masked; }
+            else { ++n; if (own == seal) ++direct; else ++helper; }
+        }
     }
+    if (poolOk) {
+        for (auto a = appearance.begin(); a != appearance.end();) {
+            if (!a->second.seen) a = appearance.erase(a); else ++a;
+        }
+        if ((raw != prevRaw || masked != prevMasked) && censusLines < 64) {
+            Log("SealHitPool core %X +%.3f raw=%d appearance=%d attack=%d seal=%d helper=%d body=%d", sid,
+                now - sess, raw, masked, n, direct, helper, body);
+            ++censusLines;
+        }
+        prevRaw = raw; prevMasked = masked;
+    }
+    // #82077: exclude individual appearance objects, not the aggregate interval. A persistent
+    // appearance collider must not mask later seal/helper attack windows. Prune at observed removal.
     // #82033: exclude bind-time / first-100-ms intervals, including their entire lifetime.
     // Some cores attack in their initial action, so action changes cannot gate hit counting.
     if (n && !open) {
