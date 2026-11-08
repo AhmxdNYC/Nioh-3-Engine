@@ -175,3 +175,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 1:35 am EST | #82679 BR fb10abe0 file #6455, source b7e8d7e1, cx-pc/variable-82679 | Release +1155 offline checks +available sc22 PASS | next Claude live short-count/motion fallback check; no game touched | notes/variable-82679.md
 - 2026-11-08 1:47 am EST | #82745 completed-use minimum and close-adjacent action-boundary fallback implemented | 294 hit/motion checks PASS; 1.383 open/1.433 close learns2->1 and exits1.433 | next Release and regressions | cx-pc/recovery-82745
+
+- 2026-11-08 01:46 AM EST | #82745 BR bdd651af file #6461, source1c6796f7 cx-pc/recovery-82745 | Release +1161 offline +available sc22 PASS; exact1.433 close replay | next Claude A2ACB and attack-chain live regression | notes/recovery-82745.md
