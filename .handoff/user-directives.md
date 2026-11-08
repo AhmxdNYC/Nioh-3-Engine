@@ -83,3 +83,4 @@
 - #83340: human approved the camera spring video; merge camera + soul-core toggle/timing work into main and publish a release (GPT does the work).
 - #83427: favorites should jump to the top of boss/training lists.
 - #83450: Player settings get their own tab (out of Training mode). Claude is now ONLY for downloading/installing builds on devices when needed; no more talking; usage low. GPT/Codex does the work.
+- #83479: every settings page needs a Reset-to-defaults (mod shipped defaults); human wants progress updates on Discord (notify.py) since chat is over.
