@@ -90,3 +90,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 11-07 7:15 pm EST pc2/0 session end: nothing in flight. Next pc2 job = retest cx-pc smoke fix/toggle build (needs vpad poke poke2.py, see memory recipe).
 2026-11-07 7:45 pm EST pc2/0: #81891 BR bb7995a8 tested on pc2 -> near pass, 1/3 cold first LEFT cut short (RESULT re #81535, bridge #6352-6356).
 2026-11-07 8:16 pm EST pc2/0: #82037 BR 335d11b5 -> 3/4 pass, cold first LEFT smoke-only 1/2 (seal 5.49 s > 4.5 s). RESULT re #82037.
+- 11-07 8:52 pm EST pc2/0: #82178 BR 662162ea (#6382): cold 4/4 launches PASS (binds 0.3-4.1 s, 8000 ms wait), menu-close + core OFF PASS, final-hit exit DOWN 2/2, LEFT Ibaraki 2/4 (bursts 1+2 merge, ~17 ms gap vs ~105 ms pool sample). pc2 ini SealEndOnHit=0 by default -> pass Spirit.SealEndOnHit=1. RESULT re #82178, clips #6391/6392, logs #6393. pc2 restored 8aeb68a2.
