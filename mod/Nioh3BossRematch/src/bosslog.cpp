@@ -5319,7 +5319,9 @@ void SealEndOnHitTick() {
     static double sess = 0;
     static uint64_t seal = 0;
     static int bursts = 0, want = 0;
-    static bool open = false, fired = false;
+    static bool open = false, fired = false, countedOpen = false;
+    static uint32_t firstAction = 0xFFFFFFFF;
+    static bool attackPhase = false;  // #81988: do not count the initial spawn/appear action
     static uint32_t sid = 0;
     static std::vector<uint64_t> pool;
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
@@ -5355,6 +5357,7 @@ void SealEndOnHitTick() {
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
+        countedOpen = false; firstAction = 0xFFFFFFFF; attackPhase = false;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -5364,8 +5367,9 @@ void SealEndOnHitTick() {
     }
     if (!sess || fired) return;
     const double now = Now();
+    bool justBound = false;
     if (!seal && g_fh4.seal) {
-        seal = g_fh4.seal;
+        seal = g_fh4.seal; justBound = true;
         uint32_t k = 0; Rd(seal, k); sid = k >> 4; want = SealHitsFor(sid);
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
@@ -5408,13 +5412,35 @@ void SealEndOnHitTick() {
         }
         if (mine) ++n;
     }
-    if (n && !open) { open = true; ++bursts; lastOpen = now - sess; Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess); }
+    // #81988: a collider present at bind or opening during the first action is appearance, not an attack burst.
+    // Keep its whole open interval excluded even if it overlaps the action change. No core/action-ID table.
+    if (seal && !attackPhase) {
+        SieSample sample; SieRead(seal, sample);
+        const bool validAction = sample.act != 0 && sample.act != 1 && sample.act != 0xFFFF && sample.act != 0xFFFFFFFF;
+        if (validAction && firstAction == 0xFFFFFFFF) {
+            firstAction = sample.act;
+            Log("SealEndOnHit core %X appear action 0x%X: hit counting waits for the first attack action change", sid, firstAction);
+        } else if (validAction && sample.act != firstAction) {
+            attackPhase = true;
+            Log("SealEndOnHit core %X attack action 0x%X -> 0x%X: new hit bursts can count", sid, firstAction, sample.act);
+        }
+    }
+    if (n && !open) {
+        open = true; countedOpen = seal && attackPhase && !justBound;
+        if (countedOpen) {
+            ++bursts; lastOpen = now - sess;
+            Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess);
+        } else Log("SealEndOnHit core %X appearance burst ignored (%d colliders) %.3f s after the press", sid, n, now - sess);
+    }
     bool fire = false;
     if (!n && open) {
         open = false;
-        Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
-        lastClose = now - sess;
-        fire = !atOpen && !natural && seal && want && bursts >= want;
+        if (countedOpen) {
+            Log("SealEndOnHit core %X burst %d closes %.3f s after the press (want %d)", sid, bursts, now - sess, want);
+            lastClose = now - sess;
+            fire = !atOpen && !natural && seal && want && bursts >= want;
+        }
+        countedOpen = false;
     } else if (!atOpen && !natural && !n && !open && seal && want && bursts >= want) fire = true;  // every burst was over before the seal got bound
     // human #61113/#61119/#61124: one rule for every core - end a fixed SealLastHitGraceMs after THIS form's real last hit close
     // (last = the core's hit count, counted live per form); the learned [SealLastHit] time is only used before the count is known

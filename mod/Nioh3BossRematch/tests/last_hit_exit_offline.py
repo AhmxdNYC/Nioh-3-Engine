@@ -37,17 +37,20 @@ uint64_t g_sieFireSeal=0,g_sdHeld=0,g_base=0,g_sehKid[8]={};double g_sehKidT[8]=
 const char* g_sieWhy="idle",*g_fh4EndWhy="test-end";
 int g_ghostFadeMs=0,g_sxfN=0,g_sxfOwner=0,g_sxfBone=0,g_sxfMs=0;
 float g_ghostFade0=0;double clockNow=10;int hits=2,smokes=0,despawns=0,hidden=0,releases=0;
-bool attack=false,poolReadable=true,bodyOnly=false;
+bool attack=false,poolReadable=true,bodyOnly=false,manualAction=false;
+uint32_t action=0x4E57,coreId=0x5129B;
+struct SieSample {uint32_t act=0xFFFFFFFF;};
+void SieRead(uint64_t,SieSample& s){s.act=action;}
 double Now(){return clockNow;} uint64_t Grva(uint64_t r){return r;}uint64_t FkPlayer(){return 123;}
 void SmokeFreezeTick(){}void SealExitReplayTick(){}void FxMuteTick(){}
 bool SealExitCore(uint32_t){return true;}int SealExitReplayQueue(uint64_t,uint64_t){++smokes;return 1;}
-int SealHitsFor(uint32_t){return hits<0?IniInt(L"SealHitsA",L"5129B",0):hits;}const wchar_t* SecHits(){return L"SealHitsA";}
+int SealHitsFor(uint32_t id){wchar_t key[16];swprintf_s(key,L"%X",id);return hits<0?IniInt(L"SealHitsA",key,0):hits;}const wchar_t* SecHits(){return L"SealHitsA";}
 void SealExitReplayBegin(double){}void SealExitReplayBound(double){}void CoreTplBind(uint32_t,double){}
 int SealQueueDespawn(uint64_t){++despawns;return 1;}void SealDeferRelease(const char*){++releases;}
 int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
 template<class T>bool Rd(uint64_t a,T& v){
  if(a==0x45C6F38){v=(T)0x10000;return poolReadable;}
- if(a==456){v=(T)(0x5129B<<4);return true;}
+ if(a==456){v=(T)(coreId<<4);return true;}
  if(a==0x20008){v=(T)456;return true;}
  if(a==0x200B0){v=(T)(bodyOnly?0:0x30000);return true;}
  if(a==0x201E8){v=(T)0xFFFFFFFF;return true;}
@@ -68,13 +71,13 @@ struct {void Enter(int,int){}} g_uiPages;
 using namespace bosslog;
 int checks=0;double base=0;
 void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);fflush(stdout);exit(1);}}
-void start(int count=2,int offset=0,bool bound=true){
+void start(int count=2,int offset=0,bool bound=true,bool atBind=false,uint32_t id=0x5129B){
  g_sehMode=0;g_ghostOn=1;g_coverOn=1;g_fh4.owner=0;SealEndOnHitTick();
  clockNow+=20;base=clockNow;g_sehKid[0]=456;g_sehKidT[0]=base;g_fh4.owner=123;g_fh4.seal=bound?456:0;hits=count;g_exitAtLastHitMs=offset;
- g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=false;poolReadable=true;bodyOnly=false;
+ g_sieMode=2;g_sieFireSeal=0;g_sdHeld=0;attack=atBind;action=0x4E57;coreId=id;manualAction=false;poolReadable=true;bodyOnly=false;
  g_ghostReq=0;g_ghostSeal=0;g_sealEndMinMs=700;smokes=despawns=hidden=releases=0;SealEndOnHitTick();
 }
-void step(double dt,bool active){clockNow=base+dt;attack=active;SealEndOnHitTick();}
+void step(double dt,bool active){clockNow=base+dt;attack=active;if(!manualAction)action=0x4E59;SealEndOnHitTick();}
 void first(){step(.8,true);step(1.0,false);}
 int main(){
  ini.clear();LoadExitSetting();check(g_exitAtLastHitMs==0);
@@ -91,7 +94,8 @@ int main(){
  start(2,-9999);first();step(1.5,true);check(!smokes);step(1.7,false);check(!g_ghostReq);step(1.74,false);check(!g_ghostReq);step(1.751,false);check(g_ghostReq==456);
  start(0);first();step(1.5,true);step(1.7,false);check(!smokes&&!g_ghostReq);g_sieFireSeal=456;step(2,false);check(smokes==1&&g_ghostReq==456);
  start(1);step(.1,true);check(!smokes);step(.71,true);check(smokes==1); // min guard still applies
- start(2,0,false);first();step(1.5,true);check(!smokes);g_fh4.seal=456;step(1.6,true);check(smokes==1); // late bind
+ start(2,0,false);first();step(1.5,true);check(!smokes);g_fh4.seal=456;step(1.6,true);check(!smokes); // late bind cannot classify earlier bursts as attacks
+ manualAction=true;action=0x4E5A;step(1.7,true);check(!smokes);step(1.8,false);step(2,true);step(2.1,false);step(2.3,true);check(smokes==1);
  start(1);bodyOnly=true;step(1,true);check(!smokes);bodyOnly=false;step(1.1,true);check(smokes==1);
  start();first();g_sdHeld=456;step(1.5,true);check(smokes==1&&!releases&&!despawns); // never release/de-spawn on OPEN
  start();g_sieMode=1;first();step(1.5,true);check(!smokes);g_sieFireSeal=456;step(1.6,true);check(smokes==1);
@@ -113,6 +117,24 @@ int main(){
  // Natural despawn completion and idle-only mode still learn, using the active attack-only section.
  ini.clear();start(-1);first();g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"5129B"]==L"1");g_fh4EndWhy="test-end";
  ini.clear();start(-1);g_sieMode=1;first();step(1.5,true);step(1.7,false);g_sieFireSeal=456;step(3.33,false);check(ini[L"5129B"]==L"2");
+ // #81988: 60B86 bind collider is appearance. Even an old bad count of 1 cannot fire at the .7 s minimum.
+ ini.clear();start(1,0,true,true,0x60B86);manualAction=true;step(.3,true);action=0x4E59;step(.53,true);step(.7,true);
+ check(!smokes&&!g_ghostReq&&!ini.count(L"60B86")); // initial open interval overlaps the action change
+ step(.8,false);step(1.2,true);check(smokes==1&&g_ghostReq==456); // real attack's fresh burst
+ g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"60B86"));g_fh4EndWhy="test-end"; // early rule cannot teach itself
+ // Unknown core learns only its two post-appearance attack bursts, then next use obeys that count.
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);step(.3,true);step(.4,false); // another appearance burst
+ action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);step(2,true);step(2.2,false);
+ check(!smokes&&!ini.count(L"60B86"));g_sieFireSeal=456;step(3.33,false);check(ini[L"60B86"]==L"2");
+ start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);check(!smokes);
+ step(1.5,false);step(2,true);check(smokes==1&&ini[L"60B86"]==L"2");
+ // Appear-only natural despawn and idle fallback teach nothing, including invalid/idle action transitions.
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=1;step(.53,true);action=0xFFFFFFFF;step(.7,true);step(.9,false);
+ g_sieFireSeal=456;step(2,false);check(!ini.count(L"60B86"));
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"60B86"));g_fh4EndWhy="test-end";
+ // A complete natural despawn learns the filtered count (not the appearance burst).
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);
+ g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"60B86"]==L"1");g_fh4EndWhy="test-end";
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);

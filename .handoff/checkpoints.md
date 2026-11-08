@@ -131,3 +131,5 @@ Proven: Release build, 103 picker/menu +36 equipment checks, 117 game-table mapp
 Live last-hit damage/visuals unproven. Next: upload ASI, pc live acceptance. Branch cx-pc/last-hit-exit-81898, notes/last-hit-exit-81898.md; separate from #6344 smoke fix.
 2026-11-07 10:34 PM EST | cx-pc #81956 idle-completed attack count fix built; 60 targeted + 357 rematch checks PASS, sc22 PASS. BR 080d008d645fd566a5125c7b2e456ab0836cd103be63e4f55259cb3b6dab4439. Unknown count now learns max at verified closed-hit idle edge.
 Next: pc live unknown-count first/second use; all transition timing/look unchanged. Branch cx-pc/idle-hit-learn-81956, notes/last-hit-exit-81898.md.
+2026-11-07 10:46 PM EST | cx-pc #81988 appearance-burst gate built on 5a71803b; BR 2d88dda3, 72 targeted + 357 rematch checks PASS, sc22 PASS. 60B86-style initial collider cannot trigger at .70 s; filtered idle learn and non-circular learning proven offline.
+No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi. Source branch cx-pc/appear-hit-gate-81988; notes/last-hit-exit-81898.md.
