@@ -246,3 +246,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 4:31 am EST | cx-pc #83344: item29 fixture now stubs new equipment-poll/toggle dependencies and passes actual hook replay; runtime source and uploaded assets unchanged. Six legacy suites reproduce on 87dcdc89; lead #83369 permits identical baseline failures. Next: finish remaining baseline comparisons and collect device gates.
 
 - 2026-11-08 4:32 am EST | cx-pc #83344: prepared site/version.json for 1.8.11; updatecheck 126 assertions + manifest match PASS. Uploaded binaries unchanged. Next: finish baseline debt evidence, collect PC/pc2/Ally gates, then publish; no live site change yet.
+- 2026-11-08 cx-pc2 #83466: queued soul-core press (press_queue.h) replays a d-pad pulse when old ghost seal is gone; offline 12 checks PASS, BR 04d18d7f; live untested. Branch cx-pc2/seal-queue-83466.
