@@ -79,3 +79,4 @@
 - #81462 (11-07 8:44 pm EST): ally test job drove the game while the human was playing on it. Never start a game test on a device while a human play session there is open; ask the human if done first.
 - #81535 (11-07): human: soul core transformation must be right on the FIRST use after load, not only from the 2nd use on.
 - #81583 (11-07 9:01 pm EST): human: Claude usage very high; send offline code/RE work to GPT (Codex helpers cx-*) first, Claude only for game tests / when needed.
+- #81636/#81639 (11-07 9:20 pm EST): human: priority #1 = soul transformation per-core toggles (both equipped cores listed without use); first-press smoke secondary. When toggles are done (tested) -> PAUSE everything.
