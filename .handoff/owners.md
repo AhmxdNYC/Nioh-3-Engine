@@ -98,3 +98,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-08 01:57 AM EST | #82808 BR0da8fb1b file#6468 source8f738b29 cx-pc/native-learn-82808 | Release +1190 offline +available sc22 PASS; 10-burst multi-segment and stale2->native1 replay | next Claude restore16127=10/install/live test | notes/native-learn-82808.md
 
 - 2026-11-08 02:10 AM EST | #82875 BR99ef0ca6 file#6477 source19a8f3db cx-pc/core-identity-82875 | Release +1204 offline +available sc22 PASS; alternating reused-address counts4/1 | next Claude clear corrupted5B402/A65A1 entries and live switch test | notes/core-identity-82875.md
+
+- 2026-11-08 02:55 AM EST | #82971 paired BR42df32d0 #6488 + CamKi fab68802 #6489, source802b7ee1 cx-pc/vertical-camera-82971 | Release pair +1522 offline +probe_test +available sc22 PASS | next Claude paired install/live vertical camera+clip check; no game touched | notes/vertical-camera-82971.md
