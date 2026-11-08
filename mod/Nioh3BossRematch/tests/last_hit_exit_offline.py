@@ -93,7 +93,7 @@ int main(){
  start(2,-500);first();check(!smokes);step(1.5,true);check(smokes==1&&!despawns);
  start(2,-9999);first();step(1.5,true);check(!smokes);step(1.7,false);check(!g_ghostReq);step(1.74,false);check(!g_ghostReq);step(1.751,false);check(g_ghostReq==456);
  start(0);first();step(1.5,true);step(1.7,false);check(!smokes&&!g_ghostReq);g_sieFireSeal=456;step(2,false);check(smokes==1&&g_ghostReq==456);
- start(1);step(.1,true);check(!smokes);step(.71,true);check(smokes==1); // min guard still applies
+ start(1);step(.101,true);check(!smokes);step(.71,true);check(smokes==1); // min guard still applies
  start(2,0,false);first();step(1.5,true);check(!smokes);g_fh4.seal=456;step(1.6,true);check(!smokes); // late bind cannot classify earlier bursts as attacks
  manualAction=true;action=0x4E5A;step(1.7,true);check(!smokes);step(1.8,false);step(2,true);step(2.1,false);step(2.3,true);check(smokes==1);
  start(1);bodyOnly=true;step(1,true);check(!smokes);bodyOnly=false;step(1.1,true);check(smokes==1);
@@ -123,18 +123,38 @@ int main(){
  step(.8,false);step(1.2,true);check(smokes==1&&g_ghostReq==456); // real attack's fresh burst
  g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"60B86"));g_fh4EndWhy="test-end"; // early rule cannot teach itself
  // Unknown core learns only its two post-appearance attack bursts, then next use obeys that count.
- ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);step(.3,true);step(.4,false); // another appearance burst
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.02,false);step(.05,true);step(.09,false); // another burst within bind window
  action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);step(2,true);step(2.2,false);
  check(!smokes&&!ini.count(L"60B86"));g_sieFireSeal=456;step(3.33,false);check(ini[L"60B86"]==L"2");
  start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);check(!smokes);
  step(1.5,false);step(2,true);check(smokes==1&&ini[L"60B86"]==L"2");
  // Appear-only natural despawn and idle fallback teach nothing, including invalid/idle action transitions.
- ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=1;step(.53,true);action=0xFFFFFFFF;step(.7,true);step(.9,false);
+ ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.02,false);action=1;step(.05,true);action=0xFFFFFFFF;step(.7,true);step(.9,false);
  g_sieFireSeal=456;step(2,false);check(!ini.count(L"60B86"));
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(!ini.count(L"60B86"));g_fh4EndWhy="test-end";
+ // #82001 exact whole-form interval: 4E57 -> 4E59 .53 -> 4E5A 1.27 -> FFFF 3.119.
+ for(int count : {-1,1}) {
+  ini.clear();start(count,0,true,true,0x60B86);manualAction=true;
+  action=0x4E59;step(.53,true);step(.7,true);action=0x4E5A;step(1.27,true);step(3.118,true);
+  check(!smokes&&!g_ghostReq&&!ini.count(L"60B86"));
+  action=0xFFFF;step(3.119,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();
+  check(!ini.count(L"60B86"));g_fh4EndWhy="test-end";
+ }
+ // Ibaraki's two ordinary attack bursts still exit at final OPEN 1.55, not CLOSE 1.67.
+ ini.clear();start(2);manualAction=true;action=0xC53;first();step(1.55,true);check(smokes==1&&g_ghostReq==456);
+ check(std::abs(g_ghostReqAt.load()-(base+1.65))<.00001);step(1.67,false);check(smokes==1);
  // A complete natural despawn learns the filtered count (not the appearance burst).
  ini.clear();start(-1,0,true,true,0x60B86);manualAction=true;step(.2,false);action=0x4E59;step(.53,false);step(1.2,true);step(1.5,false);
  g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();check(ini[L"60B86"]==L"1");g_fh4EndWhy="test-end";
+ // #82033: inclusive 100-ms boundary, and no action gate even when action is unreadable.
+ for(double dt : {0.0,0.05,0.1}) {
+  ini.clear();start(1);manualAction=true;step(dt,true);step(.71,true);check(!smokes);
+  step(.8,false);step(1.1,true);check(smokes==1);
+ }
+ start(1);manualAction=true;action=0xFFFFFFFF;step(.101,true);step(.71,true);check(smokes==1);
+ // Live regression timings: both Ibaraki bursts in the unchanged bind action C53.
+ start(2);manualAction=true;action=0xC53;step(1.351,true);step(1.45,false);check(!smokes);
+ step(1.634,true);check(smokes==1&&g_ghostReq==456);
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);

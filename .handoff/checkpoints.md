@@ -137,3 +137,8 @@ No look/settings changes or game touch. Next: pc live 60B86 then Ibaraki/Oni-bi.
 Live timing/visuals unproven; pc owns fresh LEFT/DOWN acceptance. Source: notes/smoke-fix-81879.md, branch cx-pc/smoke-fix-81879. Next: upload candidate and report to pc.
 - 2026-11-07 10:52 PM EST | cx-pc/1 #82000 DONE offline: combined BR 335d11b5 bridge #6362; code bd973675 on cx-pc/coldwait-82000 pushed. Contains smoke 8549a20f + learning 5a71803b + bug2 01547872 (merge 4fbb0d41).
 - Release build + 625 offline checks and available sc22 replay PASS. +3.87s cold spawn binds; known confirmed transform press gets absolute +4.5s deadline, first press uses equipped ID. Next pc2 fresh LEFT/DOWN, OFF-before-use, 60B86 attack-hit gate and video/log check; live unproven, no local game/install. notes/coldwait-82000.md.
+2026-11-07 10:48 PM EST | cx-pc #82001 follow-up to #81988: 79 targeted checks PASS including whole-form 60B86 collider to 3.119 s (unknown and stale count=1), no circular/despawn relearn; Ibaraki exits at 1.55 open, not 1.67 close.
+Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acceptance. Files tests/last_hit_exit_offline.py and notes/last-hit-exit-81898.md.
+
+2026-11-07 10:56 pm EST | #82033 bind-window regression fix built; 445 offline checks + sc22 pass | live validation pending pc | next: pc install ASI and retest Ibaraki/60B86 | cx-pc/bind-window-82033
+2026-11-07 10:59 pm EST | #82055 combined cold-wait + first-press + bind-window build: 641 unique checks + sc22 pass, Release sha7314e3e9 | live unproven | next pc install/test | cx-pc/combined-82055
