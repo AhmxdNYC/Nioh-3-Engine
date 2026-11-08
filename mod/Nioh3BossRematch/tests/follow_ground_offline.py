@@ -35,7 +35,7 @@ template<class T>bool Fh4Set(uint64_t,T){return true;}
 '''
 post=r'''
 int checks=0;void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);exit(1);}}
-void reset(){g_pressSnap={};g_followAnchor={};warpLift=0;playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
+void reset(){g_pressSnap={};warpLift=0;playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
 int main(){
  reset();check(FormFollow(123,456));check(playerPos[1]==13674&&playerPos[0]==30&&playerPos[2]==40);check(sealPos[1]==13951);
  for(float y:{13674.f,13750.f,13951.f,14252.f}){sealPos[1]=y;check(FormFollow(123,456)&&playerPos[1]==13674);}
@@ -65,16 +65,17 @@ int main(){
  // #82480: native warp succeeds but raises Y for collision resolution; verify and clamp its result.
  reset();warpLift=23;check(FormFollow(123,456)&&playerPos[1]==13674&&writes==1);
  g_followGround.used=true;playerPos[1]=13800;check(FormFollowGroundRestore(123)&&playerPos[1]==13674);
- // Consecutive local forms reuse the last settled height rather than compound a small residual.
- reset();playerPos[1]=21792;FormFollowGroundBegin(123);g_followGround.used=true;FormFollowGroundRestore(123);
- for(float elevated:{21793.f,21804.f,21808.f,21815.f}) {
-  playerPos[1]=elevated;g_pressSnap.player=123;g_pressSnap.t=9;g_pressSnap.groundY=elevated;
-  FormFollowGroundBegin(123);check(g_followGround.y==21792);warpLift=15;sealPos[1]=21830;
-  check(FormFollow(123,456)&&playerPos[1]==21792);check(FormFollowGroundRestore(123)&&playerPos[1]==21792);
+ // #82594: two nearby presses at different heights each retain their own snapshot.
+ // Keep X/Z identical and changes under64: this reproduces the old cross-press anchor bug.
+ reset();
+ for(float startY:{21792.f,21815.f,21772.f,21804.f}) {
+  playerPos[1]=startY;g_pressSnap.player=123;g_pressSnap.t=9;g_pressSnap.groundY=startY;
+  FormFollowGroundBegin(123);check(g_followGround.y==startY);
+  warpLift=15;sealPos[1]=startY+100;
+  for(int frame=0;frame<3;++frame)check(FormFollow(123,456)&&playerPos[1]==startY);
+  playerPos[1]=startY-20;g_fh4.owner=123;g_fh4.root=1000;Fh4Restore(123);
+  check(playerPos[1]==startY&&!g_followGround.owner);
  }
- // Real relocation or large elevation change establishes a new local baseline.
- playerPos[0]+=200;playerPos[1]=21820;g_pressSnap.groundY=21820;FormFollowGroundBegin(123);check(g_followGround.y==21820);
- playerPos[0]=g_followAnchor.x;playerPos[1]=22000;g_pressSnap.groundY=22000;FormFollowGroundBegin(123);check(g_followGround.y==22000);
  printf("FormFollow ground ceiling and actual restore: %d checks PASS (offline)\n",checks);
 }
 '''

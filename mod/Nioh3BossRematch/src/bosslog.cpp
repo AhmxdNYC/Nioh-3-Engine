@@ -2762,8 +2762,6 @@ static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
 // No terrain query is inferred: horizontal following and downward movement remain native.
 struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; };
 FormFollowGroundState g_followGround;
-struct FollowGroundAnchor { uint64_t owner=0; float x=0,y=0,z=0; double at=-100; };
-FollowGroundAnchor g_followAnchor;
 bool FormFollowWrite(uint64_t player, const float* target, bool* didWarp = nullptr) {
     const bool warped = g_fhWarp.load() && FormPinWarpCall(player,target);
     if (didWarp) *didWarp=warped;
@@ -2774,16 +2772,14 @@ bool FormFollowWrite(uint64_t player, const float* target, bool* didWarp = nullp
     return true;
 }
 void FormFollowGroundBegin(uint64_t player) {
+    // Each press owns its height; never reuse a previous form or area baseline.
     g_followGround = {};
     float p[4] = {};
     if (Copy(p, player + 0x110, sizeof(p)) && std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]))
         g_followGround = {player,
             g_pressSnap.player == player && g_pressSnap.t > 0 && Now() >= g_pressSnap.t && Now() - g_pressSnap.t <= 8.5
                 ? g_pressSnap.groundY : p[1], false};
-    if (g_followGround.owner && g_followAnchor.owner==player && Now()-g_followAnchor.at<=30 &&
-        std::fabs(p[0]-g_followAnchor.x)<=100 && std::fabs(p[2]-g_followAnchor.z)<=100 &&
-        std::fabs(g_followGround.y-g_followAnchor.y)<=64)
-        g_followGround.y=(std::min)(g_followGround.y,g_followAnchor.y);
+
 }
 bool FormFollowGroundTarget(uint64_t player, float* pos) {
     if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
@@ -2799,7 +2795,6 @@ bool FormFollowGroundRestore(uint64_t player) {
     pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
     const bool changed = pos[1] != before;
     const bool ok = !changed || FormFollowWrite(player,pos);
-    if (ok) g_followAnchor={player,pos[0],g_followGround.y,pos[2],Now()};
     Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
         before, pos[1], g_followGround.y, changed, ok);
     return ok;
