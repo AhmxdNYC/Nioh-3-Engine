@@ -60,4 +60,3 @@ setup=Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat');exe=out
 cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /Fo"{out / "ground.obj"}" /Fe"{exe}" "{unit}"'
 r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout,end='');print(r.stderr,end='');r.check_returncode()
 subprocess.run([str(exe)],check=True,timeout=30)
-
