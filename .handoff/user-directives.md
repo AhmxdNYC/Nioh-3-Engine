@@ -76,3 +76,4 @@
 - #80692 (11-07 2:52 pm EST): human: flicker comes from the Extreme preset / VRS or other recent additions, not the old mod features. Bisect only those.
 - #80692 (11-07 2:52 pm EST): human: flicker comes from the Extreme preset / VRS or other recent additions, not the old mod features. Bisect only those.
 - #81462 (11-07 8:44 pm EST): ally test job drove the game while the human was playing on it. Never start a game test on a device while a human play session there is open; ask the human if done first.
+- #81462 (11-07 8:44 pm EST): ally test job drove the game while the human was playing on it. Never start a game test on a device while a human play session there is open; ask the human if done first.
