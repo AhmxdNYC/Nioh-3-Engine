@@ -38,3 +38,8 @@ Log per press: `FormCore <id> dir=<L/D> transform=<0/1> reason=...`. Menu change
    `FormHide=4 begin`, no `SealCover`/`OrbSkip`/`RunThrow` lines, no smoke. DOWN core still transforms.
 3. Set it back ON -> transforms again from the next use. Restart the game: setting kept (ini).
 4. Equip a different core on LEFT while it is OFF-listed by id: first use may transform briefly or be suppressed at the spawn hit (limit 1).
+
+## Known limit: keyboard-only presses (#81425)
+The pick reads the d-pad from the pad only (game's XInputGetState import, fallback xinput export). A seal pressed from the keyboard
+shortcut is not seen, so no direction is learned/applied and the core always transforms. No cheap fix: the game's keyboard binding for
+the seal shortcut is not hooked anywhere in BR (no key-state read found); needs RE of the seal-use key path first.

@@ -2997,7 +2997,7 @@ WORD PickPadButtons() {
     if (!f || f == (FbXGet)&HkFormBlockPad) return PadButtons(nullptr, nullptr);
     struct { DWORD pkt; WORD buttons; BYTE lt, rt; SHORT lx, ly, rx, ry; } st = {};
     for (DWORD u = 0; u < 4; ++u) if (f(u, &st) == 0) return st.buttons;
-    return 0;
+    return PadButtons(nullptr, nullptr);  // #81425: import sees no pad: the export path (Proton / real pad) decides
 }
 void FormBlockSet(bool on) {
     if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
