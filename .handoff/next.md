@@ -219,3 +219,6 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-08 5:11 am EST | cx-pc/0 records PC RESULT83758 for gate83620: BLOCKED by ambiguous player activity; 0 live feature checks, candidate hashes4/4 match, baseline files18/18 unchanged.
   Existing presence question83747 and needs-player entry remain with pc; no duplicate question/retry. Evidence6569/6570; next PC owner resolves presence and resumes original gate. All3 feature passes still required before publication.
+
+- 2026-11-08 5:25 am EST | cx-pc/0 records Ally gate83622 FAIL83907: queue fired5/5 but attach4/5; first queued DOWN reused old actor address, rejected as already alive, then seal=0 timeout. Other installer/menu/reset/Fight-now checks passed; zero crashes.
+  Evidence report6583 ZIP6584 logs6579 rows6580; restoration87/87 files +9 saves +16/16 targets reported. Candidate EF a1b32e13 BR44ca2f23 is NOT releasable. Next: offline queued actor-snapshot lifetime fix with reuse regression, rebuild/package fresh candidate and device-owner retest.
