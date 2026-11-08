@@ -21,5 +21,12 @@
   "updater_download": "PASS",
   "manifests": "PASS",
   "gates": "2/3; main PC waived by human84555",
-  "release": "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.12"
+  "release": "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.12",
+  "ally_download": {
+    "result": 84580,
+    "bytes": 13694155,
+    "sha256": "32214d9d739a88ee4f24f746fb48cad49a3c9903bd3ab65b72a60a60996a166a",
+    "path": "/var/home/bazzite/Downloads/Nioh3-v1.8.12-84573/Nioh3-Setup-Linux.pyz",
+    "installed": false
+  }
 }

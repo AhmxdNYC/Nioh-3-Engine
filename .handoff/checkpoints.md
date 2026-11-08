@@ -326,3 +326,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 12:25 pm EST | Task84557/publication authorized by human84555: v1.8.12 r3 LIVE, GitHub Latest16 assets with16/16 digests; site dpl_Hojn8x7sFL84TMWUvAgBbx4Qmtxa READY, manifests1.8.12,15/15 live payload hashes+updater download verified. Exact tested packages unchanged; fresh-install loader verified.
   PC2+Ally2/3 PASS; main-PC untested explicitly waived for publication only. cxl-ally download-only TASK84573 owns post-release verification (generic84570 canceled84572 per routing84564). Next collect download path/hash; no game action. Evidence notes/release-1.8.12-live.json; canonical site synchronized.
+
+- 2026-11-08 12:26 pm EST | Release84557 COMPLETE: owner receipt84580 verified Ally download13694155 bytes SHA32214d9d739a88ee4f24f746fb48cad49a3c9903bd3ab65b72a60a60996a166a at /var/home/bazzite/Downloads/Nioh3-v1.8.12-84573/Nioh3-Setup-Linux.pyz. Download only, no install; supersedes pending receipt in84592.
+  Human84593 on main PC; cxl-pc slot1 owns chat per84598. Published1.8.12 is distinct from installed PC1.8.11 (EF0c0612a8 BRd6272b7d); no companion game action/duplicate download. Next follow existing human-session owner; release publication and requested download are complete.
