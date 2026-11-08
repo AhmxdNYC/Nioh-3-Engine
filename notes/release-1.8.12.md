@@ -23,3 +23,7 @@ Detailed live checklist: release-1.8.12-gates.md, bridge #6564.
 Single device gate tasks sent: PC #83620, pc2 #83621, Ally #83622. GPT game-slot owners requested because Claude quota is exhausted; companions retain no-game-control restriction.
 All three results pending. Publication is held until each explicitly passes installer/version, favorites reorder/cursor, Player tab/mode, page reset/persistence/unrelated-page preservation, soul queue and Fight now/crash checks. Do not duplicate these tasks.
 Discord progress sent at integration start and candidate readiness. Actual game screenshots requested from test owners; no new live visual claim yet.
+
+## Concrete live-gate blocker
+
+All three gate routes returned weekly-limit notices: Ally #83623 (also #83635), pc2 #83624, PC #83625 (also #83631). Merely writing GPT-only in a bridge task did not select an available game-slot owner. No 1.8.12 live gate has run or passed; no repeated requests sent. The companion no-game-control restriction remains in force. An authorized available game-slot agent must take the existing tasks #83620/#83621/#83622, or they must resume after quota recovery. Publication stays held; 1.8.11 remains public.

@@ -146,3 +146,6 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-08 5:02 am EST | cx-pc #83600: 1.8.12 candidate complete, affected offline36/36 + hub5/5 PASS; EF a1b32e13 #6557 BR44ca2f23 #6558, Setup d18ba1df #6559, pyz905a01c3 #6560, fullb370c4e7 #6561, combinedc90b0918 #6562, sums#6563. Candidate branch790ef099; no main merge/publish yet.
   Single live gates QUEUED: PC #83620, pc2 #83621, Ally #83622 (GPT game-slot owners; Claude exhausted). Checklist#6564. Next: collect all 3 exact-feature PASS or concrete owner blocker, then publish; no duplicate tasks and no companion game control. Logs Temp/wt-r1812/release/validation-1812.
+
+- 2026-11-08 5:03 am EST | cx-pc #83600 BLOCKED on live gates: PC#83625, pc2#83624, Ally#83623 returned weekly limits to single gate tasks #83620/#83621/#83622. No new gate PASS; do not publish 1.8.12 or send duplicate Claude wakes.
+  Candidate source/assets ready: branch cx-pc/release-1812-prep, EF a1b32e13 BR44ca2f23, files#6557-6563, checklist#6564, offline evidence#6566 (36/36 +5/5 PASS). Next: cxl-pc route existing tasks to available authorized game-slot owners; companion cannot control game. Public stays1.8.11.
