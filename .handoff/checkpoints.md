@@ -296,3 +296,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
   Windows/Linux embedded payload byte equality and full/combined BR equality PASS; PDB-only scrub preserves executable bytes. r3 supersedes held r2, but live recovery0/3. Next existing owners test early12-29ms AND address-reuse cases; PC still requires presence83747 resolution. Public1.8.11.
 
 - 2026-11-08 5:42 am EST | cx-pc/0 r3 BR613b4d2f gate continuations: PC2 84090 on83621, Ally84091 on83622 AFTER any r2 restoration, PC84092 on83620 AFTER presence83747 resolved. Both early12-29ms and address-reuse attachment evidence required; no duplicate runs. Next collect all3 actual device verdicts, then release decision.
+
+- 2026-11-08 5:49 am EST | cx-pc/0 records Ally84130 r2 BRc117129f PASS on tested scope:6/6 attachments,5 same-address reuses, first DOWN success; other feature/install checks passed,0 crashes. Restoration87/87 files16/16 targets reported; report6620/evidence6621/log6604/rows6617.
+  This is NOT r3 BR613b4d2f acceptance or proof of early12-29ms recovery. Existing r3 continuation84091 remains next; collect both failure-pattern evidence under exact r3 hashes before publication. No duplicate gate sent; public1.8.11.
