@@ -17,6 +17,7 @@ pre=r'''
 struct {uint64_t player=0;double t=-100;float groundY=0;} g_pressSnap;
 double Now(){return 10;}
 float playerPos[4]={10,13674,20,1},sealPos[4]={30,13951,40,1};
+float warpLift=0;
 bool readable=true,warpOk=true,writeOk=true,blocked=true;int warps=0,writes=0,present=1;
 uint64_t currentPlayer=123,g_base=0;std::atomic<int> g_fhWarp{1};
 struct {uint64_t actorGlobal=1;bool active=true;} g_fhEnd;
@@ -27,14 +28,14 @@ void Log(const char*,...){}void FormBlockSet(bool b){blocked=b;}
 bool FormHideCodeMatches(uint64_t,const uint8_t*,size_t){return false;}
 int FormHideSealPresent(uint64_t,uint64_t){return present;}
 bool Copy(void* out,uint64_t a,size_t n){if(!readable)return false;if(a==123+0x110){memcpy(out,playerPos,n);return true;}if(a==456+0x110){memcpy(out,sealPos,n);return true;}return false;}
-bool FormPinWarpCall(uint64_t p,const float* pos){++warps;if(!warpOk||p!=123)return false;memcpy(playerPos,pos,16);return true;}
+bool FormPinWarpCall(uint64_t p,const float* pos){++warps;if(!warpOk||p!=123)return false;memcpy(playerPos,pos,16);playerPos[1]+=warpLift;return true;}
 bool WrBytes(uint64_t a,const void* p,size_t n){++writes;if(!writeOk||a!=123+0x110)return false;memcpy(playerPos,p,n);return true;}
 template<class T>bool Rd(uint64_t a,T& v){if(a==123+0x20){uint64_t rootValue=1000;v=(T)rootValue;return true;}v=(T)0;return true;}
 template<class T>bool Fh4Set(uint64_t,T){return true;}
 '''
 post=r'''
 int checks=0;void check(bool b){++checks;if(!b){printf("FAIL %d\n",checks);exit(1);}}
-void reset(){g_pressSnap={};playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
+void reset(){g_pressSnap={};g_followAnchor={};warpLift=0;playerPos[0]=10;playerPos[1]=13674;playerPos[2]=20;playerPos[3]=1;sealPos[0]=30;sealPos[1]=13951;sealPos[2]=40;sealPos[3]=1;readable=warpOk=writeOk=true;warps=writes=0;currentPlayer=123;present=1;g_fhWarp=1;g_fh4={};g_fh4.owner=123;g_fh4.root=1000;g_fhEnd.active=true;g_fh4Fault=false;FormFollowGroundBegin(123);}
 int main(){
  reset();check(FormFollow(123,456));check(playerPos[1]==13674&&playerPos[0]==30&&playerPos[2]==40);check(sealPos[1]==13951);
  for(float y:{13674.f,13750.f,13951.f,14252.f}){sealPos[1]=y;check(FormFollow(123,456)&&playerPos[1]==13674);}
@@ -60,6 +61,20 @@ int main(){
  check(g_followGround.y==21792);g_followGround.used=true;Fh4Restore(123);check(playerPos[1]==21792);
  reset();g_pressSnap.player=999;g_pressSnap.t=9;g_pressSnap.groundY=1;FormFollowGroundBegin(123);check(g_followGround.y==13674);
  reset();g_pressSnap.player=123;g_pressSnap.t=.5;g_pressSnap.groundY=1;FormFollowGroundBegin(123);check(g_followGround.y==13674);
+
+ // #82480: native warp succeeds but raises Y for collision resolution; verify and clamp its result.
+ reset();warpLift=23;check(FormFollow(123,456)&&playerPos[1]==13674&&writes==1);
+ g_followGround.used=true;playerPos[1]=13800;check(FormFollowGroundRestore(123)&&playerPos[1]==13674);
+ // Consecutive local forms reuse the last settled height rather than compound a small residual.
+ reset();playerPos[1]=21792;FormFollowGroundBegin(123);g_followGround.used=true;FormFollowGroundRestore(123);
+ for(float elevated:{21793.f,21804.f,21808.f,21815.f}) {
+  playerPos[1]=elevated;g_pressSnap.player=123;g_pressSnap.t=9;g_pressSnap.groundY=elevated;
+  FormFollowGroundBegin(123);check(g_followGround.y==21792);warpLift=15;sealPos[1]=21830;
+  check(FormFollow(123,456)&&playerPos[1]==21792);check(FormFollowGroundRestore(123)&&playerPos[1]==21792);
+ }
+ // Real relocation or large elevation change establishes a new local baseline.
+ playerPos[0]+=200;playerPos[1]=21820;g_pressSnap.groundY=21820;FormFollowGroundBegin(123);check(g_followGround.y==21820);
+ playerPos[0]=g_followAnchor.x;playerPos[1]=22000;g_pressSnap.groundY=22000;FormFollowGroundBegin(123);check(g_followGround.y==22000);
  printf("FormFollow ground ceiling and actual restore: %d checks PASS (offline)\n",checks);
 }
 '''

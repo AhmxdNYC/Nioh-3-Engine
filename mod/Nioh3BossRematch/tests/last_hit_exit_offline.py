@@ -340,6 +340,34 @@ int main(){
  step(1.5,true);step(1.7,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";check(ini[L"5129B"]==L"11");
  // A cut form never lowers a high count.
  ini.clear();ini[L"5129B"]=L"11";start(-1);first();g_fh4EndWhy="capture-change";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";check(ini[L"5129B"]==L"11");
+
+ // #82480: late bind cannot lower 2->1 even when all later pool samples are readable.
+ for(bool idle:{false,true}) {
+  ini.clear();ini[L"5129B"]=L"2";start(-1,0,false);step(3.95,false);g_fh4.seal=456;step(3.96,false);
+  step(5.717,true);step(5.820,false);
+  if(idle){g_sieFireSeal=456;step(7,false);}else{g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";}
+  check(ini[L"5129B"]==L"2");
+ }
+ // Late bind AFTER an already-observed helper burst is incomplete as well.
+ ini.clear();ini[L"5129B"]=L"2";start(-1,0,false);g_sehKid[1]=789;g_sehKidT[1]=base;
+ extraOwner=789;extraAttack=true;step(.8,false);extraAttack=false;step(1,false);g_fh4.seal=456;step(3.96,false);
+ g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";check(ini[L"5129B"]==L"2");
+ // 28-helper then 4-helper within150ms merge; 4-direct final opens <150ms later but MUST count.
+ for(double final:{1.235,1.250,1.280}) {
+  ini.clear();start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+  for(int i=0;i<28;++i)census[0x40000+i*0x1000]=789;step(1,false);
+  census.clear();step(1.104,false);for(int i=0;i<4;++i)census[0x70000+i*0x1000]=789;step(1.118,false);
+  census.clear();step(1.222,false);for(int i=0;i<4;++i)census[0x80000+i*0x1000]=456;step(final,false);
+  census.clear();step(1.5,false);g_fh4EndWhy="seal-despawn";g_fh4.owner=0;SealEndOnHitTick();g_fh4EndWhy="test-end";
+  check(ini[L"5129B"]==L"2");
+  start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;census={{0x40000,789}};step(1,false);
+  census={{0x70000,789}};step(1.118,false);check(!smokes);census={{0x80000,456}};step(final,false);check(smokes==1);
+ }
+ // A stale low count is raised by the identical source-boundary rule in the invisible tail.
+ ini.clear();ini[L"5129B"]=L"1";start(-1);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+ census={{0x40000,789}};step(1,false);check(smokes==1);g_fh4.owner=0;
+ census={{0x70000,789}};step(1.118,false);check(ini[L"5129B"]==L"1");
+ census={{0x80000,456}};step(1.235,false);check(ini[L"5129B"]==L"2");
  bool live=false;g_exitAtLastHitMs=0;g_ftHooked=false;check(SoulTune(9,0,&live)==0&&live);
  check(SoulTune(9,1,&live)==50&&ini[L"SealExitAtLastHitMs"]==L"50");
  check(SoulTune(9,-1,&live)==0);g_exitAtLastHitMs=-500;check(SoulTune(9,-1,&live)==-500);

@@ -2760,6 +2760,16 @@ static bool FormFaceWrite(uint64_t cap, int ro, const float* r) {
 // No terrain query is inferred: horizontal following and downward movement remain native.
 struct FormFollowGroundState { uint64_t owner = 0; float y = 0; bool used = false; };
 FormFollowGroundState g_followGround;
+struct FollowGroundAnchor { uint64_t owner=0; float x=0,y=0,z=0; double at=-100; };
+FollowGroundAnchor g_followAnchor;
+bool FormFollowWrite(uint64_t player, const float* target) {
+    const bool warped = g_fhWarp.load() && FormPinWarpCall(player,target);
+    if (!warped) return WrBytes(player+0x110,target,16);
+    float actual[4]={};
+    if (!Copy(actual,player+0x110,16) || !std::isfinite(actual[0]) || !std::isfinite(actual[1]) || !std::isfinite(actual[2])) return false;
+    if (actual[1] > target[1]) { actual[1]=target[1]; return WrBytes(player+0x110,actual,16); }
+    return true;
+}
 void FormFollowGroundBegin(uint64_t player) {
     g_followGround = {};
     float p[4] = {};
@@ -2767,6 +2777,10 @@ void FormFollowGroundBegin(uint64_t player) {
         g_followGround = {player,
             g_pressSnap.player == player && g_pressSnap.t > 0 && Now() >= g_pressSnap.t && Now() - g_pressSnap.t <= 8.5
                 ? g_pressSnap.groundY : p[1], false};
+    if (g_followGround.owner && g_followAnchor.owner==player && Now()-g_followAnchor.at<=30 &&
+        std::fabs(p[0]-g_followAnchor.x)<=100 && std::fabs(p[2]-g_followAnchor.z)<=100 &&
+        std::fabs(g_followGround.y-g_followAnchor.y)<=64)
+        g_followGround.y=(std::min)(g_followGround.y,g_followAnchor.y);
 }
 bool FormFollowGroundTarget(uint64_t player, float* pos) {
     if (!player || player != g_followGround.owner || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
@@ -2781,7 +2795,8 @@ bool FormFollowGroundRestore(uint64_t player) {
     if (!std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
     pos[1] = g_followGround.y; // exit restores both undershoot and overshoot to this press's saved Y
     const bool changed = pos[1] != before;
-    const bool ok = !changed || (g_fhWarp.load() && FormPinWarpCall(player, pos)) || WrBytes(player + 0x110, pos, sizeof(pos));
+    const bool ok = !changed || FormFollowWrite(player,pos);
+    if (ok) g_followAnchor={player,pos[0],g_followGround.y,pos[2],Now()};
     Log("FormFollow restore Y: player=%llX before=%.1f restored=%.1f start=%.1f changed=%d ok=%d", (unsigned long long)player,
         before, pos[1], g_followGround.y, changed, ok);
     return ok;
@@ -2798,8 +2813,7 @@ bool FormFollow(uint64_t pchr, uint64_t cap) {
     if (!Copy(pos, cap + 0x110, 16) || !std::isfinite(pos[0]) || !std::isfinite(pos[1]) || !std::isfinite(pos[2])) return false;
     float followPos[4]; memcpy(followPos, pos, sizeof(followPos));
     if (!FormFollowGroundTarget(pchr, followPos)) return false;
-    const bool warped = g_fhWarp.load() && FormPinWarpCall(pchr, followPos);
-    if (!warped && !WrBytes(pchr + 0x110, followPos, 16)) return false;
+    if (!FormFollowWrite(pchr,followPos)) return false;
     g_followGround.used = true;
     float m[12] = {}, sm[12] = {};
     const int ro = g_fhRotOff.load();
@@ -4369,7 +4383,7 @@ void FormHide4Tick(uint64_t player) {
                         Log("FormFollow hold: player kept at the last-hit spot %.1f %.1f %.1f until the reveal t=%.3f", hold[0], hold[1], hold[2], now);
                     }
                     if (heldAt == g_ghostReqAt.load() && FormFollowGroundTarget(player, hold)) {
-                        if ((g_fhWarp.load() && FormPinWarpCall(player, hold)) || WrBytes(player + 0x110, hold, 16)) g_followGround.used = true;
+                        if (FormFollowWrite(player,hold)) g_followGround.used = true;
                     }
                 } else if (fd == 1) FormFollow(player, g_fh4.seal);
                 else if (fd == 0) FormPin(player, g_fh4.seal);
@@ -5601,6 +5615,7 @@ struct SealTailHitWatch {
     std::map<uint64_t, uint64_t> appearance;
     std::set<uint64_t> previous;
     double lastNew = -100;
+    std::set<uint64_t> clusterOwners;
 };
 std::vector<SealTailHitWatch> g_tailHitWatches;
 void SealTailHitTick() {
@@ -5632,6 +5647,7 @@ void SealTailHitTick() {
         std::map<uint64_t, uint64_t> remaining;
         std::set<uint64_t> current;
         int n = 0, fresh = 0;
+        std::set<uint64_t> freshOwners;
         for (uint64_t o : objects) {
             const auto excluded = w.appearance.find(o);
             if (excluded != w.appearance.end()) { remaining.emplace(*excluded); continue; }
@@ -5643,10 +5659,13 @@ void SealTailHitTick() {
                 if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;
             }
             ++n; current.insert(o);
-            if (!w.previous.count(o)) ++fresh;
+            if (!w.previous.count(o)) { ++fresh; freshOwners.insert(owner); }
         }
         w.appearance.swap(remaining);
-        const bool newCluster = fresh && now >= w.lastNew + 0.150;
+        const bool newSource = std::any_of(freshOwners.begin(),freshOwners.end(),[&](uint64_t owner){return !w.clusterOwners.count(owner);});
+        const bool newCluster = fresh && (now >= w.lastNew + 0.150 || newSource);
+        if (newCluster) w.clusterOwners.clear();
+        w.clusterOwners.insert(freshOwners.begin(),freshOwners.end());
         if (fresh) w.lastNew = now;
         w.previous.swap(current);
         if (newCluster) {
@@ -5683,7 +5702,8 @@ void SealEndOnHitTick() {
     static bool open = false, fired = false, countedOpen = false;
     static std::set<uint64_t> previous;
     static double lastNew = -100;
-    static bool censusComplete = true;
+    static std::set<uint64_t> clusterOwners;
+    static bool censusComplete = true, lowerEligible = false;
     static double boundAt = 0;  // #82033: classify only by time since bind, never by action
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
@@ -5709,7 +5729,8 @@ void SealEndOnHitTick() {
                 Now() - sess, bursts);
         if (seal && sid && !fired && bursts > 0 && complete && censusComplete) {  // the seal finished the form by itself: learn this core's burst count
             const int had = SealHitsFor(sid);
-            if (bursts != had) {
+            if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
+            if (bursts > had || (bursts < had && lowerEligible)) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
@@ -5720,8 +5741,8 @@ void SealEndOnHitTick() {
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
-        countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
-        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
+        countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
+        sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true; lowerEligible = false;
         pressedId = on ? g_pickCore.load() : 0;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
         // Use the accepted press snapshot, not observer/bind time, for source admission.
@@ -5738,6 +5759,7 @@ void SealEndOnHitTick() {
     const double now = Now();
     if (!seal && g_fh4.seal) {
         seal = g_fh4.seal; boundAt = now;
+        lowerEligible = bursts == 0 && now - sess <= 0.400 && now - sourceSince <= 0.400;
         uint32_t k = 0; Rd(seal, k); boundId = k >> 4; sid = pressedId ? pressedId : boundId; want = SealHitsFor(sid);
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
@@ -5843,8 +5865,13 @@ void SealEndOnHitTick() {
         sourceCensus = actorRaw;
     }
     // #82179: new eligible objects start a cluster even while earlier attacks remain open.
-    // All opens within 150 ms of the preceding new open belong to that same cluster.
-    const bool newCluster = poolOk && fresh && now >= lastNew + 0.150;
+    // Same-source opens within 150 ms merge; a new attack owner starts a distinct cluster.
+    const bool newSource = std::any_of(freshActors.begin(),freshActors.end(),[&](const auto& a){return a.second>0 && !clusterOwners.count(a.first);});
+    const bool newCluster = poolOk && fresh && (now >= lastNew + 0.150 || newSource);
+    if (poolOk) {
+        if (newCluster) clusterOwners.clear();
+        for(const auto& a:freshActors) if(a.second>0) clusterOwners.insert(a.first);
+    }
     if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
     if (newCluster) {
         ++bursts; lastOpen = now - sess;
@@ -5884,7 +5911,8 @@ void SealEndOnHitTick() {
         // Learn here, before ghost exit marks the form fired; ordinary last-hit/cap/cancel exits must not teach a count.
         if (poolOk && censusComplete && !n && !open && sid && bursts > 0 && lastClose > 0) {
             const int had = SealHitsFor(sid);
-            if (bursts != had) {
+            if (bursts < had && !lowerEligible) Log("SealEndOnHit: keep learned %d (observed %d), late/pre-hit binding is incomplete",had,bursts);
+            if (bursts > had || (bursts < had && lowerEligible)) {
                 wchar_t k[16], v[16]; swprintf_s(k, L"%X", sid); swprintf_s(v, L"%d", bursts);
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls], attack complete at idle edge (%s)",
@@ -5919,7 +5947,7 @@ void SealEndOnHitTick() {
         }
         SealTailHitWatch watch;
         watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.boundId = boundId; watch.sess = sess; watch.sourceSince = sourceSince;
-        watch.previous = previous; watch.lastNew = lastNew;
+        watch.previous = previous; watch.lastNew = lastNew; watch.clusterOwners = clusterOwners;
         watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
         for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
         watch.kids = sources;

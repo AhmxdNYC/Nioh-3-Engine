@@ -162,3 +162,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-08 12:34 am EST | #82436 exit placement + retired seal guard implemented | 254 last-hit +38 primary/group/placement +52 bind checks PASS | next final Release rebuild and regression suites | cx-pc/exit-82436
 
 2026-11-08 12:36 am EST | #82436 Release BR63be4fe6 bridge #6421; source e8b5ca40, tests37879e97 | 894 offline checks + sc22 PASS; live visuals pending | next pc installs/relaunches and checks smoke/travel endpoint | cx-pc/exit-82436, notes/exit82436.md
+
+2026-11-08 12:47 am EST | #82480 three fixes implemented | 269 last-hit +45 ground checks PASS | next Release rebuild and remaining regressions | cx-pc/observe-82480, notes/observe82480.md
