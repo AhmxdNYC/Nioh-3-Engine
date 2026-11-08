@@ -17,6 +17,7 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include <set>
 #include <cmath>
 #include <algorithm>
 #include <new>
@@ -4855,7 +4856,7 @@ void SealEndOnHitNoteSpawn(uint64_t chr) {  // 65A8A8 spawn path (FormKeySealNot
 // with the old rule are kept apart: [SealHitsA] / [SealLastHitA] are learned fresh (first use of each core plays in full once).
 std::atomic<int> g_sehAtk{1};
 // #82127: old aggregate/appearance counts must never seed the corrected observer.
-const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA2" : L"SealHits2"; }
+const wchar_t* SecHits() { return g_sehAtk.load() > 0 ? L"SealHitsA3" : L"SealHits3"; }
 int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
     return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
@@ -5408,6 +5409,8 @@ struct SealTailHitWatch {
     bool open = false, atkOnly = true;
     std::vector<uint64_t> kids;
     std::map<uint64_t, uint64_t> appearance;
+    std::set<uint64_t> previous;
+    double lastNew = -100;
 };
 std::vector<SealTailHitWatch> g_tailHitWatches;
 void SealTailHitTick() {
@@ -5434,8 +5437,11 @@ void SealTailHitTick() {
                     std::find(w.kids.begin(), w.kids.end(), g_sehKid[k]) == w.kids.end()) w.kids.push_back(g_sehKid[k]);
         }
         std::map<uint64_t, uint64_t> remaining;
-        int n = 0;
+        std::set<uint64_t> current;
+        int n = 0, fresh = 0;
         for (uint64_t o : objects) {
+            const auto excluded = w.appearance.find(o);
+            if (excluded != w.appearance.end()) { remaining.emplace(*excluded); continue; }
             uint64_t owner = 0;
             if (!o || !Rd(o + 8, owner) || !owner || owner == w.player) continue;
             if (owner != w.seal && std::find(w.kids.begin(), w.kids.end(), owner) == w.kids.end()) continue;
@@ -5443,14 +5449,16 @@ void SealTailHitTick() {
                 uint64_t ad = 0; uint32_t aid = 0;
                 if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) continue;
             }
-            const auto a = w.appearance.find(o);
-            if (a != w.appearance.end() && a->second == owner) remaining.emplace(o, owner);
-            else ++n;
+            ++n; current.insert(o);
+            if (!w.previous.count(o)) ++fresh;
         }
         w.appearance.swap(remaining);
-        if (n && !w.open) {
+        const bool newCluster = fresh && now >= w.lastNew + 0.100;
+        if (fresh) w.lastNew = now;
+        w.previous.swap(current);
+        if (newCluster) {
             ++w.bursts;
-            const wchar_t* section = w.atkOnly ? L"SealHitsA2" : L"SealHits2";
+            const wchar_t* section = w.atkOnly ? L"SealHitsA3" : L"SealHits3";
             wchar_t key[16], value[16]; swprintf_s(key, L"%X", w.sid);
             const int had = (int)GetPrivateProfileIntW(section, key, 0, IniPath());
             if (w.bursts > w.atExit && w.bursts > had) {
@@ -5480,6 +5488,8 @@ void SealEndOnHitTick() {
     static uint64_t seal = 0;
     static int bursts = 0, want = 0;
     static bool open = false, fired = false, countedOpen = false;
+    static std::set<uint64_t> previous;
+    static double lastNew = -100;
     static double boundAt = 0;  // #82033: classify only by time since bind, never by action
     struct AppearCollider { uint64_t owner; bool seen; };
     static std::map<uint64_t, AppearCollider> appearance;
@@ -5519,7 +5529,7 @@ void SealEndOnHitTick() {
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
         sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
-        countedOpen = false; boundAt = 0; appearance.clear(); prevRaw = prevMasked = -1; censusLines = 0;
+        countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         if (on) SealExitReplayBegin(sess); else g_fxrT0.store(0);
     }
     if (sxfSeal && Now() >= sxfAt) {
@@ -5558,28 +5568,33 @@ void SealEndOnHitTick() {
     bool poolOk = Rd(g_base + Grva(0x45C6F38), pb) && pb;
     if (poolOk) { pool.resize(0xFA0); poolOk = Copy(pool.data(), pb + 0x20, 0xFA0 * 8); }
     if (!poolOk && !idleFire) return;
-    int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0;
+    int n = 0, body = 0, raw = 0, masked = 0, direct = 0, helper = 0, fresh = 0;
+    std::set<uint64_t> current;
     if (poolOk) for (auto& entry : appearance) entry.second.seen = false;
-    const bool bindWindow = !seal || now <= boundAt + 0.100;
+    const bool bindWindow = !seal || now <= boundAt + 0.200;
     const bool atkOnly = g_sehAtk.load() > 0;
     for (int i = 0; poolOk && i < 0xFA0; ++i) {
         const uint64_t o = pool[i];
         if (!o) continue;
+        auto excluded = appearance.find(o);
+        if (excluded != appearance.end()) excluded->second.seen = true; // preserve identity across owner/attack-data changes
         uint64_t own = 0;
         if (!Rd(o + 8, own) || !own || own == g_fh4.owner) continue;
         bool mine = seal && own == seal;
         for (int k = 0; !mine && k < 8; ++k) mine = g_sehKid[k] == own && g_sehKidT[k] >= sess - 0.05;
+        if (mine && bindWindow && excluded == appearance.end())
+            excluded = appearance.emplace(o, AppearCollider{own, true}).first;
         if (mine && atkOnly) {  // body collider (no attack data, no attack id) = not a hit
             uint64_t ad = 0; uint32_t aid = 0;
             if (Rd(o + 0xB0, ad) && !ad && Rd(o + 0x1E8, aid) && aid == 0xFFFFFFFFu) { ++body; mine = false; }
         }
         if (mine) {
             ++raw;
-            auto a = appearance.find(o);
-            if (a != appearance.end() && a->second.owner != own) { appearance.erase(a); a = appearance.end(); }
-            if (bindWindow && a == appearance.end()) a = appearance.emplace(o, AppearCollider{own, true}).first;
-            if (a != appearance.end()) { a->second.seen = true; ++masked; }
-            else { ++n; if (own == seal) ++direct; else ++helper; }
+            if (excluded != appearance.end()) { ++masked; }
+            else {
+                ++n; if (own == seal) ++direct; else ++helper;
+                current.insert(o); if (!previous.count(o)) ++fresh;
+            }
         }
     }
     if (poolOk) {
@@ -5593,17 +5608,16 @@ void SealEndOnHitTick() {
         }
         prevRaw = raw; prevMasked = masked;
     }
-    // #82077: exclude individual appearance objects, not the aggregate interval. A persistent
-    // appearance collider must not mask later seal/helper attack windows. Prune at observed removal.
-    // #82033: exclude bind-time / first-100-ms intervals, including their entire lifetime.
-    // Some cores attack in their initial action, so action changes cannot gate hit counting.
-    if (n && !open) {
-        open = true; countedOpen = seal && now > boundAt + 0.100;
-        if (countedOpen) {
-            ++bursts; lastOpen = now - sess;
-            Log("SealEndOnHit core %X burst %d opens (%d colliders, %d body skipped) %.3f s after the press", sid, bursts, n, body, now - sess);
-        } else Log("SealEndOnHit core %X appearance burst ignored (%d colliders) %.3f s after the press", sid, n, now - sess);
+    // #82179: new eligible objects start a cluster even while earlier attacks remain open.
+    // All opens within 100 ms of the preceding new open belong to that same cluster.
+    const bool newCluster = poolOk && fresh && now >= lastNew + 0.100;
+    if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
+    if (newCluster) {
+        ++bursts; lastOpen = now - sess;
+        Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
+            bursts, fresh, n, masked, now - sess);
     }
+    if (n) { open = true; countedOpen = true; }
     bool fire = false;
     if (!n && open) {
         open = false;
@@ -5669,6 +5683,7 @@ void SealEndOnHitTick() {
         }
         SealTailHitWatch watch;
         watch.seal = seal; watch.player = g_fh4.owner; watch.sid = sid; watch.sess = sess;
+        watch.previous = previous; watch.lastNew = lastNew;
         watch.started = now; watch.bursts = watch.atExit = bursts; watch.open = open; watch.atkOnly = atkOnly;
         for (const auto& a : appearance) watch.appearance.emplace(a.first, a.second.owner);
         for (int k = 0; k < 8; ++k) if (g_sehKid[k] && g_sehKidT[k] >= sess - 0.05) watch.kids.push_back(g_sehKid[k]);
