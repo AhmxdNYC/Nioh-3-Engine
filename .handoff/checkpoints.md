@@ -268,3 +268,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 4:59 am EST | cx-pc #83600: integrated EF/BR 1.8.12 build succeeds; picker fixture updated to include queue state/ghost stub. Picker134 and queue12 checks PASS after toolchain setup; full affected runner results in Temp/wt-r1812/release/validation-1812.
   Unchanged TR/CamKi/Updater reuse exact public 1.8.11 bytes. Next: package, send one gate task per device, collect exact feature acceptance; no game touched.
+
+- 2026-11-08 5:02 am EST | cx-pc #83600: 1.8.12 candidate complete, affected offline36/36 + hub5/5 PASS; EF a1b32e13 #6557 BR44ca2f23 #6558, Setup d18ba1df #6559, pyz905a01c3 #6560, fullb370c4e7 #6561, combinedc90b0918 #6562, sums#6563. Candidate branch790ef099; no main merge/publish yet.
+  Single live gates QUEUED: PC #83620, pc2 #83621, Ally #83622 (GPT game-slot owners; Claude exhausted). Checklist#6564. Next: collect all 3 exact-feature PASS or concrete owner blocker, then publish; no duplicate tasks and no companion game control. Logs Temp/wt-r1812/release/validation-1812.
