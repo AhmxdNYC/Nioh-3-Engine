@@ -102,3 +102,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - #82480 ready: BR22345f1c #6427, source d667b24f on cx-pc/observe-82480 atop63be4fe6. 925 offline PASS; late-bind downward guard, source-separated final hit, native warp clamp/local repeated-height anchor. Lead owns live tests.
 - 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c).
 - Release +1137 checks +available sc22 PASS. Only unique world smoke replays, never bone effects; record/exit history reset per press; 100-press replay bounded. Next Claude pc restart/install when human says, repeated exits/video gate. No game touched. notes/exit-smoke-82536.md.
+
+- 2026-11-08 1:08 am EST | #82594 per-press height fix ready: BR a79e8aa4 bridge #6443, source a7d46a32, cx-pc/press-y-82594 | Release +615 offline PASS; no live test | next Claude checks consecutive presses at distinct terrain heights. Conditional generation/count work dropped.

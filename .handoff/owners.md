@@ -88,3 +88,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - cx-pc/0 #82480 complete offline; BR22345f1c #6427, pc owns install/live validation. No game touched.
 - 2026-11-08 1:03 AM EST | cx-pc/1 #82536 DONE offline: BR629dc81f file#6437, code625659ca pushed cx-pc/exit-smoke-82536 atop3a9eb26d (22345f1c). pc/6 owns install/live gate.
+
+- 2026-11-08 1:08 am EST | #82594 per-press height fix ready: BR a79e8aa4 bridge #6443, source a7d46a32, cx-pc/press-y-82594 | Release +615 offline PASS; no live test | next Claude checks consecutive presses at distinct terrain heights. Conditional generation/count work dropped.
