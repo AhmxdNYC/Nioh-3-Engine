@@ -146,6 +146,26 @@ int main() {
     CHECK(g_listStop == 4 && g_uiPages.page == uPracticeHub);  // leaving the Boss tab keeps the filter
     UiOpenAt(1);
     CHECK(g_listStop == 4 && g_uiPages.page == uRematch);
+    { // #83530: Player is an independent hosted tab; returning retains its selection.
+        UiOpenAt(3); CHECK(g_uiPages.page==uPlayer&&g_uiPages.depth==0); g_sel=1;
+        UiOpenAt(2); CHECK(g_uiPages.page==uPracticeHub);
+        const int pc=Items(it,kMaxRows+4);for(int i=0;i<pc;++i)CHECK(it[i]!=kItPlayerOpen);
+        UiOpenAt(3,true); CHECK(g_uiPages.page==uPlayer&&g_sel==1);
+        CHECK(TabOfPages(g_uiPages)==3);
+        UiOpenAt(1);
+    }
+    { // #83530: resets are selectable actions above Back; arrows cannot trigger them.
+        UiOpenAt(3);const int count=Items(it,kMaxRows+4);
+        CHECK(count>=2&&it[count-2]==kItPageDefaults&&it[count-1]==kItBack);
+        g_sel=count-2;strcpy_s(g_msg,"unchanged");UiChange(1);CHECK(!strcmp(g_msg,"unchanged"));
+        CHECK(!UiAct()&&strstr(g_msg,"Page defaults restored"));
+        UiOpenAt(1);const int nc=Items(it,kMaxRows+4);for(int i=0;i<nc;++i)CHECK(it[i]!=kItPageDefaults); // no fight setters exposed by this fixture
+        for(int group=0;group<kConfigGroupN;++group) {
+            g_uiPages.page=uSettingFirst+group;const int ns=Items(it,kMaxRows+4);
+            CHECK(ns>=2&&it[ns-2]==kItPageDefaults&&it[ns-1]==kItBack);
+        }
+        UiOpenAt(1);
+    }
     {  // #79226: LB / RB back to a hosted tab restores its page, row, boss and filter; the plain open still starts at the root
         UiOpenAt(1); g_uiPages.Enter(uActions, 8); g_sel = 3; g_uiBoss = 5; g_listStop = 2;
         UiOpenAt(2); g_listStop = 0;
@@ -560,7 +580,7 @@ int main() {
     // With Rematch disabled, Settings remains available and changes no game state.
     g_live.store(false);
     UiOpen();
-    CHECK(Items(it, kMaxRows + 4) == 4 && it[0] == kItSettings && it[1] == kItRootRematch && it[2] == kItRootTraining && it[3] == kItClose);  // #13223
+    CHECK(Items(it, kMaxRows + 4) == 5 && it[0] == kItSettings && it[1] == kItRootRematch && it[2] == kItRootTraining && it[3] == kItPlayerOpen && it[4] == kItClose);  // #13223
     g_sel = 1; CHECK(!UiAct() && g_uiPages.page == uRematch);
     CHECK(Items(it, kMaxRows + 4) == 1 && it[0] == kItBack);  // #13197: no Settings / Return to where I was on the Boss Rematch page
     CHECK(!UiBack() && g_uiPages.page == uRoot && g_sel == 1);

@@ -268,18 +268,18 @@ int main() {
     Change(kPageRow + pDisplay, 0);
     {
         const int n = PageRows(rows, true);
-        CHECK(g_pages.page == pDisplay && n == 12 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
+        CHECK(g_pages.page == pDisplay && n == 13 && rows[3] == kPageRow + pOvController && rows[4] == kPageRow + pOvFrameMeter &&
               rows[5] == kPageRow + pOvInput && rows[6] == kPageRow + pOvFps && rows[7] == kTimeOfDayRow && rows[8] == kWeatherRow &&
-              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kBackRow);
+              rows[9] == kPageRow + pOvHud && rows[10] == kAutoCont && rows[11] == kResetPageRow && rows[12] == kBackRow);
     }
     {   // 'Game HUD >' page: master Hide game HUD on top, then every per-element row once (hudhide::kElems), then Back
         const int saved = g_pages.page;
         g_pages.page = pOvHud;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 1 + hudhide::kElemN + 1 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
+        CHECK(n == 3 + 1 + hudhide::kElemN + 2 && rows[3] == HideHudSettingRow() && rows[n - 1] == kBackRow);
         for (int e = 0; e < hudhide::kElemN; ++e) {
             int seen = 0;
-            for (int r = 4; r < n - 1; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
+            for (int r = 4; r < n - 2; ++r) seen += !strcmp(kConfigSettings[rows[r] - kSettingRow].key, hudhide::kElems[e].key);
             CHECK(seen == 1);
         }
         g_pages.page = saved;
@@ -309,8 +309,8 @@ int main() {
     {
         g_pages.page = pOvFrameMeter;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 5 + kPsToggleN + 2 && rows[3] == kFrameMeterRow && rows[4] == kFrameMeterStyleRow && rows[5] == kFrameMeterSizeRow && rows[6] == kPsAllRowsRow && rows[7] == kKiWindowRow && rows[8] == kPsRowFirst &&
-              rows[15] == kPsAllKeysRow && rows[16] == kPsRowFirst + 7 && rows[n - 2] == kPsRowFirst + kPsToggleN - 1);
+        CHECK(n == 3 + 5 + kPsToggleN + 3 && rows[3] == kFrameMeterRow && rows[4] == kFrameMeterStyleRow && rows[5] == kFrameMeterSizeRow && rows[6] == kPsAllRowsRow && rows[7] == kKiWindowRow && rows[8] == kPsRowFirst &&
+              rows[15] == kPsAllKeysRow && rows[16] == kPsRowFirst + 7 && rows[n - 3] == kPsRowFirst + kPsToggleN - 1);
     }
     g_pstGet = HarnessPstGet;
     g_pstSet = HarnessPstSet;
@@ -332,7 +332,7 @@ int main() {
         Change(kVrsPageRow, 0); CHECK(g_pages.page == pVrsTune);
         CHECK(!g_vrsEdited && !g_dirty && gpuopt::g_vrsLiveCalls == 0);  // opening the page changes nothing
         int r[kMenuRowCap]; int rn = PageRows(r, true);
-        CHECK(!g_vrsAdvanced && rn == 3 + 2 + 1 && r[3] == kVrsRowFirst + vrsmenu::kRowLevel && r[4] == kVrsRowFirst + vrsmenu::kRowAdvanced && r[rn - 1] == kBackRow);  // #79382 simple page: level + advanced only
+        CHECK(!g_vrsAdvanced && rn == 3 + 2 + 2 && r[3] == kVrsRowFirst + vrsmenu::kRowLevel && r[4] == kVrsRowFirst + vrsmenu::kRowAdvanced && r[rn - 1] == kBackRow);  // #79382 simple page: level + advanced only
         Change(kVrsRowFirst + vrsmenu::kRowLevel, 1); CHECK(vrsmenu::LevelOf(g_vrsVals) == vrsmenu::kLevelMedium && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 0 && gpuopt::g_vrsLiveStub.layouts == 7 && g_bootVrs);
         Change(kVrsRowFirst + vrsmenu::kRowLevel, -1); CHECK(g_vrsVals.mode == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
         g_vrsEdited = false; g_dirty = false; gpuopt::g_vrsLiveCalls = 0;
@@ -510,7 +510,7 @@ int main() {
     {
         g_pages.page = pSettings;
         const int n = PageRows(rows, true);
-        CHECK(n == 3 + 1 + 4 + 2 && rows[3] == kEpPre && rows[4] == kPageRow + pSCpu && rows[5] == kPageRow + pSGpu && rows[6] == kPageRow + pSGame && rows[7] == kPageRow + pFrameGen && rows[8] == kSave && rows[9] == kBackRow);
+        CHECK(n == 3 + 1 + 4 + 3 && rows[3] == kEpPre && rows[4] == kPageRow + pSCpu && rows[5] == kPageRow + pSGpu && rows[6] == kPageRow + pSGame && rows[7] == kPageRow + pFrameGen && rows[8] == kSave && rows[9] == kResetPageRow && rows[10] == kBackRow);
         CHECK(!has(pSettings, kFps) && !has(pSettings, kXTS) && !has(pSettings, kAutoCont) && !has(pSettings, kLat));
     }
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
@@ -615,8 +615,8 @@ int main() {
     Open("harness");
     g_rematchSession = 7;
     int bossN = PageRows(rows, true);
-    CHECK(bossN == 12 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPageRow + pDisplay &&
-          rows[6] == kPageRow + pCamera && rows[7] == kPageRow + pSettings && rows[8] == kSaveFilesRow && rows[9] == kUpdatePageRow && rows[10] == kReverseModsRow && rows[11] == kClose);
+    CHECK(bossN == 13 && rows[3] == kRematchRow && rows[4] == kPracticeRow && rows[5] == kPlayerRow && rows[6] == kPageRow + pDisplay &&
+          rows[7] == kPageRow + pCamera && rows[8] == kPageRow + pSettings && rows[9] == kSaveFilesRow && rows[10] == kUpdatePageRow && rows[11] == kReverseModsRow && rows[12] == kClose);
     g_rematchSession = 0;
     g_page = 0;
     g_cfg.layout = 1;
@@ -711,7 +711,7 @@ int main() {
     for (int group = 0; group < kConfigGroupN; ++group) {
         g_pages.page = pCfgFirst + group;
         n = PageRows(rows, true);
-        CHECK(n > 2 && rows[n - 2] == kSave && rows[n - 1] == kBackRow);
+        CHECK(n > 2 && rows[n - 3] == kSave && rows[n - 2] == kResetPageRow && rows[n - 1] == kBackRow);
         for (int i = 0; i < n; ++i)
             if (rows[i] >= kSettingRow) ++seen[rows[i] - kSettingRow];
     }
@@ -774,7 +774,7 @@ int main() {
     Open("host fixture");
     n=PageRows(rows,true); bool found=false; for(int i=0;i<n;++i) found |= rows[i]==kRematchRow;
     // #13223 first page: Settings / Boss Rematch / Practice / Close (no Save row)
-    CHECK(g_pages.page==pRoot && n==10 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kSaveFilesRow && rows[7]==kUpdatePageRow && rows[8]==kReverseModsRow && rows[9]==kClose);
+    CHECK(g_pages.page==pRoot && n==11 && rows[3]==kPageRow+pSettings && rows[4]==kRematchRow && rows[5]==kPracticeRow && rows[6]==kPlayerRow && rows[7]==kSaveFilesRow && rows[8]==kUpdatePageRow && rows[9]==kReverseModsRow && rows[10]==kClose);
     CHECK(found);
     Change(kRematchRow,0);
     CHECK(g_rematchPage && g_rematchAwait && hf::posted==rmb::OpenRematch);  // #13223: opens the Boss Rematch page directly

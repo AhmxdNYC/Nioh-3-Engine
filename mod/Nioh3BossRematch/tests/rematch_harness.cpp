@@ -91,6 +91,48 @@ int main(int argc, char** argv) {
     int c[5] = {};
     for (auto& r : rows) c[r.route]++;
     printf("catalogue: %d rows (R %d H %d D %d E %d X %d)\n", n, c[0], c[1], c[2], c[3], c[4]);
+    { // #83427: favorites lead each list; original order, row IDs and cursor identity survive.
+        const std::vector<int> original{4, 1, 8, 3, 9}; // existing beaten/startable/catalogue ordering
+        for (int base : {0, 0x40000, 0x50000}) {
+            std::vector<int> input;
+            for (int row : original) input.push_back(base + row);
+            const auto canonical = input;
+            rcore::FavoritesFirst(input, [](int) { return false; });
+            CHECK(input == canonical, "no favorites retains original list order");
+            rcore::FavoritesFirst(input, [](int) { return true; });
+            CHECK(input == canonical, "all favorites retains original list order");
+            auto favorite = [base](int item) { return item == base + 3 || item == base + 1; };
+            rcore::FavoritesFirst(input, favorite);
+            CHECK((input == std::vector<int>{base+1,base+3,base+4,base+8,base+9}), "stable favorite and ordinary groups");
+            CHECK(rcore::KeepVisibleSel(input.data(), (int)input.size(), 3, base+3) == 1, "promoted row keeps cursor");
+            input = canonical; // rebuild from original order when unfavoriting, not the last partition
+            rcore::FavoritesFirst(input, [base](int item) { return item == base+1; });
+            CHECK((input == std::vector<int>{base+1,base+4,base+8,base+3,base+9}), "unfavorite restores original relative order");
+            CHECK(rcore::KeepVisibleSel(input.data(), (int)input.size(), 1, base+3) == 3, "demoted row keeps cursor");
+            rcore::FavoritesFirst(input, [base](int item) { return item == base+1; });
+            CHECK((input == std::vector<int>{base+1,base+4,base+8,base+3,base+9}), "repeat partition is stable");
+        }
+        std::vector<int> empty;
+        rcore::FavoritesFirst(empty, [](int) { return true; });
+        CHECK(empty.empty(), "empty favorite list is safe");
+        std::vector<rcore::Row> catalog(4);
+        strcpy_s(catalog[0].id, "R1"); strcpy_s(catalog[1].id, "E01");
+        strcpy_s(catalog[2].id, "R2"); strcpy_s(catalog[3].id, "E02");
+        catalog[0].route=rcore::kR; catalog[2].route=rcore::kR;
+        catalog[1].route=catalog[3].route=rcore::kE;
+        rcore::ListCycle cycle; rcore::BuildListCycle(catalog,cycle);
+        std::set<std::string> favorites{"B E02", "T E01", "B R2"};
+        for(char kind : {'B','T'}) {
+            std::vector<int> scrolls;
+            for(int i=0;i<4;++i) if(rcore::RowInListStop(catalog[i],cycle,cycle.Stops()-2)) scrolls.push_back(i);
+            rcore::FavoritesFirst(scrolls,[&](int i){return favorites.count(rcore::FavKey(kind,catalog[i].id))!=0;});
+            CHECK((scrolls == (kind=='B' ? std::vector<int>{3,1} : std::vector<int>{1,3})), "scroll filter retains its own B/T favorites and excludes bosses");
+        }
+        int removed[] = {-68, 1, -5};
+        CHECK(rcore::KeepVisibleSel(removed,3,1,3)==1, "unfavorite in Favorites filter falls back to remaining row");
+        int controls[] = {-68,-5};
+        CHECK(rcore::KeepVisibleSel(controls,2,1,3)==0, "last favorite removal lands on filter safely");
+    }
     {   // #79955 pc2 poll: state active, player=0 loading=0 mission=0, every 500 ms, pending native phase irrelevant: idle within 25 s
         rcore::TitleWatch w;
         uint64_t fired = 0;

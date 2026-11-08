@@ -10,6 +10,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "../../Nioh3Training/src/fallback_rosters_gen.h"
 
 namespace rcore {
@@ -644,6 +645,12 @@ inline std::string FavText(const std::set<std::string>& favs) {
     std::string text;
     for (const auto& f : favs) { text += f; text += "\r\n"; }
     return text;
+}
+
+// #83427: partition the existing display order, never catalogue rows/IDs or menu controls.
+template <class IsFavorite>
+inline void FavoritesFirst(std::vector<int>& items, IsFavorite isFavorite) {
+    std::stable_partition(items.begin(), items.end(), isFavorite);
 }
 
 // Empty Picture Scroll bag: the shrine return still asks to reopen the list. Close that request

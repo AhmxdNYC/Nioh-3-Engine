@@ -32,7 +32,8 @@ bool UiTestFight(const char*,uint64_t& token,char* reason,size_t n){
 bool UiBack() { return true; }
 bool UiTakeHostMenu() { return false; }
 void UiClearHostMenu() {}
-void UiOpenAt(int, bool = false) {}  // user #13223 first-page direct opens (OpenRematch / OpenPractice); the fixture model has no pages
+int openedTab=0; bool resumed=false;
+void UiOpenAt(int which, bool resume = false) { openedTab=which; resumed=resume; }  // user #13223 first-page direct opens (OpenRematch / OpenPractice); the fixture model has no pages
 int UiFill(UiRow* rows, int, char* footer, size_t size) {
     snprintf(rows[0].text, sizeof(rows[0].text), "model %d", model);
     rows[0].color = 123; rows[0].sel = true; snprintf(footer, size, "native rewards"); return 1;
@@ -62,6 +63,12 @@ int main() {
     CHECK(BridgePost(session, s.generation, mb::OpenMenu) == mb::Accepted);
     HostedTick(); CHECK(g_open);
     CHECK(BridgeSnapshot(session, &s, sizeof(s)) == mb::Accepted && (s.flags & mb::Open));
+    CHECK(BridgePost(session, s.generation, mb::OpenPlayer) == mb::Accepted);
+    HostedTick(); CHECK(rematch::openedTab == 3 && !rematch::resumed);
+    CHECK(BridgeSnapshot(session, &s, sizeof(s)) == mb::Accepted);
+    CHECK(BridgePost(session, s.generation, mb::ResumePlayer) == mb::Accepted);
+    HostedTick(); CHECK(rematch::openedTab == 3 && rematch::resumed);
+    CHECK(BridgeSnapshot(session, &s, sizeof(s)) == mb::Accepted);
     CHECK(BridgePost(session, s.generation, mb::Accept) == mb::Accepted);
     ++model; // async model change after display/queue but before worker dispatch
     HostedTick(); CHECK(calls == 0 && g_open);

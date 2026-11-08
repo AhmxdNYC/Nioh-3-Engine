@@ -1,7 +1,7 @@
 // human #58117: 'Soul core tuning' page (LEFT soul core form start / exit look). Included by rematch.cpp inside its UI namespace right after
 // practice_stats_menu.h (same helpers: g_msg, g_sel, g_uiPages, Log, colours). Game side: bosslog::SoulTune (bosslog.cpp) = the live globals the
 // effect reads at use time (next LEFT use picks a change up) + WritePrivateProfileStringW to Nioh3BossRematch.ini [Spirit].
-//   Training (Practice hub) > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
+//   Player > Soul core tuning: A opens the page; on it Left / Right (A = Right) step the value.
 constexpr int uSoulTune = 950;
 constexpr int kItSctOpen = 0xE0000, kItSctBase = 0xE0010, kSctN = 10;  // kItSctBase + bosslog::SoulTune 'which' (0xE0000: no other range uses it)
 bool IsSctItem(int item) { return item == kItSctOpen || (item >= kItSctBase && item < kItSctBase + kSctN); }
@@ -29,7 +29,7 @@ int ScCoreAt(int slot, uint32_t* id, int* dir) {
 }
 const char* const kSctLabel[kSctN] = {"Player reappears after:", "Exit smoke forward:", "Exit smoke sideways:", "Exit smoke repeat after:",
                                       "Player hides after:", "Transform speed:", "Exit tail speed:", "Freeze start smoke:", "Freeze end smoke:", "Exit after last hit starts:"};
-const double kSctDefault[kSctN] = {200, 0, 0, 0, 150, 1.4, 4, 0, 0, 0};
+const double kSctDefault[kSctN] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0};
 void SctValueText(int w, double v, char* b, size_t n) {
     if (w == 9 && v == -9999) snprintf(b, n, "Legacy close");
     else if (w == 7 || w == 8) snprintf(b, n, "%s", v > 0 ? "ON" : "OFF");

@@ -101,7 +101,9 @@ void FormKeySealNote(uint64_t chr, uint32_t motion, float dist);  // #54190: sea
 void FormKeySealDesc(uint32_t id);  // #54190: desc[0] at the 65A8A8 entry
 // human #58117: Soul core tuning menu: which 0 SealExitRevealMs, 1 SealExitSmokeFwd, 2 SealExitSmokeSide, 3 SealExitSmokeRepeatMs, 4 FormHideDelayMs,
 // 5 SealSpeed, 6 SealTailSpeed. dir 0 = read, +-1 = one step (live + saved to [Spirit]); *live false = saved only, next launch.
-double SoulTune(int which, int dir, bool* live);
+double SoulTune(int which, int dir, bool* live); // dir2 = shipped-default reset
+void SoulTuneReset();
+void FormCoreReset();
 // human #61869: Player settings 'Soul core transformations' ([Spirit] SoulCoreForms). OFF = the game's own soul cores (no new form, gate
 // patch / speed / orb / FormSlot0 / FormKey hooks pass through); a form already up ends normally. dir 0 flips, +-1 sets; saved.
 bool SoulCoreForms(bool* hooked);

@@ -6776,7 +6776,10 @@ double SoulTune(int which, int dir, bool* live) {
     if (!dir) return v;
     const T& t = k[which];
     if (which == 9 && v == -9999) v = 0;  // editing the legacy sentinel returns to the new default
-    v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
+    if (dir == 2) { // explicit page reset, values from the shipped [Spirit] INI
+        static const double shipped[] = {100, 100, 0, 0, 400, 1.4, 4, 0, 0, 0};
+        v = shipped[which];
+    } else v = std::round(v / t.step) * t.step + (dir > 0 ? t.step : -t.step);
     v = v < t.lo ? t.lo : v > t.hi ? t.hi : v;
     if (t.flt) v = std::round(v * 10) / 10;
     switch (which) {
@@ -6795,6 +6798,10 @@ double SoulTune(int which, int dir, bool* live) {
     WritePrivateProfileStringW(L"Spirit", t.key, b, IniPath());
     Log("SoulTune: [Spirit] %ls = %ls%s (menu, human #58117)", t.key, b, (which == 5 || which == 6) && !g_ftHooked.load() ? " (saved; speed hooks off this session)" : "");
     return v;
+}
+
+void SoulTuneReset() {
+    for (int which = 0; which < 10; ++which) SoulTune(which, 2, nullptr);
 }
 
 // human #61869: Player settings 'Soul core transformations'. dir 0 flips, > 0 ON, < 0 OFF; live + saved to [Spirit] SoulCoreForms.
@@ -6856,6 +6863,15 @@ bool FormCoreToggle(uint32_t id) {
     ReleaseSRWLockExclusive(&g_coreEditLock);
     Log("FormCore %X: menu -> transform=%d (FormCoresOff saved)", id, actual ? 1 : 0);
     return actual;
+}
+void FormCoreReset() {
+    AcquireSRWLockExclusive(&g_coreEditLock);
+    g_offN.store(0);
+    for (auto& id : g_offIds) id.store(0);
+    CoreOffSave();
+    for (int dir = 1; dir <= 2; ++dir) { g_pendingPick[dir].store(-1); PendingPickSave(dir); }
+    ReleaseSRWLockExclusive(&g_coreEditLock);
+    // An ongoing form/press keeps its decision; the next press sees the shipped all-ON policy.
 }
 bool SoulCoreForms(bool* hooked) { if (hooked) *hooked = g_fkOn.load() != 0; return g_scForms.load(); }
 bool SoulCoreFormsSet(int dir, bool* formUp) {

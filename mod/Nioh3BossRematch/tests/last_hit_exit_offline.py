@@ -447,6 +447,14 @@ int main(){
  SctChange(kItSctBase+9,-1);check(g_exitAtLastHitMs==0);check(strstr(SctFooter(kItSctBase+9),"Unknown counts"));
  g_exitAtLastHitMs=-9999;SctRowText(kItSctBase+9,false,"",text,sizeof text,&color);check(strstr(text,"Legacy close"));
  g_frz[0]=1;SctRowText(kItSctBase+7,false,"",text,sizeof text,&color);check(strstr(text,"ON"));
+ g_ftHooked=true;
+ const double shipped[]={100,100,0,0,400,1.4,4,0,0,0};
+ for(int w=0;w<10;++w) for(int j=0;j<4;++j) SoulTune(w,1,nullptr);
+ SoulTuneReset();
+ for(int w=0;w<10;++w) check(std::fabs(SoulTune(w,0,nullptr)-shipped[w])<.001);
+ check(ini[L"SealExitRevealMs"]==L"100"&&ini[L"SealExitSmokeFwd"]==L"100"&&ini[L"FormHideDelayMs"]==L"400");
+ g_ftHooked=false;g_sealMul=0;g_tailMul=0;SoulTuneReset();
+ check(g_sealMul==0&&g_tailMul==0&&ini[L"SealSpeed"]==L"1.4"&&ini[L"SealTailSpeed"]==L"4.0");
  printf("last-hit tick, ghost safety, settings and menu: %d checks PASS (offline)\n",checks);
 }
 '''

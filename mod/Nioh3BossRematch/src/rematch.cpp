@@ -47,6 +47,7 @@
 
 namespace addon {
 namespace rematch {
+void SaveUiSettings(); // page-default dispatch is defined before the persistence worker
 namespace {
 
 using rcore::Row;
@@ -3691,7 +3692,7 @@ bool RowInCurrentList(const Row& r) {
 // The catalogue row of a list item on the current page, -1 for anything else.
 int FavRowOfItem(int item) {
     const int p = g_uiPages.page;
-    const int row = p == uRematch && item >= 0 && item < kItFight ? item
+    const int row = (p == uRematch || p == uBosses) && item >= 0 && item < kItFight ? item
                   : p == uTrainHere && item >= kItTrainHere && item < kItTrainHere + kMaxRows ? item - kItTrainHere
                   : p == uTraining && item >= kItTeleport && item < kItTeleport + kMaxRows ? item - kItTeleport : -1;
     return row >= 0 && (size_t)row < g_rows.size() ? row : -1;
@@ -3710,22 +3711,30 @@ bool FavChange(int item, int dir) {  // true = this was a list row. Right marks,
     else snprintf(g_msg, sizeof g_msg, on ? "%s is a favorite." : "%s removed from favorites.", r.name);
     return true;
 }
-// The Training rows of an end gate: player settings, the active bosses page (stance = training mode), summon. Training gate and scroll gate share this.
+// The Training rows of an end gate: the active bosses page (stance = training mode), summon. Training gate and scroll gate share this.
 template <class Add> void AddGateTrainingRows(Add&& add) {
-    if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
     if (PracticeToolsAvailable()) add(kItRootTools);
     if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
 }
 
-int Items(int* out, int cap) {
+int ItemsBase(int* out, int cap) {
     int n = 0;
     auto add = [&](int item) { if (n < cap) out[n++] = item; };
+    // Collect all eligible rows before capacity truncation, then keep original order within each favorite group.
+    auto addFavoritesFirst = [&](std::vector<int>& items) {
+        rcore::FavoritesFirst(items, [&](int item) {
+            const int row = FavRowOfItem(item);
+            return row >= 0 && FavHas(ListFavKind(), g_rows[(size_t)row].id);
+        });
+        for (int item : items) add(item);
+    };
     // Same order the Boss Match list already used. The filter hides rows; it does not renumber them.
     auto addBossList = [&]() {
         EnsureListCycle();
         add(kItListFilter);
+        std::vector<int> rows;
         for (int pass = 0; pass < 3; ++pass)
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+            for (size_t i = 0; i < g_rows.size(); ++i) {
                 const Row& r = g_rows[i];
                 const uint8_t st = g_status[i].load();
                 const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
@@ -3734,13 +3743,15 @@ int Items(int* out, int cap) {
                 if (grp == 2 && !g_cfg.showAll) continue;
                 if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
                 if (!RowInCurrentList(r)) continue;
-                add((int)i);
+                rows.push_back((int)i);
             }
+        addFavoritesFirst(rows);
     };
     if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
         add(kItSettings);  // user #13223: Settings / Boss Rematch / Practice (Summon Boss and the tools live inside Practice)
         add(kItRootRematch);
         add(kItRootTraining);
+        add(kItPlayerOpen);
         add(kItClose);
         return n;
     }
@@ -3750,12 +3761,8 @@ int Items(int* out, int cap) {
         const bool inArena = InTrainingArena() || scrollTraining;  // user #14333 / #14336 item 8: no 'Train here' / 'Train in a boss arena' while already in one
         if (!inArena && TrainingExport("Nioh3Training_TrainHere")) add(kItTrainHereOpen);
         if (!inArena) add(kItArenas);
-        if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267: Player options
         if (PracticeToolsAvailable()) add(kItRootTools);  // Training Bosses
         PstAddHubRows(add);  // Time of day / Weather / Freeze / Reset fight
-#if BR_SOULCORE
-        SctAddHubRow(add);  // human #58117: Soul core tuning (not in the release build)
-#endif  // BR_SOULCORE
         if (TrainingExport("Nioh3Training_SummonSlot")) add(kItBossSumm);
         add(kItRootRematch);  // user #13293: Boss Matches (its kill / finisher rules apply to Training and summoned bosses too)
         if (scrollTraining) add(kItReturnHome);  // #79069: no wave clear means no end object, so this is the way out. Not the first row: it leaves at one press.
@@ -3767,6 +3774,7 @@ int Items(int* out, int cap) {
 #if BR_SOULCORE
         add(kItScForms);  // human #61869: Soul core transformations ON / OFF
         SctAddCoreRows(add);  // human #81220: per-core transformation ON / OFF
+        SctAddHubRow(add); // Player > Soul core tuning
 #endif  // BR_SOULCORE
         PstAddPlayerRows(add);  // user #22389
         add(kItBack);
@@ -3783,14 +3791,16 @@ int Items(int* out, int cap) {
     }
     if (g_uiPages.page == uTrainHere) {  // user #13223: every boss with a mission id, beaten first. Waves rows have no mission id.
         EnsureListCycle();
+        std::vector<int> rows;
         add(kItListFilter);  // #79069
         for (int pass = 0; pass < 2; ++pass)
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+            for (size_t i = 0; i < g_rows.size(); ++i) {
                 if (!RowInCurrentList(g_rows[i])) continue;
                 const bool waves = rcore::WavesRow(g_rows[i]);
-                if (waves) { if (pass == 0) add(kItTrainHere + (int)i); continue; }
-                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) add(kItTrainHere + (int)i);
+                if (waves) { if (pass == 0) rows.push_back(kItTrainHere + (int)i); continue; }
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) rows.push_back(kItTrainHere + (int)i);
             }
+        addFavoritesFirst(rows);
         add(kItBack);
         return n;
     }
@@ -3824,16 +3834,18 @@ int Items(int* out, int cap) {
         // the arenas: every boss with a start point next to it (beaten first); A = Teleport to arena (fast load)
         if (g_live.load()) {
             EnsureListCycle();
+            std::vector<int> rows;
             add(kItListFilter);  // #79069
             for (int pass = 0; pass < 2; ++pass)
-                for (size_t i = 0; i < g_rows.size() && n < cap; ++i) {
+                for (size_t i = 0; i < g_rows.size(); ++i) {
                     const Row& r = g_rows[i];
                     if (!RowInCurrentList(r)) continue;
-                    if (rcore::WavesRow(r)) { if (pass == 0) add(kItTeleport + (int)i); continue; }
+                    if (rcore::WavesRow(r)) { if (pass == 0) rows.push_back(kItTeleport + (int)i); continue; }
                     if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
                     if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
-                    add(kItTeleport + (int)i);
+                    rows.push_back(kItTeleport + (int)i);
                 }
+            addFavoritesFirst(rows);
         }
         add(kItBack);
         return n;
@@ -3907,7 +3919,6 @@ int Items(int* out, int cap) {
             AddGateTrainingRows(add);
         } else if (mode == 1) {
             AddBossFightItems(add);  // Boss Rematch fight: the rematch boss-fight options
-            if (TrainingExport("Nioh3Training_SetPlayerCantDie")) add(kItPlayerOpen);  // user #14267
         }
         if (LeaveArenaOffered()) add(kItLeaveArena);
         add(kItReturnHome);
@@ -3944,6 +3955,16 @@ int Items(int* out, int cap) {
     // beaten / startable first, then the rest, then X (Boss Matches browse page)
     addBossList();
     add(kItBack);
+    return n;
+}
+
+#include "page_defaults_menu.h"
+int Items(int* out, int cap) {
+    int n = ItemsBase(out, cap);
+    if (PageHasDefaults(g_uiPages.page) && cap >= 2 && n > 0 && out[n-1] == kItBack) {
+        if (n < cap) { out[n-1] = kItPageDefaults; out[n++] = kItBack; }
+        else { out[n-2] = kItPageDefaults; }
+    }
     return n;
 }
 
@@ -4267,7 +4288,12 @@ void UiChange(int dir) {
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItListFilter) { CycleListFilter(dir); return; }
-    if (FavChange(item, dir)) return;  // #79069
+    if (item == kItPageDefaults) return; // action: A only
+    if (FavChange(item, dir)) {
+        const int count = Items(items, kMaxRows + 4);
+        g_sel = rcore::KeepVisibleSel(items, count, g_sel, item); // follow the same row after promotion/demotion
+        return;
+    }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }
     if (item == kItAutoRetry) { AutoRetryToggle(dir); return; }
     if (item == kItNoFin) { NoFinToggle(dir); return; }
@@ -4306,13 +4332,13 @@ void UiChange(int dir) {
     }
 }
 
-// #79226: what each hosted tab (1 = Boss Matches, 2 = Practice) looked like when it was left, so LB / RB back to it restores the
+// #79226: what each hosted tab (1 = Boss Matches, 2 = Practice, 3 = Player) looked like when it was left, so LB / RB back to it restores the
 // page trail, the row, the boss and the list filters. Saved at the top of every UiOpen (the previous session's state is still intact).
 struct TabMemo { bool valid = false; menu_nav::Trail<> pages; int sel = 0, uiBoss = -1, bossSlot = -1, listStop = 0, trainStop = 0; };
-TabMemo g_tabMemo[3];
+TabMemo g_tabMemo[4];
 int TabOfPages(const menu_nav::Trail<>& t) {
     const int base = t.depth ? t.pages[0] : t.page;
-    return base == uRematch ? 1 : base == uPracticeHub ? 2 : 0;
+    return base == uRematch ? 1 : base == uPracticeHub ? 2 : base == uPlayer ? 3 : 0;
 }
 void RememberTab() {
     const int tab = TabOfPages(g_uiPages);
@@ -4339,13 +4365,13 @@ void UiGatePage() {  // user #13529: the gate page is a base page (no add-on roo
     g_uiPages.page = uGate;
     g_sel = 0;
 }
-void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) as the base page; Back at it closes to the host menu
+void UiOpenAt(int which, bool resume) {  // user #13223: host first page -> Boss Rematch (1) / Practice (2) / Player (3) as the base page; Back at it closes to the host menu
     const int keep = g_listStop;
     const int page = g_uiPages.page;
     UiOpen();
     if (page != 0) g_listStop = keep;  // leaving and returning to the Boss tab keeps All / Multi / era / Scrolls
-    g_uiPages.page = which == 1 ? uRematch : uPracticeHub;
-    if (resume && which >= 1 && which <= 2 && g_tabMemo[which].valid) {
+    g_uiPages.page = which == 1 ? uRematch : which == 3 ? uPlayer : uPracticeHub;
+    if (resume && which >= 1 && which <= 3 && g_tabMemo[which].valid) {
         const TabMemo& m = g_tabMemo[which];
         g_uiPages = m.pages; g_sel = m.sel; g_uiBoss = m.uiBoss; g_bossSlot = m.bossSlot;
         g_listStop = m.listStop; g_trainStop = m.trainStop;
@@ -4466,6 +4492,7 @@ bool UiAct() {
     if (g_sel >= n) g_sel = n - 1;
     const int item = it[g_sel];
     if (item == kItClose) return true;
+    if (item == kItPageDefaults) { g_confirm = -9; ResetPageDefaults(); return false; }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
@@ -4733,7 +4760,7 @@ const char* PageTitle(const char* movesTitle) {
          : p == uTrainHere ? "Training - Choose a boss" : p == uSummon ? "Training - Add a boss" : p == uTools ? "Training - Active bosses"
          : p == uBoss ? movesTitle
          : p == uBosses ? "Bosses" : p == uActions ? "Boss actions" : p == uSettings ? "Settings" : p == uPractice ? "Yamagata mission replay"
-         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings - Training / Boss Matches" : p == uBossVitals ? BvTitle() :
+         : p == uFightOpts ? "Death and loot - Training / Boss Matches" : p == uPlayer ? "Player settings" : p == uBossVitals ? BvTitle() :
 #if BR_SOULCORE
         p == uSoulTune ? "Soul core tuning - LEFT form (live, saved)" :
 #endif  // BR_SOULCORE
@@ -4742,6 +4769,7 @@ const char* PageTitle(const char* movesTitle) {
 bool IsFightRule(int item) { return item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot || item == kItNoFin || item == kItFinT || item == kItHp0W; }
 // section header shown above an item (nullptr = no headers on this page / Back / Close)
 const char* ItemGroup(int item) {
+    if (item == kItPageDefaults) return "Page defaults";
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
     if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
@@ -4820,6 +4848,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             if (grp != lastGroup && k < cap - 2) add(cCyan, false, "-- %s --", grp);
             lastGroup = grp;
         }
+        if (it[i] == kItPageDefaults) { add(sel ? cWhite : cGray, sel, "%s Reset to defaults   A: reset this page", mk); continue; }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
         if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #if BR_SOULCORE
@@ -5118,7 +5147,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
     if (footer && nf) {
         footer[0] = 0;
         const int item = g_sel < 0 ? kItClose : n ? it[g_sel] : kItOpen;
-        if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
+        if (item == kItPageDefaults) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Restore this page to shipped defaults. Other pages stay unchanged; startup settings apply after restart.");
+        else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
         else if (const char* scf = SctFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : scf);  // human #58117
