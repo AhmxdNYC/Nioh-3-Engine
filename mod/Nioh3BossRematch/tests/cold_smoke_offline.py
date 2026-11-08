@@ -4,7 +4,7 @@ import subprocess
 
 root = Path(__file__).resolve().parent.parent
 source = (root / 'src/bosslog.cpp').read_text(encoding='utf-8')
-body = source[source.index('bool CoverNativeSmoke('):source.index('void SealExitReplayTick()')]
+body = source[source.index('bool CoverNativeSmoke('):source.index('void RelocateExitReplay(')]
 mute_start = source.index('        const double ct = g_coverT.load(std::memory_order_relaxed);', source.index('void HkFxRec('))
 mute_end = source.index('\n    }\n    const double t0', mute_start)
 body += '\nvoid GameSmoke(uint64_t d, uint64_t c) {\n' + source[mute_start:mute_end] + '\n}\n'
