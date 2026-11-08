@@ -2116,15 +2116,16 @@ static float SoulVerticalOffset() {
     prior=tick;
     g_soulSession=!g_holdCam && readSession ? readSession() : 0;
     g_soulTarget=g_soulSession && readTarget ? readTarget() : 0;
-    static uint64_t press=0;static float pressMaxStep=0;const float before=spring.y;
+    static uint64_t press=0;static float pressMaxStep=0,rawMaxStep=0,priorTarget=0;const float before=spring.y;
     const float result=spring.Step(g_soulTarget,dt,g_soulSession!=0,g_soulSession);
     if(spring.started) {
-        if(g_soulSession){press=g_soulSession;pressMaxStep=0;}
+        if(g_soulSession){press=g_soulSession;pressMaxStep=0;rawMaxStep=0;priorTarget=g_soulTarget;}
         Log("SOUL press=%llu %s blend start offset=%.3f",press,g_soulSession?"enter":"exit",before);
     }
+    if(g_soulSession){rawMaxStep=(std::max)(rawMaxStep,std::fabs(g_soulTarget-priorTarget));priorTarget=g_soulTarget;}
     pressMaxStep=(std::max)(pressMaxStep,std::fabs(result-before));
-    if(spring.finished)Log("SOUL press=%llu %s blend end offset=%.3f max frame step=%.3f blend max step=%.3f",
-        press,g_soulSession?"enter":"exit",result,pressMaxStep,spring.maxStep);
+    if(spring.finished)Log("SOUL press=%llu %s blend end offset=%.3f max frame step=%.3f blend max step=%.3f raw max step=%.3f held spikes=%u",
+        press,g_soulSession?"enter":"exit",result,pressMaxStep,spring.maxStep,rawMaxStep,spring.rejectedSpikes);
     return result;
 }
 static bool ApplySoulVertical(uint8_t* out,float y) {

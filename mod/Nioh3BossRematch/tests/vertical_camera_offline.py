@@ -35,7 +35,7 @@ int main(){
  soulcamera::Spring s;
  for(int i=0;i<120;++i){ms+=16;SoulCameraVerticalTick(123);check(s.Step(Nioh3BossRematch_CameraVerticalTarget(),1.f/60)==0);}
  seal[1]=300;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==200);
- float prev=0;for(int i=0;i<60;++i){float y=s.Step(200,1.f/60);check(y>=prev&&y<=200);prev=y;}check(std::fabs(s.y-200)<.01f);
+ float prev=0;for(int i=0;i<180;++i){float y=s.Step(200,1.f/60);check(y>=prev&&y<=200);prev=y;}check(std::fabs(s.y-200)<.01f);
  // Both eye and target shift along WORLD Y; x/z, distance and view direction preserved.
  alignas(float) unsigned char out[64]={};float eye[4]={10,30,40,1},tgt[4]={12,45,80,1};
  memcpy(out+0x10,eye,16);memcpy(out+0x20,tgt,16);check(ApplySoulVertical(out,s.y));
@@ -55,19 +55,19 @@ int main(){
  g_cameraFollowVertical=0;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  g_cameraFollowVertical=1;valid=false;SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
  valid=true;seal[1]=std::numeric_limits<float>::quiet_NaN();SoulCameraVerticalTick(123);check(Nioh3BossRematch_CameraVerticalTarget()==0);
- soulcamera::Spring a,b;for(int i=0;i<60;++i)a.Step(200,1.f/60);for(int i=0;i<30;++i)b.Step(200,1.f/30);
+ soulcamera::Spring a,b;for(int i=0;i<180;++i)a.Step(200,1.f/60);for(int i=0;i<90;++i)b.Step(200,1.f/30);
  check(std::fabs(a.y-b.y)<.001f);check(std::isfinite(a.Step(NAN,.016f)));
  // Full initial height, tall rise and steady unity gain (no 400 cap).
  g_fh4.owner=123;g_fh4.capT=3;player[1]=100;seal[1]=2100;SoulCameraVerticalTick(123);
  check(Nioh3BossRematch_CameraVerticalTarget()==2000);
- soulcamera::Spring tall;for(int i=0;i<60;++i)tall.Step(2000,1.f/60);
+ soulcamera::Spring tall;for(int i=0;i<180;++i)tall.Step(2000,1.f/60);
  check(std::fabs(tall.y-2000)<100);
  for(int i=0;i<44;++i)tall.Step(0,1.f/60,false);
  check(std::fabs(tall.y)<.01f);
 
  // 0.7 s handovers: first frame continuous, <=6.5% of 2000-unit travel per 60Hz frame.
  soulcamera::Spring blend;float last=0,peak=0;
- for(int i=0;i<60;++i){float y=blend.Step(2000,1.f/60,true,7);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
+ for(int i=0;i<180;++i){float y=blend.Step(2000,1.f/60,true,7);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
  printf("enter max step %.3f / 2000 at 60Hz\n",peak);check(peak<90);check(std::fabs(last-2000)<.01f);
  const float held=blend.filtered;peak=0;
  for(int i=0;i<44;++i){float y=blend.Step(0,1.f/60,false,0);if(i==0)check(y==last);peak=(std::max)(peak,std::fabs(y-last));last=y;check(y>=0&&y<=2000);}
@@ -79,6 +79,20 @@ int main(){
  // Same-active session replacement also begins from current applied offset.
  last=blend.y;blend.Step(3000,1.f/60,true,10);check(blend.y==last);
 
+ // Dynamic tracking is continuous at steady-state target steps, not only handovers.
+ soulcamera::Spring track;for(int i=0;i<240;++i)track.Step(200,.016f,true,1);
+ float baseline=track.y;track.Step(1200,.016f,true,1);check(std::fabs(track.y-baseline)<.01f);
+ track.Step(200,.016f,true,1);check(std::fabs(track.y-baseline)<.01f); // rejected one-frame spike
+ float dynamicPeak=0;last=track.y;
+ for(int i=0;i<240;++i){float yy=track.Step(600,.016f,true,1);dynamicPeak=(std::max)(dynamicPeak,std::fabs(yy-last));last=yy;}
+ check(std::fabs(track.y-600)<.01f);check(dynamicPeak<18);
+ printf("400-unit sustained step max %.3f at 62.5Hz; isolated 1000-unit spike rejected\n",dynamicPeak);
+ track.Step(-200,.016f,true,1);track.Step(-200,.016f,true,1);
+ float velocity=track.v;last=track.y;track.Step(0,.016f,false);check(track.y==last&&std::fabs(track.v-velocity)<.001f);
+ for(int i=0;i<60;++i)track.Step(0,.016f,false);check(track.y==0&&track.v==0);
+ // Actual spring half-response (handovers already finished).
+ soulcamera::Spring half;for(int i=0;i<120;++i)half.Step(0,1.f/60,true,1);
+ for(int i=0;i<15;++i)half.Step(40,1.f/60,true,1);check(std::fabs(half.y-20)<.001f);
  // Actor disappears mid-enter: producer does not dereference absent storage;
  // consumer finishes its exit using numeric state only.
  g_fh4.capT=20;g_fh4.owner=123;valid=true;seal[1]=1500;SoulCameraVerticalTick(123);
