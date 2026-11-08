@@ -1,10 +1,16 @@
 {
   "functions": {
+    "api/submit.py": {
+      "includeFiles": "server.py",
+      "excludeFiles": "{releases/**,downloads/**}"
+    },
     "api/report.py": {
-      "includeFiles": "feedback-api/report_api.py"
+      "includeFiles": "{report_api.py,server.py,detect.py}",
+      "excludeFiles": "{releases/**,downloads/**}"
     },
     "api/crash.py": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "excludeFiles": "{releases/**,downloads/**}"
     }
   }
 }

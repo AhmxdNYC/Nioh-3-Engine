@@ -1,0 +1,25 @@
+{
+  "version": "1.8.12",
+  "deployment": "dpl_Hojn8x7sFL84TMWUvAgBbx4Qmtxa",
+  "verified_payloads": [
+    "Nioh3-1.8.12-combined.zip",
+    "Nioh3-1.8.12-full-install.zip",
+    "Nioh3-Setup-Linux.pyz",
+    "Nioh3-Setup.exe",
+    "Nioh3BossRematch.asi",
+    "Nioh3BossRematch_bosses.tsv",
+    "Nioh3CamKiProbe.asi",
+    "Nioh3CamKiProbe.ini",
+    "Nioh3EngineFix.asi",
+    "Nioh3Training.asi",
+    "Nioh3Training_actionsets.tsv",
+    "Nioh3Training_action_records.tsv",
+    "Nioh3Training_arenas.tsv",
+    "Nioh3Training_bgm.tsv",
+    "Nioh3Updater.exe"
+  ],
+  "updater_download": "PASS",
+  "manifests": "PASS",
+  "gates": "2/3; main PC waived by human84555",
+  "release": "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.12"
+}

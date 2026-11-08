@@ -1,1 +1,5 @@
-{"version": "1.7.85"}
+{
+  "version": "1.8.12",
+  "url": "https://nioh3-mod-feedback.vercel.app",
+  "notes": "Favorites sort first, dedicated Player settings, page resets, and reliable queued soul-core presses."
+}

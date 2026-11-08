@@ -323,3 +323,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 12:24 pm EST | Task84557/human84555 authorizes existing r3 publication with main-PC gate waived; PC2+Ally2/3 PASS.16 package checksums and full-install loader verified; GitHub draft16/16 digests match.
   Next publish GitHub draft, deploy D:/nioh3-wt/site-release-1812, verify live payloads, task Ally download-only. Notes notes/release-1.8.12.md; no rebuild/game action.
+
+- 2026-11-08 12:25 pm EST | Task84557/publication authorized by human84555: v1.8.12 r3 LIVE, GitHub Latest16 assets with16/16 digests; site dpl_Hojn8x7sFL84TMWUvAgBbx4Qmtxa READY, manifests1.8.12,15/15 live payload hashes+updater download verified. Exact tested packages unchanged; fresh-install loader verified.
+  PC2+Ally2/3 PASS; main-PC untested explicitly waived for publication only. cxl-ally download-only TASK84573 owns post-release verification (generic84570 canceled84572 per routing84564). Next collect download path/hash; no game action. Evidence notes/release-1.8.12-live.json; canonical site synchronized.
