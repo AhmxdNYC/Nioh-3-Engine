@@ -83,3 +83,5 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 - 2026-11-08 12:14 AM EST | cx-pc/1 #82344 DONE offline: BR abac6e93 file #6407 (replaces #6406), code 6c5d4eed pushed cx-pc/early-ground-82344 atop primary/all-actor 90436690. pc owns live assignment; no duplicate task.
 
 - cx-pc/0 #82379 offline complete on cx-pc/exit-adapt-82379; BR d4d14a8f. pc owns install/live acceptance.
+
+- cx-pc/0 #82436 done offline; BR63be4fe6 #6421. pc owns installation and live acceptance.
