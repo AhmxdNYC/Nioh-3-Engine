@@ -246,3 +246,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-08 4:31 am EST | cx-pc #83344: item29 fixture now stubs new equipment-poll/toggle dependencies and passes actual hook replay; runtime source and uploaded assets unchanged. Six legacy suites reproduce on 87dcdc89; lead #83369 permits identical baseline failures. Next: finish remaining baseline comparisons and collect device gates.
 
 - 2026-11-08 4:32 am EST | cx-pc #83344: prepared site/version.json for 1.8.11; updatecheck 126 assertions + manifest match PASS. Uploaded binaries unchanged. Next: finish baseline debt evidence, collect PC/pc2/Ally gates, then publish; no live site change yet.
+
+- 2026-11-08 4:35 am EST | cx-pc #83344: candidate release preparation done; 85/103 offline runners PASS, 18 baseline failures/unavailable checks verified against 87dcdc89 (lead #83369 accepts); testhub 5/5, rematch 357/357, updater self-test/package integrity PASS. No game control.
+  Assets #6526-6535 and BUILD #83408 sent to pc. Final notes: notes/release-1.8.11.md and notes/release-1.8.11-validation.md. Next: obtain PC/pc2/Ally PASS for these hashes, then merge release branch to main and publish GitHub/site. No release/site publication yet.

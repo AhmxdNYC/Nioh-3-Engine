@@ -16,6 +16,6 @@ Built four ASIs, PyInstaller 6.16.0 updater and Setup, Linux pyz, full-install a
 | Full install | c62d4452 | 6533 |
 | Combined | 7b15be95 | 6534 |
 
-Package integrity and packaged updater fake-release self-test pass. Rematch harness 357/357; camera, last-hit, cold-smoke and related new offline suites pass. Broad legacy suites contain unresolved fixture/anchor failures; see validation JSON/logs, do not describe the offline gate as fully passed.
+Package integrity and packaged updater fake-release self-test pass. Rematch harness 357/357; camera, last-hit, cold-smoke and related new offline suites pass. Offline sweep: 85/103 runners pass; 18 matching baseline failures/unavailable checks are documented in release-1.8.11-validation.md and accepted under lead #83369. Testhub 5/5 PASS. Do not describe all 103 as green.
 
-Gate list sent to pc in #83408, replying to #83344. Required: PC install/soul-core/camera smoke, pc2 Setup install/smoke, Ally pyz install/smoke. No game controlled by cx-pc. Publication waits for all three PASS and offline-gate resolution. No downstream gate task duplicated by cx-pc.
+Gate list sent to pc in #83408, replying to #83344. Required: PC install/soul-core/camera smoke, pc2 Setup install/smoke, Ally pyz install/smoke. No game controlled by cx-pc. Publication waits for all three PASS and no newly introduced failure. No downstream gate task duplicated by cx-pc.
