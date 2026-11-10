@@ -133,6 +133,9 @@ static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp
 static void HgNew(int s);
 static uint64_t g_slot_act[N3T_SLOTS]; static uint32_t g_slot_chr[N3T_SLOTS];
 static volatile LONG g_slot_fight[N3T_SLOTS], g_slot_rehold[N3T_SLOTS], g_slot_aggro[N3T_SLOTS];
+static uint32_t g_slot_native[N3T_SLOTS], g_slot_mission[N3T_SLOTS];
+static int NativeSlotAlive(int s);
+static int NativeSlotsActive(void);
 static int g_slot_ih[N3T_SLOTS];  // 1 = this slot is the Training session boss whose stance is still the Idle hold (idle_hold.h), not the slot hold
 static int SlotOf(uint64_t a) { for (int s = 0; a && s < N3T_SLOTS; ++s) if (g_slot_act[s] == a) return s; return -1; }
 static int SlotFree(void) { for (int s = 0; s < N3T_SLOTS; ++s) if (!SlotAlive(s)) return s; return -1; }
@@ -340,7 +343,7 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
     if (GetTickCount() - g_watch_t0 > 3000) { Log("SPAWN: no new actor with handle id %08X appeared within 3 s (previous actor of the same owner/slot still alive? despawn it first)", g_watch_id); g_watch = 0; }
 }
 static void FakeGaugeHide(const char* why);
-static void SlotForget(uint64_t a) { for (int k = 0; k < N3T_SLOTS; ++k) if (a && g_slot_act[k] == a) { g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } }
+static void SlotForget(uint64_t a) { for (int k = 0; k < N3T_SLOTS; ++k) if (a && g_slot_act[k] == a) { g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } }
 static int Despawn(int idx) {
     FakeGaugeHide("despawn");
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
@@ -3913,11 +3916,12 @@ static const char* GateNativeWhy(void) { return g_gate_nat_why; }
 // 'Fight again' from the gate page: queued, the pump runs TrainRetry (same boss, round reset, player back to the round-1 spot). 1 = queued, 0 = no session.
 // bridge 12666: Training menu (Boss Rematch UI) -> game thread. op 1 summon into slot A/B (replaces that slot's boss), 2 despawn all, 3 despawn one slot.
 static volatile LONG g_rq_op, g_rq_slot; static volatile uint32_t g_rq_mission, g_rq_chr;
-static int SlotAlive(int s) { if (s < 0 || s >= N3T_SLOTS || !g_slot_act[s]) return 0; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == g_slot_act[s]) return 1; return 0; }
+static int SlotAlive(int s) { if (s < 0 || s >= N3T_SLOTS || !g_slot_act[s]) return 0; if (g_slot_native[s]) return NativeSlotAlive(s); for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] == g_slot_act[s]) return 1; return 0; }
 // user #14309: slot 0..N3T_SLOTS-1 (Boss A, B, C ...); -1 = the first free letter ('Summon another boss'). A taken slot is replaced.
 N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission) {
     if (slot == -1) slot = SlotFree();
     if (slot < 0 || slot >= N3T_SLOTS || !mission || g_rq_op || g_sp.active) return 0;
+    if (g_slot_native[slot] && SlotAlive(slot)) return 0;
     if (!SlotAlive(slot) && g_nsp >= MAXSP) { Log("MENU summon slot %c refused: %d spawned actors tracked (remove all summoned bosses first)", 'A' + slot, g_nsp); return 0; }
     g_rq_slot = slot; g_rq_mission = mission; g_rq_chr = 0; InterlockedExchange(&g_rq_op, 1); return 1;
 }
@@ -3925,6 +3929,7 @@ N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission) {
 N3T_API int Nioh3Training_SummonSlotChr(int slot, uint32_t chr) {
     if (slot == -1) slot = SlotFree();
     if (slot < 0 || slot >= N3T_SLOTS || !chr || g_rq_op || g_sp.active) return 0;
+    if (g_slot_native[slot] && SlotAlive(slot)) return 0;
     if (!SlotAlive(slot) && g_nsp >= MAXSP) { Log("MENU summon slot %c refused: %d spawned actors tracked (remove all summoned bosses first)", 'A' + slot, g_nsp); return 0; }
     g_rq_slot = slot; g_rq_mission = 0; g_rq_chr = chr; InterlockedExchange(&g_rq_op, 1); return 1;
 }
@@ -3932,20 +3937,21 @@ N3T_API int Nioh3Training_TrainHere(uint32_t mission) { if (!mission || g_rq_op 
 N3T_API void Nioh3Training_SetPracticeNext(int on) { g_practice_next = on != 0; }  // user #13223: 1 = the next session (arena Fight now) is a Practice session
 N3T_API int Nioh3Training_DespawnAll(void) { if (g_rq_op) return 0; InterlockedExchange(&g_rq_op, 2); return 1; }
 N3T_API int Nioh3Training_SlotCount(void) { return N3T_SLOTS; }  // user #14309: how many boss letters the menu may offer
-N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot >= N3T_SLOTS || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
+N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot >= N3T_SLOTS || g_slot_native[slot] || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
 N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
-static void SlotDespawn(int s) { for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn(i); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
+static void SlotDespawn(int s) { if (s < 0 || s >= N3T_SLOTS || g_slot_native[s]) return; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn(i); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
 static void RqTick(void) {
     LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
     int s = (int)g_rq_slot;
     if (op == 1) {
+        if (s < 0 || s >= N3T_SLOTS || (g_slot_native[s] && SlotAlive(s))) return;
         if (GameState() && GameState()[2]) { Log("MENU summon slot %c: a load is running, refused", 'A' + s); return; }
         SlotDespawn(s);
         char tok[32]; const char* t = SummonTok(g_rq_mission);  // user #22984: the row's own id (R04DF, D084F ...) / a roster character
         if (g_rq_chr) snprintf(tok, sizeof tok, "%u", g_rq_chr); else if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "R%04X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, 400.0f + 150.0f * (float)(s % 5));  // #14309: letters spread 4 / 5.5 / 7 / 8.5 / 10 m if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
-    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }
+    } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }
     else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
     else if (op == 4) {  // user #13223: Practice > Training here (no load, no teleport: boss summoned where the player stands, Idle stance, retry in place)
         if (GameState() && GameState()[2]) { Log("MENU training here: a load is running, refused"); return; }
@@ -4002,7 +4008,7 @@ static void SumNoDeathTick(void) {  // game thread (pump)
 static int AnySlotAlive(void) { for (int s = 0; s < N3T_SLOTS; ++s) if (SlotAlive(s)) return 1; return 0; }
 N3T_API int Nioh3Training_SessionActive(void) { return (g_tr.active ? 1 : 0) | (AnySlotAlive() ? 2 : 0); }  // user #13197: menu 'Practice tools' root row
 // user #13262: mode of the running session for the Return gate page. 0 = no session, 1 = Boss Rematch Fight now, 2 = Training (Practice: Training here / arena)
-N3T_API int Nioh3Training_SessionMode(void) { return !g_tr.active ? 0 : g_tr.practice ? 2 : 1; }
+N3T_API int Nioh3Training_SessionMode(void) { return g_tr.active ? (g_tr.practice ? 2 : 1) : NativeSlotsActive() ? 1 : 0; }
 // user #13164: game thread (pump). Holds a freshly summoned slot boss passive for g_sph[s].ms, then gives its AI back (only if we switched it off).
 static __attribute__((noinline)) void SphTick(void) {
     DWORD now = GetTickCount();
@@ -6070,10 +6076,12 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
+    g_slot_native[s] = 0;
     HgNew(s);
     InterlockedExchange(&g_slot_fight[s], 0); InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_slot_aggro[s], g_cfg_aggro);
     g_slot_ih[s] = 0; BvInit(); BvDefaults(&g_bv[s]); g_bv_live[s].live = 0;
 }
+#include "native_slots_game.h"
 typedef uint64_t (*PumpFn)(uint64_t, uint64_t, uint64_t, uint64_t);
 static PumpFn o_pump;
 static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_t r8, uint64_t r9) {
@@ -6100,6 +6108,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { PreloadTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRELOAD tick exception %08lX", GetExceptionCode()); }
     __try { BgmTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BGM tick exception %08lX", GetExceptionCode()); g_bgm_on = 0; }
     __try { GaugeTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GAUGE tick exception %08lX", GetExceptionCode()); g_gg.pending = 0; }
+    __try { NativeSlotsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { KiBreakTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { MvTick(); ActLogTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // #9508 boss action-id logger (read only)  // #7290 passive Ki-break finisher log (read only), before BossTick
     __try { AbTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_cfg_ab = 0; }  // pc2 #23565

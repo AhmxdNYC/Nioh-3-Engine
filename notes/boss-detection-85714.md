@@ -34,3 +34,7 @@ default stat writes. Preserve scripted waves and dormant lesson actors, and
 invalidate observed slots on death/load/removal. Validate actual menu count and
 an explicit reversible setting in game, plus no unintended native despawn or
 default HP/Ki mutation. Restore all test changes afterward.
+
+## First candidate live gate (November 10, 11:30–11:35 am EST)
+Main PC public1.8.12 with Training76a9ec33 substituted,60 FPS cap/FG OFF: R1CBC native observed as slot A chr307259, correct Yamagata name, Active bosses1 versus baseline0. Explicit Stand still disabled AI; Fight normally released it. HP90 applied by native setter, readback12163/13515. Despawn-all retained native; return/load cleared slot to0. Both HP/Ki infinite defaults remained OFF.19/19 backed-up saves/INIs/ASIs restored with zero mismatches; game closed and lock released. Screenshot hp90.png sent to Discord85770; evidence D:/nioh3-re/detection85714-on1.
+Final cleanup candidate dcad95e5 adds validated release of explicitly-held native AI when HUD observation disappears. Production-body lifecycle/ownership regression and17 available move/practice runners pass; native entry/phase/persistence checks pass. Final binary live gate remains next, including owned summon compatibility. Missing arena generator and zero real auto-move fixtures limit the broad offline suite; no claim of complete runner coverage.
