@@ -21,7 +21,7 @@ static int g_nsp,g_slot_ih[3],g_slot_sp_ok[3]; static LONG g_slot_fight[3],g_slo
 static DWORD g_bv_kiWait[3]; static struct {int live;} g_bv_live[3]; static struct{int phase,nOff; uint64_t a;}g_sph[3]; static struct{int active;}g_tr;
 static uint8_t gs[3]; static uint32_t mission=1,record[2]={44,1234}; static uint64_t wrapper[4],actor=123;static int visible=1,dead,removed,despawns;
 static uint64_t hp=50,maxhp=100;
-static int ai_on=1,ai_restores;
+static int ai_on=1;
 static const uint8_t* GameState(void){return gs;} static uint64_t PlayerChar(void){return 9;}
 static int MsRead(uint32_t*m,uint8_t*j,uint32_t*o){*m=mission;*j=0;*o=0;return 1;}
 static int ActorInTable(uint64_t a){return a==actor&&!removed;}
@@ -70,15 +70,15 @@ int main(void){wrapper[3]=(uint64_t)record;
  assert(Nioh3Training_SummonSlot(-1,5)&&g_rq_slot==1);g_rq_op=0;
  g_bv[0].infHp=1;NativeSlotsTick();assert(g_bv[0].infHp); // explicit choice survives observation
  g_sph[0].phase=1;g_sph[0].nOff=1;g_sph[0].a=actor;ai_on=0;
- visible=0;NativeSlotsTick();assert(!ai_restores&&!ai_on&&SlotAlive(0)&&g_bv[0].infHp);
+ visible=0;NativeSlotsTick();assert(!ai_on&&SlotAlive(0)&&g_bv[0].infHp);
  // Mixed native/owned encounter: owned summon replaces the native HUD row.
  g_nsp=1;g_sp_actor[0]=789;g_slot_act[1]=789;g_slot_chr[1]=55;visible=2;
- NativeSlotsTick();assert(SlotAlive(0)&&SlotAlive(1)&&g_slot_chr[0]==1234&&!ai_restores);
+ NativeSlotsTick();assert(SlotAlive(0)&&SlotAlive(1)&&g_slot_chr[0]==1234);
  g_rq_op=2;RqTick();assert(SlotAlive(0)&&!SlotAlive(1)&&despawns==1);despawns=0;
- assert(!ai_restores&&!ai_on&&g_sph[0].phase); // native hold/config are preserved, not reset
+ assert(!ai_on&&g_sph[0].phase); // native hold/config are preserved, not reset
  visible=1;NativeSlotsTick();
  g_sph[0].phase=1;g_sph[0].nOff=1;g_sph[0].a=actor;ai_on=0;
- gs[2]=1;assert(!SlotAlive(0));NativeSlotsTick();assert(!g_slot_act[0]);gs[2]=0;assert(ai_restores==0);
+ gs[2]=1;assert(!SlotAlive(0));NativeSlotsTick();assert(!g_slot_act[0]);gs[2]=0;
  NativeSlotsTick();g_sph[0].phase=1;g_sph[0].nOff=1;g_sph[0].a=actor;mission=2;assert(!SlotAlive(0));visible=0;NativeSlotsTick();assert(!g_slot_act[0]);
  visible=1;NativeSlotsTick();g_sph[0].phase=1;g_sph[0].nOff=1;g_sph[0].a=actor;dead=1;assert(!SlotAlive(0));NativeSlotsTick();assert(!g_slot_act[0]);dead=0;
  NativeSlotsTick();g_sph[0].phase=1;g_sph[0].nOff=1;g_sph[0].a=actor;removed=1;assert(!SlotAlive(0));NativeSlotsTick();assert(!g_slot_act[0]);removed=0;
@@ -89,7 +89,7 @@ int main(void){wrapper[3]=(uint64_t)record;
  actor=567;NativeSlotsTick();assert(!g_slot_act[0]); // unseen dormant/next-wave actor not admitted
  g_nsp=1;g_sp_actor[0]=789;g_slot_act[0]=789;g_slot_chr[0]=55;assert(SlotAlive(0));
  SlotDespawn(0);assert(despawns==1&&!g_slot_act[0]);
- assert(ai_restores==0);
+
  puts("PASS native observation: identity/load/death expiry, HUD admission-only with mixed owned/native slots, no implicit stats, native despawn refusal, owned despawn");
 }
 '''
