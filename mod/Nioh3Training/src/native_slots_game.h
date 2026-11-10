@@ -21,20 +21,7 @@ static int NativeSlotsActive(void) {
     for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_native[s] && NativeSlotAlive(s)) return 1;
     return 0;
 }
-// Undo only the explicit slot hold we acquired, while the same live native actor is validated.
-#ifndef NATIVE_SLOT_AI_ON
-#define NATIVE_SLOT_AI_ON(a) ((void (*)(uint64_t))(B + Grva(0x66982C)))(a)
-#endif
-static void NativeSlotReleaseHold(int s) {
-    if (!g_slot_native[s] || !g_sph[s].phase || !g_sph[s].nOff ||
-        g_sph[s].a != g_slot_act[s] || !NativeSlotAlive(s)) return;
-    if (BhAiOn(g_slot_act[s]) == 0) {
-        __try { NATIVE_SLOT_AI_ON(g_slot_act[s]); }
-        __except (EXCEPTION_EXECUTE_HANDLER) { Log("NATIVE SLOT %c: hold release faulted", 'A' + s); }
-    }
-}
 static void NativeSlotClear(int s) {
-    NativeSlotReleaseHold(s);
     g_slot_native[s] = 0; g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0;
     g_sph[s].phase = 0; g_slot_sp_ok[s] = 0;
     InterlockedExchange(&g_slot_rehold[s], 0); InterlockedExchange(&g_bv_req[s], 0);
@@ -46,11 +33,10 @@ static void NativeSlotsTick(void) {
     const uint8_t* gs = GameState();
     int ready = gs && !gs[2] && PlayerChar() && MsRead(&mission, &journey, &mode);
     int n = ready ? KbCollect(actors, 8, handles) : 0;
-    for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_native[s]) {
-        int found = 0;
-        for (int i = 0; i < n; ++i) if (actors[i] == g_slot_act[s] && handles[i] == g_slot_native[s]) found = 1;
-        if (!found || !NativeSlotAlive(s)) NativeSlotClear(s);
-    }
+    // HUD evidence admits a native actor once; a summoned boss may replace its gauge.
+    // Retain the borrowed identity until its actual mission/actor/death lifecycle ends.
+    for (int s = 0; s < N3T_SLOTS; ++s)
+        if (g_slot_native[s] && !NativeSlotAlive(s)) NativeSlotClear(s);
     for (int i = 0; i < n; ++i) {
         if (!handles[i] || InSp(actors[i]) || SlotOf(actors[i]) >= 0 || !ActorInTable(actors[i])) continue;
         uint32_t chr = NativeSlotCharacter(actors[i], handles[i]);
