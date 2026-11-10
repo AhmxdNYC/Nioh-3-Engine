@@ -6046,6 +6046,7 @@ static DWORD WINAPI MenuPauseThread(LPVOID p) {
 #include "practice_stats_game.h"  // user #22389: player infinite Ki, damage multipliers, boss Ki drain
 #include "frame_probe_game.h"  // user #22356: FRAMEPROBE log-only boss frame data ([Debug] FrameProbe, default 0)
 #include "frame_meter_game.h"  // Practice frame meter ([Practice] FrameMeter, default 0): drawn from the FRAMEPROBE signals
+#include "metadata_actors_game.h"
 #include "autobind_game.h"  // pc2 #23565: automatic boss action-file binding ([Debug] AutoBind, default 1, log only)
 #include "auto_moves_game.h"  // pc2 #23907: runtime boss move list from the loaded action file ([Debug] AutoMoves, default 1)
 static void N3CatMergeAuto(uint32_t chr, const AmTable* t) {

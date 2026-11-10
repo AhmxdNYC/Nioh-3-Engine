@@ -16,7 +16,7 @@ preamble=r'''
 #include <stdio.h>
 #define N3T_SLOTS 3
 #define Log(...) ((void)0)
-static uint64_t g_slot_act[3],g_sp_actor[3]; static uint32_t g_slot_chr[3],g_slot_native[3],g_slot_mission[3];
+static uint64_t g_slot_act[3],g_sp_actor[3]; static uint32_t g_sp_chr[3],g_slot_chr[3],g_slot_native[3],g_slot_mission[3];
 static int g_nsp,g_slot_ih[3],g_slot_sp_ok[3]; static LONG g_slot_fight[3],g_slot_rehold[3],g_slot_aggro[3],g_bv_req[3],g_bm_gen;
 static DWORD g_bv_kiWait[3]; static struct {int live;} g_bv_live[3]; static struct{int phase,nOff; uint64_t a;}g_sph[3]; static struct{int active;}g_tr;
 static uint8_t gs[3]; static uint32_t mission=1,record[2]={44,1234}; static uint64_t wrapper[4],actor=123;static int visible=1,dead,removed,despawns;
@@ -52,15 +52,23 @@ static int Nioh3Training_Summon(uint32_t m){return 1;}
 static void SumNoDeathRelease(const char*s){}
 static void DespawnAll(const char*s){for(int i=0;i<g_nsp;i++)if(g_sp_actor[i])Despawn(i);g_nsp=0;}
 """
+code+='#include "'+(root/'src/metadata_actors_game.h').as_posix()+'"\n'
 for sig in ('N3T_API int Nioh3Training_SummonSlot(int slot, uint32_t mission)',
             'N3T_API int Nioh3Training_SummonSlotChr(int slot, uint32_t chr)',
             'N3T_API int Nioh3Training_DespawnSlot(int slot)', 'static void RqTick(void)'):
  code+=body(sig)+'\n'
 
 code+=r'''
-int main(void){wrapper[3]=(uint64_t)record;
+int main(void){wrapper[3]=(uint64_t)record; uint32_t metaChr=99;
  g_bv[0].infHp=1;g_bv_req[0]=3;g_slot_rehold[0]=1;
  NativeSlotsTick();assert(SlotAlive(0)&&g_slot_chr[0]==1234&&NativeSlotsActive());
+ assert(MetadataActor(MAXSP,&metaChr)==actor && metaChr==1234 && g_nsp==0);
+ assert(!MetadataActor(-1,&metaChr) && !metaChr);
+ assert(!MetadataActor(META_ACTORS,&metaChr) && !metaChr);
+ g_nsp=1;g_sp_actor[0]=actor;g_sp_chr[0]=1234;
+ assert(MetadataActor(0,&metaChr)==actor && metaChr==1234);
+ assert(!MetadataActor(MAXSP,&metaChr)); // never scan same actor twice
+ g_nsp=0;g_sp_actor[0]=0;
  assert(g_nsp==0&&g_slot_fight[0]==1&&!g_slot_aggro[0]&&!g_slot_rehold[0]);
  assert(!g_bv[0].infHp&&!g_bv[0].infKi&&!g_bv_req[0]&&hp==50&&maxhp==100);
  SlotDespawn(0);assert(SlotAlive(0)&&!despawns);
@@ -85,12 +93,12 @@ int main(void){wrapper[3]=(uint64_t)record;
  NativeSlotsTick();actor=456;assert(!SlotAlive(0));NativeSlotsTick();assert(g_slot_act[0]==456);
  hp=0;assert(SlotAlive(0));NativeSlotsTick();assert(SlotAlive(0));hp=50;
  visible=0;NativeSlotsTick();assert(SlotAlive(0));
- ++mission;NativeSlotsTick();assert(!g_slot_act[0]); // lifecycle expires even with no HUD rows
+ ++mission;assert(!MetadataActor(MAXSP,&metaChr));NativeSlotsTick();assert(!g_slot_act[0]); // lifecycle expires even with no HUD rows
  actor=567;NativeSlotsTick();assert(!g_slot_act[0]); // unseen dormant/next-wave actor not admitted
  g_nsp=1;g_sp_actor[0]=789;g_slot_act[0]=789;g_slot_chr[0]=55;assert(SlotAlive(0));
  SlotDespawn(0);assert(despawns==1&&!g_slot_act[0]);
 
- puts("PASS native observation: identity/load/death expiry, HUD admission-only with mixed owned/native slots, no implicit stats, native despawn refusal, owned despawn");
+ puts("PASS native metadata subjects and observation: identity/load/death expiry, HUD admission-only with mixed owned/native slots, no implicit stats, native despawn refusal, owned despawn");
 }
 '''
 with tempfile.TemporaryDirectory() as td:

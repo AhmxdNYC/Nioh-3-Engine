@@ -10,7 +10,7 @@ static AbTable g_ab; static int g_ab_state;  // 0 = not loaded, 1 = loaded, -1 =
 static uint32_t* g_ab_hash; static int g_ab_nhash;  // sorted union of every file's hashes
 static int g_cfg_ab = 1;
 enum { AB_UNI = 8192, AB_BLK = 12, AB_STABLE_MS = 6000, AB_MIN_MS = 8000, AB_MAX_MS = 30000 };
-static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, composedHuman, nblk; struct { uint64_t lo, hi; int rows, file, pct, cfile, cpct; uint32_t tiny[AB_CONTAIN_MIN]; } blk[AB_BLK]; int nuni; uint32_t uni[AB_UNI]; } g_abs[MAXSP];
+static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, composedHuman, nblk; struct { uint64_t lo, hi; int rows, file, pct, cfile, cpct; uint32_t tiny[AB_CONTAIN_MIN]; } blk[AB_BLK]; int nuni; uint32_t uni[AB_UNI]; } g_abs[META_ACTORS];
 static __attribute__((noinline)) int AbRd(uint64_t a, void* out, int n) { __try { memcpy(out, (const void*)a, (size_t)n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 static int AbKnown(uint32_t h) { int lo = 0, hi = g_ab_nhash - 1; while (lo <= hi) { const int m = (lo + hi) >> 1; if (g_ab_hash[m] == h) return 1; if (g_ab_hash[m] < h) lo = m + 1; else hi = m - 1; } return 0; }
 static void AbLoadTable(void) {
@@ -82,12 +82,13 @@ static void AbTick(void) {
     if (!g_cfg_ab || g_ab_state < 0) return;
     if (!g_ab_state) { AbLoadTable(); if (g_ab_state < 0) return; }
     const DWORD now = GetTickCount();
-    for (int s = 0; s < MAXSP; ++s) {
-        const uint64_t a = s < g_nsp ? g_sp_actor[s] : 0;
-        if (a != g_abs[s].a || (a && g_sp_chr[s] != g_abs[s].chr)) {
+    for (int s = 0; s < META_ACTORS; ++s) {
+        uint32_t chr = 0;
+        const uint64_t a = MetadataActor(s, &chr);
+        if (a != g_abs[s].a || (a && chr != g_abs[s].chr)) {
             if (g_abs[s].a && g_abs[s].nblk) AbFinal(s, "despawned/replaced");
-            memset(&g_abs[s], 0, sizeof g_abs[s]); g_abs[s].a = a; g_abs[s].t0 = g_abs[s].tLast = now; g_abs[s].chr = a ? g_sp_chr[s] : 0;
-            if (a) Log("AUTOBIND spawn #%d: boss chr %u actor %p seen", s, g_sp_chr[s], (void*)a);
+            memset(&g_abs[s], 0, sizeof g_abs[s]); g_abs[s].a = a; g_abs[s].t0 = g_abs[s].tLast = now; g_abs[s].chr = a ? chr : 0;
+            if (a) Log("AUTOBIND spawn #%d: boss chr %u actor %p seen", s, chr, (void*)a);
         }
         if (!a || g_abs[s].done || now < g_abs[s].tNext) continue;
         g_abs[s].tNext = now + 250;
@@ -115,7 +116,7 @@ static void AbTick(void) {
 // Called only by the game-thread meter feed. Spawn index and Training slot are different namespaces.
 static int FmHumanBoss(uint64_t actor,uint32_t chr) {
     if(!g_cfg_ab || g_ab_state!=1 || !actor) return 0;
-    for(int i=0;i<MAXSP;++i) if(g_abs[i].a==actor && g_abs[i].chr==chr)
+    for(int i=0;i<META_ACTORS;++i) if(g_abs[i].a==actor && g_abs[i].chr==chr)
         return g_abs[i].done && g_abs[i].composedHuman;
     return 0;
 }
