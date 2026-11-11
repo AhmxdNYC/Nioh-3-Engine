@@ -1,6 +1,7 @@
 ﻿"""Generate exact native WaitWarpStart gates from mission scripts and enemy records.
-No row allowlist: link the post-wait call graph to a selected Create, or to the
-wave ID encoded in that selected enemy's record. Ambiguous gates are rejected.
+No row allowlist: link the post-wait call graph to a selected Create, a parallel
+EndWarpRights of the same id, or the wave ID encoded in that selected enemy's record.
+Ambiguous gates are rejected.
 """
 import argparse,csv,json,struct,sys
 from pathlib import Path
@@ -28,9 +29,14 @@ def strings(script):
 
 def gate_paths(script,placement,wave=0,pool=None):
     names={ident:script.names[n] for n,ident,kind in script.syms}
+    def call_name(i):
+        # Real scripts: CALL_NATIVE is 1-based table id. Synthetic tests pass ident in args[0].
+        nm=dis.insn_name(script,i)
+        return nm if nm and not nm.startswith('?') else names.get(i.args[0])
     functions={};current=None
     for ins in script.insns or []:
-        if ins.op==0x3b:current=names.get(ins.args[0]);functions[current]=[]
+        if ins.op==0x3b:
+            current=call_name(ins);functions[current]=[]
         elif current is not None:functions[current].append(ins)
     pool=strings(script) if pool is None else pool
     def traverse(fn,begin=0,seen=None,collect=False):
@@ -40,7 +46,7 @@ def gate_paths(script,placement,wave=0,pool=None):
         for k in range(begin,len(ins)):
             i=ins[k]
             if i.op not in (0x1b,0x1f):continue
-            name=names.get(i.args[0]);prev=ins[k-1] if k else None
+            name=call_name(i);prev=ins[k-1] if k else None
             literal=prev.args[0] if prev and prev.op==0x29 else None
             if name in ('Character::Create','Character::CreateAndWait') and literal is not None and (collect or literal==placement):
                 out.append(dict(kind='create',function=fn,offset=i.off,placement=literal))
@@ -50,14 +56,29 @@ def gate_paths(script,placement,wave=0,pool=None):
             if name=='Script::Create' and prev and prev.op==0x2f and prev.args[0]<len(pool):target=pool[prev.args[0]]
             if target in functions:out.extend(traverse(target,0,seen,collect))
         return out
+    def call_gate(i):
+        global_k=next((j for j,x in enumerate(script.insns) if x.off==i.off),None)
+        args=dis.call_args(script,global_k) if global_k is not None else []
+        try:return int(args[0],0) if args else 0
+        except ValueError:return 0
+    ends={}
+    for fn,ins in functions.items():
+        for k,i in enumerate(ins):
+            if i.op not in (0x1b,0x1f) or call_name(i)!='Function::EndWarpRights':continue
+            g=call_gate(i)
+            if g:ends.setdefault(g,[]).append((fn,k))
     found=[]
     for fn,ins in functions.items():
         for k,i in enumerate(ins):
-            if i.op not in (0x1b,0x1f) or names.get(i.args[0])!='Function::WaitWarpStart':continue
-            prev=ins[k-1] if k else None
-            if not prev or prev.op!=0x29 or not prev.args[0]:continue
+            if i.op not in (0x1b,0x1f) or call_name(i)!='Function::WaitWarpStart':continue
+            gate=call_gate(i)
+            if not gate:continue
             proof=traverse(fn,k+1)
-            if proof:found.append(dict(gate=prev.args[0],wait=i.off,function=fn,proof=proof,creates=traverse(fn,k+1,collect=True)))
+            creates=traverse(fn,k+1,collect=True)
+            for efn,ek in ends.get(gate,[]):
+                proof.extend(traverse(efn,ek+1))
+                creates.extend(traverse(efn,ek+1,collect=True))
+            if proof:found.append(dict(gate=gate,wait=i.off,function=fn,proof=proof,creates=creates))
     return found
 
 def sequence_members(paths,enemies):

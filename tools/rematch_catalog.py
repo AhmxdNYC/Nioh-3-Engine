@@ -47,7 +47,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 N = ROOT / "notes"
-LFM = ROOT / "data" / "extract" / "lfm"
+LFM = pathlib.Path(os.environ.get("NIOH3_LFM") or os.environ.get("NIOH3_TEST_LFM") or (ROOT / "data" / "extract" / "lfm"))
 IDTAB = ("archive_08", "AE", "50B70535D0EDD19523951019C533295915AE7D4F65FE37E351E09D3858A8C5")
 MISSIONDB = ("archive_03", "52", "BD29D45533CFACBFA2D6EC80A3B9F40E07CBF9183727358B0B3C3ABE3E4FC2")
 EMAKI = ("archive_03", "70", "14FB3450175890EB5F7574DD50BE04684A511B7B4A5B55E00FC2EAF66849FD")
@@ -188,89 +188,96 @@ def build_index():
     print("wrote notes/rematch-enemy-index.csv (%d rows), notes/rematch-emaki.csv (%d records)" % (len(rows), len(er)))
 
 
-def _script_box_calls(d):
-    """mission script bytes -> {int constant: set(native names)} for constants pushed (op 0x29) right before a native call."""
+def _script_box_calls(path):
+    """Read script triggers with the validated LFM decoder; return placement -> calls and proven starts.
+
+    A gate is a WaitWarpStart(G) whose later Create of the selected body is either in the same
+    function, or in a parallel function that EndWarpRights(G) then Creates. Kind is door when any
+    StartWarpByGadgetRights uses G, else box when StartWarp uses G. CALL_NATIVE ids are 1-based
+    (lfm_disasm.insn_name). A later IsInteractionPlayer on that body is not a gate: it can start a
+    different placement's BossBattleMode.
+    """
+    here = ROOT / "re" / "scripts_re"
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import lfm_disasm
     try:
-        ln = d[0]
-        q = 1 + ln
-        cnt = struct.unpack_from("<H", d, q)[0]
-        q += 2
-        names = []
-        for _ in range(cnt):
-            n = struct.unpack_from("<H", d, q)[0]
-            names.append(d[q + 6:q + 6 + n].decode("latin1"))
-            q += 6 + n + 1
-        n = struct.unpack_from("<H", d, q)[0]
-        q += 2
-        syms = {struct.unpack_from("<HHH", d, q + 6 * i)[1]: struct.unpack_from("<HHH", d, q + 6 * i)[0] for i in range(n)}
-        q += 6 * n
-        ms = list(re.finditer(rb"[\x20-\x7e\x80-\xff]{3,}\x00", d[q:]))
-        pe = q + ms[0].end() if ms else q
-        for m in ms[1:]:
-            if q + m.start() - pe > 5:
-                break
-            pe = q + m.end()
-        i = d.index(b"\x35\x00", pe)
-    except (ValueError, IndexError, struct.error):
+        s = lfm_disasm.load(str(path))
+    except (OSError, ValueError, IndexError, struct.error):
         return {}
-    ops = []
-    while i + 2 <= len(d):
-        o = struct.unpack_from("<H", d, i)[0]
-        if o in (0x1b, 0x1f, 0x3b, 0x3a, 0x01, 0x2f, 0x50, 0x51):
-            ln = 2
-        elif o in (0x29, 0x2d, 0x22, 0x23, 0x24, 0x30, 0x31, 0x05, 0x11, 0x3e, 0x3d):
-            ln = 4
-        elif o in (0x35, 0x2c, 0x2e):
-            if i + 4 > len(d):
-                break
-            ln = 2 + (8 if o == 0x35 else 4) * struct.unpack_from("<H", d, i + 2)[0]
-        else:
-            ln = 0
-        if o > 0x5f or i + 2 + ln > len(d):
-            break
-        ops.append((o, d[i + 2:i + 2 + ln]))
-        i += 2 + ln
+    if not s.insns:
+        return {}
+
+    functions, cur = {}, None
+    for ins in s.insns:
+        if ins.op == 0x3B:
+            cur = lfm_disasm.insn_name(s, ins)
+            functions[cur] = []
+        elif cur is not None:
+            functions[cur].append(ins)
+    names = lambda ins: lfm_disasm.insn_name(s, ins)
+
+    def literal_args(at):
+        # LFM decoder returns literal scalar arguments as decimal strings; packed WORDS arrays are hex words.
+        out = []
+        for token in lfm_disasm.call_args(s, at):
+            try:
+                out.append(int(token, 0))
+            except (TypeError, ValueError):
+                if isinstance(token, str) and token.startswith("[") and token.endswith("]"):
+                    for word in token[1:-1].split(","):
+                        try:
+                            out.append(int(word, 16))
+                        except ValueError:
+                            pass
+        return out
+
     out = collections.defaultdict(set)
-    sym = lambda x: names[syms[struct.unpack("<H", x)[0]]] if struct.unpack("<H", x)[0] in syms and syms[struct.unpack("<H", x)[0]] < len(names) else ""
-    funcs, cur = [], None
-    for k, (o, x) in enumerate(ops):
-        if o == 0x3b and len(x) == 2:
-            cur = {"name": sym(x), "calls": []}
-            funcs.append(cur)
-            continue
-        if o in (0x1b, 0x1f) and len(x) == 2:
-            nm = sym(x)
-            ints = [struct.unpack("<i", ops[j][1])[0] for j in range(max(0, k - 5), k) if ops[j][0] == 0x29]
-            if cur is not None:
-                cur["calls"].append((nm, ints))
-            if not nm.startswith(TRIG_CALLS) or not ("Box" in nm or "Invade" in nm):
+    end_rights = collections.defaultdict(list)
+    doors, boxes = set(), set()
+    waits = []
+    for fn, insns in functions.items():
+        for k, ins in enumerate(insns):
+            if ins.op not in (0x1B, 0x1F):
                 continue
-            for v in ints:
-                out[v].add(nm)
-    # boss gates: the id a mission-specific function waits on with Function::WaitWarpStart before it creates the boss / starts
-    # BossBattleMode; 'door' = some function opens it with Function::StartWarpByGadgetRights (the boss gate gadget), 'box' = with
-    # Function::StartWarp (an arena box check). Both are the game's exclusive-rights warp (Online::RequestExclusiveRights).
-    door, boxw, gates = set(), set(), []
-    for f in funcs:
-        if f["name"].startswith("Function::"):
+            nm = names(ins)
+            vals = literal_args(s.insns.index(ins))
+            if nm.startswith(TRIG_CALLS) and ("Box" in nm or "Invade" in nm):
+                for v in vals:
+                    out[v].add(nm)
+            if not vals or vals[0] <= 0:
+                continue
+            gid = vals[0] & 0xFFFFFFFF
+            if nm == "Function::WaitWarpStart":
+                waits.append((fn, k, gid))
+            elif nm == "Function::EndWarpRights":
+                end_rights[gid].append((fn, k))
+            elif nm == "Function::StartWarpByGadgetRights":
+                doors.add(gid)
+            elif nm == "Function::StartWarp":
+                boxes.add(gid)
+
+    def creates_after(fn, begin):
+        found = set()
+        insns = functions.get(fn, [])
+        for ins in insns[begin:]:
+            if ins.op not in (0x1B, 0x1F):
+                continue
+            if names(ins) in ("Character::Create", "Character::CreateAndWait"):
+                found.update(v & 0xFFFFFFFF for v in literal_args(s.insns.index(ins)) if v > 0)
+        return found
+
+    gates = []
+    for fn, k, gate in waits:
+        created = creates_after(fn, k + 1)
+        for efn, ek in end_rights.get(gate, []):
+            created |= creates_after(efn, ek + 1)
+        if not created:
             continue
-        for nm, ints in f["calls"]:
-            if ints and nm == "Function::StartWarpByGadgetRights":
-                door.add(ints[-1] & 0xFFFFFFFF)
-            if ints and nm == "Function::StartWarp":
-                boxw.add(ints[-1] & 0xFFFFFFFF)
-    for f in funcs:
-        if f["name"].startswith("Function::"):
-            continue
-        cn = [nm for nm, _ in f["calls"]]
-        if "Function::WaitWarpStart" not in cn or not ("Mission::BossBattleMode" in cn or any(c.startswith("Character::Create") for c in cn)):
-            continue
-        creates = sorted({v for nm, ints in f["calls"] if nm.startswith("Character::Create") for v in ints if v > 0})
-        for nm, ints in f["calls"]:
-            if nm == "Function::WaitWarpStart" and ints:
-                gates.append((f["name"], ints[-1] & 0xFFFFFFFF, creates))
-                break
-    out[None] = [(fn, g, "door" if g in door else "box" if g in boxw else "other", cr) for fn, g, cr in gates]
+        kind = "door" if gate in doors else "box" if gate in boxes else "other"
+        gates.append((fn, gate, kind, sorted(created)))
+
+    out[None] = gates
     return out
 
 
@@ -324,7 +331,7 @@ def build_fight_index():
                              "ex": "", "ey": "", "ez": "", "name": "#%d" % j})
         snm = E.get(struct.unpack_from("<I", rec, 0x50)[0])
         sp = files.get(snm) if snm else None
-        trig = _script_box_calls(sp.read_bytes()) if sp else {}
+        trig = _script_box_calls(sp) if sp else {}
         for fn, g, kind, cr in trig.pop(None, []):
             rows.append({"mission_id": mh, "kind": "gate", "id": g, "flags": kind, "sub": " ".join(str(c) for c in cr[:12]), "x": "0", "y": "0",
                          "z": "0", "yaw": "0", "ex": "", "ey": "", "ez": "", "name": ascii_(fn)[:60]})
@@ -434,18 +441,21 @@ def pick_fight_start(fi, mid, pid):
 
 
 def pick_gate(fi, mid, pid):
-    """-> (gate id, kind) the boss's start function waits on (WaitWarpStart), or None. One gate in the mission = that one; several =
-    the one whose function creates the boss placement."""
+    """-> (gate id, kind) proven to start the selected placement, or None.
+
+    A mission-wide unique WaitWarpStart is not enough: it may only change location. Require the
+    selected placement in that wait's Create list (same function, or EndWarpRights of the same id).
+    Prefer a door (StartWarpByGadgetRights) over a box over other.
+    """
     m = fi.get(mid)
     if not m or not m["gate"]:
         return None
-    gs = m["gate"]
-    if len({g["id"] for g in gs}) == 1:
-        return gs[0]["id"], gs[0]["flags"]
-    for g in gs:
-        if str(pid) in g["sub"].split():
-            return g["id"], g["flags"]
-    return None
+    hits = [g for g in m["gate"] if str(pid) in g["sub"].split()]
+    if not hits:
+        return None
+    rank = {"door": 0, "box": 1, "other": 2}
+    hits.sort(key=lambda g: (rank.get(g["flags"], 9), g["id"]))
+    return hits[0]["id"], hits[0]["flags"]
 
 
 BAD_TRIG = ("BGM", "JUKE", "ITEM", "GUEST", "INV", "SILENCE", "CLEAR", "VOICE", "TALK", "NOKATANA", "NO_KATANA")

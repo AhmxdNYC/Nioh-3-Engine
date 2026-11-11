@@ -3,29 +3,12 @@
 #include <stdint.h>
 typedef struct { uint32_t mission, placement, gate; } NativeEntryGate;
 static const NativeEntryGate g_native_entry_gates[] = {
-    {0x34u, 76781u, 1653104599u}, // R0034
-    {0x1C7Cu, 84220u, 4143562104u}, // R1C7C
-    {0xF7Fu, 94568u, 2320302828u}, // R0F7F
     {0x2068u, 1071509u, 1072821u}, // R2068
     {0x25E4u, 1047415u, 1047905u}, // R25E4
     {0x4DFu, 1055821u, 1051105u}, // R04DF
-    {0xFCCBu, 1088859u, 1089694u}, // RFCCB
     {0x2EE9u, 340693u, 348369u}, // R2EE9
-    {0x9A25u, 353508u, 262638326u}, // R9A25
-    {0xEA75u, 364374u, 368649u}, // REA75
-    {0x7B35u, 375545u, 62177372u}, // R7B35
-    {0x3513u, 580015u, 3889812035u}, // R3513
-    {0xC12u, 597242u, 3263903048u}, // R0C12
     {0xB24Du, 573339u, 573194u}, // RB24D
-    {0x4D8Eu, 4056771u, 3715625741u}, // R4D8E
-    {0xCC53u, 4067651u, 3885759653u}, // RCC53
     {0xE7BDu, 4075848u, 4070877u}, // RE7BD
-    {0x401Eu, 4087191u, 3694614375u}, // R401E
-    {0x1DEAu, 4092708u, 3285348496u}, // R1DEA
-    {0x5CC4u, 4105770u, 1765768116u}, // R5CC4
-    {0x1359u, 8043173u, 2854124563u}, // R1359
-    {0x19EAu, 8054890u, 3352433770u}, // R19EA
-    {0xDC12u, 8073284u, 657319613u}, // RDC12
 };
 static uint32_t NativeEntryGateFind(uint32_t mission, uint32_t placement) {
     for (unsigned i = 0; i < sizeof g_native_entry_gates / sizeof *g_native_entry_gates; ++i)

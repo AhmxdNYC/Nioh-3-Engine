@@ -43,15 +43,33 @@ class GateTests(unittest.TestCase):
         self.assertEqual([(m['placement'],m['chr']) for m in members],[(100,9),(201,2)])
         # Before-wait, absent, duplicate and same-character unrelated placements excluded.
 
+    def test_end_warp_rights_create_is_link(self):
+        names=['root','Function::WaitWarpStart','Character::Create','Function::EndWarpRights','waitfn','endfn']
+        # ident 20/30/40 match the shuffled helper: WaitWarpStart, Create, EndWarpRights
+        syms=[(4,10,0),(1,20,0),(2,30,0),(3,40,0),(5,50,0),(0,60,0)]
+        s=types.SimpleNamespace(names=names,syms=syms,insns=[
+            entry(0,10),lit(4,90),call(10,20),
+            entry(20,50),lit(24,90),call(30,40,0x1b),lit(34,100),call(40,30,0x1b)])
+        self.assertEqual(g.gate_paths(s,100,pool=[])[0]['gate'],90)
+        self.assertEqual(g.gate_paths(s,101,pool=[]),[])
+
+    def test_create_before_end_warp_is_not_link(self):
+        names=['root','Function::WaitWarpStart','Character::Create','Function::EndWarpRights','waitfn','endfn']
+        syms=[(4,10,0),(1,20,0),(2,30,0),(3,40,0),(5,50,0),(0,60,0)]
+        s=types.SimpleNamespace(names=names,syms=syms,insns=[
+            entry(0,10),lit(4,90),call(10,20),
+            entry(20,50),lit(24,100),call(30,30,0x1b),lit(34,90),call(40,40,0x1b)])
+        self.assertEqual(g.gate_paths(s,100,pool=[]),[])
+
     def test_real_provenance_and_runtime_selection(self):
         data=json.loads((ROOT/'notes/native-entry-gates-72263.json').read_text())
         rows=data['rows'];self.assertEqual((ROOT/'mod/Nioh3Training/src/native_entry_sequences_gen.h').read_text(),g.render_sequences(rows))
-        rf=next(r for r in rows if r['id']=='RFCCB');members={m['placement']:m['chr'] for m in rf['members']}
-        self.assertEqual(members[1086380],491486);self.assertEqual(members[1087603],491486)
-        self.assertNotIn(1080072,members) # parameter-based Create intentionally not inferred
+        rb=next(r for r in rows if r['id']=='RB24D');members={m['placement']:m['chr'] for m in rb['members']}
+        self.assertEqual(members[573339],720656)
+        self.assertNotIn(572110,members)  # Hiruko is an interact Create, not the door spawn
         self.assertEqual((ROOT/'mod/Nioh3BossRematch/src/native_entry_gates_gen.h').read_text(),g.render(rows))
-        expected={'R25E4':1047905,'RB24D':573194,'RFCCB':1089694,'R2068':1072821,'R9A25':262638326}
-        self.assertEqual({r['id']:r['gate'] for r in rows if r['id'] in expected},expected)
+        expected={'R25E4':1047905,'RB24D':573194,'R2068':1072821,'R04DF':1051105,'R2EE9':348369,'RE7BD':4070877}
+        self.assertEqual({r['id']:r['gate'] for r in rows},expected)
         s=(ROOT/'mod/Nioh3BossRematch/src/rematch.cpp').read_text();a=s.index('static uint32_t EntryGateChoice(');b=s.index('\nbool g_exitOk',a)
         body=s[a:b];header=(ROOT/'mod/Nioh3BossRematch/src/native_entry_gates_gen.h').read_text()
         checks=[]

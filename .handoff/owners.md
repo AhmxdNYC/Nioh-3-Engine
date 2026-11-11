@@ -204,3 +204,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-11 11:40 am EST | cx-pc #87295 | E0 SelfTest now uses ExecEmaki and per-request first-wave evidence; ID0 refuses before clear DB/current-id match. Native replay guards retained.
 - Actual-body offline sweep/negative gates PASS; MSVC build PASS BR e1f10940. Existing unbeaten_menu Items assertion fails unchanged base (TECH_DEBT). Next pc: source review and live four-scroll sweep; no install/game. Branch cx-pc/scroll-selftest-87295; notes/scroll-selftest-87295.md.
+- 2026-11-11 4:36 pm EST | cx-pc #88279 done offline. origin/cx-pc/dv-trigger-88279 BR #6773 sha c5b6c9ab TR #6775 sha df98ad64 TSV #6774 sha e9aa09cd. RB24D gate 573194 door. Not installed. pc owns the live check. No game.
