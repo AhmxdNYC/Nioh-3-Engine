@@ -2371,7 +2371,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
 
 // ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
 // Proton and any device without the pipe). Per row: wait until idle in the field for 8 s -> fight -> PASS / FAIL (the Fight now
-// verification; E0 uses native scroll entry and first active wave) -> 4 s -> leave the mission -> next.
+// verification; E0 uses native scroll entry and first active wave) -> SelfTestHoldMs (default 4000) -> leave the mission -> next.
 // Log lines 'SELFTEST ...'; never runs online.
 struct SelfTest {
     std::vector<int> rows;
@@ -2379,6 +2379,7 @@ struct SelfTest {
     int phase = 0;  // 0 wait idle, 1 started, 2 result seen -> exit, 3 left, 4 done
     ULONGLONG since = 0, idleSince = 0;
     int pass = 0, fail = 0, skip = 0;
+    int holdMs = 4000;  // [Rematch] SelfTestHoldMs; missing or negative stays today's 4 s
     bool exitSent = false;
     char table[600] = "";
 } g_st;
@@ -2449,7 +2450,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         return;
     }
     if (st.phase == 2) {
-        if (t - st.since < 4000) return;
+        const ULONGLONG hold = (ULONGLONG)st.holdMs;
+        if (t - st.since < hold) return;
         if (stt == kIdle) {
             st.phase = 3;
             st.since = t;
@@ -2458,9 +2460,9 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         if (!st.exitSent) {
             st.exitSent = true;
             Post(kReqExit, -1, "self-test");
-        } else if (t - st.since > 120000) {  // never left: try again
+        } else if (t - st.since > 120000) {  // never left: try again; stamp so this hold is already elapsed
             Post(kReqExit, -1, "self-test (again)");
-            st.since = t - 4000;
+            st.since = t - hold;
         }
         return;
     }
@@ -4204,6 +4206,9 @@ bool Prepare() {
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     OnEntry("IsDeathGroupEnemy", &HkLesson);  // log-only: which lesson group the script is still waiting on
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
+        int hold = IniInt(L"Rematch", L"SelfTestHoldMs", 4000);
+        if (hold < 0) hold = 4000;
+        g_st.holdMs = hold;
         char st8[512] = {};
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
         if (!_stricmp(st8, "arena")) {
@@ -4215,7 +4220,7 @@ bool Prepare() {
                 for (size_t i = 0; i < g_rows.size(); ++i)
                     if (!_stricmp(g_rows[i].id, tok)) g_st.rows.push_back((int)i);
         }
-        Log("Rematch: SELFTEST armed: %zu rows (%ls); starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw);
+        Log("Rematch: SELFTEST armed: %zu rows (%ls); hold %d ms; starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw, g_st.holdMs);
     }
     Log("Startup: installing Rematch FIGHT group");
     if (!InstallGroup("FIGHT", &why)) {
