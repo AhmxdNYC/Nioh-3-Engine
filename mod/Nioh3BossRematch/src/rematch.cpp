@@ -26,6 +26,7 @@
 #include "addon.h"
 #include "gamerva.h"
 #include "native_entry_gates_gen.h"
+#include "native_entry_waves_gen.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -1195,10 +1196,144 @@ bool VetoWaveRequest(int) {  // script thread
     if (logged.fetch_add(1) < 8) Log("Rematch: scroll Training: Emaki::RequestWaveBattle SKIPPED (no waves on this trip)");
     return true;
 }
+// Staged invade-box waves (#88648). The scroll veto runs on the script thread with rcx = the binding's VM
+// wrapper. This uses that same wrapper: push one int, call WaveBattle::RequestID, then put the stack count
+// and the arg base back so the native we interrupted still sees its own arguments. No mission-flag writes.
+enum { kWvOff = 0, kWvReq = 1, kWvAct = 2, kWvClr = 3, kWvDone = 4 };
+struct StagedWaves {
+    const uint16_t* id = nullptr;
+    uint16_t n = 0;
+    uint16_t index = 0;
+    volatile LONG step = kWvOff;
+    volatile LONG busy = 0;
+} g_wv;
+struct WaveFrame {
+    uint64_t countObj = 0, values = 0, inner = 0, count = 0;
+    uint16_t base = 0;
+    bool pushed = false;
+};
+bool WavePush(uint64_t wrapper, uint32_t id, WaveFrame* f) {
+    uint64_t script = 0, cap = 0;
+    if (!f || wrapper < 0x10000 || !Rd(wrapper + 8, script) || script < 0x10000) return false;
+    if (!Rd(script + 0x18, f->values) || !Rd(script + 0x20, f->countObj) || !Rd(script + 8, f->inner)) return false;
+    if (f->values < 0x10000 || f->countObj < 0x10000 || f->inner < 0x10000) return false;
+    if (!Rd(f->countObj, f->count) || !Rd(f->countObj + 8, cap) || f->count >= cap || cap > 100000) return false;
+    if (!Rd(f->inner + 0xA6, f->base)) return false;
+    uint8_t slot[8] = {};
+    memcpy(slot, &id, 4);
+    const uint16_t typ = 1;
+    memcpy(slot + 4, &typ, 2);
+    if (!WrBytes(f->values + f->count * 8, slot, 8)) return false;
+    const uint64_t next = f->count + 1;
+    if (!WrBytes(f->countObj, &next, 8)) return false;
+    const uint16_t nb = (uint16_t)f->count;
+    if (!WrBytes(f->inner + 0xA6, &nb, 2)) {
+        WrBytes(f->countObj, &f->count, 8);
+        return false;
+    }
+    f->pushed = true;
+    return true;
+}
+void WaveRestore(const WaveFrame& f) {
+    if (!f.pushed) return;
+    WrBytes(f.inner + 0xA6, &f.base, 2);
+    WrBytes(f.countObj, &f.count, 8);
+}
+// No C++ object in this function: MSVC rejects __try where a destructor would run.
+int WaveInvoke(uintptr_t fn, uint64_t wrapper, WaveFrame* f, bool* outBool) {
+    __try {
+        ((void (*)(uint64_t))fn)(wrapper);
+        if (outBool) {
+            uint64_t now = 0;
+            uint8_t top[8] = {};
+            *outBool = false;
+            if (Rd(f->countObj, now) && now > 0 && Copy(top, f->values + (now - 1) * 8, 8)) *outBool = top[0] != 0;
+        }
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return -1;
+    }
+}
+// 1 called, 0 the stack was not ready, -1 the binding faulted. A bool result is read before the count is restored.
+int WaveCall(uint64_t wrapper, const char* site, uint32_t id, bool* outBool) {
+    const uintptr_t fn = Site(site);
+    if (!fn) return 0;
+    WaveFrame f = {};
+    if (!WavePush(wrapper, id, &f)) return 0;
+    const int rc = WaveInvoke(fn, wrapper, &f, outBool);
+    WaveRestore(f);
+    return rc;
+}
+void StagedWaveReset() {
+    g_wv.id = nullptr;
+    g_wv.n = 0;
+    g_wv.index = 0;
+    InterlockedExchange(&g_wv.step, kWvOff);
+}
+void StagedWaveArm(uint32_t mission) {
+    if (g_wv.step != kWvOff) return;
+    uint16_t n = 0;
+    const uint16_t* w = NativeEntryWaves(mission, &n);
+    if (!w || !n) {
+        InterlockedExchange(&g_wv.step, kWvDone);
+        return;
+    }
+    g_wv.id = w;
+    g_wv.n = n;
+    g_wv.index = 0;
+    InterlockedExchange(&g_wv.step, kWvReq);
+    Log("Rematch: staged waves armed mission 0x%X count %u first %u (script thread, no box place)", mission, n, w[0]);
+}
+void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    const LONG step = g_wv.step;
+    if (step != kWvReq && step != kWvAct && step != kWvClr) return;
+    if (InterlockedExchange(&g_wv.busy, 1)) return;
+    __try {
+        if (g_wv.index >= g_wv.n || !g_wv.id) {
+            g_wv.step = kWvDone;
+        } else {
+            const uint32_t id = g_wv.id[g_wv.index];
+            if (step == kWvReq) {
+                const int rc = WaveCall(rcx, "WaveBattle::RequestID", id, nullptr);
+                if (rc < 0) {
+                    g_wv.step = kWvDone;
+                    Log("Rematch: staged wave RequestID %u faulted; chain stopped", id);
+                } else if (rc > 0) {
+                    g_wv.step = kWvAct;
+                    Log("Rematch: staged wave RequestID %u (%u/%u)", id, (unsigned)g_wv.index + 1, g_wv.n);
+                }
+            } else {
+                bool on = false;
+                const char* site = step == kWvAct ? "WaveBattle::IsActiveID" : "WaveBattle::IsClearID";
+                const int rc = WaveCall(rcx, site, id, &on);
+                if (rc < 0) {
+                    g_wv.step = kWvDone;
+                    Log("Rematch: staged wave %s %u faulted; chain stopped", site, id);
+                } else if (rc > 0 && on) {
+                    if (step == kWvAct) {
+                        g_wv.step = kWvClr;
+                        Log("Rematch: staged wave %u active", id);
+                    } else {
+                        Log("Rematch: staged wave %u clear", id);
+                        g_wv.index++;
+                        g_wv.step = g_wv.index < g_wv.n ? (LONG)kWvReq : (LONG)kWvDone;
+                    }
+                }
+            }
+        }
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        g_wv.step = kWvDone;
+        Log("Rematch: staged wave hook faulted; chain stopped");
+    }
+    InterlockedExchange(&g_wv.busy, 0);
+}
 void InstallClearGuard() {
     const char* why = nullptr;
     g_waveVetoOk = InstallVeto("Emaki::RequestWaveBattle", &VetoWaveRequest, &why);
     Log("Rematch: scroll Training wave guard %s%s", g_waveVetoOk ? "installed" : "NOT installed: ", g_waveVetoOk ? "" : (why ? why : "?"));
+    why = nullptr;
+    const bool stagedWave = InstallEntry("Time::DebugDispPoppingWait", &OnStagedWave, &why);
+    Log("Rematch: staged wave hook %s%s", stagedWave ? "installed" : "NOT installed: ", stagedWave ? "" : (why ? why : "?"));
     why = nullptr;
     g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
     Log("Rematch: IgnoreProgress %s; clear guard %s%s%s", g_cfg.ignoreProgress ? "ON (unbeaten bosses can be fought)" : "off",
@@ -2399,6 +2534,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     if (st.phase == 0) {
         if (st.next >= st.rows.size()) {
             st.phase = 4;
+            StagedWaveReset();
             Log("Rematch: SELFTEST DONE pass=%d fail=%d skip=%d:%s", st.pass, st.fail, st.skip, st.table);
             ToastF(cCyan, 15000, "Boss Matches self-test: %d pass, %d fail, %d skip (see the log)", st.pass, st.fail, st.skip);
             return;
@@ -2423,6 +2559,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
             st.idleSince = 0;
             return;
         }
+        StagedWaveReset();
         Log("Rematch: SELFTEST %s (%zu/%zu): %s", r.id, st.next + 1, st.rows.size(), scroll ? "Picture Scroll (first wave)" : "Fight now");
         Post(scroll ? kReqEmaki : kReqFight, row, "self-test");
         st.phase = 1;
@@ -2440,6 +2577,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
             s.emakiOk && s.emaki && !s.st[2] &&
             s.player && !s.online && !s.guest && !g_scrollNoWaves.load() &&
             AttemptEffectsAllowed() && g_wavePlace.seenFight;
+        if (!scroll && g_wv.step == kWvOff && s.msOk && s.player && s.ms28 == r.missionId && !(s.st[2] || s.st[3] || s.st[4]))
+            StagedWaveArm(r.missionId);
         const bool over = scroll ? wave : (fn == kFnPass || fn == kFnFail);
         const bool gaveUp = (stt == kIdle && t - st.since > 15000 &&
             (scroll || (fn != kFnWarped && fn != kFnArmed))) || t - st.since > 300000;
@@ -2462,7 +2601,14 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     }
     if (st.phase == 2) {
         // Test-only. One warp, 3 s after PASS, while the hold is still counting. Loading waits. A FAIL never moves.
-        if (st.placeOn && st.lastOk && !st.placed && t - st.since >= 3000 && !(s.st[2] || s.st[3] || s.st[4] || !s.player)) {
+        // A mission with staged invade waves is not placed: the script thread requests those waves instead.
+        uint16_t waveN = 0;
+        const bool staged = NativeEntryWaves(r.missionId, &waveN) && waveN;
+        if (st.placeOn && staged && !st.placed) {
+            st.placed = true;
+            Log("Rematch: SELFTEST place skipped - staged waves run on the script thread");
+        }
+        if (!staged && st.placeOn && st.lastOk && !st.placed && t - st.since >= 3000 && !(s.st[2] || s.st[3] || s.st[4] || !s.player)) {
             st.placed = true;
             if (!g_warpOk) {
                 Log("Rematch: SELFTEST place skipped - the Player::SetPos path is off");

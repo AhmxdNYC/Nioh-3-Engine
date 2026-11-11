@@ -70,6 +70,11 @@ SPEC = [
     ("Mission::ClearGadgetAccessWaitMode", "ROSTER", H, 0x23A3260, 9),
     # SCROLLTRAIN (#79069: Training at a Picture Scroll arena, the script's wave request is skipped for that trip only)
     ("Emaki::RequestWaveBattle", "SCROLLTRAIN", H, 0x239A630, 5),
+    # STAGED (#88648: after the door landing, request each invade-box station on the script thread)
+    ("Time::DebugDispPoppingWait", "STAGED", H, 0x23B2280, 9),
+    ("WaveBattle::RequestID", "STAGED", H, 0x23B91F8, 5),
+    ("WaveBattle::IsActiveID", "STAGED", H, 0x90EA34, 9),
+    ("WaveBattle::IsClearID", "STAGED", H, 0x23B9168, 9),
     # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
     ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
     ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),

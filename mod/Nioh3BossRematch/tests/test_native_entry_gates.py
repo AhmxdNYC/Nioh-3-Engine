@@ -53,6 +53,27 @@ class GateTests(unittest.TestCase):
         self.assertEqual(g.gate_paths(s,100,pool=[])[0]['gate'],90)
         self.assertEqual(g.gate_paths(s,101,pool=[]),[])
 
+    def test_staged_wave_follows_invade_and_skips_a_bare_request(self):
+        names=['root','Function::Wait_InvadeBox_Online','WaveBattle::RequestID','Function::Wait_InvadeBox_HostOnly','noise']
+        syms=[(0,10,0),(1,20,0),(2,30,0),(3,40,0),(4,50,0)]
+        s=types.SimpleNamespace(names=names,syms=syms,insns=[
+            entry(0,10),lit(4,34449),call(8,30,0x1b),
+            entry(20,10),lit(24,1),call(28,20,0x1b),lit(34,65218),call(38,30,0x1b),
+            entry(50,10),lit(54,16889),call(58,30,0x1b),lit(64,2),call(68,40,0x1b),
+            entry(80,10),lit(84,3),call(88,40,0x1b),lit(94,24284),call(98,30,0x1b)])
+        self.assertEqual(g.staged_wave_ids(s),[65218,24284])
+
+    def test_death_veil_stations_are_the_invade_requests_only(self):
+        data=json.loads((ROOT/'notes/native-entry-gates-72263.json').read_text())
+        rb=next(r for r in data['rows'] if r['mission']==0xB24D)
+        lfm=ROOT/'data/extract/lfm'
+        if not lfm.exists():lfm=Path(r'C:\Users\Ahmad Hamza\nioh3-engine\data\extract\lfm')
+        waves=g.staged_wave_ids(g.dis.load(lfm/rb['script']))
+        self.assertEqual(waves,[65218,16889,24284,63339])
+        text=(ROOT/'mod/Nioh3BossRematch/src/native_entry_waves_gen.h').read_text()
+        self.assertIn('{0xB24Du, 4u, {65218, 16889, 24284, 63339, 0, 0, 0, 0}},',text)
+        self.assertNotIn('RB24D',text)
+
     def test_create_before_end_warp_is_not_link(self):
         names=['root','Function::WaitWarpStart','Character::Create','Function::EndWarpRights','waitfn','endfn']
         syms=[(4,10,0),(1,20,0),(2,30,0),(3,40,0),(5,50,0),(0,60,0)]
