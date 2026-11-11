@@ -1391,8 +1391,12 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_trGateArmed = false;
         // #71926: door-waiting boss scripts (WaitWarpStart) never create the boss without this right, and it moves nothing, so it stays on when Training owns the destination.
         g_gateWant.store(EntryGateChoice(r.missionId, r.placement, r.gateId, r.GateDoor(), r.atFight, g_trainingDestination, warp, g_gateOk));
-        if (g_gateWant.load())
+        if (g_gateWant.load()) {
             Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, g_gateWant.load(), g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement) ? "script WaitWarpStart" : r.gateKind);
+            // #88516: tell Training a door-waiting script owns this boss, so idle same-character bodies are not taken as it.
+            if (g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement))
+                if (const auto pend = (void (*)(uint32_t))TrainingExport("Nioh3Training_NativeGatePending")) pend(r.missionId);
+        }
         g_warpPending = false;
         g_warps = 0;
         g_fn.store(warp ? kFnArmed : kFnIdle);

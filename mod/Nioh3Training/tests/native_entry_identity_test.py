@@ -12,7 +12,7 @@ pre=r'''
 #include <assert.h>
 #include <stdio.h>
 #include "fallback_rosters_gen.h"
-typedef struct {char id[16];uint32_t chr,placement;} ArenaRow;
+typedef struct {char id[16];uint32_t chr,placement,mission;} ArenaRow;
 static uint64_t wrapper[4],actor,registry,player,owned;
 static uint32_t record[2];
 static uint64_t FindWrapper(uint32_t p){return p==record[0]?(uint64_t)wrapper:0;}
@@ -30,6 +30,8 @@ int main(void){
  assert(NativeEntryPlacement(&r)==4097963); // native branch creates third roster member
  fighting=0;assert(!NativeEntryPlacement(&r)); // idle same-character extra is not native-live
  fighting=1;assert(NativeEntryPlacement(&r)==4097963);
+ r.mission=0xB24D;g_en_doorMission=0xB24D;assert(!NativeEntryPlacement(&r)); // #88516 boss door pending: roster extras are not the boss
+ g_en_doorMission=0x1234;assert(NativeEntryPlacement(&r)==4097963);g_en_doorMission=0;r.mission=0;
  record[1]++;assert(!NativeEntryPlacement(&r));record[1]--;
  registry++;assert(!NativeEntryPlacement(&r));registry--;
  player=actor;assert(!NativeEntryPlacement(&r));player=0;

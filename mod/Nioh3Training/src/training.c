@@ -2064,8 +2064,12 @@ static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, u
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
 static int NativeBossFighting(uint32_t placement);
+// #88516: BR armed a door the boss script waits on (WaitWarpStart). That script creates the row's own placement;
+// same-character roster bodies already standing in the mission are background extras (RB24D 574946), not the fight.
+static uint32_t g_en_doorMission;
 static uint32_t NativeEntryPlacement(const ArenaRow* r) {
     if (NativeEntryActor(r->placement, r->chr)) return r->placement;
+    if (g_en_doorMission && g_en_doorMission == r->mission) return 0;
     for (unsigned i = 0; i < sizeof g_native_roster_candidates / sizeof *g_native_roster_candidates; ++i) {
         const NativeRosterCandidate* c = &g_native_roster_candidates[i];
         if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr) && NativeBossFighting(c->placement))
@@ -2116,7 +2120,7 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, anchorOk, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 // BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
@@ -2135,7 +2139,9 @@ static int NativeAnchorPoint(const ArenaRow* r, float pp[4]) {
 static int NativeFightRecoverPos(float p[4]) {
     uint32_t mission = 0, mode = 0; uint8_t journey = 0;
     if (g_ph_anchor_dead) return 0; // the stand already dropped the player; do not warp back to it
-    if (!g_en.anchored || !g_en.row || g_en.fellBack) return 0;
+    // #88516: only a stand the player has actually stood on (1 s, on the anchor) is a recovery point; an unvalidated
+    // row-derived stand can be mid-air (RB24D 90723 33256 82978: four recovery warps, then death).
+    if (!g_en.anchored || !g_en.anchorOk || !g_en.row || g_en.fellBack) return 0;
     if (!MsRead(&mission, &journey, &mode) || mission != g_en.row->mission) return 0;
     memcpy(p, g_en.anchor, sizeof g_en.anchor);
     return 1;
@@ -2155,13 +2161,18 @@ N3T_API int Nioh3Training_NativeEntryRoute(uint32_t mission) {
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
 // #71926: BR opened the door this mission's boss script waits for; its intro and CreateAndWait run now, so hold the near-boss move and the fallback.
+N3T_API void Nioh3Training_NativeGatePending(uint32_t mission) {
+    g_en_doorMission = mission;
+    Log("ENTER: boss door pending for mission 0x%X; roster extras are not the boss and no near-boss stand until the script's own boss", mission);
+}
 N3T_API void Nioh3Training_NativeGateOpened(uint32_t mission) {
+    if (mission) g_en_doorMission = mission;
     // Route 2 can be an idle same-character body. The door still starts the real Create; resume the watch.
     if (!g_en.row || g_en.row->mission != mission || g_en.gated || g_en.fellBack) return;
     if (!g_en.active && g_en.route != 1 && g_en.route != 2) return;
     g_en.gated = 1; g_en.tGate = GetTickCount();
     g_en.active = 1; g_en.dormant = 0; g_en.route = 1;
-    g_en.anchored = 0; // hazard recovery must not warp to that idle body's stand
+    g_en.anchored = 0; g_en.anchorOk = 0; // hazard recovery must not warp to that idle body's stand
     Log("ENTER %s: boss door opened by BR; waiting for the script's own boss", g_en.row->id);
 }
 static void EntryCoverBegin(ArenaRow* r);
@@ -2382,7 +2393,12 @@ static void EnterTick(void) {
                 return;
             }
             if (!g_en.tStable || fabsf(cur[1] - g_en.stableY) > 20.0f) { g_en.tStable = now; g_en.stableY = cur[1]; }
-            else if (now - g_en.tStable >= 1000) { memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1; }
+            else if (now - g_en.tStable >= 1000) {
+                memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1;
+                if (g_en.anchored && !g_en.anchorOk && fabsf(cur[0] - g_en.anchor[0]) < 300.0f && fabsf(cur[2] - g_en.anchor[2]) < 300.0f && fabsf(cur[1] - g_en.anchor[1]) < 400.0f) {
+                    g_en.anchorOk = 1; Log("ENTER %s: near-boss stand validated (player stood 1 s at %.0f %.0f %.0f)", r->id, cur[0], cur[1], cur[2]);
+                }
+            }
         }
         uint32_t sequencePlacement = g_en.gated ? NativeEntrySequenceLive(r) : 0;
         if (sequencePlacement) {
@@ -2396,7 +2412,8 @@ static void EnterTick(void) {
         }
         uint32_t nativePlacement = NativeEntryPlacement(r);
         if (nativePlacement && NativeBossReady(r, nativePlacement)) {
-            if (!g_en.anchored && !NativeEntryBoxFor(r) && NativeAnchorPoint(r, g_en.anchor) &&
+            // #88516: a door-waiting script owns the player's arrival (its own warp); never stand the player from row data there.
+            if (!g_en.anchored && g_en_doorMission != r->mission && !NativeEntryBoxFor(r) && NativeAnchorPoint(r, g_en.anchor) &&
                 Warp(g_en.anchor[0], g_en.anchor[1], g_en.anchor[2], g_en.anchor[3], 1)) {
                 g_en.anchored = 1; g_en.nudged = 1; g_en.moved = 1; g_en.tWarp = now; EnterTarget(g_en.anchor, g_en.anchor[3]);
                 Log("ENTER %s: boss live far from the mission start; stood %d units from placement %u at %.0f %.0f %.0f", r->id, g_cfg_bossdist, nativePlacement, g_en.anchor[0], g_en.anchor[1], g_en.anchor[2]);
@@ -3071,7 +3088,7 @@ static int FightNowImpl(uint32_t mission) {
             g_fb.row = roster; g_fb.native = 1;
             snprintf(g_fb.name, sizeof g_fb.name, "%s", nativeRow->name);
         }
-        memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
+        memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow; g_en_doorMission = 0; // BR re-arms the door after this call
         g_ph_giveup = 0; g_ph_anchor_dead = 0; // a new mission may stand somewhere that does have a floor
         g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
