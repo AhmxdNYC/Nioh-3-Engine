@@ -2063,20 +2063,30 @@ static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, u
         return a;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
+static int NativeBossFighting(uint32_t placement);
 static uint32_t NativeEntryPlacement(const ArenaRow* r) {
     if (NativeEntryActor(r->placement, r->chr)) return r->placement;
     for (unsigned i = 0; i < sizeof g_native_roster_candidates / sizeof *g_native_roster_candidates; ++i) {
         const NativeRosterCandidate* c = &g_native_roster_candidates[i];
-        if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr)) return c->placement;
+        if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr) && NativeBossFighting(c->placement))
+            return c->placement;
     }
     return 0;
 }
 static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r, uint32_t placement) {
+    uint64_t actor = ActorByHandle(placement), hp = 0;
+    if (!NativeBossFighting(placement) || !actor || !Rd64(actor + 0x3A0, &hp) || !hp) return 0;
+    __try {
+        Log("ENTER %s: native actor %p alive/AI active, Ki %.3f/%.3f (read only)", r->id, (void*)actor, *(float*)(hp + 0xAC), *(float*)(hp + 0xB0));
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static int NativeBossFighting(uint32_t placement) {
     uint64_t actor = ActorByHandle(placement), hp = 0, ctrl = 0, algo = 0;
     if (!actor || !Rd64(actor + 0x3A0, &hp) || !hp || !Rd64(actor + 0x3B0, &ctrl) || !ctrl || !Rd64(ctrl + 0x50, &algo) || !algo) return 0;
     __try {
+        // No AI target: idle 0x4E21 background / same-character extra, not the fight.
         if (*(int32_t*)(hp + 0x48) == 1 || !*(uint64_t*)(hp + 0x58) || !*(uint64_t*)(hp + 0x50) || !*(uint32_t*)(algo + 0x1574)) return 0;
-        Log("ENTER %s: native actor %p alive/AI active, Ki %.3f/%.3f (read only)", r->id, (void*)actor, *(float*)(hp + 0xAC), *(float*)(hp + 0xB0));
         return 1;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
@@ -2146,8 +2156,12 @@ N3T_API int Nioh3Training_NativeEntryRoute(uint32_t mission) {
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
 // #71926: BR opened the door this mission's boss script waits for; its intro and CreateAndWait run now, so hold the near-boss move and the fallback.
 N3T_API void Nioh3Training_NativeGateOpened(uint32_t mission) {
-    if (!g_en.active || !g_en.row || g_en.row->mission != mission || g_en.gated) return;
+    // Route 2 can be an idle same-character body. The door still starts the real Create; resume the watch.
+    if (!g_en.row || g_en.row->mission != mission || g_en.gated || g_en.fellBack) return;
+    if (!g_en.active && g_en.route != 1 && g_en.route != 2) return;
     g_en.gated = 1; g_en.tGate = GetTickCount();
+    g_en.active = 1; g_en.dormant = 0; g_en.route = 1;
+    g_en.anchored = 0; // hazard recovery must not warp to that idle body's stand
     Log("ENTER %s: boss door opened by BR; waiting for the script's own boss", g_en.row->id);
 }
 static void EntryCoverBegin(ArenaRow* r);
@@ -2401,7 +2415,8 @@ static void EnterTick(void) {
         }
         // #71861: the script already placed this boss but keeps it dormant (dojo teacher: lesson enemies come first, box at the row's start). Moving away leaves the
         // script's box, and the fallback's dedupe would delete the teacher and then wait forever. The script owns this fight: never move, never replace.
-        if (!g_en.dormant && nativePlacement && !g_en.fell) {
+        // A WaitWarpStart door is still creating the fighting body; an idle same-character extra is not that teacher.
+        if (!g_en.gated && !g_en.dormant && nativePlacement && !g_en.fell) {
             g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
             if (g_np.started) Log("ENTER %s: native boss placement %u live (fight started); request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             else Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, nativePlacement);

@@ -77,6 +77,10 @@ int main(void){
  Reset();Land();warpOk=0;tick=14000;EnterTick();assert(!g_en.moved&&!fallbacks);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // failed move keeps the 30 s wait
  row.b[0]=100;Reset();Land();tick=14000;EnterTick();assert(warps==1&&!g_en.moved);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1);row.b[0]=5000; // already close: no move
  Reset();Land();placed=1;tick=4300;EnterTick();assert(!g_en.active&&g_en.route==2&&g_en.dormant&&warps==1);tick=40000;EnterTick();assert(warps==1&&!fallbacks); // dormant teacher: no move, no fallback, no delete
+ Reset();Land();placed=1;tick=4300;EnterTick();assert(g_en.dormant&&!g_en.active&&g_en.route==2);
+ Nioh3Training_NativeGateOpened(123);assert(g_en.active&&g_en.gated&&g_en.route==1&&!g_en.dormant&&!g_en.anchored);
+ tick=4600;EnterTick();assert(g_en.active&&g_en.route==1); // door reopens the watch; idle body is not native-alive
+ Reset();Land();g_en.gated=1;g_en.tGate=tick;placed=1;tick=4300;EnterTick();assert(g_en.active&&!g_en.dormant); // after the door, idle catalogue body waits for AI
  Reset();Land();assert(warps==1);tick=4300;EnterTick();pos[1]=-400;tick=4600;EnterTick();assert(warps==1&&!g_en.fell);tick=4900;EnterTick();assert(warps==1&&!g_en.fell); // one drop is not a fall
  Reset();Land();tick=4300;EnterTick();pos[1]=2-160;tick=4600;EnterTick();pos[1]=2-325;tick=4900;EnterTick();assert(!g_en.fell&&warps==1);tick=5900;EnterTick();assert(g_en.safe[1]==2-325); // 3.25 m onto solid ground settles; it is not a void
  Reset();Land();tick=4300;EnterTick();pos[1]=2-400;tick=4600;EnterTick();pos[1]=2-800;tick=4900;EnterTick();assert(!g_en.fell&&warps==1); // 8 m under a catalogue warp is still a landing, not a void

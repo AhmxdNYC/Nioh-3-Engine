@@ -20,19 +20,24 @@ static int Rd64(uint64_t p,uint64_t*v){*v=*(uint64_t*)p;return 1;}
 static uint64_t PlayerChar(void){return player;}
 static int InSp(uint64_t a){return a==owned;}
 static uint64_t ActorByHandle(uint32_t p){return p==record[0]?registry:0;}
+static int fighting=1;
+static int NativeBossFighting(uint32_t p){(void)p;return fighting;}
 '''
 main=r'''
 int main(void){
  ArenaRow r={"R1DEA",889237,4092708};
  record[0]=4097963;record[1]=268880;wrapper[0]=actor=registry=1234;wrapper[3]=(uint64_t)record;
  assert(NativeEntryPlacement(&r)==4097963); // native branch creates third roster member
+ fighting=0;assert(!NativeEntryPlacement(&r)); // idle same-character extra is not native-live
+ fighting=1;assert(NativeEntryPlacement(&r)==4097963);
  record[1]++;assert(!NativeEntryPlacement(&r));record[1]--;
  registry++;assert(!NativeEntryPlacement(&r));registry--;
  player=actor;assert(!NativeEntryPlacement(&r));player=0;
  owned=actor;assert(!NativeEntryPlacement(&r));owned=0;
  strcpy(r.id,"R0034");assert(!NativeEntryPlacement(&r)); // another mission's named actor is not accepted
  strcpy(r.id,"R1DEA");wrapper[0]=0;assert(!NativeEntryPlacement(&r));wrapper[0]=actor;
- record[0]=r.placement;record[1]=r.chr;assert(NativeEntryPlacement(&r)==r.placement);
+ record[0]=r.placement;record[1]=r.chr;fighting=0;
+ assert(NativeEntryPlacement(&r)==r.placement); // catalogue placement may be a dormant teacher
  puts("PASS native-entry identity: alternate, wrong key, stale registry, player, dynamic, wrong row, absent, primary");
 }
 '''
