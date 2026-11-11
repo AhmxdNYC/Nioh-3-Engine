@@ -268,3 +268,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 - 2026-11-11 11:40 am EST | cx-pc #87295 | E0 SelfTest now uses ExecEmaki and per-request first-wave evidence; ID0 refuses before clear DB/current-id match. Native replay guards retained.
 - Actual-body offline sweep/negative gates PASS; MSVC build PASS BR e1f10940. Existing unbeaten_menu Items assertion fails unchanged base (TECH_DEBT). Next pc: source review and live four-scroll sweep; no install/game. Branch cx-pc/scroll-selftest-87295; notes/scroll-selftest-87295.md.
+- 2026-11-11 1:40 pm EST | regression-pc/1 | Human87672: no-hardcoding audit tool on branch regression-pc/no-hardcode-audit (36f00aaa); 42 known findings baselined (worst: EngineFix refuses unknown game builds; Picture Scroll item ids list; R1CBC / 0x1A5E one-off paths). Report notes/regression/no-hardcode-audit-87672.md. Next: frozen-feature diff test.

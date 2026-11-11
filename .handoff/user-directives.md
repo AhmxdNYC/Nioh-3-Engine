@@ -84,3 +84,4 @@
 - #83427: favorites should jump to the top of boss/training lists.
 - #83450: Player settings get their own tab (out of Training mode). Claude is now ONLY for downloading/installing builds on devices when needed; no more talking; usage low. GPT/Codex does the work.
 - #83479: every settings page needs a Reset-to-defaults (mod shipped defaults); human wants progress updates on Discord (notify.py) since chat is over.
+- 2026-11-11 #87672 human: regression-pc standing job for every build: (1) regression tests that untouched parts stayed untouched and still work, (2) audit for hardcoding (universal across game versions, bosses auto-detected). Tool: tools/regression/no_hardcode_audit.py.
