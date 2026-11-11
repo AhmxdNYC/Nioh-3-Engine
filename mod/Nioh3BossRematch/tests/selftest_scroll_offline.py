@@ -43,6 +43,10 @@ struct {int st=rcore::kEArmed;} g_et;
 struct {bool seenFight=false;} g_wavePlace;
 int g_eRow=-1,g_warps=0;
 struct {const char* last="none";} g_sp;
+bool g_warpOk=true;
+int g_warpStep=7;
+int placeCalls=0; float placeX=0,placeY=0,placeZ=0,placeYaw=0;
+int CallWarp(float x,float y,float z,float yaw){++placeCalls;placeX=x;placeY=y;placeZ=z;placeYaw=yaw;g_warpStep=7;return 0;}
 bool effects=true,readable=true,cleared=true,g_clearGuardOk=true;
 struct {bool ignoreProgress=false;} g_cfg;
 uint16_t g_bypassId=0;
@@ -105,6 +109,20 @@ int main(){
  reset({4});cleared=false;request();assert(g_st.skip==1&&!posts);
  reset({5});request();assert(g_st.skip==1&&!posts&&!clearCalls);
  reset();snap.online=true;request();assert(!posts);
+ // Place is off unless the test sets it. A PASS waits 3 s, skips a loading frame, warps once, and a FAIL never warps.
+ reset({4});request();g_state=kInReplay;g_fn=kFnPass;SelfTestTick(snap,10000);
+ assert(g_st.pass==1&&g_st.phase==2&&!placeCalls);
+ SelfTestTick(snap,13000);assert(!placeCalls);
+ reset({4});g_st.placeOn=true;g_st.place[0]=10;g_st.place[1]=20;g_st.place[2]=30;
+ request();g_state=kInReplay;g_fn=kFnPass;SelfTestTick(snap,10000);assert(g_st.lastOk&&!g_st.placed);
+ SelfTestTick(snap,12999);assert(!placeCalls);
+ snap.st[2]=1;SelfTestTick(snap,13000);assert(!placeCalls&&!g_st.placed);
+ snap.st[2]=0;SelfTestTick(snap,13001);assert(placeCalls==1&&placeX==10&&placeY==20&&placeZ==30&&placeYaw==0&&g_st.placed);
+ SelfTestTick(snap,13002);assert(placeCalls==1);
+ reset({4});g_st.placeOn=true;g_st.place[0]=1;request();g_state=kInReplay;g_fn=kFnFail;placeCalls=0;
+ SelfTestTick(snap,10000);SelfTestTick(snap,14000);assert(!placeCalls&&g_st.fail==1);
+ g_warpOk=false;reset({4});g_st.placeOn=true;g_st.place[0]=1;request();g_state=kInReplay;g_fn=kFnPass;
+ SelfTestTick(snap,10000);SelfTestTick(snap,13000);assert(!placeCalls&&g_st.placed);
  puts("PASS actual SelfTestTick/ClearedNow: 4-scroll sweep, first-wave ownership, 10 negative gates, refusal/timeout/exit, replay and zero-id guards");
 }
 '''

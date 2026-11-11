@@ -2376,6 +2376,7 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
 // ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
 // Proton and any device without the pipe). Per row: wait until idle in the field for 8 s -> fight -> PASS / FAIL (the Fight now
 // verification; E0 uses native scroll entry and first active wave) -> SelfTestHoldMs (default 4000) -> leave the mission -> next.
+// SelfTestPlaceAt (three numbers, empty = off): 3 s after a PASS, one Player::SetPos warp. No mission-flag writes.
 // Log lines 'SELFTEST ...'; never runs online.
 struct SelfTest {
     std::vector<int> rows;
@@ -2385,6 +2386,10 @@ struct SelfTest {
     int pass = 0, fail = 0, skip = 0;
     int holdMs = 4000;  // [Rematch] SelfTestHoldMs; missing or negative stays today's 4 s
     bool exitSent = false;
+    bool placeOn = false;  // [Rematch] SelfTestPlaceAt parsed as x y z
+    bool placed = false;
+    bool lastOk = false;
+    float place[3] = {};
     char table[600] = "";
 } g_st;
 void SelfTestTick(const Snap& s, ULONGLONG t) {
@@ -2449,11 +2454,28 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         snprintf(st.table + k, sizeof(st.table) - k, " %s=%s", r.id, ok ? "PASS" : "FAIL");
         (ok ? st.pass : st.fail)++;
         st.exitSent = false;
+        st.lastOk = ok;
+        st.placed = false;
         st.phase = stt == kIdle ? 3 : 2;
         st.since = t;
         return;
     }
     if (st.phase == 2) {
+        // Test-only. One warp, 3 s after PASS, while the hold is still counting. Loading waits. A FAIL never moves.
+        if (st.placeOn && st.lastOk && !st.placed && t - st.since >= 3000 && !(s.st[2] || s.st[3] || s.st[4] || !s.player)) {
+            st.placed = true;
+            if (!g_warpOk) {
+                Log("Rematch: SELFTEST place skipped - the Player::SetPos path is off");
+            } else {
+                float before[4] = {}, after[4] = {};
+                PlayerPos(before);
+                const int rc = CallWarp(st.place[0], st.place[1], st.place[2], 0.f);
+                PlayerPos(after);
+                Log("Rematch: SELFTEST place %.0f %.0f %.0f -> %s (step %d); player %.0f %.0f %.0f -> %.0f %.0f %.0f",
+                    st.place[0], st.place[1], st.place[2], rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", g_warpStep,
+                    before[0], before[1], before[2], after[0], after[1], after[2]);
+            }
+        }
         const ULONGLONG hold = (ULONGLONG)st.holdMs;
         if (t - st.since < hold) return;
         if (stt == kIdle) {
@@ -4213,6 +4235,20 @@ bool Prepare() {
         int hold = IniInt(L"Rematch", L"SelfTestHoldMs", 4000);
         if (hold < 0) hold = 4000;
         g_st.holdMs = hold;
+        wchar_t pw[160] = {};
+        GetPrivateProfileStringW(L"Rematch", L"SelfTestPlaceAt", L"", pw, 160, ini);
+        char p8[160] = {};
+        WideCharToMultiByte(CP_ACP, 0, pw, -1, p8, (int)sizeof(p8), nullptr, nullptr);
+        float px = 0, py = 0, pz = 0;
+        if (sscanf_s(p8, "%f %f %f", &px, &py, &pz) == 3) {
+            g_st.placeOn = true;
+            g_st.place[0] = px;
+            g_st.place[1] = py;
+            g_st.place[2] = pz;
+            Log("Rematch: SELFTEST place armed: %.0f %.0f %.0f, 3 s after a PASS (Player::SetPos, no flag writes)", px, py, pz);
+        } else if (pw[0]) {
+            Log("Rematch: SELFTEST place OFF - SelfTestPlaceAt needs x y z");
+        }
         char st8[512] = {};
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
         if (!_stricmp(st8, "arena")) {
