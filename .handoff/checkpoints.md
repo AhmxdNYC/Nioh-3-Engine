@@ -329,3 +329,6 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-08 12:26 pm EST | Release84557 COMPLETE: owner receipt84580 verified Ally download13694155 bytes SHA32214d9d739a88ee4f24f746fb48cad49a3c9903bd3ab65b72a60a60996a166a at /var/home/bazzite/Downloads/Nioh3-v1.8.12-84573/Nioh3-Setup-Linux.pyz. Download only, no install; supersedes pending receipt in84592.
   Human84593 on main PC; cxl-pc slot1 owns chat per84598. Published1.8.12 is distinct from installed PC1.8.11 (EF0c0612a8 BRd6272b7d); no companion game action/duplicate download. Next follow existing human-session owner; release publication and requested download are complete.
+
+- 2026-11-11 11:40 am EST | cx-pc #87295 | E0 SelfTest now uses ExecEmaki and per-request first-wave evidence; ID0 refuses before clear DB/current-id match. Native replay guards retained.
+- Actual-body offline sweep/negative gates PASS; MSVC build PASS BR e1f10940. Existing unbeaten_menu Items assertion fails unchanged base (TECH_DEBT). Next pc: source review and live four-scroll sweep; no install/game. Branch cx-pc/scroll-selftest-87295; notes/scroll-selftest-87295.md.

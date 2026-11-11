@@ -1232,6 +1232,13 @@ void UnbeatenTick(const Snap& s, ULONGLONG t) {
 }
 
 bool ClearedNow(uint16_t id, const char** why, bool bossMatch = false) {
+    // Scroll rows have no replay mission id. Zero is also the field's ms28;
+    // it must never be treated as an active unbeaten replay or passed to the DB.
+    if (!id) {
+        g_bypassId = 0;
+        *why = "row has no replay mission id (Picture Scrolls use scroll entry)";
+        return false;
+    }
     uint64_t db = 0;
     uint8_t c = 0;
     if (!Rd(G_CLEAR, db) || !db || !CallCleared(db, id, c)) {
@@ -2361,7 +2368,8 @@ void TrackEmaki(const Snap& s, ULONGLONG t) {
 
 // ---- [Rematch] SelfTest = R1CBC,REA75,...: the add-on runs Fight now on each row by itself (no pipe, no input; for the Ally /
 // Proton and any device without the pipe). Per row: wait until idle in the field for 8 s -> fight -> PASS / FAIL (the Fight now
-// verification) -> 4 s -> leave the mission (MissionRequestReturn) -> next. Log lines 'SELFTEST ...'; never runs online.
+// verification; E0 uses native scroll entry and first active wave) -> 4 s -> leave the mission -> next.
+// Log lines 'SELFTEST ...'; never runs online.
 struct SelfTest {
     std::vector<int> rows;
     size_t next = 0;
@@ -2392,7 +2400,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
         const int row = st.rows[st.next];
         const Row& r = g_rows[(size_t)row];
         const char* why = nullptr;
-        if (!ClearedNow(r.missionId, &why)) {
+        const bool scroll = r.route == rcore::kE;
+        if (!scroll && !ClearedNow(r.missionId, &why)) {
             Log("Rematch: SELFTEST %s SKIP: %s", r.id, why);
             const size_t k = strlen(st.table);
             snprintf(st.table + k, sizeof(st.table) - k, " %s=skip", r.id);
@@ -2401,8 +2410,8 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
             st.idleSince = 0;
             return;
         }
-        Log("Rematch: SELFTEST %s (%zu/%zu): Fight now", r.id, st.next + 1, st.rows.size());
-        Post(kReqFight, row, "self-test");
+        Log("Rematch: SELFTEST %s (%zu/%zu): %s", r.id, st.next + 1, st.rows.size(), scroll ? "Picture Scroll (first wave)" : "Fight now");
+        Post(scroll ? kReqEmaki : kReqFight, row, "self-test");
         st.phase = 1;
         st.since = t;
         return;
@@ -2410,10 +2419,20 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
     const Row& r = g_rows[(size_t)st.rows[st.next]];
     if (st.phase == 1) {
         const int fn = g_fn.load();
-        const bool over = fn == kFnPass || fn == kFnFail;
-        const bool gaveUp = (stt == kIdle && t - st.since > 15000 && fn != kFnWarped && fn != kFnArmed) || t - st.since > 300000;
+        const bool scroll = r.route == rcore::kE;
+        // ExecEmaki resets seenFight for each accepted request. A prior replay's
+        // g_fn PASS/FAIL is not scroll evidence; require this row's owned scroll.
+        const bool wave = scroll && stt == kEmaki && g_eRow == st.rows[st.next] &&
+            g_et.st == rcore::kEIn && s.msOk && r.storyMission && s.ms28 == r.storyMission &&
+            s.emakiOk && s.emaki && !s.st[2] &&
+            s.player && !s.online && !s.guest && !g_scrollNoWaves.load() &&
+            AttemptEffectsAllowed() && g_wavePlace.seenFight;
+        const bool over = scroll ? wave : (fn == kFnPass || fn == kFnFail);
+        const bool gaveUp = (stt == kIdle && t - st.since > 15000 &&
+            (scroll || (fn != kFnWarped && fn != kFnArmed))) || t - st.since > 300000;
         if (!over && !gaveUp) return;
-        const bool ok = fn == kFnPass;
+        const bool ok = scroll ? wave : fn == kFnPass;
+        if (ok && scroll) Log("Rematch: SELFTEST %s first wave active (native wave state 3 observed); leaving without waiting for a clear", r.id);
         float p[4] = {};
         PlayerPos(p);
         Log("Rematch: SELFTEST %s %s (%.1f s after the request, %d warp%s, spawn %s, player %.0f %.0f %.0f)", r.id, ok ? "PASS" : "FAIL",
@@ -4186,7 +4205,7 @@ bool Prepare() {
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
         if (!_stricmp(st8, "arena")) {
             for (size_t i = 0; i < g_rows.size(); ++i)
-                if (g_rows[i].FightNowReady() && g_rows[i].route != rcore::kX) g_st.rows.push_back((int)i);
+                if ((g_rows[i].FightNowReady() || g_rows[i].route == rcore::kE) && g_rows[i].route != rcore::kX) g_st.rows.push_back((int)i);
         } else {
             char* ctx = nullptr;
             for (char* tok = strtok_s(st8, ", ", &ctx); tok; tok = strtok_s(nullptr, ", ", &ctx))
