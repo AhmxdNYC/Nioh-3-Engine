@@ -1830,7 +1830,10 @@ void GateTick(const Snap& s, ULONGLONG t) {
     const uint32_t want = g_gateWant.load();
     if (g_trainingDestination && want) {
         const auto routeFn = (int (*)(uint32_t))TrainingExport("Nioh3Training_NativeEntryRoute");
-        if (!routeFn || routeFn(g_fightMission) != 1) { g_gateWant.store(0); return; }  // Training found the boss or already fell back: the door stays shut
+        // #88390: route 2 (native alive) can be an idle same-character body (RB24D 574946); a gate the script itself waits on
+        // (RightsCheck sees its key) is still requested then. Fallback / failed / unowned routes keep the door shut.
+        const int route = routeFn ? routeFn(g_fightMission) : 0;
+        if (route != 1 && !(route == 2 && g_fightRow >= 0 && NativeEntryGateFind(g_fightMission, g_rows[(size_t)g_fightRow].placement))) { g_gateWant.store(0); return; }
         if (!g_trGateArmed) {
             if (s.st[2] || s.st[3] || s.st[4] || !s.player || s.ms28 != g_fightMission) return;
             g_trGateArmed = true;
