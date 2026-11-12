@@ -234,6 +234,26 @@ int main(int argc, char** argv) {
         printf("lessons: %d\n", lessons);
         CHECK(lessons == 4 && rf5e5 && rd759 && r26f3 && ra0a1, "lesson column marks RF5E5 RD759 R26F3 RA0A1");
         CHECK(!r2826 && !rbab8, "R2826 and RBAB8 are not lessons");
+        const rcore::Row *rd = nullptr, *ra = nullptr, *re = nullptr, *rf = nullptr;
+        for (auto& r : rows) {
+            if (!strcmp(r.id, "RD759")) rd = &r;
+            if (!strcmp(r.id, "RA0A1")) ra = &r;
+            if (!strcmp(r.id, "RE18C")) re = &r;
+            if (!strcmp(r.id, "RF5E5")) rf = &r;
+        }
+        CHECK(rd && rd->Waves() && rd->atFight && rd->fightStart == 5035630 && rd->waveCount >= 2 && rd->waveGroup[0] == 50301,
+              "RD759 waves: mission start 5035630, first group 50301");
+        CHECK(ra && ra->Waves() && ra->waveCount == 3 && ra->waveGroup[0] == 50701 && ra->waveGroup[2] == 50703,
+              "RA0A1 waves: groups 50701, 50702, 50703");
+        CHECK(rf && rf->Waves() && rf->fightStart == 5001735 && rf->waveGroup[0] == 50001, "RF5E5 waves: mission start 5001735, group 50001");
+        CHECK(re && !re->Waves() && !strcmp(re->fightSignal, "boss") && re->fightStart == 5044637 && !re->lesson,
+              "RE18C stays a boss duel at start 5044637");
+        CHECK(rcore::WavesFightStarts("waves", false, false) && !rcore::WavesFightStarts("waves", true, false) &&
+                  !rcore::WavesFightStarts("boss", false, false) && !rcore::WavesFightStarts("waves", false, true),
+              "waves fight start is only the first group check");
+        CHECK(rcore::WavesUnmatchedEndWins("waves", false) && !rcore::WavesUnmatchedEndWins("waves", true) &&
+                  !rcore::WavesUnmatchedEndWins("boss", false),
+              "unmatched BossBattleModeEnd wins only a waves row");
     }
     {
         rcore::ListCycle cycle;

@@ -1312,6 +1312,9 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; uint8_t barTries[FALLBACK_ROSTER_MAX], barBusy[FALLBACK_ROSTER_MAX]; DWORD nextAt, barAskAt[FALLBACK_ROSTER_MAX], zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
+static int g_wavesOn;
+static uint64_t g_wavesToken;
+static void WavesFightReset(void) { g_wavesOn = 0; g_wavesToken = 0; }
 static void NativePhaseEvent(int phase) {
     if (!g_np.armed || g_np.ended) return;
     if (phase == 1) {
@@ -2122,6 +2125,54 @@ static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMission
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
 static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, anchorOk, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+// Boss Rematch calls this for a waves row only. 1 = the first wave group was checked. 2 = BossBattleModeEnd with no BossBattleMode.
+N3T_API void Nioh3Training_WavesFight(int phase) {
+    if (phase == 1) {
+        if (g_wavesOn) return;
+        FlEnsure();
+        int open = 0;
+        uint64_t token = 0;
+        char idbuf[16];
+        idbuf[0] = 0;
+        AcquireSRWLockShared(&g_flLock);
+        if (g_fl.open >= 0) {
+            open = 1;
+            token = g_fl.rec[g_fl.open].token;
+            snprintf(idbuf, sizeof idbuf, "%s", g_fl.rec[g_fl.open].boss_id);
+        }
+        ReleaseSRWLockShared(&g_flLock);
+        const char* want = g_en.row && g_en.row->id[0] ? g_en.row->id : "";
+        if (!open || (want[0] && _stricmp(idbuf, want) != 0)) {
+            const char* name = g_en.row && g_en.row->name[0] ? g_en.row->name : "waves";
+            FightBegin(FL_BOSSMATCH, name, want, 0);
+            AcquireSRWLockShared(&g_flLock);
+            token = g_fl.open >= 0 ? g_fl.rec[g_fl.open].token : 0;
+            ReleaseSRWLockShared(&g_flLock);
+        }
+        g_wavesOn = 1;
+        g_wavesToken = token;
+        if (g_np.armed && !g_np.started) NativePhaseEvent(1);
+        Log("FIGHT waves start: first wave group checked");
+        return;
+    }
+    if (phase != 2 || !g_wavesOn) return;
+    g_wavesOn = 0;
+    FlEnsure();
+    int mine = 0;
+    AcquireSRWLockShared(&g_flLock);
+    mine = g_fl.open >= 0 && g_fl.rec[g_fl.open].token == g_wavesToken;
+    ReleaseSRWLockShared(&g_flLock);
+    Log("FIGHT waves win: BossBattleModeEnd with no BossBattleMode");
+    if (!mine) return;
+    if (g_np.armed) {
+        g_np.active = 0;
+        g_np.releasing = 1;
+        FightFinish(FL_WIN);
+        g_np.releasing = 0;
+        g_np.ended = 1;
+        g_np.pendingAt = 0;
+    } else FightFinish(FL_WIN);
+}
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 // BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
@@ -3079,6 +3130,7 @@ static void XwTick(void) {
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
 static int FightNowImpl(uint32_t mission) {
+    WavesFightReset();
     ArenaRow* nativeRow = FindRow(mission);
     if (NativeFirst(nativeRow)) {
         if (g_np.armed || FallbackMulti()) TrainStop("new native attempt");

@@ -1586,7 +1586,6 @@ void TrainingPreload() {
     if (fn && now - last > 15000) { last = now; fn(); }
 }
 
-void FillStartFromTraining(Row& r);  // below (#65732)
 // Cancel Training's pending auto-enter on every refusal/uncertain queue result.
 // Older Training builds have no callback and preserve their existing behavior.
 struct TrainingEntryAdmission {
@@ -1601,7 +1600,6 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
-    if (fight) FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
     TrainingEntryAdmission entryAdmission{r.missionId};
     const char* why = nullptr;
@@ -3357,7 +3355,7 @@ int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn) {
 }
 
 // Lesson dojos (novice, and Fuku adept): the mission script keeps the teacher dormant until Character::IsDeathGroupEnemy
-// is true for the current lesson group. This only logs that group id, once per Fight now attempt. It does not kill, warp, or write temp/mission state.
+// is true for the current lesson group. The first check on a waves row is the fight start. It does not kill, warp, or write temp/mission state.
 void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (!g_fight.load() || fight::g_active) return;
     uint32_t val[1] = {};
@@ -3365,13 +3363,20 @@ void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     if (LessonVmArgs(ctx, val, ty, 1) < 1) return;
     static uint32_t seen[8];
     static int nseen = 0;
+    static int started = 0;
     static ULONGLONG attempt = 0;
-    if (g_fnFirst != attempt) { attempt = g_fnFirst; nseen = 0; }
+    if (g_fnFirst != attempt) { attempt = g_fnFirst; nseen = 0; started = 0; }
     for (int i = 0; i < nseen; ++i) if (seen[i] == val[0]) return;
     if (nseen < 8) seen[nseen++] = val[0];
     const int fr = g_fightRow;
-    const char* id = (fr >= 0 && (size_t)fr < g_rows.size()) ? g_rows[(size_t)fr].id : "";
+    const Row* row = (fr >= 0 && (size_t)fr < g_rows.size()) ? &g_rows[(size_t)fr] : nullptr;
+    const char* id = row ? row->id : "";
     Log("Rematch: lesson group %u checked, teacher fight not started%s%s", val[0], id[0] ? " - Fight now row " : "", id);
+    if (!row || !rcore::WavesFightStarts(row->fightSignal, false, started != 0)) return;
+    started = 1;
+    Log("Rematch: waves fight start %s group %u", id, val[0]);
+    using Fn = void (*)(int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_WavesFight")) f(1);
 }
 
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
@@ -3456,32 +3461,9 @@ const char* CanStart(int row, uint32_t& kind) {
     kind = kReqOpen;
     return nullptr;
 }
-// #65732 bug 3: a catalogue row without a start point (dojo Novice rows) takes it from Nioh3Training's arena table, which is generated
-// from the game data (tools/auto_arena.py / the live archive scan). Generic: any mission Training has a start row for. The trip itself is
-// Training's in-place swap, so the row is treated like a mission that starts at the fight (no second warp by this add-on).
-void FillStartFromTraining(Row& r) {
-    if (r.fightStart || r.trFillTried || !r.missionId) return;
-    using Fn = uint32_t (*)(uint32_t, float*, float*);
-    const auto f = (Fn)TrainingExport("Nioh3Training_ArenaStart");
-    if (!f) return;  // Training not loaded yet: try again next time
-    r.trFillTried = true;
-    float p[4] = {}, b[3] = {};
-    const uint32_t st = f(r.missionId, p, b);
-    if (!st) return;
-    r.fightStart = st;
-    for (int k = 0; k < 4; ++k) r.warp[k] = p[k];
-    const float dx = b[0] - p[0], dz = b[2] - p[2];
-    r.fightDist = (int)(sqrtf(dx * dx + dz * dz) / 100.0f);
-    snprintf(r.fightKind, sizeof(r.fightKind), "training start");
-    snprintf(r.fightConf, sizeof(r.fightConf), "medium");
-    if (!r.atFight && !r.arenaOk && !r.gateId) r.atFight = true;
-    if (!r.bossOk && (b[0] || b[2])) { r.boss[0] = b[0]; r.boss[1] = b[1]; r.boss[2] = b[2]; r.bossOk = true; }
-    Log("Rematch: %s had no start point in the catalogue; using Nioh3Training's game-data start %u (spawn %.0f %.0f %.0f, %d m from the boss)",
-        r.id, st, p[0], p[1], p[2], r.fightDist);
-}
-// Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate
+// Fight now (straight to the boss): R / H / D rows with a start point next to the boss; opt-in, so no 'verified' gate.
+// A row with no placement takes the mission start from the catalogue (#89329). It does not borrow Training's arena table.
 const char* CanFight(int row) {
-    if (g_rows[(size_t)row].route != rcore::kE) FillStartFromTraining(g_rows[(size_t)row]);
     const Row& r = g_rows[(size_t)row];
     if (!g_cfg.fightNow) return "Fight now is off ([Rematch] FightNow = 1 turns it on)";
     if (!g_fnowOk) return g_fnowWhy;
@@ -6433,6 +6415,17 @@ void Command(const char* line, char* reply, size_t n) {
 bool PlayerExists() { return PlayerChar() != 0; }
 void NoteNativeWin() {  // any thread; the boss-mode end or mission clear of the running fight
     if (g_attemptPhase.load() == aActive) g_attemptWonSeq.store(g_attempt.sequence);
+}
+void NoteWavesEnd() {  // BossBattleModeEnd with no BossBattleMode open, on the Fight now waves row
+    if (!g_fight.load()) return;
+    const int fr = g_fightRow;
+    if (fr < 0 || (size_t)fr >= g_rows.size()) return;
+    const Row& r = g_rows[(size_t)fr];
+    if (!rcore::WavesUnmatchedEndWins(r.fightSignal, false)) return;
+    if (g_attempt.mission && r.missionId && g_attempt.mission != r.missionId) return;
+    Log("Rematch: waves win %s (BossBattleModeEnd, no BossBattleMode)", r.id);
+    using Fn = void (*)(int);
+    if (const auto f = (Fn)TrainingExport("Nioh3Training_WavesFight")) f(2);
 }
 
 int FightLogMode() {

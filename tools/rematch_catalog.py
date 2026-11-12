@@ -85,7 +85,8 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "summon_chr"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "summon_chr",
+        "fight_signal", "wave_groups", "clear_x", "clear_y", "clear_z"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -405,15 +406,44 @@ def _dist_m(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5 / 100.0
 
 
-def pick_fight_start(fi, mid, pid):
+def _in_enter_box(pos, box):
+    """box is centre x y z, yaw degrees, full size x y z from the script's first Player::IsEnterBox."""
+    import math
+    cx, cy, cz, yaw, sx, sy, sz = box
+    dx, dz = pos[0] - cx, pos[2] - cz
+    a = math.radians(yaw)
+    lx = dx * math.cos(a) - dz * math.sin(a)
+    lz = dx * math.sin(a) + dz * math.cos(a)
+    return abs(lx) <= sx / 2.0 + 50 and abs(lz) <= sz / 2.0 + 50 and abs(pos[1] - cy) <= sy / 2.0 + 50
+
+
+def _mission_only_start(s, facts):
+    """One mission start and no boss placement. Distance is to the clear gadget, else the enter box."""
+    clear = facts.get("clear")
+    box = facts.get("box")
+    ref = clear if clear is not None else ((box[0], box[1], box[2]) if box else None)
+    dist = _dist_m(s["pos"], ref) if ref else 0.0
+    if dist > 120:
+        return None
+    inside = _in_enter_box(s["pos"], box) if box else False
+    conf = "high" if facts.get("signal") == "waves" and inside else "medium"
+    return {"start": s["id"], "kind": "mission start", "dist": dist, "conf": conf, "pos": s["pos"], "yaw": s["yawf"], "box": 0}
+
+
+def pick_fight_start(fi, mid, pid, facts=None):
     """-> dict(start, kind, dist, conf, pos, yaw, box) or None.  Rules (notes/boss-rematch-build.md s.E1):
     one start point = the mission already starts at its fight (high);  flags 0x200 = a post-boss / script retry point: never used;
     flags 0x40 within 40 m = the boss retry point class (Jakotsu-baba's sits 0.6 m outside BOSS_AREA, facing the boss): high;
     a plain spawn point (kind 0) or gadget point (908) 8..40 m away, or a shrine (906/907/909) 8..60 m away: medium;
-    anything else within 120 m (incl. points < 8 m = probably inside the arena / a post-fight point): low;  farther: not offered."""
+    anything else within 120 m (incl. points < 8 m = probably inside the arena / a post-fight point): low;  farther: not offered.
+    No placement: the single mission start, measured to the script clear gadget or enter box. Not a per-row list."""
     m = fi.get(mid)
-    if not m or not pid or pid not in m["boss"] or not m["start"]:
+    if not m or not m["start"]:
         return None
+    if not pid or pid not in m["boss"]:
+        if pid or len(m["start"]) != 1:
+            return None
+        return _mission_only_start(m["start"][0], facts or {})
     bp = m["boss"][pid]["pos"]
     st = m["start"]
     bx = sorted(m["box"], key=lambda b: _dist_m(b["pos"], bp))
@@ -912,32 +942,19 @@ def _lfm_paths(base):
     return out
 
 
-def _script_is_lesson(path):
-    """Entry function reaches Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
-
-    CALL_NATIVE is 1-based; CALL_FN and FN_ENTRY are 0-based (lfm_disasm.insn_name). Shared library
-    functions that contain those natives do not count unless the entry actually calls them.
-    BossBattleModeEnd is a different native and does not make a duel.
-    """
+def _disasm():
     here = ROOT / "re" / "scripts_re"
     if not (here / "lfm_disasm.py").is_file():
         here = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\re\scripts_re")
     if str(here) not in sys.path:
         sys.path.insert(0, str(here))
     import lfm_disasm
-    s = lfm_disasm.load(str(path))
-    if not s.insns:
-        return False
-    fn_at = {}
-    entry = None
-    for i, ins in enumerate(s.insns):
-        if ins.op == 0x3B:
-            fn_at[ins.args[0]] = i
-            entry = ins.args[0]
-    if entry is None:
-        return False
+    return lfm_disasm
+
+
+def _script_walk(s, lfm, fn_at, entry):
+    """Functions the entry actually reaches. Library copies do not count until called."""
     seen, stack = set(), [entry]
-    death = boss = False
     while stack:
         sym = stack.pop()
         if sym in seen or sym not in fn_at:
@@ -946,27 +963,143 @@ def _script_is_lesson(path):
         for ins in s.insns[fn_at[sym] + 1:]:
             if ins.op == 0x3B:
                 break
-            if ins.op == 0x1B:
-                name = lfm_disasm.insn_name(s, ins)
-                if name == "Character::IsDeathGroupEnemy":
-                    death = True
-                elif name == "Mission::BossBattleMode":
-                    boss = True
-            elif ins.op == 0x1F:
+            if ins.op == 0x1F:
                 stack.append(ins.args[0])
-    return death and not boss
+    return seen
 
 
-def lesson_mission_ids():
-    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+def _slot_words(insns):
+    """Flatten the int and float arrays pushed as one call's arguments. Slot 1 is the first word."""
+    items = []
+    for ins in insns:
+        if ins.op in (0x1B, 0x1F):
+            break
+        if ins.op == 0x2C:
+            for w in ins.args[1:]:
+                items.append(("i", w if w < 0x80000000 else w - (1 << 32)))
+        elif ins.op == 0x2E:
+            for w in ins.args[1:]:
+                items.append(("f", struct.unpack("<f", struct.pack("<I", w & 0xFFFFFFFF))[0]))
+    return items
 
-    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
-    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
-    scan"; the caller keeps the column already in the catalogue.
+
+def _v1_slot(token):
+    m = re.fullmatch(r"v1\.(\d+)", token)
+    return int(m.group(1)) if m else 0
+
+
+def _bracket_floats(token):
+    if len(token) < 2 or token[0] != "[" or token[-1] != "]":
+        return None
+    out = []
+    for part in token[1:-1].split(","):
+        part = part.strip()
+        if not part:
+            continue
+        w = int(part, 16)
+        out.append(struct.unpack("<f", struct.pack("<I", w))[0])
+    return out
+
+
+def _body_calls(s, lfm, fn_at, sym):
+    start = fn_at[sym] + 1
+    out = []
+    for k in range(start, len(s.insns)):
+        ins = s.insns[k]
+        if ins.op == 0x3B:
+            break
+        if ins.op in (0x1B, 0x1F):
+            out.append((lfm.insn_name(s, ins), lfm.call_args(s, k)))
+    return out
+
+
+def _script_record(path):
+    """fight_signal boss|waves|-, wave group ids, clear-gadget xyz, first IsEnterBox.
+
+    boss wins when the entry reaches Mission::BossBattleMode. Otherwise IsDeathGroupEnemy is waves.
+    BossBattleModeEnd alone is not a boss. Wave ids and the clear point are the entry call's
+    flattened argument slots (v1.N) that those natives load. No mission id is named here.
     """
-    global _LESSON_IDS
-    if _LESSON_IDS is not None:
-        return _LESSON_IDS
+    empty = {"signal": "-", "waves": [], "clear": None, "box": None}
+    lfm = _disasm()
+    s = lfm.load(str(path))
+    if not s.insns:
+        return empty
+    fn_at = {}
+    entry = None
+    for i, ins in enumerate(s.insns):
+        if ins.op == 0x3B:
+            fn_at[ins.args[0]] = i
+            entry = ins.args[0]
+    if entry is None:
+        return empty
+    reached = _script_walk(s, lfm, fn_at, entry)
+    death = boss = False
+    for sym in reached:
+        for name, _args in _body_calls(s, lfm, fn_at, sym):
+            if name == "Character::IsDeathGroupEnemy":
+                death = True
+            elif name == "Mission::BossBattleMode":
+                boss = True
+    signal = "boss" if boss else "waves" if death else "-"
+    waves, clear, box = [], None, None
+    entry_name = lfm.symname(s, entry)
+    for _off, fn, ins in lfm.statements(s):
+        if fn != entry_name:
+            continue
+        call = next((i for i in ins if i.op == 0x1F), None)
+        if call is None or call.args[0] not in reached:
+            continue
+        slots = _slot_words(ins)
+        groups = []
+        floats = []
+        seen_g, seen_f = set(), set()
+        for name, args in _body_calls(s, lfm, fn_at, call.args[0]):
+            if name in ("Character::IsDeathGroupEnemy", "Character::CreateGroupEnemy"):
+                for token in args:
+                    slot = _v1_slot(token)
+                    if slot in seen_g or slot < 1 or slot > len(slots):
+                        continue
+                    kind, val = slots[slot - 1]
+                    if kind == "i" and 0 < val < 0x10000:
+                        seen_g.add(slot)
+                        groups.append((slot, val))
+            elif name in ("Gadget::CreatePlacementGadgetPosition", "UI::SetCompassDestinationIndex"):
+                for token in args:
+                    slot = _v1_slot(token)
+                    if slot in seen_f or slot < 1 or slot > len(slots):
+                        continue
+                    kind, val = slots[slot - 1]
+                    if kind == "f":
+                        seen_f.add(slot)
+                        floats.append((slot, val))
+            elif name == "Player::IsEnterBox" and box is None:
+                for token in args:
+                    got = _bracket_floats(token)
+                    if got and len(got) >= 9:
+                        box = (got[0], got[1], got[2], got[4], got[6], got[7], got[8])
+                        break
+        if groups and not waves:
+            waves = [val for _slot, val in sorted(groups)]
+        if len(floats) >= 3 and clear is None:
+            floats.sort()
+            clear = (floats[0][1], floats[1][1], floats[2][1])
+    return {"signal": signal, "waves": waves, "clear": clear, "box": box}
+
+
+def _script_is_lesson(path):
+    """Entry reaches IsDeathGroupEnemy and never Mission::BossBattleMode."""
+    return _script_record(path)["signal"] == "waves"
+
+
+_MISSION_FACTS = None
+
+
+def mission_script_facts():
+    """mission id -> script record. None when this machine has no LFM extract."""
+    global _MISSION_FACTS, _LESSON_IDS
+    if _MISSION_FACTS is not None:
+        return _MISSION_FACTS
     base = _game_data_root()
     if base is None:
         return None
@@ -974,7 +1107,8 @@ def lesson_mission_ids():
     md = (base / "data" / "extract" / "lfm").joinpath(*MISSIONDB).read_bytes()
     n = struct.unpack_from("<I", md, 4)[0]
     judged = {}
-    found = set()
+    facts = {}
+    lessons = set()
     for i in range(n):
         b = 8 + i * 0x198
         if b + 0x15A > len(md):
@@ -986,10 +1120,24 @@ def lesson_mission_ids():
             continue
         key = str(path)
         if key not in judged:
-            judged[key] = _script_is_lesson(path)
-        if judged[key]:
-            found.add(mid)
-    _LESSON_IDS = found
+            judged[key] = _script_record(path)
+        facts[mid] = judged[key]
+        if judged[key]["signal"] == "waves":
+            lessons.add(mid)
+    _MISSION_FACTS = facts
+    _LESSON_IDS = lessons
+    return _MISSION_FACTS
+
+
+def lesson_mission_ids():
+    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+
+    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
+    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
+    scan"; the caller keeps the column already in the catalogue.
+    """
+    if mission_script_facts() is None:
+        return None
     return _LESSON_IDS
 
 
@@ -1046,9 +1194,13 @@ def mrow(rt, mid, b, lst, ma, fi):
               "verified": "1" if rt == "R" else "0", "boss": ascii_(";".join(names)) or "-"})
     if pid and (mid, int(pid)) in SEEN:
         o["seen"] = SEEN[(mid, int(pid))][0]
-    f = pick_fight_start(fi, mid, int(pid)) if pid else None
+    facts = {}
+    scanned = mission_script_facts()
+    if scanned is not None:
+        facts = scanned.get(mid) or {}
+    f = pick_fight_start(fi, mid, int(pid) if pid else 0, facts)
     gt = pick_gate(fi, mid, int(pid)) if pid else None
-    if f and fi.get(mid) and int(pid) in fi[mid]["boss"]:
+    if f and pid and fi.get(mid) and int(pid) in fi[mid]["boss"]:
         bp = fi[mid]["boss"][int(pid)]["pos"]
         o["boss_pos"] = "%.0f_%.0f_%.0f" % bp
     if f and gt:
@@ -1059,13 +1211,22 @@ def mrow(rt, mid, b, lst, ma, fi):
                   "fight_dist_m": "%.0f" % f["dist"], "fight_conf": f["conf"]})
         if f["kind"] == "mission start" and f["dist"] <= 30:
             o.update({"arena_src": "mission start (the mission already starts at the fight)", "arena_conf": f["conf"]})
-        else:
+        elif pid:
             ar = pick_arena(fi, mid, int(pid), f)
             if ar:
                 o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
                           "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
                           "arena_boxgeo": ar["geo"]})
-    o["lesson"] = _lesson_flag(mid)
+    if scanned is None:
+        o["lesson"] = _lesson_flag(mid)
+    else:
+        o["lesson"] = "1" if facts.get("signal") == "waves" else "0"
+        o["fight_signal"] = facts.get("signal") or "-"
+        groups = facts.get("waves") or []
+        o["wave_groups"] = ",".join(str(g) for g in groups) if groups else "-"
+        clear = facts.get("clear")
+        if clear:
+            o["clear_x"], o["clear_y"], o["clear_z"] = ("%.0f" % clear[0], "%.0f" % clear[1], "%.0f" % clear[2])
     return o
 
 
