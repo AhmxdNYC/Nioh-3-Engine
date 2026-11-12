@@ -27,6 +27,7 @@
 #include "gamerva.h"
 #include "native_entry_gates_gen.h"
 #include "native_entry_waves_gen.h"
+#include "staged_start.h"
 #include "rematch_core.h"
 #include "transition_cover.h"
 #include "transition_native_read.h"
@@ -1085,7 +1086,9 @@ void Refuse(const char* why) {
 }
 // #79069 Training at a Picture Scroll arena. In memory only: set by a Training request, cleared by every ExecEmaki and by ToIdle.
 std::atomic<bool> g_scrollNoWaves{false};
+void StagedWaveReset();
 void ToIdle(const char* why, bool normalExit = false) {
+    StagedWaveReset();
     g_scrollNoWaves.store(false);
     if (!normalExit) AttemptQuarantine(why);
     UnhideRestore(why);
@@ -1206,12 +1209,18 @@ struct StagedWaves {
     const uint16_t* id = nullptr;
     uint16_t n = 0;
     uint16_t index = 0;
+    uint16_t hpThou = 0;
+    uint32_t hpPlace = 0;
+    int final = 0;
     volatile LONG step = kWvOff;
     volatile LONG busy = 0;
     volatile LONG polls = 0;
     volatile LONG waitLogged = 0;
     volatile LONG pushLogged = 0;
+    volatile LONG hpDone = 0;
+    volatile LONG hpTries = 0;
 } g_wv;
+volatile int g_stagedFinal = 0;  // 0 = Full climb, 1 = Final wave. This session only. Not written to the save.
 struct WaveFrame {
     uint64_t countObj = 0, values = 0, inner = 0, count = 0;
     uint16_t base = 0;
@@ -1273,9 +1282,14 @@ void StagedWaveReset() {
     g_wv.id = nullptr;
     g_wv.n = 0;
     g_wv.index = 0;
+    g_wv.hpThou = 0;
+    g_wv.hpPlace = 0;
+    g_wv.final = 0;
     InterlockedExchange(&g_wv.polls, 0);
     InterlockedExchange(&g_wv.waitLogged, 0);
     InterlockedExchange(&g_wv.pushLogged, 0);
+    InterlockedExchange(&g_wv.hpDone, 0);
+    InterlockedExchange(&g_wv.hpTries, 0);
     InterlockedExchange(&g_wv.step, kWvOff);
 }
 void StagedWaveArm(uint32_t mission) {
@@ -1286,12 +1300,46 @@ void StagedWaveArm(uint32_t mission) {
         InterlockedExchange(&g_wv.step, kWvDone);
         return;
     }
+    const int final = g_stagedFinal && n > 1;
+    uint16_t thou = 0;
+    uint32_t place = 0;
+    if (final) NativeEntryWaveFinal(mission, &thou, &place);
     g_wv.id = w;
     g_wv.n = n;
-    g_wv.index = 0;
+    g_wv.index = StagedStartIndex(n, g_stagedFinal);
+    g_wv.final = final;
+    g_wv.hpThou = thou;
+    g_wv.hpPlace = place;
     InterlockedExchange(&g_wv.polls, 0);
+    InterlockedExchange(&g_wv.hpDone, 0);
+    InterlockedExchange(&g_wv.hpTries, 0);
     InterlockedExchange(&g_wv.step, kWvReq);
-    Log("Rematch: staged waves armed mission 0x%X count %u first %u (request after the door right)", mission, n, w[0]);
+    Log("Rematch: staged waves armed mission 0x%X %s %u/%u id %u hp %u/1000 place %u (request after the door right, no save writes)",
+        mission, final ? "final" : "full", (unsigned)g_wv.index + 1, n, w[g_wv.index], thou, place);
+}
+void StagedWaveWatch(const Snap& s, uint32_t mission) {
+    if (!mission || g_wv.step != kWvOff) return;
+    if (!s.msOk || !s.player || s.ms28 != mission || s.st[2] || s.st[3] || s.st[4]) return;
+    StagedWaveArm(mission);
+}
+void StagedHpTry() {
+    if (!StagedFinalHpPending(g_wv.final, g_wv.n, g_wv.index, g_wv.hpThou, g_wv.hpPlace, (int)g_wv.hpDone)) return;
+    if ((InterlockedIncrement(&g_wv.hpTries) % 15) != 1) return;
+    using SetHp = int (*)(uint32_t, int);
+    const auto set = (SetHp)TrainingExport("Nioh3Training_SetPlacementHpPct");
+    if (!set) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP not set: Training has no placement HP export");
+        return;
+    }
+    const int rc = set(g_wv.hpPlace, (int)g_wv.hpThou);
+    if (rc > 0) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP placement %u set to %u/1000 (session memory, no save)", g_wv.hpPlace, g_wv.hpThou);
+    } else if (rc < 0) {
+        InterlockedExchange(&g_wv.hpDone, 1);
+        Log("Rematch: staged final HP placement %u refused (%d)", g_wv.hpPlace, rc);
+    }
 }
 void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     const LONG step = g_wv.step;
@@ -1345,6 +1393,7 @@ void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
                     }
                 }
             }
+            if (g_wv.step == kWvAct || g_wv.step == kWvClr) StagedHpTry();
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         g_wv.step = kWvDone;
@@ -2189,6 +2238,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
                     g_gateSeen.store(false);
                     g_gateDue = 0;
                 }
+                StagedWaveReset();  // the script restarts; the next idle arms Full or Final again
             }
         }
         if (!s.st[2] && g_fightLoading && g_fightWarp && !(g_gateReq && g_fn.load() == kFnWarped)) {  // a reload (death / retry) ended: back into the arena; never during a gate intro
@@ -2197,6 +2247,7 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
             if (g_gateWant.load() && !g_gateDue) g_gateDue = t + 4500 + 2500;  // retry: request the gate right again after the warp
         }
         g_fightLoading = s.st[2] != 0;
+        StagedWaveWatch(s, g_fightMission);
         if (g_warpPending && t >= g_warpDue) DoWarp(s, t);
         GateTick(s, t);
         FnVerify(s, t);
@@ -2607,8 +2658,7 @@ void SelfTestTick(const Snap& s, ULONGLONG t) {
             s.emakiOk && s.emaki && !s.st[2] &&
             s.player && !s.online && !s.guest && !g_scrollNoWaves.load() &&
             AttemptEffectsAllowed() && g_wavePlace.seenFight;
-        if (!scroll && g_wv.step == kWvOff && s.msOk && s.player && s.ms28 == r.missionId && !(s.st[2] || s.st[3] || s.st[4]))
-            StagedWaveArm(r.missionId);
+        if (!scroll) StagedWaveWatch(s, r.missionId);
         const bool over = scroll ? wave : (fn == kFnPass || fn == kFnFail);
         const bool gaveUp = (stt == kIdle && t - st.since > 15000 &&
             (scroll || (fn != kFnWarped && fn != kFnArmed))) || t - st.since > 300000;
@@ -3364,6 +3414,7 @@ char g_msg[160] = "";
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
 constexpr int kItListFilter = -68;  // human #73240: All / Multi / era / Scrolls. Not a catalogue index, not a Fight now id.
+constexpr int kItStagedStart = -58;  // #88778: Full climb / Final wave. Session only. Not a catalogue index.
 constexpr int kItSettings = -7, kItSave = -8, kItGroupBase = -100, kItSettingBase = -1000;
 constexpr int kItPractice = -10, kItPracticeStart = -11, kItPracticeReturn = -12;
 // user #6618: summoned-boss death toggles at the top of the root page (Nioh3Training [Summon] keys, live + saved to its ini)
@@ -3425,6 +3476,14 @@ constexpr int kItTrainHere = 0x80000, kItTrainHereEnd = 0x90000;
 // user 20261018: a save made inside a Fight-now arena loads IN the arena with no mission and a native BossBattleMode with no boss (no exit, no travel).
 // 'Leave arena' = Nioh3Training_LeaveArena (ends the session + native boss mode, returns to the stored spot if any) + our fight flag cleared.
 constexpr int kItLeaveArena = -49;
+bool RowStaged(int row, uint16_t* n, uint16_t* thou, uint32_t* place) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    uint16_t nn = 0;
+    if (!NativeEntryWaves(g_rows[(size_t)row].missionId, &nn) || nn < 2) return false;
+    if (n) *n = nn;
+    if (thou || place) NativeEntryWaveFinal(g_rows[(size_t)row].missionId, thou, place);
+    return true;
+}
 bool LeaveArenaOffered() { return (fight::g_active || g_staleBbm.load()) && !ReadSnap().ms28 && TrainingExport("Nioh3Training_LeaveArena"); }
 int LeaveArena(const char* src) {
     using Fn = int (*)();
@@ -4171,6 +4230,7 @@ int ItemsBase(int* out, int cap) {
     }
     if (g_uiPages.page == uActions) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
+            if (RowStaged(g_uiBoss, nullptr, nullptr, nullptr)) add(kItStagedStart);
             add(kItFight + g_uiBoss);
             add(kItBossTrainHere + g_uiBoss);
             add(kItShrine + g_uiBoss);  // user #13164: teleport moved to Training (arenas), summon to Summon Boss
@@ -4531,6 +4591,12 @@ void UiChange(int dir) {
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
     if (item == kItListFilter) { CycleListFilter(dir); return; }
+    if (item == kItStagedStart) {
+        g_stagedFinal = dir == 0 ? !g_stagedFinal : dir > 0;
+        g_msg[0] = 0;
+        Log("Rematch: staged start -> %s", g_stagedFinal ? "final" : "full");
+        return;
+    }
     if (item == kItPageDefaults) return; // action: A only
     if (FavChange(item, dir)) {
         const int count = Items(items, kMaxRows + 4);
@@ -4736,6 +4802,7 @@ bool UiAct() {
     const int item = it[g_sel];
     if (item == kItClose) return true;
     if (item == kItPageDefaults) { g_confirm = -9; ResetPageDefaults(); return false; }
+    if (item == kItStagedStart) { UiChange(0); return false; }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, 0); return false; }
     if (item == kItAutoRetry) { AutoRetryToggle(0); return false; }
     if (item == kItNoFin) { NoFinToggle(0); return false; }
@@ -5028,6 +5095,7 @@ const char* ItemGroup(int item) {
                          : IsMoveCatItem(item) ? "Moves by type and hit count" : item == kItBossRemove ? "Remove" : nullptr;
     if (p == uSummon) return item >= kItSummonA && item < kItSummonRosterEnd ? "Add a boss (Training / Boss Matches)" : nullptr;
     if (p == uMoves) return IsMoveCatItem(item) ? "Pick a move group (A: open)" : nullptr;  // user #14291
+    if (p == uActions && item == kItStagedStart) return "This boss";
     if (p == uMoveCat) return IsSeqItem(item) ? "Move chains (A: repeat on/off)" : IsMoveItem(item) ? "A: repeat | Left: block move | Right: allow move" : nullptr;
     return nullptr;
 }
@@ -5092,6 +5160,17 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             lastGroup = grp;
         }
         if (it[i] == kItPageDefaults) { add(sel ? cWhite : cGray, sel, "%s Reset to defaults   A: reset this page", mk); continue; }
+        if (it[i] == kItStagedStart) {
+            uint16_t thou = 0;
+            RowStaged(g_uiBoss, nullptr, &thou, nullptr);
+            char hp[40] = "";
+            if (g_stagedFinal && thou) {
+                if (thou % 10 == 0) snprintf(hp, sizeof hp, " (%u%% health)", thou / 10u);
+                else snprintf(hp, sizeof hp, " (%u.%u%% health)", thou / 10u, thou % 10u);
+            }
+            add(sel ? cWhite : cGray, sel, "%s Staged start: %s%s   A / Left / Right", mk, g_stagedFinal ? "Final wave" : "Full climb", hp);
+            continue;
+        }
         char bvText[sizeof rows[0].text]; uint32_t bvColor = cGray;  // user #14320
         if (BvRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor) || PstRowText(it[i], sel, mk, bvText, sizeof bvText, &bvColor)
 #if BR_SOULCORE
@@ -5391,6 +5470,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         footer[0] = 0;
         const int item = g_sel < 0 ? kItClose : n ? it[g_sel] : kItOpen;
         if (item == kItPageDefaults) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Restore this page to shipped defaults. Other pages stay unchanged; startup settings apply after restart.");
+        else if (item == kItStagedStart) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Full climb plays every staged wave in order. Final wave requests only the last one and sets that boss's health to the script's pre-final fraction for this session. Nothing is written to the save.");
         else if (const char* bvf = BvFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : bvf);  // user #14320
         else if (const char* psf = PstFooter(item)) snprintf(footer, nf, "%s", g_msg[0] ? g_msg : psf);  // user #22389
 #if BR_SOULCORE
