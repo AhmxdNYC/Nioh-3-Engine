@@ -39,6 +39,12 @@ assert "st.since = t - hold;" in hold
 assert "< 4000" not in hold and "t - 4000" not in hold
 assert "SelfTestHoldMs = 4000" in ini
 assert "40000 stays 40 seconds" in ini
+prepare = function(rematch, "bool Prepare()")
+assert 'L"SelfTestStagedFinal", 0' in prepare
+assert "g_stagedFinal = 1" in prepare
+arm = function(rematch, "void StagedWaveArm(uint32_t mission)")
+assert "g_stagedFinal" in arm
+assert "SelfTestStagedFinal = 0" in ini
 
 
 def still_holding(now, since, hold_ms):

@@ -4586,6 +4586,10 @@ bool Prepare() {
         }
         Log("Rematch: SELFTEST armed: %zu rows (%ls); hold %d ms; starts 8 s after the add-on is idle in the field", g_st.rows.size(), stw, g_st.holdMs);
     }
+    if (IniInt(L"Rematch", L"SelfTestStagedFinal", 0)) {
+        g_stagedFinal = 1;
+        Log("Rematch: staged start Final from SelfTestStagedFinal (session only, before the wave arm, no save write)");
+    }
     Log("Startup: installing Rematch FIGHT group");
     if (!InstallGroup("FIGHT", &why)) {
         Log("Rematch: off - FIGHT hooks: %s", why);
