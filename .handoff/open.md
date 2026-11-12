@@ -1,7 +1,7 @@
 ## LEFT TO DO (human #93660, 2026-11-12 6:10 pm EST, pc/0). Every item has an owner and is being checked; tick when done.
 - [ ] Release the Boss Match fix (Dojos 100%, Boss Match 100% except RB3FE, Training in those arenas; human #93578). Built and proven on Main PC, not public yet | owner pc lead -> regression-pc check, installer-pc packaging, then release with the human's OK
 - [ ] KL_Div=4 CPU setting | PC2 +7-8% fps (#93495) recheck running on performance-pc2; Ally NO GAIN (#93667: 47.36 vs 47.32 fps, CPU flat, GPU-bound) | decide ship-on-PC-only after PC2 recheck
-- [ ] FPS-cap timing margin (L1_MarginUs 1000 vs 300, CPU A/B) | performance-pc, Main PC, running (task reply-to #93605)
+- [x] FPS-cap timing margin L1_MarginUs 300: FAIL #93701 (CPU -1.7%, misses 60 cap); keep 1000
 - [ ] Name lookup caching | performance-pc, queued after L1 margin (#93615 order)
 - [ ] UI copy narrowing | performance-pc, queued
 - [ ] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, queued
