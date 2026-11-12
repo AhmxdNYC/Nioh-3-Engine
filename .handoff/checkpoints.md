@@ -368,3 +368,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-12 7:57 am EST | regression-pc/0 | #91336 offline regression of main 5fa1fdb2 done | proven offline (base vs merged runner tables C:/Users/Ahmad Hamza/rg91336), live unproven for 75a06391 | next: none for regression-pc until next build | RESULT #91349
 - 2026-11-12 8:00 am EST | installer-pc | regression #91351 PASS on main 5fa1fdb2: installer/updater code unchanged since 1.8.12 (54bd7da6), BR ini comment-only, no new shipped files. Not a release, nothing packed. Proven offline (diff). Next: validate packages when pc cuts a release; #87687 popup still owed. RESULT #91357.
+- 2026-11-12 8:06 am EST | gx-pc #91324 | done: step ray shares feet-ray call (span +50/-100 m), 1 s raw log, shared-shape unit test | proven offline (field_travel_test PASS), live unproven | next: pc runs Ally Yasha on TR #6957 + BR #6819 + cat #6815 | 207ea857, bridge #6957
