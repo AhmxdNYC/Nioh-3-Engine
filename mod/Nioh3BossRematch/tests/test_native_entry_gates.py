@@ -62,6 +62,7 @@ class GateTests(unittest.TestCase):
             entry(50,10),lit(54,16889),call(58,30,0x1b),lit(64,2),call(68,40,0x1b),
             entry(80,10),lit(84,3),call(88,40,0x1b),lit(94,24284),call(98,30,0x1b)])
         self.assertEqual(g.staged_wave_ids(s),[65218,24284])
+        self.assertEqual(g.staged_chain(s)['boxes'],[1,3])
 
     def test_pre_final_is_the_sethp_before_the_last_request(self):
         names=['root','Function::Wait_InvadeBox_Online','WaveBattle::RequestID','Character::SetHpRate','Mission::SetMissionFlag']
@@ -75,6 +76,7 @@ class GateTests(unittest.TestCase):
             entry(120,10),lit(124,4),call(128,20,0x1b),lit(134,63339),call(138,30,0x1b),lit(144,573339),I(148,0x2d,(ftiny,)),call(152,40,0x1b)])
         chain=g.staged_chain(s)
         self.assertEqual(chain['waves'],[65218,16889,24284,63339])
+        self.assertEqual(chain['boxes'],[1,2,3,4])
         self.assertEqual((chain['hp_place'],chain['hp_thou']),(573339,250))
         one=types.SimpleNamespace(names=names,syms=syms,insns=[
             entry(0,10),lit(4,1),call(8,20,0x1b),lit(14,573339),I(18,0x2d,(f25,)),call(22,40,0x1b),lit(28,1956),call(32,30,0x1b)])
@@ -87,10 +89,11 @@ class GateTests(unittest.TestCase):
         if not lfm.exists():lfm=Path(r'C:\Users\Ahmad Hamza\nioh3-engine\data\extract\lfm')
         chain=g.staged_chain(g.dis.load(lfm/rb['script']))
         self.assertEqual(chain['waves'],[65218,16889,24284,63339])
+        self.assertEqual(chain['boxes'],[571326,574736,575383,578226])
         self.assertEqual((chain['hp_place'],chain['hp_thou']),(573339,250))
         text=(ROOT/'mod/Nioh3BossRematch/src/native_entry_waves_gen.h').read_text()
-        self.assertIn('{0xB24Du, 4u, 250u, 573339u, {65218, 16889, 24284, 63339, 0, 0, 0, 0}},',text)
-        self.assertIn('{0xB3FEu, 1u, 0u, 0u, {1956, 0, 0, 0, 0, 0, 0, 0}},',text)
+        self.assertIn('{0xB24Du, 4u, 250u, 573339u, {65218, 16889, 24284, 63339, 0, 0, 0, 0}, {571326u, 574736u, 575383u, 578226u, 0u, 0u, 0u, 0u}, {86221, 89905, 83393, 86040, 0, 0, 0, 0}, {20559, 21876, 21513, 26515, 0, 0, 0, 0}, {107281, 108334, 108672, 94238, 0, 0, 0, 0}},',text)
+        self.assertIn('{0xB3FEu, 1u, 0u, 0u, {1956, 0, 0, 0, 0, 0, 0, 0}, {8061650u, 0u, 0u, 0u, 0u, 0u, 0u, 0u}, {233432, 0, 0, 0, 0, 0, 0, 0}, {16346, 0, 0, 0, 0, 0, 0, 0}, {102155, 0, 0, 0, 0, 0, 0, 0}},',text)
         self.assertNotIn('RB24D',text)
         self.assertNotIn('SetMissionFlag',text)
 
@@ -106,6 +109,10 @@ class GateTests(unittest.TestCase):
             'assert(StagedFinalHpPending(0,4,3,250,573339u,0)==0);',
             'assert(StagedFinalHpPending(1,4,0,250,573339u,0)==0);',
             'assert(StagedFinalHpPending(1,4,3,250,573339u,1)==0);',
+            'uint32_t box=0; int x=0,y=0,z=0; assert(NativeEntryWaveStand(0xB24D,0,&box,&x,&y,&z)==1 && box==571326u && x==86221 && y==20559 && z==107281);',
+            'assert(NativeEntryWaveStand(0xB24D,3,&box,&x,&y,&z)==1 && box==578226u);',
+            'assert(NativeEntryWaveStand(0xB3FE,0,&box,&x,&y,&z)==1);',
+            'assert(NativeEntryWaveStand(0xB24D,4,&box,&x,&y,&z)==0);',
             'assert(StagedHpFromThou(10000,250)==2500); assert(StagedHpFromThou(51712,250)==12928);',
         ]
         with tempfile.TemporaryDirectory() as d:

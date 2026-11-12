@@ -1211,6 +1211,7 @@ struct StagedWaves {
     uint16_t index = 0;
     uint16_t hpThou = 0;
     uint32_t hpPlace = 0;
+    uint32_t mission = 0;
     int final = 0;
     volatile LONG step = kWvOff;
     volatile LONG busy = 0;
@@ -1219,6 +1220,10 @@ struct StagedWaves {
     volatile LONG pushLogged = 0;
     volatile LONG hpDone = 0;
     volatile LONG hpTries = 0;
+    volatile LONG bossSeen = 0;   // Character::Create of hpPlace
+    volatile LONG standBox = 0;   // station box the script is polling; 0 = no place pending
+    int standX = 0, standY = 0, standZ = 0;
+    volatile LONG standDone = 0;  // index+1 already handled
 } g_wv;
 volatile int g_stagedFinal = 0;  // 0 = Full climb, 1 = Final wave. This session only. Not written to the save.
 struct WaveFrame {
@@ -1284,12 +1289,17 @@ void StagedWaveReset() {
     g_wv.index = 0;
     g_wv.hpThou = 0;
     g_wv.hpPlace = 0;
+    g_wv.mission = 0;
     g_wv.final = 0;
+    g_wv.standX = g_wv.standY = g_wv.standZ = 0;
     InterlockedExchange(&g_wv.polls, 0);
     InterlockedExchange(&g_wv.waitLogged, 0);
     InterlockedExchange(&g_wv.pushLogged, 0);
     InterlockedExchange(&g_wv.hpDone, 0);
     InterlockedExchange(&g_wv.hpTries, 0);
+    InterlockedExchange(&g_wv.bossSeen, 0);
+    InterlockedExchange(&g_wv.standBox, 0);
+    InterlockedExchange(&g_wv.standDone, 0);
     InterlockedExchange(&g_wv.step, kWvOff);
 }
 void StagedWaveArm(uint32_t mission) {
@@ -1310,6 +1320,7 @@ void StagedWaveArm(uint32_t mission) {
     g_wv.final = final;
     g_wv.hpThou = thou;
     g_wv.hpPlace = place;
+    g_wv.mission = mission;
     InterlockedExchange(&g_wv.polls, 0);
     InterlockedExchange(&g_wv.hpDone, 0);
     InterlockedExchange(&g_wv.hpTries, 0);
@@ -1341,9 +1352,60 @@ void StagedHpTry() {
         Log("Rematch: staged final HP placement %u refused (%d)", g_wv.hpPlace, rc);
     }
 }
+int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn);
+// The script polls Player::IsEnterPlacementBox(box) inside Wait_InvadeBox. Once that box is the
+// current station, the wave is already active, and the chain's placement has been created, the
+// game thread places the player at the box centre once. A one-station chain is left alone.
+// No mission-flag writes. One place per station, and only when the player is more than 20 m out.
+void StagedStandWatch(uint64_t rcx) {
+    if (g_wv.n < 2 || g_wv.step != kWvClr || g_wv.index >= g_wv.n) return;
+    if (g_wv.standDone == (LONG)g_wv.index + 1) return;
+    uint32_t box = 0;
+    int x = 0, y = 0, z = 0;
+    if (!NativeEntryWaveStand(g_wv.mission, g_wv.index, &box, &x, &y, &z)) return;
+    uint32_t val[4] = {};
+    uint16_t ty[4] = {};
+    const int n = LessonVmArgs(rcx, val, ty, 4);
+    bool hit = false;
+    for (int i = 0; i < n; ++i) if (val[i] == box) hit = true;
+    if (!hit) return;
+    g_wv.standX = x;
+    g_wv.standY = y;
+    g_wv.standZ = z;
+    InterlockedExchange(&g_wv.standBox, (LONG)box);
+}
+void StagedPlaceTick(const Snap& s) {
+    const LONG box = g_wv.standBox;
+    if (!box || g_wv.n < 2 || g_wv.step != kWvClr) return;
+    if (g_wv.standDone == (LONG)g_wv.index + 1) return;
+    if (g_wv.hpPlace && !g_wv.bossSeen) return;
+    if (s.online || s.guest || s.st[2] || s.st[3] || s.st[4] || !s.player) return;
+    const int x = g_wv.standX, y = g_wv.standY, z = g_wv.standZ;
+    if (!g_warpOk) {
+        InterlockedExchange(&g_wv.standDone, (LONG)g_wv.index + 1);
+        InterlockedExchange(&g_wv.standBox, 0);
+        Log("Rematch: staged stand place skipped - the Player::SetPos path is off");
+        return;
+    }
+    float p[4] = {};
+    if (!PlayerPos(p)) return;
+    InterlockedExchange(&g_wv.standDone, (LONG)g_wv.index + 1);
+    InterlockedExchange(&g_wv.standBox, 0);
+    const float dx = p[0] - (float)x, dy = p[1] - (float)y, dz = p[2] - (float)z;
+    if (dx * dx + dy * dy + dz * dz < 2000.f * 2000.f) {
+        Log("Rematch: staged stand box %ld already within 20 m (%.0f %.0f %.0f); no place", box, p[0], p[1], p[2]);
+        return;
+    }
+    const int rc = CallWarp((float)x, (float)y, (float)z, 0.f);
+    float after[4] = {};
+    PlayerPos(after);
+    Log("Rematch: staged stand place box %ld -> %.0f %.0f %.0f %s (from %.0f %.0f %.0f, no flag writes)",
+        box, after[0], after[1], after[2], rc == 0 ? "ok" : rc == 1 ? "NO PLAYER" : "EXCEPTION", p[0], p[1], p[2]);
+}
 void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     const LONG step = g_wv.step;
     if (step != kWvReq && step != kWvAct && step != kWvClr) return;
+    if (step == kWvClr) StagedStandWatch(rcx);
     if (g_gateWant.load() && !g_gateReq) {
         if (!InterlockedExchange(&g_wv.waitLogged, 1)) Log("Rematch: staged wave waiting for the door right");
         return;
@@ -1377,11 +1439,16 @@ void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
                     if (step == kWvAct) {
                         g_wv.step = kWvClr;
                         Log("Rematch: staged wave %u active", id);
+                        uint32_t stand = 0;
+                        int sx = 0, sy = 0, sz = 0;
+                        if (g_wv.n > 1 && NativeEntryWaveStand(g_wv.mission, g_wv.index, &stand, &sx, &sy, &sz))
+                            Log("Rematch: staged stand waits for box %u at %d %d %d (place after placement %u exists)", stand, sx, sy, sz, g_wv.hpPlace);
                     } else {
                         Log("Rematch: staged wave %u clear", id);
                         g_wv.index++;
                         InterlockedExchange(&g_wv.polls, 0);
                         InterlockedExchange(&g_wv.pushLogged, 0);
+                        InterlockedExchange(&g_wv.standBox, 0);
                         g_wv.step = g_wv.index < g_wv.n ? (LONG)kWvReq : (LONG)kWvDone;
                     }
                 } else if (step == kWvAct) {
@@ -2884,6 +2951,7 @@ void CoverTick(const Snap& s, ULONGLONG) {
         Log("Rematch: cover token=%llu attempt=%llu event=existing_actor mission=0x%X start=%u actor=%u",g_cover.token,g_cover.attempt,s.ms28,s.ms14,g_cover.observedPlacement);
 }
 void HkCoverCreate(uint64_t placement,uint64_t,uint64_t,uint64_t,const uint64_t*) {
+    if (g_wv.hpPlace && (uint32_t)placement == g_wv.hpPlace) InterlockedExchange(&g_wv.bossSeen, 1);
     CoverLock lock;if(!lock.held)return;
     const Snap s=ReadSnap();
     if(s.msOk&&s.ms14==g_cover.start){
@@ -3196,6 +3264,7 @@ void Tick() {
     TrackReplay(s, t);
     TfTick(s, t);
     SelfTestTick(s, t);
+    StagedPlaceTick(s);
     ScrollCoverTick(s, t);
     if (g_state.load() == kEmaki) LogEmakiWave();
     if (g_scGive.exchange(false)) ExecScrollGive();
