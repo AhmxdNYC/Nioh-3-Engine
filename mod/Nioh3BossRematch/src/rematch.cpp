@@ -1221,9 +1221,12 @@ struct StagedWaves {
     volatile LONG hpDone = 0;
     volatile LONG hpTries = 0;
     volatile LONG bossSeen = 0;   // Character::Create of hpPlace
-    volatile LONG standBox = 0;   // station box the script is polling; 0 = no place pending
+    volatile LONG standBox = 0;   // station box to place into; 0 = no place pending
     int standX = 0, standY = 0, standZ = 0;
     volatile LONG standDone = 0;  // index+1 already handled
+    uint32_t pollArg[4] = {};
+    volatile LONG pollN = 0;      // distinct IsEnterPlacementBox args logged this station
+    volatile LONG waitBoss = 0;   // one log while the place waits for the chain placement
 } g_wv;
 volatile int g_stagedFinal = 0;  // 0 = Full climb, 1 = Final wave. This session only. Not written to the save.
 struct WaveFrame {
@@ -1300,6 +1303,8 @@ void StagedWaveReset() {
     InterlockedExchange(&g_wv.bossSeen, 0);
     InterlockedExchange(&g_wv.standBox, 0);
     InterlockedExchange(&g_wv.standDone, 0);
+    InterlockedExchange(&g_wv.pollN, 0);
+    InterlockedExchange(&g_wv.waitBoss, 0);
     InterlockedExchange(&g_wv.step, kWvOff);
 }
 void StagedWaveArm(uint32_t mission) {
@@ -1312,7 +1317,7 @@ void StagedWaveArm(uint32_t mission) {
     }
     const int final = g_stagedFinal && n > 1;
     uint16_t thou = 0;
-    uint32_t place = 0;
+    uint32_t place = NativeEntryWavePlace(mission);
     if (final) NativeEntryWaveFinal(mission, &thou, &place);
     g_wv.id = w;
     g_wv.n = n;
@@ -1353,32 +1358,37 @@ void StagedHpTry() {
     }
 }
 int LessonVmArgs(uint64_t ctx, uint32_t* val, uint16_t* ty, int maxn);
-// The script polls Player::IsEnterPlacementBox(box) inside Wait_InvadeBox. Once that box is the
-// current station, the wave is already active, and the chain's placement has been created, the
-// game thread places the player at the box centre once. A one-station chain is left alone.
-// No mission-flag writes. One place per station, and only when the player is more than 20 m out.
-void StagedStandWatch(uint64_t rcx) {
-    if (g_wv.n < 2 || g_wv.step != kWvClr || g_wv.index >= g_wv.n) return;
-    if (g_wv.standDone == (LONG)g_wv.index + 1) return;
-    uint32_t box = 0;
-    int x = 0, y = 0, z = 0;
-    if (!NativeEntryWaveStand(g_wv.mission, g_wv.index, &box, &x, &y, &z)) return;
+// Wait_InvadeBox returns before RequestID, so once the wave is active the script is in IsClearID
+// and is not still polling that station box. The centre is the generated chain's PlacementBox.
+// The game thread places there once, after the chain's boss placement has been created.
+// A one-station chain is left alone. No mission-flag writes. Only when the player is more than 20 m out.
+// IsEnterPlacementBox args are logged once per station and are not the place trigger.
+void OnStagedBoxPoll(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    if (g_wv.n < 2 || g_wv.step != kWvClr || g_wv.pollN >= 4) return;
     uint32_t val[4] = {};
     uint16_t ty[4] = {};
-    const int n = LessonVmArgs(rcx, val, ty, 4);
-    bool hit = false;
-    for (int i = 0; i < n; ++i) if (val[i] == box) hit = true;
-    if (!hit) return;
-    g_wv.standX = x;
-    g_wv.standY = y;
-    g_wv.standZ = z;
-    InterlockedExchange(&g_wv.standBox, (LONG)box);
+    const int n = LessonVmArgs(rcx, val, ty, 1);
+    if (n < 1) {
+        if (InterlockedCompareExchange(&g_wv.pollN, 4, 0) == 0)
+            Log("Rematch: staged box poll unreadable (%d) while the wave is active", n);
+        return;
+    }
+    for (LONG i = 0; i < g_wv.pollN && i < 4; ++i) if (g_wv.pollArg[i] == val[0]) return;
+    const LONG i = g_wv.pollN;
+    if (i < 0 || i >= 4) return;
+    g_wv.pollArg[i] = val[0];
+    InterlockedIncrement(&g_wv.pollN);
+    Log("Rematch: staged box poll arg %u type %u (sample %ld, not used to place)", val[0], (unsigned)ty[0], (long)i + 1);
 }
 void StagedPlaceTick(const Snap& s) {
     const LONG box = g_wv.standBox;
     if (!box || g_wv.n < 2 || g_wv.step != kWvClr) return;
     if (g_wv.standDone == (LONG)g_wv.index + 1) return;
-    if (g_wv.hpPlace && !g_wv.bossSeen) return;
+    if (g_wv.hpPlace && !g_wv.bossSeen) {
+        if (!InterlockedExchange(&g_wv.waitBoss, 1))
+            Log("Rematch: staged stand box %ld waits for placement %u", box, g_wv.hpPlace);
+        return;
+    }
     if (s.online || s.guest || s.st[2] || s.st[3] || s.st[4] || !s.player) return;
     const int x = g_wv.standX, y = g_wv.standY, z = g_wv.standZ;
     if (!g_warpOk) {
@@ -1405,7 +1415,6 @@ void StagedPlaceTick(const Snap& s) {
 void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     const LONG step = g_wv.step;
     if (step != kWvReq && step != kWvAct && step != kWvClr) return;
-    if (step == kWvClr) StagedStandWatch(rcx);
     if (g_gateWant.load() && !g_gateReq) {
         if (!InterlockedExchange(&g_wv.waitLogged, 1)) Log("Rematch: staged wave waiting for the door right");
         return;
@@ -1441,14 +1450,21 @@ void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
                         Log("Rematch: staged wave %u active", id);
                         uint32_t stand = 0;
                         int sx = 0, sy = 0, sz = 0;
-                        if (g_wv.n > 1 && NativeEntryWaveStand(g_wv.mission, g_wv.index, &stand, &sx, &sy, &sz))
-                            Log("Rematch: staged stand waits for box %u at %d %d %d (place after placement %u exists)", stand, sx, sy, sz, g_wv.hpPlace);
+                        if (g_wv.n > 1 && NativeEntryWaveStand(g_wv.mission, g_wv.index, &stand, &sx, &sy, &sz)) {
+                            g_wv.standX = sx;
+                            g_wv.standY = sy;
+                            g_wv.standZ = sz;
+                            InterlockedExchange(&g_wv.standBox, (LONG)stand);
+                            Log("Rematch: staged stand armed box %u at %d %d %d (place after placement %u exists)", stand, sx, sy, sz, g_wv.hpPlace);
+                        }
                     } else {
                         Log("Rematch: staged wave %u clear", id);
                         g_wv.index++;
                         InterlockedExchange(&g_wv.polls, 0);
                         InterlockedExchange(&g_wv.pushLogged, 0);
                         InterlockedExchange(&g_wv.standBox, 0);
+                        InterlockedExchange(&g_wv.pollN, 0);
+                        InterlockedExchange(&g_wv.waitBoss, 0);
                         g_wv.step = g_wv.index < g_wv.n ? (LONG)kWvReq : (LONG)kWvDone;
                     }
                 } else if (step == kWvAct) {
@@ -1480,6 +1496,9 @@ void InstallClearGuard() {
         else Log("Rematch: staged wave pump %s NOT installed: %s", pump, why ? why : "?");
     }
     Log("Rematch: staged wave pumps %d/3", stagedOk);
+    why = nullptr;
+    if (!InstallEntry("Player::IsEnterPlacementBox", &OnStagedBoxPoll, &why))
+        Log("Rematch: staged box poll log NOT installed: %s", why ? why : "?");
     why = nullptr;
     g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
     Log("Rematch: IgnoreProgress %s; clear guard %s%s%s", g_cfg.ignoreProgress ? "ON (unbeaten bosses can be fought)" : "off",

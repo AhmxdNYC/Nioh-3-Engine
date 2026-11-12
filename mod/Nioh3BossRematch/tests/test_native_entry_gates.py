@@ -105,6 +105,8 @@ class GateTests(unittest.TestCase):
             'assert(StagedStartIndex(n,0)==0 && StagedStartIndex(n,1)==3);',
             'uint16_t t=9; uint32_t p=9; assert(NativeEntryWaveFinal(0xB24D,&t,&p)==1 && t==250 && p==573339u);',
             'assert(NativeEntryWaveFinal(0xB3FE,&t,&p)==0 && t==0 && p==0);',
+            'assert(NativeEntryWavePlace(0xB24D)==573339u);',
+            'assert(NativeEntryWavePlace(0xB3FE)==0);',
             'assert(StagedFinalHpPending(1,4,3,250,573339u,0)==1);',
             'assert(StagedFinalHpPending(0,4,3,250,573339u,0)==0);',
             'assert(StagedFinalHpPending(1,4,0,250,573339u,0)==0);',
