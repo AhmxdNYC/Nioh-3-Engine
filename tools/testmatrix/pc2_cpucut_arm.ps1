@@ -1,4 +1,4 @@
-param([int]$OwnerPid = 0, [int]$Windows = 2, [int]$Sec = 60, [string]$Arm = "A", [string]$Dll = "", [string]$Run = "")
+param([int]$OwnerPid = 0, [int]$Windows = 2, [int]$Sec = 60, [string]$Arm = "A", [string]$Dll = "", [string]$Run = "", [string]$BaseIni = "")
 # pc2_cpucut_arm.ps1 - ONE launch = ONE arm of the CPU-cut test (ops #89928, arms per performance-pc #89932).
 #   A = MB0 SN0 | B = MB1 | C = SN1 | D = MB1+SN1, all on the SAME test DLL (-Dll, #6879 161bd19d); S1 left at the stock value.
 #   Based on pc2_aabb_arm.ps1: lock, save backup+restore, ini/config/DLL install+restore, FG OFF / REN_RAT 50 / FSR (CPU-bound),
@@ -41,7 +41,8 @@ try {
   New-Item -ItemType Directory -Force $saveBak | Out-Null; robocopy $saveDir $saveBak /MIR /R:2 /W:2 /NFL /NDL /NP /NJH | Out-Null; $script:saved=$true
   Copy-Item $ini "$out\orig\" -Force; Copy-Item $cfg "$out\orig\" -Force; Copy-Item $asi "$out\orig\" -Force; $script:inst=$true
   Copy-Item $Dll $asi -Force; $script:dllInst=$true; T "arm $Arm test DLL $((Get-FileHash $asi).Hash.Substring(0,8)) installed (stock $((Get-FileHash "$out\orig\Nioh3EngineFix.asi").Hash.Substring(0,8)) saved)"
-  $t = [IO.File]::ReadAllText($ini)
+  $t = if ($BaseIni) { [IO.File]::ReadAllText($BaseIni) } else { [IO.File]::ReadAllText($ini) }
+  if ($BaseIni) { T "base ini $BaseIni $((Get-FileHash $BaseIni).Hash.Substring(0,12))" }
   if ($t -notmatch "(?m)^\[Patches\]") { throw "no [Patches] section" }
   foreach ($kv in @(@("AutoContinueLoad","1"),@("CpuStats","1"),@("ReportSec","10"),@("MaxFps","240"))) { $t = $t -replace "(?m)^$($kv[0]) *=.*", "$($kv[0]) = $($kv[1])" }
   $t = Set-Key $t "MB" $arms[$Arm].MB; $t = Set-Key $t "SN" $arms[$Arm].SN
