@@ -1,0 +1,3 @@
+rva	kind	name	signature	description	confidence	source
+0x418f60	label	WaitDispatcherDrainSpin_Loop		end-of-frame drain poll loop 418F60..418F77 (call DispatcherRingBusy, store flag, jnz); hot RIP 418F75; ~6 ms/frame on pc2 (23.7 % of [App]Game)	high	notes/cpu-burn-re.md; notes/cpu-stacks-current-2026-10-13.md
+0x418f63	label	WaitDispatcherDrainSpin_BusyCall		call 418F90 inside the drain loop; SN hook site (Kind::Call, caveSpinNap); SN crashed 3/3 on #6879 (0xC0000005 at +298EA12), fix build #6914	high	notes/spin-sleep.md; notes/cpu-burn-re.md
