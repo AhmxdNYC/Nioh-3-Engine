@@ -86,7 +86,7 @@ static __attribute__((noinline)) void PstBossDrain(int s, int dt) {
 // Only a Training/Rematch boss (BvActor) gets native * pct / 100; everyone else and 100 % pass through. Takes effect at the boss's next motion start / layer refresh.
 typedef float (*PstSpdFn)(uint64_t, uint8_t, uint8_t); static PstSpdFn o_pstspd; static volatile LONG g_pst_spd_hooked, g_pst_spd_logs;
 // #43283: a Boss Match is a Training session that is not Practice. g_bmd_on is the wrong flag: a loot or no-finisher menu change clears it. This never writes g_pst.v.
-static int PstBossMatchOn(void) { return g_tr.active && !g_tr.practice; }
+static int PstBossMatchOn(void) { return g_tr.active ? !g_tr.practice : NativeSlotsActive(); }
 static __attribute__((noinline)) int PstIsBossActor(uint64_t a) {
     if (!a) return 0;
     for (int s = 0; s < N3T_SLOTS; ++s) if (BvActor(s) == a) return 1;

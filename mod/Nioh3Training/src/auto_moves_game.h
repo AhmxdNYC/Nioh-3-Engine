@@ -13,7 +13,7 @@ enum { AM_FILES = 48, AM_SPF = 8, AM_CHRS = 64 };
 typedef struct { uint64_t base; int n; AmTable* t; } AmImg;
 static AmImg g_ami[AM_FILES]; static int g_ami_n;
 static struct { uint32_t chr; int img; } g_amc[AM_CHRS]; static volatile LONG g_amc_n;  // chr -> its own file (final)
-static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nf, miss; int f[AM_SPF]; } g_ams[MAXSP];
+static struct { uint64_t a; uint32_t chr; DWORD t0, tNext, tLast; int done, nf, miss; int f[AM_SPF]; } g_ams[META_ACTORS];
 static void N3CatMergeAuto(uint32_t chr, const AmTable* t);  // move_catalog.h: the runtime list becomes the boss's move catalogue
 static __attribute__((noinline)) int AmRd(uint64_t a, void* out, uint32_t n) { __try { memcpy(out, (const void*)a, n); return 1; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; } }
 static int AmImgOf(uint64_t x) { for (int i = 0; i < g_ami_n; ++i) if (g_ami[i].base == x) return i; return -1; }
@@ -111,11 +111,12 @@ static void AmFinal(int s, const char* why) {
 static void AmTick(void) {
     if (!g_cfg_am) return;
     const DWORD now = GetTickCount();
-    for (int s = 0; s < MAXSP; ++s) {
-        const uint64_t a = s < g_nsp ? g_sp_actor[s] : 0;
-        if (a != g_ams[s].a || (a && g_sp_chr[s] != g_ams[s].chr)) {
+    for (int s = 0; s < META_ACTORS; ++s) {
+        uint32_t chr = 0;
+        const uint64_t a = MetadataActor(s, &chr);
+        if (a != g_ams[s].a || (a && chr != g_ams[s].chr)) {
             if (g_ams[s].a && !g_ams[s].done && g_ams[s].nf) AmFinal(s, "despawned/replaced");
-            memset(&g_ams[s], 0, sizeof g_ams[s]); g_ams[s].a = a; g_ams[s].t0 = g_ams[s].tLast = now; g_ams[s].chr = a ? g_sp_chr[s] : 0;
+            memset(&g_ams[s], 0, sizeof g_ams[s]); g_ams[s].a = a; g_ams[s].t0 = g_ams[s].tLast = now; g_ams[s].chr = a ? chr : 0;
         }
         if (!a || g_ams[s].done || now < g_ams[s].tNext) continue;
         g_ams[s].tNext = now + 250;

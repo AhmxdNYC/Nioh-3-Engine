@@ -46,6 +46,12 @@ static void* Hook(uintptr_t rva, int ncopy, void* detour) {
     return rva == 0x35EF04 ? (void*)Select : (void*)Commit;
 }
 static uint32_t IhSelect(uint64_t st, uint32_t id) { (void)st; return id; }
+#define HOOK_SET(dst,rva,n,detour) (dst = (void*)Hook(rva,n,detour))
+#define N3T_SLOTS 2
+static uint64_t g_slot_act[2]; static uint32_t g_slot_native[2], g_slot_chr[2];
+static int native_live;
+static int SlotAlive(int s) { return native_live && s == 0; }
+static int NativeSlotsActive(void) { return native_live; }
 #include "../src/move_toggle.h"
 static inline int MvRepStanding(uint32_t chr) { (void)chr; return standing; }
 
@@ -71,6 +77,11 @@ int main(void) {
     }
     assert(!g_mv_install_pending && hook_calls == 0);
     puts("PASS: zero-session startup; all chr=0 queries/setters rejected without hooks");
+    native_live = 1; g_slot_native[0] = 44; g_slot_act[0] = actor; g_slot_chr[0] = 16102;
+    assert(MvBossMatch() && MvBossChr(0x3000) == 16102 && !MvBossChr(0x3001));
+    g_tr.active = 1; g_tr.practice = 1; assert(!MvBossMatch());
+    g_tr.active = 0; native_live = 0; assert(!MvBossMatch() && !MvBossChr(0x3000));
+    puts("PASS native controller identity, live/stale gating and explicit Training precedence");
     g_tr.practice = 1; g_tr.active = g_bm.active = 1; g_bm.id = 7;
     o_mvsel = Select; o_mvcom = Commit;
     int tested = 0, protected_count = 0, yoritomo = 0;

@@ -15,7 +15,7 @@ static volatile LONG g_mv_pref[N3CAT_CAP], g_mv_current_chr, g_mv_install_pendin
 // ally #59523: a Boss Match ignores the saved Training vetoes / repeats / stance timer (1dbbaeb5), but a change made from the menu DURING the
 // match applies to it. g_bm_gen counts Boss Match starts (BossMatchDefaults); a block / repeat / timer stamped with the current generation is live.
 static volatile LONG g_bm_gen, g_mv_bmpref[N3CAT_CAP], g_mv_bmgen[N3CAT_CAP];
-static int MvBossMatch(void) { return g_tr.active && !g_tr.practice; }
+static int MvBossMatch(void) { return g_tr.active ? !g_tr.practice : NativeSlotsActive(); }
 typedef uint32_t (*MvSelFn)(uint64_t, uint64_t);
 typedef uint64_t (*MvComFn)(uint64_t, uint32_t, uint64_t, int, uint64_t);
 static MvSelFn o_mvsel;
@@ -46,6 +46,11 @@ static uint32_t MvBossChr(uint64_t st) {
         uint64_t actor = g_sp_actor[i], ai = 0, ctrl = 0;
         if (!actor || actor == me || !g_sp_chr[i]) continue;
         if (Rd64(actor + 0x3B0, &ai) && ai && Rd64(ai + 8, &ctrl) && ctrl == st) return g_sp_chr[i];
+    }
+    for (int s = 0; s < N3T_SLOTS; ++s) {
+        uint64_t ai = 0, ctrl = 0;
+        if (g_slot_native[s] && SlotAlive(s) && Rd64(g_slot_act[s] + 0x3B0, &ai) && ai &&
+            Rd64(ai + 8, &ctrl) && ctrl == st) return g_slot_chr[s];
     }
     if (!g_tr.active || !g_bm.active) return 0;
     uint64_t actor = g_bm.actor ? g_bm.actor : ActorByHandle(g_bm.id), ai = 0, ctrl = 0;
