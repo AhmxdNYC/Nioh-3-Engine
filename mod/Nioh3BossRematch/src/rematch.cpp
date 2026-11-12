@@ -1196,9 +1196,11 @@ bool VetoWaveRequest(int) {  // script thread
     if (logged.fetch_add(1) < 8) Log("Rematch: scroll Training: Emaki::RequestWaveBattle SKIPPED (no waves on this trip)");
     return true;
 }
-// Staged invade-box waves (#88648). The scroll veto runs on the script thread with rcx = the binding's VM
-// wrapper. This uses that same wrapper: push one int, call WaveBattle::RequestID, then put the stack count
-// and the arg base back so the native we interrupted still sees its own arguments. No mission-flag writes.
+// Staged invade-box waves (#88648, #88701). RequestID is a script binding: rcx at a binding's entry is the VM
+// wrapper. Push one int, call it, then restore the stack count so the interrupted native keeps its own arguments.
+// The engine native Time::DebugDispPoppingWait is not what the mission script calls (that name is a user function
+// which only yields), so the pump is Character::Create plus the wait-loop natives GetTimeStep and IsEnterPlacementBox.
+// No mission-flag writes. A row with a boss gate waits until that gate's exclusive right has been requested.
 enum { kWvOff = 0, kWvReq = 1, kWvAct = 2, kWvClr = 3, kWvDone = 4 };
 struct StagedWaves {
     const uint16_t* id = nullptr;
@@ -1206,6 +1208,9 @@ struct StagedWaves {
     uint16_t index = 0;
     volatile LONG step = kWvOff;
     volatile LONG busy = 0;
+    volatile LONG polls = 0;
+    volatile LONG waitLogged = 0;
+    volatile LONG pushLogged = 0;
 } g_wv;
 struct WaveFrame {
     uint64_t countObj = 0, values = 0, inner = 0, count = 0;
@@ -1268,6 +1273,9 @@ void StagedWaveReset() {
     g_wv.id = nullptr;
     g_wv.n = 0;
     g_wv.index = 0;
+    InterlockedExchange(&g_wv.polls, 0);
+    InterlockedExchange(&g_wv.waitLogged, 0);
+    InterlockedExchange(&g_wv.pushLogged, 0);
     InterlockedExchange(&g_wv.step, kWvOff);
 }
 void StagedWaveArm(uint32_t mission) {
@@ -1281,12 +1289,17 @@ void StagedWaveArm(uint32_t mission) {
     g_wv.id = w;
     g_wv.n = n;
     g_wv.index = 0;
+    InterlockedExchange(&g_wv.polls, 0);
     InterlockedExchange(&g_wv.step, kWvReq);
-    Log("Rematch: staged waves armed mission 0x%X count %u first %u (script thread, no box place)", mission, n, w[0]);
+    Log("Rematch: staged waves armed mission 0x%X count %u first %u (request after the door right)", mission, n, w[0]);
 }
 void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     const LONG step = g_wv.step;
     if (step != kWvReq && step != kWvAct && step != kWvClr) return;
+    if (g_gateWant.load() && !g_gateReq) {
+        if (!InterlockedExchange(&g_wv.waitLogged, 1)) Log("Rematch: staged wave waiting for the door right");
+        return;
+    }
     if (InterlockedExchange(&g_wv.busy, 1)) return;
     __try {
         if (g_wv.index >= g_wv.n || !g_wv.id) {
@@ -1300,7 +1313,10 @@ void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
                     Log("Rematch: staged wave RequestID %u faulted; chain stopped", id);
                 } else if (rc > 0) {
                     g_wv.step = kWvAct;
+                    InterlockedExchange(&g_wv.polls, 0);
                     Log("Rematch: staged wave RequestID %u (%u/%u)", id, (unsigned)g_wv.index + 1, g_wv.n);
+                } else if (!InterlockedExchange(&g_wv.pushLogged, 1)) {
+                    Log("Rematch: staged wave RequestID %u stack not ready", id);
                 }
             } else {
                 bool on = false;
@@ -1316,7 +1332,16 @@ void OnStagedWave(uint64_t rcx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
                     } else {
                         Log("Rematch: staged wave %u clear", id);
                         g_wv.index++;
+                        InterlockedExchange(&g_wv.polls, 0);
+                        InterlockedExchange(&g_wv.pushLogged, 0);
                         g_wv.step = g_wv.index < g_wv.n ? (LONG)kWvReq : (LONG)kWvDone;
+                    }
+                } else if (step == kWvAct) {
+                    const LONG n = InterlockedIncrement(&g_wv.polls);
+                    if (n == 30 || n == 90 || n == 180) {
+                        const int again = WaveCall(rcx, "WaveBattle::RequestID", id, nullptr);
+                        Log("Rematch: staged wave RequestID %u retry %ld (%s)", id, n, again > 0 ? "called" : again < 0 ? "fault" : "stack not ready");
+                        if (again < 0) g_wv.step = kWvDone;
                     }
                 }
             }
@@ -1331,9 +1356,14 @@ void InstallClearGuard() {
     const char* why = nullptr;
     g_waveVetoOk = InstallVeto("Emaki::RequestWaveBattle", &VetoWaveRequest, &why);
     Log("Rematch: scroll Training wave guard %s%s", g_waveVetoOk ? "installed" : "NOT installed: ", g_waveVetoOk ? "" : (why ? why : "?"));
-    why = nullptr;
-    const bool stagedWave = InstallEntry("Time::DebugDispPoppingWait", &OnStagedWave, &why);
-    Log("Rematch: staged wave hook %s%s", stagedWave ? "installed" : "NOT installed: ", stagedWave ? "" : (why ? why : "?"));
+    const char* pumps[] = {"Character::Create", "Time::GetTimeStep", "Player::IsEnterPlacementBox"};
+    int stagedOk = 0;
+    for (const char* pump : pumps) {
+        why = nullptr;
+        if (InstallEntry(pump, &OnStagedWave, &why)) ++stagedOk;
+        else Log("Rematch: staged wave pump %s NOT installed: %s", pump, why ? why : "?");
+    }
+    Log("Rematch: staged wave pumps %d/3", stagedOk);
     why = nullptr;
     g_clearGuardOk = InstallVeto("Mission::SetMissionClearFlag", &VetoClear, &why);
     Log("Rematch: IgnoreProgress %s; clear guard %s%s%s", g_cfg.ignoreProgress ? "ON (unbeaten bosses can be fought)" : "off",

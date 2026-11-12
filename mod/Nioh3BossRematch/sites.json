@@ -351,13 +351,23 @@
    "offset": 0
   },
   {
-   "name": "Time::DebugDispPoppingWait",
+   "name": "Time::GetTimeStep",
    "group": "STAGED",
    "kind": "native",
-   "rva": 37429888,
+   "rva": 3291944,
    "head": 9,
-   "native": "Time::DebugDispPoppingWait",
+   "native": "Time::GetTimeStep",
    "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::IsEnterPlacementBox",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 1284024,
+   "head": 5,
+   "native": "Player::IsEnterPlacementBox",
+   "pattern": "48 89 5C 24 08",
    "offset": 0
   },
   {

@@ -70,8 +70,10 @@ SPEC = [
     ("Mission::ClearGadgetAccessWaitMode", "ROSTER", H, 0x23A3260, 9),
     # SCROLLTRAIN (#79069: Training at a Picture Scroll arena, the script's wave request is skipped for that trip only)
     ("Emaki::RequestWaveBattle", "SCROLLTRAIN", H, 0x239A630, 5),
-    # STAGED (#88648: after the door landing, request each invade-box station on the script thread)
-    ("Time::DebugDispPoppingWait", "STAGED", H, 0x23B2280, 9),
+    # STAGED (#88701: the script's Time::DebugDispPoppingWait is a user function, not this native.
+    # Pump the wave request from natives the wait loops actually call, after the door right.)
+    ("Time::GetTimeStep", "STAGED", H, 0x323B28, 9),
+    ("Player::IsEnterPlacementBox", "STAGED", H, 0x1397B8, 5),
     ("WaveBattle::RequestID", "STAGED", H, 0x23B91F8, 5),
     ("WaveBattle::IsActiveID", "STAGED", H, 0x90EA34, 9),
     ("WaveBattle::IsClearID", "STAGED", H, 0x23B9168, 9),
