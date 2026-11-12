@@ -25,6 +25,7 @@ void Hex(char*, size_t, uint64_t, size_t) {}
 uintptr_t Site(const char*) { return 0; }
 bool GroupOk(const char*, const char**) { return false; }
 void OnEntry(const char*, Handler) {}
+bool InstallEntry(const char*, Handler, const char**) { return false; }
 bool InstallGroup(const char*, const char**) { return false; }
 bool InstallVeto(const char*, bool (*)(int), const char**) { return false; }
 bool InstallPump(void (*)(), const char**) { return false; }
@@ -131,6 +132,12 @@ int main() {
     g_sel = 0;
     UiChange(1);  // Favorites, none marked yet: only the filter row and the rows below the list
     CHECK(strcmp(ListFilterLabel(), "Favorites") == 0);
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
+    }
+    UiChange(1);  // Open world: this fixture has no field spawn
+    CHECK(strcmp(ListFilterLabel(), "Open world") == 0);
     {
         const int fn = Items(it, kMaxRows + 4);
         for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
@@ -328,6 +335,8 @@ int main() {
         g_trainStop = 5;
         CHECK(!strcmp(ListFilterLabel(), "Favorites") && rowsOn(kItTrainHere) == 0);
         g_sel = 0; UiChange(1);
+        CHECK(g_trainStop == 6 && !strcmp(ListFilterLabel(), "Open world") && rowsOn(kItTrainHere) == 0);
+        UiChange(1);
         CHECK(g_trainStop == 0 && strcmp(ListFilterLabel(), "All") == 0);  // wraps
         g_uiPages.page = uTraining; g_sel = 0;
         CHECK(Items(it, kMaxRows + 4) > 2 && it[0] == kItListFilter && rowsOn(kItTeleport) == 25);
@@ -375,7 +384,7 @@ int main() {
         UiChange(1);  // already marked: stays marked
         CHECK(FavHas(kFavBoss, "T10"));
         EnsureListCycle();
-        g_listStop = g_listCycle.Stops() - 1;
+        g_listStop = g_listCycle.Stops() - 2;
         CHECK(!strcmp(ListFilterLabel(), "Favorites"));
         CHECK(indexOf(10) == 1 && Items(it, kMaxRows + 4) >= 3 && it[2] < 0);
         g_sel = 1;

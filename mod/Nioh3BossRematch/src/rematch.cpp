@@ -210,7 +210,7 @@ int ReturnInfo() {  // Nioh3Training_ReturnInfo bits: 1 spot stored, 2 boss defe
 std::atomic<bool> g_swappedInPlace{false};
 
 // ---- requests ----
-enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12, kReqEmakiTrain = 13, kReqCount };
+enum ReqKind : uint32_t { kReqNone = 0, kReqOpen = 1, kReqDirect = 2, kReqAbort = 3, kReqEmaki = 4, kReqScroll = 5, kReqFight = 6, kReqShrine = 7, kReqExit = 8, kReqPractice = 9, kReqPracticeExit = 10, kReqTeleport = 11, kReqNativeAgain = 12, kReqEmakiTrain = 13, kReqField = 14, kReqCount };
 // Native gate retry returns through the owned transaction, then starts a fresh guarded request.
 int g_nativeAgainRow = -1;
 ULONGLONG g_nativeAgainAt = 0;
@@ -243,7 +243,7 @@ void Post(uint32_t kind, int row, const char* via) {
     g_req.store(kind | ((uint32_t)(row + 1) << 8));
     static const char* const kn[] = {"", "R-a open the replay menu", "R-b direct start", "abort", "Picture Scroll (E1 redirect)", "Picture Scroll (game's pick)",
                                      "Fight now (in the arena)", "Shrine before the boss", "leave the mission (return)", "Practice Yamagata (native shrine)", "return from practice", "Teleport to arena (fast load)", "return and fight the same native boss again",
-                                     "Training at a Picture Scroll (no waves)"};
+                                     "Training at a Picture Scroll (no waves)", "Open world (teleport and summon)"};
     static_assert(sizeof(kn) / sizeof(kn[0]) == kReqCount, "every ReqKind needs a name: #79507 crashed reading past this table");
     Log("Rematch: request %s%s%s queued from %s", kind < kReqCount ? kn[kind] : "unknown", row >= 0 ? " for " : "", RowName(row), via);
 }
@@ -3090,6 +3090,29 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     Post(rcore::WavesRow(g_rows[(size_t)row]) ? kReqEmaki : kReqFight, row, "native gate after completed return");
 }
 
+void ExecField(int row, const Snap& s) {
+    if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].OpenWorld()) {
+        Refuse("not an open-world boss");
+        return;
+    }
+    const Row& r = g_rows[(size_t)row];
+    using Fn = int (*)(int, uint32_t);
+    const auto summon = (Fn)TrainingExport("Nioh3Training_SummonSlotChr");
+    if (!summon || !g_warpOk) {
+        Refuse(!summon ? "Training summon is missing" : (g_warpWhy && g_warpWhy[0] ? g_warpWhy : "warp unavailable"));
+        return;
+    }
+    const int wrc = CallWarp(r.warp[0], r.warp[1], r.warp[2], r.warp[3]);
+    const int src = wrc ? 0 : summon(-1, r.summonChr);
+    Log("Rematch: open world %s region 0x%X running 0x%X placement %u chr %u warp %d summon %d (no flag writes)",
+        r.id, r.missionId, s.ms28, r.placement, r.summonChr, wrc, src);
+    if (r.missionId && s.msOk && r.missionId != s.ms28)
+        Log("Rematch: open world region mismatch: spawn mission 0x%X, running 0x%X", r.missionId, s.ms28);
+    if (wrc) Refuse("warp failed");
+    else if (src != 1) Refuse("summon failed");
+    else Result("open world summoned");
+}
+
 void AutoMovesTick();  // pc2 #23907, end of file
 void Tick() {
     const ULONGLONG t = Ms();
@@ -3273,6 +3296,7 @@ void Tick() {
             else if (kind == kReqFight) ExecDirect(row, s, t, true, true);
             else if (kind == kReqShrine) ExecDirect(row, s, t, true, false);
             else if (kind == kReqTeleport) { g_noSwap = true; ExecDirect(row, s, t, true, true); g_noSwap = false; }
+            else if (kind == kReqField) ExecField(row, s);
             else if (kind == kReqPractice) ExecPractice(row, s, t);
             else if (kind == kReqEmaki) ExecEmaki(row, t);
             else if (kind == kReqEmakiTrain) ExecEmaki(row, t, true);
@@ -4106,9 +4130,15 @@ int ItemsBase(int* out, int cap) {
         EnsureListCycle();
         add(kItListFilter);
         std::vector<int> rows;
+        const bool fieldList = g_listCycle.Kind(ListStopRef()) == 5;
         for (int pass = 0; pass < 3; ++pass)
             for (size_t i = 0; i < g_rows.size(); ++i) {
                 const Row& r = g_rows[i];
+                if (fieldList) {
+                    if (pass != 0 || !r.OpenWorld()) continue;
+                    rows.push_back((int)i);
+                    continue;
+                }
                 const uint8_t st = g_status[i].load();
                 const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
                 if (grp != pass) continue;
@@ -4168,6 +4198,7 @@ int ItemsBase(int* out, int cap) {
         add(kItListFilter);  // #79069
         for (int pass = 0; pass < 2; ++pass)
             for (size_t i = 0; i < g_rows.size(); ++i) {
+                if (g_rows[i].route == rcore::kX) continue;
                 if (!RowInCurrentList(g_rows[i])) continue;
                 const bool waves = rcore::WavesRow(g_rows[i]);
                 if (waves) { if (pass == 0) rows.push_back(kItTrainHere + (int)i); continue; }
@@ -4229,7 +4260,7 @@ int ItemsBase(int* out, int cap) {
             using CanFn = int (*)(uint32_t);
             const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
             for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && g_rows[i].route != rcore::kX && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
             const int nr = RosterCount();
             for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster && n < cap; ++i) add(kItSummonRoster + i);
         }
@@ -4880,6 +4911,27 @@ bool ActScrollFight(int item) {
     }
     return StartScrollRecord(row, item, false);
 }
+bool ActOpenWorld(int row) {
+    if (row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].OpenWorld()) {
+        snprintf(g_msg, sizeof g_msg, "This boss has no field spawn.");
+        return false;
+    }
+    const char* why = Gates(ReadSnap(), true);
+    if (why) { snprintf(g_msg, sizeof g_msg, "Not now: %s.", why); return false; }
+    if (!TrainingExport("Nioh3Training_SummonSlotChr") || !g_warpOk) {
+        snprintf(g_msg, sizeof g_msg, "%s", !g_warpOk ? (g_warpWhy && g_warpWhy[0] ? g_warpWhy : "warp unavailable") : "Training summon is missing.");
+        return false;
+    }
+    if (g_confirm != row) {
+        g_confirm = row;
+        snprintf(g_msg, sizeof g_msg, "Teleport to %s and summon it beside you? No save writes. A confirm / B back.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    Post(kReqField, row, "the menu");
+    ToastF(cWhite, 6000, "Open world: %s...", g_rows[(size_t)row].name);
+    return true;
+}
 bool UiAct() {
     static int it[kMaxRows + 4];
     const int n = Items(it, kMaxRows + 4);
@@ -5060,6 +5112,9 @@ bool UiAct() {
         return false;
     }
     if (item == kItListFilter) { CycleListFilter(0); return false; }
+    if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight &&
+        (size_t)item < g_rows.size() && g_rows[(size_t)item].OpenWorld())
+        return ActOpenWorld(item);
     if (item == kItBrowse || ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && item >= 0 && item < kItFight)) {
         if (item >= 0) g_uiBoss = item;
         g_uiPages.Enter(item == kItBrowse ? uBosses : uActions, g_sel);
@@ -5546,6 +5601,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
         } else {
             const Row& r = g_rows[(size_t)it[i]];
+            if (r.OpenWorld()) {
+                add(sel ? cWhite : cGreen, sel, "%s %s%-40.40s %-10.10s %-11.11s %-14.14s", mk, FavMark(it[i]), r.name, r.region, "Summon", "Open world");
+                continue;
+            }
             const char* routeWhy = CanMatchArena(it[i]);
             const char* status = r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
             const uint32_t c = !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
@@ -5664,7 +5723,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item <= kItGroupBase) snprintf(footer, nf, "Startup preferences. Every change is saved at once and applies after a game restart.");
-        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, Scrolls, and Favorites. Right on a row marks a favorite, Left unmarks it.", ListFilterLabel());
+        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, Scrolls, Favorites, and Open world. Right on a row marks a favorite, Left unmarks it.", ListFilterLabel());
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss: Fight now in its arena, or Train here. Beaten and unbeaten bosses use the same guarded route.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
@@ -5717,7 +5776,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
-            if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.lesson) snprintf(footer, nf, "%s", kLessonLine);
+            if (r.OpenWorld()) snprintf(footer, nf, "Teleport to this boss's field spawn and summon it beside you. No save writes.");
+            else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.lesson) snprintf(footer, nf, "%s", kLessonLine);
             else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.route == rcore::kE)
                 snprintf(footer, nf, "%s: A opens the wave fight. Not a boss. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name);
             else if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name, g_sel + 1, n - 1);

@@ -60,6 +60,8 @@ struct Row {
     // The mission script's running function calls Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
     // Filled by tools/rematch_catalog.py from the script, not from a row list. The menu reads it before that script runs.
     bool lesson = false;
+    uint32_t summonChr = 0;  // field-only X row: character id of the picked region enemy record
+    bool OpenWorld() const { return route == kX && summonChr && placement; }
 };
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
@@ -113,7 +115,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cSum = ci("summon_chr");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -175,6 +177,14 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         if (r.route == kE) {
             const int wc[4] = {cWx, cWy, cWz, cWyaw};
             for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+        }
+        if (r.route == kX) {
+            r.summonChr = (uint32_t)strtoul(col(cSum).c_str(), nullptr, 0);
+            if (r.OpenWorld()) {
+                const int wc[4] = {cWx, cWy, cWz, cWyaw};
+                for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+                Ascii(r.fightKind, sizeof(r.fightKind), col(cFk));
+            }
         }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
@@ -241,25 +251,29 @@ inline void EraKey(const char* in, char* out, int cap) {
 }
 
 // Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
-// Stops: All, Multi, one per distinct era (catalogue order), Scrolls.
+// Stops: All, Multi, one per distinct era (catalogue order), Scrolls, Favorites, Open world.
 // A scroll stays in its era as well as under Scrolls. An empty region is not an era.
+// Open world is last so the earlier stop indexes stay valid.
 struct ListCycle {
     static constexpr int kMaxEra = 32;
     char era[kMaxEra][40]{};
     int nEra = 0;
-    int Stops() const { return 4 + nEra; }
+    int Stops() const { return 5 + nEra; }
     int Kind(int stop) const {
         if (stop <= 0) return 0;
         if (stop == 1) return 1;
         if (stop >= 2 && stop < 2 + nEra) return 2;
-        return stop == 2 + nEra ? 3 : 4;
+        if (stop == 2 + nEra) return 3;
+        if (stop == 3 + nEra) return 4;
+        return 5;
     }
     const char* Label(int stop) const {
         const int k = Kind(stop);
         if (k == 0) return "All";
         if (k == 1) return "Multi";
         if (k == 2) return era[stop - 2];
-        return k == 3 ? "Scrolls" : "Favorites";
+        if (k == 3) return "Scrolls";
+        return k == 4 ? "Favorites" : "Open world";
     }
     void AddEra(const char* name) {
         if (!name || !name[0] || nEra >= kMaxEra) return;
@@ -292,6 +306,7 @@ inline bool WavesRow(const Row& r) {
 inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFavorite = false) {
     const int k = c.Kind(stop);
     if (k == 0) return true;
+    if (k == 5) return r.OpenWorld();
     if (k == 4) return isFavorite;
     if (k == 3) return r.route == kE;
     if (k == 2) {
@@ -301,7 +316,7 @@ inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFav
         EraKey(r.region, key, (int)sizeof key);
         return key[0] && strcmp(key, c.era[ei]) == 0;
     }
-    if (!r.missionId || r.route == kE) return false;
+    if (!r.missionId || r.route == kE || r.route == kX) return false;
     return RosterMembers(r.id) > 1;
 }
 

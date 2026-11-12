@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
         std::set<std::string> favorites{"B E02", "T E01", "B R2"};
         for(char kind : {'B','T'}) {
             std::vector<int> scrolls;
-            for(int i=0;i<4;++i) if(rcore::RowInListStop(catalog[i],cycle,cycle.Stops()-2)) scrolls.push_back(i);
+            for(int i=0;i<4;++i) if(rcore::RowInListStop(catalog[i],cycle,cycle.Stops()-3)) scrolls.push_back(i);
             rcore::FavoritesFirst(scrolls,[&](int i){return favorites.count(rcore::FavKey(kind,catalog[i].id))!=0;});
             CHECK((scrolls == (kind=='B' ? std::vector<int>{3,1} : std::vector<int>{1,3})), "scroll filter retains its own B/T favorites and excludes bosses");
         }
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
         CHECK(cycle.Stops() >= 4, "All, Multi, at least one era, Scrolls");
         CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
         CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
-        CHECK(strcmp(cycle.Label(cycle.Stops() - 2), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Favorites") == 0, "last stops are Scrolls, Favorites");
+        CHECK(strcmp(cycle.Label(cycle.Stops() - 3), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 2), "Favorites") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Open world") == 0, "last stops are Scrolls, Favorites, Open world");
         int sengoku = -1, wavesEra = -1;
         for (int i = 0; i < cycle.nEra; ++i) {
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
             }
             if (r.route == rcore::kE) {
                 ++scrolls;
-                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 2)) ++scrollMiss;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 3)) ++scrollMiss;
                 if (wavesEra < 0 || strcmp(r.region, "Waves") != 0 || !rcore::RowInListStop(r, cycle, 2 + wavesEra)) ++waveMiss;
                 if (sengoku >= 0 && rcore::RowInListStop(r, cycle, 2 + sengoku)) ++waveMiss;
                 if (!strstr(r.name, " waves, ") || strncmp(r.name, "Waves", 5) == 0 || strstr(r.name, "Small") || strstr(r.name, "Hundred Demon")) ++nameMiss;
@@ -276,6 +276,19 @@ int main(int argc, char** argv) {
             if (isMulti) ++multi;
         }
         printf("list filter blank-region rows: %d%s%s\n", blank, blank ? " ids " : "", blankIds);
+        int openWorld = 0, plainX = 0, openLeak = 0;
+        for (const auto& r : rows) {
+            if (r.OpenWorld()) {
+                ++openWorld;
+                if (!rcore::RowInListStop(r, cycle, cycle.Stops() - 1)) ++openLeak;
+                if (rcore::RowInListStop(r, cycle, 1)) ++openLeak;
+            } else if (r.route == rcore::kX) {
+                ++plainX;
+                if (rcore::RowInListStop(r, cycle, cycle.Stops() - 1)) ++openLeak;
+            }
+        }
+        printf("open world: %d\n", openWorld);
+        CHECK(openWorld == 19 && plainX > 0 && openLeak == 0, "19 field spawns are the Open world filter; other X rows stay out");
         CHECK(allMiss == 0, "All shows every loaded row");
         CHECK(scrolls == 20 && scrollMiss == 0, "every Picture Scroll is under Scrolls");
         CHECK(waveMiss == 0 && nameMiss == 0, "today every Picture Scroll region is Waves, so all 20 stay in that group");
@@ -307,12 +320,12 @@ int main(int argc, char** argv) {
                 if (target) {
                     if (!rcore::WavesRow(r) && wavesStop >= 0 && !rcore::RowInListStop(r, fc, wavesStop)) ++leftWaves;
                     if (sengokuStop >= 0 && rcore::RowInListStop(r, fc, sengokuStop)) ++inSengoku;
-                    if (rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++stillScroll;
+                    if (rcore::RowInListStop(r, fc, fc.Stops() - 3)) ++stillScroll;
                     if (strncmp(r.name, "Waves: ", 7) != 0) ++prefixGone;
                 } else {
                     ++otherN;
                     if (rcore::WavesRow(r) && wavesStop >= 0 && rcore::RowInListStop(r, fc, wavesStop) &&
-                        rcore::RowInListStop(r, fc, fc.Stops() - 2)) ++otherStay;
+                        rcore::RowInListStop(r, fc, fc.Stops() - 3)) ++otherStay;
                 }
             }
             CHECK(nFlip == 2 && leftWaves == 2 && inSengoku == 2 && stillScroll == 2 && prefixGone == 2,

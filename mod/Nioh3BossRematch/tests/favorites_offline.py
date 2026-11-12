@@ -19,11 +19,13 @@ constexpr int kItFight=0x10000,kItTrainHere=0x50000,kItTeleport=0x40000,kMaxRows
 struct {int page=uRematch;} g_uiPages;
 struct {bool showAll=true,hiddenDuels=true,directStart=true;} g_cfg;
 std::vector<Row> g_rows(4);std::atomic<uint8_t> g_status[4];std::atomic<bool> g_live{true};
-std::set<std::string> favs;rcore::ListCycle cycle;int stop=0,g_sel=0,g_confirm=-9;
+std::set<std::string> favs;rcore::ListCycle g_listCycle;rcore::ListCycle& cycle=g_listCycle;int stop=0,g_sel=0,g_confirm=-9;
 char ListFavKind(){return g_uiPages.page==uTrainHere||g_uiPages.page==uTraining?'T':'B';}
 bool FavHas(char kind,const char* id){return favs.count(rcore::FavKey(kind,id))!=0;}
-void EnsureListCycle(){rcore::BuildListCycle(g_rows,cycle);}
+int& ListStopRef(){return stop;}
+void EnsureListCycle(){rcore::BuildListCycle(g_rows,g_listCycle);}
 bool RowInCurrentList(const Row& r){return rcore::RowInListStop(r,cycle,stop,FavHas(ListFavKind(),r.id));}
+constexpr int kItStagedStart=-70;bool g_stagedFinal=false;char g_msg[4]={};void Log(const char*,...){}
 void CycleListFilter(int){}
 '''
 mid=r'''
@@ -43,12 +45,12 @@ int main(){
   assert(items[2]==base&&items[3]==base+2&&items[4]==base+1);++checks;
   int tiny[2];assert(Items(tiny,2)==2&&tiny[1]==base+3);++checks; // sort before truncation
   UiChange(-1);Items(items,104);assert(g_sel==4&&items[4]==base+3);++checks;
-  UiChange(1);stop=cycle.Stops()-1;Items(items,104);g_sel=1;UiChange(-1);
+  UiChange(1);stop=cycle.Stops()-2;Items(items,104);g_sel=1;UiChange(-1);
   n=Items(items,104);assert(n==2&&g_sel>=0&&g_sel<n);++checks; // removed row is no longer visible
  }
  for(int i=0;i<4;++i){g_rows[i].route=rcore::kE;strcpy_s(g_rows[i].region,"Waves");}
  for(int page:{uBosses,uRematch,uTrainHere,uTraining}) {
-  g_uiPages.page=page;EnsureListCycle();stop=cycle.Stops()-2;favs.clear();favs.insert(rcore::FavKey(ListFavKind(),"R3"));
+  g_uiPages.page=page;EnsureListCycle();stop=cycle.Stops()-3;favs.clear();favs.insert(rcore::FavKey(ListFavKind(),"R3"));
   const int base=page==uTrainHere?kItTrainHere:page==uTraining?kItTeleport:0;
   int n=Items(items,104);assert(n==6&&items[1]==base+3&&items[2]==base&&items[3]==base+1&&items[4]==base+2);++checks;
  }

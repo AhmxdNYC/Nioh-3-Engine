@@ -23,6 +23,8 @@ Routes (notes/rematch-all-bosses.md s.1)
       the colon in its right column). SCROLL_REGION overrides one record index, so a row can leave Waves
       without a code change.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
+      A field-only row with a picked CHxx enemy record also carries that record's spawn (summon_chr, warp, placement).
+      The pick is every bit-4 field hit of the name: a record name containing WORLD, else BOSS, else the lowest mission and placement.
 
 Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
 (mission record +0x6C table, 0xA4-byte records: +0 id, +8 flags, +0xC gadget kind 0/906-909, +0x40 spawn x y z yaw) nearest the boss
@@ -82,7 +84,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "summon_chr"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -583,6 +585,74 @@ def apply_placeholder_labels(out, bs, idx):
         o["mission_name"] = display_mission_name(game, o.get("name") or "", other)
 
 
+def _pid_int(pid):
+    try:
+        return int(pid)
+    except (TypeError, ValueError):
+        return 1 << 31
+
+
+def enemy_positions():
+    """(mission id, placement id) -> (x, y, z, yaw) from each mission's +0x54 enemy table, including open-field regions."""
+    if getattr(enemy_positions, "cache", None) is not None:
+        return enemy_positions.cache
+    found = {}
+    enemy_positions.cache = found
+    base = _game_data_root()
+    if base is None:
+        return found
+    lfm_root = base / "data" / "extract" / "lfm"
+    d = lfm_root.joinpath(*IDTAB).read_bytes()
+    E = {}
+    for i in range(struct.unpack_from("<I", d, 4)[0]):
+        e = 8 + i * 8
+        k, o = struct.unpack_from("<Ii", d, e)
+        E[k] = d[e + o:d.index(b"\0", e + o)].decode("latin1")
+    files = {}
+    for root, _, fs in os.walk(lfm_root):
+        for f in fs:
+            p = pathlib.Path(root) / f
+            files["/".join(p.relative_to(lfm_root).parts[1:])] = p
+    md = lfm_root.joinpath(*MISSIONDB).read_bytes()
+    n = struct.unpack_from("<I", md, 4)[0]
+    for i in range(n):
+        rec = md[8 + i * 0x198:8 + (i + 1) * 0x198]
+        mid = struct.unpack_from("<H", rec, 0x158)[0]
+        nm = E.get(struct.unpack_from("<I", rec, 0x54)[0])
+        p = files.get(nm) if nm else None
+        if not p:
+            continue
+        t = p.read_bytes()
+        if len(t) < 8 or t[:4] != b"\x00\x22\x04\x20":
+            continue
+        c = struct.unpack_from("<I", t, 4)[0]
+        if c == 0 or 8 + c * 0x138 > len(t):
+            continue
+        for j in range(c):
+            r = t[8 + j * 0x138:8 + (j + 1) * 0x138]
+            pid = struct.unpack_from("<I", r, 0)[0]
+            found[(mid, pid)] = struct.unpack_from("<4f", r, 0x40)
+    return found
+
+
+def pick_field_spawn(hits, positions, chars):
+    """One table-derived spawn. WORLD in the record name, else BOSS, else the lowest mission and placement."""
+    def rank(h):
+        m, pid, rn = h
+        u = (rn or "").upper()
+        return (0 if "WORLD" in u else 1, 0 if "BOSS" in u else 1, m, _pid_int(pid))
+
+    for m, pid, rn in sorted(hits, key=rank):
+        ip = _pid_int(pid)
+        if ip >= 1 << 31:
+            continue
+        pos = positions.get((m, ip))
+        chr_id = chars.get((m, ip), 0)
+        if pos and chr_id:
+            return m, ip, pos, chr_id, rn
+    return None
+
+
 def classify(mid, bs, mi, ma):
     """-> (route letter or None, reason) for one mission id."""
     b = bs.get(mid)
@@ -621,8 +691,16 @@ def build():
     for r in rd("boss-names.csv"):
         cnames[r["english_name"].strip().lower()].add(int(r["char_id"]))
     byc = collections.defaultdict(list)
+    chars, recname = {}, {}
     for r in idx:
         byc[int(r["char_id"])].append(r)
+        try:
+            key = (int(r["mission_id"], 16), int(r["placement_id"]))
+            chars[key] = int(r["char_id"] or 0)
+            recname[key] = r["record_name"]
+        except (TypeError, ValueError):
+            continue
+    positions = enemy_positions()
 
     groups = collections.OrderedDict()
     for r in bm:
@@ -708,11 +786,20 @@ def build():
             else:
                 reason = "no data: the name matches no char id (boss-names.csv) and no boss-master row (online-only name, mission unconfirmed)"
                 rec = ""
+            spawn = None
+            if field_hits and all(w.startswith("field:") for w in why_x):
+                spawn = pick_field_spawn(field_hits, positions, chars)
+                if spawn:
+                    sm, spid, _pos, schr, srn = spawn
+                    rb = bs[sm]["region_15c"] if sm in bs else "-"
+                    spawn = (sm, spid, _pos, schr, rb, recname.get((sm, spid), srn))
+                else:
+                    print("open-world: %s has field records but no table position and char id" % name)
             allrows.append({"boss": name, "aliases": c.get("alt_names", "")[:60], "type": btype, "region": region, "route": "X",
                             "record_name": rec, "verified": "-", "reason": reason,
                             "unverified": ("web: %s" % c.get("mission", ""))[:80] if c else "",
                             "sources": "boss-master;enemy-index" + (";crosscheck" if c else "")})
-            xtsv.append(xrow(name, region, reason))
+            xtsv.append(xrow(name, region, reason, spawn))
             continue
         _, rt, m, pid, rn, src, x, _q = routes[0]
         b = bs[m]
@@ -1014,11 +1101,18 @@ def erow(e):
     return o
 
 
-def xrow(name, region, reason):
+def xrow(name, region, reason, spawn=None):
     o = blank()
     o.update({"id": "X" + re.sub(r"[^A-Za-z0-9]", "", ascii_(name))[:14], "name": ascii_(name),
               "region": region_of(region) if region else "-", "route": "X", "hidden": "0", "verified": "0", "boss": ascii_(name),
               "reason": ascii_(reason)[:240], "lesson": "0"})
+    if spawn:
+        m, pid, pos, chr_id, region_byte, rn = spawn
+        o.update({"replay_mission_id": "0x%04X" % m, "placement_id": str(pid),
+                  "warp_x": "%.0f" % pos[0], "warp_y": "%.0f" % pos[1], "warp_z": "%.0f" % pos[2], "warp_yaw": "%.1f" % pos[3],
+                  "summon_chr": str(chr_id), "region_byte": region_byte, "fight_kind": "field spawn",
+                  "boss_pos": "%.0f_%.0f_%.0f" % (pos[0], pos[1], pos[2]),
+                  "mission_name": ascii_(rn)[:60]})
     return o
 
 
@@ -1070,7 +1164,8 @@ def main():
     if tp.parent.exists():
         tp.write_bytes(tsvtext.encode("ascii"))
         c2 = collections.Counter(o["route"] for o in out)
-        print("wrote %s: %d rows (%s)" % (tp, len(out), ", ".join("%s %d" % kv for kv in sorted(c2.items()))))
+        ow = sum(1 for o in out if o["route"] == "X" and o.get("summon_chr") not in ("-", "", None))
+        print("wrote %s: %d rows (%s); open world spawns %d" % (tp, len(out), ", ".join("%s %d" % kv for kv in sorted(c2.items())), ow))
     else:
         print("runtime TSV skipped: %s does not exist on this checkout (branch rematch3 has it)" % tp.parent)
     return 0
