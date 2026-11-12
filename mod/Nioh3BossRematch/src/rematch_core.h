@@ -324,17 +324,19 @@ inline int KeepVisibleSel(const int* items, int n, int sel, int anchorItem) {
 // #89941: held Left in the Favorites filter removed every favorite. Each unfavorite drops the row, the cursor lands on the next
 // favorite, and the host's key repeat (first after 400 ms, then every 90 ms) unfavorites that one too. After a favorite edit moves
 // the cursor to another row, the rest of that Left / Right hold does nothing; a fresh press after kQuietMs of no Left / Right works.
+// Only the row the hold landed on is guarded (#92504): once the cursor moves to any other row (filter row etc.) Left / Right works.
 struct FavHoldGuard {
     static constexpr uint64_t kQuietMs = 550;  // longer than the host's 400 ms first-repeat delay
     uint64_t last = 0;
+    int item = 0;
     bool locked = false;
-    bool Swallow(uint64_t now) {  // call on every Left / Right; true = part of a locked hold, ignore it
+    bool Swallow(uint64_t now, int curItem) {  // call on every Left / Right; true = part of a locked hold, ignore it
         if (!locked) return false;
-        if (now - last < kQuietMs) { last = now; return true; }
+        if (curItem == item && now - last < kQuietMs) { last = now; return true; }
         locked = false;
         return false;
     }
-    void Lock(uint64_t now) { locked = true; last = now; }
+    void Lock(uint64_t now, int landedItem) { locked = true; last = now; item = landedItem; }
 };
 
 inline int FightNowItemId(int catalogueIndex) { return 0x10000 + catalogueIndex; }

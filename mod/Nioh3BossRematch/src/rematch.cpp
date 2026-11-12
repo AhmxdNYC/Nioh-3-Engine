@@ -4309,13 +4309,14 @@ void UiChange(int dir) {
     const int item = items[g_sel];
     static rcore::FavHoldGuard favHold;  // #89941: a held Left must not walk down the Favorites list removing each row
     const uint64_t now = NavNowMs();
-    if (dir && favHold.Swallow(now)) return;
+    if (dir && favHold.Swallow(now, item)) return;
     if (item == kItListFilter) { CycleListFilter(dir); return; }
     if (item == kItPageDefaults) return; // action: A only
     if (FavChange(item, dir)) {
         const int count = Items(items, kMaxRows + 4);
         g_sel = rcore::KeepVisibleSel(items, count, g_sel, item); // follow the same row after promotion/demotion
-        if (g_sel < 0 || g_sel >= count || items[g_sel] != item) favHold.Lock(now);  // the row left this list
+        if (g_sel < 0 || g_sel >= count || items[g_sel] != item)  // the row left this list: guard the row the cursor landed on
+            favHold.Lock(now, count > 0 ? items[g_sel < 0 ? 0 : (g_sel >= count ? count - 1 : g_sel)] : 0);
         return;
     }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }

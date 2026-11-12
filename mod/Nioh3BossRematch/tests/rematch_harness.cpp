@@ -133,11 +133,14 @@ int main(int argc, char** argv) {
         int controls[] = {-68,-5};
         CHECK(rcore::KeepVisibleSel(controls,2,1,3)==0, "last favorite removal lands on filter safely");
         rcore::FavHoldGuard g;
-        CHECK(!g.Swallow(1000), "unlocked guard passes the first press");
-        g.Lock(1000);
-        CHECK(g.Swallow(1400) && g.Swallow(1490) && g.Swallow(1580), "#89941 held repeats after a row left the list are ignored");
-        CHECK(!g.Swallow(2200), "a fresh press after the quiet gap works again");
-        CHECK(!g.Swallow(2250), "an unlocked guard never swallows");
+        CHECK(!g.Swallow(1000, 7), "unlocked guard passes the first press");
+        g.Lock(1000, 7);
+        CHECK(g.Swallow(1400, 7) && g.Swallow(1490, 7) && g.Swallow(1580, 7), "#89941 held repeats after a row left the list are ignored");
+        CHECK(!g.Swallow(2200, 7), "a fresh press after the quiet gap works again");
+        CHECK(!g.Swallow(2250, 7), "an unlocked guard never swallows");
+        g.Lock(3000, 7);
+        CHECK(!g.Swallow(3100, -68), "#92504 Left/Right on another row (filter) right after a removal works");
+        CHECK(!g.Swallow(3150, 7), "moving off the landed row releases the guard");
     }
     {   // #79955 pc2 poll: state active, player=0 loading=0 mission=0, every 500 ms, pending native phase irrelevant: idle within 25 s
         rcore::TitleWatch w;
