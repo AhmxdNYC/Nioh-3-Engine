@@ -1,0 +1,14 @@
+[19:34:42] lock: acquired (device pc2)
+[19:34:42] arm A test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:34:42] ini: SN = 0 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:34:56] game pid 10788
+[19:35:55] title->field True
+[19:36:16] state: ok frame=11368 active=1 loading=0 paused=0 player=1 pos=153557.6,21789.9,202240.6 field=1 menu_pause=0 fg=0 armed=1 pad_reads=35914 pad_age_ms=5 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:36:19] log MB/SN: [19:35:43.248] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 949 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:37:37] WIN A-1 fps=52.16 low1=34.94 gpu_ms=17.719 n=3130 cpu={"wall_seconds": 60.005235299999825, "cpu_seconds": 494.0625, "cpu_cores": 8.233656572295809, "kind": "summary", "complete": true, "identity": "134389280839004607", "start_utc": "2026-11-12T03:36:20.420387+00:00", "end_utc": "2026-11-12T03:37:20.425341+00:00", "start_monotonic_ns": 3770046000000, "end_monotonic_ns": 3830062000000, "start_qpc_ms": 3770205.2780999998, "end_qpc_ms": 3830210.5133999996, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [8.00539999967441, 5.92519999993965]} state=ok frame=16846 active=1 loading=0 paused=0 player=1 pos=152404.5,21776.0,202223.9 field=1 menu_pause=0 fg=0 armed=1 pad_reads=57866 pad_age_ms=0 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:39:00] WIN A-2 fps=50 low1=31.07 gpu_ms=18.677 n=2999 cpu={"wall_seconds": 59.99880189999985, "cpu_seconds": 498.015625, "cpu_cores": 8.300426162343106, "kind": "summary", "complete": true, "identity": "134389280839004607", "start_utc": "2026-11-12T03:37:40.524035+00:00", "end_utc": "2026-11-12T03:38:40.518331+00:00", "start_monotonic_ns": 3850148000000, "end_monotonic_ns": 3910156000000, "start_qpc_ms": 3850307.32785, "end_qpc_ms": 3910306.12975, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [10.072900000028312, 0.7823000000789762]} state=ok frame=22163 active=1 loading=0 paused=0 player=1 pos=152473.1,21792.0,203963.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=79175 pad_age_ms=5 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:39:23] ini+config restored
+[19:39:23] stock DLL restored A1B32E13
+[19:39:23] save restored robocopy 1
+[19:39:24] lock released: 
+[19:39:24] done

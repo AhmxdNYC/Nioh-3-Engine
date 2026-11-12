@@ -1,0 +1,207 @@
+[19:43:19.905] Nioh3EngineFix 1.7.61-hrabi-dl1 (built Nov 12 2026) - native port of the live-tested Nioh 3 engine patches
+[19:43:19.905] OS: native Windows; ini keys set to -1 (auto) resolve by OS:
+[19:43:19.905]   auto W3_TimeoutMs = 1 (native Windows: Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1)
+[19:43:19.905] Nioh3.exe at 00007FF6B9230000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[19:43:19.908] DL: DRED auto-breadcrumbs + page-fault reporting forced on (d3d12.dll loaded now; applies to devices created from now on)
+[19:43:19.908] DL: MessageBox hooks (boot): 6 IAT slot(s) in 5 module(s): Nioh3.exe DINPUT8.dll SHELL32.dll ole32.dll steamclient64.dll
+[19:43:19.908] DL: device-lost diagnostics on: 0xE0000001 raise logger, MessageBox POPUP lines, Present 887A00xx check ([Debug] DeviceLostDiag = 0 turns them off)
+[19:43:20.117] code is decrypted (204 ms after start)
+[19:43:20.118] resolving sites:
+[19:43:20.129]   P3a  OK at RVA 43593A
+[19:43:20.146]   P3b  OK at RVA 437EE5
+[19:43:20.157]   P3c  OK at RVA 438473
+[19:43:20.168]   P3d  OK at RVA 55DC56
+[19:43:20.180]   P3e  OK at RVA 5AF6C9
+[19:43:20.191]   P3f  OK at RVA 29770C6
+[19:43:20.201]   P3g  OK at RVA 29771B4
+[19:43:20.211]   P6   OK at RVA 1975BAA
+[19:43:20.229]   P8a  OK at RVA 20E77B
+[19:43:20.243]   P8b  OK at RVA 5AF526
+[19:43:20.264]   P8c  OK at RVA 5AF682
+[19:43:20.285]   P8d  OK at RVA 5AF69F
+[19:43:20.298]   P9   OK at RVA 5AD89B
+[19:43:20.313]   P2   OK at RVA 5AD6AA
+[19:43:20.329]   P4   OK at RVA 5AD860
+[19:43:20.344]   P1   OK at RVA 5AD677
+[19:43:20.363]   SN   OK at RVA 418F63
+[19:43:20.371]   PMw  OK at RVA 13503A3
+[19:43:20.381]   PMs  OK at RVA 2EEBB68
+[19:43:20.381] near page at 00007FF6B9220000
+[19:43:20.381] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[19:43:20.381] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[19:43:20.381] VRR tier 120: armed=1 clamp 48..240 fps, limiter cap 240
+[19:43:20.409]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[19:43:20.409]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[19:43:20.409]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[19:43:20.409]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[19:43:20.409]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[19:43:20.409]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[19:43:20.409]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[19:43:20.409]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[19:43:20.409]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[19:43:20.409]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[19:43:20.409]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[19:43:20.409]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[19:43:20.409]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[19:43:20.409]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[19:43:20.409]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[19:43:20.409]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[19:43:20.409] VRR: applied (16 site(s), 1 attempt(s))
+[19:43:20.438]   SN   RVA 418F63   patched: E8 E8 75 BD FF 
+[19:43:20.438] SN: applied (1 site(s), 1 attempt(s))
+[19:43:20.438] TG: tick governor available (switch off, floor 30 ticks/s, ratio 125 %) - L1 is not installed, so TG will refuse to engage (Proton: L1OnWine = 1)
+[19:43:20.469]   PMw  RVA 13503A3  patched: E8 B8 00 CA FE 90 
+[19:43:20.469]   PMs  RVA 2EEBB68  patched: E8 03 49 10 FD 90 
+[19:43:20.469] PM: applied (2 site(s), 1 attempt(s))
+[19:43:20.469] VRR: VRROnline = -1 (auto) - suspended while an online session is detected
+[19:43:20.469] AutoContinue: installed (tip page confirm check 1CECAED), ON: the 'press to continue' page after a load closes as soon as the load is done - [General] AutoContinueLoad = 1; switch in the mod menu
+[19:43:20.499] HalfRate: installed (HRS 0 HRG 0 HRC 0 HRR 0 HRA 0). SSR hooked, AO apply hooked. Ally estimate ms shadow 0.10-0.20 GI 0.50-1.00 cloud 0.10-0.15 SSR 0.04 AO 0.02-0.08. Not in a preset.
+[19:43:20.504] HUD: available (v2.02 UI manager +45C84A8); HideHUD=0 HealthKi=0 Shortcuts=0 Style=0 Stance=0 Guardian=0 Amrita=0 Money=0
+[19:43:20.511] MENU: game menu signal (5A37D4 / D63C0): bytes verified; pause hint source Both
+[19:43:20.511] MENU: frame generation: live switch through the game's FrameGenSettingWrite (0x1FDDFCC) verified
+[19:43:20.511] MENU: enabled - key F10, controller triple-tap Start (window 900 ms, gap 300 ms, swallow 1), scale auto, pause hint on (flags mask 18)
+[19:43:20.518] EP: ini 0 (forced off) on native Windows -> OFF
+[19:43:20.519] SR: ini 0 (forced off) on native Windows -> OFF
+[19:43:20.519] LoadOnlyCpuFixes = 0 (off, GF/W6/RWb follow their own keys); user GF 0 W6 0 RWb 0
+[19:43:20.521] KeepRunningUnfocused: installed at 3/3 IsAppActive call sites (pad update 436758, pad slot read 436A20, focus-loss pause 89B2FD): pads keep working and the game does not pause while its window is inactive. Mouse / keyboard / cursor keep the stock answer (an unfocused game never reads the user's mouse or moves the cursor)
+[19:43:20.521] KeepRunningUnfocused: power throttling off (EcoQoS + Windows 11 timer-resolution throttling of hidden windows)
+[19:43:20.521] VPad: installed (VirtualPad = 1, exclusive - the real pads are hidden from the game this session): the game's XInputGetState (IAT Nioh3.exe+38E2C50) answers slot 0 from the pipe \\.\pipe\nioh3vpad; idle release after 600 s. Commands: commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | wait <ms> | log <text> | realpads on|off
+[19:43:20.522] BootNotice: installed (boot sequencer 1C35188 sites BN1 1C35393 notice, BN2 1C353A2 graphics warning), ON: the autosave notice and the 'reset settings?' warning are skipped (hands-free boot) - default: on because [Debug] VirtualPad != 0
+[19:43:20.522] VrrPresent = 0 (off: the game's own present arguments)
+[19:43:20.522] PresentModeLog = 1 (one line per present-mode / engine SyncInterval change)
+[19:43:20.523] OSD: auto MaxFrameLatency = 0 (native Windows)
+[19:43:20.524] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00 Offset=0,160 (px at 1080p)
+[19:43:20.525] done: 3 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[19:43:21.471] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:21.471] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:21.471] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:21.471] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:21.471] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:21.641] POPUP t=19:43:21.641 tid=18468 caption="Nioh 3" text="Fatal error! |  | [Code] 0xC0000005 | [Address] 00007FFE6ED6B050" caller=Nioh3.exe+298EA12
+[19:43:21.641] DL: popup [Address] 00007FFE6ED6B050 = 00007FFE6ED6B050 (no module)
+[19:43:21.641] DL: ---- device-lost dump (trigger: popup, tid 18468, DRED enabled at boot) ----
+[19:43:21.645] DL: no device noted by the overlay - D3D12CreateDevice(default adapter) hr 00000000
+[19:43:21.645] DL: GetDeviceRemovedReason = 00000000 S_OK (not removed)
+[19:43:21.645] DL: DRED GetAutoBreadcrumbsOutput hr 887A0022 DXGI_ERROR_NOT_CURRENTLY_AVAILABLE
+[19:43:21.645] DL: DRED GetPageFaultAllocationOutput hr 887A0022 DXGI_ERROR_NOT_CURRENTLY_AVAILABLE
+[19:43:21.645] DL: ---- end of device-lost dump ----
+[19:43:22.471] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:22.471] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:22.471] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:22.471] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:22.471] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:23.472] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:23.472] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:23.472] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:23.472] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:23.472] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:24.473] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:24.473] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:24.473] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:24.473] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:24.473] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:25.473] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:25.473] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:25.473] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:25.473] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:25.473] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:26.475] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:26.475] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:26.475] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:26.475] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:26.475] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:27.475] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:27.475] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:27.475] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:27.475] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:27.475] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:28.476] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:28.476] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:28.476] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:28.476] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:28.476] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:29.477] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:29.477] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:29.477] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:29.477] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:29.477] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:30.479] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:30.479] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:30.479] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:30.479] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:30.479] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:31.480] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:31.480] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:31.480] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:31.480] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:31.480] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:32.480] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:32.480] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:32.480] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:32.480] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:32.480] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:33.481] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:33.481] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:33.481] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:33.481] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:33.481] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:34.481] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:34.481] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:34.481] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:34.481] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:34.481] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:35.482] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:35.482] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:35.482] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:35.482] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:35.482] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:36.483] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:36.483] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:36.483] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:36.483] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:36.483] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:37.484] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:37.484] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:37.484] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:37.484] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:37.484] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:38.484] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:38.484] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:38.484] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:38.484] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:38.484] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:39.485] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:39.485] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:39.485] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:39.485] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:39.485] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:40.485] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:40.485] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:40.485] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:40.485] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:40.485] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:41.500] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:41.500] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:41.500] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:41.500] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:41.500] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:42.500] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:42.500] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:42.500] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:42.500] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:42.500] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:43.501] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:43.501] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:43.501] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:43.501] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:43.501] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:44.501] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:44.501] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:44.501] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:44.501] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:44.501] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:45.502] HalfRate: HRS enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:45.502] HalfRate: HRG enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:45.502] HalfRate: HRC enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:45.502] HalfRate: HRR enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1
+[19:43:45.502] HalfRate: HRA enabled=0 frames=0 reused_frames=0 recomputed_frames=0 mixed_frames=0 absent_frames=0 reused_calls=0 recomputed_calls=0 pending=0 clock=game_present totals=1

@@ -1,0 +1,11 @@
+ok vpad 1.7.61-hrabi-dl1 mode=exclusive armed=1 unfocused=on
+[  0s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (60 pad reads rounds)
+[  4s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (60 pad reads rounds)
+[  8s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 2000 120 ms (56 pad reads rounds)
+[ 12s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 1000 120 ms (46 pad reads rounds)
+[ 17s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (48 pad reads rounds)
+[ 21s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (46 pad reads rounds)
+[ 25s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (54 pad reads rounds)
+[ 29s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 1000 120 ms (58 pad reads rounds)
+[ 52s] not in the field (loading=0 paused=0 menu_pause=1 player=1) -> press A: ok press 2000 120 ms (26 pad reads rounds)
+in the field after 57 s, 9 A presses: frame=9882 active=1 loading=0 paused=0 player=1 pos=153557.6,21789.9,202240.9 field=1 menu_pause=0 fg=0 armed=1 pad_reads=29958 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1

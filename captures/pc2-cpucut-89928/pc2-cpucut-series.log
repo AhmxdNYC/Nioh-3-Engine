@@ -1,0 +1,90 @@
+[19:20:02] SERIES arm A start
+[19:20:02] GUARD: init name=cpucut89928 harness=13612 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:20:03] lock: acquired (device pc2)
+[19:20:03] arm A test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:20:03] ini: SN = 0 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:20:03] GUARD: headroom OK (commit 12.9/47.9 GB, current headroom 35.0 GB, effective headroom 35.0 GB (C: free 493.3 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:20:19] game pid 4972
+[19:21:18] title->field True
+[19:21:39] state: ok frame=11628 active=1 loading=0 paused=0 player=1 pos=153557.8,21789.9,202239.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=36715 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:21:43] log MB/SN: [19:21:07.961] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 948 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:23:10] WIN A-1 fps=56.56 low1=37.56 gpu_ms=16.484 n=3393 cpu={"wall_seconds": 60.01027949999971, "cpu_seconds": 507.84375, "cpu_cores": 8.462612642888997, "kind": "summary", "complete": true, "identity": "134389272048413563", "start_utc": "2026-11-12T03:21:45.418880+00:00", "end_utc": "2026-11-12T03:22:45.424623+00:00", "start_monotonic_ns": 2895046000000, "end_monotonic_ns": 2955062000000, "start_qpc_ms": 2895202.3524, "end_qpc_ms": 2955212.6319, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [8.918599999975413, 0.3376000002026558]} state=ok frame=17662 active=1 loading=0 paused=0 player=1 pos=152891.0,21810.7,203167.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=60897 pad_age_ms=3 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:24:23] WIN A-2 fps=54.81 low1=37.71 gpu_ms=16.829 n=3286 cpu={"wall_seconds": 60.01146590000018, "cpu_seconds": 499.78125, "cpu_cores": 8.32809601473172, "kind": "summary", "complete": true, "identity": "134389272048413563", "start_utc": "2026-11-12T03:23:13.757010+00:00", "end_utc": "2026-11-12T03:24:13.766725+00:00", "start_monotonic_ns": 2983390000000, "end_monotonic_ns": 3043406000000, "start_qpc_ms": 2983543.5142, "end_qpc_ms": 3043554.9801000003, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [3.4847999997437, 0.4536000001244247]} state=ok frame=22455 active=1 loading=0 paused=0 player=1 pos=153413.5,21804.7,204482.5 field=1 menu_pause=0 fg=0 armed=1 pad_reads=80103 pad_age_ms=9 key_age_ms=11 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:24:44] ini+config restored
+[19:24:44] stock DLL restored A1B32E13
+[19:24:44] save restored robocopy 1
+[19:24:45] lock released: 
+[19:24:45] GUARD: done
+[19:24:45] done
+
+[19:24:55] SERIES arm B start
+[19:24:58] GUARD: init name=cpucut89928 harness=6616 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:24:58] lock: acquired (device pc2)
+[19:24:59] arm B test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:24:59] ini: SN = 0 | MB = 1 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:25:00] GUARD: headroom OK (commit 13.5/47.9 GB, current headroom 34.4 GB, effective headroom 34.4 GB (C: free 493.3 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:25:12] game pid 17860
+[19:26:16] title->field True
+[19:26:37] state: ok frame=12346 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201894.3 field=1 menu_pause=0 fg=0 armed=1 pad_reads=38947 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:26:40] log MB/SN: [19:25:04.566] MB: applied (21 site(s), 1 attempt(s)) || [19:25:04.566] MB: 21 main-thread locked atomic loads -> plain loads (4BA8C x3, 4BBEC x17, 5D214 x1) || [19:26:01.782] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 949 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:27:50] WIN B-1 fps=52.7 low1=36.75 gpu_ms=17.635 n=3159 cpu={"wall_seconds": 59.99934659999982, "cpu_seconds": 491.375, "cpu_cores": 8.189672518867088, "kind": "summary", "complete": true, "identity": "134389275012823154", "start_utc": "2026-11-12T03:26:42.092080+00:00", "end_utc": "2026-11-12T03:27:42.090355+00:00", "start_monotonic_ns": 3191718000000, "end_monotonic_ns": 3251718000000, "start_qpc_ms": 3191878.64865, "end_qpc_ms": 3251877.9952499997, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [3.4498999998904765, 1.7816999997012317]} state=ok frame=17452 active=1 loading=0 paused=0 player=1 pos=152378.2,21822.7,201742.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=59408 pad_age_ms=2 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:29:17] WIN B-2 fps=51.65 low1=23.21 gpu_ms=18.033 n=3096 cpu={"wall_seconds": 60.01188514999999, "cpu_seconds": 495.171875, "cpu_cores": 8.251230131536705, "kind": "summary", "complete": true, "identity": "134389275012823154", "start_utc": "2026-11-12T03:27:51.866260+00:00", "end_utc": "2026-11-12T03:28:51.878730+00:00", "start_monotonic_ns": 3261492000000, "end_monotonic_ns": 3321500000000, "start_qpc_ms": 3261650.75655, "end_qpc_ms": 3321662.6417, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [9.35369999986142, 8.80379999987781]} state=ok frame=23436 active=1 loading=0 paused=0 player=1 pos=152574.7,21814.3,201564.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=83393 pad_age_ms=0 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:29:38] ini+config restored
+[19:29:38] stock DLL restored A1B32E13
+[19:29:38] save restored robocopy 1
+[19:29:40] lock released: 
+[19:29:40] GUARD: done
+[19:29:40] done
+
+[19:29:51] SERIES arm B start
+[19:29:52] GUARD: init name=cpucut89928 harness=6716 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:29:53] lock: acquired (device pc2)
+[19:29:53] arm B test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:29:53] ini: SN = 0 | MB = 1 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:29:53] GUARD: headroom OK (commit 13.4/47.9 GB, current headroom 34.5 GB, effective headroom 34.5 GB (C: free 493.2 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:30:03] game pid 6988
+[19:31:01] title->field True
+[19:31:22] state: ok frame=10823 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201895.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=34306 pad_age_ms=5 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:31:27] log MB/SN: [19:29:57.844] MB: applied (21 site(s), 1 attempt(s)) || [19:29:57.844] MB: 21 main-thread locked atomic loads -> plain loads (4BA8C x3, 4BBEC x17, 5D214 x1) || [19:30:52.118] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 950 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:32:48] WIN B-1 fps=51.67 low1=33.63 gpu_ms=17.939 n=3103 cpu={"wall_seconds": 59.99984124999959, "cpu_seconds": 484.046875, "cpu_cores": 8.06746926184581, "kind": "summary", "complete": true, "identity": "134389277944774483", "start_utc": "2026-11-12T03:31:32.014539+00:00", "end_utc": "2026-11-12T03:32:32.007612+00:00", "start_monotonic_ns": 3481632500000, "end_monotonic_ns": 3541640000000, "start_qpc_ms": 3481794.9834000003, "end_qpc_ms": 3541794.82465, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [16.214799999725074, 3.355299999937415]} state=ok frame=16926 active=1 loading=0 paused=0 player=1 pos=152578.3,21778.2,201885.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=58761 pad_age_ms=1 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:34:06] WIN B-2 fps=53.35 low1=30.7 gpu_ms=17.158 n=3200 cpu={"wall_seconds": 60.0049179999996, "cpu_seconds": 490.328125, "cpu_cores": 8.171465628867342, "kind": "summary", "complete": true, "identity": "134389277944774483", "start_utc": "2026-11-12T03:32:51.999919+00:00", "end_utc": "2026-11-12T03:33:51.990252+00:00", "start_monotonic_ns": 3561617000000, "end_monotonic_ns": 3621625000000, "start_qpc_ms": 3561773.80315, "end_qpc_ms": 3621778.7211499996, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [28.298500000033528, 0.41250000009313226]} state=ok frame=22364 active=1 loading=0 paused=0 player=1 pos=152317.4,21811.9,202115.2 field=1 menu_pause=0 fg=0 armed=1 pad_reads=80553 pad_age_ms=5 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:34:27] ini+config restored
+[19:34:27] stock DLL restored A1B32E13
+[19:34:27] save restored robocopy 1
+[19:34:28] lock released: 
+[19:34:28] GUARD: done
+[19:34:28] done
+
+[19:34:39] SERIES arm A start
+[19:34:41] GUARD: init name=cpucut89928 harness=14812 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:34:42] lock: acquired (device pc2)
+[19:34:42] arm A test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:34:42] ini: SN = 0 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:34:42] GUARD: headroom OK (commit 13.6/47.9 GB, current headroom 34.4 GB, effective headroom 34.4 GB (C: free 493.2 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:34:56] game pid 10788
+[19:35:55] title->field True
+[19:36:16] state: ok frame=11368 active=1 loading=0 paused=0 player=1 pos=153557.6,21789.9,202240.6 field=1 menu_pause=0 fg=0 armed=1 pad_reads=35914 pad_age_ms=5 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:36:19] log MB/SN: [19:35:43.248] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 949 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:37:37] WIN A-1 fps=52.16 low1=34.94 gpu_ms=17.719 n=3130 cpu={"wall_seconds": 60.005235299999825, "cpu_seconds": 494.0625, "cpu_cores": 8.233656572295809, "kind": "summary", "complete": true, "identity": "134389280839004607", "start_utc": "2026-11-12T03:36:20.420387+00:00", "end_utc": "2026-11-12T03:37:20.425341+00:00", "start_monotonic_ns": 3770046000000, "end_monotonic_ns": 3830062000000, "start_qpc_ms": 3770205.2780999998, "end_qpc_ms": 3830210.5133999996, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [8.00539999967441, 5.92519999993965]} state=ok frame=16846 active=1 loading=0 paused=0 player=1 pos=152404.5,21776.0,202223.9 field=1 menu_pause=0 fg=0 armed=1 pad_reads=57866 pad_age_ms=0 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:39:00] WIN A-2 fps=50 low1=31.07 gpu_ms=18.677 n=2999 cpu={"wall_seconds": 59.99880189999985, "cpu_seconds": 498.015625, "cpu_cores": 8.300426162343106, "kind": "summary", "complete": true, "identity": "134389280839004607", "start_utc": "2026-11-12T03:37:40.524035+00:00", "end_utc": "2026-11-12T03:38:40.518331+00:00", "start_monotonic_ns": 3850148000000, "end_monotonic_ns": 3910156000000, "start_qpc_ms": 3850307.32785, "end_qpc_ms": 3910306.12975, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [10.072900000028312, 0.7823000000789762]} state=ok frame=22163 active=1 loading=0 paused=0 player=1 pos=152473.1,21792.0,203963.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=79175 pad_age_ms=5 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:39:23] ini+config restored
+[19:39:23] stock DLL restored A1B32E13
+[19:39:23] save restored robocopy 1
+[19:39:24] lock released: 
+[19:39:24] GUARD: done
+[19:39:24] done
+
+[19:39:35] SERIES arm C start
+[19:39:38] GUARD: init name=cpucut89928 harness=15784 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:39:38] lock: acquired (device pc2)
+[19:39:38] arm C test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:39:39] ini: SN = 1 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:39:39] GUARD: headroom OK (commit 13.5/47.9 GB, current headroom 34.4 GB, effective headroom 34.4 GB (C: free 493.2 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:42:41] !! no window
+[19:42:41] ini+config restored
+[19:42:42] lock released: 
+[19:42:42] GUARD: done
+[19:42:42] done
+
+SERIES abort after arm C
+[19:42:42] SERIES end

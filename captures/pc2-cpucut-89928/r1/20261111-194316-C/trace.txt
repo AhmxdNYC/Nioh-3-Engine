@@ -1,0 +1,9 @@
+[19:43:16] lock: acquired (device pc2)
+[19:43:17] arm C test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:43:17] ini: SN = 1 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:46:19] !! no window
+[19:46:19] ini+config restored
+[19:46:19] stock DLL restored A1B32E13
+[19:46:19] save restored robocopy 1
+[19:46:19] lock released: 
+[19:46:19] done

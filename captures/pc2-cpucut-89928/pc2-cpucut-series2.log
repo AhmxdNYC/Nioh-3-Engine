@@ -1,0 +1,16 @@
+[19:43:15] SERIES arm C start
+[19:43:16] GUARD: init name=cpucut89928 harness=10468 owner=12576 maxMinutes=12 minHeadroom=18GB maxCrashes=2
+[19:43:16] lock: acquired (device pc2)
+[19:43:17] arm C test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:43:17] ini: SN = 1 | MB = 0 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:43:17] GUARD: headroom OK (commit 13.7/47.9 GB, current headroom 34.2 GB, effective headroom 34.2 GB (C: free 493.1 GB, RAM 15.9 GB); need effective >= 18, current >= 6)
+[19:46:19] !! no window
+[19:46:19] ini+config restored
+[19:46:19] stock DLL restored A1B32E13
+[19:46:19] save restored robocopy 1
+[19:46:19] lock released: 
+[19:46:19] GUARD: done
+[19:46:19] done
+
+SERIES abort after arm C
+[19:46:19] SERIES end

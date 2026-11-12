@@ -1,0 +1,14 @@
+[19:29:53] lock: acquired (device pc2)
+[19:29:53] arm B test DLL 161BD19D installed (stock A1B32E13 saved)
+[19:29:53] ini: SN = 0 | MB = 1 | S1 = 0 | MA = 0 | MaxFps = 240
+[19:30:03] game pid 6988
+[19:31:01] title->field True
+[19:31:22] state: ok frame=10823 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201895.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=34306 pad_age_ms=5 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:31:27] log MB/SN: [19:29:57.844] MB: applied (21 site(s), 1 attempt(s)) || [19:29:57.844] MB: 21 main-thread locked atomic loads -> plain loads (4BA8C x3, 4BBEC x17, 5D214 x1) || [19:30:52.118] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 950 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[19:32:48] WIN B-1 fps=51.67 low1=33.63 gpu_ms=17.939 n=3103 cpu={"wall_seconds": 59.99984124999959, "cpu_seconds": 484.046875, "cpu_cores": 8.06746926184581, "kind": "summary", "complete": true, "identity": "134389277944774483", "start_utc": "2026-11-12T03:31:32.014539+00:00", "end_utc": "2026-11-12T03:32:32.007612+00:00", "start_monotonic_ns": 3481632500000, "end_monotonic_ns": 3541640000000, "start_qpc_ms": 3481794.9834000003, "end_qpc_ms": 3541794.82465, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [16.214799999725074, 3.355299999937415]} state=ok frame=16926 active=1 loading=0 paused=0 player=1 pos=152578.3,21778.2,201885.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=58761 pad_age_ms=1 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:34:06] WIN B-2 fps=53.35 low1=30.7 gpu_ms=17.158 n=3200 cpu={"wall_seconds": 60.0049179999996, "cpu_seconds": 490.328125, "cpu_cores": 8.171465628867342, "kind": "summary", "complete": true, "identity": "134389277944774483", "start_utc": "2026-11-12T03:32:51.999919+00:00", "end_utc": "2026-11-12T03:33:51.990252+00:00", "start_monotonic_ns": 3561617000000, "end_monotonic_ns": 3621625000000, "start_qpc_ms": 3561773.80315, "end_qpc_ms": 3621778.7211499996, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [28.298500000033528, 0.41250000009313226]} state=ok frame=22364 active=1 loading=0 paused=0 player=1 pos=152317.4,21811.9,202115.2 field=1 menu_pause=0 fg=0 armed=1 pad_reads=80553 pad_age_ms=5 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[19:34:27] ini+config restored
+[19:34:27] stock DLL restored A1B32E13
+[19:34:27] save restored robocopy 1
+[19:34:28] lock released: 
+[19:34:28] done
