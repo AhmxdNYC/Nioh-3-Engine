@@ -299,3 +299,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-11 11:55 pm EST | pc/0 | cx-pc #89587 TR #6860 2c3a13ed (collision-cell, re #89523) HELD, not sent to Ally: predates #89578 travel busy=1 finding. Folded into cx-pc #89581; one build, then Ally check.
 - 2026-11-12 1:12 am EST | pc/0 | cx-pc #89637 TR #6862 12180e09 (no writes while travel busy, shrine fallback, warp home) + BR #6819 + cat #6815: tasked ally live check (Yasha 560912, Oni 482715). Do not rerun #6853/#6860.
 - 2026-11-12 1:30 am EST | pc/0 | Ally #89748 TR #6862 12180e09 FAIL 0/2 (cell detector always 0 even on loaded ground; home hold never releases, freezes player, BR refuses next). Tasked cx-pc fix. Do not rerun #6862. Ally restored 1.8.12.
+- 2026-11-12 1:45 am EST | pc/0 | cx-pc #89778 TR #6874 ae326939 (ground gate = stream centre <200 m + stage cell ready; home hold 5 s release) + BR #6819 + cat #6815: tasked ally live check. Do not rerun #6862.
