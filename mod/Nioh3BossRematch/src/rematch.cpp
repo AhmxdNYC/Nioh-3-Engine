@@ -3106,7 +3106,7 @@ void ExecField(int row, const Snap& s) {
     const int src = wrc ? 0 : summon(-1, r.summonChr);
     Log("Rematch: open world %s region 0x%X running 0x%X placement %u chr %u warp %d summon %d (no flag writes)",
         r.id, r.missionId, s.ms28, r.placement, r.summonChr, wrc, src);
-    if (r.missionId && s.msOk && r.missionId != s.ms28)
+    if (r.missionId && s.msOk && s.ms28 && r.missionId != s.ms28)
         Log("Rematch: open world region mismatch: spawn mission 0x%X, running 0x%X", r.missionId, s.ms28);
     if (wrc) Refuse("warp failed");
     else if (src != 1) Refuse("summon failed");

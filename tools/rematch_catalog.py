@@ -24,6 +24,7 @@ Routes (notes/rematch-all-bosses.md s.1)
       without a code change.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
       A field-only row with a picked CHxx enemy record also carries that record's spawn (summon_chr, warp, placement).
+      summon_chr is the enemy record's +4 key, the same id Load::Character and the arena table use, not the param char_id.
       The pick is every bit-4 field hit of the name: a record name containing WORLD, else BOSS, else the lowest mission and placement.
 
 Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
@@ -635,8 +636,9 @@ def enemy_positions():
     return found
 
 
-def pick_field_spawn(hits, positions, chars):
-    """One table-derived spawn. WORLD in the record name, else BOSS, else the lowest mission and placement."""
+def pick_field_spawn(hits, positions, summon_keys):
+    """One table-derived spawn. WORLD in the record name, else BOSS, else the lowest mission and placement.
+    summon_keys maps (mission, placement) to the enemy record +4 key (Load::Character id)."""
     def rank(h):
         m, pid, rn = h
         u = (rn or "").upper()
@@ -647,9 +649,9 @@ def pick_field_spawn(hits, positions, chars):
         if ip >= 1 << 31:
             continue
         pos = positions.get((m, ip))
-        chr_id = chars.get((m, ip), 0)
-        if pos and chr_id:
-            return m, ip, pos, chr_id, rn
+        summon = summon_keys.get((m, ip), 0)
+        if pos and summon:
+            return m, ip, pos, summon, rn
     return None
 
 
@@ -691,12 +693,12 @@ def build():
     for r in rd("boss-names.csv"):
         cnames[r["english_name"].strip().lower()].add(int(r["char_id"]))
     byc = collections.defaultdict(list)
-    chars, recname = {}, {}
+    summon_keys, recname = {}, {}
     for r in idx:
         byc[int(r["char_id"])].append(r)
         try:
             key = (int(r["mission_id"], 16), int(r["placement_id"]))
-            chars[key] = int(r["char_id"] or 0)
+            summon_keys[key] = int(r["key64"] or 0)
             recname[key] = r["record_name"]
         except (TypeError, ValueError):
             continue
@@ -788,7 +790,7 @@ def build():
                 rec = ""
             spawn = None
             if field_hits and all(w.startswith("field:") for w in why_x):
-                spawn = pick_field_spawn(field_hits, positions, chars)
+                spawn = pick_field_spawn(field_hits, positions, summon_keys)
                 if spawn:
                     sm, spid, _pos, schr, srn = spawn
                     rb = bs[sm]["region_15c"] if sm in bs else "-"

@@ -60,7 +60,7 @@ struct Row {
     // The mission script's running function calls Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
     // Filled by tools/rematch_catalog.py from the script, not from a row list. The menu reads it before that script runs.
     bool lesson = false;
-    uint32_t summonChr = 0;  // field-only X row: character id of the picked region enemy record
+    uint32_t summonChr = 0;  // field-only X row: enemy record +4 key, the Load::Character id (not the param char_id)
     bool OpenWorld() const { return route == kX && summonChr && placement; }
 };
 
