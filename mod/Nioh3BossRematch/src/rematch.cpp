@@ -4300,17 +4300,22 @@ void CycleListFilter(int dir) {
     g_msg[0] = 0;
     Log("Rematch: boss list filter -> %s", ListFilterLabel());
 }
+uint64_t NavNowMs() { return GetTickCount64(); }
 void UiChange(int dir) {
     static int items[kMaxRows + 4];
     const int n = Items(items, kMaxRows + 4);
     if (!n || g_sel < 0) return;  // #38077: the two top rows (Mod menu / Close) have no Left / Right
     if (g_sel >= n) g_sel = n - 1;
     const int item = items[g_sel];
+    static rcore::FavHoldGuard favHold;  // #89941: a held Left must not walk down the Favorites list removing each row
+    const uint64_t now = NavNowMs();
+    if (dir && favHold.Swallow(now)) return;
     if (item == kItListFilter) { CycleListFilter(dir); return; }
     if (item == kItPageDefaults) return; // action: A only
     if (FavChange(item, dir)) {
         const int count = Items(items, kMaxRows + 4);
         g_sel = rcore::KeepVisibleSel(items, count, g_sel, item); // follow the same row after promotion/demotion
+        if (g_sel < 0 || g_sel >= count || items[g_sel] != item) favHold.Lock(now);  // the row left this list
         return;
     }
     if (item == kItDeathCut || item == kItDeathBlow || item == kItDeathLoot) { DeathCfgToggle(item, dir); return; }

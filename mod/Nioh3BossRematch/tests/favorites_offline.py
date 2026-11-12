@@ -25,6 +25,7 @@ bool FavHas(char kind,const char* id){return favs.count(rcore::FavKey(kind,id))!
 void EnsureListCycle(){rcore::BuildListCycle(g_rows,cycle);}
 bool RowInCurrentList(const Row& r){return rcore::RowInListStop(r,cycle,stop,FavHas(ListFavKind(),r.id));}
 void CycleListFilter(int){}
+uint64_t g_now=0,g_step=1000;uint64_t NavNowMs(){return g_now+=g_step;}
 '''
 mid=r'''
 bool FavChange(int item,int dir){int row=FavRowOfItem(item);if(row<0)return false;
@@ -45,6 +46,15 @@ int main(){
   UiChange(-1);Items(items,104);assert(g_sel==4&&items[4]==base+3);++checks;
   UiChange(1);stop=cycle.Stops()-1;Items(items,104);g_sel=1;UiChange(-1);
   n=Items(items,104);assert(n==2&&g_sel>=0&&g_sel<n);++checks; // removed row is no longer visible
+ }
+ { // #89941: held Left in the Favorites filter (press, 400 ms, then 90 ms repeats) removes one favorite, not all of them
+  g_uiPages.page=uTrainHere;EnsureListCycle();favs.clear();for(const char* id:{"R0","R1","R2"})favs.insert(rcore::FavKey('T',id));stop=cycle.Stops()-1;
+  int n=Items(items,104);assert(n==5);++checks;g_sel=1;
+  g_step=1000;UiChange(-1);g_step=400;UiChange(-1);g_step=90;for(int k=0;k<20;++k)UiChange(-1);
+  assert(favs.size()==2);++checks;
+  n=Items(items,104);assert(n==4&&g_sel>=1&&g_sel<=2);++checks;
+  g_step=1000;UiChange(-1);assert(favs.size()==1);++checks; // a fresh press after release still works
+  g_step=1000;g_sel=1;UiChange(1);g_step=400;UiChange(1);assert(favs.size()==1);++checks; // held Right on a kept row is harmless
  }
  for(int i=0;i<4;++i){g_rows[i].route=rcore::kE;strcpy_s(g_rows[i].region,"Waves");}
  for(int page:{uBosses,uRematch,uTrainHere,uTraining}) {

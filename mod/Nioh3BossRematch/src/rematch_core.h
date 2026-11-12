@@ -321,6 +321,22 @@ inline int KeepVisibleSel(const int* items, int n, int sel, int anchorItem) {
     return sel;
 }
 
+// #89941: held Left in the Favorites filter removed every favorite. Each unfavorite drops the row, the cursor lands on the next
+// favorite, and the host's key repeat (first after 400 ms, then every 90 ms) unfavorites that one too. After a favorite edit moves
+// the cursor to another row, the rest of that Left / Right hold does nothing; a fresh press after kQuietMs of no Left / Right works.
+struct FavHoldGuard {
+    static constexpr uint64_t kQuietMs = 550;  // longer than the host's 400 ms first-repeat delay
+    uint64_t last = 0;
+    bool locked = false;
+    bool Swallow(uint64_t now) {  // call on every Left / Right; true = part of a locked hold, ignore it
+        if (!locked) return false;
+        if (now - last < kQuietMs) { last = now; return true; }
+        locked = false;
+        return false;
+    }
+    void Lock(uint64_t now) { locked = true; last = now; }
+};
+
 inline int FightNowItemId(int catalogueIndex) { return 0x10000 + catalogueIndex; }
 
 // Captured arena positions (Nioh3BossRematch_arenas.tsv, written at BossBattleMode start with [Rematch] ArenaCapture = 1):
