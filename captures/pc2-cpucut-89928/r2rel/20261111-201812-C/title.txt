@@ -1,0 +1,3 @@
+ok vpad 1.7.61-hrabi-dl1 mode=exclusive armed=1 unfocused=on
+[  0s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: err timeout: the game did not read the pad (press cancelled)
+timeout: not in the field after 300 s
