@@ -26,3 +26,4 @@
 - [x] PC2 UAC prompt | click Yes on the LibreHardwareMonitor admin prompt on pc2 | pc2 [auto-ticked: human ticked remote web server on both (#29014)]
 - [x] Install sensor tool (admin) | pc done 2026-10-24 (LibreHardwareMonitor, web server :8085 verified: CPU pkg 85.9 W, 90.5 C, GPU 49 C/46 W); pc2 ticked by human, verify; ally pending
 - [ ] Try soul core pick on Ally | mod menu > Training > Player > Soul core transformations; set one Yang core to game summon, press both seals | ally (BR c57dd5e8, launched for you #81408)
+- [ ] Performance focus | Reply A (stutter + loading, default after 11:50 pm EST) or B (GPU ideas for pc2/Ally) to #89394 | phone
