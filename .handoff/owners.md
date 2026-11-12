@@ -204,3 +204,4 @@ Next pc install/native acceptance, cxl-pc publishing; no game or deployment touc
 
 - 2026-11-11 11:40 am EST | cx-pc #87295 | E0 SelfTest now uses ExecEmaki and per-request first-wave evidence; ID0 refuses before clear DB/current-id match. Native replay guards retained.
 - Actual-body offline sweep/negative gates PASS; MSVC build PASS BR e1f10940. Existing unbeaten_menu Items assertion fails unchanged base (TECH_DEBT). Next pc: source review and live four-scroll sweep; no install/game. Branch cx-pc/scroll-selftest-87295; notes/scroll-selftest-87295.md.
+- CURRENT 2026-11-11 11:12 pm EST: pc/0 #89417 Dojo live check done on BR #6835 + TR #6836 + TSV #6837: 3/3 starts, RD759 + RE18C wins, RA0A1 win unproven. Public 1.8.12 restored. Main PC free.
