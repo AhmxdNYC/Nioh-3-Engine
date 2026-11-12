@@ -31,7 +31,9 @@ static int ScrollGateLive(void){return 0;} // #78735 Waves scroll gate, off here
 static volatile LONG g_cw2_n,g_endconf_n;
 static DWORD tick=1000,g_gate_tUse,g_gate_nat_t;
 static DWORD GetTickCount(void){return tick;}
-static int page,opened,original,alive,peek=1;
+static int page,opened,original,alive,peek=1,pops,scroll;
+static int ScrollGateLive(void){return scroll;}
+static void Cw2Pop(void*ctx){pops++;}
 static uint32_t textId=0x3E0C230,subId=10;
 static uint64_t current=1234;
 static int32_t button;
@@ -48,20 +50,23 @@ static void reset(void){
  memset(&g_en,0,sizeof g_en);memset(&g_gate,0,sizeof g_gate);memset(&g_tr,0,sizeof g_tr);
  memset(&g_rh,0,sizeof g_rh);memset(st,0,sizeof st);
  g_en.confirmed=g_en.warped=match=peek=1;g_en.row=&row;g_cfg_gate_cw2=g_cfg_gate=g_cfg_gate_always=1;
- tick=1000;g_gate_tUse=0;page=opened=original=alive=0;button=0;textId=0x3E0C230;subId=10;current=1234;
+ tick=1000;g_gate_tUse=0;page=opened=original=alive=pops=scroll=0;button=0;textId=0x3E0C230;subId=10;current=1234;
 }
 """
 main=r"""
 int main(void){
  // Native route, no Training session, no synthetic gadget, far from stored pose.
  reset();assert(Nioh3Training_NativeGateMission()==0x3513);assert(h_cw2(0)==7);
- assert(opened==1&&original==0&&button==-1);
+ assert(opened==1&&original==0&&button==-1&&pops==1);
  // A held-win timer is deliberately not consulted. Repeated request cannot stack UI.
  assert(h_cw2(0)==7&&opened==1);tick+=2000;page=1;assert(h_cw2(0)==7&&opened==1);
  reset();textId=0x3E8D85E;assert(h_cw2(0)==7&&opened==1&&button==-1);
- reset();textId=55;assert(h_cw2(0)==99&&original==1&&!opened&&button==0);
- reset();current=0;assert(h_cw2(0)==99&&!opened);
- reset();subId=0xFFFFFFFF;assert(h_cw2(0)==99&&!opened);
+ reset();textId=55;assert(h_cw2(0)==99&&original==1&&!opened&&button==0&&pops==0);
+ // #91781: duel/fight boxes pass through with the args left for the original (blank box before).
+ reset();textId=65585054;assert(h_cw2(0)==99&&original==1&&!opened&&pops==0);
+ reset();scroll=1;textId=65930289;assert(h_cw2(0)==99&&original==1&&pops==0);
+ reset();current=0;assert(h_cw2(0)==99&&!opened&&pops==0);
+  reset();subId=0xFFFFFFFF;assert(h_cw2(0)==99&&!opened);
  reset();peek=0;assert(h_cw2(0)==99&&!opened);
  reset();match=0;assert(h_cw2(0)==99&&!opened);
  reset();st[2]=1;assert(h_cw2(0)==99&&!opened);
@@ -75,7 +80,7 @@ int main(void){
  // Old practice synthetic gate interception preserved.
  reset();g_en.confirmed=0;g_tr.active=g_gate.up=1;g_gate.id=10;
  assert(h_cw2(0)==7&&opened==1&&button==-1);
- puts("PASS native Proceed: 16 cases, immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
+ puts("PASS native Proceed: 18 cases (args popped once only when blocked), immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
 }
 """
 with tempfile.TemporaryDirectory() as d:

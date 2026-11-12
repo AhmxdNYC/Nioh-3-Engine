@@ -4327,7 +4327,19 @@ static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3,
 // [Return] ReturnGateHookScriptBox (default 1).
 typedef uint64_t (*Cw2Fn)(void*);
 static Cw2Fn o_cw2; static int g_cfg_gate_cw2 = 1; static volatile LONG g_cw2_n;
+// #91781 (blank Dojo 'Conclude Duel' box, pc/1 #91274): the arg reader 1399B0 -> 13BDB0 POPS the native's args (13BFC5: [vm+0x20] top -= argc,
+// vm = [ctx+8]). Peeking and then calling o_cw2 made the original read the 4 slots below its args -> TextGetById(garbage) -> blank title and Yes/No
+// rows on every passed-through box (duel 65585054, fight 65930289, not-ours end-mission) and a 4-slot short script stack. Cw2Peek now puts the top
+// back; only the blocked path consumes the args once (Cw2Pop), exactly like the native would.
+static uint64_t* Cw2Top(void* ctx) { uint64_t vm = *(uint64_t*)((uint8_t*)ctx + 8); return vm ? *(uint64_t**)(vm + 0x20) : 0; }
+static void Cw2Pop(void* ctx) {
+    __try { __attribute__((aligned(16))) uint8_t rd[0x140]; memset(rd, 0, sizeof rd); ((void* (*)(void*, void*))(B + Grva(0x1399B0)))(rd, ctx); }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
 static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t* sub, uint64_t* cur, uint16_t* nret) {
+    uint64_t* topp = 0; uint64_t t0 = 0;
+    __try { topp = Cw2Top(ctx); if (!topp) return 0; t0 = *topp; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    int ok = 0;
     __try {
         __attribute__((aligned(16))) uint8_t rd[0x140]; memset(rd, 0, sizeof rd);
         ((void* (*)(void*, void*))(B + Grva(0x1399B0)))(rd, ctx);
@@ -4336,8 +4348,10 @@ static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t
         *cur = *(uint64_t*)(B + Grva(0x45BA228));
         uint64_t g = ((uint64_t (*)(uint64_t))(B + Grva(0x3624D4)))(*cur);
         *sub = g ? *(uint32_t*)(g + 0x110) : 0xFFFFFFFFu;
-        return 1;
-    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+        ok = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    __try { *topp = t0; } __except (EXCEPTION_EXECUTE_HANDLER) {}  // never consume: the original (or Cw2Pop) reads the args itself
+    return ok;
 }
 static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
     const int scroll = ScrollGateLive();
@@ -4356,6 +4370,7 @@ static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
                 *(volatile int32_t*)(B + Grva(0x44BAE44)) = -1;  // GetButtonNumLastCommonWindow: no button -> the script re-arms its interaction
                 if (n <= 60) Log("GATE: script end-mission box (OpenCommonWindowTwoButton 23F8CC0, text 0x%X, gadget %p sub %u, gate id %u, player %.0f u) BLOCKED #%ld: %s", text,
                     (void*)cur, sub, g_gate.id, d, n, boss ? "boss alive, nothing opened" : page || recent ? "our gate page already open/opening" : r >= 0 ? "our gate page opened instead" : "?");
+                Cw2Pop(ctx);  // the native's own arg read: the script stack drops the 4 args once
                 return nret;
             }
             g_gate_nat_t = GetTickCount() | 1;  // safety net: a native box is opening while our gate is up
