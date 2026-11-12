@@ -1,3 +1,13 @@
+## LEFT TO DO (human #93660, 2026-11-12 6:10 pm EST, pc/0). Every item has an owner and is being checked; tick when done.
+- [ ] Release the Boss Match fix (Dojos 100%, Boss Match 100% except RB3FE, Training in those arenas; human #93578). Built and proven on Main PC, not public yet | owner pc lead -> regression-pc check, installer-pc packaging, then release with the human's OK
+- [ ] KL_Div=4 CPU setting | PC2 +7-8% fps (#93495) recheck running on performance-pc2; Ally NO GAIN (#93667: 47.36 vs 47.32 fps, CPU flat, GPU-bound) | decide ship-on-PC-only after PC2 recheck
+- [ ] FPS-cap timing margin (L1_MarginUs 1000 vs 300, CPU A/B) | performance-pc, Main PC, running (task reply-to #93605)
+- [ ] Name lookup caching | performance-pc, queued after L1 margin (#93615 order)
+- [ ] UI copy narrowing | performance-pc, queued
+- [ ] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, queued
+- [ ] Shadow cache (static-light shadows kept, redraw only changed) | not built; LAST per human #93613
+- Dropped (no re-test): light-copy shrink (#93515, 0 copies/s), CapSleep (#93605, already shipped as L1). Parked: world bosses (#92460/#93578), Ally crash 131CA9 (old Nov 7 build, #93576).
+
 ## BOSS COVERAGE (human #90129 via ops #90131; standing goal 100%). Pass = enters, spawns, finishes cleanly (win + exit home). TR = Training works there. Updated 2026-11-12 2:40 am EST by pc/0.
 Dojos are Main PC only (human #89887); open world runs on all 3 devices. Cells: PASS / FAIL / START (fight started, win unproven) / - (untested).
 Open world (catalogue #6815, 19 bosses; dev build broken on Ally #90035, waiting on cx-pc #90042):
