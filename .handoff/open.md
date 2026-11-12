@@ -1,3 +1,41 @@
+## BOSS COVERAGE (human #90129 via ops #90131; standing goal 100%). Pass = enters, spawns, finishes cleanly (win + exit home). TR = Training works there. Updated 2026-11-12 2:40 am EST by pc/0.
+Dojos are Main PC only (human #89887); open world runs on all 3 devices. Cells: PASS / FAIL / START (fight started, win unproven) / - (untested).
+Open world (catalogue #6815, 19 bosses; dev build broken on Ally #90035, waiting on cx-pc #90042):
+| boss | id | Main PC | PC2 | Ally | TR |
+|---|---|---|---|---|---|
+| Yasha | 560912 | - | - | FAIL #90035 | - |
+| One-eyed Oni | 482715 | - | - | FAIL #90035 | - |
+| Gaki | XGaki | - | - | - | - |
+| Waira | XWaira | - | - | - | - |
+| Tsurara-Onna | XTsuraraOnna | - | - | - | - |
+| All-Seeing Mage | XAllSeeingMage | - | - | - | - |
+| Usui Sadamitsu | XUsuiSadamitsu | - | - | - | - |
+| Enki | XEnki | PASS #89249 (BR #6814) | - | - | - |
+| Kyokotsu | XKyokotsu | - | - | - | - |
+| Karasu Tengu | XKarasuTengu | - | - | - | - |
+| Yamainu | XYamainu | PASS #89249 (BR #6814) | - | - | - |
+| Tesso | XTesso | - | - | - | - |
+| Ninja Yoki | XNinjaYoki | - | - | - | - |
+| Blood-Spurting Ogin | XBloodSpurtingO | - | - | - | - |
+| Gaki Chief | XGakiChief | - | - | - | - |
+| Yoki | XYoki | - | - | - | - |
+| Nuppeppo | XNuppeppo | - | - | - | - |
+| Aggrieved Warrior | XAggrievedWarri | - | - | - | - |
+| Green Shadow's Blade | XGreenShadowsBl | - | - | - | - |
+Dojos (Main PC only; BR #6835/TR #6836/TSV #6837; notes/dojo-rematch-89218.md):
+| row | name | Main PC | TR |
+|---|---|---|---|
+| RF5E5 | Yagyu Munenori (Novice, lesson) | START (selftest load #87276) | - |
+| R6E65 | Yagyu Munenori (Adept) | PASS (win 11-06, older build) | - |
+| R1A5E | Yagyu Munenori (Veteran) | - | - |
+| RD759 | Hattori Hanzo (Novice, lesson) | PASS #89417 | - |
+| RE18C | Hattori Hanzo (Adept) | PASS #89417 | - |
+| R9BE4 | Hattori Hanzo (Veteran) | START #74804 | - |
+| R26F3 | Saito Fuku (Novice, lesson) | START (selftest load #87276) | - |
+| RA0A1 | Saito Fuku (Adept, lesson) | START #89417; win run #90078 | - |
+| R2826 | Saito Fuku (Veteran) | - | - |
+Coverage now: open world 2/57 device cells, Dojos 3/9 (PASS on current or older build).
+
 - [x] Fair speed test on this PC - Play the same fight twice, once with the CPU fixes off and once on, to check whether the ~3 % CPU saving is real. Earlier runs compared different fights, so they don't prove it.
 - [x] Boss rematch after dying - Check that dying in a boss rematch no longer leaves an empty arena. The fix is installed, but nobody has died in a test since.
 - [x] Fix PC2's test recorder - recovered: 441-frame smoke and six comparison captures delivered (#16098/#16104, report1253, f322f34). Matched-combat validity remains separate.
