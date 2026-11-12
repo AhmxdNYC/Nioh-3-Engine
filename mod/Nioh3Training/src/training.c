@@ -1562,6 +1562,7 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
     uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
 }
 static int NativeFightRecoverPos(float p[4]);
+static volatile LONG g_field_hold; // #89181: open-world teleport is holding the player on the target
 #include "player_recovery_game.h"
 // user #14267 Infinite health ON: HP below max -> set back to max at once. Direct write of the HP field PlayerHp reads ([[actor+0x3A0]+0x58]);
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
@@ -6099,6 +6100,79 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
 #include "hazard_guard_game.h"
+#include "field_hold.h"
+// #89181: same-world field teleport. The stage can already be state 5 while the destination cell
+// has no collision mark, and one Warp lets the player fall through. Re-place every tick until the
+// new main cell shows '*', then summon beside the player.
+static struct { volatile LONG armed; int on, homeOk; float x, y, z, yaw, home[4]; uint32_t chr, cell0, cell; DWORD t0, tStar, lastLog; } g_fa;
+static uint32_t MainCellId(void) {
+    uint64_t s = StageMgr(); int32_t c = -1; if (!s) return 0;
+    __try { c = *(int32_t*)(s + 0x504); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return c > 0 ? (uint32_t)c : 0;
+}
+static int CellStarOf(uint32_t id) {
+    uint64_t s = StageMgr(), n = 0; if (!id || !s) return 0;
+    __try { n = *(uint64_t*)(s + 0x560); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    // StageLog walks sub+0x40 (stage+0x540). The count StageLog prints is sub+0x60 (stage+0x560).
+    for (uint64_t i = 0; i < n && i < 256; ++i) {
+        uint64_t e = 0;
+        __try { e = ((uint64_t (*)(uint64_t, uint64_t))(B + Grva(0xD3B9C)))(s + 0x540, i); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+        if (!e || (*(uint32_t*)e >> 4) != id) continue;
+        __try { return *(uint8_t*)(e + 0xE8) ? 1 : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    }
+    return 0;
+}
+static void FieldArriveStop(const char* why) {
+    g_fa.on = 0; g_fa.tStar = 0; InterlockedExchange(&g_field_hold, 0);
+    Log("FIELD stop (%s)", why);
+}
+N3T_API int Nioh3Training_FieldArrive(float x, float y, float z, float yaw, uint32_t chr) {
+    if (!chr || g_fa.on || g_fa.armed) return 0;
+    g_fa.x = x; g_fa.y = y; g_fa.z = z; g_fa.yaw = yaw; g_fa.chr = chr;
+    InterlockedExchange(&g_fa.armed, 1);
+    return 1;
+}
+static void FieldArriveTick(void) {
+    if (g_fa.armed && !g_fa.on) {
+        InterlockedExchange(&g_fa.armed, 0);
+        g_fa.on = 1; g_fa.t0 = GetTickCount(); g_fa.tStar = 0; g_fa.lastLog = 0; g_fa.cell = 0;
+        g_fa.homeOk = PlayerPos(g_fa.home); g_fa.cell0 = MainCellId();
+        InterlockedExchange(&g_field_hold, 1);
+        uint64_t e = ResEntry(g_fa.chr);
+        if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3F9E58)))(g_fa.chr, 2, 0); PoolAdd(g_fa.chr); }
+        int w = Warp(g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, 1);
+        Log("FIELD warp %.0f %.0f %.0f yaw %.1f chr %u from cell %u -> %d", g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, g_fa.chr, g_fa.cell0, w);
+        StageLog("FIELD warp");
+        if (w != 1) { FieldArriveStop("warp failed"); return; }
+    }
+    if (!g_fa.on) return;
+    Warp(g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, 0); // position only: do not restart the stream every frame
+    DWORD now = GetTickCount();
+    uint32_t cell = MainCellId();
+    int star = CellStarOf(cell);
+    unsigned starMs = 0;
+    if (star == 1 && cell && cell != g_fa.cell0) {
+        if (!g_fa.tStar || g_fa.cell != cell) g_fa.tStar = now;
+        g_fa.cell = cell; starMs = now - g_fa.tStar;
+    } else g_fa.tStar = 0;
+    int step = FieldHoldStep(now - g_fa.t0, cell, star, g_fa.cell0, starMs);
+    if (!g_fa.lastLog || now - g_fa.lastLog >= 1000) {
+        g_fa.lastLog = now;
+        Log("FIELD hold +%lu ms cell %u (from %u) star %d", (unsigned long)(now - g_fa.t0), cell, g_fa.cell0, star);
+    }
+    if (step == FH_HOLD) return;
+    if (step == FH_HOME) {
+        int hw = g_fa.homeOk ? Warp(g_fa.home[0], g_fa.home[1], g_fa.home[2], g_fa.home[3], 1) : 0;
+        Log("FIELD cell %u still without star after %lu ms, home warp %d, summon not sent", cell, (unsigned long)(now - g_fa.t0), hw);
+        FieldArriveStop("cell not ready");
+        return;
+    }
+    char tok[32]; snprintf(tok, sizeof tok, "%u", g_fa.chr);
+    int slot = SlotFree(); g_sp_slot_next = slot;
+    int ok = slot < 0 ? 0 : SummonStart(tok, 400.0f);
+    Log("FIELD cell %u star ready after %lu ms, summon %u -> %d", cell, (unsigned long)(now - g_fa.t0), g_fa.chr, ok);
+    FieldArriveStop(ok ? "summon queued" : "summon refused");
+}
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
@@ -6143,6 +6217,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
+    __try { FieldArriveTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FIELD tick exception %08lX", GetExceptionCode()); g_fa.on = 0; InterlockedExchange(&g_field_hold, 0); }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { InfHpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22918
     __try { FightPlayerWatch(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FIGHT watch exception %08lX", GetExceptionCode()); }

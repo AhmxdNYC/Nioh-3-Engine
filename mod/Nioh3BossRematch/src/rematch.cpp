@@ -3096,21 +3096,20 @@ void ExecField(int row, const Snap& s) {
         return;
     }
     const Row& r = g_rows[(size_t)row];
-    using Fn = int (*)(int, uint32_t);
-    const auto summon = (Fn)TrainingExport("Nioh3Training_SummonSlotChr");
-    if (!summon || !g_warpOk) {
-        Refuse(!summon ? "Training summon is missing" : (g_warpWhy && g_warpWhy[0] ? g_warpWhy : "warp unavailable"));
+    using Fn = int (*)(float, float, float, float, uint32_t);
+    const auto arrive = (Fn)TrainingExport("Nioh3Training_FieldArrive");
+    if (!arrive) {
+        Refuse("Training field arrive is missing");
         return;
     }
-    const int wrc = CallWarp(r.warp[0], r.warp[1], r.warp[2], r.warp[3]);
-    const int src = wrc ? 0 : summon(-1, r.summonChr);
-    Log("Rematch: open world %s region 0x%X running 0x%X placement %u chr %u warp %d summon %d (no flag writes)",
-        r.id, r.missionId, s.ms28, r.placement, r.summonChr, wrc, src);
+    // #89181: Training warps, holds the player until the destination cell has its collision mark, then summons.
+    const int rc = arrive(r.warp[0], r.warp[1], r.warp[2], r.warp[3], r.summonChr);
+    Log("Rematch: open world %s region 0x%X running 0x%X placement %u chr %u arrive %d (no flag writes)",
+        r.id, r.missionId, s.ms28, r.placement, r.summonChr, rc);
     if (r.missionId && s.msOk && s.ms28 && r.missionId != s.ms28)
         Log("Rematch: open world region mismatch: spawn mission 0x%X, running 0x%X", r.missionId, s.ms28);
-    if (wrc) Refuse("warp failed");
-    else if (src != 1) Refuse("summon failed");
-    else Result("open world summoned");
+    if (!rc) Refuse("field arrive busy");
+    else Result("open world travelling");
 }
 
 void AutoMovesTick();  // pc2 #23907, end of file
@@ -4918,8 +4917,8 @@ bool ActOpenWorld(int row) {
     }
     const char* why = Gates(ReadSnap(), true);
     if (why) { snprintf(g_msg, sizeof g_msg, "Not now: %s.", why); return false; }
-    if (!TrainingExport("Nioh3Training_SummonSlotChr") || !g_warpOk) {
-        snprintf(g_msg, sizeof g_msg, "%s", !g_warpOk ? (g_warpWhy && g_warpWhy[0] ? g_warpWhy : "warp unavailable") : "Training summon is missing.");
+    if (!TrainingExport("Nioh3Training_FieldArrive")) {
+        snprintf(g_msg, sizeof g_msg, "Training field arrive is missing.");
         return false;
     }
     if (g_confirm != row) {
