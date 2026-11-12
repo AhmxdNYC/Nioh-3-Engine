@@ -176,6 +176,7 @@ try {
     }
     $script:installed = $true
     if ($BrAsi) { Copy-Item $BrAsi "$GameDir\Nioh3BossRematch.asi" -Force; T "installed BR $((Get-FileHash "$GameDir\Nioh3BossRematch.asi").Hash.Substring(0,8))" }
+    if ($PerfAsi -ne "$GameDir\Nioh3EngineFix.asi") { Copy-Item $PerfAsi "$GameDir\Nioh3EngineFix.asi" -Force; T "installed EF $((Get-FileHash "$GameDir\Nioh3EngineFix.asi").Hash.Substring(0,8))" }
     if ($TrAsi) { Copy-Item $TrAsi "$GameDir\Nioh3Training.asi" -Force; T "installed TR $((Get-FileHash "$GameDir\Nioh3Training.asi").Hash.Substring(0,8))" }
     $aText = [IO.File]::ReadAllText($aIni)
     foreach ($kv in @(@("Rematch", "Enable", "1"), @("Remote", "Pipe", "1"), @("Debug", "BossLog", "1"), @("Debug", "InvLog", "0"), @("Debug", "NativeCapture", "1"), @("Debug", "NativeCaptureRuns", "2"), @("Debug", "NativeCaptureItem", "0"))) { $aText = Set-IniKey $aText $kv[0] $kv[1] $kv[2] }
