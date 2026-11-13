@@ -261,7 +261,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
         return; // cover cancellation/staleness must not leave normal menu latches capturing
     }
 
-    if (g_disabled) return;
+    if (g_disabled) { if (!own) paddebug::RecordBlock(0u); return; }  // #97559: a disabled menu hides nothing; clear stale bits
     ForceCloseIfDead(t);
     const bool alive = Alive(t, 1000);
     // open/close gesture
@@ -1922,6 +1922,10 @@ void ApplyConfigValue(int index) {
         } else if (!strcmp(d.key, "InputDisplayRows")) {
             inputhist::g_rows = std::clamp((int)std::lround(atof(v.c_str())), inputhist::kMinRows, inputhist::kMaxRows);
             snprintf(g_configReply, sizeof(g_configReply), "Input display rows apply now. Save to keep it.");
+        } else if (!strcmp(d.key, "PadDebug")) {  // #97559 catalog row for the #97485 debug lines
+            paddebug::g_store.blocked.store(0u, std::memory_order_relaxed);  // no stale reason from before the toggle
+            paddebug::g_on = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), paddebug::g_on ? "Pad debug on (Diagnostics page). Save to keep it." : "Pad debug off. Save to keep it.");
         } else if (!strcmp(d.key, "HideGameHud")) {
             hudhide::g_want = atoi(v.c_str()) ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), hudhide::g_bad ? "Hide game HUD is not available on this game version." : hudhide::g_want ? "Game HUD hidden. Save to keep it." : "Game HUD shown. Save to keep it.");
