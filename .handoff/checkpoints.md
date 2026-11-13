@@ -453,3 +453,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 9:23 am EST | gx-pc #96396 | DS guard probes by time (1 sleep/250 ms) instead of every 128 calls | unproven (built, not reviewed/live) | regression-pc reviews EF d440a85f, then PC2/Ally DS ABBA on it | gx-pc/ef-ds-default-96048 94adb222, bridge #7264
 
 2026-11-13 09:25 EST | regression-pc/0 #96415 | reviewed ship EF 2e69d0d4 (730a87be) vs 1.8.13: EF-only, 0 removed, no new hardcoding, defaults header PASS, 12/16 offline tests (4 need other toolchain) | proven offline | next: none for regression; installer-pc gate | notes/regression/ef-2e69d0d4-96415.md
+
+2026-11-13 09:35 EST | regression-pc/0 #96421 | reviewed guard EF d440a85f (94adb222) timed probe: code PASS, not shipping (guard dropped #96415) | offline only | next: none | -
