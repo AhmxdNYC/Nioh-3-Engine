@@ -431,3 +431,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 12:42 pm EST | regression-pc/0 | queue empty; all reviews answered (#96810 #96816 #96838). No-hardcode baseline is stale (ROW_WARN flag pre-existing).
 - 2026-11-13 12:50 pm EST | pc/1 | #96781 closed, nothing half-done; no game running.
 - 2026-11-13 12:48 pm EST | regression-pc/0 | gx-pc devremoved 2f90191c (EF fc18231e, #7303) review PASS #96875: test 6/6, build ok, Forget-before-Release safe. Minor: DRED flag set even if device pre-exists. Live TDR proof still open.
+- 2026-11-13 1:07 pm EST | pc2/1 | RESULT #96489 sent (pc, reports-pc, pc2): #64 EF bcf00b62 profile arm PASS on PC2; DV #59 rebased BR c2f71021 PASS (crab path unreproduced); #61 PASS only on wave branch fa3f56e9 (Staged start not on main). PC2 public 1.8.13 restored, lock #386 free.
