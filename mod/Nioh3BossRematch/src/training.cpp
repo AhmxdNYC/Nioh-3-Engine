@@ -70,9 +70,12 @@ void End(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 bool Prepare() {
     if (g_prepared) return true; // startup registration is idempotent
     if (!IniInt(L"Training", L"Observe", 0)) return false;
-    if (!g_img.knownBuild) {
-        Log("Training entries: off - unknown build");
-        return false;
+    if (!g_img.knownBuild) {  // #94070: not off by default any more - every site below is pattern-verified, an unresolved one turns it off
+        Log("Training entries: unknown exe variant (stamp %08lX, image %lu) - continuing, each site must resolve by pattern", (unsigned long)g_img.timestamp,
+            (unsigned long)g_img.sizeOfImage);
+        const char* gs[4] = {"g:MissionMgr", "g:GameMain", "g:PlayMode", "g:NetMgr"};
+        for (const char* g : gs)
+            if (!Site(g)) { Log("Training entries: off - %s not found on this exe variant", g); return false; }
     }
     const char* why = nullptr;
     if (!GroupOk("CORE", &why) || !GroupOk("FIGHT", &why) || !GroupOk("PUMP", &why)) {
