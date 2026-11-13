@@ -78,7 +78,7 @@ inline constexpr Entry kEntries[] = {
     {"Patches", "WL", "1"},
     {"Patches", "WG", "1"},
     {"Patches", "TG", "0"},
-    {"Patches", "DS", "0"},
+    {"Patches", "DS", "1"},
     {"Patches", "DQ", "1"},
     {"Patches", "P1E7", "1"},
     {"Patches", "LK", "1"},

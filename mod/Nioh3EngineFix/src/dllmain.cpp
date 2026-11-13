@@ -474,7 +474,7 @@ struct Config {
     // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
     int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
-    int ds = 0, dsMarginUs = 150;
+    int ds = 1, dsMarginUs = 150;  // DS default on (#96048; -5.5% CPU at a 60 fps cap, #96036)
     int lk = 0, cp = 0, spf = 0;
     int ma = 0;  // 1.7.39: main-thread locked "atomic loads" (code bytes, next launch)
     int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
