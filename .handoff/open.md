@@ -127,3 +127,4 @@ Coverage now: open world 2/57 device cells, Dojos 3/9 (PASS on current or older 
 - [ ] (user #24939) Audit/bench rows only have avg fps/1% low/frametime. Add CPU util, GPU util, CPU temp, power per run to final bench (all 3 devices). Mod has [Profiler] MemStats etc but no per-run util in results.
 - [ ] publish final-bench graph (default vs optimized vs optimized+visuals, FG on/off, 3 devices) to GitHub README after all results | user #26593
 - [ ] collect per-device in-game settings (pc2, ally asked #user 26922) and list them on the GitHub chart | user #26922
+- [ ] NEXT RELEASE GATE #87687 (installer-pc #94203): in-game out-of-date popup self-installs + relaunches; Dev lead live check + Discord video before shipping the final build (BR f1adb650 + TR bcc4783e). Restore Main PC Steam folder to the release files before any release install test.
