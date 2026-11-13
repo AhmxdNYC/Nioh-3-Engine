@@ -410,3 +410,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 09:43 AM EST | reports-pc/0 | #38 EF bc97a30d (reports/38 2e6c25ff): review PASS #95388, PC2 live PASS #95460 (no crash, fps +0.1%). Proven: no regression; unproven: framepacer.dll loop live. Next: pc folds reports/38 into 1.8.14 (TASK sent), then close GitHub #38. #44 despawn not reproduced 5/5, left open.
 
 2026-11-13 1:40 am EST | performance-pc2/0 | #95527 pc2 upscaler ABBA done (RESULT #95576) | proven: FSR4 INT8 runs on RDNA2 via OptiScaler 0.9.4 (log); unproven: +3.2 0.000000ps at REN_RAT 55 (drift range 44.7-51.1), same look | next: human look check of #7195 or more windows if pc wants | tools/testmatrix/pc2_upscaler_*.ps1, captures/pc2-upscaler-95527/r1
+
+2026-11-13 1:45 am EST | performance-pc2/0 | session end: #95527 upscaler A/B fully done (RESULT #95576, TO-USER #95580, commit 4b984dcc); nothing half-done; pc2 restored, lock free | next: wait for pc/human reply on look strip #7195 (no new arms unless asked)
