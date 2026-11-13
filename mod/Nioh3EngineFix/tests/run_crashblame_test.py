@@ -46,10 +46,18 @@ def run(args, cwd, check=True):
 def main(t: Path) -> int:
     (t / "blamedll.cpp").write_text(DLL)
     (t / "blamedll.rc").write_text(RC)
-    run(["rc", "/nologo", "blamedll.rc"], t)
-    run(["cl", "/nologo", "/LD", "/MT", "/Od", "blamedll.cpp", "blamedll.res", "/Feblamedll.dll", "/link", "user32.lib"], t)
-    for n in ("Nioh3Fake.asi", "Nioh3Gone.asi", "winmm.dll", "other.dll"):
-        shutil.copyfile(t / "blamedll.dll", t / n)
+    run(["rc", "/nologo", "blamedll.rc"], t)  # foreign: CompanyName "Blame Test Co"
+    run(["rc", "/nologo", "/fo", "ours.res", str(MOD.parent / "shared/nioh3_version.rc")], t)  # our CompanyName
+    run(["cl", "/nologo", "/c", "/MT", "/Od", "blamedll.cpp"], t)
+    run(["link", "/nologo", "/DLL", "blamedll.obj", "blamedll.res", "/OUT:foreign.dll", "user32.lib"], t)
+    run(["link", "/nologo", "/DLL", "blamedll.obj", "ours.res", "/OUT:ours.dll", "user32.lib"], t)
+    run(["link", "/nologo", "/DLL", "blamedll.obj", "/OUT:plain.dll", "user32.lib"], t)  # no version resource (pre-#94704 build)
+    copies = {"ours.dll": ("Nioh3Fake.asi",),
+              "plain.dll": ("Nioh3Training.asi", "Nioh3CamKiProbe.asi", "Nioh3NoVer.asi"),
+              "foreign.dll": ("winmm.dll", "other.dll", "Nioh3Other.asi")}
+    for src, names in copies.items():
+        for n in names:
+            shutil.copyfile(t / src, t / n)
     run(["cl", "/nologo", "/O2", "/MT", "/EHsc", "/std:c++17", "/W4", "/DUNICODE", "/D_UNICODE",
          str(MOD / "tests/crashblame_test.cpp"), str(MOD / "src/crashblame.cpp"), "/Fecrashblame_test.exe",
          "/link", "version.lib"], t)

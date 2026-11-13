@@ -2,6 +2,7 @@
 #include "crashblame.h"
 
 #include <psapi.h>
+#include <winternl.h>
 #include <cstdarg>
 #include <cstdint>
 #include <cstddef>
@@ -20,6 +21,26 @@ wchar_t g_winDir[MAX_PATH], g_sysDir[MAX_PATH], g_gameDir[MAX_PATH];
 size_t g_winLen = 0, g_gameLen = 0;
 volatile LONG g_init = 0;
 
+// Heap-free file probe (#94704: a crash that holds the process heap lock must not hang the report; GetFileAttributesW
+// allocates the NT path on the heap).
+struct FileBasicInfo { LARGE_INTEGER t[4]; ULONG attr; };
+using NtQueryAttributesFileFn = LONG(NTAPI*)(POBJECT_ATTRIBUTES, FileBasicInfo*);
+NtQueryAttributesFileFn g_ntQueryAttr = nullptr;
+
+bool FileExists(const wchar_t* dosPath) {
+    if (!g_ntQueryAttr) return false;
+    wchar_t nt[MAX_PATH * 2 + 8];
+    if (swprintf(nt, MAX_PATH * 2 + 8, L"\\??\\%s", dosPath) < 0) return false;
+    UNICODE_STRING us;
+    us.Buffer = nt;
+    us.Length = (USHORT)(wcslen(nt) * sizeof(wchar_t));
+    us.MaximumLength = us.Length;
+    OBJECT_ATTRIBUTES oa;
+    InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, nullptr, nullptr);
+    FileBasicInfo fi{};
+    return g_ntQueryAttr(&oa, &fi) >= 0;
+}
+
 void Init() {
     if (g_init) return;
     UINT n = GetWindowsDirectoryW(g_winDir, MAX_PATH - 2);
@@ -30,6 +51,8 @@ void Init() {
         wchar_t* s = wcsrchr(g_gameDir, L'\\');
         if (s) { s[1] = 0; g_gameLen = wcslen(g_gameDir); }
     }
+    if (HMODULE nt = GetModuleHandleW(L"ntdll.dll"))
+        g_ntQueryAttr = reinterpret_cast<NtQueryAttributesFileFn>(GetProcAddress(nt, "NtQueryAttributesFile"));
     InterlockedExchange(&g_init, 1);
 }
 
@@ -46,32 +69,79 @@ const wchar_t* BaseName(const wchar_t* path) {
     return b;
 }
 
-void Company(const wchar_t* path, char* out, size_t cap) {
-    out[0] = 0;
-    DWORD h = 0, sz = GetFileVersionInfoSizeW(path, &h);
-    if (!sz || sz > (1u << 20)) return;
-    void* buf = malloc(sz);
-    if (!buf) return;
-    if (GetFileVersionInfoW(path, 0, sz, buf)) {
-        struct Tr { WORD lang, cp; }* tr = nullptr;
-        UINT tl = 0;
-        wchar_t key[64];
-        if (VerQueryValueW(buf, L"\\VarFileInfo\\Translation", (void**)&tr, &tl) && tr && tl >= sizeof(Tr))
-            swprintf(key, 64, L"\\StringFileInfo\\%04x%04x\\CompanyName", tr->lang, tr->cp);
-        else
-            wcscpy_s(key, L"\\StringFileInfo\\040904b0\\CompanyName");
-        wchar_t* v = nullptr;
-        UINT vl = 0;
-        if (VerQueryValueW(buf, key, (void**)&v, &vl) && v && vl) {
-            char a[96] = {};
-            WideCharToMultiByte(CP_UTF8, 0, v, -1, a, (int)sizeof(a) - 1, nullptr, nullptr);
-            size_t L = strlen(a);
-            while (L && (a[L - 1] == ' ' || a[L - 1] == '.')) a[--L] = 0;
-            if (L >= cap) { a[cap - 1] = 0; }
-            strcpy_s(out, cap, a);
+// CompanyName from the version resource of the loaded image (#94704: no heap, no file read; GetFileVersionInfoW allocates and
+// maps the file). The resource is copied to a static buffer for VerQueryValueW (report helper thread only).
+alignas(8) unsigned char g_ver[64 * 1024];
+
+// First entry of a resource directory (by id when id >= 0), or null. dir/base are inside the mapped image.
+const IMAGE_RESOURCE_DIRECTORY_ENTRY* ResEntry(const BYTE* root, const IMAGE_RESOURCE_DIRECTORY* dir, int id) {
+    const auto* e = reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY_ENTRY*>(dir + 1);
+    const unsigned n = dir->NumberOfNamedEntries + dir->NumberOfIdEntries;
+    for (unsigned i = 0; i < n && i < 4096; ++i)
+        if (id < 0 || (!e[i].NameIsString && e[i].Id == id)) return &e[i];
+    (void)root;
+    return nullptr;
+}
+
+// The RT_VERSION resource walked straight from the loaded image's resource directory. FindResourceW is not used: it
+// allocates on the process heap (MUI lookup; seen blocking under HeapLock in crashblame_test).
+bool CopyVersion(HMODULE m, DWORD* size) {
+    __try {
+        const BYTE* b = reinterpret_cast<const BYTE*>(m);
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(b);
+        if (dos->e_magic != IMAGE_DOS_SIGNATURE) return false;
+        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(b + dos->e_lfanew);
+        if (nt->Signature != IMAGE_NT_SIGNATURE || nt->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR64_MAGIC) return false;
+        const IMAGE_DATA_DIRECTORY& dd = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE];
+        if (!dd.VirtualAddress || !dd.Size || dd.VirtualAddress >= nt->OptionalHeader.SizeOfImage) return false;
+        const BYTE* root = b + dd.VirtualAddress;
+        const IMAGE_RESOURCE_DIRECTORY_ENTRY* e = ResEntry(root, reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY*>(root), 16);  // RT_VERSION
+        for (int level = 0; level < 2 && e; ++level) {  // name, then language: first of each
+            if (!e->DataIsDirectory || e->OffsetToDirectory >= dd.Size) return false;
+            e = ResEntry(root, reinterpret_cast<const IMAGE_RESOURCE_DIRECTORY*>(root + e->OffsetToDirectory), -1);
         }
+        if (!e || e->DataIsDirectory || e->OffsetToData + sizeof(IMAGE_RESOURCE_DATA_ENTRY) > dd.Size) return false;
+        const auto* de = reinterpret_cast<const IMAGE_RESOURCE_DATA_ENTRY*>(root + e->OffsetToData);
+        const DWORD sz = de->Size;
+        if (sz < 16 || sz > sizeof(g_ver) / 2 || de->OffsetToData + sz > nt->OptionalHeader.SizeOfImage) return false;
+        memcpy(g_ver, b + de->OffsetToData, sz);  // half the buffer: room for VerQueryValue's own scratch use
+        memset(g_ver + sz, 0, sz);
+        *size = sz;
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
     }
-    free(buf);
+}
+
+void Company(HMODULE m, char* out, size_t cap) {
+    out[0] = 0;
+    DWORD sz = 0;
+    if (!m || !CopyVersion(m, &sz)) return;
+    struct Tr { WORD lang, cp; }* tr = nullptr;
+    UINT tl = 0;
+    wchar_t key[64];
+    if (VerQueryValueW(g_ver, L"\\VarFileInfo\\Translation", (void**)&tr, &tl) && tr && tl >= sizeof(Tr))
+        swprintf(key, 64, L"\\StringFileInfo\\%04x%04x\\CompanyName", tr->lang, tr->cp);
+    else
+        wcscpy_s(key, L"\\StringFileInfo\\040904b0\\CompanyName");
+    wchar_t* v = nullptr;
+    UINT vl = 0;
+    if (VerQueryValueW(g_ver, key, (void**)&v, &vl) && v && vl) {
+        char a[96] = {};
+        WideCharToMultiByte(CP_UTF8, 0, v, -1, a, (int)sizeof(a) - 1, nullptr, nullptr);
+        size_t L = strlen(a);
+        while (L && (a[L - 1] == ' ' || a[L - 1] == '.')) a[--L] = 0;
+        if (L >= cap) { a[cap - 1] = 0; }
+        strcpy_s(out, cap, a);
+    }
+}
+
+// Ours (#94704): Nioh3*.asi AND our CompanyName (mod/shared/nioh3_version.rc). Builds made before the version resource carry
+// none; those count as ours only under one of our shipped file names. Another author's Nioh3X.asi is a game-folder mod.
+const char* const kOurNames[] = {"Nioh3EngineFix.asi", "Nioh3BossRematch.asi", "Nioh3Training.asi", "Nioh3CamKiProbe.asi"};
+bool OurName(const char* n) {
+    for (const char* k : kOurNames) if (_stricmp(n, k) == 0) return true;
+    return false;
 }
 
 // Windows unload trace (ntdll keeps the last unloaded modules; Win8+ has the Ex query, Wine may have neither).
@@ -241,6 +311,8 @@ void OwnerText(const Owner& o, char* out, size_t cap) {
 
 }  // namespace
 
+void Prepare() { Init(); }
+
 const char* KindText(Kind k) {
     switch (k) {
         case kOurs: return "our mod";
@@ -272,7 +344,12 @@ void Classify(const void* addr, Owner& out, bool withCompany) {
     const wchar_t* base = BaseName(path);
     WideCharToMultiByte(CP_UTF8, 0, base, -1, out.name, (int)sizeof(out.name) - 1, nullptr, nullptr);
     if (m == GetModuleHandleW(nullptr)) out.kind = kGame;
-    else if (_wcsnicmp(base, L"Nioh3", 5) == 0 && EndsWithI(base, L".asi")) out.kind = kOurs;
+    else if (_wcsnicmp(base, L"Nioh3", 5) == 0 && EndsWithI(base, L".asi")) {
+        Company(m, out.company, sizeof(out.company));  // always: it decides ours vs another author's Nioh3*.asi
+        out.kind = !strcmp(out.company, kOurCompany) || (!out.company[0] && OurName(out.name)) ? kOurs : kGameFolder;
+        if (!withCompany && out.kind == kOurs) out.company[0] = 0;
+        return;
+    }
     else if (PrefixI(path, g_winDir, g_winLen)) {
         wchar_t low[MAX_PATH * 2];
         size_t i = 0;
@@ -285,11 +362,11 @@ void Classify(const void* addr, Owner& out, bool withCompany) {
         if (g_sysDir[0] && !EndsWithI(base, L".asi")) {
             wchar_t sys[MAX_PATH * 2];
             swprintf(sys, MAX_PATH * 2, L"%s\\%s", g_sysDir, base);
-            if (GetFileAttributesW(sys) != INVALID_FILE_ATTRIBUTES) out.kind = kProxy;
+            if (FileExists(sys)) out.kind = kProxy;
         }
     } else if (PrefixI(path, g_gameDir, g_gameLen)) out.kind = kGameFolder;  // subfolder of the game folder
     else out.kind = kOtherProgram;
-    if (withCompany && out.kind != kWindows) Company(path, out.company, sizeof(out.company));
+    if (withCompany && out.kind != kWindows) Company(m, out.company, sizeof(out.company));
 }
 
 int Analyze(const EXCEPTION_RECORD* er, const CONTEXT* ctx, char* text, size_t textCap, char (*shortLines)[120], int maxShort) {
@@ -379,7 +456,7 @@ int Analyze(const EXCEPTION_RECORD* er, const CONTEXT* ctx, char* text, size_t t
     } else if (c0.kind == kUnloaded || c0.kind == kNoModule) {
         const Owner* f = nullptr;  // who jumped there: the first real frame above
         for (int i = 1; i < nfr && !f; ++i) if (!IsSys(fr[i].kind) && fr[i].kind != kNoModule && fr[i].kind != kUnloaded) f = &fr[i];
-        const bool goneOurs = c0.kind == kUnloaded && _strnicmp(c0.name, "Nioh3", 5) == 0;
+        const bool goneOurs = c0.kind == kUnloaded && OurName(c0.name);  // unloaded: no resource left, name only
         label = f && f->kind == kOurs ? "OUR MOD" : f && IsOther(f->kind) ? "ANOTHER MOD/PROGRAM" : goneOurs ? "OUR MOD"
               : c0.kind == kUnloaded ? "ANOTHER MOD/PROGRAM (unloaded)" : "unknown";
         if (c0.kind == kUnloaded)
