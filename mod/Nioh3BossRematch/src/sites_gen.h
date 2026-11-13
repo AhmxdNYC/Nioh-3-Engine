@@ -51,6 +51,8 @@ static const Def kDefs[] = {
     {"Item::ClearEquipment", "KEEPGEAR", kNative, 0x23A0E7C, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Item::ClearEquipment"},
     {"Item::SetShortCut", "KEEPGEAR", kNative, 0x23A210C, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Item::SetShortCut"},
     {"Player::EquipNinjutsu", "KEEPGEAR", kNative, 0x23A80D8, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Player::EquipNinjutsu"},
+    {"Mission::NoDamageMode", "KEEPGEAR", kNative, 0x23A5308, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Mission::NoDamageMode"},
+    {"Player::RequestStyleChange", "KEEPGEAR", kNative, 0x23AAEE0, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Player::RequestStyleChange"},
     {"MissionLoadStep", "RLOG", kHook, 0x223AF50, 10, "48 89 5C 24 18 48 89 6C 24 20 56 57 41 56 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B F1 48 8B DA 48 8B 0D", 0, 0, 0, 0, 0x0, nullptr},
     {"EmakiMissionRequest", "RLOG", kHook, 0x10DBED0, 5, "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 20 06 00 00 48", 0, 0, 0, 0, 0x0, nullptr},
     {"MissionSetupEmaki", "RLOG", kHook, 0x1C2794C, 5, "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 E0 FE FF FF", 0, 0, 0, 0, 0x0, nullptr},

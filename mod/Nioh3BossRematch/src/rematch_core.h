@@ -61,6 +61,7 @@ struct Row {
     // The mission script's running function calls Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
     // Filled by tools/rematch_catalog.py from the script, not from a row list. The menu reads it before that script runs.
     bool lesson = false;
+    bool dojo = false;         // catalogue mission_class == dojo-way (the game's mission record class; human #95155 Dojos filter)
 };
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
@@ -114,7 +115,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -135,6 +136,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.storyMission = (uint32_t)strtoul(col(cStory).c_str(), nullptr, 0);
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
         Ascii(r.warning, sizeof(r.warning), col(cWarn));
+        r.dojo = col(cMcls) == "dojo-way";
         r.wakeStep = col(cWake).empty() ? 0 : atoi(col(cWake).c_str());  // out of range is clamped where it is used (WaveNudgeAt)
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
@@ -243,24 +245,28 @@ inline void EraKey(const char* in, char* out, int cap) {
 }
 
 // Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
-// Stops: All, Multi, one per distinct era (catalogue order), Scrolls.
-// A scroll stays in its era as well as under Scrolls. An empty region is not an era.
+// Stops: All, Multi, one per distinct era (catalogue order), Dojos (only when a row is a dojo), Scrolls, Favorites.
+// A scroll stays in its era as well as under Scrolls; a dojo stays in its era as well as under Dojos. An empty region is not an era.
+// Kinds: 0 All, 1 Multi, 2 era, 3 Scrolls, 4 Favorites, 5 Dojos.
 struct ListCycle {
     static constexpr int kMaxEra = 32;
     char era[kMaxEra][40]{};
     int nEra = 0;
-    int Stops() const { return 4 + nEra; }
+    bool hasDojo = false;
+    int Stops() const { return 4 + nEra + (hasDojo ? 1 : 0); }
     int Kind(int stop) const {
         if (stop <= 0) return 0;
         if (stop == 1) return 1;
         if (stop >= 2 && stop < 2 + nEra) return 2;
-        return stop == 2 + nEra ? 3 : 4;
+        if (hasDojo && stop == 2 + nEra) return 5;
+        return stop == 2 + nEra + (hasDojo ? 1 : 0) ? 3 : 4;
     }
     const char* Label(int stop) const {
         const int k = Kind(stop);
         if (k == 0) return "All";
         if (k == 1) return "Multi";
         if (k == 2) return era[stop - 2];
+        if (k == 5) return "Dojos";
         return k == 3 ? "Scrolls" : "Favorites";
     }
     void AddEra(const char* name) {
@@ -272,13 +278,38 @@ struct ListCycle {
     }
 };
 
-inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c) {
+// Case-insensitive ASCII order for menu lists (human #95175: every list alphabetical).
+inline bool CaseLess(const char* a, const char* b) {
+    for (;; ++a, ++b) {
+        int x = (unsigned char)*a, y = (unsigned char)*b;
+        if (x >= 'A' && x <= 'Z') x += 32;
+        if (y >= 'A' && y <= 'Z') y += 32;
+        if (x != y || !x) return x < y;
+    }
+}
+// Sorts items[from..] by the catalogue name of their row (row = item - base); stable, so equal names keep catalogue order.
+inline void SortItemsByName(std::vector<int>& items, size_t from, int base, const std::vector<Row>& rows) {
+    if (from >= items.size()) return;
+    std::stable_sort(items.begin() + (std::ptrdiff_t)from, items.end(), [&](int a, int b) {
+        const int ra = a - base, rb = b - base;
+        if (ra < 0 || rb < 0 || (size_t)ra >= rows.size() || (size_t)rb >= rows.size()) return false;
+        return CaseLess(rows[(size_t)ra].name, rows[(size_t)rb].name);
+    });
+}
+// human #95158: an era made only of X rows (open-world / refused, never listed unless Show all) showed an empty list
+// (DLC1 Edo = Tesso only). Such an era gets no stop unless includeX. human #95175: era stops in alphabetical order.
+inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool includeX = false) {
     c = ListCycle{};
     char key[40];
     for (const auto& r : rows) {
+        if (r.route == kX && !includeX) continue;
         EraKey(r.region, key, (int)sizeof key);
         c.AddEra(key);
+        if (r.dojo) c.hasDojo = true;
     }
+    std::vector<std::string> names(c.era, c.era + c.nEra);
+    std::stable_sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return CaseLess(a.c_str(), b.c_str()); });
+    for (int i = 0; i < c.nEra; ++i) snprintf(c.era[i], sizeof c.era[0], "%s", names[(size_t)i].c_str());
 }
 
 // The Waves label is this row's region, not "every Picture Scroll". E17 and E09 leave the
@@ -295,6 +326,7 @@ inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFav
     const int k = c.Kind(stop);
     if (k == 0) return true;
     if (k == 4) return isFavorite;
+    if (k == 5) return r.dojo;
     if (k == 3) return r.route == kE;
     if (k == 2) {
         const int ei = stop - 2;

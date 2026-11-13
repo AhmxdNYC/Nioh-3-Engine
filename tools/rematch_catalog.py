@@ -85,7 +85,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning", "mission_class"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -756,6 +756,11 @@ def build():
     for e in em:
         out.append(erow(e))
     out.extend(xtsv)
+    # mission_class (human #95155): the game's mission class from missions.csv (e.g. dojo-way), so menu filters group rows from data.
+    for o in out:
+        m = o.get("replay_mission_id") or "-"
+        cls = mi.get(int(m, 16), {}).get("class", "") if m.startswith("0x") else ""
+        o["mission_class"] = cls or "-"
     # f2e80b34 refused this row by editing the TSV only; keep the refusal when the catalogue is regenerated.
     for o in out:
         if o["id"] == "RBAB8":

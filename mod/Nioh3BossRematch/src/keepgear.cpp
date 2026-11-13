@@ -22,7 +22,10 @@ namespace {
 const char* const kStrip[] = {"Item::ReserveAllItemAll", "Item::ReserveAllItemDojo", "Item::ReserveAllItemEdo", "Item::ClearEquipment"};
 const char* const kKit[] = {"Item::AddEquipment", "Item::AddEquipmentBySlot", "Item::AddEquipmentPreset", "Item::AddFixItem",
                             "Item::AddItem",      "Item::AddItemNoNotice",    "Item::AddMagicItem",       "Item::SetShortCut",
-                            "Player::EquipNinjutsu", "Player::AddSkill",      "Player::AddSkillDojo"};
+                            "Player::EquipNinjutsu", "Player::AddSkill",      "Player::AddSkillDojo",
+                            // human #95193: the dojo flow switches damage off for every character while it waits for the duel
+                            // (a Training boss then takes no damage) and forces the lesson's style. Sandbox trips only, as the kit.
+                            "Mission::NoDamageMode", "Player::RequestStyleChange"};
 constexpr int kNStrip = sizeof(kStrip) / sizeof(kStrip[0]), kNKit = sizeof(kKit) / sizeof(kKit[0]);
 
 std::atomic<int> g_sandbox{0}, g_skipped{0}, g_wasTrip{0}, g_reservedAtStart{-1};
