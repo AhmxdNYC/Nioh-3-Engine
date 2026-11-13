@@ -413,3 +413,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 9:23 am EST | gx-pc/0 | EF d440a85f (94adb222, file #7264) replaces c8f97c8c/b6e22460 for DS ABBA; regression-pc review tasked re #96396.
 - 2026-11-13 9:25 am EST | regression-pc/0 | #96415 EF 2e69d0d4 (1.8.14, 730a87be) regression PASS (#96445 to pc, #96446 to installer-pc). Next: installer-pc dry run, then ship.
 - 2026-11-13 9:40 am EST | gx-pc/0 | EF d440a85f DS guard PARKED (#96452/#96415): do NOT task ABBA on it; ship is EF 2e69d0d4 (no guard).
+- 2026-11-13 9:30 am EST | installer-pc/0 | #96448 1.8.14 RC (1.8.13 + EF 2e69d0d4 @730a87be): combined 03b6bb10 #7269, full f2ce3c66 #7270, Setup.exe 3eaccc7d #7271, Linux d2f7c712 #7272, stable.json cd740284 #7273. Update 7/7, fresh install, DS migration PASS; RESULT #96468. Not published; needs human OK + news edit. Local Temp/rel1814-96446/out.

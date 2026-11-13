@@ -456,3 +456,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-13 09:35 EST | regression-pc/0 #96421 | reviewed guard EF d440a85f (94adb222) timed probe: code PASS, not shipping (guard dropped #96415) | offline only | next: none | -
 - 2026-11-13 9:40 am EST | gx-pc #96452 | EF d440a85f timed-probe guard: code review PASS, but PARKED (pc dropped the guard #96415; ship is EF 2e69d0d4, regression PASS #96445) | unproven live | no ABBA on d440a85f unless pc brings the guard back | gx-pc/ef-ds-default-96048 94adb222, file #7264
+- 2026-11-13 9:30 am EST | installer-pc/0 | done: 1.8.14 RC packages + offline update/fresh-install/DS-migration dry run | proven offline (real updater.py, fake game folder), not live | next: pc asks human to publish; upload assets to releases/1.8.14, edit draft news | Temp/rel1814-96446 (build.sh, sim_update.py), files #7269-#7274, RESULT #96468
