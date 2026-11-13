@@ -34,16 +34,18 @@ bool FavChange(int item,int dir){int row=FavRowOfItem(item);if(row<0)return fals
 post=r'''
 int main(){
  for(int i=0;i<4;++i){snprintf(g_rows[i].id,sizeof(g_rows[i].id),"R%d",i);g_rows[i].route=rcore::kR;g_rows[i].missionId=1;g_rows[i].fightStart=true;g_status[i]=(i==0||i==2)?2:0;}
+ // #95418/#96693: one case-insensitive A-Z run by name (beaten rows no longer first). A-Z = R1 Alpha, R3 bravo, R2 Charlie, R0 delta.
+ {const char* nm[4]={"delta","Alpha","Charlie","bravo"};for(int i=0;i<4;++i)strcpy_s(g_rows[i].name,nm[i]);}
  int items[104];int checks=0;
  for(int page:{uBosses,uRematch,uTrainHere,uTraining}) {
   g_uiPages.page=page;stop=0;favs.clear();const int base=page==uTrainHere?kItTrainHere:page==uTraining?kItTeleport:0;
   int n=Items(items,104);assert(n==6&&items[0]==kItListFilter&&items[5]==kItBack);++checks;
-  assert(items[1]==base&&items[2]==base+2&&items[3]==base+1&&items[4]==base+3);++checks;
+  assert(items[1]==base+1&&items[2]==base+3&&items[3]==base+2&&items[4]==base);++checks; // A-Z, status ignored
   g_sel=4;UiChange(1);n=Items(items,104);
-  assert(items[1]==base+3&&g_sel==1&&items[g_sel]==base+3);++checks;
-  assert(items[2]==base&&items[3]==base+2&&items[4]==base+1);++checks;
-  int tiny[2];assert(Items(tiny,2)==2&&tiny[1]==base+3);++checks; // sort before truncation
-  UiChange(-1);Items(items,104);assert(g_sel==4&&items[4]==base+3);++checks;
+  assert(items[1]==base&&g_sel==1&&items[g_sel]==base);++checks; // favorite first
+  assert(items[2]==base+1&&items[3]==base+3&&items[4]==base+2);++checks; // rest A-Z
+  int tiny[2];assert(Items(tiny,2)==2&&tiny[1]==base);++checks; // sort before truncation
+  UiChange(-1);Items(items,104);assert(g_sel==4&&items[4]==base);++checks;
   UiChange(1);stop=cycle.Stops()-1;Items(items,104);g_sel=1;UiChange(-1);
   n=Items(items,104);assert(n==2&&g_sel>=0&&g_sel<n);++checks; // removed row is no longer visible
  }
@@ -60,14 +62,16 @@ int main(){
  for(int page:{uBosses,uRematch,uTrainHere,uTraining}) {
   g_uiPages.page=page;EnsureListCycle();stop=cycle.Stops()-2;favs.clear();favs.insert(rcore::FavKey(ListFavKind(),"R3"));
   const int base=page==uTrainHere?kItTrainHere:page==uTraining?kItTeleport:0;
-  int n=Items(items,104);assert(n==6&&items[1]==base+3&&items[2]==base&&items[3]==base+1&&items[4]==base+2);++checks;
+  int n=Items(items,104);assert(n==6&&items[1]==base+3&&items[2]==base+1&&items[3]==base+2&&items[4]==base);++checks; // favorite R3, then A-Z
  }
  printf("favorites production builders/cursor: %d checks PASS\n",checks);
 }
 '''
 out=root/'build/favorites-test';out.mkdir(parents=True,exist_ok=True)
 unit=out/'test.cpp';unit.write_text(pre+maprow+mid+header+train+arena+'addBossList();add(kItBack);return n;}\n'+change+post)
-setup=Path('C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat');exe=out/'test.exe'
+import os
+setup=next((Path(c) for c in [os.environ.get('MSVC_SETUP',''),'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat','C:/Users/User/pmsvc/msvc/setup_x64.bat'] if c and Path(c).exists()),None);assert setup,'MSVC setup_x64.bat not found (set MSVC_SETUP)'
+exe=out/'test.exe'
 cmd=f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W4 /I"{root / "src"}" /Fo"{out / "test.obj"}" /Fe"{exe}" "{unit}"'
 r=subprocess.run('cmd /s /c "'+cmd+'"',capture_output=True,text=True);print(r.stdout+r.stderr);r.check_returncode()
 subprocess.run([str(exe)],check=True,timeout=30)
