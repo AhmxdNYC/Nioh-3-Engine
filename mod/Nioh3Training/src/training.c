@@ -3538,6 +3538,24 @@ N3T_API int Nioh3Training_KeepGear(void) {
     }
     return lvl;
 }
+// Human #95193: in a sandbox (dojo) trip the player lost the Samurai/Ninja style switch. The style seal is the byte the script
+// native Player::SetSealStyleChange (23AB934) writes: GetPlayer(0) [+0x3B0] [+8] +0xA6C (1 = sealed). Generic: any trip into a
+// world whose scripts change the player's kit (KeepGear level 2) keeps the switch open; normal boss missions are not touched.
+static void SandboxStyleTick(void) {
+    static DWORD last; static uint32_t loggedTrip; static int forced;
+    const DWORD now = GetTickCount();
+    if (now - last < 500) return;
+    last = now;
+    if (!g_kg.mission || !g_kg.arrived || Nioh3Training_KeepGear() != 2) { forced = 0; return; }
+    uint64_t ch = PlayerChar(), comp = 0, st = 0;
+    if (!ch || !Rd64(ch + 0x3B0, &comp) || !comp || !Rd64(comp + 8, &st) || !st) return;
+    uint8_t seal = 0;
+    __try { seal = *(volatile uint8_t*)(st + 0xA6C); } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (loggedTrip != g_kg.mission) { loggedTrip = g_kg.mission; Log("SANDBOX trip 0x%X: style seal byte %u on arrival", g_kg.mission, seal); }
+    if (!seal) return;
+    __try { *(volatile uint8_t*)(st + 0xA6C) = 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return; }
+    if (forced++ < 3) Log("SANDBOX trip 0x%X: style switch was sealed by the mission script; unsealed (your normal controls)", g_kg.mission);
+}
 // #65732 bug 3: the Fight-now start point of a mission from this game-data table, for Boss Rematch rows whose catalogue has none.
 // p4 = player x y z yaw, b3 = boss x y z; 0 = no usable row.
 N3T_API uint32_t Nioh3Training_ArenaStart(uint32_t mission, float* p4, float* b3) {
@@ -6099,6 +6117,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { EnterTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ENTER tick exception %08lX", GetExceptionCode()); }
     __try { XsTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("XSTREAM tick exception %08lX", GetExceptionCode()); if (g_xs.patched) CellCapSet(4); if (g_xs.lgs) LoaderGatePatch(0); g_xs.lgs = 0; g_xs.on = 0; g_xs.patched = 0; }
     __try { LeaveTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("LEAVE ARENA exception %08lX", GetExceptionCode()); }
+    __try { SandboxStyleTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SANDBOX style tick exception %08lX", GetExceptionCode()); }
     __try { RhTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("RETURN tick exception %08lX", GetExceptionCode()); g_rh.active = 0; RhLoadScreen(0); }
     __try { GoldKiRatios(); } __except (EXCEPTION_EXECUTE_HANDLER) { }
     __try { GateTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("GATE tick exception %08lX", GetExceptionCode()); g_gate.tried = 3; }

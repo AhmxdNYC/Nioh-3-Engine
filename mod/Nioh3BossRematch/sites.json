@@ -421,6 +421,26 @@
    "offset": 0
   },
   {
+   "name": "Mission::NoDamageMode",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37376776,
+   "head": 9,
+   "native": "Mission::NoDamageMode",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::RequestStyleChange",
+   "group": "KEEPGEAR",
+   "kind": "native",
+   "rva": 37400288,
+   "head": 9,
+   "native": "Player::RequestStyleChange",
+   "pattern": "40 53 48 81 EC 60 01 00 00",
+   "offset": 0
+  },
+  {
    "name": "MissionLoadStep",
    "group": "RLOG",
    "kind": "hook",
