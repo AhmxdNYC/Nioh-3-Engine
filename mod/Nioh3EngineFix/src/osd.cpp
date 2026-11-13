@@ -35,6 +35,7 @@
 #include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
 #include "gimerge.h"
+#include "vtdisk.h"
 #include "gpuopt.h"
 #include "gpuprof.h"
 #include "menu.h"
@@ -123,6 +124,13 @@ using Present1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain1*, UINT, UINT, con
 using SetCs1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain3*, DXGI_COLOR_SPACE_TYPE);
 PresentFn g_origPresent = nullptr;
 Present1Fn g_origPresent1 = nullptr;
+// GitHub #38: real DXGI Present/Present1 read from dxgi.dll on disk (vtdisk.h). Another overlay that hooks the same vtable slot
+// before and again after us makes Present call itself through both hooks until the stack overflows (framepacer.dll).
+// No legitimate chain nests 8 presents on one thread, so at that depth the call goes straight to DXGI.
+PresentFn g_realPresent = nullptr;
+Present1Fn g_realPresent1 = nullptr;
+constexpr int kPresentLoopDepth = 8;
+volatile LONG g_presentLoopLogged = 0;
 SetCs1Fn g_origSetCs1 = nullptr;
 // Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
 // IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
@@ -1515,6 +1523,14 @@ bool PresentArgs(IDXGISwapChain* sc, UINT& sync, UINT& flags, const void* caller
 
 HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
     ++t_depth;
+    if (t_depth >= kPresentLoopDepth) {  // #38 hook loop: skip every hook, present once on DXGI
+        if (!InterlockedExchange(&g_presentLoopLogged, 1))
+            OLOG("Present re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_depth, ModuleOf((const void*)g_origPresent).c_str(), g_realPresent ? "" : " (DXGI address unknown: frame skipped)");
+        const HRESULT hr = g_realPresent ? g_realPresent(sc, sync, flags) : S_OK;
+        --t_depth;
+        return hr;
+    }
     auto diag = dxgidiag::Begin(sc, dxgidiag::Present, sync, flags, t_depth,
                               reinterpret_cast<const void*>(g_origPresent), _ReturnAddress());
     const bool passthrough = dxgidiag::Passthrough();
@@ -1539,6 +1555,14 @@ HRESULT STDMETHODCALLTYPE HkPresent(IDXGISwapChain* sc, UINT sync, UINT flags) {
 
 HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags, const DXGI_PRESENT_PARAMETERS* p) {
     ++t_depth;
+    if (t_depth >= kPresentLoopDepth) {  // #38 hook loop, see HkPresent
+        if (!InterlockedExchange(&g_presentLoopLogged, 1))
+            OLOG("Present1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_depth, ModuleOf((const void*)g_origPresent1).c_str(), g_realPresent1 ? "" : " (DXGI address unknown: frame skipped)");
+        const HRESULT hr = g_realPresent1 ? g_realPresent1(sc, sync, flags, p) : S_OK;
+        --t_depth;
+        return hr;
+    }
     auto diag = dxgidiag::Begin(sc, dxgidiag::Present1, sync, flags, t_depth,
                               reinterpret_cast<const void*>(g_origPresent1), _ReturnAddress(), p);
     const bool passthrough = dxgidiag::Passthrough();
@@ -1671,6 +1695,11 @@ bool InstallHooks() {
         if (!PatchSlot(&qvt[kSlotExecuteCommandLists], (void*)&HkExecuteCommandLists, (void**)&g_origEcl, "ExecuteCommandLists"))
             g_origEcl = nullptr;
         if (tilestats::WantsHooks()) tilestats::InstallOnQueueVtable(qvt, /*eclViaOsd=*/g_origEcl != nullptr);
+        g_realPresent = reinterpret_cast<PresentFn>(vtdisk::OriginalSlotValue(&vt[kSlotPresent]));
+        g_realPresent1 = reinterpret_cast<Present1Fn>(vtdisk::OriginalSlotValue(&vt[kSlotPresent1]));
+        OLOG("DXGI Present from disk: %s (slot %s), Present1: %s (slot %s)",
+             g_realPresent ? ((void*)g_realPresent == vt[kSlotPresent] ? "same" : "differs") : "unknown", ModuleOf(vt[kSlotPresent]).c_str(),
+             g_realPresent1 ? ((void*)g_realPresent1 == vt[kSlotPresent1] ? "same" : "differs") : "unknown", ModuleOf(vt[kSlotPresent1]).c_str());
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
         if (csVt && !PatchSlot(&csVt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
