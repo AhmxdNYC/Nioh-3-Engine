@@ -28,4 +28,4 @@
 - [ ] Try soul core pick on Ally | mod menu > Training > Player > Soul core transformations; set one Yang core to game summon, press both seals | ally (BR c57dd5e8, launched for you #81408)
 - [ ] Performance focus | Reply A (stutter + loading, default after 11:50 pm EST) or B (GPU ideas for pc2/Ally) to #89394 | phone
 - [ ] Shading default ON? | Reply YES/NO to #90728: turn VRS v3 Shading=Medium on by default (look approved 11-05, +6-14% PC2, +7-12% Ally). Default after 1 h: stays off | phone
-- [ ] Publish 1.8.14? | All gates PASS (smoke #97255, regression #97306, installer #97296); no Death Veil. Reply yes to publish | phone
+- [x] Publish 1.8.14? | All gates PASS (smoke #97255, regression #97306, installer #97296); no Death Veil. Reply yes to publish | phone
