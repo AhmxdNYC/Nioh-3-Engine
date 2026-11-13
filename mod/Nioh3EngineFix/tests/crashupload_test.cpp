@@ -34,6 +34,14 @@ static void Dummy(const char* fmt, ...) {
     printf("\n");
 }
 
+// #97638: a fixed perfsnap-shaped snapshot; the record must carry it as "perf" and the site must accept it
+static size_t FakePerf(char* out, size_t cap, bool crashPath) {
+    const char* j = crashPath ? "{\"window_s\":10.0,\"frames\":601,\"avg_fps\":60.0,\"low1_fps\":55.2,\"bound\":\"gpu\",\"bound_why\":\"test\","
+                                "\"gpu\":\"Test GPU\",\"vram_mb\":{\"total\":16304,\"used\":9120,\"budget\":15480},\"parts\":[{\"name\":\"GPU fence wait (GF)\",\"ms\":6.67}]}"
+                              : "{}";
+    return (size_t)snprintf(out, cap, "%s", j);
+}
+
 int wmain(int argc, wchar_t** argv) {
     if (argc < 3) { fprintf(stderr, "usage: crashupload_test <ini> record|send\n"); return 2; }
     crashupload::StartInfo si;
@@ -64,6 +72,7 @@ int wmain(int argc, wchar_t** argv) {
     for (int i=0; i<25; ++i) training += "[12:00:10.000] EVENT" + std::to_string(i) + " " + std::string(stress ? 1900 : 600, stress ? '\t' : 'z') + " HP=125176/194938 END_EVENT\n";
     fixture(L"Nioh3Training.log", training);
     crashupload::Start(si);
+    crashupload::SetPerfJson(&FakePerf);
     CHECK(strlen(crashupload::InstallId()) == 32);
     if (wcscmp(argv[2], L"send") == 0) {
         const int sent = crashupload::SendPendingNow();

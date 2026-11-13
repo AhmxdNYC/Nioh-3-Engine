@@ -61,6 +61,7 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
             Path(artifacts).mkdir(parents=True, exist_ok=True)
             shutil.copyfile(pending[0], Path(artifacts) / "combined-record.json")
         print("normal bytes", pending[0].stat().st_size, "modules", len(record["modules"]), "Training", record["training_tail"])
+        assert record["perf"]["bound"] == "gpu" and record["perf"]["avg_fps"] == 60.0, record.get("perf")  # #97638
         assert record["registers"]["Rdx"] == "0x123456789abcdef0"
         assert len(record["stack_top"]) == 16
         assert record["training_tail"]["included"] == 20
@@ -75,6 +76,7 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         assert all(m["image_size"] > 0 for m in record["modules"])
         _, summary = api._issue_text(record, api.signature(record))
         assert "inventory-00.dll" in summary and "image bytes" in summary
+        assert "Performance (last 10.0 s): 60.0 fps avg, 55.2 fps 1% low, bound gpu" in summary, summary  # #97638
         for bad in ([{"name": "C:/Users/person/mod.dll", "image_size": 1}], [record["modules"][0]] * 65):
             malformed = dict(record, modules=bad)
             code, _ = api.handle(json.dumps(malformed).encode(), "127.0.0.2")

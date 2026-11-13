@@ -211,6 +211,7 @@ const char* ExcName(DWORD c) {
 // ---- report extras (Linux test #ab2e42d4): system specs, mod / Training / Boss Rematch settings, summoned bosses -------------
 // Specs port the Boss Rematch specs.txt (pc/report-specs 96611268): no user/computer name, paths, serials or network ids.
 wchar_t g_iniPath[MAX_PATH * 2];
+size_t (*g_perfText)(char*, size_t, bool) = nullptr;  // #97638 perfsnap::Text
 char g_redact[3][260];             // USERNAME / COMPUTERNAME / USERPROFILE (UTF-8), replaced by <redacted> in copied settings
 char g_specs[4096];
 volatile LONG g_specsReady = 0;
@@ -432,6 +433,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         char dr[512];  // #96825: why the GPU was removed (the game's own 0xE0000001 box only repeats 0x887A0005)
         devremoved::Describe(dr, sizeof dr);
         o.P("\r\n-- gpu device --\r\n  %s", dr);
+    }
+    if (g_perfText) {  // #97638: fps / 1 % low / CPU-GPU bound / hardware / settings; a crash reads cached data only
+        static char perf[8192];
+        perf[0] = 0;
+        const size_t n = g_perfText(perf, sizeof perf, !snapshot);
+        o.P("\r\n-- performance (last ~10 s) --\r\n");
+        if (n) o.W(perf, n);
+        else o.P("  (no data)\r\n");
     }
     {
         o.P("\r\n-- game exe --\r\n");
@@ -881,5 +890,7 @@ void Start(const StartInfo& info) {
         if (g_log) g_log("CRASHREPORT: CrashTest=%d scheduled in %d s", test, delay);
     }
 }
+
+void SetPerfText(size_t (*fn)(char* out, size_t cap, bool crashPath)) { g_perfText = fn; }
 
 }  // namespace crashreport

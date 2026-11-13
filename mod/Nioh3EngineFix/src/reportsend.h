@@ -52,6 +52,6 @@ void SetScrubNamesForTest(const char* user, const char* pc, const char* profile)
 std::string JsonString(const std::string& s);  // quoted, escaped, ASCII only
 std::string BuildBody(const std::string& id, const std::string& ver, const std::string& via, const std::string& text,
                       const std::string& snapshot, const std::string& eventsJson, int eventCount, const std::string& inputJson,
-                      int inputCount, size_t cap);
+                      int inputCount, size_t cap, const std::string& perfJson = std::string());  // perf: perfsnap JSON or empty
 
 }  // namespace reportsend

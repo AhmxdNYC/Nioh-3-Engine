@@ -471,6 +471,23 @@ bool SaneJsonObject(const char* s) {
 // Crash-only diagnostics: fixed storage, no STL/heap and no locks/profile API.
 // Read the on-disk INIs once per crash; only allowlisted numeric fields escape.
 char g_settings[16384];
+// #97638 performance snapshot ("perf"): perfsnap::Json on the crash path, scrubbed; empty = key left out
+PerfJsonFn g_perfFn = nullptr;
+char g_perf[8192];
+char g_perfRaw[8192];
+void CapturePerf() {
+    g_perf[0] = 0;
+    if (!g_perfFn) return;
+    __try {
+        const size_t pn = g_perfFn(g_perfRaw, sizeof g_perfRaw, true);
+        if (pn < 2 || pn + 1 >= sizeof g_perfRaw || g_perfRaw[0] != '{' || g_perfRaw[pn - 1] != '}') return;  // cut: leave it out
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return;
+    }
+    Scrub(g_perfRaw, g_perf, sizeof g_perf);
+    const size_t n = strlen(g_perf);
+    if (n < 2 || g_perf[n - 1] != '}') g_perf[0] = 0;  // the scrub cut it
+}
 char g_training[20][2048];
 int g_trainingN = 0;
 bool ReadWord(uintptr_t addr, unsigned long long* out) {
@@ -645,6 +662,7 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     }
     ContextJson(j, ctx);
     j.raw(",\"settings\":"); j.raw(g_settings);
+    if (g_perf[0]) { j.raw(",\"perf\":"); j.raw(g_perf); }  // #97638: last ~10 s fps / 1 % low / bound / hardware
     j.f(",\"training_tail\":{\"captured\":%d,\"included\":%d,\"line_cap\":2047}", g_trainingN, g_trainingN < trainingLines ? g_trainingN : trainingLines);
     j.raw(",\"stack\":[");
     if (ctx) {
@@ -913,6 +931,7 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     BuildModules();
     g_trainingN = TailLines(L"Nioh3Training.log", g_training, 20);
     CaptureSettings();
+    CapturePerf();
     size_t n = 0;
     static const int kTry[3] = {kOtherLogLines, 15, 0};
     for (int lines : kTry) {
@@ -1007,6 +1026,13 @@ void OnCrash(const char* reason, const _EXCEPTION_RECORD* er, const _CONTEXT* ct
         OnCrashImpl(reason, (const EXCEPTION_RECORD*)er, (const CONTEXT*)ctx, logRing, ringLines, sendBudgetMs);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
+}
+
+void SetPerfJson(PerfJsonFn fn) { g_perfFn = fn; }
+size_t PerfJson(char* out, size_t cap, bool crashPath) {
+    if (!out || !cap) return 0;
+    out[0] = 0;
+    return g_perfFn ? g_perfFn(out, cap, crashPath) : 0;
 }
 
 int SendPendingNow() { return SendAll(10000); }

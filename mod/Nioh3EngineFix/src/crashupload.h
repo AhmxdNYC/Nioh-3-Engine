@@ -21,6 +21,7 @@
 // Forced test crash: [Debug] ForceCrashTest = 1 (same as CrashTest = 1, access violation) or CrashTest = 1..6; the record then
 // carries "test": <mode>. Network: WinHTTP (works under Wine/Proton); any failure just leaves the record pending.
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 struct _EXCEPTION_RECORD;
@@ -54,6 +55,11 @@ int PendingCount();
 void ScrubForTest(const char* in, char* out, unsigned cap);
 const wchar_t* PendingDir();
 const char* InstallId();
+// #97638 performance snapshot (perfsnap::Json): dllmain registers it; the crash record then carries "perf" and the player
+// report reuses it through PerfJson. Unset (tests, or EngineFix without perfsnap) = no "perf" key. crashPath = static data only.
+using PerfJsonFn = size_t (*)(char* out, size_t cap, bool crashPath);
+void SetPerfJson(PerfJsonFn fn);
+size_t PerfJson(char* out, size_t cap, bool crashPath);  // 0 and "" when unset
 // Shared report/crash identity. Creates [Report] InstallId once; no uploader thread.
 const char* EnsureInstallId(const wchar_t* iniPath);
 

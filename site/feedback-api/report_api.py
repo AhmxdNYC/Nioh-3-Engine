@@ -39,7 +39,7 @@ MAX_TEXT = 1000
 MAX_SNAPSHOT = 220 * 1024
 MAX_EVENTS = 200
 MAX_INPUT = 400
-FIELDS = {"kind", "id", "ver", "via", "t", "player_text", "snapshot", "event_count", "events", "input_count", "input"}
+FIELDS = {"kind", "id", "ver", "via", "t", "player_text", "snapshot", "event_count", "events", "input_count", "input", "perf"}
 SHORT = {"ver": 40, "via": 16, "t": 32}
 ID_RE = re.compile(r"^[0-9a-f]{32}$")
 PATH_RE = re.compile(r"(?i)([\\/](?:users|home)[\\/])(?!<user>)([^\\/\"'<>|\r\n\t]+)")
@@ -80,6 +80,50 @@ def scrub(value):
     return value
 
 
+# ---- #97638 performance snapshot ("perf"): last ~10 s fps / 1 % low / CPU-GPU bound / hardware / settings ---------------
+PERF_MAX = 8192
+
+
+def check_perf(v, fail) -> None:
+    """Bounded JSON tree: object root, depth <= 3, <= 48 keys / 64 items per level, strings <= 300, keys <= 64."""
+    if not isinstance(v, dict):
+        fail("perf must be an object")
+    if len(json.dumps(v)) > PERF_MAX:
+        fail(f"perf is larger than {PERF_MAX} bytes")
+
+    def walk(x, depth, path):
+        if depth > 3:
+            fail(f"{path} is nested too deep")
+        if isinstance(x, dict):
+            if len(x) > 48:
+                fail(f"{path} has too many keys")
+            for k, y in x.items():
+                if not isinstance(k, str) or len(k) > 64:
+                    fail(f"{path} has a bad key")
+                walk(y, depth + 1, f"{path}.{k}")
+        elif isinstance(x, list):
+            if len(x) > 64:
+                fail(f"{path} has too many items")
+            for i, y in enumerate(x):
+                walk(y, depth + 1, f"{path}[{i}]")
+        elif isinstance(x, str):
+            if len(x) > 300:
+                fail(f"{path} is longer than 300")
+        elif x is not None and not isinstance(x, (bool, int, float)):
+            fail(f"{path} has a bad value")
+
+    walk(v, 0, "perf")
+
+
+def perf_line(rec: dict) -> str:
+    p = rec.get("perf")
+    if not isinstance(p, dict):
+        return "- Performance: (not in this record)"
+    return (f"- Performance (last {p.get('window_s', '?')} s): {p.get('avg_fps', '?')} fps avg, {p.get('low1_fps', '?')} fps 1% low, "
+            f"bound {p.get('bound', '?')} ({p.get('bound_why', '')}); CPU {p.get('cpu', '?')}; GPU {p.get('gpu', '?')} driver "
+            f"{p.get('driver', '?')}; {p.get('backbuffer', '?')} upscaler {p.get('upscaler', '?')} frame gen {p.get('frame_gen', '?')}")
+
+
 def validate(raw: bytes) -> dict:
     if not raw or len(raw) > MAX_BODY:
         raise ValueError("empty or larger than 256 KB")
@@ -114,6 +158,10 @@ def validate(raw: bytes) -> dict:
     for key in ("event_count", "input_count"):
         if key in body and not isinstance(body[key], int):
             raise ValueError(f"{key} must be a number")
+    if "perf" in body:
+        def fail(msg):
+            raise ValueError(msg)
+        check_perf(body["perf"], fail)
     return scrub(body)
 
 
@@ -167,6 +215,7 @@ def store_github(record: dict) -> str:
         "",
         f"- Mod version: `{record.get('ver', '')}`  typed with: `{record.get('via', '')}`  at: `{record.get('t', '')}`",
         f"- Install id: `{record['id'][:8]}...`",
+        perf_line(record),
         f"- Snapshot: {len(record.get('snapshot', ''))} characters, events: {len(record.get('events', []))}, input rows: {len(record.get('input', []))}",
         "",
         "The full JSON record follows in this issue and its comments.",
