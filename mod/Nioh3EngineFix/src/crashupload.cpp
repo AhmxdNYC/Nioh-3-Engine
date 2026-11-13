@@ -3,6 +3,7 @@
 #pragma comment(lib, "bcrypt.lib")
 #pragma comment(lib, "version.lib")
 #include "crashupload.h"
+#include "crashblame.h"
 #include "inputlog.h"
 
 #include <windows.h>
@@ -577,6 +578,8 @@ char g_other[3][kOtherLogLines][208];
 int g_otherN[3];
 char g_events[32][208];
 int g_eventsN = 0;
+char g_blame[4][120];  // crashblame "WHO:" lines, first in "last" (human #94391/#94396)
+int g_blameN = 0;
 
 // GitHub #23: "last" read only Nioh3ModEvents.jsonl, a shared event log that no mod writes (1.8.5), so every crash record had
 // "last": [] even when the mod logs were full. Fallback when the jsonl gives nothing: the newest timestamped lines of the logs this
@@ -684,14 +687,24 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
     j.f(",\"uptime_s\":%lu,\"test\":%d", (unsigned long)((GetTickCount() - g_startTick) / 1000), g_test);
     j.raw(",\"last\":[");
     int lastW = 0;
-    for (int i = 0; i < g_eventsN; ++i) {
+    for (int i = 0; i < g_blameN; ++i) {
+        if (lastW++) j.raw(",");
+        j.raw("{\"mod\":\"EngineFix\",\"event\":\"log\",\"fields\":{\"line\":");
+        j.str(g_blame[i], 118);
+        j.raw("}}");
+    }
+    for (int i = 0; i < g_eventsN && lastW < 32; ++i) {
         static char sc[260];
         Scrub(g_events[i], sc, sizeof sc);
         if (!SaneJsonObject(sc)) continue;
         if (lastW++) j.raw(",");
         j.raw(sc);
     }
-    if (!lastW) LastFromLogs(j, efN, otherLines < 32 ? otherLines : 32);  // #23: no jsonl events -> newest mod log lines
+    if (lastW == g_blameN) {  // #23: no jsonl events -> newest mod log lines
+        if (lastW) j.raw(",");
+        const int room = 32 - lastW;
+        if (!LastFromLogs(j, efN, otherLines < room ? otherLines : room) && lastW) j.n--, j.b[j.n] = 0;  // drop the comma
+    }  // #23: no jsonl events -> newest mod log lines
     j.raw("],\"input\":[");
     {
         static char tail[20 * 1024];
@@ -896,6 +909,7 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     static const wchar_t* kLogs[3] = {L"Nioh3BossRematch.log", L"Nioh3Training.log", L"Nioh3CamKiProbe.log"};
     for (int m = 0; m < 3; ++m) g_otherN[m] = TailLines(kLogs[m], g_other[m], kOtherLogLines);
     g_eventsN = TailLines(L"Nioh3ModEvents.jsonl", g_events, 32);
+    g_blameN = crashblame::Analyze(er, ctx, nullptr, 0, g_blame, 4);
     BuildModules();
     g_trainingN = TailLines(L"Nioh3Training.log", g_training, 20);
     CaptureSettings();

@@ -3,6 +3,7 @@
 #pragma comment(lib, "advapi32.lib")
 #include "crashreport.h"
 #include "crashupload.h"
+#include "crashblame.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -376,8 +377,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     {
         o.P("\r\n-- system --\r\n");
         // Snapshot (menu Report): fresh specs on this helper thread. Crash: only the cached copy (no DXGI from a crash path).
-        std::string s = snapshot ? Specs() : std::string(g_specsReady ? g_specs : "  (not collected yet)\r\n");
-        o.W(s.data(), s.size());
+        if (snapshot) {
+            const std::string s = Specs();
+            o.W(s.data(), s.size());
+        } else if (g_specsReady) {  // crash path: the cached text directly, no heap before registers/stack (#94704)
+            o.W(g_specs, strlen(g_specs));
+        } else {
+            o.P("  (not collected yet)\r\n");
+        }
         char tr[2048];
         TrainingState(tr, sizeof(tr));
         o.P("\r\n-- Training session / summoned bosses --\r\n");
@@ -474,6 +481,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
             K32GetModuleInformation(GetCurrentProcess(), mods[i], &mi, sizeof(mi));
             o.P("  0x%016llx %8lx  %ls\r\n", (unsigned long long)(uintptr_t)mi.lpBaseOfDll, mi.SizeOfImage, w);
         }
+    }
+    // human #94391/#94396: name what crashed. Written LAST (#94704): if the crash holds a lock this needs, every section above
+    // is already on disk. Analyze itself is heap-free.
+    if (er || ctx) {
+        static char blame[16384];
+        o.P("\r\n-- who crashed (best guess) --\r\n");
+        crashblame::Analyze(er, ctx, blame, sizeof blame, nullptr, 0);
+        o.W(blame, strlen(blame));
     }
     o.P("\r\n(end of report)\r\n");
     FlushFileBuffers(o.f);
@@ -716,6 +731,7 @@ void Start(const StartInfo& info) {
     g_self = (HMODULE)info.selfModule;
     g_base = info.base;
     g_known = info.knownBuild;
+    crashblame::Prepare();  // paths + ntdll lookups now, not on the crash path (#94704)
     int on = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashReport", 1, info.iniPath) : 1;
     int test = info.iniPath ? (int)GetPrivateProfileIntW(L"Debug", L"CrashTest", 0, info.iniPath) : 0;
     if (!test && info.iniPath && GetPrivateProfileIntW(L"Debug", L"ForceCrashTest", 0, info.iniPath) != 0) test = 1;  // #64881 alias
