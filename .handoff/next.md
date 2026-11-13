@@ -430,3 +430,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 12:45 pm EST | pc/1 | #96781 RESULT: 1.8.18 tip af9ccb76 live Main PC PASS 3/3 (Dojo dmg 13084->12178, A-Z+favorites, despawn 5/5, 0 ERR). Main PC restored public 1.8.13, lock free, no test-active.
 - 2026-11-13 12:42 pm EST | regression-pc/0 | queue empty; all reviews answered (#96810 #96816 #96838). No-hardcode baseline is stale (ROW_WARN flag pre-existing).
 - 2026-11-13 12:50 pm EST | pc/1 | #96781 closed, nothing half-done; no game running.
+- 2026-11-13 12:48 pm EST | regression-pc/0 | gx-pc devremoved 2f90191c (EF fc18231e, #7303) review PASS #96875: test 6/6, build ok, Forget-before-Release safe. Minor: DRED flag set even if device pre-exists. Live TDR proof still open.
