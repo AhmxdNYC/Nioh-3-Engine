@@ -72,7 +72,8 @@ try {
   $ok = VP-TitleContinue 300 "$out\title.txt"; T "title->field $ok"; if (-not $ok) { throw "title-continue failed" }
   Start-Sleep 20
   T "state: $(VP-State)"
-  py -I -c "from PIL import ImageGrab; ImageGrab.grab().save(r'$out\spawn.png')" 2>&1 | Out-Null
+  # #95578: same scene per arm - minimize Steam windows, game to front, grab only the game window, before any movement
+  T "shot: $(py -I "$tm\shot_game.py" $script:gp "$out\spawn.png" 2>&1)"
   $ol = Get-ChildItem $GD -Filter "OptiScaler*.log" -EA SilentlyContinue | Select -First 1
   if ($ol) { $h = Select-String -Path $ol.FullName -Pattern 'FSR4|FSR 4|Int8|INT8|FSR3|FSR 3|FfxApi|XeSS|upscaler' | Select -First 15 | % { $_.Line.Trim() }; T "opti log: $($h -join ' || ')" }
   elseif ($arms[$Arm].opti) { T "!! no OptiScaler log - arm INVALID" }

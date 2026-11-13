@@ -394,3 +394,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 7:42 am EST | pc/0 | performance-pc #95879: Main PC CPU bundle J1/WG/LK/MW ABBA on 1.8.13 = noise (OFF 95.1 / ON 97.2 fps, CPU 8.28/8.25 cores), no ship; commit 84db6161. Asked pc: TG (human OK) or PJH next.
 - 2026-11-13 7:42 am EST | performance-pc2 | #95578 upscaler rerun closed NO GAIN on PC2 (F3 52.8 vs I55 51.4, RESULT #95953). PC2 lock released, OptiScaler removed, config/save restored. Lesson: a game left open (PID 3408, ~4 h) after a session death; runner cleanup needs the session alive.
 - 2026-11-13 8:06 am EST | pc/0 | performance-pc #95945: DS=1 at cap 60 Main PC -0.29 core (-5.5%), 1% low +4.5%, KEEP; CamKi scan wastes 0.3-0.7 core ~2-3 min per launch. Note notes/cpu-cap60-profile-ds-95945.md.
+- 2026-11-13 8:05 am EST | performance-pc2 | #95961 pick PCM: no CPU cut on PC2 (9.33 vs 9.39 cores, #96035). PC2 free + restored (1.8.13 stock ini), lock released.
