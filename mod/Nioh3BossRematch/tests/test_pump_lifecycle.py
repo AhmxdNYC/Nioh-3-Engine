@@ -120,10 +120,14 @@ int main() {
         SharedPump(); if(!check(ticks==0 && training::Counts().pumps==(obs?1U:0U))) return 1;
     }
     prepareSuccess=true;
-    for(int failure : {0,1,2,3}) {
-        reset(); observe=true; want=false; g_img.knownBuild=failure!=0; failedGroup=failure;
-        if(!check(!StartRematchPump() && !training::Live() && nh==0 && installs==0 && prepares==0)) return 1;
-        if(!check(groups==(failure==0 ? 0:failure))) return 1;
+    // #94070 (c5f0e299): an unknown exe no longer turns Training off by itself; every site group must still resolve by pattern,
+    // and any group that fails keeps Training off on a known or an unknown exe.
+    for(bool known : {false,true}) for(int failure : {0,1,2,3}) {
+        if (known && failure==0) continue;  // known exe, all groups ok = the main loop above
+        reset(); observe=true; want=false; g_img.knownBuild=known; failedGroup=failure;
+        const bool live = failure==0;
+        if(!check(!StartRematchPump() && training::Live()==live && nh==(live ? 3:0) && installs==(live ? 1:0) && prepares==0)) return 1;
+        if(!check(groups==(live ? 3:failure))) return 1;
     }
     reset(); g_img.knownBuild=true; failedGroup=0; observe=false;
     if(!check(!training::Prepare() && groups==0 && nh==0)) return 1;
