@@ -4753,6 +4753,13 @@ void SealDeferRelease(const char* why) {
     if (!g_sdHeld || !g_sdOrig) return;
     const uint64_t a = g_sdHeld, l = g_sdList;
     g_sdHeld = 0;
+    const int pr = FormHideSealPresent(ActorTableGlobal(), a);  // report #67: a held request must not queue a seal the game already freed
+    if (pr != 1) {
+        Log("SealDefer RELEASE (%s) seal=%llX dropped, present=%d (already gone or table unreadable), %d requests swallowed", why,
+            (unsigned long long)a, pr, g_sdSkips);
+        g_sdSkips = 0;
+        return;
+    }
     int ok = 1;
     __try { g_sdOrig(l, a); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
     Log("SealDefer RELEASE (%s) seal=%llX queued ok=%d held %.1f s, %d requests swallowed", why, (unsigned long long)a, ok, Now() - g_sdHeldT, g_sdSkips);
@@ -4769,6 +4776,14 @@ int SealQueueDespawn(uint64_t cap) {
         if (!bytesOk) Log("SealEnd: 681E9C bytes not found in this update - off");
     }
     if (!bytesOk) return -1;
+    // report #67: never queue an actor that is not in the actor table. FormCap queued seal 25243899130 in the frame the game had already
+    // despawned it; the despawn drain (5BC9A0 -> 2BF7E8) then read the freed chr's +3B0 and crashed (Nioh3.exe+2BF847). -1 (table
+    // unreadable) is not proof of life either. -2 = not queued (gone or unknown).
+    const int pr = FormHideSealPresent(ActorTableGlobal(), cap);
+    if (pr != 1) {
+        Log("SealQueueDespawn: seal %llX not queued, present=%d (already gone or table unreadable) t=%.3f", (unsigned long long)cap, pr, Now());
+        return -2;
+    }
     int ok = 1;
     g_seoForce = cap;
     __try { ((void (*)(uint64_t))(g_base + Grva(0x681E9C)))(cap); } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
