@@ -3702,7 +3702,7 @@ bool IsTrainListPage() { return g_uiPages.page == uTrainHere || g_uiPages.page =
 int& ListStopRef() { return IsTrainListPage() ? g_trainStop : g_listStop; }
 char ListFavKind() { return IsTrainListPage() ? kFavTrain : kFavBoss; }
 void EnsureListCycle() {
-    rcore::BuildListCycle(g_rows, g_listCycle);
+    rcore::BuildListCycle(g_rows, g_listCycle, g_cfg.showAll);
     const int n = g_listCycle.Stops();
     int& stop = ListStopRef();
     if (stop < 0 || stop >= n) stop = 0;
@@ -3759,18 +3759,19 @@ int ItemsBase(int* out, int cap) {
         EnsureListCycle();
         add(kItListFilter);
         std::vector<int> rows;
-        for (int pass = 0; pass < 3; ++pass)
-            for (size_t i = 0; i < g_rows.size(); ++i) {
-                const Row& r = g_rows[i];
-                const uint8_t st = g_status[i].load();
-                const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
-                if (grp != pass) continue;
-                if (grp == 1 && !g_cfg.showAll) continue;
-                if (grp == 2 && !g_cfg.showAll) continue;
-                if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
-                if (!RowInCurrentList(r)) continue;
-                rows.push_back((int)i);
-            }
+        // human #95418: ONE alphabetical run. It used to be three runs (beaten / unbeaten / refused), each sorted by itself, so a
+        // row whose status put it in a later run (Saito Fuku (Veteran)) landed after the Z names of the earlier run.
+        for (size_t i = 0; i < g_rows.size(); ++i) {
+            const Row& r = g_rows[i];
+            const uint8_t st = g_status[i].load();
+            const int grp = r.route == rcore::kX ? 2 : (r.route == rcore::kE || st == 2) ? 0 : 1;
+            if (grp == 1 && !g_cfg.showAll) continue;
+            if (grp == 2 && !g_cfg.showAll) continue;
+            if (r.route == rcore::kH && !g_cfg.hiddenDuels && !g_cfg.directStart && !g_cfg.showAll) continue;
+            if (!RowInCurrentList(r)) continue;
+            rows.push_back((int)i);
+        }
+        rcore::SortItemsByName(rows, 0, 0, g_rows);
         addFavoritesFirst(rows);
     };
     if (g_uiPages.page == uRoot) {  // user #13197: Settings / Boss Rematch / Practice / Summon Boss (+ Practice tools while a session is live)
@@ -3819,13 +3820,11 @@ int ItemsBase(int* out, int cap) {
         EnsureListCycle();
         std::vector<int> rows;
         add(kItListFilter);  // #79069
-        for (int pass = 0; pass < 2; ++pass)
-            for (size_t i = 0; i < g_rows.size(); ++i) {
-                if (!RowInCurrentList(g_rows[i])) continue;
-                const bool waves = rcore::WavesRow(g_rows[i]);
-                if (waves) { if (pass == 0) rows.push_back(kItTrainHere + (int)i); continue; }
-                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (g_status[i].load() == 2 ? 0 : 1) == pass) rows.push_back(kItTrainHere + (int)i);
-            }
+        for (size_t i = 0; i < g_rows.size(); ++i) {  // human #95418: one alphabetical run, not beaten / unbeaten runs
+            if (!RowInCurrentList(g_rows[i])) continue;
+            if (rcore::WavesRow(g_rows[i]) || (g_rows[i].missionId && g_rows[i].route != rcore::kE)) rows.push_back(kItTrainHere + (int)i);
+        }
+        rcore::SortItemsByName(rows, 0, kItTrainHere, g_rows);
         addFavoritesFirst(rows);
         add(kItBack);
         return n;
@@ -3862,15 +3861,14 @@ int ItemsBase(int* out, int cap) {
             EnsureListCycle();
             std::vector<int> rows;
             add(kItListFilter);  // #79069
-            for (int pass = 0; pass < 2; ++pass)
-                for (size_t i = 0; i < g_rows.size(); ++i) {
-                    const Row& r = g_rows[i];
-                    if (!RowInCurrentList(r)) continue;
-                    if (rcore::WavesRow(r)) { if (pass == 0) rows.push_back(kItTeleport + (int)i); continue; }
-                    if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
-                    if ((g_status[i].load() == 2 ? 0 : 1) != pass) continue;
-                    rows.push_back(kItTeleport + (int)i);
-                }
+            for (size_t i = 0; i < g_rows.size(); ++i) {  // human #95418: one alphabetical run
+                const Row& r = g_rows[i];
+                if (!RowInCurrentList(r)) continue;
+                if (rcore::WavesRow(r)) { rows.push_back(kItTeleport + (int)i); continue; }
+                if (r.route == rcore::kX || r.route == rcore::kE || !r.fightStart) continue;
+                rows.push_back(kItTeleport + (int)i);
+            }
+            rcore::SortItemsByName(rows, 0, kItTeleport, g_rows);
             addFavoritesFirst(rows);
         }
         add(kItBack);
@@ -3881,10 +3879,14 @@ int ItemsBase(int* out, int cap) {
             // user #22984: only catalogue rows Training resolves to one boss (multi-boss rows: their bosses are roster rows), then the roster
             using CanFn = int (*)(uint32_t);
             const auto can = (CanFn)TrainingExport("Nioh3Training_CanSummon");
-            for (size_t i = 0; i < g_rows.size() && n < cap; ++i)
-                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (!can || can(g_rows[i].missionId))) add(kItSummonA + (int)i);
+            // human #95418: catalogue rows and roster-only bosses in one case-insensitive A-Z list (by the shown name)
+            std::vector<std::pair<std::string, int>> sm;
+            for (size_t i = 0; i < g_rows.size(); ++i)
+                if (g_rows[i].missionId && g_rows[i].route != rcore::kE && (!can || can(g_rows[i].missionId))) sm.emplace_back(g_rows[i].name, kItSummonA + (int)i);
             const int nr = RosterCount();
-            for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster && n < cap; ++i) add(kItSummonRoster + i);
+            for (int i = 0; i < nr && i < kItSummonRosterEnd - kItSummonRoster; ++i) { char nm[64] = ""; RosterEntry(i, nm, sizeof nm); sm.emplace_back(nm, kItSummonRoster + i); }
+            std::stable_sort(sm.begin(), sm.end(), [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b) { return rcore::CaseLess(a.first.c_str(), b.first.c_str()); });
+            for (size_t k = 0; k < sm.size() && n < cap; ++k) add(sm[k].second);
         }
         add(kItBack);
         return n;

@@ -278,14 +278,38 @@ struct ListCycle {
     }
 };
 
-inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c) {
+// Case-insensitive ASCII order for menu lists (human #95175: every list alphabetical).
+inline bool CaseLess(const char* a, const char* b) {
+    for (;; ++a, ++b) {
+        int x = (unsigned char)*a, y = (unsigned char)*b;
+        if (x >= 'A' && x <= 'Z') x += 32;
+        if (y >= 'A' && y <= 'Z') y += 32;
+        if (x != y || !x) return x < y;
+    }
+}
+// Sorts items[from..] by the catalogue name of their row (row = item - base); stable, so equal names keep catalogue order.
+inline void SortItemsByName(std::vector<int>& items, size_t from, int base, const std::vector<Row>& rows) {
+    if (from >= items.size()) return;
+    std::stable_sort(items.begin() + (std::ptrdiff_t)from, items.end(), [&](int a, int b) {
+        const int ra = a - base, rb = b - base;
+        if (ra < 0 || rb < 0 || (size_t)ra >= rows.size() || (size_t)rb >= rows.size()) return false;
+        return CaseLess(rows[(size_t)ra].name, rows[(size_t)rb].name);
+    });
+}
+// human #95158: an era made only of X rows (open-world / refused, never listed unless Show all) showed an empty list
+// (DLC1 Edo = Tesso only). Such an era gets no stop unless includeX. human #95175: era stops in alphabetical order.
+inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool includeX = false) {
     c = ListCycle{};
     char key[40];
     for (const auto& r : rows) {
+        if (r.route == kX && !includeX) continue;
         EraKey(r.region, key, (int)sizeof key);
         c.AddEra(key);
         if (r.dojo) c.hasDojo = true;
     }
+    std::vector<std::string> names(c.era, c.era + c.nEra);
+    std::stable_sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return CaseLess(a.c_str(), b.c_str()); });
+    for (int i = 0; i < c.nEra; ++i) snprintf(c.era[i], sizeof c.era[0], "%s", names[(size_t)i].c_str());
 }
 
 // The Waves label is this row's region, not "every Picture Scroll". E17 and E09 leave the
