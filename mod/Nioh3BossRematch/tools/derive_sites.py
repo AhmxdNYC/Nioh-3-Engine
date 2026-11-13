@@ -78,6 +78,9 @@ SPEC = [
     ("Item::ClearEquipment", "KEEPGEAR", H, 0x23A0E7C, 9),
     ("Item::SetShortCut", "KEEPGEAR", H, 0x23A210C, 5),
     ("Player::EquipNinjutsu", "KEEPGEAR", H, 0x23A80D8, 9),
+    # human #95193: dojo scripts also switch damage off for everyone and force a style; skipped in sandbox trips
+    ("Mission::NoDamageMode", "KEEPGEAR", H, 0x23A5308, 9),
+    ("Player::RequestStyleChange", "KEEPGEAR", H, 0x23AAEE0, 9),
     # RLOG (RematchLog, Phase 0 logger)
     ("MissionLoadStep", "RLOG", H, 0x223AF50, 10),
     ("EmakiMissionRequest", "RLOG", H, 0x10DBED0, 5),

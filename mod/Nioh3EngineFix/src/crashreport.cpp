@@ -4,6 +4,7 @@
 #include "crashreport.h"
 #include "crashupload.h"
 #include "crashblame.h"
+#include "devremoved.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -11,6 +12,7 @@
 #include <shellapi.h>
 #include <dxgi.h>
 #include <intrin.h>
+#include <algorithm>
 #include <cwchar>
 #include <stdlib.h>
 #include <csignal>
@@ -88,6 +90,58 @@ std::string Sha256File(const wchar_t* path, unsigned long long* sizeOut) {
     CloseHandle(f);
     if (sizeOut) *sizeOut = total;
     return out;
+}
+
+// ---- #94070: module load/unload history (ring buffer) so a module that is already gone at crash time (the #33 case) is named ----
+struct ModEvt { DWORD tick; LONG loaded; uint64_t base; DWORD size; wchar_t name[40]; };
+constexpr int kModEvts = 160;
+ModEvt g_modEvt[kModEvts];
+volatile LONG g_modHead = 0;
+struct LdrUStr { USHORT Length, MaximumLength; PWSTR Buffer; };
+struct LdrNotifData { ULONG Flags; const LdrUStr* FullDllName; const LdrUStr* BaseDllName; PVOID DllBase; ULONG SizeOfImage; };
+typedef VOID(CALLBACK* LdrNotifFn)(ULONG reason, const LdrNotifData* data, PVOID ctx);
+VOID CALLBACK OnModEvent(ULONG reason, const LdrNotifData* d, PVOID) {  // runs under the loader lock: no allocation, no locks
+    if (!d || (reason != 1 && reason != 2)) return;
+    const LONG i = (InterlockedIncrement(&g_modHead) - 1) % kModEvts;
+    ModEvt& e = g_modEvt[i];
+    e.tick = GetTickCount();
+    e.loaded = reason == 1;
+    e.base = (uint64_t)(uintptr_t)d->DllBase;
+    e.size = d->SizeOfImage;
+    e.name[0] = 0;
+    if (d->BaseDllName && d->BaseDllName->Buffer) {
+        const size_t n = std::min<size_t>(d->BaseDllName->Length / sizeof(wchar_t), 39);
+        memcpy(e.name, d->BaseDllName->Buffer, n * sizeof(wchar_t));
+        e.name[n] = 0;
+    }
+}
+void RegisterModHistory() {
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    if (!nt) return;
+    typedef LONG(NTAPI * Reg)(ULONG, LdrNotifFn, PVOID, PVOID*);
+    Reg reg = (Reg)GetProcAddress(nt, "LdrRegisterDllNotification");
+    PVOID cookie = nullptr;
+    // Never unregistered: safe only because EngineFix is never FreeLibrary'd (the callback must live as long as the process).
+    // History starts here (Start): unloads before Start are not recorded; earlier loads still show in "loaded modules".
+    if (reg && reg(0, OnModEvent, nullptr, &cookie) >= 0 && g_log) g_log("CRASHREPORT: module load/unload history armed");
+}
+
+// Nioh3.exe size + sha256, hashed once on a low-priority thread (not at Start: the file is ~100 MB)
+char g_exeText[512];
+volatile LONG g_exeDone = 0;
+DWORD WINAPI ExeShaThread(LPVOID) {
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+    wchar_t w[MAX_PATH * 2] = {};
+    if (GetModuleFileNameW(nullptr, w, MAX_PATH * 2)) {
+        unsigned long long sz = 0;
+        const std::string sha = Sha256File(w, &sz);
+        const wchar_t* b = w;
+        for (const wchar_t* q = w; *q; ++q) if (*q == L'\\' || *q == L'/') b = q + 1;
+        char tmp[sizeof g_exeText];  // format off to the side; WriteReport reads g_exeText only after g_exeDone is set
+        if (!sha.empty() && snprintf(tmp, sizeof tmp, "  %ls  sha256 %s  (%llu bytes)\r\n", b, sha.c_str(), sz) > 0) memcpy(g_exeText, tmp, sizeof tmp);
+    }
+    InterlockedExchange(&g_exeDone, 1);
+    return 0;
 }
 
 void ComputeShas() {  // Start-time, never from the crash path
@@ -375,6 +429,24 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     o.P("exe base:  0x%llx, known build (v2.02): %s\r\n", (unsigned long long)g_base, g_known ? "yes" : "NO");
     o.P("\r\n-- mod build --\r\n%s", g_shaText[0] ? g_shaText : "  (no sha available)\r\n");
     {
+        char dr[512];  // #96825: why the GPU was removed (the game's own 0xE0000001 box only repeats 0x887A0005)
+        devremoved::Describe(dr, sizeof dr);
+        o.P("\r\n-- gpu device --\r\n  %s", dr);
+    }
+    {
+        o.P("\r\n-- game exe --\r\n");
+        const IMAGE_NT_HEADERS* nth = nullptr;
+        if (g_base) {
+            const auto* dos = (const IMAGE_DOS_HEADER*)g_base;
+            if (dos->e_magic == IMAGE_DOS_SIGNATURE) nth = (const IMAGE_NT_HEADERS*)(g_base + dos->e_lfanew);
+        }
+        if (nth)
+            o.P("  TimeDateStamp %08lX, SizeOfImage %lu (0x%lX)%s\r\n", nth->FileHeader.TimeDateStamp, nth->OptionalHeader.SizeOfImage,
+                nth->OptionalHeader.SizeOfImage, g_known ? ", matches the known build" : ", NOT the known build (variant)");
+        const bool exeDone = InterlockedCompareExchange(&g_exeDone, 0, 0) != 0;  // check done first: never print a half-written line
+        o.P("%s", !exeDone ? "  (exe sha256 still being computed)\r\n" : g_exeText[0] ? g_exeText : "  (exe sha256 unavailable)\r\n");
+    }
+    {
         o.P("\r\n-- system --\r\n");
         // Snapshot (menu Report): fresh specs on this helper thread. Crash: only the cached copy (no DXGI from a crash path).
         if (snapshot) {
@@ -468,6 +540,17 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         }
     }
 
+    {
+        o.P("\r\n-- module load/unload history (oldest first, ms since mod start; a module already gone appears only here; unloads before mod start not recorded) --\r\n");
+        const LONG head = g_modHead;
+        const LONG n = head < kModEvts ? head : kModEvts;
+        if (!n) o.P("  (none recorded)\r\n");
+        for (LONG k = 0; k < n; ++k) {
+            const ModEvt& e = g_modEvt[(head - n + k) % kModEvts];
+            o.P("  +%8lu %-6s 0x%016llx %8lx  %ls\r\n", (unsigned long)(e.tick - g_startTick), e.loaded ? "load" : "UNLOAD", (unsigned long long)e.base,
+                (unsigned long)e.size, e.name);
+        }
+    }
     o.P("\r\n-- loaded modules --\r\n");
     HMODULE mods[512];
     DWORD need = 0;
@@ -763,6 +846,9 @@ void Start(const StartInfo& info) {
     g_dir[n] = 0;
     g_startTick = GetTickCount();
     ComputeShas();
+    RegisterModHistory();
+    devremoved::Start(info.iniPath, false);  // [Debug] Dred = 1 only; before the game's device exists
+    if (HANDLE h = CreateThread(nullptr, 128 * 1024, ExeShaThread, nullptr, 0, nullptr)) CloseHandle(h);
     if (info.iniPath) wcsncpy_s(g_iniPath, info.iniPath, _TRUNCATE);
     {
         const wchar_t* keys[3] = {L"USERNAME", L"COMPUTERNAME", L"USERPROFILE"};

@@ -264,6 +264,20 @@ int main(int argc, char** argv) {
         CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
         CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
         CHECK(strcmp(cycle.Label(cycle.Stops() - 2), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Favorites") == 0, "last stops are Scrolls, Favorites");
+        {   // human #95155: Dojos stop = catalogue mission_class dojo-way rows, right before Scrolls; dojos stay in their era too
+            int dojoStop = -1, dojos = 0, dojoIn = 0, dojoLeak = 0, dojoEra = 0;
+            for (int i = 0; i < cycle.Stops(); ++i) if (strcmp(cycle.Label(i), "Dojos") == 0) dojoStop = i;
+            CHECK(cycle.hasDojo && dojoStop == cycle.Stops() - 3, "Dojos stop sits before Scrolls, Favorites");
+            for (const rcore::Row& r : rows) {
+                if (r.dojo) ++dojos;
+                const bool in = dojoStop >= 0 && rcore::RowInListStop(r, cycle, dojoStop);
+                if (in && r.dojo) ++dojoIn;
+                if (in && !r.dojo) ++dojoLeak;
+                if (r.dojo) for (int e = 0; e < cycle.nEra; ++e) if (rcore::RowInListStop(r, cycle, 2 + e)) { ++dojoEra; break; }
+            }
+            printf("dojos: %d rows, %d in Dojos, %d leak, %d in an era\n", dojos, dojoIn, dojoLeak, dojoEra);
+            CHECK(dojos == 9 && dojoIn == 9 && dojoLeak == 0 && dojoEra == 9, "Dojos lists the 9 dojo-way rows only, each also in its era");
+        }
         int sengoku = -1, wavesEra = -1;
         for (int i = 0; i < cycle.nEra; ++i) {
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;
@@ -349,8 +363,36 @@ int main(int argc, char** argv) {
         CHECK(!rcore::WaveRunOver(1, 2, 8) && !rcore::WaveRunOver(3, 4, 8) && rcore::WaveRunOver(1, 0, 0), "the wait between waves is not the end of the run");
         CHECK(multi == 22 && multiLeak == 0, "Multi is the 22 catalogue rows whose roster has more than one member (RBAB8 refused, f2e80b34)");
         int warring = 0, dlc = 0, paren = 0, longLabel = 0;
-        for (int i = 0; i < cycle.Stops(); ++i) {
-            const char* lab = cycle.Label(i);
+        {   // human #95158: X-only eras (DLC1 Edo = Tesso, Warring States) get no stop in the normal list; eras are alphabetical (#95175)
+            int emptyEra = 0, sorted = 1;
+            for (int i = 0; i < cycle.nEra; ++i) {
+                if (!strcmp(cycle.era[i], "DLC1 Edo") || !strcmp(cycle.era[i], "Warring States")) ++emptyEra;
+                if (i && rcore::CaseLess(cycle.era[i], cycle.era[i - 1])) sorted = 0;
+            }
+            CHECK(emptyEra == 0 && sorted, "X-only eras are not stops; era stops are alphabetical");
+            std::vector<int> it = {3, 1, 0, 2};
+            std::vector<rcore::Row> nr(4);
+            snprintf(nr[0].name, sizeof nr[0].name, "zeta"); snprintf(nr[1].name, sizeof nr[1].name, "Alpha");
+            snprintf(nr[2].name, sizeof nr[2].name, "beta"); snprintf(nr[3].name, sizeof nr[3].name, "Gamma");
+            rcore::SortItemsByName(it, 1, 0, nr);
+            CHECK(it[0] == 3 && it[1] == 1 && it[2] == 2 && it[3] == 0, "list rows sort by name, case-insensitive, from the group start");
+            {   // human #95418: the real catalogue, one run over every row: names come out plain case-insensitive A-Z (no status groups)
+                std::vector<int> all;
+                for (size_t i = 0; i < rows.size(); ++i) all.push_back((int)i);
+                rcore::SortItemsByName(all, 0, 0, rows);
+                int ordered = 1, veteran = -1, novice = -1;
+                for (size_t k = 0; k < all.size(); ++k) {
+                    if (k && rcore::CaseLess(rows[(size_t)all[k]].name, rows[(size_t)all[k - 1]].name)) ordered = 0;
+                    if (!strcmp(rows[(size_t)all[k]].name, "Saito Fuku (Veteran)")) veteran = (int)k;
+                    if (!strcmp(rows[(size_t)all[k]].name, "Saito Fuku (Novice)")) novice = (int)k;
+                }
+                CHECK(ordered && veteran > novice && veteran == novice + 1, "catalogue sorts A-Z in one run; Saito Fuku (Veteran) sits with its Novice / Adept rows");
+            }
+        }
+        rcore::ListCycle cycleAll;
+        rcore::BuildListCycle(rows, cycleAll, true);
+        for (int i = 0; i < cycleAll.Stops(); ++i) {
+            const char* lab = cycleAll.Label(i);
             if (strchr(lab, '(')) ++paren;
             if (strlen(lab) > 16) ++longLabel;
             if (strcmp(lab, "Warring States") == 0) ++warring;

@@ -141,7 +141,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.12"
+#define MOD_VERSION "1.8.14"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -389,6 +389,8 @@ volatile uint32_t g_dsEnable = 0;
 HANDLE g_dsTimer = nullptr;
 volatile LONG g_dsTid = 0;
 int64_t g_dsMarginUs = 150;
+int64_t g_dsDqMarginUs = 80;  // margin when DQ's short quantum is the spin's period (#96142)
+volatile long g_dsLate = 0;   // DQ mode: timer woke after the quantum had already run out
 int64_t g_qpcFreqDs = 0;
 volatile long g_dsWaits = 0;
 volatile long long g_dsTicks = 0;
@@ -474,7 +476,7 @@ struct Config {
     // 1.6.0 (notes\cpu-hotspots-ally.md, notes\worker-jobs-opt.md): all opt-in, 0 = off / not installed
     int wg = 0, wgMaxPending = 1, wgWindowUs = 2000;
     int tg = 0, tgFloor = 30, tgRatioPct = 125;
-    int ds = 0, dsMarginUs = 150;
+    int ds = 1, dsMarginUs = 150, dsDqMarginUs = 80;  // DS default on (#96048; -5.5% CPU at a 60 fps cap, #96036)
     int lk = 0, cp = 0, spf = 0;
     int ma = 0;  // 1.7.39: main-thread locked "atomic loads" (code bytes, next launch)
     int bpo = 0, bpoMask = 7, bpoTableBits = 14;  // 1.7.40: BoundsFromPartObbs (1 = on, 2 = installed off; mask 1 Q, 2 L, 4 V)
@@ -582,6 +584,12 @@ Config LoadConfig() {
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
     c.tg = I(L"Patches", L"TG", c.tg);
+    // One-time versioned default (#96048): installs updated from <=1.8.13 keep the old shipped DS = 0 in their ini. Flip an
+    // explicit 0 to 1 once, then stamp DSDefaultV = 1 so a later manual DS = 0 sticks.
+    if (I(L"Patches", L"DSDefaultV", 0) < 1) {
+        if (GetPrivateProfileIntW(L"Patches", L"DS", 1, f) == 0) WritePrivateProfileStringW(L"Patches", L"DS", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"DSDefaultV", L"1", f);
+    }
     c.ds = I(L"Patches", L"DS", c.ds);
     c.lk = I(L"Patches", L"LK", c.lk);
     c.ma = I(L"Patches", L"MA", c.ma);
@@ -606,6 +614,7 @@ Config LoadConfig() {
     c.tgFloor = std::clamp(I(L"Tuning", L"TG_Floor", c.tgFloor), 24, 60);
     c.tgRatioPct = std::clamp(I(L"Tuning", L"TG_RatioPct", c.tgRatioPct), 100, 200);
     c.dsMarginUs = std::clamp(I(L"Tuning", L"DS_MarginUs", c.dsMarginUs), 50, 900);
+    c.dsDqMarginUs = std::clamp(I(L"Tuning", L"DS_DqMarginUs", c.dsDqMarginUs), 20, 150);
     c.gpuProf = I(L"Profiler", L"GPUProf", c.gpuProf);
     c.gpuMarkers = I(L"Profiler", L"GPUProf_Markers", c.gpuMarkers);
     c.jt = I(L"Profiler", L"JT", I(L"Patches", L"JT", c.jt));  // [Patches] JT too: the abba2 harness writes unknown arm keys there
@@ -1542,8 +1551,13 @@ DWORD WINAPI Worker(LPVOID) {
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
     // every fixed game address goes through Grva() (gamerva.h): identity here on v2.02, pattern lookup on another build
     gamerva::Init((uintptr_t)g_base, known, &Log);
-    if (!known)
+    if (!known) {
+        // #94070: say which kind of variant this is; the safe, byte-verified groups stay on either way
+        Log("exe variant: TimeDateStamp %08lX / SizeOfImage %zu (%s); known is %08X / %u", nt->FileHeader.TimeDateStamp, g_imageSize,
+            nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage ? "same image size, other build stamp (repack/patch)" : "other image size (new game build)",
+            (unsigned)gen::kBuildTimestamp, (unsigned)gen::kBuildSizeOfImage);
         Log("unknown build: each patch is installed only when its own bytes match (fixed addresses found by byte pattern)");
+    }
 
     // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
     if (known) {
@@ -2315,6 +2329,7 @@ DWORD WINAPI Worker(LPVOID) {
         g_dsTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         if (!g_dsTimer) { Log("DS: high-resolution waitable timer not available"); return false; }
         g_dsMarginUs = cfg.dsMarginUs;
+        g_dsDqMarginUs = cfg.dsDqMarginUs;
         g_qpcFreqDs = qf.QuadPart;
         g_dsEnable = cfg.ds == 1 ? 1u : 0u;
         return true;
@@ -2795,9 +2810,11 @@ DWORD WINAPI Worker(LPVOID) {
                     static long long pT = 0;
                     const long w = g_dsWaits;
                     const long long tk = g_dsTicks;
-                    Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us (switch %s)", (w - pW) / 30,
-                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, g_dsEnable ? "ON" : "off");
-                    pW = w; pT = tk;
+                    static long pL = 0;
+                    const long late = g_dsLate;
+                    Log("stats/s DS: retry-spin timer sleeps %ld, avg %.0f us, late wakes (past the DQ quantum) %ld/30s (switch %s)", (w - pW) / 30,
+                        w > pW ? (double)(tk - pT) * 1e6 / (double)f.QuadPart / (double)(w - pW) : 0.0, late - pL, g_dsEnable ? "ON" : "off");
+                    pW = w; pT = tk; pL = late;
                 }
                 if (s_asyncKnown && sec % 30 == 0) {  // async compute queues the engine created (live slot table, .bss 0x45C0460)
                     const uint8_t* tb = g_base + Grva(0x45C0460);
@@ -3651,8 +3668,11 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     const int64_t elapsed = now->QuadPart - start;
     if (freq <= 0 || elapsed < 0) return TRUE;
     const int64_t qUs = drawprep::DqQuantumUs();  // 1.7.32: DQ on -> the spin's quantum is DQ_QuantumUs, not 1 ms
-    const int64_t left = (qUs ? freq * qUs / 1000000 : freq / 1000) - elapsed - freq * g_dsMarginUs / 1000000;  // engine ticks
-    if (left <= freq / 5000) return TRUE;
+    // DQ on: the quantum is short (200 us), so the 150 us margin left nothing to sleep (#96130: DS never slept, DQ spun a core).
+    // Use the smaller DQ margin and a 30 us floor; late wakes are counted so DQ's pacing can be checked.
+    const int64_t marginUs = qUs ? std::min<int64_t>(g_dsDqMarginUs, qUs / 2) : g_dsMarginUs;
+    const int64_t left = (qUs ? freq * qUs / 1000000 : freq / 1000) - elapsed - freq * marginUs / 1000000;  // engine ticks
+    if (left <= (qUs ? freq / 33333 : freq / 5000)) return TRUE;
     const int64_t leftQpc = left * g_qpcFreqDs / freq;
     LARGE_INTEGER due;
     due.QuadPart = -(leftQpc * 10000000 / g_qpcFreqDs);
@@ -3662,6 +3682,7 @@ extern "C" BOOL DsQpc(LARGE_INTEGER* now, int64_t start) {
     QueryPerformanceCounter(now);
     InterlockedIncrement(&g_dsWaits);
     InterlockedAdd64(&g_dsTicks, now->QuadPart - before);
+    if (qUs && (now->QuadPart - start) * 1000000 > (int64_t)g_qpcFreqDs * qUs) InterlockedIncrement(&g_dsLate);
     hitchlog::NoteWait(hitchlog::kDS, before, now->QuadPart);
     return TRUE;
 }
