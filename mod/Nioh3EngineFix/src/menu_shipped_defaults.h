@@ -282,6 +282,7 @@ inline constexpr Entry kEntries[] = {
     {"Report", "ReportUrl", ""},
     {"Report", "ReportBypass", ""},
     {"Report", "SteamKeyboard", "1"},
+    {"Debug", "Dred", "0"},
     {"Debug", "CrashReport", "1"},
     {"Debug", "CrashDump", "0"},
     {"Debug", "CrashTest", "0"},

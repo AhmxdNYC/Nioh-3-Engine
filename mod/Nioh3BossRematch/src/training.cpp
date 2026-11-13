@@ -70,10 +70,11 @@ void End(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 bool Prepare() {
     if (g_prepared) return true; // startup registration is idempotent
     if (!IniInt(L"Training", L"Observe", 0)) return false;
-    if (!g_img.knownBuild) {
-        Log("Training entries: off - unknown build");
-        return false;
-    }
+    // #94070: an unknown exe variant is no longer off by default. Site ADDRESSES are pattern-verified by GroupOk below (the g: globals are CORE);
+    // the fixed field offsets (0x58A/0x34/0x1DC/0x28/0x14) are NOT verified - reads are Rd-guarded, so a variant gives wrong values, not a crash.
+    if (!g_img.knownBuild)
+        Log("Training entries: unknown exe variant (stamp %08lX, image %lu) - continuing, each site must resolve by pattern", (unsigned long)g_img.timestamp,
+            (unsigned long)g_img.sizeOfImage);
     const char* why = nullptr;
     if (!GroupOk("CORE", &why) || !GroupOk("FIGHT", &why) || !GroupOk("PUMP", &why)) {
         Log("Training entries: off - %s", why ? why : "?");

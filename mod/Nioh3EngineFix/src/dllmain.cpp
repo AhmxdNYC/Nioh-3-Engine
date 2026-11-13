@@ -1551,8 +1551,13 @@ DWORD WINAPI Worker(LPVOID) {
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
     // every fixed game address goes through Grva() (gamerva.h): identity here on v2.02, pattern lookup on another build
     gamerva::Init((uintptr_t)g_base, known, &Log);
-    if (!known)
+    if (!known) {
+        // #94070: say which kind of variant this is; the safe, byte-verified groups stay on either way
+        Log("exe variant: TimeDateStamp %08lX / SizeOfImage %zu (%s); known is %08X / %u", nt->FileHeader.TimeDateStamp, g_imageSize,
+            nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage ? "same image size, other build stamp (repack/patch)" : "other image size (new game build)",
+            (unsigned)gen::kBuildTimestamp, (unsigned)gen::kBuildSizeOfImage);
         Log("unknown build: each patch is installed only when its own bytes match (fixed addresses found by byte pattern)");
+    }
 
     // Diagnostic only: never feeds save-file admission; unknown builds never read RVAs.
     if (known) {
