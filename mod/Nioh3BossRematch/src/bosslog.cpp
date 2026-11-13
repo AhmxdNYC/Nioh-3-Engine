@@ -1392,6 +1392,29 @@ void PickPoll() {
     }
     heldPrev = held;
 }
+// #95567 (player report #59, Death Veil waves): every chr the game spawns passes 65A8A8. A wave enemy (a crab) that appeared within 15 m
+// right after a soul-core press was taken as the press's seal: it was learned as the core, became the form's body, and the player 'turned
+// into a crab'. When the pressed core is known from the equipped Yang slots (game tables, no id list), a spawn belongs to this press only if
+// it is that core's chr, or a helper that comes within [Spirit] FormHelperMs (default 1500, Ibaraki's helper +0.4 s) after it. Anything else
+// is foreign: not a seal, not a hit source, not learned. Pressed core unknown (no equipment map) = the old rule. 0 = off.
+std::atomic<int> g_formHelperMs{1500};
+double g_pressCoreFor = -100, g_pressCoreT = -100;
+bool PressSpawnForeign(uint32_t id, uint64_t chr) {
+    const int helperMs = g_formHelperMs.load();
+    if (helperMs <= 0 || !id || !g_equippedReady.load()) return false;
+    const double pickT = g_pickT.load(), now = Now();
+    const uint32_t wanted = g_pickCore.load();
+    if (!wanted || pickT <= 0 || now < pickT || now - pickT > 10.0) return false;  // no press in flight: not a press actor anyway
+    if (id == wanted) { if (g_pressCoreFor != pickT) { g_pressCoreFor = pickT; g_pressCoreT = now; } return false; }
+    if (g_pressCoreFor == pickT && now - g_pressCoreT <= helperMs / 1000.0) return false;  // helper of the core's own yokai
+    static uint64_t loggedChr = 0; static uint32_t loggedId = 0; static double loggedPick = -100;
+    if (loggedPick != pickT || loggedId != id || loggedChr != chr) {
+        loggedPick = pickT; loggedId = id; loggedChr = chr;
+        Log("FormCore foreign spawn chr=%llX id=%X %.2f s after the press of core %X (%s) - not this press's seal t=%.3f", (unsigned long long)chr, id,
+            now - pickT, wanted, g_pressCoreFor == pickT ? "after the helper window" : "core's yokai not out yet", now);
+    }
+    return true;
+}
 // seal spawn hit: learn which core the last pressed direction holds; an OFF core seen first here has the rest of its form suppressed.
 void PickLearn(uint32_t id) {
     if (!id) return;
@@ -5086,7 +5109,7 @@ void SealExitFxLoad() {
     }
     g_ghostFadeMs = IniInt(L"Spirit", L"SealGhostFadeMs", 250);  // human #58173: the yokai fades out in the exit smoke
     g_formMaxSec.store(IniInt(L"Spirit", L"FormMaxSec", 25));
-    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
+    g_formNeedUseMs.store(IniInt(L"Spirit", L"FormNeedUseMs", 2200)); g_formHelperMs.store(IniInt(L"Spirit", L"FormHelperMs", 1500)); g_noSpawnEndMs.store(IniInt(L"Spirit", L"SealNoSpawnEndMs", 400));
     g_orbSpawnMs.store(IniInt(L"Spirit", L"SealOrbSpawnMs", 1800));
     g_formNeedSealActMs.store(IniInt(L"Spirit", L"FormNeedSealActMs", 0)); g_fs0FreshSec.store(IniInt(L"Spirit", L"FormCaptureFreshMs", 1000) / 1000.0); g_sealEndMinMs.store(IniInt(L"Spirit", L"SealEndMinMs", 700)); g_sealCancelEndMs.store(IniInt(L"Spirit", L"SealCancelEndMs", 600));
 }
@@ -6990,8 +7013,9 @@ void TenshinBody(int m) { g_tenBody.store(m); g_tenBodyTick = 0; }
 void TenshinSetForm(uint32_t v) { g_tenSetForm.store(v); }
 void TenshinMove(uint32_t v) { g_tenMove.store(v); }
 void TenshinGo() { g_tenGo.store(24); }  // ~6 calls per state: every input state gets the bit once (the first one is not the player's)
-void FormKeySealDesc(uint32_t id) { g_fkSealDesc.store(id); PickLearn(id); }
+void FormKeySealDesc(uint32_t id) { if (PressSpawnForeign(id, 0)) return; g_fkSealDesc.store(id); PickLearn(id); }  // #95567
 void FormKeySealNote(uint64_t chr, uint32_t motion, float dist) {
+    { uint32_t key = 0; if (chr && Rd(chr, key) && PressSpawnForeign(key >> 4, chr)) return; }  // #95567: a wave enemy is never a seal
     if (dist >= 0 && dist < 30.f) SealEndOnHitNoteSpawn(chr);
     // ally #57462: the DOWN core (A2ACB) spawns ONE chr and the game reuses the same chr address on the next use, so a plain
     // 'same chr' skip dropped every DOWN after the first (press-no-seal, human saw the yokai thrown). Skip only a repeat note of the same spawn.
