@@ -1,0 +1,459 @@
+[05:56:41.940] Nioh3EngineFix 1.8.12 (built Nov 13 2026) - native port of the live-tested Nioh 3 engine patches
+[05:56:41.940] OS: native Windows; ini keys set to -1 (auto) resolve by OS:
+[05:56:41.940]   auto W3_TimeoutMs = 1 (native Windows: Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1)
+[05:56:41.940] Nioh3.exe at 00007FF7BE690000: TimeDateStamp 6AA7C106 SizeOfImage 52FB000 -> known build (v2.02)
+[05:56:41.941] TITLEGATE v1: 100ms polling, stable >=1000ms; Enabled=0 logOnly=1
+[05:56:41.941] TITLEGATE verdict=unreadable candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=0 title=0 state=4294967295 queueEmpty=0 loading=1 top=0000000000000000 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:42.148] code is decrypted (203 ms after start)
+[05:56:42.148] game RVAs (rvas.json, 211 entries): 210 verified at their v2.02 place (0 with a hook on them, 11 imports by name), 0 missing, 1 without a pattern (known build only) [0 ms]
+[05:56:42.149] resolving sites:
+[05:56:42.160]   P3a  OK at RVA 43593A
+[05:56:42.176]   P3b  OK at RVA 437EE5
+[05:56:42.186]   P3c  OK at RVA 438473
+[05:56:42.197]   P3d  OK at RVA 55DC56
+[05:56:42.209]   P3e  OK at RVA 5AF6C9
+[05:56:42.221]   P3f  OK at RVA 29770C6
+[05:56:42.231]   P3g  OK at RVA 29771B4
+[05:56:42.241]   P6   OK at RVA 1975BAA
+[05:56:42.259]   P8a  OK at RVA 20E77B
+[05:56:42.272]   P8b  OK at RVA 5AF526
+[05:56:42.291]   P8c  OK at RVA 5AF682
+[05:56:42.309]   P8d  OK at RVA 5AF69F
+[05:56:42.321]   P9   OK at RVA 5AD89B
+[05:56:42.333]   P2   OK at RVA 5AD6AA
+[05:56:42.349]   P4   OK at RVA 5AD860
+[05:56:42.364]   P1   OK at RVA 5AD677
+[05:56:42.380]   W3   OK at RVA 1A6BF2D
+[05:56:42.392]   R1   OK at RVA 4A5346
+[05:56:42.408]   R1j  OK at RVA 4A5357
+[05:56:42.434]   L1   OK at RVA 19DF57E
+[05:56:42.451]   F1   OK at RVA 3777A40
+[05:56:42.462]   WK   OK at RVA 40A4C
+[05:56:42.471]   PMw  OK at RVA 13503A3
+[05:56:42.480]   PMs  OK at RVA 2EEBB68
+[05:56:42.480] near page at 00007FF7BE680000
+[05:56:42.480] VRR tier  30: armed=1 clamp 20..30 fps, limiter cap 30
+[05:56:42.480] VRR tier  60: armed=1 clamp 24..60 fps, limiter cap 60
+[05:56:42.480] VRR tier 120: armed=1 clamp 48..240 fps, limiter cap 240
+[05:56:42.505]   P3a  RVA 43593A   patched: 8B 05 C0 A6 BB FF 
+[05:56:42.505]   P3b  RVA 437EE5   patched: 8B 05 15 81 BB FF 
+[05:56:42.505]   P3c  RVA 438473   patched: 8B 05 87 7B BB FF 
+[05:56:42.505]   P3d  RVA 55DC56   patched: 8B 05 A4 23 A9 FF 
+[05:56:42.505]   P3e  RVA 5AF6C9   patched: 8B 05 31 09 A4 FF 
+[05:56:42.505]   P3f  RVA 29770C6  patched: 8B 05 34 8F 67 FD 
+[05:56:42.505]   P3g  RVA 29771B4  patched: 8B 05 46 8E 67 FD 
+[05:56:42.505]   P6   RVA 1975BAA  patched: 8B 05 54 A4 67 FE 
+[05:56:42.505]   P8a  RVA 20E77B   patched: E8 00 19 DE FF 
+[05:56:42.505]   P8b  RVA 5AF526   patched: E8 55 0B A4 FF 
+[05:56:42.505]   P8c  RVA 5AF682   patched: E8 F9 09 A4 FF 
+[05:56:42.505]   P8d  RVA 5AF69F   patched: E8 DC 09 A4 FF 
+[05:56:42.505]   P9   RVA 5AD89B   patched: E8 E0 27 A4 FF 90 
+[05:56:42.505]   P2   RVA 5AD6AA   patched: E8 B1 29 A4 FF 0F 1F 00 
+[05:56:42.505]   P4   RVA 5AD860   patched: E8 0B 28 A4 FF 90 
+[05:56:42.505]   P1   RVA 5AD677   patched: E8 D4 29 A4 FF 66 90 
+[05:56:42.505] VRR: applied (16 site(s), 1 attempt(s))
+[05:56:42.531]   W3   RVA 1A6BF2D  patched: 90 E8 6D 41 58 FE 
+[05:56:42.531] W3: applied (1 site(s), 1 attempt(s))
+[05:56:42.560]   R1   RVA 4A5346   patched: 8B 15 BC AC B4 FF 
+[05:56:42.560]   R1j  RVA 4A5357   patched: 75 ED 
+[05:56:42.560] R1: applied (2 site(s), 1 attempt(s))
+[05:56:42.585]   L1   RVA 19DF57E  patched: E8 2D 0B 61 FE 0F 1F 44 00 00 
+[05:56:42.585] L1: applied (1 site(s), 1 attempt(s))
+[05:56:42.609]   F1   RVA 3777A40  patched: E8 7B 86 87 FC 
+[05:56:42.609] F1: applied (1 site(s), 1 attempt(s))
+[05:56:42.631]   WK   RVA 40A4C    patched: E8 7F F6 FA FF 66 90 
+[05:56:42.631] WK: applied (1 site(s), 1 attempt(s))
+[05:56:42.631] TG: tick governor available (switch off, floor 30 ticks/s, ratio 125 %)
+[05:56:42.654]   PMw  RVA 13503A3  patched: E8 B8 00 CA FE 90 
+[05:56:42.654]   PMs  RVA 2EEBB68  patched: E8 03 49 10 FD 90 
+[05:56:42.654] PM: applied (2 site(s), 1 attempt(s))
+[05:56:42.654] VRR: VRROnline = -1 (auto) - suspended while an online session is detected
+[05:56:42.655] AutoContinue: installed (tip page confirm check 1CECAED), ON: the 'press to continue' page after a load closes as soon as the load is done - [General] AutoContinueLoad = 1; switch in the mod menu
+[05:56:42.677] DQ: main-loop retry quantum 1 ms -> 200 us at 1A74C45 (switch ON)
+[05:56:42.683] SaveFiles: title candidate promoted; Enabled=1 RealRoot=1; 1000ms stable + fresh action reads
+[05:56:42.683] SaveFiles: enabled=1 probe=0 native=1 known top-mode bytes=1
+[05:56:42.736] MENU: game menu signal (5A37D4 / D63C0): bytes verified; pause hint source Both
+[05:56:42.736] MENU: frame generation: status only; change it in the game's Options
+[05:56:42.736] MENU: enabled - key F10, controller triple-tap Start (window 900 ms, gap 300 ms, swallow 1), scale auto, pause hint on (flags mask 18)
+[05:56:42.743] GPUOPT: VRS KeepCharacters=1 (mode3; conservative: only audited world VS + empty readable input layout + indirect calls can be coarse; direct/IA/unknown stay1x1; reject2048)
+[05:56:42.743] GPUOPT: VRS v4 layouts=7 rate=2x2 skipSkinned=1 (mode3 only; skin bits weight1 indices2; reject bits layout512 skinned1024; unknown/generic skin identity not inferred)
+[05:56:42.743] GPUOPT: VRS selective=0 GBufferMotion1x1=0 (captured 6/7/8RT surface layouts use blend-only material policy; other layouts/alpha-blend/particles/post/UI remain 1x1; guard1 excludes whole motion MRT draw)
+[05:56:42.743] GPUOPT: VRS ceiling mode=0 (0=off 1=2x2 2=4x4 with Tier2+additional else 2x2 3=selective VrsRate; started off = restart to turn on, started on = menu changes it live)
+[05:56:42.743] GPUOPT: Barriers=2 MergeAcrossBinds=0 DropDuplicateUav=0 DropUndoPairs=0 MaxBatch=2 DeferThreads="SynergisticDispatcher" AnyCaller=0 TraceRecords=0 R2a=0 R2b=0 R1=0
+[05:56:42.743] GPUOPT: auto-install 0 ms after start
+[05:56:42.744] EP: ini 0 (forced off) on native Windows -> OFF
+[05:56:42.744] SR: ini 0 (forced off) on native Windows -> OFF
+[05:56:42.745] LoadOnlyCpuFixes = 0 (off, GF/W6/RWb follow their own keys); user GF 0 W6 0 RWb 0
+[05:56:42.746] KeepRunningUnfocused: installed at 3/3 IsAppActive call sites (pad update 436758, pad slot read 436A20, focus-loss pause 89B2FD): pads keep working and the game does not pause while its window is inactive. Mouse / keyboard / cursor keep the stock answer (an unfocused game never reads the user's mouse or moves the cursor)
+[05:56:42.746] KeepRunningUnfocused: power throttling off (EcoQoS + Windows 11 timer-resolution throttling of hidden windows)
+[05:56:42.746] VPad: installed (VirtualPad = 1, exclusive - the real pads are hidden from the game this session): the game's XInputGetState (IAT Nioh3.exe+38E2C50) answers slot 0 from the pipe \\.\pipe\nioh3vpad; idle release after 600 s. Commands: commands: ping | state | arm | disarm | press <btn[+btn]> [ms=100] | hold <btn[+btn]> | release <btn[+btn]|all> | stick L|R <x> <y> [ms] | trigger L|R <v> [ms] | key <name|0xDIK> [ms=100] | menu get <KEY> | menu set <KEY> <v|on|off> | menu set HideHudIds <id,id,...|none> | wait <ms> | log <text> | realpads on|off
+[05:56:42.748] CRASHUPLOAD: armed (upload 1, url https://nioh3-mod-feedback.vercel.app/api/crash, bypass none, id 3525bcbb..., send scan in 20000 ms)
+[05:56:42.758] CRASHREPORT: armed (dir C:\Program Files (x86)\Steam\steamapps\common\Nioh3\, dump 0, test 0)
+[05:56:42.759] REPORT: ready: endpoint https://nioh3-mod-feedback.vercel.app/api/report, install id 3525bcbb..., bypass none, steam keyboard 0
+[05:56:42.759] BootNotice: installed (boot sequencer 1C35188 sites BN1 1C35393 notice, BN2 1C353A2 graphics warning), ON: the autosave notice and the 'reset settings?' warning are skipped (hands-free boot) - default: on because [Debug] VirtualPad != 0
+[05:56:42.760] HitchLog = 1, HitchLogMs = 100 (one HITCH line per game-thread present gap over the threshold)
+[05:56:42.760] VrrPresent = 0 (off: the game's own present arguments)
+[05:56:42.760] PresentModeLog = 1 (one line per present-mode / engine SyncInterval change)
+[05:56:42.762] OSD: auto MaxFrameLatency = 0 (native Windows)
+[05:56:42.762] OSD: FpsCounter=1 FrameTime=1 SpeedFactor=1 StartupPopup=1 Position=0 Scale=1.00 Offset=0,0 (px at 1080p)
+[05:56:42.763] done: 7 group(s) applied, 0 skipped. Patches live until the game exits (nothing is written to disk).
+[05:56:42.954] GPUOPT: vtable set 0 at D3D12Core.dll+0x305830: 86 slots, 78 thunks + ResourceBarrier hooked (original D3D12Core.dll+0x206B50)
+[05:56:42.954] GPUOPT: vtable set 1 at D3D12Core.dll+0x305D90: 86 slots, 78 thunks + ResourceBarrier hooked (original D3D12Core.dll+0x206B50)
+[05:56:42.955] GPUOPT: installed - batching off (counters only)
+[05:56:47.313] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE270EA890 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:47.816] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=16777216 queueEmpty=1 loading=0 top=000001CE270EA890 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:47.927] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=16777472 queueEmpty=1 loading=0 top=000001CE270EA890 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:48.235] OSD: engine is rendering (5438 ms after start) - installing the Present hook
+[05:56:48.237] OSD: system d3d12 C:\WINDOWS\SYSTEM32\d3d12.dll+0, dxgi C:\WINDOWS\SYSTEM32\dxgi.dll+0
+[05:56:48.264] OSD: dummy swapchain 000001CED2BA1A50, vtable C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328; dummy queue vtable C:\WINDOWS\SYSTEM32\D3D12Core.dll+24BAB8
+[05:56:48.265] OSD: hooked ExecuteCommandLists: vtable slot 00007FFCEEA4BB08, original C:\WINDOWS\SYSTEM32\D3D12Core.dll+3F890
+[05:56:48.265] OSD: hooked Present: vtable slot 00007FFD638D6368, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+29090
+[05:56:48.265] OSD: hooked Present1: vtable slot 00007FFD638D63D8, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+2A980
+[05:56:48.265] OSD: hooked SetColorSpace1: vtable slot 00007FFD638D6458, original C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+226E0
+[05:56:48.268] MENU: hooked the game's XInputGetState: IAT slot Nioh3.exe+38E2C50, chained to Nioh3EngineFix.asi+46050
+[05:56:48.270] MENU: hooked DirectInput GetDeviceState (W): vtable DINPUT8.dll+38238, original DINPUT8.dll+13060
+[05:56:48.270] MENU: hooked DirectInput GetDeviceState (A): vtable DINPUT8.dll+38100, original DINPUT8.dll+13060
+[05:56:48.270] MENU: own XInput for fallback polling: XINPUT1_4.dll+9A60
+[05:56:48.270] MENU: ready - open with F10 / Esc x3 / Start x3
+[05:56:48.278] OSD: Present called from thread 2876 ""
+[05:56:48.278] OSD: MaxFrameLatency: swapchain 000001CE75BB0960 (flags 2) was not created with FRAME_LATENCY_WAITABLE_OBJECT - not applicable (setting is 0 anyway)
+[05:56:48.278] OSD: captured DIRECT queue 000001CC82B4BD00 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+24BAB8, other-game thread), device 000001CC82860600 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+249078); back buffer device 000001CC82860600 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+249078) -> same device, using it
+[05:56:48.278] OSD: IDXGISwapChain::GetDevice(ID3D12CommandQueue) failed (hr 80004002, swapchain C:\Program Files (x86)\Steam\steamapps\common\Nioh3\sl.interposer.dll+66328) - drawing on the game's captured DIRECT queue instead
+[05:56:48.278] OSD: swapchain 000001CE75BB0960: 1920x1080 fmt 87, 3 buffers, swap effect 4, flags 2; queue 000001CC82B4BD00 (C:\WINDOWS\SYSTEM32\D3D12Core.dll+24BAB8), device 000001CC82860600
+[05:56:48.285] OSD: drawing context ready (build #1)
+[05:56:48.325] VPad: ping -> ok vpad 1.8.12 mode=exclusive armed=1 unfocused=on
+[05:56:48.431] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:48.622] HUD patterns: master=00007FF7BE780228 call=00007FF7BE782DCB target=00007FF7BE783444 weaponsId=10 soulCoresId=13
+[05:56:48.622] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30
+[05:56:48.622] LiveTitleWatch: reset279A=0 countdown=0 m+10=4294967295 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE2733FB30 state=0 title=0
+[05:56:48.622] MENU: engine stop flags (G+588..58D) now: none
+[05:56:48.622] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[05:56:48.623] OSD: pipeline created for back buffer format 87
+[05:56:48.623] OSD: first overlay frame drawn (132 quads)
+[05:56:48.623] PresentMode: engine SyncInterval (GfxDevice 000001CD28B000C0 +424C) = 0 (DisplaySettingsWatcher 1350210 (VSync slot OFF)); game VSync OFF, FG 0
+[05:56:48.623] PresentMode: Nioh3.exe+1A822D2 (thread 2876, game/other) presents SI 0 flags 0x0 on swapchain 000001CE75BB0960; engine SI 0, request 0, VSync OFF, FG 0
+[05:56:48.625] HITCH #1 gap 347.6 ms | gt cpu 328.1 ms 94% | proc cpu 2609.4 ms 7.51 cores | pf 18893 | rd 27.4 MB 1365 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.0 recyc 0.0 tok95 0.0 | frame drain 0.4/0.4 full 0.0 hw 0.0 sync 0.0/0.0 | pj pso - miss - | menu 0 pause 0 mode 0 act 0 | ld A -/- B -/- infl - | ram 5812/16309 MB load 64% | commit 24919/49077 MB | ws 4668 MB | vram -/- MB | t 5.9 s
+[05:56:48.778] OSD: game settings: FRAME_GENERATION OFF (0), RESOLUTION_SCALING FSR (2)
+[05:56:48.778] OSD: FG state: OFF [setting 0, game thread 22.0/s, presenter thread 0.0/s, ratio 1.00, pause reason 1]
+[05:56:49.542] VPad: ping -> ok vpad 1.8.12 mode=exclusive armed=1 unfocused=on
+[05:56:49.543] VPad: state -> ok frame=110 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=321 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:49.688] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:56:50.038] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE27139690
+[05:56:50.039] LiveTitleWatch: reset279A=0 countdown=0 m+10=0 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=1 op=1 top=000001CE27139690 state=1 title=0
+[05:56:50.039] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE27139690 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:50.140] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=6 queueEmpty=1 loading=0 top=000001CE27139690 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:50.154] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=6 queueEmpty=1 loading=0 top=000001CE27139690
+[05:56:50.241] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=10 queueEmpty=1 loading=0 top=000001CE27139690 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:50.255] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=10 queueEmpty=0 loading=0 top=000001CE27139690
+[05:56:50.255] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27139690 state=10 title=0
+[05:56:50.288] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[05:56:50.341] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE27139510 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:50.371] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE27139510
+[05:56:50.371] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27139510 state=1 title=0
+[05:56:50.688] VPad: state -> ok frame=179 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=528 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:51.689] VPad: state -> ok frame=239 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=709 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:52.690] VPad: state -> ok frame=296 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=880 pad_age_ms=13 key_age_ms=13 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:53.691] VPad: state -> ok frame=356 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=1061 pad_age_ms=12 key_age_ms=12 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:53.828] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:56:54.828] VPad: state -> ok frame=425 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=1268 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:55.829] VPad: state -> ok frame=485 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=1449 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:56.829] VPad: state -> ok frame=545 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=1629 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:57.830] VPad: state -> ok frame=605 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=1810 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:57.928] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[05:56:57.961] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27187CF0 state=1 title=0
+[05:56:57.977] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:56:57.982] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE27187CF0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:58.080] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=2 queueEmpty=1 loading=0 top=000001CE27187CF0
+[05:56:58.082] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=2 queueEmpty=1 loading=0 top=000001CE27187CF0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:56:58.978] VPad: state -> ok frame=674 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2017 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:56:59.978] VPad: state -> ok frame=734 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2198 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:00.295] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=3 queueEmpty=1 loading=0 top=000001CE27187CF0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:00.337] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=3 queueEmpty=1 loading=0 top=000001CE27187CF0
+[05:57:00.979] VPad: state -> ok frame=794 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2375 pad_age_ms=16 key_age_ms=16 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:01.779] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=5 queueEmpty=1 loading=0 top=000001CE27187CF0
+[05:57:01.805] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=5 queueEmpty=1 loading=0 top=000001CE27187CF0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:01.879] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=6 queueEmpty=0 loading=0 top=000001CE27187CF0
+[05:57:01.905] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:01.943] BootNotice: skipped the 'This game has an autosave feature' notice (#1)
+[05:57:01.943] BootNotice: skipped the 'Current graphics settings may lead to unstable gameplay - reset to defaults?' warning (#1; answered as No: settings unchanged)
+[05:57:01.950] BootNotice: boot sequencer state -1 -> 8 (+19.2 s after install)
+[05:57:01.950] BootNotice: save manager state [+10h] = 0 (sequencer state 8 waits for it)
+[05:57:01.979] VPad: state -> ok frame=853 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2556 pad_age_ms=16 key_age_ms=16 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:02.007] BootNotice: boot sequencer state 8 -> 9 (+19.2 s after install)
+[05:57:02.131] HITCH #2 gap 167.3 ms | gt cpu 0.0 ms 0% | proc cpu 1187.5 ms 7.10 cores | pf 4007 | rd 37.0 MB 48 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.0 recyc 0.0 tok95 0.0 | frame drain 0.1/0.1 full 0.0 hw 0.0 sync 0.0/0.0 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 4056/16309 MB load 75% | commit 26648/49077 MB | ws 6447 MB | vram -/- MB | t 19.4 s
+[05:57:02.131] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30
+[05:57:02.131] LiveTitleWatch: reset279A=0 countdown=0 m+10=0 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=1 op=1 top=000001CE2733FB30 state=0 title=0
+[05:57:02.267] VPad: press A 120 -> ok press 1000 120 ms (20 pad reads rounds)
+[05:57:02.750] CRASHUPLOAD: nothing pending
+[05:57:02.799] HitchLog: VRAM source found (8147 MB dedicated)
+[05:57:02.996] HITCH #3 gap 146.3 ms | gt cpu 0.0 ms 0% | proc cpu 921.9 ms 6.30 cores | pf 904 | rd 15.0 MB 1242 ops | wr 18.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.0 recyc 0.0 tok95 -0.0 | frame drain 0.7/0.7 full 0.0 hw 0.0 sync 0.0/0.0 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 3937/16309 MB load 75% | commit 27127/49077 MB | ws 6550 MB | vram 3151/7379 MB | t 20.2 s
+[05:57:02.996] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE2733FB30 state=0 title=0
+[05:57:03.027] BootNotice: boot sequencer state 9 -> 15 (+20.2 s after install)
+[05:57:03.027] BootNotice: boot sequencer past the save-data load (state 15) - state log done
+[05:57:03.268] VPad: state -> ok frame=914 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2739 pad_age_ms=8 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:04.272] VPad: state -> ok frame=974 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=2920 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:05.273] VPad: state -> ok frame=1034 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=3098 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:06.274] VPad: state -> ok frame=1093 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=3278 pad_age_ms=13 key_age_ms=13 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:06.413] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:57:07.131] SaveFilesGate: candidate=0 verdict=6 Enabled=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250
+[05:57:07.131] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27383250 state=3 title=1
+[05:57:07.150] TITLEGATE verdict=press-any candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=000001CE27383280 +38=000001CE27383280 +40=000001CE27383280 +58=0000000000000000
+[05:57:07.252] TITLEGATE verdict=settling candidate=0 menuIdle=1 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=00007FF7C212DB39 +38=000001CE2738A8D0 +40=00000002539FF9A0 +58=0000000000000000
+[05:57:07.353] TITLEGATE verdict=press-any candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=000001CE27383280 +38=000001CE27383280 +40=000001CE27383280 +58=0000000000000000
+[05:57:07.359] SaveFilesGate: candidate=0 verdict=5 Enabled=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250
+[05:57:07.414] VPad: state -> ok frame=1162 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=3485 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:07.654] TITLEGATE verdict=settling candidate=0 menuIdle=1 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=0000000000000000 +38=000001CE2738A8D0 +40=00000002539FF9A0 +58=0000000000000000
+[05:57:07.694] SaveFilesGate: candidate=0 verdict=6 Enabled=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250
+[05:57:07.754] TITLEGATE verdict=press-any candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=000001CE27383280 +38=000001CE27383280 +40=000001CE27383280 +58=0000000000000000
+[05:57:07.955] TITLEGATE verdict=settling candidate=0 menuIdle=1 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=00007FF7C212DB39 +38=000001CE2738A730 +40=00000002539FF9A0 +58=0000000000000000
+[05:57:08.156] TITLEGATE verdict=press-any candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=000001CE27383280 +38=000001CE27383280 +40=000001CE27383280 +58=0000000000000000
+[05:57:08.158] SaveFilesGate: candidate=1 verdict=7 Enabled=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250
+[05:57:08.357] TITLEGATE verdict=settling candidate=0 menuIdle=1 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:08.414] VPad: state -> ok frame=1222 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=3666 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:09.042] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[05:57:09.366] TITLEGATE verdict=candidate candidate=1 menuIdle=1 stableMs=1015 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=1 loading=0 top=000001CE27383250 +30=0000000000000000 +38=000001CE2738A730 +40=00000002539FF9A0 +58=0000000000000000
+[05:57:09.415] VPad: state -> ok frame=1282 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=3846 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:10.415] VPad: state -> ok frame=1342 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4027 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:10.564] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:57:11.564] VPad: state -> ok frame=1411 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4234 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:12.565] VPad: state -> ok frame=1471 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4415 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:12.680] stats/s gpuopt: off: 1108 barriers/frame in 1099 calls -> 1099 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:57:12.680] stats/s drawprep: DQ ON (200 us, 68483 early retries), P1E7 -, W1B -, RPA -
+[05:57:12.680] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 60.4/s vs rendered 42.9/s, L1 timer sleeps 0/s
+[05:57:12.680] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:57:12.680] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:57:12.680] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:57:13.565] VPad: state -> ok frame=1531 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4595 pad_age_ms=3 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:14.566] VPad: state -> ok frame=1591 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4776 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:14.713] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:57:15.700] TITLEGATE verdict=queue candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=3 queueEmpty=0 loading=0 top=000001CE27383250 +30=000001CE27383280 +38=000001CE27383280 +40=00000002539FF9A0 +58=0000000000000000
+[05:57:15.714] VPad: state -> ok frame=1660 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=4983 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:15.719] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30
+[05:57:15.719] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE2733FB30 state=0 title=0
+[05:57:15.800] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE2733FB30 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:16.714] VPad: state -> ok frame=1720 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=5164 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:17.715] VPad: state -> ok frame=1780 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=5344 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:18.715] VPad: state -> ok frame=1840 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=5525 pad_age_ms=5 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:18.765] OSD: stats: rendered 60.3 fps, displayed 60.3 fps (x1.00, FG off, 1 chain(s), threads game 60.3/s presenter 0.0/s), game ticks 60.3/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 1639, skipped 0
+[05:57:18.862] VPad: press A 120 -> ok press 1000 120 ms (18 pad reads rounds)
+[05:57:19.863] VPad: state -> ok frame=1909 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=0 fg=0 armed=1 pad_reads=5732 pad_age_ms=1 key_age_ms=1 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:20.298] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[05:57:20.864] VPad: state -> ok frame=1969 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=5913 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:21.232] TITLEGATE verdict=state candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=8 queueEmpty=1 loading=0 top=000001CE27382EF0 +30=000001CE270E8310 +38=000001CE273891C0 +40=000001CE270E8310 +58=000001CE57BCAA10
+[05:57:21.233] SaveFilesGate: candidate=0 verdict=3 Enabled=1 readable=1 title=1 state=8 queueEmpty=1 loading=0 top=000001CE27382EF0
+[05:57:21.233] LiveTitleWatch: reset279A=0 countdown=0 m+10=0 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=1 op=1 top=000001CE27382EF0 state=8 title=1
+[05:57:21.864] VPad: state -> ok frame=2029 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6093 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:22.009] HITCH #4 gap 110.2 ms | gt cpu 15.6 ms 14% | proc cpu 343.8 ms 3.12 cores | pf 0 | rd 9.0 MB 1 ops | wr 18.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle 0.0 recyc 0.0 tok95 0.0 | frame drain 0.9/0.9 full 0.0 hw 0.0 sync 4.4/4.4 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 3933/16309 MB load 75% | commit 28361/49077 MB | ws 6688 MB | vram 4290/7379 MB | t 39.2 s
+[05:57:22.009] SaveFilesGate: candidate=0 verdict=3 Enabled=1 readable=1 title=1 state=18 queueEmpty=1 loading=0 top=000001CE27382EF0
+[05:57:22.009] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27382EF0 state=18 title=1
+[05:57:22.037] TITLEGATE verdict=state candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=1 state=23 queueEmpty=1 loading=0 top=000001CE27382EF0 +30=000001CE270E8310 +38=000001CE273891C0 +40=000001CE270E8310 +58=000001CE57BCAA10
+[05:57:22.138] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=657712176 queueEmpty=1 loading=0 top=000001CE27180A90 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:22.138] SaveFilesGate: candidate=0 verdict=0 Enabled=1 readable=0 title=0 state=657712176 queueEmpty=1 loading=0 top=000001CE27180A90
+[05:57:22.138] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27180A90 state=657712176 title=0
+[05:57:22.292] HITCH #5 gap 153.7 ms | gt cpu 0.0 ms 0% | proc cpu 1093.8 ms 7.11 cores | pf 1434 | rd 13.0 MB 348 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.0 recyc 0.0 tok95 -0.0 | frame drain 0.1/0.1 full 0.0 hw 0.1 sync 0.3/0.2 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 4004/16309 MB load 75% | commit 28309/49077 MB | ws 6695 MB | vram 4288/7379 MB | t 39.5 s
+[05:57:22.865] VPad: state -> ok frame=2078 active=1 loading=0 paused=0 player=0 pos=0.0,0.0,0.0 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6241 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:23.013] VPad: press B 120 -> ok press 2000 120 ms (18 pad reads rounds)
+[05:57:23.052] MENU: engine stop flags (G+588..58D) now: 58A
+[05:57:23.081] SaveFilesGate: candidate=0 verdict=1 Enabled=1 readable=1 title=0 state=655257744 queueEmpty=1 loading=1 top=000001CE27139490
+[05:57:23.081] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE27139490 state=655257744 title=0
+[05:57:23.144] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=655257744 queueEmpty=1 loading=1 top=000001CE27139490 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[05:57:24.014] VPad: state -> ok frame=2146 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6446 pad_age_ms=14 key_age_ms=14 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:24.220] HITCH #6 gap 215.3 ms | gt cpu 0.0 ms 0% | proc cpu 1796.9 ms 8.35 cores | pf 836 | rd 58.2 MB 2200 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle 0.0 recyc -0.0 tok95 0.0 | frame drain 0.3/0.3 full 0.0 hw 0.0 sync 0.0/0.0 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 3748/16309 MB load 77% | commit 28368/49077 MB | ws 6842 MB | vram 4183/7379 MB | t 41.5 s
+[05:57:25.045] VPad: state -> ok frame=2197 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6600 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:26.058] VPad: state -> ok frame=2257 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6780 pad_age_ms=9 key_age_ms=9 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:27.103] VPad: state -> ok frame=2320 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=6970 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:28.104] VPad: state -> ok frame=2380 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7147 pad_age_ms=15 key_age_ms=15 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:29.120] VPad: state -> ok frame=2440 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7331 pad_age_ms=10 key_age_ms=10 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:30.150] VPad: state -> ok frame=2502 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7517 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:31.151] VPad: state -> ok frame=2562 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7698 pad_age_ms=4 key_age_ms=4 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:32.155] VPad: state -> ok frame=2620 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=7869 pad_age_ms=15 key_age_ms=15 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:33.155] VPad: state -> ok frame=2680 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8053 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:34.158] VPad: state -> ok frame=2740 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8233 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:35.159] VPad: state -> ok frame=2800 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8414 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:36.161] VPad: state -> ok frame=2860 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8594 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:36.377] RB: AMD Radeon RX 6650 XT (the game's device), dedicated 8147 MB, UMA no, GPUUploadHeapSupported n/a, DXGI non-local usage 1080 MB (median of 10) -> UPLOAD heaps in SYSTEM MEMORY (no Resizable BAR / SAM)
+[05:57:36.377] RB: Resizable BAR / Smart Access Memory is off: enabling it in the BIOS can give up to ~30% more fps in this game (see README)
+[05:57:36.377] RB: hands-free test session ([Debug] Tour / VirtualPad) - no toast
+[05:57:37.162] VPad: state -> ok frame=2916 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8760 pad_age_ms=15 key_age_ms=15 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:38.173] VPad: state -> ok frame=2972 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=8928 pad_age_ms=14 key_age_ms=15 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:39.175] VPad: state -> ok frame=3025 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=9088 pad_age_ms=10 key_age_ms=10 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:39.735] AutoContinue #1: load done - answered the tip page's 'press to continue' check
+[05:57:40.177] VPad: state -> ok frame=3083 active=1 loading=1 paused=0 player=1 pos=153477.7,21785.5,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=9265 pad_age_ms=7 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:41.073] MENU: engine stop flags (G+588..58D) now: none
+[05:57:41.178] VPad: state -> ok frame=3138 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201895.8 field=0 menu_pause=1 fg=0 armed=1 pad_reads=9433 pad_age_ms=6 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:41.308] VPad: press A 120 -> ok press 1000 120 ms (14 pad reads rounds)
+[05:57:41.729] MENU: game menu signal now closed (5A37D4=0 D63C0=0)
+[05:57:42.308] VPad: state -> ok frame=3203 active=1 loading=0 paused=0 player=1 pos=153477.6,21792.0,201894.9 field=1 menu_pause=0 fg=0 armed=1 pad_reads=9693 pad_age_ms=1 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:42.705] stats/s gpuopt: off: 1540 barriers/frame in 1531 calls -> 1531 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:57:42.705] stats/s drawprep: DQ ON (200 us, 114790 early retries), P1E7 -, W1B -, RPA -
+[05:57:42.705] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 61.0/s vs rendered 45.3/s, L1 timer sleeps 0/s
+[05:57:42.705] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:57:42.705] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:57:42.705] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:57:43.309] VPad: state -> ok frame=3263 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201895.2 field=1 menu_pause=0 fg=0 armed=1 pad_reads=9934 pad_age_ms=1 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:44.310] VPad: state -> ok frame=3323 active=1 loading=0 paused=0 player=1 pos=153477.6,21792.0,201895.6 field=1 menu_pause=0 fg=0 armed=1 pad_reads=10174 pad_age_ms=2 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:45.311] VPad: state -> ok frame=3383 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201894.7 field=1 menu_pause=0 fg=0 armed=1 pad_reads=10415 pad_age_ms=3 key_age_ms=8 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:57:48.849] OSD: stats: rendered 44.9 fps, displayed 44.9 fps (x1.00, FG off, 1 chain(s), threads game 44.9/s presenter 0.0/s), game ticks 60.6/s, speed 1.01x, vrr tier 60 cap 60 armed 60, draws 3215, skipped 0
+[05:58:07.387] VPad: state -> ok frame=4707 active=1 loading=0 paused=0 player=1 pos=153477.6,21792.0,201895.0 field=1 menu_pause=0 fg=0 armed=1 pad_reads=15721 pad_age_ms=3 key_age_ms=3 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:58:12.724] stats/s gpuopt: off: 1238 barriers/frame in 1229 calls -> 1229 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:58:12.724] stats/s drawprep: DQ ON (200 us, 114790 early retries), P1E7 -, W1B -, RPA -
+[05:58:12.724] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 60.5/s vs rendered 48.8/s, L1 timer sleeps 0/s
+[05:58:12.724] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:58:12.724] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:58:12.724] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:58:16.237] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (273 rounds)
+[05:58:17.703] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:18.526] VPad: wait 400 -> ok waited 400 ms
+[05:58:18.761] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:18.934] OSD: stats: rendered 53.1 fps, displayed 53.1 fps (x1.00, FG off, 1 chain(s), threads game 53.1/s presenter 0.0/s), game ticks 61.0/s, speed 1.02x, vrr tier 60 cap 60 armed 60, draws 4659, skipped 0
+[05:58:19.695] VPad: wait 400 -> ok waited 400 ms
+[05:58:22.214] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (181 rounds)
+[05:58:23.631] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:25.342] VPad: wait 400 -> ok waited 400 ms
+[05:58:27.184] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:58:27.950] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:29.915] VPad: wait 400 -> ok waited 400 ms
+[05:58:31.244] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (183 rounds)
+[05:58:33.232] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (272 rounds)
+[05:58:34.603] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:35.214] VPad: wait 400 -> ok waited 400 ms
+[05:58:35.698] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:58:36.573] VPad: wait 400 -> ok waited 400 ms
+[05:58:39.054] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (183 rounds)
+[05:58:39.813] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:58:41.610] VPad: wait 400 -> ok waited 400 ms
+[05:58:42.755] stats/s gpuopt: off: 1366 barriers/frame in 1357 calls -> 1357 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:58:42.755] stats/s drawprep: DQ ON (200 us, 114790 early retries), P1E7 -, W1B -, RPA -
+[05:58:42.755] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 59.0/s vs rendered 49.2/s, L1 timer sleeps 0/s
+[05:58:42.755] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:58:42.755] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:58:42.755] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:58:43.370] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:58:44.187] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:45.756] VPad: wait 400 -> ok waited 400 ms
+[05:58:47.840] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (181 rounds)
+[05:58:49.403] OSD: stats: rendered 55.2 fps, displayed 55.2 fps (x1.00, FG off, 1 chain(s), threads game 55.2/s presenter 0.0/s), game ticks 59.1/s, speed 0.99x, vrr tier 60 cap 60 armed 60, draws 6181, skipped 0
+[05:58:50.599] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (271 rounds)
+[05:58:51.540] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:53.144] VPad: wait 400 -> ok waited 400 ms
+[05:58:53.415] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:58:53.955] VPad: wait 400 -> ok waited 400 ms
+[05:58:55.538] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (183 rounds)
+[05:58:56.922] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:58:57.630] VPad: wait 400 -> ok waited 400 ms
+[05:58:59.290] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (270 rounds)
+[05:59:00.100] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:01.848] VPad: wait 400 -> ok waited 400 ms
+[05:59:03.175] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (181 rounds)
+[05:59:05.826] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (271 rounds)
+[05:59:07.177] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:09.534] VPad: wait 400 -> ok waited 400 ms
+[05:59:10.808] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:12.626] VPad: wait 400 -> ok waited 400 ms
+[05:59:12.777] stats/s gpuopt: off: 1316 barriers/frame in 1307 calls -> 1307 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:59:12.777] stats/s drawprep: DQ ON (200 us, 117156 early retries), P1E7 -, W1B -, RPA -
+[05:59:12.777] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 59.5/s vs rendered 59.5/s, L1 timer sleeps 0/s
+[05:59:12.777] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:59:12.777] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:59:12.777] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:59:14.799] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (183 rounds)
+[05:59:15.309] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:16.863] VPad: wait 400 -> ok waited 400 ms
+[05:59:18.500] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:59:19.510] OSD: stats: rendered 51.8 fps, displayed 51.8 fps (x1.00, FG off, 1 chain(s), threads game 51.8/s presenter 0.0/s), game ticks 59.5/s, speed 0.99x, vrr tier 60 cap 60 armed 60, draws 7783, skipped 0
+[05:59:20.161] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:21.442] VPad: wait 400 -> ok waited 400 ms
+[05:59:23.660] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (183 rounds)
+[05:59:25.420] VPad: state -> ok frame=9384 active=1 loading=0 paused=0 player=1 pos=152288.7,21832.4,201843.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=34469 pad_age_ms=2 key_age_ms=2 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[05:59:28.244] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (271 rounds)
+[05:59:28.643] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:29.207] VPad: wait 400 -> ok waited 400 ms
+[05:59:29.611] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:31.138] VPad: wait 400 -> ok waited 400 ms
+[05:59:32.278] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (183 rounds)
+[05:59:32.477] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:32.989] VPad: wait 400 -> ok waited 400 ms
+[05:59:34.795] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:59:36.044] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:36.604] VPad: wait 400 -> ok waited 400 ms
+[05:59:37.761] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (183 rounds)
+[05:59:39.445] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (273 rounds)
+[05:59:39.904] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:41.438] VPad: wait 400 -> ok waited 400 ms
+[05:59:41.663] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:42.176] VPad: wait 400 -> ok waited 400 ms
+[05:59:42.798] stats/s gpuopt: off: 1244 barriers/frame in 1235 calls -> 1235 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[05:59:42.798] stats/s drawprep: DQ ON (200 us, 117399 early retries), P1E7 -, W1B -, RPA -
+[05:59:42.798] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 59.5/s vs rendered 57.5/s, L1 timer sleeps 0/s
+[05:59:42.798] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[05:59:42.798] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[05:59:42.798] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[05:59:43.354] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (182 rounds)
+[05:59:43.845] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:45.373] VPad: wait 400 -> ok waited 400 ms
+[05:59:46.997] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:59:47.240] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:47.772] VPad: wait 400 -> ok waited 400 ms
+[05:59:49.063] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (183 rounds)
+[05:59:49.547] OSD: stats: rendered 51.6 fps, displayed 51.6 fps (x1.00, FG off, 1 chain(s), threads game 51.6/s presenter 0.0/s), game ticks 59.5/s, speed 0.99x, vrr tier 60 cap 60 armed 60, draws 9378, skipped 0
+[05:59:51.747] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (271 rounds)
+[05:59:52.130] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:52.698] VPad: wait 400 -> ok waited 400 ms
+[05:59:52.997] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[05:59:53.762] VPad: wait 400 -> ok waited 400 ms
+[05:59:55.946] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (181 rounds)
+[05:59:56.171] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[05:59:56.795] VPad: wait 400 -> ok waited 400 ms
+[05:59:58.430] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (271 rounds)
+[05:59:58.804] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[06:00:00.326] VPad: wait 400 -> ok waited 400 ms
+[06:00:01.462] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (183 rounds)
+[06:00:03.089] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (272 rounds)
+[06:00:03.513] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[06:00:05.059] VPad: wait 400 -> ok waited 400 ms
+[06:00:05.306] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[06:00:05.828] VPad: wait 400 -> ok waited 400 ms
+[06:00:06.959] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (182 rounds)
+[06:00:07.881] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[06:00:09.972] VPad: wait 400 -> ok waited 400 ms
+[06:00:12.817] stats/s gpuopt: off: 1362 barriers/frame in 1353 calls -> 1353 calls (+0 %), dropped 0.0/frame, undo pairs 0.0/frame, max batch 0
+[06:00:12.817] stats/s drawprep: DQ ON (200 us, 117399 early retries), P1E7 -, W1B -, RPA -
+[06:00:12.817] stats/s TG: switch off, state off, logic tick cap 0 (0 = stock), game ticks 59.7/s vs rendered 41.8/s, L1 timer sleeps 0/s
+[06:00:12.817] stats/s ASYNC: 3 async compute queue(s), slots 3 4 6 (AS0 off)
+[06:00:12.817] stats/s: W3 waits 0 (MsgWait), L1 timer sleeps 0, F1 timer sleeps 0, WK wakes kept 0 / skipped 0
+[06:00:12.817] stats/s exp: W6 waits 0 avg 0 us (slept 0, spun 0, wakes 0) | PP scans 0 skipped 0 | FPC hits 0 misses 0 (0 %) bypass 0 | M1 refreshes 0 | X1 skipped 0 passed 0 | E1 passes 0 updated 0 skipped 0
+[06:00:13.389] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (273 rounds)
+[06:00:13.848] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[06:00:14.465] VPad: wait 400 -> ok waited 400 ms
+[06:00:15.830] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (181 rounds)
+[06:00:18.930] VPad: stick L 0 1 1500 -> ok stick L 0 32767 1500 ms (271 rounds)
+[06:00:19.542] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[06:00:19.661] OSD: stats: rendered 53.9 fps, displayed 53.9 fps (x1.00, FG off, 1 chain(s), threads game 53.9/s presenter 0.0/s), game ticks 59.9/s, speed 1.00x, vrr tier 60 cap 60 armed 60, draws 10787, skipped 0
+[06:00:20.334] VPad: wait 400 -> ok waited 400 ms
+[06:00:20.880] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[06:00:22.462] VPad: wait 400 -> ok waited 400 ms
+[06:00:23.682] VPad: stick L 1 0 1000 -> ok stick L 32767 0 1000 ms (183 rounds)
+[06:00:23.964] VPad: press RB 80 -> ok press 0200 80 ms (16 pad reads rounds)
+[06:00:24.512] VPad: wait 400 -> ok waited 400 ms
+[06:00:26.358] VPad: stick L 0 -1 1500 -> ok stick L 0 -32767 1500 ms (272 rounds)
+[06:00:27.657] VPad: press RB 80 -> ok press 0200 80 ms (17 pad reads rounds)
+[06:00:28.198] VPad: wait 400 -> ok waited 400 ms
+[06:00:29.675] VPad: stick L -1 0 1000 -> ok stick L -32767 0 1000 ms (182 rounds)
+[06:00:30.861] VPad: state -> ok frame=13310 active=1 loading=0 paused=0 player=1 pos=152097.8,21699.3,201127.3 field=1 menu_pause=0 fg=0 armed=1 pad_reads=50205 pad_age_ms=4 key_age_ms=5 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:00:30.994] MENU: engine stop flags (G+588..58D) now: 588
+[06:00:31.321] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=0 queueEmpty=1 loading=0 top=000001CE273927D0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[06:00:31.422] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=1 queueEmpty=1 loading=0 top=000001CE273927D0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[06:00:31.478] HITCH #7 gap 387.6 ms | gt cpu 0.0 ms 0% | proc cpu 1250.0 ms 3.23 cores | pf 42235 | rd 3.5 MB 102 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.1 recyc 0.0 tok95 0.0 | frame drain 0.0/0.0 full 0.0 hw 0.2 sync 7.2/7.0 | pj pso - miss - | menu 0 pause 0 mode 0 act 0 | ld A -/- B -/- infl - | ram 260/16309 MB load 98% | commit 29978/49077 MB | ws 7136 MB | vram 5846/7298 MB | t 228.7 s
+[06:00:31.478] SaveFilesGate: candidate=0 verdict=0 Enabled=1 readable=0 title=0 state=1 queueEmpty=1 loading=0 top=000001CE273927D0
+[06:00:31.478] LiveTitleWatch: reset279A=0 countdown=0 m+10=1 S+28(slot)=0 S+41(ckfail)=0 S+38(busy)=0 op=0 top=000001CE273927D0 state=1 title=0
+[06:00:31.478] MENU: engine stop flags (G+588..58D) now: none
+[06:00:31.478] MENU: game menu signal now OPEN (5A37D4=0 D63C0=1)
+[06:00:31.711] HITCH #8 gap 233.8 ms | gt cpu 15.6 ms 7% | proc cpu 718.8 ms 3.07 cores | pf 16273 | rd 0.2 MB 4 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle 0.0 recyc 0.0 tok95 0.0 | frame drain 0.0/0.0 full 0.0 hw 0.1 sync 0.1/0.1 | pj pso - miss - | menu 0 pause 0 mode 0 act 0 | ld A -/- B -/- infl - | ram 320/16309 MB load 98% | commit 29978/49077 MB | ws 7103 MB | vram 5776/7298 MB | t 229.0 s
+[06:00:31.825] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=2 queueEmpty=1 loading=0 top=000001CE273927D0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[06:00:32.176] HITCH #9 gap 396.1 ms | gt cpu 0.0 ms 0% | proc cpu 1234.4 ms 3.12 cores | pf 7368 | rd 0.8 MB 8 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle -0.1 recyc 0.0 tok95 0.0 | frame drain 0.0/0.0 full 0.0 hw 0.1 sync 0.0/0.0 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 822/16309 MB load 94% | commit 29613/49077 MB | ws 6809 MB | vram 5212/7379 MB | t 229.4 s
+[06:00:32.176] SaveFilesGate: candidate=0 verdict=0 Enabled=1 readable=0 title=0 state=3 queueEmpty=1 loading=0 top=000001CE273927D0
+[06:00:32.227] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=7 queueEmpty=1 loading=0 top=000001CE273927D0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[06:00:32.328] TITLEGATE verdict=not-title candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=1 title=0 state=8 queueEmpty=1 loading=0 top=000001CE273927D0 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000
+[06:00:34.272] HITCH #10 gap 2000.3 ms | gt cpu 0.0 ms 0% | proc cpu 3359.4 ms 1.68 cores | pf 16618 | rd 0.0 MB 2 ops | wr 0.0 MB | last - 0.0 ms end - ms ago | max - 0.0 ms tid 0 - | waits W3 0 L1 0 F1 0 W6 0/0.0 GF 0/0.0 DS 0/0.0 | bks ecl 0.0 idle 0.1 recyc -0.0 tok95 -0.0 | frame drain 0.2/0.2 full 0.0 hw 0.1 sync 0.1/0.1 | pj pso - miss - | menu 0 pause 1 mode 0 act 0 | ld A -/- B -/- infl - | ram 1188/16309 MB load 92% | commit 29400/49077 MB | ws 6798 MB | vram 3983/7379 MB | t 231.5 s
+[06:00:34.272] SaveFilesGate: candidate=0 verdict=0 Enabled=1 readable=0 title=0 state=10 queueEmpty=1 loading=0 top=000001CE273927D0
+[06:00:34.337] TITLEGATE verdict=unreadable candidate=0 menuIdle=0 stableMs=0 Enabled=0 logOnly=1 readable=0 title=0 state=4294967295 queueEmpty=0 loading=1 top=0000000000000000 +30=0000000000000000 +38=0000000000000000 +40=0000000000000000 +58=0000000000000000

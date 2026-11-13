@@ -1,0 +1,12 @@
+ok vpad 1.8.12 mode=exclusive armed=1 unfocused=on
+[  0s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: err timeout: the game did not read the pad (press cancelled)
+[  4s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: err timeout: the game did not read the pad (press cancelled)
+[  8s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (4 pad reads rounds)
+[ 12s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 1000 120 ms (8 pad reads rounds)
+[ 17s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 1000 120 ms (46 pad reads rounds)
+[ 21s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (44 pad reads rounds)
+[ 25s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (44 pad reads rounds)
+[ 29s] not in the field (loading=0 paused=0 menu_pause=0 player=0) -> press A: ok press 1000 120 ms (50 pad reads rounds)
+[ 33s] not in the field (loading=0 paused=0 menu_pause=1 player=0) -> press A: ok press 2000 120 ms (3 pad reads rounds)
+[ 54s] not in the field (loading=0 paused=0 menu_pause=1 player=1) -> press A: ok press 1000 120 ms (7 pad reads rounds)
+in the field after 59 s, 10 A presses: frame=21926 active=1 loading=0 paused=0 player=1 pos=153477.7,21792.0,201894.8 field=1 menu_pause=0 fg=0 armed=1 pad_reads=66097 pad_age_ms=6 key_age_ms=7 held=0000 lx=0 ly=0 unfocused=on/0 clients=1

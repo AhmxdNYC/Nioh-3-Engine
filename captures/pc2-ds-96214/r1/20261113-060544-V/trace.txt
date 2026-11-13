@@ -1,0 +1,13 @@
+[06:05:45] lock: acquired (device pc2)
+[06:05:45] arm V EF D6995A0F DS=1 MaxFps=0 REN_FPS=120
+[06:05:45] ini: DS = 1 | DSDefaultV = 1 | DQ = 1 | PCM = 0 | MaxFps = 0
+[06:05:45] config: <REN_RAT>65</REN_RAT> <REN_FPS>120</REN_FPS> <RESOLUTION_SCALING>FSR</RESOLUTION_SCALING> <FRAME_GENERATION>OFF</FRAME_GENERATION>
+[06:05:55] game pid 9832
+[06:06:53] title->field True
+[06:07:15] state: ok frame=22534 active=1 loading=0 paused=0 player=1 pos=153557.7,21789.9,202240.1 field=1 menu_pause=0 fg=0 armed=1 pad_reads=69535 pad_age_ms=0 key_age_ms=0 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:07:22] shot: steam windows minimized=1 game_window=True
+[06:08:33] WIN V-1 fps=50.43 low1=38.05 p99ms=24.99 late20=1259 gpu_ms=19.491 n=3022 cpu={"wall_seconds": 60.003073050007224, "cpu_seconds": 563.734375, "cpu_cores": 9.395091723555185, "kind": "summary", "complete": true, "identity": "134390523464813809", "start_utc": "2026-11-13T14:07:24.172220+00:00", "end_utc": "2026-11-13T14:08:24.173770+00:00", "start_monotonic_ns": 76492437000000, "end_monotonic_ns": 76552437000000, "start_qpc_ms": 76492597.9198, "end_qpc_ms": 76552600.99285, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [4.879799991846085, 0.37870000302791595]} state=ok frame=28795 active=1 loading=0 paused=0 player=1 pos=152474.1,21786.6,202584.0 field=1 menu_pause=0 fg=0 armed=1 pad_reads=94615 pad_age_ms=12 key_age_ms=13 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:09:45] WIN V-2 fps=48.88 low1=38.53 p99ms=25.1 late20=1727 gpu_ms=20.282 n=2929 cpu={"wall_seconds": 59.99781444999576, "cpu_seconds": 550.859375, "cpu_cores": 9.181324020712541, "kind": "summary", "complete": true, "identity": "134390523464813809", "start_utc": "2026-11-13T14:08:35.186150+00:00", "end_utc": "2026-11-13T14:09:35.182418+00:00", "start_monotonic_ns": 76563453000000, "end_monotonic_ns": 76623453000000, "start_qpc_ms": 76563611.36605, "end_qpc_ms": 76623609.1805, "clock": "QueryPerformanceCounter milliseconds", "boundary_query_ms": [4.424099996685982, 0.21880000829696655]} state=ok frame=34538 active=1 loading=0 paused=0 player=1 pos=152328.4,21878.5,204040.5 field=1 menu_pause=0 fg=0 armed=1 pad_reads=117627 pad_age_ms=4 key_age_ms=6 held=0000 lx=0 ly=0 unfocused=on/0 clients=1
+[06:10:06] EF asi BA089162 + ini + config.xml restored
+[06:10:06] save restored robocopy 1
+[06:10:06] done
