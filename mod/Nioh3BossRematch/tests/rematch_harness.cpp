@@ -264,6 +264,20 @@ int main(int argc, char** argv) {
         CHECK(strcmp(cycle.Label(0), "All") == 0, "first stop is All");
         CHECK(strcmp(cycle.Label(1), "Multi") == 0, "second stop is Multi");
         CHECK(strcmp(cycle.Label(cycle.Stops() - 2), "Scrolls") == 0 && strcmp(cycle.Label(cycle.Stops() - 1), "Favorites") == 0, "last stops are Scrolls, Favorites");
+        {   // human #95155: Dojos stop = catalogue mission_class dojo-way rows, right before Scrolls; dojos stay in their era too
+            int dojoStop = -1, dojos = 0, dojoIn = 0, dojoLeak = 0, dojoEra = 0;
+            for (int i = 0; i < cycle.Stops(); ++i) if (strcmp(cycle.Label(i), "Dojos") == 0) dojoStop = i;
+            CHECK(cycle.hasDojo && dojoStop == cycle.Stops() - 3, "Dojos stop sits before Scrolls, Favorites");
+            for (const rcore::Row& r : rows) {
+                if (r.dojo) ++dojos;
+                const bool in = dojoStop >= 0 && rcore::RowInListStop(r, cycle, dojoStop);
+                if (in && r.dojo) ++dojoIn;
+                if (in && !r.dojo) ++dojoLeak;
+                if (r.dojo) for (int e = 0; e < cycle.nEra; ++e) if (rcore::RowInListStop(r, cycle, 2 + e)) { ++dojoEra; break; }
+            }
+            printf("dojos: %d rows, %d in Dojos, %d leak, %d in an era\n", dojos, dojoIn, dojoLeak, dojoEra);
+            CHECK(dojos == 9 && dojoIn == 9 && dojoLeak == 0 && dojoEra == 9, "Dojos lists the 9 dojo-way rows only, each also in its era");
+        }
         int sengoku = -1, wavesEra = -1;
         for (int i = 0; i < cycle.nEra; ++i) {
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;

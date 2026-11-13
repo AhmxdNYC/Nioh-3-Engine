@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.5.2"
+#define ADDON_VERSION "1.5.3"
 // Soul-core form code is compiled only with /DBR_SOULCORE=1. build.bat passes it (1.8.0 and later ship the forms); without it the code compiles out.
 #ifndef BR_SOULCORE
 #define BR_SOULCORE 0

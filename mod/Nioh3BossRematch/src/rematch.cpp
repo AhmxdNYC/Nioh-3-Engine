@@ -5285,7 +5285,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
         else if (item == kItPractice || g_uiPages.page == uPractice) snprintf(footer, nf, "Normal rewards, drops and progression apply. Walk to the arena; death uses the native retry. No automatic restart. A selects / B back.");
         else if (item <= kItGroupBase) snprintf(footer, nf, "Startup preferences. Every change is saved at once and applies after a game restart.");
-        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, Scrolls, and Favorites. Right on a row marks a favorite, Left unmarks it.", ListFilterLabel());
+        else if (item == kItListFilter) snprintf(footer, nf, "List: %s. A / Left / Right cycles All, Multi, each era, Dojos, Scrolls, and Favorites. Right on a row marks a favorite, Left unmarks it.", ListFilterLabel());
         else if (item == kItBrowse) snprintf(footer, nf, "Choose a boss: Fight now in its arena, or Train here. Beaten and unbeaten bosses use the same guarded route.");
         else if (item == kItBack) snprintf(footer, nf, "Return one level. B cancels a confirmation first; B at the root closes.");
         else if (item == kItDeathCut) snprintf(footer, nf, "Training / spawned Boss Matches: play the boss death animation after one final blow. No story cutscene. Needs Require final blow ON and No grapple OFF. Saved.");
