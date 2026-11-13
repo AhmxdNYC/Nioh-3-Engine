@@ -435,3 +435,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-13 8:24 am EST | regression-pc/0 | EF DS=1 default review #96092 PASS (gx-pc/ef-ds-default-96048 7e395fc3, EF 8eaeab63): only DS changed, header --check 367 PASS, DS 0/2/no-L1 paths ok. Audit NEW ROW_WARN is pre-existing 1.8.13. Proven offline | next: pc ships EF build | RESULT #96112
 - 2026-11-13 1:27 PM EST | installer-pc | done: #96124 updater half of DS migration dry run PASS 5/5 | proven offline (placeholder EF) | next: EF migration test when gx-pc's DSDefaultV commit lands, then sim_ds.py with real EF | Temp/ds-mig-96124/
+2026-11-13 08:32 EST | performance-pc/0 | PJH OFF/ON Main PC boss route done: no PSO hitch (max create 0.54 ms), DROP | proven (2 launches, EF ba089162, captures/pc-pjh-96049) | next: lead picks the next optimization item | e9a92b2c, tools/testmatrix/pc_pjh_arm.ps1, pc_pjh_report.py
