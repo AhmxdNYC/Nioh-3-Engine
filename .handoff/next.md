@@ -418,3 +418,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 10:16 am EST | regression-pc | c5f0e299 #94070 regression PASS (#96574); live CrashTest queued pc/1 #96563.
 - 2026-11-13 10:20 am EST | gx-pc | #94070 r2 after review #96570 minors: EF a2d6b291 (#7288) BR e01b051b (#7289) commit 4eae9a07 branch gx-pc/crashcov-94070. Supersedes EF 2ef2b0ee/BR 5a7cc9de for the pc/1 live CrashTest (RESULT #96584). Offline crashreport_report_test ALL PASSED. Not installed, no game.
 - 2026-11-13 | pc2/1 | session end: #95399 DONE (RESULT sent re #95371); nothing half-done; next = lead ships reports/38 2e6c25ff; PC2 idle on 1.8.13 stock, lock free; files C:/nioh3-re/t95399.
+- 2026-11-13 10:40 am EST | pc/1 | #96585 crashcov r2 EF a2d6b291 + BR e01b051b live CrashTest PASS on Main PC; restored public 1.8.13; no game running.
