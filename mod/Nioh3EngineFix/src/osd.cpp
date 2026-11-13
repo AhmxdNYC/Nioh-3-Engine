@@ -36,6 +36,7 @@
 #pragma intrinsic(_ReturnAddress)
 #include "gimerge.h"
 #include "gpuopt.h"
+#include "devremoved.h"
 #include "gpuprof.h"
 #include "menu.h"
 #include "padlat.h"
@@ -929,6 +930,7 @@ void DestroyCtx(Ctx& c) {
     for (auto& a : c.alloc) SafeRelease(a);
     SafeRelease(c.fence);
     if (c.ev) CloseHandle(c.ev);
+    devremoved::Forget(c.dev);
     SafeRelease(c.dev);
     SafeRelease(c.q);
     c = Ctx{};
@@ -974,6 +976,7 @@ bool BuildCtx(Ctx& c, IDXGISwapChain* sc) {
         return false;
     }
     CHECK(c.q->GetDevice(IID_PPV_ARGS(&c.dev)), "ID3D12CommandQueue::GetDevice");
+    devremoved::NoteDevice(c.dev);  // crash report asks it for GetDeviceRemovedReason (#96825)
     gpuopt::ObserveVrsDevice(c.dev);  // capability probe also runs with VRS off
     DXGI_SWAP_CHAIN_DESC sd{};
     sc->GetDesc(&sd);

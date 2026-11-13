@@ -4,6 +4,7 @@
 #include "crashreport.h"
 #include "crashupload.h"
 #include "crashblame.h"
+#include "devremoved.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -428,6 +429,11 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     o.P("exe base:  0x%llx, known build (v2.02): %s\r\n", (unsigned long long)g_base, g_known ? "yes" : "NO");
     o.P("\r\n-- mod build --\r\n%s", g_shaText[0] ? g_shaText : "  (no sha available)\r\n");
     {
+        char dr[512];  // #96825: why the GPU was removed (the game's own 0xE0000001 box only repeats 0x887A0005)
+        devremoved::Describe(dr, sizeof dr);
+        o.P("\r\n-- gpu device --\r\n  %s", dr);
+    }
+    {
         o.P("\r\n-- game exe --\r\n");
         const IMAGE_NT_HEADERS* nth = nullptr;
         if (g_base) {
@@ -841,6 +847,7 @@ void Start(const StartInfo& info) {
     g_startTick = GetTickCount();
     ComputeShas();
     RegisterModHistory();
+    devremoved::Start(info.iniPath, false);  // [Debug] Dred = 1 only; before the game's device exists
     if (HANDLE h = CreateThread(nullptr, 128 * 1024, ExeShaThread, nullptr, 0, nullptr)) CloseHandle(h);
     if (info.iniPath) wcsncpy_s(g_iniPath, info.iniPath, _TRUNCATE);
     {
