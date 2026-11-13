@@ -1,5 +1,5 @@
 {
-  "version": "1.8.12",
+  "version": "1.8.13",
   "url": "https://nioh3-mod-feedback.vercel.app",
-  "notes": "Favorites sort first, dedicated Player settings, page resets, and reliable queued soul-core presses."
+  "notes": "Every fightable boss lights up in Training, Death Veil known-bug warning, crash reports name the cause."
 }

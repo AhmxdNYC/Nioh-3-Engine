@@ -1,57 +1,57 @@
 {
   "schema": 1,
-  "version": "1.8.12",
-  "news": "Favorites sort first without losing selection; dedicated Player settings tab, page resets to shipped defaults, and reliable queued soul-core presses.",
+  "version": "1.8.13",
+  "news": "1.8.13: every boss you can fight in Training lights up (no save progress needed), the Death Veil row shows a known-bug warning, and crash reports now say what caused the crash.",
   "files": [
     {
       "name": "Nioh3EngineFix.asi",
-      "sha256": "a1b32e132158745b82a6cfff009db709931cc58aee2f57c6812b3c139f8190f4",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3EngineFix.asi"
+      "sha256": "ba089162d5a25914021dd458ac570cce4577273e41faec81bc748209d7553bc9",
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3EngineFix.asi"
     },
     {
       "name": "Nioh3Training.asi",
-      "sha256": "a7c351094722d10441d2eb4c15a6d561aebd964519ac1f6726dda5fe4123758a",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3Training.asi"
+      "sha256": "bcc4783e262887d48e09664ce3b8e1695197d4c4d42ad65cd50f321f3b98d239",
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3Training.asi"
     },
     {
       "name": "Nioh3BossRematch.asi",
-      "sha256": "613b4d2f640d0d6991670609ae7dd3693651445d114b0e99161f1f3f81a81d0b",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3BossRematch.asi"
+      "sha256": "8076cdd6cddc519319789b887be32ec786bb37e3908dfd0479bffc64c843a0fc",
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3BossRematch.asi"
     },
     {
       "name": "Nioh3CamKiProbe.asi",
       "sha256": "a2f3e418a0b777c61b165a241953f3f3d1141911b8e2cd647bb2f2b26726fd01",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3CamKiProbe.asi"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3CamKiProbe.asi"
     },
     {
       "name": "Nioh3CamKiProbe.ini",
       "sha256": "e708e2c693ceb75bf7ac35589a629d4f6e33af5792f7c9b12557bd5fb4b74b81",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3CamKiProbe.ini"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3CamKiProbe.ini"
     },
     {
       "name": "Nioh3BossRematch_bosses.tsv",
-      "sha256": "2156cc6a1f4b1e12b64962a1062f26e74efbdd388893b2fe10f376a24bae5999",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3BossRematch_bosses.tsv"
+      "sha256": "4ab52b0eba7a88cb517374548ee646dd34222081f87dd086e3f2708ac57384e4",
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3BossRematch_bosses.tsv"
     },
     {
       "name": "Nioh3Training_actionsets.tsv",
       "sha256": "1516f64346aeeccf008d658eb324c14969bba019569c5bb48fa2022f59f6700d",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3Training_actionsets.tsv"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3Training_actionsets.tsv"
     },
     {
       "name": "Nioh3Training_action_records.tsv",
       "sha256": "e772852f067d318840d4a92450f7b8fb9111826a5cd0fcb2b52697ce3728a502",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3Training_action_records.tsv"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3Training_action_records.tsv"
     },
     {
       "name": "Nioh3Training_arenas.tsv",
       "sha256": "bb7b1125ea0594cf5a8d6b4180bf4d5cb99a96a617a2476b70c8ec1903888df9",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3Training_arenas.tsv"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3Training_arenas.tsv"
     },
     {
       "name": "Nioh3Training_bgm.tsv",
       "sha256": "850ec6c7e3d46a2ffc960939c1dd4c7439f184e1507918f5df688902addb03b0",
-      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.12/Nioh3Training_bgm.tsv"
+      "url": "https://nioh3-mod-feedback.vercel.app/releases/1.8.13/Nioh3Training_bgm.tsv"
     }
   ]
 }

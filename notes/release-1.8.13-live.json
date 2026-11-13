@@ -1,0 +1,12 @@
+{
+  "version": "1.8.13",
+  "deployment": "https://nioh3-mod-feedback-fdjtedcmz-ahmadnycs-projects.vercel.app",
+  "builds": {"EngineFix": "ba089162", "BossRematch": "8076cdd6", "Training": "bcc4783e", "bosses_tsv": "4ab52b0e", "CamKi": "a2f3e418", "Updater": "e20d4632", "Setup.exe": "c0d538c4", "Linux_pyz": "ca30a42f", "full_install": "979d7511", "combined": "e576c658"},
+  "verified_payloads": 15,
+  "manifests": "PASS (stable.json + version.json 1.8.13 live, 15/15 hashes)",
+  "github": "v1.8.13 Latest, 16 assets, 15/15 digests",
+  "gates": "pc/1 live #94976, regression #94992, installer #95007",
+  "not_included": "site/api/crash.py WHO lines (needs human OK, #94703); in-game self-update popup #87687",
+  "rollback": "D:/nioh3-re/rel1813-bak/{stable,version}-1.8.12.json + gh release edit v1.8.12 --latest",
+  "release": "https://github.com/AhmxdNYC/Nioh-3-Engine/releases/tag/v1.8.13"
+}
