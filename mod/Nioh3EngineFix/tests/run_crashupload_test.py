@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         shutil.copyfile(temp / "inventory.dll", target)
     exe = temp / "crashupload_test.exe"
     run(["cl", "/nologo", "/O2", "/MT", "/EHsc", "/std:c++17", "/DUNICODE", "/D_UNICODE",
-         str(MOD / "tests/crashupload_test.cpp"), str(MOD / "src/crashupload.cpp"), str(MOD / "src/inputlog.cpp"),
+         str(MOD / "tests/crashupload_test.cpp"), str(MOD / "src/crashupload.cpp"), str(MOD / "src/crashblame.cpp"), str(MOD / "src/inputlog.cpp"),
          f"/Fe{exe}", "/link", "kernel32.lib", "user32.lib", "winhttp.lib", "bcrypt.lib", "version.lib"], cwd=temp)
     # Never inherit production storage credentials or Vercel mode into local tests.
     for key in ("GITHUB_TOKEN", "GH_TOKEN", "BLOB_READ_WRITE_TOKEN", "VERCEL", "VERCEL_ENV"):

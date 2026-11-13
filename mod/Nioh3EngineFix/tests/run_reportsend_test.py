@@ -12,7 +12,7 @@ setup = next((p for p in (REPO / "tools/msvc/setup_x64.bat",
     pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\tools\msvc\setup_x64.bat")) if p.exists()), None)
 source = ROOT / "tests/reportsend_test.cpp"
 exe = OUT / "reportsend_test.exe"
-cmd = (f'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /permissive- /DUNICODE /D_UNICODE "{source}" "{ROOT / "src/crashupload.cpp"}" "{ROOT / "src/inputlog.cpp"}" /Fo"{OUT}\\\\" /Fe"{exe}" '
+cmd = (f'cl /nologo /O2 /MT /EHsc /std:c++17 /W4 /permissive- /DUNICODE /D_UNICODE "{source}" "{ROOT / "src/crashupload.cpp"}" "{ROOT / "src/crashblame.cpp"}" "{ROOT / "src/inputlog.cpp"}" /Fo"{OUT}\\\\" /Fe"{exe}" '
        f'/link kernel32.lib user32.lib winhttp.lib bcrypt.lib version.lib advapi32.lib')
 batch = OUT / "build.cmd"
 batch.write_text('@echo off\n' + (f'call "{setup}" >nul\n' if setup else '') + cmd + '\nexit /b %errorlevel%\n')

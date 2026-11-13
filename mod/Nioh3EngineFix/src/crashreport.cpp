@@ -3,6 +3,7 @@
 #pragma comment(lib, "advapi32.lib")
 #include "crashreport.h"
 #include "crashupload.h"
+#include "crashblame.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -403,6 +404,12 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
             o.P("access:    %s of 0x%llx\r\n", k, (unsigned long long)er->ExceptionInformation[1]);
         }
         o.P("flags:     0x%lX, %lu parameters\r\n", er->ExceptionFlags, er->NumberParameters);
+    }
+    if (er || ctx) {  // human #94391/#94396: name what crashed (our mod, another mod or program, a driver, Windows, the game)
+        static char blame[16384];
+        crashblame::Analyze(er, ctx, blame, sizeof blame, nullptr, 0);
+        o.P("\r\n-- who crashed (best guess) --\r\n");
+        o.W(blame, strlen(blame));
     }
     if (ctx) {
         o.P("\r\n-- registers --\r\n");

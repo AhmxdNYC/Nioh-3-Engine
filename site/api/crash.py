@@ -314,11 +314,15 @@ def _issue_text(rec: dict, sig: str) -> tuple[str, str]:
     mods = ", ".join(f"{m.get('name')} {m.get('sha', '')} {m.get('ver', '')}".strip() for m in rec.get("mods", []))
     modules = ", ".join(f"{m['name']} ({m['image_size']} image bytes)" for m in rec.get("modules", []))
     game = rec.get("game", {})
+    # crashblame verdict lines (EngineFix puts them first in "last"; human #94391/#94396)
+    who = [f"- {x['fields']['line']}" for x in rec.get("last", [])
+           if isinstance(x, dict) and isinstance(x.get("fields"), dict) and str(x["fields"].get("line", "")).startswith("WHO")][:4]
     lines = [
         "### Automatic crash report",
         "",
         f"- Signature: `{sig}` (module + offset + code + EngineFix version)",
         f"- Exception: `{f['code']}` {rec.get('exc_name', '')} at `{f['module']}+{f['offset']}` {rec.get('access', '')}",
+        *who,
         f"- Reason: {f.get('reason', '')}",
         f"- Game: {game.get('exe', '?')} stamp `{f.get('game_stamp', game.get('stamp', '?'))}` size {f.get('game_size', game.get('image_size', '?'))} version {game.get('version', '?')} known {game.get('known', '?')}",
         f"- Mods: {mods or '(none listed)'}",
