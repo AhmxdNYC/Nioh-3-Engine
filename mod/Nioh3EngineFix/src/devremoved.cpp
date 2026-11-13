@@ -54,7 +54,12 @@ static void Dred(ID3D12Device* dev, char* out, size_t cap) {
     if (FAILED(dev->QueryInterface(IID_PPV_ARGS(&d))) || !d) { strncat_s(out, cap, "; DRED data not available\n", _TRUNCATE); return; }
     char b[200];
     D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT bo{};
-    if (SUCCEEDED(d->GetAutoBreadcrumbsOutput(&bo))) {
+    const HRESULT bhr = d->GetAutoBreadcrumbsOutput(&bo);
+    if (FAILED(bhr)) {
+        // [Debug] Dred = 1 was requested, but the game's device existed before Start ran, so DRED is not active.
+        snprintf(b, sizeof b, "; DRED requested but not active on this device (breadcrumbs %08lX)\n", (unsigned long)bhr);
+        strncat_s(out, cap, b, _TRUNCATE);
+    } else {
         int total = 0, incomplete = 0;
         for (const D3D12_AUTO_BREADCRUMB_NODE* n = bo.pHeadAutoBreadcrumbNode; n && total < 4096; n = n->pNext, ++total) {
             const UINT last = n->pLastBreadcrumbValue ? *n->pLastBreadcrumbValue : 0;
