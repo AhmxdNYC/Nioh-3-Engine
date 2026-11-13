@@ -428,3 +428,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 12:35 pm EST | regression-pc/0 | #96801 favorites test fix P3 23d1bfe3/P4 4c561b8d PASS (test-only, 37/37, harness 395/395): 1.8.15-18 stack fully clear. #96691 DV rebase e386a777 PASS (#59 only, RB24D col kept, #61 stays off main by design).
 - 2026-11-13 12:45 pm EST | regression-pc/0 | #96814 crash fix #67 4085ec44 (BR 58d86ac8) PASS offline: 0 lost features, despawn_gate OK (fails on main), harness 390/390. Limitation: ActorTableGlobal sig miss disables mod seal despawns (safe).
 - 2026-11-13 12:45 pm EST | pc/1 | #96781 RESULT: 1.8.18 tip af9ccb76 live Main PC PASS 3/3 (Dojo dmg 13084->12178, A-Z+favorites, despawn 5/5, 0 ERR). Main PC restored public 1.8.13, lock free, no test-active.
+- 2026-11-13 12:42 pm EST | regression-pc/0 | queue empty; all reviews answered (#96810 #96816 #96838). No-hardcode baseline is stale (ROW_WARN flag pre-existing).
