@@ -37,6 +37,7 @@ struct Row {
     uint32_t fightStart = 0;
     int fightDist = -1;        // metres from the boss placement
     char fightConf[8] = "";    // high / medium / low
+    char warning[124] = "";    // catalogue warning column (human #94922): known live problem, shown on the row and its footers
     char fightKind[20] = "";   // boss retry point / shrine / spawn point / gadget point / mission start
     float warp[4] = {};        // the start point's spawn x y z yaw (game units / degrees), for the log
     // Fight now v2 (in the arena): a point just inside the arena trigger box (catalogue arena_x..arena_yaw) or a captured position
@@ -113,7 +114,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -133,6 +134,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.missionId = (uint16_t)strtoul(col(cMid).c_str(), nullptr, 0);
         r.storyMission = (uint32_t)strtoul(col(cStory).c_str(), nullptr, 0);
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
+        Ascii(r.warning, sizeof(r.warning), col(cWarn));
         r.wakeStep = col(cWake).empty() ? 0 : atoi(col(cWake).c_str());  // out of range is clamped where it is used (WaveNudgeAt)
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";

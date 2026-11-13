@@ -78,11 +78,14 @@ EXTRA = ["Marubashi Chuya"]      # second boss of the Yagyu Principles duel (0xF
 # wake_step (E rows): the WaveNudgeAt offset that woke each Picture Scroll record in the test runs, so the first warp under the loading
 # screen lands on it. 0 = the record warp itself / not measured (the plain walk). Sources: pc2 #78351 E00-E09, Ally #78283 E10-E19, E07 Ally #78389.
 WAKE_STEP = {0: 4, 1: 1, 4: 2, 7: 9, 8: 1, 9: 3, 10: 2, 17: 1, 18: 1}
+# warning (human #94922): a known live problem shown on the row's menu line and footer, keyed by replay mission id. Data, not code:
+# the menu shows any non-empty warning the same way. Remove the entry once the live fix is proven.
+ROW_WARN = {0xB24D: "Known bug: Death Veil may not appear (bar only, wave never starts). Fix in progress."}
 SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement) -> (session, defeat flag); session-2026-10-08-gamedata.md
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -967,6 +970,8 @@ def mrow(rt, mid, b, lst, ma, fi):
                           "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
                           "arena_boxgeo": ar["geo"]})
     o["lesson"] = _lesson_flag(mid)
+    if mid in ROW_WARN:
+        o["warning"] = ascii_(ROW_WARN[mid])[:120]
     return o
 
 

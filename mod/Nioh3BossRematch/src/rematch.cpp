@@ -3638,6 +3638,13 @@ constexpr int kItFight = 0x10000;  // kItFight + row = "Fight now (in the arena)
 // One sentence for the list footer, the Fight now footer, and the post-cover toast. The catalogue lesson column
 // is the script scan (IsDeathGroupEnemy reached, BossBattleMode never called). The list draws before that script runs.
 static const char kLessonLine[] = "Lesson: defeat the waves, then follow the white dot and hold RB";
+// human #94922: a catalogue warning (known live problem) goes in front of that row's footer. Data-driven, any row.
+static void WarnFooter(char* footer, size_t nf, int row) {
+    if (!footer || !nf || row < 0 || (size_t)row >= g_rows.size() || !g_rows[(size_t)row].warning[0]) return;
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "WARNING: %s %s", g_rows[(size_t)row].warning, footer);
+    snprintf(footer, nf, "%s", tmp);
+}
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
 constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 // Free gap above the live catalogue [kItMoveBase, kItMoveBase+N3CAT_CAP) and below Teleport.
@@ -4475,6 +4482,10 @@ bool ActBossRoute(int item) {
     if (g_confirm != item || confirmedTrain) {
         g_confirm = item; confirmedTrain = false;
         snprintf(g_msg, sizeof(g_msg), tele ? "Train in %s's arena? A confirm / B back. Solo only." : arena ? "Fight %s now in its arena? A confirm / B back. Solo only." : "Start at the shrine before %s? A confirm / B back. Solo only.", g_rows[(size_t)row].name);
+        if (g_rows[(size_t)row].warning[0]) {  // human #94922: say the known problem before the player confirms
+            const size_t used = strlen(g_msg);
+            snprintf(g_msg + used, sizeof(g_msg) - used, " WARNING: %s", g_rows[(size_t)row].warning);
+        }
         return false;
     }
     g_confirm = -9;
@@ -5048,7 +5059,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         }
         else if (it[i] >= kItTrainHere && it[i] < kItTrainHereEnd) {
             const int row = it[i] - kItTrainHere;
-            add(sel ? cWhite : (g_status[(size_t)row].load() == 2 || rcore::WavesRow(g_rows[(size_t)row])) ? cGreen : cGray, sel, "%s %s%s", mk, FavMark(row), g_rows[(size_t)row].name);
+            add(sel ? cWhite : g_rows[(size_t)row].warning[0] ? cOrange : (g_status[(size_t)row].load() == 2 || TrainHereOk(row) || rcore::WavesRow(g_rows[(size_t)row])) ? cGreen : cGray, sel, "%s %s%s%s", mk, FavMark(row), g_rows[(size_t)row].name, g_rows[(size_t)row].warning[0] ? "  (known bug)" : "");  // human #94915: fightable = lit, not save progress
         }
         else if (it[i] == kItRootSummon) add(sel ? cWhite : cGray, sel, "%s Summon a boss here   A: open", mk);
         else if (it[i] == kItRootTools) { const int nb = SpawnedCount(); add(sel ? cWhite : nb ? cGreen : cGray, sel, "%s Active bosses (%d boss%s)   A: open", mk, nb, nb == 1 ? "" : "es"); }
@@ -5158,8 +5169,8 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         } else {
             const Row& r = g_rows[(size_t)it[i]];
             const char* routeWhy = CanMatchArena(it[i]);
-            const char* status = r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
-            const uint32_t c = !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
+            const char* status = r.warning[0] ? "Known bug" : r.lesson ? "Lesson" : r.route == rcore::kE ? "" : !routeWhy ? "Fight now" : TrainHereOk(it[i]) ? "Train here" : "Unavailable";
+            const uint32_t c = r.warning[0] ? cOrange : !routeWhy || TrainHereOk(it[i]) ? cGreen : cDim;
             // human #78402: a scroll row is its own full label; the boss columns cut the enemy name and add 'Waves unverified'.
             if (g_uiPages.page != uActions && rcore::WavesRow(r)) { add(sel ? cWhite : cGreen, sel, "%s %s%s", mk, FavMark(it[i]), r.name); continue; }
             if (g_uiPages.page == uActions) add(sel ? cWhite : c, sel, "%s Replay mission: %s   %s %s", mk, r.name, rcore::RouteName(r.route), r.Verified() ? "" : "unverified");
@@ -5324,6 +5335,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
                 snprintf(footer, nf, "%s. A: start / B: back.", kLessonLine);
             else if (why) snprintf(footer, nf, TrainHereOk(row) ? "Arena route unavailable (%s). A: train here, or choose Train here below. B: back." : "%s. B: back.", why);
             else snprintf(footer, nf, "Fight this boss in its arena, beaten or unbeaten. Solo and progress guards apply. Train here is a separate Practice option. A: start / B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);
             }
         } else if (item >= 0) {
             const Row& r = g_rows[(size_t)item];
@@ -5331,6 +5343,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else if ((g_uiPages.page == uBosses || g_uiPages.page == uRematch) && r.route == rcore::kE)
                 snprintf(footer, nf, "%s: A opens the wave fight. Not a boss. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name);
             else if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) snprintf(footer, nf, "%s: A opens boss actions. Boss %d of %d. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.", r.name, g_sel + 1, n - 1);
+            if (g_uiPages.page == uBosses || g_uiPages.page == uRematch) WarnFooter(footer, nf, item);
             else if (r.route == rcore::kX) snprintf(footer, nf, "No route: %s", r.reason);
             else snprintf(footer, nf, "%s - %s%s. A start, B back.", r.mission[0] ? r.mission : r.name, rcore::RouteName(r.route),
                           r.placement ? "" : "");

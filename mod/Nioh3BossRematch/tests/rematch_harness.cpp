@@ -244,6 +244,16 @@ int main(int argc, char** argv) {
         CHECK(lessons == 4 && rf5e5 && rd759 && r26f3 && ra0a1, "lesson column marks RF5E5 RD759 R26F3 RA0A1");
         CHECK(!r2826 && !rbab8, "R2826 and RBAB8 are not lessons");
     }
+    {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
+        int warned = 0;
+        bool rb24d = false;
+        for (const auto& r : rows) {
+            if (!r.warning[0]) continue;
+            ++warned;
+            if (!strcmp(r.id, "RB24D") && strstr(r.warning, "Death Veil")) rb24d = true;
+        }
+        CHECK(warned == 1 && rb24d, "warning column marks RB24D (Death Veil) only");
+    }
     {
         rcore::ListCycle cycle;
         rcore::BuildListCycle(rows, cycle);
