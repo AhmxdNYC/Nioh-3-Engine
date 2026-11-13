@@ -40,8 +40,20 @@ def source_checks():
     assert 'expGroup("FGC", true' in dll
     assert 'if (!strcmp(g, "FGP")) return false;' in dll
     # No direct file I/O remains in the menu; profile writes are mod-INI only.
+    # Exception (#45507 'Reverse Mods' row): namespace reversemods renames the loader and .asi files to *.mod-off.
+    # It may use MoveFileExW without REPLACE_EXISTING, and only on kFiles, which must never name an ini/config/save (#97674).
+    rm = re.search(r'\nnamespace reversemods \{\n.*?\n\}  // namespace reversemods\n', menu, re.S)
+    assert rm, 'reversemods block not found'
+    block = rm.group(0)
+    kfiles = re.search(r'kFiles\[\] = \{(.*?)\};', block, re.S)
+    assert kfiles, 'reversemods kFiles not found'
+    names = re.findall(r'L"([^"]+)"', kfiles.group(1))
+    assert names and all(n.lower().endswith(('.dll', '.asi')) for n in names), names
+    for api in ('CreateFile', 'WriteFile', 'CopyFile', 'DeleteFile', 'fopen', 'MoveFileW(', 'MOVEFILE_REPLACE_EXISTING'):
+        assert api not in block, 'reversemods ' + api
+    rest = menu.replace(block, '\n')
     for api in ('CreateFile', 'WriteFile', 'CopyFile', 'MoveFile', 'DeleteFile', 'fopen'):
-        assert api not in menu, api
+        assert api not in rest, api
     print('PASS: source contracts; FG read-only, own INI retained, repair/setter paths absent')
 
 
@@ -53,7 +65,7 @@ def full_check(setup, skip_build=False):
     if setup:
         lines += [f'call "{Path(setup).resolve()}"', 'if errorlevel 1 exit /b 1']
     if not skip_build:
-        lines += ['call build.bat', 'if errorlevel 1 exit /b 1']
+        lines += [f'call "{ROOT / "build.bat"}"', 'if errorlevel 1 exit /b 1']  # full path: NoDefaultCurrentDirectoryInExePath=1 hides cwd
     # build.bat uses setlocal; initialize the compiler again for this command.
     if setup:
         lines += [f'call "{Path(setup).resolve()}"']
@@ -62,7 +74,8 @@ def full_check(setup, skip_build=False):
         lines += [f'if exist "{portable}" call "{portable}"']
     lines += [
         'set "TEST_OBJECTS="',
-        'for %%f in (build\\*.obj) do if /I not "%%~nxf"=="menu.obj" call set "TEST_OBJECTS=%%TEST_OBJECTS%% %%f"',
+        # skip menu.obj and build.bat's own *_test.obj (each has a main(); vrs_selective_test needs d3dcompiler)
+        'for %%f in (build\\*.obj) do if /I not "%%~nxf"=="menu.obj" (echo %%~nf| findstr /I /E "_test" >nul || call set "TEST_OBJECTS=%%TEST_OBJECTS%% %%f")',
         'cl /nologo /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE '
         'tests\\settings_preservation_harness.cpp /Fobuild\\settings-preservation\\harness.obj '
         '/Febuild\\settings-preservation\\harness.exe /link /OPT:REF /OPT:ICF %TEST_OBJECTS% kernel32.lib user32.lib winhttp.lib',
