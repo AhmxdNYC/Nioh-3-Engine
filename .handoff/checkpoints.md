@@ -446,3 +446,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 8:50 am EST | regression-pc/0 | #64 fix re-review PASS (reports/64 830fccc4, EF bcf00b62): first-slot ResOk gate added, harness 5/5 incl. first-slot fake; no ungated slot COM call left | proven offline | next: live check (SceneBufProbe=1) by Dev lead, then ship | RESULT re #96212
 2026-11-13 9:11 am EST | performance-pc2/0 | #96214 DS ABBA PC2 done, neutral (proven, 4+2 launches); RESULT #96365. Next: none for PC2 perf until pc tasks again. Files: branch performance-pc2/ds-96214 b77842eb, captures/pc2-ds-96214/r1.
 2026-11-13 9:14 am EST | performance-pc2/0 | #96275 late-wake check done from existing #96214 logs: DS=1 FAIL on PC2 (timer floor ~0.5 ms). RESULT #96369. Next: none for PC2 perf until pc tasks again.
+2026-11-13 9:15 am EST | performance-pc2/0 | #96337 DS PC2 re-scored PASS (proven from #96214 data); RESULT #96376. Next: none until pc tasks again.
