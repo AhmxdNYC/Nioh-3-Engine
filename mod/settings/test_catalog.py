@@ -50,8 +50,15 @@ def main():
         assert set(values) <= set(ids) | hidden, (mod, 'uncovered ini keys', set(values) - set(ids) - hidden)
         baseline = ini_values(content(RELEASE, 'mod/' + mod + '/' + mod + '.ini'))
         assert all(values[key] == value for key, value in baseline.items()), (mod, 'changed shipped default')
+        # codeDefault: rows whose shipped ini value differs from the ASI's missing-key default; the menu shows the code
+        # default (what actually runs when a user ini lacks the key), so these must differ from the shipped ini (#97660)
+        coded = {tuple(k.split('.', 1)) for k in data.get('codeDefault', [])}
+        assert coded <= set(ids), (mod, 'codeDefault key without a menu row', coded - set(ids))
         for r in rows:
             key = (r['section'], r['key'])
+            if key in coded:
+                assert key in values and r['default'] != values[key], (mod, key, 'codeDefault no longer differs from shipped ini')
+                continue
             assert r['default'] == values.get(key, r['default']), (mod, key, 'catalog default drift')
             assert data['groups'][r['group']] == r['section']
             assert r['help'] and r['label']
