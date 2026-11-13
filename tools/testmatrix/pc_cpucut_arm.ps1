@@ -1,4 +1,4 @@
-param([int]$OwnerPid = 0, [int]$Windows = 2, [int]$Sec = 60, [string]$Arm = "A", [string]$Dll = "", [string]$Run = "", [string]$BaseIni = "", [string]$Keys = "", [string]$Tag = "pc-cpucut-91440")
+param([int]$OwnerPid = 0, [int]$Windows = 2, [int]$Sec = 60, [string]$Arm = "A", [string]$Dll = "", [string]$Run = "", [string]$BaseIni = "", [string]$Keys = "", [string]$Tag = "pc-cpucut-91440", [string]$MaxFps = "240", [string]$RenFps = "120", [switch]$Prof)
 # -Keys "J1=1,WG=1" overrides the A-D table with any [Patches] keys (#95879 bundle isolation); -Tag names the captures folder.
 # pc_cpucut_arm.ps1 (Main PC port of pc_cpucut_arm.ps1, TASK #91440) - ONE launch = ONE arm of the CPU-cut test (ops #89928, arms per performance-pc #89932).
 #   A = MB0 SN0 | B = MB1 | C = SN1 | D = MB1+SN1, all on the SAME test DLL (-Dll, #6879 161bd19d); S1 left at the stock value.
@@ -45,13 +45,13 @@ try {
   $t = if ($BaseIni) { [IO.File]::ReadAllText($BaseIni) } else { [IO.File]::ReadAllText($ini) }
   if ($BaseIni) { T "base ini $BaseIni $((Get-FileHash $BaseIni).Hash.Substring(0,12))" }
   if ($t -notmatch "(?m)^\[Patches\]") { throw "no [Patches] section" }
-  foreach ($kv in @(@("AutoContinueLoad","1"),@("CpuStats","1"),@("ReportSec","10"),@("MaxFps","240"))) { $t = $t -replace "(?m)^$($kv[0]) *=.*", "$($kv[0]) = $($kv[1])" }
+  foreach ($kv in @(@("AutoContinueLoad","1"),@("CpuStats","1"),@("ReportSec","10"),@("MaxFps",$MaxFps))) { $t = $t -replace "(?m)^$($kv[0]) *=.*", "$($kv[0]) = $($kv[1])" }
   if ($Keys) { foreach ($kv in ($Keys -split ",")) { $p2 = $kv -split "=",2; $t = Set-Key $t $p2[0].Trim() $p2[1].Trim() } } else { $t = Set-Key $t "MB" $arms[$Arm].MB; $t = Set-Key $t "SN" $arms[$Arm].SN }
   $t = Force-Vpad $t
   [IO.File]::WriteAllText($ini, $t, (New-Object Text.UTF8Encoding($false))); Copy-Item $ini "$out\test.ini"
-  T "ini: $((Select-String -Path "$out\test.ini" -Pattern '^(MB|SN|S1|MA|MaxFps|J1|WG|LK|MW|DQ|P1E7) *=' | % { $_.Line.Trim() }) -join ' | ')"
+  T "ini: $((Select-String -Path "$out\test.ini" -Pattern '^(MB|SN|S1|MA|MaxFps|J1|WG|LK|MW|DQ|DS|P1E7) *=' | % { $_.Line.Trim() }) -join ' | ')"
   $c = [IO.File]::ReadAllText($cfg)
-  foreach ($kv in @(@("FRAME_GENERATION","OFF"),@("REN_RAT","50"),@("RESOLUTION_SCALING","FSR"),@("REN_FPS","120"),@("VSYNC","OFF"))) { $c = $c -replace "<$($kv[0])>[^<]*</$($kv[0])>", "<$($kv[0])>$($kv[1])</$($kv[0])>" }
+  foreach ($kv in @(@("FRAME_GENERATION","OFF"),@("REN_RAT","50"),@("RESOLUTION_SCALING","FSR"),@("REN_FPS",$RenFps),@("VSYNC","OFF"))) { $c = $c -replace "<$($kv[0])>[^<]*</$($kv[0])>", "<$($kv[0])>$($kv[1])</$($kv[0])>" }
   [IO.File]::WriteAllText($cfg, $c, (New-Object Text.UTF8Encoding($false)))
   Assert-Launch
   Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-File","`"C:/Users/Ahmad Hamza/universal-optimizer/tools/steam/steam_autoplay.ps1`"","-Minutes","15"
@@ -64,7 +64,7 @@ try {
   Start-Sleep 20
   T "state: $(VP-State)"
   py -I -c "from PIL import ImageGrab; ImageGrab.grab().save(r'$out\spawn.png')" 2>&1 | Out-Null
-  $lg = Select-String -Path "$GD\Nioh3EngineFix.log" -Pattern '(^|\W)(MB|SN|J1|WG|LK|MW)(:|\b.*(applied|patch|site|cave|on|ok))' | Select -First 8 | % { $_.Line.Trim() }
+  $lg = Select-String -Path "$GD\Nioh3EngineFix.log" -Pattern '(^|\W)(MB|SN|J1|WG|LK|MW|DS|DQ)(:|\b.*(applied|patch|site|cave|on|ok))' | Select -First 8 | % { $_.Line.Trim() }
   T "log MB/SN: $($lg -join ' || ')"
   foreach ($w in 1..$Windows) {
     $tag = "$Arm-$w"; $csv = "$out\$tag.csv"
@@ -72,10 +72,12 @@ try {
     Register-Child $pm "PresentMon"
     $cp = Start-Process py -PassThru -WindowStyle Hidden -RedirectStandardOutput "$out\$tag-cpu.out" -ArgumentList "-I `"$tm\process_cpu_window.py`" --pid $($script:gp) --seconds $Sec --out `"$out\$tag-cpu.json`" --label $tag"
     Register-Child $cp "cpu"
+    if ($Prof) { $pf = Start-Process dotnet -PassThru -WindowStyle Hidden -WorkingDirectory "$repo\patcher" -RedirectStandardOutput "$out\$tag-prof.log" -RedirectStandardError "$out\$tag-prof.err" -ArgumentList "fsi cpuprof.fsx $([math]::Max(10,$Sec-15)) `"$out\$tag-prof.txt`""; Register-Child $pf "cpuprof" }
     $t1 = Get-Date
     while (((Get-Date) - $t1).TotalSeconds -lt $Sec) {
       foreach ($cmd in @("stick L 0 1 1500","press RB 80","wait 400","press RB 80","wait 400","stick L 1 0 1000","press RB 80","wait 400","stick L 0 -1 1500","press RB 80","wait 400","stick L -1 0 1000")) { $null = VP $cmd }
     }
+    if ($Prof) { $pf.WaitForExit(120000) | Out-Null }
     $pm.WaitForExit(30000) | Out-Null; $cp.WaitForExit(30000) | Out-Null
     if (-not (Test-Path $csv)) { T "no PresentMon csv: $((Get-Content "$out\$tag-pm.err","$out\$tag-pm.out" -EA SilentlyContinue) -join ' / ')"; $cj = if (Test-Path "$out\$tag-cpu.json") { Get-Content "$out\$tag-cpu.json" | Select -Last 1 } else { "" }; T "WIN $tag nocsv t0=$($t1.ToString('HH:mm:ss')) cpu=$cj"; "$Arm,$w,-1,-1,-1,0,`"$($cj -replace '"',"'")`",$($t1.ToString('HH:mm:ss'))" | Add-Content "$out
 esults.csv"; continue }; $rows = Import-Csv $csv; $names = $rows[0].PSObject.Properties.Name
