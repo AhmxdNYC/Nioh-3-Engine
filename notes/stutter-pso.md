@@ -131,3 +131,13 @@ creates >= 1 ms and route hitches with 0 refused, `handed` > 0, and a same-spot 
 ## PJH 4-launch on the PC (RX 9070, 240 Hz, 2026-10-09, bridge #705)
 tourlist_pj, ASI 1.7.46, pj folder cleared first. N (PJ=0) / J (PJH=1 cold) / W (PJH=1 warm, -WaitPrewarm) / N2.
 PSO creates >= 1 ms: 0 in all four (max 0.6-0.8 ms): no compile hitch on this route/GPU. Hitches >33 ms N 3, J 2, W 1, N2 1; >50 ms 0; 0.1% low 43.5/69.6/67.6/64.9 fps (noise). Runtime creates N 81, J 78, W 43 (-46 %), N2 78. W: prewarm 15732 PSOs in 2.7 s, 0 refused, 0 missing, handed 409, journal 15765 PSOs 63.8 MB. pj_hitch: DROP (nothing to fix on this machine). Keep PJH default off; the pc2 GPU may differ.
+
+## PJH OFF vs ON on the Main PC, boss route (2026-11-13, performance-pc #96049)
+RX 9070, public 1.8.13 (EF ba089162, BR 8076cdd6), the user's ini/config (60 fps cap) + SPR=1. Route: Fight now Yoritomo R7B35, 240 s idle in
+the arena (the boss never killed the player: 0 retry loads). Tools: tools\testmatrix\pc_pjh_arm.ps1 + pc_pjh_report.py; captures\pc-pjh-96049.
+| arm | frames >33/50/100 ms | worst | p99 | p99.9 | PSO creates (window / launch) | max create | >=1 ms |
+| N (PJ 0) | 0/0/0 | 25.0 ms | 19.29 | 20.5 | 24 / 181 | 0.54 ms | 0 |
+| P (PJH 1, Oct-11 journal 15,576 PSOs, full) | 0/0/0 | 30.9 ms | 19.82 | 22.9 | 24 / 187 | 0.47 ms | 0 |
+P prewarm: 15,533 PSOs in 8.9 s at the title, 8.35 CPU-s, one create 657 ms, 0 refused; runtime creates did not drop (journal full of old
+PSOs, nothing new journaled). Verdict: DROP on the Main PC again (same as 10-09): the driver cache is warm, no create reaches 1 ms, so there is no
+hitch for PJH to remove, and it costs ~8 CPU-s at every boot. Keep PJH = 0. Only untested case: a cold driver cache after a GPU driver update.
