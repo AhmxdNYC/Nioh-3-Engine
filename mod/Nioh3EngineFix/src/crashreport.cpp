@@ -120,6 +120,8 @@ void RegisterModHistory() {
     typedef LONG(NTAPI * Reg)(ULONG, LdrNotifFn, PVOID, PVOID*);
     Reg reg = (Reg)GetProcAddress(nt, "LdrRegisterDllNotification");
     PVOID cookie = nullptr;
+    // Never unregistered: safe only because EngineFix is never FreeLibrary'd (the callback must live as long as the process).
+    // History starts here (Start): unloads before Start are not recorded; earlier loads still show in "loaded modules".
     if (reg && reg(0, OnModEvent, nullptr, &cookie) >= 0 && g_log) g_log("CRASHREPORT: module load/unload history armed");
 }
 
@@ -134,7 +136,8 @@ DWORD WINAPI ExeShaThread(LPVOID) {
         const std::string sha = Sha256File(w, &sz);
         const wchar_t* b = w;
         for (const wchar_t* q = w; *q; ++q) if (*q == L'\\' || *q == L'/') b = q + 1;
-        if (!sha.empty()) snprintf(g_exeText, sizeof g_exeText, "  %ls  sha256 %s  (%llu bytes)\r\n", b, sha.c_str(), sz);
+        char tmp[sizeof g_exeText];  // format off to the side; WriteReport reads g_exeText only after g_exeDone is set
+        if (!sha.empty() && snprintf(tmp, sizeof tmp, "  %ls  sha256 %s  (%llu bytes)\r\n", b, sha.c_str(), sz) > 0) memcpy(g_exeText, tmp, sizeof tmp);
     }
     InterlockedExchange(&g_exeDone, 1);
     return 0;
@@ -434,7 +437,8 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         if (nth)
             o.P("  TimeDateStamp %08lX, SizeOfImage %lu (0x%lX)%s\r\n", nth->FileHeader.TimeDateStamp, nth->OptionalHeader.SizeOfImage,
                 nth->OptionalHeader.SizeOfImage, g_known ? ", matches the known build" : ", NOT the known build (variant)");
-        o.P("%s", g_exeText[0] ? g_exeText : g_exeDone ? "  (exe sha256 unavailable)\r\n" : "  (exe sha256 still being computed)\r\n");
+        const bool exeDone = InterlockedCompareExchange(&g_exeDone, 0, 0) != 0;  // check done first: never print a half-written line
+        o.P("%s", !exeDone ? "  (exe sha256 still being computed)\r\n" : g_exeText[0] ? g_exeText : "  (exe sha256 unavailable)\r\n");
     }
     {
         o.P("\r\n-- system --\r\n");
@@ -531,7 +535,7 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     }
 
     {
-        o.P("\r\n-- module load/unload history (oldest first, ms since mod start; a module already gone appears only here) --\r\n");
+        o.P("\r\n-- module load/unload history (oldest first, ms since mod start; a module already gone appears only here; unloads before mod start not recorded) --\r\n");
         const LONG head = g_modHead;
         const LONG n = head < kModEvts ? head : kModEvts;
         if (!n) o.P("  (none recorded)\r\n");
