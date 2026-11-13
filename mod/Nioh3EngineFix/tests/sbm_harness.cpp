@@ -175,6 +175,9 @@ int main(int argc, char** argv) {
     *(void**)(bufC + 0x18) = g_fakeObj;
     *(uint8_t**)(setX + 0x60) = bufC;
     *(uint8_t**)(setY + 0x60) = bufC;
+    // the same object also in the first slot (+18h): Mirror() picks its first UPLOAD slot from here and must skip it (regression-pc #96246)
+    *(uint8_t**)(setX + 0x18) = bufC;
+    *(uint8_t**)(setY + 0x18) = bufC;
 
     scenemirror::OnEcl(gameQ);   // the queue hook goes live (first game DIRECT submission)
     // one frame: CPU write of the current set, post-update step, game list (after the queue hook) copies U's twin regions

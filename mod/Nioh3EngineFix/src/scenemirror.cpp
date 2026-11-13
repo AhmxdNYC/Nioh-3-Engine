@@ -373,7 +373,7 @@ void Mirror(uint64_t set, const Buf* b) {
     if (!g_eclLive) return;   // the queue hook must be inserting Waits before any SRV points at a twin
     ID3D12Resource* first = nullptr;
     for (int i = 0; i < kSlots && !first; ++i)
-        if (b[i].usage == kUsageUpload && b[i].res && b[i].cap) first = (ID3D12Resource*)b[i].res;
+        if (b[i].usage == kUsageUpload && b[i].res && b[i].cap && ResOk(b[i].res)) first = (ID3D12Resource*)b[i].res;
     if (!first) return;
     if (!EnsureInfra(first)) {
         Fail("copy path not created");
