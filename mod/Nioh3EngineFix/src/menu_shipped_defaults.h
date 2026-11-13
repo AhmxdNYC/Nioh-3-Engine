@@ -191,6 +191,7 @@ inline constexpr Entry kEntries[] = {
     {"Tuning", "TG_RatioPct", "125"},
     {"Tuning", "RTP_Level", "1"},
     {"Tuning", "DS_MarginUs", "150"},
+    {"Tuning", "DS_DqMarginUs", "80"},
     {"Tuning", "DQ_QuantumUs", "200"},
     {"Latency", "MaxFrameLatency", "-1"},
     {"Latency", "VrrPresent", "0"},
