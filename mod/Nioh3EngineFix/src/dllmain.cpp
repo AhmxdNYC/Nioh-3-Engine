@@ -582,6 +582,12 @@ Config LoadConfig() {
     c.gfTimeoutMs = std::clamp(I(L"Tuning", L"GF_TimeoutMs", c.gfTimeoutMs), 1, 1000);
     c.wg = I(L"Patches", L"WG", c.wg);
     c.tg = I(L"Patches", L"TG", c.tg);
+    // One-time versioned default (#96048): installs updated from <=1.8.13 keep the old shipped DS = 0 in their ini. Flip an
+    // explicit 0 to 1 once, then stamp DSDefaultV = 1 so a later manual DS = 0 sticks.
+    if (I(L"Patches", L"DSDefaultV", 0) < 1) {
+        if (GetPrivateProfileIntW(L"Patches", L"DS", 1, f) == 0) WritePrivateProfileStringW(L"Patches", L"DS", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"DSDefaultV", L"1", f);
+    }
     c.ds = I(L"Patches", L"DS", c.ds);
     c.lk = I(L"Patches", L"LK", c.lk);
     c.ma = I(L"Patches", L"MA", c.ma);
