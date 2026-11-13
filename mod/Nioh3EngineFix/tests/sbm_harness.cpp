@@ -38,6 +38,16 @@ static void Log(const char* fmt, ...) {
     g_lines.push_back(b);
 }
 
+// GitHub #64: a stale engine buffer object whose +18h holds a game object (vtable in Nioh3.exe), not an ID3D12Resource.
+// Any COM call on it (GetHeapProperties / GetGPUVirtualAddress / GetDesc) lands here and fails the run.
+static int g_fakeCalls = 0;
+static long long FakeVf(void*, void*, void*) {
+    ++g_fakeCalls;
+    return (long long)E_FAIL;
+}
+static void* g_fakeVt[32];
+static void* g_fakeObj[4] = {g_fakeVt, nullptr, nullptr, nullptr};
+
 struct SrvCall {
     SIZE_T h;
     ID3D12Resource* r;
@@ -158,6 +168,16 @@ int main(int argc, char** argv) {
     mkbuf(bufB, 512 << 10, 128 << 10);
     *(uint8_t**)(setX + 0x58) = bufA;
     *(uint8_t**)(setY + 0x58) = bufB;
+    // slot +60h of both sets: a buffer object (UPLOAD usage) whose resource pointer is the fake game object (#64)
+    for (void*& f : g_fakeVt) f = (void*)&FakeVf;
+    uint8_t* bufC = (uint8_t*)VirtualAlloc(nullptr, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    mkbuf(bufC, 0, 4096);
+    *(void**)(bufC + 0x18) = g_fakeObj;
+    *(uint8_t**)(setX + 0x60) = bufC;
+    *(uint8_t**)(setY + 0x60) = bufC;
+    // the same object also in the first slot (+18h): Mirror() picks its first UPLOAD slot from here and must skip it (regression-pc #96246)
+    *(uint8_t**)(setX + 0x18) = bufC;
+    *(uint8_t**)(setY + 0x18) = bufC;
 
     scenemirror::OnEcl(gameQ);   // the queue hook goes live (first game DIRECT submission)
     // one frame: CPU write of the current set, post-update step, game list (after the queue hook) copies U's twin regions
@@ -290,6 +310,7 @@ int main(int argc, char** argv) {
         check(back, "and set X's SRV is put back on the original resource");
     }
     scenemirror::LogLine();
+    check(g_fakeCalls == 0, "#64: a slot whose resource is not a D3D12 resource gets no COM call (census + mirror)");
     if (iq) {
         const UINT64 n = iq->GetNumStoredMessages();
         int errs = 0;

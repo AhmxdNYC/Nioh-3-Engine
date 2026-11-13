@@ -69,6 +69,29 @@ bool Rd(uintptr_t p, void* out, size_t n) {
         return false;
     }
 }
+// GitHub #64: a slot's +18h is not always a live ID3D12Resource (a stale buffer object can hold a game object there; its
+// vtable is in Nioh3.exe and the census call crashed inside the game). COM calls are made only on pointers whose vtable is
+// one the D3D12 runtime itself handed us (CreateShaderResourceView's resource, our own twins).
+void* volatile g_resVt[8] = {};
+void LearnResVt(const void* res) {
+    void* vt = nullptr;
+    if (!res || !Rd((uintptr_t)res, &vt, 8) || !vt) return;
+    for (void* volatile& slot : g_resVt) {
+        void* cur = slot;
+        if (cur == vt) return;
+        if (!cur) {
+            cur = InterlockedCompareExchangePointer((PVOID volatile*)&slot, vt, nullptr);
+            if (!cur || cur == vt) return;
+        }
+    }
+}
+bool ResOk(uint64_t p) {
+    void* vt = nullptr;
+    if (!Rd((uintptr_t)p, &vt, 8) || !vt) return false;
+    for (void* s : g_resVt)
+        if (s == vt) return true;
+    return false;
+}
 bool ReadSet(uint64_t sys, uint64_t* set, Buf* b) {
     *set = 0;
     if (!Rd((uintptr_t)(sys + kOffSet), set, 8) || !*set) return false;
@@ -276,6 +299,7 @@ ID3D12Resource* MakeTwin(uint64_t width) {
     if (FAILED(g_dev->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&t))))
         return nullptr;
     t->SetName(L"Nioh3EngineFix SceneBufMirror twin");
+    LearnResVt(t);
     return t;
 }
 
@@ -349,7 +373,7 @@ void Mirror(uint64_t set, const Buf* b) {
     if (!g_eclLive) return;   // the queue hook must be inserting Waits before any SRV points at a twin
     ID3D12Resource* first = nullptr;
     for (int i = 0; i < kSlots && !first; ++i)
-        if (b[i].usage == kUsageUpload && b[i].res && b[i].cap) first = (ID3D12Resource*)b[i].res;
+        if (b[i].usage == kUsageUpload && b[i].res && b[i].cap && ResOk(b[i].res)) first = (ID3D12Resource*)b[i].res;
     if (!first) return;
     if (!EnsureInfra(first)) {
         Fail("copy path not created");
@@ -375,7 +399,7 @@ void Mirror(uint64_t set, const Buf* b) {
     AcquireSRWLockExclusive(&g_lock);
     for (int i = 0; i < kSlots; ++i) {
         const Buf& s = b[i];
-        if (s.usage != kUsageUpload || !s.res || !s.cap) continue;
+        if (s.usage != kUsageUpload || !s.res || !s.cap || !ResOk(s.res)) continue;
         ID3D12Resource* r = (ID3D12Resource*)s.res;
         Res& x = g_res[r];
         if (!x.width) {
@@ -528,7 +552,7 @@ void AfterUpdate(uint64_t sys) {
         g_snap[i].set = set;
         memcpy(g_snap[i].b, b, sizeof b);
         for (int k = 0; k < kSlots; ++k)
-            if (b[k].res && !g_kind.count(b[k].res) && g_kind.size() < 4096) g_kind[b[k].res] = CensusKind((ID3D12Resource*)b[k].res);
+            if (b[k].res && ResOk(b[k].res) && !g_kind.count(b[k].res) && g_kind.size() < 4096) g_kind[b[k].res] = CensusKind((ID3D12Resource*)b[k].res);
         ReleaseSRWLockExclusive(&g_snapLock);
     }
     if (Active() && g_srvOrig) Mirror(set, b);
@@ -668,6 +692,7 @@ bool Start(const StartInfo& info) {
 void OnSrv(ID3D12Device* dev, ID3D12Resource* res, const D3D12_SHADER_RESOURCE_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE h,
            ID3D12Resource** use) {
     *use = res;
+    LearnResVt(res);
     if (!g_on) return;
     if (!g_srvDev && dev) g_srvDev = dev;
     bool owned = false;
