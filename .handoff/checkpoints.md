@@ -412,3 +412,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-13 1:40 am EST | performance-pc2/0 | #95527 pc2 upscaler ABBA done (RESULT #95576) | proven: FSR4 INT8 runs on RDNA2 via OptiScaler 0.9.4 (log); unproven: +3.2 0.000000ps at REN_RAT 55 (drift range 44.7-51.1), same look | next: human look check of #7195 or more windows if pc wants | tools/testmatrix/pc2_upscaler_*.ps1, captures/pc2-upscaler-95527/r1
 
 2026-11-13 1:45 am EST | performance-pc2/0 | session end: #95527 upscaler A/B fully done (RESULT #95576, TO-USER #95580, commit 4b984dcc); nothing half-done; pc2 restored, lock free | next: wait for pc/human reply on look strip #7195 (no new arms unless asked)
+
+2026-11-13 6:10 am EST | pc2/1 #95585 DV reports: #59 crab (wave spawn bound as soul-core seal) + #61 full-health final wave fixed, BR fa3f56e9 on pc2/dv-reports-95567 72be5e6d | offline PASS, live unproven | next: pc live Boss Match RB24D with seal throws during waves (look for "FormCore foreign spawn") + Staged start mode 3; #60 needs lead decision on 573339 vs 572110 | notes/dv-reports-95567.md
