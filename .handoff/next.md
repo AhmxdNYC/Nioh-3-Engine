@@ -411,3 +411,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 9:15 am EST | performance-pc2/0 | #96337 corrected bar: PC2 DS=1 d6995a0f PASS at cap60 (fps 50.2 vs 49.5, 1% low 36.7 vs 36.1, frames>20ms 5158 vs 5847); late wakes ~100% of sleeps on PC2 (Ally 10-23%). Uncapped single pair mixed/noise. RESULT #96376 supersedes FAIL #96369.
 - 2026-11-13 9:27 am EST | regression-pc/0 | DS guard EF c8f97c8c (3ec3293a6) regression FAIL #96411: re-sample must be time-based; awaiting gx-pc fix, then re-review delta. #64 fix 830fccc4 (EF bcf00b62) regression PASS #96272, needs live check (SceneBufProbe=1).
 - 2026-11-13 9:23 am EST | gx-pc/0 | EF d440a85f (94adb222, file #7264) replaces c8f97c8c/b6e22460 for DS ABBA; regression-pc review tasked re #96396.
+- 2026-11-13 9:25 am EST | regression-pc/0 | #96415 EF 2e69d0d4 (1.8.14, 730a87be) regression PASS (#96445 to pc, #96446 to installer-pc). Next: installer-pc dry run, then ship.
