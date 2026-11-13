@@ -4383,8 +4383,18 @@ static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
 static int g_cfg_goldki = 1; static volatile DWORD g_ki_seen; static int g_gold_hooked;
+// #31 (reports-triage-79081): a garbage charParam (0x9000057B1) faulted inside KiBarStyle at [rcx+0x80]. Guard: reject non-canonical/low pointers and
+// catch a fault in the native call; then keep the last good style (or 0) so the HUD row still draws and the game does not crash.
+static volatile LONG g_ki_bad; static uint8_t g_ki_last;
 static __attribute__((noinline)) uint8_t KiStyleHook(uint64_t charParam) {
-    uint8_t s = ((uint8_t (*)(uint64_t))(B + Grva(0x5D4434)))(charParam);
+    if (charParam < 0x10000 || charParam >= 0x00007FFFFFFF0000ull) {
+        if (InterlockedIncrement(&g_ki_bad) <= 5) Log("GOLDKI: #31 guard: bad charParam %p, native KiBarStyle skipped (style %d kept)", (void*)charParam, g_ki_last);
+        return g_ki_last;
+    }
+    uint8_t s = g_ki_last; int ok = 0;
+    __try { s = ((uint8_t (*)(uint64_t))(B + Grva(0x5D4434)))(charParam); ok = 1; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (!ok) { if (InterlockedIncrement(&g_ki_bad) <= 5) Log("GOLDKI: #31 guard: KiBarStyle faulted on charParam %p (style %d kept)", (void*)charParam, g_ki_last); return g_ki_last; }
+    g_ki_last = s;
     static int logged; if (!logged) { logged = 1; int v = -1; __try { v = charParam ? *(int32_t*)(charParam + 0x80) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) {} Log("GOLDKI: first boss Ki row: charParam+0x80 = %d, native style %d, GoldKiBar %d", v, s, g_cfg_goldki); }
     g_ki_seen = GetTickCount();  // the boss Ki row is being drawn: enables the vertex tint (GoldQuad)
     return s;
