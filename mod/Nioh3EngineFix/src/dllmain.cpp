@@ -73,6 +73,8 @@
 #include "meshletwait.h"
 #include "drainwait.h"
 #include "hitchlog.h"
+#include "perfsnap.h"
+#include "crashupload.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -3375,6 +3377,22 @@ DWORD WINAPI Worker(LPVOID) {
             hi.c.ds = &g_dsWaits;
             hi.c.dsTicks = &g_dsTicks;
             hitchlog::Start(hi);
+        }
+        {  // #97638 performance snapshot in every player report / crash record (perfsnap.cpp; osd's Present hook feeds it, no new hook)
+            perfsnap::StartInfo pi;
+            pi.log = &Log;
+            pi.iniPath = iniPath.c_str();
+            pi.base = reinterpret_cast<uintptr_t>(g_base);
+            pi.knownBuild = known;
+            pi.l1 = &g_l1Count;
+            pi.w6Ticks = &g_w6Ticks;
+            pi.gfTicks = &g_gfTicks;
+            pi.dsTicks = &g_dsTicks;
+            pi.backendWaitsMs = &bkstats::CumWaitsMs;
+            pi.gpuPasses = &gp::StatusLine;
+            perfsnap::Start(pi);
+            crashupload::SetPerfJson(&perfsnap::Json);
+            crashreport::SetPerfText(&perfsnap::Text);
         }
         {  // 1.7.44 present mode log + [Latency] VrrPresent (pmode.cpp; before osd::Start: osd asks pmode::WantsPresentHook())
             pmode::StartInfo pmi;

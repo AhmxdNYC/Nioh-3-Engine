@@ -14,6 +14,7 @@
 // 5 terminate (unhandled C++ exception), 6 invalid CRT parameter), CrashTestDelaySec = 30 (seconds after Start).
 // ForceCrashTest = 1 is the same as CrashTest = 1. Every crash is also uploaded as JSON (crashupload.h, #64881).
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace crashreport {
@@ -44,6 +45,9 @@ bool ReportOpenWanted();
 bool CopyReportUrl();      // URL to the clipboard (text)
 void OpenReportUrl();      // ShellExecute "open"
 void OpenReportFolder(const char* path);  // Explorer selects the snapshot, or opens the report folder
+
+// #97638: "-- performance (last ~10 s) --" section (perfsnap::Text). crashPath = true on a crash: static data only.
+void SetPerfText(size_t (*fn)(char* out, size_t cap, bool crashPath));
 
 // Feeds the last-log-lines ring (called from the mod's Log()).
 void NoteLog(const char* line);

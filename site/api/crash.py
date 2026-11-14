@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import threading
 import time
 import urllib.error
@@ -46,6 +47,7 @@ TOP_KEYS = {
     "schema", "t", "mod", "ver", "event", "id", "fields", "exc_name", "access", "stack", "game", "mods",
     "loaders", "os", "uptime_s", "test", "last", "input", "log",
     "modules", "modules_truncated", "modules_available", "registers", "stack_top", "settings", "training_tail",
+    "perf",
 }
 FIELD_KEYS = {"code", "module", "offset", "game_stamp", "game_size", "reason"}
 GAME_KEYS = {"exe", "stamp", "image_size", "file_size", "known", "version"}
@@ -122,6 +124,50 @@ def _flat_event(v, name: str) -> None:
             raise Reject(400, f"{name}.{k} must not be a list")
         elif isinstance(x, str):
             _str(x, f"{name}.{k}", 200)
+
+
+# ---- #97638 performance snapshot ("perf"): last ~10 s fps / 1 % low / CPU-GPU bound / hardware / settings ---------------
+PERF_MAX = 8192
+
+
+def _check_perf(v, fail) -> None:
+    """Bounded JSON tree: object root, depth <= 3, <= 48 keys / 64 items per level, strings <= 300, keys <= 64."""
+    if not isinstance(v, dict):
+        fail("perf must be an object")
+    if len(json.dumps(v)) > PERF_MAX:
+        fail(f"perf is larger than {PERF_MAX} bytes")
+
+    def walk(x, depth, path):
+        if depth > 3:
+            fail(f"{path} is nested too deep")
+        if isinstance(x, dict):
+            if len(x) > 48:
+                fail(f"{path} has too many keys")
+            for k, y in x.items():
+                if not isinstance(k, str) or len(k) > 64:
+                    fail(f"{path} has a bad key")
+                walk(y, depth + 1, f"{path}.{k}")
+        elif isinstance(x, list):
+            if len(x) > 64:
+                fail(f"{path} has too many items")
+            for i, y in enumerate(x):
+                walk(y, depth + 1, f"{path}[{i}]")
+        elif isinstance(x, str):
+            if len(x) > 300:
+                fail(f"{path} is longer than 300")
+        elif x is not None and not isinstance(x, (bool, int, float)):
+            fail(f"{path} has a bad value")
+
+    walk(v, 0, "perf")
+
+
+def _perf_line(rec: dict) -> str:
+    p = rec.get("perf")
+    if not isinstance(p, dict):
+        return "- Performance: (not in this record)"
+    return (f"- Performance (last {p.get('window_s', '?')} s): {p.get('avg_fps', '?')} fps avg, {p.get('low1_fps', '?')} fps 1% low, "
+            f"bound {p.get('bound', '?')} ({p.get('bound_why', '')}); CPU {p.get('cpu', '?')}; GPU {p.get('gpu', '?')} driver "
+            f"{p.get('driver', '?')}; {p.get('backbuffer', '?')} upscaler {p.get('upscaler', '?')} frame gen {p.get('frame_gen', '?')}")
 
 
 def validate(rec) -> dict:
@@ -239,6 +285,18 @@ def validate(rec) -> dict:
         tail = rec["training_tail"]
         if not isinstance(tail, dict) or set(tail) != {"captured", "included", "line_cap"} or any(type(v) is not int for v in tail.values()) or not 0 <= tail["included"] <= tail["captured"] <= 20 or tail["line_cap"] != 2047:
             raise Reject(400, "invalid training_tail bounds")
+    if "perf" in rec:
+        # #97734: a bad perf block is dropped (and logged), never a reason to lose the crash record
+        class _BadPerf(Exception):
+            pass
+
+        def fail(msg):
+            raise _BadPerf(msg)
+        try:
+            _check_perf(rec["perf"], fail)
+        except _BadPerf as e:
+            print(f"crash: perf block dropped: {e}", file=sys.stderr)
+            del rec["perf"]
     if "log" in rec:
         lg = rec["log"]
         if not isinstance(lg, dict) or set(lg) - LOG_KEYS:
@@ -328,6 +386,7 @@ def _issue_text(rec: dict, sig: str) -> tuple[str, str]:
         f"- Mods: {mods or '(none listed)'}",
         f"- Loaded modules at crash (excluding System32, WinSxS and Steam overlay): {modules or '(none listed)'}; available={rec.get('modules_available', 'unknown')}, truncated={rec.get('modules_truncated', 'unknown')}",
         f"- OS: {rec.get('os', '?')}",
+        _perf_line(rec),
         f"- Install id: `{rec['id'][:8]}...`  uptime {rec.get('uptime_s', '?')} s  test {test}",
         f"- Mod time: {rec.get('t', '?')}",
         "",

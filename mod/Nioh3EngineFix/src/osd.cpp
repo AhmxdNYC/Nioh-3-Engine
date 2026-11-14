@@ -46,6 +46,7 @@
 #include "scenemirror.h"
 #include "cbvstage.h"
 #include "hitchlog.h"
+#include "perfsnap.h"
 #include "osd.h"
 #include "dxgidiag.h"
 #include "psoswap.h"
@@ -1244,6 +1245,7 @@ bool DrawFrame(Ctx& c, int64_t now) {
     }
     const D3D12_RESOURCE_DESC bd = bb->GetDesc();
     const UINT W = (UINT)bd.Width, H = bd.Height;
+    perfsnap::NoteBackBuffer(W, H);  // #97638 report: output resolution
     bool drawn = false;
     do {
         if (W < 64 || H < 64) break;
@@ -1508,6 +1510,7 @@ void Hooked(IDXGISwapChain* sc, UINT flags, cover_present::Ticket* cover) {
     CountPresent(sc, now);  // every swapchain, every presenting thread (FG presenter included), lock-free
     NotePresentThread(now);
     if (!t_isFsr) hitchlog::OnGamePresent(now);  // [Debug] HitchLog: game-thread frame gap line (lock-free of the overlay)
+    if (!t_isFsr) perfsnap::OnGamePresent(now);  // #97638 report perf snapshot: one ring store per frame, a sample every 250 ms
     if (!TryAcquireSRWLockExclusive(&g_lock)) return;  // another thread is drawing: just present
     __try {
         ApplyLatency(sc, now);

@@ -257,7 +257,14 @@ DWORD WINAPI SendThread(LPVOID p) {
         const int n = inputlog::Count() < 400 ? inputlog::Count() : 400;
         if (bytes > 0 && n > 0) { inAll = ring; inN = n; }
     }
-    std::string full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), Scrub(snapshot), evAll, (int)events.size(), inAll, inN, kBodyCap);
+    // #97638: performance snapshot (last ~10 s fps / 1 % low / CPU-GPU bound / hardware / settings), fresh on this thread
+    std::string perf;
+    {
+        static char pj[8192];
+        const size_t pn = crashupload::PerfJson(pj, sizeof pj, false);
+        if (pn > 1 && pn + 1 < sizeof pj) perf = Scrub(std::string(pj, pn));
+    }
+    std::string full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), Scrub(snapshot), evAll, (int)events.size(), inAll, inN, kBodyCap, perf);
     int drop = 0;
     while (full.empty() && !events.empty()) {  // still over the cap with an empty snapshot: drop the oldest events
         const size_t n = std::max<size_t>(1, events.size() / 4);
@@ -265,7 +272,7 @@ DWORD WINAPI SendThread(LPVOID p) {
         drop += (int)n;
         evAll.clear();
         for (size_t i = 0; i < events.size(); ++i) evAll += (i ? "," : "") + events[i];
-        full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), "", evAll, (int)events.size(), inAll, inN, kBodyCap);
+        full = BuildBody(g_id, g_ver, job->via, Scrub(job->text), "", evAll, (int)events.size(), inAll, inN, kBodyCap, perf);
     }
     // 3. local copy (every report, sent or not)
     std::wstring dir = std::wstring(g_dir) + L"Nioh3Reports\\";
@@ -410,13 +417,14 @@ std::string JsonString(const std::string& s) {
 
 std::string BuildBody(const std::string& id, const std::string& ver, const std::string& via, const std::string& text,
                       const std::string& snapshot, const std::string& eventsJson, int eventCount, const std::string& inputJson,
-                      int inputCount, size_t cap) {
+                      int inputCount, size_t cap, const std::string& perfJson) {
     SYSTEMTIME st;
     GetLocalTime(&st);
     const std::string t = text.size() > kTextCap ? text.substr(0, kTextCap) : text;
     auto make = [&](const std::string& snap) {
         return std::string("{\"kind\":\"player\",\"id\":") + JsonString(id) + ",\"ver\":" + JsonString(ver) + ",\"via\":" + JsonString(via) +
                ",\"t\":" + JsonString(Stamp(st, false)) + ",\"player_text\":" + JsonString(t) + ",\"snapshot\":" + JsonString(snap) +
+               (perfJson.size() > 1 && perfJson.front() == '{' && perfJson.back() == '}' ? ",\"perf\":" + perfJson : std::string()) +
                ",\"event_count\":" + std::to_string(eventCount) + ",\"events\":[" + eventsJson + "],\"input_count\":" +
                std::to_string(inputCount) + ",\"input\":[" + inputJson + "]}";
     };
