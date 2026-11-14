@@ -29,4 +29,3 @@
 - [ ] Performance focus | Reply A (stutter + loading, default after 11:50 pm EST) or B (GPU ideas for pc2/Ally) to #89394 | phone
 - [ ] Shading default ON? | Reply YES/NO to #90728: turn VRS v3 Shading=Medium on by default (look approved 11-05, +6-14% PC2, +7-12% Ally). Default after 1 h: stays off | phone
 - [x] Publish 1.8.14? | All gates PASS (smoke #97255, regression #97306, installer #97296); no Death Veil. Reply yes to publish | phone
-- [ ] Ally Claude login expired | on the Ally run 'claude auth login' (or set CLAUDE_CODE_OAUTH_TOKEN via 'claude setup-token') so its agent can work again (#99164) | ally
