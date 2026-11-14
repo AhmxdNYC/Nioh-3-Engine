@@ -27,7 +27,6 @@ static const uint8_t*GameState(void){return st;}
 static int NativePhaseMatches(void){return match&&g_en.confirmed&&g_en.row;}
 static int g_cfg_gate_cw2=1,g_cfg_gate=1,g_cfg_gate_always=1;
 static int g_cfg_gate_block=1;
-static int ScrollGateLive(void){return 0;} // #78735 Waves scroll gate, off here (fixture drift, #98173)
 static volatile LONG g_cw2_n,g_endconf_n;
 static DWORD tick=1000,g_gate_tUse,g_gate_nat_t;
 static DWORD GetTickCount(void){return tick;}
