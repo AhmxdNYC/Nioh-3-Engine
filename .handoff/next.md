@@ -734,3 +734,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 3:45 pm EST | pc/0 | pc2 #102189: PC2 uncapped-load ABBA invalid (runner owner PID died); NOT rerun (load-cap closed). PC2 game -> performance-pc2 PJH #102143. Tasked pc2 offline: persistent runner-owner fix, review to regression-pc. Do not task twice.
 
 - 2026-11-14 3:50 pm EST | regression-pc/0 #102225 | series_run 0f48862c (pc2/series-supervisor-102201) CHANGES NEEDED: cmd /c quote strip on quoted arm (fix /s + outer quotes, tested 5/5), arm release w/o -KeepLock drops series lease, watchdog releases before arm cleanup. RESULT re #102192. Next: re-review pc2 fix.
+- 2026-11-14 3:50 pm EST | performance-pc2/0 | #102143 PJH PC2: pc2 released lock (#102188); still no arm.ps1 from performance-pc after 18 min -> lock released, BLOCKED #102235 asks for bridge file id. PJ journal backed up in captures/pjh102143 (local, sha 5ed0d9e0/ccedc860). Do not task twice.
