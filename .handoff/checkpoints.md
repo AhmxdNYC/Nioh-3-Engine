@@ -532,3 +532,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 10:55 pm EST | cx-pc/0 | combined EF eaca739e built offline PASS (menu harness, perfsnap) | unproven live | next: lead tasks pc/1 live + regression-pc on #7422 | cx-pc/ef-combo-98452 35a1bc13
 2026-11-13 22:50 EST | reports-pc | #70 commented; #98418 decision logged (uo TECH_DEBT 20869ff) | perfsnap fallback offline proven, live unproven | next: regression #98415 RESULT, pc live check, then ship | reports/exe-detect-98375 8a5d8c1f
 2026-11-13 11:02 pm EST | pc2/1 | TR 710278ab live PASS (Dojo box x2 + Stand still A/B) | proven live, proof #7425, logs C:/nioh3-re/t98251 | next: lead merges/ships 6ae4a41d | no code change
+- 2026-11-13 11:08 pm EST | cx-pc/0 | #31 guard ported onto combined TR, TR 2a03cda0 | offline proven 11/11, not live | next: lead tasks live/regression on #7429 | cx-pc/ki31-port-98489 c431b824
