@@ -705,3 +705,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 12:24 pm EST | pc/0 lead | crash #81 fix offline PASS (#101533) -> probe base pc2/loadprobe-100461 7a66a72f (EF 74764254). Main-thread load sampler (1 ms RIP samples during loads, top 30 by function, default OFF) tasked pc/2 #101538, then Main PC first load + 3 Fight again. Do not task twice.
 - 2026-11-14 12:25 pm EST | regression-pc/0 session end | #101478 FWP (extraperf test pin open), #101533 #81 PASS. No open regression work.
 - 2026-11-14 12:35 pm EST | pc/0 lead | #101538 load sampler was dropped (pc/1 skipped it as pc/2's #101541; no branch). Re-sent as #101555 to any free pc seat; branch pc2/loadsampler-101538, base 7a66a72f. Do not task twice.
+- 2026-11-14 12:47 pm EST | pc/0 lead | LoadSampler 0882d141 regression PASS offline #101573 -> pc/1 runs Main PC live on EF 39969767 now (hang guard 60 s), then Rsp-bound hardening. Do not task twice.
