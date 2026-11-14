@@ -677,3 +677,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 3:25 pm EST | pc/0 | PJH Main PC drop accepted #102136 | proven (perf-pc 3 arms) | next: wait RESULT #102142 (PP_Period) and #102143 (PC2 PJH) | .handoff/open.md next.md
 
 2026-11-14 3:25 pm EST | performance-pc/0 session end | DONE: #102014 LoadCap raise FAIL (#102072, idea dropped, code 476053f9 not shipped); #102073 FWP Main PC null (#102081); PJH Main PC DROP (#102136). HALF: none. NEXT: wait for pc reply; open item PJH on PC2 (performance-pc2, script D:/nioh3-re/pjh102073/arm.ps1); else CPU bundle isolation. Main PC clean (public ASIs/ini, journal restored).
+
+2026-11-14 3:50 pm EST | regression-pc/0 reviewed series_run 0f48862c offline | proven: quoted-arm bug reproduced + fix tested | next: re-review pc2 fix | no commits to the branch
