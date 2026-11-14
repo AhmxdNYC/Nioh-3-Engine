@@ -997,8 +997,8 @@ size_t Json(char* out, size_t cap, bool crashPath) {
     j.f("{\"window_s\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"low1_fps\":%.1f,\"avg_ms\":%.2f,\"p99_ms\":%.2f,\"max_ms\":%.2f",
         s.f.spanMs / 1000.0, s.f.frames, s.f.avgFps, s.f.low1Fps, s.f.avgMs, s.f.p99Ms, s.f.maxMs);
     j.f(",\"last_frame_age_s\":%.1f,\"bound\":\"%s\",\"bound_why\":", s.ageS, BoundName(s.bound));
-    if (s.frozen) j.f(",\"window\":\"before_menu_open\",\"menu_open_s\":%.1f", s.menuS);  // #98365
     j.str(s.why, 190);
+    if (s.frozen) j.f(",\"window\":\"before_menu_open\",\"menu_open_s\":%.1f", s.menuS);  // #98365 (after bound_why's value, #98578)
     if (s.haveWindow)
         j.f(",\"game_thread_ms\":%.2f,\"process_cores\":%.2f,\"gpu_fence_wait_ms\":%.2f,\"present_wait_ms\":%.2f,\"limiter_per_frame\":%.2f",
             s.w.gameThreadMs, s.w.procCores, s.w.gpuFenceMs, s.w.presentWaitMs, s.w.limiterPerFrame);
