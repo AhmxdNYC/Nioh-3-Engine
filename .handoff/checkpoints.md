@@ -668,3 +668,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-14 1:25 pm EST | regression-pc/0 reviewed LoadSampler hardening 1daec982 | proven offline (4/4 + 0 exceptions) | next: pc/1 live use of EF b24d4bd3 | no code change
 - 2026-11-14 1:25 pm EST | pc/0 | PC2 FWP inconclusive (GPU-bound) | unproven: FWP CPU win | next: pc/1 Main PC load ABBA then FWP #101758; PC2 Fight again rows re 101326 | files: .handoff/next.md
 2026-11-14 1:54 pm EST | Fight again direct proven on Main PC + PC2 | proven (#101326, #101914) | next: on human yes to #101920, task installer-pc RC v1.8.18 (BR directretry-78 + PadListGuard), default FightAgainDirect=1 | BR e1effec5 2b818c93
+2026-11-14 2:15 pm EST | FWP dropped (#101975) | proven null on PC2+Main PC | next: await performance-pc RESULT on #101979 load-cap | .handoff/next.md open.md
