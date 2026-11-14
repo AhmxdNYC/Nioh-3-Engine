@@ -130,4 +130,4 @@ Coverage now: open world 2/57 device cells, Dojos 3/9 (PASS on current or older 
 - [ ] NEXT RELEASE GATE #87687 (installer-pc #94203): in-game out-of-date popup self-installs + relaunches; Dev lead live check + Discord video before shipping the final build (BR f1adb650 + TR bcc4783e). Restore Main PC Steam folder to the release files before any release install test.
 - [x] BR follow-up (regression #94992, after 1.8.13): g_msg is 160 bytes so the RB24D confirm text + warning is cut ('...Death Veil may not appe'); make it 256 or shorten the warning. Also call WarnFooter on the Train-here row footer (rematch.cpp ~:5260). Owner: pc dev (non-author reviews). | 11-14 4:10 am: DONE on branch pc2/gmsg-256-99125 fc039b7b (BR c5520b17): PC2 live PASS #99184, regression PASS #99384. Merged to main 2a90f6e4 after v1.8.17 (for 1.8.18).
 - [x] Frame-wait park (FWP) EF 125f90e9: DROPPED - PC2 GPU-bound null #101741, Main PC no CPU win #101975
-- [ ] 30 fps load-screen-only cap (from #101900 uncapped-load slower) | performance-pc #101979, Main PC ABBA
+- [x] 30 fps load-screen-only cap: FAIL #102012 (loads 44% slower). Follow-up: 90/120 load-window cap, performance-pc
