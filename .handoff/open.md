@@ -1,10 +1,10 @@
 ## LEFT TO DO (human #93660, 2026-11-12 6:10 pm EST, pc/0). Every item has an owner and is being checked; tick when done.
 - [ ] Release the Boss Match fix (Dojos 100%, Boss Match 100% except RB3FE, Training in those arenas; human #93578). Built and proven on Main PC, not public yet | owner pc lead -> regression-pc check, installer-pc packaging, then release with the human's OK
-- [ ] KL_Div=4 CPU setting | PC2 +7-8% fps (#93495) recheck running on performance-pc2; Ally NO GAIN (#93667: 47.36 vs 47.32 fps, CPU flat, GPU-bound) | decide ship-on-PC-only after PC2 recheck
+- [x] KL_Div=4 CPU setting | PC2 +7-8% fps (#93495) recheck running on performance-pc2; Ally NO GAIN (#93667: 47.36 vs 47.32 fps, CPU flat, GPU-bound) | decide ship-on-PC-only after PC2 recheck | CLOSED 11-12 no gain all devices (#93770)
 - [x] FPS-cap timing margin L1_MarginUs 300: FAIL #93701 (CPU -1.7%, misses 60 cap); keep 1000
-- [ ] Name lookup caching | performance-pc, queued after L1 margin (#93615 order)
-- [ ] UI copy narrowing | performance-pc, queued
-- [ ] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, TASKED 11-14 3:59 pm EST after PP FAIL #102259
+- [x] Name lookup caching | performance-pc, queued after L1 margin (#93615 order) | DROPPED 11-12 #93764 (<=0.6% main thread)
+- [x] UI copy narrowing | performance-pc, queued | DROPPED 11-12 #93766 (0.19% main thread)
+- [x] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, TASKED 11-14 3:59 pm EST after PP FAIL #102259 | DROPPED 11-12 #93728 (0 calls/s in gameplay); re-confirmed 11-14 #102274
 - [ ] Shadow cache (static-light shadows kept, redraw only changed) | not built; LAST per human #93613
 - Dropped (no re-test): light-copy shrink (#93515, 0 copies/s), CapSleep (#93605, already shipped as L1). Parked: world bosses (#92460/#93578), Ally crash 131CA9 (old Nov 7 build, #93576).
 
