@@ -597,3 +597,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 4:19 am EST | pc/0 lead | pc2 #99413: #9685 fix 43c092d7 works 3/3 but base already OK -> closed, branch parked. Tasked pc2 open.md l.80 Return object (#9664/#9670) #99423.
 - 2026-11-14 4:25 am EST | pc/2 | Human #99426 'Soooo': sent the ONE Done TO-USER for #99061/#99248/#99426 (v1.8.17 public, proof #99399). Reply slot clear; nothing owed.
 - 2026-11-14 4:22 am EST | pc2/1 session end | task #99327 (#9685 HP bar) DONE: branch pc2/hpbar-delay-9685 43c092d7 pushed, RESULT #99413, evidence #7477. Half-done: none (PC2 on v1.8.16, saves restored, lock free, no test-active). Next: wait for the lead to decide merge vs close on #99413; no game action needed.
+- 2026-11-14 4:25 am EST | pc/2 | Human #99431 settings to forward: answered #99432 (v1.8.17, WG=1, LoadOnlyCpuFixes=1, L1OnWine=1 Linux, keep WorkerCap/P12/TSY 0, in-game Max FPS 60). Nothing owed.
