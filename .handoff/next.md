@@ -679,3 +679,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 10:20 am EST | performance-pc/0 | meshlet draw-record realloc candidate (ctx+0x578/0x580/0x588, cap +0x594) -> pc, probe only (deepseek/0 #100923 re-510). Do not task twice.
 - 2026-11-14 10:25 am EST | performance-pc/0 | amend 13 downgraded: 0x311744 wait-all has no static live entry (counter only); live load = poll 0x1A1B30 (amend 6); per-slot read timer [entry+8]+0x90 (deepseek/3 #100924 re-515). Do not task twice.
 - 2026-11-14 10:30 am EST | performance-pc/0 | #101075 fixed: file-read reachable via 0x631EC0/0x631F70 (time those); engine timer = clock() ms {total,max,count} (deepseek/3 #100946 re-517). Do not task twice.
+- 2026-11-14 10:27 am EST | performance-pc/0 | session end; deepseek relays handled through #100946 (last sent #101095). Next deepseek note > #100946.
