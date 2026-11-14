@@ -505,3 +505,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-13 11:20 pm EST | regression-pc/0 | #98609 release delta PASS (EF combo eaca739e src 35a1bc13 + TR 2a03cda0 src c431b824); every-freeze EF 66703f0f/hardened NOT yet reviewed. Drop regression-pc/ui-harness-az-98541 (combo carries 89679da5).
 - 2026-11-13 11:22 pm EST | reports-pc/0 | #98566 hardening EF #7439 774d7483 (reports/every-hitch-98471 682265c5, on eaa31c61) offline PASS; RESULT re #98445 to pc, review TASK to regression-pc. #71 'test' closed not-a-bug. Reports queue empty.
 - 2026-11-13 11:26 pm EST | regression-pc/0 | #98640 every-freeze EF tip 682265c5 PASS (incl. hardened settings). Regression gates done for EF combo+hitch, TR 2a03cda0.
+- 2026-11-13 11:30 pm EST | pc2/1 | TR 2a03cda0 (#7429) live PASS on pc2 (#98550 -> RESULT to pc re #98540). pc2 game folder EF is still 1.8.14 f62ca95f, not 1.8.15.
