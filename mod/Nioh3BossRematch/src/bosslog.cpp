@@ -3204,6 +3204,10 @@ WORD PickPadButtons() {
     for (DWORD u = 0; u < 4; ++u) if (f(u, &st) == 0) return st.buttons;
     return PadButtons(nullptr, nullptr);  // #81425: import sees no pad: the export path (Proton / real pad) decides
 }
+// pc #97485: EngineFix's PadDebug row asks whether FormBlockPad is hiding the pad from the game right now (same test as HkFormBlockPad).
+extern "C" __declspec(dllexport) int Nioh3BossRematch_PadBlockActive() {
+    return g_fbActive.load(std::memory_order_relaxed) && GetTickCount64() - g_fbSince.load(std::memory_order_relaxed) < 30000 ? 1 : 0;
+}
 void FormBlockSet(bool on) {
     if (!g_fbMask.load() && !g_fbRT.load() && !g_fbLS.load()) return;
     static bool hooked = false, tried = false;
