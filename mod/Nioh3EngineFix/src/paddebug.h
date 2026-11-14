@@ -1,7 +1,7 @@
 // paddebug.h - Gamepad debug row (pc #97485, universal-optimizer open.md #61623). Read-only: shows the pad exactly as the mod's
 // XInputGetState IAT hook (menu.cpp PadFeed) received it, BEFORE any menu masking, plus whether the mods are hiding the pad from the game
 // right now (EngineFix: menu open / release latch / MaskGameButtons lease / Start-tap swallow; BossRematch: FormBlockPad).
-// Off by default: [Menu] PadDebug=1 shows it as one line on the Diagnostics page. Nothing here changes input; Record() only copies.
+// Off by default: [Menu] PadDebug=1 shows it as two lines on the Input display page. Nothing here changes input; Record() only copies.
 // Header-only, no Windows dependency (tests/paddebug_test.cpp builds it alone).
 #pragma once
 #include <atomic>

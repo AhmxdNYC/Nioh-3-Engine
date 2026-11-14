@@ -1188,7 +1188,11 @@ int HideHudSettingRow() {  // #44871: Display Overlays row for [Menu] HideGameHu
     for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "HideGameHud")) return kSettingRow + i;
     return -1;
 }
-bool IsInputDisplayKey(const char* key) { return key && strncmp(key, "InputDisplay", 12) == 0; }
+bool IsInputDisplayKey(const char* key) { return key && (strncmp(key, "InputDisplay", 12) == 0 || strcmp(key, "PadDebug") == 0); }  // #98294 pad debug lives on Input display
+int PadDebugSettingRow() {
+    for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "PadDebug")) return kSettingRow + i;
+    return -1;
+}
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
@@ -1925,7 +1929,7 @@ void ApplyConfigValue(int index) {
         } else if (!strcmp(d.key, "PadDebug")) {  // #97559 catalog row for the #97485 debug lines
             paddebug::g_store.blocked.store(0u, std::memory_order_relaxed);  // no stale reason from before the toggle
             paddebug::g_on = atoi(v.c_str()) ? 1 : 0;
-            snprintf(g_configReply, sizeof(g_configReply), paddebug::g_on ? "Pad debug on (Diagnostics page). Save to keep it." : "Pad debug off. Save to keep it.");
+            snprintf(g_configReply, sizeof(g_configReply), paddebug::g_on ? "Pad debug on (Input display page). Save to keep it." : "Pad debug off. Save to keep it.");
         } else if (!strcmp(d.key, "HideGameHud")) {
             hudhide::g_want = atoi(v.c_str()) ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), hudhide::g_bad ? "Hide game HUD is not available on this game version." : hudhide::g_want ? "Game HUD hidden. Save to keep it." : "Game HUD shown. Save to keep it.");
@@ -3827,7 +3831,7 @@ float DrawImpl(unsigned W, unsigned H) {
         const char* why = osd::FgReason(osd::FrameGen());
         addT(why ? why : " ", cOrange);
     }
-    if (paddebug::g_on && g_pages.page == pDiagnostics) {  // #97485: raw pad as the mod sees it + who hides it from the game
+    if (paddebug::g_on && (g_pages.page == pOvInput || g_sel == PadDebugSettingRow())) {  // #98294: pDiagnostics had no route; Input display page (layout 0) or the selected row (any layout). #97485: raw pad as the mod sees it + who hides it from the game
         static int (*formBlock)() = nullptr;
         static ULONGLONG nextLook = 0;
         if (!formBlock && t >= nextLook) {
@@ -4130,7 +4134,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
-    paddebug::g_on = GetPrivateProfileIntW(L"Menu", L"PadDebug", 0, f) ? 1 : 0;  // #97485 read-only pad debug row (Diagnostics page)
+    paddebug::g_on = GetPrivateProfileIntW(L"Menu", L"PadDebug", 0, f) ? 1 : 0;  // #97485 read-only pad debug row (Input display page)
     hudhide::g_want = GetPrivateProfileIntW(L"Menu", L"HideGameHud", 0, f) ? 1 : 0;
     for (int i = 0; i < hudhide::kElemN; ++i) {  // #44877 per-element HUD hide
         wchar_t wk[64]; MultiByteToWideChar(CP_UTF8, 0, hudhide::kElems[i].key, -1, wk, 64);

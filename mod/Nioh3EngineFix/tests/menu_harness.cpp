@@ -305,6 +305,10 @@ int main() {
     };
     CHECK(has(pOvController, kSettingRow + pad) && has(pOvController, kSettingRow + padColor) && has(pOvController, kSettingRow + style));
     CHECK(!has(pOvController, kSettingRow + inp) && has(pOvInput, kSettingRow + inp) && has(pOvInput, kSettingRow + inpRows) && !has(pOvInput, kSettingRow + pad));
+    {  // #98294: the pad debug row must be reachable in layout 0 (Input display page), where its lines are drawn
+        const int dbg = cfgIndex("PadDebug");
+        CHECK(dbg >= 0 && has(pOvInput, kSettingRow + dbg) && !has(pOvController, kSettingRow + dbg) && PadDebugSettingRow() == kSettingRow + dbg);
+    }
     // Frame meter page: meter, Ki window and every Training toggle row
     {
         g_pages.page = pOvFrameMeter;
