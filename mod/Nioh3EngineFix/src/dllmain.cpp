@@ -75,6 +75,7 @@
 #include "hitchlog.h"
 #include "perfsnap.h"
 #include "crashupload.h"
+#include "../../shared/known_build.h"
 
 #define MOD_NAME "Nioh3EngineFix"
 // 1.7.31: psojournal.cpp (PJ, notes\stutter.md 6.1)
@@ -1548,7 +1549,11 @@ DWORD WINAPI Worker(LPVOID) {
     g_base = (uint8_t*)GetModuleHandleW(nullptr);
     auto nt = Nt(g_base);
     g_imageSize = nt->OptionalHeader.SizeOfImage;
-    const bool known = nt->FileHeader.TimeDateStamp == gen::kBuildTimestamp && nt->OptionalHeader.SizeOfImage == gen::kBuildSizeOfImage;
+    // #77: shared check (mod/shared/known_build.h): the Steam exe, or the same v2.02 code without the Steam DRM wrapper
+    const int buildKind = n3kb_classify((uintptr_t)g_base);
+    const bool known = buildKind != N3KB_UNKNOWN;
+    static_assert(N3KB_STAMP == gen::kBuildTimestamp && N3KB_SIZE_STEAM == gen::kBuildSizeOfImage, "known_build.h vs patches.json");
+    if (buildKind == N3KB_STRIPPED) Log("known-stripped: v2.02 code without the Steam DRM wrapper (SizeOfImage %zX, 7 sections at the Steam RVAs, .text sha matches)", (size_t)nt->OptionalHeader.SizeOfImage);
     Log("Nioh3.exe at %p: TimeDateStamp %08lX SizeOfImage %zX -> %s", g_base, nt->FileHeader.TimeDateStamp, g_imageSize,
         known ? "known build (v2.02)" : "UNKNOWN BUILD");
     // every fixed game address goes through Grva() (gamerva.h): identity here on v2.02, pattern lookup on another build

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "rvas_gen.h"
+#include "../../shared/known_build.h"
 
 static int g_gr_known = 1;
 static uintptr_t g_gr_base;
@@ -132,7 +133,12 @@ static void GrInit(uintptr_t base, void (*log)(const char*, ...)) {
     const IMAGE_SECTION_HEADER* sh = IMAGE_FIRST_SECTION(nt);
     for (int k = 0; k < nt->FileHeader.NumberOfSections && g_gr_nexec < 16; ++k)
         if (sh[k].Characteristics & IMAGE_SCN_MEM_EXECUTE) { g_gr_exec[g_gr_nexec].p = (const uint8_t*)(base + sh[k].VirtualAddress); g_gr_exec[g_gr_nexec++].n = sh[k].Misc.VirtualSize; }
-    g_gr_known = nt->FileHeader.TimeDateStamp == GR_BUILD_TIMESTAMP && nt->OptionalHeader.SizeOfImage == GR_BUILD_SIZE_OF_IMAGE;
+    /* #77: shared check (mod/shared/known_build.h): the Steam exe, or v2.02 without the Steam DRM wrapper */
+    {
+        const int kind = n3kb_classify(base);
+        g_gr_known = kind != N3KB_UNKNOWN && GR_BUILD_TIMESTAMP == N3KB_STAMP && GR_BUILD_SIZE_OF_IMAGE == N3KB_SIZE_STEAM;
+        if (kind == N3KB_STRIPPED && log) log("known-stripped: v2.02 code without the Steam DRM wrapper (SizeOfImage 0x%X)", (unsigned)nt->OptionalHeader.SizeOfImage);
+    }
 }
 // Once .text is decrypted: logs "game RVAs (rvas.json, N entries): ..."; returns the number of entries NOT found at their expected
 // place (known build) / not resolved (other build, which also fills the cache so later lookups are a table read).

@@ -7,6 +7,7 @@
 #include "gamerva.h"
 #include "rvas_gen.h"
 #include "../../shared/soul_camera_vertical.h"
+#include "../../shared/known_build.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -2432,6 +2433,7 @@ static void LogChain(uint64_t base) {
 
 static int g_protonOff;
 static int g_protonDelay;
+static int g_unknownBuild;  // #77: pattern lookups run on this worker; keep it below the game threads until they are done
 static DWORD WINAPI Worker(LPVOID) {
     int was7 = 0, was8 = 0;
     uint32_t beat = 0, iniBeat = 0;
@@ -2447,6 +2449,7 @@ static DWORD WINAPI Worker(LPVOID) {
     Log("A game menu, the equipment appearance screen, or photo mode releases those writes until the screen closes.");
     if (g_protonOff) { Log("Linux/Proton: probe idle"); return 0; }
     DWORD protonT0 = GetTickCount();
+    if (g_unknownBuild) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
     while (g_run) {
         uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
         if (g_protonDelay) {
@@ -2480,7 +2483,11 @@ static DWORD WINAPI Worker(LPVOID) {
             float pos[4] = {0, 0, 0, 0};
             if (Player(base, &actor, pos)) {
                 static int verified;
-                if (!verified) verified = 1, gamerva::Verify();  // code is decrypted once the player exists
+                if (!verified) {
+                    verified = 1;
+                    gamerva::Verify();  // code is decrypted once the player exists; on another build this fills the lookup cache
+                    if (g_unknownBuild) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+                }
                 ScanCamSlice(base, (size_t)128 << 20);
             }
         }
@@ -2567,8 +2574,12 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID) {
             uint64_t base = (uint64_t)GetModuleHandleW(L"Nioh3.exe");
             if (base) {  // Grva: identity on v2.02, byte-pattern lookup (rvas.json) on another build
                 const IMAGE_NT_HEADERS64* nt = (const IMAGE_NT_HEADERS64*)(base + ((const IMAGE_DOS_HEADER*)base)->e_lfanew);
-                gamerva::Init((uintptr_t)base, nt->FileHeader.TimeDateStamp == gamerva::rvas::kBuildTimestamp &&
-                                                   nt->OptionalHeader.SizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
+                // #77: shared check (mod/shared/known_build.h): the Steam exe, or v2.02 without the Steam DRM wrapper
+                static_assert(N3KB_STAMP == gamerva::rvas::kBuildTimestamp && N3KB_SIZE_STEAM == gamerva::rvas::kBuildSizeOfImage, "known_build.h vs rvas.json");
+                const int kind = n3kb_classify((uintptr_t)base);
+                gamerva::Init((uintptr_t)base, kind != N3KB_UNKNOWN, Log);
+                g_unknownBuild = kind == N3KB_UNKNOWN;
+                if (kind == N3KB_STRIPPED) Log("known-stripped: v2.02 code without the Steam DRM wrapper (SizeOfImage 0x%X)", (unsigned)nt->OptionalHeader.SizeOfImage);
             }
             {
                 int mode = ProtonMode();

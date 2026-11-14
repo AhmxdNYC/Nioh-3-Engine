@@ -452,7 +452,7 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         if (nth)
             o.P("  TimeDateStamp %08lX, SizeOfImage %lu (0x%lX)%s\r\n", nth->FileHeader.TimeDateStamp, nth->OptionalHeader.SizeOfImage,
                 nth->OptionalHeader.SizeOfImage, g_known ? ", matches the known build" : ", NOT the known build (variant)");
-        if (nth && !g_known) {  // #98375: a Steam exe carries the DRM wrapper in a last '.bind' section; a stripped copy lacks it
+        if (nth) {  // #98375: a Steam exe carries the DRM wrapper in a last '.bind' section; a stripped copy lacks it
             bool bind = false;
             const IMAGE_SECTION_HEADER* sh = IMAGE_FIRST_SECTION(nth);
             for (unsigned i = 0; i < nth->FileHeader.NumberOfSections && i < 96; ++i)

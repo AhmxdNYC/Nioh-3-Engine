@@ -7,6 +7,7 @@
 #include "rvas_gen.h"
 #include "sites_gen.h"
 #include "spirit_upgrade.h"
+#include "../../shared/known_build.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -198,9 +199,14 @@ void Boot() {
     g_img.end = g_img.base + nt->OptionalHeader.SizeOfImage;
     g_img.timestamp = nt->FileHeader.TimeDateStamp;
     g_img.sizeOfImage = nt->OptionalHeader.SizeOfImage;
-    g_img.knownBuild = g_img.timestamp == sites::kKnownTimestamp && g_img.sizeOfImage == sites::kKnownSizeOfImage;
+    // #77: shared check (mod/shared/known_build.h): the Steam exe, or the same v2.02 code without the Steam DRM wrapper
+    const int buildKind = n3kb_classify(g_img.base);
+    static_assert(N3KB_STAMP == sites::kKnownTimestamp && N3KB_SIZE_STEAM == sites::kKnownSizeOfImage, "known_build.h vs sites.json");
+    static_assert(N3KB_STAMP == gamerva::rvas::kBuildTimestamp && N3KB_SIZE_STEAM == gamerva::rvas::kBuildSizeOfImage, "known_build.h vs rvas.json");
+    g_img.knownBuild = buildKind != N3KB_UNKNOWN;
     // Grva: identity on v2.02, byte-pattern lookup (rvas.json) on another build
-    gamerva::Init(g_img.base, g_img.timestamp == gamerva::rvas::kBuildTimestamp && g_img.sizeOfImage == gamerva::rvas::kBuildSizeOfImage, Log);
+    gamerva::Init(g_img.base, g_img.knownBuild, Log);
+    if (buildKind == N3KB_STRIPPED) Log("known-stripped: v2.02 code without the Steam DRM wrapper (SizeOfImage 0x%X)", g_img.sizeOfImage);
     const HMODULE perf = GetModuleHandleW(L"Nioh3EngineFix.asi");
     Log("Nioh3BossRematch %s (separate add-on; boss logger + rematch). Game %ls, TimeDateStamp 0x%08X, SizeOfImage 0x%X: %s. Nioh3EngineFix.asi %s.",
         ADDON_VERSION, en, g_img.timestamp, g_img.sizeOfImage, g_img.knownBuild ? "known build v2.02 (fast path)" : "UNKNOWN build - every site by pattern scan",
