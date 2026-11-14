@@ -579,3 +579,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 01:54 | regression-pc: delta #99116 PASS | proven offline (diff) | next: pc/1 Arm C live TR 1cfd0921 | no code
 2026-11-14 01:57 | regression-pc: boss-filter review #99133 PASS | proven offline | next: lead bundles with TR 1cfd0921 after pc/1 Arm C | no code
 - 2026-11-14 1:56 am EST | pc2/1 | session end: #99050 boss filters DONE (RESULTs sent to pc re #99036 and to pc2 #99113). Half-done: none; game closed, public BR e440a05c/TR 2a03cda0/TSV 14801e35 + saves restored, lock free, no test-active. Next: lead merges pc2/boss-filters-99036 5427d90f after regression delta. Files: bridge #7463 build, #7467 shot, C:/nioh3-re/t99050.
+2026-11-14 02:05 | regression-pc: RC caa63cdd merge PASS #99166 | proven offline | next: wait Arm C + known_build rerun | no code
