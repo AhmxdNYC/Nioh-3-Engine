@@ -31,3 +31,4 @@
 - [x] Publish 1.8.14? | All gates PASS (smoke #97255, regression #97306, installer #97296); no Death Veil. Reply yes to publish | phone
 - [ ] Ally Claude login expired | on the Ally run 'claude auth login' (or set CLAUDE_CODE_OAUTH_TOKEN via 'claude setup-token') so its agent can work again (#99164) | ally
 - [ ] DeepSeek out of OpenRouter credits | All 5 DeepSeek seats fail with API 402 since ~10:45 am EST (#101143-#101176); add credits on openrouter.ai so engine reversing resumes | any
+- [ ] Main PC load probe run OK? | Reply go/later to DECISION #101334: ~15 min Main PC game (3 cold starts + 2 Boss Match loads) with EF LoadProbe a0a61c70; v1.8.17 + saves restored after | Main PC
