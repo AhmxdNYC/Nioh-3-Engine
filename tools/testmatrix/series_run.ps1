@@ -51,7 +51,7 @@ if (-not $Supervise -and -not $Watch) {
     $dir = Join-Path $env:LOCALAPPDATA "uo-agentd\$Device\series"; New-Item -ItemType Directory -Force $dir | Out-Null
     if (-not $StatusFile) { $StatusFile = Join-Path $dir "$Name-$stamp.status.txt" }
     if (-not $Marker) { $Marker = Join-Path $env:LOCALAPPDATA "uo-agentd\$Device\test-active" }
-    if (-not $LockGame) { $LockGame = "nioh3-$Device" }
+    if (-not $LockGame) { $LockGame = "nioh3" }   # one lock name per game (ops #102251); device goes in --device
     if (-not $Seat) { $Seat = "$Device/?" }
     $specFile = Join-Path $dir "$Name-$stamp.spec.json"
     [ordered]@{ name = $Name; device = $Device; seat = $Seat; arms = $Arm; lockGame = $LockGame; marker = $Marker; status = $StatusFile
@@ -70,7 +70,7 @@ function Lock([string]$a) {
     Remove-Item Env:UO_SERIES_KEEPLOCK -ErrorAction SilentlyContinue   # the supervisor's own release must go through
     Push-Location $uo
     try { $ttl = if ($a -eq "release") { @() } else { @("--ttl", "$($S.lockTtl)") }
-          $o = (& py -m uo_bridge.gamelock $a $S.lockGame @ttl 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } }
+          $o = (& py -m uo_bridge.gamelock $a $S.lockGame --device $S.device @ttl 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } }
     finally { Pop-Location }
 }
 
@@ -105,6 +105,7 @@ $me = $PID; $locked = $false; $ok = $true; $n = 0
 function Touch-Marker { Set-Content -Encoding ASCII $S.marker "$($S.seat) $($S.name) supervisor=$me arms=$($S.arms.Count) refreshed=$(Get-Date -f s)" }
 try {
     St "START $($S.name) supervisor=$me arms=$($S.arms.Count) lock=$($S.lockGame) marker=$($S.marker)"
+    Remove-Item -Force -ErrorAction SilentlyContinue "$($S.status).armpid"   # stale pid from a reused status path must not reach the watchdog
     $wd = Spawn-Detached (PsArgs "-Watch $me -Spec `"$Spec`""); St "watchdog pid=$wd"
     $r = Lock "acquire"; if ($r.code -ne 0) { throw "lock: $($r.out)" }; $locked = $true; St "LOCK acquired: $($r.out)"
     New-Item -ItemType Directory -Force (Split-Path -Parent $S.marker) | Out-Null; Touch-Marker
