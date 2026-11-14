@@ -1,0 +1,49 @@
+id	name	route	confirmed	have	radius_m	span_m	stand_boss_m
+RCC53	Kasha	R	1	stand+boss	58.7	117.5	117.5
+R23E5	Hino-enma	R	1	stand+boss+box	39.5	79.0	19.3
+R0034	Enenra & Jakotsu-baba	R	1	stand+boss+box	34.7	69.4	10.6
+R7B35	Minamoto no Yoritomo	R	1	stand+boss+box	33.2	66.4	16.5
+R1359	Yagyu Jubei (A Fortress in Ruins)	R	0	stand+boss+box	31.2	62.4	12.5
+D95FA	Nasu no Yoichi	D	0	stand+boss	28.5	56.9	56.9
+RB24D	Death Veil & Enenra & Gozuki & Hiruko & Jakotsu-baba & Jo...	R	0	stand+boss	26.5	53.1	53.1
+RA4B4	Gozuki & Tokugawa Kunimatsu	R	1	stand+boss+box	25.7	51.4	1.8
+R15FF	Takeda Shingen	R	1	stand+boss+box	24.0	48.0	12.2
+REA75	Ibaraki Doji	R	1	stand+boss+box	23.3	46.7	7.5
+RC72E	Enenra & Great Tengu & Jakotsu-baba	R	1	stand+boss	21.3	42.7	42.7
+R9A25	Kajiwara Kagetoki & Ryomen Sukuna	R	1	stand+boss	20.4	40.7	40.7
+RE7BD	Hijikata Toshizo & Kondo Isami & Onmoraki	R	1	stand+boss+box	19.3	37.9	27.6
+RF60A	Hino-enma & Joro-gumo & Kasha	R	1	stand+boss+box	19.3	38.5	9.3
+R0F7F	Kosaka Masanobu & Naito Masatoyo & Takeda Shingen & Yamag...	R	1	stand+boss	17.6	35.2	35.2
+R25E4	Ippon-Datara	R	1	stand+boss+box	16.7	33.3	23.5
+RD617	Hattori Hanzo & Saito Fuku & Tokugawa Kunimatsu & Yagyu M...	R	0	stand+boss+box	13.4	26.9	9.8
+R3B58	Kanai Hanbei	R	1	stand+boss+box	13.4	26.8	6.3
+R19EA	Gozuki & Kanai Hanbei & Marubashi Chuya	R	1	stand+boss+box	13.2	23.9	20.5
+R1C7C	Anayama Nobutada & Baba Nobuharu	R	1	stand+boss	12.3	24.6	24.6
+R3513	Kusanagi	R	1	stand+boss	11.5	23.1	23.1
+R1DEA	Okita Soji & Onryoki & Tokugawa Yoshinobu	R	1	stand+boss+box	10.7	20.4	18.9
+R1CBC	Yamagata Masakage	R	1	stand+boss+box	10.4	19.2	15.4
+R04DF	Magatsu Warrior	R	1	stand+boss+box	10.1	20.2	4.6
+R4D8E	Takasugi Shinsaku	R	1	stand+boss	10.0	20.0	20.0
+R401E	Nuribotoke	R	1	stand+boss	8.9	17.9	17.9
+R1352	Ryomen Sukuna (The Apparition of Ryotan Temple)	R	1	stand+boss	8.7	17.4	17.4
+RC362	Hattori Hanzo (The Demon's Regimen)	R	1	stand+boss	8.5	17.0	17.0
+RC1D9	Tokugawa Kunimatsu	R	1	stand+boss	8.0	15.9	15.9
+R0C12	Hiruko & Onryoki	R	1	stand+boss	7.7	15.4	15.4
+RDC12	Giant Toad	R	1	stand+boss	7.1	14.1	14.1
+R0B0B	Baba Nobuharu & Kosaka Masanobu & Naito Masatoyo & Takeda...	R	0	stand+boss	5.3	10.7	10.7
+RB3F8	Minamoto no Yoshitsune	H	1	stand+boss	5.0	10.1	10.1
+R5CC4	Okita Soji	R	1	stand+boss	5.0	10.0	10.0
+R6E65	Yagyu Munenori (Adept)	R	1	stand+boss	4.8	9.6	9.6
+R1A5E	Yagyu Munenori (Veteran)	R	1	stand+boss	4.8	9.6	9.6
+RE18C	Hattori Hanzo (Adept)	R	1	stand+boss	4.8	9.6	9.6
+R9BE4	Hattori Hanzo (Veteran)	R	1	stand+boss	4.8	9.6	9.6
+RA0CB	Demon of Envy & Demon of Obsession & Demon of Pride	R	1	stand+boss	4.5	9.0	9.0
+R2EE9	Otoroshi	R	1	stand+boss	4.5	9.0	9.0
+D084F	Ito Ittosai	D	1	stand+boss	4.0	7.9	7.9
+D63A9	Shinran	D	1	stand+boss	3.9	7.8	7.8
+RD22D	Honda Tadakatsu	H	1	stand+boss	3.7	7.3	7.3
+DA30C	Takahashi Deishu	D	1	stand+boss	3.6	7.3	7.3
+DCE5A	Sugitani Zenjubo	D	1	stand+boss	3.6	7.2	7.2
+D5A7B	Sawamura Yasusuke	D	1	stand+boss	3.4	6.8	6.8
+D6B58	Tomoe Gozen	D	0	stand+boss	2.0	4.0	4.0
+DB90D	Fuma Kotaro	D	0	stand+boss	2.0	4.0	4.0
