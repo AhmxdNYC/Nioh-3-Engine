@@ -44,6 +44,7 @@ inline constexpr Entry kEntries[] = {
     {"Menu", "FrameGenToggle", "0"},
     {"Patches", "MW", "0"},
     {"Patches", "RD", "0"},
+    {"Patches", "FWP", "0"},
     {"Patches", "W1", "1"},
     {"Patches", "W2", "1"},
     {"Patches", "VRR", "1"},

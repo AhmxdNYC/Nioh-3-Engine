@@ -15,6 +15,7 @@ struct Def {
     const char* iat;      // iat: "dll!func"
 };
 constexpr Def kDefs[] = {
+    {0x3EB04, kCode, "48 83 EC 28 48 8B 49 08 48 85 C9 74 0A 48 8B 49 20 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x3FF5E, kCode, "48 8B 0B 44 8A F8 88 44 24 78 4D 8B", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x403D7, kCode, "44 0F B6 C8 4D 8B C5 48 8B 03 48 85", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x48B9C, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 DB 44 8B C2 48 8B C1", 0, 0x0, 0, 0, 0, ""},  // loadonly.cpp
@@ -129,6 +130,7 @@ constexpr Def kDefs[] = {
     {0x4930B5, kCode, "E8 ?? ?? ?? ?? EB C7 33 C9 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x495AF2, kCode, "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x495F26, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 54 24 20 48 8B CF 41 FF 14 C0 48", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
+    {0x4A4F3B, kCode, "48 8B 97 C8 01 00 00 33 C0 F0 0F B1", 0, 0x0, 0, 0, 0, ""},  // dllmain.cpp
     {0x4A53D0, kCode, "E8 ?? ?? ?? ?? 44 89 BB 68 E5 1E 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x52B142, kCode, "E8 ?? ?? ?? ?? 45 33 E4 48 8B F0 48 85 C0 0F 85 ?? ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x52BE1C, kCode, "8B 81 CC 01 00 00 0F A3 D0 72 03 33", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp

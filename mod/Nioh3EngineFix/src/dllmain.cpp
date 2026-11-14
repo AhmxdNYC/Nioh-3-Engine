@@ -489,9 +489,13 @@ extern "C" void caveMW();
 extern "C" void caveMWWake();
 extern "C" void MWWait(uint8_t* m) { g_mw.Round(m + 0x5F8); }
 extern "C" void MWComplete(uint8_t* m) { g_mw.Complete(m + 0x5F8); }
+#include "framewaitpark.h"
+extern "C" void caveFwp();
+extern "C" uint64_t fwp_resume;
 
 struct Config {
     int mw = 0, rd = 0;
+    int fwp = 0, fwpSpinUs = 200, fwpSleepUs = 100;  // #101247 frame-wait park (0 stock, 1 park, 2 measure-only)
     int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
     int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, kidstsCapCpus = 0, as0 = 0;
@@ -662,6 +666,9 @@ Config LoadConfig() {
     c.e1 = I(L"Patches", L"E1", c.e1);
     c.rd = I(L"Patches", L"RD", 0); // startup-only paired renderer drain
     c.mw = I(L"Patches", L"MW", 0);  // explicit opt-in, never Auto
+    c.fwp = I(L"Patches", L"FWP", 0);  // explicit opt-in, never Auto
+    c.fwpSpinUs = std::clamp(I(L"Patches", L"FWP_SpinUs", 200), 0, 2000);
+    c.fwpSleepUs = std::clamp(I(L"Patches", L"FWP_SleepUs", 100), 20, 1000);
     c.w6 = A(L"Patches", L"W6", c.w6, 1, 0, "Wine: present-wait spin -> WaitOnAddress, power goes to the GPU; Windows: ~0 measured");
     c.s1 = I(L"Patches", L"S1", c.s1);
     c.ppPeriod = I(L"Tuning", L"PP_Period", c.ppPeriod);
@@ -895,6 +902,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveRDWait: return (void*)&caveRDWait;
         case gen::Target::caveRDWake: return (void*)&caveRDWake;
         case gen::Target::caveMWWake: return (void*)&caveMWWake;
+        case gen::Target::caveFwp: return (void*)&caveFwp;
         case gen::Target::caveW6: return (void*)&caveW6;
         case gen::Target::caveW6Wake: return (void*)&caveW6Wake;
         case gen::Target::caveIkKick: return (void*)&caveIkKick;
@@ -965,7 +973,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveHold;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveFwp;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1882,6 +1890,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "W6") || !strcmp(g, "W6W")) return cfg.w6 != 0;
         if (!strcmp(g, "RD")) return cfg.rd != 0;
         if (!strcmp(g, "MW")) return cfg.mw != 0;
+        if (!strcmp(g, "FWP")) return cfg.fwp != 0;
         if (!strcmp(g, "S1")) return cfg.s1 != 0;
         if (!strcmp(g, "IK")) return cfg.ik != 0 || cfg.ts != 0;  // the K/C sites carry the TS stamps too
         if (!strcmp(g, "TS")) return cfg.ts != 0;
@@ -2175,6 +2184,33 @@ DWORD WINAPI Worker(LPVOID) {
         if (!installed && !g_mwInstallUncertain) g_mw.enabled = false;
         Log("MW: %s (paired meshlet completion wait/wake; startup-only; no job work skipped)",
             installed ? "ON" : g_mwInstallUncertain ? "UNRESOLVED publication; keep paired helpers valid" : "skipped, stock retained");
+    }
+    // FWP (#101247): RenderWaitForFrame job spin 4A4F1C -> kick once + own high-res timer park. Single site, main thread.
+    if (cfg.fwp == 1 || cfg.fwp == 2) {
+        g_fwpMode = cfg.fwp; g_fwpSpinUs = cfg.fwpSpinUs; g_fwpSleepUs = cfg.fwpSleepUs;
+        g_fwpOn = expGroup("FWP", true, [&]() {
+            Item* it = findItem("FWP");
+            if (!it || !it->addr) return false;
+            const uint8_t* a = it->addr;  // 48 8B 8F C8 01 00 00 | E8 rel32 (kick) | FF C3 84 DB | 0F 85 rel32 (loop head)
+            if (a[7] != 0xE8 || a[16] != 0x0F || a[17] != 0x85) return false;
+            const uintptr_t kick = (uintptr_t)(a + 12) + *reinterpret_cast<const int32_t*>(a + 8);
+            const uintptr_t head = (uintptr_t)(a + 22) + *reinterpret_cast<const int32_t*>(a + 18);
+            if (kick != (uintptr_t)(g_base + Grva(0x3EB04)) || head != (uintptr_t)(g_base + Grva(0x4A4F3B))) {
+                Log("FWP: kick/loop-head targets differ from 3EB04/4A4F3B - stock retained");
+                return false;
+            }
+            LARGE_INTEGER q; QueryPerformanceFrequency(&q); g_fwpQpf = q.QuadPart;
+            if (g_fwpMode == 1) {
+                g_fwpTimer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+                if (!g_fwpTimer) { Log("FWP: no high-resolution timer - stock retained"); return false; }
+            }
+            g_fwpKick = reinterpret_cast<void (*)(void*)>(kick);
+            fwp_resume = (uint64_t)head;
+            return true;
+        });
+        Log("FWP: %s (RenderWaitForFrame job spin 4A4F1C; mode %d = %s, spin %d us, sleep step %d us)",
+            g_fwpOn ? "installed" : "NOT installed (stock)", g_fwpMode, g_fwpMode == 1 ? "kick once + timer park" : "measure-only stock loop",
+            g_fwpSpinUs, g_fwpSleepUs);
     }
     // Independent FG copy-job crash guard; does not change game settings.
     if (cfg.fgc || (g_wineEarly && cfg.fgToggle == 3)) {
@@ -2968,6 +3004,17 @@ DWORD WINAPI Worker(LPVOID) {
                         "L1 timer sleeps %ld/s", g_tgEnable ? "ON" : "off", kTgSt[st >= 0 && st <= 4 ? st : 0], tg_cap,
                         (double)g_tgTicks, (double)g_tgRendered, (l1 - pL1) / 30);
                     pL1 = l1;
+                }
+                if (g_fwpOn && sec % 30 == 0) {
+                    static LONG pC = 0, pP = 0, pK = 0, pB = 0;
+                    static LONG64 pT = 0;
+                    const LONG c = g_fwpCalls, pk = g_fwpParks, kc = g_fwpKicks, b = g_fwpBounded;
+                    const LONG64 t = g_fwpTicks, mx = InterlockedExchange64(&g_fwpMaxTicks, 0);
+                    const double ms = (double)(t - pT) * 1e3 / (double)f.QuadPart;
+                    Log("stats/s FWP: frame-wait spins %ld/30s, total %.1f ms/30s (avg %.0f us, max %.0f us), timer parks %ld, kicks %ld, "
+                        "bounded %ld (mode %d)", c - pC, ms, c > pC ? ms * 1e3 / (double)(c - pC) : 0.0,
+                        (double)mx * 1e6 / (double)f.QuadPart, pk - pP, kc - pK, b - pB, g_fwpMode);
+                    pC = c; pP = pk; pK = kc; pB = b; pT = t;
                 }
                 if (s_dsDone && sec % 30 == 0) {
                     static long pW = 0;
