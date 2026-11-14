@@ -598,6 +598,69 @@ int g_eventsN = 0;
 char g_blame[4][120];  // crashblame "WHO:" lines, first in "last" (human #94391/#94396)
 int g_blameN = 0;
 
+// GitHub #72 (#98557): a game-side access violation needs the memory around it to tell "freed" from "decommitted" from "re-pointed".
+// "MEM" lines (in "last", after WHO; the site caps a line at 120): the fault address's region state, then 12 qwords (two lines of 6,
+// +00 and +30) at up to 4 pointer-like registers that point at committed readable memory. Generic (no game addresses), crash path
+// only: VirtualQuery + SEH-guarded reads, static data.
+constexpr int kMemLines = 9, kMemLen = 119;
+char g_mem[kMemLines][120];
+int g_memN = 0;
+bool Readable(DWORD prot) {
+    if (prot & (PAGE_GUARD | PAGE_NOACCESS)) return false;
+    return (prot & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE |
+                    PAGE_EXECUTE_WRITECOPY)) != 0;
+}
+int ReadQwords(uintptr_t p, unsigned long long* out, int n) {
+    __try {
+        for (int i = 0; i < n; ++i) out[i] = ((const volatile unsigned long long*)p)[i];
+        return n;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+const char* StateText(const MEMORY_BASIC_INFORMATION& m) {
+    if (m.State == MEM_FREE) return "free";
+    if (m.State == MEM_RESERVE) return "reserved";
+    return "committed";
+}
+int CaptureMem(const EXCEPTION_RECORD* er, const CONTEXT* ctx) {
+    int n = 0;
+    if (er && er->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && er->NumberParameters >= 2) {
+        const uintptr_t a = (uintptr_t)er->ExceptionInformation[1];
+        MEMORY_BASIC_INFORMATION m{};
+        if (VirtualQuery((const void*)a, &m, sizeof m))
+            snprintf(g_mem[n++], kMemLen, "MEM fault 0x%llx: %s prot %lx type %lx alloc %llx region %llx+%llx",
+                     (unsigned long long)a, StateText(m), m.Protect, m.Type, (unsigned long long)(uintptr_t)m.AllocationBase,
+                     (unsigned long long)(uintptr_t)m.BaseAddress, (unsigned long long)m.RegionSize);
+        else
+            snprintf(g_mem[n++], kMemLen, "MEM fault 0x%llx: not queryable", (unsigned long long)a);
+    }
+    if (!ctx) return n;
+    const struct { const char* name; DWORD64 v; } regs[] = {{"rbx", ctx->Rbx}, {"rsi", ctx->Rsi}, {"rdi", ctx->Rdi}, {"r12", ctx->R12},
+        {"r13", ctx->R13}, {"r14", ctx->R14}, {"r15", ctx->R15}, {"rbp", ctx->Rbp}, {"rcx", ctx->Rcx}, {"rdx", ctx->Rdx}, {"rax", ctx->Rax},
+        {"r8", ctx->R8}, {"r9", ctx->R9}};
+    for (const auto& r : regs) {
+        if (n + 2 > kMemLines) break;
+        const uintptr_t v = (uintptr_t)r.v;
+        if (v < 0x10000 || v >= 0x800000000000ull || (v & 7)) continue;
+        MEMORY_BASIC_INFORMATION m{};
+        if (!VirtualQuery((const void*)v, &m, sizeof m) || m.State != MEM_COMMIT || !Readable(m.Protect)) continue;
+        const uintptr_t end = (uintptr_t)m.BaseAddress + m.RegionSize;
+        int want = (int)((end - v) / 8);
+        if (want > 12) want = 12;
+        unsigned long long q[12];
+        const int got = ReadQwords(v, q, want);
+        if (!got) continue;
+        for (int half = 0; half * 6 < got; ++half) {
+            int k = snprintf(g_mem[n], kMemLen, "MEM %s+%02x:", r.name, half * 0x30);
+            for (int i = half * 6; i < got && i < half * 6 + 6 && k > 0 && k < kMemLen; ++i)
+                k += snprintf(g_mem[n] + k, kMemLen - k, " %llx", q[i]);
+            ++n;
+        }
+    }
+    return n;
+}
+
 // GitHub #23: "last" read only Nioh3ModEvents.jsonl, a shared event log that no mod writes (1.8.5), so every crash record had
 // "last": [] even when the mod logs were full. Fallback when the jsonl gives nothing: the newest timestamped lines of the logs this
 // record already collected (EngineFix ring, BossRematch and Training tails), merged by their [HH:MM:SS.mmm] stamp, oldest first, in
@@ -711,6 +774,12 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
         j.str(g_blame[i], 118);
         j.raw("}}");
     }
+    for (int i = 0; i < g_memN && lastW < 32; ++i) {
+        if (lastW++) j.raw(",");
+        j.raw("{\"mod\":\"EngineFix\",\"event\":\"log\",\"fields\":{\"line\":");
+        j.str(g_mem[i], 118);
+        j.raw("}}");
+    }
     for (int i = 0; i < g_eventsN && lastW < 32; ++i) {
         static char sc[260];
         Scrub(g_events[i], sc, sizeof sc);
@@ -718,7 +787,7 @@ size_t BuildRecord(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT
         if (lastW++) j.raw(",");
         j.raw(sc);
     }
-    if (lastW == g_blameN) {  // #23: no jsonl events -> newest mod log lines
+    if (lastW == g_blameN + g_memN) {  // #23: no jsonl events -> newest mod log lines
         if (lastW) j.raw(",");
         const int room = 32 - lastW;
         if (!LastFromLogs(j, efN, otherLines < room ? otherLines : room) && lastW) j.n--, j.b[j.n] = 0;  // drop the comma
@@ -928,6 +997,8 @@ void OnCrashImpl(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
     for (int m = 0; m < 3; ++m) g_otherN[m] = TailLines(kLogs[m], g_other[m], kOtherLogLines);
     g_eventsN = TailLines(L"Nioh3ModEvents.jsonl", g_events, 32);
     g_blameN = crashblame::Analyze(er, ctx, nullptr, 0, g_blame, 4);
+    g_memN = CaptureMem(er, ctx);
+    for (int i = 0; i < g_memN; ++i) Logf("CRASHUPLOAD: %s", g_mem[i]);
     BuildModules();
     g_trainingN = TailLines(L"Nioh3Training.log", g_training, 20);
     CaptureSettings();
