@@ -693,3 +693,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 5:13 pm EST | performance-pc2/0 #102463 CamKi gate load A/B PC2 | proven live (B n=2, C n=2, A n=3 from #102384) | next: pc decides ship of gate 98766c20 + 60 fps load cap | rig C:/nioh3-re/cg102463, files #7647 #7648
 2026-11-14 5:20 pm EST | pc/0 | PC2 CamKi gate PASS #102519 | proven on PC2 | next: Main PC A/B #102426 result, PC2 LoadCap 60 result, then release ask | files #7643 #7647
 2026-11-14 5:24 pm EST | pc/0 | CamKi gate proven both devices (PC2 load, Main PC CPU) | next: RC v1.8.18 from installer-pc, regression on RC, 4-core A/B, then human OK to publish | #7643 #102519 #102545
+
+2026-11-14 5:31 pm EST | installer-pc/0 | RC v1.8.18 packaged (#102554): fresh 11/11 + update 7/7 PASS | proven offline install/update; unproven: live RC run, publish | next: on human OK publish v1.8.18 from Temp/rel1818c-102554/out (gh release + site), digests check, live updater 1.8.17->1.8.18 | origin/installer-pc/rel-1818-camki f6bd89a9, bridge #7652/#7653
