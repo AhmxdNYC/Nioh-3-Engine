@@ -670,3 +670,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 1:54 pm EST | Fight again direct proven on Main PC + PC2 | proven (#101326, #101914) | next: on human yes to #101920, task installer-pc RC v1.8.18 (BR directretry-78 + PadListGuard), default FightAgainDirect=1 | BR e1effec5 2b818c93
 2026-11-14 2:15 pm EST | FWP dropped (#101975) | proven null on PC2+Main PC | next: await performance-pc RESULT on #101979 load-cap | .handoff/next.md open.md
 - 2026-11-14 2:06 pm EST | pc/2 session end | DONE: LoadProbe Main PC live (lp7, EF 74764254, branch pc2/loadprobe-100461 7a66a72f, all pushed); stall-check #101930 answered #101939; pc2 tasked #101938 uncapped-load ABBA re 101629. HALF: none. NEXT: wait for pc2 RESULT re 101629 (lead routes). No game running, no test-active marker.
+
+2026-11-14 2:51 pm EST | done: #102014 LoadCap raise A/B on Main PC | proven FAIL (RESULT #102072) | next: none for load-cap; take next perf item from open.md | 476053f9, D:/nioh3-re/lc102014
