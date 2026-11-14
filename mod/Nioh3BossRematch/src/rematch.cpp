@@ -3153,7 +3153,7 @@ int g_listStop = 0;  // 0 = All. Stays until the game restarts (pc2 #74482). Clo
 int g_trainStop = 0;  // #79069: the Training lists have their own filter, same stops as Boss Matches
 rcore::ListCycle g_listCycle;
 uint32_t g_pageGen0 = 0;
-char g_msg[160] = "";
+char g_msg[256] = "";  // pc #99125: 160 cut the RB24D confirm + WARNING text
 constexpr int kItOpen = -1, kItAbort = -2, kItScroll = -3;
 constexpr int kItBrowse = -4, kItBack = -5, kItClose = -6;
 constexpr int kItListFilter = -68;  // human #73240: All / Multi / era / Scrolls. Not a catalogue index, not a Fight now id.
@@ -5320,6 +5320,7 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
             else if ((size_t)row < g_rows.size() && g_rows[(size_t)row].route == rcore::kE)
                 snprintf(footer, nf, "This Picture Scroll starts with Fight now. It has no shrine and no Train here.");
             else snprintf(footer, nf, TrainHereOk(row) ? "Start Practice against this boss where you are, without loading its mission. A: start / B: back." : "Training is unavailable for this boss. B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);  // regression #94992: Train here shows the row warning too
         } else if (item >= kItShrine) {
             const Row& r = g_rows[(size_t)(item - kItShrine)];
             const char* why = CanShrine(item - kItShrine);
