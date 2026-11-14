@@ -30,7 +30,37 @@ static bool FakeBk(double out[4]) {
     return true;
 }
 
+
+// #98375: the settings table gate on an exe that fails the build-identity check (same table at the v2.02 RVAs).
+static void TableGateTest() {
+    const size_t kDesc = 0x45C8570, kLive = 0x45BAF30, kSize = 0x4600000;
+    uint8_t* img = (uint8_t*)VirtualAlloc(nullptr, kSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    CHECK(img != nullptr);
+    if (!img) return;
+    const uintptr_t b = (uintptr_t)img, e = b + kSize;
+    const char* names[] = {"DISP_MODE", "VSYNC", "SCR_REZ", "REN_RAT", "REN_FPS", "DYNAMIC_FPS", "PRESET", "SHADOW_QUAL",
+                           "AMBIENT_OCCLUSION", "GI", "SSR", "MODEL_QUAL", "MODEL_DRAW", "VOLUMETRIC", "VISUAL_EFFECT",
+                           "MOTION_QUALITY", "LANDSCAPE_QUALITY", "MESHLET_QUALITY", "GRASS_DENSITY", "POSTEFFECT_RESOLUTION",
+                           "DYNAMIC_RESOLUTION", "RESOLUTION_SCALING", "FRAME_GENERATION", "DLSS_FRAME_GEN_MULI", "CPU_SPEC_CLASS"};
+    char* str = (char*)img + 0x1000;
+    for (int i = 0; i < 25; ++i) {
+        strcpy(str, names[i]);
+        *(uintptr_t*)(b + kDesc + i * 0x30) = (uintptr_t)str;
+        *(int*)(b + kDesc + i * 0x30 + 0x24) = 4;
+        *(int*)(b + kLive + 4 * i) = i % 4;
+        str += 48;
+    }
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));            // stripped-DRM copy: table found
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, b + kDesc));  // image too short for the table: never read past it
+    for (int i = 0; i < 6; ++i) *(int*)(b + kLive + 4 * i) = 99;   // 19 valid keys left: below the bar
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));
+    memset(img + kDesc, 0xCC, 60 * 0x30);                          // another build: garbage at the place
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));
+    VirtualFree(img, 0, MEM_RELEASE);
+}
+
 int main(int argc, char** argv) {
+    TableGateTest();
     using namespace perfsnap;
     static float ms[4096], scratch[4096];
     // ---- 1. Summarize ----
