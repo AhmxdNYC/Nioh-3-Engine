@@ -42,6 +42,26 @@ static size_t FakePerf(char* out, size_t cap, bool crashPath) {
     return (size_t)snprintf(out, cap, "%s", j);
 }
 
+// #97734: a real-size perf block (~4 KB: 5 threads, parts, settings) inside the 64 KB record, with the training log at its cap
+static bool g_bigPerf = false;
+static size_t BigPerf(char* out, size_t cap, bool crashPath) {
+    if (!crashPath) return (size_t)snprintf(out, cap, "{}");
+    std::string j = "{\"window_s\":10.0,\"frames\":601,\"avg_fps\":60.0,\"low1_fps\":55.2,\"bound\":\"cpu\",\"bound_why\":\"game thread 14.2 ms per frame\","
+                    "\"gpu\":\"AMD Radeon RX 9070\",\"cpu\":\"AMD Ryzen 7 7800X3D 8-Core Processor\",\"vram_mb\":{\"total\":16304,\"used\":9120,\"budget\":15480},"
+                    "\"threads_window_s\":30.0,\"thread_count\":148,\"busiest_thread\":{\"name\":\"Nioh3.exe+0x1a2b30 / present\",\"tid\":4242,\"core_pct\":91.3},\"threads\":[";
+    for (int i = 0; i < 5; ++i) {
+        char b[160];
+        snprintf(b, sizeof b, "%s{\"name\":\"amdxc64.dll+0x%x00 worker thread name padding\",\"tid\":%d,\"core_pct\":%.1f}", i ? "," : "", 0x1a2b + i, 4242 + i, 91.3 - i * 11.1);
+        j += b;
+    }
+    j += "],\"game_settings\":{";
+    for (int i = 0; i < 40; ++i) { char b[96]; snprintf(b, sizeof b, "%s\"REN_%02d\":\"%d\"", i ? "," : "", i, i * 7); j += b; }
+    j += "},\"parts\":[";
+    for (int i = 0; i < 20; ++i) { char b[120]; snprintf(b, sizeof b, "%s{\"name\":\"engine part number %d with a long descriptive name\",\"ms\":%.2f}", i ? "," : "", i, 0.5 + i); j += b; }
+    j += "]}";
+    return (size_t)snprintf(out, cap, "%s", j.c_str());
+}
+
 int wmain(int argc, wchar_t** argv) {
     if (argc < 3) { fprintf(stderr, "usage: crashupload_test <ini> record|send\n"); return 2; }
     crashupload::StartInfo si;
@@ -61,7 +81,8 @@ int wmain(int argc, wchar_t** argv) {
     };
     fixture(L"Nioh3Training.ini", "[Summon]\nKiBreakLog=1\nKiBreakNoFinisher=0\nKiBreakActFix=1\nMoveBlock=0x123,0x456\nPrivateName=DO_NOT_UPLOAD\n[Moves.1234]\n0xABCD=0\nRepeatGapMs=500\n[Training]\nBossAggro=1\n");
     fixture(L"Nioh3BossRematch.ini", "[Spirit]\nSoulCoreForms=1\nUserName=DO_NOT_UPLOAD\n");
-    const bool stress = wcscmp(argv[2], L"stress") == 0;
+    g_bigPerf = wcscmp(argv[2], L"bigperf") == 0;
+    const bool stress = wcscmp(argv[2], L"stress") == 0 || g_bigPerf;
     const bool utf16 = wcscmp(argv[2], L"utf16") == 0;
     if (utf16) {
         std::string encoded("\xff\xfe", 2);
@@ -72,7 +93,7 @@ int wmain(int argc, wchar_t** argv) {
     for (int i=0; i<25; ++i) training += "[12:00:10.000] EVENT" + std::to_string(i) + " " + std::string(stress ? 1900 : 600, stress ? '\t' : 'z') + " HP=125176/194938 END_EVENT\n";
     fixture(L"Nioh3Training.log", training);
     crashupload::Start(si);
-    crashupload::SetPerfJson(&FakePerf);
+    crashupload::SetPerfJson(g_bigPerf ? &BigPerf : &FakePerf);
     CHECK(strlen(crashupload::InstallId()) == 32);
     if (wcscmp(argv[2], L"send") == 0) {
         const int sent = crashupload::SendPendingNow();

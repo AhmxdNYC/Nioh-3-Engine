@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         output = run([str(exe), str(ini), "send"], cwd=temp)
         assert "sent 1 pending 0" in output, output
         assert not list((temp / "Nioh3CrashReports/pending").glob("*.json"))
-        for mode in ("badstack", "null", "utf16", "stress"):
+        for mode in ("badstack", "null", "utf16", "stress", "bigperf"):
             output = run([str(exe), str(ini), mode], cwd=temp)
             assert "ALL PASSED" in output, output
             sample = max((temp / "Nioh3CrashReports/pending").glob("*.json"), key=lambda p: p.stat().st_mtime_ns)
@@ -96,7 +96,13 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
             api.validate(variant)
             assert sample.stat().st_size <= api.MAX_BODY
             assert variant["modules_truncated"] and len(variant["modules"]) <= 64
-            if mode == "stress":
+            if mode == "bigperf":  # #97734: real-size perf (2-6 KB) + log tails at their cap, all inside 64 KB
+                perf_len = len(json.dumps(variant["perf"], separators=(",", ":")))
+                assert 2000 <= perf_len <= 6000, perf_len
+                assert variant["perf"]["busiest_thread"]["tid"] == 4242 and len(variant["perf"]["threads"]) == 5
+                assert sample.stat().st_size <= 64 * 1024, sample.stat().st_size
+                print("bigperf perf bytes", perf_len)
+            if mode in ("stress", "bigperf"):
                 assert 0 < variant["training_tail"]["included"] < 20
                 assert "EVENT24" in variant["log"]["Training"][-1]
             else:
