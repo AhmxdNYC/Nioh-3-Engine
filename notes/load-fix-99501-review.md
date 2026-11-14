@@ -48,3 +48,29 @@ Branch base 5ed3917b. Files: src/loaddefer.{h,cpp}, dllmain.cpp hook-up, ini key
 - lead: Main PC probe-only run of the CURRENT branch build 5b08866f is allowed now (after the menu check #99505):
   LoadDeferProbe=1, LoadDefer=0, LoadStats=1, one Boss Match load; read `stats loaddefer:` (submits, stock wait avg/max,
   caller mix). That prices the ~1 frame per upload claim before more fix work.
+
+## Round 2 review (pc/2, 2026-11-14 ~6:20 am EST): deepseek/load-99501 22043028, EF 983bd8ee - fix arm REJECTED (1 blocker), probe arm unchanged OK
+Fixed and checked: heap pointers no longer go through InImage (cmdlist, q, gm); the pump has no drop branch, every
+queued record gets poll + ring release + frees; capture and the pump's snapshot are both under g_lock with an owner
+thread id, so a capture cannot slip past the snapshot; t_cap survives RingThunk; double g_released gone; kMaxHoldUs 3 s;
+both keys in catalog iniOnly. Cross-record capture (a late free of copy A landing in the next record B) is SAFE because the
+pump is one FIFO and waits on the head: B finishes only after A's fence and B's fence.
+
+BLOCKER - the 3 ms capture window is a safety bound, not just a grouping hint. The stock caller frees the staging only
+after the blocking wait, i.e. after the GPU copy is done. With the wait removed, any staging free that reaches
+CaptureOrRelease after captureUntilQpc goes to the stock free while the copy can still be on the GPU (use-after-free).
+3 ms is easily missed by a preempted loader thread on a busy 4-core CPU - the exact users this fix is for. Same hole when
+the record already has kMaxAllocs (8) frees: the 9th goes to stock in flight. Same hole on the stuck path: done = 1 is set
+before the stock poll, so a free that arrives while the poll still waits goes to stock.
+Fix:
+1. Capture while !done && owner == this thread, with NO deadline (drop the captureUntilQpc test in CaptureOrRelease and in
+   the pump's wait; keep kQueueGraceUs). Unrelated frees on that thread are only delayed until the fence, which is safe.
+2. Record full (nAllocs == kMaxAllocs) and !done: wait (Sleep(0)/Sleep(1) loop) until r->done, then the stock free. Or raise
+   kMaxAllocs and count g_capFull; never stock-free while !done.
+3. Stuck path: run the stock poll first, set done/owner and take the snapshot under the lock AFTER the poll returns.
+Minor: FenceThunk drops an unqueued old t_rec (DropRec) - if that ever happens with captured frees, they must be freed
+(stock, after the old fence) not discarded; log a counter for it.
+
+## Next (round 2)
+- deepseek: blocker fixes 1-3 + the DropRec counter, rebuild, RESULT to pc/2 --reply-to 99780. Offline only.
+- Probe arm (c41ed36e / EF 5b08866f, LoadDeferProbe=1, LoadDefer=0) stays approved; no LoadDefer=1 run until round 3 passes.
