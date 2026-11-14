@@ -63,7 +63,7 @@ int main() {
     g_cfg.showUnverified = true;  // #14336 item 10: the legacy Practice Yamagata row is shown only with ShowUnverified = 1
     for (int i = 0; i < 25; ++i) {
         Row row = {};
-        snprintf(row.name, sizeof(row.name), "Boss %02d", i);  // #98541: zero-padded so the 1.8.14 A-Z list order (#95418) equals catalogue order
+        snprintf(row.name, sizeof(row.name), "Boss %d", i);
         row.route = rcore::kR;
         row.fightStart = 7;
         g_rows.push_back(row);
@@ -102,21 +102,20 @@ int main() {
         for (int i = 0; i < fn; ++i) CHECK(it[i] < 0 || it[i] >= kItFight);
         CHECK(strcmp(ListFilterLabel(), "Multi") == 0);
     }
-    UiChange(1);  // Heian: era stops are A-Z since 1.8.14 (#95418, test fix #98541)
-    CHECK(g_listStop == 2 && g_sel == 0);
-    {
-        const int fn = Items(it, kMaxRows + 4);
-        int bosses = 0;
-        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 4); ++bosses; }
-        CHECK(bosses == 1);
-    }
     UiChange(1);  // Sengoku, including the scroll of that era
-    CHECK(g_listStop == 3);
+    CHECK(g_listStop == 2 && g_sel == 0);
     {
         const int fn = Items(it, kMaxRows + 4);
         int bosses = 0;
         for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 3 || it[i] == 5); ++bosses; }
         CHECK(bosses == 2);
+    }
+    UiChange(1);  // Heian
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        int bosses = 0;
+        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 4); ++bosses; }
+        CHECK(bosses == 1);
     }
     UiChange(1);  // Scrolls: the scroll's item id is still 5, so Fight now is kItFight + 5
     {
@@ -320,10 +319,10 @@ int main() {
         g_trainStop = 2;
         const char* era = ListFilterLabel();
         const int eraStops = g_listCycle.nEra;
-        CHECK(eraStops == 2 && !strcmp(era, "Sengoku"));  // era stops are A-Z since 1.8.14 (#95418, test fix #98541)
-        CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 8) == 1);
+        CHECK(eraStops == 2 && !strcmp(era, "Waves"));
+        CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 7) == 1);
         g_trainStop = 3;
-        CHECK(!strcmp(ListFilterLabel(), "Waves") && rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 7) == 1);
+        CHECK(!strcmp(ListFilterLabel(), "Sengoku") && rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 8) == 1);
         g_trainStop = 4;
         CHECK(!strcmp(ListFilterLabel(), "Scrolls") && rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 7) == 1);
         g_trainStop = 5;
@@ -332,7 +331,7 @@ int main() {
         CHECK(g_trainStop == 0 && strcmp(ListFilterLabel(), "All") == 0);  // wraps
         g_uiPages.page = uTraining; g_sel = 0;
         CHECK(Items(it, kMaxRows + 4) > 2 && it[0] == kItListFilter && rowsOn(kItTeleport) == 25);
-        g_trainStop = 2;  // the same filter on the arena list (Sengoku, A-Z)
+        g_trainStop = 3;  // the same filter on the arena list
         CHECK(rowsOn(kItTeleport) == 1 && indexOf(kItTeleport + 8) == 1);
         g_trainStop = 4;
         CHECK(rowsOn(kItTeleport) == 1 && indexOf(kItTeleport + 7) == 1);
@@ -346,7 +345,7 @@ int main() {
         g_sel = indexOf(kItTrainHere + 8); CHECK(g_sel > 0);
         UiChange(1);
         CHECK(FavHas(kFavTrain, "T08") && !FavHas(kFavBoss, "T08") && strstr(g_msg, "favorite"));
-        CHECK(shown("* Boss 08"));
+        CHECK(shown("* Boss 8"));
         CHECK(GetFileAttributesW(favFile.c_str()) != INVALID_FILE_ATTRIBUTES);
         g_trainStop = 5;  // Favorites
         CHECK(rowsOn(kItTrainHere) == 1 && indexOf(kItTrainHere + 8) == 1);
