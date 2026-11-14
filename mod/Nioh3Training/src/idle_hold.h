@@ -45,6 +45,7 @@ static void IhStop(const char* why, int failed) {
     if (g_ih.owns_ai && IhSameActor() && IhAlive(g_ih.actor) && !IhForeignHold() && BhAiOn(g_ih.actor) == 0)
         IhNativeAi(g_ih.actor, 1);
     if (g_ih.phase) Log("IDLEHOLD stop %s: phase %d actor %p owned %d", why, g_ih.phase, (void*)g_ih.actor, g_ih.owns_ai);
+    else if (failed) Log("IDLEHOLD failed before acquiring: %s (#98106)", why);
     InterlockedExchange(&g_ih_default_pending, 0);
     InterlockedExchange(&g_ih_drill_ai, 0);
     InterlockedExchange(&g_ih_chase_t, 0);

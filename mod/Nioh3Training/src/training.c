@@ -5094,7 +5094,15 @@ N3T_API int Nioh3Training_GetSlotStance(int s) {
 // idle 1 = Stand still, 0 = Fight normally (CPU). 1 = done / queued, 0 = empty slot or no Training session for the session boss.
 N3T_API int Nioh3Training_SetSlotStance(int s, int idle) {
     if (!SlotAlive(s)) return 0;
-    if (g_slot_ih[s] && g_tr.active) { Log("STANCE Boss %c (session boss) -> %s", 'A' + s, idle ? "Stand still" : "Fight normally"); return Nioh3Training_SetIdleHold(idle != 0); }
+    const int route = SessionStanceRoute(g_slot_ih[s], g_tr.active != 0, idle != 0, g_ih.phase);  // slot_hold.h, #98106
+    if (route == 1) { Log("STANCE Boss %c (session boss) -> %s", 'A' + s, idle ? "Stand still" : "Fight normally"); return Nioh3Training_SetIdleHold(idle != 0); }
+    if (route == 2) {
+        // #98106: Stand still on the session boss whose Idle hold is not holding: the slot hold (SphTick, game thread) switches its AI off at
+        // once, as for a summoned boss. The Idle hold request is cleared first (IhTick stops it on the game thread; it owns no AI here).
+        Nioh3Training_SetIdleHold(0);
+        g_slot_ih[s] = 0;
+        Log("STANCE Boss %c (session boss) -> Stand still: slot hold (Idle hold phase %d not holding, #98106)", 'A' + s, g_ih.phase);
+    }
     InterlockedExchange(&g_slot_fight[s], idle ? 0 : 1);
     if (idle) InterlockedExchange(&g_slot_rehold[s], 1);
     Log("STANCE Boss %c -> %s", 'A' + s, idle ? "Stand still" : "Fight normally");
