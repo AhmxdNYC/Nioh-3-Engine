@@ -11,9 +11,13 @@
 #   - writes the test-active marker (first word = seat) and refreshes it with each renew,
 #   - runs the arms one after the other; '{OWNER}' in an arm command is replaced by the SUPERVISOR's pid, so each arm's
 #     harness guard follows the supervisor (owner-death safety stays: supervisor dies -> the arm's guard cleans up),
+#   - sets UO_SERIES_KEEPLOCK=1 in each arm's environment: agent-bridge gamelock 'release' is then a no-op, so an arm
+#     runner without -KeepLock cannot hand the game to a queued agent between arms (needs universal-optimizer gamelock.py
+#     with that check; pc2_soulcore_form.ps1 also honours it),
 #   - releases the lock and deletes the marker at the end or on failure (try/finally),
 #   - starts a detached WATCHDOG that waits for the supervisor pid; if the supervisor dies without writing 'SERIES END',
-#     the watchdog releases the lock and deletes the marker.
+#     the watchdog first waits for the running arm's process tree to exit (its guard cleanup: Close-Game, save restore),
+#     then releases the lock and deletes the marker.
 # The worker only polls the status file (one line per event).
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\testmatrix\series_run.ps1 -Name load-abba -Device pc2 -Seat pc2/1 `
@@ -28,6 +32,8 @@ $ErrorActionPreference = "Stop"
 $self = $MyInvocation.MyCommand.Path
 $repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $self))
 $uo = Join-Path (Split-Path -Parent $repo) "universal-optimizer\agent-bridge"
+# worktrees live outside projects\: fall back to $env:UO_BRIDGE_DIR, then the usual checkout
+if (-not (Test-Path $uo)) { $uo = if ($env:UO_BRIDGE_DIR) { $env:UO_BRIDGE_DIR } else { Join-Path $env:USERPROFILE "projects/universal-optimizer/agent-bridge" } }
 
 function Spawn-Detached([string]$cmdLine) {
     $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmdLine; CurrentDirectory = $repo }
@@ -61,6 +67,7 @@ function St([string]$m) { $l = "[{0}] {1}" -f (Get-Date -f "yyyy-MM-dd HH:mm:ss"
 function Lock([string]$a) {
     if ($S.noLock) { return @{ code = 0; out = "nolock $a" } }
     $env:UO_BRIDGE_TOKEN_FILE = "$env:APPDATA\uo-bridge\token"; $env:UO_AGENT_ID = $S.device
+    Remove-Item Env:UO_SERIES_KEEPLOCK -ErrorAction SilentlyContinue   # the supervisor's own release must go through
     Push-Location $uo
     try { $ttl = if ($a -eq "release") { @() } else { @("--ttl", "$($S.lockTtl)") }
           $o = (& py -m uo_bridge.gamelock $a $S.lockGame @ttl 2>&1 | Out-String).Trim(); @{ code = $LASTEXITCODE; out = $o } }
@@ -69,10 +76,23 @@ function Lock([string]$a) {
 
 # ---------------------------------------------------------------- watchdog mode: wait for the supervisor, clean up if it died
 if ($Watch) {
-    $Supervisor = ""
     while (Get-Process -Id $Watch -ErrorAction SilentlyContinue) { [Threading.Thread]::Sleep(2000) }
     $txt = if (Test-Path $S.status) { Get-Content -Raw $S.status } else { "" }
     if ($txt -notmatch "SERIES END") {
+        # the running arm's guard cleanup (Close-Game, save restore) may still be going: wait for the arm's whole process tree
+        $pf = "$($S.status).armpid"; $root = if (Test-Path $pf) { [int](Get-Content -Raw $pf).Trim() } else { 0 }
+        if ($root) {
+            $known = @{ $root = 1 }; $t0 = Get-Date
+            while ($true) {
+                $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
+                do { $added = 0; foreach ($q in $all) { if ($known.ContainsKey([int]$q.ParentProcessId) -and -not $known.ContainsKey([int]$q.ProcessId)) { $known[[int]$q.ProcessId] = 1; $added++ } } } while ($added)
+                $alive = @($known.Keys | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
+                if (-not $alive.Count) { break }
+                if (((Get-Date) - $t0).TotalMinutes -gt $S.armMinutes) { St "!! WATCHDOG: arm tree still alive after $($S.armMinutes) min: $($alive -join ',')"; break }
+                [Threading.Thread]::Sleep(2000)
+            }
+            St "WATCHDOG: supervisor $Watch died; waited $([math]::Round(((Get-Date) - $t0).TotalSeconds)) s for arm tree $root to exit"
+        }
         $r = Lock "release"; St "WATCHDOG: supervisor $Watch died without SERIES END -> lock release: $($r.out)"
         if ((Test-Path $S.marker) -and ((Get-Content -Raw $S.marker) -match "supervisor=$Watch\b")) { Remove-Item $S.marker -Force; St "WATCHDOG: marker deleted" }
         St "SERIES END ok=0 (watchdog cleanup)"
@@ -91,7 +111,12 @@ try {
     foreach ($a in $S.arms) {
         $n++; $cmd = $a.Replace("{OWNER}", "$me"); $log = "$($S.status).arm$n.log"
         St "ARM $n START: $cmd"
-        $p = Start-Process cmd.exe -ArgumentList "/d /c $cmd > `"$log`" 2>&1" -PassThru -WindowStyle Hidden
+        # /s + outer quotes: cmd strips only the outer pair, so an arm starting with a quoted path stays intact
+        # UO_SERIES_KEEPLOCK=1 (arm env only): runners' own 'gamelock release' is a no-op, the supervisor keeps the lease
+        $env:UO_SERIES_KEEPLOCK = "1"
+        try { $p = Start-Process cmd.exe -ArgumentList "/d /s /c `"$cmd > `"$log`" 2>&1`"" -PassThru -WindowStyle Hidden }
+        finally { Remove-Item Env:UO_SERIES_KEEPLOCK -ErrorAction SilentlyContinue }
+        Set-Content -Encoding ASCII "$($S.status).armpid" $p.Id; St "ARM $n pid=$($p.Id)"
         $t0 = Get-Date; $last = Get-Date; $k = 0
         while (-not $p.HasExited) {
             [Threading.Thread]::Sleep(1000)
