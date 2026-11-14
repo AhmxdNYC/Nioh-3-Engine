@@ -8,6 +8,9 @@
 //   ([Perf] [ExtraPerf] [VRR] [Latency] and every [Patches] key set to 0); the top frame-cost parts already measured (game thread
 //   CPU, GPU fence wait, present wait, DS retry, the engine's own back-end waits, the GP pass line when [Profiler] GPUProf is on).
 //
+// Per-thread CPU (#97673): busiest thread + top 5 over a rolling 30 s, % of one core, by name (GetThreadDescription, else the
+// start module+offset; the presenting thread is marked "present"). Own lowest-priority thread, 1 tick/s, nothing per frame.
+//
 // Cost: no new hook. osd's existing Present hook calls OnGamePresent (game thread only): one float into a 4096-frame ring, and
 // every 250 ms one counter sample (GetThreadTimes + GetProcessTimes + the existing wait counters) into a 64-slot ring. No frames
 // = nothing runs. The GPU name / driver / VRAM adapter is opened once by a background thread 20 s after start; VRAM / RAM use
@@ -45,6 +48,7 @@ size_t Text(char* out, size_t cap, bool crashPath);
 void ResetForTest(const StartInfo& info);  // like Start without the worker thread; clears the rings
 void SetHardwareForTest(const char* cpu, int cores, const char* gpu, const char* ids, const char* driver, uint64_t vramTotalMb,
                         uint64_t vramUsedMb, uint64_t vramBudgetMb, uint64_t ramTotalMb, uint64_t ramUsedMb);
+void ThreadTickForTest();  // one per-thread CPU tick now (the live worker runs one per second)
 void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, const char* upscaler, const char* frameGen);
 
 }  // namespace perfsnap

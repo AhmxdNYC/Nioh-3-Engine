@@ -10,6 +10,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <thread>
+#include <atomic>
 #include "../src/perfsnap.h"
 #include "../src/perfsnap_core.h"
 
@@ -69,6 +71,23 @@ int main(int argc, char** argv) {
     few.frames = 10, few.spanMs = 160;
     CHECK(Classify(few, w, 60, why, sizeof why) == kUnknown);
 
+    // ---- 2b. RankThreads / CorePct (#97673) ----
+    CHECK(Near(CorePct(15000000ull, 30.0), 5.0, 1e-9));   // 1.5 s CPU in 30 s = 5 % of one core
+    CHECK(Near(CorePct(300000000ull, 30.0), 100.0, 1e-9));
+    CHECK(CorePct(5, 0) == 0);
+    {
+        ThreadUse in[8];
+        const double pcts[8] = {3, 80, 12, 80, 0.5, 45, 7, 1};
+        for (int i = 0; i < 8; ++i) { in[i].tid = (uint32_t)(100 + i); in[i].pct = pcts[i]; snprintf(in[i].name, sizeof in[i].name, "t%d", i); }
+        ThreadUse top[5];
+        const int tn = RankThreads(in, 8, top, 5);
+        CHECK(tn == 5);
+        CHECK(top[0].tid == 101 && top[1].tid == 103);  // tie: lower tid first
+        CHECK(top[2].tid == 105 && top[3].tid == 102 && top[4].tid == 106);
+        CHECK(RankThreads(in, 2, top, 5) == 2 && top[0].tid == 101 && top[1].tid == 100);
+        CHECK(RankThreads(in, 0, top, 5) == 0);
+    }
+
     // ---- 3. End to end ----
     StartInfo si;
     si.w6Ticks = &g_w6, si.gfTicks = &g_gf, si.dsTicks = &g_ds, si.l1 = &g_l1, si.backendWaitsMs = &FakeBk;
@@ -90,6 +109,24 @@ int main(int argc, char** argv) {
         OnGamePresent(t);
         t += tick;
     }
+    // per-thread sampler on this real process: one named thread spins ~1.5 s, the rest sleep
+    std::atomic<bool> stop{false};
+    std::thread busy([&] {
+        using SetDescFn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
+        if (auto sd = reinterpret_cast<SetDescFn>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetThreadDescription")))
+            sd(GetCurrentThread(), L"[App]BusyTest");
+        volatile unsigned x = 0;
+        while (!stop) ++x;
+    });
+    std::thread idle([&] { while (!stop) Sleep(50); });
+    Sleep(100);
+    ThreadTickForTest();  // tick 0: list + first times
+    Sleep(1500);
+    ThreadTickForTest();  // tick 1: the 1.5 s window
+    stop = true;
+    busy.join();
+    idle.join();
+
     static char js[16384], tx[8192];
     const size_t jn = Json(js, sizeof js, true);
     const size_t tn = Text(tx, sizeof tx, true);
@@ -109,6 +146,17 @@ int main(int argc, char** argv) {
     CHECK(strstr(js, "\"limiter_per_frame\":0.50") != nullptr);
     CHECK(strstr(js, "engine ECL ring full") != nullptr);
     CHECK(strstr(tx, "bound: gpu") != nullptr);
+    CHECK(strstr(js, "\"busiest_thread\":{\"name\":\"[App]BusyTest\"") != nullptr);
+    {
+        const char* bp = strstr(js, "\"busiest_thread\"");
+        const char* cp = bp ? strstr(bp, "\"core_pct\":") : nullptr;
+        const double pct = cp ? atof(cp + 11) : -1;
+        printf("busy thread: %.1f %% of one core\n", pct);
+        CHECK(pct > 60 && pct < 105);  // one spinning thread = about one core
+    }
+    CHECK(strstr(js, "\"threads\":[{") != nullptr);
+    CHECK(strstr(js, "\"thread_count\":") != nullptr);
+    CHECK(strstr(tx, "busiest [App]BusyTest") != nullptr);
     // a tiny buffer truncates but stays terminated
     char small[64];
     const size_t sn = Json(small, sizeof small, true);

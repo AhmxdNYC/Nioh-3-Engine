@@ -108,6 +108,31 @@ inline int Classify(const FrameStats& f, const WindowCost& w, int fpsCap, char* 
     return kMixed;
 }
 
+// ---- per-thread CPU (human #97659, TASK #97673) ----
+// One game thread over the rolling window: CPU time / wall time, in % of one core (100 = one core busy all the time).
+struct ThreadUse {
+    uint32_t tid = 0;
+    double pct = 0;
+    char name[48] = "";
+};
+inline double CorePct(uint64_t cpu100ns, double wallS) { return wallS > 0 ? (double)cpu100ns / 1e7 / wallS * 100.0 : 0; }
+// Top k of in[0..n) by pct, descending (ties: lower tid first). Returns how many were written (<= k).
+inline int RankThreads(const ThreadUse* in, int n, ThreadUse* top, int k) {
+    if (!in || !top || n <= 0 || k <= 0) return 0;
+    int m = 0;
+    for (int i = 0; i < n; ++i) {
+        const ThreadUse& c = in[i];
+        if (!(c.pct >= 0)) continue;
+        int pos = m;
+        while (pos > 0 && (top[pos - 1].pct < c.pct || (top[pos - 1].pct == c.pct && top[pos - 1].tid > c.tid))) --pos;
+        if (pos >= k) continue;
+        for (int j = (m < k ? m : k - 1); j > pos; --j) top[j] = top[j - 1];
+        top[pos] = c;
+        if (m < k) ++m;
+    }
+    return m;
+}
+
 // Bounded string builder (no heap). Overflow truncates; n never passes cap - 1.
 // over = something did not fit: the text is cut, so a JSON user must not publish it.
 struct Buf {

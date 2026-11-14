@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <dxgi1_4.h>
 #include <intrin.h>
+#include <tlhelp32.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -27,7 +28,7 @@ int64_t g_freq = 1;
 float g_ms[kFrames];
 volatile LONG g_fHead = 0;           // frames written in total
 volatile LONGLONG g_lastQpc = 0;
-DWORD g_presTid = 0;
+volatile DWORD g_presTid = 0;
 
 struct Sample {
     int64_t qpc = 0;
@@ -311,6 +312,175 @@ DWORD WINAPI Worker(LPVOID) {
     }
 }
 
+// ---- per-thread CPU over a rolling 30 s (human #97659, TASK #97673) -------------------------------------------------------
+// Own low-priority thread, one tick per second: GetThreadTimes on every thread of the game process (handles kept open; the
+// thread list and names are refreshed every 5 s from a Toolhelp snapshot). Nothing runs per frame. The ranked top 5 is
+// published into static storage under g_thrLock; the crash path only TryAcquires it.
+constexpr int kThr = 256;          // thread slots (the game runs ~100-150)
+constexpr int kHist = 32;          // ticks of history per slot (> the 30 s window)
+constexpr int kThrWindow = 30;     // seconds
+constexpr int kTop = 5;
+struct ThrSlot {
+    DWORD tid = 0;
+    HANDLE h = nullptr;
+    int first = -1;                // tick of the first sample
+    bool seen = false;             // still in the latest Toolhelp list
+    uint64_t t[kHist] = {};        // kernel + user, 100 ns
+    char name[48] = "";
+};
+ThrSlot g_thr[kThr];
+int64_t g_thrQ[kHist];             // QPC per tick
+int g_thrTick = 0;                 // ticks done
+using GetDescFn = HRESULT(WINAPI*)(HANDLE, PWSTR*);
+using NtQitFn = LONG(WINAPI*)(HANDLE, int, PVOID, ULONG, PULONG);
+GetDescFn g_getDesc = nullptr;
+NtQitFn g_ntQit = nullptr;
+DWORD g_thrSelfTid = 0;
+// published result (sampler thread writes; reports and the crash path read)
+SRWLOCK g_thrLock = SRWLOCK_INIT;
+ThreadUse g_thrTop[kTop];
+int g_thrTopN = 0, g_thrCount = 0;
+double g_thrWinS = 0;
+
+void ThreadName(ThrSlot& s) {
+    char n[48] = "";
+    if (g_getDesc) {
+        PWSTR d = nullptr;
+        if (SUCCEEDED(g_getDesc(s.h, &d)) && d) {
+            if (d[0]) WideCharToMultiByte(CP_UTF8, 0, d, -1, n, sizeof n - 1, nullptr, nullptr);
+            LocalFree(d);
+        }
+    }
+    if (!n[0] && g_ntQit) {  // no description: the module its start address is in ("amdxc64.dll+0x1a2b30", "Nioh3.exe+0x...")
+        PVOID start = nullptr;
+        if (g_ntQit(s.h, 9 /*ThreadQuerySetWin32StartAddress*/, &start, sizeof start, nullptr) == 0 && start) {
+            HMODULE m = nullptr;
+            wchar_t path[MAX_PATH];
+            if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                   (LPCWSTR)start, &m) && m && GetModuleFileNameW(m, path, MAX_PATH)) {
+                const wchar_t* b = wcsrchr(path, L'\\');
+                char mod[32] = "";
+                WideCharToMultiByte(CP_UTF8, 0, b ? b + 1 : path, -1, mod, sizeof mod - 1, nullptr, nullptr);
+                snprintf(n, sizeof n, "%s+0x%llx", mod, (unsigned long long)((uintptr_t)start - (uintptr_t)m));
+            }
+        }
+    }
+    if (s.tid == g_thrSelfTid) Copy(n, sizeof n, "mod perf snapshot");
+    else if (s.tid == g_presTid) {  // the game's presenting thread (osd hook): said next to its own name
+        char r[48];
+        snprintf(r, sizeof r, "%s%spresent", n, n[0] ? " / " : "");
+        Copy(n, sizeof n, r);
+    }
+    if (!n[0]) snprintf(n, sizeof n, "thread %lu", s.tid);
+    Copy(s.name, sizeof s.name, n);
+}
+
+void ThreadEnumerate() {
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+    for (ThrSlot& s : g_thr) s.seen = false;
+    const DWORD pid = GetCurrentProcessId();
+    THREADENTRY32 te{};
+    te.dwSize = sizeof te;
+    for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+        if (te.th32OwnerProcessID != pid) continue;
+        ThrSlot* hit = nullptr;
+        ThrSlot* freeS = nullptr;
+        for (ThrSlot& s : g_thr) {
+            if (s.h && s.tid == te.th32ThreadID) { hit = &s; break; }
+            if (!s.h && !freeS) freeS = &s;
+        }
+        if (!hit && freeS) {
+            HANDLE h = OpenThread(THREAD_QUERY_INFORMATION | THREAD_QUERY_LIMITED_INFORMATION, FALSE, te.th32ThreadID);
+            if (!h) h = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, te.th32ThreadID);
+            if (h) {
+                hit = freeS;
+                *hit = ThrSlot{};
+                hit->tid = te.th32ThreadID, hit->h = h;
+            }
+        }
+        if (hit) { hit->seen = true; ThreadName(*hit); }  // names may be set after the thread starts: refresh each pass
+    }
+    CloseHandle(snap);
+    for (ThrSlot& s : g_thr)
+        if (s.h && !s.seen) { CloseHandle(s.h); s = ThrSlot{}; }  // gone
+}
+
+void ThreadTick(int64_t qpc) {
+    const int tick = g_thrTick;
+    if (tick % 5 == 0) ThreadEnumerate();
+    g_thrQ[tick % kHist] = qpc;
+    static ThreadUse use[kThr];  // only the sampler thread (or the test) runs this
+    int n = 0, live = 0;
+    double winS = 0;
+    for (ThrSlot& s : g_thr) {
+        if (!s.h) continue;
+        FILETIME c, e, k, u;
+        if (!GetThreadTimes(s.h, &c, &e, &k, &u)) continue;
+        ++live;
+        s.t[tick % kHist] = Ft(k) + Ft(u);
+        if (s.first < 0) s.first = tick;
+        int old = tick - kThrWindow;
+        if (old < s.first) old = s.first;
+        if (old >= tick) continue;
+        const double wall = (double)(qpc - g_thrQ[old % kHist]) / (double)g_freq;
+        const uint64_t d = s.t[tick % kHist] - s.t[old % kHist];
+        ThreadUse& x = use[n++];
+        x.tid = s.tid;
+        x.pct = CorePct(d, wall);
+        Copy(x.name, sizeof x.name, s.name);
+        if (wall > winS) winS = wall;
+    }
+    ThreadUse top[kTop];
+    const int tn = RankThreads(use, n, top, kTop);
+    AcquireSRWLockExclusive(&g_thrLock);
+    for (int i = 0; i < tn; ++i) g_thrTop[i] = top[i];
+    g_thrTopN = tn, g_thrCount = live, g_thrWinS = winS;
+    ReleaseSRWLockExclusive(&g_thrLock);
+    g_thrTick = tick + 1;
+}
+
+void ThreadInit() {
+    HMODULE kb = GetModuleHandleW(L"kernelbase.dll");
+    HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+    g_getDesc = kb ? reinterpret_cast<GetDescFn>(GetProcAddress(kb, "GetThreadDescription")) : nullptr;
+    if (!g_getDesc && k32) g_getDesc = reinterpret_cast<GetDescFn>(GetProcAddress(k32, "GetThreadDescription"));
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    g_ntQit = nt ? reinterpret_cast<NtQitFn>(GetProcAddress(nt, "NtQueryInformationThread")) : nullptr;
+}
+
+DWORD WINAPI ThreadWorker(LPVOID) {
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
+    g_thrSelfTid = GetCurrentThreadId();
+    using SetDescFn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
+    if (auto sd = reinterpret_cast<SetDescFn>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetThreadDescription")))
+        sd(GetCurrentThread(), L"Nioh3EF perfsnap threads");
+    Sleep(20000);  // same start delay as the hardware worker
+    for (;;) {
+        LARGE_INTEGER q;
+        QueryPerformanceCounter(&q);
+        ThreadTick(q.QuadPart);
+        Sleep(1000);
+    }
+}
+
+struct ThreadView {
+    ThreadUse top[kTop];
+    int n = 0, count = 0;
+    double winS = 0;
+};
+bool ReadThreads(ThreadView& v, bool crashPath) {
+    if (crashPath) {
+        if (!TryAcquireSRWLockShared(&g_thrLock)) return false;
+    } else {
+        AcquireSRWLockShared(&g_thrLock);
+    }
+    for (int i = 0; i < g_thrTopN; ++i) v.top[i] = g_thrTop[i];
+    v.n = g_thrTopN, v.count = g_thrCount, v.winS = g_thrWinS;
+    ReleaseSRWLockShared(&g_thrLock);
+    return v.n > 0;
+}
+
 // ---- snapshot --------------------------------------------------------------------------------------------------------
 struct Snap {
     FrameStats f;
@@ -426,6 +596,8 @@ void Start(const StartInfo& info) {
     g_freq = f.QuadPart > 0 ? f.QuadPart : 1;
     ReadCpu();
     if (HANDLE h = CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr)) CloseHandle(h);
+    ThreadInit();
+    if (HANDLE h = CreateThread(nullptr, 0, ThreadWorker, nullptr, 0, nullptr)) CloseHandle(h);
     if (g_si.log) g_si.log("PERFSNAP: armed (last 10 s fps / 1%% low / CPU-GPU bound in every report and crash record)");
 }
 
@@ -506,6 +678,19 @@ size_t Json(char* out, size_t cap, bool crashPath) {
         j.f(",\"ms\":%.2f}", p[i].ms);
     }
     j.raw("]");
+    ThreadView tv;
+    if (ReadThreads(tv, crashPath)) {  // #97673: busiest game threads over the last 30 s, % of one core
+        j.f(",\"threads_window_s\":%.1f,\"thread_count\":%d,\"busiest_thread\":{\"name\":", tv.winS, tv.count);
+        j.str(tv.top[0].name, 47);
+        j.f(",\"tid\":%u,\"core_pct\":%.1f},\"threads\":[", tv.top[0].tid, tv.top[0].pct);
+        for (int i = 0; i < tv.n; ++i) {
+            if (i) j.raw(",");
+            j.raw("{\"name\":");
+            j.str(tv.top[i].name, 47);
+            j.f(",\"tid\":%u,\"core_pct\":%.1f}", tv.top[i].tid, tv.top[i].pct);
+        }
+        j.raw("]");
+    }
     if (s.gpuPasses[0]) { j.raw(",\"gpu_passes\":"); j.str(s.gpuPasses, 250); }
     j.raw("}");
     if (j.over) { out[0] = 0; return 0; }  // cut JSON would make the site reject the whole record
@@ -541,6 +726,13 @@ size_t Text(char* out, size_t cap, bool crashPath) {
         t.raw("\r\n");
     }
     if (s.gpuPasses[0]) t.f("  GPU passes: %s\r\n", s.gpuPasses);
+    ThreadView tv;
+    if (ReadThreads(tv, crashPath)) {  // #97673
+        t.f("  threads (last %.0f s, %d threads, %% of one core): busiest %s %.0f%%; top:", tv.winS, tv.count, tv.top[0].name,
+            tv.top[0].pct);
+        for (int i = 0; i < tv.n; ++i) t.f(" %s %.0f%%;", tv.top[i].name, tv.top[i].pct);
+        t.raw("\r\n");
+    }
     return t.n;
 }
 
@@ -554,6 +746,13 @@ void ResetForTest(const StartInfo& info) {
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
     g_freq = f.QuadPart > 0 ? f.QuadPart : 1;
+}
+
+void ThreadTickForTest() {
+    if (!g_thrTick) ThreadInit();
+    LARGE_INTEGER q;
+    QueryPerformanceCounter(&q);
+    ThreadTick(q.QuadPart);
 }
 
 void SetHardwareForTest(const char* cpu, int cores, const char* gpu, const char* ids, const char* driver, uint64_t vramTotalMb,

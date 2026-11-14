@@ -28,7 +28,7 @@ if r.returncode or "ALL PASSED" not in r.stdout:
     sys.exit("perfsnap test failed")
 doc = json.loads(jpath.read_text())
 for k in ("avg_fps", "low1_fps", "avg_ms", "bound", "cpu", "gpu", "driver", "ram_mb", "vram_mb", "backbuffer", "upscaler",
-          "frame_gen", "game_settings", "mod_settings", "parts"):
+          "frame_gen", "game_settings", "mod_settings", "parts", "busiest_thread", "threads", "threads_window_s", "thread_count"):
     if k not in doc:
         sys.exit(f"perf JSON lacks {k}")
 print("JSON OK:", len(jpath.read_bytes()), "bytes")
