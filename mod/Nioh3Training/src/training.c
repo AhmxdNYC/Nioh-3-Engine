@@ -6411,9 +6411,9 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID x) {
         DisableThreadLibraryCalls(h);
         InitializeCriticalSection(&g_logcs);
         B = (uintptr_t)GetModuleHandleA(0);
-        GrInit(B, Log);
         GetModuleFileNameA(0, g_dir, sizeof g_dir);
         char* s = strrchr(g_dir, '\\'); if (s) *s = 0;
+        GrInit(B, Log);  // after g_dir: Log() needs the folder (#99090)
         Log("Nioh3Training probe loaded, base %p", (void*)B);
         CreateThread(0, 0, Worker, 0, 0, 0);
     }
