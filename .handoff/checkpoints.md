@@ -681,3 +681,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 3:50 pm EST | regression-pc/0 reviewed series_run 0f48862c offline | proven: quoted-arm bug reproduced + fix tested | next: re-review pc2 fix | no commits to the branch
 2026-11-14 3:58 pm EST | performance-pc/0 | #102142 PP page-pool A/B Main PC DONE: FAIL, PP off 3.38 vs PP=1 period 4 3.41 cores (ABBA, 60 cap, d7cb9d69), fps 60 both | proven (4 launches, D:/nioh3-re/pp102142) | next: none for PP; shipped default unchanged; 1% low needs elevated PresentMon (TECH_DEBT) | no code change
 2026-11-14 3:59 pm EST | PP page-pool Main PC FAIL #102259, no CPU gain | proven (ABBA) | await performance-pc Page-cache wait RESULT | next.md, open.md
+
+2026-11-14 4:00 pm EST | regression-pc/0 re-review series_run c85cf3dd OK (#102265) | proven offline (code read + pc2 proof logs) | next: pc2/1 live smoke after pulling uo 295436e6 | no code commits
