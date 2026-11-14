@@ -51,6 +51,17 @@ struct Sample {
 Sample g_s[kSamples];
 volatile LONG g_sHead = 0;
 int64_t g_nextSample = 0;
+// #98365 / TASK #98471: a player report is written from the mod menu, so its "last 10 s" would be menu frames. When the menu
+// opens, the presenting thread copies both rings once (22 KB) and reports use that copy until it closes. g_busy guards the
+// copies (and the report's frame copy): the presenter never waits on it, it retries the copy on the next frame.
+volatile LONG g_busy = 0;
+float g_frzMs[kFrames];
+LONG g_frzHead = 0;
+Sample g_frzS[kSamples];
+LONG g_frzSHead = 0;
+int64_t g_frzQpc = 0;
+volatile LONG g_frz = 0;  // 1 = the menu is open and the copy is valid
+bool g_menuWas = false;   // presenting thread only
 
 // ---- cached hardware + settings (background thread; the crash path reads these only) ----
 char g_cpu[64] = "";
@@ -460,6 +471,86 @@ void ThreadEnumerate() {
         if (s.h && !s.seen) { CloseHandle(s.h); s = ThrSlot{}; }  // gone
 }
 
+// ---- every freeze (human #98443/#98445, TASK #98471) -------------------------------------------------------------------
+// The presenting thread adds one record per HITCH (NoteHitch, one short exclusive lock). Totals per cause cover the whole
+// session (never dropped); the newest kHitchKeep keep their details. The sampler thread fills in the busiest threads over each
+// gap on its first tick after the gap ended (per-thread CPU between the newest tick at or before the gap start and now).
+constexpr int kHitchKeep = 64;
+struct HitchRec {
+    HitchIn in;
+    int cause = kHStall;
+    long seq = 0;          // 1-based freeze number; 0 = empty slot
+    bool thrDone = false;
+    char thr[100] = "";    // "name 95%; name 80%; name 40%" ("-" = before the sampler's history)
+};
+struct HitchTot { long n = 0; double ms = 0, max = 0; };
+SRWLOCK g_hLock = SRWLOCK_INIT;
+HitchRec g_hr[kHitchKeep];
+long g_hSeq = 0;
+HitchTot g_hAll, g_hCause[kHCauses];
+long g_hOver[3] = {};      // over 200 ms, 500 ms, 1 s
+volatile LONG g_hThreshMs = 0;  // 0 = HitchLog off (never told)
+
+void HitchFillThreads(int tick, int64_t qpc) {
+    struct Pend { long seq; int64_t start; } pend[kHitchKeep];
+    int np = 0;
+    AcquireSRWLockShared(&g_hLock);
+    for (const HitchRec& r : g_hr)
+        if (r.seq && !r.thrDone && r.in.qpcEnd <= qpc) pend[np++] = {r.seq, r.in.qpcStart};
+    ReleaseSRWLockShared(&g_hLock);
+    static ThreadUse use[kThr];  // sampler thread only
+    for (int i = 0; i < np; ++i) {
+        int a = -1;
+        for (int k = tick - 1; k >= 0 && k > tick - kHist; --k)
+            if (g_thrQ[k % kHist] <= pend[i].start) { a = k; break; }
+        char out[100] = "-";
+        if (a >= 0) {
+            const double wall = (double)(qpc - g_thrQ[a % kHist]) / (double)g_freq;
+            int n = 0;
+            for (const ThrSlot& sl : g_thr) {
+                if (!sl.h || sl.first < 0 || sl.first > a || !sl.ok[tick % kHist] || !sl.ok[a % kHist]) continue;
+                const uint64_t t0 = sl.t[a % kHist], t1 = sl.t[tick % kHist];
+                if (t1 < t0) continue;
+                ThreadUse& x = use[n++];
+                x.tid = sl.tid;
+                x.pct = CorePct(t1 - t0, wall);
+                Copy(x.name, sizeof x.name, sl.name);
+            }
+            ThreadUse top[3];
+            const int tn = RankThreads(use, n, top, 3);
+            Buf b(out, sizeof out);
+            for (int k = 0; k < tn; ++k) b.f("%s%.26s %.0f%%", k ? "; " : "", top[k].name, top[k].pct);
+            if (!tn) Copy(out, sizeof out, "-");
+        }
+        AcquireSRWLockExclusive(&g_hLock);
+        HitchRec& r = g_hr[(pend[i].seq - 1) % kHitchKeep];
+        if (r.seq == pend[i].seq) Copy(r.thr, sizeof r.thr, out), r.thrDone = true;
+        ReleaseSRWLockExclusive(&g_hLock);
+    }
+}
+
+struct HitchView {
+    long seq = 0;
+    HitchTot all, cause[kHCauses];
+    long over[3] = {};
+    HitchRec r[kHitchKeep];  // newest first
+    int n = 0;
+};
+bool ReadHitches(HitchView& v, bool crashPath) {
+    if (crashPath) {
+        if (!TryAcquireSRWLockShared(&g_hLock)) return false;
+    } else {
+        AcquireSRWLockShared(&g_hLock);
+    }
+    v.seq = g_hSeq, v.all = g_hAll;
+    for (int c = 0; c < kHCauses; ++c) v.cause[c] = g_hCause[c];
+    for (int k = 0; k < 3; ++k) v.over[k] = g_hOver[k];
+    v.n = 0;
+    for (long q = g_hSeq; q > 0 && q > g_hSeq - kHitchKeep; --q) v.r[v.n++] = g_hr[(q - 1) % kHitchKeep];
+    ReleaseSRWLockShared(&g_hLock);
+    return true;
+}
+
 void ThreadTick(int64_t qpc) {
     const int tick = g_thrTick;
     if (tick % 5 == 0) ThreadEnumerate();
@@ -501,6 +592,7 @@ void ThreadTick(int64_t qpc) {
     for (int i = 0; i < tn; ++i) g_thrTop[i] = top[i];
     g_thrTopN = tn, g_thrCount = live, g_thrWinS = winS;
     ReleaseSRWLockExclusive(&g_thrLock);
+    HitchFillThreads(tick, qpc);  // #98471
     g_thrTick = tick + 1;
 }
 
@@ -533,6 +625,7 @@ struct ThreadView {
     int n = 0, count = 0;
     double winS = 0;
 };
+ThreadView g_frzThr;  // the busiest threads when the menu opened (written with the ring copies, under g_busy)
 bool ReadThreads(ThreadView& v, bool crashPath) {
     if (crashPath) {
         if (!TryAcquireSRWLockShared(&g_thrLock)) return false;
@@ -555,33 +648,47 @@ struct Snap {
     double ageS = -1;  // seconds since the newest frame
     int fpsCap = 0;
     char gpuPasses[256] = "";
+    bool frozen = false;  // #98365: the window ends where the mod menu opened
+    double menuS = 0;     // seconds the menu has been open
+    ThreadView tv;
+    bool haveThr = false;
 };
 
 void Build(Snap& s, bool crashPath) {
     // frames, chronological. Static copies (32 KB; the crash writer's stack is 256 KB) behind a busy flag: a report and a
     // crash at the same moment wait up to 200 ms, then the later one goes without the frame summary.
     static float ms[kFrames], scratch[kFrames];
-    static volatile LONG busy = 0;
+    static Sample smp[kSamples];
     bool got = false;
-    for (int i = 0; i < 200 && !(got = InterlockedCompareExchange(&busy, 1, 0) == 0); ++i) Sleep(1);
-    if (got) {
-        const LONG head = g_fHead;
-        const int n = head < kFrames ? (int)head : kFrames;
-        for (int i = 0; i < n; ++i) ms[i] = g_ms[(head - n + i) % kFrames];
-        s.f = Summarize(ms, n, kWindowMs, scratch);
-        InterlockedExchange(&busy, 0);
-    }
+    for (int i = 0; i < 200 && !(got = InterlockedCompareExchange(&g_busy, 1, 0) == 0); ++i) Sleep(1);
+    // a player report (not a crash) taken while the menu is open describes the 10 s before it opened (#98365)
+    s.frozen = got && !crashPath && g_frz && (!g_si.menuOpen || g_si.menuOpen());
     LARGE_INTEGER q;
     QueryPerformanceCounter(&q);
-    if (g_lastQpc) s.ageS = (double)(q.QuadPart - g_lastQpc) / (double)g_freq;
+    LONG sh = 0;
+    if (got) {
+        const float* src = s.frozen ? g_frzMs : g_ms;
+        const LONG head = s.frozen ? g_frzHead : g_fHead;
+        const int n = head < kFrames ? (int)head : kFrames;
+        for (int i = 0; i < n; ++i) ms[i] = src[(head - n + i) % kFrames];
+        s.f = Summarize(ms, n, kWindowMs, scratch);
+        sh = s.frozen ? g_frzSHead : g_sHead;
+        memcpy(smp, s.frozen ? g_frzS : g_s, sizeof smp);
+        if (s.frozen) {
+            s.tv = g_frzThr, s.haveThr = g_frzThr.n > 0;
+            s.menuS = (double)(q.QuadPart - g_frzQpc) / (double)g_freq;
+        }
+    }
+    if (s.frozen) s.ageS = 0;
+    else if (g_lastQpc) s.ageS = (double)(q.QuadPart - g_lastQpc) / (double)g_freq;
+    if (!s.frozen) s.haveThr = ReadThreads(s.tv, crashPath);
     // counter window: newest sample vs the oldest one within 10 s
-    const LONG sh = g_sHead;
     if (sh >= 2) {
-        const Sample b = g_s[(sh - 1) % kSamples];
-        Sample a = g_s[(sh - 2) % kSamples];
+        const Sample b = smp[(sh - 1) % kSamples];
+        Sample a = smp[(sh - 2) % kSamples];
         const int back = sh < kSamples ? (int)sh : kSamples - 1;
         for (int k = 2; k <= back; ++k) {
-            const Sample& c = g_s[(sh - k) % kSamples];
+            const Sample& c = smp[(sh - k) % kSamples];
             if ((double)(b.qpc - c.qpc) / (double)g_freq > kWindowMs / 1000.0 + 0.01) break;
             a = c;
         }
@@ -602,10 +709,9 @@ void Build(Snap& s, bool crashPath) {
             s.haveWindow = true;
         }
     }
+    if (got) InterlockedExchange(&g_busy, 0);  // the static frame / sample copies are free again
     s.fpsCap = g_fpsCap;
-    ThreadView tv;
-    const bool haveThr = ReadThreads(tv, crashPath);
-    s.bound = Classify(s.f, s.w, s.fpsCap, s.why, sizeof s.why, haveThr ? tv.top[0].name : nullptr, haveThr ? tv.top[0].pct : -1);
+    s.bound = Classify(s.f, s.w, s.fpsCap, s.why, sizeof s.why, s.haveThr ? s.tv.top[0].name : nullptr, s.haveThr ? s.tv.top[0].pct : -1);
     if (!crashPath && g_si.gpuPasses) g_si.gpuPasses(s.gpuPasses, sizeof s.gpuPasses);
 }
 
@@ -653,7 +759,127 @@ void FreshIfAllowed(bool crashPath) {
     RefreshMod();
 }
 
+// #98471: Python's json.dumps size of the whole perf block must stay under the site's 8192 (site/api/crash.py PERF_MAX; the report
+// API checks the same); json.dumps adds a space after each ',' and ':'. The summary and per-cause totals always fit; the newest
+// detailed freezes go in, newest first, while they fit (short keys: n freeze number, t seconds since start, ms gap, c cause,
+// gt game-thread CPU % of the gap, cores process cores, rd MB read, ops reads, pf page faults, gf / w6 GPU / present wait ms,
+// pso pipeline creates, ld loader active/pending, infl inflates, ram RAM %, thr busiest threads). The report's snapshot text
+// carries all kept freezes in full (HitchText).
+constexpr size_t kSiteBudget = 7900;
+
+void LdText(const HitchIn& h, char* o, size_t n) {
+    if (h.ldAct < 0 && h.ldPend < 0) snprintf(o, n, "-");
+    else snprintf(o, n, "%d/%d", h.ldAct, h.ldPend);
+}
+
+void HitchJson(Buf& j, bool crashPath) {
+    const int th = (int)g_hThreshMs;
+    if (!th) { j.raw(",\"hitch_log\":\"off\""); return; }
+    static HitchView vs;  // 17 KB: off the crash writer's stack; guarded like the frame copy
+    bool got = false;
+    for (int i = 0; i < 200 && !(got = InterlockedCompareExchange(&g_busy, 1, 0) == 0); ++i) Sleep(1);
+    if (!got) { j.raw(",\"hitch_log\":\"busy\""); return; }
+    HitchView& v = vs;
+    if (!ReadHitches(v, crashPath)) { InterlockedExchange(&g_busy, 0); j.raw(",\"hitch_log\":\"busy\""); return; }
+    const size_t mark = j.n;
+    j.f(",\"hitch_summary\":{\"threshold_ms\":%d,\"count\":%ld,\"total_ms\":%.0f,\"max_ms\":%.1f,\"over_200ms\":%ld,\"over_500ms\":%ld,"
+        "\"over_1s\":%ld,\"kept\":%d}",
+        th, v.all.n, v.all.ms, v.all.max, v.over[0], v.over[1], v.over[2], v.n);
+    j.raw(",\"hitch_causes\":{");
+    int w = 0;
+    for (int c = 0; c < kHCauses; ++c)
+        if (v.cause[c].n) j.f("%s\"%s\":[%ld,%.0f,%.1f]", w++ ? "," : "", HitchCauseName(c), v.cause[c].n, v.cause[c].ms, v.cause[c].max);
+    j.raw("}");
+    size_t used = DumpsSize(j.b, j.n);
+    if (j.over || used + 40 > kSiteBudget) {  // no room even for the totals: say so, never a cut block
+        j.n = mark, j.b[mark] = 0, j.over = false;
+        j.raw(",\"hitch_log\":\"no room\"");
+        InterlockedExchange(&g_busy, 0);
+        return;
+    }
+    j.raw(",\"hitches\":[");
+    used += 13;
+    int put = 0;
+    for (int i = 0; i < v.n; ++i) {
+        const HitchRec& r = v.r[i];
+        const HitchIn& h = r.in;
+        char one[520], ld[24];
+        LdText(h, ld, sizeof ld);
+        Buf o(one, sizeof one);
+        o.f("{\"n\":%ld,\"t\":%.1f,\"ms\":%.1f,\"c\":\"%s\",\"gt\":%.0f,\"cores\":%.2f,\"rd\":%.1f,\"ops\":%llu,"
+            "\"pf\":%llu,\"gf\":%.1f,\"w6\":%.1f,\"pso\":%d,\"ld\":\"%s\",\"infl\":%d,\"ram\":%d,\"thr\":",
+            r.seq, h.tS, h.gapMs, HitchCauseName(r.cause), h.gapMs > 0 ? h.gtCpuMs * 100.0 / h.gapMs : 0.0, h.procCores, h.rdMb,
+            (unsigned long long)h.rdOps, (unsigned long long)h.pf, h.gfMs, h.w6Ms, h.pso, ld, h.infl, h.ramLoad);
+        o.str(r.thrDone ? r.thr : "pending", 80);
+        o.raw("}");
+        if (o.over) continue;
+        const size_t add = DumpsSize(one, o.n) + 2;
+        if (used + add + 40 > kSiteBudget) break;
+        if (put) j.raw(",");
+        j.raw(one);
+        used += add;
+        ++put;
+    }
+    j.f("],\"hitches_in_report\":%d", put);
+    InterlockedExchange(&g_busy, 0);
+}
+
+void HitchText(Buf& t, bool crashPath) {
+    const int th = (int)g_hThreshMs;
+    if (!th) { t.raw("  freezes: not recorded ([Debug] HitchLog = 0)\r\n"); return; }
+    static HitchView vs;  // see HitchJson
+    bool got = false;
+    for (int i = 0; i < 200 && !(got = InterlockedCompareExchange(&g_busy, 1, 0) == 0); ++i) Sleep(1);
+    if (!got || !ReadHitches(vs, crashPath)) {
+        if (got) InterlockedExchange(&g_busy, 0);
+        t.raw("  freezes: (busy)\r\n");
+        return;
+    }
+    const HitchView& v = vs;
+    t.f("  freezes this session (frame gap over %d ms): %ld, %.1f s in total, longest %.0f ms; over 200 ms %ld, over 500 ms %ld, "
+        "over 1 s %ld\r\n", th, v.all.n, v.all.ms / 1000.0, v.all.max, v.over[0], v.over[1], v.over[2]);
+    if (v.all.n) {
+        t.raw("  freeze causes:");
+        for (int c = 0; c < kHCauses; ++c)
+            if (v.cause[c].n)
+                t.f(" %s %ld (%.1f s, longest %.0f ms);", HitchCauseName(c), v.cause[c].n, v.cause[c].ms / 1000.0, v.cause[c].max);
+        t.f("\r\n  newest %d freezes (newest first):\r\n", crashPath ? (v.n < 10 ? v.n : 10) : v.n);
+    }
+    for (int i = 0; i < v.n && (!crashPath || i < 10); ++i) {  // a player report: all kept; a crash: the newest 10
+        const HitchRec& r = v.r[i];
+        const HitchIn& h = r.in;
+        char ld[24];
+        LdText(h, ld, sizeof ld);
+        t.f("    #%ld t %.1f s %.0f ms %s: game thread CPU %.0f%%, process %.2f cores, read %.1f MB %llu ops, page faults %llu, "
+            "GPU wait %.1f ms, present wait %.1f ms, pso %d, loader %s inflating %d, RAM %d%%; threads %s\r\n",
+            r.seq, h.tS, h.gapMs, HitchCauseName(r.cause), h.gapMs > 0 ? h.gtCpuMs * 100.0 / h.gapMs : 0.0, h.procCores, h.rdMb,
+            (unsigned long long)h.rdOps, (unsigned long long)h.pf, h.gfMs, h.w6Ms, h.pso, ld, h.infl, h.ramLoad,
+            r.thrDone ? r.thr : "pending");
+    }
+    InterlockedExchange(&g_busy, 0);
+}
+
 }  // namespace
+
+void NoteHitch(const HitchIn& h) {
+    const int c = ClassifyHitch(h, g_cores);
+    AcquireSRWLockExclusive(&g_hLock);
+    const long seq = ++g_hSeq;
+    HitchRec& r = g_hr[(seq - 1) % kHitchKeep];
+    r.in = h, r.cause = c, r.seq = seq, r.thrDone = false, r.thr[0] = 0;
+    HitchTot* const tots[2] = {&g_hAll, &g_hCause[c]};
+    for (HitchTot* t : tots) {
+        ++t->n;
+        t->ms += h.gapMs;
+        if (h.gapMs > t->max) t->max = h.gapMs;
+    }
+    if (h.gapMs > 200) ++g_hOver[0];
+    if (h.gapMs > 500) ++g_hOver[1];
+    if (h.gapMs > 1000) ++g_hOver[2];
+    ReleaseSRWLockExclusive(&g_hLock);
+}
+
+void SetHitchThresholdMs(int ms) { InterlockedExchange(&g_hThreshMs, ms > 0 ? ms : 0); }
 
 void Start(const StartInfo& info) {
     KeepInfo(info);
@@ -677,6 +903,28 @@ void OnGamePresent(int64_t now) {
     }
     g_presTid = tid;
     g_lastQpc = now;
+    if (g_si.menuOpen) {  // #98365: copy the rings once when the mod menu opens (the report box lives in it)
+        const bool mo = g_si.menuOpen();
+        if (!mo && g_menuWas) {
+            InterlockedExchange(&g_frz, 0);
+            g_menuWas = false;
+        } else if (mo && !g_menuWas && InterlockedCompareExchange(&g_busy, 1, 0) == 0) {  // busy: a report is reading; next frame
+            memcpy(g_frzMs, g_ms, sizeof g_ms);
+            g_frzHead = g_fHead;
+            memcpy(g_frzS, g_s, sizeof g_s);
+            g_frzSHead = g_sHead;
+            g_frzQpc = now;
+            g_frzThr = ThreadView{};
+            if (TryAcquireSRWLockShared(&g_thrLock)) {
+                for (int i = 0; i < g_thrTopN; ++i) g_frzThr.top[i] = g_thrTop[i];
+                g_frzThr.n = g_thrTopN, g_frzThr.count = g_thrCount, g_frzThr.winS = g_thrWinS;
+                ReleaseSRWLockShared(&g_thrLock);
+            }
+            InterlockedExchange(&g_frz, 1);
+            InterlockedExchange(&g_busy, 0);
+            g_menuWas = true;
+        }
+    }
     if (now < g_nextSample) return;
     g_nextSample = now + g_freq / 4;
     const LONG sh = g_sHead;
@@ -709,6 +957,7 @@ size_t Json(char* out, size_t cap, bool crashPath) {
     j.f("{\"window_s\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"low1_fps\":%.1f,\"avg_ms\":%.2f,\"p99_ms\":%.2f,\"max_ms\":%.2f",
         s.f.spanMs / 1000.0, s.f.frames, s.f.avgFps, s.f.low1Fps, s.f.avgMs, s.f.p99Ms, s.f.maxMs);
     j.f(",\"last_frame_age_s\":%.1f,\"bound\":\"%s\",\"bound_why\":", s.ageS, BoundName(s.bound));
+    if (s.frozen) j.f(",\"window\":\"before_menu_open\",\"menu_open_s\":%.1f", s.menuS);  // #98365
     j.str(s.why, 190);
     if (s.haveWindow)
         j.f(",\"game_thread_ms\":%.2f,\"process_cores\":%.2f,\"gpu_fence_wait_ms\":%.2f,\"present_wait_ms\":%.2f,\"limiter_per_frame\":%.2f",
@@ -746,8 +995,8 @@ size_t Json(char* out, size_t cap, bool crashPath) {
         j.f(",\"ms\":%.2f}", p[i].ms);
     }
     j.raw("]");
-    ThreadView tv;
-    if (ReadThreads(tv, crashPath)) {  // #97673: busiest game threads over the last 30 s, % of one core
+    const ThreadView& tv = s.tv;
+    if (s.haveThr) {  // #97673: busiest game threads over the last 30 s, % of one core (#98365: at menu open)
         j.f(",\"threads_window_s\":%.1f,\"thread_count\":%d,\"busiest_thread\":{\"name\":", tv.winS, tv.count);
         j.str(tv.top[0].name, 47);
         j.f(",\"tid\":%u,\"core_pct\":%.1f},\"threads\":[", tv.top[0].tid, tv.top[0].pct);
@@ -760,6 +1009,7 @@ size_t Json(char* out, size_t cap, bool crashPath) {
         j.raw("]");
     }
     if (s.gpuPasses[0]) { j.raw(",\"gpu_passes\":"); j.str(s.gpuPasses, 250); }
+    if (!j.over) HitchJson(j, crashPath);  // #98471: every freeze of the session (totals) + the newest in detail
     j.raw("}");
     if (j.over) { out[0] = 0; return 0; }  // cut JSON would make the site reject the whole record
     return j.n;
@@ -773,6 +1023,7 @@ size_t Text(char* out, size_t cap, bool crashPath) {
     Build(s, crashPath);
     t.f("  last %.1f s: %d frames, avg %.1f fps, 1%% low %.1f fps, frame %.2f ms avg / %.2f p99 / %.2f max, newest frame %.1f s ago\r\n",
         s.f.spanMs / 1000.0, s.f.frames, s.f.avgFps, s.f.low1Fps, s.f.avgMs, s.f.p99Ms, s.f.maxMs, s.ageS);
+    if (s.frozen) t.f("  (window = the 10 s before the mod menu opened, %.0f s ago; the game is paused in the menu)\r\n", s.menuS);
     t.f("  bound: %s (%s)\r\n", BoundName(s.bound), s.why);
     if (s.haveWindow)
         t.f("  per frame: game thread CPU %.2f ms, GPU fence wait %.2f ms, present wait %.2f ms, limiter %.2f; process %.2f cores\r\n",
@@ -794,13 +1045,14 @@ size_t Text(char* out, size_t cap, bool crashPath) {
         t.raw("\r\n");
     }
     if (s.gpuPasses[0]) t.f("  GPU passes: %s\r\n", s.gpuPasses);
-    ThreadView tv;
-    if (ReadThreads(tv, crashPath)) {  // #97673
+    const ThreadView& tv = s.tv;
+    if (s.haveThr) {  // #97673
         t.f("  threads (last %.0f s, %d threads, %% of one core): busiest %s %.0f%%; top:", tv.winS, tv.count, tv.top[0].name,
             tv.top[0].pct);
         for (int i = 0; i < tv.n; ++i) t.f(" %s %.0f%%;", tv.top[i].name, tv.top[i].pct);
         t.raw("\r\n");
     }
+    HitchText(t, crashPath);  // #98471
     return t.n;
 }
 
@@ -811,6 +1063,14 @@ void ResetForTest(const StartInfo& info) {
     g_lastQpc = 0;
     g_presTid = 0;
     g_nextSample = 0;
+    g_frz = 0, g_menuWas = false;
+    AcquireSRWLockExclusive(&g_hLock);
+    for (HitchRec& r : g_hr) r = HitchRec{};
+    g_hSeq = 0, g_hAll = HitchTot{};
+    for (HitchTot& c : g_hCause) c = HitchTot{};
+    g_hOver[0] = g_hOver[1] = g_hOver[2] = 0;
+    ReleaseSRWLockExclusive(&g_hLock);
+    g_hThreshMs = 0;
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
     g_freq = f.QuadPart > 0 ? f.QuadPart : 1;
@@ -851,5 +1111,13 @@ void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, c
 }
 
 bool SettingsTableFoundForTest(uintptr_t base, uintptr_t end) { return TableLooksRight(base, end); }
+
+int HitchKeptForTest() { return g_hSeq < kHitchKeep ? (int)g_hSeq : kHitchKeep; }
+const char* HitchThreadsForTest(int newest) {
+    const long q = g_hSeq - newest;
+    if (q <= 0 || newest >= kHitchKeep) return "";
+    const HitchRec& r = g_hr[(q - 1) % kHitchKeep];
+    return r.thrDone ? r.thr : "";
+}
 
 }  // namespace perfsnap
