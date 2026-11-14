@@ -4,7 +4,7 @@
 - [x] FPS-cap timing margin L1_MarginUs 300: FAIL #93701 (CPU -1.7%, misses 60 cap); keep 1000
 - [ ] Name lookup caching | performance-pc, queued after L1 margin (#93615 order)
 - [ ] UI copy narrowing | performance-pc, queued
-- [ ] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, queued
+- [ ] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, TASKED 11-14 3:59 pm EST after PP FAIL #102259
 - [ ] Shadow cache (static-light shadows kept, redraw only changed) | not built; LAST per human #93613
 - Dropped (no re-test): light-copy shrink (#93515, 0 copies/s), CapSleep (#93605, already shipped as L1). Parked: world bosses (#92460/#93578), Ally crash 131CA9 (old Nov 7 build, #93576).
 
