@@ -681,3 +681,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 10:30 am EST | performance-pc/0 | #101075 fixed: file-read reachable via 0x631EC0/0x631F70 (time those); engine timer = clock() ms {total,max,count} (deepseek/3 #100946 re-517). Do not task twice.
 - 2026-11-14 10:27 am EST | performance-pc/0 | session end; deepseek relays handled through #100946 (last sent #101095). Next deepseek note > #100946.
 - 2026-11-14 10:27 am EST | performance-pc/0 | deepseek #100947 (note 518): render-params +0xAC sizes cache cap SynCtx+0x850 + its heap together, safe to raise. Relayed to pc as #101108 (optional arm for pc/2 #100461 only if purges > 0). Do not relay twice.
+- 2026-11-14 10:57 am EST | pc/2 | stall-check #101175: pc2 #101120 BLOCKED = 5-hour limit (reset 10:50 am EST). Re-sent #101114 RA0A1 v1.8.17 cold-load check to pc2. Do not task twice.
