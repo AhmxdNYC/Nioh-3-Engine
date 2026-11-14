@@ -60,6 +60,7 @@ void ThreadTickForTest();  // one per-thread CPU tick now (the live worker runs 
 void RefreshModForTest();                  // the worker's 30 s mod_settings re-read, now (#97850)
 const char* ThreadNameForTest(unsigned long tid);  // cached per-thread name ("" = not tracked) (#97817)
 bool SettingsTableFoundForTest(uintptr_t base, uintptr_t end);  // #98375 hash-free table gate
+bool SettingsValuesVerifiedForTest(uintptr_t base, uintptr_t end);  // #98560 live index array trusted
 int HitchKeptForTest();  // detailed records held (<= 64)
 const char* HitchThreadsForTest(int newest);  // busiest-thread text of the newest-but-`newest` record ("" = not filled yet)
 void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, const char* upscaler, const char* frameGen);

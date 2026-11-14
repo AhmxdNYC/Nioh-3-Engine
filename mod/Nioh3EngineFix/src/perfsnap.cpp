@@ -237,9 +237,44 @@ int CountTableKeys(uintptr_t base, uintptr_t end) {
         bool want = false;
         for (const char* k : kWanted) want = want || !strcmp(k, (const char*)namep);
         const int idx = *(const int*)(base + kRvaLive + 4u * (unsigned)i), count = *(const int*)(e + 0x24);
-        if (want && count > 0 && count < 256 && idx >= 0 && idx < count) ++hits;
+        if (!want || count <= 0 || count >= 256 || idx < 0 || idx >= count) continue;
+        // #98560: the value list must be in the image and its entry for this index a real name (idx 0 is a valid setting)
+        const uintptr_t vals = *(const uintptr_t*)(e + 8);
+        if (!InImage(vals, base, end) || !InImage(vals + 8u * (unsigned)idx, base, end)) continue;
+        const uintptr_t sp = ((const uintptr_t*)vals)[idx];
+        if (InImage(sp, base, end) && SafeName((const char*)sp)) ++hits;
     }
     return hits;
+}
+// #98560: can the live index array be trusted on an exe we cannot identify? Every wanted key's index must be in range,
+// and an all-zero array only counts when the table's own defaults (+0x20) are all zero too: a zeroed or moved array
+// otherwise reads as "every setting at its first value". 1 = verified, 0 = not.
+int CheckLiveIndexes(uintptr_t base, uintptr_t end) {
+    int found = 0, nonzero = 0, defNonzero = 0;
+    for (int i = 0; i < kKeys; ++i) {
+        const uintptr_t e = base + kRvaDesc + (uintptr_t)i * 0x30;
+        if (!InImage(e + 0x28, base, end) || !InImage(base + kRvaLive + 4u * (unsigned)i, base, end)) return 0;
+        const uintptr_t namep = *(const uintptr_t*)e;
+        if (!InImage(namep, base, end) || !SafeName((const char*)namep)) continue;
+        bool want = false;
+        for (const char* k : kWanted) want = want || !strcmp(k, (const char*)namep);
+        if (!want) continue;
+        const int idx = *(const int*)(base + kRvaLive + 4u * (unsigned)i), count = *(const int*)(e + 0x24);
+        const int def = *(const int*)(e + 0x20);
+        if (count <= 0 || count >= 256 || idx < 0 || idx >= count) return 0;
+        ++found;
+        nonzero += idx != 0;
+        defNonzero += def > 0 && def < count;
+    }
+    if (found < 20) return 0;
+    return nonzero > 0 || defNonzero == 0;
+}
+bool LiveIndexesVerified(uintptr_t base, uintptr_t end) {
+    __try {
+        return CheckLiveIndexes(base, end) == 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
 }
 bool TableLooksRight(uintptr_t base, uintptr_t end) {
     __try {
@@ -263,7 +298,12 @@ void RefreshGame() {
     Buf bj(j, sizeof j), bt(t, sizeof t);
     int cap = 0;
     char ups[16] = "", fg[16] = "";
-    if (!DecodeSettingsSeh(g_si.base, end, bj, bt, cap, ups, fg) || bj.over) return;  // cut JSON is never published
+    if (!g_si.knownBuild && !LiveIndexesVerified(g_si.base, end)) {  // #98560: names found, values not trustworthy
+        bj.raw("{\"status\":\"unverified\"}");
+        bt.f("unverified (settings table found on this exe, but its live values could not be confirmed)");
+    } else if (!DecodeSettingsSeh(g_si.base, end, bj, bt, cap, ups, fg) || bj.over) {
+        return;  // cut JSON is never published
+    }
     AcquireSRWLockExclusive(&g_cacheLock);
     Copy(g_gameJson, sizeof g_gameJson, j);
     Copy(g_gameText, sizeof g_gameText, t);
@@ -1111,6 +1151,7 @@ void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, c
 }
 
 bool SettingsTableFoundForTest(uintptr_t base, uintptr_t end) { return TableLooksRight(base, end); }
+bool SettingsValuesVerifiedForTest(uintptr_t base, uintptr_t end) { return LiveIndexesVerified(base, end); }
 
 int HitchKeptForTest() { return g_hSeq < kHitchKeep ? (int)g_hSeq : kHitchKeep; }
 const char* HitchThreadsForTest(int newest) {

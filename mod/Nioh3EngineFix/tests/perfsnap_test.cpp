@@ -45,15 +45,50 @@ static void TableGateTest() {
                            "MOTION_QUALITY", "LANDSCAPE_QUALITY", "MESHLET_QUALITY", "GRASS_DENSITY", "POSTEFFECT_RESOLUTION",
                            "DYNAMIC_RESOLUTION", "RESOLUTION_SCALING", "FRAME_GENERATION", "DLSS_FRAME_GEN_MULI", "CPU_SPEC_CLASS"};
     char* str = (char*)img + 0x1000;
+    const char* vnames[4] = {"OFF", "LOW", "MID", "HIGH"};
+    uintptr_t* vlist = (uintptr_t*)(img + 0x8000);  // one shared 4-entry value list
+    for (int v = 0; v < 4; ++v) {
+        strcpy(str, vnames[v]);
+        vlist[v] = (uintptr_t)str;
+        str += 48;
+    }
     for (int i = 0; i < 25; ++i) {
         strcpy(str, names[i]);
         *(uintptr_t*)(b + kDesc + i * 0x30) = (uintptr_t)str;
+        *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)vlist;
+        *(int*)(b + kDesc + i * 0x30 + 0x20) = 1;  // table default
         *(int*)(b + kDesc + i * 0x30 + 0x24) = 4;
         *(int*)(b + kLive + 4 * i) = i % 4;
         str += 48;
     }
     CHECK(perfsnap::SettingsTableFoundForTest(b, e));            // stripped-DRM copy: table found
+    CHECK(perfsnap::SettingsValuesVerifiedForTest(b, e));        // and its live indexes are trusted
     CHECK(!perfsnap::SettingsTableFoundForTest(b, b + kDesc));  // image too short for the table: never read past it
+    // #98560: index array zeroed (moved away): names still found, values reported as unverified, not as "every key = OFF"
+    for (int i = 0; i < 25; ++i) *(int*)(b + kLive + 4 * i) = 0;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));
+    CHECK(!perfsnap::SettingsValuesVerifiedForTest(b, e));
+    // ...but a game whose own defaults are all index 0 really can be all zero: verified (idx 0 is a valid setting)
+    for (int i = 0; i < 25; ++i) *(int*)(b + kDesc + i * 0x30 + 0x20) = 0;
+    CHECK(perfsnap::SettingsValuesVerifiedForTest(b, e));
+    for (int i = 0; i < 25; ++i) *(int*)(b + kDesc + i * 0x30 + 0x20) = 1;
+    // index array moved onto other data: one out-of-range index -> unverified
+    for (int i = 0; i < 25; ++i) *(int*)(b + kLive + 4 * i) = i % 4;
+    *(int*)(b + kLive + 4 * 7) = 1234;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));    // 24 of 25 still pass the name gate
+    CHECK(!perfsnap::SettingsValuesVerifiedForTest(b, e));
+    *(int*)(b + kLive + 4 * 7) = 3;
+    // value list pointer outside the image, or its entry not a name: that key is not a hit
+    uint8_t* outside = (uint8_t*)VirtualAlloc(nullptr, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    for (int i = 0; i < 6; ++i) *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)outside;
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));  // 19 hits left
+    for (int i = 0; i < 6; ++i) *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)vlist;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));
+    const uintptr_t keep = vlist[2];
+    vlist[2] = (uintptr_t)(img + 0x9000);  // points at zero bytes: empty, not a name
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));  // keys at index 2 drop out (6 of 25 -> 19 left)
+    vlist[2] = keep;
+    VirtualFree(outside, 0, MEM_RELEASE);
     for (int i = 0; i < 6; ++i) *(int*)(b + kLive + 4 * i) = 99;   // 19 valid keys left: below the bar
     CHECK(!perfsnap::SettingsTableFoundForTest(b, e));
     memset(img + kDesc, 0xCC, 60 * 0x30);                          // another build: garbage at the place
