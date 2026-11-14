@@ -383,6 +383,8 @@ int main(int argc, char** argv) {
         CHECK(strstr(j5, "\"avg_fps\":60.0") != nullptr);
         CHECK(strstr(j5, "\"window\":\"before_menu_open\"") != nullptr);
         CHECK(strstr(t5x, "before the mod menu opened") != nullptr);
+        // #98578: the menu report (frozen=1) must be valid JSON; the runner json.loads it and runs the site check
+        if (argc > 4) { if (FILE* o = fopen(argv[4], "wb")) { fwrite(j5, 1, strlen(j5), o); fclose(o); } }
         Json(j5, sizeof j5, true);  // a crash describes the moment it happened
         CHECK(strstr(j5, "\"avg_fps\":20.0") != nullptr && !strstr(j5, "before_menu_open"));
         g_fakeMenu = false;
@@ -395,6 +397,7 @@ int main(int argc, char** argv) {
         OnGamePresent(t5 + t60);
         Json(j5, sizeof j5, false);
         CHECK(!strstr(j5, "before_menu_open"));
+        if (argc > 5) { if (FILE* o = fopen(argv[5], "wb")) { fwrite(j5, 1, strlen(j5), o); fclose(o); } }  // frozen=0 shape
         ResetForTest(si);
     }
     // a tiny buffer truncates but stays terminated

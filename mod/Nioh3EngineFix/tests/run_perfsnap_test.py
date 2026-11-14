@@ -21,7 +21,10 @@ if r.returncode or any("warning" in l for l in r.stdout.splitlines()):
     print(r.stdout[-4000:], r.stderr[-2000:])
     sys.exit("perfsnap test build failed or warned")
 jpath, tpath, hpath = OUT / "perf.json", OUT / "perf.txt", OUT / "perf_hitches.json"
-r = subprocess.run([str(exe), str(jpath), str(tpath), str(hpath)], capture_output=True, text=True, timeout=60, cwd=str(OUT))
+mpath, npath = OUT / "perf_menu_frozen.json", OUT / "perf_menu_open_closed.json"
+for f in (mpath, npath):
+    f.unlink(missing_ok=True)
+r = subprocess.run([str(exe), str(jpath), str(tpath), str(hpath), str(mpath), str(npath)], capture_output=True, text=True, timeout=60, cwd=str(OUT))
 print(r.stdout.strip())
 if r.returncode or "ALL PASSED" not in r.stdout:
     print(r.stderr)
@@ -46,3 +49,19 @@ if r.returncode or "FAIL" in r.stdout:
     print(r.stderr)
     sys.exit("site rejects the freeze perf JSON")
 print("FREEZE JSON OK:", len(json.dumps(hdoc)), "bytes (json.dumps),", hdoc["hitches_in_report"], "detailed of", hdoc["hitch_summary"]["count"])
+
+# #98578: the player-report JSON with the menu open (frozen window) and after it closed must both parse and pass the site check
+for f, frozen in ((mpath, True), (npath, False)):
+    try:
+        d = json.loads(f.read_text())
+    except Exception as e:
+        sys.exit(f"{f.name} is not JSON: {e}")
+    if (d.get("window") == "before_menu_open") != frozen or not isinstance(d.get("bound_why"), str):
+        sys.exit(f"{f.name}: window/bound_why wrong: {d.get('window')!r} {d.get('bound_why')!r}")
+    # the site's own validators (perf_field_test.py asserts its sample's 'bound gpu', which a menu window need not be)
+    r = subprocess.run([sys.executable, "-I", str(ROOT / "tests/site_perf_check.py"), str(f)], capture_output=True, text=True, timeout=60)
+    print(r.stdout.strip())
+    if r.returncode:
+        print(r.stderr[-2000:])
+        sys.exit(f"site rejects {f.name}")
+    print(f"MENU JSON OK (frozen={int(frozen)}):", len(json.dumps(d)), "bytes")

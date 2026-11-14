@@ -124,6 +124,10 @@ int wmain(int argc, wchar_t** argv) {
     Fault();
     CHECK(g_er.ExceptionCode == 0xC0000005);
     g_ctx.Rdx = 0x123456789abcdef0ull;
+    static unsigned long long known[12] = {0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666, 0xc0ffee, 0x8888,
+        0x73726573555c3a43ull /* "C:\Users" */, 0x0065006d0061004eull /* UTF-16 "Name" */, 0xbbbb, 0xcccc};  // #98728: text -> txt
+    g_ctx.Rbx = (DWORD64)(uintptr_t)known;  // #72: readable pointer register -> "MEM rbx" line with its 12 qwords
+    g_ctx.Rsi = 0x10;                       // not a pointer: skipped
     const bool nullContext = wcscmp(argv[2], L"null") == 0;
     const bool badStack = wcscmp(argv[2], L"badstack") == 0;
     if (badStack) { g_ctx.Rip = 0; g_ctx.Rsp = 1; }
@@ -161,6 +165,9 @@ int wmain(int argc, wchar_t** argv) {
     CHECK(t.find("SoulCoreForms") != std::string::npos);
     CHECK(t.find("MoveBlock") != std::string::npos);
     CHECK(t.find("0xABCD") != std::string::npos);
+    CHECK(t.find("MEM fault 0x0: free") != std::string::npos);  // #72: fault region state
+    if (!nullContext && !stress) CHECK(t.find("MEM rbx+30: c0ffee 8888 txt txt bbbb cccc") != std::string::npos);
+    CHECK(t.find("MEM rsi") == std::string::npos);
     if (nullContext) CHECK(t.find("\"registers\":null") != std::string::npos);
     else CHECK(t.find("0x123456789abcdef0") != std::string::npos);
     if (badStack) CHECK(t.find("\"stack_top\":[null,null") != std::string::npos);
