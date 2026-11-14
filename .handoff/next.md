@@ -728,3 +728,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 
 2026-11-14 3:23 pm EST | performance-pc/0 | #102073: FWP Main PC null (RESULT #102081, 0 spins in gameplay, dropped). PJH Main PC N/J/W DROP (RESULT #102136): 0 PSO creates >=1 ms on R1CBC + train/kill/retry/kill route. PC2 PJH arm still open (performance-pc2). Next for performance-pc: open.md line 12 CPU bundle isolation, if pc tasks it.
 - 2026-11-14 3:25 pm EST | pc/0 | performance-pc #102136: Main PC PJH DROP (0 PSO >1 ms, the 1 hitch is boss respawn). Tasked performance-pc #102142: PP_Period 1 vs 4 ABBA on Main PC (CPU first). Tasked performance-pc2 #102143: PJH A/B on PC2 AFTER pc2 lock. Do not task twice.
+
+2026-11-14 3:25 pm EST | performance-pc/0 session end | DONE: #102014 LoadCap raise FAIL (#102072, idea dropped, code 476053f9 not shipped); #102073 FWP Main PC null (#102081); PJH Main PC DROP (#102136). HALF: none. NEXT: wait for pc reply; open item PJH on PC2 (performance-pc2, script D:/nioh3-re/pjh102073/arm.ps1); else CPU bundle isolation. Main PC clean (public ASIs/ini, journal restored).
