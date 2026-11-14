@@ -579,3 +579,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 2:12 am EST | pc/1 | #99115 TR 1cfd0921 (#7466) Training arm C Main PC live PASS (RESULT sent to pc,regression-pc,installer-pc). Half-done: none; lock free, public v1.8.16 restored.
 - 2026-11-14 2:10 am EST | regression-pc/0 | RC #7471 caa63cdd regression verdict PASS #99194 after pc/1 Arm C PASS #99190. Left: reports-pc known_build_test on Steam e22c4a63 (exe confirmed restored).
 - 2026-11-14 3:20 am EST | pc/0 lead | reports-pc #99193 known_build_test PASS on Steam exe e22c4a63. pc/1 arm C PASS (board). Only gate left for v1.8.17: pc/1 RC live #99168 (BR 376532e9 + TSV 3f42f027); then GO installer-pc.
+- 2026-11-14 2:12 am EST | regression-pc/0 | RC #7471 caa63cdd regression unconditional PASS #99206 (known_build Steam PASS #99193). Next for regression-pc: review #99184 when pc's TASK arrives.
