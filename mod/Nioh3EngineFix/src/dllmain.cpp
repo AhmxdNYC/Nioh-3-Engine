@@ -3390,6 +3390,7 @@ DWORD WINAPI Worker(LPVOID) {
             pi.dsTicks = &g_dsTicks;
             pi.backendWaitsMs = &bkstats::CumWaitsMs;
             pi.gpuPasses = &gp::StatusLine;
+            pi.menuOpen = &menu::IsOpen;  // #98365: a report from the menu shows the 10 s before it opened
             perfsnap::Start(pi);
             crashupload::SetPerfJson(&perfsnap::Json);
             crashreport::SetPerfText(&perfsnap::Text);

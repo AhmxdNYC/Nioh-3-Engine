@@ -20,8 +20,8 @@ r = subprocess.run(["cmd.exe", "/d", "/c", str(batch)], capture_output=True, tex
 if r.returncode or any("warning" in l for l in r.stdout.splitlines()):
     print(r.stdout[-4000:], r.stderr[-2000:])
     sys.exit("perfsnap test build failed or warned")
-jpath, tpath = OUT / "perf.json", OUT / "perf.txt"
-r = subprocess.run([str(exe), str(jpath), str(tpath)], capture_output=True, text=True, timeout=60, cwd=str(OUT))
+jpath, tpath, hpath = OUT / "perf.json", OUT / "perf.txt", OUT / "perf_hitches.json"
+r = subprocess.run([str(exe), str(jpath), str(tpath), str(hpath)], capture_output=True, text=True, timeout=60, cwd=str(OUT))
 print(r.stdout.strip())
 if r.returncode or "ALL PASSED" not in r.stdout:
     print(r.stderr)
@@ -32,3 +32,17 @@ for k in ("avg_fps", "low1_fps", "avg_ms", "bound", "cpu", "gpu", "driver", "ram
     if k not in doc:
         sys.exit(f"perf JSON lacks {k}")
 print("JSON OK:", len(jpath.read_bytes()), "bytes")
+
+# #98471: the block with 2001 freezes must pass the site's own perf checks (crash + player report APIs, 8192 bytes, depth 3)
+hdoc = json.loads(hpath.read_text())
+for k in ("hitch_summary", "hitch_causes", "hitches", "hitches_in_report"):
+    if k not in hdoc:
+        sys.exit(f"freeze perf JSON lacks {k}")
+if len(json.dumps(hdoc)) > 8192:
+    sys.exit(f"freeze perf JSON is {len(json.dumps(hdoc))} bytes as the site measures it (> 8192)")
+r = subprocess.run([sys.executable, "-I", str(REPO / "site/tests/perf_field_test.py"), str(hpath)], capture_output=True, text=True, timeout=60)
+print(r.stdout.strip())
+if r.returncode or "FAIL" in r.stdout:
+    print(r.stderr)
+    sys.exit("site rejects the freeze perf JSON")
+print("FREEZE JSON OK:", len(json.dumps(hdoc)), "bytes (json.dumps),", hdoc["hitches_in_report"], "detailed of", hdoc["hitch_summary"]["count"])
