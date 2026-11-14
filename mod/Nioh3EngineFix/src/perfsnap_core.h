@@ -81,7 +81,10 @@ inline const char* BoundName(int b) {
 }
 
 // fpsCap: the game's REN_FPS target (0 = unknown). why: one short reason line.
-inline int Classify(const FrameStats& f, const WindowCost& w, int fpsCap, char* why, size_t cap) {
+// busyName/busyPct (optional): the busiest game thread over the last 30 s, % of one core - named next to the presenting thread's
+// CPU share so the two different measures are never both called "game thread busy" (#97775).
+inline int Classify(const FrameStats& f, const WindowCost& w, int fpsCap, char* why, size_t cap, const char* busyName = nullptr,
+                    double busyPct = -1) {
     auto say = [&](const char* fmt, double a, double b) {
         if (why && cap) snprintf(why, cap, fmt, a, b);
     };
@@ -90,6 +93,16 @@ inline int Classify(const FrameStats& f, const WindowCost& w, int fpsCap, char* 
         return kUnknown;
     }
     const double gpuWait = w.gpuFenceMs + w.presentWaitMs;
+    auto cpuWhy = [&](const char* head) {  // head has one %.0f (the GPU wait share)
+        if (!why || !cap) return;
+        char h[80];
+        snprintf(h, sizeof h, head, (f.avgMs > 0 ? gpuWait / f.avgMs : 0) * 100);
+        const double pres = f.avgMs > 0 ? 100.0 * w.gameThreadMs / f.avgMs : 0;
+        if (busyName && busyPct >= 0)
+            snprintf(why, cap, "%s; present thread CPU %.0f%% of a frame; busiest thread %s %.0f%% of a core", h, pres, busyName, busyPct);
+        else
+            snprintf(why, cap, "%s; present thread CPU %.0f%% of a frame", h, pres);
+    };
     const double frac = f.avgMs > 0 ? gpuWait / f.avgMs : 0;
     if (fpsCap > 0 && f.avgFps >= 0.95 * fpsCap) {
         say("at the %.0f fps cap; waits on GPU %.0f%% of the frame", (double)fpsCap, frac * 100);
@@ -100,11 +113,10 @@ inline int Classify(const FrameStats& f, const WindowCost& w, int fpsCap, char* 
         return kGpu;
     }
     if (frac < 0.10) {
-        say("GPU waits only %.0f%% of the frame; game thread busy %.0f%%", frac * 100,
-            f.avgMs > 0 ? 100.0 * w.gameThreadMs / f.avgMs : 0);
+        cpuWhy("GPU waits only %.0f%% of the frame");
         return kCpu;
     }
-    say("GPU waits %.0f%% of the frame; game thread busy %.0f%%", frac * 100, f.avgMs > 0 ? 100.0 * w.gameThreadMs / f.avgMs : 0);
+    cpuWhy("GPU waits %.0f%% of the frame");
     return kMixed;
 }
 

@@ -57,7 +57,7 @@ char g_gameText[1536] = "";
 volatile LONG g_fpsCap = 0;
 char g_upscaler[16] = "";
 char g_frameGen[16] = "";
-char g_modJson[3072] = "{}";
+char g_modJson[4096] = "{}";
 char g_modText[2048] = "";
 IDXGIAdapter3* g_adapter = nullptr;
 SRWLOCK g_cacheLock = SRWLOCK_INIT;  // settings strings (never taken on the crash path; it uses TryAcquire)
@@ -235,7 +235,7 @@ void RefreshMod() {
     char j[sizeof g_modJson], t[sizeof g_modText];  // stack (worker / report thread; never the crash path)
     Buf bj(j, sizeof j), bt(t, sizeof t);
     wchar_t sec[8192];
-    const wchar_t* const kSections[] = {L"Perf", L"ExtraPerf", L"VRR", L"Latency", L"Patches"};
+    const wchar_t* const kSections[] = {L"Perf", L"ExtraPerf", L"VRR", L"Latency", L"Tuning", L"GpuOpt", L"Memory", L"Overlay", L"General", L"Patches"};  // #97775: the real ini has no [Perf]/[ExtraPerf]
     bj.raw("{");
     int ws = 0;
     for (const wchar_t* name : kSections) {
@@ -340,7 +340,7 @@ NtQitFn g_ntQit = nullptr;
 DWORD g_thrSelfTid = 0;
 // published result (sampler thread writes; reports and the crash path read)
 SRWLOCK g_thrLock = SRWLOCK_INIT;
-ThreadUse g_thrTop[kTop];
+ThreadUse g_thrTop[kTop + 1];  // top 5 + the presenting thread when it is not among them (#97775)
 int g_thrTopN = 0, g_thrCount = 0;
 double g_thrWinS = 0;
 
@@ -443,8 +443,15 @@ void ThreadTick(int64_t qpc) {
         Copy(x.name, sizeof x.name, s.name);
         if (wall > winS) winS = wall;
     }
-    ThreadUse top[kTop];
-    const int tn = RankThreads(use, n, top, kTop);
+    ThreadUse top[kTop + 1];
+    int tn = RankThreads(use, n, top, kTop);
+    if (g_presTid) {  // #97775: the presenting thread is always listed (tag "present"), as a 6th entry when it is outside the top 5
+        bool in = false;
+        for (int i = 0; i < tn; ++i) in = in || top[i].tid == g_presTid;
+        if (!in)
+            for (int i = 0; i < n; ++i)
+                if (use[i].tid == g_presTid) { top[tn++] = use[i]; break; }
+    }
     AcquireSRWLockExclusive(&g_thrLock);
     for (int i = 0; i < tn; ++i) g_thrTop[i] = top[i];
     g_thrTopN = tn, g_thrCount = live, g_thrWinS = winS;
@@ -477,7 +484,7 @@ DWORD WINAPI ThreadWorker(LPVOID) {
 }
 
 struct ThreadView {
-    ThreadUse top[kTop];
+    ThreadUse top[kTop + 1];
     int n = 0, count = 0;
     double winS = 0;
 };
@@ -499,7 +506,7 @@ struct Snap {
     WindowCost w;
     bool haveWindow = false;
     int bound = kUnknown;
-    char why[160] = "";
+    char why[200] = "";
     double ageS = -1;  // seconds since the newest frame
     int fpsCap = 0;
     char gpuPasses[256] = "";
@@ -551,7 +558,9 @@ void Build(Snap& s, bool crashPath) {
         }
     }
     s.fpsCap = g_fpsCap;
-    s.bound = Classify(s.f, s.w, s.fpsCap, s.why, sizeof s.why);
+    ThreadView tv;
+    const bool haveThr = ReadThreads(tv, crashPath);
+    s.bound = Classify(s.f, s.w, s.fpsCap, s.why, sizeof s.why, haveThr ? tv.top[0].name : nullptr, haveThr ? tv.top[0].pct : -1);
     if (!crashPath && g_si.gpuPasses) g_si.gpuPasses(s.gpuPasses, sizeof s.gpuPasses);
 }
 
@@ -655,7 +664,7 @@ size_t Json(char* out, size_t cap, bool crashPath) {
     j.f("{\"window_s\":%.1f,\"frames\":%d,\"avg_fps\":%.1f,\"low1_fps\":%.1f,\"avg_ms\":%.2f,\"p99_ms\":%.2f,\"max_ms\":%.2f",
         s.f.spanMs / 1000.0, s.f.frames, s.f.avgFps, s.f.low1Fps, s.f.avgMs, s.f.p99Ms, s.f.maxMs);
     j.f(",\"last_frame_age_s\":%.1f,\"bound\":\"%s\",\"bound_why\":", s.ageS, BoundName(s.bound));
-    j.str(s.why, 150);
+    j.str(s.why, 190);
     if (s.haveWindow)
         j.f(",\"game_thread_ms\":%.2f,\"process_cores\":%.2f,\"gpu_fence_wait_ms\":%.2f,\"present_wait_ms\":%.2f,\"limiter_per_frame\":%.2f",
             s.w.gameThreadMs, s.w.procCores, s.w.gpuFenceMs, s.w.presentWaitMs, s.w.limiterPerFrame);
@@ -677,8 +686,10 @@ size_t Json(char* out, size_t cap, bool crashPath) {
         j.str(ok ? g_frameGen : "", 15);
         j.raw(",\"game_settings\":");
         j.raw(ok ? g_gameJson : "{}");
-        j.raw(",\"mod_settings\":");
-        j.raw(ok ? g_modJson : "{}");
+        if (ok && strcmp(g_modJson, "{}")) {  // #97775: an empty object says nothing: the key is left out
+            j.raw(",\"mod_settings\":");
+            j.raw(g_modJson);
+        }
     });
     j.raw(",\"parts\":[");
     Part p[8];

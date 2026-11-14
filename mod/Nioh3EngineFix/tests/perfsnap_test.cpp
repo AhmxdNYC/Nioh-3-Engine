@@ -63,6 +63,10 @@ int main(int argc, char** argv) {
     CHECK(strstr(why, "GPU") != nullptr);
     w.gpuFenceMs = 0.5, w.presentWaitMs = 0.5;
     CHECK(Classify(f45, w, 60, why, sizeof why) == kCpu);
+    CHECK(strstr(why, "present thread CPU 54% of a frame") != nullptr && !strstr(why, "busiest"));  // 12 ms / 22.2 ms
+    CHECK(Classify(f45, w, 60, why, sizeof why, "[App]Game", 84.5) == kCpu);  // #97775: both measures named, never one "game thread busy"
+    CHECK(strstr(why, "present thread CPU 54% of a frame; busiest thread [App]Game 84% of a core") != nullptr || strstr(why, "[App]Game 85%") != nullptr);
+    CHECK(!strstr(why, "game thread busy"));
     w.gpuFenceMs = 2.5, w.presentWaitMs = 1.0;
     CHECK(Classify(f45, w, 60, why, sizeof why) == kMixed);
     CHECK(Classify(f60, w, 60, why, sizeof why) == kCapped);
@@ -146,6 +150,9 @@ int main(int argc, char** argv) {
         while (!stop) ++x;
     });
     std::thread idle([&] { while (!stop) Sleep(50); });
+    // #97775: five more busy threads push the presenting (main) thread, which only sleeps here, out of the top 5
+    std::thread spin[5];
+    for (auto& th : spin) th = std::thread([&] { volatile unsigned x = 0; while (!stop) ++x; });
     Sleep(100);
     ThreadTickForTest();  // tick 0: list + first times
     Sleep(1500);
@@ -153,6 +160,7 @@ int main(int argc, char** argv) {
     stop = true;
     busy.join();
     idle.join();
+    for (auto& th : spin) th.join();
 
     static char js[16384], tx[8192];
     const size_t jn = Json(js, sizeof js, true);
@@ -173,7 +181,7 @@ int main(int argc, char** argv) {
     CHECK(strstr(js, "\"limiter_per_frame\":0.50") != nullptr);
     CHECK(strstr(js, "engine ECL ring full") != nullptr);
     CHECK(strstr(tx, "bound: gpu") != nullptr);
-    CHECK(strstr(js, "\"busiest_thread\":{\"name\":\"[App]BusyTest\"") != nullptr);
+    CHECK(strstr(js, "\"busiest_thread\":{\"name\":\"") != nullptr);  // six spinners tie for busiest
     {
         const char* bp = strstr(js, "\"busiest_thread\"");
         const char* cp = bp ? strstr(bp, "\"core_pct\":") : nullptr;
@@ -183,7 +191,15 @@ int main(int argc, char** argv) {
     }
     CHECK(strstr(js, "\"threads\":[{") != nullptr);
     CHECK(strstr(js, "\"thread_count\":") != nullptr);
-    CHECK(strstr(tx, "busiest [App]BusyTest") != nullptr);
+    CHECK(strstr(js, "present\",\"tid\":") != nullptr);  // #97775: the presenting thread is listed (6th entry) with the tag
+    {
+        int cnt = 0;
+        for (const char* q2 = js; (q2 = strstr(q2, "\"core_pct\"")) != nullptr; ++q2) ++cnt;
+        printf("thread entries incl. busiest_thread: %d\n", cnt);
+        CHECK(cnt == 7);  // busiest_thread + 6 listed
+    }
+    CHECK(strstr(js, "\"mod_settings\":") != nullptr);
+    CHECK(strstr(tx, "busiest ") != nullptr && strstr(tx, " / present ") != nullptr);
     // a tiny buffer truncates but stays terminated
     char small[64];
     const size_t sn = Json(small, sizeof small, true);
