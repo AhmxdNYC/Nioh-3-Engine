@@ -680,3 +680,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 10:25 am EST | performance-pc/0 | amend 13 downgraded: 0x311744 wait-all has no static live entry (counter only); live load = poll 0x1A1B30 (amend 6); per-slot read timer [entry+8]+0x90 (deepseek/3 #100924 re-515). Do not task twice.
 - 2026-11-14 10:30 am EST | performance-pc/0 | #101075 fixed: file-read reachable via 0x631EC0/0x631F70 (time those); engine timer = clock() ms {total,max,count} (deepseek/3 #100946 re-517). Do not task twice.
 - 2026-11-14 10:27 am EST | performance-pc/0 | session end; deepseek relays handled through #100946 (last sent #101095). Next deepseek note > #100946.
+- 2026-11-14 10:27 am EST | performance-pc/0 | deepseek #100947 (note 518): render-params +0xAC sizes cache cap SynCtx+0x850 + its heap together, safe to raise. Relayed to pc as #101108 (optional arm for pc/2 #100461 only if purges > 0). Do not relay twice.
