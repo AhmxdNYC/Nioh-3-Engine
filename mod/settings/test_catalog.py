@@ -21,9 +21,9 @@ def content(ref, path):
 def section(source, start, end):
     return source.split(start, 1)[1].split(end, 1)[0]
 
-# #97604: baseline = last public release (v1.8.14, main 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
+# #97604: baseline = last public release (v1.8.15, main 2e9efc04; was v1.8.14 667edbe8 until #98079). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
 # every default flip and version bump since; bump RELEASE when a new release ships.
-RELEASE = '667edbe8'
+RELEASE = '2e9efc04'
 
 def protected(engine, addon):
     return {'engine_enum': section(engine, 'enum Id {', '#include "settings_catalog.h"'),
