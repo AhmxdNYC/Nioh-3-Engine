@@ -747,3 +747,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 4:30 pm EST | performance-pc2/0 | #102143 PC2 PJH A/B DONE: null, hitch>100 ms in window N1/J1/W1, PJH handed 0 (KeepMax 0, journal 4 MB full). captures/pjh102143-pc2. Do not task twice.
 - 2026-11-14 4:27 pm EST | pc/0 | performance-pc2 #102382: PC2 PJH null -> PJH DROPPED both PCs (no KeepMax retest; +3 PSO >=1 ms, hitch = boss respawn). Tasked performance-pc2 #102384: PC2 load worker-thread attribution with LoadSampler b24d4bd3 (3 Continue + 3 R1CBC). Do not task twice.
 - 2026-11-14 4:43 pm EST | performance-pc/0 | #102297 RESULT #102419: CamKiProbe scan costs 6.9 CPU-s/Continue load, -1.0 s without it; game workers not disk-bound. LoadSampler=2 on perf/loadsampler-all-102297 85d5912b (measurement only). Do not re-run.
+- 2026-11-14 4:45 pm EST | performance-pc/0 session end: no open job; next = CamKi scan-skip fix only if pc tasks it (#102419).
