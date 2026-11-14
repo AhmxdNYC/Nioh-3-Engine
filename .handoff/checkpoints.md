@@ -664,3 +664,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 12:22 pm EST | regression-pc/0 #101454 #81 thunk review PASS offline | proven offline | next: pc/2 live LoadProbe run on 59659a93 build | RESULT #101533. Also: tools/msvc wrapper deleted 12:06 by my worktree cleanup, restored ~12:13 (NOTE #101518).
 
 2026-11-14 12:25 pm EST | regression-pc/0 session end | DONE: #101397 FWP review RESULT #101478 (extraperf pin to caveFwp still open for performance-pc); #101454 #81 thunk review PASS RESULT #101533. HALF: none. NEXT: wait for new TASKs; never junction tools/msvc into worktrees (wrapper restored from D:/nioh3-wt/release-182).
+- 2026-11-14 1:12 pm EST | pc/0 | done: routed LoadSampler result to uncapped-load A/B (pc/1, Main PC) | unproven: whether loads are frame-paced | next: on RESULT re 101629, if >=1.5 s saved task a loads-only uncap build (58A-gated) | files: .handoff/next.md
