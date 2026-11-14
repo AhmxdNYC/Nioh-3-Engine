@@ -607,3 +607,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 4:58 am EST | regression-pc/0 | #99504 regression delta 31b857ad..0902138a PASS (#99532, installer #99533) | proven offline (catalog/menu/preservation tests, no_hardcode_audit) | next: live menu look by Dev Lead | no code commits
 - 2026-11-14 5:10 am | menu-all 0902138a regression PASS #99532 | offline proven, live pending #99505 | next: live PASS -> installer GO (human OK) | bridge #7479
 - 2026-11-14 5:14 am EST | pc2/1 | done: #99503 Leave row on Boss tab (f558cb11) + Return-time split | proven live pc2 4/4, offline ui_harness | next: regression-pc review of pc2/leave-row-99492; Return gap needs phase logs | files rematch.cpp; evidence #7483
+- 2026-11-14 5:20 am | Boss-tab Leave row live PASS PC2 4/4 | proven live, regression pending | next: regression PASS -> next release after v1.8.18 | pc2/leave-row-99492 f558cb11, file #7483
