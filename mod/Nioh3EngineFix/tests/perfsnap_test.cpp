@@ -88,6 +88,33 @@ int main(int argc, char** argv) {
         CHECK(RankThreads(in, 0, top, 5) == 0);
     }
 
+    // ---- 2c. WindowDelta: a failed GetThreadTimes tick is a hole, never a stale value (#97734) ----
+    {
+        constexpr int H = 32;
+        uint64_t t[H] = {};
+        bool ok[H] = {};
+        for (int i = 0; i <= 40; ++i) { t[i % H] = (uint64_t)i * 10000000ull; ok[i % H] = true; }  // 1 s of CPU per tick
+        int old = -1;
+        uint64_t d = 0;
+        CHECK(WindowDelta(t, ok, H, 40, 0, 30, old, d) && old == 10 && d == 300000000ull);
+        CHECK(Near(CorePct(d, 30.0), 100.0, 1e-9));
+        ok[40 % H] = false;                                   // newest sample failed
+        CHECK(!WindowDelta(t, ok, H, 40, 0, 30, old, d));
+        ok[40 % H] = true;
+        ok[10 % H] = false;                                   // the window's old end failed
+        CHECK(!WindowDelta(t, ok, H, 40, 0, 30, old, d));
+        // the ring entry 31 ticks back is stale after a failure: tick 41 fails, 42 must not pair with entry 41 % 32 (= tick 9's)
+        ok[10 % H] = true;
+        ok[41 % H] = false;
+        t[41 % H] = 9ull * 10000000ull;                       // stale value from tick 9
+        CHECK(!WindowDelta(t, ok, H, 41, 0, 30, old, d));
+        t[42 % H] = 42ull * 10000000ull; ok[42 % H] = true;
+        CHECK(WindowDelta(t, ok, H, 42, 0, 30, old, d) && old == 12 && d == 300000000ull);  // never 33 s of CPU
+        CHECK(!WindowDelta(t, ok, H, 5, 5, 30, old, d));      // no history yet (old >= tick)
+        t[3] = 5; ok[3] = true; t[2] = 9; ok[2] = true;
+        CHECK(!WindowDelta(t, ok, H, 3, 2, 30, old, d));      // counter went backwards: invalid, not a huge unsigned value
+    }
+
     // ---- 3. End to end ----
     StartInfo si;
     si.w6Ticks = &g_w6, si.gfTicks = &g_gf, si.dsTicks = &g_ds, si.l1 = &g_l1, si.backendWaitsMs = &FakeBk;

@@ -326,6 +326,8 @@ struct ThrSlot {
     int first = -1;                // tick of the first sample
     bool seen = false;             // still in the latest Toolhelp list
     uint64_t t[kHist] = {};        // kernel + user, 100 ns
+    bool ok[kHist] = {};           // this tick's GetThreadTimes succeeded (false = hole, never used for a delta)
+    bool presMarked = false;       // the name already carries "present"
     char name[48] = "";
 };
 ThrSlot g_thr[kThr];
@@ -399,7 +401,14 @@ void ThreadEnumerate() {
                 hit->tid = te.th32ThreadID, hit->h = h;
             }
         }
-        if (hit) { hit->seen = true; ThreadName(*hit); }  // names may be set after the thread starts: refresh each pass
+        if (hit) {
+            hit->seen = true;
+            // names are cached per TID (#97734): only a new thread is named; the presenting thread is renamed once when known
+            if (!hit->name[0] || (!hit->presMarked && hit->tid == g_presTid && g_presTid)) {
+                ThreadName(*hit);
+                hit->presMarked = hit->tid == g_presTid && g_presTid;
+            }
+        }
     }
     CloseHandle(snap);
     for (ThrSlot& s : g_thr)
@@ -416,15 +425,18 @@ void ThreadTick(int64_t qpc) {
     for (ThrSlot& s : g_thr) {
         if (!s.h) continue;
         FILETIME c, e, k, u;
-        if (!GetThreadTimes(s.h, &c, &e, &k, &u)) continue;
+        if (!GetThreadTimes(s.h, &c, &e, &k, &u)) {  // #97734: invalid sample, skipped (no stale ring value enters a delta)
+            s.ok[tick % kHist] = false;
+            continue;
+        }
         ++live;
         s.t[tick % kHist] = Ft(k) + Ft(u);
+        s.ok[tick % kHist] = true;
         if (s.first < 0) s.first = tick;
-        int old = tick - kThrWindow;
-        if (old < s.first) old = s.first;
-        if (old >= tick) continue;
+        int old = 0;
+        uint64_t d = 0;
+        if (!WindowDelta(s.t, s.ok, kHist, tick, s.first, kThrWindow, old, d)) continue;
         const double wall = (double)(qpc - g_thrQ[old % kHist]) / (double)g_freq;
-        const uint64_t d = s.t[tick % kHist] - s.t[old % kHist];
         ThreadUse& x = use[n++];
         x.tid = s.tid;
         x.pct = CorePct(d, wall);

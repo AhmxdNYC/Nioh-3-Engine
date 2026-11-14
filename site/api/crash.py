@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import threading
 import time
 import urllib.error
@@ -285,9 +286,17 @@ def validate(rec) -> dict:
         if not isinstance(tail, dict) or set(tail) != {"captured", "included", "line_cap"} or any(type(v) is not int for v in tail.values()) or not 0 <= tail["included"] <= tail["captured"] <= 20 or tail["line_cap"] != 2047:
             raise Reject(400, "invalid training_tail bounds")
     if "perf" in rec:
+        # #97734: a bad perf block is dropped (and logged), never a reason to lose the crash record
+        class _BadPerf(Exception):
+            pass
+
         def fail(msg):
-            raise Reject(400, msg)
-        _check_perf(rec["perf"], fail)
+            raise _BadPerf(msg)
+        try:
+            _check_perf(rec["perf"], fail)
+        except _BadPerf as e:
+            print(f"crash: perf block dropped: {e}", file=sys.stderr)
+            del rec["perf"]
     if "log" in rec:
         lg = rec["log"]
         if not isinstance(lg, dict) or set(lg) - LOG_KEYS:

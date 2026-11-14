@@ -56,12 +56,25 @@ try:
     check("report accepts perf", v["perf"]["bound"] == "gpu")
 except ValueError as e:
     check("report accepts perf: " + str(e), False)
-for bad in ([1], {"gpu": "x" * 301}):
+# #97734: a malformed perf is dropped (logged), the report / crash is still stored
+for bad in ([1], {"gpu": "x" * 301}, {"a": {"b": {"c": {"d": 1}}}}):
     try:
-        report.validate(json.dumps(dict(body, perf=bad)).encode())
-        check("report rejects bad perf", False)
-    except ValueError:
-        check("report rejects bad perf", True)
+        v = report.validate(json.dumps(dict(body, perf=bad)).encode())
+        check("report drops bad perf, keeps the report", "perf" not in v and v["player_text"] == "slow in Kyoto")
+    except ValueError as e:
+        check("report drops bad perf: " + str(e), False)
+crec = {"schema": 1, "event": "crash", "id": "b" * 32, "mod": "EngineFix", "ver": "t", "t": "2026-11-13T00:00:00Z",
+        "fields": {"code": "0xC0000005", "module": "Nioh3.exe", "offset": "0x1234"}}
+for bad in ([1], {"gpu": "x" * 301}, {"a": {"b": {"c": {"d": 1}}}}, {"k%d" % i: "x" * 290 for i in range(40)}):
+    try:
+        v = crash.validate(dict(crec, perf=bad))
+        check("crash drops bad perf, keeps the crash", "perf" not in v and v["id"] == "b" * 32)
+    except crash.Reject as e:
+        check("crash drops bad perf: " + str(e), False)
+try:
+    check("crash still keeps a good perf", crash.validate(dict(crec, perf=perf)).get("perf", {}).get("bound") == "gpu")
+except crash.Reject as e:
+    check("crash good perf: " + str(e), False)
 try:
     report.validate(json.dumps({k: v for k, v in body.items() if k != "perf"}).encode())
     check("report without perf still accepted", True)

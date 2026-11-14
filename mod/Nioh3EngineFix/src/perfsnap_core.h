@@ -116,6 +116,19 @@ struct ThreadUse {
     char name[48] = "";
 };
 inline double CorePct(uint64_t cpu100ns, double wallS) { return wallS > 0 ? (double)cpu100ns / 1e7 / wallS * 100.0 : 0; }
+// CPU time gained between the sample `window` ticks ago (or the slot's first one) and this tick. t[]/ok[] are rings of `hist`
+// entries indexed tick % hist. A tick whose GetThreadTimes failed is ok = false and never enters a delta: neither as the newest
+// sample nor as the old one (a stale ring entry would be 32 ticks old and inflate the %). false = no valid pair; oldTick = old.
+inline bool WindowDelta(const uint64_t* t, const bool* ok, int hist, int tick, int first, int window, int& oldTick, uint64_t& d) {
+    if (!t || !ok || hist <= 0 || tick < 0 || first < 0 || window <= 0 || window >= hist) return false;
+    int old = tick - window;
+    if (old < first) old = first;
+    if (old >= tick || !ok[tick % hist] || !ok[old % hist]) return false;
+    const uint64_t a = t[old % hist], b = t[tick % hist];
+    if (b < a) return false;
+    oldTick = old, d = b - a;
+    return true;
+}
 // Top k of in[0..n) by pct, descending (ties: lower tid first). Returns how many were written (<= k).
 inline int RankThreads(const ThreadUse* in, int n, ThreadUse* top, int k) {
     if (!in || !top || n <= 0 || k <= 0) return 0;

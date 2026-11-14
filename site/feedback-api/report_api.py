@@ -159,9 +159,17 @@ def validate(raw: bytes) -> dict:
         if key in body and not isinstance(body[key], int):
             raise ValueError(f"{key} must be a number")
     if "perf" in body:
+        # #97734: a bad perf block is dropped (and logged), never a reason to lose the report
+        class _BadPerf(Exception):
+            pass
+
         def fail(msg):
-            raise ValueError(msg)
-        check_perf(body["perf"], fail)
+            raise _BadPerf(msg)
+        try:
+            check_perf(body["perf"], fail)
+        except _BadPerf as e:
+            print(f"report: perf block dropped: {e}", file=sys.stderr)
+            del body["perf"]
     return scrub(body)
 
 
