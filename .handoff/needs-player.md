@@ -32,3 +32,4 @@
 - [ ] Ally Claude login expired | on the Ally run 'claude auth login' (or set CLAUDE_CODE_OAUTH_TOKEN via 'claude setup-token') so its agent can work again (#99164) | ally
 - [ ] DeepSeek out of OpenRouter credits | All 5 DeepSeek seats fail with API 402 since ~10:45 am EST (#101143-#101176); add credits on openrouter.ai so engine reversing resumes | any
 - [ ] Main PC load probe run OK? | Reply go/later to DECISION #101334: ~15 min Main PC game (3 cold starts + 2 Boss Match loads) with EF LoadProbe a0a61c70; v1.8.17 + saves restored after | Main PC
+- [ ] Publish v1.8.18? | Reply YES/NO: v1.8.18 rc2 (#7656) = camera-scan CPU fix (4-core Main PC Boss Match load 47->20 s, PC2 Continue 39->22 s) + crash #78/#79 fixes; Fight again shortcut ships OFF. All gates PASS (installer #102627, regression #102645, PC2 live #102751). Default: not published until YES | phone
