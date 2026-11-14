@@ -48,7 +48,7 @@ arm 1 CLEANUP (owner gone)
 Lock status after both: holder None (task 449, channel nioh3-seriestest).
 
 ## Re-proof after regression #102230 (2026-11-14 3:53-3:57 pm EST)
-Fixes: cmd /d /s /c with outer quotes; UO_SERIES_KEEPLOCK=1 in arm env (gamelock release no-op, universal-optimizer 3972617; soulcore_form honours it); watchdog waits for the arm process tree; Split-IniArg keeps dotted values (59.94); CfgXml logs a missing tag; bridge dir fallback for worktrees.
+Fixes: cmd /d /s /c with outer quotes; UO_SERIES_KEEPLOCK=1 in arm env (gamelock release no-op, universal-optimizer fleet-v2 295436e6; soulcore_form honours it); watchdog waits for the arm process tree; Split-IniArg keeps dotted values (59.94); CfgXml logs a missing tag; bridge dir fallback for worktrees.
 
 Run 1: arm 2 = quoted path with a space, launcher killed at ~58 s (12:54:46 PST):
 ```
