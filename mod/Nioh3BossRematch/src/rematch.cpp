@@ -3894,6 +3894,9 @@ int ItemsBase(int* out, int cap) {
     if (g_uiPages.page == uRematch) {  // the Boss Rematch menu as it was before Training was merged in
         AddBossFightItems(add);
         // user #13197: no 'Return to where I was' here (Practice tools / the arena Return gate have it)
+        // pc #99495: but while a Boss Match (or our Picture Scroll) runs, its 'Leave' row is here too: after a win the game hides
+        // 'Return from Mission', and Training > Active bosses was the only way out. Same item, same exit path. Not the first row.
+        if (NativeGateMission() || WavesGateNow()) add(kItReturnHome);
         // user #6718: the boss list stays on the root page (beaten / startable first, then the rest)
         if (g_live.load()) addBossList();
         // #14336 item 10: legacy / developer rows only with [Rematch] ShowUnverified = 1
@@ -4810,7 +4813,7 @@ const char* ItemGroup(int item) {
     if (item == kItPageDefaults) return "Page defaults";
     const int p = g_uiPages.page;
     if (item == kItBack || item == kItClose) return nullptr;
-    if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
+    if (p == uRematch) return IsFightRule(item) ? "Death and loot (Training / Boss Matches)" : item == kItReturnHome ? "Leave" : item >= 0 && item < kItFight ? "Bosses you can fight again" : "More";
     if (p == uGate) return item == kItFightAgain ? "This fight" : item == kItPlayerOpen ? "Player" : IsFightRule(item) || item == kItFightOpts ? "Boss Match rules" : item == kItReturnHome || item == kItLeaveArena ? "Leave" : "Active bosses";
     if (p == uBossVitals) return IsPstItem(item) ? "Boss settings (see each setting for mode)" : BvGroup(item);  // user #14320 / #22389
     if (p == uPlayer) return IsPstItem(item) ? "Player stats (Training / spawned Boss Matches)" : item == kItCantDie ? "Health" :
