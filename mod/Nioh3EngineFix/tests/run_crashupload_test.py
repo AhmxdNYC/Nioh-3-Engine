@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix="n3-crash-merge-") as folder:
         assert record["registers"]["Rdx"] == "0x123456789abcdef0"
         assert len(record["stack_top"]) == 16
         mem = [x["fields"]["line"] for x in record["last"] if x.get("fields", {}).get("line", "").startswith("MEM")]  # #72
-        assert mem and mem[0].startswith("MEM fault 0x0: free") and "MEM rbx+00: 1111 2222 3333 4444 5555 6666" in mem, mem
+        assert mem and mem[0].startswith("MEM fault 0x0: free") and "MEM rbx+00: 1111 2222 3333 4444 5555 6666" in mem and "MEM rbx+30: c0ffee 8888 txt txt bbbb cccc" in mem, mem  # #98728
         assert all(len(m) <= 118 for m in mem), mem
         assert record["training_tail"]["included"] == 20
         assert record["id"] in ini.read_text()

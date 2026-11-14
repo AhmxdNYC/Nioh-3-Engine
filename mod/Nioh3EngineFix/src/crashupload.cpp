@@ -618,6 +618,20 @@ int ReadQwords(uintptr_t p, unsigned long long* out, int n) {
         return 0;
     }
 }
+// #98728: MEM qwords go to a public crash API; a qword whose non-zero bytes are all printable ASCII (3+ of them) is text, ASCII or
+// UTF-16 (a name or a path piece), not a pointer or number, so it prints as "txt". User-space pointers keep a 0x00-0x7f top byte
+// pair with non-printable bytes (0x7ff6.., 0x0000021a..), so they still print.
+static bool LooksLikeText(unsigned long long q) {
+    int printable = 0;
+    for (int b = 0; b < 8; ++b) {
+        const unsigned c = (unsigned)(q >> (b * 8)) & 0xff;
+        if (!c) continue;
+        if (c < 0x20 || c > 0x7e) return false;
+        ++printable;
+    }
+    return printable >= 3;
+}
+
 const char* StateText(const MEMORY_BASIC_INFORMATION& m) {
     if (m.State == MEM_FREE) return "free";
     if (m.State == MEM_RESERVE) return "reserved";
@@ -654,7 +668,8 @@ int CaptureMem(const EXCEPTION_RECORD* er, const CONTEXT* ctx) {
         for (int half = 0; half * 6 < got; ++half) {
             int k = snprintf(g_mem[n], kMemLen, "MEM %s+%02x:", r.name, half * 0x30);
             for (int i = half * 6; i < got && i < half * 6 + 6 && k > 0 && k < kMemLen; ++i)
-                k += snprintf(g_mem[n] + k, kMemLen - k, " %llx", q[i]);
+                k += LooksLikeText(q[i]) ? snprintf(g_mem[n] + k, kMemLen - k, " txt")  // #98728: no player text (names, paths)
+                                         : snprintf(g_mem[n] + k, kMemLen - k, " %llx", q[i]);
             ++n;
         }
     }
