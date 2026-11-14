@@ -518,3 +518,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-13 7:27 pm EST | pc2/1 #97712 perf snapshot live done | proven on PC2: fps parity, JSON fields, threads; missing present tag | next: gx-pc always lists the present thread + fills mod_settings, then recheck | files C:/nioh3-re/t97712, bridge #7364
 - 2026-11-13 8:00 pm EST | pc2/1 #97802 perfsnap 65bc8b93 live recheck done | proven: fps -2.2%, present tag, bound_why, size OK; mod_settings missing live | next: gx-pc fixes iniPath lifetime, then pc2 recheck mod_settings only | rig C:/nioh3-re/t97802, report #7371
+
+2026-11-13 8:36 pm EST | pc2/1 #97880 perfsnap a18e12e8 live PASS 5/5 | proven on PC2 (#97921, report file #7376) | next: lead asks human publish OK | rig C:/nioh3-re/t97880, no code change
