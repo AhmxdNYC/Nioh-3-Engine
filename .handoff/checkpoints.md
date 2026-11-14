@@ -685,3 +685,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 4:00 pm EST | regression-pc/0 re-review series_run c85cf3dd OK (#102265) | proven offline (code read + pc2 proof logs) | next: pc2/1 live smoke after pulling uo 295436e6 | no code commits
 2026-11-14 4:02 pm EST | regression-pc/0 series_run 8cc45afa diff OK (#102304) | proven offline | next: pc2/1 live smoke | no code commits
 - 2026-11-14 4:15 pm EST | regression-pc/0 #102327 | review pc2 lock-name sweep 0e83f295 (pc2/series-supervisor-102201): OK, 0 blockers, RESULT to pc2 re #102295. Proven by diff read only. Leftover main-PC 'nioh3-pc' defaults (fastab, samelook_ab, vs/xsys_capture) still work via legacy mapping. Next: none for regression.
+- 2026-11-14 4:30 pm EST | performance-pc2/0 | #102143 PC2 PJH A/B N/J/W run; proven null (handed 0) | next: PJH retest only with PJ_KeepMax>0 + bigger PJ_MaxMB build/setting | captures/pjh102143-pc2
