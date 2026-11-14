@@ -5,6 +5,7 @@
 - [x] Name lookup caching | performance-pc, queued after L1 margin (#93615 order) | DROPPED 11-12 #93764 (<=0.6% main thread)
 - [x] UI copy narrowing | performance-pc, queued | DROPPED 11-12 #93766 (0.19% main thread)
 - [x] Page-cache wait (DeepSeek draft 3, 30faa80d, 1.7.61 base): check for existing patch, timing check, port only if worth it | performance-pc, TASKED 11-14 3:59 pm EST after PP FAIL #102259 | DROPPED 11-12 #93728 (0 calls/s in gameplay); re-confirmed 11-14 #102274
+- [ ] 4-core player low-visibility option (human #102540/#102575/#102580/#102601, 11-14 5:34 pm EST): opt-in short view distance so only the nearby area / boss arena is drawn; also shorter grass/prop distance, fewer particles. Gameplay and speed must stay identical (no logic-tick change, #102575); look may drop. Not built; first find the draw-distance control (render RE) | owner pc lead -> performance-pc
 - [ ] Shadow cache (static-light shadows kept, redraw only changed) | not built; LAST per human #93613
 - Dropped (no re-test): light-copy shrink (#93515, 0 copies/s), CapSleep (#93605, already shipped as L1). Parked: world bosses (#92460/#93578), Ally crash 131CA9 (old Nov 7 build, #93576).
 
