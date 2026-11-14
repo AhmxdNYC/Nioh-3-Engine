@@ -615,3 +615,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 4:52 am EST | pc/2 | Human #99493 'menu update done?' answered #99496: not out (EF b272b163 offline PASS only). NOTE to lead: regression delta + Main PC live menu + release still open. Owe ONE Done TO-USER when public.
 - 2026-11-14 5:15 am EST | pc/0 lead | Ally BLOCKED #99490 (Claude login expired; needs-player l.32 open). First-load split #99489 moved to pc/1 on Main PC (v1.8.17 install first; menu-all #99453 live goes first if ready).
 - 2026-11-14 4:53 am EST | pc/2 session end: see checkpoints.md; menu-all EF b272b163 waits on lead (regression + Main PC live + release); owe ONE Done TO-USER when public.
+- 2026-11-14 5:25 am EST | pc/0 lead | menu-all EF b272b163 (0902138a, #7479): regression delta TASK to regression-pc + Main PC live menu check to pc/1 (before #99498). Then installer-pc, then release with human OK.
