@@ -665,3 +665,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-14 12:25 pm EST | regression-pc/0 session end | DONE: #101397 FWP review RESULT #101478 (extraperf pin to caveFwp still open for performance-pc); #101454 #81 thunk review PASS RESULT #101533. HALF: none. NEXT: wait for new TASKs; never junction tools/msvc into worktrees (wrapper restored from D:/nioh3-wt/release-182).
 - 2026-11-14 1:12 pm EST | pc/0 | done: routed LoadSampler result to uncapped-load A/B (pc/1, Main PC) | unproven: whether loads are frame-paced | next: on RESULT re 101629, if >=1.5 s saved task a loads-only uncap build (58A-gated) | files: .handoff/next.md
+- 2026-11-14 1:25 pm EST | regression-pc/0 reviewed LoadSampler hardening 1daec982 | proven offline (4/4 + 0 exceptions) | next: pc/1 live use of EF b24d4bd3 | no code change
