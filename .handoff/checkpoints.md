@@ -674,3 +674,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 2:51 pm EST | done: #102014 LoadCap raise A/B on Main PC | proven FAIL (RESULT #102072) | next: none for load-cap; take next perf item from open.md | 476053f9, D:/nioh3-re/lc102014
 
 2026-11-14 3:23 pm EST | done: FWP Main PC #102081 null; PJH Main PC #102136 DROP | proven (live, public d7cb9d69) | next: PC2 PJH arm (performance-pc2) or CPU bundle isolation open.md line 12 | D:/nioh3-re/fwp101921, D:/nioh3-re/pjh102073
+2026-11-14 3:25 pm EST | pc/0 | PJH Main PC drop accepted #102136 | proven (perf-pc 3 arms) | next: wait RESULT #102142 (PP_Period) and #102143 (PC2 PJH) | .handoff/open.md next.md
