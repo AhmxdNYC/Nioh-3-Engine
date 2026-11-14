@@ -617,3 +617,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 4:53 am EST | pc/2 session end: see checkpoints.md; menu-all EF b272b163 waits on lead (regression + Main PC live + release); owe ONE Done TO-USER when public.
 - 2026-11-14 4:53 am EST | pc/0 lead | menu-all EF b272b163 (0902138a, #7479): regression delta TASK to regression-pc + Main PC live menu check to pc/1 (before #99498). Then installer-pc, then release with human OK.
 - 2026-11-14 4:55 am EST | pc2/1 session end | #99423 done, nothing half-done; wait for lead.
+- 2026-11-14 4:00 am EST | pc/1 session end #99315 | done: RC #7471 live PASS 4/4, RESULT sent, public v1.8.16+saves+inis restored, lock free, no marker | half-done: none | next: none for pc/1 (lead/installer-pc gate v1.8.17) | Temp/rc99315, commit 8b46aa76
