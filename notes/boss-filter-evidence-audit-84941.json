@@ -1,0 +1,1013 @@
+{
+  "task": 84941,
+  "original_unmatched": 65,
+  "reviewed": 65,
+  "promoted": 7,
+  "confirmed": 63,
+  "unconfirmed": 58,
+  "catalog_entries": 121,
+  "route_counts": {
+    "R": 58,
+    "H": 3,
+    "D": 10,
+    "E0": 20,
+    "X": 30
+  },
+  "category_counts": {
+    "limited evidence": 10,
+    "historical failure": 3,
+    "promoted confirmed": 7,
+    "no matching current-path record": 16,
+    "excluded unavailable route": 29
+  },
+  "unit": "Catalog launch/menu entries, not unique bosses. 20 scroll records, 30 unavailable X entries, multi-boss missions and alternate missions overlap character names. No unique-boss count inferred from display names.",
+  "scope": "Audit of linked Nov6-8 named reports and followups found through local handoffs and catalog/code. No channel-history scan or new game runs. No matching means not found in this reviewed corpus, not proof a report never existed. Historical failures are not new tests of1.8.12.",
+  "rows": [
+    {
+      "id": "R0B0B",
+      "name": "Baba Nobuharu & Kosaka Masanobu & Naito Masatoyo & Takeda...",
+      "route": "R",
+      "mission": "Takeda's Four Heavenly Kings",
+      "category": "limited evidence",
+      "sources": [
+        75395
+      ],
+      "reason": "First entry did not start; retry required runner warp and attack. Same character names in R0F7F/R1C7C do not prove this mission.",
+      "same_name_other_entries": [
+        "R1CBC",
+        "R1C7C",
+        "R0F7F",
+        "R15FF",
+        "R945F"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RB24D",
+      "name": "Death Veil & Enenra & Gozuki & Hiruko & Jakotsu-baba & Jo...",
+      "route": "R",
+      "mission": "A Sinister End",
+      "category": "historical failure",
+      "sources": [
+        75099,
+        75409,
+        75926,
+        76611
+      ],
+      "reason": "Entry death/falls and later idle-body timeout. 75099 reaches Hiruko only after death, Retry, walk and RB at red wall; not a clean current launch confirmation.",
+      "same_name_other_entries": [
+        "R0034",
+        "RFCCB",
+        "RC72E",
+        "R0C12",
+        "RA4B4",
+        "R61A2",
+        "R523B",
+        "RAC1F",
+        "R945F",
+        "RCC53",
+        "R401E",
+        "R1DEA",
+        "RF60A",
+        "R6351",
+        "R19EA"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RAC1F",
+      "name": "Demon of Obsession & Gozuki & Joro-gumo & Mezuki & Otoroshi",
+      "route": "R",
+      "mission": "Supernatural Shrieks",
+      "category": "promoted confirmed",
+      "sources": [
+        75395,
+        75463
+      ],
+      "reason": "Live Demon of Obsession bar/FIGHT was correct first wave member; Joro-gumo label came from third member. Static script interpretation resolves the actual live result, not a new live test.",
+      "same_name_other_entries": [
+        "R2EE9",
+        "RA4B4",
+        "RB24D",
+        "RA0CB",
+        "RF60A",
+        "R6351",
+        "R19EA"
+      ],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "R1359",
+      "name": "Yagyu Jubei (A Fortress in Ruins)",
+      "route": "R",
+      "mission": "A Fortress in Ruins",
+      "category": "limited evidence",
+      "sources": [
+        75395
+      ],
+      "reason": "First entry hard timeout; retry started after cutscene at +50 s. Positive retry retained as evidence, not clean repeatable entry.",
+      "same_name_other_entries": [
+        "RFB96"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RB3FE",
+      "name": "Kumagai Naoyoshi",
+      "route": "R",
+      "mission": "Mountain Keep in the Storm's Eye",
+      "category": "limited evidence",
+      "sources": [
+        75395,
+        75445
+      ],
+      "reason": "Yui bar is correct native first boss, not Kumagai; timeout then retry start. Later Kumagai lower-floor member not covered. Name mismatch alone is NOT failure.",
+      "same_name_other_entries": [
+        "RD84E"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RD617",
+      "name": "Hattori Hanzo & Saito Fuku & Tokugawa Kunimatsu & Yagyu M...",
+      "route": "R",
+      "mission": "Ghosts at Hirakawa Gate",
+      "category": "limited evidence",
+      "sources": [
+        75395,
+        75445,
+        75829
+      ],
+      "reason": "Original timeout/fall; followup no bounce/death and cover ended on player hit. Named native chain/boss activation still not confirmed by followup; do not retain original failure as current verdict.",
+      "same_name_other_entries": [
+        "RC362",
+        "RA4B4",
+        "R1D60",
+        "R945F",
+        "RC1D9",
+        "RF5E5",
+        "R6E65",
+        "R1A5E",
+        "RD759",
+        "RE18C",
+        "R9BE4",
+        "R26F3",
+        "RA0A1",
+        "R2826"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RF5E5",
+      "name": "Yagyu Munenori (Novice)",
+      "route": "R",
+      "mission": "The Way of the Warrior: Novice",
+      "category": "limited evidence",
+      "sources": [
+        75409,
+        75463
+      ],
+      "reason": "Lesson waves visible; teacher is dormant by design. No named lesson completion/Proceed result. Not a failed teacher fight.",
+      "same_name_other_entries": [
+        "R1D60",
+        "RD617",
+        "R6E65",
+        "R1A5E"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "R26F3",
+      "name": "Saito Fuku (Novice)",
+      "route": "R",
+      "mission": "The Way of Onmyo: Novice",
+      "category": "limited evidence",
+      "sources": [
+        75409,
+        75463
+      ],
+      "reason": "Lesson waves visible; teacher is dormant by design. No named lesson completion/Proceed result. RD759 completion is a different lesson.",
+      "same_name_other_entries": [
+        "R1D60",
+        "RD617",
+        "RA0A1",
+        "R2826"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RA0A1",
+      "name": "Saito Fuku (Adept)",
+      "route": "R",
+      "mission": "The Way of Onmyo: Adept",
+      "category": "limited evidence",
+      "sources": [
+        75395,
+        75463,
+        76524
+      ],
+      "reason": "Wave groups spawned, forced kills did not complete lesson; teacher is dormant by design. 76524 completes RD759 only, not this Adept row.",
+      "same_name_other_entries": [
+        "R1D60",
+        "RD617",
+        "R26F3",
+        "R2826"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "D084F",
+      "name": "Ito Ittosai",
+      "route": "D",
+      "mission": "Ito Ittosai",
+      "category": "promoted confirmed",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "DB90D",
+      "name": "Fuma Kotaro",
+      "route": "D",
+      "mission": "Fuma Kotaro",
+      "category": "limited evidence",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct bar; FIGHT only after runner warp+attack. Forced win/home proven, player walking approach untested.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "DCE5A",
+      "name": "Sugitani Zenjubo",
+      "route": "D",
+      "mission": "Sugitani Zenjubo",
+      "category": "promoted confirmed",
+      "sources": [
+        75548,
+        75926
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "D63A9",
+      "name": "Shinran",
+      "route": "D",
+      "mission": "Shinran",
+      "category": "promoted confirmed",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "D6B58",
+      "name": "Tomoe Gozen",
+      "route": "D",
+      "mission": "Beneath a Pure White Flag",
+      "category": "limited evidence",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct Tomoe bar; FIGHT only after runner warp+attack. RCB08 wave entry does not certify this separate duel mission.",
+      "same_name_other_entries": [
+        "RCB08"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "D95FA",
+      "name": "Nasu no Yoichi",
+      "route": "D",
+      "mission": "Beneath a Pure White Flag",
+      "category": "historical failure",
+      "sources": [
+        75548,
+        75926
+      ],
+      "reason": "Correct Nasu bar/FIGHT but 58 m away; followup walking hit fall rescue 11 times and never reached boss. RCB08 wave entry does not certify this duel.",
+      "same_name_other_entries": [
+        "RCB08"
+      ],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "D5A7B",
+      "name": "Sawamura Yasusuke",
+      "route": "D",
+      "mission": "Sawamura Yasusuke",
+      "category": "promoted confirmed",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "DA30C",
+      "name": "Takahashi Deishu",
+      "route": "D",
+      "mission": "Takahashi Deishu",
+      "category": "promoted confirmed",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "D7BA1",
+      "name": "Nakane Masamori",
+      "route": "D",
+      "mission": "Nakane Masamori",
+      "category": "promoted confirmed",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct named bar and native FIGHT on first try; no manual warp+attack qualification. Entry only; full lifecycle not claimed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": true
+    },
+    {
+      "id": "DA709",
+      "name": "Maeda Mitsutaka",
+      "route": "D",
+      "mission": "Maeda Mitsutaka",
+      "category": "limited evidence",
+      "sources": [
+        75548
+      ],
+      "reason": "Correct bar; FIGHT only after runner warp+attack; walking approach untested.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E01",
+      "name": "Picture Scroll - Saigagake: 4 waves, Mikoshi Nyudo",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 1",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E03",
+      "name": "Picture Scroll - Baikamo: 4 waves, Dweller",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 3",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E05",
+      "name": "Picture Scroll - Mikata: 5 waves, Mikoshi Nyudo",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 5",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E06",
+      "name": "Picture Scroll - Futamata: 4 waves, Yamainu",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 6",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E08",
+      "name": "Picture Scroll - Matsuo: 4 waves, Yagyo Soldier",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 8",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E09",
+      "name": "Picture Scroll - Yasaka: 5 waves, Ichimokuren",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 9",
+      "category": "no matching current-path record",
+      "sources": [
+        78351,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E10",
+      "name": "Picture Scroll - Hachijo: 5 waves, Kappa",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 10",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E11",
+      "name": "Picture Scroll - Gosho: 3 waves, One-eyed Oni",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 11",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E12",
+      "name": "Picture Scroll - Kiyomizu: 5 waves, Itsumade",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 12",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E13",
+      "name": "Picture Scroll - Nishihonganji: 4 waves, Karasu Tengu",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 13",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E14",
+      "name": "Picture Scroll - Mibu: 5 waves, Ippon-Datara",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 14",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E15",
+      "name": "Picture Scroll - Shirakawa: 4 waves, Jailer Oni",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 15",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E16",
+      "name": "Picture Scroll - Himiko: 3 waves, Nozuchi",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 16",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E17",
+      "name": "Picture Scroll - Dokanyama: 5 waves, Gaki Chief",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 17",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E18",
+      "name": "Picture Scroll - Edo Castle: 4 waves, Mikoshi Nyudo",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 18",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "E19",
+      "name": "Picture Scroll - Chokodo: 3 waves, Mikoshi Nyudo",
+      "route": "E0",
+      "mission": "Picture Scroll 0xCC96 record 19",
+      "category": "no matching current-path record",
+      "sources": [
+        78283,
+        79221
+      ],
+      "reason": "Named Nov6 wave-entry/clear evidence exists on old walk/cover path; post-straight-entry79221 names E00/E02/E04/E07 only. No matching post-change live row result found in reviewed Nov6-8 references. NOT never tested or failed.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XYasha",
+      "name": "Yasha",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1782 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XOneeyedOni",
+      "name": "One-eyed Oni",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1BA2 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XGaki",
+      "name": "Gaki",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1BA2 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XCrucibleWraith",
+      "name": "Crucible Wraith",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no data: the name matches no char id (boss-names.csv) and no boss-master row (online-only name, mission unconfirmed). Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XDemonSlayer",
+      "name": "Demon Slayer",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 24210 in any shipped mission enemy table: no record at all in the 120 mission tables (cut, scripted-only or a different char id), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XWaira",
+      "name": "Waira",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1BA2 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XTsuraraOnna",
+      "name": "Tsurara-Onna",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1BA2 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XAllSeeingMage",
+      "name": "All-Seeing Mage",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1782 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XUsuiSadamitsu",
+      "name": "Usui Sadamitsu",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x09E7 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XEnki",
+      "name": "Enki",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x8289 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XHattoriTakeo",
+      "name": "Hattori Takeo",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no data: the name matches no char id (boss-names.csv) and no boss-master row (online-only name, mission unconfirmed). Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XOkiku",
+      "name": "Okiku",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no data: the name matches no char id (boss-names.csv) and no boss-master row (online-only name, mission unconfirmed). Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XKyokotsu",
+      "name": "Kyokotsu",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1371 0xDFE0 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XIshikawaGoemon",
+      "name": "Ishikawa Goemon",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 24428 in any shipped mission enemy table: no record at all in the 120 mission tables (cut, scripted-only or a different char id), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XKarasuTengu",
+      "name": "Karasu Tengu",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0xDFE0 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XRaiju",
+      "name": "Raiju",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 26073/46874 in any shipped mission enemy table: only regular/wave records (0x0F6A CH02_TOMATOKITAN_SEN_WAVE_BOSS, 0x14B9 CH02_WORLD_SENGOKU04_ENEMY0123, 0x14B9 CH02_WORLD_SENGOKU04_RAIJU), so there is no. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XShishidoKageto",
+      "name": "Shishido Kagetoshi",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 24503 in any shipped mission enemy table: no record at all in the 120 mission tables (cut, scripted-only or a different char id), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XTakashimaShuha",
+      "name": "Takashima Shuhan",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 24475 in any shipped mission enemy table: no record at all in the 120 mission tables (cut, scripted-only or a different char id), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XYamainu",
+      "name": "Yamainu",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0xDFE0 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "RBAB8",
+      "name": "Anazawa Morihide & Mori Gentatsu & Yamada Shinryuken",
+      "route": "X",
+      "mission": "Keian Noble Bouts",
+      "category": "historical failure",
+      "sources": [
+        75409,
+        75463,
+        79221
+      ],
+      "reason": "Earlier Anazawa damage did not establish full working mission; later route intentionally refused. 79221 verifies refusal, not a working fight. Current catalog says other two bosses frozen and no mission end.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XTesso",
+      "name": "Tesso",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x4431 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XNinjaYoki",
+      "name": "Ninja Yoki",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x0F6A 0x1744 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XBloodSpurtingO",
+      "name": "Blood-Spurting Ogin",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0xF722 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XGakiChief",
+      "name": "Gaki Chief",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x1371 0x14B9 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XYoki",
+      "name": "Yoki",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x14B9 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XNuppeppo",
+      "name": "Nuppeppo",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x14B9 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XDaidaraBocchi",
+      "name": "Daidara Bocchi",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 47203/48614/48636 in any shipped mission enemy table: only regular/wave records (0xF722 CH02_WORLD_SENGOKU05_ENEMY0028), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XAggrievedWarri",
+      "name": "Aggrieved Warrior",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0xF722 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XGreenShadowsBl",
+      "name": "Green Shadow's Blade",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: field only: every boss record of this name is in open-field region mission(s) 0x14B9 (internal-stage = the whole open-field region); no standalone record to replay, re-placing a beaten field boss needs its field defeat flag cleared (a story. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    },
+    {
+      "id": "XTaigenSessai",
+      "name": "Taigen Sessai",
+      "route": "X",
+      "mission": "-",
+      "category": "excluded unavailable route",
+      "sources": [
+        "mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv",
+        "notes/rematch-all-bosses.md"
+      ],
+      "reason": "Current catalog refuses this standalone route: no boss record (+0x9C bit 4) of char 23990 in any shipped mission enemy table: no record at all in the 120 mission tables (cut, scripted-only or a different char id), so there is no boss fight to restart. Wave-member/name matches cannot prove an unavailable standalone launch.",
+      "same_name_other_entries": [],
+      "confirmed_after_audit": false
+    }
+  ],
+  "recovery_validation": {
+    "task": 85099,
+    "original_unmatched_ids_exactly_covered": 65,
+    "offline_filter_counts": {
+      "catalog": 121,
+      "dojos": 9,
+      "confirmed": 63,
+      "unconfirmed": 58
+    },
+    "live_test": false,
+    "release_changed": false,
+    "gate": "PC2 full restoration before existing filter menu validation"
+  }
+}

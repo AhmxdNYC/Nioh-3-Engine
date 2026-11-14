@@ -62,6 +62,7 @@ struct Row {
     // Filled by tools/rematch_catalog.py from the script, not from a row list. The menu reads it before that script runs.
     bool lesson = false;
     bool dojo = false;         // catalogue mission_class == dojo-way (the game's mission record class; human #95155 Dojos filter)
+    bool confirmed = false;    // catalogue confirmed = date of recorded live entry evidence on the current fight path (human #84670)
 };
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
@@ -115,7 +116,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class"), cConf = ci("confirmed");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -137,6 +138,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         r.emakiIndex = col(cEi).empty() ? -1 : atoi(col(cEi).c_str());
         Ascii(r.warning, sizeof(r.warning), col(cWarn));
         r.dojo = col(cMcls) == "dojo-way";
+        r.confirmed = !col(cConf).empty();
         r.wakeStep = col(cWake).empty() ? 0 : atoi(col(cWake).c_str());  // out of range is clamped where it is used (WaveNudgeAt)
         r.placement = (uint32_t)strtoul(col(cPl).c_str(), nullptr, 0);
         r.hidden = col(cHid) == "1";
@@ -245,21 +247,25 @@ inline void EraKey(const char* in, char* out, int cap) {
 }
 
 // Human #73240: Boss Match list groups from the rows already loaded. No hand-kept boss id list.
-// Stops: All, Multi, one per distinct era (catalogue order), Dojos (only when a row is a dojo), Scrolls, Favorites.
+// Stops: All, Multi, one per distinct era (catalogue order), Dojos (only when a row is a dojo),
+// Not recently confirmed (Boss Matches only, when a listed row has no catalogue 'confirmed' date; human #84670), Scrolls, Favorites.
 // A scroll stays in its era as well as under Scrolls; a dojo stays in its era as well as under Dojos. An empty region is not an era.
-// Kinds: 0 All, 1 Multi, 2 era, 3 Scrolls, 4 Favorites, 5 Dojos.
+// Kinds: 0 All, 1 Multi, 2 era, 3 Scrolls, 4 Favorites, 5 Dojos, 6 Not recently confirmed.
 struct ListCycle {
     static constexpr int kMaxEra = 32;
     char era[kMaxEra][40]{};
     int nEra = 0;
     bool hasDojo = false;
-    int Stops() const { return 4 + nEra + (hasDojo ? 1 : 0); }
+    bool hasUnconfirmed = false;
+    int Extra() const { return (hasDojo ? 1 : 0) + (hasUnconfirmed ? 1 : 0); }
+    int Stops() const { return 4 + nEra + Extra(); }
     int Kind(int stop) const {
         if (stop <= 0) return 0;
         if (stop == 1) return 1;
         if (stop >= 2 && stop < 2 + nEra) return 2;
         if (hasDojo && stop == 2 + nEra) return 5;
-        return stop == 2 + nEra + (hasDojo ? 1 : 0) ? 3 : 4;
+        if (hasUnconfirmed && stop == 2 + nEra + (hasDojo ? 1 : 0)) return 6;
+        return stop == 2 + nEra + Extra() ? 3 : 4;
     }
     const char* Label(int stop) const {
         const int k = Kind(stop);
@@ -267,6 +273,7 @@ struct ListCycle {
         if (k == 1) return "Multi";
         if (k == 2) return era[stop - 2];
         if (k == 5) return "Dojos";
+        if (k == 6) return "Not recently confirmed";
         return k == 3 ? "Scrolls" : "Favorites";
     }
     void AddEra(const char* name) {
@@ -298,7 +305,8 @@ inline void SortItemsByName(std::vector<int>& items, size_t from, int base, cons
 }
 // human #95158: an era made only of X rows (open-world / refused, never listed unless Show all) showed an empty list
 // (DLC1 Edo = Tesso only). Such an era gets no stop unless includeX. human #95175: era stops in alphabetical order.
-inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool includeX = false) {
+// unconfirmedStop: Boss Match list only (Training has no fight-entry evidence to show).
+inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool includeX = false, bool unconfirmedStop = false) {
     c = ListCycle{};
     char key[40];
     for (const auto& r : rows) {
@@ -306,6 +314,7 @@ inline void BuildListCycle(const std::vector<Row>& rows, ListCycle& c, bool incl
         EraKey(r.region, key, (int)sizeof key);
         c.AddEra(key);
         if (r.dojo) c.hasDojo = true;
+        if (unconfirmedStop && !r.confirmed) c.hasUnconfirmed = true;
     }
     std::vector<std::string> names(c.era, c.era + c.nEra);
     std::stable_sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return CaseLess(a.c_str(), b.c_str()); });
@@ -327,6 +336,7 @@ inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFav
     if (k == 0) return true;
     if (k == 4) return isFavorite;
     if (k == 5) return r.dojo;
+    if (k == 6) return !r.confirmed;
     if (k == 3) return r.route == kE;
     if (k == 2) {
         const int ei = stop - 2;

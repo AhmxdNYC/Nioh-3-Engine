@@ -278,6 +278,31 @@ int main(int argc, char** argv) {
             printf("dojos: %d rows, %d in Dojos, %d leak, %d in an era\n", dojos, dojoIn, dojoLeak, dojoEra);
             CHECK(dojos == 9 && dojoIn == 9 && dojoLeak == 0 && dojoEra == 9, "Dojos lists the 9 dojo-way rows only, each also in its era");
         }
+        {   // human #84670 / #99050: Not recently confirmed = rows with no catalogue 'confirmed' date (tools/boss_confirmed.json), Boss Matches only
+            CHECK(!cycle.hasUnconfirmed, "Training cycle (default) has no Not recently confirmed stop");
+            rcore::ListCycle boss, bossAll;
+            rcore::BuildListCycle(rows, boss, false, true);
+            rcore::BuildListCycle(rows, bossAll, true, true);
+            int st = -1, dojoSt = -1;
+            for (int i = 0; i < boss.Stops(); ++i) {
+                if (strcmp(boss.Label(i), "Not recently confirmed") == 0) st = i;
+                if (strcmp(boss.Label(i), "Dojos") == 0) dojoSt = i;
+            }
+            CHECK(boss.Stops() == cycle.Stops() + 1 && st == boss.Stops() - 3 && dojoSt == boss.Stops() - 4, "order: Dojos, Not recently confirmed, Scrolls, Favorites");
+            CHECK(boss.Kind(boss.Stops() - 2) == 3 && boss.Kind(boss.Stops() - 1) == 4, "Scrolls and Favorites keep their kinds after the new stop");
+            int conf = 0, unc = 0, uncListed = 0, leak = 0, favMove = 0;
+            for (const rcore::Row& r : rows) {
+                const bool in = st >= 0 && rcore::RowInListStop(r, boss, st);
+                if (r.confirmed) ++conf; else ++unc;
+                if (in && r.confirmed) ++leak;
+                if (in && r.route != rcore::kX) ++uncListed;
+                if (st >= 0 && rcore::RowInListStop(r, boss, st, true) != in) ++favMove;
+                if (r.confirmed && r.route == rcore::kX) ++leak;
+            }
+            printf("confirmed: %d rows, not recently confirmed %d (%d listed without Show all), %d leak\n", conf, unc, uncListed, leak);
+            CHECK(conf == 63 && unc == 58 && uncListed == 28 && leak == 0 && favMove == 0, "audit #84941: 63 confirmed / 58 not (28 non-X), favorites do not change membership");
+            CHECK(bossAll.hasUnconfirmed && bossAll.Stops() >= boss.Stops(), "Show all keeps the stop");
+        }
         int sengoku = -1, wavesEra = -1;
         for (int i = 0; i < cycle.nEra; ++i) {
             if (strcmp(cycle.era[i], "Sengoku") == 0) sengoku = i;

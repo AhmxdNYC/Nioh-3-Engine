@@ -39,6 +39,7 @@ import argparse
 import collections
 import csv
 import io
+import json
 import os
 import pathlib
 import re
@@ -85,7 +86,7 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning", "mission_class"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning", "mission_class", "confirmed"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -761,6 +762,7 @@ def build():
         m = o.get("replay_mission_id") or "-"
         cls = mi.get(int(m, 16), {}).get("class", "") if m.startswith("0x") else ""
         o["mission_class"] = cls or "-"
+    apply_confirmed(out)
     # f2e80b34 refused this row by editing the TSV only; keep the refusal when the catalogue is regenerated.
     for o in out:
         if o["id"] == "RBAB8":
@@ -781,6 +783,23 @@ def build():
 
     out.sort(key=sort_key)
     return allrows, out
+
+
+CONFIRMED_JSON = ROOT / "tools" / "boss_confirmed.json"
+
+
+def apply_confirmed(out, path=CONFIRMED_JSON):
+    """confirmed (human #84670, #99050): the date of a recorded working live entry for this row, else '-'. Evidence lives in
+    tools/boss_confirmed.json with the row's fight-path fields at test time; any change to those fields (route, mission, warp,
+    arena, gate, wake step...) invalidates it, so new or changed bosses land in Not recently confirmed with no per-row rule."""
+    reg = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"rows": [], "path_fields": []}
+    fields = reg.get("path_fields", [])
+    ev = {r["id"]: r for r in reg.get("rows", [])}
+    for o in out:
+        e = ev.get(o["id"])
+        ok = e is not None and o.get("route") != "X" and all((str(o.get(f, "")).replace("\t", " ") or "-") == e["path"].get(f, "-") for f in fields)
+        o["confirmed"] = e["date"] if ok else "-"
+    return out
 
 
 _LESSON_IDS = None

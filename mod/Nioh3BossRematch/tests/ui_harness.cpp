@@ -106,6 +106,8 @@ int main() {
     snprintf(g_rows[5].region, sizeof g_rows[5].region, "Sengoku");
     g_rows[5].emakiIndex = 1;
     g_rows[10].missionId = 99;
+    for (auto& r : g_rows) r.confirmed = true;  // #99050: catalogue 'confirmed' date on every row but 7 and 8
+    g_rows[7].confirmed = g_rows[8].confirmed = false;
     g_sel = 0;
     CHECK(!UiAct() && g_uiPages.page == uRematch && g_listStop == 1 && g_sel == 0);  // A cycles; these test rows are not multi-boss rosters
     {
@@ -129,6 +131,14 @@ int main() {
         int bosses = 0;
         for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 3 || it[i] == 5); ++bosses; }
         CHECK(bosses == 2);
+    }
+    UiChange(1);  // #99050 human #84670: Not recently confirmed (Boss Matches) = rows with no catalogue confirmed date
+    CHECK(strcmp(ListFilterLabel(), "Not recently confirmed") == 0);
+    {
+        const int fn = Items(it, kMaxRows + 4);
+        int bosses = 0;
+        for (int i = 0; i < fn; ++i) if (it[i] >= 0 && it[i] < kItFight) { CHECK(it[i] == 7 || it[i] == 8); ++bosses; }
+        CHECK(bosses == 2 && it[1] == 7);
     }
     UiChange(1);  // Scrolls: the scroll's item id is still 5, so Fight now is kItFight + 5
     {
