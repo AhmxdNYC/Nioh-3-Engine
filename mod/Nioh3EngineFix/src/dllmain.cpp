@@ -48,6 +48,7 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "bootnotice.h"
+#include "padguard.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -1823,6 +1824,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
+        if (!strcmp(g, "PG")) return false;  // PadListGuard pad list-walk sites: verified offline (test_patterns, test_padguard), hooked by padguard.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
         if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
@@ -3383,6 +3385,15 @@ DWORD WINAPI Worker(LPVOID) {
             rsi.selfModule = g_self;
             rsi.modVersion = MOD_VERSION;
             reportsend::Start(rsi);
+        }
+        {  // PadListGuard (padguard.cpp, [General] PadListGuard = 1): a null `next` link in the pad manager's list walks ends
+           // the walk for that frame instead of crashing (GitHub #79 / #55; game-side race, see padguard_cave.h)
+            padguard::StartInfo pgi;
+            pgi.log = &Log;
+            pgi.iniPath = iniPath.c_str();
+            pgi.base = reinterpret_cast<uintptr_t>(g_base);
+            pgi.knownBuild = known;
+            padguard::Start(pgi);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state

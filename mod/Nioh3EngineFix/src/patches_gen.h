@@ -278,6 +278,19 @@ static const uint8_t orig_VP3[] = { 0xE8, 0xF6, 0xB9, 0xB9, 0xFF };
 static const uint8_t orig_AC1[] = { 0xE8, 0x5E, 0x6E, 0x59, 0xFE };
 static const uint8_t orig_BN1[] = { 0xE8, 0x98, 0x86, 0x23, 0xFF };
 static const uint8_t orig_BN2[] = { 0xE8, 0x91, 0xE9, 0x3A, 0x00 };
+static const uint8_t orig_PG1[] = { 0x49, 0x3B, 0xDE, 0x74, 0x73 };
+static const uint8_t orig_PG2[] = { 0x48, 0x3B, 0xD8, 0x0F, 0x84, 0x97, 0x05, 0x00, 0x00 };
+static const uint8_t orig_PG3[] = { 0x48, 0x3B, 0xDF, 0x0F, 0x84, 0x7D, 0x01, 0x00, 0x00 };
+static const uint8_t orig_PG4[] = { 0x48, 0x3B, 0x7E, 0x18, 0x0F, 0x84, 0xDC, 0x00, 0x00, 0x00 };
+static const uint8_t orig_PG5[] = { 0x48, 0x3B, 0x7E, 0x18, 0x0F, 0x84, 0x50, 0x02, 0x00, 0x00 };
+static const uint8_t orig_PG6[] = { 0x48, 0x3B, 0x5E, 0x18, 0x0F, 0x84, 0xC4, 0x00, 0x00, 0x00 };
+static const uint8_t orig_PG7[] = { 0x48, 0x3B, 0x5E, 0x18, 0x0F, 0x84, 0xC4, 0x00, 0x00, 0x00 };
+static const uint8_t orig_PG8[] = { 0x48, 0x3B, 0x5E, 0x58, 0x74, 0x6F };
+static const uint8_t orig_PG9[] = { 0x49, 0x3B, 0xDE, 0x74, 0xCC };
+static const uint8_t orig_PG10[] = { 0x49, 0x3B, 0xDC, 0x0F, 0x84, 0xDE, 0x00, 0x00, 0x00 };
+static const uint8_t orig_PG11[] = { 0x48, 0x3B, 0xD8, 0x0F, 0x84, 0xB2, 0x04, 0x00, 0x00 };
+static const uint8_t orig_PG12[] = { 0x48, 0x3B, 0xFB, 0x0F, 0x84, 0x5F, 0x01, 0x00, 0x00 };
+static const uint8_t orig_PG13[] = { 0x49, 0x3B, 0x5E, 0x18, 0x0F, 0x84, 0x80, 0x01, 0x00, 0x00 };
 static const uint8_t orig_TT1[] = { 0xE8, 0x43, 0xD7, 0xE4, 0xFF };
 static const uint8_t orig_SB1[] = { 0xE8, 0x78, 0x0C, 0x00, 0x00 };
 static const uint8_t orig_SB2[] = { 0xE8, 0x73, 0xA7, 0xFF, 0xFF };
@@ -562,6 +575,19 @@ static const Site kSites[] = {
     { "AC1", "AC", 0x1CECAED, 5, orig_AC1, "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 84 C0 74 26 E8 ?? ?? ?? ?? 84 C0 75 1D E8", 9, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x283950 },
     { "BN1", "BN", 0x1C35393, 5, orig_BN1, "B9 F1 AB C4 03 E8 ?? ?? ?? ?? 48 8B D0 48 8D 4D B0 E8 ?? ?? ?? ?? BE 01 00 00 00 48 8B D0 44 8A C6 E8 ?? ?? ?? ?? 44 38 6F 55", 33, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0xE6DA30 },
     { "BN2", "BN", 0x1C353A2, 5, orig_BN2, "44 38 6F 55 0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 0F 84", 10, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1FE3D38 },
+    { "PG1", "PG", 0x42FB3E, 5, orig_PG1, "49 3B DE 74 73 8B 7B 10 8B D7 48 8B 0D ?? ?? ?? ?? 89 7D 67 48 8B 89 78 08 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG2", "PG", 0x42FBD6, 9, orig_PG2, "48 3B D8 0F 84 97 05 00 00 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG3", "PG", 0x430189, 9, orig_PG3, "48 3B DF 0F 84 7D 01 00 00 44 8B 63 10 48 8D 4E 50", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG4", "PG", 0x430220, 10, orig_PG4, "48 3B 7E 18 0F 84 DC 00 00 00 44 8B 7F 10 44 89 7D 77", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG5", "PG", 0x430316, 10, orig_PG5, "48 3B 7E 18 0F 84 50 02 00 00 44 8B 6F 10 48 8D 4E 50", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG6", "PG", 0x430399, 10, orig_PG6, "0F 84 D9 00 00 00 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5", 13, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG7", "PG", 0x430499, 10, orig_PG7, "0F 84 7D FE FF FF 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5", 13, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG8", "PG", 0x430A38, 6, orig_PG8, "48 3B 5E 58 74 6F 8B 53 10 48 8B 8D 78 08 00 00", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG9", "PG", 0x438659, 5, orig_PG9, "49 3B DE 74 CC 8B 73 10 48 8D 4F 50 48 8D 54 24 40", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG10", "PG", 0x430BC1, 9, orig_PG10, "49 3B DC 0F 84 DE 00 00 00 48 8B 05 ?? ?? ?? ?? 44 8B 4B 10", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG11", "PG", 0x430CB7, 9, orig_PG11, "48 3B D8 0F 84 B2 04 00 00 44 8B 6B 10 41 8B D5 48 8B 05 ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG12", "PG", 0x43118D, 9, orig_PG12, "48 3B FB 0F 84 5F 01 00 00 4C 63 7F 10 48 B9 25 23 22 84 E4 9C F2 CB", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
+    { "PG13", "PG", 0x43126F, 10, orig_PG13, "49 3B 5E 18 0F 84 80 01 00 00 44 8B 63 10 44 89 65 58", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x0 },
     { "TT1", "TR", 0x56529C, 5, orig_TT1, "E8 ?? ?? ?? ?? 48 8B D3 E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ??", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x3B29E4 },
     { "SB1", "TR", 0x5B6F37, 5, orig_SB1, "E8 ?? ?? ?? ?? 44 38 25 ?? ?? ?? ?? 8A D8", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x5B7BB4 },
     { "SB2", "TR", 0x1FDF2D0, 5, orig_SB2, "E8 ?? ?? ?? ?? 4D 8B C7 49 8B D6 48 8B CE E8 ?? ?? ?? ?? 48 8B 07", 0, Kind::Check, nullptr, Target::none, 0, { 0x00, 0x00 }, Data::none, Reads::None, 0x1FD9A48 },

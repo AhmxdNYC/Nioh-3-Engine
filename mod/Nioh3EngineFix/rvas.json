@@ -681,6 +681,114 @@
    ]
   },
   {
+   "rva": "0x42FB3E",
+   "kind": "code",
+   "pattern": "49 3B DE 74 73 8B 7B 10 8B D7 48 8B 0D ?? ?? ?? ?? 89 7D 67",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x42FBD6",
+   "kind": "code",
+   "pattern": "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 7D 67 48",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430189",
+   "kind": "code",
+   "pattern": "48 3B DF 0F 84 ?? ?? ?? ?? 44 8B 63",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430220",
+   "kind": "code",
+   "pattern": "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 7F 10 44 89 7D 77 45 3B",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430316",
+   "kind": "code",
+   "pattern": "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 6F 10 48 8D 4E 50 48 8D",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430399",
+   "kind": "code",
+   "pattern": "0F 84 D9 00 00 00 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5",
+   "offset": 13,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430499",
+   "kind": "code",
+   "pattern": "FF 0F 84 87 FE FF FF 41 83 FE FF 0F 84 ?? ?? ?? ?? 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 ?? ?? ?? ?? 8B 53",
+   "offset": 24,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430A38",
+   "kind": "code",
+   "pattern": "48 3B 5E 58 74 6F 8B 53 10 48 8B 8D",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430BC1",
+   "kind": "code",
+   "pattern": "49 3B DC 0F 84 ?? ?? ?? ?? 48 8B 05",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430CB7",
+   "kind": "code",
+   "pattern": "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 6B 10 41 8B D5 48 8B 05 ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x43118D",
+   "kind": "code",
+   "pattern": "48 3B FB 0F 84 ?? ?? ?? ?? 4C 63 7F",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x43126F",
+   "kind": "code",
+   "pattern": "49 3B 5E 18 0F 84 ?? ?? ?? ?? 44 8B 63 10 44 89 65 58 45 3B",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x436758",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F",
@@ -705,6 +813,15 @@
    "offset": 0,
    "used_in": [
     "vpad.cpp"
+   ]
+  },
+  {
+   "rva": "0x438659",
+   "kind": "code",
+   "pattern": "49 3B DE 74 CC 8B 73 10 48 8D 4F 50",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
    ]
   },
   {

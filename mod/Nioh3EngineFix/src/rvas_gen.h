@@ -90,9 +90,22 @@ constexpr Def kDefs[] = {
     {0x418F46, kCode, "48 8D 42 28 48 8B D9 48 89 44 24 20", 0, 0x0, 0, 0, 0, ""},  // bkstats.cpp
     {0x418F90, kCode, "8B 41 28 39 41 24 74 03 B0 01 C3 83", 0, 0x0, 0, 0, 0, ""},  // bkstats.cpp
     {0x420654, kCode, "40 55 53 56 57 41 56 48 8D AC 24 50 08 FF FF B8 B0 F8 00 00", 0, 0x0, 0, 0, 0, ""},  // loadstats.cpp
+    {0x42FB3E, kCode, "49 3B DE 74 73 8B 7B 10 8B D7 48 8B 0D ?? ?? ?? ?? 89 7D 67", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x42FBD6, kCode, "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 7D 67 48", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430189, kCode, "48 3B DF 0F 84 ?? ?? ?? ?? 44 8B 63", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430220, kCode, "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 7F 10 44 89 7D 77 45 3B", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430316, kCode, "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 6F 10 48 8D 4E 50 48 8D", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430399, kCode, "0F 84 D9 00 00 00 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5", 13, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430499, kCode, "FF 0F 84 87 FE FF FF 41 83 FE FF 0F 84 ?? ?? ?? ?? 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 ?? ?? ?? ?? 8B 53", 24, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430A38, kCode, "48 3B 5E 58 74 6F 8B 53 10 48 8B 8D", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430BC1, kCode, "49 3B DC 0F 84 ?? ?? ?? ?? 48 8B 05", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x430CB7, kCode, "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 6B 10 41 8B D5 48 8B 05 ??", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43118D, kCode, "48 3B FB 0F 84 ?? ?? ?? ?? 4C 63 7F", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x43126F, kCode, "49 3B 5E 18 0F 84 ?? ?? ?? ?? 44 8B 63 10 44 89 65 58 45 3B", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x436758, kCode, "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x436A20, kCode, "E8 ?? ?? ?? ?? 84 C0 75 16 48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0A 80 78 3E 00 75 04 32", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x436CF8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
+    {0x438659, kCode, "49 3B DE 74 CC 8B 73 10 48 8D 4F 50", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x495AF2, kCode, "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x495F26, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 54 24 20 48 8B CF 41 FF 14 C0 48", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
     {0x4A53D0, kCode, "E8 ?? ?? ?? ?? 44 89 BB 68 E5 1E 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
