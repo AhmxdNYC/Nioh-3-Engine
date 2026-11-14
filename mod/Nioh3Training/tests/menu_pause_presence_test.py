@@ -33,5 +33,6 @@ int main(void){
 '''
 with tempfile.TemporaryDirectory() as tmp:
  p=pathlib.Path(tmp);src=p/'test.c';exe=p/'test.exe';src.write_text(stubs+code+checks)
- subprocess.run([sys.argv[1],'cc',str(src),'-o',str(exe)],check=True)
+ cc=[sys.argv[1],'cc'] if len(sys.argv)>1 else [sys.executable,'-m','ziglang','cc'] # #98173: default to zig like the other tests
+ subprocess.run(cc+[str(src),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

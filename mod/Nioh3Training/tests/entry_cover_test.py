@@ -20,6 +20,7 @@ static DWORD now;
 static DWORD GetTickCount(void){return now;}
 static void Log(const char* f,...){(void)f;}
 static struct {int active;} g_rh;
+static int g_entry_scroll; // #78735 Picture Scroll trip flag (fixture drift, #98173)
 static int g_rh_ls_on,g_cfg_entry_ls=1,installed=1;
 static struct {int on;} g_el;
 static struct {int confirmed,route,warped,fellBack,dormant,waveOwned,noBossMode,gated;} g_en;

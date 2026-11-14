@@ -1,6 +1,8 @@
 """Offline regression for the real native-entry handshake and return hook; no game."""
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -132,6 +134,9 @@ with tempfile.TemporaryDirectory(prefix="n3-native-exit-") as folder:
     source = path / "test.cpp"
     exe = path / "test.exe"
     source.write_text(stub)
-    subprocess.run(["cl", "/nologo", "/EHsc", "/std:c++17", str(source), f"/Fe{exe}"], cwd=path, check=True)
+    if shutil.which("cl"):
+        subprocess.run(["cl", "/nologo", "/EHsc", "/std:c++17", str(source), f"/Fe{exe}"], cwd=path, check=True)
+    else:  # #98173: no MSVC on PATH, use zig c++ like the other Training tests
+        subprocess.run([sys.executable, "-m", "ziglang", "c++", "-std=c++17", "-UNDEBUG", str(source), "-o", str(exe)], cwd=path, check=True)
     subprocess.run([str(exe)], cwd=path, check=True)
 print("PASS: BR mutation guards, 30-second fallback and 3D distance source checks")
