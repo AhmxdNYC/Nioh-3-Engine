@@ -50,6 +50,7 @@
 #include "reportsend.h"
 #include "menu_style.h"
 #include "padviz.h"
+#include "paddebug.h"
 #include "inputhist.h"
 #include "hudhide.h"
 #include "../../rematch_menu_bridge.h"
@@ -238,6 +239,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
     padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
+    paddebug::Record(idx, st->dwPacketNumber, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, own, t);  // #97485 raw, read-only
     inputlog::ObservePad((int)idx, g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
     const uint32_t prev = s.prev;
     uint32_t raw = g.wButtons;
@@ -253,12 +255,13 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     g_padHeldAt[idx] = (LONG64)t;
     if(g_coverToken.load()) {
         if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
-        if(!own && CoverCaptures(t)){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
+        const bool cov = !own && CoverCaptures(t); if (!own) paddebug::RecordBlock(cov ? paddebug::kMenuOpen : 0u);
+        if(cov){memset(&g,0,sizeof(g));st->dwPacketNumber+=0x40000000u;}
         else if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
         return; // cover cancellation/staleness must not leave normal menu latches capturing
     }
 
-    if (g_disabled) return;
+    if (g_disabled) { if (!own) paddebug::RecordBlock(0u); return; }  // #97559: a disabled menu hides nothing; clear stale bits
     ForceCloseIfDead(t);
     const bool alive = Alive(t, 1000);
     // open/close gesture
@@ -324,18 +327,21 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if(!own && t<g_coverCancelUntil.load())g.wButtons&=~XINPUT_GAMEPAD_B;
     if (g_open) { InterlockedOr(&g_pressed, (LONG)PadNav(pressed)); InterlockedOr(&g_padPressed, (LONG)PadNav(pressed)); }
     if (own) return;
+    uint32_t dbgBlock = tapModified ? (uint32_t)paddebug::kTapSwallow : 0u;  // #97485
     if (tapModified) st->dwPacketNumber += 0x40000000u;
     {   // #9324 lease; #9909: a masked button held when the lease ends stays hidden until released (unmasking a held A = a fresh press for the game)
         WORD mk;
         if (g_gameMask && t < (ULONGLONG)g_gameMaskUntil) { mk = (WORD)g_gameMask; s.maskHeld = (WORD)(g.wButtons & mk); }
         else { s.maskHeld = (WORD)(s.maskHeld & g.wButtons); mk = s.maskHeld; }
-        if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; }
+        if (mk && (g.wButtons & mk)) { g.wButtons &= (WORD)~mk; st->dwPacketNumber += 0x40000000u; dbgBlock |= paddebug::kMaskLease; }
     }
     bool blank = g_open != 0;
+    if (blank) dbgBlock |= paddebug::kMenuOpen;
     if (s.latch) {
         if ((raw & ~B_STICKS) == 0) s.latch = false;
-        else blank = true;
+        else { blank = true; dbgBlock |= paddebug::kLatch; }
     }
+    paddebug::RecordBlock(dbgBlock);
     if (blank) {
         st->dwPacketNumber += 0x40000000u;  // the neutral state gets its own packet numbers (games may cache by packet)
         const SHORT rx = g.sThumbRX, ry = g.sThumbRY;
@@ -1182,7 +1188,11 @@ int HideHudSettingRow() {  // #44871: Display Overlays row for [Menu] HideGameHu
     for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "HideGameHud")) return kSettingRow + i;
     return -1;
 }
-bool IsInputDisplayKey(const char* key) { return key && strncmp(key, "InputDisplay", 12) == 0; }
+bool IsInputDisplayKey(const char* key) { return key && (strncmp(key, "InputDisplay", 12) == 0 || strcmp(key, "PadDebug") == 0); }  // #98294 pad debug lives on Input display
+int PadDebugSettingRow() {
+    for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].key, "PadDebug")) return kSettingRow + i;
+    return -1;
+}
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
@@ -1916,6 +1926,10 @@ void ApplyConfigValue(int index) {
         } else if (!strcmp(d.key, "InputDisplayRows")) {
             inputhist::g_rows = std::clamp((int)std::lround(atof(v.c_str())), inputhist::kMinRows, inputhist::kMaxRows);
             snprintf(g_configReply, sizeof(g_configReply), "Input display rows apply now. Save to keep it.");
+        } else if (!strcmp(d.key, "PadDebug")) {  // #97559 catalog row for the #97485 debug lines
+            paddebug::g_store.blocked.store(0u, std::memory_order_relaxed);  // no stale reason from before the toggle
+            paddebug::g_on = atoi(v.c_str()) ? 1 : 0;
+            snprintf(g_configReply, sizeof(g_configReply), paddebug::g_on ? "Pad debug on (Input display page). Save to keep it." : "Pad debug off. Save to keep it.");
         } else if (!strcmp(d.key, "HideGameHud")) {
             hudhide::g_want = atoi(v.c_str()) ? 1 : 0;
             snprintf(g_configReply, sizeof(g_configReply), hudhide::g_bad ? "Hide game HUD is not available on this game version." : hudhide::g_want ? "Game HUD hidden. Save to keep it." : "Game HUD shown. Save to keep it.");
@@ -3817,6 +3831,19 @@ float DrawImpl(unsigned W, unsigned H) {
         const char* why = osd::FgReason(osd::FrameGen());
         addT(why ? why : " ", cOrange);
     }
+    if (paddebug::g_on && (g_pages.page == pOvInput || g_sel == PadDebugSettingRow())) {  // #98294: pDiagnostics had no route; Input display page (layout 0) or the selected row (any layout). #97485: raw pad as the mod sees it + who hides it from the game
+        static int (*formBlock)() = nullptr;
+        static ULONGLONG nextLook = 0;
+        if (!formBlock && t >= nextLook) {
+            nextLook = t + 2000;
+            if (HMODULE m = GetModuleHandleW(L"Nioh3BossRematch.asi"))
+                formBlock = reinterpret_cast<int (*)()>(GetProcAddress(m, "Nioh3BossRematch_PadBlockActive"));
+        }
+        char l1[96], l2[96];
+        paddebug::Format(paddebug::Read(), t, formBlock ? formBlock() : -1, l1, sizeof(l1), l2, sizeof(l2));
+        addT(l1, cCyan);
+        addT(l2, cCyan);
+    }
     char stats[200];
     const Rates& r = g_rates;
     if (r.rW3 < 0) snprintf(stats, sizeof(stats), "Stats/s: measuring...");
@@ -4107,6 +4134,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplayPressColor", L"White", b, 96, f);
     { char nb[96]; WideCharToMultiByte(CP_UTF8, 0, b, -1, nb, sizeof(nb), nullptr, nullptr); padviz::g_pressRGB = padviz::PressColor(nb); }
     inputhist::g_on = GetPrivateProfileIntW(L"Menu", L"InputDisplay", 0, f) ? 1 : 0;
+    paddebug::g_on = GetPrivateProfileIntW(L"Menu", L"PadDebug", 0, f) ? 1 : 0;  // #97485 read-only pad debug row (Input display page)
     hudhide::g_want = GetPrivateProfileIntW(L"Menu", L"HideGameHud", 0, f) ? 1 : 0;
     for (int i = 0; i < hudhide::kElemN; ++i) {  // #44877 per-element HUD hide
         wchar_t wk[64]; MultiByteToWideChar(CP_UTF8, 0, hudhide::kElems[i].key, -1, wk, 64);

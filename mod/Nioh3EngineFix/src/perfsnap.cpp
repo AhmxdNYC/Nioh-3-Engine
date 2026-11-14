@@ -213,11 +213,41 @@ int DecodeSettingsSeh(uintptr_t base, uintptr_t end, Buf& j, Buf& t, int& fpsCap
     }
 }
 
+// #98375 hash-free gate: another exe of the same game version (Steam DRM wrapper stripped, another store's packaging)
+// keeps the table at the same place but fails the TimeDateStamp + SizeOfImage match. Check the table itself instead:
+// at least 20 of the 25 wanted key names must sit at kRvaDesc with in-range live indexes. Read-only, SEH-guarded.
+int CountTableKeys(uintptr_t base, uintptr_t end) {
+    int hits = 0;
+    for (int i = 0; i < kKeys; ++i) {
+        const uintptr_t e = base + kRvaDesc + (uintptr_t)i * 0x30;
+        if (!InImage(e + 0x28, base, end) || !InImage(base + kRvaLive + 4u * (unsigned)i, base, end)) return 0;
+        const uintptr_t namep = *(const uintptr_t*)e;
+        if (!InImage(namep, base, end) || !SafeName((const char*)namep)) continue;
+        bool want = false;
+        for (const char* k : kWanted) want = want || !strcmp(k, (const char*)namep);
+        const int idx = *(const int*)(base + kRvaLive + 4u * (unsigned)i), count = *(const int*)(e + 0x24);
+        if (want && count > 0 && count < 256 && idx >= 0 && idx < count) ++hits;
+    }
+    return hits;
+}
+bool TableLooksRight(uintptr_t base, uintptr_t end) {
+    __try {
+        return CountTableKeys(base, end) >= 20;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+bool g_layoutOk = false;  // unknown build: table verified at the v2.02 place (a miss is re-checked; the table may fill late)
+
 void RefreshGame() {
-    if (!g_si.base || !g_si.knownBuild) return;
+    if (!g_si.base) return;
     const auto* dos = (const IMAGE_DOS_HEADER*)g_si.base;
     const auto* nt = (const IMAGE_NT_HEADERS*)(g_si.base + dos->e_lfanew);
     const uintptr_t end = g_si.base + nt->OptionalHeader.SizeOfImage;
+    if (!g_si.knownBuild) {
+        if (!g_layoutOk) g_layoutOk = TableLooksRight(g_si.base, end);
+        if (!g_layoutOk) return;
+    }
     char j[sizeof g_gameJson], t[sizeof g_gameText];  // stack: the worker and a report thread may both refresh
     Buf bj(j, sizeof j), bt(t, sizeof t);
     int cap = 0;
@@ -753,7 +783,7 @@ size_t Text(char* out, size_t cap, bool crashPath) {
     WithCache(crashPath, [&](bool ok) {
         if (!ok) { t.raw("\r\n  (settings busy)\r\n"); return; }
         t.f(", upscaler %s, frame generation %s\r\n", g_upscaler[0] ? g_upscaler : "?", g_frameGen[0] ? g_frameGen : "?");
-        t.f("  game: %s\r\n", g_gameText[0] ? g_gameText : "(not read: unknown build or not started)");
+        t.f("  game: %s\r\n", g_gameText[0] ? g_gameText : "(not read: settings table not found on this exe, or not started)");
         t.f("  mod: %s\r\n", g_modText[0] ? g_modText : "(not read)");
     });
     Part p[8];
@@ -819,5 +849,7 @@ void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, c
     Copy(g_upscaler, sizeof g_upscaler, upscaler);
     Copy(g_frameGen, sizeof g_frameGen, frameGen);
 }
+
+bool SettingsTableFoundForTest(uintptr_t base, uintptr_t end) { return TableLooksRight(base, end); }
 
 }  // namespace perfsnap

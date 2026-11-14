@@ -33,6 +33,7 @@ inline constexpr Entry kEntries[] = {
     {"Menu", "InputDisplay", "0"},
     {"Menu", "InputDisplaySide", "Left"},
     {"Menu", "InputDisplayRows", "20"},
+    {"Menu", "PadDebug", "0"},
     {"Menu", "Scale", "0"},
     {"Menu", "PauseHint", "2"},
     {"Menu", "PauseHintSource", "Both"},

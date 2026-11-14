@@ -452,6 +452,14 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         if (nth)
             o.P("  TimeDateStamp %08lX, SizeOfImage %lu (0x%lX)%s\r\n", nth->FileHeader.TimeDateStamp, nth->OptionalHeader.SizeOfImage,
                 nth->OptionalHeader.SizeOfImage, g_known ? ", matches the known build" : ", NOT the known build (variant)");
+        if (nth && !g_known) {  // #98375: a Steam exe carries the DRM wrapper in a last '.bind' section; a stripped copy lacks it
+            bool bind = false;
+            const IMAGE_SECTION_HEADER* sh = IMAGE_FIRST_SECTION(nth);
+            for (unsigned i = 0; i < nth->FileHeader.NumberOfSections && i < 96; ++i)
+                bind = bind || !memcmp(sh[i].Name, ".bind", 6);
+            o.P("  %u sections, Steam DRM section .bind %s\r\n", (unsigned)nth->FileHeader.NumberOfSections,
+                bind ? "present" : "ABSENT (wrapper stripped or another store build)");
+        }
         const bool exeDone = InterlockedCompareExchange(&g_exeDone, 0, 0) != 0;  // check done first: never print a half-written line
         o.P("%s", !exeDone ? "  (exe sha256 still being computed)\r\n" : g_exeText[0] ? g_exeText : "  (exe sha256 unavailable)\r\n");
     }
