@@ -31,6 +31,7 @@ struct StartInfo {
     volatile long long *w6Ticks = nullptr, *gfTicks = nullptr, *dsTicks = nullptr;  // QPC ticks
     bool (*backendWaitsMs)(double out[4]) = nullptr;  // bkstats::CumWaitsMs
     const char* (*gpuPasses)(char* buf, size_t n) = nullptr;  // gp::StatusLine
+    bool (*menuOpen)() = nullptr;    // menu::IsOpen: the frame window freezes when the menu opens (#98365, TASK #98471)
 };
 void Start(const StartInfo& info);  // never blocks
 
@@ -38,6 +39,13 @@ void Start(const StartInfo& info);  // never blocks
 void OnGamePresent(int64_t now);
 // osd draw path: back buffer size of the drawing swapchain (one store when it changes).
 void NoteBackBuffer(unsigned w, unsigned h);
+
+// #98471: one freeze (hitchlog's HITCH line), from the game's presenting thread. Every freeze enters the whole-session totals
+// (count / ms / max per cause, never dropped); the newest 64 keep their details; the thread sampler names the busiest threads
+// over each gap within ~1 s. Cheap: one short exclusive lock, no heap, no syscall.
+struct HitchIn;  // perfsnap_core.h
+void NoteHitch(const HitchIn& h);
+void SetHitchThresholdMs(int ms);  // hitchlog Start (HitchLog on); never called = "hitch_log":"off" in the report
 
 // JSON object (no key, starts with '{'). crashPath = true: static data only (no DXGI, no ini, no heap). Returns length.
 size_t Json(char* out, size_t cap, bool crashPath);
@@ -52,6 +60,9 @@ void ThreadTickForTest();  // one per-thread CPU tick now (the live worker runs 
 void RefreshModForTest();                  // the worker's 30 s mod_settings re-read, now (#97850)
 const char* ThreadNameForTest(unsigned long tid);  // cached per-thread name ("" = not tracked) (#97817)
 bool SettingsTableFoundForTest(uintptr_t base, uintptr_t end);  // #98375 hash-free table gate
+bool SettingsValuesVerifiedForTest(uintptr_t base, uintptr_t end);  // #98560 live index array trusted
+int HitchKeptForTest();  // detailed records held (<= 64)
+const char* HitchThreadsForTest(int newest);  // busiest-thread text of the newest-but-`newest` record ("" = not filled yet)
 void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, const char* upscaler, const char* frameGen);
 
 }  // namespace perfsnap

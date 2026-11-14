@@ -20,6 +20,8 @@
 #include "loadstats.h"
 #include "memstats.h"
 #include "menu.h"
+#include "perfsnap.h"
+#include "perfsnap_core.h"
 
 namespace hitchlog {
 
@@ -203,6 +205,28 @@ void LogHitch(int64_t now, int64_t gap, const Prev& cur, long long maxPack, DWOR
     if (Vram(&vu, &vb)) snprintf(vram, sizeof(vram), "%.0f/%.0f MB", vu, vb);
     else snprintf(vram, sizeof(vram), "-/- MB");
     constexpr double kMB = 1048576.0;
+    {  // #98471 (human #98443/#98445): every freeze also goes into the report's per-cause totals + newest-64 detail ring
+        perfsnap::HitchIn h;
+        h.qpcStart = now - gap, h.qpcEnd = now;
+        h.tS = Ms(now - g_t0) / 1000.0;
+        h.gapMs = gapMs, h.gtCpuMs = gtCpu, h.procCores = gapMs > 0 ? prCpu / gapMs : 0.0;
+        h.rdMb = (double)(cur.rdBytes - g_prev.rdBytes) / kMB, h.wrMb = (double)(cur.wrBytes - g_prev.wrBytes) / kMB;
+        h.rdOps = cur.rdOps - g_prev.rdOps, h.pf = (uint64_t)(cur.faults - g_prev.faults);
+        h.gfMs = g_c.gfTicks ? Ms(cur.wt[kGF] - g_prev.wt[kGF]) : -1.0;
+        h.w6Ms = g_c.w6Ticks ? Ms(cur.wt[kW6] - g_prev.wt[kW6]) : -1.0;
+        h.dsMs = g_c.dsTicks ? Ms(cur.wt[kDS] - g_prev.wt[kDS]) : -1.0;
+        h.pso = cur.pjMode ? (int)(cur.pjSeen - g_prev.pjSeen) : -1;
+        int la[2], lp[2];
+        if (loadstats::LoaderQueues(la, lp)) {
+            h.ldAct = (la[0] > 0 ? la[0] : 0) + (la[1] > 0 ? la[1] : 0);
+            h.ldPend = (lp[0] > 0 ? lp[0] : 0) + (lp[1] > 0 ? lp[1] : 0);
+        }
+        h.infl = loadstats::InflatesNow();
+        h.menu = menu::IsOpen();
+        h.pause = menu::GamePauseReason();
+        h.ramLoad = haveRam ? (int)ms2.dwMemoryLoad : -1;
+        perfsnap::NoteHitch(h);
+    }
     g_log("HITCH #%ld gap %.1f ms | gt cpu %.1f ms %.0f%% | proc cpu %.1f ms %.2f cores | pf %lu | rd %.1f MB %llu ops | wr %.1f MB | "
           "last %s | max %s | waits %s | bks %s | frame %s | pj %s | menu %d pause %d mode %d act %d | ld %s | ram %.0f/%.0f MB load %lu%% | "
           "commit %.0f/%.0f MB | ws %.0f MB | vram %s | t %.1f s",
@@ -292,6 +316,7 @@ void Start(const StartInfo& si) {
     g_t0 = Now();
     if (g_log) g_log("HitchLog = %d, HitchLogMs = %d%s", on, ms, on ? " (one HITCH line per game-thread present gap over the threshold)" : "");
     if (!on) return;
+    perfsnap::SetHitchThresholdMs(ms);  // #98471: reports carry every freeze
     if (HANDLE h = CreateThread(nullptr, 0, AdapterThread, nullptr, 0, nullptr)) CloseHandle(h);
     InterlockedExchange(&g_on, 1);
 }

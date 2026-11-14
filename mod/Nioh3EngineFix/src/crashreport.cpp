@@ -435,7 +435,7 @@ void WriteReport(const char* reason, const EXCEPTION_RECORD* er, const CONTEXT* 
         o.P("\r\n-- gpu device --\r\n  %s", dr);
     }
     if (g_perfText) {  // #97638: fps / 1 % low / CPU-GPU bound / hardware / settings; a crash reads cached data only
-        static char perf[8192];
+        static char perf[32768];  // #98471: up to 64 freeze lines (~330 chars each) in a player report
         perf[0] = 0;
         const size_t n = g_perfText(perf, sizeof perf, !snapshot);
         o.P("\r\n-- performance (last ~10 s) --\r\n");

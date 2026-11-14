@@ -22,6 +22,8 @@ static int fails = 0;
 static bool Near(double a, double b, double tol) { return std::fabs(a - b) <= tol; }
 
 static volatile long long g_w6 = 0, g_gf = 0, g_ds = 0;
+static bool g_fakeMenu = false;
+static bool FakeMenu() { return g_fakeMenu; }
 static volatile long g_l1 = 0;
 static bool FakeBk(double out[4]) {
     static double t = 0;
@@ -43,15 +45,50 @@ static void TableGateTest() {
                            "MOTION_QUALITY", "LANDSCAPE_QUALITY", "MESHLET_QUALITY", "GRASS_DENSITY", "POSTEFFECT_RESOLUTION",
                            "DYNAMIC_RESOLUTION", "RESOLUTION_SCALING", "FRAME_GENERATION", "DLSS_FRAME_GEN_MULI", "CPU_SPEC_CLASS"};
     char* str = (char*)img + 0x1000;
+    const char* vnames[4] = {"OFF", "LOW", "MID", "HIGH"};
+    uintptr_t* vlist = (uintptr_t*)(img + 0x8000);  // one shared 4-entry value list
+    for (int v = 0; v < 4; ++v) {
+        strcpy(str, vnames[v]);
+        vlist[v] = (uintptr_t)str;
+        str += 48;
+    }
     for (int i = 0; i < 25; ++i) {
         strcpy(str, names[i]);
         *(uintptr_t*)(b + kDesc + i * 0x30) = (uintptr_t)str;
+        *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)vlist;
+        *(int*)(b + kDesc + i * 0x30 + 0x20) = 1;  // table default
         *(int*)(b + kDesc + i * 0x30 + 0x24) = 4;
         *(int*)(b + kLive + 4 * i) = i % 4;
         str += 48;
     }
     CHECK(perfsnap::SettingsTableFoundForTest(b, e));            // stripped-DRM copy: table found
+    CHECK(perfsnap::SettingsValuesVerifiedForTest(b, e));        // and its live indexes are trusted
     CHECK(!perfsnap::SettingsTableFoundForTest(b, b + kDesc));  // image too short for the table: never read past it
+    // #98560: index array zeroed (moved away): names still found, values reported as unverified, not as "every key = OFF"
+    for (int i = 0; i < 25; ++i) *(int*)(b + kLive + 4 * i) = 0;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));
+    CHECK(!perfsnap::SettingsValuesVerifiedForTest(b, e));
+    // ...but a game whose own defaults are all index 0 really can be all zero: verified (idx 0 is a valid setting)
+    for (int i = 0; i < 25; ++i) *(int*)(b + kDesc + i * 0x30 + 0x20) = 0;
+    CHECK(perfsnap::SettingsValuesVerifiedForTest(b, e));
+    for (int i = 0; i < 25; ++i) *(int*)(b + kDesc + i * 0x30 + 0x20) = 1;
+    // index array moved onto other data: one out-of-range index -> unverified
+    for (int i = 0; i < 25; ++i) *(int*)(b + kLive + 4 * i) = i % 4;
+    *(int*)(b + kLive + 4 * 7) = 1234;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));    // 24 of 25 still pass the name gate
+    CHECK(!perfsnap::SettingsValuesVerifiedForTest(b, e));
+    *(int*)(b + kLive + 4 * 7) = 3;
+    // value list pointer outside the image, or its entry not a name: that key is not a hit
+    uint8_t* outside = (uint8_t*)VirtualAlloc(nullptr, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    for (int i = 0; i < 6; ++i) *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)outside;
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));  // 19 hits left
+    for (int i = 0; i < 6; ++i) *(uintptr_t*)(b + kDesc + i * 0x30 + 8) = (uintptr_t)vlist;
+    CHECK(perfsnap::SettingsTableFoundForTest(b, e));
+    const uintptr_t keep = vlist[2];
+    vlist[2] = (uintptr_t)(img + 0x9000);  // points at zero bytes: empty, not a name
+    CHECK(!perfsnap::SettingsTableFoundForTest(b, e));  // keys at index 2 drop out (6 of 25 -> 19 left)
+    vlist[2] = keep;
+    VirtualFree(outside, 0, MEM_RELEASE);
     for (int i = 0; i < 6; ++i) *(int*)(b + kLive + 4 * i) = 99;   // 19 valid keys left: below the bar
     CHECK(!perfsnap::SettingsTableFoundForTest(b, e));
     memset(img + kDesc, 0xCC, 60 * 0x30);                          // another build: garbage at the place
@@ -111,6 +148,26 @@ int main(int argc, char** argv) {
     CHECK(Near(CorePct(15000000ull, 30.0), 5.0, 1e-9));   // 1.5 s CPU in 30 s = 5 % of one core
     CHECK(Near(CorePct(300000000ull, 30.0), 100.0, 1e-9));
     CHECK(CorePct(5, 0) == 0);
+    {  // #98471 freeze causes: the player-report #70 freeze (100 ms, game thread idle, 12 MB read on 8 busy threads) = loading
+        HitchIn h;
+        h.gapMs = 100, h.gtCpuMs = 6, h.procCores = 7.5, h.rdMb = 12.0, h.gfMs = 0, h.w6Ms = 0, h.pso = 0;
+        CHECK(ClassifyHitch(h, 16) == kHLoading);
+        CHECK(!strcmp(HitchCauseName(ClassifyHitch(h, 16)), "loading"));
+        HitchIn m = h; m.menu = true; CHECK(ClassifyHitch(m, 16) == kHMenu);
+        m = h; m.pause = 1; CHECK(ClassifyHitch(m, 16) == kHMenu);
+        m = h; m.rdMb = 0; m.pause = 3; CHECK(ClassifyHitch(m, 16) == kHLoading);  // engine loading flag
+        m = h; m.gfMs = 60; CHECK(ClassifyHitch(m, 16) == kHGpu);
+        m = h; m.w6Ms = 55; CHECK(ClassifyHitch(m, 16) == kHPresent);
+        m = h; m.pso = 2; CHECK(ClassifyHitch(m, 16) == kHShader);
+        m = h; m.gtCpuMs = 80; CHECK(ClassifyHitch(m, 16) == kHGameCpu);
+        m = h; m.rdMb = 0; m.ldPend = 4; CHECK(ClassifyHitch(m, 16) == kHLoading);
+        m = h; m.rdMb = 0; m.pf = 30000; CHECK(ClassifyHitch(m, 16) == kHMemory);
+        m = h; m.rdMb = 0; CHECK(ClassifyHitch(m, 16) == kHStall);     // 7.5 cores of 16: under half
+        m = h; m.rdMb = 0; m.procCores = 9; CHECK(ClassifyHitch(m, 16) == kHOtherCpu);
+        m = h; m.rdMb = 0; m.procCores = 0.4; CHECK(ClassifyHitch(m, 16) == kHStall);
+        CHECK(!strcmp(HitchCauseName(99), "unexplained_wait"));
+        CHECK(DumpsSize("{\"a\":1,\"b\":2}", 13) == 16);
+    }
     {
         ThreadUse in[8];
         const double pcts[8] = {3, 80, 12, 80, 0.5, 45, 7, 1};
@@ -232,6 +289,114 @@ int main(int argc, char** argv) {
     }
     CHECK(strstr(js, "\"mod_settings\":") != nullptr);
     CHECK(strstr(tx, "busiest ") != nullptr && strstr(tx, " / present ") != nullptr);
+    // ---- #98471: every freeze. Before any NoteHitch / threshold: the block says HitchLog is off ----
+    CHECK(strstr(js, "\"hitch_log\":\"off\"") != nullptr);
+    SetHitchThresholdMs(100);
+    {
+        // one freeze over a window where six threads spin: the sampler names them on its next tick
+        std::atomic<bool> stop2{false};
+        std::thread sp2[3];
+        for (auto& th : sp2) th = std::thread([&] { volatile unsigned x = 0; while (!stop2) ++x; });
+        Sleep(50);
+        for (int i = 0; i < 5; ++i) ThreadTickForTest();  // one of these re-lists the threads (every 5th tick)
+        LARGE_INTEGER a0, a1;
+        QueryPerformanceCounter(&a0);
+        Sleep(1200);
+        QueryPerformanceCounter(&a1);
+        HitchIn h;
+        h.qpcStart = a0.QuadPart, h.qpcEnd = a1.QuadPart, h.tS = 412.3, h.gapMs = 1200, h.gtCpuMs = 5, h.procCores = 3.1;
+        h.rdMb = 12.3, h.rdOps = 45, h.pf = 1234, h.gfMs = 0, h.w6Ms = 2, h.pso = 0, h.ldAct = 3, h.ldPend = 10, h.infl = 1;
+        h.ramLoad = 89;
+        NoteHitch(h);
+        CHECK(!strcmp(HitchThreadsForTest(0), ""));  // not filled before the sampler's next tick
+        ThreadTickForTest();
+        stop2 = true;
+        for (auto& th : sp2) th.join();
+        printf("freeze threads: %s\n", HitchThreadsForTest(0));
+        CHECK(strchr(HitchThreadsForTest(0), '%') != nullptr);
+        {   // three spinners: the busiest named thread is about one core
+            const char* pc = strchr(HitchThreadsForTest(0), '%');
+            const char* sp = pc;
+            while (sp > HitchThreadsForTest(0) && sp[-1] != ' ') --sp;
+            const double v = atof(sp);
+            CHECK(v > 50 && v < 110);
+        }
+        // 2000 more freezes of every kind: the totals keep all of them, only 64 keep details
+        for (int i = 0; i < 2000; ++i) {
+            HitchIn k;
+            k.qpcStart = a1.QuadPart, k.qpcEnd = a1.QuadPart + 1, k.tS = 413 + i, k.gapMs = 100 + (i % 9) * 100;
+            k.gtCpuMs = (i % 9 == 4) ? k.gapMs : 1;
+            k.gfMs = (i % 9 == 1) ? k.gapMs : 0;
+            k.w6Ms = (i % 9 == 2) ? k.gapMs : 0;
+            k.pso = (i % 9 == 3) ? 1 : 0;
+            k.rdMb = (i % 9 == 5) ? 8 : 0;
+            k.pf = (i % 9 == 6) ? 40000 : 0;
+            k.procCores = (i % 9 == 7) ? 12 : 0.2;
+            k.menu = (i % 9 == 0);
+            NoteHitch(k);
+        }
+        CHECK(HitchKeptForTest() == 64);
+        static char jh[16384], th2[16384];
+        const size_t jhn = Json(jh, sizeof jh, false);
+        const size_t thn = Text(th2, sizeof th2, false);
+        CHECK(thn > 0 && thn < sizeof th2);
+        printf("snapshot text with 64 freeze lines: %zu bytes\n", thn);
+        printf("perf JSON with 2001 freezes: %zu bytes (json.dumps <= %zu)\n", jhn, DumpsSize(jh, jhn));
+        CHECK(jhn > 0 && DumpsSize(jh, jhn) <= 7900);
+        CHECK(strstr(jh, "\"hitch_summary\":{\"threshold_ms\":100,\"count\":2001,") != nullptr);
+        CHECK(strstr(jh, "\"over_1s\":") != nullptr && strstr(jh, "\"kept\":64}") != nullptr);
+        for (int c = 0; c < kHCauses; ++c) {
+            char key[64];
+            snprintf(key, sizeof key, "\"%s\":[", HitchCauseName(c));
+            CHECK(strstr(jh, key) != nullptr);  // all nine causes counted
+        }
+        CHECK(strstr(jh, "\"loading\":[223,") != nullptr);  // 222 reads + the first freeze
+        CHECK(strstr(jh, "\"hitches\":[{\"n\":2001,") != nullptr);  // newest first
+        const char* inr = strstr(jh, "\"hitches_in_report\":");
+        const int inN = inr ? atoi(inr + 20) : -1;
+        printf("detailed freezes in the report: %d\n", inN);
+        CHECK(inN >= 20 && inN <= 64);  // ~1.5 KB of base perf here: most of the budget holds freezes
+        CHECK(strstr(th2, "freezes this session (frame gap over 100 ms): 2001,") != nullptr);
+        CHECK(strstr(th2, "freeze causes: menu_or_pause ") != nullptr);
+        CHECK(strstr(th2, "#2001 t ") != nullptr);
+        CHECK(strstr(th2, "newest 64 freezes") != nullptr && strstr(th2, "#1938 t ") != nullptr);  // all kept, in the text
+        printf("%.900s\n", strstr(th2, "  freezes this session"));
+        if (argc > 3) { if (FILE* o = fopen(argv[3], "wb")) { fwrite(jh, 1, jhn, o); fclose(o); } }
+        // the 1200 ms freeze with its threads is in the totals (max) even though its detail left the ring
+        CHECK(strstr(jh, "\"max_ms\":1200.0") != nullptr);
+    }
+    // ---- #98365: a report taken with the menu open describes the 10 s before it opened ----
+    {
+        StartInfo s5 = si;
+        s5.menuOpen = &FakeMenu;
+        ResetForTest(s5);
+        LARGE_INTEGER q5;
+        QueryPerformanceCounter(&q5);
+        const long long t60 = fq.QuadPart / 60, t20 = fq.QuadPart / 20;
+        long long t5 = q5.QuadPart - 30 * fq.QuadPart;
+        for (int i = 0; i < 12 * 60; ++i) { OnGamePresent(t5); t5 += t60; }  // gameplay at 60 fps
+        g_fakeMenu = true;
+        for (int i = 0; i < 15 * 20; ++i) { OnGamePresent(t5); t5 += t20; }  // 15 s of menu at 20 fps
+        static char j5[16384], t5x[8192];
+        Json(j5, sizeof j5, false);
+        Text(t5x, sizeof t5x, false);
+        CHECK(strstr(j5, "\"avg_fps\":60.0") != nullptr);
+        CHECK(strstr(j5, "\"window\":\"before_menu_open\"") != nullptr);
+        CHECK(strstr(t5x, "before the mod menu opened") != nullptr);
+        Json(j5, sizeof j5, true);  // a crash describes the moment it happened
+        CHECK(strstr(j5, "\"avg_fps\":20.0") != nullptr && !strstr(j5, "before_menu_open"));
+        g_fakeMenu = false;
+        for (int i = 0; i < 12 * 60; ++i) { OnGamePresent(t5); t5 += t60; }
+        g_fakeMenu = true;  // opens again: a fresh copy
+        OnGamePresent(t5);
+        Json(j5, sizeof j5, false);
+        CHECK(strstr(j5, "\"avg_fps\":60.0") != nullptr && strstr(j5, "before_menu_open") != nullptr);
+        g_fakeMenu = false;
+        OnGamePresent(t5 + t60);
+        Json(j5, sizeof j5, false);
+        CHECK(!strstr(j5, "before_menu_open"));
+        ResetForTest(si);
+    }
     // a tiny buffer truncates but stays terminated
     char small[64];
     const size_t sn = Json(small, sizeof small, true);

@@ -190,4 +190,56 @@ struct Buf {
     }
 };
 
+// ---- #98471 (human #98443/#98445): the cause of EVERY freeze (each HITCH, hitchlog.cpp) -----------------------------------
+// One freeze = one game-thread present gap over [Debug] HitchLogMs. Its measures over the gap -> one cause, first rule that fits:
+//   menu_or_pause      the mod menu or a game menu was open, or game time stopped (not a gameplay freeze)
+//   (the engine's loading flag -> loading)
+//   gpu_wait           the game thread waited on the GPU fence (GF) for half the gap or more
+//   present_wait       ... on the present / display (W6) for half the gap or more
+//   shader_compile     the engine created a pipeline (PSO) during the gap
+//   game_thread_cpu    the game thread itself ran (CPU) 60 % of the gap or more
+//   loading            reads of 2 MB or more, or the loader had work queued / inflating (game thread waited on the disk)
+//   memory_paging      25000+ page faults in the gap or RAM 95 % full
+//   other_threads_cpu  the process used half the logical cores (or 2) while the game thread waited
+//   unexplained_wait   none of these: the game thread slept (OS, driver, another program)
+enum HitchCause : int { kHMenu = 0, kHGpu, kHPresent, kHShader, kHGameCpu, kHLoading, kHMemory, kHOtherCpu, kHStall, kHCauses };
+inline const char* HitchCauseName(int c) {
+    static const char* const n[kHCauses] = {"menu_or_pause", "gpu_wait", "present_wait", "shader_compile", "game_thread_cpu",
+                                            "loading", "memory_paging", "other_threads_cpu", "unexplained_wait"};
+    return c >= 0 && c < kHCauses ? n[c] : "unexplained_wait";
+}
+struct HitchIn {
+    int64_t qpcStart = 0, qpcEnd = 0;  // the gap (QPC); the thread sampler names the busiest threads over it
+    double tS = 0;                     // seconds since the mod started
+    double gapMs = 0, gtCpuMs = 0, procCores = 0;
+    double rdMb = 0, wrMb = 0;
+    uint64_t rdOps = 0, pf = 0;
+    double gfMs = 0, w6Ms = 0, dsMs = 0;  // waits summed over the gap (-1 = not counted)
+    int pso = -1;                          // engine pipeline creates in the gap (-1 = PSO journal off)
+    int ldAct = -1, ldPend = -1, infl = -1;  // loader queue A+B active / pending, inflates now (-1 = not known)
+    bool menu = false;
+    int pause = 0;                         // menu::GamePauseReason: 1 game menu, 2 time stopped, 3 loading
+    int ramLoad = -1;  // % of RAM in use
+};
+inline int ClassifyHitch(const HitchIn& h, int logicalCores) {
+    const double g = h.gapMs > 0 ? h.gapMs : 1;
+    if (h.menu || h.pause == 1 || h.pause == 2) return kHMenu;
+    if (h.pause == 3) return kHLoading;  // the engine's own loading flag (menu::GamePauseReason 3)
+    if (h.gfMs >= 0.5 * g) return kHGpu;
+    if (h.w6Ms >= 0.5 * g) return kHPresent;
+    if (h.pso > 0) return kHShader;
+    if (h.gtCpuMs >= 0.6 * g) return kHGameCpu;
+    if (h.rdMb >= 2.0 || h.ldAct > 0 || h.ldPend > 0 || h.infl > 0) return kHLoading;
+    if (h.pf >= 25000 || h.ramLoad >= 95) return kHMemory;
+    const double half = logicalCores > 3 ? logicalCores * 0.5 : 2.0;
+    if (h.procCores >= half) return kHOtherCpu;
+    return kHStall;
+}
+// JSON as the site sees it: Python's json.dumps adds a space after every ',' and ':'. Upper bound (also counts those in strings).
+inline size_t DumpsSize(const char* s, size_t n) {
+    size_t k = n;
+    for (size_t i = 0; i < n; ++i) k += s[i] == ',' || s[i] == ':';
+    return k;
+}
+
 }  // namespace perfsnap
