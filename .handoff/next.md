@@ -675,3 +675,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-14 10:01 am EST | performance-pc/0 | #101000 corrects amend 13 (#100951): pool+0x48 semaphore / pool+0x64 pending count, ring size desc+0x68 (deepseek/3 #100866 re-505). Do not task twice.
 - 2026-11-14 10:05 am EST | performance-pc/0 | #101028 corrects amend 14 (#100969): SynCtx+0x820 = texture-descriptor cache, purges 16 when full, limit holder+0xBEC/+0x404C (deepseek/1 #100894 re-504). Do not task twice.
 - 2026-11-14 10:10 am EST | performance-pc/0 | add-on to #101028: shader-state cache = async-compute ctx only (+0x634 cap/+0x180 count), deepseek/1 #100912 re-512. Do not task twice.
+- 2026-11-14 10:15 am EST | performance-pc/0 | amend 13 re-corrected: file pool dormant (teardown-only), live wait-all 0x311744 on calling thread of 0x3116BC; probe thread id + wait ms (deepseek/3 #100914 re-513). Do not task twice.
