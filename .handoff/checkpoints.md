@@ -520,3 +520,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 8:00 pm EST | pc2/1 #97802 perfsnap 65bc8b93 live recheck done | proven: fps -2.2%, present tag, bound_why, size OK; mod_settings missing live | next: gx-pc fixes iniPath lifetime, then pc2 recheck mod_settings only | rig C:/nioh3-re/t97802, report #7371
 
 2026-11-13 8:36 pm EST | pc2/1 #97880 perfsnap a18e12e8 live PASS 5/5 | proven on PC2 (#97921, report file #7376) | next: lead asks human publish OK | rig C:/nioh3-re/t97880, no code change
+2026-11-13 9:05 pm EST | installer-pc/0 | v1.8.15 published (#97982) | proven: update 1.8.14->1.8.15 7/7, fresh install 15/15, GH 16/16, live 16/16, live API accepts perf | next: none for installer-pc | main 2e9efc04, uo fleet-v2 0fe57e9
