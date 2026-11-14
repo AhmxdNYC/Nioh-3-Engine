@@ -614,3 +614,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-14 5:25 am | Return time split (PC2) | measured | next: pc2 probe build attributes the gap | open.md l.77, file #7483
 2026-11-14 5:22 am EST | regression-pc/0 | #99623 Leave-row delta 9eced3eb..f558cb11 PASS (#99664, installer #99665) | proven offline; in-match branch live only (PC2 #99602) | next: release after v1.8.18 | no code commits
 2026-11-14 5:26 am EST | pc/2 | review deepseek/load-99501: probe OK, fix rejected (#99693) | static review, unproven in game | next: on deepseek fix-round RESULT (reply-to 99657) re-review loaddefer.cpp blockers 1+2; lead runs probe-only on Main PC | notes/load-fix-99501-review.md
+- 2026-11-14 5:40 am EST | performance-pc/0 | #99701 MC priced offline (profile #96241: loop 0x49150 0.9-1.3 ms CPU/frame, 0.31-0.37 on root thread) | unproven, no build | next: read deepseek note for 0x49150 lists, then build MC | files .handoff only
