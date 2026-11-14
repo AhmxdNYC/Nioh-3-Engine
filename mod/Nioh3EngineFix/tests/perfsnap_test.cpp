@@ -12,6 +12,8 @@
 #include <cstring>
 #include <thread>
 #include <atomic>
+#include <algorithm>
+#include <string>
 #include "../src/perfsnap.h"
 #include "../src/perfsnap_core.h"
 
@@ -207,6 +209,76 @@ int main(int argc, char** argv) {
     char tsmall[64];
     const size_t tsn = Text(tsmall, sizeof tsmall, true);
     CHECK(tsn < sizeof tsmall && tsmall[tsn] == 0);  // the text form may be cut
+
+    // ---- 4. #97850: the ini path outlives the caller's string (dllmain passes a block-local std::wstring) ----
+    {
+        wchar_t tmp[MAX_PATH], ini[MAX_PATH];
+        GetTempPathW(MAX_PATH, tmp);
+        swprintf(ini, MAX_PATH, L"%sperfsnap_test_%lu.ini", tmp, GetCurrentProcessId());
+        WritePrivateProfileStringW(L"Latency", L"VrrPresent", L"1", ini);
+        WritePrivateProfileStringW(L"Patches", L"MW", L"0", ini);
+        auto* owner = new std::wstring(ini);
+        StartInfo s4 = si;
+        s4.iniPath = owner->c_str();
+        ResetForTest(s4);
+        std::fill(owner->begin(), owner->end(), L'X');  // scribble, then free: a kept pointer now reads garbage
+        delete owner;
+        auto* junk = new std::wstring(400, L'Z');       // likely reuses the freed block
+        SetSettingsForTest("", "", 0, "", "");           // clear what section 3 set
+        RefreshModForTest();
+        static char j4[16384];
+        Json(j4, sizeof j4, true);
+        const char* modSec = strstr(j4, "\"mod_settings\":");
+        printf("mod_settings after the caller's string was freed: %.80s\n", modSec ? modSec : "(missing)");
+        CHECK(modSec && strstr(modSec, "\"Latency\":{\"VrrPresent\":\"1\"}") != nullptr);
+        CHECK(strstr(j4, "\"patches_off\":[\"MW\"]") != nullptr);
+        delete junk;
+        DeleteFileW(ini);
+    }
+
+    // ---- 5. #97817: a renamed thread is renamed in the cache; "present" follows the presenting TID ----
+    {
+        using SetDescFn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
+        auto sd = reinterpret_cast<SetDescFn>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetThreadDescription"));
+        HANDLE go = CreateEventW(nullptr, TRUE, FALSE, nullptr), step = CreateEventW(nullptr, FALSE, FALSE, nullptr),
+               done = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        std::atomic<int> cmd{0};
+        DWORD wtid = 0;
+        std::thread wk([&] {
+            wtid = GetCurrentThreadId();
+            SetEvent(done);
+            for (;;) {
+                WaitForSingleObject(step, INFINITE);
+                const int c = cmd;
+                if (c == 1 && sd) sd(GetCurrentThread(), L"[App]Renamed");
+                if (c == 2) { LARGE_INTEGER q2; QueryPerformanceCounter(&q2); OnGamePresent(q2.QuadPart); }
+                SetEvent(done);
+                if (c == 3) return;
+            }
+        });
+        WaitForSingleObject(done, INFINITE);
+        auto run = [&](int c) { cmd = c; SetEvent(step); WaitForSingleObject(done, INFINITE); };
+        auto enumerate = [&] { for (int i = 0; i < 5; ++i) ThreadTickForTest(); };  // a list refresh runs every 5th tick
+        const DWORD me = GetCurrentThreadId();
+        { LARGE_INTEGER q2; QueryPerformanceCounter(&q2); OnGamePresent(q2.QuadPart); }  // main presents
+        enumerate();
+        const std::string n0 = ThreadNameForTest(wtid), m0 = ThreadNameForTest(me);
+        run(1);  // the worker names itself after the sampler first saw it
+        enumerate();
+        const std::string n1 = ThreadNameForTest(wtid);
+        run(2);  // the worker becomes the presenting thread
+        enumerate();
+        const std::string n2 = ThreadNameForTest(wtid), m2 = ThreadNameForTest(me);
+        printf("worker: '%s' -> '%s' -> '%s'; main: '%s' -> '%s'\n", n0.c_str(), n1.c_str(), n2.c_str(), m0.c_str(), m2.c_str());
+        CHECK(!n0.empty() && n0.find("Renamed") == std::string::npos);
+        CHECK(!sd || n1 == "[App]Renamed");
+        CHECK(!sd || n2 == "[App]Renamed / present");
+        CHECK(m0.find("present") != std::string::npos);
+        CHECK(!m2.empty() && m2.find("present") == std::string::npos);  // tag cleared when the presenting TID moved
+        run(3);
+        wk.join();
+        CloseHandle(go), CloseHandle(step), CloseHandle(done);
+    }
 
     if (argc > 1) { if (FILE* o = fopen(argv[1], "wb")) { fwrite(js, 1, jn, o); fclose(o); } }
     if (argc > 2) { if (FILE* o = fopen(argv[2], "wb")) { fwrite(tx, 1, tn, o); fclose(o); } }

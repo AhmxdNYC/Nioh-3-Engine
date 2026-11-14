@@ -22,7 +22,15 @@ constexpr int kSamples = 64;         // 16 s at 4 Hz
 constexpr double kWindowMs = 10000;  // "last ~10 s"
 
 StartInfo g_si;
+wchar_t g_iniPath[MAX_PATH * 2];  // #97850: owned copy; the caller's string (dllmain's local std::wstring) dies after Start
 int64_t g_freq = 1;
+
+void KeepInfo(const StartInfo& info) {
+    g_si = info;
+    g_iniPath[0] = 0;
+    if (info.iniPath) wcsncpy_s(g_iniPath, info.iniPath, _TRUNCATE);
+    g_si.iniPath = info.iniPath ? g_iniPath : nullptr;
+}
 
 // ---- per-frame ring (written only by the game's presenting thread) ----
 float g_ms[kFrames];
@@ -328,6 +336,8 @@ struct ThrSlot {
     uint64_t t[kHist] = {};        // kernel + user, 100 ns
     bool ok[kHist] = {};           // this tick's GetThreadTimes succeeded (false = hole, never used for a delta)
     bool presMarked = false;       // the name already carries "present"
+    bool described = false;        // base came from GetThreadDescription (else the start module, which never changes)
+    char base[48] = "";            // name without the "present" tag
     char name[48] = "";
 };
 ThrSlot g_thr[kThr];
@@ -344,18 +354,25 @@ ThreadUse g_thrTop[kTop + 1];  // top 5 + the presenting thread when it is not a
 int g_thrTopN = 0, g_thrCount = 0;
 double g_thrWinS = 0;
 
+// #97817: called on every enumerate (5 s). The description is re-read each time (a thread named after it started, or renamed,
+// is picked up); the start-module fallback is computed only while there is no description. The "present" tag follows the
+// presenting TID: added when this thread becomes it, dropped when another thread does.
 void ThreadName(ThrSlot& s) {
-    char n[48] = "";
+    char d8[48] = "";
     if (g_getDesc) {
         PWSTR d = nullptr;
         if (SUCCEEDED(g_getDesc(s.h, &d)) && d) {
-            if (d[0]) WideCharToMultiByte(CP_UTF8, 0, d, -1, n, sizeof n - 1, nullptr, nullptr);
+            if (d[0]) WideCharToMultiByte(CP_UTF8, 0, d, -1, d8, sizeof d8 - 1, nullptr, nullptr);
             LocalFree(d);
         }
     }
-    if (!n[0] && g_ntQit) {  // no description: the module its start address is in ("amdxc64.dll+0x1a2b30", "Nioh3.exe+0x...")
+    bool dirty = !s.name[0];
+    if (d8[0]) {
+        if (!s.described || strcmp(s.base, d8)) Copy(s.base, sizeof s.base, d8), s.described = true, dirty = true;
+    } else if (s.described || !s.base[0]) {  // no description (or it was cleared): the module its start address is in
+        s.described = false, s.base[0] = 0, dirty = true;
         PVOID start = nullptr;
-        if (g_ntQit(s.h, 9 /*ThreadQuerySetWin32StartAddress*/, &start, sizeof start, nullptr) == 0 && start) {
+        if (g_ntQit && g_ntQit(s.h, 9 /*ThreadQuerySetWin32StartAddress*/, &start, sizeof start, nullptr) == 0 && start) {
             HMODULE m = nullptr;
             wchar_t path[MAX_PATH];
             if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -363,16 +380,18 @@ void ThreadName(ThrSlot& s) {
                 const wchar_t* b = wcsrchr(path, L'\\');
                 char mod[32] = "";
                 WideCharToMultiByte(CP_UTF8, 0, b ? b + 1 : path, -1, mod, sizeof mod - 1, nullptr, nullptr);
-                snprintf(n, sizeof n, "%s+0x%llx", mod, (unsigned long long)((uintptr_t)start - (uintptr_t)m));
+                snprintf(s.base, sizeof s.base, "%s+0x%llx", mod, (unsigned long long)((uintptr_t)start - (uintptr_t)m));
             }
         }
     }
+    const bool pres = g_presTid && s.tid == g_presTid && s.tid != g_thrSelfTid;
+    if (pres != s.presMarked) dirty = true;
+    if (!dirty) return;
+    s.presMarked = pres;
+    char n[48] = "";
     if (s.tid == g_thrSelfTid) Copy(n, sizeof n, "mod perf snapshot");
-    else if (s.tid == g_presTid) {  // the game's presenting thread (osd hook): said next to its own name
-        char r[48];
-        snprintf(r, sizeof r, "%s%spresent", n, n[0] ? " / " : "");
-        Copy(n, sizeof n, r);
-    }
+    else if (pres) snprintf(n, sizeof n, "%s%spresent", s.base, s.base[0] ? " / " : "");
+    else Copy(n, sizeof n, s.base);
     if (!n[0]) snprintf(n, sizeof n, "thread %lu", s.tid);
     Copy(s.name, sizeof s.name, n);
 }
@@ -403,11 +422,7 @@ void ThreadEnumerate() {
         }
         if (hit) {
             hit->seen = true;
-            // names are cached per TID (#97734): only a new thread is named; the presenting thread is renamed once when known
-            if (!hit->name[0] || (!hit->presMarked && hit->tid == g_presTid && g_presTid)) {
-                ThreadName(*hit);
-                hit->presMarked = hit->tid == g_presTid && g_presTid;
-            }
+            ThreadName(*hit);  // cached per TID (#97734); refreshes only a changed description or "present" tag (#97817)
         }
     }
     CloseHandle(snap);
@@ -611,7 +626,7 @@ void FreshIfAllowed(bool crashPath) {
 }  // namespace
 
 void Start(const StartInfo& info) {
-    g_si = info;
+    KeepInfo(info);
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
     g_freq = f.QuadPart > 0 ? f.QuadPart : 1;
@@ -760,7 +775,7 @@ size_t Text(char* out, size_t cap, bool crashPath) {
 }
 
 void ResetForTest(const StartInfo& info) {
-    g_si = info;
+    KeepInfo(info);
     InterlockedExchange(&g_fHead, 0);
     InterlockedExchange(&g_sHead, 0);
     g_lastQpc = 0;
@@ -787,6 +802,14 @@ void SetHardwareForTest(const char* cpu, int cores, const char* gpu, const char*
     Copy(g_driver, sizeof g_driver, driver);
     g_vramTotal = (LONGLONG)vramTotalMb, g_vramUsed = (LONGLONG)vramUsedMb, g_vramBudget = (LONGLONG)vramBudgetMb;
     g_ramTotal = (LONGLONG)ramTotalMb, g_ramUsed = (LONGLONG)ramUsedMb;
+}
+
+void RefreshModForTest() { RefreshMod(); }
+
+const char* ThreadNameForTest(unsigned long tid) {
+    for (const ThrSlot& s : g_thr)
+        if (s.h && s.tid == tid) return s.name;
+    return "";
 }
 
 void SetSettingsForTest(const char* gameJson, const char* modJson, int fpsCap, const char* upscaler, const char* frameGen) {
