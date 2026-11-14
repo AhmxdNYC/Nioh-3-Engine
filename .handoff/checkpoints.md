@@ -557,3 +557,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-13 11:55 pm EST | regression-pc | PASS EF #7455 60048dd2 (reports/72, txt masking of MEM qwords) vs 5e0f49f5: build 0, 4 suites 0 fails, audit=baseline, pointers 0x7ffX/0x1XX/0x2XX never masked (#98786). Offline only; non-ASCII names not masked (noted) | next: pc/1 live, pc release TASK | reports/72 60048dd2
 - 2026-11-13 11:58 pm EST | pc2/1 | session end #98670: DONE, FAIL RESULT #98753 (EF 774d7483 perfsnap.cpp:1000 bound_why JSON bug; rest PASS). Nothing half-done; pc2 restored, lock free. Next: re-run same RC test when reports-pc ships fixed EF. Files #7453 #7454, rig C:/nioh3-re/t98670.
 2026-11-14 12:16 am EST | pc/1 #98745 EF b63f9737 + BR e440a05c + TR 8306d94a Main PC live PASS (http 202 x2, JSON valid, 6=6 HITCH) | proven live | next: lead releases EF b63f9737 with pc2 RC result | Temp/ef98745, RESULT to pc
+
+- 2026-11-14 12:17 am EST | pc2/1 #98804 release combo live | PASS proven (#98861, HTTP 202 x2, refs #75/#76) | next: lead tasks installer release | t98804 local, no code
