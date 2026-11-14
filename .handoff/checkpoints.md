@@ -559,3 +559,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 12:16 am EST | pc/1 #98745 EF b63f9737 + BR e440a05c + TR 8306d94a Main PC live PASS (http 202 x2, JSON valid, 6=6 HITCH) | proven live | next: lead releases EF b63f9737 with pc2 RC result | Temp/ef98745, RESULT to pc
 
 - 2026-11-14 12:17 am EST | pc2/1 #98804 release combo live | PASS proven (#98861, HTTP 202 x2, refs #75/#76) | next: lead tasks installer release | t98804 local, no code
+2026-11-14 12:15 am EST | #73 triaged+closed (test report, proves menu JSON fix live) | menu fix proven live via site; #7455 offline+regression PASS, full pc/1 live pass pending | next: act on pc/1 live RESULT for EF #7451/#7455; then TO-USER Done for #98445 only after release | reports/72 60048dd2, bridge #7455, #98843
