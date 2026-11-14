@@ -695,3 +695,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-14 5:24 pm EST | pc/0 | CamKi gate proven both devices (PC2 load, Main PC CPU) | next: RC v1.8.18 from installer-pc, regression on RC, 4-core A/B, then human OK to publish | #7643 #102519 #102545
 
 2026-11-14 5:31 pm EST | installer-pc/0 | RC v1.8.18 packaged (#102554): fresh 11/11 + update 7/7 PASS | proven offline install/update; unproven: live RC run, publish | next: on human OK publish v1.8.18 from Temp/rel1818c-102554/out (gh release + site), digests check, live updater 1.8.17->1.8.18 | origin/installer-pc/rel-1818-camki f6bd89a9, bridge #7652/#7653
+2026-11-14 5:32 pm EST | pc/0 | RC 1.8.18 rescoped to include crash #78/#79 fixes + direct retry OFF | unproven (repackage pending) | next: installer-pc RESULT -> regression duties -> live RC smoke on free device -> human OK | 2b818c93 58ac6443 98766c20
