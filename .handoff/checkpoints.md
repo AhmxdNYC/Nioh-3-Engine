@@ -660,3 +660,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 2026-11-14 12:06 pm EST | regression-pc/0 #101397 FWP offline review done | proven offline (no game) | next: performance-pc fixes extraperf pin, then live A/B must measure frame time (park adds ~0.3-0.5 ms wake latency in harness) | RESULT #101478, branch performance-pc/frame-wait-park-101247 be1941a7
 - 2026-11-14 12:22 pm EST | pc/2 #100461 | LoadProbe Main PC live DONE (RESULT re 100461, TO-USER #101532): load #1 17.5 s, 13 probed steps ~1 s total (file issue-read 1032 ms summed on workers; tex upload/PSO/scatter/wait-all/purges 0 calls); CPU 4.35-4.92 cores at 60 fps. Proven live. EF 74764254, branch pc2/loadprobe-100461 7a66a72f. Next: main-thread stack sampler over the load window. Do not rerun lp7.
+
+2026-11-14 12:22 pm EST | regression-pc/0 #101454 #81 thunk review PASS offline | proven offline | next: pc/2 live LoadProbe run on 59659a93 build | RESULT #101533. Also: tools/msvc wrapper deleted 12:06 by my worktree cleanup, restored ~12:13 (NOTE #101518).
