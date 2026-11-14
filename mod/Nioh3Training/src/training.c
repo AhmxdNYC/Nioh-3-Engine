@@ -4327,7 +4327,19 @@ static __attribute__((noinline)) void h_dlgopen(void* mgr, void* text, void* a3,
 // [Return] ReturnGateHookScriptBox (default 1).
 typedef uint64_t (*Cw2Fn)(void*);
 static Cw2Fn o_cw2; static int g_cfg_gate_cw2 = 1; static volatile LONG g_cw2_n;
+// #91781 (blank Dojo 'Conclude Duel' box, pc/1 #91274): the arg reader 1399B0 -> 13BDB0 POPS the native's args (13BFC5: [vm+0x20] top -= argc,
+// vm = [ctx+8]). Peeking and then calling o_cw2 made the original read the 4 slots below its args -> TextGetById(garbage) -> blank title and Yes/No
+// rows on every passed-through box (duel 65585054, fight 65930289, not-ours end-mission) and a 4-slot short script stack. Cw2Peek now puts the top
+// back; only the blocked path consumes the args once (Cw2Pop), exactly like the native would.
+static uint64_t* Cw2Top(void* ctx) { uint64_t vm = *(uint64_t*)((uint8_t*)ctx + 8); return vm ? *(uint64_t**)(vm + 0x20) : 0; }
+static void Cw2Pop(void* ctx) {
+    __try { __attribute__((aligned(16))) uint8_t rd[0x140]; memset(rd, 0, sizeof rd); ((void* (*)(void*, void*))(B + Grva(0x1399B0)))(rd, ctx); }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
+}
 static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t* sub, uint64_t* cur, uint16_t* nret) {
+    uint64_t* topp = 0; uint64_t t0 = 0;
+    __try { topp = Cw2Top(ctx); if (!topp) return 0; t0 = *topp; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    int ok = 0;
     __try {
         __attribute__((aligned(16))) uint8_t rd[0x140]; memset(rd, 0, sizeof rd);
         ((void* (*)(void*, void*))(B + Grva(0x1399B0)))(rd, ctx);
@@ -4336,8 +4348,10 @@ static __attribute__((noinline)) int Cw2Peek(void* ctx, uint32_t* text, uint32_t
         *cur = *(uint64_t*)(B + Grva(0x45BA228));
         uint64_t g = ((uint64_t (*)(uint64_t))(B + Grva(0x3624D4)))(*cur);
         *sub = g ? *(uint32_t*)(g + 0x110) : 0xFFFFFFFFu;
-        return 1;
-    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+        ok = 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { ok = 0; }
+    __try { *topp = t0; } __except (EXCEPTION_EXECUTE_HANDLER) {}  // never consume: the original (or Cw2Pop) reads the args itself
+    return ok;
 }
 static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
     const int scroll = ScrollGateLive();
@@ -4356,6 +4370,7 @@ static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
                 *(volatile int32_t*)(B + Grva(0x44BAE44)) = -1;  // GetButtonNumLastCommonWindow: no button -> the script re-arms its interaction
                 if (n <= 60) Log("GATE: script end-mission box (OpenCommonWindowTwoButton 23F8CC0, text 0x%X, gadget %p sub %u, gate id %u, player %.0f u) BLOCKED #%ld: %s", text,
                     (void*)cur, sub, g_gate.id, d, n, boss ? "boss alive, nothing opened" : page || recent ? "our gate page already open/opening" : r >= 0 ? "our gate page opened instead" : "?");
+                Cw2Pop(ctx);  // the native's own arg read: the script stack drops the 4 args once
                 return nret;
             }
             g_gate_nat_t = GetTickCount() | 1;  // safety net: a native box is opening while our gate is up
@@ -4368,8 +4383,18 @@ static __attribute__((noinline)) uint64_t h_cw2(void* ctx) {
 // KiWidgetAnimate 235F40C plays bar style anim 0x20 (style 1) or 0x21 (style 0). The colour itself lives in the layout's VertexColor FCurves (no direct colour field
 // found statically). This call-site hook only stamps 'boss Ki row drawn now' (native style kept); the tint itself is GoldQuad below (UiQuadBuild vertex colours).
 static int g_cfg_goldki = 1; static volatile DWORD g_ki_seen; static int g_gold_hooked;
+// #31 (reports-triage-79081): a garbage charParam (0x9000057B1) faulted inside KiBarStyle at [rcx+0x80]. Guard: reject non-canonical/low pointers and
+// catch a fault in the native call; then keep the last good style (or 0) so the HUD row still draws and the game does not crash.
+static volatile LONG g_ki_bad; static uint8_t g_ki_last;
 static __attribute__((noinline)) uint8_t KiStyleHook(uint64_t charParam) {
-    uint8_t s = ((uint8_t (*)(uint64_t))(B + Grva(0x5D4434)))(charParam);
+    if (charParam < 0x10000 || charParam >= 0x00007FFFFFFF0000ull) {
+        if (InterlockedIncrement(&g_ki_bad) <= 5) Log("GOLDKI: #31 guard: bad charParam %p, native KiBarStyle skipped (style %d kept)", (void*)charParam, g_ki_last);
+        return g_ki_last;
+    }
+    uint8_t s = g_ki_last; int ok = 0;
+    __try { s = ((uint8_t (*)(uint64_t))(B + Grva(0x5D4434)))(charParam); ok = 1; } __except (EXCEPTION_EXECUTE_HANDLER) {}
+    if (!ok) { if (InterlockedIncrement(&g_ki_bad) <= 5) Log("GOLDKI: #31 guard: KiBarStyle faulted on charParam %p (style %d kept)", (void*)charParam, g_ki_last); return g_ki_last; }
+    g_ki_last = s;
     static int logged; if (!logged) { logged = 1; int v = -1; __try { v = charParam ? *(int32_t*)(charParam + 0x80) : -1; } __except (EXCEPTION_EXECUTE_HANDLER) {} Log("GOLDKI: first boss Ki row: charParam+0x80 = %d, native style %d, GoldKiBar %d", v, s, g_cfg_goldki); }
     g_ki_seen = GetTickCount();  // the boss Ki row is being drawn: enables the vertex tint (GoldQuad)
     return s;
@@ -5094,7 +5119,15 @@ N3T_API int Nioh3Training_GetSlotStance(int s) {
 // idle 1 = Stand still, 0 = Fight normally (CPU). 1 = done / queued, 0 = empty slot or no Training session for the session boss.
 N3T_API int Nioh3Training_SetSlotStance(int s, int idle) {
     if (!SlotAlive(s)) return 0;
-    if (g_slot_ih[s] && g_tr.active) { Log("STANCE Boss %c (session boss) -> %s", 'A' + s, idle ? "Stand still" : "Fight normally"); return Nioh3Training_SetIdleHold(idle != 0); }
+    const int route = SessionStanceRoute(g_slot_ih[s], g_tr.active != 0, idle != 0, g_ih.phase);  // slot_hold.h, #98106
+    if (route == 1) { Log("STANCE Boss %c (session boss) -> %s", 'A' + s, idle ? "Stand still" : "Fight normally"); return Nioh3Training_SetIdleHold(idle != 0); }
+    if (route == 2) {
+        // #98106: Stand still on the session boss whose Idle hold is not holding: the slot hold (SphTick, game thread) switches its AI off at
+        // once, as for a summoned boss. The Idle hold request is cleared first (IhTick stops it on the game thread; it owns no AI here).
+        Nioh3Training_SetIdleHold(0);
+        g_slot_ih[s] = 0;
+        Log("STANCE Boss %c (session boss) -> Stand still: slot hold (Idle hold phase %d not holding, #98106)", 'A' + s, g_ih.phase);
+    }
     InterlockedExchange(&g_slot_fight[s], idle ? 0 : 1);
     if (idle) InterlockedExchange(&g_slot_rehold[s], 1);
     Log("STANCE Boss %c -> %s", 'A' + s, idle ? "Stand still" : "Fight normally");
