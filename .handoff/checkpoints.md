@@ -758,3 +758,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-15 5:25 am EST | FAD 3/3 devices PASS (#104475), gx-pc tasked for default-ON BR | proven live (3 devices), build unproven | next: gx-pc RESULT -> regression-pc -> fold into next release | .handoff/next.md
 2026-11-15 5:30 am EST | #104517 BR FAD default ON + migration | proven offline (fad_upgrade_test 8/8, build clean); not live-tested | regression-pc on #7715, then live | gx-pc/fad-default-104517 e07abf41, bridge #7715
 2026-11-15 5:42 am EST | Ally title hang on pre-fix EF 0b18479f (#104549); rerun on d3641146 tasked | unproven on fixed build | next: performance-ally STATUS on first d3641146 B boot; if it hangs -> v1.8.18 Ally blocker | .handoff/next.md
+- 2026-11-15 5:36 am EST | regression-pc #104541 FAD default ON PASS | proven offline | next: none for regression; test_catalog RELEASE bump at v1.8.18 ship | RESULT #104563
