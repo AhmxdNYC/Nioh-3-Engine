@@ -164,7 +164,7 @@ function Launch {
     $ok = VP-TitleContinue 300 "$out\title_continue_$($script:launchN).txt"
     $pg = RMP ping; T "title -> Continue -> field: $ok; add-on: $pg"
     if ($pg -notmatch 'live=1') { throw "add-on not live: $pg" }
-    if (-not (Wait-RM { param($x) (F $x 'player') -eq '1' -and (F $x 'loading') -eq '0' } 120)) { throw "no player after Continue" }
+    if (-not (Wait-RM { param($x) (F $x 'player') -eq '1' -and (F $x 'loading') -eq '0' } $(if ($env:FN_PLAYERWAIT) { [int]$env:FN_PLAYERWAIT } else { 120 }))) { throw "no player after Continue" }
     Start-Sleep 5
     return $ok
 }
