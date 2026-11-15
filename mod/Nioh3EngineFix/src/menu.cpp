@@ -3426,6 +3426,16 @@ float DrawRematchHost(unsigned W, unsigned H) {
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale) - (tabHints ? line : 0.f)) * 0.5f);  // badges centred in the band (#13537)
+    if (InputModality() == MOD_KEY) {  // UO #9: keyboard modality, key caps instead of pad badges (same rows)
+        ms::HintItem keys[3];
+        int k = ms::KeyPrompts(0, nullptr, keys);
+        ms::HintRow(tx, hy, x + width - pad, keys, k, cw, line, scale, a);
+        if (tabHints) {
+            k = ms::KeyPrompts(1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+            ms::HintRow(tx, hy + line, x + width - pad, keys, k, cw, line, scale, a);
+        }
+        return scale;
+    }
     static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
     if (tabHints) {  // #44232: second prompt line, LB / RB tabs + View first page (not on the Return object's own page)
@@ -3907,7 +3917,8 @@ float DrawImpl(unsigned W, unsigned H) {
             addT(line, cCyan);
         }
     }
-    // footer / save status
+    // footer / save status; UO #9: the two prompt rows are pad badges or key caps, by InputModality() (no toggle)
+    const bool keyMode = InputModality() == MOD_KEY;
     const LONG ss = g_saveState;
     if (ss >= 2 && !g_saveShownAt) g_saveShownAt = t;
     if (holdNote[0]) addT(holdNote, cGold);
@@ -3917,11 +3928,12 @@ float DrawImpl(unsigned W, unsigned H) {
         if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
+    } else if (keyMode) {
+        addT("\x01K", cDim);  // UO #9 key caps: Arrows / Enter / Esc
     } else {
         addT(g_cfg.layout && g_pages.depth ? "\x01P" : "\x01p", cDim);  // #13537: drawn as button badges (drawRow)
     }
-    addT("\x01T", cDim);  // #44232: LB / RB tabs + View first page, on every page
-    addT("\x01K", cDim);
+    addT(keyMode ? "\x01k" : "\x01T", cDim);  // #44232: LB / RB tabs + View first page, every page (keyboard: PgUp PgDn + menu key)
 
     // #38102/#38134: every flat page is the same fixed right-side panel as the hosted pages (58 columns, 0.66 H high); long rows are clipped
     constexpr size_t cols = 58, valueCol = 34;
@@ -3971,10 +3983,10 @@ float DrawImpl(unsigned W, unsigned H) {
         const float y = y0 + pad + line * lineH;
         if (rw.label[0] == '\x01') {  // #13537 control prompts: pad (P = back, p = close) or keyboard (K), badges + labels
             const float right = x0 + w - pad;
-            if (rw.label[1] == 'K') {
-                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}, {"F10", "Exit"}};
-                const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
-                ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
+            if (rw.label[1] == 'K' || rw.label[1] == 'k') {  // UO #9: keyboard modality, key caps instead of pad badges
+                ms::HintItem keys[3];
+                const int k = ms::KeyPrompts(rw.label[1] == 'K' ? 0 : 1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+                ms::HintRow(x0 + pad, y, right, keys, k, cw, lineH, sc, fa);
             } else if (rw.label[1] == 'T') {  // #44232: shoulder caps follow ButtonStyle (LB RB / L1 R1)
                 const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
                 ms::HintRow(x0 + pad, y, right, kTabs, 2, cw, lineH, sc, fa);
@@ -4011,13 +4023,14 @@ float DrawImpl(unsigned W, unsigned H) {
                        (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
                 // Use the existing active-controller badge, including PlayStation symbols.
                 char key[2] = {rw.value[0], 0};
-                ms::Hint(vx, y, key, rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
+                ms::Hint(vx, y, keyMode && key[0] == 'A' ? "Enter" : key,  // UO #9: under the keyboard "A: open" is an Enter cap
+rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
             } else osd::DrawText(vx, y, rw.value, ms::Fade(vcol, fa), sc);
         }
         ++line;
     };
-    if (nt >= 3) {  // the three control lines at the bottom (pad, tabs, keys) sit in a darker footer band
-        const float fy = y0 + pad + (float)(n - 3) * lineH - 2 * sc;
+    if (nt >= 2) {  // the two control lines at the bottom (pad + tabs, or the UO #9 key caps) sit in a darker footer band
+        const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
         ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);

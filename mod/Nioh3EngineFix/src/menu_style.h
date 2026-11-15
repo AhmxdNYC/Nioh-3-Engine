@@ -239,5 +239,18 @@ inline void HintRow(float x, float y, float right, const HintItem* items, int n,
         x = Hint(x, y, items[i].keys, items[i].label, cw, lh, s, a);
     }
 }
+// UO open #9: the footer prompts follow menu::InputModality() (0 pad, 1 keyboard), no toggle. Under the keyboard the pad
+// badges go and these key caps take their two rows (the row count stays, so the panel does not jump on a switch):
+// row 0 = Arrows / Enter / Esc, row 1 = PgUp PgDn + the menu key (skipped when it is unset, "None"). Returns the item count.
+inline int KeyPrompts(int row, const char* toggleKey, HintItem* out) {
+    if (row == 0) {
+        out[0] = {"Arrows", "Move"}; out[1] = {"Enter", "Select"}; out[2] = {"Esc", "Back"};
+        return 3;
+    }
+    out[0] = {"PgUp PgDn", "Page"};
+    if (!toggleKey || !toggleKey[0] || !strcmp(toggleKey, "None")) return 1;
+    out[1] = {toggleKey, "Close"};
+    return 2;
+}
 
 }  // namespace menu_style
