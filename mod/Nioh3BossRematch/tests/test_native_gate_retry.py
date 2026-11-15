@@ -42,7 +42,8 @@ int main(){Snap s;
  NativeGateRetryTick(s,10204);assert(posts==1&&lastRow==7&&lastKind==kReqFight&&g_nativeAgainRow==-1);
  NativeGateRetryTick(s,10205);assert(posts==1);
  for(int k=0;k<5;k++){reset();if(k==0)g_requestEpoch++;if(k==1)g_attemptSequence++;if(k==2)g_attemptPhase=aQuarantined;
- if(k==3)sessionLost=true;NativeGateRetryTick(s,k==4?120101:200);assert(!posts&&g_nativeAgainRow==-1);}
+ if(k==3)sessionLost=true;if(k==4)g_nativeAgainAt=50; // fresh press: busyAt is keyed on the press time (#105462)
+ NativeGateRetryTick(s,k==4?120051:200);assert(!posts&&g_nativeAgainRow==-1);}
  reset();g_attemptPhase=aNone;g_state=kIdle;g_req=1;NativeGateRetryTick(s,200);assert(!posts);
  g_req=0;g_pend=1;NativeGateRetryTick(s,201);assert(!posts);
  reset();g_rows[7].waves=true;g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,203);assert(!posts);

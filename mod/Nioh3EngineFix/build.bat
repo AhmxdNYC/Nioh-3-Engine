@@ -47,7 +47,9 @@ cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extrap
 build\extraperf_menu_test.exe || exit /b 1
 
 rem PTS present-thread start guard (crash report #86): stock race crashes, guarded thread waits (no game/device).
-cl /nologo /EHsc /std:c++17 /W4 /Febuild\ptstart_harness.exe /Fobuild\ tests\ptstart_harness.cpp src\ptstart.cpp || exit /b 1
+rem objs go to build\ptsh\ so tests that link build\*.obj do not pick up the harness main (#105462)
+if not exist build\ptsh mkdir build\ptsh
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\ptstart_harness.exe /Fobuild\ptsh\ tests\ptstart_harness.cpp src\ptstart.cpp || exit /b 1
 build\ptstart_harness.exe || exit /b 1
 
 rem VRS classification and command-list state regression tests (no game/device).
