@@ -759,3 +759,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-15 5:30 am EST | #104517 BR FAD default ON + migration | proven offline (fad_upgrade_test 8/8, build clean); not live-tested | regression-pc on #7715, then live | gx-pc/fad-default-104517 e07abf41, bridge #7715
 2026-11-15 5:42 am EST | Ally title hang on pre-fix EF 0b18479f (#104549); rerun on d3641146 tasked | unproven on fixed build | next: performance-ally STATUS on first d3641146 B boot; if it hangs -> v1.8.18 Ally blocker | .handoff/next.md
 - 2026-11-15 5:36 am EST | regression-pc #104541 FAD default ON PASS | proven offline | next: none for regression; test_catalog RELEASE bump at v1.8.18 ship | RESULT #104563
+- 2026-11-15 6:05 am EST | performance-pc #104201 FPW gated default live A/B PASS (4-core big win, 12-core inert, migration ok) | proven live Main PC | next: #104304 top-5 default-ON key A/Bs at native cores | raw D:/nioh3-re/fpw104201
