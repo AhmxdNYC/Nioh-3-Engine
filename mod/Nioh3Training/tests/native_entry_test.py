@@ -6,6 +6,10 @@ s=(root/'src/training.c').read_text()
 a=s.index('static int g_native_fallback,');b=s.index('// bridge 6047: stage cell',a)
 production=s[a:s.index('// Exact placement and spawn-key identity;',a)]+s[s.index('static void EnterTick(void) {',a):b]
 production=production.replace('__attribute__((noinline)) ', '')
+# #89329: the Dojo waves export (fight-log start/win) sits inside this range but is not part of the entry handshake; drop it.
+w=production.index('N3T_API void Nioh3Training_WavesFight(');e=production.index('{',w);d=1;e+=1
+while d: d+=(production[e]=='{')-(production[e]=='}');e+=1
+production=production[:w]+production[e:]
 preamble=r"""
 #include <stdint.h>
 #include <stdio.h>
