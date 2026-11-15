@@ -1051,6 +1051,13 @@ void Start(const StartInfo& info) {
 
     // FPW ([Patches] FileLoadPoll = 0 | 1, default 1; [Tuning] FileLoadPoll_MaxCpus 6, FileLoadPoll_SpinUs / _YieldUs /
     // _SleepUs): see FpwBackoff. A missing key = 1 (#104135); an explicit FileLoadPoll = 0 stays off.
+    // One-time versioned default (#104185, same pattern as DSDefaultV): v1.8.18 wrote FileLoadPoll = 0. Flip an explicit 0 to 1
+    // once and stamp FpwDefaultV = 1; with the marker present the key is never touched again (a later manual 0 sticks).
+    if (I(L"Patches", L"FpwDefaultV", 0) < 1) {
+        if (GetPrivateProfileIntW(L"Patches", L"FileLoadPoll", 1, info.iniPath) == 0)
+            WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"1", info.iniPath);
+        WritePrivateProfileStringW(L"Patches", L"FpwDefaultV", L"1", info.iniPath);
+    }
     if (I(L"Patches", L"FileLoadPoll", 1) == 1) {
         g_fpwMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPoll_MaxCpus", 6), 1, 64);
         g_fpwSpinUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SpinUs", 20), 0, 10000);
