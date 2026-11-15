@@ -715,3 +715,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 
 - 2026-11-14 8:57 pm EST | pc/2 | #103149 stall-check: catalog.json fix 25b9cd81 (pc2agent/viewdist-sliders-102675), generate_catalog --check PASS | unproven in game | NEXT: regression-pc recheck (engine_enum guard in test_catalog fails on new enum Ids, their call), then live A/L of sliders | TO-USER #103158
 - 2026-11-14 9:40 pm EST | regression-pc | test_catalog additive guard + baseline 1.8.17 | proven: PASS main + 25b9cd81, 7 negative cases fail as intended | next: bump RELEASE when 1.8.18 ships | ab996966
+- 2026-11-14 9:50 pm EST | regression-pc/0 session end | DONE: CamKi gate review #102447; RC 1.8.18 rc2 PASS (#102627); reports/84 review OK (#102682); sliders 25b9cd81 PASS + test_catalog additive guard/baseline 47505850 (main ab996966, #103159). HALF: none. NEXT: wait for new TASK; bump test_catalog RELEASE when 1.8.18 ships.
