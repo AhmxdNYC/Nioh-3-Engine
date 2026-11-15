@@ -916,3 +916,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 1:16 pm EST | reports-pc/0 | crash #89 (8183058b7696c76a) = game FX null read +0x5dba0f at title, PC2 #105897 run of 17228b93, no mod on stack, no dup; commented, open; deepseek #106007 maps site (credits out). RESULT #106011 to pc. No build. Do not task twice.
 - 2026-11-15 1:20 pm EST | reports-pc/0 | deepseek #106010: #106007 (map #89 FX site +0x5dba0f) failed API 402, not queued. RE-SEND #106007 text to deepseek after OpenRouter top-up (needs-player item open). #89 stays open.
 - 2026-11-15 1:17 pm EST | regression-pc/0 | #105806 padrec fe9982d6 PASS sent (#106021), 2 minor asks to cx-pc. Do not task twice.
+- 2026-11-15 1:20 pm EST | regression-pc/0 | session end: waiting on cx-pc2 vpad wiring check fix (pad-modality), then rerun run_vpad_harness only.
