@@ -17,7 +17,7 @@ code=r'''
 #include <cstring>
 #include <string>
 using ULONGLONG=uint64_t;
-struct Snap{};
+struct Snap{bool queueBusy=false;};
 constexpr int aNone=0,aActive=1,aReturning=2,aQuarantined=3,kIdle=0,kReqEmaki=4,kReqFight=6;
 struct Row{bool waves=false;}; std::vector<Row> g_rows(8);
 namespace rcore{inline bool WavesRow(const Row& r){return r.waves;}}
@@ -26,15 +26,15 @@ int g_nativeAgainRow; ULONGLONG g_nativeAgainAt;
 uint64_t g_nativeAgainSequence,g_nativeAgainEpoch,g_attemptSequence;
 std::atomic<uint64_t> g_requestEpoch;
 std::atomic<int> g_attemptPhase,g_state,g_req;
-int g_pend,posts,lastRow; bool sessionLost,blocked;
+int g_pend,posts,lastRow; bool sessionLost,blocked,hidden;
 std::vector<std::string> logs; void Log(const char* f,...){char b[512];va_list a;va_start(a,f);vsnprintf(b,sizeof b,f,a);va_end(a);logs.push_back(b);}
 int Count(const char* k){int n=0;for(auto& l:logs)n+=strstr(l.c_str(),k)!=nullptr;return n;}
 const char* SessionGate(const Snap&){return sessionLost?"lost":nullptr;}
-const char* Gates(const Snap&,bool){return blocked?"blocked":nullptr;}
+const char* Gates(const Snap& q,bool){return blocked?"blocked":q.queueBusy?"mission queue busy":hidden?"in a boss fight":nullptr;}
 void Post(uint32_t kind,int row,const char*){assert(kind==kReqFight||kind==kReqEmaki);posts++;lastRow=row;lastKind=(int)kind;g_requestEpoch++;g_req=kind;}
 @BODY@
 void reset(){g_nativeAgainRow=7;g_nativeAgainAt=100;g_nativeAgainSequence=g_attemptSequence=12;
- g_nativeAgainEpoch=g_requestEpoch=3;g_attemptPhase=aReturning;g_state=2;g_req=g_pend=posts=0;sessionLost=blocked=false;}
+ g_nativeAgainEpoch=g_requestEpoch=3;g_attemptPhase=aReturning;g_state=2;g_req=g_pend=posts=0;sessionLost=blocked=hidden=false;}
 int main(){Snap s;
  reset();NativeGateRetryTick(s,200);assert(!posts&&g_nativeAgainRow==7);
  g_attemptPhase=aNone;NativeGateRetryTick(s,201);assert(!posts); // restoration has not gone idle
@@ -64,7 +64,30 @@ int main(){Snap s;
  reset();g_nativeAgainAt=150;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);g_pend=1;NativeGateRetryTick(s,400);
  assert(Count("settle interrupted after 100 ms (request pending)")==1);
  reset();g_nativeAgainAt=120;logs.clear();g_state=kIdle;NativeGateRetryTick(s,300);assert(Count("settle interrupted")==0&&Count("home is up")==0); // busy before any window: no line
- puts("PASS native gate retry: complete return only, normal gates, 5 s settle after home is up (#78), once, new action/attempt/session/quarantine/timeout cancellation, busy requests");
+ // #106167 (Ally #106152): the 10 s mission queue cooldown inside a window keeps the settle clock; the request waits for the queue
+ reset();g_nativeAgainAt=210;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);
+ s.queueBusy=true;NativeGateRetryTick(s,1065);NativeGateRetryTick(s,5300);NativeGateRetryTick(s,11064);
+ assert(!posts&&Count("settle interrupted")==0&&Count("mission queue cooldown 765 ms into settle window 1")==1); // logged once
+ s.queueBusy=false;NativeGateRetryTick(s,11065);assert(posts==1&&lastRow==7&&Count("home is up")==1);
+ assert(Count("mission queue free after 10000 ms of cooldown; window 1 has settled 10765 ms")==1); // was: window 2 + another full 5 s
+ // the queue frees before 5 s: the window still needs its full 5 s from home up
+ reset();g_nativeAgainAt=220;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);
+ s.queueBusy=true;NativeGateRetryTick(s,1000);s.queueBusy=false;NativeGateRetryTick(s,2000);NativeGateRetryTick(s,5299);assert(!posts);
+ NativeGateRetryTick(s,5300);assert(posts==1);
+ // a gate hidden behind the queue reason (boss fight) is a real interruption with its own name
+ reset();g_nativeAgainAt=230;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);
+ s.queueBusy=true;hidden=true;NativeGateRetryTick(s,1065);assert(Count("settle interrupted after 765 ms (in a boss fight)")==1&&Count("cooldown")==0);
+ hidden=false;NativeGateRetryTick(s,2000);assert(Count("home is up")==1); // queue still busy, window closed: no new window yet
+ s.queueBusy=false;NativeGateRetryTick(s,12000);assert(Count("window 2, 11770 ms after the press, home was busy 10935 ms")==1);
+ NativeGateRetryTick(s,16999);assert(!posts);NativeGateRetryTick(s,17000);assert(posts==1);
+ // other gates still restart at once, even mid-cooldown
+ reset();g_nativeAgainAt=240;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);s.queueBusy=true;NativeGateRetryTick(s,400);
+ blocked=true;NativeGateRetryTick(s,500);assert(Count("settle interrupted after 200 ms (blocked)")==1);
+ blocked=false;s.queueBusy=false;NativeGateRetryTick(s,600);assert(Count("window 2")==1);NativeGateRetryTick(s,5599);assert(!posts);NativeGateRetryTick(s,5600);assert(posts==1);
+ // queue busy before any window opens is not a window
+ reset();g_nativeAgainAt=250;logs.clear();g_attemptPhase=aNone;g_state=kIdle;s.queueBusy=true;NativeGateRetryTick(s,300);NativeGateRetryTick(s,9000);
+ assert(!posts&&Count("home is up")==0&&Count("cooldown")==0);s.queueBusy=false;NativeGateRetryTick(s,10000);NativeGateRetryTick(s,15000);assert(posts==1);
+ puts("PASS native gate retry: #106167 queue cooldown keeps the settle clock, complete return only, normal gates, 5 s settle after home is up (#78), once, new action/attempt/session/quarantine/timeout cancellation, busy requests");
 }
 '''.replace('@BODY@',fn('void NativeGateRetryTick('))
 # Actions must use guarded return, and game thread revalidates identity before arming retry.
