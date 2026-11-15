@@ -198,11 +198,20 @@ bool InputTrusted(int dev, unsigned idx, bool own) {  // own polls read the hard
     auto f = g_inputVirtual;
     return own || !f || !f(dev, idx);
 }
+// #105887: KeyFeed (DirectInput thread / Present own poll) and PadFeed (XInput thread / Present own poll) may run on different
+// threads. g_modalLock serialises the snapshot here against PadFeed's prev / modalSnap read-modify-write, so a release is never
+// lost and the snapshot never reads a half-updated slot. Held for a few bit ops only; no calls, no C++ objects (PadFeed is __try).
+SRWLOCK g_modalLock = SRWLOCK_INIT;
 void ModalityToKey() {
     if (g_modality == MOD_KEY) return;
-    for (PadSlot& s : g_pad) s.modalSnap = s.prev;  // snapshot once, at the switch; a later key press does not widen it
-    InterlockedExchange(&g_modality, MOD_KEY);
-    InterlockedIncrement(&g_modalitySwitches);
+    AcquireSRWLockExclusive(&g_modalLock);
+    const bool sw = g_modality != MOD_KEY;  // re-check under the lock: two key threads snapshot once
+    if (sw) {
+        for (PadSlot& s : g_pad) s.modalSnap = s.prev;  // snapshot once, at the switch; a later key press does not widen it
+        InterlockedExchange(&g_modality, MOD_KEY);
+    }
+    ReleaseSRWLockExclusive(&g_modalLock);
+    if (sw) InterlockedIncrement(&g_modalitySwitches);
 }
 void ModalityToPad() {
     if (g_modality == MOD_PAD) return;
@@ -278,9 +287,11 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g.sThumbLX > ((prev & B_SR) ? 12000 : 20000)) raw |= B_SR;
     if (g.bLeftTrigger > 30) raw |= B_LT;
     if (g.bRightTrigger > 30) raw |= B_RT;
+    AcquireSRWLockExclusive(&g_modalLock);         // #105887: vs ModalityToKey on the keyboard thread
     s.prev = raw;
     s.modalSnap &= raw;                            // UO #14: a released snapshot bit is live again
     const uint32_t live = raw & ~s.modalSnap;      // what the menu may act on (gestures and the game side still see raw)
+    ReleaseSRWLockExclusive(&g_modalLock);
     const uint32_t pressed = live & ~prev;
     g_padHeld[idx] = (LONG)live;
     if (pressed && InputTrusted(0, idx, own)) ModalityToPad();

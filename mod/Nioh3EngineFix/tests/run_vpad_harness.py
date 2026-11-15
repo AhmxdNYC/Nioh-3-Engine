@@ -23,6 +23,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPO = ROOT.parent.parent
 MAIN = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine")
+if not MAIN.exists():  # other machines (pc2, ally): this checkout carries re/scripts_re too
+    MAIN = REPO
 DUMP = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else MAIN / "re" / "Nioh3.dump.exe"
 OUT = ROOT / "build" / "vptest"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -76,7 +78,7 @@ if check(m is not None, "no THUNK line"):
 img = DUMP.read_bytes()
 tool = MAIN / "re" / "scripts_re" / "hook_liveness.py"
 if check(tool.exists(), "hook_liveness.py missing"):
-    r = subprocess.run([sys.executable, "-I", str(tool), "clob", "436CF8"], capture_output=True, text=True, timeout=600)
+    r = subprocess.run([sys.executable, str(tool), "clob", "436CF8"], capture_output=True, text=True, timeout=600)  # no -I: capstone may be in user site-packages
     check(r.stdout.strip().endswith("['flags', 'rax']"), "IsAppActive clobbers %s" % r.stdout.strip()[-80:])
 isact = bytes.fromhex("48 8B 05 11 2C 32 04 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3")
 check(img[0x436CF8:0x436CF8 + 20] == isact, "IsAppActive bytes")
@@ -101,7 +103,9 @@ src = lambda n: (ROOT / "src" / n).read_text(encoding="utf-8")  # noqa: E731
 dm, menu = src("dllmain.cpp"), src("menu.cpp")
 i_vp, i_pl, i_osd = dm.find("vpad::Start(vi)"), dm.find("padlat::Start(li)"), dm.find("osd::Start(si)")
 check(0 < i_vp < i_pl < i_osd, "dllmain: vpad::Start must run before padlat::Start and osd::Start")
-check("if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);" in dm, "dllmain: key filter")
+check(re.search(r"if \(vpad::KeysWanted\(\)\)\s*\{?\s*menu::SetKeyFilter\(&vpad::KeyFilter\);", dm), "dllmain: key filter")
+check(re.search(r"if \(vpad::KeysWanted\(\)\)\s*\{\s*menu::SetKeyFilter\(&vpad::KeyFilter\);\s*menu::SetInputVirtual\(&vpad::InputVirtual\);\s*\}", dm),
+      "dllmain: menu::SetInputVirtual(&vpad::InputVirtual) wired with the key filter (UO #14 trusted-input gate)")
 check("vi.menuRemote = &menu::Remote;" in dm and "vi.pauseReason = &menu::GamePauseReason;" in dm, "dllmain: menu remote / pause")
 check('if (!strcmp(g, "VP")) return false;' in dm, "dllmain: VP group is check-only")
 present_start = menu.index("void OnPresentImpl()")
