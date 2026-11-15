@@ -19,6 +19,11 @@ int main() {
   CHECK(menu_style::KeyPrompts(1,"F10",k)==2&&!strcmp(k[0].keys,"PgUp PgDn")&&!strcmp(k[1].keys,"F10")&&!strcmp(k[1].label,"Close"));
   CHECK(menu_style::KeyPrompts(1,"Insert",k)==2&&!strcmp(k[1].keys,"Insert"));
   CHECK(menu_style::KeyPrompts(1,nullptr,k)==1&&menu_style::KeyPrompts(1,"",k)==1&&menu_style::KeyPrompts(1,"None",k)==1);}
+ // #105956 row hints: every face-button letter gets its key cap under the keyboard
+ CHECK(!strcmp(menu_style::RowKeyCap('A',"F10"),"Enter")&&!strcmp(menu_style::RowKeyCap('B',"F10"),"Esc"));
+ CHECK(!strcmp(menu_style::RowKeyCap('Y',"F10"),"F10")&&!strcmp(menu_style::RowKeyCap('Y',"Insert"),"Insert"));
+ CHECK(!strcmp(menu_style::RowKeyCap('Y',nullptr),"Esc")&&!strcmp(menu_style::RowKeyCap('Y',"None"),"Esc")&&!strcmp(menu_style::RowKeyCap('Y',""),"Esc"));
+ CHECK(menu_style::RowKeyCap('X',"F10")==nullptr);
  savefiles::testAllowed=true;g_disabled=0;g_rematchSession=0;g_cfg.layout=0;g_rematchPage=false;
  g_modality=MOD_PAD;
  Open("prompts");CHECK(g_pages.page==pRoot);
@@ -34,8 +39,12 @@ int main() {
   g_modality=MOD_KEY;Draw(false);CHECK(KeysShown()&&!Has("None")&&Has("PgDn"));
   g_cfg.vk=vk;memcpy(g_cfg.keyName,kn,sizeof kn);}
  // a nested page still follows the modality (Back on B vs Esc)
- EnterPage(pOvFrameMeter);g_modality=MOD_KEY;Draw(false,1280,720);CHECK(KeysShown()&&Has("Back"));
+ EnterPage(pOvFrameMeter);g_modality=MOD_KEY;Draw(false,1280,720);CHECK(KeysShown()&&Has("Back")&&!Has("B")&&!Has("X"));  // #105956: the Back row "B" hint is an Esc cap
  g_modality=MOD_PAD;Draw(false,1280,720);CHECK(PadShown()&&Has("B"));
+ // #105956: a page with a Back row (value "B"): pad shows the B badge on the row, the keyboard an Esc cap, never a B letter
+ {Close("prompts");Open("prompts");EnterPage(pSaveFiles);CHECK(g_pages.page==pSaveFiles);
+  g_modality=MOD_KEY;Draw(false,1280,720);int esc=0;for(auto&t:osd::drawnTexts)esc+=t=="Esc";CHECK(!Has("B")&&esc>=2);
+  g_modality=MOD_PAD;Draw(false,1280,720);CHECK(Has("B"));}
  Close("prompts");
  // hosted Boss Matches / Training page footer
  namespace hf = host_fixture;
