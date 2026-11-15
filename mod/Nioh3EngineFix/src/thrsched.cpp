@@ -708,7 +708,10 @@ DWORD WINAPI FlpThread(LPVOID) {
 }
 
 // ======================================================================================================================
-// FPW file-loader poll wait (#103680, [Patches] FileLoadPoll = 0 | 1, default 0). notes/fileload-poll-wait-103680.md.
+// FPW file-loader poll wait (#103680, [Patches] FileLoadPoll = 0 | 1, default 1 since #104135). notes/fileload-poll-wait-103680.md.
+// #104135 CPU gate (like FLP): the back-off runs only while the process affinity has <= [Tuning] FileLoadPoll_MaxCpus
+// (6) CPUs (4-core Main PC PASS #104047; 12-core PC2 no win #103997). Above the cap FpwBackoff returns at once = the
+// stock loop. FpwGateThread re-checks the affinity every second (it can change after launch) and logs each change.
 // KTGLGraph.Cache.FileLoad.Poll (body 116D30) and FileLoad (body 116F80) loop with NO yield at all until the request
 // ring drains: Poll re-runs while produced [ctx+6BCh] > read-done [6C4h] or read-done > retired [6C8h] (the retire
 // step polls the GPU fence), FileLoad while produced > read-done (it waits on Poll). Each pass ends with the shared
@@ -725,6 +728,8 @@ constexpr uint32_t kFpwLoadFn = 0x116F80, kFpwLoadSite = 0x11702C;  // FileLoad 
 constexpr uint32_t kFpwLockOff = 0xCD0, kFpwCtrOff = 0x6BC;           // ctx+CD0h SRW lock; 6BC/6C0/6C4/6C8 ring counters
 volatile LONG g_fpwOn = 0;
 bool g_fpwInstalled = false;
+int g_fpwMaxCpus = 6;
+volatile LONG g_fpwCpus = 0;  // affinity CPU count at the last gate check
 int g_fpwSpinUs = 20, g_fpwYieldUs = 200, g_fpwSleepUs = 250;
 LARGE_INTEGER g_fpwQpf{};
 uint8_t* g_fpwPage = nullptr;
@@ -740,7 +745,10 @@ FpwSpin g_fpwS[2];  // 0 = FileLoad.Poll, 1 = FileLoad (one thread each)
 volatile LONG64 g_fpwPass[2] = {}, g_fpwPause[2] = {}, g_fpwYield[2] = {}, g_fpwSleep[2] = {}, g_fpwSleptUs[2] = {};
 
 void FpwBackoff(uint8_t* lock, int k) {
-    if (!g_fpwOn) return;
+    if (!g_fpwOn) {  // gate closed (affinity above the cap): stock loop; forget the idle run so a re-open starts fresh
+        g_fpwS[k].idle = false;
+        return;
+    }
     const volatile uint32_t* c = reinterpret_cast<const volatile uint32_t*>(lock - kFpwLockOff + kFpwCtrOff);
     const uint32_t v[4] = {c[0], c[1], c[2], c[3]};
     const bool again = k == 0 ? (v[0] > v[2] || v[2] > v[3]) : v[0] > v[2];  // the native loop condition
@@ -978,6 +986,25 @@ bool FpwInstall() {
     return true;
 }
 
+// #104135: FPW CPU gate. Sets g_fpwOn from the process affinity (<= g_fpwMaxCpus) at once and then every second.
+bool FpwGateCheck(bool first) {
+    const int cpus = AffinityCpus();
+    const bool on = cpus <= g_fpwMaxCpus;
+    const bool was = g_fpwOn != 0;
+    if (first || on != was || cpus != g_fpwCpus)
+        TLOG("FPW: process affinity %d CPUs (cap %d) -> poll wait %s", cpus, g_fpwMaxCpus, on ? "ON" : "off (stock loop)");
+    g_fpwCpus = cpus;
+    InterlockedExchange(&g_fpwOn, on ? 1 : 0);
+    return on;
+}
+
+DWORD WINAPI FpwGateThread(LPVOID) {
+    for (;;) {
+        Sleep(1000);
+        FpwGateCheck(false);
+    }
+}
+
 }  // namespace
 
 void Start(const StartInfo& info) {
@@ -1022,17 +1049,22 @@ void Start(const StartInfo& info) {
         }
     }
 
-    // FPW ([Patches] FileLoadPoll = 0 | 1, [Tuning] FileLoadPoll_SpinUs / _YieldUs / _SleepUs): see FpwBackoff
-    if (I(L"Patches", L"FileLoadPoll", 0) == 1) {
+    // FPW ([Patches] FileLoadPoll = 0 | 1, default 1; [Tuning] FileLoadPoll_MaxCpus 6, FileLoadPoll_SpinUs / _YieldUs /
+    // _SleepUs): see FpwBackoff. A missing key = 1 (#104135); an explicit FileLoadPoll = 0 stays off.
+    if (I(L"Patches", L"FileLoadPoll", 1) == 1) {
+        g_fpwMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPoll_MaxCpus", 6), 1, 64);
         g_fpwSpinUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SpinUs", 20), 0, 10000);
         g_fpwYieldUs = std::clamp(I(L"Tuning", L"FileLoadPoll_YieldUs", 200), g_fpwSpinUs, 100000);
         g_fpwSleepUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SleepUs", 250), 0, 5000);
         QueryPerformanceFrequency(&g_fpwQpf);
         if (g_fpwQpf.QuadPart > 0 && FpwInstall()) {
             g_fpwInstalled = true;
-            g_fpwOn = 1;
             TLOG("FPW: installed (FileLoad.Poll 116F12 + FileLoad 11702C idle passes back off: pause %d us, yield to %d us, then %d us "
-                 "timer waits; any ring progress runs the next pass at once)", g_fpwSpinUs, g_fpwYieldUs, g_fpwSleepUs);
+                 "timer waits; any ring progress runs the next pass at once; only while the process affinity has <= %d CPUs)",
+                 g_fpwSpinUs, g_fpwYieldUs, g_fpwSleepUs, g_fpwMaxCpus);
+            FpwGateCheck(true);
+            if (HANDLE h = CreateThread(nullptr, 0, FpwGateThread, nullptr, 0, nullptr)) CloseHandle(h);
+            else TLOG("FPW: gate thread not started - the affinity at boot decides for the whole launch");
         }
     }
 
@@ -1059,9 +1091,9 @@ void FlpStatusLine(char* buf, unsigned n) {
     if (g_flpThreads || g_flpSets) o = snprintf(buf, n, "FLP: %s | loader threads %ld, lowered %ld, restored %ld", g_flpActive ? "active" : "idle", g_flpThreads, g_flpSets, g_flpRestores);
     if (g_fpwInstalled && o >= 0 && o < (int)n) {
         // Totals since boot: passes, then the idle passes that paused / yielded / slept (and the measured sleep time).
-        snprintf(buf + o, n - o, "%sFPW: Poll passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | FileLoad passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms)",
+        snprintf(buf + o, n - o, "%sFPW: Poll passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | FileLoad passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | gate %s (%ld CPUs, cap %d)",
                  o ? " || " : "", g_fpwPass[0], g_fpwPause[0], g_fpwYield[0], g_fpwSleep[0], g_fpwSleptUs[0] / 1000, g_fpwPass[1],
-                 g_fpwPause[1], g_fpwYield[1], g_fpwSleep[1], g_fpwSleptUs[1] / 1000);
+                 g_fpwPause[1], g_fpwYield[1], g_fpwSleep[1], g_fpwSleptUs[1] / 1000, g_fpwOn ? "ON" : "off", g_fpwCpus, g_fpwMaxCpus);
     }
 }
 
