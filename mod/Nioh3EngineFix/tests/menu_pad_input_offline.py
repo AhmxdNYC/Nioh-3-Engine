@@ -60,7 +60,9 @@ ULONGLONG g_fakeNow = 1000;
 namespace padviz { template <class... A> void Feed(A...) {} }
 namespace padcard { template <class... A> void Feed(A...) {} }  // UO #8 status card feed (read-only)
 namespace inputlog { template <class... A> void ObservePad(A...) {} template <class... A> void ObserveKey(A...) {} }
-#define MLOG(...) do {} while (0)
+char g_mlog[32768]; size_t g_mlogLen = 0; int g_mlogLines = 0;  // #105941: captured MENU log lines, newline separated
+void MlogAdd(const char* b) { size_t n = strlen(b); if (g_mlogLen + n + 2 < sizeof g_mlog) { memcpy(g_mlog + g_mlogLen, b, n); g_mlogLen += n; g_mlog[g_mlogLen++] = 10; g_mlog[g_mlogLen] = 0; } ++g_mlogLines; }
+#define MLOG(...) do { char b_[512]; snprintf(b_, sizeof b_, __VA_ARGS__); MlogAdd(b_); } while (0)
 struct Cfg {
     UINT vk = VK_F10; uint8_t dik = 0x44; char keyName[16] = "F10";
     uint32_t holdMask = XINPUT_GAMEPAD_START; int holdMs = 5000; int gesture = 1;
@@ -94,6 +96,7 @@ void ResetAll() {
     g_escTaps = 0; g_escTap0 = g_escLast = g_escSynth = g_escMuteUntil = 0; g_escPass = g_escPrevDown = false;
     g_coverToken = 0; g_coverCancelUntil = 0; g_coverCancel = false; g_coverCaptures = false;
     g_modality = MOD_PAD; g_modalitySwitches = 0; g_inputVirtual = nullptr; g_virtPad = 0; g_virtKeys = false;
+    g_virtLogged = 0; g_modalityLogged = 0; g_mlog[0] = 0; g_mlogLen = 0; g_mlogLines = 0;
     g_cfg = Cfg{};
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
@@ -403,6 +406,32 @@ int main() {
     ResetAll(); Keys(1000, {DIK_UP}); Feed(1050, 0, 0, 0, 0, 0, 0, 200); CHECK(g_modality == MOD_PAD);
     ResetAll(); g_disabled = 1; Keys(1000, {DIK_UP}); CHECK(g_modality == MOD_KEY);
 
+    // ---- #105941: one log line per real modality flip (with its source); one 'VPad input: modality locked' line per session ----
+    ResetAll(); Feed(1000, A); Feed(1050, 0);
+    Keys(1100, {DIK_ESCAPE}); Keys(1150, {});
+    CHECK(g_mlogLines == 1 && strstr(g_mlog, "input modality pad->key (Esc, game keyboard read)") != nullptr);
+    Keys(1200, {DIK_DOWN}); Keys(1250, {}); CHECK(g_mlogLines == 1);                           // no flip: no line
+    Feed(1300, DD); CHECK(g_mlogLines == 2 && strstr(g_mlog, "input modality key->pad (pad slot 0, buttons 000002, game pad read)") != nullptr);
+    Feed(1350, 0); Keys(1400, {DIK_UP}, true); CHECK(g_mlogLines == 3 && strstr(g_mlog, "pad->key (Up, own keyboard poll)") != nullptr);
+    ResetAll(); g_inputVirtual = &FakeVirtual; g_virtKeys = true;
+    Keys(1000, {DIK_DOWN}); Keys(1050, {}); Keys(1100, {DIK_UP}); Keys(1150, {});
+    g_virtPad = 1; Feed(1200, A); Feed(1250, 0); Feed(1300, A);
+    CHECK(g_modalitySwitches == 0 && g_mlogLines == 1 && strstr(g_mlog, "VPad input: modality locked - virtual keyboard0 drives") != nullptr);
+    // the log is capped: 200 lines, the 200th says so, no more after
+    ResetAll();
+    for (int i = 0; i < 300; ++i) { Keys(1000 + 40 * i, {DIK_DOWN}); Keys(1010 + 40 * i, {}); Feed(1020 + 40 * i, DD); Feed(1030 + 40 * i, 0); }
+    CHECK(g_modalitySwitches == 600 && g_mlogLines == 200 && strstr(g_mlog, "200 switches logged, further switches are not logged") != nullptr);
+    // ---- #105941 Ally boot 1: the first key after pad use flips modality AND still acts (it is never eaten by the flip) ----
+    // menu open on Home after pad navigation, one Esc tap -> N_BACK (Back closes the Home page); pad A still held at the flip
+    ResetAll(); g_open = 1; Feed(1000, DD); Feed(1050, 0); TakePressed(); TakePadPressed(); Feed(1100, A); TakePressed(); TakePadPressed();
+    Keys(1150, {DIK_ESCAPE}); CHECK(g_modality == MOD_KEY && TakePressed() == N_BACK && TakePadPressed() == 0);
+    Keys(1200, {}); CHECK(TakePressed() == 0);
+    // same with the menu closed: a lone Esc after pad use still reaches the game (held back for TapGapMs, then replayed)
+    ResetAll(); Feed(1000, B); Feed(1050, 0); Keys(1100, {DIK_ESCAPE}); CHECK(g_modality == MOD_KEY && g_keys[DIK_ESCAPE] == 0);
+    Keys(1150, {}); Keys(1450, {}); CHECK(g_keys[DIK_ESCAPE] == 0x80);
+    // the first arrow / Enter after pad use move / confirm on the same read as the flip
+    ResetAll(); g_open = 1; Feed(1000, A); Feed(1050, 0); TakePressed(); Keys(1100, {DIK_DOWN}); CHECK(TakePressed() == N_DOWN);
+    ResetAll(); g_open = 1; Feed(1000, A); Feed(1050, 0); TakePressed(); Keys(1100, {DIK_RETURN}); CHECK(TakePressed() == N_OK);
     printf("menu pad input: %d checks, %d failed (production menu.cpp PadFeed/KeyFeed/NavRepeat; offline)\n", checks, fails);
     return fails ? 1 : 0;
 }
