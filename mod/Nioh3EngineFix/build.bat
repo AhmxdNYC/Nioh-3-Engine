@@ -46,6 +46,10 @@ rem Preset startup persistence and VRS independence (no game/device).
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extraperf_menu_test.obj tests\extraperf_menu_test.cpp || exit /b 1
 build\extraperf_menu_test.exe || exit /b 1
 
+rem PTS present-thread start guard (crash report #86): stock race crashes, guarded thread waits (no game/device).
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\ptstart_harness.exe /Fobuild\ tests\ptstart_harness.cpp src\ptstart.cpp || exit /b 1
+build\ptstart_harness.exe || exit /b 1
+
 rem VRS classification and command-list state regression tests (no game/device).
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
 build\vrs_menu_test.exe || exit /b 1
@@ -157,6 +161,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem RC read cache / AQ async archive reads / TSY / SH ([Patches] RC = AQ = TSY = SH = 0; notes\loading-ally-fixed.md 8.7)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\readfix.obj src\readfix.cpp || exit /b 1
+rem PTS present-thread start guard ([Patches] PTS = 1; crash report #86)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\ptstart.obj src\ptstart.cpp || exit /b 1
 rem PJ PSO journal + title-screen prewarm ([Patches] PJ = 0; notes\stutter.md 3.1)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\psojournal.obj src\psojournal.cpp || exit /b 1

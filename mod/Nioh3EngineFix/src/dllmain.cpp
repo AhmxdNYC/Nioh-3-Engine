@@ -55,6 +55,7 @@
 #include "asyncslots.h"
 #include "loadonly.h"
 #include "readfix.h"
+#include "ptstart.h"
 #include "readprobe.h"
 #include "jt.h"
 #include "pmode.h"
@@ -1723,6 +1724,9 @@ DWORD WINAPI Worker(LPVOID) {
     bool rfPending = known && readfix::BootWanted(SelfPathWithExt(L".ini").c_str(), rfBoot);
     const int rfCap = wcPending ? cfg.workerCap : 0;
     auto tryRF = [&]() { rfPending = readfix::BootTry(reinterpret_cast<uintptr_t>(g_base), rfBoot, rfCap, logical, &Log); };
+    // PTS (crash #86): the Present thread must not start before its wake event exists (ptstart.h); boot-time, before the renderer
+    bool ptsPending = known && ptstart::BootWanted(SelfPathWithExt(L".ini").c_str());
+    auto tryPTS = [&]() { ptsPending = ptstart::BootTry(reinterpret_cast<uintptr_t>(g_base), &Log); };
     bool vsPending = known;  // 1.7.48 VS: D3D12CreateDevice IAT hook before the device exists ([Profiler] MemStats = 2)
     const std::wstring vsIni = SelfPathWithExt(L".ini");
     const DWORD t0 = GetTickCount();
@@ -1734,6 +1738,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (as0Pending) tryAS0();
         if (asPending) asPending = asyncslots::BootTry(reinterpret_cast<uintptr_t>(g_base), asBoot, &Log);
         if (rfPending) tryRF();
+        if (ptsPending) tryPTS();
         if (known) {
             ready = true;
             for (const gen::Site* s : sentinels)
@@ -1743,7 +1748,7 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending || ptsPending) ? 0 : known ? 20 : 250);
     }
     if (vsPending) vsPending = !memstats::BootIat(reinterpret_cast<uintptr_t>(g_base), vsIni.c_str(), &Log);
     if (rfPending) tryRF();
@@ -1757,6 +1762,8 @@ DWORD WINAPI Worker(LPVOID) {
     if (asBoot.gateWritten) s_as0Applied = true;
     if (wcPending) Log("WC: sites not in their original state after decryption - skipped");
     if (p12Pending) Log("P12: site not in its original state after decryption - skipped");
+    if (ptsPending) tryPTS();
+    if (ptsPending) Log("PTS: present thread entry not in its original state after decryption - skipped");
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
     Log(ready ? "code is decrypted (%lu ms after start)" : "code did not reach the expected state within %lu ms - scanning anyway, each site is still verified",
         GetTickCount() - t0);
@@ -2857,6 +2864,11 @@ DWORD WINAPI Worker(LPVOID) {
                     char ab[400];
                     asyncslots::StatusLine(ab, sizeof ab, reinterpret_cast<uintptr_t>(g_base));
                     if (ab[0]) Log("stats/s %s", ab);
+                }
+                if (sec % 30 == 0 && ptstart::Applied()) {  // PTS: > 0 = the start race happened and was held off
+                    static long s_ptsLogged = -1;
+                    const long w = ptstart::WaitRounds();
+                    if (w != s_ptsLogged) { Log("PTS: present thread start waits %ld round(s) of 1 ms for its event", w); s_ptsLogged = w; }
                 }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1

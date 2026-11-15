@@ -164,6 +164,7 @@ constexpr Def kDefs[] = {
     {0x1A7C455, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 55 D0 48 8B CF 41 FF 14 C0 48 8B", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
     {0x1A7C467, kCode, "48 8B 4D D8 48 8B 45 D0 EB DB 80 7D", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp, replayprof.cpp
     {0x1A7C4C0, kCode, "24 68 48 83 C4 50 5D C3 8B 41 28 39", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
+    {0x1A82298, kCode, "40 53 48 83 EC 20 48 8B D9 48 8B 89 20 77 00 00 EB 52 48 8B", 0, 0x0, 0, 0, 0, ""},  // ptstart.cpp
     {0x1C205A4, kCode, "40 53 48 83 EC 20 48 8B 01 48 8B D9 80 B8 9A 27 00 00 00 75 40 F3 0F 10 0D ?? ?? ??", 0, 0x0, 0, 0, 0, ""},  // savefiles.cpp
     {0x1C35372, kCode, "B9 F1 AB C4 03 E8 ?? ?? ?? ?? 48 8B", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp
     {0x1C35393, kCode, "E8 ?? ?? ?? ?? 44 38 6F 55 0F 85 ??", 0, 0x0, 0, 0, 0, ""},  // bootnotice.cpp

@@ -1348,6 +1348,15 @@
    ]
   },
   {
+   "rva": "0x1A82298",
+   "kind": "code",
+   "pattern": "40 53 48 83 EC 20 48 8B D9 48 8B 89 20 77 00 00 EB 52 48 8B",
+   "offset": 0,
+   "used_in": [
+    "ptstart.cpp"
+   ]
+  },
+  {
    "rva": "0x1C205A4",
    "kind": "code",
    "pattern": "40 53 48 83 EC 20 48 8B 01 48 8B D9 80 B8 9A 27 00 00 00 75 40 F3 0F 10 0D ?? ?? ??",
