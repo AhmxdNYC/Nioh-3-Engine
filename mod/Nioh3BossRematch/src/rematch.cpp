@@ -1067,6 +1067,7 @@ int g_trainingRoute = -1;
 bool g_warpPending = false;      // a warp is due once the mission is idle (load done, player, no fight)
 ULONGLONG g_warpDue = 0;
 int g_warps = 0, g_fightRow = -1;
+int g_lastFightRow = -1; ULONGLONG g_lastFightEnd = 0;  // #106298: the row an attempt had when it ended, for the post-win white dot
 // Fight now verification (per start): armed -> warped -> PASS (a BossBattleMode after the first warp) / FAIL (none within 8 s of
 // the first warp, loading time not counted; up to 3 warps when the player is not inside the trigger box 1.5 s after a warp)
 enum FnState : int { kFnIdle = 0, kFnArmed = 1, kFnWarped = 2, kFnPass = 3, kFnFail = 4 };
@@ -1121,6 +1122,7 @@ void ToIdle(const char* why, bool normalExit = false) {
     g_fightWarp = g_warpPending = false;
     g_trainingDestination = false; g_trainingRoute = -1;
     g_warps = 0;
+    if (g_fightRow >= 0) { g_lastFightRow = g_fightRow; g_lastFightEnd = Ms(); }
     g_fightRow = -1;
     if (g_fn.load() == kFnArmed || g_fn.load() == kFnWarped) g_fn.store(kFnIdle);
     g_gateWant.store(0);
@@ -3487,8 +3489,10 @@ void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 // #106000 white dot: UI::SetCompassDestination(Index) is the script native that puts the white dot on the compass (lesson end,
 // clear gadget spot). Log-only and universal: the target comes from the game's own call, so no row needs a stored point. The
 // test harness walks to the newest 'white dot' line. The last three float args are x y z (the Index form has one more arg first).
+// #106298: not gated on g_fight. The lesson-end dot comes after the win retires the attempt (15 ms later on RA0A1), so the line
+// names the attempt's row for 120 s after it ended; later dots log with no row. Deduped per point, so a per-frame call logs once.
+static constexpr ULONGLONG kDotAfterMs = 120000;
 static void LogWhiteDot(uint64_t ctx, const char* form) {
-    if (!g_fight.load()) return;
     uint32_t val[6] = {};
     uint16_t ty[6] = {};
     const int n = LessonVmArgs(ctx, val, ty, 6);
@@ -3506,7 +3510,8 @@ static void LogWhiteDot(uint64_t ctx, const char* form) {
     float cur[4] = {};
     const bool ok = PlayerPos(cur);
     const float dx = xyz[0] - cur[0], dz = xyz[2] - cur[2];
-    const int fr = g_fightRow;
+    const bool after = g_fightRow < 0 && g_lastFightRow >= 0 && Ms() - g_lastFightEnd < kDotAfterMs;
+    const int fr = g_fightRow >= 0 ? g_fightRow : (after ? g_lastFightRow : -1);
     const char* id = (fr >= 0 && (size_t)fr < g_rows.size()) ? g_rows[(size_t)fr].id : "";
     if (ok)
         Log("Rematch: white dot %.0f %.0f %.0f (%s) - player %.0f %.0f %.0f, %.1f m flat%s%s", xyz[0], xyz[1], xyz[2], form, cur[0], cur[1], cur[2],
