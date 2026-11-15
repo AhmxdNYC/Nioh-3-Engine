@@ -1039,8 +1039,8 @@ void Start(const StartInfo& info) {
         }
     }
 
-    // FLP ([Patches] FileLoadPrio = 0 | 1, [Tuning] FileLoadPrio_MaxCpus = 6): see FlpThread
-    if (I(L"Patches", L"FileLoadPrio", 0) == 1) {
+    // FLP ([Patches] FileLoadPrio = 0 | 1, default 1, [Tuning] FileLoadPrio_MaxCpus = 6): see FlpThread
+    if (I(L"Patches", L"FileLoadPrio", 1) == 1) {  // default 1 since v1.8.19 (WalkFixDefaultV, dllmain)
         g_flpMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPrio_MaxCpus", 6), 1, 64);
         if (!g_getDesc) TLOG("FLP: GetThreadDescription not available - off");
         else if (HANDLE h = CreateThread(nullptr, 0, FlpThread, nullptr, 0, nullptr)) {

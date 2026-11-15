@@ -541,12 +541,21 @@ Config LoadConfig() {
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
     c.workerCap = I(L"Patches", L"WorkerCap", c.workerCap);
-    // KidstsCap (#102935, default 0): size the job pools for the CPUs the game may actually use. 1 = the process affinity
+    // Walk-fix defaults (v1.8.19, Ally PASS #105500): KidstsCap and FileLoadPrio default 1 (both no-ops on a full-affinity
+    // PC with more than FileLoadPrio_MaxCpus CPUs). Shipped inis up to v1.8.18 wrote 0; flip an explicit 0 to 1 once and
+    // stamp WalkFixDefaultV = 1 (same pattern as FpwDefaultV #104185); with the marker present the keys are never touched
+    // again (a later manual 0 sticks). Runs before thrsched reads FileLoadPrio.
+    if (I(L"Patches", L"WalkFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"KidstsCap", 1) == 0) WritePrivateProfileStringW(L"Patches", L"KidstsCap", L"1", f);
+        if (I(L"Patches", L"FileLoadPrio", 1) == 0) WritePrivateProfileStringW(L"Patches", L"FileLoadPrio", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"WalkFixDefaultV", L"1", f);
+    }
+    // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
     // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
     // and the count is below the logical CPU count; becomes WorkerCap = max(6, count) because the engine's own pool base
     // is clamp(logical, 6, 32) (a real 4-core CPU gets base 6). notes/walk-hitch-102842.md.
     {
-        const int kc = I(L"Patches", L"KidstsCap", 0);
+        const int kc = I(L"Patches", L"KidstsCap", 1);
         if (kc > 0 && c.workerCap == 0) {
             DWORD_PTR pm = 0, sm = 0;
             int n = kc;
