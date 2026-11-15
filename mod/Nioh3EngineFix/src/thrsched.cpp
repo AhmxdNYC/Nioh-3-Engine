@@ -4,6 +4,7 @@
 #endif
 #include <windows.h>
 #include <tlhelp32.h>
+#include <intrin.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -700,6 +701,277 @@ DWORD WINAPI FlpThread(LPVOID) {
     }
 }
 
+// ======================================================================================================================
+// FPW file-loader poll wait (#103680, [Patches] FileLoadPoll = 0 | 1, default 0). notes/fileload-poll-wait-103680.md.
+// KTGLGraph.Cache.FileLoad.Poll (body 116D30) and FileLoad (body 116F80) loop with NO yield at all until the request
+// ring drains: Poll re-runs while produced [ctx+6BCh] > read-done [6C4h] or read-done > retired [6C8h] (the retire
+// step polls the GPU fence), FileLoad while produced > read-done (it waits on Poll). Each pass ends with the shared
+// unlock of the SRW lock ctx+CD0h (call [IAT] at 116F12 / 11702C, rcx = ctx+CD0h). FPW retargets those two calls to a
+// thunk that unlocks exactly as before and then, ONLY when the loop is about to run again AND no ring counter moved
+// since the previous pass, backs off: pause for FileLoadPoll_SpinUs (20), then SwitchToThread until
+// FileLoadPoll_YieldUs (200), then a high-resolution timer wait of FileLoadPoll_SleepUs (250) per pass. Any counter
+// change = progress = the next pass runs at once. The native loop still makes every decision; the thunk never
+// changes a counter, the lock or the loop condition, so the result is identical, only the idle passes give the CPU
+// away. Patched in place: one 6-byte instruction each (atomic / spin-parked write, as autocont.cpp).
+// ======================================================================================================================
+constexpr uint32_t kFpwPollFn = 0x116D30, kFpwPollSite = 0x116F12;  // FileLoad.Poll body / its per-pass unlock call
+constexpr uint32_t kFpwLoadFn = 0x116F80, kFpwLoadSite = 0x11702C;  // FileLoad body / its per-pass unlock call
+constexpr uint32_t kFpwLockOff = 0xCD0, kFpwCtrOff = 0x6BC;           // ctx+CD0h SRW lock; 6BC/6C0/6C4/6C8 ring counters
+volatile LONG g_fpwOn = 0;
+bool g_fpwInstalled = false;
+int g_fpwSpinUs = 20, g_fpwYieldUs = 200, g_fpwSleepUs = 250;
+LARGE_INTEGER g_fpwQpf{};
+uint8_t* g_fpwPage = nullptr;
+RUNTIME_FUNCTION g_fpwRf[2]{};
+struct FpwSpin {
+    DWORD tid = 0;
+    bool idle = false;  // the previous pass looped
+    uint32_t c[4] = {};
+    LONGLONG t0 = 0;
+    HANDLE timer = nullptr;  // high-resolution waitable timer (INVALID_HANDLE_VALUE = not available)
+};
+FpwSpin g_fpwS[2];  // 0 = FileLoad.Poll, 1 = FileLoad (one thread each)
+volatile LONG64 g_fpwPass[2] = {}, g_fpwPause[2] = {}, g_fpwYield[2] = {}, g_fpwSleep[2] = {}, g_fpwSleptUs[2] = {};
+
+void FpwBackoff(uint8_t* lock, int k) {
+    if (!g_fpwOn) return;
+    const volatile uint32_t* c = reinterpret_cast<const volatile uint32_t*>(lock - kFpwLockOff + kFpwCtrOff);
+    const uint32_t v[4] = {c[0], c[1], c[2], c[3]};
+    const bool again = k == 0 ? (v[0] > v[2] || v[2] > v[3]) : v[0] > v[2];  // the native loop condition
+    FpwSpin& s = g_fpwS[k];
+    const DWORD tid = GetCurrentThreadId();
+    if (s.tid != tid) {
+        s.tid = tid;
+        s.idle = false;
+    }
+    InterlockedIncrement64(&g_fpwPass[k]);
+    if (!again) {
+        s.idle = false;
+        return;
+    }
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    if (!s.idle || v[0] != s.c[0] || v[1] != s.c[1] || v[2] != s.c[2] || v[3] != s.c[3]) {
+        s.idle = true;  // first looping pass or progress since the last one: run the next pass at once
+        memcpy(s.c, v, sizeof(v));
+        s.t0 = now.QuadPart;
+        return;
+    }
+    const LONGLONG us = (now.QuadPart - s.t0) * 1000000 / g_fpwQpf.QuadPart;
+    if (us < g_fpwSpinUs) {
+        for (int i = 0; i < 16; ++i) YieldProcessor();
+        InterlockedIncrement64(&g_fpwPause[k]);
+        return;
+    }
+    if (us < g_fpwYieldUs || g_fpwSleepUs <= 0) {
+        SwitchToThread();
+        InterlockedIncrement64(&g_fpwYield[k]);
+        return;
+    }
+    if (!s.timer) {
+        s.timer = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002 /*HIGH_RESOLUTION*/, TIMER_ALL_ACCESS);
+        if (!s.timer) s.timer = INVALID_HANDLE_VALUE;
+    }
+    LARGE_INTEGER due;
+    due.QuadPart = -(LONGLONG)g_fpwSleepUs * 10;
+    if (s.timer != INVALID_HANDLE_VALUE && SetWaitableTimer(s.timer, &due, 0, nullptr, nullptr, FALSE)) {
+        WaitForSingleObject(s.timer, 50);
+        LARGE_INTEGER t1;
+        QueryPerformanceCounter(&t1);
+        InterlockedIncrement64(&g_fpwSleep[k]);
+        InterlockedAdd64(&g_fpwSleptUs[k], (t1.QuadPart - now.QuadPart) * 1000000 / g_fpwQpf.QuadPart);
+    } else {
+        SwitchToThread();
+        InterlockedIncrement64(&g_fpwYield[k]);
+    }
+}
+void FpwBackoffPoll(uint8_t* lock) { FpwBackoff(lock, 0); }
+void FpwBackoffLoad(uint8_t* lock) { FpwBackoff(lock, 1); }
+
+uint8_t* FpwAllocIn(uintptr_t from, uintptr_t to, size_t size) {
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    const uintptr_t g = si.dwAllocationGranularity;
+    MEMORY_BASIC_INFORMATION mbi;
+    for (uintptr_t a = (from + g - 1) & ~(g - 1); a < to;) {
+        if (!VirtualQuery((void*)a, &mbi, sizeof(mbi))) break;
+        const uintptr_t rb = (uintptr_t)mbi.BaseAddress, re = rb + mbi.RegionSize;
+        if (mbi.State == MEM_FREE) {
+            const uintptr_t c = (rb + g - 1) & ~(g - 1);
+            if (c >= from && c + size <= re && c + size <= to)
+                if (void* p = VirtualAlloc((void*)c, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE)) return (uint8_t*)p;
+        }
+        if (re <= a) break;
+        a = re;
+    }
+    return nullptr;
+}
+uint8_t* FpwAllocNear(uintptr_t lo, uintptr_t hi, size_t size) {
+    const uintptr_t reach = 0x7FF00000ull - (hi - lo);
+    if (uint8_t* p = FpwAllocIn(hi, hi + reach, size)) return p;
+    return FpwAllocIn(lo > reach + 0x10000 ? lo - reach : 0x10000, lo, size);
+}
+// One interlocked 8- or 16-byte compare-exchange; else park the first 2 bytes on "jmp $", write the tail, then the head
+// (same scheme as autocont.cpp). The site is one instruction, so no thread can be inside it.
+bool FpwPatchAtomic(uint8_t* p, const uint8_t* bytes, size_t len) {
+    const uintptr_t a = (uintptr_t)p, w8 = a & ~uintptr_t(7), w16 = a & ~uintptr_t(15);
+    const bool fit8 = a + len <= w8 + 8, fit16 = a + len <= w16 + 16;
+    if (!fit8 && !fit16) return false;
+    void* win = fit8 ? (void*)w8 : (void*)w16;
+    const size_t wlen = fit8 ? 8 : 16;
+    DWORD old = 0;
+    if (!VirtualProtect(win, wlen, PAGE_EXECUTE_READWRITE, &old)) return false;
+    bool ok = false;
+    if (fit8) {
+        volatile LONG64* q = (volatile LONG64*)w8;
+        const LONG64 cur = *q;
+        LONG64 nw = cur;
+        memcpy((uint8_t*)&nw + (a - w8), bytes, len);
+        ok = InterlockedCompareExchange64(q, nw, cur) == cur;
+    } else {
+        volatile LONG64* q = (volatile LONG64*)w16;
+        alignas(16) LONG64 cur[2] = {q[0], q[1]};
+        LONG64 nw[2] = {cur[0], cur[1]};
+        memcpy((uint8_t*)nw + (a - w16), bytes, len);
+        ok = _InterlockedCompareExchange128(q, nw[1], nw[0], cur) != 0;
+    }
+    VirtualProtect(win, wlen, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), win, wlen);
+    return ok;
+}
+bool FpwPatch(uint8_t* p, const uint8_t* bytes, size_t len) {
+    if (FpwPatchAtomic(p, bytes, len)) return true;
+    static const uint8_t spin[2] = {0xEB, 0xFE};
+    uint8_t orig[2] = {p[0], p[1]};
+    if (len < 3 || !FpwPatchAtomic(p, spin, 2)) return false;
+    DWORD old = 0;
+    if (!VirtualProtect(p + 2, len - 2, PAGE_EXECUTE_READWRITE, &old)) {
+        FpwPatchAtomic(p, orig, 2);
+        return false;
+    }
+    memcpy(p + 2, bytes + 2, len - 2);
+    VirtualProtect(p + 2, len - 2, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), p, len);
+    return FpwPatchAtomic(p, bytes, 2);
+}
+// Masked compare (0x100 = any byte).
+bool FpwMatch(const uint8_t* p, const uint16_t* pat, size_t n) {
+    for (size_t i = 0; i < n; ++i)
+        if (pat[i] < 0x100 && p[i] != pat[i]) return false;
+    return true;
+}
+constexpr uint16_t W = 0x100;
+// From site - 3: mov rcx,r15; call [IAT unlock]; ... both back-edges "ja" (targets checked separately).
+const uint16_t kFpwPollPat[] = {0x49, 0x8B, 0xCF, 0xFF, 0x15, W, W, W, W, 0x8B, 0x85, 0xC4, 0x06, 0x00, 0x00, 0x48, 0x8D, 0xBD, 0xA8,
+                                0x06, 0x00, 0x00, 0x4C, 0x8D, 0xB5, 0xB8, 0x07, 0x00, 0x00, 0x39, 0x85, 0xBC, 0x06, 0x00, 0x00, 0x0F,
+                                0x87, W, W, W, W, 0x48, 0x8D, 0xBD, 0xA8, 0x06, 0x00, 0x00, 0x4C, 0x8D, 0xB5, 0xB8, 0x07, 0x00, 0x00,
+                                0x3B, 0x85, 0xC8, 0x06, 0x00, 0x00, 0x0F, 0x87, W, W, W, W};
+// From site - 3: mov rcx,rbx; call [IAT unlock]; mov eax,[rsi+1Ch]; cmp [rsi+14h],eax; ja (loop head)
+const uint16_t kFpwLoadPat[] = {0x48, 0x8B, 0xCB, 0xFF, 0x15, W, W, W, W, 0x8B, 0x46, 0x1C, 0x39, 0x46, 0x14, 0x77, 0x96};
+const uint8_t kFpwPollLea[] = {0x4C, 0x8D, 0xB9, 0xD0, 0x0C, 0x00, 0x00};  // fn+23h lea r15,[rcx+CD0h]
+const uint8_t kFpwLoadLea[] = {0x48, 0x8D, 0x99, 0xD0, 0x0C, 0x00, 0x00};  // fn+25h lea rbx,[rcx+CD0h]
+const uint8_t kFpwLoadRing[] = {0x48, 0x8D, 0xB1, 0xA8, 0x06, 0x00, 0x00};  // fn+3Ah lea rsi,[rcx+6A8h]
+
+// Thunk: sub rsp,28h; mov [rsp+20h],rcx; mov rax,[slot ptr]; call [rax] (the native unlock); mov rcx,[rsp+20h];
+// call [backoff]; add rsp,28h; ret. 34 bytes, unwind = UWOP_ALLOC_SMALL 28h after a 4-byte prolog.
+size_t FpwThunk(uint8_t* t, const void* slotVar, const void* fnVar) {
+    static const uint8_t code[] = {0x48, 0x83, 0xEC, 0x28, 0x48, 0x89, 0x4C, 0x24, 0x20, 0x48, 0x8B, 0x05, 0, 0, 0, 0, 0xFF,
+                                   0x10, 0x48, 0x8B, 0x4C, 0x24, 0x20, 0xFF, 0x15, 0, 0, 0, 0, 0x48, 0x83, 0xC4, 0x28, 0xC3};
+    memcpy(t, code, sizeof(code));
+    const int32_t d1 = (int32_t)((const uint8_t*)slotVar - (t + 16)), d2 = (int32_t)((const uint8_t*)fnVar - (t + 29));
+    memcpy(t + 12, &d1, 4);
+    memcpy(t + 25, &d2, 4);
+    return sizeof(code);
+}
+
+// Verifies both sites, builds the thunks, retargets the two calls. Logs one line either way.
+bool FpwInstall() {
+    const uint32_t rPf = Grva(kFpwPollFn), rPs = Grva(kFpwPollSite), rLf = Grva(kFpwLoadFn), rLs = Grva(kFpwLoadSite);
+    if (!rPf || !rPs || !rLf || !rLs) {
+        TLOG("FPW: not installed (loader poll loop not found on this build)");
+        return false;
+    }
+    uint8_t* pf = (uint8_t*)(g_base + Grva(kFpwPollFn));
+    uint8_t* ps = (uint8_t*)(g_base + Grva(kFpwPollSite));
+    uint8_t* lf = (uint8_t*)(g_base + Grva(kFpwLoadFn));
+    uint8_t* ls = (uint8_t*)(g_base + Grva(kFpwLoadSite));
+    auto relTarget = [](const uint8_t* jcc6) {  // 0F 87 rel32
+        int32_t r;
+        memcpy(&r, jcc6 + 2, 4);
+        return jcc6 + 6 + r;
+    };
+    bool ok = false;
+    __try {
+        ok = FpwMatch(ps - 3, kFpwPollPat, sizeof(kFpwPollPat) / sizeof(kFpwPollPat[0])) &&
+             FpwMatch(ls - 3, kFpwLoadPat, sizeof(kFpwLoadPat) / sizeof(kFpwLoadPat[0])) &&
+             !memcmp(pf + 0x23, kFpwPollLea, sizeof(kFpwPollLea)) && !memcmp(lf + 0x25, kFpwLoadLea, sizeof(kFpwLoadLea)) &&
+             !memcmp(lf + 0x3A, kFpwLoadRing, sizeof(kFpwLoadRing)) &&
+             relTarget(ps + 0x20) == pf + 0x50 && relTarget(ps + 0x3A) == pf + 0x50 &&  // both Poll back-edges -> loop head
+             ls + 6 + 8 - 0x6A == lf + 0x50;                                           // FileLoad back-edge -> loop head
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        ok = false;
+    }
+    if (!ok) {
+        TLOG("FPW: not installed (loader poll loop bytes differ - another patch or build)");
+        return false;
+    }
+    g_fpwPage = FpwAllocNear(g_base, g_imgEnd, 4096);
+    if (!g_fpwPage) {
+        TLOG("FPW: not installed (no executable page within 2 GB of the image)");
+        return false;
+    }
+    // Page: 0x000 Poll thunk, 0x040 FileLoad thunk, 0x080 unwind info, 0x100 data (IAT slot addresses, backoff fns).
+    uint8_t* t = g_fpwPage;
+    void** data = reinterpret_cast<void**>(t + 0x100);
+    int32_t d;
+    memcpy(&d, ps + 2, 4);
+    data[0] = ps + 6 + d;  // Poll's unlock IAT slot
+    memcpy(&d, ls + 2, 4);
+    data[1] = ls + 6 + d;  // FileLoad's unlock IAT slot
+    data[2] = reinterpret_cast<void*>(&FpwBackoffPoll);
+    data[3] = reinterpret_cast<void*>(&FpwBackoffLoad);
+    const size_t n0 = FpwThunk(t, &data[0], &data[2]);
+    const size_t n1 = FpwThunk(t + 0x40, &data[1], &data[3]);
+    static const uint8_t unwind[8] = {0x01, 0x04, 0x01, 0x00, 0x04, 0x42, 0x00, 0x00};  // v1, prolog 4, 1 code: ALLOC_SMALL 28h
+    memcpy(t + 0x80, unwind, sizeof(unwind));
+    g_fpwRf[0] = {0x000, (DWORD)n0, 0x80};
+    g_fpwRf[1] = {0x040, (DWORD)(0x40 + n1), 0x80};
+    FlushInstructionCache(GetCurrentProcess(), t, 0x200);
+    if (!RtlAddFunctionTable(g_fpwRf, 2, reinterpret_cast<DWORD64>(t))) {
+        TLOG("FPW: not installed (thunk unwind registration failed)");
+        return false;
+    }
+    auto callTo = [](uint8_t* site, uint8_t* thunk, uint8_t out[6]) {  // E8 rel32 + 1-byte nop replaces FF 15 disp32
+        const intptr_t r = (intptr_t)thunk - (intptr_t)(site + 5);
+        if (r < INT32_MIN || r > INT32_MAX) return false;
+        const int32_t r32 = (int32_t)r;
+        out[0] = 0xE8;
+        memcpy(out + 1, &r32, 4);
+        out[5] = 0x90;
+        return true;
+    };
+    uint8_t bp[6], bl[6];
+    if (!callTo(ps, t, bp) || !callTo(ls, t + 0x40, bl)) {
+        TLOG("FPW: not installed (thunk out of rel32 reach)");
+        RtlDeleteFunctionTable(g_fpwRf);
+        return false;
+    }
+    uint8_t origP[6];
+    memcpy(origP, ps, 6);
+    if (!FpwPatch(ps, bp, 6)) {
+        TLOG("FPW: not installed (Poll site write failed)");
+        RtlDeleteFunctionTable(g_fpwRf);
+        return false;
+    }
+    if (!FpwPatch(ls, bl, 6)) {
+        FpwPatch(ps, origP, 6);  // keep both or neither
+        TLOG("FPW: not installed (FileLoad site write failed; Poll site restored)");
+        RtlDeleteFunctionTable(g_fpwRf);
+        return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 void Start(const StartInfo& info) {
@@ -744,6 +1016,20 @@ void Start(const StartInfo& info) {
         }
     }
 
+    // FPW ([Patches] FileLoadPoll = 0 | 1, [Tuning] FileLoadPoll_SpinUs / _YieldUs / _SleepUs): see FpwBackoff
+    if (I(L"Patches", L"FileLoadPoll", 0) == 1) {
+        g_fpwSpinUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SpinUs", 20), 0, 10000);
+        g_fpwYieldUs = std::clamp(I(L"Tuning", L"FileLoadPoll_YieldUs", 200), g_fpwSpinUs, 100000);
+        g_fpwSleepUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SleepUs", 250), 0, 5000);
+        QueryPerformanceFrequency(&g_fpwQpf);
+        if (g_fpwQpf.QuadPart > 0 && FpwInstall()) {
+            g_fpwInstalled = true;
+            g_fpwOn = 1;
+            TLOG("FPW: installed (FileLoad.Poll 116F12 + FileLoad 11702C idle passes back off: pause %d us, yield to %d us, then %d us "
+                 "timer waits; any ring progress runs the next pass at once)", g_fpwSpinUs, g_fpwYieldUs, g_fpwSleepUs);
+        }
+    }
+
     if (I(L"Profiler", L"ThreadState", 0) == 1) {
         if (!g_ntQsi) {
             TLOG("TSTATE: NtQuerySystemInformation not available - off");
@@ -763,7 +1049,14 @@ void Start(const StartInfo& info) {
 void FlpStatusLine(char* buf, unsigned n) {
     if (!n) return;
     buf[0] = 0;
-    if (g_flpThreads || g_flpSets) snprintf(buf, n, "FLP: %s | loader threads %ld, lowered %ld, restored %ld", g_flpActive ? "active" : "idle", g_flpThreads, g_flpSets, g_flpRestores);
+    int o = 0;
+    if (g_flpThreads || g_flpSets) o = snprintf(buf, n, "FLP: %s | loader threads %ld, lowered %ld, restored %ld", g_flpActive ? "active" : "idle", g_flpThreads, g_flpSets, g_flpRestores);
+    if (g_fpwInstalled && o >= 0 && o < (int)n) {
+        // Totals since boot: passes, then the idle passes that paused / yielded / slept (and the measured sleep time).
+        snprintf(buf + o, n - o, "%sFPW: Poll passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | FileLoad passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms)",
+                 o ? " || " : "", g_fpwPass[0], g_fpwPause[0], g_fpwYield[0], g_fpwSleep[0], g_fpwSleptUs[0] / 1000, g_fpwPass[1],
+                 g_fpwPause[1], g_fpwYield[1], g_fpwSleep[1], g_fpwSleptUs[1] / 1000);
+    }
 }
 
 volatile uint32_t* RtpSwitch() { return g_rtpInstalled ? &g_rtpSwitch : nullptr; }
