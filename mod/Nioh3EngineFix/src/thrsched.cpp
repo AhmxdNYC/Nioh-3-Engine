@@ -552,6 +552,9 @@ DWORD WINAPI RtpThread(LPVOID) {
 // So the loaders are lowered ONLY in the field: while the engine level-load window G+58Ah is set (the same byte
 // loadstats / loadonly / prefetch read) or unreadable, they keep their original priority; a load seen while they are
 // lowered restores them on the next 250 ms tick. Every lower / restore is logged with its reason.
+// #85: G+58Ah stays 0 through boot and the title screen (no level load yet), so FLP lowered the loaders 1 s after
+// start while the game was still streaming its boot data (crash #85 hit 14 s in, 4 CPUs). Nothing to fix there (no walk
+// hitch before a level is loaded): the loaders are lowered only after the first level load has been seen (G+58Ah = 1).
 // ======================================================================================================================
 constexpr uint32_t kFlpGameMainPtr = 0x4759910, kFlpGm58A = 0x58A;
 int g_flpMaxCpus = 6;
@@ -596,16 +599,19 @@ DWORD WINAPI FlpThread(LPVOID) {
     std::vector<Lowered> lw;
     std::unordered_map<DWORD, int> tries;  // tid -> name queries (threads get their name shortly after creation)
     int lastCpus = -1, lastLoad = -2;
+    bool seenLoad = false;  // #85: boot / title (no level load yet) is not the field
     for (unsigned tick = 0;; ++tick) {
         const int cpus = AffinityCpus();
         const bool few = cpus <= g_flpMaxCpus;
         if (cpus != lastCpus) TLOG("FLP: process affinity %d CPUs -> file loader priority %s", cpus, few ? "BELOW_NORMAL in the field" : "unchanged");
         lastCpus = cpus;
         const int load = FlpLoading();
-        if (load != lastLoad) TLOG("FLP: level load %s", load == 1 ? "in progress" : load == 0 ? "done (field)" : "flag unreadable");
+        if (load == 1) seenLoad = true;
+        if (load != lastLoad)
+            TLOG("FLP: level load %s", load == 1 ? "in progress" : load < 0 ? "flag unreadable" : seenLoad ? "done (field)" : "none yet (boot / title, loaders unchanged)");
         lastLoad = load;
-        const bool on = few && load == 0;
-        const char* why = !few ? "affinity above cap" : load == 1 ? "level load in progress" : load < 0 ? "load flag unreadable" : "field";
+        const bool on = few && load == 0 && seenLoad;
+        const char* why = !few ? "affinity above cap" : load == 1 ? "level load in progress" : load < 0 ? "load flag unreadable" : !seenLoad ? "boot / title" : "field";
         // Thread discovery once a second; the priority decision below runs every 250 ms tick.
         if (tick % 4 != 0) {
             for (Lowered& l : lw)

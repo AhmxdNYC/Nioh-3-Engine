@@ -2,6 +2,7 @@
 // Not a game test. A fake image (PE header + the G pointer slot at base+4759910h) and a fake G object whose byte +58Ah is
 // the engine level-load window. Two sleeping threads named KTGLGraph.Cache.FileLoad / .Poll, process affinity 2 CPUs
 // (<= FileLoadPrio_MaxCpus 6). Checks:
+//   0 loading=0 from the start (boot / title, no level load yet, #85): loaders keep priority 0.
 //   A loading=1 from the start: loaders keep priority 0 (never lowered during a load).
 //   B loading=0 (field): both lowered to BELOW_NORMAL (-1), "lower ... (field)" logged.
 //   C loading=1 again: both restored to 0 within 600 ms (250 ms tick), "restore ... (level load in progress)" logged.
@@ -80,7 +81,7 @@ int main() {
     volatile uint8_t* flag = G + 0x58A;
     volatile uintptr_t* slot = (volatile uintptr_t*)(img + kSlot);
     *slot = (uintptr_t)G;
-    *flag = 1;
+    *flag = 0;  // boot / title: G+58Ah is 0 before the first level load (#85)
 
     wchar_t ini[MAX_PATH];
     GetTempPathW(MAX_PATH, ini);
@@ -105,6 +106,11 @@ int main() {
     thrsched::Start(si);
 
     Sleep(2500);
+    Check(GetThreadPriority(ld) == 0 && GetThreadPriority(po) == 0, "0: boot / title (flag 0, no load yet) -> loaders keep priority 0");
+    Check(Logged("FLP: level load none yet") && !Logged("FLP: lower"), "0: boot logged, nothing lowered");
+
+    *flag = 1;
+    Sleep(1500);
     Check(GetThreadPriority(ld) == 0 && GetThreadPriority(po) == 0, "A: loading=1 -> loaders keep priority 0");
     Check(Logged("FLP: file loader thread KTGLGraph.Cache.FileLoad tid") && Logged("FLP: file loader thread KTGLGraph.Cache.FileLoad.Poll"), "A: both loaders found");
     Check(Logged("FLP: level load in progress"), "A: load logged");
