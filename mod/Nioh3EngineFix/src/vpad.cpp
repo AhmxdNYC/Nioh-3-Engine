@@ -436,7 +436,7 @@ int Exec(const char* line, char* r, size_t n) {
     const Cmd c = Parse(line);
     InterlockedExchange64(&g_lastCmdUs, NowUs());
     const bool needPad = c.op == Op::Press || c.op == Op::Hold || c.op == Op::Release || c.op == Op::ReleaseAll ||
-                         c.op == Op::Stick || c.op == Op::Trigger;
+                         c.op == Op::Stick || c.op == Op::Trigger || c.op == Op::PadSet;
     if (needPad && !g_xiOrig) return Reply(r, n, 1, "the XInputGetState hook is not installed");
     if (needPad && !g_armed) return Reply(r, n, 1, "disarmed (send 'arm')");
     switch (c.op) {
@@ -494,6 +494,14 @@ int Exec(const char* line, char* r, size_t n) {
             uint32_t rounds = 0;
             if (!WaitTimed(id, c.ms, &rounds)) return Reply(r, n, 1, "timeout: the game did not read the pad (stick cancelled)");
             return Reply(r, n, 0, "stick %c %d %d %d ms (%u rounds)", c.side, x, y, c.ms, rounds);
+        }
+        case Op::PadSet: {  // no WaitPadRound: the replay's clock decides when the next state comes
+            AcquireSRWLockExclusive(&g_lock);
+            g_comp.SetHeld(c.pad);
+            const uint32_t round = g_comp.PadRound();
+            ReleaseSRWLockExclusive(&g_lock);
+            const Pad& p = c.pad;
+            return Reply(r, n, 0, "pad %04X %u %u %d %d %d %d round=%u", p.buttons, p.lt, p.rt, p.lx, p.ly, p.rx, p.ry, round);
         }
         case Op::Trigger: {
             const uint8_t v = TriggerFrom(c.x);

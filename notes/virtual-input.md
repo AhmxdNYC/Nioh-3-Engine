@@ -116,3 +116,14 @@ after the give-back, in the field and at the end; state `active=0 fg=0` througho
 - game closed with WM_CLOSE (no kill), ini + asi restored, lock released.
 - The game reads the pad in more than one ~2 ms-separated burst per frame (a 120 ms press = 32 rounds), so the 2-round minimum
   is not 2 frames: harnesses use presses >= 50 ms (vpad.py uses 120 ms).
+
+## Input recorder (#105757, UO open #7)
+- `tools/testmatrix/padrec.py record OUT.jsonl` polls the real controller with XInput from its own process (no game hook, off
+  unless started) and writes one JSONL line per change: `{"t": ms, "pad": [buttons, lt, rt, lx, ly, rx, ry] | null, "state": tag}`.
+  Tags come from the VirtualPad pipe `state` reply (record with `[Debug] VirtualPad = 2` so the real pad still drives the game):
+  field / loading / menu / paused / unknown / nogame.
+- `padrec.py replay IN.jsonl [--wait-state]` sends each state as one VirtualPad `pad <btn hex> <lt> <rt> <lx> <ly> <rx> <ry>`
+  command at its recorded time. `pad` (new in this build) sets the whole held state in one step and replies at once; the
+  older hold / stick / trigger commands wait for 2 game reads each, too slow for a replay.
+- Offline proof: `mod/Nioh3EngineFix/tests/run_padrec_test.py` (scripted pad -> recorder -> real vpad.cpp pipe + fake 60 Hz
+  game -> every frame reads the recorded state, or the one before it, i.e. within 1 frame).
