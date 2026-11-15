@@ -150,6 +150,28 @@ volatile LONG g_pressed = 0;          // N_* edges collected while open, consume
 volatile LONG g_padPressed = 0;       // the controller part of g_pressed (Report box: pad -> key grid / Steam keyboard)
 volatile LONG g_rbOn = 0;             // mirror of rbox::g_on for the input feeds (defined before the box code)
 volatile LONG g_rbKeyMsg = 0;         // a key message reached SwallowMessage this session (keyboard text works)
+// #106087: key-down edges seen by the game's message hook (SwallowMessage), latched until the next KeyFeed. A tap shorter than the
+// gap between two keyboard reads (Ally: taps under ~100 ms) is up again at both reads and would be lost; KeyFeed counts a latched
+// edge as a press only when the key is neither down now nor was down at the previous read (else the read's own edge counts it).
+// Guard against a late-pumped message: a latched edge older than the last read that saw that key down was already counted there.
+volatile LONG g_keyMsgEdge = 0;
+volatile LONG g_keyMsgAt[16] = {};    // message time (GetTickCount ms) of the latest key-down per K_* bit
+uint32_t g_keySeenDownAt[16] = {};    // KeyFeed: low 32 bits of the time of the last read with that key down (KeyFeed thread only)
+inline int KeyBitIndex(uint32_t bit) { unsigned long i = 0; _BitScanForward(&i, bit); return (int)(i & 15); }
+inline void LatchKeyMsg(UINT msg, WPARAM wp, LPARAM lp, DWORD time) {
+    if (msg != WM_KEYDOWN && msg != WM_SYSKEYDOWN) return;
+    if (lp & (1LL << 30)) return;  // auto-repeat: the key was already down
+    const UINT vk = (UINT)wp;
+    uint32_t bit = 0;
+    if (g_cfg.vk && vk == g_cfg.vk) bit = K_TOGGLE;
+    else if (vk == VK_RETURN) bit = (lp & (1LL << 24)) ? K_NPENTER : K_ENTER;
+    else
+        for (const NavKey& k : kNavKeys)
+            if (k.vk == vk) { bit = k.bit; break; }
+    if (!bit) return;
+    InterlockedExchange(&g_keyMsgAt[KeyBitIndex(bit)], (LONG)time);
+    InterlockedOr(&g_keyMsgEdge, (LONG)bit);
+}
 bool g_okFromPad = false;             // the A / Enter being handled now came from a controller
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
@@ -431,7 +453,14 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_cfg.dik && (keys[g_cfg.dik] & 0x80)) raw |= K_TOGGLE;
     for (const NavKey& k : kNavKeys)
         if (keys[k.dik] & 0x80) raw |= k.bit;
-    const uint32_t pressed = raw & ~g_keyPrev;
+    // #106087: + taps that went down and up between two reads (message-hook edges, see LatchKeyMsg)
+    uint32_t tapped = (uint32_t)InterlockedExchange(&g_keyMsgEdge, 0) & ~raw & ~g_keyPrev;
+    for (uint32_t b = tapped; b; b &= b - 1) {
+        const int i = KeyBitIndex(b & (0u - b));
+        if ((int32_t)((uint32_t)g_keyMsgAt[i] - g_keySeenDownAt[i]) <= 0) tapped &= ~(1u << i);  // that press was seen by a read
+    }
+    for (uint32_t b = raw; b; b &= b - 1) g_keySeenDownAt[KeyBitIndex(b & (0u - b))] = (uint32_t)t;
+    const uint32_t pressed = (raw & ~g_keyPrev) | tapped;
     const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
     if (pressed && InputTrusted(1, 0, own)) ModalityToKey(pressed, own);  // UO #14; the press itself still acts below (#105941)
@@ -4503,6 +4532,7 @@ bool SwallowMessage(const tagMSG* m) {
     if (g_open && rbox::g_on && !g_coverToken.load() && !(g_cfg.vk && (UINT)m->wParam == g_cfg.vk && msg != WM_CHAR))
         return rbox::OnMessage(m);  // #64882: typed text for the Report box (WM_CHAR included); the game sees no key
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
+    LatchKeyMsg(msg, m->wParam, m->lParam, m->time);  // #106087: short taps between keyboard reads
     const UINT vk = (UINT)m->wParam;
     if(g_coverToken.load()) {
         if(vk==VK_ESCAPE && (msg==WM_KEYDOWN||msg==WM_SYSKEYDOWN)){
