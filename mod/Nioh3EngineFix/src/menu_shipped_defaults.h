@@ -26,7 +26,7 @@ inline constexpr Entry kEntries[] = {
     {"Menu", "TapGapMs", "300"},
     {"Menu", "HoldButton", "Start"},
     {"Menu", "HoldSeconds", "5"},
-    {"Menu", "ButtonStyle", "Xbox"},
+    {"Menu", "ButtonStyle", "Auto"},
     {"Menu", "ControllerDisplay", "0"},
     {"Menu", "ControllerDisplaySize", "1.0"},
     {"Menu", "ControllerDisplayOpacity", "0.8"},

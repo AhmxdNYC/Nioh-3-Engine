@@ -155,10 +155,16 @@ inline void PsSymbol(float x, float top, float d, char k, uint32_t c) {
         osd::DrawRect(bx, by + h - t, sz, t, c);
     }
 }
-// [Menu] ButtonStyle: 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle); set by the menu
+// glyph set (pad_family.h): 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle),
+// 2 = Nintendo letters by position (bottom A shows B, right B shows A, left X shows Y, top Y shows X). [Menu] ButtonStyle Auto
+// (UO #10) sets it from the connected pad; Xbox / PlayStation / Nintendo there is an override. Set by the menu.
 inline volatile int g_btnStyle = 0;
-// inline row text that names a button (A: open, B): PlayStation names under the PlayStation style
-inline const char* PadWord(const char* xbox, const char* ps) { return g_btnStyle ? ps : xbox; }
+// letter a Nintendo pad prints on the face button at the Xbox position k (A bottom, B right, X left, Y top)
+inline char NintendoFace(char k) { return k == 'A' ? 'B' : k == 'B' ? 'A' : k == 'X' ? 'Y' : k == 'Y' ? 'X' : k; }
+// inline row text that names a button (A: open, B): PlayStation names under the PlayStation style, Nintendo's when given
+inline const char* PadWord(const char* xbox, const char* ps, const char* nin = nullptr) {
+    return g_btnStyle == 1 ? ps : g_btnStyle == 2 && nin ? nin : xbox;
+}
 inline bool IsBumper(const char* k, size_t n) { return n == 2 && (k[0] == 'L' || k[0] == 'R') && (k[1] == 'B' || k[1] == 'T'); }
 inline void Bumper(float x, float y, const char* k, float cw, float s, float a) {
     (void)cw;
@@ -177,7 +183,13 @@ inline float BadgeW(const char* k, size_t n, float cw, float s) {
 inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, float a) {
     const float h = BadgeH(s), top = Snap(y), w = BadgeW(k, n, cw, s);
     if (n == 1 && strchr("ABXY", k[0])) {
-        if (g_btnStyle) {  // PlayStation: dark round badge, coloured symbol (Cross blue, Circle red, Square pink, Triangle green)
+        if (g_btnStyle == 2) {  // UO #10 Nintendo: grey round badge, white letter of that position (no per-button colours)
+            RoundRect(x, top, w, h, h * 0.5f, Fade(0xF0484848, a));
+            const char t[2] = {NintendoFace(k[0]), 0};
+            osd::DrawText(Snap(x + (w - cw) * 0.5f), Snap(top + (h - (float)osd::kGlyphH * s) * 0.5f + 0.5f * s), t, Fade(0xFFFFFFFFu, a), s);
+            return;
+        }
+        if (g_btnStyle == 1) {  // PlayStation: dark round badge, coloured symbol (Cross blue, Circle red, Square pink, Triangle green)
             RoundRect(x, top, w, h, h * 0.5f, Fade(0xF0382E28, a));
             PsSymbol(x, top, h, k[0], Fade(k[0] == 'A' ? 0xFFF0A050 : k[0] == 'B' ? 0xFF5050F0 : k[0] == 'X' ? 0xFFC888F0 : 0xFF80D060, a));
             return;
