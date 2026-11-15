@@ -1,6 +1,7 @@
 ﻿"""Generate exact native WaitWarpStart gates from mission scripts and enemy records.
-No row allowlist: link the post-wait call graph to a selected Create, or to the
-wave ID encoded in that selected enemy's record. Ambiguous gates are rejected.
+No row allowlist: link the post-wait call graph to a selected Create, a parallel
+EndWarpRights of the same id, or the wave ID encoded in that selected enemy's record.
+Ambiguous gates are rejected.
 """
 import argparse,csv,json,struct,sys
 from pathlib import Path
@@ -28,9 +29,14 @@ def strings(script):
 
 def gate_paths(script,placement,wave=0,pool=None):
     names={ident:script.names[n] for n,ident,kind in script.syms}
+    def call_name(i):
+        # Real scripts: CALL_NATIVE is 1-based table id. Synthetic tests pass ident in args[0].
+        nm=dis.insn_name(script,i)
+        return nm if nm and not nm.startswith('?') else names.get(i.args[0])
     functions={};current=None
     for ins in script.insns or []:
-        if ins.op==0x3b:current=names.get(ins.args[0]);functions[current]=[]
+        if ins.op==0x3b:
+            current=call_name(ins);functions[current]=[]
         elif current is not None:functions[current].append(ins)
     pool=strings(script) if pool is None else pool
     def traverse(fn,begin=0,seen=None,collect=False):
@@ -40,7 +46,7 @@ def gate_paths(script,placement,wave=0,pool=None):
         for k in range(begin,len(ins)):
             i=ins[k]
             if i.op not in (0x1b,0x1f):continue
-            name=names.get(i.args[0]);prev=ins[k-1] if k else None
+            name=call_name(i);prev=ins[k-1] if k else None
             literal=prev.args[0] if prev and prev.op==0x29 else None
             if name in ('Character::Create','Character::CreateAndWait') and literal is not None and (collect or literal==placement):
                 out.append(dict(kind='create',function=fn,offset=i.off,placement=literal))
@@ -50,15 +56,109 @@ def gate_paths(script,placement,wave=0,pool=None):
             if name=='Script::Create' and prev and prev.op==0x2f and prev.args[0]<len(pool):target=pool[prev.args[0]]
             if target in functions:out.extend(traverse(target,0,seen,collect))
         return out
+    def call_gate(i):
+        global_k=next((j for j,x in enumerate(script.insns) if x.off==i.off),None)
+        args=dis.call_args(script,global_k) if global_k is not None else []
+        try:return int(args[0],0) if args else 0
+        except ValueError:return 0
+    ends={}
+    for fn,ins in functions.items():
+        for k,i in enumerate(ins):
+            if i.op not in (0x1b,0x1f) or call_name(i)!='Function::EndWarpRights':continue
+            g=call_gate(i)
+            if g:ends.setdefault(g,[]).append((fn,k))
     found=[]
     for fn,ins in functions.items():
         for k,i in enumerate(ins):
-            if i.op not in (0x1b,0x1f) or names.get(i.args[0])!='Function::WaitWarpStart':continue
-            prev=ins[k-1] if k else None
-            if not prev or prev.op!=0x29 or not prev.args[0]:continue
+            if i.op not in (0x1b,0x1f) or call_name(i)!='Function::WaitWarpStart':continue
+            gate=call_gate(i)
+            if not gate:continue
             proof=traverse(fn,k+1)
-            if proof:found.append(dict(gate=prev.args[0],wait=i.off,function=fn,proof=proof,creates=traverse(fn,k+1,collect=True)))
+            creates=traverse(fn,k+1,collect=True)
+            for efn,ek in ends.get(gate,[]):
+                proof.extend(traverse(efn,ek+1))
+                creates.extend(traverse(efn,ek+1,collect=True))
+            if proof:found.append(dict(gate=gate,wait=i.off,function=fn,proof=proof,creates=creates))
     return found
+
+def _call_name(script, ins):
+    names={ident:script.names[n] for n,ident,kind in script.syms}
+    nm=dis.insn_name(script,ins)
+    return nm if nm and not nm.startswith('?') else names.get(ins.args[0])
+
+def _sethp_thou(fn):
+    """Nearest placement int and float before this call, stopping at the previous call.
+    Thousandths of a fraction in (0, 1]. A non-literal rate is not invented."""
+    place=rate=None
+    for ins in reversed(fn):
+        if ins.op==0x2d and rate is None:
+            rate=struct.unpack('<f', struct.pack('<I', ins.args[0] & 0xFFFFFFFF))[0]
+        elif ins.op==0x29 and place is None:
+            v=int(ins.args[0])
+            if v>=0x80000000: v-=1<<32
+            if v>0: place=v
+        elif ins.op in (0x1b,0x1f,0x3b):
+            break
+        if place is not None and rate is not None: break
+    if place is None or rate is None or not (0<rate<=1.0): return None
+    thou=int(round(rate*1000))
+    if thou<1 or thou>1000: return None
+    return place, thou
+
+def _invade_box(script, k):
+    """First integer of the invade call. A packed array's first dword is the box id.
+    A variable argument is not guessed."""
+    args=dis.call_args(script, k)
+    if not args: return 0
+    a=args[0]
+    if a[:1]=='[' and a[-1:]==']':
+        part=a[1:-1].split(',',1)[0]
+        if not part: return 0
+        v=int(part,16)
+        return v if 0<v<0x80000000 else 0
+    if a.lstrip('-').isdigit():
+        v=int(a)
+        return v if v>0 else 0
+    return 0
+
+def staged_chain(script):
+    """Invade-box RequestID chain plus the pre-final SetHpRate.
+    The pre-final fraction is the last Character::SetHpRate after the previous staged
+    RequestID and before the last one. One wave has no pre-final. A SetHpRate after the
+    last RequestID is the post-final write and is not used.
+    boxes[i] is the last literal invade box in that RequestID's function. 0 if the box
+    was not a literal."""
+    invade=('Function::Wait_InvadeBox_Online','Function::Wait_InvadeBox_HostOnly')
+    waves=[];boxes=[];fn=[];invaded=False;box=0;since=None;pre=None
+    for k,ins in enumerate(script.insns or []):
+        if ins.op==0x3b:
+            fn=[];invaded=False;box=0;continue
+        fn.append(ins)
+        if ins.op not in (0x1b,0x1f): continue
+        name=_call_name(script, ins)
+        if name in invade:
+            invaded=True
+            found=_invade_box(script, k)
+            if found: box=found
+            continue
+        # Script order, not one function: each station is its own invade function, and its
+        # SetHpRate is after that station's RequestID. The next station's pre-final is that rate.
+        if name=='Character::SetHpRate':
+            pair=_sethp_thou(fn[:-1])
+            if pair: since=pair
+            continue
+        if name!='WaveBattle::RequestID' or not invaded: continue
+        prev=fn[-2] if len(fn)>1 else None
+        if not (prev and prev.op==0x29): continue
+        if len(waves)>=1: pre=since
+        waves.append(int(prev.args[0]));boxes.append(box);since=None;box=0
+    if len(waves)<2: pre=None
+    return dict(waves=waves, boxes=boxes, hp_thou=pre[1] if pre else 0, hp_place=pre[0] if pre else 0)
+
+def staged_wave_ids(script):
+    """WaveBattle::RequestID literals that follow an invade-box wait in the same function, in script order.
+    A RequestID in a function with no invade wait is not a station."""
+    return staged_chain(script)['waves']
 
 def sequence_members(paths,enemies):
     # Exact same-mission placement joins only; parameter/variable creations are
@@ -75,6 +175,7 @@ def sequence_members(paths,enemies):
             if proof not in member['proof']:member['proof'].append(proof)
     return [joined[k] for k in sorted(joined)]
 
+LAST_WAVES={}
 def generate(lfm):
     cat.LFM=lfm;b=cat.lfm(cat.IDTAB).read_bytes();ids={}
     for i in range(struct.unpack_from('<I',b,4)[0]):
@@ -86,7 +187,8 @@ def generate(lfm):
         name=ids.get(struct.unpack_from('<I',rec,off)[0]);p=lfm/archive/name.lstrip('/') if name else None
         return p if p and p.exists() else None
     with (ROOT/'mod/Nioh3BossRematch/Nioh3BossRematch_bosses.tsv').open() as f:rows=list(csv.DictReader((l for l in f if not l.startswith('#')),delimiter='\t'))
-    out=[];rejected=[];cache={}
+    global LAST_WAVES
+    out=[];rejected=[];cache={};waves={}
     for row in rows:
         try:mid=int(row['replay_mission_id'],0);placement=int(row['placement_id'])
         except ValueError:continue
@@ -98,12 +200,23 @@ def generate(lfm):
         if len(selected)!=1:continue
         wave=struct.unpack_from('<H',selected[0],0x1a)[0];wave=0 if wave==65535 else wave
         if p not in cache:cache[p]=dis.load(p)
+        found=staged_chain(cache[p])
+        wave_ids=found['waves']
+        if wave_ids and mid not in waves and all(0<=int(x)<=65535 for x in wave_ids) and len(wave_ids)<=8 and 0<=int(found['hp_thou'])<=1000:
+            cents=_box_centers(lfm, rec, ids)
+            stands=[]
+            for box in found['boxes']:
+                xyz=cents.get(int(box)) if box else None
+                stands.append((int(box), xyz[0], xyz[1], xyz[2]) if xyz else (int(box), 0, 0, 0))
+            found['stands']=stands
+            waves[mid]=found
         paths=gate_paths(cache[p],placement,wave)
         gates={x['gate'] for x in paths}
         if len(gates)!=1:
             if paths:rejected.append(dict(id=row['id'],reason='multiple linked gates',paths=paths))
             continue
         out.append(dict(id=row['id'],mission=mid,placement=placement,gate=next(iter(gates)),script=str(p.relative_to(lfm)),enemy_table=str(ep.relative_to(lfm)),enemy_wave=wave,paths=paths,members=sequence_members(paths,enemies)))
+    LAST_WAVES=waves
     return out,rejected
 
 def render(rows):
@@ -128,12 +241,87 @@ def render_sequences(rows):
             lines.append('    {0x%Xu, %du, %du, %du}, // %s'%(r['mission'],r['placement'],m['placement'],m['chr'],r['id']))
     return '\n'.join(lines+['};',''])
 
+def _box_centers(lfm, rec, ids):
+    """PlacementBox id -> rounded centre. Record stride 0xA0, centre at +0x10. Missing file yields nothing."""
+    key=struct.unpack_from('<I', rec, 0x5C)[0]
+    name=ids.get(key)
+    p=lfm/'archive_03'/name.lstrip('/') if name else None
+    if not p or not p.exists(): return {}
+    b=p.read_bytes(); n=struct.unpack_from('<I', b, 4)[0]
+    if n>100000 or 8+n*0xA0>len(b): return {}
+    out={}
+    for i in range(n):
+        o=8+i*0xA0
+        bid=struct.unpack_from('<I', b, o)[0]
+        x,y,z=struct.unpack_from('<fff', b, o+0x10)
+        out[bid]=(int(round(x)), int(round(y)), int(round(z)))
+    return out
+
+def _pad8(vals, zero):
+    vals=list(vals)+[zero]*(8-len(vals))
+    return ', '.join(str(int(v)) for v in vals)
+
+def render_waves(chains):
+    lines=['// Generated by tools/gen_native_entry_gates.py; no row id list.',
+           '// A station is a literal WaveBattle::RequestID later in the same function as Wait_InvadeBox_Online or Wait_InvadeBox_HostOnly.',
+           '// hp_thou is the last Character::SetHpRate before the last station, in thousandths. One station stores 0.',
+           '// box/x/y/z are that station invade box and its PlacementBox centre. 0 means the script did not name a literal box.',
+           '#include <stdint.h>',
+           'typedef struct { uint32_t mission; uint16_t n, hp_thou; uint32_t hp_place; uint16_t wave[8]; uint32_t box[8]; int32_t x[8], y[8], z[8]; } NativeEntryWaveChain;',
+           'static const NativeEntryWaveChain g_native_entry_waves[] = {']
+    for mid in sorted(chains):
+        row=chains[mid]
+        ids=list(row['waves'])
+        stands=[tuple(s) for s in (row.get('stands') or [])]
+        while len(stands)<len(ids): stands.append((0,0,0,0))
+        stands=(stands+[(0,0,0,0)]*8)[:8]
+        boxp=', '.join('%uu'%int(s[0]) for s in stands)
+        lines.append('    {0x%Xu, %du, %uu, %uu, {%s}, {%s}, {%s}, {%s}, {%s}},'%(
+            mid,len(ids),int(row['hp_thou']),int(row['hp_place']),_pad8(ids,0), boxp,
+            _pad8([s[1] for s in stands],0), _pad8([s[2] for s in stands],0), _pad8([s[3] for s in stands],0)))
+    lines+=['};','static const uint16_t* NativeEntryWaves(uint32_t mission, uint16_t* n) {',
+            '    for (unsigned i = 0; i < sizeof g_native_entry_waves / sizeof *g_native_entry_waves; ++i)',
+            '        if (g_native_entry_waves[i].mission == mission) {',
+            '            if (n) *n = g_native_entry_waves[i].n;',
+            '            return g_native_entry_waves[i].wave;',
+            '        }',
+            '    if (n) *n = 0;',
+            '    return 0;','}',
+            'static int NativeEntryWaveFinal(uint32_t mission, uint16_t* thou, uint32_t* place) {',
+            '    for (unsigned i = 0; i < sizeof g_native_entry_waves / sizeof *g_native_entry_waves; ++i)',
+            '        if (g_native_entry_waves[i].mission == mission && g_native_entry_waves[i].n > 1 && g_native_entry_waves[i].hp_thou && g_native_entry_waves[i].hp_place) {',
+            '            if (thou) *thou = g_native_entry_waves[i].hp_thou;',
+            '            if (place) *place = g_native_entry_waves[i].hp_place;',
+            '            return 1;',
+            '        }',
+            '    if (thou) *thou = 0;',
+            '    if (place) *place = 0;',
+            '    return 0;','}',
+            '// Boss placement for a multi-station chain. Full and Final both use it. One station has none.',
+            'static uint32_t NativeEntryWavePlace(uint32_t mission) {',
+            '    for (unsigned i = 0; i < sizeof g_native_entry_waves / sizeof *g_native_entry_waves; ++i)',
+            '        if (g_native_entry_waves[i].mission == mission && g_native_entry_waves[i].n > 1 && g_native_entry_waves[i].hp_place)',
+            '            return g_native_entry_waves[i].hp_place;',
+            '    return 0;','}',
+            'static int NativeEntryWaveStand(uint32_t mission, unsigned index, uint32_t* box, int* x, int* y, int* z) {',
+            '    for (unsigned i = 0; i < sizeof g_native_entry_waves / sizeof *g_native_entry_waves; ++i) {',
+            '        const NativeEntryWaveChain* c = &g_native_entry_waves[i];',
+            '        if (c->mission != mission || index >= c->n || !c->box[index] || (!c->x[index] && !c->y[index] && !c->z[index])) continue;',
+            '        if (box) *box = c->box[index];',
+            '        if (x) *x = c->x[index];',
+            '        if (y) *y = c->y[index];',
+            '        if (z) *z = c->z[index];',
+            '        return 1;',
+            '    }',
+            '    return 0;','}','']
+    return '\n'.join(lines)
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--lfm',type=Path,required=True);p.add_argument('--check',action='store_true');a=p.parse_args()
     rows,rejected=generate(a.lfm)
-    outputs={'mod/Nioh3Training/src/native_entry_sequences_gen.h':render_sequences(rows),'mod/Nioh3BossRematch/src/native_entry_gates_gen.h':render(rows),'notes/native-entry-gates-72263.json':json.dumps(dict(rows=rows,rejected=rejected),indent=2)+'\n'}
+    outputs={'mod/Nioh3Training/src/native_entry_sequences_gen.h':render_sequences(rows),'mod/Nioh3BossRematch/src/native_entry_gates_gen.h':render(rows),'mod/Nioh3BossRematch/src/native_entry_waves_gen.h':render_waves(LAST_WAVES),'notes/native-entry-gates-72263.json':json.dumps(dict(rows=rows,rejected=rejected),indent=2)+'\n'}
     for n,t in outputs.items():
         f=ROOT/n
         if a.check:assert f.read_text()==t,n
         else:f.write_text(t)
-    print('Generated',len(rows),'gate rows:',','.join(r['id'] for r in rows));print('Rejected ambiguous:',','.join(r['id'] for r in rejected))
+    print('Generated',len(rows),'gate rows:',','.join(r['id'] for r in rows));print('Rejected ambiguous:',','.join(r['id'] for r in rejected));print('Staged wave missions',len(LAST_WAVES))

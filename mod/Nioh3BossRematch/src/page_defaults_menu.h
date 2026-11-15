@@ -8,7 +8,8 @@ bool PageHasDefaults(int page) {
         (page == uRematch && BossFightItemsAvailable()) ||
         (page == uGate && !WavesGateNow() && GateMode() == 1 && BossFightItemsAvailable()) ||
         (page == uPracticeHub && TrainingExport("Nioh3Training_PracticeFreeze")) ||
-        (page == uTools && SpawnedCount() && TrainingExport("Nioh3Training_StanceTimer"))
+        (page == uTools && SpawnedCount() && TrainingExport("Nioh3Training_StanceTimer")) ||
+        (page == uActions && RowStaged(g_uiBoss, nullptr, nullptr, nullptr))
 #if BR_SOULCORE
         || page == uSoulTune
 #endif
@@ -88,6 +89,7 @@ bool ResetPageDefaults() {
         if (const auto set = (SlotSet)TrainingExport("Nioh3Training_SetSlotAggro")) if (set(g_bossSlot,0) < 0) ok = false;
         if (const auto set = (GapSet)TrainingExport("Nioh3Training_SetRepeatGapChr")) if (set(chr,1000,1) < 0) ok = false;
     }
+    else if (page == uActions) g_stagedFinal = 0;
     else if (page == uMoves) {
         using LastSet = int (*)(uint32_t,int);
         const uint32_t chr = MoveBoss();

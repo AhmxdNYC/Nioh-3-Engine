@@ -1315,6 +1315,9 @@ typedef struct { uint32_t mission, start, chr, placement, bgm; uint8_t world; fl
 static struct { const FallbackRoster* row; unsigned index; int ended, complete, native; uint32_t handle, killed, owned, seen, woke, hpSeen, struck, barAsked; uint8_t barTries[FALLBACK_ROSTER_MAX], barBusy[FALLBACK_ROSTER_MAX]; DWORD nextAt, barAskAt[FALLBACK_ROSTER_MAX], zeroAt[FALLBACK_ROSTER_MAX]; uint64_t hp0[FALLBACK_ROSTER_MAX]; int pose; float pp[4], bp[3], face; char name[64]; } g_fb;
 // Native script phases share a single attempt even when the spawn roster is ambiguous.
 static struct { const ArenaRow* row; int armed, started, active, ended, logOpen, releasing; DWORD pendingAt; uint32_t killedAtArm; } g_np;
+static int g_wavesOn;
+static uint64_t g_wavesToken;
+static void WavesFightReset(void) { g_wavesOn = 0; g_wavesToken = 0; }
 static void NativePhaseEvent(int phase) {
     if (!g_np.armed || g_np.ended) return;
     if (phase == 1) {
@@ -1565,6 +1568,7 @@ static void PlayerRecoverFull(void) {  // Player::RecoverFull (VM 23AAB04)
     uint64_t c = 0, m = 0; PlayerHp(&c, &m); Log("TRAIN player RecoverFull: HP %llu / %llu", c, m);
 }
 static int NativeFightRecoverPos(float p[4]);
+static volatile LONG g_field_hold; // #89181: open-world teleport is holding the player on the target
 #include "player_recovery_game.h"
 // user #14267 Infinite health ON: HP below max -> set back to max at once. Direct write of the HP field PlayerHp reads ([[actor+0x3A0]+0x58]);
 // if the write does not stick 3 times (the game keeps HP elsewhere), Player::RecoverFull every 250 ms instead (proven: TrainRetry).
@@ -2066,20 +2070,34 @@ static __attribute__((noinline)) uint64_t NativeEntryActor(uint32_t placement, u
         return a;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
+static int NativeBossFighting(uint32_t placement);
+// #88516: BR armed a door the boss script waits on (WaitWarpStart). That script creates the row's own placement;
+// same-character roster bodies already standing in the mission are background extras (RB24D 574946), not the fight.
+static uint32_t g_en_doorMission;
 static uint32_t NativeEntryPlacement(const ArenaRow* r) {
     if (NativeEntryActor(r->placement, r->chr)) return r->placement;
+    if (g_en_doorMission && g_en_doorMission == r->mission) return 0;
     for (unsigned i = 0; i < sizeof g_native_roster_candidates / sizeof *g_native_roster_candidates; ++i) {
         const NativeRosterCandidate* c = &g_native_roster_candidates[i];
-        if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr)) return c->placement;
+        if (!strcmp(c->id, r->id) && NativeEntryActor(c->placement, c->chr) && NativeBossFighting(c->placement))
+            return c->placement;
     }
     return 0;
 }
 static __attribute__((noinline)) int NativeBossReady(const ArenaRow* r, uint32_t placement) {
+    uint64_t actor = ActorByHandle(placement), hp = 0;
+    if (!NativeBossFighting(placement) || !actor || !Rd64(actor + 0x3A0, &hp) || !hp) return 0;
+    __try {
+        Log("ENTER %s: native actor %p alive/AI active, Ki %.3f/%.3f (read only)", r->id, (void*)actor, *(float*)(hp + 0xAC), *(float*)(hp + 0xB0));
+        return 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
+static int NativeBossFighting(uint32_t placement) {
     uint64_t actor = ActorByHandle(placement), hp = 0, ctrl = 0, algo = 0;
     if (!actor || !Rd64(actor + 0x3A0, &hp) || !hp || !Rd64(actor + 0x3B0, &ctrl) || !ctrl || !Rd64(ctrl + 0x50, &algo) || !algo) return 0;
     __try {
+        // No AI target: idle 0x4E21 background / same-character extra, not the fight.
         if (*(int32_t*)(hp + 0x48) == 1 || !*(uint64_t*)(hp + 0x58) || !*(uint64_t*)(hp + 0x50) || !*(uint32_t*)(algo + 0x1574)) return 0;
-        Log("ENTER %s: native actor %p alive/AI active, Ki %.3f/%.3f (read only)", r->id, (void*)actor, *(float*)(hp + 0xAC), *(float*)(hp + 0xB0));
         return 1;
     } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
 }
@@ -2109,7 +2127,55 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, anchorOk, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+// Boss Rematch calls this for a waves row only. 1 = the first wave group was checked. 2 = BossBattleModeEnd with no BossBattleMode.
+N3T_API void Nioh3Training_WavesFight(int phase) {
+    if (phase == 1) {
+        if (g_wavesOn) return;
+        FlEnsure();
+        int open = 0;
+        uint64_t token = 0;
+        char idbuf[16];
+        idbuf[0] = 0;
+        AcquireSRWLockShared(&g_flLock);
+        if (g_fl.open >= 0) {
+            open = 1;
+            token = g_fl.rec[g_fl.open].token;
+            snprintf(idbuf, sizeof idbuf, "%s", g_fl.rec[g_fl.open].boss_id);
+        }
+        ReleaseSRWLockShared(&g_flLock);
+        const char* want = g_en.row && g_en.row->id[0] ? g_en.row->id : "";
+        if (!open || (want[0] && _stricmp(idbuf, want) != 0)) {
+            const char* name = g_en.row && g_en.row->name[0] ? g_en.row->name : "waves";
+            FightBegin(FL_BOSSMATCH, name, want, 0);
+            AcquireSRWLockShared(&g_flLock);
+            token = g_fl.open >= 0 ? g_fl.rec[g_fl.open].token : 0;
+            ReleaseSRWLockShared(&g_flLock);
+        }
+        g_wavesOn = 1;
+        g_wavesToken = token;
+        if (g_np.armed && !g_np.started) NativePhaseEvent(1);
+        Log("FIGHT waves start: first wave group checked");
+        return;
+    }
+    if (phase != 2 || !g_wavesOn) return;
+    g_wavesOn = 0;
+    FlEnsure();
+    int mine = 0;
+    AcquireSRWLockShared(&g_flLock);
+    mine = g_fl.open >= 0 && g_fl.rec[g_fl.open].token == g_wavesToken;
+    ReleaseSRWLockShared(&g_flLock);
+    Log("FIGHT waves win: BossBattleModeEnd with no BossBattleMode");
+    if (!mine) return;
+    if (g_np.armed) {
+        g_np.active = 0;
+        g_np.releasing = 1;
+        FightFinish(FL_WIN);
+        g_np.releasing = 0;
+        g_np.ended = 1;
+        g_np.pendingAt = 0;
+    } else FightFinish(FL_WIN);
+}
 // #71861: a warp target can have no floor (RB24D, R25E4: 135 m fall, player dies). Remember the last spot the player actually stood on and go back to it.
 static void EnterTarget(const float* t, float yaw) { g_en.target[0] = t[0]; g_en.target[1] = t[1]; g_en.target[2] = t[2]; g_en.target[3] = yaw; g_en.tStable = 0; g_en.tFall = 0; g_en.drops = 0; }
 // BossAnchor on a native-first load. The in-place swap already stands a far 'start' row BossDistance from the boss,
@@ -2128,7 +2194,9 @@ static int NativeAnchorPoint(const ArenaRow* r, float pp[4]) {
 static int NativeFightRecoverPos(float p[4]) {
     uint32_t mission = 0, mode = 0; uint8_t journey = 0;
     if (g_ph_anchor_dead) return 0; // the stand already dropped the player; do not warp back to it
-    if (!g_en.anchored || !g_en.row || g_en.fellBack) return 0;
+    // #88516: only a stand the player has actually stood on (1 s, on the anchor) is a recovery point; an unvalidated
+    // row-derived stand can be mid-air (RB24D 90723 33256 82978: four recovery warps, then death).
+    if (!g_en.anchored || !g_en.anchorOk || !g_en.row || g_en.fellBack) return 0;
     if (!MsRead(&mission, &journey, &mode) || mission != g_en.row->mission) return 0;
     memcpy(p, g_en.anchor, sizeof g_en.anchor);
     return 1;
@@ -2148,9 +2216,18 @@ N3T_API int Nioh3Training_NativeEntryRoute(uint32_t mission) {
 }
 N3T_API int Nioh3Training_FightNow(uint32_t mission);
 // #71926: BR opened the door this mission's boss script waits for; its intro and CreateAndWait run now, so hold the near-boss move and the fallback.
+N3T_API void Nioh3Training_NativeGatePending(uint32_t mission) {
+    g_en_doorMission = mission;
+    Log("ENTER: boss door pending for mission 0x%X; roster extras are not the boss and no near-boss stand until the script's own boss", mission);
+}
 N3T_API void Nioh3Training_NativeGateOpened(uint32_t mission) {
-    if (!g_en.active || !g_en.row || g_en.row->mission != mission || g_en.gated) return;
+    if (mission) g_en_doorMission = mission;
+    // Route 2 can be an idle same-character body. The door still starts the real Create; resume the watch.
+    if (!g_en.row || g_en.row->mission != mission || g_en.gated || g_en.fellBack) return;
+    if (!g_en.active && g_en.route != 1 && g_en.route != 2) return;
     g_en.gated = 1; g_en.tGate = GetTickCount();
+    g_en.active = 1; g_en.dormant = 0; g_en.route = 1;
+    g_en.anchored = 0; g_en.anchorOk = 0; // hazard recovery must not warp to that idle body's stand
     Log("ENTER %s: boss door opened by BR; waiting for the script's own boss", g_en.row->id);
 }
 static void EntryCoverBegin(ArenaRow* r);
@@ -2371,7 +2448,12 @@ static void EnterTick(void) {
                 return;
             }
             if (!g_en.tStable || fabsf(cur[1] - g_en.stableY) > 20.0f) { g_en.tStable = now; g_en.stableY = cur[1]; }
-            else if (now - g_en.tStable >= 1000) { memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1; }
+            else if (now - g_en.tStable >= 1000) {
+                memcpy(g_en.safe, cur, sizeof cur); g_en.safe[3] = g_en.target[3]; g_en.safeOk = 1;
+                if (g_en.anchored && !g_en.anchorOk && fabsf(cur[0] - g_en.anchor[0]) < 300.0f && fabsf(cur[2] - g_en.anchor[2]) < 300.0f && fabsf(cur[1] - g_en.anchor[1]) < 400.0f) {
+                    g_en.anchorOk = 1; Log("ENTER %s: near-boss stand validated (player stood 1 s at %.0f %.0f %.0f)", r->id, cur[0], cur[1], cur[2]);
+                }
+            }
         }
         uint32_t sequencePlacement = g_en.gated ? NativeEntrySequenceLive(r) : 0;
         if (sequencePlacement) {
@@ -2385,7 +2467,8 @@ static void EnterTick(void) {
         }
         uint32_t nativePlacement = NativeEntryPlacement(r);
         if (nativePlacement && NativeBossReady(r, nativePlacement)) {
-            if (!g_en.anchored && !NativeEntryBoxFor(r) && NativeAnchorPoint(r, g_en.anchor) &&
+            // #88516: a door-waiting script owns the player's arrival (its own warp); never stand the player from row data there.
+            if (!g_en.anchored && g_en_doorMission != r->mission && !NativeEntryBoxFor(r) && NativeAnchorPoint(r, g_en.anchor) &&
                 Warp(g_en.anchor[0], g_en.anchor[1], g_en.anchor[2], g_en.anchor[3], 1)) {
                 g_en.anchored = 1; g_en.nudged = 1; g_en.moved = 1; g_en.tWarp = now; EnterTarget(g_en.anchor, g_en.anchor[3]);
                 Log("ENTER %s: boss live far from the mission start; stood %d units from placement %u at %.0f %.0f %.0f", r->id, g_cfg_bossdist, nativePlacement, g_en.anchor[0], g_en.anchor[1], g_en.anchor[2]);
@@ -2404,7 +2487,8 @@ static void EnterTick(void) {
         }
         // #71861: the script already placed this boss but keeps it dormant (dojo teacher: lesson enemies come first, box at the row's start). Moving away leaves the
         // script's box, and the fallback's dedupe would delete the teacher and then wait forever. The script owns this fight: never move, never replace.
-        if (!g_en.dormant && nativePlacement && !g_en.fell) {
+        // A WaitWarpStart door is still creating the fighting body; an idle same-character extra is not that teacher.
+        if (!g_en.gated && !g_en.dormant && nativePlacement && !g_en.fell) {
             g_en.dormant = 1; g_en.active = 0; g_en.route = 2;
             if (g_np.started) Log("ENTER %s: native boss placement %u live (fight started); request-to-boss %lu ms, warp-to-boss %lu ms; no Training HP/Ki write", r->id, nativePlacement, now - g_en.t0, now - g_en.tWarp);
             else Log("ENTER %s: placement %u is live but script-dormant; staying in the mission's own flow, no move and no fallback", r->id, nativePlacement);
@@ -3049,6 +3133,7 @@ static void XwTick(void) {
     if (!ok) { g_xw.active = 1; XwNative("arena swap refused"); }
 }
 static int FightNowImpl(uint32_t mission) {
+    WavesFightReset();
     ArenaRow* nativeRow = FindRow(mission);
     if (NativeFirst(nativeRow)) {
         if (g_np.armed || FallbackMulti()) TrainStop("new native attempt");
@@ -3059,7 +3144,7 @@ static int FightNowImpl(uint32_t mission) {
             g_fb.row = roster; g_fb.native = 1;
             snprintf(g_fb.name, sizeof g_fb.name, "%s", nativeRow->name);
         }
-        memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow;
+        memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow; g_en_doorMission = 0; // BR re-arms the door after this call
         g_ph_giveup = 0; g_ph_anchor_dead = 0; // a new mission may stand somewhere that does have a floor
         g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
@@ -6125,6 +6210,79 @@ N3T_API int Nioh3Training_AutoMoves(uint32_t chr, void* out, int cap, int abi) {
 #include "practice_freeze.h"
 #include "practice_freeze_game.h"  // user #22589: Practice freeze + frame advance (F9 / F6, Practice hub rows)
 #include "hazard_guard_game.h"
+#include "field_hold.h"
+// #89181: same-world field teleport. The stage can already be state 5 while the destination cell
+// has no collision mark, and one Warp lets the player fall through. Re-place every tick until the
+// new main cell shows '*', then summon beside the player.
+static struct { volatile LONG armed; int on, homeOk; float x, y, z, yaw, home[4]; uint32_t chr, cell0, cell; DWORD t0, tStar, lastLog; } g_fa;
+static uint32_t MainCellId(void) {
+    uint64_t s = StageMgr(); int32_t c = -1; if (!s) return 0;
+    __try { c = *(int32_t*)(s + 0x504); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    return c > 0 ? (uint32_t)c : 0;
+}
+static int CellStarOf(uint32_t id) {
+    uint64_t s = StageMgr(), n = 0; if (!id || !s) return 0;
+    __try { n = *(uint64_t*)(s + 0x560); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    // StageLog walks sub+0x40 (stage+0x540). The count StageLog prints is sub+0x60 (stage+0x560).
+    for (uint64_t i = 0; i < n && i < 256; ++i) {
+        uint64_t e = 0;
+        __try { e = ((uint64_t (*)(uint64_t, uint64_t))(B + Grva(0xD3B9C)))(s + 0x540, i); } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+        if (!e || (*(uint32_t*)e >> 4) != id) continue;
+        __try { return *(uint8_t*)(e + 0xE8) ? 1 : 0; } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    }
+    return 0;
+}
+static void FieldArriveStop(const char* why) {
+    g_fa.on = 0; g_fa.tStar = 0; InterlockedExchange(&g_field_hold, 0);
+    Log("FIELD stop (%s)", why);
+}
+N3T_API int Nioh3Training_FieldArrive(float x, float y, float z, float yaw, uint32_t chr) {
+    if (!chr || g_fa.on || g_fa.armed) return 0;
+    g_fa.x = x; g_fa.y = y; g_fa.z = z; g_fa.yaw = yaw; g_fa.chr = chr;
+    InterlockedExchange(&g_fa.armed, 1);
+    return 1;
+}
+static void FieldArriveTick(void) {
+    if (g_fa.armed && !g_fa.on) {
+        InterlockedExchange(&g_fa.armed, 0);
+        g_fa.on = 1; g_fa.t0 = GetTickCount(); g_fa.tStar = 0; g_fa.lastLog = 0; g_fa.cell = 0;
+        g_fa.homeOk = PlayerPos(g_fa.home); g_fa.cell0 = MainCellId();
+        InterlockedExchange(&g_field_hold, 1);
+        uint64_t e = ResEntry(g_fa.chr);
+        if (!e || !*(uint8_t*)(e + 0x2c8)) { ((void (*)(uint32_t, uint32_t, uint32_t))(B + Grva(0x3F9E58)))(g_fa.chr, 2, 0); PoolAdd(g_fa.chr); }
+        int w = Warp(g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, 1);
+        Log("FIELD warp %.0f %.0f %.0f yaw %.1f chr %u from cell %u -> %d", g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, g_fa.chr, g_fa.cell0, w);
+        StageLog("FIELD warp");
+        if (w != 1) { FieldArriveStop("warp failed"); return; }
+    }
+    if (!g_fa.on) return;
+    Warp(g_fa.x, g_fa.y, g_fa.z, g_fa.yaw, 0); // position only: do not restart the stream every frame
+    DWORD now = GetTickCount();
+    uint32_t cell = MainCellId();
+    int star = CellStarOf(cell);
+    unsigned starMs = 0;
+    if (star == 1 && cell && cell != g_fa.cell0) {
+        if (!g_fa.tStar || g_fa.cell != cell) g_fa.tStar = now;
+        g_fa.cell = cell; starMs = now - g_fa.tStar;
+    } else g_fa.tStar = 0;
+    int step = FieldHoldStep(now - g_fa.t0, cell, star, g_fa.cell0, starMs);
+    if (!g_fa.lastLog || now - g_fa.lastLog >= 1000) {
+        g_fa.lastLog = now;
+        Log("FIELD hold +%lu ms cell %u (from %u) star %d", (unsigned long)(now - g_fa.t0), cell, g_fa.cell0, star);
+    }
+    if (step == FH_HOLD) return;
+    if (step == FH_HOME) {
+        int hw = g_fa.homeOk ? Warp(g_fa.home[0], g_fa.home[1], g_fa.home[2], g_fa.home[3], 1) : 0;
+        Log("FIELD cell %u still without star after %lu ms, home warp %d, summon not sent", cell, (unsigned long)(now - g_fa.t0), hw);
+        FieldArriveStop("cell not ready");
+        return;
+    }
+    char tok[32]; snprintf(tok, sizeof tok, "%u", g_fa.chr);
+    int slot = SlotFree(); g_sp_slot_next = slot;
+    int ok = slot < 0 ? 0 : SummonStart(tok, 400.0f);
+    Log("FIELD cell %u star ready after %lu ms, summon %u -> %d", cell, (unsigned long)(now - g_fa.t0), g_fa.chr, ok);
+    FieldArriveStop(ok ? "summon queued" : "summon refused");
+}
 // user #14309: a boss that just took slot s starts with the defaults: Stand still (idle), aggro = saved BossAggro, HP / Ki controls OFF.
 static void SlotNew(int s) {
     if (s < 0 || s >= N3T_SLOTS) return;
@@ -6173,6 +6331,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { HgTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("HAZARD tick fault %08lX",GetExceptionCode()); }
     __try { BossTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BBM tick exception %08lX", GetExceptionCode()); g_bm.active = 0; }
     __try { ArenaTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("ARENA tick exception %08lX", GetExceptionCode()); g_ar.active = 0; }
+    __try { FieldArriveTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FIELD tick exception %08lX", GetExceptionCode()); g_fa.on = 0; InterlockedExchange(&g_field_hold, 0); }
     __try { AwareTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { g_aw.a = 0; }
     __try { InfHpTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { }  // user #22918
     __try { FightPlayerWatch(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("FIGHT watch exception %08lX", GetExceptionCode()); }

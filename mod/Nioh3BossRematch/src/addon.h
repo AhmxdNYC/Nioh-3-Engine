@@ -166,6 +166,7 @@ void Pump();  // shared dispatcher callback; no work until successfully prepared
 bool Live();
 bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
 void NoteNativeWin();  // the running native fight's boss mode ended / mission cleared: a won Fight now attempt may retire at the gate
+void NoteWavesEnd();   // unmatched BossBattleModeEnd on a waves row: that end is the win
 // Report fight list. 1 Boss Match, 2 Practice, 3 a story boss. Name is the catalogue row, or "".
 int FightLogMode();
 const char* FightLogName();

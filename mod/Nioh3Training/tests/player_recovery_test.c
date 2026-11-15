@@ -26,6 +26,7 @@ static int PlayerNativeRecoveryPos(float* p){memcpy(p,native_p,sizeof native_p);
 static void PlayerRecoverFull(void){++recovers;hazard=0;}
 static int PlayerRecoveryWarp(const float* p){++warps;memcpy(actual,p,sizeof actual);return warp_ok;}
 static int NativeFightRecoverPos(float p[4]){(void)p;return 0;}
+static int g_field_hold;
 #define Log(...) ((void)0)
 #include "../src/player_recovery_tick.h"
 static void Reset(void){
@@ -47,6 +48,8 @@ int main(void){
  PlayerHazardRecoverTick();assert(warps==1 && actual[1]==22);
  Reset();hazard=1;native_ok=0;g_tr.active=g_tr.hasStart=1;g_tr.pp[0]=NAN;
  PlayerHazardRecoverTick();assert(!warps && g_ph_native_death_actor==1);
+ Reset();hazard=1;g_field_hold=1;PlayerHazardRecoverTick();assert(!warps && !g_ph_native_death_actor);
+ g_field_hold=0;PlayerHazardRecoverTick();assert(warps==1);
  Reset();g_ph_hazard_actor=99;PlayerHazardRecoverTick();assert(!warps && !g_ph_hazard_actor);
  player=0;g_ph_hazard_actor=1;PlayerHazardRecoverTick();assert(!warps && !g_ph_hazard_actor);
  Reset();g_tr.active=g_tr.hasStart=1;g_tr.pp[1]=22;

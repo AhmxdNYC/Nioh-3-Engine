@@ -371,6 +371,56 @@
    "offset": 0
   },
   {
+   "name": "Time::GetTimeStep",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 3291944,
+   "head": 9,
+   "native": "Time::GetTimeStep",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::IsEnterPlacementBox",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 1284024,
+   "head": 5,
+   "native": "Player::IsEnterPlacementBox",
+   "pattern": "48 89 5C 24 08",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::RequestID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 37458424,
+   "head": 5,
+   "native": "WaveBattle::RequestID",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::IsActiveID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 9497140,
+   "head": 9,
+   "native": "WaveBattle::IsActiveID",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::IsClearID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 37458280,
+   "head": 9,
+   "native": "WaveBattle::IsClearID",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
    "name": "Item::ReserveAllItemAll",
    "group": "KEEPGEAR",
    "kind": "native",

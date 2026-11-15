@@ -19,11 +19,13 @@ constexpr int kItFight=0x10000,kItTrainHere=0x50000,kItTeleport=0x40000,kMaxRows
 struct {int page=uRematch;} g_uiPages;
 struct {bool showAll=true,hiddenDuels=true,directStart=true;} g_cfg;
 std::vector<Row> g_rows(4);std::atomic<uint8_t> g_status[4];std::atomic<bool> g_live{true};
-std::set<std::string> favs;rcore::ListCycle cycle;int stop=0,g_sel=0,g_confirm=-9;
+std::set<std::string> favs;rcore::ListCycle g_listCycle;rcore::ListCycle& cycle=g_listCycle;int stop=0,g_sel=0,g_confirm=-9;
 char ListFavKind(){return g_uiPages.page==uTrainHere||g_uiPages.page==uTraining?'T':'B';}
 bool FavHas(char kind,const char* id){return favs.count(rcore::FavKey(kind,id))!=0;}
-void EnsureListCycle(){rcore::BuildListCycle(g_rows,cycle);}
+int& ListStopRef(){return stop;}
+void EnsureListCycle(){rcore::BuildListCycle(g_rows,g_listCycle);}
 bool RowInCurrentList(const Row& r){return rcore::RowInListStop(r,cycle,stop,FavHas(ListFavKind(),r.id));}
+constexpr int kItStagedStart=-70;bool g_stagedFinal=false;char g_msg[4]={};void Log(const char*,...){}
 void CycleListFilter(int){}
 uint64_t g_now=0,g_step=1000;uint64_t NavNowMs(){return g_now+=g_step;}
 '''

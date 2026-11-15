@@ -23,6 +23,9 @@ Routes (notes/rematch-all-bosses.md s.1)
       the colon in its right column). SCROLL_REGION overrides one record index, so a row can leave Waves
       without a code change.
   X   no route: field-only (open-world region mission), unshipped record, not a boss, or no data. 'reason' says which.
+      A field-only row with a picked CHxx enemy record also carries that record's spawn (summon_chr, warp, placement).
+      summon_chr is the enemy record's +4 key, the same id Load::Character and the arena table use, not the param char_id.
+      The pick is every bit-4 field hit of the name: a record name containing WORLD, else BOSS, else the lowest mission and placement.
 
 Fight now (route E1 "straight to the boss", notes/boss-rematch-build.md s.E1): for every R / H / D row the mission start point
 (mission record +0x6C table, 0xA4-byte records: +0 id, +8 flags, +0xC gadget kind 0/906-909, +0x40 spawn x y z yaw) nearest the boss
@@ -48,7 +51,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 N = ROOT / "notes"
-LFM = ROOT / "data" / "extract" / "lfm"
+LFM = pathlib.Path(os.environ.get("NIOH3_LFM") or os.environ.get("NIOH3_TEST_LFM") or (ROOT / "data" / "extract" / "lfm"))
 IDTAB = ("archive_08", "AE", "50B70535D0EDD19523951019C533295915AE7D4F65FE37E351E09D3858A8C5")
 MISSIONDB = ("archive_03", "52", "BD29D45533CFACBFA2D6EC80A3B9F40E07CBF9183727358B0B3C3ABE3E4FC2")
 EMAKI = ("archive_03", "70", "14FB3450175890EB5F7574DD50BE04684A511B7B4A5B55E00FC2EAF66849FD")
@@ -86,7 +89,8 @@ SEEN = {(0x34, 76781): ("2026-10-08-pc-replay", "118")}   # (mission, placement)
 COLS = ["id", "name", "mission_name", "region", "route", "replay_mission_id", "hidden", "story_mission", "defeat_kind", "defeat_id",
         "emaki_byte", "emaki_key_u32", "placement_id", "stage_mission", "warp_x", "warp_y", "warp_z", "warp_yaw", "box_id", "hell_id",
         "region_byte", "verified", "seen", "emaki_index", "boss", "reason", "fight_kind", "fight_dist_m", "fight_conf", "arena_x",
-        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning", "mission_class", "confirmed"]
+        "arena_y", "arena_z", "arena_yaw", "arena_box", "arena_src", "arena_conf", "arena_boxgeo", "gate_id", "gate_kind", "boss_pos", "lesson", "wake_step", "warning", "mission_class", "confirmed", "summon_chr",
+        "fight_signal", "wave_groups", "clear_x", "clear_y", "clear_z"]
 ACOLS = ["boss", "aliases", "type", "region", "route", "mission_id", "mission_name", "mission_class", "placement_id", "record_name",
          "stage", "warp", "arena", "defeat_check", "variants", "verified", "unverified", "reason", "sources"]
 ASCII_MAP = {0x014D: "o", 0x016B: "u", 0x2019: "'", 0x2013: "-", 0x2014: "-"}
@@ -192,89 +196,96 @@ def build_index():
     print("wrote notes/rematch-enemy-index.csv (%d rows), notes/rematch-emaki.csv (%d records)" % (len(rows), len(er)))
 
 
-def _script_box_calls(d):
-    """mission script bytes -> {int constant: set(native names)} for constants pushed (op 0x29) right before a native call."""
+def _script_box_calls(path):
+    """Read script triggers with the validated LFM decoder; return placement -> calls and proven starts.
+
+    A gate is a WaitWarpStart(G) whose later Create of the selected body is either in the same
+    function, or in a parallel function that EndWarpRights(G) then Creates. Kind is door when any
+    StartWarpByGadgetRights uses G, else box when StartWarp uses G. CALL_NATIVE ids are 1-based
+    (lfm_disasm.insn_name). A later IsInteractionPlayer on that body is not a gate: it can start a
+    different placement's BossBattleMode.
+    """
+    here = ROOT / "re" / "scripts_re"
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import lfm_disasm
     try:
-        ln = d[0]
-        q = 1 + ln
-        cnt = struct.unpack_from("<H", d, q)[0]
-        q += 2
-        names = []
-        for _ in range(cnt):
-            n = struct.unpack_from("<H", d, q)[0]
-            names.append(d[q + 6:q + 6 + n].decode("latin1"))
-            q += 6 + n + 1
-        n = struct.unpack_from("<H", d, q)[0]
-        q += 2
-        syms = {struct.unpack_from("<HHH", d, q + 6 * i)[1]: struct.unpack_from("<HHH", d, q + 6 * i)[0] for i in range(n)}
-        q += 6 * n
-        ms = list(re.finditer(rb"[\x20-\x7e\x80-\xff]{3,}\x00", d[q:]))
-        pe = q + ms[0].end() if ms else q
-        for m in ms[1:]:
-            if q + m.start() - pe > 5:
-                break
-            pe = q + m.end()
-        i = d.index(b"\x35\x00", pe)
-    except (ValueError, IndexError, struct.error):
+        s = lfm_disasm.load(str(path))
+    except (OSError, ValueError, IndexError, struct.error):
         return {}
-    ops = []
-    while i + 2 <= len(d):
-        o = struct.unpack_from("<H", d, i)[0]
-        if o in (0x1b, 0x1f, 0x3b, 0x3a, 0x01, 0x2f, 0x50, 0x51):
-            ln = 2
-        elif o in (0x29, 0x2d, 0x22, 0x23, 0x24, 0x30, 0x31, 0x05, 0x11, 0x3e, 0x3d):
-            ln = 4
-        elif o in (0x35, 0x2c, 0x2e):
-            if i + 4 > len(d):
-                break
-            ln = 2 + (8 if o == 0x35 else 4) * struct.unpack_from("<H", d, i + 2)[0]
-        else:
-            ln = 0
-        if o > 0x5f or i + 2 + ln > len(d):
-            break
-        ops.append((o, d[i + 2:i + 2 + ln]))
-        i += 2 + ln
+    if not s.insns:
+        return {}
+
+    functions, cur = {}, None
+    for ins in s.insns:
+        if ins.op == 0x3B:
+            cur = lfm_disasm.insn_name(s, ins)
+            functions[cur] = []
+        elif cur is not None:
+            functions[cur].append(ins)
+    names = lambda ins: lfm_disasm.insn_name(s, ins)
+
+    def literal_args(at):
+        # LFM decoder returns literal scalar arguments as decimal strings; packed WORDS arrays are hex words.
+        out = []
+        for token in lfm_disasm.call_args(s, at):
+            try:
+                out.append(int(token, 0))
+            except (TypeError, ValueError):
+                if isinstance(token, str) and token.startswith("[") and token.endswith("]"):
+                    for word in token[1:-1].split(","):
+                        try:
+                            out.append(int(word, 16))
+                        except ValueError:
+                            pass
+        return out
+
     out = collections.defaultdict(set)
-    sym = lambda x: names[syms[struct.unpack("<H", x)[0]]] if struct.unpack("<H", x)[0] in syms and syms[struct.unpack("<H", x)[0]] < len(names) else ""
-    funcs, cur = [], None
-    for k, (o, x) in enumerate(ops):
-        if o == 0x3b and len(x) == 2:
-            cur = {"name": sym(x), "calls": []}
-            funcs.append(cur)
-            continue
-        if o in (0x1b, 0x1f) and len(x) == 2:
-            nm = sym(x)
-            ints = [struct.unpack("<i", ops[j][1])[0] for j in range(max(0, k - 5), k) if ops[j][0] == 0x29]
-            if cur is not None:
-                cur["calls"].append((nm, ints))
-            if not nm.startswith(TRIG_CALLS) or not ("Box" in nm or "Invade" in nm):
+    end_rights = collections.defaultdict(list)
+    doors, boxes = set(), set()
+    waits = []
+    for fn, insns in functions.items():
+        for k, ins in enumerate(insns):
+            if ins.op not in (0x1B, 0x1F):
                 continue
-            for v in ints:
-                out[v].add(nm)
-    # boss gates: the id a mission-specific function waits on with Function::WaitWarpStart before it creates the boss / starts
-    # BossBattleMode; 'door' = some function opens it with Function::StartWarpByGadgetRights (the boss gate gadget), 'box' = with
-    # Function::StartWarp (an arena box check). Both are the game's exclusive-rights warp (Online::RequestExclusiveRights).
-    door, boxw, gates = set(), set(), []
-    for f in funcs:
-        if f["name"].startswith("Function::"):
+            nm = names(ins)
+            vals = literal_args(s.insns.index(ins))
+            if nm.startswith(TRIG_CALLS) and ("Box" in nm or "Invade" in nm):
+                for v in vals:
+                    out[v].add(nm)
+            if not vals or vals[0] <= 0:
+                continue
+            gid = vals[0] & 0xFFFFFFFF
+            if nm == "Function::WaitWarpStart":
+                waits.append((fn, k, gid))
+            elif nm == "Function::EndWarpRights":
+                end_rights[gid].append((fn, k))
+            elif nm == "Function::StartWarpByGadgetRights":
+                doors.add(gid)
+            elif nm == "Function::StartWarp":
+                boxes.add(gid)
+
+    def creates_after(fn, begin):
+        found = set()
+        insns = functions.get(fn, [])
+        for ins in insns[begin:]:
+            if ins.op not in (0x1B, 0x1F):
+                continue
+            if names(ins) in ("Character::Create", "Character::CreateAndWait"):
+                found.update(v & 0xFFFFFFFF for v in literal_args(s.insns.index(ins)) if v > 0)
+        return found
+
+    gates = []
+    for fn, k, gate in waits:
+        created = creates_after(fn, k + 1)
+        for efn, ek in end_rights.get(gate, []):
+            created |= creates_after(efn, ek + 1)
+        if not created:
             continue
-        for nm, ints in f["calls"]:
-            if ints and nm == "Function::StartWarpByGadgetRights":
-                door.add(ints[-1] & 0xFFFFFFFF)
-            if ints and nm == "Function::StartWarp":
-                boxw.add(ints[-1] & 0xFFFFFFFF)
-    for f in funcs:
-        if f["name"].startswith("Function::"):
-            continue
-        cn = [nm for nm, _ in f["calls"]]
-        if "Function::WaitWarpStart" not in cn or not ("Mission::BossBattleMode" in cn or any(c.startswith("Character::Create") for c in cn)):
-            continue
-        creates = sorted({v for nm, ints in f["calls"] if nm.startswith("Character::Create") for v in ints if v > 0})
-        for nm, ints in f["calls"]:
-            if nm == "Function::WaitWarpStart" and ints:
-                gates.append((f["name"], ints[-1] & 0xFFFFFFFF, creates))
-                break
-    out[None] = [(fn, g, "door" if g in door else "box" if g in boxw else "other", cr) for fn, g, cr in gates]
+        kind = "door" if gate in doors else "box" if gate in boxes else "other"
+        gates.append((fn, gate, kind, sorted(created)))
+
+    out[None] = gates
     return out
 
 
@@ -328,7 +339,7 @@ def build_fight_index():
                              "ex": "", "ey": "", "ez": "", "name": "#%d" % j})
         snm = E.get(struct.unpack_from("<I", rec, 0x50)[0])
         sp = files.get(snm) if snm else None
-        trig = _script_box_calls(sp.read_bytes()) if sp else {}
+        trig = _script_box_calls(sp) if sp else {}
         for fn, g, kind, cr in trig.pop(None, []):
             rows.append({"mission_id": mh, "kind": "gate", "id": g, "flags": kind, "sub": " ".join(str(c) for c in cr[:12]), "x": "0", "y": "0",
                          "z": "0", "yaw": "0", "ex": "", "ey": "", "ez": "", "name": ascii_(fn)[:60]})
@@ -399,15 +410,44 @@ def _dist_m(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5 / 100.0
 
 
-def pick_fight_start(fi, mid, pid):
+def _in_enter_box(pos, box):
+    """box is centre x y z, yaw degrees, full size x y z from the script's first Player::IsEnterBox."""
+    import math
+    cx, cy, cz, yaw, sx, sy, sz = box
+    dx, dz = pos[0] - cx, pos[2] - cz
+    a = math.radians(yaw)
+    lx = dx * math.cos(a) - dz * math.sin(a)
+    lz = dx * math.sin(a) + dz * math.cos(a)
+    return abs(lx) <= sx / 2.0 + 50 and abs(lz) <= sz / 2.0 + 50 and abs(pos[1] - cy) <= sy / 2.0 + 50
+
+
+def _mission_only_start(s, facts):
+    """One mission start and no boss placement. Distance is to the clear gadget, else the enter box."""
+    clear = facts.get("clear")
+    box = facts.get("box")
+    ref = clear if clear is not None else ((box[0], box[1], box[2]) if box else None)
+    dist = _dist_m(s["pos"], ref) if ref else 0.0
+    if dist > 120:
+        return None
+    inside = _in_enter_box(s["pos"], box) if box else False
+    conf = "high" if facts.get("signal") == "waves" and inside else "medium"
+    return {"start": s["id"], "kind": "mission start", "dist": dist, "conf": conf, "pos": s["pos"], "yaw": s["yawf"], "box": 0}
+
+
+def pick_fight_start(fi, mid, pid, facts=None):
     """-> dict(start, kind, dist, conf, pos, yaw, box) or None.  Rules (notes/boss-rematch-build.md s.E1):
     one start point = the mission already starts at its fight (high);  flags 0x200 = a post-boss / script retry point: never used;
     flags 0x40 within 40 m = the boss retry point class (Jakotsu-baba's sits 0.6 m outside BOSS_AREA, facing the boss): high;
     a plain spawn point (kind 0) or gadget point (908) 8..40 m away, or a shrine (906/907/909) 8..60 m away: medium;
-    anything else within 120 m (incl. points < 8 m = probably inside the arena / a post-fight point): low;  farther: not offered."""
+    anything else within 120 m (incl. points < 8 m = probably inside the arena / a post-fight point): low;  farther: not offered.
+    No placement: the single mission start, measured to the script clear gadget or enter box. Not a per-row list."""
     m = fi.get(mid)
-    if not m or not pid or pid not in m["boss"] or not m["start"]:
+    if not m or not m["start"]:
         return None
+    if not pid or pid not in m["boss"]:
+        if pid or len(m["start"]) != 1:
+            return None
+        return _mission_only_start(m["start"][0], facts or {})
     bp = m["boss"][pid]["pos"]
     st = m["start"]
     bx = sorted(m["box"], key=lambda b: _dist_m(b["pos"], bp))
@@ -577,6 +617,75 @@ def apply_placeholder_labels(out, bs, idx):
         o["mission_name"] = display_mission_name(game, o.get("name") or "", other)
 
 
+def _pid_int(pid):
+    try:
+        return int(pid)
+    except (TypeError, ValueError):
+        return 1 << 31
+
+
+def enemy_positions():
+    """(mission id, placement id) -> (x, y, z, yaw) from each mission's +0x54 enemy table, including open-field regions."""
+    if getattr(enemy_positions, "cache", None) is not None:
+        return enemy_positions.cache
+    found = {}
+    enemy_positions.cache = found
+    base = _game_data_root()
+    if base is None:
+        return found
+    lfm_root = base / "data" / "extract" / "lfm"
+    d = lfm_root.joinpath(*IDTAB).read_bytes()
+    E = {}
+    for i in range(struct.unpack_from("<I", d, 4)[0]):
+        e = 8 + i * 8
+        k, o = struct.unpack_from("<Ii", d, e)
+        E[k] = d[e + o:d.index(b"\0", e + o)].decode("latin1")
+    files = {}
+    for root, _, fs in os.walk(lfm_root):
+        for f in fs:
+            p = pathlib.Path(root) / f
+            files["/".join(p.relative_to(lfm_root).parts[1:])] = p
+    md = lfm_root.joinpath(*MISSIONDB).read_bytes()
+    n = struct.unpack_from("<I", md, 4)[0]
+    for i in range(n):
+        rec = md[8 + i * 0x198:8 + (i + 1) * 0x198]
+        mid = struct.unpack_from("<H", rec, 0x158)[0]
+        nm = E.get(struct.unpack_from("<I", rec, 0x54)[0])
+        p = files.get(nm) if nm else None
+        if not p:
+            continue
+        t = p.read_bytes()
+        if len(t) < 8 or t[:4] != b"\x00\x22\x04\x20":
+            continue
+        c = struct.unpack_from("<I", t, 4)[0]
+        if c == 0 or 8 + c * 0x138 > len(t):
+            continue
+        for j in range(c):
+            r = t[8 + j * 0x138:8 + (j + 1) * 0x138]
+            pid = struct.unpack_from("<I", r, 0)[0]
+            found[(mid, pid)] = struct.unpack_from("<4f", r, 0x40)
+    return found
+
+
+def pick_field_spawn(hits, positions, summon_keys):
+    """One table-derived spawn. WORLD in the record name, else BOSS, else the lowest mission and placement.
+    summon_keys maps (mission, placement) to the enemy record +4 key (Load::Character id)."""
+    def rank(h):
+        m, pid, rn = h
+        u = (rn or "").upper()
+        return (0 if "WORLD" in u else 1, 0 if "BOSS" in u else 1, m, _pid_int(pid))
+
+    for m, pid, rn in sorted(hits, key=rank):
+        ip = _pid_int(pid)
+        if ip >= 1 << 31:
+            continue
+        pos = positions.get((m, ip))
+        summon = summon_keys.get((m, ip), 0)
+        if pos and summon:
+            return m, ip, pos, summon, rn
+    return None
+
+
 def classify(mid, bs, mi, ma):
     """-> (route letter or None, reason) for one mission id."""
     b = bs.get(mid)
@@ -615,8 +724,16 @@ def build():
     for r in rd("boss-names.csv"):
         cnames[r["english_name"].strip().lower()].add(int(r["char_id"]))
     byc = collections.defaultdict(list)
+    summon_keys, recname = {}, {}
     for r in idx:
         byc[int(r["char_id"])].append(r)
+        try:
+            key = (int(r["mission_id"], 16), int(r["placement_id"]))
+            summon_keys[key] = int(r["key64"] or 0)
+            recname[key] = r["record_name"]
+        except (TypeError, ValueError):
+            continue
+    positions = enemy_positions()
 
     groups = collections.OrderedDict()
     for r in bm:
@@ -702,11 +819,20 @@ def build():
             else:
                 reason = "no data: the name matches no char id (boss-names.csv) and no boss-master row (online-only name, mission unconfirmed)"
                 rec = ""
+            spawn = None
+            if field_hits and all(w.startswith("field:") for w in why_x):
+                spawn = pick_field_spawn(field_hits, positions, summon_keys)
+                if spawn:
+                    sm, spid, _pos, schr, srn = spawn
+                    rb = bs[sm]["region_15c"] if sm in bs else "-"
+                    spawn = (sm, spid, _pos, schr, rb, recname.get((sm, spid), srn))
+                else:
+                    print("open-world: %s has field records but no table position and char id" % name)
             allrows.append({"boss": name, "aliases": c.get("alt_names", "")[:60], "type": btype, "region": region, "route": "X",
                             "record_name": rec, "verified": "-", "reason": reason,
                             "unverified": ("web: %s" % c.get("mission", ""))[:80] if c else "",
                             "sources": "boss-master;enemy-index" + (";crosscheck" if c else "")})
-            xtsv.append(xrow(name, region, reason))
+            xtsv.append(xrow(name, region, reason, spawn))
             continue
         _, rt, m, pid, rn, src, x, _q = routes[0]
         b = bs[m]
@@ -840,32 +966,19 @@ def _lfm_paths(base):
     return out
 
 
-def _script_is_lesson(path):
-    """Entry function reaches Character::IsDeathGroupEnemy and never Mission::BossBattleMode.
-
-    CALL_NATIVE is 1-based; CALL_FN and FN_ENTRY are 0-based (lfm_disasm.insn_name). Shared library
-    functions that contain those natives do not count unless the entry actually calls them.
-    BossBattleModeEnd is a different native and does not make a duel.
-    """
+def _disasm():
     here = ROOT / "re" / "scripts_re"
     if not (here / "lfm_disasm.py").is_file():
         here = pathlib.Path(r"C:\Users\Ahmad Hamza\nioh3-engine\re\scripts_re")
     if str(here) not in sys.path:
         sys.path.insert(0, str(here))
     import lfm_disasm
-    s = lfm_disasm.load(str(path))
-    if not s.insns:
-        return False
-    fn_at = {}
-    entry = None
-    for i, ins in enumerate(s.insns):
-        if ins.op == 0x3B:
-            fn_at[ins.args[0]] = i
-            entry = ins.args[0]
-    if entry is None:
-        return False
+    return lfm_disasm
+
+
+def _script_walk(s, lfm, fn_at, entry):
+    """Functions the entry actually reaches. Library copies do not count until called."""
     seen, stack = set(), [entry]
-    death = boss = False
     while stack:
         sym = stack.pop()
         if sym in seen or sym not in fn_at:
@@ -874,27 +987,143 @@ def _script_is_lesson(path):
         for ins in s.insns[fn_at[sym] + 1:]:
             if ins.op == 0x3B:
                 break
-            if ins.op == 0x1B:
-                name = lfm_disasm.insn_name(s, ins)
-                if name == "Character::IsDeathGroupEnemy":
-                    death = True
-                elif name == "Mission::BossBattleMode":
-                    boss = True
-            elif ins.op == 0x1F:
+            if ins.op == 0x1F:
                 stack.append(ins.args[0])
-    return death and not boss
+    return seen
 
 
-def lesson_mission_ids():
-    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+def _slot_words(insns):
+    """Flatten the int and float arrays pushed as one call's arguments. Slot 1 is the first word."""
+    items = []
+    for ins in insns:
+        if ins.op in (0x1B, 0x1F):
+            break
+        if ins.op == 0x2C:
+            for w in ins.args[1:]:
+                items.append(("i", w if w < 0x80000000 else w - (1 << 32)))
+        elif ins.op == 0x2E:
+            for w in ins.args[1:]:
+                items.append(("f", struct.unpack("<f", struct.pack("<I", w & 0xFFFFFFFF))[0]))
+    return items
 
-    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
-    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
-    scan"; the caller keeps the column already in the catalogue.
+
+def _v1_slot(token):
+    m = re.fullmatch(r"v1\.(\d+)", token)
+    return int(m.group(1)) if m else 0
+
+
+def _bracket_floats(token):
+    if len(token) < 2 or token[0] != "[" or token[-1] != "]":
+        return None
+    out = []
+    for part in token[1:-1].split(","):
+        part = part.strip()
+        if not part:
+            continue
+        w = int(part, 16)
+        out.append(struct.unpack("<f", struct.pack("<I", w))[0])
+    return out
+
+
+def _body_calls(s, lfm, fn_at, sym):
+    start = fn_at[sym] + 1
+    out = []
+    for k in range(start, len(s.insns)):
+        ins = s.insns[k]
+        if ins.op == 0x3B:
+            break
+        if ins.op in (0x1B, 0x1F):
+            out.append((lfm.insn_name(s, ins), lfm.call_args(s, k)))
+    return out
+
+
+def _script_record(path):
+    """fight_signal boss|waves|-, wave group ids, clear-gadget xyz, first IsEnterBox.
+
+    boss wins when the entry reaches Mission::BossBattleMode. Otherwise IsDeathGroupEnemy is waves.
+    BossBattleModeEnd alone is not a boss. Wave ids and the clear point are the entry call's
+    flattened argument slots (v1.N) that those natives load. No mission id is named here.
     """
-    global _LESSON_IDS
-    if _LESSON_IDS is not None:
-        return _LESSON_IDS
+    empty = {"signal": "-", "waves": [], "clear": None, "box": None}
+    lfm = _disasm()
+    s = lfm.load(str(path))
+    if not s.insns:
+        return empty
+    fn_at = {}
+    entry = None
+    for i, ins in enumerate(s.insns):
+        if ins.op == 0x3B:
+            fn_at[ins.args[0]] = i
+            entry = ins.args[0]
+    if entry is None:
+        return empty
+    reached = _script_walk(s, lfm, fn_at, entry)
+    death = boss = False
+    for sym in reached:
+        for name, _args in _body_calls(s, lfm, fn_at, sym):
+            if name == "Character::IsDeathGroupEnemy":
+                death = True
+            elif name == "Mission::BossBattleMode":
+                boss = True
+    signal = "boss" if boss else "waves" if death else "-"
+    waves, clear, box = [], None, None
+    entry_name = lfm.symname(s, entry)
+    for _off, fn, ins in lfm.statements(s):
+        if fn != entry_name:
+            continue
+        call = next((i for i in ins if i.op == 0x1F), None)
+        if call is None or call.args[0] not in reached:
+            continue
+        slots = _slot_words(ins)
+        groups = []
+        floats = []
+        seen_g, seen_f = set(), set()
+        for name, args in _body_calls(s, lfm, fn_at, call.args[0]):
+            if name in ("Character::IsDeathGroupEnemy", "Character::CreateGroupEnemy"):
+                for token in args:
+                    slot = _v1_slot(token)
+                    if slot in seen_g or slot < 1 or slot > len(slots):
+                        continue
+                    kind, val = slots[slot - 1]
+                    if kind == "i" and 0 < val < 0x10000:
+                        seen_g.add(slot)
+                        groups.append((slot, val))
+            elif name in ("Gadget::CreatePlacementGadgetPosition", "UI::SetCompassDestinationIndex"):
+                for token in args:
+                    slot = _v1_slot(token)
+                    if slot in seen_f or slot < 1 or slot > len(slots):
+                        continue
+                    kind, val = slots[slot - 1]
+                    if kind == "f":
+                        seen_f.add(slot)
+                        floats.append((slot, val))
+            elif name == "Player::IsEnterBox" and box is None:
+                for token in args:
+                    got = _bracket_floats(token)
+                    if got and len(got) >= 9:
+                        box = (got[0], got[1], got[2], got[4], got[6], got[7], got[8])
+                        break
+        if groups and not waves:
+            waves = [val for _slot, val in sorted(groups)]
+        if len(floats) >= 3 and clear is None:
+            floats.sort()
+            clear = (floats[0][1], floats[1][1], floats[2][1])
+    return {"signal": signal, "waves": waves, "clear": clear, "box": box}
+
+
+def _script_is_lesson(path):
+    """Entry reaches IsDeathGroupEnemy and never Mission::BossBattleMode."""
+    return _script_record(path)["signal"] == "waves"
+
+
+_MISSION_FACTS = None
+
+
+def mission_script_facts():
+    """mission id -> script record. None when this machine has no LFM extract."""
+    global _MISSION_FACTS, _LESSON_IDS
+    if _MISSION_FACTS is not None:
+        return _MISSION_FACTS
     base = _game_data_root()
     if base is None:
         return None
@@ -902,7 +1131,8 @@ def lesson_mission_ids():
     md = (base / "data" / "extract" / "lfm").joinpath(*MISSIONDB).read_bytes()
     n = struct.unpack_from("<I", md, 4)[0]
     judged = {}
-    found = set()
+    facts = {}
+    lessons = set()
     for i in range(n):
         b = 8 + i * 0x198
         if b + 0x15A > len(md):
@@ -914,10 +1144,24 @@ def lesson_mission_ids():
             continue
         key = str(path)
         if key not in judged:
-            judged[key] = _script_is_lesson(path)
-        if judged[key]:
-            found.add(mid)
-    _LESSON_IDS = found
+            judged[key] = _script_record(path)
+        facts[mid] = judged[key]
+        if judged[key]["signal"] == "waves":
+            lessons.add(mid)
+    _MISSION_FACTS = facts
+    _LESSON_IDS = lessons
+    return _MISSION_FACTS
+
+
+def lesson_mission_ids():
+    """Mission ids the script scan calls a lesson, or None when the LFM extract is not on this machine.
+
+    The Boss Match list is drawn before the mission script runs, and the ASI does not contain the
+    archive, so the result is stored in the lesson column. None (not an empty set) means "could not
+    scan"; the caller keeps the column already in the catalogue.
+    """
+    if mission_script_facts() is None:
+        return None
     return _LESSON_IDS
 
 
@@ -974,9 +1218,13 @@ def mrow(rt, mid, b, lst, ma, fi):
               "verified": "1" if rt == "R" else "0", "boss": ascii_(";".join(names)) or "-"})
     if pid and (mid, int(pid)) in SEEN:
         o["seen"] = SEEN[(mid, int(pid))][0]
-    f = pick_fight_start(fi, mid, int(pid)) if pid else None
+    facts = {}
+    scanned = mission_script_facts()
+    if scanned is not None:
+        facts = scanned.get(mid) or {}
+    f = pick_fight_start(fi, mid, int(pid) if pid else 0, facts)
     gt = pick_gate(fi, mid, int(pid)) if pid else None
-    if f and fi.get(mid) and int(pid) in fi[mid]["boss"]:
+    if f and pid and fi.get(mid) and int(pid) in fi[mid]["boss"]:
         bp = fi[mid]["boss"][int(pid)]["pos"]
         o["boss_pos"] = "%.0f_%.0f_%.0f" % bp
     if f and gt:
@@ -987,13 +1235,22 @@ def mrow(rt, mid, b, lst, ma, fi):
                   "fight_dist_m": "%.0f" % f["dist"], "fight_conf": f["conf"]})
         if f["kind"] == "mission start" and f["dist"] <= 30:
             o.update({"arena_src": "mission start (the mission already starts at the fight)", "arena_conf": f["conf"]})
-        else:
+        elif pid:
             ar = pick_arena(fi, mid, int(pid), f)
             if ar:
                 o.update({"arena_x": "%.0f" % ar["x"], "arena_y": "%.0f" % ar["y"], "arena_z": "%.0f" % ar["z"], "arena_yaw": "%.1f" % ar["yaw"],
                           "arena_box": str(ar["box"]), "arena_src": ascii_(ar["src"]).replace(" ", "_"), "arena_conf": ar["conf"],
                           "arena_boxgeo": ar["geo"]})
-    o["lesson"] = _lesson_flag(mid)
+    if scanned is None:
+        o["lesson"] = _lesson_flag(mid)
+    else:
+        o["lesson"] = "1" if facts.get("signal") == "waves" else "0"
+        o["fight_signal"] = facts.get("signal") or "-"
+        groups = facts.get("waves") or []
+        o["wave_groups"] = ",".join(str(g) for g in groups) if groups else "-"
+        clear = facts.get("clear")
+        if clear:
+            o["clear_x"], o["clear_y"], o["clear_z"] = ("%.0f" % clear[0], "%.0f" % clear[1], "%.0f" % clear[2])
     if mid in ROW_WARN:
         o["warning"] = ascii_(ROW_WARN[mid])[:120]
     return o
@@ -1033,11 +1290,22 @@ def erow(e):
     return o
 
 
-def xrow(name, region, reason):
+# Open-world field spawns are parked (human #92460, 2026-11-12): X rows carry no spawn data until the human resumes that work.
+OPEN_WORLD = False
+
+
+def xrow(name, region, reason, spawn=None):
     o = blank()
     o.update({"id": "X" + re.sub(r"[^A-Za-z0-9]", "", ascii_(name))[:14], "name": ascii_(name),
               "region": region_of(region) if region else "-", "route": "X", "hidden": "0", "verified": "0", "boss": ascii_(name),
               "reason": ascii_(reason)[:240], "lesson": "0"})
+    if spawn and OPEN_WORLD:
+        m, pid, pos, chr_id, region_byte, rn = spawn
+        o.update({"replay_mission_id": "0x%04X" % m, "placement_id": str(pid),
+                  "warp_x": "%.0f" % pos[0], "warp_y": "%.0f" % pos[1], "warp_z": "%.0f" % pos[2], "warp_yaw": "%.1f" % pos[3],
+                  "summon_chr": str(chr_id), "region_byte": region_byte, "fight_kind": "field spawn",
+                  "boss_pos": "%.0f_%.0f_%.0f" % (pos[0], pos[1], pos[2]),
+                  "mission_name": ascii_(rn)[:60]})
     return o
 
 
@@ -1089,7 +1357,8 @@ def main():
     if tp.parent.exists():
         tp.write_bytes(tsvtext.encode("ascii"))
         c2 = collections.Counter(o["route"] for o in out)
-        print("wrote %s: %d rows (%s)" % (tp, len(out), ", ".join("%s %d" % kv for kv in sorted(c2.items()))))
+        ow = sum(1 for o in out if o["route"] == "X" and o.get("summon_chr") not in ("-", "", None))
+        print("wrote %s: %d rows (%s); open world spawns %d" % (tp, len(out), ", ".join("%s %d" % kv for kv in sorted(c2.items())), ow))
     else:
         print("runtime TSV skipped: %s does not exist on this checkout (branch rematch3 has it)" % tp.parent)
     return 0
