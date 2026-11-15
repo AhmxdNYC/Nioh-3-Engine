@@ -1,4 +1,4 @@
-// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
+﻿// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
 //
 // Input
 //   * Controller: the game reads its pads through XInputGetState in its import table (XINPUT1_4 ordinal 2, IAT slot
@@ -51,7 +51,10 @@
 #include "menu_style.h"
 #include "pad_family.h"
 #include "padcard.h"
+#include "btnstyle_migrate.h"
 #include "padviz.h"
+static_assert(padcard::kDeadL == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && padcard::kDeadR == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+              "padcard drift deadzones must match XInput");  // #106253
 #include "paddebug.h"
 #include "inputhist.h"
 #include "hudhide.h"
@@ -4299,6 +4302,7 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
+    if (btnstyle_migrate::Run(f)) MLOG("[Menu] ButtonStyle Xbox -> Auto (one-time migration, ButtonStyleMigrated=1)");  // #106253
     GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Auto", b, 96, f);
     {
         char a[16] = {};

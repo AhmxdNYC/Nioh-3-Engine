@@ -30,7 +30,7 @@ inline const char* Name(uint16_t vid, uint16_t pid) {
         {0x045E, 0x0B12, "Xbox Series Controller"}, {0x045E, 0x0B13, "Xbox Series Controller"}, {0x045E, 0x0B20, "Xbox Series Controller"},
         {0x045E, 0x0B00, "Xbox Elite Series 2"}, {0x045E, 0x0B05, "Xbox Elite Series 2"}, {0x045E, 0x0B22, "Xbox Elite Series 2"},
         {0x0B05, 0x1ABE, "ROG Ally controls"}, {0x0B05, 0x1B4C, "ROG Ally X controls"}, {0x17EF, 0x6182, "Legion Go controls"},
-        {0x28DE, 0x11FF, "Steam virtual pad"}, {0x28DE, 0x1205, "Steam Deck controls"},
+        {0x28DE, 0x11FF, "Steam virtual pad (Valve)"}, {0x28DE, 0x1205, "Steam Deck controls"},
     };
     for (const K& e : k)
         if (e.v == vid && e.p == pid) return e.n;
@@ -104,7 +104,7 @@ inline void Step(Card& c, uint64_t now) {
         Update(c.r[i], s.rx, s.ry, kDeadR, s.buttons, now);
     }
 }
-// all card lines fit the 58-column menu panel (names <= 22 chars + "Pad: ..., no XInput (Steam Input?)")
+// all card lines fit the 58-column menu panel (names <= 25 chars + "Pad: ..., no XInput (Steam Input?)")
 // the pad to name: the first one whose family matches the glyph pick (so a DualSense beats Steam's virtual pad), else the first
 inline int NamedPad(const Card& c) {
     if (c.nHid <= 0) return -1;
@@ -123,6 +123,7 @@ inline void Format(const Card& c, uint64_t now, int glyphStyle, char* l1, size_t
     if (np >= 0) {
         const PadId& p = c.hid[np];
         if (const char* k = Name(p.vid, p.pid)) snprintf(name, sizeof name, "%s", k);
+        else if (p.vid == 0x28DE) snprintf(name, sizeof name, "Steam virtual pad (Valve)");  // #106253: any other Valve pid
         else snprintf(name, sizeof name, "pad %04X:%04X", p.vid, p.pid);
     }
     if (np < 0 && slot < 0) snprintf(l1, n1, "Pad: none found - plug one in, or check Steam Input");
