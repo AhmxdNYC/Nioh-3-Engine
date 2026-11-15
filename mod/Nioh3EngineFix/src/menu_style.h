@@ -278,4 +278,55 @@ inline const char* RowKeyCap(char pad, const char* toggleKey) {
     }
 }
 
+// #106005: help text written by an add-on page (Boss Rematch / Training rows, footer, toast) names pad buttons ("A: close the mod
+// menu", "A start, B back", "LB/RB switches tab"). Under the keyboard the host rewrites it with the same caps as RowKeyCap: a lone
+// A / B / Y used as a button (followed by ':' '/' ',' ')' end, or by a button verb like "opens" / "start" / "back") becomes its key;
+// an "LB/RB ..." clause is dropped up to its '.' (the keyboard has no tab switch). Article "A" ("A boss ...") is left alone.
+inline bool KeyTextVerb(const char* p) {
+    static const char* const kVerbs[] = {"open", "opens", "start", "starts", "back", "refill", "refills", "close", "closes", "select",
+                                         "selects", "train", "confirm", "confirms", "toggle", "toggles", "pick", "picks", "fight",
+                                         "leave", "return", "retry", "cancel", "skip", "to", "or", "and", "again", "on"};
+    for (const char* v : kVerbs) {
+        const size_t k = strlen(v);
+        if (!strncmp(p, v, k) && !((p[k] >= 'a' && p[k] <= 'z') || (p[k] >= 'A' && p[k] <= 'Z'))) return true;
+    }
+    return false;
+}
+// writes the keyboard form of `in` to `out` (always terminated); returns true when anything changed
+inline bool KeyText(const char* in, char* out, size_t n, const char* toggleKey) {
+    if (!n) return false;
+    size_t o = 0;
+    bool changed = false;
+    auto put = [&](const char* s, size_t k) { while (k-- && *s && o + 1 < n) out[o++] = *s++; };
+    for (const char* p = in; p && *p;) {
+        const char prev = p == in ? ' ' : p[-1];
+        const bool wordStart = prev == ' ' || prev == '(' || prev == ',' || prev == '/' || prev == '\t';
+        if (wordStart && p[0] == 'L' && p[1] == 'B' && (!strncmp(p, "LB/RB", 5) || !strncmp(p, "LB / RB", 7) || !strncmp(p, "LB RB", 5))) {
+            const char* dot = strchr(p, '.');
+            p = dot ? dot + 1 : p + strlen(p);
+            while (*p == ' ') ++p;
+            while (o && out[o - 1] == ' ') --o;     // no double space where the clause was
+            if (o && *p && o + 1 < n) out[o++] = ' ';
+            changed = true;
+            continue;
+        }
+        if (wordStart && (p[0] == 'A' || p[0] == 'B' || p[0] == 'Y')) {
+            const char nx = p[1];
+            const bool button = nx == ':' || nx == '/' || nx == ',' || nx == ')' || nx == 0 ||
+                                (nx == ' ' && (p[2] == '/' || KeyTextVerb(p + 2)));
+            if (button) {
+                const char* cap = RowKeyCap(p[0], toggleKey);
+                put(cap, strlen(cap));
+                ++p;
+                changed = true;
+                continue;
+            }
+        }
+        if (o + 1 >= n) break;
+        out[o++] = *p++;
+    }
+    out[o] = 0;
+    return changed;
+}
+
 }  // namespace menu_style
