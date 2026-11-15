@@ -3153,6 +3153,39 @@ void HkLesson(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     Log("Rematch: lesson group %u checked, teacher fight not started%s%s", val[0], id[0] ? " - Fight now row " : "", id);
 }
 
+// #106000 white dot: UI::SetCompassDestination(Index) is the script native that puts the white dot on the compass (lesson end,
+// clear gadget spot). Log-only and universal: the target comes from the game's own call, so no row needs a stored point. The
+// test harness walks to the newest 'white dot' line. The last three float args are x y z (the Index form has one more arg first).
+static void LogWhiteDot(uint64_t ctx, const char* form) {
+    if (!g_fight.load()) return;
+    uint32_t val[6] = {};
+    uint16_t ty[6] = {};
+    const int n = LessonVmArgs(ctx, val, ty, 6);
+    if (n < 3 || n > 6) return;
+    float xyz[3];
+    for (int i = 0; i < 3; ++i) {
+        if (ty[n - 3 + i] != 2) return;  // 2 = float in the VM slot (bosslog 0x13BDB0)
+        memcpy(&xyz[i], &val[n - 3 + i], 4);
+    }
+    static float last[3];
+    static ULONGLONG attempt = 0;
+    if (g_fnFirst == attempt && fabsf(last[0] - xyz[0]) < 1.f && fabsf(last[1] - xyz[1]) < 1.f && fabsf(last[2] - xyz[2]) < 1.f) return;
+    attempt = g_fnFirst;
+    memcpy(last, xyz, sizeof(last));
+    float cur[4] = {};
+    const bool ok = PlayerPos(cur);
+    const float dx = xyz[0] - cur[0], dz = xyz[2] - cur[2];
+    const int fr = g_fightRow;
+    const char* id = (fr >= 0 && (size_t)fr < g_rows.size()) ? g_rows[(size_t)fr].id : "";
+    if (ok)
+        Log("Rematch: white dot %.0f %.0f %.0f (%s) - player %.0f %.0f %.0f, %.1f m flat%s%s", xyz[0], xyz[1], xyz[2], form, cur[0], cur[1], cur[2],
+            sqrtf(dx * dx + dz * dz) / 100.f, id[0] ? " - Fight now row " : "", id);
+    else
+        Log("Rematch: white dot %.0f %.0f %.0f (%s) - player position unknown%s%s", xyz[0], xyz[1], xyz[2], form, id[0] ? " - Fight now row " : "", id);
+}
+void HkDotIndex(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) { LogWhiteDot(ctx, "SetCompassDestinationIndex"); }
+void HkDot(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) { LogWhiteDot(ctx, "SetCompassDestination"); }
+
 // BossBattleMode entry (game thread): the player position at every fight start; ArenaCapture = 1 appends it to the arenas file
 void HkArena(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     { CoverLock lock; if(lock.held){const Snap s=ReadSnap();if(s.msOk&&s.ms14==g_cover.start)g_cover.Entry(g_attempt.sequence,s.ms28,0,true);} }
@@ -4361,6 +4394,8 @@ bool Prepare() {
     OnEntry("Character::Create", &HkCoverCreate);
     OnEntry("BossBattleMode", &HkArena);  // player position at every fight start (+ capture); FIGHT is installed below
     OnEntry("IsDeathGroupEnemy", &HkLesson);  // log-only: which lesson group the script is still waiting on
+    OnEntry("UI::SetCompassDestinationIndex", &HkDotIndex);  // log-only #106000: the white dot the test walks to
+    OnEntry("UI::SetCompassDestination", &HkDot);
     if (stw[0]) {  // SelfTest = id,id,... or 'arena' (every row with an arena point)
         char st8[512] = {};
         WideCharToMultiByte(CP_ACP, 0, stw, -1, st8, sizeof(st8), nullptr, nullptr);
