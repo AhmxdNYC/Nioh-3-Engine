@@ -50,6 +50,7 @@
 #include "reportsend.h"
 #include "menu_style.h"
 #include "pad_family.h"
+#include "padcard.h"
 #include "padviz.h"
 #include "paddebug.h"
 #include "inputhist.h"
@@ -266,6 +267,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
     padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
+    padcard::Feed(idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, t);  // UO #8 status card, raw, read-only
     paddebug::Record(idx, st->dwPacketNumber, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, own, t);  // #97485 raw, read-only
     inputlog::ObservePad((int)idx, g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
     const uint32_t prev = s.prev;
@@ -1794,9 +1796,9 @@ void StartSave() {
 // (a few user32 calls, no memory scan), so a pad swapped while the menu is closed shows its glyphs at the next open.
 int g_btnStyleIni = pad_family::kAuto;
 volatile LONG g_btnStyleChecked = 0;
-int (*g_enumPadVids)(uint16_t* out, int cap) = nullptr;  // tests: fake vendor ids
-int EnumPadVids(uint16_t* out, int cap) {
-    if (g_enumPadVids) return g_enumPadVids(out, cap);
+int (*g_enumPads)(padcard::PadId* out, int cap) = nullptr;  // tests: fake vendor / product ids
+int EnumPads(padcard::PadId* out, int cap) {  // also feeds the UO #8 status card
+    if (g_enumPads) return g_enumPads(out, cap);
     RAWINPUTDEVICELIST list[64];
     UINT n = 64;
     n = GetRawInputDeviceList(list, &n, sizeof(RAWINPUTDEVICELIST));
@@ -1809,14 +1811,17 @@ int EnumPadVids(uint16_t* out, int cap) {
         UINT sz = sizeof(info);
         if (GetRawInputDeviceInfoW(list[i].hDevice, RIDI_DEVICEINFO, &info, &sz) == (UINT)-1) continue;
         if (info.hid.usUsagePage != 1 || (info.hid.usUsage != 4 && info.hid.usUsage != 5)) continue;  // generic desktop joystick / gamepad
-        out[k++] = (uint16_t)info.hid.dwVendorId;
+        out[k].vid = (uint16_t)info.hid.dwVendorId;
+        out[k++].pid = (uint16_t)info.hid.dwProductId;
     }
     return k;
 }
 const char* StyleName(int s) { return s == pad_family::kPlayStation ? "PlayStation" : s == pad_family::kNintendo ? "Nintendo" : "Xbox"; }
 void RefreshButtonStyle() {
+    padcard::PadId pads[16];
     uint16_t vids[16];
-    const int n = g_btnStyleIni >= 0 ? 0 : EnumPadVids(vids, 16);
+    const int n = g_btnStyleIni >= 0 ? 0 : EnumPads(pads, 16);
+    for (int i = 0; i < n; ++i) vids[i] = pads[i].vid;
     const int s = pad_family::Effective(g_btnStyleIni, vids, n);
     const bool first = !InterlockedExchange(&g_btnStyleChecked, 1);
     if (first || s != menu_style::g_btnStyle) {
@@ -3912,6 +3917,16 @@ float DrawImpl(unsigned W, unsigned H) {
     if (g_sel == kFg) {  // the row stays while FG is selected, so the panel does not jump when the reason changes
         const char* why = osd::FgReason(osd::FrameGen());
         addT(why ? why : " ", cOrange);
+    }
+    if (g_pages.page == pOvController) {  // UO #8: controller status card (which pad, does the game get XInput, stick drift)
+        static padcard::Card card;
+        static ULONGLONG nextEnum = 0;
+        if (t >= nextEnum) { nextEnum = t + 2000; card.nHid = EnumPads(card.hid, 8); }
+        padcard::Step(card, t);
+        char c1[112], c2[112];
+        padcard::Format(card, t, menu_style::g_btnStyle, c1, sizeof c1, c2, sizeof c2);
+        addT(c1, cCyan);
+        addT(c2, strstr(c2, "drift") && !strstr(c2, "no drift") ? cOrange : cCyan);
     }
     if (paddebug::g_on && (g_pages.page == pOvInput || g_sel == PadDebugSettingRow())) {  // #98294: pDiagnostics had no route; Input display page (layout 0) or the selected row (any layout). #97485: raw pad as the mod sees it + who hides it from the game
         static int (*formBlock)() = nullptr;

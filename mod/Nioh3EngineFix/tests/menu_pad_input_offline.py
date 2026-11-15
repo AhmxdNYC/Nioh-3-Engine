@@ -58,6 +58,7 @@ prelude = r'''
 ULONGLONG g_fakeNow = 1000;
 #define GetTickCount64() g_fakeNow
 namespace padviz { template <class... A> void Feed(A...) {} }
+namespace padcard { template <class... A> void Feed(A...) {} }  // UO #8 status card feed (read-only)
 namespace inputlog { template <class... A> void ObservePad(A...) {} template <class... A> void ObserveKey(A...) {} }
 #define MLOG(...) do {} while (0)
 struct Cfg {

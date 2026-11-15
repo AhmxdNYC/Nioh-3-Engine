@@ -3,7 +3,7 @@
 #undef main
 // UO open #10: glyph set picked from the connected pad's vendor id; [Menu] ButtonStyle Auto (default) or an override.
 static uint16_t g_fake[8]; static int g_fakeN = 0;
-static int FakeVids(uint16_t* out, int cap) { int k = 0; for (; k < g_fakeN && k < cap; ++k) out[k] = g_fake[k]; return k; }
+static int FakeVids(padcard::PadId* out, int cap) { int k = 0; for (; k < g_fakeN && k < cap; ++k) out[k] = {g_fake[k], 0x0001}; return k; }
 static void Pads(std::initializer_list<uint16_t> v) { g_fakeN = 0; for (uint16_t x : v) g_fake[g_fakeN++] = x; }
 static int Find(const char* t){for(size_t i=0;i<osd::drawnTexts.size();++i)if(osd::drawnTexts[i]==t)return (int)i;return -1;}
 // the badge letter drawn just before a footer label ("A" then "Select")
@@ -23,7 +23,7 @@ int main() {
  CHECK(pf::ParseStyle("Auto") == pf::kAuto && pf::ParseStyle("") == pf::kAuto && pf::ParseStyle(nullptr) == pf::kAuto && pf::ParseStyle("junk") == pf::kAuto);
  CHECK(pf::ParseStyle("xbox") == pf::kXbox && pf::ParseStyle("PlayStation") == pf::kPlayStation && pf::ParseStyle("NINTENDO") == pf::kNintendo);
  // menu: Auto follows the fake pads at every open; overrides ignore them
- g_enumPadVids = FakeVids; g_btnStyleIni = pf::kAuto;
+ g_enumPads = FakeVids; g_btnStyleIni = pf::kAuto;
  savefiles::testAllowed=true;g_disabled=0;g_rematchSession=0;g_cfg.layout=0;g_rematchPage=false;g_modality=MOD_PAD;
  struct Case { std::initializer_list<uint16_t> v; int want; const char* faceA; const char* view; };
  const Case cases[] = {{{0x054C}, 1, nullptr, "Create"}, {{0x057E}, 2, "B", "Minus"}, {{0x045E}, 0, "A", "View"}, {{}, 0, "A", "View"}, {{0x1234}, 0, "A", "View"}};
@@ -48,6 +48,6 @@ int main() {
  {osd::drawnRects.clear(); hint_shapes::ShoulderCap(2, 3, 0, 20, 20, 0xFF000000u, 0xFFFFFFFFu); CHECK(!osd::drawnRects.empty());}
  // shipped default is Auto
  {bool found=false; for (const auto& e : shipped_defaults::kEntries) if (!strcmp(e.section,"Menu") && !strcmp(e.key,"ButtonStyle")) { found=true; CHECK(!strcmp(e.value,"Auto")); } CHECK(found);}
- g_enumPadVids = nullptr; menu_style::g_btnStyle = 0; g_btnStyleIni = pf::kAuto;
+ g_enumPads = nullptr; menu_style::g_btnStyle = 0; g_btnStyleIni = pf::kAuto;
  puts("PASS: glyph set from pad vendor id (Sony PlayStation, Nintendo, else Xbox; unknown/none Xbox), ini override, open + first frame, shipped Auto");
 }
