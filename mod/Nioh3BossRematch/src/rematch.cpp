@@ -2803,9 +2803,21 @@ FadResult FightAgainDirect(int row, const Snap& s, ULONGLONG t) {
 }
 void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     if (g_nativeAgainRow < 0) return;
+    // Ally #105245: the 120 s limit counted from the Fight again press, but a slow device spent ~2 min on the
+    // return trip home itself, so every retry was cancelled while still loading. The idle limit now counts from
+    // the last tick on which the return was still in progress (load, gates, pending request); a hard cap from
+    // the press still ends a real hang.
+    static constexpr ULONGLONG kIdleMs = 120000, kHardCapMs = 600000;
+    static ULONGLONG busyAt = 0, busyFor = 0;
+    if (busyFor != g_nativeAgainAt) { busyFor = g_nativeAgainAt; busyAt = g_nativeAgainAt; }
+    const bool timedOut = t - busyAt > kIdleMs || t - g_nativeAgainAt > kHardCapMs;
     if (g_requestEpoch.load() != g_nativeAgainEpoch || g_attemptSequence != g_nativeAgainSequence ||
-        g_attemptPhase.load() == aQuarantined || t - g_nativeAgainAt > 120000 || SessionGate(s)) {
-        Log("Rematch: native gate retry cancelled (new action, changed attempt, session loss or timeout)");
+        g_attemptPhase.load() == aQuarantined || timedOut || SessionGate(s)) {
+        if (timedOut)
+            Log("Rematch: native gate retry cancelled: timeout (%llu ms since the return was last busy, %llu ms since the press)",
+                (unsigned long long)(t - busyAt), (unsigned long long)(t - g_nativeAgainAt));
+        else
+            Log("Rematch: native gate retry cancelled (new action, changed attempt, session loss or timeout)");
         g_nativeAgainRow = -1; return;
     }
     // Never overlap the old return, restored placement transaction, or any new request.
@@ -2817,6 +2829,7 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     static bool clear = false;
     if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) {
         clear = false;
+        busyAt = t;  // still returning: refresh the idle limit
         return;
     }
     if (!clear || clearFor != g_nativeAgainAt) {
