@@ -3329,9 +3329,15 @@ float DrawRematchHost(unsigned W, unsigned H) {
     if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
         ms::Panel(x, y0, width, line * 2.f + pad * 2.f, scale, ms::kPanelBgSide, a);
         osd::DrawText(tx, y0 + pad, "Mod menu", ms::Fade(ms::kTitleText, a), scale);
-        osd::DrawText(tx, y0 + pad + line, "Waiting for the menu worker. B: back.", ms::Fade(cGray, a), scale);
+        osd::DrawText(tx, y0 + pad + line, InputModality() == MOD_KEY ? "Waiting for the menu worker. Esc: back." : "Waiting for the menu worker. B: back.",
+                      ms::Fade(cGray, a), scale);
         return scale;
     }
+    // #106005: under the keyboard the add-on's help text (row hints, footer, toast) names keys, not pad buttons
+    const bool keyText = InputModality() == MOD_KEY;
+    const char* const toggleKey = g_cfg.vk ? g_cfg.keyName : nullptr;
+    static char footKey[sizeof(g_rematchView.footer) + 32], toastKey[sizeof(g_rematchView.toast) + 32];
+    auto keyed = [&](const char* t, char* buf, size_t bn) -> const char* { return keyText && ms::KeyText(t, buf, bn, toggleKey) ? buf : t; };
     // ---- title row "<page> (<version>) - <status>"
     char title[112] = "Mod menu", status[112] = "";
     uint32_t first = 0;
@@ -3382,6 +3388,12 @@ float DrawRematchHost(unsigned W, unsigned H) {
         const auto& row = g_rematchView.rows[i];
         hostui::Item& it = items[nItems];
         hostui::Parse(row.text, row.color | 0xFF000000u, row.selected != 0, it);
+        if (keyText) {  // after Parse: its own hint cuts ("A: open", "A / Left / Right") still see the pad words
+            char kb[sizeof it.note + 32];
+            if (ms::KeyText(it.label, kb, sizeof kb, toggleKey)) snprintf(it.label, sizeof it.label, "%s", kb);
+            if (ms::KeyText(it.value, kb, sizeof kb, toggleKey)) snprintf(it.value, sizeof it.value, "%s", kb);
+            if (ms::KeyText(it.note, kb, sizeof kb, toggleKey)) snprintf(it.note, sizeof it.note, "%s", kb);
+        }
         if (strlen(it.value) > (size_t)kCols - 8 && it.slider < 0) {  // a value that long reads better as a wrapped note line
             char nb[224];
             snprintf(nb, sizeof nb, "%s%s%s", it.value, it.note[0] ? "  " : "", it.note);
@@ -3413,9 +3425,9 @@ float DrawRematchHost(unsigned W, unsigned H) {
     }
     auto visual = [&](int from, int to) { int v = 0; for (int i = from; i < to; ++i) v += !lines[i].inl; return v; };
     const int bodyN = n, bodyV = visual(0, n);
-    if (g_rematchView.footer[0]) wrap(g_rematchView.footer, 0, kCols, kCols, cGray, -1);
+    if (g_rematchView.footer[0]) wrap(keyed(g_rematchView.footer, footKey, sizeof footKey), 0, kCols, kCols, cGray, -1);
     const int toastStart = n;
-    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
+    if (g_rematchView.toast[0]) wrap(keyed(g_rematchView.toast, toastKey, sizeof toastKey), 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
     const int tailV = n - bodyN;
     const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
     const bool tabHints = !g_rematchFromAddon;  // #44232

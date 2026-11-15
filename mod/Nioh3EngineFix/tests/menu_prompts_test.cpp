@@ -24,6 +24,20 @@ int main() {
  CHECK(!strcmp(menu_style::RowKeyCap('Y',"F10"),"F10")&&!strcmp(menu_style::RowKeyCap('Y',"Insert"),"Insert"));
  CHECK(!strcmp(menu_style::RowKeyCap('Y',nullptr),"Esc")&&!strcmp(menu_style::RowKeyCap('Y',"None"),"Esc")&&!strcmp(menu_style::RowKeyCap('Y',""),"Esc"));
  CHECK(menu_style::RowKeyCap('X',"F10")==nullptr);
+ // #106005 add-on help text: pad button names become keys under the keyboard, articles stay
+ {char b[256];auto kt=[&](const char* in,const char* tk="F10"){menu_style::KeyText(in,b,sizeof b,tk);return std::string(b);};
+  CHECK(kt("  Close   A: close the mod menu")=="  Close   Enter: close the mod menu");
+  CHECK(kt("  Reset fight   A: refill and return to start")=="  Reset fight   Enter: refill and return to start");
+  CHECK(kt("Oni: A opens boss actions. Boss 3 of 9. PgUp/PgDn skips ten rows. LB/RB switches tab. Right: favorite / Left: unfavorite.")
+        =="Oni: Enter opens boss actions. Boss 3 of 9. PgUp/PgDn skips ten rows. Right: favorite / Left: unfavorite.");
+  CHECK(kt("Mission - route. A start, B back.")=="Mission - route. Enter start, Esc back.");
+  CHECK(kt("All meter lanes: ON   A / Left / Right")=="All meter lanes: ON   Enter / Left / Right");
+  CHECK(kt("Fight. A: start / B: back.")=="Fight. Enter: start / Esc: back.");
+  CHECK(kt("Y: close",nullptr)=="Esc: close"&&kt("Y: close","Insert")=="Insert: close");
+  CHECK(kt("A boss with A plan. Beat B-rank. ABBA.")=="A boss with A plan. Beat B-rank. ABBA.");  // articles / words untouched
+  CHECK(kt("switch: LB/RB switches tab")=="switch:");
+  CHECK(!menu_style::KeyText("no buttons here",b,sizeof b,"F10")&&!strcmp(b,"no buttons here"));
+  char sm[8];menu_style::KeyText("A: close the mod menu",sm,sizeof sm,"F10");CHECK(strlen(sm)==7);}
  savefiles::testAllowed=true;g_disabled=0;g_rematchSession=0;g_cfg.layout=0;g_rematchPage=false;
  g_modality=MOD_PAD;
  Open("prompts");CHECK(g_pages.page==pRoot);
@@ -55,7 +69,16 @@ int main() {
  g_modality=MOD_PAD;Draw(true);CHECK(Has("A")&&Has("Select")&&Has("Switch tab")&&!Has("Enter")&&!Has("PgUp"));const float hb=MaxY();
  g_modality=MOD_KEY;Draw(true);CHECK(Has("Arrows")&&Has("Enter")&&Has("Esc")&&Has("PgUp")&&!Has("Switch tab")&&!Has("A")&&MaxY()==hb);
  g_modality=MOD_PAD;Draw(true);CHECK(Has("Switch tab")&&!Has("Enter"));
+ // #106005: the add-on's rows / footer name keys under the keyboard and pad buttons on the pad
+ {const auto keep=hf::view;
+  snprintf(hf::view.rows[1].text,sizeof hf::view.rows[1].text,"  Close   A: close the mod menu");hf::view.rowCount=std::max(hf::view.rowCount,2u);
+  snprintf(hf::view.footer,sizeof hf::view.footer,"Oni: A opens boss actions. Boss 1 of 2. LB/RB switches tab. Right: favorite.");
+  hf::Complete(true);CHECK(RefreshRematchHost(Now()));
+  auto any=[](const char* sub){for(auto&t:osd::drawnTexts)if(t.find(sub)!=std::string::npos)return true;return false;};
+  g_modality=MOD_KEY;Draw(true);CHECK(any("Enter: close the mod menu")&&any("Enter opens boss actions")&&!any("A: close")&&!any("LB/RB")&&!any("A opens"));
+  g_modality=MOD_PAD;Draw(true);CHECK(any("A: close the mod menu")&&any("A opens boss actions")&&any("LB/RB")&&!any("Enter:"));
+  hf::view=keep;hf::Complete(true);RefreshRematchHost(Now());}
  Close("hosted prompts");
  g_modality=MOD_PAD;
- puts("PASS: footer prompts follow InputModality (pad badges / key caps, same rows, flat + nested + hosted pages, unbound menu key)");
+ puts("PASS: footer prompts follow InputModality (pad badges / key caps, same rows, flat + nested + hosted pages, add-on help text, unbound menu key)");
 }
