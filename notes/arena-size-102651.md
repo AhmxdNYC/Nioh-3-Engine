@@ -25,3 +25,21 @@ Limits:
 - Missing data: 105 rows lack a piece (mostly the trigger box): 49 confirmed rows (27 lack only the box, 17 lack the stand + box,
   5 lack all three: the dojo Novice rows RF5E5, RD759, R26F3, RA0A1); all 20 Picture Scrolls lack a stand point; 30 X rows lack everything.
   Full list: run the script (stdout).
+
+## Live far-wall check (pc2/1, #102852, 2026-11-14 8:00 pm EST)
+
+PC2, public 1.8.17 (EF d7cb9d69, BR 376532e9, TR 1cfd0921, CamKi e6142afc; Nioh3Fix aed178ea also present), Boss Match
+`rm fight ID`, player xyz polled ~1/s (vpad state) from the fight stand while walking 8 directions x 12 s (plus 4 x 25 s for Kasha).
+Radius = max horizontal distance from the stand; extents are min..max offsets from the stand in metres (x / z); walls were
+confirmed by position plateaus (player stops moving while the stick is held) and an end screenshot against the arena edge.
+
+| id | boss | box estimate m | measured max from stand m | x extent | z extent | within 35 m |
+|---|---|---|---|---|---|---|
+| R23E5 | Hino-enma | 39.5 | **28.1** | -12.8..23.1 | -27.7..7.4 | yes |
+| R0034 | Enenra & Jakotsu-baba | 34.7 | **25.5** | -12.9..16.4 | -24.9..8.4 | yes |
+| R7B35 | Minamoto no Yoritomo | 33.2 | **27.0** | -4.6..18.4 | -23.8..9.2 | yes |
+| RCC53 | Kasha (outlier) | 58.7 | **33.8** | -5.0..33.1 | -11.6..26.1 | yes (wall at x=+33 hit 3 times) |
+
+Verdict: PASS. The 35 m stop covers the far wall in all 3 normal arenas (max 28.1 m) and Kasha too (33.8 m); Kasha does
+not need the slider max. The trigger-box radius over-estimates the walkable arena (stand sits off-centre, walls are closer).
+Raw: pc2 C:/nioh3-re/ar102852 (pos_*.txt, *_end.png, rad.sh/radius.py/ext.py).
