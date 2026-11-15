@@ -194,15 +194,33 @@ enum : LONG { MOD_PAD = 0, MOD_KEY = 1 };
 volatile LONG g_modality = MOD_PAD;
 volatile LONG g_modalitySwitches = 0;
 bool (*volatile g_inputVirtual)(int dev, unsigned idx) = nullptr;  // vpad.cpp: dev 0 = pad slot idx, 1 = keyboard
+volatile LONG g_virtLogged = 0;    // #105941: one 'VPad input: modality locked' line per session
+volatile LONG g_modalityLogged = 0; // #105941: flip log lines written (capped; flips need a real device change, so they are rare)
 bool InputTrusted(int dev, unsigned idx, bool own) {  // own polls read the hardware directly (VPad is only in the game's import)
     auto f = g_inputVirtual;
-    return own || !f || !f(dev, idx);
+    if (own || !f || !f(dev, idx)) return true;
+    if (!InterlockedExchange(&g_virtLogged, 1))
+        MLOG("VPad input: modality locked - virtual %s%u drives the menu but never switches input modality", dev ? "keyboard" : "pad slot ", dev ? 0u : idx);
+    return false;
+}
+const char* KeyBitName(uint32_t k) {  // first pressed menu key, for the modality log
+    static const struct { uint32_t bit; const char* name; } kN[] = {{K_TOGGLE, "menu key"}, {K_ESC, "Esc"}, {K_UP, "Up"}, {K_DOWN, "Down"},
+        {K_LEFT, "Left"}, {K_RIGHT, "Right"}, {K_ENTER, "Enter"}, {K_NPENTER, "Num Enter"}, {K_BACKSP, "Backspace"}, {K_PAGEUP, "PgUp"},
+        {K_PAGEDOWN, "PgDn"}};
+    for (const auto& n : kN)
+        if (k & n.bit) return n.name;
+    return "key";
+}
+bool ModalityLogSlot() {  // true while under the cap; the line at the cap says the rest are not logged
+    const LONG n = InterlockedIncrement(&g_modalityLogged);
+    if (n == 200) MLOG("input modality: 200 switches logged, further switches are not logged this session");
+    return n < 200;
 }
 // #105887: KeyFeed (DirectInput thread / Present own poll) and PadFeed (XInput thread / Present own poll) may run on different
 // threads. g_modalLock serialises the snapshot here against PadFeed's prev / modalSnap read-modify-write, so a release is never
 // lost and the snapshot never reads a half-updated slot. Held for a few bit ops only; no calls, no C++ objects (PadFeed is __try).
 SRWLOCK g_modalLock = SRWLOCK_INIT;
-void ModalityToKey() {
+void ModalityToKey(uint32_t keys, bool own) {
     if (g_modality == MOD_KEY) return;
     AcquireSRWLockExclusive(&g_modalLock);
     const bool sw = g_modality != MOD_KEY;  // re-check under the lock: two key threads snapshot once
@@ -211,12 +229,14 @@ void ModalityToKey() {
         InterlockedExchange(&g_modality, MOD_KEY);
     }
     ReleaseSRWLockExclusive(&g_modalLock);
-    if (sw) InterlockedIncrement(&g_modalitySwitches);
-}
-void ModalityToPad() {
-    if (g_modality == MOD_PAD) return;
-    InterlockedExchange(&g_modality, MOD_PAD);
+    if (!sw) return;
     InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality pad->key (%s, %s)", KeyBitName(keys), own ? "own keyboard poll" : "game keyboard read");
+}
+void ModalityToPad(DWORD idx, uint32_t bits, bool own) {
+    if (InterlockedExchange(&g_modality, MOD_PAD) == MOD_PAD) return;  // exchange: two pad threads flip (and log) once
+    InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality key->pad (pad slot %lu, buttons %06X, %s)", idx, bits, own ? "own pad poll" : "game pad read");
 }
 uint32_t g_keyPrev = 0;
 // Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
@@ -294,7 +314,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     ReleaseSRWLockExclusive(&g_modalLock);
     const uint32_t pressed = live & ~prev;
     g_padHeld[idx] = (LONG)live;
-    if (pressed && InputTrusted(0, idx, own)) ModalityToPad();
+    if (pressed && InputTrusted(0, idx, own)) ModalityToPad(idx, pressed, own);
     g_padHeldAt[idx] = (LONG64)t;
     if(g_coverToken.load()) {
         if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
@@ -414,7 +434,7 @@ void KeyFeed(uint8_t* keys, bool own) {
     const uint32_t pressed = raw & ~g_keyPrev;
     const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
-    if (pressed && InputTrusted(1, 0, own)) ModalityToKey();  // UO #14
+    if (pressed && InputTrusted(1, 0, own)) ModalityToKey(pressed, own);  // UO #14; the press itself still acts below (#105941)
     {
         const bool nav = g_open != 0;
         struct Hk { uint32_t bit; const char* name; int allow; };
