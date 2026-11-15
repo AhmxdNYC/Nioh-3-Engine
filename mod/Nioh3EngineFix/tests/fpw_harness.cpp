@@ -11,6 +11,7 @@
 //   G FileLoad thunk: its loop condition is produced > read-done only (retired lagging does not back off).
 //   H wrong bytes (a different build / another patch): "FPW: not installed", the site bytes are left unchanged.
 //   K ini (#104135): explicit FileLoadPoll = 0 = no FPW at all; a missing key = default 1 (tries to install).
+//   M one-time FpwDefaultV migration (#104185): ini 0 + no marker -> 1 + marker; ini 0 + marker stays 0.
 //   I CPU gate (#104135, [Tuning] FileLoadPoll_MaxCpus 6): run on a 4-CPU affinity = ON; widen the affinity above 6
 //     CPUs = the gate thread logs "off" within ~1 s and idle passes return at once (stock); back to 4 CPUs = ON again.
 // Prints ALL PASSED on success.
@@ -163,6 +164,7 @@ int main() {
     // K: explicit 0 = off (nothing about FPW logged); missing key = default 1 (install attempted on the bad image, H).
     {
         WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"0", ini);
+        WritePrivateProfileStringW(L"Patches", L"FpwDefaultV", L"1", ini);  // marker present: a user's 0 sticks
         uint8_t* bad = MakeImage(true);
         thrsched::StartInfo si;
         si.log = Log;
@@ -175,6 +177,32 @@ int main() {
         printf("K explicit FileLoadPoll = 0: %s\n", any ? "FPW ran (BAD)" : "FPW off");
         g_lines.clear();
         WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", nullptr, ini);  // delete the key
+    }
+
+    // M one-time migration (#104185): FileLoadPoll = 0 + no FpwDefaultV -> 1 + marker; 0 + marker -> stays 0.
+    {
+        wchar_t mini[MAX_PATH];
+        GetTempPathW(MAX_PATH, mini);
+        wcscat_s(mini, L"fpw_harness_mig.ini");
+        DeleteFileW(mini);
+        WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"0", mini);
+        thrsched::StartInfo si;
+        si.log = Log;
+        si.iniPath = mini;
+        si.base = (uintptr_t)MakeImage(true);
+        thrsched::Start(si);
+        int v = (int)GetPrivateProfileIntW(L"Patches", L"FileLoadPoll", -1, mini);
+        int m = (int)GetPrivateProfileIntW(L"Patches", L"FpwDefaultV", -1, mini);
+        CHECK(v == 1 && m == 1);
+        printf("M ini 0 + no marker -> FileLoadPoll %d, marker %d\n", v, m);
+        WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"0", mini);  // user sets 0 afterwards
+        si.base = (uintptr_t)MakeImage(true);
+        thrsched::Start(si);
+        v = (int)GetPrivateProfileIntW(L"Patches", L"FileLoadPoll", -1, mini);
+        CHECK(v == 0);
+        printf("M ini 0 + marker -> FileLoadPoll %d (stays)\n", v);
+        DeleteFileW(mini);
+        g_lines.clear();
     }
 
     // H with the key missing (Start installs once per process image; use a separate fake image).
