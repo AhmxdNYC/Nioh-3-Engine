@@ -548,9 +548,12 @@ Config LoadConfig() {
         if (kc > 0 && c.workerCap == 0) {
             DWORD_PTR pm = 0, sm = 0;
             int n = kc;
-            if (kc == 1 && GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm)) {
-                n = 0;
-                for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+            if (kc == 1) {
+                n = 0;  // affinity unreadable -> skip (no WorkerCap), logged via kidstsCapCpus = -1
+                if (GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm))
+                    for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+                else
+                    n = -1;
             }
             const int logical = (int)GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
             if (n >= 1 && n < logical) c.workerCap = std::clamp(n, 6, 31) < logical ? std::clamp(n, 6, 31) : 0;
@@ -1662,7 +1665,8 @@ DWORD WINAPI Worker(LPVOID) {
     const DWORD logical = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
     bool wcPending = cfg.workerCap > 0 && known && wca && wcb;
     if (wcPending && (cfg.workerCap < 6 || cfg.workerCap > 31)) { Log("WC: WorkerCap must be 6..31 - skipped"); wcPending = false; }
-    if (cfg.kidstsCapCpus) Log("KC: KidstsCap sees %d CPUs (of %lu logical) -> WorkerCap %d", cfg.kidstsCapCpus, logical, cfg.workerCap);
+    if (cfg.kidstsCapCpus < 0) Log("KC: KidstsCap - process affinity unreadable, skipped (no WorkerCap)");
+    else if (cfg.kidstsCapCpus) Log("KC: KidstsCap sees %d CPUs (of %lu logical) -> WorkerCap %d", cfg.kidstsCapCpus, logical, cfg.workerCap);
     if (wcPending && logical <= (DWORD)cfg.workerCap) { Log("WC: %lu logical CPUs <= WorkerCap %d - nothing to cap", logical, cfg.workerCap); wcPending = false; }
     auto tryWC = [&]() {
         uint8_t* a = g_base + wca->rva;
