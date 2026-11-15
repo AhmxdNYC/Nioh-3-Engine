@@ -455,7 +455,7 @@ struct Config {
     int mw = 0, rd = 0;
     int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
-    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
+    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, kidstsCapCpus = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
@@ -539,6 +539,24 @@ Config LoadConfig() {
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
     c.workerCap = I(L"Patches", L"WorkerCap", c.workerCap);
+    // KidstsCap (#102935, default 0): size the job pools for the CPUs the game may actually use. 1 = the process affinity
+    // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
+    // and the count is below the logical CPU count; becomes WorkerCap = max(6, count) because the engine's own pool base
+    // is clamp(logical, 6, 32) (a real 4-core CPU gets base 6). notes/walk-hitch-102842.md.
+    {
+        const int kc = I(L"Patches", L"KidstsCap", 0);
+        if (kc > 0 && c.workerCap == 0) {
+            DWORD_PTR pm = 0, sm = 0;
+            int n = kc;
+            if (kc == 1 && GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm)) {
+                n = 0;
+                for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+            }
+            const int logical = (int)GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+            if (n >= 1 && n < logical) c.workerCap = std::clamp(n, 6, 31) < logical ? std::clamp(n, 6, 31) : 0;
+            c.kidstsCapCpus = n;
+        }
+    }
     c.as0 = I(L"Patches", L"AS0", c.as0);
     const wchar_t* armK[3] = {L"Tier30", L"Tier60", L"Tier120"};
     const wchar_t* minK[3] = {L"Min30", L"Min60", L"Min120"};
@@ -1644,6 +1662,7 @@ DWORD WINAPI Worker(LPVOID) {
     const DWORD logical = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
     bool wcPending = cfg.workerCap > 0 && known && wca && wcb;
     if (wcPending && (cfg.workerCap < 6 || cfg.workerCap > 31)) { Log("WC: WorkerCap must be 6..31 - skipped"); wcPending = false; }
+    if (cfg.kidstsCapCpus) Log("KC: KidstsCap sees %d CPUs (of %lu logical) -> WorkerCap %d", cfg.kidstsCapCpus, logical, cfg.workerCap);
     if (wcPending && logical <= (DWORD)cfg.workerCap) { Log("WC: %lu logical CPUs <= WorkerCap %d - nothing to cap", logical, cfg.workerCap); wcPending = false; }
     auto tryWC = [&]() {
         uint8_t* a = g_base + wca->rva;
@@ -2878,6 +2897,8 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
+                    if (rb[0]) Log("stats %s", rb);
+                    thrsched::FlpStatusLine(rb, sizeof rb);
                     if (rb[0]) Log("stats %s", rb);
                 }
                 if (s_wlDone && sec % 30 == 0) {

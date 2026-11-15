@@ -542,6 +542,103 @@ DWORD WINAPI RtpThread(LPVOID) {
     }
 }
 
+// ======================================================================================================================
+// FLP file-loader priority (#102935): on a few-CPU process (affinity <= FileLoadPrio_MaxCpus) the two KTGLGraph.Cache
+// file loader threads (FileLoad + FileLoad.Poll, a yield/poll loop) take ~1.2 of 4 cores in walk hitches while the
+// disk reads < 18 MB/s and [App]Game waits for a core (notes/walk-hitch-102842.md). BELOW_NORMAL lets the main and
+// render threads run first; the loaders still get every idle cycle. Re-checked every second (affinity can change).
+// ======================================================================================================================
+int g_flpMaxCpus = 6;
+volatile LONG g_flpSets = 0, g_flpRestores = 0, g_flpThreads = 0;
+volatile LONG g_flpActive = 0;
+struct Lowered {
+    DWORD tid = 0;
+    HANDLE h = nullptr;
+    int orig = THREAD_PRIORITY_NORMAL;
+    bool lowered = false;
+};
+
+int AffinityCpus() {
+    DWORD_PTR pm = 0, sm = 0;
+    if (!GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm)) return 64;
+    int n = 0;
+    for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+    return n;
+}
+
+DWORD WINAPI FlpThread(LPVOID) {
+    std::vector<Lowered> lw;
+    std::unordered_map<DWORD, int> tries;  // tid -> name queries (threads get their name shortly after creation)
+    int lastCpus = -1;
+    for (;;) {
+        const int cpus = AffinityCpus();
+        const bool on = cpus <= g_flpMaxCpus;
+        if (cpus != lastCpus) TLOG("FLP: process affinity %d CPUs -> file loader priority %s", cpus, on ? "BELOW_NORMAL" : "unchanged");
+        lastCpus = cpus;
+        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (snap != INVALID_HANDLE_VALUE) {
+            const DWORD pid = GetCurrentProcessId();
+            std::vector<DWORD> alive;
+            THREADENTRY32 te{};
+            te.dwSize = sizeof(te);
+            for (BOOL ok = Thread32First(snap, &te); ok; ok = Thread32Next(snap, &te)) {
+                if (te.th32OwnerProcessID != pid) continue;
+                const DWORD tid = te.th32ThreadID;
+                alive.push_back(tid);
+                bool have = false;
+                for (const Lowered& l : lw) have |= l.tid == tid;
+                if (have) continue;
+                int& t = tries[tid];
+                if (t >= 5) continue;
+                ++t;
+                HANDLE q = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, tid);
+                if (!q) continue;
+                PWSTR d = nullptr;
+                bool match = false;
+                if (SUCCEEDED(g_getDesc(q, &d)) && d) {
+                    if (*d) t = 5;  // named: decided
+                    match = !wcscmp(d, L"KTGLGraph.Cache.FileLoad") || !wcscmp(d, L"KTGLGraph.Cache.FileLoad.Poll");
+                    if (match) TLOG("FLP: file loader thread %ls tid %lu found (priority %d)", d, (unsigned long)tid, GetThreadPriority(q));
+                    LocalFree(d);
+                }
+                CloseHandle(q);
+                if (!match) continue;
+                Lowered l;
+                l.tid = tid;
+                l.h = OpenThread(THREAD_SET_LIMITED_INFORMATION | THREAD_QUERY_LIMITED_INFORMATION, FALSE, tid);
+                if (!l.h) continue;
+                l.orig = GetThreadPriority(l.h);
+                lw.push_back(l);
+            }
+            CloseHandle(snap);
+            for (size_t i = 0; i < lw.size();) {
+                if (std::find(alive.begin(), alive.end(), lw[i].tid) == alive.end()) {
+                    CloseHandle(lw[i].h);
+                    lw.erase(lw.begin() + i);
+                } else ++i;
+            }
+            for (auto it = tries.begin(); it != tries.end();)
+                it = std::find(alive.begin(), alive.end(), it->first) == alive.end() ? tries.erase(it) : std::next(it);
+        }
+        for (Lowered& l : lw) {
+            const int cur = GetThreadPriority(l.h);
+            if (cur == THREAD_PRIORITY_ERROR_RETURN) continue;
+            if (on) {
+                if (!l.lowered) l.orig = cur;
+                const int want = std::min(l.orig, (int)THREAD_PRIORITY_BELOW_NORMAL);  // never raise a thread
+                if (cur != want && SetThreadPriority(l.h, want)) InterlockedIncrement(&g_flpSets);
+                l.lowered = true;
+            } else if (l.lowered) {
+                if (SetThreadPriority(l.h, l.orig)) InterlockedIncrement(&g_flpRestores);
+                l.lowered = false;
+            }
+        }
+        g_flpThreads = (LONG)lw.size();
+        g_flpActive = on ? 1 : 0;
+        Sleep(1000);
+    }
+}
+
 }  // namespace
 
 void Start(const StartInfo& info) {
@@ -576,6 +673,16 @@ void Start(const StartInfo& info) {
         }
     }
 
+    // FLP ([Patches] FileLoadPrio = 0 | 1, [Tuning] FileLoadPrio_MaxCpus = 6): see FlpThread
+    if (I(L"Patches", L"FileLoadPrio", 0) == 1) {
+        g_flpMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPrio_MaxCpus", 6), 1, 64);
+        if (!g_getDesc) TLOG("FLP: GetThreadDescription not available - off");
+        else if (HANDLE h = CreateThread(nullptr, 0, FlpThread, nullptr, 0, nullptr)) {
+            CloseHandle(h);
+            TLOG("FLP: installed (KTGLGraph.Cache.FileLoad + .Poll BELOW_NORMAL while the process affinity has <= %d CPUs)", g_flpMaxCpus);
+        }
+    }
+
     if (I(L"Profiler", L"ThreadState", 0) == 1) {
         if (!g_ntQsi) {
             TLOG("TSTATE: NtQuerySystemInformation not available - off");
@@ -590,6 +697,12 @@ void Start(const StartInfo& info) {
             TLOG("TSTATE: thread-state census armed (starts after %d s)", g_cfg.delay);
         }
     }
+}
+
+void FlpStatusLine(char* buf, unsigned n) {
+    if (!n) return;
+    buf[0] = 0;
+    if (g_flpThreads || g_flpSets) snprintf(buf, n, "FLP: %s | loader threads %ld, lowered %ld, restored %ld", g_flpActive ? "active" : "idle", g_flpThreads, g_flpSets, g_flpRestores);
 }
 
 volatile uint32_t* RtpSwitch() { return g_rtpInstalled ? &g_rtpSwitch : nullptr; }
