@@ -13,6 +13,9 @@ code=r'''
 #include <cassert>
 #include <cstdio>
 #include <vector>
+#include <cstdarg>
+#include <cstring>
+#include <string>
 using ULONGLONG=uint64_t;
 struct Snap{};
 constexpr int aNone=0,aActive=1,aReturning=2,aQuarantined=3,kIdle=0,kReqEmaki=4,kReqFight=6;
@@ -24,7 +27,8 @@ uint64_t g_nativeAgainSequence,g_nativeAgainEpoch,g_attemptSequence;
 std::atomic<uint64_t> g_requestEpoch;
 std::atomic<int> g_attemptPhase,g_state,g_req;
 int g_pend,posts,lastRow; bool sessionLost,blocked;
-void Log(const char*,...){}
+std::vector<std::string> logs; void Log(const char* f,...){char b[512];va_list a;va_start(a,f);vsnprintf(b,sizeof b,f,a);va_end(a);logs.push_back(b);}
+int Count(const char* k){int n=0;for(auto& l:logs)n+=strstr(l.c_str(),k)!=nullptr;return n;}
 const char* SessionGate(const Snap&){return sessionLost?"lost":nullptr;}
 const char* Gates(const Snap&,bool){return blocked?"blocked":nullptr;}
 void Post(uint32_t kind,int row,const char*){assert(kind==kReqFight||kind==kReqEmaki);posts++;lastRow=row;lastKind=(int)kind;g_requestEpoch++;g_req=kind;}
@@ -50,6 +54,16 @@ int main(){Snap s;
  NativeGateRetryTick(s,5203);assert(posts==1&&lastRow==7&&lastKind==kReqEmaki); // a Waves row retries as the scroll Fight now
  reset();g_nativeAgainAt=9000;g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,9100);NativeGateRetryTick(s,14099);assert(!posts); // a new retry gets its own window
  NativeGateRetryTick(s,14100);assert(posts==1);
+ // #105916: one uninterrupted window = one 'home is up' line; an interrupted window logs why and the restart is window 2
+ reset();logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);NativeGateRetryTick(s,5299);NativeGateRetryTick(s,5300);
+ assert(posts==1&&Count("home is up")==1&&Count("window 1, 200 ms after the press")==1&&Count("settle interrupted")==0);
+ reset();g_nativeAgainAt=200;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);blocked=true;NativeGateRetryTick(s,2100);NativeGateRetryTick(s,2200);
+ assert(!posts&&Count("settle interrupted after 1800 ms (blocked)")==1); // logged once, not per busy tick
+ blocked=false;NativeGateRetryTick(s,11000);assert(Count("home is up")==2&&Count("window 2, 10800 ms after the press")==1);
+ NativeGateRetryTick(s,15999);assert(!posts);NativeGateRetryTick(s,16000);assert(posts==1); // the full 5 s runs once more, from the new clear
+ reset();g_nativeAgainAt=150;logs.clear();g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,300);g_pend=1;NativeGateRetryTick(s,400);
+ assert(Count("settle interrupted after 100 ms (request pending)")==1);
+ reset();g_nativeAgainAt=120;logs.clear();g_state=kIdle;NativeGateRetryTick(s,300);assert(Count("settle interrupted")==0&&Count("home is up")==0); // busy before any window: no line
  puts("PASS native gate retry: complete return only, normal gates, 5 s settle after home is up (#78), once, new action/attempt/session/quarantine/timeout cancellation, busy requests");
 }
 '''.replace('@BODY@',fn('void NativeGateRetryTick('))
