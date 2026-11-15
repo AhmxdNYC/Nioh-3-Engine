@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "thrsched.h"
+#include "gamerva.h"
 
 namespace thrsched {
 namespace {
@@ -547,7 +548,12 @@ DWORD WINAPI RtpThread(LPVOID) {
 // file loader threads (FileLoad + FileLoad.Poll, a yield/poll loop) take ~1.2 of 4 cores in walk hitches while the
 // disk reads < 18 MB/s and [App]Game waits for a core (notes/walk-hitch-102842.md). BELOW_NORMAL lets the main and
 // render threads run first; the loaders still get every idle cycle. Re-checked every second (affinity can change).
+// #103349: lowered during a level load, 6 normal workers on 4 CPUs starved the loaders and Continue never finished.
+// So the loaders are lowered ONLY in the field: while the engine level-load window G+58Ah is set (the same byte
+// loadstats / loadonly / prefetch read) or unreadable, they keep their original priority; a load seen while they are
+// lowered restores them on the next 250 ms tick. Every lower / restore is logged with its reason.
 // ======================================================================================================================
+constexpr uint32_t kFlpGameMainPtr = 0x4759910, kFlpGm58A = 0x58A;
 int g_flpMaxCpus = 6;
 volatile LONG g_flpSets = 0, g_flpRestores = 0, g_flpThreads = 0;
 volatile LONG g_flpActive = 0;
@@ -558,6 +564,25 @@ struct Lowered {
     bool lowered = false;
     bool poll = false;  // KTGLGraph.Cache.FileLoad.Poll (else FileLoad)
 };
+
+bool FlpSafeRead(uintptr_t a, void* out, size_t n) {
+    if (a < 0x10000) return false;
+    __try {
+        memcpy(out, (const void*)a, n);
+        return true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+// 1 = level load in progress, 0 = not loading, -1 = unreadable (treated as loading: never lower blind).
+int FlpLoading() {
+    const uint32_t r = Grva(kFlpGameMainPtr);
+    if (!g_base || !r) return -1;
+    uintptr_t gm = 0;
+    uint8_t f = 1;
+    if (!FlpSafeRead(g_base + r, &gm, sizeof(gm)) || gm < 0x10000 || !FlpSafeRead(gm + kFlpGm58A, &f, 1)) return -1;
+    return f ? 1 : 0;
+}
 
 int AffinityCpus() {
     DWORD_PTR pm = 0, sm = 0;
@@ -570,12 +595,29 @@ int AffinityCpus() {
 DWORD WINAPI FlpThread(LPVOID) {
     std::vector<Lowered> lw;
     std::unordered_map<DWORD, int> tries;  // tid -> name queries (threads get their name shortly after creation)
-    int lastCpus = -1;
-    for (;;) {
+    int lastCpus = -1, lastLoad = -2;
+    for (unsigned tick = 0;; ++tick) {
         const int cpus = AffinityCpus();
-        const bool on = cpus <= g_flpMaxCpus;
-        if (cpus != lastCpus) TLOG("FLP: process affinity %d CPUs -> file loader priority %s", cpus, on ? "BELOW_NORMAL" : "unchanged");
+        const bool few = cpus <= g_flpMaxCpus;
+        if (cpus != lastCpus) TLOG("FLP: process affinity %d CPUs -> file loader priority %s", cpus, few ? "BELOW_NORMAL in the field" : "unchanged");
         lastCpus = cpus;
+        const int load = FlpLoading();
+        if (load != lastLoad) TLOG("FLP: level load %s", load == 1 ? "in progress" : load == 0 ? "done (field)" : "flag unreadable");
+        lastLoad = load;
+        const bool on = few && load == 0;
+        const char* why = !few ? "affinity above cap" : load == 1 ? "level load in progress" : load < 0 ? "load flag unreadable" : "field";
+        // Thread discovery once a second; the priority decision below runs every 250 ms tick.
+        if (tick % 4 != 0) {
+            for (Lowered& l : lw)
+                if (!on && l.lowered) {
+                    if (SetThreadPriority(l.h, l.orig)) InterlockedIncrement(&g_flpRestores);
+                    TLOG("FLP: restore %s tid %lu to %d (%s)", l.poll ? "FileLoad.Poll" : "FileLoad", (unsigned long)l.tid, l.orig, why);
+                    l.lowered = false;
+                }
+            g_flpActive = on ? 1 : 0;
+            Sleep(250);
+            continue;
+        }
         // Both loaders found: no more full thread snapshots; only check that they still live (GetExitCodeThread).
         bool haveLoad = false, havePoll = false;
         for (size_t i = 0; i < lw.size();) {
@@ -641,16 +683,20 @@ DWORD WINAPI FlpThread(LPVOID) {
             if (on) {
                 if (!l.lowered) l.orig = cur;
                 const int want = std::min(l.orig, (int)THREAD_PRIORITY_BELOW_NORMAL);  // never raise a thread
-                if (cur != want && SetThreadPriority(l.h, want)) InterlockedIncrement(&g_flpSets);
+                if (cur != want && SetThreadPriority(l.h, want)) {
+                    InterlockedIncrement(&g_flpSets);
+                    TLOG("FLP: lower %s tid %lu %d -> %d (%s)", l.poll ? "FileLoad.Poll" : "FileLoad", (unsigned long)l.tid, cur, want, why);
+                }
                 l.lowered = true;
             } else if (l.lowered) {
                 if (SetThreadPriority(l.h, l.orig)) InterlockedIncrement(&g_flpRestores);
+                TLOG("FLP: restore %s tid %lu to %d (%s)", l.poll ? "FileLoad.Poll" : "FileLoad", (unsigned long)l.tid, l.orig, why);
                 l.lowered = false;
             }
         }
         g_flpThreads = (LONG)lw.size();
         g_flpActive = on ? 1 : 0;
-        Sleep(1000);
+        Sleep(250);
     }
 }
 
@@ -694,7 +740,7 @@ void Start(const StartInfo& info) {
         if (!g_getDesc) TLOG("FLP: GetThreadDescription not available - off");
         else if (HANDLE h = CreateThread(nullptr, 0, FlpThread, nullptr, 0, nullptr)) {
             CloseHandle(h);
-            TLOG("FLP: installed (KTGLGraph.Cache.FileLoad + .Poll BELOW_NORMAL while the process affinity has <= %d CPUs)", g_flpMaxCpus);
+            TLOG("FLP: installed (KTGLGraph.Cache.FileLoad + .Poll BELOW_NORMAL in the field only, not during a level load, while the process affinity has <= %d CPUs)", g_flpMaxCpus);
         }
     }
 
