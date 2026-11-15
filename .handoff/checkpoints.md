@@ -800,3 +800,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-15 2:09 pm EST | cx-pc/0 #106167 | BR gate retry: queue cooldown no longer restarts settle | proven offline (gate_retry +5 cases, harness, native_attempt), live unproven | next: Ally R1CBC x3 on BR #7828, compare press->FIGHT vs 78.5-79.3 s | nioh3-engine cx-pc/gateretry-105916 dbbb123e
 2026-11-15 2:1x pm EST | regression-pc/0 #105999 gateretry bfd091b8 | proven offline | next: review cx-pc #106167 settle fix + dojo-whitedot head when posted | cx-pc/gateretry-105916
 - 2026-11-15 2:13 pm EST | cx-pc/0 #106213 | merged stale-test fixes into dojo-whitedot c0f8fd50 | proven offline (8 key tests PASS) | next: wait pc/1 RA0A1 + Ally #7828 retest | nioh3-engine cx-pc/dojo-whitedot c0f8fd50
+- 2026-11-15 2:15 pm EST | cx-pc/0 session end | all tasks done and pushed (dbbb123e, c0f8fd50, 82dcda42) | live unproven: Ally R1CBC x3 on BR #7828 | next: act on Ally/pc results
