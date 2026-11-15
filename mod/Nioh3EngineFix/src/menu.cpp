@@ -49,6 +49,7 @@
 #include "crashreport.h"
 #include "reportsend.h"
 #include "menu_style.h"
+#include "pad_family.h"
 #include "padviz.h"
 #include "paddebug.h"
 #include "inputhist.h"
@@ -1787,10 +1788,49 @@ void StartSave() {
     }
 }
 
+// ---- UO #10: glyph set from the connected pad ---------------------------------------------------------------------------
+// [Menu] ButtonStyle Auto (default) picks Xbox / PlayStation / Nintendo from the vendor id of the HID joysticks / gamepads
+// (pad_family.h); Xbox / PlayStation / Nintendo in the ini is an override. Checked on the first frame and at every menu open
+// (a few user32 calls, no memory scan), so a pad swapped while the menu is closed shows its glyphs at the next open.
+int g_btnStyleIni = pad_family::kAuto;
+volatile LONG g_btnStyleChecked = 0;
+int (*g_enumPadVids)(uint16_t* out, int cap) = nullptr;  // tests: fake vendor ids
+int EnumPadVids(uint16_t* out, int cap) {
+    if (g_enumPadVids) return g_enumPadVids(out, cap);
+    RAWINPUTDEVICELIST list[64];
+    UINT n = 64;
+    n = GetRawInputDeviceList(list, &n, sizeof(RAWINPUTDEVICELIST));
+    if (n == (UINT)-1) return 0;
+    int k = 0;
+    for (UINT i = 0; i < n && k < cap; ++i) {
+        if (list[i].dwType != RIM_TYPEHID) continue;
+        RID_DEVICE_INFO info{};
+        info.cbSize = sizeof(info);
+        UINT sz = sizeof(info);
+        if (GetRawInputDeviceInfoW(list[i].hDevice, RIDI_DEVICEINFO, &info, &sz) == (UINT)-1) continue;
+        if (info.hid.usUsagePage != 1 || (info.hid.usUsage != 4 && info.hid.usUsage != 5)) continue;  // generic desktop joystick / gamepad
+        out[k++] = (uint16_t)info.hid.dwVendorId;
+    }
+    return k;
+}
+const char* StyleName(int s) { return s == pad_family::kPlayStation ? "PlayStation" : s == pad_family::kNintendo ? "Nintendo" : "Xbox"; }
+void RefreshButtonStyle() {
+    uint16_t vids[16];
+    const int n = g_btnStyleIni >= 0 ? 0 : EnumPadVids(vids, 16);
+    const int s = pad_family::Effective(g_btnStyleIni, vids, n);
+    const bool first = !InterlockedExchange(&g_btnStyleChecked, 1);
+    if (first || s != menu_style::g_btnStyle) {
+        if (g_btnStyleIni >= 0) MLOG("button style %s (ini override)", StyleName(s));
+        else MLOG("button style %s (auto: %d pad(s)%s%04X)", StyleName(s), n, n ? ", first vid " : "", n ? vids[0] : 0);
+    }
+    menu_style::g_btnStyle = s;
+}
+
 // ---- open / close / change ---------------------------------------------------------------------------------------------
 const char* SrcName(LONG src) { return src == 1 ? g_cfg.keyName : src == 2 ? "controller gesture" : src == 3 ? "Esc x3" : "?"; }
 
 void Open(const char* how) {
+    RefreshButtonStyle();  // UO #10
     InterlockedExchange(&g_pressed, 0);
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
@@ -1932,7 +1972,8 @@ void ApplyConfigValue(int index) {
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
         if (!strcmp(d.key, "ButtonStyle")) {
-            menu_style::g_btnStyle = _stricmp(v.c_str(), "PlayStation") == 0 ? 1 : 0;
+            g_btnStyleIni = pad_family::ParseStyle(v.c_str());  // UO #10: Auto or an override
+            RefreshButtonStyle();
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplay")) {
             padviz::g_on = atoi(v.c_str()) ? 1 : 0;
@@ -2906,6 +2947,7 @@ uint32_t NavRepeat(uint32_t pressed, ULONGLONG t) {
 }
 
 void OnPresentImpl() {
+    if (!g_btnStyleChecked) RefreshButtonStyle();  // UO #10: first frame, pad glyphs for the overlays too
     hudhide::Sync();
     hudhide::SyncIds();
     static bool hudLogged = false;
@@ -3439,7 +3481,7 @@ float DrawRematchHost(unsigned W, unsigned H) {
     static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
     if (tabHints) {  // #44232: second prompt line, LB / RB tabs + View first page (not on the Return object's own page)
-        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
         ms::HintRow(tx, hy + line, x + width - pad, kTabs, 2, cw, line, scale, a);
     }
     return scale;
@@ -3988,7 +4030,7 @@ float DrawImpl(unsigned W, unsigned H) {
                 const int k = ms::KeyPrompts(rw.label[1] == 'K' ? 0 : 1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
                 ms::HintRow(x0 + pad, y, right, keys, k, cw, lineH, sc, fa);
             } else if (rw.label[1] == 'T') {  // #44232: shoulder caps follow ButtonStyle (LB RB / L1 R1)
-                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
                 ms::HintRow(x0 + pad, y, right, kTabs, 2, cw, lineH, sc, fa);
             } else {
                 const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}};
@@ -4167,8 +4209,15 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
-    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Xbox", b, 96, f);
-    menu_style::g_btnStyle = !_wcsicmp(b, L"PlayStation") ? 1 : 0;
+    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Auto", b, 96, f);
+    {
+        char a[16] = {};
+        WideCharToMultiByte(CP_UTF8, 0, b, -1, a, sizeof a, nullptr, nullptr);
+        a[sizeof a - 1] = 0;
+        g_btnStyleIni = pad_family::ParseStyle(a);  // UO #10: Auto (detected on the first frame / menu open) or an override
+        menu_style::g_btnStyle = g_btnStyleIni >= 0 ? g_btnStyleIni : 0;
+        InterlockedExchange(&g_btnStyleChecked, 0);
+    }
     padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
