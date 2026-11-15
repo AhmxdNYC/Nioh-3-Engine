@@ -76,6 +76,8 @@ int nativeReturns=0;
 const char* refusal=nullptr;
 void Refuse(const char* reason) { refusal=reason; }
 int CallReturn() { ++nativeReturns; return 0; }
+enum FadResult { kFadFallback, kFadStarted, kFadRefused };
+FadResult FightAgainDirect(int,const Snap&,ULONGLONG) { return kFadFallback; }  // #100232 opt-in, default off: return path covered here
 void Log(const char*,...) {}
 void Result(const char*,...) {}
 // This suite exercises the existing generic return dispatch; actual practice
