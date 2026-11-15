@@ -556,6 +556,7 @@ struct Lowered {
     HANDLE h = nullptr;
     int orig = THREAD_PRIORITY_NORMAL;
     bool lowered = false;
+    bool poll = false;  // KTGLGraph.Cache.FileLoad.Poll (else FileLoad)
 };
 
 int AffinityCpus() {
@@ -575,7 +576,19 @@ DWORD WINAPI FlpThread(LPVOID) {
         const bool on = cpus <= g_flpMaxCpus;
         if (cpus != lastCpus) TLOG("FLP: process affinity %d CPUs -> file loader priority %s", cpus, on ? "BELOW_NORMAL" : "unchanged");
         lastCpus = cpus;
-        HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        // Both loaders found: no more full thread snapshots; only check that they still live (GetExitCodeThread).
+        bool haveLoad = false, havePoll = false;
+        for (size_t i = 0; i < lw.size();) {
+            DWORD ec = 0;
+            if (GetExitCodeThread(lw[i].h, &ec) && ec != STILL_ACTIVE) {
+                CloseHandle(lw[i].h);
+                lw.erase(lw.begin() + i);
+                continue;
+            }
+            (lw[i].poll ? havePoll : haveLoad) = true;
+            ++i;
+        }
+        HANDLE snap = (haveLoad && havePoll) ? INVALID_HANDLE_VALUE : CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
         if (snap != INVALID_HANDLE_VALUE) {
             const DWORD pid = GetCurrentProcessId();
             std::vector<DWORD> alive;
@@ -594,10 +607,11 @@ DWORD WINAPI FlpThread(LPVOID) {
                 HANDLE q = OpenThread(THREAD_QUERY_LIMITED_INFORMATION, FALSE, tid);
                 if (!q) continue;
                 PWSTR d = nullptr;
-                bool match = false;
+                bool match = false, poll = false;
                 if (SUCCEEDED(g_getDesc(q, &d)) && d) {
                     if (*d) t = 5;  // named: decided
-                    match = !wcscmp(d, L"KTGLGraph.Cache.FileLoad") || !wcscmp(d, L"KTGLGraph.Cache.FileLoad.Poll");
+                    poll = !wcscmp(d, L"KTGLGraph.Cache.FileLoad.Poll");
+                    match = poll || !wcscmp(d, L"KTGLGraph.Cache.FileLoad");
                     if (match) TLOG("FLP: file loader thread %ls tid %lu found (priority %d)", d, (unsigned long)tid, GetThreadPriority(q));
                     LocalFree(d);
                 }
@@ -608,6 +622,7 @@ DWORD WINAPI FlpThread(LPVOID) {
                 l.h = OpenThread(THREAD_SET_LIMITED_INFORMATION | THREAD_QUERY_LIMITED_INFORMATION, FALSE, tid);
                 if (!l.h) continue;
                 l.orig = GetThreadPriority(l.h);
+                l.poll = poll;
                 lw.push_back(l);
             }
             CloseHandle(snap);
