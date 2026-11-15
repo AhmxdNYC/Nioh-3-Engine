@@ -35,6 +35,12 @@ int main() {
   Feed(0,0,1000,0,0,0,t);Step(c,t);CHECK(!c.l[0].flagged&&c.l[0].since==0);
   Card h;for(uint64_t u=30000;u<=33000;u+=16){Feed(0,0x1000,x,0,0,0,u);Step(h,u);}CHECK(!h.l[0].flagged);  // A held: player is steering
   Card r;for(uint64_t u=40000;u<=42000;u+=16){Feed(0,0,0,0,0,-12000,u);Step(r,u);}Format(r,42000,0,a,sizeof a,b,sizeof b);CHECK(strstr(b,"possible drift R 37%")&&r.r[0].flagged&&!r.l[0].flagged);}
+ // #106067: connection type is never claimed. Wine / Steam virtual XInput report made-up battery/caps (Ally built-in pad shown as
+ // 'wireless' on the d8403d60 card), so the card reads neither and no line says wired / wireless / battery, whatever pad is listed
+ {const PadId ps[]={{0x28DE,0x11FF},{0x0B05,0x1ABE},{0x054C,0x0CE6},{0x045E,0x0B13},{0x1234,0xABCD}};
+  for(const PadId& p:ps)for(int live=0;live<2;++live){ClearSlots();if(live)Feed(0,0,0,0,0,0,10000);Card c;c.hid[0]=p;c.nHid=1;
+   Format(c,10000,0,a,sizeof a,b,sizeof b);
+   for(const char* w:{"wire","Wire","battery","Battery","USB","Bluetooth"})CHECK(!strstr(a,w)&&!strstr(b,w));}}
  // every line fits the 58-column panel, also with the longest table name
  {ClearSlots();Card c;c.hid[0]={0x054C,0x0BA0};c.nHid=1;Format(c,10000,1,a,sizeof a,b,sizeof b);CHECK(strlen(a)<=58);
   Feed(0,0,0,0,0,0,10000);Format(c,10000,1,a,sizeof a,b,sizeof b);CHECK(strlen(a)<=58&&strlen(b)<=58);
@@ -47,5 +53,5 @@ int main() {
   CHECK(Line("Pad: ")=="Pad: Switch Pro Controller (Nintendo), XInput 1");CHECK(HasPrefix("Sticks: at rest"));
   EnterPage(pOvFrameMeter);osd::drawnTexts.clear();DrawImpl(1920,1080);CHECK(!HasPrefix("Pad: ")&&!HasPrefix("Sticks: "));
   Close("card");g_enumPads=nullptr;ClearSlots();menu_style::g_btnStyle=0;}
- puts("PASS: controller status card (names, none / no-XInput / stale slot, DualSense over Steam pad, drift 1.5 s still, button / move / deadzone resets, menu page)");
+ puts("PASS: controller status card (names, none / no-XInput / stale slot, DualSense over Steam pad, drift 1.5 s still, no wired/wireless claim, button / move / deadzone resets, menu page)");
 }
