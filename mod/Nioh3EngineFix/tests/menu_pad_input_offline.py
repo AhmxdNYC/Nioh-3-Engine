@@ -11,6 +11,7 @@ Nothing in src/ is changed: the text is cut out of menu.cpp at fixed markers, so
 """
 from pathlib import Path
 import os
+import re
 import subprocess
 
 root = Path(__file__).resolve().parents[1]
@@ -26,6 +27,19 @@ state_and_pad = cut('volatile LONG g_open = 0;', '\nvoid PadFeedSafe(')
 key_feed = cut('void KeyFeed(uint8_t* keys, bool own) {', '\nvoid KeyFeedSafe(')
 nav_repeat = cut('static const uint32_t kNavDirs[4]', '\nvoid OnPresentImpl()')
 consts = cut('enum : uint32_t { N_UP = 1', 'volatile LONG g_open = 0;')
+
+# The stub Cfg uses the SHIPPED tap defaults, and they must agree in all three places: Nioh3EngineFix.ini, the Cfg struct
+# default and the GetPrivateProfileIntW fallback in menu.cpp. TapGapMs is pinned to 300 (a change must be a deliberate test edit).
+ini = (root / 'Nioh3EngineFix.ini').read_text(encoding='utf-8-sig')
+shipped = {}
+for key, field in (('TapWindowMs', 'tapWindowMs'), ('TapGapMs', 'tapGapMs'), ('SwallowTaps', 'swallowTaps')):
+    in_ini = int(re.search(r'^' + key + r'\s*=\s*(\d+)', ini, re.M).group(1))
+    in_struct = int(re.search(r'\bint ' + field + r' = (\d+);', src).group(1))
+    in_read = int(re.search(r'L"' + key + r'", (\d+), f\)', src).group(1))
+    assert in_ini == in_struct == in_read, f'{key}: ini {in_ini}, Cfg default {in_struct}, ini-read fallback {in_read} differ'
+    shipped[key] = in_ini
+assert shipped['TapGapMs'] == 300, f"shipped TapGapMs is {shipped['TapGapMs']}, the tap timings below assume 300"
+print(f"shipped defaults: TapWindowMs {shipped['TapWindowMs']}, TapGapMs {shipped['TapGapMs']}, SwallowTaps {shipped['SwallowTaps']} (ini = Cfg = fallback)")
 
 prelude = r'''
 #define WIN32_LEAN_AND_MEAN
@@ -49,7 +63,7 @@ namespace inputlog { template <class... A> void ObservePad(A...) {} template <cl
 struct Cfg {
     UINT vk = VK_F10; uint8_t dik = 0x44; char keyName[16] = "F10";
     uint32_t holdMask = XINPUT_GAMEPAD_START; int holdMs = 5000; int gesture = 1;
-    int tapWindowMs = 900, tapGapMs = 300, swallowTaps = 1; uint8_t escDik = 0x01;
+    int tapWindowMs = TAPWINDOW, tapGapMs = TAPGAP, swallowTaps = SWALLOW; uint8_t escDik = 0x01;  // shipped defaults (checked below)
 };
 Cfg g_cfg;
 volatile LONG g_disabled = 0;
@@ -394,12 +408,23 @@ int main() {
 '''
 
 exports = 'int InputModality() { return (int)g_modality; }' + '\n'  # UO #14 menu.h export, one line
+prelude = (prelude.replace('TAPWINDOW', str(shipped['TapWindowMs'])).replace('TAPGAP', str(shipped['TapGapMs']))
+           .replace('SWALLOW', str(shipped['SwallowTaps'])))
 unit_text = prelude + consts + state_and_pad + '\n' + key_feed + '\n' + nav_repeat + '\n' + exports + harness
 out = root.parents[1] / 'build/menu-pad-input-test'
 out.mkdir(parents=True, exist_ok=True)
 unit = out / 'test.cpp'
 unit.write_text(unit_text, encoding='utf-8')
-setup = os.environ.get('MSVC_SETUP', 'C:/Users/User/pmsvc/msvc/setup_x64.bat')
+def msvc_setup():  # MSVC_SETUP, else this machine's pmsvc, else the repo's tools/msvc/setup_x64.bat
+    if os.environ.get('MSVC_SETUP'):
+        return os.environ['MSVC_SETUP']
+    for c in (Path('C:/Users/User/pmsvc/msvc/setup_x64.bat'), root.parents[1] / 'tools/msvc/setup_x64.bat'):
+        if c.exists():
+            return str(c)
+    raise SystemExit('no MSVC: set MSVC_SETUP, or install pmsvc / tools/msvc/setup_x64.bat in the repo')
+
+
+setup = msvc_setup()
 exe = out / 'test.exe'
 cmd = (f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W3 /wd4244 /I"{root / "src"}" '
        f'/Fo"{out / "test.obj"}" /Fe"{exe}" "{unit}" user32.lib')

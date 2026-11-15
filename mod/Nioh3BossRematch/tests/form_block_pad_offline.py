@@ -209,6 +209,18 @@ int main() {
     On(t + 310); CHECK(g_fbInjT0.load() == 0 && g_fbStyleQ.load() == 0);
     { auto s = Read(t + 340); CHECK(s.pad.rt == 0); }
     Off(t + 400); CHECK(g_fbInjT0.load() == 0);
+    // RT counts as held only above 128 (bosslog.cpp pad.rt > 128): mid pulls 64 / 128 are no RT, 129 / 200 are (a threshold change fails here)
+    g_fakeStyle = 0; t += 1000;
+    On(t); Read(t + 10); Read(t + 70);
+    Read(t + 100, 0, 0, 64); CHECK(!g_fbUser[0].rt);
+    Read(t + 110, 0, 0, 128); CHECK(!g_fbUser[0].rt);
+    Read(t + 180); CHECK(g_fbStyleQ.load() == 0);
+    Read(t + 200, 0, 0, 129); CHECK(g_fbUser[0].rt);
+    Read(t + 270); CHECK(g_fbStyleQ.load() == 1);   // an RT tap at 129: queued
+    Read(t + 300, 0, 0, 200); CHECK(g_fbUser[0].rt);
+    Read(t + 370); CHECK(g_fbStyleQ.load() == 0);   // a second tap at 200 toggles it off
+    Read(t + 400, A, 0, 64); Read(t + 410, A, 0, 64); Read(t + 480); CHECK(g_fbStyleQ.load() == 0 && !g_fbUser[0].rt);  // A with RT 64: no chord
+    Off(t + 500); CHECK(g_fbInjT0.load() == 0);
     // FormStyleSwitch=0: no tracking at all
     g_fbStyle = 0; t += 1000;
     On(t); Read(t + 10); Read(t + 70); Read(t + 100, 0, 0, 255); Read(t + 170); CHECK(g_fbStyleQ.load() == 0);
@@ -238,7 +250,16 @@ out = root.parents[1] / 'build/form-block-pad-test'
 out.mkdir(parents=True, exist_ok=True)
 unit = out / 'test.cpp'
 unit.write_text(unit_text, encoding='utf-8')
-setup = os.environ.get('MSVC_SETUP', 'C:/Users/User/pmsvc/msvc/setup_x64.bat')
+def msvc_setup():  # MSVC_SETUP, else this machine's pmsvc, else the repo's tools/msvc/setup_x64.bat
+    if os.environ.get('MSVC_SETUP'):
+        return os.environ['MSVC_SETUP']
+    for c in (Path('C:/Users/User/pmsvc/msvc/setup_x64.bat'), root.parents[1] / 'tools/msvc/setup_x64.bat'):
+        if c.exists():
+            return str(c)
+    raise SystemExit('no MSVC: set MSVC_SETUP, or install pmsvc / tools/msvc/setup_x64.bat in the repo')
+
+
+setup = msvc_setup()
 exe = out / 'test.exe'
 cmd = (f'call "{setup}" >nul && cl /nologo /EHsc /std:c++17 /W3 /wd4244 /I"{root / "src"}" '
        f'/Fo"{out / "test.obj"}" /Fe"{exe}" "{unit}"')
