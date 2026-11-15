@@ -3366,7 +3366,7 @@ DWORD WINAPI Worker(LPVOID) {
             vi.hudIdsRemote = &menu::RemoteHudIds;
             vi.pauseReason = &menu::GamePauseReason;
             vpad::Start(vi);
-            if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);
+            if (vpad::KeysWanted()) { menu::SetKeyFilter(&vpad::KeyFilter); menu::SetInputVirtual(&vpad::InputVirtual); }
         }
         {  // PadLatency (padlat.cpp, [Debug] PadLatency = 0 by default; notes\pad-latency.md): measurement only
             padlat::StartInfo li;

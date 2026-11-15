@@ -179,8 +179,34 @@ struct PadSlot {
     bool passHold = false;  // the press turned out to be a hold: the game sees it from now on
     volatile bool latch = false;  // keep the pad neutral for the game until every button is released
     WORD maskHeld = 0;            // #9909: buttons masked by MaskGameButtons that are still held: stay hidden after the lease until released
+    uint32_t modalSnap = 0;       // UO #14: bits held when the input modality switched to keyboard; inert for the menu until released
 };
 PadSlot g_pad[4];
+// UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
+// hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
+// scripted pad or keys (they ride on the game's reads; vpad.cpp InputVirtual tells which read carried them). They still drive
+// the menu, they just never flip the modality. At the switch to keyboard every pad button / stick direction / trigger held right
+// then is snapshotted into PadSlot::modalSnap, a release latch like PadSlot::latch: those bits give no menu press, repeat or
+// held state until each one is released, so going back to the pad never fires a phantom A / Down from a button merely still held.
+enum : LONG { MOD_PAD = 0, MOD_KEY = 1 };
+volatile LONG g_modality = MOD_PAD;
+volatile LONG g_modalitySwitches = 0;
+bool (*volatile g_inputVirtual)(int dev, unsigned idx) = nullptr;  // vpad.cpp: dev 0 = pad slot idx, 1 = keyboard
+bool InputTrusted(int dev, unsigned idx, bool own) {  // own polls read the hardware directly (VPad is only in the game's import)
+    auto f = g_inputVirtual;
+    return own || !f || !f(dev, idx);
+}
+void ModalityToKey() {
+    if (g_modality == MOD_KEY) return;
+    for (PadSlot& s : g_pad) s.modalSnap = s.prev;  // snapshot once, at the switch; a later key press does not widen it
+    InterlockedExchange(&g_modality, MOD_KEY);
+    InterlockedIncrement(&g_modalitySwitches);
+}
+void ModalityToPad() {
+    if (g_modality == MOD_PAD) return;
+    InterlockedExchange(&g_modality, MOD_PAD);
+    InterlockedIncrement(&g_modalitySwitches);
+}
 uint32_t g_keyPrev = 0;
 // Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
 int g_escTaps = 0;
@@ -250,8 +276,11 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g.bLeftTrigger > 30) raw |= B_LT;
     if (g.bRightTrigger > 30) raw |= B_RT;
     s.prev = raw;
-    const uint32_t pressed = raw & ~prev;
-    g_padHeld[idx] = (LONG)raw;
+    s.modalSnap &= raw;                            // UO #14: a released snapshot bit is live again
+    const uint32_t live = raw & ~s.modalSnap;      // what the menu may act on (gestures and the game side still see raw)
+    const uint32_t pressed = live & ~prev;
+    g_padHeld[idx] = (LONG)live;
+    if (pressed && InputTrusted(0, idx, own)) ModalityToPad();
     g_padHeldAt[idx] = (LONG64)t;
     if(g_coverToken.load()) {
         if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
@@ -371,6 +400,7 @@ void KeyFeed(uint8_t* keys, bool own) {
     const uint32_t pressed = raw & ~g_keyPrev;
     const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
+    if (pressed && InputTrusted(1, 0, own)) ModalityToKey();  // UO #14
     {
         const bool nav = g_open != 0;
         struct Hk { uint32_t bit; const char* name; int allow; };
@@ -4291,6 +4321,8 @@ void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state
 }
 
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
+void SetInputVirtual(bool (*query)(int dev, unsigned idx)) { g_inputVirtual = query; }
+int InputModality() { return (int)g_modality; }
 
 int RemoteImpl(const char* key, int set, int value, const char* text, char* reply, size_t n, unsigned timeoutMs) {
     if (!Enabled()) {

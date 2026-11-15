@@ -250,6 +250,7 @@ static void TestHookExclusive() {
     reinterpret_cast<XI_t>(g_slotA)(0, &s);
     CHECK(s.dwPacketNumber == p0, "unchanged state keeps its packet number");
     CHECK(g_realCalls == 0, "exclusive mode must never call the real XInputGetState (%d calls)", g_realCalls.load());
+    CHECK(InputVirtual(0, 0) && !InputVirtual(0, 1), "UO #14: exclusive slot 0 is virtual input, other slots are not");
 
     std::thread game(GameThread);
     std::string r = Exec("press A 50");
@@ -358,6 +359,7 @@ static void TestHookMerge() {
     g_realConnected = true;
     CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &s) == ERROR_SUCCESS && s.Gamepad.wButtons == XINPUT_GAMEPAD_X && s.dwPacketNumber == 77,
           "merge: real pad passes untouched without virtual input");
+    CHECK(!InputVirtual(0, 0), "UO #14: merge slot 0 with only the real pad is trusted input");
     CHECK(reinterpret_cast<XI_t>(g_slotB)(1, &s) == ERROR_DEVICE_NOT_CONNECTED, "merge: other slots as the real API says");
     Exec("arm");
     std::thread([] { Sleep(1); }).join();
@@ -380,7 +382,13 @@ static void TestHookMerge() {
     XINPUT_STATE u{};
     CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &u) == ERROR_SUCCESS && u.Gamepad.wButtons == XINPUT_GAMEPAD_Y,
           "merge: virtual slot 0 exists without a real pad");
+    CHECK(InputVirtual(0, 0), "UO #14: merge slot 0 carrying a held virtual Y is virtual input");
     Exec("release all");
+    Sleep(40);
+    g_realConnected = true;
+    reinterpret_cast<XI_t>(g_slotB)(0, &u);
+    CHECK(!InputVirtual(0, 0), "UO #14: merge slot 0 is trusted again once the virtual input is released");
+    g_realConnected = false;
     stop = true;
     g.join();
     // realpads off (test popup's block toggle): the real pad is hidden, the real API is not called

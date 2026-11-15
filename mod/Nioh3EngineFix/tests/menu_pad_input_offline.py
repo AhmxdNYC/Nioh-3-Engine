@@ -4,7 +4,9 @@ Compiles the PRODUCTION code from src/menu.cpp (input state + PadNav/KeyNav/Requ
 NavRepeat) against small stubs, with a fake clock, and checks every pad transition the game can see:
 held/released edges, stick hysteresis, the Start triple-tap open gesture (swallow + one-tap replay + hold pass-through),
 the hold gesture, the release latch after open/close, blanking while open (camera stick live), the MaskGameButtons
-lease, the pad-vs-keyboard source split (g_padPressed drives g_okFromPad), and the Up/Down/Left/Right repeat.
+lease, the pad-vs-keyboard source split (g_padPressed drives g_okFromPad), the Up/Down/Left/Right repeat, and (UO #14) the
+input modality: it switches only on trusted press edges (VPad virtual pad/keys never flip it) and pad bits held at the switch
+to keyboard are snapshotted, so returning to the pad gives no phantom press, repeat or held state.
 Nothing in src/ is changed: the text is cut out of menu.cpp at fixed markers, so a refactor that moves a marker fails here.
 """
 from pathlib import Path
@@ -63,6 +65,9 @@ ULONGLONG g_rep[4] = {};
 
 harness = r'''
 int checks = 0, fails = 0;
+// UO #14: stand-in for vpad::InputVirtual (which pad slots / the keyboard carry VPad's scripted input on this read)
+unsigned g_virtPad = 0; bool g_virtKeys = false;
+bool FakeVirtual(int dev, unsigned idx) { return dev == 0 ? ((g_virtPad >> idx) & 1u) != 0 : g_virtKeys; }
 #define CHECK(c) do { ++checks; if (!(c)) { ++fails; printf("FAIL line %d: %s\n", __LINE__, #c); } } while (0)
 
 void ResetAll() {
@@ -73,6 +78,7 @@ void ResetAll() {
     g_keyHeld = 0; g_keyHeldAt = 0; g_keyLatch = 0; g_keyPrev = 0; g_holdSince = 0; g_holdSeen = 0;
     g_escTaps = 0; g_escTap0 = g_escLast = g_escSynth = g_escMuteUntil = 0; g_escPass = g_escPrevDown = false;
     g_coverToken = 0; g_coverCancelUntil = 0; g_coverCancel = false; g_coverCaptures = false;
+    g_modality = MOD_PAD; g_modalitySwitches = 0; g_inputVirtual = nullptr; g_virtPad = 0; g_virtKeys = false;
     g_cfg = Cfg{};
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
@@ -331,12 +337,64 @@ int main() {
     // OK / Back never repeat (NavRepeat only returns directions)
     ResetAll(); padHold(A, 1000); CHECK(Nav(N_OK, 1000) == 0);
 
+    // ---- UO #14 input modality: switches on trusted press edges only; held pad bits are snapshotted at the switch to keyboard ----
+    ResetAll();
+    CHECK(g_modality == MOD_PAD && InputModality() == 0);
+    Feed(1000, A); Feed(1050, 0); CHECK(g_modality == MOD_PAD && g_modalitySwitches == 0);  // pad press while on pad: no switch
+    Keys(1100, {}); CHECK(g_modality == MOD_PAD);                                             // a keyboard read with no press: no switch
+    // held A while switching to keyboard and back = no press
+    ResetAll(); g_open = 1;
+    Feed(1000, A); CHECK(TakePressed() == N_OK); TakePadPressed();                            // the real A press
+    Keys(1050, {DIK_DOWN}); CHECK(g_modality == MOD_KEY && InputModality() == 1 && g_modalitySwitches == 1 && TakePressed() == N_DOWN);
+    CHECK(g_pad[0].modalSnap == A);                                                           // A was held at the switch
+    Feed(1100, A); CHECK(TakePressed() == 0 && (g_padHeld[0] & A) == 0);                     // still held: inert for the menu
+    Keys(1150, {}); Feed(1200, A); CHECK(TakePressed() == 0 && g_modality == MOD_KEY);       // a held button is no edge: still keyboard
+    Feed(1250, A | DD); CHECK(g_modality == MOD_PAD && g_modalitySwitches == 2 && TakePressed() == N_DOWN && TakePadPressed() == N_DOWN);
+    Feed(1300, A); Feed(1350, A); CHECK(TakePressed() == 0 && (g_padHeld[0] & A) == 0);     // back on pad, A still held: no phantom OK
+    Feed(1400, 0); CHECK(g_pad[0].modalSnap == 0);                                            // released: the snapshot lets go
+    Feed(1450, A); CHECK(TakePressed() == N_OK);                                              // a fresh press works again
+    // the game side is untouched by the snapshot: a held A outside the menu still reaches the game while keyboard is used
+    ResetAll(); Feed(1000, A); Keys(1050, {DIK_UP}); CHECK(g_modality == MOD_KEY);
+    { const XINPUT_STATE st = Feed(1100, A); CHECK(st.Gamepad.wButtons == A); }
+    // a d-pad direction held across the switch neither repeats nor counts as held (no phantom scroll on return)
+    ResetAll(); g_open = 1; Feed(1000, DD); CHECK(Nav(TakePressed(), 1000) == N_DOWN);
+    Keys(1100, {DIK_RETURN}); Keys(1150, {}); CHECK(g_modality == MOD_KEY);
+    TakePressed(); Feed(1400, DD); CHECK(Nav(TakePressed(), 1400) == 0);
+    Feed(1500, DD); CHECK(Nav(0, 1500) == 0 && g_rep[1] == 0);
+    Feed(1600, DD | DR); CHECK(g_modality == MOD_PAD && TakePressed() == N_RIGHT);           // a new direction switches back; Down stays inert
+    // a stick held past the threshold at the switch is snapshotted too; a small stick wobble is no edge and switches nothing
+    ResetAll(); g_open = 1; Feed(1000, 0, 0, 30000); TakePressed(); Keys(1050, {DIK_LEFT}); TakePressed();
+    CHECK(g_modality == MOD_KEY && (g_pad[0].modalSnap & B_SU) != 0);
+    Feed(1100, 0, 0, 30000); CHECK(TakePressed() == 0 && g_modality == MOD_KEY);
+    Feed(1150, 0, 5000, 0); CHECK(g_modality == MOD_KEY);                                    // below 20000: no edge
+    Feed(1200, 0, 25000, 0); CHECK(g_modality == MOD_PAD && TakePressed() == N_RIGHT);       // a real stick push switches back
+    // the snapshot is taken once, at the switch: later key presses do not widen it
+    ResetAll(); g_open = 1; Feed(1000, A); Keys(1050, {DIK_UP}); Keys(1100, {}); TakePressed();
+    g_inputVirtual = &FakeVirtual; g_virtPad = 1; Feed(1150, A | X); CHECK(TakePressed() == N_X && g_modality == MOD_KEY);  // virtual X
+    Keys(1200, {DIK_DOWN}); CHECK(g_pad[0].modalSnap == A && g_modalitySwitches == 1);
+    // synthetic / injected input does not switch modality, but still drives the menu
+    ResetAll(); g_open = 1; g_inputVirtual = &FakeVirtual; g_virtKeys = true;
+    Keys(1000, {DIK_DOWN}); CHECK(g_modality == MOD_PAD && g_modalitySwitches == 0 && TakePressed() == N_DOWN);  // VPad key
+    g_virtKeys = false; Keys(1050, {}); Keys(1100, {DIK_DOWN}); CHECK(g_modality == MOD_KEY && g_modalitySwitches == 1);  // real key
+    g_virtPad = 1; Feed(1150, A); CHECK(g_modality == MOD_KEY && TakePressed() == (N_DOWN | N_OK));  // VPad A on slot 0: no switch
+    Feed(1200, 0); Feed(1250, 0, 0, 0, 0, 0, 0, 0, false, true, 1);
+    Feed(1300, A, 0, 0, 0, 0, 0, 0, false, true, 1); CHECK(g_modality == MOD_PAD && g_modalitySwitches == 2);  // real pad on slot 1
+    g_virtKeys = true; Keys(1350, {}); Keys(1400, {DIK_UP}); CHECK(g_modality == MOD_PAD);    // VPad key again: stays on pad
+    // own polling reads the hardware directly (VPad only answers the game's import): trusted even while a virtual flag is up
+    ResetAll(); g_inputVirtual = &FakeVirtual; g_virtKeys = true; g_virtPad = 1;
+    Keys(1000, {DIK_DOWN}, true); CHECK(g_modality == MOD_KEY);
+    Feed(1050, A, 0, 0, 0, 0, 0, 0, true); CHECK(g_modality == MOD_PAD);
+    // triggers count as pad use; a disabled menu still tracks modality (it hides nothing either way)
+    ResetAll(); Keys(1000, {DIK_UP}); Feed(1050, 0, 0, 0, 0, 0, 0, 200); CHECK(g_modality == MOD_PAD);
+    ResetAll(); g_disabled = 1; Keys(1000, {DIK_UP}); CHECK(g_modality == MOD_KEY);
+
     printf("menu pad input: %d checks, %d failed (production menu.cpp PadFeed/KeyFeed/NavRepeat; offline)\n", checks, fails);
     return fails ? 1 : 0;
 }
 '''
 
-unit_text = prelude + consts + state_and_pad + '\n' + key_feed + '\n' + nav_repeat + '\n' + harness
+exports = 'int InputModality() { return (int)g_modality; }' + '\n'  # UO #14 menu.h export, one line
+unit_text = prelude + consts + state_and_pad + '\n' + key_feed + '\n' + nav_repeat + '\n' + exports + harness
 out = root.parents[1] / 'build/menu-pad-input-test'
 out.mkdir(parents=True, exist_ok=True)
 unit = out / 'test.cpp'
