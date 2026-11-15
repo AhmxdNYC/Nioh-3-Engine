@@ -2825,17 +2825,29 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     // resources that worker jobs were still stage-polling (ResourceIsReady 1A6030, handler +20h = 0, AV).
     // A player cannot ask that fast, so wait until home has been clear of every gate for a settle window.
     static constexpr ULONGLONG kSettleMs = 5000;
-    static ULONGLONG clearSince = 0, clearFor = 0;
+    // Ally RC2 #105680/#105916: 'home is up' twice ~10.7 s apart = the window really restarted (a gate closed inside it), not a
+    // duplicate line. The interruption is now logged with its reason so a device log shows which gate re-closed.
+    static ULONGLONG clearSince = 0, clearFor = 0, windowsFor = 0;
     static bool clear = false;
-    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) {
+    static int windows = 0;
+    if (windowsFor != g_nativeAgainAt) { windowsFor = g_nativeAgainAt; windows = 0; }
+    const char* busy = g_attemptPhase.load() != aNone ? "native attempt still open"
+                       : g_state.load() != kIdle      ? "rematch active"
+                       : g_req.load()                 ? "request queued"
+                       : g_pend                       ? "request pending"
+                                                      : Gates(s, false);
+    if (busy) {
+        if (clear && clearFor == g_nativeAgainAt)
+            Log("Rematch: native gate retry: settle interrupted after %llu ms (%s); the %llu ms wait restarts once home is clear again",
+                (unsigned long long)(t - clearSince), busy, (unsigned long long)kSettleMs);
         clear = false;
         busyAt = t;  // still returning: refresh the idle limit
         return;
     }
     if (!clear || clearFor != g_nativeAgainAt) {
-        clear = true; clearFor = g_nativeAgainAt; clearSince = t;
-        Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request",
-            (unsigned long long)kSettleMs);
+        clear = true; clearFor = g_nativeAgainAt; clearSince = t; ++windows;
+        Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request (window %d, %llu ms after the press)",
+            (unsigned long long)kSettleMs, windows, (unsigned long long)(t - g_nativeAgainAt));
         return;
     }
     if (t - clearSince < kSettleMs) return;
