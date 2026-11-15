@@ -92,8 +92,10 @@ void Fill(XINPUT_STATE* st, const Pad& p) {
     st->Gamepad.sThumbRY = p.ry;
 }
 
+volatile LONG g_padVirt = 0, g_keyVirt = 0;  // UO #14: the last game read of pad slot 0 / the keyboard carried virtual input
+
 DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
-    if (!g_armed) return g_xiOrig(idx, st);
+    if (!g_armed) { if (idx == 0) g_padVirt = 0; return g_xiOrig(idx, st); }
     if (g_mode == 1) {  // exclusive: slot 0 is the virtual pad, the real pads do not exist for the game
         if (idx != 0) return ERROR_DEVICE_NOT_CONNECTED;
         if (!st) return ERROR_BAD_ARGUMENTS;
@@ -102,6 +104,7 @@ DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
         const Pad p = g_comp.ReadPad(now);
         Fill(st, p);
         ReleaseSRWLockExclusive(&g_lock);
+        g_padVirt = 1;  // the whole slot is scripted
         return ERROR_SUCCESS;
     }
     // merge: real pads as usual; slot 0 gets the virtual input on top (and exists even without a real pad there).
@@ -113,6 +116,7 @@ DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
         AcquireSRWLockExclusive(&g_lock);
         Fill(st, g_comp.ReadPad(now));
         ReleaseSRWLockExclusive(&g_lock);
+        g_padVirt = 1;
         return ERROR_SUCCESS;
     }
     DWORD r = g_xiOrig(idx, st);
@@ -131,6 +135,7 @@ DWORD WINAPI HkXInputGetState(DWORD idx, XINPUT_STATE* st) {
     if (p.rt > g.bRightTrigger) g.bRightTrigger = p.rt;
     if (p.lx || p.ly) g.sThumbLX = p.lx, g.sThumbLY = p.ly;
     if (p.rx || p.ry) g.sThumbRX = p.rx, g.sThumbRY = p.ry;
+    g_padVirt = p != Pad{} ? 1 : 0;
     if (p != Pad{}) st->dwPacketNumber += 0x20000000u;  // own packet numbers while virtual input is mixed in
     return r;
 }
@@ -652,14 +657,22 @@ bool StartPipe() {
 bool KeysWanted() { return g_mode != 0; }
 
 bool KeyFilter(uint8_t* keys, bool readOk) {
-    if (!g_mode || !keys) return readOk;
+    if (!g_mode || !keys) { g_keyVirt = 0; return readOk; }
     if (!readOk || !ForegroundIsGame()) memset(keys, 0, 256);  // the user's typing in another window never reaches the game
+    uint8_t before[256];
+    memcpy(before, keys, sizeof before);
     const int64_t now = NowUs();
     AcquireSRWLockExclusive(&g_lock);
     if (g_armed) g_comp.ReadKeys(now, keys);
     ReleaseSRWLockExclusive(&g_lock);
+    LONG virt = 0;
+    for (int i = 0; i < 256 && !virt; ++i)
+        if ((keys[i] & 0x80) && !(before[i] & 0x80)) virt = 1;
+    g_keyVirt = virt;
     return true;
 }
+
+bool InputVirtual(int dev, unsigned idx) { return dev == 0 ? (idx == 0 && g_padVirt != 0) : g_keyVirt != 0; }
 
 void Start(const StartInfo& info) {
     g_info = info;

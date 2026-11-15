@@ -40,6 +40,9 @@ bool KeysWanted();
 // menu.cpp DirectInput keyboard hook (256-byte reads, game input thread): hides the real keys while the game is not
 // foreground (or the read failed), ORs the virtual keys in. Returns true = report success to the game.
 bool KeyFilter(uint8_t* keys, bool readOk);
+// UO #14 (menu::SetInputVirtual): true when the last game read of pad slot idx (dev 0) or the keyboard (dev 1) carried virtual
+// input - exclusive / realpads-off slot 0 always, merge slot 0 while a virtual input is held, keys while a virtual key is down.
+bool InputVirtual(int dev, unsigned idx);
 
 // ---- tests (tests/vpad_harness.cpp) ----
 bool TestHookSlot(void** slot, uint8_t* hostBase, int mode);   // hook a fake IAT slot with VirtualPad = mode (no pipe)
