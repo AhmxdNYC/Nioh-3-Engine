@@ -257,8 +257,12 @@ def replay(path, pipe=vpad.PIPE, speed=1.0, wait_state=False, quiet=False, wait_
             info["sent"] += 1
             info["max_late_ms"] = max(info["max_late_ms"], late)
         info["t_end"] = time.perf_counter()
-        c.cmd(pad_cmd(NEUTRAL))
     finally:
+        # best effort: an error or Ctrl-C must not leave buttons held for the pad hold timeout (#106023)
+        try:
+            c.cmd(pad_cmd(NEUTRAL))
+        except BaseException:
+            pass
         c.close()
     if not quiet:
         print("replayed %d events, max late %.2f ms" % (info["sent"], info["max_late_ms"]))
