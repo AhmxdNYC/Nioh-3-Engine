@@ -61,6 +61,11 @@ void Post(int kind,int row,const char*){++posts;lastKind=kind;lastRow=row;}
 void PlayerPos(float*){}
 template<class... T>void Log(T...){}
 template<class... T>void ToastF(T...){}
+// Dojo waves (#89329): staged-wave hooks are counted, not run; no row here has staged waves.
+int waveResets=0,waveWatches=0;
+void StagedWaveReset(){++waveResets;}
+void StagedWaveWatch(const Snap&,uint32_t){++waveWatches;}
+const uint16_t* NativeEntryWaves(uint32_t,uint16_t* n){*n=0;return nullptr;}
 '''
 code += function('bool ClearedNow(') + struct + function('void SelfTestTick(')
 code += r'''
