@@ -35,14 +35,21 @@ int main(){Snap s;
  reset();NativeGateRetryTick(s,200);assert(!posts&&g_nativeAgainRow==7);
  g_attemptPhase=aNone;NativeGateRetryTick(s,201);assert(!posts); // restoration has not gone idle
  g_state=kIdle;blocked=true;NativeGateRetryTick(s,202);assert(!posts); // fight/load gate still blocks
- blocked=false;NativeGateRetryTick(s,203);assert(posts==1&&lastRow==7&&lastKind==kReqFight&&g_nativeAgainRow==-1);
- NativeGateRetryTick(s,204);assert(posts==1);
+ blocked=false;NativeGateRetryTick(s,203);assert(!posts); // crash #78: home just came up, settle window starts
+ NativeGateRetryTick(s,5202);assert(!posts); // 4999 ms: still settling
+ blocked=true;NativeGateRetryTick(s,5203);assert(!posts); // a gate closes again: the window restarts
+ blocked=false;NativeGateRetryTick(s,5204);NativeGateRetryTick(s,10203);assert(!posts);
+ NativeGateRetryTick(s,10204);assert(posts==1&&lastRow==7&&lastKind==kReqFight&&g_nativeAgainRow==-1);
+ NativeGateRetryTick(s,10205);assert(posts==1);
  for(int k=0;k<5;k++){reset();if(k==0)g_requestEpoch++;if(k==1)g_attemptSequence++;if(k==2)g_attemptPhase=aQuarantined;
  if(k==3)sessionLost=true;NativeGateRetryTick(s,k==4?120101:200);assert(!posts&&g_nativeAgainRow==-1);}
  reset();g_attemptPhase=aNone;g_state=kIdle;g_req=1;NativeGateRetryTick(s,200);assert(!posts);
  g_req=0;g_pend=1;NativeGateRetryTick(s,201);assert(!posts);
- reset();g_rows[7].waves=true;g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,203);assert(posts==1&&lastRow==7&&lastKind==kReqEmaki); // a Waves row retries as the scroll Fight now
- puts("PASS native gate retry: complete return only, normal gates, once, new action/attempt/session/quarantine/timeout cancellation, busy requests");
+ reset();g_rows[7].waves=true;g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,203);assert(!posts);
+ NativeGateRetryTick(s,5203);assert(posts==1&&lastRow==7&&lastKind==kReqEmaki); // a Waves row retries as the scroll Fight now
+ reset();g_nativeAgainAt=9000;g_attemptPhase=aNone;g_state=kIdle;NativeGateRetryTick(s,9100);NativeGateRetryTick(s,14099);assert(!posts); // a new retry gets its own window
+ NativeGateRetryTick(s,14100);assert(posts==1);
+ puts("PASS native gate retry: complete return only, normal gates, 5 s settle after home is up (#78), once, new action/attempt/session/quarantine/timeout cancellation, busy requests");
 }
 '''.replace('@BODY@',fn('void NativeGateRetryTick('))
 # Actions must use guarded return, and game thread revalidates identity before arming retry.

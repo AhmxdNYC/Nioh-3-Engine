@@ -140,7 +140,7 @@ const char* g_spawnWhy = "";
 
 struct Cfg {
     bool hiddenDuels = false, directStart = false, showAll = true, showUnverified = false, fightNow = true, fightWarp = true, arenaCapture = false,
-         fightSpawn = true, anyBoss = true,
+         fightSpawn = true, anyBoss = true, fightAgainDirect = false,  // #100232: [Rematch] FightAgainDirect
          ignoreProgress = false;
     int fightSettleMs = 1000, fightNudgeMs = 1000;  // #70586; anyBoss: legacy ini compatibility; ignoreProgress = [Dev] IgnoreProgress (#69305 test)
 } g_cfg;
@@ -2733,6 +2733,74 @@ void ScrollCoverTick(const Snap& s, ULONGLONG t) {
     Log("Rematch: scroll cover off (+%llu ms, %s)", (unsigned long long)(t - g_scrollCoverAt),
         done == 1 ? "trip ended" : done == 2 ? "waves running" : done == 3 ? "walk found no wave" : "safety timeout, no wave");
 }
+// #100232 (RE notes/retry-home-leg-100093.md): native gate 'Fight again' = MissionRequestReturn (home stage, 45-61 s of a 77-124 s
+// retry on PC2, file #7507) and then a fresh Fight now. The loader has no same-mission guard and the game's own reload
+// (MissionStartFromSave 0x2237244) re-requests the running mission by id, so the Fight now request can go out at once from the arena.
+// Opt-in ([Rematch] FightAgainDirect = 1). Waves rows keep the scroll path. kFadStarted: the direct request (or an in-place swap) started.
+// kFadFallback: nothing was changed beyond a normal idle restore, and the caller takes the old Return-then-Fight-now path.
+// kFadRefused: stopped with exactly one message already posted; the caller must not fall back (review #101032 notes 1 and 2).
+enum FadResult { kFadFallback, kFadStarted, kFadRefused };
+FadResult FightAgainDirect(int row, const Snap& s, ULONGLONG t) {
+    if (!g_cfg.fightAgainDirect || row < 0 || (size_t)row >= g_rows.size() || rcore::WavesRow(g_rows[(size_t)row])) return kFadFallback;
+    if (g_attemptPhase.load() != aActive) return kFadFallback;
+    ToIdle("fight again direct: retire the won/lost attempt", true);
+    // #101032 note 1: a failed spawn/map restore quarantines the attempt. Quarantine forbids any automatic recovery return, so never
+    // fall back to AttemptReturning/MissionRequestReturn from here.
+    if (g_attemptPhase.load() == aQuarantined) {
+        Log("Rematch: Fight again direct %s: attempt quarantined while retiring; no return", g_rows[(size_t)row].id);
+        Refuse("native request uncertain; no automatic recovery return");
+        return kFadRefused;
+    }
+    if (g_attemptPhase.load() != aNone) { Log("Rematch: Fight again direct %s: attempt did not retire cleanly; using the return path", g_rows[(size_t)row].id); return kFadFallback; }
+    // #100425 live: Gates() refuses 'in a boss fight' (fight::g_active), which is the normal state at a Fight again (the same boss is
+    // still up or just beaten). That check is last before the idle-state check (idle after ToIdle), so it is accepted here; every
+    // earlier gate (loading, queue busy, scroll) still sends the retry down the return path.
+    // #100792 (PC2 #100780, 0/2 direct): the Fight again click comes from our pause-menu Return page, which pauses the game
+    // (st[3]|st[4]); the menu path already passed ExitGate, so this is the menu side (uiSide = true), as every other menu action.
+    const bool paused = (s.st[3] | s.st[4]) != 0;
+    if (const char* why = Gates(s, true)) {
+        if (strcmp(why, "in a boss fight") != 0) { Log("Rematch: Fight again direct %s: gate '%s'; using the return path", g_rows[(size_t)row].id, why); return kFadFallback; }
+        Log("Rematch: Fight again direct %s: boss fight still flagged active - expected at a retry, continuing", g_rows[(size_t)row].id);
+    }
+    Log("Rematch: Fight again direct %s: gates passed (menu side; game %s by our menu; not loading, queue free, no scroll, idle, frame tick live)",
+        g_rows[(size_t)row].id, paused ? "paused" : "not paused");
+    // #100425 (deepseek/4 note D/462, notes/load-fix-99501.md L1): what the stock Return leg does that a direct ById skips. Logged per retry.
+    {
+        const Row& r = g_rows[(size_t)row];
+        uint64_t g = 0, ms = 0;
+        uint8_t b10 = 0, b11 = 0, b18 = 0, b19 = 0;
+        uint32_t mode = 0;
+        const bool rd = Rd(G_MS, g) && g && Rd(g + 8, ms) && ms && Rd(ms + 0x10, b10) && Rd(ms + 0x11, b11) && Rd(ms + 0x18, b18) &&
+                        Rd(ms + 0x19, b19) && Rd(ms + 0x24, mode);
+        // 0x223B3F8 mode-1 step: MissionMgr slot mission == 0x497 -> 0x2186C60(Mgr, 0x4B0) + 0x1D112E0 + 0x22181B4 (story hand-off, not a boss row).
+        const bool step497 = s.ms28 == 0x497 || r.missionId == 0x497;
+        // MissionRequestReturn routes slot 0xC0 with params+0xD != 0 to 0x3D08A; our params {101 1000000 10100 0 0 0} have +0xD = 0.
+        // 0x21DDBCC warps in place (0x215FDE4) when +0x19 == 0xC0, +0x18 == +0x10 and +0x11 == 0xC0.
+        const bool inPlace = rd && b19 == 0xC0 && b18 == b10 && b11 == 0xC0;
+        Log("Rematch: Fight again direct %s: L1 check: mission state %s (mode +24h %u, slot +10h %02X, +11h %02X, return tuple +18h %02X +19h %02X); "
+            "catalogue id 0x%X %s running 0x%X (remap 1C17BE4 %s); params +0Dh 0 -> no 3D08A route; mode-1 step 497 (2186C60 Mgr,4B0) would run: %s; "
+            "mode-1 MissionLoadStep 1C03A180 skipped (body unknown, not called); 21DDBCC warp-in-place (215FDE4) would apply: %s",
+            r.id, rd ? "read" : "NOT readable", mode, b10, b11, b18, b19, r.missionId, r.missionId == s.ms28 ? "==" : "!=", s.ms28,
+            r.missionId == s.ms28 ? "already applied by the game for this load" : "differs - the catalogue id is requested as Fight now does", step497 ? "YES" : "no",
+            inPlace ? "yes (not used in this build)" : "no");
+        if (step497) { Log("Rematch: Fight again direct %s: mission 0x497 needs the mode-1 hand-off; using the return path", r.id); return kFadFallback; }
+    }
+    // #101099 (PC2 #101089: R3513/R7B35/R4D8E gate armed, never requested): the boss mode never ended before this same-mission reload, so
+    // the stale flag made GateTick wait forever ('boss fight still flagged active') and the WaitWarpStart boss never spawned. A reload during a
+    // fight is exactly the death/retry case in the mission tracker, which clears the flag the same way; the new boss mode sets it again.
+    if (InterlockedCompareExchange(&fight::g_active, 0, 0)) {
+        InterlockedExchange(&fight::g_active, 0);
+        Log("Rematch: Fight again direct %s: boss fight flag cleared for the reload (as a death / retry does), so the boss gate is requested again", g_rows[(size_t)row].id);
+    }
+    const uint64_t seq0 = g_attemptSequence;
+    Log("Rematch: Fight again direct %s: MissionRequestById for mission 0x%X from mission 0x%X (retry point %u), no MissionRequestReturn home leg",
+        g_rows[(size_t)row].id, g_rows[(size_t)row].missionId, s.ms28, s.ms14);
+    ExecDirect(row, s, t, true, true);
+    const bool started = g_swappedInPlace.load() || (g_state.load() != kIdle && g_attemptSequence != seq0);
+    // #101032 note 2: ExecDirect already posted its refusal (one message). Do not add a return leg and a second 'exit requested'.
+    if (!started) Log("Rematch: Fight again direct %s: request refused; no return leg", g_rows[(size_t)row].id);
+    return started ? kFadStarted : kFadRefused;
+}
 void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     if (g_nativeAgainRow < 0) return;
     if (g_requestEpoch.load() != g_nativeAgainEpoch || g_attemptSequence != g_nativeAgainSequence ||
@@ -2741,7 +2809,24 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
         g_nativeAgainRow = -1; return;
     }
     // Never overlap the old return, restored placement transaction, or any new request.
-    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) return;
+    // Crash #78: the boss request went out 1.3 s after the home load ended. The new load tore down home
+    // resources that worker jobs were still stage-polling (ResourceIsReady 1A6030, handler +20h = 0, AV).
+    // A player cannot ask that fast, so wait until home has been clear of every gate for a settle window.
+    static constexpr ULONGLONG kSettleMs = 5000;
+    static ULONGLONG clearSince = 0, clearFor = 0;
+    static bool clear = false;
+    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) {
+        clear = false;
+        return;
+    }
+    if (!clear || clearFor != g_nativeAgainAt) {
+        clear = true; clearFor = g_nativeAgainAt; clearSince = t;
+        Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request",
+            (unsigned long long)kSettleMs);
+        return;
+    }
+    if (t - clearSince < kSettleMs) return;
+    clear = false;
     const int row = g_nativeAgainRow; g_nativeAgainRow = -1;
     Post(rcore::WavesRow(g_rows[(size_t)row]) ? kReqEmaki : kReqFight, row, "native gate after completed return");
 }
@@ -2893,6 +2978,12 @@ void Tick() {
                 Refuse(hold ? "exit stayed queued 20 s and the mission was still loading or not settled" : why);
             } else {
                 g_pend = 0;
+                const FadResult fad = kind == kReqNativeAgain && !scrollStuck ? FightAgainDirect(row, s, t) : kFadFallback;
+                if (fad == kFadStarted) {
+                    Result("fight again requested directly");
+                } else if (fad == kFadRefused) {
+                    // one message already posted by FightAgainDirect / ExecDirect
+                } else {
                 AttemptReturning(s);
                 const int rc = CallReturn();
                 g_attempt.returnCompleted = rc == 0;
@@ -2906,6 +2997,7 @@ void Tick() {
                 if (scrollStuck) Log("Rematch: exit: MissionRequestReturn during a stuck scroll load (mission 0x%X, retry %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Log("Rematch: exit: MissionRequestReturn(params, 1) from mission 0x%X (retry point %u) -> %s", s.ms28, s.ms14, rc ? "EXCEPTION" : "requested");
                 Result(rc ? "exit failed" : "exit requested");
+                }
             }
         } else if (kind == kReqAbort) {
             g_pend = 0;
@@ -4098,6 +4190,8 @@ bool Prepare() {
     g_cfg.anyBoss = IniInt(L"Rematch", L"AnyBoss", 1) != 0;
     g_cfg.arenaCapture = IniInt(L"Rematch", L"ArenaCapture", 0) != 0;
     g_cfg.fightSpawn = IniInt(L"Rematch", L"FightNowSpawn", 1) != 0;
+    g_cfg.fightAgainDirect = IniInt(L"Rematch", L"FightAgainDirect", 0) != 0;
+    Log("Rematch: FightAgainDirect = %d (1 = native gate Fight again requests the boss mission straight away, no trip home; #100232)", g_cfg.fightAgainDirect ? 1 : 0);
     g_cfg.fightSettleMs = IniInt(L"Rematch", L"FightSettleMs", 1000);  // #70586: load end -> "landed" for Fight now (was 3000)
     g_cfg.fightNudgeMs = IniInt(L"Rematch", L"FightNudgeMs", 1000);  // #70586: landed -> warp beside the boss when no fight began and it is out of duel range (was 10000)
     wchar_t stw[512] = {};
@@ -4674,7 +4768,7 @@ bool UiAct() {
         if (!why) why = AttemptReturnGate();
         if (why) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
         Post(kReqNativeAgain, row, "native Proceed gate");
-        ToastF(cWhite, 5000, "Boss Matches: returning, then starting the same fight...");
+        ToastF(cWhite, 5000, g_cfg.fightAgainDirect && !rcore::WavesRow(g_rows[(size_t)row]) ? "Boss Matches: starting the same fight..." : "Boss Matches: returning, then starting the same fight...");
         return true;
     }
     if (item == kItFightAgain) {
@@ -5941,6 +6035,17 @@ void Command(const char* line, char* reply, size_t n) {
     if (!strcmp(cmd, "exit")) {  // leave the running mission (MissionRequestReturn, as the mission menu does)
         Post(kReqExit, -1, "pipe");
         snprintf(reply, n, "queued");
+        return;
+    }
+    if (!strcmp(cmd, "again")) {  // #100425 test hook: the gate page's 'Fight again' item (same checks as UiAct), for timed retry runs
+        if (!NativeGateMission() && !WavesGateNow()) { snprintf(reply, n, "refused: no native gate mission"); return; }
+        const int row = NativeGateRow();
+        const Snap s = ReadSnap();
+        const char* why = row < 0 ? "native boss row is no longer owned" : !g_exitOk ? g_exitWhy : ExitGate(s);
+        if (!why) why = AttemptReturnGate();
+        if (why) { snprintf(reply, n, "refused: %s", why); return; }
+        Post(kReqNativeAgain, row, "pipe again");
+        snprintf(reply, n, "queued %s", g_rows[(size_t)row].id);
         return;
     }
     if (!strcmp(cmd, "abort")) {
