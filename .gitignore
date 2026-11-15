@@ -57,3 +57,9 @@ captures/playsession/*/presentmon.csv
 captures/playsession/*/orig/
 mod/Nioh3Training/Nioh3Training.asi
 data/extract/
+
+# --- ops #104631: never commit/stash large captures (14 GB of stashes held mp4s) ---
+captures/**/*.mp4
+*.mp4
+*.etl
+*.dmp
