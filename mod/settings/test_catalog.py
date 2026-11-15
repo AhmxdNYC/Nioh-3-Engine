@@ -2,6 +2,7 @@
 from collections import Counter
 import configparser
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -21,9 +22,9 @@ def content(ref, path):
 def section(source, start, end):
     return source.split(start, 1)[1].split(end, 1)[0]
 
-# #97604: baseline = last public release (v1.8.15, main 2e9efc04; was v1.8.14 667edbe8 until #98079). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
+# #97604: baseline = last public release (v1.8.17 = installer-pc/rel-1817 47505850, regression #103159; was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
 # every default flip and version bump since; bump RELEASE when a new release ships.
-RELEASE = '2e9efc04'
+RELEASE = '47505850'
 
 def protected(engine, addon):
     return {'engine_enum': section(engine, 'enum Id {', '#include "settings_catalog.h"'),
@@ -33,6 +34,49 @@ def protected(engine, addon):
         'addon_prefix': addon.split('// ---- UI model', 1)[0],
         'addon_prepare': section(addon, 'bool Prepare() {', 'std::atomic<int> g_configSaveState'),
         'addon_commands': addon.split('// ---- pipe commands', 1)[1]}
+
+# regression #103159: the item enum and the page order may GROW (a new menu row adds an Id and a kOrder entry; Remote looks
+# rows up by tech key, not by number, and no Id number is saved), but every release entry must stay, in the same order,
+# with the same text. Removed, renamed or reordered entries still fail. kCount must stay last. Remote: see remote_ok.
+ADDITIVE = {'engine_enum', 'engine_order'}
+
+def entries(text):
+    # comments dropped; kOrder rows are '{kId, "Group" or nullptr}', enum rows are bare kId names
+    code = re.sub(r'//[^\n]*', '', text)
+    rows = re.findall(r'\{\s*(k\w+)\s*,\s*([^}]*?)\s*\}', code)
+    return [f'{i}, {g}' for i, g in rows] if rows else re.findall(r'\bk\w+\b', code)
+
+def additive_ok(original, actual):
+    old, new = entries(original), entries(actual)
+    it = iter(new)
+    if not all(any(o == n for n in it) for o in old):  # old is an ordered subsequence of new
+        return False
+    if 'kCount' in old and new[-1:] != old[-1:]:
+        return False
+    return True
+
+def code_lines(text):
+    return [l for l in (re.sub(r'//.*', '', x).strip() for x in text.split('\n')) if l]
+
+def remote_ok(original, actual, new_ids):
+    # Remote (FindItem..ProcessRemote) may only gain code for NEW rows: every release line stays, in order (comments
+    # ignored), and every block of added lines names one of the Ids that are new since the release.
+    old, new = code_lines(original), code_lines(actual)
+    added, block, i = [], [], 0
+    for line in new:
+        if i < len(old) and line == old[i]:
+            i += 1
+            if block:
+                added.append(block)
+                block = []
+        else:
+            block.append(line)
+    if block:
+        added.append(block)
+    if i != len(old):
+        return False
+    pat = re.compile(r'\b(' + '|'.join(map(re.escape, new_ids)) + r')\b') if new_ids else None
+    return all(pat and any(pat.search(l) for l in b) for b in added)
 
 def tree(path):
     return (ROOT / path).read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
@@ -74,8 +118,14 @@ def main():
     # The supplemental UI must not replace the native action, pump, request or observer implementation.
     original = protected(content(RELEASE, 'mod/Nioh3EngineFix/src/menu.cpp'), content(RELEASE, 'mod/Nioh3BossRematch/src/rematch.cpp'))
     actual = protected(tree('mod/Nioh3EngineFix/src/menu.cpp'), tree('mod/Nioh3BossRematch/src/rematch.cpp'))
+    new_ids = [i for i in entries(actual['engine_enum']) if i not in entries(original['engine_enum'])]
     for key, expected in original.items():
-        assert actual[key] == expected, ('protected source drift', key)
+        if key in ADDITIVE:
+            assert additive_ok(expected, actual[key]), ('protected source drift', key)
+        elif key == 'remote':
+            assert remote_ok(expected, actual[key], new_ids), ('protected source drift', key)
+        else:
+            assert actual[key] == expected, ('protected source drift', key)
     assert tree('mod/Nioh3BossRematch/src/training.cpp') == content(RELEASE, 'mod/Nioh3BossRematch/src/training.cpp')
     for path, macro in (('mod/Nioh3BossRematch/src/addon.h', '#define ADDON_VERSION '), ('mod/Nioh3EngineFix/src/dllmain.cpp', '#define MOD_VERSION ')):
         line = next(l for l in content(RELEASE, path).splitlines() if l.startswith(macro))
