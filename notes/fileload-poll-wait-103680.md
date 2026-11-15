@@ -17,7 +17,7 @@ FileLoad.Poll take ~1.2 of 4 cores in hitches while the disk reads < 18 MB/s).
   it spins waiting for Poll, so the two spin against each other.
 - Both unlocks: `call [0x38E2630]` (ReleaseSRWLockShared), rcx = ctx+0xCD0.
 
-## Patch ([Patches] FileLoadPoll = 1, default 0; src/thrsched.cpp FpwInstall / FpwBackoff)
+## Patch ([Patches] FileLoadPoll = 1, default 1 since #104135 behind a CPU gate; src/thrsched.cpp FpwInstall / FpwBackoff)
 Each unlock call (6 bytes, one instruction) -> `call thunk; nop`. Thunk (near page, unwind registered): calls the same
 IAT slot with the same rcx, then FpwBackoff(lock). Back-off only when the native loop is about to run again AND no ring
 counter moved since the previous pass: pause (SpinUs 20) -> SwitchToThread (to YieldUs 200) -> high-resolution timer
@@ -35,3 +35,12 @@ looping or on progress; idle passes pause/yield/sleep; FileLoad's own condition;
 - Live: install line, CPU of the two loader threads, walk hitches, Boss Match load and Continue load times, OFF vs ON,
   alone and with FileLoadPrio + KidstsCap. Risk: the retire step waits on the GPU fence, so sleeps may stretch the sync
   flush / loading screens by up to ~1 ms per stalled wait; if loads get slower, try SleepUs 0 (yield only).
+
+## #104135 CPU gate (gx-pc, 2026-11-15)
+4-core Main PC PASS #104047, 12-core PC2 no win #103997, so FPW is ON by default but backs off only while the process
+affinity has <= [Tuning] FileLoadPoll_MaxCpus (6) CPUs. FpwGateThread re-checks every second and logs
+"FPW: process affinity N CPUs (cap 6) -> poll wait ON | off (stock loop)" on each change; above the cap FpwBackoff
+returns before counting a pass = stock loop. A missing FileLoadPoll key = 1; an explicit FileLoadPoll = 0 stays off.
+Stats line ends "| gate ON|off (N CPUs, cap 6)". Offline: tests/run_fpw_harness.py ALL PASSED incl. K (ini 0 / missing)
+and I (affinity 4 -> 12 -> 4 CPUs: off within 1 s, 40000 idle passes no back-off, then ON again).
+Caveat: an ini that already holds FileLoadPoll = 0 (shipped default in #7695 / v1.8.18 builds) keeps FPW off.

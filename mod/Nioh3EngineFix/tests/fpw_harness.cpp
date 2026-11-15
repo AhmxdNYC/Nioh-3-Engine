@@ -10,6 +10,9 @@
 //   F looping, no progress: pause first, then yields, then timer sleeps (each pass < 2 ms).
 //   G FileLoad thunk: its loop condition is produced > read-done only (retired lagging does not back off).
 //   H wrong bytes (a different build / another patch): "FPW: not installed", the site bytes are left unchanged.
+//   K ini (#104135): explicit FileLoadPoll = 0 = no FPW at all; a missing key = default 1 (tries to install).
+//   I CPU gate (#104135, [Tuning] FileLoadPoll_MaxCpus 6): run on a 4-CPU affinity = ON; widen the affinity above 6
+//     CPUs = the gate thread logs "off" within ~1 s and idle passes return at once (stock); back to 4 CPUs = ON again.
 // Prints ALL PASSED on success.
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -122,6 +125,18 @@ static void Status(long long* v) {  // Poll passes, pause, yield, sleep, ms, Fil
         sscanf_s(p, "FPW: Poll passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | FileLoad passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms)",
                &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8], &v[9]);
 }
+static bool GateOn() {
+    char buf[1024];
+    thrsched::FlpStatusLine(buf, sizeof buf);
+    return strstr(buf, "| gate ON") != nullptr;
+}
+static bool WaitGate(bool on) {  // the gate thread re-checks every second
+    for (int i = 0; i < 40; ++i) {
+        if (GateOn() == on) return true;
+        Sleep(100);
+    }
+    return GateOn() == on;
+}
 static double Us(LARGE_INTEGER a, LARGE_INTEGER b) {
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);
@@ -132,9 +147,37 @@ int main() {
     wchar_t ini[MAX_PATH];
     GetTempPathW(MAX_PATH, ini);
     wcscat_s(ini, L"fpw_harness.ini");
-    WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"1", ini);
+    DeleteFileW(ini);
+    // Few-CPU process (the gate's ON side): affinity = the first min(4, all) CPUs of the system mask.
+    DWORD_PTR pm = 0, sysm = 0;
+    GetProcessAffinityMask(GetCurrentProcess(), &pm, &sysm);
+    DWORD_PTR four = 0;
+    int nFour = 0, nAll = 0;
+    for (int i = 0; i < 64; ++i)
+        if (sysm & ((DWORD_PTR)1 << i)) {
+            ++nAll;
+            if (nFour < 4) four |= (DWORD_PTR)1 << i, ++nFour;
+        }
+    CHECK(SetProcessAffinityMask(GetCurrentProcess(), four));
 
-    // H first (Start installs once per process image; use a separate fake image).
+    // K: explicit 0 = off (nothing about FPW logged); missing key = default 1 (install attempted on the bad image, H).
+    {
+        WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"0", ini);
+        uint8_t* bad = MakeImage(true);
+        thrsched::StartInfo si;
+        si.log = Log;
+        si.iniPath = ini;
+        si.base = (uintptr_t)bad;
+        thrsched::Start(si);
+        bool any = false;
+        for (auto& l : g_lines) any |= l.find("FPW") != std::string::npos;
+        CHECK(!any);
+        printf("K explicit FileLoadPoll = 0: %s\n", any ? "FPW ran (BAD)" : "FPW off");
+        g_lines.clear();
+        WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", nullptr, ini);  // delete the key
+    }
+
+    // H with the key missing (Start installs once per process image; use a separate fake image).
     {
         uint8_t* bad = MakeImage(true);
         uint8_t before[6];
@@ -146,9 +189,11 @@ int main() {
         thrsched::Start(si);
         CHECK(Logged("FPW: not installed (loader poll loop bytes differ"));
         CHECK(!memcmp(before, bad + kPollSite, 6));
+        printf("K missing key = default 1: install attempted %s\n", Logged("FPW: not installed") ? "yes" : "NO");
         printf("H wrong bytes: %s\n", Logged("FPW: not installed") ? "not installed, site unchanged" : "?");
     }
     g_lines.clear();
+    WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"1", ini);
     uint8_t* b = MakeImage(false);
     *(void**)(b + kSlot) = (void*)&FakeUnlock;
     thrsched::StartInfo si;
@@ -158,6 +203,10 @@ int main() {
     thrsched::Start(si);
     for (auto& l : g_lines) printf("  log: %s\n", l.c_str());
     CHECK(Logged("FPW: installed"));
+    char want[96];
+    snprintf(want, sizeof want, "FPW: process affinity %d CPUs (cap 6) -> poll wait ON", nFour);
+    CHECK(Logged(want));
+    CHECK(GateOn());
     CHECK(b[kPollSite] == 0xE8 && b[kPollSite + 5] == 0x90 && b[kLoadSite] == 0xE8 && b[kLoadSite + 5] == 0x90);
     Thunk tp = ThunkAt(b + kPollSite), tl = ThunkAt(b + kLoadSite);
     CHECK(tp != tl);
@@ -255,6 +304,44 @@ int main() {
     CHECK(h[6] + h[7] + h[8] == lp - 1);
     printf("G FileLoad: retired lagging = no back-off (%lld passes); produced > read done idle = pause %lld, yield %lld, sleep %lld\n", g[5],
            h[6], h[7], h[8]);
+
+    // I: CPU gate. Widen the affinity above the cap -> off within ~1 s, idle passes return at once; back -> ON.
+    if (nAll > 6) {
+        g_lines.clear();
+        CHECK(SetProcessAffinityMask(GetCurrentProcess(), sysm));
+        CHECK(WaitGate(false));
+        snprintf(want, sizeof want, "FPW: process affinity %d CPUs (cap 6) -> poll wait off (stock loop)", nAll);
+        CHECK(Logged(want));
+        long long i0[10], i1[10];
+        Status(i0);
+        *Ctr(0) = 50, *Ctr(2) = 50, *Ctr(3) = 4;  // Poll looping, no progress
+        QueryPerformanceCounter(&t0);
+        for (int i = 0; i < 20000; ++i) CallThunk(tp, lock);
+        *Ctr(0) = 60;  // FileLoad looping (produced > read done), no progress
+        for (int i = 0; i < 20000; ++i) CallThunk(tl, lock);
+        QueryPerformanceCounter(&t1);
+        Status(i1);
+        CHECK(i1[0] == i0[0] && i1[5] == i0[5]);  // gate off: FpwBackoff returns before it counts a pass
+        CHECK(i1[1] == i0[1] && i1[2] == i0[2] && i1[3] == i0[3] && i1[6] == i0[6] && i1[7] == i0[7] && i1[8] == i0[8]);
+        printf("I gate off (%d CPUs > 6): 40000 idle passes in %.1f ms, pause/yield/sleep +%lld/+%lld/+%lld (stock)\n", nAll,
+               Us(t0, t1) / 1000, i1[1] + i1[6] - i0[1] - i0[6], i1[2] + i1[7] - i0[2] - i0[7], i1[3] + i1[8] - i0[3] - i0[8]);
+        CHECK(SetProcessAffinityMask(GetCurrentProcess(), four));
+        CHECK(WaitGate(true));
+        snprintf(want, sizeof want, "FPW: process affinity %d CPUs (cap 6) -> poll wait ON", nFour);
+        CHECK(Logged(want));
+        long long j[10];
+        QueryPerformanceCounter(&t0);
+        do {
+            CallThunk(tp, lock);
+            Status(j);
+            QueryPerformanceCounter(&t1);
+        } while (j[3] - i1[3] < 3 && Us(t0, t1) < 1e6);
+        CHECK(j[3] - i1[3] >= 3);
+        printf("  gate back ON (%d CPUs): idle Poll passes sleep again (+%lld sleeps)\n", nFour, j[3] - i1[3]);
+        for (auto& l : g_lines) printf("  log: %s\n", l.c_str());
+    } else {
+        printf("I gate off side SKIPPED (this PC has %d CPUs, not above the cap 6)\n", nAll);
+    }
 
     DeleteFileW(ini);
     printf(g_fail ? "FAILED (%d)\n" : "ALL PASSED\n", g_fail);
