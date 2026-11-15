@@ -1,10 +1,11 @@
 """Offline build+run of menu_prompts_test.cpp (UO #9 footer prompts follow input modality). No game needed."""
-import pathlib, subprocess, sys
+import pathlib, shutil, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPO = ROOT.parent.parent
 OUT = ROOT / "build" / "menutest"
 OUT.mkdir(parents=True, exist_ok=True)
-setup = next((p for p in (REPO / "tools/msvc/setup_x64.bat", pathlib.Path(r"D:/nioh3-wt/rc-187/tools/msvc/setup_x64.bat")) if p.exists()), None)
+setup = None if shutil.which("cl") else next(  # cl already on PATH (a Developer prompt / pmsvc): use it as is
+    (p for p in (REPO / "tools/msvc/setup_x64.bat", pathlib.Path(r"D:/nioh3-wt/rc-187/tools/msvc/setup_x64.bat")) if p.exists()), None)
 src = ROOT / "tests/menu_prompts_test.cpp"
 exe = OUT / "menu_prompts_test.exe"
 batch = OUT / "menu_tabbar_build.cmd"

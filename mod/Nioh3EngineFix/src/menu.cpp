@@ -4111,8 +4111,11 @@ float DrawImpl(unsigned W, unsigned H) {
                        (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
                 // Use the existing active-controller badge, including PlayStation symbols.
                 char key[2] = {rw.value[0], 0};
-                ms::Hint(vx, y, keyMode && key[0] == 'A' ? "Enter" : key,  // UO #9: under the keyboard "A: open" is an Enter cap
-rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
+                const char* text = rw.value[1] ? rw.value + 3 : "";
+                // UO #9 / #105956: under the keyboard every face-button hint is a key cap (A Enter, B Esc, Y menu key); X has none
+                const char* cap = keyMode ? ms::RowKeyCap(key[0], g_cfg.vk ? g_cfg.keyName : nullptr) : key;
+                if (cap) ms::Hint(vx, y, cap, text, cw, lineH, sc, fa);
+                else if (text[0]) osd::DrawText(vx, y, text, ms::Fade(vcol, fa), sc);
             } else osd::DrawText(vx, y, rw.value, ms::Fade(vcol, fa), sc);
         }
         ++line;

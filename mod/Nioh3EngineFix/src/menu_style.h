@@ -265,4 +265,17 @@ inline int KeyPrompts(int row, const char* toggleKey, HintItem* out) {
     return 2;
 }
 
+// #105956: keyboard cap for a row hint that names a pad face button ("A: open", "B", "Y: close"), same source as the footer
+// KeyPrompts: A = Enter, B = Esc, Y (close the menu) = the menu key, or Esc when none is bound (Esc backs out to closed).
+// X has no keyboard key in the menu (only the Report box key grid reads it, and that box has its own Keys row): nullptr = no cap,
+// the caller draws the hint text alone rather than a pad letter.
+inline const char* RowKeyCap(char pad, const char* toggleKey) {
+    switch (pad) {
+        case 'A': return "Enter";
+        case 'B': return "Esc";
+        case 'Y': return toggleKey && toggleKey[0] && strcmp(toggleKey, "None") ? toggleKey : "Esc";
+        default: return nullptr;
+    }
+}
+
 }  // namespace menu_style
