@@ -51,6 +51,30 @@ int main() {
         auto p = Make(L"other.ini", body.c_str()); CHECK(!Run(p.c_str()));
         wchar_t w[32]; swprintf(w, 32, L"%hs", v); CHECK(Get(p, L"ButtonStyle") == w); CHECK(Get(p, L"ButtonStyleMigrated") == L"1");
     }
+    // #106435: in-place rewrite keeps the ini's own 'Key = Value' spacing and line endings; second load byte-identical
+    struct Ex { const wchar_t* n; const char* in; const char* out; bool r; };
+    const Ex ex[] = {
+        {L"x1.ini", "; my settings\r\n[Menu]\r\nKey = F10\r\nButtonStyle = Xbox\r\n; comment\r\nControllerDisplay = 1\r\n[General]\r\nX = 5\r\n",
+                    "; my settings\r\n[Menu]\r\nKey = F10\r\nButtonStyle = Auto\r\nButtonStyleMigrated = 1\r\n; comment\r\nControllerDisplay = 1\r\n[General]\r\nX = 5\r\n", true},
+        {L"x2.ini", "[Menu]\r\nButtonStyle=xbox\r\n", "[Menu]\r\nButtonStyle=Auto\r\nButtonStyleMigrated=1\r\n", true},
+        {L"x3.ini", "[Menu]\nButtonStyle = Xbox\n[Other]\nA = 1\n", "[Menu]\nButtonStyle = Auto\nButtonStyleMigrated = 1\n[Other]\nA = 1\n", true},
+        {L"x4.ini", "[Menu]\r\nButtonStyle = Xbox", "[Menu]\r\nButtonStyle = Auto\r\nButtonStyleMigrated = 1", true},
+        {L"x5.ini", "[Menu]\r\nButtonStyle = PlayStation\r\n", "[Menu]\r\nButtonStyle = PlayStation\r\nButtonStyleMigrated = 1\r\n", false},
+        {L"x6.ini", "[General]\r\nX = 5\r\n", "[General]\r\nX = 5\r\n[Menu]\r\nButtonStyleMigrated = 1\r\n", false},
+        {L"x7.ini", "[menu]\r\nKey = F10\r\n\r\n[General]\r\nX = 5\r\n", "[menu]\r\nKey = F10\r\nButtonStyleMigrated = 1\r\n\r\n[General]\r\nX = 5\r\n", false},
+        {L"x8.ini", "[Menu]\r\nButtonStyle  =  Xbox  \r\n", "[Menu]\r\nButtonStyle  =  Auto  \r\nButtonStyleMigrated  =  1\r\n", true},
+        {L"x9.ini", "[General]\r\nButtonStyle = Xbox\r\n[Menu]\r\nButtonStyle = Xbox\r\n", "[General]\r\nButtonStyle = Xbox\r\n[Menu]\r\nButtonStyle = Auto\r\nButtonStyleMigrated = 1\r\n", true},
+    };
+    for (const Ex& e : ex) {
+        auto p = Make(e.n, e.in); const bool r = Run(p.c_str()); const std::string s = Text(p);
+        CHECK(r == e.r); CHECK(s == e.out); if (s != e.out) printf("  %ls got: [%s]\n", e.n, s.c_str());
+        CHECK(Get(p, L"ButtonStyleMigrated") == L"1");
+        CHECK(!Run(p.c_str())); CHECK(Text(p) == s);
+        CHECK(GetFileAttributesW((p + L".migtmp").c_str()) == INVALID_FILE_ATTRIBUTES);
+    }
+    // UTF-8 BOM ini: profile-API fallback, settles after one load (second load byte-identical, marker never stacks)
+    {auto p = Make(L"bom.ini", "\xEF\xBB\xBF[Menu]\r\nButtonStyle = Xbox\r\n"); Run(p.c_str()); const std::string s = Text(p);
+     CHECK(Get(p, L"ButtonStyleMigrated") == L"1"); CHECK(!Run(p.c_str())); CHECK(Text(p) == s);}
     // missing ini is never created
     {std::wstring p = g_dir + L"missing.ini"; DeleteFileW(p.c_str()); CHECK(!Run(p.c_str())); CHECK(GetFileAttributesW(p.c_str()) == INVALID_FILE_ATTRIBUTES);
      CHECK(!Run(nullptr)); CHECK(!Run(L""));}

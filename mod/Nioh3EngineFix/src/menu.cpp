@@ -3835,7 +3835,12 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128], text[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
             // #13296: value only (ON / OFF pill for switches); how it applies is in the explanation below the list
-            snprintf(text, sizeof(text), "%.48s%s", setting_ui::Shown(d, v.text), d.kind == setting_ui::Kind::Manual ? "  (ini only)"
+            // #106442: Auto button style shows what it resolved to, e.g. "Auto (Xbox)", so the player can tell Auto from a pinned Xbox
+            char shown[64];
+            if (!strcmp(d.key, "ButtonStyle") && !_stricmp(v.text.c_str(), "Auto"))
+                snprintf(shown, sizeof(shown), "Auto (%s)", StyleName(menu_style::g_btnStyle));
+            else snprintf(shown, sizeof(shown), "%.48s", setting_ui::Shown(d, v.text));
+            snprintf(text, sizeof(text), "%s%s", shown, d.kind == setting_ui::Kind::Manual ? "  (ini only)"
                 : v.changed ? (d.apply == setting_ui::Apply::NextLaunch ? "  * restart to apply" : "  * changed") : "");
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,

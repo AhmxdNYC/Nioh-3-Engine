@@ -8,6 +8,7 @@ setup = next((p for p in (REPO / "tools/msvc/setup_x64.bat", pathlib.Path(r"D:/n
 mc = (ROOT / "src/menu.cpp").read_text(encoding="utf-8-sig")
 i, j = mc.find("btnstyle_migrate::Run(f)"), mc.find('GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Auto"')
 if not (0 <= i < j): sys.exit("FAIL: menu.cpp must run btnstyle_migrate::Run(f) before it reads [Menu] ButtonStyle")
+if 'snprintf(shown, sizeof(shown), "Auto (%s)", StyleName(menu_style::g_btnStyle))' not in mc: sys.exit("FAIL: ButtonStyle row must show 'Auto (<resolved>)' (#106442)")
 src = ROOT / "tests/btnstyle_migrate_test.cpp"
 exe = OUT / "btnstyle_migrate_test.exe"
 batch = OUT / "btnstyle_migrate_build.cmd"
