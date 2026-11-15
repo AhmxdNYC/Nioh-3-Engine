@@ -25,6 +25,11 @@ int main() {
  // Steam's virtual pad next to a real Xbox pad: the real one is named
  {ClearSlots();Feed(0,0,0,0,0,0,10000);Card c;c.hid[0]={0x28DE,0x11FF};c.hid[1]={0x045E,0x0B13};c.nHid=2;Format(c,10000,0,a,sizeof a,b,sizeof b);CHECK(strstr(a,"Xbox Series Controller"));
   c.nHid=1;Format(c,10000,0,a,sizeof a,b,sizeof b);CHECK(strstr(a,"Steam virtual pad"));}
+ // #106253: any Valve 0x28DE pid not in the table (the Ally built-in pad under Steam) is named, not shown as raw ids; fits the panel
+ {ClearSlots();Card c;c.hid[0]={0x28DE,0x1142};c.nHid=1;Format(c,10000,0,a,sizeof a,b,sizeof b);CHECK(strstr(a,"Pad: Steam virtual pad (Valve), no XInput")&&!strstr(a,"28DE")&&strlen(a)<=58);
+  Feed(0,0,0,0,0,0,10000);Format(c,10000,0,a,sizeof a,b,sizeof b);CHECK(!strcmp(a,"Pad: Steam virtual pad (Valve) (Xbox), XInput 1"));
+  c.hid[0]={0x28DE,0x1205};Format(c,10000,0,a,sizeof a,b,sizeof b);CHECK(strstr(a,"Steam Deck controls"));}
+ static_assert(kDeadL == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && kDeadR == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE, "deadzones");
  // drift: left stick still at 30% with no button for 1.5 s -> flagged; < 1.5 s not; moving resets; a held button never flags; back inside the deadzone clears
  {ClearSlots();Card c;c.nHid=0;const int x=9800;uint64_t t=20000;
   for(;t<=21400;t+=16){Feed(0,0,x+(int)(t%3)*50,0,0,0,t);Step(c,t);}
@@ -53,5 +58,5 @@ int main() {
   CHECK(Line("Pad: ")=="Pad: Switch Pro Controller (Nintendo), XInput 1");CHECK(HasPrefix("Sticks: at rest"));
   EnterPage(pOvFrameMeter);osd::drawnTexts.clear();DrawImpl(1920,1080);CHECK(!HasPrefix("Pad: ")&&!HasPrefix("Sticks: "));
   Close("card");g_enumPads=nullptr;ClearSlots();menu_style::g_btnStyle=0;}
- puts("PASS: controller status card (names, none / no-XInput / stale slot, DualSense over Steam pad, drift 1.5 s still, no wired/wireless claim, button / move / deadzone resets, menu page)");
+ puts("PASS: controller status card (names, none / no-XInput / stale slot, DualSense over Steam pad, Valve 0x28DE named, drift 1.5 s still, no wired/wireless claim, button / move / deadzone resets, menu page)");
 }
