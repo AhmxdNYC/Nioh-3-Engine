@@ -3794,10 +3794,19 @@ N3T_API int Nioh3Training_ReturnInfo(void) {
     if (g_rh.active || g_rh.want) f |= 16;
     return f;
 }
+// #106631 (pc/1 #101326, R3513: pause > Return from Mission in the Training FALLBACK fight opened the stock 'abandon the mission' box, not our
+// Return / Fight again page): EnterTick's 'one in-mission arena fallback' runs FightNowImpl with g_native_fallback, which clears g_np, so
+// NativePhaseMatches() was 0 and every Proceed hook let the end-mission action through. The fallback is still the same Boss Match mission trip
+// (entry confirmed, warped, fellBack, same mission and world as the row), so it owns Proceed exactly like the native boss. No per-boss data.
+static int NativeFallbackOwns(void) {
+    uint32_t mission = 0, mode = 0; uint8_t journey = 0;
+    return g_en.confirmed && g_en.fellBack && g_en.row && MsRead(&mission, &journey, &mode) &&
+        mission == g_en.row->mission && CurWorld() == g_en.row->world;
+}
 // Native Proceed is owned without a dynamic actor or synthetic Return gadget.
 N3T_API uint32_t Nioh3Training_NativeGateMission(void) {
     const uint8_t* st = GameState();
-    if (!st || st[2] || g_rh.active || g_rh.want || !g_en.warped || !NativePhaseMatches()) return 0;
+    if (!st || st[2] || g_rh.active || g_rh.want || !g_en.warped || !(NativePhaseMatches() || NativeFallbackOwns())) return 0;
     return g_en.row->mission;
 }
 // user #6789/#6798: 'Return to where I was' as a PHYSICAL object in the arena = the game's own mission clear gadget (the one the mission script spawns at the boss
