@@ -89,31 +89,52 @@ n = padrec.record(str(fx), sec=END_MS / 1000.0, poll_ms=2.0, state_ms=5, read=sr
 head, ev = padrec.load(str(fx))
 check(head["format"] == "nioh3-padrec" and head["version"] == 1, "header %s" % head)
 check(n == len(ev) and n >= 20, "events %d / %d" % (n, len(ev)))
-pi = 0
-worst, worst_at = 0.0, None
-short_missed = []
-for k, (st, p, tag) in enumerate(SCRIPT):
-    dur = (SCRIPT[k + 1][0] if k + 1 < len(SCRIPT) else END_MS) - st
-    want = p if p is not None else N
-    prev = SCRIPT[k - 1] if k else None
-    if dur < 6 or (prev and (prev[1] if prev[1] is not None else N) == want and prev[2] == tag):
-        continue  # too short for a 2 ms poll to be sure of, or no change
-    j = next((j for j in range(pi, len(ev)) if ev[j][1] == want and ev[j][0] >= st - 1), None)
-    if j is None and dur < 12 and not short_missed:
-        # a state shorter than the 10 ms lateness limit + one poll can fall inside one poller stall under load
-        # (seen once: an 8 ms stick step, #106023); allow one such miss per run, never a longer state
-        short_missed.append((k, st, dur))
-        continue
-    if not check(j is not None, "recording misses scripted state %d at %d ms %s" % (k, st, want)):
-        continue
-    # the tag comes from its own poller (every 5 ms here, 250 ms live): it may follow the pad change by one tag period
-    check(any(ev[q][1] == want and ev[q][2] == tag and ev[q][0] <= st + 5 + 4 for q in range(j, len(ev))),
-          "scripted state %d at %d ms: tag %s not recorded within one tag period" % (k, st, tag))
-    if prev and (prev[1] if prev[1] is not None else N) == want:
-        continue  # a tag-only change: its time is the tag poller's, checked above
-    if ev[j][0] - st > worst:
-        worst, worst_at = ev[j][0] - st, (k, st)
-    pi = j
+
+
+def stick_step(prev, p):
+    """True when scripted state p changes only sticks/triggers vs the state before it (same buttons, both connected)."""
+    return prev is not None and prev[1] is not None and p is not None and p[0] == prev[1][0]
+
+
+def compare_record(ev):
+    """Scripted states vs recorded events -> (failures, worst ms late, where, forgiven short misses)."""
+    out = []
+
+    def chk(c, msg):
+        if not c:
+            out.append(msg)
+        return c
+    pi = 0
+    worst, worst_at = 0.0, None
+    short_missed = []
+    for k, (st, p, tag) in enumerate(SCRIPT):
+        dur = (SCRIPT[k + 1][0] if k + 1 < len(SCRIPT) else END_MS) - st
+        want = p if p is not None else N
+        prev = SCRIPT[k - 1] if k else None
+        if dur < 6 or (prev and (prev[1] if prev[1] is not None else N) == want and prev[2] == tag):
+            continue  # too short for a 2 ms poll to be sure of, or no change
+        j = next((j for j in range(pi, len(ev)) if ev[j][1] == want and ev[j][0] >= st - 1), None)
+        if j is None and dur < 12 and not short_missed and stick_step(prev, p):
+            # a state shorter than the 10 ms lateness limit + one poll can fall inside one poller stall under load
+            # (seen once: an 8 ms stick step, #106023); allow one such miss per run, never a longer state, and only a
+            # stick/trigger step: a missed state whose buttons differ from the previous state's is a dropped tap (#106388)
+            short_missed.append((k, st, dur))
+            continue
+        if not chk(j is not None, "recording misses scripted state %d at %d ms %s" % (k, st, want)):
+            continue
+        # the tag comes from its own poller (every 5 ms here, 250 ms live): it may follow the pad change by one tag period
+        chk(any(ev[q][1] == want and ev[q][2] == tag and ev[q][0] <= st + 5 + 4 for q in range(j, len(ev))),
+            "scripted state %d at %d ms: tag %s not recorded within one tag period" % (k, st, tag))
+        if prev and (prev[1] if prev[1] is not None else N) == want:
+            continue  # a tag-only change: its time is the tag poller's, checked above
+        if ev[j][0] - st > worst:
+            worst, worst_at = ev[j][0] - st, (k, st)
+        pi = j
+    return out, worst, worst_at, short_missed
+
+
+rec_fails, worst, worst_at, short_missed = compare_record(ev)
+fails.extend(rec_fails)
 check(worst <= 10.0, "recorded time vs script: worst %.2f ms at scripted state %s (poll 2 ms, limit 10 ms: 7.51 ms seen under load #106023)" % (worst, worst_at))
 tags = [e[2] for e in ev]
 check(tags[0] == "loading" and "menu" in tags and tags[-1] == "field", "tags %s" % sorted(set(tags)))
@@ -121,6 +142,19 @@ raw = fx.read_text(encoding="utf-8")
 check('"pad": null' in raw, "disconnect recorded as pad null")
 print("record: %d events in %.1f s, every scripted state of 6+ ms present in order (worst %.2f ms late, short states missed %s), tags within one tag period, tags %s, disconnect = null" % (
     len(ev), END_MS / 1000.0, worst, short_missed or "none", ",".join(sorted(set(tags)))))
+
+# #106388: the single short-miss allowance must never forgive a button change. A recorder that drops the 10 ms B tap fails;
+# one that drops an 8 ms stick step (same buttons as the step before) is still forgiven.
+B_TAP = next(p for _, p, _ in SCRIPT if p is not None and p[0] == B)
+STICK = next(SCRIPT[k][1] for k in range(1, len(SCRIPT)) if SCRIPT[k][0] >= 700 and stick_step(SCRIPT[k - 1], SCRIPT[k][1]))
+drop_b, _, _, _ = compare_record([e for e in ev if e[1] != B_TAP])
+check(any("misses scripted state" in m and str(B_TAP) in m for m in drop_b), "a recording without the B tap must FAIL: %s" % drop_b)
+drop_s, _, _, miss_s = compare_record([e for e in ev if e[1] != STICK])
+check(bool(short_missed) or (not [m for m in drop_s if "misses scripted state" in m] and len(miss_s) == 1),
+      "a recording without one 8 ms stick step must be forgiven once: %s %s" % (drop_s, miss_s))
+check(not any(SCRIPT[k][1] is not None and SCRIPT[k][1][0] != (SCRIPT[k - 1][1] or N)[0] for k, _, _ in short_missed),
+      "a forgiven miss changed buttons: %s" % short_missed)
+print("dropped tap: B tap missing -> FAIL (%d), one stick step missing -> forgiven %s" % (len(drop_b), miss_s))
 
 # ---- 2. replay into the real VirtualPad code ----
 setup = REPO / "tools" / "msvc" / "setup_x64.bat"
