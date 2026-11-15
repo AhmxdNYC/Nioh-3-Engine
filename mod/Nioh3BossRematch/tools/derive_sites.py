@@ -36,6 +36,9 @@ SPEC = [
     ("BossBattleModeEnd", "FIGHT", H, 0x23A2F70, 9),
     # Lesson dojos: the script polls this until the lesson group is dead, then it starts BossBattleMode on the teacher.
     ("IsDeathGroupEnemy", "FIGHT", H, 0x2BC8C4, 9),
+    # #106000 white dot: the script natives that set the compass destination (lesson end, clear gadget). Log-only, every mission.
+    ("UI::SetCompassDestinationIndex", "FIGHT", H, 0x23B7FD0, 5),
+    ("UI::SetCompassDestination", "FIGHT", H, 0xA3E0C8, 5),
     ("Character::Create", "FIGHT", H, 0x1180740, 5),
     # BOSSLOG
     ("SetMissionFlag", "BOSSLOG", H, 0x70275C, 5),

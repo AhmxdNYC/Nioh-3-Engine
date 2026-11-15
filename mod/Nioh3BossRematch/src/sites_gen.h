@@ -13,6 +13,8 @@ static const Def kDefs[] = {
     {"BossBattleMode", "FIGHT", kNative, 0x23A2DCC, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "Mission::BossBattleMode"},
     {"BossBattleModeEnd", "FIGHT", kNative, 0x23A2F70, 9, "40 53 48 81 EC 60 01 00 00", 0, 0, 0, 0, 0x0, "Mission::BossBattleModeEnd"},
     {"IsDeathGroupEnemy", "FIGHT", kNative, 0x2BC8C4, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "Character::IsDeathGroupEnemy"},
+    {"UI::SetCompassDestinationIndex", "FIGHT", kNative, 0x23B7FD0, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "UI::SetCompassDestinationIndex"},
+    {"UI::SetCompassDestination", "FIGHT", kNative, 0xA3E0C8, 5, "48 89 5C 24 10", 0, 0, 0, 0, 0x0, "UI::SetCompassDestination"},
     {"Character::Create", "FIGHT", kHook, 0x1180740, 5, "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 89 54 24 10 57 48 83 EC 30", 0, 0, 0, 0, 0x0, nullptr},
     {"SetMissionFlag", "BOSSLOG", kHook, 0x70275C, 5, "48 89 5C 24 08 48 89 6C 24 18 44 88 4C 24 20 56", 0, 0, 0, 0, 0x0, nullptr},
     {"ShowBossGauge", "BOSSLOG", kNative, 0x23B8678, 9, "40 53 48 81 EC 70 01 00 00", 0, 0, 0, 0, 0x0, "UI::ShowBossGauge"},

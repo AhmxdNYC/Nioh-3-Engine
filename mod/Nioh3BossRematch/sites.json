@@ -45,6 +45,26 @@
    "offset": 0
   },
   {
+   "name": "UI::SetCompassDestinationIndex",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 37453776,
+   "head": 5,
+   "native": "UI::SetCompassDestinationIndex",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "UI::SetCompassDestination",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 10739912,
+   "head": 5,
+   "native": "UI::SetCompassDestination",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
    "name": "Character::Create",
    "group": "FIGHT",
    "kind": "hook",
