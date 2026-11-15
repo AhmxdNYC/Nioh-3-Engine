@@ -48,7 +48,9 @@ def verdict(rc, txt):
     last = lines[-1].strip() if lines else ""
     if rc != 0:
         return "FAIL", f"rc={rc} | {last[:140]}"
-    bad = [l.strip() for l in lines if BAD.search(l) and not re.search(r"\b0 fail|FAIL: 0|fails?=0", l, re.I)]
+    # a PASS/OK line that merely mentions "failed" (e.g. "no game open failed", "after 3 failed forces") is not a failure
+    bad = [l.strip() for l in lines if BAD.search(l) and not re.search(r"\b0 fail|FAIL: 0|fails?=0", l, re.I)
+           and not re.match(r"\s*(OK|PASS(ED)?)\b", l)]
     if bad and not (OKLAST.search(last) and "Traceback" not in txt):
         return "FAIL", f"rc=0 but log: {bad[0][:140]}"
     return "PASS", last[:140]
