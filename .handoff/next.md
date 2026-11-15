@@ -918,3 +918,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 1:17 pm EST | regression-pc/0 | #105806 padrec fe9982d6 PASS sent (#106021), 2 minor asks to cx-pc. Do not task twice.
 - 2026-11-15 1:20 pm EST | regression-pc/0 | session end: waiting on cx-pc2 vpad wiring check fix (pad-modality), then rerun run_vpad_harness only.
 - 2026-11-15 1:25 pm EST | pc2/1 | #105897 skipreport follow-up 17228b93 (EF f5fcb1f5 TR 933862b7 BR 01d62970) pc2 live: 2/3 boots PASS, boot 1 game crash +0x5dba0f at Continue load (2nd sighting, unattributed). RESULT sent to pc+pc2.
+- 2026-11-15 1:4x pm EST | regression-pc/0 | #105864 skipreport follow-up 17228b93 PASS offline (AF910 unique 1 hit in v2.02, gen_rvas 0 missing vs 1 on 8e0d63be, TR skip test + BR keepgear PASS). Live still pc2 file #7779. Do not task twice.
