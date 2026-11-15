@@ -569,7 +569,7 @@ static void h_lchr(uint64_t loader, uint32_t id) {
 
 // registry message post 60BE48(reg, &pair{obj, ctrl}): every script->placement message (SetDoorControl*, SetStatusPlacement, ...) goes through it. Log-only trace (bridge 4718): vtable RVA, placement id (+8), dwords +0x10/+0x14.
 typedef void (*PostFn)(uint64_t, uint64_t*);
-static PostFn o_post; static volatile LONG g_post_trace = 1;
+static PostFn o_post; static volatile LONG g_post_trace = 0;  // #106727 (reports #77/#80): off unless [Debug] PostTrace=1; each line is a synchronous file open+write+close on the game thread
 static __attribute__((noinline)) void h_post(uint64_t reg, uint64_t* pair) {
     static volatile LONG n; if (g_post_trace && InterlockedIncrement(&n) < 20000) { uint64_t o = pair ? pair[0] : 0; uint64_t vt = 0, v10 = 0; uint32_t id = 0;
         __try { vt = *(uint64_t*)o; id = *(uint32_t*)(o + 8); v10 = *(uint64_t*)(o + 0x10); } __except (EXCEPTION_EXECUTE_HANDLER) { }
@@ -6397,6 +6397,7 @@ static DWORD WINAPI Worker(LPVOID x) {
         char ini[MAX_PATH]; snprintf(ini, sizeof ini, "%s\\Nioh3Training.ini", g_dir);
         g_cfg_enable = GetPrivateProfileIntA("ArenaSwap", "Enable", 1, ini);
         PstLoadIni(ini);  // user #22389 [Practice]
+        g_post_trace = GetPrivateProfileIntA("Debug", "PostTrace", 0, ini) ? 1 : 0;  // #106727: research trace, off by default
         g_cfg_ab = GetPrivateProfileIntA("Debug", "AutoBind", 1, ini);
         g_cfg_am = GetPrivateProfileIntA("Debug", "AutoMoves", 1, ini);  // pc2 #23907
         g_cfg_fp = GetPrivateProfileIntA("Debug", "FrameProbe", 0, ini); if (g_cfg_fp || g_pst.v[PS_FRAME_METER] || g_pst.v[PS_PLAYER_METER] || g_pst.v[PS_KI_WINDOW]) FpInstall(); else Log("FRAMEPROBE off ([Debug] FrameProbe 0, [Practice] FrameMeter 0, PlayerFrameMeter 0, KiWindow 0)");  // user #22356
