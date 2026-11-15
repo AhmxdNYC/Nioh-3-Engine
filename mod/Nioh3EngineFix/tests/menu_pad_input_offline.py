@@ -24,6 +24,8 @@ def cut(begin, end):
 
 
 state_and_pad = cut('volatile LONG g_open = 0;', '\nvoid PadFeedSafe(')
+# #106087: the edge latch must stay wired into the message hook (outside the cut text)
+assert 'LatchKeyMsg(msg, m->wParam, m->lParam, m->time);' in src[src.index('bool SwallowMessage(const tagMSG* m) {'):], 'SwallowMessage no longer latches key-down edges'
 key_feed = cut('void KeyFeed(uint8_t* keys, bool own) {', '\nvoid KeyFeedSafe(')
 nav_repeat = cut('static const uint32_t kNavDirs[4]', '\nvoid OnPresentImpl()')
 consts = cut('enum : uint32_t { N_UP = 1', 'volatile LONG g_open = 0;')
@@ -97,6 +99,7 @@ void ResetAll() {
     g_coverToken = 0; g_coverCancelUntil = 0; g_coverCancel = false; g_coverCaptures = false;
     g_modality = MOD_PAD; g_modalitySwitches = 0; g_inputVirtual = nullptr; g_virtPad = 0; g_virtKeys = false;
     g_virtLogged = 0; g_modalityLogged = 0; g_mlog[0] = 0; g_mlogLen = 0; g_mlogLines = 0;
+    g_keyMsgEdge = 0; for (int i = 0; i < 16; ++i) { g_keyMsgAt[i] = 0; g_keySeenDownAt[i] = 0; }
     g_cfg = Cfg{};
     paddebug::g_on = 1; paddebug::g_store.blocked.store(0);
     g_fakeNow = 1000; g_lastPresent = 0;
@@ -432,6 +435,30 @@ int main() {
     // the first arrow / Enter after pad use move / confirm on the same read as the flip
     ResetAll(); g_open = 1; Feed(1000, A); Feed(1050, 0); TakePressed(); Keys(1100, {DIK_DOWN}); CHECK(TakePressed() == N_DOWN);
     ResetAll(); g_open = 1; Feed(1000, A); Feed(1050, 0); TakePressed(); Keys(1100, {DIK_RETURN}); CHECK(TakePressed() == N_OK);
+    // ---- #106087 Ally: an Esc tap shorter than the gap between two keyboard reads still closes the menu (message-hook latch) ----
+    auto Down = [](UINT vk, DWORD time, bool repeat = false) { LatchKeyMsg(WM_KEYDOWN, vk, repeat ? (LPARAM)(1LL << 30) : 0, time); };
+    // 30 ms tap between reads 100 ms apart: both reads see Esc up, the latched edge is one Back
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_ESCAPE, 1030); Keys(1100, {}); CHECK(TakePressed() == N_BACK);
+    Keys(1200, {}); CHECK(TakePressed() == 0);                                          // consumed once
+    // a press the read sees down is counted once, whether its message comes before or after that read
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_ESCAPE, 1050); Keys(1100, {DIK_ESCAPE}); CHECK(TakePressed() == N_BACK);
+    Keys(1200, {}); Keys(1300, {}); CHECK(TakePressed() == 0);
+    ResetAll(); g_open = 1; Keys(1000, {}); Keys(1100, {DIK_ESCAPE}); CHECK(TakePressed() == N_BACK); Down(VK_ESCAPE, 1090);
+    Keys(1200, {}); CHECK(TakePressed() == 0);
+    // late-pumped message (game hitch): pumped two reads after the press the reads saw -> not a second Back
+    ResetAll(); g_open = 1; Keys(1000, {}); Keys(1100, {DIK_ESCAPE}); TakePressed(); Keys(1200, {}); Down(VK_ESCAPE, 1095);
+    Keys(1300, {}); CHECK(TakePressed() == 0);
+    // two short taps in two read gaps give a Back on each read; auto-repeat downs never count
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_ESCAPE, 1020); Keys(1100, {}); CHECK(TakePressed() == N_BACK);
+    Down(VK_ESCAPE, 1130); Keys(1200, {}); CHECK(TakePressed() == N_BACK);
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_ESCAPE, 1020, true); Keys(1100, {}); CHECK(TakePressed() == 0);
+    // short arrow / Enter taps move / confirm; a short menu-key (F10) tap with the menu closed opens it; menu closed: no nav
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_DOWN, 1020); Keys(1100, {}); CHECK(TakePressed() == N_DOWN);
+    ResetAll(); g_open = 1; Keys(1000, {}); Down(VK_RETURN, 1020); Keys(1100, {}); CHECK(TakePressed() == N_OK);
+    ResetAll(); Keys(1000, {}); Down(VK_F10, 1020); Keys(1100, {}); CHECK(g_toggleReq == 1);
+    ResetAll(); Keys(1000, {}); Down(VK_DOWN, 1020); Keys(1100, {}); CHECK(TakePressed() == 0);
+    // keys the menu does not use are not latched
+    ResetAll(); g_open = 1; Keys(1000, {}); Down('W', 1020); Keys(1100, {}); CHECK(TakePressed() == 0 && g_keyMsgEdge == 0);
     printf("menu pad input: %d checks, %d failed (production menu.cpp PadFeed/KeyFeed/NavRepeat; offline)\n", checks, fails);
     return fails ? 1 : 0;
 }
