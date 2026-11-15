@@ -18,8 +18,11 @@ pre=r"""
 typedef unsigned long DWORD;typedef long LONG;
 static LONG InterlockedIncrement(volatile LONG*p){return ++*p;}
 static struct {int active,want;}g_rh;
-static struct {uint32_t mission;}row={0x3513};
-static struct {int confirmed,warped;void*unused;typeof(row)*row;}g_en;
+static struct {uint32_t mission;int world;}row={0x3513,7};
+static struct {int confirmed,warped,fellBack;void*unused;typeof(row)*row;}g_en;
+static uint32_t curMission=0x3513;static int curWorld=7,msOk=1;
+static int MsRead(uint32_t*m,uint8_t*j,uint32_t*mode){*m=curMission;*j=0;*mode=0;return msOk;}
+static int CurWorld(void){return curWorld;}
 static struct {int active;}g_tr;
 static struct {int up,id,tIn,left;float pos[4];}g_gate;
 static uint8_t st[4];static int match=1;
@@ -49,7 +52,7 @@ static void reset(void){
  memset(&g_en,0,sizeof g_en);memset(&g_gate,0,sizeof g_gate);memset(&g_tr,0,sizeof g_tr);
  memset(&g_rh,0,sizeof g_rh);memset(st,0,sizeof st);
  g_en.confirmed=g_en.warped=match=peek=1;g_en.row=&row;g_cfg_gate_cw2=g_cfg_gate=g_cfg_gate_always=1;
- tick=1000;g_gate_tUse=0;page=opened=original=alive=pops=scroll=0;button=0;textId=0x3E0C230;subId=10;current=1234;
+ tick=1000;g_gate_tUse=0;curMission=0x3513;curWorld=7;msOk=1;page=opened=original=alive=pops=scroll=0;button=0;textId=0x3E0C230;subId=10;current=1234;
 }
 """
 main=r"""
@@ -79,11 +82,26 @@ int main(void){
  // Old practice synthetic gate interception preserved.
  reset();g_en.confirmed=0;g_tr.active=g_gate.up=1;g_gate.id=10;
  assert(h_cw2(0)==7&&opened==1&&button==-1);
- puts("PASS native Proceed: 18 cases (args popped once only when blocked), immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
+ // #106631: the in-mission Training fallback clears g_np (no native phase) but is the same Boss Match trip: pause > Return from Mission
+ // (EndMissionConfirmOpen 0x2613) and the gadget script box open our page, not the stock 'abandon the mission' box.
+ reset();match=0;g_en.fellBack=1;assert(Nioh3Training_NativeGateMission()==0x3513);
+ assert(h_endconf(0,0x2613)==0&&opened==1&&!original);
+ reset();match=0;g_en.fellBack=1;assert(h_cw2(0)==7&&opened==1&&button==-1&&pops==1);
+ reset();match=0;g_en.fellBack=1;assert(h_endconf(0,0x536)==99&&!opened);
+ // ...but only on that trip: other mission, other world, unreadable mission, no entry, load, return running -> native.
+ reset();match=0;g_en.fellBack=1;curMission=0x1234;assert(!Nioh3Training_NativeGateMission()&&h_endconf(0,0x2613)==99&&!opened);
+ reset();match=0;g_en.fellBack=1;curWorld=3;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.fellBack=1;msOk=0;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.fellBack=1;g_en.confirmed=0;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.fellBack=1;g_en.warped=0;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.fellBack=1;st[2]=1;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.fellBack=1;g_rh.active=1;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;assert(!Nioh3Training_NativeGateMission()&&h_endconf(0,0x2613)==99);  // no phase, no fallback: unchanged
+ puts("PASS native Proceed: 30 cases (#106631 Training fallback owns Proceed: 12) (args popped once only when blocked), immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
 }
 """
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);c=p/'test.c';exe=p/'test.exe'
- c.write_text(pre+fn('N3T_API uint32_t Nioh3Training_NativeGateMission(')+fn('static __attribute__((noinline)) uint64_t h_cw2(')+fn('static uint64_t h_endconf(')+main)
+ c.write_text(pre+fn('static int NativeFallbackOwns(')+fn('N3T_API uint32_t Nioh3Training_NativeGateMission(')+fn('static __attribute__((noinline)) uint64_t h_cw2(')+fn('static uint64_t h_endconf(')+main)
  subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(c),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

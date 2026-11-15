@@ -2825,17 +2825,59 @@ void NativeGateRetryTick(const Snap& s, ULONGLONG t) {
     // resources that worker jobs were still stage-polling (ResourceIsReady 1A6030, handler +20h = 0, AV).
     // A player cannot ask that fast, so wait until home has been clear of every gate for a settle window.
     static constexpr ULONGLONG kSettleMs = 5000;
-    static ULONGLONG clearSince = 0, clearFor = 0;
+    // Ally RC2 #105680/#105916: 'home is up' twice ~10.7 s apart = the window really restarted (a gate closed inside it), not a
+    // duplicate line. The interruption is now logged with its reason so a device log shows which gate re-closed.
+    // #106167 (Ally #106152): 'mission queue busy' is our own 10 s cooldown after any queue change (ReadSnap queueBusy), not a home
+    // change: loading, pause and no-player are checked before it in Gates(). Inside an open window it no longer restarts the 5 s
+    // settle; the clock keeps running and the boss request waits until the queue is free. Every other gate (or one hidden behind the
+    // queue reason) still restarts the full wait. Same rule for every boss.
+    static ULONGLONG clearSince = 0, clearFor = 0, windowsFor = 0, coolAt = 0, busySince = 0;
     static bool clear = false;
-    if (g_attemptPhase.load() != aNone || g_state.load() != kIdle || g_req.load() || g_pend || Gates(s, false)) {
-        clear = false;
+    static int windows = 0;
+    if (windowsFor != g_nativeAgainAt) { windowsFor = g_nativeAgainAt; windows = 0; coolAt = 0; busySince = 0; }
+    const char* busy = g_attemptPhase.load() != aNone ? "native attempt still open"
+                       : g_state.load() != kIdle      ? "rematch active"
+                       : g_req.load()                 ? "request queued"
+                       : g_pend                       ? "request pending"
+                                                      : Gates(s, false);
+    const bool open = clear && clearFor == g_nativeAgainAt;
+    if (busy && open && !strcmp(busy, "mission queue busy")) {
+        Snap rest = s;
+        rest.queueBusy = false;
+        if (const char* other = Gates(rest, false)) busy = other;  // a gate behind the queue reason is a real interruption
+        else {
+            busyAt = t;
+            if (!coolAt) {
+                coolAt = t;
+                Log("Rematch: native gate retry: mission queue cooldown %llu ms into settle window %d; the settle keeps counting, the boss request waits for the queue",
+                    (unsigned long long)(t - clearSince), windows);
+            }
+            return;
+        }
+    }
+    if (busy) {
+        if (open)
+            Log("Rematch: native gate retry: settle interrupted after %llu ms (%s); the %llu ms wait restarts once home is clear again",
+                (unsigned long long)(t - clearSince), busy, (unsigned long long)kSettleMs);
+        if (open || !busySince) busySince = t;
+        clear = false; coolAt = 0;
         busyAt = t;  // still returning: refresh the idle limit
         return;
     }
-    if (!clear || clearFor != g_nativeAgainAt) {
-        clear = true; clearFor = g_nativeAgainAt; clearSince = t;
-        Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request",
-            (unsigned long long)kSettleMs);
+    if (coolAt && open) {
+        Log("Rematch: native gate retry: mission queue free after %llu ms of cooldown; window %d has settled %llu ms",
+            (unsigned long long)(t - coolAt), windows, (unsigned long long)(t - clearSince));
+        coolAt = 0;
+    }
+    if (!open) {
+        const ULONGLONG busyMs = busySince ? t - busySince : 0;
+        clear = true; clearFor = g_nativeAgainAt; clearSince = t; ++windows; busySince = 0; coolAt = 0;
+        if (windows > 1)
+            Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request (window %d, %llu ms after the press, home was busy %llu ms)",
+                (unsigned long long)kSettleMs, windows, (unsigned long long)(t - g_nativeAgainAt), (unsigned long long)busyMs);
+        else
+            Log("Rematch: native gate retry: home is up, waiting %llu ms for it to settle before the boss request (window %d, %llu ms after the press)",
+                (unsigned long long)kSettleMs, windows, (unsigned long long)(t - g_nativeAgainAt));
         return;
     }
     if (t - clearSince < kSettleMs) return;
