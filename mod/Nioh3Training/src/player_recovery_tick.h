@@ -2,6 +2,7 @@
 // counter, so this stays set until the next Fight now or the player is yanked back into the air.
 static int g_ph_giveup, g_ph_anchor_dead;
 static void PlayerHazardRecoverTick(void) {
+    if (g_field_hold) return; // #89181: the open-world hold is re-placing the player; a void fall here is unloaded ground, not a death
     uint64_t player=PlayerChar(), hp=0, max=0;
     const uint8_t* gs=GameState();
     if (!g_cfg_cantdie || !player || !gs || gs[2]) {

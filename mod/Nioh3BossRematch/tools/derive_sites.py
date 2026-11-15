@@ -36,6 +36,9 @@ SPEC = [
     ("BossBattleModeEnd", "FIGHT", H, 0x23A2F70, 9),
     # Lesson dojos: the script polls this until the lesson group is dead, then it starts BossBattleMode on the teacher.
     ("IsDeathGroupEnemy", "FIGHT", H, 0x2BC8C4, 9),
+    # #106000 white dot: the script natives that set the compass destination (lesson end, clear gadget). Log-only, every mission.
+    ("UI::SetCompassDestinationIndex", "FIGHT", H, 0x23B7FD0, 5),
+    ("UI::SetCompassDestination", "FIGHT", H, 0xA3E0C8, 5),
     ("Character::Create", "FIGHT", H, 0x1180740, 5),
     # BOSSLOG
     ("SetMissionFlag", "BOSSLOG", H, 0x70275C, 5),
@@ -70,6 +73,13 @@ SPEC = [
     ("Mission::ClearGadgetAccessWaitMode", "ROSTER", H, 0x23A3260, 9),
     # SCROLLTRAIN (#79069: Training at a Picture Scroll arena, the script's wave request is skipped for that trip only)
     ("Emaki::RequestWaveBattle", "SCROLLTRAIN", H, 0x239A630, 5),
+    # STAGED (#88701: the script's Time::DebugDispPoppingWait is a user function, not this native.
+    # Pump the wave request from natives the wait loops actually call, after the door right.)
+    ("Time::GetTimeStep", "STAGED", H, 0x323B28, 9),
+    ("Player::IsEnterPlacementBox", "STAGED", H, 0x1397B8, 5),
+    ("WaveBattle::RequestID", "STAGED", H, 0x23B91F8, 5),
+    ("WaveBattle::IsActiveID", "STAGED", H, 0x90EA34, 9),
+    ("WaveBattle::IsClearID", "STAGED", H, 0x23B9168, 9),
     # KEEPGEAR (site report #7: veto inventory-strip script natives during a mod arena trip)
     ("Item::ReserveAllItemAll", "KEEPGEAR", H, 0x23A1DC4, 9),
     ("Item::ReserveAllItemDojo", "KEEPGEAR", H, 0x23A1E38, 5),

@@ -21,7 +21,10 @@ def function(src, signature):
 
 # Mutation entry points must all stop for the sticky Training owner.
 # #71926: GateTick is the exception: the door right moves nothing, and only runs while Training is still waiting (route 1).
-assert "routeFn(g_fightMission) != 1" in function(br, "void GateTick(")
+# #88390: route 2 (native alive) may still open a door the script itself waits on (NativeEntryGateFind); other routes keep it shut.
+gate = function(br, "void GateTick(")
+assert "const int route = routeFn ? routeFn(g_fightMission) : 0;" in gate
+assert "route != 1 && !(route == 2 && g_fightRow >= 0 && NativeEntryGateFind(g_fightMission," in gate
 for name in ("DoWarp", "SpawnTick"):
     body = function(br, f"void {name}(")
     assert body.split("{", 1)[1].lstrip().startswith("if (g_trainingDestination) return;"), name

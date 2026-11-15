@@ -63,7 +63,23 @@ struct Row {
     bool lesson = false;
     bool dojo = false;         // catalogue mission_class == dojo-way (the game's mission record class; human #95155 Dojos filter)
     bool confirmed = false;    // catalogue confirmed = date of recorded live entry evidence on the current fight path (human #84670)
+    // Script kind from the catalogue scan. "waves" = IsDeathGroupEnemy and no BossBattleMode. Not a row list.
+    char fightSignal[8] = "";
+    uint32_t waveGroup[4] = {};
+    int waveCount = 0;
+    bool Waves() const { return strcmp(fightSignal, "waves") == 0; }
+    uint32_t summonChr = 0;  // field-only X row: enemy record +4 key, the Load::Character id (not the param char_id)
+    bool OpenWorld() const { return route == kX && summonChr && placement; }
 };
+
+// A waves row starts when its first wave group is checked, and an unmatched BossBattleModeEnd is the win.
+// A boss row (BossBattleMode already open, or fight_signal boss) keeps the old path.
+inline bool WavesFightStarts(const char* signal, bool bossModeOpen, bool alreadyStarted) {
+    return signal && !strcmp(signal, "waves") && !bossModeOpen && !alreadyStarted;
+}
+inline bool WavesUnmatchedEndWins(const char* signal, bool bossModeOpen) {
+    return signal && !strcmp(signal, "waves") && !bossModeOpen;
+}
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
     size_t k = 0;
@@ -116,7 +132,9 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
               cFd = ci("fight_dist_m"), cFc = ci("fight_conf"), cWx = ci("warp_x"), cWy = ci("warp_y"), cWz = ci("warp_z"),
               cWyaw = ci("warp_yaw"), cAx = ci("arena_x"), cAy = ci("arena_y"), cAz = ci("arena_z"), cAyaw = ci("arena_yaw"),
               cAbox = ci("arena_box"), cAsrc = ci("arena_src"), cAconf = ci("arena_conf"), cAgeo = ci("arena_boxgeo"), cGid = ci("gate_id"), cGk = ci("gate_kind"), cBp = ci("boss_pos"), cRb = ci("region_byte"),
-              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class"), cConf = ci("confirmed");
+              cLesson = ci("lesson"), cStory = ci("story_mission"), cWake = ci("wake_step"), cWarn = ci("warning"), cMcls = ci("mission_class"), cConf = ci("confirmed"),
+              cSum = ci("summon_chr"),
+              cSig = ci("fight_signal"), cWave = ci("wave_groups");
     if (cId < 0 || cName < 0 || cRoute < 0) return -1;
     for (size_t li = 1; li < ls.size() && rows.size() < cap; ++li) {
         const auto f = SplitTab(ls[li]);
@@ -145,6 +163,19 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         if (!col(cRb).empty()) r.world = (int)strtol(col(cRb).c_str(), nullptr, 0);  // #12444: the boss's world (teleport fast-load ready check)
         r.verifiedCat = col(cVer) == "1";
         r.lesson = col(cLesson) == "1";
+        Ascii(r.fightSignal, sizeof(r.fightSignal), col(cSig));
+        {
+            const std::string wg = col(cWave);
+            r.waveCount = 0;
+            size_t a = 0;
+            while (a < wg.size() && r.waveCount < 4) {
+                const size_t b = wg.find_first_of(", ", a);
+                const size_t end = b == std::string::npos ? wg.size() : b;
+                if (end > a) r.waveGroup[r.waveCount++] = (uint32_t)strtoul(wg.c_str() + a, nullptr, 10);
+                if (b == std::string::npos) break;
+                a = b + 1;
+            }
+        }
         if ((r.route == kR || r.route == kH || r.route == kD) && !r.missionId) continue;
         if ((r.route == kR || r.route == kH || r.route == kD) && !col(cFc).empty() && !col(cSt).empty()) {
             r.fightStart = (uint32_t)strtoul(col(cSt).c_str(), nullptr, 0);
@@ -181,6 +212,16 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
         if (r.route == kE) {
             const int wc[4] = {cWx, cWy, cWz, cWyaw};
             for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+        }
+        if (r.route == kX) {
+            // Open-world list is parked (human #92460): summon_chr is not read, so OpenWorld() stays false and kX rows keep the
+            // normal path. Re-enable this line when the human resumes open-world work.
+            (void)cSum;  // r.summonChr = (uint32_t)strtoul(col(cSum).c_str(), nullptr, 0);
+            if (r.OpenWorld()) {
+                const int wc[4] = {cWx, cWy, cWz, cWyaw};
+                for (int k = 0; k < 4; ++k) r.warp[k] = (float)atof(col(wc[k]).c_str());
+                Ascii(r.fightKind, sizeof(r.fightKind), col(cFk));
+            }
         }
         if (r.route == kE && (r.emakiIndex < 0 || r.emakiIndex > 255)) continue;
         rows.push_back(r);
@@ -345,7 +386,7 @@ inline bool RowInListStop(const Row& r, const ListCycle& c, int stop, bool isFav
         EraKey(r.region, key, (int)sizeof key);
         return key[0] && strcmp(key, c.era[ei]) == 0;
     }
-    if (!r.missionId || r.route == kE) return false;
+    if (!r.missionId || r.route == kE || r.route == kX) return false;
     return RosterMembers(r.id) > 1;
 }
 
