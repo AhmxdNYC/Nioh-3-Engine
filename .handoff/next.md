@@ -1097,3 +1097,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 | reports-pc/0 | settings_preservation fix merged main dca2fb9c (regression #110895 PASS, test-only).
 - 2026-11-16 | reports-pc/0 | #98 prep (#110930 -> RESULT #110959): P3a-d are system long-press timers (>3 s/1.5 s), not the combat hold; no branch. Plan A live trace to pin the frame-counted hold, Plan B [VRR] Tier120Floor=90 (feed tier 60 under 90 fps). Gate: Ally #110717.
 - 2026-11-16 | pc/1 | #110718/#110796 RESULT PASS: EF fadec812 + CamKi d30af192 Main PC (CamKi 0.27% core, guards installed, sliders+F7 ok).
+- 2026-11-16 5:20 pm EST | regression-pc/0 | SESSION END: no open job. Done: CamKi 98 PASS #110733, reports/95 ffe9031d + reports/98 e566049e PASS #110804, settings_preservation fix merged dca2fb9c (#110895, TECH_DEBT struck). Half-done: none. Next: wait for new regression TASK (likely 1.8.23 gate).
