@@ -3343,14 +3343,19 @@ void Tick() {
     // gate would stay set for the rest of the session (self-test 2026-10-09 21:14). A mission change ends any fight.
     {
         static uint32_t lastMission = 0;
+        static rcore::StaleBossModeClose g_staleBossMode;  // #107117 / #107156: Leave Boss Match closes the boss mode after the win window
         if (s.msOk && s.ms28 != lastMission) {
             if (rcore::StaleBossModeOnMissionChange(fight::g_active != 0, fight::BossModeOpen(), lastMission)) {  // #107117: Leave Boss Match
-                fight::CloseBossMode("mission changed");
-                Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared", lastMission, s.ms28);
+                InterlockedExchange(&fight::g_active, 0);
+                if (fight::BossModeOpen()) g_staleBossMode.Arm(t, fight::g_fights);  // #107156: open state closes after the win window
+                Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared%s", lastMission,
+                    s.ms28, fight::BossModeOpen() ? "; boss mode closes in 20 s unless BossBattleModeEnd" : "");
             }
             if (s.ms28) g_staleBbm.store(false);  // user 20261018: a mission runs: not the no-boss arena mode
             lastMission = s.ms28;
         }
+        if (g_staleBossMode.Due(t, fight::g_fights, fight::BossModeOpen()))
+            fight::CloseBossMode("mission changed, no BossBattleModeEnd within 20 s");
     }
     if (s.queueOk && s.qHash != g_qHash) {
         if (g_qHash) g_qChangedAt.store(t);

@@ -30,7 +30,7 @@ template<class T> bool Rd(uint64_t address,T& out) {
     return true;
 }
 void Log(const char*,...) {}
-namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } }
+namespace fight { LONG g_active=0,g_fights=0; void ForceEnd(const char*) { g_active=0; } bool CloseBossMode(const char*) { const bool w=g_active!=0; g_active=0; return w; } bool BossModeOpen() { return false; } }
 int g_rosterPending=0; void* TrainingExport(const char* name);
 std::atomic<bool> g_scrollNoWaves{false},g_scGive{false};
 bool g_waveVetoOk=true;

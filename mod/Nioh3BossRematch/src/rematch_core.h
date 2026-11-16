@@ -92,6 +92,27 @@ struct BossModeTrack {
 inline bool StaleBossModeOnMissionChange(bool fightFlag, bool bossModeOpen, uint32_t lastMission) {
     return lastMission && (fightFlag || bossModeOpen);
 }
+// #107156 risk: a mission change is not proof the boss mode is gone (ms28 could change mid-fight before the kill). The open state
+// the native win reads (ConfirmNativeWin, HkClear: open or 20 s after the end) is closed only once that same window has passed with
+// no BossBattleModeEnd and no new BossBattleMode. A Dojo waves end after Leave Boss Match comes far later (hub, load, waves).
+constexpr uint64_t kStaleBossModeGraceMs = 20000;
+struct StaleBossModeClose {
+    uint64_t at = 0;
+    long fights = 0;
+    void Arm(uint64_t t, long fightCount) {  // keeps the first change's time while one is pending (hub -> Dojo is a second change)
+        if (at) return;
+        at = t ? t : 1;
+        fights = fightCount;
+    }
+    // true once: the left boss mode is still open, no new boss mode began, and the grace has passed
+    bool Due(uint64_t t, long fightCount, bool bossModeOpen) {
+        if (!at) return false;
+        if (!bossModeOpen || fightCount != fights) { at = 0; return false; }  // its own end came, or a new fight owns the state
+        if (t - at < kStaleBossModeGraceMs) return false;
+        at = 0;
+        return true;
+    }
+};
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
     size_t k = 0;

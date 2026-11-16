@@ -283,6 +283,21 @@ int main(int argc, char** argv) {
                   "#107117: the first mission sample and a closed mode do nothing; a fight flag alone still closes");
             rcore::BossModeTrack dbl;
             CHECK(!dbl.Close() && !dbl.End(), "#107117: closing twice / ending with none open is harmless");
+            // #107156 risk: ms28 changes mid-fight before the kill. The open state stays through the win window.
+            rcore::StaleBossModeClose midFight;
+            midFight.Arm(1000, 7);
+            CHECK(!midFight.Due(1000 + 19999, 7, true), "#107156: mid-fight mission change keeps the boss mode open inside the 20 s win window");
+            CHECK(!midFight.Due(1000 + 25000, 7, false) && !midFight.Due(1000 + 60000, 7, true),
+                  "#107156: the fight's own BossBattleModeEnd inside the window cancels the pending close (no later close)");
+            rcore::StaleBossModeClose again;
+            again.Arm(1000, 7);
+            CHECK(!again.Due(30000, 8, true) && !again.Due(90000, 8, true), "#107156: a new BossBattleMode after the change owns the state: never closed");
+            rcore::StaleBossModeClose leave;  // Leave Boss Match -> hub -> Dojo (two mission changes), waves end minutes later
+            leave.Arm(1000, 7);
+            leave.Arm(8000, 7);
+            CHECK(!leave.Due(20999, 7, true) && leave.Due(21000, 7, true) && !leave.Due(22000, 7, true),
+                  "#107117: the left boss mode closes once, 20 s after the first change, before the Dojo's waves end");
+            CHECK(rcore::kStaleBossModeGraceMs == 20000, "#107156: the close waits the same 20 s window ConfirmNativeWin accepts");
         }
     }
     {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
