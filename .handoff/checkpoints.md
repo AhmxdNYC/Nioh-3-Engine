@@ -904,3 +904,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-16 4:51 pm EST | regression-pc/0 | CamKi reports/98 7952a58a review PASS #110733 | proven: rebuild + probe_test ok, code read | next: none from regression; reports-pc ships | files: none changed
 - 2026-11-16 4:54 pm EST | regression-pc/0 | reports/95 6bd98e2c re-check PASS #110743 | proven: test_catalog passes with version line skipped | next: someone bumps RELEASE pin in mod/settings/test_catalog.py to 1.8.22 | files: none
 - 2026-11-16 4:56 pm EST | regression-pc/0 | reports/95 full range PASS #110761 + CamKi 98 PASS #110733 | proven offline | next: pc merges after pc/1 live #110588; bump test_catalog RELEASE at next release | no code changed
+- 2026-11-16 5:0x pm EST | pc/1 GH #95 live check | partial: guard installs + 0 crash in 3 fights; kill + soul core form unproven | next: hand test or trigger-hold vpad for form; find 0xFE8 boss | Temp/gh95-110588
