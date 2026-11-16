@@ -23,14 +23,15 @@ pre=r'''
 #include <set>
 #include <cassert>
 std::map<std::wstring,std::wstring> ini;std::wstring writtenSection;std::map<std::wstring,std::wstring> legacyIni;
-BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){writtenSection=section;ini[key]=value;return TRUE;}
+std::wstring FakeKey(const wchar_t* section,const wchar_t* key){return wcsncmp(section,L"SealHelperLast",14)?std::wstring(key):std::wstring(L"H:")+key;}
+BOOL FakeWrite(const wchar_t* section,const wchar_t* key,const wchar_t* value,const wchar_t*){if(wcsncmp(section,L"SealHelperLast",14))writtenSection=section;ini[FakeKey(section,key)]=value;return TRUE;}
 #define WritePrivateProfileStringW FakeWrite
 int IniInt(const wchar_t*,const wchar_t* key,int d){auto i=ini.find(key);return i==ini.end()?d:std::stoi(i->second);}
 const wchar_t* IniPath(){return L"memory-only";}
 #define GetPrivateProfileIntW FakeReadProfile
 UINT FakeReadProfile(const wchar_t* section,const wchar_t* key,int d,const wchar_t*){
  auto& data=(!wcscmp(section,L"SealHits")||!wcscmp(section,L"SealHitsA")||!wcscmp(section,L"SealHitsA3")||!wcscmp(section,L"SealHits3")||!wcscmp(section,L"SealHitsA2")||!wcscmp(section,L"SealHits2"))?legacyIni:ini;
- auto i=data.find(key);return i==data.end()?d:std::stoi(i->second);
+ auto i=data.find(FakeKey(section,key));return i==data.end()?d:std::stoi(i->second);
 }
 void Log(const char*,...){}
 namespace bosslog {
@@ -121,7 +122,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
- check(g_exitOnHelperMs==150);g_exitOnHelperMs=-1; // #108110: shipped default on; the rule itself is covered by helper_exit_replay_offline.py
+ check(g_exitOnHelperMs==150); // #108189: rule stays ON (shipped default) for every case below; a helper-only core is played in full until its flag is learned
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
  check(std::abs(g_ghostReqAt.load()-(base+1.6))<.00001);step(1.6,true);step(1.7,false);check(smokes==1);
@@ -200,8 +201,12 @@ int main(){
   extraAttack=true;step(.6,false);extraAttack=false;step(.9,false);
   extraAttack=true;step(1.3,false);extraAttack=false;step(1.5,false);check(!smokes);
   g_sieFireSeal=456;step(3.15,false);check(ini[L"60B86"]==L"2");
+  check(ini[L"H:60B86"]==(owner==456?L"0":L"1")); // #108189: owner of the last burst learned with the count
   start(-1,0,true,true,0x60B86);persistent=true;extraOwner=owner;
   if(owner!=456){g_sehKid[1]=owner;g_sehKidT[1]=base+.3;}
+  if(owner!=456){ // learned helper-only core: SealExitOnHelperMs ends use 2 at the first helper burst + 150 ms, helper not ghosted, seal kept at form speed
+   extraAttack=true;step(.6,false);check(!smokes);ghostKept=false;step(.76,false);
+   check(smokes==1&&g_ghostReq==456&&ghostKept&&!std::count(ghostActors.begin(),ghostActors.end(),owner));extraAttack=false;continue;}
   extraAttack=true;step(.6,false);extraAttack=false;step(.9,false);check(!smokes);
   extraAttack=true;step(1.3,false);check(smokes==1&&g_ghostReq==456);
  }

@@ -56,14 +56,18 @@ def forms(paths):
 
 
 def scenario(i, f):
-    # one C++ replay call per form: bursts as (t, seal?, count) triples, idle edge time or -1
+    # per form and per ini mode (learned count seeded / empty ini = want 0): rule off use 1+2, rule on use 1+2 (ini kept between uses)
     items = []
     for t, owners in f['bursts']:
         for is_seal, n in owners or [(True, 1)]:
             items.append(f'{{{t:.3f},{1 if is_seal else 0},{min(n, 40)}}}')
-    return (f' {{std::vector<B> b={{{",".join(items)}}};R off=run(b,{f["want"]},{f["idle"] if f["idle"] is not None else -1},-1);'
-            f'R on=run(b,{f["want"]},{f["idle"] if f["idle"] is not None else -1},150);'
-            f'printf("FORM|{i}|{f["core"]}|{f["log"]}|%.3f|%d|%.3f|%d|%d|%d\\n",off.t,off.helperGhosted,on.t,on.helperGhosted,off.kept,on.kept);}}\n')
+    idle = f["idle"] if f["idle"] is not None else -1
+    out = f' {{std::vector<B> b={{{",".join(items)}}};\n'
+    for mode, seed in (('learned', f['want']), ('empty', 0)):
+        out += (f'  {{R r[4];for(int k=0;k<4;++k){{if(k%2==0){{ini.clear();if({seed}>0)ini[L"{f["core"]}"]=L"{seed}";}}'
+                f'r[k]=run(b,{idle},k<2?-1:150,0x{f["core"]});}}'
+                f'printf("FORM|{i}|{f["core"]}|{f["log"]}|{mode}");for(auto& x:r)printf("|%.3f,%d,%d",x.t,x.helperGhosted,x.kept);printf("\\n");}}\n')
+    return out + ' }\n'
 
 
 def main():
@@ -71,8 +75,8 @@ def main():
     harness = (here / 'last_hit_exit_offline.py').read_text(encoding='utf-8')
     a = harness.index('int main(){'); b = harness.index("\n}\n'''", a)
     body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;int kept=0;};
-R run(const std::vector<B>& bursts,int want,double idle,int helperMs){
- g_exitOnHelperMs=helperMs;start(want);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id){
+ g_exitOnHelperMs=helperMs;start(-1,0,true,false,id);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
  uint64_t next=0x100000;std::vector<std::pair<double,std::vector<uint64_t>>> live;R r;
  const double end=(idle>0?idle:bursts.back().t)+1.5;
  for(double t=0.016;t<=end&&r.t<0;t+=0.016){
@@ -98,23 +102,27 @@ int main(){
     exec(compile(unit, 'helper_exit_unit', 'exec'), g)
     rows = [l.split('|') for l in g['res'].stdout.splitlines() if l.startswith('FORM|')]
     fails, per = 0, {}
-    for _, i, core, log, toff, goff, ton, gon, koff, kon in rows:
-        toff, ton, goff, gon = float(toff), float(ton), int(goff), int(gon)
+    for _, i, core, log, mode, *res in rows:
+        (o1, o2, n1, n2) = [tuple(float(v) for v in x.split(',')) for x in res]
         f = found[int(i)]
         helper_only = all(not s for _, owners in f['bursts'] for s, _ in owners)
-        if helper_only and f['want'] == 0:
+        same = lambda a, b: abs(a[0] - b[0]) < 1e-6 and a[1:] == b[1:]
+        if helper_only:
             first = f['bursts'][0][0]
-            ok = ton > 0 and abs(ton - (first + 0.150)) <= 0.035 and gon == 0 and (toff < 0 or toff > ton + 1.0) and kon == '1' and koff == '0'
-            kind = 'ends early'
+            # use 1 plays in full (flag not learned yet) and learns; use 2 ends at the first helper burst + 150 ms, helper visible, seal at form speed
+            ok = (same(n1, o1) and n1[2] == 0 and n2[0] > 0 and abs(n2[0] - (first + 0.150)) <= 0.035 and n2[1] == 0 and n2[2] == 1
+                  and o1[0] > n2[0] + 1.0 and o2[0] > n2[0] + 1.0 and o2[2] == 0)  # rule off: never early on any use
+            kind = 'full once, then early'
         else:
-            ok = abs(ton - toff) < 1e-6 and gon == goff and kon == koff == '0'
+            ok = same(n1, o1) and same(n2, o2) and n1[2] == n2[2] == 0
             kind = 'unchanged'
-        per.setdefault((core, kind), [0, 0])[0 if ok else 1] += 1
+        per.setdefault((core, mode, kind), [0, 0])[0 if ok else 1] += 1
         if not ok:
-            fails += 1; print(f'FAIL form {i} core {core} {log}: off {toff:.3f}s ghost-helper={goff}, on {ton:.3f}s ghost-helper={gon}')
-    for (core, kind), (p, q) in sorted(per.items()):
-        print(f'core {core}: {kind}  {p} pass {q} fail')
-    print(f'{len(rows)} archived forms replayed ({skipped} late-bind forms skipped): {"PASS" if not fails and rows else "FAIL"}')
+            fails += 1; print(f'FAIL form {i} core {core} {mode} {log}: off {o1} {o2} on {n1} {n2}')
+    for (core, mode, kind), (p, q) in sorted(per.items()):
+        print(f'core {core} [{mode} ini]: {kind}  {p} pass {q} fail')
+    n = len(rows) // 2
+    print(f'{n} archived forms x 2 ini modes replayed ({skipped} late-bind forms skipped): {"PASS" if not fails and rows else "FAIL"}')
     sys.exit(1 if fails or not rows else 0)
 
 

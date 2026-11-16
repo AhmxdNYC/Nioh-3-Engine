@@ -5082,6 +5082,21 @@ int SealHitsFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
     return (int)GetPrivateProfileIntW(SecHits(), k, 0, IniPath());
 }
+// #108189: who owned the core's LAST burst in a natural (unfired) form: 1 = only helper actors, 0 = the seal took part, -1 = not learned.
+// SealExitOnHelperMs fires only for 1, so a core is played in full once, and a core whose count is merely unknown is never cut.
+const wchar_t* SecHelperLast() { return g_sehAtk.load() > 0 ? L"SealHelperLastA4" : L"SealHelperLast4"; }
+int SealHelperLastFor(uint32_t id) {
+    wchar_t k[16]; swprintf_s(k, L"%X", id);
+    return (int)GetPrivateProfileIntW(SecHelperLast(), k, -1, IniPath());
+}
+void SealHelperLastLearn(uint32_t id, int owner, const char* why) {  // owner: 1 helper only, 2 seal took part (0 = no burst, nothing learned)
+    if (!id || !owner) return;
+    const int v = owner == 1 ? 1 : 0, had = SealHelperLastFor(id);
+    if (had == v) return;
+    wchar_t k[16], w[4]; swprintf_s(k, L"%X", id); swprintf_s(w, L"%d", v);
+    WritePrivateProfileStringW(SecHelperLast(), k, w, IniPath());
+    Log("SealEndOnHit learn core %X: last burst owned by %s (was %d) -> [%ls] (%s)", id, v ? "a helper only" : "the seal", had, SecHelperLast(), why);
+}
 // pc #57269 (human #57262): [Spirit] SealExitFx=1 - exit transition instead of the sped-up tail: at the last-hit close the dark appear
 // effects the seal yokai shows when it first spawns (Ibaraki 5129B spawn hit: 63056 63047 6304A 6304D 63050 63053 6307E 63027, from its motion
 // timeline 2C72D0 -> 2C6CE0 -> EffectCreate 4CE90C) are spawned on the player through the same wrapper 2C6CE0 the way the Ki pulse 844313 does
@@ -5787,6 +5802,7 @@ void SealEndOnHitTick() {
     static double earlySess = -1; static int earlyN = 0;  // human #58173: exit smoke while the yokai still attacks
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
     static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
+    static int lastBurstOwner = 0;  // #108189: 0 no burst, 1 last burst from helper actors only, 2 the seal took part
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
     if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
@@ -5805,12 +5821,13 @@ void SealEndOnHitTick() {
                 WritePrivateProfileStringW(SecHits(), k, v, IniPath());
                 Log("SealEndOnHit learn core %X: %d hit bursts (was %d) -> [%ls]", sid, bursts, had, SecHits());
             }
+            SealHelperLastLearn(sid, lastBurstOwner, "seal despawn");
         }
         if (const uint64_t ts = g_tailSeal.load(); ts && ts != g_ghostSeal.load()) {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1;
+        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
@@ -5949,20 +5966,22 @@ void SealEndOnHitTick() {
     if (poolOk) { if (fresh) lastNew = now; previous.swap(current); }
     if (newCluster) {
         ++bursts; lastOpen = now - sess;
+        { auto me = freshActors.find(seal); lastBurstOwner = !seal || (me != freshActors.end() && me->second > 0) ? 2 : 1; }  // unbound seal = cannot prove helper-only
         for (const auto& a : freshActors) Log("SealHitSource core %X burst %d actor=%llX new=%d +%.3f", sid,
             bursts, (unsigned long long)a.first, a.second, now - sourceSince);
         Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
             bursts, fresh, n, masked, now - sess);
     }
     // human #107991: first burst from a helper actor (not the seal) -> end the form SealExitOnHelperMs later, helper left visible
-    // #108105 guard (universal, no core ids): the helper must own the core's LAST burst. With a learned count that is burst >= want
-    // (5129B: helper burst 1 of 2, the seal's burst 2 is last -> no helper exit). Without a count, only while the seal itself has
-    // not opened a burst this form (once the seal hits, the attack is still the seal's and the normal rules end it).
+    // #108105/#108189 guard (universal, no core ids): the helper must own the core's LAST burst, learned per core from one natural form
+    // ([SealHelperLastA4], see SealHelperLastLearn). 5129B's last burst is the seal's -> 0, never cut; Kasha's is the cart's -> 1.
     static double helperSess = -1, helperOpen = -1, sealHitSess = -1;
     static std::set<uint64_t> helpers;
     if (helperSess != sess) helpers.clear();
     if (newCluster && seal) { auto me = freshActors.find(seal); if (me != freshActors.end() && me->second > 0) sealHitSess = sess; }
-    const bool helperLast = want > 0 ? bursts >= want : sealHitSess != sess;
+    // #108189: the learned flag decides - only a core seen in a full natural form with a helper-only last burst (an unknown or a learned
+    // count alone is not enough), and only while the seal itself has not hit this form.
+    const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastFor(sid) == 1;
     if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
             helpers.insert(a.first);
@@ -6017,6 +6036,9 @@ void SealEndOnHitTick() {
                     sid, bursts, had, SecHits(), g_sieWhy);
             }
         }
+        // #108189: the owner of the last burst needs no closed window (Kasha's cart burst is still open at the idle edge)
+        if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid))
+            SealHelperLastLearn(sid, lastBurstOwner, "idle edge");
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
             g_sieWhy, now - sess, bursts);
