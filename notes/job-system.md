@@ -386,3 +386,8 @@ Pass criteria:
 - `re\symbols\incoming\job-system.tsv`: 50 rows (functions, labels, structs JobPool / JobWorker / WorkerThread /
   JobGroup / Job). It includes corrections to PoolTable +54h / +84h: record 3 is KIDSTaskScheduler and record 5 is
   ResourceLoad.
+
+## Job-node worker affinity (deepseek #108573, docs/dev/deepseek-flash-re-558.md)
+- Default mask 0x7F set at JobAllocWithParentLink 0x202ECC; ~17 constant 0x7F init sites; children inherit at 0x8DCB4C.
+- Only live non-default origin: 0x904F84 (called by 0x904CBC when command refcount +0x38 hits 0) copies command+0x40. Setter thunk 0x3248614 is dead.
+- Mask is fixed at node creation, never recomputed at push. Perf note: a CPU-usage lever via worker affinity would hook node creation (0x202ECC / 0x904F84), not the push path. JobSystem ctor still unmapped.
