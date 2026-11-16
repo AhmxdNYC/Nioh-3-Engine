@@ -3347,6 +3347,10 @@ std::atomic<double> g_coverT{0}, g_sealShowAt{0}, g_ghostHideAt{0};
 // whichever first); at the last-hit close it fades out (SealGhostFadeMs) and the player's body fades in over SealPlayerFadeMs.
 std::atomic<int> g_exitSmokeAtMs{1450}, g_plFadeMs{250}, g_exitLeadMs{600}, g_lastHitGraceMs{150};  // lead: human #60302 natural-end exit smoke
 std::atomic<int> g_exitAtLastHitMs{0};  // #81898: last burst OPEN + offset; -9999 restores close-based exit
+// human #107984/#107991: [Spirit] SealExitOnHelperMs (-1 = off). A hit burst whose source is a separate spawned actor (not the bound seal)
+// means the yokai handed its attack to a projectile/helper; the form ends this many ms after that burst opens. The seal hides as before,
+// the helper is NOT ghosted, so its projectiles stay visible and finish the attack. No per-core table.
+std::atomic<int> g_exitOnHelperMs{-1};
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -5270,6 +5274,7 @@ void SealExitReplayLoad() {
     g_lastHitGraceMs = IniInt(L"Spirit", L"SealLastHitGraceMs", 50);  // human #60327, #60522 150->50
     const int lastHitMs = IniInt(L"Spirit", L"SealExitAtLastHitMs", 0);
     g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
+    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", -1); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -5945,6 +5950,21 @@ void SealEndOnHitTick() {
         Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
             bursts, fresh, n, masked, now - sess);
     }
+    // human #107991: first burst from a helper actor (not the seal) -> end the form SealExitOnHelperMs later, helper left visible
+    static double helperSess = -1, helperOpen = -1;
+    static std::set<uint64_t> helpers;
+    if (helperSess != sess) helpers.clear();
+    if (newCluster && seal && g_exitOnHelperMs.load() >= 0)
+        for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
+            helpers.insert(a.first);
+            if (helperSess != sess) {
+                helperSess = sess; helperOpen = now - sess;
+                Log("SealExitOnHelper core %X: burst %d comes from helper %llX (not the seal %llX) %.3f s after the press - form ends in %d ms, helper stays visible",
+                    sid, bursts, (unsigned long long)a.first, (unsigned long long)seal, helperOpen, g_exitOnHelperMs.load());
+            }
+        }
+    const bool helperDue = seal && helperSess == sess && helperOpen >= 0 && g_ghostOn.load() > 0 && g_exitOnHelperMs.load() >= 0 &&
+                           now - sess >= helperOpen + g_exitOnHelperMs.load() / 1000.0;
     if (n) { open = true; countedOpen = true; }
     bool fire = false;
     if (!n && open) {
@@ -5968,6 +5988,7 @@ void SealEndOnHitTick() {
     const bool openDue = atOpen && seal && want > 0 && bursts >= want && exitOpen >= 0 &&
                          now - sess >= exitOpen + exitAtLastHitMs / 1000.0;
     if (openDue) fire = true;
+    if (helperDue && !fire) { fire = true; Log("SealExitOnHelper core %X: ending the form %.3f s after the press (burst %d)", sid, now - sess, bursts); }
     // human #58806: core 30744 has colliders at bind (1 learned burst) and ended 0.05 s in; no form ends on hits before SealEndMinMs
     if (fire && now - sess < g_sealEndMinMs.load() / 1000.0) fire = false;
     if (idleOnly) fire = false;  // SealIdleEnd=1: hit ends off (the bursts are still counted and learned)
@@ -6033,7 +6054,7 @@ void SealEndOnHitTick() {
         } else g_ghostFadeSeal.store(0);
         if (smoke && g_sxfOn.load() > 0 && g_sxfN > 0) made = SealExitFxSpawn(g_sxfOwner == 1 ? seal : FkPlayer());
         int replay = smoke ? SealExitReplayQueue(seal, FkPlayer()) : 0;
-        if (smoke) for (uint64_t actor : sources) if (actor && actor != seal) {
+        if (smoke) for (uint64_t actor : sources) if (actor && actor != seal && !(helperDue && helpers.count(actor))) {
             replay += SealExitReplayQueue(actor, actor, true);
             if (g_sxfOn.load()>0 && g_sxfN>0) made += SealExitFxSpawn(actor);
         }
@@ -6042,6 +6063,7 @@ void SealEndOnHitTick() {
         g_ghostHideAt.store(hideMs > 0 ? now + hideMs / 1000.0 : 0);
         g_ghostSeal.store(seal);
         std::vector<uint64_t> ghosts = sources;
+        if (helperDue) ghosts.erase(std::remove_if(ghosts.begin(), ghosts.end(), [&](uint64_t a) { return a != seal && helpers.count(a); }), ghosts.end());
         if (std::find(ghosts.begin(),ghosts.end(),seal)==ghosts.end()) ghosts.push_back(seal);
         PressGhostBegin(ghosts,smoke);
         GhostHideSeal(seal);
