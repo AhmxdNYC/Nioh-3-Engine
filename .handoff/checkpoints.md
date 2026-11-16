@@ -913,3 +913,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-16 5:10 pm EST | reports-pc/0 | Rebased reports/95 -> ffe9031d, reports/98 -> e566049e onto main efafdc27; test_catalog PASS both; EF/CamKi src identical so EF fadec812 (#8089) + CamKi d30af192 stand. aichainguard_harness ALL OK. pc/1 live #110764 (guard installs, 3 fights 0 crash, never fired) accepted as #95 safety pass (#110788).
   | offline proven + live no-regression; crash trigger not live-proven (boss unknown) | NEXT: regression re-check #110789; Ally #110717/#110726; pc plans 1.8.23 RC; close GH #95-#98 after ship.
 - 2026-11-16 5:04 pm EST | regression-pc/0 | reports/95 ffe9031d + reports/98 e566049e PASS #110804 | proven offline | next: pc merges both; no open regression job | no code changed
+2026-11-16 5:20 pm EST | reports-pc/0 | pc #110831: run_settings_preservation fixed test-only on reports/settings-preservation 05c3ef0a (link adds build\libdeflate\*.obj glob); full harness PASS 64 cases; MoveFile assert already OK on main (reversemods rule).
+  | proven offline | NEXT: regression-pc review, pc merges, tick TECH_DEBT 1059 + 1191.
