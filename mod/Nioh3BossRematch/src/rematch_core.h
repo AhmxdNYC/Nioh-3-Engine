@@ -80,6 +80,18 @@ inline bool WavesFightStarts(const char* signal, bool bossModeOpen, bool already
 inline bool WavesUnmatchedEndWins(const char* signal, bool bossModeOpen) {
     return signal && !strcmp(signal, "waves") && !bossModeOpen;
 }
+// #107117 (PC2 #107114): Leave Boss Match, a death / retry reload or a mission change ends the native boss mode without
+// BossBattleModeEnd. Every place that drops the fight flag for that reason also closes the boss-mode-open state the waves win reads;
+// otherwise the next Dojo's unmatched end is taken as the left fight's end and the waves win is never logged.
+struct BossModeTrack {
+    bool open = false;
+    void Begin() { open = true; }
+    bool Close() { const bool w = open; open = false; return w; }  // ended outside BossBattleModeEnd: true when one was open
+    bool End() { const bool w = open; open = false; return w; }    // BossBattleModeEnd: true when it matched an open boss mode
+};
+inline bool StaleBossModeOnMissionChange(bool fightFlag, bool bossModeOpen, uint32_t lastMission) {
+    return lastMission && (fightFlag || bossModeOpen);
+}
 
 inline void Ascii(char* dst, size_t n, const std::string& src) {
     size_t k = 0;

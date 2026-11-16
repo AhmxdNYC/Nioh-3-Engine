@@ -7399,6 +7399,16 @@ void ForceEnd(const char* why) {
     InterlockedExchange(&g_active, 0);
     bosslog::MaybeEnd();  // Leave arena / forced end: the open story fight is a quit unless it already ended
 }
+// #107117: the native boss mode ended without BossBattleModeEnd (Leave Boss Match, death / retry reload, mission change). Closes the
+// fight flag and the boss-mode-open state together, so the next unmatched BossBattleModeEnd (a Dojo waves win) is not read as the
+// left fight's end. No Report row is closed here: ForceEnd does that where the fight is a quit.
+bool CloseBossMode(const char* why) {
+    const bool was = bosslog::g_active.exchange(false);
+    const bool flag = InterlockedExchange(&g_active, 0) != 0;
+    if ((was || flag) && bosslog::g_logOn) Log("BossLog: boss mode closed without BossBattleModeEnd (%s)%s", why, was ? "" : " (fight flag only)");
+    return was || flag;
+}
+bool BossModeOpen() { return bosslog::g_active.load(); }
 // Called before the save-protection veto: observe victory without performing a save write.
 void ConfirmNativeWin(uint32_t mission) {
     if (bosslog::RosterPending()) return; // preserve token; Training validates every named kill

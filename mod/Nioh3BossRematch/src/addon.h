@@ -122,6 +122,8 @@ extern volatile LONG g_active;          // inside BossBattleMode .. End
 void LastFightPlacements(char* buf, size_t n);
 bool PlacementSeenRecently(uint32_t id, double withinSec);
 void ForceEnd(const char* why);
+bool CloseBossMode(const char* why);  // #107117: boss mode ended outside BossBattleModeEnd; clears the fight flag and the open state
+bool BossModeOpen();
 void ConfirmNativeWin(uint32_t mission);
 double Now();
 }

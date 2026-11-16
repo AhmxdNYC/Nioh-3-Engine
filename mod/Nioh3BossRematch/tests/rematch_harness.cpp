@@ -263,6 +263,27 @@ int main(int argc, char** argv) {
         CHECK(rcore::WavesUnmatchedEndWins("waves", false) && !rcore::WavesUnmatchedEndWins("waves", true) &&
                   !rcore::WavesUnmatchedEndWins("boss", false),
               "unmatched BossBattleModeEnd wins only a waves row");
+        {  // #107117 (PC2 #107114): Boss Match left with Leave Boss Match, then a Dojo by Fight now, must log the waves win
+            rcore::BossModeTrack bm;
+            bm.Begin();  // the Boss Match fight opens BossBattleMode
+            // Leave Boss Match: no BossBattleModeEnd; the mission changes (boss mission -> hub)
+            const bool stale = rcore::StaleBossModeOnMissionChange(false, bm.open, 0x4A1u);
+            if (stale) bm.Close();
+            const bool matched = bm.End();  // the Dojo's last wave: unmatched BossBattleModeEnd
+            CHECK(stale && !matched && rcore::WavesUnmatchedEndWins("waves", matched),
+                  "#107117: Leave Boss Match closes the boss mode, so the next Dojo end is the waves win");
+            rcore::BossModeTrack old;  // the 1.8.19 path: the open state survived the leave
+            old.Begin();
+            CHECK(!rcore::WavesUnmatchedEndWins("waves", old.End()), "#107117: without the close the left fight eats the waves win (PC2 repro)");
+            rcore::BossModeTrack live;  // a real boss fight still matches its own end
+            live.Begin();
+            CHECK(live.End() && !rcore::WavesUnmatchedEndWins("waves", true), "#107117: a fight's own BossBattleModeEnd still matches");
+            CHECK(!rcore::StaleBossModeOnMissionChange(true, true, 0) && !rcore::StaleBossModeOnMissionChange(false, false, 0x4A1u) &&
+                      rcore::StaleBossModeOnMissionChange(true, false, 0x4A1u),
+                  "#107117: the first mission sample and a closed mode do nothing; a fight flag alone still closes");
+            rcore::BossModeTrack dbl;
+            CHECK(!dbl.Close() && !dbl.End(), "#107117: closing twice / ending with none open is harmless");
+        }
     }
     {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
         int warned = 0;
@@ -320,8 +341,8 @@ int main(int argc, char** argv) {
                 if (r.confirmed && r.route == rcore::kX) ++leak;
             }
             printf("confirmed: %d rows, not recently confirmed %d (%d listed without Show all), %d leak\n", conf, unc, uncListed, leak);
-            // RD759 (Hanzo Novice) moved to the waves mission-start path (#89329), so its 2026-11-06 confirmation no longer matches: 62 / 59
-            CHECK(conf == 62 && unc == 59 && uncListed == 29 && leak == 0 && favMove == 0, "audit #84941: 62 confirmed / 59 not (29 non-X), favorites do not change membership");
+            // RD759 (Hanzo Novice) moved to the waves mission-start path (#89329) and was re-confirmed there 2026-11-15 (PC2 #106739, 406b3855): 63 / 58
+            CHECK(conf == 63 && unc == 58 && uncListed == 28 && leak == 0 && favMove == 0, "audit #84941: 63 confirmed / 58 not (28 non-X), favorites do not change membership");
             CHECK(bossAll.hasUnconfirmed && bossAll.Stops() >= boss.Stops(), "Show all keeps the stop");
         }
         int sengoku = -1, wavesEra = -1;

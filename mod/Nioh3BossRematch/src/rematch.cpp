@@ -2316,8 +2316,8 @@ void TrackReplay(const Snap& s, ULONGLONG t) {
         if (s.st[2] && !g_fightLoading) {
             ++g_fightLoads;
             Log("Rematch: F load inside the mission #%d (death / retry, or leaving) - retry point %u", g_fightLoads, s.ms14);
-            if (fight::g_active) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
-                InterlockedExchange(&fight::g_active, 0);
+            if (fight::g_active || fight::BossModeOpen()) {  // dying never runs BossBattleModeEnd: the stale flag made DoWarp skip the re-entry (user saw the player left at the door)
+                fight::CloseBossMode("F load inside the mission");
                 Log("Rematch: F load during a boss fight (death / retry) - fight flag cleared so the warp re-enters the arena");
                 if (g_gateWant.load()) {  // the boss script restarts and waits for the gate again: re-arm the gate request after the warp
                     g_gateReq = false;
@@ -3132,8 +3132,8 @@ FadResult FightAgainDirect(int row, const Snap& s, ULONGLONG t) {
     // #101099 (PC2 #101089: R3513/R7B35/R4D8E gate armed, never requested): the boss mode never ended before this same-mission reload, so
     // the stale flag made GateTick wait forever ('boss fight still flagged active') and the WaitWarpStart boss never spawned. A reload during a
     // fight is exactly the death/retry case in the mission tracker, which clears the flag the same way; the new boss mode sets it again.
-    if (InterlockedCompareExchange(&fight::g_active, 0, 0)) {
-        InterlockedExchange(&fight::g_active, 0);
+    if (InterlockedCompareExchange(&fight::g_active, 0, 0) || fight::BossModeOpen()) {
+        fight::CloseBossMode("Fight again direct reload");
         Log("Rematch: Fight again direct %s: boss fight flag cleared for the reload (as a death / retry does), so the boss gate is requested again", g_rows[(size_t)row].id);
     }
     const uint64_t seq0 = g_attemptSequence;
@@ -3344,8 +3344,8 @@ void Tick() {
     {
         static uint32_t lastMission = 0;
         if (s.msOk && s.ms28 != lastMission) {
-            if (fight::g_active && lastMission) {
-                InterlockedExchange(&fight::g_active, 0);
+            if (rcore::StaleBossModeOnMissionChange(fight::g_active != 0, fight::BossModeOpen(), lastMission)) {  // #107117: Leave Boss Match
+                fight::CloseBossMode("mission changed");
                 Log("Rematch: the mission changed (0x%X -> 0x%X) during a boss fight without BossBattleModeEnd - fight flag cleared", lastMission, s.ms28);
             }
             if (s.ms28) g_staleBbm.store(false);  // user 20261018: a mission runs: not the no-boss arena mode
