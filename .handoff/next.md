@@ -1099,3 +1099,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 | pc/1 | #110718/#110796 RESULT PASS: EF fadec812 + CamKi d30af192 Main PC (CamKi 0.27% core, guards installed, sliders+F7 ok).
 - 2026-11-16 5:20 pm EST | regression-pc/0 | SESSION END: no open job. Done: CamKi 98 PASS #110733, reports/95 ffe9031d + reports/98 e566049e PASS #110804, settings_preservation fix merged dca2fb9c (#110895, TECH_DEBT struck). Half-done: none. Next: wait for new regression TASK (likely 1.8.23 gate).
 - 2026-11-16 | reports-pc/0 | #98 confirmed Tier120 (Ally #110950 5/40 vs 0/38). P3a-g + 129 GetFps callers cleared statically. GH #98 workaround posted. Waiting pc pick Plan A trace / Plan B Tier120Floor (#110997).
+- 2026-11-16 5:40 pm EST | reports-pc/0 | SESSION END: #98 hold fix waits on pc pick (Plan A ctx trace / Plan B Tier120Floor, #110997). #95/96/97 live PASS, open till 1.8.23 ships. No uncommitted code.
