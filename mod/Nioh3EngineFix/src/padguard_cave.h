@@ -138,4 +138,78 @@ inline void WriteChained(uint8_t* at, uintptr_t tableBase, uintptr_t hostBegin, 
     memcpy(at + 4, rf, 12);
 }
 
+// ---- map miss (GitHub #96) ----
+// The same pad walks look each listed pad up in a per-mode unordered_map with at() (431690). When the other thread has just
+// added / removed that pad, the key is missing and at() throws std::out_of_range ("invalid unordered_map<K, T> key") from its
+// miss path at 4316F9 (`lea rcx, msg ; call 0xB5FB84`); #96 died there 12 s after start. The miss path is replaced by a jump
+// to a cave that, ONLY when at() was called from one of the pad walks below (return address check), returns a zeroed scratch
+// value instead: every one of those callers reads flag bytes / dwords at +0..+0xD of it, and all-zero is "no input, nothing
+// to do" for that pad this frame (most of them branch straight back to the walk on [v+2] == [v+3] == 0). Any other caller of
+// at() gets the original throw, unchanged. The cave never moves rsp before its own `add rsp, 28h ; ret` (at()'s epilogue).
+constexpr uint32_t kAtFn = 0x431690;      // unordered_map<uint32, T>::at
+constexpr uint32_t kAtMiss = 0x4316F9;    // its miss path: lea rcx, [rip+msg] ; call 0xB5FB84
+constexpr uint8_t kAtMissLen = 12;
+inline constexpr uint8_t kAtMissOrig[kAtMissLen] = {0x48, 0x8D, 0x0D, 0x70, 0xAD, 0x65, 0x03, 0xE8, 0x7F, 0xE4, 0x72, 0x00};
+// the pad-walk calls of at() (E8 rel32 to kAtFn); the return address is the call + 5
+inline constexpr uint32_t kAtCalls[] = {0x42FC11, 0x42FD92, 0x4301A2, 0x43028F, 0x430330, 0x4303C2, 0x4304C2, 0x43138F, 0x43866E};
+constexpr int kNumAtCalls = (int)(sizeof(kAtCalls) / sizeof(kAtCalls[0]));
+constexpr size_t kMapCave = 0x800, kMapRets = 0x880, kMapScratch = 0x900, kMapCounter = 0x940, kMapUnwind = 0x960;
+constexpr size_t kMapScratchLen = 0x40;
+static_assert(kTable + 16 * 12 <= kMapCave && kMapRets + 8 * 16 <= kMapScratch && kMapUnwind + 16 <= 0x1000, "map page layout");
+
+// rel32 target of the E8 call at `at`
+inline uintptr_t CallTarget(uintptr_t at) {
+    int32_t d;
+    memcpy(&d, (const void*)(at + 1), 4);
+    return at + 5 + (intptr_t)d;
+}
+
+// Writes the map-miss cave at page + kMapCave and its return-address table. msg = absolute address of the original lea's
+// string, thrower = the original call target. Returns the code size, 0 when a rel32 does not reach.
+inline size_t BuildMapMiss(uint8_t* page, const uintptr_t* rets, int nRets, uintptr_t msg, uintptr_t thrower) {
+    if (nRets < 1 || nRets > 16) return 0;
+    uint8_t* out = page + kMapCave;
+    size_t n = 0;
+    auto rel = [&](uintptr_t target, size_t insnEnd) -> bool {
+        const intptr_t d = (intptr_t)target - (intptr_t)((uintptr_t)out + insnEnd);
+        if (d < INT32_MIN || d > INT32_MAX) return false;
+        const int32_t v = (int32_t)d;
+        memcpy(out + n, &v, 4);
+        n += 4;
+        return true;
+    };
+    memset(out, 0xCC, kMapRets - kMapCave);
+    memcpy(page + kMapRets, rets, sizeof(uintptr_t) * (size_t)nRets);
+    out[n++] = 0x48, out[n++] = 0x8B, out[n++] = 0x44, out[n++] = 0x24, out[n++] = 0x28;  // 0   mov rax, [rsp+28h] (return)
+    out[n++] = 0x48, out[n++] = 0x8D, out[n++] = 0x0D;                                    // 5   lea rcx, [rets]
+    if (!rel((uintptr_t)page + kMapRets, n + 4)) return 0;
+    out[n++] = 0xBA, out[n++] = (uint8_t)nRets, out[n++] = 0, out[n++] = 0, out[n++] = 0;  // 12  mov edx, nRets
+    const size_t loop = n;                                                                // 17  loop:
+    out[n++] = 0x48, out[n++] = 0x3B, out[n++] = 0x01;                                    //     cmp rax, [rcx]
+    out[n++] = 0x74, out[n++] = 0;                                                        // 20  je hit (patched below)
+    const size_t jeHit = n - 1;
+    out[n++] = 0x48, out[n++] = 0x83, out[n++] = 0xC1, out[n++] = 0x08;                   // 22  add rcx, 8
+    out[n++] = 0xFF, out[n++] = 0xCA;                                                     // 26  dec edx
+    out[n++] = 0x75, out[n++] = (uint8_t)(int8_t)((intptr_t)loop - (intptr_t)(n + 1));   // 28  jnz loop
+    out[n++] = 0x48, out[n++] = 0xB9;                                                     // 30  mov rcx, msg (the original throw)
+    memcpy(out + n, &msg, 8), n += 8;
+    out[n++] = 0x48, out[n++] = 0xB8;                                                     // 40  mov rax, thrower
+    memcpy(out + n, &thrower, 8), n += 8;
+    out[n++] = 0xFF, out[n++] = 0xD0;                                                     // 50  call rax (never returns)
+    out[n++] = 0xCC;                                                                      // 52  int3
+    out[jeHit] = (uint8_t)(n - (jeHit + 1));                                              //     hit:
+    out[n++] = 0xF0, out[n++] = 0xFF, out[n++] = 0x05;                                    // 53  lock inc dword [counter]
+    if (!rel((uintptr_t)page + kMapCounter, n + 4)) return 0;
+    out[n++] = 0x48, out[n++] = 0x8D, out[n++] = 0x05;                                    // 60  lea rax, [scratch]
+    if (!rel((uintptr_t)page + kMapScratch, n + 4)) return 0;
+    out[n++] = 0x31, out[n++] = 0xC9;                                                     // 67  xor ecx, ecx
+    for (uint8_t o = 0; o < kMapScratchLen; o += 8) {                                     //     zero the scratch value
+        out[n++] = 0x48, out[n++] = 0x89, out[n++] = o ? 0x48 : 0x08;
+        if (o) out[n++] = o;
+    }
+    out[n++] = 0x48, out[n++] = 0x83, out[n++] = 0xC4, out[n++] = 0x28;                   //     add rsp, 28h (at()'s epilogue)
+    out[n++] = 0xC3;                                                                      //     ret
+    return n;
+}
+
 }  // namespace padguard_cave
