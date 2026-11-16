@@ -76,6 +76,8 @@ def full_check(setup, skip_build=False):
         'set "TEST_OBJECTS="',
         # skip menu.obj and build.bat's own *_test.obj (each has a main(); vrs_selective_test needs d3dcompiler)
         'for %%f in (build\\*.obj) do if /I not "%%~nxf"=="menu.obj" (echo %%~nf| findstr /I /E "_test" >nul || call set "TEST_OBJECTS=%%TEST_OBJECTS%% %%f")',
+        # build.bat keeps libdeflate objs in build\libdeflate\ (needed by zinflate.obj since 1.8.22, #108787)
+        'for %%f in (build\\libdeflate\\*.obj) do call set "TEST_OBJECTS=%%TEST_OBJECTS%% %%f"',
         'cl /nologo /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE '
         'tests\\settings_preservation_harness.cpp /Fobuild\\settings-preservation\\harness.obj '
         '/Febuild\\settings-preservation\\harness.exe /link /OPT:REF /OPT:ICF %TEST_OBJECTS% kernel32.lib user32.lib winhttp.lib',
