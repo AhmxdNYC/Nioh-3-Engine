@@ -985,3 +985,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 10:1x pm EST | regression-pc/0 | arena-train 2bd4569c regression PASS #107639 (minor Refuse leak advised). Do not task twice.
 - 2026-11-15 10:23 pm EST | pc/2 | regression-pc #107639 PASS offline arena-train 2bd4569c (419/419, audit baseline; minor fix: Refuse() must SetArenaOnlyNext(0)). No Done to human: live Ally #107615 + PC2 pending. regression-pc already on fix review. Do not resend.
 - 2026-11-15 10:2x pm EST | regression-pc/0 | arena-train e0b0f52f BR 1e6f228b regression PASS #107661. Do not task twice.
+- 2026-11-15 10:34 pm EST | pc/2 | pc2 #107680 PASS 2/2 arena-train live (BR 654e5e90 TR ec6a9325). Done TO-USER sent #107694 (re 107514), said not on Main PC yet, goes in v1.8.20 RC2 #7942. pc2: no Dev item; RC2 gate = pc/0. Do not resend.
