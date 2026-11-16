@@ -293,3 +293,8 @@ checks this too. A whole-.text sweep found no direct branch target inside any pa
 - `re\scripts_meshlet\dis_*.txt`: disassembly of 5D214, 1E7050, 128EF0, 1290B8 (head), 419A8, 48E90 (worker).
 - Earlier decompiles reused: `re\scripts_cpu\q3.txt` (5D214), `q4.txt` (419A8, 4AA34), `q5.txt` (1E7050, 128EF0,
   1290B8, 4DB6C/4DD4C).
+
+## MeshletUpdateSceneBuffers 0x4BBEC runs every frame, ungated (deepseek #108754, docs/dev/deepseek-flash-re-577.md)
+- MeshletFrameBegin 0x5D214 (from RenderFrameBegin 0x4A529C, flag 0) calls 0x4BBEC on both paths; the flag only gates publishing +0x16A404..+0x16A420 and the 0x80-byte buffer swap.
+- Cost scales visible nodes x sub-records [*node+0x80] x clusters [grp+0xA8], 3 calls (0x452990/0x452584/0x452560) + 2 bucket RMWs per cluster, on the render-frame-begin thread.
+- Perf candidate (CPU, same picture, unmeasured): time 0x4BBEC per frame on Main PC in the held CPU run; if it is a real share of the main thread, skip or cache it for unchanged nodes. Open: [world+0x9B8] writer, whether buckets feed indirect draw args.
