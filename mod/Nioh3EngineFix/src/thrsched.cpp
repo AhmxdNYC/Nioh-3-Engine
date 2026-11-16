@@ -1096,7 +1096,7 @@ void Start(const StartInfo& info) {
         WritePrivateProfileStringW(L"Patches", L"FpwDefaultV", L"1", info.iniPath);
     }
     const bool fpwKey = I(L"Patches", L"FileLoadPoll", 1) == 1;
-    const bool pollFix = I(L"Patches", L"PollFix", 0) == 1;  // #108505, default 0; independent of FileLoadPoll
+    const bool pollFix = I(L"Patches", L"PollFix", 1) == 1;  // #108505, default 1 since v1.8.22 (LoadFixDefaultV, dllmain); independent of FileLoadPoll
     if (fpwKey || pollFix) {
         g_fpwMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPoll_MaxCpus", 6), 1, 64);
         g_fpwSpinUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SpinUs", 20), 0, 10000);

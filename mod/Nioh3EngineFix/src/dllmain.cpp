@@ -551,6 +551,15 @@ Config LoadConfig() {
         if (I(L"Patches", L"FileLoadPrio", 1) == 0) WritePrivateProfileStringW(L"Patches", L"FileLoadPrio", L"1", f);
         WritePrivateProfileStringW(L"Patches", L"WalkFixDefaultV", L"1", f);
     }
+    // Loading-fix defaults (v1.8.22, PC2 #109923 FileLoad+Poll 31 -> 8.9 CPU-s/min, Ally #110220 no regression): PollFix
+    // default 1, RC default 2. Inis up to v1.8.21 shipped RC = 0 (opt-in experiment); flip an explicit 0 once and stamp
+    // LoadFixDefaultV = 1 (same pattern as WalkFixDefaultV); with the marker present a later manual 0 sticks.
+    // Runs before readfix/thrsched read RC and PollFix. Inflate stays opt-in (no measured gain, #109757).
+    if (I(L"Patches", L"LoadFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"RC", 2) == 0) WritePrivateProfileStringW(L"Patches", L"RC", L"2", f);
+        if (I(L"Patches", L"PollFix", 1) == 0) WritePrivateProfileStringW(L"Patches", L"PollFix", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"LoadFixDefaultV", L"1", f);
+    }
     // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
     // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
     // and the count is below the logical CPU count; becomes WorkerCap = max(6, count) because the engine's own pool base
