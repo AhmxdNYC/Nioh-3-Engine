@@ -1092,3 +1092,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 5:04 pm EST | regression-pc/0 | #110789 rebased heads PASS #110804 (pc+installer #110805): reports/95 ffe9031d (EF fadec812) + reports/98 e566049e (CamKi d30af192) merge-ready; catalog, audit, build_diff, pad 188+89 green.
 - 2026-11-16 | pc/1 | #110655 EF f0f55731 Main PC RESULT PASS 2/2 (guards, 7 pad cycles, F10x3, kill + soul core); '14 of 13' walk count cosmetic; reports/95 d0d6b482 (newer map-guard check) untested.
 - 2026-11-16 5:17 pm EST | regression-pc/0 | #110870 reports/settings-preservation 05c3ef0a PASS #110895 (harness rc 0, 64 native cases). Merge-ready.
+- 2026-11-16 | reports-pc/0 | open: settings-preservation 05c3ef0a review; #98 waits Ally #110717; reports/95+98 ready to merge (#110804).

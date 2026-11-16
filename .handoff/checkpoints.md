@@ -919,3 +919,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-16 5:30 pm EST | reports-pc/0 | GH #98 Ally repro #110835: 120 cap 6/40 hold misfires (heavy ~475 ms before MA), 60 cap 0/40. Asked pc/ally to run #110717 (Tier120 1 vs 0 at 120 cap) next.
   | repro proven, cause unproven | NEXT: if Tier120=0 -> ~0/40, map VRR P3a-c/P3d (ticks120 at +43593A..+438473, +55DC56) and build input-timer exclusion; else tell the player it is the game at >60 fps.
 - 2026-11-16 5:17 pm EST | regression-pc/0 | settings_preservation link fix 05c3ef0a PASS #110895 | proven offline | next: pc merges | no code changed
+2026-11-16 5:35 pm EST | reports-pc/0 | SESSION END. DONE: reports/95 ffe9031d + reports/98 e566049e rebased, regression PASS #110804, ready to merge (pc). HALF: run_settings_preservation fix reports/settings-preservation 05c3ef0a awaiting regression review (TASK re #110831); GH #98 waiting Ally #110717 Tier120 1 vs 0 at 120 cap (repro #110835 6/40 vs 0/40).
+  | NEXT: on #110717 RESULT, if Tier120=0 ~0/40 -> map VRR P3a-c/P3d sites, build fix; after merge tick TECH_DEBT 1059+1191; close GH #95-#98 after ship.
