@@ -1036,3 +1036,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 1:45 am EST | reports-pc/0 | session end: queue empty; open waits: #85 dmp from PC2, #51 + #89 RE blocked. Next: re-send #106007 to deepseek after credits.
 - 2026-11-16 2:11 am EST | pc/0 | regression #108254 PASS offline Kasha 0d323820 (1ce1ff42). Minor polish TASK cx-pc #108262 (cache flag, !helperDue test, learn log). pc2 live #108226 stays on 0d323820. Do not task twice.
 - 2026-11-16 2:15 am EST | pc/0 | pc2 #108275 PASS Kasha 3a190287 live: exit 1.4-1.6 s after bind, bursts 4/4/3/3 = rule-off control (no cut), no x2 tail, A2ACB unchanged, 5129B cut (known gap, fixed in 0d323820). Next: pc2 #108226 on 0d323820 (queued). Do not task twice.
+- 2026-11-16 2:19 am EST | pc/0 | cx-pc #108281 final Kasha BR 9086d554 (cx-pc/kasha-learn-108189 b1cd42dd). pc2 live run #108288 REPLACES #108226 (0d323820 never started). Delta review regression-pc #108289. Do not task twice.
