@@ -66,7 +66,7 @@ def scenario(i, f):
     for mode, seed in (('learned', f['want']), ('empty', 0)):
         out += (f'  {{R r[4];for(int k=0;k<4;++k){{if(k%2==0){{ini.clear();if({seed}>0)ini[L"{f["core"]}"]=L"{seed}";}}'
                 f'r[k]=run(b,{idle},k<2?-1:150,0x{f["core"]});}}'
-                f'printf("FORM|{i}|{f["core"]}|{f["log"]}|{mode}");for(auto& x:r)printf("|%.3f,%d,%d",x.t,x.helperGhosted,x.kept);printf("\\n");}}\n')
+                f'printf("FORM|{i}|{f["core"]}|{f["log"]}|{mode}");for(auto& x:r)printf("|%.3f,%d,%d,%d",x.t,x.helperGhosted,x.kept,x.tail);printf("\\n");}}\n')
     return out + ' }\n'
 
 
@@ -74,9 +74,9 @@ def main():
     found, skipped = forms(sys.argv[1:] or DEFAULT_LOGS)
     harness = (here / 'last_hit_exit_offline.py').read_text(encoding='utf-8')
     a = harness.index('int main(){'); b = harness.index("\n}\n'''", a)
-    body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;int kept=0;};
+    body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;int kept=0;int tail=0;};
 R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id){
- g_exitOnHelperMs=helperMs;start(-1,0,true,false,id);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
+ g_exitOnHelperMs=helperMs;g_tailSeal=0;start(-1,0,true,false,id);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
  uint64_t next=0x100000;std::vector<std::pair<double,std::vector<uint64_t>>> live;R r;
  const double end=(idle>0?idle:bursts.back().t)+1.5;
  for(double t=0.016;t<=end&&r.t<0;t+=0.016){
@@ -85,7 +85,7 @@ R run(const std::vector<B>& bursts,double idle,int helperMs,uint32_t id){
   for(auto it=live.begin();it!=live.end();){if(t-it->first>=0.1){for(auto id:it->second)census.erase(id);it=live.erase(it);}else ++it;}
   if(idle>0&&t>=idle)g_sieFireSeal=456;
   ghostActors.clear();ghostKept=false;step(t,false);
-  if(g_ghostReq==456){r.t=t;r.helperGhosted=std::count(ghostActors.begin(),ghostActors.end(),uint64_t(789))?1:0;r.kept=ghostKept?1:0;}
+  if(g_ghostReq==456){r.t=t;r.helperGhosted=std::count(ghostActors.begin(),ghostActors.end(),uint64_t(789))?1:0;r.kept=ghostKept?1:0;r.tail=g_tailSeal.load()==456?1:0;}
  }
  censusMode=false;census.clear();g_sehKid[1]=0;g_sehKidT[1]=0;g_exitOnHelperMs=-1;return r;
 }
@@ -110,11 +110,14 @@ int main(){
         if helper_only:
             first = f['bursts'][0][0]
             # use 1 plays in full (flag not learned yet) and learns; use 2 ends at the first helper burst + 150 ms, helper visible, seal at form speed
+            # #108262: and the x2 tail seal is NOT set on the helper exit (fails if '&& !helperDue' is dropped from the g_tailSeal store),
+            # while every rule-off exit and the full use 1 do set it
             ok = (same(n1, o1) and n1[2] == 0 and n2[0] > 0 and abs(n2[0] - (first + 0.150)) <= 0.035 and n2[1] == 0 and n2[2] == 1
+                  and n2[3] == 0 and n1[3] == 1 and o1[3] == 1 and o2[3] == 1
                   and o1[0] > n2[0] + 1.0 and o2[0] > n2[0] + 1.0 and o2[2] == 0)  # rule off: never early on any use
             kind = 'full once, then early'
         else:
-            ok = same(n1, o1) and same(n2, o2) and n1[2] == n2[2] == 0
+            ok = same(n1, o1) and same(n2, o2) and n1[2] == n2[2] == 0  # same() also compares the x2 tail flag: non-helper exits keep it
             kind = 'unchanged'
         per.setdefault((core, mode, kind), [0, 0])[0 if ok else 1] += 1
         if not ok:

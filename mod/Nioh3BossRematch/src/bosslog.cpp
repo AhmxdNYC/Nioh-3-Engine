@@ -5089,9 +5089,22 @@ int SealHelperLastFor(uint32_t id) {
     wchar_t k[16]; swprintf_s(k, L"%X", id);
     return (int)GetPrivateProfileIntW(SecHelperLast(), k, -1, IniPath());
 }
+// #108262: the flag is read from the ini once per form at seal bind (like SealHitsFor) and kept here; the per-tick check reads the cache.
+// Packed (core id << 8) | (flag + 1); 0 = empty. SealHelperLastLearn updates it so a flag learned this form is seen without a re-read.
+std::atomic<uint64_t> g_helperLastCache{0};
+int SealHelperLastBind(uint32_t id) {
+    const int v = SealHelperLastFor(id);
+    g_helperLastCache.store(((uint64_t)id << 8) | (uint64_t)(v + 1));
+    return v;
+}
+int SealHelperLastCached(uint32_t id) {
+    const uint64_t c = g_helperLastCache.load();
+    return c && (uint32_t)(c >> 8) == id ? (int)(c & 0xFF) - 1 : SealHelperLastBind(id);
+}
 void SealHelperLastLearn(uint32_t id, int owner, const char* why) {  // owner: 1 helper only, 2 seal took part (0 = no burst, nothing learned)
     if (!id || !owner) return;
     const int v = owner == 1 ? 1 : 0, had = SealHelperLastFor(id);
+    g_helperLastCache.store(((uint64_t)id << 8) | (uint64_t)(v + 1));
     if (had == v) return;
     wchar_t k[16], w[4]; swprintf_s(k, L"%X", id); swprintf_s(w, L"%d", v);
     WritePrivateProfileStringW(SecHelperLast(), k, w, IniPath());
@@ -5803,6 +5816,7 @@ void SealEndOnHitTick() {
     static double lastClose = 0;  // human #60327: latest burst close this form (s after the press)
     static double lastOpen = -1, exitOpen = -1;  // actual observed open, including opens before the seal is bound
     static int lastBurstOwner = 0;  // #108189: 0 no burst, 1 last burst from helper actors only, 2 the seal took part
+    static char ownerOrder[33] = {}; static int ownerLen = 0;  // #108262: burst owners this form, S = seal took part, H = helper only
     const bool on = g_fh4.owner != 0;  // not g_fh4.started: it is reset when the seal gets captured
     if (on && g_nativeExitPending) return;
     if (on != (sess > 0)) {
@@ -5827,7 +5841,7 @@ void SealEndOnHitTick() {
             g_tailSeal.store(0);
             Log("SealTailSpeed: form over, seal %llX back to normal speed t=%.3f", (unsigned long long)ts, Now());
         }
-        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0;
+        sess = on ? Now() : 0; g_formSid.store(0); seal = 0; sid = 0; want = 0; bursts = 0; open = false; fired = false; sxfSeal = 0; lastClose = 0; lastOpen = -1; exitOpen = -1; lastBurstOwner = 0; ownerLen = 0; ownerOrder[0] = 0;
         countedOpen = false; boundAt = 0; appearance.clear(); previous.clear(); clusterOwners.clear(); lastNew = -100; prevRaw = prevMasked = -1; censusLines = 0;
         sources.clear(); sourceCensus.clear(); boundId = 0; censusComplete = true;
         // Spawn callbacks can precede the first observer tick (and the bound actor).
@@ -5848,6 +5862,7 @@ void SealEndOnHitTick() {
         uint32_t k = 0;
         if (!Rd(seal, k) || !(k >> 4)) { seal = 0; censusComplete = false; return; }
         boundId = k >> 4; sid = boundId; want = SealHitsFor(sid); // spawned actor is authoritative, never the latest pad event
+        SealHelperLastBind(sid);  // #108262: one ini read per form
         SealExitReplayBound(now);
         g_fhFaceReq.store(true);
         CoreTplBind(sid, sess);
@@ -5967,6 +5982,7 @@ void SealEndOnHitTick() {
     if (newCluster) {
         ++bursts; lastOpen = now - sess;
         { auto me = freshActors.find(seal); lastBurstOwner = !seal || (me != freshActors.end() && me->second > 0) ? 2 : 1; }  // unbound seal = cannot prove helper-only
+        if (ownerLen < 32) { ownerOrder[ownerLen++] = lastBurstOwner == 1 ? 'H' : 'S'; ownerOrder[ownerLen] = 0; }
         for (const auto& a : freshActors) Log("SealHitSource core %X burst %d actor=%llX new=%d +%.3f", sid,
             bursts, (unsigned long long)a.first, a.second, now - sourceSince);
         Log("SealEndOnHit core %X burst %d opens (%d NEW objects, %d active, %d excluded) %.3f s after the press", sid,
@@ -5981,7 +5997,7 @@ void SealEndOnHitTick() {
     if (newCluster && seal) { auto me = freshActors.find(seal); if (me != freshActors.end() && me->second > 0) sealHitSess = sess; }
     // #108189: the learned flag decides - only a core seen in a full natural form with a helper-only last burst (an unknown or a learned
     // count alone is not enough), and only while the seal itself has not hit this form.
-    const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastFor(sid) == 1;
+    const bool helperLast = sealHitSess != sess && seal && sid && SealHelperLastCached(sid) == 1;
     if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
             helpers.insert(a.first);
@@ -6037,8 +6053,12 @@ void SealEndOnHitTick() {
             }
         }
         // #108189: the owner of the last burst needs no closed window (Kasha's cart burst is still open at the idle edge)
-        if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid))
+        if (g_sieNativeEnd && poolOk && censusComplete && sid && bursts > 0 && SealTimingIdentityMatches(seal, sid)) {
+            // #108262: always visible in live logs, so an idle edge that falls between a helper and a later seal burst can be spotted
+            Log("SealHelperLast core %X: native idle edge %.3f s after the press, %d bursts, owner order %s (S seal, H helper only) -> last %s",
+                sid, now - sess, bursts, ownerOrder, lastBurstOwner == 1 ? "helper" : "seal");
             SealHelperLastLearn(sid, lastBurstOwner, "idle edge");
+        }
         fire = true;
         Log("SealIdleEnd seal=%llX core %X: attack over (%s) %.3f s after the press, %d hit bursts this form - ending the form", (unsigned long long)seal, sid,
             g_sieWhy, now - sess, bursts);
