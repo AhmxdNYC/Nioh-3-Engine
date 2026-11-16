@@ -50,6 +50,7 @@
 #include "autocont.h"
 #include "bootnotice.h"
 #include "padguard.h"
+#include "aichainguard.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -3434,6 +3435,15 @@ DWORD WINAPI Worker(LPVOID) {
             pgi.base = reinterpret_cast<uintptr_t>(g_base);
             pgi.knownBuild = known;
             padguard::Start(pgi);
+        }
+        {  // AiChainGuard (aichainguard.cpp, [General] AiChainGuard = 1): a boss AI chain list that runs into unreadable memory
+           // ends the copy at the last readable row instead of crashing (GitHub #95 / #30; game-side, see aichainguard.h)
+            aichainguard::StartInfo agi;
+            agi.log = &Log;
+            agi.iniPath = iniPath.c_str();
+            agi.base = reinterpret_cast<uintptr_t>(g_base);
+            agi.knownBuild = known;
+            aichainguard::Start(agi);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
