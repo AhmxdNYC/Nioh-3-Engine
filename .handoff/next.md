@@ -1004,3 +1004,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 11:5x pm EST | pc/2 | HUMAN #107840: mod-menu reorg is the focus, Fable plans/Opus executes. Fable 5.1 plan notes/menu-reorg-107840.md (base rc-1820 2e45f731), read-only. Sent human DECISION to approve before build. Do not task twice.
 - 2026-11-15 11:5x pm EST | pc/2 | HUMAN #107900/#107915: menu plan mockups (7 PNG, notes/menu-reorg-107840/, script mock.py) + spec sent to Discord; Done TO-USER re 107900. Awaiting human yes on DECISION before any build. Do not resend.
 - 2026-11-15 11:52 pm EST | pc2/1 | #107877 RC4 box-gate smoke (BR ba98ee6d, 2e45f731) PASS 4/4 on PC2, RESULT #107924 re 107872; public 1.8.19 restored, lock released.
+- 2026-11-15 11:5x pm EST | pc/2 | HUMAN #107919: mockups = organization only, current menu style kept; offered style mockups if wanted (#107919 reply). Still awaiting yes on menu plan. Do not resend.
