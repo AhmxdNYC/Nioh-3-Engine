@@ -570,6 +570,38 @@
    "class": "live"
   },
   {
+   "key": "XFOGS",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XFOGS = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XSSR",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XSSR = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "RenderDistance",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "RENDERDISTANCE = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
+   "key": "XSHARP",
+   "section": "ExtraPerf",
+   "cls": "live",
+   "via": "XSHARP = v",
+   "why": "menu row (applies now)",
+   "class": "live"
+  },
+  {
    "key": "WorkerCap",
    "section": "Patches",
    "cls": "relaunch",
@@ -842,6 +874,14 @@
    "class": "relaunch"
   },
   {
+   "key": "Layout",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "Enabled",
    "section": "Menu",
    "cls": "relaunch",
@@ -906,6 +946,78 @@
    "class": "relaunch"
   },
   {
+   "key": "ButtonStyle",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ControllerDisplay",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ControllerDisplaySize",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ControllerDisplayOpacity",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ControllerDisplayPressColor",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "InputDisplay",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "InputDisplaySide",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "InputDisplayRows",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "PadDebug",
+   "section": "Menu",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "Scale",
    "section": "Menu",
    "cls": "relaunch",
@@ -946,6 +1058,22 @@
    "class": "relaunch"
   },
   {
+   "key": "MW",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "RD",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "W1",
    "section": "Patches",
    "cls": "relaunch",
@@ -971,6 +1099,30 @@
   },
   {
    "key": "VRROnline",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "KidstsCap",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "FileLoadPrio",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "FileLoadPoll",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1011,6 +1163,14 @@
   },
   {
    "key": "FGC",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "M2S",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1314,6 +1474,54 @@
    "class": "relaunch"
   },
   {
+   "key": "XHALF_Force",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "XHALF",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "XHALF_Period",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "XHALF_Run",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "XHALF_Mask",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "XRES",
+   "section": "ExtraPerf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "Tier30",
    "section": "VRR",
    "cls": "relaunch",
@@ -1396,6 +1604,14 @@
   {
    "key": "MenuQuantize",
    "section": "VRR",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "FileLoadPoll_MaxCpus",
+   "section": "Tuning",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
    "why": "read once at boot (install / hook / thread / boot list)",
@@ -1539,6 +1755,14 @@
   },
   {
    "key": "DS_MarginUs",
+   "section": "Tuning",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "DS_DqMarginUs",
    "section": "Tuning",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -1715,6 +1939,14 @@
   },
   {
    "key": "MemStats",
+   "section": "Profiler",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "NodeTimer",
    "section": "Profiler",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -2162,6 +2394,126 @@
    "class": "relaunch"
   },
   {
+   "key": "Url",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Open",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashUpload",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashUrl",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ReportUrl",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ReportBypass",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "SteamKeyboard",
+   "section": "Report",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Dred",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashReport",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashDump",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashTest",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CrashTestDelaySec",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "ForceCrashTest",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "DxgiDiag",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "DxgiDiagPresentPassthrough",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "PresentModeLog",
    "section": "Debug",
    "cls": "relaunch",
@@ -2171,6 +2523,22 @@
   },
   {
    "key": "SkipDebugString",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "HitchLog",
+   "section": "Debug",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "HitchLogMs",
    "section": "Debug",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -2418,6 +2786,150 @@
    "class": "relaunch"
   },
   {
+   "key": "Check",
+   "section": "Update",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Url",
+   "section": "Update",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Enabled",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "LiveTitle",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Native",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "RealRoot",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Probe",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "CopySandbox",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Helper",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "Python",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "SaveRoot",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "LiveHelper",
+   "section": "SaveFiles",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsCeiling",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsLayouts",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsRate",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsSkipSkinned",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsKeepCharacters",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "VrsGBufferMotion1x1",
+   "section": "Perf",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "AC",
    "section": "Patches",
    "cls": "relaunch",
@@ -2530,6 +3042,38 @@
    "class": "relaunch"
   },
   {
+   "key": "RDC",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "RDD",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "RDF",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "RDP",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
    "key": "RP",
    "section": "Patches",
    "cls": "relaunch",
@@ -2579,6 +3123,14 @@
   },
   {
    "key": "WS",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "XRS",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms",

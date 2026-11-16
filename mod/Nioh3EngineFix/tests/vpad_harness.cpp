@@ -76,6 +76,16 @@ static void TestParser() {
     c = Parse("menu set HideHudIds none");
     CHECK(c.op == Op::MenuSet && !strcmp(c.text, "none"), "HUD clear preserved");
     CHECK(Parse("menu set HideHudIds 7 8").op == Op::Bad, "HUD list must be comma-separated");
+    c = Parse("pad 1001 0 255 -32768 32767 5 -5");
+    CHECK(c.op == Op::PadSet && c.pad.buttons == 0x1001 && c.pad.lt == 0 && c.pad.rt == 255 && c.pad.lx == -32768 && c.pad.ly == 32767 &&
+              c.pad.rx == 5 && c.pad.ry == -5, "pad full state");
+    c = Parse("PAD 0x8000 7 0 0 0 0 0");
+    CHECK(c.op == Op::PadSet && c.pad.buttons == 0x8000 && c.pad.lt == 7, "pad 0x prefix");
+    CHECK(Parse("pad 1000 0 0 0 0 0").op == Op::Bad, "pad needs 7 values");
+    CHECK(Parse("pad 1000 256 0 0 0 0 0").op == Op::Bad, "pad trigger > 255");
+    CHECK(Parse("pad 1000 0 0 40000 0 0 0").op == Op::Bad, "pad stick out of range");
+    CHECK(Parse("pad 1G000 0 0 0 0 0 0").op == Op::Bad && Parse("pad 10000 0 0 0 0 0 0").op == Op::Bad, "pad buttons hex 0..FFFF");
+    CHECK(Parse("pad 1000 0 0 0.5 0 0 0").op == Op::Bad, "pad values are integers");
     c = Parse("menu get MQ");
     CHECK(c.op == Op::MenuGet && !strcmp(c.key, "MQ"), "menu get");
     c = Parse("  log   hello  world \r");
@@ -250,6 +260,7 @@ static void TestHookExclusive() {
     reinterpret_cast<XI_t>(g_slotA)(0, &s);
     CHECK(s.dwPacketNumber == p0, "unchanged state keeps its packet number");
     CHECK(g_realCalls == 0, "exclusive mode must never call the real XInputGetState (%d calls)", g_realCalls.load());
+    CHECK(InputVirtual(0, 0) && !InputVirtual(0, 1), "UO #14: exclusive slot 0 is virtual input, other slots are not");
 
     std::thread game(GameThread);
     std::string r = Exec("press A 50");
@@ -266,6 +277,21 @@ static void TestHookExclusive() {
     CHECK(b >= 6 && g_framesB == b, "B held %d frames then released (%d)", b, g_framesB.load());
     r = Exec("stick L 0 1 100");
     CHECK(r.rfind("ok stick L 0 32767 100 ms", 0) == 0 && g_framesStick >= 6, "stick: %s / %d frames", r.c_str(), g_framesStick.load());
+    {  // pad: the whole state in one step, no wait for a read; raw values reach the game unchanged
+        r = Exec("pad 1000 9 200 -32768 32767 123 -456");
+        CHECK(r.rfind("ok pad 1000 9 200 -32768 32767 123 -456 round=", 0) == 0, "pad reply: %s", r.c_str());
+        Sleep(40);
+        XINPUT_STATE q{};
+        reinterpret_cast<XI_t>(g_slotA)(0, &q);
+        const XINPUT_GAMEPAD& g = q.Gamepad;
+        CHECK(g.wButtons == 0x1000 && g.bLeftTrigger == 9 && g.bRightTrigger == 200 && g.sThumbLX == -32768 && g.sThumbLY == 32767 &&
+                  g.sThumbRX == 123 && g.sThumbRY == -456, "pad state read back %04X %u %u %d %d %d %d", g.wButtons, g.bLeftTrigger,
+              g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
+        r = Exec("pad 0 0 0 0 0 0 0");
+        reinterpret_cast<XI_t>(g_slotA)(0, &q);
+        CHECK(r.rfind("ok pad 0000 0 0 0 0 0 0", 0) == 0 && q.Gamepad.wButtons == 0 && q.Gamepad.sThumbLX == 0 && q.Gamepad.bRightTrigger == 0,
+              "pad neutral: %s", r.c_str());
+    }
     r = Exec("key ESC 40");
     CHECK(r.rfind("ok key 01 40 ms", 0) == 0 && g_framesEsc >= 2, "key: %s / %d frames", r.c_str(), g_framesEsc.load());
     CHECK(g_framesRealW == 0, "real key W reached the game while it is not foreground (%d frames)", g_framesRealW.load());
@@ -358,6 +384,7 @@ static void TestHookMerge() {
     g_realConnected = true;
     CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &s) == ERROR_SUCCESS && s.Gamepad.wButtons == XINPUT_GAMEPAD_X && s.dwPacketNumber == 77,
           "merge: real pad passes untouched without virtual input");
+    CHECK(!InputVirtual(0, 0), "UO #14: merge slot 0 with only the real pad is trusted input");
     CHECK(reinterpret_cast<XI_t>(g_slotB)(1, &s) == ERROR_DEVICE_NOT_CONNECTED, "merge: other slots as the real API says");
     Exec("arm");
     std::thread([] { Sleep(1); }).join();
@@ -380,7 +407,13 @@ static void TestHookMerge() {
     XINPUT_STATE u{};
     CHECK(reinterpret_cast<XI_t>(g_slotB)(0, &u) == ERROR_SUCCESS && u.Gamepad.wButtons == XINPUT_GAMEPAD_Y,
           "merge: virtual slot 0 exists without a real pad");
+    CHECK(InputVirtual(0, 0), "UO #14: merge slot 0 carrying a held virtual Y is virtual input");
     Exec("release all");
+    Sleep(40);
+    g_realConnected = true;
+    reinterpret_cast<XI_t>(g_slotB)(0, &u);
+    CHECK(!InputVirtual(0, 0), "UO #14: merge slot 0 is trusted again once the virtual input is released");
+    g_realConnected = false;
     stop = true;
     g.join();
     // realpads off (test popup's block toggle): the real pad is hidden, the real API is not called

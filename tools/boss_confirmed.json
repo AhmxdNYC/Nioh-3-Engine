@@ -1662,23 +1662,24 @@
   {
    "id": "RD759",
    "name": "Hattori Hanzo (Novice)",
-   "date": "2026-11-06",
+   "date": "2026-11-15",
    "evidence": [
-    76524
+    76524,
+    106739
    ],
-   "scope": "lesson waves completed, player walked to Proceed and returned home",
+   "scope": "mission-start fight start + lesson waves win by real hits, white dot logged, PC2 live (BR dojo-whitedot 832f7874, TSV 7e3596d7)",
    "path": {
     "route": "R",
     "replay_mission_id": "0xD759",
     "story_mission": "0xD759",
     "placement_id": "-",
-    "stage_mission": "-",
-    "warp_x": "-",
-    "warp_y": "-",
-    "warp_z": "-",
-    "warp_yaw": "-",
+    "stage_mission": "5035630",
+    "warp_x": "76529",
+    "warp_y": "3555",
+    "warp_z": "56560",
+    "warp_yaw": "-157.0",
     "emaki_index": "-",
-    "fight_kind": "-",
+    "fight_kind": "mission start",
     "arena_x": "-",
     "arena_y": "-",
     "arena_z": "-",

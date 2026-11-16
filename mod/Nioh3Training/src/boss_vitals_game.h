@@ -1,3 +1,4 @@
+#include "../../Nioh3BossRematch/src/staged_start.h"
 // user #14320 / #14323 / #14324: per-boss HP / Ki controls, game side. Included by training.c after the KiBreakNoFinisher block (g_nf, g_nf_off)
 // and aggro.h; BvTick runs on the game thread (h_pump, after TrainTick). Decisions: boss_vitals.h.
 // Fields (the same ones the boss HP / Ki logs read, e.g. 'KIBREAK watch boss .. HP 51712/51712 Ki 1040/1040'):
@@ -116,4 +117,37 @@ N3T_API int Nioh3Training_BossVitalsSet(int slot, int what, int value) {
         what == BV_INF_HP ? "infinite health" : what == BV_INF_KI ? "infinite Ki" : what == BV_HP_PCT ? "set HP %" : what == BV_KI_PCT ? "set Ki %" : "refill",
         r, c->infHp, c->hpPct, c->infKi, c->kiPct);
     return r;
+}
+// #88778: one catalogue placement, this session's memory only. No mission flag and no save.
+// 1 = written, 0 = actor not live yet or the write did not stick, -1 = bad arguments.
+N3T_API int Nioh3Training_SetPlacementHpPct(uint32_t placement, int thou) {
+    if (!placement || thou < 1 || thou > 1000) return -1;
+    const uint64_t a = ActorByHandle(placement);
+    uint64_t st = 0;
+    if (!a || !Rd64(a + 0x3A0, &st) || !st) return 0;
+    uint64_t max = 0;
+    int dead = 0;
+    __try {
+        max = *(volatile uint64_t*)(st + 0x50);
+        dead = *(volatile int32_t*)(st + 0x48) == 1;
+    } __except (EXCEPTION_EXECUTE_HANDLER) { return 0; }
+    if (dead || !max) return 0;
+    const uint64_t target = StagedHpFromThou(max, thou);
+    if (!target) return -1;
+    const int nf = BvNfSlot(a);
+    const int64_t off = nf >= 0 ? g_nf_off[nf] : 0;
+    int keep = 0;
+    const uint64_t raw = BvHpRaw(target, max, off, &keep);
+    uint64_t back = 0;
+    __try {
+        ((void (*)(uint64_t, uint64_t))(B + Grva(0x66C188)))(st + 0x38, raw);
+        back = *(volatile uint64_t*)(st + 0x58);
+    } __except (EXCEPTION_EXECUTE_HANDLER) { back = ~0ull; }
+    if (back != raw) {
+        __try { *(volatile uint64_t*)(st + 0x58) = raw; back = *(volatile uint64_t*)(st + 0x58); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { back = ~0ull; }
+    }
+    if (nf >= 0 && off > 0 && !keep) g_nf_off[nf] = 0;
+    Log("PLACEMENTHP %u %p: HP -> %llu / %llu (session, no save)%s", placement, (void*)a, target, max, back == raw ? "" : " - WRITE DID NOT STICK");
+    return back == raw ? 1 : 0;
 }

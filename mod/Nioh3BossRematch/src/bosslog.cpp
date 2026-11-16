@@ -169,8 +169,9 @@ void HkBegin(uint64_t ctx, uint64_t, uint64_t, uint64_t, const uint64_t*) {
 }
 
 void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
+    const bool wasActive = g_active.load();
     const double t = Now();
-    const double dur = g_active.load() ? FightSec() : 0.0;
+    const double dur = wasActive ? FightSec() : 0.0;
     if (g_logOn) Log("BossLog #%d: BossBattleModeEnd t=%.3f s, fight %.1f s, %d mission flag sets inside", g_fight.load(), t, dur,
           g_flagCount.load());
     g_endAt.store(t);
@@ -182,6 +183,7 @@ void HkEnd(uint64_t, uint64_t, uint64_t, uint64_t, const uint64_t*) {
     g_clearWin.store(1);
     rematch::NoteNativeWin();  // always; a roster still pending is checked where the attempt retires (v2, #80140)
     MaybeEnd();
+    if (!wasActive) rematch::NoteWavesEnd();  // waves row: this end had no BossBattleMode
 }
 
 void HkCreate(uint64_t placementId, uint64_t arg2, uint64_t arg3, uint64_t arg4, const uint64_t*) {

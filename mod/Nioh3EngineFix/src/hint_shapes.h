@@ -76,7 +76,10 @@ inline void StrokeSegs(const Seg4* sg, int n, float bx, float by, float w, float
         }
     }
 }
+// UO #10 Nintendo ZL / ZR caps: Z in the same stroke style (kept out of the approved generated table)
+static const float kGlyphZ[] = {0.0f,0.0f,1.0f,0.0f,1.0f,0.0f,0.0f,1.0f,0.0f,1.0f,1.0f,1.0f};
 inline void GlyphAt(char c, float bx, float by, float w, float h, float lw, uint32_t color) {
+    if (c == 'Z') { StrokeSegs((const Seg4*)kGlyphZ, 3, bx, by, w, h, lw, color); return; }
     for (const GlyphDef& g : kGlyphs)
         if (g.ch == c) { StrokeSegs((const Seg4*)g.seg, g.n, bx, by, w, h, lw, color); return; }
 }
@@ -101,7 +104,9 @@ inline void ShoulderCap(int style, int b, float bx, float cy, float icon, uint32
         osd::DrawRect(x0 + (left ? in : 0.0f), y0 + (float)rr, w - in, 1.0f, fill);
     }
     char t[3] = {b & 1 ? 'R' : 'L', 0, 0};
-    t[1] = b >= 2 ? (style ? '2' : 'T') : (style ? '1' : 'B');
+    if (style == 2) {  // UO #10 Nintendo: L / R bumpers, ZL / ZR triggers
+        if (trig) t[0] = 'Z', t[1] = b & 1 ? 'R' : 'L';
+    } else t[1] = b >= 2 ? (style ? '2' : 'T') : (style ? '1' : 'B');
     const float gh = std::floor(h * (trig ? 0.5f : 0.62f));
     GlyphStr(t, x0 + w * 0.5f, y0 + (h - gh) * 0.5f + h * 0.04f, gh, true, text);
 }

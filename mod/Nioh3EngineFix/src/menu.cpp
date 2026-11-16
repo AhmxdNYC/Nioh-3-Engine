@@ -1,4 +1,4 @@
-// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
+﻿// menu.cpp - in-game mod menu of Nioh3EngineFix (see menu.h and notes\osd-design.md section 10).
 //
 // Input
 //   * Controller: the game reads its pads through XInputGetState in its import table (XINPUT1_4 ordinal 2, IAT slot
@@ -49,7 +49,12 @@
 #include "crashreport.h"
 #include "reportsend.h"
 #include "menu_style.h"
+#include "pad_family.h"
+#include "padcard.h"
+#include "btnstyle_migrate.h"
 #include "padviz.h"
+static_assert(padcard::kDeadL == XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && padcard::kDeadR == XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE,
+              "padcard drift deadzones must match XInput");  // #106253
 #include "paddebug.h"
 #include "inputhist.h"
 #include "hudhide.h"
@@ -148,6 +153,28 @@ volatile LONG g_pressed = 0;          // N_* edges collected while open, consume
 volatile LONG g_padPressed = 0;       // the controller part of g_pressed (Report box: pad -> key grid / Steam keyboard)
 volatile LONG g_rbOn = 0;             // mirror of rbox::g_on for the input feeds (defined before the box code)
 volatile LONG g_rbKeyMsg = 0;         // a key message reached SwallowMessage this session (keyboard text works)
+// #106087: key-down edges seen by the game's message hook (SwallowMessage), latched until the next KeyFeed. A tap shorter than the
+// gap between two keyboard reads (Ally: taps under ~100 ms) is up again at both reads and would be lost; KeyFeed counts a latched
+// edge as a press only when the key is neither down now nor was down at the previous read (else the read's own edge counts it).
+// Guard against a late-pumped message: a latched edge older than the last read that saw that key down was already counted there.
+volatile LONG g_keyMsgEdge = 0;
+volatile LONG g_keyMsgAt[16] = {};    // message time (GetTickCount ms) of the latest key-down per K_* bit
+uint32_t g_keySeenDownAt[16] = {};    // KeyFeed: low 32 bits of the time of the last read with that key down (KeyFeed thread only)
+inline int KeyBitIndex(uint32_t bit) { unsigned long i = 0; _BitScanForward(&i, bit); return (int)(i & 15); }
+inline void LatchKeyMsg(UINT msg, WPARAM wp, LPARAM lp, DWORD time) {
+    if (msg != WM_KEYDOWN && msg != WM_SYSKEYDOWN) return;
+    if (lp & (1LL << 30)) return;  // auto-repeat: the key was already down
+    const UINT vk = (UINT)wp;
+    uint32_t bit = 0;
+    if (g_cfg.vk && vk == g_cfg.vk) bit = K_TOGGLE;
+    else if (vk == VK_RETURN) bit = (lp & (1LL << 24)) ? K_NPENTER : K_ENTER;
+    else
+        for (const NavKey& k : kNavKeys)
+            if (k.vk == vk) { bit = k.bit; break; }
+    if (!bit) return;
+    InterlockedExchange(&g_keyMsgAt[KeyBitIndex(bit)], (LONG)time);
+    InterlockedOr(&g_keyMsgEdge, (LONG)bit);
+}
 bool g_okFromPad = false;             // the A / Enter being handled now came from a controller
 volatile LONG g_toggleReq = 0;
 volatile LONG64 g_toggleAt = 0;
@@ -179,8 +206,63 @@ struct PadSlot {
     bool passHold = false;  // the press turned out to be a hold: the game sees it from now on
     volatile bool latch = false;  // keep the pad neutral for the game until every button is released
     WORD maskHeld = 0;            // #9909: buttons masked by MaskGameButtons that are still held: stay hidden after the lease until released
+    uint32_t modalSnap = 0;       // UO #14: bits held when the input modality switched to keyboard; inert for the menu until released
 };
 PadSlot g_pad[4];
+// UO open #14: input modality = the device the player is using (pad / keyboard), for the menu and overlays (#9's glyph / keycap
+// hints follow InputModality()). It switches only on TRUSTED input: a press edge from the player's own device, never VPad's
+// scripted pad or keys (they ride on the game's reads; vpad.cpp InputVirtual tells which read carried them). They still drive
+// the menu, they just never flip the modality. At the switch to keyboard every pad button / stick direction / trigger held right
+// then is snapshotted into PadSlot::modalSnap, a release latch like PadSlot::latch: those bits give no menu press, repeat or
+// held state until each one is released, so going back to the pad never fires a phantom A / Down from a button merely still held.
+enum : LONG { MOD_PAD = 0, MOD_KEY = 1 };
+volatile LONG g_modality = MOD_PAD;
+volatile LONG g_modalitySwitches = 0;
+bool (*volatile g_inputVirtual)(int dev, unsigned idx) = nullptr;  // vpad.cpp: dev 0 = pad slot idx, 1 = keyboard
+volatile LONG g_virtLogged = 0;    // #105941: one 'VPad input: modality locked' line per session
+volatile LONG g_modalityLogged = 0; // #105941: flip log lines written (capped; flips need a real device change, so they are rare)
+bool InputTrusted(int dev, unsigned idx, bool own) {  // own polls read the hardware directly (VPad is only in the game's import)
+    auto f = g_inputVirtual;
+    if (own || !f || !f(dev, idx)) return true;
+    if (!InterlockedExchange(&g_virtLogged, 1))
+        MLOG("VPad input: modality locked - virtual %s%u drives the menu but never switches input modality", dev ? "keyboard" : "pad slot ", dev ? 0u : idx);
+    return false;
+}
+const char* KeyBitName(uint32_t k) {  // first pressed menu key, for the modality log
+    static const struct { uint32_t bit; const char* name; } kN[] = {{K_TOGGLE, "menu key"}, {K_ESC, "Esc"}, {K_UP, "Up"}, {K_DOWN, "Down"},
+        {K_LEFT, "Left"}, {K_RIGHT, "Right"}, {K_ENTER, "Enter"}, {K_NPENTER, "Num Enter"}, {K_BACKSP, "Backspace"}, {K_PAGEUP, "PgUp"},
+        {K_PAGEDOWN, "PgDn"}};
+    for (const auto& n : kN)
+        if (k & n.bit) return n.name;
+    return "key";
+}
+bool ModalityLogSlot() {  // true while under the cap; the line at the cap says the rest are not logged
+    const LONG n = InterlockedIncrement(&g_modalityLogged);
+    if (n == 200) MLOG("input modality: 200 switches logged, further switches are not logged this session");
+    return n < 200;
+}
+// #105887: KeyFeed (DirectInput thread / Present own poll) and PadFeed (XInput thread / Present own poll) may run on different
+// threads. g_modalLock serialises the snapshot here against PadFeed's prev / modalSnap read-modify-write, so a release is never
+// lost and the snapshot never reads a half-updated slot. Held for a few bit ops only; no calls, no C++ objects (PadFeed is __try).
+SRWLOCK g_modalLock = SRWLOCK_INIT;
+void ModalityToKey(uint32_t keys, bool own) {
+    if (g_modality == MOD_KEY) return;
+    AcquireSRWLockExclusive(&g_modalLock);
+    const bool sw = g_modality != MOD_KEY;  // re-check under the lock: two key threads snapshot once
+    if (sw) {
+        for (PadSlot& s : g_pad) s.modalSnap = s.prev;  // snapshot once, at the switch; a later key press does not widen it
+        InterlockedExchange(&g_modality, MOD_KEY);
+    }
+    ReleaseSRWLockExclusive(&g_modalLock);
+    if (!sw) return;
+    InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality pad->key (%s, %s)", KeyBitName(keys), own ? "own keyboard poll" : "game keyboard read");
+}
+void ModalityToPad(DWORD idx, uint32_t bits, bool own) {
+    if (InterlockedExchange(&g_modality, MOD_PAD) == MOD_PAD) return;  // exchange: two pad threads flip (and log) once
+    InterlockedIncrement(&g_modalitySwitches);
+    if (ModalityLogSlot()) MLOG("input modality key->pad (pad slot %lu, buttons %06X, %s)", idx, bits, own ? "own pad poll" : "game pad read");
+}
 uint32_t g_keyPrev = 0;
 // Escape triple-tap (same logic as the pad's Start gesture; DirectInput keyboard state is the only path the game reads Escape through)
 int g_escTaps = 0;
@@ -239,6 +321,7 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     PadSlot& s = g_pad[idx];
     XINPUT_GAMEPAD& g = st->Gamepad;
     padviz::Feed((int)idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, t);  // raw, before any masking
+    padcard::Feed(idx, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, t);  // UO #8 status card, raw, read-only
     paddebug::Record(idx, st->dwPacketNumber, g.wButtons, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY, g.bLeftTrigger, g.bRightTrigger, own, t);  // #97485 raw, read-only
     inputlog::ObservePad((int)idx, g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY);
     const uint32_t prev = s.prev;
@@ -249,9 +332,14 @@ void PadFeed(DWORD idx, XINPUT_STATE* st, bool own) {
     if (g.sThumbLX > ((prev & B_SR) ? 12000 : 20000)) raw |= B_SR;
     if (g.bLeftTrigger > 30) raw |= B_LT;
     if (g.bRightTrigger > 30) raw |= B_RT;
+    AcquireSRWLockExclusive(&g_modalLock);         // #105887: vs ModalityToKey on the keyboard thread
     s.prev = raw;
-    const uint32_t pressed = raw & ~prev;
-    g_padHeld[idx] = (LONG)raw;
+    s.modalSnap &= raw;                            // UO #14: a released snapshot bit is live again
+    const uint32_t live = raw & ~s.modalSnap;      // what the menu may act on (gestures and the game side still see raw)
+    ReleaseSRWLockExclusive(&g_modalLock);
+    const uint32_t pressed = live & ~prev;
+    g_padHeld[idx] = (LONG)live;
+    if (pressed && InputTrusted(0, idx, own)) ModalityToPad(idx, pressed, own);
     g_padHeldAt[idx] = (LONG64)t;
     if(g_coverToken.load()) {
         if((pressed & XINPUT_GAMEPAD_B)!=0){CancelCoverInput();if(!own)g.wButtons&=~XINPUT_GAMEPAD_B;}
@@ -368,9 +456,17 @@ void KeyFeed(uint8_t* keys, bool own) {
     if (g_cfg.dik && (keys[g_cfg.dik] & 0x80)) raw |= K_TOGGLE;
     for (const NavKey& k : kNavKeys)
         if (keys[k.dik] & 0x80) raw |= k.bit;
-    const uint32_t pressed = raw & ~g_keyPrev;
+    // #106087: + taps that went down and up between two reads (message-hook edges, see LatchKeyMsg)
+    uint32_t tapped = (uint32_t)InterlockedExchange(&g_keyMsgEdge, 0) & ~raw & ~g_keyPrev;
+    for (uint32_t b = tapped; b; b &= b - 1) {
+        const int i = KeyBitIndex(b & (0u - b));
+        if ((int32_t)((uint32_t)g_keyMsgAt[i] - g_keySeenDownAt[i]) <= 0) tapped &= ~(1u << i);  // that press was seen by a read
+    }
+    for (uint32_t b = raw; b; b &= b - 1) g_keySeenDownAt[KeyBitIndex(b & (0u - b))] = (uint32_t)t;
+    const uint32_t pressed = (raw & ~g_keyPrev) | tapped;
     const uint32_t released = g_keyPrev & ~raw;
     g_keyPrev = raw;
+    if (pressed && InputTrusted(1, 0, own)) ModalityToKey(pressed, own);  // UO #14; the press itself still acts below (#105941)
     {
         const bool nav = g_open != 0;
         struct Hk { uint32_t bit; const char* name; int allow; };
@@ -1757,10 +1853,52 @@ void StartSave() {
     }
 }
 
+// ---- UO #10: glyph set from the connected pad ---------------------------------------------------------------------------
+// [Menu] ButtonStyle Auto (default) picks Xbox / PlayStation / Nintendo from the vendor id of the HID joysticks / gamepads
+// (pad_family.h); Xbox / PlayStation / Nintendo in the ini is an override. Checked on the first frame and at every menu open
+// (a few user32 calls, no memory scan), so a pad swapped while the menu is closed shows its glyphs at the next open.
+int g_btnStyleIni = pad_family::kAuto;
+volatile LONG g_btnStyleChecked = 0;
+int (*g_enumPads)(padcard::PadId* out, int cap) = nullptr;  // tests: fake vendor / product ids
+int EnumPads(padcard::PadId* out, int cap) {  // also feeds the UO #8 status card
+    if (g_enumPads) return g_enumPads(out, cap);
+    RAWINPUTDEVICELIST list[64];
+    UINT n = 64;
+    n = GetRawInputDeviceList(list, &n, sizeof(RAWINPUTDEVICELIST));
+    if (n == (UINT)-1) return 0;
+    int k = 0;
+    for (UINT i = 0; i < n && k < cap; ++i) {
+        if (list[i].dwType != RIM_TYPEHID) continue;
+        RID_DEVICE_INFO info{};
+        info.cbSize = sizeof(info);
+        UINT sz = sizeof(info);
+        if (GetRawInputDeviceInfoW(list[i].hDevice, RIDI_DEVICEINFO, &info, &sz) == (UINT)-1) continue;
+        if (info.hid.usUsagePage != 1 || (info.hid.usUsage != 4 && info.hid.usUsage != 5)) continue;  // generic desktop joystick / gamepad
+        out[k].vid = (uint16_t)info.hid.dwVendorId;
+        out[k++].pid = (uint16_t)info.hid.dwProductId;
+    }
+    return k;
+}
+const char* StyleName(int s) { return s == pad_family::kPlayStation ? "PlayStation" : s == pad_family::kNintendo ? "Nintendo" : "Xbox"; }
+void RefreshButtonStyle() {
+    padcard::PadId pads[16];
+    uint16_t vids[16];
+    const int n = g_btnStyleIni >= 0 ? 0 : EnumPads(pads, 16);
+    for (int i = 0; i < n; ++i) vids[i] = pads[i].vid;
+    const int s = pad_family::Effective(g_btnStyleIni, vids, n);
+    const bool first = !InterlockedExchange(&g_btnStyleChecked, 1);
+    if (first || s != menu_style::g_btnStyle) {
+        if (g_btnStyleIni >= 0) MLOG("button style %s (ini override)", StyleName(s));
+        else MLOG("button style %s (auto: %d pad(s)%s%04X)", StyleName(s), n, n ? ", first vid " : "", n ? vids[0] : 0);
+    }
+    menu_style::g_btnStyle = s;
+}
+
 // ---- open / close / change ---------------------------------------------------------------------------------------------
 const char* SrcName(LONG src) { return src == 1 ? g_cfg.keyName : src == 2 ? "controller gesture" : src == 3 ? "Esc x3" : "?"; }
 
 void Open(const char* how) {
+    RefreshButtonStyle();  // UO #10
     InterlockedExchange(&g_pressed, 0);
     for (PadSlot& s : g_pad) s.latch = true;
     InterlockedExchange(&g_open, 1);
@@ -1902,7 +2040,8 @@ void ApplyConfigValue(int index) {
         snprintf(g_configReply, sizeof(g_configReply), "Overlay value applies now; save to keep it.");
     } else if (d.apply == setting_ui::Apply::MenuLive) {
         if (!strcmp(d.key, "ButtonStyle")) {
-            menu_style::g_btnStyle = _stricmp(v.c_str(), "PlayStation") == 0 ? 1 : 0;
+            g_btnStyleIni = pad_family::ParseStyle(v.c_str());  // UO #10: Auto or an override
+            RefreshButtonStyle();
             snprintf(g_configReply, sizeof(g_configReply), "Button style applies now. Save to keep it.");
         } else if (!strcmp(d.key, "ControllerDisplay")) {
             padviz::g_on = atoi(v.c_str()) ? 1 : 0;
@@ -2876,6 +3015,7 @@ uint32_t NavRepeat(uint32_t pressed, ULONGLONG t) {
 }
 
 void OnPresentImpl() {
+    if (!g_btnStyleChecked) RefreshButtonStyle();  // UO #10: first frame, pad glyphs for the overlays too
     hudhide::Sync();
     hudhide::SyncIds();
     static bool hudLogged = false;
@@ -3221,9 +3361,15 @@ float DrawRematchHost(unsigned W, unsigned H) {
     if (!g_rematchFreshAt || Now() - g_rematchFreshAt >= 1500 || !(g_rematchView.flags & rmb::Open)) {
         ms::Panel(x, y0, width, line * 2.f + pad * 2.f, scale, ms::kPanelBgSide, a);
         osd::DrawText(tx, y0 + pad, "Mod menu", ms::Fade(ms::kTitleText, a), scale);
-        osd::DrawText(tx, y0 + pad + line, "Waiting for the menu worker. B: back.", ms::Fade(cGray, a), scale);
+        osd::DrawText(tx, y0 + pad + line, InputModality() == MOD_KEY ? "Waiting for the menu worker. Esc: back." : "Waiting for the menu worker. B: back.",
+                      ms::Fade(cGray, a), scale);
         return scale;
     }
+    // #106005: under the keyboard the add-on's help text (row hints, footer, toast) names keys, not pad buttons
+    const bool keyText = InputModality() == MOD_KEY;
+    const char* const toggleKey = g_cfg.vk ? g_cfg.keyName : nullptr;
+    static char footKey[sizeof(g_rematchView.footer) + 32], toastKey[sizeof(g_rematchView.toast) + 32];
+    auto keyed = [&](const char* t, char* buf, size_t bn) -> const char* { return keyText && ms::KeyText(t, buf, bn, toggleKey) ? buf : t; };
     // ---- title row "<page> (<version>) - <status>"
     char title[112] = "Mod menu", status[112] = "";
     uint32_t first = 0;
@@ -3274,6 +3420,12 @@ float DrawRematchHost(unsigned W, unsigned H) {
         const auto& row = g_rematchView.rows[i];
         hostui::Item& it = items[nItems];
         hostui::Parse(row.text, row.color | 0xFF000000u, row.selected != 0, it);
+        if (keyText) {  // after Parse: its own hint cuts ("A: open", "A / Left / Right") still see the pad words
+            char kb[sizeof it.note + 32];
+            if (ms::KeyText(it.label, kb, sizeof kb, toggleKey)) snprintf(it.label, sizeof it.label, "%s", kb);
+            if (ms::KeyText(it.value, kb, sizeof kb, toggleKey)) snprintf(it.value, sizeof it.value, "%s", kb);
+            if (ms::KeyText(it.note, kb, sizeof kb, toggleKey)) snprintf(it.note, sizeof it.note, "%s", kb);
+        }
         if (strlen(it.value) > (size_t)kCols - 8 && it.slider < 0) {  // a value that long reads better as a wrapped note line
             char nb[224];
             snprintf(nb, sizeof nb, "%s%s%s", it.value, it.note[0] ? "  " : "", it.note);
@@ -3305,9 +3457,9 @@ float DrawRematchHost(unsigned W, unsigned H) {
     }
     auto visual = [&](int from, int to) { int v = 0; for (int i = from; i < to; ++i) v += !lines[i].inl; return v; };
     const int bodyN = n, bodyV = visual(0, n);
-    if (g_rematchView.footer[0]) wrap(g_rematchView.footer, 0, kCols, kCols, cGray, -1);
+    if (g_rematchView.footer[0]) wrap(keyed(g_rematchView.footer, footKey, sizeof footKey), 0, kCols, kCols, cGray, -1);
     const int toastStart = n;
-    if (g_rematchView.toast[0]) wrap(g_rematchView.toast, 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
+    if (g_rematchView.toast[0]) wrap(keyed(g_rematchView.toast, toastKey, sizeof toastKey), 1, kCols - 1, kCols - 1, g_rematchView.toastColor | 0xFF000000u, -1);
     const int tailV = n - bodyN;
     const bool statusOwnLine = status[0] && (int)(strlen(title) + strlen(status)) + 3 > kCols;
     const bool tabHints = !g_rematchFromAddon;  // #44232
@@ -3396,10 +3548,20 @@ float DrawRematchHost(unsigned W, unsigned H) {
     y = y0 + h - hintH;
     ms::PanelBand(x, y0, width, h, scale, h - hintH, hintH - scale, scale, ms::Fade(ms::kFooterBg, a));
     const float hy = y + std::floor((hintH - scale - ms::BadgeH(scale) - (tabHints ? line : 0.f)) * 0.5f);  // badges centred in the band (#13537)
+    if (InputModality() == MOD_KEY) {  // UO #9: keyboard modality, key caps instead of pad badges (same rows)
+        ms::HintItem keys[3];
+        int k = ms::KeyPrompts(0, nullptr, keys);
+        ms::HintRow(tx, hy, x + width - pad, keys, k, cw, line, scale, a);
+        if (tabHints) {
+            k = ms::KeyPrompts(1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+            ms::HintRow(tx, hy + line, x + width - pad, keys, k, cw, line, scale, a);
+        }
+        return scale;
+    }
     static const ms::HintItem kPad[] = {{"A", "Select"}, {"B", "Back"}, {"Y", "Close"}, {"LR", "Change"}, {"UD", "Move"}};
     ms::HintRow(tx, hy, x + width - pad, kPad, 5, cw, line, scale, a);
     if (tabHints) {  // #44232: second prompt line, LB / RB tabs + View first page (not on the Return object's own page)
-        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+        const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
         ms::HintRow(tx, hy + line, x + width - pad, kTabs, 2, cw, line, scale, a);
     }
     return scale;
@@ -3673,7 +3835,12 @@ float DrawImpl(unsigned W, unsigned H) {
             char lab[128], text[128];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", d.label);
             // #13296: value only (ON / OFF pill for switches); how it applies is in the explanation below the list
-            snprintf(text, sizeof(text), "%.48s%s", setting_ui::Shown(d, v.text), d.kind == setting_ui::Kind::Manual ? "  (ini only)"
+            // #106442: Auto button style shows what it resolved to, e.g. "Auto (Xbox)", so the player can tell Auto from a pinned Xbox
+            char shown[64];
+            if (!strcmp(d.key, "ButtonStyle") && !_stricmp(v.text.c_str(), "Auto"))
+                snprintf(shown, sizeof(shown), "Auto (%s)", StyleName(menu_style::g_btnStyle));
+            else snprintf(shown, sizeof(shown), "%.48s", setting_ui::Shown(d, v.text));
+            snprintf(text, sizeof(text), "%s%s", shown, d.kind == setting_ui::Kind::Manual ? "  (ini only)"
                 : v.changed ? (d.apply == setting_ui::Apply::NextLaunch ? "  * restart to apply" : "  * changed") : "");
             if (id == g_sel) selRow = nb;
             put(body, nb, 128, lab, "", text, id == g_sel ? cWhite : cGray,
@@ -3831,6 +3998,16 @@ float DrawImpl(unsigned W, unsigned H) {
         const char* why = osd::FgReason(osd::FrameGen());
         addT(why ? why : " ", cOrange);
     }
+    if (g_pages.page == pOvController) {  // UO #8: controller status card (which pad, does the game get XInput, stick drift)
+        static padcard::Card card;
+        static ULONGLONG nextEnum = 0;
+        if (t >= nextEnum) { nextEnum = t + 2000; card.nHid = EnumPads(card.hid, 8); }
+        padcard::Step(card, t);
+        char c1[112], c2[112];
+        padcard::Format(card, t, menu_style::g_btnStyle, c1, sizeof c1, c2, sizeof c2);
+        addT(c1, cCyan);
+        addT(c2, strstr(c2, "drift") && !strstr(c2, "no drift") ? cOrange : cCyan);
+    }
     if (paddebug::g_on && (g_pages.page == pOvInput || g_sel == PadDebugSettingRow())) {  // #98294: pDiagnostics had no route; Input display page (layout 0) or the selected row (any layout). #97485: raw pad as the mod sees it + who hides it from the game
         static int (*formBlock)() = nullptr;
         static ULONGLONG nextLook = 0;
@@ -3877,7 +4054,8 @@ float DrawImpl(unsigned W, unsigned H) {
             addT(line, cCyan);
         }
     }
-    // footer / save status
+    // footer / save status; UO #9: the two prompt rows are pad badges or key caps, by InputModality() (no toggle)
+    const bool keyMode = InputModality() == MOD_KEY;
     const LONG ss = g_saveState;
     if (ss >= 2 && !g_saveShownAt) g_saveShownAt = t;
     if (holdNote[0]) addT(holdNote, cGold);
@@ -3887,11 +4065,12 @@ float DrawImpl(unsigned W, unsigned H) {
         if (ss == 2) snprintf(b, sizeof(b), "Saved to Nioh3EngineFix.ini");
         else snprintf(b, sizeof(b), "Save FAILED (error %ld) - see the log", (long)g_saveErr);
         addT(b, ss == 2 ? cGreen : cOrange);
+    } else if (keyMode) {
+        addT("\x01K", cDim);  // UO #9 key caps: Arrows / Enter / Esc
     } else {
         addT(g_cfg.layout && g_pages.depth ? "\x01P" : "\x01p", cDim);  // #13537: drawn as button badges (drawRow)
     }
-    addT("\x01T", cDim);  // #44232: LB / RB tabs + View first page, on every page
-    addT("\x01K", cDim);
+    addT(keyMode ? "\x01k" : "\x01T", cDim);  // #44232: LB / RB tabs + View first page, every page (keyboard: PgUp PgDn + menu key)
 
     // #38102/#38134: every flat page is the same fixed right-side panel as the hosted pages (58 columns, 0.66 H high); long rows are clipped
     constexpr size_t cols = 58, valueCol = 34;
@@ -3941,12 +4120,12 @@ float DrawImpl(unsigned W, unsigned H) {
         const float y = y0 + pad + line * lineH;
         if (rw.label[0] == '\x01') {  // #13537 control prompts: pad (P = back, p = close) or keyboard (K), badges + labels
             const float right = x0 + w - pad;
-            if (rw.label[1] == 'K') {
-                static const ms::HintItem kKeyPrompts[] = {{"Arrows", "Move"}, {"Enter", "Select"}, {"Esc", "Back"}, {"PgUp PgDn", "Page"}, {"F10", "Exit"}};
-                const float kx = osd::DrawText(x0 + pad, y, "Keys", ms::Fade(cDim, fa), sc) + cw;
-                ms::HintRow(kx, y, right, kKeyPrompts, 5, cw, lineH, sc, fa);
+            if (rw.label[1] == 'K' || rw.label[1] == 'k') {  // UO #9: keyboard modality, key caps instead of pad badges
+                ms::HintItem keys[3];
+                const int k = ms::KeyPrompts(rw.label[1] == 'K' ? 0 : 1, g_cfg.vk ? g_cfg.keyName : nullptr, keys);
+                ms::HintRow(x0 + pad, y, right, keys, k, cw, lineH, sc, fa);
             } else if (rw.label[1] == 'T') {  // #44232: shoulder caps follow ButtonStyle (LB RB / L1 R1)
-                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create"), "First page"}};
+                const ms::HintItem kTabs[] = {{"LB RB", "Switch tab"}, {ms::PadWord("View", "Create", "Minus"), "First page"}};
                 ms::HintRow(x0 + pad, y, right, kTabs, 2, cw, lineH, sc, fa);
             } else {
                 const ms::HintItem kPad[] = {{"A", "Select"}, {"B", rw.label[1] == 'P' ? "Back" : "Close"}, {"Y", "Close"}, {"UD", "Move"}, {"LR", "Change"}};
@@ -3981,13 +4160,17 @@ float DrawImpl(unsigned W, unsigned H) {
                        (!rw.value[1] || (rw.value[1] == ':' && rw.value[2] == ' '))) {
                 // Use the existing active-controller badge, including PlayStation symbols.
                 char key[2] = {rw.value[0], 0};
-                ms::Hint(vx, y, key, rw.value[1] ? rw.value + 3 : "", cw, lineH, sc, fa);
+                const char* text = rw.value[1] ? rw.value + 3 : "";
+                // UO #9 / #105956: under the keyboard every face-button hint is a key cap (A Enter, B Esc, Y menu key); X has none
+                const char* cap = keyMode ? ms::RowKeyCap(key[0], g_cfg.vk ? g_cfg.keyName : nullptr) : key;
+                if (cap) ms::Hint(vx, y, cap, text, cw, lineH, sc, fa);
+                else if (text[0]) osd::DrawText(vx, y, text, ms::Fade(vcol, fa), sc);
             } else osd::DrawText(vx, y, rw.value, ms::Fade(vcol, fa), sc);
         }
         ++line;
     };
-    if (nt >= 3) {  // the three control lines at the bottom (pad, tabs, keys) sit in a darker footer band
-        const float fy = y0 + pad + (float)(n - 3) * lineH - 2 * sc;
+    if (nt >= 2) {  // the two control lines at the bottom (pad + tabs, or the UO #9 key caps) sit in a darker footer band
+        const float fy = y0 + pad + (float)(n - 2) * lineH - 2 * sc;
         ms::PanelBand(x0, y0, w, h, sc, fy - y0, y0 + h - fy - sc, sc, ms::Fade(ms::kFooterBg, fa));
     }
     drawRow(head, true);
@@ -4124,8 +4307,16 @@ void Configure(const Host& h) {
     GetPrivateProfileStringW(L"Menu", L"HoldSeconds", L"5", b, 96, f);
     g_cfg.holdMs = (int)std::lround(std::clamp(_wtof(b), 0.0, 30.0) * 1000.0);
     if (g_cfg.holdMs > 0 && g_cfg.holdMs < 500) g_cfg.holdMs = 500;
-    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Xbox", b, 96, f);
-    menu_style::g_btnStyle = !_wcsicmp(b, L"PlayStation") ? 1 : 0;
+    if (btnstyle_migrate::Run(f)) MLOG("[Menu] ButtonStyle Xbox -> Auto (one-time migration, ButtonStyleMigrated=1)");  // #106253
+    GetPrivateProfileStringW(L"Menu", L"ButtonStyle", L"Auto", b, 96, f);
+    {
+        char a[16] = {};
+        WideCharToMultiByte(CP_UTF8, 0, b, -1, a, sizeof a, nullptr, nullptr);
+        a[sizeof a - 1] = 0;
+        g_btnStyleIni = pad_family::ParseStyle(a);  // UO #10: Auto (detected on the first frame / menu open) or an override
+        menu_style::g_btnStyle = g_btnStyleIni >= 0 ? g_btnStyleIni : 0;
+        InterlockedExchange(&g_btnStyleChecked, 0);
+    }
     padviz::g_on = GetPrivateProfileIntW(L"Menu", L"ControllerDisplay", 0, f) ? 1 : 0;
     GetPrivateProfileStringW(L"Menu", L"ControllerDisplaySize", L"1.0", b, 96, f);
     padviz::g_size100 = std::clamp((int)std::lround(_wtof(b) * 100.0), 50, 400);
@@ -4291,6 +4482,8 @@ void ReleaseFreeze() {  // DLL unload: give the stop request back whatever state
 }
 
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk)) { g_keyFilter = filter; }
+void SetInputVirtual(bool (*query)(int dev, unsigned idx)) { g_inputVirtual = query; }
+int InputModality() { return (int)g_modality; }
 
 int RemoteImpl(const char* key, int set, int value, const char* text, char* reply, size_t n, unsigned timeoutMs) {
     if (!Enabled()) {
@@ -4348,6 +4541,7 @@ bool SwallowMessage(const tagMSG* m) {
     if (g_open && rbox::g_on && !g_coverToken.load() && !(g_cfg.vk && (UINT)m->wParam == g_cfg.vk && msg != WM_CHAR))
         return rbox::OnMessage(m);  // #64882: typed text for the Report box (WM_CHAR included); the game sees no key
     if (msg != WM_KEYDOWN && msg != WM_KEYUP && msg != WM_SYSKEYDOWN && msg != WM_SYSKEYUP) return false;
+    LatchKeyMsg(msg, m->wParam, m->lParam, m->time);  // #106087: short taps between keyboard reads
     const UINT vk = (UINT)m->wParam;
     if(g_coverToken.load()) {
         if(vk==VK_ESCAPE && (msg==WM_KEYDOWN||msg==WM_SYSKEYDOWN)){

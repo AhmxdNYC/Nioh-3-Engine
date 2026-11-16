@@ -6,12 +6,17 @@ s=(root/'src/training.c').read_text()
 a=s.index('static int g_native_fallback,');b=s.index('// bridge 6047: stage cell',a)
 production=s[a:s.index('// Exact placement and spawn-key identity;',a)]+s[s.index('static void EnterTick(void) {',a):b]
 production=production.replace('__attribute__((noinline)) ', '')
+# #89329: the Dojo waves export (fight-log start/win) sits inside this range but is not part of the entry handshake; drop it.
+w=production.index('N3T_API void Nioh3Training_WavesFight(');e=production.index('{',w);d=1;e+=1
+while d: d+=(production[e]=='{')-(production[e]=='}');e+=1
+production=production[:w]+production[e:]
 preamble=r"""
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+static uint32_t g_en_doorMission;
 typedef unsigned long DWORD;
 #define N3T_API
 static char lastLog[512];
@@ -53,7 +58,7 @@ main=r"""
 static int MsRead(uint32_t* m,uint8_t* j,uint32_t* mode){*m=running;return readable;}
 static int FightNowImpl(uint32_t m){assert(g_native_fallback && !g_cfg_fn_summon);assert(g_pick->mission==m);++fallbacks;return 1;}
 static ArenaRow row={123,456,9,"R123",{1,2,3,4},{5000,2,3}};
-static void Reset(void){memset(&g_en,0,sizeof g_en);g_en.active=1;g_en.row=&row;g_en.t0=100;
+static void Reset(void){memset(&g_en,0,sizeof g_en);g_en_doorMission=0;g_en.active=1;g_en.row=&row;g_en.t0=100;
  tick=100;memset(state,0,sizeof state);ready=5;world=9;player=readable=warpOk=1;running=123;
  boxEntry=0;actor=warps=fallbacks=placed=0;pos[0]=7;pos[1]=100;pos[2]=7;g_native_fallback=g_native_roster=0;g_cfg_enable=g_cfg_fn_summon=1;noBossMode=0;memset(row.kind,0,sizeof row.kind);}
 static void Land(void){Nioh3Training_NativeEntryResult(123,1);state[2]=1;EnterTick();state[2]=0;tick=1000;EnterTick();tick=4000;EnterTick();}
@@ -77,6 +82,10 @@ int main(void){
  Reset();Land();warpOk=0;tick=14000;EnterTick();assert(!g_en.moved&&!fallbacks);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1); // failed move keeps the 30 s wait
  row.b[0]=100;Reset();Land();tick=14000;EnterTick();assert(warps==1&&!g_en.moved);tick=33999;EnterTick();assert(!fallbacks);tick=34000;EnterTick();assert(fallbacks==1);row.b[0]=5000; // already close: no move
  Reset();Land();placed=1;tick=4300;EnterTick();assert(!g_en.active&&g_en.route==2&&g_en.dormant&&warps==1);tick=40000;EnterTick();assert(warps==1&&!fallbacks); // dormant teacher: no move, no fallback, no delete
+ Reset();Land();placed=1;tick=4300;EnterTick();assert(g_en.dormant&&!g_en.active&&g_en.route==2);
+ Nioh3Training_NativeGateOpened(123);assert(g_en.active&&g_en.gated&&g_en.route==1&&!g_en.dormant&&!g_en.anchored);
+ tick=4600;EnterTick();assert(g_en.active&&g_en.route==1); // door reopens the watch; idle body is not native-alive
+ Reset();Land();g_en.gated=1;g_en.tGate=tick;placed=1;tick=4300;EnterTick();assert(g_en.active&&!g_en.dormant); // after the door, idle catalogue body waits for AI
  Reset();Land();assert(warps==1);tick=4300;EnterTick();pos[1]=-400;tick=4600;EnterTick();assert(warps==1&&!g_en.fell);tick=4900;EnterTick();assert(warps==1&&!g_en.fell); // one drop is not a fall
  Reset();Land();tick=4300;EnterTick();pos[1]=2-160;tick=4600;EnterTick();pos[1]=2-325;tick=4900;EnterTick();assert(!g_en.fell&&warps==1);tick=5900;EnterTick();assert(g_en.safe[1]==2-325); // 3.25 m onto solid ground settles; it is not a void
  Reset();Land();tick=4300;EnterTick();pos[1]=2-400;tick=4600;EnterTick();pos[1]=2-800;tick=4900;EnterTick();assert(!g_en.fell&&warps==1); // 8 m under a catalogue warp is still a landing, not a void
@@ -86,6 +95,8 @@ int main(void){
  Reset();Land();memcpy(row.kind,"start",6);actor=1;tick=4300;EnterTick();assert(g_en.anchored&&g_en.active&&strstr(lastLog,"stood"));tick=4321;EnterTick();assert(g_en.active&&!g_en.fell); // far stand stays open long enough to sample a fall
  tick=4321+1000;EnterTick();assert(!g_en.active&&g_en.route==2&&!g_en.fell); // one solid second on that stand is the fight
  Reset();Land();memcpy(row.kind,"start",6);actor=1;tick=4300;EnterTick();assert(g_en.anchored);{float ay=lastWarp[1];tick=4600;EnterTick();pos[1]=ay-400;tick=4900;EnterTick();pos[1]=ay-800;tick=5200;EnterTick();assert(g_en.fell&&!g_en.anchored&&lastWarp[1]==100);}{float rec[4];assert(!NativeFightRecoverPos(rec));} // 8 m under the near-boss stand is a void, and it is not the recovery point
+ Reset();Land();memcpy(row.kind,"start",6);actor=1;tick=4300;EnterTick();assert(g_en.anchored&&!g_en.anchorOk);{float rec[4];assert(!NativeFightRecoverPos(rec));}tick=4321;EnterTick();tick=4321+1000;EnterTick();assert(g_en.anchorOk); // #88516 recovery only to a stand the player stood on
+ Reset();g_en_doorMission=123;Land();memcpy(row.kind,"start",6);actor=1;tick=4300;EnterTick();assert(!g_en.anchored&&!g_en.active&&g_en.route==2);g_en_doorMission=0; // #88516 door-waiting script owns arrival: no row-derived stand
  Reset();Land();noBossMode=1;actor=1;tick=4300;EnterTick();assert(g_en.noBossMode&&!g_en.active&&g_en.route==2);
  Reset();Land();g_en.gated=1;noBossMode=1;actor=1;tick=4300;EnterTick();assert(!g_en.noBossMode&&!g_en.active&&g_en.route==2); // a door keeps the cover until FIGHT start
  Reset();g_np.started=1;Land();placed=1;tick=4300;EnterTick();assert(strstr(lastLog,"native boss placement")&&strstr(lastLog,"request-to-boss")&&!strstr(lastLog,"script-dormant"));

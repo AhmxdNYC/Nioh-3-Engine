@@ -25,6 +25,7 @@ void Hex(char*, size_t, uint64_t, size_t) {}
 uintptr_t Site(const char*) { return 0; }
 bool GroupOk(const char*, const char**) { return false; }
 void OnEntry(const char*, Handler) {}
+bool InstallEntry(const char*, Handler, const char**) { return false; }
 bool InstallGroup(const char*, const char**) { return false; }
 bool InstallVeto(const char*, bool (*)(int), const char**) { return false; }
 bool InstallPump(void (*)(), const char**) { return false; }

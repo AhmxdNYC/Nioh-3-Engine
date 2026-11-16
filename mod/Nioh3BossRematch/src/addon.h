@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define ADDON_VERSION "1.5.5"
+#define ADDON_VERSION "1.5.6"
 // Soul-core form code is compiled only with /DBR_SOULCORE=1. build.bat passes it (1.8.0 and later ship the forms); without it the code compiles out.
 #ifndef BR_SOULCORE
 #define BR_SOULCORE 0
@@ -166,6 +166,7 @@ void Pump();  // shared dispatcher callback; no work until successfully prepared
 bool Live();
 bool PlayerExists();  // PlayerCharacterGet(0) != 0 (any thread; gamerva Verify waits for it)
 void NoteNativeWin();  // the running native fight's boss mode ended / mission cleared: a won Fight now attempt may retire at the gate
+void NoteWavesEnd();   // unmatched BossBattleModeEnd on a waves row: that end is the win
 // Report fight list. 1 Boss Match, 2 Practice, 3 a story boss. Name is the catalogue row, or "".
 int FightLogMode();
 const char* FightLogName();

@@ -45,6 +45,26 @@
    "offset": 0
   },
   {
+   "name": "UI::SetCompassDestinationIndex",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 37453776,
+   "head": 5,
+   "native": "UI::SetCompassDestinationIndex",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "UI::SetCompassDestination",
+   "group": "FIGHT",
+   "kind": "native",
+   "rva": 10739912,
+   "head": 5,
+   "native": "UI::SetCompassDestination",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
    "name": "Character::Create",
    "group": "FIGHT",
    "kind": "hook",
@@ -348,6 +368,56 @@
    "head": 5,
    "native": "Emaki::RequestWaveBattle",
    "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "Time::GetTimeStep",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 3291944,
+   "head": 9,
+   "native": "Time::GetTimeStep",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "Player::IsEnterPlacementBox",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 1284024,
+   "head": 5,
+   "native": "Player::IsEnterPlacementBox",
+   "pattern": "48 89 5C 24 08",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::RequestID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 37458424,
+   "head": 5,
+   "native": "WaveBattle::RequestID",
+   "pattern": "48 89 5C 24 10",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::IsActiveID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 9497140,
+   "head": 9,
+   "native": "WaveBattle::IsActiveID",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
+   "offset": 0
+  },
+  {
+   "name": "WaveBattle::IsClearID",
+   "group": "STAGED",
+   "kind": "native",
+   "rva": 37458280,
+   "head": 9,
+   "native": "WaveBattle::IsClearID",
+   "pattern": "40 53 48 81 EC 70 01 00 00",
    "offset": 0
   },
   {

@@ -155,10 +155,16 @@ inline void PsSymbol(float x, float top, float d, char k, uint32_t c) {
         osd::DrawRect(bx, by + h - t, sz, t, c);
     }
 }
-// [Menu] ButtonStyle: 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle); set by the menu
+// glyph set (pad_family.h): 0 = Xbox letters, 1 = PlayStation symbols (A = Cross, B = Circle, X = Square, Y = Triangle),
+// 2 = Nintendo letters by position (bottom A shows B, right B shows A, left X shows Y, top Y shows X). [Menu] ButtonStyle Auto
+// (UO #10) sets it from the connected pad; Xbox / PlayStation / Nintendo there is an override. Set by the menu.
 inline volatile int g_btnStyle = 0;
-// inline row text that names a button (A: open, B): PlayStation names under the PlayStation style
-inline const char* PadWord(const char* xbox, const char* ps) { return g_btnStyle ? ps : xbox; }
+// letter a Nintendo pad prints on the face button at the Xbox position k (A bottom, B right, X left, Y top)
+inline char NintendoFace(char k) { return k == 'A' ? 'B' : k == 'B' ? 'A' : k == 'X' ? 'Y' : k == 'Y' ? 'X' : k; }
+// inline row text that names a button (A: open, B): PlayStation names under the PlayStation style, Nintendo's when given
+inline const char* PadWord(const char* xbox, const char* ps, const char* nin = nullptr) {
+    return g_btnStyle == 1 ? ps : g_btnStyle == 2 && nin ? nin : xbox;
+}
 inline bool IsBumper(const char* k, size_t n) { return n == 2 && (k[0] == 'L' || k[0] == 'R') && (k[1] == 'B' || k[1] == 'T'); }
 inline void Bumper(float x, float y, const char* k, float cw, float s, float a) {
     (void)cw;
@@ -177,7 +183,13 @@ inline float BadgeW(const char* k, size_t n, float cw, float s) {
 inline void Badge(float x, float y, const char* k, size_t n, float cw, float s, float a) {
     const float h = BadgeH(s), top = Snap(y), w = BadgeW(k, n, cw, s);
     if (n == 1 && strchr("ABXY", k[0])) {
-        if (g_btnStyle) {  // PlayStation: dark round badge, coloured symbol (Cross blue, Circle red, Square pink, Triangle green)
+        if (g_btnStyle == 2) {  // UO #10 Nintendo: grey round badge, white letter of that position (no per-button colours)
+            RoundRect(x, top, w, h, h * 0.5f, Fade(0xF0484848, a));
+            const char t[2] = {NintendoFace(k[0]), 0};
+            osd::DrawText(Snap(x + (w - cw) * 0.5f), Snap(top + (h - (float)osd::kGlyphH * s) * 0.5f + 0.5f * s), t, Fade(0xFFFFFFFFu, a), s);
+            return;
+        }
+        if (g_btnStyle == 1) {  // PlayStation: dark round badge, coloured symbol (Cross blue, Circle red, Square pink, Triangle green)
             RoundRect(x, top, w, h, h * 0.5f, Fade(0xF0382E28, a));
             PsSymbol(x, top, h, k[0], Fade(k[0] == 'A' ? 0xFFF0A050 : k[0] == 'B' ? 0xFF5050F0 : k[0] == 'X' ? 0xFFC888F0 : 0xFF80D060, a));
             return;
@@ -238,6 +250,83 @@ inline void HintRow(float x, float y, float right, const HintItem* items, int n,
         if (x + HintW(items[i].keys, items[i].label, cw, s) - Snap(cw * 2.0f) > right) break;
         x = Hint(x, y, items[i].keys, items[i].label, cw, lh, s, a);
     }
+}
+// UO open #9: the footer prompts follow menu::InputModality() (0 pad, 1 keyboard), no toggle. Under the keyboard the pad
+// badges go and these key caps take their two rows (the row count stays, so the panel does not jump on a switch):
+// row 0 = Arrows / Enter / Esc, row 1 = PgUp PgDn + the menu key (skipped when it is unset, "None"). Returns the item count.
+inline int KeyPrompts(int row, const char* toggleKey, HintItem* out) {
+    if (row == 0) {
+        out[0] = {"Arrows", "Move"}; out[1] = {"Enter", "Select"}; out[2] = {"Esc", "Back"};
+        return 3;
+    }
+    out[0] = {"PgUp PgDn", "Page"};
+    if (!toggleKey || !toggleKey[0] || !strcmp(toggleKey, "None")) return 1;
+    out[1] = {toggleKey, "Close"};
+    return 2;
+}
+
+// #105956: keyboard cap for a row hint that names a pad face button ("A: open", "B", "Y: close"), same source as the footer
+// KeyPrompts: A = Enter, B = Esc, Y (close the menu) = the menu key, or Esc when none is bound (Esc backs out to closed).
+// X has no keyboard key in the menu (only the Report box key grid reads it, and that box has its own Keys row): nullptr = no cap,
+// the caller draws the hint text alone rather than a pad letter.
+inline const char* RowKeyCap(char pad, const char* toggleKey) {
+    switch (pad) {
+        case 'A': return "Enter";
+        case 'B': return "Esc";
+        case 'Y': return toggleKey && toggleKey[0] && strcmp(toggleKey, "None") ? toggleKey : "Esc";
+        default: return nullptr;
+    }
+}
+
+// #106005: help text written by an add-on page (Boss Rematch / Training rows, footer, toast) names pad buttons ("A: close the mod
+// menu", "A start, B back", "LB/RB switches tab"). Under the keyboard the host rewrites it with the same caps as RowKeyCap: a lone
+// A / B / Y used as a button (followed by ':' '/' ',' ')' end, or by a button verb like "opens" / "start" / "back") becomes its key;
+// an "LB/RB ..." clause is dropped up to its '.' (the keyboard has no tab switch). Article "A" ("A boss ...") is left alone.
+inline bool KeyTextVerb(const char* p) {
+    static const char* const kVerbs[] = {"open", "opens", "start", "starts", "back", "refill", "refills", "close", "closes", "select",
+                                         "selects", "train", "confirm", "confirms", "toggle", "toggles", "pick", "picks", "fight",
+                                         "leave", "return", "retry", "cancel", "skip", "to", "or", "and", "again", "on"};
+    for (const char* v : kVerbs) {
+        const size_t k = strlen(v);
+        if (!strncmp(p, v, k) && !((p[k] >= 'a' && p[k] <= 'z') || (p[k] >= 'A' && p[k] <= 'Z'))) return true;
+    }
+    return false;
+}
+// writes the keyboard form of `in` to `out` (always terminated); returns true when anything changed
+inline bool KeyText(const char* in, char* out, size_t n, const char* toggleKey) {
+    if (!n) return false;
+    size_t o = 0;
+    bool changed = false;
+    auto put = [&](const char* s, size_t k) { while (k-- && *s && o + 1 < n) out[o++] = *s++; };
+    for (const char* p = in; p && *p;) {
+        const char prev = p == in ? ' ' : p[-1];
+        const bool wordStart = prev == ' ' || prev == '(' || prev == ',' || prev == '/' || prev == '\t';
+        if (wordStart && p[0] == 'L' && p[1] == 'B' && (!strncmp(p, "LB/RB", 5) || !strncmp(p, "LB / RB", 7) || !strncmp(p, "LB RB", 5))) {
+            const char* dot = strchr(p, '.');
+            p = dot ? dot + 1 : p + strlen(p);
+            while (*p == ' ') ++p;
+            while (o && out[o - 1] == ' ') --o;     // no double space where the clause was
+            if (o && *p && o + 1 < n) out[o++] = ' ';
+            changed = true;
+            continue;
+        }
+        if (wordStart && (p[0] == 'A' || p[0] == 'B' || p[0] == 'Y')) {
+            const char nx = p[1];
+            const bool button = nx == ':' || nx == '/' || nx == ',' || nx == ')' || nx == 0 ||
+                                (nx == ' ' && (p[2] == '/' || KeyTextVerb(p + 2)));
+            if (button) {
+                const char* cap = RowKeyCap(p[0], toggleKey);
+                put(cap, strlen(cap));
+                ++p;
+                changed = true;
+                continue;
+            }
+        }
+        if (o + 1 >= n) break;
+        out[o++] = *p++;
+    }
+    out[o] = 0;
+    return changed;
 }
 
 }  // namespace menu_style

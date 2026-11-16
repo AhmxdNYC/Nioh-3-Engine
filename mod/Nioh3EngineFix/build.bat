@@ -46,6 +46,12 @@ rem Preset startup persistence and VRS independence (no game/device).
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\extraperf_menu_test.exe /Fobuild\extraperf_menu_test.obj tests\extraperf_menu_test.cpp || exit /b 1
 build\extraperf_menu_test.exe || exit /b 1
 
+rem PTS present-thread start guard (crash report #86): stock race crashes, guarded thread waits (no game/device).
+rem objs go to build\ptsh\ so tests that link build\*.obj do not pick up the harness main (#105462)
+if not exist build\ptsh mkdir build\ptsh
+cl /nologo /EHsc /std:c++17 /W4 /Febuild\ptstart_harness.exe /Fobuild\ptsh\ tests\ptstart_harness.cpp src\ptstart.cpp || exit /b 1
+build\ptstart_harness.exe || exit /b 1
+
 rem VRS classification and command-list state regression tests (no game/device).
 cl /nologo /EHsc /std:c++17 /W4 /Febuild\vrs_menu_test.exe /Fobuild\vrs_menu_test.obj tests\vrs_menu_test.cpp || exit /b 1
 build\vrs_menu_test.exe || exit /b 1
@@ -139,6 +145,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem skip the post-load "press to continue" tip page ([General] AutoContinueLoad = 0 by default; notes\auto-continue-load.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\autocont.obj src\autocont.cpp || exit /b 1
+rem PadListGuard: a null link in the pad manager's list walks ends the walk instead of crashing ([General] PadListGuard = 1; GitHub #79 / #55)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\padguard.obj src\padguard.cpp || exit /b 1
 rem SkipBootNotice ([Debug] SkipBootNotice = -1: on only in Tour / VirtualPad sessions; notes\autosave-notice.md)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\bootnotice.obj src\bootnotice.cpp || exit /b 1
@@ -154,6 +163,9 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
 rem RC read cache / AQ async archive reads / TSY / SH ([Patches] RC = AQ = TSY = SH = 0; notes\loading-ally-fixed.md 8.7)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\readfix.obj src\readfix.cpp || exit /b 1
+rem PTS present-thread start guard ([Patches] PTS = 1; crash report #86)
+cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
+   /Fobuild\ptstart.obj src\ptstart.cpp || exit /b 1
 rem PJ PSO journal + title-screen prewarm ([Patches] PJ = 0; notes\stutter.md 3.1)
 cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DUNICODE /D_UNICODE ^
    /Fobuild\psojournal.obj src\psojournal.cpp || exit /b 1
@@ -238,7 +250,7 @@ cl /nologo /c /O2 /MT /GS /Gy /Gw /EHsc /std:c++17 /W4 /permissive- /DNDEBUG /DU
    /Fobuild\inputlog.obj src\inputlog.cpp || exit /b 1
 link /nologo /DLL /OUT:bin\Nioh3EngineFix.asi /PDB:build\Nioh3EngineFix.pdb /DEBUG:FULL /OPT:REF /OPT:ICF ^
    /DYNAMICBASE /NXCOMPAT /MACHINE:X64 ^
-   build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashblame.obj build\devremoved.obj build\nioh3_version.res build\crashupload.obj build\perfsnap.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
+   build\updatecheck.obj build\gamerva.obj build\crashreport.obj build\crashblame.obj build\devremoved.obj build\nioh3_version.res build\crashupload.obj build\perfsnap.obj build\reportsend.obj build\inputlog.obj build\readprobe.obj build\readfix.obj build\ptstart.obj build\prefetch.obj build\loadonly.obj build\autocont.obj build\bootnotice.obj build\padguard.obj build\fnprobe.obj build\padlat.obj build\tour.obj build\vpad.obj build\tilestats.obj build\loadstats.obj build\loadmem.obj build\dllmain.obj build\dxgidiag.obj build\osd.obj build\hitchlog.obj build\menu.obj build\savefiles.obj build\savelib.obj build\gpuopt.obj build\gimerge.obj build\skipfx.obj build\livectl.obj build\gpuprof.obj build\sp.obj build\psoswap.obj build\psojournal.obj build\memstats.obj build\upmirror.obj build\rebar.obj build\scenemirror.obj build\drawprep.obj build\drawprep_caves.obj build\jt.obj build\jt_caves.obj build\pmode.obj build\pmode_caves.obj build\asyncslots.obj build\asyncslots_caves.obj build\timerres.obj build\thrsched.obj build\psomemo.obj build\bkstats.obj build\rnt.obj build\frameoverlap.obj build\replayprof.obj build\replayprof_thunks.obj build\cbvupload.obj build\cbvstage.obj build\samelook.obj build\samelook_caves.obj build\extraperf.obj build\extraperf_caves.obj build\mlprobe.obj build\mpccheck.obj build\mpcskip_caves.obj build\caves.obj build\gpuopt_thunks.obj kernel32.lib user32.lib shell32.lib winhttp.lib advapi32.lib bcrypt.lib version.lib || exit /b 1
 copy /y Nioh3EngineFix.ini bin\ >nul
 rem Ship the Python helpers (only used with [SaveFiles] Native = 0; the default native path needs no Python).
 py ..\..\tools\saves\build_package.py || exit /b 1

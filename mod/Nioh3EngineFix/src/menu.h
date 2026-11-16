@@ -136,6 +136,11 @@ int RemoteHudIds(const char* ids, char* reply, size_t n, unsigned timeoutMs);
 // vpad.cpp: filter for the game's 256-byte DirectInput keyboard reads, called before the menu looks at them (true = report
 // success to the game). Set before osd::Start.
 void SetKeyFilter(bool (*filter)(uint8_t* keys, bool readOk));
+// UO #14 vpad.cpp: true when the game's last read of that device carried virtual input (dev 0 = pad slot idx, 1 = keyboard);
+// such reads still drive the menu but never switch the input modality. Set before osd::Start.
+void SetInputVirtual(bool (*query)(int dev, unsigned idx));
+// UO #14: 0 = pad, 1 = keyboard - the device of the player's last trusted press (menu.cpp ModalityToKey / ModalityToPad)
+int InputModality();
 
 // ---- W3 hookPeek (game's message thread): swallow the menu key (keeps Windows from entering the F10 system-menu
 // mode) and, while the menu is open, the navigation keys. Only WM_KEY*/WM_SYSKEY* are looked at.

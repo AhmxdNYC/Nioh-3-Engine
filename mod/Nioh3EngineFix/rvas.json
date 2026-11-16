@@ -159,6 +159,42 @@
    ]
   },
   {
+   "rva": "0x116D30",
+   "kind": "code",
+   "pattern": "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 54 41 55 41 56 41 57 48 83 EC 60 4C 8B 25 ?? ?? ?? ?? 4C",
+   "offset": 0,
+   "used_in": [
+    "thrsched.cpp"
+   ]
+  },
+  {
+   "rva": "0x116F12",
+   "kind": "code",
+   "pattern": "FF 15 ?? ?? ?? ?? 8B 85 C4 06 00 00",
+   "offset": 0,
+   "used_in": [
+    "thrsched.cpp"
+   ]
+  },
+  {
+   "rva": "0x116F80",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 30 48 8B 05 ?? ?? ?? ?? 48 8D 99 D0 0C 00 00",
+   "offset": 0,
+   "used_in": [
+    "thrsched.cpp"
+   ]
+  },
+  {
+   "rva": "0x11702C",
+   "kind": "code",
+   "pattern": "FF 15 ?? ?? ?? ?? 8B 46 1C 39 46 14",
+   "offset": 0,
+   "used_in": [
+    "thrsched.cpp"
+   ]
+  },
+  {
    "rva": "0x118E19",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 83 A4 9F 70 0B 00 00",
@@ -645,6 +681,114 @@
    ]
   },
   {
+   "rva": "0x42FB3E",
+   "kind": "code",
+   "pattern": "49 3B DE 74 73 8B 7B 10 8B D7 48 8B 0D ?? ?? ?? ?? 89 7D 67",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x42FBD6",
+   "kind": "code",
+   "pattern": "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 7B 10 41 8B D7 48 8B 0D ?? ?? ?? ?? 44 89 7D 67 48",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430189",
+   "kind": "code",
+   "pattern": "48 3B DF 0F 84 ?? ?? ?? ?? 44 8B 63",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430220",
+   "kind": "code",
+   "pattern": "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 7F 10 44 89 7D 77 45 3B",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430316",
+   "kind": "code",
+   "pattern": "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 6F 10 48 8D 4E 50 48 8D",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430399",
+   "kind": "code",
+   "pattern": "0F 84 D9 00 00 00 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 C4 00 00 00 8B 53 10 89 55 67 41 3B D5",
+   "offset": 13,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430499",
+   "kind": "code",
+   "pattern": "FF 0F 84 87 FE FF FF 41 83 FE FF 0F 84 ?? ?? ?? ?? 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 ?? ?? ?? ?? 8B 53",
+   "offset": 24,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430A38",
+   "kind": "code",
+   "pattern": "48 3B 5E 58 74 6F 8B 53 10 48 8B 8D",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430BC1",
+   "kind": "code",
+   "pattern": "49 3B DC 0F 84 ?? ?? ?? ?? 48 8B 05",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430CB7",
+   "kind": "code",
+   "pattern": "48 3B D8 0F 84 ?? ?? ?? ?? 44 8B 6B 10 41 8B D5 48 8B 05 ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x43118D",
+   "kind": "code",
+   "pattern": "48 3B FB 0F 84 ?? ?? ?? ?? 4C 63 7F",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x43126F",
+   "kind": "code",
+   "pattern": "49 3B 5E 18 0F 84 ?? ?? ?? ?? 44 8B 63 10 44 89 65 58 45 3B",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x436758",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F",
@@ -669,6 +813,15 @@
    "offset": 0,
    "used_in": [
     "vpad.cpp"
+   ]
+  },
+  {
+   "rva": "0x438659",
+   "kind": "code",
+   "pattern": "49 3B DE 74 CC 8B 73 10 48 8D 4F 50",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
    ]
   },
   {
@@ -1192,6 +1345,15 @@
    "offset": 0,
    "used_in": [
     "frameoverlap.cpp"
+   ]
+  },
+  {
+   "rva": "0x1A82298",
+   "kind": "code",
+   "pattern": "40 53 48 83 EC 20 48 8B D9 48 8B 89 20 77 00 00 EB 52 48 8B",
+   "offset": 0,
+   "used_in": [
+    "ptstart.cpp"
    ]
   },
   {
@@ -1727,6 +1889,20 @@
    ]
   },
   {
+   "rva": "0x45BAF30",
+   "kind": "global",
+   "pattern": "8B 05 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 0F BE 40 2F E9 ?? ?? ?? ?? 8B",
+   "offset": 0,
+   "anchor": "0x6075E7",
+   "disp_off": 2,
+   "insn_len": 6,
+   "addend": 0,
+   "what": "mov eax, dword ptr [rip + 0x3fb3943]",
+   "used_in": [
+    "perfsnap.cpp"
+   ]
+  },
+  {
    "rva": "0x45BAF3C",
    "kind": "global",
    "pattern": "8B 05 ?? ?? ?? ?? E9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 98 E9 ?? ??",
@@ -1910,6 +2086,20 @@
    "used_in": [
     "dllmain.cpp",
     "tour.cpp"
+   ]
+  },
+  {
+   "rva": "0x45C8570",
+   "kind": "global",
+   "pattern": "48 8D 0D ?? ?? ?? ?? 48 03 C1 EB 02",
+   "offset": 0,
+   "anchor": "0x1FE1511",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "lea rcx, [rip + 0x25e7058]",
+   "used_in": [
+    "perfsnap.cpp"
    ]
   },
   {

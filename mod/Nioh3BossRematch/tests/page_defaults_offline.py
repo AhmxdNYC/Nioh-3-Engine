@@ -13,7 +13,10 @@ code=r'''#include <cstdio>
 #include "../../Nioh3Training/src/practice_stats.h"
 #include "../../Nioh3Training/src/boss_vitals.h"
 #define BR_SOULCORE 1
-constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uRematch=902,uGate=900,uPracticeHub=906,uTools=905;
+constexpr int uSettingFirst=5,kConfigGroupN=6,uPlayer=909,uFightOpts=908,uBossVitals=930,uBoss=940,uMoves=901,uMoveCat=915,uSoulTune=950,uRematch=902,uGate=900,uPracticeHub=906,uTools=905,uActions=2;
+// Dojo staged start (#89329): Actions page resets Full climb/Final wave only for a row with staged waves.
+int g_uiBoss=4,stagedAsk=-1;bool staged=false;volatile int g_stagedFinal=0;
+bool RowStaged(int row,uint16_t*,uint16_t*,uint32_t*){stagedAsk=row;return staged;}
 struct {int page=0;} g_uiPages;char g_msg[512];int g_bvSlot=2,g_bossSlot=3,g_moveCat=1;
 namespace setting_ui {enum class Kind {Choice,Number,Manual};}
 struct Def {int group;setting_ui::Kind kind;const char* initial;};
@@ -84,6 +87,8 @@ int main(){
  reset(uMoves);check(ResetPageDefaults()&&calls.size()==1&&has(7,123,0,0));
  reset(uMoveCat);g_moveCat=1;check(ResetPageDefaults());check(calls.size()==2&&has(11,123,10,1)&&has(12,123,10,0));
  reset(uMoveCat);g_moveCat=kMcSeq;kN3Moves[4].repeat=true;check(ResetPageDefaults()&&calls.size()==1&&has(12,123,13,0));
+ reset(uActions);staged=true;g_stagedFinal=1;check(PageHasDefaults(uActions)&&stagedAsk==g_uiBoss&&ResetPageDefaults()&&g_stagedFinal==0&&calls.empty());
+ reset(uActions);staged=false;g_stagedFinal=1;check(!PageHasDefaults(uActions)&&!ResetPageDefaults()&&g_stagedFinal==1);
  reset(uPlayer);failStat=true;check(!ResetPageDefaults());
  reset(uSettingFirst);for(auto&v:g_configValues.values)v={"custom",false};check(ResetPageDefaults()&&saves==1);
  check(g_configValues.values[0].text=="1"&&g_configValues.values[0].changed);check(g_configValues.values[1].text=="custom"&&!g_configValues.values[1].changed);check(g_configValues.values[2].text=="custom"&&!g_configValues.values[2].changed);

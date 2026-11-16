@@ -59,7 +59,7 @@ bool ScrollLoadStuck(const Snap& s);
 @GATES@
 @EXEC_GLOBALS@
 std::vector<Row> g_rows(1);
-struct Config { bool hiddenDuels=false,fightNow=true,fightWarp=true,fightSpawn=true; int fightSettleMs=1000,fightNudgeMs=1000; } g_cfg;
+struct Config { bool hiddenDuels=false,fightNow=true,fightWarp=true,fightSpawn=true,fightAgainDirect=false; int fightSettleMs=1000,fightNudgeMs=1000; } g_cfg;
 struct Spawn { int st=0,reapplied=0; uint32_t point=0; bool landCheck=false; ULONGLONG nextCheck=0; char last[16]="-"; } g_sp;
 std::atomic<uint32_t> g_gateWant{0},g_gateChecks{0};
 std::atomic<int> g_gateSlot{-1};
@@ -157,6 +157,7 @@ void fresh() {
     g_loadSeen=false; g_replayMs=0; g_loadDoneAt=0; g_exitSince=0; g_wasLoading=false;
     g_qHash=0; g_qChangedAt=0; g_lastTick=20000;
     g_bypassId=0;guarded=0;admission=-1;
+    g_cfg.fightAgainDirect=false;
     requests=returns=opens=scrolls=warps=rights=writes=restores=reads=0;
     outcome=0; canClear=restoreOk=mapWriteOk=mapReadOk=true; g_map=rcore::MapPatch{}; mapLie=mapReplaced=false; memset(liveMap,0,8); liveMap[0]=1; refused=nullptr; memset(queue,0,sizeof(queue));
     fixtureSnap=Snap{}; fixtureSnap.gm=fixtureSnap.player=fixtureSnap.msOk=fixtureSnap.queueOk=fixtureSnap.emakiOk=fixtureSnap.onlineOk=fixtureSnap.guestOk=true;
@@ -175,11 +176,43 @@ int main(int argc,char** argv) {
     int checks=0;
     auto check=[&](bool ok) { ++checks; if(!ok) printf("FAIL %d phase=%d calls=%d state=%d\n",checks,g_attemptPhase.load(),requests,g_state.load()); return ok; };
     const int scenario=argc>1?atoi(argv[1]):0;
+    if(scenario==9) {  // #100232 FightAgainDirect: no MissionRequestReturn, the same-mission MissionRequestById goes out at once
+        fresh(); g_cfg.fightAgainDirect=true; start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aActive && requests==1))return 1;
+        nativeMission=0x1CBC; memset(queue,0,sizeof(queue)); fight::g_active=1;  // #101099: the boss mode never ended before the retry
+        Post(kReqNativeAgain,0,"direct");Tick();
+        if(!check(!returns && requests==2 && g_attemptPhase==aAwaitLoad && g_nativeAgainRow==-1 && g_fight && g_attempt.mission==0x1CBC))return 1;
+        if(!check(fight::g_active==0))return 1;  // stale fight flag cleared, so GateTick can request a WaitWarpStart boss gate after the reload
+        step(27000,true,0x1CBC,67064);step(28000,false,0x1CBC,67064);step(31001,false,0x1CBC,67064);
+        if(!check(g_attemptPhase==aActive))return 1;  // the reloaded same mission settles as a new attempt
+        // #100792 (PC2 #100780): the Fight again click comes from our pause-menu Return page, so the game is paused (st[3]); still direct
+        fresh(); g_cfg.fightAgainDirect=true; start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        nativeMission=0x1CBC; memset(queue,0,sizeof(queue)); fixtureSnap.st[3]=1;
+        Post(kReqNativeAgain,0,"paused by our menu");Tick(); fixtureSnap.st[3]=0;
+        if(!check(!returns && requests==2 && g_attemptPhase==aAwaitLoad && g_nativeAgainRow==-1))return 1;
+        // #101032 note 2: a refused direct request (not cleared) posts its one refusal and stops; no return leg, no 'exit requested'
+        fresh(); g_cfg.fightAgainDirect=true; start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        nativeMission=0x1CBC; memset(queue,0,sizeof(queue)); canClear=false;
+        Post(kReqNativeAgain,0,"refused");Tick();
+        if(!check(returns==0 && requests==1 && refused && !strcmp(refused,"uncleared") && g_attemptPhase==aNone && g_nativeAgainRow==-1))return 1;
+        // #101032 note 1: spawn restore fails while retiring -> quarantined; refuse, never MissionRequestReturn from quarantine
+        fresh(); g_cfg.fightAgainDirect=true; start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        nativeMission=0x1CBC; memset(queue,0,sizeof(queue)); restoreOk=false;
+        Post(kReqNativeAgain,0,"quarantine");Tick();
+        if(!check(returns==0 && requests==1 && g_attemptPhase==aQuarantined && g_nativeAgainRow==-1 && refused && strstr(refused,"no automatic recovery return")))return 1;
+        restoreOk=true; Tick(); if(!check(returns==0 && requests==1))return 1;  // nothing retries it on a later tick
+        // off by default: unchanged return path
+        fresh(); start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
+        nativeMission=0x1CBC; Post(kReqNativeAgain,0,"off");Tick(); if(!check(returns==1 && requests==1))return 1;
+        printf("%d FightAgainDirect checks PASS\n",checks);return 0;
+    }
     if(scenario==5) {
         fresh(); start(); step(21000,true,0,0); step(22000,false,0x1CBC,67064); step(26001,false,0x1CBC,67064);
         nativeMission=0x1CBC;
         Post(kReqNativeAgain,0,"fixture");Tick();if(!check(returns==1 && g_attemptPhase==aReturning && g_nativeAgainRow==0))return 1;
         step(27000,true,0x1CBC,67064);step(28000,false,0x1111,123);
+        if(!check(g_nativeAgainRow==0 && !g_req))return 1; // #78: home settles 5 s before the boss request
+        step(33000,false,0x1111,123);
         if(!check(g_attemptPhase==aNone && g_nativeAgainRow==-1 && g_req==((1u<<8)|kReqFight)))return 1;
         memset(queue,0,sizeof(queue));step(35000,false,0x1111,123);if(!check(requests==2 && g_attemptPhase==aAwaitLoad))return 1;
         fresh(); start(); step(21000,true,0,0);step(22000,false,0x1CBC,67064);step(26001,false,0x1CBC,67064);
@@ -491,7 +524,7 @@ code=code.replace('@ATTEMPT@',segment('enum AttemptPhase','// Unknown session re
 gates='\n'.join(fn(sig) for sig in ('const char* SessionGate(', 'const char* NativeGate(', 'const char* ExitGate(', 'bool RosterStillPending(','void AttemptObserve(', 'bool AttemptEffectsAllowed(', 'const char* AttemptReturnGate(', 'void AttemptReturning(','void NoteNativeWin('))
 code=code.replace('@GATES@',gates)
 code=code.replace('@EXEC_GLOBALS@',segment('uint32_t g_pend =','void Refuse('))
-bodies='void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'int RosterPendingFixture(){return g_rosterPending;} void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_RosterPending") ? reinterpret_cast<void*>(&RosterPendingFixture) :  !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
+bodies='int g_waveResets=0; void StagedWaveReset() { ++g_waveResets; } void StagedWaveWatch(const Snap&, uint32_t) {} void StagedPlaceTick(const Snap&) {} void ExecField(int, const Snap&) {} /* Dojo staged waves (#89329) and field fights are not part of this transaction test */ \n'+'void LogEmakiWave() {} void WavePlaceTick(const Snap&, ULONGLONG) {} void ScrollCoverTick(const Snap&, ULONGLONG) {} const char* Gates(const Snap&, bool); void Post(uint32_t kind,int row,const char*) { g_requestEpoch.fetch_add(1); g_req.store(kind | ((uint32_t)(row+1)<<8)); }\n'+'int RosterPendingFixture(){return g_rosterPending;} void* TrainingExport(const char* name) { return !strcmp(name,"Nioh3Training_RosterPending") ? reinterpret_cast<void*>(&RosterPendingFixture) :  !strcmp(name,"Nioh3Training_NativeGateMission") ? reinterpret_cast<void*>(&NativeMissionFixture) : !strcmp(name,"Nioh3Training_NativeEntryResult") ? reinterpret_cast<void*>(&NativeEntryResult) : nullptr; }\n'+segment('struct TrainingEntryAdmission {','void ExecDirect(')+'\nbool XwPending() { return false; }\nint ReturnInfo() { return -1; }\nstd::atomic<bool> g_swappedInPlace{false};\nvoid CoverTick(const Snap&, ULONGLONG) {}\n'+fn('enum FadResult')+';\n'+'\n'.join(fn(sig) for sig in ('static uint32_t EntryGateChoice(', 'uint32_t NativeGateMission(', 'void NativeGateRetryTick(', 'const char* Gates(', 'void ToIdle(', 'void ExecOpen(', 'void ExecDirect(', 'FadResult FightAgainDirect(', 'int PracticeRow(', 'const char* PracticeReturnGate(', 'void ExecPractice(', 'void ExecEmaki(', 'void DoWarp(', 'void FnVerify(', 'void GateTick(', 'void TrackReplay(', 'void TrackEmaki(', 'void SpawnTick(', 'void Tick()'))
 code=code.replace('@BODIES@',bodies).replace('@MAP_RESTORE@',fn('bool MapReadGuard(')+'\n'+fn('bool MapRestoreNow('))
 setup=Path(os.environ.get('N3_MSVC_SETUP',r'C:/Users/Ahmad Hamza/nioh3-engine/tools/msvc/setup_x64.bat'))
 with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
@@ -501,7 +534,7 @@ with tempfile.TemporaryDirectory(prefix='nioh3-native-attempt-') as tmp:
     result=subprocess.run(([sys.executable, '-m', 'ziglang', 'c++', '-target', 'x86_64-windows-gnu', '-std=c++17', '-fms-extensions', '-I'+str(ROOT/'src'), str(source), '-o', str(exe)] if os.environ.get('N3_TEST_ZIG') else 'cmd /d /s /c "'+command+'"'),capture_output=True,text=True)
     assert result.returncode==0,result.stdout+result.stderr
     results=[]
-    for scenario in ('8','7','6','5','4','1','2','3','0'):
+    for scenario in ('9','8','7','6','5','4','1','2','3','0'):
         result=subprocess.run([str(exe),scenario],capture_output=True,text=True,timeout=10)
         print('scenario '+scenario+': '+result.stdout.strip()); results.append(result)
     assert all(r.returncode==0 for r in results), '\n'.join(r.stderr for r in results)

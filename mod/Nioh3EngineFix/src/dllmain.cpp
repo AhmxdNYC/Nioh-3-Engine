@@ -48,12 +48,14 @@
 #include "vpad.h"
 #include "autocont.h"
 #include "bootnotice.h"
+#include "padguard.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
 #include "asyncslots.h"
 #include "loadonly.h"
 #include "readfix.h"
+#include "ptstart.h"
 #include "readprobe.h"
 #include "jt.h"
 #include "pmode.h"
@@ -144,7 +146,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.17"
+#define MOD_VERSION "1.8.19"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -455,7 +457,7 @@ struct Config {
     int mw = 0, rd = 0;
     int m2s = 0;  // narrow completion-CAS seed loads, startup only; full M2 unchanged
     int enabled = 1, log = 1, allowUnknownBuild = 0, decryptWaitSec = 60;
-    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, as0 = 0;
+    int vrrOnline = -1, w1 = 1, w2 = 1, vrr = 1, w3 = 1, r1 = 1, l1 = 1, l1OnWine = 0, fg = 1, fgOnWine = 0, p12 = 0, w3WineSleep = 1, wk = 1, workerCap = 0, kidstsCapCpus = 0, as0 = 0;
     int arm[3] = {1, 1, 1};
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
@@ -539,6 +541,36 @@ Config LoadConfig() {
     c.w3WineSleep = I(L"Patches", L"W3WineSleep", c.w3WineSleep);
     c.wk = I(L"Patches", L"WK", c.wk);
     c.workerCap = I(L"Patches", L"WorkerCap", c.workerCap);
+    // Walk-fix defaults (v1.8.19, Ally PASS #105500): KidstsCap and FileLoadPrio default 1 (both no-ops on a full-affinity
+    // PC with more than FileLoadPrio_MaxCpus CPUs). Shipped inis up to v1.8.18 wrote 0; flip an explicit 0 to 1 once and
+    // stamp WalkFixDefaultV = 1 (same pattern as FpwDefaultV #104185); with the marker present the keys are never touched
+    // again (a later manual 0 sticks). Runs before thrsched reads FileLoadPrio.
+    if (I(L"Patches", L"WalkFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"KidstsCap", 1) == 0) WritePrivateProfileStringW(L"Patches", L"KidstsCap", L"1", f);
+        if (I(L"Patches", L"FileLoadPrio", 1) == 0) WritePrivateProfileStringW(L"Patches", L"FileLoadPrio", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"WalkFixDefaultV", L"1", f);
+    }
+    // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
+    // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
+    // and the count is below the logical CPU count; becomes WorkerCap = max(6, count) because the engine's own pool base
+    // is clamp(logical, 6, 32) (a real 4-core CPU gets base 6). notes/walk-hitch-102842.md.
+    {
+        const int kc = I(L"Patches", L"KidstsCap", 1);
+        if (kc > 0 && c.workerCap == 0) {
+            DWORD_PTR pm = 0, sm = 0;
+            int n = kc;
+            if (kc == 1) {
+                n = 0;  // affinity unreadable -> skip (no WorkerCap), logged via kidstsCapCpus = -1
+                if (GetProcessAffinityMask(GetCurrentProcess(), &pm, &sm))
+                    for (DWORD_PTR m = pm; m; m &= m - 1) ++n;
+                else
+                    n = -1;
+            }
+            const int logical = (int)GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+            if (n >= 1 && n < logical) c.workerCap = std::clamp(n, 6, 31) < logical ? std::clamp(n, 6, 31) : 0;
+            c.kidstsCapCpus = n;
+        }
+    }
     c.as0 = I(L"Patches", L"AS0", c.as0);
     const wchar_t* armK[3] = {L"Tier30", L"Tier60", L"Tier120"};
     const wchar_t* minK[3] = {L"Min30", L"Min60", L"Min120"};
@@ -1644,6 +1676,8 @@ DWORD WINAPI Worker(LPVOID) {
     const DWORD logical = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
     bool wcPending = cfg.workerCap > 0 && known && wca && wcb;
     if (wcPending && (cfg.workerCap < 6 || cfg.workerCap > 31)) { Log("WC: WorkerCap must be 6..31 - skipped"); wcPending = false; }
+    if (cfg.kidstsCapCpus < 0) Log("KC: KidstsCap - process affinity unreadable, skipped (no WorkerCap)");
+    else if (cfg.kidstsCapCpus) Log("KC: KidstsCap sees %d CPUs (of %lu logical) -> WorkerCap %d", cfg.kidstsCapCpus, logical, cfg.workerCap);
     if (wcPending && logical <= (DWORD)cfg.workerCap) { Log("WC: %lu logical CPUs <= WorkerCap %d - nothing to cap", logical, cfg.workerCap); wcPending = false; }
     auto tryWC = [&]() {
         uint8_t* a = g_base + wca->rva;
@@ -1699,6 +1733,9 @@ DWORD WINAPI Worker(LPVOID) {
     bool rfPending = known && readfix::BootWanted(SelfPathWithExt(L".ini").c_str(), rfBoot);
     const int rfCap = wcPending ? cfg.workerCap : 0;
     auto tryRF = [&]() { rfPending = readfix::BootTry(reinterpret_cast<uintptr_t>(g_base), rfBoot, rfCap, logical, &Log); };
+    // PTS (crash #86): the Present thread must not start before its wake event exists (ptstart.h); boot-time, before the renderer
+    bool ptsPending = known && ptstart::BootWanted(SelfPathWithExt(L".ini").c_str());
+    auto tryPTS = [&]() { ptsPending = ptstart::BootTry(reinterpret_cast<uintptr_t>(g_base), &Log); };
     bool vsPending = known;  // 1.7.48 VS: D3D12CreateDevice IAT hook before the device exists ([Profiler] MemStats = 2)
     const std::wstring vsIni = SelfPathWithExt(L".ini");
     const DWORD t0 = GetTickCount();
@@ -1710,6 +1747,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (as0Pending) tryAS0();
         if (asPending) asPending = asyncslots::BootTry(reinterpret_cast<uintptr_t>(g_base), asBoot, &Log);
         if (rfPending) tryRF();
+        if (ptsPending) tryPTS();
         if (known) {
             ready = true;
             for (const gen::Site* s : sentinels)
@@ -1719,7 +1757,7 @@ DWORD WINAPI Worker(LPVOID) {
             ready = FindPattern(sentinelPat, ExecRanges(), &f) == 1;
         }
         if (ready || GetTickCount() - t0 > (DWORD)cfg.decryptWaitSec * 1000) break;
-        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending) ? 0 : known ? 20 : 250);
+        Sleep((p12Pending || wcPending || as0Pending || asPending || rfPending || ptsPending) ? 0 : known ? 20 : 250);
     }
     if (vsPending) vsPending = !memstats::BootIat(reinterpret_cast<uintptr_t>(g_base), vsIni.c_str(), &Log);
     if (rfPending) tryRF();
@@ -1733,6 +1771,8 @@ DWORD WINAPI Worker(LPVOID) {
     if (asBoot.gateWritten) s_as0Applied = true;
     if (wcPending) Log("WC: sites not in their original state after decryption - skipped");
     if (p12Pending) Log("P12: site not in its original state after decryption - skipped");
+    if (ptsPending) tryPTS();
+    if (ptsPending) Log("PTS: present thread entry not in its original state after decryption - skipped");
     if (ready) Sleep(200);  // let the unpacker finish whatever it does after the last byte
     Log(ready ? "code is decrypted (%lu ms after start)" : "code did not reach the expected state within %lu ms - scanning anyway, each site is still verified",
         GetTickCount() - t0);
@@ -1800,6 +1840,7 @@ DWORD WINAPI Worker(LPVOID) {
         if (!strcmp(g, "FP")) return false;  // FnProbe entry sites: verified offline (test_patterns), hooked by fnprobe.cpp
         if (!strcmp(g, "AC")) return false;
         if (!strcmp(g, "BN")) return false;  // SkipBootNotice boot-sequencer sites: verified offline (test_patterns), hooked by bootnotice.cpp
+        if (!strcmp(g, "PG")) return false;  // PadListGuard pad list-walk sites: verified offline (test_patterns, test_padguard), hooked by padguard.cpp
         if (!strcmp(g, "SBM")) return false;  // 1.7.57 scene-buffer mirror call site: verified offline (test_patterns), hooked by scenemirror.cpp
         if (!strcmp(g, "CBU")) return false;  // 1.7.60-cbu1 CBV upload call sites: verified offline (test_patterns), hooked by cbvupload.cpp
         if (!strcmp(g, "PCM")) return false;  // 1.7.58 PSO lookup memo call site: verified offline (test_patterns), hooked by psomemo.cpp
@@ -2833,6 +2874,11 @@ DWORD WINAPI Worker(LPVOID) {
                     asyncslots::StatusLine(ab, sizeof ab, reinterpret_cast<uintptr_t>(g_base));
                     if (ab[0]) Log("stats/s %s", ab);
                 }
+                if (sec % 30 == 0 && ptstart::Applied()) {  // PTS: > 0 = the start race happened and was held off
+                    static long s_ptsLogged = -1;
+                    const long w = ptstart::WaitRounds();
+                    if (w != s_ptsLogged) { Log("PTS: present thread start waits %ld round(s) of 1 ms for its event", w); s_ptsLogged = w; }
+                }
                 if (sec % 30 == 0) tilestats::LogLine();  // no-op unless TileStats / TileBatch != 0
                 if (sec % 30 == 0) memstats::LogLine();  // no-op unless [Profiler] MemStats = 1
                 memstats::Tick1s();                      // 1.7.48 VS: no-op unless [Profiler] MemStats = 2
@@ -2878,6 +2924,8 @@ DWORD WINAPI Worker(LPVOID) {
                 if (sec % 30 == 0) {                     // 1.7.58 no-op unless [Patches] RTP != 0
                     char rb[768];
                     thrsched::RtpStatusLine(rb, sizeof rb);
+                    if (rb[0]) Log("stats %s", rb);
+                    thrsched::FlpStatusLine(rb, sizeof rb);
                     if (rb[0]) Log("stats %s", rb);
                 }
                 if (s_wlDone && sec % 30 == 0) {
@@ -3318,7 +3366,7 @@ DWORD WINAPI Worker(LPVOID) {
             vi.hudIdsRemote = &menu::RemoteHudIds;
             vi.pauseReason = &menu::GamePauseReason;
             vpad::Start(vi);
-            if (vpad::KeysWanted()) menu::SetKeyFilter(&vpad::KeyFilter);
+            if (vpad::KeysWanted()) { menu::SetKeyFilter(&vpad::KeyFilter); menu::SetInputVirtual(&vpad::InputVirtual); }
         }
         {  // PadLatency (padlat.cpp, [Debug] PadLatency = 0 by default; notes\pad-latency.md): measurement only
             padlat::StartInfo li;
@@ -3358,6 +3406,15 @@ DWORD WINAPI Worker(LPVOID) {
             rsi.selfModule = g_self;
             rsi.modVersion = MOD_VERSION;
             reportsend::Start(rsi);
+        }
+        {  // PadListGuard (padguard.cpp, [General] PadListGuard = 1): a null `next` link in the pad manager's list walks ends
+           // the walk for that frame instead of crashing (GitHub #79 / #55; game-side race, see padguard_cave.h)
+            padguard::StartInfo pgi;
+            pgi.log = &Log;
+            pgi.iniPath = iniPath.c_str();
+            pgi.base = reinterpret_cast<uintptr_t>(g_base);
+            pgi.knownBuild = known;
+            padguard::Start(pgi);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
