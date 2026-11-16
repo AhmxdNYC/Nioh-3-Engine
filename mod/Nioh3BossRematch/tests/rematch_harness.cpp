@@ -324,9 +324,9 @@ int main(int argc, char** argv) {
         rcore::Row noStart = gate; noStart.fightStart = 0;
         CHECK(rcore::ArenaTrainRouteFor(gate, false) == rcore::kAtNative && rcore::ArenaTrainRouteFor(atFight, false) == rcore::kAtNone &&
                   rcore::ArenaTrainRouteFor(atFight, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(box, false) == rcore::kAtNone &&
-                  rcore::ArenaTrainRouteFor(box, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(scrollRow, false) == rcore::kAtScroll &&
+                  rcore::ArenaTrainRouteFor(box, true) == rcore::kAtNone && rcore::ArenaTrainRouteFor(scrollRow, false) == rcore::kAtScroll &&
                   rcore::ArenaTrainRouteFor(noStart, true) == rcore::kAtNone,
-              "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box without a script gate is not offered");
+              "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box gate is not offered");
         // #107705 (Ally R1C7C): a door row whose arena spot is not in the catalogue lands at the start point outside the door: not offered
         rcore::Row noArena = gate; noArena.arenaOk = noArena.arenaCat = false;
         rcore::Row captured = gate; captured.arenaCat = false;  // a captured position: BR's warp only, Training's table still has the start point
@@ -334,6 +334,18 @@ int main(int argc, char** argv) {
                   rcore::ArenaTrainRouteFor(captured, true) == rcore::kAtNone && rcore::ArenaTrainNoWhy(noArena, true) == rcore::kAtNoArena &&
                   rcore::ArenaTrainNoWhy(atFight, false) == rcore::kAtNoGate && rcore::ArenaTrainNoWhy(noStart, true) == rcore::kAtNoRoute,
               "#107705: native arena-only only with a catalogue spot inside the arena; the reason names the missing spot");
+        // #107823 (Ally REA75 Ibaraki Doji): a box gate fires the boss when the arena spot is reached, script gate or not
+        CHECK(rcore::ArenaTrainNoWhy(box, true) == rcore::kAtNoBox && rcore::ArenaTrainNoWhy(box, false) == rcore::kAtNoGate && rcore::GateBox(box) && !rcore::GateBox(gate),
+              "#107823: a box-gate row is not offered for Train in this arena; the reason names the trigger box");
+        {
+            int boxNative = 0, rea75 = -2;
+            for (const auto& r : rows) {
+                const int at = rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+                if (at == rcore::kAtNative && rcore::GateBox(r)) ++boxNative;
+                if (!strcmp(r.id, "REA75")) rea75 = at;
+            }
+            CHECK(!boxNative && rea75 == rcore::kAtNone, "#107823: no catalogue box-gate row (REA75 included) takes the native arena-only route");
+        }
         {
             int nativeNoArena = 0, r1c7c = -2;
             for (const auto& r : rows) {

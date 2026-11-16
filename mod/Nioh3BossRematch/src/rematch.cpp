@@ -5123,6 +5123,7 @@ const char* ArenaTrainWhy(int row) {  // nullptr = offered now
         const Row& r = g_rows[(size_t)row];
         const int no = rcore::ArenaTrainNoWhy(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
         return no == rcore::kAtNoGate ? "this boss starts with the mission (no gate to hold), so it would spawn"
+             : no == rcore::kAtNoBox ? "this boss starts when you step into its arena (a trigger box, no door to hold), so it would spawn"
              : no == rcore::kAtNoArena ? "no known spot inside this arena yet (the trip would stop outside the boss door)"
                                        : "no arena route for this row";
     }

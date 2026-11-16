@@ -97,17 +97,21 @@ struct BossModeTrack {
 // #107705: and only where the row data puts the warp inside the arena (catalogue arena_x.., the 'arena' kind of Training's table). Without it
 // the trip lands at the start point outside the door (R1C7C, 25 m out) and opening the door starts the boss.
 enum ArenaTrainRoute : int { kAtNone = -1, kAtScroll = 0, kAtNative = 1 };
-enum ArenaTrainNo : int { kAtNoRoute = 0, kAtNoGate = 1, kAtNoArena = 2 };
+// #107823 (Ally REA75): a 'box' gate is a trigger box around the arena (gate_kind box; the arena spot is inside it), not a door. Entering
+// it fires BossBattleMode on its own (2.7 s after arrival), so the arena-only trip cannot hold it: never offered, whatever the script gate.
+inline bool GateBox(const Row& r) { return r.gateId && !r.GateDoor(); }
+enum ArenaTrainNo : int { kAtNoRoute = 0, kAtNoGate = 1, kAtNoArena = 2, kAtNoBox = 3 };
 inline int ArenaTrainNoWhy(const Row& r, bool scriptGate) {
     if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNoRoute;
     if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNoGate;
+    if (GateBox(r)) return kAtNoBox;
     return kAtNoArena;
 }
 inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
     if (r.route == kE) return kAtScroll;
     if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNone;
     if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNone;
-    return r.arenaCat ? kAtNative : kAtNone;
+    return r.arenaCat && !GateBox(r) ? kAtNative : kAtNone;
 }
 inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
 // Training entry route -> Fight now FAIL: 5 = failed; 0 = ended, a failure only before a pass (#107705: a leave after an arena-only
