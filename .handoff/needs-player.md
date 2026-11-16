@@ -35,4 +35,5 @@
 - [x] Main PC load probe run OK? | Reply go/later to DECISION #101334: ~15 min Main PC game (3 cold starts + 2 Boss Match loads) with EF LoadProbe a0a61c70; v1.8.17 + saves restored after | Main PC | CLOSED 11-15 by pc (#103760): stale/superseded, safest default taken
 - [ ] Publish v1.8.18? | Reply YES/NO: v1.8.18 rc2 (#7656) = camera-scan CPU fix (4-core Main PC Boss Match load 47->20 s, PC2 Continue 39->22 s) + crash #78/#79 fixes; Fight again shortcut ships OFF. All gates PASS (installer #102627, regression #102645, PC2 live #102751). Default: not published until YES | phone
 - [x] Soul core early form end: OK to close Main PC game? | reply 'go' to #107997; agent closes game, installs BR 64e63f0c (SealExitOnHelperMs=150), relaunches, tests core 78A8D | Main PC
-- [ ] Try the early Kasha form end yourself? | reply yes to #108072 and the agent installs BR 64e63f0c + SealExitOnHelperMs=150 on Main PC (controller works, no virtual pad) | Main PC
+- [x] Try the early Kasha form end yourself? | reply yes to #108072 and the agent installs BR 64e63f0c + SealExitOnHelperMs=150 on Main PC (controller works, no virtual pad) | Main PC
+- [ ] Kasha early-end fix: keep or remove? | play with Kasha on Main PC (test BR 64e63f0c installed), reply to #108114 | Main PC
