@@ -3350,7 +3350,7 @@ std::atomic<int> g_exitAtLastHitMs{0};  // #81898: last burst OPEN + offset; -99
 // human #107984/#107991: [Spirit] SealExitOnHelperMs (-1 = off). A hit burst whose source is a separate spawned actor (not the bound seal)
 // means the yokai handed its attack to a projectile/helper; the form ends this many ms after that burst opens. The seal hides as before,
 // the helper is NOT ghosted, so its projectiles stay visible and finish the attack. No per-core table.
-std::atomic<int> g_exitOnHelperMs{-1};
+std::atomic<int> g_exitOnHelperMs{150};  // live test #108072: 150 ms
 std::atomic<double> g_plFadeT0{0};
 std::atomic<uint64_t> g_plFadeChr{0};
 uint64_t g_plFadeRoot = 0; float g_plFadeK8 = 1.f, g_plFadeK6 = 1.f;
@@ -5274,7 +5274,7 @@ void SealExitReplayLoad() {
     g_lastHitGraceMs = IniInt(L"Spirit", L"SealLastHitGraceMs", 50);  // human #60327, #60522 150->50
     const int lastHitMs = IniInt(L"Spirit", L"SealExitAtLastHitMs", 0);
     g_exitAtLastHitMs = lastHitMs == -9999 ? -9999 : (std::clamp)(lastHitMs, -500, 1000);
-    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", -1); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
+    { const int h = IniInt(L"Spirit", L"SealExitOnHelperMs", 150); g_exitOnHelperMs = h < 0 ? -1 : (std::min)(h, 5000); }
     g_plFadeMs = IniInt(L"Spirit", L"SealPlayerFadeMs", 250);
     g_frzMs = IniInt(L"Spirit", L"SmokeFreezeMs", 600);
     if (g_frzMs < 100) g_frzMs = 100;
@@ -5951,10 +5951,15 @@ void SealEndOnHitTick() {
             bursts, fresh, n, masked, now - sess);
     }
     // human #107991: first burst from a helper actor (not the seal) -> end the form SealExitOnHelperMs later, helper left visible
-    static double helperSess = -1, helperOpen = -1;
+    // #108105 guard (universal, no core ids): the helper must own the core's LAST burst. With a learned count that is burst >= want
+    // (5129B: helper burst 1 of 2, the seal's burst 2 is last -> no helper exit). Without a count, only while the seal itself has
+    // not opened a burst this form (once the seal hits, the attack is still the seal's and the normal rules end it).
+    static double helperSess = -1, helperOpen = -1, sealHitSess = -1;
     static std::set<uint64_t> helpers;
     if (helperSess != sess) helpers.clear();
-    if (newCluster && seal && g_exitOnHelperMs.load() >= 0)
+    if (newCluster && seal) { auto me = freshActors.find(seal); if (me != freshActors.end() && me->second > 0) sealHitSess = sess; }
+    const bool helperLast = want > 0 ? bursts >= want : sealHitSess != sess;
+    if (newCluster && seal && g_exitOnHelperMs.load() >= 0 && helperLast)
         for (const auto& a : freshActors) if (a.second > 0 && a.first != seal && a.first != g_fh4.owner) {
             helpers.insert(a.first);
             if (helperSess != sess) {

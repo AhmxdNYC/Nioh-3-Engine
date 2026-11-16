@@ -121,6 +121,7 @@ int main(){
  ini[L"SealExitAtLastHitMs"]=L"-9999";LoadExitSetting();check(g_exitAtLastHitMs==-9999);
  ini[L"SealExitAtLastHitMs"]=L"-900";LoadExitSetting();check(g_exitAtLastHitMs==-500);
  ini[L"SealExitAtLastHitMs"]=L"9000";LoadExitSetting();check(g_exitAtLastHitMs==1000);
+ check(g_exitOnHelperMs==150);g_exitOnHelperMs=-1; // #108110: shipped default on; the rule itself is covered by helper_exit_replay_offline.py
  start();first();check(smokes==0&&g_ghostReq==0);step(1.5,true);
  check(smokes==1&&g_ghostReq==456&&hidden==1&&despawns==0&&releases==0);
  check(std::abs(g_ghostReqAt.load()-(base+1.6))<.00001);step(1.6,true);step(1.7,false);check(smokes==1);
