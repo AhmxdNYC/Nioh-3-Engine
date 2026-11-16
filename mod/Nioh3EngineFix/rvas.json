@@ -686,7 +686,8 @@
    "pattern": "40 55 53 56 57 41 56 48 8D AC 24 50 08 FF FF B8 B0 F8 00 00",
    "offset": 0,
    "used_in": [
-    "loadstats.cpp"
+    "loadstats.cpp",
+    "zinflate.cpp"
    ]
   },
   {
@@ -708,9 +709,36 @@
    ]
   },
   {
+   "rva": "0x42FC11",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 45 33 C0 48 8B F8 8A 48 02 88 08 8A 48 03 88 48 01 44 89 40 02 44 89 40 08 66 44 89 40 0C 44 8B 6B 28 8B 4B 30 8B 43",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x42FD92",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 8A 40 03 88 45 67 EB",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x430189",
    "kind": "code",
    "pattern": "48 3B DF 0F 84 ?? ?? ?? ?? 44 8B 63",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x4301A2",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 41 8B CC 4C 8B F0 E8 ?? ?? ?? ?? 45 33 C0 84",
    "offset": 0,
    "used_in": [
     "padguard.cpp"
@@ -726,9 +754,27 @@
    ]
   },
   {
+   "rva": "0x43028F",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 45 33 C0 44 38 40 02 75 0A 44 38 40 03 0F 84 ?? ?? ?? ?? 83 7D 7F FF",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x430316",
    "kind": "code",
    "pattern": "48 3B 7E 18 0F 84 ?? ?? ?? ?? 44 8B 6F 10 48 8D 4E 50 48 8D",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x430330",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 45 33 C0 4C 8B E0 44",
    "offset": 0,
    "used_in": [
     "padguard.cpp"
@@ -744,10 +790,27 @@
    ]
   },
   {
+   "rva": "0x4303C2",
+   "kind": "none",
+   "why": "no unique pattern for 0x4303C2",
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x430499",
    "kind": "code",
    "pattern": "FF 0F 84 87 FE FF FF 41 83 FE FF 0F 84 ?? ?? ?? ?? 48 8B 5E 18 48 8B 1B 48 3B 5E 18 0F 84 ?? ?? ?? ?? 8B 53",
    "offset": 24,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x4304C2",
+   "kind": "code",
+   "pattern": "66 36 4D 00 84 C0 75 DC 48 8D 55 67 48 8D 4E 50 E8 ?? ?? ?? ?? 45 33 C0 44 38 40 02",
+   "offset": 16,
    "used_in": [
     "padguard.cpp"
    ]
@@ -798,6 +861,32 @@
    ]
   },
   {
+   "rva": "0x43138F",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 38 48 02 75 09 38 48 03 0F 84 ?? ?? ?? ?? 83 7D 60 FF 0F 85 ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x431690",
+   "kind": "none",
+   "why": "no unique pattern for 0x431690",
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x4316F9",
+   "kind": "code",
+   "pattern": "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? CC CC CC 48 8B 41 30 4C 8B 59 18 49 23 C1 4C 8B 51 08 48 03 C0 4D 8B 4C C3 08 4D 3B CA 74 1F 49 8B 0C C3 41 8B 00 41 3B 41 10 0F 85 ?? ?? ?? ?? 49 8B 01 48 89 02 4C 89 4A 08 48 8B C2 C3 4C 89 12 E9 ?? ?? ?? ?? CC 41",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x436758",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F",
@@ -828,6 +917,15 @@
    "rva": "0x438659",
    "kind": "code",
    "pattern": "49 3B DE 74 CC 8B 73 10 48 8D 4F 50",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x43866E",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 4C 8B 97 F0 00 00 00",
    "offset": 0,
    "used_in": [
     "padguard.cpp"
@@ -1154,7 +1252,8 @@
    "pattern": "40 55 53 56 57 41 54 41 56 41 57 48 8D AC 24 50 08 FF FF B8",
    "offset": 0,
    "used_in": [
-    "loadstats.cpp"
+    "loadstats.cpp",
+    "zinflate.cpp"
    ]
   },
   {
@@ -1569,7 +1668,8 @@
    "pattern": "40 55 53 56 57 41 56 41 57 48 8D AC 24 48 80 FF FF B8 B8 80",
    "offset": 0,
    "used_in": [
-    "loadstats.cpp"
+    "loadstats.cpp",
+    "zinflate.cpp"
    ]
   },
   {

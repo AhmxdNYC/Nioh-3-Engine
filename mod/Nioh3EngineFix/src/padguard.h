@@ -20,5 +20,7 @@ struct StartInfo {
 void Start(const StartInfo& info);
 // Total null links caught since start (0 when not installed).
 long Hits();
+// #96: pad-walk at() misses answered with a zeroed value since start (0 when not installed).
+long MapHits();
 
 }  // namespace padguard
