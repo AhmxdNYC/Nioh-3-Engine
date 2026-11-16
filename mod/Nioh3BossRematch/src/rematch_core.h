@@ -100,6 +100,13 @@ inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
     return scriptGate || (!r.atFight && r.GateDoor()) ? kAtNative : kAtNone;
 }
 inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
+// #107642: a refused request (any gate, incl. 'mission state not readable' / 'mission queue full' after Training was told) drops
+// both halves of a 'Train in this arena' pick: BR's row pick and Training's SetArenaOnlyNext, so the next normal Fight now fights.
+template <class RowPick>
+inline void ArenaOnlyRefuseClear(RowPick& row, void (*setArenaOnlyNext)(int)) {
+    row.store(-1);
+    if (setArenaOnlyNext) setArenaOnlyNext(0);
+}
 inline bool StaleBossModeOnMissionChange(bool fightFlag, bool bossModeOpen, uint32_t lastMission) {
     return lastMission && (fightFlag || bossModeOpen);
 }

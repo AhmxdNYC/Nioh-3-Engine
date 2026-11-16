@@ -1084,7 +1084,8 @@ const char* FnName(int v) {
 uint64_t g_qHashAtOpen = 0;
 
 void Refuse(const char* why) {
-    g_arenaOnlyRow.store(-1);  // #107514: a refused request never leaves a 'Train in this arena' pick for a later Fight now
+    // #107514/#107642: a refused request never leaves a 'Train in this arena' pick (BR row or Training arena-only) for a later Fight now
+    rcore::ArenaOnlyRefuseClear(g_arenaOnlyRow, (void (*)(int))TrainingExport("Nioh3Training_SetArenaOnlyNext"));
     Log("Rematch: refused: %s", why);
     Result("refused: %s", why);
     ToastF(cOrange, 6000, "Boss match refused: %s", why);

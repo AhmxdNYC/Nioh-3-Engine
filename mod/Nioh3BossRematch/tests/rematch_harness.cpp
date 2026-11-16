@@ -329,6 +329,17 @@ int main(int argc, char** argv) {
               "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box without a script gate is not offered");
         CHECK(rcore::ArenaOnlyGate(true, 1653104599u) == 0 && rcore::ArenaOnlyGate(false, 1653104599u) == 1653104599u,
               "#107514: arena-only never requests the boss gate; a normal Fight now keeps it");
+        {  // #107642: Refuse clears both halves of the pick, also when Training was already told (refused after SetArenaOnlyNext(1))
+            static int trNext = -1;
+            struct Pick { int v; void store(int x) { v = x; } } pick{5};
+            auto setNext = [](int on) { trNext = on; };
+            trNext = 1;  // ExecDirect told Training arena-only, then 'mission queue full'
+            rcore::ArenaOnlyRefuseClear(pick, setNext);
+            const bool cleared = pick.v == -1 && trNext == 0;
+            pick.v = 7; trNext = 1;
+            rcore::ArenaOnlyRefuseClear(pick, nullptr);  // no Training loaded: BR pick still cleared, no call
+            CHECK(cleared && pick.v == -1 && trNext == 1, "#107642: a refused arena trip clears BR's row pick and Training's arena-only flag");
+        }
     }
     {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
         int warned = 0;
