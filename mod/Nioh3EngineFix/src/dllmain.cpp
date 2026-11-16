@@ -166,6 +166,8 @@ extern uint64_t l1_callee;
 extern uint32_t vrr_enable;
 extern uint32_t vrr_tier;
 extern uint32_t vrr_capCur;
+extern uint64_t vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;  // Tier120Floor (GitHub #98)
+extern uint32_t vrr_floorOn, vrr_floorEnters;
 extern uint32_t vrr_arm[3];
 extern uint32_t vrr_cap[3];
 BOOL WINAPI hookPeek(LPMSG msg, HWND wnd, UINT fmin, UINT fmax, UINT remove);
@@ -464,6 +466,7 @@ struct Config {
     int minF[3] = {20, 24, 48};
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
+    int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -593,6 +596,10 @@ Config LoadConfig() {
     }
     c.maxFps = I(L"VRR", L"MaxFps", c.maxFps);
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
+    c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
+    c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
+    c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
+    c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
     c.r1Ms = std::clamp(I(L"Tuning", L"R1_TimeoutMs", c.r1Ms), 0, 16);
     c.l1MarginUs = std::clamp(I(L"Tuning", L"L1_MarginUs", c.l1MarginUs), 200, 20000);
@@ -1522,6 +1529,12 @@ void ConfigureVrr(const Config& c) {
         vrr_maxNs[i] = 1000000000ull / (uint64_t)minF;  // longest interval
         Log("VRR tier %3d: armed=%u clamp %d..%d fps, limiter cap %d", tiers[i], vrr_arm[i], minF, maxF, maxF);
     }
+    vrr_floorNs = c.t120Floor ? 1000000000ull / (uint64_t)c.t120Floor : 0;
+    vrr_floorHoldNs = (uint64_t)c.t120FloorHoldMs * 1000000ull;
+    vrr_floorProbeNs = (uint64_t)c.t120FloorProbeS * 1000000000ull;
+    if (c.t120Floor)
+        Log("VRR Tier120Floor: below %d fps for %d ms the 120 tier runs as the 60 tier for %d s, then re-measures (GitHub #98)",
+            c.t120Floor, c.t120FloorHoldMs, c.t120FloorProbeS);
     // stock-equivalent values until the first P1 frame (tier assumed 60 there; overwritten every frame by caveFps)
     auto nd = reinterpret_cast<NearData*>(g_near);
     nd->ticks120 = 2;

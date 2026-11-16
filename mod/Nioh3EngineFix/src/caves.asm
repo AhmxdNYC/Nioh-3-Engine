@@ -25,6 +25,7 @@ EXTERN L1Wait:PROC
 PUBLIC caveFps, caveScale, caveLim, caveTier, caveMenu, caveL1
 PUBLIC vrr_minNs, vrr_maxNs, vrr_pNear, vrr_getDelta60, l1_callee
 PUBLIC vrr_enable, vrr_tier, vrr_capCur, vrr_arm, vrr_cap, vrr_fpsOut, vrr_scale, vrr_last
+PUBLIC vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs, vrr_floorOn, vrr_floorEnters
 PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
 PUBLIC tg_cap
 
@@ -34,6 +35,14 @@ vrr_prev        dq 0            ; previous frame start (ns, G+7D8)
 vrr_acc120      REAL8 0.0       ; 120 Hz tick carry
 vrr_acc60       REAL8 0.0       ; 60 Hz tick carry
 vrr_last        dq 0            ; last clamped interval (ns), diagnostics
+; Tier120Floor (GitHub #98): in the 120 tier, after HoldNs of frames slower than the floor the caves act as the
+; 60 tier (60 cap, fps 60, tier 60 to GetFps) for ProbeNs, then re-measure. 0 = off.
+vrr_floorNs      dq 0           ; 1e9 / floor fps; 0 = off
+vrr_floorHoldNs  dq 0
+vrr_floorProbeNs dq 0
+vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
+vrr_floorOn      dd 0
+vrr_floorEnters  dd 0
 c_1e9           REAL8 1.0e9
 c_120           REAL8 120.0
 c_60            REAL8 60.0
@@ -96,6 +105,45 @@ lIdx:
     je      lStock
     mov     rax, qword ptr [rdi+7D8h]
     sub     rax, rcx
+    cmp     r9d, 2
+    jne     fNo
+    cmp     qword ptr [vrr_floorNs], 0
+    je      fNo
+    mov     rdx, rax                            ; accounting interval, capped at the 120 tier's longest
+    cmp     rdx, qword ptr [vrr_maxNs+16]
+    jle     f0
+    mov     rdx, qword ptr [vrr_maxNs+16]
+f0:
+    cmp     dword ptr [vrr_floorOn], 0
+    jne     fOn
+    cmp     rax, qword ptr [vrr_floorNs]
+    jle     fFast
+    add     qword ptr [vrr_lowAcc], rdx
+    jmp     fChk
+fFast:
+    sub     qword ptr [vrr_lowAcc], rdx
+    jge     fChk
+    mov     qword ptr [vrr_lowAcc], 0
+fChk:
+    mov     rdx, qword ptr [vrr_lowAcc]
+    cmp     rdx, qword ptr [vrr_floorHoldNs]
+    jl      fNo
+    mov     dword ptr [vrr_floorOn], 1
+    mov     qword ptr [vrr_lowAcc], 0
+    lock inc dword ptr [vrr_floorEnters]
+    jmp     fUse
+fOn:
+    add     qword ptr [vrr_lowAcc], rdx
+    mov     rdx, qword ptr [vrr_lowAcc]
+    cmp     rdx, qword ptr [vrr_floorProbeNs]
+    jl      fUse
+    mov     dword ptr [vrr_floorOn], 0          ; probe: measure the 120 tier again
+    mov     qword ptr [vrr_lowAcc], 0
+    jmp     fNo
+fUse:
+    mov     r9d, 1                              ; act as the 60 tier
+    mov     dword ptr [vrr_tier], 60
+fNo:
     lea     rdx, vrr_minNs
     cmp     rax, qword ptr [rdx+r9*8]
     jge     a1
