@@ -834,6 +834,14 @@
    "class": "relaunch"
   },
   {
+   "key": "PadListGuard",
+   "section": "General",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "ReBarNotice",
    "section": "General",
    "cls": "relaunch",
@@ -1130,6 +1138,14 @@
    "class": "relaunch"
   },
   {
+   "key": "PollFix",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "AS0",
    "section": "Patches",
    "cls": "relaunch",
@@ -1163,6 +1179,14 @@
   },
   {
    "key": "FGC",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
+   "key": "PTS",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms / one launch per arm",
@@ -3019,6 +3043,14 @@
   },
   {
    "key": "MLP",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms",
+   "why": "patch group without a live switch",
+   "class": "relaunch"
+  },
+  {
+   "key": "PG",
    "section": "Patches",
    "cls": "relaunch",
    "via": "abba2 -Arms",

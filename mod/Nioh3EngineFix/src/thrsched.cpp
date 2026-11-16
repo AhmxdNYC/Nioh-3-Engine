@@ -743,14 +743,35 @@ struct FpwSpin {
 };
 FpwSpin g_fpwS[2];  // 0 = FileLoad.Poll, 1 = FileLoad (one thread each)
 volatile LONG64 g_fpwPass[2] = {}, g_fpwPause[2] = {}, g_fpwYield[2] = {}, g_fpwSleep[2] = {}, g_fpwSleptUs[2] = {};
+// PollFix (#108505, [Patches] PollFix = 0 | 1, default 0). PC2 4c/8t #108491: FileLoad 18.5 + FileLoad.Poll 10.7 CPU-s/min
+// in play because the FPW CPU gate (8 CPUs > cap 6) left the stock spin on. PollFix = the same FPW back-off with NO CPU
+// gate (nothing per CPU count), plus wait-on-work between the two loaders: a back-off timer wait also waits on this
+// thread's wake event, and whichever loader sees a ring counter move after its pass sets the other's event if that one
+// is waiting. FileLoad mostly waits for Poll's read-done, so it resumes the moment Poll's pass advances it, not after
+// the timer. Same requests, same order: the native loop still makes every decision, the thunk never writes game memory.
+volatile LONG g_pollFix = 0;
+volatile LONG g_pfWaiting[2] = {};
+HANDLE g_pfWake[2] = {};
+uint32_t g_pfSeen[2][4] = {};  // per thread: counters at its previous pass (any pass, looping or not)
+volatile LONG64 g_pfWakes[2] = {}, g_pfWoken[2] = {};  // events set FOR thread k / waits of k ended by its event
 
 void FpwBackoff(uint8_t* lock, int k) {
-    if (!g_fpwOn) {  // gate closed (affinity above the cap): stock loop; forget the idle run so a re-open starts fresh
+    const bool pf = g_pollFix != 0;
+    if (!g_fpwOn && !pf) {  // gate closed (affinity above the cap) and no PollFix: stock loop; forget the idle run
         g_fpwS[k].idle = false;
         return;
     }
     const volatile uint32_t* c = reinterpret_cast<const volatile uint32_t*>(lock - kFpwLockOff + kFpwCtrOff);
     const uint32_t v[4] = {c[0], c[1], c[2], c[3]};
+    if (pf) {  // wait-on-work: a counter moved since this thread's previous pass -> wake the other loader if it waits
+        if (memcmp(g_pfSeen[k], v, sizeof(v))) {
+            memcpy(g_pfSeen[k], v, sizeof(v));
+            if (g_pfWaiting[1 - k] && g_pfWake[1 - k]) {
+                SetEvent(g_pfWake[1 - k]);
+                InterlockedIncrement64(&g_pfWakes[1 - k]);
+            }
+        }
+    }
     const bool again = k == 0 ? (v[0] > v[2] || v[2] > v[3]) : v[0] > v[2];  // the native loop condition
     FpwSpin& s = g_fpwS[k];
     const DWORD tid = GetCurrentThreadId();
@@ -789,7 +810,23 @@ void FpwBackoff(uint8_t* lock, int k) {
     LARGE_INTEGER due;
     due.QuadPart = -(LONGLONG)g_fpwSleepUs * 10;
     if (s.timer != INVALID_HANDLE_VALUE && SetWaitableTimer(s.timer, &due, 0, nullptr, nullptr, FALSE)) {
-        WaitForSingleObject(s.timer, 50);
+        if (pf && g_pfWake[k]) {
+            InterlockedExchange(&g_pfWaiting[k], 1);
+            // re-read after announcing the wait, so a move just before it is not missed (the other side checks the flag)
+            const bool moved = c[0] != v[0] || c[1] != v[1] || c[2] != v[2] || c[3] != v[3];
+            DWORD w = WAIT_TIMEOUT;
+            if (!moved) {
+                HANDLE hs[2] = {s.timer, g_pfWake[k]};
+                w = WaitForMultipleObjects(2, hs, FALSE, 50);
+            }
+            InterlockedExchange(&g_pfWaiting[k], 0);
+            if (moved || w == WAIT_OBJECT_0 + 1) {
+                CancelWaitableTimer(s.timer);
+                InterlockedIncrement64(&g_pfWoken[k]);
+            }
+        } else {
+            WaitForSingleObject(s.timer, 50);
+        }
         LARGE_INTEGER t1;
         QueryPerformanceCounter(&t1);
         InterlockedIncrement64(&g_fpwSleep[k]);
@@ -1058,14 +1095,28 @@ void Start(const StartInfo& info) {
             WritePrivateProfileStringW(L"Patches", L"FileLoadPoll", L"1", info.iniPath);
         WritePrivateProfileStringW(L"Patches", L"FpwDefaultV", L"1", info.iniPath);
     }
-    if (I(L"Patches", L"FileLoadPoll", 1) == 1) {
+    const bool fpwKey = I(L"Patches", L"FileLoadPoll", 1) == 1;
+    const bool pollFix = I(L"Patches", L"PollFix", 0) == 1;  // #108505, default 0; independent of FileLoadPoll
+    if (fpwKey || pollFix) {
         g_fpwMaxCpus = std::clamp(I(L"Tuning", L"FileLoadPoll_MaxCpus", 6), 1, 64);
         g_fpwSpinUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SpinUs", 20), 0, 10000);
         g_fpwYieldUs = std::clamp(I(L"Tuning", L"FileLoadPoll_YieldUs", 200), g_fpwSpinUs, 100000);
         g_fpwSleepUs = std::clamp(I(L"Tuning", L"FileLoadPoll_SleepUs", 250), 0, 5000);
         QueryPerformanceFrequency(&g_fpwQpf);
+        if (pollFix) {
+            g_pfWake[0] = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+            g_pfWake[1] = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        }
         if (g_fpwQpf.QuadPart > 0 && FpwInstall()) {
             g_fpwInstalled = true;
+            if (pollFix) {
+                InterlockedExchange(&g_pollFix, 1);
+                TLOG("PollFix: ON (FileLoad.Poll 116F12 + FileLoad 11702C idle passes back off at ANY CPU count: pause %d us, yield to %d us, "
+                     "then %d us waits that end at once when the other loader moves the ring; wake events %s)",
+                     g_fpwSpinUs, g_fpwYieldUs, g_fpwSleepUs, g_pfWake[0] && g_pfWake[1] ? "ok" : "MISSING (timer only)");
+            }
+        }
+        if (g_fpwInstalled && fpwKey) {
             TLOG("FPW: installed (FileLoad.Poll 116F12 + FileLoad 11702C idle passes back off: pause %d us, yield to %d us, then %d us "
                  "timer waits; any ring progress runs the next pass at once; only while the process affinity has <= %d CPUs)",
                  g_fpwSpinUs, g_fpwYieldUs, g_fpwSleepUs, g_fpwMaxCpus);
@@ -1073,6 +1124,7 @@ void Start(const StartInfo& info) {
             if (HANDLE h = CreateThread(nullptr, 0, FpwGateThread, nullptr, 0, nullptr)) CloseHandle(h);
             else TLOG("FPW: gate thread not started - the affinity at boot decides for the whole launch");
         }
+        if (!g_fpwInstalled && pollFix) TLOG("PollFix: not installed (see the FPW line above)");
     }
 
     if (I(L"Profiler", L"ThreadState", 0) == 1) {
@@ -1101,6 +1153,12 @@ void FlpStatusLine(char* buf, unsigned n) {
         snprintf(buf + o, n - o, "%sFPW: Poll passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | FileLoad passes %lld (pause %lld, yield %lld, sleep %lld = %lld ms) | gate %s (%ld CPUs, cap %d)",
                  o ? " || " : "", g_fpwPass[0], g_fpwPause[0], g_fpwYield[0], g_fpwSleep[0], g_fpwSleptUs[0] / 1000, g_fpwPass[1],
                  g_fpwPause[1], g_fpwYield[1], g_fpwSleep[1], g_fpwSleptUs[1] / 1000, g_fpwOn ? "ON" : "off", g_fpwCpus, g_fpwMaxCpus);
+        if (g_pollFix) {
+            const size_t L = strlen(buf);
+            if (L < n)
+                snprintf(buf + L, n - L, " | PollFix ON: wakes to Poll %lld (ended a wait %lld), to FileLoad %lld (ended a wait %lld)", g_pfWakes[0],
+                         g_pfWoken[0], g_pfWakes[1], g_pfWoken[1]);
+        }
     }
 }
 
