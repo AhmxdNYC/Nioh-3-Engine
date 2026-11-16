@@ -971,3 +971,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 7:3x pm EST | regression-pc/0 | leave-waves edb3e8d3 reviewed (#107129): FAIL only on test_native_attempt stub; re-review after fix. Do not task twice.
 - 2026-11-15 7:3x pm EST | regression-pc/0 | leave-waves e07773fb BR dd0a5ca9 regression PASS (#107170 re 107168). Do not task twice.
 - 2026-11-15 7:0x pm EST | pc/1 session end | DONE: #106699 RA0A1 PASS (#106781), #106798 rc-1819 Main PC crash tests PASS (#107075). HALF-DONE: none. Main PC on public 1.8.17, lock free, no game. NEXT: wait for lead TASK (PC2/Ally crash-test parts are theirs). Files: Temp/dojo106699, Temp/rc1819-106798 (boot.ps1, vgplug.py).
+- 2026-11-15 8:05 pm EST | pc/1 | TASK installer-pc publish v1.8.19 bundle #7900 (re 107305, human OK #107302). Leave-waves dd0a5ca9 out. Waiting on installer-pc RESULT; then Done to human. Do not task twice.
