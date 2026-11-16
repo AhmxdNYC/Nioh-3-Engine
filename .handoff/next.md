@@ -983,3 +983,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-15 10:08 pm EST | pc/2 | stall-check #107595: ally #107553 = limit msg only. TASKed ally arena-train live test (re 107553): BR 654e5e90 #7939 + TR ec6a9325 #7940 on v1.8.20 RC set, source cx-pc/arena-train-107514 2bd4569c. Do not task twice.
 - 2026-11-15 10:14 pm EST | pc/2 | HUMAN #107632 'test done yet?': told running on Ally (#107615) + PC2 + regression-pc review, no result yet (#107638). Owe ONE Done/fail TO-USER when RESULTs land. Do not resend.
 - 2026-11-15 10:1x pm EST | regression-pc/0 | arena-train 2bd4569c regression PASS #107639 (minor Refuse leak advised). Do not task twice.
+- 2026-11-15 10:23 pm EST | pc/2 | regression-pc #107639 PASS offline arena-train 2bd4569c (419/419, audit baseline; minor fix: Refuse() must SetArenaOnlyNext(0)). No Done to human: live Ally #107615 + PC2 pending. regression-pc already on fix review. Do not resend.
