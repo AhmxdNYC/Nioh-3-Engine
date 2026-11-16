@@ -2419,7 +2419,8 @@ static void EnterTick(void) {
         g_en.tReady = 0; if (g_en.warped) g_en.tWarp = now; return;
     }
     if (mission != r->mission) {
-        if (g_en.warped) { Log("ENTER %s: mission changed; fallback cancelled", r->id); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
+        // #107683: an entry that already ended (arena-only route 6, fallback, placement) has no fallback left to cancel: close it under its own name
+        if (g_en.warped) { if (g_en.active) Log("ENTER %s: mission changed; fallback cancelled", r->id); else Log("ENTER %s: mission left (entry ended, route %d)", r->id, g_en.route); g_en.active = 0; g_en.route = 0; g_en.confirmed = 0; }
         return;
     }
     NativeRosterTick(now);
@@ -3358,6 +3359,8 @@ static void EntryCoverBegin(ArenaRow* r) {
 N3T_API int Nioh3Training_ScrollCover(const char* name, int on) {
     if (!on) { if (g_entry_scroll) EntryCoverEnd("scroll trip ready"); return 1; }
     EntryCoverEnd("replaced entry");
+    // #107683: a scroll trip is a new trip: a finished native entry of the previous trip closes now, not later as a stale 'mission changed' line
+    if (g_en.confirmed && !g_en.active) { Log("ENTER %s: closed by a new Picture Scroll trip (entry ended, route %d)", g_en.row ? g_en.row->id : "-", g_en.route); g_en.route = 0; g_en.confirmed = 0; }
     snprintf(g_entry_scroll_name, sizeof g_entry_scroll_name, "%s", name ? name : "");
     g_entry_scroll = 1;
     EntryCoverBegin(0);
@@ -3394,11 +3397,13 @@ static void EntryCoverTick(void) {
     // The placement is already live and its script path does not reach boss mode. A door (gate still
     // open, or a row that does reach WaitWarpStart / BossBattleMode) stays covered until FIGHT start.
     const int openPlacement = g_en.noBossMode && !g_en.gated && g_en.route==2 && inMission;
+    // #107683: 'Train in this arena' (route 6) has no boss to wait for: arrival in the arena is the end of the entry
+    const int arenaOnly = g_en.arenaOnly && g_en.route==6 && inMission;
     EntryCover prior=g_entryCover;
-    int action=EcStep(&g_entryCover,GetTickCount(),cancel,g_entry_scroll ? hit : (ready || lesson || wave || hit || openPlacement),0);
+    int action=EcStep(&g_entryCover,GetTickCount(),cancel,g_entry_scroll ? hit : (ready || lesson || wave || hit || openPlacement || arenaOnly),0);
     if(action==EC_END || action==EC_TIMEOUT) {
         g_entryCover=prior;
-        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : openPlacement ? "native placement live, no boss mode" : hit ? "player hit" : "cancel/return/failed");
+        EntryCoverEnd(action==EC_TIMEOUT ? "hard timeout (fight unproven)" : ready ? "fallback actor live" : wave ? "wave member live" : lesson ? "script-dormant teacher, player in the mission" : openPlacement ? "native placement live, no boss mode" : arenaOnly ? "Train in this arena: in the arena" : hit ? "player hit" : "cancel/return/failed");
         return;
     }
     if(action==EC_HIDE) { EntryLs(0,"native intro visible"); if(p_osdMask) p_osdMask(0,0); }
@@ -3909,9 +3914,16 @@ static int NativeFallbackOwns(void) {
         mission == g_en.row->mission && CurWorld() == g_en.row->world;
 }
 // Native Proceed is owned without a dynamic actor or synthetic Return gadget.
+// #107683: a 'Train in this arena' trip (route 6) has no native phase and no fallback, but is the same Boss Match trip: pause >
+// Return from Mission opens our Return page, not the stock abandon box. Only in that row's mission and world.
+static int NativeArenaOnlyOwns(void) {
+    uint32_t mission = 0, mode = 0; uint8_t journey = 0;
+    return g_en.confirmed && g_en.arenaOnly && g_en.route == 6 && g_en.row && MsRead(&mission, &journey, &mode) &&
+        mission == g_en.row->mission && CurWorld() == g_en.row->world;
+}
 N3T_API uint32_t Nioh3Training_NativeGateMission(void) {
     const uint8_t* st = GameState();
-    if (!st || st[2] || g_rh.active || g_rh.want || !g_en.warped || !(NativePhaseMatches() || NativeFallbackOwns())) return 0;
+    if (!st || st[2] || g_rh.active || g_rh.want || !g_en.warped || !(NativePhaseMatches() || NativeFallbackOwns() || NativeArenaOnlyOwns())) return 0;
     return g_en.row->mission;
 }
 // user #6789/#6798: 'Return to where I was' as a PHYSICAL object in the arena = the game's own mission clear gadget (the one the mission script spawns at the boss

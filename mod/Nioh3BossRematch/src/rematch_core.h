@@ -100,6 +100,11 @@ inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
     return scriptGate || (!r.atFight && r.GateDoor()) ? kAtNative : kAtNone;
 }
 inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
+// #107683: the Return page of a running 'Train in this arena' trip (Training owns its mission gate) is the no-waves scroll page:
+// Training rows, Return, Back, Close. No Fight again (it would reload the mission as a normal boss fight).
+inline bool ArenaOnlyGatePage(bool fightRunning, bool arenaOnlyTrip, uint32_t nativeGateMission) {
+    return fightRunning && arenaOnlyTrip && nativeGateMission != 0;
+}
 // #107642: a refused request (any gate, incl. 'mission state not readable' / 'mission queue full' after Training was told) drops
 // both halves of a 'Train in this arena' pick: BR's row pick and Training's SetArenaOnlyNext, so the next normal Fight now fights.
 template <class RowPick>

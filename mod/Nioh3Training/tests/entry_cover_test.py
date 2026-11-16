@@ -23,7 +23,7 @@ static struct {int active;} g_rh;
 static int g_entry_scroll; // #78735 Picture Scroll trip flag (fixture drift, #98173)
 static int g_rh_ls_on,g_cfg_entry_ls=1,installed=1;
 static struct {int on;} g_el;
-static struct {int confirmed,route,warped,fellBack,dormant,waveOwned,noBossMode,gated;} g_en;
+static struct {int confirmed,route,warped,fellBack,dormant,waveOwned,noBossMode,gated,arenaOnly;} g_en;
 static int g_ph_giveup;
 static int LessonNote(void){return 0;}
 static void EntryScreenNote(const char* msg){(void)msg;}
@@ -66,6 +66,12 @@ int main(void){
  now+=501;assert(!EntryCoverProtect());
  g_en.fellBack=1;g_en.route=3;EntryCoverBegin(&row);EntryCoverFight();assert(screen); // history-open before actor
  g_en.route=4;EntryCoverTick();assert(!screen&&!g_entryCover.active);
+ // #107683: 'Train in this arena' arrival (route 6, in the mission) ends the cover at once, not at the 90 s cap
+ g_en.fellBack=0;g_en.route=1;g_en.warped=0;g_en.arenaOnly=1;now=20000;EntryCoverBegin(&row);EntryCoverTick();assert(screen); // loading: covered
+ g_en.warped=1;g_en.route=6;gs[2]=1;EntryCoverTick();assert(screen); // still in a transition: covered
+ gs[2]=0;now=21000;EntryCoverTick();assert(!screen&&!g_entryCover.active); // in the arena: cover ends
+ g_en.arenaOnly=0;g_en.route=6;EntryCoverBegin(&row);EntryCoverTick();assert(screen); // route 6 alone (no arena-only pick) is not arrival
+ EntryCoverEnd("t");g_en.warped=0;
  g_en.fellBack=0;g_en.route=1;now=30000;EntryCoverBegin(&row);now+=89999;EntryCoverTick();assert(screen);
  now++;EntryCoverTick();assert(!screen&&!mask&&!g_entryCover.active); // hard wall-clock limit
  now+=501;assert(!EntryCoverProtect());

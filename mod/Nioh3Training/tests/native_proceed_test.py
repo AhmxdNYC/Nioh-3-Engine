@@ -19,7 +19,7 @@ typedef unsigned long DWORD;typedef long LONG;
 static LONG InterlockedIncrement(volatile LONG*p){return ++*p;}
 static struct {int active,want;}g_rh;
 static struct {uint32_t mission;int world;}row={0x3513,7};
-static struct {int confirmed,warped,fellBack;void*unused;typeof(row)*row;}g_en;
+static struct {int confirmed,warped,fellBack,arenaOnly,route;void*unused;typeof(row)*row;}g_en;
 static uint32_t curMission=0x3513;static int curWorld=7,msOk=1;
 static int MsRead(uint32_t*m,uint8_t*j,uint32_t*mode){*m=curMission;*j=0;*mode=0;return msOk;}
 static int CurWorld(void){return curWorld;}
@@ -97,11 +97,23 @@ int main(void){
  reset();match=0;g_en.fellBack=1;st[2]=1;assert(!Nioh3Training_NativeGateMission());
  reset();match=0;g_en.fellBack=1;g_rh.active=1;assert(!Nioh3Training_NativeGateMission());
  reset();match=0;assert(!Nioh3Training_NativeGateMission()&&h_endconf(0,0x2613)==99);  // no phase, no fallback: unchanged
- puts("PASS native Proceed: 30 cases (#106631 Training fallback owns Proceed: 12) (args popped once only when blocked), immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
+ // #107683: 'Train in this arena' (route 6: no native phase, no fallback) is the same trip: pause > Return opens our page
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;assert(Nioh3Training_NativeGateMission()==0x3513);
+ assert(h_endconf(0,0x2613)==0&&opened==1&&!original);
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;assert(h_cw2(0)==7&&opened==1&&button==-1&&pops==1);
+ // ...only after arrival (route 6), in that mission/world, with the entry still confirmed, not loading/returning
+ reset();match=0;g_en.arenaOnly=1;g_en.route=1;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.arenaOnly=0;g_en.route=6;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;curMission=0x1234;assert(!Nioh3Training_NativeGateMission()&&h_endconf(0,0x2613)==99);
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;curWorld=3;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;g_en.confirmed=0;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;st[2]=1;assert(!Nioh3Training_NativeGateMission());
+ reset();match=0;g_en.arenaOnly=1;g_en.route=6;g_rh.active=1;assert(!Nioh3Training_NativeGateMission());
+ puts("PASS native Proceed: 40 cases (#106631 Training fallback owns Proceed: 12; #107683 arena-only: 10) (args popped once only when blocked), immediate page, cancel script result, no duplicate UI, ownership/load guards, ordinary/practice preserved");
 }
 """
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);c=p/'test.c';exe=p/'test.exe'
- c.write_text(pre+fn('static int NativeFallbackOwns(')+fn('N3T_API uint32_t Nioh3Training_NativeGateMission(')+fn('static __attribute__((noinline)) uint64_t h_cw2(')+fn('static uint64_t h_endconf(')+main)
+ c.write_text(pre+fn('static int NativeFallbackOwns(')+fn('static int NativeArenaOnlyOwns(')+fn('N3T_API uint32_t Nioh3Training_NativeGateMission(')+fn('static __attribute__((noinline)) uint64_t h_cw2(')+fn('static uint64_t h_endconf(')+main)
  subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(c),'-o',str(exe)],check=True)
  subprocess.run([str(exe)],check=True)

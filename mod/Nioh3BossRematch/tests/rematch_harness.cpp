@@ -340,6 +340,9 @@ int main(int argc, char** argv) {
             rcore::ArenaOnlyRefuseClear(pick, nullptr);  // no Training loaded: BR pick still cleared, no call
             CHECK(cleared && pick.v == -1 && trNext == 1, "#107642: a refused arena trip clears BR's row pick and Training's arena-only flag");
         }
+        CHECK(rcore::ArenaOnlyGatePage(true, true, 0x3513u) && !rcore::ArenaOnlyGatePage(false, true, 0x3513u) &&
+                  !rcore::ArenaOnlyGatePage(true, false, 0x3513u) && !rcore::ArenaOnlyGatePage(true, true, 0u),
+              "#107683: the arena-only Return page (no Fight again) only while that trip runs and Training owns its mission gate");
     }
     {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
         int warned = 0;

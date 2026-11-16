@@ -4513,6 +4513,11 @@ int ItemsBase(int* out, int cap) {
             add(kItReturnHome); add(kItBack); add(kItClose);
             return n;
         }
+        if (rcore::ArenaOnlyGatePage(g_fight.load(), g_fightArenaOnly, NativeGateMission())) {  // #107683: pause > Return on a 'Train in this arena' trip
+            AddGateTrainingRows(add);
+            add(kItReturnHome); add(kItBack); add(kItClose);
+            return n;
+        }
         if (TrainingExport("Nioh3Training_GateFightAgain")) add(kItFightAgain);  // #9994: Fight again first, Return second
         const int mode = GateMode();  // user #13262: the gate page follows the session mode (0 = old 2-option page)
         if (mode == 2) {  // Training (#14336 item 11): short list, everything else is one level down in Training Bosses
