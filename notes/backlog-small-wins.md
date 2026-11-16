@@ -26,3 +26,4 @@ Priority list (feelable): PCIe/no-ReBAR fix (CbvMirror v2), display latency (Vrr
 stutter (PJH, needs a boss-fight route), cost-vs-looks only for items >= 1 ms.
 
 - 2026-11-16 performance-pc/0 | CANDIDATE (CPU, same picture): ECL submit thread does one ExecuteCommandLists(1) + one fence Signal per closed list (EclSubmitAndSignal 0x4F90DC, deepseek-flash-re-552 #108478). If lists/frame is high, batching N lists into one ECL + one Signal cuts driver CPU. First step: runtime count ECL calls/frame on Main PC (hook vtable+0x30) when the game is free; skip if under ~10/frame. Ring full = recorder stall at EclRingPushItem 0x86F828 (INFINITE wait).
+  - add-on (#108516, deepseek-flash-re-553): descriptor ring exhaustion cuts the command list and bumps ctx+0x2494/+0x2498/+0x249c (CBV/SRV/UAV). Log those per frame in the same run as the ECL count: cuts = extra lists = extra submits.
