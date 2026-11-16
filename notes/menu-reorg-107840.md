@@ -307,3 +307,14 @@ Baseline first: build the candidate untouched, run `mod/Nioh3EngineFix/tests/run
 
 Rules honoured: no per-boss hardcoding (boss rows stay catalogue/roster driven); every existing row still reachable (dev rows via Show advanced
 rows / ShowUnverified); no ini key renamed or removed (one additive key `[Menu] ShowAdvanced`); row Ids and bridge enums append-only.
+
+## 5. STYLE (human #107935, 11-15 11:55 pm EST: "I'd take that sort of style")
+Target = the mockups in notes/menu-reorg-107840/menu01-07.png (script mock.py, colors there).
+- Background panel (16,16,22) behind a page panel (28,28,38); title in gold (225,185,90), larger scale.
+- Tab bar across the top with the 7 section names; current section filled (150,110,40), others panel color.
+- Selected row: dark-gold bar (60,50,30) full width; submenu rows end with a gold '>'; values right-aligned in gold as '< value >'.
+- New/renamed rows green (110,200,120) only for the first release after the change (optional); advanced rows purple (170,140,210); Back dim.
+- Footer: one caption line + button hints from the host's Controller button style (no hardcoded A/B text).
+Renderer limits (EF osd.h: DrawRect + DrawText bitmap font osd_font.h): rounded corners and the proportional Segoe font in the mockups are
+NOT available as-is. Do square rects first (same colors/layout); rounded corners via corner rects or a font/atlas upgrade only as a later step.
+Keep it in EF draw code (menu.cpp ~2170-2380); rematch pages already render through the host, so one style covers all 3 mods.
