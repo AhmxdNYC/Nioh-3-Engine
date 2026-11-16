@@ -10,6 +10,7 @@ inline constexpr Entry kEntries[] = {
     {"General", "StartupPopup", "1"},
     {"General", "AutoContinueLoad", "0"},
     {"General", "PadListGuard", "1"},
+    {"General", "AiChainGuard", "1"},
     {"General", "ReBarNotice", "1"},
     {"Overlay", "FpsCounter", "1"},
     {"Overlay", "FrameTime", "1"},
