@@ -238,6 +238,9 @@ void Start(const StartInfo& info) {
         const uintptr_t miss = info.base + Grva(kAtMiss), atFn = info.base + Grva(kAtFn);
         const uint8_t* mb = (const uint8_t*)miss;
         bool ok = miss != info.base && atFn != info.base && mb[0] == 0x48 && mb[1] == 0x8D && mb[2] == 0x0D && mb[7] == 0xE8;
+        // the cave returns with `add rsp,28h ; ret`, so at() must open with exactly `sub rsp,28h` (no pushes) - regression #110682
+        static const uint8_t kAtHead[4] = {0x48, 0x83, 0xEC, 0x28};
+        if (ok) ok = memcmp((const void*)atFn, kAtHead, sizeof kAtHead) == 0;
         uintptr_t msg = 0, thrower = 0, rets[kNumAtCalls] = {};
         if (ok) {
             int32_t d;
