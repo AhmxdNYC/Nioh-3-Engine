@@ -42,6 +42,7 @@ struct Row {
     float warp[4] = {};        // the start point's spawn x y z yaw (game units / degrees), for the log
     // Fight now v2 (in the arena): a point just inside the arena trigger box (catalogue arena_x..arena_yaw) or a captured position
     bool arenaOk = false;      // arena[] valid: warp there after the load
+    bool arenaCat = false;     // #107705: arena[] from the catalogue (inside the trigger box; the same spot Training's arena table warps to), not a capture
     bool atFight = false;      // the mission already starts at the fight (one start point <= 30 m): no warp needed
     bool trFillTried = false;  // #65732: start point looked up in Nioh3Training's arena table once
     float arena[4] = {};
@@ -93,13 +94,25 @@ struct BossModeTrack {
 // own catalogue data, no per-row list (#87625). kAtScroll: a Picture Scroll / Dojo scroll trip with Emaki::RequestWaveBattle skipped (the
 // wave list is the scroll's only enemy source, #79507). kAtNative: Fight now load + arena warp with the boss gate never requested; offered
 // only where the boss start waits on that gate (generated script WaitWarpStart or a door gate, not a mission that starts at the fight).
+// #107705: and only where the row data puts the warp inside the arena (catalogue arena_x.., the 'arena' kind of Training's table). Without it
+// the trip lands at the start point outside the door (R1C7C, 25 m out) and opening the door starts the boss.
 enum ArenaTrainRoute : int { kAtNone = -1, kAtScroll = 0, kAtNative = 1 };
+enum ArenaTrainNo : int { kAtNoRoute = 0, kAtNoGate = 1, kAtNoArena = 2 };
+inline int ArenaTrainNoWhy(const Row& r, bool scriptGate) {
+    if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNoRoute;
+    if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNoGate;
+    return kAtNoArena;
+}
 inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
     if (r.route == kE) return kAtScroll;
     if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNone;
-    return scriptGate || (!r.atFight && r.GateDoor()) ? kAtNative : kAtNone;
+    if (!(scriptGate || (!r.atFight && r.GateDoor()))) return kAtNone;
+    return r.arenaCat ? kAtNative : kAtNone;
 }
 inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
+// Training entry route -> Fight now FAIL: 5 = failed; 0 = ended, a failure only before a pass (#107705: a leave after an arena-only
+// or native pass ends the entry too and showed fnow=fail).
+inline bool FnFailOnRoute(int route, bool passed) { return route == 5 || (route == 0 && !passed); }
 // #107683: the Return page of a running 'Train in this arena' trip (Training owns its mission gate) is the no-waves scroll page:
 // Training rows, Return, Back, Close. No Fight again (it would reload the mission as a normal boss fight).
 inline bool ArenaOnlyGatePage(bool fightRunning, bool arenaOnlyTrip, uint32_t nativeGateMission) {
@@ -248,6 +261,7 @@ inline int ParseCatalogue(const std::string& text, std::vector<Row>& rows, size_
                 for (int k = 0; k < 4; ++k) r.arena[k] = (float)atof(col(ac[k]).c_str());
                 r.arenaBox = (uint32_t)strtoul(col(cAbox).c_str(), nullptr, 0);
                 r.arenaOk = true;
+                r.arenaCat = true;
             }
             r.gateId = (uint32_t)strtoul(col(cGid).c_str(), nullptr, 0);
             {

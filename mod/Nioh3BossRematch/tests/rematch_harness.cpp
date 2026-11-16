@@ -317,7 +317,7 @@ int main(int argc, char** argv) {
                dojoWaves, dojoWavesNative);
         CHECK(!wrong && scroll > 0 && native > 0, "#107514: Train in this arena: scrolls take the no-waves trip, native rows only where the boss waits on a gate");
         rcore::Row gate;  // synthetic rows: the rule, not the catalogue
-        gate.route = rcore::kR; gate.missionId = 0x1234; gate.fightStart = 7; gate.arenaOk = true; gate.gateId = 99; snprintf(gate.gateKind, sizeof gate.gateKind, "door");
+        gate.route = rcore::kR; gate.missionId = 0x1234; gate.fightStart = 7; gate.arenaOk = gate.arenaCat = true; gate.gateId = 99; snprintf(gate.gateKind, sizeof gate.gateKind, "door");
         rcore::Row atFight = gate; atFight.atFight = true;
         rcore::Row box = gate; snprintf(box.gateKind, sizeof box.gateKind, "box");
         rcore::Row scrollRow; scrollRow.route = rcore::kE;
@@ -327,6 +327,25 @@ int main(int argc, char** argv) {
                   rcore::ArenaTrainRouteFor(box, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(scrollRow, false) == rcore::kAtScroll &&
                   rcore::ArenaTrainRouteFor(noStart, true) == rcore::kAtNone,
               "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box without a script gate is not offered");
+        // #107705 (Ally R1C7C): a door row whose arena spot is not in the catalogue lands at the start point outside the door: not offered
+        rcore::Row noArena = gate; noArena.arenaOk = noArena.arenaCat = false;
+        rcore::Row captured = gate; captured.arenaCat = false;  // a captured position: BR's warp only, Training's table still has the start point
+        CHECK(rcore::ArenaTrainRouteFor(noArena, false) == rcore::kAtNone && rcore::ArenaTrainRouteFor(noArena, true) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(captured, true) == rcore::kAtNone && rcore::ArenaTrainNoWhy(noArena, true) == rcore::kAtNoArena &&
+                  rcore::ArenaTrainNoWhy(atFight, false) == rcore::kAtNoGate && rcore::ArenaTrainNoWhy(noStart, true) == rcore::kAtNoRoute,
+              "#107705: native arena-only only with a catalogue spot inside the arena; the reason names the missing spot");
+        {
+            int nativeNoArena = 0, r1c7c = -2;
+            for (const auto& r : rows) {
+                const int at = rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+                if (at == rcore::kAtNative && !r.arenaCat) ++nativeNoArena;
+                if (!strcmp(r.id, "R1C7C")) r1c7c = at;
+            }
+            CHECK(!nativeNoArena && r1c7c == rcore::kAtNone, "#107705: no catalogue row is offered native arena-only without an in-arena spot (R1C7C not offered)");
+        }
+        CHECK(rcore::FnFailOnRoute(5, false) && rcore::FnFailOnRoute(5, true) && rcore::FnFailOnRoute(0, false) && !rcore::FnFailOnRoute(0, true) &&
+                  !rcore::FnFailOnRoute(6, false) && !rcore::FnFailOnRoute(2, false),
+              "#107705: an entry that ends after a pass (leave) keeps fnow=pass; failed or ended before a pass is FAIL");
         CHECK(rcore::ArenaOnlyGate(true, 1653104599u) == 0 && rcore::ArenaOnlyGate(false, 1653104599u) == 1653104599u,
               "#107514: arena-only never requests the boss gate; a normal Fight now keeps it");
         {  // #107642: Refuse clears both halves of the pick, also when Training was already told (refused after SetArenaOnlyNext(1))

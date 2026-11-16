@@ -2074,7 +2074,7 @@ void FnVerify(const Snap& s, ULONGLONG t) {
             Log("Rematch: F %s: route=%s (Training owns destination; BR warps=%d)", id, label, g_warps);
             Result("fight now %s: route=%s", id, label);
             if (route == 2 || route == 4 || route == 6) g_fn.store(kFnPass);
-            else if (route == 5 || route == 0) g_fn.store(kFnFail);
+            else if (rcore::FnFailOnRoute(route, g_fn.load() == kFnPass)) g_fn.store(kFnFail);
         }
         return; // never fall through to global fight-count PASS or BR rewarp/nudge
     }
@@ -5118,10 +5118,14 @@ int ArenaTrainRoute(int row) {
 }
 const char* ArenaTrainWhy(int row) {  // nullptr = offered now
     const int route = ArenaTrainRoute(row);
-    if (route == rcore::kAtNone)
-        return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].route != rcore::kX && g_rows[(size_t)row].FightNowReady()
-                   ? "this boss starts with the mission (no gate to hold), so it would spawn"
-                   : "no arena route for this row";
+    if (route == rcore::kAtNone) {
+        if (row < 0 || (size_t)row >= g_rows.size()) return "no arena route for this row";
+        const Row& r = g_rows[(size_t)row];
+        const int no = rcore::ArenaTrainNoWhy(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+        return no == rcore::kAtNoGate ? "this boss starts with the mission (no gate to hold), so it would spawn"
+             : no == rcore::kAtNoArena ? "no known spot inside this arena yet (the trip would stop outside the boss door)"
+                                       : "no arena route for this row";
+    }
     if (route == rcore::kAtScroll) return g_waveVetoOk ? CanFight(row) : "the wave guard did not install";
     return CanMatchArena(row);
 }
