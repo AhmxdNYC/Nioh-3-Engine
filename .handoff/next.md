@@ -1084,3 +1084,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 4:54 pm EST | regression-pc/0 | #110732 reports/95 6bd98e2c settings re-check PASS (#110743): AiChainGuard catalog gap closed; test_catalog only fails stale RELEASE 1.8.21 pin (same on main). Verdict to pc.
 - 2026-11-16 4:56 pm EST | regression-pc/0 | #110747 full reports/95 ffbb2795..6bd98e2c PASS (#110761, installer-pc #110762); 054dd295 patch-id = 511418c0. No open regression job.
 - 2026-11-16 5:0x pm EST | pc/1 | #110588 GH #95 AiChainGuard EF 72a5aa83 Main PC: installed line OK, 3 R1CBC fights 0 crash, guard not fired; no kill, soul core form not triggered (vpad has no RT button; cores on D-pad). Main PC restored (EF ba0e96c6 BR 64e63f0c), lock free. RESULT sent re 110583. Do not redo.
+- 2026-11-16 5:xx pm EST | installer-pc/0 | idle: no open installer task; reports/95 RC waits on catalog fix (#110683). Do not package until pc TASKs it.
