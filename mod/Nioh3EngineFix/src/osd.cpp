@@ -1493,13 +1493,58 @@ void OnPresent(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     }
 }
 
+// GitHub #97: the fault line named no address, so a GPU removal (0x887A0005 in the game's fatal box 18 ms later) could not be
+// told apart from an overlay bug. The filter copies where it faulted; the handler logs module+offset, the access and the
+// device's removal reason (short lines: the crash upload keeps 120 chars per log line).
+struct OsdFault {
+    void* at;
+    ULONG_PTR kind, addr;
+    DWORD n;
+};
+OsdFault g_osdFault{};
+int OsdFaultFilter(EXCEPTION_POINTERS* ep) {
+    g_osdFault.at = ep->ExceptionRecord->ExceptionAddress;
+    g_osdFault.n = ep->ExceptionRecord->NumberParameters;
+    g_osdFault.kind = g_osdFault.n >= 1 ? ep->ExceptionRecord->ExceptionInformation[0] : 0;
+    g_osdFault.addr = g_osdFault.n >= 2 ? ep->ExceptionRecord->ExceptionInformation[1] : 0;
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+void LogOsdFault(DWORD code) {
+    if (!g_log) return;
+    char mod[MAX_PATH] = "?";
+    HMODULE hm = nullptr;
+    uintptr_t off = (uintptr_t)g_osdFault.at;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (const char*)g_osdFault.at, &hm) && hm) {
+        char full[MAX_PATH];
+        if (GetModuleFileNameA(hm, full, MAX_PATH)) {
+            const char* b = strrchr(full, '\\');
+            snprintf(mod, sizeof mod, "%s", b ? b + 1 : full);
+        }
+        off -= (uintptr_t)hm;
+    }
+    g_log("OSD: exception %08lX while drawing - overlay disabled for this session", code);
+    g_log("OSD: fault at %s+0x%llx %s 0x%llx", mod, (unsigned long long)off,
+          g_osdFault.n < 2 ? "-" : g_osdFault.kind == 0 ? "read" : g_osdFault.kind == 1 ? "write" : "exec",
+          (unsigned long long)g_osdFault.addr);
+    char dr[256];
+    devremoved::Describe(dr, sizeof dr);
+    for (char* p = dr; *p; ++p)
+        if (*p == '\r' || *p == '\n') *p = ' ';
+    g_log("OSD: gpu %.100s", dr);
+}
+
 void OnPresentSafe(IDXGISwapChain* sc, cover_present::Ticket* cover) {
     __try {
         OnPresent(sc,cover);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-        dxgidiag::Note(dxgidiag::Present, dxgidiag::Fault, sc, nullptr, S_OK, false, GetExceptionCode());
+    } __except (OsdFaultFilter(GetExceptionInformation())) {
+        const DWORD code = GetExceptionCode();
+        dxgidiag::Note(dxgidiag::Present, dxgidiag::Fault, sc, nullptr, S_OK, false, code);
         InterlockedExchange(&g_disabled, 1);
-        if (g_log) g_log("OSD: exception %08lX while drawing - overlay disabled for this session", GetExceptionCode());
+        __try {
+            LogOsdFault(code);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+        }
     }
 }
 
