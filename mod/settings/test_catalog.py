@@ -22,9 +22,11 @@ def content(ref, path):
 def section(source, start, end):
     return source.split(start, 1)[1].split(end, 1)[0]
 
-# #97604: baseline = last public release (v1.8.17 = installer-pc/rel-1817 47505850, regression #103159; was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
+# #97604: baseline = last public release (v1.8.21 = main 29d49561 = installer-pc/rc-1821 59d3db9c, regression #108334; was v1.8.17 47505850, was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
 # every default flip and version bump since; bump RELEASE when a new release ships.
-RELEASE = '47505850'
+RELEASE = '29d49561'
+# v1.8.22 loading fix ON by default (PC2 #109923, Ally #110220; LoadFixDefaultV migration in EF dllmain)
+INTENDED_FLIPS = {'Nioh3EngineFix': {('Patches', 'RC'): ('0', '2')}}
 
 def protected(engine, addon):
     return {'engine_enum': section(engine, 'enum Id {', '#include "settings_catalog.h"'),
@@ -93,7 +95,9 @@ def main():
         assert not hidden & set(ids), (mod, 'iniOnly key also has a menu row', hidden & set(ids))
         assert set(values) <= set(ids) | hidden, (mod, 'uncovered ini keys', set(values) - set(ids) - hidden)
         baseline = ini_values(content(RELEASE, 'mod/' + mod + '/' + mod + '.ini'))
-        assert all(values[key] == value for key, value in baseline.items()), (mod, 'changed shipped default')
+        # INTENDED_FLIPS: deliberate default changes since RELEASE (key -> (old, new)); clear when RELEASE is bumped
+        flips = INTENDED_FLIPS.get(mod, {})
+        assert all(values[key] == (flips[key][1] if key in flips and flips[key][0] == value else value) for key, value in baseline.items()), (mod, 'changed shipped default')
         # codeDefault: rows whose shipped ini value differs from the ASI's missing-key default; the menu shows the code
         # default (what actually runs when a user ini lacks the key), so these must differ from the shipped ini (#97660)
         coded = {tuple(k.split('.', 1)) for k in data.get('codeDefault', [])}

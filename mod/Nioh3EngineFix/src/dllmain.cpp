@@ -36,6 +36,7 @@
 #include "tilestats.h"
 #include "loadmem.h"
 #include "loadstats.h"
+#include "zinflate.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
@@ -146,7 +147,7 @@
 //   list cut inside SynUploadCbvTable (never leaves a slot on a block of the retired list); CBF ([Patches] CBF = 0, test only,
 //   live Tuning.CBF / CBF_QUEUE / CBMODE bits 32 + 64): CB ring staged in system memory, one batched copy per game submission
 //   into a VRAM ring the CBVs point at (cbvstage.cpp)
-#define MOD_VERSION "1.8.21"
+#define MOD_VERSION "1.8.22"
 
 // ---- symbols shared with caves.asm -----------------------------------------------------------------------------
 extern "C" {
@@ -549,6 +550,15 @@ Config LoadConfig() {
         if (I(L"Patches", L"KidstsCap", 1) == 0) WritePrivateProfileStringW(L"Patches", L"KidstsCap", L"1", f);
         if (I(L"Patches", L"FileLoadPrio", 1) == 0) WritePrivateProfileStringW(L"Patches", L"FileLoadPrio", L"1", f);
         WritePrivateProfileStringW(L"Patches", L"WalkFixDefaultV", L"1", f);
+    }
+    // Loading-fix defaults (v1.8.22, PC2 #109923 FileLoad+Poll 31 -> 8.9 CPU-s/min, Ally #110220 no regression): PollFix
+    // default 1, RC default 2. Inis up to v1.8.21 shipped RC = 0 (opt-in experiment); flip an explicit 0 once and stamp
+    // LoadFixDefaultV = 1 (same pattern as WalkFixDefaultV); with the marker present a later manual 0 sticks.
+    // Runs before readfix/thrsched read RC and PollFix. Inflate stays opt-in (no measured gain, #109757).
+    if (I(L"Patches", L"LoadFixDefaultV", 0) < 1) {
+        if (I(L"Patches", L"RC", 2) == 0) WritePrivateProfileStringW(L"Patches", L"RC", L"2", f);
+        if (I(L"Patches", L"PollFix", 1) == 0) WritePrivateProfileStringW(L"Patches", L"PollFix", L"1", f);
+        WritePrivateProfileStringW(L"Patches", L"LoadFixDefaultV", L"1", f);
     }
     // KidstsCap (#102935, default 1 since v1.8.19): size the job pools for the CPUs the game may actually use. 1 = the process affinity
     // mask at boot, N >= 2 = treat the machine as N CPUs (rigs that set affinity after launch). Only when WorkerCap = 0
@@ -3293,6 +3303,15 @@ DWORD WINAPI Worker(LPVOID) {
             li.base = reinterpret_cast<uintptr_t>(g_base);
             li.knownBuild = known;
             loadmem::Start(li);
+        }
+        {  // #108787 Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; zinflate.cpp). Before LoadStats:
+            // loadstats::Start patches the inflate call sites for it (also with LoadStats = 0).
+            zinfl::StartInfo zi;
+            zi.log = &Log;
+            zi.iniPath = iniPath.c_str();
+            zi.base = reinterpret_cast<uintptr_t>(g_base);
+            zi.knownBuild = known;
+            zinfl::Start(zi);
         }
         {  // per-load measurement (loadstats.cpp, [Profiler] LoadStats = 0 by default; notes\loading.md)
             loadstats::StartInfo ls;

@@ -1,0 +1,3 @@
+libdeflate (decompressor only), MIT - see LICENSE.
+Source: https://github.com/ebiggers/libdeflate commit c7e5386b309ae5f7b064e78adf033a6fd13c7428 (2026-11-14), files copied unmodified.
+Used by src/zinflate.cpp ([Patches] Inflate, #108787).

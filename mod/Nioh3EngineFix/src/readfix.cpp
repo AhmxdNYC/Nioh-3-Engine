@@ -721,7 +721,7 @@ int SrMode(const wchar_t* iniPath, int* iniOut, bool* wineOut) {
 }
 
 bool Wants(const wchar_t* iniPath) {
-    return iniPath && (GetPrivateProfileIntW(L"Patches", L"RC", 0, iniPath) > 0 || GetPrivateProfileIntW(L"Patches", L"AQ", 0, iniPath) > 0 ||
+    return iniPath && (GetPrivateProfileIntW(L"Patches", L"RC", 2, iniPath) > 0 || GetPrivateProfileIntW(L"Patches", L"AQ", 0, iniPath) > 0 ||
                        SrMode(iniPath, nullptr, nullptr) > 0);
 }
 
@@ -735,7 +735,7 @@ bool Start(const StartInfo& info) {
     }
     if (g_started) return g_live.load();
     g_started = true;
-    const int rc = IniInt(info.iniPath, L"RC", 0, 0, 2);
+    const int rc = IniInt(info.iniPath, L"RC", 2, 0, 2);  // default 2 since v1.8.22 (LoadFixDefaultV, dllmain)
     const int mb = IniInt(info.iniPath, L"RCMB", 64, 16, 256);
     const int kb = IniInt(info.iniPath, L"RCKB", 64, 16, 1024);
     const int mx = IniInt(info.iniPath, L"RCMaxReadKB", 64, 1, 1024);
