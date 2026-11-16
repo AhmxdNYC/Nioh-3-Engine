@@ -394,3 +394,8 @@ a GPU->CPU dependency pins main to it.
 - Emitter map used for section 2 (tokemit.py, all tokens): 0x8F <- 6B64D8 FF2759 18D66E0 191E88E 32F58C8 341F704; 0x90 <- 253F8C;
   0x9E <- 298990 2998B0 299AB8 454F7C 922DB0 38C730C; 0xAA <- 18C313C; 0xA9 <- 4F8F84; 0xA8 <- 418DD0 FF29F6; 0x96 <- 2F121D8 2F14F34;
   0x98 <- 7C50B4 2F06AB4; 0x82/0x83 <- 4BBEC 189A490 189AAA0 1A1779C 2F06CD8 2F07880 (+ 7D9C24 writes them directly).
+
+## ECL wait tokens id 1 / id 3 (deepseek #108577, docs/dev/deepseek-flash-re-559.md)
+- id 1 (EclEmitQueueWaitIndirect 0x2F151EC <- 0x2F141E4 <- 0x2F00A98): GPU queue->Wait, emitted only when completed fence ctx+0x2510 < value; producer opcode 0x2F0E650 fires on CPU/GPU lag (lag-triggered list boundary). GPU-side, no CPU block.
+- id 3 (EclEmitGfxWait 0x490130 <- 0x4900B8 <- opcode 0x8C16AC / 0x1A86364): replay = WaitForSingleObject(event, INFINITE) + queue->Wait, memoized at wrapper+0x28. The ONLY CPU-blocking token on the serial submit thread.
+- Perf candidate (unmeasured): count/time id-3 waits per frame on the submit thread (hook 0x490130 replay) before any change; if frequent, the stall is a frame-pacing/CPU lever. Ids 6/7 writers still unfound.
