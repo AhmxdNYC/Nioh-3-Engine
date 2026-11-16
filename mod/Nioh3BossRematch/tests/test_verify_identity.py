@@ -33,7 +33,7 @@ int g_fightRow=0, g_fnFights0=0, g_warps=0;
 unsigned g_fightMission=1, g_fightStart=2;
 ULONGLONG g_fnLastT=0,g_fnFirst=1,g_fnDeadline=60000,g_fnCheckAt=50000,g_warpDue=0;
 bool g_fightWarp=false,g_gateReq=false,g_warpOk=true,g_warpPending=false;
-bool g_trainingDestination=false; int g_trainingRoute=-1; void* TrainingExport(const char*) { return nullptr; }
+bool g_trainingDestination=false, g_fightArenaOnly=false; int g_trainingRoute=-1; void* TrainingExport(const char*) { return nullptr; }
 struct { bool hiddenDuels=false; int fightNudgeMs=0; } g_cfg;
 namespace fight { int g_fights=0; bool g_active=false; }
 int calls=0,reads=0;

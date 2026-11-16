@@ -2127,7 +2127,10 @@ static int NativeMissionRow(const ArenaRow* r) { return r && r->mission && r->id
 static int NativeFirst(const ArenaRow* r) { return g_cfg_enable && NativeMissionRow(r) && !g_native_fallback; }
 static __attribute__((noinline)) int MsRead(uint32_t* mission, uint8_t* journey, uint32_t* mode);
 static int FightNowImpl(uint32_t mission);
-static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, anchorOk, noBossMode; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
+// human #107514 'Train in this arena': set by Boss Rematch right before its Fight now request; consumed by that entry only.
+// The entry then warps to the row's arena spot and ends (route 6): no boss wait, no nudge, no in-mission fallback summon.
+static int g_arena_only_next;
+static struct { int active, confirmed, sawLoad, warped, fellBack, route, lateWarn, nudged, moved, fell, safeOk, dormant, waveOwned, drops, gated, anchored, anchorOk, noBossMode, arenaOnly; DWORD tGate; float safe[4], target[4], anchor[4], stableY, prevY; ArenaRow* row; DWORD t0, tReady, tWarp, tWatch, tStable, tFall; } g_en;
 // Boss Rematch calls this for a waves row only. 1 = the first wave group was checked. 2 = BossBattleModeEnd with no BossBattleMode.
 N3T_API void Nioh3Training_WavesFight(int phase) {
     if (phase == 1) {
@@ -2529,11 +2532,16 @@ static void EnterTick(void) {
     if (!g_en.tReady) { g_en.tReady = now; Log("ENTER %s: native mission ready, settling", r->id); }
     if (now - g_en.tReady < 3000) return;
     if (PlayerPos(g_en.safe)) { g_en.safe[3] = r->p[3]; g_en.safeOk = 1; }  // the mission's own spawn: solid by definition
-    const NativeEntryBox* box = NativeEntryBoxFor(r);
+    const NativeEntryBox* box = g_en.arenaOnly ? 0 : NativeEntryBoxFor(r);  // #107514: never step into a script entry box that starts the boss
     const float* target = box ? box->target : r->p;
     int w = Warp(target[0], target[1], target[2], target[3], 1);
     if (!w) { Log("ENTER %s: arena warp failed; entry cancelled", r->id); g_en.active = 0; g_en.route = 5; return; }
     g_en.warped = 1; g_en.tWarp = now; EnterTarget(target, target[3]);
+    if (g_en.arenaOnly) {
+        g_en.active = 0; g_en.route = 6;
+        Log("ENTER %s: Train in this arena: in the arena at %.0f %.0f %.0f (+%lu ms); no boss wait, no fallback", r->id, target[0], target[1], target[2], now - g_en.t0);
+        return;
+    }
     if (box) { g_en.nudged = 1; Log("ENTER %s: script entry box %u reached; native GatherWarp/temp guard unchanged", r->id, box->box); }
     Log("ENTER %s: native arena warp succeeded (+%lu ms); waiting up to 30 ready seconds for boss", r->id, now - g_en.t0);
 }
@@ -3147,6 +3155,12 @@ static int FightNowImpl(uint32_t mission) {
         memset(&g_en, 0, sizeof g_en); g_en.row = nativeRow; g_en_doorMission = 0; // BR re-arms the door after this call
         g_ph_giveup = 0; g_ph_anchor_dead = 0; // a new mission may stand somewhere that does have a floor
         g_en.t0 = GetTickCount(); g_en.active = 1; g_en.route = 1;
+        g_en.arenaOnly = g_arena_only_next; g_arena_only_next = 0;
+        if (g_en.arenaOnly) {  // #107514: no native attempt and no roster: nothing is fought on this trip
+            memset(&g_np, 0, sizeof g_np); memset(&g_fb, 0, sizeof g_fb);
+            Log("FIGHTNOW %s: Train in this arena: native mission load, arena warp, no boss (no attempt, no fallback)", nativeRow->id);
+            return 0;
+        }
         Log("FIGHTNOW %s: native-first mission load (all mission rows; legacy route keys ignored)", nativeRow->id);
         return 0; // BossRematch owns admission, clear guard and the actual native request.
     }
@@ -3593,7 +3607,13 @@ static void EntryLsTick(void) {
     if (!g_el.tStable) g_el.tStable = now;
     if (now - g_el.tStable >= (DWORD)g_cfg_fade_stable) EntryLs(0, "player can move");
 }
-N3T_API int Nioh3Training_FightNow(uint32_t mission) { g_pick = 0; return FightNowEntry(mission); }
+N3T_API int Nioh3Training_FightNow(uint32_t mission) {
+    g_pick = 0;
+    // #107514: an arena-only pick never takes the in-place swap (it spawns the boss); Boss Rematch then does the native load and its own warp
+    if (g_arena_only_next && !NativeFirst(FindRow(mission))) { g_arena_only_next = 0; Log("FIGHTNOW mission 0x%X: Train in this arena: no native row here, in-place swap refused", mission); return 0; }
+    return FightNowEntry(mission);
+}
+N3T_API void Nioh3Training_SetArenaOnlyNext(int on) { g_arena_only_next = on != 0; }
 // #23451: Fight now for a boss character (roster / Boss A-B menus): its mission row, else its S<chr> arena / field row. 1 = handled (in-place swap,
 // cross-world switch or summon); 0 = no row / not handled: the caller must NOT issue a native mission request for it (a field row's mission id is
 // an open-field region), summon it here instead (Nioh3Training_SummonSlotChr).

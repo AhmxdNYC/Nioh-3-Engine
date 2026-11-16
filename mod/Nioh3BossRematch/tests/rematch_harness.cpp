@@ -3,6 +3,7 @@
 // xmm preserved, chaining onto another module's E9 hook, the pump call retarget with chaining). Built by run_rematch_harness.py.
 #include "../src/addon.h"
 #include "../src/rematch_core.h"
+#include "../src/native_entry_gates_gen.h"
 #include "../src/sites_gen.h"
 
 #include <cstdarg>
@@ -299,6 +300,35 @@ int main(int argc, char** argv) {
                   "#107117: the left boss mode closes once, 20 s after the first change, before the Dojo's waves end");
             CHECK(rcore::kStaleBossModeGraceMs == 20000, "#107156: the close waits the same 20 s window ConfirmNativeWin accepts");
         }
+    }
+    {  // human #107514: 'Train in this arena' route is decided from each row's own data (no per-row list, #87625)
+        int scroll = 0, native = 0, none = 0, wrong = 0, dojoWaves = 0, dojoWavesNative = 0;
+        for (const auto& r : rows) {
+            const bool scriptGate = NativeEntryGateFind(r.missionId, r.placement) != 0;
+            const int at = rcore::ArenaTrainRouteFor(r, scriptGate);
+            if (at == rcore::kAtScroll) ++scroll; else if (at == rcore::kAtNative) ++native; else ++none;
+            if (r.route == rcore::kE && at != rcore::kAtScroll) ++wrong;                 // every scroll / Dojo scroll: no-waves trip
+            if (r.route == rcore::kX && at != rcore::kAtNone) ++wrong;                   // no route: never offered
+            if (at == rcore::kAtNative && !scriptGate && (r.atFight || !r.GateDoor())) ++wrong;  // native only where the boss waits on a gate
+            if (at == rcore::kAtNative && !r.FightNowReady()) ++wrong;
+            if (r.dojo && rcore::WavesRow(r)) { ++dojoWaves; if (at == rcore::kAtNative) ++dojoWavesNative; }
+        }
+        printf("train in arena: %d scroll (no waves), %d native (no gate request), %d not offered; dojo waves rows %d (%d native)\n", scroll, native, none,
+               dojoWaves, dojoWavesNative);
+        CHECK(!wrong && scroll > 0 && native > 0, "#107514: Train in this arena: scrolls take the no-waves trip, native rows only where the boss waits on a gate");
+        rcore::Row gate;  // synthetic rows: the rule, not the catalogue
+        gate.route = rcore::kR; gate.missionId = 0x1234; gate.fightStart = 7; gate.arenaOk = true; gate.gateId = 99; snprintf(gate.gateKind, sizeof gate.gateKind, "door");
+        rcore::Row atFight = gate; atFight.atFight = true;
+        rcore::Row box = gate; snprintf(box.gateKind, sizeof box.gateKind, "box");
+        rcore::Row scrollRow; scrollRow.route = rcore::kE;
+        rcore::Row noStart = gate; noStart.fightStart = 0;
+        CHECK(rcore::ArenaTrainRouteFor(gate, false) == rcore::kAtNative && rcore::ArenaTrainRouteFor(atFight, false) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(atFight, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(box, false) == rcore::kAtNone &&
+                  rcore::ArenaTrainRouteFor(box, true) == rcore::kAtNative && rcore::ArenaTrainRouteFor(scrollRow, false) == rcore::kAtScroll &&
+                  rcore::ArenaTrainRouteFor(noStart, true) == rcore::kAtNone,
+              "#107514: door gate or script WaitWarpStart = native arena-only; a mission that starts at the fight or a box without a script gate is not offered");
+        CHECK(rcore::ArenaOnlyGate(true, 1653104599u) == 0 && rcore::ArenaOnlyGate(false, 1653104599u) == 1653104599u,
+              "#107514: arena-only never requests the boss gate; a normal Fight now keeps it");
     }
     {  // human #94922: catalogue warning column reaches the row (RB24D Death Veil), other rows stay clean
         int warned = 0;

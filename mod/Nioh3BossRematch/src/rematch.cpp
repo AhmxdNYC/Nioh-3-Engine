@@ -1063,6 +1063,9 @@ bool g_fightLoading = false;
 int g_fightLoads = 0;
 bool g_fightWarp = false;        // "Fight now (in the arena)": warp after the load
 bool g_trainingDestination = false; // sticky for this attempt, even after Training finishes entry
+// human #107514: the next Fight now of this row is 'Train in this arena' (no boss gate request, Training stops at the arena warp)
+std::atomic<int> g_arenaOnlyRow{-1};
+bool g_fightArenaOnly = false;
 int g_trainingRoute = -1;
 bool g_warpPending = false;      // a warp is due once the mission is idle (load done, player, no fight)
 ULONGLONG g_warpDue = 0;
@@ -1081,6 +1084,7 @@ const char* FnName(int v) {
 uint64_t g_qHashAtOpen = 0;
 
 void Refuse(const char* why) {
+    g_arenaOnlyRow.store(-1);  // #107514: a refused request never leaves a 'Train in this arena' pick for a later Fight now
     Log("Rematch: refused: %s", why);
     Result("refused: %s", why);
     ToastF(cOrange, 6000, "Boss match refused: %s", why);
@@ -1602,6 +1606,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
     if (!SpawnRestore("before mission request")) return Refuse("spawn recovery unresolved; no new mission admitted");
     if (!MapRestoreNow("before mission request")) return Refuse("scroll-map recovery unresolved; no new entry admitted");
     if (const char* why = AttemptStartGate()) return Refuse(why);
+    const bool arenaOnly = g_arenaOnlyRow.exchange(-1) == row && fight && warp;  // #107514: consumed by this request only
     const Row& r = g_rows[(size_t)row];
     TrainingEntryAdmission entryAdmission{r.missionId};
     const char* why = nullptr;
@@ -1616,6 +1621,10 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         Log("Rematch: F %s: gates ok (solo/offline, not loading, not paused, no fight, nothing active); checking the clear on this journey", r.id);
     }
     if (!ClearedNow(r.missionId, &why, fight && warp)) return Refuse(why);
+    if (fight) {  // #107514: Training's next Fight now entry is arena-only (no boss wait, no fallback) or a normal fight
+        if (const auto ao = (void (*)(int))TrainingExport("Nioh3Training_SetArenaOnlyNext")) ao(arenaOnly ? 1 : 0);
+        else if (arenaOnly) return Refuse("Train in this arena needs Nioh3Training with SetArenaOnlyNext");
+    }
     if (fight && warp && !g_noSwap) {  // swapped in place: no queue slot, no cover, nothing armed (the add-on keeps the native request for every other case)
         using FightNowFn = int (*)(uint32_t);
         static const auto swap = (FightNowFn)TrainingExport("Nioh3Training_FightNow");
@@ -1682,6 +1691,7 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_fightByMission = g_fightLoading = false;
         g_fightLoads = 0;
         g_fightRow = row;
+        g_fightArenaOnly = arenaOnly;
         g_fightWarp = !g_trainingDestination && warp && !r.atFight && r.arenaOk && g_cfg.fightWarp && g_warpOk;
         g_gateSeen.store(false);
         g_gateSlot.store(-1);
@@ -1690,7 +1700,8 @@ void ExecDirect(int row, const Snap& s, ULONGLONG t, bool fight, bool warp) {
         g_gateDue = 0;
         g_trGateArmed = false;
         // #71926: door-waiting boss scripts (WaitWarpStart) never create the boss without this right, and it moves nothing, so it stays on when Training owns the destination.
-        g_gateWant.store(EntryGateChoice(r.missionId, r.placement, r.gateId, r.GateDoor(), r.atFight, g_trainingDestination, warp, g_gateOk));
+        g_gateWant.store(rcore::ArenaOnlyGate(arenaOnly, EntryGateChoice(r.missionId, r.placement, r.gateId, r.GateDoor(), r.atFight, g_trainingDestination, warp, g_gateOk)));
+        if (arenaOnly) Log("Rematch: F %s: Train in this arena - boss gate not requested (the boss start waits on it), no waves, no boss", r.id);
         if (g_gateWant.load()) {
             Log("Rematch: F %s: boss gate %u (%s) armed: its exclusive right will be requested once the boss start waits for it", r.id, g_gateWant.load(), g_trainingDestination && NativeEntryGateFind(r.missionId, r.placement) ? "script WaitWarpStart" : r.gateKind);
             // #88516: tell Training a door-waiting script owns this boss, so idle same-character bodies are not taken as it.
@@ -2057,17 +2068,23 @@ void FnVerify(const Snap& s, ULONGLONG t) {
         const int route = routeFn ? routeFn(g_fightMission) : 0;
         if (route != g_trainingRoute) {
             g_trainingRoute = route;
-            const char* label = route == 1 ? "native pending" : route == 2 ? "native" : route == 3 ? "fallback pending" : route == 4 ? "fallback" : route == 5 ? "failed" : "ended";
+            const char* label = route == 1 ? "native pending" : route == 2 ? "native" : route == 3 ? "fallback pending" : route == 4 ? "fallback" : route == 5 ? "failed" : route == 6 ? "arena only (no boss)" : "ended";
             const char* id = g_fightRow >= 0 ? g_rows[(size_t)g_fightRow].id : "?";
             Log("Rematch: F %s: route=%s (Training owns destination; BR warps=%d)", id, label, g_warps);
             Result("fight now %s: route=%s", id, label);
-            if (route == 2 || route == 4) g_fn.store(kFnPass);
+            if (route == 2 || route == 4 || route == 6) g_fn.store(kFnPass);
             else if (route == 5 || route == 0) g_fn.store(kFnFail);
         }
         return; // never fall through to global fight-count PASS or BR rewarp/nudge
     }
     if (g_fn.load() != kFnWarped || g_fightRow < 0) return;
     const Row& r = g_rows[(size_t)g_fightRow];
+    if (g_fightArenaOnly) {  // #107514: in the arena with no boss is the goal: no fight deadline, no nudge, no rewarp
+        g_fn.store(kFnPass);
+        Log("Rematch: F %s: Train in this arena - in the arena after warp #%d, no boss requested", r.id, g_warps);
+        Result("train in arena %s: in the arena, no boss", r.id);
+        return;
+    }
     const ULONGLONG dt = g_fnLastT ? t - g_fnLastT : 0;
     g_fnLastT = t;
     if (fight::g_fights > g_fnFights0) {
@@ -4195,13 +4212,15 @@ static void WarnFooter(char* footer, size_t nf, int row) {
     snprintf(footer, nf, "%s", tmp);
 }
 constexpr int kItShrine = 0x20000;  // kItShrine + row = "Shrine before the boss" (the start point alone)
-constexpr int kItTeleport = 0x40000;  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
+constexpr int kItTeleport = 0x40000;
+constexpr int kItArenaTrain = 0x48000;  // human #107514: kItArenaTrain + row = "Train in this arena" (no waves, no boss) on the Boss Match row page  // kItTeleport + row = "Teleport to arena (fast load)": native mission load + arena warp, no live swap
 // Free gap above the live catalogue [kItMoveBase, kItMoveBase+N3CAT_CAP) and below Teleport.
 // 0x30000 == kItMoveBase, so this row was move 0 ("Idle / initialization").
 constexpr int kItBossTrainHere = 0x38000;
 static_assert(N3CAT_CAP <= kItBossTrainHere - kItMoveBase, "Train here overlaps the move catalogue cap");
 static_assert(kItBossTrainHere + kMaxRows <= kItTeleport, "Train here rows reach Teleport");
 static_assert(kItBossTrainHere > kItShrine + kMaxRows, "Train here overlaps Shrine");
+static_assert(kItArenaTrain >= kItTeleport + kMaxRows && kItArenaTrain + kMaxRows <= kItSummonA, "Train in this arena overlaps Teleport / Summon");
 static_assert(kItFight == 0x10000, "Fight now id base matches FightNowItemId");
 
 // ---- #79069 favorites: Left / Right on a row (no new button, works on every menu input). The file is ours, beside the mod; the game save is never touched. ----
@@ -4527,6 +4546,7 @@ int ItemsBase(int* out, int cap) {
         if (g_uiBoss >= 0 && (size_t)g_uiBoss < g_rows.size()) {
             if (RowStaged(g_uiBoss, nullptr, nullptr, nullptr)) add(kItStagedStart);
             add(kItFight + g_uiBoss);
+            add(kItArenaTrain + g_uiBoss);  // human #107514
             add(kItBossTrainHere + g_uiBoss);
             add(kItShrine + g_uiBoss);  // user #13164: teleport moved to Training (arenas), summon to Summon Boss
         }
@@ -5080,8 +5100,42 @@ bool ActBossRoute(int item) {
         return false;
     }
     if (arena) SetPracticeNext(tele ? 1 : 0);
+    g_arenaOnlyRow.store(-1);
     Post(arena ? kReqFight : kReqShrine, row, "the menu");
     ToastF(cWhite, 6000, arena ? "Boss Matches: into the fight with %s..." : "Boss Matches: to the shrine before %s...", g_rows[(size_t)row].name);
+    return true;
+}
+int ArenaTrainRoute(int row) {
+    if (row < 0 || (size_t)row >= g_rows.size()) return rcore::kAtNone;
+    const Row& r = g_rows[(size_t)row];
+    return rcore::ArenaTrainRouteFor(r, NativeEntryGateFind(r.missionId, r.placement) != 0);
+}
+const char* ArenaTrainWhy(int row) {  // nullptr = offered now
+    const int route = ArenaTrainRoute(row);
+    if (route == rcore::kAtNone)
+        return row >= 0 && (size_t)row < g_rows.size() && g_rows[(size_t)row].route != rcore::kX && g_rows[(size_t)row].FightNowReady()
+                   ? "this boss starts with the mission (no gate to hold), so it would spawn"
+                   : "no arena route for this row";
+    if (route == rcore::kAtScroll) return g_waveVetoOk ? CanFight(row) : "the wave guard did not install";
+    return CanMatchArena(row);
+}
+// human #107514: the row's arena, no waves, no boss, no Dojo bosses; Training's menu summons as usual
+bool ActArenaTrain(int item) {
+    const int row = item - kItArenaTrain;
+    if (row < 0 || (size_t)row >= g_rows.size()) return false;
+    if (ArenaTrainRoute(row) == rcore::kAtScroll) return StartScrollRecord(row, item, true);  // proven no-waves trip (#79507)
+    if (const char* why = Gates(ReadSnap(), true)) { snprintf(g_msg, sizeof(g_msg), "Not now: %s.", why); return false; }
+    if (const char* why = ArenaTrainWhy(row)) { snprintf(g_msg, sizeof(g_msg), "Train in this arena unavailable: %s.", why); return false; }
+    if (g_confirm != item) {
+        g_confirm = item;
+        snprintf(g_msg, sizeof(g_msg), "Train in %s's arena? No boss, no waves. A confirm / B back. Solo only.", g_rows[(size_t)row].name);
+        return false;
+    }
+    g_confirm = -9;
+    SetPracticeNext(0);
+    g_arenaOnlyRow.store(row);
+    Post(kReqFight, row, "the menu (train in this arena)");
+    ToastF(cWhite, 6000, "Training: to %s's arena, no boss...", g_rows[(size_t)row].name);
     return true;
 }
 bool ScrollRowItem(int item, int& row, int& kind) {
@@ -5367,6 +5421,7 @@ bool UiAct() {
         Post(kReqScroll, -1, "the menu");
         return true;
     }
+    if (item >= kItArenaTrain && item < kItArenaTrain + kMaxRows) return ActArenaTrain(item);
     {
         int srow = -1, skind = 0;
         if (ScrollRowItem(item, srow, skind) && srow >= 0 && (size_t)srow < g_rows.size() && g_rows[(size_t)srow].route == rcore::kE)
@@ -5745,7 +5800,10 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (it[i] == kItOpen) add(sel ? cWhite : cGray, sel, "%s Open Battle Scroll replays", mk);
         else if (it[i] == kItScroll) add(sel ? cWhite : cGray, sel, "%s Play first owned Picture Scroll", mk);
         else if (it[i] == kItAbort) add(cYellow, sel, "%s Cancel pending replay", mk);
-        else if (it[i] >= kItTeleport) {
+        else if (it[i] >= kItArenaTrain && it[i] < kItArenaTrain + kMaxRows) {
+            const char* why = ArenaTrainWhy(it[i] - kItArenaTrain);
+            add(sel ? cWhite : why ? cDim : cGreen, sel, "%s    Train in this arena (no boss, no waves)", mk);
+        } else if (it[i] >= kItTeleport) {
             const int row = it[i] - kItTeleport;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
                 add(sel ? cWhite : cGreen, sel, "%s %s%s", mk, FavMark(row), g_rows[(size_t)row].name);
@@ -5930,7 +5988,14 @@ int UiFill(UiRow* rows, int cap, char* footer, size_t nf) {
         else if (item == kItFightAgain && (NativeGateMission() || WavesGateNow())) snprintf(footer, nf, "Leaves and reloads the mission, then starts the same fight. B / Close keeps you at the gate.");
         else if (item == kItFightAgain) snprintf(footer, nf, "Respawns the same boss here and resets the round (no load). B / Close keeps you at the gate.");
         else if (item == kItClose) snprintf(footer, nf, "Close the mod menu and return to the game.");
-        else if (item >= kItTeleport) {
+        else if (item >= kItArenaTrain && item < kItArenaTrain + kMaxRows) {
+            const int row = item - kItArenaTrain;
+            const char* why = ArenaTrainWhy(row);
+            if (g_msg[0]) snprintf(footer, nf, "%s", g_msg);
+            else if (why) snprintf(footer, nf, "Train in this arena unavailable: %s. B: back.", why);
+            else snprintf(footer, nf, "Loads this row's arena with no waves and no boss; summon from the Training menu. A: start / B: back.");
+            if (!g_msg[0]) WarnFooter(footer, nf, row);
+        } else if (item >= kItTeleport) {
             const int row = item - kItTeleport;
             if ((size_t)row < g_rows.size() && rcore::WavesRow(g_rows[(size_t)row])) {
                 snprintf(footer, nf, "%s", g_msg[0] ? g_msg : "Picture Scroll arena, no waves: summon bosses or practice here. A: start / Right: favorite / Left: unfavorite / B: back.");

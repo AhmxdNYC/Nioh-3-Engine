@@ -89,6 +89,17 @@ struct BossModeTrack {
     bool Close() { const bool w = open; open = false; return w; }  // ended outside BossBattleModeEnd: true when one was open
     bool End() { const bool w = open; open = false; return w; }    // BossBattleModeEnd: true when it matched an open boss mode
 };
+// human #107514: 'Train in this arena' = the row's arena with no waves and no boss; Training's summons as usual. Decided from the row's
+// own catalogue data, no per-row list (#87625). kAtScroll: a Picture Scroll / Dojo scroll trip with Emaki::RequestWaveBattle skipped (the
+// wave list is the scroll's only enemy source, #79507). kAtNative: Fight now load + arena warp with the boss gate never requested; offered
+// only where the boss start waits on that gate (generated script WaitWarpStart or a door gate, not a mission that starts at the fight).
+enum ArenaTrainRoute : int { kAtNone = -1, kAtScroll = 0, kAtNative = 1 };
+inline int ArenaTrainRouteFor(const Row& r, bool scriptGate) {
+    if (r.route == kE) return kAtScroll;
+    if (r.route == kX || !r.missionId || !r.FightNowReady()) return kAtNone;
+    return scriptGate || (!r.atFight && r.GateDoor()) ? kAtNative : kAtNone;
+}
+inline uint32_t ArenaOnlyGate(bool arenaOnly, uint32_t gate) { return arenaOnly ? 0u : gate; }
 inline bool StaleBossModeOnMissionChange(bool fightFlag, bool bossModeOpen, uint32_t lastMission) {
     return lastMission && (fightFlag || bossModeOpen);
 }
