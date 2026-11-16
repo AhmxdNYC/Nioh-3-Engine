@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <string.h>
 
-static const char* kVer = "1.0.30-soul-smoother";
+static const char* kVer = "1.0.31-scan-on-f7";
 static const uintptr_t kCamVt = 0x38ef208;
 static const uintptr_t kCamTag = 0x44c9ac0;
 static const uintptr_t kGameVt = 0x38ef168;
@@ -625,6 +625,10 @@ static void ScanWindow(uintptr_t start, size_t size, uint64_t base, size_t* scan
 static uintptr_t g_scanAt;
 static size_t g_scanned, g_mapScanned;
 static int g_scanStarted, g_scanDone, g_scanMark, g_scanPhase;
+/* GitHub #98: the camera search walks all private memory (128 MB per 12 ms tick, ~0.4-1 core for minutes after
+   each launch on a CPU-bound PC). Its result (g_cam) only feeds the F7 diagnostic shot; the camera hooks never
+   read it. So the search starts on the first F7, not when the player appears. */
+static int g_scanWanted;
 
 static void ScanCamSlice(uint64_t base, size_t step) {
     size_t got = 0;
@@ -1003,7 +1007,10 @@ static void Shot(uint64_t base) {
     if (pos[0] == 0.f && pos[1] == 0.f && pos[2] == 0.f)
         Log("Player pos is 0,0,0. The scan still runs, but a real mission position is better.");
     NoteCtor(base);
-    if (!CamOk(base) && !g_scanDone)
+    if (!g_scanWanted) {
+        g_scanWanted = 1;
+        if (!CamOk(base)) Log("CAM search started by F7; press F7 again once it logs done");
+    } else if (!CamOk(base) && !g_scanDone)
         Log("CAM search still running, scanned-MB=%u", (unsigned)(g_scanned >> 20));
     LogSib(base);
     LogGame(base);
@@ -2440,7 +2447,7 @@ static DWORD WINAPI Worker(LPVOID) {
     OpenLog();
     Log("==== %s ====", kVer);
     Log("Stand still. F7 with the camera stick LEFT, then RIGHT, then STILL.");
-    Log("The camera search walks every private page in small slices after the player appears. F7 does not hitch.");
+    Log("The camera search walks every private page in small slices, starting at the first F7 (GitHub #98). F7 does not hitch.");
     Log("Then attack, tap R1 at short gaps, and press F8. KiTick floats are status+0x98.");
     Log("Nioh3CamKiProbe.ini beside this ASI: CamDist 50..4000 (camera +B0), CamFovDeg 20..90 (camera +40, radians). A missing key stays on the game.");
     Log("CamYawDeg and CamPitchDeg are ignored in this build. +290/+294 are stick deltas, not angles.");
@@ -2488,7 +2495,7 @@ static DWORD WINAPI Worker(LPVOID) {
                     gamerva::Verify();  // code is decrypted once the player exists; on another build this fills the lookup cache
                     if (g_unknownBuild) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                 }
-                ScanCamSlice(base, (size_t)128 << 20);
+                if (g_scanWanted) ScanCamSlice(base, (size_t)128 << 20);
             }
         }
         int f7 = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
