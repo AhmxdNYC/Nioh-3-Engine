@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "loadstats.h"
+#include "zinflate.h"
 
 namespace loadstats {
 namespace {
@@ -207,12 +208,15 @@ const void* const kGateHooks[kNumGates] = {(const void*)&HkGate<0>, (const void*
 
 // ---- hooks (same arguments in, same result out) ----
 using InflFn = uint64_t (*)(void*, uint32_t, uint64_t*, const void*, uint32_t);
+// #108787 [Patches] Inflate: what the timing hook calls - zinfl's libdeflate replacement for that wrapper, else the game's.
+InflFn g_inflCall[3] = {nullptr, nullptr, nullptr};
 template <int W>
 uint64_t HkInflate(void* dst, uint32_t cap, uint64_t* outLen, const void* src, uint32_t csize) {
     NoteThread();
     AtomicMaxI(g_inflMax, g_inflNow.fetch_add(1, std::memory_order_relaxed) + 1);
     const uint64_t t0 = Qpc();
-    const uint64_t r = reinterpret_cast<InflFn>(g_base + Grva(kInflTargets[W]))(dst, cap, outLen, src, csize);
+    const InflFn fn = g_inflCall[W] ? g_inflCall[W] : reinterpret_cast<InflFn>(g_base + Grva(kInflTargets[W]));
+    const uint64_t r = fn(dst, cap, outLen, src, csize);
     const uint64_t dt = Qpc() - t0;
     g_inflNow.fetch_sub(1, std::memory_order_relaxed);
     g_c.inflChunks.fetch_add(1, std::memory_order_relaxed);
@@ -374,9 +378,13 @@ bool RelFits(const uint8_t* from, const uint8_t* to) {
     return d >= INT32_MIN && d <= INT32_MAX;
 }
 
+bool g_inflOnly = false;  // LoadStats = 0, Inflate on: only the inflate sites, straight to zinfl (no timing)
+bool g_instOk[sizeof(kSites) / sizeof(kSites[0])] = {};  // per kSites entry: patched by this Start
+
 const void* HookFor(const Site& s) {
     switch (s.kind) {
         case kInflate:
+            if (g_inflOnly) return (const void*)zinfl::Replacement(s.arg);
             return s.arg == 0 ? (const void*)&HkInflate<0> : s.arg == 1 ? (const void*)&HkInflate<1> : (const void*)&HkInflate<2>;
         case kPso:
             switch (s.arg) {
@@ -758,9 +766,11 @@ bool Start(const StartInfo& info) {
     g_mode = (int)GetPrivateProfileIntW(L"Profiler", L"LoadStats", 0, info.iniPath);
     g_lg = g_mode >= 1 && GetPrivateProfileIntW(L"Profiler", L"LoadGates", 0, info.iniPath) != 0;
     g_loaderCap = info.loaderCap > 0 ? info.loaderCap : 10;
-    if (g_mode <= 0 || !g_log || !g_base) return false;
+    for (int w = 0; w < 3; ++w) g_inflCall[w] = zinfl::Replacement(w);  // #108787; all null when Inflate is off
+    const bool zi = g_inflCall[0] || g_inflCall[1] || g_inflCall[2];
+    if ((g_mode <= 0 && !zi) || !g_log || !g_base) return false;
     if (!info.knownBuild) {
-        g_log("LoadStats: refused (unknown build; addresses are v2.02)");
+        if (g_mode > 0) g_log("LoadStats: refused (unknown build; addresses are v2.02)");
         return false;
     }
     LARGE_INTEGER fq;
@@ -771,6 +781,21 @@ bool Start(const StartInfo& info) {
     g_thunks = AllocNear(g_base, g_base + nt->OptionalHeader.SizeOfImage);
     if (!g_thunks) {
         g_log("LoadStats: no executable page within 2 GB of the image - hooks off, polling only");
+    }
+    if (g_mode <= 0) {  // Inflate without LoadStats: the same call-site patch, the thunk jumps straight to the replacement
+        g_inflOnly = true;
+        int zok = 0, zwant = 0;
+        char zbad[160] = {0};
+        size_t zl = 0;
+        for (const Site& s : kSites) {
+            if (s.kind != kInflate || !g_inflCall[s.arg]) continue;
+            ++zwant;
+            const int r = g_thunks ? InstallSite(s) : 2;
+            if (r == 0) { ++zok; continue; }
+            if (zl < sizeof(zbad) - 16) zl += (size_t)snprintf(zbad + zl, sizeof(zbad) - zl, " %X%s", s.rva, r == 1 ? "(bytes)" : "(atomic)");
+        }
+        zinfl::NoteSites(zok, zwant, zbad);
+        return false;  // LoadStats itself stays off (no sampler, Enabled() false)
     }
     int ok = 0, differ = 0, skipped = 0, toProbe = 0;
     char bad[512] = {0};
@@ -784,6 +809,7 @@ bool Start(const StartInfo& info) {
         const int r = g_thunks ? InstallSite(s) : 2;
         if (r == 0) {
             ++ok;
+            g_instOk[&s - kSites] = true;
             continue;
         }
         (r == 1 ? differ : skipped)++;
@@ -807,6 +833,15 @@ bool Start(const StartInfo& info) {
     g_on = th != nullptr;
     g_log("LoadStats: mode %d, %d/%d sites hooked, %d differ, %d skipped%s%s%s", g_mode, ok, (int)(sizeof(kSites) / sizeof(kSites[0])),
           differ, skipped, toProbe ? ", 7 ReadFile sites left to ReadProbe" : "", bl ? " -" : "", bad);
+    if (zi) {  // #108787: the timing hooks of the replaced wrappers call zinfl (see g_inflCall)
+        int zok = 0, zwant = 0;
+        for (const Site& s : kSites)
+            if (s.kind == kInflate && g_inflCall[s.arg]) {
+                ++zwant;
+                zok += g_instOk[&s - kSites] ? 1 : 0;
+            }
+        zinfl::NoteSites(zok, zwant, zok == zwant ? "" : " (see the LoadStats line)");
+    }
     return g_on;
 }
 

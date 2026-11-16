@@ -36,6 +36,7 @@
 #include "tilestats.h"
 #include "loadmem.h"
 #include "loadstats.h"
+#include "zinflate.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
@@ -3293,6 +3294,15 @@ DWORD WINAPI Worker(LPVOID) {
             li.base = reinterpret_cast<uintptr_t>(g_base);
             li.knownBuild = known;
             loadmem::Start(li);
+        }
+        {  // #108787 Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; zinflate.cpp). Before LoadStats:
+            // loadstats::Start patches the inflate call sites for it (also with LoadStats = 0).
+            zinfl::StartInfo zi;
+            zi.log = &Log;
+            zi.iniPath = iniPath.c_str();
+            zi.base = reinterpret_cast<uintptr_t>(g_base);
+            zi.knownBuild = known;
+            zinfl::Start(zi);
         }
         {  // per-load measurement (loadstats.cpp, [Profiler] LoadStats = 0 by default; notes\loading.md)
             loadstats::StartInfo ls;

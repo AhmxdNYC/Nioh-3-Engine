@@ -56,6 +56,7 @@ inline constexpr Entry kEntries[] = {
     {"Patches", "FileLoadPrio", "1"},
     {"Patches", "FileLoadPoll", "1"},
     {"Patches", "PollFix", "0"},
+    {"Patches", "Inflate", "0"},
     {"Patches", "AS0", "0"},
     {"Patches", "AS", "0"},
     {"Patches", "W3WineSleep", "1"},
