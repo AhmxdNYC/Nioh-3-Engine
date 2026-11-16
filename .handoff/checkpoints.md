@@ -865,3 +865,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-16 2:11 am EST | pc/0 | Kasha 0d323820 regression PASS offline (live unproven) | next: pc2 #108211/#108226 RESULTs; cx-pc polish #108262 -> delta review | tasks #108262
 2026-11-16 2:15 am EST | pc/0 | Kasha tail fix 3a190287 PROVEN live on PC2 #108275 | next: pc2 #108226 on 0d323820 + cx-pc polish #108262 | bridge file #7973
 2026-11-16 2:19 am EST | pc/0 | Kasha final 9086d554 offline PASS (live unproven) | next: pc2 #108288 + regression #108289 -> v1.8.21 candidate | tasks #108288 #108289
+2026-11-16 2:3x am EST | pc/0 | Kasha 9086d554 regression PASS offline #108334 (live pending) | next: pc2 #108288 RESULT -> fold into v1.8.21 candidate (installer-pc) | -
