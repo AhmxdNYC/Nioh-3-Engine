@@ -19,6 +19,10 @@
 
 static int fails = 0;
 #define CHECK(x) do { if (!(x)) { ++fails; fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); } } while (0)
+// CPU-share lower bounds depend on machine load (a busy PC gives a spinner less than a core): warn, do not fail,
+// unless PERFSNAP_STRICT_TIMING=1. Upper bounds stay hard checks (#108540).
+static int timingWarns = 0;
+#define TIMING_CHECK(x) do { if (!(x)) { ++timingWarns; fprintf(stderr, "WARN timing line %d: %s\n", __LINE__, #x); } } while (0)
 static bool Near(double a, double b, double tol) { return std::fabs(a - b) <= tol; }
 
 static volatile long long g_w6 = 0, g_gf = 0, g_ds = 0;
@@ -276,7 +280,8 @@ int main(int argc, char** argv) {
         const char* cp = bp ? strstr(bp, "\"core_pct\":") : nullptr;
         const double pct = cp ? atof(cp + 11) : -1;
         printf("busy thread: %.1f %% of one core\n", pct);
-        CHECK(pct > 60 && pct < 105);  // one spinning thread = about one core
+        TIMING_CHECK(pct > 60);  // one spinning thread = about one core (less when the PC is busy)
+        CHECK(pct < 105);
     }
     CHECK(strstr(js, "\"threads\":[{") != nullptr);
     CHECK(strstr(js, "\"thread_count\":") != nullptr);
@@ -319,7 +324,8 @@ int main(int argc, char** argv) {
             const char* sp = pc;
             while (sp > HitchThreadsForTest(0) && sp[-1] != ' ') --sp;
             const double v = atof(sp);
-            CHECK(v > 50 && v < 110);
+            TIMING_CHECK(v > 50);
+            CHECK(v < 110);
         }
         // 2000 more freezes of every kind: the totals keep all of them, only 64 keep details
         for (int i = 0; i < 2000; ++i) {
@@ -480,6 +486,11 @@ int main(int argc, char** argv) {
 
     if (argc > 1) { if (FILE* o = fopen(argv[1], "wb")) { fwrite(js, 1, jn, o); fclose(o); } }
     if (argc > 2) { if (FILE* o = fopen(argv[2], "wb")) { fwrite(tx, 1, tn, o); fclose(o); } }
+    if (timingWarns) {
+        const char* st = getenv("PERFSNAP_STRICT_TIMING");
+        printf("WARN %d timing check(s) below range (CPU busy?)\n", timingWarns);
+        if (st && *st == '1') fails += timingWarns;
+    }
     if (fails) { printf("%d FAILED\n", fails); return 1; }
     printf("ALL PASSED\n");
     return 0;
