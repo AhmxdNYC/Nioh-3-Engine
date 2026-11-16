@@ -1093,3 +1093,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-16 | pc/1 | #110655 EF f0f55731 Main PC RESULT PASS 2/2 (guards, 7 pad cycles, F10x3, kill + soul core); '14 of 13' walk count cosmetic; reports/95 d0d6b482 (newer map-guard check) untested.
 - 2026-11-16 5:17 pm EST | regression-pc/0 | #110870 reports/settings-preservation 05c3ef0a PASS #110895 (harness rc 0, 64 native cases). Merge-ready.
 - 2026-11-16 | reports-pc/0 | open: settings-preservation 05c3ef0a review; #98 waits Ally #110717; reports/95+98 ready to merge (#110804).
+- 2026-11-16 | reports-pc/0 | pc/1 #110885 f0f55731 PASS 2/2 boots (#95/#96/#97): issues commented, kept open until 1.8.23 ships. '14 of 13' PADGUARD log = map guard counted (log-only, TECH_DEBT, fix after 1.8.23).
