@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
 
     // 1. Decode on every chunk
     std::vector<uint8_t> out(0x4000 + 64);
-    int okSame = 0, okRefused = 0;
+    int okSame = 0, okRefused = 0, dstClean = 0;
     LARGE_INTEGER q0, q1, fq;
     QueryPerformanceFrequency(&fq);
     QueryPerformanceCounter(&q0);
@@ -170,9 +170,16 @@ int main(int argc, char** argv) {
             if (ok) g_lenient.fetch_add(1);
             CHECK(ok == 0 ? n == ~0ull : LenientSame(r, out.data(), n), "invalid chunk %zu: ok %d n %llu (accepted with other bytes)",
                   i, ok, (unsigned long long)n);
+            if (!ok) {  // refused: dst untouched, as the game's wrapper leaves it (#109526)
+                bool clean = true;
+                for (size_t k = 0; k < 0x4000 && clean; ++k) clean = out[k] == 0xCC;
+                dstClean += clean;
+                CHECK(clean, "invalid chunk %zu refused but dst written", i);
+            }
         }
     }
     QueryPerformanceCounter(&q1);
+    printf("1b. refused chunks with dst untouched: %d/%d\n", dstClean, okRefused);
     printf("1. Decode: %d/%d valid chunks identical, %d/%d invalid refused, %d accepted with the original bytes (leniency) "
            "(%.1f ms)\n", okSame, nValid, okRefused, nInvalid, g_lenient.load(), (q1.QuadPart - q0.QuadPart) * 1000.0 / fq.QuadPart);
 

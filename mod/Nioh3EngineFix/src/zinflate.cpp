@@ -75,11 +75,11 @@ int DecodeTo(Tls* t, void* out, uint32_t lim, size_t* n, const void* src, uint32
 
 int DecodeT(Tls* t, void* dst, uint32_t cap, uint64_t* outLen, const void* src, uint32_t csize) {
     const uint32_t lim = cap < kChunk ? cap : kChunk;
-    const uintptr_t d0 = (uintptr_t)dst, s0 = (uintptr_t)src;
-    const bool overlap = d0 < s0 + csize && s0 < d0 + lim;  // the game inflates to its stack, then copies: keep that order
+    // Always decode into the per-thread scratch, then copy, like the game (stack buffer, memcpy on success): a refused
+    // chunk leaves dst and *outLen untouched, so a chunk the game also rejects looks exactly as before (#109526).
     size_t n = 0;
-    if (!DecodeTo(t, overlap ? t->scratch : dst, lim, &n, src, csize)) return 0;
-    if (overlap) memcpy(dst, t->scratch, n);
+    if (!DecodeTo(t, t->scratch, lim, &n, src, csize)) return 0;
+    memcpy(dst, t->scratch, n);
     *outLen = n;
     return 1;
 }

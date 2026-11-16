@@ -13,7 +13,7 @@
 //   NOT replaced: ZlibInflateChunk16K_B 324D064 (sites 324BD61 324C409). It NOTs the caller's source bytes in place and
 //     gives zlib only a 16 KiB arena, which cannot hold zlib 1.1.4's 32 KiB window (the arena allocator 46F65C returns
 //     NULL, then zalloc 46F4D8 memsets it): its live behaviour is unproven, so it stays the game's.
-// Replacement: libdeflate_zlib_decompress into dst (via a 16 KiB scratch when dst and src overlap), output limit
+// Replacement: libdeflate_zlib_decompress into a 16 KiB per-thread scratch, then memcpy to dst (as the game), output limit
 // min(cap, 16 KiB) (the game's stack buffer). Success -> *outLen = size, return 1. Any libdeflate error -> the game's own
 // function with the same arguments (its result is returned). One decompressor per thread, never freed.
 // Same bytes: on every stream zlib 1.1.4 accepts, libdeflate gives the same output (both are exact RFC 1951/1950 decoders,
@@ -49,7 +49,7 @@ void NoteSites(int patched, int wanted, const char* bad);
 
 // ---- core, no game code (tests/zinflate_test.cpp) ----
 // libdeflate zlib decode with the 420654 contract. 1 = ok (dst and *outLen written), 0 = libdeflate refused (the caller
-// falls back; dst may be partly written unless it overlaps src, which goes through scratch).
+// falls back; dst and *outLen are untouched, as with the game's wrapper).
 int Decode(void* dst, uint32_t cap, uint64_t* outLen, const void* src, uint32_t csize);
 
 }  // namespace zinfl

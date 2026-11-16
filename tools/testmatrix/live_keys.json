@@ -1146,6 +1146,14 @@
    "class": "relaunch"
   },
   {
+   "key": "Inflate",
+   "section": "Patches",
+   "cls": "relaunch",
+   "via": "abba2 -Arms / one launch per arm",
+   "why": "read once at boot (install / hook / thread / boot list)",
+   "class": "relaunch"
+  },
+  {
    "key": "AS0",
    "section": "Patches",
    "cls": "relaunch",
