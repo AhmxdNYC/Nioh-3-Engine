@@ -68,7 +68,7 @@ void SealExitReplayBegin(double){}void SealExitReplayBound(double){}void CoreTpl
 int SealQueueDespawn(uint64_t){++despawns;return 1;}void SealDeferRelease(const char*){++releases;}
 int SealExitFxSpawn(uint64_t){return 0;}void GhostHideSeal(uint64_t){++hidden;}
 std::vector<uint64_t> ghostActors;
-void PressGhostBegin(const std::vector<uint64_t>& a,bool){ghostActors=a;}
+std::atomic<bool> g_ghostKeepSpeed{false};bool ghostKept=false;void PressGhostBegin(const std::vector<uint64_t>& a,bool){ghostActors=a;ghostKept=g_ghostKeepSpeed.load();}
 template<class T>bool Rd(uint64_t a,T& v){
  if(censusMode) for(const auto& c:census){
   if(a==c.first+8){v=(T)c.second;return true;}

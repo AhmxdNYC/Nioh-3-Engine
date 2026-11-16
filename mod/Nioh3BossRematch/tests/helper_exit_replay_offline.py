@@ -2,7 +2,7 @@
 
 Forms are parsed from archived live logs (SealHitSource burst lines: press time, owner, new objects). The bound seal is actor 456,
 every other source actor is helper 789. Expected: a core whose bursts all come from a helper (78A8D Kasha, no learned count) ends
-at its first helper burst + 150 ms with the helper NOT ghosted; every other core (5129B helper burst 1 of 2, seal-only cores) ends
+at its first helper burst + 150 ms with the helper NOT ghosted and the hidden seal kept at form speed (no x2 tail, #108161); every other core (5129B helper burst 1 of 2, seal-only cores) ends
 at the same time with the same ghost list as with the rule off. Usage: helper_exit_replay_offline.py [LOG ...]
 """
 from pathlib import Path
@@ -63,14 +63,14 @@ def scenario(i, f):
             items.append(f'{{{t:.3f},{1 if is_seal else 0},{min(n, 40)}}}')
     return (f' {{std::vector<B> b={{{",".join(items)}}};R off=run(b,{f["want"]},{f["idle"] if f["idle"] is not None else -1},-1);'
             f'R on=run(b,{f["want"]},{f["idle"] if f["idle"] is not None else -1},150);'
-            f'printf("FORM|{i}|{f["core"]}|{f["log"]}|%.3f|%d|%.3f|%d\\n",off.t,off.helperGhosted,on.t,on.helperGhosted);}}\n')
+            f'printf("FORM|{i}|{f["core"]}|{f["log"]}|%.3f|%d|%.3f|%d|%d|%d\\n",off.t,off.helperGhosted,on.t,on.helperGhosted,off.kept,on.kept);}}\n')
 
 
 def main():
     found, skipped = forms(sys.argv[1:] or DEFAULT_LOGS)
     harness = (here / 'last_hit_exit_offline.py').read_text(encoding='utf-8')
     a = harness.index('int main(){'); b = harness.index("\n}\n'''", a)
-    body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;};
+    body = r'''struct B{double t;int seal;int n;};struct R{double t=-1;int helperGhosted=0;int kept=0;};
 R run(const std::vector<B>& bursts,int want,double idle,int helperMs){
  g_exitOnHelperMs=helperMs;start(want);censusMode=true;g_sehKid[1]=789;g_sehKidT[1]=base;
  uint64_t next=0x100000;std::vector<std::pair<double,std::vector<uint64_t>>> live;R r;
@@ -80,8 +80,8 @@ R run(const std::vector<B>& bursts,int want,double idle,int helperMs){
    for(int k=0;k<x.n;++k){census[next]=x.seal?456:789;ids.push_back(next);next+=0x1000;}live.push_back({t,ids});}
   for(auto it=live.begin();it!=live.end();){if(t-it->first>=0.1){for(auto id:it->second)census.erase(id);it=live.erase(it);}else ++it;}
   if(idle>0&&t>=idle)g_sieFireSeal=456;
-  ghostActors.clear();step(t,false);
-  if(g_ghostReq==456){r.t=t;r.helperGhosted=std::count(ghostActors.begin(),ghostActors.end(),uint64_t(789))?1:0;}
+  ghostActors.clear();ghostKept=false;step(t,false);
+  if(g_ghostReq==456){r.t=t;r.helperGhosted=std::count(ghostActors.begin(),ghostActors.end(),uint64_t(789))?1:0;r.kept=ghostKept?1:0;}
  }
  censusMode=false;census.clear();g_sehKid[1]=0;g_sehKidT[1]=0;g_exitOnHelperMs=-1;return r;
 }
@@ -98,16 +98,16 @@ int main(){
     exec(compile(unit, 'helper_exit_unit', 'exec'), g)
     rows = [l.split('|') for l in g['res'].stdout.splitlines() if l.startswith('FORM|')]
     fails, per = 0, {}
-    for _, i, core, log, toff, goff, ton, gon in rows:
+    for _, i, core, log, toff, goff, ton, gon, koff, kon in rows:
         toff, ton, goff, gon = float(toff), float(ton), int(goff), int(gon)
         f = found[int(i)]
         helper_only = all(not s for _, owners in f['bursts'] for s, _ in owners)
         if helper_only and f['want'] == 0:
             first = f['bursts'][0][0]
-            ok = ton > 0 and abs(ton - (first + 0.150)) <= 0.035 and gon == 0 and (toff < 0 or toff > ton + 1.0)
+            ok = ton > 0 and abs(ton - (first + 0.150)) <= 0.035 and gon == 0 and (toff < 0 or toff > ton + 1.0) and kon == '1' and koff == '0'
             kind = 'ends early'
         else:
-            ok = abs(ton - toff) < 1e-6 and gon == goff
+            ok = abs(ton - toff) < 1e-6 and gon == goff and kon == koff == '0'
             kind = 'unchanged'
         per.setdefault((core, kind), [0, 0])[0 if ok else 1] += 1
         if not ok:

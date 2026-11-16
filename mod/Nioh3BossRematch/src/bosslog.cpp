@@ -3411,6 +3411,9 @@ bool SealExitCore(uint32_t sid) {
 }
 // #82327: every actor of the exiting press retains its own fade and tail lifetime.
 struct PressGhost { uint64_t actor=0, root=0; uint32_t key=0; double at=0, hideAt=0; float fade=1, tail=2, base=1, ramp=0; int fadeMs=0; };
+// #108161: a helper exit keeps the hidden seal at its form speed (no x2 tail): the seal's x2 tail ended its life ~1.2 s early and the
+// helper's last bursts (natural +5.4..6.2 s) never came (live 01:27: 3/3/3/2 bursts, despawn 3.7 s after exit vs 4-5 natural).
+std::atomic<bool> g_ghostKeepSpeed{false};
 SRWLOCK g_pressGhostLock = SRWLOCK_INIT;
 std::vector<PressGhost> g_pressGhosts;
 bool PressGhostGet(uint64_t actor, PressGhost& out) {
@@ -5660,10 +5663,11 @@ void PressGhostBegin(const std::vector<uint64_t>& actors, bool smoke) {
         float fade=1; if (Rd(g.root+0x248,fade) && std::isfinite(fade) && fade>=0) g.fade=fade;
         g.fadeMs=smoke?g_ghostFadeMs:0; g.tail=2.f;
         g.base=g_sealMul.load()>0?g_sealMul.load():1.f; g.ramp=g_tailRampMs.load();
+        if (g_ghostKeepSpeed.load()) g.tail=g.base;
         PressGhostForget(actor);
         AcquireSRWLockExclusive(&g_pressGhostLock); g_pressGhosts.push_back(g); ReleaseSRWLockExclusive(&g_pressGhostLock);
         GhostHideSeal(actor);
-        Log("PressGhost: actor=%llX desc=%X tail=x2 hide/fade=%d/%d", (unsigned long long)actor,g.key>>4,g_ghostHideMs.load(),g.fadeMs);
+        Log("PressGhost: actor=%llX desc=%X tail=x%.2f hide/fade=%d/%d", (unsigned long long)actor,g.key>>4,g.tail,g_ghostHideMs.load(),g.fadeMs);
     }
 }
 void PressGhostTick() {
@@ -6048,7 +6052,7 @@ void SealEndOnHitTick() {
         g_tailHitWatches.push_back(watch);
         Log("SealTailHits core %X: watching after ghost exit from burst %d until despawn", sid, bursts);
         g_tailT0.store(now);
-        if (g_tailMul.load() > 1.f) g_tailSeal.store(seal);
+        if (g_tailMul.load() > 1.f && !helperDue) g_tailSeal.store(seal);  // #108161: helper exit, seal keeps its form speed
         g_ghostT.store(now);
         const bool smoke = SealExitCore(sid);
         int made = 0;
@@ -6070,7 +6074,9 @@ void SealEndOnHitTick() {
         std::vector<uint64_t> ghosts = sources;
         if (helperDue) ghosts.erase(std::remove_if(ghosts.begin(), ghosts.end(), [&](uint64_t a) { return a != seal && helpers.count(a); }), ghosts.end());
         if (std::find(ghosts.begin(),ghosts.end(),seal)==ghosts.end()) ghosts.push_back(seal);
+        g_ghostKeepSpeed.store(helperDue);
         PressGhostBegin(ghosts,smoke);
+        g_ghostKeepSpeed.store(false);
         GhostHideSeal(seal);
         const int revMs = g_revealMs.load() > hideMs ? g_revealMs.load() : hideMs;
         g_ghostReqAt.store(smoke && replay > 0 ? now + revMs / 1000.0 : 0);

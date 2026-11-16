@@ -75,6 +75,9 @@ int main(){
  put(789,uint32_t(0x5129B<<4));PressGhostTick();check(g_pressGhosts.empty()&&SealRateMul(789)==1);
  actor(456,0x16127,10000);dead.clear();clockNow=12;PressGhostBegin({456},false);check(fade(10000)==0);
  PressGhostForget(456);check(g_pressGhosts.empty());
+ // #108161: helper exit keeps the ghost at its form speed (tail = base), default ghost tail stays x2
+ actor(456,0x16127,10000);PressGhostBegin({456},false);check(g_pressGhosts.back().tail==2.f);PressGhostForget(456);
+ actor(456,0x16127,10000);g_ghostKeepSpeed=true;PressGhostBegin({456},false);g_ghostKeepSpeed=false;check(g_pressGhosts.back().tail==g_pressGhosts.back().base);PressGhostForget(456);check(g_pressGhosts.empty());
  actor(456,0x16127,10000);PressGhostBegin({456},true);clockNow=33;PressGhostTick();check(g_pressGhosts.empty());
  clockNow=40;check(SealExitReplayQueue(456,123)==1);const double firstAt=g_fxPlay[0].at;const float firstX=g_fxPlay[0].r.blk[12];
  clockNow=40.1;check(SealExitReplayQueue(789,789,true)==0&&g_fxPlayN==1);
