@@ -37,3 +37,4 @@
 - [x] Soul core early form end: OK to close Main PC game? | reply 'go' to #107997; agent closes game, installs BR 64e63f0c (SealExitOnHelperMs=150), relaunches, tests core 78A8D | Main PC
 - [x] Try the early Kasha form end yourself? | reply yes to #108072 and the agent installs BR 64e63f0c + SealExitOnHelperMs=150 on Main PC (controller works, no virtual pad) | Main PC
 - [ ] Kasha early-end fix: keep or remove? | play with Kasha on Main PC (test BR 64e63f0c installed), reply to #108114 | Main PC
+- [ ] Ally on full-power charger | Ally powered off 3x at 15% battery ~1 min after Nioh launch (11:07-11:11 am EST); keep it on its full-power charger until >40% so the pre-ship test #109819 can run | ally
