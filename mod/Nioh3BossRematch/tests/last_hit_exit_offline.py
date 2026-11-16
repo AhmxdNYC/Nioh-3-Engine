@@ -38,7 +38,7 @@ struct {uint64_t owner=0,seal=0;} g_fh4;
 struct {double t=-100;} g_pressSnap;
 std::atomic<uint32_t> g_pickCore{0};
 
-std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400};
+std::atomic<int> g_sehMode{0},g_ghostOn{1},g_coverOn{1},g_formSid{0},g_sieMode{2},g_exitAtLastHitMs{0},g_exitOnHelperMs{-1},g_lastHitGraceMs{50},g_exitLeadMs{600},g_sehAtk{1},g_sealEndMinMs{700},g_formMaxSec{20},g_exitSmokeAtMs{1450},g_sxfOn{0},g_ghostHideMs{0},g_revealMs{100},g_fhDelayMs{400};
 std::atomic<int> g_frz[2];std::atomic<int> g_fxrRepeatMs{0};
 std::atomic<bool> g_fhFaceReq{false},g_ftHooked{true};
 std::atomic<uint64_t> g_tailSeal{0},g_ghostSeal{0},g_ghostFadeSeal{0},g_ghostReq{0};
