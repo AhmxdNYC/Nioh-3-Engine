@@ -1184,3 +1184,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-17 4:03 am EST | pc2/0 | pc #113647 GH #112 EF #8314 (91663c81, reports/112 7e97c53a) live check routed to pc2/1; RESULT reply-to 113640 to pc+reports-pc.
 - 2026-11-17 4:1x am EST | pc/0 | human #113382/#113416 answered TO-USER #113664 (W6+L1 in menu). pc2 routed GH #112 to pc2/1 (#113660) before cancel; re-held #113665. deepseek queue: #113652 hold->MA RE, then #113666 streaming burst stall RE (human GO #113644). Do not task twice.
 - 2026-11-17 4:05 am EST | pc2/0 | #113658 (GH #112 live) CANCELLED per pc #113649 (stand-down #113102; folds into next RC gate). Never launched, lock free.
+- 2026-11-17 4:25 am EST | pc/0 | #113691 forwarded to pc/1 as TASK #113701 (cpuprof A/B, EF 1c8e1245). Do not re-task; on RESULT send human the ranked list. Others: pc2/ally game free; deepseek owns hold #113652 + streaming #113666.
