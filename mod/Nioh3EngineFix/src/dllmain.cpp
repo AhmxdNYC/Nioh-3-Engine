@@ -156,6 +156,9 @@ void caveFps();
 void caveScale();
 void caveLim();
 void caveTier();
+void caveGov();
+extern uint64_t gov_getFps, gov_obj;  // GovFpsFix / GovTrace (GitHub #98)
+extern uint32_t gov_fix, gov_fps;
 void caveMenu();
 void caveL1();
 extern uint64_t vrr_minNs[3];
@@ -390,6 +393,33 @@ int g_tgFloor = 30, g_tgRatioPct = 125;
 int g_loaderCap = 10;            // 1.7.14: resource-load in-flight cap (16 when LC is applied), for LoadStats
 int g_lcCapWanted = 16;          // 1.7.30: LC = 1 -> 16, LC = 11..64 -> that cap (BuildRepl rewrites the LCa/LCb immediates)
 bool g_tgL1 = false;              // L1 installed this session
+bool g_govTrace = false;          // [VRR] GovTrace (GitHub #98): log the P8d frame governor once per second when it changes
+
+void Log(const char* fmt, ...);
+static bool GovRead(uint64_t obj, int32_t v[3]) {  // level +5C, accumulator +60, cooldown +64; obj is the game's
+    __try { memcpy(v, (const void*)(uintptr_t)(obj + 0x5C), 12); return true; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+// Called from the OSD stats tick. Threshold = fps*1000/30 with the value P8d handed over (the game's imul + /30).
+extern "C" void GovTraceTick() {
+    if (!g_govTrace) return;
+    static ULONGLONG last = 0;
+    static int32_t prev[3] = {-1, -1, -1};
+    static uint32_t prevFps = 0;
+    const ULONGLONG now = GetTickCount64();
+    if (now - last < 1000) return;
+    last = now;
+    const uint64_t obj = *(volatile uint64_t*)&gov_obj;
+    const uint32_t fps = *(volatile uint32_t*)&gov_fps;
+    int32_t v[3];
+    if (!obj || !GovRead(obj, v)) return;
+    if (!memcmp(v, prev, sizeof(v)) && fps == prevFps) return;
+    memcpy(prev, v, sizeof(v));
+    prevFps = fps;
+    Log("GOV: level %d acc %d thr %d (fps in %u, %s) cooldown %d", v[0], v[1], (int)((int64_t)fps * 1000 / 30), fps,
+        gov_fix ? "stock GetFps" : "tier", v[2]);
+}
 volatile double g_tgRendered = 0, g_tgTicks = 0;
 ULONGLONG g_tgLowerSince = 0;
 
@@ -467,7 +497,7 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
-    int p8dStock = 0;  // GitHub #98 A/B (DeepSeek #112015): 1 = leave P8d (frame governor threshold GetFps) stock
+    int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -599,7 +629,8 @@ Config LoadConfig() {
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
     c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
-    c.p8dStock = I(L"VRR", L"P8dStock", c.p8dStock) ? 1 : 0;
+    c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
+    c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
     c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
     c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
@@ -832,6 +863,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveScale: return (void*)&caveScale;
         case gen::Target::caveLim: return (void*)&caveLim;
         case gen::Target::caveTier: return (void*)&caveTier;
+        case gen::Target::caveGov: return (void*)&caveGov;
         case gen::Target::caveMenu: return (void*)&caveMenu;
         case gen::Target::hookPeek: return (void*)&hookPeek;
         case gen::Target::caveL1: return (void*)&caveL1;
@@ -919,7 +951,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveRDWake;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveGov;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -1930,9 +1962,18 @@ DWORD WINAPI Worker(LPVOID) {
     {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
-        if (ok && cfg.p8dStock) {  // GitHub #98 A/B: governor threshold 0x5AF69F reads the real GetFps, not the tier
-            v.erase(std::remove_if(v.begin(), v.end(), [](Item* it) { return !strcmp(it->s->id, "P8d"); }), v.end());
-            Log("VRR P8dStock=1: P8d left stock (frame governor threshold uses the game GetFps; GitHub #98 test)");
+        if (ok) {  // P8d -> caveGov: remember the stock GetFps call target (site still unpatched here; the AOB pins E8)
+            for (Item* it : v)
+                if (!strcmp(it->s->id, "P8d") && it->addr[0] == 0xE8) {
+                    int32_t rel;
+                    memcpy(&rel, it->addr + 1, 4);
+                    gov_getFps = (uint64_t)(uintptr_t)(it->addr + 5 + rel);
+                }
+            gov_fix = (cfg.govFpsFix && gov_getFps) ? 1u : 0u;
+            g_govTrace = cfg.govTrace != 0;
+            if (cfg.govFpsFix || cfg.govTrace)
+                Log("VRR GovFpsFix=%d GovTrace=%d: frame governor threshold (P8d) uses %s (GetFps RVA %X; GitHub #98)", (int)gov_fix,
+                    cfg.govTrace, gov_fix ? "the stock GetFps" : "the tier", gov_getFps ? (unsigned)(gov_getFps - (uint64_t)(uintptr_t)g_base) : 0u);
         }
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
         if (ok) {

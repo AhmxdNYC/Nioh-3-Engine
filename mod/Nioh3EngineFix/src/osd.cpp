@@ -67,6 +67,7 @@ extern float vrr_scale;
 extern uint32_t vrr_fpsOut;
 extern uint32_t vrr_tier;
 extern uint32_t vrr_floorOn, vrr_floorEnters;  // Tier120Floor (GitHub #98), written by the VRR cave
+void GovTraceTick();  // dllmain.cpp, [VRR] GovTrace (GitHub #98)
 extern uint32_t vrr_capCur;
 }
 
@@ -406,6 +407,7 @@ void UpdateStats(int64_t now) {
             lastReason = fs.pauseReason;
         }
     }
+    GovTraceTick();
     {   // Tier120Floor transitions (GitHub #98): proves the 120 tier ran as the 60 tier below the floor
         static uint32_t lastOn = 0, lastEnters = 0;
         const uint32_t on = *(volatile uint32_t*)&vrr_floorOn, enters = *(volatile uint32_t*)&vrr_floorEnters;

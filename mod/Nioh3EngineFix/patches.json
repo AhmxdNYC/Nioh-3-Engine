@@ -35,7 +35,7 @@
       "pattern": "0F 85 ?? ?? ?? ?? E8 ?? ?? ?? ?? 69 C8 E8 03 00 00 B8 89 88 88 88", "offset": 6 },
     { "id": "P8c", "group": "VRR", "rva": "0x5AF682", "len": 5, "orig": "E8 0D 6F A9 FF", "kind": "call", "target": "caveTier", "call_at": 0,
       "pattern": "0F 29 74 24 30 48 8B D9 E8 ?? ?? ?? ?? 0F 57 F6 44 8B C0", "offset": 8 },
-    { "id": "P8d", "group": "VRR", "rva": "0x5AF69F", "len": 5, "orig": "E8 F0 6E A9 FF", "kind": "call", "target": "caveTier", "call_at": 0,
+    { "id": "P8d", "group": "VRR", "rva": "0x5AF69F", "len": 5, "orig": "E8 F0 6E A9 FF", "kind": "call", "target": "caveGov", "call_at": 0,
       "pattern": "F3 0F 5E 35 ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 8B 4B 64 69 D0 E8 03 00 00", "offset": 8 },
     { "id": "P9", "group": "VRR", "rva": "0x5AD89B", "len": 6, "orig": "8B 87 14 06 00 00", "kind": "call", "target": "caveTier", "call_at": 0,
       "pattern": "FF 50 08 8B 87 14 06 00 00 33 D2 F7 B7 1C 06 00 00", "offset": 3 },

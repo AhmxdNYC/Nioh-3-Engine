@@ -28,6 +28,7 @@ PUBLIC vrr_enable, vrr_tier, vrr_capCur, vrr_arm, vrr_cap, vrr_fpsOut, vrr_scale
 PUBLIC vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs, vrr_floorOn, vrr_floorEnters
 PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
 PUBLIC tg_cap
+PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
 
 .data
 ALIGN 16
@@ -38,6 +39,11 @@ vrr_last        dq 0            ; last clamped interval (ns), diagnostics
 ; Tier120Floor (GitHub #98): in the 120 tier, after HoldNs of frames slower than the floor the caves act as the
 ; 60 tier (60 cap, fps 60, tier 60 to GetFps) for ProbeNs, then re-measure. 0 = off.
 vrr_floorNs      dq 0           ; 1e9 / floor fps; 0 = off
+; GovFpsFix (GitHub #98, DeepSeek #112015): P8d feeds the frame governor 0x5AF670 threshold edi = fps*1000/30.
+gov_getFps       dq 0           ; the game GetFps (stock call target at P8d)
+gov_obj          dq 0           ; governor object (rbx at P8d), read by the trace
+gov_fix          dd 0           ; 1 = call the stock GetFps instead of returning the tier
+gov_fps          dd 0           ; last value handed to the threshold
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
 vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
@@ -252,6 +258,23 @@ lR:
 caveLim ENDP
 
 ; ---- caveTier (P8a-d, P9): integer value must stay the tier -------------------------------------------------------
+; ---- caveGov (P8d): caveTier, or the stock GetFps when gov_fix; records rbx/eax for the GovTrace log -------------
+; Entered by `call` like the original GetFps call, so the ABI is the original call's (volatile regs may be clobbered).
+caveGov PROC
+    mov     qword ptr [gov_obj], rbx
+    cmp     dword ptr [gov_fix], 0
+    je      gTier
+    sub     rsp, 28h                            ; entry rsp = 8 mod 16; home space + realign
+    call    qword ptr [gov_getFps]
+    add     rsp, 28h
+    jmp     gOut
+gTier:
+    mov     eax, dword ptr [vrr_tier]
+gOut:
+    mov     dword ptr [gov_fps], eax
+    ret
+caveGov ENDP
+
 caveTier PROC
     mov     eax, dword ptr [vrr_tier]
     ret
