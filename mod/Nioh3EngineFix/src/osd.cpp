@@ -66,6 +66,7 @@ extern "C" {
 extern float vrr_scale;
 extern uint32_t vrr_fpsOut;
 extern uint32_t vrr_tier;
+extern uint32_t vrr_floorOn, vrr_floorEnters;  // Tier120Floor (GitHub #98), written by the VRR cave
 extern uint32_t vrr_capCur;
 }
 
@@ -403,6 +404,16 @@ void UpdateStats(int64_t now) {
                  g_st.gameThreadFps, g_st.presenterFps, g_st.ratio, fs.pauseReason);
             lastState = fs.state;
             lastReason = fs.pauseReason;
+        }
+    }
+    {   // Tier120Floor transitions (GitHub #98): proves the 120 tier ran as the 60 tier below the floor
+        static uint32_t lastOn = 0, lastEnters = 0;
+        const uint32_t on = *(volatile uint32_t*)&vrr_floorOn, enters = *(volatile uint32_t*)&vrr_floorEnters;
+        if (on != lastOn || enters != lastEnters) {
+            OLOG("VRR Tier120Floor: %s (entries %u, rendered %.1f fps, game ticks %.1f/s, vrr tier %u cap %u)", on ? "ON - 120 tier runs as the 60 tier" : "off - re-measuring the 120 tier",
+                 enters, g_st.realFps, g_st.tickFps, vrr_tier, vrr_capCur);
+            lastOn = on;
+            lastEnters = enters;
         }
     }
     g_st.winStart = now;
