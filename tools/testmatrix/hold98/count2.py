@@ -2,7 +2,7 @@ import json, sys, statistics
 # lead = time of the 2nd act (Y heavy start -> hold-branch act; 0x6311 on the PC2 save, 0x629d on Main PC); late > 0.4 s
 for f in sys.argv[1:]:
     late = nohold = 0; leads = []; fm = []; ends = []
-    rows = [json.loads(l) for l in open(f)]
+    rows = [r for r in map(json.loads, open(f)) if "kind" not in r]
     for r in rows:
         if r["fps_med"]: fm.append(r["fps_med"])
         a = r["acts"]
