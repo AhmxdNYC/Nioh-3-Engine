@@ -88,11 +88,18 @@ int main() {
             }
             return frames / fps;
         };
-        const double rates[] = {48, 60, 75, 95, 105, 112, 120};
+        const double rates[] = {60, 75, 95, 105, 112, 120};
         for (double f : rates) {
             Setup(0);
             double t = life(f, 120);
             CHECK(t >= 0.49 && t <= 0.54, "hold window at %.0f fps armed = %.3f s (want ~0.5)", f, t);
+        }
+        // below 60 fps: min(ticks,1) keeps the stock frame window (never shorter than stock; regression-pc #112892)
+        const double low[] = {30, 48};
+        for (double f : low) {
+            Setup(0);
+            double t = life(f, 120);
+            CHECK(t >= 31.0 / f - 0.001 && t <= 31.0 / f + 0.001, "hold window at %.0f fps armed = %.3f s (want stock %.3f)", f, t, 31.0 / f);
         }
         Setup(0);
         vrr_enable = 0;  // stock: +1 per walk

@@ -301,7 +301,8 @@ caveHold PROC
     mov     ecx, dword ptr [rbx+20h]
     cmp     dword ptr [vrr_fpsOut], 0
     je      hInc
-    add     ecx, dword ptr [vrr_hold60]
+    cmp     dword ptr [vrr_hold60], 0   ; min(ticks,1): never faster than stock (sub-60 fps keeps the stock window, regression-pc #112892)
+    jne     hInc
     ret
 hInc:
     inc     ecx

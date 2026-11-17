@@ -1856,6 +1856,7 @@ DWORD WINAPI Worker(LPVOID) {
         // L1 and FG stay unresolved under Proton unless the OnWine key is 1 (the menu says why).
         if (!strcmp(g, "VRR")) return true;
         if (!strcmp(g, "VRRMENU")) return cfg.vrr != 0 && cfg.menuQuantize != 0;
+        if (!strcmp(g, "VRRHOLD")) return cfg.vrr != 0 && cfg.holdWindowFix != 0;
         if (!strcmp(g, "W3")) return true;
         if (!strcmp(g, "R1")) return true;  // timeout 0 = stock poll
         if (!strcmp(g, "L1")) return !(g_wineEarly && !cfg.l1OnWine);
