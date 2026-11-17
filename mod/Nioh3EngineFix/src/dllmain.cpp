@@ -263,6 +263,7 @@ extern uint64_t w6_wakeAll, w6_wakes;
 // 1.6.0: TG tick governor (caveLim), WG wake gate (WS2/WS3/WSs), DS, CP, SPF
 extern uint32_t tg_cap;
 extern uint32_t vrr_fpsOut;
+extern uint32_t vrr_dtShift;  // DtSmooth (GitHub #98): EMA shift for the VRR frame interval, 0 = off
 extern uint32_t wg_installed;
 void caveDs();
 void caveCP();
@@ -498,6 +499,7 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int dtSmooth = 0;  // GitHub #98 (pc/1 #113171): VRR game dt = EMA of the frame interval, weight 1/2^N (0 = off, 1..6)
     int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
     int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
     char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
@@ -634,6 +636,7 @@ Config LoadConfig() {
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
     c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
     c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
+    c.dtSmooth = std::clamp(I(L"VRR", L"DtSmooth", c.dtSmooth), 0, 6);
     c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
     {
         wchar_t w[128] = {};
@@ -1573,6 +1576,8 @@ void ConfigureVrr(const Config& c) {
         vrr_maxNs[i] = 1000000000ull / (uint64_t)minF;  // longest interval
         Log("VRR tier %3d: armed=%u clamp %d..%d fps, limiter cap %d", tiers[i], vrr_arm[i], minF, maxF, maxF);
     }
+    vrr_dtShift = (uint32_t)c.dtSmooth;
+    if (c.dtSmooth) Log("VRR DtSmooth=%d: game dt = EMA of the frame interval (weight 1/%d, GitHub #98)", c.dtSmooth, 1 << c.dtSmooth);
     vrr_floorNs = c.t120Floor ? 1000000000ull / (uint64_t)c.t120Floor : 0;
     vrr_floorHoldNs = (uint64_t)c.t120FloorHoldMs * 1000000ull;
     vrr_floorProbeNs = (uint64_t)c.t120FloorProbeS * 1000000000ull;

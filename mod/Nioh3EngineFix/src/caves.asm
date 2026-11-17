@@ -30,6 +30,7 @@ PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
 PUBLIC tg_cap
 PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
 PUBLIC caveHold, vrr_hold60
+PUBLIC vrr_dtShift
 
 .data
 ALIGN 16
@@ -48,6 +49,9 @@ gov_fps          dd 0           ; last value handed to the threshold
 ; HoldWindowFix (GitHub #98, DeepSeek #112736): real 60 Hz ticks this frame (own carry), read by caveHold @P10
 vrr_accH         REAL8 0.0
 vrr_hold60       dd 1
+; DtSmooth (GitHub #98, pc/1 #113171): EMA of the clamped frame interval; 0 = raw interval (stock VRR)
+vrr_ema          dq 0
+vrr_dtShift      dd 0
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
 vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
@@ -164,6 +168,20 @@ a1:
     jle     a2
     mov     rax, qword ptr [rdx+r9*8]
 a2:
+    mov     ecx, dword ptr [vrr_dtShift]        ; DtSmooth: game dt = EMA(interval), weight 1/2^shift (#98:
+    test    ecx, ecx                            ; uneven per-frame dt misses the hold->MA check; a steady dt
+    je      sm0                                 ; at the same mean fps does not)
+    mov     rdx, qword ptr [vrr_ema]
+    test    rdx, rdx
+    jne     sm1
+    mov     rdx, rax
+sm1:
+    sub     rax, rdx
+    sar     rax, cl
+    add     rdx, rax
+    mov     qword ptr [vrr_ema], rdx
+    mov     rax, rdx
+sm0:
     mov     qword ptr [vrr_last], rax
     lea     rdx, vrr_cap
     mov     edx, dword ptr [rdx+r9*4]
@@ -216,6 +234,7 @@ l60z:
     mov     dword ptr [rdx+NEAR_TICKS60], 0
     jmp     lDone
 lStock:
+    mov     qword ptr [vrr_ema], 0              ; DtSmooth restarts from the next armed frame
     mov     dword ptr [vrr_scale], 3F800000h
     mov     dword ptr [vrr_fpsOut], 0
     mov     dword ptr [vrr_capCur], r8d
