@@ -10,7 +10,7 @@ DeepSeek credit. Whoever is assigned starts here. No game run is needed for the 
 - Only with EngineFix `[VRR] Tier120=1` (game's 120 fps tier running on our variable-rate ticks). Ally A/B v1: 5/40 late
   with it on, 0/38 with it off. v2: 4/40, v3: 6/40. The human rejected the 60 fps workaround (Plan B, #111057).
 - 60 fps control on the v3 build (Ally #111405, Tier120=0): **0/40 late** (all 183-201 ms) vs 6/40 at the 120 tier
-  (Fisher one-sided p~0.026). The 120 tier is the trigger. Trace #8160 (60) vs #8153 (120).
+  (Fisher one-sided p 0.013; v2+v3 pooled 10/80 vs 0/40 p 0.014). The 120 tier is the trigger. Trace #8160 (60) vs #8153 (120).
 
 ## What the trace ruled out (v1 #8137, v2 #8143, v3 #8153; tools/re/holdtrace_*.py on reports/98-trace 7614f228)
 Recorded once per call of the input tick hook 2E6C34 (several calls per drawn frame, deduped to ~16 ms game frames):
@@ -34,6 +34,12 @@ Fields whose behaviour depends on the mode during the held heavy (0-180 ms):
 - ctrl+78 (action frame counter) steps exactly 1.0 per frame at 60, ~0.9-1.2 under Tier120.
 - chr+350/354 (i32) change only under Tier120; chr+274/2C4 (f32) fall 1.6x faster under Tier120.
 - Gate timing is otherwise the same: MA at 183-201 ms (60) vs 173-201 ms (120 caught).
+- Step-pattern pass (pc #111408; tools/re/holdtrace_steps.py 63c9f739; every u8/u16/i32/f32 that steps on >=60% of frames
+  at 60 while Y is held, 0-170 ms): only chr+188/1A8 (u8, bit 0x80) stalls at 120 (40% vs 70% of frames) and it does not
+  separate late from caught (AUC 0.51). chr+844 (f32) looked separating over 0-260 ms but it is the player height and the
+  split was a window bias (late holds run longer); at 0-170 ms it drops out, and late holds happen at the same spot as
+  caught ones. No counter fits the late holds' timing => **clean none** inside the recorded regions; ticks60 stays 0 under
+  Tier120 (EF), so a hold check on a 60 Hz tick base would be outside these regions.
 
 ## Targets (in order)
 0. **ctrl+3E4**: who writes it under Tier120 and who reads it. If the hold branch reads it (coarse ~2-unit steps, updated on
