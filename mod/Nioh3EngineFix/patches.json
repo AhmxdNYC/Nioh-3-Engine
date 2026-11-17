@@ -47,6 +47,8 @@
       "pattern": "44 89 87 14 06 00 00 89 87 1C 06 00 00", "offset": 0 },
     { "id": "P7", "group": "VRRMENU", "rva": "0x43312B", "len": 5, "orig": "E8 54 33 C1 FF", "kind": "call", "target": "caveMenu", "call_at": 0, "reads": "callee_rel32@1",
       "pattern": "0F 29 74 24 20 48 8B F9 E8 ?? ?? ?? ?? 48 8B 71 50 0F 28 F0", "offset": 8 },
+    { "id": "P10", "group": "VRRHOLD", "rva": "0x198EC09", "len": 5, "orig": "8B 4B 20 FF C1", "kind": "call", "target": "caveHold", "call_at": 0,
+      "pattern": "8B 4B 20 FF C1 89 4B 20 84 C0 75 09 83 F9 1E 0F 8E", "offset": 0, "what": "GitHub #98 (DeepSeek #112736): player notice-list walk 0x35847C; per-walk age counter entry+0x20 vs 30 (0x1E) = hold window in frames" },
     { "id": "W3", "group": "W3", "rva": "0x1A6BF2D", "len": 6, "orig": "FF 15 95 6A E7 01", "kind": "call", "target": "hookPeek", "call_at": 1, "reads": "iat_disp32@2",
       "pattern": "48 8D 4C 24 48 33 D2 FF 15 ?? ?? ?? ?? 85 C0 74 1D", "offset": 7 },
     { "id": "R1", "group": "R1", "rva": "0x4A5346", "len": 6, "orig": "EB 02 F3 90 33 D2", "kind": "ripload", "opcode": "8B 15", "data": "r1Timeout",

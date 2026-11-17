@@ -157,6 +157,7 @@ void caveScale();
 void caveLim();
 void caveTier();
 void caveGov();
+void caveHold();
 extern uint64_t gov_getFps, gov_obj;  // GovFpsFix / GovTrace (GitHub #98)
 extern uint32_t gov_fix, gov_fps;
 void caveMenu();
@@ -497,6 +498,7 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int holdWindowFix = 0;  // GitHub #98 (DeepSeek #112736): P10 ages the player notice list in real 60 Hz ticks while VRR is armed
     int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
     char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
@@ -631,6 +633,7 @@ Config LoadConfig() {
     c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
     c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
+    c.holdWindowFix = I(L"VRR", L"HoldWindowFix", c.holdWindowFix) ? 1 : 0;
     c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
     {
         wchar_t w[128] = {};
@@ -870,6 +873,7 @@ void* TargetFn(gen::Target t) {
         case gen::Target::caveLim: return (void*)&caveLim;
         case gen::Target::caveTier: return (void*)&caveTier;
         case gen::Target::caveGov: return (void*)&caveGov;
+        case gen::Target::caveHold: return (void*)&caveHold;
         case gen::Target::caveMenu: return (void*)&caveMenu;
         case gen::Target::hookPeek: return (void*)&hookPeek;
         case gen::Target::caveL1: return (void*)&caveL1;
@@ -957,7 +961,7 @@ void* TargetFn(gen::Target t) {
     }
 }
 
-constexpr int kLastTarget = (int)gen::Target::caveGov;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
+constexpr int kLastTarget = (int)gen::Target::caveHold;  // MUST be the last enum entry (1.7.2 left caveSPF: SPR trampolines were never written -> jump into zeroed memory); tests/test_patterns.py checks this
 static_assert(0x40 + kTrampSize * (kLastTarget + 1) <= kNearSize, "trampolines must fit the near page");
 
 uint8_t* Trampoline(gen::Target t) { return g_near + kTrampOff + kTrampSize * (size_t)t; }
@@ -2021,6 +2025,11 @@ DWORD WINAPI Worker(LPVOID) {
                 if (mok) vrr_getDelta60 = callee;
             }
             run("VRR menu quantize (P7)", m, mok);
+        }
+        if (vrrDone && cfg.vrr && cfg.holdWindowFix) {
+            auto h = collect("VRRHOLD");
+            bool hok = run("VRR hold window (P10)", h, allFound(h));
+            Log("VRR HoldWindowFix=1: player notice window in real 60 Hz ticks %s (GitHub #98)", hok ? "installed" : "NOT installed");
         }
     }
     // W3: message pump. Always installed; cfg.w3 0 leaves the stock pump (the hook checks g_w3Enable).

@@ -29,6 +29,7 @@ PUBLIC vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs, vrr_floorOn, vrr_floorEnt
 PUBLIC caveWakeGate, wk_enable, wk_skipped, wk_kept
 PUBLIC tg_cap
 PUBLIC caveGov, gov_fix, gov_getFps, gov_obj, gov_fps
+PUBLIC caveHold, vrr_hold60
 
 .data
 ALIGN 16
@@ -44,6 +45,9 @@ gov_getFps       dq 0           ; the game GetFps (stock call target at P8d)
 gov_obj          dq 0           ; governor object (rbx at P8d), read by the trace
 gov_fix          dd 0           ; 1 = call the stock GetFps instead of returning the tier
 gov_fps          dd 0           ; last value handed to the threshold
+; HoldWindowFix (GitHub #98, DeepSeek #112736): real 60 Hz ticks this frame (own carry), read by caveHold @P10
+vrr_accH         REAL8 0.0
+vrr_hold60       dd 1
 vrr_floorHoldNs  dq 0
 vrr_floorProbeNs dq 0
 vrr_lowAcc       dq 0           ; off: slow-minus-fast time; on: time in floor mode
@@ -180,6 +184,14 @@ a3:
     mulsd   xmm0, xmm1
     cvtsd2ss xmm0, xmm0
     movss   dword ptr [vrr_scale], xmm0         ; scaleCorr = fps_i * interval
+    movapd  xmm0, xmm1                          ; HoldWindowFix: 60 Hz ticks with their own carry (any tier)
+    mulsd   xmm0, qword ptr [c_60]
+    addsd   xmm0, qword ptr [vrr_accH]
+    cvttsd2si ecx, xmm0
+    cvtsi2sd xmm2, ecx
+    subsd   xmm0, xmm2
+    movsd   qword ptr [vrr_accH], xmm0
+    mov     dword ptr [vrr_hold60], ecx
     movapd  xmm0, xmm1
     mulsd   xmm0, qword ptr [c_120]
     addsd   xmm0, qword ptr [vrr_acc120]
@@ -279,6 +291,22 @@ caveTier PROC
     mov     eax, dword ptr [vrr_tier]
     ret
 caveTier ENDP
+
+; ---- caveHold (P10, HoldWindowFix, GitHub #98): replaces `mov ecx,[rbx+20h]; inc ecx` in the player notice-list walk.
+; The game ages each notice by 1 per walk (once per frame) and drops it after 30, a window of 0.5 s at 60 fps but only
+; ~0.27 s at 112 fps, so a held attack's notice can expire before its transition. While VRR is armed the age grows by
+; this frame's real 60 Hz ticks (0, 1 or 2 with carry), so the window stays 0.5 s at any fps; stock frames add 1.
+; ecx only; the flags are dead (the next `test al,al` sets them).
+caveHold PROC
+    mov     ecx, dword ptr [rbx+20h]
+    cmp     dword ptr [vrr_fpsOut], 0
+    je      hInc
+    add     ecx, dword ptr [vrr_hold60]
+    ret
+hInc:
+    inc     ecx
+    ret
+caveHold ENDP
 
 ; ---- caveMenu (P7, optional): GetDelta60 for menu hold timers, quantised to 0.25 with carry while armed -----------
 ; Unlike the (never-applied) script version this keeps the Win64 ABI for the inner call (16-byte alignment and

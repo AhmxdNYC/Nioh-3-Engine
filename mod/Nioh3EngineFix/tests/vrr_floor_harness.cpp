@@ -4,6 +4,8 @@
 #include <cstring>
 extern "C" {
 uint32_t CallFps(void* g, uint32_t tier);
+uint32_t CallHold(void* entry);
+extern uint32_t vrr_hold60;
 extern uint64_t vrr_minNs[3], vrr_maxNs[3], vrr_pNear, vrr_floorNs, vrr_floorHoldNs, vrr_floorProbeNs;
 extern uint32_t vrr_enable, vrr_tier, vrr_capCur, vrr_arm[3], vrr_cap[3], vrr_fpsOut, vrr_floorOn, vrr_floorEnters;
 // caves.asm externs not used by caveFps
@@ -69,6 +71,38 @@ int main() {
     Setup(90);
     for (int i = 0; i < 600; ++i) Frame(50, 60);
     CHECK(vrr_floorEnters == 0 && vrr_tier == 60 && G614() == 50, "60 tier untouched (g614=%u)", G614());
+    // 6. HoldWindowFix (P10, GitHub #98): a notice aged by caveHold expires after 31 ages (> 0x1E) in real time
+    //    ~0.5 s at any fps while armed; stock frames add 1 per walk (30-frame window, the game's own behaviour)
+    {
+        auto life = [](double fps, uint32_t tier) {
+            uint8_t entry[0x28] = {};
+            int frames = 0;
+            for (;;) {
+                Frame(fps, tier);
+                ++frames;
+                uint32_t c = CallHold(entry);
+                if (c == 0xFFFFFFFFu) return -1.0;
+                memcpy(entry + 0x20, &c, 4);
+                if ((int)c > 0x1E) break;
+                if (frames > 10000) return -2.0;
+            }
+            return frames / fps;
+        };
+        const double rates[] = {48, 60, 75, 95, 105, 112, 120};
+        for (double f : rates) {
+            Setup(0);
+            double t = life(f, 120);
+            CHECK(t >= 0.49 && t <= 0.54, "hold window at %.0f fps armed = %.3f s (want ~0.5)", f, t);
+        }
+        Setup(0);
+        vrr_enable = 0;  // stock: +1 per walk
+        double t = life(120, 120);
+        CHECK(t > 0.25 && t < 0.27, "stock hold window at 120 = %.3f s (31 frames)", t);
+        Setup(0);
+        double sum = 0;
+        for (int i = 0; i < 1120; ++i) { Frame(112); sum += vrr_hold60; }
+        CHECK(sum >= 599 && sum <= 601, "60 Hz hold ticks over 10 s at 112 fps = %.0f", sum);
+    }
     printf(fails ? "vrr floor harness FAILED (%d)\n" : "vrr floor harness ALL PASSED\n", fails);
     return fails ? 1 : 0;
 }
