@@ -467,6 +467,7 @@ struct Config {
     int maxF[3] = {30, 60, 120};
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
+    int p8dStock = 0;  // GitHub #98 A/B (DeepSeek #112015): 1 = leave P8d (frame governor threshold GetFps) stock
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -598,6 +599,7 @@ Config LoadConfig() {
     c.menuQuantize = I(L"VRR", L"MenuQuantize", c.menuQuantize);
     c.t120Floor = I(L"VRR", L"Tier120Floor", c.t120Floor);
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
+    c.p8dStock = I(L"VRR", L"P8dStock", c.p8dStock) ? 1 : 0;
     c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
     c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
@@ -1928,6 +1930,10 @@ DWORD WINAPI Worker(LPVOID) {
     {
         auto v = collect("VRR");
         bool ok = allFound(v) && g_near;
+        if (ok && cfg.p8dStock) {  // GitHub #98 A/B: governor threshold 0x5AF69F reads the real GetFps, not the tier
+            v.erase(std::remove_if(v.begin(), v.end(), [](Item* it) { return !strcmp(it->s->id, "P8d"); }), v.end());
+            Log("VRR P8dStock=1: P8d left stock (frame governor threshold uses the game GetFps; GitHub #98 test)");
+        }
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
         if (ok) {
             ConfigureVrr(cfg);
