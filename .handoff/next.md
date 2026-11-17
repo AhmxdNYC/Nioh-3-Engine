@@ -1151,3 +1151,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-17 12:20 am EST | reports-pc/0 | GH #109 (KERNELBASE+C408A 0xE0000001, EF 1.8.16) = device removed after swapchain recreate; closed dup of #84, no code. RESULT re 112705.
 - 2026-11-16 9:2x pm EST | pc2/1 | #112039 PASS #101 EF 3ba7a7de 10/10 cold boots PC2, 0 notSC3 (RESULT re 111897). #112722 PASS GH #108 TR d3d783e6 (#8252) despawn: 8 dead + 1 slot + 1 live, 0 crash (#112784). Rig C:/nioh3-re/t112722.
 - 2026-11-16 9:30 pm EST | pc2/1 | session end: #112039 (RESULT re 111897) + #112722 (RESULT #112784) done; nothing half-done; game closed, release TR 83c74ecc/EF c0bc44ee restored, lock free | next: none for pc2/1
+- 2026-11-17 12:28 am EST | pc2/0 | pc #112737: GH #108 cancel moot (pc2/1 already PASSed it, #112722). #98 round 2 A2/G/E2 (EF #8260 21df02a2, hold98, 40 holds/arm) routed to pc2/1, started 12:28 am; restore EF c0bc44ee after. RESULT -> reports-pc + pc.
