@@ -972,3 +972,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-17 12:15 am EST | reports-pc/0 | #98 analysed #112700 raw (bimodal lead, fps-independent per hold) | proven from data, cause unproven | next: on pc RESULT G>=8 -> hold-path fix from deepseek map; G<=2 -> bisect inside sites | no code, EF #8260 21df02a2
 2026-11-17 12:20 am EST | reports-pc/0 | #109 triaged, closed dup #84 | proven from report (887A002B, swapchain recreate 1 s before) | next: #98 round 2 RESULT from pc (re 112700) + deepseek map | no code
 - 2026-11-16 9:24 pm EST | pc2/1 | done: #101 3ba7a7de boots PASS, GH #108 despawn PASS (#112784) | proven live PC2 | next: none queued for pc2/1 | files C:/nioh3-re/t112039, t112722
+- 2026-11-16 9:30 pm EST | pc2/1 | session end: #112039 (RESULT re 111897) + #112722 (RESULT #112784) done; nothing half-done; game closed, release TR 83c74ecc/EF c0bc44ee restored, lock free | next: none for pc2/1
