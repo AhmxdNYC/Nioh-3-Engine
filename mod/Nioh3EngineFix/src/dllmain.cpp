@@ -498,6 +498,7 @@ struct Config {
     int maxFps = 120, menuQuantize = 0;
     int t120Floor = 0, t120FloorHoldMs = 2000, t120FloorProbeS = 30;  // GitHub #98 stopgap, 0 = off
     int govFpsFix = 0, govTrace = 0;  // GitHub #98 (DeepSeek #112015): P8d governor threshold uses the stock GetFps / log it
+    char stockSites[128] = {};  // GitHub #98 bisection (test only): VRR site ids left stock, e.g. "P3a,P3b" (P3a-g, P6, P8a-d, P9)
     int w3Ms = 1, r1Ms = 2, l1MarginUs = 1000, l1MinUs = 500;
     // experimental CPU-power patches (known build only; 0 = not installed)
     int b = 0, pp = 0, fpc = 0, aabb = 0, m1 = 0, m2 = 0, j1 = 0, x1 = 0, e1 = 0, w6 = 0, s1 = 0;
@@ -631,6 +632,11 @@ Config LoadConfig() {
     c.t120Floor = c.t120Floor <= 0 ? 0 : std::clamp(c.t120Floor, 61, 119);
     c.govFpsFix = I(L"VRR", L"GovFpsFix", c.govFpsFix) ? 1 : 0;
     c.govTrace = I(L"VRR", L"GovTrace", c.govTrace) ? 1 : 0;
+    {
+        wchar_t w[128] = {};
+        GetPrivateProfileStringW(L"VRR", L"StockSites", L"", w, 128, f);
+        for (int i = 0; i < 127 && w[i]; ++i) c.stockSites[i] = (w[i] < 128) ? (char)w[i] : '?';
+    }
     c.t120FloorHoldMs = std::clamp(I(L"VRR", L"Tier120FloorHoldMs", c.t120FloorHoldMs), 250, 30000);
     c.t120FloorProbeS = std::clamp(I(L"VRR", L"Tier120FloorProbeS", c.t120FloorProbeS), 5, 600);
     c.w3Ms = std::clamp(A(L"Tuning", L"W3_TimeoutMs", c.w3Ms, 3, 1, "Wine: pump poll 3 ms instead of 1 (notes/cpu-hotspots-ally.md row 4); Windows keeps 1"), 0, 16);
@@ -1976,6 +1982,29 @@ DWORD WINAPI Worker(LPVOID) {
                     cfg.govTrace, gov_fix ? "the stock GetFps" : "the tier", gov_getFps ? (unsigned)(gov_getFps - (uint64_t)(uintptr_t)g_base) : 0u);
         }
         if (!allFound(v)) Log("VRR: not every site was found - the whole group is skipped (a partial VRR install would run the game at the wrong speed)");
+        if (ok && cfg.stockSites[0]) {  // GitHub #98 bisection: drop listed tick/tier sites so they keep the stock code
+            static const char* kStockable[] = {"P3a", "P3b", "P3c", "P3d", "P3e", "P3f", "P3g", "P6", "P8a", "P8b", "P8c", "P8d", "P9"};
+            auto listed = [&](const char* id) {
+                for (const char* p = cfg.stockSites; *p;) {
+                    while (*p == ',' || *p == ' ') ++p;
+                    const char* e = p;
+                    while (*e && *e != ',' && *e != ' ') ++e;
+                    if (e > p && strlen(id) == (size_t)(e - p) && !_strnicmp(id, p, e - p)) return true;
+                    p = e;
+                }
+                return false;
+            };
+            std::vector<Item*> keep;
+            std::string left;
+            for (Item* it : v) {
+                bool stockable = false;
+                for (const char* k : kStockable) stockable |= !strcmp(k, it->s->id);
+                if (stockable && listed(it->s->id)) { left += it->s->id; left += ' '; continue; }
+                keep.push_back(it);
+            }
+            v.swap(keep);
+            Log("VRR StockSites=%s: left stock (GitHub #98 bisection, test only): %s", cfg.stockSites, left.empty() ? "none" : left.c_str());
+        }
         if (ok) {
             ConfigureVrr(cfg);
             vrr_enable = cfg.vrr ? 1u : 0u;
