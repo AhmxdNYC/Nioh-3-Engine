@@ -37,6 +37,7 @@
 #include "loadmem.h"
 #include "loadstats.h"
 #include "zinflate.h"
+#include "fhlinger.h"
 #include "patches_gen.h"
 #include "menu.h"
 #include "updatecheck.h"
@@ -3408,6 +3409,14 @@ DWORD WINAPI Worker(LPVOID) {
             li.base = reinterpret_cast<uintptr_t>(g_base);
             li.knownBuild = known;
             loadmem::Start(li);
+        }
+        {  // #117226 FileLinger: keep released archive handles open ([Patches] FileLinger = 0; fhlinger.cpp)
+            fhlinger::StartInfo fl;
+            fl.log = &Log;
+            fl.iniPath = iniPath.c_str();
+            fl.base = reinterpret_cast<uintptr_t>(g_base);
+            fl.knownBuild = known;
+            fhlinger::Start(fl);
         }
         {  // #108787 Inflate: libdeflate for the 16 KiB zlib chunks ([Patches] Inflate = 0; zinflate.cpp). Before LoadStats:
             // loadstats::Start patches the inflate call sites for it (also with LoadStats = 0).
