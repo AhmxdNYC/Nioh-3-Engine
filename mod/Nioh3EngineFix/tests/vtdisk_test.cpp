@@ -3,7 +3,7 @@
 // overflowing the stack. Build: cl /nologo /EHsc /std:c++17 /W4 tests\vtdisk_test.cpp d3d11.lib dxgi.lib user32.lib
 #include "../src/vtdisk.h"
 #include <d3d11.h>
-#include <dxgi1_2.h>
+#include <dxgi1_4.h>
 #include <cstdio>
 
 static int g_fail = 0;
@@ -27,6 +27,19 @@ static HRESULT STDMETHODCALLTYPE OurHook(IDXGISwapChain* sc, UINT s, UINT f) {
     else hr = g_ourOrig(sc, s, f);
     --t_depth;
     return hr;
+}
+
+// GitHub #100: the same two-hook loop on SetColorSpace1 (slot 38), shape of osd.cpp HkSetColorSpace1's breaker
+using SetCs1Fn = HRESULT(STDMETHODCALLTYPE*)(IDXGISwapChain3*, DXGI_COLOR_SPACE_TYPE);
+static SetCs1Fn g_csReal = nullptr, g_csOtherOrig = nullptr, g_csOurOrig = nullptr;
+static thread_local int t_csDepth = 0;
+static int g_csMaxDepth = 0, g_csRealCalls = 0;
+static HRESULT STDMETHODCALLTYPE CsOtherHook(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) { return g_csOtherOrig(sc, cs); }
+static HRESULT STDMETHODCALLTYPE CsOurHook(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
+    if (t_csDepth + 1 >= 8) { ++g_csRealCalls; if (t_csDepth + 1 > g_csMaxDepth) g_csMaxDepth = t_csDepth + 1; return g_csReal(sc, cs); }
+    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
+    if (t_csDepth > g_csMaxDepth) g_csMaxDepth = t_csDepth;
+    return g_csOurOrig(sc, cs);
 }
 
 int main() {
@@ -70,6 +83,26 @@ int main() {
     CHECK(SUCCEEDED(hr), "looped Present failed %08lX", (unsigned long)hr);
     CHECK(g_maxDepth == 8 && g_realCalls == 1, "loop not broken at depth 8 exactly once");
     *g_slot = (void*)g_real; VirtualProtect(g_slot, sizeof(void*), old, &old);
+
+    // 3) #100: SetColorSpace1 resolves from disk and its two-hook loop ends at depth 8 with one real call
+    IDXGISwapChain3* sc3 = nullptr;
+    CHECK(SUCCEEDED(sc->QueryInterface(__uuidof(IDXGISwapChain3), (void**)&sc3)) && sc3, "QI IDXGISwapChain3");
+    if (sc3) {
+        void** vt3 = *reinterpret_cast<void***>(sc3);
+        g_csReal = reinterpret_cast<SetCs1Fn>(vtdisk::OriginalSlotValue(&vt3[38]));
+        CHECK((void*)g_csReal == vt3[38], "SetColorSpace1: disk %p memory %p", (void*)g_csReal, vt3[38]);
+        void** cslot = &vt3[38];
+        DWORD o3; VirtualProtect(cslot, sizeof(void*), PAGE_READWRITE, &o3);
+        g_csOtherOrig = (SetCs1Fn)*cslot; *cslot = (void*)&CsOtherHook;
+        g_csOurOrig = (SetCs1Fn)*cslot; *cslot = (void*)&CsOurHook;
+        g_csOtherOrig = (SetCs1Fn)*cslot; *cslot = (void*)&CsOtherHook;
+        hr = sc3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
+        std::printf("loop: SetColorSpace1 hr %08lX, max depth %d, real calls %d, depth after %d\n", (unsigned long)hr, g_csMaxDepth, g_csRealCalls, t_csDepth);
+        CHECK(SUCCEEDED(hr), "looped SetColorSpace1 failed %08lX", (unsigned long)hr);
+        CHECK(g_csMaxDepth == 8 && g_csRealCalls == 1 && t_csDepth == 0, "SetColorSpace1 loop not broken at depth 8 exactly once");
+        *cslot = (void*)g_csReal; VirtualProtect(cslot, sizeof(void*), o3, &o3);
+        sc3->Release();
+    }
 
     ctx->Release(); dev->Release(); sc->Release(); fac->Release(); DestroyWindow(hwnd);
     std::printf(g_fail ? "vtdisk_test: %d FAILED\n" : "vtdisk_test: all passed\n", g_fail);

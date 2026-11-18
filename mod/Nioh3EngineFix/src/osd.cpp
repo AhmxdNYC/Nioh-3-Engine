@@ -136,6 +136,9 @@ Present1Fn g_realPresent1 = nullptr;
 constexpr int kPresentLoopDepth = 8;
 volatile LONG g_presentLoopLogged = 0;
 SetCs1Fn g_origSetCs1 = nullptr;
+SetCs1Fn g_realSetCs1 = nullptr;           // GitHub #100: DXGI SetColorSpace1 read from disk (loop breaker)
+volatile LONG g_csLoopLogged = 0;
+thread_local int t_csDepth = 0;
 // Fallback queue source: some swapchain proxies (Streamline's sl.interposer on DXVK/vkd3d-proton under Proton) refuse
 // IDXGISwapChain::GetDevice(ID3D12CommandQueue). Then the presenting queue is taken from the game's own submissions:
 // the last DIRECT queue that called ExecuteCommandLists on the presenting thread (else on any thread). Pointers only,
@@ -1650,6 +1653,15 @@ HRESULT STDMETHODCALLTYPE HkPresent1(IDXGISwapChain1* sc, UINT sync, UINT flags,
 }
 
 HRESULT STDMETHODCALLTYPE HkSetColorSpace1(IDXGISwapChain3* sc, DXGI_COLOR_SPACE_TYPE cs) {
+    // GitHub #100: another overlay (a version.dll proxy) re-hooked SetColorSpace1 around ours and called back through the
+    // vtable, so the two hooks recursed until the stack overflowed 6 s after start. Same breaker as Present (#38).
+    if (t_csDepth + 1 >= kPresentLoopDepth) {
+        if (!InterlockedExchange(&g_csLoopLogged, 1))
+            OLOG("SetColorSpace1 re-entered %d deep on one thread (another overlay's hook loops through ours via %s) - calling DXGI directly%s",
+                 t_csDepth + 1, ModuleOf((const void*)g_origSetCs1).c_str(), g_realSetCs1 ? "" : " (DXGI address unknown: call skipped)");
+        return g_realSetCs1 ? g_realSetCs1(sc, cs) : S_OK;
+    }
+    struct DepthGuard { DepthGuard() { ++t_csDepth; } ~DepthGuard() { --t_csDepth; } } depthGuard;
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Enter, sc, reinterpret_cast<void*>(g_origSetCs1), S_OK, false, cs);
     HRESULT hr = g_origSetCs1(sc, cs);
     dxgidiag::Note(dxgidiag::ColorSpace, dxgidiag::Returned, sc, reinterpret_cast<void*>(g_origSetCs1), hr, true, cs);
@@ -1766,6 +1778,7 @@ bool InstallHooks() {
              g_realPresent1 ? ((void*)g_realPresent1 == vt[kSlotPresent1] ? "same" : "differs") : "unknown", ModuleOf(vt[kSlotPresent1]).c_str());
         bool a = PatchSlot(&vt[kSlotPresent], (void*)&HkPresent, (void**)&g_origPresent, "Present");
         bool b = PatchSlot(&vt[kSlotPresent1], (void*)&HkPresent1, (void**)&g_origPresent1, "Present1");
+        if (csVt) g_realSetCs1 = reinterpret_cast<SetCs1Fn>(vtdisk::OriginalSlotValue(&csVt[kSlotSetColorSpace1]));
         if (csVt && !PatchSlot(&csVt[kSlotSetColorSpace1], (void*)&HkSetColorSpace1, (void**)&g_origSetCs1, "SetColorSpace1"))
             OLOG("SetColorSpace1 not hooked - HDR10 text brightness is not adjusted");
         ok = a || b;

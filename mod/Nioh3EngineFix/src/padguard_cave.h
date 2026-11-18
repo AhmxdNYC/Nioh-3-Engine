@@ -157,6 +157,29 @@ constexpr size_t kMapCave = 0x800, kMapRets = 0x880, kMapScratch = 0x900, kMapCo
 constexpr size_t kMapScratchLen = 0x40;
 static_assert(kTable + 16 * 12 <= kMapCave && kMapRets + 8 * 16 <= kMapScratch && kMapUnwind + 16 <= 0x1000, "map page layout");
 
+// ---- second map (GitHub #115 / #118 / #63 / #51) ----
+// The pad manager keeps a second unordered_map<uint32, 8-byte pad state> with its own at() copy (431E6C, same FNV-1a lookup,
+// same `sub rsp,28h` frame, value = node+14h). Its miss path 431ED5 (also reached from its cold chunk 19A9265) throws the same
+// out_of_range; #115/#118/#63 died there at boot (return 431EE1, callers 433E7E / 433B1B). Its seven callers all treat the value
+// as one pad's 8-byte state: they read [v+2] (zero = skip that pad), clear it, or write this frame's bits into it. A zeroed
+// scratch value therefore means "no input for that pad this frame"; writes land in the scratch and are zeroed on the next hit.
+// It gets its own block (cave, return table, scratch, counter, unwind) so the two maps never share a scratch value.
+constexpr uint32_t kAt2Fn = 0x431E6C;     // second unordered_map<uint32, T>::at
+constexpr uint32_t kAt2Miss = 0x431ED5;   // its miss path: lea rcx, [rip+msg] ; call 0xB5FB84
+inline constexpr uint8_t kAt2MissOrig[kAtMissLen] = {0x48, 0x8D, 0x0D, 0x94, 0xA5, 0x65, 0x03, 0xE8, 0xA3, 0xDC, 0x72, 0x00};
+inline constexpr uint32_t kAt2Calls[] = {0x433B16, 0x433E79, 0x433EFA, 0x19A9246, 0x2978718, 0x2978891, 0x2978924};
+constexpr int kNumAt2Calls = (int)(sizeof(kAt2Calls) / sizeof(kAt2Calls[0]));
+
+// where one map-miss block lives in the guard page
+struct MapLayout {
+    size_t cave, rets, scratch, counter, unwind;
+};
+inline constexpr MapLayout kMap1 = {kMapCave, kMapRets, kMapScratch, kMapCounter, kMapUnwind};
+inline constexpr MapLayout kMap2 = {0xA00, 0xA80, 0xB00, 0xB40, 0xB60};
+static_assert(kMapUnwind + 16 <= kMap2.cave && kMap2.rets + 8 * 16 <= kMap2.scratch && kMap2.scratch + kMapScratchLen <= kMap2.counter &&
+                  kMap2.counter + 4 <= kMap2.unwind && kMap2.unwind + 16 <= 0x1000,
+              "second map page layout");
+
 // rel32 target of the E8 call at `at`
 inline uintptr_t CallTarget(uintptr_t at) {
     int32_t d;
@@ -164,11 +187,12 @@ inline uintptr_t CallTarget(uintptr_t at) {
     return at + 5 + (intptr_t)d;
 }
 
-// Writes the map-miss cave at page + kMapCave and its return-address table. msg = absolute address of the original lea's
+// Writes the map-miss cave at page + L.cave and its return-address table (L = kMap1 for #96, kMap2 for #115). msg = absolute address of the original lea's
 // string, thrower = the original call target. Returns the code size, 0 when a rel32 does not reach.
-inline size_t BuildMapMiss(uint8_t* page, const uintptr_t* rets, int nRets, uintptr_t msg, uintptr_t thrower) {
+inline size_t BuildMapMiss(uint8_t* page, const uintptr_t* rets, int nRets, uintptr_t msg, uintptr_t thrower,
+                           const MapLayout& L = kMap1) {
     if (nRets < 1 || nRets > 16) return 0;
-    uint8_t* out = page + kMapCave;
+    uint8_t* out = page + L.cave;
     size_t n = 0;
     auto rel = [&](uintptr_t target, size_t insnEnd) -> bool {
         const intptr_t d = (intptr_t)target - (intptr_t)((uintptr_t)out + insnEnd);
@@ -178,11 +202,11 @@ inline size_t BuildMapMiss(uint8_t* page, const uintptr_t* rets, int nRets, uint
         n += 4;
         return true;
     };
-    memset(out, 0xCC, kMapRets - kMapCave);
-    memcpy(page + kMapRets, rets, sizeof(uintptr_t) * (size_t)nRets);
+    memset(out, 0xCC, L.rets - L.cave);
+    memcpy(page + L.rets, rets, sizeof(uintptr_t) * (size_t)nRets);
     out[n++] = 0x48, out[n++] = 0x8B, out[n++] = 0x44, out[n++] = 0x24, out[n++] = 0x28;  // 0   mov rax, [rsp+28h] (return)
     out[n++] = 0x48, out[n++] = 0x8D, out[n++] = 0x0D;                                    // 5   lea rcx, [rets]
-    if (!rel((uintptr_t)page + kMapRets, n + 4)) return 0;
+    if (!rel((uintptr_t)page + L.rets, n + 4)) return 0;
     out[n++] = 0xBA, out[n++] = (uint8_t)nRets, out[n++] = 0, out[n++] = 0, out[n++] = 0;  // 12  mov edx, nRets
     const size_t loop = n;                                                                // 17  loop:
     out[n++] = 0x48, out[n++] = 0x3B, out[n++] = 0x01;                                    //     cmp rax, [rcx]
@@ -199,9 +223,9 @@ inline size_t BuildMapMiss(uint8_t* page, const uintptr_t* rets, int nRets, uint
     out[n++] = 0xCC;                                                                      // 52  int3
     out[jeHit] = (uint8_t)(n - (jeHit + 1));                                              //     hit:
     out[n++] = 0xF0, out[n++] = 0xFF, out[n++] = 0x05;                                    // 53  lock inc dword [counter]
-    if (!rel((uintptr_t)page + kMapCounter, n + 4)) return 0;
+    if (!rel((uintptr_t)page + L.counter, n + 4)) return 0;
     out[n++] = 0x48, out[n++] = 0x8D, out[n++] = 0x05;                                    // 60  lea rax, [scratch]
-    if (!rel((uintptr_t)page + kMapScratch, n + 4)) return 0;
+    if (!rel((uintptr_t)page + L.scratch, n + 4)) return 0;
     out[n++] = 0x31, out[n++] = 0xC9;                                                     // 67  xor ecx, ecx
     for (uint8_t o = 0; o < kMapScratchLen; o += 8) {                                     //     zero the scratch value
         out[n++] = 0x48, out[n++] = 0x89, out[n++] = o ? 0x48 : 0x08;

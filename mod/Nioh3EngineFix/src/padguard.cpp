@@ -22,9 +22,11 @@ uint8_t* g_page = nullptr;
 uintptr_t g_base = 0;
 uint32_t g_installed = 0;  // bit k = kWalks[k] guarded
 uintptr_t g_siteAt[kNumSites] = {};
-bool g_mapOn = false;  // #96 map-miss cave installed
+bool g_mapOn[2] = {};  // map-miss cave installed: [0] = #96 at() 431690, [1] = #115 at() 431E6C
+const padguard_cave::MapLayout* const kMapAt[2] = {&padguard_cave::kMap1, &padguard_cave::kMap2};
+const char* const kMapTag[2] = {"#96", "#115"};
 
-volatile long* MapCounter() { return (volatile long*)(g_page + padguard_cave::kMapCounter); }
+volatile long* MapCounter(int m) { return (volatile long*)(g_page + kMapAt[m]->counter); }
 
 uint8_t* AllocIn(uintptr_t from, uintptr_t to, size_t size) {
     SYSTEM_INFO si;
@@ -55,7 +57,7 @@ struct Write {
     uint8_t bytes[16];
     unsigned len;
 };
-constexpr int kMaxWrites = kNumSites + 1;  // + the #96 map-miss site
+constexpr int kMaxWrites = kNumSites + 2;  // + the #96 and #115 map-miss sites
 
 // Same scheme as asyncslots.cpp / drawprep.cpp FrozenWrite: all other threads suspended, none stopped strictly inside a site
 // (a thread at a site's first byte is at an instruction boundary in both encodings; the replaced cmp / je contain no call, so
@@ -122,17 +124,18 @@ volatile long* Counter(int k) { return (volatile long*)(g_page + padguard_cave::
 DWORD WINAPI Watch(void*) {
     long seen[kNumSites] = {}, lines[kNumSites] = {};
     ULONGLONG lastLine[kNumSites] = {};
-    long mapSeen = 0, mapLines = 0;
-    ULONGLONG mapLast = 0;
+    long mapSeen[2] = {}, mapLines[2] = {};
+    ULONGLONG mapLast[2] = {};
     for (;;) {
         Sleep(100);
         const ULONGLONG now = GetTickCount64();
-        if (g_mapOn && *MapCounter() != mapSeen && (mapLines < 20 || now - mapLast >= 10000)) {
-            mapSeen = *MapCounter();
-            mapLast = now;
-            ++mapLines;
-            g_log("PADGUARD: pad missing from the pad map (hit %ld) - read as no input this frame (#96)%s", mapSeen,
-                  mapLines == 20 ? " - further hits: one line per 10 s" : "");
+        for (int m = 0; m < 2; ++m) {
+            if (!g_mapOn[m] || *MapCounter(m) == mapSeen[m] || (mapLines[m] >= 20 && now - mapLast[m] < 10000)) continue;
+            mapSeen[m] = *MapCounter(m);
+            mapLast[m] = now;
+            ++mapLines[m];
+            g_log("PADGUARD: pad missing from the pad map (hit %ld) - read as no input this frame (%s)%s", mapSeen[m], kMapTag[m],
+                  mapLines[m] == 20 ? " - further hits: one line per 10 s" : "");
         }
         for (int k = 0; k < kNumSites; ++k) {
             if (!(g_installed & (1u << k))) continue;
@@ -150,7 +153,13 @@ DWORD WINAPI Watch(void*) {
 
 }  // namespace
 
-long MapHits() { return g_page && g_mapOn ? *MapCounter() : 0; }
+long MapHits() {
+    if (!g_page) return 0;
+    long n = 0;
+    for (int m = 0; m < 2; ++m)
+        if (g_mapOn[m]) n += *MapCounter(m);
+    return n;
+}
 
 long Hits() {
     if (!g_page) return 0;
@@ -200,8 +209,10 @@ void Start(const StartInfo& info) {
     uint8_t* const p = g_page;
     memset(p, 0xCC, 4096);
     memset(p + padguard_cave::kCounters, 0, 4 * kNumSites);
-    memset(p + padguard_cave::kMapScratch, 0, padguard_cave::kMapScratchLen);
-    memset(p + padguard_cave::kMapCounter, 0, 4);
+    for (const padguard_cave::MapLayout* L : kMapAt) {
+        memset(p + L->scratch, 0, padguard_cave::kMapScratchLen);
+        memset(p + L->counter, 0, 4);
+    }
     // caves + chained unwind info (host function's own RUNTIME_FUNCTION): a stack walk stopped inside a cave unwinds like the
     // host's loop. The cave's jumps carry a REX 40 prefix so RtlVirtualUnwind never mistakes them for an epilogue tail jump.
     const uintptr_t tableBase = (uintptr_t)p < info.base ? (uintptr_t)p : info.base;
@@ -232,33 +243,57 @@ void Start(const StartInfo& info) {
         w[nw].len = s.len;
         ++nw;
     }
-    // #96 map miss (padguard_cave.h): at()'s miss path returns a zeroed value to the pad walks instead of throwing
+    // map misses (padguard_cave.h): an at()'s miss path returns a zeroed value to its pad callers instead of throwing.
+    // m = 0: #96 at() 431690 (9 pad-walk calls); m = 1: #115 at() 431E6C (7 pad-state calls). Each installs on its own.
     {
         using namespace padguard_cave;
-        const uintptr_t miss = info.base + Grva(kAtMiss), atFn = info.base + Grva(kAtFn);
-        const uint8_t* mb = (const uint8_t*)miss;
-        bool ok = miss != info.base && atFn != info.base && mb[0] == 0x48 && mb[1] == 0x8D && mb[2] == 0x0D && mb[7] == 0xE8;
-        // the cave returns with `add rsp,28h ; ret`, so at() must open with exactly `sub rsp,28h` (no pushes) - regression #110682
-        static const uint8_t kAtHead[4] = {0x48, 0x83, 0xEC, 0x28};
-        if (ok) ok = memcmp((const void*)atFn, kAtHead, sizeof kAtHead) == 0;
-        uintptr_t msg = 0, thrower = 0, rets[kNumAtCalls] = {};
-        if (ok) {
-            int32_t d;
-            memcpy(&d, mb + 3, 4);
-            msg = miss + 7 + (intptr_t)d;
-            thrower = CallTarget(miss + 7);
-            static const char kMsg[] = "invalid unordered_map<K, T> key";
-            ok = memcmp((const void*)msg, kMsg, sizeof kMsg) == 0;
-        }
-        for (int i = 0; ok && i < kNumAtCalls; ++i) {
-            const uintptr_t c = info.base + Grva(kAtCalls[i]);
-            ok = c != info.base && *(const uint8_t*)c == 0xE8 && CallTarget(c) == atFn;
-            rets[i] = c + 5;
-        }
-        const size_t len = ok ? BuildMapMiss(p, rets, kNumAtCalls, msg, thrower) : 0;
-        Write& mw = w[nw];
-        const intptr_t jd = (intptr_t)(p + kMapCave) - (intptr_t)(miss + 5);
-        if (len && jd >= INT32_MIN && jd <= INT32_MAX) {
+        // every address resolved here, through Grva (rvas.json), before the shared install loop below
+        uintptr_t callAt[2][16] = {};
+        for (int i = 0; i < kNumAtCalls; ++i) callAt[0][i] = info.base + Grva(kAtCalls[i]);
+        for (int i = 0; i < kNumAt2Calls; ++i) callAt[1][i] = info.base + Grva(kAt2Calls[i]);
+        struct MapSite {
+            uintptr_t fn, miss;
+            const uint8_t* orig;
+            const uintptr_t* calls;
+            int nCalls;
+        };
+        const MapSite maps[2] = {
+            {info.base + Grva(kAtFn), info.base + Grva(kAtMiss), kAtMissOrig, callAt[0], kNumAtCalls},
+            {info.base + Grva(kAt2Fn), info.base + Grva(kAt2Miss), kAt2MissOrig, callAt[1], kNumAt2Calls}};
+        static_assert(kNumAtCalls <= 16 && kNumAt2Calls <= 16, "return tables hold 16");
+        for (int m = 0; m < 2; ++m) {
+            const MapSite& ms = maps[m];
+            const MapLayout& L = *kMapAt[m];
+            const uintptr_t miss = ms.miss, atFn = ms.fn;
+            const uint8_t* mb = (const uint8_t*)miss;
+            bool ok = miss != info.base && atFn != info.base && mb[0] == 0x48 && mb[1] == 0x8D && mb[2] == 0x0D && mb[7] == 0xE8;
+            // the cave returns with `add rsp,28h ; ret`, so at() must open with exactly `sub rsp,28h` (no pushes) - regression #110682
+            static const uint8_t kAtHead[4] = {0x48, 0x83, 0xEC, 0x28};
+            if (ok) ok = memcmp((const void*)atFn, kAtHead, sizeof kAtHead) == 0;
+            // v2.02: the whole miss path must be the exact original bytes (other builds: shape + string + calls below)
+            if (ok && info.knownBuild) ok = memcmp(mb, ms.orig, kAtMissLen) == 0;
+            uintptr_t msg = 0, thrower = 0, rets[16] = {};
+            if (ok) {
+                int32_t d;
+                memcpy(&d, mb + 3, 4);
+                msg = miss + 7 + (intptr_t)d;
+                thrower = CallTarget(miss + 7);
+                static const char kMsg[] = "invalid unordered_map<K, T> key";
+                ok = memcmp((const void*)msg, kMsg, sizeof kMsg) == 0;
+            }
+            for (int i = 0; ok && i < ms.nCalls; ++i) {
+                const uintptr_t c = ms.calls[i];
+                ok = c != info.base && *(const uint8_t*)c == 0xE8 && CallTarget(c) == atFn;
+                rets[i] = c + 5;
+            }
+            const size_t len = ok ? BuildMapMiss(p, rets, ms.nCalls, msg, thrower, L) : 0;
+            const intptr_t jd = (intptr_t)(p + L.cave) - (intptr_t)(miss + 5);
+            if (!len || jd < INT32_MIN || jd > INT32_MAX) {
+                g_log("PADGUARD: pad map guard %s not installed (at() bytes or its pad calls differ - another patch or build)",
+                      kMapTag[m]);
+                continue;
+            }
+            Write& mw = w[nw];
             const int32_t v = (int32_t)jd;
             mw.bytes[0] = 0xE9;
             memcpy(mw.bytes + 1, &v, 4);
@@ -267,30 +302,30 @@ void Start(const StartInfo& info) {
             mw.len = kAtMissLen;
             DWORD64 hostBase = 0;
             if (const PRUNTIME_FUNCTION host = RtlLookupFunctionEntry(miss, &hostBase, nullptr)) {
-                uint8_t* uw = p + kMapUnwind;
+                uint8_t* uw = p + L.unwind;
                 WriteChained(uw, tableBase, hostBase + host->BeginAddress, hostBase + host->EndAddress,
                              hostBase + (host->UnwindData & ~1u), host->UnwindData & 1u);
-                rf[nrf].BeginAddress = (DWORD)((uintptr_t)(p + kMapCave) - tableBase);
-                rf[nrf].EndAddress = (DWORD)((uintptr_t)(p + kMapCave) + len - tableBase);
+                rf[nrf].BeginAddress = (DWORD)((uintptr_t)(p + L.cave) - tableBase);
+                rf[nrf].EndAddress = (DWORD)((uintptr_t)(p + L.cave) + len - tableBase);
                 rf[nrf].UnwindData = (DWORD)((uintptr_t)uw - tableBase);
                 ++nrf;
             }
             ++nw;
-            g_mapOn = true;
-        } else {
-            g_log("PADGUARD: pad map guard not installed (#96: at() bytes or its pad-walk calls differ - another patch or build)");
+            g_mapOn[m] = true;
         }
     }
     FlushInstructionCache(GetCurrentProcess(), p, 4096);
     const bool unwound = nrf > 0 && RtlAddFunctionTable(rf, (DWORD)nrf, tableBase);
     if (!nw || !FrozenWrite(w, nw)) {
         if (unwound) RtlDeleteFunctionTable(rf);
-        g_mapOn = false;
+        g_mapOn[0] = g_mapOn[1] = false;
         g_log("PADGUARD: not installed (site write failed)");
         return;
     }
-    if (g_mapOn) g_log("PADGUARD: pad map guard installed at +%X (#96: a pad missing from the pad map reads as no input for "
-                       "that frame instead of crashing)", (unsigned)Grva(padguard_cave::kAtMiss));
+    if (g_mapOn[0]) g_log("PADGUARD: pad map guard installed at +%X (#96: a pad missing from the pad map reads as no input for "
+                          "that frame instead of crashing)", (unsigned)Grva(padguard_cave::kAtMiss));
+    if (g_mapOn[1]) g_log("PADGUARD: pad map guard installed at +%X (#115: a pad missing from the pad state map reads as no "
+                          "input for that frame instead of crashing)", (unsigned)Grva(padguard_cave::kAt2Miss));
     for (int k = 0; k < kNumSites; ++k) g_siteAt[k] = site[k];
     g_installed = okMask;
     if (HANDLE h = CreateThread(nullptr, 0, Watch, nullptr, 0, nullptr)) CloseHandle(h);

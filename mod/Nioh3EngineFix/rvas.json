@@ -887,6 +887,50 @@
    ]
   },
   {
+   "rva": "0x431E6C",
+   "kind": "none",
+   "why": "no unique pattern for 0x431E6C",
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x431ED5",
+   "kind": "code",
+   "pattern": "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? CC CC CC 48 8B 41 30 4C 8B 59 18 49 23 C1 4C 8B 51 08 48 03 C0 4D 8B 4C C3 08 4D 3B CA 74 1F 49 8B 0C C3 41 8B 00 41 3B 41 10 0F 85 ?? ?? ?? ?? 49 8B 01 48 89 02 4C 89 4A 08 48 8B C2 C3 4C 89 12 48 83 62 08 00 EB F2",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433B16",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 48 8B F8 8A 48 02 66",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433E79",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D6 48 8B 89",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x433EFA",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB D5 48 8B 1B E9 ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x436758",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 45 33 ED 84 C0 75 1F",
@@ -1311,6 +1355,15 @@
    ]
   },
   {
+   "rva": "0x19A9246",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 3F EB C3 48 8D 0D ?? ??",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
    "rva": "0x1A25524",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 48 89 45 B8 48 8B D8",
@@ -1597,6 +1650,33 @@
    "offset": 0,
    "used_in": [
     "asyncslots.cpp"
+   ]
+  },
+  {
+   "rva": "0x2978718",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 48 8B F0 8A 48 02 F3",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x2978891",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 80 78 02 00 0F 84 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 41 8B D7 48 8B 89",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
+   ]
+  },
+  {
+   "rva": "0x2978924",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? 33 C9 48 89 08 48 8B 45 40 48 8B 3F EB C3 48",
+   "offset": 0,
+   "used_in": [
+    "padguard.cpp"
    ]
   },
   {
