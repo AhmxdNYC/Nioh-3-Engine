@@ -1259,3 +1259,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 1:35 am EST | pc/0 | DeepSeek NOTE #114413 (re-1172, fleet-v2 a31ae71): capability ids 100/0xC5A0/0xDFD5 registered by 0xEE670 on [0x4743348]+0xD70; 0x91B794 releases by refcount (0xA51E18). Startup bookkeeping, no fps lever; no reply sent (stop #114287).
 - 2026-11-18 1:40 am EST | pc/0 | DeepSeek NOTE #114415 (re-1173): queue getter 0x1C2D1FC has 0 static refs; forwarders 0x1C307FC (2 callers 0x39A82E, 0x1C20186)/0x1C309CC are entry-shifted aliases of bodies at 0x1C307CF/0x1C309AF; drain loads [0x4709B50] directly. No fps lever; no reply sent (stop #114287).
 - 2026-11-18 12:05 am EST | pc/1 | #114463 replay A/B done: 0 late in all 4 arms vs human 6/12; holdwin cave never called. Next: RE why cave unhit / real pad vs VirtualPad path.
+- 2026-11-18 1:45 am EST | pc/0 | Session end checkpoint: DeepSeek notes through #114415 logged; nothing pending for performance-pc.
