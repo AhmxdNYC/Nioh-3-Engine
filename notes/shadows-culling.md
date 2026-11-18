@@ -361,3 +361,4 @@ the VSM tile predicates, list getters, culling recorders, the marker path and to
 | `re\scripts_shadow\rgp_families.py` | direct / indirect / dispatch counts per shader family, meshlet split |
 | `re\scripts_shadow\q1.txt`, `q2.txt` | read-only Ghidra decompiles (cascade/VSM helpers, VSM node) |
 | `re\scripts_shadow\out\` | extracted DXIL: SM/PB2 vertex shaders (`vs_*.ll`), MPC chain kernels (`mpc\MPC_*.ll`) |
+- 2026-11-18 (RE #114379, deepseek-flash-re-1160, fleet-v2 caeb130): both ShadowCascadeRender 0x1F5C2C calls in SceneRenderView 0x535188 run per cascade (loop head 0x5380B2, jb 0x538510, index ebx, count [rbp+0x1B0]); corrects re-1135. 0x5384E1 is only a command-byte gate (appends cmd 0xA6), never skips a render. An all-invisible frame skips only the 2nd call + block 0x5386F7..0x538A25. => a static-cascade skip hook can work per cascade inside 0x535188 (plus VSM loop 0x1F8A79). Not built; optimization paused.
