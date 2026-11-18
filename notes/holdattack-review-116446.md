@@ -21,3 +21,11 @@ What would prove a fix (pass criteria for the next live test):
 - Same recorded pad file, fix OFF, at 60 fps cap and at uncapped fps: count Y holds that play the charged move id
   vs the tap strong move id. If 60 fps gives ~all charged and uncapped gives taps, it is an fps bug and the real
   window is 0x43619C (X*fps/60). Only then design a fix there, on the action layer, not on a pad bit.
+
+## Result #116492 (gx-pc, Main PC, EF 1c8e1245, HoldAttackFix 0, same 3:23 cut, 16 Y holds, game move id)
+- 60 fps (REN_FPS 60, VSync on, MaxFps 60): 16 charged (0x629d), 0 tap.
+- Uncapped (REN_FPS 120, VSync off, MaxFps 0, median 114, 86-138): 13 charged, 2 tap (0x624d only), 1 neither.
+- Taps were 1.25 s held at 118 fps and 1.45 s at 111 fps; the same holds charged at 60.
+Conclusion: real bug, fps-dependent, about 3 of 16 at uncapped. Not a full-window miss. The trigger-slot fix is the wrong site.
+Next: measure-only per-frame log at the live hold site (0x43619C, counter this+0xFF4, window X*fps/60, fps_i) for the
+uncapped arm, to see whether the counter misses frames (hitch / sampling) or the window uses a nominal fps above the real one.
