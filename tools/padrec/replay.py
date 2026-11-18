@@ -10,7 +10,7 @@ Exit codes as captures/kipress3/vpad.py: 0 ok, 1 err reply, 2 no pipe, 3 owner g
 """
 import argparse, csv, datetime, os, sys, time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "captures", "kipress3"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "testmatrix"))
 
 BTN = [("UP", 0x0001), ("DOWN", 0x0002), ("LEFT", 0x0004), ("RIGHT", 0x0008), ("START", 0x0010), ("BACK", 0x0020),
        ("LS", 0x0040), ("RS", 0x0080), ("LB", 0x0100), ("RB", 0x0200), ("A", 0x1000), ("B", 0x2000), ("X", 0x4000),
@@ -85,6 +85,7 @@ def main():
     ap.add_argument("--owner-pid", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--log")
+    ap.add_argument("--padout", help="pad CSV of what was sent, wall = real send time (score with holds.py ACT PADOUT)")
     a = ap.parse_args()
     rows = load(a.pad, a.t_from and wall(a.t_from), a.t_to and wall(a.t_to))
     if not rows:
@@ -113,6 +114,11 @@ def main():
     log = open(a.log, "w", buffering=1) if a.log else None
     if log:
         log.write("sched_ms,sent_ms,reply_ms,cmd,reply\n")
+    pout = open(a.padout, "w", buffering=1) if a.padout else None
+    if pout:
+        pout.write("t_ms,wall,pad,packet,buttons,lt,rt,lx,ly,rx,ry\n")
+    names = dict(BTN)
+    cur = 0
     for _ in range(3):  # warm the pipe so the first edge is not late
         cl.cmd("ping")
     late, rc = [], 0
@@ -129,6 +135,12 @@ def main():
             rep = cl.cmd(c)
             got = (time.perf_counter() - origin) * 1000.0
             late.append(sent - t)
+            if pout and c.startswith(("hold ", "release ")):
+                m = 0
+                for nm in c.split(" ", 1)[1].split("+"):
+                    m |= names[nm]
+                cur = cur | m if c.startswith("hold") else cur & ~m
+                pout.write("%.1f,%s,0,%d,%04x,0,0,0,0,0,0\n" % (sent, datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3], i, cur))
             if log:
                 log.write("%.1f,%.1f,%.1f,%s,%s\n" % (t, sent, got, c, rep.replace(",", ";")))
             if rep.startswith("err"):
