@@ -1013,3 +1013,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-18 | pc2/1 | IDLE after #98 work: round 2 (#112737, 0/40 all arms, no repro on PC2) and v2 no-harm (#112963, EF 675aafab PASS, raw #8289) both DONE + RESULTs sent, commits a4c4a0ff/39c9414e. Nothing half-done; PC2 on release EF c0bc44ee, lock free, no game. Next: wait for a new TASK from pc2/0 or pc.
 
 2026-11-18 11:03 AM EST | pc/1 #116769 Main PC boot-crash check EF a8d37067 PASS 2/2 boots | proven live on Main PC (no human on the real pad) | next: lead combines with ally/pc2 results for GH #115/#118 | tools/testmatrix/padguard116769, logs D:/nioh3-re/padguard-116769
+
+- 2026-11-18 11:10 am EST | pc2/1 | #116775 EF a8d37067 boot-crash live check | proven PC2 3/3 (vpad) | next: pc/reports-pc decide with Ally 5-boot + Main PC result | rig C:/nioh3-re/t116775

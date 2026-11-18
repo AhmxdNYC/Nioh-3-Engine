@@ -1302,3 +1302,5 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 | pc2/1 | IDLE after #98 work: round 2 (#112737, 0/40 all arms, no repro on PC2) and v2 no-harm (#112963, EF 675aafab PASS, raw #8289) both DONE + RESULTs sent, commits a4c4a0ff/39c9414e. Nothing half-done; PC2 on release EF c0bc44ee, lock free, no game. Next: wait for a new TASK from pc2/0 or pc.
 
 - 2026-11-18 11:03 AM EST | pc/1 | #116769 Main PC live check EF a8d37067 (#8446, reports/115 bd9166d3): PASS 2/2 cold boots (VirtualPad 2 full play+menu, VirtualPad 0 real-pad title), both PADGUARD map guards (#96 +4316F9, #115 +431ED5) every boot, 0 hits, 0 crashes. EF restored 1c8e1245, lock free. Script tools/testmatrix/padguard116769. No publish.
+
+- 2026-11-18 11:10 am EST | pc2/1 | #116775 (re #116769) PASS PC2: EF a8d37067 3/3 cold boots vpad, both PADGUARD lines, 0 (#115) hits, 0 crashes. Restored EF c0bc44ee, saves same, lock free. Do not re-task.
