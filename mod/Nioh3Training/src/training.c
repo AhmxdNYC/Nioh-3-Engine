@@ -4857,6 +4857,8 @@ static __attribute__((noinline)) void Exec(char* line) {
             uint32_t chr = (w[0] >= 'A' && w[0] < 'A' + N3T_SLOTS) ? Nioh3Training_SlotChr(w[0] - 'A') : (uint32_t)strtoul(w, 0, 10);
             Log("CMD repeat chr %u 0x%lX %d -> %d", chr, strtoul(x, 0, 16), on, Nioh3Training_SetMoveRepeat(chr, (uint32_t)strtoul(x, 0, 16), on));
         } else if (!strcmp(op, "repgap")) { Log("CMD repgap %d -> %d", (int)a[0], Nioh3Training_SetRepeatGap((int)a[0], 0));  // bridge 12958
+        } else if (!strcmp(op, "replast")) {  // replast <chr> <0|1|2|3>: menu 'Repeat last move' (SetRepeatLast). 0 stops.
+            Log("CMD replast chr %llu n %lld -> %d", a[0], n >= 2 ? (long long)a[1] : 1LL, Nioh3Training_SetRepeatLast((uint32_t)a[0], n >= 2 ? (int)a[1] : 1));
         } else if (!strcmp(op, "moveallow")) { Log("CMD moveallow chr %llu id 0x%llX %llu -> %d", a[0], a[1], a[2], Nioh3Training_SetMoveAllowed((uint32_t)a[0], (uint32_t)a[1], (int)a[2], 0));
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
