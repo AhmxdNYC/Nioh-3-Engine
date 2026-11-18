@@ -2060,6 +2060,7 @@ N3T_API int Nioh3Training_GetIdleHold(void);
 N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed, int persist);
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on);
 N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist);
+N3T_API int Nioh3Training_SetRepeatLast(uint32_t chr, int n);
 N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
