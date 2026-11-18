@@ -341,12 +341,19 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         if (chain91 && MvContinues(chr, curp, id)) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
         else if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || id != 2))
             return MvFollow(i, chr, act, id, now);
+        else if (!g_rep_seen[i] && attack && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && now - g_rep_last[i] < 30000)
+            return rep;  // #91: the previous move is still the action. Keep this request. Do not step the list again.
         else if (!g_rep_seen[i] && (act == 2 || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
         else { g_rep_end[i] = now ? now : 1; MvRoundReset(i); }  // back in idle / a reaction / never started: the move has ended, the gap starts now
     }
     // GitHub #91: delay 0 does not wait until the action is idle 2. A positive gap,
     // and any pick that is not that idle, still refuses a cycle step (#69187:
     // unreadable frames and low-id landing recovery are not round boundaries).
+    // Last 2/3 at gap 0: an idle pick while the previous attack is still playing
+    // is the game queueing a next piece, not a round boundary (live 06:51, the
+    // list stepped every call and 4E7C lasted 47 ms).
+    if (!chain_now && gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && !g_rep_seen[i] && attack && act != rep && g_rep_last[i] && now - g_rep_last[i] < 30000)
+        return rep;
     if (!chain_now && g_rep_lastn[i] && act != 2 && (gap > 0 || id != 2)) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up (no attacks), the repeat waits
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {

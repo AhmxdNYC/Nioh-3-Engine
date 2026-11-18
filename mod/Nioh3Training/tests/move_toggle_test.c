@@ -487,6 +487,8 @@ int main(void) {
         cur_act = 0x4E5C; fake_now += 40; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);  // a different attack still waits
         Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // the same-family branch starts the next captured move
         assert(ActIdOf(0x3000) == 0x4E5C);
+        fake_now += 20; Pick(2); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // an idle pick does not step the list again
+        fake_now += 2000; Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // still 4E6C until that move is the action
         Nioh3Training_SetRepeatLast(16102u, 0);
         puts("PASS: delay 0 does not wait for idle action 2 (#91)");
     }
