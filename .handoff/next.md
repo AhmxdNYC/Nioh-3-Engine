@@ -1315,3 +1315,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 3:57 pm EST | pc/2 | #117226 streaming guard measured (#117267): archive file open/close churn, not a spin. Linger-handle EF fix next, offline build on branch pc2/streamguard-117226. No game. Lock free.
 - 2026-11-18 4:15 pm EST | pc/2 | #117226 FileLinger A/B no gain (#117308), not shipped; do not retest b60ac52a. Next: 0x116A24 lookup rate (170k-440k/s from 0x49EFB). No game. Lock free.
 - 2026-11-18 4:17 pm EST | pc/2 | #117226 closed (#117314). No open work from pc/2. Do not retest FileLinger b60ac52a.
+- 2026-11-18 9:28 pm EST | pc/0 | TASK to gx-pc (reply-to #117263): reopen hold bug, mid-combo/moving Y holds uncapped vs REN_FPS 60, 40/arm, Main PC AFTER lock 381 free (slot 2 toggle test). HoldAttackFix 0. Goal reproduce #113137 14/40 vs 0/40. TO-USER #117346 answered #117344 (lock 0x491B04 = GH #113 spot, unproven there).
