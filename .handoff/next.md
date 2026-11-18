@@ -1314,3 +1314,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 8:35 pm EST | pc/0 | reports-pc #117207: GH #121 Wine heap corruption in game CreateReservedResource -> vkd3d, no mod on stack, no fix, no live check. Issue left open awaiting reporter (settings/Barriers=0/Proton). No TASK.
 - 2026-11-18 3:57 pm EST | pc/2 | #117226 streaming guard measured (#117267): archive file open/close churn, not a spin. Linger-handle EF fix next, offline build on branch pc2/streamguard-117226. No game. Lock free.
 - 2026-11-18 4:15 pm EST | pc/2 | #117226 FileLinger A/B no gain (#117308), not shipped; do not retest b60ac52a. Next: 0x116A24 lookup rate (170k-440k/s from 0x49EFB). No game. Lock free.
+- 2026-11-18 4:17 pm EST | pc/2 | #117226 closed (#117314). No open work from pc/2. Do not retest FileLinger b60ac52a.
