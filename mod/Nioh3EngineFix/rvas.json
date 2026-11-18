@@ -932,6 +932,42 @@
    ]
   },
   {
+   "rva": "0x491B30",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 41",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x493050",
+   "kind": "code",
+   "pattern": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED 48 8B F9 8B DD 33 C0 8D 75 01 F0 0F B1 71 34 75 2A 83 CB FF F0 0F",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x4930B0",
+   "kind": "code",
+   "pattern": "EB C5 48 8B CF E8 ?? ?? ?? ?? EB C7",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
+   "rva": "0x4930B5",
+   "kind": "code",
+   "pattern": "E8 ?? ?? ?? ?? EB C7 33 C9 FF 15 ??",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
+   ]
+  },
+  {
    "rva": "0x495AF2",
    "kind": "code",
    "pattern": "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00",
@@ -1100,6 +1136,15 @@
    "offset": 0,
    "used_in": [
     "tour.cpp"
+   ]
+  },
+  {
+   "rva": "0x751784",
+   "kind": "code",
+   "pattern": "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8D 59 10 48",
+   "offset": 0,
+   "used_in": [
+    "fhlinger.cpp"
    ]
   },
   {
@@ -1788,6 +1833,20 @@
    "iat": "sl.interposer.dll!D3D12CreateDevice",
    "used_in": [
     "memstats.cpp"
+   ]
+  },
+  {
+   "rva": "0x38F4E38",
+   "kind": "global",
+   "pattern": "48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 F6 C2 01 0F 85 ?? ?? ?? ?? 48 8B C3 48 83 C4 20 5B C3 CC CC CC 48 89 5C 24 10 48 89 6C 24 18",
+   "offset": 0,
+   "anchor": "0x5DEB3E",
+   "disp_off": 3,
+   "insn_len": 7,
+   "addend": 0,
+   "what": "lea rax, [rip + 0x33162f3]",
+   "used_in": [
+    "fhlinger.cpp"
    ]
   },
   {
