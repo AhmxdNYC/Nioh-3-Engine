@@ -1018,3 +1018,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-18 11:55 am EST | #116943 read: harness drift, not fps | proven (same-move compare) | wait gx-pc RESULT on #116947; 16/16 both arms = close thread, else analyse idle miss | next.md
 - 2026-11-18 1:28 pm EST | step 8 hold test re-tasked to gx-pc (#117079) after worker stall | unproven | wait for gx-pc RESULT on #116947, then decide fps bug vs harness drift | .handoff/next.md
 - 2026-11-18 1:40 pm EST | hold attack investigation closed (#117101) | proven: no fps bug, 31/32 from idle | none; HoldAttackFix stays off | .handoff/next.md
+2026-11-18 2:02 pm EST | pc/0 | Hold thread closed (#117103). GH #115 fix waits on Ally only (offline). PROVEN: Main PC + PC2 pass. UNPROVEN: Ally/Linux. NEXT: when Ally online, it runs #116774; on pass ask human to ship 1.8.23. | needs-player.md next.md
