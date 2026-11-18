@@ -1017,3 +1017,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-18 11:10 am EST | pc2/1 | #116775 EF a8d37067 boot-crash live check | proven PC2 3/3 (vpad) | next: pc/reports-pc decide with Ally 5-boot + Main PC result | rig C:/nioh3-re/t116775
 - 2026-11-18 11:55 am EST | #116943 read: harness drift, not fps | proven (same-move compare) | wait gx-pc RESULT on #116947; 16/16 both arms = close thread, else analyse idle miss | next.md
 - 2026-11-18 1:28 pm EST | step 8 hold test re-tasked to gx-pc (#117079) after worker stall | unproven | wait for gx-pc RESULT on #116947, then decide fps bug vs harness drift | .handoff/next.md
+- 2026-11-18 1:40 pm EST | hold attack investigation closed (#117101) | proven: no fps bug, 31/32 from idle | none; HoldAttackFix stays off | .handoff/next.md
