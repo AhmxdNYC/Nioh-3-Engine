@@ -35,6 +35,15 @@ static void NativeSlotsTick(void) {
     int n = ready ? KbCollect(actors, 8, handles) : 0;
     // HUD evidence admits a native actor once; a summoned boss may replace its gauge.
     // Retain the borrowed identity until its actual mission/actor/death lifecycle ends.
+    // GitHub #94: a dark-realm form keeps the same slot. The wrapper's character id
+    // changes; clearing the slot here is what dropped Nuribotoke from Training.
+    for (int s = 0; s < N3T_SLOTS; ++s) {
+        if (!g_slot_native[s] || !ready || !ActorInTable(g_slot_act[s])) continue;
+        uint32_t live = NativeSlotCharacter(g_slot_act[s], g_slot_native[s]);
+        if (!live || live == g_slot_chr[s]) continue;
+        Log("NATIVE SLOT %c: character %u -> %u (form kept, not dropped)", 'A' + s, g_slot_chr[s], live);
+        g_slot_chr[s] = live;
+    }
     for (int s = 0; s < N3T_SLOTS; ++s)
         if (g_slot_native[s] && !NativeSlotAlive(s)) NativeSlotClear(s);
     for (int i = 0; i < n; ++i) {

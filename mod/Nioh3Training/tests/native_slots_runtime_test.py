@@ -27,7 +27,7 @@ static int MsRead(uint32_t*m,uint8_t*j,uint32_t*o){*m=mission;*j=0;*o=0;return 1
 static int ActorInTable(uint64_t a){return a==actor&&!removed;}
 static uint64_t FindWrapper(uint32_t h){return h==44?(uint64_t)wrapper:0;}
 static int Rd64(uint64_t a,uint64_t*out){*out=*(uint64_t*)a;return 1;}
-static uint64_t NativeEntryActor(uint32_t h,uint32_t c){return h==44&&c==1234?actor:0;}
+static uint64_t NativeEntryActor(uint32_t h,uint32_t c){return h==44&&c&&c==record[1]?actor:0;}
 static int ActorDeadNow(uint64_t a,int*d,uint64_t*h,uint64_t*m){*d=dead;*h=hp;*m=maxhp;return dead||!hp;}
 static int InSp(uint64_t a){for(int i=0;i<g_nsp;i++)if(g_sp_actor[i]==a)return 1;return 0;}
 static int SlotOf(uint64_t a){for(int i=0;i<3;i++)if(g_slot_act[i]==a)return i;return -1;}
@@ -62,6 +62,7 @@ code+=r'''
 int main(void){wrapper[3]=(uint64_t)record; uint32_t metaChr=99;
  g_bv[0].infHp=1;g_bv_req[0]=3;g_slot_rehold[0]=1;
  NativeSlotsTick();assert(SlotAlive(0)&&g_slot_chr[0]==1234&&NativeSlotsActive());
+ record[1]=27230;NativeSlotsTick();assert(SlotAlive(0)&&g_slot_chr[0]==27230&&g_slot_act[0]==actor);record[1]=1234;g_slot_chr[0]=1234;
  assert(MetadataActor(MAXSP,&metaChr)==actor && metaChr==1234 && g_nsp==0);
  assert(!MetadataActor(-1,&metaChr) && !metaChr);
  assert(!MetadataActor(META_ACTORS,&metaChr) && !metaChr);

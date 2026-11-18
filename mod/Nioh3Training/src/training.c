@@ -122,7 +122,7 @@ static __attribute__((noinline)) int Actors(uint64_t* out, int max) {
 }
 #define MAXSP 32
 static void PoolAdd(uint32_t chr);
-static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
+static uint64_t g_sp_actor[MAXSP]; static uint32_t g_sp_handle[MAXSP]; static int g_nsp;
 // bridge 12666: per-actor identity for multi-boss Training. g_sp_chr[i] = character id of g_sp_actor[i]; slots A/B = the menu's two summon slots
 static void FallbackTracked(uint32_t handle, uint32_t chr);
 static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1, g_watch_session; static int SlotAlive(int s);
@@ -321,6 +321,7 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
             } else { InterlockedExchange(&g_slot_fight[g_watch_slot], 1); Log("SUMPASSIVE slot %c actor %p: CPU-controlled by default (Boss Matches, #38077)", 'A' + g_watch_slot, (void*)cur[i]); }
             g_watch_slot = -1; }
         MvRepFresh(g_watch_chr);  // user #14462: a repeat armed for this character starts over for the new boss (idle first, one gap)
+        g_sp_handle[g_nsp] = *(uint32_t*)(cur[i] + 4);
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
@@ -349,10 +350,10 @@ static int Despawn(int idx) {
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
     uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
-    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; return 0; }
+    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0; return 0; }
     ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a);
     Log("DESPAWN #%d %p: native delete 2BF7E8 called", idx, (void*)a);
-    SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0;
+    SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0;
     return 1;
 }
 // Character::FadeOut(id, frames) (VM 238DC40): live = wrapper[0]; c = [live+0x20]; if c: 2BC5DC(c+0x240, 0.0f target, frames) -- a lerp {start,target,cur,t,dur}
@@ -4124,8 +4125,40 @@ static void SpPruneTick(void) {
         const uint64_t a = g_sp_actor[i]; if (!a) continue;
         int found = 0; for (int k = 0; k < n; ++k) if (cur[k] == a) { found = 1; break; }
         if (found) continue;
+        // GitHub #94: Nuribotoke's dark-realm form is a new actor on the same owner
+        // handle (actor+4). A load still forgets the pointer. Outside a load, keep
+        // the slot on that handle instead of dropping the summon.
+        if (!edge && !load && g_sp_handle[i]) {
+            uint64_t neu = 0; uint32_t nchr = 0;
+            for (int k = 0; k < n && !neu; ++k) {
+                uint64_t c = cur[k]; uint32_t nh = 0; int tracked = 0;
+                if (!c || c == PlayerChar()) continue;
+                for (int j = 0; j < g_nsp; ++j) if (g_sp_actor[j] == c) tracked = 1;
+                if (tracked) continue;
+                __try { nh = *(uint32_t*)(c + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { nh = 0; }
+                if (nh != g_sp_handle[i]) continue;
+                neu = c;
+                uint64_t w = FindWrapper(nh), rec = 0;
+                __try {
+                    if (w && Rd64(w + 0x18, &rec) && rec && *(uint32_t*)rec == nh) nchr = *(uint32_t*)(rec + 4);
+                } __except (EXCEPTION_EXECUTE_HANDLER) { nchr = 0; }
+            }
+            if (neu) {
+                Log("PRUNE #%d %p: handle %08X is now actor %p chr %u -> %u (form kept)", i, (void*)a, g_sp_handle[i], (void*)neu, g_sp_chr[i], nchr ? nchr : g_sp_chr[i]);
+                g_sp_actor[i] = neu;
+                if (nchr && nchr != g_sp_chr[i]) g_sp_chr[i] = nchr;
+                for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_act[s] == a) {
+                    g_slot_act[s] = neu; if (nchr) g_slot_chr[s] = g_sp_chr[i];
+                    if (g_sph[s].a == a) g_sph[s].a = neu;
+                }
+                if (g_mon.a == a) g_mon.a = neu;
+                if (g_aw.a == a) g_aw.a = neu;
+                if (g_newActor == a) g_newActor = neu;
+                continue;
+            }
+        }
         Log("PRUNE #%d %p: not in actor table any more (%s), forgotten", i, (void*)a, edge ? "load started" : load ? "loading" : "periodic");
-        SlotForget(a); g_sp_actor[i] = 0;
+        SlotForget(a); g_sp_actor[i] = 0; g_sp_handle[i] = 0;
         if (g_mon.a == a) g_mon.a = 0;
         if (g_aw.a == a) g_aw.a = 0;
         if (g_newActor == a) g_newActor = 0;
