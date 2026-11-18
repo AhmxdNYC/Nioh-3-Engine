@@ -1327,3 +1327,15 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 5:52 pm EST | regression-pc/0 | #117741 rc-1823 v2 offline PASS: regression-pc/rc-1823-v2-117741 8654087a (f1753dcb + FileLinger fix bcc5d2a2), EF candidate bridge #8485 sha 96f42d9e. RESULT to pc + installer-pc re 117719. Next: Dev Lead live check of #8485, then installer-pc; release gated on hold #117624.
 - 2026-11-18 5:58 pm EST | pc/1 | session end; nothing half-done; next = regression-pc RESULT on rc-1823 re-merge (re 117719).
 - 2026-11-18 6:05 pm EST | pc/1 | RESULT re 117755 (task #117757): RC 96f42d9e Main PC live PASS boot/pad-guard; FileLinger no load gain (14.0/16.2 vs 12.2 s); ini keys not auto-written. Do not re-run.
+- 2026-11-18 6:09 pm EST | pc/2 | human #117799 'Soooo' answered TO-USER #117800 (1.8.23 RC v2 96f42d9e passed offline, pc/1 live check, release gated on hold fix). No game touched.
+- 2026-11-18 6:1x pm EST | pc/2 | human #117806 'did hold fix help' answered TO-USER: no working fix yet (HoldAttackFix failed review); replay 60 fps 21/21 vs 120 fps 11/19 vanilla is the target. No game touched.
+- 2026-11-18 6:2x pm EST | pc/2 | human #117813 'what is a miss' answered TO-USER: miss = 0x624d->0x6310 uncharged strong attack alone, no 0x629d (per pc/1 #117667 score.py). No game touched.
+- 2026-11-18 6:2x pm EST | pc/2 | human #117816 'what do u suspect' answered TO-USER: suspect hold-check window (0x43619C X*fps/60 / anim band 0xAF68-0xB63F at 0x43626B) mis-scaled at high fps; unproven, confirm at 60 vs 120 before fix. Review #116446 condition (60 all charged, high fps taps) now met by pc/1 #117667. No game touched.
+- 2026-11-18 6:22 pm EST | pc/2 | human #117821: live log hold check 60 vs 120 + fix. TO-USER #117822; HANDOFF to lead for Main PC TASK (after/alongside pc/1 #117755). No game from pc/2.
+- 2026-11-18 6:2x pm EST | pc/2 | human #117825 'was perf fix done before': FileLinger new in 1.8.23, never shipped; pc/1 #117757 ON slower (14.0/16.2 vs 12.2 s). NOTE to lead re default ON.
+- 2026-11-18 6:2x pm EST | pc/2 | human #117829: confirmed FileLinger = GH #113 lock 0x491B04 fix; unproven on friend's PC. TO-USER sent.
+- 2026-11-18 6:2x pm EST | pc/2 | human #117834 'on by default?': told ON default per #117317, toggle off; asked keep ON vs default OFF given pc/1 #117757 slower + ini keys not written. Awaiting human.
+- 2026-11-18 6:3x pm EST | pc/2 | human #117837 leans ON if better for all; pc/2 recommended OFF default until PC2/Ally load measure. Awaiting human OK; NOTE to lead. No RC change.
+- 2026-11-18 6:3x pm EST | pc/2 | human #117846: TASK pc2 + ally (reply-to 117846) FileLinger OFF vs ON load test on RC EF #8485 96f42d9e, 3 loads/arm. Decide default after. Do not re-task.
+- 2026-11-18 6:3x pm EST | pc/2 | human #117853: FileLinger test amended to in-game streaming stutter (route, 1% low, >50 ms frames) per GH #113; load times secondary. TASK amend sent pc2+ally re 117846.
+- 2026-11-18 6:36 pm EST | pc/2 | session end: await pc2/ally FileLinger RESULT re 117846 (in-game stutter OFF vs ON); hold-check live log 60 vs 120 still needs a lead TASK (HANDOFF re 117821). Do not re-task.
