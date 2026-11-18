@@ -194,7 +194,7 @@ uint8_t* AllocNear(uintptr_t lo, uintptr_t hi, size_t size) {
 void Start(const StartInfo& info) {
     if (!info.log || !info.iniPath || !info.base) return;
     g_log = info.log;
-    const int want = (int)GetPrivateProfileIntW(L"Patches", L"FileLinger", 0, info.iniPath);
+    const int want = (int)GetPrivateProfileIntW(L"Patches", L"FileLinger", 1, info.iniPath);
     if (want != 1) return;
     if (!info.knownBuild) {
         g_log("FileLinger: not installed (unknown game build)");

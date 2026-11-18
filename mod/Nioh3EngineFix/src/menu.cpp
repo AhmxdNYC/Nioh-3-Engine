@@ -1291,7 +1291,7 @@ int PadDebugSettingRow() {
 }
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
-bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0); }
+bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen

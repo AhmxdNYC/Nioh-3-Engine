@@ -1,4 +1,4 @@
-// fhlinger.h - FileLinger ([Patches] FileLinger = 0 by default, human #117226): keep the game's archive file handles open
+// fhlinger.h - FileLinger ([Patches] FileLinger = 1 by default (human #117317), menu toggle; #117226): keep the game's archive file handles open
 // for a while after their last user lets go, instead of CloseHandle now + CreateFileW again on the next streaming touch.
 // Same bytes are read from the same files; only the open/close churn goes away. Evidence: notes/streaming-guard-117226.md.
 //
@@ -17,7 +17,7 @@
 // Eviction = try-lock the entry's spinlock (never wait), users == 0 and a handle -> the stock close 751784, unlock.
 // Busy entries go back to the ring; entries in use again leave it (they come back at their next last release).
 //
-// Ini: [Patches] FileLinger = 0 off (nothing installed) | 1 on. FileLingerMax = 32 (1-60 lingering files),
+// Ini: [Patches] FileLinger = 0 off (nothing installed) | 1 on (default). FileLingerMax = 32 (1-60 lingering files),
 //      FileLingerFree = 24 (open slots always kept free under the game's cap). Log line every 30 s: grep FileLinger.
 #pragma once
 #include <cstdint>
