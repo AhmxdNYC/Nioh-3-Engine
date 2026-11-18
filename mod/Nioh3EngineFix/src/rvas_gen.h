@@ -123,6 +123,10 @@ constexpr Def kDefs[] = {
     {0x436CF8, kCode, "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 07 8A 80 AB 01 00 00 C3 C3", 0, 0x0, 0, 0, 0, ""},  // vpad.cpp
     {0x438659, kCode, "49 3B DE 74 CC 8B 73 10 48 8D 4F 50", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
     {0x43866E, kCode, "E8 ?? ?? ?? ?? 4C 8B 97 F0 00 00 00", 0, 0x0, 0, 0, 0, ""},  // padguard.cpp
+    {0x491B30, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 40 48 8B 05 ?? ?? ?? ?? 41", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x493050, kCode, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 33 ED 48 8B F9 8B DD 33 C0 8D 75 01 F0 0F B1 71 34 75 2A 83 CB FF F0 0F", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x4930B0, kCode, "EB C5 48 8B CF E8 ?? ?? ?? ?? EB C7", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
+    {0x4930B5, kCode, "E8 ?? ?? ?? ?? EB C7 33 C9 FF 15 ??", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x495AF2, kCode, "E8 ?? ?? ?? ?? 44 8B 45 BF 48 8D 55 FF 48 8B 8F E0 08 00 00", 0, 0x0, 0, 0, 0, ""},  // cbvupload.cpp
     {0x495F26, kCode, "4C 8D 05 ?? ?? ?? ?? 48 8D 54 24 20 48 8B CF 41 FF 14 C0 48", 0, 0x0, 0, 0, 0, ""},  // replayprof.cpp
     {0x4A53D0, kCode, "E8 ?? ?? ?? ?? 44 89 BB 68 E5 1E 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
@@ -142,6 +146,7 @@ constexpr Def kDefs[] = {
     {0x5B7BB4, kCode, "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 68 F8 FF FF 48 81 EC 98 08 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 80 07 00 00 48 8B 9D 00 08 00 00", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
     {0x5F328D, kCode, "E8 ?? ?? ?? ?? 48 8B C8 48 89 45 D8 48 F7 D9 48 8B F8 48 8B", 0, 0x0, 0, 0, 0, ""},  // asyncslots.cpp
     {0x702B64, kCode, "48 8B C4 48 89 58 18 89 50 10 57 48 83 EC 20 48 8B 59 08 4C 8D 40 10 48 8B F9 48 8D 50 08 48 8D 8B C8 02 00 00 E8 ?? ?? ?? ?? 48 8B 54 24 30 48 3B 93 D0 02 00 00 74 1C 48 8B CF E8", 0, 0x0, 0, 0, 0, ""},  // tour.cpp
+    {0x751784, kCode, "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8D 59 10 48", 0, 0x0, 0, 0, 0, ""},  // fhlinger.cpp
     {0x7D9B91, kCode, "E8 ?? ?? ?? ?? 48 8D BB A0 61 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x7D9BA3, kCode, "E8 ?? ?? ?? ?? 48 8B 8B 18 47 00 00", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
     {0x7D9BC7, kCode, "FF 90 20 01 00 00 8B C0 48 8B 84 C3", 0, 0x0, 0, 0, 0, ""},  // frameoverlap.cpp
@@ -223,6 +228,7 @@ constexpr Def kDefs[] = {
     {0x38E26C8, kIat, "", 0, 0x0, 0, 0, 0, "KERNEL32.dll!ReadFileEx"},  // readprobe.cpp
     {0x38E2C50, kIat, "", 0, 0x0, 0, 0, 0, "XINPUT1_4.dll!#2"},  // menu.cpp
     {0x38E2E18, kIat, "", 0, 0x0, 0, 0, 0, "sl.interposer.dll!D3D12CreateDevice"},  // memstats.cpp
+    {0x38F4E38, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 8B D9 48 89 01 F6 C2 01 0F 85 ?? ?? ?? ?? 48 8B C3 48 83 C4 20 5B C3 CC CC CC 48 89 5C 24 10 48 89 6C 24 18", 0, 0x5DEB3E, 3, 7, 0, ""},  // fhlinger.cpp
     {0x3AAF600, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 8B CB 48 89 03 48 8B 84 24 20 01 00", 0, 0x228CE13, 3, 7, 0, ""},  // frameoverlap.cpp
     {0x3C02220, kGlobal, "48 8D 3D ?? ?? ?? ?? 48 89 44 24 20 48 8B D9 48 89 54 24 28", 0, 0x11575D, 3, 7, 0, ""},  // dllmain.cpp, frameoverlap.cpp, replayprof.cpp
     {0x408F940, kGlobal, "48 8D 05 ?? ?? ?? ?? 48 C7 47 20 00 00 00 00 48 8D 4F 60 48 89 07 BA 02 01 00 00 E8 ?? ?? ?? ?? 48 8B 4E 08 48 8B 7C 24 30 48 8D 04 29 48 3B 46 10 76 04 33 D2 EB 0A 48 8B 16 48 03 D1 48 89 46 08 48 8B 8B 38 63 00 00 48 8D 82 8F", 0, 0x13474E8, 3, 7, 0, ""},  // loadmem.cpp
