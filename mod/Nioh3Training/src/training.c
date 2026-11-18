@@ -662,10 +662,28 @@ static __attribute__((noinline)) int FakeActorLive(uint64_t a) {
     if (g_fw_comp && (!Rd64(a + 0x3B0, &comp) || comp != g_fw_comp)) return 0;
     return 1;
 }
+static __attribute__((noinline)) uint64_t ActorSameHandle(uint32_t h) {
+    if (!h) return 0;
+    uint64_t cur[1024]; int n = Actors(cur, 1024);
+    for (int i = 0; i < n; ++i) {
+        __try { if (cur[i] && *(uint32_t*)(cur[i] + 4) == h) return cur[i]; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { }
+    }
+    return 0;
+}
 static uint64_t h_fw(uint64_t cm, uint32_t id) {
     if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) {
         uint64_t a = g_fwbuf[0];
-        if (a && !FakeActorLive(a)) { g_fwbuf[0] = 0; InterlockedExchange(&g_fw_gone, 1); }
+        if (a && !FakeActorLive(a)) {
+            // GitHub #94: a dark-realm form is a new actor on the same handle.
+            // Clearing wrapper[0] here hid the bar (live 06:12:25) before the
+            // slot retarget. Point the bar at the new actor instead.
+            uint64_t neu = g_fw_h ? ActorSameHandle(g_fw_h) : 0; uint64_t comp = 0;
+            if (neu && neu != a) {
+                g_fwbuf[0] = neu; if (Rd64(neu + 0x3B0, &comp) && comp) g_fw_comp = comp;
+                Log("GAUGE form kept: handle %08X actor %p -> %p", g_fw_h, (void*)a, (void*)neu);
+            } else { g_fwbuf[0] = 0; InterlockedExchange(&g_fw_gone, 1); }
+        }
         return g_fakew;
     }
     return o_fw(cm, id);
@@ -964,7 +982,8 @@ static uint64_t ActorByHandle(uint32_t h) { uint64_t cur[1024]; int n = Actors(c
 // live-object death predicate 4892A8 (the tail of 7E11F0 / Duel::IsAliveBoss); a dynamic boss (CreateDynamic handle) has no registered wrapper, so use the actor table
 static int ActorInTable(uint64_t x) { uint64_t cur[1024]; int n = Actors(cur, 1024); for (int i = 0; i < n; ++i) if (cur[i] == x) return 1; return 0; }
 static int BossAliveSensor(uint32_t id) { uint64_t a;
-    if (g_bm.await) { if (!g_bm.actor && g_newSeq != g_bm.seq && g_newH == id) g_bm.actor = g_newActor; if (!g_bm.actor) return -1; a = ActorInTable(g_bm.actor) ? g_bm.actor : 0; if (!a) return -1; }
+    if (g_bm.await) { if (!g_bm.actor && g_newSeq != g_bm.seq && g_newH == id) g_bm.actor = g_newActor; if (!g_bm.actor) return -1; a = ActorInTable(g_bm.actor) ? g_bm.actor : 0;
+        if (!a) { a = ActorByHandle(id); if (a) { g_bm.actor = a; Log("BBM form kept: handle %u actor %p", id, (void*)a); } else return -1; } }
     else a = ActorByHandle(id); if (!a) { uint64_t w = FindWrapper(id); return w ? (int)(((uint8_t (*)(uint64_t))(B + Grva(0x7E11F0)))(w) & 1) : -1; } return (int)(((uint8_t (*)(uint64_t))(B + Grva(0x4892A8)))(a) & 1); }
 static int BossModeBegin(uint32_t id, int notify) {
     uint64_t cm = CharMgr(), c0 = 0; if (!cm || !Rd64(cm, &c0) || !c0) { Log("BBM: no character manager"); return 0; }
@@ -4154,6 +4173,9 @@ static void SpPruneTick(void) {
                 if (g_mon.a == a) g_mon.a = neu;
                 if (g_aw.a == a) g_aw.a = neu;
                 if (g_newActor == a) g_newActor = neu;
+                if (g_bm.actor == a) g_bm.actor = neu;
+                if (g_gg.actor == a) g_gg.actor = neu;
+                if (g_fwbuf[0] == a) { uint64_t comp = 0; g_fwbuf[0] = neu; if (Rd64(neu + 0x3B0, &comp) && comp) g_fw_comp = comp; }
                 continue;
             }
         }

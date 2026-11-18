@@ -477,6 +477,17 @@ int main(void) {
         assert(h_mvsel(0x3000, 0) == 0x4E5C);  // idle pick at delay 0 starts the next move now
         assert(ActIdOf(0x3000) == 0x4E6C);     // did not wait for the action to become idle 2
         Nioh3Training_SetRepeatLast(16102u, 0);
+        memset(g_ml, 0, sizeof g_ml); Nioh3Training_SetMoveRepeat(16102u, 0, 0); MvGapPut(16102u, 0);
+        assert(MvContinues(16102u, 0x4E5Cu, 0x4E60u));
+        fake_now = 620000;
+        const uint32_t pair[] = {2, 0x4E5C, 2, 0x4E6C, 2};
+        for (unsigned k = 0; k < sizeof pair / sizeof pair[0]; ++k) { cur_act = pair[k]; fake_now += 20; MvLastTick(); }
+        assert(Nioh3Training_SetRepeatLast(16102u, 2) == 2);
+        cur_act = 2; fake_now += 50; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == 0x4E5C);
+        cur_act = 0x4E5C; fake_now += 40; Pick(0x4E30); assert(h_mvsel(0x3000, 0) == MV_KEEP);  // a different attack still waits
+        Pick(0x4E60); assert(h_mvsel(0x3000, 0) == 0x4E6C);  // the same-family branch starts the next captured move
+        assert(ActIdOf(0x3000) == 0x4E5C);
+        Nioh3Training_SetRepeatLast(16102u, 0);
         puts("PASS: delay 0 does not wait for idle action 2 (#91)");
     }
     // GitHub #92: a native-slot boss (direct teleport) is recorded with no summon and no Boss Match.

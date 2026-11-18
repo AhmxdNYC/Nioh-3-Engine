@@ -321,7 +321,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         return id;
     }
     if (g_rep_seq[i]) return MvSeqPick(i, st, chr, id);  // user #14423: chain repeat (also lets a started chain finish while chasing)
-    DWORD now = GetTickCount(); int gap = MvGapEff(i, chr);
+    DWORD now = GetTickCount(); int gap = MvGapEff(i, chr); int chain_now = 0;
     const uint32_t act = ActIdOf(st);
     const int attack = act >= 0x4E20 && act != 0xFFFF && act != 0xFFFFFFFFu;
     // user #14710: the move plays (the drill or the pump forced it, or the boss picked it itself): followed like a sequence round
@@ -331,17 +331,23 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
         if (attack && g_rep_cur[i] != act) { g_rep_cur[i] = act; g_rep_curt[i] = now ? now : 1; }
         // the move or its own next piece plays: the game's follow-up passes, another attack waits; the move ends back in idle by itself
         // (was: the first pick after the repeat = 'finished' -> gap idle, live 22:17:24 0x4EE8 > 0x4EE9 and 0x4E7B > 0x4EA7 > 0x4E7C cut short)
-        // GitHub #91: delay 0 chains when the game picks idle. A positive gap still
-        // lets the attack finish into idle action 2 (that idle holds ~6 s).
-        if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || id != 2))
+        // GitHub #91: Last 2/3 at delay 0. A same-family follow-up is another branch of
+        // this move (live 4E7C -> 4E58 for 3 to 17 s). The next captured move starts
+        // there. A different attack still waits (MV_KEEP) so the animation can finish.
+        // One move, and any positive gap, still follow that branch into idle action 2.
+        const int chain91 = gap == 0 && g_rep_nlist[i] > 1 && g_rep_lastn[i] > 1 && g_rep_seen[i]
+            && now - g_rep_last[i] < 30000 && id >= 0x4E20 && id != rep;
+        const uint32_t curp = act == rep ? act : (g_rep_cur[i] ? g_rep_cur[i] : rep);
+        if (chain91 && MvContinues(chr, curp, id)) { g_rep_end[i] = now ? now : 1; MvRoundReset(i); chain_now = 1; }
+        else if (g_rep_seen[i] && attack && now - g_rep_last[i] < 30000 && (gap > 0 || id != 2))
             return MvFollow(i, chr, act, id, now);
-        if (!g_rep_seen[i] && (act == 2 || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
-        g_rep_end[i] = now ? now : 1; MvRoundReset(i);  // back in idle / a reaction / never started: the move has ended, the gap starts now
+        else if (!g_rep_seen[i] && (act == 2 || attack) && now - g_rep_last[i] < SEQ_START_MS) return rep;  // asked for, not playing yet: keep asking
+        else { g_rep_end[i] = now ? now : 1; MvRoundReset(i); }  // back in idle / a reaction / never started: the move has ended, the gap starts now
     }
     // GitHub #91: delay 0 does not wait until the action is idle 2. A positive gap,
     // and any pick that is not that idle, still refuses a cycle step (#69187:
     // unreadable frames and low-id landing recovery are not round boundaries).
-    if (g_rep_lastn[i] && act != 2 && (gap > 0 || id != 2)) return 0;
+    if (!chain_now && g_rep_lastn[i] && act != 2 && (gap > 0 || id != 2)) return 0;
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up (no attacks), the repeat waits
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         if (MvGapLog(i, id)) Log("REPEAT chr %u gap hold pick 0x%X -> idle (%lu/%d ms since end)", chr, id, now - g_rep_end[i], gap);
