@@ -52,5 +52,5 @@ int main(void){
 '''
 with tempfile.TemporaryDirectory() as d:
  p=Path(d);(p/'save.c').write_text(preamble+'\n'.join(map(extract,parts))+main)
- subprocess.run([sys.executable,'-m','ziglang','cc','-O2',str(p/'save.c'),'-o',str(p/'save.exe')],check=True)
+ subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(p/'save.c'),'-o',str(p/'save.exe')],check=True)
  subprocess.run([str(p/'save.exe')],check=True)

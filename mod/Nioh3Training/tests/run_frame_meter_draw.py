@@ -11,7 +11,7 @@ sources = ('frame_meter_test', 'frame_meter_ki_test', 'frame_meter_kipress_test'
 for name in sources:
     exe = out / (name + '.exe')
     result = subprocess.run([sys.executable, '-m', 'ziglang', 'cc', '-target', 'x86_64-windows-gnu',
-        '-O2', '-fms-extensions', '-Wall', str(root / 'tests' / (name + '.c')),
+        '-O2','-UNDEBUG', '-fms-extensions', '-Wall', str(root / 'tests' / (name + '.c')),
         '-o', str(exe), '-lgdi32', '-lmsimg32'], text=True, capture_output=True)
     if result.returncode:
         print(result.stdout, result.stderr)

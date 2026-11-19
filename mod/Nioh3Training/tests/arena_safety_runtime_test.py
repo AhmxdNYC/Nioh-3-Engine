@@ -71,5 +71,5 @@ with tempfile.TemporaryDirectory() as d:
     path = Path(d)
     (path / "guard.c").write_text(fixture)
     exe = path / "guard.exe"
-    subprocess.run([sys.executable, "-m", "ziglang", "cc", "-O2", str(path / "guard.c"), "-o", str(exe)], check=True)
+    subprocess.run([sys.executable, "-m", "ziglang", "cc", "-O2", "-UNDEBUG", str(path / "guard.c"), "-o", str(exe)], check=True)
     subprocess.run([str(exe)], check=True, timeout=30)

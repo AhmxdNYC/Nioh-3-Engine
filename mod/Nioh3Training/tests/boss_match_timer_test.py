@@ -39,5 +39,5 @@ int main(void) {
 '''
 with tempfile.TemporaryDirectory() as d:
     p=Path(d);(p/'timer.c').write_text(fixture)
-    subprocess.run([sys.executable,'-m','ziglang','cc','-O2',str(p/'timer.c'),'-o',str(p/'timer.exe')],check=True)
+    subprocess.run([sys.executable,'-m','ziglang','cc','-O2','-UNDEBUG',str(p/'timer.c'),'-o',str(p/'timer.exe')],check=True)
     subprocess.run([str(p/'timer.exe')],check=True)

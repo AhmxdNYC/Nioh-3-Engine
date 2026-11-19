@@ -43,7 +43,7 @@ int main(void){
 d = tempfile.mkdtemp(prefix="ki31_")
 c = os.path.join(d, "t.c"); exe = os.path.join(d, "t.exe")
 open(c, "w").write(harness)
-r = subprocess.run([sys.executable, "-m", "ziglang", "cc", "-target", "x86_64-windows-gnu", "-O2", "-fms-extensions",
+r = subprocess.run([sys.executable, "-m", "ziglang", "cc", "-target", "x86_64-windows-gnu", "-O2", "-UNDEBUG", "-fms-extensions",
                     "-Xclang", "-fasync-exceptions", c, "-o", exe], capture_output=True, text=True)
 if r.returncode: print(r.stdout, r.stderr); sys.exit(1)
 sys.exit(subprocess.run([exe]).returncode)
