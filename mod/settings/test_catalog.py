@@ -24,7 +24,7 @@ def section(source, start, end):
 
 # #97604: baseline = last public release (v1.8.22 = main 3e6e730f = installer-pc/rc-1822on dd381ed2, regression #110443; was v1.8.21 29d49561, was v1.8.17 47505850, was v1.8.15 2e9efc04, v1.8.14 667edbe8). The old v1.7.67 pins (8fcb81b / 0b25b2b) predate
 # every default flip and version bump since; bump RELEASE when a new release ships.
-RELEASE = '3e6e730f'
+RELEASE = 'daa61c1d'
 # v1.8.22 loading fix ON by default (PC2 #109923, Ally #110220; LoadFixDefaultV migration in EF dllmain)
 INTENDED_FLIPS = {}  # RC 0->2 flip shipped in v1.8.22 (now baseline)
 
