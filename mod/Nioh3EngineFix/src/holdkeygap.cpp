@@ -20,6 +20,8 @@ volatile long g_calls = 0;
 volatile long g_same = 0, g_gaps = 0, g_overlaps = 0;
 float g_maxGap = 0.0f;
 bool g_on = false;
+int g_mode = 0;  // 1 = fill gaps, 2 = trace only (stock windows)
+volatile long g_trace = 0;
 
 // v2.02 bytes at 20DFC0 (prologue up to the first push); the first kStolen are position independent and move to the trampoline.
 const uint8_t kHead[] = {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x68, 0x18, 0x48, 0x89, 0x70, 0x20,
@@ -64,6 +66,19 @@ uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
     e.res = res;
     e.prevEnd = t + step;
     e.prevT = t;
+    if (g_mode == 2) {
+        const uint64_t r = g_orig(self, res, t, slot);
+        if (g_log && t >= 8.0f && t < 34.0f && g_trace < 60000) {
+            const uint8_t* k = reinterpret_cast<const uint8_t*>(r);
+            if (r || (t >= 10.0f && t < 15.0f)) {
+                InterlockedIncrement(&g_trace);
+                g_log("HKGT this=%p s=%u res=%p t=%.3f st=%.3f r=%p ty=%d fl=%08x a69=%p", (void*)self, (unsigned)slot, (void*)res, t,
+                      step, (void*)r, r ? (int)k[0x19] : -1, r ? *reinterpret_cast<const uint32_t*>(k + 0x48) : 0u,
+                      (void*)self[0x69 + slot]);
+            }
+        }
+        return r;
+    }
     if (lo == t) return g_orig(self, res, t, slot);
     const float wide = t + step - lo;
     const long n = InterlockedIncrement(&g_fills);
@@ -141,6 +156,7 @@ void Start(const StartInfo& info) {
     InterlockedExchange64((volatile LONG64*)fn, v);  // one aligned 8-byte store: no thread sees half a jmp
     VirtualProtect((void*)fn, 8, old, &old);
     FlushInstructionCache(GetCurrentProcess(), (void*)fn, 8);
+    g_mode = want;
     g_on = true;
     g_log("HOLDKEYGAP: installed at +%X (%s) - [General] HoldKeyGap = %d (a move key between two uneven frames is tested "
           "instead of skipped; max gap %.1f frames)",
