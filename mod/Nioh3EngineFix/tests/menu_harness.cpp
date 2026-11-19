@@ -522,6 +522,11 @@ int main() {
     CHECK(has(pSCpu, kW3) && has(pSCpu, kXIK) && !has(pSCpu, kLat) && !has(pSCpu, kEpPre));
     CHECK(has(pSettings, kEpPre) && !has(pSGpu, kGpu) && /* kGpu is hidden while gpuopt is Off (stub) */ !has(pSGpu, kEpPre) && !has(pSGpu, kEp9) && has(pSGpu, kXVSMA) && has(pSGpu, kEp0));
     CHECK(has(pSGame, kLat) && has(pSGame, kVrr) && !has(pSGame, kW3));
+    {  // #121260: Held attack fix (General.HoldKeyGap) is reachable in layout 0 on Settings > Game only
+        int hkg = -1;
+        for (int i = 0; i < kConfigN; ++i) if (!strcmp(kConfigSettings[i].section, "General") && !strcmp(kConfigSettings[i].key, "HoldKeyGap")) hkg = i;
+        CHECK(hkg >= 0 && has(pSGame, kSettingRow + hkg) && !has(pSCpu, kSettingRow + hkg) && !has(pSGpu, kSettingRow + hkg));
+    }
     CHECK(has(pFrameGen, kF1) && !has(pFrameGen, kFps));
     // navigation: Move wraps through the top rows; Mod menu row returns to the root; Report row writes a snapshot via crashreport
     g_pages.Reset();

@@ -1316,6 +1316,8 @@ int PadDebugSettingRow() {
 bool IsControllerOnlyKey(const char* key) { return key && (strncmp(key, "ControllerDisplay", 17) == 0 || strcmp(key, "ButtonStyle") == 0); }
 // #109970: the loading fixes (catalog rows, next launch) also live on Settings > CPU in layout 0, where catalog pages are not reachable
 bool IsLoadFixKey(const char* key) { return key && (strcmp(key, "PollFix") == 0 || strcmp(key, "RC") == 0 || strcmp(key, "Inflate") == 0 || strcmp(key, "FileLinger") == 0); }  // #117317 FileLinger toggle
+// #121260: the held attack fix row also lives on Settings > Game in layout 0, where the General catalog page is not reachable
+bool IsGameFixKey(const char* section, const char* key) { return section && key && strcmp(section, "General") == 0 && strcmp(key, "HoldKeyGap") == 0; }
 // Settings sub-page of a performance row (layout 0): CPU / GPU / Game / Frame Gen; -1 = not a Settings row
 int SetGroup(int id) {
     if (id == kF1 || id == kFgWine || id == kFg || id == kFgState || id == kUpscaler) return pFrameGen;  // #38461: frame-gen rows live only in Settings > Frame Gen
@@ -1370,6 +1372,9 @@ int PageRowsBody(int* out, bool selectable) {
             if (pg == pSCpu)
                 for (int i = 0; i < kConfigN; ++i)
                     if (!strcmp(kConfigSettings[i].section, "Patches") && IsLoadFixKey(kConfigSettings[i].key)) add(kSettingRow + i);
+            if (pg == pSGame)
+                for (int i = 0; i < kConfigN; ++i)
+                    if (IsGameFixKey(kConfigSettings[i].section, kConfigSettings[i].key)) add(kSettingRow + i);
             add(kBackRow);
             return n;
         }
