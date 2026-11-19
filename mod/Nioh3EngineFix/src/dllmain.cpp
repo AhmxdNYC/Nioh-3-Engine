@@ -52,6 +52,7 @@
 #include "bootnotice.h"
 #include "padguard.h"
 #include "aichainguard.h"
+#include "holdkeygap.h"
 #include "crashreport.h"
 #include "reportsend.h"
 #include "drawprep.h"
@@ -3605,6 +3606,15 @@ DWORD WINAPI Worker(LPVOID) {
             agi.base = reinterpret_cast<uintptr_t>(g_base);
             agi.knownBuild = known;
             aichainguard::Start(agi);
+        }
+        {  // HoldKeyGap (holdkeygap.cpp, [General] HoldKeyGap = 0): a move branch key that falls between two uneven frames
+           // (held attack -> martial art at frame 12) is tested instead of skipped (human #120716, notes/hold-re-120730.md)
+            holdkeygap::StartInfo hki;
+            hki.log = &Log;
+            hki.iniPath = iniPath.c_str();
+            hki.base = reinterpret_cast<uintptr_t>(g_base);
+            hki.knownBuild = known;
+            holdkeygap::Start(hki);
         }
         {  // 1.7.48 SkipBootNotice (bootnotice.cpp, [Debug] SkipBootNotice = -1: on only when Tour or VirtualPad is on):
            // skips the every-boot autosave notice + the "reset settings?" warning, logs the boot sequencer state
