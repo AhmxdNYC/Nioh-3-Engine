@@ -587,12 +587,14 @@ bool (*volatile g_keyFilter)(uint8_t*, bool) = nullptr;  // vpad.cpp (VirtualPad
 void GameInputLogSafe(const uint8_t* keys) {
     __try {
         const int menuOpen = (g_open || g_rbOn) ? 1 : 0;
-        inputlog::ObserveKeyboard(keys, menuOpen);
         DWORD pid = 0;
         HWND fg = GetForegroundWindow();
         if (fg) GetWindowThreadProcessId(fg, &pid);
+        const bool focused = pid == GetCurrentProcessId();
+        // #118418: keys typed in other windows (passwords) never enter the report: unfocused = same as menu open.
+        inputlog::ObserveKeyboard(keys, (menuOpen || !focused) ? 1 : 0);
         unsigned mb = 0;
-        if (pid == GetCurrentProcessId()) {
+        if (focused) {
             const int vks[5] = {VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2};
             for (int i = 0; i < 5; ++i)
                 if (GetAsyncKeyState(vks[i]) & 0x8000) mb |= 1u << i;
