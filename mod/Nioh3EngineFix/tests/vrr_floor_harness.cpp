@@ -10,7 +10,7 @@ extern uint64_t vrr_minNs[3], vrr_maxNs[3], vrr_pNear, vrr_floorNs, vrr_floorHol
 extern uint32_t vrr_enable, vrr_tier, vrr_capCur, vrr_arm[3], vrr_cap[3], vrr_fpsOut, vrr_floorOn, vrr_floorEnters;
 // caves.asm externs not used by caveFps
 void L1Wait() {} void W6Wait() {} void MWWait() {} void MWComplete() {} void WgWake() {} void WgSleep() {}
-void GfWait() {} void DsQpc() {} void RDWait() {} void RDComplete() {}
+void GfWait() {} void DsQpc() {} void RDWait() {} void RDComplete() {} void FwpRound() {}
 }
 static uint8_t G[0x800];
 static uint32_t nearPage[4];
