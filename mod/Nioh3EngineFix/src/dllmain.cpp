@@ -3216,6 +3216,7 @@ DWORD WINAPI Worker(LPVOID) {
         mh.workerCap = cfg.workerCap;
         mh.p12 = cfg.p12;
         mh.l1OnWine = cfg.l1OnWine;
+        mh.fwp = cfg.fwp;
         mh.fgOnWine = cfg.fgOnWine;
         // experimental patches: live switch when installed (M2/J1/S1 are code bytes only: next launch)
         auto U = [](uint32_t& v) { return reinterpret_cast<volatile uint32_t*>(&v); };

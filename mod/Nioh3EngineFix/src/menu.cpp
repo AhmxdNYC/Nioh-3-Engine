@@ -852,7 +852,7 @@ enum Id { kVrr, kW3, kW3Mode, kR1, kL1, kF1, kWk, kLat,
           kRd,  // #67225 Render distance. Not an extraperf::Opt (presets must not move it).
           kSharp,  // #67772 FSR sharpness (XSHARP). Not an extraperf::Opt either (Extreme + sharpen).
           kFps, kFrameTime, kSpeed, kPos, kScale, kFg, kFgState, kUpscaler, kOffX, kOffY, kPerfNote, kHint, kPage, kAutoCont,
-          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kSave, kClose, kVrs, kCount };
+          kWorkerCap, kP12, kFreeze, kL1Wine, kFgWine, kFwp, kSave, kClose, kVrs, kCount };
 #include "settings_catalog.h"
 #include "menu_shipped_defaults.h"
 #include "../../Nioh3Training/src/practice_stats.h"
@@ -990,6 +990,7 @@ const ItemDef kItems[kCount] = {
     {"Freeze game while menu is open", "(FreezeGame)", "Stops game time like the game's pause menu while any mod menu page is open; closing the menu resumes it. Overlays keep drawing.", "Picture unchanged. Applies now. Released on close, hide and unload."},
     {"Sleeping limiter on Proton", "(L1)", "Install L1 under Wine/Proton too (Wine may not honour the timer).", "Picture unchanged. Applies at the next launch."},
     {"Sleeping FG presenter on Proton", "(F1)", "Install F1 under Wine/Proton too (same timer caveat as L1).", "Picture unchanged. Applies at the next launch."},
+    {"Frame wait parks instead of spinning", "(FWP)", "The render thread sleeps on a timer while it waits for the frame, instead of spinning a core. Experimental.", "Picture unchanged. Applies at the next launch. Lowers CPU use where the frame wait spins; fps gain unproven."},
     {"Save to ini", "", "Saves mod choices to Nioh3EngineFix.ini.", "Applies at the next launch."},
     {"Close menu", "", "Also: B / Esc / the menu key / the open gesture.", ""},
     {"World shading", "(VRS)", "Coarser shading for eligible world surfaces; character and unknown draws stay full rate. May change fine world detail.", "Off by default. Saved when the menu closes; applies at the next launch. Requires hardware variable-rate shading."},
@@ -1018,7 +1019,7 @@ const OrderEnt kOrder[] = {
     {kXFOGT, nullptr}, {kXCLDR, nullptr}, {kXRTP, "Experimental (CPU scheduling, A/B live)"}, {kXPCM, nullptr},
     {kGR2a, "Experimental (GPU, Proton)"}, {kGR2b, nullptr}, {kGR1, nullptr},
     {kXTS, "Diagnostics / logging"}, {kXWS, nullptr},
-    {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr},
+    {kWorkerCap, "Next launch (saved to the ini)"}, {kP12, nullptr}, {kL1Wine, nullptr}, {kFgWine, nullptr}, {kFwp, nullptr},
     {kSave, "Save & exit"}, {kClose, nullptr},
 };
 constexpr int kOrderN = (int)(sizeof(kOrder) / sizeof(kOrder[0]));
@@ -1037,7 +1038,7 @@ vrsmenu::Values g_vrsVals;   // #79098: what the page shows and Save writes
 bool g_vrsAdvanced = false;  // #79382 the raw rows stay hidden unless asked for, or the saved values are not a level
 bool g_vrsPresetOn = false;  // the ON row's preset is the last edit, so Save also writes its motion key
 int g_selectedEpPreset = -1;  // Only explicit preset picks change the startup half-rate choice.
-int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0;
+int g_bootWorkerCap = 0, g_bootP12 = 0, g_bootL1Wine = 0, g_bootFgWine = 0, g_bootFwp = 0;
 int g_expIni0[kNumExp] = {};  // value at launch
 bool g_expAuto[kNumExp] = {};  // ini held -1 (auto by OS) at launch
 int g_latBoot = 0;
@@ -1321,7 +1322,7 @@ int SetGroup(int id) {
     if (id == kEpPre) return -1;  // #43269: preset is the first row of Optimizations, not a row inside GPU
     if (id == kRd || id == kSharp) return pSGpu;  // #67225 / #67772: with the other look rows, not on the camera page
     if (id == kVrr || id == kLat || id == kWorkerCap || id == kP12 || id == kFreeze) return pSGame;
-    if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine) return id == kL1Wine ? pSCpu : -1;
+    if (id == kEp9 || OverlayRow(id) || id == kPage || id == kSave || id == kClose || id == kL1Wine || id == kFwp) return (id == kL1Wine || id == kFwp) ? pSCpu : -1;
     const int sp = SettingsPage(id);
     if (id == kGpu || sp == pGpu || sp == pProton || sp == pExtra) return pSGpu;
     if (sp == pCpu || sp == pScheduling || sp == pSafe) return pSCpu;
@@ -1746,6 +1747,7 @@ void Value(int id, char* buf, size_t n, uint32_t& color) {
         case kP12: boot(g_bootP12 != 0, g_bootP12 != g_host.p12); break;
         case kL1Wine: boot(g_bootL1Wine != 0, g_bootL1Wine != g_host.l1OnWine); break;
         case kFgWine: boot(g_bootFgWine != 0, g_bootFgWine != g_host.fgOnWine); break;
+        case kFwp: boot(g_bootFwp != 0, g_bootFwp != g_host.fwp); break;
         default: break;
     }
 }
@@ -1842,6 +1844,7 @@ void StartSave() {
     if (g_vrsEdited) { if (g_vrsPresetOn) vrsmenu::Save(true, add); else vrsmenu::SaveValues(g_vrsVals, add); }
     add(L"Patches", L"WorkerCap", std::to_wstring(g_bootWorkerCap));
     add(L"Patches", L"P12", b(g_bootP12 != 0));
+    add(L"Patches", L"FWP", std::to_wstring(g_bootFwp));  // keeps 2 (measure-only) unless toggled
     if (g_host.wine) {
         add(L"Patches", L"L1OnWine", b(g_bootL1Wine != 0));
         add(L"Patches", L"FGOnWine", b(g_bootFgWine != 0));
@@ -2400,6 +2403,7 @@ void Change(int id, int dir) {
         case kP12: g_bootP12 = !g_bootP12; break;
         case kL1Wine: g_bootL1Wine = !g_bootL1Wine; break;
         case kFgWine: g_bootFgWine = !g_bootFgWine; break;
+        case kFwp: g_bootFwp = g_bootFwp ? 0 : 1; break;
         default: return;
     }
     SyncConfigFromLive(id);
@@ -2610,6 +2614,7 @@ bool RemoteValue(int id, int& v) {
         case kP12: v = g_bootP12; return true;
         case kL1Wine: v = g_bootL1Wine; return true;
         case kFgWine: v = g_bootFgWine; return true;
+        case kFwp: v = g_bootFwp; return true;
         default: return false;
     }
 }
@@ -4286,6 +4291,7 @@ void Configure(const Host& h) {
     g_bootP12 = h.p12;
     g_bootL1Wine = h.l1OnWine;
     g_bootFgWine = h.fgOnWine;
+    g_bootFwp = h.fwp;
     for (int e = 0; e < kNumExp; ++e) g_expIni[e] = h.exp[e].enable ? (*h.exp[e].enable ? 1 : 0) : h.exp[e].ini;
     for (int e = 0; e < kNumExp; ++e) {
         g_expIni0[e] = g_expIni[e];
