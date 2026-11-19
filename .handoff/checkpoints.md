@@ -1119,3 +1119,5 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 2026-11-19 11:3x am EST | reports-pc/0 | GH #94 v2 offline GO #120495; live TASK sent to pc. UNPROVEN live. NEXT: on pc RESULT PASS, comment #94, hand to pc for release; FAIL -> fix.
 - 2026-11-19 11:35 am EST | pc/1 GH #94/#129 live check done on TR 66a836c5 | proven on Main PC (#120533, logs D:/nioh3-re/live-94b/v4-1, rig Temp/live94b local) | next: pc/0 decides publish; no further pc/1 step | no code change
 2026-11-19 11:37 am EST | reports-pc/0 | GH #94 live PASS #120533 on TR 66a836c5 (reports/94 c3c4fbf0). PROVEN live Main PC. NEXT: pc merges into next rc; close #94 when shipped.
+
+2026-11-19 1:01 pm EST | reports-pc/0 GH #131 hold-MA misfire on 1.8.23 | PROVEN: duplicate of #98/#80 (same install 22cdafe8), report input log has menu keys only; #131 closed, #98 status comment | next: none for reports-pc; pc decides whether to reopen hold track (needs RE, deepseek 402) | NOTE to pc, RESULT #120606
