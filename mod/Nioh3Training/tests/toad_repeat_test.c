@@ -118,6 +118,7 @@ int main(void) {
     // live #119454 shape: the Toad never picks an attack from 0xBB8. From rest it picks a step (0xC5E), and its attack (0xC67) while a
     // step (0xC56) plays. Both are the repeat's chance once the gap passed; a step during the running repeat still plays natively.
     assert(MvCalm(T, 0xBB8) && MvCalm(T, 0xC56) && MvCalm(T, 0xC5E) && !MvCalm(T, 0xC61) && !MvCalm(T, 0xC67) && MvCalm(T, 0x11));  // 0x11 = its other idle (kind I, motion 51)
+    assert(MvDataRest(T) && !MvDataRest(999999u) && !MvCalm(999999u, 0xC56));  // #119495: no rest row (idle 0) keeps the rest-only rule
     const LONG c0 = g_rep_count[ri];
     cur_act = 0xBB8; fake_now += 5000; g_rep_end[ri] = fake_now - 5000; g_rep_last[ri] = 0; Pick(0xC5E);
     assert(h_mvsel(0x3000, 0) == 0xC61 && g_rep_count[ri] == c0 + 1);

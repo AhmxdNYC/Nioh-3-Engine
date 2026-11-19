@@ -238,9 +238,11 @@ static uint32_t MvIdleId(uint32_t chr) {
 // 0x2: Giant Toad 0xBB8), a short non-attack move of its own (step / turn / walk: no attack motion, not a reaction). The Toad never picks
 // an attack from 0xBB8: it picks a step there and its attack while that step plays (0xC67 during 0xC56, 3 windows, 0 repeats). 0x2 bosses
 // (Yoritomo / Nobuharu / Shingen) keep rest-only boundaries (#69187: their low-id landing recovery is not a boundary).
+// 1 = the boss rests in a real data rest row (not 0x2, and not 'no rest found' = 0: regression #119495, Ippon-Datara 352684 etc.)
+static int MvDataRest(uint32_t chr) { const uint32_t r = MvIdleId(chr); return r && r != 2; }
 static int MvCalm(uint32_t chr, uint32_t act) {
     if (MvRest(chr, act)) return 1;
-    if (act >= 0x4E20 || !act || act == 0xFFFF || act == 0xFFFFFFFFu || MvIdleId(chr) == 2) return 0;
+    if (act >= 0x4E20 || !act || act == 0xFFFF || act == 0xFFFFFFFFu || !MvDataRest(chr)) return 0;
     return N3MoveFind(chr, act) >= 0 && !MlAttack(chr, act) && !N3MoveUnsafe(chr, act) && !N3MoveProtected(act);
 }
 // 1 = pick is the running action cur's own next piece (see above). Boss-killing moves never are.
@@ -360,7 +362,7 @@ static uint32_t MvRepeatPick(uint64_t st, uint32_t id) {
     if (id == 0xFFFF || id == 0xFFFFFFFFu) return 0;
     uint32_t chr = MvBossChr(st); int i = MvRepFind(chr); if (i < 0 || !MvRepLive(i)) return 0;
     // #119454: from rest the Toad picks a step, not an attack: that pick is the repeat's chance too (data-rest bosses only, MvCalm)
-    if (id < 0x4E20 && !MvRest(chr, id) && !MvRepAtk(i, chr, id) && !(MvRest(chr, ActIdOf(st)) && MvIdleId(chr) != 2)) return 0;
+    if (id < 0x4E20 && !MvRest(chr, id) && !MvRepAtk(i, chr, id) && !(MvRest(chr, ActIdOf(st)) && MvDataRest(chr))) return 0;
     if (id < 0x4E20 && id != 2 && InterlockedIncrement(&g_rep_lowlog) <= 40) Log("REPEAT chr %u low-id pick 0x%X (%s), action 0x%X", chr, id, MvRest(chr, id) ? "rest" : "attack", ActIdOf(st));
     uint32_t rep = (uint32_t)g_rep_id[i]; if (!rep || N3MoveFind(chr, id) < 0) return 0;
     // A native death/reaction pick is not another attack to replace. The log
