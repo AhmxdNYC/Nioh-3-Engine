@@ -345,17 +345,20 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
 }
 static void FakeGaugeHide(const char* why);
 static void SlotForget(uint64_t a) { for (int k = 0; k < N3T_SLOTS; ++k) if (a && g_slot_act[k] == a) { g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } }
-static int Despawn(int idx) {
+static int DespawnDeadDefer(int idx);
+static int Despawn2(int idx, int deferDead) {
     FakeGaugeHide("despawn");
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
     uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
     if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0; return 0; }
+    if (deferDead && DespawnDeadDefer(idx)) return 1;
     ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a);
     Log("DESPAWN #%d %p: native delete 2BF7E8 called", idx, (void*)a);
     SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0;
     return 1;
 }
+static int Despawn(int idx) { return Despawn2(idx, 0); }
 // Character::FadeOut(id, frames) (VM 238DC40): live = wrapper[0]; c = [live+0x20]; if c: 2BC5DC(c+0x240, 0.0f target, frames) -- a lerp {start,target,cur,t,dur}
 // toward alpha 0. Mission scripts call it with f30 and follow with Character::Delete. Does not free the actor; Despawn later does. (ported from work-src529, 13:50 fade build)
 static __attribute__((noinline)) int FadeOutActor(int idx, float frames) {
@@ -1547,6 +1550,33 @@ static void KillFadeNow(uint64_t a) {
         if (FadeOutActor(g_nsp - 1, (float)(g_cfg_kill_fade_frames > 0 ? g_cfg_kill_fade_frames : 30))) g_tr.tFade = GetTickCount();
     }
 }
+// GH #108 / #44: the menu's 'Despawn all bosses' on a boss that died ~2 s earlier crashed the game ~70 ms after the native delete 2BF7E8
+// (Nioh3.exe+0xFA65D, a condition check reading a cleared component of the dying actor). The Training round never deletes a dead boss at once: it
+// fades the body and deletes it FadeDeleteMs later. Menu / command despawns of a dead (HP 0) boss now do the same; a live boss is still deleted at once.
+// The entry is dropped if the actor left the table or its handle changed (load, reuse); the menu slot is freed immediately.
+static struct { uint64_t a; uint32_t h0, h1; DWORD due; } g_dd[16];
+static int DespawnDeadDefer(int idx) {
+    uint64_t a = g_sp_actor[idx], hc = 1, hm = 0; int k;
+    if (!ActorHp(a, &hc, &hm) || !hm || hc) return 0;  // alive or unreadable: delete at once as before
+    for (k = 0; k < 16 && g_dd[k].a; ++k) {}
+    if (k == 16) return 0;
+    int faded = FadeOutActor(idx, 30.0f);
+    g_dd[k].h0 = *(uint32_t*)a; g_dd[k].h1 = *(uint32_t*)(a + 4); g_dd[k].due = GetTickCount() + FadeDeleteMs(); g_dd[k].a = a;
+    Log("DESPAWN #%d %p: boss is dead (HP 0/%llu), %s; native delete in %lu ms (GH #108)", idx, (void*)a, hm, faded ? "fading out" : "no fade", FadeDeleteMs());
+    SlotForget(a); g_sp_actor[idx] = 0;
+    return 1;
+}
+static void DeadDelTick(void) {
+    const DWORD now = GetTickCount();
+    for (int k = 0; k < 16; ++k) {
+        if (!g_dd[k].a || (int)(now - g_dd[k].due) < 0) continue;
+        if (GameState() && GameState()[2]) { g_dd[k].due = now + 1000; continue; }  // never delete during a load
+        uint64_t a = g_dd[k].a; g_dd[k].a = 0;
+        if (!ActorInTable(a) || *(uint32_t*)a != g_dd[k].h0 || *(uint32_t*)(a + 4) != g_dd[k].h1) { Log("DESPAWN deferred %p: already gone, nothing to delete", (void*)a); continue; }
+        ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a);
+        Log("DESPAWN deferred %p: native delete 2BF7E8 called (dead boss, GH #108)", (void*)a);
+    }
+}
 static void KillFadeDue(void) {  // TrainTick: start the delayed kill fade (same body only; a retry / new round clears tFadeAt)
     if (!g_tr.tFadeAt || (int)(GetTickCount() - g_tr.tFadeAt) < 0) return;
     g_tr.tFadeAt = 0;
@@ -1657,9 +1687,9 @@ static void TrainClear(const char* why) {  // remove our boss and its HUD/BGM st
 // bridge 12614 (cx-pc study 10541): one despawn-all transaction for every entry point. Cancels a pending spawn so a late actor cannot appear after it, deletes every tracked actor,
 // and resets the 32-slot counter only after the removal pass (individual Despawn never lowers g_nsp, so tracking otherwise stops after 32 cumulative spawns).
 static int DespawnAll(const char* why) {
-    int removed = 0, gone = 0;
+    int removed = 0, gone = 0; const int defer = !strcmp(why, "menu") || !strcmp(why, "command");  // GH #108: user despawns wait out a dead boss's death
     g_sp.active = 0; g_watch = 0; g_mon.a = 0;
-    for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) { if (Despawn(i)) removed++; else gone++; }
+    for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i]) { if (Despawn2(i, defer)) removed++; else gone++; }
     g_nsp = 0;
     Log("DESPAWN ALL (%s): %d deleted, %d already gone, slots reset", why, removed, gone);
     return removed;
@@ -4104,20 +4134,20 @@ N3T_API int Nioh3Training_DespawnAll(void) { if (g_rq_op) return 0; InterlockedE
 N3T_API int Nioh3Training_SlotCount(void) { return N3T_SLOTS; }  // user #14309: how many boss letters the menu may offer
 N3T_API int Nioh3Training_DespawnSlot(int slot) { if (slot < 0 || slot >= N3T_SLOTS || g_slot_native[slot] || g_rq_op) return 0; g_rq_slot = slot; InterlockedExchange(&g_rq_op, 3); return 1; }
 N3T_API uint32_t Nioh3Training_SlotChr(int slot) { return SlotAlive(slot) ? g_slot_chr[slot] : 0; }  // 0 = empty
-static void SlotDespawn(int s) { if (s < 0 || s >= N3T_SLOTS || g_slot_native[s]) return; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn(i); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
+static void SlotDespawn(int s, int deferDead) { if (s < 0 || s >= N3T_SLOTS || g_slot_native[s]) return; for (int i = 0; i < g_nsp; ++i) if (g_sp_actor[i] && g_sp_actor[i] == g_slot_act[s]) { Despawn2(i, deferDead); break; } g_slot_act[s] = 0; g_slot_chr[s] = 0; g_slot_ih[s] = 0; g_sph[s].phase = 0; }
 static void RqTick(void) {
     LONG op = InterlockedExchange(&g_rq_op, 0); if (!op) return;
     int s = (int)g_rq_slot;
     if (op == 1) {
         if (s < 0 || s >= N3T_SLOTS || (g_slot_native[s] && SlotAlive(s))) return;
         if (GameState() && GameState()[2]) { Log("MENU summon slot %c: a load is running, refused", 'A' + s); return; }
-        SlotDespawn(s);
+        SlotDespawn(s, 0);  // replaced at once: the new summon may need the old actor gone
         char tok[32]; const char* t = SummonTok(g_rq_mission);  // user #22984: the row's own id (R04DF, D084F ...) / a roster character
         if (g_rq_chr) snprintf(tok, sizeof tok, "%u", g_rq_chr); else if (t) snprintf(tok, sizeof tok, "%s", t); else snprintf(tok, sizeof tok, "R%04X", g_rq_mission);
         g_sp_slot_next = s; int ok = SummonStart(tok, 400.0f + 150.0f * (float)(s % 5));  // #14309: letters spread 4 / 5.5 / 7 / 8.5 / 10 m if (!ok) g_sp_slot_next = -1;
         Log("MENU summon slot %c %s -> %d", 'A' + s, tok, ok);
     } else if (op == 2) { DespawnAll("menu"); for (int k = 0; k < N3T_SLOTS; ++k) { if (g_slot_native[k]) continue; g_slot_native[k] = 0; g_slot_act[k] = 0; g_slot_chr[k] = 0; g_slot_ih[k] = 0; g_sph[k].phase = 0; } SumNoDeathRelease("despawn all"); }
-    else if (op == 3) { SlotDespawn(s); Log("MENU despawn slot %c", 'A' + s); }
+    else if (op == 3) { SlotDespawn(s, 1); Log("MENU despawn slot %c", 'A' + s); }
     else if (op == 4) {  // user #13223: Practice > Training here (no load, no teleport: boss summoned where the player stands, Idle stance, retry in place)
         if (GameState() && GameState()[2]) { Log("MENU training here: a load is running, refused"); return; }
         g_practice_next = 1; int ok = Nioh3Training_Summon(g_rq_mission); if (!ok) g_practice_next = 0;
@@ -4913,8 +4943,8 @@ static __attribute__((noinline)) void Exec(char* line) {
         } else if (!strcmp(op, "despawn")) {
             char w[16] = "all"; sscanf(line, "%*s %15s", w);
             if (!strcmp(w, "all")) { DespawnAll("command"); SumNoDeathRelease("despawn all command"); }
-            else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn(i); break; } }
-            else Despawn(atoi(w));
+            else if (!strcmp(w, "last")) { for (int i = g_nsp - 1; i >= 0; --i) if (g_sp_actor[i]) { Despawn2(i, 1); break; } }
+            else Despawn2(atoi(w), 1);
         } else if (!strcmp(op, "kill")) {
             char w[16] = "last"; int drop = 0; sscanf(line, "%*s %15s %d", w, &drop);
             int idx = -1;
@@ -6437,6 +6467,7 @@ static __attribute__((noinline)) uint64_t h_pump(uint64_t c, uint64_t d, uint64_
     __try { TrainTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("TRAIN tick exception %08lX", GetExceptionCode()); g_tr.active = 0; }
     __try { BvTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("BOSSVITALS tick exception %08lX", GetExceptionCode()); }  // user #14320
     __try { PstTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRACTICE stats tick exception %08lX", GetExceptionCode()); }  // user #22389
+    __try { DeadDelTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("DESPAWN deferred tick exception %08lX", GetExceptionCode()); }
     __try { RqTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("MENU request tick exception %08lX", GetExceptionCode()); }
     __try { SpPruneTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("PRUNE tick exception %08lX", GetExceptionCode()); }  // crash 2026-10-18
     __try { SumNoDeathTick(); } __except (EXCEPTION_EXECUTE_HANDLER) { Log("SUMNODEATH tick exception %08lX", GetExceptionCode()); }  // user #13197
