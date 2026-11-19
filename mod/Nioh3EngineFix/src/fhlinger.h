@@ -1,4 +1,4 @@
-// fhlinger.h - FileLinger ([Patches] FileLinger = 1 by default (human #117317), menu toggle; #117226): keep the game's archive file handles open
+// fhlinger.h - FileLinger ([Patches] FileLinger = 0 by default (#118013; was 1 per #117317), menu toggle; #117226): keep the game's archive file handles open
 // for a while after their last user lets go, instead of CloseHandle now + CreateFileW again on the next streaming touch.
 // Same bytes are read from the same files; only the open/close churn goes away. Evidence: notes/streaming-guard-117226.md.
 //

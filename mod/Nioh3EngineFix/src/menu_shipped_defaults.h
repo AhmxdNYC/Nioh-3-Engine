@@ -58,7 +58,7 @@ inline constexpr Entry kEntries[] = {
     {"Patches", "FileLoadPoll", "1"},
     {"Patches", "PollFix", "1"},
     {"Patches", "Inflate", "0"},
-    {"Patches", "FileLinger", "1"},
+    {"Patches", "FileLinger", "0"},
     {"Patches", "FileLingerMax", "32"},
     {"Patches", "FileLingerFree", "24"},
     {"Patches", "AS0", "0"},
