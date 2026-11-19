@@ -6,6 +6,15 @@
  },
  "rvas": [
   {
+   "rva": "0x3EB04",
+   "kind": "code",
+   "pattern": "48 83 EC 28 48 8B 49 08 48 85 C9 74 0A 48 8B 49 20 FF 15 ??",
+   "offset": 0,
+   "used_in": [
+    "dllmain.cpp"
+   ]
+  },
+  {
    "rva": "0x3FF5E",
    "kind": "code",
    "pattern": "48 8B 0B 44 8A F8 88 44 24 78 4D 8B",
@@ -1054,6 +1063,15 @@
    "offset": 0,
    "used_in": [
     "replayprof.cpp"
+   ]
+  },
+  {
+   "rva": "0x4A4F3B",
+   "kind": "code",
+   "pattern": "48 8B 97 C8 01 00 00 33 C0 F0 0F B1",
+   "offset": 0,
+   "used_in": [
+    "dllmain.cpp"
    ]
   },
   {

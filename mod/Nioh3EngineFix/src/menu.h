@@ -76,7 +76,7 @@ struct Host {
     volatile uint32_t* wkKept = nullptr;
     volatile uint32_t* wkSkipped = nullptr;
     // boot-time values the game was launched with ("applies next launch" items)
-    int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0;
+    int workerCap = 0, p12 = 0, l1OnWine = 0, fgOnWine = 0, fwp = 0;
     // experimental patches + their counters (stats line)
     ExpFix exp[kNumExp];
     volatile uint32_t *ppRan = nullptr, *ppSkipped = nullptr, *m1Refresh = nullptr, *x1Skip = nullptr;

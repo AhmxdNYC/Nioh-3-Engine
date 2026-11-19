@@ -2242,4 +2242,29 @@ caveRDWake PROC FRAME
     mov rax, qword ptr [rd_resume]
     jmp rax
 caveRDWake ENDP
+
+; =================================================================================================================
+; FWP (#101247, note 480): frame-wait park. Site 19B2726 = cold block of RenderWaitForFrame's job spin 4A4F1C
+; (`mov rcx,[rdi+1C8h]` 7 bytes -> jmp here). rdi = wait object (GfxDevice+1EE360), rbx/rsi/rdi callee-saved and
+; preserved by FwpRound; volatile registers are dead (the native loop head 4A4F3B reloads rdx/eax). JMP-entered: rsp is
+; 16-aligned in the spin's body and its 20h outgoing home area is dead, so the call reuses it (no own stack). The unwind
+; info describes the inherited native frame (mov [rsp+8],rbx / mov [rsp+10h],rsi / push rdi / sub rsp,20h), as
+; caveRDWake does. FwpRound returns once bit 0 of [job] is clear (or after its safety bound); the native recheck at
+; 4A4F3B decides, exactly as before.
+EXTERN FwpRound:PROC
+PUBLIC caveFwp, fwp_resume
+fwpdata SEGMENT ALIGN(16) READ WRITE 'DATA'
+fwp_resume  DQ 0                ; Nioh3+4A4F3B (the spin's loop head), taken from the site's own jne
+fwpdata ENDS
+.code
+caveFwp PROC FRAME
+    .pushreg rdi
+    .allocstack 20h
+    .savereg rbx, 30h
+    .savereg rsi, 38h
+    .endprolog
+    mov     rcx, rdi
+    call    FwpRound
+    jmp     qword ptr [fwp_resume]
+caveFwp ENDP
 END
