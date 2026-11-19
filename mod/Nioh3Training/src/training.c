@@ -122,7 +122,7 @@ static __attribute__((noinline)) int Actors(uint64_t* out, int max) {
 }
 #define MAXSP 32
 static void PoolAdd(uint32_t chr);
-static uint64_t g_sp_actor[MAXSP]; static int g_nsp;
+static uint64_t g_sp_actor[MAXSP]; static uint32_t g_sp_handle[MAXSP]; static int g_nsp;
 // bridge 12666: per-actor identity for multi-boss Training. g_sp_chr[i] = character id of g_sp_actor[i]; slots A/B = the menu's two summon slots
 static void FallbackTracked(uint32_t handle, uint32_t chr);
 static uint32_t g_sp_chr[MAXSP], g_watch_chr; static int g_watch_slot = -1, g_sp_slot_next = -1, g_watch_session; static int SlotAlive(int s);
@@ -321,6 +321,7 @@ static __attribute__((noinline)) void WatchTick(void) {  // after CreateDynamic:
             } else { InterlockedExchange(&g_slot_fight[g_watch_slot], 1); Log("SUMPASSIVE slot %c actor %p: CPU-controlled by default (Boss Matches, #38077)", 'A' + g_watch_slot, (void*)cur[i]); }
             g_watch_slot = -1; }
         MvRepFresh(g_watch_chr);  // user #14462: a repeat armed for this character starts over for the new boss (idle first, one gap)
+        g_sp_handle[g_nsp] = *(uint32_t*)(cur[i] + 4);
         g_sp_actor[g_nsp++] = cur[i]; g_newActor = cur[i]; g_newH = g_watch_id; g_newSeq++;
         Log("SPAWN actor #%d appeared in table: %p handle %08X %08X pos %.0f %.0f %.0f +ab84=%08X (+%lu ms)", g_nsp - 1, (void*)cur[i], *(uint32_t*)cur[i], *(uint32_t*)(cur[i] + 4), xyz[0], xyz[1], xyz[2], *(uint32_t*)(cur[i] + 0xAB84), GetTickCount() - g_watch_t0);
         { uint64_t c = 0, me = PlayerChar(), pc = 0; Rd64(cur[i] + 0xB0, &c); if (me) Rd64(me + 0xB0, &pc);
@@ -349,10 +350,10 @@ static int Despawn(int idx) {
     if (idx < 0 || idx >= g_nsp) { Log("DESPAWN #%d: no such spawned actor (have %d)", idx, g_nsp); return 0; }
     uint64_t a = g_sp_actor[idx], cur[1024]; int n = Actors(cur, 1024), found = 0;
     for (int i = 0; i < n; ++i) if (cur[i] == a) found = 1;
-    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; return 0; }
+    if (!found) { Log("DESPAWN #%d %p: not in actor table any more (already gone)", idx, (void*)a); SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0; return 0; }
     ((void (*)(uint64_t))(B + Grva(0x2BF7E8)))(a);
     Log("DESPAWN #%d %p: native delete 2BF7E8 called", idx, (void*)a);
-    SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0;
+    SlotForget(g_sp_actor[idx]); g_sp_actor[idx] = 0; g_sp_handle[idx] = 0;
     return 1;
 }
 // Character::FadeOut(id, frames) (VM 238DC40): live = wrapper[0]; c = [live+0x20]; if c: 2BC5DC(c+0x240, 0.0f target, frames) -- a lerp {start,target,cur,t,dur}
@@ -661,10 +662,28 @@ static __attribute__((noinline)) int FakeActorLive(uint64_t a) {
     if (g_fw_comp && (!Rd64(a + 0x3B0, &comp) || comp != g_fw_comp)) return 0;
     return 1;
 }
+static __attribute__((noinline)) uint64_t ActorSameHandle(uint32_t h) {
+    if (!h) return 0;
+    uint64_t cur[1024]; int n = Actors(cur, 1024);
+    for (int i = 0; i < n; ++i) {
+        __try { if (cur[i] && *(uint32_t*)(cur[i] + 4) == h) return cur[i]; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { }
+    }
+    return 0;
+}
 static uint64_t h_fw(uint64_t cm, uint32_t id) {
     if ((id == g_fakeid || id == g_fakeid_shown) && (id & 0xFFFF0000u) == 0x7FFF0000u && g_fakew) {
         uint64_t a = g_fwbuf[0];
-        if (a && !FakeActorLive(a)) { g_fwbuf[0] = 0; InterlockedExchange(&g_fw_gone, 1); }
+        if (a && !FakeActorLive(a)) {
+            // GitHub #94: a dark-realm form is a new actor on the same handle.
+            // Clearing wrapper[0] here hid the bar (live 06:12:25) before the
+            // slot retarget. Point the bar at the new actor instead.
+            uint64_t neu = g_fw_h ? ActorSameHandle(g_fw_h) : 0; uint64_t comp = 0;
+            if (neu && neu != a) {
+                g_fwbuf[0] = neu; if (Rd64(neu + 0x3B0, &comp) && comp) g_fw_comp = comp;
+                Log("GAUGE form kept: handle %08X actor %p -> %p", g_fw_h, (void*)a, (void*)neu);
+            } else { g_fwbuf[0] = 0; InterlockedExchange(&g_fw_gone, 1); }
+        }
         return g_fakew;
     }
     return o_fw(cm, id);
@@ -963,7 +982,8 @@ static uint64_t ActorByHandle(uint32_t h) { uint64_t cur[1024]; int n = Actors(c
 // live-object death predicate 4892A8 (the tail of 7E11F0 / Duel::IsAliveBoss); a dynamic boss (CreateDynamic handle) has no registered wrapper, so use the actor table
 static int ActorInTable(uint64_t x) { uint64_t cur[1024]; int n = Actors(cur, 1024); for (int i = 0; i < n; ++i) if (cur[i] == x) return 1; return 0; }
 static int BossAliveSensor(uint32_t id) { uint64_t a;
-    if (g_bm.await) { if (!g_bm.actor && g_newSeq != g_bm.seq && g_newH == id) g_bm.actor = g_newActor; if (!g_bm.actor) return -1; a = ActorInTable(g_bm.actor) ? g_bm.actor : 0; if (!a) return -1; }
+    if (g_bm.await) { if (!g_bm.actor && g_newSeq != g_bm.seq && g_newH == id) g_bm.actor = g_newActor; if (!g_bm.actor) return -1; a = ActorInTable(g_bm.actor) ? g_bm.actor : 0;
+        if (!a) { a = ActorByHandle(id); if (a) { g_bm.actor = a; Log("BBM form kept: handle %u actor %p", id, (void*)a); } else return -1; } }
     else a = ActorByHandle(id); if (!a) { uint64_t w = FindWrapper(id); return w ? (int)(((uint8_t (*)(uint64_t))(B + Grva(0x7E11F0)))(w) & 1) : -1; } return (int)(((uint8_t (*)(uint64_t))(B + Grva(0x4892A8)))(a) & 1); }
 static int BossModeBegin(uint32_t id, int notify) {
     uint64_t cm = CharMgr(), c0 = 0; if (!cm || !Rd64(cm, &c0) || !c0) { Log("BBM: no character manager"); return 0; }
@@ -2040,6 +2060,7 @@ N3T_API int Nioh3Training_GetIdleHold(void);
 N3T_API int Nioh3Training_SetMoveAllowed(uint32_t chr, uint32_t id, int allowed, int persist);
 N3T_API int Nioh3Training_SetMoveRepeat(uint32_t chr, uint32_t id, int on);
 N3T_API int Nioh3Training_SetRepeatGap(int ms, int persist);
+N3T_API int Nioh3Training_SetRepeatLast(uint32_t chr, int n);
 N3T_API int Nioh3Training_SetIdleHold(int on);
 // bridge 4718: NativeEnter = 1: the fog gate, arena intro cutscene, boss BGM, boss gauge/HUD, clear flags and rewards are all driven by the boss's mission script, which only exists in the mission's own placement DB. So Fight now does the native mission load
 // (returns 0 so the caller requests it) and, once the player has landed, warps him into the arena box (the table's player start) where the script's PlacementBox trigger starts the native fight (verified live: Yamagata, 23:12).
@@ -4124,8 +4145,43 @@ static void SpPruneTick(void) {
         const uint64_t a = g_sp_actor[i]; if (!a) continue;
         int found = 0; for (int k = 0; k < n; ++k) if (cur[k] == a) { found = 1; break; }
         if (found) continue;
+        // GitHub #94: Nuribotoke's dark-realm form is a new actor on the same owner
+        // handle (actor+4). A load still forgets the pointer. Outside a load, keep
+        // the slot on that handle instead of dropping the summon.
+        if (!edge && !load && g_sp_handle[i]) {
+            uint64_t neu = 0; uint32_t nchr = 0;
+            for (int k = 0; k < n && !neu; ++k) {
+                uint64_t c = cur[k]; uint32_t nh = 0; int tracked = 0;
+                if (!c || c == PlayerChar()) continue;
+                for (int j = 0; j < g_nsp; ++j) if (g_sp_actor[j] == c) tracked = 1;
+                if (tracked) continue;
+                __try { nh = *(uint32_t*)(c + 4); } __except (EXCEPTION_EXECUTE_HANDLER) { nh = 0; }
+                if (nh != g_sp_handle[i]) continue;
+                neu = c;
+                uint64_t w = FindWrapper(nh), rec = 0;
+                __try {
+                    if (w && Rd64(w + 0x18, &rec) && rec && *(uint32_t*)rec == nh) nchr = *(uint32_t*)(rec + 4);
+                } __except (EXCEPTION_EXECUTE_HANDLER) { nchr = 0; }
+            }
+            if (neu) {
+                Log("PRUNE #%d %p: handle %08X is now actor %p chr %u -> %u (form kept)", i, (void*)a, g_sp_handle[i], (void*)neu, g_sp_chr[i], nchr ? nchr : g_sp_chr[i]);
+                g_sp_actor[i] = neu;
+                if (nchr && nchr != g_sp_chr[i]) g_sp_chr[i] = nchr;
+                for (int s = 0; s < N3T_SLOTS; ++s) if (g_slot_act[s] == a) {
+                    g_slot_act[s] = neu; if (nchr) g_slot_chr[s] = g_sp_chr[i];
+                    if (g_sph[s].a == a) g_sph[s].a = neu;
+                }
+                if (g_mon.a == a) g_mon.a = neu;
+                if (g_aw.a == a) g_aw.a = neu;
+                if (g_newActor == a) g_newActor = neu;
+                if (g_bm.actor == a) g_bm.actor = neu;
+                if (g_gg.actor == a) g_gg.actor = neu;
+                if (g_fwbuf[0] == a) { uint64_t comp = 0; g_fwbuf[0] = neu; if (Rd64(neu + 0x3B0, &comp) && comp) g_fw_comp = comp; }
+                continue;
+            }
+        }
         Log("PRUNE #%d %p: not in actor table any more (%s), forgotten", i, (void*)a, edge ? "load started" : load ? "loading" : "periodic");
-        SlotForget(a); g_sp_actor[i] = 0;
+        SlotForget(a); g_sp_actor[i] = 0; g_sp_handle[i] = 0;
         if (g_mon.a == a) g_mon.a = 0;
         if (g_aw.a == a) g_aw.a = 0;
         if (g_newActor == a) g_newActor = 0;
@@ -4802,6 +4858,8 @@ static __attribute__((noinline)) void Exec(char* line) {
             uint32_t chr = (w[0] >= 'A' && w[0] < 'A' + N3T_SLOTS) ? Nioh3Training_SlotChr(w[0] - 'A') : (uint32_t)strtoul(w, 0, 10);
             Log("CMD repeat chr %u 0x%lX %d -> %d", chr, strtoul(x, 0, 16), on, Nioh3Training_SetMoveRepeat(chr, (uint32_t)strtoul(x, 0, 16), on));
         } else if (!strcmp(op, "repgap")) { Log("CMD repgap %d -> %d", (int)a[0], Nioh3Training_SetRepeatGap((int)a[0], 0));  // bridge 12958
+        } else if (!strcmp(op, "replast")) {  // replast <chr> <0|1|2|3>: menu 'Repeat last move' (SetRepeatLast). 0 stops.
+            Log("CMD replast chr %llu n %lld -> %d", a[0], n >= 2 ? (long long)a[1] : 1LL, Nioh3Training_SetRepeatLast((uint32_t)a[0], n >= 2 ? (int)a[1] : 1));
         } else if (!strcmp(op, "moveallow")) { Log("CMD moveallow chr %llu id 0x%llX %llu -> %d", a[0], a[1], a[2], Nioh3Training_SetMoveAllowed((uint32_t)a[0], (uint32_t)a[1], (int)a[2], 0));
         } else if (!strcmp(op, "train")) {  // bridge 4942: train <R-id|charId> [dist]: no-load session (player NoDeath, auto reset when beaten, 'retry', 'trainstop')
             char tok[32] = {0}; float d = (float)g_cfg_tr_dist; sscanf(line, "%*s %31s %f", tok, &d); TrainStart(tok, d);
