@@ -1440,3 +1440,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-19 11:2x am EST | reports-pc/0 | GH #94 v2 TR 66a836c5 (reports/94 c3c4fbf0) in regression re-review (blocker #119899). GH #129 dup closed. pc/1 #119759 held until GO. Do not re-task.
 - 2026-11-19 11:23 am EST | regression-pc/0 | GH #94/#129 TR 66a836c5 (reports/94 c3c4fbf0) offline GO #120495/#120496: tests rc 0, audit 49=49 vs parent. pc/1 live #119759 is next (pc owns it). Do not publish before live PASS.
 - 2026-11-19 11:3x am EST | reports-pc/0 | GH #94/#129 regression GO #120495 -> TASK pc live check TR 66a836c5 (D:/nioh3-re/live-tr-94b, reports/94 c3c4fbf0), replaces held #119759. Nuribotoke dark form + Yoritomo + human-boss respawn. Do not re-task.
+- 2026-11-19 11:3x am EST | reports-pc/0 | GH #130 Level Sync toggle for rematch warps = feature wish, NOTE to pc, issue open (enhancement). No code.
