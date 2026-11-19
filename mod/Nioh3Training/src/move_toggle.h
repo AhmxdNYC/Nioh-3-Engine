@@ -342,7 +342,7 @@ static uint32_t MvSeqPick(int i, uint64_t st, uint32_t chr, uint32_t id) {
     if (g_rep_phase[i] == 1) return (uint32_t)g_rep_id[i];  // head requested, not started yet: keep asking for it
     // A captured cycle can advance only from confirmed native idle. Reactions,
     // unreadable frames and low-ID landing recovery are not round boundaries.
-    if (g_rep_lastn[i] && !MvRest(chr, act)) return 0;
+    if (g_rep_lastn[i] && !MvCalm(chr, act)) return 0;  // #119466: a data-rest boss steps before it attacks (MvCalm)
     if (MvChasing(st)) return MvChaseFilter(chr, id);  // user #13787 / #14462: aggro ON and the boss is far: it walks up, no attacks
     if (gap > 0 && g_rep_end[i] && now - g_rep_end[i] < (DWORD)gap) {
         if (MvGapLog(i, id)) Log("REPEAT chr %u sequence gap hold pick 0x%X -> idle (%lu/%d ms since the sequence ended)", chr, id, now - g_rep_end[i], gap);
