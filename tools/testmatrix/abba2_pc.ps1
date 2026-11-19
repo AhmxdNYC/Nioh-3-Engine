@@ -24,7 +24,7 @@ param([int]$OwnerPid = 0, [int]$MaxMinutes = 120, [int]$WindowSec = 20, [int]$Qu
       [string[]]$Live = @("B", "PP", "GF", "MQ"), [string[]]$LaunchFlags = @("DQ", "P1E7"), [switch]$DryRun, [string]$RunName = "",
       [int]$RenRat = 50, [string]$Upscaler = "FSR", [int]$IdleNeed = 120, [int]$IdleWaitMin = 30,
       [Alias("Input")][ValidateSet("ui", "vpad")][string]$InputMode = "ui", [string[]]$Arms = @(), [int]$MaxFps = 0,
-      [string]$SrcRoot = "", [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "", [int]$Affinity = 0, [switch]$NoForceRefresh)
+      [string]$SrcRoot = "", [switch]$Shots, [switch]$NoQuietGuard, [int]$MaxNoisyRedo = 2, [double]$QuietMaxCores = 0, [string]$BaseIniFile = "", [int]$Affinity = 0, [switch]$NoForceRefresh)
 # run8b (2026-10-09, notes\run8b-analysis.md): the desktop fell to 60 Hz (second monitor unplugged) and Block C measured 60.00 fps
 #   everywhere ('vrr tier 60 cap 60'). Before the first launch the game display must run >= max(120, -MaxFps) Hz (raised for the run
 #   unless -NoForceRefresh, old mode put back at the end), and before every window the mod's 'vrr tier T cap C' must read
@@ -47,7 +47,7 @@ $ErrorActionPreference = "Continue"
 $Arms = @($Arms -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($Arms.Count) {   # explicit order; the launch flags are its non-BASE arms
     if ($Arms[0] -ne "BASE" -or $Arms[-1] -ne "BASE") { throw "-Arms must start and end with BASE" }
-    $LaunchFlags = @($Arms | Where-Object { $_ -ne "BASE" } | Select-Object -Unique)
+    $LaunchFlags = @($Arms | Where-Object { $_ -ne "BASE" } | ForEach-Object { ($_ -split "=", 2)[0] } | Select-Object -Unique)   # #118609: an arm may be KEY=V (numeric level); plain KEY = 1
 }
 $Live = @($Live -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" }); $LaunchFlags = @($LaunchFlags -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "none" })   # -File passes "B,GF" as one string
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -388,7 +388,8 @@ try {
     $L = 0
     foreach ($arm in $arms) {
         $L++; Renew
-        $kv = $test.Clone(); foreach ($f in $LaunchFlags) { $kv[$f] = $(if ($f -eq $arm) { 1 } else { 0 }) }
+        $kv = $test.Clone(); foreach ($f in $LaunchFlags) { $kv[$f] = 0 }
+        if ($arm -ne "BASE") { $ap = $arm -split "=", 2; $kv[$ap[0]] = $(if ($ap.Count -gt 1) { $ap[1] } else { 1 }) }
         Set-TestIni $kv
         T "launch L$L $arm"; Set-TestStatus "launch L$L of $($arms.Count) ($arm)"
         if (-not (Start-Play)) { T "boot failed L$L - abort (no relaunch loop)"; break }
@@ -403,6 +404,16 @@ try {
         }
         T "L$L warm-up 60 s (no input)"; Start-Sleep 60
         $vc = Assert-NotCapped "L$L after warm-up"; if ($vc) { T "L$L cap check OK: vrr tier $($vc.tier) cap $($vc.cap) (need >= $NeedHz)" }
+        if ($Shots) {   # #118609: one look check per launch (primary screen, only while Nioh3 is in front; never steals focus)
+            try {
+                if ((Fg-Name) -eq "Nioh3") {
+                    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+                    $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object Drawing.Bitmap $b.Width, $b.Height
+                    $g = [Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size)
+                    $png = Join-Path $out ("shot_L{0}_{1}.png" -f $L, ($arm -replace "[^A-Za-z0-9]", "_")); $bmp.Save($png, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose(); T "L$L shot $png"
+                } else { T "L$L shot skipped: foreground $(Fg-Name)" }
+            } catch { T "L$L shot failed: $_" }
+        }
         for ($s = 1; $s -le 3; $s++) {
             Window "L${L}_${arm}_s$s" @{ kind = "launch"; launch = $L; arm = $arm; state = $(if ($arm -eq "BASE") { "off" } else { "on" }); boot_dq = $bi.dq; boot_p1e7 = $bi.p1e7; boot_ma = $bi.ma; ver = $bi.ver }
         }
