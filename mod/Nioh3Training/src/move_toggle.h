@@ -197,7 +197,11 @@ static uint32_t g_rep_pass[MV_REP_MAX][MV_PASS_MAX]; static int g_rep_npass[MV_R
 static DWORD g_rep_curt[MV_REP_MAX];                  // when g_rep_cur last changed
 static uint32_t g_rep_from[MV_REP_MAX];               // the action read when the head was requested (still playing = not the head yet)
 static uint64_t g_rep_logk[MV_REP_MAX];               // last (action, pick) logged by MvFollow
+#ifdef N3CAT_MOTION_FIND
+static unsigned MvMotion(uint32_t chr, uint32_t id) { const int i = N3CatMotionFind(chr, id); return i >= 0 ? kN3Motion[i].motion : 0; }  // GitHub #126 index
+#else
 static unsigned MvMotion(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_MOTION_COUNT; ++i) if (kN3Motion[i].chr == chr && kN3Motion[i].id == id) return kN3Motion[i].motion; return 0; }
+#endif
 // 1 = pick is the running action cur's own next piece (see above). Boss-killing moves never are.
 // 1 = id is a looping part (a link into it carries the loop flag: 0x4E21 > 0x4E22 loops until the game picks the exit 0x4E23)
 static int MvLoops(uint32_t chr, uint32_t id) { for (int i = 0; i < N3_NEXT_COUNT; ++i) if (kN3Next[i].chr == chr && kN3Next[i].next == id && kN3Next[i].loop) return 1; return 0; }

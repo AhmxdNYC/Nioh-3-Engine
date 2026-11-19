@@ -6318,6 +6318,7 @@ static void N3CatMergeAuto(uint32_t chr, const AmTable* t) {
     char nm[64] = {0}; Nioh3Training_BossName(chr, nm, (int)sizeof nm);
     const int add = N3CatMerge(chr, t->m, t->n, nm);
     Log("AUTOMOVES chr %u: move catalogue now from game data (%d moves, %d new rows; next links, hits and unblockable replaced)", chr, t->n, add);
+    if (g_n3cat_dropped) Log("AUTOMOVES catalogue full (%d rows of %d): %ld runtime rows dropped so far; a boss without rows has no move list or Repeat last move (GitHub #126)", (int)g_n3cat_n, N3CAT_CAP, (long)g_n3cat_dropped);
 }
 // pc2 #23907: the runtime move list of a boss for Nioh3BossRematch (its Boss moves page). abi = sizeof(AmMove) of the caller (-1 if it differs);
 // returns the number of moves copied (0 = not read yet / AutoMoves off).
