@@ -954,6 +954,8 @@ void Start(const StartInfo& info) {
     g_vrsMode = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, g_iniPath.c_str());
     if (g_vrsMode < 0 || g_vrsMode > 3) g_vrsMode = 0;
     g_vrsMotionGuard = GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, g_iniPath.c_str()) != 0;
+    g_vrsWideExclude = (g_vrsMode == 1 || g_vrsMode == 2) ? GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, g_iniPath.c_str()) & 0xFFu : 0;
+    LOG("VRS wide exclude=0x%X (#119730; modes 1/2 only; 0=plain whole frame; bits unknown1 blend2 noDepth4 depthOnly8 forward16 motion32 skinned64 gbuffer128)", g_vrsWideExclude);
     g_vrsLayouts=vrsselect::LayoutMask((int)GetPrivateProfileIntW(L"Perf",L"VrsLayouts",7,g_iniPath.c_str()));
     g_vrsRate=vrsselect::RateOption((int)GetPrivateProfileIntW(L"Perf",L"VrsRate",0,g_iniPath.c_str()));
     g_vrsSkipSkinned=GetPrivateProfileIntW(L"Perf",L"VrsSkipSkinned",1,g_iniPath.c_str())!=0;

@@ -367,6 +367,7 @@ inline constexpr Entry kEntries[] = {
     {"Perf", "VrsSkipSkinned", "1"},
     {"Perf", "VrsKeepCharacters", "1"},
     {"Perf", "VrsGBufferMotion1x1", "0"},
+    {"Perf", "VrsWideExclude", "0"},
     {"Training.Practice", "PlayerInfiniteKi", "0"},
     {"Training.Practice", "DamageDealtPct", "100"},
     {"Training.Practice", "DamageTakenPct", "100"},

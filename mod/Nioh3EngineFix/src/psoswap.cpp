@@ -1451,7 +1451,8 @@ void Start(const StartInfo& info) {
 
                    GetPrivateProfileIntW(L"Profiler", L"FrameCap", 0, ini.c_str()) != 0) ? 1 : 0;   // GP2 / SkipFx / FC need the PSO -> shader map
     const int vm = (int)GetPrivateProfileIntW(L"Perf", L"VrsCeiling", 0, ini.c_str());
-    g_vrsCapture = vm == 3 || ((vm == 1 || vm == 2) && GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, ini.c_str()));
+    g_vrsCapture = vm == 3 || ((vm == 1 || vm == 2) && (GetPrivateProfileIntW(L"Perf", L"VrsGBufferMotion1x1", 0, ini.c_str()) ||
+                                                       (GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, ini.c_str()) & 0xFF)));
     if (g_vrsCapture) { g_cfg.track = 1; LOG("VRS selective PSO metadata enabled; unsupported shaders/streams stay 1x1"); }
     g_onDevice = info.onDevice;
     g_cfg.hot = GetPrivateProfileIntW(L"ShaderHot", L"Enabled", 0, ini.c_str()) == 1 ? 1 : 0;
