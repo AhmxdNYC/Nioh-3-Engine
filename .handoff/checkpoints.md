@@ -1087,3 +1087,4 @@ Tests/docs only; production ASI #6358 SHA 2d88dda3 unchanged. Next: pc live acce
 - 2026-11-19 1:16 am EST | regression-pc/0 GH #126 v3b offline GO, live cause found | unproven fix | next: re-review reports/126 rework (pick from 0xC56) | #119455 #119466
 2026-11-19 01:25 am EST | GH #126 v4: MvCalm round boundary for data-rest bosses (#119454) | offline 39 PASS, audit 49 (1 NEW in untouched rematch.cpp), not live | next: regression GO then pc/1 Toad live on 896efcb9; then low-HP Toad death | reports/126 048a14b2, bridge #8625
 - 2026-11-19 1:21 am EST | regression-pc/0 GH #126 v4 reviewed | offline proven (39 PASS, audit PASS, MvCalm scan) | next: re-review tighten commit; pc live 896efcb9 | #119495
+2026-11-19 01:35 am EST | GH #126 v4b seq-mode MvCalm | offline 39 PASS, not live | next: regression GO on d4c3d323 then pc/1 Toad live on b653d4f8 | reports/126 d4c3d323, bridge #8626
