@@ -1352,3 +1352,4 @@ Next pc combine cxl Wine opener if shipping, install/test Row|Ring+toggles/menu/
 - 2026-11-18 9:05 pm EST | regression-pc/0 | #118403 Training c91eb3cd in RC v3 26064bb5, TR 35b40cbc PASS. RC still blocked on EF keyboard focus gate (#118360). Do not re-task.
 - 2026-11-18 9:00 pm EST | reports-pc/0 session end | task #118384 DONE (RESULT #118428, TO-USER #118429): 16 GH closed, 40 open. Half-done: none. Next: after 1.8.23 publishes, close #51 #95 #96 #97 #100 #47 with 'Fixed in v1.8.23'. #122 = ally agent test report. No code changed.
 - 2026-11-18 9:02 pm EST | regression-pc/0 | #118439 final 1.8.23 RC PASS offline EF 737f05ec #8538 TR 35b40cbc #8539 (d9402104); installer-pc told hold lifted pending pc/1 live. Do not re-task.
+- 2026-11-18 9:04 pm EST | regression-pc/0 | session end; RC v3 final d9402104 PASS offline, waits pc/1 live. Do not re-task.
