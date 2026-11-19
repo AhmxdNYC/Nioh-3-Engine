@@ -1,4 +1,4 @@
-// holdkeygap.cpp - HoldKeyGap ([General] HoldKeyGap = 0 by default). See holdkeygap.h.
+﻿// holdkeygap.cpp - HoldKeyGap ([General] HoldKeyGap = 0 by default). See holdkeygap.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "gamerva.h"
@@ -17,6 +17,8 @@ void (*g_log)(const char*, ...) = nullptr;
 ScanFn g_orig = nullptr;
 volatile long g_fills = 0;
 volatile long g_calls = 0;
+volatile long g_same = 0, g_gaps = 0, g_overlaps = 0;
+float g_maxGap = 0.0f;
 bool g_on = false;
 
 // v2.02 bytes at 20DFC0 (prologue up to the first push); the first kStolen are position independent and move to the trampoline.
@@ -32,12 +34,12 @@ struct Entry {
     float prevT;
     uint32_t slot;
 };
-constexpr unsigned kSlots = 256;
+constexpr unsigned kSlots = 4096;
 Entry g_tab[kSlots];
 
 Entry& Lookup(int64_t* self, uint8_t slot) {
-    uint64_t h = ((uint64_t)self >> 4) * 0x9E3779B97F4A7C15ull + slot;
-    return g_tab[(h >> 56) & (kSlots - 1)];
+    uint64_t h = (((uint64_t)self >> 3) ^ ((uint64_t)slot << 40) ^ ((uint64_t)slot * 0x9E3779B97F4A7C15ull)) * 0xFF51AFD7ED558CCDull;
+    return g_tab[(h >> 52) & (kSlots - 1)];
 }
 
 uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
@@ -48,6 +50,15 @@ uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
     Entry& e = Lookup(self, slot);
     const bool same = e.self == self && e.slot == slot && e.res == res;
     const float lo = WindowStart(same, e.prevEnd, e.prevT, t, step);
+    if (same && e.prevT <= t) {
+        const float d = t - e.prevEnd;
+        InterlockedIncrement(&g_same);
+        if (d > 0.001f) { InterlockedIncrement(&g_gaps); if (d > g_maxGap && d < 100.0f) g_maxGap = d; }
+        else if (d < -0.001f) InterlockedIncrement(&g_overlaps);
+    }
+    if (g_log && (g_calls == 1 || g_calls == 300 || (g_calls & 0xFFF) == 0))
+        g_log("HOLDKEYGAP: calls %ld same-move %ld gaps %ld overlaps %ld max gap %.3f fills %ld (last this=%p slot=%u t=%.3f step=%.3f)",
+              g_calls, g_same, g_gaps, g_overlaps, g_maxGap, g_fills, (void*)self, (unsigned)slot, t, step);
     e.self = self;
     e.slot = slot;
     e.res = res;
