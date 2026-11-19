@@ -1,4 +1,4 @@
-﻿// holdkeygap.cpp - HoldKeyGap ([General] HoldKeyGap = 0 by default). See holdkeygap.h.
+// holdkeygap.cpp - HoldKeyGap ([General] HoldKeyGap = 0 by default). See holdkeygap.h.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "gamerva.h"
@@ -44,6 +44,83 @@ Entry& Lookup(int64_t* self, uint8_t slot) {
     return g_tab[(h >> 52) & (kSlots - 1)];
 }
 
+
+// ---- mode 2 gate probe: wrap vtable slots the scan calls, log them while a scan near t 10-15 runs on this thread ----
+using G4 = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t);
+constexpr int kGates = 6;
+const unsigned kGateOff[kGates] = {0xC0, 0xE8, 0xF0, 0x120, 0x128, 0x138};
+struct VtRec { void** vt; G4 orig[kGates]; };
+VtRec g_vts[16];
+volatile long g_nvt = 0;
+SRWLOCK g_vtLock = SRWLOCK_INIT;
+uintptr_t g_base = 0;
+thread_local int t_in = 0;
+thread_local float t_t = 0.0f;
+
+G4 OrigFor(uint64_t self, int gi) {
+    void** vt = *reinterpret_cast<void***>(self);
+    for (long i = 0; i < g_nvt; ++i) if (g_vts[i].vt == vt) return g_vts[i].orig[gi];
+    return nullptr;
+}
+uint64_t g_maKeys[64];
+volatile long g_nMa = 0;
+thread_local uint64_t t_lastKey = 0;
+bool IsMa(uint64_t k) {
+    for (long i = 0; i < g_nMa && i < 64; ++i) if (g_maKeys[i] == k) return true;
+    return false;
+}
+template <int GI>
+uint64_t GateW(uint64_t a, uint64_t b, uint64_t c, uint64_t d) {
+    G4 o = OrigFor(a, GI);
+    const uint64_t r = o(a, b, c, d);
+    if (GI == 5 && b == 0x5A3 && !IsMa(c)) {
+        const long i = InterlockedIncrement(&g_nMa) - 1;
+        if (i < 64) g_maKeys[i] = c;
+    }
+    if (t_in && g_log && g_trace < 60000) {
+        bool want = false;
+        if (GI == 3) { t_lastKey = b; want = IsMa(b); }
+        else if (GI == 1 || GI == 2 || GI == 4) want = IsMa(b) || IsMa(t_lastKey);
+        else if (GI == 5) want = IsMa(c);
+        else if (GI == 0) want = IsMa(t_lastKey);
+        if (want) {
+            InterlockedIncrement(&g_trace);
+            g_log("HKGG +%X this=%p t=%.3f a2=%llx a3=%llx -> %llx", kGateOff[GI], (void*)a, t_t, (unsigned long long)b,
+                  (unsigned long long)c, (unsigned long long)r);
+        }
+    }
+    return r;
+}
+const G4 kGateW[kGates] = {&GateW<0>, &GateW<1>, &GateW<2>, &GateW<3>, &GateW<4>, &GateW<5>};
+
+void WrapVt(int64_t* self) {
+    void** vt = *reinterpret_cast<void***>(self);
+    for (long i = 0; i < g_nvt; ++i) if (g_vts[i].vt == vt) return;
+    AcquireSRWLockExclusive(&g_vtLock);
+    bool have = false;
+    for (long i = 0; i < g_nvt; ++i) if (g_vts[i].vt == vt) have = true;
+    if (!have && g_nvt < 16) {
+        VtRec& v = g_vts[g_nvt];
+        v.vt = vt;
+        for (int gi = 0; gi < kGates; ++gi) v.orig[gi] = reinterpret_cast<G4>(vt[kGateOff[gi] / 8]);
+        MemoryBarrier();
+        InterlockedIncrement(&g_nvt);
+        DWORD old;
+        if (VirtualProtect(vt + 0x18, 0x30 * 8, PAGE_READWRITE, &old)) {
+            for (int gi = 0; gi < kGates; ++gi) vt[kGateOff[gi] / 8] = reinterpret_cast<void*>(kGateW[gi]);
+            VirtualProtect(vt + 0x18, 0x30 * 8, old, &old);
+        }
+        if (g_log) {
+            g_log("HKGV vt=+%llX gates c0=+%llX e8=+%llX f0=+%llX 120=+%llX 128=+%llX 138=+%llX b0=+%llX",
+                  (unsigned long long)((uintptr_t)vt - g_base), (unsigned long long)((uintptr_t)v.orig[0] - g_base),
+                  (unsigned long long)((uintptr_t)v.orig[1] - g_base), (unsigned long long)((uintptr_t)v.orig[2] - g_base),
+                  (unsigned long long)((uintptr_t)v.orig[3] - g_base), (unsigned long long)((uintptr_t)v.orig[4] - g_base),
+                  (unsigned long long)((uintptr_t)v.orig[5] - g_base), (unsigned long long)((uintptr_t)vt[0xB0 / 8] - g_base));
+        }
+    }
+    ReleaseSRWLockExclusive(&g_vtLock);
+}
+
 uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
     if (!self || !res || slot > 3) return g_orig(self, res, t, slot);
     InterlockedIncrement(&g_calls);
@@ -67,7 +144,11 @@ uint64_t Hook(int64_t* self, int64_t res, float t, uint8_t slot) {
     e.prevEnd = t + step;
     e.prevT = t;
     if (g_mode == 2) {
+        WrapVt(self);
+        const bool near12 = t >= 10.0f && t < 15.0f;
+        if (near12) { t_in = 1; t_t = t; }
         const uint64_t r = g_orig(self, res, t, slot);
+        t_in = 0;
         if (g_log && t >= 8.0f && t < 34.0f && g_trace < 60000) {
             const uint8_t* k = reinterpret_cast<const uint8_t*>(r);
             if (r || (t >= 10.0f && t < 15.0f)) {
@@ -157,6 +238,7 @@ void Start(const StartInfo& info) {
     VirtualProtect((void*)fn, 8, old, &old);
     FlushInstructionCache(GetCurrentProcess(), (void*)fn, 8);
     g_mode = want;
+    g_base = info.base;
     g_on = true;
     g_log("HOLDKEYGAP: installed at +%X (%s) - [General] HoldKeyGap = %d (a move key between two uneven frames is tested "
           "instead of skipped; max gap %.1f frames)",
