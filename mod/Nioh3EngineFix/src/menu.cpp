@@ -582,6 +582,26 @@ GetDeviceState_t g_gdsW = nullptr, g_gdsA = nullptr;
 thread_local int t_diDepth = 0;
 bool (*volatile g_keyFilter)(uint8_t*, bool) = nullptr;  // vpad.cpp (VirtualPad): virtual keys, real keys hidden while unfocused
 
+// #118266: gameplay input for reports. keys = the state the game is about to read (after the mod's masking); mouse buttons
+// are polled here once per keyboard read, only while a window of this process has focus. Nothing while the menu is open.
+void GameInputLogSafe(const uint8_t* keys) {
+    __try {
+        const int menuOpen = (g_open || g_rbOn) ? 1 : 0;
+        inputlog::ObserveKeyboard(keys, menuOpen);
+        DWORD pid = 0;
+        HWND fg = GetForegroundWindow();
+        if (fg) GetWindowThreadProcessId(fg, &pid);
+        unsigned mb = 0;
+        if (pid == GetCurrentProcessId()) {
+            const int vks[5] = {VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2};
+            for (int i = 0; i < 5; ++i)
+                if (GetAsyncKeyState(vks[i]) & 0x8000) mb |= 1u << i;
+        }
+        inputlog::ObserveMouse(mb, menuOpen);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
 HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     ++t_diDepth;  // Wine's A method calls the W one: only the outermost call looks at the data
     HRESULT hr = orig(self, cb, data);
@@ -592,6 +612,7 @@ HRESULT DiHooked(GetDeviceState_t orig, void* self, DWORD cb, void* data) {
     if (t_diDepth == 0 && SUCCEEDED(hr) && cb == 256 && data && !g_disabled) {  // 256 bytes = keyboard state
         g_lastKeyFeed = (LONG64)Now();
         KeyFeedSafe(static_cast<uint8_t*>(data), false);
+        GameInputLogSafe(static_cast<uint8_t*>(data));
     }
     return hr;
 }

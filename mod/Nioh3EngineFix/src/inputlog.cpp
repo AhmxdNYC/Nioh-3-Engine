@@ -55,22 +55,84 @@ void Push(const char* line) {
     LeaveCriticalSection(&g_cs);
 }
 
-void NoteInput(const char* dev, const char* what, const char* edge) {
+// #118266: "ms" = ms since the first input of the session; "held" = ms the button/key was down (up edges only).
+ULONGLONG g_t0 = 0;
+long long Ms() {
+    const ULONGLONG now = GetTickCount64();
+    if (!g_t0) g_t0 = now - 1;  // the first input is ms 1, so a down stamp is never 0 ("not down")
+    return (long long)(now - g_t0);
+}
+long long Stamp() {  // a down timestamp; never 0 so 0 can mean "not down"
+    const long long t = Ms();
+    return t ? t : 1;
+}
+long long HeldSince(long long downAt) { return downAt > 0 ? Ms() - downAt : -1; }
+
+void NoteInput(const char* dev, const char* what, const char* edge, long long held = -1) {
     char d[16], w[32], e[16], line[180];
     Scrub(dev, d, sizeof d);
     Scrub(what, w, sizeof w);
     Scrub(edge, e, sizeof e);
     if (!d[0] || !w[0] || !e[0]) return;
-    snprintf(line, sizeof line, "{\"event\":\"input\",\"fields\":{\"dev\":\"%s\",\"what\":\"%s\",\"edge\":\"%s\"}}", d, w, e);
+    const long long t = Ms();
+    if (held >= 0)
+        snprintf(line, sizeof line,
+                 "{\"event\":\"input\",\"fields\":{\"dev\":\"%s\",\"what\":\"%s\",\"edge\":\"%s\",\"ms\":%lld,\"held\":%lld}}", d, w, e,
+                 t, held);
+    else
+        snprintf(line, sizeof line, "{\"event\":\"input\",\"fields\":{\"dev\":\"%s\",\"what\":\"%s\",\"edge\":\"%s\",\"ms\":%lld}}", d,
+                 w, e, t);
     Push(line);
 }
 
 struct Stick { int ax, ay; char dir[4]; };
-struct Slot { unsigned buttons; int lt, rt; Stick L, R; };
-struct Key { char name[24]; int down; };
+struct Slot { unsigned buttons; int lt, rt; Stick L, R; long long btnAt[16], ltAt, rtAt; };
+struct Key { char name[24]; int down; long long at; };
 Slot g_slot[4];
 Key g_key[16];
 bool g_ready = false;
+// #118266: gameplay keyboard (the DirectInput state the game reads) and mouse buttons
+unsigned char g_kb[256];
+long long g_kbAt[256];
+unsigned g_mouse = 0;
+long long g_mouseAt[5];
+
+// DIK code -> short stable name (DIK = set-1 scan code, +0x80 for E0 keys). Unknown codes print as kXX.
+const char* DikName(int c, char* buf, int cap) {
+    static const char* const kMain[0x59] = {
+        nullptr, "esc", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "minus", "equals", "backspace", "tab",
+        "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "lbracket", "rbracket", "enter", "lctrl", "a", "s",
+        "d", "f", "g", "h", "j", "k", "l", "semicolon", "apostrophe", "grave", "lshift", "backslash", "z", "x", "c", "v",
+        "b", "n", "m", "comma", "period", "slash", "rshift", "np_mul", "lalt", "space", "capslock", "f1", "f2", "f3", "f4", "f5",
+        "f6", "f7", "f8", "f9", "f10", "numlock", "scrolllock", "np7", "np8", "np9", "np_minus", "np4", "np5", "np6", "np_plus", "np1",
+        "np2", "np3", "np0", "np_dot", nullptr, nullptr, "oem102", "f11", "f12",
+    };
+    const char* n = nullptr;
+    if (c > 0 && c < 0x59) n = kMain[c];
+    else switch (c) {
+        case 0x9C: n = "np_enter"; break;
+        case 0x9D: n = "rctrl"; break;
+        case 0xB5: n = "np_div"; break;
+        case 0xB8: n = "ralt"; break;
+        case 0xC7: n = "home"; break;
+        case 0xC8: n = "up"; break;
+        case 0xC9: n = "pgup"; break;
+        case 0xCB: n = "left"; break;
+        case 0xCD: n = "right"; break;
+        case 0xCF: n = "end"; break;
+        case 0xD0: n = "down"; break;
+        case 0xD1: n = "pgdn"; break;
+        case 0xD2: n = "insert"; break;
+        case 0xD3: n = "delete"; break;
+        case 0xDB: n = "lwin"; break;
+        case 0xDC: n = "rwin"; break;
+        case 0xDD: n = "apps"; break;
+        default: break;
+    }
+    if (n) return n;
+    snprintf(buf, (size_t)cap, "k%02X", c & 0xFF);
+    return buf;
+}
 
 int Axis(int v, int prev) {
     if (prev > 0) return v > 12000 ? 1 : 0;
@@ -121,6 +183,11 @@ void Reset() {
     g_head = 0;
     memset(g_slot, 0, sizeof g_slot);
     memset(g_key, 0, sizeof g_key);
+    memset(g_kb, 0, sizeof g_kb);
+    memset(g_kbAt, 0, sizeof g_kbAt);
+    memset(g_mouseAt, 0, sizeof g_mouseAt);
+    g_mouse = 0;
+    g_t0 = 0;
     g_ready = false;
     LeaveCriticalSection(&g_cs);
 }
@@ -129,14 +196,25 @@ void ObservePad(int slot, unsigned buttons, int lt, int rt, int lx, int ly, int 
     if (slot < 0 || slot > 3) return;
     Arm();
     Slot* s = &g_slot[slot];
-    for (const auto& b : kBtn) {
-        const unsigned bit = b.bit;
-        if ((buttons & bit) && !(s->buttons & bit)) NoteInput("pad", b.name, "down");
-        else if (!(buttons & bit) && (s->buttons & bit)) NoteInput("pad", b.name, "up");
+    for (int i = 0; i < (int)(sizeof kBtn / sizeof kBtn[0]); ++i) {
+        const unsigned bit = kBtn[i].bit;
+        if ((buttons & bit) && !(s->buttons & bit)) {
+            NoteInput("pad", kBtn[i].name, "down");
+            s->btnAt[i] = Stamp();
+        } else if (!(buttons & bit) && (s->buttons & bit)) {
+            NoteInput("pad", kBtn[i].name, "up", HeldSince(s->btnAt[i]));
+            s->btnAt[i] = 0;
+        }
     }
     const int ltn = lt > 30, rtn = rt > 30;
-    if (ltn != s->lt) NoteInput("pad", "lt", ltn ? "down" : "up");
-    if (rtn != s->rt) NoteInput("pad", "rt", rtn ? "down" : "up");
+    if (ltn != s->lt) {
+        if (ltn) NoteInput("pad", "lt", "down"), s->ltAt = Stamp();
+        else NoteInput("pad", "lt", "up", HeldSince(s->ltAt)), s->ltAt = 0;
+    }
+    if (rtn != s->rt) {
+        if (rtn) NoteInput("pad", "rt", "down"), s->rtAt = Stamp();
+        else NoteInput("pad", "rt", "up", HeldSince(s->rtAt)), s->rtAt = 0;
+    }
     s->buttons = buttons;
     s->lt = ltn;
     s->rt = rtn;
@@ -153,13 +231,62 @@ void ObserveKey(const char* name, int down, int allowed) {
         if (slot.name[0] && !strcmp(slot.name, name)) { k = &slot; break; }
     if (!k) {
         for (Key& slot : g_key)
-            if (!slot.name[0]) { k = &slot; snprintf(k->name, sizeof k->name, "%s", name); k->down = 0; break; }
+            if (!slot.name[0]) { k = &slot; snprintf(k->name, sizeof k->name, "%s", name); k->down = 0; k->at = 0; break; }
     }
     if (!k) return;
     const int d = down ? 1 : 0;
     if (d == k->down) return;
     k->down = d;
-    NoteInput("key", name, d ? "down" : "up");
+    if (d) {
+        NoteInput("key", name, "down");
+        k->at = Stamp();
+    } else {
+        NoteInput("key", name, "up", HeldSince(k->at));
+        k->at = 0;
+    }
+}
+
+void ObserveKeyboard(const unsigned char* keys, int menuOpen) {
+    if (!keys) return;
+    Arm();
+    char nb[8];
+    for (int c = 1; c < 256; ++c) {
+        const unsigned char d = (keys[c] & 0x80) ? 1 : 0;
+        if (d == g_kb[c]) continue;
+        g_kb[c] = d;
+        if (menuOpen) {  // the mod menu / Report box owns the keyboard: nothing recorded, no dangling up edge later
+            g_kbAt[c] = 0;
+            continue;
+        }
+        if (d) {
+            NoteInput("kb", DikName(c, nb, sizeof nb), "down");
+            g_kbAt[c] = Stamp();
+        } else if (g_kbAt[c]) {
+            NoteInput("kb", DikName(c, nb, sizeof nb), "up", HeldSince(g_kbAt[c]));
+            g_kbAt[c] = 0;
+        }
+    }
+}
+
+void ObserveMouse(unsigned buttons, int menuOpen) {
+    static const char* const kName[5] = {"lmb", "rmb", "mmb", "x1", "x2"};
+    Arm();
+    for (int i = 0; i < 5; ++i) {
+        const unsigned bit = 1u << i;
+        if ((buttons & bit) == (g_mouse & bit)) continue;
+        if (menuOpen) {
+            g_mouseAt[i] = 0;
+            continue;
+        }
+        if (buttons & bit) {
+            NoteInput("mouse", kName[i], "down");
+            g_mouseAt[i] = Stamp();
+        } else if (g_mouseAt[i]) {
+            NoteInput("mouse", kName[i], "up", HeldSince(g_mouseAt[i]));
+            g_mouseAt[i] = 0;
+        }
+    }
+    g_mouse = buttons & 0x1Fu;
 }
 
 void NoteTyped() {}
