@@ -352,8 +352,9 @@ int main() {
         CHECK(g_vrsVals.rate == 1 && g_vrsEdited && g_dirty && gpuopt::g_vrsLiveCalls == 1 && gpuopt::g_vrsLiveStub.rate == 1);
         Change(kVrsRowFirst + vrsmenu::kRowMode, 1); CHECK(g_vrsVals.mode == 1 && g_bootVrs && gpuopt::g_vrsLiveStub.mode == 1);
         Change(kVrsRowFirst + vrsmenu::kRowSkip, 1); CHECK(!g_vrsVals.skip && !gpuopt::g_vrsLiveStub.skip);
+        Change(kVrsRowFirst + vrsmenu::kRowWide, 1); CHECK(g_vrsVals.wide == 6 && gpuopt::g_vrsLiveStub.wide == 6);
         Change(kVrsRowFirst + vrsmenu::kRowReset, 0);
-        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0);
+        CHECK(g_vrsVals.mode == 0 && g_vrsVals.layouts == 7 && g_vrsVals.rate == 0 && g_vrsVals.skip && g_vrsVals.keep && g_vrsVals.wide == 0 && !g_bootVrs && gpuopt::g_vrsLiveStub.mode == 0 && gpuopt::g_vrsLiveStub.wide == 0);
         Change(kVrs, 0); CHECK(g_bootVrs && g_vrsPresetOn && g_vrsVals.mode == 3 && gpuopt::g_vrsLiveStub.mode == 3);  // the old ON row is the same value
         Change(kVrsRowFirst + vrsmenu::kRowLayouts, -1); CHECK(g_vrsVals.layouts == 6 && !g_vrsPresetOn);
         Change(kVrs, 0); CHECK(!g_bootVrs && !g_vrsPresetOn && g_vrsVals.mode == 0 && g_vrsVals.layouts == 6);

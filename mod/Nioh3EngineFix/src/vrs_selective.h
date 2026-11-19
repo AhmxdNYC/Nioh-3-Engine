@@ -134,4 +134,22 @@ inline bool PixelDxilTextSafe(const char* p) {
         !strstr(p,"dx.op.coverage") && !strstr(p,"dx.op.innerCoverage") &&
         !strstr(p,"dx.op.evalSampleIndex");
 }
+// #119730 wide mode: whole-frame 2x2 except the draw classes in VrsWideExclude. A draw can be in several classes;
+// it stays 1x1 when any of its classes is excluded. Classes come from PSO creation data only.
+enum WideClass : unsigned { WUnknown=1, WBlend=2, WNoDepth=4, WDepthOnly=8, WForward=16, WMotion=32, WSkinned=64, WGBuffer=128, WClassN=8 };
+inline unsigned WideClasses(const Meta& m) {
+    if (m.reject & Unknown) return WUnknown;
+    if (!m.count) return WDepthOnly;
+    const bool captured=m.shaderPolicy==2;
+    unsigned c=0;
+    if (m.blendMask) c|=WBlend;
+    if (!m.depth) c|=WNoDepth;
+    if (captured) c|=WGBuffer;
+    else if (m.depth && !m.blendMask) c|=WForward;
+    if (m.motion && !captured) c|=WMotion;
+    if (m.skin) c|=WSkinned;
+    return c;
+}
+// Nonzero = keep 1x1. Shifted above the Reject bits so logs keep both apart.
+inline unsigned WideReject(const Meta& m, unsigned exclude) { return (WideClasses(m) & exclude) << 16; }
 }

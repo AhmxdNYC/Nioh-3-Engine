@@ -1624,6 +1624,7 @@ static bool LiveTuning(const char* key, const char* val, char* reply, size_t n) 
         Log("LIVE tuning: %s", reply);
         return true;
     }
+    if (gpuopt::SetVrsTuning(key, val, reply, n)) return true;  // #119730
     if (bkstats::SetTuning(key, val, reply, n)) return true;  // 1.7.58-bk1 KL_Div (bkstats.cpp)
     if (frameoverlap::SetTuning(key, val, reply, n)) return true;  // 1.7.59-fo1 FO / FO_Pct (frameoverlap.cpp)
     if (replayprof::SetTuning(key, val, reply, n)) return true;  // 1.7.59-rpf1 RPF on/off (replayprof.cpp)

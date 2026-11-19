@@ -131,6 +131,16 @@ int main() {
     CHECK(RejectDraw(m,true,8,false,7,true,true,false)==Character);
     m.inputKnown=0; CHECK(RejectDraw(m,true,8,false,7,true,true,true)==Character);
     m.inputKnown=1; m.worldVs=0; CHECK(RejectDraw(m,true,8,false,7,true,true,true)==Character);
+    { // #119730 wide classes
+        Meta u; CHECK(WideClasses(u)==WUnknown && WideReject(u,WUnknown)==(WUnknown<<16) && WideReject(u,WBlend)==0);
+        Meta z; z.reject=DepthOnly; CHECK(WideClasses(z)==WDepthOnly);
+        Meta g=Describe(d,false); g.skin=0; CHECK(g.shaderPolicy==2); g.depth=1; CHECK(WideClasses(g)==WGBuffer);
+        g.motion=true; CHECK(!(WideClasses(g)&WMotion));
+        Meta post; post.reject=Shader; post.count=1; post.depth=0; CHECK(WideClasses(post)==WNoDepth);
+        post.blendMask=1; CHECK(WideClasses(post)==(WNoDepth|WBlend)); CHECK(WideReject(post,WBlend) && WideReject(post,WNoDepth) && !WideReject(post,WForward));
+        Meta fwd; fwd.reject=Hdr; fwd.count=1; fwd.depth=1; fwd.skin=1; fwd.motion=true; CHECK(WideClasses(fwd)==(WForward|WSkinned|WMotion));
+        CHECK(WideReject(fwd,0)==0);
+    }
     puts("V4: 8 layout masks x 3 captured layouts; 3 rate mappings; explicit skin semantics, generic/instance inputs and guarded reads PASS");
     puts("Captured surface-layout admission PASS; changed formats, blended outputs and motion guard excluded; old depth/cull checks diagnostic only");
     puts("VRS selective: real compiled alpha-discard/depth shaders excluded; RT/blend/motion/history-shape/unknown gates PASS");

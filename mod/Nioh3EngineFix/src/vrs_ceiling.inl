@@ -4,10 +4,11 @@
 // a frame that sees old and new values mixed is legal, RSSetShadingRate may change between any two draws.
 volatile int g_vrsMode = 0;
 bool g_vrsMotionGuard = false;
+volatile unsigned g_vrsWideExclude=0; volatile LONG64 g_vrsWideCalls[vrsselect::WClassN]{}, g_vrsWideCoarse=0, g_vrsWideFine=0;
 volatile unsigned g_vrsLayouts=7; volatile int g_vrsRate=0; volatile bool g_vrsSkipSkinned=true, g_vrsKeepCharacters=true;
 // Fixed at startup: which draw hooks exist and whether tracking slots are routed. A later Off must not unhook anything.
 int g_vrsBootMode = 0; bool g_vrsBootTracking = false;
-bool VrsSelectiveTracking() { return g_vrsMode == 3 || (g_vrsMode && g_vrsMotionGuard); }
+bool VrsSelectiveTracking() { return g_vrsMode == 3 || (g_vrsMode && (g_vrsMotionGuard || g_vrsWideExclude)); }
 struct VrsSignature {
     vrsselect::Meta meta; volatile LONG64 coarse=0, fine=0, skinEvidence=0, skinRejected=0, characterRejected=0; volatile LONG reasons=0, legacyReasons=0;
 };
@@ -82,6 +83,11 @@ void VrsReportSignatures() {
     const LONG64 total=InterlockedCompareExchange64(&g_vrsObserved,0,0);
     const LONG64 tagged=InterlockedCompareExchange64(&g_vrsTagged,0,0);
     LOG("VRS coverage mode=%d motion1x1=%d layouts=%u rate=%s skipSkinned=%d keepCharacters=%d tagged_calls=%lld total_calls=%lld (cumulative draw API calls, not expanded indirect draws)",g_vrsMode,g_vrsMotionGuard,g_vrsLayouts,vrsselect::RateName(vrsselect::SelectiveRate(g_vrsRate)),g_vrsSkipSkinned,g_vrsKeepCharacters,tagged,total);
+    if (g_vrsWideExclude) {
+        LONG64 n[vrsselect::WClassN]; for (unsigned b=0;b<vrsselect::WClassN;++b) n[b]=InterlockedCompareExchange64(&g_vrsWideCalls[b],0,0);
+        LOG("VRS wide exclude=0x%X coarse=%lld fine=%lld classCalls unknown=%lld blend=%lld noDepth=%lld depthOnly=%lld forward=%lld motion=%lld skinned=%lld gbuffer=%lld",
+            g_vrsWideExclude,InterlockedCompareExchange64(&g_vrsWideCoarse,0,0),InterlockedCompareExchange64(&g_vrsWideFine,0,0),n[0],n[1],n[2],n[3],n[4],n[5],n[6],n[7]);
+    }
     AcquireSRWLockShared(&g_vrsSigLock);
     for (unsigned i=0;i<g_vrsSigN;++i) {
         const auto& q=g_vrsSig[i]; if (!q.coarse && !q.fine) continue;
@@ -150,6 +156,13 @@ void VrsTrack(void* self, int set, int slot, uintptr_t a1) {
     else if (slot==46 || slot==68) { e.boundCount=(unsigned)a1; e.bindingKnown=a1<=8; }
     else { e.bindingKnown=false; e.meta={}; e.signature=VrsSignatureIndex(e.meta); }
 }
+unsigned VrsWideWhy(const vrsselect::Meta& m) {
+    const unsigned c=vrsselect::WideClasses(m);
+    for (unsigned b=0;b<vrsselect::WClassN;++b) if (c & (1u<<b)) InterlockedIncrement64(&g_vrsWideCalls[b]);
+    const unsigned why=(c & g_vrsWideExclude) << 16;
+    InterlockedIncrement64(why ? &g_vrsWideFine : &g_vrsWideCoarse);
+    return why;
+}
 void VrsApply(void* self, int set, bool reset, bool indirect = false) {
     // A live Off still answers Reset with an explicit 1x1, so the next recording cannot keep a coarse rate.
     if ((!g_vrsMode && !(reset && g_vrsBootMode)) || t_vrsBusy) return;
@@ -165,6 +178,7 @@ void VrsApply(void* self, int set, bool reset, bool indirect = false) {
             if (reset) rate=D3D12_SHADING_RATE_1X1;
             else {
                 why = g_vrsMode==3 ? vrsselect::RejectDraw(e.meta,e.bindingKnown,e.boundCount,g_vrsMotionGuard,g_vrsLayouts,g_vrsSkipSkinned,g_vrsKeepCharacters,indirect) :
+                    g_vrsWideExclude ? VrsWideWhy(e.meta) :
                     ((e.meta.reject & vrsselect::Unknown) || !e.bindingKnown ? vrsselect::Unknown :
                      (e.meta.count>=3 && e.meta.motion ? vrsselect::Motion : 0));
                 rate=why ? D3D12_SHADING_RATE_1X1 : coarse;

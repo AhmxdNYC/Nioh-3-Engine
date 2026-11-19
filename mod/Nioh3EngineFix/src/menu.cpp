@@ -3789,14 +3789,14 @@ float DrawImpl(unsigned W, unsigned H) {
         }
         if (id >= kVrsRowFirst && id < kVrsRowFirst + vrsmenu::kRowN) {
             if (id == g_sel) selRow = nb;
-            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Reset to defaults"};
+            static const char* const kVrsLabels[vrsmenu::kRowN] = {"Performance level", "Advanced options", "Shading mode", "Surface layouts", "Coarse rate", "Skip skinned models", "Keep characters sharp", "Glitter guard", "Reset to defaults"};
             const int k = id - kVrsRowFirst;
             char lab[96], text[64];
             snprintf(lab, sizeof(lab), "%s%s", id == g_sel ? "> " : "  ", kVrsLabels[k]);
             const vrsmenu::Effect fx = vrsmenu::RowEffect(k, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking());
             const char* note = fx == vrsmenu::kLive ? "live" : fx == vrsmenu::kNextLaunch ? "next launch" : "Selective only";
             const char* value = k == vrsmenu::kRowLevel ? vrsmenu::LevelName(vrsmenu::LevelOf(g_vrsVals)) : k == vrsmenu::kRowAdvanced ? (g_vrsAdvanced ? "Shown" : "Hidden") : k == vrsmenu::kRowMode ? vrsmenu::ModeName(g_vrsVals.mode) : k == vrsmenu::kRowLayouts ? vrsmenu::LayoutsName(g_vrsVals.layouts) :
-                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : g_vrsVals.keep ? "On" : "Off";
+                k == vrsmenu::kRowRate ? vrsmenu::RateName(g_vrsVals.rate) : k == vrsmenu::kRowSkip ? (g_vrsVals.skip ? "On" : "Off") : k == vrsmenu::kRowWide ? vrsmenu::WideName(g_vrsVals.wide) : g_vrsVals.keep ? "On" : "Off";
             if (k == vrsmenu::kRowReset) snprintf(text, sizeof(text), "A: reset (%s)", note);
             else if (k == vrsmenu::kRowAdvanced) snprintf(text, sizeof(text), "A: %s", value);
             else snprintf(text, sizeof(text), "< %s > %s", value, note);
@@ -3979,8 +3979,14 @@ float DrawImpl(unsigned W, unsigned H) {
             "Selective: how coarse. 2x2 saves the most. 1x2 and 2x1 keep one direction sharp.",
             "Selective: full rate for models that declare skinning in their vertex data.",
             "Selective: only known world shaders may go coarse. Off lets characters go coarse too.",
+            "Whole frame 2x2 or 4x4 keeps see-through draws and screen overlays at full detail (rain, fog, the HUD). On is the tested setting. Off is plain whole-frame shading, which glitters. Selective ignores this.",
             "Off, all surfaces, 2x2, both protections on. Saved when the menu closes."};
         snprintf(what, sizeof(what), "%s", kVrsWhat[g_sel - kVrsRowFirst]);
+        if (g_sel == kVrsRowFirst + vrsmenu::kRowWide) {
+            snprintf(effect, sizeof(effect), "%s", vrsmenu::RowEffect(vrsmenu::kRowWide, g_vrsVals, gpuopt::VrsBootMode(), gpuopt::VrsBootTracking()) == vrsmenu::kLive
+                ? "Applies on the next draw. Saved when the menu closes. Needs Shading mode Whole frame 2x2 or 4x4."
+                : "Saved now. Needs one restart with Shading mode Whole frame, so the draw classes are learned at startup.");
+        } else
         snprintf(effect, sizeof(effect), "%s", !gpuopt::VrsBootMode()
             ? "The game started with this off: it is saved now and needs one restart. After that all rows work live."
             : gpuopt::VrsBootTracking() ? "Applies on the next draw, no restart. Saved when the menu closes."
@@ -4286,6 +4292,7 @@ void Configure(const Host& h) {
         v.rate = (int)GetPrivateProfileIntW(L"Perf", L"VrsRate", 0, g_ini.c_str());
         v.skip = GetPrivateProfileIntW(L"Perf", L"VrsSkipSkinned", 1, g_ini.c_str()) != 0;
         v.keep = GetPrivateProfileIntW(L"Perf", L"VrsKeepCharacters", 1, g_ini.c_str()) != 0;
+        v.wide = (int)GetPrivateProfileIntW(L"Perf", L"VrsWideExclude", 0, g_ini.c_str());
         g_vrsVals = vrsmenu::Clamped(v);
     }
     g_bootVrs = g_vrsVals.mode != 0;
