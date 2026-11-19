@@ -504,21 +504,21 @@ static int MvRepArm(uint32_t chr, uint32_t id, int on, int seq) {
 }
 N3T_API uint32_t Nioh3Training_GetMoveRepeat(uint32_t chr) { return MvRepeatId(chr); }
 // human #68578 'Repeat last move' recorder (game thread, MvRepTick): per boss character the last ML_KEEP attacks it STARTED by itself. An
-// attack start = the boss's current action (ActIdOf, native 358528) changes to a catalogued action >= 0x4E20 (or a kind 'A' row below it, GitHub #126) that is not idle / init, not a
+// attack start = the boss's current action (ActIdOf, native 358528) changes to a catalogued action >= 0x4E20 (or a low-id attack by move_last_rule.h, GitHub #126) that is not idle / init, not a
 // twitch / link / movement (boss_moves.h kind T / L / M), not a boss-killing move and not the next piece of the attack that was playing
 // (MvContinues: same chain link / motion family). Hit reactions, Ki break and status actions are < 0x4E20 and never recorded. While a
 // repeat is armed for that boss nothing is recorded (the captured moves stay what the player saw).
 #define ML_MAX 8
 static struct { uint32_t chr, act, ids[ML_KEEP]; int n; DWORD t; } g_ml[ML_MAX];
 static SRWLOCK g_ml_lock = SRWLOCK_INIT;
-// GitHub #126: some bosses (Giant Toad 210803: 0xBB8, 0xC56-0xCA3) attack with ids below 0x4E20, so the id band alone dropped all of
-// their attacks. Below 0x4E20 a row the catalogue marks as an attack (kind 'A': game-data attack block / hit window / GreatAttack, or a
-// recorded hand attack) also counts; hit reactions and Ki-break motions there stay kind 'M' and are still never recorded.
+#include "../../move_last_rule.h"
+// GitHub #126: ids below 0x4E20 count only by the data rule of move_last_rule.h (attack motion + attack facts): low-id attacks of bosses like
+// Giant Toad 210803 are recorded, low-id steps / turns / guards / hit reactions are not.
 static int MlAttack(uint32_t chr, uint32_t a) {
     if (a == 0xFFFF || a == 0xFFFFFFFFu) return 0;
     if (a >= 0x4E20) return 1;
     const int i = N3MoveFind(chr, a);
-    return i >= 0 && kN3Moves[i].kind == 'A';
+    return i >= 0 && N3LowIdAttack(kN3Moves[i].kind, MvMotion(chr, a), N3MoveFactFind(chr, a));
 }
 static void MlNote(uint32_t chr, uint32_t act, DWORD now) {
     if (!chr || act == 0xFFFF || act == 0xFFFFFFFFu) return;  // unreadable / transition frame
